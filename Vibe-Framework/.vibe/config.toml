@@ -1,0 +1,62 @@
+# 🧠 VIBE CONFIGURATION
+# Ce fichier contrôle le comportement de l'environnement de développement IA.
+
+[project]
+name = "MonProjet"
+# Stack supportée: "rust", "vue"
+stack = ["rust", "vue"]
+language = "fr" # Force le nommage en français (fr/en/auto)
+
+[sentinel]
+# Fréquence de vérification (secondes)
+# AUGMENTÉ POUR ÉVITER LA SURCHARGE VSCODE
+watch_interval = 5
+timeout = 3
+# Fichiers à surveiller pour le checksum
+watch_extensions = ["rs", "vue", "ts", "js", "py", "md", "toml", "json"]
+# Fichiers à ignorer
+ignore_paths = ["target", "node_modules", "dist", ".git", ".vibe"]
+# Patterns d'exclusion supplémentaires
+ignore_patterns = ["*.tmp", "*.log", "*.cache"]
+# Plugins personnalisés (chemins relatifs à .vibe/plugins/)
+custom_plugins = []
+
+[quality]
+# Limites strictes (Voir Rule 16 .clinerules)
+max_file_lines = 300
+max_function_lines = 30
+max_complexity = 10
+# Interdictions (regex) - Version allégée pour éviter les faux positifs sur 'format', 'specific', 'le'
+forbidden_patterns = [
+    "console\\.log",
+    "unwrap\\(\\)",
+    "TODO:"  # Force le format TODO(nom):
+]
+
+[audit]
+# Bloquer le commit si warnings ?
+block_on_warning = false
+# Exiger que les tests passent ?
+require_tests = true
+# Exiger une documentation à jour ?
+require_docs = true
+# Seuil de sécurité (low, moderate, high)
+security_threshold = "high"
+# Lancer E2E automatiquement ?
+run_e2e = false
+
+[commands]
+# Commandes personnalisées (surchargent les plugins)
+# test_cmd = "npm test"
+# format_cmd = "prettier --write ."
+
+[overrides]
+# Overrides par projet (optionnel)
+# stack = ["rust", "vue"]
+# timeout = 1
+# Autoriser console.log en dev
+allow_console_log = false
+# Autoriser unwrap en Rust
+allow_unwrap = false
+# Seuil de complexité (au lieu de 10)
+max_complexity = 10

@@ -1,0 +1,12 @@
+[package]
+name = "indicators"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common = { path = "../common" }
+ta.workspace = true
+ndarray.workspace = true
+
+[dev-dependencies]
+chrono.workspace = true

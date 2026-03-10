@@ -1,0 +1,38 @@
+# Rust
+/backend/target/
+**/*.rs.bk
+Cargo.lock
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/src-tauri/target/
+frontend/src-tauri/gen/
+
+# Logs
+*.log
+/data/logs/
+
+# Base de données locale (données sensibles)
+/data/*.db
+/data/*.db-shm
+/data/*.db-wal
+/data/backups/
+
+# Modèles ML entraînés (binaires lourds)
+/backend/models/*.pt
+/backend/models/*.bin
+*.onnx
+
+# Variables d'environnement (clés API — NE JAMAIS COMMITER)
+.env
+.env.local
+.env.production
+
+# Système
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/

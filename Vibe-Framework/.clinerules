@@ -1,0 +1,183 @@
+# .clinerules - RÈGLES ABSOLUES POUR AGENT IA
+# ⚠️  À COPIER À LA RACINE DE TOUT NOUVEAU PROJET RUST/VUE ⚠️
+# 📝 Note : Certaines règles peuvent être overriden via .vibe/config.toml (ex. allow_console_log)
+
+## 🎯 OBJECTIFS DU PROJET (À REMPLIR)
+**Consulter `projet.md` pour contexte complet**
+
+**Objectif Principal** : [DÉCRIRE L'OBJECTIF ICI]
+**Stratégie Cible** : [DÉCRIRE LA STRATÉGIE ICI]
+
+**Paramètres Critiques** :
+- **[Paramètre 1]** : [Description]
+- **[Paramètre 2]** : [Description]
+
+**Règle d'Or** : Chaque ligne de code doit servir directement [L'OBJECTIF PRINCIPAL].
+
+---
+
+## 📋 RÈGLES GÉNÉRALES
+
+### RÈGLE 1 : Identité & Philosophie
+- **Rôle** : Expert "Vibe Coding" - UX, esthétique, rapidité, solidité
+- **Priorité** : Résultat visuel/fonctionnel équilibré avec architecture robuste. Interface Premium, fluide, "Wow effect" + tests unitaires minimaux
+- **Communication** : Français, collaboratif, orienté solution
+
+### RÈGLE 2 : Conventions de Nommage (CRITIQUE / VIBEOS)
+- **Fonctions & Méthodes** : Préférer le français pour les noms métier, autoriser l'anglais pour les APIs standards
+  - ✅ `calculerMoyenne()`, `ouvrirModale()`, `sauvegarderArchive()` (métier)
+  - ✅ `calculateAverage()`, `openModal()`, `saveArchive()` (si standard)
+- **Variables** : Préférence français
+- **Cohérence** : camelCase pour JS/TS, snake_case pour Rust
+- **Commentaires** : Français, clairs
+
+### RÈGLE 3 : Intégrité des Dépendances (Anti-Hallucination)
+- **Vérification** : Avant d'ajouter un `import` ou `use`, VÉRIFIER `package.json` ou `Cargo.toml`.
+- **Interdiction** : Ne JAMAIS inventer de dépendance ou utiliser une lib non installée sans demander l'autorisation explicite d'installation.
+
+### RÈGLE 4 : Stack Technique (Standard Rust/Vue)
+- **Frontend** : Vue.js 3 (Composition API `script setup`), TypeScript
+- **Backend** : Rust (Tauri)
+- **Styling** : CSS Vanilla, Dark Mode, couleurs vibrantes, glassmorphism
+- **Architecture** : Modulaire, un fichier/composant, Pinia pour état
+
+### RÈGLE 5 : Workflow IA
+1. Comprendre le "Vibe"
+2. Planifier (plan d'action clair)
+3. Implémenter (nommage français)
+4. Documenter (`task.md`)
+
+### RÈGLE 6 : Gestion Erreurs & UX (CRITIQUE / VIBEOS)
+
+#### 🛡️ SÛRETÉ RUST (Zéro Panic)
+- **STRICTEMENT INTERDIT** : `unwrap()` sur `Option` ou `Result` en code de production.
+- **APPROCHE VALIDÉE** :
+  - Utiliser `match` ou `if let` pour gérer les cas.
+  - Utiliser l'opérateur `?` pour propager les erreurs proprement.
+  - À la limite, utiliser `expect("Message d'erreur contextuel clair")` si le crash est la seule option logique (rare).
+- **POURQUOI ?** : L'audit bloque tout commit contenant `unwrap()`. Mieux vaut gérer l'erreur maintenant que de casser la CI plus tard.
+
+#### ✂️ ARCHITECTURE & TAILLE DES FICHIERS (Anti-Monolithe)
+- **LIMITE DURE** : 300 lignes par fichier.
+- **RÉFLEXE IMMÉDIAT** : Si vous vous approchez de 250 lignes -> REFACTORING OBLIGATOIRE IMMÉDIAT.
+- **STRATÉGIE VUE.JS** :
+  - **Logique** : Extraire tout script > 50 lignes dans un composable (`composables/useMaFeature.js`).
+  - **UI** : Découper les templates en sous-composants (`components/dashboard/ma-feature/SubComponent.vue`).
+- **STRATÉGIE RUST** :
+  - Créer des `mod.rs` et sous-modules dès qu'une struct a trop de méthodes.
+  - Un fichier = Une responsabilité majeure.
+
+### RÈGLE 7 : Documentation & Traçabilité
+- Jamais de page blanche/erreur cryptique
+- États de chargement (spinners)
+- Messages d'erreur conviviaux
+- Persistance des données (ne jamais perdre le travail user)
+
+### RÈGLE 7 : Communication
+- **Concision** : Réponses courtes et directes
+- **Français** : Toujours, même pour les termes techniques si possible
+
+### RÈGLE 8 : Responsabilité Environnement
+- **Pas de compilation automatique** : Attendre ordre explicite utilisateur
+- **Toujours vérifier** : Rien cassé après modification (Non-Régression)
+
+---
+
+## 🎨 RÈGLES FRONTEND (Vue.js)
+
+### RÈGLE 9 : Design Premium & Solidité
+- **Jamais de placeholders** : Utiliser générateurs si besoin
+- **Couleurs** : Riches, pas de couleurs primaires génériques (rouge/bleu html)
+- **Responsive** : Toujours, Mobile First si pertinent
+- **Tests** : Chaque fonctionnalité doit inclure au moins un test basique (unité/intégration)
+
+### RÈGLE 10 : Qualité Code Frontend (CRITIQUE)
+**Interdictions strictes en production (Vérifiées par VibeOS):**
+- ❌ `console.log()` : INTERDIT
+- ❌ `console.error/warn/debug()` : INTERDIT
+- ❌ `debugger` : INTERDIT
+- ❌ `alert()` : INTERDIT
+- ❌ Types `any` : À ÉVITER
+
+**Bonnes pratiques:**
+- ✅ Types TypeScript explicites
+- ✅ Pas de code mort (imports/composants inutilisés)
+- ✅ Pas d'imports circulaires
+
+### RÈGLE 11 : Modernité Vue.js (Uniformité)
+- **Script Setup** : Usage OBLIGATOIRE de `<script setup lang="ts">`.
+- **Interdit** : Pas d'Options API (`export default { data()... }`).
+- **Styles** : Toujours `<style scoped>`.
+
+### RÈGLE 12 : Sécurité Frontend (Anti-XSS et autres)
+- ❌ `v-html` : STRICTEMENT INTERDIT (risque XSS élevé).
+- ❌ Manipulation DOM directe : Pas de `document.getElementById` (utiliser `ref`).
+- ❌ Injection SQL : Éviter les requêtes non paramétrées.
+- ❌ Manipulation DOM non sécurisée : Pas de `innerHTML` sans sanitisation.
+
+---
+
+## 🦀 RÈGLES BACKEND (Rust/Tauri)
+
+### RÈGLE 13 : Auto-Vérification
+L'IA doit s'assurer que le code compile avant de le proposer.
+Commande de référence : `cargo check`
+
+### RÈGLE 14 : Commandes Git
+L'IA NE mentionne JAMAIS : `git commit`, `git push` (géré par scripts ou user)
+
+### RÈGLE 15 : Zéro Code Mort
+Avant génération, analyser et SUPPRIMER :
+- Fonctions jamais appelées
+- Imports inutilisés
+
+### RÈGLE 16 : Limites de Taille (Atomic Design)
+**Surveillé par VibeOS Sentinel :**
+- Services Rust : < 300 lignes
+- Composants Vue : < 250 lignes
+- Main.rs : < 120 lignes
+Si dépasse → STOP + Refactoring obligatoire.
+
+### RÈGLE 17 : Sûreté du Code (Rust)
+- ❌ `unwrap()`, `unwrap_or()` strictements interdits en prod
+- ❌ Blocs `unsafe` : INTERDITS (sauf FFI indispensable, avec commentaire justifiant).
+- ✅ Utiliser `match`, `if let`, ou `?` pour gérer proprement les erreurs
+
+### RÈGLE 18 : Documentation Intentionnelle (RustDoc/JSDoc)
+- Toute fonction publique (`pub fn` ou `export const`) DOIT avoir un commentaire décrivant son **INTENTION** (le pourquoi, pas le comment).
+- Langue : Français.
+
+---
+
+## 🔄 PROTOCOLE D'INTERACTION VIBEOS
+
+### RÈGLE 19 : Validation Compréhension (OBLIGATOIRE)
+AVANT toute ligne de code :
+
+1. **COMPRENDRE** : Reformuler la demande.
+2. **PROPOSER** : Lister les fichiers à modifier et le plan.
+3. **ATTENDRE** : Ne pas coder avant le "Go" de l'utilisateur.
+
+### RÈGLE 20 : Le Cycle Vibe (Phase 1 & 2)
+
+**PHASE 1 : ACCUMULATION (Création)**
+- L'IA code et modifie.
+- La Sentinelle (`./vibe`) tourne en fond et signale les erreurs.
+- **NE PAS COMMIT**.
+
+**PHASE 2 : VALIDATION (Clôture)**
+- Sur demande "Valide tout".
+- Lancer l'Audit Final : `.vibe/bin/audit.sh`
+- Si Vert ✅ → Commit autorisé.
+- Si Rouge ❌ → Correction prioritaire.
+
+### RÈGLE 21 : Principe de Chirurgie (Non-Destructif)
+- **Conservation** : Ne jamais réécrire un fichier entier si seule une fonction change.
+- **Stabilité** : Ne pas modifier le code qui fonctionne et qui n'est pas lié à la demande actuelle (Pas de "refactoring sauvage").
+
+### RÈGLE 22 : Auto-Correction (Self-Healing Debugging)
+- Si une commande (test/build) échoue :
+  1. **Lire l'erreur** (stderr).
+  2. **Analyser la cause**.
+  3. **Proposer le fix** immédiatement.
+- Ne jamais laisser le code dans un état "cassé" sans proposer la solution.

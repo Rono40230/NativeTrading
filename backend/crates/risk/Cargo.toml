@@ -1,0 +1,13 @@
+[package]
+name = "risk"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common = { path = "../common" }
+serde.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+chrono.workspace = true
+uuid = { workspace = true, features = ["v4"] }

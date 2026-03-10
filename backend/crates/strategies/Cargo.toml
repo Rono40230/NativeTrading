@@ -1,0 +1,12 @@
+[package]
+name = "strategies"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common = { path = "../common" }
+smc = { path = "../smc" }
+indicators = { path = "../indicators" }
+ml = { path = "../ml" }
+serde.workspace = true
+tracing.workspace = true

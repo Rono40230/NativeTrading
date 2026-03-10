@@ -1,0 +1,10 @@
+{
+  "total_cycles": 1,
+  "last_cycle_time": 14,
+  "average_cycle_time": 14,
+  "errors_count": 1,
+  "success_count": 0,
+  "plugins_used": [
+    "rust,vue"
+  ]
+}
