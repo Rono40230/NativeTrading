@@ -6,3 +6,5 @@ edition.workspace = true
 [dependencies]
 common = { path = "../common" }
 serde.workspace = true
+tracing.workspace = true
+chrono.workspace = true

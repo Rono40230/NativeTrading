@@ -29,6 +29,7 @@ pub struct Signal {
 }
 
 impl Signal {
+    #[allow(clippy::too_many_arguments)]
     pub fn nouveau(
         asset: Asset,
         timeframe: Timeframe,

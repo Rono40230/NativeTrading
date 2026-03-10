@@ -5,8 +5,6 @@ use ml::PipelineML;
 
 /// Seuil ATR : >150% de sa moyenne sur 14 périodes = volatilité extrême
 const SEUIL_ATR_RATIO: f64 = 1.5;
-/// Seuil de confiance IA : en dessous = modèle indécis → Straddle
-const SEUIL_INDECISION_ML: f64 = 0.60;
 /// Multiplicateur ATR pour TP et SL
 const MULTIPLICATEUR_TP: f64 = 2.0;
 const MULTIPLICATEUR_SL: f64 = 0.5;

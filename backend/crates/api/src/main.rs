@@ -2,6 +2,7 @@ use actix_cors::Cors;
 use actix_web::{middleware, web, App, HttpServer};
 
 mod handlers;
+mod smc_handlers;
 mod state;
 
 use state::AppState;
@@ -38,6 +39,7 @@ async fn main() -> std::io::Result<()> {
             .route("/api/signaux", web::get().to(handlers::get_signaux))
             .route("/api/ml/predict", web::get().to(handlers::predict_ml))
             .route("/api/backtest", web::post().to(handlers::run_backtest))
+            .route("/api/smc/analyse", web::get().to(smc_handlers::analyse_smc))
     })
     .bind(("0.0.0.0", 8080))?
     .run()

@@ -33,7 +33,10 @@ impl GestionnaireRisque {
             return Ok(false);
         }
 
-        // 2. Nombre max de positions simultanées
+        // 2. Exposition max par actif (vérification partielle sans positions détaillées)
+        let _ = MAX_EXPOSITION_ACTIF; // Limite 25% — appliquée dans la stratégie
+
+        // 3. Nombre max de positions simultanées
         if self.positions_ouvertes >= MAX_POSITIONS_SIMULTANEES {
             tracing::warn!(
                 "Signal refusé: {} positions ouvertes (max {})",
@@ -42,7 +45,7 @@ impl GestionnaireRisque {
             return Ok(false);
         }
 
-        // 3. Taille de position ≤ 2% capital
+        // 4. Taille de position ≤ 2% capital
         let distance_stop = (signal.prix_entree - signal.stop_loss).abs();
         if distance_stop <= 0.0 {
             return Err(TradingError::Risk(

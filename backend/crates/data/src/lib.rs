@@ -12,13 +12,14 @@ pub trait DataProvider: Send + Sync {
     ) -> Result<Vec<Candle>>;
 }
 
+#[derive(Default)]
 pub struct DataAggregator {
     providers: Vec<Box<dyn DataProvider>>,
 }
 
 impl DataAggregator {
     pub fn new() -> Self {
-        Self { providers: vec![] }
+        Self::default()
     }
 
     pub fn add_provider(&mut self, provider: Box<dyn DataProvider>) {

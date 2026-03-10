@@ -51,6 +51,17 @@ export interface Signal {
   cree_le: number
 }
 
+export interface ScoreSmc {
+  total: number
+  tendance: number
+  order_block: number
+  imbalance: number
+  ifvg: number
+  fibonacci: number
+  direction: string
+  confluence: boolean
+}
+
 export const apiService = {
   async healthCheck(): Promise<{ status: string }> {
     const res = await http.get('/health')
@@ -81,6 +92,11 @@ export const apiService = {
     limit = 500
   ): Promise<BacktestResults> {
     const res = await http.post('/api/backtest', { asset, timeframe, capital, limit })
+    return res.data
+  },
+
+  async analyseSmc(asset: string, timeframe = 'M15', limit = 200): Promise<ScoreSmc> {
+    const res = await http.get('/api/smc/analyse', { params: { asset, timeframe, limit } })
     return res.data
   },
 }

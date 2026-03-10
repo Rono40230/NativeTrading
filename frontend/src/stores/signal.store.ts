@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { apiService, type Signal, type PredictionML, type BacktestResults } from '@/services/api.service'
+import { apiService, type Signal, type PredictionML, type BacktestResults, type ScoreSmc } from '@/services/api.service'
 import { useSettingsStore } from '@/stores/settings.store'
 
 export const useSignalStore = defineStore('signals', () => {
   const signaux = ref<Signal[]>([])
   const prediction = ref<PredictionML | null>(null)
   const backtest = ref<BacktestResults | null>(null)
+  const scoreSmc = ref<ScoreSmc | null>(null)
   const chargement = ref(false)
   const chargementBacktest = ref(false)
   const erreur = ref<string | null>(null)
@@ -52,15 +53,26 @@ export const useSignalStore = defineStore('signals', () => {
     }
   }
 
+  async function chargerScoreSmc(asset: string, timeframe = 'M15') {
+    try {
+      scoreSmc.value = await apiService.analyseSmc(asset, timeframe)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erreur SMC'
+      erreur.value = msg
+    }
+  }
+
   return {
     signaux,
     prediction,
     backtest,
+    scoreSmc,
     chargement,
     chargementBacktest,
     erreur,
     chargerSignaux,
     chargerPrediction,
     lancerBacktest,
+    chargerScoreSmc,
   }
 })
