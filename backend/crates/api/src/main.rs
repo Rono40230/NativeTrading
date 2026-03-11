@@ -64,6 +64,7 @@ async fn main() -> std::io::Result<()> {
             .route("/api/smc/analyse", web::get().to(smc_handlers::analyse_smc))
             .route("/api/ia/analyse", web::post().to(ollama_handlers::analyser))
             .route("/api/ia/chat", web::post().to(ollama_handlers::chat))
+            .route("/api/ia/chart", web::post().to(ollama_handlers::analyser_chart))
             .route("/api/ia/status", web::get().to(ollama_handlers::statut))
             .route("/api/stream", web::get().to(ws_handlers::stream_market))
     })

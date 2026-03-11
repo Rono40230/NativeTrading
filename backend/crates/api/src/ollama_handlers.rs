@@ -116,13 +116,14 @@ pub async fn chat(body: web::Json<RequeteChat>) -> impl Responder {
         .map(|m| (m.role.clone(), m.contenu.clone()))
         .collect();
 
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
-
-    match ollama::interroger_chat(&historique).await {
-        Ok(reponse) => HttpResponse::Ok().json(ReponseChat { reponse, modele }),
+    match ollama::interroger_chat_modele(&historique, ollama::MODELE_COACH).await {
+        Ok(reponse) => HttpResponse::Ok().json(ReponseChat {
+            reponse,
+            modele: ollama::MODELE_COACH.to_string(),
+        }),
         Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
             "error": format!("{}", e),
-            "aide": "Lancez Ollama: ollama serve && ollama pull qwen2.5:14b"
+            "aide": "Lancez Ollama: ollama serve && ollama pull qwen2.5:3b"
         })),
     }
 }
@@ -154,4 +155,75 @@ pub async fn statut() -> impl Responder {
         modele,
         url,
     })
+}
+
+// ─── POST /api/ia/chart ─────────────────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct RequeteChartAnalyse {
+    pub asset: String,
+    pub timeframe: String,
+    pub image_base64: String,
+    pub prix_actuel: Option<f64>,
+    pub plus_haut: Option<f64>,
+    pub plus_bas: Option<f64>,
+    pub volume_moyen: Option<f64>,
+    pub nb_bougies: Option<u32>,
+}
+
+#[derive(Serialize)]
+pub struct ReponseChartAnalyse {
+    pub analyse: String,
+    pub modele: String,
+}
+
+/// POST /api/ia/chart
+/// Analyse visuelle d'un screenshot de graphique via le modèle vision llava.
+pub async fn analyser_chart(body: web::Json<RequeteChartAnalyse>) -> impl Responder {
+    if body.image_base64.is_empty() {
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({ "error": "image_base64 ne peut pas être vide" }));
+    }
+
+    let timeframe_libelle = match body.timeframe.as_str() {
+        "M1"  => "bougies de 1 minute",
+        "M5"  => "bougies de 5 minutes",
+        "M15" => "bougies de 15 minutes",
+        "H1"  => "bougies de 1 heure",
+        "H4"  => "bougies de 4 heures",
+        "D1"  => "bougies journalières",
+        "W1"  => "bougies hebdomadaires",
+        tf    => tf,
+    };
+
+    let mut contexte = format!(
+        "Asset: {} | Timeframe: {} ({}) | Nombre de bougies visibles: {}",
+        body.asset,
+        body.timeframe,
+        timeframe_libelle,
+        body.nb_bougies.unwrap_or(0),
+    );
+
+    if let (Some(actuel), Some(haut), Some(bas)) =
+        (body.prix_actuel, body.plus_haut, body.plus_bas)
+    {
+        contexte.push_str(&format!(
+            " | Prix actuel: ${:.2} | Plus haut session: ${:.2} | Plus bas session: ${:.2}",
+            actuel, haut, bas
+        ));
+    }
+    if let Some(vol) = body.volume_moyen {
+        contexte.push_str(&format!(" | Volume moyen par bougie: {:.2}", vol));
+    }
+
+    match ollama::analyser_image(&body.image_base64, &contexte).await {
+        Ok(analyse) => HttpResponse::Ok().json(ReponseChartAnalyse {
+            analyse,
+            modele: ollama::MODELE_VISION.to_string(),
+        }),
+        Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "error": format!("{}", e),
+            "aide": "Lancez Ollama: ollama serve && ollama pull llava"
+        })),
+    }
 }

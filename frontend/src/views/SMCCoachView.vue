@@ -103,7 +103,7 @@ interface Message { role: 'user' | 'assistant'; contenu: string }
 const alerteStore = useAlerteStore()
 const chargement = ref(false)
 const ollamaOk = ref(false)
-const modeleActif = ref('qwen2.5:14b')
+const modeleActif = ref('qwen2.5:3b')
 const messageEnCours = ref('')
 const messages = ref<Message[]>([])
 const zoneChat = ref<HTMLElement | null>(null)
@@ -123,7 +123,6 @@ async function verifierStatut() {
   try {
     const s = await apiService.statutIA()
     ollamaOk.value = s.ollama_disponible
-    modeleActif.value = s.modele
   } catch {
     ollamaOk.value = false
   }

@@ -33,6 +33,14 @@
       >
         {{ marketStore.chargement ? '⏳ Chargement...' : '🔄 Actualiser' }}
       </button>
+
+      <button
+        class="px-4 py-2 text-sm rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40 transition-colors"
+        :disabled="analyseEnCours"
+        @click="analyserAvecLlava"
+      >
+        {{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyser (IA)' }}
+      </button>
     </div>
 
     <!-- Dernier prix + variation -->
@@ -77,6 +85,15 @@
         <p class="stat-value text-red-400">{{ formatPrix(stats.low) }}</p>
       </div>
     </div>
+
+    <!-- Analyse vision llava -->
+    <div v-if="analyseResultat" class="glass-card p-4 border-purple-500/30">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-semibold text-purple-400">🤖 Analyse visuelle IA — {{ analyseModele }}</span>
+        <button class="text-gray-500 hover:text-white text-xs px-2" @click="analyseResultat = null">✕</button>
+      </div>
+      <p class="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{{ analyseResultat }}</p>
+    </div>
   </div>
 </template>
 
@@ -85,6 +102,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { createChart, type IChartApi, type ISeriesApi, type CandlestickSeriesOptions, type Time } from 'lightweight-charts'
 import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
+import { useChartAnalyse } from '@/composables/useChartAnalyse'
 
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
@@ -125,6 +143,9 @@ const stats = computed(() => {
   return { count: b.length, high, low, volumeMoy }
 })
 
+const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
+  useChartAnalyse(() => chart, selectedAsset, selectedTimeframe, dernierPrix, stats)
+
 function formatPrix(v: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -139,10 +160,8 @@ function formatVolume(v: number): string {
   if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`
   return v.toFixed(2)
 }
-
 function initChart() {
   if (!chartContainer.value) return
-
   chart = createChart(chartContainer.value, {
     layout: {
       background: { color: 'transparent' },

@@ -73,6 +73,11 @@ export interface ReponseChatIA {
   modele: string
 }
 
+export interface ReponseChartIA {
+  analyse: string
+  modele: string
+}
+
 export interface StatutIA {
   ollama_disponible: boolean
   modele: string
@@ -169,6 +174,15 @@ export const apiService = {
     messages: { role: string; contenu: string }[]
   ): Promise<ReponseChatIA> {
     const res = await http.post('/api/ia/chat', { messages }, { timeout: 120000 })
+    return res.data
+  },
+
+  async analyserChart(
+    asset: string,
+    timeframe: string,
+    image_base64: string
+  ): Promise<ReponseChartIA> {
+    const res = await http.post('/api/ia/chart', { asset, timeframe, image_base64 }, { timeout: 180000 })
     return res.data
   },
 }
