@@ -26,7 +26,10 @@ pub struct ModeleRandomForest {
 
 impl ModeleRandomForest {
     pub fn new(n_arbres: u16) -> Self {
-        Self { modele: None, n_arbres }
+        Self {
+            modele: None,
+            n_arbres,
+        }
     }
 
     /// Entraîne le modèle sur un jeu de données features/labels
@@ -37,12 +40,17 @@ impl ModeleRandomForest {
             ));
         }
         if features.len() != labels.len() {
-            return Err(TradingError::ML("features et labels de tailles différentes".into()));
+            return Err(TradingError::ML(
+                "features et labels de tailles différentes".into(),
+            ));
         }
 
         let x = DenseMatrix::from_2d_vec(&features.to_vec())
             .map_err(|e| TradingError::ML(format!("Construction matrice: {}", e)))?;
-        let y: Vec<u8> = labels.iter().map(|&l| if l >= 0.5 { 1 } else { 0 }).collect();
+        let y: Vec<u8> = labels
+            .iter()
+            .map(|&l| if l >= 0.5 { 1 } else { 0 })
+            .collect();
 
         let params = RandomForestClassifierParameters::default()
             .with_n_trees(self.n_arbres)
@@ -91,8 +99,16 @@ impl ModeleRandomForest {
         let label = pred[0];
         let proba = self.estimer_proba(modele, features)?;
 
-        let direction = if label == 1 { Direction::Long } else { Direction::Short };
-        let confiance = if direction == Direction::Long { proba } else { 1.0 - proba };
+        let direction = if label == 1 {
+            Direction::Long
+        } else {
+            Direction::Short
+        };
+        let confiance = if direction == Direction::Long {
+            proba
+        } else {
+            1.0 - proba
+        };
 
         Ok(PredictionML {
             direction,
@@ -124,5 +140,33 @@ impl ModeleRandomForest {
 
     pub fn est_pret(&self) -> bool {
         self.modele.is_some()
+    }
+
+    /// Sauvegarde le modèle RandomForest sur disque (JSON via serde)
+    pub fn sauvegarder(&self, chemin: &str) -> Result<()> {
+        let modele = self
+            .modele
+            .as_ref()
+            .ok_or_else(|| TradingError::ML("Aucun modèle à sauvegarder".into()))?;
+        let json = serde_json::to_string(modele)
+            .map_err(|e| TradingError::ML(format!("Sérialisation RF: {}", e)))?;
+        std::fs::write(chemin, json)
+            .map_err(|e| TradingError::ML(format!("Écriture RF: {}", e)))?;
+        tracing::info!("RandomForest sauvegardé: {}", chemin);
+        Ok(())
+    }
+
+    /// Charge un modèle RandomForest depuis le disque
+    pub fn charger(chemin: &str) -> Result<Self> {
+        let json = std::fs::read_to_string(chemin)
+            .map_err(|e| TradingError::ML(format!("Lecture RF: {}", e)))?;
+        let modele: RandomForestClassifier<f64, u8, DenseMatrix<f64>, Vec<u8>> =
+            serde_json::from_str(&json)
+                .map_err(|e| TradingError::ML(format!("Désérialisation RF: {}", e)))?;
+        tracing::info!("RandomForest chargé: {}", chemin);
+        Ok(Self {
+            modele: Some(modele),
+            n_arbres: 100,
+        })
     }
 }

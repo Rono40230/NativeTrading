@@ -40,10 +40,18 @@ pub fn detecter_pivots(bougies: &[Candle], n_voisins: usize) -> Vec<NiveauPrix> 
             .all(|j| bougies[j].low >= bas_i);
 
         if est_haut_local {
-            niveaux.push(NiveauPrix { index: i, prix: haut_i, est_haut: true });
+            niveaux.push(NiveauPrix {
+                index: i,
+                prix: haut_i,
+                est_haut: true,
+            });
         }
         if est_bas_local {
-            niveaux.push(NiveauPrix { index: i, prix: bas_i, est_haut: false });
+            niveaux.push(NiveauPrix {
+                index: i,
+                prix: bas_i,
+                est_haut: false,
+            });
         }
     }
     niveaux
@@ -60,8 +68,16 @@ pub fn analyser_tendance(bougies: &[Candle], n_voisins: usize) -> AnalyseTendanc
         };
     }
 
-    let hauts: Vec<f64> = niveaux.iter().filter(|n| n.est_haut).map(|n| n.prix).collect();
-    let bas: Vec<f64> = niveaux.iter().filter(|n| !n.est_haut).map(|n| n.prix).collect();
+    let hauts: Vec<f64> = niveaux
+        .iter()
+        .filter(|n| n.est_haut)
+        .map(|n| n.prix)
+        .collect();
+    let bas: Vec<f64> = niveaux
+        .iter()
+        .filter(|n| !n.est_haut)
+        .map(|n| n.prix)
+        .collect();
 
     let hh_count = hauts.windows(2).filter(|w| w[1] > w[0]).count();
     let hl_count = bas.windows(2).filter(|w| w[1] > w[0]).count();
@@ -82,5 +98,9 @@ pub fn analyser_tendance(bougies: &[Candle], n_voisins: usize) -> AnalyseTendanc
         (Direction::Both, 0.5)
     };
 
-    AnalyseTendance { direction, niveaux, force }
+    AnalyseTendance {
+        direction,
+        niveaux,
+        force,
+    }
 }

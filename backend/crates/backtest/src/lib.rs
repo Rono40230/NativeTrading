@@ -91,8 +91,7 @@ impl BacktestEngine {
                     }
                 };
 
-                let prix_sortie =
-                    simuler_sortie(horizon_bougies, dir, tp, sl, prochaine.close);
+                let prix_sortie = simuler_sortie(horizon_bougies, dir, tp, sl, prochaine.close);
                 let dist_sl = (prix_entree - sl).abs().max(1e-10);
                 let taille_pos = (capital * self.risk_par_trade_pct) / dist_sl;
 

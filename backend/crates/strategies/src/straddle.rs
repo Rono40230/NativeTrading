@@ -25,7 +25,9 @@ impl StraddleStrategy {
     }
 
     pub fn avec_ml(pipeline: PipelineML) -> Self {
-        Self { pipeline_ml: Some(pipeline) }
+        Self {
+            pipeline_ml: Some(pipeline),
+        }
     }
 }
 
@@ -91,7 +93,11 @@ impl Strategy for StraddleStrategy {
 
         tracing::info!(
             "Signal STRADDLE: prix={:.2} ATR={:.4} ratio={:.2}x TP={:.2} SL={:.2}",
-            prix_entree, atr_courant, ratio_atr, tp, sl
+            prix_entree,
+            atr_courant,
+            ratio_atr,
+            tp,
+            sl
         );
 
         Ok(Some(Signal {
@@ -100,6 +106,8 @@ impl Strategy for StraddleStrategy {
             entry_price: prix_entree,
             stop_loss: sl,
             take_profit: tp,
+            take_profit_2: None,
+            take_profit_3: None,
         }))
     }
 }

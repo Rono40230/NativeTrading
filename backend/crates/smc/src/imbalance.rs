@@ -33,9 +33,7 @@ pub fn detecter(bougies: &[Candle]) -> Vec<Imbalance> {
 
         // Bullish FVG
         if droite.low > gauche.high && (droite.low - gauche.high) >= seuil_min {
-            let comble = bougies[i + 2..]
-                .iter()
-                .any(|b| b.low <= gauche.high);
+            let comble = bougies[i + 2..].iter().any(|b| b.low <= gauche.high);
             imbalances.push(Imbalance {
                 prix_haut: droite.low,
                 prix_bas: gauche.high,
@@ -46,9 +44,7 @@ pub fn detecter(bougies: &[Candle]) -> Vec<Imbalance> {
 
         // Bearish FVG
         if gauche.low > droite.high && (gauche.low - droite.high) >= seuil_min {
-            let comble = bougies[i + 2..]
-                .iter()
-                .any(|b| b.high >= gauche.low);
+            let comble = bougies[i + 2..].iter().any(|b| b.high >= gauche.low);
             imbalances.push(Imbalance {
                 prix_haut: gauche.low,
                 prix_bas: droite.high,
@@ -67,5 +63,9 @@ pub fn detecter(bougies: &[Candle]) -> Vec<Imbalance> {
 
 /// Score (0 ou 20) en fonction de la présence d'un gap aligné avec la direction.
 pub fn score_pour_direction(imbs: &[Imbalance], direction: Direction) -> f64 {
-    if imbs.iter().any(|im| im.direction == direction) { 20.0 } else { 0.0 }
+    if imbs.iter().any(|im| im.direction == direction) {
+        20.0
+    } else {
+        0.0
+    }
 }

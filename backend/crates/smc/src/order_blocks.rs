@@ -21,8 +21,7 @@ pub fn detecter(bougies: &[Candle]) -> Vec<OrderBlock> {
         return vec![];
     }
 
-    let vol_moy: f64 = bougies.iter().map(|b| b.volume).sum::<f64>()
-        / bougies.len() as f64;
+    let vol_moy: f64 = bougies.iter().map(|b| b.volume).sum::<f64>() / bougies.len() as f64;
 
     let mut obs: Vec<OrderBlock> = Vec::new();
     let debut = bougies.len().saturating_sub(50);
@@ -35,8 +34,8 @@ pub fn detecter(bougies: &[Candle]) -> Vec<OrderBlock> {
 
         // BULLISH OB : bougie bearish (close < open)
         // + impulsion haussiere forte au plus tard 2 bougies après
-        let impulsion_haussiere = apres.close > actuelle.high
-            && (apres.close - apres.open).abs() > corps * 0.6;
+        let impulsion_haussiere =
+            apres.close > actuelle.high && (apres.close - apres.open).abs() > corps * 0.6;
         if actuelle.close < actuelle.open && impulsion_haussiere {
             obs.push(OrderBlock {
                 prix_haut: actuelle.high,
@@ -48,8 +47,8 @@ pub fn detecter(bougies: &[Candle]) -> Vec<OrderBlock> {
 
         // BEARISH OB : bougie bullish (close > open)
         // + impulsion baissière forte au plus tard 2 bougies après
-        let impulsion_baissiere = apres.close < actuelle.low
-            && (apres.open - apres.close).abs() > corps * 0.6;
+        let impulsion_baissiere =
+            apres.close < actuelle.low && (apres.open - apres.close).abs() > corps * 0.6;
         if actuelle.close > actuelle.open && impulsion_baissiere {
             obs.push(OrderBlock {
                 prix_haut: actuelle.open.max(actuelle.close),

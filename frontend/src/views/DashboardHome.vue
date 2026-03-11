@@ -67,6 +67,16 @@
             Confiance: {{ (signalStore.prediction.confiance * 100).toFixed(1) }}%
             — Modèle: {{ signalStore.prediction.modele_pret ? '✓ Entraîné' : '⏳ Non entraîné' }}
           </p>
+          <button
+            class="mt-3 w-full py-2 px-3 rounded-lg text-xs font-semibold transition-all"
+            :class="entraineEnCours
+              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-500 text-white'"
+            :disabled="entraineEnCours"
+            @click="lancerEntrainement"
+          >
+            {{ entraineEnCours ? '⏳ Entraînement...' : '🧠 Entraîner RF + LSTM' }}
+          </button>
         </div>
         <div v-else class="text-gray-500 text-sm">Chargement prédiction...</div>
       </div>
@@ -107,51 +117,18 @@
     </div>
 
     <!-- Score SMC -->
-    <div class="glass-card p-5">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-        Score SMC — {{ settingsStore.assetActif }} {{ settingsStore.timeframeActif }}
-      </h2>
-      <div v-if="signalStore.scoreSmc" class="space-y-3">
-        <!-- Score total + badge confluence -->
-        <div class="flex items-center gap-4">
-          <span class="text-4xl font-bold" :class="scoreCouleur(signalStore.scoreSmc.total)">
-            {{ signalStore.scoreSmc.total.toFixed(0) }}
-            <span class="text-lg text-gray-400">/100</span>
-          </span>
-          <span
-            class="px-3 py-1 rounded-full text-xs font-semibold"
-            :class="signalStore.scoreSmc.confluence
-              ? 'bg-emerald-500/20 text-emerald-300'
-              : 'bg-gray-500/20 text-gray-400'"
-          >
-            {{ signalStore.scoreSmc.confluence ? '✓ Confluence' : '⚠ Insuffisant' }}
-          </span>
-          <span class="text-sm font-medium" :class="directionColor(signalStore.scoreSmc.direction)">
-            {{ signalStore.scoreSmc.direction.toUpperCase() }}
-          </span>
-        </div>
-        <!-- Barre de progression globale -->
-        <div class="w-full bg-gray-700 rounded-full h-2">
-          <div
-            class="h-2 rounded-full transition-all"
-            :class="signalStore.scoreSmc.confluence ? 'bg-emerald-500' : 'bg-yellow-500'"
-            :style="{ width: `${signalStore.scoreSmc.total}%` }"
-          />
-        </div>
-        <!-- Détail composants -->
-        <div class="grid grid-cols-5 gap-2 mt-2">
-          <div v-for="comp in composantsSmc" :key="comp.label" class="text-center">
-            <div class="text-xs text-gray-500 mb-1">{{ comp.label }}</div>
-            <div class="text-sm font-bold" :class="comp.pts > 0 ? 'text-emerald-400' : 'text-gray-600'">
-              {{ comp.pts.toFixed(0) }}
-            </div>
-            <div class="text-xs text-gray-600">/{{ comp.max }}</div>
-          </div>
-        </div>
-      </div>
-      <div v-else class="text-gray-500 text-sm text-center py-4">
-        Chargement analyse SMC...
-      </div>
+    <SmcScoreCard
+      :score-smc="signalStore.scoreSmc"
+      :asset="settingsStore.assetActif"
+      :timeframe="settingsStore.timeframeActif"
+    />
+
+    <!-- Métriques performance (backtest BTC) -->
+    <div v-if="metriques" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div class="glass-card p-4"><p class="label">Win Rate</p><p class="kpi-value text-emerald-400">{{ metriques.win_rate.toFixed(1) }}%</p></div>
+      <div class="glass-card p-4"><p class="label">ROI Backtest</p><p class="kpi-value" :class="metriques.roi_pct >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ metriques.roi_pct.toFixed(1) }}%</p></div>
+      <div class="glass-card p-4"><p class="label">Total Trades</p><p class="kpi-value">{{ metriques.total_trades }}</p></div>
+      <div class="glass-card p-4"><p class="label">Max Drawdown</p><p class="kpi-value text-red-400">{{ metriques.max_drawdown_pct.toFixed(1) }}%</p></div>
     </div>
 
     <!-- Derniers signaux -->
@@ -209,32 +186,20 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useMarketStore } from '@/stores/market.store'
 import { useSignalStore } from '@/stores/signal.store'
 import { useSettingsStore } from '@/stores/settings.store'
+import { useAlerteStore } from '@/stores/alerte.store'
 import { apiService } from '@/services/api.service'
+import SmcScoreCard from '@/components/common/SmcScoreCard.vue'
+import type { BacktestResults } from '@/services/api.service'
 
 const marketStore = useMarketStore()
 const signalStore = useSignalStore()
 const settingsStore = useSettingsStore()
+const alerteStore = useAlerteStore()
 
 const capital = computed(() => settingsStore.capitalDepart)
 const backendOk = ref(false)
-
-const composantsSmc = computed(() => {
-  const s = signalStore.scoreSmc
-  if (!s) return []
-  return [
-    { label: 'Tendance', pts: s.tendance, max: 25 },
-    { label: 'Ord. Block', pts: s.order_block, max: 25 },
-    { label: 'Imbalance', pts: s.imbalance, max: 20 },
-    { label: 'IFVG', pts: s.ifvg, max: 15 },
-    { label: 'Fibonacci', pts: s.fibonacci, max: 15 },
-  ]
-})
-
-function scoreCouleur(score: number): string {
-  if (score >= 70) return 'text-emerald-400'
-  if (score >= 50) return 'text-yellow-400'
-  return 'text-red-400'
-}
+const entraineEnCours = ref(false)
+const metriques = ref<BacktestResults | null>(null)
 
 const btcPrix = computed(() => {
   const bougies = marketStore.getBougies('BTC', 'M15')
@@ -245,6 +210,20 @@ const ethPrix = computed(() => {
   const bougies = marketStore.getBougies('ETH', 'M15')
   return bougies.length > 0 ? bougies[bougies.length - 1].close : null
 })
+
+async function lancerEntrainement() {
+  entraineEnCours.value = true
+  alerteStore.afficher('Entraînement ML en cours (RF + LSTM)...', 'info', 120000)
+  try {
+    const res = await apiService.entrainerML(settingsStore.assetActif, settingsStore.timeframeActif, 1000)
+    alerteStore.afficherSucces(`✅ ${res.message}`)
+    await signalStore.chargerPrediction(settingsStore.assetActif, settingsStore.timeframeActif)
+  } catch (err: unknown) {
+    alerteStore.afficherErreur(`Entraînement échoué: ${(err as Error).message}`)
+  } finally {
+    entraineEnCours.value = false
+  }
+}
 
 function formatUsd(v: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(v)
@@ -282,6 +261,8 @@ onMounted(async () => {
     signalStore.chargerSignaux(10),
     signalStore.chargerPrediction(settingsStore.assetActif, settingsStore.timeframeActif),
     signalStore.chargerScoreSmc(settingsStore.assetActif, settingsStore.timeframeActif),
+    apiService.runBacktest(settingsStore.assetActif, settingsStore.timeframeActif, settingsStore.capitalDepart, 300)
+      .then(r => { metriques.value = r }).catch(() => {}),
   ])
 })
 

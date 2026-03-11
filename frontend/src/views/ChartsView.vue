@@ -82,7 +82,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { createChart, type IChartApi, type ISeriesApi, type CandlestickSeriesOptions } from 'lightweight-charts'
+import { createChart, type IChartApi, type ISeriesApi, type CandlestickSeriesOptions, type Time } from 'lightweight-charts'
 import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
 
@@ -97,6 +97,7 @@ const chartContainer = ref<HTMLElement | null>(null)
 
 let chart: IChartApi | null = null
 let candleSeries: ISeriesApi<'Candlestick'> | null = null
+let resizeObserver: ResizeObserver | null = null
 
 const bougies = computed(() =>
   marketStore.getBougies(selectedAsset.value, selectedTimeframe.value)
@@ -185,20 +186,24 @@ function mettreAJourSerie() {
   }))
   if (data.length > 0) {
     candleSeries.setData(data)
-    chart?.timeScale().fitContent()
+    chart?.timeScale().scrollToRealTime()
   }
 }
 
 async function changerAsset(asset: string) {
   selectedAsset.value = asset
   settingsStore.definirAsset(asset)
+  marketStore.deconnecterStream()
   await chargerEtReinitChart()
+  marketStore.connecterStream(asset, selectedTimeframe.value)
 }
 
 async function changerTimeframe(tf: string) {
   selectedTimeframe.value = tf
   settingsStore.definirTimeframe(tf)
+  marketStore.deconnecterStream()
   await chargerEtReinitChart()
+  marketStore.connecterStream(selectedAsset.value, tf)
 }
 
 async function chargerData() {
@@ -222,17 +227,30 @@ async function actualiser() {
   await chargerEtReinitChart()
 }
 
-// Mettre à jour les données si elles arrivent en arrière-plan
+// Rechargement complet (changement asset/timeframe)
 watch(bougies, () => {
   if (candleSeries) mettreAJourSerie()
 }, { deep: false })
 
+// Mise à jour live via WebSocket (sans recalcul complet)
+watch(() => marketStore.wsMiseAJour, (update) => {
+  if (!update || !candleSeries) return
+  if (update.asset !== selectedAsset.value || update.timeframe !== selectedTimeframe.value) return
+  candleSeries.update({
+    time: (new Date(update.bougie.timestamp).getTime() / 1000) as unknown as Time,
+    open: update.bougie.open,
+    high: update.bougie.high,
+    low: update.bougie.low,
+    close: update.bougie.close,
+  })
+})
+
 onMounted(async () => {
   await chargerData()
   initChart()
+  marketStore.connecterStream(selectedAsset.value, selectedTimeframe.value)
 
-  // Responsive resize
-  const observer = new ResizeObserver(() => {
+  resizeObserver = new ResizeObserver(() => {
     if (chart && chartContainer.value) {
       chart.applyOptions({
         width: chartContainer.value.clientWidth,
@@ -240,12 +258,13 @@ onMounted(async () => {
       })
     }
   })
-  if (chartContainer.value) observer.observe(chartContainer.value)
-  onUnmounted(() => observer.disconnect())
+  if (chartContainer.value) resizeObserver.observe(chartContainer.value)
 })
 
 onUnmounted(() => {
   chart?.remove()
+  resizeObserver?.disconnect()
+  marketStore.deconnecterStream()
 })
 </script>
 

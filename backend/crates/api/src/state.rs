@@ -11,8 +11,8 @@ pub struct AppState {
 
 impl AppState {
     pub async fn new() -> Result<Self> {
-        let db_path = std::env::var("DATABASE_PATH")
-            .unwrap_or_else(|_| "data/trading.db".to_string());
+        let db_path =
+            std::env::var("DATABASE_PATH").unwrap_or_else(|_| "data/trading.db".to_string());
 
         // Créer le dossier parent si nécessaire (ex: data/)
         if let Some(parent) = std::path::Path::new(&db_path).parent() {
@@ -25,8 +25,12 @@ impl AppState {
         db.run_migrations().await?;
         tracing::info!("Base de données initialisée + migrations: {}", db_path);
 
-        let pipeline_ml = PipelineML::new();
-        tracing::info!("Pipeline ML initialisé");
+        let mut pipeline_ml = PipelineML::new();
+        match pipeline_ml.charger_depuis_disque() {
+            Ok(true) => tracing::info!("Pipeline ML rechargé depuis disque"),
+            Ok(false) => tracing::info!("Pipeline ML initialisé (pas de modèle persisté — entraînement requis)"),
+            Err(e) => tracing::warn!("Impossible de charger le pipeline ML: {}", e),
+        }
 
         Ok(Self {
             db: Arc::new(db),

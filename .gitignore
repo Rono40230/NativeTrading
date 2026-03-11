@@ -36,3 +36,15 @@ Thumbs.db
 # IDE
 .vscode/settings.json
 .idea/
+
+# Fichiers JS générés par vue-tsc (type-check artifacts)
+frontend/src/**/*.vue.js
+frontend/src/**/*.js
+frontend/src/main.js
+
+# Modèles ML entraînés (JSON lourds, données locales)
+/data/modele_*.json
+/data/*.json
+
+# Cargo config local
+backend/.cargo/

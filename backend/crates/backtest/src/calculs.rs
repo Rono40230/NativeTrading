@@ -1,5 +1,5 @@
-use common::Candle;
 use crate::BacktestResults;
+use common::Candle;
 use common::Result;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -76,18 +76,17 @@ pub(crate) fn calculer_resultats(
         0.0
     };
 
-    let (profits_bruts, pertes_brutes) =
-        trades.iter().fold((0.0f64, 0.0f64), |(p, l), t| {
-            let pnl = match t.direction {
-                TradeDirection::Long => t.prix_sortie - t.prix_entree,
-                TradeDirection::Short => t.prix_entree - t.prix_sortie,
-            };
-            if pnl > 0.0 {
-                (p + pnl, l)
-            } else {
-                (p, l + pnl.abs())
-            }
-        });
+    let (profits_bruts, pertes_brutes) = trades.iter().fold((0.0f64, 0.0f64), |(p, l), t| {
+        let pnl = match t.direction {
+            TradeDirection::Long => t.prix_sortie - t.prix_entree,
+            TradeDirection::Short => t.prix_entree - t.prix_sortie,
+        };
+        if pnl > 0.0 {
+            (p + pnl, l)
+        } else {
+            (p, l + pnl.abs())
+        }
+    });
     let profit_factor = if pertes_brutes > 0.0 {
         profits_bruts / pertes_brutes
     } else {
@@ -130,11 +129,7 @@ fn calculer_sharpe(equity: &[f64]) -> f64 {
         .collect();
     let n = rendements.len() as f64;
     let moy = rendements.iter().sum::<f64>() / n;
-    let var = rendements
-        .iter()
-        .map(|r| (r - moy).powi(2))
-        .sum::<f64>()
-        / n.max(1.0);
+    let var = rendements.iter().map(|r| (r - moy).powi(2)).sum::<f64>() / n.max(1.0);
     let std = var.sqrt();
     if std < 1e-10 {
         0.0

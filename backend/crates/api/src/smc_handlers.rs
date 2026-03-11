@@ -1,30 +1,10 @@
 use actix_web::{web, HttpResponse, Responder};
-use common::{Asset, Timeframe};
 use data::{providers::binance::BinanceProvider, DataProvider};
 use serde::Deserialize;
 use smc::scorer;
 
 use crate::state::AppState;
-
-fn parse_asset(s: &str) -> Option<Asset> {
-    match s.to_uppercase().as_str() {
-        "BTC" => Some(Asset::BTC),
-        "ETH" => Some(Asset::ETH),
-        _ => None,
-    }
-}
-
-fn parse_timeframe(s: &str) -> Timeframe {
-    match s {
-        "M1"  => Timeframe::M1,
-        "M5"  => Timeframe::M5,
-        "H1"  => Timeframe::H1,
-        "H4"  => Timeframe::H4,
-        "D1"  => Timeframe::D1,
-        "W1"  => Timeframe::W1,
-        _     => Timeframe::M15,
-    }
-}
+use crate::utils::{parse_asset, parse_timeframe};
 
 #[derive(Deserialize)]
 pub struct SmcQuery {
@@ -41,13 +21,16 @@ pub async fn analyse_smc(
 ) -> impl Responder {
     let asset = match parse_asset(&query.asset) {
         Some(a) => a,
-        None => return HttpResponse::BadRequest()
-            .json(serde_json::json!({ "error": format!("Asset inconnu: {}", query.asset) })),
+        None => {
+            return HttpResponse::BadRequest()
+                .json(serde_json::json!({ "error": format!("Asset inconnu: {}", query.asset) }))
+        }
     };
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
     let limit = query.limit.unwrap_or(200) as i64;
 
-    let bougies = state.db
+    let bougies = state
+        .db
         .obtenir_bougies(&asset, &timeframe, limit)
         .await
         .unwrap_or_default();
@@ -56,7 +39,8 @@ pub async fn analyse_smc(
         match asset.vers_binance() {
             Some(_) => {
                 let provider = BinanceProvider::new();
-                provider.fetch_candles(asset.clone(), timeframe, limit as usize)
+                provider
+                    .fetch_candles(asset.clone(), timeframe, limit as usize)
                     .await
                     .unwrap_or(bougies)
             }

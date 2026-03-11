@@ -14,6 +14,7 @@ tch = { version = "0.14", optional = true }
 ndarray.workspace = true
 smartcore.workspace = true
 serde.workspace = true
+serde_json.workspace = true
 chrono.workspace = true
 anyhow.workspace = true
 tracing.workspace = true

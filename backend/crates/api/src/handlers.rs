@@ -1,11 +1,11 @@
 use actix_web::{web, HttpResponse, Responder};
 use backtest::BacktestEngine;
-use common::{Asset, Timeframe};
 use data::{providers::binance::BinanceProvider, DataProvider};
 use serde::{Deserialize, Serialize};
-use strategies::straddle::StraddleStrategy;
+use strategies::{smc_directional::SmcDirectionalStrategy, straddle::StraddleStrategy};
 
 use crate::state::AppState;
+use crate::utils::{parse_asset, parse_timeframe};
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 
@@ -27,28 +27,6 @@ pub async fn get_assets() -> impl Responder {
     HttpResponse::Ok().json(assets)
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-fn parse_asset(s: &str) -> Option<Asset> {
-    match s.to_uppercase().as_str() {
-        "BTC" => Some(Asset::BTC),
-        "ETH" => Some(Asset::ETH),
-        _ => None,
-    }
-}
-
-fn parse_timeframe(s: &str) -> Timeframe {
-    match s {
-        "M1" => Timeframe::M1,
-        "M5" => Timeframe::M5,
-        "H1" => Timeframe::H1,
-        "H4" => Timeframe::H4,
-        "D1" => Timeframe::D1,
-        "W1" => Timeframe::W1,
-        _ => Timeframe::M15,
-    }
-}
-
 // ─── Candles ──────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -65,8 +43,9 @@ pub async fn get_candles(
     let asset = match parse_asset(&query.asset) {
         Some(a) => a,
         None => {
-            return HttpResponse::BadRequest()
-                .json(serde_json::json!({ "error": "Asset non supporté: BTC ou ETH uniquement." }));
+            return HttpResponse::BadRequest().json(
+                serde_json::json!({ "error": "Asset non supporté: BTC ou ETH uniquement." }),
+            );
         }
     };
 
@@ -87,7 +66,10 @@ pub async fn get_candles(
         _ => {
             tracing::info!("Récupération Binance: {} {:?}", query.asset, timeframe);
             let provider = BinanceProvider::new();
-            match provider.fetch_candles(asset.clone(), timeframe, limit).await {
+            match provider
+                .fetch_candles(asset.clone(), timeframe, limit)
+                .await
+            {
                 Ok(b) => {
                     let db = state.db.clone();
                     let b_clone = b.clone();
@@ -203,6 +185,8 @@ pub struct BacktestRequest {
     pub timeframe: Option<String>,
     pub capital: Option<f64>,
     pub limit: Option<u32>,
+    /// "straddle" (défaut) ou "smc"
+    pub strategie: Option<String>,
 }
 
 pub async fn run_backtest(
@@ -220,8 +204,15 @@ pub async fn run_backtest(
     let timeframe = parse_timeframe(body.timeframe.as_deref().unwrap_or("M15"));
     let capital = body.capital.unwrap_or(2000.0);
     let limit = body.limit.unwrap_or(500).min(1000) as usize;
+    let strategie = body.strategie.as_deref().unwrap_or("straddle");
 
-    tracing::info!("Backtest: {} {:?} capital={}", body.asset, timeframe, capital);
+    tracing::info!(
+        "Backtest: {} {:?} capital={} strategie={}",
+        body.asset,
+        timeframe,
+        capital,
+        strategie
+    );
 
     let provider = BinanceProvider::new();
     let bougies = match provider.fetch_candles(asset, timeframe, limit).await {
@@ -233,11 +224,74 @@ pub async fn run_backtest(
     };
 
     let engine = BacktestEngine::new(capital);
-    let strategy = StraddleStrategy::new();
 
-    match engine.run(&bougies, &strategy) {
+    let result = match strategie {
+        "smc" => {
+            let strat = SmcDirectionalStrategy;
+            engine.run(&bougies, &strat)
+        }
+        _ => {
+            let strat = StraddleStrategy::new();
+            engine.run(&bougies, &strat)
+        }
+    };
+
+    match result {
         Ok(results) => HttpResponse::Ok().json(results),
         Err(e) => HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": format!("{}", e) })),
     }
+}
+
+// ─── Export CSV ───────────────────────────────────────────────────────────────
+#[derive(Deserialize)]
+pub struct ExportQuery {
+    pub limit: Option<i64>,
+}
+
+/// GET /api/signaux/export — télécharge l'historique des signaux au format CSV
+pub async fn exporter_signaux_csv(
+    state: web::Data<AppState>,
+    query: web::Query<ExportQuery>,
+) -> impl Responder {
+    let limit = query.limit.unwrap_or(500).min(5000);
+    let signaux = match state.db.obtenir_signaux(limit).await {
+        Ok(s) => s,
+        Err(e) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": format!("{}", e) }));
+        }
+    };
+
+    let mut csv = String::from(
+        "id,asset,timeframe,direction,score,prix_entree,stop_loss,take_profit,strategie,cree_le\n",
+    );
+    for s in &signaux {
+        let tp = s["take_profit"]
+            .as_array()
+            .and_then(|a| a.first())
+            .and_then(|v| v.as_f64())
+            .unwrap_or(0.0);
+        csv.push_str(&format!(
+            "{},{},{},{},{:.2},{:.2},{:.2},{:.2},{},{}\n",
+            s["id"].as_str().unwrap_or(""),
+            s["asset"].as_str().unwrap_or(""),
+            s["timeframe"].as_str().unwrap_or(""),
+            s["direction"].as_str().unwrap_or(""),
+            s["score"].as_f64().unwrap_or(0.0),
+            s["prix_entree"].as_f64().unwrap_or(0.0),
+            s["stop_loss"].as_f64().unwrap_or(0.0),
+            tp,
+            s["strategie"].as_str().unwrap_or(""),
+            s["cree_le"].as_str().unwrap_or(""),
+        ));
+    }
+
+    HttpResponse::Ok()
+        .content_type("text/csv; charset=utf-8")
+        .append_header((
+            "Content-Disposition",
+            "attachment; filename=\"signaux.csv\"",
+        ))
+        .body(csv)
 }

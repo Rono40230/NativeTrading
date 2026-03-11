@@ -1,6 +1,6 @@
 # 🗺️ ROADMAP - NATIVE TRADING AI
 
-**Durée totale:** 18 semaines | **Version:** 1.0 | **Dernière mise à jour:** 10 mars 2026
+**Durée totale:** 18 semaines | **Version:** 2.0 | **Dernière mise à jour:** 10 mars 2026
 
 ---
 
@@ -47,60 +47,63 @@
 
 ---
 
-## 🏗️ PHASE 2 - PRODUCTION (Semaines 7-16)
+## ✅ PHASE 2 - PRODUCTION (Semaines 7-16)
 
-> **Statut : 🔵 EN COURS** — Démarrage semaine 7
+> **Statut : 🟢 COMPLÉTÉE** — Terminée le 10 mars 2026
 
-### Semaine 7-8: MT5 + Métaux
-- [ ] Intégration MetaTrader 5
+### ⏭️ Semaine 7-8: MT5 + Métaux (reporté)
+- [ ] Intégration MetaTrader 5 — *reporté : nécessite MT5 installé*
 - [ ] XAUUSD + XAGUSD historique
 - [ ] Multi-sources données
 
-### Semaine 9-10: Indicateurs SMC
-- [ ] Tendances, Order Blocks, Imbalance, IFVG, Fibonacci
-- [ ] Réimplémentation Rust depuis ex5 (crate `smc` déjà scaffoldé)
-- [ ] Tests validation
+### ✅ Semaine 9-10: Indicateurs SMC
+- [x] Tendances HH/HL/LH/LL (`smc/src/tendances.rs`)
+- [x] Order Blocks — last candle avant impulsion (`smc/src/order_blocks.rs`)
+- [x] Imbalance / FVG 3-candles (`smc/src/imbalance.rs`)
+- [x] IFVG — FVG + mitigation + BOS (`smc/src/ifvg.rs`)
+- [x] Fibonacci — niveaux 23.6/38.2/50/61.8/78.6 (`smc/src/fibonacci.rs`)
+- [x] Façade `ScoreSmc` — scoring 100pts, seuil 70 (`smc/src/lib.rs`)
+- [x] Tests : tendances + fibonacci
 
-### Semaine 11-12: IA Hybride
-- [ ] LSTM 3 couches (128-64-32) via tch-rs/CUDA RTX 3090
-- [ ] Fusion LSTM 60% + RandomForest 40%
-- [ ] Training GPU + serialisation modèle
-- [ ] Endpoint `POST /api/ml/train` + bouton Dashboard
+### ✅ Semaine 11-12: IA Hybride
+- [x] LSTM 3 couches (128-64-32) pure Rust — `ml/src/lstm.rs`
+- [x] Fusion LSTM 60% + RandomForest 40% — `PipelineHybride`
+- [x] Entraînement SGD + sérialisation serde_json
+- [x] `POST /api/ml/train` + `GET /api/ml/status` + bouton Dashboard
 
-### Semaine 13-14: SMC Directionnel
-- [ ] Scoring confluence (seuil 70/100) (`strategies/src/smc_directional.rs` scaffoldé)
-- [ ] TP pyramidal (TP1/TP2/TP3)
-- [ ] Backtests comparatifs straddle vs SMC
+### ✅ Semaine 13-14: SMC Directionnel
+- [x] `SmcDirectionalStrategy` — scoring confluence ≥70 (`strategies/src/smc_directional.rs`)
+- [x] ATR-based TP1 (×1.5) / TP2 (×3.0) / TP3 (×5.0) / SL (×1.0)
+- [x] `take_profit_2` + `take_profit_3` dans `strategies::Signal`
+- [x] Endpoint `GET /api/smc/analyse` (`api/src/smc_handlers.rs`)
+- [x] Dashboard — bloc score SMC + 5 composants + barre progression
+- [x] `SmcScoreCard.vue` composant extrait
 
-### Semaine 15-16: UI complète
-- [ ] 5 dashboards complets (Charts ✅, P&L, History, Settings, Heatmap)
-- [ ] Système alertes combiné
-- [ ] Export PDF/CSV
+### ✅ Semaine 15-16: UI complète
+- [x] `PnLView.vue` — courbe equity, ROI/Sharpe/WinRate/Drawdown/ProfitFactor
+- [x] `HistoryView.vue` — tableau signaux filtrables (asset/direction/stratégie), pagination 8/page
+- [x] `HeatmapView.vue` — grille ATR volatilité (BTC+ETH × M5/M15/H1/H4/D1), refresh 60s
+- [x] `AlerteStore` + `ToastAlerte.vue` — système de notifications global
+- [x] `GET /api/signaux/export` — export CSV
 
-### Semaine 16b: SMC IA — Analyste & Coach (Claude API)
-**Objectif:** Intégrer "Le petit robo" comme outil d'assistance SMC
+### ✅ Semaine 16b: SMC IA — Analyste & Coach (Ollama local)
+**Implémenté avec Ollama local (zéro frais, zéro données externes) — modèle `qwen2.5:14b`**
 
 **Backend Rust (`api` crate) :**
-- Proxy sécurisé `POST /api/smc/analyze` — image → analyse SMC complète
-- Proxy sécurisé `POST /api/smc/chat` — chat multi-turn Coach SMC
-- Module `AnthropicClient` (clé API dans `.env`, jamais exposée)
-- Rate limiting sur endpoints `/api/smc/*`
+- [x] `ollama.rs` — client HTTP vers `localhost:11434`, configurable via `.env`
+- [x] `POST /api/ia/analyse` — analyse narrative signal SMC
+- [x] `POST /api/ia/chat` — coach conversationnel multi-turn (max 40 messages)
+- [x] `GET /api/ia/status` — vérifie disponibilité Ollama
 
 **Frontend Vue.js 3 :**
-- `SMCAnalyzerView.vue` — upload screenshot + analyse institutionnelle
-- `SMCCoachView.vue` — chat + diagrammes HTML interactifs animés
-- `DiagramFrame.vue` — WebView sandboxée Tauri pour diagrammes HTML générés (dans la fenêtre native)
-- `useSMCStore.ts` (Pinia) + `smc.service.ts`
-- Ajout dans NavBar + Router
+- [x] `SMCAnalyzerView.vue` — formulaire signal + curseurs SMC + analyse IA
+- [x] `SMCCoachView.vue` — chat avec questions rapides, historique scrollable
+- [x] NavBar + Router mis à jour
 
-**Prompts embarqués :**
-- `ANALYST_PROMPT` — analyse Structure, Liquidité, POI, Scénarios, Confluence
-- `COACH_PROMPT` — pédagogie SMC + génération diagrammes HTML animés
-
-**Validation :**
-- Analyse screenshot → réponse structurée <10s
-- Coach génère diagrammes Order Block, FVG, BOS/ChoCH
-- Aucune clé API exposée côté frontend
+**Infrastructure :**
+- [x] Ollama installé + service systemd actif
+- [x] Modèle `qwen2.5:14b` (9 Go) sur `/run/media/rono/IA/ollama/models/`
+- [x] RTX 3090 utilisée pour l'inférence GPU locale
 
 ---
 

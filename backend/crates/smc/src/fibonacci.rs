@@ -21,7 +21,10 @@ pub fn calculer(bougies: &[Candle]) -> Option<NiveauxFibonacci> {
     let lookback = bougies.len().min(60);
     let slice = &bougies[bougies.len() - lookback..];
 
-    let swing_haut = slice.iter().map(|b| b.high).fold(f64::NEG_INFINITY, f64::max);
+    let swing_haut = slice
+        .iter()
+        .map(|b| b.high)
+        .fold(f64::NEG_INFINITY, f64::max);
     let swing_bas = slice.iter().map(|b| b.low).fold(f64::INFINITY, f64::min);
 
     let range = swing_haut - swing_bas;
@@ -56,12 +59,21 @@ mod tests {
 
     fn bougie(high: f64, low: f64) -> common::Candle {
         let mid = (high + low) / 2.0;
-        common::Candle { timestamp: Utc::now(), open: mid, high, low, close: mid, volume: 1000.0 }
+        common::Candle {
+            timestamp: Utc::now(),
+            open: mid,
+            high,
+            low,
+            close: mid,
+            volume: 1000.0,
+        }
     }
 
     #[test]
     fn niveaux_calcules_correctement() {
-        let bougies: Vec<common::Candle> = (0..25).map(|i| bougie(100.0 + i as f64, 80.0 + i as f64)).collect();
+        let bougies: Vec<common::Candle> = (0..25)
+            .map(|i| bougie(100.0 + i as f64, 80.0 + i as f64))
+            .collect();
         let niveaux = calculer(&bougies).unwrap();
         // Range = (100+24) - 80 = 44
         assert!(niveaux.swing_haut > niveaux.swing_bas);

@@ -55,9 +55,12 @@ impl DataProvider for BinanceProvider {
         timeframe: Timeframe,
         limit: usize,
     ) -> Result<Vec<Candle>> {
-        let symbole = asset
-            .vers_binance()
-            .ok_or_else(|| TradingError::Data(format!("{} n'est pas disponible sur Binance (utiliser MT5)", asset.as_str())))?;
+        let symbole = asset.vers_binance().ok_or_else(|| {
+            TradingError::Data(format!(
+                "{} n'est pas disponible sur Binance (utiliser MT5)",
+                asset.as_str()
+            ))
+        })?;
 
         let url = Self::url_klines(symbole, timeframe.vers_binance(), limit.min(1000));
 
@@ -93,13 +96,14 @@ impl DataProvider for BinanceProvider {
             .as_array()
             .ok_or_else(|| TradingError::Api("Format klines invalide".into()))?;
 
-        let bougies: Vec<Candle> = klines
-            .iter()
-            .filter_map(Self::parser_kline)
-            .collect();
+        let bougies: Vec<Candle> = klines.iter().filter_map(Self::parser_kline).collect();
 
-        tracing::info!("{} bougies récupérées ({}/{})", bougies.len(), symbole, timeframe.vers_binance());
+        tracing::info!(
+            "{} bougies récupérées ({}/{})",
+            bougies.len(),
+            symbole,
+            timeframe.vers_binance()
+        );
         Ok(bougies)
     }
 }
-

@@ -1,5 +1,5 @@
 use chrono::{TimeZone, Utc};
-use common::{Asset, Candle, Result, Signal, TradingError, Timeframe};
+use common::{Asset, Candle, Result, Signal, Timeframe, TradingError};
 use sqlx::{sqlite::SqliteConnectOptions, Row, SqlitePool};
 use std::str::FromStr;
 
@@ -137,14 +137,13 @@ impl Database {
 
     /// Nombre de bougies stockées pour un asset/timeframe
     pub async fn compter_bougies(&self, asset: &Asset, timeframe: &Timeframe) -> Result<i64> {
-        let row = sqlx::query(
-            "SELECT COUNT(*) as n FROM bougies WHERE asset = ? AND timeframe = ?",
-        )
-        .bind(asset.as_str())
-        .bind(timeframe.as_str())
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|e| TradingError::Database(e.to_string()))?;
+        let row =
+            sqlx::query("SELECT COUNT(*) as n FROM bougies WHERE asset = ? AND timeframe = ?")
+                .bind(asset.as_str())
+                .bind(timeframe.as_str())
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| TradingError::Database(e.to_string()))?;
 
         Ok(row.get::<i64, _>("n"))
     }

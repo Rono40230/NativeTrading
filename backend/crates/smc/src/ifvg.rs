@@ -37,7 +37,11 @@ pub fn detecter(bougies: &[Candle]) -> Vec<Ifvg> {
             if mitigation {
                 let bos = suite.iter().any(|b| b.close < fvg_bas);
                 if bos {
-                    ifvgs.push(Ifvg { prix_haut: fvg_haut, prix_bas: fvg_bas, direction: Direction::Short });
+                    ifvgs.push(Ifvg {
+                        prix_haut: fvg_haut,
+                        prix_bas: fvg_bas,
+                        direction: Direction::Short,
+                    });
                 }
             }
         }
@@ -50,7 +54,11 @@ pub fn detecter(bougies: &[Candle]) -> Vec<Ifvg> {
             if mitigation {
                 let bos = suite.iter().any(|b| b.close > fvg_haut);
                 if bos {
-                    ifvgs.push(Ifvg { prix_haut: fvg_haut, prix_bas: fvg_bas, direction: Direction::Long });
+                    ifvgs.push(Ifvg {
+                        prix_haut: fvg_haut,
+                        prix_bas: fvg_bas,
+                        direction: Direction::Long,
+                    });
                 }
             }
         }
@@ -63,5 +71,9 @@ pub fn detecter(bougies: &[Candle]) -> Vec<Ifvg> {
 
 /// Score (0 ou 15) en fonction de la présence d'un IFVG aligné avec la direction.
 pub fn score_pour_direction(ifvgs: &[Ifvg], direction: Direction) -> f64 {
-    if ifvgs.iter().any(|fg| fg.direction == direction) { 15.0 } else { 0.0 }
+    if ifvgs.iter().any(|fg| fg.direction == direction) {
+        15.0
+    } else {
+        0.0
+    }
 }

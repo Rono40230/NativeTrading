@@ -5,8 +5,8 @@ pub mod tendance;
 /// Résultat MACD
 #[derive(Debug, Clone)]
 pub struct Macd {
-    pub ligne: Vec<f64>,   // MACD line (EMA rapide - EMA lente)
-    pub signal: Vec<f64>,  // Signal line (EMA du MACD)
+    pub ligne: Vec<f64>,  // MACD line (EMA rapide - EMA lente)
+    pub signal: Vec<f64>, // Signal line (EMA du MACD)
     pub histogramme: Vec<f64>,
 }
 
@@ -14,7 +14,7 @@ pub struct Macd {
 #[derive(Debug, Clone)]
 pub struct Bollinger {
     pub superieure: Vec<f64>,
-    pub milieu: Vec<f64>,    // SMA
+    pub milieu: Vec<f64>, // SMA
     pub inferieure: Vec<f64>,
 }
 
@@ -54,25 +54,39 @@ pub fn calculer_rsi(bougies: &[Candle], periode: usize) -> Vec<f64> {
     let gains_pertes: Vec<(f64, f64)> = (1..n)
         .map(|i| {
             let diff = closes[i] - closes[i - 1];
-            if diff > 0.0 { (diff, 0.0) } else { (0.0, -diff) }
+            if diff > 0.0 {
+                (diff, 0.0)
+            } else {
+                (0.0, -diff)
+            }
         })
         .collect();
 
     // Moyennes initiales (SMA sur `periode`)
     let (mut avg_gain, mut avg_perte) = {
-        let gains: f64 = gains_pertes[..periode].iter().map(|(g, _)| g).sum::<f64>() / periode as f64;
-        let pertes: f64 = gains_pertes[..periode].iter().map(|(_, p)| p).sum::<f64>() / periode as f64;
+        let gains: f64 =
+            gains_pertes[..periode].iter().map(|(g, _)| g).sum::<f64>() / periode as f64;
+        let pertes: f64 =
+            gains_pertes[..periode].iter().map(|(_, p)| p).sum::<f64>() / periode as f64;
         (gains, pertes)
     };
 
-    rsi[periode] = if avg_perte == 0.0 { 100.0 } else { 100.0 - 100.0 / (1.0 + avg_gain / avg_perte) };
+    rsi[periode] = if avg_perte == 0.0 {
+        100.0
+    } else {
+        100.0 - 100.0 / (1.0 + avg_gain / avg_perte)
+    };
 
     // Lissage de Wilder
     for i in (periode + 1)..n {
         let (g, p) = gains_pertes[i - 1];
         avg_gain = (avg_gain * (periode as f64 - 1.0) + g) / periode as f64;
         avg_perte = (avg_perte * (periode as f64 - 1.0) + p) / periode as f64;
-        rsi[i] = if avg_perte == 0.0 { 100.0 } else { 100.0 - 100.0 / (1.0 + avg_gain / avg_perte) };
+        rsi[i] = if avg_perte == 0.0 {
+            100.0
+        } else {
+            100.0 - 100.0 / (1.0 + avg_gain / avg_perte)
+        };
     }
     rsi
 }
@@ -130,7 +144,10 @@ pub fn calculer_macd(bougies: &[Candle], rapide: usize, lent: usize, signal_p: u
     let pseudo: Vec<Candle> = bougies
         .iter()
         .enumerate()
-        .map(|(i, b)| Candle { close: if ligne[i].is_nan() { 0.0 } else { ligne[i] }, ..*b })
+        .map(|(i, b)| Candle {
+            close: if ligne[i].is_nan() { 0.0 } else { ligne[i] },
+            ..*b
+        })
         .collect();
     let signal_line = calculer_ema(&pseudo, signal_p);
 
@@ -144,7 +161,11 @@ pub fn calculer_macd(bougies: &[Candle], rapide: usize, lent: usize, signal_p: u
         })
         .collect();
 
-    Macd { ligne, signal: signal_line, histogramme }
+    Macd {
+        ligne,
+        signal: signal_line,
+        histogramme,
+    }
 }
 
 // ─── BOLLINGER ────────────────────────────────────────────────────────────────
@@ -166,7 +187,11 @@ pub fn calculer_bollinger(bougies: &[Candle], periode: usize, nb_ecarts: f64) ->
         superieure[i - 1] = sma + nb_ecarts * ecart;
         inferieure[i - 1] = sma - nb_ecarts * ecart;
     }
-    Bollinger { superieure, milieu, inferieure }
+    Bollinger {
+        superieure,
+        milieu,
+        inferieure,
+    }
 }
 
 #[cfg(test)]
@@ -187,7 +212,13 @@ mod tests {
 
     fn bougies_simples(n: usize) -> Vec<Candle> {
         (1..=n)
-            .map(|i| bougie(i as f64 * 100.0, i as f64 * 100.0 + 5.0, i as f64 * 100.0 - 5.0))
+            .map(|i| {
+                bougie(
+                    i as f64 * 100.0,
+                    i as f64 * 100.0 + 5.0,
+                    i as f64 * 100.0 - 5.0,
+                )
+            })
             .collect()
     }
 
@@ -225,4 +256,3 @@ mod tests {
         assert_eq!(valides, 30 - 9 + 1); // ema[periode-1..] sont valides
     }
 }
-

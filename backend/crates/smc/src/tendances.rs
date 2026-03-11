@@ -84,7 +84,14 @@ mod tests {
 
     fn bougie(high: f64, low: f64) -> Candle {
         let mid = (high + low) / 2.0;
-        Candle { timestamp: Utc::now(), open: mid, high, low, close: mid, volume: 1000.0 }
+        Candle {
+            timestamp: Utc::now(),
+            open: mid,
+            high,
+            low,
+            close: mid,
+            volume: 1000.0,
+        }
     }
 
     #[test]
@@ -93,28 +100,28 @@ mod tests {
         // Creux 1 à i=3 (l=80), Sommet 1 à i=7 (h=120)
         // Creux 2 à i=11 (l=90, HL), Sommet 2 à i=15 (h=130, HH)
         let bougies: Vec<Candle> = vec![
-            bougie(103.0, 83.0), // i=0
-            bougie(102.0, 82.0), // i=1
-            bougie(101.0, 81.0), // i=2
-            bougie(100.0, 80.0), // i=3 — creux 1 (l=80)
-            bougie(105.0, 84.0), // i=4
-            bougie(110.0, 88.0), // i=5
-            bougie(115.0, 92.0), // i=6
-            bougie(120.0, 95.0), // i=7 — sommet 1 (h=120)
-            bougie(118.0, 93.0), // i=8
-            bougie(116.0, 92.0), // i=9
-            bougie(112.0, 91.0), // i=10
-            bougie(115.0, 90.0), // i=11 — creux 2 (l=90, HL > 80)
-            bougie(118.0, 93.0), // i=12
-            bougie(122.0, 96.0), // i=13
-            bougie(126.0, 100.0),// i=14
-            bougie(130.0, 104.0),// i=15 — sommet 2 (h=130, HH > 120)
-            bougie(128.0, 103.0),// i=16
-            bougie(125.0, 101.0),// i=17
-            bougie(122.0, 98.0), // i=18
-            bougie(120.0, 96.0), // i=19
-            bougie(118.0, 94.0), // i=20
-            bougie(116.0, 92.0), // i=21
+            bougie(103.0, 83.0),  // i=0
+            bougie(102.0, 82.0),  // i=1
+            bougie(101.0, 81.0),  // i=2
+            bougie(100.0, 80.0),  // i=3 — creux 1 (l=80)
+            bougie(105.0, 84.0),  // i=4
+            bougie(110.0, 88.0),  // i=5
+            bougie(115.0, 92.0),  // i=6
+            bougie(120.0, 95.0),  // i=7 — sommet 1 (h=120)
+            bougie(118.0, 93.0),  // i=8
+            bougie(116.0, 92.0),  // i=9
+            bougie(112.0, 91.0),  // i=10
+            bougie(115.0, 90.0),  // i=11 — creux 2 (l=90, HL > 80)
+            bougie(118.0, 93.0),  // i=12
+            bougie(122.0, 96.0),  // i=13
+            bougie(126.0, 100.0), // i=14
+            bougie(130.0, 104.0), // i=15 — sommet 2 (h=130, HH > 120)
+            bougie(128.0, 103.0), // i=16
+            bougie(125.0, 101.0), // i=17
+            bougie(122.0, 98.0),  // i=18
+            bougie(120.0, 96.0),  // i=19
+            bougie(118.0, 94.0),  // i=20
+            bougie(116.0, 92.0),  // i=21
         ];
         let res = analyser(&bougies);
         assert!(res.is_some());

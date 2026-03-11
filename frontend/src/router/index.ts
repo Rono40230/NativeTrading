@@ -8,7 +8,9 @@ const router = createRouter({
     { path: '/pnl', component: () => import('../views/PnLView.vue') },
     { path: '/history', component: () => import('../views/HistoryView.vue') },
     { path: '/settings', component: () => import('../views/SettingsView.vue') },
-    { path: '/heatmap', component: () => import('../views/HeatmapView.vue') }
+    { path: '/heatmap', component: () => import('../views/HeatmapView.vue') },
+    { path: '/ia/analyser', component: () => import('../views/SMCAnalyzerView.vue') },
+    { path: '/ia/coach', component: () => import('../views/SMCCoachView.vue') },
   ]
 })
 
