@@ -51,10 +51,13 @@
 
 > **Statut : 🟢 COMPLÉTÉE** — Terminée le 10 mars 2026
 
-### ⏭️ Semaine 7-8: MT5 + Métaux (reporté)
-- [ ] Intégration MetaTrader 5 — *reporté : nécessite MT5 installé*
-- [ ] XAUUSD + XAGUSD historique
-- [ ] Multi-sources données
+### ✅ Semaine 7-8: Twelvedata + Métaux/Forex
+- [x] Intégration Twelvedata REST API (XAUUSD, XAGUSD)
+- [x] `TwelvedataProvider` — crate `data`, trait `DataProvider`
+- [x] Routage automatique : BTC/ETH → Binance | XAUUSD/XAGUSD → Twelvedata
+- [x] Clé API stockée en SQLite (`configuration`) + modifiable depuis ⚙️ Paramètres
+- [x] Bouton "Tester connexion" dans SettingsView
+- [x] Charts + Heatmap : XAUUSD et XAGUSD ajoutés
 
 ### ✅ Semaine 9-10: Indicateurs SMC
 - [x] Tendances HH/HL/LH/LL (`smc/src/tendances.rs`)

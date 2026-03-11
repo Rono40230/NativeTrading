@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse, Responder};
 use backtest::BacktestEngine;
-use data::{providers::binance::BinanceProvider, DataProvider};
+use data::{providers::binance::BinanceProvider, providers::twelvedata::TwelvedataProvider, DataProvider};
 use serde::{Deserialize, Serialize};
 use strategies::{smc_directional::SmcDirectionalStrategy, straddle::StraddleStrategy};
 
@@ -22,7 +22,8 @@ pub async fn get_assets() -> impl Responder {
     let assets = vec![
         serde_json::json!({ "id": "BTC", "nom": "Bitcoin", "type": "crypto" }),
         serde_json::json!({ "id": "ETH", "nom": "Ethereum", "type": "crypto" }),
-        serde_json::json!({ "id": "XAUUSD", "nom": "Gold", "type": "metal" }),
+        serde_json::json!({ "id": "XAUUSD", "nom": "Or (Gold)", "type": "metal" }),
+        serde_json::json!({ "id": "XAGUSD", "nom": "Argent (Silver)", "type": "metal" }),
     ];
     HttpResponse::Ok().json(assets)
 }
@@ -42,11 +43,8 @@ pub async fn get_candles(
 ) -> impl Responder {
     let asset = match parse_asset(&query.asset) {
         Some(a) => a,
-        None => {
-            return HttpResponse::BadRequest().json(
-                serde_json::json!({ "error": "Asset non supporté: BTC ou ETH uniquement." }),
-            );
-        }
+        None => return HttpResponse::BadRequest()
+            .json(serde_json::json!({ "error": "Asset non supporté: BTC, ETH, XAUUSD ou XAGUSD." })),
     };
 
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
@@ -59,17 +57,27 @@ pub async fn get_candles(
         .await;
 
     let bougies = match bougies_db {
-        Ok(b) if b.len() >= 60 => {
-            tracing::debug!("Bougies depuis DB: {}", b.len());
-            b
-        }
+        Ok(b) if b.len() >= 60 => b,
         _ => {
-            tracing::info!("Récupération Binance: {} {:?}", query.asset, timeframe);
-            let provider = BinanceProvider::new();
-            match provider
-                .fetch_candles(asset.clone(), timeframe, limit)
-                .await
-            {
+            let bougies_result = if asset.vers_twelvedata().is_some() {
+                // Métaux/forex → Twelvedata
+                let api_key = obtenir_cle_twelvedata(&state).await;
+                if api_key.is_empty() {
+                    return HttpResponse::ServiceUnavailable().json(
+                        serde_json::json!({ "error": "Clé API Twelvedata manquante → aller dans ⚙️ Paramètres" }),
+                    );
+                }
+                TwelvedataProvider::new(api_key)
+                    .fetch_candles(asset.clone(), timeframe, limit)
+                    .await
+            } else {
+                // Crypto → Binance
+                tracing::info!("Binance: {} {:?}", query.asset, timeframe);
+                BinanceProvider::new()
+                    .fetch_candles(asset.clone(), timeframe, limit)
+                    .await
+            };
+            match bougies_result {
                 Ok(b) => {
                     let db = state.db.clone();
                     let b_clone = b.clone();
@@ -82,15 +90,22 @@ pub async fn get_candles(
                     b
                 }
                 Err(e) => {
-                    tracing::error!("Erreur Binance: {}", e);
+                    tracing::error!("Erreur provider: {}", e);
                     return HttpResponse::ServiceUnavailable()
-                        .json(serde_json::json!({ "error": format!("Binance API: {}", e) }));
+                        .json(serde_json::json!({ "error": format!("Données: {}", e) }));
                 }
             }
         }
     };
 
     HttpResponse::Ok().json(bougies)
+}
+
+/// Lit la clé API Twelvedata depuis la DB (prioritaire) ou le .env (fallback)
+async fn obtenir_cle_twelvedata(state: &web::Data<AppState>) -> String {
+    state.db.lire_config("twelvedata_api_key").await
+        .ok().flatten().filter(|k| !k.is_empty())
+        .unwrap_or_else(|| std::env::var("TWELVEDATA_API_KEY").unwrap_or_default())
 }
 
 // ─── Signaux ──────────────────────────────────────────────────────────────────
@@ -241,57 +256,4 @@ pub async fn run_backtest(
         Err(e) => HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": format!("{}", e) })),
     }
-}
-
-// ─── Export CSV ───────────────────────────────────────────────────────────────
-#[derive(Deserialize)]
-pub struct ExportQuery {
-    pub limit: Option<i64>,
-}
-
-/// GET /api/signaux/export — télécharge l'historique des signaux au format CSV
-pub async fn exporter_signaux_csv(
-    state: web::Data<AppState>,
-    query: web::Query<ExportQuery>,
-) -> impl Responder {
-    let limit = query.limit.unwrap_or(500).min(5000);
-    let signaux = match state.db.obtenir_signaux(limit).await {
-        Ok(s) => s,
-        Err(e) => {
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": format!("{}", e) }));
-        }
-    };
-
-    let mut csv = String::from(
-        "id,asset,timeframe,direction,score,prix_entree,stop_loss,take_profit,strategie,cree_le\n",
-    );
-    for s in &signaux {
-        let tp = s["take_profit"]
-            .as_array()
-            .and_then(|a| a.first())
-            .and_then(|v| v.as_f64())
-            .unwrap_or(0.0);
-        csv.push_str(&format!(
-            "{},{},{},{},{:.2},{:.2},{:.2},{:.2},{},{}\n",
-            s["id"].as_str().unwrap_or(""),
-            s["asset"].as_str().unwrap_or(""),
-            s["timeframe"].as_str().unwrap_or(""),
-            s["direction"].as_str().unwrap_or(""),
-            s["score"].as_f64().unwrap_or(0.0),
-            s["prix_entree"].as_f64().unwrap_or(0.0),
-            s["stop_loss"].as_f64().unwrap_or(0.0),
-            tp,
-            s["strategie"].as_str().unwrap_or(""),
-            s["cree_le"].as_str().unwrap_or(""),
-        ));
-    }
-
-    HttpResponse::Ok()
-        .content_type("text/csv; charset=utf-8")
-        .append_header((
-            "Content-Disposition",
-            "attachment; filename=\"signaux.csv\"",
-        ))
-        .body(csv)
 }

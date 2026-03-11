@@ -2,6 +2,8 @@ use actix_cors::Cors;
 use actix_web::{http::header, middleware, web, App, HttpServer};
 
 mod handlers;
+mod config_handlers;
+mod export_handlers;
 mod ml_handlers;
 mod ollama;
 mod ollama_handlers;
@@ -59,13 +61,15 @@ async fn main() -> std::io::Result<()> {
             .route("/api/backtest", web::post().to(handlers::run_backtest))
             .route(
                 "/api/signaux/export",
-                web::get().to(handlers::exporter_signaux_csv),
+                web::get().to(export_handlers::exporter_signaux_csv),
             )
             .route("/api/smc/analyse", web::get().to(smc_handlers::analyse_smc))
             .route("/api/ia/analyse", web::post().to(ollama_handlers::analyser))
             .route("/api/ia/chat", web::post().to(ollama_handlers::chat))
             .route("/api/ia/chart", web::post().to(ollama_handlers::analyser_chart))
             .route("/api/ia/status", web::get().to(ollama_handlers::statut))
+            .route("/api/config", web::get().to(config_handlers::get_config))
+            .route("/api/config", web::post().to(config_handlers::post_config))
             .route("/api/stream", web::get().to(ws_handlers::stream_market))
     })
     .bind(("0.0.0.0", 8080))?

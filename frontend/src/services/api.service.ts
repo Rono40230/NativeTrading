@@ -185,4 +185,22 @@ export const apiService = {
     const res = await http.post('/api/ia/chart', { asset, timeframe, image_base64 }, { timeout: 180000 })
     return res.data
   },
+
+  async obtenirConfig(cle: string): Promise<{ cle: string; valeur: string } | null> {
+    try {
+      const res = await http.get('/api/config', { params: { cle } })
+      return res.data
+    } catch {
+      return null
+    }
+  },
+
+  async sauvegarderConfig(cle: string, valeur: string): Promise<boolean> {
+    try {
+      await http.post('/api/config', { cle, valeur })
+      return true
+    } catch {
+      return false
+    }
+  },
 }

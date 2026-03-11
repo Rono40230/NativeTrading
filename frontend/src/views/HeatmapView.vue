@@ -83,7 +83,7 @@ import type { Candle } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
 
 const alerteStore = useAlerteStore()
-const assets = ['BTC', 'ETH']
+const assets = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD']
 const timeframes = ['M5', 'M15', 'H1', 'H4', 'D1']
 const chargement = ref(false)
 const donnees = ref<Record<string, number>>({}) // cle = "BTC_M15" → ratio ATR

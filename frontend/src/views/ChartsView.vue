@@ -49,7 +49,7 @@
       <span class="text-sm" :class="variation >= 0 ? 'text-emerald-400' : 'text-red-400'">
         {{ variation >= 0 ? '+' : '' }}{{ variation.toFixed(2) }}%
       </span>
-      <span class="text-xs text-gray-500">{{ selectedAsset }}/USDT · {{ selectedTimeframe }}</span>
+      <span class="text-xs text-gray-500">{{ selectedAsset.includes('USD') ? selectedAsset : `${selectedAsset}/USDT` }} · {{ selectedTimeframe }}</span>
     </div>
 
     <!-- Canvas TradingView -->
@@ -107,7 +107,7 @@ import { useChartAnalyse } from '@/composables/useChartAnalyse'
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
 
-const assets = ['BTC', 'ETH']
+const assets = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD']
 const timeframes = ['M1', 'M5', 'M15', 'H1', 'H4', 'D1', 'W1']
 const selectedAsset = ref(settingsStore.assetActif)
 const selectedTimeframe = ref(settingsStore.timeframeActif)

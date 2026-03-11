@@ -114,7 +114,16 @@ impl Asset {
         match self {
             Asset::BTC => Some("BTCUSDT"),
             Asset::ETH => Some("ETHUSDT"),
-            Asset::XAUUSD | Asset::XAGUSD => None, // MT5 uniquement
+            Asset::XAUUSD | Asset::XAGUSD => None, // Twelvedata uniquement
+        }
+    }
+
+    /// Symbole Twelvedata (ex: XAUUSD → "XAU/USD")
+    pub fn vers_twelvedata(&self) -> Option<&'static str> {
+        match self {
+            Asset::BTC | Asset::ETH => None, // Utiliser Binance
+            Asset::XAUUSD => Some("XAU/USD"),
+            Asset::XAGUSD => Some("XAG/USD"),
         }
     }
 

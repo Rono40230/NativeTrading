@@ -5,6 +5,8 @@ pub fn parse_asset(s: &str) -> Option<Asset> {
     match s.to_uppercase().as_str() {
         "BTC" => Some(Asset::BTC),
         "ETH" => Some(Asset::ETH),
+        "XAUUSD" | "XAU" | "GOLD" => Some(Asset::XAUUSD),
+        "XAGUSD" | "XAG" | "SILVER" => Some(Asset::XAGUSD),
         _ => None,
     }
 }

@@ -1,0 +1,58 @@
+use actix_web::{web, HttpResponse, Responder};
+use serde::Deserialize;
+
+use crate::state::AppState;
+
+/// Clés de configuration autorisées (whitelist de sécurité)
+const CLES_AUTORISEES: &[&str] = &["twelvedata_api_key", "capital_depart", "risque_trade"];
+
+#[derive(Deserialize)]
+pub struct ConfigQuery {
+    pub cle: String,
+}
+
+#[derive(Deserialize)]
+pub struct ConfigUpdate {
+    pub cle: String,
+    pub valeur: String,
+}
+
+/// GET /api/config?cle=... — lit une valeur de configuration depuis SQLite
+pub async fn get_config(
+    state: web::Data<AppState>,
+    query: web::Query<ConfigQuery>,
+) -> impl Responder {
+    if !CLES_AUTORISEES.contains(&query.cle.as_str()) {
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({ "error": "Clé de configuration non autorisée" }));
+    }
+    match state.db.lire_config(&query.cle).await {
+        Ok(Some(val)) => HttpResponse::Ok().json(serde_json::json!({
+            "cle": query.cle,
+            "valeur": val
+        })),
+        Ok(None) => HttpResponse::NotFound()
+            .json(serde_json::json!({ "error": "Clé non trouvée" })),
+        Err(e) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "error": format!("{}", e) })),
+    }
+}
+
+/// POST /api/config — enregistre une valeur de configuration dans SQLite
+pub async fn post_config(
+    state: web::Data<AppState>,
+    body: web::Json<ConfigUpdate>,
+) -> impl Responder {
+    if !CLES_AUTORISEES.contains(&body.cle.as_str()) {
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({ "error": "Clé de configuration non autorisée" }));
+    }
+    match state.db.ecrire_config(&body.cle, &body.valeur).await {
+        Ok(()) => {
+            tracing::info!("Config mise à jour: {}", body.cle);
+            HttpResponse::Ok().json(serde_json::json!({ "ok": true }))
+        }
+        Err(e) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "error": format!("{}", e) })),
+    }
+}
