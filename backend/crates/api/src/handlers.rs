@@ -1,6 +1,10 @@
 use actix_web::{web, HttpResponse, Responder};
 use backtest::BacktestEngine;
-use data::{providers::binance::BinanceProvider, providers::finnhub::FinnhubProvider, DataProvider};
+use data::{
+    providers::binance::BinanceProvider,
+    providers::yahoo::YahooFinanceProvider,
+    DataProvider,
+};
 use serde::{Deserialize, Serialize};
 use strategies::{smc_directional::SmcDirectionalStrategy, straddle::StraddleStrategy};
 
@@ -59,15 +63,10 @@ pub async fn get_candles(
     let bougies = match bougies_db {
         Ok(b) if b.len() >= 60 => b,
         _ => {
-            let bougies_result = if asset.vers_finnhub().is_some() {
-                // Métaux/forex → Finnhub
-                let api_key = obtenir_cle_finnhub(&state).await;
-                if api_key.is_empty() {
-                    return HttpResponse::ServiceUnavailable().json(
-                        serde_json::json!({ "error": "Clé API Finnhub manquante → aller dans ⚙️ Paramètres" }),
-                    );
-                }
-                FinnhubProvider::new(api_key)
+            let bougies_result = if YahooFinanceProvider::vers_symbole(&asset).is_some() {
+                // Métaux → Yahoo Finance (gratuit, sans clé API)
+                tracing::info!("Yahoo Finance: {} {:?}", query.asset, timeframe);
+                YahooFinanceProvider::new()
                     .fetch_candles(asset.clone(), timeframe, limit)
                     .await
             } else {
@@ -99,13 +98,6 @@ pub async fn get_candles(
     };
 
     HttpResponse::Ok().json(bougies)
-}
-
-/// Lit la clé API Finnhub depuis la DB (prioritaire) ou le .env (fallback)
-async fn obtenir_cle_finnhub(state: &web::Data<AppState>) -> String {
-    state.db.lire_config("finnhub_api_key").await
-        .ok().flatten().filter(|k| !k.is_empty())
-        .unwrap_or_else(|| std::env::var("FINNHUB_API_KEY").unwrap_or_default())
 }
 
 // ─── Signaux ──────────────────────────────────────────────────────────────────
