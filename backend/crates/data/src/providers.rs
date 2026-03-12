@@ -1,4 +1,1 @@
-pub mod binance;
-pub mod finnhub;
-pub mod twelvedata;
-pub mod yahoo;
+// Providers de données — IB Gateway uniquement (à venir)

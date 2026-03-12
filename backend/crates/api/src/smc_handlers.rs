@@ -1,5 +1,4 @@
 use actix_web::{web, HttpResponse, Responder};
-use data::{providers::binance::BinanceProvider, DataProvider};
 use serde::Deserialize;
 use smc::scorer;
 
@@ -35,20 +34,11 @@ pub async fn analyse_smc(
         .await
         .unwrap_or_default();
 
-    let bougies = if bougies.len() < 30 {
-        match asset.vers_binance() {
-            Some(_) => {
-                let provider = BinanceProvider::new();
-                provider
-                    .fetch_candles(asset.clone(), timeframe, limit as usize)
-                    .await
-                    .unwrap_or(bougies)
-            }
-            None => bougies,
-        }
-    } else {
-        bougies
-    };
+    if bougies.len() < 30 {
+        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "error": "IB Gateway non connecté — données insuffisantes pour l'analyse SMC"
+        }));
+    }
 
     match scorer(&bougies) {
         Some(score) => HttpResponse::Ok().json(score),

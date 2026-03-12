@@ -67,19 +67,6 @@ pub enum Timeframe {
 }
 
 impl Timeframe {
-    /// Conversion vers le format Binance API (ex: "1m", "5m", "15m")
-    pub fn vers_binance(&self) -> &'static str {
-        match self {
-            Timeframe::M1 => "1m",
-            Timeframe::M5 => "5m",
-            Timeframe::M15 => "15m",
-            Timeframe::H1 => "1h",
-            Timeframe::H4 => "4h",
-            Timeframe::D1 => "1d",
-            Timeframe::W1 => "1w",
-        }
-    }
-
     pub fn as_str(&self) -> &'static str {
         match self {
             Timeframe::M1 => "M1",
@@ -109,33 +96,6 @@ pub enum Asset {
 }
 
 impl Asset {
-    /// Symbole Binance (ex: BTC → "BTCUSDT")
-    pub fn vers_binance(&self) -> Option<&'static str> {
-        match self {
-            Asset::BTC => Some("BTCUSDT"),
-            Asset::ETH => Some("ETHUSDT"),
-            Asset::XAUUSD | Asset::XAGUSD => None, // Twelvedata uniquement
-        }
-    }
-
-    /// Symbole Twelvedata (ex: XAUUSD → "XAU/USD")
-    pub fn vers_twelvedata(&self) -> Option<&'static str> {
-        match self {
-            Asset::BTC | Asset::ETH => None,
-            Asset::XAUUSD => Some("XAU/USD"),
-            Asset::XAGUSD => Some("XAG/USD"),
-        }
-    }
-
-    /// Symbole Finnhub via OANDA (ex: XAUUSD → "OANDA:XAU_USD")
-    pub fn vers_finnhub(&self) -> Option<&'static str> {
-        match self {
-            Asset::BTC | Asset::ETH => None, // Utiliser Binance
-            Asset::XAUUSD => Some("OANDA:XAU_USD"),
-            Asset::XAGUSD => Some("OANDA:XAG_USD"),
-        }
-    }
-
     pub fn as_str(&self) -> &'static str {
         match self {
             Asset::BTC => "BTC",

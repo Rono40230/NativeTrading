@@ -1,10 +1,5 @@
 use actix_web::{web, HttpResponse, Responder};
 use backtest::BacktestEngine;
-use data::{
-    providers::binance::BinanceProvider,
-    providers::yahoo::YahooFinanceProvider,
-    DataProvider,
-};
 use serde::{Deserialize, Serialize};
 use strategies::{smc_directional::SmcDirectionalStrategy, straddle::StraddleStrategy};
 
@@ -63,37 +58,10 @@ pub async fn get_candles(
     let bougies = match bougies_db {
         Ok(b) if b.len() >= 60 => b,
         _ => {
-            let bougies_result = if YahooFinanceProvider::vers_symbole(&asset).is_some() {
-                // Métaux → Yahoo Finance (gratuit, sans clé API)
-                tracing::info!("Yahoo Finance: {} {:?}", query.asset, timeframe);
-                YahooFinanceProvider::new()
-                    .fetch_candles(asset.clone(), timeframe, limit)
-                    .await
-            } else {
-                // Crypto → Binance
-                tracing::info!("Binance: {} {:?}", query.asset, timeframe);
-                BinanceProvider::new()
-                    .fetch_candles(asset.clone(), timeframe, limit)
-                    .await
-            };
-            match bougies_result {
-                Ok(b) => {
-                    let db = state.db.clone();
-                    let b_clone = b.clone();
-                    let a_clone = asset.clone();
-                    tokio::spawn(async move {
-                        if let Err(e) = db.inserer_bougies(&a_clone, &timeframe, &b_clone).await {
-                            tracing::warn!("Échec sauvegarde bougies: {}", e);
-                        }
-                    });
-                    b
-                }
-                Err(e) => {
-                    tracing::error!("Erreur provider: {}", e);
-                    return HttpResponse::ServiceUnavailable()
-                        .json(serde_json::json!({ "error": format!("Données: {}", e) }));
-                }
-            }
+            // IB Gateway sera le seul provider — stub jusqu'à l'intégration
+            return HttpResponse::ServiceUnavailable().json(
+                serde_json::json!({ "error": "IB Gateway non connecté — données non disponibles" }),
+            );
         }
     };
 
@@ -150,12 +118,11 @@ pub async fn predict_ml(
 
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
 
-    let provider = BinanceProvider::new();
-    let bougies = match provider.fetch_candles(asset.clone(), timeframe, 100).await {
-        Ok(b) => b,
-        Err(e) => {
+    let bougies = match state.db.obtenir_bougies(&asset, &timeframe, 100).await {
+        Ok(b) if !b.is_empty() => b,
+        _ => {
             return HttpResponse::ServiceUnavailable()
-                .json(serde_json::json!({ "error": format!("Données: {}", e) }));
+                .json(serde_json::json!({ "error": "IB Gateway non connecté — données non disponibles" }));
         }
     };
 
@@ -197,7 +164,7 @@ pub struct BacktestRequest {
 }
 
 pub async fn run_backtest(
-    _state: web::Data<AppState>,
+    state: web::Data<AppState>,
     body: web::Json<BacktestRequest>,
 ) -> impl Responder {
     let asset = match parse_asset(&body.asset) {
@@ -221,12 +188,11 @@ pub async fn run_backtest(
         strategie
     );
 
-    let provider = BinanceProvider::new();
-    let bougies = match provider.fetch_candles(asset, timeframe, limit).await {
-        Ok(b) => b,
-        Err(e) => {
+    let bougies = match state.db.obtenir_bougies(&asset, &timeframe, limit as i64).await {
+        Ok(b) if b.len() >= 30 => b,
+        _ => {
             return HttpResponse::ServiceUnavailable()
-                .json(serde_json::json!({ "error": format!("Données: {}", e) }));
+                .json(serde_json::json!({ "error": "IB Gateway non connecté — données insuffisantes pour le backtest" }));
         }
     };
 

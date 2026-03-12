@@ -4,7 +4,7 @@ use serde::Deserialize;
 use crate::state::AppState;
 
 /// Clés de configuration autorisées (whitelist de sécurité)
-const CLES_AUTORISEES: &[&str] = &["finnhub_api_key", "twelvedata_api_key", "capital_depart", "risque_trade"];
+const CLES_AUTORISEES: &[&str] = &["capital_depart", "risque_trade", "ibgateway_port", "ibgateway_client_id"];
 
 #[derive(Deserialize)]
 pub struct ConfigQuery {

@@ -25,24 +25,12 @@ impl AppState {
         db.run_migrations().await?;
         tracing::info!("Base de données initialisée + migrations: {}", db_path);
 
+        // Pipeline ML
         let mut pipeline_ml = PipelineML::new();
         match pipeline_ml.charger_depuis_disque() {
             Ok(true) => tracing::info!("Pipeline ML rechargé depuis disque"),
             Ok(false) => tracing::info!("Pipeline ML initialisé (pas de modèle persisté — entraînement requis)"),
             Err(e) => tracing::warn!("Impossible de charger le pipeline ML: {}", e),
-        }
-
-        // Pré-initialiser la clé Finnhub depuis .env si absente de la DB
-        if let Ok(cle) = std::env::var("FINNHUB_API_KEY") {
-            if !cle.is_empty() {
-                if let Ok(None) = db.lire_config("finnhub_api_key").await {
-                    if let Err(e) = db.ecrire_config("finnhub_api_key", &cle).await {
-                        tracing::warn!("Impossible de persister la clé Finnhub: {}", e);
-                    } else {
-                        tracing::info!("Clé API Finnhub initialisée depuis .env");
-                    }
-                }
-            }
         }
 
         Ok(Self {

@@ -1,6 +1,5 @@
 use actix_web::{web, HttpResponse, Responder};
 use common::Asset;
-use data::{providers::binance::BinanceProvider, DataProvider};
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
@@ -43,24 +42,26 @@ pub async fn entrainer_ml(
     );
     let debut = Instant::now();
 
-    // Récupération des bougies
-    let provider = BinanceProvider::new();
-    let bougies = match provider.fetch_candles(asset, timeframe, limit).await {
-        Ok(b) => b,
+    // Récupération des bougies depuis la DB (IB Gateway les y aura insérées)
+    let bougies = match state.db.obtenir_bougies(
+        &parse_asset(query.asset.as_deref().unwrap_or("XAUUSD")).unwrap_or(Asset::XAUUSD),
+        &parse_timeframe(query.timeframe.as_deref().unwrap_or("M15")),
+        limit as i64,
+    ).await {
+        Ok(b) if b.len() >= 100 => b,
+        Ok(b) => {
+            return HttpResponse::BadRequest().json(serde_json::json!({
+                "error": format!("Données insuffisantes: {} bougies (min 100) — IB Gateway doit être connecté", b.len())
+            }));
+        }
         Err(e) => {
             return HttpResponse::ServiceUnavailable().json(serde_json::json!({
-                "error": format!("Données Binance: {}", e)
+                "error": format!("DB: {}", e)
             }));
         }
     };
 
     let nb = bougies.len();
-    if nb < 100 {
-        return HttpResponse::BadRequest().json(serde_json::json!({
-            "error": format!("Données insuffisantes: {} bougies (min 100)", nb)
-        }));
-    }
-
     let mut pipeline = state.pipeline_ml.lock().await;
     match pipeline.entrainer_sur_historique(&bougies, 5, 0.002) {
         Ok((acc_rf, acc_lstm)) => {
