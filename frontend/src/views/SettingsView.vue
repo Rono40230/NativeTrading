@@ -45,7 +45,7 @@
     <div class="glass-card p-6">
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">Sources de données</h2>
       <p class="text-xs text-gray-500 mb-4">
-        BTC/ETH → Binance (gratuit) · XAUUSD/XAGUSD → Twelvedata
+        BTC/ETH → Binance (gratuit) · XAUUSD/XAGUSD → Finnhub (OANDA)
       </p>
 
       <!-- Binance (lecture seule) -->
@@ -58,14 +58,14 @@
         </div>
       </div>
 
-      <!-- Twelvedata API Key -->
+      <!-- Finnhub API Key -->
       <div>
-        <label class="block mb-1 text-sm text-gray-300">Twelvedata API Key</label>
+        <label class="block mb-1 text-sm text-gray-300">Finnhub API Key</label>
         <div class="flex gap-3 items-center flex-wrap">
           <input
-            v-model="cléTwelvedata"
+            v-model="cléFinnhub"
             :type="afficherCle ? 'text' : 'password'"
-            placeholder="ex: 1f192cc6b363..."
+            placeholder="ex: d1abc23def456..."
             class="bg-gray-700 text-white rounded px-3 py-2 w-72 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
           />
           <button
@@ -76,14 +76,14 @@
           </button>
           <button
             class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium transition-colors disabled:opacity-40"
-            :disabled="!cléTwelvedata || sauvegardeApiKey"
-            @click="sauvegarderApiKey"
+            :disabled="!cléFinnhub || sauvegardeEnCours"
+            @click="sauvegarderCle"
           >
-            {{ sauvegardeApiKey ? '⏳ Enregistrement...' : '💾 Enregistrer' }}
+            {{ sauvegardeEnCours ? '⏳ Enregistrement...' : '💾 Enregistrer' }}
           </button>
           <button
             class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium transition-colors disabled:opacity-40"
-            :disabled="!cléTwelvedata || testEnCours"
+            :disabled="!cléFinnhub || testEnCours"
             @click="testerConnexion"
           >
             {{ testEnCours ? '⏳ Test...' : '🔌 Tester' }}
@@ -91,7 +91,7 @@
         </div>
         <p class="text-xs text-gray-500 mt-1">
           Inscription gratuite sur
-          <span class="text-blue-400">twelvedata.com</span> → Dashboard → API Keys
+          <span class="text-blue-400">finnhub.io</span> → Dashboard → API Keys
         </p>
         <div v-if="statutTest" class="mt-2 px-3 py-2 rounded text-sm" :class="statutTest.ok ? 'bg-emerald-900/40 text-emerald-400' : 'bg-red-900/40 text-red-400'">
           {{ statutTest.ok ? '✓' : '✗' }} {{ statutTest.message }}
@@ -104,21 +104,29 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settings.store'
-import { apiService } from '@/services/api.service'
 
 const settingsStore = useSettingsStore()
 const capitalSaisie = ref(settingsStore.capitalDepart)
 const sauvegarde = ref(false)
-const cléTwelvedata = ref('')
+const cléFinnhub = ref('')
 const afficherCle = ref(false)
-const sauvegardeApiKey = ref(false)
+const sauvegardeEnCours = ref(false)
 const testEnCours = ref(false)
 const statutTest = ref<{ ok: boolean; message: string } | null>(null)
 
+const API = 'http://localhost:8080'
+
 onMounted(async () => {
   capitalSaisie.value = settingsStore.capitalDepart
-  const config = await apiService.obtenirConfig('twelvedata_api_key')
-  if (config?.valeur) cléTwelvedata.value = config.valeur
+  try {
+    const res = await fetch(`${API}/api/config?cle=finnhub_api_key`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data?.valeur) cléFinnhub.value = data.valeur
+    }
+  } catch {
+    // clé pas encore configurée
+  }
 })
 
 function sauvegarder() {
@@ -129,29 +137,50 @@ function sauvegarder() {
   }
 }
 
-async function sauvegarderApiKey() {
-  if (!cléTwelvedata.value) return
-  sauvegardeApiKey.value = true
-  const ok = await apiService.sauvegarderConfig('twelvedata_api_key', cléTwelvedata.value)
-  sauvegardeApiKey.value = false
-  statutTest.value = ok ? { ok: true, message: 'Clé sauvegardée avec succès' } : { ok: false, message: 'Erreur lors de la sauvegarde' }
-  setTimeout(() => { statutTest.value = null }, 3000)
+async function sauvegarderCle() {
+  if (!cléFinnhub.value) return
+  sauvegardeEnCours.value = true
+  try {
+    const res = await fetch(`${API}/api/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cle: 'finnhub_api_key', valeur: cléFinnhub.value }),
+    })
+    statutTest.value = res.ok
+      ? { ok: true, message: 'Clé sauvegardée avec succès' }
+      : { ok: false, message: 'Erreur lors de la sauvegarde' }
+  } catch {
+    statutTest.value = { ok: false, message: 'Impossible de joindre le backend' }
+  } finally {
+    sauvegardeEnCours.value = false
+    setTimeout(() => { statutTest.value = null }, 3000)
+  }
 }
 
 async function testerConnexion() {
-  if (!cléTwelvedata.value) return
+  if (!cléFinnhub.value) return
   testEnCours.value = true
   statutTest.value = null
   try {
-    // Sauvegarde la clé d'abord pour que le backend l'utilise
-    await apiService.sauvegarderConfig('twelvedata_api_key', cléTwelvedata.value)
-    const candles = await apiService.getCandles('XAUUSD', 'M15', 1)
-    statutTest.value = candles.length > 0
-      ? { ok: true, message: `Connexion OK — XAUUSD reçu (${candles.length} bougie)` }
-      : { ok: false, message: 'Connexion établie mais aucune donnée reçue' }
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Erreur inconnue'
-    statutTest.value = { ok: false, message: `Échec: ${msg}` }
+    await fetch(`${API}/api/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cle: 'finnhub_api_key', valeur: cléFinnhub.value }),
+    })
+    const res = await fetch(`${API}/api/candles?asset=XAUUSD&timeframe=M15&limit=1`, {
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (res.ok) {
+      const candles = await res.json()
+      statutTest.value = Array.isArray(candles) && candles.length > 0
+        ? { ok: true, message: `Connexion OK — XAUUSD reçu (${candles.length} bougie)` }
+        : { ok: false, message: 'Réponse vide — vérifier la clé' }
+    } else {
+      const err = await res.json().catch(() => ({}))
+      statutTest.value = { ok: false, message: err?.error ?? `Erreur HTTP ${res.status}` }
+    }
+  } catch (e: unknown) {
+    statutTest.value = { ok: false, message: `Échec: ${(e as Error).message}` }
   } finally {
     testEnCours.value = false
   }

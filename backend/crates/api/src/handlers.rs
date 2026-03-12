@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse, Responder};
 use backtest::BacktestEngine;
-use data::{providers::binance::BinanceProvider, providers::twelvedata::TwelvedataProvider, DataProvider};
+use data::{providers::binance::BinanceProvider, providers::finnhub::FinnhubProvider, DataProvider};
 use serde::{Deserialize, Serialize};
 use strategies::{smc_directional::SmcDirectionalStrategy, straddle::StraddleStrategy};
 
@@ -59,15 +59,15 @@ pub async fn get_candles(
     let bougies = match bougies_db {
         Ok(b) if b.len() >= 60 => b,
         _ => {
-            let bougies_result = if asset.vers_twelvedata().is_some() {
-                // Métaux/forex → Twelvedata
-                let api_key = obtenir_cle_twelvedata(&state).await;
+            let bougies_result = if asset.vers_finnhub().is_some() {
+                // Métaux/forex → Finnhub
+                let api_key = obtenir_cle_finnhub(&state).await;
                 if api_key.is_empty() {
                     return HttpResponse::ServiceUnavailable().json(
-                        serde_json::json!({ "error": "Clé API Twelvedata manquante → aller dans ⚙️ Paramètres" }),
+                        serde_json::json!({ "error": "Clé API Finnhub manquante → aller dans ⚙️ Paramètres" }),
                     );
                 }
-                TwelvedataProvider::new(api_key)
+                FinnhubProvider::new(api_key)
                     .fetch_candles(asset.clone(), timeframe, limit)
                     .await
             } else {
@@ -101,11 +101,11 @@ pub async fn get_candles(
     HttpResponse::Ok().json(bougies)
 }
 
-/// Lit la clé API Twelvedata depuis la DB (prioritaire) ou le .env (fallback)
-async fn obtenir_cle_twelvedata(state: &web::Data<AppState>) -> String {
-    state.db.lire_config("twelvedata_api_key").await
+/// Lit la clé API Finnhub depuis la DB (prioritaire) ou le .env (fallback)
+async fn obtenir_cle_finnhub(state: &web::Data<AppState>) -> String {
+    state.db.lire_config("finnhub_api_key").await
         .ok().flatten().filter(|k| !k.is_empty())
-        .unwrap_or_else(|| std::env::var("TWELVEDATA_API_KEY").unwrap_or_default())
+        .unwrap_or_else(|| std::env::var("FINNHUB_API_KEY").unwrap_or_default())
 }
 
 // ─── Signaux ──────────────────────────────────────────────────────────────────

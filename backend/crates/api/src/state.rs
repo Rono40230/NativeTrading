@@ -32,14 +32,14 @@ impl AppState {
             Err(e) => tracing::warn!("Impossible de charger le pipeline ML: {}", e),
         }
 
-        // Pré-initialiser la clé Twelvedata depuis .env si absente de la DB
-        if let Ok(cle) = std::env::var("TWELVEDATA_API_KEY") {
+        // Pré-initialiser la clé Finnhub depuis .env si absente de la DB
+        if let Ok(cle) = std::env::var("FINNHUB_API_KEY") {
             if !cle.is_empty() {
-                if let Ok(None) = db.lire_config("twelvedata_api_key").await {
-                    if let Err(e) = db.ecrire_config("twelvedata_api_key", &cle).await {
-                        tracing::warn!("Impossible de persister la clé Twelvedata: {}", e);
+                if let Ok(None) = db.lire_config("finnhub_api_key").await {
+                    if let Err(e) = db.ecrire_config("finnhub_api_key", &cle).await {
+                        tracing::warn!("Impossible de persister la clé Finnhub: {}", e);
                     } else {
-                        tracing::info!("Clé API Twelvedata initialisée depuis .env");
+                        tracing::info!("Clé API Finnhub initialisée depuis .env");
                     }
                 }
             }

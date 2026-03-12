@@ -121,9 +121,18 @@ impl Asset {
     /// Symbole Twelvedata (ex: XAUUSD → "XAU/USD")
     pub fn vers_twelvedata(&self) -> Option<&'static str> {
         match self {
-            Asset::BTC | Asset::ETH => None, // Utiliser Binance
+            Asset::BTC | Asset::ETH => None,
             Asset::XAUUSD => Some("XAU/USD"),
             Asset::XAGUSD => Some("XAG/USD"),
+        }
+    }
+
+    /// Symbole Finnhub via OANDA (ex: XAUUSD → "OANDA:XAU_USD")
+    pub fn vers_finnhub(&self) -> Option<&'static str> {
+        match self {
+            Asset::BTC | Asset::ETH => None, // Utiliser Binance
+            Asset::XAUUSD => Some("OANDA:XAU_USD"),
+            Asset::XAGUSD => Some("OANDA:XAG_USD"),
         }
     }
 

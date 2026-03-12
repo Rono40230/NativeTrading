@@ -212,17 +212,17 @@ function mettreAJourSerie() {
 async function changerAsset(asset: string) {
   selectedAsset.value = asset
   settingsStore.definirAsset(asset)
-  marketStore.deconnecterStream()
+  arreterLiveFeed()
   await chargerEtReinitChart()
-  marketStore.connecterStream(asset, selectedTimeframe.value)
+  demarrerLiveFeed(asset, selectedTimeframe.value)
 }
 
 async function changerTimeframe(tf: string) {
   selectedTimeframe.value = tf
   settingsStore.definirTimeframe(tf)
-  marketStore.deconnecterStream()
+  arreterLiveFeed()
   await chargerEtReinitChart()
-  marketStore.connecterStream(selectedAsset.value, tf)
+  demarrerLiveFeed(selectedAsset.value, tf)
 }
 
 async function chargerData() {
@@ -246,6 +246,15 @@ async function actualiser() {
   await chargerEtReinitChart()
 }
 
+/** Démarre le live feed WebSocket (crypto via Binance, métaux via Finnhub) */
+function demarrerLiveFeed(asset: string, timeframe: string) {
+  marketStore.connecterStream(asset, timeframe)
+}
+
+function arreterLiveFeed() {
+  marketStore.deconnecterStream()
+}
+
 // Rechargement complet (changement asset/timeframe)
 watch(bougies, () => {
   if (candleSeries) mettreAJourSerie()
@@ -267,7 +276,7 @@ watch(() => marketStore.wsMiseAJour, (update) => {
 onMounted(async () => {
   await chargerData()
   initChart()
-  marketStore.connecterStream(selectedAsset.value, selectedTimeframe.value)
+  demarrerLiveFeed(selectedAsset.value, selectedTimeframe.value)
 
   resizeObserver = new ResizeObserver(() => {
     if (chart && chartContainer.value) {
@@ -283,7 +292,7 @@ onMounted(async () => {
 onUnmounted(() => {
   chart?.remove()
   resizeObserver?.disconnect()
-  marketStore.deconnecterStream()
+  arreterLiveFeed()
 })
 </script>
 
