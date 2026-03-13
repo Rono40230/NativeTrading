@@ -34,21 +34,21 @@ impl Strategy for SmcDirectionalStrategy {
             return Ok(None);
         }
 
-        let entree = bougies[n - 1].close;
+        let prix_entree = bougies[n - 1].close;
         let confiance = (score.total / 100.0).min(1.0);
 
         let (stop_loss, take_profit, take_profit_2, take_profit_3) = match score.direction {
             Direction::Long => (
-                entree - atr_val * ATR_SL,
-                entree + atr_val * ATR_TP1,
-                Some(entree + atr_val * ATR_TP2),
-                Some(entree + atr_val * ATR_TP3),
+                prix_entree - atr_val * ATR_SL,
+                prix_entree + atr_val * ATR_TP1,
+                Some(prix_entree + atr_val * ATR_TP2),
+                Some(prix_entree + atr_val * ATR_TP3),
             ),
             Direction::Short => (
-                entree + atr_val * ATR_SL,
-                entree - atr_val * ATR_TP1,
-                Some(entree - atr_val * ATR_TP2),
-                Some(entree - atr_val * ATR_TP3),
+                prix_entree + atr_val * ATR_SL,
+                prix_entree - atr_val * ATR_TP1,
+                Some(prix_entree - atr_val * ATR_TP2),
+                Some(prix_entree - atr_val * ATR_TP3),
             ),
             Direction::Both => return Ok(None),
         };
@@ -57,7 +57,7 @@ impl Strategy for SmcDirectionalStrategy {
             "SMC signal {:?} score={:.1} entry={:.2} sl={:.2} tp1={:.2} tp2={:.2} tp3={:.2}",
             score.direction,
             score.total,
-            entree,
+            prix_entree,
             stop_loss,
             take_profit,
             take_profit_2.unwrap_or(0.0),
@@ -66,8 +66,8 @@ impl Strategy for SmcDirectionalStrategy {
 
         Ok(Some(Signal {
             direction: score.direction,
-            confidence: confiance,
-            entry_price: entree,
+            confiance,
+            prix_entree,
             stop_loss,
             take_profit,
             take_profit_2,

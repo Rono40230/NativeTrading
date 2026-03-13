@@ -35,8 +35,17 @@ pub async fn analyse_smc(
         .unwrap_or_default();
 
     if bougies.len() < 30 {
-        return HttpResponse::ServiceUnavailable().json(serde_json::json!({
-            "error": "IB Gateway non connecté — données insuffisantes pour l'analyse SMC"
+        // Pas assez de données → retourner un score zéro (200) au lieu de 503
+        return HttpResponse::Ok().json(serde_json::json!({
+            "total": 0.0,
+            "tendance": 0.0,
+            "order_block": 0.0,
+            "imbalance": 0.0,
+            "ifvg": 0.0,
+            "fibonacci": 0.0,
+            "direction": "Both",
+            "confluence": false,
+            "message": "IB Gateway non connecté — données insuffisantes"
         }));
     }
 

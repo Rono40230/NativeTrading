@@ -2,31 +2,98 @@
   <div class="space-y-6">
     <h1 class="text-3xl font-bold">⚙️ Configuration</h1>
 
+    <!-- IB Gateway -->
+    <div class="glass-card p-6">
+      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">IB Gateway — Connexion</h2>
+      <div class="space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+          <!-- Port -->
+          <div>
+            <label class="block mb-2 text-sm text-gray-300">Port</label>
+            <div class="flex gap-2">
+              <input
+                v-model.number="ibPort"
+                type="number"
+                min="1024"
+                max="65535"
+                placeholder="4002"
+                class="bg-gray-700 text-white rounded px-3 py-2 w-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span class="text-xs text-gray-500 self-center">4002 = paper · 4001 = live</span>
+            </div>
+          </div>
+          <!-- Client ID -->
+          <div>
+            <label class="block mb-2 text-sm text-gray-300">Client ID</label>
+            <input
+              v-model.number="ibClientId"
+              type="number"
+              min="1"
+              max="9999"
+              placeholder="100"
+              class="bg-gray-700 text-white rounded px-3 py-2 w-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 flex-wrap">
+          <button
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium transition-colors"
+            @click="sauvegarderIB"
+          >
+            Enregistrer
+          </button>
+          <button
+            class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium transition-colors"
+            :disabled="testEnCours"
+            @click="testerConnexion"
+          >
+            {{ testEnCours ? 'Test en cours…' : '🔌 Tester la connexion' }}
+          </button>
+          <span v-if="ibSauvegarde" class="text-emerald-400 text-sm">✓ Sauvegardé</span>
+
+          <!-- Résultat du test -->
+          <span v-if="statutConnexion === 'ok'" class="text-xs px-3 py-1 rounded bg-emerald-900/40 text-emerald-300 border border-emerald-700/30">
+            ✅ IB Gateway connecté
+          </span>
+          <span v-else-if="statutConnexion === 'erreur'" class="text-xs px-3 py-1 rounded bg-red-900/40 text-red-400 border border-red-700/30">
+            ❌ {{ erreurConnexion }}
+          </span>
+        </div>
+
+        <div class="flex items-center gap-3 px-4 py-3 bg-blue-900/20 border border-blue-700/30 rounded-lg">
+          <span class="text-2xl">🔌</span>
+          <div>
+            <p class="text-sm font-medium text-blue-300">Interactive Brokers — Provider unique</p>
+            <p class="text-xs text-gray-400 mt-0.5">XAUUSD · XAGUSD · BTC · ETH · Timeframes M1→W1</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Capital de départ -->
     <div class="glass-card p-6">
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Compte</h2>
-      <div class="space-y-4">
-        <div>
-          <label class="block mb-2 text-sm text-gray-300">Capital de départ (€)</label>
-          <div class="flex gap-3 items-center">
-            <input
-              v-model.number="capitalSaisie"
-              type="number"
-              min="1"
-              step="100"
-              class="bg-gray-700 text-white rounded px-3 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              @keyup.enter="sauvegarder"
-            />
-            <button
-              class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm font-medium transition-colors"
-              @click="sauvegarder"
-            >
-              Enregistrer
-            </button>
-            <span v-if="sauvegarde" class="text-emerald-400 text-sm">✓ Sauvegardé</span>
-          </div>
-          <p class="text-xs text-gray-500 mt-1">Utilisé pour le backtesting et le dimensionnement des positions</p>
+      <div>
+        <label class="block mb-2 text-sm text-gray-300">Capital de départ (€)</label>
+        <div class="flex gap-3 items-center">
+          <input
+            v-model.number="capitalSaisie"
+            type="number"
+            min="1"
+            step="100"
+            class="bg-gray-700 text-white rounded px-3 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            @keyup.enter="sauvegarder"
+          />
+          <button
+            class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm font-medium transition-colors"
+            @click="sauvegarder"
+          >
+            Enregistrer
+          </button>
+          <span v-if="sauvegarde" class="text-emerald-400 text-sm">✓ Sauvegardé</span>
         </div>
+        <p class="text-xs text-gray-500 mt-1">Utilisé pour le backtesting et le dimensionnement des positions</p>
       </div>
     </div>
 
@@ -40,45 +107,89 @@
         <p class="text-xs text-gray-500 mt-1">Max 2% recommandé (limite absolue : 2%)</p>
       </div>
     </div>
-
-    <!-- Sources de données -->
-    <div class="glass-card p-6">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-1">Sources de données</h2>
-      <p class="text-xs text-gray-500 mb-4">
-        Tous les actifs → IB Gateway (Interactive Brokers)
-      </p>
-      <div class="flex items-center gap-3 px-4 py-3 bg-blue-900/20 border border-blue-700/30 rounded-lg">
-        <span class="text-2xl">🔌</span>
-        <div>
-          <p class="text-sm font-medium text-blue-300">IB Gateway — Provider unique</p>
-          <p class="text-xs text-gray-400 mt-0.5">
-            XAUUSD · XAGUSD · BTC · ETH · Tous timeframes M1→W1
-          </p>
-        </div>
-        <div class="ml-auto">
-          <span class="text-xs px-2 py-1 rounded bg-yellow-900/40 text-yellow-400 border border-yellow-700/30">
-            ⏳ Intégration en cours
-          </span>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useSettingsStore } from '@/stores/settings.store'
+import { apiService } from '@/services/api.service'
 
 const settingsStore = useSettingsStore()
 const capitalSaisie = ref(settingsStore.capitalDepart)
 const sauvegarde = ref(false)
 
+const ibPort = ref(4002)
+const ibClientId = ref(100)
+const ibSauvegarde = ref(false)
+const statutConnexion = ref<'idle' | 'ok' | 'erreur'>('idle')
+const erreurConnexion = ref('')
+const testEnCours = ref(false)
+
+// Nettoyage des timers si l'utilisateur navigue avant qu'ils tirent
+const timers: ReturnType<typeof setTimeout>[] = []
+onUnmounted(() => timers.forEach(clearTimeout))
+
+onMounted(async () => {
+  try {
+    const port = await apiService.obtenirConfig('ibgateway_port')
+    if (port?.valeur != null) ibPort.value = Number(port.valeur)
+    const cid = await apiService.obtenirConfig('ibgateway_client_id')
+    if (cid?.valeur != null) ibClientId.value = Number(cid.valeur)
+  } catch {
+    // Backend non disponible — valeurs par défaut utilisées
+  }
+})
+
 function sauvegarder() {
   if (capitalSaisie.value > 0) {
     settingsStore.definirCapital(capitalSaisie.value)
     sauvegarde.value = true
-    setTimeout(() => { sauvegarde.value = false }, 2000)
+    timers.push(setTimeout(() => { sauvegarde.value = false }, 2000))
   }
+}
+
+async function sauvegarderIB() {
+  try {
+    await Promise.all([
+      apiService.sauvegarderConfig('ibgateway_port', String(ibPort.value)),
+      apiService.sauvegarderConfig('ibgateway_client_id', String(ibClientId.value)),
+    ])
+    ibSauvegarde.value = true
+    timers.push(setTimeout(() => { ibSauvegarde.value = false }, 2000))
+  } catch {
+    // Erreur silencieuse — le backend est peut-être hors-ligne
+  }
+}
+
+async function testerConnexion() {
+  testEnCours.value = true
+  statutConnexion.value = 'idle'
+  erreurConnexion.value = ''
+  try {
+    // 1. Vérifier que le backend répond
+    await apiService.healthCheck()
+  } catch {
+    statutConnexion.value = 'erreur'
+    erreurConnexion.value = 'Backend non disponible — vérifier que l’app est bien lancée'
+    testEnCours.value = false
+    return
+  }
+  // 2. Tester IB Gateway
+  const statut = await apiService.ibStatus()
+  if (statut.connecte) {
+    statutConnexion.value = 'ok'
+  } else {
+    statutConnexion.value = 'erreur'
+    if (statut.erreur?.includes('early eof') || statut.erreur?.includes('eof')) {
+      erreurConnexion.value = 'API socket non activée — voir Configurer > API > Paramètres dans IB Gateway'
+    } else if (statut.erreur?.includes('Timeout')) {
+      erreurConnexion.value = 'IB Gateway ne répond pas (timeout 5s) — est-il ouvert ?'
+    } else {
+      erreurConnexion.value = statut.erreur ?? 'IB Gateway non disponible'
+    }
+  }
+  testEnCours.value = false
 }
 </script>
 

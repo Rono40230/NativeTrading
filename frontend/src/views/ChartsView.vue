@@ -50,13 +50,23 @@
         {{ variation >= 0 ? '+' : '' }}{{ variation.toFixed(2) }}%
       </span>
       <span class="text-xs text-gray-500">{{ selectedAsset.includes('USD') ? selectedAsset : `${selectedAsset}/USDT` }} · {{ selectedTimeframe }}</span>
+      <span v-if="marketStore.wsConnecte" class="flex items-center gap-1 text-xs ml-2"
+        :class="['BTC','ETH'].includes(selectedAsset) ? 'text-emerald-400' : 'text-blue-400'">
+        <span class="w-1.5 h-1.5 rounded-full animate-pulse inline-block"
+          :class="['BTC','ETH'].includes(selectedAsset) ? 'bg-emerald-400' : 'bg-blue-400'" />
+        {{ ['BTC','ETH'].includes(selectedAsset) ? 'LIVE' : 'LIVE 5s' }}
+      </span>
     </div>
 
     <!-- Canvas TradingView -->
     <div class="glass-card" style="height: 480px; position: relative;">
-      <!-- Overlay erreur -->
+      <!-- Overlay erreur de chargement REST (bloquant) -->
       <div v-if="marketStore.erreur" class="absolute inset-0 z-10 flex items-center justify-center bg-black/60 text-red-400 text-sm rounded-xl">
         ⚠ {{ marketStore.erreur }}
+      </div>
+      <!-- Badge erreur WS (non bloquant — données REST toujours affichées) -->
+      <div v-if="marketStore.erreurWs && !marketStore.wsConnecte" class="absolute bottom-2 left-2 z-10 px-3 py-1 rounded bg-yellow-900/70 text-yellow-300 text-xs border border-yellow-700/40">
+        ⚠ {{ marketStore.erreurWs }}
       </div>
       <!-- Overlay chargement -->
       <div v-if="marketStore.chargement" class="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-gray-400 text-sm rounded-xl">
@@ -99,7 +109,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { createChart, type IChartApi, type ISeriesApi, type CandlestickSeriesOptions, type Time } from 'lightweight-charts'
+import { useChartTradingView } from '@/composables/useChartTradingView'
 import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useChartAnalyse } from '@/composables/useChartAnalyse'
@@ -112,10 +122,6 @@ const timeframes = ['M1', 'M5', 'M15', 'H1', 'H4', 'D1', 'W1']
 const selectedAsset = ref(settingsStore.assetActif)
 const selectedTimeframe = ref(settingsStore.timeframeActif)
 const chartContainer = ref<HTMLElement | null>(null)
-
-let chart: IChartApi | null = null
-let candleSeries: ISeriesApi<'Candlestick'> | null = null
-let resizeObserver: ResizeObserver | null = null
 
 const bougies = computed(() =>
   marketStore.getBougies(selectedAsset.value, selectedTimeframe.value)
@@ -143,15 +149,25 @@ const stats = computed(() => {
   return { count: b.length, high, low, volumeMoy }
 })
 
+const {
+  initChart,
+  mettreAJourSerie,
+  mettreAJourEnDirect,
+  detruireChart,
+  configurerRedimensionnement,
+  arreterRedimensionnement,
+  getChart,
+} = useChartTradingView(chartContainer, bougies)
+
 const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
-  useChartAnalyse(() => chart, selectedAsset, selectedTimeframe, dernierPrix, stats)
+  useChartAnalyse(getChart, selectedAsset, selectedTimeframe, dernierPrix, stats)
 
 function formatPrix(v: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
-    maximumFractionDigits: selectedAsset.value === 'BTC' ? 2 : 4,
+    maximumFractionDigits: 2,
   }).format(v)
 }
 
@@ -160,55 +176,6 @@ function formatVolume(v: number): string {
   if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`
   return v.toFixed(2)
 }
-function initChart() {
-  if (!chartContainer.value) return
-  chart = createChart(chartContainer.value, {
-    layout: {
-      background: { color: 'transparent' },
-      textColor: '#9ca3af',
-    },
-    grid: {
-      vertLines: { color: 'rgba(255,255,255,0.05)' },
-      horzLines: { color: 'rgba(255,255,255,0.05)' },
-    },
-    crosshair: { mode: 1 },
-    rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
-    timeScale: {
-      borderColor: 'rgba(255,255,255,0.1)',
-      timeVisible: true,
-      secondsVisible: false,
-    },
-    width: chartContainer.value.clientWidth,
-    height: chartContainer.value.clientHeight,
-  })
-
-  const opts: Partial<CandlestickSeriesOptions> = {
-    upColor: '#10b981',
-    downColor: '#ef4444',
-    borderUpColor: '#10b981',
-    borderDownColor: '#ef4444',
-    wickUpColor: '#10b981',
-    wickDownColor: '#ef4444',
-  }
-  candleSeries = chart.addCandlestickSeries(opts)
-  mettreAJourSerie()
-}
-
-function mettreAJourSerie() {
-  if (!candleSeries) return
-  const data = bougies.value.map((b) => ({
-    time: (new Date(b.timestamp).getTime() / 1000) as unknown as import('lightweight-charts').Time,
-    open: b.open,
-    high: b.high,
-    low: b.low,
-    close: b.close,
-  }))
-  if (data.length > 0) {
-    candleSeries.setData(data)
-    chart?.timeScale().scrollToRealTime()
-  }
-}
-
 async function changerAsset(asset: string) {
   selectedAsset.value = asset
   settingsStore.definirAsset(asset)
@@ -231,9 +198,7 @@ async function chargerData() {
 
 async function chargerEtReinitChart() {
   // Détruire l'ancien graphique avant de changer les données
-  chart?.remove()
-  chart = null
-  candleSeries = null
+  detruireChart()
 
   await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, 200)
 
@@ -257,20 +222,14 @@ function arreterLiveFeed() {
 
 // Rechargement complet (changement asset/timeframe)
 watch(bougies, () => {
-  if (candleSeries) mettreAJourSerie()
+  mettreAJourSerie(true)
 }, { deep: false })
 
 // Mise à jour live via WebSocket (sans recalcul complet)
 watch(() => marketStore.wsMiseAJour, (update) => {
-  if (!update || !candleSeries) return
+  if (!update) return
   if (update.asset !== selectedAsset.value || update.timeframe !== selectedTimeframe.value) return
-  candleSeries.update({
-    time: (new Date(update.bougie.timestamp).getTime() / 1000) as unknown as Time,
-    open: update.bougie.open,
-    high: update.bougie.high,
-    low: update.bougie.low,
-    close: update.bougie.close,
-  })
+  mettreAJourEnDirect(update.bougie)
 })
 
 onMounted(async () => {
@@ -278,20 +237,12 @@ onMounted(async () => {
   initChart()
   demarrerLiveFeed(selectedAsset.value, selectedTimeframe.value)
 
-  resizeObserver = new ResizeObserver(() => {
-    if (chart && chartContainer.value) {
-      chart.applyOptions({
-        width: chartContainer.value.clientWidth,
-        height: chartContainer.value.clientHeight,
-      })
-    }
-  })
-  if (chartContainer.value) resizeObserver.observe(chartContainer.value)
+  configurerRedimensionnement()
 })
 
 onUnmounted(() => {
-  chart?.remove()
-  resizeObserver?.disconnect()
+  detruireChart()
+  arreterRedimensionnement()
   arreterLiveFeed()
 })
 </script>

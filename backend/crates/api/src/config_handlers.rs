@@ -31,8 +31,9 @@ pub async fn get_config(
             "cle": query.cle,
             "valeur": val
         })),
-        Ok(None) => HttpResponse::NotFound()
-            .json(serde_json::json!({ "error": "Clé non trouvée" })),
+        // Clé absente → 200 avec valeur null (pas encore configurée, valeur par défaut côté frontend)
+        Ok(None) => HttpResponse::Ok()
+            .json(serde_json::json!({ "cle": query.cle, "valeur": null })),
         Err(e) => HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": format!("{}", e) })),
     }

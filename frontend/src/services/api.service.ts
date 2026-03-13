@@ -114,9 +114,9 @@ export const apiService = {
     return res.data
   },
 
-  async getCandles(asset: string, timeframe = 'M15', limit = 200): Promise<Candle[]> {
+  async getCandles(asset: string, timeframe = 'M15', limit = 200, force = false): Promise<Candle[]> {
     const res = await http.get('/api/candles', {
-      params: { asset, timeframe, limit },
+      params: { asset, timeframe, limit, ...(force ? { force: true } : {}) },
     })
     return res.data
   },
@@ -201,6 +201,17 @@ export const apiService = {
       return true
     } catch {
       return false
+    }
+  },
+
+  async ibStatus(): Promise<{ connecte: boolean; adresse: string; erreur?: string }> {
+    try {
+      const res = await http.get('/api/ib/status')
+      return res.data
+    } catch (err: any) {
+      // 503 : IB Gateway inaccessible — retourner les données du body si présentes
+      if (err?.response?.data) return err.response.data
+      return { connecte: false, adresse: '', erreur: err?.message ?? 'Erreur réseau' }
     }
   },
 }

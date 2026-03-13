@@ -102,12 +102,56 @@ impl Strategy for StraddleStrategy {
 
         Ok(Some(Signal {
             direction: Direction::Both,
-            confidence: ratio_atr.min(3.0) / 3.0, // normalisé 0-1
-            entry_price: prix_entree,
+            confiance: ratio_atr.min(3.0) / 3.0, // normalisé 0-1
+            prix_entree,
             stop_loss: sl,
             take_profit: tp,
             take_profit_2: None,
             take_profit_3: None,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+    use common::Candle;
+
+    fn bougie_plate(c: f64) -> Candle {
+        Candle { timestamp: Utc::now(), open: c, high: c + 1.0, low: c - 1.0, close: c, volume: 1000.0 }
+    }
+
+    fn bougie_volatile(c: f64, range: f64) -> Candle {
+        Candle { timestamp: Utc::now(), open: c, high: c + range, low: c - range, close: c, volume: 5000.0 }
+    }
+
+    #[test]
+    fn analyse_retourne_none_si_moins_de_30_bougies() {
+        let strat = StraddleStrategy::new();
+        let bougies: Vec<Candle> = (1..=25).map(|i| bougie_plate(i as f64 * 100.0)).collect();
+        assert!(strat.analyze(&bougies).unwrap().is_none());
+    }
+
+    #[test]
+    fn analyse_retourne_none_si_atr_plat() {
+        let strat = StraddleStrategy::new();
+        // Toutes les bougies identiques → ATR ratio = 1.0 ≤ seuil 1.5
+        let bougies: Vec<Candle> = (0..35).map(|_| bougie_plate(100.0)).collect();
+        assert!(strat.analyze(&bougies).unwrap().is_none());
+    }
+
+    #[test]
+    fn analyse_retourne_signal_straddle_si_volatilite_extreme() {
+        let strat = StraddleStrategy::new();
+        // 34 bougies plates, dernière avec range gigantesque → ratio ATR >> 1.5
+        let mut bougies: Vec<Candle> = (0..34).map(|_| bougie_plate(100.0)).collect();
+        bougies.push(bougie_volatile(100.0, 150.0));
+        let signal = strat.analyze(&bougies).unwrap();
+        assert!(signal.is_some());
+        let s = signal.unwrap();
+        assert_eq!(s.direction, Direction::Both);
+        assert!(s.prix_entree > 0.0);
+        assert!(s.take_profit > s.prix_entree);
     }
 }

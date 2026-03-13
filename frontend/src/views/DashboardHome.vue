@@ -261,8 +261,6 @@ onMounted(async () => {
     signalStore.chargerSignaux(10),
     signalStore.chargerPrediction(settingsStore.assetActif, settingsStore.timeframeActif),
     signalStore.chargerScoreSmc(settingsStore.assetActif, settingsStore.timeframeActif),
-    apiService.runBacktest(settingsStore.assetActif, settingsStore.timeframeActif, settingsStore.capitalDepart, 300)
-      .then(r => { metriques.value = r }).catch(() => {}),
   ])
 })
 

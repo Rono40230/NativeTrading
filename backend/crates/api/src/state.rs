@@ -7,6 +7,10 @@ use tokio::sync::Mutex;
 pub struct AppState {
     pub db: Arc<Database>,
     pub pipeline_ml: Arc<Mutex<PipelineML>>,
+    /// Port IB Gateway (4002 = paper, 4001 = live)
+    pub ib_port: u16,
+    /// Client ID pour la connexion IB (doit être unique par connexion)
+    pub ib_client_id: i32,
 }
 
 impl AppState {
@@ -33,9 +37,23 @@ impl AppState {
             Err(e) => tracing::warn!("Impossible de charger le pipeline ML: {}", e),
         }
 
+        // Configuration IB Gateway depuis variables d'environnement ou valeurs par défaut
+        let ib_port = std::env::var("IB_GATEWAY_PORT")
+            .ok()
+            .and_then(|s| s.parse::<u16>().ok())
+            .unwrap_or(4002);
+        let ib_client_id = std::env::var("IB_GATEWAY_CLIENT_ID")
+            .ok()
+            .and_then(|s| s.parse::<i32>().ok())
+            .unwrap_or(100);
+
+        tracing::info!("IB Gateway configuré: 127.0.0.1:{} (client_id={})", ib_port, ib_client_id);
+
         Ok(Self {
             db: Arc::new(db),
             pipeline_ml: Arc::new(Mutex::new(pipeline_ml)),
+            ib_port,
+            ib_client_id,
         })
     }
 }

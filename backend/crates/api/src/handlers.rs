@@ -1,10 +1,45 @@
 use actix_web::{web, HttpResponse, Responder};
 use backtest::BacktestEngine;
+use data::{providers::{BinanceProvider, IbGatewayProvider}, DataProvider};
 use serde::{Deserialize, Serialize};
 use strategies::{smc_directional::SmcDirectionalStrategy, straddle::StraddleStrategy};
 
+
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};
+
+// ─── IB Gateway status ───────────────────────────────────────────────────────
+
+/// GET /api/ib/status — Tente une vraie connexion TCP à IB Gateway (timeout 5s)
+pub async fn ib_status(state: web::Data<AppState>) -> impl Responder {
+    let adresse = format!("127.0.0.1:{}", state.ib_port);
+    let connexion = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        ibapi::Client::connect(&adresse, state.ib_client_id + 10),
+    )
+    .await;
+
+    match connexion {
+        Ok(Ok(client)) => {
+            let version = client.server_version();
+            HttpResponse::Ok().json(serde_json::json!({
+                "connecte": true,
+                "adresse": adresse,
+                "server_version": version
+            }))
+        }
+        Ok(Err(e)) => HttpResponse::Ok().json(serde_json::json!({
+            "connecte": false,
+            "adresse": adresse,
+            "erreur": format!("{}", e)
+        })),
+        Err(_) => HttpResponse::Ok().json(serde_json::json!({
+            "connecte": false,
+            "adresse": adresse,
+            "erreur": "Timeout — IB Gateway ne répond pas (>5s)"
+        })),
+    }
+}
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 
@@ -34,6 +69,8 @@ pub struct CandlesQuery {
     pub asset: String,
     pub timeframe: Option<String>,
     pub limit: Option<u32>,
+    /// Si true, ignore le cache DB et force un appel au provider
+    pub force: Option<bool>,
 }
 
 pub async fn get_candles(
@@ -48,24 +85,40 @@ pub async fn get_candles(
 
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
     let limit = query.limit.unwrap_or(200).min(1000) as usize;
+    let force = query.force.unwrap_or(false);
 
-    // Essayer d'abord la base de données locale
-    let bougies_db = state
-        .db
-        .obtenir_bougies(&asset, &timeframe, limit as i64)
-        .await;
+    // 1. Cache local — ignorer si force=true (polling temps réel)
+    if !force {
+        if let Ok(bougies) = state.db.obtenir_bougies(&asset, &timeframe, limit as i64).await {
+            if bougies.len() >= limit.min(60) {
+                return HttpResponse::Ok().json(bougies);
+            }
+        }
+    }
 
-    let bougies = match bougies_db {
-        Ok(b) if b.len() >= 60 => b,
+    // 2. Fallback provider : Binance pour crypto, IB Gateway pour métaux
+    let resultat = match &asset {
+        common::Asset::BTC | common::Asset::ETH => {
+            BinanceProvider.fetch_candles(asset.clone(), timeframe, limit).await
+        }
         _ => {
-            // IB Gateway sera le seul provider — stub jusqu'à l'intégration
-            return HttpResponse::ServiceUnavailable().json(
-                serde_json::json!({ "error": "IB Gateway non connecté — données non disponibles" }),
-            );
+            IbGatewayProvider::new(state.ib_port, state.ib_client_id)
+                .fetch_candles(asset.clone(), timeframe, limit)
+                .await
         }
     };
-
-    HttpResponse::Ok().json(bougies)
+    match resultat {
+        Ok(bougies) => {
+            if let Err(e) = state.db.inserer_bougies(&asset, &timeframe, &bougies).await {
+                tracing::warn!("Impossible de mettre en cache les bougies: {}", e);
+            }
+            HttpResponse::Ok().json(bougies)
+        }
+        Err(e) => {
+            tracing::warn!("get_candles échoué pour {}: {}", query.asset, e);
+            HttpResponse::Ok().json(Vec::<serde_json::Value>::new())
+        }
+    }
 }
 
 // ─── Signaux ──────────────────────────────────────────────────────────────────
@@ -121,8 +174,14 @@ pub async fn predict_ml(
     let bougies = match state.db.obtenir_bougies(&asset, &timeframe, 100).await {
         Ok(b) if !b.is_empty() => b,
         _ => {
-            return HttpResponse::ServiceUnavailable()
-                .json(serde_json::json!({ "error": "IB Gateway non connecté — données non disponibles" }));
+            // Pas de données en cache → modèle non prêt, retourner 200
+            return HttpResponse::Ok().json(ReponsePrediction {
+                asset: query.asset.clone(),
+                direction: "inconnu".to_string(),
+                confiance: 0.0,
+                est_confiant: false,
+                modele_pret: false,
+            });
         }
     };
 
@@ -191,8 +250,21 @@ pub async fn run_backtest(
     let bougies = match state.db.obtenir_bougies(&asset, &timeframe, limit as i64).await {
         Ok(b) if b.len() >= 30 => b,
         _ => {
-            return HttpResponse::ServiceUnavailable()
-                .json(serde_json::json!({ "error": "IB Gateway non connecté — données insuffisantes pour le backtest" }));
+            // Pas assez de données → retourner un résultat vide (200) au lieu de 503
+            return HttpResponse::Ok().json(serde_json::json!({
+                "total_trades": 0,
+                "winning_trades": 0,
+                "losing_trades": 0,
+                "win_rate": 0.0,
+                "capital_initial": capital,
+                "capital_final": capital,
+                "roi_pct": 0.0,
+                "profit_net": 0.0,
+                "sharpe_ratio": 0.0,
+                "max_drawdown_pct": 0.0,
+                "profit_factor": 0.0,
+                "message": "IB Gateway non connecté — lancez IB Gateway pour obtenir des données"
+            }));
         }
     };
 

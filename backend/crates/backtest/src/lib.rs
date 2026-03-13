@@ -83,9 +83,9 @@ impl BacktestEngine {
                 let (tp, sl) = match dir {
                     TradeDirection::Long => (signal.take_profit, signal.stop_loss),
                     TradeDirection::Short => {
-                        let dist = signal.entry_price - signal.stop_loss;
+                        let dist = signal.prix_entree - signal.stop_loss;
                         (
-                            prix_entree - (signal.take_profit - signal.entry_price),
+                            prix_entree - (signal.take_profit - signal.prix_entree),
                             prix_entree + dist,
                         )
                     }

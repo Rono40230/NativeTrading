@@ -70,6 +70,7 @@ async fn main() -> std::io::Result<()> {
             .route("/api/ia/status", web::get().to(ollama_handlers::statut))
             .route("/api/config", web::get().to(config_handlers::get_config))
             .route("/api/config", web::post().to(config_handlers::post_config))
+            .route("/api/ib/status", web::get().to(handlers::ib_status))
             .route("/api/stream", web::get().to(ws_handlers::stream_market))
     })
     .bind(("0.0.0.0", 8080))?
