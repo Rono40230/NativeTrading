@@ -3,6 +3,7 @@ mod types;
 
 use common::TradingError;
 use prompts::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF, SYSTEM_PROMPT};
+pub use prompts::PROMPT_SIGNAL_JSON;
 use types::{MessageOllama, RequeteOllama, ReponseOllama, MODELE_DEFAUT, OLLAMA_URL};
 
 pub use types::tf_libelle;

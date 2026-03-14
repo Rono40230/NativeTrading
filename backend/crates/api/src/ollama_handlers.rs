@@ -202,3 +202,98 @@ pub async fn analyser_chart(body: web::Json<RequeteChartAnalyse>) -> impl Respon
         })),
     }
 }
+
+// ─── POST /api/ia/signal ─────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct RequeteSignalIA {
+    pub asset: String,
+    pub timeframe: String,
+    pub score_smc: f64,
+    pub prix_actuel: f64,
+    pub tendance: f64,
+    pub order_block: f64,
+    pub imbalance: f64,
+    pub ifvg: f64,
+    pub fibonacci: f64,
+    pub confiance_ml: f64,
+    pub atr: f64,
+}
+#[derive(Serialize)]
+pub struct ReponseSignalIA {
+    pub signal: Option<common::Signal>,
+    pub score_confiance: f64,
+    pub niveau_invalidation: f64,
+    pub confluences: Vec<String>,
+    pub raisonnement: String,
+    pub modele: String,
+}
+#[derive(Deserialize)]
+struct SignalBrut {
+    direction: String,
+    prix_entree: f64,
+    stop_loss: f64,
+    tp1: f64,
+    tp2: f64,
+    tp3: f64,
+    score_confiance: f64,
+    niveau_invalidation: f64,
+    confluences: Vec<String>,
+    raisonnement: String,
+}
+
+/// POST /api/ia/signal — Signal SMC structuré (JSON) via LLM Ollama.
+pub async fn generer_signal(body: web::Json<RequeteSignalIA>) -> impl Responder {
+    use common::{Asset, Direction, Signal, Timeframe};
+    let prompt = format!(
+        "{}\n\nAsset: {} {}\nPrix actuel: {:.5} | ATR: {:.5}\n\
+        SMC: Tendance={:.1} OB={:.1} Imbalance={:.1} IFVG={:.1} Fib={:.1}\n\
+        ML confiance={:.1}% | Score SMC total={:.1}/100",
+        crate::ollama::PROMPT_SIGNAL_JSON,
+        body.asset, body.timeframe, body.prix_actuel, body.atr,
+        body.tendance, body.order_block, body.imbalance, body.ifvg, body.fibonacci,
+        body.confiance_ml * 100.0, body.score_smc,
+    );
+    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
+    match ollama::interroger(&prompt).await {
+        Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": format!("{e}") })),
+        Ok(texte) => {
+            let debut: usize = texte.find('{').unwrap_or(0);
+            let fin: usize = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
+            let Ok(brut) = serde_json::from_str::<SignalBrut>(&texte[debut..fin]) else {
+                return HttpResponse::UnprocessableEntity().json(serde_json::json!({
+                    "error": "Réponse LLM non parsable en JSON", "brut": texte
+                }));
+            };
+            let signal = if brut.direction != "Neutre" {
+                let asset = match body.asset.as_str() {
+                    "ETH" => Asset::ETH, "XAUUSD" => Asset::XAUUSD, "XAGUSD" => Asset::XAGUSD,
+                    "EURUSD" => Asset::EURUSD, "GBPJPY" => Asset::GBPJPY, "CADJPY" => Asset::CADJPY,
+                    "NZDJPY" => Asset::NZDJPY, "USDCAD" => Asset::USDCAD, "USDJPY" => Asset::USDJPY,
+                    "DAX" => Asset::DAX, "NAS100" => Asset::NAS100, "SP500" => Asset::SP500,
+                    _ => Asset::BTC,
+                };
+                let tf = match body.timeframe.as_str() {
+                    "M1" => Timeframe::M1, "M5" => Timeframe::M5,
+                    "H1" => Timeframe::H1, "H4" => Timeframe::H4,
+                    "D1" => Timeframe::D1, "W1" => Timeframe::W1, _ => Timeframe::M15,
+                };
+                let dir = if brut.direction == "Short" { Direction::Short } else { Direction::Long };
+                Some(Signal::nouveau(
+                    asset, tf, dir, brut.score_confiance * 10.0,
+                    brut.prix_entree, brut.stop_loss,
+                    vec![brut.tp1, brut.tp2, brut.tp3],
+                    "SMC-IA",
+                ))
+            } else { None };
+            HttpResponse::Ok().json(ReponseSignalIA {
+                signal,
+                score_confiance: brut.score_confiance,
+                niveau_invalidation: brut.niveau_invalidation,
+                confluences: brut.confluences,
+                raisonnement: brut.raisonnement,
+                modele,
+            })
+        }
+    }
+}

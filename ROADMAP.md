@@ -153,16 +153,13 @@
 
 ### ✦ COMPLEXITÉ 3 — Prompt engineering + configuration
 
-#### Semaine 18a: Affinement du prompt SMC pour signaux précis
-> Itération sur le prompt dans ollama_handlers.rs pour sortie JSON parsable
+#### ✅ Semaine 18a: Affinement du prompt SMC pour signaux précis — TERMINÉE
+> `PROMPT_SIGNAL_JSON` dans `ollama/prompts.rs` · Endpoint `POST /api/ia/signal` dans `ollama_handlers.rs`
 
-- [ ] Prompt signal dédié (format JSON structuré, parsable par le backend) :
-  - Direction, niveau d'entrée, stop-loss, TP1/TP2/TP3
-  - Confluences détectées (liste), score de confiance /10
-  - Niveau d'invalidation obligatoire
-- [ ] Prompt analyse narrative conservé pour SMCAnalyzerView
-- [ ] Endpoint `POST /api/ia/signal` — retourne un Signal directement injectable dans le pipeline
-- [ ] Test A/B : comparer qualité signaux avant/après nouveau prompt sur backtest
+- [x] Prompt signal dédié (`PROMPT_SIGNAL_JSON`) : JSON strict avec direction, prix_entree, stop_loss, TP1/TP2/TP3, confluences, score_confiance /10, niveau_invalidation
+- [x] Prompt analyse narrative conservé (`PROMPT_VISION_ANALYST`) pour SMCAnalyzerView
+- [x] Endpoint `POST /api/ia/signal` — parse JSON LLM → construit `common::Signal` injecté dans le pipeline (`strategie = "SMC-IA"`)
+- [ ] Test A/B — **reporté à S19** (nécessite données historiques massives S19 — collecte)
 
 ---
 
