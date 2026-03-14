@@ -169,6 +169,7 @@ pub struct RequeteChartAnalyse {
     pub plus_bas: Option<f64>,
     pub volume_moyen: Option<f64>,
     pub nb_bougies: Option<u32>,
+    pub notes: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -216,7 +217,7 @@ pub async fn analyser_chart(body: web::Json<RequeteChartAnalyse>) -> impl Respon
         contexte.push_str(&format!(" | Volume moyen par bougie: {:.2}", vol));
     }
 
-    match ollama::analyser_image(&body.image_base64, &contexte).await {
+    match ollama::analyser_image(&body.image_base64, &contexte, body.notes.as_deref()).await {
         Ok(analyse) => HttpResponse::Ok().json(ReponseChartAnalyse {
             analyse,
             modele: ollama::MODELE_VISION.to_string(),

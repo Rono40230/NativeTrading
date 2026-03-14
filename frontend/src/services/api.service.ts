@@ -191,9 +191,14 @@ export const apiService = {
   async analyserChart(
     asset: string,
     timeframe: string,
-    image_base64: string
+    image_base64: string,
+    notes?: string,
   ): Promise<ReponseChartIA> {
-    const res = await http.post('/api/ia/chart', { asset, timeframe, image_base64 }, { timeout: 180000 })
+    const res = await http.post(
+      '/api/ia/chart',
+      { asset, timeframe, image_base64, ...(notes ? { notes } : {}) },
+      { timeout: 180000 },
+    )
     return res.data
   },
 
