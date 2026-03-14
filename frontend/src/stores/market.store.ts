@@ -126,7 +126,8 @@ export const useMarketStore = defineStore('market', () => {
     erreurWs.value = null
   }
 
-  // ─── Prix live ticker dashboard (1 WS léger M1 par asset crypto) ─────────────
+  // ─── Prix live ticker dashboard (WS par asset : Binance pour crypto, IB pour le reste) ──────────
+  const CRYPTO_ASSETS = new Set(['BTC', 'ETH'])
   const prixLive = ref<Record<string, number>>({})
   const variationLive = ref<Record<string, number>>({})
   const wsLiveMap: Record<string, WebSocket> = {}
@@ -134,12 +135,18 @@ export const useMarketStore = defineStore('market', () => {
   function connecterPrixLiveAssets(assets: string[]) {
     assets.forEach(asset => {
       if (wsLiveMap[asset]) return
-      const liveWs = new WebSocket(`${WS_URL}/api/stream?asset=${asset}&timeframe=M1`)
+      // M1 pour crypto (Binance, 24/7), M1 pour IB (métaux/forex/indices — markets hours)
+      const tf = CRYPTO_ASSETS.has(asset) ? 'M1' : 'M1'
+      const liveWs = new WebSocket(`${WS_URL}/api/stream?asset=${asset}&timeframe=${tf}`)
       wsLiveMap[asset] = liveWs
+
       liveWs.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data as string)
-          if (msg.type === 'candle' && msg.data) {
+          // Binance envoie type:"candle", IB envoie type:"price" (tick bid/ask) ou type:"candle"
+          if (msg.type === 'price' && msg.price != null) {
+            prixLive.value[asset] = msg.price
+          } else if (msg.type === 'candle' && msg.data) {
             prixLive.value[asset] = msg.data.close
             if (msg.data.open > 0) {
               variationLive.value[asset] = ((msg.data.close - msg.data.open) / msg.data.open) * 100
@@ -148,6 +155,7 @@ export const useMarketStore = defineStore('market', () => {
         } catch { /* message invalide ignoré */ }
       }
       liveWs.onclose = () => { delete wsLiveMap[asset] }
+      // Si IB offline → fermeture silencieuse, fallback REST géré par le dashboard
       liveWs.onerror = () => { delete wsLiveMap[asset] }
     })
   }

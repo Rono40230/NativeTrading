@@ -137,7 +137,6 @@ const backendOk = ref(false)
 const ibGatewayOk = ref<boolean | null>(null)
 const metriques = ref<BacktestResults | null>(null)
 
-const CRYPTO_LIVE = ['BTC', 'ETH']
 const assetsAvecPrix = ref<{ id: string; prix: number | null; variation: number | null; chargement: boolean }[]>([])
 // Prix temps réel pour BTC/ETH depuis le WS Binance (remplace le prix REST si disponible)
 const assetsDisplay = computed(() =>
@@ -204,9 +203,10 @@ onMounted(async () => {
     signalStore.chargerPrediction(settingsStore.assetActif, settingsStore.timeframeActif),
   ])
 
-  // WS Binance temps réel pour BTC/ETH
-  marketStore.connecterPrixLiveAssets(CRYPTO_LIVE)
-  // Polling 60s uniquement pour les métaux (XAUUSD, XAGUSD...)
+  // WS temps réel pour tous les actifs (Binance pour crypto, IB pour métaux/forex/indices)
+  const tousLesAssets = assetsAvecPrix.value.map(a => a.id)
+  if (tousLesAssets.length > 0) marketStore.connecterPrixLiveAssets(tousLesAssets)
+  // Polling 60s pour maintenir les prix initiaux (fallback si WS IB offline le weekend)
   intervalPrix = setInterval(chargerPrixActifs, 60000)
 })
 
