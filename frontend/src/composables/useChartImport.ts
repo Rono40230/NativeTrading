@@ -32,56 +32,69 @@ function parseContent(text: string): ContentPart[] {
   return parts
 }
 
-/** Parse les blocs de tableau Markdown (| col | / |---| / | val |) en HTML tabulaire dark-theme. */
-function parseTablesInText(text: string): string {
-  const lines = text.split('\n')
+/** Parse les tableaux Markdown sur le texte BRUT (avant escape HTML).
+ * Retourne le texte avec des placeholders + la liste de HTML de tableaux. */
+function extractTables(rawText: string): { withPlaceholders: string; tables: string[] } {
+  const tables: string[] = []
+  const lines = rawText.split('\n')
   const out: string[] = []
   let i = 0
+
+  const isSepLine = (l: string) => /^\s*\|[\s\-:|]+\|\s*$/.test(l)
+  const escCell = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const cellsOf = (row: string) =>
+    row.split('|').filter((_c, ci, arr) => ci > 0 && ci < arr.length - 1).map(c => escCell(c.trim()))
+
+  const TH = 'padding:7px 12px;border:1px solid #21262d;background:#161b22;color:#b794f4;font-weight:700;text-align:left;white-space:nowrap;font-size:11px;text-transform:uppercase;letter-spacing:.5px'
+  const TD = 'padding:6px 12px;border:1px solid #30363d;color:#e6edf3;text-align:left;vertical-align:middle'
+  const TR_ODD = 'background:#0d1117'
+  const TR_EVEN = 'background:#111827'
+
   while (i < lines.length) {
     const line = lines[i]
     if (
       line.trimStart().startsWith('|') &&
       i + 1 < lines.length &&
-      /^\|[\s\-:|]+\|$/.test(lines[i + 1].trim())
+      isSepLine(lines[i + 1])
     ) {
       const rows: string[] = []
-      while (i < lines.length && lines[i].includes('|')) {
+      // Ne collecter QUE les lignes commençant réellement par '|'
+      while (i < lines.length && lines[i].trimStart().startsWith('|')) {
         rows.push(lines[i])
         i++
       }
-      const dataRows = rows.filter(r => !/^\|[\s\-:|]+\|$/.test(r.trim()))
-      const cellsOf = (row: string) =>
-        row.split('|').filter((_c, ci, arr) => ci > 0 && ci < arr.length - 1).map(c => c.trim())
-      const TH = 'padding:7px 12px;border:1px solid #21262d;background:#161b22;color:#b794f4;font-weight:700;text-align:left;white-space:nowrap;font-size:11px;text-transform:uppercase;letter-spacing:.5px'
-      const TD = 'padding:6px 12px;border:1px solid #30363d;color:#e6edf3;text-align:left'
-      const TR_ODD = 'background:#0d1117'
-      const TR_EVEN = 'background:#111827'
+      const dataRows = rows.filter(r => !isSepLine(r))
       const html =
-        '<div style="overflow-x:auto;margin:10px 0"><table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #21262d;border-radius:8px;overflow:hidden">' +
+        '<div style="overflow-x:auto;margin:10px 0">' +
+        '<table style="width:100%;border-collapse:collapse;font-size:12px;border:1px solid #21262d;border-radius:8px;overflow:hidden">' +
         dataRows.map((row, idx) => {
           const tag = idx === 0 ? 'th' : 'td'
           const style = idx === 0 ? TH : TD
-          const rowStyle = idx === 0 ? '' : ` style="${idx % 2 === 1 ? TR_ODD : TR_EVEN}"`
-          return `<tr${rowStyle}>${cellsOf(row).map(c => `<${tag} style="${style}">${c}</${tag}>`).join('')}</tr>`
+          const trStyle = idx === 0 ? '' : ` style="${idx % 2 === 1 ? TR_ODD : TR_EVEN}"`
+          return `<tr${trStyle}>${cellsOf(row).map(c => `<${tag} style="${style}">${c}</${tag}>`).join('')}</tr>`
         }).join('') +
         '</table></div>'
-      out.push(html)
+      tables.push(html)
+      out.push(`\x01TBL${tables.length - 1}\x01`)
     } else {
       out.push(line)
       i++
     }
   }
-  return out.join('\n')
+
+  return { withPlaceholders: out.join('\n'), tables }
 }
 
 /**
  * Convertit le markdown basique en HTML sécurisé (contenu 100 % depuis notre Ollama local).
- * Le texte est échappé en premier, puis les balises sont injectées — pas d'XSS possible.
+ * Les tableaux sont extraits du texte brut PUIS réinsérés après le rendu markdown.
  */
 export function renderMd(text: string): string {
-  const escaped = text
+  const { withPlaceholders, tables } = extractTables(text)
+
+  const rendered = withPlaceholders
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-  return parseTablesInText(escaped)
     .replace(/```([\s\S]*?)```/g, (_m, code) =>
       `<pre style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px;overflow-x:auto;font-family:monospace;font-size:12px;color:#7ee787;margin:6px 0">${code.trim()}</pre>`)
     .replace(/`([^`]+)`/g, '<code style="background:#161b22;padding:2px 6px;border-radius:4px;font-size:12px;color:#7ee787">$1</code>')
@@ -95,6 +108,9 @@ export function renderMd(text: string): string {
     .replace(/^- (.+)$/gm, '<div style="display:flex;gap:8px;margin:1px 0"><span style="color:#63b3ed">•</span><span>$1</span></div>')
     .replace(/\n\n/g, '<br/>')
     .replace(/\n/g, '<br/>')
+
+  // Réinsérer les tableaux HTML à la place des placeholders
+  return rendered.replace(/\x01TBL(\d+)\x01/g, (_, idx) => tables[Number(idx)])
 }
 
 export function useChartImport() {

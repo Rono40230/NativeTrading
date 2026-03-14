@@ -310,7 +310,7 @@ pub async fn analyser_images(images: &[(&str, &str)], asset: &str, notes: Option
             {"role": "user", "content": contenu, "images": bases64}
         ],
         "stream": false,
-        "options": {"temperature": 0.2}
+        "options": {"temperature": 0.2, "num_ctx": 8192, "num_predict": 4096}
     });
     appeler_ollama(&url, &corps).await
 }
