@@ -19,7 +19,7 @@
           {{ scoreSmc.confluence ? '✓ Confluence' : '⚠ Insuffisant' }}
         </span>
         <span class="text-sm font-medium" :class="directionColor(scoreSmc.direction)">
-          {{ scoreSmc.direction.toUpperCase() }}
+          {{ scoreSmc.direction.toUpperCase() === 'LONG' ? 'BUY' : scoreSmc.direction.toUpperCase() === 'SHORT' ? 'SELL' : scoreSmc.direction.toUpperCase() }}
         </span>
       </div>
       <!-- Barre de progression globale -->
@@ -76,8 +76,9 @@ function scoreCouleur(score: number): string {
 }
 
 function directionColor(dir: string): string {
-  if (dir.toLowerCase().includes('long')) return 'text-emerald-400'
-  if (dir.toLowerCase().includes('short')) return 'text-red-400'
+  const d = dir.toLowerCase()
+  if (d.includes('long') || d.includes('buy')) return 'text-emerald-400'
+  if (d.includes('short') || d.includes('sell')) return 'text-red-400'
   return 'text-yellow-400'
 }
 </script>
