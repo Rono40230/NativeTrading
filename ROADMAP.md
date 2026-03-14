@@ -135,14 +135,19 @@
 
 ### ✦ COMPLEXITÉ 2 — Port de code existant (App.jsx → Vue)
 
-#### Semaine 17b: Analyse de charts importés (Image Upload → Ollama)
-> Le code React est déjà dans App.jsx — il s'agit de le porter en Vue
+#### ✅ Semaine 17b: Analyse de charts importés (Image Upload → Ollama) — TERMINÉE 14 mars 2026
+> Port App.jsx → Vue avec bonus multi-TF top-down. Commits : ba9eaef → 057313f
 
-- [ ] Drag & drop image dans `SMCAnalyzerView.vue` (FileReader, preview)
-- [ ] Envoi image base64 vers `POST /api/ia/chart` (endpoint déjà existant)
-- [ ] Parser `<htmldiagram>...</htmldiagram>` dans la réponse Ollama
-- [ ] Rendu des diagrammes HTML interactifs dans un `<iframe>` sandboxé
-- [ ] Support notes contextuelles optionnelles avec l'image
+- [x] Drag & drop multi-images dans `ChartImportPanel.vue` (FileReader, previews grille)
+- [x] Sélecteur TF par image pour analyse top-down (H4 → M15 → M5)
+- [x] Envoi multi-images base64 vers `POST /api/ia/chart` — toutes images en un seul message Ollama
+- [x] `PROMPT_VISION_ANALYST` (1 image) et `PROMPT_VISION_MULTI_TF` (N images) — `ollama.rs`
+- [x] Modèle vision upgradé : `llama3.2-vision:11b` (7.8 GB, RTX 3090)
+- [x] Parser `<htmldiagram>...</htmldiagram>` multi-blocs — `useChartImport.ts`
+- [x] Rendu diagrammes HTML interactifs dans `<iframe>` sandboxés
+- [x] Notes contextuelles optionnelles (textarea)
+- [x] Sous-menu **IAnalyse** dans la sidebar (Signal + Chart Import comme routes séparées)
+- [x] `renderMd()` — markdown → HTML sécurisé (headers, code, listes, bold, italic)
 
 ---
 
