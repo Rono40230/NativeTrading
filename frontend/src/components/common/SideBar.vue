@@ -1,23 +1,40 @@
 <template>
-  <aside class="flex flex-col w-52 min-h-screen bg-gray-900 border-r border-white/10 shrink-0">
+  <aside class="sidebar flex flex-col w-52 min-h-screen bg-gray-900 border-r border-white/10 shrink-0 fixed left-0 top-0 h-full z-40">
     <!-- Navigation -->
     <nav class="flex flex-col gap-0.5 px-3 py-4 flex-1">
-      <template v-for="(lien, i) in liens" :key="i">
-        <!-- En-tête de groupe -->
-        <div v-if="estGroupe(lien)" class="flex items-center gap-2 px-3 pt-3 pb-1">
-          <span class="text-sm leading-none">{{ lien.icone }}</span>
-          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ lien.groupe }}</span>
-        </div>
-        <!-- Lien normal ou sous-lien -->
+      <template v-for="(item, i) in nav" :key="i">
+        <!-- Groupe collapsible -->
+        <template v-if="estGroupe(item)">
+          <button
+            class="flex items-center gap-2 px-3 pt-3 pb-1 w-full hover:text-white/80 transition-colors"
+            @click="toggleGroupe(item.groupe)"
+          >
+            <span class="text-sm leading-none">{{ item.icone }}</span>
+            <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1 text-left">{{ item.groupe }}</span>
+            <span class="text-gray-600 text-[10px] transition-transform duration-200" :class="groupesOuverts[item.groupe] ? 'rotate-180' : ''">▼</span>
+          </button>
+          <div v-show="groupesOuverts[item.groupe]" class="flex flex-col gap-0.5">
+            <RouterLink
+              v-for="(sub, j) in item.liens"
+              :key="j"
+              :to="sub.to"
+              class="flex items-center gap-3 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/8 transition-colors pl-8 pr-3 py-2"
+              active-class="bg-white/10 text-white font-medium"
+            >
+              <span class="text-base leading-none">{{ sub.icone }}</span>
+              <span>{{ sub.label }}</span>
+            </RouterLink>
+          </div>
+        </template>
+        <!-- Lien normal -->
         <RouterLink
           v-else
-          :to="lien.to"
-          class="flex items-center gap-3 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/8 transition-colors"
-          :class="lien.sub ? 'pl-8 pr-3 py-2' : 'px-3 py-2.5'"
+          :to="item.to"
+          class="flex items-center gap-3 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/8 transition-colors px-3 py-2.5"
           active-class="bg-white/10 text-white font-medium"
         >
-          <span class="text-base leading-none">{{ lien.icone }}</span>
-          <span>{{ lien.label }}</span>
+          <span class="text-base leading-none">{{ item.icone }}</span>
+          <span>{{ item.label }}</span>
         </RouterLink>
       </template>
     </nav>
@@ -30,29 +47,48 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, reactive } from 'vue'
 import { RouterLink } from 'vue-router'
 
-type LienSimple = { to: string; icone: string; label: string; sub?: boolean }
-type LienGroupe = { groupe: string; icone: string }
-type Lien = LienSimple | LienGroupe
+type LienSimple = { to: string; icone: string; label: string }
+type LienGroupe = { groupe: string; icone: string; liens: LienSimple[] }
+type NavItem = LienSimple | LienGroupe
 
-function estGroupe(l: Lien): l is LienGroupe { return 'groupe' in l }
+function estGroupe(item: NavItem): item is LienGroupe { return 'groupe' in item }
 
-const liens: Lien[] = [
-  { to: '/',             icone: '🏠', label: 'Home' },
-  { to: '/charts',       icone: '📈', label: 'Charts' },
-  { to: '/pnl',          icone: '💰', label: 'P&L' },
-  { to: '/history',      icone: '📜', label: 'History' },
-  { to: '/heatmap',      icone: '🔥', label: 'Heatmap' },
-  { groupe: 'IAnalyse',  icone: '🧠' },
-  { to: '/ia/analyser',  icone: '📊', label: 'Signal',       sub: true },
-  { to: '/ia/chart',     icone: '🖼️',  label: 'Chart Import', sub: true },
-  { to: '/ia/coach',     icone: '💬', label: 'IA Coach' },
-  { to: '/settings',     icone: '⚙️', label: 'Settings' },
+const nav: NavItem[] = [
+  { to: '/',        icone: '🏠', label: 'Accueil' },
+  { to: '/charts',  icone: '📈', label: 'Graphiques' },
+  { to: '/pnl',     icone: '💰', label: 'P&L' },
+  { to: '/history', icone: '📜', label: 'Historique' },
+  { to: '/heatmap', icone: '🔥', label: 'Heatmap' },
+  {
+    groupe: 'IAnalyse', icone: '🧠',
+    liens: [
+      { to: '/ia/analyser', icone: '📊', label: 'Signal' },
+      { to: '/ia/chart',    icone: '🖼️',  label: 'Importer un graphique' },
+      { to: '/ia/coach',    icone: '💬', label: 'Coach IA' },
+    ]
+  },
+  { to: '/lexique',  icone: '📖', label: 'Lexique SMC' },
+  { to: '/settings', icone: '⚙️',  label: 'Paramètres' },
 ]
+
+const groupesOuverts = reactive<Record<string, boolean>>({})
+
+function toggleGroupe(nom: string) {
+  groupesOuverts[nom] = !groupesOuverts[nom]
+}
 
 const dateActuelle = computed(() =>
   new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date())
 )
 </script>
+
+<style scoped>
+.sidebar {
+  transform: translateX(-100%);
+  opacity: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+</style>

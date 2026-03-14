@@ -12,6 +12,7 @@ const router = createRouter({
     { path: '/ia/analyser', component: () => import('../views/SMCAnalyzerView.vue') },
     { path: '/ia/chart', component: () => import('../views/ChartImportView.vue') },
     { path: '/ia/coach', component: () => import('../views/SMCCoachView.vue') },
+    { path: '/lexique',   component: () => import('../views/LexiqueView.vue') },
   ]
 })
 
