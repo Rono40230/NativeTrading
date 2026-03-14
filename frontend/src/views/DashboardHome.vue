@@ -43,7 +43,7 @@
       </div>
       <!-- Bande de prix actifs -->
       <div class="flex gap-2 flex-wrap">
-        <div v-for="a in assetsAvecPrix" :key="a.id" class="glass-card px-3 py-2.5 flex flex-col items-center flex-1 min-w-[80px]">
+        <div v-for="a in assetsDisplay" :key="a.id" class="glass-card px-3 py-2.5 flex flex-col items-center flex-1 min-w-[80px]">
           <span class="text-[10px] text-gray-400 font-medium tracking-wide">{{ a.id }}</span>
           <span v-if="a.chargement" class="text-xs text-gray-500 mt-1 animate-pulse">…</span>
           <template v-else>
@@ -122,12 +122,14 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useSignalStore } from '@/stores/signal.store'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useAlerteStore } from '@/stores/alerte.store'
+import { useMarketStore } from '@/stores/market.store'
 import { apiService } from '@/services/api.service'
 import type { BacktestResults } from '@/services/api.service'
 import MarketClocks from '@/components/common/MarketClocks.vue'
 
 const signalStore = useSignalStore()
 const settingsStore = useSettingsStore()
+const marketStore = useMarketStore()
 const alerteStore = useAlerteStore()
 
 const capital = computed(() => settingsStore.capitalDepart)
@@ -135,8 +137,18 @@ const backendOk = ref(false)
 const ibGatewayOk = ref<boolean | null>(null)
 const metriques = ref<BacktestResults | null>(null)
 
+const CRYPTO_LIVE = ['BTC', 'ETH']
 const assetsAvecPrix = ref<{ id: string; prix: number | null; variation: number | null; chargement: boolean }[]>([])
-const btcPrix = computed(() => assetsAvecPrix.value.find(a => a.id === 'BTC')?.prix ?? null)
+// Prix temps réel pour BTC/ETH depuis le WS Binance (remplace le prix REST si disponible)
+const assetsDisplay = computed(() =>
+  assetsAvecPrix.value.map(a => ({
+    ...a,
+    prix: marketStore.prixLive[a.id] ?? a.prix,
+    variation: marketStore.variationLive[a.id] !== undefined ? marketStore.variationLive[a.id] : a.variation,
+    chargement: a.chargement && marketStore.prixLive[a.id] === undefined,
+  }))
+)
+const btcPrix = computed(() => marketStore.prixLive['BTC'] ?? assetsAvecPrix.value.find(a => a.id === 'BTC')?.prix ?? null)
 let intervalPrix: ReturnType<typeof setInterval> | null = null
 
 async function chargerPrixActifs() {
@@ -192,11 +204,15 @@ onMounted(async () => {
     signalStore.chargerPrediction(settingsStore.assetActif, settingsStore.timeframeActif),
   ])
 
-  intervalPrix = setInterval(chargerPrixActifs, 30000)
+  // WS Binance temps réel pour BTC/ETH
+  marketStore.connecterPrixLiveAssets(CRYPTO_LIVE)
+  // Polling 60s uniquement pour les métaux (XAUUSD, XAGUSD...)
+  intervalPrix = setInterval(chargerPrixActifs, 60000)
 })
 
 onUnmounted(() => {
   if (intervalPrix !== null) clearInterval(intervalPrix)
+  marketStore.deconnecterPrixLiveAssets()
 })
 
 

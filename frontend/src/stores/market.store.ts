@@ -126,5 +126,36 @@ export const useMarketStore = defineStore('market', () => {
     erreurWs.value = null
   }
 
-  return { bougies, chargement, erreur, erreurWs, wsMiseAJour, wsConnecte, dernierPrix, chargerBougies, getBougies, connecterStream, deconnecterStream }
+  // ─── Prix live ticker dashboard (1 WS léger M1 par asset crypto) ─────────────
+  const prixLive = ref<Record<string, number>>({})
+  const variationLive = ref<Record<string, number>>({})
+  const wsLiveMap: Record<string, WebSocket> = {}
+
+  function connecterPrixLiveAssets(assets: string[]) {
+    assets.forEach(asset => {
+      if (wsLiveMap[asset]) return
+      const liveWs = new WebSocket(`${WS_URL}/api/stream?asset=${asset}&timeframe=M1`)
+      wsLiveMap[asset] = liveWs
+      liveWs.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data as string)
+          if (msg.type === 'candle' && msg.data) {
+            prixLive.value[asset] = msg.data.close
+            if (msg.data.open > 0) {
+              variationLive.value[asset] = ((msg.data.close - msg.data.open) / msg.data.open) * 100
+            }
+          }
+        } catch { /* message invalide ignoré */ }
+      }
+      liveWs.onclose = () => { delete wsLiveMap[asset] }
+      liveWs.onerror = () => { delete wsLiveMap[asset] }
+    })
+  }
+
+  function deconnecterPrixLiveAssets() {
+    Object.values(wsLiveMap).forEach(liveWs => liveWs.close())
+    Object.keys(wsLiveMap).forEach(k => delete wsLiveMap[k])
+  }
+
+  return { bougies, chargement, erreur, erreurWs, wsMiseAJour, wsConnecte, dernierPrix, prixLive, variationLive, chargerBougies, getBougies, connecterStream, deconnecterStream, connecterPrixLiveAssets, deconnecterPrixLiveAssets }
 })
