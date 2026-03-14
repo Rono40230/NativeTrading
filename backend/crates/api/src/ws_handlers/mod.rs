@@ -3,6 +3,7 @@
 
 mod binance;
 mod ib;
+mod ib_contracts;
 mod types;
 
 use actix_web::{web, HttpRequest, HttpResponse};

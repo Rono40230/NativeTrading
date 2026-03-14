@@ -2,6 +2,7 @@ use actix_cors::Cors;
 use actix_web::{http::header, middleware, web, App, HttpServer};
 
 mod handlers;
+mod backtest_handlers;
 mod config_handlers;
 mod export_handlers;
 mod ml_handlers;
@@ -58,7 +59,7 @@ async fn main() -> std::io::Result<()> {
             .route("/api/ml/predict", web::get().to(handlers::predict_ml))
             .route("/api/ml/train", web::post().to(ml_handlers::entrainer_ml))
             .route("/api/ml/status", web::get().to(ml_handlers::statut_ml))
-            .route("/api/backtest", web::post().to(handlers::run_backtest))
+            .route("/api/backtest", web::post().to(backtest_handlers::run_backtest))
             .route(
                 "/api/signaux/export",
                 web::get().to(export_handlers::exporter_signaux_csv),

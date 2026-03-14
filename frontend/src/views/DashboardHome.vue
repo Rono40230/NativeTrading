@@ -14,7 +14,7 @@
         <!-- Statut Système -->
         <div class="glass-card p-5 flex-1">
           <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Statut système</h2>
-          <div class="grid grid-cols-2 gap-2">
+          <div class="grid grid-cols-3 gap-2">
             <div class="rounded-lg bg-white/5 px-3 py-2 flex flex-col gap-0.5">
               <span class="text-gray-500 text-[10px] uppercase tracking-wider">Backend API</span>
               <span :class="backendOk ? 'text-emerald-400' : 'text-red-400'" class="text-sm font-semibold">{{ backendOk ? '🟢 Online' : '🔴 Offline' }}</span>
@@ -22,6 +22,11 @@
             <div class="rounded-lg bg-white/5 px-3 py-2 flex flex-col gap-0.5">
               <span class="text-gray-500 text-[10px] uppercase tracking-wider">Binance Feed</span>
               <span :class="btcPrix ? 'text-emerald-400' : 'text-red-400'" class="text-sm font-semibold">{{ btcPrix ? '🟢 Connecté' : '🔴 Offline' }}</span>
+            </div>
+            <div class="rounded-lg bg-white/5 px-3 py-2 flex flex-col gap-0.5">
+              <span class="text-gray-500 text-[10px] uppercase tracking-wider">IB Gateway</span>
+              <span v-if="ibGatewayOk === null" class="text-gray-500 text-sm font-semibold animate-pulse">⏳ Vérif…</span>
+              <span v-else :class="ibGatewayOk ? 'text-emerald-400' : 'text-red-400'" class="text-sm font-semibold">{{ ibGatewayOk ? '🟢 Connecté' : '🔴 Déconnecté' }}</span>
             </div>
             <div class="rounded-lg bg-white/5 px-3 py-2 flex flex-col gap-0.5">
               <span class="text-gray-500 text-[10px] uppercase tracking-wider">ML Engine</span>
@@ -50,6 +55,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Horloges sessions de marché -->
+    <MarketClocks />
 
     <!-- Métriques performance (backtest BTC) -->
     <div v-if="metriques" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -116,6 +124,7 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { apiService } from '@/services/api.service'
 import type { BacktestResults } from '@/services/api.service'
+import MarketClocks from '@/components/common/MarketClocks.vue'
 
 const signalStore = useSignalStore()
 const settingsStore = useSettingsStore()
@@ -123,6 +132,7 @@ const alerteStore = useAlerteStore()
 
 const capital = computed(() => settingsStore.capitalDepart)
 const backendOk = ref(false)
+const ibGatewayOk = ref<boolean | null>(null)
 const metriques = ref<BacktestResults | null>(null)
 
 const assetsAvecPrix = ref<{ id: string; prix: number | null; variation: number | null; chargement: boolean }[]>([])
@@ -166,6 +176,14 @@ onMounted(async () => {
     backendOk.value = true
   } catch {
     backendOk.value = false
+  }
+
+  // Vérification IB Gateway
+  try {
+    const ib = await apiService.ibStatus()
+    ibGatewayOk.value = ib.connecte
+  } catch {
+    ibGatewayOk.value = false
   }
 
   await Promise.allSettled([

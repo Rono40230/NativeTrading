@@ -1,19 +1,17 @@
 # 🗺️ ROADMAP - NATIVE TRADING AI
 
-**Durée totale:** 18 semaines | **Version:** 2.0 | **Dernière mise à jour:** 10 mars 2026
+**Durée totale:** 18 semaines | **Version:** 3.0 | **Dernière mise à jour:** 14 mars 2026
 
 ---
 
 ## ✅ PHASE 1 - MVP — TERMINÉE (Semaines 1-6)
 
-> **Statut : 🟢 COMPLÉTÉE** — App native validée le 10 mars 2026 (screenshot confirmé)
-
-**Objectif:** Valider le concept avec 1 stratégie fonctionnelle
+> **Statut : 🟢 COMPLÉTÉE** — App native validée le 10 mars 2026
 
 ### ✅ Semaine 1-2: Fondations
-- [x] Setup environnement (Rust, Node.js 22, **Tauri CLI**)
+- [x] Setup environnement (Rust, Node.js 22, Tauri CLI)
 - [x] Structure projet — workspace 10 crates Rust + Vue.js 3 Tauri
-- [x] App native Tauri — **aucun navigateur**, fenêtre GDK_BACKEND=x11
+- [x] App native Tauri — aucun navigateur, fenêtre GDK_BACKEND=x11
 - [x] Acquisition données Binance REST (BTC/ETH OHLCV)
 - [x] SQLite via SQLx avec migrations (4 tables : bougies, signaux, etc.)
 
@@ -33,31 +31,34 @@
 
 ### ✅ Semaine 5-6: Dashboard minimal (natif Tauri)
 - [x] Vue.js 3 + Pinia + Tailwind + TradingView Lightweight Charts
-- [x] Dashboard : KPIs BTC/ETH temps réel, badge ML, statut système, tableau signaux
+- [x] Dashboard : prix temps réel, statut système, tableau signaux
 - [x] ChartsView : graphique chandeliers sélecteur asset/timeframe
 - [x] Pinia stores : `market.store.ts`, `signal.store.ts`
 - [x] `api.service.ts` Axios vers backend port 8080
-- [x] Script `run.sh` : compile → health check → Tauri natif
-- [x] 10 tests unitaires (backtest×2, indicators×4, risk×4)
+- [x] Script `run.sh` : compile -> health check -> Tauri natif
+- [x] 19 tests unitaires (backtest×2, indicators×4, ml×3, risk×5, smc×2, strategies×3)
 
-**✅ Métriques MVP validées (live 10 mars 2026):**
-- BTC/USDT **$71,240** | ETH/USDT **$2,069** (Binance temps réel)
-- Backend API 🟢 Online | Binance Feed 🟢 Connecté | SQLite 🟢 Online
-- ML Engine 🟡 Non entraîné (données historiques nécessaires)
+**Métriques MVP validées (live 10 mars 2026) :**
+- BTC/USDT $71,240 | ETH/USDT $2,069 (Binance temps réel)
+- Backend API Online | Binance Feed Connecté | SQLite Online
 
 ---
 
-## ✅ PHASE 2 - PRODUCTION (Semaines 7-16)
+## ✅ PHASE 2 - FONCTIONNALITÉS CORE — TERMINÉE (Semaines 7-16)
 
-> **Statut : 🟢 COMPLÉTÉE** — Terminée le 10 mars 2026
+> **Statut : 🟢 COMPLÉTÉE** — Terminée entre le 10 et le 14 mars 2026
 
-### ✅ Semaine 7-8: Twelvedata + Métaux/Forex
-- [x] Intégration Twelvedata REST API (XAUUSD, XAGUSD)
-- [x] `TwelvedataProvider` — crate `data`, trait `DataProvider`
-- [x] Routage automatique : BTC/ETH → Binance | XAUUSD/XAGUSD → Twelvedata
-- [x] Clé API stockée en SQLite (`configuration`) + modifiable depuis ⚙️ Paramètres
-- [x] Bouton "Tester connexion" dans SettingsView
-- [x] Charts + Heatmap : XAUUSD et XAGUSD ajoutés
+### ✅ Semaine 7-8: IB Gateway + 13 Assets
+> Note : Twelvedata initialement prévu, remplacé par IB Gateway (ibapi 2.10.0) — plus robuste, sans limite API
+- [x] `IbGatewayProvider` — crate `data`, trait `DataProvider`
+- [x] 13 assets : BTC, ETH, XAUUSD, XAGUSD, EURUSD, GBPJPY, CADJPY, NZDJPY, USDCAD, USDJPY, DAX, NAS100, SP500
+- [x] Forex -> SecurityType::ForexPair / IDEALPRO
+- [x] Métaux -> SecurityType::Commodity / SMART
+- [x] Indices : DAX (Index/EUREX), SPX (Index/CBOE), NQ/NAS100 (ContinuousFuture/CME)
+- [x] WhatToShow::Trades pour indices, MidPoint pour le reste
+- [x] Asset enum 13 variants, `parse_asset()` mis à jour
+- [x] `GET /api/assets` — liste dynamique des assets
+- [x] Dashboard : bande de prix 13 actifs + auto-refresh toutes les 30s
 
 ### ✅ Semaine 9-10: Indicateurs SMC
 - [x] Tendances HH/HL/LH/LL (`smc/src/tendances.rs`)
@@ -65,75 +66,212 @@
 - [x] Imbalance / FVG 3-candles (`smc/src/imbalance.rs`)
 - [x] IFVG — FVG + mitigation + BOS (`smc/src/ifvg.rs`)
 - [x] Fibonacci — niveaux 23.6/38.2/50/61.8/78.6 (`smc/src/fibonacci.rs`)
-- [x] Façade `ScoreSmc` — scoring 100pts, seuil 70 (`smc/src/lib.rs`)
+- [x] Facade `ScoreSmc` — scoring 100pts, seuil 70 (`smc/src/lib.rs`)
 - [x] Tests : tendances + fibonacci
 
-### ✅ Semaine 11-12: IA Hybride
+### ✅ Semaine 11-12: IA Hybride (ML pure Rust)
+> Note : XGBoost non implémenté — remplacé par LSTM pure Rust (à corriger en Phase 3)
 - [x] LSTM 3 couches (128-64-32) pure Rust — `ml/src/lstm.rs`
 - [x] Fusion LSTM 60% + RandomForest 40% — `PipelineHybride`
 - [x] Entraînement SGD + sérialisation serde_json
-- [x] `POST /api/ml/train` + `GET /api/ml/status` + bouton Dashboard
+- [x] `POST /api/ml/train` + `GET /api/ml/status`
+- [x] Bouton Entraîner RF + LSTM dans ChartsView
 
 ### ✅ Semaine 13-14: SMC Directionnel
-- [x] `SmcDirectionalStrategy` — scoring confluence ≥70 (`strategies/src/smc_directional.rs`)
-- [x] ATR-based TP1 (×1.5) / TP2 (×3.0) / TP3 (×5.0) / SL (×1.0)
+- [x] `SmcDirectionalStrategy` — scoring confluence >= 70 (`strategies/src/smc_directional.rs`)
+- [x] ATR-based TP1 (x1.5) / TP2 (x3.0) / TP3 (x5.0) / SL (x1.0)
 - [x] `take_profit_2` + `take_profit_3` dans `strategies::Signal`
-- [x] Endpoint `GET /api/smc/analyse` (`api/src/smc_handlers.rs`)
-- [x] Dashboard — bloc score SMC + 5 composants + barre progression
+- [x] Endpoint `GET /api/smc/analyse`
 - [x] `SmcScoreCard.vue` composant extrait
 
 ### ✅ Semaine 15-16: UI complète
 - [x] `PnLView.vue` — courbe equity, ROI/Sharpe/WinRate/Drawdown/ProfitFactor
-- [x] `HistoryView.vue` — tableau signaux filtrables (asset/direction/stratégie), pagination 8/page
-- [x] `HeatmapView.vue` — grille ATR volatilité (BTC+ETH × M5/M15/H1/H4/D1), refresh 60s
-- [x] `AlerteStore` + `ToastAlerte.vue` — système de notifications global
+- [x] `HistoryView.vue` — tableau signaux filtrables (asset/direction/stratégie), pagination
+- [x] `HeatmapView.vue` — grille ATR volatilité x timeframes, refresh 60s
+- [x] `AlerteStore` + `ToastAlerte.vue` — système de notifications in-app
 - [x] `GET /api/signaux/export` — export CSV
 
 ### ✅ Semaine 16b: SMC IA — Analyste & Coach (Ollama local)
-**Implémenté avec Ollama local (zéro frais, zéro données externes) — modèle `qwen2.5:14b`**
-
-**Backend Rust (`api` crate) :**
-- [x] `ollama.rs` — client HTTP vers `localhost:11434`, configurable via `.env`
+- [x] `ollama.rs` — client HTTP vers localhost:11434
 - [x] `POST /api/ia/analyse` — analyse narrative signal SMC
 - [x] `POST /api/ia/chat` — coach conversationnel multi-turn (max 40 messages)
+- [x] `POST /api/ia/chart` — analyse visuelle capture TradingView
 - [x] `GET /api/ia/status` — vérifie disponibilité Ollama
+- [x] `SMCAnalyzerView.vue` + `SMCCoachView.vue`
+- [x] Modèle qwen2.5:14b (9 Go) — RTX 3090 GPU locale
 
-**Frontend Vue.js 3 :**
-- [x] `SMCAnalyzerView.vue` — formulaire signal + curseurs SMC + analyse IA
-- [x] `SMCCoachView.vue` — chat avec questions rapides, historique scrollable
-- [x] NavBar + Router mis à jour
-
-**Infrastructure :**
-- [x] Ollama installé + service systemd actif
-- [x] Modèle `qwen2.5:14b` (9 Go) sur `/run/media/rono/IA/ollama/models/`
-- [x] RTX 3090 utilisée pour l'inférence GPU locale
+### ✅ Semaine 16c: Refonte UI Dashboard + Charts (14 mars 2026)
+- [x] Layout plein écran (w-full — suppression container mx-auto)
+- [x] Dashboard : Capital + Statut Système sur même ligne
+- [x] Statut Système : mini-cartes en grille 2x2 (label + valeur en colonne)
+- [x] Bande de prix dynamique 13 actifs (flex-wrap + flex-1, pleine largeur)
+- [x] Auto-refresh prix toutes les 30s (setInterval + cleanup onUnmounted)
+- [x] Prédiction IA + Score SMC déplacés dans ChartsView (côte à côte)
+- [x] ChartsView : rechargement IA/SMC à chaque changement d'asset/timeframe
 
 ---
 
-## ⚙️ PHASE 3 - OPTIMISATION (Semaines 17-18)
+## 🟡 PHASE 3 - OPTIMISATION & NOUVELLES FONCTIONNALITÉS (Semaines 17-24)
 
-> **Statut : ⚪ À VENIR**
+> **Statut : 🔴 A FAIRE** — Classé par complexité croissante
 
-### Semaine 17: Auto-training
-- [ ] Réentraînement quotidien
-- [ ] Walk-forward optimization
-- [ ] Monitoring dérive
+---
 
-### Semaine 18: Tests + Docs
-- [ ] Coverage >80%
-- [ ] Documentation complète
-- [ ] Scripts automatisés
+### ✦ COMPLEXITÉ 1 — Frontend seul, zéro backend
+
+#### ✅ Semaine 17a: Horloges ouvertures de marché (Dashboard) — TERMINÉE 14 mars 2026
+> Composant statique pur, aucun backend nécessaire
+
+- [x] Composant `MarketClocks.vue` — affiché sur le Dashboard
+- [x] 4 sessions avec horaires UTC fixes :
+  - Asie (Tokyo) : 00h00 – 09h00 UTC
+  - Hong Kong / Shanghai : 01h00 – 09h00 UTC (UTC+8)
+  - Londres / Europe : 08h00 – 17h00 UTC
+  - New York : 13h30 – 20h00 UTC
+- [x] Badge coloré : vert = session active, gris = fermée, orange = ouverture dans <30min
+- [x] Countdown live (setInterval 1s) vers la prochaine ouverture / fermeture
+
+---
+
+### ✦ COMPLEXITÉ 2 — Port de code existant (App.jsx → Vue)
+
+#### Semaine 17b: Analyse de charts importés (Image Upload → Ollama)
+> Le code React est déjà dans App.jsx — il s'agit de le porter en Vue
+
+- [ ] Drag & drop image dans `SMCAnalyzerView.vue` (FileReader, preview)
+- [ ] Envoi image base64 vers `POST /api/ia/chart` (endpoint déjà existant)
+- [ ] Parser `<htmldiagram>...</htmldiagram>` dans la réponse Ollama
+- [ ] Rendu des diagrammes HTML interactifs dans un `<iframe>` sandboxé
+- [ ] Support notes contextuelles optionnelles avec l'image
+
+---
+
+### ✦ COMPLEXITÉ 3 — Prompt engineering + configuration
+
+#### Semaine 18a: Affinement du prompt SMC pour signaux précis
+> Itération sur le prompt dans ollama_handlers.rs pour sortie JSON parsable
+
+- [ ] Prompt signal dédié (format JSON structuré, parsable par le backend) :
+  - Direction, niveau d'entrée, stop-loss, TP1/TP2/TP3
+  - Confluences détectées (liste), score de confiance /10
+  - Niveau d'invalidation obligatoire
+- [ ] Prompt analyse narrative conservé pour SMCAnalyzerView
+- [ ] Endpoint `POST /api/ia/signal` — retourne un Signal directement injectable dans le pipeline
+- [ ] Test A/B : comparer qualité signaux avant/après nouveau prompt sur backtest
+
+---
+
+### ✦ COMPLEXITÉ 4 — Endpoint API + composant frontend
+
+#### Semaine 18b: Indicateurs visuels paramétrables sur les graphiques
+> Le calcul existe déjà dans le crate indicators — il faut l'exposer et l'afficher
+
+- [ ] Endpoint `GET /api/indicators?asset=BTC&tf=M15&params=...` — retourne les séries calculées
+- [ ] Overlay TradingView Lightweight Charts :
+  - Ligne EMA (période configurable)
+  - Histogramme MACD
+  - Bandes de Bollinger
+  - RSI dans un sous-graphique
+  - ATR dans un sous-graphique
+- [ ] Panneau de configuration indicators dans ChartsView (activer/désactiver, paramètres)
+- [ ] Persistance des préférences dans SettingsStore
+
+#### Semaine 18c: Calendrier économique (Dashboard)
+> API Forex Factory ou Investing.com — cache DB 1h pour éviter les spams
+
+- [ ] Endpoint backend `GET /api/calendar?days=3` — fetch + filtre impact High/Medium
+- [ ] Cache SQLite des annonces (TTL 1h, INSERT OR REPLACE)
+- [ ] Composant `EconomicCalendar.vue` sur le Dashboard :
+  - 5 prochaines annonces avec countdown
+  - Devise concernée, titre, impact (rouge=fort, orange=moyen)
+  - Heure locale + UTC
+- [ ] Alerte toast automatique 15min avant une annonce à fort impact
+
+---
+
+### ✦ COMPLEXITÉ 5 — Infrastructure backend lourde
+
+#### Semaine 19: Données historiques + Collecte massive
+> Prérequis indispensable à tout entraînement ML réaliste et à la détection de volatilité
+
+- [ ] Endpoint `POST /api/data/collect` — collecte bulk N mois de bougies par asset/tf
+- [ ] Stockage DB optimisé (INSERT OR IGNORE) pour éviter les doublons
+- [ ] Script de collecte initiale : 6 mois x 13 assets x M1/M5/M15 (~500k bougies)
+- [ ] Indicateur de progression frontend pendant la collecte
+- [ ] Vue `DataManagementView.vue` — statut couverture données par asset
+
+#### Semaine 20: Entraînement automatique + Monitoring ML
+- [ ] Scheduler Rust (tokio::time) — reentraînement quotidien a 00h00
+- [ ] Walk-forward optimization : fenêtre glissante 3 mois train / 1 mois test
+- [ ] Détection dérive modèle : alerte si accuracy < seuil sur 7 derniers jours
+- [ ] `GET /api/ml/history` — historique entraînements (date, accuracy, durée)
+- [ ] Affichage courbe d'accuracy dans `PnLView.vue`
+
+#### Semaine 21: Détection automatique de volatilités récurrentes (Straddle IA)
+> Dépend de la collecte S19 — nécessite 6 mois d'historique minimum
+
+- [ ] Analyse distribution ATR par heure du jour et jour de la semaine
+- [ ] Identification patterns récurrents : ouvertures marché, annonces économiques
+- [ ] Clustering k-means sur features temporelles (heure, jour, session)
+- [ ] Calibration automatique des seuils ATR pour la stratégie Straddle
+- [ ] Rapport `GET /api/volatility/patterns` — heatmap horaire des pics ATR
+- [ ] Visualisation dans `HeatmapView.vue` (axe heure du jour en plus de l'axe asset)
+
+---
+
+### ✦ COMPLEXITÉ 6 — Refactoring ML profond + GPU
+
+#### Semaine 22: XGBoost + Accélération CUDA
+> Remplacement du RandomForest + activation GPU RTX 3090 pour le ML trading
+
+- [ ] Intégration crate `xgboost` (bindings C++) — `ml/src/xgboost.rs`
+- [ ] Fusion LSTM 60% + XGBoost 40% (remplace RandomForest dans PipelineHybride)
+- [ ] Accélération GPU pour LSTM via `candle` (Hugging Face) ou `cudarc`
+- [ ] Benchmark inférence : objectif <200ms sur GPU vs CPU actuel
+- [ ] Tests : accuracy XGBoost vs RF sur le même jeu de données historiques
+
+---
+
+### ✦ COMPLEXITÉ 7 — Finalisation + tests + alertes système
+
+#### Semaine 23-24: Alertes OS, Export PDF, Coverage tests >80%
+- [ ] Notifications OS natives via Tauri (tauri-plugin-notification)
+- [ ] Alertes sonores sur nouveau signal (fichier .ogg embarqué)
+- [ ] Export PDF P&L via printpdf ou capture HTML->PDF
+- [ ] Coverage tests >80% : smc (4 modules), strategies (SMC Directionnel), api, data, db
+- [ ] Documentation technique complète
 
 ---
 
 ## 🚀 PHASE 4 - PRODUCTION RÉELLE
 
-> **Statut : ⚪ À VENIR**
+> **Statut : A VENIR** — après validation Phase 3
 
-- [ ] Paper trading validation (2-4 semaines)
-- [ ] Trading réel progressif (capital limité)
-- [ ] Monitoring 24/7
-- [ ] Itérations continues
+### Paper Trading (2-4 semaines)
+- [ ] Simulateur d'exécution d'ordres (prix réel, sizing réel, sans envoi broker)
+- [ ] Journal des trades simulés avec P&L en temps réel
+- [ ] Validation métriques : Win Rate >55%, Sharpe >1.5, Drawdown <20%
+
+### Trading Réel Progressif
+- [ ] Connexion IB Gateway mode LIVE (port 4001 — actuellement port 4002 paper)
+- [ ] Exécution d'ordres via ibapi : place_order, cancel_order
+- [ ] Gestion positions ouvertes : `GET /api/positions`
+- [ ] Monitoring 24/7 — watchdog process + redémarrage auto
+
+---
+
+## 📊 ÉTAT COUVERTURE TESTS (14 mars 2026)
+
+| Crate | Tests | Couverture estimée |
+|-------|-------|--------------------|
+| backtest | 2 | ~60% |
+| indicators | 4 | ~70% |
+| ml | 3 | ~40% |
+| risk | 5 | ~80% |
+| smc | 2 | ~20% — Order Blocks, Imbalance, IFVG non testés |
+| strategies | 3 | ~50% — SMC Directionnel non testé |
+| api, data, db | 0 | 0% |
+| **Total** | **19** | **~35%** — objectif Phase 3 : >80% |
 
 ---
 
@@ -146,4 +284,4 @@
 
 ---
 
-**Prochaine étape:** [ARCHITECTURE.md](ARCHITECTURE.md) pour détails techniques
+**Documents complémentaires :** [ARCHITECTURE.md](ARCHITECTURE.md) · [CAHIER_DES_CHARGES.md](CAHIER_DES_CHARGES.md)
