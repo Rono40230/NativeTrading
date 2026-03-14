@@ -46,6 +46,40 @@ OB, FVG, niveaux clés à surveiller.
 - Ne fabrique pas de niveaux de prix — utilise ceux fournis dans le contexte.
 - Sois précis et actionnable."#;
 
+const PROMPT_VISION_MULTI_TF: &str = r#"Tu es un analyste expert en Smart Money Concepts (SMC) spécialisé en analyse top-down multi-timeframe. Tu reçois plusieurs graphiques du même asset sur des timeframes différents. Réponds TOUJOURS en français.
+
+=== MÉTHODOLOGIE TOP-DOWN ===
+
+Analyse dans l'ordre chronologique des TF : HTF (biais directionnel) → ITF (structure) → LTF (entrée précise).
+
+Pour CHAQUE graphique reçu :
+1. STRUCTURE DE MARCHÉ : biais directionnel, phase, BOS/ChoCH, HH/HL/LH/LL
+2. LIQUIDITÉ : zones BSL/SSL, sweeps récents, inducements
+3. POI : Order Blocks, FVG, niveaux clés de réaction
+
+Puis une synthèse de confluence.
+
+=== FORMAT DE RÉPONSE ===
+
+**(répété pour chaque TF) 🔭 ANALYSE [TIMEFRAME]**
+Structure, liquidité, POI.
+
+**🔗 CONFLUENCE MULTI-TF**
+Alignement des biais, zones de confluence, invalidation.
+
+**🎯 SCÉNARIO OPTIMAL**
+Entry zone, SL logique, objectifs TP1/TP2/TP3.
+
+**⚡ SCÉNARIO ALTERNATIF**
+
+**🔑 CONCLUSION** — Confiance /10
+
+=== RÈGLES ===
+- Chaque image correspond à un timeframe différent du même asset.
+- Base-toi UNIQUEMENT sur les graphiques visibles.
+- Ne fabrique pas de niveaux — utilise ceux fournis dans le contexte.
+- Sois précis et actionnable."#;
+
 /// Prompt système injecté dans chaque conversation trading
 const SYSTEM_PROMPT: &str = "Tu es un expert en trading algorithmique spécialisé \
 dans l'analyse SMC (Smart Money Concept). Tu analyses des données de marché \
@@ -97,26 +131,55 @@ pub async fn interroger_chat_modele(
     appeler_ollama(&url, &corps).await
 }
 
-/// Envoie une image (base64) à un modèle vision avec le prompt analyste SMC complet.
-pub async fn analyser_image(base64: &str, contexte: &str, notes: Option<&str>) -> Result<String, TradingError> {
+fn tf_libelle(tf: &str) -> &str {
+    match tf {
+        "M1"  => "1 minute",
+        "M5"  => "5 minutes",
+        "M15" => "15 minutes",
+        "H1"  => "1 heure",
+        "H4"  => "4 heures",
+        "D1"  => "journalier",
+        "W1"  => "hebdomadaire",
+        other => other,
+    }
+}
+
+/// Envoie une ou plusieurs images (base64, timeframe) à llama3.2-vision — analyse SMC top-down.
+pub async fn analyser_images(images: &[(&str, &str)], asset: &str, notes: Option<&str>) -> Result<String, TradingError> {
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
 
-    let mut contenu_utilisateur = format!(
-        "Voici un graphique de trading.\n\nDONNÉES CONTEXTE (utilise UNIQUEMENT ces prix, ne lis pas les axes):\n{}",
-        contexte
+    let prompt = if images.len() == 1 { PROMPT_VISION_ANALYST } else { PROMPT_VISION_MULTI_TF };
+
+    let descriptions: Vec<String> = images
+        .iter()
+        .enumerate()
+        .map(|(i, (_, tf))| format!("  • Image {} → {} ({})", i + 1, tf, tf_libelle(tf)))
+        .collect();
+
+    let mut contenu = format!(
+        "Asset analysé : {}\nNombre de graphiques : {}\n\nTimeframes (dans l'ordre d'envoi) :\n{}",
+        asset,
+        images.len(),
+        descriptions.join("\n"),
     );
+
+    if images.len() > 1 {
+        contenu.push_str("\n\nEffectue une analyse top-down : commence par le timeframe le plus élevé pour établir le biais directionnel, puis descends vers les TF inférieurs pour identifier le Point d'Intérêt d'entrée précis.");
+    }
 
     if let Some(n) = notes {
         if !n.is_empty() {
-            contenu_utilisateur.push_str(&format!("\n\nNotes du trader : {}", n));
+            contenu.push_str(&format!("\n\nNotes du trader : {}", n));
         }
     }
+
+    let bases64: Vec<&str> = images.iter().map(|(b, _)| *b).collect();
 
     let corps = serde_json::json!({
         "model": MODELE_VISION,
         "messages": [
-            {"role": "system", "content": PROMPT_VISION_ANALYST},
-            {"role": "user", "content": contenu_utilisateur, "images": [base64]}
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": contenu, "images": bases64}
         ],
         "stream": false,
         "options": {"temperature": 0.2}

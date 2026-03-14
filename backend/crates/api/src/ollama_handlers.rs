@@ -160,15 +160,15 @@ pub async fn statut() -> impl Responder {
 // ─── POST /api/ia/chart ─────────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
+pub struct ImageAvecTF {
+    pub base64: String,
+    pub timeframe: String,
+}
+
+#[derive(Deserialize)]
 pub struct RequeteChartAnalyse {
     pub asset: String,
-    pub timeframe: String,
-    pub image_base64: String,
-    pub prix_actuel: Option<f64>,
-    pub plus_haut: Option<f64>,
-    pub plus_bas: Option<f64>,
-    pub volume_moyen: Option<f64>,
-    pub nb_bougies: Option<u32>,
+    pub images: Vec<ImageAvecTF>,
     pub notes: Option<String>,
 }
 
@@ -179,52 +179,26 @@ pub struct ReponseChartAnalyse {
 }
 
 /// POST /api/ia/chart
-/// Analyse visuelle d'un screenshot de graphique via le modèle vision llava.
+/// Analyse visuelle d'un ou plusieurs screenshots via llama3.2-vision — top-down multi-TF.
 pub async fn analyser_chart(body: web::Json<RequeteChartAnalyse>) -> impl Responder {
-    if body.image_base64.is_empty() {
+    if body.images.is_empty() {
         return HttpResponse::BadRequest()
-            .json(serde_json::json!({ "error": "image_base64 ne peut pas être vide" }));
+            .json(serde_json::json!({ "error": "Au moins une image requise" }));
     }
 
-    let timeframe_libelle = match body.timeframe.as_str() {
-        "M1"  => "bougies de 1 minute",
-        "M5"  => "bougies de 5 minutes",
-        "M15" => "bougies de 15 minutes",
-        "H1"  => "bougies de 1 heure",
-        "H4"  => "bougies de 4 heures",
-        "D1"  => "bougies journalières",
-        "W1"  => "bougies hebdomadaires",
-        tf    => tf,
-    };
+    let slices: Vec<(&str, &str)> = body.images
+        .iter()
+        .map(|img| (img.base64.as_str(), img.timeframe.as_str()))
+        .collect();
 
-    let mut contexte = format!(
-        "Asset: {} | Timeframe: {} ({}) | Nombre de bougies visibles: {}",
-        body.asset,
-        body.timeframe,
-        timeframe_libelle,
-        body.nb_bougies.unwrap_or(0),
-    );
-
-    if let (Some(actuel), Some(haut), Some(bas)) =
-        (body.prix_actuel, body.plus_haut, body.plus_bas)
-    {
-        contexte.push_str(&format!(
-            " | Prix actuel: ${:.2} | Plus haut session: ${:.2} | Plus bas session: ${:.2}",
-            actuel, haut, bas
-        ));
-    }
-    if let Some(vol) = body.volume_moyen {
-        contexte.push_str(&format!(" | Volume moyen par bougie: {:.2}", vol));
-    }
-
-    match ollama::analyser_image(&body.image_base64, &contexte, body.notes.as_deref()).await {
+    match ollama::analyser_images(&slices, &body.asset, body.notes.as_deref()).await {
         Ok(analyse) => HttpResponse::Ok().json(ReponseChartAnalyse {
             analyse,
             modele: ollama::MODELE_VISION.to_string(),
         }),
         Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
             "error": format!("{}", e),
-            "aide": "Lancez Ollama: ollama serve && ollama pull llava"
+            "aide": "Lancez Ollama: ollama serve && ollama pull llama3.2-vision:11b"
         })),
     }
 }

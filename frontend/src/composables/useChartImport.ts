@@ -1,10 +1,17 @@
 import { ref } from 'vue'
 import { apiService } from '@/services/api.service'
+import type { ImageAvecTF } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
 
 export interface ContentPart {
   type: 'text' | 'diagram'
   content: string
+}
+
+export interface ImageEntry {
+  base64: string
+  preview: string
+  timeframe: string
 }
 
 function parseContent(text: string): ContentPart[] {
@@ -50,53 +57,64 @@ export function renderMd(text: string): string {
 export function useChartImport() {
   const alerteStore = useAlerteStore()
 
-  const imageBase64 = ref('')
-  const imagePreview = ref('')
+  const images = ref<ImageEntry[]>([])
   const notes = ref('')
   const analyseEnCours = ref(false)
   const partsResultat = ref<ContentPart[]>([])
   const dragActif = ref(false)
   const modeleUtilise = ref('')
 
-  function traiterFichier(file: File) {
-    if (!file.type.startsWith('image/')) {
-      alerteStore.afficherErreur('Fichier non supporté — glissez une image (PNG, JPG, WebP)')
+  function traiterFichiers(files: File[]) {
+    const valides = files.filter(f => f.type.startsWith('image/'))
+    if (valides.length === 0) {
+      alerteStore.afficherErreur('Aucun fichier image valide — PNG, JPG ou WebP attendu')
       return
     }
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string
-      imagePreview.value = dataUrl
-      imageBase64.value = dataUrl.split(',')[1] ?? ''
-    }
-    reader.readAsDataURL(file)
+    valides.forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string
+        images.value.push({
+          preview: dataUrl,
+          base64: dataUrl.split(',')[1] ?? '',
+          timeframe: 'M15',
+        })
+      }
+      reader.readAsDataURL(file)
+    })
   }
 
   function onDrop(e: DragEvent) {
     dragActif.value = false
-    const file = e.dataTransfer?.files[0]
-    if (file) traiterFichier(file)
+    traiterFichiers(Array.from(e.dataTransfer?.files ?? []))
   }
 
   function onInputFile(e: Event) {
-    const file = (e.target as HTMLInputElement).files?.[0]
-    if (file) traiterFichier(file)
+    traiterFichiers(Array.from((e.target as HTMLInputElement).files ?? []))
+    ;(e.target as HTMLInputElement).value = ''
   }
 
-  async function analyserImage(asset: string, timeframe: string) {
-    if (!imageBase64.value) {
-      alerteStore.afficherErreur("Importez d'abord une image de chart")
+  function supprimerImage(idx: number) {
+    images.value.splice(idx, 1)
+  }
+
+  function mettreAJourTF(idx: number, tf: string) {
+    if (images.value[idx]) images.value[idx].timeframe = tf
+  }
+
+  async function analyserImage(asset: string) {
+    if (images.value.length === 0) {
+      alerteStore.afficherErreur("Importez d'abord au moins un chart")
       return
     }
     analyseEnCours.value = true
     partsResultat.value = []
     try {
-      const res = await apiService.analyserChart(
-        asset,
-        timeframe,
-        imageBase64.value,
-        notes.value || undefined,
-      )
+      const payload: ImageAvecTF[] = images.value.map(img => ({
+        base64: img.base64,
+        timeframe: img.timeframe,
+      }))
+      const res = await apiService.analyserChart(asset, payload, notes.value || undefined)
       modeleUtilise.value = res.modele
       partsResultat.value = parseContent(res.analyse)
     } catch (e: unknown) {
@@ -107,16 +125,14 @@ export function useChartImport() {
   }
 
   function reinitialiser() {
-    imageBase64.value = ''
-    imagePreview.value = ''
+    images.value = []
     notes.value = ''
     partsResultat.value = []
     modeleUtilise.value = ''
   }
 
   return {
-    imageBase64,
-    imagePreview,
+    images,
     notes,
     analyseEnCours,
     partsResultat,
@@ -125,6 +141,8 @@ export function useChartImport() {
     onDrop,
     onInputFile,
     analyserImage,
+    supprimerImage,
+    mettreAJourTF,
     reinitialiser,
     setDragActif: (v: boolean) => { dragActif.value = v },
   }

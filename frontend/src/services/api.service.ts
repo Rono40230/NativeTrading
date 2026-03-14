@@ -78,6 +78,11 @@ export interface ReponseChartIA {
   modele: string
 }
 
+export interface ImageAvecTF {
+  base64: string
+  timeframe: string
+}
+
 export interface StatutIA {
   ollama_disponible: boolean
   modele: string
@@ -190,13 +195,12 @@ export const apiService = {
 
   async analyserChart(
     asset: string,
-    timeframe: string,
-    image_base64: string,
+    images: ImageAvecTF[],
     notes?: string,
   ): Promise<ReponseChartIA> {
     const res = await http.post(
       '/api/ia/chart',
-      { asset, timeframe, image_base64, ...(notes ? { notes } : {}) },
+      { asset, images, ...(notes ? { notes } : {}) },
       { timeout: 180000 },
     )
     return res.data
