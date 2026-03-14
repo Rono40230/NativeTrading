@@ -44,13 +44,13 @@
     <div class="flex gap-3 items-end flex-wrap">
       <div class="min-w-[100px]">
         <label class="text-xs text-gray-400 font-medium block mb-1">Asset</label>
-        <select v-model="asset" class="w-full bg-gray-800 border border-gray-600 text-white text-sm rounded-lg px-3 py-2">
+        <select v-model="asset" class="w-full bg-white border border-gray-300 text-black text-sm rounded-lg px-3 py-2">
           <option v-for="a in ASSETS" :key="a" :value="a">{{ a }}</option>
         </select>
       </div>
       <div class="min-w-[90px]">
         <label class="text-xs text-gray-400 font-medium block mb-1">Timeframe</label>
-        <select v-model="timeframe" class="w-full bg-gray-800 border border-gray-600 text-white text-sm rounded-lg px-3 py-2">
+        <select v-model="timeframe" class="w-full bg-white border border-gray-300 text-black text-sm rounded-lg px-3 py-2">
           <option v-for="tf in TIMEFRAMES" :key="tf" :value="tf">{{ tf }}</option>
         </select>
       </div>
