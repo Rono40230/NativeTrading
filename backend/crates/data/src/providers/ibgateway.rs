@@ -32,7 +32,7 @@ impl IbGatewayProvider {
         match asset {
             Asset::BTC => Contract::crypto("BTC").build(),
             Asset::ETH => Contract::crypto("ETH").build(),
-            // Métaux précieux : CMDTY sur SMART (IB paper trading)
+            // Métaux précieux — Commodity SMART
             Asset::XAUUSD => Contract {
                 symbol: "XAUUSD".into(),
                 security_type: SecurityType::Commodity,
@@ -47,6 +47,46 @@ impl IbGatewayProvider {
                 currency: "USD".into(),
                 ..Default::default()
             },
+            // Paires Forex — ForexPair IDEALPRO
+            Asset::EURUSD => Self::forex_pair("EUR", "USD"),
+            Asset::GBPJPY => Self::forex_pair("GBP", "JPY"),
+            Asset::CADJPY => Self::forex_pair("CAD", "JPY"),
+            Asset::NZDJPY => Self::forex_pair("NZD", "JPY"),
+            Asset::USDCAD => Self::forex_pair("USD", "CAD"),
+            Asset::USDJPY => Self::forex_pair("USD", "JPY"),
+            // Indices — SecurityType::Index (symboles canoniques IB)
+            // DAX → EUREX | SPX → CBOE | NAS100 → NQ contfut CME
+            Asset::DAX => Contract {
+                symbol: "DAX".into(),
+                security_type: SecurityType::Index,
+                exchange: "EUREX".into(),
+                currency: "EUR".into(),
+                ..Default::default()
+            },
+            Asset::NAS100 => Contract {
+                symbol: "NQ".into(),
+                security_type: SecurityType::ContinuousFuture,
+                exchange: "CME".into(),
+                currency: "USD".into(),
+                ..Default::default()
+            },
+            Asset::SP500 => Contract {
+                symbol: "SPX".into(),
+                security_type: SecurityType::Index,
+                exchange: "CBOE".into(),
+                currency: "USD".into(),
+                ..Default::default()
+            },
+        }
+    }
+
+    fn forex_pair(symbole: &str, devise: &str) -> Contract {
+        Contract {
+            symbol: symbole.into(),
+            security_type: SecurityType::ForexPair,
+            exchange: "IDEALPRO".into(),
+            currency: devise.into(),
+            ..Default::default()
         }
     }
 
@@ -82,11 +122,13 @@ impl IbGatewayProvider {
     }
 
     /// Sélectionne le type de données selon l'asset.
-    /// MidPoint est valide pour tous : forex, métaux, et crypto via PAXOS.
-    /// Note : ibapi 2.10.0 ne supporte pas WhatToShow::AggTrades (requis par IB
-    /// pour TRADES crypto depuis 2022), MidPoint contourne ce problème.
-    fn what_to_show(_asset: &Asset) -> WhatToShow {
-        WhatToShow::MidPoint
+    /// - Indices / Futures continus      → Trades
+    /// - Forex, métaux, crypto           → MidPoint
+    fn what_to_show(asset: &Asset) -> WhatToShow {
+        match asset {
+            Asset::DAX | Asset::NAS100 | Asset::SP500 => WhatToShow::Trades,
+            _ => WhatToShow::MidPoint,
+        }
     }
 }
 

@@ -104,6 +104,58 @@
       </div>
       <p class="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{{ analyseResultat }}</p>
     </div>
+
+    <!-- Prédiction IA + Score SMC côte à côte -->
+    <div class="flex gap-4 items-stretch">
+      <!-- Prédiction IA -->
+      <div class="glass-card p-5 flex-1">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+          Prédiction IA — {{ selectedAsset }} {{ selectedTimeframe }}
+        </h2>
+        <div v-if="signalStore.prediction" class="space-y-3">
+          <div class="flex items-center gap-3">
+            <span class="text-2xl font-bold" :class="directionColor(signalStore.prediction.direction)">
+              {{ signalStore.prediction.direction.toUpperCase() }}
+            </span>
+            <span
+              class="px-2 py-1 rounded text-xs font-medium"
+              :class="signalStore.prediction.est_confiant ? 'bg-emerald-500/20 text-emerald-300' : 'bg-yellow-500/20 text-yellow-300'"
+            >
+              {{ signalStore.prediction.est_confiant ? '✓ Confiant' : '⚠ Indécis' }}
+            </span>
+          </div>
+          <div class="w-full bg-gray-700 rounded-full h-2">
+            <div
+              class="h-2 rounded-full transition-all"
+              :class="signalStore.prediction.est_confiant ? 'bg-emerald-500' : 'bg-yellow-500'"
+              :style="{ width: `${(signalStore.prediction.confiance * 100).toFixed(0)}%` }"
+            />
+          </div>
+          <p class="text-xs text-gray-400">
+            Confiance: {{ (signalStore.prediction.confiance * 100).toFixed(1) }}%
+            — Modèle: {{ signalStore.prediction.modele_pret ? '✓ Entraîné' : '⏳ Non entraîné' }}
+          </p>
+          <button
+            class="mt-3 w-full py-2 px-3 rounded-lg text-xs font-semibold transition-all"
+            :class="entraineEnCours ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'"
+            :disabled="entraineEnCours"
+            @click="lancerEntrainement"
+          >
+            {{ entraineEnCours ? '⏳ Entraînement...' : '🧠 Entraîner RF + LSTM' }}
+          </button>
+        </div>
+        <div v-else class="text-gray-500 text-sm">Chargement prédiction...</div>
+      </div>
+
+      <!-- Score SMC -->
+      <div class="flex-1">
+        <SmcScoreCard
+          :score-smc="signalStore.scoreSmc"
+          :asset="selectedAsset"
+          :timeframe="selectedTimeframe"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -112,13 +164,20 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useChartTradingView } from '@/composables/useChartTradingView'
 import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
+import { useSignalStore } from '@/stores/signal.store'
+import { useAlerteStore } from '@/stores/alerte.store'
 import { useChartAnalyse } from '@/composables/useChartAnalyse'
+import { apiService, type AssetInfo } from '@/services/api.service'
+import SmcScoreCard from '@/components/common/SmcScoreCard.vue'
 
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
+const signalStore = useSignalStore()
+const alerteStore = useAlerteStore()
 
-const assets = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD']
+const assets = ref<string[]>(['BTC', 'ETH', 'XAUUSD', 'XAGUSD'])
 const timeframes = ['M1', 'M5', 'M15', 'H1', 'H4', 'D1', 'W1']
+const entraineEnCours = ref(false)
 const selectedAsset = ref(settingsStore.assetActif)
 const selectedTimeframe = ref(settingsStore.timeframeActif)
 const chartContainer = ref<HTMLElement | null>(null)
@@ -176,12 +235,34 @@ function formatVolume(v: number): string {
   if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`
   return v.toFixed(2)
 }
+
+function directionColor(dir: string): string {
+  if (dir.toLowerCase().includes('long')) return 'text-emerald-400'
+  if (dir.toLowerCase().includes('short')) return 'text-red-400'
+  return 'text-yellow-400'
+}
+
+async function lancerEntrainement() {
+  entraineEnCours.value = true
+  alerteStore.afficher('Entraînement ML en cours (RF + LSTM)...', 'info', 120000)
+  try {
+    const res = await apiService.entrainerML(selectedAsset.value, selectedTimeframe.value, 1000)
+    alerteStore.afficherSucces(`✅ ${res.message}`)
+    await signalStore.chargerPrediction(selectedAsset.value, selectedTimeframe.value)
+  } catch (err: unknown) {
+    alerteStore.afficherErreur(`Entraînement échoué: ${(err as Error).message}`)
+  } finally {
+    entraineEnCours.value = false
+  }
+}
 async function changerAsset(asset: string) {
   selectedAsset.value = asset
   settingsStore.definirAsset(asset)
   arreterLiveFeed()
   await chargerEtReinitChart()
   demarrerLiveFeed(asset, selectedTimeframe.value)
+  signalStore.chargerPrediction(asset, selectedTimeframe.value)
+  signalStore.chargerScoreSmc(asset, selectedTimeframe.value)
 }
 
 async function changerTimeframe(tf: string) {
@@ -190,6 +271,8 @@ async function changerTimeframe(tf: string) {
   arreterLiveFeed()
   await chargerEtReinitChart()
   demarrerLiveFeed(selectedAsset.value, tf)
+  signalStore.chargerPrediction(selectedAsset.value, tf)
+  signalStore.chargerScoreSmc(selectedAsset.value, tf)
 }
 
 async function chargerData() {
@@ -233,9 +316,19 @@ watch(() => marketStore.wsMiseAJour, (update) => {
 })
 
 onMounted(async () => {
+  // Charger la liste des assets depuis l'API (enrichit automatiquement les nouveaux assets)
+  try {
+    const liste: AssetInfo[] = await apiService.obtenirAssets()
+    if (liste.length > 0) assets.value = liste.map((a) => a.id)
+  } catch {
+    // fallback : liste statique déjà initialisée
+  }
+
   await chargerData()
   initChart()
   demarrerLiveFeed(selectedAsset.value, selectedTimeframe.value)
+  signalStore.chargerPrediction(selectedAsset.value, selectedTimeframe.value)
+  signalStore.chargerScoreSmc(selectedAsset.value, selectedTimeframe.value)
 
   configurerRedimensionnement()
 })

@@ -89,10 +89,23 @@ pub enum Direction {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Asset {
+    // Crypto (Binance)
     BTC,
     ETH,
+    // Métaux précieux (IB Gateway — Commodity SMART)
     XAUUSD,
     XAGUSD,
+    // Paires Forex (IB Gateway — ForexPair IDEALPRO)
+    EURUSD,
+    GBPJPY,
+    CADJPY,
+    NZDJPY,
+    USDCAD,
+    USDJPY,
+    // Indices / CFD (IB Gateway — CFD SMART)
+    DAX,
+    NAS100,
+    SP500,
 }
 
 impl Asset {
@@ -102,6 +115,15 @@ impl Asset {
             Asset::ETH => "ETH",
             Asset::XAUUSD => "XAUUSD",
             Asset::XAGUSD => "XAGUSD",
+            Asset::EURUSD => "EURUSD",
+            Asset::GBPJPY => "GBPJPY",
+            Asset::CADJPY => "CADJPY",
+            Asset::NZDJPY => "NZDJPY",
+            Asset::USDCAD => "USDCAD",
+            Asset::USDJPY => "USDJPY",
+            Asset::DAX => "DAX",
+            Asset::NAS100 => "NAS100",
+            Asset::SP500 => "SP500",
         }
     }
 }

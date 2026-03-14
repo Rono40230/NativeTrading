@@ -3,10 +3,23 @@ use common::{Asset, Timeframe};
 /// Parse un nom d'asset case-insensitive. Retourne None si non supporté.
 pub fn parse_asset(s: &str) -> Option<Asset> {
     match s.to_uppercase().as_str() {
+        // Crypto
         "BTC" => Some(Asset::BTC),
         "ETH" => Some(Asset::ETH),
+        // Métaux
         "XAUUSD" | "XAU" | "GOLD" => Some(Asset::XAUUSD),
         "XAGUSD" | "XAG" | "SILVER" => Some(Asset::XAGUSD),
+        // Forex
+        "EURUSD" => Some(Asset::EURUSD),
+        "GBPJPY" => Some(Asset::GBPJPY),
+        "CADJPY" => Some(Asset::CADJPY),
+        "NZDJPY" => Some(Asset::NZDJPY),
+        "USDCAD" => Some(Asset::USDCAD),
+        "USDJPY" => Some(Asset::USDJPY),
+        // Indices
+        "DAX" | "DAX40" | "GER40" => Some(Asset::DAX),
+        "NAS100" | "NDX" | "NASDAQ100" => Some(Asset::NAS100),
+        "SP500" | "SPX" | "SPX500" => Some(Asset::SP500),
         _ => None,
     }
 }

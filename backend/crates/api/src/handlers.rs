@@ -54,10 +54,23 @@ pub async fn health_check() -> impl Responder {
 
 pub async fn get_assets() -> impl Responder {
     let assets = vec![
-        serde_json::json!({ "id": "BTC", "nom": "Bitcoin", "type": "crypto" }),
-        serde_json::json!({ "id": "ETH", "nom": "Ethereum", "type": "crypto" }),
-        serde_json::json!({ "id": "XAUUSD", "nom": "Or (Gold)", "type": "metal" }),
+        // Crypto
+        serde_json::json!({ "id": "BTC",    "nom": "Bitcoin",      "type": "crypto" }),
+        serde_json::json!({ "id": "ETH",    "nom": "Ethereum",     "type": "crypto" }),
+        // Métaux
+        serde_json::json!({ "id": "XAUUSD", "nom": "Or (Gold)",    "type": "metal" }),
         serde_json::json!({ "id": "XAGUSD", "nom": "Argent (Silver)", "type": "metal" }),
+        // Forex
+        serde_json::json!({ "id": "EURUSD", "nom": "Euro / Dollar",   "type": "forex" }),
+        serde_json::json!({ "id": "GBPJPY", "nom": "Livre / Yen",     "type": "forex" }),
+        serde_json::json!({ "id": "CADJPY", "nom": "CAD / Yen",       "type": "forex" }),
+        serde_json::json!({ "id": "NZDJPY", "nom": "NZD / Yen",       "type": "forex" }),
+        serde_json::json!({ "id": "USDCAD", "nom": "Dollar / CAD",    "type": "forex" }),
+        serde_json::json!({ "id": "USDJPY", "nom": "Dollar / Yen",    "type": "forex" }),
+        // Indices
+        serde_json::json!({ "id": "DAX",    "nom": "DAX 40 (Allemagne)", "type": "indice" }),
+        serde_json::json!({ "id": "NAS100", "nom": "Nasdaq 100",     "type": "indice" }),
+        serde_json::json!({ "id": "SP500",  "nom": "S&P 500",        "type": "indice" }),
     ];
     HttpResponse::Ok().json(assets)
 }
@@ -80,7 +93,7 @@ pub async fn get_candles(
     let asset = match parse_asset(&query.asset) {
         Some(a) => a,
         None => return HttpResponse::BadRequest()
-            .json(serde_json::json!({ "error": "Asset non supporté: BTC, ETH, XAUUSD ou XAGUSD." })),
+            .json(serde_json::json!({ "error": "Asset non supporté. Voir GET /api/assets pour la liste complète." })),
     };
 
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));

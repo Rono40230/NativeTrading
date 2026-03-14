@@ -108,9 +108,20 @@ export interface ScoreSmc {
   confluence: boolean
 }
 
+export interface AssetInfo {
+  id: string
+  nom: string
+  type: 'crypto' | 'metal' | 'forex' | 'indice'
+}
+
 export const apiService = {
   async healthCheck(): Promise<{ status: string }> {
     const res = await http.get('/health')
+    return res.data
+  },
+
+  async obtenirAssets(): Promise<AssetInfo[]> {
+    const res = await http.get('/api/assets')
     return res.data
   },
 

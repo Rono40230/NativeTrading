@@ -1,7 +1,7 @@
-//! Streaming IB Gateway — métaux (XAUUSD / XAGUSD)
+//! Streaming IB Gateway — métaux, paires Forex et indices
 //! 1 connexion TCP, 2 subscriptions multiplexées :
-//!   - historical_data_streaming → bougies chart (contrat Commodity SMART)
-//!   - tick_by_tick_bid_ask      → prix live (contrat Forex IDEALPRO)
+//!   - historical_data_streaming → bougies chart
+//!   - tick_by_tick_bid_ask      → prix live (Forex/métaux — None pour indices)
 
 use actix_ws::Message;
 use ibapi::contracts::{Contract, SecurityType};
@@ -13,8 +13,11 @@ use super::types::{CandleData, CandleEvent};
 
 // ─── Helpers contrats IB ──────────────────────────────────────────────────────
 
-pub(super) fn ib_contrat_metal(asset: &common::Asset) -> Contract {
+/// Contrat IB pour données historiques (chart).
+/// Métaux → Commodity SMART | Forex → ForexPair IDEALPRO | Indices → CFD SMART
+pub(super) fn ib_contrat_hist(asset: &common::Asset) -> Contract {
     match asset {
+        // ── Métaux précieux ──────────────────────────────────────────────
         common::Asset::XAUUSD => Contract {
             symbol: "XAUUSD".into(),
             security_type: SecurityType::Commodity,
@@ -22,9 +25,47 @@ pub(super) fn ib_contrat_metal(asset: &common::Asset) -> Contract {
             currency: "USD".into(),
             ..Default::default()
         },
-        _ => Contract {
+        common::Asset::XAGUSD => Contract {
             symbol: "XAGUSD".into(),
             security_type: SecurityType::Commodity,
+            exchange: "SMART".into(),
+            currency: "USD".into(),
+            ..Default::default()
+        },
+        // ── Paires Forex (ForexPair IDEALPRO) ────────────────────────────
+        common::Asset::EURUSD => ib_forex_pair("EUR", "USD"),
+        common::Asset::GBPJPY => ib_forex_pair("GBP", "JPY"),
+        common::Asset::CADJPY => ib_forex_pair("CAD", "JPY"),
+        common::Asset::NZDJPY => ib_forex_pair("NZD", "JPY"),
+        common::Asset::USDCAD => ib_forex_pair("USD", "CAD"),
+        common::Asset::USDJPY => ib_forex_pair("USD", "JPY"),
+        // Indices / CFD (CFD SMART) ────────────────────────────────────────────────
+        // IB Index symbols : DAX → EUREX | SPX → CBOE | NAS100 → NQ contfut CME
+        common::Asset::DAX => Contract {
+            symbol: "DAX".into(),
+            security_type: SecurityType::Index,
+            exchange: "EUREX".into(),
+            currency: "EUR".into(),
+            ..Default::default()
+        },
+        common::Asset::NAS100 => Contract {
+            symbol: "NQ".into(),
+            security_type: SecurityType::ContinuousFuture,
+            exchange: "CME".into(),
+            currency: "USD".into(),
+            ..Default::default()
+        },
+        common::Asset::SP500 => Contract {
+            symbol: "SPX".into(),
+            security_type: SecurityType::Index,
+            exchange: "CBOE".into(),
+            currency: "USD".into(),
+            ..Default::default()
+        },
+        // BTC/ETH ne passent pas par IB — cas impossible en production
+        common::Asset::BTC | common::Asset::ETH => Contract {
+            symbol: asset.as_str().into(),
+            security_type: SecurityType::CFD,
             exchange: "SMART".into(),
             currency: "USD".into(),
             ..Default::default()
@@ -32,24 +73,42 @@ pub(super) fn ib_contrat_metal(asset: &common::Asset) -> Contract {
     }
 }
 
-/// Contrat Forex IDEALPRO pour tick-by-tick
-/// (Commodity ne supporte pas tick-by-tick IB)
-fn ib_contrat_forex_tick(asset: &common::Asset) -> Contract {
+/// Contrat pour tick-by-tick bid/ask.
+/// Métaux → ForexPair IDEALPRO (Commodity ne supporte pas tick-by-tick)
+/// Forex  → même ForexPair IDEALPRO que pour l'historique
+/// Indices → None (tick-by-tick non supporté sur CFD)
+fn ib_contrat_tick(asset: &common::Asset) -> Option<Contract> {
     match asset {
-        common::Asset::XAUUSD => Contract {
-            symbol: "XAU".into(),
-            security_type: SecurityType::ForexPair,
-            exchange: "IDEALPRO".into(),
-            currency: "USD".into(),
-            ..Default::default()
-        },
-        _ => Contract {
-            symbol: "XAG".into(),
-            security_type: SecurityType::ForexPair,
-            exchange: "IDEALPRO".into(),
-            currency: "USD".into(),
-            ..Default::default()
-        },
+        common::Asset::XAUUSD => Some(ib_forex_pair("XAU", "USD")),
+        common::Asset::XAGUSD => Some(ib_forex_pair("XAG", "USD")),
+        common::Asset::EURUSD => Some(ib_forex_pair("EUR", "USD")),
+        common::Asset::GBPJPY => Some(ib_forex_pair("GBP", "JPY")),
+        common::Asset::CADJPY => Some(ib_forex_pair("CAD", "JPY")),
+        common::Asset::NZDJPY => Some(ib_forex_pair("NZD", "JPY")),
+        common::Asset::USDCAD => Some(ib_forex_pair("USD", "CAD")),
+        common::Asset::USDJPY => Some(ib_forex_pair("USD", "JPY")),
+        // Indices et crypto : pas de tick-by-tick
+        _ => None,
+    }
+}
+
+/// Helper : construit un contrat ForexPair IDEALPRO
+fn ib_forex_pair(symbole: &str, devise: &str) -> Contract {
+    Contract {
+        symbol: symbole.into(),
+        security_type: SecurityType::ForexPair,
+        exchange: "IDEALPRO".into(),
+        currency: devise.into(),
+        ..Default::default()
+    }
+}
+
+/// WhatToShow selon le type d'asset.
+/// Indices / Futures continus → Trades | Forex, métaux → MidPoint
+fn what_to_show_hist(asset: &common::Asset) -> WhatToShow {
+    match asset {
+        common::Asset::DAX | common::Asset::NAS100 | common::Asset::SP500 => WhatToShow::Trades,
+        _ => WhatToShow::MidPoint,
     }
 }
 
@@ -128,7 +187,8 @@ pub(super) async fn stream_ib(
         }
     };
 
-    let contrat = ib_contrat_metal(&asset);
+    let contrat = ib_contrat_hist(&asset);
+    let what_to_show = what_to_show_hist(&asset);
 
     // Subscription 1 : bougies historiques + updates (chart)
     let mut sub_hist = match client
@@ -136,7 +196,7 @@ pub(super) async fn stream_ib(
             &contrat,
             Duration::days(2),
             ib_bar_size(&timeframe),
-            Some(WhatToShow::MidPoint),
+            Some(what_to_show),
             TradingHours::Extended,
             true,
         )
@@ -154,23 +214,20 @@ pub(super) async fn stream_ib(
         }
     };
 
-    // Subscription 2 : tick_by_tick_bid_ask Forex IDEALPRO
-    // (SecurityType::Commodity SMART → Error 10189 pour tout tick-by-tick)
-    let contrat_tick = ib_contrat_forex_tick(&asset);
-    let mut sub_tick_opt = match client.tick_by_tick_bid_ask(&contrat_tick, 0, true).await {
-        Ok(s) => {
-            tracing::info!(
-                "IB tick_by_tick_bid_ask Forex IDEALPRO actif pour {}",
-                asset_str
-            );
-            Some(s)
-        }
-        Err(e) => {
-            tracing::warn!(
-                "IB tick Forex IDEALPRO indisponible pour {} — erreur: {:?}",
-                asset_str,
-                e
-            );
+    // Subscription 2 : tick-by-tick bid/ask (Forex + métaux seulement)
+    let mut sub_tick_opt = match ib_contrat_tick(&asset) {
+        Some(contrat_tick) => match client.tick_by_tick_bid_ask(&contrat_tick, 0, true).await {
+            Ok(s) => {
+                tracing::info!("IB tick_by_tick_bid_ask actif pour {}", asset_str);
+                Some(s)
+            }
+            Err(e) => {
+                tracing::warn!("IB tick indisponible pour {} — erreur: {:?}", asset_str, e);
+                None
+            }
+        },
+        None => {
+            tracing::debug!("Tick-by-tick non disponible pour {} (indice/CFD)", asset_str);
             None
         }
     };
