@@ -104,15 +104,18 @@ Take Profit :
 **⭐ SCORE** : X/5 — [justification courte : éléments présents / manquants]
 
 **🚀 SIGNAL** (uniquement si ≥ 4 étoiles) :
+⚡ Lire les prix DIRECTEMENT sur l'axe Y du graphique. Chiffrer chaque niveau avec la valeur visible.
 • Direction : LONG / SHORT
-• Entry Risk (limit) : [prix ou zone]
-• Entry Confirmation : [condition LTF à attendre]
-• SL Agressif : [prix] (distance : X%)
-• SL Conservatif : [prix] (distance : X%)
-• TP1 : [prix] — [cible]
-• TP2 : [prix] — [cible]
-• R:R conservatif : X:X
-• Invalidation : [niveau précis qui annule le setup]
+
+| Niveau | Prix (axe Y) | Distance % | Commentaire |
+|--------|--------------|------------|-------------|
+| Entry Risk (limit) | XXX.XX | — | 50% corps OB / midpoint FVG |
+| Entry Confirmation | XXX.XX | — | Après CHoCH/BOS LTF + retest |
+| SL Agressif | XXX.XX | X.XX% | Au-delà wick bougie 3 confirmation |
+| SL Conservatif | XXX.XX | X.XX% | Au-delà extrême zone OB complète |
+| TP1 | XXX.XX | R:R X:X | Prochaine liquidité interne |
+| TP2 | XXX.XX | R:R X:X | Draw on Liquidity principal |
+| Invalidation | XXX.XX | — | Niveau structurel annulant le setup |
 
 **🔑 CONCLUSION** : [2-3 phrases actionnables incluant le biais dominant et l'action immédiate]"#;
 
@@ -185,16 +188,20 @@ Principe fondamental : le biais HTF dicte la direction principale. Un trade LTF 
 **⭐ SCORE CONFLUENCE** : X/5 étoiles — [justification : éléments présents / manquants]
 
 **🚀 PLAN DE TRADE OPTIMAL** (uniquement si ≥ 4 étoiles) :
+⚡ Lire les prix DIRECTEMENT sur les axes Y des graphiques visibles. Chiffrer chaque niveau.
 • Direction : LONG / SHORT
-• Déclencheur LTF : [condition exacte avant entrée — ex: CHoCH M5 + retest OB M15]
-• Entry Risk (limit) : [zone ou prix — 50% du corps OB ou midpoint FVG]
-• Entry Confirmation (marché) : [condition précise — ex: close bougie haussière au-dessus OB M5]
-• SL Agressif : [prix] (distance : X%)
-• SL Conservatif : [prix] (distance : X%)
-• TP1 (liquidité interne) : [prix] — R:R X:X
-• TP2 (Draw on Liquidity ITF) : [prix] — R:R X:X
-• TP3 (Draw on Liquidity HTF) : [prix] — R:R X:X
-• Invalidation structurelle : [niveau précis qui annule tout le scénario]
+• Déclencheur LTF : [condition exacte — ex: CHoCH M5 + retest OB M15]
+
+| Niveau | Prix (axe Y) | Distance % | TF / Commentaire |
+|--------|--------------|------------|------------------|
+| Entry Risk (limit) | XXX.XX | — | 50% OB ou midpoint FVG |
+| Entry Confirmation | XXX.XX | — | Après close confirmation LTF |
+| SL Agressif | XXX.XX | X.XX% | Wick bougie 3 (OB LTF) |
+| SL Conservatif | XXX.XX | X.XX% | Extrême zone OB ITF |
+| TP1 | XXX.XX | R:R X:X | Liquidité interne (LTF) |
+| TP2 | XXX.XX | R:R X:X | Draw on Liquidity ITF |
+| TP3 | XXX.XX | R:R X:X | Draw on Liquidity HTF |
+| Invalidation | XXX.XX | — | Niveau structurel annulant tout |
 
 **📋 SCÉNARIO ALTERNATIF** :
 [Si le setup primaire est invalidé : prochain POI à surveiller, nouvelle condition d'entrée]
