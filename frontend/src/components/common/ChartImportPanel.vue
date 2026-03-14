@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <!-- Zone drag & drop -->
     <div
-      class="rounded-xl border-2 border-dashed transition-colors cursor-pointer relative min-h-[130px]"
+      class="rounded-xl border-2 border-dashed transition-colors cursor-pointer relative min-h-[260px]"
       :class="[
         dragActif
           ? 'border-blue-400 bg-blue-500/8'
@@ -29,15 +29,15 @@
           :key="idx"
           class="relative rounded-lg overflow-hidden border border-white/10 bg-black/20"
         >
-          <img :src="img.preview" :alt="`Chart ${idx + 1}`" class="w-full h-28 object-cover" />
+          <img :src="img.preview" :alt="`Chart ${idx + 1}`" class="w-full h-56 object-cover" />
           <div class="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 flex items-center justify-between gap-1">
             <select
               :value="img.timeframe"
-              class="flex-1 bg-transparent text-white text-xs font-semibold border-0 outline-none cursor-pointer"
+              class="flex-1 bg-white text-black text-xs font-semibold border-0 outline-none cursor-pointer rounded"
               @change="mettreAJourTF(idx, ($event.target as HTMLSelectElement).value)"
               @click.stop
             >
-              <option v-for="tf in TIMEFRAMES" :key="tf" :value="tf" class="bg-gray-900 text-white">{{ tf }}</option>
+              <option v-for="tf in TIMEFRAMES" :key="tf" :value="tf" class="bg-white text-black">{{ tf }}</option>
             </select>
             <button
               class="text-gray-400 hover:text-red-400 text-xs leading-none ml-1"
@@ -47,7 +47,7 @@
         </div>
         <!-- Tuile Ajouter -->
         <div
-          class="flex flex-col items-center justify-center gap-1 h-28 rounded-lg border border-dashed border-white/20 hover:border-white/40 transition-colors text-gray-600 hover:text-gray-400 cursor-pointer"
+          class="flex flex-col items-center justify-center gap-1 h-56 rounded-lg border border-dashed border-white/20 hover:border-white/40 transition-colors text-gray-600 hover:text-gray-400 cursor-pointer"
           @click.stop="fileInputEl?.click()"
         >
           <span class="text-2xl leading-none">＋</span>
