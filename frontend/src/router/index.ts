@@ -10,6 +10,7 @@ const router = createRouter({
     { path: '/settings', component: () => import('../views/SettingsView.vue') },
     { path: '/heatmap', component: () => import('../views/HeatmapView.vue') },
     { path: '/ia/analyser', component: () => import('../views/SMCAnalyzerView.vue') },
+    { path: '/ia/chart', component: () => import('../views/ChartImportView.vue') },
     { path: '/ia/coach', component: () => import('../views/SMCCoachView.vue') },
   ]
 })

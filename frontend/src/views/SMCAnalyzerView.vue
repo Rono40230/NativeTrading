@@ -13,23 +13,6 @@
       </span>
     </div>
 
-    <!-- Onglets -->
-    <div class="flex gap-1 p-1 bg-white/5 rounded-xl border border-white/10 self-start">
-      <button
-        class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-        :class="onglet === 'signal' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'"
-        @click="onglet = 'signal'"
-      >📊 Signal</button>
-      <button
-        class="px-4 py-1.5 rounded-lg text-sm font-medium transition-colors"
-        :class="onglet === 'chart' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'"
-        @click="onglet = 'chart'"
-      >🖼️ Chart Import</button>
-    </div>
-
-    <!-- Onglet Signal -->
-    <div v-show="onglet === 'signal'" class="space-y-4">
-
     <!-- Formulaire signal -->
     <div class="glass-card p-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
       <div>
@@ -112,10 +95,6 @@
 ollama pull qwen2.5:14b
 ollama serve</pre>
     </div>
-    </div><!-- /onglet signal -->
-
-    <!-- Onglet Chart Import -->
-    <ChartImportPanel v-show="onglet === 'chart'" />
   </div>
 </template>
 
@@ -123,10 +102,8 @@ ollama serve</pre>
 import { ref, reactive, onMounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
-import ChartImportPanel from '@/components/common/ChartImportPanel.vue'
 
 const alerteStore = useAlerteStore()
-const onglet = ref<'signal' | 'chart'>('signal')
 const chargement = ref(false)
 const ollamaOk = ref(false)
 const modeleActif = ref('qwen2.5:14b')
