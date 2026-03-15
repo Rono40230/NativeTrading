@@ -151,7 +151,10 @@ function onCardEnter(event: MouseEvent, id: string) {
   if (!asset?.variationsMultiTF) return
   if (leaveTimer !== null) { clearTimeout(leaveTimer); leaveTimer = null }
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  tooltipPos.value = { x: rect.left + rect.width / 2, y: rect.bottom + 8 }
+  const rawX = rect.left + rect.width / 2
+  // w-80 = 320px → demi-largeur 160px + 8px marge bord
+  const clampedX = Math.max(168, Math.min(window.innerWidth - 168, rawX))
+  tooltipPos.value = { x: clampedX, y: rect.bottom + 8 }
   if (hoveredAsset.value?.id !== id) selectedTF.value = 'd1'
   hoveredAsset.value = asset
 }

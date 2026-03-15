@@ -43,6 +43,9 @@
       </button>
     </div>
 
+    <!-- Panneau indicateurs (toujours visible) -->
+    <IndicatorPanel v-model="settingsStore.indicateurs" @appliquer="chargerIndicateurs" />
+
     <!-- Dernier prix + variation -->
     <div v-if="dernierPrix" class="flex items-baseline gap-3">
       <span class="text-3xl font-bold">{{ formatPrix(dernierPrix) }}</span>
@@ -74,6 +77,16 @@
       </div>
       <!-- Container toujours monté pour éviter la destruction du canvas -->
       <div ref="chartContainer" class="w-full h-full" />
+      <!-- Tableau Tendance Kasper Bootcamp (overlay coin haut-gauche) -->
+      <TendanceMultiTF
+        v-if="settingsStore.indicateurs.kasperTendance"
+        :key="selectedAsset + '_' + selectedTimeframe"
+        :asset="selectedAsset"
+        :timeframe="selectedTimeframe"
+        :mm-rapide="settingsStore.indicateurs.kasperMmRapide"
+        :mm-lente="settingsStore.indicateurs.kasperMmLente"
+        :ma-type="settingsStore.indicateurs.kasperMaType"
+      />
     </div>
 
     <!-- Statistiques bougies -->
@@ -116,14 +129,17 @@ import { useChartTradingView } from '@/composables/useChartTradingView'
 import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useChartAnalyse } from '@/composables/useChartAnalyse'
+import { useChartIndicators } from '@/composables/useChartIndicators'
 import { apiService, type AssetInfo } from '@/services/api.service'
 import PredictionSMCPanel from '@/components/common/PredictionSMCPanel.vue'
+import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
+import TendanceMultiTF from '@/components/common/TendanceMultiTF.vue'
 
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
 
 const assets = ref<string[]>(['BTC', 'ETH', 'XAUUSD', 'XAGUSD'])
-const timeframes = ['M1', 'M5', 'M15', 'H1', 'H4', 'D1', 'W1']
+const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const selectedAsset = ref(settingsStore.assetActif)
 const selectedTimeframe = ref(settingsStore.timeframeActif)
 const chartContainer = ref<HTMLElement | null>(null)
@@ -167,6 +183,14 @@ const {
 const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
   useChartAnalyse(getChart, selectedAsset, selectedTimeframe, dernierPrix, stats)
 
+const { chargerEtAppliquer, reinitialiser } = useChartIndicators()
+
+async function chargerIndicateurs() {
+  const chart = getChart()
+  if (!chart) return
+  await chargerEtAppliquer(chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs)
+}
+
 function formatPrix(v: number): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -199,18 +223,19 @@ async function changerTimeframe(tf: string) {
 }
 
 async function chargerData() {
-  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, 200)
+  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, 500)
 }
 
 async function chargerEtReinitChart() {
-  // Détruire l'ancien graphique avant de changer les données
   detruireChart()
+  reinitialiser() // Invalide les références aux séries de l'ancien chart
 
-  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, 200)
+  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, 500)
 
   // Attendre que Vue ait rendu le container (toujours monté)
   await nextTick()
   initChart()
+  await chargerIndicateurs()
 }
 
 async function actualiser() {
@@ -226,7 +251,7 @@ function arreterLiveFeed() {
   marketStore.deconnecterStream()
 }
 
-// Rechargement complet (changement asset/timeframe)
+// Rechargement complet (changement asset/timeframe) — les indicateurs se rechargent via chargerEtReinitChart
 watch(bougies, () => {
   mettreAJourSerie(true)
 }, { deep: false })
@@ -249,6 +274,7 @@ onMounted(async () => {
 
   await chargerData()
   initChart()
+  await chargerIndicateurs()
   demarrerLiveFeed(selectedAsset.value, selectedTimeframe.value)
 
   configurerRedimensionnement()

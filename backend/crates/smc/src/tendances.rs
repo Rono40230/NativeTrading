@@ -1,9 +1,10 @@
 use common::{Candle, Direction};
+use serde::{Deserialize, Serialize};
 
 /// Nombre de bougies de chaque côté pour valider un pivot
 const LOOKBACK_PIVOT: usize = 3;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResultatTendance {
     pub direction: Direction,
     pub dernier_sommet: f64,

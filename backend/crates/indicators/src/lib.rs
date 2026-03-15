@@ -18,6 +18,22 @@ pub struct Bollinger {
     pub inferieure: Vec<f64>,
 }
 
+// ─── SMA ─────────────────────────────────────────────────────────────────────
+
+/// Moyenne mobile simple (SMA) sur les prix de clôture
+pub fn calculer_sma(bougies: &[Candle], periode: usize) -> Vec<f64> {
+    let n = bougies.len();
+    if n < periode || periode == 0 {
+        return vec![f64::NAN; n];
+    }
+    let closes: Vec<f64> = bougies.iter().map(|b| b.close).collect();
+    let mut sma = vec![f64::NAN; n];
+    for i in (periode - 1)..n {
+        sma[i] = closes[i + 1 - periode..=i].iter().sum::<f64>() / periode as f64;
+    }
+    sma
+}
+
 // ─── EMA ─────────────────────────────────────────────────────────────────────
 
 /// Moyenne mobile exponentielle (EMA) sur les prix de clôture
@@ -245,7 +261,7 @@ mod tests {
         let rsi = calculer_rsi(&b, 14);
         let valides: Vec<f64> = rsi.iter().copied().filter(|v| !v.is_nan()).collect();
         assert!(!valides.is_empty());
-        assert!(valides.iter().all(|&v| v >= 0.0 && v <= 100.0));
+        assert!(valides.iter().all(|&v| (0.0..=100.0).contains(&v)));
     }
 
     #[test]

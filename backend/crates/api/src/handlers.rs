@@ -101,7 +101,7 @@ pub async fn get_candles(
     // 1. Cache local — ignorer si force=true (polling temps réel)
     if !force {
         if let Ok(bougies) = state.db.obtenir_bougies(&asset, &timeframe, limit as i64).await {
-            if bougies.len() >= limit.min(60) {
+            if bougies.len() >= limit {
                 return HttpResponse::Ok().json(bougies);
             }
         }

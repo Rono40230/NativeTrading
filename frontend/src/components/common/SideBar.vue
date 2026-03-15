@@ -57,7 +57,7 @@ type NavItem = LienSimple | LienGroupe
 function estGroupe(item: NavItem): item is LienGroupe { return 'groupe' in item }
 
 const nav: NavItem[] = [
-  { to: '/',        icone: '🏠', label: 'Accueil' },
+  { to: '/',        icone: '🏠', label: 'Dashboard' },
   { to: '/charts',  icone: '📈', label: 'Graphiques' },
   { to: '/pnl',     icone: '💰', label: 'P&L' },
   { to: '/history', icone: '📜', label: 'Historique' },

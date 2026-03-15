@@ -92,13 +92,14 @@ impl IbGatewayProvider {
 
     fn vers_bar_size(tf: &Timeframe) -> BarSize {
         match tf {
-            Timeframe::M1 => BarSize::Min,
-            Timeframe::M5 => BarSize::Min5,
+            Timeframe::M1  => BarSize::Min,
+            Timeframe::M5  => BarSize::Min5,
             Timeframe::M15 => BarSize::Min15,
-            Timeframe::H1 => BarSize::Hour,
-            Timeframe::H4 => BarSize::Hour4,
-            Timeframe::D1 => BarSize::Day,
-            Timeframe::W1 => BarSize::Week,
+            Timeframe::M30 => BarSize::Min30,
+            Timeframe::H1  => BarSize::Hour,
+            Timeframe::H4  => BarSize::Hour4,
+            Timeframe::D1  => BarSize::Day,
+            Timeframe::W1  => BarSize::Week,
         }
     }
 
@@ -107,17 +108,19 @@ impl IbGatewayProvider {
         let nb = limit as i32;
         match tf {
             // 390 bougies M1 par jour de trading (~6,5h)
-            Timeframe::M1 => Duration::days((nb / 390 + 1).max(1) * 2),
+            Timeframe::M1  => Duration::days((nb / 390 + 1).max(1) * 2),
             // 78 bougies M5 par jour
-            Timeframe::M5 => Duration::days((nb / 78 + 1).max(1) * 2),
+            Timeframe::M5  => Duration::days((nb / 78 + 1).max(1) * 2),
             // 26 bougies M15 par jour
             Timeframe::M15 => Duration::days((nb / 26 + 1).max(2) * 2),
+            // 13 bougies M30 par jour
+            Timeframe::M30 => Duration::days((nb / 13 + 1).max(2) * 2),
             // 6 bougies H1 par jour de trading
-            Timeframe::H1 => Duration::days((nb / 6 + 1).max(2) * 2),
+            Timeframe::H1  => Duration::days((nb / 6 + 1).max(2) * 2),
             // 1,5 bougie H4 par jour
-            Timeframe::H4 => Duration::days((nb * 4 / 6 + 2).max(4)),
-            Timeframe::D1 => Duration::days(nb + 14),
-            Timeframe::W1 => Duration::weeks(nb + 4),
+            Timeframe::H4  => Duration::days((nb * 4 / 6 + 2).max(4)),
+            Timeframe::D1  => Duration::days(nb + 14),
+            Timeframe::W1  => Duration::weeks(nb + 4),
         }
     }
 

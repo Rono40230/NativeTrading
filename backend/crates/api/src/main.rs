@@ -5,11 +5,13 @@ mod handlers;
 mod backtest_handlers;
 mod config_handlers;
 mod export_handlers;
+mod indicators_handlers;
 mod ml_handlers;
 mod ollama;
 mod ollama_handlers;
 mod smc_handlers;
 mod state;
+mod tendance_handlers;
 mod utils;
 mod ws_handlers;
 
@@ -65,6 +67,8 @@ async fn main() -> std::io::Result<()> {
                 web::get().to(export_handlers::exporter_signaux_csv),
             )
             .route("/api/smc/analyse", web::get().to(smc_handlers::analyse_smc))
+            .route("/api/indicators", web::get().to(indicators_handlers::get_indicators))
+            .route("/api/tendance/multi-tf", web::get().to(tendance_handlers::tendance_multi_tf))
             .route("/api/ia/analyse", web::post().to(ollama_handlers::analyser))
             .route("/api/ia/chat", web::post().to(ollama_handlers::chat))
             .route("/api/ia/chart", web::post().to(ollama_handlers::analyser_chart))

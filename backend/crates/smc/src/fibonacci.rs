@@ -1,6 +1,7 @@
 use common::Candle;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NiveauxFibonacci {
     pub swing_haut: f64,
     pub swing_bas: f64,

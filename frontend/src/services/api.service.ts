@@ -1,123 +1,27 @@
 import axios from 'axios'
 
+export type {
+  Candle, BacktestResults, PredictionML, ReponseEntrainement,
+  RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA,
+  ImageAvecTF, StatutIA, Signal, ScoreSmc, PointSerie,
+  ZoneOb, ZoneFvg, ZoneIfvg, NiveauxFibonacci, ResultatTendance,
+  NiveauLiquidite, ReponseIndicators, IndicatorsParams,
+  LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo,
+} from './api.types'
+
+import type {
+  RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA,
+  ImageAvecTF, StatutIA, PredictionML, BacktestResults, ScoreSmc,
+  ReponseEntrainement, ReponseIndicators, IndicatorsParams,
+  ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
+} from './api.types'
+
 const BASE_URL = 'http://localhost:8080'
 
 const http = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
 })
-
-export interface Candle {
-  timestamp: string
-  open: number
-  high: number
-  low: number
-  close: number
-  volume: number
-}
-
-export interface BacktestResults {
-  total_trades: number
-  winning_trades: number
-  losing_trades: number
-  win_rate: number
-  capital_initial: number
-  capital_final: number
-  roi_pct: number
-  profit_net: number
-  sharpe_ratio: number
-  max_drawdown_pct: number
-  profit_factor: number
-}
-
-export interface PredictionML {
-  asset: string
-  direction: string
-  confiance: number
-  est_confiant: boolean
-  modele_pret: boolean
-}
-
-export interface ReponseEntrainement {
-  success: boolean
-  accuracy_rf: number
-  accuracy_lstm: number
-  nb_echantillons: number
-  duree_ms: number
-  message: string
-}
-
-export interface RequeteAnalyseIA {
-  asset: string
-  timeframe: string
-  direction: string
-  score_smc: number
-  prix_entree: number
-  stop_loss: number
-  take_profit: number
-  tendance: number
-  order_block: number
-  imbalance: number
-  ifvg: number
-  fibonacci: number
-  confiance_ml: number
-}
-
-export interface ReponseAnalyseIA {
-  analyse: string
-  modele: string
-}
-
-export interface ReponseChatIA {
-  reponse: string
-  modele: string
-}
-
-export interface ReponseChartIA {
-  analyse: string
-  modele: string
-}
-
-export interface ImageAvecTF {
-  base64: string
-  timeframe: string
-}
-
-export interface StatutIA {
-  ollama_disponible: boolean
-  modele: string
-  url: string
-}
-
-export interface Signal {
-  id: string
-  asset: string
-  timeframe: string
-  direction: string
-  score: number
-  prix_entree: number
-  stop_loss: number
-  take_profit: string
-  strategie: string
-  cree_le: number
-}
-
-export interface ScoreSmc {
-  total: number
-  tendance: number
-  order_block: number
-  imbalance: number
-  ifvg: number
-  fibonacci: number
-  direction: string
-  confluence: boolean
-}
-
-export interface AssetInfo {
-  id: string
-  nom: string
-  type: 'crypto' | 'metal' | 'forex' | 'indice'
-}
 
 export const apiService = {
   async healthCheck(): Promise<{ status: string }> {
@@ -233,5 +137,22 @@ export const apiService = {
       if (err?.response?.data) return err.response.data
       return { connecte: false, adresse: '', erreur: err?.message ?? 'Erreur réseau' }
     }
+  },
+
+  async getIndicators(params: IndicatorsParams): Promise<ReponseIndicators> {
+    const res = await http.get('/api/indicators', { params })
+    return res.data
+  },
+
+  async obtenirTendanceMultiTf(
+    asset: string,
+    mmRapide = 9,
+    mmLente = 21,
+    maType: 'ema' | 'sma' = 'ema'
+  ): Promise<ReponseTendanceMultiTf> {
+    const res = await http.get('/api/tendance/multi-tf', {
+      params: { asset, mm_rapide: mmRapide, mm_lente: mmLente, ma_type: maType },
+    })
+    return res.data
   },
 }

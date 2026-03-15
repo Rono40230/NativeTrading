@@ -30,6 +30,16 @@ export function useChartTradingView(
       },
       crosshair: { mode: 1 },
       rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
+      localization: {
+        timeFormatter: (timestamp: number) =>
+          new Intl.DateTimeFormat('fr-FR', {
+            timeZone: 'Europe/Paris',
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+          }).format(new Date(timestamp * 1000)),
+      },
       timeScale: {
         borderColor: 'rgba(255,255,255,0.1)',
         timeVisible: true,

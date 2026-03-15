@@ -4,12 +4,14 @@ use serde::{Deserialize, Serialize};
 pub mod fibonacci;
 pub mod ifvg;
 pub mod imbalance;
+pub mod liquidites;
 pub mod order_blocks;
 pub mod tendances;
 
 pub use fibonacci::NiveauxFibonacci;
 pub use ifvg::Ifvg;
 pub use imbalance::Imbalance;
+pub use liquidites::NiveauLiquidite;
 pub use order_blocks::OrderBlock;
 pub use tendances::ResultatTendance;
 

@@ -19,13 +19,14 @@ impl BinanceProvider {
 
     fn interval(tf: &Timeframe) -> &'static str {
         match tf {
-            Timeframe::M1 => "1m",
-            Timeframe::M5 => "5m",
+            Timeframe::M1  => "1m",
+            Timeframe::M5  => "5m",
             Timeframe::M15 => "15m",
-            Timeframe::H1 => "1h",
-            Timeframe::H4 => "4h",
-            Timeframe::D1 => "1d",
-            Timeframe::W1 => "1w",
+            Timeframe::M30 => "30m",
+            Timeframe::H1  => "1h",
+            Timeframe::H4  => "4h",
+            Timeframe::D1  => "1d",
+            Timeframe::W1  => "1w",
         }
     }
 }

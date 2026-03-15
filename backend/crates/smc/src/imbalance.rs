@@ -1,6 +1,7 @@
 use common::{Candle, Direction};
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Imbalance {
     /// Borne haute du gap
     pub prix_haut: f64,

@@ -165,18 +165,17 @@
 
 ### ✦ COMPLEXITÉ 4 — Endpoint API + composant frontend
 
-#### Semaine 18b: Indicateurs visuels paramétrables sur les graphiques
-> Le calcul existe déjà dans le crate indicators — il faut l'exposer et l'afficher
+#### ✅ Semaine 18b: Indicateurs visuels paramétrables sur les graphiques — TERMINÉE
+> Endpoint `GET /api/indicators` + overlays TradingView + panneau config + liquidités BSL/SSL
 
-- [ ] Endpoint `GET /api/indicators?asset=BTC&tf=M15&params=...` — retourne les séries calculées
-- [ ] Overlay TradingView Lightweight Charts :
-  - Ligne EMA (période configurable)
-  - Histogramme MACD
-  - Bandes de Bollinger
-  - RSI dans un sous-graphique
-  - ATR dans un sous-graphique
-- [ ] Panneau de configuration indicators dans ChartsView (activer/désactiver, paramètres)
-- [ ] Persistance des préférences dans SettingsStore
+- [x] Serialize ajouté aux 5 structs SMC (`OrderBlock`, `Imbalance`, `Ifvg`, `NiveauxFibonacci`, `ResultatTendance`)
+- [x] Module `smc::liquidites` — détection BSL/SSL (swing high/low LOOKBACK=3, tolerance 0.1%, max 10 niveaux)
+- [x] Endpoint `GET /api/indicators?asset=BTC&tf=M15&ema=true&...` — retourne séries EMA/RSI/MACD/Bollinger/ATR + zones SMC + liquidités
+- [x] Overlay TradingView via prix lines (EMA couleur ambre, Bollinger indigo, OB/FVG/IFVG zones colorées, Fibonacci niveaux, BSL/SSL lignes)
+- [x] `IndicatorPanel.vue` — 2 sections (Techniques + SMC), toggle + périodes configurables
+- [x] `useChartIndicators.ts` — composable gérant création/suppression séries overlays
+- [x] `settings.store.ts` étendu — `indicateurs` (13 préférences) persistées localStorage
+- [x] `ChartsView.vue` intégré — bouton toggle + panel + rechargement overlays sur changement bougies (295L < 300L ✅)
 
 #### Semaine 18c: Calendrier économique (Dashboard)
 > API Forex Factory ou Investing.com — cache DB 1h pour éviter les spams

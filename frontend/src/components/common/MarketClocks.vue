@@ -61,11 +61,11 @@ interface SessionDef {
 }
 
 const SESSIONS: SessionDef[] = [
+  { nom: 'Hong Kong', timezone: 'Asia/Hong_Kong',    ouvertureUtcH: 1,  ouvertureUtcM: 0,  fermetureUtcH: 9,  fermetureUtcM: 0  },
+  { nom: 'New York',  timezone: 'America/New_York',  ouvertureUtcH: 13, ouvertureUtcM: 30, fermetureUtcH: 20, fermetureUtcM: 0  },
+  { nom: 'Londres',   timezone: 'Europe/London',     ouvertureUtcH: 8,  ouvertureUtcM: 0,  fermetureUtcH: 17, fermetureUtcM: 0  },
   { nom: 'Sydney',    timezone: 'Australia/Sydney',  ouvertureUtcH: 22, ouvertureUtcM: 0,  fermetureUtcH: 6,  fermetureUtcM: 0  },
   { nom: 'Tokyo',     timezone: 'Asia/Tokyo',        ouvertureUtcH: 0,  ouvertureUtcM: 0,  fermetureUtcH: 9,  fermetureUtcM: 0  },
-  { nom: 'Londres',   timezone: 'Europe/London',     ouvertureUtcH: 8,  ouvertureUtcM: 0,  fermetureUtcH: 17, fermetureUtcM: 0  },
-  { nom: 'New York',  timezone: 'America/New_York',  ouvertureUtcH: 13, ouvertureUtcM: 30, fermetureUtcH: 20, fermetureUtcM: 0  },
-  { nom: 'Hong Kong', timezone: 'Asia/Hong_Kong',    ouvertureUtcH: 1,  ouvertureUtcM: 0,  fermetureUtcH: 9,  fermetureUtcM: 0  },
 ]
 
 // Ticks pré-calculés

@@ -100,12 +100,13 @@ pub(super) fn what_to_show_hist(asset: &common::Asset) -> WhatToShow {
 
 pub(super) fn ib_bar_size(tf: &common::Timeframe) -> BarSize {
     match tf {
-        common::Timeframe::M1 => BarSize::Min,
-        common::Timeframe::M5 => BarSize::Min5,
+        common::Timeframe::M1  => BarSize::Min,
+        common::Timeframe::M5  => BarSize::Min5,
         common::Timeframe::M15 => BarSize::Min15,
-        common::Timeframe::H1 => BarSize::Hour,
-        common::Timeframe::H4 => BarSize::Hour4,
-        common::Timeframe::D1 => BarSize::Day,
-        common::Timeframe::W1 => BarSize::Week,
+        common::Timeframe::M30 => BarSize::Min30,
+        common::Timeframe::H1  => BarSize::Hour,
+        common::Timeframe::H4  => BarSize::Hour4,
+        common::Timeframe::D1  => BarSize::Day,
+        common::Timeframe::W1  => BarSize::Week,
     }
 }

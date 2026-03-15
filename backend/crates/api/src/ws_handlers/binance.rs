@@ -13,13 +13,14 @@ pub(super) fn binance_stream_url(asset: &common::Asset, tf: &common::Timeframe) 
         _ => "btcusdt",
     };
     let interval = match tf {
-        common::Timeframe::M1 => "1m",
-        common::Timeframe::M5 => "5m",
+        common::Timeframe::M1  => "1m",
+        common::Timeframe::M5  => "5m",
         common::Timeframe::M15 => "15m",
-        common::Timeframe::H1 => "1h",
-        common::Timeframe::H4 => "4h",
-        common::Timeframe::D1 => "1d",
-        common::Timeframe::W1 => "1w",
+        common::Timeframe::M30 => "30m",
+        common::Timeframe::H1  => "1h",
+        common::Timeframe::H4  => "4h",
+        common::Timeframe::D1  => "1d",
+        common::Timeframe::W1  => "1w",
     };
     format!("wss://stream.binance.com:9443/ws/{}@kline_{}", symbol, interval)
 }

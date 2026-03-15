@@ -12,6 +12,7 @@ strategies = { path = "../strategies" }
 backtest = { path = "../backtest" }
 risk = { path = "../risk" }
 smc = { path = "../smc" }
+indicators = { path = "../indicators" }
 actix-web.workspace = true
 actix-rt.workspace = true
 actix-cors.workspace = true
