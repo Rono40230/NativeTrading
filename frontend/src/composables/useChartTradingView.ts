@@ -114,6 +114,10 @@ export function useChartTradingView(
     return chart
   }
 
+  function getCandlestickSeries() {
+    return candleSeries
+  }
+
   return {
     initChart,
     mettreAJourSerie,
@@ -122,5 +126,6 @@ export function useChartTradingView(
     configurerRedimensionnement,
     arreterRedimensionnement,
     getChart,
+    getCandlestickSeries,
   }
 }

@@ -6,10 +6,14 @@ import type { ReponseIndicators } from '@/services/api.service'
 import { COULEURS } from './chartIndicatorsConfig'
 import { creerSousGraphiqueRsi, creerSousGraphiqueMacd, creerSousGraphiqueAtr, type SyncCtx } from './chartSubgraphs'
 import { appliquerBollinger, appliquerSmcOverlays } from './chartMainOverlays'
+import { rendreSurSerie, effacerMarqueurs } from './chartSignauxRendu'
+import { filtreDefaut, type FiltreSignaux, type SignalIndicateur } from './chartSignauxTypes'
+import { calculerSlTp, afficherSlTp, effacerSlTp, type LignesSlTp } from './chartAtrSlTp'
 
 export function useChartIndicators() {
   const enChargement = ref(false)
   const erreur = ref<string | null>(null)
+  const signauxActifs = ref<SignalIndicateur[]>([])
 
   // Tableau plain non-reactif
   let seriesActives: ISeriesApi<SeriesType>[] = []
@@ -19,6 +23,10 @@ export function useChartIndicators() {
   let syncMainToMacd: ((range: any) => void) | null = null
   let atrChart: IChartApi | null = null
   let syncMainToAtr: ((range: any) => void) | null = null
+  // SL/TP : valeurs ATR indexées par timestamp + lignes de prix actives
+  let atrValeurs = new Map<number, number>()
+  let lignesSlTp: LignesSlTp = { sl: null, tp1: null, tp2: null }
+  let candleSerieSlTp: ISeriesApi<'Candlestick'> | null = null
   // Compteur d'annulation : si un nouvel appel demarre, le precedent est ignore
   let appelEnCours = 0
 
@@ -90,6 +98,8 @@ export function useChartIndicators() {
     rsiContainer: HTMLElement | null = null,
     macdContainer: HTMLElement | null = null,
     atrContainer: HTMLElement | null = null,
+    candleSerie: ISeriesApi<'Candlestick'> | null = null,
+    filtre: FiltreSignaux = filtreDefaut(),
   ) {
     const idAppel = ++appelEnCours
     supprimerOverlays(chart)
@@ -114,6 +124,7 @@ export function useChartIndicators() {
         smc_fib: prefs.smcFib,
         smc_tendance: prefs.smcTendance,
         smc_liquidites: prefs.smcLiquidites,
+        signaux: true,
         limit: 500,
       })
 
@@ -175,6 +186,22 @@ export function useChartIndicators() {
       // Overlays SMC (Order Blocks, FVG, IFVG, Fibonacci, BSL/SSL)
       appliquerSmcOverlays(chart, data, ajouterFantome)
 
+      // Signaux indicateurs — marqueurs sur la série candlestick
+      if (data.signaux) {
+        signauxActifs.value = data.signaux
+        if (candleSerie) rendreSurSerie(candleSerie, data.signaux, filtre)
+      } else {
+        signauxActifs.value = []
+      }
+
+      // Valeurs ATR pour SL/TP
+      if (data.atr_valeurs) {
+        atrValeurs = new Map(data.atr_valeurs.map((p) => [p.time, p.value]))
+      } else {
+        atrValeurs = new Map()
+      }
+      candleSerieSlTp = candleSerie
+
     } catch (err_: any) {
       if (idAppel === appelEnCours) erreur.value = err_?.message ?? 'Erreur chargement indicateurs'
     } finally {
@@ -189,10 +216,53 @@ export function useChartIndicators() {
     syncMainToRsi = null
     syncMainToMacd = null
     syncMainToAtr = null
+    atrValeurs = new Map()
+    lignesSlTp = { sl: null, tp1: null, tp2: null }
+    candleSerieSlTp = null
     if (rsiChart) { try { rsiChart.remove() } catch { } rsiChart = null }
     if (macdChart) { try { macdChart.remove() } catch { } macdChart = null }
     if (atrChart) { try { atrChart.remove() } catch { } atrChart = null }
   }
 
-  return { enChargement, erreur, chargerEtAppliquer, supprimerOverlays, reinitialiser }
+  /** Re-rend les marqueurs avec un nouveau filtre (sans recharger les données) */
+  function appliquerMarqueursSignaux(
+    candleSerie: ISeriesApi<'Candlestick'> | null,
+    filtre: FiltreSignaux,
+  ) {
+    if (!candleSerie) return
+    if (signauxActifs.value.length === 0) {
+      effacerMarqueurs(candleSerie)
+      return
+    }
+    rendreSurSerie(candleSerie, signauxActifs.value, filtre)
+  }
+
+  /**
+   * Affiche ou met à jour les lignes SL/TP pour le signal Fort le plus proche du timestamp.
+   * Respecte le filtre courant (seuls les signaux des sources actives sont considérés).
+   */
+  function mettreAJourSlTp(
+    candleSerie: ISeriesApi<'Candlestick'> | null,
+    timestamp: number | null,
+    slTpActif: boolean,
+  ) {
+    const serie = candleSerie ?? candleSerieSlTp
+    effacerSlTp(serie, lignesSlTp)
+    if (!serie || !timestamp || !slTpActif) return
+
+    // SL/TP : tous les signaux Fort directionnels, indépendamment du filtre source
+    const signal = signauxActifs.value
+      .filter((s) => s.direction !== 'neutre' && s.force === 'fort')
+      .sort((a, b) => Math.abs(a.timestamp - timestamp) - Math.abs(b.timestamp - timestamp))
+      .at(0)
+
+    if (!signal) return
+    const atr = atrValeurs.get(signal.timestamp)
+    if (!atr) return
+
+    const niveau = calculerSlTp(signal, atr)
+    if (niveau) lignesSlTp = afficherSlTp(serie, niveau)
+  }
+
+  return { enChargement, erreur, signauxActifs, chargerEtAppliquer, supprimerOverlays, reinitialiser, appliquerMarqueursSignaux, mettreAJourSlTp }
 }

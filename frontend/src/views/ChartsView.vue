@@ -79,6 +79,13 @@
       style="height: 110px; position: relative;"
     />
 
+    <!-- Panneau signaux indicateurs -->
+    <ChartSignauxPanel
+      :signaux="signauxActifs"
+      :timestamp-curseur="timestampCurseur"
+      @update:filtre="onFiltreSignaux"
+    />
+
     <!-- Analyse vision llava -->
     <div v-if="analyseResultat" class="glass-card p-4 border-purple-500/30">
       <div class="flex items-center justify-between mb-2">
@@ -98,6 +105,8 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useChartTradingView } from '@/composables/useChartTradingView'
 import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
+import ChartSignauxPanel from '@/components/common/ChartSignauxPanel.vue'
+import { filtreDefaut, type FiltreSignaux } from '@/composables/chartSignauxTypes'
 import { useChartAnalyse } from '@/composables/useChartAnalyse'
 import { useChartIndicators } from '@/composables/useChartIndicators'
 import { apiService, type AssetInfo } from '@/services/api.service'
@@ -153,18 +162,45 @@ const {
   configurerRedimensionnement,
   arreterRedimensionnement,
   getChart,
+  getCandlestickSeries,
 } = useChartTradingView(chartContainer, bougies)
 
 const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
   useChartAnalyse(getChart, selectedAsset, selectedTimeframe)
 
-const { chargerEtAppliquer, reinitialiser } = useChartIndicators()
+const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp } = useChartIndicators()
+
+const timestampCurseur = ref<number | null>(null)
+const filtreCourant = ref<FiltreSignaux>(filtreDefaut())
+
+function onFiltreSignaux(f: FiltreSignaux) {
+  filtreCourant.value = f
+  appliquerMarqueursSignaux(getCandlestickSeries(), f)
+}
+
+function configurerCrosshair() {
+  getChart()?.subscribeCrosshairMove((param) => {
+    const ts = param.time ? (param.time as number) : null
+    timestampCurseur.value = ts
+    mettreAJourSlTp(getCandlestickSeries(), ts, filtreCourant.value.afficherSlTp)
+  })
+}
 
 async function chargerIndicateurs() {
   await nextTick()
   const chart = getChart()
   if (!chart) return
-  await chargerEtAppliquer(chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs, rsiContainer.value, macdContainer.value, atrContainer.value)
+  await chargerEtAppliquer(
+    chart,
+    selectedAsset.value,
+    selectedTimeframe.value,
+    settingsStore.indicateurs,
+    rsiContainer.value,
+    macdContainer.value,
+    atrContainer.value,
+    getCandlestickSeries(),
+    filtreCourant.value,
+  )
 }
 
 async function changerAsset(asset: string) {
@@ -196,6 +232,7 @@ async function chargerEtReinitChart() {
   // Attendre que Vue ait rendu le container (toujours monté)
   await nextTick()
   initChart()
+  configurerCrosshair()
   await chargerIndicateurs()
 }
 
@@ -235,6 +272,7 @@ onMounted(async () => {
 
   await chargerData()
   initChart()
+  configurerCrosshair()
   await chargerIndicateurs()
   demarrerLiveFeed(selectedAsset.value, selectedTimeframe.value)
 

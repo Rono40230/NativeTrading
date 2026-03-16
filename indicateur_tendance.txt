@@ -1,0 +1,24 @@
+C'est un indicateur classique de type "Multi-Timeframe Trend Table" (ou "MTF Bias Table"), très courant sur TradingView. Voici comment il est construit et ce qu'il utilise.
+Le principe général : pour chaque timeframe (1m, 5m, 15m, 1h, 4h, D, W, M...), l'indicateur calcule un ou plusieurs indicateurs techniques, compare leur état, et en dérive un biais directionnel (bullish / bearish / neutre). Le résultat est affiché dans un tableau récapitulatif dans un coin du chart.
+Les indicateurs sous-jacents les plus couramment utilisés dans ce type d'outil :
+Moyennes mobiles (EMA/SMA) — c'est la base. On regarde si le prix est au-dessus ou en dessous d'une EMA (souvent EMA 20, 50, 200), ou si deux MAs se croisent (golden/death cross). Bullish = prix > EMA, bearish = prix < EMA.
+Supertrend — très utilisé dans les versions SMC/ICT. Un seul signal directionnel (up/down) calculé à partir de l'ATR. Très lisible pour un tableau de ce type.
+MACD — on regarde simplement si l'histogramme est positif ou négatif, ou si la ligne MACD est au-dessus/dessous du signal.
+RSI — on vérifie si le RSI est au-dessus ou en dessous de 50 (50 = ligne de tendance neutre). Au-dessus → bullish momentum, en dessous → bearish.
+ADX / DMI — le DMI (+DI vs -DI) donne la direction, l'ADX donne la force. Souvent utilisé pour filtrer les marchés sans tendance.
+Ichimoku — position du prix par rapport au Kumo (nuage), croisement Tenkan/Kijun. Un signal très riche qui se prête bien à ce format tableau.
+Sur ton screenshot, les couleurs vert/rouge avec des cases distinctes par timeframe (1m, 3m, 5m, 15m, 30m, 1H, 2H, 4H) correspondent très probablement à une combinaison Supertrend + EMA, ou parfois juste Supertrend seul — c'est l'indicateur le plus utilisé pour ce format car il produit un signal binaire propre.
+Voici un schéma de l'architecture de ce type d'indicateur :
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.25s;
+    animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+  }
+VvisualizeVvisualize show_widgetComment reproduire cet indicateur en Pine Script v5 — les étapes clés :
+
+request.security() — c'est le cœur. Pour chaque TF, tu récupères la valeur d'un indicateur calculé sur ce TF. Par exemple : request.security(syminfo.tickerid, "60", ta.ema(close, 50)) pour l'EMA 50 sur le 1H.
+Signal par TF — tu appliques une condition logique, ex. close > ema50 ? 1 : -1, ou simplement l'état du Supertrend (qui retourne déjà un signal directionnel).
+Affichage — tu utilises table.new() et table.cell() pour construire le tableau dans un coin du chart (position.top_right par exemple), avec coloration conditionnelle selon le signal.
+
+L'indicateur que tu vois ressemble fortement à "Trend Magic MTF" ou "MTF Supertrend Table" — des versions publiques existent sur TradingView que tu peux inspecter. Cherche "MTF Trend Table" dans la bibliothèque publique pour voir le source Pine et confirmer les indicateurs exacts utilisés.

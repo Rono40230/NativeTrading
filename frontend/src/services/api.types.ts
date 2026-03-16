@@ -153,6 +153,20 @@ export interface NiveauLiquidite {
   sweepé: boolean
 }
 
+export type NiveauForceSignal = 'faible' | 'moyen' | 'fort'
+export type DirectionSignal = 'bullish' | 'bearish' | 'neutre'
+
+export interface SignalIndicateur {
+  timestamp: number
+  source: string
+  type_signal: string
+  direction: DirectionSignal
+  force: NiveauForceSignal
+  description: string
+  valeur: number
+  prix_entree: number
+}
+
 export interface ReponseIndicators {
   ema?: PointSerie[]
   rsi?: PointSerie[]
@@ -165,6 +179,8 @@ export interface ReponseIndicators {
   fibonacci?: NiveauxFibonacci
   tendance?: ResultatTendance
   liquidites?: NiveauLiquidite[]
+  signaux?: SignalIndicateur[]
+  atr_valeurs?: PointSerie[]
 }
 
 export interface IndicatorsParams {
@@ -191,6 +207,8 @@ export interface IndicatorsParams {
   smc_fib?: boolean
   smc_tendance?: boolean
   smc_liquidites?: boolean
+  /** Si true, calcule et retourne les signaux pour indicateurs actifs */
+  signaux?: boolean
   limit?: number
 }
 

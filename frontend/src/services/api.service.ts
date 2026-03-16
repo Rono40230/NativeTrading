@@ -5,7 +5,7 @@ export type {
   RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA,
   ImageAvecTF, StatutIA, Signal, ScoreSmc, PointSerie,
   ZoneOb, ZoneFvg, ZoneIfvg, NiveauxFibonacci, ResultatTendance,
-  NiveauLiquidite, ReponseIndicators, IndicatorsParams,
+  NiveauLiquidite, ReponseIndicators, IndicatorsParams, SignalIndicateur,
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo,
 } from './api.types'
 

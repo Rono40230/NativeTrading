@@ -1,3 +1,4 @@
+pub mod signaux;
 pub mod tendance;
 mod sma_ema;
 mod rsi;
