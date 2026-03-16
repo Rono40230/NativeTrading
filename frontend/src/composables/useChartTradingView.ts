@@ -26,10 +26,10 @@ export function useChartTradingView(
       layout: { background: { color: 'transparent' }, textColor: '#9ca3af' },
       grid: {
         vertLines: { color: 'rgba(255,255,255,0.05)' },
-        horzLines: { color: 'rgba(255,255,255,0.05)' },
+        horzLines: { visible: false },
       },
       crosshair: { mode: 1 },
-      rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)', minimumWidth: 80 },
       localization: {
         timeFormatter: (timestamp: number) =>
           new Intl.DateTimeFormat('fr-FR', {

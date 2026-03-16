@@ -98,9 +98,9 @@ function validerModal() {
 const techniques = [
   { key: 'ema',       label: 'EMA',       params: true,  activeClass: 'bg-amber-500/20 border-amber-500/40 text-amber-300',    gearClass: 'bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/20'   },
   { key: 'rsi',       label: 'RSI',       params: true,  activeClass: 'bg-purple-500/20 border-purple-500/40 text-purple-300', gearClass: 'bg-purple-500/10 border-purple-500/40 text-purple-400 hover:bg-purple-500/20' },
-  { key: 'macd',      label: 'MACD',      params: false, activeClass: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300', gearClass: '' },
-  { key: 'bollinger', label: 'Bollinger', params: false, activeClass: 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300',   gearClass: '' },
-  { key: 'atr',       label: 'ATR',       params: false, activeClass: 'bg-rose-500/20 border-rose-500/40 text-rose-300',         gearClass: '' },
+  { key: 'macd',      label: 'MACD',      params: true,  activeClass: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300', gearClass: 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20' },
+  { key: 'bollinger', label: 'Bollinger', params: true,  activeClass: 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300',   gearClass: 'bg-indigo-500/10 border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/20' },
+  { key: 'atr',       label: 'ATR',       params: true,  activeClass: 'bg-rose-500/20 border-rose-500/40 text-rose-300',         gearClass: 'bg-rose-500/10 border-rose-500/40 text-rose-400 hover:bg-rose-500/20' },
 ]
 
 const smcOptions = [

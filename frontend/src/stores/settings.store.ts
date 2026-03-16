@@ -14,7 +14,23 @@ export interface PrefsIndicateurs {
   bollinger: boolean
   atr: boolean
   emaPeriode: number
+  emaMaType: 'ema' | 'sma'
+  emaCouleur: string
   rsiPeriode: number
+  rsiSurachat: number
+  rsiSurvente: number
+  rsiCouleur: string
+  macdRapide: number
+  macdLente: number
+  macdSignal: number
+  bollingerPeriode: number
+  bollingerStdDev: number
+  bollingerMaType: 'sma' | 'ema'
+  bollingerCouleurHaute: string
+  bollingerCouleurMilieu: string
+  bollingerCouleurBasse: string
+  atrPeriode: number
+  atrCouleur: string
   smcOb: boolean
   smcFvg: boolean
   smcIfvg: boolean
@@ -35,7 +51,23 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   bollinger: false,
   atr: false,
   emaPeriode: 20,
+  emaMaType: 'ema',
+  emaCouleur: '#f59e0b',
   rsiPeriode: 14,
+  rsiSurachat: 70,
+  rsiSurvente: 30,
+  rsiCouleur: '#a855f7',
+  macdRapide: 12,
+  macdLente: 26,
+  macdSignal: 9,
+  bollingerPeriode: 20,
+  bollingerStdDev: 2.0,
+  bollingerMaType: 'sma',
+  bollingerCouleurHaute: '#6366f1',
+  bollingerCouleurMilieu: '#818cf8',
+  bollingerCouleurBasse: '#6366f1',
+  atrPeriode: 14,
+  atrCouleur: '#f43f5e',
   smcOb: true,
   smcFvg: true,
   smcIfvg: true,

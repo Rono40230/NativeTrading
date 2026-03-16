@@ -11,7 +11,15 @@ pub struct IndicatorsQuery {
     pub asset: String,
     pub tf: Option<String>,
     pub ema_periode: Option<usize>,
+    pub ema_ma_type: Option<String>,
     pub rsi_periode: Option<usize>,
+    pub macd_rapide: Option<usize>,
+    pub macd_lente: Option<usize>,
+    pub macd_signal: Option<usize>,
+    pub bollinger_periode: Option<usize>,
+    pub bollinger_stddev: Option<f64>,
+    pub bollinger_ma_type: Option<String>,
+    pub atr_periode: Option<usize>,
     pub ema: Option<bool>,
     pub rsi: Option<bool>,
     pub macd: Option<bool>,
@@ -90,7 +98,7 @@ pub async fn get_indicators(
         }
     };
     let tf = parse_timeframe(query.tf.as_deref().unwrap_or("M15"));
-    let limit = query.limit.unwrap_or(200).min(500) as i64;
+    let limit = query.limit.unwrap_or(500) as i64;
 
     let bougies = match state.db.obtenir_bougies(&asset, &tf, limit).await {
         Ok(b) if b.len() >= 20 => b,
@@ -103,6 +111,7 @@ pub async fn get_indicators(
 
     let timestamps: Vec<i64> = bougies.iter().map(|b| b.timestamp.timestamp()).collect();
     let ema_p = query.ema_periode.unwrap_or(20);
+    let ema_sma = query.ema_ma_type.as_deref() == Some("sma");
     let rsi_p = query.rsi_periode.unwrap_or(14);
 
     // ── Indicateurs techniques ───────────────────────────────────────────────
@@ -119,7 +128,11 @@ pub async fn get_indicators(
     let ema = query
         .ema
         .unwrap_or(false)
-        .then(|| serie(indicators::calculer_ema(&bougies, ema_p)));
+        .then(|| if ema_sma {
+            serie(indicators::calculer_sma(&bougies, ema_p))
+        } else {
+            serie(indicators::calculer_ema(&bougies, ema_p))
+        });
 
     let rsi = query
         .rsi
@@ -129,10 +142,13 @@ pub async fn get_indicators(
     let atr = query
         .atr
         .unwrap_or(false)
-        .then(|| serie(indicators::calculer_atr(&bougies, 14)));
+        .then(|| serie(indicators::calculer_atr(&bougies, query.atr_periode.unwrap_or(14))));
 
     let macd = query.macd.unwrap_or(false).then(|| {
-        let m = indicators::calculer_macd(&bougies, 12, 26, 9);
+        let rapide = query.macd_rapide.unwrap_or(12);
+        let lente  = query.macd_lente.unwrap_or(26);
+        let signal = query.macd_signal.unwrap_or(9);
+        let m = indicators::calculer_macd(&bougies, rapide, lente, signal);
         SeriesMacd {
             macd: serie(m.ligne),
             signal: serie(m.signal),
@@ -141,7 +157,10 @@ pub async fn get_indicators(
     });
 
     let bollinger = query.bollinger.unwrap_or(false).then(|| {
-        let b = indicators::calculer_bollinger(&bougies, 20, 2.0);
+        let boll_p   = query.bollinger_periode.unwrap_or(20);
+        let boll_std = query.bollinger_stddev.unwrap_or(2.0);
+        let boll_ma  = query.bollinger_ma_type.as_deref().unwrap_or("sma");
+        let b = indicators::calculer_bollinger_avance(&bougies, boll_p, boll_std, boll_ma);
         SeriesBollinger {
             haute: serie(b.superieure),
             milieu: serie(b.milieu),

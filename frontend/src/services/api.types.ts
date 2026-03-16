@@ -176,7 +176,15 @@ export interface IndicatorsParams {
   bollinger?: boolean
   atr?: boolean
   ema_periode?: number
+  ema_ma_type?: 'ema' | 'sma'
   rsi_periode?: number
+  macd_rapide?: number
+  macd_lente?: number
+  macd_signal?: number
+  bollinger_periode?: number
+  bollinger_stddev?: number
+  bollinger_ma_type?: string
+  atr_periode?: number
   smc_ob?: boolean
   smc_fvg?: boolean
   smc_ifvg?: boolean

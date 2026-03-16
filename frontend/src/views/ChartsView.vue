@@ -1,68 +1,34 @@
 <template>
   <div class="space-y-4">
-    <!-- Contrôles -->
-    <div class="flex flex-wrap items-center gap-3">
-      <div class="flex rounded-lg overflow-hidden border border-white/10">
-        <button
-          v-for="a in assets"
-          :key="a"
-          class="px-4 py-2 text-sm font-medium transition-colors"
-          :class="selectedAsset === a ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'"
-          @click="changerAsset(a)"
-        >
-          {{ a }}
-        </button>
-      </div>
-
-      <div class="flex rounded-lg overflow-hidden border border-white/10">
-        <button
-          v-for="tf in timeframes"
-          :key="tf"
-          class="px-3 py-2 text-sm font-medium transition-colors"
-          :class="selectedTimeframe === tf ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'"
-          @click="changerTimeframe(tf)"
-        >
-          {{ tf }}
-        </button>
-      </div>
-
-      <button
-        class="ml-auto px-4 py-2 text-sm rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors"
-        :disabled="marketStore.chargement"
-        @click="actualiser"
-      >
-        {{ marketStore.chargement ? '⏳ Chargement...' : '🔄 Actualiser' }}
-      </button>
-
-      <button
-        class="px-4 py-2 text-sm rounded-lg bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40 transition-colors"
-        :disabled="analyseEnCours"
-        @click="analyserAvecLlava"
-      >
-        {{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyser (IA)' }}
-      </button>
-    </div>
+    <!-- Controles -->
+    <ChartBarreControles
+      :assets="assets"
+      :timeframes="timeframes"
+      :selected-asset="selectedAsset"
+      :selected-timeframe="selectedTimeframe"
+      :chargement="marketStore.chargement"
+      :analyse-en-cours="analyseEnCours"
+      @changer-asset="changerAsset"
+      @changer-timeframe="changerTimeframe"
+      @actualiser="actualiser"
+      @analyser="analyserAvecLlava"
+    />
 
     <!-- Panneau indicateurs (toujours visible) -->
     <IndicatorPanel v-model="settingsStore.indicateurs" @appliquer="chargerIndicateurs" />
 
-    <!-- Dernier prix + variation -->
-    <div v-if="dernierPrix" class="flex items-baseline gap-3">
-      <span class="text-3xl font-bold">{{ formatPrix(dernierPrix) }}</span>
-      <span class="text-sm" :class="variation >= 0 ? 'text-emerald-400' : 'text-red-400'">
-        {{ variation >= 0 ? '+' : '' }}{{ variation.toFixed(2) }}%
-      </span>
-      <span class="text-xs text-gray-500">{{ selectedAsset.includes('USD') ? selectedAsset : `${selectedAsset}/USDT` }} · {{ selectedTimeframe }}</span>
-      <span v-if="marketStore.wsConnecte" class="flex items-center gap-1 text-xs ml-2"
-        :class="['BTC','ETH'].includes(selectedAsset) ? 'text-emerald-400' : 'text-blue-400'">
-        <span class="w-1.5 h-1.5 rounded-full animate-pulse inline-block"
-          :class="['BTC','ETH'].includes(selectedAsset) ? 'bg-emerald-400' : 'bg-blue-400'" />
-        {{ ['BTC','ETH'].includes(selectedAsset) ? 'LIVE' : 'LIVE 5s' }}
-      </span>
-    </div>
+    <!-- Dernier prix + variation + metriques -->
+    <ChartPrixStats
+      :dernier-prix="dernierPrix"
+      :variation="variation"
+      :stats="stats"
+      :selected-asset="selectedAsset"
+      :selected-timeframe="selectedTimeframe"
+      :ws-connecte="marketStore.wsConnecte"
+    />
 
     <!-- Canvas TradingView -->
-    <div class="glass-card" style="height: 480px; position: relative;">
+    <div class="glass-card" style="height: 500px; position: relative;">
       <!-- Overlay erreur de chargement REST (bloquant) -->
       <div v-if="marketStore.erreur" class="absolute inset-0 z-10 flex items-center justify-center bg-black/60 text-red-400 text-sm rounded-xl">
         ⚠ {{ marketStore.erreur }}
@@ -89,25 +55,29 @@
       />
     </div>
 
-    <!-- Statistiques bougies -->
-    <div v-if="stats" class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <div class="glass-card p-4">
-        <p class="label">Bougies</p>
-        <p class="stat-value">{{ stats.count }}</p>
-      </div>
-      <div class="glass-card p-4">
-        <p class="label">Volume moyen</p>
-        <p class="stat-value">{{ formatVolume(stats.volumeMoy) }}</p>
-      </div>
-      <div class="glass-card p-4">
-        <p class="label">Plus haut</p>
-        <p class="stat-value text-emerald-400">{{ formatPrix(stats.high) }}</p>
-      </div>
-      <div class="glass-card p-4">
-        <p class="label">Plus bas</p>
-        <p class="stat-value text-red-400">{{ formatPrix(stats.low) }}</p>
-      </div>
-    </div>
+    <!-- Sous-graphique RSI séparé -->
+    <div
+      v-if="settingsStore.indicateurs.rsi"
+      ref="rsiContainer"
+      class="glass-card"
+      style="height: 140px; position: relative;"
+    />
+
+    <!-- Sous-graphique MACD séparé -->
+    <div
+      v-if="settingsStore.indicateurs.macd"
+      ref="macdContainer"
+      class="glass-card"
+      style="height: 140px; position: relative;"
+    />
+
+    <!-- Sous-graphique ATR séparé -->
+    <div
+      v-if="settingsStore.indicateurs.atr"
+      ref="atrContainer"
+      class="glass-card"
+      style="height: 110px; position: relative;"
+    />
 
     <!-- Analyse vision llava -->
     <div v-if="analyseResultat" class="glass-card p-4 border-purple-500/30">
@@ -134,6 +104,8 @@ import { apiService, type AssetInfo } from '@/services/api.service'
 import PredictionSMCPanel from '@/components/common/PredictionSMCPanel.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
 import TendanceMultiTF from '@/components/common/TendanceMultiTF.vue'
+import ChartBarreControles from '@/components/common/ChartBarreControles.vue'
+import ChartPrixStats from '@/components/common/ChartPrixStats.vue'
 
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
@@ -143,6 +115,9 @@ const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const selectedAsset = ref(settingsStore.assetActif)
 const selectedTimeframe = ref(settingsStore.timeframeActif)
 const chartContainer = ref<HTMLElement | null>(null)
+const rsiContainer = ref<HTMLElement | null>(null)
+const macdContainer = ref<HTMLElement | null>(null)
+const atrContainer = ref<HTMLElement | null>(null)
 
 const bougies = computed(() =>
   marketStore.getBougies(selectedAsset.value, selectedTimeframe.value)
@@ -181,29 +156,15 @@ const {
 } = useChartTradingView(chartContainer, bougies)
 
 const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
-  useChartAnalyse(getChart, selectedAsset, selectedTimeframe, dernierPrix, stats)
+  useChartAnalyse(getChart, selectedAsset, selectedTimeframe)
 
 const { chargerEtAppliquer, reinitialiser } = useChartIndicators()
 
 async function chargerIndicateurs() {
+  await nextTick()
   const chart = getChart()
   if (!chart) return
-  await chargerEtAppliquer(chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs)
-}
-
-function formatPrix(v: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(v)
-}
-
-function formatVolume(v: number): string {
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`
-  return v.toFixed(2)
+  await chargerEtAppliquer(chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs, rsiContainer.value, macdContainer.value, atrContainer.value)
 }
 
 async function changerAsset(asset: string) {

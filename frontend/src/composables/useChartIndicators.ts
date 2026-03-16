@@ -1,45 +1,56 @@
 import { ref } from 'vue'
-import type {
-  IChartApi,
-  ISeriesApi,
-  SeriesType,
-  LineSeriesOptions,
-} from 'lightweight-charts'
+import type { IChartApi, ISeriesApi, SeriesType, LineSeriesOptions } from 'lightweight-charts'
 import { apiService } from '@/services/api.service'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import type { ReponseIndicators } from '@/services/api.service'
-
-// Couleurs des overlays
-const COULEURS = {
-  ema: '#f59e0b',
-  bollingerHaute: '#6366f1',
-  bollingerMilieu: '#818cf8',
-  bollingerBasse: '#6366f1',
-  ob_long: 'rgba(16, 185, 129, 0.25)',
-  ob_short: 'rgba(239, 68, 68, 0.25)',
-  fvg_long: 'rgba(59, 130, 246, 0.20)',
-  fvg_short: 'rgba(245, 158, 11, 0.20)',
-  ifvg_long: 'rgba(99, 102, 241, 0.25)',
-  ifvg_short: 'rgba(236, 72, 153, 0.25)',
-  fib: 'rgba(148, 163, 184, 0.6)',
-  bsl: 'rgba(16, 185, 129, 0.8)',
-  ssl: 'rgba(239, 68, 68, 0.8)',
-}
+import { COULEURS } from './chartIndicatorsConfig'
+import { creerSousGraphiqueRsi, creerSousGraphiqueMacd, creerSousGraphiqueAtr, type SyncCtx } from './chartSubgraphs'
+import { appliquerBollinger, appliquerSmcOverlays } from './chartMainOverlays'
 
 export function useChartIndicators() {
   const enChargement = ref(false)
   const erreur = ref<string | null>(null)
 
-  // Tableau plain non-réactif — évite tout effet de bord Vue sur la gestion des séries
+  // Tableau plain non-reactif
   let seriesActives: ISeriesApi<SeriesType>[] = []
-  // Compteur d'annulation : si un nouvel appel démarre, le précédent est ignoré à sa résolution
+  let rsiChart: IChartApi | null = null
+  let syncMainToRsi: ((range: any) => void) | null = null
+  let macdChart: IChartApi | null = null
+  let syncMainToMacd: ((range: any) => void) | null = null
+  let atrChart: IChartApi | null = null
+  let syncMainToAtr: ((range: any) => void) | null = null
+  // Compteur d'annulation : si un nouvel appel demarre, le precedent est ignore
   let appelEnCours = 0
 
   function supprimerOverlays(chart: IChartApi) {
+    if (syncMainToRsi) {
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(syncMainToRsi)
+      syncMainToRsi = null
+    }
+    if (syncMainToMacd) {
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(syncMainToMacd)
+      syncMainToMacd = null
+    }
+    if (syncMainToAtr) {
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(syncMainToAtr)
+      syncMainToAtr = null
+    }
     for (const s of seriesActives) {
-      try { chart.removeSeries(s) } catch { /* série appartenant à un ancien chart */ }
+      try { chart.removeSeries(s) } catch { /* serie appartenant a un ancien chart */ }
     }
     seriesActives = []
+    if (rsiChart) {
+      try { rsiChart.remove() } catch { }
+      rsiChart = null
+    }
+    if (macdChart) {
+      try { macdChart.remove() } catch { }
+      macdChart = null
+    }
+    if (atrChart) {
+      try { atrChart.remove() } catch { }
+      atrChart = null
+    }
   }
 
   function ajouterLigne(
@@ -76,8 +87,10 @@ export function useChartIndicators() {
     asset: string,
     tf: string,
     prefs: PrefsIndicateurs,
+    rsiContainer: HTMLElement | null = null,
+    macdContainer: HTMLElement | null = null,
+    atrContainer: HTMLElement | null = null,
   ) {
-    // Incrémenter AVANT le suppress — tout appel concurrent sera marqué obsolète
     const idAppel = ++appelEnCours
     supprimerOverlays(chart)
     enChargement.value = true
@@ -86,90 +99,81 @@ export function useChartIndicators() {
     try {
       const data: ReponseIndicators = await apiService.getIndicators({
         asset, tf,
-        ema: prefs.ema, ema_periode: prefs.emaPeriode,
+        ema: prefs.ema, ema_periode: prefs.emaPeriode, ema_ma_type: prefs.emaMaType,
         rsi: prefs.rsi, rsi_periode: prefs.rsiPeriode,
-        macd: prefs.macd,
+        macd: prefs.macd, macd_rapide: prefs.macdRapide, macd_lente: prefs.macdLente, macd_signal: prefs.macdSignal,
         bollinger: prefs.bollinger,
+        bollinger_periode: prefs.bollingerPeriode,
+        bollinger_stddev: prefs.bollingerStdDev,
+        bollinger_ma_type: prefs.bollingerMaType,
         atr: prefs.atr,
+        atr_periode: prefs.atrPeriode,
         smc_ob: prefs.smcOb,
         smc_fvg: prefs.smcFvg,
         smc_ifvg: prefs.smcIfvg,
         smc_fib: prefs.smcFib,
         smc_tendance: prefs.smcTendance,
         smc_liquidites: prefs.smcLiquidites,
-        limit: 200,
+        limit: 500,
       })
 
-      // Réponse obsolète (un appel plus récent a déjà pris la main)
       if (idAppel !== appelEnCours) return
 
-      // ── EMA ────────────────────────────────────────────────────────────────
+      // Guard anti-rebond : synchronisation par timestamps absolus (pas d'indices logiques)
+      const ctx: SyncCtx = { syncing: false, initialized: false }
+
+      // EMA
       if (data.ema?.length) {
-        ajouterLigne(chart, data.ema, COULEURS.ema, 2)
+        ajouterLigne(chart, data.ema, prefs.emaCouleur || COULEURS.ema, 2)
       }
 
-      // ── Bollinger ──────────────────────────────────────────────────────────
+      // RSI
+      if (data.rsi?.length && rsiContainer) {
+        const r = creerSousGraphiqueRsi(rsiContainer, data.rsi, prefs, chart, ctx)
+        rsiChart = r.chart
+        syncMainToRsi = r.syncFromMain
+        chart.timeScale().subscribeVisibleTimeRangeChange(syncMainToRsi)
+      }
+
+      // MACD
+      if (data.macd && macdContainer) {
+        const r = creerSousGraphiqueMacd(macdContainer, data.macd, chart, ctx)
+        macdChart = r.chart
+        syncMainToMacd = r.syncFromMain
+        chart.timeScale().subscribeVisibleTimeRangeChange(syncMainToMacd)
+      }
+
+      // ATR
+      if (data.atr?.length && atrContainer) {
+        const r = creerSousGraphiqueAtr(atrContainer, data.atr, prefs, chart, ctx)
+        atrChart = r.chart
+        syncMainToAtr = r.syncFromMain
+        chart.timeScale().subscribeVisibleTimeRangeChange(syncMainToAtr)
+      }
+
+      // Sync final : rAF garantit la fin des fitContent LW-charts,
+      // setTimeout(0) garantit la fin de tous les repaints avant d'activer initialized.
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (idAppel !== appelEnCours) return
+          const timeRange = chart.timeScale().getVisibleRange()
+          if (!timeRange) return
+          ctx.syncing = true
+          if (rsiChart)  rsiChart.timeScale().setVisibleRange(timeRange)
+          if (macdChart) macdChart.timeScale().setVisibleRange(timeRange)
+          if (atrChart)  atrChart.timeScale().setVisibleRange(timeRange)
+          ctx.syncing = false
+          ctx.initialized = true
+        }, 0)
+      })
+
+      // Bollinger Bands (overlay principal)
       if (data.bollinger) {
-        ajouterLigne(chart, data.bollinger.haute, COULEURS.bollingerHaute)
-        ajouterLigne(chart, data.bollinger.milieu, COULEURS.bollingerMilieu, 1)
-        ajouterLigne(chart, data.bollinger.basse, COULEURS.bollingerBasse)
+        appliquerBollinger(chart, data.bollinger, prefs, ajouterLigne, (s) => seriesActives.push(s))
       }
 
-      // ── Order Blocks ───────────────────────────────────────────────────────
-      if (data.order_blocks?.length) {
-        for (const ob of data.order_blocks) {
-          const couleur = ob.direction === 'Long' ? COULEURS.ob_long : COULEURS.ob_short
-          const f = ajouterFantome(chart)
-          f.createPriceLine({ price: ob.prix_haut, color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: `OB ${ob.direction}` })
-          f.createPriceLine({ price: ob.prix_bas,  color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' })
-        }
-      }
-
-      // ── FVG / Imbalances ───────────────────────────────────────────────────
-      if (data.imbalances?.length) {
-        for (const fvg of data.imbalances) {
-          if (fvg.comble) continue
-          const couleur = fvg.direction === 'Long' ? COULEURS.fvg_long : COULEURS.fvg_short
-          const f = ajouterFantome(chart)
-          f.createPriceLine({ price: fvg.prix_haut, color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: 'FVG' })
-          f.createPriceLine({ price: fvg.prix_bas,  color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' })
-        }
-      }
-
-      // ── IFVG ───────────────────────────────────────────────────────────────
-      if (data.ifvg?.length) {
-        for (const i of data.ifvg) {
-          const couleur = i.direction === 'Long' ? COULEURS.ifvg_long : COULEURS.ifvg_short
-          const f = ajouterFantome(chart)
-          f.createPriceLine({ price: i.prix_haut, color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: 'IFVG' })
-          f.createPriceLine({ price: i.prix_bas,  color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' })
-        }
-      }
-
-      // ── Fibonacci ──────────────────────────────────────────────────────────
-      if (data.fibonacci) {
-        const fib = data.fibonacci
-        const f = ajouterFantome(chart)
-        for (const [niveau, label] of [
-          [fib.niveau_236, 'Fib 23.6%'],
-          [fib.niveau_382, 'Fib 38.2%'],
-          [fib.niveau_500, 'Fib 50%'],
-          [fib.niveau_618, 'Fib 61.8%'],
-          [fib.niveau_786, 'Fib 78.6%'],
-        ] as [number, string][]) {
-          f.createPriceLine({ price: niveau, color: COULEURS.fib, lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: label })
-        }
-      }
-
-      // ── Niveaux de liquidité BSL/SSL ───────────────────────────────────────
-      if (data.liquidites?.length) {
-        for (const liq of data.liquidites) {
-          if (liq['sweepé']) continue
-          const couleur = liq.cote === 'BSL' ? COULEURS.bsl : COULEURS.ssl
-          const f = ajouterFantome(chart)
-          f.createPriceLine({ price: liq.prix, color: couleur, lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: `${liq.cote}${liq.equal ? ' (EQ)' : ''}` })
-        }
-      }
+      // Overlays SMC (Order Blocks, FVG, IFVG, Fibonacci, BSL/SSL)
+      appliquerSmcOverlays(chart, data, ajouterFantome)
 
     } catch (err_: any) {
       if (idAppel === appelEnCours) erreur.value = err_?.message ?? 'Erreur chargement indicateurs'
@@ -178,12 +182,17 @@ export function useChartIndicators() {
     }
   }
 
-  // Réinitialiser le tableau sans tenter de supprimer des séries (utile après destroy chart)
+  // Reinitialiser sans tenter de supprimer des series (utile apres destroy chart)
   function reinitialiser() {
     seriesActives = []
     appelEnCours++
+    syncMainToRsi = null
+    syncMainToMacd = null
+    syncMainToAtr = null
+    if (rsiChart) { try { rsiChart.remove() } catch { } rsiChart = null }
+    if (macdChart) { try { macdChart.remove() } catch { } macdChart = null }
+    if (atrChart) { try { atrChart.remove() } catch { } atrChart = null }
   }
 
   return { enChargement, erreur, chargerEtAppliquer, supprimerOverlays, reinitialiser }
 }
-
