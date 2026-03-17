@@ -215,15 +215,17 @@ export interface IndicatorsParams {
 export interface LigneTendanceKasper {
   tf: string
   tendance: 'haussier' | 'baissier' | null
-  mm_rapide: number | null
-  mm_lente: number | null
+  valeur_ema_rapide: number | null
+  valeur_ema_lente: number | null
 }
+
+export type ModeCalculTendance = 'bougie_cloturee' | 'bougie_en_cours'
 
 export interface ReponseTendanceMultiTf {
   asset: string
-  mm_rapide_periode: number
-  mm_lente_periode: number
-  ma_type: string
+  ema_rapide: number
+  ema_lente: number
+  mode_calcul: ModeCalculTendance
   lignes: LigneTendanceKasper[]
 }
 

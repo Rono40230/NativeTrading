@@ -4,19 +4,47 @@ use serde::{Deserialize, Serialize};
 use data::{providers::{BinanceProvider, IbGatewayProvider}, DataProvider};
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};
-use indicators::{calculer_ema, calculer_sma};
+use indicators::calculer_ema;
 
 // ─── Query params ─────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct TendanceQuery {
     pub asset: String,
-    /// Période de la MM rapide (défaut : 9)
-    pub mm_rapide: Option<usize>,
-    /// Période de la MM lente (défaut : 21)
-    pub mm_lente: Option<usize>,
-    /// Type de MA : "ema" (défaut) ou "sma"
-    pub ma_type: Option<String>,
+    /// Période EMA rapide (défaut : 9)
+    pub ema_rapide: Option<usize>,
+    /// Période EMA lente (défaut : 21)
+    pub ema_lente: Option<usize>,
+    /// Mode de calcul: "bougie_cloturee" (défaut) ou "bougie_en_cours"
+    pub mode_calcul: Option<String>,
+}
+
+#[derive(Serialize, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum ModeCalcul {
+    BougieCloturee,
+    BougieEnCours,
+}
+
+impl ModeCalcul {
+    fn depuis_query(valeur: Option<&str>) -> Self {
+        match valeur {
+            Some("bougie_en_cours") => Self::BougieEnCours,
+            _ => Self::BougieCloturee,
+        }
+    }
+
+    fn index_cible(self, longueur: usize) -> Option<usize> {
+        if longueur == 0 {
+            return None;
+        }
+        match self {
+            Self::BougieEnCours => Some(longueur - 1),
+            Self::BougieCloturee => {
+                if longueur >= 2 { Some(longueur - 2) } else { None }
+            }
+        }
+    }
 }
 
 // ─── Réponse ──────────────────────────────────────────────────────────────────
@@ -32,18 +60,18 @@ pub enum Direction {
 pub struct LigneTendance {
     pub tf: String,
     pub tendance: Option<Direction>,
-    /// Valeur MM rapide (dernière bougie)
-    pub mm_rapide: Option<f64>,
-    /// Valeur MM lente (dernière bougie)
-    pub mm_lente: Option<f64>,
+    /// Valeur de l'EMA rapide (ex. EMA9)
+    pub valeur_ema_rapide: Option<f64>,
+    /// Valeur de l'EMA lente (ex. EMA21)
+    pub valeur_ema_lente: Option<f64>,
 }
 
 #[derive(Serialize)]
 pub struct ReponseTendanceMultiTf {
     pub asset: String,
-    pub mm_rapide_periode: usize,
-    pub mm_lente_periode: usize,
-    pub ma_type: String,
+    pub ema_rapide: usize,
+    pub ema_lente: usize,
+    pub mode_calcul: ModeCalcul,
     pub lignes: Vec<LigneTendance>,
 }
 
@@ -75,10 +103,10 @@ fn label_vers_tf(label: &str) -> &'static str {
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
-/// GET /api/tendance/multi-tf?asset=BTC&mm_rapide=9&mm_lente=21&ma_type=ema
+/// GET /api/tendance/multi-tf?asset=BTC&ema_rapide=9&ema_lente=21
 ///
-/// Retourne la direction (Haussier / Baissier) pour chaque timeframe en
-/// comparant la dernière valeur de la MM rapide avec celle de la MM lente.
+/// Retourne la direction EMA crossover (Haussier / Baissier) pour chaque
+/// timeframe. Logique : EMA rapide > EMA lente → Haussier, sinon Baissier.
 pub async fn tendance_multi_tf(
     state: web::Data<AppState>,
     query: web::Query<TendanceQuery>,
@@ -91,14 +119,13 @@ pub async fn tendance_multi_tf(
         }
     };
 
-    let periode_rapide = query.mm_rapide.unwrap_or(9).max(1);
-    let periode_lente  = query.mm_lente.unwrap_or(21).max(1);
-    let ma_type        = query.ma_type.clone().unwrap_or_else(|| "ema".to_string());
-    let use_ema        = ma_type.to_lowercase() != "sma";
+    let ema_rapide = query.ema_rapide.unwrap_or(9).max(1);
+    let ema_lente  = query.ema_lente.unwrap_or(21).max(2);
+    let mode_calcul = ModeCalcul::depuis_query(query.mode_calcul.as_deref());
 
-    // Périodes × 20 pour que l'EMA ait le temps de converger (TradingView utilise l'historique complet)
-    // Ex : EMA(21) → min 420 bougies ; on prend au moins 500.
-    let limit_bougies = (periode_lente * 20).max(500) as i64;
+    // L'EMA a besoin d'au moins ema_lente bougies pour converger.
+    // On prend un historique généreux pour que la direction soit stable.
+    let limit_bougies = (ema_lente as i64 * 30).max(500);
 
     let mut lignes: Vec<LigneTendance> = Vec::with_capacity(TIMEFRAMES_ANALYSE.len());
 
@@ -132,13 +159,12 @@ pub async fn tendance_multi_tf(
                 }
                 Err(e) => {
                     tracing::warn!("Tendance multi-TF — fetch {} {}: {}", label, query.asset, e);
-                    // Utiliser ce qu'on a en DB même si insuffisant
                     if !bougies_db.is_empty() { bougies_db } else {
                         lignes.push(LigneTendance {
                             tf: label.to_string(),
                             tendance: None,
-                            mm_rapide: None,
-                            mm_lente: None,
+                            valeur_ema_rapide: None,
+                            valeur_ema_lente: None,
                         });
                         continue;
                     }
@@ -146,44 +172,54 @@ pub async fn tendance_multi_tf(
             }
         };
 
-        if bougies.len() < periode_lente {
+        if bougies.len() < ema_lente {
             lignes.push(LigneTendance {
                 tf: label.to_string(),
                 tendance: None,
-                mm_rapide: None,
-                mm_lente: None,
+                valeur_ema_rapide: None,
+                valeur_ema_lente: None,
             });
             continue;
         }
 
-        let (serie_rapide, serie_lente) = if use_ema {
-            (calculer_ema(&bougies, periode_rapide), calculer_ema(&bougies, periode_lente))
-        } else {
-            (calculer_sma(&bougies, periode_rapide), calculer_sma(&bougies, periode_lente))
+        let ema9  = calculer_ema(&bougies, ema_rapide);
+        let ema21 = calculer_ema(&bougies, ema_lente);
+
+        let index_cible = match mode_calcul.index_cible(bougies.len()) {
+            Some(i) => i,
+            None => {
+                lignes.push(LigneTendance {
+                    tf: label.to_string(),
+                    tendance: None,
+                    valeur_ema_rapide: None,
+                    valeur_ema_lente: None,
+                });
+                continue;
+            }
         };
 
-        let val_rapide = serie_rapide.last().copied().filter(|v| v.is_finite());
-        let val_lente  = serie_lente.last().copied().filter(|v| v.is_finite());
+        let dernier_ema_rapide = ema9.get(index_cible).copied().filter(|v| v.is_finite());
+        let dernier_ema_lente  = ema21.get(index_cible).copied().filter(|v| v.is_finite());
 
-        let direction = match (val_rapide, val_lente) {
-            (Some(r), Some(l)) if r > l => Some(Direction::Haussier),
-            (Some(r), Some(l)) if r < l => Some(Direction::Baissier),
+        let direction = match (dernier_ema_rapide, dernier_ema_lente) {
+            (Some(rapide), Some(lente)) if rapide > lente => Some(Direction::Haussier),
+            (Some(rapide), Some(lente)) if rapide < lente => Some(Direction::Baissier),
             _ => None,
         };
 
         lignes.push(LigneTendance {
             tf: label.to_string(),
             tendance: direction,
-            mm_rapide: val_rapide,
-            mm_lente: val_lente,
+            valeur_ema_rapide: dernier_ema_rapide,
+            valeur_ema_lente: dernier_ema_lente,
         });
     }
 
     HttpResponse::Ok().json(ReponseTendanceMultiTf {
         asset: query.asset.to_uppercase(),
-        mm_rapide_periode: periode_rapide,
-        mm_lente_periode: periode_lente,
-        ma_type: if use_ema { "ema".to_string() } else { "sma".to_string() },
+        ema_rapide,
+        ema_lente,
+        mode_calcul,
         lignes,
     })
 }

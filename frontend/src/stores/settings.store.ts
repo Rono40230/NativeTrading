@@ -37,11 +37,11 @@ export interface PrefsIndicateurs {
   smcFib: boolean
   smcTendance: boolean
   smcLiquidites: boolean
-  // Tendance Kasper Bootcamp
+  // Tendance EMA Multi-TF
   kasperTendance: boolean
-  kasperMmRapide: number
-  kasperMmLente: number
-  kasperMaType: 'ema' | 'sma'
+  kasperPeriodeRapide: number
+  kasperPeriodeLente: number
+  kasperModeCalcul: 'bougie_cloturee' | 'bougie_en_cours'
 }
 
 const INDICATEURS_DEFAUT: PrefsIndicateurs = {
@@ -74,11 +74,11 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcFib: true,
   smcTendance: true,
   smcLiquidites: true,
-  // Tendance Kasper Bootcamp
+  // Tendance EMA Multi-TF
   kasperTendance: false,
-  kasperMmRapide: 9,
-  kasperMmLente: 21,
-  kasperMaType: 'ema',
+  kasperPeriodeRapide: 9,
+  kasperPeriodeLente: 21,
+  kasperModeCalcul: 'bougie_cloturee',
 }
 
 function chargerIndicateurs(): PrefsIndicateurs {

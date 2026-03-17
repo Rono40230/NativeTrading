@@ -160,29 +160,29 @@
             </div>
           </template>
 
-          <!-- Kasper Tendance -->
+          <!-- Kasper Tendance (EMA Crossover MTF) -->
           <template v-else-if="indicateur === 'kasperTendance'">
-            <label class="block text-xs text-slate-400 mb-1">MM Rapide (période)</label>
+            <label class="block text-xs text-slate-400 mb-1">Période EMA rapide</label>
             <input
               type="number" min="1" max="200"
-              v-model.number="prefs.kasperMmRapide"
+              v-model.number="prefs.kasperPeriodeRapide"
               class="w-full bg-white/10 border border-white/15 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sky-500/60 transition-colors"
             />
-            <label class="block text-xs text-slate-400 mb-1 mt-3">MM Lente (période)</label>
+            <label class="block text-xs text-slate-400 mb-1 mt-3">Période EMA lente</label>
             <input
-              type="number" min="1" max="500"
-              v-model.number="prefs.kasperMmLente"
+              type="number" min="2" max="500"
+              v-model.number="prefs.kasperPeriodeLente"
               class="w-full bg-white/10 border border-white/15 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-sky-500/60 transition-colors"
             />
-            <label class="block text-xs text-slate-400 mb-1 mt-3">Type de MA</label>
+            <label class="block text-xs text-slate-400 mb-1 mt-3">Mode de calcul</label>
             <select
-              v-model="prefs.kasperMaType"
+              v-model="prefs.kasperModeCalcul"
               class="w-full bg-white border border-white/15 rounded-lg px-3 py-2 text-sm text-black outline-none focus:border-sky-500/60 transition-colors"
             >
-              <option value="ema">MME (EMA)</option>
-              <option value="sma">SMA</option>
+              <option value="bougie_cloturee">Bougie cloturee</option>
+              <option value="bougie_en_cours">Bougie en cours</option>
             </select>
-            <p class="text-[10px] text-slate-500 mt-1">Défaults Kasper Bootcamp : 9 / 21 / MME</p>
+            <p class="text-[10px] text-slate-500 mt-2">Défauts : EMA 9 (rapide) / EMA 21 (lente)</p>
           </template>
 
           <div class="flex justify-end gap-2 mt-5">

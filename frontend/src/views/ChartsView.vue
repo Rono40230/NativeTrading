@@ -49,9 +49,9 @@
         :key="selectedAsset + '_' + selectedTimeframe"
         :asset="selectedAsset"
         :timeframe="selectedTimeframe"
-        :mm-rapide="settingsStore.indicateurs.kasperMmRapide"
-        :mm-lente="settingsStore.indicateurs.kasperMmLente"
-        :ma-type="settingsStore.indicateurs.kasperMaType"
+        :periode-rapide="settingsStore.indicateurs.kasperPeriodeRapide"
+        :periode-lente="settingsStore.indicateurs.kasperPeriodeLente"
+        :mode-calcul="settingsStore.indicateurs.kasperModeCalcul"
       />
     </div>
 

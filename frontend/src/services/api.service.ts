@@ -14,6 +14,7 @@ import type {
   ImageAvecTF, StatutIA, PredictionML, BacktestResults, ScoreSmc,
   ReponseEntrainement, ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
+  ModeCalculTendance,
 } from './api.types'
 
 const BASE_URL = 'http://localhost:8080'
@@ -146,12 +147,12 @@ export const apiService = {
 
   async obtenirTendanceMultiTf(
     asset: string,
-    mmRapide = 9,
-    mmLente = 21,
-    maType: 'ema' | 'sma' = 'ema'
+    emaRapide = 9,
+    emaLente = 21,
+    modeCalcul: ModeCalculTendance = 'bougie_cloturee'
   ): Promise<ReponseTendanceMultiTf> {
     const res = await http.get('/api/tendance/multi-tf', {
-      params: { asset, mm_rapide: mmRapide, mm_lente: mmLente, ma_type: maType },
+      params: { asset, ema_rapide: emaRapide, ema_lente: emaLente, mode_calcul: modeCalcul },
     })
     return res.data
   },

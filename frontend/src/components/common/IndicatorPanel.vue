@@ -51,7 +51,7 @@
               ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
               : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
           ]"
-        >Momentum</button>
+        >Tendance MTF</button>
         <button
           @click="modaleOuverte = 'kasperTendance'"
           :class="[
