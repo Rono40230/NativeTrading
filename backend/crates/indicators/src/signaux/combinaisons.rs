@@ -1,7 +1,6 @@
 use super::types::{DirectionSignal, NiveauForce, SignalIndicateur};
 
 const ATR_HAUSSE: f64 = 1.1;   // ATR > 110% de sa moyenne
-const ATR_BAS: f64 = 0.75;     // ATR < 75% de sa moyenne
 const LOOKBACK: usize = 14;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -40,6 +39,7 @@ fn signal(ts: i64, type_signal: &str, dir: DirectionSignal, force: NiveauForce,
 // ─── Détections ───────────────────────────────────────────────────────────────
 
 /// 9 signaux combinés multi-indicateurs (tous Fort ou Moyen)
+#[allow(clippy::too_many_arguments)]
 pub fn detecter_signaux_combines(
     timestamps: &[i64],
     closes: &[f64],

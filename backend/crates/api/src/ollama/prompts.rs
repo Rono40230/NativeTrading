@@ -102,7 +102,7 @@ Take Profit :
 
 **🚀 SIGNAL** (uniquement si ≥ 4 étoiles) :
 ⚡ Lire les prix DIRECTEMENT sur l'axe Y du graphique. Chiffrer chaque niveau avec la valeur visible.
-• Direction : LONG / SHORT
+• Direction : BUY / SELL
 
 | Niveau | Prix (axe Y) | Distance % | Commentaire |
 |--------|--------------|------------|-------------|
@@ -114,7 +114,7 @@ Take Profit :
 | TP2 | XXX.XX | R:R X:X | Draw on Liquidity principal |
 | Invalidation | XXX.XX | — | Niveau structurel annulant le setup |
 
-**🔑 CONCLUSION** : [2-3 phrases actionnables incluant le biais dominant et l'action immédiate]"#;
+**🔑 CONCLUSION** : [EXACTEMENT 2-3 phrases UNIQUES et actionnables, SANS RÉPÉTITION, incluant le biais dominant et l'action immédiate]"#;
 
 pub const PROMPT_VISION_MULTI_TF: &str = r#"Tu es un analyste institutionnel ICT/SMC expert en analyse top-down multi-timeframe. Tu reçois plusieurs graphiques du MÊME asset sur des timeframes différents. Réponds OBLIGATOIREMENT en français. Objectif : construire un plan de trade complet avec confluence inter-TF.
 
@@ -186,7 +186,7 @@ Principe fondamental : le biais HTF dicte la direction principale. Un trade LTF 
 
 **🚀 PLAN DE TRADE OPTIMAL** (uniquement si ≥ 4 étoiles) :
 ⚡ Lire les prix DIRECTEMENT sur les axes Y des graphiques visibles. Chiffrer chaque niveau.
-• Direction : LONG / SHORT
+• Direction : BUY / SELL
 • Déclencheur LTF : [condition exacte — ex: CHoCH M5 + retest OB M15]
 
 | Niveau | Prix (axe Y) | Distance % | TF / Commentaire |
@@ -203,7 +203,7 @@ Principe fondamental : le biais HTF dicte la direction principale. Un trade LTF 
 **📋 SCÉNARIO ALTERNATIF** :
 [Si le setup primaire est invalidé : prochain POI à surveiller, nouvelle condition d'entrée]
 
-**🔑 CONCLUSION** : [3-4 phrases actionnables : biais final, timing recommandé, gestion de position]"#;
+**🔑 CONCLUSION** : [EXACTEMENT 3-4 phrases UNIQUES et actionnables, SANS RÉPÉTITION, biais final, timing, gestion de position]"#;
 
 pub const PROMPT_SIGNAL_JSON: &str = r#"Tu es un trader institutionnel SMC/ICT expert. En te basant UNIQUEMENT sur les données fournies, génère un signal de trading au format JSON strict.
 

@@ -86,14 +86,12 @@
       @update:filtre="onFiltreSignaux"
     />
 
-    <!-- Analyse vision llava -->
-    <div v-if="analyseResultat" class="glass-card p-4 border-purple-500/30">
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-xs font-semibold text-purple-400">🤖 Analyse visuelle IA — {{ analyseModele }}</span>
-        <button class="text-gray-500 hover:text-white text-xs px-2" @click="analyseResultat = null">✕</button>
-      </div>
-      <p class="text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">{{ analyseResultat }}</p>
-    </div>
+    <!-- Analyse vision llava — modale draggable -->
+    <AnalyseIAModal
+      :analyse="analyseResultat"
+      :modele="analyseModele"
+      @fermer="analyseResultat = null"
+    />
 
     <!-- Prédiction IA + Score SMC -->
     <PredictionSMCPanel :asset="selectedAsset" :timeframe="selectedTimeframe" />
@@ -115,6 +113,7 @@ import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
 import TendanceMultiTF from '@/components/common/TendanceMultiTF.vue'
 import ChartBarreControles from '@/components/common/ChartBarreControles.vue'
 import ChartPrixStats from '@/components/common/ChartPrixStats.vue'
+import AnalyseIAModal from '@/components/common/AnalyseIAModal.vue'
 
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
@@ -151,7 +150,13 @@ const stats = computed(() => {
   const high = Math.max(...b.map((c) => c.high))
   const low = Math.min(...b.map((c) => c.low))
   const volumeMoy = b.reduce((s, c) => s + c.volume, 0) / b.length
-  return { count: b.length, high, low, volumeMoy }
+  const dernier = b[b.length - 1]
+  const range = high - low
+  const positionRange = range > 0 ? ((dernier.close - low) / range) * 100 : 50
+  const volRelatif = volumeMoy > 0 ? dernier.volume / volumeMoy : 1
+  const vwapDen = b.reduce((s, c) => s + c.volume, 0)
+  const vwap = vwapDen > 0 ? b.reduce((s, c) => s + ((c.high + c.low + c.close) / 3) * c.volume, 0) / vwapDen : dernier.close
+  return { count: b.length, high, low, volumeMoy, range, positionRange, volRelatif, vwap }
 })
 
 const {
@@ -289,11 +294,5 @@ onUnmounted(() => {
 <style scoped>
 .glass-card {
   @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden;
-}
-.label {
-  @apply text-xs text-gray-400 font-medium;
-}
-.stat-value {
-  @apply text-xl font-bold text-white mt-1;
 }
 </style>
