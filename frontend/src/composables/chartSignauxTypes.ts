@@ -47,12 +47,12 @@ export interface FiltreSignaux {
 
 export function filtreDefaut(): FiltreSignaux {
   return {
-    forceMin: 'faible',
-    afficherBullish: false,
-    afficherBearish: false,
+    forceMin: 'moyen',
+    afficherBullish: true,
+    afficherBearish: true,
     afficherNeutre: false,
     sources: [],
-    nbSignaux: 0,
+    nbSignaux: 10,
     afficherSlTp: false,
   }
 }

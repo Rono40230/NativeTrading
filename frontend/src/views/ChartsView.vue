@@ -93,6 +93,13 @@
       @fermer="analyseResultat = null"
     />
 
+    <!-- Modale signal — clic sur marker graphique -->
+    <SignalModal
+      :signal="signalModal"
+      :niveaux="niveauxModal"
+      @fermer="signalModal = null"
+    />
+
     <!-- Prédiction IA + Score SMC -->
     <PredictionSMCPanel :asset="selectedAsset" :timeframe="selectedTimeframe" />
   </div>
@@ -100,6 +107,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { useChartStats } from '@/composables/useChartStats'
 import { useChartTradingView } from '@/composables/useChartTradingView'
 import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
@@ -114,6 +122,9 @@ import TendanceMultiTF from '@/components/common/TendanceMultiTF.vue'
 import ChartBarreControles from '@/components/common/ChartBarreControles.vue'
 import ChartPrixStats from '@/components/common/ChartPrixStats.vue'
 import AnalyseIAModal from '@/components/common/AnalyseIAModal.vue'
+import SignalModal from '@/components/common/SignalModal.vue'
+import type { NiveauSlTp } from '@/composables/chartAtrSlTp'
+import type { SignalIndicateur } from '@/composables/chartSignauxTypes'
 
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
@@ -131,33 +142,7 @@ const bougies = computed(() =>
   marketStore.getBougies(selectedAsset.value, selectedTimeframe.value)
 )
 
-const dernierPrix = computed(() => {
-  const b = bougies.value
-  return b.length > 0 ? b[b.length - 1].close : null
-})
-
-const variation = computed(() => {
-  const b = bougies.value
-  if (b.length < 2) return 0
-  const avant = b[b.length - 2].close
-  const apres = b[b.length - 1].close
-  return ((apres - avant) / avant) * 100
-})
-
-const stats = computed(() => {
-  const b = bougies.value
-  if (b.length === 0) return null
-  const high = Math.max(...b.map((c) => c.high))
-  const low = Math.min(...b.map((c) => c.low))
-  const volumeMoy = b.reduce((s, c) => s + c.volume, 0) / b.length
-  const dernier = b[b.length - 1]
-  const range = high - low
-  const positionRange = range > 0 ? ((dernier.close - low) / range) * 100 : 50
-  const volRelatif = volumeMoy > 0 ? dernier.volume / volumeMoy : 1
-  const vwapDen = b.reduce((s, c) => s + c.volume, 0)
-  const vwap = vwapDen > 0 ? b.reduce((s, c) => s + ((c.high + c.low + c.close) / 3) * c.volume, 0) / vwapDen : dernier.close
-  return { count: b.length, high, low, volumeMoy, range, positionRange, volRelatif, vwap }
-})
+const { dernierPrix, variation, stats } = useChartStats(bougies)
 
 const {
   initChart,
@@ -173,10 +158,12 @@ const {
 const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
   useChartAnalyse(getChart, selectedAsset, selectedTimeframe)
 
-const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp } = useChartIndicators()
+const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux } = useChartIndicators()
 
 const timestampCurseur = ref<number | null>(null)
 const filtreCourant = ref<FiltreSignaux>(filtreDefaut())
+const signalModal = ref<SignalIndicateur | null>(null)
+const niveauxModal = ref<NiveauSlTp | null>(null)
 
 function onFiltreSignaux(f: FiltreSignaux) {
   filtreCourant.value = f
@@ -188,6 +175,17 @@ function configurerCrosshair() {
     const ts = param.time ? (param.time as number) : null
     timestampCurseur.value = ts
     mettreAJourSlTp(getCandlestickSeries(), ts, filtreCourant.value.afficherSlTp)
+  })
+}
+
+function configurerClick() {
+  getChart()?.subscribeClick((param) => {
+    if (!param.hoveredObjectId) return
+    const r = obtenirSignalEtNiveaux(param.hoveredObjectId)
+    if (r) {
+      signalModal.value = r.signal
+      niveauxModal.value = r.niveaux
+    }
   })
 }
 
@@ -225,19 +223,21 @@ async function changerTimeframe(tf: string) {
 }
 
 async function chargerData() {
-  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, 500)
+  // force=true : bypass cache SQLite, fetch direct Binance/IB pour avoir des données fraîches
+  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, 500, true)
 }
 
 async function chargerEtReinitChart() {
   detruireChart()
   reinitialiser() // Invalide les références aux séries de l'ancien chart
 
-  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, 500)
+  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, 500, true)
 
   // Attendre que Vue ait rendu le container (toujours monté)
   await nextTick()
   initChart()
   configurerCrosshair()
+  configurerClick()
   await chargerIndicateurs()
 }
 
@@ -278,6 +278,7 @@ onMounted(async () => {
   await chargerData()
   initChart()
   configurerCrosshair()
+  configurerClick()
   await chargerIndicateurs()
   demarrerLiveFeed(selectedAsset.value, selectedTimeframe.value)
 

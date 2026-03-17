@@ -19,11 +19,11 @@ export const useMarketStore = defineStore('market', () => {
     }
   })
 
-  async function chargerBougies(asset: string, timeframe = 'M15', limit = 200) {
+  async function chargerBougies(asset: string, timeframe = 'M15', limit = 200, force = false) {
     chargement.value = true
     erreur.value = null
     try {
-      const data = await apiService.getCandles(asset, timeframe, limit)
+      const data = await apiService.getCandles(asset, timeframe, limit, force)
       bougies.value[`${asset}_${timeframe}`] = data
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erreur réseau'
@@ -35,6 +35,15 @@ export const useMarketStore = defineStore('market', () => {
 
   function getBougies(asset: string, timeframe = 'M15'): Candle[] {
     return bougies.value[`${asset}_${timeframe}`] ?? []
+  }
+
+  /** Durée d'une bougie en ms selon le timeframe */
+  function dureeMs(tf: string): number {
+    const map: Record<string, number> = {
+      M1: 60_000, M5: 300_000, M15: 900_000, M30: 1_800_000,
+      H1: 3_600_000, H4: 14_400_000, D1: 86_400_000, W1: 604_800_000,
+    }
+    return map[tf] ?? 60_000
   }
 
   async function connecterStream(asset: string, timeframe = 'M5') {
@@ -82,9 +91,8 @@ export const useMarketStore = defineStore('market', () => {
           const liste = bougies.value[key]
           if (liste && liste.length > 0) {
             const derniere = liste[liste.length - 1]
-            const updated = { ...derniere, close: msg.price, high: Math.max(derniere.high, msg.price), low: Math.min(derniere.low, msg.price) }
-            bougies.value[key] = [...liste.slice(0, -1), updated]
-            wsMiseAJour.value = { asset, timeframe, bougie: updated }
+            liste[liste.length - 1] = { ...derniere, close: msg.price, high: Math.max(derniere.high, msg.price), low: Math.min(derniere.low, msg.price) }
+            wsMiseAJour.value = { asset, timeframe, bougie: liste[liste.length - 1] }
           }
           return
         }
@@ -107,12 +115,13 @@ export const useMarketStore = defineStore('market', () => {
         if (!liste || liste.length === 0) return
         const tsDerniere = new Date(liste[liste.length - 1].timestamp).getTime()
         const tsNouvelle = new Date(timestamp).getTime()
-        if (Math.abs(tsNouvelle - tsDerniere) < 60_000) {
-          // Mutation in-place pour ne pas déclencher le watcher bougies (deep:false)
-          // → seul wsMiseAJour déclenche candleSeries.update() dans le chart
+        const duree = dureeMs(timeframe)
+        if (tsNouvelle - tsDerniere < duree) {
+          // Même bougie — mutation in-place (ne déclenche pas le watcher shallow)
           liste[liste.length - 1] = nouvelleBougie
         } else {
-          bougies.value[key] = [...liste, nouvelleBougie]
+          // Nouvelle bougie — push in-place
+          liste.push(nouvelleBougie)
         }
         wsMiseAJour.value = { asset, timeframe, bougie: nouvelleBougie }
       } catch { /* message invalide ignoré */ }

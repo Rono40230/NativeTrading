@@ -118,10 +118,10 @@ const badges = computed<Badge[]>(() => {
     {
       label: 'Plus haut', valeur: formatPrix(s.high), color: 'text-emerald-400',
       tip: {
-        def: 'Résistance maximale de la période · Zone de liquidité BSL (Buy Side Liquidity).',
+        def: `Résistance maximale de la période · Zone de liquidité BSL. Distance du prix actuel au plus haut : ${distHigh.toFixed(2)}%.`,
         niveaux: [
-          { label: '< 0.3% · En résistance — cassure ou rejet imminent', color: '#f59e0b', actif: distHigh < 0.3 },
-          { label: '0.3 – 1% · Zone d\'attention proche', color: '#10b981', actif: distHigh >= 0.3 && distHigh < 1 },
+          { label: '< 0.3% · Très proche — cassure ou rejet imminent', color: '#f59e0b', actif: distHigh < 0.3 },
+          { label: '0.3 – 1% · Zone d\'attention — surveiller la réaction', color: '#10b981', actif: distHigh >= 0.3 && distHigh < 1 },
           { label: '> 1% · Éloigné — marge de progression libre', color: '#94a3b8', actif: distHigh >= 1 },
         ],
       },
@@ -129,10 +129,10 @@ const badges = computed<Badge[]>(() => {
     {
       label: 'Plus bas', valeur: formatPrix(s.low), color: 'text-red-400',
       tip: {
-        def: 'Support minimal de la période · Zone de liquidité SSL (Sell Side Liquidity).',
+        def: `Support minimal de la période · Zone de liquidité SSL. Distance du plus bas au prix actuel : ${distLow.toFixed(2)}%.`,
         niveaux: [
-          { label: '< 0.3% · Sur support — rebond ou rupture imminent', color: '#f59e0b', actif: distLow < 0.3 },
-          { label: '0.3 – 1% · Zone d\'attention proche', color: '#10b981', actif: distLow >= 0.3 && distLow < 1 },
+          { label: '< 0.3% · Très proche — rebond ou rupture imminent', color: '#f59e0b', actif: distLow < 0.3 },
+          { label: '0.3 – 1% · Zone d\'attention — surveiller la réaction', color: '#10b981', actif: distLow >= 0.3 && distLow < 1 },
           { label: '> 1% · Éloigné — risque de cassure peu préoccupant', color: '#94a3b8', actif: distLow >= 1 },
         ],
       },
@@ -140,12 +140,12 @@ const badges = computed<Badge[]>(() => {
     {
       label: 'Range', valeur: formatPrix(s.range), color: 'text-white',
       tip: {
-        def: 'Amplitude High − Low de la période. Mesure la volatilité globale du marché.',
+        def: `Amplitude High − Low de la période en % du prix médian · Actuellement ${rangePct.toFixed(2)}% du prix médian.`,
         niveaux: [
-          { label: '< 0.5% · Range serré — marché indécis, faible liquidité', color: '#64748b', actif: rangePct < 0.5 },
-          { label: '0.5 – 2% · Range normal — conditions standards', color: '#10b981', actif: rangePct >= 0.5 && rangePct < 2 },
-          { label: '2 – 4% · Range large — volatilité élevée, opportunités', color: '#f59e0b', actif: rangePct >= 2 && rangePct < 4 },
-          { label: '> 4% · Très large — mouvement exceptionnel, risque fort', color: '#ef4444', actif: rangePct >= 4 },
+          { label: '< 0.5% · Serré — marché indécis, faible liquidité', color: '#64748b', actif: rangePct < 0.5 },
+          { label: '0.5 – 2% · Normal — conditions standards', color: '#10b981', actif: rangePct >= 0.5 && rangePct < 2 },
+          { label: '2 – 4% · Large — volatilité élevée, opportunités', color: '#f59e0b', actif: rangePct >= 2 && rangePct < 4 },
+          { label: '> 4% · Exceptionnel — mouvement extrême, risque fort', color: '#ef4444', actif: rangePct >= 4 },
         ],
       },
     },

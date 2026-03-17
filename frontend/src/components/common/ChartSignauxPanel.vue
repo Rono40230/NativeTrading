@@ -3,6 +3,9 @@
     <!-- Barre unique : sources | Min | Afficher | nb derniers | compteur -->
     <div class="flex items-center gap-2 flex-wrap">
 
+      <span class="text-gray-400 whitespace-nowrap">Afficher et trier les signaux</span>
+      <span class="w-px h-4 bg-white/20 mx-1" />
+
       <!-- Sources -->
       <button
         v-for="src in SOURCES"
@@ -42,10 +45,6 @@
         <input type="checkbox" v-model="filtre.afficherBearish" class="accent-red-500" />
         <span class="text-red-400">Bearish</span>
       </label>
-      <label class="flex items-center gap-1 cursor-pointer">
-        <input type="checkbox" v-model="filtre.afficherNeutre" class="accent-gray-400" />
-        <span class="text-gray-400">Neutre</span>
-      </label>
 
       <span class="w-px h-4 bg-white/20 mx-1" />
 
@@ -61,7 +60,6 @@
             : 'border-white/10 text-gray-400 hover:border-white/30',
         ]"
       >{{ n }}</button>
-      <span class="text-gray-500">{{ filtre.nbSignaux === 0 ? 'tous' : 'derniers' }}</span>
 
       <!-- Compteur -->
       <span class="ml-auto text-gray-500">{{ signaux_filtres.length }} / {{ signaux.length }}</span>
@@ -79,36 +77,6 @@
         ]"
       >SL/TP</button>
     </div>
-
-    <!-- Signaux (curseur + récents) -->
-    <div v-if="signaux_curseur.length > 0 || recents.length > 0" class="border-t border-white/10 mt-2 pt-2 space-y-1">
-      <template v-if="signaux_curseur.length > 0">
-        <div class="text-yellow-400 font-semibold">📍 Curseur :</div>
-        <div
-          v-for="s in signaux_curseur"
-          :key="s.source + s.type_signal"
-          :class="['px-2 py-1 rounded border', classBadge(s.direction)]"
-        >
-          <div><span class="font-semibold">{{ s.source }}</span> — {{ s.description }}<span class="ml-1 opacity-60">{{ FORCE_LABEL[s.force] }}</span></div>
-          <div v-if="conseilSignal(s.type_signal)" class="mt-0.5 text-xs opacity-70 italic">💡 {{ conseilSignal(s.type_signal) }}</div>
-        </div>
-      </template>
-      <template v-if="recents.length > 0">
-        <div class="text-gray-500">Récents :</div>
-        <div
-          v-for="s in recents"
-          :key="s.source + s.type_signal + s.timestamp"
-          :class="['px-2 py-1 rounded border', classBadge(s.direction)]"
-        >
-          <div><span class="font-semibold">{{ s.source }}</span> — {{ s.description }}<span class="ml-1 opacity-60">{{ FORCE_LABEL[s.force] }}</span></div>
-          <div v-if="conseilSignal(s.type_signal)" class="mt-0.5 text-xs opacity-70 italic">💡 {{ conseilSignal(s.type_signal) }}</div>
-        </div>
-      </template>
-    </div>
-
-    <div v-if="signaux.length === 0" class="text-gray-600 italic mt-1">
-      Aucun signal détecté sur cette période
-    </div>
   </div>
 </template>
 
@@ -123,8 +91,8 @@ import {
   type FiltreSignaux,
 } from '@/composables/chartSignauxTypes'
 
-const FORCES: NiveauForce[] = ['faible', 'moyen', 'fort']
-const SOURCES = ['EMA', 'RSI', 'MACD', 'Bollinger', 'ATR', 'Combiné']
+const FORCES: NiveauForce[] = ['moyen', 'fort']
+const SOURCES = ['EMA', 'RSI', 'MACD', 'Bollinger', 'Combiné']
 const NB_OPTIONS = [5, 10, 40]
 
 const props = defineProps<{
@@ -139,16 +107,6 @@ const emit = defineEmits<{
 const filtre = reactive<FiltreSignaux>(filtreDefaut())
 
 const signaux_filtres = computed(() => filtrerSignaux(props.signaux, filtre))
-
-const signaux_curseur = computed(() =>
-  props.timestampCurseur === null
-    ? []
-    : signaux_filtres.value.filter((s) => s.timestamp === props.timestampCurseur),
-)
-
-const recents = computed(() =>
-  [...signaux_filtres.value].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5),
-)
 
 function toggleSource(src: string) {
   const idx = filtre.sources.indexOf(src)
@@ -186,15 +144,6 @@ const CONSEILS: Record<string, string> = {
   cross_macd_bear: `Death Cross confirmé par le MACD — signal sell majeur, taille de position normale.`,
 }
 
-function conseilSignal(type_signal: string): string {
-  return CONSEILS[type_signal] ?? ''
-}
-
-function classBadge(direction: string): string {
-  if (direction === 'bullish') return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-  if (direction === 'bearish') return 'border-red-500/30 bg-red-500/10 text-red-300'
-  return 'border-gray-600/30 bg-gray-600/10 text-gray-400'
-}
 
 // Propagation du filtre au parent pour re-rendu des marqueurs
 watch(filtre, () => emit('update:filtre', { ...filtre, sources: [...filtre.sources] }), {

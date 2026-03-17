@@ -1,6 +1,7 @@
 import { type Ref, type ComputedRef } from 'vue'
 import {
   createChart,
+  TickMarkType,
   type IChartApi,
   type ISeriesApi,
   type CandlestickSeriesOptions,
@@ -44,6 +45,19 @@ export function useChartTradingView(
         borderColor: 'rgba(255,255,255,0.1)',
         timeVisible: true,
         secondsVisible: false,
+        tickMarkFormatter: (ts: number, markType: TickMarkType) => {
+          const d = new Date(ts * 1000)
+          // Ticks jour/mois/an → afficher la date (pas l'heure)
+          if (markType <= TickMarkType.DayOfMonth) {
+            return new Intl.DateTimeFormat('fr-FR', {
+              timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit',
+            }).format(d)
+          }
+          // Ticks horaires → HH:mm heure de Paris
+          return new Intl.DateTimeFormat('fr-FR', {
+            timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit',
+          }).format(d)
+        },
       },
       width: chartContainer.value.clientWidth,
       height: chartContainer.value.clientHeight,

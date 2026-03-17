@@ -264,5 +264,20 @@ export function useChartIndicators() {
     if (niveau) lignesSlTp = afficherSlTp(serie, niveau)
   }
 
-  return { enChargement, erreur, signauxActifs, chargerEtAppliquer, supprimerOverlays, reinitialiser, appliquerMarqueursSignaux, mettreAJourSlTp }
+  /**
+   * Cherche un signal par l'id de son marqueur LW-Charts (`${source}_${type_signal}_${timestamp}`)
+   * et calcule les niveaux SL/TP si les valeurs ATR sont disponibles.
+   */
+  function obtenirSignalEtNiveaux(
+    markerId: string,
+  ): { signal: SignalIndicateur; niveaux: ReturnType<typeof calculerSlTp> } | null {
+    const signal = signauxActifs.value.find(
+      (s) => `${s.source}_${s.type_signal}_${s.timestamp}` === markerId,
+    )
+    if (!signal) return null
+    const atr = atrValeurs.get(signal.timestamp)
+    return { signal, niveaux: atr ? calculerSlTp(signal, atr) : null }
+  }
+
+  return { enChargement, erreur, signauxActifs, chargerEtAppliquer, supprimerOverlays, reinitialiser, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux }
 }

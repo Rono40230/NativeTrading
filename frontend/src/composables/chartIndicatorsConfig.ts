@@ -23,6 +23,20 @@ export function hexVersRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`
 }
 
+import { TickMarkType } from 'lightweight-charts'
+
+function tickMarkFormatterParis(ts: number, markType: TickMarkType): string {
+  const d = new Date(ts * 1000)
+  if (markType <= TickMarkType.DayOfMonth) {
+    return new Intl.DateTimeFormat('fr-FR', {
+      timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit',
+    }).format(d)
+  }
+  return new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit',
+  }).format(d)
+}
+
 /** Options communes à tous les sous-graphiques lightweight-charts */
 export function creerOptionsSousGraphique(container: HTMLElement) {
   return {
@@ -37,6 +51,7 @@ export function creerOptionsSousGraphique(container: HTMLElement) {
       borderColor: 'rgba(255,255,255,0.1)',
       timeVisible: true,
       secondsVisible: false,
+      tickMarkFormatter: tickMarkFormatterParis,
     },
     width: container.clientWidth,
     height: container.clientHeight,

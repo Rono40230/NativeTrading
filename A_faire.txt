@@ -18,6 +18,7 @@ A ajouter dans le vibe coding pour toute les app à developper :
 3 - toujours avec une sidebar rétractable comme menu = jamais de menu en barre horizontale
 4 - le texte toujours en noir dans les dropdowns sur fond blanc
 5 - toujours vérifier la taille des fichiers créés et modifiés en cours de développement pour ne pas avoir à faire de grosses refactorisations lors des audits.
+6 - Supprimer la règle de nommage des fichiers en français.
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -35,14 +36,22 @@ Il doit lister les signaux pour tous les actifs présent dans le code.
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Il y a un problème d'horaire dans les graphiques, pourquoi ne se mettent ils pas automatiquement à jour à l'heure de Paris ?
+
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Quelles métriques importantes pouvons nous ajouter avec bougies, volume, haut et bas ? Repond sans coder.
+Tous les tooltips des métriques expliquent des valeurs en % = c'est ok pour Vol. Rel et Position. Mais les autres métriques ont des valeurs en $.
+Explique ce qu'il faudrait corriger.
+Répond sans coder 
 
 --------------------------------------------------------------------------------------------------------------------------
 
 Comment est actuellement calculé le bloc "Score SMC" ? Doit on modifier ce calcul maintenant que tous les indicateurs sont à jour ? Répond sans coder.
 
 --------------------------------------------------------------------------------------------------------------------------
+
+Par défaut supprime l'affichage de tous les signaux faibles pour tous les indicateurs.
+
+Supprime le bouton "Faible" des options de tri.
+
+Ajoute 
