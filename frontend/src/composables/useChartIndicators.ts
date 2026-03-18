@@ -3,7 +3,7 @@ import type { IChartApi, ISeriesApi, IPriceLine, SeriesType, LineSeriesOptions }
 import { apiService } from '@/services/api.service'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import type { ReponseIndicators } from '@/services/api.service'
-import { COULEURS } from './chartIndicatorsConfig'
+import { COULEURS, buildIndicatorsParams } from './chartIndicatorsConfig'
 import { creerSousGraphiqueRsi, creerSousGraphiqueMacd, creerSousGraphiqueAtr, type SyncCtx } from './chartSubgraphs'
 import { appliquerBollinger, appliquerSmcOverlays } from './chartMainOverlays'
 import { rendreSurSerie, effacerMarqueurs } from './chartSignauxRendu'
@@ -108,35 +108,7 @@ export function useChartIndicators() {
     erreur.value = null
 
     try {
-      const data: ReponseIndicators = await apiService.getIndicators({
-        asset, tf,
-        ema: prefs.ema, ema_periode: prefs.emaPeriode, ema_ma_type: prefs.emaMaType,
-        rsi: prefs.rsi, rsi_periode: prefs.rsiPeriode,
-        macd: prefs.macd, macd_rapide: prefs.macdRapide, macd_lente: prefs.macdLente, macd_signal: prefs.macdSignal,
-        bollinger: prefs.bollinger,
-        bollinger_periode: prefs.bollingerPeriode,
-        bollinger_stddev: prefs.bollingerStdDev,
-        bollinger_ma_type: prefs.bollingerMaType,
-        atr: prefs.atr,
-        atr_periode: prefs.atrPeriode,
-        smc_ob: prefs.smcOb,
-        smc_ob_sensitivity: prefs.smcObSensibilite,
-        smc_ob_mitigation: prefs.smcObMitigationType,
-        smc_ifvg: prefs.smcBpr,
-        smc_ifvg_show_last: prefs.smcIfvgShowLast,
-        smc_ifvg_signal_pref: prefs.smcIfvgSignalPref,
-        smc_ifvg_atr_mult: prefs.smcIfvgAtrMult,
-        smc_bpr: prefs.smcBpr,
-        smc_bpr_show_last: prefs.smcBprShowLast,
-        smc_bpr_atr_mult: prefs.smcBprAtrMult,
-        smc_bpr_fenetre: prefs.smcBprFenetre,
-        smc_bpr_mitigation: prefs.smcBprMitigation,
-        smc_fib: prefs.smcFib,
-        smc_tendance: prefs.smcTendance,
-        smc_liquidites: prefs.smcLiquidites,
-        signaux: true,
-        limit: 500,
-      })
+      const data: ReponseIndicators = await apiService.getIndicators(buildIndicatorsParams(asset, tf, prefs))
 
       if (idAppel !== appelEnCours) return
 

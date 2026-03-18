@@ -222,6 +222,24 @@ export function useSmcCanvas() {
       }
     }
 
+    if (data.imbalance?.length) {
+      for (const z of data.imbalance) {
+        if (z.remplie) continue
+        const isBull  = z.type_zone === 'FvgBull' || z.type_zone === 'OgBull'
+        const isOg    = z.type_zone === 'OgBull'  || z.type_zone === 'OgBear'
+        const hex     = isBull ? prefs.smcImbCouleurBull : prefs.smcImbCouleurBear
+        const opacite = isOg ? Math.min(prefs.smcImbOpacite * 2.5, 1) : prefs.smcImbOpacite
+        zonesRef.push({
+          prixHaut:    z.haut,
+          prixBas:     z.bas,
+          timestamp:   z.timestamp,
+          couleurFond: hexVersRgba(hex, opacite),
+          couleurBord: 'transparent',
+          label:       isOg ? 'OG' : '',
+        })
+      }
+    }
+
     if (data.bpr?.length) {
       for (const z of data.bpr) {
         // BPR : FVG bullish (bleu) + FVG bearish (rouge) superposés → intersection visible

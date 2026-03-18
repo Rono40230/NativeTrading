@@ -145,6 +145,11 @@
             </div>
           </template>
 
+          <!-- Imbalances (FVG + OG) -->
+          <template v-else-if="indicateur === 'smcImbalance'">
+            <SmcImbalanceParams v-model="prefs" />
+          </template>
+
           <!-- Fibonacci -->
           <template v-else-if="indicateur === 'smcFib'">
             <p class="text-[10px] text-slate-500 mb-3">
@@ -234,16 +239,18 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
+import SmcImbalanceParams from './SmcImbalanceParams.vue'
 
 const props = defineProps<{ indicateur: string | null }>()
 const prefs = defineModel<PrefsIndicateurs>({ required: true })
 defineEmits<{ fermer: []; appliquer: [] }>()
 
 const TITRES: Record<string, string> = {
-  smcOb:         'Order Blocks — Paramètres',
-  smcBpr:        'IFVG / BPR — Paramètres',
-  smcIfvg:       'IFVG (Inversion FVG) — Paramètres',
-  smcFib:        'Fibonacci — Paramètres',
+  smcOb:          'Order Blocks — Paramètres',
+  smcBpr:         'IFVG / BPR — Paramètres',
+  smcIfvg:        'IFVG (Inversion FVG) — Paramètres',
+  smcImbalance:   'Imbalances (FVG + OG) — Paramètres',
+  smcFib:         'Fibonacci — Paramètres',
   smcLiquidites: 'BSL / SSL — Liquidités',
 }
 

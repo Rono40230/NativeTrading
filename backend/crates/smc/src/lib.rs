@@ -12,6 +12,7 @@ pub mod tendances;
 pub use bpr::Bpr;
 pub use fibonacci::NiveauxFibonacci;
 pub use ifvg::Ifvg;
+pub use imbalance::ZoneImbalance;
 pub use liquidites::NiveauLiquidite;
 pub use order_blocks::OrderBlock;
 pub use tendances::ResultatTendance;

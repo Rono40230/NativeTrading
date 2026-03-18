@@ -139,6 +139,17 @@ pub async fn get_indicators(
         .then(|| smc::tendances::analyser(&bougies))
         .flatten();
 
+    let imbalance = query
+        .smc_imbalance
+        .unwrap_or(false)
+        .then(|| {
+            let show_last = query.smc_imb_show_last.unwrap_or(5) as usize;
+            let show_fvg  = query.smc_imb_show_fvg.unwrap_or(true);
+            let show_og   = query.smc_imb_show_og.unwrap_or(true);
+            let mitigation_close = query.smc_imb_mitigation.as_deref() != Some("wick");
+            smc::imbalance::detecter(&bougies, show_last, show_fvg, show_og, mitigation_close)
+        });
+
     let liquidites = query
         .smc_liquidites
         .unwrap_or(false)
@@ -205,6 +216,7 @@ pub async fn get_indicators(
         order_blocks,
         ifvg,
         bpr,
+        imbalance,
         fibonacci,
         tendance,
         liquidites,

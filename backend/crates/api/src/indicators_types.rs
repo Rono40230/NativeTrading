@@ -33,6 +33,11 @@ pub struct IndicatorsQuery {
     pub smc_bpr_atr_mult: Option<f64>,
     pub smc_bpr_fenetre: Option<u32>,
     pub smc_bpr_mitigation: Option<String>,
+    pub smc_imbalance: Option<bool>,
+    pub smc_imb_show_last: Option<u32>,
+    pub smc_imb_show_fvg: Option<bool>,
+    pub smc_imb_show_og: Option<bool>,
+    pub smc_imb_mitigation: Option<String>,
     pub smc_fib: Option<bool>,
     pub smc_tendance: Option<bool>,
     pub smc_liquidites: Option<bool>,
@@ -85,6 +90,8 @@ pub struct ReponseIndicators {
     pub fibonacci: Option<smc::NiveauxFibonacci>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tendance: Option<smc::ResultatTendance>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub imbalance: Option<Vec<smc::ZoneImbalance>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub liquidites: Option<Vec<smc::NiveauLiquidite>>,
     #[serde(skip_serializing_if = "Option::is_none")]

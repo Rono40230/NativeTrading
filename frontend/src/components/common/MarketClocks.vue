@@ -39,10 +39,15 @@
 
         <!-- Infos sous le cadran -->
         <div class="flex flex-col items-center gap-0.5 text-center w-full">
-          <span class="text-[10px] font-bold" :class="session.badgeCouleur">{{ session.statutCourt }}</span>
+          <div class="flex items-center justify-center gap-1.5 flex-wrap">
+            <span class="text-[10px] font-bold" :class="session.badgeCouleur">{{ session.statutCourt }}</span>
+            <span v-if="session.countdown" class="text-[10px] font-semibold" :class="session.countdownCouleur">{{ session.countdown }}</span>
+          </div>
           <span class="text-base font-mono font-bold tabular-nums leading-tight" :class="session.heureCouleur">{{ session.heureLocale }}</span>
-          <div class="text-[9px] text-gray-600 leading-tight">{{ session.plageLocale }}</div>
-          <div v-if="session.countdown" class="text-[10px] font-semibold mt-0.5" :class="session.countdownCouleur">{{ session.countdown }}</div>
+          <div class="text-[9px] leading-tight flex items-center justify-center gap-1.5 flex-wrap">
+            <span class="text-gray-600">{{ session.plageLocale }}</span>
+            <span class="text-blue-300/60">🇫🇷 {{ session.plageParis }}</span>
+          </div>
         </div>
 
       </div>
@@ -162,6 +167,10 @@ const sessions = computed(() => {
     const ferLocal = convertirEnTz(s.fermetureUtcH, s.fermetureUtcM, s.timezone, now)
     const plageLocale = `${ouvLocal} – ${ferLocal} ${abrevTz(s.timezone, now)}`
 
+    const ouvParis = convertirEnTz(s.ouvertureUtcH, s.ouvertureUtcM, 'Europe/Paris', now)
+    const ferParis = convertirEnTz(s.fermetureUtcH, s.fermetureUtcM, 'Europe/Paris', now)
+    const plageParis = `${ouvParis} – ${ferParis} Paris`
+
     let ringColor: string, bgFill: string, handColor: string, secColor: string
     let tickColor: string, ringAnim: string
     let labelCouleur: string, badgeCouleur: string, heureCouleur: string
@@ -194,11 +203,12 @@ const sessions = computed(() => {
       ringAnim = ''; labelCouleur = 'text-gray-500'
       badgeCouleur = 'text-gray-600'; heureCouleur = 'text-gray-400'
       countdownCouleur = 'text-gray-600'; statutCourt = '○ FERMÉ'
-      countdown = formatDuree(secAvantOuv(s, now))
+      const duree = formatDuree(secAvantOuv(s, now))
+      countdown = duree ? `ouvre ${duree}` : ''
     }
 
     return {
-      nom: s.nom, heureLocale, plageLocale, statutCourt, countdown,
+      nom: s.nom, heureLocale, plageLocale, plageParis, statutCourt, countdown,
       labelCouleur, badgeCouleur, heureCouleur, countdownCouleur,
       hrX: hr.x, hrY: hr.y, minX: min.x, minY: min.y,
       secX: sec.x, secY: sec.y, secTailX: secTail.x, secTailY: secTail.y,

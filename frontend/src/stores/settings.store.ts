@@ -34,6 +34,7 @@ export interface PrefsIndicateurs {
   smcOb: boolean
   smcBpr: boolean
   smcIfvg: boolean
+  smcImbalance: boolean
   smcFib: boolean
   smcTendance: boolean
   smcLiquidites: boolean
@@ -56,6 +57,14 @@ export interface PrefsIndicateurs {
   smcBprAtrMult: number
   smcBprFenetre: number
   smcBprMitigation: 'close' | 'wick'
+  // Imbalance (FVG + OG)
+  smcImbCouleurBull: string
+  smcImbCouleurBear: string
+  smcImbOpacite: number
+  smcImbShowLast: number
+  smcImbShowFvg: boolean
+  smcImbShowOg: boolean
+  smcImbMitigation: 'close' | 'wick'
   smcFibCouleur: string
   smcFibAfficher236: boolean
   smcFibAfficher786: boolean
@@ -95,6 +104,7 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcOb: true,
   smcBpr: true,
   smcIfvg: true,
+  smcImbalance: false,
   smcFib: true,
   smcTendance: true,
   smcLiquidites: true,
@@ -117,6 +127,14 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcBprAtrMult: 0.5,
   smcBprFenetre: 30,
   smcBprMitigation: 'close',
+  // Imbalance
+  smcImbCouleurBull: '#2157f3',
+  smcImbCouleurBear: '#ff1100',
+  smcImbOpacite: 0.2,
+  smcImbShowLast: 5,
+  smcImbShowFvg: true,
+  smcImbShowOg: true,
+  smcImbMitigation: 'close',
   smcFibCouleur: '#94a3b8',
   smcFibAfficher236: true,
   smcFibAfficher786: true,

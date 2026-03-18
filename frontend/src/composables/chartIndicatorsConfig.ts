@@ -37,6 +37,31 @@ function tickMarkFormatterParis(ts: number, markType: TickMarkType): string {
   }).format(d)
 }
 
+import type { PrefsIndicateurs } from '@/stores/settings.store'
+import type { IndicatorsParams } from '@/services/api.types'
+
+/** Construit les paramètres de la requête /api/indicators depuis les préférences utilisateur. */
+export function buildIndicatorsParams(asset: string, tf: string, prefs: PrefsIndicateurs): IndicatorsParams {
+  return {
+    asset, tf,
+    ema: prefs.ema, ema_periode: prefs.emaPeriode, ema_ma_type: prefs.emaMaType,
+    rsi: prefs.rsi, rsi_periode: prefs.rsiPeriode,
+    macd: prefs.macd, macd_rapide: prefs.macdRapide, macd_lente: prefs.macdLente, macd_signal: prefs.macdSignal,
+    bollinger: prefs.bollinger, bollinger_periode: prefs.bollingerPeriode,
+    bollinger_stddev: prefs.bollingerStdDev, bollinger_ma_type: prefs.bollingerMaType,
+    atr: prefs.atr, atr_periode: prefs.atrPeriode,
+    smc_ob: prefs.smcOb, smc_ob_sensitivity: prefs.smcObSensibilite, smc_ob_mitigation: prefs.smcObMitigationType,
+    smc_ifvg: prefs.smcBpr, smc_ifvg_show_last: prefs.smcIfvgShowLast,
+    smc_ifvg_signal_pref: prefs.smcIfvgSignalPref, smc_ifvg_atr_mult: prefs.smcIfvgAtrMult,
+    smc_bpr: prefs.smcBpr, smc_bpr_show_last: prefs.smcBprShowLast,
+    smc_bpr_atr_mult: prefs.smcBprAtrMult, smc_bpr_fenetre: prefs.smcBprFenetre, smc_bpr_mitigation: prefs.smcBprMitigation,
+    smc_imbalance: prefs.smcImbalance, smc_imb_show_last: prefs.smcImbShowLast,
+    smc_imb_show_fvg: prefs.smcImbShowFvg, smc_imb_show_og: prefs.smcImbShowOg, smc_imb_mitigation: prefs.smcImbMitigation,
+    smc_fib: prefs.smcFib, smc_tendance: prefs.smcTendance, smc_liquidites: prefs.smcLiquidites,
+    signaux: true, limit: 500,
+  }
+}
+
 /** Options communes à tous les sous-graphiques lightweight-charts */
 export function creerOptionsSousGraphique(container: HTMLElement) {
   return {

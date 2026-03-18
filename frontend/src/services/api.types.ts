@@ -117,6 +117,14 @@ export interface ZoneOb {
   timestamp: number
 }
 
+export interface ZoneImbalance {
+  haut: number
+  bas: number
+  type_zone: 'FvgBull' | 'FvgBear' | 'OgBull' | 'OgBear'
+  remplie: boolean
+  timestamp: number
+}
+
 /** Zone FVG unifiée — type_zone : "FvgBull" | "FvgBear" | "Bpr" */
 export interface ZoneFvgBpr {
   type_zone: string
@@ -187,6 +195,7 @@ export interface ReponseIndicators {
   order_blocks?: ZoneOb[]
   ifvg?: ZoneIfvg[]
   bpr?: ZoneFvgBpr[]
+  imbalance?: ZoneImbalance[]
   fibonacci?: NiveauxFibonacci
   tendance?: ResultatTendance
   liquidites?: NiveauLiquidite[]
@@ -224,6 +233,11 @@ export interface IndicatorsParams {
   smc_bpr_atr_mult?: number
   smc_bpr_fenetre?: number
   smc_bpr_mitigation?: string
+  smc_imbalance?: boolean
+  smc_imb_show_last?: number
+  smc_imb_show_fvg?: boolean
+  smc_imb_show_og?: boolean
+  smc_imb_mitigation?: string
   smc_fib?: boolean
   smc_tendance?: boolean
   smc_liquidites?: boolean
