@@ -42,7 +42,7 @@
         <span class="animate-pulse">Chargement des bougies...</span>
       </div>
       <!-- Container toujours monté pour éviter la destruction du canvas -->
-      <div ref="chartContainer" class="w-full h-full" />
+      <div ref="chartContainer" class="w-full h-full" style="position: relative;" />
       <!-- Tableau Tendance Kasper Bootcamp (overlay coin haut-gauche) -->
       <TendanceMultiTF
         v-if="settingsStore.indicateurs.kasperTendance"
@@ -115,6 +115,7 @@ import ChartSignauxPanel from '@/components/common/ChartSignauxPanel.vue'
 import { filtreDefaut, type FiltreSignaux } from '@/composables/chartSignauxTypes'
 import { useChartAnalyse } from '@/composables/useChartAnalyse'
 import { useChartIndicators } from '@/composables/useChartIndicators'
+import { useSmcCanvas } from '@/composables/useSmcCanvas'
 import { apiService, type AssetInfo } from '@/services/api.service'
 import PredictionSMCPanel from '@/components/common/PredictionSMCPanel.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
@@ -125,6 +126,7 @@ import AnalyseIAModal from '@/components/common/AnalyseIAModal.vue'
 import SignalModal from '@/components/common/SignalModal.vue'
 import type { NiveauSlTp } from '@/composables/chartAtrSlTp'
 import type { SignalIndicateur } from '@/composables/chartSignauxTypes'
+import { limitPourTimeframe } from '@/composables/useChartLimite'
 
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
@@ -159,6 +161,7 @@ const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
   useChartAnalyse(getChart, selectedAsset, selectedTimeframe)
 
 const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux } = useChartIndicators()
+const smcCanvas = useSmcCanvas()
 
 const timestampCurseur = ref<number | null>(null)
 const filtreCourant = ref<FiltreSignaux>(filtreDefaut())
@@ -193,16 +196,18 @@ async function chargerIndicateurs() {
   await nextTick()
   const chart = getChart()
   if (!chart) return
+  const serie = getCandlestickSeries()
+  if (chartContainer.value && serie) smcCanvas.initialiser(chart, serie, chartContainer.value)
   await chargerEtAppliquer(
-    chart,
-    selectedAsset.value,
-    selectedTimeframe.value,
-    settingsStore.indicateurs,
-    rsiContainer.value,
-    macdContainer.value,
-    atrContainer.value,
-    getCandlestickSeries(),
-    filtreCourant.value,
+    chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
+    rsiContainer.value, macdContainer.value, atrContainer.value,
+    serie, filtreCourant.value,
+    (data) => {
+      const derniereB = bougies.value?.[bougies.value.length - 1]
+      const tsMs = derniereB ? new Date(derniereB.timestamp).getTime() : null
+      const tsSec = tsMs ? Math.floor(tsMs / 1000) : undefined
+      smcCanvas.mettreAJourZones(data, settingsStore.indicateurs, tsSec)
+    },
   )
 }
 
@@ -224,14 +229,14 @@ async function changerTimeframe(tf: string) {
 
 async function chargerData() {
   // force=true : bypass cache SQLite, fetch direct Binance/IB pour avoir des données fraîches
-  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, 500, true)
+  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), true)
 }
 
 async function chargerEtReinitChart() {
   detruireChart()
   reinitialiser() // Invalide les références aux séries de l'ancien chart
 
-  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, 500, true)
+  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), true)
 
   // Attendre que Vue ait rendu le container (toujours monté)
   await nextTick()
@@ -245,13 +250,38 @@ async function actualiser() {
   await chargerEtReinitChart()
 }
 
+/** Rafraîchit uniquement les zones SMC (OB, FVG, BPR) sans réinitialiser le canvas ni les autres indicateurs.
+ *  Appelé à chaque nouvelle bougie via le watcher wsMiseAJour. */
+async function rafraichirZonesSmc() {
+  const chart = getChart()
+  const serie = getCandlestickSeries()
+  if (!chart || !serie) return
+  await chargerEtAppliquer(
+    chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
+    null, null, null,
+    serie, filtreCourant.value,
+    (data) => {
+      const derniereB = bougies.value?.[bougies.value.length - 1]
+      const tsMs = derniereB ? new Date(derniereB.timestamp).getTime() : null
+      const tsSec = tsMs ? Math.floor(tsMs / 1000) : undefined
+      smcCanvas.mettreAJourZones(data, settingsStore.indicateurs, tsSec)
+    },
+  )
+}
+
 /** Démarre le live feed WebSocket (crypto via Binance, métaux via Finnhub) */
+let intervalZones: ReturnType<typeof setInterval> | null = null
+
 function demarrerLiveFeed(asset: string, timeframe: string) {
   marketStore.connecterStream(asset, timeframe)
+  // Rafraîchit les zones SMC toutes les 10 secondes sans recharger le chart
+  if (intervalZones) clearInterval(intervalZones)
+  intervalZones = setInterval(() => rafraichirZonesSmc(), 1_000)
 }
 
 function arreterLiveFeed() {
   marketStore.deconnecterStream()
+  if (intervalZones) { clearInterval(intervalZones); intervalZones = null }
 }
 
 // Rechargement complet (changement asset/timeframe) — les indicateurs se rechargent via chargerEtReinitChart
@@ -286,6 +316,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  smcCanvas.detruire()
   detruireChart()
   arreterRedimensionnement()
   arreterLiveFeed()

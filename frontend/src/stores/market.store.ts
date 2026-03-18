@@ -9,7 +9,7 @@ export const useMarketStore = defineStore('market', () => {
   const chargement = ref(false)
   const erreur = ref<string | null>(null)
   const erreurWs = ref<string | null>(null)
-  const wsMiseAJour = ref<{ asset: string; timeframe: string; bougie: Candle } | null>(null)
+  const wsMiseAJour = ref<{ asset: string; timeframe: string; bougie: Candle; estNouvelle: boolean } | null>(null)
   const wsConnecte = ref(false)
   let ws: WebSocket | null = null
   const dernierPrix = computed(() => {
@@ -92,7 +92,7 @@ export const useMarketStore = defineStore('market', () => {
           if (liste && liste.length > 0) {
             const derniere = liste[liste.length - 1]
             liste[liste.length - 1] = { ...derniere, close: msg.price, high: Math.max(derniere.high, msg.price), low: Math.min(derniere.low, msg.price) }
-            wsMiseAJour.value = { asset, timeframe, bougie: liste[liste.length - 1] }
+            wsMiseAJour.value = { asset, timeframe, bougie: liste[liste.length - 1], estNouvelle: false }
           }
           return
         }
@@ -119,11 +119,12 @@ export const useMarketStore = defineStore('market', () => {
         if (tsNouvelle - tsDerniere < duree) {
           // Même bougie — mutation in-place (ne déclenche pas le watcher shallow)
           liste[liste.length - 1] = nouvelleBougie
+          wsMiseAJour.value = { asset, timeframe, bougie: nouvelleBougie, estNouvelle: false }
         } else {
           // Nouvelle bougie — push in-place
           liste.push(nouvelleBougie)
+          wsMiseAJour.value = { asset, timeframe, bougie: nouvelleBougie, estNouvelle: true }
         }
-        wsMiseAJour.value = { asset, timeframe, bougie: nouvelleBougie }
       } catch { /* message invalide ignoré */ }
     }
     ws.onerror = () => { erreurWs.value = 'WebSocket déconnecté'; wsConnecte.value = false }

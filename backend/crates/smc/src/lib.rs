@@ -1,6 +1,7 @@
 use common::{Candle, Direction};
 use serde::{Deserialize, Serialize};
 
+pub mod bpr;
 pub mod fibonacci;
 pub mod ifvg;
 pub mod imbalance;
@@ -8,9 +9,9 @@ pub mod liquidites;
 pub mod order_blocks;
 pub mod tendances;
 
+pub use bpr::Bpr;
 pub use fibonacci::NiveauxFibonacci;
 pub use ifvg::Ifvg;
-pub use imbalance::Imbalance;
 pub use liquidites::NiveauLiquidite;
 pub use order_blocks::OrderBlock;
 pub use tendances::ResultatTendance;
@@ -24,12 +25,11 @@ pub struct ScoreSmc {
     pub tendance: f64,
     /// Points order block (0–25)
     pub order_block: f64,
-    /// Points imbalance/FVG (0–20)
-    pub imbalance: f64,
-    /// Points IFVG (0–15)
+    /// Points IFVG (0–35)
     pub ifvg: f64,
     /// Points Fibonacci (0–15)
-    pub fibonacci: f64,
+    pub fibonacci: f64,    /// Points imbalance/FVG — conservé à 0 (indicateur supprimé)
+    pub imbalance: f64,
     /// Direction dominante détectée
     pub direction: Direction,
     /// Vrai si total >= 70 (seuil déclencheur)
@@ -54,17 +54,13 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
     // Tendance : 0–25 pts selon force (0=indécis, 1=partiel, 2=confirmé HH+HL)
     let pts_tendance = (tendance_res.force / 2.0) * 25.0;
 
-    // Order Block : 0–25 pts selon la force du meilleur OB aligné
-    let obs = order_blocks::detecter(bougies);
+    // Order Block : 0–25 pts selon la force du meilleur OB aligné (sensibilité défaut)
+    let obs = order_blocks::detecter(bougies, 28.0, true);
     let pts_ob = (order_blocks::score_pour_direction(&obs, direction) / 100.0) * 25.0;
 
-    // Imbalance/FVG : 0 ou 20 pts
-    let imbs = imbalance::detecter(bougies);
-    let pts_imb = imbalance::score_pour_direction(&imbs, direction);
-
-    // IFVG : 0 ou 15 pts
-    let ifvgs = ifvg::detecter(bougies);
-    let pts_ifvg = ifvg::score_pour_direction(&ifvgs, direction);
+    // IFVG : 0 ou 35 pts (absorbe l'ancien slot FVG 20pts + IFVG 15pts)
+    let ifvgs = ifvg::detecter(bougies, 5, true, 0.25);
+    let pts_ifvg = if ifvg::score_pour_direction(&ifvgs, direction) > 0.0 { 35.0 } else { 0.0 };
 
     // Fibonacci : 0 ou 15 pts si prix proche d'un niveau clé
     let prix_actuel = bougies.last()?.close;
@@ -73,15 +69,14 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
         .map(|_| 15.0)
         .unwrap_or(0.0);
 
-    let total = pts_tendance + pts_ob + pts_imb + pts_ifvg + pts_fib;
+    let total = pts_tendance + pts_ob + pts_ifvg + pts_fib;
 
     tracing::debug!(
-        "ScoreSmc {:?}: total={:.1} (tendance={:.1} ob={:.1} imb={:.1} ifvg={:.1} fib={:.1})",
+        "ScoreSmc {:?}: total={:.1} (tendance={:.1} ob={:.1} ifvg={:.1} fib={:.1})",
         direction,
         total,
         pts_tendance,
         pts_ob,
-        pts_imb,
         pts_ifvg,
         pts_fib
     );
@@ -90,7 +85,7 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
         total,
         tendance: pts_tendance,
         order_block: pts_ob,
-        imbalance: pts_imb,
+        imbalance: 0.0,
         ifvg: pts_ifvg,
         fibonacci: pts_fib,
         direction,

@@ -95,7 +95,8 @@ pub async fn get_candles(
     };
 
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
-    let limit = query.limit.unwrap_or(200).min(1000) as usize;
+    // Plafond à 5000 : couvre M1×3j (4320), H4×30j (180), D1×90j (90), etc.
+    let limit = query.limit.unwrap_or(200).min(5000) as usize;
     let force = query.force.unwrap_or(false);
 
     // 1. Cache local — ignorer si force=true (polling temps réel)

@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import type { IChartApi, ISeriesApi, SeriesType, LineSeriesOptions } from 'lightweight-charts'
+import type { IChartApi, ISeriesApi, IPriceLine, SeriesType, LineSeriesOptions } from 'lightweight-charts'
 import { apiService } from '@/services/api.service'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import type { ReponseIndicators } from '@/services/api.service'
@@ -17,6 +17,9 @@ export function useChartIndicators() {
 
   // Tableau plain non-reactif
   let seriesActives: ISeriesApi<SeriesType>[] = []
+  // Price lines SMC attachées à la candleSerie (nécessaires pour suppression)
+  let lignesSmcActives: IPriceLine[] = []
+  let candleSerieSmcRef: ISeriesApi<'Candlestick'> | null = null
   let rsiChart: IChartApi | null = null
   let syncMainToRsi: ((range: any) => void) | null = null
   let macdChart: IChartApi | null = null
@@ -31,6 +34,14 @@ export function useChartIndicators() {
   let appelEnCours = 0
 
   function supprimerOverlays(chart: IChartApi) {
+    // Supprimer les price lines SMC attachées à la candleSerie
+    if (candleSerieSmcRef && lignesSmcActives.length > 0) {
+      for (const ligne of lignesSmcActives) {
+        try { candleSerieSmcRef.removePriceLine(ligne) } catch { }
+      }
+    }
+    lignesSmcActives = []
+    candleSerieSmcRef = null
     if (syncMainToRsi) {
       chart.timeScale().unsubscribeVisibleTimeRangeChange(syncMainToRsi)
       syncMainToRsi = null
@@ -79,17 +90,6 @@ export function useChartIndicators() {
     return s
   }
 
-  function ajouterFantome(chart: IChartApi): ISeriesApi<'Line'> {
-    const s = chart.addLineSeries({
-      color: 'transparent',
-      priceLineVisible: false,
-      lastValueVisible: false,
-      crosshairMarkerVisible: false,
-    } as Partial<LineSeriesOptions>)
-    seriesActives.push(s)
-    return s
-  }
-
   async function chargerEtAppliquer(
     chart: IChartApi,
     asset: string,
@@ -100,6 +100,7 @@ export function useChartIndicators() {
     atrContainer: HTMLElement | null = null,
     candleSerie: ISeriesApi<'Candlestick'> | null = null,
     filtre: FiltreSignaux = filtreDefaut(),
+    onDonnees?: (data: ReponseIndicators) => void,
   ) {
     const idAppel = ++appelEnCours
     supprimerOverlays(chart)
@@ -119,8 +120,17 @@ export function useChartIndicators() {
         atr: prefs.atr,
         atr_periode: prefs.atrPeriode,
         smc_ob: prefs.smcOb,
-        smc_fvg: prefs.smcFvg,
-        smc_ifvg: prefs.smcIfvg,
+        smc_ob_sensitivity: prefs.smcObSensibilite,
+        smc_ob_mitigation: prefs.smcObMitigationType,
+        smc_ifvg: prefs.smcBpr,
+        smc_ifvg_show_last: prefs.smcIfvgShowLast,
+        smc_ifvg_signal_pref: prefs.smcIfvgSignalPref,
+        smc_ifvg_atr_mult: prefs.smcIfvgAtrMult,
+        smc_bpr: prefs.smcBpr,
+        smc_bpr_show_last: prefs.smcBprShowLast,
+        smc_bpr_atr_mult: prefs.smcBprAtrMult,
+        smc_bpr_fenetre: prefs.smcBprFenetre,
+        smc_bpr_mitigation: prefs.smcBprMitigation,
         smc_fib: prefs.smcFib,
         smc_tendance: prefs.smcTendance,
         smc_liquidites: prefs.smcLiquidites,
@@ -183,8 +193,11 @@ export function useChartIndicators() {
         appliquerBollinger(chart, data.bollinger, prefs, ajouterLigne, (s) => seriesActives.push(s))
       }
 
-      // Overlays SMC (Order Blocks, FVG, IFVG, Fibonacci, BSL/SSL)
-      appliquerSmcOverlays(chart, data, ajouterFantome)
+      // Overlays SMC (Order Blocks, IFVG, Fibonacci, BSL/SSL)
+      if (candleSerie) {
+        candleSerieSmcRef = candleSerie
+        lignesSmcActives = appliquerSmcOverlays(candleSerie, data, prefs)
+      }
 
       // Signaux indicateurs — marqueurs sur la série candlestick
       if (data.signaux) {
@@ -201,6 +214,9 @@ export function useChartIndicators() {
         atrValeurs = new Map()
       }
       candleSerieSlTp = candleSerie
+
+      // Callback data SMC (pour canvas overlay)
+      onDonnees?.(data)
 
     } catch (err_: any) {
       if (idAppel === appelEnCours) erreur.value = err_?.message ?? 'Erreur chargement indicateurs'

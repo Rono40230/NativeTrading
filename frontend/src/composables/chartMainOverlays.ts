@@ -1,11 +1,10 @@
-import type { IChartApi, ISeriesApi, LineSeriesOptions } from 'lightweight-charts'
+import type { IChartApi, ISeriesApi, IPriceLine, LineSeriesOptions } from 'lightweight-charts'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import type { ReponseIndicators } from '@/services/api.service'
 import { COULEURS, hexVersRgba } from './chartIndicatorsConfig'
 
 type Point = { time: number; value: number }
 type AjouterLigneFn = (chart: IChartApi, data: Point[], couleur: string, largeur?: number) => ISeriesApi<'Line'>
-type AjouterFantomeFn = (chart: IChartApi) => ISeriesApi<'Line'>
 type PushSeriesFn = (s: ISeriesApi<any>) => void
 
 // ─── Bollinger Bands (overlay sur graphique principal) ────────────────────────
@@ -47,61 +46,45 @@ export function appliquerBollinger(
   pushSeries(milieu)
 }
 
-// ─── Overlays SMC (Order Blocks, FVG, IFVG, Fibonacci, BSL/SSL) ───────────────
+// ─── Overlays SMC (Fibonacci + BSL/SSL comme price lines ; OB/FVG/IFVG via canvas) ──
 
+/**
+ * Applique les overlays SMC sur la candleSerie sous forme de price lines.
+ * Seuls Fibonacci et BSL/SSL utilisent des lignes (ce sont des niveaux horizontaux par nature).
+ * OB / FVG / IFVG sont désormais dessinés comme rectangles via useSmcCanvas.
+ * Retourne la liste des IPriceLine créées pour permettre leur suppression propre.
+ */
 export function appliquerSmcOverlays(
-  chart: IChartApi,
+  candleSerie: ISeriesApi<'Candlestick'>,
   data: ReponseIndicators,
-  ajouterFantome: AjouterFantomeFn,
-): void {
-  if (data.order_blocks?.length) {
-    for (const ob of data.order_blocks) {
-      const couleur = ob.direction === 'Long' ? COULEURS.ob_long : COULEURS.ob_short
-      const f = ajouterFantome(chart)
-      f.createPriceLine({ price: ob.prix_haut, color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: `OB ${ob.direction}` })
-      f.createPriceLine({ price: ob.prix_bas,  color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' })
-    }
-  }
-
-  if (data.imbalances?.length) {
-    for (const fvg of data.imbalances) {
-      if (fvg.comble) continue
-      const couleur = fvg.direction === 'Long' ? COULEURS.fvg_long : COULEURS.fvg_short
-      const f = ajouterFantome(chart)
-      f.createPriceLine({ price: fvg.prix_haut, color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: 'FVG' })
-      f.createPriceLine({ price: fvg.prix_bas,  color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' })
-    }
-  }
-
-  if (data.ifvg?.length) {
-    for (const i of data.ifvg) {
-      const couleur = i.direction === 'Long' ? COULEURS.ifvg_long : COULEURS.ifvg_short
-      const f = ajouterFantome(chart)
-      f.createPriceLine({ price: i.prix_haut, color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: 'IFVG' })
-      f.createPriceLine({ price: i.prix_bas,  color: couleur, lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: '' })
-    }
-  }
+  prefs: PrefsIndicateurs,
+): IPriceLine[] {
+  const lignes: IPriceLine[] = []
 
   if (data.fibonacci) {
-    const fib = data.fibonacci
-    const f = ajouterFantome(chart)
-    for (const [niveau, label] of [
-      [fib.niveau_236, 'Fib 23.6%'],
-      [fib.niveau_382, 'Fib 38.2%'],
-      [fib.niveau_500, 'Fib 50%'],
-      [fib.niveau_618, 'Fib 61.8%'],
-      [fib.niveau_786, 'Fib 78.6%'],
-    ] as [number, string][]) {
-      f.createPriceLine({ price: niveau, color: COULEURS.fib, lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: label })
+    const fib     = data.fibonacci
+    const couleur = hexVersRgba(prefs.smcFibCouleur, 0.85)
+    const niveaux: [number, string, boolean][] = [
+      [fib.niveau_236, 'Fib 23.6%', prefs.smcFibAfficher236],
+      [fib.niveau_382, 'Fib 38.2%', true],
+      [fib.niveau_500, 'Fib 50%',   true],
+      [fib.niveau_618, 'Fib 61.8%', true],
+      [fib.niveau_786, 'Fib 78.6%', prefs.smcFibAfficher786],
+    ]
+    for (const [niveau, label, visible] of niveaux) {
+      if (!visible) continue
+      lignes.push(candleSerie.createPriceLine({ price: niveau, color: couleur, lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: label }))
     }
   }
 
   if (data.liquidites?.length) {
     for (const liq of data.liquidites) {
       if (liq['sweepé']) continue
-      const couleur = liq.cote === 'BSL' ? COULEURS.bsl : COULEURS.ssl
-      const f = ajouterFantome(chart)
-      f.createPriceLine({ price: liq.prix, color: couleur, lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: `${liq.cote}${liq.equal ? ' (EQ)' : ''}` })
+      const hex  = liq.cote === 'BSL' ? prefs.smcLiqCouleurBsl : prefs.smcLiqCouleurSsl
+      const bord = hexVersRgba(hex, 0.9)
+      lignes.push(candleSerie.createPriceLine({ price: liq.prix, color: bord, lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: `${liq.cote}${liq.equal ? ' (EQ)' : ''}` }))
     }
   }
+
+  return lignes
 }

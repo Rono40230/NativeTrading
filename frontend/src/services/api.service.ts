@@ -4,7 +4,7 @@ export type {
   Candle, BacktestResults, PredictionML, ReponseEntrainement,
   RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA,
   ImageAvecTF, StatutIA, Signal, ScoreSmc, PointSerie,
-  ZoneOb, ZoneFvg, ZoneIfvg, NiveauxFibonacci, ResultatTendance,
+  ZoneOb, ZoneIfvg, NiveauxFibonacci, ResultatTendance,
   NiveauLiquidite, ReponseIndicators, IndicatorsParams, SignalIndicateur,
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo,
 } from './api.types'
@@ -38,6 +38,7 @@ export const apiService = {
   async getCandles(asset: string, timeframe = 'M15', limit = 200, force = false): Promise<Candle[]> {
     const res = await http.get('/api/candles', {
       params: { asset, timeframe, limit, ...(force ? { force: true } : {}) },
+      timeout: 60000, // pagination Binance : jusqu'à 5 requêtes × ~3s chacune
     })
     return res.data
   },

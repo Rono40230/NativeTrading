@@ -6,6 +6,7 @@ mod backtest_handlers;
 mod config_handlers;
 mod export_handlers;
 mod indicators_handlers;
+mod indicators_types;
 mod ml_handlers;
 mod ollama;
 mod ollama_handlers;

@@ -32,11 +32,35 @@ export interface PrefsIndicateurs {
   atrPeriode: number
   atrCouleur: string
   smcOb: boolean
-  smcFvg: boolean
+  smcBpr: boolean
   smcIfvg: boolean
   smcFib: boolean
   smcTendance: boolean
   smcLiquidites: boolean
+  // SMC couleurs & opacités
+  smcObCouleurLong: string
+  smcObCouleurShort: string
+  smcObOpacite: number
+  smcObSensibilite: number
+  smcObMitigationType: 'close' | 'wick'
+  smcIfvgCouleurLong: string
+  smcIfvgCouleurShort: string
+  smcIfvgOpacite: number
+  smcIfvgShowLast: number
+  smcIfvgSignalPref: 'close' | 'wick'
+  smcIfvgAtrMult: number
+  smcBprCouleurBull: string
+  smcBprCouleurBear: string
+  smcBprOpacite: number
+  smcBprShowLast: number
+  smcBprAtrMult: number
+  smcBprFenetre: number
+  smcBprMitigation: 'close' | 'wick'
+  smcFibCouleur: string
+  smcFibAfficher236: boolean
+  smcFibAfficher786: boolean
+  smcLiqCouleurBsl: string
+  smcLiqCouleurSsl: string
   // Tendance EMA Multi-TF
   kasperTendance: boolean
   kasperPeriodeRapide: number
@@ -69,11 +93,35 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   atrPeriode: 14,
   atrCouleur: '#f43f5e',
   smcOb: true,
-  smcFvg: true,
+  smcBpr: true,
   smcIfvg: true,
   smcFib: true,
   smcTendance: true,
   smcLiquidites: true,
+  // SMC couleurs & opacités
+  smcObCouleurLong: '#10b981',
+  smcObCouleurShort: '#ef4444',
+  smcObOpacite: 0.25,
+  smcObSensibilite: 28,
+  smcObMitigationType: 'close',
+  smcIfvgCouleurLong: '#6366f1',
+  smcIfvgCouleurShort: '#ec4899',
+  smcIfvgOpacite: 0.25,
+  smcIfvgShowLast: 5,
+  smcIfvgSignalPref: 'close',
+  smcIfvgAtrMult: 0.25,
+  smcBprCouleurBull: '#3b82f6',
+  smcBprCouleurBear: '#ef4444',
+  smcBprOpacite: 0.25,
+  smcBprShowLast: 5,
+  smcBprAtrMult: 0.5,
+  smcBprFenetre: 30,
+  smcBprMitigation: 'close',
+  smcFibCouleur: '#94a3b8',
+  smcFibAfficher236: true,
+  smcFibAfficher786: true,
+  smcLiqCouleurBsl: '#10b981',
+  smcLiqCouleurSsl: '#ef4444',
   // Tendance EMA Multi-TF
   kasperTendance: false,
   kasperPeriodeRapide: 9,

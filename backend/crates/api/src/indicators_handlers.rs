@@ -1,92 +1,10 @@
 use actix_web::{web, HttpResponse, Responder};
-use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};
-
-// ─── Query params ─────────────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct IndicatorsQuery {
-    pub asset: String,
-    pub tf: Option<String>,
-    pub ema_periode: Option<usize>,
-    pub ema_ma_type: Option<String>,
-    pub rsi_periode: Option<usize>,
-    pub macd_rapide: Option<usize>,
-    pub macd_lente: Option<usize>,
-    pub macd_signal: Option<usize>,
-    pub bollinger_periode: Option<usize>,
-    pub bollinger_stddev: Option<f64>,
-    pub bollinger_ma_type: Option<String>,
-    pub atr_periode: Option<usize>,
-    pub ema: Option<bool>,
-    pub rsi: Option<bool>,
-    pub macd: Option<bool>,
-    pub bollinger: Option<bool>,
-    pub atr: Option<bool>,
-    pub smc_ob: Option<bool>,
-    pub smc_fvg: Option<bool>,
-    pub smc_ifvg: Option<bool>,
-    pub smc_fib: Option<bool>,
-    pub smc_tendance: Option<bool>,
-    pub smc_liquidites: Option<bool>,
-    /// Si `true`, calcule et retourne les signaux pour tous les indicateurs actifs
-    pub signaux: Option<bool>,
-    pub limit: Option<u32>,
-}
-
-// ─── Réponse ──────────────────────────────────────────────────────────────────
-
-#[derive(Serialize)]
-pub struct PointSerie {
-    pub time: i64,
-    pub value: f64,
-}
-
-#[derive(Serialize)]
-pub struct SeriesMacd {
-    pub macd: Vec<PointSerie>,
-    pub signal: Vec<PointSerie>,
-    pub histogramme: Vec<PointSerie>,
-}
-
-#[derive(Serialize)]
-pub struct SeriesBollinger {
-    pub haute: Vec<PointSerie>,
-    pub milieu: Vec<PointSerie>,
-    pub basse: Vec<PointSerie>,
-}
-
-#[derive(Serialize)]
-pub struct ReponseIndicators {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ema: Option<Vec<PointSerie>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub rsi: Option<Vec<PointSerie>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub atr: Option<Vec<PointSerie>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub macd: Option<SeriesMacd>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bollinger: Option<SeriesBollinger>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub order_blocks: Option<Vec<smc::OrderBlock>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub imbalances: Option<Vec<smc::Imbalance>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ifvg: Option<Vec<smc::Ifvg>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub fibonacci: Option<smc::NiveauxFibonacci>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tendance: Option<smc::ResultatTendance>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub liquidites: Option<Vec<smc::NiveauLiquidite>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub signaux: Option<Vec<indicators::signaux::SignalIndicateur>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub atr_valeurs: Option<Vec<PointSerie>>,
-}
+use crate::indicators_types::{
+    IndicatorsQuery, ReponseIndicators, PointSerie, SeriesMacd, SeriesBollinger,
+};
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
@@ -182,17 +100,32 @@ pub async fn get_indicators(
     let order_blocks = query
         .smc_ob
         .unwrap_or(false)
-        .then(|| smc::order_blocks::detecter(&bougies));
-
-    let imbalances = query
-        .smc_fvg
-        .unwrap_or(false)
-        .then(|| smc::imbalance::detecter(&bougies));
+        .then(|| {
+            let sensitivity = query.smc_ob_sensitivity.unwrap_or(28.0);
+            let mitigation_close = query.smc_ob_mitigation.as_deref() != Some("wick");
+            smc::order_blocks::detecter(&bougies, sensitivity, mitigation_close)
+        });
 
     let ifvg = query
         .smc_ifvg
         .unwrap_or(false)
-        .then(|| smc::ifvg::detecter(&bougies));
+        .then(|| {
+            let show_last = query.smc_ifvg_show_last.unwrap_or(5) as usize;
+            let signal_pref_close = query.smc_ifvg_signal_pref.as_deref() != Some("wick");
+            let atr_mult = query.smc_ifvg_atr_mult.unwrap_or(0.25);
+            smc::ifvg::detecter(&bougies, show_last, signal_pref_close, atr_mult)
+        });
+
+    let bpr = query
+        .smc_bpr
+        .unwrap_or(false)
+        .then(|| {
+            let show_last = query.smc_bpr_show_last.unwrap_or(5) as usize;
+            let atr_mult = query.smc_bpr_atr_mult.unwrap_or(0.5);
+            let fenetre = query.smc_bpr_fenetre.unwrap_or(30) as usize;
+            let mitigation_close = query.smc_bpr_mitigation.as_deref() != Some("wick");
+            smc::bpr::detecter(&bougies, show_last, atr_mult, fenetre, mitigation_close)
+        });
 
     let fibonacci = query
         .smc_fib
@@ -270,8 +203,8 @@ pub async fn get_indicators(
         macd,
         bollinger,
         order_blocks,
-        imbalances,
         ifvg,
+        bpr,
         fibonacci,
         tendance,
         liquidites,

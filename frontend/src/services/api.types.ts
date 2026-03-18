@@ -114,19 +114,30 @@ export interface ZoneOb {
   prix_bas: number
   direction: string
   force: number
+  timestamp: number
 }
 
-export interface ZoneFvg {
-  prix_haut: number
-  prix_bas: number
-  direction: string
-  comble: boolean
+/** Zone FVG unifiée — type_zone : "FvgBull" | "FvgBear" | "Bpr" */
+export interface ZoneFvgBpr {
+  type_zone: string
+  haut: number
+  bas: number
+  /** Renseignés seulement pour type_zone === "Bpr" */
+  bull_haut: number
+  bull_bas: number
+  bear_haut: number
+  bear_bas: number
+  timestamp: number
 }
+/** Alias de compatibilité */
+export type ZoneBpr = ZoneFvgBpr
 
 export interface ZoneIfvg {
   prix_haut: number
   prix_bas: number
   direction: string
+  timestamp: number
+  timestamp_inversion: number
 }
 
 export interface NiveauxFibonacci {
@@ -174,8 +185,8 @@ export interface ReponseIndicators {
   macd?: { macd: PointSerie[]; signal: PointSerie[]; histogramme: PointSerie[] }
   bollinger?: { haute: PointSerie[]; milieu: PointSerie[]; basse: PointSerie[] }
   order_blocks?: ZoneOb[]
-  imbalances?: ZoneFvg[]
   ifvg?: ZoneIfvg[]
+  bpr?: ZoneFvgBpr[]
   fibonacci?: NiveauxFibonacci
   tendance?: ResultatTendance
   liquidites?: NiveauLiquidite[]
@@ -202,8 +213,17 @@ export interface IndicatorsParams {
   bollinger_ma_type?: string
   atr_periode?: number
   smc_ob?: boolean
-  smc_fvg?: boolean
+  smc_ob_sensitivity?: number
+  smc_ob_mitigation?: string
   smc_ifvg?: boolean
+  smc_ifvg_show_last?: number
+  smc_ifvg_signal_pref?: string
+  smc_ifvg_atr_mult?: number
+  smc_bpr?: boolean
+  smc_bpr_show_last?: number
+  smc_bpr_atr_mult?: number
+  smc_bpr_fenetre?: number
+  smc_bpr_mitigation?: string
   smc_fib?: boolean
   smc_tendance?: boolean
   smc_liquidites?: boolean

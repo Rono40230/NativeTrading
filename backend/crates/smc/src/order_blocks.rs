@@ -1,72 +1,119 @@
 use common::{Candle, Direction};
 use serde::{Deserialize, Serialize};
 
+/// Nombre maximum d'OBs affichés (Pine : max_boxes_count=20 au total)
+const MAX_OBS: usize = 20;
+/// Distance minimale entre deux signaux ROC (Pine : cross_index - cross_index[1] > 5)
+const MIN_SIGNAL_DISTANCE: usize = 5;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderBlock {
-    /// Borne haute de la zone OB
     pub prix_haut: f64,
-    /// Borne basse de la zone OB
     pub prix_bas: f64,
-    /// Long = OB haussier (support), Short = OB baissier (résistance)
     pub direction: Direction,
-    /// Force relative (0–100) basée sur le volume
     pub force: f64,
+    pub timestamp: i64,
 }
 
-/// Détecte les Order Blocks récents sur les 50 dernières bougies.
+/// Détecte les Order Blocks en simulant exactement Pine Script Sonarlab barre par barre.
 ///
-/// Bullish OB : dernière bougie bearish avant une impulsion haussiere forte.
-/// Bearish OB : dernière bougie bullish avant une impulsion baissière forte.
-pub fn detecter(bougies: &[Candle]) -> Vec<OrderBlock> {
-    if bougies.len() < 5 {
+/// - `sensibilite` : 1–100 (défaut 28), divisée par 100 → seuil ROC
+/// - `mitigation_close` : true = close[1], false = wick (low/high courant)
+pub fn detecter(bougies: &[Candle], sensibilite: f64, mitigation_close: bool) -> Vec<OrderBlock> {
+    let n = bougies.len();
+    if n < 20 {
         return vec![];
     }
 
-    let vol_moy: f64 = bougies.iter().map(|b| b.volume).sum::<f64>() / bougies.len() as f64;
+    let seuil = sensibilite / 100.0;
+    let vol_moy: f64 = bougies.iter().map(|b| b.volume).sum::<f64>() / n as f64;
 
-    let mut obs: Vec<OrderBlock> = Vec::new();
-    let debut = bougies.len().saturating_sub(50);
+    // Simulation des deux tableaux de boîtes Pine (longBoxes / shortBoxes)
+    let mut obs_long: Vec<OrderBlock> = Vec::new();
+    let mut obs_short: Vec<OrderBlock> = Vec::new();
+    // Index de barre du dernier cross (bull ou bear) — Pine : cross_index partagé
+    let mut dernier_cross_idx: Option<usize> = None;
 
-    for i in debut..bougies.len().saturating_sub(2) {
-        let actuelle = &bougies[i];
-        let apres = &bougies[i + 2];
-        let corps = (actuelle.close - actuelle.open).abs();
-        let force_vol = ((actuelle.volume / vol_moy.max(1e-10)) * 50.0).min(100.0);
+    for i in 5..n {
+        // --- Mitigation progressive (Pine l'exécute à chaque barre avant création) ---
+        // Bull mitigation : close[1] < bot (Close) ou low < bot (Wick)
+        let mitigation_bull = if mitigation_close {
+            bougies[i - 1].close
+        } else {
+            bougies[i].low
+        };
+        // Bear mitigation : close[1] > top (Close) ou high > top (Wick)
+        let mitigation_bear = if mitigation_close {
+            bougies[i - 1].close
+        } else {
+            bougies[i].high
+        };
+        obs_long.retain(|ob| mitigation_bull >= ob.prix_bas);
+        obs_short.retain(|ob| mitigation_bear <= ob.prix_haut);
 
-        // BULLISH OB : bougie bearish (close < open)
-        // + impulsion haussiere forte au plus tard 2 bougies après
-        let impulsion_haussiere =
-            apres.close > actuelle.high && (apres.close - apres.open).abs() > corps * 0.6;
-        if actuelle.close < actuelle.open && impulsion_haussiere {
-            obs.push(OrderBlock {
-                prix_haut: actuelle.high,
-                prix_bas: actuelle.open.min(actuelle.close),
-                direction: Direction::Long,
-                force: force_vol,
-            });
+        // --- Calcul ROC (Pine : pc = (open - open[4]) / open[4] * 100) ---
+        let roc_curr = (bougies[i].open - bougies[i - 4].open)
+            / bougies[i - 4].open.max(1e-10)
+            * 100.0;
+        let roc_prev = (bougies[i - 1].open - bougies[i - 5].open)
+            / bougies[i - 5].open.max(1e-10)
+            * 100.0;
+
+        // Anti-spam : cross_index - cross_index[1] > 5 (Pine)
+        let anti_spam_ok = dernier_cross_idx.is_none_or(|last| i - last > MIN_SIGNAL_DISTANCE);
+
+        // Bearish crossunder → OB Short (1re bougie verte parmi les 4–15 précédentes)
+        if roc_prev >= -seuil && roc_curr < -seuil && anti_spam_ok {
+            dernier_cross_idx = Some(i);
+            for offset in 4..=15_usize {
+                if i < offset { break; }
+                let b = &bougies[i - offset];
+                if b.close > b.open {
+                    let force = ((b.volume / vol_moy.max(1e-10)) * 50.0).min(100.0);
+                    obs_short.push(OrderBlock {
+                        prix_haut: b.high,
+                        prix_bas: b.low,
+                        direction: Direction::Short,
+                        force,
+                        timestamp: b.timestamp.timestamp(),
+                    });
+                    break;
+                }
+            }
         }
 
-        // BEARISH OB : bougie bullish (close > open)
-        // + impulsion baissière forte au plus tard 2 bougies après
-        let impulsion_baissiere =
-            apres.close < actuelle.low && (apres.open - apres.close).abs() > corps * 0.6;
-        if actuelle.close > actuelle.open && impulsion_baissiere {
-            obs.push(OrderBlock {
-                prix_haut: actuelle.open.max(actuelle.close),
-                prix_bas: actuelle.low,
-                direction: Direction::Short,
-                force: force_vol,
-            });
+        // Bullish crossover → OB Long (1re bougie rouge parmi les 4–15 précédentes)
+        if roc_prev <= seuil && roc_curr > seuil && anti_spam_ok {
+            dernier_cross_idx = Some(i);
+            for offset in 4..=15_usize {
+                if i < offset { break; }
+                let b = &bougies[i - offset];
+                if b.close < b.open {
+                    let force = ((b.volume / vol_moy.max(1e-10)) * 50.0).min(100.0);
+                    obs_long.push(OrderBlock {
+                        prix_haut: b.high,
+                        prix_bas: b.low,
+                        direction: Direction::Long,
+                        force,
+                        timestamp: b.timestamp.timestamp(),
+                    });
+                    break;
+                }
+            }
         }
     }
 
-    // Garder les 3 plus récents (ordre décroissant d'index = plus récent en premier)
-    obs.reverse();
-    obs.truncate(3);
-    obs
+    // Combine, plus récents en premier, limite 20 au total (Pine : max_boxes_count=20)
+    let mut result: Vec<OrderBlock> = obs_long
+        .into_iter()
+        .chain(obs_short)
+        .collect();
+    result.reverse();
+    result.truncate(MAX_OBS);
+    result
 }
 
-/// Retourne le score (0–100) de l'OB le plus fort aligné avec la direction donnée.
+/// Score (0–100) de l'OB le plus fort aligné avec la direction donnée.
 pub fn score_pour_direction(obs: &[OrderBlock], direction: Direction) -> f64 {
     obs.iter()
         .filter(|ob| ob.direction == direction)

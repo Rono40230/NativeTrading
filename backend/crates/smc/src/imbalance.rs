@@ -10,6 +10,8 @@ pub struct Imbalance {
     pub direction: Direction,
     /// Vrai si le gap a été totalement comblé
     pub comble: bool,
+    /// Timestamp Unix (secondes) de la bougie gauche du pattern 3-bougies
+    pub timestamp: i64,
 }
 
 /// Détecte les zones d'imbalance (Fair Value Gap, 3-bougie pattern).
@@ -40,6 +42,7 @@ pub fn detecter(bougies: &[Candle]) -> Vec<Imbalance> {
                 prix_bas: gauche.high,
                 direction: Direction::Long,
                 comble,
+                timestamp: gauche.timestamp.timestamp(),
             });
         }
 
@@ -51,6 +54,7 @@ pub fn detecter(bougies: &[Candle]) -> Vec<Imbalance> {
                 prix_bas: droite.high,
                 direction: Direction::Short,
                 comble,
+                timestamp: gauche.timestamp.timestamp(),
             });
         }
     }
