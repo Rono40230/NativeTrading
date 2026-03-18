@@ -75,6 +75,20 @@ export interface PrefsIndicateurs {
   kasperPeriodeRapide: number
   kasperPeriodeLente: number
   kasperModeCalcul: 'bougie_cloturee' | 'bougie_en_cours'
+  // Sessions boursières
+  sessionsActif: boolean
+  sessionsOpacite: number
+  sessionsLabels: boolean
+  sessionsSydney: boolean
+  sessionsTokyo: boolean
+  sessionsHongKong: boolean
+  sessionsLondres: boolean
+  sessionsNewYork: boolean
+  sessionsCouleurSydney: string
+  sessionsCouleurTokyo: string
+  sessionsCouleurHongKong: string
+  sessionsCouleurLondres: string
+  sessionsCouleurNewYork: string
 }
 
 const INDICATEURS_DEFAUT: PrefsIndicateurs = {
@@ -145,6 +159,20 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   kasperPeriodeRapide: 9,
   kasperPeriodeLente: 21,
   kasperModeCalcul: 'bougie_cloturee',
+  // Sessions boursières
+  sessionsActif: false,
+  sessionsOpacite: 0.07,
+  sessionsLabels: true,
+  sessionsSydney: true,
+  sessionsTokyo: true,
+  sessionsHongKong: true,
+  sessionsLondres: true,
+  sessionsNewYork: true,
+  sessionsCouleurSydney:   '#6366f1',
+  sessionsCouleurTokyo:    '#f59e0b',
+  sessionsCouleurHongKong: '#ec4899',
+  sessionsCouleurLondres:  '#10b981',
+  sessionsCouleurNewYork:  '#3b82f6',
 }
 
 function chargerIndicateurs(): PrefsIndicateurs {

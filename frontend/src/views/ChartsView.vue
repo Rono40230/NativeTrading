@@ -116,6 +116,7 @@ import { filtreDefaut, type FiltreSignaux } from '@/composables/chartSignauxType
 import { useChartAnalyse } from '@/composables/useChartAnalyse'
 import { useChartIndicators } from '@/composables/useChartIndicators'
 import { useSmcCanvas } from '@/composables/useSmcCanvas'
+import { useSessionsCanvas } from '@/composables/useSessionsCanvas'
 import { apiService, type AssetInfo } from '@/services/api.service'
 import PredictionSMCPanel from '@/components/common/PredictionSMCPanel.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
@@ -162,6 +163,7 @@ const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
 
 const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux } = useChartIndicators()
 const smcCanvas = useSmcCanvas()
+const sessionsCanvas = useSessionsCanvas()
 
 const timestampCurseur = ref<number | null>(null)
 const filtreCourant = ref<FiltreSignaux>(filtreDefaut())
@@ -198,6 +200,7 @@ async function chargerIndicateurs() {
   if (!chart) return
   const serie = getCandlestickSeries()
   if (chartContainer.value && serie) smcCanvas.initialiser(chart, serie, chartContainer.value)
+  if (chartContainer.value) sessionsCanvas.initialiser(chart, chartContainer.value, settingsStore.indicateurs)
   await chargerEtAppliquer(
     chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
     rsiContainer.value, macdContainer.value, atrContainer.value,
@@ -317,6 +320,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   smcCanvas.detruire()
+  sessionsCanvas.detruire()
   detruireChart()
   arreterRedimensionnement()
   arreterLiveFeed()

@@ -50,6 +50,28 @@
 
       <!-- Analyse -->
       <span class="text-[10px] text-slate-500 uppercase tracking-wide mr-1">Analyse</span>
+      <!-- Sessions boursières -->
+      <div class="flex items-center">
+        <button
+          @click="toggle('sessionsActif')"
+          :class="[
+            'px-2.5 py-1 rounded-l-md text-xs font-medium border-y border-l transition-all',
+            prefs.sessionsActif
+              ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-300'
+              : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+          ]"
+        >Sessions</button>
+        <button
+          @click="sessionsModaleOuverte = true"
+          :class="[
+            'px-1.5 py-1 rounded-r-md text-[11px] border-y border-r transition-all',
+            prefs.sessionsActif
+              ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/20'
+              : 'bg-white/5 border-white/10 text-slate-500 hover:text-slate-300'
+          ]"
+          title="Paramètres Sessions"
+        >⚙</button>
+      </div>
       <div class="flex items-center">
         <button
           @click="toggle('kasperTendance')"
@@ -86,6 +108,12 @@
       @fermer="smcModaleOuverte = null"
       @appliquer="validerSmcModal"
     />
+    <SessionsModal
+      v-if="sessionsModaleOuverte"
+      v-model="prefs"
+      @fermer="sessionsModaleOuverte = false"
+      @appliquer="validerSessionsModal"
+    />
   </div>
 </template>
 
@@ -94,12 +122,14 @@ import { ref } from 'vue'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import IndicatorModal from './IndicatorModal.vue'
 import SmcIndicatorModal from './SmcIndicatorModal.vue'
+import SessionsModal from './SessionsModal.vue'
 
 const prefs = defineModel<PrefsIndicateurs>({ required: true })
 const emit = defineEmits<{ appliquer: [] }>()
 
 const modaleOuverte = ref<string | null>(null)
 const smcModaleOuverte = ref<string | null>(null)
+const sessionsModaleOuverte = ref(false)
 
 function toggle(key: string) {
   ;(prefs.value as any)[key] = !(prefs.value as any)[key]
@@ -113,6 +143,11 @@ function validerModal() {
 
 function validerSmcModal() {
   smcModaleOuverte.value = null
+  emit('appliquer')
+}
+
+function validerSessionsModal() {
+  sessionsModaleOuverte.value = false
   emit('appliquer')
 }
 
