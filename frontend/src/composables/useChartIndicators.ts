@@ -33,7 +33,12 @@ export function useChartIndicators() {
   // Compteur d'annulation : si un nouvel appel demarre, le precedent est ignore
   let appelEnCours = 0
 
-  function supprimerOverlays(chart: IChartApi) {
+  function supprimerOverlays(
+    chart: IChartApi,
+    rsiCont: HTMLElement | null = null,
+    macdCont: HTMLElement | null = null,
+    atrCont: HTMLElement | null = null,
+  ) {
     // Supprimer les price lines SMC attachées à la candleSerie
     if (candleSerieSmcRef && lignesSmcActives.length > 0) {
       for (const ligne of lignesSmcActives) {
@@ -42,15 +47,18 @@ export function useChartIndicators() {
     }
     lignesSmcActives = []
     candleSerieSmcRef = null
-    if (syncMainToRsi) {
+    // Désabonner et détruire uniquement les sous-graphiques qu'on va recréer
+    // (container fourni = recréation prévue). Si container=null, le sous-graphique
+    // est préservé pour éviter le flash/disparition lors du rafraîchissement SMC.
+    if (rsiCont !== null && syncMainToRsi) {
       chart.timeScale().unsubscribeVisibleTimeRangeChange(syncMainToRsi)
       syncMainToRsi = null
     }
-    if (syncMainToMacd) {
+    if (macdCont !== null && syncMainToMacd) {
       chart.timeScale().unsubscribeVisibleTimeRangeChange(syncMainToMacd)
       syncMainToMacd = null
     }
-    if (syncMainToAtr) {
+    if (atrCont !== null && syncMainToAtr) {
       chart.timeScale().unsubscribeVisibleTimeRangeChange(syncMainToAtr)
       syncMainToAtr = null
     }
@@ -58,15 +66,15 @@ export function useChartIndicators() {
       try { chart.removeSeries(s) } catch { /* serie appartenant a un ancien chart */ }
     }
     seriesActives = []
-    if (rsiChart) {
+    if (rsiCont !== null && rsiChart) {
       try { rsiChart.remove() } catch { }
       rsiChart = null
     }
-    if (macdChart) {
+    if (macdCont !== null && macdChart) {
       try { macdChart.remove() } catch { }
       macdChart = null
     }
-    if (atrChart) {
+    if (atrCont !== null && atrChart) {
       try { atrChart.remove() } catch { }
       atrChart = null
     }
@@ -103,7 +111,7 @@ export function useChartIndicators() {
     onDonnees?: (data: ReponseIndicators) => void,
   ) {
     const idAppel = ++appelEnCours
-    supprimerOverlays(chart)
+    supprimerOverlays(chart, rsiContainer, macdContainer, atrContainer)
     enChargement.value = true
     erreur.value = null
 
