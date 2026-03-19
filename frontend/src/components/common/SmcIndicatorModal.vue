@@ -219,7 +219,6 @@ import { computed } from 'vue'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import SmcImbalanceParams from './SmcImbalanceParams.vue'
 import SmcLiquiditeParams from './SmcLiquiditeParams.vue'
-import SmcLiquiditeParams from './SmcLiquiditeParams.vue'
 
 const props = defineProps<{ indicateur: string | null }>()
 const prefs = defineModel<PrefsIndicateurs>({ required: true })
