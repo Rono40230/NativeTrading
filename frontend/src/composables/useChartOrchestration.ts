@@ -30,6 +30,7 @@ interface Opts {
   detruireChart: () => void
   reinitialiser: () => void
   smcDetruire: () => void
+  liqDetruire: () => void
   sessionsDetruire: () => void
   configurerCrosshair: () => void
   configurerClick: () => void
@@ -133,6 +134,7 @@ export function useChartOrchestration(o: Opts) {
 
   onUnmounted(() => {
     o.smcDetruire()
+    o.liqDetruire()
     o.sessionsDetruire()
     o.detruireChart()
     o.arreterRedimensionnement()

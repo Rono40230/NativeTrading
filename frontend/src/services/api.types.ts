@@ -172,6 +172,8 @@ export interface NiveauLiquidite {
   categorie: string
   equal: boolean
   swepe: boolean
+  /** Unix secondes \u2014 bougie de formation (bord gauche de la ligne) */
+  timestamp: number
 }
 
 export type NiveauForceSignal = 'faible' | 'moyen' | 'fort'

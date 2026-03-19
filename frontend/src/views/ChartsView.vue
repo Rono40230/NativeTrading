@@ -116,6 +116,7 @@ import { filtreDefaut, type FiltreSignaux } from '@/composables/chartSignauxType
 import { useChartAnalyse } from '@/composables/useChartAnalyse'
 import { useChartIndicators } from '@/composables/useChartIndicators'
 import { useSmcCanvas } from '@/composables/useSmcCanvas'
+import { useSmcLiqCanvas } from '@/composables/useSmcLiqCanvas'
 import { useSessionsCanvas } from '@/composables/useSessionsCanvas'
 import { useChartOrchestration } from '@/composables/useChartOrchestration'
 import PredictionSMCPanel from '@/components/common/PredictionSMCPanel.vue'
@@ -155,6 +156,7 @@ const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
 
 const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux } = useChartIndicators()
 const smcCanvas = useSmcCanvas()
+const liqCanvas = useSmcLiqCanvas()
 const sessionsCanvas = useSessionsCanvas()
 
 const timestampCurseur = ref<number | null>(null)
@@ -189,6 +191,7 @@ async function chargerIndicateurs() {
   if (!chart) return
   const serie = getCandlestickSeries()
   if (chartContainer.value && serie) smcCanvas.initialiser(chart, serie, chartContainer.value)
+  if (chartContainer.value && serie) liqCanvas.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value) sessionsCanvas.initialiser(chart, chartContainer.value, settingsStore.indicateurs)
   await chargerEtAppliquer(
     chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
@@ -197,7 +200,9 @@ async function chargerIndicateurs() {
     (data) => {
       const derniereB = bougies.value?.[bougies.value.length - 1]
       const tsMs = derniereB ? new Date(derniereB.timestamp).getTime() : null
-      smcCanvas.mettreAJourZones(data, settingsStore.indicateurs, tsMs ? Math.floor(tsMs / 1000) : undefined)
+      const tsSec = tsMs ? Math.floor(tsMs / 1000) : undefined
+      smcCanvas.mettreAJourZones(data, settingsStore.indicateurs, tsSec)
+      liqCanvas.mettreAJour(data, settingsStore.indicateurs, tsSec)
     },
   )
 }
@@ -206,11 +211,15 @@ const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestra
   selectedAsset, selectedTimeframe, bougies,
   indicateurs: ref(settingsStore.indicateurs),
   getChart, getCandlestickSeries,
-  smcMettreAJourZones: smcCanvas.mettreAJourZones,
+  smcMettreAJourZones: (data, prefs, ts) => {
+    smcCanvas.mettreAJourZones(data, prefs, ts)
+    liqCanvas.mettreAJour(data, prefs, ts)
+  },
   chargerEtAppliquer, filtreCourant,
   mettreAJourSerie, mettreAJourEnDirect,
   initChart, detruireChart, reinitialiser,
   smcDetruire: smcCanvas.detruire,
+  liqDetruire: liqCanvas.detruire,
   sessionsDetruire: sessionsCanvas.detruire,
   configurerCrosshair, configurerClick, chargerIndicateurs,
   configurerRedimensionnement, arreterRedimensionnement,

@@ -46,6 +46,8 @@ pub struct NiveauLiquidite {
     pub categorie: String,
     pub equal: bool,
     pub swepe: bool,
+    /// Unix secondes — bougie ou session de formation
+    pub timestamp: i64,
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -88,6 +90,7 @@ fn detecter_swings(bougies: &[Candle], lookback: usize) -> Vec<NiveauLiquidite> 
             niveaux.push(NiveauLiquidite {
                 prix: b.high, cote: "BSL".into(), categorie: "swing".into(),
                 equal, swepe: est_sweep_haut(bougies, i + 1, b.high),
+                timestamp: b.timestamp.timestamp(),
             });
         }
         // SSL : swing low
@@ -99,6 +102,7 @@ fn detecter_swings(bougies: &[Candle], lookback: usize) -> Vec<NiveauLiquidite> 
             niveaux.push(NiveauLiquidite {
                 prix: b.low, cote: "SSL".into(), categorie: "swing".into(),
                 equal, swepe: est_sweep_bas(bougies, i + 1, b.low),
+                timestamp: b.timestamp.timestamp(),
             });
         }
     }
@@ -113,6 +117,7 @@ fn detecter_sessions(bougies: &[Candle], params: &ParamsLiquidites) -> Vec<Nivea
     let mut sess_high = f64::NEG_INFINITY;
     let mut sess_low = f64::INFINITY;
     let mut sess_fin = 0usize;
+    let mut sess_debut_ts: i64 = 0;
 
     for (i, b) in bougies.iter().enumerate() {
         let sess = session_de(heure_utc(b.timestamp.timestamp()));
@@ -135,19 +140,23 @@ fn detecter_sessions(bougies: &[Candle], params: &ParamsLiquidites) -> Vec<Nivea
                     niveaux.push(NiveauLiquidite {
                         prix: sess_high, cote: "BSL".into(), categorie: cs.into(),
                         equal: false, swepe: est_sweep_haut(bougies, suivant, sess_high),
+                        timestamp: sess_debut_ts,
                     });
                     niveaux.push(NiveauLiquidite {
                         prix: sess_low, cote: "SSL".into(), categorie: cs.into(),
                         equal: false, swepe: est_sweep_bas(bougies, suivant, sess_low),
+                        timestamp: sess_debut_ts,
                     });
                 }
                 current_sess = sess;
+                sess_debut_ts = b.timestamp.timestamp();
                 sess_high = b.high;
                 sess_low = b.low;
                 sess_fin = i;
             }
             (None, Some(_)) => {
                 current_sess = sess;
+                sess_debut_ts = b.timestamp.timestamp();
                 sess_high = b.high;
                 sess_low = b.low;
                 sess_fin = i;
@@ -164,7 +173,7 @@ fn detecter_daily(bougies: &[Candle], nb_jours: usize) -> Vec<NiveauLiquidite> {
     let mut niveaux = Vec::new();
     if bougies.is_empty() { return niveaux; }
 
-    let mut jours: Vec<(i64, f64, f64, usize)> = Vec::new();
+    let mut jours: Vec<(i64, f64, f64, usize, i64)> = Vec::new();
     for (i, b) in bougies.iter().enumerate() {
         let jour = b.timestamp.timestamp() / 86400;
         if let Some(last) = jours.last_mut() {
@@ -175,19 +184,21 @@ fn detecter_daily(bougies: &[Candle], nb_jours: usize) -> Vec<NiveauLiquidite> {
                 continue;
             }
         }
-        jours.push((jour, b.high, b.low, i));
+        jours.push((jour, b.high, b.low, i, b.timestamp.timestamp()));
     }
     let n = jours.len().saturating_sub(1); // exclure le jour incomplet
     let debut = n.saturating_sub(nb_jours);
-    for (_, high, low, fin_idx) in &jours[debut..n] {
+    for (_, high, low, fin_idx, debut_ts) in &jours[debut..n] {
         let suivant = fin_idx + 1;
         niveaux.push(NiveauLiquidite {
             prix: *high, cote: "BSL".into(), categorie: "daily".into(),
             equal: false, swepe: est_sweep_haut(bougies, suivant, *high),
+            timestamp: *debut_ts,
         });
         niveaux.push(NiveauLiquidite {
             prix: *low, cote: "SSL".into(), categorie: "daily".into(),
             equal: false, swepe: est_sweep_bas(bougies, suivant, *low),
+            timestamp: *debut_ts,
         });
     }
     niveaux
