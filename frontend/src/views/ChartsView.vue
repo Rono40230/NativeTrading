@@ -106,7 +106,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useChartStats } from '@/composables/useChartStats'
 import { useChartTradingView } from '@/composables/useChartTradingView'
 import { useMarketStore } from '@/stores/market.store'
@@ -117,7 +117,7 @@ import { useChartAnalyse } from '@/composables/useChartAnalyse'
 import { useChartIndicators } from '@/composables/useChartIndicators'
 import { useSmcCanvas } from '@/composables/useSmcCanvas'
 import { useSessionsCanvas } from '@/composables/useSessionsCanvas'
-import { apiService, type AssetInfo } from '@/services/api.service'
+import { useChartOrchestration } from '@/composables/useChartOrchestration'
 import PredictionSMCPanel from '@/components/common/PredictionSMCPanel.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
 import TendanceMultiTF from '@/components/common/TendanceMultiTF.vue'
@@ -127,12 +127,10 @@ import AnalyseIAModal from '@/components/common/AnalyseIAModal.vue'
 import SignalModal from '@/components/common/SignalModal.vue'
 import type { NiveauSlTp } from '@/composables/chartAtrSlTp'
 import type { SignalIndicateur } from '@/composables/chartSignauxTypes'
-import { limitPourTimeframe } from '@/composables/useChartLimite'
 
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
 
-const assets = ref<string[]>(['BTC', 'ETH', 'XAUUSD', 'XAGUSD'])
 const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const selectedAsset = ref(settingsStore.assetActif)
 const selectedTimeframe = ref(settingsStore.timeframeActif)
@@ -148,14 +146,8 @@ const bougies = computed(() =>
 const { dernierPrix, variation, stats } = useChartStats(bougies)
 
 const {
-  initChart,
-  mettreAJourSerie,
-  mettreAJourEnDirect,
-  detruireChart,
-  configurerRedimensionnement,
-  arreterRedimensionnement,
-  getChart,
-  getCandlestickSeries,
+  initChart, mettreAJourSerie, mettreAJourEnDirect, detruireChart,
+  configurerRedimensionnement, arreterRedimensionnement, getChart, getCandlestickSeries,
 } = useChartTradingView(chartContainer, bougies)
 
 const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
@@ -187,10 +179,7 @@ function configurerClick() {
   getChart()?.subscribeClick((param) => {
     if (!param.hoveredObjectId) return
     const r = obtenirSignalEtNiveaux(param.hoveredObjectId)
-    if (r) {
-      signalModal.value = r.signal
-      niveauxModal.value = r.niveaux
-    }
+    if (r) { signalModal.value = r.signal; niveauxModal.value = r.niveaux }
   })
 }
 
@@ -208,122 +197,23 @@ async function chargerIndicateurs() {
     (data) => {
       const derniereB = bougies.value?.[bougies.value.length - 1]
       const tsMs = derniereB ? new Date(derniereB.timestamp).getTime() : null
-      const tsSec = tsMs ? Math.floor(tsMs / 1000) : undefined
-      smcCanvas.mettreAJourZones(data, settingsStore.indicateurs, tsSec)
+      smcCanvas.mettreAJourZones(data, settingsStore.indicateurs, tsMs ? Math.floor(tsMs / 1000) : undefined)
     },
   )
 }
 
-async function changerAsset(asset: string) {
-  selectedAsset.value = asset
-  settingsStore.definirAsset(asset)
-  arreterLiveFeed()
-  await chargerEtReinitChart()
-  demarrerLiveFeed(asset, selectedTimeframe.value)
-}
-
-async function changerTimeframe(tf: string) {
-  selectedTimeframe.value = tf
-  settingsStore.definirTimeframe(tf)
-  arreterLiveFeed()
-  await chargerEtReinitChart()
-  demarrerLiveFeed(selectedAsset.value, tf)
-}
-
-async function chargerData() {
-  // force=true : bypass cache SQLite, fetch direct Binance/IB pour avoir des données fraîches
-  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), true)
-}
-
-async function chargerEtReinitChart() {
-  detruireChart()
-  reinitialiser() // Invalide les références aux séries de l'ancien chart
-
-  await marketStore.chargerBougies(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), true)
-
-  // Attendre que Vue ait rendu le container (toujours monté)
-  await nextTick()
-  initChart()
-  configurerCrosshair()
-  configurerClick()
-  await chargerIndicateurs()
-}
-
-async function actualiser() {
-  await chargerEtReinitChart()
-}
-
-/** Rafraîchit uniquement les zones SMC (OB, FVG, BPR) sans réinitialiser le canvas ni les autres indicateurs.
- *  Appelé à chaque nouvelle bougie via le watcher wsMiseAJour. */
-async function rafraichirZonesSmc() {
-  const chart = getChart()
-  const serie = getCandlestickSeries()
-  if (!chart || !serie) return
-  await chargerEtAppliquer(
-    chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
-    null, null, null,
-    serie, filtreCourant.value,
-    (data) => {
-      const derniereB = bougies.value?.[bougies.value.length - 1]
-      const tsMs = derniereB ? new Date(derniereB.timestamp).getTime() : null
-      const tsSec = tsMs ? Math.floor(tsMs / 1000) : undefined
-      smcCanvas.mettreAJourZones(data, settingsStore.indicateurs, tsSec)
-    },
-  )
-}
-
-/** Démarre le live feed WebSocket (crypto via Binance, métaux via Finnhub) */
-let intervalZones: ReturnType<typeof setInterval> | null = null
-
-function demarrerLiveFeed(asset: string, timeframe: string) {
-  marketStore.connecterStream(asset, timeframe)
-  // Rafraîchit les zones SMC toutes les 10 secondes sans recharger le chart
-  if (intervalZones) clearInterval(intervalZones)
-  intervalZones = setInterval(() => rafraichirZonesSmc(), 1_000)
-}
-
-function arreterLiveFeed() {
-  marketStore.deconnecterStream()
-  if (intervalZones) { clearInterval(intervalZones); intervalZones = null }
-}
-
-// Rechargement complet (changement asset/timeframe) — les indicateurs se rechargent via chargerEtReinitChart
-watch(bougies, () => {
-  mettreAJourSerie(true)
-}, { deep: false })
-
-// Mise à jour live via WebSocket (sans recalcul complet)
-watch(() => marketStore.wsMiseAJour, (update) => {
-  if (!update) return
-  if (update.asset !== selectedAsset.value || update.timeframe !== selectedTimeframe.value) return
-  mettreAJourEnDirect(update.bougie)
-})
-
-onMounted(async () => {
-  // Charger la liste des assets depuis l'API (enrichit automatiquement les nouveaux assets)
-  try {
-    const liste: AssetInfo[] = await apiService.obtenirAssets()
-    if (liste.length > 0) assets.value = liste.map((a) => a.id)
-  } catch {
-    // fallback : liste statique déjà initialisée
-  }
-
-  await chargerData()
-  initChart()
-  configurerCrosshair()
-  configurerClick()
-  await chargerIndicateurs()
-  demarrerLiveFeed(selectedAsset.value, selectedTimeframe.value)
-
-  configurerRedimensionnement()
-})
-
-onUnmounted(() => {
-  smcCanvas.detruire()
-  sessionsCanvas.detruire()
-  detruireChart()
-  arreterRedimensionnement()
-  arreterLiveFeed()
+const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestration({
+  selectedAsset, selectedTimeframe, bougies,
+  indicateurs: ref(settingsStore.indicateurs),
+  getChart, getCandlestickSeries,
+  smcMettreAJourZones: smcCanvas.mettreAJourZones,
+  chargerEtAppliquer, filtreCourant,
+  mettreAJourSerie, mettreAJourEnDirect,
+  initChart, detruireChart, reinitialiser,
+  smcDetruire: smcCanvas.detruire,
+  sessionsDetruire: sessionsCanvas.detruire,
+  configurerCrosshair, configurerClick, chargerIndicateurs,
+  configurerRedimensionnement, arreterRedimensionnement,
 })
 </script>
 
