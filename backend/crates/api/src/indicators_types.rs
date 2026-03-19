@@ -54,6 +54,7 @@ pub struct IndicatorsQuery {
     pub smc_liq_asie_heure_fin: Option<u32>,
     pub smc_liq_asie_deviations_nb: Option<u32>,
     pub smc_liq_asie_nb_sessions: Option<u32>,
+    pub smc_liq_asie_offset_utc: Option<i32>,
     /// Si `true`, calcule et retourne les signaux pour tous les indicateurs actifs
     pub signaux: Option<bool>,
     pub limit: Option<u32>,

@@ -269,6 +269,7 @@ export interface IndicatorsParams {
   smc_liq_asie_heure_fin?: number
   smc_liq_asie_deviations_nb?: number
   smc_liq_asie_nb_sessions?: number
+  smc_liq_asie_offset_utc?: number
   /** Si true, calcule et retourne les signaux pour indicateurs actifs */
   signaux?: boolean
   limit?: number

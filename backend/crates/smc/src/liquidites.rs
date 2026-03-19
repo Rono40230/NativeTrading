@@ -198,17 +198,19 @@ fn detecter_daily(bougies: &[Candle], nb_jours: usize) -> Vec<NiveauLiquidite> {
 
 /// Paramètres pour le range de session Asie
 pub struct ParamsRangeAsie {
-    /// Heure UTC de début (défaut 22)
+    /// Heure locale de début (interprétée comme UTC + offset_utc)
     pub heure_debut: u32,
-    /// Heure UTC de fin (défaut 7)
+    /// Heure locale de fin
     pub heure_fin: u32,
     /// Nombre de déviations (extensions) au-dessus/en-dessous du range (0 = aucune)
     pub deviations_nb: usize,
+    /// Décalage UTC → local (ex: 1 pour Paris hiver CET, 2 pour Paris été CEST)
+    pub offset_utc: i32,
 }
 
 impl Default for ParamsRangeAsie {
     fn default() -> Self {
-        Self { heure_debut: 22, heure_fin: 7, deviations_nb: 2 }
+        Self { heure_debut: 20, heure_fin: 1, deviations_nb: 2, offset_utc: 1 }
     }
 }
 
@@ -236,12 +238,12 @@ pub struct DeviationAsie {
 pub fn detecter_ranges_asie(bougies: &[Candle], params: ParamsRangeAsie, nb_sessions: usize) -> Vec<RangeAsie> {
     if bougies.is_empty() { return Vec::new(); }
 
-    let est_asie = |heure: u32| -> bool {
+    let est_asie = |heure_utc: u32| -> bool {
+        let heure_locale = ((heure_utc as i32 + params.offset_utc).rem_euclid(24)) as u32;
         if params.heure_debut > params.heure_fin {
-            // Ex: 22h → 7h (chevauchement minuit)
-            heure >= params.heure_debut || heure < params.heure_fin
+            heure_locale >= params.heure_debut || heure_locale < params.heure_fin
         } else {
-            heure >= params.heure_debut && heure < params.heure_fin
+            heure_locale >= params.heure_debut && heure_locale < params.heure_fin
         }
     };
 
