@@ -177,16 +177,17 @@
 - [x] `settings.store.ts` étendu — `indicateurs` (13 préférences) persistées localStorage
 - [x] `ChartsView.vue` intégré — bouton toggle + panel + rechargement overlays sur changement bougies (295L < 300L ✅)
 
-#### Semaine 18c: Calendrier économique (Dashboard)
-> API Forex Factory ou Investing.com — cache DB 1h pour éviter les spams
+#### ✅ Semaine 18c: Calendrier économique (Dashboard) — TERMINÉE 19 mars 2026
+> ForexFactory JSON feed (thisweek + nextweek) — cache SQLite TTL 1h
 
-- [ ] Endpoint backend `GET /api/calendar?days=3` — fetch + filtre impact High/Medium
-- [ ] Cache SQLite des annonces (TTL 1h, INSERT OR REPLACE)
-- [ ] Composant `EconomicCalendar.vue` sur le Dashboard :
-  - 5 prochaines annonces avec countdown
-  - Devise concernée, titre, impact (rouge=fort, orange=moyen)
-  - Heure locale + UTC
-- [ ] Alerte toast automatique 15min avant une annonce à fort impact
+- [x] Endpoint backend `GET /api/calendar?days=3` — fetch + filtre impact High/Medium
+- [x] Cache SQLite des annonces (TTL 1h, `INSERT OR REPLACE`) — migration `0002_calendar_cache.sql`
+- [x] Composant `EconomicCalendar.vue` sur le Dashboard (sous `<MarketClocks />`) :
+  - Grille compacte 12 colonnes, hauteur fixe h-20, cartes responsive
+  - Devise + titre + countdown par carte, tooltip détail au survol (heure locale, UTC, préc, prévis)
+  - Toasts persistants (fermeture manuelle uniquement)
+- [x] Alerte toast automatique 15min avant une annonce à fort impact (+ `annoncesAlertees` Set anti-doublon)
+- [x] ROADMAP S21 : enrichissement contexte LLM Straddle via `/api/calendar`
 
 ---
 
