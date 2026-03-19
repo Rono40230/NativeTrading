@@ -117,7 +117,7 @@ import { useChartAnalyse } from '@/composables/useChartAnalyse'
 import { useChartIndicators } from '@/composables/useChartIndicators'
 import { useSmcCanvas } from '@/composables/useSmcCanvas'
 import { useSmcLiqCanvas } from '@/composables/useSmcLiqCanvas'
-import { useSessionsCanvas } from '@/composables/useSessionsCanvas'
+
 import { useChartOrchestration } from '@/composables/useChartOrchestration'
 import PredictionSMCPanel from '@/components/common/PredictionSMCPanel.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
@@ -157,7 +157,7 @@ const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
 const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux } = useChartIndicators()
 const smcCanvas = useSmcCanvas()
 const liqCanvas = useSmcLiqCanvas()
-const sessionsCanvas = useSessionsCanvas()
+
 
 const timestampCurseur = ref<number | null>(null)
 const filtreCourant = ref<FiltreSignaux>(filtreDefaut())
@@ -192,7 +192,6 @@ async function chargerIndicateurs() {
   const serie = getCandlestickSeries()
   if (chartContainer.value && serie) smcCanvas.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value && serie) liqCanvas.initialiser(chart, serie, chartContainer.value)
-  if (chartContainer.value) sessionsCanvas.initialiser(chart, chartContainer.value, settingsStore.indicateurs)
   await chargerEtAppliquer(
     chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
     rsiContainer.value, macdContainer.value, atrContainer.value,
@@ -220,7 +219,6 @@ const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestra
   initChart, detruireChart, reinitialiser,
   smcDetruire: smcCanvas.detruire,
   liqDetruire: liqCanvas.detruire,
-  sessionsDetruire: sessionsCanvas.detruire,
   configurerCrosshair, configurerClick, chargerIndicateurs,
   configurerRedimensionnement, arreterRedimensionnement,
 })
