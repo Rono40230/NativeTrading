@@ -52,6 +52,44 @@ fn heure_utc(ts: i64) -> u32 {
     (ts.rem_euclid(86400) / 3600) as u32
 }
 
+/// Convertit un timestamp Unix en timestamp du début du jour UTC.
+fn debut_jour(ts: i64) -> i64 { ts - ts.rem_euclid(86400) }
+
+/// Retourne le timestamp Unix (UTC, à `heure_utc`h) du dernier dimanche du mois.
+fn dernier_dimanche(annee: i32, mois: u32, heure_utc_h: i64) -> i64 {
+    let dernier_jour: u32 = match mois {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => if (annee % 4 == 0 && annee % 100 != 0) || annee % 400 == 0 { 29 } else { 28 },
+        _ => 30,
+    };
+    // JDN du dernier jour du mois
+    let a = (14 - mois as i32) / 12;
+    let y = annee + 4800 - a;
+    let m = mois as i32 + 12 * a - 3;
+    let jdn = dernier_jour as i64 + (153 * m as i64 + 2) / 5
+        + 365 * y as i64 + y as i64 / 4 - y as i64 / 100 + y as i64 / 400 - 32045;
+    let ts_dernier = (jdn - 2440588) * 86400 + heure_utc_h * 3600;
+    // Jour de semaine : 0 = dimanche (epoch = jeudi = 4)
+    let dow = (ts_dernier / 86400 + 4).rem_euclid(7);
+    ts_dernier - dow * 86400
+}
+
+/// Décalage UTC → heure Paris selon DST européen :
+/// CEST (+2) du dernier dimanche de mars 01h00 UTC au dernier dimanche d'octobre 01h00 UTC.
+fn offset_paris(ts: i64) -> i32 {
+    // Année approximative (suffisant pour les transitions)
+    let annee = (ts / 31_557_600 + 1970) as i32;
+    let debut_ete = dernier_dimanche(annee, 3, 1);  // dernier dim mars 01:00 UTC
+    let fin_ete   = dernier_dimanche(annee, 10, 1); // dernier dim oct  01:00 UTC
+    if ts >= debut_ete && ts < fin_ete { 2 } else { 1 }
+}
+
+/// Heure locale Paris (CET/CEST) depuis un timestamp Unix.
+fn heure_paris(ts: i64) -> u32 {
+    ((ts / 3600 + offset_paris(ts) as i64).rem_euclid(24)) as u32
+}
+
 /// Session ICT (UTC). Mutuellement exclusive par priorité décroissante.
 fn session_de(heure: u32) -> Option<&'static str> {
     if !(7..22).contains(&heure) { Some("asie") } // Asia 22h-7h UTC
@@ -198,19 +236,17 @@ fn detecter_daily(bougies: &[Candle], nb_jours: usize) -> Vec<NiveauLiquidite> {
 
 /// Paramètres pour le range de session Asie
 pub struct ParamsRangeAsie {
-    /// Heure locale de début (interprétée comme UTC + offset_utc)
+    /// Heure Paris de début (CET/CEST auto-détecté)
     pub heure_debut: u32,
-    /// Heure locale de fin
+    /// Heure Paris de fin
     pub heure_fin: u32,
     /// Nombre de déviations (extensions) au-dessus/en-dessous du range (0 = aucune)
     pub deviations_nb: usize,
-    /// Décalage UTC → local (ex: 1 pour Paris hiver CET, 2 pour Paris été CEST)
-    pub offset_utc: i32,
 }
 
 impl Default for ParamsRangeAsie {
     fn default() -> Self {
-        Self { heure_debut: 20, heure_fin: 1, deviations_nb: 2, offset_utc: 1 }
+        Self { heure_debut: 20, heure_fin: 1, deviations_nb: 2 }
     }
 }
 
@@ -238,12 +274,12 @@ pub struct DeviationAsie {
 pub fn detecter_ranges_asie(bougies: &[Candle], params: ParamsRangeAsie, nb_sessions: usize) -> Vec<RangeAsie> {
     if bougies.is_empty() { return Vec::new(); }
 
-    let est_asie = |heure_utc: u32| -> bool {
-        let heure_locale = ((heure_utc as i32 + params.offset_utc).rem_euclid(24)) as u32;
+    let est_asie = |ts: i64| -> bool {
+        let heure = heure_paris(ts);
         if params.heure_debut > params.heure_fin {
-            heure_locale >= params.heure_debut || heure_locale < params.heure_fin
+            heure >= params.heure_debut || heure < params.heure_fin
         } else {
-            heure_locale >= params.heure_debut && heure_locale < params.heure_fin
+            heure >= params.heure_debut && heure < params.heure_fin
         }
     };
 
@@ -255,8 +291,8 @@ pub fn detecter_ranges_asie(bougies: &[Candle], params: ParamsRangeAsie, nb_sess
     let mut fin_ts: i64 = 0;
 
     for b in bougies.iter() {
-        let heure = heure_utc(b.timestamp.timestamp());
-        if est_asie(heure) {
+        let ts = b.timestamp.timestamp();
+        if est_asie(ts) {
             if !dans_session {
                 dans_session = true;
                 debut_ts = b.timestamp.timestamp();

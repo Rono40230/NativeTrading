@@ -86,7 +86,6 @@ export interface PrefsIndicateurs {
   smcLiqAsieHeureFin: number
   smcLiqAsieOpacite: number
   smcLiqAsieCouleur: string
-  smcLiqAsieOffsetUtc: number
   // Tendance EMA Multi-TF
   kasperTendance: boolean
   kasperPeriodeRapide: number
@@ -173,7 +172,6 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcLiqAsieHeureFin: 1,
   smcLiqAsieOpacite: 0.15,
   smcLiqAsieCouleur: '#f59e0b',
-  smcLiqAsieOffsetUtc: 1,
   // Tendance EMA Multi-TF
   kasperTendance: false,
   kasperPeriodeRapide: 9,

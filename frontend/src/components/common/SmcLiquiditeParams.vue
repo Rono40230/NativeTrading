@@ -92,19 +92,13 @@
               class="w-full text-center text-xs bg-[#0f1629] border border-white/10 rounded px-2 py-1 text-white focus:outline-none" />
           </div>
           <div class="bg-white/5 rounded-lg px-3 py-2">
-            <p class="text-[10px] text-slate-500 mb-1.5">Horaires Paris</p>
-            <div class="flex items-center gap-1 mb-1.5">
+            <p class="text-[10px] text-slate-500 mb-1.5">Horaires Paris (auto DST)</p>
+            <div class="flex items-center gap-1">
               <input type="number" min="0" max="23" step="1" v-model.number="prefs.smcLiqAsieHeureDebut"
                 class="w-full text-center text-xs bg-[#0f1629] border border-white/10 rounded px-1 py-1 text-white focus:outline-none" />
               <span class="text-slate-500 text-[10px]">→</span>
               <input type="number" min="0" max="23" step="1" v-model.number="prefs.smcLiqAsieHeureFin"
                 class="w-full text-center text-xs bg-[#0f1629] border border-white/10 rounded px-1 py-1 text-white focus:outline-none" />
-            </div>
-            <div class="flex items-center gap-1.5">
-              <span class="text-[10px] text-slate-500">UTC+</span>
-              <input type="number" min="0" max="12" step="1" v-model.number="prefs.smcLiqAsieOffsetUtc"
-                class="w-12 text-center text-xs bg-[#0f1629] border border-white/10 rounded px-1 py-1 text-white focus:outline-none"
-                title="1 = Paris hiver (CET), 2 = Paris été (CEST)" />
             </div>
           </div>
         </div>
