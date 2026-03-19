@@ -42,6 +42,7 @@ pub struct IndicatorsQuery {
     pub smc_tendance: Option<bool>,
     pub smc_liquidites: Option<bool>,
     pub smc_liq_swing_lookback: Option<u32>,
+    pub smc_liq_swings: Option<bool>,
     pub smc_liq_sessions: Option<bool>,
     pub smc_liq_session_asie: Option<bool>,
     pub smc_liq_session_london: Option<bool>,

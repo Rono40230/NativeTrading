@@ -59,6 +59,7 @@ export function buildIndicatorsParams(asset: string, tf: string, prefs: PrefsInd
     smc_imb_show_fvg: prefs.smcImbShowFvg, smc_imb_show_og: prefs.smcImbShowOg, smc_imb_mitigation: prefs.smcImbMitigation,
     smc_fib: prefs.smcFib, smc_tendance: prefs.smcTendance, smc_liquidites: prefs.smcLiquidites,
     smc_liq_swing_lookback: prefs.smcLiqSwingLookback,
+    smc_liq_swings: prefs.smcLiqSwingsActif,
     smc_liq_sessions: prefs.smcLiqSessionsActif,
     smc_liq_session_asie: prefs.smcLiqSessionAsie,
     smc_liq_session_london: prefs.smcLiqSessionLondon,

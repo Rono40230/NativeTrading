@@ -244,6 +244,7 @@ export interface IndicatorsParams {
   smc_tendance?: boolean
   smc_liquidites?: boolean
   smc_liq_swing_lookback?: number
+  smc_liq_swings?: boolean
   smc_liq_sessions?: boolean
   smc_liq_session_asie?: boolean
   smc_liq_session_london?: boolean

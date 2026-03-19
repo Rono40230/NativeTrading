@@ -8,6 +8,7 @@ const TOLERANCE_PCT: f64 = 0.001;
 pub struct ParamsLiquidites {
     /// Nombre de bougies de chaque côté pour valider un swing (défaut 10)
     pub swing_lookback: usize,
+    pub swings_actif: bool,
     pub sessions_actif: bool,
     pub session_asie: bool,
     pub session_london: bool,
@@ -22,6 +23,7 @@ impl Default for ParamsLiquidites {
     fn default() -> Self {
         Self {
             swing_lookback: 10,
+            swings_actif: true,
             sessions_actif: true,
             session_asie: true,
             session_london: true,
@@ -198,7 +200,9 @@ pub fn detecter(bougies: &[Candle], params: ParamsLiquidites) -> Vec<NiveauLiqui
     let prix_actuel = bougies.last().map(|b| b.close).unwrap_or(0.0);
     let mut niveaux: Vec<NiveauLiquidite> = Vec::new();
 
-    niveaux.extend(detecter_swings(bougies, params.swing_lookback));
+    if params.swings_actif {
+        niveaux.extend(detecter_swings(bougies, params.swing_lookback));
+    }
     if params.sessions_actif {
         niveaux.extend(detecter_sessions(bougies, &params));
     }

@@ -7,29 +7,37 @@
 
     <!-- Swings -->
     <div>
-      <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Swings BSL / SSL</p>
-      <div class="grid grid-cols-2 gap-3 mb-2">
-        <div>
-          <label class="block text-xs text-slate-400 mb-1">BSL (Highs)</label>
-          <div class="flex items-center gap-2">
-            <input type="color" v-model="prefs.smcLiqCouleurBsl"
-              class="w-8 h-7 rounded cursor-pointer border border-white/15 bg-transparent" />
-            <span class="text-[10px] text-slate-500 font-mono">{{ prefs.smcLiqCouleurBsl }}</span>
-          </div>
-        </div>
-        <div>
-          <label class="block text-xs text-slate-400 mb-1">SSL (Lows)</label>
-          <div class="flex items-center gap-2">
-            <input type="color" v-model="prefs.smcLiqCouleurSsl"
-              class="w-8 h-7 rounded cursor-pointer border border-white/15 bg-transparent" />
-            <span class="text-[10px] text-slate-500 font-mono">{{ prefs.smcLiqCouleurSsl }}</span>
-          </div>
-        </div>
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Swings H/L</p>
+        <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="checkbox" v-model="prefs.smcLiqSwingsActif" class="rounded accent-emerald-500" />
+          <span class="text-[10px] text-slate-400">Actif</span>
+        </label>
       </div>
-      <div class="flex items-center justify-between">
-        <label class="text-xs text-slate-400">Lookback <span class="text-white">{{ prefs.smcLiqSwingLookback }}</span></label>
-        <input type="range" min="3" max="50" step="1" v-model.number="prefs.smcLiqSwingLookback"
-          class="w-28 accent-emerald-500" />
+      <div :class="{ 'opacity-40 pointer-events-none': !prefs.smcLiqSwingsActif }">
+        <div class="grid grid-cols-2 gap-3 mb-2">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">High</label>
+            <div class="flex items-center gap-2">
+              <input type="color" v-model="prefs.smcLiqCouleurBsl"
+                class="w-8 h-7 rounded cursor-pointer border border-white/15 bg-transparent" />
+              <span class="text-[10px] text-slate-500 font-mono">{{ prefs.smcLiqCouleurBsl }}</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Low</label>
+            <div class="flex items-center gap-2">
+              <input type="color" v-model="prefs.smcLiqCouleurSsl"
+                class="w-8 h-7 rounded cursor-pointer border border-white/15 bg-transparent" />
+              <span class="text-[10px] text-slate-500 font-mono">{{ prefs.smcLiqCouleurSsl }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between">
+          <label class="text-xs text-slate-400">Lookback <span class="text-white">{{ prefs.smcLiqSwingLookback }}</span></label>
+          <input type="range" min="3" max="50" step="1" v-model.number="prefs.smcLiqSwingLookback"
+            class="w-28 accent-emerald-500" />
+        </div>
       </div>
     </div>
 

@@ -90,10 +90,12 @@ export function appliquerSmcOverlays(
         default:       hex = liq.cote === 'BSL' ? prefs.smcLiqCouleurBsl : prefs.smcLiqCouleurSsl
       }
       const couleur = hexVersRgba(hex, 0.9)
+      const side = liq.cote === 'BSL' ? 'H' : 'L'
       const labelSuffix = liq.equal ? ' (EQ)' : ''
-      const labelCat = liq.categorie === 'swing' ? liq.cote
-        : liq.categorie === 'daily' ? `D ${liq.cote === 'BSL' ? 'H' : 'L'}`
-        : `${liq.categorie.charAt(0).toUpperCase() + liq.categorie.slice(1)} ${liq.cote === 'BSL' ? 'H' : 'L'}`
+      const labelCat = liq.categorie === 'swing'
+        ? (liq.cote === 'BSL' ? 'High' : 'Low')
+        : liq.categorie === 'daily' ? `D ${side}`
+        : `${liq.categorie.charAt(0).toUpperCase() + liq.categorie.slice(1)} ${side}`
       lignes.push(candleSerie.createPriceLine({
         price: liq.prix, color: couleur, lineWidth: 2, lineStyle: 0,
         axisLabelVisible: true, title: `${labelCat}${labelSuffix}`,

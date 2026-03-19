@@ -155,8 +155,9 @@ pub async fn get_indicators(
         .unwrap_or(false)
         .then(|| {
             let params = smc::liquidites::ParamsLiquidites {
-                swing_lookback: query.smc_liq_swing_lookback.unwrap_or(10) as usize,
-                sessions_actif: query.smc_liq_sessions.unwrap_or(true),
+                swing_lookback:  query.smc_liq_swing_lookback.unwrap_or(10) as usize,
+                swings_actif:    query.smc_liq_swings.unwrap_or(true),
+                sessions_actif:  query.smc_liq_sessions.unwrap_or(true),
                 session_asie:   query.smc_liq_session_asie.unwrap_or(true),
                 session_london: query.smc_liq_session_london.unwrap_or(true),
                 session_ny:     query.smc_liq_session_ny.unwrap_or(true),
