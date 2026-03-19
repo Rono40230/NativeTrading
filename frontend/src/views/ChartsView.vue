@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4">
+  <div class="flex flex-col gap-4 h-full min-h-0">
     <!-- Controles -->
     <ChartBarreControles
       :assets="assets"
@@ -28,7 +28,7 @@
     />
 
     <!-- Canvas TradingView -->
-    <div class="glass-card" style="height: 500px; position: relative;">
+    <div class="glass-card flex-1 min-h-0" style="min-height: 350px; position: relative;">
       <!-- Overlay erreur de chargement REST (bloquant) -->
       <div v-if="marketStore.erreur" class="absolute inset-0 z-10 flex items-center justify-center bg-black/60 text-red-400 text-sm rounded-xl">
         ⚠ {{ marketStore.erreur }}
