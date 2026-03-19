@@ -74,27 +74,26 @@ export function useSmcLiqCanvas() {
         : null
       const xDroit = xDroitRaw !== null ? Math.min(xDroitRaw, W - 4) : W - 70
 
-      if (xDroit <= xGauche) continue
-
       ctx.strokeStyle = ligne.couleur
-      ctx.lineWidth = 1.5
 
-      // Ligne horizontale pleine
-      ctx.beginPath()
-      ctx.moveTo(xGauche, y)
-      ctx.lineTo(xDroit, y)
-      ctx.stroke()
+      // Ligne horizontale + tick gauche (seulement si la ligne a une largeur)
+      if (xDroit > xGauche) {
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(xGauche, y)
+        ctx.lineTo(xDroit, y)
+        ctx.stroke()
 
-      // Tick vertical à gauche (marque l'origine)
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.moveTo(xGauche, y - 4)
-      ctx.lineTo(xGauche, y + 4)
-      ctx.stroke()
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(xGauche, y - 4)
+        ctx.lineTo(xGauche, y + 4)
+        ctx.stroke()
+      }
 
-      // Label EQH / EQL au début de la ligne (bord gauche visible)
+      // Label EQH / EQL toujours dessiné au bord gauche visible
       if (ligne.label) {
-        const xLabel = Math.max(xGauche, 4)
+        const xLabel = Math.max(Math.min(xGauche, W - 60), 4)
         ctx.font = 'bold 10px sans-serif'
         ctx.fillStyle = ligne.couleur
         ctx.textAlign = 'left'
