@@ -45,9 +45,7 @@ pub struct IndicatorsQuery {
     pub smc_liq_swings: Option<bool>,
     pub smc_liq_sessions: Option<bool>,
     pub smc_liq_session_asie: Option<bool>,
-    pub smc_liq_session_london: Option<bool>,
-    pub smc_liq_session_ny: Option<bool>,
-    pub smc_liq_session_lc: Option<bool>,
+
     pub smc_liq_dwm: Option<bool>,
     pub smc_liq_dwm_nb: Option<u32>,
     /// Si `true`, calcule et retourne les signaux pour tous les indicateurs actifs

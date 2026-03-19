@@ -93,9 +93,6 @@ import type { PrefsIndicateurs } from '@/stores/settings.store'
 const prefs = defineModel<PrefsIndicateurs>({ required: true })
 
 const sessions = [
-  { key: 'asie',   label: 'Asie (22h–07h UTC)',    checkKey: 'smcLiqSessionAsie',   colorKey: 'smcLiqCouleurAsie'   },
-  { key: 'london', label: 'London (07h–12h UTC)',   checkKey: 'smcLiqSessionLondon', colorKey: 'smcLiqCouleurLondon' },
-  { key: 'ny',     label: 'New York (12h–20h UTC)', checkKey: 'smcLiqSessionNY',     colorKey: 'smcLiqCouleurNY'     },
-  { key: 'lc',     label: 'London Close (15h–17h)', checkKey: 'smcLiqSessionLC',     colorKey: 'smcLiqCouleurLC'     },
+  { key: 'asie', label: 'Asie (22h–07h UTC)', checkKey: 'smcLiqSessionAsie', colorKey: 'smcLiqCouleurAsie' },
 ]
 </script>

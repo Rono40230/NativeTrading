@@ -148,11 +148,8 @@ export function useSmcLiqCanvas() {
 
       let hex: string
       switch (liq.categorie) {
-        case 'asie':   hex = prefs.smcLiqCouleurAsie;   break
-        case 'london': hex = prefs.smcLiqCouleurLondon; break
-        case 'ny':     hex = prefs.smcLiqCouleurNY;     break
-        case 'lc':     hex = prefs.smcLiqCouleurLC;     break
-        case 'daily':  hex = prefs.smcLiqCouleurDwm;    break
+        case 'asie':  hex = prefs.smcLiqCouleurAsie; break
+        case 'daily': hex = prefs.smcLiqCouleurDwm;  break
         default:       hex = liq.cote === 'BSL' ? prefs.smcLiqCouleurBsl : prefs.smcLiqCouleurSsl
       }
 

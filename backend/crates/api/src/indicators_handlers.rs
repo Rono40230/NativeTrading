@@ -159,9 +159,6 @@ pub async fn get_indicators(
                 swings_actif:    query.smc_liq_swings.unwrap_or(true),
                 sessions_actif:  query.smc_liq_sessions.unwrap_or(true),
                 session_asie:   query.smc_liq_session_asie.unwrap_or(true),
-                session_london: query.smc_liq_session_london.unwrap_or(true),
-                session_ny:     query.smc_liq_session_ny.unwrap_or(true),
-                session_lc:     query.smc_liq_session_lc.unwrap_or(true),
                 dwm_actif:      query.smc_liq_dwm.unwrap_or(false),
                 dwm_nb_jours:   query.smc_liq_dwm_nb.unwrap_or(2) as usize,
             };

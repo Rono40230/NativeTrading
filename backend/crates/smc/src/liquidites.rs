@@ -11,9 +11,6 @@ pub struct ParamsLiquidites {
     pub swings_actif: bool,
     pub sessions_actif: bool,
     pub session_asie: bool,
-    pub session_london: bool,
-    pub session_ny: bool,
-    pub session_lc: bool,
     pub dwm_actif: bool,
     /// Nombre de jours H/L à afficher (défaut 2)
     pub dwm_nb_jours: usize,
@@ -26,9 +23,6 @@ impl Default for ParamsLiquidites {
             swings_actif: true,
             sessions_actif: true,
             session_asie: true,
-            session_london: true,
-            session_ny: true,
-            session_lc: true,
             dwm_actif: false,
             dwm_nb_jours: 2,
         }
@@ -42,7 +36,7 @@ pub struct NiveauLiquidite {
     pub prix: f64,
     /// "BSL" (swing high / session high) ou "SSL" (swing low / session low)
     pub cote: String,
-    /// "swing" | "asie" | "london" | "ny" | "lc" | "daily"
+    /// "swing" | "asie" | "daily"
     pub categorie: String,
     pub equal: bool,
     pub swepe: bool,
@@ -58,10 +52,7 @@ fn heure_utc(ts: i64) -> u32 {
 
 /// Session ICT (UTC). Mutuellement exclusive par priorité décroissante.
 fn session_de(heure: u32) -> Option<&'static str> {
-    if heure >= 15 && heure < 17 { Some("lc") }      // London Close 15h-17h UTC
-    else if heure >= 12 && heure < 20 { Some("ny") }  // NY session 12h-20h UTC
-    else if heure >= 7 && heure < 12 { Some("london") } // London Open 7h-12h UTC
-    else if heure >= 22 || heure < 7 { Some("asie") } // Asia 22h-7h UTC
+    if heure >= 22 || heure < 7 { Some("asie") } // Asia 22h-7h UTC
     else { None }
 }
 
@@ -129,10 +120,7 @@ fn detecter_sessions(bougies: &[Candle], params: &ParamsLiquidites) -> Vec<Nivea
             }
             (Some(cs), _) => {
                 let actif = match cs {
-                    "asie"   => params.session_asie,
-                    "london" => params.session_london,
-                    "ny"     => params.session_ny,
-                    "lc"     => params.session_lc,
+                    "asie" => params.session_asie,
                     _ => false,
                 };
                 if actif {
