@@ -80,6 +80,7 @@ export function appliquerSmcOverlays(
   if (data.liquidites?.length) {
     for (const liq of data.liquidites) {
       if (liq.swepe) continue
+      if (liq.categorie === 'swing' && !prefs.smcLiqSwingsActif) continue
       let hex: string
       switch (liq.categorie) {
         case 'asie':   hex = prefs.smcLiqCouleurAsie; break
