@@ -103,7 +103,7 @@ const DEVISES: Record<string, string> = {
   XAUUSD: 'USD', XAGUSD: 'USD',
   EURUSD: 'USD', GBPJPY: 'JPY', CADJPY: 'JPY', NZDJPY: 'JPY',
   USDCAD: 'CAD', USDJPY: 'JPY',
-  DAX: 'EUR', NAS100: 'USD', SP500: 'USD',
+  DAX: 'EUR', SP500: 'USD',
 }
 
 function deviseAsset(id: string): string { return DEVISES[id] ?? '' }

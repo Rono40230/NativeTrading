@@ -118,7 +118,7 @@ import { useSettingsStore } from '@/stores/settings.store'
 
 const settingsStore = useSettingsStore()
 
-const ASSETS = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD', 'EURUSD', 'GBPJPY', 'USDJPY', 'DAX', 'NAS100', 'SP500']
+const ASSETS = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD', 'EURUSD', 'GBPJPY', 'USDJPY', 'DAX', 'SP500']
 const TIMEFRAMES = ['M1', 'M5', 'M15', 'H1', 'H4', 'D1']
 
 const asset = ref(settingsStore.assetActif)

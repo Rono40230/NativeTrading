@@ -66,9 +66,8 @@ pub async fn get_assets() -> impl Responder {
         serde_json::json!({ "id": "USDCAD", "nom": "Dollar / CAD",    "type": "forex" }),
         serde_json::json!({ "id": "USDJPY", "nom": "Dollar / Yen",    "type": "forex" }),
         // Indices
-        serde_json::json!({ "id": "DAX",    "nom": "DAX 40 (Allemagne)", "type": "indice" }),
-        serde_json::json!({ "id": "NAS100", "nom": "Nasdaq 100",     "type": "indice" }),
-        serde_json::json!({ "id": "SP500",  "nom": "S&P 500",        "type": "indice" }),
+        serde_json::json!({ "id": "DAX",   "nom": "DAX 40 (Allemagne)", "type": "indice" }),
+        serde_json::json!({ "id": "SP500", "nom": "S&P 500",           "type": "indice" }),
     ];
     HttpResponse::Ok().json(assets)
 }
