@@ -34,11 +34,11 @@
               class="w-1 h-1 rounded-full shrink-0"
               :class="a.impact === 'High' ? 'bg-red-400' : 'bg-orange-400'"
             />
-            <span class="text-[9px] font-mono font-bold text-slate-300 leading-none">{{ a.devise }}</span>
+            <span class="text-[10px] font-mono font-bold text-slate-300 leading-none">{{ a.devise }}</span>
           </div>
-          <p class="text-[9px] text-white leading-tight line-clamp-2 mb-1">{{ a.titre }}</p>
+          <p class="text-[10px] text-white leading-tight line-clamp-2 mb-1">{{ a.titre }}</p>
           <p
-            class="text-[8px] font-semibold leading-none"
+            class="text-[9px] font-semibold leading-none"
             :class="couleurCountdown(a.date_heure)"
           >{{ countdown(a.date_heure) }}</p>
         </div>
