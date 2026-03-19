@@ -15,7 +15,7 @@
         </label>
       </div>
       <div :class="{ 'opacity-40 pointer-events-none': !prefs.smcLiqSwingsActif }">
-        <div class="grid grid-cols-2 gap-3 mb-2">
+        <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs text-slate-400 mb-1">High</label>
             <div class="flex items-center gap-2">
@@ -32,11 +32,6 @@
               <span class="text-[10px] text-slate-500 font-mono">{{ prefs.smcLiqCouleurSsl }}</span>
             </div>
           </div>
-        </div>
-        <div class="flex items-center justify-between">
-          <label class="text-xs text-slate-400">Lookback <span class="text-white">{{ prefs.smcLiqSwingLookback }}</span></label>
-          <input type="range" min="3" max="50" step="1" v-model.number="prefs.smcLiqSwingLookback"
-            class="w-28 accent-emerald-500" />
         </div>
       </div>
     </div>

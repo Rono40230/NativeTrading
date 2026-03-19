@@ -71,7 +71,6 @@ export interface PrefsIndicateurs {
   smcLiqCouleurBsl: string
   smcLiqCouleurSsl: string
   smcLiqSwingsActif: boolean
-  smcLiqSwingLookback: number
   smcLiqSessionsActif: boolean
   smcLiqSessionAsie: boolean
   smcLiqDwmActif: boolean
@@ -163,7 +162,6 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcLiqCouleurBsl: '#10b981',
   smcLiqCouleurSsl: '#ef4444',
   smcLiqSwingsActif: true,
-  smcLiqSwingLookback: 50,
   smcLiqSessionsActif: true,
   smcLiqSessionAsie: true,
   smcLiqDwmActif: false,
