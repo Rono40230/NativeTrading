@@ -92,14 +92,14 @@ export function useSmcLiqCanvas() {
       ctx.lineTo(xGauche, y + 4)
       ctx.stroke()
 
-      // Label EQH / EQL centré sur la ligne
+      // Label EQH / EQL au début de la ligne (bord gauche visible)
       if (ligne.label) {
-        const xMid = (xGauche + xDroit) / 2
+        const xLabel = Math.max(xGauche, 4)
         ctx.font = 'bold 10px sans-serif'
         ctx.fillStyle = ligne.couleur
-        ctx.textAlign = 'center'
+        ctx.textAlign = 'left'
         ctx.textBaseline = 'bottom'
-        ctx.fillText(ligne.label, xMid, y - 2)
+        ctx.fillText(ligne.label, xLabel + 3, y - 2)
       }
     }
 
