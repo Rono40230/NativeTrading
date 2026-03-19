@@ -14,7 +14,7 @@
       Aucune annonce à venir (7j)
     </div>
 
-    <div v-else class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-1.5">
+    <div v-else class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-10 xl:grid-cols-12 gap-1.5">
       <div
         v-for="a in annonces"
         :key="a.id"
