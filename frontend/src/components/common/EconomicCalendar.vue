@@ -1,56 +1,74 @@
 <template>
-  <div class="glass-card p-5">
-    <div class="flex items-center justify-between mb-4">
+  <div class="glass-card p-4">
+    <div class="flex items-center justify-between mb-3">
       <h3 class="text-sm font-semibold text-white">📅 Calendrier économique</h3>
       <button
         @click="charger"
-        class="text-xs text-slate-400 hover:text-white transition-colors px-2 py-1 rounded hover:bg-white/5"
+        class="text-xs text-slate-400 hover:text-white transition-colors px-2 py-0.5 rounded hover:bg-white/5"
         title="Actualiser"
       >↻</button>
     </div>
 
-    <div v-if="chargement" class="text-slate-400 text-xs text-center py-6">
-      Chargement…
-    </div>
-    <div v-else-if="annonces.length === 0" class="text-slate-500 text-xs text-center py-6">
-      Aucune annonce à venir (7 prochains jours)
+    <div v-if="chargement" class="text-slate-400 text-xs text-center py-3">Chargement…</div>
+    <div v-else-if="annonces.length === 0" class="text-slate-500 text-xs text-center py-3">
+      Aucune annonce à venir (7j)
     </div>
 
-    <div v-else class="space-y-2">
+    <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
       <div
         v-for="a in annonces"
         :key="a.id"
-        class="border border-white/5 rounded-lg p-3 space-y-1.5"
-        :class="a.impact === 'High' ? 'bg-red-500/5' : 'bg-orange-500/5'"
+        class="relative group"
+        @mouseenter="survolee = a.id"
+        @mouseleave="survolee = null"
       >
-        <!-- Ligne 1 : badge impact + devise + titre -->
-        <div class="flex items-center gap-2 min-w-0">
-          <span
-            class="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
-            :class="a.impact === 'High'
-              ? 'bg-red-500/25 text-red-400'
-              : 'bg-orange-500/25 text-orange-400'"
-          >{{ a.impact === 'High' ? '● HIGH' : '● MED' }}</span>
-          <span class="text-xs font-mono font-bold text-slate-300 shrink-0">{{ a.devise }}</span>
-          <span class="text-xs text-white truncate">{{ a.titre }}</span>
-        </div>
-
-        <!-- Ligne 2 : horaires + countdown -->
-        <div class="flex items-center gap-2 text-[10px] text-slate-400 flex-wrap">
-          <span>{{ formatHeureLocale(a.date_heure) }}</span>
-          <span class="text-slate-600">·</span>
-          <span>{{ formatUTC(a.date_heure) }} UTC</span>
-          <span
-            class="ml-auto font-semibold shrink-0"
+        <!-- Carte compacte -->
+        <div
+          class="rounded-lg border px-2.5 py-2 cursor-default select-none transition-colors"
+          :class="a.impact === 'High'
+            ? 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10'
+            : 'border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10'"
+        >
+          <div class="flex items-center gap-1.5 mb-1">
+            <span
+              class="w-1.5 h-1.5 rounded-full shrink-0"
+              :class="a.impact === 'High' ? 'bg-red-400' : 'bg-orange-400'"
+            />
+            <span class="text-[10px] font-mono font-bold text-slate-300">{{ a.devise }}</span>
+            <span
+              class="text-[9px] font-bold ml-auto"
+              :class="a.impact === 'High' ? 'text-red-400' : 'text-orange-400'"
+            >{{ a.impact === 'High' ? 'HIGH' : 'MED' }}</span>
+          </div>
+          <p class="text-[10px] text-white leading-tight line-clamp-2 mb-1.5">{{ a.titre }}</p>
+          <p
+            class="text-[9px] font-semibold"
             :class="couleurCountdown(a.date_heure)"
-          >{{ countdown(a.date_heure) }}</span>
+          >{{ countdown(a.date_heure) }}</p>
         </div>
 
-        <!-- Ligne 3 : précédent / prévision -->
-        <div class="flex gap-4 text-[10px] text-slate-500">
-          <span>Préc: {{ a.precedent ?? '—' }}</span>
-          <span>Prévis: {{ a.prevision ?? '—' }}</span>
-        </div>
+        <!-- Tooltip détail au survol -->
+        <Transition name="fade">
+          <div
+            v-if="survolee === a.id"
+            class="tooltip-detail"
+          >
+            <p class="text-[10px] font-semibold text-white mb-1.5 leading-snug">{{ a.titre }}</p>
+            <div class="flex items-center gap-3 text-[10px] text-slate-400 mb-1">
+              <span>🕐 {{ formatHeureLocale(a.date_heure) }}</span>
+              <span class="text-slate-600">·</span>
+              <span>{{ formatUTC(a.date_heure) }} UTC</span>
+            </div>
+            <div class="flex gap-3 text-[10px] text-slate-400 mb-1.5">
+              <span>Préc: <span class="text-white">{{ a.precedent ?? '—' }}</span></span>
+              <span>Prévis: <span class="text-white">{{ a.prevision ?? '—' }}</span></span>
+            </div>
+            <span
+              class="text-[10px] font-bold"
+              :class="couleurCountdown(a.date_heure)"
+            >{{ countdown(a.date_heure) }}</span>
+          </div>
+        </Transition>
       </div>
     </div>
   </div>
@@ -65,6 +83,7 @@ import { useAlerteStore } from '@/stores/alerte.store'
 const alerteStore = useAlerteStore()
 const annonces = ref<AnnonceCalendrier[]>([])
 const chargement = ref(false)
+const survolee = ref<string | null>(null)
 const annoncesAlertees = new Set<string>()
 
 async function charger() {
@@ -135,5 +154,23 @@ onUnmounted(() => {
 <style scoped>
 .glass-card {
   @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm;
+}
+
+.tooltip-detail {
+  @apply absolute bottom-full left-0 z-50 mb-1.5 w-52
+         rounded-xl border border-white/15 bg-[#0f1629]
+         p-3 shadow-2xl pointer-events-none;
+  min-width: 13rem;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: translateY(4px);
 }
 </style>
