@@ -10,6 +10,22 @@ interface LigneLiq {
   label: string        // 'EQH' | 'EQL' | ''
 }
 
+interface RectAsie {
+  timestampDebut: number
+  timestampFin: number   // bord droit fixe (fin de session)
+  haut: number
+  bas: number
+  couleurFond: string
+  couleurBord: string
+}
+
+interface LigneDeviation {
+  prix: number
+  timestampDebut: number  // même origine que la session
+  couleur: string
+  label: string           // ex: '+1', '+2', '-1', '-2'
+}
+
 /**
  * Canvas dédié aux niveaux de liquidité : lignes horizontales partant de la
  * bougie de formation jusqu'à la dernière bougie (comme OB/IFVG/Imbalance).
@@ -22,6 +38,8 @@ export function useSmcLiqCanvas() {
   let serieRef: ISeriesApi<'Candlestick'> | null = null
   let containerRef: HTMLElement | null = null
   let lignesRef: LigneLiq[] = []
+  let rectsAsieRef: RectAsie[] = []
+  let deviationsRef: LigneDeviation[] = []
   let unsubscribe: (() => void) | null = null
   let animFrame: number | null = null
   let dernierTimestampRef: number | null = null
@@ -102,6 +120,65 @@ export function useSmcLiqCanvas() {
       }
     }
 
+    // ── Rectangles range Asie ─────────────────────────────────────────────────
+    for (const rect of rectsAsieRef) {
+      const yHaut = serieRef.priceToCoordinate(rect.haut)
+      const yBas  = serieRef.priceToCoordinate(rect.bas)
+      if (yHaut === null || yBas === null) continue
+      const yTop    = Math.min(yHaut, yBas)
+      const yBottom = Math.max(yHaut, yBas)
+      const hauteur = yBottom - yTop
+      if (hauteur < 1) continue
+
+      const xGaucheRaw = timeScale.timeToCoordinate(rect.timestampDebut as any)
+      const xGauche = xGaucheRaw !== null ? Math.max(0, xGaucheRaw) : 0
+      const xDroitRaw = timeScale.timeToCoordinate(rect.timestampFin as any)
+      const xDroit = xDroitRaw !== null ? Math.min(xDroitRaw, W - 4) : W - 70
+      if (xDroit <= xGauche) continue
+
+      // Fond
+      ctx.fillStyle = rect.couleurFond
+      ctx.fillRect(xGauche, yTop, xDroit - xGauche, hauteur)
+      // Bords haut/bas
+      ctx.strokeStyle = rect.couleurBord
+      ctx.lineWidth = 1
+      ctx.beginPath(); ctx.moveTo(xGauche, yTop);    ctx.lineTo(xDroit, yTop);    ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(xGauche, yBottom); ctx.lineTo(xDroit, yBottom); ctx.stroke()
+      // Bord gauche
+      ctx.lineWidth = 2
+      ctx.beginPath(); ctx.moveTo(xGauche, yTop); ctx.lineTo(xGauche, yBottom); ctx.stroke()
+    }
+
+    // ── Lignes de déviations Asie ─────────────────────────────────────────────
+    for (const dev of deviationsRef) {
+      const y = serieRef.priceToCoordinate(dev.prix)
+      if (y === null) continue
+
+      const xGaucheRaw = timeScale.timeToCoordinate(dev.timestampDebut as any)
+      const xGauche = xGaucheRaw !== null ? Math.max(0, xGaucheRaw) : 0
+      const xDroitRaw = dernierTimestampRef !== null
+        ? timeScale.timeToCoordinate(dernierTimestampRef as any)
+        : null
+      const xDroit = xDroitRaw !== null ? Math.min(xDroitRaw, W - 4) : W - 70
+
+      ctx.strokeStyle = dev.couleur
+      ctx.lineWidth = 1
+      ctx.setLineDash([4, 4])
+      if (xDroit > xGauche) {
+        ctx.beginPath(); ctx.moveTo(xGauche, y); ctx.lineTo(xDroit, y); ctx.stroke()
+      }
+      ctx.setLineDash([])
+
+      if (dev.label) {
+        const xLabel = Math.max(Math.min(xGauche, W - 60), 4)
+        ctx.font = '9px sans-serif'
+        ctx.fillStyle = dev.couleur
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'bottom'
+        ctx.fillText(dev.label, xLabel + 3, y - 2)
+      }
+    }
+
     void H
   }
 
@@ -135,30 +212,60 @@ export function useSmcLiqCanvas() {
   /** Met à jour les lignes liquidités depuis les données SMC et les préférences. */
   function mettreAJour(data: ReponseIndicators, prefs: PrefsIndicateurs, dernierTimestamp?: number) {
     lignesRef = []
+    rectsAsieRef = []
+    deviationsRef = []
     dernierTimestampRef = dernierTimestamp ?? null
 
-    if (!data.liquidites?.length || !prefs.smcLiquidites) {
+    if (!prefs.smcLiquidites) {
       planifierRedessiner()
       return
     }
 
-    for (const liq of data.liquidites) {
-      if (liq.swepe) continue
-      if (liq.categorie === 'swing' && !prefs.smcLiqSwingsActif) continue
+    // ── Lignes EQH/EQL ───────────────────────────────────────────────────────
+    if (data.liquidites?.length) {
+      for (const liq of data.liquidites) {
+        if (liq.swepe) continue
+        if (liq.categorie === 'swing' && !prefs.smcLiqSwingsActif) continue
 
-      let hex: string
-      switch (liq.categorie) {
-        case 'asie':  hex = prefs.smcLiqCouleurAsie; break
-        case 'daily': hex = prefs.smcLiqCouleurDwm;  break
-        default:       hex = liq.cote === 'BSL' ? prefs.smcLiqCouleurBsl : prefs.smcLiqCouleurSsl
+        let hex: string
+        switch (liq.categorie) {
+          case 'asie':  hex = prefs.smcLiqCouleurAsie; break
+          case 'daily': hex = prefs.smcLiqCouleurDwm;  break
+          default:      hex = liq.cote === 'BSL' ? prefs.smcLiqCouleurBsl : prefs.smcLiqCouleurSsl
+        }
+
+        lignesRef.push({
+          prix:      liq.prix,
+          timestamp: liq.timestamp,
+          couleur:   hexVersRgba(hex, 0.9),
+          label:     liq.cote === 'BSL' ? 'EQH' : 'EQL',
+        })
       }
+    }
 
-      lignesRef.push({
-        prix:      liq.prix,
-        timestamp: liq.timestamp,
-        couleur:   hexVersRgba(hex, 0.9),
-        label:     liq.cote === 'BSL' ? 'EQH' : 'EQL',
-      })
+    // ── Rectangles range Asie + déviations ───────────────────────────────────
+    if (data.range_asie?.length && prefs.smcLiqAsieRangeActif) {
+      const couleurBord = hexVersRgba(prefs.smcLiqAsieCouleur, 0.8)
+      const couleurFond = hexVersRgba(prefs.smcLiqAsieCouleur, prefs.smcLiqAsieOpacite)
+      for (const r of data.range_asie) {
+        rectsAsieRef.push({
+          timestampDebut: r.timestamp_debut,
+          timestampFin:   r.timestamp_fin,
+          haut:           r.haut,
+          bas:            r.bas,
+          couleurFond,
+          couleurBord,
+        })
+        for (const dev of r.deviations) {
+          const label = dev.direction === 'H' ? `+${dev.numero}` : `-${dev.numero}`
+          deviationsRef.push({
+            prix:           dev.prix,
+            timestampDebut: r.timestamp_debut,
+            couleur:        hexVersRgba(prefs.smcLiqAsieCouleur, 0.6),
+            label,
+          })
+        }
+      }
     }
 
     planifierRedessiner()
@@ -166,6 +273,8 @@ export function useSmcLiqCanvas() {
 
   function effacer() {
     lignesRef = []
+    rectsAsieRef = []
+    deviationsRef = []
     if (canvas) {
       const ctx = canvas.getContext('2d')
       if (ctx) ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight)
@@ -185,6 +294,8 @@ export function useSmcLiqCanvas() {
     serieRef = null
     containerRef = null
     lignesRef = []
+    rectsAsieRef = []
+    deviationsRef = []
   }
 
   return { initialiser, mettreAJour, effacer, detruire }

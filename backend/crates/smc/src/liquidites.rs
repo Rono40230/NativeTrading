@@ -194,6 +194,109 @@ fn detecter_daily(bougies: &[Candle], nb_jours: usize) -> Vec<NiveauLiquidite> {
     niveaux
 }
 
+// ─── Range Asie ───────────────────────────────────────────────────────────────
+
+/// Paramètres pour le range de session Asie
+pub struct ParamsRangeAsie {
+    /// Heure UTC de début (défaut 22)
+    pub heure_debut: u32,
+    /// Heure UTC de fin (défaut 7)
+    pub heure_fin: u32,
+    /// Nombre de déviations (extensions) au-dessus/en-dessous du range (0 = aucune)
+    pub deviations_nb: usize,
+}
+
+impl Default for ParamsRangeAsie {
+    fn default() -> Self {
+        Self { heure_debut: 22, heure_fin: 7, deviations_nb: 2 }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RangeAsie {
+    /// Unix secondes — première bougie de la session
+    pub timestamp_debut: i64,
+    /// Unix secondes — dernière bougie de la session (ou bougie courante si session en cours)
+    pub timestamp_fin: i64,
+    pub haut: f64,
+    pub bas: f64,
+    /// Déviations : (prix, direction "H"|"L", numéro 1..N)
+    pub deviations: Vec<DeviationAsie>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviationAsie {
+    pub prix: f64,
+    pub direction: String, // "H" = au-dessus | "L" = en-dessous
+    pub numero: u32,
+}
+
+/// Détecte les N derniers ranges de session Asie complets + la session en cours.
+/// Retourne au maximum `nb_sessions` ranges.
+pub fn detecter_ranges_asie(bougies: &[Candle], params: ParamsRangeAsie, nb_sessions: usize) -> Vec<RangeAsie> {
+    if bougies.is_empty() { return Vec::new(); }
+
+    let est_asie = |heure: u32| -> bool {
+        if params.heure_debut > params.heure_fin {
+            // Ex: 22h → 7h (chevauchement minuit)
+            heure >= params.heure_debut || heure < params.heure_fin
+        } else {
+            heure >= params.heure_debut && heure < params.heure_fin
+        }
+    };
+
+    let mut sessions: Vec<RangeAsie> = Vec::new();
+    let mut dans_session = false;
+    let mut debut_ts: i64 = 0;
+    let mut haut = f64::NEG_INFINITY;
+    let mut bas = f64::INFINITY;
+    let mut fin_ts: i64 = 0;
+
+    for b in bougies.iter() {
+        let heure = heure_utc(b.timestamp.timestamp());
+        if est_asie(heure) {
+            if !dans_session {
+                dans_session = true;
+                debut_ts = b.timestamp.timestamp();
+                haut = b.high;
+                bas = b.low;
+            } else {
+                haut = haut.max(b.high);
+                bas = bas.min(b.low);
+            }
+            fin_ts = b.timestamp.timestamp();
+        } else if dans_session {
+            dans_session = false;
+            let hauteur = haut - bas;
+            let mut deviations = Vec::new();
+            for n in 1..=params.deviations_nb {
+                let nf = n as f64;
+                deviations.push(DeviationAsie { prix: haut + nf * hauteur, direction: "H".into(), numero: n as u32 });
+                deviations.push(DeviationAsie { prix: bas - nf * hauteur, direction: "L".into(), numero: n as u32 });
+            }
+            sessions.push(RangeAsie { timestamp_debut: debut_ts, timestamp_fin: fin_ts, haut, bas, deviations });
+            haut = f64::NEG_INFINITY;
+            bas = f64::INFINITY;
+        }
+    }
+
+    // Session en cours (pas encore clôturée)
+    if dans_session && haut.is_finite() {
+        let hauteur = haut - bas;
+        let mut deviations = Vec::new();
+        for n in 1..=params.deviations_nb {
+            let nf = n as f64;
+            deviations.push(DeviationAsie { prix: haut + nf * hauteur, direction: "H".into(), numero: n as u32 });
+            deviations.push(DeviationAsie { prix: bas - nf * hauteur, direction: "L".into(), numero: n as u32 });
+        }
+        sessions.push(RangeAsie { timestamp_debut: debut_ts, timestamp_fin: fin_ts, haut, bas, deviations });
+    }
+
+    // Conserver uniquement les N dernières sessions
+    let skip = sessions.len().saturating_sub(nb_sessions);
+    sessions.into_iter().skip(skip).collect()
+}
+
 // ─── Point d'entrée public ────────────────────────────────────────────────────
 
 pub fn detecter(bougies: &[Candle], params: ParamsLiquidites) -> Vec<NiveauLiquidite> {

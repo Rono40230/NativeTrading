@@ -79,6 +79,55 @@
         </div>
       </div>
     </div>
+
+    <!-- Range Asie -->
+    <div>
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Range Asie</p>
+        <label class="flex items-center gap-1.5 cursor-pointer">
+          <input type="checkbox" v-model="prefs.smcLiqAsieRangeActif" class="rounded accent-slate-400" />
+          <span class="text-[10px] text-slate-400">Actif</span>
+        </label>
+      </div>
+      <div class="space-y-2" :class="{ 'opacity-40 pointer-events-none': !prefs.smcLiqAsieRangeActif }">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-400 shrink-0">Couleur</label>
+            <input type="color" v-model="prefs.smcLiqAsieCouleur"
+              class="w-7 h-6 rounded cursor-pointer border border-white/15 bg-transparent" />
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-400 shrink-0">Opacité</label>
+            <input type="number" min="0.05" max="0.5" step="0.05" v-model.number="prefs.smcLiqAsieOpacite"
+              class="w-16 text-center text-xs bg-[#1a2035] border border-white/10 rounded-lg px-2 py-1 text-white focus:outline-none" />
+          </div>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-400 shrink-0">Déviations</label>
+            <input type="number" min="0" max="5" step="1" v-model.number="prefs.smcLiqAsieDeviationsNb"
+              class="w-14 text-center text-xs bg-[#1a2035] border border-white/10 rounded-lg px-2 py-1 text-white focus:outline-none" />
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-400 shrink-0">Sessions</label>
+            <input type="number" min="1" max="5" step="1" v-model.number="prefs.smcLiqAsieNbSessions"
+              class="w-14 text-center text-xs bg-[#1a2035] border border-white/10 rounded-lg px-2 py-1 text-white focus:outline-none" />
+          </div>
+        </div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-400 shrink-0">Début (h UTC)</label>
+            <input type="number" min="0" max="23" step="1" v-model.number="prefs.smcLiqAsieHeureDebut"
+              class="w-14 text-center text-xs bg-[#1a2035] border border-white/10 rounded-lg px-2 py-1 text-white focus:outline-none" />
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-400 shrink-0">Fin (h UTC)</label>
+            <input type="number" min="0" max="23" step="1" v-model.number="prefs.smcLiqAsieHeureFin"
+              class="w-14 text-center text-xs bg-[#1a2035] border border-white/10 rounded-lg px-2 py-1 text-white focus:outline-none" />
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 

@@ -14,6 +14,8 @@ pub use fibonacci::NiveauxFibonacci;
 pub use ifvg::Ifvg;
 pub use imbalance::ZoneImbalance;
 pub use liquidites::NiveauLiquidite;
+pub use liquidites::RangeAsie;
+pub use liquidites::DeviationAsie;
 pub use order_blocks::OrderBlock;
 pub use tendances::ResultatTendance;
 

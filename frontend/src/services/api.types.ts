@@ -175,7 +175,19 @@ export interface NiveauLiquidite {
   /** Unix secondes \u2014 bougie de formation (bord gauche de la ligne) */
   timestamp: number
 }
+export interface DeviationAsie {
+  prix: number
+  direction: 'H' | 'L'
+  numero: number
+}
 
+export interface RangeAsie {
+  timestamp_debut: number
+  timestamp_fin: number
+  haut: number
+  bas: number
+  deviations: DeviationAsie[]
+}
 export type NiveauForceSignal = 'faible' | 'moyen' | 'fort'
 export type DirectionSignal = 'bullish' | 'bearish' | 'neutre'
 
@@ -203,6 +215,7 @@ export interface ReponseIndicators {
   fibonacci?: NiveauxFibonacci
   tendance?: ResultatTendance
   liquidites?: NiveauLiquidite[]
+  range_asie?: RangeAsie[]
   signaux?: SignalIndicateur[]
   atr_valeurs?: PointSerie[]
 }
@@ -251,6 +264,11 @@ export interface IndicatorsParams {
 
   smc_liq_dwm?: boolean
   smc_liq_dwm_nb?: number
+  smc_liq_asie_range?: boolean
+  smc_liq_asie_heure_debut?: number
+  smc_liq_asie_heure_fin?: number
+  smc_liq_asie_deviations_nb?: number
+  smc_liq_asie_nb_sessions?: number
   /** Si true, calcule et retourne les signaux pour indicateurs actifs */
   signaux?: boolean
   limit?: number

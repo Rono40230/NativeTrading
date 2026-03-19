@@ -77,6 +77,14 @@ export interface PrefsIndicateurs {
   smcLiqDwmNbJours: number
   smcLiqCouleurAsie: string
   smcLiqCouleurDwm: string
+  // Range session Asie
+  smcLiqAsieRangeActif: boolean
+  smcLiqAsieDeviationsNb: number
+  smcLiqAsieNbSessions: number
+  smcLiqAsieHeureDebut: number
+  smcLiqAsieHeureFin: number
+  smcLiqAsieOpacite: number
+  smcLiqAsieCouleur: string
   // Tendance EMA Multi-TF
   kasperTendance: boolean
   kasperPeriodeRapide: number
@@ -168,6 +176,14 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcLiqDwmNbJours: 2,
   smcLiqCouleurAsie: '#f59e0b',
   smcLiqCouleurDwm: '#94a3b8',
+  // Range session Asie
+  smcLiqAsieRangeActif: true,
+  smcLiqAsieDeviationsNb: 2,
+  smcLiqAsieNbSessions: 3,
+  smcLiqAsieHeureDebut: 22,
+  smcLiqAsieHeureFin: 7,
+  smcLiqAsieOpacite: 0.15,
+  smcLiqAsieCouleur: '#f59e0b',
   // Tendance EMA Multi-TF
   kasperTendance: false,
   kasperPeriodeRapide: 9,

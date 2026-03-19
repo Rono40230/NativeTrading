@@ -165,6 +165,19 @@ pub async fn get_indicators(
             smc::liquidites::detecter(&bougies, params)
         });
 
+    let range_asie = query
+        .smc_liq_asie_range
+        .unwrap_or(false)
+        .then(|| {
+            let params = smc::liquidites::ParamsRangeAsie {
+                heure_debut:   query.smc_liq_asie_heure_debut.unwrap_or(22),
+                heure_fin:     query.smc_liq_asie_heure_fin.unwrap_or(7),
+                deviations_nb: query.smc_liq_asie_deviations_nb.unwrap_or(2) as usize,
+            };
+            let nb = query.smc_liq_asie_nb_sessions.unwrap_or(3) as usize;
+            smc::liquidites::detecter_ranges_asie(&bougies, params, nb)
+        });
+
     // ── Signaux indicateurs (détection + confluence) ─────────────────────────
     let signaux = query.signaux.unwrap_or(false).then(|| {
         let closes: Vec<f64> = bougies.iter().map(|b| b.close).collect();
@@ -230,6 +243,7 @@ pub async fn get_indicators(
         fibonacci,
         tendance,
         liquidites,
+        range_asie,
         signaux,
         atr_valeurs,
     })

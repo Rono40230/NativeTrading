@@ -48,6 +48,12 @@ pub struct IndicatorsQuery {
 
     pub smc_liq_dwm: Option<bool>,
     pub smc_liq_dwm_nb: Option<u32>,
+    /// Range session Asie
+    pub smc_liq_asie_range: Option<bool>,
+    pub smc_liq_asie_heure_debut: Option<u32>,
+    pub smc_liq_asie_heure_fin: Option<u32>,
+    pub smc_liq_asie_deviations_nb: Option<u32>,
+    pub smc_liq_asie_nb_sessions: Option<u32>,
     /// Si `true`, calcule et retourne les signaux pour tous les indicateurs actifs
     pub signaux: Option<bool>,
     pub limit: Option<u32>,
@@ -101,6 +107,8 @@ pub struct ReponseIndicators {
     pub imbalance: Option<Vec<smc::ZoneImbalance>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub liquidites: Option<Vec<smc::NiveauLiquidite>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub range_asie: Option<Vec<smc::RangeAsie>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signaux: Option<Vec<indicators::signaux::SignalIndicateur>>,
     #[serde(skip_serializing_if = "Option::is_none")]
