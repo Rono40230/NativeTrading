@@ -58,6 +58,14 @@ export function buildIndicatorsParams(asset: string, tf: string, prefs: PrefsInd
     smc_imbalance: prefs.smcImbalance, smc_imb_show_last: prefs.smcImbShowLast,
     smc_imb_show_fvg: prefs.smcImbShowFvg, smc_imb_show_og: prefs.smcImbShowOg, smc_imb_mitigation: prefs.smcImbMitigation,
     smc_fib: prefs.smcFib, smc_tendance: prefs.smcTendance, smc_liquidites: prefs.smcLiquidites,
+    smc_liq_swing_lookback: prefs.smcLiqSwingLookback,
+    smc_liq_sessions: prefs.smcLiqSessionsActif,
+    smc_liq_session_asie: prefs.smcLiqSessionAsie,
+    smc_liq_session_london: prefs.smcLiqSessionLondon,
+    smc_liq_session_ny: prefs.smcLiqSessionNY,
+    smc_liq_session_lc: prefs.smcLiqSessionLC,
+    smc_liq_dwm: prefs.smcLiqDwmActif,
+    smc_liq_dwm_nb: prefs.smcLiqDwmNbJours,
     signaux: true, limit: 500,
   }
 }

@@ -153,7 +153,19 @@ pub async fn get_indicators(
     let liquidites = query
         .smc_liquidites
         .unwrap_or(false)
-        .then(|| smc::liquidites::detecter(&bougies));
+        .then(|| {
+            let params = smc::liquidites::ParamsLiquidites {
+                swing_lookback: query.smc_liq_swing_lookback.unwrap_or(10) as usize,
+                sessions_actif: query.smc_liq_sessions.unwrap_or(true),
+                session_asie:   query.smc_liq_session_asie.unwrap_or(true),
+                session_london: query.smc_liq_session_london.unwrap_or(true),
+                session_ny:     query.smc_liq_session_ny.unwrap_or(true),
+                session_lc:     query.smc_liq_session_lc.unwrap_or(true),
+                dwm_actif:      query.smc_liq_dwm.unwrap_or(false),
+                dwm_nb_jours:   query.smc_liq_dwm_nb.unwrap_or(2) as usize,
+            };
+            smc::liquidites::detecter(&bougies, params)
+        });
 
     // ── Signaux indicateurs (détection + confluence) ─────────────────────────
     let signaux = query.signaux.unwrap_or(false).then(|| {

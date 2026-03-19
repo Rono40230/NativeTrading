@@ -168,8 +168,10 @@ export interface ResultatTendance {
 export interface NiveauLiquidite {
   prix: number
   cote: 'BSL' | 'SSL'
+  /** "swing" | "asie" | "london" | "ny" | "lc" | "daily" */
+  categorie: string
   equal: boolean
-  sweepé: boolean
+  swepe: boolean
 }
 
 export type NiveauForceSignal = 'faible' | 'moyen' | 'fort'
@@ -241,6 +243,14 @@ export interface IndicatorsParams {
   smc_fib?: boolean
   smc_tendance?: boolean
   smc_liquidites?: boolean
+  smc_liq_swing_lookback?: number
+  smc_liq_sessions?: boolean
+  smc_liq_session_asie?: boolean
+  smc_liq_session_london?: boolean
+  smc_liq_session_ny?: boolean
+  smc_liq_session_lc?: boolean
+  smc_liq_dwm?: boolean
+  smc_liq_dwm_nb?: number
   /** Si true, calcule et retourne les signaux pour indicateurs actifs */
   signaux?: boolean
   limit?: number

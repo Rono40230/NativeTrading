@@ -79,10 +79,25 @@ export function appliquerSmcOverlays(
 
   if (data.liquidites?.length) {
     for (const liq of data.liquidites) {
-      if (liq['sweepé']) continue
-      const hex  = liq.cote === 'BSL' ? prefs.smcLiqCouleurBsl : prefs.smcLiqCouleurSsl
-      const bord = hexVersRgba(hex, 0.9)
-      lignes.push(candleSerie.createPriceLine({ price: liq.prix, color: bord, lineWidth: 2, lineStyle: 0, axisLabelVisible: true, title: `${liq.cote}${liq.equal ? ' (EQ)' : ''}` }))
+      if (liq.swepe) continue
+      let hex: string
+      switch (liq.categorie) {
+        case 'asie':   hex = prefs.smcLiqCouleurAsie; break
+        case 'london': hex = prefs.smcLiqCouleurLondon; break
+        case 'ny':     hex = prefs.smcLiqCouleurNY; break
+        case 'lc':     hex = prefs.smcLiqCouleurLC; break
+        case 'daily':  hex = prefs.smcLiqCouleurDwm; break
+        default:       hex = liq.cote === 'BSL' ? prefs.smcLiqCouleurBsl : prefs.smcLiqCouleurSsl
+      }
+      const couleur = hexVersRgba(hex, 0.9)
+      const labelSuffix = liq.equal ? ' (EQ)' : ''
+      const labelCat = liq.categorie === 'swing' ? liq.cote
+        : liq.categorie === 'daily' ? `D ${liq.cote === 'BSL' ? 'H' : 'L'}`
+        : `${liq.categorie.charAt(0).toUpperCase() + liq.categorie.slice(1)} ${liq.cote === 'BSL' ? 'H' : 'L'}`
+      lignes.push(candleSerie.createPriceLine({
+        price: liq.prix, color: couleur, lineWidth: 2, lineStyle: 0,
+        axisLabelVisible: true, title: `${labelCat}${labelSuffix}`,
+      }))
     }
   }
 

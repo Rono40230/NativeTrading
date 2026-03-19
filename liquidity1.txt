@@ -1,0 +1,119 @@
+//@version=5
+indicator("NY/London/Asian Sessions + ICT Swings", overlay=true, max_labels_count=500)
+
+bgColor = input.bool(false, "Activate Background Fill")
+colorLBL = input.color(color.black, title = "Label Color")
+
+// === COLORS ===
+NYColor     = color.new(color.red, 90)
+LondonColor = color.new(color.green, 90)
+AsianColor  = color.new(color.orange, 90)
+
+// === SESSION INPUTS ===
+res           = input.timeframe("D", "Resolution", ["D", "W", "M"])
+nySession     = input.session("0700-1100:1234567", "New York Session")
+londonSession = input.session("0200-0500:1234567", "London Session")
+asianSession  = input.session("2000-0200:1234567", "Asian Session")
+
+is_newbar(sess) =>
+    t = time(res, sess, "America/New_York")
+    (na(t[1]) and not na(t)) or (t[1] < t)
+
+is_session(sess) =>
+    not na(time(timeframe.period, sess, "America/New_York"))
+
+// === NY SESSION ===
+NY = input.bool(true, "New York Session")
+nySess   = is_session(nySession)
+nyNewbar = is_newbar(nySession)
+
+var float nyHigh = na
+var float nyLow  = na
+var int nyStart  = na
+var int nyEnd    = na
+
+if NY
+    if nySess
+        if nyNewbar
+            nyHigh := high
+            nyLow := low
+            nyStart := bar_index
+            nyEnd := na
+        else
+            nyHigh := math.max(nyHigh, high)
+            nyLow := math.min(nyLow, low)
+    else
+        if not na(nyStart) and na(nyEnd)
+            nyEnd := bar_index
+            line.new(nyStart, nyHigh, nyEnd, nyHigh, extend=extend.none, color=color.red, width=1)
+            line.new(nyStart, nyLow,  nyEnd, nyLow,  extend=extend.none, color=color.red, width=1)
+
+nyHighPlot = plot(nyHigh, title="NY High", color=color.new(color.red, 100))
+nyLowPlot  = plot(nyLow,  title="NY Low",  color=color.new(color.red, 100))
+bgcolor(nySess and NY and not bgColor ? NYColor : na)
+fill(nyHighPlot, nyLowPlot, color = nySess and NY and bgColor ? NYColor : na)
+
+// === LONDON SESSION ===
+London = input.bool(true, "London Session")
+ldnSess   = is_session(londonSession)
+ldnNewbar = is_newbar(londonSession)
+
+var float ldnHigh = na
+var float ldnLow  = na
+var int ldnStart  = na
+var int ldnEnd    = na
+
+if London
+    if ldnSess
+        if ldnNewbar
+            ldnHigh := high
+            ldnLow := low
+            ldnStart := bar_index
+            ldnEnd := na
+        else
+            ldnHigh := math.max(ldnHigh, high)
+            ldnLow := math.min(ldnLow, low)
+    else
+        if not na(ldnStart) and na(ldnEnd)
+            ldnEnd := bar_index
+            line.new(ldnStart, ldnHigh, ldnEnd, ldnHigh, extend=extend.none, color=color.green, width=1)
+            line.new(ldnStart, ldnLow,  ldnEnd, ldnLow,  extend=extend.none, color=color.green, width=1)
+
+ldnHighPlot = plot(ldnHigh, title="London High", color=color.new(color.green, 100))
+ldnLowPlot  = plot(ldnLow,  title="London Low",  color=color.new(color.green, 100))
+bgcolor(ldnSess and London and not bgColor ? LondonColor : na)
+fill(ldnHighPlot, ldnLowPlot, color = ldnSess and London and bgColor ? LondonColor : na)
+
+// === ASIAN SESSION ===
+Asian = input.bool(true, "Asian Session")
+asSess   = is_session(asianSession)
+asNewbar = is_newbar(asianSession)
+
+var float asHigh = na
+var float asLow  = na
+var int asStart  = na
+var int asEnd    = na
+
+if Asian
+    if asSess
+        if asNewbar
+            asHigh := high
+            asLow := low
+            asStart := bar_index
+            asEnd := na
+        else
+            asHigh := math.max(asHigh, high)
+            asLow := math.min(asLow, low)
+    else
+        if not na(asStart) and na(asEnd)
+            asEnd := bar_index
+            line.new(asStart, asHigh, asEnd, asHigh, extend=extend.none, color=color.orange, width=1)
+            line.new(asStart, asLow,  asEnd, asLow,  extend=extend.none, color=color.orange, width=1)
+
+asHighPlot = plot(asHigh, title="Asian High", color=color.new(color.orange, 100))
+asLowPlot  = plot(asLow,  title="Asian Low",  color=color.new(color.orange, 100))
+bgcolor(asSess and Asian and not bgColor ? AsianColor : na)
+fill(asHighPlot, asLowPlot, color = asSess and Asian and bgColor ? AsianColor : na)
+
+// === ICT STRUCTURE & FVG LOGIC ===
+// (unchanged from your original script)

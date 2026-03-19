@@ -193,31 +193,9 @@
             </div>
           </template>
 
-          <!-- BSL / SSL -->
+          <!-- Liquidité (Swings + Sessions + Daily) -->
           <template v-else-if="indicateur === 'smcLiquidites'">
-            <p class="text-[10px] text-slate-500 mb-3">
-              Buy Side Liquidity (BSL) = swing highs où se concentrent les stops vendeurs.<br />
-              Sell Side Liquidity (SSL) = swing lows où se concentrent les stops acheteurs.
-            </p>
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs text-slate-400 mb-1">BSL (Buy Side)</label>
-                <div class="flex items-center gap-2">
-                  <input type="color" v-model="prefs.smcLiqCouleurBsl"
-                    class="w-8 h-7 rounded cursor-pointer border border-white/15 bg-transparent" />
-                  <span class="text-[10px] text-slate-500 font-mono">{{ prefs.smcLiqCouleurBsl }}</span>
-                </div>
-              </div>
-              <div>
-                <label class="block text-xs text-slate-400 mb-1">SSL (Sell Side)</label>
-                <div class="flex items-center gap-2">
-                  <input type="color" v-model="prefs.smcLiqCouleurSsl"
-                    class="w-8 h-7 rounded cursor-pointer border border-white/15 bg-transparent" />
-                  <span class="text-[10px] text-slate-500 font-mono">{{ prefs.smcLiqCouleurSsl }}</span>
-                </div>
-              </div>
-            </div>
-            <p class="text-[10px] text-slate-500 mt-3">Seuls les niveaux non-sweepés sont affichés.</p>
+            <SmcLiquiditeParams v-model="prefs" />
           </template>
 
           <div class="flex justify-end gap-2 mt-5">
@@ -240,6 +218,8 @@
 import { computed } from 'vue'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import SmcImbalanceParams from './SmcImbalanceParams.vue'
+import SmcLiquiditeParams from './SmcLiquiditeParams.vue'
+import SmcLiquiditeParams from './SmcLiquiditeParams.vue'
 
 const props = defineProps<{ indicateur: string | null }>()
 const prefs = defineModel<PrefsIndicateurs>({ required: true })
@@ -251,7 +231,7 @@ const TITRES: Record<string, string> = {
   smcIfvg:        'IFVG (Inversion FVG) — Paramètres',
   smcImbalance:   'Imbalances (FVG + OG) — Paramètres',
   smcFib:         'Fibonacci — Paramètres',
-  smcLiquidites: 'BSL / SSL — Liquidités',
+  smcLiquidites: 'Liquidité — Paramètres',
 }
 
 const titreModale = computed(() =>

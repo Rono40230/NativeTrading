@@ -70,6 +70,19 @@ export interface PrefsIndicateurs {
   smcFibAfficher786: boolean
   smcLiqCouleurBsl: string
   smcLiqCouleurSsl: string
+  smcLiqSwingLookback: number
+  smcLiqSessionsActif: boolean
+  smcLiqSessionAsie: boolean
+  smcLiqSessionLondon: boolean
+  smcLiqSessionNY: boolean
+  smcLiqSessionLC: boolean
+  smcLiqDwmActif: boolean
+  smcLiqDwmNbJours: number
+  smcLiqCouleurAsie: string
+  smcLiqCouleurLondon: string
+  smcLiqCouleurNY: string
+  smcLiqCouleurLC: string
+  smcLiqCouleurDwm: string
   // Tendance EMA Multi-TF
   kasperTendance: boolean
   kasperPeriodeRapide: number
@@ -154,6 +167,19 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcFibAfficher786: true,
   smcLiqCouleurBsl: '#10b981',
   smcLiqCouleurSsl: '#ef4444',
+  smcLiqSwingLookback: 10,
+  smcLiqSessionsActif: true,
+  smcLiqSessionAsie: true,
+  smcLiqSessionLondon: true,
+  smcLiqSessionNY: true,
+  smcLiqSessionLC: true,
+  smcLiqDwmActif: false,
+  smcLiqDwmNbJours: 2,
+  smcLiqCouleurAsie: '#f59e0b',
+  smcLiqCouleurLondon: '#6366f1',
+  smcLiqCouleurNY: '#3b82f6',
+  smcLiqCouleurLC: '#ef4444',
+  smcLiqCouleurDwm: '#94a3b8',
   // Tendance EMA Multi-TF
   kasperTendance: false,
   kasperPeriodeRapide: 9,
