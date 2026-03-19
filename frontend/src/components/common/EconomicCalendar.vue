@@ -24,7 +24,7 @@
       >
         <!-- Carte compacte -->
         <div
-          class="rounded-md border px-1.5 py-1.5 cursor-default select-none transition-colors"
+          class="rounded-md border px-1.5 py-1.5 cursor-default select-none transition-colors flex flex-col justify-between h-20"
           :class="a.impact === 'High'
             ? 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10'
             : 'border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10'"
