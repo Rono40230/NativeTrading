@@ -160,7 +160,7 @@ export function useSmcLiqCanvas() {
         prix:      liq.prix,
         timestamp: liq.timestamp,
         couleur:   hexVersRgba(hex, 0.9),
-        label:     liq.equal ? (liq.cote === 'BSL' ? 'EQH' : 'EQL') : '',
+        label:     liq.cote === 'BSL' ? 'EQH' : 'EQL',
       })
     }
 
