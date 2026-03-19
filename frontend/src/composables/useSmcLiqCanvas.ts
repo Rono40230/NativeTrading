@@ -256,14 +256,16 @@ export function useSmcLiqCanvas() {
           couleurFond,
           couleurBord,
         })
-        for (const dev of r.deviations) {
-          const label = dev.direction === 'H' ? `+${dev.numero}` : `-${dev.numero}`
-          deviationsRef.push({
-            prix:           dev.prix,
-            timestampDebut: r.timestamp_debut,
-            couleur:        hexVersRgba(prefs.smcLiqAsieCouleur, 0.6),
-            label,
-          })
+        if (prefs.smcLiqAsieDeviationsActif) {
+          for (const dev of r.deviations) {
+            const label = dev.direction === 'H' ? `+${dev.numero}` : `-${dev.numero}`
+            deviationsRef.push({
+              prix:           dev.prix,
+              timestampDebut: r.timestamp_debut,
+              couleur:        hexVersRgba(prefs.smcLiqAsieCouleur, 0.6),
+              label,
+            })
+          }
         }
       }
     }

@@ -75,11 +75,14 @@ mod tests {
         let bougies: Vec<common::Candle> = (0..25)
             .map(|i| bougie(100.0 + i as f64, 80.0 + i as f64))
             .collect();
-        let niveaux = calculer(&bougies).unwrap();
+        let niveaux_opt = calculer(&bougies);
+        assert!(niveaux_opt.is_some(), "calculer doit retourner Some pour 25 bougies");
         // Range = (100+24) - 80 = 44
-        assert!(niveaux.swing_haut > niveaux.swing_bas);
-        assert!(niveaux.niveau_618 < niveaux.niveau_382);
-        assert!(niveaux.niveau_382 < niveaux.swing_haut);
-        assert!(niveaux.niveau_618 > niveaux.swing_bas);
+        if let Some(niveaux) = niveaux_opt {
+            assert!(niveaux.swing_haut > niveaux.swing_bas);
+            assert!(niveaux.niveau_618 < niveaux.niveau_382);
+            assert!(niveaux.niveau_382 < niveaux.swing_haut);
+            assert!(niveaux.niveau_618 > niveaux.swing_bas);
+        }
     }
 }

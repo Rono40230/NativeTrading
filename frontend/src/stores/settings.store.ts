@@ -79,6 +79,7 @@ export interface PrefsIndicateurs {
   smcLiqCouleurDwm: string
   // Range session Asie
   smcLiqAsieRangeActif: boolean
+  smcLiqAsieDeviationsActif: boolean
   smcLiqAsieDeviationsNb: number
   smcLiqAsieNbSessions: number
   smcLiqAsieHeureDebut: number
@@ -178,6 +179,7 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcLiqCouleurDwm: '#94a3b8',
   // Range session Asie
   smcLiqAsieRangeActif: true,
+  smcLiqAsieDeviationsActif: true,
   smcLiqAsieDeviationsNb: 2,
   smcLiqAsieNbSessions: 3,
   smcLiqAsieHeureDebut: 22,

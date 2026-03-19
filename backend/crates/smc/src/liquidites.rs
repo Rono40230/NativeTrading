@@ -49,12 +49,12 @@ pub struct NiveauLiquidite {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 fn heure_utc(ts: i64) -> u32 {
-    ((ts % 86400 + 86400) % 86400 / 3600) as u32
+    (ts.rem_euclid(86400) / 3600) as u32
 }
 
 /// Session ICT (UTC). Mutuellement exclusive par priorité décroissante.
 fn session_de(heure: u32) -> Option<&'static str> {
-    if heure >= 22 || heure < 7 { Some("asie") } // Asia 22h-7h UTC
+    if !(7..22).contains(&heure) { Some("asie") } // Asia 22h-7h UTC
     else { None }
 }
 
