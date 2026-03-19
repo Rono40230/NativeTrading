@@ -6,7 +6,7 @@ export type {
   ImageAvecTF, StatutIA, Signal, ScoreSmc, PointSerie,
   ZoneOb, ZoneIfvg, NiveauxFibonacci, ResultatTendance,
   NiveauLiquidite, ReponseIndicators, IndicatorsParams, SignalIndicateur,
-  LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo,
+  LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
 } from './api.types'
 
 import type {
@@ -14,7 +14,7 @@ import type {
   ImageAvecTF, StatutIA, PredictionML, BacktestResults, ScoreSmc,
   ReponseEntrainement, ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
-  ModeCalculTendance,
+  ModeCalculTendance, AnnonceCalendrier,
 } from './api.types'
 
 const BASE_URL = 'http://localhost:8080'
@@ -156,5 +156,14 @@ export const apiService = {
       params: { asset, ema_rapide: emaRapide, ema_lente: emaLente, mode_calcul: modeCalcul },
     })
     return res.data
+  },
+
+  async obtenirCalendrier(days = 7): Promise<AnnonceCalendrier[]> {
+    try {
+      const res = await http.get('/api/calendar', { params: { days } })
+      return res.data
+    } catch {
+      return []
+    }
   },
 }

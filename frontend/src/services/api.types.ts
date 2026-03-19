@@ -268,3 +268,13 @@ export interface AssetInfo {
   nom: string
   type: 'crypto' | 'metal' | 'forex' | 'indice'
 }
+
+export interface AnnonceCalendrier {
+  id: string
+  date_heure: string
+  devise: string
+  titre: string
+  impact: 'High' | 'Medium'
+  precedent: string | null
+  prevision: string | null
+}

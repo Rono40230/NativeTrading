@@ -12,6 +12,7 @@ mod ollama;
 mod ollama_handlers;
 mod smc_handlers;
 mod state;
+mod calendar_handlers;
 mod tendance_handlers;
 mod utils;
 mod ws_handlers;
@@ -78,6 +79,7 @@ async fn main() -> std::io::Result<()> {
             .route("/api/config", web::get().to(config_handlers::get_config))
             .route("/api/config", web::post().to(config_handlers::post_config))
             .route("/api/ib/status", web::get().to(handlers::ib_status))
+            .route("/api/calendar", web::get().to(calendar_handlers::get_calendar))
             .route("/api/stream", web::get().to(ws_handlers::stream_market))
     })
     .bind(("0.0.0.0", 8080))?

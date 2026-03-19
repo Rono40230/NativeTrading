@@ -217,6 +217,8 @@
 - [ ] Calibration automatique des seuils ATR pour la stratégie Straddle
 - [ ] Rapport `GET /api/volatility/patterns` — heatmap horaire des pics ATR
 - [ ] Visualisation dans `HeatmapView.vue` (axe heure du jour en plus de l'axe asset)
+- [ ] Enrichissement contexte LLM Straddle : injecter les annonces High (<2h) dans
+      le prompt Ollama avant décision (`/api/calendar` → champ `annonces_imminentes`)
 
 ---
 
