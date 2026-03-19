@@ -14,10 +14,9 @@ let compteur = 0
 export const useAlerteStore = defineStore('alertes', () => {
   const alertes = ref<Alerte[]>([])
 
-  function afficher(message: string, type: TypeAlerte = 'info', dureeMs = 4000) {
+  function afficher(message: string, type: TypeAlerte = 'info') {
     const id = ++compteur
     alertes.value.push({ id, type, message })
-    setTimeout(() => supprimer(id), dureeMs)
   }
 
   function afficherSucces(message: string) {
@@ -25,7 +24,7 @@ export const useAlerteStore = defineStore('alertes', () => {
   }
 
   function afficherErreur(message: string) {
-    afficher(message, 'error', 6000)
+    afficher(message, 'error')
   }
 
   function afficherAvertissement(message: string) {

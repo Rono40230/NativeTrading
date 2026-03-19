@@ -11,11 +11,10 @@
           <span class="text-lg leading-none mt-0.5">{{ iconeAlerte(alerte.type) }}</span>
           <p class="text-sm leading-snug flex-1">{{ alerte.message }}</p>
           <button
-            class="opacity-60 hover:opacity-100 text-lg leading-none"
+            class="shrink-0 w-5 h-5 flex items-center justify-center rounded-full opacity-70 hover:opacity-100 hover:bg-white/20 text-base leading-none transition-colors"
             @click="alerteStore.supprimer(alerte.id)"
-          >
-            ×
-          </button>
+            title="Fermer"
+          >×</button>
         </div>
       </TransitionGroup>
     </div>
