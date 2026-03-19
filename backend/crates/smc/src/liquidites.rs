@@ -2,6 +2,8 @@ use common::Candle;
 use serde::{Deserialize, Serialize};
 
 const TOLERANCE_PCT: f64 = 0.001;
+/// Tolérance pour la détection Equal Highs/Lows (0.3% — proche de l'indicateur Kasper)
+const EQUAL_PCT: f64 = 0.003;
 
 // ─── Paramètres ────────────────────────────────────────────────────────────────
 
@@ -19,7 +21,7 @@ pub struct ParamsLiquidites {
 impl Default for ParamsLiquidites {
     fn default() -> Self {
         Self {
-            swing_lookback: 10,
+            swing_lookback: 50,
             swings_actif: true,
             sessions_actif: true,
             session_asie: true,
@@ -76,8 +78,8 @@ fn detecter_swings(bougies: &[Candle], lookback: usize) -> Vec<NiveauLiquidite> 
         if bougies[i - lookback..i].iter().all(|x| x.high <= b.high)
             && bougies[i + 1..=i + lookback].iter().all(|x| x.high <= b.high)
         {
-            let equal = bougies[i.saturating_sub(20)..i]
-                .iter().any(|x| (x.high - b.high).abs() / b.high.max(f64::EPSILON) <= TOLERANCE_PCT);
+            let equal = bougies[i.saturating_sub(100)..i]
+                .iter().any(|x| (x.high - b.high).abs() / b.high.max(f64::EPSILON) <= EQUAL_PCT);
             niveaux.push(NiveauLiquidite {
                 prix: b.high, cote: "BSL".into(), categorie: "swing".into(),
                 equal, swepe: est_sweep_haut(bougies, i + 1, b.high),
@@ -88,8 +90,8 @@ fn detecter_swings(bougies: &[Candle], lookback: usize) -> Vec<NiveauLiquidite> 
         if bougies[i - lookback..i].iter().all(|x| x.low >= b.low)
             && bougies[i + 1..=i + lookback].iter().all(|x| x.low >= b.low)
         {
-            let equal = bougies[i.saturating_sub(20)..i]
-                .iter().any(|x| (x.low - b.low).abs() / b.low.max(f64::EPSILON) <= TOLERANCE_PCT);
+            let equal = bougies[i.saturating_sub(100)..i]
+                .iter().any(|x| (x.low - b.low).abs() / b.low.max(f64::EPSILON) <= EQUAL_PCT);
             niveaux.push(NiveauLiquidite {
                 prix: b.low, cote: "SSL".into(), categorie: "swing".into(),
                 equal, swepe: est_sweep_bas(bougies, i + 1, b.low),
@@ -200,7 +202,7 @@ pub fn detecter(bougies: &[Candle], params: ParamsLiquidites) -> Vec<NiveauLiqui
     let mut niveaux: Vec<NiveauLiquidite> = Vec::new();
 
     if params.swings_actif {
-        niveaux.extend(detecter_swings(bougies, params.swing_lookback));
+        niveaux.extend(detecter_swings(bougies, params.swing_lookback).into_iter().filter(|n| n.equal));
     }
     if params.sessions_actif {
         niveaux.extend(detecter_sessions(bougies, &params));

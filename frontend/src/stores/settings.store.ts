@@ -163,7 +163,7 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcLiqCouleurBsl: '#10b981',
   smcLiqCouleurSsl: '#ef4444',
   smcLiqSwingsActif: true,
-  smcLiqSwingLookback: 10,
+  smcLiqSwingLookback: 50,
   smcLiqSessionsActif: true,
   smcLiqSessionAsie: true,
   smcLiqDwmActif: false,
