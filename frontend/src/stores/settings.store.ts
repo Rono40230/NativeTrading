@@ -182,7 +182,13 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
 function chargerIndicateurs(): PrefsIndicateurs {
   try {
     const raw = localStorage.getItem(CLE_INDICATEURS)
-    if (raw) return { ...INDICATEURS_DEFAUT, ...JSON.parse(raw) }
+    if (raw) {
+      const sauvegarde = JSON.parse(raw)
+      // Migration : anciennes valeurs UTC (22h/7h) → nouvelles valeurs heure Paris (20h/1h)
+      if (sauvegarde.smcLiqAsieHeureDebut === 22) sauvegarde.smcLiqAsieHeureDebut = 20
+      if (sauvegarde.smcLiqAsieHeureFin   === 7)  sauvegarde.smcLiqAsieHeureFin   = 1
+      return { ...INDICATEURS_DEFAUT, ...sauvegarde }
+    }
   } catch {
     // données corrompues — on repart des valeurs par défaut
   }
