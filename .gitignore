@@ -18,6 +18,9 @@ frontend/src-tauri/gen/
 /data/*.db-shm
 /data/*.db-wal
 /data/backups/
+/backend/data/*.db
+/backend/data/*.db-shm
+/backend/data/*.db-wal
 
 # Modèles ML entraînés (binaires lourds)
 /backend/models/*.pt
