@@ -7,7 +7,7 @@ export type {
   ZoneOb, ZoneIfvg, NiveauxFibonacci, ResultatTendance,
   NiveauLiquidite, ReponseIndicators, IndicatorsParams, SignalIndicateur,
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
-  SentimentMarche, EntiteSentiment,
+  SentimentMarche, EntiteSentiment, ArticleNews, AlertesNews, NiveauAlerte, ContenuArticle, TraductionReponse,
 } from './api.types'
 
 import type {
@@ -15,7 +15,7 @@ import type {
   ImageAvecTF, StatutIA, PredictionML, BacktestResults, ScoreSmc,
   ReponseEntrainement, ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
-  ModeCalculTendance, AnnonceCalendrier, SentimentMarche,
+  ModeCalculTendance, AnnonceCalendrier, SentimentMarche, AlertesNews, ContenuArticle, TraductionReponse,
 } from './api.types'
 
 const BASE_URL = 'http://localhost:8080'
@@ -170,6 +170,21 @@ export const apiService = {
 
   async obtenirSentimentMarche(): Promise<SentimentMarche> {
     const res = await http.get('/api/sentiment/marche')
+    return res.data
+  },
+
+  async obtenirAlertes(): Promise<AlertesNews> {
+    const res = await http.get('/api/news/alertes', { timeout: 20_000 })
+    return res.data
+  },
+
+  async obtenirContenuArticle(url: string): Promise<ContenuArticle> {
+    const res = await http.get('/api/news/contenu', { params: { url }, timeout: 20_000 })
+    return res.data
+  },
+
+  async traduire(texte: string, long = false): Promise<TraductionReponse> {
+    const res = await http.get('/api/news/traduire', { params: { texte, long }, timeout: 60_000 })
     return res.data
   },
 }

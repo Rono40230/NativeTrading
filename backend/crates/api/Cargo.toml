@@ -27,6 +27,7 @@ dotenvy.workspace = true
 chrono.workspace = true
 uuid = { workspace = true, features = ["v4", "serde"] }
 reqwest = { workspace = true }
+sqlx = { workspace = true }
 tokio-tungstenite = { workspace = true, features = ["native-tls"] }
 futures-util = { workspace = true }
 ibapi.workspace = true

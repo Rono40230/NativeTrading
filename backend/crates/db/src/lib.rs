@@ -33,6 +33,11 @@ impl Database {
             .map_err(|e| TradingError::Database(e.to_string()))
     }
 
+    /// Accès au pool SQLx pour les crates qui en ont besoin directement.
+    pub fn pool(&self) -> &SqlitePool {
+        &self.pool
+    }
+
     /// Insère un lot de bougies (ignore les doublons via UNIQUE)
     pub async fn inserer_bougies(
         &self,

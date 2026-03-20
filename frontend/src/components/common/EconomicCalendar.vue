@@ -1,6 +1,6 @@
 <template>
-  <div class="glass-card p-4">
-    <div class="flex items-center justify-between mb-3">
+  <div class="glass-card p-4 flex flex-col h-full">
+    <div class="flex items-center justify-between mb-3 shrink-0">
       <h3 class="text-sm font-semibold text-white">📅 Calendrier économique</h3>
       <button
         @click="charger"
@@ -9,12 +9,12 @@
       >↻</button>
     </div>
 
-    <div v-if="chargement" class="text-slate-400 text-xs text-center py-3">Chargement…</div>
-    <div v-else-if="annonces.length === 0" class="text-slate-500 text-xs text-center py-3">
+    <div v-if="chargement" class="text-slate-400 text-xs text-center py-3 shrink-0">Chargement…</div>
+    <div v-else-if="annonces.length === 0" class="text-slate-500 text-xs text-center py-3 shrink-0">
       Aucune annonce à venir (7j)
     </div>
 
-    <div v-else class="flex flex-col gap-1.5">
+    <div v-else class="flex flex-col gap-1.5 overflow-y-auto scroll-zone flex-1 pr-0.5">
       <div
         v-for="a in annonces"
         :key="a.id"
@@ -150,6 +150,13 @@ onUnmounted(() => {
 .glass-card {
   @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm;
 }
+.scroll-zone {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+.scroll-zone::-webkit-scrollbar { width: 4px; }
+.scroll-zone::-webkit-scrollbar-track { background: transparent; }
+.scroll-zone::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
 
 .tooltip-detail {
   @apply absolute bottom-full left-0 z-50 mb-1.5 w-52

@@ -1,0 +1,130 @@
+use sqlx::SqlitePool;
+
+use crate::ollama;
+
+// ── Hash DJB2 ────────────────────────────────────────────────────────────────
+
+pub fn hash_titre(titre: &str) -> String {
+    let mut h: u64 = 5381;
+    for b in titre.bytes() {
+        h = h.wrapping_mul(33).wrapping_add(b as u64);
+    }
+    format!("{h:016x}")
+}
+
+// ── Cache SQLite ─────────────────────────────────────────────────────────────
+
+/// Retourne la traduction mise en cache, ou None si absente.
+pub async fn lire_cache(pool: &SqlitePool, hash: &str) -> Option<String> {
+    sqlx::query_scalar::<_, String>(
+        "SELECT titre_fr FROM news_traductions WHERE hash_titre = ?",
+    )
+    .bind(hash)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+}
+
+/// Persiste une traduction en cache (INSERT OR REPLACE).
+pub async fn ecrire_cache(pool: &SqlitePool, hash: &str, titre_fr: &str) {
+    let now = chrono::Utc::now().timestamp();
+    if let Err(e) = sqlx::query(
+        "INSERT OR REPLACE INTO news_traductions (hash_titre, titre_fr, traduit_le)
+         VALUES (?, ?, ?)",
+    )
+    .bind(hash)
+    .bind(titre_fr)
+    .bind(now)
+    .execute(pool)
+    .await
+    {
+        tracing::warn!("Cache traduction écriture: {e}");
+    }
+}
+
+// ── Traduction Ollama ─────────────────────────────────────────────────────────
+
+const MODELE_TRADUCTION: &str = "qwen2.5:3b";
+
+/// Traduit un texte anglais en français via Ollama (modèle léger 3B).
+/// Retourne le texte original en cas d'échec (dégradation silencieuse).
+pub async fn traduire(texte: &str) -> String {
+    let prompt = format!(
+        "Traduis ce titre financier en français naturel. \
+        Réponds uniquement avec la traduction, sans guillemets ni explication.\n\n\
+        Titre: {texte}"
+    );
+
+    let corps = serde_json::json!({
+        "model": MODELE_TRADUCTION,
+        "messages": [{ "role": "user", "content": prompt }],
+        "stream": false
+    });
+
+    let url = std::env::var("OLLAMA_URL")
+        .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
+
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return texte.to_string(),
+    };
+
+    let res = client.post(&url).json(&corps).send().await;
+
+    match res {
+        Ok(r) if r.status().is_success() => {
+            #[derive(serde::Deserialize)]
+            struct Rep {
+                message: Msg,
+            }
+            #[derive(serde::Deserialize)]
+            struct Msg {
+                content: String,
+            }
+            r.json::<Rep>()
+                .await
+                .map(|r| r.message.content.trim().to_string())
+                .unwrap_or_else(|_| texte.to_string())
+        }
+        _ => texte.to_string(),
+    }
+}
+
+// ── Point d'entrée principal ─────────────────────────────────────────────────
+
+/// Traduit un titre en utilisant le cache SQLite. Appelle Ollama uniquement
+/// si le titre n'est pas encore connu. Dégradation silencieuse.
+pub async fn traduire_avec_cache(pool: &SqlitePool, titre: &str) -> String {
+    let hash = hash_titre(titre);
+
+    if let Some(cached) = lire_cache(pool, &hash).await {
+        return cached;
+    }
+
+    let traduit = traduire(titre).await;
+    ecrire_cache(pool, &hash, &traduit).await;
+    traduit
+}
+
+/// Traduit un texte long (corps d'article) — sans cache (trop volumineux).
+pub async fn traduire_contenu(texte: &str) -> String {
+    let url = std::env::var("OLLAMA_URL")
+        .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
+
+    // Tronquer à 3000 caractères pour éviter les timeouts
+    let extrait = if texte.len() > 3000 { &texte[..3000] } else { texte };
+
+    let prompt = format!(
+        "Traduis ce texte financier en français naturel et fluide. \
+        Réponds uniquement avec la traduction.\n\n{extrait}"
+    );
+
+    match ollama::interroger_chat_modele(&[("user".to_string(), prompt)], MODELE_TRADUCTION).await {
+        Ok(t) => t,
+        Err(_) => texte.to_string(),
+    }
+}

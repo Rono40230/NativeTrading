@@ -154,3 +154,30 @@ export interface SentimentMarche {
   cryptos: EntiteSentiment[]
   vix: number | null
 }
+
+export type NiveauAlerte = 'critique' | 'important' | 'modere' | 'veille'
+
+export interface ArticleNews {
+  id: string
+  titre: string
+  titre_fr?: string
+  source: string
+  url: string
+  date: string
+  score: number
+  niveau: NiveauAlerte
+}
+
+export interface AlertesNews {
+  articles: ArticleNews[]
+  score_max: number
+  mis_a_jour: string
+}
+
+export interface ContenuArticle {
+  texte: string
+}
+
+export interface TraductionReponse {
+  texte_fr: string
+}

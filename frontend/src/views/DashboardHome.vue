@@ -1,6 +1,15 @@
 <template>
-  <!-- Layout 2 colonnes : contenu principal | (sentiment + calendrier) -->
-  <div class="flex gap-3 items-start">
+  <!-- Layout 3 colonnes : news | contenu | sentiment+calendrier -->
+  <div class="flex flex-col gap-3">
+    <!-- Bandeau alerte critique (conditionnel) -->
+    <AlerteBandeau />
+
+    <div class="flex gap-3">
+
+      <!-- Colonne gauche : Revue de Presse -->
+      <aside class="w-60 shrink-0 sticky top-0 h-[calc(100vh-3rem)] flex flex-col">
+        <NewsFeed class="flex-1 min-h-0" />
+      </aside>
 
     <!-- Contenu principal -->
     <div class="flex-1 min-w-0 space-y-4">
@@ -38,12 +47,15 @@
       <DashboardSignaux />
     </div>
 
-    <!-- Colonne droite : Sentiment + Calendrier -->
-    <aside class="w-64 shrink-0 sticky top-0 space-y-3">
-      <SentimentMarche />
-      <EconomicCalendar />
-    </aside>
+      <!-- Colonne droite : Sentiment (fixe) + Calendrier (remplit le reste) -->
+      <aside class="w-64 shrink-0 sticky top-0 h-[calc(100vh-3rem)] flex flex-col gap-3">
+        <SentimentMarche class="shrink-0" />
+        <div class="flex-1 min-h-0">
+          <EconomicCalendar class="h-full" />
+        </div>
+      </aside>
 
+    </div>
   </div>
 </template>
 
@@ -52,11 +64,14 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useSignalStore } from '@/stores/signal.store'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useMarketStore } from '@/stores/market.store'
+import { useNewsStore } from '@/stores/news.store'
 import { apiService } from '@/services/api.service'
 import type { BacktestResults, Candle } from '@/services/api.service'
 import MarketClocks from '@/components/common/MarketClocks.vue'
 import EconomicCalendar from '@/components/common/EconomicCalendar.vue'
 import SentimentMarche from '@/components/common/SentimentMarche.vue'
+import AlerteBandeau from '@/components/common/AlerteBandeau.vue'
+import NewsFeed from '@/components/common/NewsFeed.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
 import DashboardPrixStrip from '@/components/common/DashboardPrixStrip.vue'
 import DashboardSignaux from '@/components/common/DashboardSignaux.vue'
@@ -67,6 +82,7 @@ type AssetAvecPrix = { id: string; prix: number | null; variation: number | null
 const signalStore = useSignalStore()
 const settingsStore = useSettingsStore()
 const marketStore = useMarketStore()
+const newsStore = useNewsStore()
 
 const capital = computed(() => settingsStore.capitalDepart)
 const mlPret = computed(() => signalStore.prediction?.modele_pret ?? false)
@@ -142,12 +158,14 @@ onMounted(async () => {
   ])
   const tousLesAssets = assetsAvecPrix.value.map(a => a.id)
   if (tousLesAssets.length > 0) marketStore.connecterPrixLiveAssets(tousLesAssets)
+  newsStore.demarrerPolling()
   intervalPrix = setInterval(chargerPrixActifs, 60000)
 })
 
 onUnmounted(() => {
   if (intervalPrix !== null) clearInterval(intervalPrix)
   marketStore.deconnecterPrixLiveAssets()
+  newsStore.arreterPolling()
 })
 </script>
 

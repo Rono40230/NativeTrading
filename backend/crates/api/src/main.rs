@@ -12,6 +12,10 @@ mod ml_handlers;
 mod ollama;
 mod ollama_handlers;
 mod ollama_types;
+mod news_handlers;
+mod news_rss;
+mod news_scraper;
+mod news_traduction;
 mod sentiment_handlers;
 mod smc_handlers;
 mod state;
@@ -103,6 +107,18 @@ async fn main() -> std::io::Result<()> {
             .route(
                 "/api/sentiment/marche",
                 web::get().to(sentiment_handlers::get_sentiment_marche),
+            )
+            .route(
+                "/api/news/alertes",
+                web::get().to(news_handlers::get_news_alertes),
+            )
+            .route(
+                "/api/news/contenu",
+                web::get().to(news_handlers::get_contenu_article),
+            )
+            .route(
+                "/api/news/traduire",
+                web::get().to(news_handlers::get_traduire),
             )
             .route("/api/stream", web::get().to(ws_handlers::stream_market))
     })
