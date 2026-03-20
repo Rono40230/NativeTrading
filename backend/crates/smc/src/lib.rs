@@ -6,6 +6,8 @@ pub mod fibonacci;
 pub mod ifvg;
 pub mod imbalance;
 pub mod liquidites;
+pub mod liquidites_range;
+pub mod liquidites_tz;
 pub mod order_blocks;
 pub mod tendances;
 
@@ -13,9 +15,9 @@ pub use bpr::Bpr;
 pub use fibonacci::NiveauxFibonacci;
 pub use ifvg::Ifvg;
 pub use imbalance::ZoneImbalance;
+pub use liquidites::DeviationAsie;
 pub use liquidites::NiveauLiquidite;
 pub use liquidites::RangeAsie;
-pub use liquidites::DeviationAsie;
 pub use order_blocks::OrderBlock;
 pub use tendances::ResultatTendance;
 
@@ -31,7 +33,8 @@ pub struct ScoreSmc {
     /// Points IFVG (0–35)
     pub ifvg: f64,
     /// Points Fibonacci (0–15)
-    pub fibonacci: f64,    /// Points imbalance/FVG — conservé à 0 (indicateur supprimé)
+    pub fibonacci: f64,
+    /// Points imbalance/FVG — conservé à 0 (indicateur supprimé)
     pub imbalance: f64,
     /// Direction dominante détectée
     pub direction: Direction,
@@ -63,7 +66,11 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
 
     // IFVG : 0 ou 35 pts (absorbe l'ancien slot FVG 20pts + IFVG 15pts)
     let ifvgs = ifvg::detecter(bougies, 5, true, 0.25);
-    let pts_ifvg = if ifvg::score_pour_direction(&ifvgs, direction) > 0.0 { 35.0 } else { 0.0 };
+    let pts_ifvg = if ifvg::score_pour_direction(&ifvgs, direction) > 0.0 {
+        35.0
+    } else {
+        0.0
+    };
 
     // Fibonacci : 0, 8 ou 15 pts selon la zone de retrace atteinte
     let prix_actuel = bougies.last()?.close;

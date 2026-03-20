@@ -1,9 +1,12 @@
 use common::Candle;
 use serde::{Deserialize, Serialize};
 
-const TOLERANCE_PCT: f64 = 0.001;
-/// Tolérance pour la détection Equal Highs/Lows (0.3% — proche de l'indicateur Kasper)
-const EQUAL_PCT: f64 = 0.003;
+use super::liquidites_tz::{
+    heure_utc, session_de, est_sweep_haut, est_sweep_bas, EQUAL_PCT, TOLERANCE_PCT,
+};
+
+pub use super::liquidites_range::{DeviationAsie, ParamsRangeAsie, RangeAsie};
+pub use super::liquidites_range::detecter_ranges_asie;
 
 // ─── Paramètres ────────────────────────────────────────────────────────────────
 
@@ -44,82 +47,6 @@ pub struct NiveauLiquidite {
     pub swepe: bool,
     /// Unix secondes — bougie ou session de formation
     pub timestamp: i64,
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-fn heure_utc(ts: i64) -> u32 {
-    (ts.rem_euclid(86400) / 3600) as u32
-}
-
-/// Retourne le timestamp Unix (UTC, à `heure_utc`h) du dernier dimanche du mois.
-fn dernier_dimanche(annee: i32, mois: u32, heure_utc_h: i64) -> i64 {
-    let dernier_jour: u32 = match mois {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 => {
-            if (annee % 4 == 0 && annee % 100 != 0) || annee % 400 == 0 {
-                29
-            } else {
-                28
-            }
-        }
-        _ => 30,
-    };
-    // JDN du dernier jour du mois
-    let a = (14 - mois as i32) / 12;
-    let y = annee + 4800 - a;
-    let m = mois as i32 + 12 * a - 3;
-    let jdn = dernier_jour as i64 + (153 * m as i64 + 2) / 5 + 365 * y as i64 + y as i64 / 4
-        - y as i64 / 100
-        + y as i64 / 400
-        - 32045;
-    let ts_dernier = (jdn - 2440588) * 86400 + heure_utc_h * 3600;
-    // Jour de semaine : 0 = dimanche (epoch = jeudi = 4)
-    let dow = (ts_dernier / 86400 + 4).rem_euclid(7);
-    ts_dernier - dow * 86400
-}
-
-/// Décalage UTC → heure Paris selon DST européen :
-/// CEST (+2) du dernier dimanche de mars 01h00 UTC au dernier dimanche d'octobre 01h00 UTC.
-fn offset_paris(ts: i64) -> i32 {
-    // Année approximative (suffisant pour les transitions)
-    let annee = (ts / 31_557_600 + 1970) as i32;
-    let debut_ete = dernier_dimanche(annee, 3, 1); // dernier dim mars 01:00 UTC
-    let fin_ete = dernier_dimanche(annee, 10, 1); // dernier dim oct  01:00 UTC
-    if ts >= debut_ete && ts < fin_ete {
-        2
-    } else {
-        1
-    }
-}
-
-/// Heure locale Paris (CET/CEST) depuis un timestamp Unix.
-fn heure_paris(ts: i64) -> u32 {
-    ((ts / 3600 + offset_paris(ts) as i64).rem_euclid(24)) as u32
-}
-
-/// Session ICT (UTC). Mutuellement exclusive par priorité décroissante.
-fn session_de(heure: u32) -> Option<&'static str> {
-    if !(7..22).contains(&heure) {
-        Some("asie")
-    }
-    // Asia 22h-7h UTC
-    else {
-        None
-    }
-}
-
-fn est_sweep_haut(bougies: &[Candle], depuis: usize, prix: f64) -> bool {
-    bougies[depuis..]
-        .iter()
-        .any(|b| b.high > prix * (1.0 + TOLERANCE_PCT))
-}
-
-fn est_sweep_bas(bougies: &[Candle], depuis: usize, prix: f64) -> bool {
-    bougies[depuis..]
-        .iter()
-        .any(|b| b.low < prix * (1.0 - TOLERANCE_PCT))
 }
 
 // ─── Swings ───────────────────────────────────────────────────────────────────
@@ -274,147 +201,6 @@ fn detecter_daily(bougies: &[Candle], nb_jours: usize) -> Vec<NiveauLiquidite> {
         });
     }
     niveaux
-}
-
-// ─── Range Asie ───────────────────────────────────────────────────────────────
-
-/// Paramètres pour le range de session Asie
-pub struct ParamsRangeAsie {
-    /// Heure Paris de début (CET/CEST auto-détecté)
-    pub heure_debut: u32,
-    /// Heure Paris de fin
-    pub heure_fin: u32,
-    /// Nombre de déviations (extensions) au-dessus/en-dessous du range (0 = aucune)
-    pub deviations_nb: usize,
-}
-
-impl Default for ParamsRangeAsie {
-    fn default() -> Self {
-        Self {
-            heure_debut: 20,
-            heure_fin: 1,
-            deviations_nb: 2,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RangeAsie {
-    /// Unix secondes — première bougie de la session
-    pub timestamp_debut: i64,
-    /// Unix secondes — dernière bougie de la session (ou bougie courante si session en cours)
-    pub timestamp_fin: i64,
-    pub haut: f64,
-    pub bas: f64,
-    /// Déviations : (prix, direction "H"|"L", numéro 1..N)
-    pub deviations: Vec<DeviationAsie>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DeviationAsie {
-    pub prix: f64,
-    pub direction: String, // "H" = au-dessus | "L" = en-dessous
-    pub numero: u32,
-}
-
-/// Détecte les N derniers ranges de session Asie complets + la session en cours.
-/// Retourne au maximum `nb_sessions` ranges.
-pub fn detecter_ranges_asie(
-    bougies: &[Candle],
-    params: ParamsRangeAsie,
-    nb_sessions: usize,
-) -> Vec<RangeAsie> {
-    if bougies.is_empty() {
-        return Vec::new();
-    }
-
-    let est_asie = |ts: i64| -> bool {
-        let heure = heure_paris(ts);
-        if params.heure_debut > params.heure_fin {
-            heure >= params.heure_debut || heure < params.heure_fin
-        } else {
-            heure >= params.heure_debut && heure < params.heure_fin
-        }
-    };
-
-    let mut sessions: Vec<RangeAsie> = Vec::new();
-    let mut dans_session = false;
-    let mut debut_ts: i64 = 0;
-    let mut haut = f64::NEG_INFINITY;
-    let mut bas = f64::INFINITY;
-    let mut fin_ts: i64 = 0;
-
-    for b in bougies.iter() {
-        let ts = b.timestamp.timestamp();
-        if est_asie(ts) {
-            if !dans_session {
-                dans_session = true;
-                debut_ts = b.timestamp.timestamp();
-                haut = b.high;
-                bas = b.low;
-            } else {
-                haut = haut.max(b.high);
-                bas = bas.min(b.low);
-            }
-            fin_ts = b.timestamp.timestamp();
-        } else if dans_session {
-            dans_session = false;
-            let hauteur = haut - bas;
-            let mut deviations = Vec::new();
-            for n in 1..=params.deviations_nb {
-                let nf = n as f64;
-                deviations.push(DeviationAsie {
-                    prix: haut + nf * hauteur,
-                    direction: "H".into(),
-                    numero: n as u32,
-                });
-                deviations.push(DeviationAsie {
-                    prix: bas - nf * hauteur,
-                    direction: "L".into(),
-                    numero: n as u32,
-                });
-            }
-            sessions.push(RangeAsie {
-                timestamp_debut: debut_ts,
-                timestamp_fin: fin_ts,
-                haut,
-                bas,
-                deviations,
-            });
-            haut = f64::NEG_INFINITY;
-            bas = f64::INFINITY;
-        }
-    }
-
-    // Session en cours (pas encore clôturée)
-    if dans_session && haut.is_finite() {
-        let hauteur = haut - bas;
-        let mut deviations = Vec::new();
-        for n in 1..=params.deviations_nb {
-            let nf = n as f64;
-            deviations.push(DeviationAsie {
-                prix: haut + nf * hauteur,
-                direction: "H".into(),
-                numero: n as u32,
-            });
-            deviations.push(DeviationAsie {
-                prix: bas - nf * hauteur,
-                direction: "L".into(),
-                numero: n as u32,
-            });
-        }
-        sessions.push(RangeAsie {
-            timestamp_debut: debut_ts,
-            timestamp_fin: fin_ts,
-            haut,
-            bas,
-            deviations,
-        });
-    }
-
-    // Conserver uniquement les N dernières sessions
-    let skip = sessions.len().saturating_sub(nb_sessions);
-    sessions.into_iter().skip(skip).collect()
 }
 
 // ─── Point d'entrée public ────────────────────────────────────────────────────

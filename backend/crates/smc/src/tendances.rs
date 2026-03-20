@@ -125,7 +125,10 @@ mod tests {
             bougie(116.0, 92.0),  // i=21
         ];
         let res = analyser(&bougies);
-        assert!(res.is_some(), "analyser doit retourner Some pour des bougies valides");
+        assert!(
+            res.is_some(),
+            "analyser doit retourner Some pour des bougies valides"
+        );
         if let Some(r) = res {
             assert_eq!(r.direction, Direction::Long);
             assert_eq!(r.force, 2.0); // HH + HL confirmé

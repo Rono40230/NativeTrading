@@ -37,7 +37,12 @@ struct IfvgEntry {
 /// 2. Inversion quand le **corps** (`max/min(open,close)`) croise la zone
 /// 3. Mitigation finale si le corps dépasse entièrement la zone
 /// 4. Affichage : 2 rectangles par IFVG (avant/après inversion)
-pub fn detecter(bougies: &[Candle], show_last: usize, _signal_pref_close: bool, atr_mult: f64) -> Vec<Ifvg> {
+pub fn detecter(
+    bougies: &[Candle],
+    show_last: usize,
+    _signal_pref_close: bool,
+    atr_mult: f64,
+) -> Vec<Ifvg> {
     let n = bougies.len();
     if n < 5 {
         return vec![];
@@ -59,7 +64,7 @@ pub fn detecter(bougies: &[Candle], show_last: usize, _signal_pref_close: bool, 
 
     // Parcours chronologique — simule l'exécution barre à barre de Pine
     for i in 2..n {
-        let b0 = &bougies[i];     // bar[0] en Pine
+        let b0 = &bougies[i]; // bar[0] en Pine
         let b1 = &bougies[i - 1]; // bar[1]
         let b2 = &bougies[i - 2]; // bar[2]
 

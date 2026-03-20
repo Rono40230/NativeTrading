@@ -40,7 +40,13 @@ struct Fvg {
 /// - `atr_mult`        : taille minimum d'un FVG = ATR14 × atr_mult (défaut 0.5)
 /// - `fenetre`         : distance max (bougies) entre bull et bear pour former un BPR (défaut 30)
 /// - `mitigation_close`: `true` = mitigé sur clôture, `false` = mitigé dès qu'une mèche entre dans la zone
-pub fn detecter(bougies: &[Candle], show_last: usize, atr_mult: f64, fenetre: usize, mitigation_close: bool) -> Vec<ZoneFvgBpr> {
+pub fn detecter(
+    bougies: &[Candle],
+    show_last: usize,
+    atr_mult: f64,
+    fenetre: usize,
+    mitigation_close: bool,
+) -> Vec<ZoneFvgBpr> {
     let n = bougies.len();
     if n < 10 {
         return vec![];
@@ -74,7 +80,9 @@ pub fn detecter(bougies: &[Candle], show_last: usize, atr_mult: f64, fenetre: us
             let fvg_bas = gauche.high;
             let fvg_haut = droite.low;
             let mitige = bougies[i + 3..].iter().any(|b| {
-                if b.high < fvg_bas { return false; } // candle entièrement sous la zone
+                if b.high < fvg_bas {
+                    return false;
+                } // candle entièrement sous la zone
                 if mitigation_close {
                     b.close <= fvg_haut // clôture entre dans la zone par le haut
                 } else {
@@ -99,7 +107,9 @@ pub fn detecter(bougies: &[Candle], show_last: usize, atr_mult: f64, fenetre: us
             let fvg_bas = droite.high;
             let fvg_haut = gauche.low;
             let mitige = bougies[i + 3..].iter().any(|b| {
-                if b.low > fvg_haut { return false; } // candle entièrement au-dessus de la zone
+                if b.low > fvg_haut {
+                    return false;
+                } // candle entièrement au-dessus de la zone
                 if mitigation_close {
                     b.close >= fvg_bas // clôture entre dans la zone par le bas
                 } else {
@@ -136,8 +146,7 @@ pub fn detecter(bougies: &[Candle], show_last: usize, atr_mult: f64, fenetre: us
 
             // Déduplique — même overlap déjà enregistré ?
             let doublon = bprs.iter().any(|z| {
-                (z.haut - overlap_haut).abs() < tolerance
-                    && (z.bas - overlap_bas).abs() < tolerance
+                (z.haut - overlap_haut).abs() < tolerance && (z.bas - overlap_bas).abs() < tolerance
             });
             if !doublon {
                 bprs.push(ZoneFvgBpr {
@@ -162,7 +171,11 @@ pub fn detecter(bougies: &[Candle], show_last: usize, atr_mult: f64, fenetre: us
     let milieu = |z: &ZoneFvgBpr| -> f64 { (z.haut + z.bas) / 2.0 };
     let dist = |z: &ZoneFvgBpr| -> f64 { (milieu(z) - prix_actuel).abs() };
 
-    bprs.sort_by(|a, b| dist(a).partial_cmp(&dist(b)).unwrap_or(std::cmp::Ordering::Equal));
+    bprs.sort_by(|a, b| {
+        dist(a)
+            .partial_cmp(&dist(b))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     bprs.truncate(show_last);
     bprs
 }

@@ -38,7 +38,7 @@ pub fn detecter(
     for i in 2..n {
         let b0 = &bougies[i - 2]; // bougie gauche (la plus ancienne)
         let b1 = &bougies[i - 1]; // bougie médiane
-        let b2 = &bougies[i];     // bougie droite (la plus récente)
+        let b2 = &bougies[i]; // bougie droite (la plus récente)
 
         // ── Opening Gaps (priorité sur FVG selon LuxAlgo) ──────────────────
         // OG = gap entre 2 bougies CONSÉCUTIVES (b1 et b2), pas sur 3 bougies
@@ -50,8 +50,8 @@ pub fn detecter(
             // Mitigation : prix entre dans la zone par le plafond (b2.low)
             let remplie = remplissage_bull(&bougies[i + 1..], b2.low, mitigation_close);
             zones.push(ZoneImbalance {
-                haut:      b2.low,
-                bas:       b1.high,
+                haut: b2.low,
+                bas: b1.high,
                 type_zone: "OgBull".into(),
                 remplie,
                 timestamp: b1.timestamp.timestamp(),
@@ -63,8 +63,8 @@ pub fn detecter(
             // Mitigation : prix entre dans la zone par le plancher (b2.high)
             let remplie = remplissage_bear(&bougies[i + 1..], b2.high, mitigation_close);
             zones.push(ZoneImbalance {
-                haut:      b1.low,
-                bas:       b2.high,
+                haut: b1.low,
+                bas: b2.high,
                 type_zone: "OgBear".into(),
                 remplie,
                 timestamp: b1.timestamp.timestamp(),
@@ -75,14 +75,11 @@ pub fn detecter(
         if show_fvg {
             // FVG Haussier : gap entre b0.high et b2.low
             // Mitigation : prix redescend dans la zone par le plafond (b2.low)
-            if b2.low > b0.high
-                && b1.close > b0.high
-                && !og_bull
-            {
+            if b2.low > b0.high && b1.close > b0.high && !og_bull {
                 let remplie = remplissage_bull(&bougies[i + 1..], b2.low, mitigation_close);
                 zones.push(ZoneImbalance {
-                    haut:      b2.low,
-                    bas:       b0.high,
+                    haut: b2.low,
+                    bas: b0.high,
                     type_zone: "FvgBull".into(),
                     remplie,
                     timestamp: b0.timestamp.timestamp(),
@@ -91,14 +88,11 @@ pub fn detecter(
 
             // FVG Baissier : gap entre b2.high et b0.low
             // Mitigation : prix remonte dans la zone par le plancher (b2.high)
-            if b2.high < b0.low
-                && b1.close < b0.low
-                && !og_bear
-            {
+            if b2.high < b0.low && b1.close < b0.low && !og_bear {
                 let remplie = remplissage_bear(&bougies[i + 1..], b2.high, mitigation_close);
                 zones.push(ZoneImbalance {
-                    haut:      b0.low,
-                    bas:       b2.high,
+                    haut: b0.low,
+                    bas: b2.high,
                     type_zone: "FvgBear".into(),
                     remplie,
                     timestamp: b0.timestamp.timestamp(),
@@ -117,14 +111,22 @@ pub fn detecter(
 /// Vrai si une bougie ultérieure comble la zone haussière (low descend sous `bas`)
 fn remplissage_bull(bougies_suivantes: &[Candle], bas: f64, mitigation_close: bool) -> bool {
     bougies_suivantes.iter().any(|b| {
-        if mitigation_close { b.close <= bas } else { b.low <= bas }
+        if mitigation_close {
+            b.close <= bas
+        } else {
+            b.low <= bas
+        }
     })
 }
 
 /// Vrai si une bougie ultérieure comble la zone baissière (high monte au-dessus de `haut`)
 fn remplissage_bear(bougies_suivantes: &[Candle], haut: f64, mitigation_close: bool) -> bool {
     bougies_suivantes.iter().any(|b| {
-        if mitigation_close { b.close >= haut } else { b.high >= haut }
+        if mitigation_close {
+            b.close >= haut
+        } else {
+            b.high >= haut
+        }
     })
 }
 
@@ -132,9 +134,13 @@ fn remplissage_bear(bougies_suivantes: &[Candle], haut: f64, mitigation_close: b
 pub fn score_pour_direction_legacy(bougies: &[Candle], direction: common::Direction) -> f64 {
     let zones = detecter(bougies, 5, true, false, true);
     let aligne = match direction {
-        common::Direction::Long  => zones.iter().any(|z| z.type_zone == "FvgBull"),
+        common::Direction::Long => zones.iter().any(|z| z.type_zone == "FvgBull"),
         common::Direction::Short => zones.iter().any(|z| z.type_zone == "FvgBear"),
-        common::Direction::Both  => false,
+        common::Direction::Both => false,
     };
-    if aligne { 20.0 } else { 0.0 }
+    if aligne {
+        20.0
+    } else {
+        0.0
+    }
 }

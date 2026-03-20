@@ -52,12 +52,10 @@ pub fn detecter(bougies: &[Candle], sensibilite: f64, mitigation_close: bool) ->
         obs_short.retain(|ob| mitigation_bear <= ob.prix_haut);
 
         // --- Calcul ROC (Pine : pc = (open - open[4]) / open[4] * 100) ---
-        let roc_curr = (bougies[i].open - bougies[i - 4].open)
-            / bougies[i - 4].open.max(1e-10)
-            * 100.0;
-        let roc_prev = (bougies[i - 1].open - bougies[i - 5].open)
-            / bougies[i - 5].open.max(1e-10)
-            * 100.0;
+        let roc_curr =
+            (bougies[i].open - bougies[i - 4].open) / bougies[i - 4].open.max(1e-10) * 100.0;
+        let roc_prev =
+            (bougies[i - 1].open - bougies[i - 5].open) / bougies[i - 5].open.max(1e-10) * 100.0;
 
         // Anti-spam : cross_index - cross_index[1] > 5 (Pine)
         let anti_spam_ok = dernier_cross_idx.is_none_or(|last| i - last > MIN_SIGNAL_DISTANCE);
@@ -66,7 +64,9 @@ pub fn detecter(bougies: &[Candle], sensibilite: f64, mitigation_close: bool) ->
         if roc_prev >= -seuil && roc_curr < -seuil && anti_spam_ok {
             dernier_cross_idx = Some(i);
             for offset in 4..=15_usize {
-                if i < offset { break; }
+                if i < offset {
+                    break;
+                }
                 let b = &bougies[i - offset];
                 if b.close > b.open {
                     let force = ((b.volume / vol_moy.max(1e-10)) * 50.0).min(100.0);
@@ -86,7 +86,9 @@ pub fn detecter(bougies: &[Candle], sensibilite: f64, mitigation_close: bool) ->
         if roc_prev <= seuil && roc_curr > seuil && anti_spam_ok {
             dernier_cross_idx = Some(i);
             for offset in 4..=15_usize {
-                if i < offset { break; }
+                if i < offset {
+                    break;
+                }
                 let b = &bougies[i - offset];
                 if b.close < b.open {
                     let force = ((b.volume / vol_moy.max(1e-10)) * 50.0).min(100.0);
@@ -104,10 +106,7 @@ pub fn detecter(bougies: &[Candle], sensibilite: f64, mitigation_close: bool) ->
     }
 
     // Combine, plus récents en premier, limite 20 au total (Pine : max_boxes_count=20)
-    let mut result: Vec<OrderBlock> = obs_long
-        .into_iter()
-        .chain(obs_short)
-        .collect();
+    let mut result: Vec<OrderBlock> = obs_long.into_iter().chain(obs_short).collect();
     result.reverse();
     result.truncate(MAX_OBS);
     result
