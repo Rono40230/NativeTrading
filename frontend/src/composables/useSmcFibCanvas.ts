@@ -56,7 +56,9 @@ export function useSmcFibCanvas() {
     const haussier  = prefs.smcFibSensHaussier
     const prixZero  = haussier ? fib.swing_bas  : fib.swing_haut
     const prixUn    = haussier ? fib.swing_haut : fib.swing_bas
-    const tsAncrage = haussier ? fib.timestamp_bas : fib.timestamp_haut
+    // L'ancrage gauche est toujours le début réel du swing (timestamp le plus ancien),
+    // indépendamment de la préférence d'affichage haussier/baissier.
+    const tsAncrage = Math.min(fib.timestamp_haut, fib.timestamp_bas)
 
     // Bord droit = dernière bougie visible
     const xDroitRaw = dernierTimestamp !== null
