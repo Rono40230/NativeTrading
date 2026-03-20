@@ -55,9 +55,14 @@ export function useEcoCalCanvas() {
     const w = containerRef.offsetWidth
     const h = containerRef.offsetHeight
     if (w === 0 || h === 0) return
-    canvas.width = w * ratio
-    canvas.height = h * ratio
-    // canvas.width = ... remet le ctx à l'identité → scale à appliquer après chaque reset
+    const newW = Math.round(w * ratio)
+    const newH = Math.round(h * ratio)
+    // N'assigner width/height que si les dimensions changent vraiment :
+    // assigner canvas.width efface immédiatement le contenu (avant requestAnimationFrame)
+    // → flash visible entre l'effacement et le prochain redraw.
+    if (canvas.width === newW && canvas.height === newH) return
+    canvas.width = newW
+    canvas.height = newH
     const ctx = canvas.getContext('2d')
     if (ctx) { ctx.resetTransform(); ctx.scale(ratio, ratio) }
   }
@@ -69,7 +74,6 @@ export function useEcoCalCanvas() {
     const W = canvas.offsetWidth
     const H = canvas.offsetHeight
     if (W === 0 || H === 0) return
-    ctx.clearRect(0, 0, W, H)
     marqueursCaches = []
     hauteurCanvas = H
 
@@ -93,6 +97,9 @@ export function useEcoCalCanvas() {
     if (xFrom === null || xTo === null || tsTo === tsFrom) return
     const pixelsParSeconde = (xTo - xFrom) / (tsTo - tsFrom)
     const xFromNum = xFrom
+
+    // Tous les guards passés → on efface et redessine
+    ctx.clearRect(0, 0, W, H)
 
     function tsVersX(tsSec: number): number {
       const direct = ts.timeToCoordinate(tsSec as any)
