@@ -60,6 +60,22 @@ export function useEcoCalCanvas() {
     if (ctx) ctx.scale(ratio, ratio)
   }
 
+  function dessinerPastille(
+    ctx: CanvasRenderingContext2D,
+    x: number, estHaut: boolean, annonce: AnnonceCalendrier,
+  ) {
+    ctx.save()
+    ctx.fillStyle = estHaut ? 'rgba(239,68,68,0.85)' : 'rgba(251,146,60,0.85)'
+    ctx.beginPath()
+    ctx.roundRect(x - 10, 0, 20, 16, 4)
+    ctx.fill()
+    ctx.restore()
+    ctx.font = '11px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(emojiDevise(annonce.devise), x, Y_MARQUEUR)
+  }
+
   function redessiner() {
     if (!canvas || !chartRef) return
     const ctx = canvas.getContext('2d')
@@ -70,11 +86,19 @@ export function useEcoCalCanvas() {
     marqueursCaches = []
 
     const ts = chartRef.timeScale()
+    const maintenant = Math.floor(Date.now() / 1000)
+    const horsEcranFutur: AnnonceCalendrier[] = []
 
     for (const annonce of annoncesRef) {
       const tsSec = Math.floor(new Date(annonce.date_heure).getTime() / 1000)
       const xRaw = ts.timeToCoordinate(tsSec as any)
-      if (xRaw === null || xRaw < 0 || xRaw > W) continue
+
+      // Futur hors écran → collecter pour badge bord droit
+      if (xRaw === null || xRaw > W) {
+        if (tsSec > maintenant) horsEcranFutur.push(annonce)
+        continue
+      }
+      if (xRaw < 0) continue
 
       const x = Math.round(xRaw)
       const y = Y_MARQUEUR
@@ -91,21 +115,32 @@ export function useEcoCalCanvas() {
       ctx.stroke()
       ctx.restore()
 
-      // Fond de la pastille
-      ctx.save()
-      ctx.fillStyle = estHaut ? 'rgba(239,68,68,0.85)' : 'rgba(251,146,60,0.85)'
-      ctx.beginPath()
-      ctx.roundRect(x - 10, 0, 20, 16, 4)
-      ctx.fill()
-      ctx.restore()
+      dessinerPastille(ctx, x, estHaut, annonce)
+      marqueursCaches.push({ x, y, annonce })
+    }
 
-      // Emoji drapeau
-      ctx.font = '11px sans-serif'
+    // Badges bord droit — événements futurs hors de la plage visible
+    // Triés par imminence (le plus proche d'abord), empilés de droite à gauche
+    horsEcranFutur.sort(
+      (a, b) => new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime(),
+    )
+    const MAX_BADGES = 6
+    for (let i = 0; i < Math.min(horsEcranFutur.length, MAX_BADGES); i++) {
+      const annonce = horsEcranFutur[i]
+      const x = W - 12 - i * 22
+      const estHaut = annonce.impact === 'High'
+
+      // Petite flèche→ indiquant "hors écran à droite"
+      ctx.save()
+      ctx.fillStyle = estHaut ? 'rgba(239,68,68,0.60)' : 'rgba(251,146,60,0.60)'
+      ctx.font = 'bold 8px sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(emojiDevise(annonce.devise), x, y)
+      ctx.fillText('›', x + 10, Y_MARQUEUR)
+      ctx.restore()
 
-      marqueursCaches.push({ x, y, annonce })
+      dessinerPastille(ctx, x, estHaut, annonce)
+      marqueursCaches.push({ x, y: Y_MARQUEUR, annonce })
     }
 
     void H
