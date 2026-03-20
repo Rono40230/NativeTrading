@@ -56,8 +56,9 @@ export function useEcoCalCanvas() {
     if (w === 0 || h === 0) return
     canvas.width = w * ratio
     canvas.height = h * ratio
+    // canvas.width = ... remet le ctx à l'identité → scale à appliquer après chaque reset
     const ctx = canvas.getContext('2d')
-    if (ctx) ctx.scale(ratio, ratio)
+    if (ctx) { ctx.resetTransform(); ctx.scale(ratio, ratio) }
   }
 
   function redessiner() {
@@ -66,26 +67,43 @@ export function useEcoCalCanvas() {
     if (!ctx) return
     const W = canvas.offsetWidth
     const H = canvas.offsetHeight
+    if (W === 0 || H === 0) return
     ctx.clearRect(0, 0, W, H)
     marqueursCaches = []
 
     const ts = chartRef.timeScale()
 
-    // Limite droite = bord droit de la zone de tracé (inclut le rightbar, exclut la barre de prix).
-    // logicalToCoordinate(logicalRange.to) = coordonnée pixel de la dernière
-    // position visible (après les données, dans l'espace vide futur), ce qui
-    // correspond exactement au bord droit avant la barre de prix.
+    // Bord droit de la zone de tracé (inclut le rightbar, exclut la barre de prix)
     const logicalRange = ts.getVisibleLogicalRange()
     const xLimiteDroite = logicalRange !== null
       ? (ts.logicalToCoordinate(logicalRange.to) ?? W)
       : W
 
+    // Interpolation linéaire pour convertir tout timestamp (y compris futur) en pixel X.
+    // timeToCoordinate() retourne null pour les timestamps sans donnée (futur) ;
+    // on extrapole depuis la plage visible connue.
+    const visibleRange = ts.getVisibleRange()
+    if (!visibleRange) return
+    const tsFrom = visibleRange.from as number
+    const tsTo = visibleRange.to as number
+    const xFrom = ts.timeToCoordinate(visibleRange.from as any)
+    const xTo = ts.timeToCoordinate(visibleRange.to as any)
+    if (xFrom === null || xTo === null || tsTo === tsFrom) return
+    const pixelsParSeconde = (xTo - xFrom) / (tsTo - tsFrom)
+    const xFromNum = xFrom
+
+    function tsVersX(tsSec: number): number {
+      const direct = ts.timeToCoordinate(tsSec as any)
+      if (direct !== null) return direct
+      // extrapolation : position future dans le rightbar
+      return xFromNum + (tsSec - tsFrom) * pixelsParSeconde
+    }
+
     for (const annonce of annoncesRef) {
       const tsSec = Math.floor(new Date(annonce.date_heure).getTime() / 1000)
-      const xRaw = ts.timeToCoordinate(tsSec as any)
-      if (xRaw === null || xRaw < 0 || xRaw > xLimiteDroite) continue
+      const x = Math.round(tsVersX(tsSec))
+      if (x < 0 || x > xLimiteDroite) continue
 
-      const x = Math.round(xRaw)
       const y = Y_MARQUEUR
       const estHaut = annonce.impact === 'High'
 
@@ -116,8 +134,6 @@ export function useEcoCalCanvas() {
 
       marqueursCaches.push({ x, y, annonce })
     }
-
-    void H
   }
 
   function planifierRedessiner() {
