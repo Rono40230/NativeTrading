@@ -21,7 +21,9 @@ fn pivots_hauts(slice: &[Candle], rayon: usize) -> Vec<usize> {
     for i in rayon..n.saturating_sub(rayon) {
         let h = slice[i].high;
         if slice[i.saturating_sub(rayon)..i].iter().all(|b| b.high < h)
-            && slice[i + 1..=(i + rayon).min(n - 1)].iter().all(|b| b.high < h)
+            && slice[i + 1..=(i + rayon).min(n - 1)]
+                .iter()
+                .all(|b| b.high < h)
         {
             res.push(i);
         }
@@ -36,7 +38,9 @@ fn pivots_bas(slice: &[Candle], rayon: usize) -> Vec<usize> {
     for i in rayon..n.saturating_sub(rayon) {
         let l = slice[i].low;
         if slice[i.saturating_sub(rayon)..i].iter().all(|b| b.low > l)
-            && slice[i + 1..=(i + rayon).min(n - 1)].iter().all(|b| b.low > l)
+            && slice[i + 1..=(i + rayon).min(n - 1)]
+                .iter()
+                .all(|b| b.low > l)
         {
             res.push(i);
         }
@@ -86,7 +90,7 @@ fn tous_les_swings(
 /// — sinon le plus récent tout court.
 fn dernier_swing(slice: &[Candle], rayon: usize) -> Option<(usize, usize, bool)> {
     let hauts = pivots_hauts(slice, rayon);
-    let bas   = pivots_bas(slice, rayon);
+    let bas = pivots_bas(slice, rayon);
 
     if hauts.is_empty() || bas.is_empty() {
         return None;
@@ -99,7 +103,10 @@ fn dernier_swing(slice: &[Candle], rayon: usize) -> Option<(usize, usize, bool)>
 
     // Range total du slice pour le seuil de significance
     let range_total = {
-        let h = slice.iter().map(|b| b.high).fold(f64::NEG_INFINITY, f64::max);
+        let h = slice
+            .iter()
+            .map(|b| b.high)
+            .fold(f64::NEG_INFINITY, f64::max);
         let l = slice.iter().map(|b| b.low).fold(f64::INFINITY, f64::min);
         h - l
     };
@@ -111,7 +118,7 @@ fn dernier_swing(slice: &[Candle], rayon: usize) -> Option<(usize, usize, bool)>
     }
 
     // Fallback : dernier swing disponible (micro-marché)
-    let &(d, f, haussier, _) = swings.last().unwrap();
+    let &(d, f, haussier, _) = swings.last()?;
     Some((d, f, haussier))
 }
 
@@ -128,19 +135,45 @@ pub fn calculer(bougies: &[Candle]) -> Option<NiveauxFibonacci> {
 
     let (idx_debut, idx_fin, haussier) = dernier_swing(slice, 5).or_else(|| {
         // Fallback absolu : max/min sur tout le slice avec leurs timestamps
-        let idx_h = slice.iter().enumerate()
-            .max_by(|(_, a), (_, b)| a.high.partial_cmp(&b.high).unwrap_or(std::cmp::Ordering::Equal))?.0;
-        let idx_l = slice.iter().enumerate()
-            .min_by(|(_, a), (_, b)| a.low.partial_cmp(&b.low).unwrap_or(std::cmp::Ordering::Equal))?.0;
-        if idx_l < idx_h { Some((idx_l, idx_h, true)) } else { Some((idx_h, idx_l, false)) }
+        let idx_h = slice
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| {
+                a.high
+                    .partial_cmp(&b.high)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })?
+            .0;
+        let idx_l = slice
+            .iter()
+            .enumerate()
+            .min_by(|(_, a), (_, b)| {
+                a.low
+                    .partial_cmp(&b.low)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })?
+            .0;
+        if idx_l < idx_h {
+            Some((idx_l, idx_h, true))
+        } else {
+            Some((idx_h, idx_l, false))
+        }
     })?;
 
     let (swing_haut, ts_haut, swing_bas, ts_bas) = if haussier {
-        (slice[idx_fin].high,  slice[idx_fin].timestamp.timestamp(),
-         slice[idx_debut].low, slice[idx_debut].timestamp.timestamp())
+        (
+            slice[idx_fin].high,
+            slice[idx_fin].timestamp.timestamp(),
+            slice[idx_debut].low,
+            slice[idx_debut].timestamp.timestamp(),
+        )
     } else {
-        (slice[idx_debut].high, slice[idx_debut].timestamp.timestamp(),
-         slice[idx_fin].low,   slice[idx_fin].timestamp.timestamp())
+        (
+            slice[idx_debut].high,
+            slice[idx_debut].timestamp.timestamp(),
+            slice[idx_fin].low,
+            slice[idx_fin].timestamp.timestamp(),
+        )
     };
 
     let range = swing_haut - swing_bas;
@@ -152,7 +185,7 @@ pub fn calculer(bougies: &[Candle]) -> Option<NiveauxFibonacci> {
         swing_haut,
         swing_bas,
         timestamp_haut: ts_haut,
-        timestamp_bas:  ts_bas,
+        timestamp_bas: ts_bas,
         niveau_500: swing_haut - range * 0.500,
         niveau_618: swing_haut - range * 0.618,
         niveau_786: swing_haut - range * 0.786,
@@ -198,22 +231,31 @@ mod tests {
     fn bougie_ts(high: f64, low: f64, offset_s: i64) -> common::Candle {
         let mid = (high + low) / 2.0;
         let ts = Utc::now() + chrono::Duration::seconds(offset_s);
-        common::Candle { timestamp: ts, open: mid, high, low, close: mid, volume: 1000.0 }
+        common::Candle {
+            timestamp: ts,
+            open: mid,
+            high,
+            low,
+            close: mid,
+            volume: 1000.0,
+        }
     }
 
     #[test]
     fn niveaux_calcules_correctement() {
         // Créer un pivot haut isolé puis un pivot bas isolé clairement détectables
-        let mut bougies: Vec<common::Candle> = (0..25)
-            .map(|i| bougie_ts(50.0, 40.0, i * 60))
-            .collect();
+        let mut bougies: Vec<common::Candle> =
+            (0..25).map(|i| bougie_ts(50.0, 40.0, i * 60)).collect();
         // Pivot haut à l'index 10
         bougies[10] = bougie_ts(100.0, 40.0, 10 * 60);
         // Pivot bas à l'index 20
         bougies[20] = bougie_ts(50.0, 10.0, 20 * 60);
 
         let niveaux_opt = calculer(&bougies);
-        assert!(niveaux_opt.is_some(), "calculer doit retourner Some pour 25 bougies");
+        assert!(
+            niveaux_opt.is_some(),
+            "calculer doit retourner Some pour 25 bougies"
+        );
         if let Some(niveaux) = niveaux_opt {
             assert!(niveaux.swing_haut > niveaux.swing_bas);
             assert!(niveaux.niveau_618 < niveaux.niveau_500);

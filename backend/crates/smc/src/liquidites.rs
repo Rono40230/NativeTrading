@@ -52,23 +52,28 @@ fn heure_utc(ts: i64) -> u32 {
     (ts.rem_euclid(86400) / 3600) as u32
 }
 
-/// Convertit un timestamp Unix en timestamp du début du jour UTC.
-fn debut_jour(ts: i64) -> i64 { ts - ts.rem_euclid(86400) }
-
 /// Retourne le timestamp Unix (UTC, à `heure_utc`h) du dernier dimanche du mois.
 fn dernier_dimanche(annee: i32, mois: u32, heure_utc_h: i64) -> i64 {
     let dernier_jour: u32 = match mois {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
         4 | 6 | 9 | 11 => 30,
-        2 => if (annee % 4 == 0 && annee % 100 != 0) || annee % 400 == 0 { 29 } else { 28 },
+        2 => {
+            if (annee % 4 == 0 && annee % 100 != 0) || annee % 400 == 0 {
+                29
+            } else {
+                28
+            }
+        }
         _ => 30,
     };
     // JDN du dernier jour du mois
     let a = (14 - mois as i32) / 12;
     let y = annee + 4800 - a;
     let m = mois as i32 + 12 * a - 3;
-    let jdn = dernier_jour as i64 + (153 * m as i64 + 2) / 5
-        + 365 * y as i64 + y as i64 / 4 - y as i64 / 100 + y as i64 / 400 - 32045;
+    let jdn = dernier_jour as i64 + (153 * m as i64 + 2) / 5 + 365 * y as i64 + y as i64 / 4
+        - y as i64 / 100
+        + y as i64 / 400
+        - 32045;
     let ts_dernier = (jdn - 2440588) * 86400 + heure_utc_h * 3600;
     // Jour de semaine : 0 = dimanche (epoch = jeudi = 4)
     let dow = (ts_dernier / 86400 + 4).rem_euclid(7);
@@ -80,9 +85,13 @@ fn dernier_dimanche(annee: i32, mois: u32, heure_utc_h: i64) -> i64 {
 fn offset_paris(ts: i64) -> i32 {
     // Année approximative (suffisant pour les transitions)
     let annee = (ts / 31_557_600 + 1970) as i32;
-    let debut_ete = dernier_dimanche(annee, 3, 1);  // dernier dim mars 01:00 UTC
-    let fin_ete   = dernier_dimanche(annee, 10, 1); // dernier dim oct  01:00 UTC
-    if ts >= debut_ete && ts < fin_ete { 2 } else { 1 }
+    let debut_ete = dernier_dimanche(annee, 3, 1); // dernier dim mars 01:00 UTC
+    let fin_ete = dernier_dimanche(annee, 10, 1); // dernier dim oct  01:00 UTC
+    if ts >= debut_ete && ts < fin_ete {
+        2
+    } else {
+        1
+    }
 }
 
 /// Heure locale Paris (CET/CEST) depuis un timestamp Unix.
@@ -92,35 +101,52 @@ fn heure_paris(ts: i64) -> u32 {
 
 /// Session ICT (UTC). Mutuellement exclusive par priorité décroissante.
 fn session_de(heure: u32) -> Option<&'static str> {
-    if !(7..22).contains(&heure) { Some("asie") } // Asia 22h-7h UTC
-    else { None }
+    if !(7..22).contains(&heure) {
+        Some("asie")
+    }
+    // Asia 22h-7h UTC
+    else {
+        None
+    }
 }
 
 fn est_sweep_haut(bougies: &[Candle], depuis: usize, prix: f64) -> bool {
-    bougies[depuis..].iter().any(|b| b.high > prix * (1.0 + TOLERANCE_PCT))
+    bougies[depuis..]
+        .iter()
+        .any(|b| b.high > prix * (1.0 + TOLERANCE_PCT))
 }
 
 fn est_sweep_bas(bougies: &[Candle], depuis: usize, prix: f64) -> bool {
-    bougies[depuis..].iter().any(|b| b.low < prix * (1.0 - TOLERANCE_PCT))
+    bougies[depuis..]
+        .iter()
+        .any(|b| b.low < prix * (1.0 - TOLERANCE_PCT))
 }
 
 // ─── Swings ───────────────────────────────────────────────────────────────────
 
 fn detecter_swings(bougies: &[Candle], lookback: usize) -> Vec<NiveauLiquidite> {
     let mut niveaux = Vec::new();
-    if bougies.len() < lookback * 2 + 1 { return niveaux; }
+    if bougies.len() < lookback * 2 + 1 {
+        return niveaux;
+    }
 
     for i in lookback..bougies.len().saturating_sub(lookback) {
         let b = &bougies[i];
         // BSL : swing high
         if bougies[i - lookback..i].iter().all(|x| x.high <= b.high)
-            && bougies[i + 1..=i + lookback].iter().all(|x| x.high <= b.high)
+            && bougies[i + 1..=i + lookback]
+                .iter()
+                .all(|x| x.high <= b.high)
         {
             let equal = bougies[i.saturating_sub(100)..i]
-                .iter().any(|x| (x.high - b.high).abs() / b.high.max(f64::EPSILON) <= EQUAL_PCT);
+                .iter()
+                .any(|x| (x.high - b.high).abs() / b.high.max(f64::EPSILON) <= EQUAL_PCT);
             niveaux.push(NiveauLiquidite {
-                prix: b.high, cote: "BSL".into(), categorie: "swing".into(),
-                equal, swepe: est_sweep_haut(bougies, i + 1, b.high),
+                prix: b.high,
+                cote: "BSL".into(),
+                categorie: "swing".into(),
+                equal,
+                swepe: est_sweep_haut(bougies, i + 1, b.high),
                 timestamp: b.timestamp.timestamp(),
             });
         }
@@ -129,10 +155,14 @@ fn detecter_swings(bougies: &[Candle], lookback: usize) -> Vec<NiveauLiquidite> 
             && bougies[i + 1..=i + lookback].iter().all(|x| x.low >= b.low)
         {
             let equal = bougies[i.saturating_sub(100)..i]
-                .iter().any(|x| (x.low - b.low).abs() / b.low.max(f64::EPSILON) <= EQUAL_PCT);
+                .iter()
+                .any(|x| (x.low - b.low).abs() / b.low.max(f64::EPSILON) <= EQUAL_PCT);
             niveaux.push(NiveauLiquidite {
-                prix: b.low, cote: "SSL".into(), categorie: "swing".into(),
-                equal, swepe: est_sweep_bas(bougies, i + 1, b.low),
+                prix: b.low,
+                cote: "SSL".into(),
+                categorie: "swing".into(),
+                equal,
+                swepe: est_sweep_bas(bougies, i + 1, b.low),
                 timestamp: b.timestamp.timestamp(),
             });
         }
@@ -166,13 +196,19 @@ fn detecter_sessions(bougies: &[Candle], params: &ParamsLiquidites) -> Vec<Nivea
                 if actif {
                     let suivant = sess_fin + 1;
                     niveaux.push(NiveauLiquidite {
-                        prix: sess_high, cote: "BSL".into(), categorie: cs.into(),
-                        equal: false, swepe: est_sweep_haut(bougies, suivant, sess_high),
+                        prix: sess_high,
+                        cote: "BSL".into(),
+                        categorie: cs.into(),
+                        equal: false,
+                        swepe: est_sweep_haut(bougies, suivant, sess_high),
                         timestamp: sess_debut_ts,
                     });
                     niveaux.push(NiveauLiquidite {
-                        prix: sess_low, cote: "SSL".into(), categorie: cs.into(),
-                        equal: false, swepe: est_sweep_bas(bougies, suivant, sess_low),
+                        prix: sess_low,
+                        cote: "SSL".into(),
+                        categorie: cs.into(),
+                        equal: false,
+                        swepe: est_sweep_bas(bougies, suivant, sess_low),
                         timestamp: sess_debut_ts,
                     });
                 }
@@ -199,7 +235,9 @@ fn detecter_sessions(bougies: &[Candle], params: &ParamsLiquidites) -> Vec<Nivea
 
 fn detecter_daily(bougies: &[Candle], nb_jours: usize) -> Vec<NiveauLiquidite> {
     let mut niveaux = Vec::new();
-    if bougies.is_empty() { return niveaux; }
+    if bougies.is_empty() {
+        return niveaux;
+    }
 
     let mut jours: Vec<(i64, f64, f64, usize, i64)> = Vec::new();
     for (i, b) in bougies.iter().enumerate() {
@@ -219,13 +257,19 @@ fn detecter_daily(bougies: &[Candle], nb_jours: usize) -> Vec<NiveauLiquidite> {
     for (_, high, low, fin_idx, debut_ts) in &jours[debut..n] {
         let suivant = fin_idx + 1;
         niveaux.push(NiveauLiquidite {
-            prix: *high, cote: "BSL".into(), categorie: "daily".into(),
-            equal: false, swepe: est_sweep_haut(bougies, suivant, *high),
+            prix: *high,
+            cote: "BSL".into(),
+            categorie: "daily".into(),
+            equal: false,
+            swepe: est_sweep_haut(bougies, suivant, *high),
             timestamp: *debut_ts,
         });
         niveaux.push(NiveauLiquidite {
-            prix: *low, cote: "SSL".into(), categorie: "daily".into(),
-            equal: false, swepe: est_sweep_bas(bougies, suivant, *low),
+            prix: *low,
+            cote: "SSL".into(),
+            categorie: "daily".into(),
+            equal: false,
+            swepe: est_sweep_bas(bougies, suivant, *low),
             timestamp: *debut_ts,
         });
     }
@@ -246,7 +290,11 @@ pub struct ParamsRangeAsie {
 
 impl Default for ParamsRangeAsie {
     fn default() -> Self {
-        Self { heure_debut: 20, heure_fin: 1, deviations_nb: 2 }
+        Self {
+            heure_debut: 20,
+            heure_fin: 1,
+            deviations_nb: 2,
+        }
     }
 }
 
@@ -271,8 +319,14 @@ pub struct DeviationAsie {
 
 /// Détecte les N derniers ranges de session Asie complets + la session en cours.
 /// Retourne au maximum `nb_sessions` ranges.
-pub fn detecter_ranges_asie(bougies: &[Candle], params: ParamsRangeAsie, nb_sessions: usize) -> Vec<RangeAsie> {
-    if bougies.is_empty() { return Vec::new(); }
+pub fn detecter_ranges_asie(
+    bougies: &[Candle],
+    params: ParamsRangeAsie,
+    nb_sessions: usize,
+) -> Vec<RangeAsie> {
+    if bougies.is_empty() {
+        return Vec::new();
+    }
 
     let est_asie = |ts: i64| -> bool {
         let heure = heure_paris(ts);
@@ -309,10 +363,24 @@ pub fn detecter_ranges_asie(bougies: &[Candle], params: ParamsRangeAsie, nb_sess
             let mut deviations = Vec::new();
             for n in 1..=params.deviations_nb {
                 let nf = n as f64;
-                deviations.push(DeviationAsie { prix: haut + nf * hauteur, direction: "H".into(), numero: n as u32 });
-                deviations.push(DeviationAsie { prix: bas - nf * hauteur, direction: "L".into(), numero: n as u32 });
+                deviations.push(DeviationAsie {
+                    prix: haut + nf * hauteur,
+                    direction: "H".into(),
+                    numero: n as u32,
+                });
+                deviations.push(DeviationAsie {
+                    prix: bas - nf * hauteur,
+                    direction: "L".into(),
+                    numero: n as u32,
+                });
             }
-            sessions.push(RangeAsie { timestamp_debut: debut_ts, timestamp_fin: fin_ts, haut, bas, deviations });
+            sessions.push(RangeAsie {
+                timestamp_debut: debut_ts,
+                timestamp_fin: fin_ts,
+                haut,
+                bas,
+                deviations,
+            });
             haut = f64::NEG_INFINITY;
             bas = f64::INFINITY;
         }
@@ -324,10 +392,24 @@ pub fn detecter_ranges_asie(bougies: &[Candle], params: ParamsRangeAsie, nb_sess
         let mut deviations = Vec::new();
         for n in 1..=params.deviations_nb {
             let nf = n as f64;
-            deviations.push(DeviationAsie { prix: haut + nf * hauteur, direction: "H".into(), numero: n as u32 });
-            deviations.push(DeviationAsie { prix: bas - nf * hauteur, direction: "L".into(), numero: n as u32 });
+            deviations.push(DeviationAsie {
+                prix: haut + nf * hauteur,
+                direction: "H".into(),
+                numero: n as u32,
+            });
+            deviations.push(DeviationAsie {
+                prix: bas - nf * hauteur,
+                direction: "L".into(),
+                numero: n as u32,
+            });
         }
-        sessions.push(RangeAsie { timestamp_debut: debut_ts, timestamp_fin: fin_ts, haut, bas, deviations });
+        sessions.push(RangeAsie {
+            timestamp_debut: debut_ts,
+            timestamp_fin: fin_ts,
+            haut,
+            bas,
+            deviations,
+        });
     }
 
     // Conserver uniquement les N dernières sessions
@@ -338,12 +420,18 @@ pub fn detecter_ranges_asie(bougies: &[Candle], params: ParamsRangeAsie, nb_sess
 // ─── Point d'entrée public ────────────────────────────────────────────────────
 
 pub fn detecter(bougies: &[Candle], params: ParamsLiquidites) -> Vec<NiveauLiquidite> {
-    if bougies.is_empty() { return Vec::new(); }
+    if bougies.is_empty() {
+        return Vec::new();
+    }
     let prix_actuel = bougies.last().map(|b| b.close).unwrap_or(0.0);
     let mut niveaux: Vec<NiveauLiquidite> = Vec::new();
 
     if params.swings_actif {
-        niveaux.extend(detecter_swings(bougies, params.swing_lookback).into_iter().filter(|n| n.equal));
+        niveaux.extend(
+            detecter_swings(bougies, params.swing_lookback)
+                .into_iter()
+                .filter(|n| n.equal),
+        );
     }
     if params.sessions_actif {
         niveaux.extend(detecter_sessions(bougies, &params));
@@ -359,9 +447,8 @@ pub fn detecter(bougies: &[Candle], params: ParamsLiquidites) -> Vec<NiveauLiqui
         let sb = if b.swepe { db * 2.0 } else { db };
         sa.partial_cmp(&sb).unwrap_or(std::cmp::Ordering::Equal)
     });
-    niveaux.dedup_by(|a, b| {
-        (a.prix - b.prix).abs() / b.prix.max(f64::EPSILON) < TOLERANCE_PCT * 2.0
-    });
+    niveaux
+        .dedup_by(|a, b| (a.prix - b.prix).abs() / b.prix.max(f64::EPSILON) < TOLERANCE_PCT * 2.0);
     niveaux.truncate(25);
     niveaux
 }

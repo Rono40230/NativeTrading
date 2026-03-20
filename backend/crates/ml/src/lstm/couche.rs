@@ -25,7 +25,12 @@ impl CoucheLstm {
         for b in biais[cachee..2 * cachee].iter_mut() {
             *b = 1.0;
         }
-        Self { poids, biais, entree, cachee }
+        Self {
+            poids,
+            biais,
+            entree,
+            cachee,
+        }
     }
 
     /// Passe avant avec enregistrement des états intermédiaires (pour BPTT)
@@ -51,8 +56,17 @@ impl CoucheLstm {
         let tanh_c: Vec<f64> = c_new.iter().map(|&v| v.tanh()).collect();
         let h_new: Vec<f64> = (0..hi).map(|k| og[k] * tanh_c[k]).collect();
 
-        EtatLstm { x: x.to_vec(), h_prev: h.to_vec(), c_prev: c.to_vec(),
-            i: ig, f: fg, g: gg, o: og, c: c_new, h: h_new }
+        EtatLstm {
+            x: x.to_vec(),
+            h_prev: h.to_vec(),
+            c_prev: c.to_vec(),
+            i: ig,
+            f: fg,
+            g: gg,
+            o: og,
+            c: c_new,
+            h: h_new,
+        }
     }
 
     pub(super) fn step(&self, x: &[f64], h: &[f64], c: &[f64]) -> (Vec<f64>, Vec<f64>) {
@@ -119,8 +133,13 @@ impl CoucheLstm {
 
         let dc_prev: Vec<f64> = (0..hi).map(|k| dc[k] * etat.f[k]).collect();
 
-        let d_portes: Vec<f64> = di.iter().chain(df.iter()).chain(dg.iter()).chain(do_.iter())
-            .copied().collect();
+        let d_portes: Vec<f64> = di
+            .iter()
+            .chain(df.iter())
+            .chain(dg.iter())
+            .chain(do_.iter())
+            .copied()
+            .collect();
         let xh: Vec<f64> = etat.x.iter().chain(etat.h_prev.iter()).copied().collect();
 
         let mut d_xh = vec![0.0f64; cols];
@@ -152,14 +171,29 @@ impl CoucheLinSortie {
     pub(super) fn nouveau(entree: usize, g: &mut u64) -> Self {
         let scale = (2.0 / entree as f64).sqrt();
         let poids = (0..N_CLASSES)
-            .map(|_| (0..entree).map(|_| (lcg_next(g) * 2.0 - 1.0) * scale).collect())
+            .map(|_| {
+                (0..entree)
+                    .map(|_| (lcg_next(g) * 2.0 - 1.0) * scale)
+                    .collect()
+            })
             .collect();
-        Self { poids, biais: vec![0.0; N_CLASSES] }
+        Self {
+            poids,
+            biais: vec![0.0; N_CLASSES],
+        }
     }
 
     pub(super) fn avant(&self, x: &[f64]) -> Vec<f64> {
-        self.poids.iter().zip(self.biais.iter())
-            .map(|(row, &b)| row.iter().zip(x.iter()).map(|(&w, &xi)| w * xi).sum::<f64>() + b)
+        self.poids
+            .iter()
+            .zip(self.biais.iter())
+            .map(|(row, &b)| {
+                row.iter()
+                    .zip(x.iter())
+                    .map(|(&w, &xi)| w * xi)
+                    .sum::<f64>()
+                    + b
+            })
             .collect()
     }
 }

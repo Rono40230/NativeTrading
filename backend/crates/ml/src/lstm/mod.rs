@@ -72,20 +72,19 @@ impl ModeleHybrideLstm {
             }
             acc = correct as f64 / sequences.len() as f64;
             if epoch > 0 && epoch % 5 == 0 {
-                tracing::debug!("LSTM BPTT epoch {}/{}: acc={:.1}%", epoch + 1, epochs, acc * 100.0);
+                tracing::debug!(
+                    "LSTM BPTT epoch {}/{}: acc={:.1}%",
+                    epoch + 1,
+                    epochs,
+                    acc * 100.0
+                );
             }
         }
         self.entraine = true;
         acc
     }
 
-    fn entrainer_un_exemple(
-        &mut self,
-        seq: &[Vec<f64>],
-        label: f64,
-        lr: f64,
-        correct: &mut usize,
-    ) {
+    fn entrainer_un_exemple(&mut self, seq: &[Vec<f64>], label: f64, lr: f64, correct: &mut usize) {
         let y = usize::from(label >= 0.5);
 
         let etats_l1 = self.l1.forward_complet(seq);
@@ -93,7 +92,10 @@ impl ModeleHybrideLstm {
         let etats_l2 = self.l2.forward_complet(&h1_seq);
         let h2_seq: Vec<Vec<f64>> = etats_l2.iter().map(|e| e.h.clone()).collect();
         let etats_l3 = self.l3.forward_complet(&h2_seq);
-        let h3_final = etats_l3.last().map(|e| e.h.clone()).unwrap_or_else(|| vec![0.0; L3]);
+        let h3_final = etats_l3
+            .last()
+            .map(|e| e.h.clone())
+            .unwrap_or_else(|| vec![0.0; L3]);
 
         let logits = self.sortie.avant(&h3_final);
         let proba = softmax(&logits);
@@ -117,7 +119,11 @@ impl ModeleHybrideLstm {
         let mut dc3 = vec![0.0f64; L3];
         let mut dh2_seq = vec![vec![0.0f64; L2]; etats_l2.len()];
         for t in (0..etats_l3.len()).rev() {
-            let dh3_t = if t == etats_l3.len() - 1 { dh3.clone() } else { vec![0.0f64; L3] };
+            let dh3_t = if t == etats_l3.len() - 1 {
+                dh3.clone()
+            } else {
+                vec![0.0f64; L3]
+            };
             let (dh2_t, dc3_t) = self.l3.bptt_step(&etats_l3[t], &dh3_t, &dc3, lr);
             dc3 = dc3_t;
             if t < dh2_seq.len() {
@@ -142,8 +148,6 @@ impl ModeleHybrideLstm {
             let (_dx, dc1_t) = self.l1.bptt_step(&etats_l1[t], &dh1_seq[t], &dc1, lr);
             dc1 = dc1_t;
         }
-
-
     }
 
     pub fn est_pret(&self) -> bool {

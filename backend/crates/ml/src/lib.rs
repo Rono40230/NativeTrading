@@ -36,7 +36,10 @@ impl PipelineML {
                 true
             }
             Err(e) => {
-                tracing::debug!("RF non chargé depuis disque (normal au 1er démarrage): {}", e);
+                tracing::debug!(
+                    "RF non chargé depuis disque (normal au 1er démarrage): {}",
+                    e
+                );
                 false
             }
         };
@@ -198,13 +201,23 @@ mod tests {
     use common::Candle;
 
     fn bougie(c: f64) -> Candle {
-        Candle { timestamp: Utc::now(), open: c, high: c + 1.0, low: c - 1.0, close: c, volume: 100.0 }
+        Candle {
+            timestamp: Utc::now(),
+            open: c,
+            high: c + 1.0,
+            low: c - 1.0,
+            close: c,
+            volume: 100.0,
+        }
     }
 
     #[test]
     fn pipeline_nouveau_non_pret() {
         let pipeline = PipelineML::new();
-        assert!(!pipeline.est_pret(), "Un pipeline non entraîné ne doit pas être prêt");
+        assert!(
+            !pipeline.est_pret(),
+            "Un pipeline non entraîné ne doit pas être prêt"
+        );
     }
 
     #[test]
