@@ -1,7 +1,7 @@
 use super::{Signal, Strategy};
 use common::{Candle, Direction, Result};
 use indicators::calculer_atr;
-use smc::scorer;
+use smc::{kill_zone, scorer, sweep};
 
 /// Multiplicateurs ATR pour TP / SL
 const ATR_TP1: f64 = 1.5;
@@ -19,6 +19,20 @@ pub struct SmcDirectionalStrategy;
 impl Strategy for SmcDirectionalStrategy {
     fn analyze(&self, bougies: &[Candle]) -> Result<Option<Signal>> {
         if bougies.len() < 30 {
+            return Ok(None);
+        }
+
+        // Kill Zone ICT — condition préalable absolue (London 07h-10h / NY 13h30-16h30 UTC)
+        let last_ts = match bougies.last() {
+            Some(b) => b.timestamp,
+            None => return Ok(None),
+        };
+        if !kill_zone::est_en_kill_zone(last_ts) {
+            return Ok(None);
+        }
+
+        // Liquidity Sweep — faux breakout d'un swing high/low requis
+        if sweep::detecter_sweep(bougies).is_none() {
             return Ok(None);
         }
 

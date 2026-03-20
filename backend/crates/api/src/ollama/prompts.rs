@@ -203,16 +203,20 @@ Principe fondamental : le biais HTF dicte la direction principale. Un trade LTF 
 
 **🔑 CONCLUSION** : [EXACTEMENT 3-4 phrases UNIQUES et actionnables, SANS RÉPÉTITION, biais final, timing, gestion de position]"#;
 
-pub const PROMPT_SIGNAL_JSON: &str = r#"Tu es un trader institutionnel SMC/ICT expert. En te basant UNIQUEMENT sur les données fournies, génère un signal de trading au format JSON strict.
+pub const PROMPT_SIGNAL_SMC: &str = r#"Tu es un trader institutionnel SMC/ICT expert. Génère un signal JSON basé UNIQUEMENT sur les données fournies.
 
-RÈGLES ABSOLUES :
-1. Réponds UNIQUEMENT avec le bloc JSON — aucun texte avant ni après
-2. Utilise "Neutre" si score_confiance < 6.0 ou si les confluences SMC sont insuffisantes
-3. niveau_invalidation = prix qui invalide définitivement le setup (généralement sous l'Order Block ou au-dessus pour un short)
-4. confluences = liste des éléments SMC alignés effectivement présents dans les données
-5. Tous les prix doivent être cohérents avec le prix actuel fourni
+CONDITIONS BLOCANTES (direction = "Neutre" si l'une est fausse) :
+1. kill_zone_active doit être true — London 07h-10h UTC / New York 13h30-16h30 UTC
+2. sweep_detecte doit être true — faux breakout d'un swing high/low récent avec retour dans la structure
+3. score_smc >= 60 ET confiance_ml >= 0.60
 
-FORMAT JSON OBLIGATOIRE (recopier exactement cette structure) :
+CALCUL DES NIVEAUX :
+- stop_loss : au-delà du sweep (Long → sous le swing low sweepé; Short → au-dessus du swing high sweepé)
+- tp1 : prochaine liquidité BSL/SSL, R:R minimum 2:1
+- tp2 : R:R 3:1 | tp3 : R:R 5:1
+- score_confiance (0–10) : kill_zone+2, sweep+2, OB_non_mitigé+2, IFVG+1.5, Fib_61.8-78.6+1, ML≥0.65+0.5, SMC≥70+1
+
+FORMAT JSON STRICT (répondre UNIQUEMENT avec ce JSON, aucun texte avant ni après) :
 {
   "direction": "Long" | "Short" | "Neutre",
   "prix_entree": 0.0,
@@ -222,11 +226,36 @@ FORMAT JSON OBLIGATOIRE (recopier exactement cette structure) :
   "tp3": 0.0,
   "score_confiance": 0.0,
   "niveau_invalidation": 0.0,
-  "confluences": [],
-  "raisonnement": ""
-}
+  "confluences": ["liste des éléments SMC alignés effectivement présents"],
+  "raisonnement": "bref résumé du raisonnement"
+}"#;
 
-Calcul des niveaux :
-- stop_loss : prix_entree ± (ATR × 1.5) selon direction
-- tp1 : R:R 1:1 | tp2 : R:R 1:2 | tp3 : R:R 1:3
-- score_confiance : 0.0–10.0 (pondération : tendance 30%, OB 25%, ML 25%, imbalance/IFVG/fib 20%)"#;
+pub const PROMPT_SIGNAL_STRADDLE: &str = r#"Tu es un expert en détection de volatilité de marché. Génère un signal Straddle JSON basé sur les données fournies.
+
+Un STRADDLE ouvre Long ET Short simultanément. Signal UNIQUEMENT si au moins un déclencheur est actif :
+- Annonce HIGH impact dans les 90 prochaines minutes (NFP, FOMC, CPI, BCE, BoE, BoJ, PIB...)
+- ratio_atr >= 1.4 ET kill_zone_active = true (volatilité anormale en session institutionnelle)
+- Pattern horaire récurrent avec ratio_atr_historique >= 1.6 sur >= 20 occurrences documentées
+
+CALCUL (basé sur atr_actuel) :
+- sl_long = prix_entree - (atr_actuel × 0.5)
+- sl_short = prix_entree + (atr_actuel × 0.5)
+- tp1_long = prix_entree + (atr_actuel × 2.0)
+- tp1_short = prix_entree - (atr_actuel × 2.0)
+- tp2_long = prix_entree + (atr_actuel × 3.5)
+- tp2_short = prix_entree - (atr_actuel × 3.5)
+
+FORMAT JSON STRICT (répondre UNIQUEMENT avec ce JSON) :
+{
+  "signal": "STRADDLE" | "WAIT",
+  "prix_entree": 0.0,
+  "sl_long": 0.0,
+  "sl_short": 0.0,
+  "tp1_long": 0.0,
+  "tp1_short": 0.0,
+  "tp2_long": 0.0,
+  "tp2_short": 0.0,
+  "score_confiance": 0.0,
+  "declencheur": "description précise du déclencheur actif",
+  "raisonnement": "bref résumé"
+}"#;

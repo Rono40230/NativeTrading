@@ -161,6 +161,17 @@
 - [x] Endpoint `POST /api/ia/signal` — parse JSON LLM → construit `common::Signal` injecté dans le pipeline (`strategie = "SMC-IA"`)
 - [ ] Test A/B — **reporté à S19** (nécessite données historiques massives S19 — collecte)
 
+#### Semaine 18d: Mise à niveau prompts + Kill Zone filter + Liquidity Sweep
+> Carences identifiées lors de l'analyse comparative des prompts SMC/Straddle (20 mars 2026)
+> Prérequis pour S19-S21 : sans ces filtres, les signaux entraînés contiennent du bruit hors-session
+
+- [ ] **promptSMC.md → `PROMPT_SIGNAL_SMC`** : remplacer `PROMPT_SIGNAL_JSON` dans `ollama/prompts.rs` par le prompt complet (12 modules ICT, format d'entrée/sortie JSON aligné sur `common::Signal`, 8 règles absolues)
+- [ ] **promptSTRADDLE.md → `PROMPT_SIGNAL_STRADDLE`** : nouveau prompt dans `ollama/prompts.rs`, 3 déclencheurs (annonce HIGH impact / ATR ratio ≥1.4 / pattern récurrent), output `direction = "Both"`
+- [ ] **Kill Zone filter** (`smc/src/kill_zone.rs`) : fonction `est_en_kill_zone(timestamp_utc) -> bool` — London 07h-10h UTC, NY 13h30-16h30 UTC, Macros ICT ±10min. Appelée avant tout signal SMC et Straddle.
+- [ ] **Liquidity Sweep detector** (`smc/src/sweep.rs`) : détection faux breakout — bougie clôture au-delà d'un BSL/SSL + bougie suivante clôture en retour dans la structure. Condition préalable obligatoire au signal SMC.
+- [ ] **Endpoint `POST /api/ia/signal/straddle`** : distinct de `/api/ia/signal`, injecte `PROMPT_SIGNAL_STRADDLE` + contexte ATR + annonces imminentes (`/api/calendar`), retourne `strategie = "Straddle"`
+- [ ] Kill Zone et Sweep intégrés dans `SmcDirectionalStrategy::analyze()` comme garde-fous pre-signal
+
 ---
 
 ### ✦ COMPLEXITÉ 4 — Endpoint API + composant frontend
@@ -211,6 +222,7 @@
 
 #### Semaine 21: Détection automatique de volatilités récurrentes (Straddle IA)
 > Dépend de la collecte S19 — nécessite 6 mois d'historique minimum
+> Le prompt Straddle définitif (`promptSTRADDLE.md`) est prêt — S21 l'alimente en données historiques
 
 - [ ] Analyse distribution ATR par heure du jour et jour de la semaine
 - [ ] Identification patterns récurrents : ouvertures marché, annonces économiques

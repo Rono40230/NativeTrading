@@ -2,7 +2,7 @@ mod prompts;
 mod types;
 
 use common::TradingError;
-pub use prompts::PROMPT_SIGNAL_JSON;
+pub use prompts::{PROMPT_SIGNAL_SMC, PROMPT_SIGNAL_STRADDLE};
 use prompts::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF, SYSTEM_PROMPT};
 use types::{MessageOllama, ReponseOllama, RequeteOllama, MODELE_DEFAUT, OLLAMA_URL};
 

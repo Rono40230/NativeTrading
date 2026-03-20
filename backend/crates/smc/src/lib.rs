@@ -5,10 +5,12 @@ pub mod bpr;
 pub mod fibonacci;
 pub mod ifvg;
 pub mod imbalance;
+pub mod kill_zone;
 pub mod liquidites;
 pub mod liquidites_range;
 pub mod liquidites_tz;
 pub mod order_blocks;
+pub mod sweep;
 pub mod tendances;
 
 pub use bpr::Bpr;

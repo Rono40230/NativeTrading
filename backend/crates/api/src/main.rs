@@ -18,6 +18,7 @@ mod news_scraper;
 mod news_traduction;
 mod sentiment_handlers;
 mod smc_handlers;
+mod straddle_handlers;
 mod state;
 mod tendance_handlers;
 mod utils;
@@ -96,6 +97,10 @@ async fn main() -> std::io::Result<()> {
             .route(
                 "/api/ia/signal",
                 web::post().to(ollama_handlers::generer_signal),
+            )
+            .route(
+                "/api/ia/signal/straddle",
+                web::post().to(straddle_handlers::generer_signal_straddle),
             )
             .route("/api/config", web::get().to(config_handlers::get_config))
             .route("/api/config", web::post().to(config_handlers::post_config))

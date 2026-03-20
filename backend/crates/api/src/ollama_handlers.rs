@@ -157,13 +157,16 @@ pub async fn generer_signal(body: web::Json<RequeteSignalIA>) -> impl Responder 
     use common::{Asset, Direction, Signal, Timeframe};
     let prompt = format!(
         "{}\n\nAsset: {} {}\nPrix actuel: {:.5} | ATR: {:.5}\n\
+        kill_zone_active: {} | sweep_detecte: {}\n\
         SMC: Tendance={:.1} OB={:.1} Imbalance={:.1} IFVG={:.1} Fib={:.1}\n\
         ML confiance={:.1}% | Score SMC total={:.1}/100",
-        crate::ollama::PROMPT_SIGNAL_JSON,
+        crate::ollama::PROMPT_SIGNAL_SMC,
         body.asset,
         body.timeframe,
         body.prix_actuel,
         body.atr,
+        body.kill_zone_active.unwrap_or_else(|| smc::kill_zone::est_en_kill_zone(chrono::Utc::now())),
+        body.sweep_detecte.unwrap_or(false),
         body.tendance,
         body.order_block,
         body.imbalance,
