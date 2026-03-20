@@ -12,7 +12,7 @@ pub fn calculer_atr(bougies: &[Candle], periode: usize) -> Vec<f64> {
         .map(|i| {
             let hl = bougies[i].high - bougies[i].low;
             let hc = (bougies[i].high - bougies[i - 1].close).abs();
-            let lc = (bougies[i].low  - bougies[i - 1].close).abs();
+            let lc = (bougies[i].low - bougies[i - 1].close).abs();
             hl.max(hc).max(lc)
         })
         .collect();

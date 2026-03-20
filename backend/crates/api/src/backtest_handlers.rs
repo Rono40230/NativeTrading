@@ -41,7 +41,11 @@ pub async fn run_backtest(
         strategie
     );
 
-    let bougies = match state.db.obtenir_bougies(&asset, &timeframe, limit as i64).await {
+    let bougies = match state
+        .db
+        .obtenir_bougies(&asset, &timeframe, limit as i64)
+        .await
+    {
         Ok(b) if b.len() >= 30 => b,
         _ => {
             return HttpResponse::Ok().json(serde_json::json!({

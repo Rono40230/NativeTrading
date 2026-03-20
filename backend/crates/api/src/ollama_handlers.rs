@@ -3,8 +3,8 @@ use serde::Deserialize;
 
 use crate::ollama;
 use crate::ollama_types::{
-    ReponseAnalyse, ReponseChartAnalyse, ReponseChat, ReponseSignalIA,
-    RequeteAnalyse, RequeteChartAnalyse, RequeteChat, RequeteSignalIA, StatutIA,
+    ReponseAnalyse, ReponseChartAnalyse, ReponseChat, ReponseSignalIA, RequeteAnalyse,
+    RequeteChartAnalyse, RequeteChat, RequeteSignalIA, StatutIA,
 };
 
 // ─── POST /api/ia/analyse ─────────────────────────────────────────────────────

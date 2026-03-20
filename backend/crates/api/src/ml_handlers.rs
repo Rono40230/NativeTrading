@@ -29,8 +29,7 @@ pub async fn entrainer_ml(
     query: web::Query<EntrainementQuery>,
     state: web::Data<AppState>,
 ) -> impl Responder {
-    let asset = parse_asset(query.asset.as_deref().unwrap_or("BTC"))
-        .unwrap_or(Asset::BTC);
+    let asset = parse_asset(query.asset.as_deref().unwrap_or("BTC")).unwrap_or(Asset::BTC);
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
     let limit = query.limit.unwrap_or(1000).min(2000) as usize;
 
@@ -43,11 +42,15 @@ pub async fn entrainer_ml(
     let debut = Instant::now();
 
     // Récupération des bougies depuis la DB (IB Gateway les y aura insérées)
-    let bougies = match state.db.obtenir_bougies(
-        &parse_asset(query.asset.as_deref().unwrap_or("XAUUSD")).unwrap_or(Asset::XAUUSD),
-        &parse_timeframe(query.timeframe.as_deref().unwrap_or("M15")),
-        limit as i64,
-    ).await {
+    let bougies = match state
+        .db
+        .obtenir_bougies(
+            &parse_asset(query.asset.as_deref().unwrap_or("XAUUSD")).unwrap_or(Asset::XAUUSD),
+            &parse_timeframe(query.timeframe.as_deref().unwrap_or("M15")),
+            limit as i64,
+        )
+        .await
+    {
         Ok(b) if b.len() >= 100 => b,
         Ok(b) => {
             return HttpResponse::BadRequest().json(serde_json::json!({

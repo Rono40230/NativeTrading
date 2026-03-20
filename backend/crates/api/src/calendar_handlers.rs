@@ -100,12 +100,7 @@ pub async fn get_calendar(
             if dt_utc < maintenant {
                 continue;
             }
-            let id = format!(
-                "{}-{}-{}",
-                dt_utc.timestamp(),
-                ev.country,
-                ev.title.len()
-            );
+            let id = format!("{}-{}-{}", dt_utc.timestamp(), ev.country, ev.title.len());
             toutes.push(serde_json::json!({
                 "id":        id,
                 "date_heure": dt_utc.to_rfc3339(),

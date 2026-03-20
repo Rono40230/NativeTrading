@@ -27,14 +27,14 @@ pub fn parse_asset(s: &str) -> Option<Asset> {
 /// Parse un timeframe avec M15 comme valeur par défaut.
 pub fn parse_timeframe(s: &str) -> Timeframe {
     match s {
-        "M1"  => Timeframe::M1,
-        "M5"  => Timeframe::M5,
+        "M1" => Timeframe::M1,
+        "M5" => Timeframe::M5,
         "M15" => Timeframe::M15,
         "M30" => Timeframe::M30,
-        "H1"  => Timeframe::H1,
-        "H4"  => Timeframe::H4,
-        "D1"  => Timeframe::D1,
-        "W1"  => Timeframe::W1,
+        "H1" => Timeframe::H1,
+        "H4" => Timeframe::H4,
+        "D1" => Timeframe::D1,
+        "W1" => Timeframe::W1,
         _ => Timeframe::M15,
     }
 }

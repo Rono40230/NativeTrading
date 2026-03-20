@@ -13,20 +13,22 @@ impl BinanceProvider {
         match asset {
             Asset::BTC => Ok("BTCUSDT"),
             Asset::ETH => Ok("ETHUSDT"),
-            _ => Err(TradingError::Data("BinanceProvider ne supporte que BTC et ETH".into())),
+            _ => Err(TradingError::Data(
+                "BinanceProvider ne supporte que BTC et ETH".into(),
+            )),
         }
     }
 
     fn interval(tf: &Timeframe) -> &'static str {
         match tf {
-            Timeframe::M1  => "1m",
-            Timeframe::M5  => "5m",
+            Timeframe::M1 => "1m",
+            Timeframe::M5 => "5m",
             Timeframe::M15 => "15m",
             Timeframe::M30 => "30m",
-            Timeframe::H1  => "1h",
-            Timeframe::H4  => "4h",
-            Timeframe::D1  => "1d",
-            Timeframe::W1  => "1w",
+            Timeframe::H1 => "1h",
+            Timeframe::H4 => "4h",
+            Timeframe::D1 => "1d",
+            Timeframe::W1 => "1w",
         }
     }
 }
@@ -142,7 +144,12 @@ impl DataProvider for BinanceProvider {
         let debut = toutes.len().saturating_sub(limit);
         let bougies = toutes.into_iter().skip(debut).collect::<Vec<_>>();
 
-        tracing::info!("Binance: {} bougies {} pour {}", bougies.len(), interval, symbole);
+        tracing::info!(
+            "Binance: {} bougies {} pour {}",
+            bougies.len(),
+            interval,
+            symbole
+        );
         Ok(bougies)
     }
 }

@@ -12,13 +12,19 @@ pub fn calculer_rsi(bougies: &[Candle], periode: usize) -> Vec<f64> {
     let gains_pertes: Vec<(f64, f64)> = (1..n)
         .map(|i| {
             let diff = closes[i] - closes[i - 1];
-            if diff > 0.0 { (diff, 0.0) } else { (0.0, -diff) }
+            if diff > 0.0 {
+                (diff, 0.0)
+            } else {
+                (0.0, -diff)
+            }
         })
         .collect();
 
     let (mut avg_gain, mut avg_perte) = {
-        let gains: f64 = gains_pertes[..periode].iter().map(|(g, _)| g).sum::<f64>() / periode as f64;
-        let pertes: f64 = gains_pertes[..periode].iter().map(|(_, p)| p).sum::<f64>() / periode as f64;
+        let gains: f64 =
+            gains_pertes[..periode].iter().map(|(g, _)| g).sum::<f64>() / periode as f64;
+        let pertes: f64 =
+            gains_pertes[..periode].iter().map(|(_, p)| p).sum::<f64>() / periode as f64;
         (gains, pertes)
     };
 

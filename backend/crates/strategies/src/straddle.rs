@@ -119,11 +119,25 @@ mod tests {
     use common::Candle;
 
     fn bougie_plate(c: f64) -> Candle {
-        Candle { timestamp: Utc::now(), open: c, high: c + 1.0, low: c - 1.0, close: c, volume: 1000.0 }
+        Candle {
+            timestamp: Utc::now(),
+            open: c,
+            high: c + 1.0,
+            low: c - 1.0,
+            close: c,
+            volume: 1000.0,
+        }
     }
 
     fn bougie_volatile(c: f64, range: f64) -> Candle {
-        Candle { timestamp: Utc::now(), open: c, high: c + range, low: c - range, close: c, volume: 5000.0 }
+        Candle {
+            timestamp: Utc::now(),
+            open: c,
+            high: c + range,
+            low: c - range,
+            close: c,
+            volume: 5000.0,
+        }
     }
 
     #[test]

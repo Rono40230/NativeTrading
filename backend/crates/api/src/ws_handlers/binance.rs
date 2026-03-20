@@ -13,16 +13,19 @@ pub(super) fn binance_stream_url(asset: &common::Asset, tf: &common::Timeframe) 
         _ => "btcusdt",
     };
     let interval = match tf {
-        common::Timeframe::M1  => "1m",
-        common::Timeframe::M5  => "5m",
+        common::Timeframe::M1 => "1m",
+        common::Timeframe::M5 => "5m",
         common::Timeframe::M15 => "15m",
         common::Timeframe::M30 => "30m",
-        common::Timeframe::H1  => "1h",
-        common::Timeframe::H4  => "4h",
-        common::Timeframe::D1  => "1d",
-        common::Timeframe::W1  => "1w",
+        common::Timeframe::H1 => "1h",
+        common::Timeframe::H4 => "4h",
+        common::Timeframe::D1 => "1d",
+        common::Timeframe::W1 => "1w",
     };
-    format!("wss://stream.binance.com:9443/ws/{}@kline_{}", symbol, interval)
+    format!(
+        "wss://stream.binance.com:9443/ws/{}@kline_{}",
+        symbol, interval
+    )
 }
 
 pub(super) async fn stream_binance(
@@ -56,7 +59,8 @@ pub(super) async fn stream_binance(
     };
 
     let (_, mut binance_rx) = ws_stream.split();
-    let ok = serde_json::json!({ "type": "connected", "asset": asset_str, "timeframe": timeframe_str });
+    let ok =
+        serde_json::json!({ "type": "connected", "asset": asset_str, "timeframe": timeframe_str });
     if let Ok(p) = serde_json::to_string(&ok) {
         let _ = session.text(p).await;
     }

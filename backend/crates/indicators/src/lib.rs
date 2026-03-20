@@ -1,24 +1,24 @@
-pub mod signaux;
-pub mod tendance;
-mod sma_ema;
-mod rsi;
 mod atr;
-mod macd;
 mod bollinger;
+mod macd;
+mod rsi;
+pub mod signaux;
+mod sma_ema;
 mod supertrend;
+pub mod tendance;
 
-pub use sma_ema::{calculer_sma, calculer_ema};
-pub use rsi::calculer_rsi;
 pub use atr::calculer_atr;
-pub use macd::{Macd, calculer_macd};
-pub use bollinger::{Bollinger, calculer_bollinger, calculer_bollinger_avance};
-pub use supertrend::{ResultatSupertrend, calculer_supertrend};
+pub use bollinger::{calculer_bollinger, calculer_bollinger_avance, Bollinger};
+pub use macd::{calculer_macd, Macd};
+pub use rsi::calculer_rsi;
+pub use sma_ema::{calculer_ema, calculer_sma};
+pub use supertrend::{calculer_supertrend, ResultatSupertrend};
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common::Candle;
     use chrono::Utc;
+    use common::Candle;
 
     fn bougie(close: f64, high: f64, low: f64) -> Candle {
         Candle {

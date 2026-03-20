@@ -1,9 +1,12 @@
 use actix_web::{web, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 
-use data::{providers::{BinanceProvider, IbGatewayProvider}, DataProvider};
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};
+use data::{
+    providers::{BinanceProvider, IbGatewayProvider},
+    DataProvider,
+};
 use indicators::calculer_ema;
 
 // ─── Query params ─────────────────────────────────────────────────────────────
@@ -41,7 +44,11 @@ impl ModeCalcul {
         match self {
             Self::BougieEnCours => Some(longueur - 1),
             Self::BougieCloturee => {
-                if longueur >= 2 { Some(longueur - 2) } else { None }
+                if longueur >= 2 {
+                    Some(longueur - 2)
+                } else {
+                    None
+                }
             }
         }
     }
@@ -78,26 +85,26 @@ pub struct ReponseTendanceMultiTf {
 // ─── Timeframes analysés ──────────────────────────────────────────────────────
 
 const TIMEFRAMES_ANALYSE: &[(&str, u32)] = &[
-    ("1m",  1),
-    ("5m",  10),
+    ("1m", 1),
+    ("5m", 10),
     ("15m", 21),
     ("30m", 35),
-    ("1H",  42),
-    ("4H",  60),
-    ("1D",  100),
+    ("1H", 42),
+    ("4H", 60),
+    ("1D", 100),
 ];
 
 /// Mappe label affiché → code Timeframe DB
 fn label_vers_tf(label: &str) -> &'static str {
     match label {
-        "1m"  => "M1",
-        "5m"  => "M5",
+        "1m" => "M1",
+        "5m" => "M5",
         "15m" => "M15",
         "30m" => "M30",
-        "1H"  => "H1",
-        "4H"  => "H4",
-        "1D"  => "D1",
-        _     => "M15",
+        "1H" => "H1",
+        "4H" => "H4",
+        "1D" => "D1",
+        _ => "M15",
     }
 }
 
@@ -120,7 +127,7 @@ pub async fn tendance_multi_tf(
     };
 
     let ema_rapide = query.ema_rapide.unwrap_or(9).max(1);
-    let ema_lente  = query.ema_lente.unwrap_or(21).max(2);
+    let ema_lente = query.ema_lente.unwrap_or(21).max(2);
     let mode_calcul = ModeCalcul::depuis_query(query.mode_calcul.as_deref());
 
     // L'EMA a besoin d'au moins ema_lente bougies pour converger.
@@ -131,10 +138,14 @@ pub async fn tendance_multi_tf(
 
     for &(label, _) in TIMEFRAMES_ANALYSE {
         let tf_code = label_vers_tf(label);
-        let tf      = parse_timeframe(tf_code);
+        let tf = parse_timeframe(tf_code);
 
         // 1. Essayer la DB
-        let bougies_db = state.db.obtenir_bougies(&asset, &tf, limit_bougies).await.unwrap_or_default();
+        let bougies_db = state
+            .db
+            .obtenir_bougies(&asset, &tf, limit_bougies)
+            .await
+            .unwrap_or_default();
 
         // 2. Si DB insuffisante → fetch Binance (ou IB pour les non-crypto)
         let bougies: Vec<common::Candle> = if bougies_db.len() >= limit_bougies as usize {
@@ -142,7 +153,9 @@ pub async fn tendance_multi_tf(
         } else {
             let resultat = match &asset {
                 common::Asset::BTC | common::Asset::ETH => {
-                    BinanceProvider.fetch_candles(asset.clone(), tf, limit_bougies as usize).await
+                    BinanceProvider
+                        .fetch_candles(asset.clone(), tf, limit_bougies as usize)
+                        .await
                 }
                 _ => {
                     IbGatewayProvider::new(state.ib_port, state.ib_client_id)
@@ -153,13 +166,20 @@ pub async fn tendance_multi_tf(
             match resultat {
                 Ok(b) => {
                     if let Err(e) = state.db.inserer_bougies(&asset, &tf, &b).await {
-                        tracing::warn!("Tendance multi-TF — cache {} {}: {}", label, query.asset, e);
+                        tracing::warn!(
+                            "Tendance multi-TF — cache {} {}: {}",
+                            label,
+                            query.asset,
+                            e
+                        );
                     }
                     b
                 }
                 Err(e) => {
                     tracing::warn!("Tendance multi-TF — fetch {} {}: {}", label, query.asset, e);
-                    if !bougies_db.is_empty() { bougies_db } else {
+                    if !bougies_db.is_empty() {
+                        bougies_db
+                    } else {
                         lignes.push(LigneTendance {
                             tf: label.to_string(),
                             tendance: None,
@@ -182,7 +202,7 @@ pub async fn tendance_multi_tf(
             continue;
         }
 
-        let ema9  = calculer_ema(&bougies, ema_rapide);
+        let ema9 = calculer_ema(&bougies, ema_rapide);
         let ema21 = calculer_ema(&bougies, ema_lente);
 
         let index_cible = match mode_calcul.index_cible(bougies.len()) {
@@ -199,7 +219,7 @@ pub async fn tendance_multi_tf(
         };
 
         let dernier_ema_rapide = ema9.get(index_cible).copied().filter(|v| v.is_finite());
-        let dernier_ema_lente  = ema21.get(index_cible).copied().filter(|v| v.is_finite());
+        let dernier_ema_lente = ema21.get(index_cible).copied().filter(|v| v.is_finite());
 
         let direction = match (dernier_ema_rapide, dernier_ema_lente) {
             (Some(rapide), Some(lente)) if rapide > lente => Some(Direction::Haussier),

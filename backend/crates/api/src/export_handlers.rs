@@ -48,6 +48,9 @@ pub async fn exporter_signaux_csv(
 
     HttpResponse::Ok()
         .content_type("text/csv; charset=utf-8")
-        .append_header(("Content-Disposition", "attachment; filename=\"signaux.csv\""))
+        .append_header((
+            "Content-Disposition",
+            "attachment; filename=\"signaux.csv\"",
+        ))
         .body(csv)
 }

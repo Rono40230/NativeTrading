@@ -29,10 +29,8 @@ pub fn detecter_signaux_bollinger(
         }
         let h_prev = haute[i - 1];
         let b_prev = basse[i - 1];
-        let prev_inside = !b_prev.is_nan()
-            && !h_prev.is_nan()
-            && c_prev > b_prev
-            && c_prev < h_prev;
+        let prev_inside =
+            !b_prev.is_nan() && !h_prev.is_nan() && c_prev > b_prev && c_prev < h_prev;
 
         // Touche bande basse — retournement bullish potentiel (Faible)
         if c <= b && (b_prev.is_nan() || c_prev > b_prev) {
@@ -114,7 +112,7 @@ pub fn detecter_signaux_bollinger(
                         lookback, bw
                     ),
                     valeur: bw,
-                prix_entree: 0.0,
+                    prix_entree: 0.0,
                 });
             }
         }

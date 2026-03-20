@@ -2,9 +2,9 @@ mod prompts;
 mod types;
 
 use common::TradingError;
-use prompts::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF, SYSTEM_PROMPT};
 pub use prompts::PROMPT_SIGNAL_JSON;
-use types::{MessageOllama, RequeteOllama, ReponseOllama, MODELE_DEFAUT, OLLAMA_URL};
+use prompts::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF, SYSTEM_PROMPT};
+use types::{MessageOllama, ReponseOllama, RequeteOllama, MODELE_DEFAUT, OLLAMA_URL};
 
 pub use types::tf_libelle;
 
@@ -41,7 +41,11 @@ pub async fn analyser_images(
 ) -> Result<String, TradingError> {
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
 
-    let prompt = if images.len() == 1 { PROMPT_VISION_ANALYST } else { PROMPT_VISION_MULTI_TF };
+    let prompt = if images.len() == 1 {
+        PROMPT_VISION_ANALYST
+    } else {
+        PROMPT_VISION_MULTI_TF
+    };
 
     let descriptions: Vec<String> = images
         .iter()
@@ -122,8 +126,14 @@ async fn interroger_avec_systeme(prompt: &str, system: &str) -> Result<String, T
     let corps = RequeteOllama {
         model: &modele,
         messages: vec![
-            MessageOllama { role: "system", content: system },
-            MessageOllama { role: "user",   content: prompt },
+            MessageOllama {
+                role: "system",
+                content: system,
+            },
+            MessageOllama {
+                role: "user",
+                content: prompt,
+            },
         ],
         stream: false,
     };

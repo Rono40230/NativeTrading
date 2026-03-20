@@ -33,7 +33,9 @@ impl AppState {
         let mut pipeline_ml = PipelineML::new();
         match pipeline_ml.charger_depuis_disque() {
             Ok(true) => tracing::info!("Pipeline ML rechargé depuis disque"),
-            Ok(false) => tracing::info!("Pipeline ML initialisé (pas de modèle persisté — entraînement requis)"),
+            Ok(false) => tracing::info!(
+                "Pipeline ML initialisé (pas de modèle persisté — entraînement requis)"
+            ),
             Err(e) => tracing::warn!("Impossible de charger le pipeline ML: {}", e),
         }
 
@@ -47,7 +49,11 @@ impl AppState {
             .and_then(|s| s.parse::<i32>().ok())
             .unwrap_or(100);
 
-        tracing::info!("IB Gateway configuré: 127.0.0.1:{} (client_id={})", ib_port, ib_client_id);
+        tracing::info!(
+            "IB Gateway configuré: 127.0.0.1:{} (client_id={})",
+            ib_port,
+            ib_client_id
+        );
 
         Ok(Self {
             db: Arc::new(db),

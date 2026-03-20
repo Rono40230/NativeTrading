@@ -1,10 +1,10 @@
 use actix_web::{web, HttpResponse, Responder};
 
+use crate::indicators_types::{
+    IndicatorsQuery, PointSerie, ReponseIndicators, SeriesBollinger, SeriesMacd,
+};
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};
-use crate::indicators_types::{
-    IndicatorsQuery, ReponseIndicators, PointSerie, SeriesMacd, SeriesBollinger,
-};
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
@@ -66,66 +66,78 @@ pub async fn get_indicators(
         }
     });
     // Retourner dans la réponse seulement si le flag d'affichage est actif
-    let ema = query.ema.unwrap_or(false).then(|| ema_raw.as_deref().map(serie)).flatten();
+    let ema = query
+        .ema
+        .unwrap_or(false)
+        .then(|| ema_raw.as_deref().map(serie))
+        .flatten();
 
-    let rsi_raw: Option<Vec<f64>> =
-        (query.rsi.unwrap_or(false) || need_signals).then(|| indicators::calculer_rsi(&bougies, rsi_p));
-    let rsi = query.rsi.unwrap_or(false).then(|| rsi_raw.as_deref().map(serie)).flatten();
+    let rsi_raw: Option<Vec<f64>> = (query.rsi.unwrap_or(false) || need_signals)
+        .then(|| indicators::calculer_rsi(&bougies, rsi_p));
+    let rsi = query
+        .rsi
+        .unwrap_or(false)
+        .then(|| rsi_raw.as_deref().map(serie))
+        .flatten();
 
     let atr_raw: Option<Vec<f64>> = (query.atr.unwrap_or(false) || need_signals)
         .then(|| indicators::calculer_atr(&bougies, query.atr_periode.unwrap_or(14)));
-    let atr = query.atr.unwrap_or(false).then(|| atr_raw.as_deref().map(serie)).flatten();
+    let atr = query
+        .atr
+        .unwrap_or(false)
+        .then(|| atr_raw.as_deref().map(serie))
+        .flatten();
 
     let macd_computed: Option<indicators::Macd> = (query.macd.unwrap_or(false) || need_signals)
         .then(|| indicators::calculer_macd(&bougies, macd_rapide_p, macd_lente_p, macd_signal_p));
-    let macd = query.macd.unwrap_or(false).then(|| {
-        macd_computed.as_ref().map(|m| SeriesMacd {
-            macd: serie(&m.ligne),
-            signal: serie(&m.signal),
-            histogramme: serie(&m.histogramme),
+    let macd = query
+        .macd
+        .unwrap_or(false)
+        .then(|| {
+            macd_computed.as_ref().map(|m| SeriesMacd {
+                macd: serie(&m.ligne),
+                signal: serie(&m.signal),
+                histogramme: serie(&m.histogramme),
+            })
         })
-    }).flatten();
+        .flatten();
 
-    let boll_computed: Option<indicators::Bollinger> = (query.bollinger.unwrap_or(false) || need_signals)
+    let boll_computed: Option<indicators::Bollinger> = (query.bollinger.unwrap_or(false)
+        || need_signals)
         .then(|| indicators::calculer_bollinger_avance(&bougies, boll_p, boll_std, boll_ma));
-    let bollinger = query.bollinger.unwrap_or(false).then(|| {
-        boll_computed.as_ref().map(|b| SeriesBollinger {
-            haute: serie(&b.superieure),
-            milieu: serie(&b.milieu),
-            basse: serie(&b.inferieure),
+    let bollinger = query
+        .bollinger
+        .unwrap_or(false)
+        .then(|| {
+            boll_computed.as_ref().map(|b| SeriesBollinger {
+                haute: serie(&b.superieure),
+                milieu: serie(&b.milieu),
+                basse: serie(&b.inferieure),
+            })
         })
-    }).flatten();
+        .flatten();
 
     // ── Zones SMC ────────────────────────────────────────────────────────────
-    let order_blocks = query
-        .smc_ob
-        .unwrap_or(false)
-        .then(|| {
-            let sensitivity = query.smc_ob_sensitivity.unwrap_or(28.0);
-            let mitigation_close = query.smc_ob_mitigation.as_deref() != Some("wick");
-            smc::order_blocks::detecter(&bougies, sensitivity, mitigation_close)
-        });
+    let order_blocks = query.smc_ob.unwrap_or(false).then(|| {
+        let sensitivity = query.smc_ob_sensitivity.unwrap_or(28.0);
+        let mitigation_close = query.smc_ob_mitigation.as_deref() != Some("wick");
+        smc::order_blocks::detecter(&bougies, sensitivity, mitigation_close)
+    });
 
-    let ifvg = query
-        .smc_ifvg
-        .unwrap_or(false)
-        .then(|| {
-            let show_last = query.smc_ifvg_show_last.unwrap_or(5) as usize;
-            let signal_pref_close = query.smc_ifvg_signal_pref.as_deref() != Some("wick");
-            let atr_mult = query.smc_ifvg_atr_mult.unwrap_or(0.25);
-            smc::ifvg::detecter(&bougies, show_last, signal_pref_close, atr_mult)
-        });
+    let ifvg = query.smc_ifvg.unwrap_or(false).then(|| {
+        let show_last = query.smc_ifvg_show_last.unwrap_or(5) as usize;
+        let signal_pref_close = query.smc_ifvg_signal_pref.as_deref() != Some("wick");
+        let atr_mult = query.smc_ifvg_atr_mult.unwrap_or(0.25);
+        smc::ifvg::detecter(&bougies, show_last, signal_pref_close, atr_mult)
+    });
 
-    let bpr = query
-        .smc_bpr
-        .unwrap_or(false)
-        .then(|| {
-            let show_last = query.smc_bpr_show_last.unwrap_or(5) as usize;
-            let atr_mult = query.smc_bpr_atr_mult.unwrap_or(0.5);
-            let fenetre = query.smc_bpr_fenetre.unwrap_or(30) as usize;
-            let mitigation_close = query.smc_bpr_mitigation.as_deref() != Some("wick");
-            smc::bpr::detecter(&bougies, show_last, atr_mult, fenetre, mitigation_close)
-        });
+    let bpr = query.smc_bpr.unwrap_or(false).then(|| {
+        let show_last = query.smc_bpr_show_last.unwrap_or(5) as usize;
+        let atr_mult = query.smc_bpr_atr_mult.unwrap_or(0.5);
+        let fenetre = query.smc_bpr_fenetre.unwrap_or(30) as usize;
+        let mitigation_close = query.smc_bpr_mitigation.as_deref() != Some("wick");
+        smc::bpr::detecter(&bougies, show_last, atr_mult, fenetre, mitigation_close)
+    });
 
     let fibonacci = query
         .smc_fib
@@ -139,67 +151,80 @@ pub async fn get_indicators(
         .then(|| smc::tendances::analyser(&bougies))
         .flatten();
 
-    let imbalance = query
-        .smc_imbalance
-        .unwrap_or(false)
-        .then(|| {
-            let show_last = query.smc_imb_show_last.unwrap_or(5) as usize;
-            let show_fvg  = query.smc_imb_show_fvg.unwrap_or(true);
-            let show_og   = query.smc_imb_show_og.unwrap_or(true);
-            let mitigation_close = query.smc_imb_mitigation.as_deref() != Some("wick");
-            smc::imbalance::detecter(&bougies, show_last, show_fvg, show_og, mitigation_close)
-        });
+    let imbalance = query.smc_imbalance.unwrap_or(false).then(|| {
+        let show_last = query.smc_imb_show_last.unwrap_or(5) as usize;
+        let show_fvg = query.smc_imb_show_fvg.unwrap_or(true);
+        let show_og = query.smc_imb_show_og.unwrap_or(true);
+        let mitigation_close = query.smc_imb_mitigation.as_deref() != Some("wick");
+        smc::imbalance::detecter(&bougies, show_last, show_fvg, show_og, mitigation_close)
+    });
 
-    let liquidites = query
-        .smc_liquidites
-        .unwrap_or(false)
-        .then(|| {
-            let params = smc::liquidites::ParamsLiquidites {
-                swing_lookback:  query.smc_liq_swing_lookback.unwrap_or(50) as usize,
-                swings_actif:    query.smc_liq_swings.unwrap_or(true),
-                sessions_actif:  query.smc_liq_sessions.unwrap_or(true),
-                session_asie:   query.smc_liq_session_asie.unwrap_or(true),
-                dwm_actif:      query.smc_liq_dwm.unwrap_or(false),
-                dwm_nb_jours:   query.smc_liq_dwm_nb.unwrap_or(2) as usize,
-            };
-            smc::liquidites::detecter(&bougies, params)
-        });
+    let liquidites = query.smc_liquidites.unwrap_or(false).then(|| {
+        let params = smc::liquidites::ParamsLiquidites {
+            swing_lookback: query.smc_liq_swing_lookback.unwrap_or(50) as usize,
+            swings_actif: query.smc_liq_swings.unwrap_or(true),
+            sessions_actif: query.smc_liq_sessions.unwrap_or(true),
+            session_asie: query.smc_liq_session_asie.unwrap_or(true),
+            dwm_actif: query.smc_liq_dwm.unwrap_or(false),
+            dwm_nb_jours: query.smc_liq_dwm_nb.unwrap_or(2) as usize,
+        };
+        smc::liquidites::detecter(&bougies, params)
+    });
 
-    let range_asie = query
-        .smc_liq_asie_range
-        .unwrap_or(false)
-        .then(|| {
-            let params = smc::liquidites::ParamsRangeAsie {
-                heure_debut:   query.smc_liq_asie_heure_debut.unwrap_or(20),
-                heure_fin:     query.smc_liq_asie_heure_fin.unwrap_or(1),
-                deviations_nb: query.smc_liq_asie_deviations_nb.unwrap_or(2) as usize,
-            };
-            let nb = query.smc_liq_asie_nb_sessions.unwrap_or(3) as usize;
-            smc::liquidites::detecter_ranges_asie(&bougies, params, nb)
-        });
+    let range_asie = query.smc_liq_asie_range.unwrap_or(false).then(|| {
+        let params = smc::liquidites::ParamsRangeAsie {
+            heure_debut: query.smc_liq_asie_heure_debut.unwrap_or(20),
+            heure_fin: query.smc_liq_asie_heure_fin.unwrap_or(1),
+            deviations_nb: query.smc_liq_asie_deviations_nb.unwrap_or(2) as usize,
+        };
+        let nb = query.smc_liq_asie_nb_sessions.unwrap_or(3) as usize;
+        smc::liquidites::detecter_ranges_asie(&bougies, params, nb)
+    });
 
     // ── Signaux indicateurs (détection + confluence) ─────────────────────────
     let signaux = query.signaux.unwrap_or(false).then(|| {
         let closes: Vec<f64> = bougies.iter().map(|b| b.close).collect();
         let mut tous: Vec<indicators::signaux::SignalIndicateur> = Vec::new();
         if let Some(ref v) = ema_raw {
-            tous.extend(indicators::signaux::detecter_signaux_ema(&timestamps, &closes, v));
+            tous.extend(indicators::signaux::detecter_signaux_ema(
+                &timestamps,
+                &closes,
+                v,
+            ));
         }
         if let Some(ref v) = rsi_raw {
-            tous.extend(indicators::signaux::detecter_signaux_rsi(&timestamps, v, 70.0, 30.0));
+            tous.extend(indicators::signaux::detecter_signaux_rsi(
+                &timestamps,
+                v,
+                70.0,
+                30.0,
+            ));
         }
         if let Some(ref m) = macd_computed {
             tous.extend(indicators::signaux::detecter_signaux_macd(
-                &timestamps, &m.ligne, &m.signal, &m.histogramme,
+                &timestamps,
+                &m.ligne,
+                &m.signal,
+                &m.histogramme,
             ));
         }
         if let Some(ref b) = boll_computed {
             tous.extend(indicators::signaux::detecter_signaux_bollinger(
-                &timestamps, &closes, &b.superieure, &b.milieu, &b.inferieure, boll_p,
+                &timestamps,
+                &closes,
+                &b.superieure,
+                &b.milieu,
+                &b.inferieure,
+                boll_p,
             ));
         }
         if let Some(ref v) = atr_raw {
-            tous.extend(indicators::signaux::detecter_signaux_atr(&timestamps, &closes, v, 14));
+            tous.extend(indicators::signaux::detecter_signaux_atr(
+                &timestamps,
+                &closes,
+                v,
+                14,
+            ));
         }
         // Signaux combinés multi-indicateurs
         tous.extend(indicators::signaux::detecter_signaux_combines(
@@ -215,8 +240,11 @@ pub async fn get_indicators(
             atr_raw.as_deref(),
         ));
         // Enrichir prix_entree avec le close réel au timestamp du signal
-        let ts_to_close: std::collections::HashMap<i64, f64> =
-            timestamps.iter().copied().zip(closes.iter().copied()).collect();
+        let ts_to_close: std::collections::HashMap<i64, f64> = timestamps
+            .iter()
+            .copied()
+            .zip(closes.iter().copied())
+            .collect();
         for s in &mut tous {
             if let Some(&c) = ts_to_close.get(&s.timestamp) {
                 s.prix_entree = c;
@@ -226,7 +254,9 @@ pub async fn get_indicators(
     });
 
     // Valeurs ATR indexées par timestamp — retournées si signaux=true pour calcul SL/TP
-    let atr_valeurs = query.signaux.unwrap_or(false)
+    let atr_valeurs = query
+        .signaux
+        .unwrap_or(false)
         .then(|| atr_raw.as_deref().map(serie))
         .flatten();
 
@@ -248,4 +278,3 @@ pub async fn get_indicators(
         atr_valeurs,
     })
 }
-

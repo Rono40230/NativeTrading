@@ -110,7 +110,10 @@ impl GestionnaireRisque {
 
     /// Enregistre l'ouverture d'une position (met à jour l'exposition par actif)
     pub fn ouvrir_position(&mut self, asset: &Asset, valeur_notionnelle: f64) {
-        let expo = self.exposition_par_actif.entry(asset.clone()).or_insert(0.0);
+        let expo = self
+            .exposition_par_actif
+            .entry(asset.clone())
+            .or_insert(0.0);
         *expo += valeur_notionnelle;
         self.positions_ouvertes += 1;
     }

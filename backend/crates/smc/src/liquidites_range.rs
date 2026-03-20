@@ -16,7 +16,11 @@ pub struct ParamsRangeAsie {
 
 impl Default for ParamsRangeAsie {
     fn default() -> Self {
-        Self { heure_debut: 20, heure_fin: 1, deviations_nb: 2 }
+        Self {
+            heure_debut: 20,
+            heure_fin: 1,
+            deviations_nb: 2,
+        }
     }
 }
 
@@ -84,7 +88,13 @@ pub fn detecter_ranges_asie(
             fin_ts = ts;
         } else if dans_session {
             dans_session = false;
-            sessions.push(construire_range(debut_ts, fin_ts, haut, bas, params.deviations_nb));
+            sessions.push(construire_range(
+                debut_ts,
+                fin_ts,
+                haut,
+                bas,
+                params.deviations_nb,
+            ));
             haut = f64::NEG_INFINITY;
             bas = f64::INFINITY;
         }
@@ -92,7 +102,13 @@ pub fn detecter_ranges_asie(
 
     // Session en cours (pas encore clôturée)
     if dans_session && haut.is_finite() {
-        sessions.push(construire_range(debut_ts, fin_ts, haut, bas, params.deviations_nb));
+        sessions.push(construire_range(
+            debut_ts,
+            fin_ts,
+            haut,
+            bas,
+            params.deviations_nb,
+        ));
     }
 
     let skip = sessions.len().saturating_sub(nb_sessions);
@@ -110,8 +126,22 @@ fn construire_range(
     let mut deviations = Vec::new();
     for n in 1..=deviations_nb {
         let nf = n as f64;
-        deviations.push(DeviationAsie { prix: haut + nf * hauteur, direction: "H".into(), numero: n as u32 });
-        deviations.push(DeviationAsie { prix: bas - nf * hauteur, direction: "L".into(), numero: n as u32 });
+        deviations.push(DeviationAsie {
+            prix: haut + nf * hauteur,
+            direction: "H".into(),
+            numero: n as u32,
+        });
+        deviations.push(DeviationAsie {
+            prix: bas - nf * hauteur,
+            direction: "L".into(),
+            numero: n as u32,
+        });
     }
-    RangeAsie { timestamp_debut: debut_ts, timestamp_fin: fin_ts, haut, bas, deviations }
+    RangeAsie {
+        timestamp_debut: debut_ts,
+        timestamp_fin: fin_ts,
+        haut,
+        bas,
+        deviations,
+    }
 }

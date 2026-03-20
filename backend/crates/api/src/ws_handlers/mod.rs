@@ -39,9 +39,27 @@ pub async fn stream_market(
 
     actix_web::rt::spawn(async move {
         if crypto {
-            binance::stream_binance(session, client_stream, asset, timeframe, asset_str, timeframe_str).await;
+            binance::stream_binance(
+                session,
+                client_stream,
+                asset,
+                timeframe,
+                asset_str,
+                timeframe_str,
+            )
+            .await;
         } else {
-            ib::stream_ib(session, client_stream, asset, timeframe, asset_str, timeframe_str, ib_port, ib_client_id).await;
+            ib::stream_ib(
+                session,
+                client_stream,
+                asset,
+                timeframe,
+                asset_str,
+                timeframe_str,
+                ib_port,
+                ib_client_id,
+            )
+            .await;
         }
     });
 

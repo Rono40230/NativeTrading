@@ -1,5 +1,5 @@
-use common::Candle;
 use crate::calculer_atr;
+use common::Candle;
 
 /// Résultat du calcul Supertrend pour une série de bougies.
 pub struct ResultatSupertrend {
@@ -79,17 +79,25 @@ pub fn calculer_supertrend(
             let prev_dir = direction[i - 1];
             let close = bougies[i].close;
             if prev_dir == -1 && close > upper[i - 1] {
-                1  // bascule haussier
+                1 // bascule haussier
             } else if prev_dir == 1 && close < lower[i - 1] {
                 -1 // bascule baissier
             } else if prev_dir == 0 {
-                if close > upper[i] { 1 } else { -1 }
+                if close > upper[i] {
+                    1
+                } else {
+                    -1
+                }
             } else {
                 prev_dir
             }
         };
 
-        valeur[i] = if direction[i] == 1 { lower[i] } else { upper[i] };
+        valeur[i] = if direction[i] == 1 {
+            lower[i]
+        } else {
+            upper[i]
+        };
     }
 
     ResultatSupertrend { direction, valeur }

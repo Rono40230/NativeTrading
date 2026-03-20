@@ -4,7 +4,12 @@ use serde::Deserialize;
 use crate::state::AppState;
 
 /// Clés de configuration autorisées (whitelist de sécurité)
-const CLES_AUTORISEES: &[&str] = &["capital_depart", "risque_trade", "ibgateway_port", "ibgateway_client_id"];
+const CLES_AUTORISEES: &[&str] = &[
+    "capital_depart",
+    "risque_trade",
+    "ibgateway_port",
+    "ibgateway_client_id",
+];
 
 #[derive(Deserialize)]
 pub struct ConfigQuery {
@@ -32,8 +37,9 @@ pub async fn get_config(
             "valeur": val
         })),
         // Clé absente → 200 avec valeur null (pas encore configurée, valeur par défaut côté frontend)
-        Ok(None) => HttpResponse::Ok()
-            .json(serde_json::json!({ "cle": query.cle, "valeur": null })),
+        Ok(None) => {
+            HttpResponse::Ok().json(serde_json::json!({ "cle": query.cle, "valeur": null }))
+        }
         Err(e) => HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": format!("{}", e) })),
     }

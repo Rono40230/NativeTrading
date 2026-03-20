@@ -1,7 +1,9 @@
 use actix_web::{web, HttpResponse, Responder};
-use data::{providers::{BinanceProvider, IbGatewayProvider}, DataProvider};
+use data::{
+    providers::{BinanceProvider, IbGatewayProvider},
+    DataProvider,
+};
 use serde::{Deserialize, Serialize};
-
 
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};
@@ -100,7 +102,11 @@ pub async fn get_candles(
 
     // 1. Cache local — ignorer si force=true (polling temps réel)
     if !force {
-        if let Ok(bougies) = state.db.obtenir_bougies(&asset, &timeframe, limit as i64).await {
+        if let Ok(bougies) = state
+            .db
+            .obtenir_bougies(&asset, &timeframe, limit as i64)
+            .await
+        {
             if bougies.len() >= limit {
                 return HttpResponse::Ok().json(bougies);
             }
@@ -110,7 +116,9 @@ pub async fn get_candles(
     // 2. Fallback provider : Binance pour crypto, IB Gateway pour métaux
     let resultat = match &asset {
         common::Asset::BTC | common::Asset::ETH => {
-            BinanceProvider.fetch_candles(asset.clone(), timeframe, limit).await
+            BinanceProvider
+                .fetch_candles(asset.clone(), timeframe, limit)
+                .await
         }
         _ => {
             IbGatewayProvider::new(state.ib_port, state.ib_client_id)

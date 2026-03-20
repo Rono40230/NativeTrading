@@ -2,11 +2,11 @@ use common::Candle;
 use serde::{Deserialize, Serialize};
 
 use super::liquidites_tz::{
-    heure_utc, session_de, est_sweep_haut, est_sweep_bas, EQUAL_PCT, TOLERANCE_PCT,
+    est_sweep_bas, est_sweep_haut, heure_utc, session_de, EQUAL_PCT, TOLERANCE_PCT,
 };
 
-pub use super::liquidites_range::{DeviationAsie, ParamsRangeAsie, RangeAsie};
 pub use super::liquidites_range::detecter_ranges_asie;
+pub use super::liquidites_range::{DeviationAsie, ParamsRangeAsie, RangeAsie};
 
 // ─── Paramètres ────────────────────────────────────────────────────────────────
 

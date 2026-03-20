@@ -28,13 +28,13 @@ pub struct MessageReponse {
 
 pub fn tf_libelle(tf: &str) -> &str {
     match tf {
-        "M1"  => "1 minute",
-        "M5"  => "5 minutes",
+        "M1" => "1 minute",
+        "M5" => "5 minutes",
         "M15" => "15 minutes",
-        "H1"  => "1 heure",
-        "H4"  => "4 heures",
-        "D1"  => "journalier",
-        "W1"  => "hebdomadaire",
+        "H1" => "1 heure",
+        "H4" => "4 heures",
+        "D1" => "journalier",
+        "W1" => "hebdomadaire",
         other => other,
     }
 }

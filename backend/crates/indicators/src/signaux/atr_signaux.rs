@@ -1,7 +1,7 @@
 use super::types::{DirectionSignal, NiveauForce, SignalIndicateur};
 
 // Seuils de détection par rapport à la moyenne mobile de l'ATR
-const SEUIL_SPIKE: f64 = 1.2;        // ATR > 120% de sa moyenne → volatilité anormale
+const SEUIL_SPIKE: f64 = 1.2; // ATR > 120% de sa moyenne → volatilité anormale
 const SEUIL_COMPRESSION: f64 = 0.75; // ATR < 75% de sa moyenne → breakout imminent
 
 /// Détecte les signaux ATR : spike (volatilité excessive) et compression (breakout imminent)
@@ -22,7 +22,11 @@ pub fn detecter_signaux_atr(
             continue;
         }
         let debut = i.saturating_sub(periode_moyenne);
-        let vals: Vec<f64> = atr[debut..i].iter().filter(|v| v.is_finite()).copied().collect();
+        let vals: Vec<f64> = atr[debut..i]
+            .iter()
+            .filter(|v| v.is_finite())
+            .copied()
+            .collect();
         if vals.is_empty() {
             continue;
         }

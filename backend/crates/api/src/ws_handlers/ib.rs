@@ -41,7 +41,10 @@ pub(super) async fn stream_ib(
         for offset in 1i32..=20 {
             match Client::connect(&adresse, ib_client_id + offset).await {
                 Ok(c) => {
-                    tracing::info!("IB Gateway connecté avec client_id={}", ib_client_id + offset);
+                    tracing::info!(
+                        "IB Gateway connecté avec client_id={}",
+                        ib_client_id + offset
+                    );
                     conn_result = Some(c);
                     break;
                 }
@@ -114,12 +117,16 @@ pub(super) async fn stream_ib(
             }
         },
         None => {
-            tracing::debug!("Tick-by-tick non disponible pour {} (indice/CFD)", asset_str);
+            tracing::debug!(
+                "Tick-by-tick non disponible pour {} (indice/CFD)",
+                asset_str
+            );
             None
         }
     };
 
-    let ok = serde_json::json!({ "type": "connected", "asset": asset_str, "timeframe": timeframe_str });
+    let ok =
+        serde_json::json!({ "type": "connected", "asset": asset_str, "timeframe": timeframe_str });
     if let Ok(p) = serde_json::to_string(&ok) {
         let _ = session.text(p).await;
     }
