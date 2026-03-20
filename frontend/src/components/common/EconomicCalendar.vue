@@ -22,23 +22,24 @@
         @mouseenter="survolee = a.id"
         @mouseleave="survolee = null"
       >
-        <!-- Carte compacte -->
+        <!-- Carte évenement -->
         <div
-          class="rounded-md border px-2 py-1.5 cursor-default select-none transition-colors flex flex-row items-center gap-2"
+          class="rounded-md border px-2.5 py-2 cursor-default select-none transition-colors flex flex-col gap-1"
           :class="a.impact === 'High'
             ? 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10'
             : 'border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10'"
         >
-          <span
-            class="w-1.5 h-1.5 rounded-full shrink-0"
-            :class="a.impact === 'High' ? 'bg-red-400' : 'bg-orange-400'"
-          />
-          <span class="text-xs font-mono font-bold text-slate-300 shrink-0">{{ a.devise }}</span>
-          <p class="text-xs text-white leading-tight truncate flex-1">{{ a.titre }}</p>
-          <p
-            class="text-[10px] font-semibold shrink-0"
-            :class="couleurCountdown(a.date_heure)"
-          >{{ countdown(a.date_heure) }}</p>
+          <!-- Ligne 1 : badge + devise -->
+          <div class="flex items-center gap-1.5">
+            <span
+              class="w-1.5 h-1.5 rounded-full shrink-0"
+              :class="a.impact === 'High' ? 'bg-red-400' : 'bg-orange-400'"
+            />
+            <span class="text-[11px] font-mono font-bold text-slate-300">{{ a.devise }}</span>
+            <span class="ml-auto text-[10px] font-semibold shrink-0" :class="couleurCountdown(a.date_heure)">{{ countdown(a.date_heure) }}</span>
+          </div>
+          <!-- Ligne 2 : titre complet sur 2 lignes max -->
+          <p class="text-[11px] text-white leading-snug line-clamp-2">{{ a.titre }}</p>
         </div>
 
         <!-- Tooltip détail au survol -->
