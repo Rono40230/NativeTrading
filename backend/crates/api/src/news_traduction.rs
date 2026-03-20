@@ -16,14 +16,12 @@ pub fn hash_titre(titre: &str) -> String {
 
 /// Retourne la traduction mise en cache, ou None si absente.
 pub async fn lire_cache(pool: &SqlitePool, hash: &str) -> Option<String> {
-    sqlx::query_scalar::<_, String>(
-        "SELECT titre_fr FROM news_traductions WHERE hash_titre = ?",
-    )
-    .bind(hash)
-    .fetch_optional(pool)
-    .await
-    .ok()
-    .flatten()
+    sqlx::query_scalar::<_, String>("SELECT titre_fr FROM news_traductions WHERE hash_titre = ?")
+        .bind(hash)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
 }
 
 /// Persiste une traduction en cache (INSERT OR REPLACE).
@@ -112,11 +110,12 @@ pub async fn traduire_avec_cache(pool: &SqlitePool, titre: &str) -> String {
 
 /// Traduit un texte long (corps d'article) — sans cache (trop volumineux).
 pub async fn traduire_contenu(texte: &str) -> String {
-    let url = std::env::var("OLLAMA_URL")
-        .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
-
     // Tronquer à 3000 caractères pour éviter les timeouts
-    let extrait = if texte.len() > 3000 { &texte[..3000] } else { texte };
+    let extrait = if texte.len() > 3000 {
+        &texte[..3000]
+    } else {
+        texte
+    };
 
     let prompt = format!(
         "Traduis ce texte financier en français naturel et fluide. \

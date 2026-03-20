@@ -1,6 +1,6 @@
 # 🗺️ ROADMAP - NATIVE TRADING AI
 
-**Durée totale:** 18 semaines | **Version:** 3.0 | **Dernière mise à jour:** 14 mars 2026
+**Durée totale:** 18 semaines | **Version:** 3.1 | **Dernière mise à jour:** 20 mars 2026
 
 ---
 
@@ -161,16 +161,17 @@
 - [x] Endpoint `POST /api/ia/signal` — parse JSON LLM → construit `common::Signal` injecté dans le pipeline (`strategie = "SMC-IA"`)
 - [ ] Test A/B — **reporté à S19** (nécessite données historiques massives S19 — collecte)
 
-#### Semaine 18d: Mise à niveau prompts + Kill Zone filter + Liquidity Sweep
+#### ✅ Semaine 18d: Mise à niveau prompts + Kill Zone filter + Liquidity Sweep — TERMINÉE 20 mars 2026
 > Carences identifiées lors de l'analyse comparative des prompts SMC/Straddle (20 mars 2026)
 > Prérequis pour S19-S21 : sans ces filtres, les signaux entraînés contiennent du bruit hors-session
+> Commit : `ce630bb`
 
-- [ ] **promptSMC.md → `PROMPT_SIGNAL_SMC`** : remplacer `PROMPT_SIGNAL_JSON` dans `ollama/prompts.rs` par le prompt complet (12 modules ICT, format d'entrée/sortie JSON aligné sur `common::Signal`, 8 règles absolues)
-- [ ] **promptSTRADDLE.md → `PROMPT_SIGNAL_STRADDLE`** : nouveau prompt dans `ollama/prompts.rs`, 3 déclencheurs (annonce HIGH impact / ATR ratio ≥1.4 / pattern récurrent), output `direction = "Both"`
-- [ ] **Kill Zone filter** (`smc/src/kill_zone.rs`) : fonction `est_en_kill_zone(timestamp_utc) -> bool` — London 07h-10h UTC, NY 13h30-16h30 UTC, Macros ICT ±10min. Appelée avant tout signal SMC et Straddle.
-- [ ] **Liquidity Sweep detector** (`smc/src/sweep.rs`) : détection faux breakout — bougie clôture au-delà d'un BSL/SSL + bougie suivante clôture en retour dans la structure. Condition préalable obligatoire au signal SMC.
-- [ ] **Endpoint `POST /api/ia/signal/straddle`** : distinct de `/api/ia/signal`, injecte `PROMPT_SIGNAL_STRADDLE` + contexte ATR + annonces imminentes (`/api/calendar`), retourne `strategie = "Straddle"`
-- [ ] Kill Zone et Sweep intégrés dans `SmcDirectionalStrategy::analyze()` comme garde-fous pre-signal
+- [x] **promptSMC.md → `PROMPT_SIGNAL_SMC`** : remplace `PROMPT_SIGNAL_JSON` dans `ollama/prompts.rs` — conditions bloquantes (kill_zone + sweep + score ≥60 + ML ≥0.60), scoring enrichi /10
+- [x] **promptSTRADDLE.md → `PROMPT_SIGNAL_STRADDLE`** : nouveau prompt dans `ollama/prompts.rs`, 3 déclencheurs (annonce HIGH impact / ATR ratio ≥1.4 / pattern récurrent), output `direction = "Both"`
+- [x] **Kill Zone filter** (`smc/src/kill_zone.rs`) : `est_en_kill_zone(ts) -> bool` — London 07h-10h UTC, NY 13h30-16h30 UTC, 7 macros ICT (fenêtres 20 min), weekend inactif — 4 tests unitaires
+- [x] **Liquidity Sweep detector** (`smc/src/sweep.rs`) : `detecter_sweep() -> Option<SweepLiquidite>` — faux breakout swing high/low + close retour + confirmation bougie suivante
+- [x] **Endpoint `POST /api/ia/signal/straddle`** : `straddle_handlers.rs` — injecte `PROMPT_SIGNAL_STRADDLE` + ATR ratio + sessions + annonces imminentes, `Direction::Both`, `strategie = "Straddle"`
+- [x] Kill Zone et Sweep intégrés dans `SmcDirectionalStrategy::analyze()` comme garde-fous pre-signal (conditions bloquantes, return Ok(None) si absent)
 
 ---
 
@@ -204,7 +205,19 @@
 
 ### ✦ COMPLEXITÉ 5 — Infrastructure backend lourde
 
-#### Semaine 19: Données historiques + Collecte massive
+#### Semaine 19a: Signal Engine automatique (background task)
+> Génération autonome des signaux SMC et Straddle sans intervention utilisateur
+> Prérequis : S18d complète (Kill Zone + Sweep + prompts) ✅
+
+- [ ] `signal_engine.rs` dans `api/src/` — boucle `tokio::spawn` toutes les 5 minutes
+- [ ] Pour chaque (asset × timeframe) configuré : charger candles → `SmcDirectionalStrategy::analyze()` → si OK → appel Ollama → persist DB
+- [ ] Anti-doublon : ne pas générer si signal identique dans les 30 dernières minutes
+- [ ] Guard global : désactivé hors Kill Zone (pas d'appel Ollama inutile)
+- [ ] `POST /api/signal-engine/start` + `POST /api/signal-engine/stop` + `GET /api/signal-engine/status`
+- [ ] Push WebSocket aux clients connectés sur nouveau signal (`/api/stream`)
+- [ ] Indicateur visuel dans le Dashboard : "🟢 Signal Engine actif — prochaine analyse dans Xmin"
+
+#### Semaine 19b: Données historiques + Collecte massive
 > Prérequis indispensable à tout entraînement ML réaliste et à la détection de volatilité
 
 - [ ] Endpoint `POST /api/data/collect` — collecte bulk N mois de bougies par asset/tf
