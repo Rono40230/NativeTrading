@@ -192,3 +192,31 @@ export interface ContenuArticle {
 export interface TraductionReponse {
   texte_fr: string
 }
+
+export interface CouvertureDonnees {
+  asset: string
+  timeframe: string
+  count: number
+  min_ts: number
+  max_ts: number
+}
+
+export interface RequeteCollecte {
+  assets?: string[]
+  timeframes?: string[]
+  mois?: number
+}
+
+export interface ResultatCollecteItem {
+  asset: string
+  timeframe: string
+  fetched?: number
+  inseres?: number
+  erreur?: string
+}
+
+export interface ResultatCollecte {
+  total_inseres: number
+  mois: number
+  resultats: ResultatCollecteItem[]
+}

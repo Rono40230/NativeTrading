@@ -8,7 +8,7 @@ export type {
   NiveauLiquidite, ReponseIndicators, IndicatorsParams, SignalIndicateur,
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
   SentimentMarche, EntiteSentiment, ArticleNews, AlertesNews, NiveauAlerte, ContenuArticle, TraductionReponse,
-  StatutSignalEngine,
+  StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, ResultatCollecteItem,
 } from './api.types'
 
 import type {
@@ -17,7 +17,7 @@ import type {
   ReponseEntrainement, ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
   ModeCalculTendance, AnnonceCalendrier, SentimentMarche, AlertesNews, ContenuArticle, TraductionReponse,
-  StatutSignalEngine,
+  StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte,
 } from './api.types'
 
 const BASE_URL = 'http://localhost:8080'
@@ -202,6 +202,16 @@ export const apiService = {
 
   async signalEngineArreter(): Promise<{ statut: string; message: string }> {
     const res = await http.post('/api/signal-engine/stop')
+    return res.data
+  },
+
+  async obtenirCouvertureDonnees(): Promise<{ couverture: CouvertureDonnees[] }> {
+    const res = await http.get('/api/data/coverage')
+    return res.data
+  },
+
+  async collecterDonnees(params: RequeteCollecte): Promise<ResultatCollecte> {
+    const res = await http.post('/api/data/collect', params, { timeout: 300_000 })
     return res.data
   },
 }

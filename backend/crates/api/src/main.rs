@@ -3,6 +3,7 @@ use actix_web::{http::header, middleware, web, App, HttpServer};
 
 mod backtest_handlers;
 mod calendar_handlers;
+mod data_handlers;
 mod config_handlers;
 mod engine_handlers;
 mod export_handlers;
@@ -144,6 +145,8 @@ async fn main() -> std::io::Result<()> {
                 "/api/signal-engine/stream",
                 web::get().to(engine_handlers::stream_signaux),
             )
+            .route("/api/data/coverage", web::get().to(data_handlers::get_coverage))
+            .route("/api/data/collect", web::post().to(data_handlers::post_collect))
     })
     .bind(("0.0.0.0", 8080))?
     .run()

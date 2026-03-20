@@ -1,6 +1,6 @@
 # 🗺️ ROADMAP - NATIVE TRADING AI
 
-**Durée totale:** 18 semaines | **Version:** 3.1 | **Dernière mise à jour:** 20 mars 2026
+**Durée totale:** 18 semaines | **Version:** 3.2 | **Dernière mise à jour:** 20 mars 2026
 
 ---
 
@@ -205,32 +205,45 @@
 
 ### ✦ COMPLEXITÉ 5 — Infrastructure backend lourde
 
-#### Semaine 19a: Signal Engine automatique (background task)
+#### ✅ Semaine 19a: Signal Engine automatique (background task) — TERMINÉE 20 mars 2026
 > Génération autonome des signaux SMC et Straddle sans intervention utilisateur
-> Prérequis : S18d complète (Kill Zone + Sweep + prompts) ✅
+> Commits : `33d5072` → `394df99` → `71f571c` → `e8893db`
 
-- [ ] `signal_engine.rs` dans `api/src/` — boucle `tokio::spawn` toutes les 5 minutes
-- [ ] Pour chaque (asset × timeframe) configuré : charger candles → `SmcDirectionalStrategy::analyze()` → si OK → appel Ollama → persist DB
-- [ ] Anti-doublon : ne pas générer si signal identique dans les 30 dernières minutes
-- [ ] Guard global : désactivé hors Kill Zone (pas d'appel Ollama inutile)
-- [ ] `POST /api/signal-engine/start` + `POST /api/signal-engine/stop` + `GET /api/signal-engine/status`
-- [ ] Push WebSocket aux clients connectés sur nouveau signal (`/api/stream`)
-- [ ] Indicateur visuel dans le Dashboard : "🟢 Signal Engine actif — prochaine analyse dans Xmin"
-- [ ] **Affichage Trade Box sur graphique (Option B — Canvas overlay)** :
-  - Charger signaux SMC/Straddle depuis `/api/signaux` filtrés par asset + timeframe
-  - Dessiner rectangles TP (vert) / SL (rouge) via `<canvas>` overlay synchronisé avec `chart.priceToCoordinate()` + `chart.timeToCoordinate()`
-  - Label R:R calculé (`|TP - entrée| / |SL - entrée|`) affiché dans la zone
-  - Flèche d'entrée via `setMarkers()` (déjà en place pour les signaux techniques)
-  - Mise à jour temps réel sur push WebSocket nouveau signal
+- [x] `signal_engine.rs` dans `api/src/` — boucle `tokio::spawn` toutes les 5 minutes (300s)
+- [x] Pour chaque (asset × timeframe) : charger candles → `SmcDirectionalStrategy::analyze()` → si OK → enrichissement LLM → persist DB
+- [x] Anti-doublon 30min : `signal_recent_existe(asset, tf, 30)` en DB (`db/src/lib.rs`)
+- [x] Enrichissement LLM non bloquant : `enrichir_avec_ollama()` — timeout 45s → `strategie = "SMC+IA"` si LLM confirme, `"SMC Directionnel"` sinon
+- [x] `POST /api/signal-engine/start` + `POST /api/signal-engine/stop` + `GET /api/signal-engine/status`
+- [x] Push WebSocket aux clients connectés sur nouveau signal (`GET /api/signal-engine/stream`)
+- [x] Auto-démarrage engine au boot dans `AppState::new()`
+- [x] Toasts auto-dismiss 30s (`setTimeout 30_000` dans `alerte.store.ts`)
+- [x] `useSignalEngine.ts` — polling statut 30s + WS temps réel + inject `signalStore.ajouterSignalTempsReel()`
+- [x] Badge 🟢/🔴 + countdown "Prochaine analyse dans Xs" + boutons Démarrer/Arrêter dans Dashboard
+- [x] `compter_signaux_recents(minutes)` — compteur signaux 24h pour le Dashboard
+- [x] **Affichage Trade Box — composable prêt, branchement ChartView reporté** :
+  - `useSignalTradeBox.ts` (245L) créé : canvas overlay TP/SL/Entry + labels R:R
+  - Synchronisation `chart.priceToCoordinate()` + `chart.timeToCoordinate()` implémentée
+  - **Non branché dans `ChartView.vue`** — intégration reportée à S19b
 
-#### Semaine 19b: Données historiques + Collecte massive
+#### ✅ Semaine 19a-bis: Réorganisation Dashboard — TERMINÉE 20 mars 2026
+> Ergonomie et lisibilité du Dashboard améliorées
+
+- [x] `MarketClocks` remonté en **1er bloc** du contenu principal
+- [x] Signal Engine intégré dans `DashboardSystemStatus` (tile élargie `flex-1`)
+- [x] Tous les blocs Statut Système sur **une seule ligne `flex`** (fin du `grid-cols-3`)
+- [x] Props `engineActif`, `engineSecondes`, `engineSignaux24h`, `engineChargement` + events `@engine-demarrer` / `@engine-arreter` ajoutés à `DashboardSystemStatus.vue`
+- [x] Bloc Signal Engine standalone supprimé du Dashboard
+
+#### Semaine 19b: Données historiques + Collecte massive + Trade Box ChartView
 > Prérequis indispensable à tout entraînement ML réaliste et à la détection de volatilité
+> Bonus : brancher `useSignalTradeBox.ts` dans `ChartView.vue` (composable prêt — ~15min)
 
 - [ ] Endpoint `POST /api/data/collect` — collecte bulk N mois de bougies par asset/tf
 - [ ] Stockage DB optimisé (INSERT OR IGNORE) pour éviter les doublons
 - [ ] Script de collecte initiale : 6 mois x 13 assets x M1/M5/M15 (~500k bougies)
 - [ ] Indicateur de progression frontend pendant la collecte
 - [ ] Vue `DataManagementView.vue` — statut couverture données par asset
+- [ ] Brancher `useSignalTradeBox.ts` dans `ChartView.vue` — rectangles TP/SL/Entry sur graphique
 
 #### Semaine 20: Entraînement automatique + Monitoring ML
 - [ ] Scheduler Rust (tokio::time) — reentraînement quotidien a 00h00
@@ -295,18 +308,19 @@
 
 ---
 
-## 📊 ÉTAT COUVERTURE TESTS (14 mars 2026)
+## 📊 ÉTAT COUVERTURE TESTS (20 mars 2026)
 
 | Crate | Tests | Couverture estimée |
 |-------|-------|--------------------|
+
 | backtest | 2 | ~60% |
 | indicators | 4 | ~70% |
 | ml | 3 | ~40% |
 | risk | 5 | ~80% |
-| smc | 2 | ~20% — Order Blocks, Imbalance, IFVG non testés |
+| smc | 6 | ~40% — Kill Zone (4 tests) + Fibonacci + Tendances |
 | strategies | 3 | ~50% — SMC Directionnel non testé |
 | api, data, db | 0 | 0% |
-| **Total** | **19** | **~35%** — objectif Phase 3 : >80% |
+| **Total** | **23** | **~38%** — objectif Phase 3 : >80% |
 
 ---
 

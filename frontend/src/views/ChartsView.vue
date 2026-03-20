@@ -124,6 +124,8 @@ import { useChartEcoCal } from '@/composables/useChartEcoCal'
 import EcoCalTooltip from '@/components/common/EcoCalTooltip.vue'
 
 import { useChartOrchestration } from '@/composables/useChartOrchestration'
+import { useSignalTradeBox } from '@/composables/useSignalTradeBox'
+import { useSignalStore } from '@/stores/signal.store'
 import PredictionSMCPanel from '@/components/common/PredictionSMCPanel.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
 import TendanceMultiTF from '@/components/common/TendanceMultiTF.vue'
@@ -136,6 +138,7 @@ import type { SignalIndicateur } from '@/composables/chartSignauxTypes'
 
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
+const signalStore = useSignalStore()
 
 const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const selectedAsset = ref(settingsStore.assetActif)
@@ -163,6 +166,7 @@ const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSign
 const smcCanvas = useSmcCanvas()
 const liqCanvas = useSmcLiqCanvas()
 const fibCanvas = useSmcFibCanvas()
+const tradeBox = useSignalTradeBox()
 const { initialiser: ecoCalInit, chargerAnnonces, detruire: ecoCalDetruire,
         tooltipAnnonce, tooltipX, tooltipY } = useChartEcoCal()
 
@@ -201,6 +205,7 @@ async function chargerIndicateurs() {
   if (chartContainer.value && serie) smcCanvas.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value && serie) liqCanvas.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value && serie) fibCanvas.initialiser(chart, serie, chartContainer.value)
+  if (chartContainer.value && serie) tradeBox.initialiser(chartContainer.value, chart, serie)
   if (chartContainer.value) ecoCalInit(chart, chartContainer.value)
   await chargerEtAppliquer(
     chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
@@ -213,6 +218,11 @@ async function chargerIndicateurs() {
       smcCanvas.mettreAJourZones(data, settingsStore.indicateurs, tsSec)
       liqCanvas.mettreAJour(data, settingsStore.indicateurs, tsSec)
       fibCanvas.mettreAJour(data.fibonacci, settingsStore.indicateurs, tsSec)
+      // Trade Box — dernier signal SMC pour cet asset × TF
+      const dernierSignal = signalStore.signaux.find(
+        s => s.asset === selectedAsset.value && s.timeframe === selectedTimeframe.value
+      ) ?? null
+      tradeBox.mettreAJourSignal(dernierSignal)
     },
   )
 }
@@ -235,6 +245,10 @@ const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestra
   configurerCrosshair, configurerClick, chargerIndicateurs,
   configurerRedimensionnement, arreterRedimensionnement,
 })
+
+// Nettoyage Trade Box au démontage de la vue
+import { onUnmounted } from 'vue'
+onUnmounted(() => tradeBox.detruire())
 
 chargerAnnonces()
 </script>

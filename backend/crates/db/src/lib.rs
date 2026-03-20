@@ -142,14 +142,9 @@ impl Database {
 
     /// Nombre de bougies stockées pour un asset/timeframe
     pub async fn compter_bougies(&self, asset: &Asset, timeframe: &Timeframe) -> Result<i64> {
-        let row =
-            sqlx::query("SELECT COUNT(*) as n FROM bougies WHERE asset = ? AND timeframe = ?")
-                .bind(asset.as_str())
-                .bind(timeframe.as_str())
-                .fetch_one(&self.pool)
-                .await
-                .map_err(|e| TradingError::Database(e.to_string()))?;
-
+        let row = sqlx::query("SELECT COUNT(*) as n FROM bougies WHERE asset = ? AND timeframe = ?")
+            .bind(asset.as_str()).bind(timeframe.as_str())
+            .fetch_one(&self.pool).await.map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(row.get::<i64, _>("n"))
     }
 
@@ -275,28 +270,27 @@ impl Database {
     /// Efface et ré-insère toutes les annonces économiques (mise à jour du cache)
     pub async fn ecrire_calendrier_cache(&self, annonces: &[serde_json::Value]) -> Result<()> {
         let now = Utc::now().timestamp();
-        sqlx::query("DELETE FROM calendrier_cache")
-            .execute(&self.pool)
-            .await
+        sqlx::query("DELETE FROM calendrier_cache").execute(&self.pool).await
             .map_err(|e| TradingError::Database(e.to_string()))?;
         for a in annonces {
-            sqlx::query(
-                "INSERT INTO calendrier_cache
-                 (id, date_heure, devise, titre, impact, precedent, prevision, fetched_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            )
-            .bind(a["id"].as_str().unwrap_or(""))
-            .bind(a["date_heure"].as_str().unwrap_or(""))
-            .bind(a["devise"].as_str().unwrap_or(""))
-            .bind(a["titre"].as_str().unwrap_or(""))
-            .bind(a["impact"].as_str().unwrap_or(""))
-            .bind(a["precedent"].as_str())
-            .bind(a["prevision"].as_str())
-            .bind(now)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| TradingError::Database(e.to_string()))?;
+            sqlx::query("INSERT INTO calendrier_cache (id, date_heure, devise, titre, impact, precedent, prevision, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+                .bind(a["id"].as_str().unwrap_or("")).bind(a["date_heure"].as_str().unwrap_or(""))
+                .bind(a["devise"].as_str().unwrap_or("")).bind(a["titre"].as_str().unwrap_or(""))
+                .bind(a["impact"].as_str().unwrap_or("")).bind(a["precedent"].as_str())
+                .bind(a["prevision"].as_str()).bind(now).execute(&self.pool).await
+                .map_err(|e| TradingError::Database(e.to_string()))?;
         }
         Ok(())
+    }
+
+    /// Couverture données : count + min/max timestamp par asset × timeframe
+    pub async fn obtenir_couverture_donnees(&self) -> Result<Vec<serde_json::Value>> {
+        let rows = sqlx::query(
+            "SELECT asset, timeframe, COUNT(*) as n, MIN(timestamp) as min_ts, MAX(timestamp) as max_ts FROM bougies GROUP BY asset, timeframe ORDER BY asset, timeframe",
+        ).fetch_all(&self.pool).await.map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(rows.iter().map(|r| serde_json::json!({
+            "asset": r.get::<String, _>("asset"), "timeframe": r.get::<String, _>("timeframe"),
+            "count": r.get::<i64, _>("n"), "min_ts": r.get::<i64, _>("min_ts"), "max_ts": r.get::<i64, _>("max_ts"),
+        })).collect())
     }
 }

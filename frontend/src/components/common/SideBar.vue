@@ -71,6 +71,7 @@ const nav: NavItem[] = [
     ]
   },
   { to: '/lexique',  icone: '📖', label: 'Lexique SMC' },
+  { to: '/data',     icone: '📦', label: 'Données' },
   { to: '/settings', icone: '⚙️',  label: 'Paramètres' },
 ]
 
