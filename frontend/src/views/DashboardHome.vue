@@ -23,11 +23,11 @@
     <!-- Horloges sessions de marché -->
     <MarketClocks />
 
-    <!-- Calendrier économique -->
-    <EconomicCalendar />
-
-    <!-- Sentiment de marché -->
-    <SentimentMarche />
+    <!-- Calendrier économique + Sentiment de marché (2 colonnes) -->
+    <div class="grid grid-cols-2 gap-4 items-start">
+      <EconomicCalendar />
+      <SentimentMarche />
+    </div>
 
     <!-- Métriques performance (backtest BTC) -->
     <div v-if="metriques" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
