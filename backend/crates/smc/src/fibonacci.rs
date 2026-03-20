@@ -188,6 +188,8 @@ pub fn score_fib(prix: f64, niveaux: &NiveauxFibonacci) -> f64 {
     }
 }
 
+// ─── Tests ────────────────────────────────────────────────────────────────────
+
 #[cfg(test)]
 mod tests {
     use super::*;
