@@ -1,44 +1,53 @@
 <template>
-  <div class="space-y-6">
-    <!-- Capital + Statut Système -->
-    <div class="flex flex-col gap-3">
-      <div class="flex gap-4 items-stretch">
-        <div class="glass-card p-5 shrink-0">
-          <p class="label">Capital</p>
-          <p class="kpi-value">{{ formatUsd(capital) }}</p>
-          <p class="label mt-1 text-xs">Portefeuille initial</p>
-          <router-link to="/settings" class="text-xs text-emerald-400 hover:underline mt-1 block">Modifier →</router-link>
-        </div>
-        <DashboardSystemStatus
-          :backend-ok="backendOk"
-          :btc-prix="btcPrix"
-          :ib-gateway-ok="ibGatewayOk"
-          :ml-pret="mlPret"
-        />
-      </div>
-      <!-- Bande de prix actifs avec tooltip intégré -->
-      <DashboardPrixStrip :assets="assetsDisplay" />
-    </div>
+  <!-- Layout 3 colonnes : calendrier | contenu principal | sentiment -->
+  <div class="flex gap-3 items-start">
 
-    <!-- Horloges sessions de marché -->
-    <MarketClocks />
-
-    <!-- Calendrier économique + Sentiment de marché (2 colonnes) -->
-    <div class="grid grid-cols-2 gap-4 items-start">
+    <!-- Colonne gauche : Calendrier économique -->
+    <aside class="w-56 shrink-0 sticky top-0">
       <EconomicCalendar />
+    </aside>
+
+    <!-- Contenu principal -->
+    <div class="flex-1 min-w-0 space-y-4">
+      <!-- Capital + Statut Système -->
+      <div class="flex flex-col gap-3">
+        <div class="flex gap-4 items-stretch">
+          <div class="glass-card p-5 shrink-0">
+            <p class="label">Capital</p>
+            <p class="kpi-value">{{ formatUsd(capital) }}</p>
+            <p class="label mt-1 text-xs">Portefeuille initial</p>
+            <router-link to="/settings" class="text-xs text-emerald-400 hover:underline mt-1 block">Modifier →</router-link>
+          </div>
+          <DashboardSystemStatus
+            :backend-ok="backendOk"
+            :btc-prix="btcPrix"
+            :ib-gateway-ok="ibGatewayOk"
+            :ml-pret="mlPret"
+          />
+        </div>
+        <DashboardPrixStrip :assets="assetsDisplay" />
+      </div>
+
+      <!-- Horloges sessions de marché -->
+      <MarketClocks />
+
+      <!-- Métriques performance (backtest BTC) -->
+      <div v-if="metriques" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div class="glass-card p-4"><p class="label">Win Rate</p><p class="kpi-value text-emerald-400">{{ metriques.win_rate.toFixed(1) }}%</p></div>
+        <div class="glass-card p-4"><p class="label">ROI Backtest</p><p class="kpi-value" :class="metriques.roi_pct >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ metriques.roi_pct.toFixed(1) }}%</p></div>
+        <div class="glass-card p-4"><p class="label">Total Trades</p><p class="kpi-value">{{ metriques.total_trades }}</p></div>
+        <div class="glass-card p-4"><p class="label">Max Drawdown</p><p class="kpi-value text-red-400">{{ metriques.max_drawdown_pct.toFixed(1) }}%</p></div>
+      </div>
+
+      <!-- Derniers signaux -->
+      <DashboardSignaux />
+    </div>
+
+    <!-- Colonne droite : Sentiment de marché -->
+    <aside class="w-56 shrink-0 sticky top-0">
       <SentimentMarche />
-    </div>
+    </aside>
 
-    <!-- Métriques performance (backtest BTC) -->
-    <div v-if="metriques" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <div class="glass-card p-4"><p class="label">Win Rate</p><p class="kpi-value text-emerald-400">{{ metriques.win_rate.toFixed(1) }}%</p></div>
-      <div class="glass-card p-4"><p class="label">ROI Backtest</p><p class="kpi-value" :class="metriques.roi_pct >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ metriques.roi_pct.toFixed(1) }}%</p></div>
-      <div class="glass-card p-4"><p class="label">Total Trades</p><p class="kpi-value">{{ metriques.total_trades }}</p></div>
-      <div class="glass-card p-4"><p class="label">Max Drawdown</p><p class="kpi-value text-red-400">{{ metriques.max_drawdown_pct.toFixed(1) }}%</p></div>
-    </div>
-
-    <!-- Derniers signaux -->
-    <DashboardSignaux />
   </div>
 </template>
 
