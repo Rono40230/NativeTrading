@@ -1,11 +1,6 @@
 <template>
-  <!-- Layout 3 colonnes : calendrier | contenu principal | sentiment -->
+  <!-- Layout 2 colonnes : contenu principal | (sentiment + calendrier) -->
   <div class="flex gap-3 items-start">
-
-    <!-- Colonne gauche : Calendrier économique -->
-    <aside class="w-56 shrink-0 sticky top-0">
-      <EconomicCalendar />
-    </aside>
 
     <!-- Contenu principal -->
     <div class="flex-1 min-w-0 space-y-4">
@@ -43,9 +38,10 @@
       <DashboardSignaux />
     </div>
 
-    <!-- Colonne droite : Sentiment de marché -->
-    <aside class="w-56 shrink-0 sticky top-0">
+    <!-- Colonne droite : Sentiment + Calendrier -->
+    <aside class="w-64 shrink-0 sticky top-0 space-y-3">
       <SentimentMarche />
+      <EconomicCalendar />
     </aside>
 
   </div>

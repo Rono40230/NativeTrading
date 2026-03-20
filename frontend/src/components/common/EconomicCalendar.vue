@@ -14,7 +14,7 @@
       Aucune annonce à venir (7j)
     </div>
 
-    <div v-else class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-10 xl:grid-cols-12 gap-1.5">
+    <div v-else class="flex flex-col gap-1.5">
       <div
         v-for="a in annonces"
         :key="a.id"
@@ -24,21 +24,19 @@
       >
         <!-- Carte compacte -->
         <div
-          class="rounded-md border px-1.5 py-1.5 cursor-default select-none transition-colors flex flex-col justify-between h-20"
+          class="rounded-md border px-2 py-1.5 cursor-default select-none transition-colors flex flex-row items-center gap-2"
           :class="a.impact === 'High'
             ? 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10'
             : 'border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10'"
         >
-          <div class="flex items-center gap-1 mb-0.5">
-            <span
-              class="w-1 h-1 rounded-full shrink-0"
-              :class="a.impact === 'High' ? 'bg-red-400' : 'bg-orange-400'"
-            />
-            <span class="text-sm font-mono font-bold text-slate-300 leading-none">{{ a.devise }}</span>
-          </div>
-          <p class="text-sm text-white leading-tight line-clamp-2 mb-1">{{ a.titre }}</p>
+          <span
+            class="w-1.5 h-1.5 rounded-full shrink-0"
+            :class="a.impact === 'High' ? 'bg-red-400' : 'bg-orange-400'"
+          />
+          <span class="text-xs font-mono font-bold text-slate-300 shrink-0">{{ a.devise }}</span>
+          <p class="text-xs text-white leading-tight truncate flex-1">{{ a.titre }}</p>
           <p
-            class="text-xs font-semibold leading-none"
+            class="text-[10px] font-semibold shrink-0"
             :class="couleurCountdown(a.date_heure)"
           >{{ countdown(a.date_heure) }}</p>
         </div>
