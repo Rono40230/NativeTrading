@@ -3,7 +3,7 @@
     <div
       v-if="annonce"
       class="eco-cal-tooltip"
-      :style="{ left: `${x + 14}px`, top: `${Math.max(4, y - 10)}px` }"
+      :style="{ left: `${x + 14}px`, top: `${y}px`, transform: 'translateY(-100%) translateY(-12px)' }"
     >
       <!-- En-tête : devise + impact -->
       <div class="flex items-center gap-2 mb-1.5">

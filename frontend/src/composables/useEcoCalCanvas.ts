@@ -14,7 +14,7 @@ const DRAPEAUX: Record<string, string> = {
   CNY: '🇨🇳', CNH: '🇨🇳',
 }
 
-const Y_MARQUEUR = 14  // px depuis le haut de la zone chart
+const H_TIMESCALE = 28  // hauteur de la barre de temps LWC (px)
 
 function emojiDevise(devise: string): string {
   return DRAPEAUX[devise] ?? devise.slice(0, 2)
@@ -33,6 +33,7 @@ export function useEcoCalCanvas() {
   let marqueursCaches: MarqueurEcoCal[] = []
   let unsubscribe: (() => void) | null = null
   let animFrame: number | null = null
+  let hauteurCanvas = 0
 
   function monterCanvas(container: HTMLElement): HTMLCanvasElement {
     containerRef = container
@@ -70,6 +71,7 @@ export function useEcoCalCanvas() {
     if (W === 0 || H === 0) return
     ctx.clearRect(0, 0, W, H)
     marqueursCaches = []
+    hauteurCanvas = H
 
     const ts = chartRef.timeScale()
 
@@ -104,25 +106,26 @@ export function useEcoCalCanvas() {
       const x = Math.round(tsVersX(tsSec))
       if (x < 0 || x > xLimiteDroite) continue
 
-      const y = Y_MARQUEUR
+      // Y ancré dans la barre de temps (invariant au zoom vertical des prix)
+      const yPastille = H - Math.round(H_TIMESCALE / 2)
       const estHaut = annonce.impact === 'High'
 
-      // Ligne verticale pointillée
+      // Ligne verticale pointillée du haut jusqu'au bord de la barre de temps
       ctx.save()
       ctx.setLineDash([3, 4])
       ctx.strokeStyle = estHaut ? 'rgba(239,68,68,0.35)' : 'rgba(251,146,60,0.35)'
       ctx.lineWidth = 1
       ctx.beginPath()
-      ctx.moveTo(x, y + 16)
-      ctx.lineTo(x, H)
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x, H - H_TIMESCALE)
       ctx.stroke()
       ctx.restore()
 
-      // Fond de la pastille
+      // Fond de la pastille dans la barre de temps
       ctx.save()
       ctx.fillStyle = estHaut ? 'rgba(239,68,68,0.85)' : 'rgba(251,146,60,0.85)'
       ctx.beginPath()
-      ctx.roundRect(x - 10, 0, 20, 16, 4)
+      ctx.roundRect(x - 10, H - H_TIMESCALE + 2, 20, H_TIMESCALE - 4, 4)
       ctx.fill()
       ctx.restore()
 
@@ -130,9 +133,9 @@ export function useEcoCalCanvas() {
       ctx.font = '11px sans-serif'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText(emojiDevise(annonce.devise), x, y)
+      ctx.fillText(emojiDevise(annonce.devise), x, yPastille)
 
-      marqueursCaches.push({ x, y, annonce })
+      marqueursCaches.push({ x, y: yPastille, annonce })
     }
   }
 
@@ -173,7 +176,8 @@ export function useEcoCalCanvas() {
    * ou null si aucun marqueur à proximité.
    */
   function marqueurSous(cursorX: number, cursorY: number): AnnonceCalendrier | null {
-    if (cursorY > Y_MARQUEUR + 10) return null
+    // Détection uniquement dans la zone de la barre de temps
+    if (cursorY < hauteurCanvas - H_TIMESCALE - 4) return null
     for (const m of marqueursCaches) {
       if (Math.abs(m.x - cursorX) < 12) return m.annonce
     }
