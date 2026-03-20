@@ -71,10 +71,13 @@ export function useEcoCalCanvas() {
 
     const ts = chartRef.timeScale()
 
-    // Limite droite = coordonnée du dernier temps visible (exclut la barre de prix)
-    const visibleRange = ts.getVisibleRange()
-    const xLimiteDroite = visibleRange
-      ? (ts.timeToCoordinate(visibleRange.to as any) ?? W)
+    // Limite droite = bord droit de la zone de tracé (inclut le rightbar, exclut la barre de prix).
+    // logicalToCoordinate(logicalRange.to) = coordonnée pixel de la dernière
+    // position visible (après les données, dans l'espace vide futur), ce qui
+    // correspond exactement au bord droit avant la barre de prix.
+    const logicalRange = ts.getVisibleLogicalRange()
+    const xLimiteDroite = logicalRange !== null
+      ? (ts.logicalToCoordinate(logicalRange.to) ?? W)
       : W
 
     for (const annonce of annoncesRef) {
