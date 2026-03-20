@@ -17,6 +17,7 @@ export const useAlerteStore = defineStore('alertes', () => {
   function afficher(message: string, type: TypeAlerte = 'info') {
     const id = ++compteur
     alertes.value.push({ id, type, message })
+    setTimeout(() => supprimer(id), 30_000)
   }
 
   function afficherSucces(message: string) {

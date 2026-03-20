@@ -59,12 +59,18 @@ impl AppState {
             ib_client_id
         );
 
+        // Démarrage automatique du Signal Engine au lancement du serveur
+        let db = Arc::new(db);
+        let signal_engine = Arc::new(SignalEngine::new());
+        signal_engine.demarrer(db.clone());
+        tracing::info!("🤖 Signal Engine démarré automatiquement");
+
         Ok(Self {
-            db: Arc::new(db),
+            db,
             pipeline_ml: Arc::new(Mutex::new(pipeline_ml)),
             ib_port,
             ib_client_id,
-            signal_engine: Arc::new(SignalEngine::new()),
+            signal_engine,
         })
     }
 }
