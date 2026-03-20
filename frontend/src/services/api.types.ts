@@ -151,8 +151,10 @@ export interface ZoneIfvg {
 export interface NiveauxFibonacci {
   swing_haut: number
   swing_bas: number
-  niveau_236: number
-  niveau_382: number
+  /** Unix secondes — timestamp du pivot haut (ancrage gauche) */
+  timestamp_haut: number
+  /** Unix secondes — timestamp du pivot bas (ancrage gauche) */
+  timestamp_bas: number
   niveau_500: number
   niveau_618: number
   niveau_786: number

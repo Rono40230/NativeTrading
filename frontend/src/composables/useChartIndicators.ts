@@ -1,11 +1,11 @@
 import { ref } from 'vue'
-import type { IChartApi, ISeriesApi, IPriceLine, SeriesType, LineSeriesOptions } from 'lightweight-charts'
+import type { IChartApi, ISeriesApi, SeriesType, LineSeriesOptions } from 'lightweight-charts'
 import { apiService } from '@/services/api.service'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import type { ReponseIndicators } from '@/services/api.service'
 import { COULEURS, buildIndicatorsParams } from './chartIndicatorsConfig'
 import { creerSousGraphiqueRsi, creerSousGraphiqueMacd, creerSousGraphiqueAtr, type SyncCtx } from './chartSubgraphs'
-import { appliquerBollinger, appliquerSmcOverlays } from './chartMainOverlays'
+import { appliquerBollinger } from './chartMainOverlays'
 import { rendreSurSerie, effacerMarqueurs } from './chartSignauxRendu'
 import { filtreDefaut, type FiltreSignaux, type SignalIndicateur } from './chartSignauxTypes'
 import { calculerSlTp, afficherSlTp, effacerSlTp, type LignesSlTp } from './chartAtrSlTp'
@@ -17,8 +17,6 @@ export function useChartIndicators() {
 
   // Tableau plain non-reactif
   let seriesActives: ISeriesApi<SeriesType>[] = []
-  // Price lines SMC attachées à la candleSerie (nécessaires pour suppression)
-  let lignesSmcActives: IPriceLine[] = []
   let candleSerieSmcRef: ISeriesApi<'Candlestick'> | null = null
   let rsiChart: IChartApi | null = null
   let syncMainToRsi: ((range: any) => void) | null = null
@@ -39,13 +37,7 @@ export function useChartIndicators() {
     macdCont: HTMLElement | null = null,
     atrCont: HTMLElement | null = null,
   ) {
-    // Supprimer les price lines SMC attachées à la candleSerie
-    if (candleSerieSmcRef && lignesSmcActives.length > 0) {
-      for (const ligne of lignesSmcActives) {
-        try { candleSerieSmcRef.removePriceLine(ligne) } catch { }
-      }
-    }
-    lignesSmcActives = []
+    // Supprimer les price lines SMC (maintenant gérées par fibCanvas — rien à faire)
     candleSerieSmcRef = null
     // Désabonner et détruire uniquement les sous-graphiques qu'on va recréer
     // (container fourni = recréation prévue). Si container=null, le sous-graphique
@@ -173,10 +165,9 @@ export function useChartIndicators() {
         appliquerBollinger(chart, data.bollinger, prefs, ajouterLigne, (s) => seriesActives.push(s))
       }
 
-      // Overlays SMC (Order Blocks, IFVG, Fibonacci, BSL/SSL)
+      // Overlays SMC — dessinés par canvas (useSmcCanvas, useSmcFibCanvas)
       if (candleSerie) {
         candleSerieSmcRef = candleSerie
-        lignesSmcActives = appliquerSmcOverlays(candleSerie, data, prefs)
       }
 
       // Signaux indicateurs — marqueurs sur la série candlestick
@@ -209,6 +200,7 @@ export function useChartIndicators() {
   function reinitialiser() {
     seriesActives = []
     appelEnCours++
+    candleSerieSmcRef = null
     syncMainToRsi = null
     syncMainToMacd = null
     syncMainToAtr = null

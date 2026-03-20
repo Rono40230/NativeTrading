@@ -65,9 +65,15 @@ export interface PrefsIndicateurs {
   smcImbShowFvg: boolean
   smcImbShowOg: boolean
   smcImbMitigation: 'close' | 'wick'
-  smcFibCouleur: string
-  smcFibAfficher236: boolean
-  smcFibAfficher786: boolean
+  smcFibCouleur0: string
+  smcFibCouleur500: string
+  smcFibCouleur618: string
+  smcFibCouleur786: string
+  smcFibCouleur1: string
+  smcFibSensHaussier: boolean
+  smcFibGoldenZone: boolean
+  smcFibGoldenCouleur: string
+  smcFibGoldenOpacite: number
   smcLiqCouleurBsl: string
   smcLiqCouleurSsl: string
   smcLiqSwingsActif: boolean
@@ -151,9 +157,15 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcImbShowFvg: true,
   smcImbShowOg: true,
   smcImbMitigation: 'close',
-  smcFibCouleur: '#94a3b8',
-  smcFibAfficher236: true,
-  smcFibAfficher786: true,
+  smcFibCouleur0: '#94a3b8',
+  smcFibCouleur500: '#facc15',
+  smcFibCouleur618: '#f59e0b',
+  smcFibCouleur786: '#fb923c',
+  smcFibCouleur1: '#94a3b8',
+  smcFibSensHaussier: true,
+  smcFibGoldenZone: true,
+  smcFibGoldenCouleur: '#f59e0b',
+  smcFibGoldenOpacite: 0.15,
   smcLiqCouleurBsl: '#10b981',
   smcLiqCouleurSsl: '#ef4444',
   smcLiqSwingsActif: true,

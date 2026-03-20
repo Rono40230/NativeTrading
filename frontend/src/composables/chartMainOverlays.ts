@@ -1,4 +1,4 @@
-import type { IChartApi, ISeriesApi, IPriceLine, LineSeriesOptions } from 'lightweight-charts'
+import type { IChartApi, ISeriesApi, LineSeriesOptions } from 'lightweight-charts'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import type { ReponseIndicators } from '@/services/api.service'
 import { COULEURS, hexVersRgba } from './chartIndicatorsConfig'
@@ -44,38 +44,4 @@ export function appliquerBollinger(
   } as Partial<LineSeriesOptions>)
   milieu.setData(bollinger.milieu.map((p) => ({ time: p.time as any, value: p.value })))
   pushSeries(milieu)
-}
-
-// ─── Overlays SMC (Fibonacci + BSL/SSL comme price lines ; OB/FVG/IFVG via canvas) ──
-
-/**
- * Applique les overlays SMC sur la candleSerie sous forme de price lines.
- * Seuls Fibonacci et BSL/SSL utilisent des lignes (ce sont des niveaux horizontaux par nature).
- * OB / FVG / IFVG sont désormais dessinés comme rectangles via useSmcCanvas.
- * Retourne la liste des IPriceLine créées pour permettre leur suppression propre.
- */
-export function appliquerSmcOverlays(
-  candleSerie: ISeriesApi<'Candlestick'>,
-  data: ReponseIndicators,
-  prefs: PrefsIndicateurs,
-): IPriceLine[] {
-  const lignes: IPriceLine[] = []
-
-  if (data.fibonacci) {
-    const fib     = data.fibonacci
-    const couleur = hexVersRgba(prefs.smcFibCouleur, 0.85)
-    const niveaux: [number, string, boolean][] = [
-      [fib.niveau_236, 'Fib 23.6%', prefs.smcFibAfficher236],
-      [fib.niveau_382, 'Fib 38.2%', true],
-      [fib.niveau_500, 'Fib 50%',   true],
-      [fib.niveau_618, 'Fib 61.8%', true],
-      [fib.niveau_786, 'Fib 78.6%', prefs.smcFibAfficher786],
-    ]
-    for (const [niveau, label, visible] of niveaux) {
-      if (!visible) continue
-      lignes.push(candleSerie.createPriceLine({ price: niveau, color: couleur, lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: label }))
-    }
-  }
-
-  return lignes
 }

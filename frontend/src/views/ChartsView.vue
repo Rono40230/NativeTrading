@@ -117,6 +117,7 @@ import { useChartAnalyse } from '@/composables/useChartAnalyse'
 import { useChartIndicators } from '@/composables/useChartIndicators'
 import { useSmcCanvas } from '@/composables/useSmcCanvas'
 import { useSmcLiqCanvas } from '@/composables/useSmcLiqCanvas'
+import { useSmcFibCanvas } from '@/composables/useSmcFibCanvas'
 
 import { useChartOrchestration } from '@/composables/useChartOrchestration'
 import PredictionSMCPanel from '@/components/common/PredictionSMCPanel.vue'
@@ -157,6 +158,7 @@ const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
 const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux } = useChartIndicators()
 const smcCanvas = useSmcCanvas()
 const liqCanvas = useSmcLiqCanvas()
+const fibCanvas = useSmcFibCanvas()
 
 
 const timestampCurseur = ref<number | null>(null)
@@ -192,6 +194,7 @@ async function chargerIndicateurs() {
   const serie = getCandlestickSeries()
   if (chartContainer.value && serie) smcCanvas.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value && serie) liqCanvas.initialiser(chart, serie, chartContainer.value)
+  if (chartContainer.value && serie) fibCanvas.initialiser(chart, serie, chartContainer.value)
   await chargerEtAppliquer(
     chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
     rsiContainer.value, macdContainer.value, atrContainer.value,
@@ -202,6 +205,7 @@ async function chargerIndicateurs() {
       const tsSec = tsMs ? Math.floor(tsMs / 1000) : undefined
       smcCanvas.mettreAJourZones(data, settingsStore.indicateurs, tsSec)
       liqCanvas.mettreAJour(data, settingsStore.indicateurs, tsSec)
+      fibCanvas.mettreAJour(data.fibonacci, settingsStore.indicateurs, tsSec)
     },
   )
 }
@@ -213,12 +217,14 @@ const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestra
   smcMettreAJourZones: (data, prefs, ts) => {
     smcCanvas.mettreAJourZones(data, prefs, ts)
     liqCanvas.mettreAJour(data, prefs, ts)
+    fibCanvas.mettreAJour(data.fibonacci, prefs, ts)
   },
   chargerEtAppliquer, filtreCourant,
   mettreAJourSerie, mettreAJourEnDirect,
   initChart, detruireChart, reinitialiser,
   smcDetruire: smcCanvas.detruire,
   liqDetruire: liqCanvas.detruire,
+  fibDetruire: fibCanvas.detruire,
   configurerCrosshair, configurerClick, chargerIndicateurs,
   configurerRedimensionnement, arreterRedimensionnement,
 })

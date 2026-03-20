@@ -152,45 +152,7 @@
 
           <!-- Fibonacci -->
           <template v-else-if="indicateur === 'smcFib'">
-            <p class="text-[10px] text-slate-500 mb-3">
-              Retracements calculés sur le swing high/low des 60 dernières bougies.
-            </p>
-            <label class="block text-xs text-slate-400 mb-1">Couleur des niveaux</label>
-            <div class="flex items-center gap-3 mb-4">
-              <input type="color" v-model="prefs.smcFibCouleur"
-                class="w-10 h-8 rounded cursor-pointer border border-white/15 bg-transparent" />
-              <span class="text-xs text-slate-400 font-mono">{{ prefs.smcFibCouleur }}</span>
-            </div>
-            <p class="text-xs text-slate-400 mb-2">Niveaux affichés</p>
-            <div class="space-y-2">
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" v-model="prefs.smcFibAfficher236"
-                  class="rounded accent-slate-400" />
-                <span class="text-xs text-slate-300">23.6%</span>
-                <span class="text-[10px] text-slate-500">(optionnel)</span>
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer opacity-50">
-                <input type="checkbox" checked disabled class="rounded" />
-                <span class="text-xs text-slate-300">38.2%</span>
-                <span class="text-[10px] text-slate-500">(toujours actif)</span>
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer opacity-50">
-                <input type="checkbox" checked disabled class="rounded" />
-                <span class="text-xs text-slate-300">50%</span>
-                <span class="text-[10px] text-slate-500">(toujours actif)</span>
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer opacity-50">
-                <input type="checkbox" checked disabled class="rounded" />
-                <span class="text-xs text-slate-300">61.8%</span>
-                <span class="text-[10px] text-slate-500">(toujours actif)</span>
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" v-model="prefs.smcFibAfficher786"
-                  class="rounded accent-slate-400" />
-                <span class="text-xs text-slate-300">78.6%</span>
-                <span class="text-[10px] text-slate-500">(optionnel)</span>
-              </label>
-            </div>
+            <SmcFibonacciParams v-model="prefs" />
           </template>
 
           <!-- Liquidité (Swings + Sessions + Daily) -->
@@ -219,6 +181,7 @@ import { computed } from 'vue'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import SmcImbalanceParams from './SmcImbalanceParams.vue'
 import SmcLiquiditeParams from './SmcLiquiditeParams.vue'
+import SmcFibonacciParams from './SmcFibonacciParams.vue'
 
 const props = defineProps<{ indicateur: string | null }>()
 const prefs = defineModel<PrefsIndicateurs>({ required: true })
