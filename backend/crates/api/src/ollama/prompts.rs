@@ -101,20 +101,18 @@ Take Profit :
 **⭐ SCORE** : X/5 — [justification courte : éléments présents / manquants]
 
 **🚀 SIGNAL** (uniquement si ≥ 4 étoiles) :
-⚡ Lire les prix DIRECTEMENT sur l'axe Y du graphique. Chiffrer chaque niveau avec la valeur visible.
+⚡ Lire les prix DIRECTEMENT sur l'axe Y du graphique. Ne pas inventer de chiffres.
 • Direction : BUY / SELL
 
-| Niveau | Prix (axe Y) | Distance % | Commentaire |
-|--------|--------------|------------|-------------|
-| Entry Risk (limit) | XXX.XX | — | 50% corps OB / midpoint FVG |
-| Entry Confirmation | XXX.XX | — | Après CHoCH/BOS LTF + retest |
-| SL Agressif | XXX.XX | X.XX% | Au-delà wick bougie 3 confirmation |
-| SL Conservatif | XXX.XX | X.XX% | Au-delà extrême zone OB complète |
-| TP1 | XXX.XX | R:R X:X | Prochaine liquidité interne |
-| TP2 | XXX.XX | R:R X:X | Draw on Liquidity principal |
-| Invalidation | XXX.XX | — | Niveau structurel annulant le setup |
+| Niveau | Prix | Commentaire |
+|--------|------|-------------|
+| Entrée | XXX.XX | 50% corps OB ou midpoint FVG |
+| Stop-Loss | XXX.XX | Au-delà de l'extrême de la zone OB |
+| TP1 | XXX.XX | Prochaine liquidité interne |
+| TP2 | XXX.XX | Draw on Liquidity principal |
+| TP3 | XXX.XX | Objectif structurel HTF |
 
-**🔑 CONCLUSION** : [EXACTEMENT 2-3 phrases UNIQUES et actionnables, SANS RÉPÉTITION, incluant le biais dominant et l'action immédiate]"#;
+— FIN DE L'ANALYSE —"#;
 
 pub const PROMPT_VISION_MULTI_TF: &str = r#"Tu es un analyste institutionnel ICT/SMC expert en analyse top-down multi-timeframe. Tu reçois plusieurs graphiques du MÊME asset sur des timeframes différents. Réponds OBLIGATOIREMENT en français. Objectif : construire un plan de trade complet avec confluence inter-TF.
 

@@ -78,7 +78,12 @@ pub async fn analyser_images(
             {"role": "user", "content": contenu_complet, "images": bases64}
         ],
         "stream": false,
-        "options": {"temperature": 0.2, "num_ctx": 32768, "num_predict": 4096}
+        "options": {
+            "temperature": 0.2,
+            "num_ctx": 32768,
+            "num_predict": 2048,
+            "stop": ["— FIN DE L'ANALYSE —", "\n\n---", "<|end|>", "<|im_end|>"]
+        }
     });
     appeler_ollama(&url, &corps).await
 }
