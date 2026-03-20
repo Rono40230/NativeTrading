@@ -93,6 +93,15 @@ export interface Signal {
   cree_le: number
 }
 
+export interface StatutSignalEngine {
+  actif: boolean
+  prochain_cycle_dans_secs: number
+  signaux_24h: number
+  assets_surveilles: number
+  timeframes: string[]
+  intervalle_secs: number
+}
+
 export interface ScoreSmc {
   total: number
   tendance: number

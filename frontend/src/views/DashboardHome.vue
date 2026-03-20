@@ -35,6 +35,44 @@
       <!-- Horloges sessions de marché -->
       <MarketClocks />
 
+      <!-- Signal Engine — contrôle + statut -->
+      <div class="glass-card p-4 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <span class="text-lg">{{ engineActif ? '🟢' : '🔴' }}</span>
+          <div>
+            <p class="text-sm font-semibold text-white">
+              Signal Engine{{ engineActif ? ' actif' : ' arrêté' }}
+            </p>
+            <p class="text-xs text-gray-400">
+              <template v-if="engineActif && engineSecondes > 0">
+                Prochaine analyse dans {{ engineSecondes }}s
+              </template>
+              <template v-else-if="engineActif">
+                Analyse en cours…
+              </template>
+              <template v-else>
+                13 assets × M5/M15 — intervalle 5 min
+              </template>
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-400">{{ engineSignaux24h }} signaux / 24h</span>
+          <button
+            v-if="!engineActif"
+            class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition disabled:opacity-50"
+            :disabled="engineChargement"
+            @click="engineDemarrer"
+          >Démarrer</button>
+          <button
+            v-else
+            class="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 text-xs font-semibold hover:bg-red-500/30 transition disabled:opacity-50"
+            :disabled="engineChargement"
+            @click="engineArreter"
+          >Arrêter</button>
+        </div>
+      </div>
+
       <!-- Métriques performance (backtest BTC) -->
       <div v-if="metriques" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div class="glass-card p-4"><p class="label">Win Rate</p><p class="kpi-value text-emerald-400">{{ metriques.win_rate.toFixed(1) }}%</p></div>
@@ -65,6 +103,7 @@ import { useSignalStore } from '@/stores/signal.store'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useMarketStore } from '@/stores/market.store'
 import { useNewsStore } from '@/stores/news.store'
+import { useSignalEngine } from '@/composables/useSignalEngine'
 import { apiService } from '@/services/api.service'
 import type { BacktestResults, Candle } from '@/services/api.service'
 import MarketClocks from '@/components/common/MarketClocks.vue'
@@ -83,6 +122,15 @@ const signalStore = useSignalStore()
 const settingsStore = useSettingsStore()
 const marketStore = useMarketStore()
 const newsStore = useNewsStore()
+
+const {
+  actif: engineActif,
+  secondesRestantes: engineSecondes,
+  signaux24h: engineSignaux24h,
+  chargement: engineChargement,
+  demarrer: engineDemarrer,
+  arreter: engineArreter,
+} = useSignalEngine()
 
 const capital = computed(() => settingsStore.capitalDepart)
 const mlPret = computed(() => signalStore.prediction?.modele_pret ?? false)

@@ -241,6 +241,27 @@ impl Database {
             .collect())
     }
 
+    /// Vérifie si un signal (même asset/timeframe) existe dans la fenêtre anti-doublon.
+    pub async fn signal_recent_existe(&self, asset: &Asset, timeframe: &Timeframe, minutes: i64) -> Result<bool> {
+        let seuil = Utc::now().timestamp() - minutes * 60;
+        let row = sqlx::query(
+            "SELECT COUNT(*) as n FROM signaux WHERE asset = ? AND timeframe = ? AND cree_le >= ?",
+        )
+        .bind(asset.as_str()).bind(timeframe.as_str()).bind(seuil)
+        .fetch_one(&self.pool).await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(row.get::<i64, _>("n") > 0)
+    }
+
+    /// Compte les signaux générés dans les `minutes` dernières minutes.
+    pub async fn compter_signaux_recents(&self, minutes: i64) -> Result<i64> {
+        let seuil = Utc::now().timestamp() - minutes * 60;
+        let row = sqlx::query("SELECT COUNT(*) as n FROM signaux WHERE cree_le >= ?")
+            .bind(seuil).fetch_one(&self.pool).await
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(row.get::<i64, _>("n"))
+    }
+
     /// Efface et ré-insère toutes les annonces économiques (mise à jour du cache)
     pub async fn ecrire_calendrier_cache(&self, annonces: &[serde_json::Value]) -> Result<()> {
         let now = Utc::now().timestamp();

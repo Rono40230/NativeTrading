@@ -8,6 +8,7 @@ export type {
   NiveauLiquidite, ReponseIndicators, IndicatorsParams, SignalIndicateur,
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
   SentimentMarche, EntiteSentiment, ArticleNews, AlertesNews, NiveauAlerte, ContenuArticle, TraductionReponse,
+  StatutSignalEngine,
 } from './api.types'
 
 import type {
@@ -16,6 +17,7 @@ import type {
   ReponseEntrainement, ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
   ModeCalculTendance, AnnonceCalendrier, SentimentMarche, AlertesNews, ContenuArticle, TraductionReponse,
+  StatutSignalEngine,
 } from './api.types'
 
 const BASE_URL = 'http://localhost:8080'
@@ -185,6 +187,21 @@ export const apiService = {
 
   async traduire(texte: string, long = false): Promise<TraductionReponse> {
     const res = await http.get('/api/news/traduire', { params: { texte, long }, timeout: 60_000 })
+    return res.data
+  },
+
+  async signalEngineStatut(): Promise<StatutSignalEngine> {
+    const res = await http.get('/api/signal-engine/status')
+    return res.data
+  },
+
+  async signalEngineDemarrer(): Promise<{ statut: string; message: string }> {
+    const res = await http.post('/api/signal-engine/start')
+    return res.data
+  },
+
+  async signalEngineArreter(): Promise<{ statut: string; message: string }> {
+    const res = await http.post('/api/signal-engine/stop')
     return res.data
   },
 }

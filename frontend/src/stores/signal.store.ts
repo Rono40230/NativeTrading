@@ -62,6 +62,11 @@ export const useSignalStore = defineStore('signals', () => {
     }
   }
 
+  /** Injecte un signal reçu en temps réel (WebSocket Signal Engine) en tête de liste. */
+  function ajouterSignalTempsReel(signal: Signal) {
+    signaux.value = [signal, ...signaux.value].slice(0, 50)
+  }
+
   return {
     signaux,
     prediction,
@@ -74,5 +79,6 @@ export const useSignalStore = defineStore('signals', () => {
     chargerPrediction,
     lancerBacktest,
     chargerScoreSmc,
+    ajouterSignalTempsReel,
   }
 })

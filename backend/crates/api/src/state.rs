@@ -4,6 +4,8 @@ use ml::PipelineML;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::signal_engine::SignalEngine;
+
 pub struct AppState {
     pub db: Arc<Database>,
     pub pipeline_ml: Arc<Mutex<PipelineML>>,
@@ -11,6 +13,8 @@ pub struct AppState {
     pub ib_port: u16,
     /// Client ID pour la connexion IB (doit être unique par connexion)
     pub ib_client_id: i32,
+    /// Moteur de génération automatique de signaux SMC
+    pub signal_engine: Arc<SignalEngine>,
 }
 
 impl AppState {
@@ -60,6 +64,7 @@ impl AppState {
             pipeline_ml: Arc::new(Mutex::new(pipeline_ml)),
             ib_port,
             ib_client_id,
+            signal_engine: Arc::new(SignalEngine::new()),
         })
     }
 }

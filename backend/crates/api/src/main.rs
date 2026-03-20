@@ -4,6 +4,7 @@ use actix_web::{http::header, middleware, web, App, HttpServer};
 mod backtest_handlers;
 mod calendar_handlers;
 mod config_handlers;
+mod engine_handlers;
 mod export_handlers;
 mod handlers;
 mod indicators_handlers;
@@ -17,6 +18,7 @@ mod ollama;
 mod ollama_handlers;
 mod ollama_types;
 mod sentiment_handlers;
+mod signal_engine;
 mod smc_handlers;
 mod state;
 mod straddle_handlers;
@@ -126,6 +128,22 @@ async fn main() -> std::io::Result<()> {
                 web::get().to(news_handlers::get_traduire),
             )
             .route("/api/stream", web::get().to(ws_handlers::stream_market))
+            .route(
+                "/api/signal-engine/start",
+                web::post().to(engine_handlers::demarrer_engine),
+            )
+            .route(
+                "/api/signal-engine/stop",
+                web::post().to(engine_handlers::arreter_engine),
+            )
+            .route(
+                "/api/signal-engine/status",
+                web::get().to(engine_handlers::statut_engine),
+            )
+            .route(
+                "/api/signal-engine/stream",
+                web::get().to(engine_handlers::stream_signaux),
+            )
     })
     .bind(("0.0.0.0", 8080))?
     .run()
