@@ -30,6 +30,28 @@
           :style="{ width: `${scoreSmc.total}%` }"
         />
       </div>
+      <!-- Prérequis ICT (Kill Zone + Sweep) -->
+      <div class="flex gap-2 mt-1">
+        <span
+          class="px-2 py-0.5 rounded text-xs font-medium"
+          :class="scoreSmc.kill_zone_active
+            ? 'bg-emerald-500/20 text-emerald-300'
+            : 'bg-gray-700/60 text-gray-500'"
+        >
+          {{ scoreSmc.kill_zone_active ? '✓' : '✗' }} Kill Zone
+        </span>
+        <span
+          class="px-2 py-0.5 rounded text-xs font-medium"
+          :class="scoreSmc.sweep_detecte
+            ? 'bg-emerald-500/20 text-emerald-300'
+            : 'bg-gray-700/60 text-gray-500'"
+        >
+          {{ scoreSmc.sweep_detecte ? '✓' : '✗' }} Sweep
+        </span>
+        <span v-if="!scoreSmc.kill_zone_active || !scoreSmc.sweep_detecte" class="text-xs text-yellow-600 self-center">
+          ⚠ Signal bloqué
+        </span>
+      </div>
       <!-- Détail composants -->
       <div class="grid grid-cols-5 gap-2 mt-2">
         <div v-for="comp in composants" :key="comp.label" class="text-center">

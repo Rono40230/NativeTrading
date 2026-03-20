@@ -102,6 +102,8 @@ export interface ScoreSmc {
   fibonacci: number
   direction: string
   confluence: boolean
+  kill_zone_active: boolean
+  sweep_detecte: boolean
 }
 
 export type { PointSerie, ZoneOb, ZoneImbalance, ZoneFvgBpr, ZoneBpr, ZoneIfvg, NiveauxFibonacci, ResultatTendance, NiveauLiquidite, DeviationAsie, RangeAsie, NiveauForceSignal, DirectionSignal, SignalIndicateur, ReponseIndicators, IndicatorsParams } from './api.types.indicators'

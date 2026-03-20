@@ -45,6 +45,8 @@ pub async fn analyse_smc(
             "fibonacci": 0.0,
             "direction": "Both",
             "confluence": false,
+            "kill_zone_active": false,
+            "sweep_detecte": false,
             "message": "IB Gateway non connecté — données insuffisantes"
         }));
     }
@@ -60,6 +62,8 @@ pub async fn analyse_smc(
             "fibonacci": 0.0,
             "direction": "Both",
             "confluence": false,
+            "kill_zone_active": smc::kill_zone::est_en_kill_zone(chrono::Utc::now()),
+            "sweep_detecte": false,
             "message": "Marché indécis ou données insuffisantes"
         })),
     }

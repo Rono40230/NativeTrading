@@ -38,6 +38,10 @@ pub struct ScoreSmc {
     pub fibonacci: f64,
     /// Points Imbalance/FVG (0–15) — gradué : 0=absent, 1 zone=8, 2+=15
     pub imbalance: f64,
+    /// Prérequis ICT : Kill Zone active au moment du calcul
+    pub kill_zone_active: bool,
+    /// Prérequis ICT : Liquidity Sweep détecté sur les dernières bougies
+    pub sweep_detecte: bool,
     /// Direction dominante détectée
     pub direction: Direction,
     /// Vrai si total >= 70 (seuil déclencheur)
@@ -86,6 +90,11 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
 
     let total = pts_tendance + pts_ob + pts_ifvg + pts_imbalance + pts_fib;
 
+    // Prérequis ICT — gates binaires (non inclus dans le score, affichés séparément)
+    let last_ts = bougies.last()?.timestamp;
+    let kill_zone_active = kill_zone::est_en_kill_zone(last_ts);
+    let sweep_detecte = sweep::detecter_sweep(bougies).is_some();
+
     tracing::debug!(
         "ScoreSmc {:?}: total={:.1} (tend={:.1} ob={:.1} ifvg={:.1} imb={:.1} fib={:.1})",
         direction, total, pts_tendance, pts_ob, pts_ifvg, pts_imbalance, pts_fib
@@ -100,5 +109,7 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
         fibonacci: pts_fib,
         direction,
         confluence: total >= 70.0,
+        kill_zone_active,
+        sweep_detecte,
     })
 }
