@@ -68,14 +68,17 @@ pub async fn analyser_images(
 
     let bases64: Vec<&str> = images.iter().map(|(b, _)| *b).collect();
 
+    // Pour les modèles vision, fusionner les instructions dans le message user
+    // (avec l'image) : meilleure compréhension du contexte visuel.
+    // num_ctx 32768 : prompt (~3k tokens) + image (~2k) + réponse complète (~4k).
+    let contenu_complet = format!("{}\n\n---\n\n{}", prompt, contenu);
     let corps = serde_json::json!({
         "model": MODELE_VISION,
         "messages": [
-            {"role": "system", "content": prompt},
-            {"role": "user", "content": contenu, "images": bases64}
+            {"role": "user", "content": contenu_complet, "images": bases64}
         ],
         "stream": false,
-        "options": {"temperature": 0.2, "num_ctx": 8192, "num_predict": 4096}
+        "options": {"temperature": 0.2, "num_ctx": 32768, "num_predict": 4096}
     });
     appeler_ollama(&url, &corps).await
 }
