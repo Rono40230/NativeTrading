@@ -43,6 +43,8 @@
       </div>
       <!-- Container toujours monté pour éviter la destruction du canvas -->
       <div ref="chartContainer" class="w-full h-full" style="position: relative;" />
+      <!-- Tooltip annonce économique (hover sur drapeau) -->
+      <EcoCalTooltip :annonce="tooltipAnnonce" :x="tooltipX" :y="tooltipY" />
       <!-- Tableau Tendance Kasper Bootcamp (overlay coin haut-gauche) -->
       <TendanceMultiTF
         v-if="settingsStore.indicateurs.kasperTendance"
@@ -118,6 +120,8 @@ import { useChartIndicators } from '@/composables/useChartIndicators'
 import { useSmcCanvas } from '@/composables/useSmcCanvas'
 import { useSmcLiqCanvas } from '@/composables/useSmcLiqCanvas'
 import { useSmcFibCanvas } from '@/composables/useSmcFibCanvas'
+import { useChartEcoCal } from '@/composables/useChartEcoCal'
+import EcoCalTooltip from '@/components/common/EcoCalTooltip.vue'
 
 import { useChartOrchestration } from '@/composables/useChartOrchestration'
 import PredictionSMCPanel from '@/components/common/PredictionSMCPanel.vue'
@@ -159,6 +163,8 @@ const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSign
 const smcCanvas = useSmcCanvas()
 const liqCanvas = useSmcLiqCanvas()
 const fibCanvas = useSmcFibCanvas()
+const { initialiser: ecoCalInit, chargerAnnonces, detruire: ecoCalDetruire,
+        tooltipAnnonce, tooltipX, tooltipY } = useChartEcoCal()
 
 
 const timestampCurseur = ref<number | null>(null)
@@ -195,6 +201,7 @@ async function chargerIndicateurs() {
   if (chartContainer.value && serie) smcCanvas.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value && serie) liqCanvas.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value && serie) fibCanvas.initialiser(chart, serie, chartContainer.value)
+  if (chartContainer.value) ecoCalInit(chart, chartContainer.value)
   await chargerEtAppliquer(
     chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
     rsiContainer.value, macdContainer.value, atrContainer.value,
@@ -228,6 +235,8 @@ const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestra
   configurerCrosshair, configurerClick, chargerIndicateurs,
   configurerRedimensionnement, arreterRedimensionnement,
 })
+
+chargerAnnonces()
 </script>
 
 <style scoped>
