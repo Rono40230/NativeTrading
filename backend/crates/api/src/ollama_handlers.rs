@@ -1,34 +1,13 @@
 use actix_web::{web, HttpResponse, Responder};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 use crate::ollama;
+use crate::ollama_types::{
+    ReponseAnalyse, ReponseChartAnalyse, ReponseChat, ReponseSignalIA,
+    RequeteAnalyse, RequeteChartAnalyse, RequeteChat, RequeteSignalIA, StatutIA,
+};
 
 // ─── POST /api/ia/analyse ─────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct RequeteAnalyse {
-    pub asset: String,
-    pub timeframe: String,
-    pub direction: String,
-    pub score_smc: f64,
-    pub prix_entree: f64,
-    pub stop_loss: f64,
-    pub take_profit: f64,
-    pub tendance: f64,
-    pub order_block: f64,
-    pub imbalance: f64,
-    pub ifvg: f64,
-    pub fibonacci: f64,
-    pub confiance_ml: f64,
-}
-
-#[derive(Serialize)]
-pub struct ReponseAnalyse {
-    pub analyse: String,
-    pub modele: String,
-}
-
-/// POST /api/ia/analyse
 /// Génère une analyse narrative SMC via le LLM local Ollama.
 pub async fn analyser(body: web::Json<RequeteAnalyse>) -> impl Responder {
     let rr = if body.stop_loss != 0.0 && body.prix_entree != body.stop_loss {
@@ -80,24 +59,6 @@ pub async fn analyser(body: web::Json<RequeteAnalyse>) -> impl Responder {
 }
 
 // ─── POST /api/ia/chat ────────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct MessageChat {
-    pub role: String,
-    pub contenu: String,
-}
-
-#[derive(Deserialize)]
-pub struct RequeteChat {
-    pub messages: Vec<MessageChat>,
-}
-
-#[derive(Serialize)]
-pub struct ReponseChat {
-    pub reponse: String,
-    pub modele: String,
-}
-
 /// POST /api/ia/chat
 /// Coach trading conversationnel — transmet l'historique à Ollama.
 pub async fn chat(body: web::Json<RequeteChat>) -> impl Responder {
@@ -129,14 +90,6 @@ pub async fn chat(body: web::Json<RequeteChat>) -> impl Responder {
 }
 
 // ─── GET /api/ia/status ───────────────────────────────────────────────────────
-
-#[derive(Serialize)]
-pub struct StatutIA {
-    pub ollama_disponible: bool,
-    pub modele: String,
-    pub url: String,
-}
-
 /// GET /api/ia/status — vérifie si Ollama répond.
 pub async fn statut() -> impl Responder {
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
@@ -158,26 +111,6 @@ pub async fn statut() -> impl Responder {
 }
 
 // ─── POST /api/ia/chart ─────────────────────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct ImageAvecTF {
-    pub base64: String,
-    pub timeframe: String,
-}
-
-#[derive(Deserialize)]
-pub struct RequeteChartAnalyse {
-    pub asset: String,
-    pub images: Vec<ImageAvecTF>,
-    pub notes: Option<String>,
-}
-
-#[derive(Serialize)]
-pub struct ReponseChartAnalyse {
-    pub analyse: String,
-    pub modele: String,
-}
-
 /// POST /api/ia/chart
 /// Analyse visuelle d'un ou plusieurs screenshots via llama3.2-vision — top-down multi-TF.
 pub async fn analyser_chart(body: web::Json<RequeteChartAnalyse>) -> impl Responder {
@@ -186,7 +119,8 @@ pub async fn analyser_chart(body: web::Json<RequeteChartAnalyse>) -> impl Respon
             .json(serde_json::json!({ "error": "Au moins une image requise" }));
     }
 
-    let slices: Vec<(&str, &str)> = body.images
+    let slices: Vec<(&str, &str)> = body
+        .images
         .iter()
         .map(|img| (img.base64.as_str(), img.timeframe.as_str()))
         .collect();
@@ -204,30 +138,6 @@ pub async fn analyser_chart(body: web::Json<RequeteChartAnalyse>) -> impl Respon
 }
 
 // ─── POST /api/ia/signal ─────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct RequeteSignalIA {
-    pub asset: String,
-    pub timeframe: String,
-    pub score_smc: f64,
-    pub prix_actuel: f64,
-    pub tendance: f64,
-    pub order_block: f64,
-    pub imbalance: f64,
-    pub ifvg: f64,
-    pub fibonacci: f64,
-    pub confiance_ml: f64,
-    pub atr: f64,
-}
-#[derive(Serialize)]
-pub struct ReponseSignalIA {
-    pub signal: Option<common::Signal>,
-    pub score_confiance: f64,
-    pub niveau_invalidation: f64,
-    pub confluences: Vec<String>,
-    pub raisonnement: String,
-    pub modele: String,
-}
 #[derive(Deserialize)]
 struct SignalBrut {
     direction: String,
@@ -250,13 +160,23 @@ pub async fn generer_signal(body: web::Json<RequeteSignalIA>) -> impl Responder 
         SMC: Tendance={:.1} OB={:.1} Imbalance={:.1} IFVG={:.1} Fib={:.1}\n\
         ML confiance={:.1}% | Score SMC total={:.1}/100",
         crate::ollama::PROMPT_SIGNAL_JSON,
-        body.asset, body.timeframe, body.prix_actuel, body.atr,
-        body.tendance, body.order_block, body.imbalance, body.ifvg, body.fibonacci,
-        body.confiance_ml * 100.0, body.score_smc,
+        body.asset,
+        body.timeframe,
+        body.prix_actuel,
+        body.atr,
+        body.tendance,
+        body.order_block,
+        body.imbalance,
+        body.ifvg,
+        body.fibonacci,
+        body.confiance_ml * 100.0,
+        body.score_smc,
     );
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
     match ollama::interroger(&prompt).await {
-        Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": format!("{e}") })),
+        Err(e) => {
+            HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": format!("{e}") }))
+        }
         Ok(texte) => {
             let debut: usize = texte.find('{').unwrap_or(0);
             let fin: usize = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
@@ -267,25 +187,47 @@ pub async fn generer_signal(body: web::Json<RequeteSignalIA>) -> impl Responder 
             };
             let signal = if brut.direction != "Neutre" {
                 let asset = match body.asset.as_str() {
-                    "ETH" => Asset::ETH, "XAUUSD" => Asset::XAUUSD, "XAGUSD" => Asset::XAGUSD,
-                    "EURUSD" => Asset::EURUSD, "GBPJPY" => Asset::GBPJPY, "CADJPY" => Asset::CADJPY,
-                    "NZDJPY" => Asset::NZDJPY, "USDCAD" => Asset::USDCAD, "USDJPY" => Asset::USDJPY,
-                    "DAX" => Asset::DAX, "NAS100" => Asset::NAS100, "SP500" => Asset::SP500,
+                    "ETH" => Asset::ETH,
+                    "XAUUSD" => Asset::XAUUSD,
+                    "XAGUSD" => Asset::XAGUSD,
+                    "EURUSD" => Asset::EURUSD,
+                    "GBPJPY" => Asset::GBPJPY,
+                    "CADJPY" => Asset::CADJPY,
+                    "NZDJPY" => Asset::NZDJPY,
+                    "USDCAD" => Asset::USDCAD,
+                    "USDJPY" => Asset::USDJPY,
+                    "DAX" => Asset::DAX,
+                    "NAS100" => Asset::NAS100,
+                    "SP500" => Asset::SP500,
                     _ => Asset::BTC,
                 };
                 let tf = match body.timeframe.as_str() {
-                    "M1" => Timeframe::M1, "M5" => Timeframe::M5,
-                    "H1" => Timeframe::H1, "H4" => Timeframe::H4,
-                    "D1" => Timeframe::D1, "W1" => Timeframe::W1, _ => Timeframe::M15,
+                    "M1" => Timeframe::M1,
+                    "M5" => Timeframe::M5,
+                    "H1" => Timeframe::H1,
+                    "H4" => Timeframe::H4,
+                    "D1" => Timeframe::D1,
+                    "W1" => Timeframe::W1,
+                    _ => Timeframe::M15,
                 };
-                let dir = if brut.direction == "Short" { Direction::Short } else { Direction::Long };
+                let dir = if brut.direction == "Short" {
+                    Direction::Short
+                } else {
+                    Direction::Long
+                };
                 Some(Signal::nouveau(
-                    asset, tf, dir, brut.score_confiance * 10.0,
-                    brut.prix_entree, brut.stop_loss,
+                    asset,
+                    tf,
+                    dir,
+                    brut.score_confiance * 10.0,
+                    brut.prix_entree,
+                    brut.stop_loss,
                     vec![brut.tp1, brut.tp2, brut.tp3],
                     "SMC-IA",
                 ))
-            } else { None };
+            } else {
+                None
+            };
             HttpResponse::Ok().json(ReponseSignalIA {
                 signal,
                 score_confiance: brut.score_confiance,
