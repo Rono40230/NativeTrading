@@ -168,6 +168,26 @@ pub fn prix_sur_niveau(prix: f64, niveaux: &NiveauxFibonacci, tolerance_pct: f64
         .find(|&niveau| (prix - niveau).abs() / prix.max(1e-10) <= tolerance_pct)
 }
 
+/// Score Fibonacci SMC (0, 8 ou 15 pts) basé sur la zone de retrace.
+///
+/// - **15 pts** : prix dans la golden zone (entre 50% et 61.8% de retrace),
+///   zone privilégiée pour une entrée en confluence.
+/// - **8 pts** : prix dans la zone de deep retrace (entre 61.8% et 78.6%),
+///   entrée valide mais risque plus élevé.
+/// - **0 pt** : prix hors des zones (pas encore rétracé ou cassure sous 78.6%).
+pub fn score_fib(prix: f64, niveaux: &NiveauxFibonacci) -> f64 {
+    // niveau_500 > niveau_618 > niveau_786 (tous calculés depuis le haut)
+    if prix >= niveaux.niveau_618 && prix <= niveaux.niveau_500 {
+        // Golden zone : entre 50% et 61.8% de retrace
+        15.0
+    } else if prix >= niveaux.niveau_786 && prix < niveaux.niveau_618 {
+        // Deep retrace : entre 61.8% et 78.6%
+        8.0
+    } else {
+        0.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

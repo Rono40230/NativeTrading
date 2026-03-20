@@ -65,11 +65,10 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
     let ifvgs = ifvg::detecter(bougies, 5, true, 0.25);
     let pts_ifvg = if ifvg::score_pour_direction(&ifvgs, direction) > 0.0 { 35.0 } else { 0.0 };
 
-    // Fibonacci : 0 ou 15 pts si prix proche d'un niveau clé
+    // Fibonacci : 0, 8 ou 15 pts selon la zone de retrace atteinte
     let prix_actuel = bougies.last()?.close;
     let pts_fib = fibonacci::calculer(bougies)
-        .and_then(|n| fibonacci::prix_sur_niveau(prix_actuel, &n, 0.002))
-        .map(|_| 15.0)
+        .map(|n| fibonacci::score_fib(prix_actuel, &n))
         .unwrap_or(0.0);
 
     let total = pts_tendance + pts_ob + pts_ifvg + pts_fib;
