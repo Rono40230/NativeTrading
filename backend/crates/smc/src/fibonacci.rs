@@ -52,8 +52,38 @@ fn pivots_bas(slice: &[Candle], rayon: usize) -> Vec<usize> {
 /// - Le swing retenu est celui dont le range est le plus grand parmi les candidats.
 ///
 /// Retourne `(index_debut, index_fin, est_haussier)` :
-/// - haussier  : debut = pivot bas, fin = pivot haut  (retracement vers le bas attendu)
-/// - baissier  : debut = pivot haut, fin = pivot bas   (retracement vers le haut attendu)
+/// Construit tous les swings complets (paire pivot_debut → pivot_fin) depuis les listes de pivots.
+/// Retourne `(idx_debut, idx_fin, est_haussier, range)` triés du plus ancien au plus récent.
+fn tous_les_swings(
+    slice: &[Candle],
+    hauts: &[usize],
+    bas: &[usize],
+) -> Vec<(usize, usize, bool, f64)> {
+    let mut swings = Vec::new();
+
+    // Swings haussiers : chercher chaque pivot haut et le pivot bas qui le précède
+    for &ih in hauts {
+        if let Some(&il) = bas.iter().rev().find(|&&i| i < ih) {
+            let range = slice[ih].high - slice[il].low;
+            swings.push((il, ih, true, range));
+        }
+    }
+    // Swings baissiers : chercher chaque pivot bas et le pivot haut qui le précède
+    for &il in bas {
+        if let Some(&ih) = hauts.iter().rev().find(|&&i| i < il) {
+            let range = slice[ih].high - slice[il].low;
+            swings.push((ih, il, false, range));
+        }
+    }
+
+    // Trier par position de fin (du plus ancien au plus récent)
+    swings.sort_by_key(|&(_, fin, _, _)| fin);
+    swings
+}
+
+/// Identifie le meilleur swing parmi les candidats :
+/// — le plus récent dont le range est ≥ 30% du range total du slice,
+/// — sinon le plus récent tout court.
 fn dernier_swing(slice: &[Candle], rayon: usize) -> Option<(usize, usize, bool)> {
     let hauts = pivots_hauts(slice, rayon);
     let bas   = pivots_bas(slice, rayon);
@@ -62,33 +92,42 @@ fn dernier_swing(slice: &[Candle], rayon: usize) -> Option<(usize, usize, bool)>
         return None;
     }
 
-    let dernier_h = *hauts.last().unwrap();
-    let dernier_l = *bas.last().unwrap();
-
-    // Cas 1 : dernière impulsion haussière (bas → haut, haut est plus récent)
-    if dernier_h > dernier_l {
-        // Chercher le pivot bas le plus récent AVANT dernier_h
-        let debut_l = bas.iter().rev().find(|&&i| i < dernier_h).copied()?;
-        Some((debut_l, dernier_h, true))
-    } else {
-        // Cas 2 : dernière impulsion baissière (haut → bas)
-        let debut_h = hauts.iter().rev().find(|&&i| i < dernier_l).copied()?;
-        Some((debut_h, dernier_l, false))
+    let swings = tous_les_swings(slice, &hauts, &bas);
+    if swings.is_empty() {
+        return None;
     }
+
+    // Range total du slice pour le seuil de significance
+    let range_total = {
+        let h = slice.iter().map(|b| b.high).fold(f64::NEG_INFINITY, f64::max);
+        let l = slice.iter().map(|b| b.low).fold(f64::INFINITY, f64::min);
+        h - l
+    };
+    let seuil = range_total * 0.30;
+
+    // 1er choix : dernier swing avec range significatif
+    if let Some(&(d, f, haussier, _)) = swings.iter().rev().find(|&&(_, _, _, r)| r >= seuil) {
+        return Some((d, f, haussier));
+    }
+
+    // Fallback : dernier swing disponible (micro-marché)
+    let &(d, f, haussier, _) = swings.last().unwrap();
+    Some((d, f, haussier))
 }
 
 /// Calcule les niveaux de retracement Fibonacci (0%, 50%, 61.8%, 78.6%, 100%)
-/// à partir du dernier swing impulsif complet (Option 2 — pivot bas→haut ou haut→bas).
+/// à partir du dernier swing impulsif significatif détecté sur les 200 dernières bougies.
 pub fn calculer(bougies: &[Candle]) -> Option<NiveauxFibonacci> {
     if bougies.len() < 20 {
         return None;
     }
 
-    let lookback = bougies.len().min(100);
+    // Rayon 5 : pivot entouré de 5 bougies — filtre les micro-pivots sur M1/M5
+    let lookback = bougies.len().min(200);
     let slice = &bougies[bougies.len() - lookback..];
 
-    let (idx_debut, idx_fin, haussier) = dernier_swing(slice, 3).or_else(|| {
-        // Fallback : max/min absolu si aucun pivot détecté
+    let (idx_debut, idx_fin, haussier) = dernier_swing(slice, 5).or_else(|| {
+        // Fallback absolu : max/min sur tout le slice avec leurs timestamps
         let idx_h = slice.iter().enumerate()
             .max_by(|(_, a), (_, b)| a.high.partial_cmp(&b.high).unwrap_or(std::cmp::Ordering::Equal))?.0;
         let idx_l = slice.iter().enumerate()
