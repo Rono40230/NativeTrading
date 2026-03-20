@@ -102,14 +102,7 @@ async fn fetch_binance(
         "https://api.binance.com/api/v3/ticker/24hr?symbol={}",
         symbole
     );
-    let resp: BinanceTicker = client
-        .get(&url)
-        .send()
-        .await
-        .ok()?
-        .json()
-        .await
-        .ok()?;
+    let resp: BinanceTicker = client.get(&url).send().await.ok()?.json().await.ok()?;
 
     let prix = resp.last_price.parse::<f64>().ok()?;
     let variation = resp.price_change_percent.parse::<f64>().ok()?;
@@ -142,21 +135,20 @@ pub async fn get_sentiment_marche(_state: web::Data<AppState>) -> impl Responder
     };
 
     // Toutes les requêtes en parallèle — dégradation silencieuse par source
-    let (sp500, nasdaq, dji, n100, dax, cac, or_, petrole, agri, btc, eth, vix_raw) =
-        tokio::join!(
-            fetch_yahoo(&client, "%5EGSPC", "S&P500"),
-            fetch_yahoo(&client, "%5EIXIC", "Nasdaq"),
-            fetch_yahoo(&client, "%5EDJI", "Dow Jones"),
-            fetch_yahoo(&client, "%5EN100", "Euronext 100"),
-            fetch_yahoo(&client, "%5EGDAXI", "Dax"),
-            fetch_yahoo(&client, "%5EFCHI", "Cac 40"),
-            fetch_yahoo(&client, "GC%3DF", "Or"),
-            fetch_yahoo(&client, "CL%3DF", "Pétrole"),
-            fetch_yahoo(&client, "ZC%3DF", "Agriculture"),
-            fetch_binance(&client, "BTCUSDT", "Bitcoin"),
-            fetch_binance(&client, "ETHUSDT", "Ethereum"),
-            fetch_yahoo(&client, "%5EVIX", "VIX"),
-        );
+    let (sp500, nasdaq, dji, n100, dax, cac, or_, petrole, agri, btc, eth, vix_raw) = tokio::join!(
+        fetch_yahoo(&client, "%5EGSPC", "S&P500"),
+        fetch_yahoo(&client, "%5EIXIC", "Nasdaq"),
+        fetch_yahoo(&client, "%5EDJI", "Dow Jones"),
+        fetch_yahoo(&client, "%5EN100", "Euronext 100"),
+        fetch_yahoo(&client, "%5EGDAXI", "Dax"),
+        fetch_yahoo(&client, "%5EFCHI", "Cac 40"),
+        fetch_yahoo(&client, "GC%3DF", "Or"),
+        fetch_yahoo(&client, "CL%3DF", "Pétrole"),
+        fetch_yahoo(&client, "ZC%3DF", "Agriculture"),
+        fetch_binance(&client, "BTCUSDT", "Bitcoin"),
+        fetch_binance(&client, "ETHUSDT", "Ethereum"),
+        fetch_yahoo(&client, "%5EVIX", "VIX"),
+    );
 
     let sentiment = SentimentMarche {
         date: Utc::now().format("%Y-%m-%d").to_string(),
