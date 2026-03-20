@@ -63,8 +63,8 @@ const composants = computed(() => {
   return [
     { label: 'Tendance',   pts: s.tendance,     max: 25 },
     { label: 'Ord. Block', pts: s.order_block,  max: 25 },
-    { label: 'Imbalance',  pts: s.imbalance,    max: 20 },
-    { label: 'IFVG',       pts: s.ifvg,         max: 15 },
+    { label: 'Imbalance',  pts: s.imbalance,    max: 15 },
+        { label: 'IFVG',       pts: s.ifvg,         max: 20 },
     { label: 'Fibonacci',  pts: s.fibonacci,    max: 15 },
   ]
 })

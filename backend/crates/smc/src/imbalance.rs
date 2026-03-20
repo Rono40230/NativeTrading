@@ -130,17 +130,24 @@ fn remplissage_bear(bougies_suivantes: &[Candle], haut: f64, mitigation_close: b
     })
 }
 
-/// Conservé pour compatibilité avec le scorer SMC (score 0–20 sur FVG alignés)
-pub fn score_pour_direction_legacy(bougies: &[Candle], direction: common::Direction) -> f64 {
+/// Score Imbalance/FVG gradué (0–15 pts) pour le scorer SMC.
+/// 0 zone alignée = 0 pts | 1 zone = 8 pts | 2+ zones = 15 pts
+pub fn score_pour_direction(bougies: &[Candle], direction: common::Direction) -> f64 {
     let zones = detecter(bougies, 5, true, false, true);
-    let aligne = match direction {
-        common::Direction::Long => zones.iter().any(|z| z.type_zone == "FvgBull"),
-        common::Direction::Short => zones.iter().any(|z| z.type_zone == "FvgBear"),
-        common::Direction::Both => false,
+    let type_cible = match direction {
+        common::Direction::Long => "FvgBull",
+        common::Direction::Short => "FvgBear",
+        common::Direction::Both => return 0.0,
     };
-    if aligne {
-        20.0
-    } else {
-        0.0
+    let nb = zones.iter().filter(|z| z.type_zone == type_cible).count();
+    match nb {
+        0 => 0.0,
+        1 => 8.0,
+        _ => 15.0,
     }
+}
+
+/// Conservé pour compatibilité — utiliser `score_pour_direction()` à la place.
+pub fn score_pour_direction_legacy(bougies: &[Candle], direction: common::Direction) -> f64 {
+    score_pour_direction(bougies, direction)
 }

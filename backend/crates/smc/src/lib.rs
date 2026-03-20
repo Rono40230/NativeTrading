@@ -32,11 +32,11 @@ pub struct ScoreSmc {
     pub tendance: f64,
     /// Points order block (0–25)
     pub order_block: f64,
-    /// Points IFVG (0–35)
+    /// Points IFVG (0–20) — gradué : 0=absent, 1 IFVG=10, 2+=20
     pub ifvg: f64,
     /// Points Fibonacci (0–15)
     pub fibonacci: f64,
-    /// Points imbalance/FVG — conservé à 0 (indicateur supprimé)
+    /// Points Imbalance/FVG (0–15) — gradué : 0=absent, 1 zone=8, 2+=15
     pub imbalance: f64,
     /// Direction dominante détectée
     pub direction: Direction,
@@ -66,13 +66,17 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
     let obs = order_blocks::detecter(bougies, 28.0, true);
     let pts_ob = (order_blocks::score_pour_direction(&obs, direction) / 100.0) * 25.0;
 
-    // IFVG : 0 ou 35 pts (absorbe l'ancien slot FVG 20pts + IFVG 15pts)
+    // IFVG : 0–20 pts gradué (0 IFVG aligné=0, 1=10, 2+=20)
     let ifvgs = ifvg::detecter(bougies, 5, true, 0.25);
-    let pts_ifvg = if ifvg::score_pour_direction(&ifvgs, direction) > 0.0 {
-        35.0
-    } else {
-        0.0
+    let nb_ifvg = ifvgs.iter().filter(|fg| fg.direction == direction).count();
+    let pts_ifvg = match nb_ifvg {
+        0 => 0.0,
+        1 => 10.0,
+        _ => 20.0,
     };
+
+    // Imbalance/FVG : 0–15 pts gradué (0 zone=0, 1=8, 2+=15)
+    let pts_imbalance = imbalance::score_pour_direction(bougies, direction);
 
     // Fibonacci : 0, 8 ou 15 pts selon la zone de retrace atteinte
     let prix_actuel = bougies.last()?.close;
@@ -80,23 +84,18 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
         .map(|n| fibonacci::score_fib(prix_actuel, &n))
         .unwrap_or(0.0);
 
-    let total = pts_tendance + pts_ob + pts_ifvg + pts_fib;
+    let total = pts_tendance + pts_ob + pts_ifvg + pts_imbalance + pts_fib;
 
     tracing::debug!(
-        "ScoreSmc {:?}: total={:.1} (tendance={:.1} ob={:.1} ifvg={:.1} fib={:.1})",
-        direction,
-        total,
-        pts_tendance,
-        pts_ob,
-        pts_ifvg,
-        pts_fib
+        "ScoreSmc {:?}: total={:.1} (tend={:.1} ob={:.1} ifvg={:.1} imb={:.1} fib={:.1})",
+        direction, total, pts_tendance, pts_ob, pts_ifvg, pts_imbalance, pts_fib
     );
 
     Some(ScoreSmc {
         total,
         tendance: pts_tendance,
         order_block: pts_ob,
-        imbalance: 0.0,
+        imbalance: pts_imbalance,
         ifvg: pts_ifvg,
         fibonacci: pts_fib,
         direction,
