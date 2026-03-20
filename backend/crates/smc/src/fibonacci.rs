@@ -14,37 +14,71 @@ pub struct NiveauxFibonacci {
     pub niveau_786: f64,
 }
 
-/// Identifie le dernier pivot haut local dans le slice (entouré de N bougies plus basses).
-fn dernier_pivot_haut(slice: &[Candle], rayon: usize) -> Option<&Candle> {
+/// Collecte tous les pivots hauts locaux (entourés de `rayon` bougies plus basses).
+fn pivots_hauts(slice: &[Candle], rayon: usize) -> Vec<usize> {
     let n = slice.len();
-    // Parcours de droite à gauche pour trouver le plus récent
-    for i in (rayon..n.saturating_sub(rayon)).rev() {
-        let haut = slice[i].high;
-        let est_pivot = slice[i.saturating_sub(rayon)..i].iter().all(|b| b.high < haut)
-            && slice[i + 1..=(i + rayon).min(n - 1)].iter().all(|b| b.high < haut);
-        if est_pivot {
-            return Some(&slice[i]);
+    let mut res = Vec::new();
+    for i in rayon..n.saturating_sub(rayon) {
+        let h = slice[i].high;
+        if slice[i.saturating_sub(rayon)..i].iter().all(|b| b.high < h)
+            && slice[i + 1..=(i + rayon).min(n - 1)].iter().all(|b| b.high < h)
+        {
+            res.push(i);
         }
     }
-    None
+    res
 }
 
-/// Identifie le dernier pivot bas local dans le slice.
-fn dernier_pivot_bas(slice: &[Candle], rayon: usize) -> Option<&Candle> {
+/// Collecte tous les pivots bas locaux.
+fn pivots_bas(slice: &[Candle], rayon: usize) -> Vec<usize> {
     let n = slice.len();
-    for i in (rayon..n.saturating_sub(rayon)).rev() {
-        let bas = slice[i].low;
-        let est_pivot = slice[i.saturating_sub(rayon)..i].iter().all(|b| b.low > bas)
-            && slice[i + 1..=(i + rayon).min(n - 1)].iter().all(|b| b.low > bas);
-        if est_pivot {
-            return Some(&slice[i]);
+    let mut res = Vec::new();
+    for i in rayon..n.saturating_sub(rayon) {
+        let l = slice[i].low;
+        if slice[i.saturating_sub(rayon)..i].iter().all(|b| b.low > l)
+            && slice[i + 1..=(i + rayon).min(n - 1)].iter().all(|b| b.low > l)
+        {
+            res.push(i);
         }
     }
-    None
+    res
+}
+
+/// Détecte le dernier swing impulsif complet sur le slice.
+///
+/// Principe (Option 2) :
+/// - Trouver le dernier pivot (haut ou bas) — c'est la fin de l'impulsion.
+/// - Chercher le pivot opposé le plus récent qui le **précède** — c'est le début.
+/// - Le swing retenu est celui dont le range est le plus grand parmi les candidats.
+///
+/// Retourne `(index_debut, index_fin, est_haussier)` :
+/// - haussier  : debut = pivot bas, fin = pivot haut  (retracement vers le bas attendu)
+/// - baissier  : debut = pivot haut, fin = pivot bas   (retracement vers le haut attendu)
+fn dernier_swing(slice: &[Candle], rayon: usize) -> Option<(usize, usize, bool)> {
+    let hauts = pivots_hauts(slice, rayon);
+    let bas   = pivots_bas(slice, rayon);
+
+    if hauts.is_empty() || bas.is_empty() {
+        return None;
+    }
+
+    let dernier_h = *hauts.last().unwrap();
+    let dernier_l = *bas.last().unwrap();
+
+    // Cas 1 : dernière impulsion haussière (bas → haut, haut est plus récent)
+    if dernier_h > dernier_l {
+        // Chercher le pivot bas le plus récent AVANT dernier_h
+        let debut_l = bas.iter().rev().find(|&&i| i < dernier_h).copied()?;
+        Some((debut_l, dernier_h, true))
+    } else {
+        // Cas 2 : dernière impulsion baissière (haut → bas)
+        let debut_h = hauts.iter().rev().find(|&&i| i < dernier_l).copied()?;
+        Some((debut_h, dernier_l, false))
+    }
 }
 
 /// Calcule les niveaux de retracement Fibonacci (0%, 50%, 61.8%, 78.6%, 100%)
-/// à partir du dernier pivot haut et du dernier pivot bas des N dernières bougies.
+/// à partir du dernier swing impulsif complet (Option 2 — pivot bas→haut ou haut→bas).
 pub fn calculer(bougies: &[Candle]) -> Option<NiveauxFibonacci> {
     if bougies.len() < 20 {
         return None;
@@ -53,24 +87,27 @@ pub fn calculer(bougies: &[Candle]) -> Option<NiveauxFibonacci> {
     let lookback = bougies.len().min(100);
     let slice = &bougies[bougies.len() - lookback..];
 
-    // Rayon 3 : pivot entouré de 3 bougies de chaque côté
-    let pivot_haut = dernier_pivot_haut(slice, 3).unwrap_or_else(|| {
-        // Fallback : bougie avec le plus haut HIGH
-        slice.iter().max_by(|a, b| a.high.partial_cmp(&b.high).unwrap_or(std::cmp::Ordering::Equal)).unwrap()
-    });
-    let pivot_bas = dernier_pivot_bas(slice, 3).unwrap_or_else(|| {
-        slice.iter().min_by(|a, b| a.low.partial_cmp(&b.low).unwrap_or(std::cmp::Ordering::Equal)).unwrap()
-    });
+    let (idx_debut, idx_fin, haussier) = dernier_swing(slice, 3).or_else(|| {
+        // Fallback : max/min absolu si aucun pivot détecté
+        let idx_h = slice.iter().enumerate()
+            .max_by(|(_, a), (_, b)| a.high.partial_cmp(&b.high).unwrap_or(std::cmp::Ordering::Equal))?.0;
+        let idx_l = slice.iter().enumerate()
+            .min_by(|(_, a), (_, b)| a.low.partial_cmp(&b.low).unwrap_or(std::cmp::Ordering::Equal))?.0;
+        if idx_l < idx_h { Some((idx_l, idx_h, true)) } else { Some((idx_h, idx_l, false)) }
+    })?;
 
-    let swing_haut = pivot_haut.high;
-    let swing_bas  = pivot_bas.low;
+    let (swing_haut, ts_haut, swing_bas, ts_bas) = if haussier {
+        (slice[idx_fin].high,  slice[idx_fin].timestamp.timestamp(),
+         slice[idx_debut].low, slice[idx_debut].timestamp.timestamp())
+    } else {
+        (slice[idx_debut].high, slice[idx_debut].timestamp.timestamp(),
+         slice[idx_fin].low,   slice[idx_fin].timestamp.timestamp())
+    };
+
     let range = swing_haut - swing_bas;
     if range < 1e-10 {
         return None;
     }
-
-    let ts_haut = pivot_haut.timestamp.timestamp();
-    let ts_bas  = pivot_bas.timestamp.timestamp();
 
     Some(NiveauxFibonacci {
         swing_haut,
