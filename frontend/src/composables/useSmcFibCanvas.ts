@@ -60,6 +60,14 @@ export function useSmcFibCanvas() {
     // indépendamment de la préférence d'affichage haussier/baissier.
     const tsAncrage = Math.min(fib.timestamp_haut, fib.timestamp_bas)
 
+    // Le backend calcule toujours les niveaux DEPUIS LE HAUT (baissier).
+    // En mode haussier, on recalcule les niveaux intermédiaires DEPUIS LE BAS
+    // pour que 61.8% soit 61.8% à partir du swing_bas (et non du haut).
+    const range = fib.swing_haut - fib.swing_bas
+    const n500  = fib.niveau_500  // 50% est symétrique, identique dans les 2 sens
+    const n618  = haussier ? fib.swing_bas + range * 0.618 : fib.niveau_618
+    const n786  = haussier ? fib.swing_bas + range * 0.786 : fib.niveau_786
+
     // Bord droit = dernière bougie visible
     const xDroitRaw = dernierTimestamp !== null
       ? ts.timeToCoordinate(dernierTimestamp as any)
@@ -73,17 +81,17 @@ export function useSmcFibCanvas() {
 
     // Définition des 5 niveaux : [ratio, prix, couleur, label]
     const niveaux: [number, number, string, string][] = [
-      [0,     prixZero,       prefs.smcFibCouleur0,   '0%'],
-      [0.5,   fib.niveau_500, prefs.smcFibCouleur500, '50%'],
-      [0.618, fib.niveau_618, prefs.smcFibCouleur618, '61.8%'],
-      [0.786, fib.niveau_786, prefs.smcFibCouleur786, '78.6%'],
-      [1,     prixUn,         prefs.smcFibCouleur1,   '100%'],
+      [0,     prixZero, prefs.smcFibCouleur0,   '0%'],
+      [0.5,   n500,     prefs.smcFibCouleur500, '50%'],
+      [0.618, n618,     prefs.smcFibCouleur618, '61.8%'],
+      [0.786, n786,     prefs.smcFibCouleur786, '78.6%'],
+      [1,     prixUn,   prefs.smcFibCouleur1,   '100%'],
     ]
 
     // ── Golden Zone (rectangle 50%→61.8%) ────────────────────────────────
     if (prefs.smcFibGoldenZone) {
-      const y500 = serieRef.priceToCoordinate(fib.niveau_500)
-      const y618 = serieRef.priceToCoordinate(fib.niveau_618)
+      const y500 = serieRef.priceToCoordinate(n500)
+      const y618 = serieRef.priceToCoordinate(n618)
       if (y500 !== null && y618 !== null) {
         const yTop    = Math.min(y500, y618)
         const yBottom = Math.max(y500, y618)
