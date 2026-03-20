@@ -1,17 +1,5 @@
 --------------------------------------------------------------------------------------------------------------------------
 
-je veux reproduire cet indicateur de tendance/momentum ou en tout cas comprendre comment il est construit. C'est un système multi-timeframe de détection de tendance qui agrège différents horizons temporels. il fournit sur le meme actif un tableau avec des tendances différentes par timeframe selon le timeframe que l'on choisi pour l'actif. Comment cet indicateur est il construit ? Qu'utilise t il comme indicateurs ?
-
---------------------------------------------------------------------------------------------------------------------------
-
-comment faire pour que l'app surveille en permanence les 13 actifs et génère des signaux pour chaque actif qui s'affichent dans le bloc "derniers signaux" du dashboard
-
---------------------------------------------------------------------------------------------------------------------------
-
-
-
---------------------------------------------------------------------------------------------------------------------------
-
 A ajouter dans le vibe coding pour toute les app à developper :
 1 - toujours en mode sombre
 2 - toujours tauri + vue
@@ -31,27 +19,36 @@ Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
+
+
+--------------------------------------------------------------------------------------------------------------------------
+
 Dans le dashboard à quoi sert le bloc "Derniers signaux" ?
 Il doit lister les signaux pour tous les actifs présent dans le code.
 
 --------------------------------------------------------------------------------------------------------------------------
 
+Comment est actuellement calculé le bloc "Score SMC" ? Doit on modifier ce calcul maintenant que tous les indicateurs et toutes les métriques sont à jour ? Répond sans coder.
+
+--------------------------------------------------------------------------------------------------------------------------
+
 
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Tous les tooltips des métriques expliquent des valeurs en % = c'est ok pour Vol. Rel et Position. Mais les autres métriques ont des valeurs en $.
-Explique ce qu'il faudrait corriger.
-Répond sans coder 
+comment faire pour que l'app surveille en permanence les 13 actifs et génère des signaux pour chaque actif qui s'affichent dans le bloc "derniers signaux" du dashboard
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Comment est actuellement calculé le bloc "Score SMC" ? Doit on modifier ce calcul maintenant que tous les indicateurs sont à jour ? Répond sans coder.
+Analyse ces bugs de terminal lorsque IB gateway est connecté.
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Par défaut supprime l'affichage de tous les signaux faibles pour tous les indicateurs.
 
-Supprime le bouton "Faible" des options de tri.
 
-Ajoute 
+--------------------------------------------------------------------------------------------------------------------------
+
+
+
+--------------------------------------------------------------------------------------------------------------------------
+

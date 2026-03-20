@@ -42,7 +42,11 @@ pub fn extraire_items_rss(xml: &str) -> Vec<ArticleRss> {
                 .or_else(|| extraire_balise(item, "dc:date"))
                 .unwrap_or_default();
 
-            Some(ArticleRss { titre, lien, date_rss: date })
+            Some(ArticleRss {
+                titre,
+                lien,
+                date_rss: date,
+            })
         })
         .collect()
 }

@@ -31,11 +31,7 @@ pub async fn generer_signal_straddle(body: web::Json<RequeteStraddleIA>) -> impl
         .kill_zone_active
         .unwrap_or_else(|| smc::kill_zone::est_en_kill_zone(chrono::Utc::now()));
 
-    let sessions = body
-        .sessions_actives
-        .as_deref()
-        .unwrap_or(&[])
-        .join(", ");
+    let sessions = body.sessions_actives.as_deref().unwrap_or(&[]).join(", ");
 
     let annonces = body
         .annonces_imminentes
@@ -63,15 +59,18 @@ pub async fn generer_signal_straddle(body: web::Json<RequeteStraddleIA>) -> impl
         ratio_atr,
         kz,
         sessions,
-        if annonces.is_empty() { "aucune".to_string() } else { annonces },
+        if annonces.is_empty() {
+            "aucune".to_string()
+        } else {
+            annonces
+        },
     );
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
 
     match ollama::interroger(&prompt).await {
         Err(e) => {
-            HttpResponse::ServiceUnavailable()
-                .json(serde_json::json!({ "error": format!("{e}") }))
+            HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": format!("{e}") }))
         }
         Ok(texte) => {
             let debut = texte.find('{').unwrap_or(0);

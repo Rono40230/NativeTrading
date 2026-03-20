@@ -165,7 +165,8 @@ pub async fn generer_signal(body: web::Json<RequeteSignalIA>) -> impl Responder 
         body.timeframe,
         body.prix_actuel,
         body.atr,
-        body.kill_zone_active.unwrap_or_else(|| smc::kill_zone::est_en_kill_zone(chrono::Utc::now())),
+        body.kill_zone_active
+            .unwrap_or_else(|| smc::kill_zone::est_en_kill_zone(chrono::Utc::now())),
         body.sweep_detecte.unwrap_or(false),
         body.tendance,
         body.order_block,

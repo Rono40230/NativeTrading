@@ -216,6 +216,12 @@
 - [ ] `POST /api/signal-engine/start` + `POST /api/signal-engine/stop` + `GET /api/signal-engine/status`
 - [ ] Push WebSocket aux clients connectés sur nouveau signal (`/api/stream`)
 - [ ] Indicateur visuel dans le Dashboard : "🟢 Signal Engine actif — prochaine analyse dans Xmin"
+- [ ] **Affichage Trade Box sur graphique (Option B — Canvas overlay)** :
+  - Charger signaux SMC/Straddle depuis `/api/signaux` filtrés par asset + timeframe
+  - Dessiner rectangles TP (vert) / SL (rouge) via `<canvas>` overlay synchronisé avec `chart.priceToCoordinate()` + `chart.timeToCoordinate()`
+  - Label R:R calculé (`|TP - entrée| / |SL - entrée|`) affiché dans la zone
+  - Flèche d'entrée via `setMarkers()` (déjà en place pour les signaux techniques)
+  - Mise à jour temps réel sur push WebSocket nouveau signal
 
 #### Semaine 19b: Données historiques + Collecte massive
 > Prérequis indispensable à tout entraînement ML réaliste et à la détection de volatilité
