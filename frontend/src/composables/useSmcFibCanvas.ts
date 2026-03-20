@@ -97,12 +97,11 @@ export function useSmcFibCanvas() {
 
       ctx.strokeStyle = couleur
       ctx.lineWidth   = 1
-      ctx.setLineDash([4, 3])
+      ctx.setLineDash([])
       ctx.beginPath()
       ctx.moveTo(xGauche, y)
       ctx.lineTo(xDroit, y)
       ctx.stroke()
-      ctx.setLineDash([])
 
       // Label à droite du segment
       ctx.fillStyle = couleur
