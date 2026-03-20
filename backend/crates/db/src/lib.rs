@@ -17,7 +17,11 @@ impl Database {
 
         let options = SqliteConnectOptions::from_str(&format!("sqlite:{}", chemin))
             .map_err(|e| TradingError::Database(e.to_string()))?
-            .create_if_missing(true);
+            .create_if_missing(true)
+            // WAL : plusieurs lecteurs simultanés, réduit les locks entre Signal Engine et collecte
+            .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+            // Attend jusqu'à 10s si la DB est verrouillée avant de renvoyer SQLITE_BUSY
+            .busy_timeout(std::time::Duration::from_secs(10));
 
         let pool = SqlitePool::connect_with(options)
             .await
@@ -38,16 +42,26 @@ impl Database {
         &self.pool
     }
 
-    /// Insère un lot de bougies (ignore les doublons via UNIQUE)
+    /// Insère un lot de bougies en une seule transaction (ignore les doublons via UNIQUE).
+    /// Beaucoup plus rapide que N inserts individuels et libère le lock SQLite immédiatement.
     pub async fn inserer_bougies(
         &self,
         asset: &Asset,
         timeframe: &Timeframe,
         bougies: &[Candle],
     ) -> Result<u64> {
+        if bougies.is_empty() {
+            return Ok(0);
+        }
         let asset_str = asset.as_str();
         let tf_str = timeframe.as_str();
         let mut inseres = 0u64;
+
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .map_err(|e| TradingError::Database(e.to_string()))?;
 
         for bougie in bougies {
             let ts = bougie.timestamp.timestamp();
@@ -64,11 +78,15 @@ impl Database {
             .bind(bougie.low)
             .bind(bougie.close)
             .bind(bougie.volume)
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .map_err(|e| TradingError::Database(e.to_string()))?;
             inseres += res.rows_affected();
         }
+
+        tx.commit()
+            .await
+            .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(inseres)
     }
 
@@ -142,9 +160,13 @@ impl Database {
 
     /// Nombre de bougies stockées pour un asset/timeframe
     pub async fn compter_bougies(&self, asset: &Asset, timeframe: &Timeframe) -> Result<i64> {
-        let row = sqlx::query("SELECT COUNT(*) as n FROM bougies WHERE asset = ? AND timeframe = ?")
-            .bind(asset.as_str()).bind(timeframe.as_str())
-            .fetch_one(&self.pool).await.map_err(|e| TradingError::Database(e.to_string()))?;
+        let row =
+            sqlx::query("SELECT COUNT(*) as n FROM bougies WHERE asset = ? AND timeframe = ?")
+                .bind(asset.as_str())
+                .bind(timeframe.as_str())
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(row.get::<i64, _>("n"))
     }
 
@@ -270,7 +292,9 @@ impl Database {
     /// Efface et ré-insère toutes les annonces économiques (mise à jour du cache)
     pub async fn ecrire_calendrier_cache(&self, annonces: &[serde_json::Value]) -> Result<()> {
         let now = Utc::now().timestamp();
-        sqlx::query("DELETE FROM calendrier_cache").execute(&self.pool).await
+        sqlx::query("DELETE FROM calendrier_cache")
+            .execute(&self.pool)
+            .await
             .map_err(|e| TradingError::Database(e.to_string()))?;
         for a in annonces {
             sqlx::query("INSERT INTO calendrier_cache (id, date_heure, devise, titre, impact, precedent, prevision, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")

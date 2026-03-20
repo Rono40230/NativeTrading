@@ -234,16 +234,16 @@
 - [x] Props `engineActif`, `engineSecondes`, `engineSignaux24h`, `engineChargement` + events `@engine-demarrer` / `@engine-arreter` ajoutés à `DashboardSystemStatus.vue`
 - [x] Bloc Signal Engine standalone supprimé du Dashboard
 
-#### Semaine 19b: Données historiques + Collecte massive + Trade Box ChartView
+#### Semaine 19b: Données historiques + Collecte massive + Trade Box ChartView ✅ TERMINÉE
 > Prérequis indispensable à tout entraînement ML réaliste et à la détection de volatilité
 > Bonus : brancher `useSignalTradeBox.ts` dans `ChartView.vue` (composable prêt — ~15min)
 
-- [ ] Endpoint `POST /api/data/collect` — collecte bulk N mois de bougies par asset/tf
-- [ ] Stockage DB optimisé (INSERT OR IGNORE) pour éviter les doublons
-- [ ] Script de collecte initiale : 6 mois x 13 assets x M1/M5/M15 (~500k bougies)
-- [ ] Indicateur de progression frontend pendant la collecte
-- [ ] Vue `DataManagementView.vue` — statut couverture données par asset
-- [ ] Brancher `useSignalTradeBox.ts` dans `ChartView.vue` — rectangles TP/SL/Entry sur graphique
+- [x] Endpoint `POST /api/data/collect` — collecte bulk N mois de bougies par asset/tf
+- [x] Stockage DB optimisé (INSERT OR IGNORE + WAL + transaction batch) pour éviter les doublons
+- [x] Collecte initiale : 6 mois x BTC/ETH x 8 TF (~526k bougies, 100% couverture)
+- [x] Indicateur de progression frontend pendant la collecte
+- [x] Vue `DataManagementView.vue` — statut couverture données par asset + sélecteur TF multi-select
+- [x] Brancher `useSignalTradeBox.ts` dans `ChartView.vue` — rectangles TP/SL/Entry sur graphique
 
 #### Semaine 20: Entraînement automatique + Monitoring ML
 - [ ] Scheduler Rust (tokio::time) — reentraînement quotidien a 00h00

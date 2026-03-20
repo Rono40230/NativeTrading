@@ -11,30 +11,49 @@
     </div>
 
     <!-- Collecte globale -->
-    <div class="glass-card p-5 flex flex-wrap items-center gap-4">
+    <div class="glass-card p-5 flex flex-wrap items-end gap-4">
       <div class="flex items-center gap-2">
         <label class="text-sm text-gray-400 shrink-0">Mois d'historique :</label>
-        <select v-model="moisSelectionne" class="bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white">
+        <select v-model="moisSelectionne" class="bg-white border border-white/20 rounded-lg px-3 py-1.5 text-sm text-black">
           <option v-for="m in [1, 3, 6, 12, 24]" :key="m" :value="m">{{ m }} mois</option>
         </select>
       </div>
       <div class="flex items-center gap-2">
         <label class="text-sm text-gray-400 shrink-0">Assets :</label>
-        <select v-model="modeAssets" class="bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white">
+        <select v-model="modeAssets" class="bg-white border border-white/20 rounded-lg px-3 py-1.5 text-sm text-black">
           <option value="crypto">BTC + ETH (Binance)</option>
           <option value="tous">Tous (nécessite IB Gateway)</option>
         </select>
       </div>
-      <button
-        class="px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 transition disabled:opacity-50"
-        :disabled="enCollecte"
-        @click="lancerCollecte"
-      >
-        {{ enCollecte ? '⏳ Collecte en cours…' : '⬇ Lancer la collecte' }}
-      </button>
-      <span v-if="messageCollecte" class="text-sm" :class="erreurCollecte ? 'text-red-400' : 'text-emerald-400'">
-        {{ messageCollecte }}
-      </span>
+      <!-- Sélecteur Timeframes -->
+      <div class="flex flex-col gap-1">
+        <span class="text-xs text-gray-400">Timeframes :</span>
+        <div class="flex flex-wrap gap-2">
+          <label
+            v-for="tf in TOUS_TF"
+            :key="tf"
+            class="flex items-center gap-1 cursor-pointer select-none text-xs px-2 py-1 rounded-lg border transition"
+            :class="tfsSelectionnes.includes(tf)
+              ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
+              : 'border-white/10 bg-white/5 text-gray-400'"
+          >
+            <input type="checkbox" class="hidden" :value="tf" v-model="tfsSelectionnes" />
+            {{ tf }}
+          </label>
+        </div>
+      </div>
+      <div class="flex flex-col gap-2">
+        <button
+          class="px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 transition disabled:opacity-50"
+          :disabled="enCollecte || tfsSelectionnes.length === 0"
+          @click="lancerCollecte"
+        >
+          {{ enCollecte ? '⏳ Collecte en cours…' : '⬇ Lancer la collecte' }}
+        </button>
+        <span v-if="messageCollecte" class="text-sm" :class="erreurCollecte ? 'text-red-400' : 'text-emerald-400'">
+          {{ messageCollecte }}
+        </span>
+      </div>
     </div>
 
     <!-- Résultats de la dernière collecte -->
@@ -71,7 +90,7 @@
             <th class="px-3 py-2 text-gray-400 text-right">Bougies</th>
             <th class="px-3 py-2 text-gray-400 text-right">Depuis</th>
             <th class="px-3 py-2 text-gray-400 text-right">Jusqu'à</th>
-            <th class="px-3 py-2 text-gray-400 text-right">Couverture</th>
+            <th class="px-3 py-2 text-gray-400 text-right">Couverture (obj. {{ moisSelectionne }} mois)</th>
           </tr>
         </thead>
         <tbody>
@@ -94,8 +113,9 @@
                     :style="{ width: ligne.pct + '%' }"
                   />
                 </div>
-                <span class="text-xs w-10 text-right" :class="ligne.pct >= 80 ? 'text-emerald-400' : ligne.pct >= 40 ? 'text-yellow-400' : 'text-red-400'">
+                <span class="text-xs text-right whitespace-nowrap" :class="ligne.pct >= 80 ? 'text-emerald-400' : ligne.pct >= 40 ? 'text-yellow-400' : 'text-red-400'">
                   {{ ligne.pct }}%
+                  <span class="text-gray-500 font-normal">/ {{ moisSelectionne }}m</span>
                 </span>
               </div>
             </td>
@@ -113,7 +133,7 @@ import type { CouvertureDonnees, ResultatCollecteItem } from '@/services/api.ser
 
 const TOUS_ASSETS = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD', 'EURUSD', 'GBPJPY', 'CADJPY', 'NZDJPY', 'USDCAD', 'USDJPY', 'DAX', 'NAS100', 'SP500']
 const CRYPTO_ASSETS = ['BTC', 'ETH']
-const TF_CIBLES = ['M5', 'M15', 'H1'] // timeframes collectés par défaut
+const TOUS_TF = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 
 const couverture = ref<CouvertureDonnees[]>([])
 const chargement = ref(false)
@@ -124,16 +144,17 @@ const erreurCollecte = ref(false)
 const resultatsCollecte = ref<ResultatCollecteItem[]>([])
 const moisSelectionne = ref(6)
 const modeAssets = ref<'crypto' | 'tous'>('crypto')
+const tfsSelectionnes = ref<string[]>(['M5', 'M15', 'H1', 'H4'])
 
 // Calcul estimé du nombre de bougies attendu pour 6 mois selon TF
-const bougiesAttenduParTf: Record<string, number> = {
-  M1: 43200 * 6, M5: 8640 * 6, M15: 2880 * 6, M30: 1440 * 6,
-  H1: 720 * 6, H4: 180 * 6, D1: 30 * 6, W1: 4 * 6,
+const bougiesParMoisParTf: Record<string, number> = {
+  M1: 43200, M5: 8640, M15: 2880, M30: 1440,
+  H1: 720, H4: 180, D1: 30, W1: 4,
 }
 
 const lignesEnrichies = computed(() =>
   couverture.value.map(c => {
-    const attendu = bougiesAttenduParTf[c.timeframe] ?? 1
+    const attendu = (bougiesParMoisParTf[c.timeframe] ?? 1) * moisSelectionne.value
     const pct = Math.min(100, Math.round((c.count / attendu) * 100))
     const dateMin = c.min_ts ? new Date(c.min_ts * 1000).toLocaleDateString('fr-FR') : '—'
     const dateMax = c.max_ts ? new Date(c.max_ts * 1000).toLocaleDateString('fr-FR') : '—'
@@ -163,7 +184,7 @@ async function lancerCollecte() {
     const assets = modeAssets.value === 'crypto' ? CRYPTO_ASSETS : TOUS_ASSETS
     const res = await apiService.collecterDonnees({
       assets,
-      timeframes: TF_CIBLES,
+      timeframes: tfsSelectionnes.value,
       mois: moisSelectionne.value,
     })
     resultatsCollecte.value = res.resultats

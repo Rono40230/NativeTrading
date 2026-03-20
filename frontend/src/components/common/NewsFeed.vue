@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-card p-4 flex flex-col h-full">
+  <div v-bind="$attrs" class="glass-card p-4 flex flex-col h-full">
     <!-- En-tête -->
     <div class="mb-3 flex items-center justify-between shrink-0">
       <p class="text-[11px] font-semibold uppercase tracking-widest text-white">
@@ -135,6 +135,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false })
 import { ref } from 'vue'
 import { apiService } from '@/services/api.service'
 import { useNewsStore } from '@/stores/news.store'

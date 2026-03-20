@@ -28,8 +28,9 @@ fn limit_pour_mois(tf: &Timeframe, mois: u32) -> usize {
 pub async fn get_coverage(state: web::Data<AppState>) -> impl Responder {
     match state.db.obtenir_couverture_donnees().await {
         Ok(data) => HttpResponse::Ok().json(serde_json::json!({ "couverture": data })),
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "erreur": e.to_string() })),
+        Err(e) => {
+            HttpResponse::InternalServerError().json(serde_json::json!({ "erreur": e.to_string() }))
+        }
     }
 }
 
@@ -52,14 +53,16 @@ pub async fn post_collect(
     let mois = body.mois.unwrap_or(6).clamp(1, 24);
 
     // Assets à collecter — défaut Binance uniquement si non précisé
-    let asset_ids: Vec<String> = body.assets.clone().unwrap_or_else(|| {
-        vec!["BTC".to_string(), "ETH".to_string()]
-    });
+    let asset_ids: Vec<String> = body
+        .assets
+        .clone()
+        .unwrap_or_else(|| vec!["BTC".to_string(), "ETH".to_string()]);
 
     // Timeframes — défaut M5, M15, H1
-    let tf_ids: Vec<String> = body.timeframes.clone().unwrap_or_else(|| {
-        vec!["M5".to_string(), "M15".to_string(), "H1".to_string()]
-    });
+    let tf_ids: Vec<String> = body
+        .timeframes
+        .clone()
+        .unwrap_or_else(|| vec!["M5".to_string(), "M15".to_string(), "H1".to_string()]);
 
     let mut resultats = Vec::new();
     let mut total_inseres: u64 = 0;
@@ -80,7 +83,10 @@ pub async fn post_collect(
             Asset::BTC | Asset::ETH => Box::new(BinanceProvider),
             _ => {
                 // IB Gateway pour les assets non-crypto
-                let ib = data::providers::IbGatewayProvider::new(state.ib_port, state.ib_client_id + 200);
+                let ib = data::providers::IbGatewayProvider::new(
+                    state.ib_port,
+                    state.ib_client_id + 200,
+                );
                 Box::new(ib)
             }
         };
@@ -92,12 +98,15 @@ pub async fn post_collect(
 
             tracing::info!(
                 "Collecte bulk {} {} — {} bougies (~{} mois)",
-                asset_str, tf_str, limit, mois
+                asset_str,
+                tf_str,
+                limit,
+                mois
             );
 
             match tokio::time::timeout(
                 std::time::Duration::from_secs(120),
-                provider.fetch_candles(asset.clone(), tf.clone(), limit),
+                provider.fetch_candles(asset.clone(), tf, limit),
             )
             .await
             {
