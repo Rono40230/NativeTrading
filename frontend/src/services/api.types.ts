@@ -139,3 +139,18 @@ export interface AnnonceCalendrier {
   precedent: string | null
   prevision: string | null
 }
+
+export interface EntiteSentiment {
+  nom: string
+  prix: number
+  variation_pct: number
+}
+
+export interface SentimentMarche {
+  date: string
+  usa: EntiteSentiment[]
+  europe: EntiteSentiment[]
+  matieres_premieres: EntiteSentiment[]
+  cryptos: EntiteSentiment[]
+  vix: number | null
+}

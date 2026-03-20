@@ -7,6 +7,7 @@ export type {
   ZoneOb, ZoneIfvg, NiveauxFibonacci, ResultatTendance,
   NiveauLiquidite, ReponseIndicators, IndicatorsParams, SignalIndicateur,
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
+  SentimentMarche, EntiteSentiment,
 } from './api.types'
 
 import type {
@@ -14,7 +15,7 @@ import type {
   ImageAvecTF, StatutIA, PredictionML, BacktestResults, ScoreSmc,
   ReponseEntrainement, ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
-  ModeCalculTendance, AnnonceCalendrier,
+  ModeCalculTendance, AnnonceCalendrier, SentimentMarche,
 } from './api.types'
 
 const BASE_URL = 'http://localhost:8080'
@@ -165,5 +166,10 @@ export const apiService = {
     } catch {
       return []
     }
+  },
+
+  async obtenirSentimentMarche(): Promise<SentimentMarche> {
+    const res = await http.get('/api/sentiment/marche')
+    return res.data
   },
 }

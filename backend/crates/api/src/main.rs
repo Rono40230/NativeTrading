@@ -12,6 +12,7 @@ mod ml_handlers;
 mod ollama;
 mod ollama_handlers;
 mod ollama_types;
+mod sentiment_handlers;
 mod smc_handlers;
 mod state;
 mod tendance_handlers;
@@ -98,6 +99,10 @@ async fn main() -> std::io::Result<()> {
             .route(
                 "/api/calendar",
                 web::get().to(calendar_handlers::get_calendar),
+            )
+            .route(
+                "/api/sentiment/marche",
+                web::get().to(sentiment_handlers::get_sentiment_marche),
             )
             .route("/api/stream", web::get().to(ws_handlers::stream_market))
     })

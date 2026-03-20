@@ -26,6 +26,9 @@
     <!-- Calendrier économique -->
     <EconomicCalendar />
 
+    <!-- Sentiment de marché -->
+    <SentimentMarche />
+
     <!-- Métriques performance (backtest BTC) -->
     <div v-if="metriques" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <div class="glass-card p-4"><p class="label">Win Rate</p><p class="kpi-value text-emerald-400">{{ metriques.win_rate.toFixed(1) }}%</p></div>
@@ -48,6 +51,7 @@ import { apiService } from '@/services/api.service'
 import type { BacktestResults, Candle } from '@/services/api.service'
 import MarketClocks from '@/components/common/MarketClocks.vue'
 import EconomicCalendar from '@/components/common/EconomicCalendar.vue'
+import SentimentMarche from '@/components/common/SentimentMarche.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
 import DashboardPrixStrip from '@/components/common/DashboardPrixStrip.vue'
 import DashboardSignaux from '@/components/common/DashboardSignaux.vue'
