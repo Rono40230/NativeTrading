@@ -89,7 +89,10 @@ impl SignalEngine {
 
     /// Timestamp Unix du prochain cycle d'analyse.
     pub fn ts_prochain_cycle(&self) -> i64 {
-        *self.prochain_cycle.lock().unwrap_or_else(|p| p.into_inner())
+        *self
+            .prochain_cycle
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
     }
 }
 

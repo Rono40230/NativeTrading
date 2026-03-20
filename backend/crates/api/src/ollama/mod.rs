@@ -144,9 +144,17 @@ pub async fn confirmer_signal_smc(
         Direction SMC: {} | Score SMC: {:.1}/100\n\
         ML confiance: {:.1}% | SL: {:.5} | TP1: {:.5}",
         PROMPT_SIGNAL_SMC,
-        asset, timeframe, prix_entree, atr,
-        kill_zone, sweep, direction, score_smc,
-        confiance_ml * 100.0, stop_loss, take_profit,
+        asset,
+        timeframe,
+        prix_entree,
+        atr,
+        kill_zone,
+        sweep,
+        direction,
+        score_smc,
+        confiance_ml * 100.0,
+        stop_loss,
+        take_profit,
     );
     let texte = match interroger(&prompt).await {
         Ok(t) => t,
@@ -156,11 +164,18 @@ pub async fn confirmer_signal_smc(
         }
     };
     #[derive(serde::Deserialize)]
-    struct ConfirmBrut { direction: String, score_confiance: f64, raisonnement: String }
+    struct ConfirmBrut {
+        direction: String,
+        score_confiance: f64,
+        raisonnement: String,
+    }
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
     let Ok(brut) = serde_json::from_str::<ConfirmBrut>(&texte[debut..fin]) else {
-        tracing::debug!("LLM réponse non parsable: {}", &texte[..texte.len().min(200)]);
+        tracing::debug!(
+            "LLM réponse non parsable: {}",
+            &texte[..texte.len().min(200)]
+        );
         return None;
     };
     if brut.direction == "Neutre" || brut.score_confiance < 0.5 {

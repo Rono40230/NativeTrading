@@ -59,11 +59,7 @@ pub async fn statut_engine(state: web::Data<AppState>) -> impl Responder {
     };
 
     // Signaux générés dans les dernières 24h
-    let signaux_24h = state
-        .db
-        .compter_signaux_recents(24 * 60)
-        .await
-        .unwrap_or(0);
+    let signaux_24h = state.db.compter_signaux_recents(24 * 60).await.unwrap_or(0);
 
     HttpResponse::Ok().json(serde_json::json!({
         "actif": actif,

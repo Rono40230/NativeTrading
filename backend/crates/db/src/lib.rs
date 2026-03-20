@@ -242,13 +242,21 @@ impl Database {
     }
 
     /// Vérifie si un signal (même asset/timeframe) existe dans la fenêtre anti-doublon.
-    pub async fn signal_recent_existe(&self, asset: &Asset, timeframe: &Timeframe, minutes: i64) -> Result<bool> {
-        let seuil = Utc::now().timestamp() - minutes * 60;
+    pub async fn signal_recent_existe(
+        &self,
+        asset: &Asset,
+        tf: &Timeframe,
+        min: i64,
+    ) -> Result<bool> {
+        let seuil = Utc::now().timestamp() - min * 60;
         let row = sqlx::query(
             "SELECT COUNT(*) as n FROM signaux WHERE asset = ? AND timeframe = ? AND cree_le >= ?",
         )
-        .bind(asset.as_str()).bind(timeframe.as_str()).bind(seuil)
-        .fetch_one(&self.pool).await
+        .bind(asset.as_str())
+        .bind(tf.as_str())
+        .bind(seuil)
+        .fetch_one(&self.pool)
+        .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(row.get::<i64, _>("n") > 0)
     }
@@ -257,7 +265,9 @@ impl Database {
     pub async fn compter_signaux_recents(&self, minutes: i64) -> Result<i64> {
         let seuil = Utc::now().timestamp() - minutes * 60;
         let row = sqlx::query("SELECT COUNT(*) as n FROM signaux WHERE cree_le >= ?")
-            .bind(seuil).fetch_one(&self.pool).await
+            .bind(seuil)
+            .fetch_one(&self.pool)
+            .await
             .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(row.get::<i64, _>("n"))
     }

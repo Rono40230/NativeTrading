@@ -97,7 +97,13 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
 
     tracing::debug!(
         "ScoreSmc {:?}: total={:.1} (tend={:.1} ob={:.1} ifvg={:.1} imb={:.1} fib={:.1})",
-        direction, total, pts_tendance, pts_ob, pts_ifvg, pts_imbalance, pts_fib
+        direction,
+        total,
+        pts_tendance,
+        pts_ob,
+        pts_ifvg,
+        pts_imbalance,
+        pts_fib
     );
 
     Some(ScoreSmc {
