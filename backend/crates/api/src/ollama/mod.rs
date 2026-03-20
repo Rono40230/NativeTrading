@@ -119,6 +119,56 @@ async fn appeler_ollama(url: &str, corps: &serde_json::Value) -> Result<String, 
     Ok(data.message.content)
 }
 
+/// Confirmation LLM d'un signal SMC validé par `SmcDirectionalStrategy`.
+///
+/// Appelle Ollama avec `PROMPT_SIGNAL_SMC` + contexte chiffré du signal.
+/// Retourne le raisonnement si le LLM confirme (score_confiance ≥ 0.5),
+/// `None` si neutre/rejeté ou si Ollama est injoignable.
+#[allow(clippy::too_many_arguments)]
+pub async fn confirmer_signal_smc(
+    asset: &str,
+    timeframe: &str,
+    score_smc: f64,
+    direction: &str,
+    prix_entree: f64,
+    stop_loss: f64,
+    take_profit: f64,
+    confiance_ml: f64,
+    atr: f64,
+    kill_zone: bool,
+    sweep: bool,
+) -> Option<String> {
+    let prompt = format!(
+        "{}\n\nAsset: {} {}\nPrix actuel: {:.5} | ATR: {:.5}\n\
+        kill_zone_active: {} | sweep_detecte: {}\n\
+        Direction SMC: {} | Score SMC: {:.1}/100\n\
+        ML confiance: {:.1}% | SL: {:.5} | TP1: {:.5}",
+        PROMPT_SIGNAL_SMC,
+        asset, timeframe, prix_entree, atr,
+        kill_zone, sweep, direction, score_smc,
+        confiance_ml * 100.0, stop_loss, take_profit,
+    );
+    let texte = match interroger(&prompt).await {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::warn!("Ollama indisponible pour confirmation SMC: {}", e);
+            return None;
+        }
+    };
+    #[derive(serde::Deserialize)]
+    struct ConfirmBrut { direction: String, score_confiance: f64, raisonnement: String }
+    let debut = texte.find('{').unwrap_or(0);
+    let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
+    let Ok(brut) = serde_json::from_str::<ConfirmBrut>(&texte[debut..fin]) else {
+        tracing::debug!("LLM réponse non parsable: {}", &texte[..texte.len().min(200)]);
+        return None;
+    };
+    if brut.direction == "Neutre" || brut.score_confiance < 0.5 {
+        return None;
+    }
+    Some(brut.raisonnement)
+}
+
 async fn interroger_avec_systeme(prompt: &str, system: &str) -> Result<String, TradingError> {
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());

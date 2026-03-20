@@ -3,8 +3,10 @@
 //! Boucle Tokio toutes les 5 minutes — analyse 13 assets × M5/M15.
 //! Guard Kill Zone intégré dans `SmcDirectionalStrategy`.
 //! Anti-doublon 30 min via requête DB avant insertion.
-use common::{Asset, Signal, Timeframe};
+use common::{Asset, Candle, Signal, Timeframe};
 use db::Database;
+use indicators::calculer_atr;
+use smc::scorer;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -186,6 +188,9 @@ async fn analyser_asset(
         tp_list.push(tp3);
     }
 
+    // Enrichissement LLM optionnel — non bloquant (timeout 45s)
+    let strategie_nom = enrichir_avec_ollama(asset, timeframe, &signal_strat, &bougies).await;
+
     let signal = Signal::nouveau(
         asset.clone(),
         *timeframe,
@@ -194,7 +199,7 @@ async fn analyser_asset(
         signal_strat.prix_entree,
         signal_strat.stop_loss,
         tp_list,
-        "SMC Directionnel",
+        strategie_nom,
     );
 
     db.inserer_signal(&signal).await?;
@@ -212,4 +217,63 @@ async fn analyser_asset(
     let _ = tx.send(signal);
 
     Ok(())
+}
+
+/// Appelle Ollama pour confirmer/enrichir un signal SMC validé.
+///
+/// Timeout 45s — en cas de dépassement ou d'indisponibilité Ollama,
+/// retourne `"SMC Directionnel"` pour conserver le signal pur.
+async fn enrichir_avec_ollama(
+    asset: &Asset,
+    timeframe: &Timeframe,
+    signal: &strategies::Signal,
+    bougies: &[Candle],
+) -> &'static str {
+    // Recalcul ATR14 et score SMC pour contextualiser le prompt
+    let atr_vals = calculer_atr(bougies, 14);
+    let atr_val = atr_vals.last().copied().unwrap_or(0.0);
+    let (score_total, kill_zone, sweep) = match scorer(bougies) {
+        Some(s) => (s.total, s.kill_zone_active, s.sweep_detecte),
+        None => (signal.confiance * 100.0, false, false),
+    };
+    let dir = format!("{:?}", signal.direction);
+
+    let confirmation = tokio::time::timeout(
+        Duration::from_secs(45),
+        crate::ollama::confirmer_signal_smc(
+            asset.as_str(),
+            timeframe.as_str(),
+            score_total,
+            &dir,
+            signal.prix_entree,
+            signal.stop_loss,
+            signal.take_profit,
+            signal.confiance,
+            atr_val,
+            kill_zone,
+            sweep,
+        ),
+    )
+    .await;
+
+    match confirmation {
+        Ok(Some(raisonnement)) => {
+            tracing::info!(
+                "🤖 LLM confirmé {}/{}: {}",
+                asset.as_str(),
+                timeframe.as_str(),
+                &raisonnement[..raisonnement.len().min(100)]
+            );
+            "SMC+IA"
+        }
+        Ok(None) => "SMC Directionnel",
+        Err(_) => {
+            tracing::warn!(
+                "Timeout Ollama (45s) {}/{} — signal SMC conservé",
+                asset.as_str(),
+                timeframe.as_str()
+            );
+            "SMC Directionnel"
+        }
+    }
 }
