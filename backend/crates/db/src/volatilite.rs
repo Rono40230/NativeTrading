@@ -60,11 +60,14 @@ fn calculer_seuil_straddle(patterns: &[PatternHoraire]) -> f64 {
 impl Database {
     /// Agrège les bouges par (heure_utc, jour_semaine) et calcule l'ATR moyen (high-low proxy).
     /// Retourne les patterns classifiés en 4 clusters + le seuil Straddle calibré (P85).
+    /// `mois` : fenêtre glissante (ex: 12 = 12 derniers mois).
     pub async fn obtenir_patterns_horaires(
         &self,
         asset: &Asset,
         timeframe: &Timeframe,
+        mois: i64,
     ) -> Result<ReponsePatternsVolatilite> {
+        let seuil_ts: i64 = mois * 30 * 86_400;
         let rows = sqlx::query(
             r#"
             SELECT
@@ -74,12 +77,14 @@ impl Database {
                 COUNT(*) as nb_points
             FROM bougies
             WHERE asset = ? AND timeframe = ?
+              AND timestamp > CAST(strftime('%s', 'now') AS INTEGER) - ?
             GROUP BY heure, jour_semaine
             ORDER BY heure, jour_semaine
             "#,
         )
         .bind(asset.as_str())
         .bind(timeframe.as_str())
+        .bind(seuil_ts)
         .fetch_all(self.pool())
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;

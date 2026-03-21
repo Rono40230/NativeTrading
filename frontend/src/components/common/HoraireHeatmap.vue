@@ -8,6 +8,9 @@
       <select v-model="timeframe" class="glass-select" @change="charger">
         <option v-for="tf in timeframes" :key="tf" :value="tf">{{ tf }}</option>
       </select>
+      <select v-model="mois" class="glass-select" @change="charger">
+        <option v-for="m in periodesDisponibles" :key="m" :value="m">{{ m }} mois</option>
+      </select>
       <button class="btn-sm" :disabled="chargement" @click="charger">
         {{ chargement ? '⏳' : '🔄' }} Charger
       </button>
@@ -59,7 +62,7 @@
                 @mouseleave="masquerTooltip"
               >
                 <span v-if="cellulePoints(h, j.index) > 0" class="text-[10px] text-white/80 font-mono leading-none">
-                  {{ celluleAtr(h, j.index).toFixed(1) }}
+                  {{ celluleAtr(h, j.index).toFixed(1) }}<span class="text-white/40">{{ unite }}</span>
                 </span>
               </div>
             </td>
@@ -141,11 +144,18 @@ import { useAlerteStore } from '@/stores/alerte.store'
 
 const alerteStore = useAlerteStore()
 const assets = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD']
-const timeframes = ['M5', 'M15', 'H1', 'H4']
+const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
+const periodesDisponibles = [6, 12, 18, 24]
 const asset = ref('BTC')
 const timeframe = ref('M15')
+const mois = ref(12)
 const chargement = ref(false)
 const reponse = ref<ReponsePatternsVolatilite | null>(null)
+
+/** Unité d'affichage selon l'asset sélectionné. */
+const unite = computed(() =>
+  ['BTC', 'ETH'].includes(asset.value) ? '$' : 'pts'
+)
 
 const heures = Array.from({ length: 24 }, (_, i) => i)
 
@@ -266,7 +276,7 @@ const analyse = computed(() => {
 async function charger() {
   chargement.value = true
   try {
-    reponse.value = await apiService.obtenirPatternsVolatilite(asset.value, timeframe.value)
+    reponse.value = await apiService.obtenirPatternsVolatilite(asset.value, timeframe.value, mois.value)
   } catch (e: unknown) {
     alerteStore.afficherErreur(`Patterns volatilité: ${(e as Error).message}`)
   } finally {

@@ -6,9 +6,10 @@ use serde::Deserialize;
 pub struct QueryPatterns {
     pub asset: Option<String>,
     pub timeframe: Option<String>,
+    pub mois: Option<i64>,
 }
 
-/// GET /api/volatility/patterns?asset=BTC&timeframe=M15
+/// GET /api/volatility/patterns?asset=BTC&timeframe=M15&mois=12
 /// Retourne les patterns de volatilité ATR agrégés par heure/jour,
 /// classifiés en 4 clusters + le seuil Straddle calibré (P85).
 pub async fn get_patterns(
@@ -22,8 +23,9 @@ pub async fn get_patterns(
         }
     };
     let timeframe = utils::parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
+    let mois = query.mois.unwrap_or(12).clamp(1, 60);
 
-    match state.db.obtenir_patterns_horaires(&asset, &timeframe).await {
+    match state.db.obtenir_patterns_horaires(&asset, &timeframe, mois).await {
         Ok(rep) => HttpResponse::Ok().json(rep),
         Err(e) => {
             HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))

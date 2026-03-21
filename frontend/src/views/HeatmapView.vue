@@ -125,7 +125,7 @@ import HoraireHeatmap from '@/components/common/HoraireHeatmap.vue'
 const onglet = ref<'atr' | 'horaire'>('atr')
 const alerteStore = useAlerteStore()
 const assets = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD']
-const timeframes = ['M5', 'M15', 'H1', 'H4', 'D1']
+const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const chargement = ref(false)
 const donnees = ref<Record<string, number>>({}) // cle = "BTC_M15" → ratio ATR
 

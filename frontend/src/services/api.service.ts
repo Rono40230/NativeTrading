@@ -224,8 +224,9 @@ export const apiService = {
   async obtenirPatternsVolatilite(
     asset = 'BTC',
     timeframe = 'M15',
+    mois = 12,
   ): Promise<ReponsePatternsVolatilite> {
-    const res = await http.get('/api/volatility/patterns', { params: { asset, timeframe } })
+    const res = await http.get('/api/volatility/patterns', { params: { asset, timeframe, mois } })
     return res.data
   },
 }
