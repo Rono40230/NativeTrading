@@ -156,7 +156,10 @@ async fn analyser_tous_assets(
             .filter_map(|r| crate::utils::parse_asset(&r.id))
             .collect::<Vec<Asset>>(),
         Err(e) => {
-            tracing::warn!("Signal Engine — impossible de charger les assets DB: {} — fallback", e);
+            tracing::warn!(
+                "Signal Engine — impossible de charger les assets DB: {} — fallback",
+                e
+            );
             ASSETS_FALLBACK.to_vec()
         }
     };
@@ -218,7 +221,8 @@ async fn analyser_asset(
         timeframe.as_str(),
         &signal_strat,
         &bougies,
-    ).await;
+    )
+    .await;
 
     let signal = Signal::nouveau(
         asset.clone(),

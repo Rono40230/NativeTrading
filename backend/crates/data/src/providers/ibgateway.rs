@@ -78,14 +78,14 @@ impl IbGatewayProvider {
                 ..Default::default()
             },
             // Crypto supplémentaires (Binance — non supportés IB, fallback crypto)
-            Asset::SOL  => Contract::crypto("SOL").build(),
-            Asset::BNB  => Contract::crypto("BNB").build(),
-            Asset::XRP  => Contract::crypto("XRP").build(),
-            Asset::ADA  => Contract::crypto("ADA").build(),
+            Asset::SOL => Contract::crypto("SOL").build(),
+            Asset::BNB => Contract::crypto("BNB").build(),
+            Asset::XRP => Contract::crypto("XRP").build(),
+            Asset::ADA => Contract::crypto("ADA").build(),
             Asset::DOGE => Contract::crypto("DOGE").build(),
             Asset::AVAX => Contract::crypto("AVAX").build(),
             Asset::LINK => Contract::crypto("LINK").build(),
-            Asset::DOT  => Contract::crypto("DOT").build(),
+            Asset::DOT => Contract::crypto("DOT").build(),
             // Métaux supplémentaires
             Asset::XPTUSD => Contract {
                 symbol: "XPTUSD".into(),

@@ -83,10 +83,8 @@ pub async fn post_collect(
             Box::new(BinanceProvider)
         } else {
             // IB Gateway pour métaux, forex, indices
-            let ib = data::providers::IbGatewayProvider::new(
-                state.ib_port,
-                state.ib_client_id + 200,
-            );
+            let ib =
+                data::providers::IbGatewayProvider::new(state.ib_port, state.ib_client_id + 200);
             Box::new(ib)
         };
 

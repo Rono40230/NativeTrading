@@ -21,19 +21,21 @@ pub struct QueryLister {
 
 /// GET /api/assets — retourne TOUS les assets par défaut (actifs + inactifs)
 /// GET /api/assets?actifs=true — retourne uniquement les assets actifs
-pub async fn lister_assets(state: web::Data<AppState>, query: web::Query<QueryLister>) -> impl Responder {
+pub async fn lister_assets(
+    state: web::Data<AppState>,
+    query: web::Query<QueryLister>,
+) -> impl Responder {
     let actifs_seulement = matches!(query.actifs.as_deref(), Some("true") | Some("1"));
     let res = if actifs_seulement {
-        state.db.lister_assets().await       // actifs uniquement
+        state.db.lister_assets().await // actifs uniquement
     } else {
-        state.db.lister_tous_assets().await  // tous (actifs + inactifs)
+        state.db.lister_tous_assets().await // tous (actifs + inactifs)
     };
     match res {
         Ok(assets) => HttpResponse::Ok().json(assets),
         Err(e) => {
             tracing::error!("lister_assets: {}", e);
-            HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": e.to_string() }))
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
         }
     }
 }
@@ -46,8 +48,9 @@ pub async fn ajouter_asset(
     // Validation format ticker
     let id = body.id.trim().to_uppercase();
     if id.is_empty() || id.len() < 2 || id.len() > 20 {
-        return HttpResponse::BadRequest()
-            .json(serde_json::json!({ "error": "Le ticker doit faire entre 2 et 20 caractères." }));
+        return HttpResponse::BadRequest().json(
+            serde_json::json!({ "error": "Le ticker doit faire entre 2 et 20 caractères." }),
+        );
     }
     if !id.chars().all(|c| c.is_alphanumeric()) {
         return HttpResponse::BadRequest()

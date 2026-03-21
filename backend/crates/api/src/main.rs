@@ -71,8 +71,14 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .route("/health", web::get().to(handlers::health_check))
             .route("/api/assets", web::get().to(assets_handlers::lister_assets))
-            .route("/api/assets", web::post().to(assets_handlers::ajouter_asset))
-            .route("/api/assets/{id}", web::delete().to(assets_handlers::supprimer_asset))
+            .route(
+                "/api/assets",
+                web::post().to(assets_handlers::ajouter_asset),
+            )
+            .route(
+                "/api/assets/{id}",
+                web::delete().to(assets_handlers::supprimer_asset),
+            )
             .route("/api/candles", web::get().to(handlers::get_candles))
             .route("/api/signaux", web::get().to(handlers::get_signaux))
             .route("/api/ml/predict", web::get().to(handlers::predict_ml))

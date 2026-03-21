@@ -245,20 +245,38 @@ pub async fn enrichir_signal_avec_ollama(
     let confirmation = tokio::time::timeout(
         std::time::Duration::from_secs(45),
         confirmer_signal_smc(
-            asset, timeframe, score_total, &dir,
-            signal.prix_entree, signal.stop_loss, signal.take_profit,
-            signal.confiance, atr_val, kill_zone, sweep,
+            asset,
+            timeframe,
+            score_total,
+            &dir,
+            signal.prix_entree,
+            signal.stop_loss,
+            signal.take_profit,
+            signal.confiance,
+            atr_val,
+            kill_zone,
+            sweep,
         ),
-    ).await;
+    )
+    .await;
 
     match confirmation {
         Ok(Some(r)) => {
-            tracing::info!("🤖 LLM confirmé {}/{}: {}", asset, timeframe, &r[..r.len().min(100)]);
+            tracing::info!(
+                "🤖 LLM confirmé {}/{}: {}",
+                asset,
+                timeframe,
+                &r[..r.len().min(100)]
+            );
             "SMC+IA"
         }
         Ok(None) => "SMC Directionnel",
         Err(_) => {
-            tracing::warn!("Timeout Ollama (45s) {}/{} — signal SMC conservé", asset, timeframe);
+            tracing::warn!(
+                "Timeout Ollama (45s) {}/{} — signal SMC conservé",
+                asset,
+                timeframe
+            );
             "SMC Directionnel"
         }
     }

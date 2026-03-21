@@ -77,20 +77,16 @@ impl Database {
 
         if nb == 0 {
             // Vérifier si déjà actif
-            let existe: i64 = sqlx::query(
-                "SELECT COUNT(*) as n FROM assets WHERE id = ? AND actif = 1",
-            )
-            .bind(id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| TradingError::Database(e.to_string()))?
-            .get("n");
+            let existe: i64 =
+                sqlx::query("SELECT COUNT(*) as n FROM assets WHERE id = ? AND actif = 1")
+                    .bind(id)
+                    .fetch_one(&self.pool)
+                    .await
+                    .map_err(|e| TradingError::Database(e.to_string()))?
+                    .get("n");
 
             if existe > 0 {
-                return Err(TradingError::Data(format!(
-                    "L'asset '{}' existe déjà.",
-                    id
-                )));
+                return Err(TradingError::Data(format!("L'asset '{}' existe déjà.", id)));
             }
 
             sqlx::query(

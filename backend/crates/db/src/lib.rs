@@ -6,9 +6,9 @@ pub mod entrainements;
 pub mod signaux;
 pub mod volatilite;
 
+use common::{Result, TradingError};
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 use std::str::FromStr;
-use common::{Result, TradingError};
 
 pub struct Database {
     pool: SqlitePool,
