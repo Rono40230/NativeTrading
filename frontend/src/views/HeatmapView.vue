@@ -101,6 +101,20 @@
           <span class="text-gray-400">Asset le plus calme</span>
           <span class="text-white font-semibold">{{ analyseAtr.assetCalme }}</span>
         </div>
+        <!-- TFs actifs par asset -->
+        <div v-for="a in assets" :key="a" class="py-1 border-b border-white/5 last:border-0">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-gray-400 text-sm shrink-0">{{ a }} actif sur</span>
+            <span v-if="analyseAtr.tfsActifsParAsset[a].length" class="flex flex-wrap gap-1 justify-end">
+              <span
+                v-for="tf in analyseAtr.tfsActifsParAsset[a]"
+                :key="tf"
+                class="bg-red-500/20 text-red-300 text-[10px] font-mono px-1.5 py-0.5 rounded"
+              >{{ tf }}</span>
+            </span>
+            <span v-else class="text-gray-600 text-xs italic">aucun créneau élevé</span>
+          </div>
+        </div>
         <div class="mt-2 rounded-lg px-3 py-2 text-xs" :class="analyseAtr.straddleClass">
           {{ analyseAtr.straddleConseil }}
         </div>
@@ -200,6 +214,14 @@ const analyseAtr = computed(() => {
   const assetActif = moyParAsset[0]?.asset ?? '—'
   const assetCalme = moyParAsset[moyParAsset.length - 1]?.asset ?? '—'
 
+  // TFs en volatilité élevée (>120%) par asset
+  const tfsActifsParAsset: Record<string, string[]> = {}
+  for (const a of assets) {
+    tfsActifsParAsset[a] = items
+      .filter(i => i.asset === a && i.atr > 120)
+      .map(i => i.tf)
+  }
+
   // Combien de cellules dépassent 120% (Élevé) ?
   const nbEleve = items.filter(i => i.atr > 120).length
   const topRatio = items[0]?.atr ?? 0
@@ -216,7 +238,7 @@ const analyseAtr = computed(() => {
     straddleClass = 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
   }
 
-  return { assetActif, assetCalme, straddleConseil, straddleClass }
+  return { assetActif, assetCalme, tfsActifsParAsset, straddleConseil, straddleClass }
 })
 
 async function actualiser() {
