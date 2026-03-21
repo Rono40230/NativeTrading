@@ -14,12 +14,14 @@ pub struct AjoutAssetBody {
 
 #[derive(serde::Deserialize)]
 pub struct QueryLister {
-    pub tous: Option<bool>,
+    // Accepte "true", "1", "yes" — serde_urlencoded ne parse pas bool depuis string
+    pub tous: Option<String>,
 }
 
-/// GET /api/assets — liste les assets (actifs par défaut, tous si ?tous=true)
+/// GET /api/assets — liste les assets (actifs par défaut, tous si ?tous=true ou ?tous=1)
 pub async fn lister_assets(state: web::Data<AppState>, query: web::Query<QueryLister>) -> impl Responder {
-    let res = if query.tous.unwrap_or(false) {
+    let afficher_tous = matches!(query.tous.as_deref(), Some("true") | Some("1") | Some("yes"));
+    let res = if afficher_tous {
         state.db.lister_tous_assets().await
     } else {
         state.db.lister_assets().await
