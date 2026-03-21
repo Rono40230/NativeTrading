@@ -73,6 +73,56 @@
       Sélectionnez un asset et un timeframe puis cliquez sur Charger.
     </div>
 
+    <!-- Bloc d'analyse statistique -->
+    <div v-if="analyse" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <!-- Meilleures fenêtres -->
+      <div class="glass-card p-4 space-y-3">
+        <p class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Meilleures fenêtres de trading</p>
+        <div v-for="f in analyse.top3" :key="f.heureUtc" class="flex items-center justify-between">
+          <span class="text-sm text-white font-mono">{{ f.heureParis }}h – {{ (f.heureParis + 1) % 24 }}h Paris</span>
+          <span :class="COULEUR_CLUSTER_TEXTE[f.cluster]" class="text-xs font-medium">{{ NOM_CLUSTER[f.cluster] }}</span>
+        </div>
+        <p class="text-[10px] text-gray-500 pt-1">Cluster dominant sur l'ensemble de la semaine</p>
+      </div>
+
+      <!-- Heures à éviter -->
+      <div class="glass-card p-4 space-y-3">
+        <p class="text-xs font-semibold text-red-400 uppercase tracking-wider">Fenêtres à éviter</p>
+        <div v-for="f in analyse.pires3" :key="f.heureUtc" class="flex items-center justify-between">
+          <span class="text-sm text-white font-mono">{{ f.heureParis }}h – {{ (f.heureParis + 1) % 24 }}h Paris</span>
+          <span :class="COULEUR_CLUSTER_TEXTE[f.cluster]" class="text-xs font-medium">{{ NOM_CLUSTER[f.cluster] }}</span>
+        </div>
+        <p class="text-[10px] text-gray-500 pt-1">Faible volatilité — spread défavorable</p>
+      </div>
+
+      <!-- Jours + heure actuelle -->
+      <div class="glass-card p-4 md:col-span-2 flex flex-wrap gap-6 items-start">
+        <div class="flex-1 min-w-[160px] space-y-1">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Jours de la semaine</p>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="text-sm text-gray-300">{{ analyse.meilleurJour.label }} — jour le plus actif</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-red-400"></span>
+            <span class="text-sm text-gray-300">{{ analyse.pireJour.label }} — jour le plus calme</span>
+          </div>
+        </div>
+        <div class="flex-1 min-w-[200px] space-y-1">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Maintenant — {{ analyse.hParisActuelle }}h Paris</p>
+          <template v-if="analyse.patternActuel">
+            <p :class="COULEUR_CLUSTER_TEXTE[analyse.patternActuel.cluster]" class="text-sm font-semibold">
+              {{ NOM_CLUSTER[analyse.patternActuel.cluster] }} — ATR moyen {{ analyse.patternActuel.atr_moyen.toFixed(4) }}
+            </p>
+            <p class="text-xs text-gray-500">{{ analyse.patternActuel.cluster >= 2 ? 'Fenêtre favorable au trading actif.' : 'Attendre une fenêtre plus volatile.' }}</p>
+          </template>
+          <p v-else class="text-xs text-gray-500">Pas de données pour ce créneau.</p>
+        </div>
+        <p class="w-full text-[10px] text-gray-600 mt-1">Basé sur l'historique — pas une garantie de performance future.</p>
+      </div>
+    </div>
+
     <!-- Tooltip cellule heatmap -->
     <Teleport v-if="tooltipVisible" to="body">
       <div
@@ -84,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { ReponsePatternsVolatilite } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
@@ -177,6 +227,41 @@ function celluleTitre(heure: number, jour: number): string {
   const nomCluster = ['Calme', 'Modéré', 'Élevé', 'Extrême'][p.cluster] ?? '?'
   return `${jours[jour]?.label} ${hParis}h Paris (${ZONE_PARIS}) | ATR: ${p.atr_moyen.toFixed(4)} | ${nomCluster} | ${p.nb_points} pts`
 }
+
+const NOM_CLUSTER = ['Calme', 'Modéré', 'Élevé', 'Extrême'] as const
+const COULEUR_CLUSTER_TEXTE = ['text-emerald-400', 'text-amber-400', 'text-orange-400', 'text-red-400'] as const
+
+const analyse = computed(() => {
+  const patterns = reponse.value?.patterns
+  if (!patterns?.length) return null
+
+  const parHeure = heures.map(h => {
+    const pts = patterns.filter(p => p.heure === h && p.nb_points > 0)
+    if (!pts.length) return null
+    const atrMoyen = pts.reduce((s, p) => s + p.atr_moyen, 0) / pts.length
+    const clusterMoyen = Math.round(pts.reduce((s, p) => s + p.cluster, 0) / pts.length)
+    return { heureUtc: h, heureParis: heureParis(h), cluster: clusterMoyen, atrMoyen }
+  }).filter(Boolean) as { heureUtc: number; heureParis: number; cluster: number; atrMoyen: number }[]
+
+  const top3 = [...parHeure].sort((a, b) => b.cluster - a.cluster || b.atrMoyen - a.atrMoyen).slice(0, 3)
+  const pires3 = [...parHeure].sort((a, b) => a.cluster - b.cluster || a.atrMoyen - b.atrMoyen).slice(0, 3)
+
+  const parJour = jours.map(j => {
+    const pts = patterns.filter(p => p.jour_semaine === j.index && p.nb_points > 0)
+    if (!pts.length) return null
+    return { ...j, atrMoyen: pts.reduce((s, p) => s + p.atr_moyen, 0) / pts.length }
+  }).filter(Boolean) as { index: number; label: string; atrMoyen: number }[]
+
+  const meilleurJour = parJour.reduce((a, b) => a.atrMoyen > b.atrMoyen ? a : b)
+  const pireJour = parJour.reduce((a, b) => a.atrMoyen < b.atrMoyen ? a : b)
+
+  const hParisActuelle = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(new Date()))
+  const heureUtcActuelle = (hParisActuelle - DECALAGE_PARIS + 24) % 24
+  const jourActuel = new Date().getDay()
+  const patternActuel = patterns.find(p => p.heure === heureUtcActuelle && p.jour_semaine === jourActuel) ?? null
+
+  return { top3, pires3, meilleurJour, pireJour, patternActuel, hParisActuelle }
+})
 
 async function charger() {
   chargement.value = true
