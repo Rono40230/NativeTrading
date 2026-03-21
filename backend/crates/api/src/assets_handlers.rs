@@ -64,8 +64,12 @@ pub async fn ajouter_asset(
     {
         Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true, "id": id })),
         Err(e) => {
-            tracing::warn!("ajouter_asset '{}': {}", id, e);
-            HttpResponse::Conflict().json(serde_json::json!({ "error": e.to_string() }))
+            let msg = match &e {
+                common::TradingError::Data(m) => m.clone(),
+                _ => e.to_string(),
+            };
+            tracing::warn!("ajouter_asset '{}': {}", id, msg);
+            HttpResponse::Conflict().json(serde_json::json!({ "error": msg }))
         }
     }
 }
