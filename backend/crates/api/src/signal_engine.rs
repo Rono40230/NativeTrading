@@ -20,10 +20,20 @@ const INTERVALLE_SECS: u64 = 300; // 5 minutes
 /// Durée de la fenêtre anti-doublon (en minutes)
 const DOUBLON_MINUTES: i64 = 30;
 
-/// Assets analysés automatiquement
-const ASSETS: &[Asset] = &[
+/// Assets analysés automatiquement — chargés dynamiquement depuis la DB
+/// (les assets actifs = actif=1 dans la table assets)
+/// Liste statique de fallback si la DB est indisponible
+const ASSETS_FALLBACK: &[Asset] = &[
     Asset::BTC,
     Asset::ETH,
+    Asset::SOL,
+    Asset::BNB,
+    Asset::XRP,
+    Asset::ADA,
+    Asset::DOGE,
+    Asset::AVAX,
+    Asset::LINK,
+    Asset::DOT,
     Asset::XAUUSD,
     Asset::XAGUSD,
     Asset::EURUSD,
@@ -105,9 +115,8 @@ async fn boucle_detection(
     tx: broadcast::Sender<Signal>,
 ) {
     tracing::info!(
-        "🤖 Signal Engine démarré — cycle {}s | {} assets × {} TF",
+        "🤖 Signal Engine démarré — cycle {}s | assets dynamiques × {} TF",
         INTERVALLE_SECS,
-        ASSETS.len(),
         TIMEFRAMES.len()
     );
 
@@ -142,7 +151,21 @@ async fn analyser_tous_assets(
     db: &Arc<Database>,
     tx: &broadcast::Sender<Signal>,
 ) {
-    for asset in ASSETS {
+    // Charge les assets actifs depuis la DB — fallback sur liste statique
+    let assets_actifs = match db.lister_assets().await {
+        Ok(rows) => rows
+            .into_iter()
+            .filter_map(|r| crate::utils::parse_asset(&r.id))
+            .collect::<Vec<Asset>>(),
+        Err(e) => {
+            tracing::warn!("Signal Engine — impossible de charger les assets DB: {} — fallback", e);
+            ASSETS_FALLBACK.to_vec()
+        }
+    };
+
+    tracing::debug!("Signal Engine — analyse {} assets", assets_actifs.len());
+
+    for asset in &assets_actifs {
         for timeframe in TIMEFRAMES {
             if let Err(e) = analyser_asset(strategie, db, tx, asset, timeframe).await {
                 tracing::warn!(

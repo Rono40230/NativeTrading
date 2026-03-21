@@ -5,7 +5,7 @@
       Chargement...
     </div>
     <div v-else-if="signalStore.signaux.length === 0" class="text-gray-500 text-sm text-center py-6">
-      Aucun signal enregistré — lancez une stratégie pour commencer
+      Aucun signal détecté — le moteur analyse les assets toutes les 5 min
     </div>
     <div v-else class="overflow-x-auto">
       <table class="w-full text-sm">
@@ -43,9 +43,12 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
 import { useSignalStore } from '@/stores/signal.store'
 
 const signalStore = useSignalStore()
+
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
 function formatUsd(v: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(v)
@@ -56,6 +59,16 @@ function badgeDirection(dir: string): string {
   if (dir === 'Short') return 'bg-red-500/20 text-red-300'
   return 'bg-yellow-500/20 text-yellow-300'
 }
+
+onMounted(async () => {
+  await signalStore.chargerSignaux(20)
+  // Polling 30s — filet de sécurité si le WS rate un signal
+  pollTimer = setInterval(() => signalStore.chargerSignaux(20), 30_000)
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
 </script>
 
 <style scoped>
