@@ -79,16 +79,15 @@ pub async fn post_collect(
         };
 
         // Sélection du provider selon l'asset
-        let provider: Box<dyn DataProvider> = match &asset {
-            Asset::BTC | Asset::ETH => Box::new(BinanceProvider),
-            _ => {
-                // IB Gateway pour les assets non-crypto
-                let ib = data::providers::IbGatewayProvider::new(
-                    state.ib_port,
-                    state.ib_client_id + 200,
-                );
-                Box::new(ib)
-            }
+        let provider: Box<dyn DataProvider> = if asset.is_crypto() {
+            Box::new(BinanceProvider)
+        } else {
+            // IB Gateway pour métaux, forex, indices
+            let ib = data::providers::IbGatewayProvider::new(
+                state.ib_port,
+                state.ib_client_id + 200,
+            );
+            Box::new(ib)
         };
 
         for tf_str in &tf_ids {
