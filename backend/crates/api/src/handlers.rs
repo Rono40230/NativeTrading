@@ -50,30 +50,6 @@ pub async fn health_check() -> impl Responder {
     }))
 }
 
-// ─── Assets ───────────────────────────────────────────────────────────────────
-
-pub async fn get_assets() -> impl Responder {
-    let assets = vec![
-        // Crypto
-        serde_json::json!({ "id": "BTC",    "nom": "Bitcoin",      "type": "crypto" }),
-        serde_json::json!({ "id": "ETH",    "nom": "Ethereum",     "type": "crypto" }),
-        // Métaux
-        serde_json::json!({ "id": "XAUUSD", "nom": "Or (Gold)",    "type": "metal" }),
-        serde_json::json!({ "id": "XAGUSD", "nom": "Argent (Silver)", "type": "metal" }),
-        // Forex
-        serde_json::json!({ "id": "EURUSD", "nom": "Euro / Dollar",   "type": "forex" }),
-        serde_json::json!({ "id": "GBPJPY", "nom": "Livre / Yen",     "type": "forex" }),
-        serde_json::json!({ "id": "CADJPY", "nom": "CAD / Yen",       "type": "forex" }),
-        serde_json::json!({ "id": "NZDJPY", "nom": "NZD / Yen",       "type": "forex" }),
-        serde_json::json!({ "id": "USDCAD", "nom": "Dollar / CAD",    "type": "forex" }),
-        serde_json::json!({ "id": "USDJPY", "nom": "Dollar / Yen",    "type": "forex" }),
-        // Indices
-        serde_json::json!({ "id": "DAX",   "nom": "DAX 40 (Allemagne)", "type": "indice" }),
-        serde_json::json!({ "id": "SP500", "nom": "S&P 500",           "type": "indice" }),
-    ];
-    HttpResponse::Ok().json(assets)
-}
-
 // ─── Candles ──────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]

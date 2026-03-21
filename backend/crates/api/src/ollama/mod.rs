@@ -225,3 +225,41 @@ async fn interroger_avec_systeme(prompt: &str, system: &str) -> Result<String, T
 
     Ok(data.message.content)
 }
+
+/// Appelle Ollama pour confirmer/enrichir un signal SMC validé.
+/// Timeout 45s — retourne "SMC Directionnel" si Ollama est indisponible.
+pub async fn enrichir_signal_avec_ollama(
+    asset: &str,
+    timeframe: &str,
+    signal: &strategies::Signal,
+    bougies: &[common::Candle],
+) -> &'static str {
+    let atr_vals = indicators::calculer_atr(bougies, 14);
+    let atr_val = atr_vals.last().copied().unwrap_or(0.0);
+    let (score_total, kill_zone, sweep) = match smc::scorer(bougies) {
+        Some(s) => (s.total, s.kill_zone_active, s.sweep_detecte),
+        None => (signal.confiance * 100.0, false, false),
+    };
+    let dir = format!("{:?}", signal.direction);
+
+    let confirmation = tokio::time::timeout(
+        std::time::Duration::from_secs(45),
+        confirmer_signal_smc(
+            asset, timeframe, score_total, &dir,
+            signal.prix_entree, signal.stop_loss, signal.take_profit,
+            signal.confiance, atr_val, kill_zone, sweep,
+        ),
+    ).await;
+
+    match confirmation {
+        Ok(Some(r)) => {
+            tracing::info!("🤖 LLM confirmé {}/{}: {}", asset, timeframe, &r[..r.len().min(100)]);
+            "SMC+IA"
+        }
+        Ok(None) => "SMC Directionnel",
+        Err(_) => {
+            tracing::warn!("Timeout Ollama (45s) {}/{} — signal SMC conservé", asset, timeframe);
+            "SMC Directionnel"
+        }
+    }
+}

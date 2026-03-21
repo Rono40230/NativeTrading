@@ -1,6 +1,6 @@
 //! Gestion des données historiques — collecte bulk + couverture
 use actix_web::{web, HttpResponse, Responder};
-use common::{Asset, Timeframe};
+use common::Timeframe;
 use data::{providers::BinanceProvider, DataProvider};
 use serde::Deserialize;
 
