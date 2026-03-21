@@ -141,6 +141,7 @@ import { ref, onMounted, computed } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { ReponsePatternsVolatilite, AssetInfo } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
+import { useHoraireAnalyse } from '@/composables/useHoraireAnalyse'
 
 const alerteStore = useAlerteStore()
 const assetsInfos = ref<AssetInfo[]>([])
@@ -243,37 +244,7 @@ function celluleTitre(heure: number, jour: number): string {
 const NOM_CLUSTER = ['Calme', 'Modéré', 'Élevé', 'Extrême'] as const
 const COULEUR_CLUSTER_TEXTE = ['text-emerald-400', 'text-amber-400', 'text-orange-400', 'text-red-400'] as const
 
-const analyse = computed(() => {
-  const patterns = reponse.value?.patterns
-  if (!patterns?.length) return null
-
-  const parHeure = heures.map(h => {
-    const pts = patterns.filter(p => p.heure === h && p.nb_points > 0)
-    if (!pts.length) return null
-    const atrMoyen = pts.reduce((s, p) => s + p.atr_moyen, 0) / pts.length
-    const clusterMoyen = Math.round(pts.reduce((s, p) => s + p.cluster, 0) / pts.length)
-    return { heureUtc: h, heureParis: heureParis(h), cluster: clusterMoyen, atrMoyen }
-  }).filter(Boolean) as { heureUtc: number; heureParis: number; cluster: number; atrMoyen: number }[]
-
-  const top3 = [...parHeure].sort((a, b) => b.cluster - a.cluster || b.atrMoyen - a.atrMoyen).slice(0, 3)
-  const pires3 = [...parHeure].sort((a, b) => a.cluster - b.cluster || a.atrMoyen - b.atrMoyen).slice(0, 3)
-
-  const parJour = jours.map(j => {
-    const pts = patterns.filter(p => p.jour_semaine === j.index && p.nb_points > 0)
-    if (!pts.length) return null
-    return { ...j, atrMoyen: pts.reduce((s, p) => s + p.atr_moyen, 0) / pts.length }
-  }).filter(Boolean) as { index: number; label: string; atrMoyen: number }[]
-
-  const meilleurJour = parJour.reduce((a, b) => a.atrMoyen > b.atrMoyen ? a : b)
-  const pireJour = parJour.reduce((a, b) => a.atrMoyen < b.atrMoyen ? a : b)
-
-  const hParisActuelle = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(new Date()))
-  const heureUtcActuelle = (hParisActuelle - DECALAGE_PARIS + 24) % 24
-  const jourActuel = new Date().getDay()
-  const patternActuel = patterns.find(p => p.heure === heureUtcActuelle && p.jour_semaine === jourActuel) ?? null
-
-  return { top3, pires3, meilleurJour, pireJour, patternActuel, hParisActuelle }
-})
+const { analyse } = useHoraireAnalyse(reponse, DECALAGE_PARIS)
 
 async function charger() {
   chargement.value = true
