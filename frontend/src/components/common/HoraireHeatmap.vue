@@ -62,7 +62,7 @@
                 @mouseleave="masquerTooltip"
               >
                 <span v-if="cellulePoints(h, j.index) > 0" class="text-[10px] text-white/80 font-mono leading-none">
-                  {{ celluleAtr(h, j.index).toFixed(1) }}<span class="text-white/40">{{ unite }}</span>
+                  {{ celluleAtr(h, j.index).toFixed(1) }} <span>{{ unite }}</span>
                 </span>
               </div>
             </td>

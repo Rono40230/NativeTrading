@@ -65,7 +65,7 @@
                   {{ celluleLabel(asset, tf) }}
                 </div>
                 <div class="text-xs text-white/70 mt-0.5">
-                  {{ celluleValeur(asset, tf).toFixed(1) }}<span class="text-white/40 text-[10px]">{{ uniteAsset(asset) }}</span>
+                  {{ celluleValeur(asset, tf).toFixed(1) }} <span>{{ uniteAsset(asset) }}</span>
                 </div>
               </div>
             </td>
@@ -80,14 +80,14 @@
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Plus volatile</h3>
         <div v-for="item in classementVol.slice(0, 3)" :key="item.cle" class="flex justify-between py-1.5 border-b border-white/5 text-sm">
           <span class="text-gray-300">{{ item.asset }} {{ item.tf }}</span>
-          <span class="text-red-400 font-semibold">{{ item.atr.toFixed(1) }}<span class="text-red-300/50 text-[10px]">{{ uniteAsset(item.asset) }}</span></span>
+          <span class="text-red-400 font-semibold">{{ item.atr.toFixed(1) }} {{ uniteAsset(item.asset) }}</span>
         </div>
       </div>
       <div class="glass-card p-4">
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Moins volatile</h3>
         <div v-for="item in classementVol.slice(-3).reverse()" :key="item.cle" class="flex justify-between py-1.5 border-b border-white/5 text-sm">
           <span class="text-gray-300">{{ item.asset }} {{ item.tf }}</span>
-          <span class="text-emerald-400 font-semibold">{{ item.atr.toFixed(1) }}<span class="text-emerald-300/50 text-[10px]">{{ uniteAsset(item.asset) }}</span></span>
+          <span class="text-emerald-400 font-semibold">{{ item.atr.toFixed(1) }} {{ uniteAsset(item.asset) }}</span>
         </div>
       </div>
       <!-- Analyse -->
