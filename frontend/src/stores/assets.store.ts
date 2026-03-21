@@ -11,7 +11,7 @@ export const useAssetsStore = defineStore('assets', () => {
   async function chargerAssets() {
     chargement.value = true
     try {
-      assets.value = await apiService.obtenirAssets()
+      assets.value = await apiService.obtenirAssetsActifs()
     } catch (e: unknown) {
       useAlerteStore().afficherErreur(`Assets: ${(e as Error).message}`)
     } finally {
