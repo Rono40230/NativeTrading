@@ -28,6 +28,7 @@
         <div class="mb-0.5 flex items-center gap-1.5">
           <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="couleurNiveau(article.niveau)" />
           <span class="text-[10px] text-slate-400">{{ article.source }}</span>
+          <span v-if="articlesLus.has(article.id)" class="text-[9px] font-semibold text-blue-200 bg-blue-600/70 border border-blue-500/50 rounded-full px-1.5 py-0.5 leading-none">Déjà lu</span>
           <span class="ml-auto text-[10px] font-semibold" :class="classeRisque(article.score)">
             {{ article.score }}
           </span>
@@ -142,6 +143,20 @@ import { useNewsStore } from '@/stores/news.store'
 import type { ArticleNews, NiveauAlerte } from '@/services/api.types'
 
 const newsStore = useNewsStore()
+
+const CLE_STOCKAGE = 'news_articles_lus'
+function chargerLus(): Set<string> {
+  try {
+    const raw = localStorage.getItem(CLE_STOCKAGE)
+    return raw ? new Set<string>(JSON.parse(raw)) : new Set()
+  } catch { return new Set() }
+}
+const articlesLus = ref<Set<string>>(chargerLus())
+function marquerLu(id: string) {
+  articlesLus.value.add(id)
+  try { localStorage.setItem(CLE_STOCKAGE, JSON.stringify([...articlesLus.value])) } catch { /* silencieux */ }
+}
+
 const articleOuvert = ref<ArticleNews | null>(null)
 const contenu = ref<string | null>(null)
 const contenuFr = ref<string | null>(null)
@@ -150,6 +165,7 @@ const contenuInaccessible = ref(false)
 const traductionContenuChargement = ref(false)
 
 async function ouvrir(article: ArticleNews) {
+  marquerLu(article.id)
   articleOuvert.value = article
   contenu.value = null
   contenuFr.value = null
