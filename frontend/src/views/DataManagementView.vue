@@ -130,9 +130,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { CouvertureDonnees, ResultatCollecteItem } from '@/services/api.service'
+import { useAssetsStore } from '@/stores/assets.store'
 
-const TOUS_ASSETS = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD', 'EURUSD', 'GBPJPY', 'CADJPY', 'NZDJPY', 'USDCAD', 'USDJPY', 'DAX', 'NAS100', 'SP500']
-const CRYPTO_ASSETS = ['BTC', 'ETH']
+const assetsStore = useAssetsStore()
+const CRYPTO_ASSETS = computed(() =>
+  assetsStore.assets.filter(a => a.type === 'crypto').map(a => a.id)
+)
+const TOUS_ASSETS = computed(() => assetsStore.assets.map(a => a.id))
 const TOUS_TF = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 
 const couverture = ref<CouvertureDonnees[]>([])
@@ -181,7 +185,7 @@ async function lancerCollecte() {
   erreurCollecte.value = false
   resultatsCollecte.value = []
   try {
-    const assets = modeAssets.value === 'crypto' ? CRYPTO_ASSETS : TOUS_ASSETS
+    const assets = modeAssets.value === 'crypto' ? CRYPTO_ASSETS.value : TOUS_ASSETS.value
     const res = await apiService.collecterDonnees({
       assets,
       timeframes: tfsSelectionnes.value,
@@ -198,7 +202,10 @@ async function lancerCollecte() {
   }
 }
 
-onMounted(chargerCouverture)
+onMounted(async () => {
+  await assetsStore.chargerAssets()
+  await chargerCouverture()
+})
 </script>
 
 <style scoped>
