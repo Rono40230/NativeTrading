@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-card p-5">
+  <div class="glass-card p-5 flex flex-col h-full">
     <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Derniers signaux</h2>
     <div v-if="signalStore.chargement" class="text-gray-500 text-sm text-center py-4">
       Chargement...
@@ -7,7 +7,7 @@
     <div v-else-if="signalStore.signaux.length === 0" class="text-gray-500 text-sm text-center py-6">
       Aucun signal détecté — le moteur analyse les assets toutes les 5 min
     </div>
-    <div v-else class="overflow-x-auto">
+    <div v-else class="overflow-auto flex-1 min-h-0 scroll-zone">
       <table class="w-full text-sm">
         <thead>
           <tr class="text-gray-500 text-xs uppercase border-b border-white/10">

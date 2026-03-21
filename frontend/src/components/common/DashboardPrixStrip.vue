@@ -1,9 +1,9 @@
 <template>
-  <div class="flex gap-2 flex-wrap">
+  <div class="grid grid-cols-6 gap-2">
     <div
       v-for="a in assets"
       :key="a.id"
-      class="asset-card glass-card px-3 py-2 flex flex-col items-center flex-1 min-w-[80px] cursor-default"
+      class="asset-card glass-card px-3 py-2 flex flex-col items-center cursor-default"
       @mouseenter="onCardEnter($event, a.id)"
       @mouseleave="onCardLeave"
     >
