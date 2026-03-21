@@ -51,8 +51,68 @@ pub(super) fn ib_contrat_hist(asset: &common::Asset) -> Contract {
             currency: "USD".into(),
             ..Default::default()
         },
-        // BTC/ETH ne passent pas par IB — cas impossible en production
-        common::Asset::BTC | common::Asset::ETH => Contract {
+        // ── Métaux supplémentaires ───────────────────────────────────────
+        common::Asset::XPTUSD => Contract {
+            symbol: "XPTUSD".into(),
+            security_type: SecurityType::Commodity,
+            exchange: "SMART".into(),
+            currency: "USD".into(),
+            ..Default::default()
+        },
+        common::Asset::XPDUSD => Contract {
+            symbol: "XPDUSD".into(),
+            security_type: SecurityType::Commodity,
+            exchange: "SMART".into(),
+            currency: "USD".into(),
+            ..Default::default()
+        },
+        // ── Forex supplémentaires ─────────────────────────────────────────
+        common::Asset::GBPUSD => ib_forex_pair("GBP", "USD"),
+        common::Asset::USDCHF => ib_forex_pair("USD", "CHF"),
+        common::Asset::AUDUSD => ib_forex_pair("AUD", "USD"),
+        common::Asset::NZDUSD => ib_forex_pair("NZD", "USD"),
+        common::Asset::EURJPY => ib_forex_pair("EUR", "JPY"),
+        common::Asset::EURGBP => ib_forex_pair("EUR", "GBP"),
+        // ── Indices supplémentaires ───────────────────────────────────────
+        common::Asset::US30 => Contract {
+            symbol: "YM".into(),
+            security_type: SecurityType::ContinuousFuture,
+            exchange: "CME".into(),
+            currency: "USD".into(),
+            ..Default::default()
+        },
+        common::Asset::FTSE100 => Contract {
+            symbol: "Z".into(),
+            security_type: SecurityType::ContinuousFuture,
+            exchange: "LIFFE".into(),
+            currency: "GBP".into(),
+            ..Default::default()
+        },
+        common::Asset::CAC40 => Contract {
+            symbol: "FCE".into(),
+            security_type: SecurityType::ContinuousFuture,
+            exchange: "MONEP".into(),
+            currency: "EUR".into(),
+            ..Default::default()
+        },
+        common::Asset::JP225 => Contract {
+            symbol: "NK".into(),
+            security_type: SecurityType::ContinuousFuture,
+            exchange: "OSE.JPN".into(),
+            currency: "JPY".into(),
+            ..Default::default()
+        },
+        // Crypto Binance — ne passent pas par IB (cas impossible en production)
+        common::Asset::BTC
+        | common::Asset::ETH
+        | common::Asset::SOL
+        | common::Asset::BNB
+        | common::Asset::XRP
+        | common::Asset::ADA
+        | common::Asset::DOGE
+        | common::Asset::AVAX
+        | common::Asset::LINK
+        | common::Asset::DOT => Contract {
             symbol: asset.as_str().into(),
             security_type: SecurityType::CFD,
             exchange: "SMART".into(),
@@ -93,7 +153,13 @@ fn ib_forex_pair(symbole: &str, devise: &str) -> Contract {
 /// Indices / Futures continus → Trades | Forex, métaux → MidPoint
 pub(super) fn what_to_show_hist(asset: &common::Asset) -> WhatToShow {
     match asset {
-        common::Asset::DAX | common::Asset::NAS100 | common::Asset::SP500 => WhatToShow::Trades,
+        common::Asset::DAX
+        | common::Asset::NAS100
+        | common::Asset::SP500
+        | common::Asset::US30
+        | common::Asset::FTSE100
+        | common::Asset::CAC40
+        | common::Asset::JP225 => WhatToShow::Trades,
         _ => WhatToShow::MidPoint,
     }
 }

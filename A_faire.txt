@@ -19,10 +19,6 @@ Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-comment faire pour que l'app surveille en permanence les 13 actifs et génère des signaux pour chaque actif qui s'affichent dans le bloc "derniers signaux" du dashboard
-
---------------------------------------------------------------------------------------------------------------------------
-
 Dans le dashboard à quoi sert le bloc "Derniers signaux" ?
 Il doit lister les signaux pour tous les actifs présent dans le code.
 
@@ -40,4 +36,13 @@ Analyse ces bugs de terminal lorsque IB gateway est connecté.
 
 --------------------------------------------------------------------------------------------------------------------------
 
+L'asset ajouté n'apparait pas dans le dropdown "assets" de "données historiques"
 
+--------------------------------------------------------------------------------------------------------------------------
+
+Si j'ajoute un asset déjà présent dans la liste de la page paramètres : j'ai ce message = Request failed with status code 409
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Il faut réorganiser l'affichage de la page paramètres.
+Affiche sur la meme ligne les 3 blocs IB gateway, compte et gestion du risque.

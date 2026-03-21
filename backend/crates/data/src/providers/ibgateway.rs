@@ -77,6 +77,66 @@ impl IbGatewayProvider {
                 currency: "USD".into(),
                 ..Default::default()
             },
+            // Crypto supplémentaires (Binance — non supportés IB, fallback crypto)
+            Asset::SOL  => Contract::crypto("SOL").build(),
+            Asset::BNB  => Contract::crypto("BNB").build(),
+            Asset::XRP  => Contract::crypto("XRP").build(),
+            Asset::ADA  => Contract::crypto("ADA").build(),
+            Asset::DOGE => Contract::crypto("DOGE").build(),
+            Asset::AVAX => Contract::crypto("AVAX").build(),
+            Asset::LINK => Contract::crypto("LINK").build(),
+            Asset::DOT  => Contract::crypto("DOT").build(),
+            // Métaux supplémentaires
+            Asset::XPTUSD => Contract {
+                symbol: "XPTUSD".into(),
+                security_type: SecurityType::Commodity,
+                exchange: "SMART".into(),
+                currency: "USD".into(),
+                ..Default::default()
+            },
+            Asset::XPDUSD => Contract {
+                symbol: "XPDUSD".into(),
+                security_type: SecurityType::Commodity,
+                exchange: "SMART".into(),
+                currency: "USD".into(),
+                ..Default::default()
+            },
+            // Forex supplémentaires
+            Asset::GBPUSD => Self::forex_pair("GBP", "USD"),
+            Asset::USDCHF => Self::forex_pair("USD", "CHF"),
+            Asset::AUDUSD => Self::forex_pair("AUD", "USD"),
+            Asset::NZDUSD => Self::forex_pair("NZD", "USD"),
+            Asset::EURJPY => Self::forex_pair("EUR", "JPY"),
+            Asset::EURGBP => Self::forex_pair("EUR", "GBP"),
+            // Indices supplémentaires
+            Asset::US30 => Contract {
+                symbol: "INDU".into(),
+                security_type: SecurityType::Index,
+                exchange: "CME".into(),
+                currency: "USD".into(),
+                ..Default::default()
+            },
+            Asset::FTSE100 => Contract {
+                symbol: "Z".into(),
+                security_type: SecurityType::ContinuousFuture,
+                exchange: "LIFFE".into(),
+                currency: "GBP".into(),
+                ..Default::default()
+            },
+            Asset::CAC40 => Contract {
+                symbol: "FCE".into(),
+                security_type: SecurityType::ContinuousFuture,
+                exchange: "MONEP".into(),
+                currency: "EUR".into(),
+                ..Default::default()
+            },
+            Asset::JP225 => Contract {
+                symbol: "NIY".into(),
+                security_type: SecurityType::ContinuousFuture,
+                exchange: "OSE.JPN".into(),
+                currency: "JPY".into(),
+                ..Default::default()
+            },
         }
     }
 

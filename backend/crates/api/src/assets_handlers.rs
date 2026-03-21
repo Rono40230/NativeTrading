@@ -12,9 +12,19 @@ pub struct AjoutAssetBody {
     pub source: String,
 }
 
-/// GET /api/assets — liste tous les assets actifs depuis la DB
-pub async fn lister_assets(state: web::Data<AppState>) -> impl Responder {
-    match state.db.lister_assets().await {
+#[derive(serde::Deserialize)]
+pub struct QueryLister {
+    pub tous: Option<bool>,
+}
+
+/// GET /api/assets — liste les assets (actifs par défaut, tous si ?tous=true)
+pub async fn lister_assets(state: web::Data<AppState>, query: web::Query<QueryLister>) -> impl Responder {
+    let res = if query.tous.unwrap_or(false) {
+        state.db.lister_tous_assets().await
+    } else {
+        state.db.lister_assets().await
+    };
+    match res {
         Ok(assets) => HttpResponse::Ok().json(assets),
         Err(e) => {
             tracing::error!("lister_assets: {}", e);

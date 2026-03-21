@@ -1,153 +1,114 @@
 <template>
-  <div class="glass-card p-6 space-y-5">
-    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Assets gérés</h2>
+  <div class="glass-card p-6 space-y-6">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Assets actifs</h2>
+      <span class="text-xs text-gray-500">{{ nbActifs }} / {{ tous.length }} activés</span>
+    </div>
 
-    <!-- Liste des assets actifs -->
-    <div class="space-y-2">
-      <div
-        v-for="a in assetsStore.assets"
-        :key="a.id"
-        class="flex items-center justify-between rounded-lg bg-white/5 border border-white/10 px-3 py-2"
-      >
-        <div class="flex items-center gap-3">
-          <span class="font-mono font-semibold text-white text-sm">{{ a.id }}</span>
-          <span class="text-gray-400 text-sm">{{ a.nom }}</span>
-          <span :class="COULEUR_TYPE[a.type]" class="text-[10px] uppercase font-semibold tracking-wide px-1.5 py-0.5 rounded">
-            {{ a.type }}
-          </span>
-          <span class="text-[10px] text-gray-500 uppercase">{{ a.source }}</span>
-        </div>
-        <button
-          class="text-red-400 hover:text-red-300 transition-colors text-xs px-2 py-1 rounded hover:bg-red-900/20"
-          :disabled="suppressionEnCours === a.id"
-          @click="demanderSuppression(a.id)"
+    <div v-for="cat in CATEGORIES" :key="cat.type" class="space-y-2">
+      <p class="text-xs font-semibold uppercase tracking-wider" :class="cat.couleur">
+        {{ cat.label }}
+      </p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+        <label
+          v-for="a in cat.assets"
+          :key="a.id"
+          class="flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 transition select-none"
+          :class="estActif(a.id)
+            ? 'border-emerald-500/40 bg-emerald-500/10'
+            : 'border-white/10 bg-white/5 opacity-60 hover:opacity-80'"
         >
-          {{ suppressionEnCours === a.id ? '…' : '✕ Retirer' }}
-        </button>
-      </div>
-      <p v-if="!assetsStore.assets.length" class="text-gray-500 text-sm">Aucun asset configuré.</p>
-    </div>
-
-    <!-- Formulaire ajout -->
-    <div class="border-t border-white/10 pt-4 space-y-3">
-      <p class="text-xs text-gray-400 font-medium">Ajouter un asset</p>
-      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <input
-          v-model="form.id"
-          type="text"
-          placeholder="Ticker (ex: AAPL)"
-          maxlength="20"
-          class="input-field uppercase"
-          @input="form.id = form.id.toUpperCase()"
-        />
-        <input
-          v-model="form.nom"
-          type="text"
-          placeholder="Nom (ex: Apple)"
-          maxlength="60"
-          class="input-field"
-        />
-        <select v-model="form.type" class="input-field">
-          <option value="" disabled>Type</option>
-          <option value="crypto">Crypto</option>
-          <option value="metal">Métal</option>
-          <option value="forex">Forex</option>
-          <option value="indice">Indice</option>
-        </select>
-        <select v-model="form.source" class="input-field">
-          <option value="binance">Binance</option>
-          <option value="ib">IB Gateway</option>
-        </select>
-      </div>
-      <div v-if="erreurAjout" class="text-red-400 text-xs">{{ erreurAjout }}</div>
-      <button
-        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 rounded text-sm font-medium transition-colors"
-        :disabled="ajoutEnCours || !formValide"
-        @click="ajouter"
-      >
-        {{ ajoutEnCours ? 'Ajout…' : '＋ Ajouter' }}
-      </button>
-    </div>
-
-    <!-- Modal confirmation suppression -->
-    <Teleport v-if="confirmId" to="body">
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-        <div class="bg-gray-900 border border-white/10 rounded-xl p-6 space-y-4 max-w-sm w-full mx-4">
-          <p class="text-white font-semibold">Retirer l'asset <span class="text-red-400">{{ confirmId }}</span> ?</p>
-          <p class="text-gray-400 text-sm">L'historique des bougies est conservé. L'asset disparaîtra de toute l'application.</p>
-          <div class="flex gap-3">
-            <button
-              class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 rounded text-sm font-medium"
-              @click="confirmerSuppression"
-            >Confirmer</button>
-            <button
-              class="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm"
-              @click="confirmId = null"
-            >Annuler</button>
+          <input
+            type="checkbox"
+            class="hidden"
+            :checked="estActif(a.id)"
+            :disabled="enCours === a.id"
+            @change="basculer(a)"
+          />
+          <span class="w-3 h-3 rounded-sm border flex items-center justify-center shrink-0 transition"
+            :class="estActif(a.id) ? 'bg-emerald-500 border-emerald-500' : 'border-white/30'">
+            <svg v-if="estActif(a.id)" class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 12 12">
+              <path d="M10 3L5 8.5 2 5.5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            </svg>
+          </span>
+          <div class="min-w-0">
+            <p class="font-mono text-xs font-bold text-white truncate">{{ a.id }}</p>
+            <p class="text-[10px] text-gray-400 truncate">{{ a.nom }}</p>
           </div>
-        </div>
+          <span v-if="enCours === a.id" class="ml-auto text-[10px] text-gray-500">…</span>
+        </label>
       </div>
-    </Teleport>
+    </div>
+
+    <p v-if="erreur" class="text-red-400 text-xs">{{ erreur }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useAssetsStore } from '@/stores/assets.store'
+import { ref, computed, onMounted } from 'vue'
+import { apiService } from '@/services/api.service'
 import type { AssetInfo } from '@/services/api.service'
+import { useAssetsStore } from '@/stores/assets.store'
 
 const assetsStore = useAssetsStore()
+const tous = ref<AssetInfo[]>([])
+const enCours = ref<string | null>(null)
+const erreur = ref('')
 
-const COULEUR_TYPE: Record<AssetInfo['type'], string> = {
-  crypto: 'text-yellow-400 bg-yellow-400/10',
-  metal:  'text-amber-400 bg-amber-400/10',
-  forex:  'text-blue-400 bg-blue-400/10',
-  indice: 'text-purple-400 bg-purple-400/10',
+const nbActifs = computed(() => tous.value.filter(a => a.actif).length)
+
+function estActif(id: string) {
+  return tous.value.find(a => a.id === id)?.actif ?? false
 }
 
-const form = ref({ id: '', nom: '', type: '' as AssetInfo['type'] | '', source: 'binance' as 'binance' | 'ib' })
-const ajoutEnCours = ref(false)
-const erreurAjout = ref('')
-const confirmId = ref<string | null>(null)
-const suppressionEnCours = ref<string | null>(null)
+const CATEGORIES = computed(() => [
+  {
+    type: 'crypto', label: '🪙 Crypto (Binance)', couleur: 'text-yellow-400',
+    assets: tous.value.filter(a => a.type === 'crypto'),
+  },
+  {
+    type: 'metal', label: '🥇 Métaux (IB)', couleur: 'text-amber-400',
+    assets: tous.value.filter(a => a.type === 'metal'),
+  },
+  {
+    type: 'forex', label: '💱 Forex (IB)', couleur: 'text-blue-400',
+    assets: tous.value.filter(a => a.type === 'forex'),
+  },
+  {
+    type: 'indice', label: '📈 Indices (IB)', couleur: 'text-purple-400',
+    assets: tous.value.filter(a => a.type === 'indice'),
+  },
+])
 
-const formValide = computed(
-  () => form.value.id.length >= 2 && form.value.nom.trim().length > 0 && form.value.type !== '',
-)
-
-function demanderSuppression(id: string) {
-  confirmId.value = id
-}
-
-async function confirmerSuppression() {
-  if (!confirmId.value) return
-  suppressionEnCours.value = confirmId.value
-  confirmId.value = null
+async function basculer(a: AssetInfo) {
+  enCours.value = a.id
+  erreur.value = ''
   try {
-    await assetsStore.supprimerAsset(suppressionEnCours.value)
-  } finally {
-    suppressionEnCours.value = null
-  }
-}
-
-async function ajouter() {
-  if (!formValide.value || form.value.type === '') return
-  ajoutEnCours.value = true
-  erreurAjout.value = ''
-  try {
-    await assetsStore.ajouterAsset(form.value.id, form.value.nom.trim(), form.value.type, form.value.source)
-    form.value = { id: '', nom: '', type: '', source: 'binance' }
+    if (a.actif) {
+      await apiService.supprimerAsset(a.id)
+      a.actif = false
+    } else {
+      await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], a.source ?? 'binance')
+      a.actif = true
+    }
+    await assetsStore.chargerAssets()
   } catch (e: unknown) {
-    erreurAjout.value = (e as Error).message ?? 'Erreur lors de l\'ajout.'
+    erreur.value = (e as Error).message ?? 'Erreur'
   } finally {
-    ajoutEnCours.value = false
+    enCours.value = null
   }
 }
+
+onMounted(async () => {
+  tous.value = await apiService.obtenirAssets(true)
+})
 </script>
 
 <style scoped>
-.input-field {
-  @apply bg-gray-800 text-white text-sm rounded-lg px-3 py-2 border border-white/10
-         focus:outline-none focus:ring-2 focus:ring-blue-500 w-full;
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(12px);
 }
 </style>

@@ -19,13 +19,24 @@ pub struct AssetDb {
 impl Database {
     /// Retourne tous les assets actifs.
     pub async fn lister_assets(&self) -> Result<Vec<AssetDb>> {
-        let rows = sqlx::query(
-            "SELECT id, nom, type, source, actif, cree_le
-             FROM assets WHERE actif = 1 ORDER BY type, id",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| TradingError::Database(e.to_string()))?;
+        self.lister_assets_filtre(true).await
+    }
+
+    /// Retourne tous les assets (actifs + inactifs).
+    pub async fn lister_tous_assets(&self) -> Result<Vec<AssetDb>> {
+        self.lister_assets_filtre(false).await
+    }
+
+    async fn lister_assets_filtre(&self, actifs_seulement: bool) -> Result<Vec<AssetDb>> {
+        let sql = if actifs_seulement {
+            "SELECT id, nom, type, source, actif, cree_le FROM assets WHERE actif = 1 ORDER BY type, id"
+        } else {
+            "SELECT id, nom, type, source, actif, cree_le FROM assets ORDER BY type, id"
+        };
+        let rows = sqlx::query(sql)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| TradingError::Database(e.to_string()))?;
 
         Ok(rows
             .iter()

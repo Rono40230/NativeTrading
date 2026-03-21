@@ -134,20 +134,19 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { Candle, AssetInfo } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
-import { useAssetsStore } from '@/stores/assets.store'
 import HoraireHeatmap from '@/components/common/HoraireHeatmap.vue'
 
 const onglet = ref<'atr' | 'horaire'>('atr')
 const alerteStore = useAlerteStore()
-const assetsStore = useAssetsStore()
-const assets = computed(() => assetsStore.assets.map(a => a.id))
+const assetsInfos = ref<AssetInfo[]>([])
+const assets = computed(() => assetsInfos.value.map(a => a.id))
 const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const chargement = ref(false)
 const donnees = ref<Record<string, number>>({})
 
 /** Unité d'affichage selon le type d'asset. */
 function uniteAsset(assetId: string): string {
-  const info = assetsStore.assets.find(a => a.id === assetId)
+  const info = assetsInfos.value.find(a => a.id === assetId)
   return info?.type === 'crypto' ? '$' : 'pts'
 }
 
@@ -267,6 +266,7 @@ async function actualiser() {
 let intervalId: ReturnType<typeof setInterval> | null = null
 onMounted(async () => {
   try {
+    assetsInfos.value = await apiService.obtenirAssets()
     await actualiser()
     intervalId = setInterval(actualiser, 60_000)
   } catch (e: unknown) {
