@@ -9,13 +9,22 @@ use crate::DataProvider;
 pub struct BinanceProvider;
 
 impl BinanceProvider {
-    fn symbole(asset: &Asset) -> Result<&'static str> {
+    fn symbole(asset: &Asset) -> Result<String> {
         match asset {
-            Asset::BTC => Ok("BTCUSDT"),
-            Asset::ETH => Ok("ETHUSDT"),
-            _ => Err(TradingError::Data(
-                "BinanceProvider ne supporte que BTC et ETH".into(),
-            )),
+            Asset::BTC  => Ok("BTCUSDT".into()),
+            Asset::ETH  => Ok("ETHUSDT".into()),
+            Asset::SOL  => Ok("SOLUSDT".into()),
+            Asset::BNB  => Ok("BNBUSDT".into()),
+            Asset::XRP  => Ok("XRPUSDT".into()),
+            Asset::ADA  => Ok("ADAUSDT".into()),
+            Asset::DOGE => Ok("DOGEUSDT".into()),
+            Asset::AVAX => Ok("AVAXUSDT".into()),
+            Asset::LINK => Ok("LINKUSDT".into()),
+            Asset::DOT  => Ok("DOTUSDT".into()),
+            _ => Err(TradingError::Data(format!(
+                "BinanceProvider: {} n'est pas une crypto Binance",
+                asset.as_str()
+            ))),
         }
     }
 
