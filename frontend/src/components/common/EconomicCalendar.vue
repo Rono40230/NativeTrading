@@ -25,17 +25,20 @@
         <!-- Carte évenement -->
         <div
           class="rounded-md border px-2.5 py-2 cursor-default select-none transition-colors flex flex-col gap-1"
-          :class="a.impact === 'High'
-            ? 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10'
-            : 'border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10'"
+          :class="a.est_passe
+            ? 'border-white/5 bg-white/5 opacity-50'
+            : a.impact === 'High'
+              ? 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10'
+              : 'border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10'"
         >
           <!-- Ligne 1 : badge + devise -->
           <div class="flex items-center gap-1.5">
             <span
               class="w-1.5 h-1.5 rounded-full shrink-0"
-              :class="a.impact === 'High' ? 'bg-red-400' : 'bg-orange-400'"
+              :class="a.est_passe ? 'bg-slate-600' : a.impact === 'High' ? 'bg-red-400' : 'bg-orange-400'"
             />
             <span class="text-[11px] font-mono font-bold text-slate-300">{{ a.devise }}</span>
+            <span v-if="a.est_passe" class="text-[9px] text-slate-500 border border-slate-600/40 rounded-full px-1.5 py-0.5 leading-none">Terminé</span>
             <span class="ml-auto text-[10px] font-semibold shrink-0" :class="couleurCountdown(a.date_heure)">{{ countdown(a.date_heure) }}</span>
           </div>
           <!-- Ligne 2 : titre complet sur 2 lignes max -->

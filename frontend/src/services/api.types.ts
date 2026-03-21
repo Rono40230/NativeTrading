@@ -189,6 +189,7 @@ export interface AnnonceCalendrier {
   impact: 'High' | 'Medium'
   precedent: string | null
   prevision: string | null
+  est_passe?: boolean
 }
 
 export interface EntiteSentiment {
