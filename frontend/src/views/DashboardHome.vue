@@ -12,33 +12,33 @@
       </aside>
 
     <!-- Contenu principal -->
-    <div class="flex-1 min-w-0 space-y-4">
+    <div class="flex-1 min-w-0 flex flex-col gap-4 h-[calc(100vh-3rem)] overflow-y-auto">
       <!-- Horloges sessions de marché — 1er bloc -->
       <MarketClocks />
 
-      <!-- Capital + Statut Système (avec Signal Engine intégré) -->
+      <!-- Statut Système (avec Signal Engine intégré) -->
       <div class="flex flex-col gap-3">
-        <div class="flex gap-4 items-stretch">
-          <div class="glass-card p-5 shrink-0">
-            <p class="label">Capital</p>
-            <p class="kpi-value">{{ formatUsd(capital) }}</p>
-            <p class="label mt-1 text-xs">Portefeuille initial</p>
-            <router-link to="/settings" class="text-xs text-emerald-400 hover:underline mt-1 block">Modifier →</router-link>
-          </div>
-          <DashboardSystemStatus
-            :backend-ok="backendOk"
-            :btc-prix="btcPrix"
-            :ib-gateway-ok="ibGatewayOk"
-            :ml-pret="mlPret"
-            :engine-actif="engineActif"
-            :engine-secondes="engineSecondes"
-            :engine-signaux24h="engineSignaux24h"
-            :engine-chargement="engineChargement"
-            @engine-demarrer="engineDemarrer"
-            @engine-arreter="engineArreter"
+        <DashboardSystemStatus
+          :backend-ok="backendOk"
+          :btc-prix="btcPrix"
+          :ib-gateway-ok="ibGatewayOk"
+          :ml-pret="mlPret"
+          :engine-actif="engineActif"
+          :engine-secondes="engineSecondes"
+          :engine-signaux24h="engineSignaux24h"
+          :engine-chargement="engineChargement"
+          @engine-demarrer="engineDemarrer"
+          @engine-arreter="engineArreter"
+        />
+        <!-- Deux blocs côte à côte -->
+        <div class="grid grid-cols-2 gap-3">
+          <SurveillanceAssets :assets="assetsDisplay" :chargement="assetsAvecPrix.length === 0" />
+          <CryptosAlert
+            :top20="cryptos.top20.value"
+            :chargement="cryptos.chargement.value"
+            :erreur="cryptos.erreur.value"
           />
         </div>
-        <DashboardPrixStrip :assets="assetsDisplay" />
       </div>
 
       <!-- Métriques performance (backtest BTC) -->
@@ -50,7 +50,7 @@
       </div>
 
       <!-- Derniers signaux -->
-      <DashboardSignaux />
+      <DashboardSignaux class="flex-1 min-h-0" />
     </div>
 
       <!-- Colonne droite : Sentiment (fixe) + Calendrier (remplit le reste) -->
@@ -81,8 +81,10 @@ import SentimentMarche from '@/components/common/SentimentMarche.vue'
 import AlerteBandeau from '@/components/common/AlerteBandeau.vue'
 import NewsFeed from '@/components/common/NewsFeed.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
-import DashboardPrixStrip from '@/components/common/DashboardPrixStrip.vue'
 import DashboardSignaux from '@/components/common/DashboardSignaux.vue'
+import CryptosAlert from '@/components/common/CryptosAlert.vue'
+import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
+import { useCryptosAlert } from '@/composables/useCryptosAlert'
 
 type VariationsMultiTF = { h1: number | null; h4: number | null; d1: number | null; w1: number | null; m1: number | null }
 type AssetAvecPrix = { id: string; prix: number | null; variation: number | null; variationsMultiTF: VariationsMultiTF | null; clotures: Record<string, number[]>; chargement: boolean }
@@ -102,7 +104,7 @@ const {
   arreter: engineArreter,
 } = useSignalEngine()
 
-const capital = computed(() => settingsStore.capitalDepart)
+const cryptos = useCryptosAlert()
 const mlPret = computed(() => signalStore.prediction?.modele_pret ?? false)
 const backendOk = ref(false)
 const ibGatewayOk = ref<boolean | null>(null)
@@ -162,10 +164,6 @@ async function chargerPrixActifs() {
   } catch { /* silencieux */ }
 }
 
-function formatUsd(v: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(v)
-}
-
 onMounted(async () => {
   try { await apiService.healthCheck(); backendOk.value = true } catch { backendOk.value = false }
   try { const ib = await apiService.ibStatus(); ibGatewayOk.value = ib.connecte } catch { ibGatewayOk.value = false }
@@ -177,6 +175,7 @@ onMounted(async () => {
   const tousLesAssets = assetsAvecPrix.value.map(a => a.id)
   if (tousLesAssets.length > 0) marketStore.connecterPrixLiveAssets(tousLesAssets)
   newsStore.demarrerPolling()
+  cryptos.demarrer()
   intervalPrix = setInterval(chargerPrixActifs, 60000)
 })
 
@@ -184,6 +183,7 @@ onUnmounted(() => {
   if (intervalPrix !== null) clearInterval(intervalPrix)
   marketStore.deconnecterPrixLiveAssets()
   newsStore.arreterPolling()
+  cryptos.arreter()
 })
 </script>
 
