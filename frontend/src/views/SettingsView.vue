@@ -2,6 +2,9 @@
   <div class="space-y-6">
     <h1 class="text-3xl font-bold">⚙️ Configuration</h1>
 
+    <!-- IB Gateway + Compte + Risque sur une ligne -->
+    <div class="grid grid-cols-3 gap-4 items-start">
+
     <!-- IB Gateway -->
     <div class="glass-card p-6">
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">IB Gateway — Connexion</h2>
@@ -107,6 +110,8 @@
         <p class="text-xs text-gray-500 mt-1">Max 2% recommandé (limite absolue : 2%)</p>
       </div>
     </div>
+
+    </div> <!-- fin grid 3 colonnes -->
 
     <!-- Assets -->
     <GestionAssets />
