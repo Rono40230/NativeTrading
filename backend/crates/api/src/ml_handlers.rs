@@ -1,5 +1,7 @@
 use actix_web::{web, HttpResponse, Responder};
 use common::Asset;
+use db::entrainements::EntrainementRecord;
+use ml::entrainer_walk_forward;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
@@ -18,8 +20,10 @@ pub struct ReponseEntrainement {
     pub success: bool,
     pub accuracy_rf: f64,
     pub accuracy_lstm: f64,
+    pub accuracy_finale: f64,
     pub nb_echantillons: usize,
     pub duree_ms: u128,
+    pub derive_detectee: bool,
     pub message: String,
 }
 
@@ -39,9 +43,8 @@ pub async fn entrainer_ml(
         timeframe,
         limit
     );
-    let debut = Instant::now();
 
-    // Récupération des bougies depuis la DB (IB Gateway les y aura insérées)
+    // Récupération des bougies depuis la DB
     let bougies = match state
         .db
         .obtenir_bougies(
@@ -65,33 +68,75 @@ pub async fn entrainer_ml(
     };
 
     let nb = bougies.len();
+    let debut = Instant::now();
+
+    // ── Walk-forward (métriques out-of-sample honnêtes) ───────────────────────
+    let wf = match entrainer_walk_forward(&bougies) {
+        Ok(r) => r,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": format!("Walk-forward échoué: {}", e)
+            }));
+        }
+    };
+
+    // ── Entraînement pipeline principal sur 100 % des données ─────────────────
     let mut pipeline = state.pipeline_ml.lock().await;
     match pipeline.entrainer_sur_historique(&bougies, 5, 0.002) {
-        Ok((acc_rf, acc_lstm)) => {
+        Ok(_) => {
+            drop(pipeline);
             let duree_ms = debut.elapsed().as_millis();
+
+            // Dérive : accuracy < 60 % sur les 7 derniers jours
+            let derive = state.db.detecter_derive_ml(0.60).await.unwrap_or(false);
+
+            // Persistance en DB
+            let rec = EntrainementRecord {
+                asset: format!("{:?}", asset),
+                timeframe: query.timeframe.clone().unwrap_or_else(|| "M15".to_string()),
+                nb_bougies: nb as i64,
+                accuracy_rf: wf.accuracy_rf,
+                accuracy_lstm: wf.accuracy_lstm,
+                accuracy_finale: wf.accuracy_finale,
+                duree_ms: duree_ms as i64,
+                derive_detectee: derive,
+            };
+            if let Err(e) = state.db.inserer_historique_entrainement(&rec).await {
+                tracing::warn!("Échec enregistrement historique entrainement: {}", e);
+            }
+
+            if derive {
+                tracing::warn!("⚠️ Dérive ML détectée après entraînement manuel");
+            }
+
             tracing::info!(
-                "Entraînement terminé en {}ms: RF={:.1}% LSTM={:.1}%",
+                "Entraînement terminé en {}ms: RF={:.1}% LSTM={:.1}% Finale={:.1}%",
                 duree_ms,
-                acc_rf * 100.0,
-                acc_lstm * 100.0
+                wf.accuracy_rf * 100.0,
+                wf.accuracy_lstm * 100.0,
+                wf.accuracy_finale * 100.0,
             );
             HttpResponse::Ok().json(ReponseEntrainement {
                 success: true,
-                accuracy_rf: (acc_rf * 1000.0).round() / 1000.0,
-                accuracy_lstm: (acc_lstm * 1000.0).round() / 1000.0,
+                accuracy_rf: wf.accuracy_rf,
+                accuracy_lstm: wf.accuracy_lstm,
+                accuracy_finale: wf.accuracy_finale,
                 nb_echantillons: nb,
                 duree_ms,
+                derive_detectee: derive,
                 message: format!(
-                    "RF: {:.1}% | LSTM: {:.1}% ({} bougies en {}ms)",
-                    acc_rf * 100.0,
-                    acc_lstm * 100.0,
+                    "RF: {:.1}% | LSTM: {:.1}% | Finale: {:.1}% ({} bougies en {}ms){}",
+                    wf.accuracy_rf * 100.0,
+                    wf.accuracy_lstm * 100.0,
+                    wf.accuracy_finale * 100.0,
                     nb,
-                    duree_ms
+                    duree_ms,
+                    if derive { " ⚠️ DÉRIVE" } else { "" }
                 ),
             })
         }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
-            "error": format!("Échec entraînement: {}", e)
+            "error": format!("Échec entraînement pipeline principal: {}", e)
         })),
     }
 }
@@ -102,5 +147,36 @@ pub async fn statut_ml(state: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({
         "modele_pret": pipeline.est_pret(),
         "lstm_pret": pipeline.lstm.est_pret(),
+    }))
+}
+
+/// GET /api/ml/history?limit=30 — historique des entraînements + dérive
+pub async fn historique_ml(
+    query: web::Query<std::collections::HashMap<String, String>>,
+    state: web::Data<AppState>,
+) -> impl Responder {
+    let limit = query
+        .get("limit")
+        .and_then(|s| s.parse::<i64>().ok())
+        .unwrap_or(30)
+        .clamp(1, 200);
+
+    let historique = match state.db.obtenir_historique_entrainements(limit).await {
+        Ok(h) => h,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(serde_json::json!({
+                "error": format!("DB: {}", e)
+            }));
+        }
+    };
+
+    let derive = state.db.detecter_derive_ml(0.60).await.unwrap_or(false);
+    let nb = historique.len();
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "historique": historique,
+        "derive_detectee": derive,
+        "seuil_derive": 0.60,
+        "nb_entrainements": nb,
     }))
 }

@@ -1,3 +1,5 @@
+pub mod entrainements;
+
 use chrono::{TimeZone, Utc};
 use common::{Asset, Candle, Result, Signal, Timeframe, TradingError};
 use sqlx::{sqlite::SqliteConnectOptions, Row, SqlitePool};

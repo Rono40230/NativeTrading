@@ -33,9 +33,31 @@ export interface ReponseEntrainement {
   success: boolean
   accuracy_rf: number
   accuracy_lstm: number
+  accuracy_finale: number
   nb_echantillons: number
   duree_ms: number
+  derive_detectee: boolean
   message: string
+}
+
+export interface HistoriqueEntrainement {
+  id: number
+  cree_le: number
+  asset: string
+  timeframe: string
+  nb_bougies: number
+  accuracy_rf: number
+  accuracy_lstm: number
+  accuracy_finale: number
+  duree_ms: number
+  derive_detectee: boolean
+}
+
+export interface HistoriqueML {
+  historique: HistoriqueEntrainement[]
+  derive_detectee: boolean
+  seuil_derive: number
+  nb_entrainements: number
 }
 
 export interface RequeteAnalyseIA {

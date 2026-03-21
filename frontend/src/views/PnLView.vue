@@ -15,28 +15,29 @@
       </div>
     </div>
 
+
     <!-- KPIs -->
     <div v-if="resultats" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <div class="glass-card p-4 text-center">
-        <p class="label">ROI</p>
+        <p class="label flex items-center justify-center">ROI <TooltipInfo texte="Retour sur investissement total du backtest. Objectif ≥ 15% pour la mise en production réelle." /></p>
         <p class="text-2xl font-bold" :class="resultats.roi_pct >= 0 ? 'text-emerald-400' : 'text-red-400'">
           {{ resultats.roi_pct.toFixed(2) }}%
         </p>
       </div>
       <div class="glass-card p-4 text-center">
-        <p class="label">Sharpe</p>
+        <p class="label flex items-center justify-center">Sharpe <TooltipInfo texte="Rapport rendement / risque annualisé. ≥ 1.5 = excellent, 1.0–1.5 = correct, < 1.0 = insuffisant." /></p>
         <p class="text-2xl font-bold" :class="resultats.sharpe_ratio >= 1.5 ? 'text-emerald-400' : 'text-yellow-400'">
           {{ resultats.sharpe_ratio.toFixed(2) }}
         </p>
       </div>
       <div class="glass-card p-4 text-center">
-        <p class="label">Win Rate</p>
+        <p class="label flex items-center justify-center">Win Rate <TooltipInfo texte="Pourcentage de trades gagnants sur le total des positions clôturées. Objectif ≥ 55%." /></p>
         <p class="text-2xl font-bold" :class="resultats.win_rate >= 55 ? 'text-emerald-400' : 'text-yellow-400'">
           {{ resultats.win_rate.toFixed(1) }}%
         </p>
       </div>
       <div class="glass-card p-4 text-center">
-        <p class="label">Max Drawdown</p>
+        <p class="label flex items-center justify-center">Max Drawdown <TooltipInfo texte="Perte maximale depuis un pic de capital. Au-delà de 20%, le trading s'arrête automatiquement." /></p>
         <p class="text-2xl font-bold" :class="resultats.max_drawdown_pct <= 20 ? 'text-emerald-400' : 'text-red-400'">
           {{ resultats.max_drawdown_pct.toFixed(2) }}%
         </p>
@@ -46,68 +47,81 @@
     <!-- Métriques secondaires -->
     <div v-if="resultats" class="glass-card p-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
       <div>
-        <p class="label">Capital initial</p>
+        <p class="label flex items-center">Capital initial <TooltipInfo texte="Capital de départ utilisé pour simuler ce backtest (configurable dans les paramètres)." /></p>
         <p class="text-white font-semibold">{{ formatEur(resultats.capital_initial) }}</p>
       </div>
       <div>
-        <p class="label">Capital final</p>
+        <p class="label flex items-center">Capital final <TooltipInfo texte="Valeur totale du portefeuille après l'ensemble des trades simulés sur la période." /></p>
         <p class="font-semibold" :class="resultats.capital_final >= resultats.capital_initial ? 'text-emerald-400' : 'text-red-400'">
           {{ formatEur(resultats.capital_final) }}
         </p>
       </div>
       <div>
-        <p class="label">Trades total</p>
+        <p class="label flex items-center">Trades total <TooltipInfo texte="Nombre de positions ouvertes et fermées pendant la période de backtest analysée." /></p>
         <p class="text-white font-semibold">{{ resultats.total_trades }}</p>
       </div>
       <div>
-        <p class="label">Profit Factor</p>
+        <p class="label flex items-center">Profit Factor <TooltipInfo texte="Ratio gains bruts / pertes brutes. ≥ 1.5 = performant, 1.0–1.5 = neutre, < 1.0 = stratégie perdante." /></p>
         <p class="font-semibold" :class="resultats.profit_factor >= 1.5 ? 'text-emerald-400' : 'text-yellow-400'">
           {{ resultats.profit_factor.toFixed(2) }}
         </p>
       </div>
     </div>
 
-    <!-- Courbe equity -->
-    <div class="glass-card p-5">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Courbe Equity</h2>
-      <div v-if="chargement" class="text-center text-gray-500 py-8">Calcul en cours...</div>
-      <div v-else-if="!resultats" class="text-center text-gray-500 py-8">
-        Lancez un backtest pour voir la courbe equity
+    <!-- Courbe equity + Objectifs sur la même ligne (2/3 + 1/3) -->
+    <div class="flex gap-4">
+      <!-- Courbe equity — 3/4 -->
+      <div class="glass-card p-5 flex-[3] min-w-0">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center">Courbe Equity <TooltipInfo texte="Évolution du capital au fil du temps. Une pente régulièrement croissante traduit une stratégie stable et résiliente sur la durée." /></h2>
+        <div v-if="chargement" class="text-center text-gray-500 py-8">Calcul en cours...</div>
+        <div v-else-if="!resultats" class="text-center text-gray-500 py-8">
+          Lancez un backtest pour voir la courbe equity
+        </div>
+        <div v-else ref="equityChart" class="h-52 w-full" />
       </div>
-      <div v-else ref="equityChart" class="h-64" />
+
+      <!-- Objectifs — 1/4 -->
+      <div class="glass-card p-5 flex-[1] min-w-0">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center">Objectifs Production <TooltipInfo texte="Seuils minimaux requis pour déploiement en production réelle. ✓ = objectif atteint, ✗ = en dessous du seuil cible." /></h2>
+        <div v-if="resultats" class="space-y-2">
+          <ObjectifLigne label="ROI ≥ 15%" :atteint="resultats.roi_pct >= 15" :valeur="`${resultats.roi_pct.toFixed(1)}%`" />
+          <ObjectifLigne label="Sharpe ≥ 1.5" :atteint="resultats.sharpe_ratio >= 1.5" :valeur="resultats.sharpe_ratio.toFixed(2)" />
+          <ObjectifLigne label="Win Rate ≥ 55%" :atteint="resultats.win_rate >= 55" :valeur="`${resultats.win_rate.toFixed(1)}%`" />
+          <ObjectifLigne label="Drawdown ≤ 20%" :atteint="resultats.max_drawdown_pct <= 20" :valeur="`${resultats.max_drawdown_pct.toFixed(1)}%`" />
+        </div>
+        <p v-else class="text-gray-500 text-sm pt-2">Lancez un backtest</p>
+      </div>
     </div>
 
-    <!-- Objectifs -->
-    <div v-if="resultats" class="glass-card p-5">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Objectifs Production</h2>
-      <div class="space-y-2">
-        <ObjectifLigne label="ROI annualisé ≥ 15%" :atteint="resultats.roi_pct >= 15" :valeur="`${resultats.roi_pct.toFixed(1)}%`" />
-        <ObjectifLigne label="Sharpe ≥ 1.5" :atteint="resultats.sharpe_ratio >= 1.5" :valeur="resultats.sharpe_ratio.toFixed(2)" />
-        <ObjectifLigne label="Win Rate ≥ 55%" :atteint="resultats.win_rate >= 55" :valeur="`${resultats.win_rate.toFixed(1)}%`" />
-        <ObjectifLigne label="Max Drawdown ≤ 20%" :atteint="resultats.max_drawdown_pct <= 20" :valeur="`${resultats.max_drawdown_pct.toFixed(1)}%`" />
-      </div>
-    </div>
+    <!-- Monitoring ML -->
+    <MonitoringML />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, defineComponent, h } from 'vue'
+import { ref, watch, nextTick, onMounted, onUnmounted, defineComponent, h } from 'vue'
 import { createChart, type IChartApi } from 'lightweight-charts'
 import { apiService } from '@/services/api.service'
 import type { BacktestResults } from '@/services/api.service'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useAlerteStore } from '@/stores/alerte.store'
+import TooltipInfo from '@/components/common/TooltipInfo.vue'
+import MonitoringML from '@/components/common/MonitoringML.vue'
 
 // Inline sub-component pour les lignes d'objectif
 const ObjectifLigne = defineComponent({
   props: { label: String, atteint: Boolean, valeur: String },
   setup(props) {
-    return () => h('div', { class: 'flex justify-between items-center py-1 border-b border-white/5' }, [
-      h('span', { class: 'text-sm text-gray-300' }, props.label),
-      h('span', { class: `text-sm font-semibold ${props.atteint ? 'text-emerald-400' : 'text-red-400'}` },
-        `${props.atteint ? '✓' : '✗'} ${props.valeur}`)
-    ])
-  }
+    return () =>
+      h('div', { class: 'flex justify-between items-center py-1 border-b border-white/5' }, [
+        h('span', { class: 'text-sm text-gray-300' }, props.label),
+        h(
+          'span',
+          { class: `text-sm font-semibold ${props.atteint ? 'text-emerald-400' : 'text-red-400'}` },
+          `${props.atteint ? '✓' : '✗'} ${props.valeur}`,
+        ),
+      ])
+  },
 })
 
 const settingsStore = useSettingsStore()
@@ -120,6 +134,7 @@ const chargement = ref(false)
 const resultats = ref<BacktestResults | null>(null)
 const equityChart = ref<HTMLElement | null>(null)
 let chart: IChartApi | null = null
+let roEquity: ResizeObserver | null = null
 
 function formatEur(v: number): string {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v)
@@ -128,7 +143,12 @@ function formatEur(v: number): string {
 async function lancerBacktest() {
   chargement.value = true
   try {
-    resultats.value = await apiService.runBacktest(asset.value, timeframe.value, settingsStore.capitalDepart, 500)
+    resultats.value = await apiService.runBacktest(
+      asset.value,
+      timeframe.value,
+      settingsStore.capitalDepart,
+      500,
+    )
     await nextTick()
     afficherCourbe()
   } catch (e: unknown) {
@@ -161,7 +181,24 @@ function afficherCourbe() {
   series.setData(pts)
 }
 
-watch(equityChart, (el) => { if (el && resultats.value) afficherCourbe() })
+watch(equityChart, (el) => {
+  if (el && resultats.value) afficherCourbe()
+})
+
+watch(equityChart, (el, old) => {
+  roEquity?.disconnect()
+  if (!el) return
+  roEquity = new ResizeObserver(() => {
+    chart?.applyOptions({ width: el.clientWidth })
+  })
+  roEquity.observe(el)
+  if (old) roEquity.disconnect()
+})
+
+onMounted(() => {})
+onUnmounted(() => {
+  roEquity?.disconnect()
+})
 </script>
 
 <style scoped>

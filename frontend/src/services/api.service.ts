@@ -9,6 +9,7 @@ export type {
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
   SentimentMarche, EntiteSentiment, ArticleNews, AlertesNews, NiveauAlerte, ContenuArticle, TraductionReponse,
   StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, ResultatCollecteItem,
+  HistoriqueEntrainement, HistoriqueML,
 } from './api.types'
 
 import type {
@@ -17,7 +18,7 @@ import type {
   ReponseEntrainement, ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
   ModeCalculTendance, AnnonceCalendrier, SentimentMarche, AlertesNews, ContenuArticle, TraductionReponse,
-  StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte,
+  StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, HistoriqueML,
 } from './api.types'
 
 const BASE_URL = 'http://localhost:8080'
@@ -212,6 +213,11 @@ export const apiService = {
 
   async collecterDonnees(params: RequeteCollecte): Promise<ResultatCollecte> {
     const res = await http.post('/api/data/collect', params, { timeout: 300_000 })
+    return res.data
+  },
+
+  async obtenirHistoriqueML(limit = 30): Promise<HistoriqueML> {
+    const res = await http.get('/api/ml/history', { params: { limit } })
     return res.data
   },
 }

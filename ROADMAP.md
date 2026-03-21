@@ -246,11 +246,11 @@
 - [x] Brancher `useSignalTradeBox.ts` dans `ChartView.vue` — rectangles TP/SL/Entry sur graphique
 
 #### Semaine 20: Entraînement automatique + Monitoring ML
-- [ ] Scheduler Rust (tokio::time) — reentraînement quotidien a 00h00
-- [ ] Walk-forward optimization : fenêtre glissante 3 mois train / 1 mois test
-- [ ] Détection dérive modèle : alerte si accuracy < seuil sur 7 derniers jours
-- [ ] `GET /api/ml/history` — historique entraînements (date, accuracy, durée)
-- [ ] Affichage courbe d'accuracy dans `PnLView.vue`
+- [x] Scheduler Rust (tokio::time) — reentraînement quotidien a 00h00
+- [x] Walk-forward optimization : fenêtre glissante 3 mois train / 1 mois test
+- [x] Détection dérive modèle : alerte si accuracy < seuil sur 7 derniers jours
+- [x] `GET /api/ml/history` — historique entraînements (date, accuracy, durée)
+- [x] Affichage courbe d'accuracy dans `PnLView.vue`
 
 #### Semaine 21: Détection automatique de volatilités récurrentes (Straddle IA)
 > Dépend de la collecte S19 — nécessite 6 mois d'historique minimum

@@ -5,10 +5,12 @@ use common::{Candle, Direction, Result, TradingError};
 pub mod features;
 pub mod lstm;
 pub mod modele;
+pub mod walk_forward;
 
 pub use features::{extraire_features, labelliser, NB_FEATURES};
 pub use lstm::{ModeleHybrideLstm, LONGUEUR_SEQ};
 pub use modele::{ModeleRandomForest, PredictionML};
+pub use walk_forward::entrainer_walk_forward;
 
 const CHEMIN_RF: &str = "data/modele_rf.json";
 const CHEMIN_LSTM: &str = "data/modele_lstm.json";

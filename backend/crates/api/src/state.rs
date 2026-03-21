@@ -4,6 +4,7 @@ use ml::PipelineML;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use crate::scheduler::demarrer_scheduler;
 use crate::signal_engine::SignalEngine;
 
 pub struct AppState {
@@ -61,13 +62,18 @@ impl AppState {
 
         // Démarrage automatique du Signal Engine au lancement du serveur
         let db = Arc::new(db);
+        let pipeline_ml = Arc::new(Mutex::new(pipeline_ml));
         let signal_engine = Arc::new(SignalEngine::new());
         signal_engine.demarrer(db.clone());
         tracing::info!("🤖 Signal Engine démarré automatiquement");
 
+        // Scheduler ML quotidien : ré-entraînement à 00h00 UTC
+        demarrer_scheduler(db.clone(), pipeline_ml.clone());
+        tracing::info!("⏰ Scheduler ML quotidien activé (00h00 UTC)");
+
         Ok(Self {
             db,
-            pipeline_ml: Arc::new(Mutex::new(pipeline_ml)),
+            pipeline_ml,
             ib_port,
             ib_client_id,
             signal_engine,

@@ -18,6 +18,7 @@ mod news_traduction;
 mod ollama;
 mod ollama_handlers;
 mod ollama_types;
+mod scheduler;
 mod sentiment_handlers;
 mod signal_engine;
 mod smc_handlers;
@@ -153,6 +154,7 @@ async fn main() -> std::io::Result<()> {
                 "/api/data/collect",
                 web::post().to(data_handlers::post_collect),
             )
+            .route("/api/ml/history", web::get().to(ml_handlers::historique_ml))
     })
     .bind(("0.0.0.0", 8080))?
     .run()
