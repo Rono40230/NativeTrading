@@ -131,6 +131,23 @@ pub enum Asset {
 }
 
 impl Asset {
+    /// Retourne true si l'asset est une crypto (source Binance).
+    pub fn is_crypto(&self) -> bool {
+        matches!(
+            self,
+            Asset::BTC
+                | Asset::ETH
+                | Asset::SOL
+                | Asset::BNB
+                | Asset::XRP
+                | Asset::ADA
+                | Asset::DOGE
+                | Asset::AVAX
+                | Asset::LINK
+                | Asset::DOT
+        )
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
             Asset::BTC    => "BTC",

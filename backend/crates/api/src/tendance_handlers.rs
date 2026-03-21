@@ -151,17 +151,14 @@ pub async fn tendance_multi_tf(
         let bougies: Vec<common::Candle> = if bougies_db.len() >= limit_bougies as usize {
             bougies_db
         } else {
-            let resultat = match &asset {
-                common::Asset::BTC | common::Asset::ETH => {
-                    BinanceProvider
-                        .fetch_candles(asset.clone(), tf, limit_bougies as usize)
-                        .await
-                }
-                _ => {
-                    IbGatewayProvider::new(state.ib_port, state.ib_client_id)
-                        .fetch_candles(asset.clone(), tf, limit_bougies as usize)
-                        .await
-                }
+            let resultat = if asset.is_crypto() {
+                BinanceProvider
+                    .fetch_candles(asset.clone(), tf, limit_bougies as usize)
+                    .await
+            } else {
+                IbGatewayProvider::new(state.ib_port, state.ib_client_id)
+                    .fetch_candles(asset.clone(), tf, limit_bougies as usize)
+                    .await
             };
             match resultat {
                 Ok(b) => {

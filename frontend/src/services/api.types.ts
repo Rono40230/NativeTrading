@@ -177,6 +177,8 @@ export interface AssetInfo {
   id: string
   nom: string
   type: 'crypto' | 'metal' | 'forex' | 'indice'
+  source?: 'binance' | 'ib'
+  actif?: boolean
 }
 
 export interface AnnonceCalendrier {

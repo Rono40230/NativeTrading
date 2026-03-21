@@ -113,18 +113,15 @@ pub async fn get_candles(
         }
     }
 
-    // 2. Fallback provider : Binance pour crypto, IB Gateway pour métaux
-    let resultat = match &asset {
-        common::Asset::BTC | common::Asset::ETH => {
-            BinanceProvider
-                .fetch_candles(asset.clone(), timeframe, limit)
-                .await
-        }
-        _ => {
-            IbGatewayProvider::new(state.ib_port, state.ib_client_id)
-                .fetch_candles(asset.clone(), timeframe, limit)
-                .await
-        }
+    // 2. Fallback provider : Binance pour crypto, IB Gateway pour métaux/forex/indices
+    let resultat = if asset.is_crypto() {
+        BinanceProvider
+            .fetch_candles(asset.clone(), timeframe, limit)
+            .await
+    } else {
+        IbGatewayProvider::new(state.ib_port, state.ib_client_id)
+            .fetch_candles(asset.clone(), timeframe, limit)
+            .await
     };
     match resultat {
         Ok(bougies) => {

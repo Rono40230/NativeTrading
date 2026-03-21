@@ -35,7 +35,7 @@ pub async fn stream_market(
 
     let (response, session, client_stream) = actix_ws::handle(&req, body)?;
 
-    let crypto = matches!(&asset, Some(common::Asset::BTC) | Some(common::Asset::ETH));
+    let crypto = asset.as_ref().map(|a| a.is_crypto()).unwrap_or(false);
 
     actix_web::rt::spawn(async move {
         if crypto {
