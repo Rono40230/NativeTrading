@@ -202,7 +202,7 @@ function celluleLabel(asset: string, tf: string): string {
 }
 
 const classementVol = computed(() => {
-  const items = assets.flatMap(a => timeframes.map(tf => ({
+  const items = assets.value.flatMap(a => timeframes.map(tf => ({
     cle: cle(a, tf), asset: a, tf, atr: donnees.value[cle(a, tf)] ?? 0
   })))
   return items.filter(i => i.atr > 0).sort((a, b) => b.atr - a.atr)
