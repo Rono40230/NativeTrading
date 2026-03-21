@@ -39,19 +39,6 @@ export const apiService = {
     return res.data
   },
 
-  async ajouterAsset(
-    id: string,
-    nom: string,
-    type: AssetInfo['type'],
-    source: 'binance' | 'ib',
-  ): Promise<void> {
-    await http.post('/api/assets', { id, nom, type, source })
-  },
-
-  async supprimerAsset(id: string): Promise<void> {
-    await http.delete(`/api/assets/${id}`)
-  },
-
   async getCandles(asset: string, timeframe = 'M15', limit = 200, force = false): Promise<Candle[]> {
     const res = await http.get('/api/candles', {
       params: { asset, timeframe, limit, ...(force ? { force: true } : {}) },
@@ -241,5 +228,26 @@ export const apiService = {
   ): Promise<ReponsePatternsVolatilite> {
     const res = await http.get('/api/volatility/patterns', { params: { asset, timeframe, mois } })
     return res.data
+  },
+
+  async ajouterAsset(
+    id: string,
+    nom: string,
+    type: AssetInfo['type'],
+    source: 'binance' | 'ib',
+  ): Promise<void> {
+    try {
+      await http.post('/api/assets', { id, nom, type, source })
+    } catch (err: any) {
+      const message = err?.response?.data?.error
+      if (err?.response?.status === 409) {
+        throw new Error(message ?? 'Cet asset est déjà dans la liste.')
+      }
+      throw new Error(message ?? err?.message ?? "Erreur lors de l'ajout.")
+    }
+  },
+
+  async supprimerAsset(id: string): Promise<void> {
+    await http.delete(`/api/assets/${encodeURIComponent(id)}`)
   },
 }
