@@ -133,6 +133,21 @@ const clusters = [
 const COULEURS_CLUSTER = ['#10b98166', '#f59e0b66', '#f9731666', '#ef444466']
 const COULEURS_CLUSTER_PLEIN = ['#10b981', '#f59e0b', '#f97316', '#ef4444']
 
+/** Décalage UTC→Paris actuel : +2 en été (CEST), +1 en hiver (CET). */
+function decalageParis(): 1 | 2 {
+  const maintenant = new Date()
+  const hParis = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(maintenant))
+  const hUtc = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', hour: 'numeric', hour12: false }).format(maintenant))
+  return ((hParis - hUtc + 24) % 24) === 2 ? 2 : 1
+}
+
+const DECALAGE_PARIS = decalageParis()
+const ZONE_PARIS = DECALAGE_PARIS === 2 ? 'CEST' : 'CET'
+
+function heureParis(heureUtc: number): number {
+  return (heureUtc + DECALAGE_PARIS) % 24
+}
+
 function trouverPattern(heure: number, jour: number) {
   return reponse.value?.patterns.find((p) => p.heure === heure && p.jour_semaine === jour)
 }
@@ -157,9 +172,10 @@ function celluleStyle(heure: number, jour: number) {
 
 function celluleTitre(heure: number, jour: number): string {
   const p = trouverPattern(heure, jour)
-  if (!p) return `${jours[jour]?.label} ${heure}h — aucune donnée`
+  const hParis = heureParis(heure)
+  if (!p) return `${jours[jour]?.label} — ${hParis}h Paris (${ZONE_PARIS}) — aucune donnée`
   const nomCluster = ['Calme', 'Modéré', 'Élevé', 'Extrême'][p.cluster] ?? '?'
-  return `${jours[jour]?.label} ${heure}h UTC | ATR: ${p.atr_moyen.toFixed(4)} | ${nomCluster} | ${p.nb_points} pts`
+  return `${jours[jour]?.label} ${hParis}h Paris (${ZONE_PARIS}) | ATR: ${p.atr_moyen.toFixed(4)} | ${nomCluster} | ${p.nb_points} pts`
 }
 
 async function charger() {
