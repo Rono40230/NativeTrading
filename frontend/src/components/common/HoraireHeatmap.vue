@@ -74,7 +74,7 @@
     </div>
 
     <!-- Bloc d'analyse statistique -->
-    <div v-if="analyse" class="grid grid-cols-4 gap-4">
+    <div v-if="analyse" class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
       <!-- Meilleures fenêtres -->
       <div class="glass-card p-4 space-y-3">
