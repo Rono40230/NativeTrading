@@ -59,13 +59,13 @@
               <div
                 class="rounded-lg p-3 text-center transition-all cursor-default"
                 :style="celluleStyle(asset, tf)"
-                :title="`ATR: ${celluleValeur(asset, tf).toFixed(4)}`"
+                :title="`ATR ratio: ${celluleValeur(asset, tf).toFixed(1)}%`"
               >
                 <div class="text-xs font-bold text-white drop-shadow">
                   {{ celluleLabel(asset, tf) }}
                 </div>
                 <div class="text-xs text-white/70 mt-0.5">
-                  {{ celluleValeur(asset, tf).toFixed(4) }}
+                  {{ celluleValeur(asset, tf).toFixed(1) }}
                 </div>
               </div>
             </td>
@@ -75,19 +75,34 @@
     </div>
 
     <!-- Classement mini -->
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div class="glass-card p-4">
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Plus volatile</h3>
         <div v-for="item in classementVol.slice(0, 3)" :key="item.cle" class="flex justify-between py-1.5 border-b border-white/5 text-sm">
           <span class="text-gray-300">{{ item.asset }} {{ item.tf }}</span>
-          <span class="text-red-400 font-semibold">{{ item.atr.toFixed(4) }}</span>
+          <span class="text-red-400 font-semibold">{{ item.atr.toFixed(1) }}</span>
         </div>
       </div>
       <div class="glass-card p-4">
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Moins volatile</h3>
         <div v-for="item in classementVol.slice(-3).reverse()" :key="item.cle" class="flex justify-between py-1.5 border-b border-white/5 text-sm">
           <span class="text-gray-300">{{ item.asset }} {{ item.tf }}</span>
-          <span class="text-emerald-400 font-semibold">{{ item.atr.toFixed(4) }}</span>
+          <span class="text-emerald-400 font-semibold">{{ item.atr.toFixed(1) }}</span>
+        </div>
+      </div>
+      <!-- Analyse -->
+      <div v-if="analyseAtr" class="glass-card p-4 space-y-2">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Analyse</h3>
+        <div class="flex justify-between text-sm py-1 border-b border-white/5">
+          <span class="text-gray-400">Asset le plus actif</span>
+          <span class="text-white font-semibold">{{ analyseAtr.assetActif }}</span>
+        </div>
+        <div class="flex justify-between text-sm py-1 border-b border-white/5">
+          <span class="text-gray-400">Asset le plus calme</span>
+          <span class="text-white font-semibold">{{ analyseAtr.assetCalme }}</span>
+        </div>
+        <div class="mt-2 rounded-lg px-3 py-2 text-xs" :class="analyseAtr.straddleClass">
+          {{ analyseAtr.straddleConseil }}
         </div>
       </div>
     </div>
@@ -170,6 +185,38 @@ const classementVol = computed(() => {
     cle: cle(a, tf), asset: a, tf, atr: donnees.value[cle(a, tf)] ?? 0
   })))
   return items.filter(i => i.atr > 0).sort((a, b) => b.atr - a.atr)
+})
+
+const analyseAtr = computed(() => {
+  const items = classementVol.value
+  if (!items.length) return null
+
+  // ATR moyen par asset (toutes TF confondues)
+  const moyParAsset = assets.map(a => {
+    const pts = items.filter(i => i.asset === a)
+    return { asset: a, moy: pts.length ? pts.reduce((s, i) => s + i.atr, 0) / pts.length : 0 }
+  }).filter(x => x.moy > 0).sort((a, b) => b.moy - a.moy)
+
+  const assetActif = moyParAsset[0]?.asset ?? '—'
+  const assetCalme = moyParAsset[moyParAsset.length - 1]?.asset ?? '—'
+
+  // Combien de cellules dépassent 120% (Élevé) ?
+  const nbEleve = items.filter(i => i.atr > 120).length
+  const topRatio = items[0]?.atr ?? 0
+  let straddleConseil: string
+  let straddleClass: string
+  if (topRatio > 120) {
+    straddleConseil = `Straddle favorable — ${nbEleve} créneau${nbEleve > 1 ? 'x' : ''} en volatilité élevée (>${120}%).`
+    straddleClass = 'bg-red-500/10 border border-red-500/30 text-red-300'
+  } else if (topRatio > 90) {
+    straddleConseil = 'Volatilité modérée — surveiller avant d\'entrer en Straddle.'
+    straddleClass = 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
+  } else {
+    straddleConseil = 'Marché calme — privilégier SMC Directionnel sur breakout.'
+    straddleClass = 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+  }
+
+  return { assetActif, assetCalme, straddleConseil, straddleClass }
 })
 
 async function actualiser() {
