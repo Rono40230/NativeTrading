@@ -74,7 +74,7 @@
     </div>
 
     <!-- Bloc d'analyse statistique -->
-    <div v-if="analyse" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div v-if="analyse" class="grid grid-cols-4 gap-4">
 
       <!-- Meilleures fenêtres -->
       <div class="glass-card p-4 space-y-3">
@@ -97,7 +97,7 @@
       </div>
 
       <!-- Jours + heure actuelle -->
-      <div class="glass-card p-4 md:col-span-2 flex flex-wrap gap-6 items-start">
+      <div class="glass-card p-4 flex flex-col gap-4 items-start">
         <div class="flex-1 min-w-[160px] space-y-1">
           <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Jours de la semaine</p>
           <div class="flex items-center gap-2">
