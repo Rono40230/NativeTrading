@@ -37,15 +37,15 @@
 
     <!-- Heatmap 24h × 7j -->
     <div v-if="reponse?.patterns.length" class="glass-card p-4 overflow-x-auto">
-      <table class="text-xs border-separate border-spacing-0.5">
+      <table class="w-full table-fixed text-xs border-separate border-spacing-0.5">
         <thead>
           <tr>
-            <th class="text-gray-500 text-left px-2 pb-1 whitespace-nowrap">Heure UTC</th>
+            <th class="text-gray-500 text-left px-1 pb-1 whitespace-nowrap w-10">UTC</th>
             <th
               v-for="h in heures"
               :key="h"
-              class="text-gray-400 px-1 pb-1 text-center font-mono w-8"
-            >{{ h }}h</th>
+              class="text-gray-400 pb-1 text-center font-mono"
+            >{{ h }}</th>
           </tr>
         </thead>
         <tbody>
@@ -53,12 +53,12 @@
             <td class="text-gray-400 pr-3 py-0.5 whitespace-nowrap font-medium">{{ j.label }}</td>
             <td v-for="h in heures" :key="h" class="p-0">
               <div
-                class="w-8 h-7 rounded flex items-center justify-center cursor-default transition-transform hover:scale-110"
+                class="w-full h-8 rounded flex items-center justify-center cursor-default transition-transform hover:scale-110"
                 :style="celluleStyle(h, j.index)"
                 :title="celluleTitre(h, j.index)"
               >
-                <span v-if="cellulePoints(h, j.index) > 0" class="text-[9px] text-white/80 font-mono leading-none">
-                  {{ celluleAtr(h, j.index).toFixed(3) }}
+                <span v-if="cellulePoints(h, j.index) > 0" class="text-[10px] text-white/80 font-mono leading-none">
+                  {{ celluleAtr(h, j.index).toFixed(1) }}
                 </span>
               </div>
             </td>

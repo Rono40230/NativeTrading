@@ -121,19 +121,21 @@ const legendes = [
 ]
 
 function calcAtr(candles: Candle[], periode = 14): number {
-  if (candles.length < periode + 1) return 0
+  if (candles.length < 2) return 0
   const trs = candles.slice(1).map((c, i) => {
     const prev = candles[i].close
     return Math.max(c.high - c.low, Math.abs(c.high - prev), Math.abs(c.low - prev))
   })
-  const recents = trs.slice(-periode)
-  return recents.reduce((s, v) => s + v, 0) / recents.length
+  const fenetre = trs.slice(-Math.min(periode, trs.length))
+  return fenetre.reduce((s, v) => s + v, 0) / fenetre.length
 }
 
 function calcAtrRatio(candles: Candle[]): number {
   if (candles.length < 30) return 0
-  const atrActuel = calcAtr(candles.slice(-15))
-  const atrMoyen = calcAtr(candles.slice(-60))
+  // ATR court terme : moyenne des 6 derniers TR (7 bougies)
+  const atrActuel = calcAtr(candles.slice(-7), 6)
+  // ATR long terme : moyenne des jusqu'à 60 derniers TR (fenêtre large)
+  const atrMoyen = calcAtr(candles, Math.min(candles.length - 1, 60))
   return atrMoyen > 0 ? (atrActuel / atrMoyen) * 100 : 100
 }
 
