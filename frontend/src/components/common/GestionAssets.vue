@@ -83,17 +83,19 @@ const CATEGORIES = computed(() => [
 async function basculer(a: AssetInfo) {
   enCours.value = a.id
   erreur.value = ''
+  const ancienEtat = a.actif
   try {
     if (a.actif) {
       await apiService.supprimerAsset(a.id)
     } else {
       await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], a.source ?? 'binance')
     }
-    // Recharger la liste complète (actifs + inactifs) pour garder toutes les cartes visibles
-    tous.value = await apiService.obtenirAssets(true)
+    // Muter directement l'objet dans tous.value — pas de re-fetch, la carte reste toujours visible
+    a.actif = !ancienEtat
     await assetsStore.chargerAssets()
   } catch (e: unknown) {
     erreur.value = (e as Error).message ?? 'Erreur'
+    // Pas de mutation en cas d'erreur — état visuel inchangé
   } finally {
     enCours.value = null
   }
