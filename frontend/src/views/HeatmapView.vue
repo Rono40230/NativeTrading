@@ -65,7 +65,7 @@
                   {{ celluleLabel(asset, tf) }}
                 </div>
                 <div class="text-xs text-white/70 mt-0.5">
-                  {{ celluleValeur(asset, tf).toFixed(1) }}
+                  {{ celluleValeur(asset, tf).toFixed(1) }}<span class="text-white/40 text-[10px]">{{ uniteAsset(asset) }}</span>
                 </div>
               </div>
             </td>
@@ -80,14 +80,14 @@
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Plus volatile</h3>
         <div v-for="item in classementVol.slice(0, 3)" :key="item.cle" class="flex justify-between py-1.5 border-b border-white/5 text-sm">
           <span class="text-gray-300">{{ item.asset }} {{ item.tf }}</span>
-          <span class="text-red-400 font-semibold">{{ item.atr.toFixed(1) }}</span>
+          <span class="text-red-400 font-semibold">{{ item.atr.toFixed(1) }}<span class="text-red-300/50 text-[10px]">{{ uniteAsset(item.asset) }}</span></span>
         </div>
       </div>
       <div class="glass-card p-4">
         <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Moins volatile</h3>
         <div v-for="item in classementVol.slice(-3).reverse()" :key="item.cle" class="flex justify-between py-1.5 border-b border-white/5 text-sm">
           <span class="text-gray-300">{{ item.asset }} {{ item.tf }}</span>
-          <span class="text-emerald-400 font-semibold">{{ item.atr.toFixed(1) }}</span>
+          <span class="text-emerald-400 font-semibold">{{ item.atr.toFixed(1) }}<span class="text-emerald-300/50 text-[10px]">{{ uniteAsset(item.asset) }}</span></span>
         </div>
       </div>
       <!-- Analyse -->
@@ -132,16 +132,23 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
-import type { Candle } from '@/services/api.service'
+import type { Candle, AssetInfo } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
 import HoraireHeatmap from '@/components/common/HoraireHeatmap.vue'
 
 const onglet = ref<'atr' | 'horaire'>('atr')
 const alerteStore = useAlerteStore()
-const assets = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD']
+const assetsInfos = ref<AssetInfo[]>([])
+const assets = computed(() => assetsInfos.value.map(a => a.id))
 const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const chargement = ref(false)
-const donnees = ref<Record<string, number>>({}) // cle = "BTC_M15" → ratio ATR
+const donnees = ref<Record<string, number>>({})
+
+/** Unité d'affichage selon le type d'asset. */
+function uniteAsset(assetId: string): string {
+  const info = assetsInfos.value.find(a => a.id === assetId)
+  return info?.type === 'crypto' ? '$' : 'pts'
+}
 
 const legendes = [
   { label: 'Faible (<80%)', couleur: '#10b981' },
@@ -206,7 +213,7 @@ const analyseAtr = computed(() => {
   if (!items.length) return null
 
   // ATR moyen par asset (toutes TF confondues)
-  const moyParAsset = assets.map(a => {
+  const moyParAsset = assets.value.map(a => {
     const pts = items.filter(i => i.asset === a)
     return { asset: a, moy: pts.length ? pts.reduce((s, i) => s + i.atr, 0) / pts.length : 0 }
   }).filter(x => x.moy > 0).sort((a, b) => b.moy - a.moy)
@@ -216,7 +223,7 @@ const analyseAtr = computed(() => {
 
   // TFs en volatilité élevée (>120%) par asset
   const tfsActifsParAsset: Record<string, string[]> = {}
-  for (const a of assets) {
+  for (const a of assets.value) {
     tfsActifsParAsset[a] = items
       .filter(i => i.asset === a && i.atr > 120)
       .map(i => i.tf)
@@ -243,7 +250,7 @@ const analyseAtr = computed(() => {
 
 async function actualiser() {
   chargement.value = true
-  const paires = assets.flatMap(a => timeframes.map(tf => ({ a, tf })))
+  const paires = assets.value.flatMap(a => timeframes.map(tf => ({ a, tf })))
   const resultats = await Promise.allSettled(
     paires.map(({ a, tf }) => apiService.getCandles(a, tf, 80).then(c => ({ a, tf, c })))
   )
@@ -259,6 +266,7 @@ async function actualiser() {
 let intervalId: ReturnType<typeof setInterval> | null = null
 onMounted(async () => {
   try {
+    assetsInfos.value = await apiService.obtenirAssets()
     await actualiser()
     intervalId = setInterval(actualiser, 60_000)
   } catch (e: unknown) {
