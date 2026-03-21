@@ -18,12 +18,26 @@
           <option v-for="m in [1, 3, 6, 12, 24]" :key="m" :value="m">{{ m }} mois</option>
         </select>
       </div>
-      <div class="flex items-center gap-2">
-        <label class="text-sm text-gray-400 shrink-0">Assets :</label>
-        <select v-model="modeAssets" class="bg-white border border-white/20 rounded-lg px-3 py-1.5 text-sm text-black">
-          <option value="crypto">BTC + ETH (Binance)</option>
-          <option value="tous">Tous (nécessite IB Gateway)</option>
-        </select>
+      <div class="flex flex-col gap-1">
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-gray-400">Assets :</span>
+          <button class="text-xs text-blue-400 hover:underline" @click="tousAssetsSelectionnes ? assetsSelectionnes = [] : assetsSelectionnes = TOUS_ASSETS.slice()">
+            {{ tousAssetsSelectionnes ? 'Tout décocher' : 'Tout cocher' }}
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <label
+            v-for="a in TOUS_ASSETS"
+            :key="a"
+            class="flex items-center gap-1 cursor-pointer select-none text-xs px-2 py-1 rounded-lg border transition"
+            :class="assetsSelectionnes.includes(a)
+              ? 'border-blue-500/50 bg-blue-500/10 text-blue-400'
+              : 'border-white/10 bg-white/5 text-gray-400'"
+          >
+            <input type="checkbox" class="hidden" :value="a" v-model="assetsSelectionnes" />
+            {{ a }}
+          </label>
+        </div>
       </div>
       <!-- Sélecteur Timeframes -->
       <div class="flex flex-col gap-1">
@@ -45,7 +59,7 @@
       <div class="flex flex-col gap-2">
         <button
           class="px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 transition disabled:opacity-50"
-          :disabled="enCollecte || tfsSelectionnes.length === 0"
+          :disabled="enCollecte || tfsSelectionnes.length === 0 || assetsSelectionnes.length === 0"
           @click="lancerCollecte"
         >
           {{ enCollecte ? '⏳ Collecte en cours…' : '⬇ Lancer la collecte' }}
@@ -133,9 +147,6 @@ import type { CouvertureDonnees, ResultatCollecteItem } from '@/services/api.ser
 import { useAssetsStore } from '@/stores/assets.store'
 
 const assetsStore = useAssetsStore()
-const CRYPTO_ASSETS = computed(() =>
-  assetsStore.assets.filter(a => a.type === 'crypto').map(a => a.id)
-)
 const TOUS_ASSETS = computed(() => assetsStore.assets.map(a => a.id))
 const TOUS_TF = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 
@@ -147,8 +158,11 @@ const messageCollecte = ref<string | null>(null)
 const erreurCollecte = ref(false)
 const resultatsCollecte = ref<ResultatCollecteItem[]>([])
 const moisSelectionne = ref(6)
-const modeAssets = ref<'crypto' | 'tous'>('crypto')
+const assetsSelectionnes = ref<string[]>([])
 const tfsSelectionnes = ref<string[]>(['M5', 'M15', 'H1', 'H4'])
+const tousAssetsSelectionnes = computed(() =>
+  TOUS_ASSETS.value.length > 0 && TOUS_ASSETS.value.every(a => assetsSelectionnes.value.includes(a))
+)
 
 // Calcul estimé du nombre de bougies attendu pour 6 mois selon TF
 const bougiesParMoisParTf: Record<string, number> = {
@@ -185,7 +199,7 @@ async function lancerCollecte() {
   erreurCollecte.value = false
   resultatsCollecte.value = []
   try {
-    const assets = modeAssets.value === 'crypto' ? CRYPTO_ASSETS.value : TOUS_ASSETS.value
+    const assets = assetsSelectionnes.value
     const res = await apiService.collecterDonnees({
       assets,
       timeframes: tfsSelectionnes.value,
@@ -204,6 +218,7 @@ async function lancerCollecte() {
 
 onMounted(async () => {
   await assetsStore.chargerAssets()
+  assetsSelectionnes.value = TOUS_ASSETS.value.slice()
   await chargerCouverture()
 })
 </script>
