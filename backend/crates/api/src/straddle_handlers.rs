@@ -1,8 +1,10 @@
 use actix_web::{web, HttpResponse, Responder};
+use chrono::{DateTime, Duration, Utc};
 use serde::Deserialize;
 
 use crate::ollama;
 use crate::ollama_types::{ReponseStraddleIA, RequeteStraddleIA};
+use crate::state::AppState;
 
 // ─── Struct interne pour parser la réponse JSON du LLM ───────────────────────
 
@@ -24,7 +26,12 @@ struct SignalStraddleBrut {
 // ─── POST /api/ia/signal/straddle ─────────────────────────────────────────────
 /// Génère un signal Straddle (Long + Short simultané) via Ollama.
 /// Déclencheurs : annonce HIGH impact, ATR × 1.4 en Kill Zone, ou pattern récurrent.
-pub async fn generer_signal_straddle(body: web::Json<RequeteStraddleIA>) -> impl Responder {
+/// S21 — les annonces HIGH impact dans les 2 prochaines heures sont auto-injectées
+/// depuis le cache calendrier si le client ne les fournit pas.
+pub async fn generer_signal_straddle(
+    state: web::Data<AppState>,
+    body: web::Json<RequeteStraddleIA>,
+) -> impl Responder {
     use common::{Direction, Signal};
 
     let kz = body
@@ -33,17 +40,63 @@ pub async fn generer_signal_straddle(body: web::Json<RequeteStraddleIA>) -> impl
 
     let sessions = body.sessions_actives.as_deref().unwrap_or(&[]).join(", ");
 
-    let annonces = body
-        .annonces_imminentes
-        .as_deref()
-        .unwrap_or(&[])
-        .join(", ");
+    // ── S21 : auto-injection annonces High < 2h ──────────────────────────────
+    let annonces_auto: Vec<String> = match &body.annonces_imminentes {
+        Some(a) => a.clone(),
+        None => {
+            let horizon = Utc::now() + Duration::hours(2);
+            match state.db.lire_calendrier_cache(7200).await {
+                Ok(cache) => cache
+                    .into_iter()
+                    .filter(|ev| {
+                        let est_high = ev["impact"].as_str() == Some("High");
+                        let avant_horizon = ev["date_heure"]
+                            .as_str()
+                            .and_then(|s| s.parse::<DateTime<Utc>>().ok())
+                            .map(|dt| dt > Utc::now() && dt <= horizon)
+                            .unwrap_or(false);
+                        est_high && avant_horizon
+                    })
+                    .map(|ev| {
+                        format!(
+                            "{} {} ({})",
+                            ev["devise"].as_str().unwrap_or("?"),
+                            ev["titre"].as_str().unwrap_or("?"),
+                            ev["date_heure"]
+                                .as_str()
+                                .unwrap_or("?")
+                                .get(11..16)
+                                .unwrap_or("?")
+                        )
+                    })
+                    .collect(),
+                Err(e) => {
+                    tracing::warn!("Straddle: lecture cache calendrier: {}", e);
+                    vec![]
+                }
+            }
+        }
+    };
+    let annonces = if annonces_auto.is_empty() {
+        "aucune".to_string()
+    } else {
+        annonces_auto.join(", ")
+    };
 
     let ratio_atr = if body.atr_moyen > 0.0 {
         body.atr_actuel / body.atr_moyen
     } else {
         1.0
     };
+
+    if !annonces_auto.is_empty() {
+        tracing::info!(
+            "Straddle {}: {} annonce(s) High < 2h injectées: {}",
+            body.asset,
+            annonces_auto.len(),
+            annonces
+        );
+    }
 
     let prompt = format!(
         "{}\n\nAsset: {} {}\n\
