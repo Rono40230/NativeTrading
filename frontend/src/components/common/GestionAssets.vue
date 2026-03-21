@@ -16,7 +16,7 @@
           class="flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 transition select-none"
           :class="estActif(a.id)
             ? 'border-emerald-500/40 bg-emerald-500/10'
-            : 'border-white/10 bg-white/5 opacity-60 hover:opacity-80'"
+            : 'border-white/20 bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/30'"
         >
           <input
             type="checkbox"
@@ -86,11 +86,11 @@ async function basculer(a: AssetInfo) {
   try {
     if (a.actif) {
       await apiService.supprimerAsset(a.id)
-      a.actif = false
     } else {
       await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], a.source ?? 'binance')
-      a.actif = true
     }
+    // Recharger la liste complète (actifs + inactifs) pour garder toutes les cartes visibles
+    tous.value = await apiService.obtenirAssets(true)
     await assetsStore.chargerAssets()
   } catch (e: unknown) {
     erreur.value = (e as Error).message ?? 'Erreur'
