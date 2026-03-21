@@ -99,12 +99,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onUnmounted, defineComponent, h } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineComponent, h } from 'vue'
 import { createChart, type IChartApi } from 'lightweight-charts'
 import { apiService } from '@/services/api.service'
 import type { BacktestResults } from '@/services/api.service'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useAlerteStore } from '@/stores/alerte.store'
+import { useAssetsStore } from '@/stores/assets.store'
 import TooltipInfo from '@/components/common/TooltipInfo.vue'
 import MonitoringML from '@/components/common/MonitoringML.vue'
 
@@ -126,7 +127,12 @@ const ObjectifLigne = defineComponent({
 
 const settingsStore = useSettingsStore()
 const alerteStore = useAlerteStore()
-const assets = ['BTC', 'ETH']
+const assetsStore = useAssetsStore()
+const assets = computed(() =>
+  assetsStore.assets.length > 0
+    ? assetsStore.assets.map(a => a.id)
+    : ['BTC', 'ETH']
+)
 const timeframes = ['M1', 'M5', 'M15', 'H1', 'H4', 'D1', 'W1']
 const asset = ref(settingsStore.assetActif)
 const timeframe = ref(settingsStore.timeframeActif)
@@ -195,7 +201,7 @@ watch(equityChart, (el, old) => {
   if (old) roEquity.disconnect()
 })
 
-onMounted(() => {})
+onMounted(() => assetsStore.chargerAssets())
 onUnmounted(() => {
   roEquity?.disconnect()
 })

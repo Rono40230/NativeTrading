@@ -138,6 +138,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { JOURS as jours, CLUSTERS as clusters, COULEURS_CLUSTER, COULEURS_CLUSTER_PLEIN } from './heatmapConstants'
 import { apiService } from '@/services/api.service'
 import type { ReponsePatternsVolatilite, AssetInfo } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'

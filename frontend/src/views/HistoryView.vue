@@ -14,7 +14,7 @@
     <div class="glass-card p-4 flex flex-wrap gap-3 items-center">
       <select v-model="filtreAsset" class="glass-select text-sm">
         <option value="">Tous les assets</option>
-        <option v-for="a in ['BTC', 'ETH']" :key="a" :value="a">{{ a }}</option>
+        <option v-for="a in assetsConnus" :key="a" :value="a">{{ a }}</option>
       </select>
       <select v-model="filtreDirection" class="glass-select text-sm">
         <option value="">Toutes directions</option>
@@ -103,6 +103,11 @@ const filtreDirection = ref('')
 const filtreStrategie = ref('')
 const pageCourante = ref(0)
 const PAR_PAGE = 8
+
+// Assets extraits dynamiquement des signaux chargés
+const assetsConnus = computed(() =>
+  [...new Set(signaux.value.map(s => s.asset))].sort()
+)
 
 const exportUrl = apiService.exportSignauxUrl(500)
 

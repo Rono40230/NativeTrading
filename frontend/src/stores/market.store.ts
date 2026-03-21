@@ -137,7 +137,6 @@ export const useMarketStore = defineStore('market', () => {
   }
 
   // ─── Prix live ticker dashboard (WS par asset : Binance pour crypto, IB pour le reste) ──────────
-  const CRYPTO_ASSETS = new Set(['BTC', 'ETH'])
   const prixLive = ref<Record<string, number>>({})
   const variationLive = ref<Record<string, number>>({})
   const wsLiveMap: Record<string, WebSocket> = {}
@@ -145,9 +144,7 @@ export const useMarketStore = defineStore('market', () => {
   function connecterPrixLiveAssets(assets: string[]) {
     assets.forEach(asset => {
       if (wsLiveMap[asset]) return
-      // M1 pour crypto (Binance, 24/7), M1 pour IB (métaux/forex/indices — markets hours)
-      const tf = CRYPTO_ASSETS.has(asset) ? 'M1' : 'M1'
-      const liveWs = new WebSocket(`${WS_URL}/api/stream?asset=${asset}&timeframe=${tf}`)
+      const liveWs = new WebSocket(`${WS_URL}/api/stream?asset=${asset}&timeframe=M1`)
       wsLiveMap[asset] = liveWs
 
       liveWs.onmessage = (event) => {

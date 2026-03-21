@@ -18,7 +18,7 @@
       <div>
         <label class="label">Asset</label>
         <select v-model="form.asset" class="glass-select w-full">
-          <option v-for="a in ['BTC', 'ETH']" :key="a" :value="a">{{ a }}</option>
+          <option v-for="a in assetsIds" :key="a" :value="a">{{ a }}</option>
         </select>
       </div>
       <div>
@@ -99,11 +99,18 @@ ollama serve</pre>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
+import { useAssetsStore } from '@/stores/assets.store'
 
 const alerteStore = useAlerteStore()
+const assetsStore = useAssetsStore()
+const assetsIds = computed(() =>
+  assetsStore.assets.length > 0
+    ? assetsStore.assets.map(a => a.id)
+    : ['BTC', 'ETH']
+)
 const chargement = ref(false)
 const ollamaOk = ref(false)
 const modeleActif = ref('qwen2.5:14b')
@@ -171,7 +178,10 @@ async function analyser() {
   }
 }
 
-onMounted(verifierStatut)
+onMounted(() => {
+  assetsStore.chargerAssets()
+  verifierStatut()
+})
 </script>
 
 <style scoped>

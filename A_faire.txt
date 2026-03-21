@@ -19,16 +19,7 @@ Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Dans le dashboard à quoi sert le bloc "Derniers signaux" ?
-Il doit lister les signaux pour tous les actifs présent dans le code.
-
---------------------------------------------------------------------------------------------------------------------------
-
-La modale qui s'affiche au clic sur le bouton "Analyse (IA)" dans la fenetre graphiques prend elle en compte le nouveau prompt SMC ?
-
---------------------------------------------------------------------------------------------------------------------------
-
-comment faire pour que l'app surveille en permanence les 13 actifs et génère des signaux pour chaque actif qui s'affichent dans le bloc "derniers signaux" du dashboard
+comment faire pour que l'app surveille en permanence les 13 actifs et génère des signaux pour chaque actif
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -36,13 +27,15 @@ Analyse ces bugs de terminal lorsque IB gateway est connecté.
 
 --------------------------------------------------------------------------------------------------------------------------
 
-L'asset ajouté n'apparait pas dans le dropdown "assets" de "données historiques"
+Maintenant que nous avons terminer l'implémentation complète de la roadmap où en est on des promptsSTRADDLE et promptsSMC ?
+Ont ils été corrigés/implémentés ?
+Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Si j'ajoute un asset déjà présent dans la liste de la page paramètres : j'ai ce message = Request failed with status code 409
+La modale qui s'affiche au clic sur le bouton "Analyse (IA)" dans la fenetre graphiques prend elle en compte le nouveau prompt SMC ?
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Il faut réorganiser l'affichage de la page paramètres.
-Affiche sur la meme ligne les 3 blocs IB gateway, compte et gestion du risque.
+rive Sud 
+jean charles moyen

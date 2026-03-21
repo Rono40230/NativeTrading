@@ -190,21 +190,7 @@ pub async fn generer_signal(body: web::Json<RequeteSignalIA>) -> impl Responder 
                 }));
             };
             let signal = if brut.direction != "Neutre" {
-                let asset = match body.asset.as_str() {
-                    "ETH" => Asset::ETH,
-                    "XAUUSD" => Asset::XAUUSD,
-                    "XAGUSD" => Asset::XAGUSD,
-                    "EURUSD" => Asset::EURUSD,
-                    "GBPJPY" => Asset::GBPJPY,
-                    "CADJPY" => Asset::CADJPY,
-                    "NZDJPY" => Asset::NZDJPY,
-                    "USDCAD" => Asset::USDCAD,
-                    "USDJPY" => Asset::USDJPY,
-                    "DAX" => Asset::DAX,
-                    "NAS100" => Asset::NAS100,
-                    "SP500" => Asset::SP500,
-                    _ => Asset::BTC,
-                };
+                let asset = crate::utils::parse_asset(&body.asset).unwrap_or(Asset::BTC);
                 let tf = match body.timeframe.as_str() {
                     "M1" => Timeframe::M1,
                     "M5" => Timeframe::M5,

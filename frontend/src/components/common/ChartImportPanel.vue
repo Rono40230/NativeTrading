@@ -112,17 +112,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useChartImport, renderMd } from '@/composables/useChartImport'
 import { useSettingsStore } from '@/stores/settings.store'
+import { useAssetsStore } from '@/stores/assets.store'
 
 const settingsStore = useSettingsStore()
+const assetsStore = useAssetsStore()
 
-const ASSETS = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD', 'EURUSD', 'GBPJPY', 'USDJPY', 'DAX', 'SP500']
+const ASSETS = computed(() =>
+  assetsStore.assets.length > 0
+    ? assetsStore.assets.map(a => a.id)
+    : ['BTC', 'ETH', 'XAUUSD', 'XAGUSD', 'EURUSD', 'GBPJPY', 'USDJPY', 'DAX', 'SP500']
+)
 const TIMEFRAMES = ['M1', 'M5', 'M15', 'H1', 'H4', 'D1']
 
 const asset = ref(settingsStore.assetActif)
 const fileInputEl = ref<HTMLInputElement | null>(null)
+
+onMounted(() => assetsStore.chargerAssets())
 
 const {
   images,

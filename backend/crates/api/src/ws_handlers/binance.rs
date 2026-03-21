@@ -8,8 +8,16 @@ use super::types::{BinanceKlineMsg, CandleData, CandleEvent};
 
 pub(super) fn binance_stream_url(asset: &common::Asset, tf: &common::Timeframe) -> String {
     let symbol = match asset {
-        common::Asset::BTC => "btcusdt",
-        common::Asset::ETH => "ethusdt",
+        common::Asset::BTC  => "btcusdt",
+        common::Asset::ETH  => "ethusdt",
+        common::Asset::SOL  => "solusdt",
+        common::Asset::BNB  => "bnbusdt",
+        common::Asset::XRP  => "xrpusdt",
+        common::Asset::ADA  => "adausdt",
+        common::Asset::DOGE => "dogeusdt",
+        common::Asset::AVAX => "avaxusdt",
+        common::Asset::LINK => "linkusdt",
+        common::Asset::DOT  => "dotusdt",
         _ => "btcusdt",
     };
     let interval = match tf {

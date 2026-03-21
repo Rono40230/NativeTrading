@@ -183,22 +183,7 @@ pub async fn generer_signal_straddle(
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 fn parse_asset(s: &str) -> common::Asset {
-    use common::Asset;
-    match s {
-        "ETH" => Asset::ETH,
-        "XAUUSD" => Asset::XAUUSD,
-        "XAGUSD" => Asset::XAGUSD,
-        "EURUSD" => Asset::EURUSD,
-        "GBPJPY" => Asset::GBPJPY,
-        "CADJPY" => Asset::CADJPY,
-        "NZDJPY" => Asset::NZDJPY,
-        "USDCAD" => Asset::USDCAD,
-        "USDJPY" => Asset::USDJPY,
-        "DAX" => Asset::DAX,
-        "NAS100" => Asset::NAS100,
-        "SP500" => Asset::SP500,
-        _ => Asset::BTC,
-    }
+    crate::utils::parse_asset(s).unwrap_or(common::Asset::BTC)
 }
 
 fn parse_timeframe(s: &str) -> common::Timeframe {
