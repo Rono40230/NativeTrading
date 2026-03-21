@@ -27,13 +27,15 @@ pub async fn get_calendar(
     state: web::Data<AppState>,
     query: web::Query<CalendarQuery>,
 ) -> impl Responder {
-    let jours = query.days.unwrap_or(3).clamp(1, 14);
+    let jours = query.days.unwrap_or(7).clamp(1, 14);
     let ttl = 3600i64;
+
+    // Fenêtre : événements des 12 dernières heures jusqu'à `jours` jours dans le futur
+    let debut = Utc::now() - Duration::hours(12);
 
     // 1. Lecture cache SQLite
     match state.db.lire_calendrier_cache(ttl).await {
         Ok(cached) if !cached.is_empty() => {
-            let maintenant = Utc::now().timestamp();
             let limite = (Utc::now() + Duration::days(jours)).timestamp();
             let filtrees: Vec<serde_json::Value> = cached
                 .into_iter()
@@ -43,10 +45,15 @@ pub async fn get_calendar(
                         .and_then(|s| s.parse::<DateTime<Utc>>().ok())
                         .map(|d| d.timestamp())
                         .unwrap_or(0);
-                    ts >= maintenant && ts <= limite
+                    ts >= debut.timestamp() && ts <= limite
                 })
                 .collect();
-            return HttpResponse::Ok().json(filtrees);
+            // Si des événements sont encore dans la fenêtre, servir depuis le cache
+            if !filtrees.is_empty() {
+                return HttpResponse::Ok().json(filtrees);
+            }
+            // Tous passés → re-fetch
+            tracing::info!("Cache calendrier: tous événements passés, re-fetch");
         }
         Err(e) => tracing::warn!("Lecture cache calendrier: {}", e),
         _ => {}
@@ -72,19 +79,25 @@ pub async fn get_calendar(
     ];
 
     let maintenant = Utc::now();
+    let seuil_inclusion = maintenant - Duration::hours(12);
     let mut toutes: Vec<serde_json::Value> = Vec::new();
 
     for url in &urls {
-        let events: Vec<FfEvent> = match client.get(*url).send().await {
-            Ok(resp) => match resp.json().await {
-                Ok(v) => v,
-                Err(e) => {
-                    tracing::warn!("Parse ForexFactory {}: {}", url, e);
-                    continue;
-                }
-            },
+        let resp = match client.get(*url).send().await {
+            Ok(r) if r.status().is_success() => r,
+            Ok(r) => {
+                tracing::debug!("ForexFactory {} → HTTP {}", url, r.status());
+                continue;
+            }
             Err(e) => {
                 tracing::warn!("Fetch ForexFactory {}: {}", url, e);
+                continue;
+            }
+        };
+        let events: Vec<FfEvent> = match resp.json().await {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!("Parse ForexFactory {}: {}", url, e);
                 continue;
             }
         };
@@ -97,9 +110,11 @@ pub async fn get_calendar(
                 Ok(dt) => dt.into(),
                 Err(_) => continue,
             };
-            if dt_utc < maintenant {
+            // Inclure événements des 12 dernières heures (récents mais passés)
+            if dt_utc < seuil_inclusion {
                 continue;
             }
+            let est_passe = dt_utc < maintenant;
             let id = format!("{}-{}-{}", dt_utc.timestamp(), ev.country, ev.title.len());
             toutes.push(serde_json::json!({
                 "id":        id,
@@ -109,6 +124,7 @@ pub async fn get_calendar(
                 "impact":    ev.impact,
                 "precedent": ev.previous,
                 "prevision": ev.forecast,
+                "est_passe": est_passe,
             }));
         }
     }
@@ -138,7 +154,7 @@ pub async fn get_calendar(
                 .and_then(|s| s.parse::<DateTime<Utc>>().ok())
                 .map(|d| d.timestamp())
                 .unwrap_or(0);
-            ts >= maintenant.timestamp() && ts <= limite
+            ts >= seuil_inclusion.timestamp() && ts <= limite
         })
         .collect();
 
