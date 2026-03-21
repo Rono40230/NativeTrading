@@ -25,7 +25,11 @@ pub async fn get_patterns(
     let timeframe = utils::parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
     let mois = query.mois.unwrap_or(12).clamp(1, 60);
 
-    match state.db.obtenir_patterns_horaires(&asset, &timeframe, mois).await {
+    match state
+        .db
+        .obtenir_patterns_horaires(&asset, &timeframe, mois)
+        .await
+    {
         Ok(rep) => HttpResponse::Ok().json(rep),
         Err(e) => {
             HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
