@@ -19,7 +19,7 @@ Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-
+comment faire pour que l'app surveille en permanence les 13 actifs et génère des signaux pour chaque actif qui s'affichent dans le bloc "derniers signaux" du dashboard
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -28,11 +28,7 @@ Il doit lister les signaux pour tous les actifs présent dans le code.
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Comment est actuellement calculé le bloc "Score SMC" ? Doit on modifier ce calcul maintenant que tous les indicateurs et toutes les métriques sont à jour ? Répond sans coder.
-
---------------------------------------------------------------------------------------------------------------------------
-
-
+La modale qui s'affiche au clic sur le bouton "Analyse (IA)" dans la fenetre graphiques prend elle en compte le nouveau prompt SMC ?
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -44,11 +40,4 @@ Analyse ces bugs de terminal lorsque IB gateway est connecté.
 
 --------------------------------------------------------------------------------------------------------------------------
 
-
-
---------------------------------------------------------------------------------------------------------------------------
-
-
-
---------------------------------------------------------------------------------------------------------------------------
 

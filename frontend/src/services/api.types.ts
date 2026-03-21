@@ -60,6 +60,22 @@ export interface HistoriqueML {
   nb_entrainements: number
 }
 
+export interface PatternHoraire {
+  heure: number        // 0-23 UTC
+  jour_semaine: number // 0=dim, 1=lun, ..., 6=sam
+  atr_moyen: number
+  nb_points: number
+  cluster: number      // 0=calme, 1=modéré, 2=élevé, 3=extrême
+}
+
+export interface ReponsePatternsVolatilite {
+  patterns: PatternHoraire[]
+  seuil_straddle_calibre: number
+  nb_points_total: number
+  asset: string
+  timeframe: string
+}
+
 export interface RequeteAnalyseIA {
   asset: string
   timeframe: string

@@ -1,14 +1,32 @@
 <template>
   <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between flex-wrap gap-3">
       <h1 class="text-2xl font-bold">🌡 Heatmap Volatilité</h1>
-      <div class="flex items-center gap-3">
-        <span class="text-xs text-gray-400">MAJ auto toutes les 60s</span>
-        <button class="btn-sm" :disabled="chargement" @click="actualiser">
-          {{ chargement ? '⏳' : '🔄' }} Actualiser
-        </button>
+      <!-- Sélecteur d'onglets -->
+      <div class="flex rounded-lg overflow-hidden border border-white/10">
+        <button
+          class="px-4 py-2 text-sm font-medium transition-colors"
+          :class="onglet === 'atr' ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'"
+          @click="onglet = 'atr'"
+        >Heatmap ATR</button>
+        <button
+          class="px-4 py-2 text-sm font-medium transition-colors"
+          :class="onglet === 'horaire' ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'"
+          @click="onglet = 'horaire'"
+        >Patterns Horaires</button>
       </div>
     </div>
+
+    <!-- Onglet Heatmap ATR (existant) -->
+    <template v-if="onglet === 'atr'">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3 ml-auto">
+          <span class="text-xs text-gray-400">MAJ auto toutes les 60s</span>
+          <button class="btn-sm" :disabled="chargement" @click="actualiser">
+            {{ chargement ? '⏳' : '🔄' }} Actualiser
+          </button>
+        </div>
+      </div>
 
     <!-- Légende -->
     <div class="glass-card p-3 flex items-center gap-4 flex-wrap">
@@ -73,6 +91,12 @@
         </div>
       </div>
     </div>
+    </template>
+
+    <!-- Onglet Patterns Horaires (S21) -->
+    <template v-if="onglet === 'horaire'">
+      <HoraireHeatmap />
+    </template>
   </div>
 </template>
 
@@ -81,7 +105,9 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { Candle } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
+import HoraireHeatmap from '@/components/common/HoraireHeatmap.vue'
 
+const onglet = ref<'atr' | 'horaire'>('atr')
 const alerteStore = useAlerteStore()
 const assets = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD']
 const timeframes = ['M5', 'M15', 'H1', 'H4', 'D1']

@@ -26,6 +26,7 @@ mod state;
 mod straddle_handlers;
 mod tendance_handlers;
 mod utils;
+mod volatility_handlers;
 mod ws_handlers;
 
 use state::AppState;
@@ -155,6 +156,10 @@ async fn main() -> std::io::Result<()> {
                 web::post().to(data_handlers::post_collect),
             )
             .route("/api/ml/history", web::get().to(ml_handlers::historique_ml))
+            .route(
+                "/api/volatility/patterns",
+                web::get().to(volatility_handlers::get_patterns),
+            )
     })
     .bind(("0.0.0.0", 8080))?
     .run()

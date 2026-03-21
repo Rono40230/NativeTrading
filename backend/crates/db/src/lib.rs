@@ -1,4 +1,5 @@
 pub mod entrainements;
+pub mod volatilite;
 
 use chrono::{TimeZone, Utc};
 use common::{Asset, Candle, Result, Signal, Timeframe, TradingError};

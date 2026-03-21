@@ -256,12 +256,12 @@
 > Dépend de la collecte S19 — nécessite 6 mois d'historique minimum
 > Le prompt Straddle définitif (`promptSTRADDLE.md`) est prêt — S21 l'alimente en données historiques
 
-- [ ] Analyse distribution ATR par heure du jour et jour de la semaine
-- [ ] Identification patterns récurrents : ouvertures marché, annonces économiques
-- [ ] Clustering k-means sur features temporelles (heure, jour, session)
-- [ ] Calibration automatique des seuils ATR pour la stratégie Straddle
-- [ ] Rapport `GET /api/volatility/patterns` — heatmap horaire des pics ATR
-- [ ] Visualisation dans `HeatmapView.vue` (axe heure du jour en plus de l'axe asset)
+- [x] Analyse distribution ATR par heure du jour et jour de la semaine
+- [x] Identification patterns récurrents : ouvertures marché, annonces économiques
+- [x] Clustering k-means sur features temporelles (heure, jour, session)
+- [x] Calibration automatique des seuils ATR pour la stratégie Straddle
+- [x] Rapport `GET /api/volatility/patterns` — heatmap horaire des pics ATR
+- [x] Visualisation dans `HeatmapView.vue` (axe heure du jour en plus de l'axe asset)
 - [ ] Enrichissement contexte LLM Straddle : injecter les annonces High (<2h) dans
       le prompt Ollama avant décision (`/api/calendar` → champ `annonces_imminentes`)
 

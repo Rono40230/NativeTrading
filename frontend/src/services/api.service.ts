@@ -9,7 +9,7 @@ export type {
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
   SentimentMarche, EntiteSentiment, ArticleNews, AlertesNews, NiveauAlerte, ContenuArticle, TraductionReponse,
   StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, ResultatCollecteItem,
-  HistoriqueEntrainement, HistoriqueML,
+  HistoriqueEntrainement, HistoriqueML, PatternHoraire, ReponsePatternsVolatilite,
 } from './api.types'
 
 import type {
@@ -18,7 +18,7 @@ import type {
   ReponseEntrainement, ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
   ModeCalculTendance, AnnonceCalendrier, SentimentMarche, AlertesNews, ContenuArticle, TraductionReponse,
-  StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, HistoriqueML,
+  StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, HistoriqueML, ReponsePatternsVolatilite,
 } from './api.types'
 
 const BASE_URL = 'http://localhost:8080'
@@ -218,6 +218,14 @@ export const apiService = {
 
   async obtenirHistoriqueML(limit = 30): Promise<HistoriqueML> {
     const res = await http.get('/api/ml/history', { params: { limit } })
+    return res.data
+  },
+
+  async obtenirPatternsVolatilite(
+    asset = 'BTC',
+    timeframe = 'M15',
+  ): Promise<ReponsePatternsVolatilite> {
+    const res = await http.get('/api/volatility/patterns', { params: { asset, timeframe } })
     return res.data
   },
 }
