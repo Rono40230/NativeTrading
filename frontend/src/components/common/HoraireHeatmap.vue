@@ -23,7 +23,7 @@
     <div v-if="reponse" class="glass-card p-4 flex flex-wrap items-center gap-4">
       <div>
         <p class="text-xs text-gray-400 mb-0.5">Seuil Straddle calibré (P85)</p>
-        <p class="text-lg font-bold text-yellow-400">{{ reponse.seuil_straddle_calibre.toFixed(4) }}</p>
+        <p class="text-lg font-bold text-yellow-400">{{ reponse.seuil_straddle_calibre.toFixed(1) }}</p>
       </div>
       <p class="text-xs text-gray-500 max-w-sm">
         ATR moyen au 85ème percentile sur l'historique. Le Straddle se déclenche quand l'ATR courant dépasse ce seuil.
@@ -116,7 +116,7 @@
           <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Maintenant — {{ analyse.hParisActuelle }}h Paris</p>
           <template v-if="analyse.patternActuel">
             <p :class="COULEUR_CLUSTER_TEXTE[analyse.patternActuel.cluster]" class="text-sm font-semibold">
-              {{ NOM_CLUSTER[analyse.patternActuel.cluster] }} — ATR moyen {{ analyse.patternActuel.atr_moyen.toFixed(4) }}
+              {{ NOM_CLUSTER[analyse.patternActuel.cluster] }} — ATR moyen {{ analyse.patternActuel.atr_moyen.toFixed(1) }}
             </p>
             <p class="text-xs text-gray-500">{{ analyse.patternActuel.cluster >= 2 ? 'Fenêtre favorable au trading actif.' : 'Attendre une fenêtre plus volatile.' }}</p>
           </template>
@@ -237,7 +237,7 @@ function celluleTitre(heure: number, jour: number): string {
   const hParis = heureParis(heure)
   if (!p) return `${jours[jour]?.label} — ${hParis}h Paris (${ZONE_PARIS}) — aucune donnée`
   const nomCluster = ['Calme', 'Modéré', 'Élevé', 'Extrême'][p.cluster] ?? '?'
-  return `${jours[jour]?.label} ${hParis}h Paris (${ZONE_PARIS}) | ATR: ${p.atr_moyen.toFixed(4)} | ${nomCluster} | ${p.nb_points} pts`
+  return `${jours[jour]?.label} ${hParis}h Paris (${ZONE_PARIS}) | ATR: ${p.atr_moyen.toFixed(1)} | ${nomCluster} | ${p.nb_points} pts`
 }
 
 const NOM_CLUSTER = ['Calme', 'Modéré', 'Élevé', 'Extrême'] as const
