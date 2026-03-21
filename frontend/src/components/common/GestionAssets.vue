@@ -102,7 +102,7 @@ async function basculer(a: AssetInfo) {
 }
 
 onMounted(async () => {
-  tous.value = await apiService.obtenirAssets(true)
+  tous.value = await apiService.obtenirAssets()
 })
 </script>
 

@@ -14,17 +14,19 @@ pub struct AjoutAssetBody {
 
 #[derive(serde::Deserialize)]
 pub struct QueryLister {
-    // Accepte "true", "1", "yes" — serde_urlencoded ne parse pas bool depuis string
-    pub tous: Option<String>,
+    // Par défaut : retourner TOUS les assets (actifs + inactifs)
+    // Passer ?actifs=true pour ne recevoir que les actifs
+    pub actifs: Option<String>,
 }
 
-/// GET /api/assets — liste les assets (actifs par défaut, tous si ?tous=true ou ?tous=1)
+/// GET /api/assets — retourne TOUS les assets par défaut (actifs + inactifs)
+/// GET /api/assets?actifs=true — retourne uniquement les assets actifs
 pub async fn lister_assets(state: web::Data<AppState>, query: web::Query<QueryLister>) -> impl Responder {
-    let afficher_tous = matches!(query.tous.as_deref(), Some("true") | Some("1") | Some("yes"));
-    let res = if afficher_tous {
-        state.db.lister_tous_assets().await
+    let actifs_seulement = matches!(query.actifs.as_deref(), Some("true") | Some("1"));
+    let res = if actifs_seulement {
+        state.db.lister_assets().await       // actifs uniquement
     } else {
-        state.db.lister_assets().await
+        state.db.lister_tous_assets().await  // tous (actifs + inactifs)
     };
     match res {
         Ok(assets) => HttpResponse::Ok().json(assets),
