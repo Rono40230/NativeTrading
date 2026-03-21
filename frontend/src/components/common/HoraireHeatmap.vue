@@ -55,7 +55,8 @@
               <div
                 class="w-full h-8 rounded flex items-center justify-center cursor-default transition-transform hover:scale-110"
                 :style="celluleStyle(h, j.index)"
-                :title="celluleTitre(h, j.index)"
+                @mouseenter="(e) => afficherTooltip(e, h, j.index)"
+                @mouseleave="masquerTooltip"
               >
                 <span v-if="cellulePoints(h, j.index) > 0" class="text-[10px] text-white/80 font-mono leading-none">
                   {{ celluleAtr(h, j.index).toFixed(1) }}
@@ -71,6 +72,14 @@
     <div v-else-if="!chargement" class="glass-card p-8 text-center text-gray-500 text-sm">
       Sélectionnez un asset et un timeframe puis cliquez sur Charger.
     </div>
+
+    <!-- Tooltip cellule heatmap -->
+    <Teleport v-if="tooltipVisible" to="body">
+      <div
+        class="fixed z-[9999] px-3 py-2 text-xs text-gray-200 bg-gray-950 border border-white/10 rounded-lg shadow-2xl pointer-events-none whitespace-nowrap"
+        :style="{ top: `${tooltipPos.top}px`, left: `${tooltipPos.left}px`, transform: 'translate(-50%, calc(-100% - 8px))' }"
+      >{{ tooltipTexte }}</div>
+    </Teleport>
   </div>
 </template>
 
@@ -89,6 +98,20 @@ const chargement = ref(false)
 const reponse = ref<ReponsePatternsVolatilite | null>(null)
 
 const heures = Array.from({ length: 24 }, (_, i) => i)
+
+const tooltipVisible = ref(false)
+const tooltipTexte = ref('')
+const tooltipPos = ref({ top: 0, left: 0 })
+
+function afficherTooltip(e: MouseEvent, heure: number, jour: number) {
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  tooltipPos.value = { top: rect.top, left: rect.left + rect.width / 2 }
+  tooltipTexte.value = celluleTitre(heure, jour)
+  tooltipVisible.value = true
+}
+function masquerTooltip() {
+  tooltipVisible.value = false
+}
 
 const jours = [
   { index: 0, label: 'Dim' },
