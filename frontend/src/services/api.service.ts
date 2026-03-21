@@ -39,6 +39,19 @@ export const apiService = {
     return res.data
   },
 
+  async ajouterAsset(
+    id: string,
+    nom: string,
+    type: AssetInfo['type'],
+    source: 'binance' | 'ib',
+  ): Promise<void> {
+    await http.post('/api/assets', { id, nom, type, source })
+  },
+
+  async supprimerAsset(id: string): Promise<void> {
+    await http.delete(`/api/assets/${id}`)
+  },
+
   async getCandles(asset: string, timeframe = 'M15', limit = 200, force = false): Promise<Candle[]> {
     const res = await http.get('/api/candles', {
       params: { asset, timeframe, limit, ...(force ? { force: true } : {}) },

@@ -74,6 +74,7 @@ import { useNewsStore } from '@/stores/news.store'
 import { useSignalEngine } from '@/composables/useSignalEngine'
 import { apiService } from '@/services/api.service'
 import type { BacktestResults, Candle } from '@/services/api.service'
+import { useAssetsStore } from '@/stores/assets.store'
 import MarketClocks from '@/components/common/MarketClocks.vue'
 import EconomicCalendar from '@/components/common/EconomicCalendar.vue'
 import SentimentMarche from '@/components/common/SentimentMarche.vue'
@@ -90,6 +91,7 @@ const signalStore = useSignalStore()
 const settingsStore = useSettingsStore()
 const marketStore = useMarketStore()
 const newsStore = useNewsStore()
+const assetsStore = useAssetsStore()
 
 const {
   actif: engineActif,
@@ -126,7 +128,7 @@ async function chargerPrixActifs() {
     return a != null && b != null && b !== 0 ? ((a - b) / b) * 100 : null
   }
   try {
-    const liste = await apiService.obtenirAssets()
+    const liste = assetsStore.assets
     assetsAvecPrix.value = liste.map(a => ({ id: a.id, prix: null, variation: null, variationsMultiTF: null, clotures: {}, chargement: true }))
     await Promise.allSettled(liste.map(async (a, i) => {
       try {

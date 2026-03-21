@@ -139,13 +139,14 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { apiService } from '@/services/api.service'
-import type { ReponsePatternsVolatilite, AssetInfo } from '@/services/api.service'
+import type { ReponsePatternsVolatilite } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useHoraireAnalyse } from '@/composables/useHoraireAnalyse'
+import { useAssetsStore } from '@/stores/assets.store'
 
 const alerteStore = useAlerteStore()
-const assetsInfos = ref<AssetInfo[]>([])
-const assets = computed(() => assetsInfos.value.map(a => a.id))
+const assetsStore = useAssetsStore()
+const assets = computed(() => assetsStore.assets.map(a => a.id))
 const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const periodesDisponibles = [6, 12, 18, 24]
 const asset = ref('BTC')
@@ -156,7 +157,7 @@ const reponse = ref<ReponsePatternsVolatilite | null>(null)
 
 /** Unité selon le type d'asset sélectionné. */
 const unite = computed(() => {
-  const info = assetsInfos.value.find(a => a.id === asset.value)
+  const info = assetsStore.assets.find(a => a.id === asset.value)
   return info?.type === 'crypto' ? '$' : 'pts'
 })
 
@@ -258,7 +259,6 @@ async function charger() {
 }
 
 onMounted(async () => {
-  assetsInfos.value = await apiService.obtenirAssets()
   await charger()
 })
 </script>

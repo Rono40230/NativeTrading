@@ -1,6 +1,7 @@
 use actix_cors::Cors;
 use actix_web::{http::header, middleware, web, App, HttpServer};
 
+mod assets_handlers;
 mod backtest_handlers;
 mod calendar_handlers;
 mod config_handlers;
@@ -69,7 +70,9 @@ async fn main() -> std::io::Result<()> {
             .wrap(middleware::Logger::default())
             .wrap(cors)
             .route("/health", web::get().to(handlers::health_check))
-            .route("/api/assets", web::get().to(handlers::get_assets))
+            .route("/api/assets", web::get().to(assets_handlers::lister_assets))
+            .route("/api/assets", web::post().to(assets_handlers::ajouter_asset))
+            .route("/api/assets/{id}", web::delete().to(assets_handlers::supprimer_asset))
             .route("/api/candles", web::get().to(handlers::get_candles))
             .route("/api/signaux", web::get().to(handlers::get_signaux))
             .route("/api/ml/predict", web::get().to(handlers::predict_ml))

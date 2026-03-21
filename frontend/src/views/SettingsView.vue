@@ -107,6 +107,9 @@
         <p class="text-xs text-gray-500 mt-1">Max 2% recommandé (limite absolue : 2%)</p>
       </div>
     </div>
+
+    <!-- Assets -->
+    <GestionAssets />
   </div>
 </template>
 
@@ -114,6 +117,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useSettingsStore } from '@/stores/settings.store'
 import { apiService } from '@/services/api.service'
+import GestionAssets from '@/components/common/GestionAssets.vue'
 
 const settingsStore = useSettingsStore()
 const capitalSaisie = ref(settingsStore.capitalDepart)

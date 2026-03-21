@@ -1,3 +1,4 @@
+pub mod assets;
 pub mod bougies;
 pub mod calendrier;
 pub mod config;

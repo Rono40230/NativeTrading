@@ -11,9 +11,14 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import SideBar from './components/common/SideBar.vue'
 import ToastAlerte from './components/common/ToastAlerte.vue'
+import { useAssetsStore } from '@/stores/assets.store'
+
+const assetsStore = useAssetsStore()
+onMounted(() => assetsStore.chargerAssets())
 </script>
 
 <style>
