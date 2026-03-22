@@ -19,6 +19,8 @@ mod news_traduction;
 mod ollama;
 mod ollama_handlers;
 mod ollama_types;
+mod rockets_handlers;
+mod rockets_scan;
 mod scheduler;
 mod sentiment_handlers;
 mod signal_engine;
@@ -51,6 +53,12 @@ async fn main() -> std::io::Result<()> {
     };
 
     tracing::info!("🌐 Server running on http://0.0.0.0:8080");
+
+    let pool_rockets = app_state.db.pool().clone();
+    tokio::spawn(rockets_handlers::demarrer_worker_suivi(pool_rockets));
+
+    let pool_scan = app_state.db.pool().clone();
+    tokio::spawn(rockets_scan::demarrer_worker_scan(pool_scan));
 
     HttpServer::new(move || {
         // CORS limité au dev Tauri uniquement — en production l'app est native (fenêtre Tauri)
@@ -165,6 +173,18 @@ async fn main() -> std::io::Result<()> {
                 web::post().to(data_handlers::post_collect),
             )
             .route("/api/ml/history", web::get().to(ml_handlers::historique_ml))
+            .route(
+                "/api/rockets/signal",
+                web::post().to(rockets_handlers::sauvegarder_signal),
+            )
+            .route(
+                "/api/rockets/scan",
+                web::get().to(rockets_handlers::get_scan),
+            )
+            .route(
+                "/api/rockets/historique",
+                web::get().to(rockets_handlers::get_historique),
+            )
             .route(
                 "/api/volatility/patterns",
                 web::get().to(volatility_handlers::get_patterns),

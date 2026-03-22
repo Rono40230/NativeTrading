@@ -2,9 +2,16 @@
   <div class="glass-card p-4">
     <!-- En-tête -->
     <div class="mb-3 flex items-center justify-between shrink-0">
-      <p class="text-[11px] font-semibold uppercase tracking-widest text-white">
-        ⚡ Alertes Cryptos — Top 20 hausse 24h
-      </p>
+      <div class="flex items-center gap-3 flex-wrap">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-white">
+          ⚡ Alertes Cryptos — Top 20 hausse 24h
+        </p>
+        <div class="flex items-center gap-3 text-[9px] font-medium">
+          <span class="text-red-400">🚀 Explosion</span>
+          <span class="text-orange-400">⚡ Breakout</span>
+          <span class="text-yellow-400">🔥 Chaud</span>
+        </div>
+      </div>
       <div class="flex items-center gap-2">
         <span v-if="erreur" class="text-[10px] text-red-400">Binance indisponible</span>
         <div v-if="chargement" class="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
@@ -23,30 +30,28 @@
     </div>
 
     <!-- Squelette chargement -->
-    <div v-else-if="top20.length === 0 && chargement" class="grid grid-cols-5 gap-2">
+    <div v-else-if="top20.length === 0 && chargement" class="grid grid-cols-6 gap-2">
       <div
         v-for="n in 15"
         :key="n"
-        class="rounded-lg border border-white/5 bg-white/5 px-3 py-2 h-[60px] animate-pulse"
+        class="rounded-lg border border-white/5 bg-white/5 px-3 py-2 h-[36px] animate-pulse"
       />
     </div>
 
     <!-- Grille 5 colonnes, scroll après 3 lignes, triée score décroissant -->
-    <div v-else class="grid grid-cols-5 gap-2 overflow-y-auto scroll-zone" style="max-height: calc(3 * 68px + 2 * 8px)">
+    <div v-else class="grid grid-cols-6 gap-2 overflow-y-auto scroll-zone" style="max-height: calc(3 * 44px + 2 * 8px)">
       <div
         v-for="c in top20ParScore"
         :key="c.symbol"
-        class="rounded-lg border px-3 py-2 flex flex-col gap-0.5 transition-colors hover:brightness-125 cursor-default"
+        class="rounded-lg border px-2.5 py-1.5 flex items-center gap-1.5 transition-colors hover:brightness-125 cursor-default"
         :class="classeCard(c.badge)"
         @mouseenter="onCardEnter($event, c)"
         @mouseleave="onCardLeave"
       >
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-white truncate mr-1">{{ c.ticker }}</span>
-          <span class="text-[11px] shrink-0">{{ icone(c.badge) }}</span>
-        </div>
-        <span class="text-[11px] font-bold text-emerald-400">+{{ c.change24h.toFixed(2) }}%</span>
-        <span class="text-[9px] text-gray-500">{{ formatVolume(c.volume24h) }}</span>
+        <span class="text-[11px] font-bold text-white truncate flex-1 min-w-0">{{ c.ticker }}</span>
+        <span class="text-[10px] shrink-0">{{ icone(c.badge) }}</span>
+        <span class="text-[10px] font-bold text-emerald-400 shrink-0">+{{ c.change24h.toFixed(2) }}%</span>
+        <span class="text-[9px] text-gray-500 shrink-0">{{ formatVolume(c.volume24h) }}</span>
       </div>
     </div>
   </div>
@@ -56,7 +61,7 @@
       <div
         v-if="hovered"
         class="fixed z-[9999] w-64 rounded-xl border border-white/20 p-4 shadow-2xl"
-        :style="{ top: pos.y + 'px', left: pos.x + 'px', transform: 'translateX(-50%)', background: '#0b0f28' }"
+        :style="{ top: pos.y + 'px', left: pos.x + 'px', transform: 'translateX(-50%) translateY(-100%)', background: '#0b0f28' }"
         @mouseenter="onTipEnter"
         @mouseleave="onTipLeave"
       >
@@ -200,7 +205,7 @@ function onCardEnter(event: MouseEvent, c: CryptoAlert) {
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const rawX = rect.left + rect.width / 2
   const clampedX = Math.max(136, Math.min(window.innerWidth - 136, rawX))
-  pos.value = { x: clampedX, y: rect.bottom + 8 }
+  pos.value = { x: clampedX, y: rect.top - 8 }
   if (hovered.value?.ticker !== c.ticker) fetchSparkline(c.ticker)
   hovered.value = c
 }
@@ -216,6 +221,6 @@ function onTipLeave() { leaveTimer = setTimeout(() => { hovered.value = null }, 
 .scroll-zone::-webkit-scrollbar-track { background: transparent; }
 .scroll-zone::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 .tooltip-enter-active, .tooltip-leave-active { transition: opacity 0.12s, transform 0.12s; }
-.tooltip-enter-from, .tooltip-leave-to { opacity: 0; transform: translateX(-50%) translateY(-4px); }
-.tooltip-enter-to, .tooltip-leave-from { opacity: 1; transform: translateX(-50%) translateY(0); }
+.tooltip-enter-from, .tooltip-leave-to { opacity: 0; transform: translateX(-50%) translateY(calc(-100% + 6px)); }
+.tooltip-enter-to, .tooltip-leave-from { opacity: 1; transform: translateX(-50%) translateY(-100%); }
 </style>

@@ -250,4 +250,18 @@ export const apiService = {
   async supprimerAsset(id: string): Promise<void> {
     await http.delete(`/api/assets/${encodeURIComponent(id)}`)
   },
+
+  async sauvegarderRocket(signal: import('./api.types').RocketSignalSave): Promise<void> {
+    await http.post('/api/rockets/signal', signal)
+  },
+
+  async getRocketsScan(): Promise<unknown> {
+    const res = await http.get('/api/rockets/scan')
+    return res.data
+  },
+
+  async historiqueRockets(limite = 50): Promise<import('./api.types').RocketSignalHistorique[]> {
+    const res = await http.get('/api/rockets/historique', { params: { limite } })
+    return res.data
+  },
 }

@@ -123,32 +123,6 @@ Layer 1: Models (common types)
 
 **Si besoin partage** → Extraire dans \`common\` (Layer 1)
 
-### 4. Naming Convention (Métier Français Prioritaire)
-**Backend Rust** :
-\`\`\`rust
-// ✅ Métier en français
-fn calculer_volatilite() -> f64 { }
-fn detecter_order_block() -> Option<OrderBlock> { }
-struct Signal { prix_entree: f64, stop_loss: f64 }
-let volume_moyen = calculer_moyenne(&volumes);
-
-// ⚠️ APIs standard anglais OK
-fn parse() { }
-fn serialize() { }
-\`\`\`
-
-**Frontend Vue/TS** :
-\`\`\`typescript
-// ✅ Métier en français
-function calculerRendement(capital: number): number { }
-const signalActif = ref<Signal | null>(null)
-const tauxReussite = computed(() => ...)
-
-// ⚠️ Composants anglais OK
-<SignalCard :signal="signal" />
-<ChartView :data="data" />
-\`\`\`
-
 ---
 
 ## 🛠️ WORKFLOW DÉVELOPPEMENT (3 PHASES)

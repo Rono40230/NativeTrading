@@ -135,7 +135,7 @@ pub async fn get_sentiment_marche(_state: web::Data<AppState>) -> impl Responder
     };
 
     // Toutes les requêtes en parallèle — dégradation silencieuse par source
-    let (sp500, nasdaq, dji, n100, dax, cac, or_, petrole, agri, btc, eth, vix_raw) = tokio::join!(
+    let (sp500, nasdaq, dji, n100, dax, cac, or_, argent, petrole, agri, btc, eth, vix_raw) = tokio::join!(
         fetch_yahoo(&client, "%5EGSPC", "S&P500"),
         fetch_yahoo(&client, "%5EIXIC", "Nasdaq"),
         fetch_yahoo(&client, "%5EDJI", "Dow Jones"),
@@ -143,6 +143,7 @@ pub async fn get_sentiment_marche(_state: web::Data<AppState>) -> impl Responder
         fetch_yahoo(&client, "%5EGDAXI", "Dax"),
         fetch_yahoo(&client, "%5EFCHI", "Cac 40"),
         fetch_yahoo(&client, "GC%3DF", "Or"),
+        fetch_yahoo(&client, "SI%3DF", "Argent"),
         fetch_yahoo(&client, "CL%3DF", "Pétrole"),
         fetch_yahoo(&client, "ZC%3DF", "Agriculture"),
         fetch_binance(&client, "BTCUSDT", "Bitcoin"),
@@ -154,7 +155,7 @@ pub async fn get_sentiment_marche(_state: web::Data<AppState>) -> impl Responder
         date: Utc::now().format("%Y-%m-%d").to_string(),
         usa: [sp500, nasdaq, dji].into_iter().flatten().collect(),
         europe: [n100, dax, cac].into_iter().flatten().collect(),
-        matieres_premieres: [or_, petrole, agri].into_iter().flatten().collect(),
+        matieres_premieres: [or_, argent, petrole, agri].into_iter().flatten().collect(),
         cryptos: [btc, eth].into_iter().flatten().collect(),
         vix: vix_raw.map(|v| (v.prix * 10.0).round() / 10.0),
     };

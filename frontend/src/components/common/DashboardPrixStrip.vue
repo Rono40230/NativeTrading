@@ -26,7 +26,7 @@
       <div
         v-if="hoveredAsset"
         class="fixed z-[9999] w-80 rounded-xl border border-white/20 p-4 shadow-2xl"
-        :style="{ top: tooltipPos.y + 'px', left: tooltipPos.x + 'px', transform: 'translateX(-50%)', background: '#0b0f28' }"
+        :style="{ top: tooltipPos.y + 'px', left: tooltipPos.x + 'px', transform: 'translateX(-50%) translateY(-100%)', background: '#0b0f28' }"
         @mouseenter="onTooltipEnter"
         @mouseleave="onTooltipLeave"
       >
@@ -154,7 +154,7 @@ function onCardEnter(event: MouseEvent, id: string) {
   const rawX = rect.left + rect.width / 2
   // w-80 = 320px → demi-largeur 160px + 8px marge bord
   const clampedX = Math.max(168, Math.min(window.innerWidth - 168, rawX))
-  tooltipPos.value = { x: clampedX, y: rect.bottom + 8 }
+  tooltipPos.value = { x: clampedX, y: rect.top - 8 }
   if (hoveredAsset.value?.id !== id) selectedTF.value = 'd1'
   hoveredAsset.value = asset
 }
@@ -168,6 +168,6 @@ function onTooltipLeave() { leaveTimer = setTimeout(() => { hoveredAsset.value =
 .asset-card { @apply transition-colors duration-150; }
 .asset-card:hover { @apply border-white/20 bg-white/10; }
 .tooltip-enter-active, .tooltip-leave-active { transition: opacity 0.12s, transform 0.12s; }
-.tooltip-enter-from, .tooltip-leave-to { opacity: 0; transform: translateX(-50%) translateY(-4px); }
-.tooltip-enter-to, .tooltip-leave-from { opacity: 1; transform: translateX(-50%) translateY(0); }
+.tooltip-enter-from, .tooltip-leave-to { opacity: 0; transform: translateX(-50%) translateY(calc(-100% + 6px)); }
+.tooltip-enter-to, .tooltip-leave-from { opacity: 1; transform: translateX(-50%) translateY(-100%); }
 </style>

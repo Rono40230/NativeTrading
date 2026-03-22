@@ -6,6 +6,7 @@ use crate::ollama_types::{
     ReponseAnalyse, ReponseChartAnalyse, ReponseChat, ReponseSignalIA, RequeteAnalyse,
     RequeteChartAnalyse, RequeteChat, RequeteSignalIA, StatutIA,
 };
+use crate::state::AppState;
 
 // ─── POST /api/ia/analyse ─────────────────────────────────────────────────────
 /// Génère une analyse narrative SMC via le LLM local Ollama.
@@ -153,28 +154,40 @@ struct SignalBrut {
 }
 
 /// POST /api/ia/signal — Signal SMC structuré (JSON) via LLM Ollama.
-pub async fn generer_signal(body: web::Json<RequeteSignalIA>) -> impl Responder {
+pub async fn generer_signal(
+    state: web::Data<AppState>,
+    body: web::Json<RequeteSignalIA>,
+) -> impl Responder {
     use common::{Asset, Direction, Signal, Timeframe};
+
+    // Contexte historique pour nourrir le LLM
+    let historique_raw = state.db.obtenir_contexte_llm(&body.asset, 5).await;
+    let contexte = crate::ollama::formater_contexte_historique(
+        &body.asset,
+        "SMC Directionnel",
+        &historique_raw,
+    );
+
     let prompt = format!(
-        "{}\n\nAsset: {} {}\nPrix actuel: {:.5} | ATR: {:.5}\n\
-        kill_zone_active: {} | sweep_detecte: {}\n\
-        SMC: Tendance={:.1} OB={:.1} Imbalance={:.1} IFVG={:.1} Fib={:.1}\n\
-        ML confiance={:.1}% | Score SMC total={:.1}/100",
-        crate::ollama::PROMPT_SIGNAL_SMC,
-        body.asset,
-        body.timeframe,
-        body.prix_actuel,
-        body.atr,
-        body.kill_zone_active
-            .unwrap_or_else(|| smc::kill_zone::est_en_kill_zone(chrono::Utc::now())),
-        body.sweep_detecte.unwrap_or(false),
-        body.tendance,
-        body.order_block,
-        body.imbalance,
-        body.ifvg,
-        body.fibonacci,
-        body.confiance_ml * 100.0,
-        body.score_smc,
+        "{contexte}{base}\n\nAsset: {asset} {tf}\nPrix actuel: {prix:.5} | ATR: {atr:.5}\n\
+        kill_zone_active: {kz} | sweep_detecte: {sw}\n\
+        SMC: Tendance={tend:.1} OB={ob:.1} Imbalance={imb:.1} IFVG={ifvg:.1} Fib={fib:.1}\n\
+        ML confiance={ml:.1}% | Score SMC total={score:.1}/100",
+        contexte = contexte,
+        base = crate::ollama::PROMPT_SIGNAL_SMC,
+        asset = body.asset,
+        tf = body.timeframe,
+        prix = body.prix_actuel,
+        atr = body.atr,
+        kz = body.kill_zone_active.unwrap_or_else(|| smc::kill_zone::est_en_kill_zone(chrono::Utc::now())),
+        sw = body.sweep_detecte.unwrap_or(false),
+        tend = body.tendance,
+        ob = body.order_block,
+        imb = body.imbalance,
+        ifvg = body.ifvg,
+        fib = body.fibonacci,
+        ml = body.confiance_ml * 100.0,
+        score = body.score_smc,
     );
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
     match ollama::interroger(&prompt).await {

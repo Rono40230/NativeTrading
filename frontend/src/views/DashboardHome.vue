@@ -30,15 +30,21 @@
           @engine-demarrer="engineDemarrer"
           @engine-arreter="engineArreter"
         />
-        <!-- Deux blocs côte à côte -->
-        <div class="grid grid-cols-2 gap-3">
-          <SurveillanceAssets :assets="assetsDisplay" :chargement="assetsAvecPrix.length === 0" />
-          <CryptosAlert
-            :top20="cryptos.top20.value"
-            :chargement="cryptos.chargement.value"
-            :erreur="cryptos.erreur.value"
-          />
-        </div>
+        <!-- Surveillance Assets puis Alertes Cryptos en dessous -->
+        <SurveillanceAssets :assets="assetsDisplay" :chargement="assetsAvecPrix.length === 0" />
+        <CryptosAlert
+          :top20="cryptos.top20.value"
+          :chargement="cryptos.chargement.value"
+          :erreur="cryptos.erreur.value"
+        />
+        <!-- Veille Rockets -->
+        <VeilleRockets
+          :signaux="rockets.signaux.value"
+          :total-candidats="rockets.totalCandidats.value"
+          :chargement="rockets.chargement.value"
+          :erreur="rockets.erreur.value"
+          :progression="rockets.progression.value"
+        />
       </div>
 
       <!-- Métriques performance (backtest BTC) -->
@@ -48,9 +54,6 @@
         <div class="glass-card p-4"><p class="label">Total Trades</p><p class="kpi-value">{{ metriques.total_trades }}</p></div>
         <div class="glass-card p-4"><p class="label">Max Drawdown</p><p class="kpi-value text-red-400">{{ metriques.max_drawdown_pct.toFixed(1) }}%</p></div>
       </div>
-
-      <!-- Derniers signaux -->
-      <DashboardSignaux class="flex-1 min-h-0" />
     </div>
 
       <!-- Colonne droite : Sentiment (fixe) + Calendrier (remplit le reste) -->
@@ -81,10 +84,11 @@ import SentimentMarche from '@/components/common/SentimentMarche.vue'
 import AlerteBandeau from '@/components/common/AlerteBandeau.vue'
 import NewsFeed from '@/components/common/NewsFeed.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
-import DashboardSignaux from '@/components/common/DashboardSignaux.vue'
 import CryptosAlert from '@/components/common/CryptosAlert.vue'
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
+import VeilleRockets from '@/components/common/VeilleRockets.vue'
 import { useCryptosAlert } from '@/composables/useCryptosAlert'
+import { useVeilleRockets } from '@/composables/useVeilleRockets'
 
 type VariationsMultiTF = { h1: number | null; h4: number | null; d1: number | null; w1: number | null; m1: number | null }
 type AssetAvecPrix = { id: string; prix: number | null; variation: number | null; variationsMultiTF: VariationsMultiTF | null; clotures: Record<string, number[]>; chargement: boolean }
@@ -104,7 +108,8 @@ const {
   arreter: engineArreter,
 } = useSignalEngine()
 
-const cryptos = useCryptosAlert()
+const cryptos  = useCryptosAlert()
+const rockets  = useVeilleRockets()
 const mlPret = computed(() => signalStore.prediction?.modele_pret ?? false)
 const backendOk = ref(false)
 const ibGatewayOk = ref<boolean | null>(null)
@@ -176,6 +181,7 @@ onMounted(async () => {
   if (tousLesAssets.length > 0) marketStore.connecterPrixLiveAssets(tousLesAssets)
   newsStore.demarrerPolling()
   cryptos.demarrer()
+  rockets.demarrer()
   intervalPrix = setInterval(chargerPrixActifs, 60000)
 })
 
@@ -184,6 +190,7 @@ onUnmounted(() => {
   marketStore.deconnecterPrixLiveAssets()
   newsStore.arreterPolling()
   cryptos.arreter()
+  rockets.arreter()
 })
 </script>
 

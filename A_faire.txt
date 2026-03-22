@@ -41,7 +41,10 @@ La modale qui s'affiche au clic sur le bouton "Analyse (IA)" dans la fenetre gra
 
 --------------------------------------------------------------------------------------------------------------------------
 
+dans tous les blocs fais en sorte que les tooltips s'affichent vers le haut et non vers le bas comme actuellement
+dans tous les blocs affiche les données des cartes sur une seule ligne et non sur 3 lignes comme actuellement
 
+ajoute un bouton "Opportunités" comme dans alertes crypto qui ouvre une belle modale avec une analyse concentrée sur la stratégie rocket
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -49,3 +52,19 @@ La modale qui s'affiche au clic sur le bouton "Analyse (IA)" dans la fenetre gra
 rive Sud 
 jean charles moyen
 
+Concernant le suivi des positions et l'apprentissage du LLM, il faut que tu comprennes comment je prends mes trades.
+Analyse les fichiers uni.txt et bidi.txt pour comprendre et répond sans coder.
+
+Maintenant que tu comprends mes trades, que faut il modifier dans le tableau de l"historique des trades" ?
+Repond sans coder
+
+
+
+Maintenant dans le tableau de "historique des positions" il faut ajouter les colonnes :
+- modifier tp en tp1
+- tp2,
+- tp3,
+- prix actuel 
+- R1, r2, r3, r4, r5 atteint ou SL
+Est ce clair?
+Repond sans coder

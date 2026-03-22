@@ -261,3 +261,16 @@ export interface ResultatCollecte {
   mois: number
   resultats: ResultatCollecteItem[]
 }
+
+export interface RocketSignalSave {
+  ticker: string; phase: string; score: number
+  prix_entree: number; stop_loss: number; target: number
+  ratio_volume: number; atr_ratio: number; rsi: number
+}
+
+export interface RocketSignalHistorique {
+  id: number; ticker: string; phase: string; score: number
+  prix_entree: number; stop_loss: number; target: number
+  verdict: string | null; prix_verdict: number | null
+  cree_le: string; maj_le: string | null
+}

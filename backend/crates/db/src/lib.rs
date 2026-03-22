@@ -3,6 +3,7 @@ pub mod bougies;
 pub mod calendrier;
 pub mod config;
 pub mod entrainements;
+pub mod rockets;
 pub mod signaux;
 pub mod volatilite;
 

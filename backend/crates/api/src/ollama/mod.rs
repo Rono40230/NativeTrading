@@ -1,7 +1,9 @@
+mod contexte;
 mod prompts;
 mod types;
 
 use common::TradingError;
+pub use contexte::formater_contexte_historique;
 pub use prompts::{PROMPT_SIGNAL_SMC, PROMPT_SIGNAL_STRADDLE};
 use prompts::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF, SYSTEM_PROMPT};
 use types::{MessageOllama, ReponseOllama, RequeteOllama, MODELE_DEFAUT, OLLAMA_URL};
@@ -137,24 +139,26 @@ pub async fn confirmer_signal_smc(
     atr: f64,
     kill_zone: bool,
     sweep: bool,
+    contexte_historique: &str,
 ) -> Option<String> {
     let prompt = format!(
-        "{}\n\nAsset: {} {}\nPrix actuel: {:.5} | ATR: {:.5}\n\
-        kill_zone_active: {} | sweep_detecte: {}\n\
-        Direction SMC: {} | Score SMC: {:.1}/100\n\
-        ML confiance: {:.1}% | SL: {:.5} | TP1: {:.5}",
-        PROMPT_SIGNAL_SMC,
-        asset,
-        timeframe,
-        prix_entree,
-        atr,
-        kill_zone,
-        sweep,
-        direction,
-        score_smc,
-        confiance_ml * 100.0,
-        stop_loss,
-        take_profit,
+        "{contexte}{prompt}\n\nAsset: {asset} {tf}\nPrix actuel: {entree:.5} | ATR: {atr:.5}\n\
+        kill_zone_active: {kz} | sweep_detecte: {sw}\n\
+        Direction SMC: {dir} | Score SMC: {score:.1}/100\n\
+        ML confiance: {ml:.1}% | SL: {sl:.5} | TP1: {tp:.5}",
+        contexte = contexte_historique,
+        prompt = PROMPT_SIGNAL_SMC,
+        asset = asset,
+        tf = timeframe,
+        entree = prix_entree,
+        atr = atr,
+        kz = kill_zone,
+        sw = sweep,
+        dir = direction,
+        score = score_smc,
+        ml = confiance_ml * 100.0,
+        sl = stop_loss,
+        tp = take_profit,
     );
     let texte = match interroger(&prompt).await {
         Ok(t) => t,
@@ -233,6 +237,7 @@ pub async fn enrichir_signal_avec_ollama(
     timeframe: &str,
     signal: &strategies::Signal,
     bougies: &[common::Candle],
+    contexte_historique: &str,
 ) -> &'static str {
     let atr_vals = indicators::calculer_atr(bougies, 14);
     let atr_val = atr_vals.last().copied().unwrap_or(0.0);
@@ -256,6 +261,7 @@ pub async fn enrichir_signal_avec_ollama(
             atr_val,
             kill_zone,
             sweep,
+            contexte_historique,
         ),
     )
     .await;

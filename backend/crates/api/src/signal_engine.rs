@@ -215,12 +215,21 @@ async fn analyser_asset(
         tp_list.push(tp3);
     }
 
+    // Contexte historique : 5 derniers signaux de cet asset → nourrit le LLM
+    let historique_raw = db.obtenir_contexte_llm(asset.as_str(), 5).await;
+    let contexte = crate::ollama::formater_contexte_historique(
+        asset.as_str(),
+        "SMC Directionnel",
+        &historique_raw,
+    );
+
     // Enrichissement LLM optionnel — délégué au module ollama
     let strategie_nom = crate::ollama::enrichir_signal_avec_ollama(
         asset.as_str(),
         timeframe.as_str(),
         &signal_strat,
         &bougies,
+        &contexte,
     )
     .await;
 

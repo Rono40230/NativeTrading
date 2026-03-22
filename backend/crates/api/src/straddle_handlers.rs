@@ -98,25 +98,30 @@ pub async fn generer_signal_straddle(
         );
     }
 
+    // Contexte historique Straddle pour nourrir le LLM
+    let historique_raw = state.db.obtenir_contexte_llm(&body.asset, 5).await;
+    let contexte_historique = crate::ollama::formater_contexte_historique(
+        &body.asset,
+        "Straddle",
+        &historique_raw,
+    );
+
     let prompt = format!(
-        "{}\n\nAsset: {} {}\n\
-        Prix actuel: {:.5} | ATR actuel: {:.5} | ATR moyen: {:.5} | ratio_atr: {:.2}\n\
-        kill_zone_active: {} | sessions: {}\n\
-        Annonces imminentes: {}",
-        crate::ollama::PROMPT_SIGNAL_STRADDLE,
-        body.asset,
-        body.timeframe,
-        body.prix_actuel,
-        body.atr_actuel,
-        body.atr_moyen,
-        ratio_atr,
-        kz,
-        sessions,
-        if annonces.is_empty() {
-            "aucune".to_string()
-        } else {
-            annonces
-        },
+        "{contexte}{base}\n\nAsset: {asset} {tf}\n\
+        Prix actuel: {prix:.5} | ATR actuel: {atr_a:.5} | ATR moyen: {atr_m:.5} | ratio_atr: {ratio:.2}\n\
+        kill_zone_active: {kz} | sessions: {sessions}\n\
+        Annonces imminentes: {annonces}",
+        contexte = contexte_historique,
+        base = crate::ollama::PROMPT_SIGNAL_STRADDLE,
+        asset = body.asset,
+        tf = body.timeframe,
+        prix = body.prix_actuel,
+        atr_a = body.atr_actuel,
+        atr_m = body.atr_moyen,
+        ratio = ratio_atr,
+        kz = kz,
+        sessions = sessions,
+        annonces = if annonces.is_empty() { "aucune".to_string() } else { annonces },
     );
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());

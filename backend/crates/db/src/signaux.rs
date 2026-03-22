@@ -97,4 +97,33 @@ impl Database {
             .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(row.get::<i64, _>("n"))
     }
+
+    /// Retourne les N derniers signaux d'un asset pour injection dans les prompts LLM.
+    /// Ne propage pas les erreurs — retourne vec![] si la DB est indisponible.
+    pub async fn obtenir_contexte_llm(
+        &self,
+        asset: &str,
+        limit: i64,
+    ) -> Vec<serde_json::Value> {
+        let rows = sqlx::query(
+            "SELECT direction, timeframe, score, prix_entree, statut, cree_le
+             FROM signaux WHERE asset = ? ORDER BY cree_le DESC LIMIT ?",
+        )
+        .bind(asset)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await;
+
+        match rows {
+            Ok(rows) => rows.iter().map(|row| serde_json::json!({
+                "direction":  row.get::<String, _>("direction"),
+                "timeframe":  row.get::<String, _>("timeframe"),
+                "score":      row.get::<f64, _>("score"),
+                "prix_entree": row.get::<f64, _>("prix_entree"),
+                "statut":     row.get::<String, _>("statut"),
+                "cree_le":    row.get::<i64, _>("cree_le"),
+            })).collect(),
+            Err(_) => vec![]
+        }
+    }
 }

@@ -9,41 +9,31 @@
     </div>
 
     <!-- Squelette chargement -->
-    <div v-if="chargement && assets.length === 0" class="grid grid-cols-5 gap-2">
+    <div v-if="chargement && assets.length === 0" class="grid grid-cols-6 gap-2">
       <div
         v-for="n in 15"
         :key="n"
-        class="rounded-lg border border-white/5 bg-white/5 px-3 py-2 h-[64px] animate-pulse"
+        class="rounded-lg border border-white/5 bg-white/5 px-3 py-2 h-[36px] animate-pulse"
       />
     </div>
 
     <!-- Grille 5 colonnes, scroll après 3 lignes -->
-    <div v-else class="grid grid-cols-5 gap-2 overflow-y-auto scroll-zone" style="max-height: calc(3 * 72px + 2 * 8px)">
+    <div v-else class="grid grid-cols-6 gap-2 overflow-y-auto scroll-zone" style="max-height: calc(3 * 44px + 2 * 8px)">
       <div
         v-for="a in assets"
         :key="a.id"
-        class="rounded-lg border px-3 py-2 flex flex-col gap-0.5 transition-colors hover:brightness-125 cursor-default"
+        class="rounded-lg border px-2.5 py-1.5 flex items-center gap-1.5 transition-colors hover:brightness-125 cursor-default"
         :class="classeCard(a.variation)"
         @mouseenter="onCardEnter($event, a.id)"
         @mouseleave="onCardLeave"
       >
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-bold text-white truncate mr-1">{{ a.id }}</span>
-          <span class="text-[11px] shrink-0">{{ iconeVariation(a.variation) }}</span>
-        </div>
-        <span v-if="a.chargement" class="text-[10px] text-gray-500 animate-pulse">…</span>
-        <span v-else-if="a.prix !== null" class="text-[11px] font-semibold text-slate-200">
-          {{ formatPrix(a.prix, a.id) }}
-        </span>
-        <span v-else class="text-[10px] text-gray-500">—</span>
-        <span
-          v-if="a.variation !== null"
-          class="text-[10px] font-bold"
-          :class="a.variation >= 0 ? 'text-emerald-400' : 'text-red-400'"
-        >
-          {{ a.variation >= 0 ? '+' : '' }}{{ a.variation.toFixed(2) }}%
-        </span>
-        <span v-else class="text-[10px] text-gray-600">—</span>
+        <span class="text-[11px] font-bold text-white truncate flex-1 min-w-0">{{ a.id }}</span>
+        <span class="text-[10px] shrink-0">{{ iconeVariation(a.variation) }}</span>
+        <span v-if="a.chargement" class="text-[9px] text-gray-500 animate-pulse shrink-0">…</span>
+        <span v-else-if="a.prix !== null" class="text-[10px] font-semibold text-slate-200 shrink-0">{{ formatPrix(a.prix, a.id) }}</span>
+        <span v-else class="text-[9px] text-gray-500 shrink-0">—</span>
+        <span v-if="a.variation !== null" class="text-[9px] font-bold shrink-0" :class="a.variation >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ a.variation >= 0 ? '+' : '' }}{{ a.variation.toFixed(2) }}%</span>
+        <span v-else class="text-[9px] text-gray-600 shrink-0">—</span>
       </div>
     </div>
   </div>
@@ -53,7 +43,7 @@
       <div
         v-if="hoveredAsset"
         class="fixed z-[9999] w-80 rounded-xl border border-white/20 p-4 shadow-2xl"
-        :style="{ top: tooltipPos.y + 'px', left: tooltipPos.x + 'px', transform: 'translateX(-50%)', background: '#0b0f28' }"
+        :style="{ top: tooltipPos.y + 'px', left: tooltipPos.x + 'px', transform: 'translateX(-50%) translateY(-100%)', background: '#0b0f28' }"
         @mouseenter="onTooltipEnter"
         @mouseleave="onTooltipLeave"
       >
@@ -92,7 +82,7 @@
 
         <div v-if="hoveredAsset.variationsMultiTF" class="border-t border-white/10 pt-3">
           <p class="text-[10px] text-gray-500 mb-2">Variations par période</p>
-          <div class="grid grid-cols-5 gap-2">
+          <div class="grid grid-cols-6 gap-2">
             <div
               v-for="item in tfItems(hoveredAsset)"
               :key="item.label"
@@ -209,7 +199,7 @@ function onCardEnter(event: MouseEvent, id: string) {
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const rawX = rect.left + rect.width / 2
   const clampedX = Math.max(168, Math.min(window.innerWidth - 168, rawX))
-  tooltipPos.value = { x: clampedX, y: rect.bottom + 8 }
+  tooltipPos.value = { x: clampedX, y: rect.top - 8 }
   if (hoveredAsset.value?.id !== id) selectedTF.value = 'd1'
   hoveredAsset.value = asset
 }
