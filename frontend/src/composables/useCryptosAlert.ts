@@ -31,6 +31,7 @@ export function useCryptosAlert() {
   const top20 = ref<CryptoAlert[]>([])
   const chargement = ref(false)
   const erreur = ref(false)
+  const totalPaires = ref(0)
   let intervalle: ReturnType<typeof setInterval> | null = null
 
   async function charger() {
@@ -42,15 +43,18 @@ export function useCryptosAlert() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json() as Array<Record<string, string>>
 
-      const filtrees = data.filter(t => {
+      const pairesValides = data.filter(t => {
         if (typeof t.symbol !== 'string') return false
         if (!t.symbol.endsWith('USDT')) return false
-        // Exclure les tokens leveragés
         if (t.symbol.endsWith('UPUSDT') || t.symbol.endsWith('DOWNUSDT')) return false
         if (t.symbol.endsWith('BULLUSDT') || t.symbol.endsWith('BEARUSDT')) return false
-        // Exclure les stablecoins
         const ticker = t.symbol.slice(0, -4)
         if (STABLECOINS.has(ticker)) return false
+        return true
+      })
+      totalPaires.value = pairesValides.length
+
+      const filtrees = pairesValides.filter(t => {
         // Uniquement les hausses à 2 chiffres (≥10%)
         if (parseFloat(t.priceChangePercent) < 10) return false
         // Volume minimum 50k USDT (inclure les micro-caps)
@@ -60,6 +64,7 @@ export function useCryptosAlert() {
 
       if (filtrees.length === 0) {
         top20.value = []
+        totalPaires.value = 0
         return
       }
 
@@ -108,5 +113,5 @@ export function useCryptosAlert() {
     }
   }
 
-  return { top20, chargement, erreur, demarrer, arreter }
+  return { top20, chargement, erreur, totalPaires, demarrer, arreter }
 }

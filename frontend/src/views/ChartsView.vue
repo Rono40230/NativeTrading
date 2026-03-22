@@ -192,7 +192,7 @@ function configurerCrosshair() {
 function configurerClick() {
   getChart()?.subscribeClick((param) => {
     if (!param.hoveredObjectId) return
-    const r = obtenirSignalEtNiveaux(param.hoveredObjectId)
+    const r = obtenirSignalEtNiveaux(String(param.hoveredObjectId))
     if (r) { signalModal.value = r.signal; niveauxModal.value = r.niveaux }
   })
 }

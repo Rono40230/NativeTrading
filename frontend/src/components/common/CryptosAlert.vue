@@ -10,8 +10,7 @@
           <span class="text-red-400">🚀 Explosion</span>
           <span class="text-orange-400">⚡ Breakout</span>
           <span class="text-yellow-400">🔥 Chaud</span>
-        </div>
-      </div>
+        </div>        <span class="text-[9px] text-gray-600">{{ labelPaires }}</span>      </div>
       <div class="flex items-center gap-2">
         <span v-if="erreur" class="text-[10px] text-red-400">Binance indisponible</span>
         <div v-if="chargement" class="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
@@ -43,10 +42,9 @@
       <div
         v-for="c in top20ParScore"
         :key="c.symbol"
-        class="rounded-lg border px-2.5 py-1.5 flex items-center gap-1.5 transition-colors hover:brightness-125 cursor-default"
+        class="rounded-lg border px-2.5 py-1.5 flex items-center gap-1.5 transition-colors hover:brightness-125 cursor-pointer"
         :class="classeCard(c.badge)"
-        @mouseenter="onCardEnter($event, c)"
-        @mouseleave="onCardLeave"
+        @click.stop="onCardClick($event, c)"
       >
         <span class="text-[11px] font-bold text-white truncate flex-1 min-w-0">{{ c.ticker }}</span>
         <span class="text-[10px] shrink-0">{{ icone(c.badge) }}</span>
@@ -62,8 +60,7 @@
         v-if="hovered"
         class="fixed z-[9999] w-64 rounded-xl border border-white/20 p-4 shadow-2xl"
         :style="{ top: pos.y + 'px', left: pos.x + 'px', transform: 'translateX(-50%) translateY(-100%)', background: '#0b0f28' }"
-        @mouseenter="onTipEnter"
-        @mouseleave="onTipLeave"
+        @click.stop
       >
         <div class="flex items-center justify-between mb-3">
           <span class="text-base font-bold text-white">{{ hovered.ticker }}</span>
@@ -118,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { CryptoAlert, BadgeNiveau } from '@/composables/useCryptosAlert'
 import CryptosOpportunitesModal from '@/components/common/CryptosOpportunitesModal.vue'
 
@@ -126,7 +123,16 @@ const props = defineProps<{
   top20: CryptoAlert[]
   chargement: boolean
   erreur: boolean
+  totalPaires: number
 }>()
+
+const labelPaires = computed(() =>
+  props.chargement
+    ? 'Chargement…'
+    : props.top20.length > 0
+      ? `${props.top20.length} signaux · ${props.totalPaires} paires analysées`
+      : `${props.totalPaires > 0 ? props.totalPaires : '…'} paires Binance`
+)
 
 function icone(badge: BadgeNiveau): string {
   if (badge === 'explosion') return '🚀'
@@ -177,7 +183,6 @@ const top20ParScore = computed(() =>
 const hovered = ref<CryptoAlert | null>(null)
 const pos = ref({ x: 0, y: 0 })
 const sparkline = ref<number[]>([])
-let leaveTimer: ReturnType<typeof setTimeout> | null = null
 
 function sparklinePath(closes: number[]): string {
   const W = 240, H = 48
@@ -200,18 +205,19 @@ async function fetchSparkline(ticker: string) {
   } catch { /* silencieux */ }
 }
 
-function onCardEnter(event: MouseEvent, c: CryptoAlert) {
-  if (leaveTimer !== null) { clearTimeout(leaveTimer); leaveTimer = null }
+function onCardClick(event: MouseEvent, c: CryptoAlert) {
+  if (hovered.value?.ticker === c.ticker) { hovered.value = null; return }
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const rawX = rect.left + rect.width / 2
   const clampedX = Math.max(136, Math.min(window.innerWidth - 136, rawX))
   pos.value = { x: clampedX, y: rect.top - 8 }
-  if (hovered.value?.ticker !== c.ticker) fetchSparkline(c.ticker)
+  fetchSparkline(c.ticker)
   hovered.value = c
 }
-function onCardLeave() { leaveTimer = setTimeout(() => { hovered.value = null }, 120) }
-function onTipEnter() { if (leaveTimer !== null) { clearTimeout(leaveTimer); leaveTimer = null } }
-function onTipLeave() { leaveTimer = setTimeout(() => { hovered.value = null }, 120) }
+
+function fermerTooltip() { hovered.value = null }
+onMounted(() => document.addEventListener('click', fermerTooltip))
+onUnmounted(() => document.removeEventListener('click', fermerTooltip))
 </script>
 
 <style scoped>

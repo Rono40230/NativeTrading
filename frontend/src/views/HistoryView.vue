@@ -28,7 +28,7 @@
     <!-- Tableau -->
     <div class="glass-card overflow-hidden">
       <div v-if="chargement" class="text-center text-gray-500 py-10">Chargement...</div>
-      <div v-else-if="!listePage.length" class="text-center text-gray-500 py-10">
+      <div v-else-if="!listeActive.length" class="text-center text-gray-500 py-10">
         Aucun signal correspondant aux filtres
       </div>
 
@@ -48,7 +48,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(r, i) in listePage" :key="r.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
+          <tr v-for="(r, i) in listePageRockets" :key="r.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
             <td class="px-4 py-3 text-gray-500">{{ offsetPage + i + 1 }}</td>
             <td class="px-4 py-3 font-semibold text-white">{{ r.ticker }}</td>
             <td class="px-4 py-3">
@@ -83,7 +83,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(s, i) in listePage" :key="s.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
+          <tr v-for="(s, i) in listePageSignaux" :key="s.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
             <td class="px-4 py-3 text-gray-500">{{ offsetPage + i + 1 }}</td>
             <td class="px-4 py-3 font-semibold text-white">{{ s.asset }}</td>
             <td class="px-4 py-3 text-gray-400">{{ s.timeframe }}</td>
@@ -153,8 +153,11 @@ const listeActive = computed(() =>
 
 const totalPages = computed(() => Math.ceil(listeActive.value.length / PAR_PAGE) || 1)
 const offsetPage = computed(() => pageCourante.value * PAR_PAGE)
-const listePage  = computed(() =>
-  listeActive.value.slice(offsetPage.value, offsetPage.value + PAR_PAGE)
+const listePageSignaux = computed(() =>
+  (signalsFiltres.value as Signal[]).slice(offsetPage.value, offsetPage.value + PAR_PAGE)
+)
+const listePageRockets = computed(() =>
+  (rockets.value as RocketSignalHistorique[]).slice(offsetPage.value, offsetPage.value + PAR_PAGE)
 )
 
 watch([filtreAsset, filtreDirection, filtreStrategie], () => { pageCourante.value = 0 })

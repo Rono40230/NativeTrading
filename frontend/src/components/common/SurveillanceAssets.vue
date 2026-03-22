@@ -22,10 +22,9 @@
       <div
         v-for="a in assets"
         :key="a.id"
-        class="rounded-lg border px-2.5 py-1.5 flex items-center gap-1.5 transition-colors hover:brightness-125 cursor-default"
+        class="rounded-lg border px-2.5 py-1.5 flex items-center gap-1.5 transition-colors hover:brightness-125 cursor-pointer"
         :class="classeCard(a.variation)"
-        @mouseenter="onCardEnter($event, a.id)"
-        @mouseleave="onCardLeave"
+        @click.stop="onCardClick($event, a.id)"
       >
         <span class="text-[11px] font-bold text-white truncate flex-1 min-w-0">{{ a.id }}</span>
         <span class="text-[10px] shrink-0">{{ iconeVariation(a.variation) }}</span>
@@ -44,8 +43,7 @@
         v-if="hoveredAsset"
         class="fixed z-[9999] w-80 rounded-xl border border-white/20 p-4 shadow-2xl"
         :style="{ top: tooltipPos.y + 'px', left: tooltipPos.x + 'px', transform: 'translateX(-50%) translateY(-100%)', background: '#0b0f28' }"
-        @mouseenter="onTooltipEnter"
-        @mouseleave="onTooltipLeave"
+        @click.stop
       >
         <div class="flex items-start justify-between mb-3">
           <div>
@@ -105,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 type VariationsMultiTF = { h1: number | null; h4: number | null; d1: number | null; w1: number | null; m1: number | null }
 type AssetAvecPrix = {
@@ -190,22 +188,22 @@ function varColor(a: AssetAvecPrix): string {
 const hoveredAsset = ref<AssetAvecPrix | null>(null)
 const tooltipPos = ref({ x: 0, y: 0 })
 const selectedTF = ref<string>('d1')
-let leaveTimer: ReturnType<typeof setTimeout> | null = null
 
-function onCardEnter(event: MouseEvent, id: string) {
+function onCardClick(event: MouseEvent, id: string) {
   const asset = props.assets.find(a => a.id === id)
   if (!asset?.variationsMultiTF) return
-  if (leaveTimer !== null) { clearTimeout(leaveTimer); leaveTimer = null }
+  if (hoveredAsset.value?.id === id) { hoveredAsset.value = null; return }
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const rawX = rect.left + rect.width / 2
   const clampedX = Math.max(168, Math.min(window.innerWidth - 168, rawX))
   tooltipPos.value = { x: clampedX, y: rect.top - 8 }
-  if (hoveredAsset.value?.id !== id) selectedTF.value = 'd1'
+  selectedTF.value = 'd1'
   hoveredAsset.value = asset
 }
-function onCardLeave() { leaveTimer = setTimeout(() => { hoveredAsset.value = null }, 120) }
-function onTooltipEnter() { if (leaveTimer !== null) { clearTimeout(leaveTimer); leaveTimer = null } }
-function onTooltipLeave() { leaveTimer = setTimeout(() => { hoveredAsset.value = null }, 120) }
+
+function fermerTooltip() { hoveredAsset.value = null }
+onMounted(() => document.addEventListener('click', fermerTooltip))
+onUnmounted(() => document.removeEventListener('click', fermerTooltip))
 </script>
 
 <style scoped>

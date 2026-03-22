@@ -9,7 +9,7 @@
       >
         <div
           class="modal-card fixed flex flex-col rounded-2xl border border-white/15 overflow-hidden"
-          :style="{ left: pos.x + 'px', top: pos.y + 'px', width: MODAL_W + 'px', maxHeight: '92vh' }"
+          :style="{ left: pos.x + 'px', top: pos.y + 'px', width: MODAL_W + 'px', minHeight: '80vh', maxHeight: '96vh' }"
         >
           <!-- En-tête draggable -->
           <div
@@ -44,74 +44,66 @@
               </div>
             </div>
 
-            <!-- Deux colonnes : cartes | analyse -->
-            <div class="grid gap-5" style="grid-template-columns: 420px 1fr">
-              <!-- Cartes Top 5 -->
-              <div>
-                <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">Top 5 opportunités</p>
-                <div class="flex flex-col gap-3">
-                  <div
-                    v-for="c in top5"
-                    :key="c.symbol"
-                    class="opport-card rounded-xl border border-white/10 bg-white/5 p-3 flex gap-3 items-center"
-                  >
-                    <!-- Sparkline -->
-                    <svg viewBox="0 0 120 40" style="width:120px;height:40px;flex-shrink:0">
-                      <template v-if="(sparklines[c.symbol] ?? []).length >= 2">
-                        <polyline
-                          :points="sparklinePath(sparklines[c.symbol] ?? [])"
-                          fill="none" stroke="#10b981" stroke-width="1.5"
-                          stroke-linejoin="round" stroke-linecap="round"
-                        />
-                      </template>
-                      <text v-else x="60" y="22" text-anchor="middle" fill="#374151" font-size="8">…</text>
-                    </svg>
-                    <!-- Infos -->
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center justify-between mb-1">
-                        <span class="text-sm font-bold text-white">{{ c.ticker }}</span>
-                        <span class="text-xs font-bold text-emerald-400">+{{ c.change24h.toFixed(2) }}%</span>
-                      </div>
-                      <p class="text-[11px] font-mono text-gray-400 mb-1">{{ formatPrix(c.prix) }}$</p>
-                      <div class="grid grid-cols-2 gap-x-2 text-[9px]">
-                        <span class="text-gray-500">TP1 <span class="text-emerald-400 font-mono">{{ formatPrix(c.prix * 1.05) }}</span></span>
-                        <span class="text-gray-500">TP2 <span class="text-emerald-400 font-mono">{{ formatPrix(c.prix * 1.10) }}</span></span>
-                        <span class="text-gray-500">TP3 <span class="text-emerald-300 font-mono">{{ formatPrix(c.prix * 1.20) }}</span></span>
-                        <span class="text-gray-500">SL   <span class="text-red-400 font-mono">{{ formatPrix(c.prix * 0.97) }}</span></span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <!-- Tableau top 5 -->
+            <div class="overflow-x-auto rounded-xl border border-white/10 mb-5">
+              <table class="w-full text-[11px]">
+                <thead>
+                  <tr class="border-b border-white/10 bg-white/[0.03] text-[9px] text-gray-500 uppercase tracking-widest font-semibold">
+                    <th class="text-left px-3 py-2 w-44">Tendance 1h</th>
+                    <th class="text-left px-3 py-2">Ticker</th>
+                    <th class="text-right px-3 py-2">+24h%</th>
+                    <th class="text-right px-3 py-2">Prix</th>
+                    <th class="text-right px-3 py-2 text-red-400">SL (−3%)</th>
+                    <th class="text-right px-3 py-2 text-emerald-400">TP1 (+5%)</th>
+                    <th class="text-right px-3 py-2 text-emerald-400">TP2 (+10%)</th>
+                    <th class="text-right px-3 py-2 text-emerald-300">TP3 (+20%)</th>
+                    <th class="text-right px-3 py-2">Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="c in top5" :key="c.symbol" class="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
+                    <td class="px-3 py-2">
+                      <svg viewBox="0 0 160 52" style="width:160px;height:52px">
+                        <polyline v-if="(sparklines[c.symbol]??[]).length>=2" :points="sparklinePath(sparklines[c.symbol]??[])" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+                        <text v-else x="80" y="28" text-anchor="middle" fill="#374151" font-size="9">…</text>
+                      </svg>
+                    </td>
+                    <td class="px-3 py-2 font-bold text-white">{{ c.ticker }}</td>
+                    <td class="px-3 py-2 text-right font-bold text-emerald-400">+{{ c.change24h.toFixed(2) }}%</td>
+                    <td class="px-3 py-2 text-right font-mono text-gray-300">{{ formatPrix(c.prix) }}$</td>
+                    <td class="px-3 py-2 text-right font-mono text-red-400">{{ formatPrix(c.prix * 0.97) }}</td>
+                    <td class="px-3 py-2 text-right font-mono text-emerald-400">{{ formatPrix(c.prix * 1.05) }}</td>
+                    <td class="px-3 py-2 text-right font-mono text-emerald-400">{{ formatPrix(c.prix * 1.10) }}</td>
+                    <td class="px-3 py-2 text-right font-mono text-emerald-300">{{ formatPrix(c.prix * 1.20) }}</td>
+                    <td class="px-3 py-2 text-right">
+                      <span class="font-bold" :class="classeScore(c.score)">{{ c.score.toFixed(0) }}</span><span class="text-gray-600">/100</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
-              <!-- Analyse IA -->
-              <div class="flex flex-col">
-                <div class="flex items-center gap-2 mb-3">
-                  <span class="text-[10px] font-semibold uppercase tracking-widest text-blue-400">Analyse IA (Ollama)</span>
-                  <div v-if="chargementIA" class="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-                  <button
-                    v-if="!chargementIA"
-                    class="ml-auto text-[9px] text-gray-500 hover:text-gray-300 transition-colors border border-white/10 rounded px-2 py-0.5"
-                    @click="lancerAnalyse"
-                  >↺ Relancer</button>
-                </div>
-                <div v-if="chargementIA" class="flex-1 flex items-center justify-center gap-2 text-xs text-gray-500">
-                  <div class="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                  Analyse en cours…
-                </div>
-                <div v-else-if="erreurIA" class="text-xs text-red-400">{{ erreurIA }}</div>
-                <div v-else-if="paragraphes.length" class="flex flex-col gap-3 overflow-y-auto flex-1 pr-1">
-                  <div
-                    v-for="(p, i) in paragraphes"
-                    :key="i"
-                    class="analyse-bloc rounded-lg p-3"
-                    :class="p.type"
-                  >
-                    <p class="text-[11px] leading-relaxed" :class="p.textClass">{{ p.texte }}</p>
-                  </div>
-                </div>
-                <p v-else class="text-xs text-gray-600 italic">Aucune analyse pour l’instant.</p>
+            <!-- Analyse IA -->
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-[10px] font-semibold uppercase tracking-widest text-blue-400">Analyse IA (Ollama)</span>
+                <div v-if="chargementIA" class="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+                <button v-if="!chargementIA" class="ml-auto text-[9px] text-gray-500 hover:text-gray-300 border border-white/10 rounded px-2 py-0.5" @click="lancerAnalyse">↺ Relancer</button>
               </div>
+              <div v-if="chargementIA" class="flex items-center justify-center gap-2 py-6 text-xs text-gray-500">
+                <div class="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />Analyse en cours…
+              </div>
+              <div v-else-if="erreurIA" class="text-xs text-red-400">{{ erreurIA }}</div>
+              <div v-else-if="paragraphes.length" class="grid grid-cols-2 gap-2">
+                <div
+                  v-for="(p, i) in paragraphes" :key="i"
+                  class="rounded-lg p-3"
+                  :class="[p.type, i === paragraphes.length - 1 ? 'col-span-2' : '']"
+                >
+                  <p class="text-[11px] leading-relaxed" :class="p.textClass">{{ p.texte }}</p>
+                </div>
+              </div>
+              <p v-else class="text-xs text-gray-600 italic">Aucune analyse pour l'instant.</p>
             </div>
           </div>
         </div>
@@ -187,6 +179,8 @@ const classeScoreGlobal = computed(() => {
   return 'text-gray-400'
 })
 
+function classeScore(s: number) { return s >= 70 ? 'text-orange-400' : s >= 50 ? 'text-emerald-400' : 'text-gray-400' }
+
 const sparklines = ref<Record<string, number[]>>({})
 const analyseIA = ref('')
 const chargementIA = ref(false)
@@ -213,7 +207,7 @@ const paragraphes = computed<Paragraphe[]>(() => {
 })
 
 function sparklinePath(closes: number[]): string {
-  const W = 120, H = 32
+  const W = 160, H = 44
   const min = Math.min(...closes), max = Math.max(...closes)
   const range = max - min || 1
   return closes.map((v, i) => {
@@ -251,16 +245,15 @@ async function lancerAnalyse() {
     const res = await apiService.chatIA([
       {
         role: 'system',
-        contenu: `Tu es un analyste quantitatif spécialisé en cryptomonnaies. Tu fournis des analyses courtes, structurées et actionnables. Règles strictes :
-- Réponds TOUJOURS en français
-- Pour chaque crypto : 2-3 phrases MAX avec VERDICT clair : « Opportunité d’entrée » ou « Mouvement épuisé » ou « Attention risque »
-- Analyse uniquement momentum, volume et trades (pas d’indicateurs non fournis)
-- Conclusion globale en 3 phrases : condition de marché, crypto favorite, niveau de risque global
-- Sépare chaque crypto et la conclusion par une ligne vide`
+        contenu: `Tu es un trader algorithmique SMC Directionnel. Les positions sont EXCLUSIVEMENT des achats LONG avec sortie pyramidale :
+- TP1 = 1×SL → clôture 33%, SL remonte au BreakEven | TP2 = 2×SL → clôture 50% | TP3 = trailing ATR (laisser courir)
+Pour chaque crypto : évalue si le momentum haussier justifie une entrée LONG maintenant ou s'il faut attendre un pullback, estime le R-multiple réaliste.
+VERDICT : « LONG — viser R2/R3 » | « LONG — viser R2 » | « Mouvement épuisé, éviter » | « Attendre pullback »
+Règles : français uniquement, 2-3 phrases MAX par crypto, conclusion globale (meilleure crypto LONG + R-multiple), sépare par ligne vide.`
       },
       {
         role: 'user',
-        contenu: `Top 5 cryptos avec la plus forte hausse 24h sur Binance :\n\n${liste}\n\nAnalyse chaque crypto puis donne ta conclusion globale sur le marché crypto actuel.`
+        contenu: `Top 5 cryptos avec fort momentum haussier sur Binance :\n\n${liste}\n\nPour chaque crypto : évalue si l'entrée LONG est justifiée maintenant ou s'il faut attendre un pullback, et indique le R-multiple réaliste (R1/R2/R3). Conclus sur la meilleure opportunité d'achat du moment.`
       }
     ])
     analyseIA.value = res.reponse

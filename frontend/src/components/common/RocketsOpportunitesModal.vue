@@ -9,7 +9,7 @@
       >
         <div
           class="modal-card fixed flex flex-col rounded-2xl border border-white/15 overflow-hidden"
-          :style="{ left: pos.x + 'px', top: pos.y + 'px', width: MODAL_W + 'px', maxHeight: '92vh' }"
+          :style="{ left: pos.x + 'px', top: pos.y + 'px', width: MODAL_W + 'px', minHeight: '80vh', maxHeight: '96vh' }"
         >
           <!-- En-tête draggable -->
           <div
@@ -56,79 +56,59 @@
               </div>
             </div>
 
-            <!-- Cartes top5 | Analyse IA -->
-            <div class="grid gap-5" style="grid-template-columns: 420px 1fr">
-              <!-- Cartes -->
-              <div>
-                <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">Top {{ top5.length }} signaux</p>
-                <div class="flex flex-col gap-3">
-                  <div
-                    v-for="s in top5"
-                    :key="s.symbol"
-                    class="rounded-xl border bg-white/5 p-3 flex gap-3 items-center"
-                    :class="classeBordure(s.phase)"
-                  >
-                    <svg viewBox="0 0 120 40" style="width:120px;height:40px;flex-shrink:0">
-                      <template v-if="s.closes.length >= 2">
-                        <polyline
-                          :points="sparklinePath(s.closes)"
-                          fill="none"
-                          :stroke="s.change1h >= 0 ? '#10b981' : '#ef4444'"
-                          stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"
-                        />
-                      </template>
-                      <text v-else x="60" y="22" text-anchor="middle" fill="#374151" font-size="8">…</text>
-                    </svg>
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center justify-between mb-1">
-                        <span class="text-sm font-bold text-white">{{ s.ticker }}</span>
-                        <span class="text-[10px]">{{ icone(s.phase) }} <span class="text-gray-400">{{ labelPhase(s.phase) }}</span></span>
-                      </div>
-                      <p class="text-[11px] font-mono text-gray-400 mb-1">{{ formatPrix(s.prix) }}$
-                        <span :class="s.change1h >= 0 ? 'text-emerald-400' : 'text-red-400'" class="ml-2 font-bold">
-                          {{ s.change1h >= 0 ? '+' : '' }}{{ s.change1h.toFixed(2) }}%
-                        </span>
-                      </p>
-                      <div class="grid grid-cols-2 gap-x-2 text-[9px]">
-                        <span class="text-gray-500">SL   <span class="text-red-400 font-mono">{{ formatPrix(s.support) }}</span></span>
-                        <span class="text-gray-500">TP   <span class="text-emerald-400 font-mono">{{ formatPrix(s.target20) }}</span></span>
-                        <span class="text-gray-500">Vol× <span :class="s.ratioVolume >= 2 ? 'text-orange-400 font-bold' : 'text-gray-300'">{{ s.ratioVolume.toFixed(2) }}×</span></span>
-                        <span class="text-gray-500">RSI  <span :class="s.rsi > 70 ? 'text-orange-400' : 'text-gray-300'">{{ s.rsi.toFixed(1) }}</span></span>
-                      </div>
-                    </div>
-                    <span class="text-[11px] font-bold shrink-0" :class="classeScore(s.score)">{{ s.score }}/100</span>
-                  </div>
+            <!-- Tableau top signaux -->
+            <div class="overflow-x-auto rounded-xl border border-white/10 mb-5">
+              <table class="w-full text-[11px]">
+                <thead><tr class="border-b border-white/10 bg-white/[0.03] text-[9px] text-gray-500 uppercase tracking-widest font-semibold">
+                  <th class="text-left px-3 py-2">Phase</th>
+                  <th class="text-left px-3 py-2">Ticker</th>
+                    <th class="text-left px-3 py-2 w-44">Tendance</th>
+                  <th class="text-right px-3 py-2">+1h%</th>
+                  <th class="text-right px-3 py-2">Vol×</th>
+                  <th class="text-right px-3 py-2">RSI</th>
+                  <th class="text-right px-3 py-2 text-red-500">SL</th>
+                  <th class="text-right px-3 py-2 text-emerald-500">TP1 (R1)</th>
+                  <th class="text-right px-3 py-2 text-emerald-500">TP2 (R2)</th>
+                  <th class="text-right px-3 py-2 text-emerald-400">TP3 cible</th>
+                  <th class="text-right px-3 py-2">Score</th>
+                </tr></thead>
+                <tbody>
+                  <tr v-for="s in top5" :key="s.symbol" class="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
+                    <td class="px-3 py-2 text-[10px]">{{ icone(s.phase) }} <span class="text-gray-400">{{ labelPhase(s.phase) }}</span></td>
+                    <td class="px-3 py-2 font-bold text-white">{{ s.ticker }}</td>
+                    <td class="px-3 py-2"><svg viewBox="0 0 160 52" style="width:160px;height:52px">
+                      <polyline v-if="s.closes.length>=2" :points="sparklinePath(s.closes)" fill="none" :stroke="s.change1h>=0?'#10b981':'#ef4444'" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
+                      <text v-else x="80" y="28" text-anchor="middle" fill="#374151" font-size="9">…</text>
+                    </svg></td>
+                    <td class="px-3 py-2 text-right font-bold" :class="s.change1h>=0?'text-emerald-400':'text-red-400'">{{ s.change1h>=0?'+':'' }}{{ s.change1h.toFixed(2) }}%</td>
+                    <td class="px-3 py-2 text-right font-bold" :class="s.ratioVolume>=2?'text-orange-400':'text-gray-300'">{{ s.ratioVolume.toFixed(2) }}×</td>
+                    <td class="px-3 py-2 text-right" :class="s.rsi>70?'text-orange-400':s.rsi<40?'text-blue-400':'text-gray-300'">{{ s.rsi.toFixed(1) }}</td>
+                    <td class="px-3 py-2 text-right font-mono text-red-400">{{ formatPrix(s.support) }}</td>
+                    <td class="px-3 py-2 text-right font-mono text-emerald-400">{{ s.support>0?formatPrix(s.prix+(s.prix-s.support)):'—' }}</td>
+                    <td class="px-3 py-2 text-right font-mono text-emerald-400">{{ s.support>0?formatPrix(s.prix+2*(s.prix-s.support)):'—' }}</td>
+                    <td class="px-3 py-2 text-right font-mono text-emerald-300">{{ formatPrix(s.target20) }}</td>
+                    <td class="px-3 py-2 text-right"><span class="font-bold" :class="classeScore(s.score)">{{ s.score }}</span><span class="text-gray-600">/100</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <!-- Analyse IA -->
+            <div>
+              <div class="flex items-center gap-2 mb-3">
+                <span class="text-[10px] font-semibold uppercase tracking-widest text-orange-400">Analyse IA (Ollama)</span>
+                <div v-if="chargementIA" class="h-2 w-2 animate-pulse rounded-full bg-orange-500" />
+                <button v-if="!chargementIA" class="ml-auto text-[9px] text-gray-500 hover:text-gray-300 border border-white/10 rounded px-2 py-0.5" @click="lancerAnalyse">↺ Relancer</button>
+              </div>
+              <div v-if="chargementIA" class="flex items-center justify-center gap-2 py-6 text-xs text-gray-500">
+                <div class="h-4 w-4 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />Analyse en cours…
+              </div>
+              <div v-else-if="erreurIA" class="text-xs text-red-400">{{ erreurIA }}</div>
+              <div v-else-if="paragraphes.length" class="grid grid-cols-2 gap-2">
+                <div v-for="(p,i) in paragraphes" :key="i" class="rounded-lg p-3" :class="[p.type, i===paragraphes.length-1?'col-span-2':'']">
+                  <p class="text-[11px] leading-relaxed" :class="p.textClass">{{ p.texte }}</p>
                 </div>
               </div>
-
-              <!-- Analyse IA -->
-              <div class="flex flex-col">
-                <div class="flex items-center gap-2 mb-3">
-                  <span class="text-[10px] font-semibold uppercase tracking-widest text-orange-400">Analyse IA (Ollama)</span>
-                  <div v-if="chargementIA" class="h-2 w-2 animate-pulse rounded-full bg-orange-500" />
-                  <button
-                    v-if="!chargementIA"
-                    class="ml-auto text-[9px] text-gray-500 hover:text-gray-300 transition-colors border border-white/10 rounded px-2 py-0.5"
-                    @click="lancerAnalyse"
-                  >↺ Relancer</button>
-                </div>
-                <div v-if="chargementIA" class="flex-1 flex items-center justify-center gap-2 text-xs text-gray-500">
-                  <div class="h-4 w-4 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
-                  Analyse en cours…
-                </div>
-                <div v-else-if="erreurIA" class="text-xs text-red-400">{{ erreurIA }}</div>
-                <div v-else-if="paragraphes.length" class="flex flex-col gap-3 overflow-y-auto flex-1 pr-1">
-                  <div
-                    v-for="(p, i) in paragraphes"
-                    :key="i"
-                    class="rounded-lg p-3"
-                    :class="p.type"
-                  >
-                    <p class="text-[11px] leading-relaxed" :class="p.textClass">{{ p.texte }}</p>
-                  </div>
-                </div>
-                <p v-else class="text-xs text-gray-600 italic">Aucune analyse pour l'instant.</p>
-              </div>
+              <p v-else class="text-xs text-gray-600 italic">Aucune analyse pour l'instant.</p>
             </div>
           </div>
         </div>
@@ -200,7 +180,7 @@ function classeBordure(phase: PhaseRocket) { return phase === 'breakout' ? 'bord
 function classeScore(s: number) { return s >= 70 ? 'text-orange-400' : s >= 50 ? 'text-emerald-400' : 'text-gray-400' }
 function formatPrix(v: number) { return v >= 1000 ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(v) : v >= 1 ? v.toFixed(4) : v.toFixed(6) }
 function sparklinePath(closes: number[]) {
-  const W = 120, H = 32, min = Math.min(...closes), max = Math.max(...closes), range = max - min || 1
+  const W = 160, H = 44, min = Math.min(...closes), max = Math.max(...closes), range = max - min || 1
   return closes.map((v, i) => `${((i / (closes.length - 1)) * W).toFixed(1)},${(H - ((v - min) / range) * (H - 4) - 2).toFixed(1)}`).join(' ')
 }
 
@@ -219,20 +199,31 @@ async function lancerAnalyse() {
   if (top5.value.length === 0) return
   chargementIA.value = true; erreurIA.value = ''; analyseIA.value = ''
   try {
-    const liste = top5.value.map((s, i) =>
-      `${i + 1}. ${s.ticker} — Phase: ${labelPhase(s.phase)} | Variation 1h: ${s.change1h >= 0 ? '+' : ''}${s.change1h.toFixed(2)}% | Vol×: ${s.ratioVolume.toFixed(2)} | ATR ratio: ${s.atrRatio.toFixed(2)} | RSI: ${s.rsi.toFixed(1)} | Support/SL: ${formatPrix(s.support)}$ | Résistance/TP: ${formatPrix(s.target20)}$ | Score: ${s.score}/100`
-    ).join('\n')
+    const liste = top5.value.map((s, i) => {
+      const slDist = s.support > 0 ? (formatPrix(s.support)) : 'N/A'
+      const tp3 = s.target20 > 0 ? (formatPrix(s.target20)) : 'N/A'
+      return `${i + 1}. ${s.ticker} — Phase: ${labelPhase(s.phase)} | Variation 1h: ${s.change1h >= 0 ? '+' : ''}${s.change1h.toFixed(2)}% | Vol×: ${s.ratioVolume.toFixed(2)} | ATR ratio: ${s.atrRatio.toFixed(2)} | RSI: ${s.rsi.toFixed(1)} | SL (support): ${slDist}$ | Cible TP3: ${tp3}$ | Score: ${s.score}/100`
+    }).join('\n')
     const res = await apiService.chatIA([
       {
         role: 'system',
-        contenu: `Tu es un analyste spécialisé en stratégie Rocket sur crypto (compression volatilité → breakout). Règles strictes :
+        contenu: `Tu es un trader algorithmique spécialisé en stratégie Rocket sur crypto (compression volatilité → breakout haussier). La prise de position est TOUJOURS directionnelle LONG, exécutée avec sortie pyramidale en 3 niveaux :
+- TP1 = prix entrée + 1×(entrée−SL) → clôture 33% de la position, SL remonte au BreakEven
+- TP2 = prix entrée + 2×(entrée−SL) → clôture 50% du restant
+- TP3 = cible de résistance fournie → trailing stop ATR sur le solde
+Pour chaque signal Rocket :
+1. Évalue si la phase de compression justifie une entrée LONG maintenant ou s'il faut attendre la confirmation du breakout
+2. Analyse ATR ratio (compression si <0.8), volume spike (Vol× >2 = fort intérêt), RSI (idéal 40-60 en compression, >60 en breakout)
+3. Déduis le R-multiple réaliste : R2 si signal précoce, R3+ si breakout confirmé avec volume
+4. Mentionne si le BreakEven préserve le capital en cas de retournement
+VERDICT sur une ligne : « LONG imminent — viser R2/R3 », « Compression — attendre confirmation bougie » ou « Signal épuisé, éviter »
+Règles strictes :
 - Réponds TOUJOURS en français
-- Pour chaque signal : 2-3 phrases MAX avec VERDICT clair : « Breakout imminent », « Phase de compression avancée » ou « Signal épuisé »
-- Analyse ATR ratio, volume spike et RSI — déduis la probabilité de breakout
-- Conclusion globale en 3 phrases : phase de marché globale, meilleur setup, niveau de risque
+- 2-3 phrases MAX par signal
+- Conclusion globale : phase de marché globale, meilleur setup Rocket, R-multiple réaliste
 - Sépare chaque signal et la conclusion par une ligne vide`
       },
-      { role: 'user', contenu: `Top signaux détectés par la stratégie Rocket :\n\n${liste}\n\nAnalyse chaque signal puis donne ta recommandation globale.` }
+      { role: 'user', contenu: `Top signaux Rocket détectés (stratégie LONG directionnelle) :\n\n${liste}\n\nPour chaque signal : évalue si la compression/breakout justifie une entrée LONG maintenant, propose le R-multiple réaliste (TP1/TP2/TP3 basés sur le SL fourni), et indique si le BreakEven protège suffisamment. Conclus sur le meilleur setup du moment.` }
     ])
     analyseIA.value = res.reponse
   } catch (err) {

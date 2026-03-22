@@ -75,7 +75,7 @@ function directionColor(dir: string): string {
 
 async function lancerEntrainement() {
   entraineEnCours.value = true
-  alerteStore.afficher('Entraînement ML en cours (RF + LSTM)...', 'info', 120000)
+  alerteStore.afficher('Entraînement ML en cours (RF + LSTM)...', 'info')
   try {
     const res = await apiService.entrainerML(props.asset, props.timeframe, 1000)
     alerteStore.afficherSucces(`✅ ${res.message}`)

@@ -36,6 +36,7 @@
           :top20="cryptos.top20.value"
           :chargement="cryptos.chargement.value"
           :erreur="cryptos.erreur.value"
+          :total-paires="cryptos.totalPaires.value"
         />
         <!-- Veille Rockets -->
         <VeilleRockets

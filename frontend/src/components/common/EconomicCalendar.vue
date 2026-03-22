@@ -18,13 +18,12 @@
       <div
         v-for="a in annonces"
         :key="a.id"
-        class="relative group"
-        @mouseenter="survolee = a.id"
-        @mouseleave="survolee = null"
+        class="relative group cursor-pointer"
+        @click.stop="survolee = survolee === a.id ? null : a.id"
       >
         <!-- Carte évenement -->
         <div
-          class="rounded-md border px-2.5 py-2 cursor-default select-none transition-colors flex flex-col gap-1"
+          class="rounded-md border px-2.5 py-2 select-none transition-colors flex flex-col gap-1"
           :class="a.est_passe
             ? 'border-white/5 bg-white/5 opacity-50'
             : a.impact === 'High'
@@ -50,6 +49,7 @@
           <div
             v-if="survolee === a.id"
             class="tooltip-detail"
+            @click.stop
           >
             <p class="text-[10px] font-semibold text-white mb-1.5 leading-snug">{{ a.titre }}</p>
             <div class="flex items-center gap-3 text-[10px] text-slate-400 mb-1">
@@ -138,14 +138,18 @@ function verifierAlertes() {
 
 let intervalle: ReturnType<typeof setInterval> | null = null
 
+function fermerSurvolee() { survolee.value = null }
+
 onMounted(async () => {
   await charger()
   verifierAlertes()
   intervalle = setInterval(verifierAlertes, 60_000)
+  document.addEventListener('click', fermerSurvolee)
 })
 
 onUnmounted(() => {
   if (intervalle) clearInterval(intervalle)
+  document.removeEventListener('click', fermerSurvolee)
 })
 </script>
 

@@ -39,10 +39,9 @@
       <div
         v-for="s in signaux"
         :key="s.symbol"
-        class="rounded-lg border px-2.5 py-1.5 flex items-center gap-1.5 cursor-default transition-colors hover:brightness-125"
+        class="rounded-lg border px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors hover:brightness-125"
         :class="classeCard(s.phase)"
-        @mouseenter="onEnter($event, s)"
-        @mouseleave="onLeave"
+        @click.stop="onCardClick($event, s)"
       >
         <span class="text-[11px] font-bold text-white truncate flex-1 min-w-0">{{ s.ticker }}</span>
         <span class="text-[10px] shrink-0">{{ icone(s.phase) }}</span>
@@ -58,8 +57,7 @@
         v-if="hovered"
         class="fixed z-[9999] w-60 rounded-xl border border-white/20 p-4 shadow-2xl"
         :style="{ top: pos.y + 'px', left: pos.x + 'px', transform: 'translateX(-50%) translateY(-100%)', background: '#0b0f28' }"
-        @mouseenter="onTipEnter"
-        @mouseleave="onTipLeave"
+        @click.stop
       >
         <div class="flex items-center justify-between mb-2">
           <span class="text-sm font-bold text-white">{{ hovered.ticker }}</span>
@@ -104,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { SignalRocket, PhaseRocket } from '@/composables/useVeilleRockets'
 import RocketsOpportunitesModal from '@/components/common/RocketsOpportunitesModal.vue'
 
@@ -149,8 +147,7 @@ function formatPrix(v: number): string {
 
 const hovered = ref<SignalRocket | null>(null)
 const modalOuverte = ref(false)
-const pos     = ref({ x: 0, y: 0 })
-let leaveTimer: ReturnType<typeof setTimeout> | null = null
+const pos = ref({ x: 0, y: 0 })
 
 function sparklinePath(closes: number[]): string {
   const W = 240, H = 44
@@ -163,17 +160,18 @@ function sparklinePath(closes: number[]): string {
   }).join(' ')
 }
 
-function onEnter(event: MouseEvent, s: SignalRocket) {
-  if (leaveTimer !== null) { clearTimeout(leaveTimer); leaveTimer = null }
-  const rect  = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const rawX  = rect.left + rect.width / 2
+function onCardClick(event: MouseEvent, s: SignalRocket) {
+  if (hovered.value?.symbol === s.symbol) { hovered.value = null; return }
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const rawX = rect.left + rect.width / 2
   const clampX = Math.max(124, Math.min(window.innerWidth - 124, rawX))
-  pos.value   = { x: clampX, y: rect.top - 8 }
+  pos.value = { x: clampX, y: rect.top - 8 }
   hovered.value = s
 }
-function onLeave()    { leaveTimer = setTimeout(() => { hovered.value = null }, 120) }
-function onTipEnter() { if (leaveTimer !== null) { clearTimeout(leaveTimer); leaveTimer = null } }
-function onTipLeave() { leaveTimer = setTimeout(() => { hovered.value = null }, 120) }
+
+function fermerTooltip() { hovered.value = null }
+onMounted(() => document.addEventListener('click', fermerTooltip))
+onUnmounted(() => document.removeEventListener('click', fermerTooltip))
 </script>
 
 <style scoped>
