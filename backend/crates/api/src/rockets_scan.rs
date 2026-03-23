@@ -1,49 +1,13 @@
+use crate::rockets_indicateurs::{
+    calc_atr, calc_rsi, calculer_phase, est_eligible, phase_priorite, Ticker24h,
+    BATCH_SIZE, LOOKBACK, KLINES_N, MAX_DISPLAY, SCAN_SECS,
+};
+pub use crate::rockets_indicateurs::ScanResultat;
 use db::rockets::{self, NouveauRocket, RocketsConfig};
 use futures_util::future::join_all;
-use serde::Serialize;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 use tokio::sync::RwLock;
-
-// ── Constantes ───────────────────────────────────────────────────────────────
-
-const STABLECOINS: &[&str] = &[
-    "BUSD", "USDC", "TUSD", "DAI", "USDP", "FDUSD", "USDS", "EUR", "GBP", "PAX", "SUSD",
-];
-const VOL_MIN: f64 = 500_000.0;
-const KLINES_N: usize = 50;
-const LOOKBACK: usize = 20;
-const ATR_P: usize = 14;
-const BATCH_SIZE: usize = 20;
-const SCAN_SECS: u64 = 5 * 60;
-const MAX_DISPLAY: usize = 30;
-
-// ── Types ────────────────────────────────────────────────────────────────────
-
-#[derive(Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ScanResultat {
-    pub symbol: String,
-    pub ticker: String,
-    pub prix: f64,
-    pub change1h: f64,
-    pub phase: String,
-    pub score: i64,
-    pub ratio_volume: f64,
-    pub atr_ratio: f64,
-    pub atr14: f64,
-    pub rsi: f64,
-    pub support: f64,
-    pub target20: f64,
-    pub closes: Vec<f64>,
-}
-
-#[derive(serde::Deserialize)]
-struct Ticker24h {
-    symbol: String,
-    #[serde(rename = "quoteVolume")]
-    quote_volume: String,
-}
 
 // ── État partagé (lecture depuis le handler HTTP) ────────────────────────────
 
@@ -61,61 +25,6 @@ pub fn get_total_candidats() -> Arc<RwLock<usize>> {
         .get_or_init(|| Arc::new(RwLock::new(0)))
         .clone()
 }
-
-// ── Indicateurs techniques ───────────────────────────────────────────────────
-
-fn calc_atr(highs: &[f64], lows: &[f64], closes: &[f64]) -> (f64, f64) {
-    let n = highs.len().min(lows.len()).min(closes.len());
-    if n < 2 {
-        return (0.0, 0.0);
-    }
-    let trs: Vec<f64> = (1..n)
-        .map(|i| {
-            let p = closes[i - 1];
-            [
-                highs[i] - lows[i],
-                (highs[i] - p).abs(),
-                (lows[i] - p).abs(),
-            ]
-            .into_iter()
-            .fold(f64::NEG_INFINITY, f64::max)
-        })
-        .collect();
-    let atr14 = if trs.len() >= ATR_P {
-        trs[trs.len() - ATR_P..].iter().sum::<f64>() / ATR_P as f64
-    } else if !trs.is_empty() {
-        trs.iter().sum::<f64>() / trs.len() as f64
-    } else {
-        0.0
-    };
-    let atr5 = if trs.len() >= 5 {
-        trs[trs.len() - 5..].iter().sum::<f64>() / 5.0
-    } else {
-        atr14
-    };
-    (atr14, atr5)
-}
-
-fn calc_rsi(closes: &[f64]) -> f64 {
-    if closes.len() < 15 {
-        return 50.0;
-    }
-    let slice = &closes[closes.len() - 15..];
-    let (gains, losses) = slice.windows(2).fold((0.0f64, 0.0f64), |(g, l), w| {
-        let d = w[1] - w[0];
-        if d > 0.0 {
-            (g + d, l)
-        } else {
-            (g, l - d)
-        }
-    });
-    if losses == 0.0 {
-        return 100.0;
-    }
-    100.0 - 100.0 / (1.0 + gains / losses)
-}
-
-// ── Analyse d'un symbole ─────────────────────────────────────────────────────
 
 async fn analyser_symbol(client: &reqwest::Client, ticker: &str, cfg: &RocketsConfig) -> Option<ScanResultat> {
     let url = format!(
@@ -177,7 +86,7 @@ async fn analyser_symbol(client: &reqwest::Client, ticker: &str, cfg: &RocketsCo
         0.0
     };
 
-    let (phase, score) = calculer_phase(breakout, ratio_volume, rsi, atr_ratio, change1h, cfg)?;;
+    let (phase, score) = calculer_phase(breakout, ratio_volume, rsi, atr_ratio, change1h, cfg)?;
     let closes_spark = closes[closes.len().saturating_sub(24)..].to_vec();
 
     Some(ScanResultat {
@@ -197,50 +106,6 @@ async fn analyser_symbol(client: &reqwest::Client, ticker: &str, cfg: &RocketsCo
     })
 }
 
-fn calculer_phase(
-    breakout: bool,
-    ratio_volume: f64,
-    rsi: f64,
-    atr_ratio: f64,
-    change1h: f64,
-    cfg: &RocketsConfig,
-) -> Option<(String, i64)> {
-    if breakout && ratio_volume >= cfg.ratio_volume_min {
-        let mut s = 40i64;
-        if ratio_volume >= 2.0 {
-            s += 20;
-        }
-        if rsi > 60.0 && rsi <= cfg.rsi_max {
-            s += 20;
-        }
-        if atr_ratio > 1.0 {
-            s += 10;
-        }
-        if change1h > 1.0 {
-            s += 10;
-        }
-        Some(("breakout".to_string(), s.min(100)))
-    } else if atr_ratio < 0.80 {
-        let phase = if atr_ratio < 0.65 {
-            "prelancement"
-        } else {
-            "compression"
-        };
-        let mut s = ((1.0 - atr_ratio) * 55.0).round() as i64;
-        if ratio_volume >= 1.3 {
-            s += 15;
-        }
-        if rsi > 50.0 && rsi < 70.0 {
-            s += 10;
-        }
-        if s < 15 {
-            return None;
-        }
-        Some((phase.to_string(), s.min(100)))
-    } else {
-        None
-    }
-}
 
 // ── Worker de scan ───────────────────────────────────────────────────────────
 
@@ -389,26 +254,4 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
     *get_scan_results().write().await = resultats;
     tracing::info!("Scan rockets terminé: {} signaux actifs", n);
     Ok(())
-}
-
-fn est_eligible(symbol: &str, quote_volume: f64, vol_min: f64) -> bool {
-    if !symbol.ends_with("USDT") {
-        return false;
-    }
-    if symbol.ends_with("UPUSDT") || symbol.ends_with("DOWNUSDT") {
-        return false;
-    }
-    if symbol.ends_with("BULLUSDT") || symbol.ends_with("BEARUSDT") {
-        return false;
-    }
-    let ticker = &symbol[..symbol.len() - 4];
-    !STABLECOINS.contains(&ticker) && quote_volume >= vol_min
-}
-
-fn phase_priorite(phase: &str) -> u8 {
-    match phase {
-        "breakout" => 2,
-        "prelancement" => 1,
-        _ => 0,
-    }
 }

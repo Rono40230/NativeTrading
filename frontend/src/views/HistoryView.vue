@@ -51,59 +51,14 @@
       </div>
 
       <!-- Tableau Rockets -->
-      <table v-else-if="rocketsMode" class="w-full text-sm">
-        <thead>
-          <tr class="text-gray-400 text-xs uppercase border-b border-white/10">
-            <th class="px-4 py-3 text-left">#</th>
-            <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('ticker')">Ticker <span class="tri-icone">{{ icone('ticker') }}</span></th>
-            <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('phase')">Phase <span class="tri-icone">{{ icone('phase') }}</span></th>
-            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('score')">Score <span class="tri-icone">{{ icone('score') }}</span></th>
-            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_entree')">Entrée <span class="tri-icone">{{ icone('prix_entree') }}</span></th>
-            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('stop_loss')">SL <span class="tri-icone">{{ icone('stop_loss') }}</span></th>
-            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('target')">TP1 <span class="tri-icone">{{ icone('target') }}</span></th>
-            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('target2')">TP2 <span class="tri-icone">{{ icone('target2') }}</span></th>
-            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('target3')">TP3 <span class="tri-icone">{{ icone('target3') }}</span></th>
-            <th class="px-4 py-3 text-right">Prix actuel</th>
-            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_verdict')">Sortie <span class="tri-icone">{{ icone('prix_verdict') }}</span></th>
-            <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Verdict <span class="tri-icone">{{ icone('verdict') }}</span></th>
-            <th class="px-4 py-3 text-center">IA</th>
-            <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Date <span class="tri-icone">{{ icone('cree_le') }}</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(r, i) in rocketsTries" :key="r.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
-            <td class="px-4 py-3 text-gray-500">{{ i + 1 }}</td>
-            <td class="px-4 py-3 font-semibold text-white">{{ r.ticker }}</td>
-            <td class="px-4 py-3">
-              <span class="badge" :class="classePhase(r.phase)">{{ r.phase }}</span>
-            </td>
-            <td class="px-4 py-3 text-right font-mono">{{ r.score }}</td>
-            <td class="px-4 py-3 text-right font-mono">{{ formatNombre(r.prix_entree) }}</td>
-            <td class="px-4 py-3 text-right font-mono text-red-400">{{ formatNombre(r.stop_loss) }}</td>
-            <td class="px-4 py-3 text-right font-mono text-emerald-400">{{ formatNombre(r.target) }}</td>
-            <td class="px-4 py-3 text-right font-mono text-emerald-300">{{ r.target2 ? formatNombre(r.target2) : '—' }}</td>
-            <td class="px-4 py-3 text-right font-mono text-emerald-200">{{ r.target3 ? formatNombre(r.target3) : '\u2014' }}</td>
-            <td class="px-4 py-3 text-right font-mono">
-              <span v-if="prixActuels[r.ticker]" :class="classePrixActuel(r)">{{ formatNombre(prixActuels[r.ticker]) }}</span>
-              <span v-else class="text-gray-600">—</span>
-            </td>
-            <td class="px-4 py-3 text-right font-mono text-white">{{ r.prix_verdict ? formatNombre(r.prix_verdict) : '\u2014' }}</td>
-            <td class="px-4 py-3">
-              <span class="badge" :class="classeVerdict(r)">{{ labelVerdict(r) }}</span>
-            </td>
-            <td class="px-4 py-3 text-center">
-              <span
-                v-if="r.llm_conviction !== null && r.llm_conviction !== undefined"
-                class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help"
-                :class="classeConvictionLlm(r.llm_conviction)"
-                :title="r.llm_raison ?? ''"
-              >{{ r.llm_conviction }}</span>
-              <span v-else class="text-gray-700 text-xs">—</span>
-            </td>
-            <td class="px-4 py-3 text-gray-500 text-xs">{{ r.cree_le.slice(0, 16).replace('T', ' ') }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <RocketsTableau
+        v-else-if="rocketsMode"
+        :rockets="rocketsTries"
+        :prix-actuels="prixActuels"
+        :tri-colonne="triColonne"
+        :tri-dir="triDir"
+        @trier-par="trierPar"
+      />
 
       <!-- Tableau Signaux standard -->
       <table v-else class="w-full text-sm">
@@ -184,17 +139,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { Signal } from '@/services/api.service'
-import type { RocketSignalHistorique } from '@/services/api.types'
 import { useAlerteStore } from '@/stores/alerte.store'
 import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
+import RocketsTableau from '@/components/common/RocketsTableau.vue'
+import { useRocketsHistory } from '@/composables/useRocketsHistory'
 
 const alerteStore = useAlerteStore()
 const signaux  = ref<Signal[]>([])
-const rockets  = ref<RocketSignalHistorique[]>([])
-const prixActuels = ref<Record<string, number>>({})
 const chargement    = ref(false)
 const analyseOuverte = ref(false)
 const filtreAsset   = ref('')
@@ -203,6 +157,11 @@ const filtreStrategie = ref('')
 const filtreStatut = ref<'en_cours' | 'cloturees' | ''>('en_cours')
 const triColonne = ref('')
 const triDir = ref<'asc' | 'desc'>('desc')
+
+const rocketsMode = computed(() => filtreStrategie.value === 'Rockets')
+
+const { rockets, prixActuels, chargerRockets, rocketsTries, rocketsFiltrés } =
+  useRocketsHistory(rocketsMode, filtreStatut, triColonne, triDir)
 
 function trierPar(col: string) {
   if (triColonne.value === col) {
@@ -230,8 +189,6 @@ const strategiesOpts = [
   { val: 'Rockets', label: '🚀 Rockets' },
 ]
 
-const rocketsMode = computed(() => filtreStrategie.value === 'Rockets')
-
 const labelStrategie = computed(() => {
   if (filtreStrategie.value === 'Rockets') return 'Rockets'
   if (filtreStrategie.value === 'Straddle') return 'Straddle'
@@ -253,27 +210,9 @@ const signalsFiltres = computed(() =>
   )
 )
 
-const rocketsFiltrés = computed(() => {
-  if (!filtreStatut.value) return rockets.value
-  if (filtreStatut.value === 'en_cours') return rockets.value.filter(r => !r.verdict)
-  return rockets.value.filter(r => !!r.verdict)
-})
-
 const listeActive = computed(() =>
   rocketsMode.value ? rocketsFiltrés.value : signalsFiltres.value
 )
-
-function appliquerTri<T extends Record<string, unknown>>(liste: T[], col: string): T[] {
-  if (!col) return liste
-  return [...liste].sort((a, b) => {
-    let va: unknown = a[col] ?? ''
-    let vb: unknown = b[col] ?? ''
-    if (typeof va === 'string') va = va.toLowerCase()
-    if (typeof vb === 'string') vb = vb.toLowerCase()
-    const cmp = (va as string | number) < (vb as string | number) ? -1 : (va as string | number) > (vb as string | number) ? 1 : 0
-    return triDir.value === 'asc' ? cmp : -cmp
-  })
-}
 
 const signauxTries = computed(() => {
   const col = triColonne.value
@@ -292,10 +231,6 @@ const signauxTries = computed(() => {
   })
 })
 
-const rocketsTries = computed(() =>
-  appliquerTri(rocketsFiltrés.value as unknown as Record<string, unknown>[], triColonne.value) as unknown as RocketSignalHistorique[]
-)
-
 watch(rocketsMode, (val) => { triColonne.value = ''; if (val) charger() })
 
 function formatDate(ts: number): string {
@@ -311,10 +246,9 @@ function formatNombre(v: number | undefined): string {
 }
 
 function classeVerdictSignal(verdict: string | null): string {
-  if (verdict === 'TP3') return 'badge-green'
-  if (verdict === 'TP2') return 'badge-green'
+  if (verdict === 'TP3' || verdict === 'TP2') return 'badge-green'
   if (verdict === 'TP1') return 'badge-blue'
-  if (verdict === 'SL')  return 'badge-red'
+  if (verdict === 'SL') return 'badge-red'
   if (verdict === 'expire') return 'badge-gray'
   return 'badge-yellow'
 }
@@ -323,80 +257,16 @@ function labelVerdictSignal(verdict: string | null): string {
   if (verdict === 'TP3') return '✅ TP3'
   if (verdict === 'TP2') return '✅ TP2'
   if (verdict === 'TP1') return '🟡 TP1'
-  if (verdict === 'SL')  return '❌ SL'
+  if (verdict === 'SL') return '❌ SL'
   if (verdict === 'expire') return '⏰ Expiré'
   return '⏳ Actif'
-}
-
-function classePhase(phase: string): string {
-  if (phase.toLowerCase().includes('break')) return 'badge-green'
-  if (phase.toLowerCase().includes('bull')) return 'badge-blue'
-  if (phase.toLowerCase().includes('bear')) return 'badge-red'
-  return 'badge-yellow'
-}
-
-function classeConvictionLlm(conviction: number | null): string {
-  if (conviction === null || conviction === undefined) return 'bg-gray-700 text-gray-400'
-  if (conviction >= 70) return 'bg-emerald-900 text-emerald-300 border border-emerald-600'
-  if (conviction >= 50) return 'bg-yellow-900 text-yellow-300 border border-yellow-600'
-  return 'bg-red-900 text-red-300 border border-red-600'
-}
-
-function classeVerdict(r: RocketSignalHistorique): string {
-  const v = r.verdict
-  if (v === 'TP1' || v === 'TP2' || v === 'TP3' || v === 'confirme') return 'badge-green'
-  if (v === 'invalide') return 'badge-red'
-  if (v === 'expire')   return 'badge-gray'
-  // Position en cours — suivi live
-  const prix = prixActuels.value[r.ticker]
-  if (prix) {
-    if (r.target3 && prix >= r.target3) return 'badge-green'
-    if (r.target2 && prix >= r.target2) return 'badge-blue'
-    if (prix >= r.target)               return 'badge-blue'
-    if (prix <= r.stop_loss)            return 'badge-red'
-  }
-  return 'badge-yellow'
-}
-
-function labelVerdict(r: RocketSignalHistorique): string {
-  const v = r.verdict
-  if (v === 'invalide') return '❌ −1R'
-  if (v === 'TP1' || v === 'confirme') return '✅ +1R'
-  if (v === 'TP2') return '✅ +2R'
-  if (v === 'TP3') {
-    const risk = r.prix_entree - r.stop_loss
-    if (risk > 0 && r.prix_verdict) {
-      const ratio = ((r.prix_verdict - r.prix_entree) / risk).toFixed(1)
-      return `✅ +${ratio}R`
-    }
-    return '✅ +TP3'
-  }
-  if (v === 'expire') return '⏰ Délai 6h dépassé'
-  // Position en cours — suivi live basé sur le prix actuel
-  const prix = prixActuels.value[r.ticker]
-  if (!prix) return '⏳ En cours'
-  if (r.target3 && prix >= r.target3) return '🟢 TP3 ✓ · SL@TP2'
-  if (r.target2 && prix >= r.target2) return '🔵 TP2 ✓ · SL@TP1'
-  if (prix >= r.target)               return '🔵 TP1 ✓ · SL@BE'
-  if (prix <= r.stop_loss)            return '🔴 SL touché'
-  return '⏳ En cours'
 }
 
 async function charger() {
   chargement.value = true
   try {
     if (rocketsMode.value) {
-      // Sync SL/TP silencieux avant le chargement des données
-      await apiService.syncRockets().catch(() => {})
-      rockets.value = await apiService.historiqueRockets(200)
-      const tickers = [...new Set(rockets.value.map(r => r.ticker))]
-      prixActuels.value = {}
-      await Promise.allSettled(
-        tickers.map(async ticker => {
-          const prix = await apiService.getPrixActuel(ticker)
-          if (prix !== null) prixActuels.value[ticker] = prix
-        })
-      )
+      await chargerRockets()
     } else {
       signaux.value = await apiService.getSignaux(500)
     }
@@ -407,65 +277,7 @@ async function charger() {
   }
 }
 
-function classePrixActuel(r: RocketSignalHistorique): string {
-  const prix = prixActuels.value[r.ticker]
-  if (!prix) return 'text-gray-400'
-  if (prix <= r.stop_loss) return 'text-red-400'
-  if (r.target3 && prix >= r.target3) return 'text-emerald-200'
-  if (r.target2 && prix >= r.target2) return 'text-emerald-300'
-  if (prix >= r.target) return 'text-emerald-400'
-  return 'text-blue-300'
-}
-
-async function rafraichirPrix() {
-  if (!rocketsMode.value || rockets.value.length === 0) return
-  const enCours = rockets.value.filter(r => !r.verdict)
-  const tickers = [...new Set(enCours.map(r => r.ticker))]
-  if (tickers.length === 0) return
-
-  await Promise.allSettled(
-    tickers.map(async ticker => {
-      const prix = await apiService.getPrixActuel(ticker)
-      if (prix !== null) prixActuels.value[ticker] = prix
-    })
-  )
-
-  // Détecter les positions qui ont franchi leur SL ou TP → déclencher sync + rechargement
-  const franchissement = enCours.some(r => {
-    const prix = prixActuels.value[r.ticker]
-    if (!prix) return false
-    if (prix <= r.stop_loss) return true
-    if (r.target3 && prix >= r.target3) return true
-    if (r.target2 && prix >= r.target2) return true
-    if (!r.target2 && prix >= r.target) return true
-    return false
-  })
-
-  if (franchissement) {
-    await apiService.syncRockets().catch(() => {})
-    await charger()
-  }
-}
-
-let timeoutPrix: ReturnType<typeof setTimeout> | null = null
-let actif = false
-
-async function boucleRafraichissement() {
-  if (!actif) return
-  await rafraichirPrix()
-  if (actif) timeoutPrix = setTimeout(boucleRafraichissement, 5_000)
-}
-
-onMounted(() => {
-  charger()
-  actif = true
-  boucleRafraichissement()
-})
-
-onUnmounted(() => {
-  actif = false
-  if (timeoutPrix) clearTimeout(timeoutPrix)
-})
+onMounted(() => charger())
 </script>
 
 <style scoped>

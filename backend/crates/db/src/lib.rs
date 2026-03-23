@@ -4,6 +4,7 @@ pub mod calendrier;
 pub mod config;
 pub mod entrainements;
 pub mod rockets;
+pub mod rockets_config;
 pub mod signaux;
 pub mod volatilite;
 

@@ -21,7 +21,9 @@ mod ollama_handlers;
 mod ollama_types;
 mod rockets_analyse_handler;
 mod rockets_handlers;
+mod rockets_indicateurs;
 mod rockets_scan;
+mod rockets_suivi;
 mod scheduler;
 mod sentiment_handlers;
 mod signal_engine;
@@ -57,7 +59,7 @@ async fn main() -> std::io::Result<()> {
     tracing::info!("🌐 Server running on http://0.0.0.0:8080");
 
     let pool_rockets = app_state.db.pool().clone();
-    tokio::spawn(rockets_handlers::demarrer_worker_suivi(pool_rockets));
+    tokio::spawn(rockets_suivi::demarrer_worker_suivi(pool_rockets));
 
     let pool_scan = app_state.db.pool().clone();
     tokio::spawn(rockets_scan::demarrer_worker_scan(pool_scan));
@@ -198,7 +200,7 @@ async fn main() -> std::io::Result<()> {
             )
             .route(
                 "/api/rockets/sync",
-                web::post().to(rockets_handlers::sync_verdicts),
+                web::post().to(rockets_suivi::sync_verdicts),
             )
             .service(
                 web::resource("/api/rockets/config")
