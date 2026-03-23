@@ -117,7 +117,13 @@ export function useChartOrchestration(o: Opts) {
   onMounted(async () => {
     try {
       const liste: AssetInfo[] = await apiService.obtenirAssets()
-      if (liste.length > 0) assets.value = liste.map((a) => a.id)
+      // La vue graphique est dédiée à la stratégie SMC — on exclut les cryptos
+      // autres que BTC et ETH (les altcoins sont surveillés par Rockets, pas SMC)
+      const CRYPTO_SMC = ['BTC', 'ETH']
+      const filtered = liste.filter(
+        a => a.type !== 'crypto' || CRYPTO_SMC.includes(a.id)
+      )
+      if (filtered.length > 0) assets.value = filtered.map((a) => a.id)
     } catch { /* fallback liste statique */ }
 
     await marketStore.chargerBougies(
