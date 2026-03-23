@@ -419,17 +419,32 @@ function classePrixActuel(r: RocketSignalHistorique): string {
 
 async function rafraichirPrix() {
   if (!rocketsMode.value || rockets.value.length === 0) return
-  const tickers = [...new Set(rockets.value
-    .filter(r => !r.verdict || r.verdict === 'en_cours')
-    .map(r => r.ticker)
-  )]
+  const enCours = rockets.value.filter(r => !r.verdict)
+  const tickers = [...new Set(enCours.map(r => r.ticker))]
   if (tickers.length === 0) return
+
   await Promise.allSettled(
     tickers.map(async ticker => {
       const prix = await apiService.getPrixActuel(ticker)
       if (prix !== null) prixActuels.value[ticker] = prix
     })
   )
+
+  // Détecter les positions qui ont franchi leur SL ou TP → déclencher sync + rechargement
+  const franchissement = enCours.some(r => {
+    const prix = prixActuels.value[r.ticker]
+    if (!prix) return false
+    if (prix <= r.stop_loss) return true
+    if (r.target3 && prix >= r.target3) return true
+    if (r.target2 && prix >= r.target2) return true
+    if (!r.target2 && prix >= r.target) return true
+    return false
+  })
+
+  if (franchissement) {
+    await apiService.syncRockets().catch(() => {})
+    await charger()
+  }
 }
 
 let timeoutPrix: ReturnType<typeof setTimeout> | null = null
