@@ -72,6 +72,7 @@ const nav: NavItem[] = [
       { to: '/smc',           icone: '⚡', label: 'Signaux actifs' },
       { to: '/smc/analyser',  icone: '📊', label: 'Analyser' },
       { to: '/smc/graphiques',icone: '📈', label: 'Graphiques' },
+      { to: '/lexique',       icone: '📖', label: 'Lexique SMC' },
     ]
   },
   {
@@ -79,6 +80,7 @@ const nav: NavItem[] = [
     liens: [
       { to: '/straddle',          icone: '🔍', label: 'Créneaux volatilité' },
       { to: '/straddle/backtest', icone: '🧪', label: 'Backtest' },
+      { to: '/data',              icone: '📦', label: 'Données' },
     ]
   },
 
@@ -93,12 +95,10 @@ const nav: NavItem[] = [
     liens: [
       { to: '/ia/chart', icone: '🖼️',  label: 'Analyse graphique' },
       { to: '/ia/coach', icone: '💬', label: 'Coach IA' },
-      { to: '/lexique',  icone: '📖', label: 'Lexique SMC' },
     ]
   },
 
   // ── Système ───────────────────────────────────────────────────────────────
-  { to: '/data',     icone: '📦', label: 'Données' },
   { to: '/settings', icone: '⚙️',  label: 'Paramètres' },
 ]
 
