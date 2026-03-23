@@ -338,10 +338,22 @@ function labelVerdict(r: RocketSignalHistorique): string {
 
 async function charger() {
   chargement.value = true
+  // Déconnecter les WS avant rechargement pour forcer la reconnexion
+  marketStore.deconnecterPrixLiveAssets()
   try {
     if (rocketsMode.value) {
       rockets.value = await apiService.historiqueRockets(200)
       const tickers = [...new Set(rockets.value.map(r => r.ticker))]
+      // Fallback REST : charger le dernier close pour tous les tickers immédiatement
+      await Promise.allSettled(
+        tickers.map(async ticker => {
+          try {
+            const candles = await apiService.getCandles(ticker, 'M1', 1)
+            if (candles.length > 0) marketStore.prixLive[ticker] = candles[candles.length - 1].close
+          } catch { /* ticker non supporté, ignoré */ }
+        })
+      )
+      // Puis connexion WS pour les mises à jour en direct
       marketStore.connecterPrixLiveAssets(tickers)
     } else {
       signaux.value = await apiService.getSignaux(500)
