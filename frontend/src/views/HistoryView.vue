@@ -11,22 +11,31 @@
         <option value="">Tous les assets</option>
         <option v-for="a in assetsConnus" :key="a" :value="a">{{ a }}</option>
       </select>
-      <select v-model="filtreDirection" class="glass-select text-sm" :disabled="rocketsMode">
-        <option value="">Toutes directions</option>
-        <option value="LONG">LONG</option>
-        <option value="SHORT">SHORT</option>
-      </select>
-      <select v-model="filtreStrategie" class="glass-select text-sm">
-        <option value="">Toutes stratégies</option>
-        <option value="Straddle">Straddle</option>
-        <option value="SmcDirectional">SMC Directionnel</option>
-        <option value="Rockets">🚀 Rockets</option>
-      </select>
+
+      <!-- Direction buttons -->
+      <div class="flex gap-1">
+        <button
+          v-for="d in directionsOpts" :key="d.val"
+          class="filtre-btn" :class="{ 'filtre-btn-actif': filtreDirection === d.val }"
+          :disabled="rocketsMode"
+          @click="filtreDirection = d.val"
+        >{{ d.label }}</button>
+      </div>
+
+      <!-- Stratégie buttons -->
+      <div class="flex gap-1">
+        <button
+          v-for="s in strategiesOpts" :key="s.val"
+          class="filtre-btn" :class="{ 'filtre-btn-actif': filtreStrategie === s.val }"
+          @click="filtreStrategie = s.val"
+        >{{ s.label }}</button>
+      </div>
+
       <button class="btn-sm ml-auto" @click="charger">🔄 Actualiser</button>
     </div>
 
     <!-- Tableau -->
-    <div class="glass-card overflow-hidden">
+    <div class="glass-card overflow-hidden" style="max-height: calc(100vh - 240px); overflow-y: auto;">
       <div v-if="chargement" class="text-center text-gray-500 py-10">Chargement...</div>
       <div v-else-if="!listeActive.length" class="text-center text-gray-500 py-10">
         Aucun signal correspondant aux filtres
@@ -48,8 +57,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(r, i) in listePageRockets" :key="r.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
-            <td class="px-4 py-3 text-gray-500">{{ offsetPage + i + 1 }}</td>
+          <tr v-for="(r, i) in rockets" :key="r.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
+            <td class="px-4 py-3 text-gray-500">{{ i + 1 }}</td>
             <td class="px-4 py-3 font-semibold text-white">{{ r.ticker }}</td>
             <td class="px-4 py-3">
               <span class="badge" :class="classePhase(r.phase)">{{ r.phase }}</span>
@@ -86,8 +95,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(s, i) in listePageSignaux" :key="s.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
-            <td class="px-3 py-3 text-gray-500">{{ offsetPage + i + 1 }}</td>
+          <tr v-for="(s, i) in signalsFiltres" :key="s.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
+            <td class="px-3 py-3 text-gray-500">{{ i + 1 }}</td>
             <td class="px-3 py-3 font-semibold text-white">{{ s.asset }}</td>
             <td class="px-3 py-3 text-gray-400">{{ s.timeframe }}</td>
             <td class="px-3 py-3">
@@ -109,15 +118,9 @@
       </table>
     </div>
 
-    <!-- Pagination -->
-    <div v-if="totalPages > 1" class="flex items-center justify-between">
-      <span class="text-sm text-gray-400">
-        {{ listeActive.length }} entrée{{ listeActive.length > 1 ? 's' : '' }} • Page {{ pageCourante + 1 }} / {{ totalPages }}
-      </span>
-      <div class="flex gap-2">
-        <button class="btn-sm" :disabled="pageCourante === 0" @click="pageCourante--">← Préc.</button>
-        <button class="btn-sm" :disabled="pageCourante >= totalPages - 1" @click="pageCourante++">Suiv. →</button>
-      </div>
+    <!-- Compteur -->
+    <div class="text-sm text-gray-400">
+      {{ listeActive.length }} entrée{{ listeActive.length > 1 ? 's' : '' }}
     </div>
   </div>
 </template>
@@ -136,8 +139,18 @@ const chargement    = ref(false)
 const filtreAsset   = ref('')
 const filtreDirection = ref('')
 const filtreStrategie = ref('')
-const pageCourante  = ref(0)
-const PAR_PAGE = 8
+
+const directionsOpts = [
+  { val: '', label: 'Toutes' },
+  { val: 'LONG', label: '📈 LONG' },
+  { val: 'SHORT', label: '📉 SHORT' },
+]
+const strategiesOpts = [
+  { val: '', label: 'Toutes' },
+  { val: 'Straddle', label: '⚡ Straddle' },
+  { val: 'SmcDirectional', label: '🧠 SMC' },
+  { val: 'Rockets', label: '🚀 Rockets' },
+]
 
 const rocketsMode = computed(() => filtreStrategie.value === 'Rockets')
 
@@ -159,16 +172,6 @@ const listeActive = computed(() =>
   rocketsMode.value ? rockets.value : signalsFiltres.value
 )
 
-const totalPages = computed(() => Math.ceil(listeActive.value.length / PAR_PAGE) || 1)
-const offsetPage = computed(() => pageCourante.value * PAR_PAGE)
-const listePageSignaux = computed(() =>
-  (signalsFiltres.value as Signal[]).slice(offsetPage.value, offsetPage.value + PAR_PAGE)
-)
-const listePageRockets = computed(() =>
-  (rockets.value as RocketSignalHistorique[]).slice(offsetPage.value, offsetPage.value + PAR_PAGE)
-)
-
-watch([filtreAsset, filtreDirection, filtreStrategie], () => { pageCourante.value = 0 })
 watch(rocketsMode, (val) => { if (val) charger() })
 
 function formatDate(ts: number): string {
@@ -246,6 +249,8 @@ onMounted(charger)
 .glass-select:disabled { @apply opacity-40 cursor-not-allowed; }
 .btn-outline { @apply border border-gray-600 text-gray-300 hover:bg-gray-700 px-3 py-2 rounded-lg transition-all; }
 .btn-sm { @apply bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-white text-sm px-3 py-1.5 rounded-lg transition-all; }
+.filtre-btn { @apply text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed; }
+.filtre-btn-actif { @apply bg-blue-600/30 border-blue-500/50 text-blue-300; }
 .badge { @apply text-xs font-bold px-2 py-0.5 rounded-full; }
 .badge-green  { @apply bg-emerald-900/60 text-emerald-300; }
 .badge-red    { @apply bg-red-900/60 text-red-300; }
