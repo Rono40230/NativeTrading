@@ -32,7 +32,7 @@
       </div>
 
       <button class="btn-sm ml-auto" @click="charger">🔄 Actualiser</button>
-      <button v-if="rocketsMode" class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse Rockets</button>
+      <button v-if="filtreStrategie !== ''" class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse {{ labelStrategie }}</button>
     </div>
 
     <!-- Tableau -->
@@ -130,16 +130,30 @@
       {{ listeActive.length }} entrée{{ listeActive.length > 1 ? 's' : '' }}
     </div>
 
-    <!-- Modale Analyse Rockets -->
+    <!-- Modale Analyse -->
     <div v-if="analyseOuverte" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="analyseOuverte = false">
       <div class="glass-card p-6 w-full max-w-3xl max-h-[85vh] overflow-y-auto space-y-6">
         <div class="flex items-center justify-between">
-          <h2 class="text-xl font-bold">📊 Analyse Rockets — Score vs Verdict</h2>
+          <h2 class="text-xl font-bold">📊 Analyse {{ labelStrategie }}</h2>
           <button class="text-gray-400 hover:text-white text-xl" @click="analyseOuverte = false">×</button>
         </div>
 
-        <!-- Stats globales -->
-        <div class="grid grid-cols-4 gap-3">
+        <!-- Placeholder Straddle -->
+        <div v-if="filtreStrategie === 'Straddle'" class="text-center py-16 text-gray-400">
+          <div class="text-4xl mb-4">⚡</div>
+          <p class="text-lg font-semibold text-white mb-2">Analyse Straddle</p>
+          <p>Cette section sera définie prochainement.</p>
+        </div>
+
+        <!-- Placeholder SMC -->
+        <div v-else-if="filtreStrategie === 'SmcDirectional'" class="text-center py-16 text-gray-400">
+          <div class="text-4xl mb-4">🧠</div>
+          <p class="text-lg font-semibold text-white mb-2">Analyse SMC Directionnel</p>
+          <p>Cette section sera définie prochainement.</p>
+        </div>
+
+        <!-- Stats globales Rockets -->
+        <div v-else class="grid grid-cols-4 gap-3">
           <div class="glass-card p-3 text-center">
             <div class="text-2xl font-bold text-white">{{ statsGlobales.total }}</div>
             <div class="text-xs text-gray-400 mt-1">Total clôturés</div>
@@ -205,6 +219,7 @@
             </div>
           </div>
         </div>
+        </div><!-- /v-else Rockets -->
       </div>
     </div>
   </div>
@@ -255,6 +270,13 @@ const strategiesOpts = [
 ]
 
 const rocketsMode = computed(() => filtreStrategie.value === 'Rockets')
+
+const labelStrategie = computed(() => {
+  if (filtreStrategie.value === 'Rockets') return 'Rockets'
+  if (filtreStrategie.value === 'Straddle') return 'Straddle'
+  if (filtreStrategie.value === 'SmcDirectional') return 'SMC Directionnel'
+  return ''
+})
 
 const assetsConnus = computed(() =>
   [...new Set(signaux.value.map(s => s.asset))].sort()
