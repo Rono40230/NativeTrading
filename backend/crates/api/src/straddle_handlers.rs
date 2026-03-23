@@ -139,8 +139,17 @@ pub async fn analyser(
         }
         Err(e) => {
             tracing::error!("Straddle LLM échoué pour {}: {}", asset_str, e);
-            HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": e.to_string() }))
+            // Réponse métier claire — pas de 500 — LLM indisponible
+            HttpResponse::Ok().json(serde_json::json!({
+                "creneaux": [],
+                "nb_analyses": nb_analyses,
+                "nb_retenus": 0,
+                "message": format!(
+                    "Analyse impossible : le modèle LLM Ollama n'est pas disponible ({}). \
+                     Vérifiez qu'Ollama est démarré et que le modèle est chargé.",
+                    e
+                )
+            }))
         }
     }
 }

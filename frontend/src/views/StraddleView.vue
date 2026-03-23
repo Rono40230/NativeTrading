@@ -14,17 +14,17 @@
       <div class="flex flex-col gap-1">
         <label class="text-xs text-gray-400 uppercase tracking-wider">Asset</label>
         <select v-model="asset" class="glass-select">
-          <option v-for="a in assetsDisponibles" :key="a" :value="a" class="bg-gray-800 text-white">{{ a }}</option>
+          <option v-for="a in assetsDisponibles" :key="a" :value="a" class="bg-white text-gray-900">{{ a }}</option>
         </select>
       </div>
 
       <div class="flex flex-col gap-1">
         <label class="text-xs text-gray-400 uppercase tracking-wider">Période d'analyse</label>
         <select v-model="periode" class="glass-select">
-          <option value="3m" class="bg-gray-800 text-white">3 mois</option>
-          <option value="6m" class="bg-gray-800 text-white">6 mois</option>
-          <option value="1a" class="bg-gray-800 text-white">1 an</option>
-          <option value="2a" class="bg-gray-800 text-white">2 ans</option>
+          <option value="3m" class="bg-white text-gray-900">3 mois</option>
+          <option value="6m" class="bg-white text-gray-900">6 mois</option>
+          <option value="1a" class="bg-white text-gray-900">1 an</option>
+          <option value="2a" class="bg-white text-gray-900">2 ans</option>
         </select>
       </div>
 
