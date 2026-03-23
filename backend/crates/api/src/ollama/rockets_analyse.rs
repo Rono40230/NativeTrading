@@ -1,6 +1,6 @@
 use crate::ollama::types::{MODELE_DEFAUT, OLLAMA_URL};
 use common::TradingError;
-use db::rockets::RocketSignal;
+use db::rockets::{RocketSignal, RocketsConfig};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -43,7 +43,8 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ou après, avec cette struc
 }
 
 Produis entre 3 et 6 recommandations. Priorise les actions à fort impact sur le winrate et le R moyen.
-Base-toi uniquement sur les données fournies, pas sur des hypothèses générales."#;
+Base-toi uniquement sur les données fournies, pas sur des hypothèses générales.
+Si la config actuelle te semble déjà bien calibrée sur un point, dis-le explicitement plutôt que de répéter la même recommandation."#;
 
 // ── Agrégation ────────────────────────────────────────────────────────────────
 
@@ -129,7 +130,7 @@ fn agreger_par_phase(signaux: &[RocketSignal]) -> Vec<MetriquesPhase> {
         .collect()
 }
 
-fn formater_contexte(signaux: &[RocketSignal]) -> String {
+fn formater_contexte(signaux: &[RocketSignal], cfg: &RocketsConfig) -> String {
     let total = signaux.len();
     let gains = signaux
         .iter()
@@ -151,11 +152,21 @@ fn formater_contexte(signaux: &[RocketSignal]) -> String {
         rs.iter().sum::<f64>() / rs.len() as f64
     };
 
+    let phases_str = cfg.phases_actives.join(", ");
     let mut ctx = format!(
-        "=== MÉTRIQUES GLOBALES ({total} trades clôturés) ===\n\
+        "=== CONFIG ACTIVE DU SCANNER ===\n\
+        score_min={score_min} | phases_actives=[{phases}]\n\
+        rsi_min={rsi_min} | rsi_max={rsi_max} | ratio_volume_min={vol_ratio:.1} | vol_marche_min={vol_min:.0}M$\n\n\
+        === MÉTRIQUES GLOBALES ({total} trades clôturés) ===\n\
         Winrate global : {winrate}% | R moyen : {r_global:.2}R\n\
         Gagnants : {gains} | SL : {sl_count} | Autres : {autres}\n\
         Coefficient ATR actuel : SL=1×ATR, TP1=1×ATR, TP2=2×ATR, TP3=20×ATR\n\n",
+        score_min = cfg.score_min,
+        phases = phases_str,
+        rsi_min = cfg.rsi_min,
+        rsi_max = cfg.rsi_max,
+        vol_ratio = cfg.ratio_volume_min,
+        vol_min = cfg.vol_marche_min / 1_000_000.0,
         autres = total - gains - sl_count,
     );
 
@@ -206,8 +217,8 @@ fn formater_contexte(signaux: &[RocketSignal]) -> String {
 
 // ── Appel LLM ────────────────────────────────────────────────────────────────
 
-pub async fn analyser_strategie(signaux: &[RocketSignal]) -> Result<AnalyseReponse, TradingError> {
-    let contexte = formater_contexte(signaux);
+pub async fn analyser_strategie(signaux: &[RocketSignal], cfg: &RocketsConfig) -> Result<AnalyseReponse, TradingError> {
+    let contexte = formater_contexte(signaux, cfg);
     let prompt = format!("{PROMPT_ANALYSE_ROCKETS}\n\n{contexte}");
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());

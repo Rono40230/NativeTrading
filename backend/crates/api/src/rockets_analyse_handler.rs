@@ -2,7 +2,7 @@ use actix_web::{web, HttpResponse, Responder};
 use std::time::Duration;
 
 use crate::state::AppState;
-use db::rockets;
+use db::{rockets, rockets_config};
 
 const MIN_TRADES_ANALYSE: i64 = 5;
 const LIMITE_TRADES: i64 = 30;
@@ -48,7 +48,8 @@ async fn executer_analyse(pool: &sqlx::SqlitePool) -> anyhow::Result<db::rockets
         );
     }
 
-    let reponse = crate::ollama::rockets_analyse::analyser_strategie(&signaux).await?;
+    let cfg = rockets_config::lire_config(pool).await;
+    let reponse = crate::ollama::rockets_analyse::analyser_strategie(&signaux, &cfg).await?;
 
     let recommandations_json = serde_json::to_string(&reponse.recommandations)?;
     let id = rockets::sauvegarder_analyse(
