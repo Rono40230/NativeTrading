@@ -55,6 +55,7 @@
             <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('target')">TP1 <span class="tri-icone">{{ icone('target') }}</span></th>
             <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('target2')">TP2 <span class="tri-icone">{{ icone('target2') }}</span></th>
             <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('target3')">TP3 <span class="tri-icone">{{ icone('target3') }}</span></th>
+            <th class="px-4 py-3 text-right">Prix actuel</th>
             <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_verdict')">Sortie <span class="tri-icone">{{ icone('prix_verdict') }}</span></th>
             <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Verdict <span class="tri-icone">{{ icone('verdict') }}</span></th>
             <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Date <span class="tri-icone">{{ icone('cree_le') }}</span></th>
@@ -73,6 +74,10 @@
             <td class="px-4 py-3 text-right font-mono text-emerald-400">{{ formatNombre(r.target) }}</td>
             <td class="px-4 py-3 text-right font-mono text-emerald-300">{{ r.target2 ? formatNombre(r.target2) : '—' }}</td>
             <td class="px-4 py-3 text-right font-mono text-emerald-200">{{ r.target3 ? formatNombre(r.target3) : '\u2014' }}</td>
+            <td class="px-4 py-3 text-right font-mono">
+              <span v-if="marketStore.prixLive[r.ticker]" :class="classePrixActuel(r)">{{ formatNombre(marketStore.prixLive[r.ticker]) }}</span>
+              <span v-else class="text-gray-600">—</span>
+            </td>
             <td class="px-4 py-3 text-right font-mono text-white">{{ r.prix_verdict ? formatNombre(r.prix_verdict) : '\u2014' }}</td>
             <td class="px-4 py-3">
               <span class="badge" :class="classeVerdict(r.verdict)">{{ labelVerdict(r) }}</span>
@@ -161,12 +166,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { Signal } from '@/services/api.service'
 import type { RocketSignalHistorique } from '@/services/api.types'
 import { useAlerteStore } from '@/stores/alerte.store'
+import { useMarketStore } from '@/stores/market.store'
 import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
+
+const marketStore = useMarketStore()
 
 const alerteStore = useAlerteStore()
 const signaux  = ref<Signal[]>([])
@@ -333,6 +341,8 @@ async function charger() {
   try {
     if (rocketsMode.value) {
       rockets.value = await apiService.historiqueRockets(200)
+      const tickers = [...new Set(rockets.value.map(r => r.ticker))]
+      marketStore.connecterPrixLiveAssets(tickers)
     } else {
       signaux.value = await apiService.getSignaux(500)
     }
@@ -343,7 +353,18 @@ async function charger() {
   }
 }
 
+function classePrixActuel(r: RocketSignalHistorique): string {
+  const prix = marketStore.prixLive[r.ticker]
+  if (!prix) return 'text-gray-400'
+  if (prix <= r.stop_loss) return 'text-red-400'
+  if (r.target3 && prix >= r.target3) return 'text-emerald-200'
+  if (r.target2 && prix >= r.target2) return 'text-emerald-300'
+  if (prix >= r.target) return 'text-emerald-400'
+  return 'text-blue-300'
+}
+
 onMounted(charger)
+onUnmounted(() => marketStore.deconnecterPrixLiveAssets())
 </script>
 
 <style scoped>
