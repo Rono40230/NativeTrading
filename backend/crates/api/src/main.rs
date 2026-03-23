@@ -65,7 +65,9 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(rockets_scan::demarrer_worker_scan(pool_scan));
 
     let pool_analyse = app_state.db.pool().clone();
-    tokio::spawn(rockets_analyse_handler::demarrer_worker_analyse(pool_analyse));
+    tokio::spawn(rockets_analyse_handler::demarrer_worker_analyse(
+        pool_analyse,
+    ));
 
     let pool_signaux = app_state.db.pool().clone();
     tokio::spawn(signaux_handlers::demarrer_worker_suivi_signaux(

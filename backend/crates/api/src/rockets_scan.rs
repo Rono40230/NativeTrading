@@ -1,8 +1,8 @@
-use crate::rockets_indicateurs::{
-    calc_atr, calc_rsi, calculer_phase, est_eligible, phase_priorite, Ticker24h,
-    BATCH_SIZE, LOOKBACK, KLINES_N, MAX_DISPLAY, SCAN_SECS,
-};
 pub use crate::rockets_indicateurs::ScanResultat;
+use crate::rockets_indicateurs::{
+    calc_atr, calc_rsi, calculer_phase, est_eligible, phase_priorite, Ticker24h, BATCH_SIZE,
+    KLINES_N, LOOKBACK, MAX_DISPLAY, SCAN_SECS,
+};
 use db::rockets::{self, NouveauRocket, RocketsConfig};
 use futures_util::future::join_all;
 use std::sync::{Arc, OnceLock};
@@ -26,7 +26,11 @@ pub fn get_total_candidats() -> Arc<RwLock<usize>> {
         .clone()
 }
 
-async fn analyser_symbol(client: &reqwest::Client, ticker: &str, cfg: &RocketsConfig) -> Option<ScanResultat> {
+async fn analyser_symbol(
+    client: &reqwest::Client,
+    ticker: &str,
+    cfg: &RocketsConfig,
+) -> Option<ScanResultat> {
     let url = format!(
         "https://api.binance.com/api/v3/klines?symbol={}USDT&interval=1h&limit={}",
         ticker, KLINES_N
@@ -50,9 +54,13 @@ async fn analyser_symbol(client: &reqwest::Client, ticker: &str, cfg: &RocketsCo
     let ratio_corps = {
         let open = *opens.last()?;
         let high = *highs.last()?;
-        let low  = *lows.last()?;
+        let low = *lows.last()?;
         let amplitude = high - low;
-        if amplitude > 0.0 { (prix - open).abs() / amplitude } else { 0.0 }
+        if amplitude > 0.0 {
+            (prix - open).abs() / amplitude
+        } else {
+            0.0
+        }
     };
 
     let (atr14, atr5) = calc_atr(&highs, &lows, &closes);
@@ -117,7 +125,6 @@ async fn analyser_symbol(client: &reqwest::Client, ticker: &str, cfg: &RocketsCo
     })
 }
 
-
 // ── Worker de scan ───────────────────────────────────────────────────────────
 
 pub async fn demarrer_worker_scan(pool: sqlx::SqlitePool) {
@@ -145,8 +152,13 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
 
     // Lire la config depuis la DB (paramètres ajustables par l'utilisateur)
     let cfg = rockets::lire_config(pool).await;
-    tracing::info!("Config scan: score_min={} rsi_max={} ratio_vol_min={} phases={:?}",
-        cfg.score_min, cfg.rsi_max, cfg.ratio_volume_min, cfg.phases_actives);
+    tracing::info!(
+        "Config scan: score_min={} rsi_max={} ratio_vol_min={} phases={:?}",
+        cfg.score_min,
+        cfg.rsi_max,
+        cfg.ratio_volume_min,
+        cfg.phases_actives
+    );
 
     let tickers: Vec<Ticker24h> = client
         .get("https://api.binance.com/api/v3/ticker/24hr")
@@ -196,7 +208,7 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
             && r.rsi <= cfg.rsi_max
             && r.rsi >= cfg.rsi_min
             && r.ratio_volume >= cfg.ratio_volume_min  // volume confirmé
-            && r.ratio_corps >= 0.35                   // pas de doji / mèche de rejet
+            && r.ratio_corps >= 0.35 // pas de doji / mèche de rejet
     }) {
         // SL = entrée - ATR14 | TP1 = entrée + ATR14 | TP2 = entrée + 2×ATR14 | TP3 = entrée + 20×ATR14
         let sl = r.prix - r.atr14;
@@ -226,7 +238,10 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
                 Ok(rep) => {
                     tracing::info!(
                         "LLM filtre {} {}: valide={} conviction={}",
-                        r.ticker, r.phase, rep.valide, rep.conviction
+                        r.ticker,
+                        r.phase,
+                        rep.valide,
+                        rep.conviction
                     );
                     if !rep.valide {
                         tracing::info!("LLM rejette {} {}: {}", r.ticker, r.phase, rep.raison);
@@ -235,13 +250,22 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
                     if rep.conviction < CONVICTION_MIN {
                         tracing::info!(
                             "LLM conviction insuffisante {} {} ({}/100): {}",
-                            r.ticker, r.phase, rep.conviction, rep.raison
+                            r.ticker,
+                            r.phase,
+                            rep.conviction,
+                            rep.raison
                         );
                         continue; // Qualité insuffisante — pas de sauvegarde
                     }
                     let sl_s = rep.ajustements.as_ref().and_then(|a| a.sl_suggere);
                     let tp1_s = rep.ajustements.as_ref().and_then(|a| a.tp1_suggere);
-                    (Some(true), Some(rep.conviction), Some(rep.raison), sl_s, tp1_s)
+                    (
+                        Some(true),
+                        Some(rep.conviction),
+                        Some(rep.raison),
+                        sl_s,
+                        tp1_s,
+                    )
                 }
                 Err(e) => {
                     // Fallback : Ollama indisponible → sauvegarder sans filtre

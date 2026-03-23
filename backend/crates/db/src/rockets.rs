@@ -114,11 +114,7 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
 
 /// Retourne les N derniers signaux clôturés (hors expire) pour un ticker donné.
 /// Utilisé par le filtre LLM pour contextualiser chaque nouveau signal.
-pub async fn historique_ticker(
-    pool: &SqlitePool,
-    ticker: &str,
-    limite: i64,
-) -> Vec<RocketSignal> {
+pub async fn historique_ticker(pool: &SqlitePool, ticker: &str, limite: i64) -> Vec<RocketSignal> {
     let rows = sqlx::query(
         "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
                 ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le
@@ -293,6 +289,3 @@ pub async fn signaux_pour_analyse(pool: &SqlitePool, limite: i64) -> Result<Vec<
     .map_err(|e| TradingError::Database(e.to_string()))?;
     Ok(rows.iter().map(row_to_signal).collect())
 }
-
-
-

@@ -165,11 +165,7 @@ pub fn phase_priorite(phase: &str) -> u8 {
 
 // ── Logique de progression de position ──────────────────────────────────────
 
-pub fn calculer_verdict_rocket(
-    s: &RocketSignal,
-    prix: f64,
-    peak: f64,
-) -> Option<&'static str> {
+pub fn calculer_verdict_rocket(s: &RocketSignal, prix: f64, peak: f64) -> Option<&'static str> {
     let atr14 = s.atr14.unwrap_or(s.prix_entree * 0.01);
     let trailing_stop = peak - atr14 * 1.5;
 

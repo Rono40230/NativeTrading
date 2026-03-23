@@ -91,8 +91,7 @@ fn agreger_par_phase(signaux: &[RocketSignal]) -> Vec<MetriquesPhase> {
     phases
         .into_iter()
         .map(|phase| {
-            let groupe: Vec<&RocketSignal> =
-                signaux.iter().filter(|s| s.phase == phase).collect();
+            let groupe: Vec<&RocketSignal> = signaux.iter().filter(|s| s.phase == phase).collect();
             let total = groupe.len();
             let gains = groupe
                 .iter()
@@ -120,8 +119,7 @@ fn agreger_par_phase(signaux: &[RocketSignal]) -> Vec<MetriquesPhase> {
             } else {
                 gagnants.iter().map(|s| s.score as f64).sum::<f64>() / gagnants.len() as f64
             };
-            let rsi_moyen =
-                groupe.iter().map(|s| s.rsi).sum::<f64>() / total.max(1) as f64;
+            let rsi_moyen = groupe.iter().map(|s| s.rsi).sum::<f64>() / total.max(1) as f64;
             let vol_moyen =
                 groupe.iter().map(|s| s.ratio_volume).sum::<f64>() / total.max(1) as f64;
 
@@ -150,11 +148,7 @@ fn formater_contexte(signaux: &[RocketSignal], cfg: &RocketsConfig) -> String {
         .iter()
         .filter(|s| s.verdict.as_deref() == Some("invalide"))
         .count();
-    let winrate = if total > 0 {
-        gains * 100 / total
-    } else {
-        0
-    };
+    let winrate = if total > 0 { gains * 100 / total } else { 0 };
     let rs: Vec<f64> = signaux.iter().filter_map(r_realise).collect();
     let r_global = if rs.is_empty() {
         0.0
@@ -227,7 +221,10 @@ fn formater_contexte(signaux: &[RocketSignal], cfg: &RocketsConfig) -> String {
 
 // ── Appel LLM ────────────────────────────────────────────────────────────────
 
-pub async fn analyser_strategie(signaux: &[RocketSignal], cfg: &RocketsConfig) -> Result<AnalyseReponse, TradingError> {
+pub async fn analyser_strategie(
+    signaux: &[RocketSignal],
+    cfg: &RocketsConfig,
+) -> Result<AnalyseReponse, TradingError> {
     let contexte = formater_contexte(signaux, cfg);
     let prompt = format!("{PROMPT_ANALYSE_ROCKETS}\n\n{contexte}");
 
@@ -277,6 +274,11 @@ pub async fn analyser_strategie(signaux: &[RocketSignal], cfg: &RocketsConfig) -
     let texte = data.message.content;
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
-    serde_json::from_str::<AnalyseReponse>(&texte[debut..fin])
-        .map_err(|e| TradingError::Api(format!("JSON LLM non parsable: {} — texte: {}", e, &texte[..texte.len().min(300)])))
+    serde_json::from_str::<AnalyseReponse>(&texte[debut..fin]).map_err(|e| {
+        TradingError::Api(format!(
+            "JSON LLM non parsable: {} — texte: {}",
+            e,
+            &texte[..texte.len().min(300)]
+        ))
+    })
 }

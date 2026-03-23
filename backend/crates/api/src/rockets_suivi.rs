@@ -179,7 +179,14 @@ mod tests {
     use db::rockets::RocketSignal;
 
     /// Construit un signal de test minimal
-    fn signal(entree: f64, sl: f64, tp1: f64, tp2: Option<f64>, tp3: Option<f64>, atr14: f64) -> RocketSignal {
+    fn signal(
+        entree: f64,
+        sl: f64,
+        tp1: f64,
+        tp2: Option<f64>,
+        tp3: Option<f64>,
+        atr14: f64,
+    ) -> RocketSignal {
         RocketSignal {
             id: 1,
             ticker: "TEST".into(),
@@ -283,6 +290,9 @@ mod tests {
         let s = signal(1.0, 0.90, 1.10, Some(1.20), Some(1.50), 0.05);
         let peak = 1.60;
         let trailing = peak - 0.05 * 1.5;
-        assert_eq!(calculer_verdict_rocket(&s, trailing - 0.001, peak), Some("TP3"));
+        assert_eq!(
+            calculer_verdict_rocket(&s, trailing - 0.001, peak),
+            Some("TP3")
+        );
     }
 }

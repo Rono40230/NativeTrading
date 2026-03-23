@@ -20,8 +20,9 @@ pub async fn put_config(
 ) -> impl Responder {
     match rockets::sauvegarder_config(state.db.pool(), &body).await {
         Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => {
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
+        }
     }
 }
 
@@ -119,4 +120,3 @@ pub async fn get_historique(
         }
     }
 }
-

@@ -37,9 +37,8 @@ pub async fn lire_config(pool: &SqlitePool) -> RocketsConfig {
     match row {
         Ok(Some(r)) => {
             let phases_json: String = r.get("phases_actives");
-            let phases = serde_json::from_str(&phases_json).unwrap_or_else(|_| {
-                vec!["breakout".into(), "prelancement".into()]
-            });
+            let phases = serde_json::from_str(&phases_json)
+                .unwrap_or_else(|_| vec!["breakout".into(), "prelancement".into()]);
             RocketsConfig {
                 score_min: r.get("score_min"),
                 phases_actives: phases,
