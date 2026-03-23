@@ -8,8 +8,23 @@
         <button class="text-gray-400 hover:text-white text-xl leading-none" @click="$emit('close')">×</button>
       </div>
 
-      <!-- KPIs -->
-      <div class="grid grid-cols-5 gap-3 flex-shrink-0">
+      <!-- Onglets -->
+      <div class="flex gap-1 flex-shrink-0">
+        <button
+          v-for="tab in TABS" :key="tab.id"
+          class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all border"
+          :class="onglet === tab.id ? 'bg-white/10 border-white/20 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'"
+          @click="onglet = tab.id as 'perf' | 'ia'"
+        >{{ tab.label }}</button>
+      </div>
+
+      <!-- Onglet Recommandations IA -->
+      <div v-if="onglet === 'ia'" class="flex-1 overflow-auto">
+        <RocketsAnalyseLlm />
+      </div>
+
+      <!-- KPIs (onglet performance) -->
+      <div v-if="onglet === 'perf'" class="grid grid-cols-5 gap-3 flex-shrink-0">
         <div class="kpi-card text-center">
           <div class="text-xl font-bold text-white">{{ stats.total }}</div>
           <div class="text-xs text-gray-400 mt-0.5">Total clôturés</div>
@@ -36,8 +51,8 @@
         </div>
       </div>
 
-      <!-- Contenu : 2 colonnes -->
-      <div class="grid grid-cols-[1fr_1.8fr] gap-4 flex-1 min-h-0">
+      <!-- Contenu : 2 colonnes (onglet performance) -->
+      <div v-if="onglet === 'perf'" class="grid grid-cols-[1fr_1.8fr] gap-4 flex-1 min-h-0">
 
         <!-- Gauche : tranches + phases -->
         <div class="flex flex-col gap-4 min-h-0 overflow-auto pr-1">
@@ -174,8 +189,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import type { RocketSignalHistorique } from '@/services/api.types'
+import RocketsAnalyseLlm from '@/components/common/RocketsAnalyseLlm.vue'
+
+const TABS = [
+  { id: 'perf', label: '📊 Performance' },
+  { id: 'ia',   label: '🤖 Recommandations IA' },
+]
+const onglet = ref<'perf' | 'ia'>('perf')
 
 const props = defineProps<{ open: boolean; rockets: RocketSignalHistorique[] }>()
 defineEmits(['close'])

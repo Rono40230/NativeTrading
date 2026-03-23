@@ -1,5 +1,6 @@
 mod contexte;
 mod prompts;
+pub mod rockets_analyse;
 mod types;
 
 use common::TradingError;

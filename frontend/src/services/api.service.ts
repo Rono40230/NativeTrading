@@ -278,4 +278,18 @@ export const apiService = {
     const res = await http.post('/api/rockets/sync', null, { timeout: 60000 })
     return res.data
   },
+
+  async lancerAnalyseLlmRockets(): Promise<import('./api.types').RocketAnalyseLlm> {
+    const res = await http.post('/api/rockets/analyse-llm', null, { timeout: 120000 })
+    return res.data
+  },
+
+  async getDerniereAnalyseLlmRockets(): Promise<import('./api.types').RocketAnalyseLlm | null> {
+    try {
+      const res = await http.get('/api/rockets/analyse-llm')
+      return res.status === 204 ? null : res.data
+    } catch {
+      return null
+    }
+  },
 }

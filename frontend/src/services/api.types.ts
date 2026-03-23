@@ -279,3 +279,20 @@ export interface RocketSignalHistorique {
   verdict: string | null; prix_verdict: number | null
   cree_le: string; maj_le: string | null
 }
+
+export interface RocketRecommandation {
+  type: string
+  description: string
+  impact_estime: string
+  priorite: 'haute' | 'moyenne' | 'faible'
+}
+
+export interface RocketAnalyseLlm {
+  id: number
+  nb_trades: number
+  synthese: string
+  meilleur_setup: string | null
+  pire_setup: string | null
+  recommandations: string // JSON brut
+  cree_le: string
+}

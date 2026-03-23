@@ -19,6 +19,7 @@ mod news_traduction;
 mod ollama;
 mod ollama_handlers;
 mod ollama_types;
+mod rockets_analyse_handler;
 mod rockets_handlers;
 mod rockets_scan;
 mod scheduler;
@@ -60,6 +61,9 @@ async fn main() -> std::io::Result<()> {
 
     let pool_scan = app_state.db.pool().clone();
     tokio::spawn(rockets_scan::demarrer_worker_scan(pool_scan));
+
+    let pool_analyse = app_state.db.pool().clone();
+    tokio::spawn(rockets_analyse_handler::demarrer_worker_analyse(pool_analyse));
 
     let pool_signaux = app_state.db.pool().clone();
     tokio::spawn(signaux_handlers::demarrer_worker_suivi_signaux(
@@ -195,6 +199,14 @@ async fn main() -> std::io::Result<()> {
             .route(
                 "/api/rockets/sync",
                 web::post().to(rockets_handlers::sync_verdicts),
+            )
+            .route(
+                "/api/rockets/analyse-llm",
+                web::post().to(rockets_analyse_handler::lancer_analyse),
+            )
+            .route(
+                "/api/rockets/analyse-llm",
+                web::get().to(rockets_analyse_handler::get_derniere_analyse),
             )
             .route(
                 "/api/volatility/patterns",
