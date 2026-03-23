@@ -299,3 +299,12 @@ export interface RocketAnalyseLlm {
   recommandations: string // JSON brut
   cree_le: string
 }
+
+export interface RocketsConfig {
+  score_min: number
+  phases_actives: string[]
+  rsi_max: number
+  rsi_min: number
+  ratio_volume_min: number
+  vol_marche_min: number
+}

@@ -201,6 +201,11 @@ async fn main() -> std::io::Result<()> {
                 web::post().to(rockets_handlers::sync_verdicts),
             )
             .service(
+                web::resource("/api/rockets/config")
+                    .route(web::get().to(rockets_handlers::get_config))
+                    .route(web::put().to(rockets_handlers::put_config)),
+            )
+            .service(
                 web::resource("/api/rockets/analyse-llm")
                     .route(web::get().to(rockets_analyse_handler::get_derniere_analyse))
                     .route(web::post().to(rockets_analyse_handler::lancer_analyse)),

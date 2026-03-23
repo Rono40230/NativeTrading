@@ -6,6 +6,26 @@ use std::time::Duration;
 use crate::rockets_scan;
 use crate::state::AppState;
 
+// ── Config endpoints ─────────────────────────────────────────────────────────
+
+/// GET /api/rockets/config
+pub async fn get_config(state: web::Data<AppState>) -> impl Responder {
+    let cfg = rockets::lire_config(state.db.pool()).await;
+    HttpResponse::Ok().json(cfg)
+}
+
+/// PUT /api/rockets/config
+pub async fn put_config(
+    state: web::Data<AppState>,
+    body: web::Json<rockets::RocketsConfig>,
+) -> impl Responder {
+    match rockets::sauvegarder_config(state.db.pool(), &body).await {
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
+        Err(e) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
 // ── DTOs ────────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]

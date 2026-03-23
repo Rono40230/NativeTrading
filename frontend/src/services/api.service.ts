@@ -292,4 +292,13 @@ export const apiService = {
       return null
     }
   },
+
+  async getRocketsConfig(): Promise<import('./api.types').RocketsConfig> {
+    const res = await http.get('/api/rockets/config')
+    return res.data
+  },
+
+  async putRocketsConfig(cfg: import('./api.types').RocketsConfig): Promise<void> {
+    await http.put('/api/rockets/config', cfg)
+  },
 }

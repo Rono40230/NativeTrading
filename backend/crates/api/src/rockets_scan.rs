@@ -1,4 +1,4 @@
-use db::rockets::{self, NouveauRocket};
+use db::rockets::{self, NouveauRocket, RocketsConfig};
 use futures_util::future::join_all;
 use serde::Serialize;
 use std::sync::{Arc, OnceLock};
@@ -117,7 +117,7 @@ fn calc_rsi(closes: &[f64]) -> f64 {
 
 // ── Analyse d'un symbole ─────────────────────────────────────────────────────
 
-async fn analyser_symbol(client: &reqwest::Client, ticker: &str) -> Option<ScanResultat> {
+async fn analyser_symbol(client: &reqwest::Client, ticker: &str, cfg: &RocketsConfig) -> Option<ScanResultat> {
     let url = format!(
         "https://api.binance.com/api/v3/klines?symbol={}USDT&interval=1h&limit={}",
         ticker, KLINES_N
@@ -177,7 +177,7 @@ async fn analyser_symbol(client: &reqwest::Client, ticker: &str) -> Option<ScanR
         0.0
     };
 
-    let (phase, score) = calculer_phase(breakout, ratio_volume, rsi, atr_ratio, change1h)?;
+    let (phase, score) = calculer_phase(breakout, ratio_volume, rsi, atr_ratio, change1h, cfg)?;;
     let closes_spark = closes[closes.len().saturating_sub(24)..].to_vec();
 
     Some(ScanResultat {
@@ -203,13 +203,14 @@ fn calculer_phase(
     rsi: f64,
     atr_ratio: f64,
     change1h: f64,
+    cfg: &RocketsConfig,
 ) -> Option<(String, i64)> {
-    if breakout && ratio_volume >= 1.5 {
+    if breakout && ratio_volume >= cfg.ratio_volume_min {
         let mut s = 40i64;
         if ratio_volume >= 2.0 {
             s += 20;
         }
-        if rsi > 60.0 && rsi <= 85.0 {
+        if rsi > 60.0 && rsi <= cfg.rsi_max {
             s += 20;
         }
         if atr_ratio > 1.0 {
@@ -266,6 +267,11 @@ pub async fn demarrer_worker_scan(pool: sqlx::SqlitePool) {
 async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> anyhow::Result<()> {
     use anyhow::Context;
 
+    // Lire la config depuis la DB (paramètres ajustables par l'utilisateur)
+    let cfg = rockets::lire_config(pool).await;
+    tracing::info!("Config scan: score_min={} rsi_max={} ratio_vol_min={} phases={:?}",
+        cfg.score_min, cfg.rsi_max, cfg.ratio_volume_min, cfg.phases_actives);
+
     let tickers: Vec<Ticker24h> = client
         .get("https://api.binance.com/api/v3/ticker/24hr")
         .send()
@@ -275,11 +281,12 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
         .await
         .context("parse ticker/24hr")?;
 
+    let vol_min = cfg.vol_marche_min;
     let candidats: Vec<String> = tickers
         .into_iter()
         .filter(|t| {
             let vol = t.quote_volume.parse::<f64>().unwrap_or(0.0);
-            est_eligible(&t.symbol, vol)
+            est_eligible(&t.symbol, vol, vol_min)
         })
         .map(|t| t.symbol[..t.symbol.len() - 4].to_string())
         .collect();
@@ -291,7 +298,7 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
     for batch in candidats.chunks(BATCH_SIZE) {
         let futs = batch
             .iter()
-            .map(|ticker| analyser_symbol(client, ticker.as_str()));
+            .map(|ticker| analyser_symbol(client, ticker.as_str(), &cfg));
         let res = join_all(futs).await;
         resultats.extend(res.into_iter().flatten());
     }
@@ -304,7 +311,12 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
     resultats.truncate(MAX_DISPLAY);
 
     // Auto-save breakout/pré-lancement avec filtre LLM pré-sauvegarde
-    for r in resultats.iter().filter(|r| r.phase != "compression") {
+    for r in resultats.iter().filter(|r| {
+        cfg.phases_actives.contains(&r.phase)
+            && r.score >= cfg.score_min
+            && r.rsi <= cfg.rsi_max
+            && r.rsi >= cfg.rsi_min
+    }) {
         // SL = entrée - ATR14 | TP1 = entrée + ATR14 | TP2 = entrée + 2×ATR14 | TP3 = entrée + 20×ATR14
         let sl = r.prix - r.atr14;
         let tp1 = r.prix + r.atr14;
@@ -379,7 +391,7 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
     Ok(())
 }
 
-fn est_eligible(symbol: &str, quote_volume: f64) -> bool {
+fn est_eligible(symbol: &str, quote_volume: f64, vol_min: f64) -> bool {
     if !symbol.ends_with("USDT") {
         return false;
     }
@@ -390,7 +402,7 @@ fn est_eligible(symbol: &str, quote_volume: f64) -> bool {
         return false;
     }
     let ticker = &symbol[..symbol.len() - 4];
-    !STABLECOINS.contains(&ticker) && quote_volume >= VOL_MIN
+    !STABLECOINS.contains(&ticker) && quote_volume >= vol_min
 }
 
 fn phase_priorite(phase: &str) -> u8 {

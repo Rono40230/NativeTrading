@@ -14,7 +14,7 @@
           v-for="tab in TABS" :key="tab.id"
           class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all border"
           :class="onglet === tab.id ? 'bg-white/10 border-white/20 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'"
-          @click="onglet = tab.id as 'perf' | 'ia'"
+          @click="onglet = tab.id as 'perf' | 'ia' | 'reglages'"
         >{{ tab.label }}</button>
       </div>
 
@@ -23,6 +23,10 @@
         <RocketsAnalyseLlm />
       </div>
 
+      <!-- Onglet Réglages -->
+      <div v-if="onglet === 'reglages'" class="flex-1 overflow-auto">
+        <RocketsReglages />
+      </div>
       <!-- KPIs (onglet performance) -->
       <div v-if="onglet === 'perf'" class="grid grid-cols-5 gap-3 flex-shrink-0">
         <div class="kpi-card text-center">
@@ -192,12 +196,14 @@
 import { ref, computed } from 'vue'
 import type { RocketSignalHistorique } from '@/services/api.types'
 import RocketsAnalyseLlm from '@/components/common/RocketsAnalyseLlm.vue'
+import RocketsReglages from '@/components/common/RocketsReglages.vue'
 
 const TABS = [
-  { id: 'perf', label: '📊 Performance' },
-  { id: 'ia',   label: '🤖 Recommandations IA' },
+  { id: 'perf',     label: '📊 Performance' },
+  { id: 'ia',       label: '🤖 Recommandations IA' },
+  { id: 'reglages', label: '⚙️ Réglages scan' },
 ]
-const onglet = ref<'perf' | 'ia'>('perf')
+const onglet = ref<'perf' | 'ia' | 'reglages'>('perf')
 
 const props = defineProps<{ open: boolean; rockets: RocketSignalHistorique[] }>()
 defineEmits(['close'])
