@@ -38,6 +38,12 @@ pub struct NouveauRocket {
     pub atr_ratio: f64,
     pub atr14: Option<f64>,
     pub rsi: f64,
+    // Résultat du filtre LLM (Mode 1) — None si Ollama indisponible
+    pub llm_valide: Option<bool>,
+    pub llm_conviction: Option<i64>,
+    pub llm_raison: Option<String>,
+    pub llm_sl_suggere: Option<f64>,
+    pub llm_tp1_suggere: Option<f64>,
 }
 
 fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
@@ -68,8 +74,9 @@ fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
 pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<i64>> {
     let id = sqlx::query(
         "INSERT INTO rockets_signaux
-         (ticker, phase, score, prix_entree, stop_loss, target, target2, target3, ratio_volume, atr_ratio, atr14, rsi)
-         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+         (ticker, phase, score, prix_entree, stop_loss, target, target2, target3, ratio_volume, atr_ratio, atr14, rsi,
+          llm_valide, llm_conviction, llm_raison, llm_sl_suggere, llm_tp1_suggere)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          WHERE NOT EXISTS (
            SELECT 1 FROM rockets_signaux
            WHERE ticker = ? AND phase = ? AND cree_le >= datetime('now', '-6 hours')
@@ -87,6 +94,11 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
     .bind(s.atr_ratio)
     .bind(s.atr14)
     .bind(s.rsi)
+    .bind(s.llm_valide.map(|v| v as i64))
+    .bind(s.llm_conviction)
+    .bind(&s.llm_raison)
+    .bind(s.llm_sl_suggere)
+    .bind(s.llm_tp1_suggere)
     .bind(&s.ticker)
     .bind(&s.phase)
     .execute(pool)
@@ -95,6 +107,31 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
     .last_insert_rowid();
 
     Ok(if id > 0 { Some(id) } else { None })
+}
+
+/// Retourne les N derniers signaux clôturés (hors expire) pour un ticker donné.
+/// Utilisé par le filtre LLM pour contextualiser chaque nouveau signal.
+pub async fn historique_ticker(
+    pool: &SqlitePool,
+    ticker: &str,
+    limite: i64,
+) -> Vec<RocketSignal> {
+    let rows = sqlx::query(
+        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
+                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le
+         FROM rockets_signaux
+         WHERE ticker = ? AND statut = 'ferme' AND verdict IS NOT NULL AND verdict != 'expire'
+         ORDER BY cree_le DESC LIMIT ?",
+    )
+    .bind(ticker)
+    .bind(limite)
+    .fetch_all(pool)
+    .await;
+
+    match rows {
+        Ok(rows) => rows.iter().map(row_to_signal).collect(),
+        Err(_) => vec![],
+    }
 }
 
 pub async fn lister_ouverts(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {

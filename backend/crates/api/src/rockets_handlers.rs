@@ -50,6 +50,11 @@ pub async fn sauvegarder_signal(
         atr_ratio: body.atr_ratio,
         atr14: body.atr14,
         rsi: body.rsi,
+        llm_valide: None,
+        llm_conviction: None,
+        llm_raison: None,
+        llm_sl_suggere: None,
+        llm_tp1_suggere: None,
     };
     match rockets::sauvegarder(pool, &nouveau).await {
         Ok(Some(id)) => HttpResponse::Ok().json(serde_json::json!({ "id": id, "nouveau": true })),

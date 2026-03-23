@@ -66,6 +66,7 @@
             <th class="px-4 py-3 text-right">Prix actuel</th>
             <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_verdict')">Sortie <span class="tri-icone">{{ icone('prix_verdict') }}</span></th>
             <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Verdict <span class="tri-icone">{{ icone('verdict') }}</span></th>
+            <th class="px-4 py-3 text-center">IA</th>
             <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Date <span class="tri-icone">{{ icone('cree_le') }}</span></th>
           </tr>
         </thead>
@@ -89,6 +90,15 @@
             <td class="px-4 py-3 text-right font-mono text-white">{{ r.prix_verdict ? formatNombre(r.prix_verdict) : '\u2014' }}</td>
             <td class="px-4 py-3">
               <span class="badge" :class="classeVerdict(r)">{{ labelVerdict(r) }}</span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <span
+                v-if="r.llm_conviction !== null && r.llm_conviction !== undefined"
+                class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help"
+                :class="classeConvictionLlm(r.llm_conviction)"
+                :title="r.llm_raison ?? ''"
+              >{{ r.llm_conviction }}</span>
+              <span v-else class="text-gray-700 text-xs">—</span>
             </td>
             <td class="px-4 py-3 text-gray-500 text-xs">{{ r.cree_le.slice(0, 16).replace('T', ' ') }}</td>
           </tr>
@@ -323,6 +333,13 @@ function classePhase(phase: string): string {
   if (phase.toLowerCase().includes('bull')) return 'badge-blue'
   if (phase.toLowerCase().includes('bear')) return 'badge-red'
   return 'badge-yellow'
+}
+
+function classeConvictionLlm(conviction: number | null): string {
+  if (conviction === null || conviction === undefined) return 'bg-gray-700 text-gray-400'
+  if (conviction >= 70) return 'bg-emerald-900 text-emerald-300 border border-emerald-600'
+  if (conviction >= 50) return 'bg-yellow-900 text-yellow-300 border border-yellow-600'
+  return 'bg-red-900 text-red-300 border border-red-600'
 }
 
 function classeVerdict(r: RocketSignalHistorique): string {

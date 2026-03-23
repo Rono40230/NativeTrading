@@ -303,26 +303,70 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
     });
     resultats.truncate(MAX_DISPLAY);
 
-    // Auto-save breakout/pré-lancement (le DB déduplique sur 6h)
+    // Auto-save breakout/pré-lancement avec filtre LLM pré-sauvegarde
     for r in resultats.iter().filter(|r| r.phase != "compression") {
         // SL = entrée - ATR14 | TP1 = entrée + ATR14 | TP2 = entrée + 2×ATR14 | TP3 = entrée + 20×ATR14
         let sl = r.prix - r.atr14;
         let tp1 = r.prix + r.atr14;
         let tp2 = r.prix + 2.0 * r.atr14;
         let tp3 = r.prix + 20.0 * r.atr14;
-        let nouveau = NouveauRocket {
+
+        // Filtre LLM : interroge l'historique du ticker + évalue le setup
+        let historique = rockets::historique_ticker(pool, &r.ticker, 10).await;
+        let candidat = crate::ollama::rockets_filtre::SignalCandidat {
             ticker: r.ticker.clone(),
             phase: r.phase.clone(),
             score: r.score,
             prix_entree: r.prix,
             stop_loss: sl,
-            target: tp1,
+            tp1,
+            atr14: r.atr14,
+            atr_ratio: r.atr_ratio,
+            ratio_volume: r.ratio_volume,
+            rsi: r.rsi,
+            change1h: r.change1h,
+        };
+
+        let (llm_valide, llm_conviction, llm_raison, llm_sl, llm_tp1) =
+            match crate::ollama::rockets_filtre::filtrer_signal(&candidat, &historique).await {
+                Ok(rep) => {
+                    tracing::info!(
+                        "LLM filtre {} {}: valide={} conviction={}",
+                        r.ticker, r.phase, rep.valide, rep.conviction
+                    );
+                    if !rep.valide {
+                        tracing::info!("LLM rejette {} {}: {}", r.ticker, r.phase, rep.raison);
+                        continue; // Signal rejeté — pas de sauvegarde
+                    }
+                    let sl_s = rep.ajustements.as_ref().and_then(|a| a.sl_suggere);
+                    let tp1_s = rep.ajustements.as_ref().and_then(|a| a.tp1_suggere);
+                    (Some(true), Some(rep.conviction), Some(rep.raison), sl_s, tp1_s)
+                }
+                Err(e) => {
+                    // Fallback : Ollama indisponible → sauvegarder sans filtre
+                    tracing::warn!("LLM filtre indisponible pour {}: {}", r.ticker, e);
+                    (None, None, None, None, None)
+                }
+            };
+
+        let nouveau = NouveauRocket {
+            ticker: r.ticker.clone(),
+            phase: r.phase.clone(),
+            score: r.score,
+            prix_entree: r.prix,
+            stop_loss: llm_sl.unwrap_or(sl),
+            target: llm_tp1.unwrap_or(tp1),
             target2: Some(tp2),
             target3: Some(tp3),
             ratio_volume: r.ratio_volume,
             atr_ratio: r.atr_ratio,
             atr14: Some(r.atr14),
             rsi: r.rsi,
+            llm_valide,
+            llm_conviction,
+            llm_raison,
+            llm_sl_suggere: llm_sl,
+            llm_tp1_suggere: llm_tp1,
         };
         if let Err(e) = rockets::sauvegarder(pool, &nouveau).await {
             tracing::warn!("Auto-save rocket {}: {}", r.ticker, e);
