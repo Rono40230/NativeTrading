@@ -32,6 +32,7 @@
       </div>
 
       <button class="btn-sm ml-auto" @click="charger">🔄 Actualiser</button>
+      <button v-if="rocketsMode" class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse Rockets</button>
     </div>
 
     <!-- Tableau -->
@@ -128,6 +129,84 @@
     <div class="text-sm text-gray-400">
       {{ listeActive.length }} entrée{{ listeActive.length > 1 ? 's' : '' }}
     </div>
+
+    <!-- Modale Analyse Rockets -->
+    <div v-if="analyseOuverte" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="analyseOuverte = false">
+      <div class="glass-card p-6 w-full max-w-3xl max-h-[85vh] overflow-y-auto space-y-6">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold">📊 Analyse Rockets — Score vs Verdict</h2>
+          <button class="text-gray-400 hover:text-white text-xl" @click="analyseOuverte = false">×</button>
+        </div>
+
+        <!-- Stats globales -->
+        <div class="grid grid-cols-4 gap-3">
+          <div class="glass-card p-3 text-center">
+            <div class="text-2xl font-bold text-white">{{ statsGlobales.total }}</div>
+            <div class="text-xs text-gray-400 mt-1">Total clôturés</div>
+          </div>
+          <div class="glass-card p-3 text-center">
+            <div class="text-2xl font-bold text-emerald-400">{{ statsGlobales.tauxGagnants }}%</div>
+            <div class="text-xs text-gray-400 mt-1">Win rate (TP1+2+3)</div>
+          </div>
+          <div class="glass-card p-3 text-center">
+            <div class="text-2xl font-bold" :class="statsGlobales.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ statsGlobales.rMoyen }}R</div>
+            <div class="text-xs text-gray-400 mt-1">R moyen</div>
+          </div>
+          <div class="glass-card p-3 text-center">
+            <div class="text-2xl font-bold text-red-400">{{ statsGlobales.tauxSL }}%</div>
+            <div class="text-xs text-gray-400 mt-1">Taux SL</div>
+          </div>
+        </div>
+
+        <!-- Tableau par tranche de score -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-300 mb-3 uppercase tracking-wide">Par tranche de score</h3>
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-gray-400 text-xs uppercase border-b border-white/10">
+                <th class="py-2 text-left">Score</th>
+                <th class="py-2 text-right">Nb</th>
+                <th class="py-2 text-right">TP1</th>
+                <th class="py-2 text-right">TP2</th>
+                <th class="py-2 text-right">TP3</th>
+                <th class="py-2 text-right">SL</th>
+                <th class="py-2 text-right">Expiré</th>
+                <th class="py-2 text-right">Win%</th>
+                <th class="py-2 text-right">R moyen</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="t in statsTranches" :key="t.label" class="border-b border-white/5">
+                <td class="py-2 font-mono text-white">{{ t.label }}</td>
+                <td class="py-2 text-right text-gray-400">{{ t.total }}</td>
+                <td class="py-2 text-right text-emerald-400">{{ t.tp1 }}</td>
+                <td class="py-2 text-right text-emerald-300">{{ t.tp2 }}</td>
+                <td class="py-2 text-right text-emerald-200">{{ t.tp3 }}</td>
+                <td class="py-2 text-right text-red-400">{{ t.sl }}</td>
+                <td class="py-2 text-right text-gray-500">{{ t.expire }}</td>
+                <td class="py-2 text-right font-bold" :class="t.winPct >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ t.winPct }}%</td>
+                <td class="py-2 text-right font-bold" :class="t.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ t.rMoyen }}R</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Distribution Phase -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-300 mb-3 uppercase tracking-wide">Par phase</h3>
+          <div class="grid grid-cols-2 gap-3">
+            <div v-for="p in statsPhases" :key="p.phase" class="glass-card p-3">
+              <div class="flex justify-between mb-1">
+                <span class="badge" :class="classePhase(p.phase)">{{ p.phase }}</span>
+                <span class="text-gray-400 text-xs">{{ p.total }} signaux</span>
+              </div>
+              <div class="text-sm">Win rate : <span class="font-bold" :class="p.winPct >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ p.winPct }}%</span></div>
+              <div class="text-sm">R moyen : <span class="font-bold" :class="p.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ p.rMoyen }}R</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -142,6 +221,7 @@ const alerteStore = useAlerteStore()
 const signaux  = ref<Signal[]>([])
 const rockets  = ref<RocketSignalHistorique[]>([])
 const chargement    = ref(false)
+const analyseOuverte = ref(false)
 const filtreAsset   = ref('')
 const filtreDirection = ref('')
 const filtreStrategie = ref('')
@@ -260,9 +340,10 @@ function labelVerdictSignal(verdict: string | null): string {
 }
 
 function classePhase(phase: string): string {
-  if (phase === 'breakout')     return 'badge-green'
-  if (phase === 'prelancement') return 'badge-yellow'
-  return 'badge-blue'
+  if (phase.toLowerCase().includes('break')) return 'badge-green'
+  if (phase.toLowerCase().includes('bull')) return 'badge-blue'
+  if (phase.toLowerCase().includes('bear')) return 'badge-red'
+  return 'badge-yellow'
 }
 
 function classeVerdict(verdict: string | null): string {
@@ -305,6 +386,62 @@ async function charger() {
 }
 
 onMounted(charger)
+
+// ── Analyse Rockets ──────────────────────────────────────────────────────────
+
+function rocketR(r: RocketSignalHistorique): number | null {
+  const v = r.verdict
+  if (!v) return null
+  const risk = r.prix_entree - r.stop_loss
+  if (risk <= 0) return null
+  if (v === 'invalide') return -1
+  if (v === 'TP1' || v === 'confirme') return 1
+  if (v === 'TP2') return 2
+  if (v === 'TP3' && r.prix_verdict) return (r.prix_verdict - r.prix_entree) / risk
+  return null
+}
+
+const TRANCHES = [
+  { label: '15–39', min: 15, max: 39 },
+  { label: '40–59', min: 40, max: 59 },
+  { label: '60–79', min: 60, max: 79 },
+  { label: '80–100', min: 80, max: 100 },
+]
+
+function calcStats(liste: RocketSignalHistorique[]) {
+  const clos = liste.filter(r => r.verdict && r.verdict !== 'expire')
+  const total = clos.length
+  const tp1 = clos.filter(r => r.verdict === 'TP1' || r.verdict === 'confirme').length
+  const tp2 = clos.filter(r => r.verdict === 'TP2').length
+  const tp3 = clos.filter(r => r.verdict === 'TP3').length
+  const sl  = clos.filter(r => r.verdict === 'invalide').length
+  const expire = liste.filter(r => r.verdict === 'expire').length
+  const gagnants = tp1 + tp2 + tp3
+  const winPct = total > 0 ? Math.round(gagnants / total * 100) : 0
+  const rs = clos.map(r => rocketR(r)).filter((v): v is number => v !== null)
+  const rMoyen = rs.length > 0 ? parseFloat((rs.reduce((a, b) => a + b, 0) / rs.length).toFixed(2)) : 0
+  return { total, tp1, tp2, tp3, sl, expire, winPct, rMoyen }
+}
+
+const statsGlobales = computed(() => {
+  const s = calcStats(rockets.value)
+  return { ...s, tauxGagnants: s.winPct, tauxSL: s.total > 0 ? Math.round(s.sl / s.total * 100) : 0 }
+})
+
+const statsTranches = computed(() =>
+  TRANCHES.map(t => ({
+    label: t.label,
+    ...calcStats(rockets.value.filter(r => r.score >= t.min && r.score <= t.max)),
+  }))
+)
+
+const statsPhases = computed(() => {
+  const phases = [...new Set(rockets.value.map(r => r.phase))]
+  return phases.map(phase => ({
+    phase,
+    ...calcStats(rockets.value.filter(r => r.phase === phase)),
+  }))
+})
 </script>
 
 <style scoped>
