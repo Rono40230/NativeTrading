@@ -80,6 +80,7 @@ const nav: NavItem[] = [
     liens: [
       { to: '/straddle',          icone: '🔍', label: 'Créneaux volatilité' },
       { to: '/straddle/backtest', icone: '🧪', label: 'Backtest' },
+      { to: '/heatmap',           icone: '🔥', label: 'Heatmap' },
       { to: '/data',              icone: '📦', label: 'Données' },
     ]
   },
@@ -87,7 +88,6 @@ const nav: NavItem[] = [
   // ── Performance ──────────────────────────────────────────────────────────
   { to: '/pnl',     icone: '💰', label: 'P&L' },
   { to: '/history', icone: '📜', label: 'Historique' },
-  { to: '/heatmap', icone: '🔥', label: 'Heatmap' },
 
   // ── Outils IA ─────────────────────────────────────────────────────────────
   {
