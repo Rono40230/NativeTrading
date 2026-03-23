@@ -39,11 +39,14 @@ fn periode_en_mois(p: Option<&str>) -> u32 {
     }
 }
 
-/// Nombre de bougies H1 selon la période (plafonné à 1000 pour l'API Binance).
+/// Nombre de bougies H1 demandées en DB selon la période.
+/// Pas de plafond ici — le cache peut contenir beaucoup de données.
 fn limite_bougies(mois: u32) -> usize {
-    let nb = mois as usize * 30 * 24;
-    nb.min(1000)
+    mois as usize * 30 * 24
 }
+
+/// Plafond pour les providers réseau (Binance limite à 1000 par appel).
+const MAX_BOUGIES_RESEAU: usize = 1000;
 
 // ── POST /api/straddle/analyser ───────────────────────────────────────────────
 /// Lance une analyse LLM des créneaux de volatilité pour un asset donné.
@@ -77,12 +80,13 @@ pub async fn analyser(
     let bougies = match state.db.obtenir_bougies(&asset, &Timeframe::H1, limite as i64).await {
         Ok(b) if !b.is_empty() => b,
         _ => {
-            // Fallback: provider réseau
+            // Fallback: provider réseau (plafonné car API Binance : max 1000/appel)
+            let limite_reseau = limite.min(MAX_BOUGIES_RESEAU);
             let res = if asset.is_crypto() {
-                BinanceProvider.fetch_candles(asset.clone(), Timeframe::H1, limite).await
+                BinanceProvider.fetch_candles(asset.clone(), Timeframe::H1, limite_reseau).await
             } else {
                 IbGatewayProvider::new(state.ib_port, state.ib_client_id)
-                    .fetch_candles(asset.clone(), Timeframe::H1, limite)
+                    .fetch_candles(asset.clone(), Timeframe::H1, limite_reseau)
                     .await
             };
             match res {
