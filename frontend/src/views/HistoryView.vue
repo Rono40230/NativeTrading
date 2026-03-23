@@ -271,9 +271,9 @@ function classeVerdict(verdict: string | null): string {
 }
 
 function labelVerdict(verdict: string | null): string {
-  if (verdict === 'confirme') return '✅ Confirmé'
-  if (verdict === 'invalide') return '❌ Invalidé'
-  if (verdict === 'expire')   return '⏰ Expiré'
+  if (verdict === 'confirme') return '✅ TP1 touché'
+  if (verdict === 'invalide') return '❌ SL touché'
+  if (verdict === 'expire')   return '⏰ Délai 6h dépassé'
   return '⏳ En cours'
 }
 

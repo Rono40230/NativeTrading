@@ -119,7 +119,7 @@ pub async fn maj_verdict(pool: &SqlitePool, id: i64, verdict: &str, prix: f64) -
 pub async fn marquer_expires(pool: &SqlitePool) -> Result<u64> {
     let res = sqlx::query(
         "UPDATE rockets_signaux SET verdict = 'expire', maj_le = datetime('now')
-         WHERE verdict IS NULL AND cree_le <= datetime('now', '-4 hours')",
+         WHERE verdict IS NULL AND cree_le <= datetime('now', '-6 hours')",
     )
     .execute(pool)
     .await
