@@ -432,15 +432,24 @@ async function rafraichirPrix() {
   )
 }
 
-let intervalPrix: ReturnType<typeof setInterval> | null = null
+let timeoutPrix: ReturnType<typeof setTimeout> | null = null
+let actif = false
+
+async function boucleRafraichissement() {
+  if (!actif) return
+  await rafraichirPrix()
+  if (actif) timeoutPrix = setTimeout(boucleRafraichissement, 5_000)
+}
 
 onMounted(() => {
   charger()
-  intervalPrix = setInterval(rafraichirPrix, 15_000)
+  actif = true
+  boucleRafraichissement()
 })
 
 onUnmounted(() => {
-  if (intervalPrix) clearInterval(intervalPrix)
+  actif = false
+  if (timeoutPrix) clearTimeout(timeoutPrix)
 })
 </script>
 
