@@ -137,7 +137,19 @@ async fn main() -> std::io::Result<()> {
             )
             .route(
                 "/api/ia/signal/straddle",
-                web::post().to(straddle_handlers::generer_signal_straddle),
+                web::post().to(straddle_handlers::analyser),
+            )
+            .route(
+                "/api/straddle/analyser",
+                web::post().to(straddle_handlers::analyser),
+            )
+            .route(
+                "/api/straddle/creneaux",
+                web::get().to(straddle_handlers::lister_creneaux),
+            )
+            .route(
+                "/api/straddle/creneaux/{id}",
+                web::patch().to(straddle_handlers::mettre_a_jour_creneau),
             )
             .route("/api/config", web::get().to(config_handlers::get_config))
             .route("/api/config", web::post().to(config_handlers::post_config))

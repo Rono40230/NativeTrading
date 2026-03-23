@@ -1,202 +1,166 @@
 use actix_web::{web, HttpResponse, Responder};
-use chrono::{DateTime, Duration, Utc};
-use serde::Deserialize;
+use data::{providers::BinanceProvider, providers::IbGatewayProvider, DataProvider};
+use serde::{Deserialize, Serialize};
 
-use crate::ollama;
-use crate::ollama_types::{ReponseStraddleIA, RequeteStraddleIA};
+use crate::ollama::straddle_analyse;
 use crate::state::AppState;
+use crate::utils::parse_asset;
 
-// ─── Struct interne pour parser la réponse JSON du LLM ───────────────────────
+// ── Requêtes / réponses ──────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
-struct SignalStraddleBrut {
-    signal: String, // "STRADDLE" | "WAIT"
-    prix_entree: f64,
-    sl_long: f64,
-    sl_short: f64,
-    tp1_long: f64,
-    tp1_short: f64,
-    tp2_long: f64,
-    tp2_short: f64,
-    score_confiance: f64,
-    declencheur: String,
-    raisonnement: String,
+pub struct RequeteAnalyse {
+    pub asset: String,
+    pub periode: Option<String>, // "3m" | "6m" | "1a" | "2a"
 }
 
-// ─── POST /api/ia/signal/straddle ─────────────────────────────────────────────
-/// Génère un signal Straddle (Long + Short simultané) via Ollama.
-/// Déclencheurs : annonce HIGH impact, ATR × 1.4 en Kill Zone, ou pattern récurrent.
-/// S21 — les annonces HIGH impact dans les 2 prochaines heures sont auto-injectées
-/// depuis le cache calendrier si le client ne les fournit pas.
-pub async fn generer_signal_straddle(
+#[derive(Deserialize)]
+pub struct MaJCreneau {
+    pub statut: Option<String>,
+    pub backtest_winrate: Option<f64>,
+    pub backtest_profit_factor: Option<f64>,
+}
+
+#[derive(Serialize)]
+struct ReponseAnalyse {
+    creneaux: Vec<db::straddle::StraddleCreneau>,
+    nb_analyses: usize,
+    nb_retenus: usize,
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+fn periode_en_mois(p: Option<&str>) -> u32 {
+    match p {
+        Some("3m") => 3,
+        Some("1a") => 12,
+        Some("2a") => 24,
+        _ => 6, // défaut : 6 mois
+    }
+}
+
+/// Nombre de bougies H1 selon la période (plafonné à 1000 pour l'API Binance).
+fn limite_bougies(mois: u32) -> usize {
+    let nb = mois as usize * 30 * 24;
+    nb.min(1000)
+}
+
+// ── POST /api/straddle/analyser ───────────────────────────────────────────────
+/// Lance une analyse LLM des créneaux de volatilité pour un asset donné.
+/// Supprime les anciens créneaux `a_tester` de l'asset avant d'insérer les nouveaux.
+pub async fn analyser(
     state: web::Data<AppState>,
-    body: web::Json<RequeteStraddleIA>,
+    body: web::Json<RequeteAnalyse>,
 ) -> impl Responder {
-    use common::{Direction, Signal};
+    use common::Timeframe;
 
-    let kz = body
-        .kill_zone_active
-        .unwrap_or_else(|| smc::kill_zone::est_en_kill_zone(chrono::Utc::now()));
-
-    let sessions = body.sessions_actives.as_deref().unwrap_or(&[]).join(", ");
-
-    // ── S21 : auto-injection annonces High < 2h ──────────────────────────────
-    let annonces_auto: Vec<String> = match &body.annonces_imminentes {
-        Some(a) => a.clone(),
+    let asset_str = body.asset.trim().to_uppercase();
+    let asset = match parse_asset(&asset_str) {
+        Some(a) => a,
         None => {
-            let horizon = Utc::now() + Duration::hours(2);
-            match state.db.lire_calendrier_cache(7200).await {
-                Ok(cache) => cache
-                    .into_iter()
-                    .filter(|ev| {
-                        let est_high = ev["impact"].as_str() == Some("High");
-                        let avant_horizon = ev["date_heure"]
-                            .as_str()
-                            .and_then(|s| s.parse::<DateTime<Utc>>().ok())
-                            .map(|dt| dt > Utc::now() && dt <= horizon)
-                            .unwrap_or(false);
-                        est_high && avant_horizon
-                    })
-                    .map(|ev| {
-                        format!(
-                            "{} {} ({})",
-                            ev["devise"].as_str().unwrap_or("?"),
-                            ev["titre"].as_str().unwrap_or("?"),
-                            ev["date_heure"]
-                                .as_str()
-                                .unwrap_or("?")
-                                .get(11..16)
-                                .unwrap_or("?")
-                        )
-                    })
-                    .collect(),
+            return HttpResponse::BadRequest()
+                .json(serde_json::json!({ "error": "Asset non supporté" }))
+        }
+    };
+
+    let periode_mois = periode_en_mois(body.periode.as_deref());
+    let limite = limite_bougies(periode_mois);
+
+    tracing::info!(
+        "Straddle analyse LLM: asset={} période={}m limite={} bougies H1",
+        asset_str,
+        periode_mois,
+        limite
+    );
+
+    // Récupérer les bougies H1 (cache DB puis provider)
+    let bougies = match state.db.obtenir_bougies(&asset, &Timeframe::H1, limite as i64).await {
+        Ok(b) if b.len() >= 10 => b,
+        _ => {
+            // Fallback: provider réseau
+            let res = if asset.is_crypto() {
+                BinanceProvider.fetch_candles(asset.clone(), Timeframe::H1, limite).await
+            } else {
+                IbGatewayProvider::new(state.ib_port, state.ib_client_id)
+                    .fetch_candles(asset.clone(), Timeframe::H1, limite)
+                    .await
+            };
+            match res {
+                Ok(b) => {
+                    let _ = state.db.inserer_bougies(&asset, &Timeframe::H1, &b).await;
+                    b
+                }
                 Err(e) => {
-                    tracing::warn!("Straddle: lecture cache calendrier: {}", e);
-                    vec![]
+                    tracing::warn!("Impossible de récupérer les bougies H1 pour {}: {}", asset_str, e);
+                    return HttpResponse::InternalServerError()
+                        .json(serde_json::json!({ "error": format!("Données indisponibles: {e}") }));
                 }
             }
         }
     };
-    let annonces = if annonces_auto.is_empty() {
-        "aucune".to_string()
-    } else {
-        annonces_auto.join(", ")
-    };
 
-    let ratio_atr = if body.atr_moyen > 0.0 {
-        body.atr_actuel / body.atr_moyen
-    } else {
-        1.0
-    };
+    let nb_analyses = bougies.len();
 
-    if !annonces_auto.is_empty() {
-        tracing::info!(
-            "Straddle {}: {} annonce(s) High < 2h injectées: {}",
-            body.asset,
-            annonces_auto.len(),
-            annonces
-        );
-    }
+    // Supprimer les anciens créneaux `a_tester` de cet asset
+    let _ = db::straddle::supprimer_creneaux_asset(state.db.pool(), &asset_str).await;
 
-    // Contexte historique Straddle pour nourrir le LLM
-    let historique_raw = state.db.obtenir_contexte_llm(&body.asset, 5).await;
-    let contexte_historique =
-        crate::ollama::formater_contexte_historique(&body.asset, "Straddle", &historique_raw);
+    // Analyse LLM
+    match straddle_analyse::analyser_creneaux(&asset_str, periode_mois, &bougies).await {
+        Ok(nouveaux) => {
+            let nb_retenus = nouveaux.len();
+            if let Err(e) = db::straddle::inserer_creneaux(state.db.pool(), &nouveaux).await {
+                tracing::error!("Erreur insertion créneaux straddle: {}", e);
+                return HttpResponse::InternalServerError()
+                    .json(serde_json::json!({ "error": e.to_string() }));
+            }
 
-    let prompt = format!(
-        "{contexte}{base}\n\nAsset: {asset} {tf}\n\
-        Prix actuel: {prix:.5} | ATR actuel: {atr_a:.5} | ATR moyen: {atr_m:.5} | ratio_atr: {ratio:.2}\n\
-        kill_zone_active: {kz} | sessions: {sessions}\n\
-        Annonces imminentes: {annonces}",
-        contexte = contexte_historique,
-        base = crate::ollama::PROMPT_SIGNAL_STRADDLE,
-        asset = body.asset,
-        tf = body.timeframe,
-        prix = body.prix_actuel,
-        atr_a = body.atr_actuel,
-        atr_m = body.atr_moyen,
-        ratio = ratio_atr,
-        kz = kz,
-        sessions = sessions,
-        annonces = if annonces.is_empty() { "aucune".to_string() } else { annonces },
-    );
-
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
-
-    match ollama::interroger(&prompt).await {
+            match db::straddle::lister_creneaux_asset(state.db.pool(), &asset_str).await {
+                Ok(creneaux) => HttpResponse::Ok().json(ReponseAnalyse {
+                    creneaux,
+                    nb_analyses,
+                    nb_retenus,
+                }),
+                Err(e) => HttpResponse::InternalServerError()
+                    .json(serde_json::json!({ "error": e.to_string() })),
+            }
+        }
         Err(e) => {
-            HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": format!("{e}") }))
-        }
-        Ok(texte) => {
-            let debut = texte.find('{').unwrap_or(0);
-            let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
-            let Ok(brut) = serde_json::from_str::<SignalStraddleBrut>(&texte[debut..fin]) else {
-                return HttpResponse::UnprocessableEntity().json(serde_json::json!({
-                    "error": "Réponse LLM non parsable en JSON",
-                    "brut": texte
-                }));
-            };
-
-            let signal = if brut.signal == "STRADDLE" {
-                let asset = parse_asset(&body.asset);
-                let tf = parse_timeframe(&body.timeframe);
-                // Direction::Both — stop_loss = sl_long (borne inférieure)
-                // take_profit = [tp1_long, tp2_long] (cibles haussières)
-                Some(Signal::nouveau(
-                    asset,
-                    tf,
-                    Direction::Both,
-                    brut.score_confiance * 10.0,
-                    brut.prix_entree,
-                    brut.sl_long,
-                    vec![brut.tp1_long, brut.tp2_long],
-                    "Straddle",
-                ))
-            } else {
-                None
-            };
-
-            tracing::info!(
-                "Straddle {} {}: signal={} confiance={:.2} déclencheur={}",
-                body.asset,
-                body.timeframe,
-                brut.signal,
-                brut.score_confiance,
-                brut.declencheur,
-            );
-
-            HttpResponse::Ok().json(ReponseStraddleIA {
-                signal,
-                sl_long: brut.sl_long,
-                sl_short: brut.sl_short,
-                tp1_long: brut.tp1_long,
-                tp1_short: brut.tp1_short,
-                tp2_long: brut.tp2_long,
-                tp2_short: brut.tp2_short,
-                score_confiance: brut.score_confiance,
-                declencheur: brut.declencheur,
-                raisonnement: brut.raisonnement,
-                modele,
-            })
+            tracing::error!("Straddle LLM échoué pour {}: {}", asset_str, e);
+            HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": e.to_string() }))
         }
     }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-fn parse_asset(s: &str) -> common::Asset {
-    crate::utils::parse_asset(s).unwrap_or(common::Asset::BTC)
+// ── GET /api/straddle/creneaux ────────────────────────────────────────────────
+/// Liste tous les créneaux identifiés, triés par conviction LLM.
+pub async fn lister_creneaux(state: web::Data<AppState>) -> impl Responder {
+    match db::straddle::lister_creneaux(state.db.pool()).await {
+        Ok(creneaux) => HttpResponse::Ok().json(creneaux),
+        Err(e) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "error": e.to_string() })),
+    }
 }
 
-fn parse_timeframe(s: &str) -> common::Timeframe {
-    use common::Timeframe;
-    match s {
-        "M1" => Timeframe::M1,
-        "M5" => Timeframe::M5,
-        "H1" => Timeframe::H1,
-        "H4" => Timeframe::H4,
-        "D1" => Timeframe::D1,
-        "W1" => Timeframe::W1,
-        _ => Timeframe::M15,
+// ── PATCH /api/straddle/creneaux/{id} ────────────────────────────────────────
+/// Met à jour le statut et/ou les résultats backtest d'un créneau.
+pub async fn mettre_a_jour_creneau(
+    state: web::Data<AppState>,
+    path: web::Path<i64>,
+    body: web::Json<MaJCreneau>,
+) -> impl Responder {
+    let id = path.into_inner();
+    match db::straddle::mettre_a_jour_creneau(
+        state.db.pool(),
+        id,
+        body.statut.clone(),
+        body.backtest_winrate,
+        body.backtest_profit_factor,
+    )
+    .await
+    {
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
+        Err(e) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "error": e.to_string() })),
     }
 }

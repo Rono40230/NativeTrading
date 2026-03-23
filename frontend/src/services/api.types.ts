@@ -308,3 +308,27 @@ export interface RocketsConfig {
   ratio_volume_min: number
   vol_marche_min: number
 }
+
+// ── Straddle ──────────────────────────────────────────────────────────────────
+
+export interface StraddleCreneau {
+  id: number
+  asset: string
+  jour_semaine: number | null    // 0=Lundi...6=Dimanche, null=tous
+  heure_debut: string            // "14:00" UTC
+  heure_fin: string              // "16:00" UTC
+  atr_moyen: number | null
+  frequence: number | null       // 0.0–1.0
+  llm_raison: string | null
+  llm_conviction: number | null  // 0–100
+  statut: 'a_tester' | 'valide' | 'invalide'
+  cree_le: string
+  backtest_winrate: number | null
+  backtest_profit_factor: number | null
+}
+
+export interface ReponseAnalyseStraddle {
+  creneaux: StraddleCreneau[]
+  nb_analyses: number
+  nb_retenus: number
+}

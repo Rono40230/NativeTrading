@@ -2,6 +2,7 @@ mod contexte;
 mod prompts;
 pub mod rockets_analyse;
 pub mod rockets_filtre;
+pub mod straddle_analyse;
 mod types;
 
 use common::TradingError;

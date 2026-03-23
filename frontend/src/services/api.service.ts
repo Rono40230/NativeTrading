@@ -10,6 +10,7 @@ export type {
   SentimentMarche, EntiteSentiment, ArticleNews, AlertesNews, NiveauAlerte, ContenuArticle, TraductionReponse,
   StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, ResultatCollecteItem,
   HistoriqueEntrainement, HistoriqueML, PatternHoraire, ReponsePatternsVolatilite,
+  StraddleCreneau, ReponseAnalyseStraddle,
 } from './api.types'
 
 import type {
@@ -300,5 +301,27 @@ export const apiService = {
 
   async putRocketsConfig(cfg: import('./api.types').RocketsConfig): Promise<void> {
     await http.put('/api/rockets/config', cfg)
+  },
+
+  // ── Straddle ──────────────────────────────────────────────────────────────
+
+  async analyserStraddle(
+    asset: string,
+    periode: string,
+  ): Promise<import('./api.types').ReponseAnalyseStraddle> {
+    const res = await http.post('/api/straddle/analyser', { asset, periode }, { timeout: 90000 })
+    return res.data
+  },
+
+  async getStraddleCreneaux(): Promise<import('./api.types').StraddleCreneau[]> {
+    const res = await http.get('/api/straddle/creneaux')
+    return res.data
+  },
+
+  async patchStraddleCreneau(
+    id: number,
+    data: { statut?: string; backtest_winrate?: number; backtest_profit_factor?: number },
+  ): Promise<void> {
+    await http.patch(`/api/straddle/creneaux/${id}`, data)
   },
 }
