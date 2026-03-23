@@ -82,19 +82,44 @@ export function useRocketsHistory(
     return rockets.value
   })
 
+  // Priorité de tri pour le verdict :
+  // tient compte du verdict stocké ET du prix live pour les rockets "en cours"
+  const VERDICT_ORDRE: Record<string, number> = {
+    invalide: 1, expire: 2, confirme: 3, TP1: 3, TP2: 4, TP3: 5,
+  }
+
+  function prioriteEffective(r: RocketSignalHistorique): number {
+    if (r.verdict) return VERDICT_ORDRE[r.verdict] ?? 0
+    const prix = prixActuels.value[r.ticker]
+    if (!prix) return 0
+    if (r.target3 && prix >= r.target3) return 5.5
+    if (r.target2 && prix >= r.target2) return 4.5
+    if (prix >= r.target) return 3.5
+    if (prix <= r.stop_loss) return 1.5
+    return 0
+  }
+
   const rocketsTries = computed(() => {
     const col = triColonne.value
-    const liste = [...rocketsFiltrés.value] as unknown as Record<string, unknown>[]
+    const dir = triDir.value
     if (!col) return rocketsFiltrés.value
-    return liste.sort((a, b) => {
-      let va: unknown = a[col] ?? ''
-      let vb: unknown = b[col] ?? ''
-      if (typeof va === 'string') va = va.toLowerCase()
-      if (typeof vb === 'string') vb = vb.toLowerCase()
-      const cmp = (va as string | number) < (vb as string | number) ? -1
-        : (va as string | number) > (vb as string | number) ? 1 : 0
-      return triDir.value === 'asc' ? cmp : -cmp
-    }) as unknown as RocketSignalHistorique[]
+
+    return [...rocketsFiltrés.value].sort((a, b) => {
+      let cmp: number
+      if (col === 'verdict') {
+        cmp = prioriteEffective(a) - prioriteEffective(b)
+      } else {
+        const ra = a as unknown as Record<string, unknown>
+        const rb = b as unknown as Record<string, unknown>
+        let va: unknown = ra[col] ?? ''
+        let vb: unknown = rb[col] ?? ''
+        if (typeof va === 'string') va = va.toLowerCase()
+        if (typeof vb === 'string') vb = vb.toLowerCase()
+        cmp = (va as string | number) < (vb as string | number) ? -1
+            : (va as string | number) > (vb as string | number) ? 1 : 0
+      }
+      return dir === 'asc' ? cmp : -cmp
+    })
   })
 
   return { rockets, prixActuels, chargerRockets, rocketsTries, rocketsFiltrés }

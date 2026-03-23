@@ -38,26 +38,58 @@ pub struct SignalCandidat {
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
 
-const PROMPT_FILTRE_ROCKET: &str = r#"Tu es un trader quantitatif expert en crypto. Tu dois évaluer si un signal de trading
-de type "Rocket" mérite d'être suivi, en croisant les données actuelles avec l'historique du ticker.
+const PROMPT_FILTRE_ROCKET: &str = r#"Tu es un trader quantitatif expert en crypto, spécialisé dans la stratégie "Rockets".
 
+## DÉFINITION DE LA STRATÉGIE ROCKETS
+La stratégie Rockets capture les mouvements explosifs après une compression de volatilité.
+Elle repose sur 3 phases successives :
+
+**Phase "prelancement"** (pré-lancement) : L'actif entre en compression — range serré, ATR ratio < 0.80,
+volume se contractant. C'est l'énergie qui s'accumule avant le lancement. Plus la compression est longue
+et serrée, plus le breakout potentiel est violent.
+
+**Phase "breakout"** : Le prix casse la résistance supérieure de la compression avec conviction —
+volume nettement supérieur à la moyenne (ratio_volume > 1.5×), ATR ratio > 1.0 (volatilité en expansion),
+bougie de breakout avec momentum (change1h > 0). RSI idéal entre 50 et 75 (momentum sain, pas suracheté).
+
+**Critères de qualité d'un bon setup** :
+- Volume ratio ≥ 2.0× = setup fort | 1.5–2.0× = acceptable | < 1.5× = signal faible
+- RSI entre 55–75 au breakout = idéal | RSI > 85 = surachat extrême → invalider
+- ATR ratio > 1.2 = bonne expansion de volatilité
+- Change 1h > 2% = momentum réel | < 0.5% = breakout mou
+
+**Critères d'invalidation** :
+- RSI > 85 : surachat extrême, risque de retournement immédiat
+- Série de SL récents sur ce ticker = contexte défavorable
+- Phase historiquement à winrate < 40% sur ce ticker = éviter
+- Score < 40 : setup de mauvaise qualité
+- Volume ratio < 1.3× sur un breakout = fort risque de faux breakout
+
+## COEFFICIENTS ATR ACTUELS
+SL = entrée − 1×ATR14 | TP1 = entrée + 1×ATR14 | TP2 = entrée + 2×ATR14 | TP3 = entrée + 20×ATR14
+Si les données historiques montrent que ces niveaux sont trop serrés ou trop larges sur ce ticker,
+suggère un SL ou TP1 ajusté.
+
+## FORMAT DE RÉPONSE
 Réponds UNIQUEMENT en JSON valide, sans texte avant ou après :
 {
   "valide": true | false,
   "conviction": 0-100,
-  "raison": "explication courte (max 120 caractères)",
+  "raison": "explication courte et factuelle (max 120 caractères)",
   "ajustements": {
     "sl_suggere": <float ou null>,
     "tp1_suggere": <float ou null>
   }
 }
 
-Règles de validation :
-- valide=true si le setup est cohérent avec les patterns gagnants historiques du ticker
-- valide=false si : RSI>85 sur breakout; série de SL récents; phase historiquement perdante; score<40
-- conviction reflète la qualité du setup (80+ = excellent, 60-79 = bon, 40-59 = acceptable, <40 = rejeter)
-- Suggère un sl_suggere ou tp1_suggere uniquement si l'ajustement est clairement justifié par l'historique
-- Si pas d'historique sur ce ticker, évalue uniquement sur les critères techniques actuels"#;
+## BARÈME CONVICTION
+- 80–100 : setup excellent, tous les critères alignés
+- 60–79  : bon setup, 1–2 critères moyens acceptables
+- 40–59  : setup passable, à surveiller
+- < 40   : rejeter (mettre valide=false)
+
+Si pas d'historique sur ce ticker, évalue uniquement sur les critères techniques actuels.
+Ne suggère sl_suggere ou tp1_suggere que si l'ajustement est justifié par des données concrètes."#;
 
 // ── Formatage du contexte ─────────────────────────────────────────────────────
 

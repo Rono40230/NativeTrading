@@ -24,27 +24,37 @@ pub struct AnalyseReponse {
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
 
-const PROMPT_ANALYSE_ROCKETS: &str = r#"Tu es un expert en trading algorithmique quantitatif spécialisé en crypto.
-Analyse les métriques de performance d'une stratégie de type "Rocket" (breakout/compression/prelancement).
+const PROMPT_ANALYSE_ROCKETS: &str = r#"Tu es un expert en trading algorithmique quantitatif spécialisé en crypto, stratégie "Rockets".
 
-Réponds UNIQUEMENT en JSON valide, sans texte avant ou après, avec cette structure exacte :
+## CONTEXTE DE LA STRATÉGIE ROCKETS
+La stratégie Rockets détecte des cryptos après une compression de volatilité (ATR ratio < 0.80)
+prêtes à un breakout explosif. Elle opère en 3 phases :
+- **prelancement** : compression, ATR faible, volume se contractant → accumulation d'énergie
+- **breakout** : cassure avec volume spike (ratio > 1.5×), ATR expansion, RSI idéal 55–75
+Les coefficients ATR actuels pour SL/TP sont indiqués dans le contexte.
+Tes recommandations doivent comparer les réglages actuels aux performances observées.
+
+## STRUCTURE DE RÉPONSE (JSON uniquement, sans texte autour)
 {
-  "synthese": "résumé en 2-3 phrases de la performance globale et des points clés",
+  "synthese": "résumé en 2-3 phrases de la performance globale",
   "recommandations": [
     {
-      "type": "seuil_score|filtre_phase|trailing_stop|filtre_rsi|filtre_volume|mode_entree|autre",
-      "description": "description concrète et actionnable de la recommandation",
+      "type": "seuil_score|filtre_phase|coefficients_atr|filtre_rsi|filtre_volume|mode_entree|autre",
+      "description": "recommandation concrète et actionnable",
       "impact_estime": "estimation chiffrée si possible ex: +8% winrate",
       "priorite": "haute|moyenne|faible"
     }
   ],
-  "meilleur_setup": "description du setup le plus profitable identifié",
-  "pire_setup": "description du setup à éviter en priorité"
+  "meilleur_setup": "description précise du setup le plus profitable (phase, score, RSI, volume)",
+  "pire_setup": "description précise du setup à éviter (phase, score, RSI, volume)"
 }
 
-Produis entre 3 et 6 recommandations. Priorise les actions à fort impact sur le winrate et le R moyen.
-Base-toi uniquement sur les données fournies, pas sur des hypothèses générales.
-Si la config actuelle te semble déjà bien calibrée sur un point, dis-le explicitement plutôt que de répéter la même recommandation."#;
+## RÈGLES D'ANALYSE
+- Produis entre 3 et 6 recommandations, classées par impact décroissant
+- Compare chaque réglage actuel (config fournie) aux performances observées — dis explicitement si un réglage est déjà bien calibré
+- Pour les coefficients ATR (SL/TP), analyse si les trades gagnants/perdants suggèrent de les ajuster
+- Pour les phases : compare le winrate par phase aux phases actuellement activées
+- Base-toi uniquement sur les données fournies, pas sur des hypothèses générales"#;
 
 // ── Agrégation ────────────────────────────────────────────────────────────────
 
@@ -156,11 +166,11 @@ fn formater_contexte(signaux: &[RocketSignal], cfg: &RocketsConfig) -> String {
     let mut ctx = format!(
         "=== CONFIG ACTIVE DU SCANNER ===\n\
         score_min={score_min} | phases_actives=[{phases}]\n\
-        rsi_min={rsi_min} | rsi_max={rsi_max} | ratio_volume_min={vol_ratio:.1} | vol_marche_min={vol_min:.0}M$\n\n\
+        rsi_min={rsi_min} | rsi_max={rsi_max} | ratio_volume_min={vol_ratio:.1} | vol_marche_min={vol_min:.0}M$\n\
+        Coefficients ATR : SL=1×ATR14 | TP1=1×ATR14 | TP2=2×ATR14 | TP3=20×ATR14\n\n\
         === MÉTRIQUES GLOBALES ({total} trades clôturés) ===\n\
         Winrate global : {winrate}% | R moyen : {r_global:.2}R\n\
-        Gagnants : {gains} | SL : {sl_count} | Autres : {autres}\n\
-        Coefficient ATR actuel : SL=1×ATR, TP1=1×ATR, TP2=2×ATR, TP3=20×ATR\n\n",
+        Gagnants : {gains} | SL : {sl_count} | Autres : {autres}\n\n",
         score_min = cfg.score_min,
         phases = phases_str,
         rsi_min = cfg.rsi_min,

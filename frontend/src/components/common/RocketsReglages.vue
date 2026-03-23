@@ -8,56 +8,69 @@
       <!-- Score minimum -->
       <div class="glass-param">
         <div class="flex items-center justify-between mb-2">
-          <label class="text-sm font-semibold text-white">Score minimum</label>
+          <div class="flex items-baseline gap-2">
+            <label class="text-sm font-semibold text-white">Score minimum</label>
+            <span class="text-xs text-gray-500">Seuls les signaux avec un score ≥ {{ cfg.score_min }} sont sauvegardés.</span>
+          </div>
           <span class="text-emerald-400 font-mono font-bold">{{ cfg.score_min }}</span>
         </div>
         <input type="range" min="0" max="100" step="5" v-model.number="cfg.score_min" class="w-full accent-emerald-400" />
-        <p class="text-xs text-gray-500 mt-1">Seuls les signaux avec un score ≥ {{ cfg.score_min }} sont sauvegardés.</p>
       </div>
 
       <!-- RSI max -->
       <div class="glass-param">
         <div class="flex items-center justify-between mb-2">
-          <label class="text-sm font-semibold text-white">RSI maximum</label>
+          <div class="flex items-baseline gap-2">
+            <label class="text-sm font-semibold text-white">RSI maximum</label>
+            <span class="text-xs text-gray-500">Filtrer les signaux en zone de surachat extrême (RSI > {{ cfg.rsi_max }}).</span>
+          </div>
           <span class="text-emerald-400 font-mono font-bold">{{ cfg.rsi_max }}</span>
         </div>
         <input type="range" min="50" max="100" step="1" v-model.number="cfg.rsi_max" class="w-full accent-emerald-400" />
-        <p class="text-xs text-gray-500 mt-1">Filtrer les signaux en zone de surachat extrême (RSI > {{ cfg.rsi_max }}).</p>
       </div>
 
       <!-- RSI min -->
       <div class="glass-param">
         <div class="flex items-center justify-between mb-2">
-          <label class="text-sm font-semibold text-white">RSI minimum</label>
+          <div class="flex items-baseline gap-2">
+            <label class="text-sm font-semibold text-white">RSI minimum</label>
+            <span class="text-xs text-gray-500">Filtrer les signaux en zone de survente (RSI < {{ cfg.rsi_min }}). 0 = désactivé.</span>
+          </div>
           <span class="text-emerald-400 font-mono font-bold">{{ cfg.rsi_min }}</span>
         </div>
         <input type="range" min="0" max="50" step="1" v-model.number="cfg.rsi_min" class="w-full accent-emerald-400" />
-        <p class="text-xs text-gray-500 mt-1">Filtrer les signaux en zone de survente (RSI < {{ cfg.rsi_min }}). 0 = désactivé.</p>
       </div>
 
       <!-- Ratio volume minimum -->
       <div class="glass-param">
         <div class="flex items-center justify-between mb-2">
-          <label class="text-sm font-semibold text-white">Ratio volume minimum</label>
+          <div class="flex items-baseline gap-2">
+            <label class="text-sm font-semibold text-white">Ratio volume minimum</label>
+            <span class="text-xs text-gray-500">Volume actuel ≥ {{ cfg.ratio_volume_min }}× la moyenne des 20 dernières bougies.</span>
+          </div>
           <span class="text-emerald-400 font-mono font-bold">{{ cfg.ratio_volume_min }}×</span>
         </div>
         <input type="range" min="1.0" max="5.0" step="0.1" v-model.number="cfg.ratio_volume_min" class="w-full accent-emerald-400" />
-        <p class="text-xs text-gray-500 mt-1">Volume actuel doit être ≥ {{ cfg.ratio_volume_min }}× la moyenne des {{ 20 }} dernières bougies.</p>
       </div>
 
       <!-- Volume marché minimum -->
       <div class="glass-param">
         <div class="flex items-center justify-between mb-2">
-          <label class="text-sm font-semibold text-white">Volume marché minimum (USDT/j)</label>
+          <div class="flex items-baseline gap-2">
+            <label class="text-sm font-semibold text-white">Volume marché minimum (USDT/j)</label>
+            <span class="text-xs text-gray-500">Ignorer les paires avec moins de {{ formatVol(cfg.vol_marche_min) }} de volume journalier.</span>
+          </div>
           <span class="text-emerald-400 font-mono font-bold">{{ formatVol(cfg.vol_marche_min) }}</span>
         </div>
         <input type="range" min="100000" max="5000000" step="100000" v-model.number="cfg.vol_marche_min" class="w-full accent-emerald-400" />
-        <p class="text-xs text-gray-500 mt-1">Ignorer les paires avec moins de {{ formatVol(cfg.vol_marche_min) }} de volume journalier.</p>
       </div>
 
       <!-- Phases actives -->
       <div class="glass-param">
-        <label class="text-sm font-semibold text-white mb-3 block">Phases actives</label>
+        <div class="flex items-baseline gap-2 mb-3">
+          <label class="text-sm font-semibold text-white">Phases actives</label>
+          <span class="text-xs text-gray-500">Seules les phases cochées génèrent des signaux sauvegardés.</span>
+        </div>
         <div class="flex gap-3">
           <label v-for="p in PHASES" :key="p.val" class="flex items-center gap-2 cursor-pointer select-none">
             <input
@@ -69,7 +82,6 @@
             <span class="text-sm" :class="cfg.phases_actives.includes(p.val) ? 'text-white' : 'text-gray-500'">{{ p.label }}</span>
           </label>
         </div>
-        <p class="text-xs text-gray-500 mt-2">Seules les phases cochées génèrent des signaux sauvegardés.</p>
       </div>
 
       <!-- Actions -->
