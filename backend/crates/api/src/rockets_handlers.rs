@@ -38,26 +38,25 @@ pub async fn sauvegarder_signal(
 ) -> impl Responder {
     let pool = state.db.pool();
     let nouveau = NouveauRocket {
-        ticker:       body.ticker.clone(),
-        phase:        body.phase.clone(),
-        score:        body.score,
-        prix_entree:  body.prix_entree,
-        stop_loss:    body.stop_loss,
-        target:       body.target,
-        target2:      body.target2,
-        target3:      body.target3,
+        ticker: body.ticker.clone(),
+        phase: body.phase.clone(),
+        score: body.score,
+        prix_entree: body.prix_entree,
+        stop_loss: body.stop_loss,
+        target: body.target,
+        target2: body.target2,
+        target3: body.target3,
         ratio_volume: body.ratio_volume,
-        atr_ratio:    body.atr_ratio,
-        atr14:        body.atr14,
-        rsi:          body.rsi,
+        atr_ratio: body.atr_ratio,
+        atr14: body.atr14,
+        rsi: body.rsi,
     };
     match rockets::sauvegarder(pool, &nouveau).await {
         Ok(Some(id)) => HttpResponse::Ok().json(serde_json::json!({ "id": id, "nouveau": true })),
-        Ok(None)     => HttpResponse::Ok().json(serde_json::json!({ "nouveau": false })),
+        Ok(None) => HttpResponse::Ok().json(serde_json::json!({ "nouveau": false })),
         Err(e) => {
             tracing::error!("Sauvegarde rocket: {}", e);
-            HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": e.to_string() }))
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
         }
     }
 }
@@ -71,11 +70,14 @@ struct ScanReponse<'a> {
 
 /// GET /api/rockets/scan — résultats du dernier scan worker
 pub async fn get_scan() -> impl Responder {
-    let results  = rockets_scan::get_scan_results();
-    let total    = rockets_scan::get_total_candidats();
-    let locked   = results.read().await;
+    let results = rockets_scan::get_scan_results();
+    let total = rockets_scan::get_total_candidats();
+    let locked = results.read().await;
     let nb_total = *total.read().await;
-    HttpResponse::Ok().json(ScanReponse { signaux: &*locked, total_candidats: nb_total })
+    HttpResponse::Ok().json(ScanReponse {
+        signaux: &locked,
+        total_candidats: nb_total,
+    })
 }
 
 /// GET /api/rockets/historique?limite=50
@@ -89,10 +91,68 @@ pub async fn get_historique(
         Ok(liste) => HttpResponse::Ok().json(liste),
         Err(e) => {
             tracing::error!("Historique rockets: {}", e);
-            HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": e.to_string() }))
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
         }
     }
+}
+
+/// POST /api/rockets/sync — force un cycle de suivi immédiat (SL/TP attente + ouverts)
+pub async fn sync_verdicts(state: web::Data<AppState>) -> impl Responder {
+    let pool = state.db.pool();
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": format!("HTTP client: {}", e) }))
+        }
+    };
+
+    let mut fermes = 0u32;
+    let mut ouverts_nouveaux = 0u32;
+
+    // Attente : SL avant entrée, ou ouvrir si prix atteint
+    if let Ok(en_attente) = rockets::lister_en_attente(pool).await {
+        for s in &en_attente {
+            let Some(prix) = fetch_prix(&client, &s.ticker).await else {
+                continue;
+            };
+            if prix <= s.stop_loss
+                && rockets::maj_verdict(pool, s.id, "invalide", prix)
+                    .await
+                    .is_ok()
+            {
+                fermes += 1;
+            } else if prix >= s.prix_entree && rockets::entrer_position(pool, s.id).await.is_ok() {
+                ouverts_nouveaux += 1;
+            }
+        }
+    }
+
+    // Ouverts : SL/TP
+    if let Ok(signaux) = rockets::lister_ouverts(pool).await {
+        for s in &signaux {
+            let Some(prix) = fetch_prix(&client, &s.ticker).await else {
+                continue;
+            };
+            let peak = s.prix_peak.unwrap_or(s.prix_entree).max(prix);
+            if peak > s.prix_peak.unwrap_or(0.0) {
+                let _ = rockets::maj_prix_peak(pool, s.id, peak).await;
+            }
+            if let Some(v) = calculer_verdict_rocket(s, prix, peak) {
+                if rockets::maj_verdict(pool, s.id, v, prix).await.is_ok() {
+                    fermes += 1;
+                }
+            }
+        }
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "fermes": fermes,
+        "ouverts_nouveaux": ouverts_nouveaux
+    }))
 }
 
 // ── Worker de suivi ──────────────────────────────────────────────────────────
@@ -118,25 +178,46 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
         .build()
     {
         Ok(c) => c,
-        Err(e) => { tracing::error!("Worker rockets HTTP: {}", e); return; }
+        Err(e) => {
+            tracing::error!("Worker rockets HTTP: {}", e);
+            return;
+        }
     };
 
     loop {
-        tokio::time::sleep(Duration::from_secs(15 * 60)).await;
+        tokio::time::sleep(Duration::from_secs(3 * 60)).await;
 
         // 1. Expirer les signaux EN ATTENTE depuis >6h (position jamais ouverte)
         if let Ok(n) = rockets::marquer_expires(&pool).await {
-            if n > 0 { tracing::info!("Rockets: {} signal(s) expirés (jamais entrés)", n); }
+            if n > 0 {
+                tracing::info!("Rockets: {} signal(s) expirés (jamais entrés)", n);
+            }
         }
 
-        // 2. Signaux en attente : vérifier si prix_entree atteint → ouvrir position
+        // 2. Signaux en attente : SL touché avant entrée → invalide, sinon ouvrir si prix atteint
         let en_attente = match rockets::lister_en_attente(&pool).await {
             Ok(s) => s,
-            Err(e) => { tracing::warn!("Worker rockets attente: {}", e); continue; }
+            Err(e) => {
+                tracing::warn!("Worker rockets attente: {}", e);
+                continue;
+            }
         };
         for s in &en_attente {
-            let Some(prix) = fetch_prix(&client, &s.ticker).await else { continue };
-            if prix >= s.prix_entree {
+            let Some(prix) = fetch_prix(&client, &s.ticker).await else {
+                continue;
+            };
+            if prix <= s.stop_loss {
+                // SL touché avant même d'entrer en position → clôturer en perte
+                if let Err(e) = rockets::maj_verdict(&pool, s.id, "invalide", prix).await {
+                    tracing::warn!("Rocket {} SL avant entrée: {}", s.ticker, e);
+                } else {
+                    tracing::info!(
+                        "Rocket {} → invalide (SL avant entrée) @ {:.5}",
+                        s.ticker,
+                        prix
+                    );
+                }
+            } else if prix >= s.prix_entree {
                 if let Err(e) = rockets::entrer_position(&pool, s.id).await {
                     tracing::warn!("Rocket {} entrée position: {}", s.ticker, e);
                 } else {
@@ -148,10 +229,15 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
         // 3. Signaux OUVERTS : TP pyramidal + trailing TP3 + SL
         let signaux = match rockets::lister_ouverts(&pool).await {
             Ok(s) => s,
-            Err(e) => { tracing::warn!("Worker rockets ouverts: {}", e); continue; }
+            Err(e) => {
+                tracing::warn!("Worker rockets ouverts: {}", e);
+                continue;
+            }
         };
         for s in &signaux {
-            let Some(prix) = fetch_prix(&client, &s.ticker).await else { continue };
+            let Some(prix) = fetch_prix(&client, &s.ticker).await else {
+                continue;
+            };
 
             // Mettre à jour le prix peak
             let peak = s.prix_peak.unwrap_or(s.prix_entree).max(prix);
@@ -161,7 +247,7 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
                 }
             }
 
-            let verdict = calculer_verdict_rocket(&s, prix, peak);
+            let verdict = calculer_verdict_rocket(s, prix, peak);
             if let Some(v) = verdict {
                 if let Err(e) = rockets::maj_verdict(&pool, s.id, v, prix).await {
                     tracing::warn!("Worker rockets verdict: {}", e);
@@ -183,13 +269,17 @@ fn calculer_verdict_rocket(
 
     // SL effectif progressif selon le niveau TP atteint (break-even)
     let sl_effectif = match (s.target2, s.target3) {
-        (Some(tp2), Some(tp3)) if peak >= tp3 => {
+        (Some(_tp2), Some(tp3)) if peak >= tp3 => {
             // TP3 en route : trailing stop
-            return if prix <= trailing_stop { Some("TP3") } else { None };
+            return if prix <= trailing_stop {
+                Some("TP3")
+            } else {
+                None
+            };
         }
-        (Some(tp2), _) if peak >= tp2 => s.target,       // BE = TP1
-        _ if peak >= s.target          => s.prix_entree,  // BE = entrée
-        _                              => s.stop_loss,    // SL original
+        (Some(tp2), _) if peak >= tp2 => s.target, // BE = TP1
+        _ if peak >= s.target => s.prix_entree,    // BE = entrée
+        _ => s.stop_loss,                          // SL original
     };
 
     if prix <= sl_effectif {
@@ -202,7 +292,7 @@ fn calculer_verdict_rocket(
         }
     }
     // TP1 : fermeture si prix >= TP1 et pas encore de TP2
-    if prix >= s.target && s.target2.map_or(true, |tp2| peak < tp2) {
+    if prix >= s.target && s.target2.is_none_or(|tp2| peak < tp2) {
         return Some("TP1");
     }
     None

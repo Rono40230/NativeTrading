@@ -18,10 +18,10 @@ pub fn formater_contexte_historique(
     for s in signaux {
         let direction = s["direction"].as_str().unwrap_or("?");
         let timeframe = s["timeframe"].as_str().unwrap_or("?");
-        let score     = s["score"].as_f64().unwrap_or(0.0);
-        let entree    = s["prix_entree"].as_f64().unwrap_or(0.0);
-        let statut    = s["statut"].as_str().unwrap_or("Actif");
-        let cree_le   = s["cree_le"].as_i64().unwrap_or(maintenant);
+        let score = s["score"].as_f64().unwrap_or(0.0);
+        let entree = s["prix_entree"].as_f64().unwrap_or(0.0);
+        let statut = s["statut"].as_str().unwrap_or("Actif");
+        let cree_le = s["cree_le"].as_i64().unwrap_or(maintenant);
 
         let age_h = (maintenant - cree_le).max(0) / 3600;
         let age_label = if age_h == 0 {

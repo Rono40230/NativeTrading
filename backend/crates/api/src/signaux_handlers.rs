@@ -20,8 +20,7 @@ pub async fn get_signaux(
         Ok(liste) => HttpResponse::Ok().json(liste),
         Err(e) => {
             tracing::error!("Historique signaux: {}", e);
-            HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": e.to_string() }))
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
         }
     }
 }
@@ -38,9 +37,12 @@ async fn fetch_prix_binance(client: &reqwest::Client, asset: &str) -> Option<f64
         "BTC" => "BTCUSDT",
         "ETH" => "ETHUSDT",
         "SOL" => "SOLUSDT",
-        _     => return None,
+        _ => return None,
     };
-    let url = format!("https://api.binance.com/api/v3/ticker/price?symbol={}", symbole);
+    let url = format!(
+        "https://api.binance.com/api/v3/ticker/price?symbol={}",
+        symbole
+    );
     let resp: BinancePrix = client.get(&url).send().await.ok()?.json().await.ok()?;
     resp.price.parse::<f64>().ok()
 }
@@ -53,15 +55,31 @@ fn calculer_verdict(
 ) -> Option<&'static str> {
     let long = direction.to_uppercase().contains("LONG");
     if long {
-        if prix <= stop_loss                                  { return Some("SL"); }
-        if take_profit.get(2).map_or(false, |&t| prix >= t)  { return Some("TP3"); }
-        if take_profit.get(1).map_or(false, |&t| prix >= t)  { return Some("TP2"); }
-        if take_profit.first().map_or(false, |&t| prix >= t) { return Some("TP1"); }
+        if prix <= stop_loss {
+            return Some("SL");
+        }
+        if take_profit.get(2).is_some_and(|&t| prix >= t) {
+            return Some("TP3");
+        }
+        if take_profit.get(1).is_some_and(|&t| prix >= t) {
+            return Some("TP2");
+        }
+        if take_profit.first().is_some_and(|&t| prix >= t) {
+            return Some("TP1");
+        }
     } else {
-        if prix >= stop_loss                                  { return Some("SL"); }
-        if take_profit.get(2).map_or(false, |&t| prix <= t)  { return Some("TP3"); }
-        if take_profit.get(1).map_or(false, |&t| prix <= t)  { return Some("TP2"); }
-        if take_profit.first().map_or(false, |&t| prix <= t) { return Some("TP1"); }
+        if prix >= stop_loss {
+            return Some("SL");
+        }
+        if take_profit.get(2).is_some_and(|&t| prix <= t) {
+            return Some("TP3");
+        }
+        if take_profit.get(1).is_some_and(|&t| prix <= t) {
+            return Some("TP2");
+        }
+        if take_profit.first().is_some_and(|&t| prix <= t) {
+            return Some("TP1");
+        }
     }
     None
 }
@@ -73,29 +91,39 @@ pub async fn demarrer_worker_suivi_signaux(pool: sqlx::SqlitePool) {
         .build()
     {
         Ok(c) => c,
-        Err(e) => { tracing::error!("Worker signaux HTTP: {}", e); return; }
+        Err(e) => {
+            tracing::error!("Worker signaux HTTP: {}", e);
+            return;
+        }
     };
 
     loop {
         tokio::time::sleep(Duration::from_secs(5 * 60)).await;
 
         if let Ok(n) = signaux::expirer_anciens(&pool).await {
-            if n > 0 { tracing::info!("Signaux: {} expiré(s)", n); }
+            if n > 0 {
+                tracing::info!("Signaux: {} expiré(s)", n);
+            }
         }
 
         let actifs = match signaux::lister_actifs(&pool).await {
             Ok(s) => s,
-            Err(e) => { tracing::warn!("Worker signaux liste: {}", e); continue; }
+            Err(e) => {
+                tracing::warn!("Worker signaux liste: {}", e);
+                continue;
+            }
         };
 
         for s in &actifs {
             let prix = match fetch_prix_binance(&client, &s.asset).await {
                 Some(p) => p,
-                None    => continue,
+                None => continue,
             };
             if let Some(v) = calculer_verdict(&s.direction, s.stop_loss, &s.take_profit, prix) {
                 match signaux::maj_verdict(&pool, &s.id, v, prix).await {
-                    Ok(_)  => tracing::info!("Signal {} {} → {} @ {:.4}", s.asset, s.direction, v, prix),
+                    Ok(_) => {
+                        tracing::info!("Signal {} {} → {} @ {:.4}", s.asset, s.direction, v, prix)
+                    }
                     Err(e) => tracing::warn!("Worker signaux verdict: {}", e),
                 }
             }

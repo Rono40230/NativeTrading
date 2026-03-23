@@ -47,6 +47,15 @@ export const apiService = {
     return res.data
   },
 
+  async getPrixActuel(ticker: string): Promise<number | null> {
+    try {
+      const res = await http.get('/api/prix-actuel', { params: { ticker }, timeout: 5000 })
+      return res.data?.prix ?? null
+    } catch {
+      return null
+    }
+  },
+
   async getSignaux(limit = 20): Promise<Signal[]> {
     const res = await http.get('/api/signaux', { params: { limit } })
     return res.data
@@ -262,6 +271,11 @@ export const apiService = {
 
   async historiqueRockets(limite = 50): Promise<import('./api.types').RocketSignalHistorique[]> {
     const res = await http.get('/api/rockets/historique', { params: { limite } })
+    return res.data
+  },
+
+  async syncRockets(): Promise<{ fermes: number; ouverts_nouveaux: number }> {
+    const res = await http.post('/api/rockets/sync', null, { timeout: 60000 })
     return res.data
   },
 }

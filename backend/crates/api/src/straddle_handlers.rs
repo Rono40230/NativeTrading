@@ -100,11 +100,8 @@ pub async fn generer_signal_straddle(
 
     // Contexte historique Straddle pour nourrir le LLM
     let historique_raw = state.db.obtenir_contexte_llm(&body.asset, 5).await;
-    let contexte_historique = crate::ollama::formater_contexte_historique(
-        &body.asset,
-        "Straddle",
-        &historique_raw,
-    );
+    let contexte_historique =
+        crate::ollama::formater_contexte_historique(&body.asset, "Straddle", &historique_raw);
 
     let prompt = format!(
         "{contexte}{base}\n\nAsset: {asset} {tf}\n\

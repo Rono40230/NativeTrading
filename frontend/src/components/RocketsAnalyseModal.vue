@@ -9,7 +9,7 @@
       </div>
 
       <!-- KPIs -->
-      <div class="grid grid-cols-4 gap-3 flex-shrink-0">
+      <div class="grid grid-cols-5 gap-3 flex-shrink-0">
         <div class="kpi-card text-center">
           <div class="text-xl font-bold text-white">{{ stats.total }}</div>
           <div class="text-xs text-gray-400 mt-0.5">Total clôturés</div>
@@ -21,6 +21,14 @@
         <div class="kpi-card text-center">
           <div class="text-xl font-bold" :class="stats.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ stats.rMoyen }}R</div>
           <div class="text-xs text-gray-400 mt-0.5">R moyen</div>
+        </div>
+        <div class="kpi-card text-center">
+          <div class="text-base font-bold">
+            <span class="text-emerald-400">{{ stats.gain }}</span>
+            <span class="text-gray-500 mx-1">/</span>
+            <span class="text-red-400">{{ stats.sl }}</span>
+          </div>
+          <div class="text-xs text-gray-400 mt-0.5">Ratio trades</div>
         </div>
         <div class="kpi-card text-center">
           <div class="text-xl font-bold text-red-400">{{ stats.tauxSL }}%</div>
@@ -175,15 +183,15 @@ defineEmits(['close'])
 // ── Stats helpers ──────────────────────────────────────────────────────────
 
 function rocketR(r: RocketSignalHistorique): number | null {
-  const v = r.verdict
-  if (!v) return null
+  if (!r.verdict || !r.prix_verdict) return null
   const risk = r.prix_entree - r.stop_loss
   if (risk <= 0) return null
-  if (v === 'invalide') return -1
-  if (v === 'TP1' || v === 'confirme') return 1
-  if (v === 'TP2') return 2
-  if (v === 'TP3' && r.prix_verdict) return (r.prix_verdict - r.prix_entree) / risk
-  return null
+  // Utilise le prix de sortie réel pour tous les verdicts :
+  // - invalide déclenché au SL original → R ≈ -1
+  // - invalide déclenché au BE (trailing SL à entrée) → R ≈ 0
+  // - invalide déclenché à TP1 (trailing SL) → R ≈ +1
+  // - TP1, TP2, TP3 → R exact basé sur le prix réel de sortie
+  return (r.prix_verdict - r.prix_entree) / risk
 }
 
 function calcStats(liste: RocketSignalHistorique[]) {
@@ -198,7 +206,7 @@ function calcStats(liste: RocketSignalHistorique[]) {
   const winPct  = total > 0 ? Math.round(gain / total * 100) : 0
   const rs      = clos.map(r => rocketR(r)).filter((v): v is number => v !== null)
   const rMoyen  = rs.length > 0 ? parseFloat((rs.reduce((a, b) => a + b, 0) / rs.length).toFixed(2)) : 0
-  return { total, tp1, tp2, tp3, sl, expire, winPct, rMoyen }
+  return { total, tp1, tp2, tp3, sl, expire, gain, winPct, rMoyen }
 }
 
 const TRANCHES_DEF = [

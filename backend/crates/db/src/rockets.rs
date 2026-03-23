@@ -42,25 +42,25 @@ pub struct NouveauRocket {
 
 fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
     RocketSignal {
-        id:           row.get("id"),
-        ticker:       row.get("ticker"),
-        phase:        row.get("phase"),
-        score:        row.get("score"),
-        prix_entree:  row.get("prix_entree"),
-        stop_loss:    row.get("stop_loss"),
-        target:       row.get("target"),
-        target2:      row.get("target2"),
-        target3:      row.get("target3"),
+        id: row.get("id"),
+        ticker: row.get("ticker"),
+        phase: row.get("phase"),
+        score: row.get("score"),
+        prix_entree: row.get("prix_entree"),
+        stop_loss: row.get("stop_loss"),
+        target: row.get("target"),
+        target2: row.get("target2"),
+        target3: row.get("target3"),
         ratio_volume: row.get("ratio_volume"),
-        atr_ratio:    row.get("atr_ratio"),
-        atr14:        row.get("atr14"),
-        rsi:          row.get("rsi"),
-        statut:       row.get("statut"),
-        prix_peak:    row.get("prix_peak"),
-        verdict:      row.get("verdict"),
+        atr_ratio: row.get("atr_ratio"),
+        atr14: row.get("atr14"),
+        rsi: row.get("rsi"),
+        statut: row.get("statut"),
+        prix_peak: row.get("prix_peak"),
+        verdict: row.get("verdict"),
         prix_verdict: row.get("prix_verdict"),
-        cree_le:      row.get("cree_le"),
-        maj_le:       row.get("maj_le"),
+        cree_le: row.get("cree_le"),
+        maj_le: row.get("maj_le"),
     }
 }
 
@@ -133,14 +133,12 @@ pub async fn entrer_position(pool: &SqlitePool, id: i64) -> Result<()> {
 }
 
 pub async fn maj_prix_peak(pool: &SqlitePool, id: i64, peak: f64) -> Result<()> {
-    sqlx::query(
-        "UPDATE rockets_signaux SET prix_peak = ?, maj_le = datetime('now') WHERE id = ?",
-    )
-    .bind(peak)
-    .bind(id)
-    .execute(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
+    sqlx::query("UPDATE rockets_signaux SET prix_peak = ?, maj_le = datetime('now') WHERE id = ?")
+        .bind(peak)
+        .bind(id)
+        .execute(pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
     Ok(())
 }
 

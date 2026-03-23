@@ -113,13 +113,6 @@ pub async fn get_candles(
     }
 }
 
-// ─── Signaux ──────────────────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct SignauxQuery {
-    pub limit: Option<i64>,
-}
-
 // ─── Prédiction ML ────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -187,5 +180,75 @@ pub async fn predict_ml(
         }),
         Err(e) => HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": format!("{}", e) })),
+    }
+}
+
+// ─── Prix actuel (Binance spot, tout ticker) ──────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct PrixActuelQuery {
+    pub ticker: String,
+}
+
+#[derive(serde::Deserialize)]
+struct BinanceTickerPrix {
+    price: String,
+}
+
+/// GET /api/prix-actuel?ticker=SNX
+/// Retourne le prix spot Binance pour n'importe quel ticker USDT,
+/// sans passer par parse_asset (pas de whitelist).
+pub async fn get_prix_actuel(query: web::Query<PrixActuelQuery>) -> impl Responder {
+    // Validation : uniquement lettres/chiffres (protection injection)
+    let ticker = query.ticker.to_uppercase();
+    if ticker.is_empty() || !ticker.chars().all(|c| c.is_ascii_alphanumeric()) {
+        return HttpResponse::BadRequest().json(serde_json::json!({ "error": "Ticker invalide" }));
+    }
+
+    let symbole = format!("{}USDT", ticker);
+    let url = format!(
+        "https://api.binance.com/api/v3/ticker/price?symbol={}",
+        symbole
+    );
+
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::error!("Création client reqwest: {}", e);
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": "Client HTTP indisponible" }));
+        }
+    };
+
+    match client.get(&url).send().await {
+        Ok(resp) if resp.status().is_success() => match resp.json::<BinanceTickerPrix>().await {
+            Ok(data) => match data.price.parse::<f64>() {
+                Ok(prix) => HttpResponse::Ok().json(serde_json::json!({
+                    "ticker": ticker,
+                    "prix": prix
+                })),
+                Err(_) => HttpResponse::InternalServerError()
+                    .json(serde_json::json!({ "error": "Prix non parsable" })),
+            },
+            Err(e) => {
+                tracing::warn!("Décodage réponse Binance pour {}: {}", symbole, e);
+                HttpResponse::InternalServerError()
+                    .json(serde_json::json!({ "error": "Réponse Binance invalide" }))
+            }
+        },
+        Ok(resp) => {
+            tracing::warn!("Binance {} HTTP {}", symbole, resp.status());
+            HttpResponse::NotFound().json(
+                serde_json::json!({ "error": format!("Ticker {} non trouvé sur Binance", ticker) }),
+            )
+        }
+        Err(e) => {
+            tracing::warn!("Requête Binance prix {}: {}", symbole, e);
+            HttpResponse::ServiceUnavailable()
+                .json(serde_json::json!({ "error": "Binance inaccessible" }))
+        }
     }
 }

@@ -31,7 +31,15 @@
         >{{ s.label }}</button>
       </div>
 
-      <button class="btn-sm ml-auto" @click="charger">🔄 Actualiser</button>
+      <div v-if="rocketsMode" class="flex gap-1 ml-auto">
+        <button
+          class="filtre-btn" :class="{ 'filtre-btn-actif': filtreStatut === 'en_cours' }"
+          @click="filtreStatut = 'en_cours'">⏳ En cours</button>
+        <button
+          class="filtre-btn" :class="{ 'filtre-btn-actif': filtreStatut === 'cloturees' }"
+          @click="filtreStatut = 'cloturees'">✅ Clôturées</button>
+      </div>
+      <button class="btn-sm" :class="{ 'ml-auto': !rocketsMode }" @click="charger">🔄 Actualiser</button>
       <button v-if="filtreStrategie !== ''" class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse {{ labelStrategie }}</button>
     </div>
 
@@ -80,7 +88,7 @@
             </td>
             <td class="px-4 py-3 text-right font-mono text-white">{{ r.prix_verdict ? formatNombre(r.prix_verdict) : '\u2014' }}</td>
             <td class="px-4 py-3">
-              <span class="badge" :class="classeVerdict(r.verdict)">{{ labelVerdict(r) }}</span>
+              <span class="badge" :class="classeVerdict(r)">{{ labelVerdict(r) }}</span>
             </td>
             <td class="px-4 py-3 text-gray-500 text-xs">{{ r.cree_le.slice(0, 16).replace('T', ' ') }}</td>
           </tr>
@@ -182,6 +190,7 @@ const analyseOuverte = ref(false)
 const filtreAsset   = ref('')
 const filtreDirection = ref('')
 const filtreStrategie = ref('')
+const filtreStatut = ref<'en_cours' | 'cloturees' | ''>('en_cours')
 const triColonne = ref('')
 const triDir = ref<'asc' | 'desc'>('desc')
 
@@ -234,8 +243,14 @@ const signalsFiltres = computed(() =>
   )
 )
 
+const rocketsFiltrés = computed(() => {
+  if (!filtreStatut.value) return rockets.value
+  if (filtreStatut.value === 'en_cours') return rockets.value.filter(r => !r.verdict)
+  return rockets.value.filter(r => !!r.verdict)
+})
+
 const listeActive = computed(() =>
-  rocketsMode.value ? rockets.value : signalsFiltres.value
+  rocketsMode.value ? rocketsFiltrés.value : signalsFiltres.value
 )
 
 function appliquerTri<T extends Record<string, unknown>>(liste: T[], col: string): T[] {
@@ -268,7 +283,7 @@ const signauxTries = computed(() => {
 })
 
 const rocketsTries = computed(() =>
-  appliquerTri(rockets.value as unknown as Record<string, unknown>[], triColonne.value) as unknown as RocketSignalHistorique[]
+  appliquerTri(rocketsFiltrés.value as unknown as Record<string, unknown>[], triColonne.value) as unknown as RocketSignalHistorique[]
 )
 
 watch(rocketsMode, (val) => { triColonne.value = ''; if (val) charger() })
@@ -310,43 +325,59 @@ function classePhase(phase: string): string {
   return 'badge-yellow'
 }
 
-function classeVerdict(verdict: string | null): string {
-  if (verdict === 'TP1' || verdict === 'TP2' || verdict === 'TP3' || verdict === 'confirme') return 'badge-green'
-  if (verdict === 'invalide') return 'badge-red'
-  if (verdict === 'expire')   return 'badge-gray'
+function classeVerdict(r: RocketSignalHistorique): string {
+  const v = r.verdict
+  if (v === 'TP1' || v === 'TP2' || v === 'TP3' || v === 'confirme') return 'badge-green'
+  if (v === 'invalide') return 'badge-red'
+  if (v === 'expire')   return 'badge-gray'
+  // Position en cours — suivi live
+  const prix = prixActuels.value[r.ticker]
+  if (prix) {
+    if (r.target3 && prix >= r.target3) return 'badge-green'
+    if (r.target2 && prix >= r.target2) return 'badge-blue'
+    if (prix >= r.target)               return 'badge-blue'
+    if (prix <= r.stop_loss)            return 'badge-red'
+  }
   return 'badge-yellow'
 }
 
 function labelVerdict(r: RocketSignalHistorique): string {
   const v = r.verdict
-  if (v === 'invalide') return '\u274c \u22121R'
-  if (v === 'TP1' || v === 'confirme') return '\u2705 +1R'
-  if (v === 'TP2') return '\u2705 +2R'
+  if (v === 'invalide') return '❌ −1R'
+  if (v === 'TP1' || v === 'confirme') return '✅ +1R'
+  if (v === 'TP2') return '✅ +2R'
   if (v === 'TP3') {
     const risk = r.prix_entree - r.stop_loss
     if (risk > 0 && r.prix_verdict) {
       const ratio = ((r.prix_verdict - r.prix_entree) / risk).toFixed(1)
-      return `\u2705 +${ratio}R`
+      return `✅ +${ratio}R`
     }
-    return '\u2705 +TP3'
+    return '✅ +TP3'
   }
-  if (v === 'expire') return '\u23f0 D\u00e9lai 6h d\u00e9pass\u00e9'
-  return '\u23f3 En cours'
+  if (v === 'expire') return '⏰ Délai 6h dépassé'
+  // Position en cours — suivi live basé sur le prix actuel
+  const prix = prixActuels.value[r.ticker]
+  if (!prix) return '⏳ En cours'
+  if (r.target3 && prix >= r.target3) return '🟢 TP3 ✓ · SL@TP2'
+  if (r.target2 && prix >= r.target2) return '🔵 TP2 ✓ · SL@TP1'
+  if (prix >= r.target)               return '🔵 TP1 ✓ · SL@BE'
+  if (prix <= r.stop_loss)            return '🔴 SL touché'
+  return '⏳ En cours'
 }
 
 async function charger() {
   chargement.value = true
   try {
     if (rocketsMode.value) {
+      // Sync SL/TP silencieux avant le chargement des données
+      await apiService.syncRockets().catch(() => {})
       rockets.value = await apiService.historiqueRockets(200)
       const tickers = [...new Set(rockets.value.map(r => r.ticker))]
       prixActuels.value = {}
       await Promise.allSettled(
         tickers.map(async ticker => {
-          try {
-            const candles = await apiService.getCandles(ticker, 'M1', 1)
-            if (candles.length > 0) prixActuels.value[ticker] = candles[candles.length - 1].close
-          } catch { /* ticker non supporté */ }
+          const prix = await apiService.getPrixActuel(ticker)
+          if (prix !== null) prixActuels.value[ticker] = prix
         })
       )
     } else {

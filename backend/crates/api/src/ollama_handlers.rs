@@ -179,7 +179,9 @@ pub async fn generer_signal(
         tf = body.timeframe,
         prix = body.prix_actuel,
         atr = body.atr,
-        kz = body.kill_zone_active.unwrap_or_else(|| smc::kill_zone::est_en_kill_zone(chrono::Utc::now())),
+        kz = body
+            .kill_zone_active
+            .unwrap_or_else(|| smc::kill_zone::est_en_kill_zone(chrono::Utc::now())),
         sw = body.sweep_detecte.unwrap_or(false),
         tend = body.tendance,
         ob = body.order_block,

@@ -8,13 +8,13 @@ use crate::Database;
 /// Signal actif retourné par le worker de suivi
 #[derive(Debug, Serialize)]
 pub struct SignalActif {
-    pub id:          String,
-    pub asset:       String,
-    pub direction:   String,
+    pub id: String,
+    pub asset: String,
+    pub direction: String,
     pub prix_entree: f64,
-    pub stop_loss:   f64,
+    pub stop_loss: f64,
     pub take_profit: Vec<f64>,
-    pub cree_le:     i64,
+    pub cree_le: i64,
 }
 
 // ── Fonctions libres sur SqlitePool (utilisées par le worker) ────────────────
@@ -28,19 +28,22 @@ pub async fn lister_actifs(pool: &SqlitePool) -> Result<Vec<SignalActif>> {
     .await
     .map_err(|e| TradingError::Database(e.to_string()))?;
 
-    Ok(rows.iter().map(|row| {
-        let tp_raw = row.get::<String, _>("take_profit");
-        let take_profit: Vec<f64> = serde_json::from_str(&tp_raw).unwrap_or_default();
-        SignalActif {
-            id:          row.get("id"),
-            asset:       row.get("asset"),
-            direction:   row.get("direction"),
-            prix_entree: row.get("prix_entree"),
-            stop_loss:   row.get("stop_loss"),
-            take_profit,
-            cree_le:     row.get("cree_le"),
-        }
-    }).collect())
+    Ok(rows
+        .iter()
+        .map(|row| {
+            let tp_raw = row.get::<String, _>("take_profit");
+            let take_profit: Vec<f64> = serde_json::from_str(&tp_raw).unwrap_or_default();
+            SignalActif {
+                id: row.get("id"),
+                asset: row.get("asset"),
+                direction: row.get("direction"),
+                prix_entree: row.get("prix_entree"),
+                stop_loss: row.get("stop_loss"),
+                take_profit,
+                cree_le: row.get("cree_le"),
+            }
+        })
+        .collect())
 }
 
 pub async fn maj_verdict(pool: &SqlitePool, id: &str, verdict: &str, prix: f64) -> Result<()> {
@@ -186,11 +189,7 @@ impl Database {
 
     /// Retourne les N derniers signaux d'un asset pour injection dans les prompts LLM.
     /// Ne propage pas les erreurs — retourne vec![] si la DB est indisponible.
-    pub async fn obtenir_contexte_llm(
-        &self,
-        asset: &str,
-        limit: i64,
-    ) -> Vec<serde_json::Value> {
+    pub async fn obtenir_contexte_llm(&self, asset: &str, limit: i64) -> Vec<serde_json::Value> {
         let rows = sqlx::query(
             "SELECT direction, timeframe, score, prix_entree, statut, cree_le
              FROM signaux WHERE asset = ? ORDER BY cree_le DESC LIMIT ?",
@@ -201,15 +200,20 @@ impl Database {
         .await;
 
         match rows {
-            Ok(rows) => rows.iter().map(|row| serde_json::json!({
-                "direction":  row.get::<String, _>("direction"),
-                "timeframe":  row.get::<String, _>("timeframe"),
-                "score":      row.get::<f64, _>("score"),
-                "prix_entree": row.get::<f64, _>("prix_entree"),
-                "statut":     row.get::<String, _>("statut"),
-                "cree_le":    row.get::<i64, _>("cree_le"),
-            })).collect(),
-            Err(_) => vec![]
+            Ok(rows) => rows
+                .iter()
+                .map(|row| {
+                    serde_json::json!({
+                        "direction":  row.get::<String, _>("direction"),
+                        "timeframe":  row.get::<String, _>("timeframe"),
+                        "score":      row.get::<f64, _>("score"),
+                        "prix_entree": row.get::<f64, _>("prix_entree"),
+                        "statut":     row.get::<String, _>("statut"),
+                        "cree_le":    row.get::<i64, _>("cree_le"),
+                    })
+                })
+                .collect(),
+            Err(_) => vec![],
         }
     }
 }
