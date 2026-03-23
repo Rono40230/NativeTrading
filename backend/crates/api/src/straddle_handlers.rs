@@ -73,9 +73,9 @@ pub async fn analyser(
         limite
     );
 
-    // Récupérer les bougies H1 (cache DB puis provider)
+    // Récupérer les bougies H1 (cache DB puis provider réseau en fallback)
     let bougies = match state.db.obtenir_bougies(&asset, &Timeframe::H1, limite as i64).await {
-        Ok(b) if b.len() >= 10 => b,
+        Ok(b) if !b.is_empty() => b,
         _ => {
             // Fallback: provider réseau
             let res = if asset.is_crypto() {
@@ -91,9 +91,22 @@ pub async fn analyser(
                     b
                 }
                 Err(e) => {
-                    tracing::warn!("Impossible de récupérer les bougies H1 pour {}: {}", asset_str, e);
-                    return HttpResponse::InternalServerError()
-                        .json(serde_json::json!({ "error": format!("Données indisponibles: {e}") }));
+                    tracing::warn!(
+                        "Impossible de récupérer les bougies H1 pour {}: {}",
+                        asset_str,
+                        e
+                    );
+                    // Réponse métier claire — pas de 500 — provider non disponible
+                    return HttpResponse::Ok().json(serde_json::json!({
+                        "creneaux": [],
+                        "nb_analyses": 0,
+                        "nb_retenus": 0,
+                        "message": format!(
+                            "Données indisponibles pour {} : IB Gateway hors ligne et aucun historique en cache. \
+                             Vérifiez que MetaTrader / IB Gateway est démarré.",
+                            asset_str
+                        )
+                    }));
                 }
             }
         }

@@ -331,4 +331,5 @@ export interface ReponseAnalyseStraddle {
   creneaux: StraddleCreneau[]
   nb_analyses: number
   nb_retenus: number
+  message?: string
 }

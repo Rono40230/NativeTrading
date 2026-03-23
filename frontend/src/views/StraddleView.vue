@@ -14,17 +14,17 @@
       <div class="flex flex-col gap-1">
         <label class="text-xs text-gray-400 uppercase tracking-wider">Asset</label>
         <select v-model="asset" class="glass-select">
-          <option v-for="a in assetsDisponibles" :key="a" :value="a">{{ a }}</option>
+          <option v-for="a in assetsDisponibles" :key="a" :value="a" class="bg-gray-800 text-white">{{ a }}</option>
         </select>
       </div>
 
       <div class="flex flex-col gap-1">
         <label class="text-xs text-gray-400 uppercase tracking-wider">Période d'analyse</label>
         <select v-model="periode" class="glass-select">
-          <option value="3m">3 mois</option>
-          <option value="6m">6 mois</option>
-          <option value="1a">1 an</option>
-          <option value="2a">2 ans</option>
+          <option value="3m" class="bg-gray-800 text-white">3 mois</option>
+          <option value="6m" class="bg-gray-800 text-white">6 mois</option>
+          <option value="1a" class="bg-gray-800 text-white">1 an</option>
+          <option value="2a" class="bg-gray-800 text-white">2 ans</option>
         </select>
       </div>
 
@@ -52,6 +52,9 @@
       <span v-if="dernierResultat.nb_retenus > 0">
         ✅ {{ dernierResultat.nb_retenus }} créneau(x) identifié(s) sur
         {{ dernierResultat.nb_analyses }} bougies analysées
+      </span>
+      <span v-else-if="dernierResultat.message">
+        ⚠️ {{ dernierResultat.message }}
       </span>
       <span v-else>
         ⚠️ Aucun créneau retenu sur {{ dernierResultat.nb_analyses }} bougies —
@@ -185,7 +188,7 @@ const periode = ref('6m')
 const chargement = ref(false)
 const chargementListe = ref(false)
 const creneaux = ref<StraddleCreneau[]>([])
-const dernierResultat = ref<{ nb_analyses: number; nb_retenus: number } | null>(null)
+const dernierResultat = ref<{ nb_analyses: number; nb_retenus: number; message?: string } | null>(null)
 const filtreStatut = ref<'tous' | 'a_tester' | 'valide' | 'invalide'>('tous')
 
 const filtresStatut = [
@@ -238,7 +241,7 @@ async function analyser() {
   try {
     const res = await apiService.analyserStraddle(asset.value, periode.value)
     creneaux.value = res.creneaux
-    dernierResultat.value = { nb_analyses: res.nb_analyses, nb_retenus: res.nb_retenus }
+    dernierResultat.value = { nb_analyses: res.nb_analyses, nb_retenus: res.nb_retenus, message: res.message }
   } catch (e: unknown) {
     alerteStore.afficherErreur(`Analyse Straddle échouée: ${(e as Error).message}`)
   } finally {
