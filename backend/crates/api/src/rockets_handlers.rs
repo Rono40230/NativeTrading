@@ -178,27 +178,31 @@ fn calculer_verdict_rocket(
     prix: f64,
     peak: f64,
 ) -> Option<&'static str> {
-    let atr14 = s.atr14.unwrap_or(s.prix_entree * 0.01); // fallback 1% si non dispo
+    let atr14 = s.atr14.unwrap_or(s.prix_entree * 0.01);
     let trailing_stop = peak - atr14 * 1.5;
 
-    // SL touché en priorité absolue
-    if prix <= s.stop_loss {
+    // SL effectif progressif selon le niveau TP atteint (break-even)
+    let sl_effectif = match (s.target2, s.target3) {
+        (Some(tp2), Some(tp3)) if peak >= tp3 => {
+            // TP3 en route : trailing stop
+            return if prix <= trailing_stop { Some("TP3") } else { None };
+        }
+        (Some(tp2), _) if peak >= tp2 => s.target,       // BE = TP1
+        _ if peak >= s.target          => s.prix_entree,  // BE = entrée
+        _                              => s.stop_loss,    // SL original
+    };
+
+    if prix <= sl_effectif {
         return Some("invalide");
     }
-    // TP3 : une fois le peak >= TP3, on attend le trailing stop
-    if let Some(tp3) = s.target3 {
-        if peak >= tp3 && prix <= trailing_stop {
-            return Some("TP3");
-        }
-    }
-    // TP2 : fermeture immédiate si prix >= TP2
+    // TP2 : fermeture immédiate si prix >= TP2 et pas encore en zone TP3
     if let Some(tp2) = s.target2 {
-        if prix >= tp2 && peak < s.target3.unwrap_or(f64::MAX) {
+        if prix >= tp2 {
             return Some("TP2");
         }
     }
-    // TP1 : fermeture immédiate si prix >= TP1 (et pas encore TP2/TP3 en route)
-    if prix >= s.target && peak < s.target2.unwrap_or(f64::MAX) {
+    // TP1 : fermeture si prix >= TP1 et pas encore de TP2
+    if prix >= s.target && s.target2.map_or(true, |tp2| peak < tp2) {
         return Some("TP1");
     }
     None
