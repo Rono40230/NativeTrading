@@ -224,7 +224,7 @@ pub async fn analyser_creneaux(
         .map_err(|e| TradingError::Api(e.to_string()))?;
 
     let reponse = client
-        .post(format!("{url}/api/chat"))
+        .post(&url)
         .json(&corps)
         .send()
         .await

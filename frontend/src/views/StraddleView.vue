@@ -13,19 +13,12 @@
     <div class="glass-card p-4 flex flex-wrap gap-4 items-end">
       <div class="flex flex-col gap-1">
         <label class="text-xs text-gray-400 uppercase tracking-wider">Asset</label>
-        <select v-model="asset" class="glass-select">
-          <option v-for="a in assetsDisponibles" :key="a" :value="a" class="bg-white text-gray-900">{{ a }}</option>
-        </select>
+        <AppSelect v-model="asset" :options="optionsAssets" />
       </div>
 
       <div class="flex flex-col gap-1">
         <label class="text-xs text-gray-400 uppercase tracking-wider">Période d'analyse</label>
-        <select v-model="periode" class="glass-select">
-          <option value="3m" class="bg-white text-gray-900">3 mois</option>
-          <option value="6m" class="bg-white text-gray-900">6 mois</option>
-          <option value="1a" class="bg-white text-gray-900">1 an</option>
-          <option value="2a" class="bg-white text-gray-900">2 ans</option>
-        </select>
+        <AppSelect v-model="periode" :options="optionsPeriode" />
       </div>
 
       <button
@@ -166,6 +159,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
+import AppSelect from '@/components/common/AppSelect.vue'
 import { apiService } from '@/services/api.service'
 import type { StraddleCreneau } from '@/services/api.types'
 import { useAssetsStore } from '@/stores/assets.store'
@@ -182,6 +176,17 @@ const assetsDisponibles = computed(() => {
     .filter(a => a.type !== 'crypto' || ['BTC', 'ETH'].includes(a.id))
     .map(a => a.id)
 })
+
+const optionsAssets = computed(() =>
+  assetsDisponibles.value.map(a => ({ label: a, value: a }))
+)
+
+const optionsPeriode = [
+  { label: '3 mois', value: '3m' },
+  { label: '6 mois', value: '6m' },
+  { label: '1 an',   value: '1a' },
+  { label: '2 ans',  value: '2a' },
+]
 
 const asset = ref('XAUUSD')
 const periode = ref('6m')
