@@ -75,7 +75,7 @@
             <td class="px-4 py-3 text-right font-mono text-emerald-300">{{ r.target2 ? formatNombre(r.target2) : '—' }}</td>
             <td class="px-4 py-3 text-right font-mono text-emerald-200">{{ r.target3 ? formatNombre(r.target3) : '\u2014' }}</td>
             <td class="px-4 py-3 text-right font-mono">
-              <span v-if="marketStore.prixLive[r.ticker]" :class="classePrixActuel(r)">{{ formatNombre(marketStore.prixLive[r.ticker]) }}</span>
+              <span v-if="prixActuels[r.ticker]" :class="classePrixActuel(r)">{{ formatNombre(prixActuels[r.ticker]) }}</span>
               <span v-else class="text-gray-600">—</span>
             </td>
             <td class="px-4 py-3 text-right font-mono text-white">{{ r.prix_verdict ? formatNombre(r.prix_verdict) : '\u2014' }}</td>
@@ -166,19 +166,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { Signal } from '@/services/api.service'
 import type { RocketSignalHistorique } from '@/services/api.types'
 import { useAlerteStore } from '@/stores/alerte.store'
-import { useMarketStore } from '@/stores/market.store'
 import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
-
-const marketStore = useMarketStore()
 
 const alerteStore = useAlerteStore()
 const signaux  = ref<Signal[]>([])
 const rockets  = ref<RocketSignalHistorique[]>([])
+const prixActuels = ref<Record<string, number>>({})
 const chargement    = ref(false)
 const analyseOuverte = ref(false)
 const filtreAsset   = ref('')
@@ -338,23 +336,19 @@ function labelVerdict(r: RocketSignalHistorique): string {
 
 async function charger() {
   chargement.value = true
-  // Déconnecter les WS avant rechargement pour forcer la reconnexion
-  marketStore.deconnecterPrixLiveAssets()
   try {
     if (rocketsMode.value) {
       rockets.value = await apiService.historiqueRockets(200)
       const tickers = [...new Set(rockets.value.map(r => r.ticker))]
-      // Fallback REST : charger le dernier close pour tous les tickers immédiatement
+      prixActuels.value = {}
       await Promise.allSettled(
         tickers.map(async ticker => {
           try {
             const candles = await apiService.getCandles(ticker, 'M1', 1)
-            if (candles.length > 0) marketStore.prixLive[ticker] = candles[candles.length - 1].close
-          } catch { /* ticker non supporté, ignoré */ }
+            if (candles.length > 0) prixActuels.value[ticker] = candles[candles.length - 1].close
+          } catch { /* ticker non supporté */ }
         })
       )
-      // Puis connexion WS pour les mises à jour en direct
-      marketStore.connecterPrixLiveAssets(tickers)
     } else {
       signaux.value = await apiService.getSignaux(500)
     }
@@ -366,7 +360,7 @@ async function charger() {
 }
 
 function classePrixActuel(r: RocketSignalHistorique): string {
-  const prix = marketStore.prixLive[r.ticker]
+  const prix = prixActuels.value[r.ticker]
   if (!prix) return 'text-gray-400'
   if (prix <= r.stop_loss) return 'text-red-400'
   if (r.target3 && prix >= r.target3) return 'text-emerald-200'
@@ -376,7 +370,6 @@ function classePrixActuel(r: RocketSignalHistorique): string {
 }
 
 onMounted(charger)
-onUnmounted(() => marketStore.deconnecterPrixLiveAssets())
 </script>
 
 <style scoped>
