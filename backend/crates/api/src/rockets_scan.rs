@@ -186,12 +186,17 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
     });
     resultats.truncate(MAX_DISPLAY);
 
+    // Conviction LLM minimale pour sauvegarde (qualité > quantité)
+    const CONVICTION_MIN: i64 = 65;
+
     // Auto-save breakout/pré-lancement avec filtre LLM pré-sauvegarde
     for r in resultats.iter().filter(|r| {
         cfg.phases_actives.contains(&r.phase)
             && r.score >= cfg.score_min
             && r.rsi <= cfg.rsi_max
             && r.rsi >= cfg.rsi_min
+            && r.ratio_volume >= cfg.ratio_volume_min  // volume confirmé
+            && r.ratio_corps >= 0.35                   // pas de doji / mèche de rejet
     }) {
         // SL = entrée - ATR14 | TP1 = entrée + ATR14 | TP2 = entrée + 2×ATR14 | TP3 = entrée + 20×ATR14
         let sl = r.prix - r.atr14;
@@ -225,7 +230,14 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
                     );
                     if !rep.valide {
                         tracing::info!("LLM rejette {} {}: {}", r.ticker, r.phase, rep.raison);
-                        continue; // Signal rejeté — pas de sauvegarde
+                        continue;
+                    }
+                    if rep.conviction < CONVICTION_MIN {
+                        tracing::info!(
+                            "LLM conviction insuffisante {} {} ({}/100): {}",
+                            r.ticker, r.phase, rep.conviction, rep.raison
+                        );
+                        continue; // Qualité insuffisante — pas de sauvegarde
                     }
                     let sl_s = rep.ajustements.as_ref().and_then(|a| a.sl_suggere);
                     let tp1_s = rep.ajustements.as_ref().and_then(|a| a.tp1_suggere);

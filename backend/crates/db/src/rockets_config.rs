@@ -16,11 +16,11 @@ pub struct RocketsConfig {
 impl Default for RocketsConfig {
     fn default() -> Self {
         Self {
-            score_min: 40,
+            score_min: 55,
             phases_actives: vec!["breakout".into(), "prelancement".into()],
             rsi_max: 85.0,
             rsi_min: 0.0,
-            ratio_volume_min: 1.5,
+            ratio_volume_min: 1.8,
             vol_marche_min: 500_000.0,
         }
     }
