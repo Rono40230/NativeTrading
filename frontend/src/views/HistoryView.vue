@@ -153,7 +153,8 @@
         </div>
 
         <!-- Stats globales Rockets -->
-        <div v-else class="grid grid-cols-4 gap-3">
+        <template v-else>
+        <div class="grid grid-cols-4 gap-3">
           <div class="glass-card p-3 text-center">
             <div class="text-2xl font-bold text-white">{{ statsGlobales.total }}</div>
             <div class="text-xs text-gray-400 mt-1">Total clôturés</div>
@@ -219,7 +220,7 @@
             </div>
           </div>
         </div>
-        </div><!-- /v-else Rockets -->
+        </template><!-- /v-else Rockets -->
       </div>
     </div>
   </div>
