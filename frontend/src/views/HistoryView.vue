@@ -132,7 +132,7 @@
 
     <!-- Modale Analyse -->
     <div v-if="analyseOuverte" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="analyseOuverte = false">
-      <div class="glass-card p-6 w-full max-w-3xl max-h-[85vh] overflow-y-auto space-y-6">
+      <div class="p-6 w-full max-w-3xl max-h-[85vh] overflow-y-auto space-y-6 rounded-xl border border-white/10" style="background: #0d1117;">
         <div class="flex items-center justify-between">
           <h2 class="text-xl font-bold">📊 Analyse {{ labelStrategie }}</h2>
           <button class="text-gray-400 hover:text-white text-xl" @click="analyseOuverte = false">×</button>
