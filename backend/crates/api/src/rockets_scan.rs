@@ -32,6 +32,7 @@ pub struct ScanResultat {
     pub score:        i64,
     pub ratio_volume: f64,
     pub atr_ratio:    f64,
+    pub atr14:        f64,
     pub rsi:          f64,
     pub support:      f64,
     pub target20:     f64,
@@ -142,7 +143,8 @@ async fn analyser_symbol(client: &reqwest::Client, ticker: &str) -> Option<ScanR
         symbol: format!("{}USDT", ticker),
         ticker: ticker.to_string(),
         prix, change1h, phase, score,
-        ratio_volume, atr_ratio, rsi,
+        ratio_volume, atr_ratio, atr14,
+        rsi,
         support, target20: max_recent,
         closes: closes_spark,
     })
@@ -226,11 +228,16 @@ async fn executer_scan(
 
     // Auto-save breakout/pré-lancement (le DB déduplique sur 6h)
     for r in resultats.iter().filter(|r| r.phase != "compression") {
+        // SL = entrée - ATR14 | TP1 = entrée + ATR14 | TP2 = entrée + 2×ATR14 | TP3 = entrée + 20×ATR14
+        let sl  = r.prix - r.atr14;
+        let tp1 = r.prix + r.atr14;
+        let tp2 = r.prix + 2.0 * r.atr14;
+        let tp3 = r.prix + 20.0 * r.atr14;
         let nouveau = NouveauRocket {
             ticker: r.ticker.clone(), phase: r.phase.clone(), score: r.score,
-            prix_entree: r.prix, stop_loss: r.support, target: r.target20,
-            target2: None, target3: None,
-            ratio_volume: r.ratio_volume, atr_ratio: r.atr_ratio, rsi: r.rsi,
+            prix_entree: r.prix, stop_loss: sl,
+            target: tp1, target2: Some(tp2), target3: Some(tp3),
+            ratio_volume: r.ratio_volume, atr_ratio: r.atr_ratio, atr14: Some(r.atr14), rsi: r.rsi,
         };
         if let Err(e) = rockets::sauvegarder(pool, &nouveau).await {
             tracing::warn!("Auto-save rocket {}: {}", r.ticker, e);

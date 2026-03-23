@@ -15,7 +15,10 @@ pub struct RocketSignal {
     pub target3: Option<f64>,
     pub ratio_volume: f64,
     pub atr_ratio: f64,
+    pub atr14: Option<f64>,
     pub rsi: f64,
+    pub statut: String,
+    pub prix_peak: Option<f64>,
     pub verdict: Option<String>,
     pub prix_verdict: Option<f64>,
     pub cree_le: String,
@@ -33,6 +36,7 @@ pub struct NouveauRocket {
     pub target3: Option<f64>,
     pub ratio_volume: f64,
     pub atr_ratio: f64,
+    pub atr14: Option<f64>,
     pub rsi: f64,
 }
 
@@ -49,7 +53,10 @@ fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
         target3:      row.get("target3"),
         ratio_volume: row.get("ratio_volume"),
         atr_ratio:    row.get("atr_ratio"),
+        atr14:        row.get("atr14"),
         rsi:          row.get("rsi"),
+        statut:       row.get("statut"),
+        prix_peak:    row.get("prix_peak"),
         verdict:      row.get("verdict"),
         prix_verdict: row.get("prix_verdict"),
         cree_le:      row.get("cree_le"),
@@ -61,8 +68,8 @@ fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
 pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<i64>> {
     let id = sqlx::query(
         "INSERT INTO rockets_signaux
-         (ticker, phase, score, prix_entree, stop_loss, target, target2, target3, ratio_volume, atr_ratio, rsi)
-         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+         (ticker, phase, score, prix_entree, stop_loss, target, target2, target3, ratio_volume, atr_ratio, atr14, rsi)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          WHERE NOT EXISTS (
            SELECT 1 FROM rockets_signaux
            WHERE ticker = ? AND phase = ? AND cree_le >= datetime('now', '-6 hours')
@@ -78,6 +85,7 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
     .bind(s.target3)
     .bind(s.ratio_volume)
     .bind(s.atr_ratio)
+    .bind(s.atr14)
     .bind(s.rsi)
     .bind(&s.ticker)
     .bind(&s.phase)
@@ -92,8 +100,8 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
 pub async fn lister_ouverts(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {
     let rows = sqlx::query(
         "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
-                ratio_volume, atr_ratio, rsi, verdict, prix_verdict, cree_le, maj_le
-         FROM rockets_signaux WHERE verdict IS NULL ORDER BY cree_le DESC",
+                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le
+         FROM rockets_signaux WHERE statut = 'ouvert' ORDER BY cree_le DESC",
     )
     .fetch_all(pool)
     .await
@@ -101,10 +109,45 @@ pub async fn lister_ouverts(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {
     Ok(rows.iter().map(row_to_signal).collect())
 }
 
+pub async fn lister_en_attente(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {
+    let rows = sqlx::query(
+        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
+                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le
+         FROM rockets_signaux WHERE statut = 'attente' ORDER BY cree_le DESC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(rows.iter().map(row_to_signal).collect())
+}
+
+pub async fn entrer_position(pool: &SqlitePool, id: i64) -> Result<()> {
+    sqlx::query(
+        "UPDATE rockets_signaux SET statut = 'ouvert', maj_le = datetime('now') WHERE id = ?",
+    )
+    .bind(id)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(())
+}
+
+pub async fn maj_prix_peak(pool: &SqlitePool, id: i64, peak: f64) -> Result<()> {
+    sqlx::query(
+        "UPDATE rockets_signaux SET prix_peak = ?, maj_le = datetime('now') WHERE id = ?",
+    )
+    .bind(peak)
+    .bind(id)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(())
+}
+
 pub async fn maj_verdict(pool: &SqlitePool, id: i64, verdict: &str, prix: f64) -> Result<()> {
     sqlx::query(
         "UPDATE rockets_signaux
-         SET verdict = ?, prix_verdict = ?, maj_le = datetime('now')
+         SET verdict = ?, prix_verdict = ?, statut = 'ferme', maj_le = datetime('now')
          WHERE id = ?",
     )
     .bind(verdict)
@@ -118,8 +161,8 @@ pub async fn maj_verdict(pool: &SqlitePool, id: i64, verdict: &str, prix: f64) -
 
 pub async fn marquer_expires(pool: &SqlitePool) -> Result<u64> {
     let res = sqlx::query(
-        "UPDATE rockets_signaux SET verdict = 'expire', maj_le = datetime('now')
-         WHERE verdict IS NULL AND cree_le <= datetime('now', '-6 hours')",
+        "UPDATE rockets_signaux SET verdict = 'expire', statut = 'ferme', maj_le = datetime('now')
+         WHERE statut = 'attente' AND cree_le <= datetime('now', '-6 hours')",
     )
     .execute(pool)
     .await
@@ -130,7 +173,7 @@ pub async fn marquer_expires(pool: &SqlitePool) -> Result<u64> {
 pub async fn historique(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSignal>> {
     let rows = sqlx::query(
         "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
-                ratio_volume, atr_ratio, rsi, verdict, prix_verdict, cree_le, maj_le
+                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le
          FROM rockets_signaux ORDER BY cree_le DESC LIMIT ?",
     )
     .bind(limite)

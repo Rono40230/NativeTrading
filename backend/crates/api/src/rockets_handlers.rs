@@ -20,6 +20,7 @@ pub struct RequeteSauvegarder {
     pub target3: Option<f64>,
     pub ratio_volume: f64,
     pub atr_ratio: f64,
+    pub atr14: Option<f64>,
     pub rsi: f64,
 }
 
@@ -47,6 +48,7 @@ pub async fn sauvegarder_signal(
         target3:      body.target3,
         ratio_volume: body.ratio_volume,
         atr_ratio:    body.atr_ratio,
+        atr14:        body.atr14,
         rsi:          body.rsi,
     };
     match rockets::sauvegarder(pool, &nouveau).await {
@@ -109,7 +111,7 @@ async fn fetch_prix(client: &reqwest::Client, ticker: &str) -> Option<f64> {
     resp.price.parse::<f64>().ok()
 }
 
-/// Worker lancé au démarrage : toutes les 15min, statue TP/SL/expiration.
+/// Worker lancé au démarrage : toutes les 15min, gère cycle de vie complet.
 pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
@@ -122,29 +124,44 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
     loop {
         tokio::time::sleep(Duration::from_secs(15 * 60)).await;
 
-        // 1. Marquer les signaux ouverts depuis plus de 4h comme expirés
+        // 1. Expirer les signaux EN ATTENTE depuis >6h (position jamais ouverte)
         if let Ok(n) = rockets::marquer_expires(&pool).await {
-            if n > 0 { tracing::info!("Rockets: {} signal(s) expirés", n); }
+            if n > 0 { tracing::info!("Rockets: {} signal(s) expirés (jamais entrés)", n); }
         }
 
-        // 2. Vérifier TP / SL sur les signaux encore ouverts
+        // 2. Signaux en attente : vérifier si prix_entree atteint → ouvrir position
+        let en_attente = match rockets::lister_en_attente(&pool).await {
+            Ok(s) => s,
+            Err(e) => { tracing::warn!("Worker rockets attente: {}", e); continue; }
+        };
+        for s in &en_attente {
+            let Some(prix) = fetch_prix(&client, &s.ticker).await else { continue };
+            if prix >= s.prix_entree {
+                if let Err(e) = rockets::entrer_position(&pool, s.id).await {
+                    tracing::warn!("Rocket {} entrée position: {}", s.ticker, e);
+                } else {
+                    tracing::info!("Rocket {} → ouvert @ {:.5}", s.ticker, prix);
+                }
+            }
+        }
+
+        // 3. Signaux OUVERTS : TP pyramidal + trailing TP3 + SL
         let signaux = match rockets::lister_ouverts(&pool).await {
             Ok(s) => s,
-            Err(e) => { tracing::warn!("Worker rockets liste: {}", e); continue; }
+            Err(e) => { tracing::warn!("Worker rockets ouverts: {}", e); continue; }
         };
-
         for s in &signaux {
-            let prix = match fetch_prix(&client, &s.ticker).await {
-                Some(p) => p,
-                None    => continue,
-            };
-            let verdict = if prix >= s.target {
-                Some("confirme")
-            } else if prix <= s.stop_loss {
-                Some("invalide")
-            } else {
-                None
-            };
+            let Some(prix) = fetch_prix(&client, &s.ticker).await else { continue };
+
+            // Mettre à jour le prix peak
+            let peak = s.prix_peak.unwrap_or(s.prix_entree).max(prix);
+            if peak > s.prix_peak.unwrap_or(0.0) {
+                if let Err(e) = rockets::maj_prix_peak(&pool, s.id, peak).await {
+                    tracing::warn!("Rocket {} maj peak: {}", s.ticker, e);
+                }
+            }
+
+            let verdict = calculer_verdict_rocket(&s, prix, peak);
             if let Some(v) = verdict {
                 if let Err(e) = rockets::maj_verdict(&pool, s.id, v, prix).await {
                     tracing::warn!("Worker rockets verdict: {}", e);
@@ -154,4 +171,35 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
             }
         }
     }
+}
+
+fn calculer_verdict_rocket(
+    s: &db::rockets::RocketSignal,
+    prix: f64,
+    peak: f64,
+) -> Option<&'static str> {
+    let atr14 = s.atr14.unwrap_or(s.prix_entree * 0.01); // fallback 1% si non dispo
+    let trailing_stop = peak - atr14 * 1.5;
+
+    // SL touché en priorité absolue
+    if prix <= s.stop_loss {
+        return Some("invalide");
+    }
+    // TP3 : une fois le peak >= TP3, on attend le trailing stop
+    if let Some(tp3) = s.target3 {
+        if peak >= tp3 && prix <= trailing_stop {
+            return Some("TP3");
+        }
+    }
+    // TP2 : fermeture immédiate si prix >= TP2
+    if let Some(tp2) = s.target2 {
+        if prix >= tp2 && peak < s.target3.unwrap_or(f64::MAX) {
+            return Some("TP2");
+        }
+    }
+    // TP1 : fermeture immédiate si prix >= TP1 (et pas encore TP2/TP3 en route)
+    if prix >= s.target && peak < s.target2.unwrap_or(f64::MAX) {
+        return Some("TP1");
+    }
+    None
 }
