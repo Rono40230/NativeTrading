@@ -72,7 +72,7 @@
             <td class="px-4 py-3 text-right font-mono text-emerald-300">{{ r.target2 ? formatNombre(r.target2) : '—' }}</td>
             <td class="px-4 py-3 text-right font-mono text-emerald-200">{{ r.target3 ? formatNombre(r.target3) : '—' }}</td>
             <td class="px-4 py-3">
-              <span class="badge" :class="classeVerdict(r.verdict)">{{ labelVerdict(r.verdict) }}</span>
+              <span class="badge" :class="classeVerdict(r.verdict)">{{ labelVerdict(r) }}</span>
             </td>
             <td class="px-4 py-3 text-gray-500 text-xs">{{ r.cree_le.slice(0, 16).replace('T', ' ') }}</td>
           </tr>
@@ -264,17 +264,27 @@ function classePhase(phase: string): string {
 }
 
 function classeVerdict(verdict: string | null): string {
-  if (verdict === 'confirme') return 'badge-green'
+  if (verdict === 'TP1' || verdict === 'TP2' || verdict === 'TP3' || verdict === 'confirme') return 'badge-green'
   if (verdict === 'invalide') return 'badge-red'
   if (verdict === 'expire')   return 'badge-gray'
   return 'badge-yellow'
 }
 
-function labelVerdict(verdict: string | null): string {
-  if (verdict === 'confirme') return '✅ TP1 touché'
-  if (verdict === 'invalide') return '❌ SL touché'
-  if (verdict === 'expire')   return '⏰ Délai 6h dépassé'
-  return '⏳ En cours'
+function labelVerdict(r: RocketSignalHistorique): string {
+  const v = r.verdict
+  if (v === 'invalide') return '\u274c \u22121R'
+  if (v === 'TP1' || v === 'confirme') return '\u2705 +1R'
+  if (v === 'TP2') return '\u2705 +2R'
+  if (v === 'TP3') {
+    const risk = r.prix_entree - r.stop_loss
+    if (risk > 0 && r.prix_verdict) {
+      const ratio = ((r.prix_verdict - r.prix_entree) / risk).toFixed(1)
+      return `\u2705 +${ratio}R`
+    }
+    return '\u2705 +TP3'
+  }
+  if (v === 'expire') return '\u23f0 D\u00e9lai 6h d\u00e9pass\u00e9'
+  return '\u23f3 En cours'
 }
 
 async function charger() {
