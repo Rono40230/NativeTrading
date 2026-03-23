@@ -296,9 +296,135 @@ fn calculer_verdict_rocket(
             return Some("TP2");
         }
     }
-    // TP1 : fermeture si prix >= TP1 et pas encore de TP2
-    if prix >= s.target && s.target2.is_none_or(|tp2| peak < tp2) {
+    // TP1 : fermeture uniquement si pas de TP2 (sinon on attend TP2, SL=BE)
+    if prix >= s.target && s.target2.is_none() {
         return Some("TP1");
     }
     None
 }
+
+// ── Tests unitaires — progression position ───────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use db::rockets::RocketSignal;
+
+    /// Construit un signal de test minimal
+    fn signal(entree: f64, sl: f64, tp1: f64, tp2: Option<f64>, tp3: Option<f64>, atr14: f64) -> RocketSignal {
+        RocketSignal {
+            id: 1,
+            ticker: "TEST".into(),
+            phase: "breakout".into(),
+            score: 75,
+            prix_entree: entree,
+            stop_loss: sl,
+            target: tp1,
+            target2: tp2,
+            target3: tp3,
+            ratio_volume: 2.0,
+            atr_ratio: 1.5,
+            atr14: Some(atr14),
+            rsi: 60.0,
+            statut: "ouvert".into(),
+            prix_peak: None,
+            verdict: None,
+            prix_verdict: None,
+            cree_le: "2026-01-01T00:00:00".into(),
+            maj_le: None,
+        }
+    }
+
+    // ── Scénario 1 : position simple (TP1 uniquement) ────────────────────────
+
+    #[test]
+    fn entre_prix_neutre_aucun_verdict() {
+        let s = signal(1.0, 0.90, 1.10, None, None, 0.05);
+        assert_eq!(calculer_verdict_rocket(&s, 1.0, 1.0), None);
+    }
+
+    #[test]
+    fn sl_touche_invalide() {
+        let s = signal(1.0, 0.90, 1.10, None, None, 0.05);
+        assert_eq!(calculer_verdict_rocket(&s, 0.89, 0.89), Some("invalide"));
+    }
+
+    #[test]
+    fn tp1_atteint_sans_tp2_fermeture() {
+        let s = signal(1.0, 0.90, 1.10, None, None, 0.05);
+        assert_eq!(calculer_verdict_rocket(&s, 1.10, 1.10), Some("TP1"));
+    }
+
+    // ── Scénario 2 : break-even après TP1 ───────────────────────────────────
+
+    #[test]
+    fn prix_sur_tp1_avec_tp2_pas_de_fermeture() {
+        // TP2 existe → TP1 ne ferme pas, SL monte au break-even
+        let s = signal(1.0, 0.90, 1.10, Some(1.20), None, 0.05);
+        // peak atteint TP1 mais pas encore TP2
+        assert_eq!(calculer_verdict_rocket(&s, 1.10, 1.10), None);
+    }
+
+    #[test]
+    fn retour_breakeven_apres_tp1_invalide() {
+        // Après que le peak a dépassé TP1, SL effectif = prix_entree (1.0)
+        // Si prix retombe à l'entrée → invalide
+        let s = signal(1.0, 0.90, 1.10, Some(1.20), None, 0.05);
+        let peak = 1.12; // TP1 dépassé
+        assert_eq!(calculer_verdict_rocket(&s, 1.0, peak), Some("invalide"));
+    }
+
+    #[test]
+    fn retour_sous_breakeven_apres_tp1_invalide() {
+        // SL effectif = entrée (1.0), prix à 0.95 → invalide
+        let s = signal(1.0, 0.90, 1.10, Some(1.20), None, 0.05);
+        let peak = 1.12;
+        assert_eq!(calculer_verdict_rocket(&s, 0.95, peak), Some("invalide"));
+    }
+
+    // ── Scénario 3 : progression TP2, SL monte à TP1 ────────────────────────
+
+    #[test]
+    fn tp2_atteint_fermeture() {
+        let s = signal(1.0, 0.90, 1.10, Some(1.20), Some(1.50), 0.05);
+        let peak = 1.20;
+        assert_eq!(calculer_verdict_rocket(&s, 1.20, peak), Some("TP2"));
+    }
+
+    #[test]
+    fn retour_tp1_apres_tp2_invalide() {
+        // SL effectif = TP1 (1.10) après que peak >= TP2
+        let s = signal(1.0, 0.90, 1.10, Some(1.20), Some(1.50), 0.05);
+        let peak = 1.25; // TP2 dépassé
+        assert_eq!(calculer_verdict_rocket(&s, 1.10, peak), Some("invalide"));
+    }
+
+    #[test]
+    fn entre_tp1_et_tp2_apres_tp2_depasse_aucun_verdict() {
+        // Peak a dépassé TP2, prix en retrait mais au-dessus de TP1
+        let s = signal(1.0, 0.90, 1.10, Some(1.20), Some(1.50), 0.05);
+        let peak = 1.25;
+        assert_eq!(calculer_verdict_rocket(&s, 1.15, peak), None);
+    }
+
+    // ── Scénario 4 : trailing stop TP3 ──────────────────────────────────────
+
+    #[test]
+    fn tp3_zone_trailing_stop_non_touche() {
+        // peak >= TP3, prix encore au-dessus du trailing
+        let s = signal(1.0, 0.90, 1.10, Some(1.20), Some(1.50), 0.05);
+        let peak = 1.60;
+        let trailing = peak - 0.05 * 1.5; // 1.60 - 0.075 = 1.525
+        assert_eq!(calculer_verdict_rocket(&s, trailing + 0.01, peak), None);
+    }
+
+    #[test]
+    fn tp3_zone_trailing_stop_touche() {
+        // prix <= trailing stop → clôture "TP3"
+        let s = signal(1.0, 0.90, 1.10, Some(1.20), Some(1.50), 0.05);
+        let peak = 1.60;
+        let trailing = peak - 0.05 * 1.5; // 1.525
+        assert_eq!(calculer_verdict_rocket(&s, trailing - 0.001, peak), Some("TP3"));
+    }
+}
+
