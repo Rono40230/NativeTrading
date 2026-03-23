@@ -14,9 +14,6 @@
       @engine-arreter="engineArreter"
     />
 
-    <!-- Score SMC + prédiction ML -->
-    <SmcScoreCard />
-
     <!-- Analyse SMC manuelle -->
     <div class="glass-card p-4">
       <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">📊 Analyse manuelle</p>
@@ -28,7 +25,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
-import SmcScoreCard from '@/components/common/SmcScoreCard.vue'
 import SMCAnalyzerView from '@/views/SMCAnalyzerView.vue'
 import { useSignalEngine } from '@/composables/useSignalEngine'
 import { apiService } from '@/services/api.service'
@@ -37,13 +33,17 @@ const backendOk = ref(false)
 const btcPrix = ref<number | null>(null)
 
 const {
-  engineActif, engineSecondes, engineSignaux24h, engineChargement,
-  demarrer: engineDemarrer, arreter: engineArreter,
+  actif: engineActif,
+  secondesRestantes: engineSecondes,
+  signaux24h: engineSignaux24h,
+  chargement: engineChargement,
+  demarrer: engineDemarrer,
+  arreter: engineArreter,
 } = useSignalEngine()
 
 onMounted(async () => {
   try {
-    await apiService.health()
+    await apiService.healthCheck()
     backendOk.value = true
     const p = await apiService.getPrixActuel('BTC')
     btcPrix.value = p

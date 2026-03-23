@@ -1,7 +1,7 @@
-import { ref, watch, onMounted, onUnmounted, nextTick, type Ref, type ComputedRef } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted, nextTick, type Ref, type ComputedRef } from 'vue'
 import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
-import { apiService, type AssetInfo } from '@/services/api.service'
+import { useAssetsStore } from '@/stores/assets.store'
 import type { ReponseIndicators } from '@/services/api.service'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import type { FiltreSignaux } from '@/composables/chartSignauxTypes'
@@ -42,7 +42,18 @@ interface Opts {
 export function useChartOrchestration(o: Opts) {
   const marketStore = useMarketStore()
   const settingsStore = useSettingsStore()
-  const assets = ref<string[]>(['BTC', 'ETH', 'XAUUSD', 'XAGUSD'])
+  const assetsStore = useAssetsStore()
+
+  // Assets affichés = uniquement ceux configurés dans Paramètres (Surveillance Assets),
+  // filtrés pour ne garder que les assets SMC : forex, métaux, indices + BTC et ETH.
+  const CRYPTO_SMC = ['BTC', 'ETH']
+  const assets = computed(() => {
+    const liste = assetsStore.assets
+    if (liste.length === 0) return ['BTC', 'ETH', 'XAUUSD', 'XAGUSD'] // fallback
+    return liste
+      .filter(a => a.type !== 'crypto' || CRYPTO_SMC.includes(a.id))
+      .map(a => a.id)
+  })
   let intervalZones: ReturnType<typeof setInterval> | null = null
 
   async function rafraichirZonesSmc() {
@@ -115,16 +126,6 @@ export function useChartOrchestration(o: Opts) {
   })
 
   onMounted(async () => {
-    try {
-      const liste: AssetInfo[] = await apiService.obtenirAssets()
-      // La vue graphique est dédiée à la stratégie SMC — on exclut les cryptos
-      // autres que BTC et ETH (les altcoins sont surveillés par Rockets, pas SMC)
-      const CRYPTO_SMC = ['BTC', 'ETH']
-      const filtered = liste.filter(
-        a => a.type !== 'crypto' || CRYPTO_SMC.includes(a.id)
-      )
-      if (filtered.length > 0) assets.value = filtered.map((a) => a.id)
-    } catch { /* fallback liste statique */ }
 
     await marketStore.chargerBougies(
       o.selectedAsset.value, o.selectedTimeframe.value,

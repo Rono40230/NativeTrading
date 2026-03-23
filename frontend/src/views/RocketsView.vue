@@ -69,9 +69,9 @@ function trierPar(col: string) {
 
 const onglet = ref<'historique' | 'reglages' | 'analyse'>('historique')
 const tabs = [
-  { id: 'historique', label: '📜 Historique' },
-  { id: 'analyse',   label: '🧠 Analyse IA' },
-  { id: 'reglages',  label: '⚙️ Réglages' },
+  { id: 'historique' as const, label: '📜 Historique' },
+  { id: 'analyse'   as const, label: '🧠 Analyse IA' },
+  { id: 'reglages'  as const, label: '⚙️ Réglages' },
 ]
 
 onMounted(() => { veille.demarrer(); chargerRockets() })
