@@ -184,7 +184,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { Signal } from '@/services/api.service'
 import type { RocketSignalHistorique } from '@/services/api.types'
@@ -417,7 +417,31 @@ function classePrixActuel(r: RocketSignalHistorique): string {
   return 'text-blue-300'
 }
 
-onMounted(charger)
+async function rafraichirPrix() {
+  if (!rocketsMode.value || rockets.value.length === 0) return
+  const tickers = [...new Set(rockets.value
+    .filter(r => !r.verdict || r.verdict === 'en_cours')
+    .map(r => r.ticker)
+  )]
+  if (tickers.length === 0) return
+  await Promise.allSettled(
+    tickers.map(async ticker => {
+      const prix = await apiService.getPrixActuel(ticker)
+      if (prix !== null) prixActuels.value[ticker] = prix
+    })
+  )
+}
+
+let intervalPrix: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  charger()
+  intervalPrix = setInterval(rafraichirPrix, 15_000)
+})
+
+onUnmounted(() => {
+  if (intervalPrix) clearInterval(intervalPrix)
+})
 </script>
 
 <style scoped>

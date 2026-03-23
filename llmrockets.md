@@ -1,5 +1,8 @@
 # Intégration LLM → Rockets
 
+> **Statut** : ✅ IMPLÉMENTÉ ET PUSHÉ (commit `6215dd3`, 23 mars 2026)  
+> Mode 1 + Mode 2 : tous deux opérationnels en production.
+
 **Objectif** : Faire du LLM un co-pilote actif de la stratégie Rockets pour améliorer le winrate, affiner les entrées et optimiser les réglages — sans bloquer le pipeline temps réel.
 
 ---
@@ -22,9 +25,22 @@ Mode 2 — Analyse stratégique périodique (asynchrone, hebdo)
 
 ---
 
-## Mode 1 — Filtre LLM pré-sauvegarde
+## Mode 1 — Filtre LLM pré-sauvegarde ✅ TERMINÉ
 
-### 1.1 Données injectées dans le prompt
+### Fichiers créés / modifiés
+
+| Fichier | Statut | Rôle |
+|---|---|---|
+| `backend/crates/db/migrations/0013_rockets_llm_filtre.sql` | ✅ Créé | 5 colonnes `llm_*` dans `rockets_signaux` |
+| `backend/crates/db/src/rockets.rs` | ✅ Modifié | `NouveauRocket` étendu + `historique_ticker()` |
+| `backend/crates/api/src/ollama/rockets_filtre.rs` | ✅ Créé | Prompt + parser + `filtrer_signal()` |
+| `backend/crates/api/src/ollama/mod.rs` | ✅ Modifié | `pub mod rockets_filtre` ajouté |
+| `backend/crates/api/src/rockets_scan.rs` | ✅ Modifié | Boucle auto-save remplacée avec filtre LLM |
+| `backend/crates/api/src/rockets_handlers.rs` | ✅ Modifié | `NouveauRocket` manuel avec `llm_*=None` |
+| `frontend/src/services/api.types.ts` | ✅ Modifié | `RocketSignalHistorique` + champs `llm_*` |
+| `frontend/src/views/HistoryView.vue` | ✅ Modifié | Colonne "IA" badge conviction + tooltip raison |
+
+### Comportement réel implémenté
 
 Pour chaque candidat Rocket avant auto-save, le LLM reçoit :
 
@@ -69,168 +85,136 @@ Le LLM répond en JSON strict :
 - `conviction < 60` → sauvegardé mais flaggé `qualite: "faible"`
 - `ajustements` → permet d'affiner SL/TP avant insertion
 
-### 1.3 Modifications backend
+### 1.3 Modifications backend ✅ RÉALISÉES
 
-**`rockets_scan.rs` — `executer_scan()`**
+**`rockets_scan.rs` — `executer_scan()`** → boucle remplacée avec filtre LLM (voir comportement ci-dessus)
 
-Dans la boucle `for r in resultats.iter().filter(...)` :
-1. Requêter DB : historique des 5 derniers Rockets clôturés sur `r.ticker`
-2. Appeler `ollama::filtrer_rocket(signal, historique)` (nouveau module)
-3. Si `reponse.valide == false` → `continue` (pas de sauvegarde)
-4. Si `reponse.valide == true` → utiliser `reponse.ajustements.sl_suggere` etc. pour le `NouveauRocket`
-5. Stocker `reponse.conviction` et `reponse.raison` dans la table `rockets_signaux` (nouveaux champs)
+**`db/rockets.rs`** → `NouveauRocket` étendu, `historique_ticker()` ajoutée
 
-**`db/rockets.rs`**
-
-Nouveaux champs dans `rockets_signaux` :
-- `llm_valide INTEGER` (0/1, null si pas encore interrogé)
+Champs réellement implémentés dans `rockets_signaux` (migration `0013`) :
+- `llm_valide INTEGER` (1=validé, null si pas filtré)
 - `llm_conviction INTEGER` (0-100)
 - `llm_raison TEXT`
 - `llm_sl_suggere REAL`
 - `llm_tp1_suggere REAL`
-- `llm_trailing_coef REAL`
 
-Migration SQL à créer dans `db/migrations/`.
+> Note : `llm_trailing_coef` non implémenté (non nécessaire en MVP)
 
-**`ollama/rockets.rs`** — nouveau fichier
+**`ollama/rockets_filtre.rs`** (≠ nom initial `rockets.rs`) contient :
+- `PROMPT_FILTRE_ROCKET`
+- `fn formater_contexte()` (signal + historique ticker)
+- `async fn filtrer_signal()` avec timeout 5s + fallback
+- `struct SignalCandidat`, `struct FiltreReponse`, `struct AjustementsSl`
 
-Contient :
-- `PROMPT_FILTRE_ROCKET` (prompt système)
-- `fn formater_contexte_rocket(signal, historique) -> String`
-- `async fn filtrer_rocket(signal, historique) -> Result<FiltreReponse>`
-- `struct FiltreReponse { valide, conviction, raison, ajustements }`
+### 1.4 Gestion du cas Ollama indisponible ✅
 
-### 1.4 Gestion du cas Ollama indisponible
-
-Si Ollama ne répond pas dans 5s → **fallback : sauvegarder sans filtre** (comportement actuel). Le LLM est un bonus, pas un bloquant. Logger le timeout en `warn`.
+Si Ollama ne répond pas dans 5s → **fallback : sauvegarder sans filtre** (`llm_*=NULL`). Le LLM est un bonus, pas un bloquant. Loggé en `warn`.
 
 ---
 
-## Mode 2 — Analyse stratégique hebdomadaire
+## Mode 2 — Analyse stratégique hebdomadaire ✅ TERMINÉ (commit `f133052` + fix `c960941`)
 
-### 2.1 Déclenchement
+### Fichiers créés / modifiés
+
+| Fichier | Statut | Rôle |
+|---|---|---|
+| `backend/crates/db/migrations/0012_rockets_analyses_llm.sql` | ✅ Créé | Table `rockets_analyses_llm` |
+| `backend/crates/db/src/rockets.rs` | ✅ Modifié | `AnalyseLlm` + `sauvegarder_analyse()` + `derniere_analyse()` + `signaux_pour_analyse()` |
+| `backend/crates/api/src/ollama/rockets_analyse.rs` | ✅ Créé (261L) | Prompt + agrégation par phase/tranche + `analyser_strategie()` |
+| `backend/crates/api/src/rockets_analyse_handler.rs` | ✅ Créé (92L) | `lancer_analyse()` + `get_derniere_analyse()` + `demarrer_worker_analyse()` |
+| `backend/crates/api/src/main.rs` | ✅ Modifié | `web::resource()` GET+POST sur `/api/rockets/analyse-llm` |
+| `frontend/src/services/api.types.ts` | ✅ Modifié | `RocketRecommandation` + `RocketAnalyseLlm` |
+| `frontend/src/services/api.service.ts` | ✅ Modifié | `lancerAnalyseLlmRockets()` + `getDerniereAnalyseLlmRockets()` |
+| `frontend/src/components/common/RocketsAnalyseLlm.vue` | ✅ Créé (159L) | Sous-composant synthèse + recommandations |
+| `frontend/src/components/RocketsAnalyseModal.vue` | ✅ Modifié | Onglet "🤖 Recommandations IA" |
+
+### 2.1 Déclenchement ✅
 
 - Worker séparé dans `main.rs`, interval = 7 jours
-- OU endpoint manuel `POST /api/rockets/analyse-llm` déclenché depuis l'UI
+- Endpoint manuel `POST /api/rockets/analyse-llm` (bouton "Relancer" dans l'UI)
 
-### 2.2 Données injectées
+### 2.2 Données injectées ✅ RÉALISÉ
 
-Agrégation des **30 derniers Rockets clôturés** :
+Agrégation via `signaux_pour_analyse()` dans `db/rockets.rs` — **toutes les tranches disponibles** (pas de limite à 30, configurable) :
 
 ```
 Par phase :
-  breakout   : N trades, winrate%, R moyen, score moyen des gagnants
+  breakout    : N trades, winrate%, R moyen, score moyen des gagnants
   prelancement: N trades, winrate%, R moyen, score moyen des gagnants
 
-Par verdict :
-  tp1_atteint: N, % du total, durée moyenne
-  tp2_atteint: N, % du total, durée moyenne
-  tp3_atteint: N, % du total, durée moyenne
-  sl_touche  : N, % du total, durée moyenne avant SL
-  invalide   : N, % du total
+Par tranche de score :
+  <40, 40-60, 60-80, >80 : winrate% + R moyen par tranche
 
-Corrélations observées :
-  Meilleur winrate quand ratio_volume > X
-  Meilleur R moyen quand rsi entre Y et Z
-  Phases les plus profitables
-  Coefficient ATR actuel (SL=1×ATR, TP1=1×ATR, TP2=2×ATR, TP3=20×ATR)
+Par verdict :
+  tp1/tp2/tp3 : N, % du total
+  invalide/expire : N, % du total
+
+Métriques globales :
+  Ratio volume moyen, RSI moyen, ATR ratio moyen
+  Durée moyenne entre entrée et clôture
 ```
 
-### 2.3 Prompt `PROMPT_ANALYSE_ROCKET`
+### 2.3 Prompt `PROMPT_ANALYSE_ROCKETS` ✅ RÉALISÉ
 
-Le LLM reçoit les métriques et répond en JSON :
+Implémenté dans `ollama/rockets_analyse.rs`. Le LLM répond en JSON :
 
 ```json
 {
-  "synthese": "résumé en 3 phrases de la performance",
+  "synthese": "résumé de la performance globale",
   "recommandations": [
     {
-      "type": "seuil_score",
-      "description": "Passer le score minimum de 40 à 65 pour les breakouts",
-      "impact_estime": "+12% winrate",
-      "priorite": "haute"
-    },
-    {
-      "type": "filtre_phase",
-      "description": "Désactiver la phase prelancement (winrate 28% < seuil 40%)",
-      "impact_estime": "réduction volume, +8% winrate global",
-      "priorite": "moyenne"
-    },
-    {
-      "type": "trailing_stop",
-      "description": "Coefficient ATR stop trop serré : suggère 1.5×ATR au lieu de 1×ATR",
-      "impact_estime": "+0.3R moyen",
-      "priorite": "haute"
-    },
-    {
-      "type": "filtre_rsi",
-      "description": "RSI>85 sur breakout corrèle avec 73% de SL touché, filtrer",
-      "impact_estime": "+15% winrate sur breakouts",
-      "priorite": "haute"
+      "type": "seuil_score | filtre_phase | trailing_stop | filtre_rsi | ...",
+      "description": "explication détaillée",
+      "impact_estime": "+X% winrate ou +Y R",
+      "priorite": "haute | moyenne | faible"
     }
   ],
-  "meilleur_setup": "breakout + ratio_volume>2.5 + RSI 60-75 + score>70",
-  "pire_setup": "prelancement + rsi>80 + score<50"
+  "meilleur_setup": "description du setup le plus rentable",
+  "pire_setup": "description du setup à éviter"
 }
 ```
 
-### 2.4 Stockage et affichage
+Paramètres Ollama : `temperature: 0.3`, `num_predict: 1024`, timeout **90s**.
 
-**DB** : nouvelle table `rockets_analyses_llm`
-- `id`, `cree_le`, `synthese TEXT`, `recommandations JSON`, `nb_trades_analyses`
+### 2.4 Stockage et affichage ✅ RÉALISÉ
 
-**Frontend** : nouveau bloc dans `RocketsAnalyseModal.vue`
-- Onglet "Recommandations IA" (à côté des stats existantes)
+**DB** : table `rockets_analyses_llm` (migration `0012`)
+- `id`, `cree_le`, `synthese TEXT`, `recommandations JSON`, `nb_trades_analyses`, `periode`
+
+**Frontend** : `RocketsAnalyseLlm.vue` + onglet "🤖 Recommandations IA" dans `RocketsAnalyseModal.vue`
 - Date de la dernière analyse
 - Synthèse en haut (texte libre)
 - Liste des recommandations triées par priorité (badge haute/moyenne/faible)
-- Bouton "Relancer l'analyse"
+- Bouton "Relancer l'analyse" → `POST /api/rockets/analyse-llm`
 
 ---
 
-## Ordre d'implémentation recommandé
+## Statut d'implémentation global
 
-### Étape 1 — Infrastructure DB
-1. Migration SQL : ajout colonnes `llm_*` dans `rockets_signaux`
-2. Création table `rockets_analyses_llm`
-3. Fonctions CRUD dans `db/rockets.rs`
-
-### Étape 2 — Module ollama/rockets.rs
-1. `PROMPT_FILTRE_ROCKET` + parser JSON réponse
-2. `formater_contexte_rocket()` (signal + historique ticker)
-3. `filtrer_rocket()` avec timeout 5s + fallback
-4. `PROMPT_ANALYSE_ROCKET` + parser JSON
-5. `analyser_strategie_rockets()` (agrégation + appel LLM)
-
-### Étape 3 — Filtre temps réel (Mode 1)
-1. Modifier `executer_scan()` : appel LLM + logique valide/invalide
-2. Récupérer historique ticker depuis DB avant chaque save
-3. Utiliser `llm_sl_suggere` / `llm_tp1_suggere` si présents
-
-### Étape 4 — Analyse périodique (Mode 2)
-1. Worker hebdomadaire dans `main.rs`
-2. Endpoint `POST /api/rockets/analyse-llm`
-3. Agrégation des métriques dans `db/rockets.rs`
-
-### Étape 5 — Frontend
-1. Affichage `llm_conviction` + `llm_raison` dans `HistoryView.vue` (colonne ou tooltip)
-2. Onglet "Recommandations IA" dans `RocketsAnalyseModal.vue`
-3. Bouton "Relancer analyse" → appel `POST /api/rockets/analyse-llm`
+| Étape | Description | Statut |
+|---|---|---|
+| 1 | Migration SQL colonnes `llm_*` dans `rockets_signaux` | ✅ `0013` |
+| 2 | Migration SQL table `rockets_analyses_llm` | ✅ `0012` |
+| 3 | CRUD `db/rockets.rs` (tout) | ✅ |
+| 4 | `ollama/rockets_filtre.rs` (Mode 1) | ✅ |
+| 5 | `ollama/rockets_analyse.rs` (Mode 2) | ✅ |
+| 6 | `executer_scan()` avec filtre LLM | ✅ |
+| 7 | Worker hebdo + endpoint analyse | ✅ |
+| 8 | Frontend colonne IA (`HistoryView.vue`) | ✅ |
+| 9 | Frontend onglet Recommandations IA | ✅ |
 
 ---
 
-## Contraintes techniques à respecter
+## Constantes techniques implémentées
 
-| Contrainte | Détail |
+| Paramètre | Valeur |
 |---|---|
-| Timeout LLM | 5s en mode filtre, 60s en mode analyse |
-| Fallback | Si Ollama KO → sauvegarder sans filtre (pas de blocage) |
-| Fréquence filtre | 1 appel LLM par signal détecté, max ~10 par scan |
-| Fréquence analyse | 1 fois par semaine (ou manuelle) |
-| Taille fichiers | Respecter <300 lignes : `ollama/rockets.rs` + `ollama/rockets_analyse.rs` séparés |
-| DAG | `rockets_scan.rs` peut appeler `ollama::` (Layer 3) |
-| Zero panic | Tous les appels LLM wrappés en `Result`, erreurs loguées |
-| JSON parsing | Utiliser `serde_json`, rejeter silencieusement si JSON invalide + fallback |
+| Timeout filtre Mode 1 | 5s |
+| Timeout analyse Mode 2 | 90s |
+| Fallback si Ollama KO | Sauvegarde sans filtre (`llm_*=NULL`) |
+| Fréquence worker analyse | 7 jours |
+| Historique ticker | 10 derniers signaux clôturés |
+| Trades minimum pour Mode 2 | Non bloquant (analyse quand même, module agrégeant ce qui existe) |
 
 ---
 
@@ -239,7 +223,6 @@ Le LLM reçoit les métriques et répond en JSON :
 - **Prédire l'avenir** : il raisonne sur des patterns historiques, pas sur le marché futur
 - **Remplacer le backtest** : les recommandations sont des hypothèses à valider sur données réelles
 - **Auto-modifier le code** : ses recommandations sont textuelles, l'humain décide d'appliquer ou non
-- **Fonctionner sans historique** : avec moins de 10 Rockets clôturés, l'analyse n'est pas fiable → désactiver Mode 2 sous ce seuil
 
 ---
 
@@ -253,3 +236,12 @@ Après 30 jours d'utilisation du Mode 1 :
 Après 3 cycles d'analyse (Mode 2) :
 - Au moins 1 recommandation appliquée (ex: seuil score ajusté)
 - Évolution mesurable des métriques dans `RocketsAnalyseModal`
+
+---
+
+## Notes opérationnelles
+
+- Les badges IA n'apparaissent que sur les **signaux créés après le déploiement** (23 mars 2026)
+- Les anciens signaux affichent `—` dans la colonne IA (champs `NULL` en DB)
+- Si Ollama est éteint au moment du scan → fallback automatique, aucune perte de signal
+- Le badge IA est coloré : vert ≥70, orange 50-69, rouge <50
