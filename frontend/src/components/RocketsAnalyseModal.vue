@@ -78,6 +78,51 @@
               </div>
             </div>
           </div>
+
+          <!-- Analyse du tableau de probabilités -->
+          <div class="kpi-card space-y-2">
+            <h3 class="section-title">🔍 Interprétation</h3>
+            <div v-if="lossRateReel === 0" class="text-xs text-gray-500 italic">
+              Aucune perte enregistrée — impossible de calculer un loss rate réel.
+            </div>
+            <template v-else>
+              <p class="text-xs leading-relaxed">
+                Avec un loss rate réel de
+                <span class="font-bold text-blue-400">{{ lossRateReel }}%</span>
+                sur <span class="font-bold text-white">{{ sampleSize }}</span> trades,
+                la probabilité de subir au moins
+                <span class="font-bold" :class="analyseProba.kCritique50 <= 3 ? 'text-red-400' : 'text-yellow-400'">{{ analyseProba.kCritique50 }} SL consécutifs</span>
+                dépasse <span class="font-bold">50%</span>
+                — soit un scénario <span :class="analyseProba.kCritique50 <= 3 ? 'text-red-400 font-bold' : 'text-yellow-300 font-bold'">
+                  {{ analyseProba.kCritique50 <= 2 ? 'très probable' : analyseProba.kCritique50 <= 4 ? 'probable' : 'possible' }}
+                </span>.
+              </p>
+              <p class="text-xs leading-relaxed">
+                <span class="font-bold text-white">⚠️ Zone danger</span> :
+                série de
+                <span class="font-bold text-red-400">{{ analyseProba.kDanger }}+ SL</span>
+                avec une probabilité
+                <span class="font-bold text-red-400">{{ analyseProba.probAuKDanger }}%</span>.
+                Prévoir suffisamment de capital pour absorber cette série sans modifier la stratégie.
+              </p>
+              <p class="text-xs leading-relaxed">
+                <span class="font-bold text-emerald-400">✅ Zone sûreté</span> :
+                une série de
+                <span class="font-bold text-emerald-400">{{ analyseProba.kSurete }}+ SL consécutifs</span>
+                reste statistiquement très rare (&lt;5%) — ce n'est qu'alors qu'un remise en question de la stratégie est justifiée.
+              </p>
+              <div class="mt-2 pt-2 border-t border-white/10 text-xs flex gap-4">
+                <div>
+                  <span class="text-gray-500">Espérance math.</span><br>
+                  <span class="font-bold" :class="analyseProba.esperance >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ analyseProba.esperance }}R / trade</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">Drawdown max estimé</span><br>
+                  <span class="font-bold text-orange-400">-{{ analyseProba.kDanger }}R (à risque constant)</span>
+                </div>
+              </div>
+            </template>
+          </div>
         </div>
 
         <!-- Droite : tableau probabilités -->
@@ -222,6 +267,29 @@ const tableauPertes = computed(() => {
     isActual: lr === nearest && actual > 0,
     probs: kValues.map(k => probAtLeastKCons(n, lr / 100, k)),
   }))
+})
+
+const analyseProba = computed(() => {
+  const n  = sampleSize.value
+  const lr = lossRateReel.value
+  if (lr === 0) return { kCritique50: 0, kDanger: 0, probAuKDanger: 0, kSurete: 0, esperance: 0 }
+  const p  = lr / 100
+
+  // k où prob > 50% pour la première fois
+  const kCritique50 = kValues.find(k => probAtLeastKCons(n, p, k) >= 50) ?? kValues[kValues.length - 1]
+
+  // "Zone danger" : k où prob passe sous 30% (notable mais pas rare)
+  const kDanger = kValues.find(k => probAtLeastKCons(n, p, k) < 30) ?? kValues[kValues.length - 1]
+  const probAuKDanger = probAtLeastKCons(n, p, kDanger)
+
+  // "Zone sûreté" : k où prob < 5%
+  const kSurete = kValues.find(k => probAtLeastKCons(n, p, k) < 5) ?? kValues[kValues.length - 1]
+
+  // Espérance = winRate * rMoyen + lossRate * (-1)
+  const wr = stats.value.tauxGagnants / 100
+  const esperance = parseFloat((wr * stats.value.rMoyen + (1 - wr) * (-1)).toFixed(2))
+
+  return { kCritique50, kDanger, probAuKDanger, kSurete, esperance }
 })
 
 function couleurProba(pct: number): string {
