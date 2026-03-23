@@ -34,6 +34,8 @@ pub struct SignalCandidat {
     pub ratio_volume: f64,
     pub rsi: f64,
     pub change1h: f64,
+    /// Ratio corps/amplitude de la bougie de signal (0.0–1.0)
+    pub ratio_corps: f64,
 }
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
@@ -64,6 +66,8 @@ bougie de breakout avec momentum (change1h > 0). RSI idéal entre 50 et 75 (mome
 - Phase historiquement à winrate < 40% sur ce ticker = éviter
 - Score < 40 : setup de mauvaise qualité
 - Volume ratio < 1.3× sur un breakout = fort risque de faux breakout
+- Ratio corps/mèche < 0.3 : longue mèche de rejet, clôture loin du haut → invalider ou dégrader conviction
+- Ratio corps/mèche > 0.7 : corps fort sans rejet → signal de qualité ✅
 
 ## COEFFICIENTS ATR ACTUELS
 SL = entrée − 1×ATR14 | TP1 = entrée + 1×ATR14 | TP2 = entrée + 2×ATR14 | TP3 = entrée + 20×ATR14
@@ -99,7 +103,8 @@ fn formater_contexte(candidat: &SignalCandidat, historique: &[RocketSignal]) -> 
         Phase: {} | Score: {}/100\n\
         Prix entrée: {:.6} | SL: {:.6} | TP1: {:.6}\n\
         ATR14: {:.6} | ATR ratio (accélération): {:.2}\n\
-        Volume ratio: {:.2}× | RSI: {:.1} | Change 1h: {:.2}%\n\n",
+        Volume ratio: {:.2}× | RSI: {:.1} | Change 1h: {:.2}%\n\
+        Ratio corps/mèche bougie: {:.2} (1.0=pleine, <0.3=rejet probable)\n\n",
         candidat.ticker,
         candidat.phase,
         candidat.score,
@@ -111,6 +116,7 @@ fn formater_contexte(candidat: &SignalCandidat, historique: &[RocketSignal]) -> 
         candidat.ratio_volume,
         candidat.rsi,
         candidat.change1h,
+        candidat.ratio_corps,
     );
 
     if historique.is_empty() {
@@ -200,7 +206,7 @@ pub async fn filtrer_signal(
     });
 
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(5))
+        .timeout(Duration::from_secs(15))
         .build()
         .map_err(|e| TradingError::Api(e.to_string()))?;
 

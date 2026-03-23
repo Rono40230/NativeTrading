@@ -39,11 +39,21 @@ async fn analyser_symbol(client: &reqwest::Client, ticker: &str, cfg: &RocketsCo
     let parse = |k: &serde_json::Value, idx: usize| -> f64 {
         k[idx].as_str().and_then(|s| s.parse().ok()).unwrap_or(0.0)
     };
+    let opens: Vec<f64> = raw.iter().map(|k| parse(k, 1)).collect();
     let closes: Vec<f64> = raw.iter().map(|k| parse(k, 4)).collect();
     let highs: Vec<f64> = raw.iter().map(|k| parse(k, 2)).collect();
     let lows: Vec<f64> = raw.iter().map(|k| parse(k, 3)).collect();
     let volumes: Vec<f64> = raw.iter().map(|k| parse(k, 5)).collect();
     let prix = *closes.last()?;
+
+    // Ratio corps/amplitude de la dernière bougie (qualité du breakout)
+    let ratio_corps = {
+        let open = *opens.last()?;
+        let high = *highs.last()?;
+        let low  = *lows.last()?;
+        let amplitude = high - low;
+        if amplitude > 0.0 { (prix - open).abs() / amplitude } else { 0.0 }
+    };
 
     let (atr14, atr5) = calc_atr(&highs, &lows, &closes);
     let atr_ratio = if atr14 > 0.0 { atr5 / atr14 } else { 1.0 };
@@ -103,6 +113,7 @@ async fn analyser_symbol(client: &reqwest::Client, ticker: &str, cfg: &RocketsCo
         support,
         target20: max_recent,
         closes: closes_spark,
+        ratio_corps,
     })
 }
 
@@ -202,6 +213,7 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
             ratio_volume: r.ratio_volume,
             rsi: r.rsi,
             change1h: r.change1h,
+            ratio_corps: r.ratio_corps,
         };
 
         let (llm_valide, llm_conviction, llm_raison, llm_sl, llm_tp1) =

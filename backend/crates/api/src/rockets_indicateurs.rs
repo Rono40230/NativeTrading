@@ -31,6 +31,9 @@ pub struct ScanResultat {
     pub support: f64,
     pub target20: f64,
     pub closes: Vec<f64>,
+    /// Ratio corps/amplitude totale de la dernière bougie (0.0–1.0)
+    /// 1.0 = bougie pleine sans mèche | <0.3 = mèche dominante (rejet possible)
+    pub ratio_corps: f64,
 }
 
 #[derive(serde::Deserialize)]
