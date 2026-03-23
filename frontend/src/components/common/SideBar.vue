@@ -57,20 +57,47 @@ type NavItem = LienSimple | LienGroupe
 function estGroupe(item: NavItem): item is LienGroupe { return 'groupe' in item }
 
 const nav: NavItem[] = [
-  { to: '/',        icone: '🏠', label: 'Dashboard' },
-  { to: '/charts',  icone: '📈', label: 'Graphiques' },
+  { to: '/', icone: '🏠', label: 'Dashboard' },
+
+  // ── Stratégies ────────────────────────────────────────────────────────────
+  {
+    groupe: 'Rockets', icone: '🚀',
+    liens: [
+      { to: '/rockets', icone: '📡', label: 'Veille & Historique' },
+    ]
+  },
+  {
+    groupe: 'SMC Directionnel', icone: '📐',
+    liens: [
+      { to: '/smc',           icone: '⚡', label: 'Signaux actifs' },
+      { to: '/smc/analyser',  icone: '📊', label: 'Analyser' },
+      { to: '/smc/graphiques',icone: '📈', label: 'Graphiques' },
+    ]
+  },
+  {
+    groupe: 'Straddle', icone: '⚡',
+    liens: [
+      { to: '/straddle',          icone: '🔍', label: 'Créneaux volatilité' },
+      { to: '/straddle/backtest', icone: '🧪', label: 'Backtest' },
+    ]
+  },
+
+  // ── Performance ──────────────────────────────────────────────────────────
   { to: '/pnl',     icone: '💰', label: 'P&L' },
   { to: '/history', icone: '📜', label: 'Historique' },
   { to: '/heatmap', icone: '🔥', label: 'Heatmap' },
+
+  // ── Outils IA ─────────────────────────────────────────────────────────────
   {
-    groupe: 'IAnalyse', icone: '🧠',
+    groupe: 'Outils IA', icone: '🧠',
     liens: [
-      { to: '/ia/analyser', icone: '📊', label: 'Signal' },
-      { to: '/ia/chart',    icone: '🖼️',  label: 'Importer un graphique' },
-      { to: '/ia/coach',    icone: '💬', label: 'Coach IA' },
+      { to: '/ia/chart', icone: '🖼️',  label: 'Analyse graphique' },
+      { to: '/ia/coach', icone: '💬', label: 'Coach IA' },
+      { to: '/lexique',  icone: '📖', label: 'Lexique SMC' },
     ]
   },
-  { to: '/lexique',  icone: '📖', label: 'Lexique SMC' },
+
+  // ── Système ───────────────────────────────────────────────────────────────
   { to: '/data',     icone: '📦', label: 'Données' },
   { to: '/settings', icone: '⚙️',  label: 'Paramètres' },
 ]
