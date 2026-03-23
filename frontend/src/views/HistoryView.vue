@@ -46,27 +46,31 @@
         <thead>
           <tr class="text-gray-400 text-xs uppercase border-b border-white/10">
             <th class="px-4 py-3 text-left">#</th>
-            <th class="px-4 py-3 text-left">Ticker</th>
-            <th class="px-4 py-3 text-left">Phase</th>
-            <th class="px-4 py-3 text-right">Score</th>
-            <th class="px-4 py-3 text-right">Entrée</th>
-            <th class="px-4 py-3 text-right">SL</th>
-            <th class="px-4 py-3 text-right">TP</th>
-            <th class="px-4 py-3 text-left">Verdict</th>
-            <th class="px-4 py-3 text-left">Date</th>
+            <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('ticker')">Ticker <span class="tri-icone">{{ icone('ticker') }}</span></th>
+            <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('phase')">Phase <span class="tri-icone">{{ icone('phase') }}</span></th>
+            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('score')">Score <span class="tri-icone">{{ icone('score') }}</span></th>
+            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_entree')">Entrée <span class="tri-icone">{{ icone('prix_entree') }}</span></th>
+            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('stop_loss')">SL <span class="tri-icone">{{ icone('stop_loss') }}</span></th>
+            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('target')">TP1 <span class="tri-icone">{{ icone('target') }}</span></th>
+            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('target2')">TP2 <span class="tri-icone">{{ icone('target2') }}</span></th>
+            <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('target3')">TP3 <span class="tri-icone">{{ icone('target3') }}</span></th>
+            <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Verdict <span class="tri-icone">{{ icone('verdict') }}</span></th>
+            <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Date <span class="tri-icone">{{ icone('cree_le') }}</span></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(r, i) in rockets" :key="r.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
+          <tr v-for="(r, i) in rocketsTries" :key="r.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
             <td class="px-4 py-3 text-gray-500">{{ i + 1 }}</td>
             <td class="px-4 py-3 font-semibold text-white">{{ r.ticker }}</td>
             <td class="px-4 py-3">
               <span class="badge" :class="classePhase(r.phase)">{{ r.phase }}</span>
             </td>
             <td class="px-4 py-3 text-right font-mono">{{ r.score }}</td>
-            <td class="px-4 py-3 text-right font-mono">{{ r.prix_entree.toFixed(5) }}</td>
-            <td class="px-4 py-3 text-right text-red-400 font-mono">{{ r.stop_loss.toFixed(5) }}</td>
-            <td class="px-4 py-3 text-right text-emerald-400 font-mono">{{ r.target.toFixed(5) }}</td>
+            <td class="px-4 py-3 text-right font-mono">{{ formatNombre(r.prix_entree) }}</td>
+            <td class="px-4 py-3 text-right font-mono text-red-400">{{ formatNombre(r.stop_loss) }}</td>
+            <td class="px-4 py-3 text-right font-mono text-emerald-400">{{ formatNombre(r.target) }}</td>
+            <td class="px-4 py-3 text-right font-mono text-emerald-300">{{ r.target2 ? formatNombre(r.target2) : '—' }}</td>
+            <td class="px-4 py-3 text-right font-mono text-emerald-200">{{ r.target3 ? formatNombre(r.target3) : '—' }}</td>
             <td class="px-4 py-3">
               <span class="badge" :class="classeVerdict(r.verdict)">{{ labelVerdict(r.verdict) }}</span>
             </td>
@@ -80,22 +84,22 @@
         <thead>
           <tr class="text-gray-400 text-xs uppercase border-b border-white/10">
             <th class="px-3 py-3 text-left">#</th>
-            <th class="px-3 py-3 text-left">Asset</th>
-            <th class="px-3 py-3 text-left">TF</th>
-            <th class="px-3 py-3 text-left">Direction</th>
-            <th class="px-3 py-3 text-right">Score</th>
-            <th class="px-3 py-3 text-right">Entrée</th>
-            <th class="px-3 py-3 text-right">SL</th>
-            <th class="px-3 py-3 text-right">TP1</th>
-            <th class="px-3 py-3 text-right">TP2</th>
-            <th class="px-3 py-3 text-right">TP3</th>
-            <th class="px-3 py-3 text-left">Résultat</th>
-            <th class="px-3 py-3 text-left">Stratégie</th>
-            <th class="px-3 py-3 text-left">Date</th>
+            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('asset')">Asset <span class="tri-icone">{{ icone('asset') }}</span></th>
+            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('timeframe')">TF <span class="tri-icone">{{ icone('timeframe') }}</span></th>
+            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('direction')">Direction <span class="tri-icone">{{ icone('direction') }}</span></th>
+            <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('score')">Score <span class="tri-icone">{{ icone('score') }}</span></th>
+            <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_entree')">Entrée <span class="tri-icone">{{ icone('prix_entree') }}</span></th>
+            <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('stop_loss')">SL <span class="tri-icone">{{ icone('stop_loss') }}</span></th>
+            <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('tp1')">TP1 <span class="tri-icone">{{ icone('tp1') }}</span></th>
+            <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('tp2')">TP2 <span class="tri-icone">{{ icone('tp2') }}</span></th>
+            <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('tp3')">TP3 <span class="tri-icone">{{ icone('tp3') }}</span></th>
+            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Résultat <span class="tri-icone">{{ icone('verdict') }}</span></th>
+            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('strategie')">Stratégie <span class="tri-icone">{{ icone('strategie') }}</span></th>
+            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Date <span class="tri-icone">{{ icone('cree_le') }}</span></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(s, i) in signalsFiltres" :key="s.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
+          <tr v-for="(s, i) in signauxTries" :key="s.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
             <td class="px-3 py-3 text-gray-500">{{ i + 1 }}</td>
             <td class="px-3 py-3 font-semibold text-white">{{ s.asset }}</td>
             <td class="px-3 py-3 text-gray-400">{{ s.timeframe }}</td>
@@ -139,6 +143,22 @@ const chargement    = ref(false)
 const filtreAsset   = ref('')
 const filtreDirection = ref('')
 const filtreStrategie = ref('')
+const triColonne = ref('')
+const triDir = ref<'asc' | 'desc'>('desc')
+
+function trierPar(col: string) {
+  if (triColonne.value === col) {
+    triDir.value = triDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    triColonne.value = col
+    triDir.value = 'desc'
+  }
+}
+
+function icone(col: string): string {
+  if (triColonne.value !== col) return '\u21c5'
+  return triDir.value === 'asc' ? '\u2191' : '\u2193'
+}
 
 const directionsOpts = [
   { val: '', label: 'Toutes' },
@@ -172,7 +192,40 @@ const listeActive = computed(() =>
   rocketsMode.value ? rockets.value : signalsFiltres.value
 )
 
-watch(rocketsMode, (val) => { if (val) charger() })
+function appliquerTri<T extends Record<string, unknown>>(liste: T[], col: string): T[] {
+  if (!col) return liste
+  return [...liste].sort((a, b) => {
+    let va: unknown = a[col] ?? ''
+    let vb: unknown = b[col] ?? ''
+    if (typeof va === 'string') va = va.toLowerCase()
+    if (typeof vb === 'string') vb = vb.toLowerCase()
+    const cmp = (va as string | number) < (vb as string | number) ? -1 : (va as string | number) > (vb as string | number) ? 1 : 0
+    return triDir.value === 'asc' ? cmp : -cmp
+  })
+}
+
+const signauxTries = computed(() => {
+  const col = triColonne.value
+  const liste = signalsFiltres.value as Signal[]
+  if (!col) return liste
+  return [...liste].sort((a, b) => {
+    let va: unknown, vb: unknown
+    if (col === 'tp1') { va = a.take_profit[0] ?? 0; vb = b.take_profit[0] ?? 0 }
+    else if (col === 'tp2') { va = a.take_profit[1] ?? 0; vb = b.take_profit[1] ?? 0 }
+    else if (col === 'tp3') { va = a.take_profit[2] ?? 0; vb = b.take_profit[2] ?? 0 }
+    else { va = (a as unknown as Record<string, unknown>)[col] ?? ''; vb = (b as unknown as Record<string, unknown>)[col] ?? '' }
+    if (typeof va === 'string') va = va.toLowerCase()
+    if (typeof vb === 'string') vb = vb.toLowerCase()
+    const cmp = (va as string | number) < (vb as string | number) ? -1 : (va as string | number) > (vb as string | number) ? 1 : 0
+    return triDir.value === 'asc' ? cmp : -cmp
+  })
+})
+
+const rocketsTries = computed(() =>
+  appliquerTri(rockets.value as unknown as Record<string, unknown>[], triColonne.value) as unknown as RocketSignalHistorique[]
+)
+
+watch(rocketsMode, (val) => { triColonne.value = ''; if (val) charger() })
 
 function formatDate(ts: number): string {
   if (!ts) return '—'

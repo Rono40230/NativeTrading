@@ -229,6 +229,7 @@ async fn executer_scan(
         let nouveau = NouveauRocket {
             ticker: r.ticker.clone(), phase: r.phase.clone(), score: r.score,
             prix_entree: r.prix, stop_loss: r.support, target: r.target20,
+            target2: None, target3: None,
             ratio_volume: r.ratio_volume, atr_ratio: r.atr_ratio, rsi: r.rsi,
         };
         if let Err(e) = rockets::sauvegarder(pool, &nouveau).await {

@@ -11,6 +11,8 @@ pub struct RocketSignal {
     pub prix_entree: f64,
     pub stop_loss: f64,
     pub target: f64,
+    pub target2: Option<f64>,
+    pub target3: Option<f64>,
     pub ratio_volume: f64,
     pub atr_ratio: f64,
     pub rsi: f64,
@@ -27,6 +29,8 @@ pub struct NouveauRocket {
     pub prix_entree: f64,
     pub stop_loss: f64,
     pub target: f64,
+    pub target2: Option<f64>,
+    pub target3: Option<f64>,
     pub ratio_volume: f64,
     pub atr_ratio: f64,
     pub rsi: f64,
@@ -41,6 +45,8 @@ fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
         prix_entree:  row.get("prix_entree"),
         stop_loss:    row.get("stop_loss"),
         target:       row.get("target"),
+        target2:      row.get("target2"),
+        target3:      row.get("target3"),
         ratio_volume: row.get("ratio_volume"),
         atr_ratio:    row.get("atr_ratio"),
         rsi:          row.get("rsi"),
@@ -55,8 +61,8 @@ fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
 pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<i64>> {
     let id = sqlx::query(
         "INSERT INTO rockets_signaux
-         (ticker, phase, score, prix_entree, stop_loss, target, ratio_volume, atr_ratio, rsi)
-         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+         (ticker, phase, score, prix_entree, stop_loss, target, target2, target3, ratio_volume, atr_ratio, rsi)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          WHERE NOT EXISTS (
            SELECT 1 FROM rockets_signaux
            WHERE ticker = ? AND phase = ? AND cree_le >= datetime('now', '-6 hours')
@@ -68,6 +74,8 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
     .bind(s.prix_entree)
     .bind(s.stop_loss)
     .bind(s.target)
+    .bind(s.target2)
+    .bind(s.target3)
     .bind(s.ratio_volume)
     .bind(s.atr_ratio)
     .bind(s.rsi)
@@ -83,7 +91,7 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
 
 pub async fn lister_ouverts(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {
     let rows = sqlx::query(
-        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target,
+        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
                 ratio_volume, atr_ratio, rsi, verdict, prix_verdict, cree_le, maj_le
          FROM rockets_signaux WHERE verdict IS NULL ORDER BY cree_le DESC",
     )
@@ -121,7 +129,7 @@ pub async fn marquer_expires(pool: &SqlitePool) -> Result<u64> {
 
 pub async fn historique(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSignal>> {
     let rows = sqlx::query(
-        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target,
+        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
                 ratio_volume, atr_ratio, rsi, verdict, prix_verdict, cree_le, maj_le
          FROM rockets_signaux ORDER BY cree_le DESC LIMIT ?",
     )

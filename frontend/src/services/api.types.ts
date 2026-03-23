@@ -274,7 +274,8 @@ export interface RocketSignalSave {
 
 export interface RocketSignalHistorique {
   id: number; ticker: string; phase: string; score: number
-  prix_entree: number; stop_loss: number; target: number
+  prix_entree: number; stop_loss: number
+  target: number; target2: number | null; target3: number | null
   verdict: string | null; prix_verdict: number | null
   cree_le: string; maj_le: string | null
 }
