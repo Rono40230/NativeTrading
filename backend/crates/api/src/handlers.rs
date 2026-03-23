@@ -120,18 +120,6 @@ pub struct SignauxQuery {
     pub limit: Option<i64>,
 }
 
-pub async fn get_signaux(
-    state: web::Data<AppState>,
-    query: web::Query<SignauxQuery>,
-) -> impl Responder {
-    let limit = query.limit.unwrap_or(20).min(100);
-    match state.db.obtenir_signaux(limit).await {
-        Ok(signaux) => HttpResponse::Ok().json(signaux),
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": format!("{}", e) })),
-    }
-}
-
 // ─── Prédiction ML ────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]

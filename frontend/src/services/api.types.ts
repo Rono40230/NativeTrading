@@ -126,8 +126,12 @@ export interface Signal {
   score: number
   prix_entree: number
   stop_loss: number
-  take_profit: string
+  take_profit: number[]   // [tp1, tp2, tp3]
   strategie: string
+  statut: string          // 'Actif' | 'Fermé' | 'Annulé'
+  verdict: string | null  // null | 'SL' | 'TP1' | 'TP2' | 'TP3' | 'expire'
+  prix_verdict: number | null
+  ferme_le: number | null
   cree_le: number
 }
 

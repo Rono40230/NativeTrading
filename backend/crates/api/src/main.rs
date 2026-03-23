@@ -24,6 +24,7 @@ mod rockets_scan;
 mod scheduler;
 mod sentiment_handlers;
 mod signal_engine;
+mod signaux_handlers;
 mod smc_handlers;
 mod state;
 mod straddle_handlers;
@@ -60,6 +61,9 @@ async fn main() -> std::io::Result<()> {
     let pool_scan = app_state.db.pool().clone();
     tokio::spawn(rockets_scan::demarrer_worker_scan(pool_scan));
 
+    let pool_signaux = app_state.db.pool().clone();
+    tokio::spawn(signaux_handlers::demarrer_worker_suivi_signaux(pool_signaux));
+
     HttpServer::new(move || {
         // CORS limité au dev Tauri uniquement — en production l'app est native (fenêtre Tauri)
         let cors = Cors::default()
@@ -88,7 +92,7 @@ async fn main() -> std::io::Result<()> {
                 web::delete().to(assets_handlers::supprimer_asset),
             )
             .route("/api/candles", web::get().to(handlers::get_candles))
-            .route("/api/signaux", web::get().to(handlers::get_signaux))
+            .route("/api/signaux", web::get().to(signaux_handlers::get_signaux))
             .route("/api/ml/predict", web::get().to(handlers::predict_ml))
             .route("/api/ml/train", web::post().to(ml_handlers::entrainer_ml))
             .route("/api/ml/status", web::get().to(ml_handlers::statut_ml))

@@ -77,11 +77,7 @@ export function useSignalTradeBox() {
     const signal = signalRef
     const entry = signal.prix_entree
     const sl = signal.stop_loss
-    let tps: number[] = []
-    try {
-      const parsed = JSON.parse(signal.take_profit)
-      tps = Array.isArray(parsed) ? parsed.map(Number) : []
-    } catch { return }
+    const tps: number[] = Array.isArray(signal.take_profit) ? signal.take_profit : []
 
     if (tps.length === 0) return
 

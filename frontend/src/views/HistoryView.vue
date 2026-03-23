@@ -70,32 +70,40 @@
       <table v-else class="w-full text-sm">
         <thead>
           <tr class="text-gray-400 text-xs uppercase border-b border-white/10">
-            <th class="px-4 py-3 text-left">#</th>
-            <th class="px-4 py-3 text-left">Asset</th>
-            <th class="px-4 py-3 text-left">TF</th>
-            <th class="px-4 py-3 text-left">Direction</th>
-            <th class="px-4 py-3 text-right">Score</th>
-            <th class="px-4 py-3 text-right">Entrée</th>
-            <th class="px-4 py-3 text-right">SL</th>
-            <th class="px-4 py-3 text-right">TP</th>
-            <th class="px-4 py-3 text-left">Stratégie</th>
-            <th class="px-4 py-3 text-left">Date</th>
+            <th class="px-3 py-3 text-left">#</th>
+            <th class="px-3 py-3 text-left">Asset</th>
+            <th class="px-3 py-3 text-left">TF</th>
+            <th class="px-3 py-3 text-left">Direction</th>
+            <th class="px-3 py-3 text-right">Score</th>
+            <th class="px-3 py-3 text-right">Entrée</th>
+            <th class="px-3 py-3 text-right">SL</th>
+            <th class="px-3 py-3 text-right">TP1</th>
+            <th class="px-3 py-3 text-right">TP2</th>
+            <th class="px-3 py-3 text-right">TP3</th>
+            <th class="px-3 py-3 text-left">Résultat</th>
+            <th class="px-3 py-3 text-left">Stratégie</th>
+            <th class="px-3 py-3 text-left">Date</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(s, i) in listePageSignaux" :key="s.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
-            <td class="px-4 py-3 text-gray-500">{{ offsetPage + i + 1 }}</td>
-            <td class="px-4 py-3 font-semibold text-white">{{ s.asset }}</td>
-            <td class="px-4 py-3 text-gray-400">{{ s.timeframe }}</td>
-            <td class="px-4 py-3">
+            <td class="px-3 py-3 text-gray-500">{{ offsetPage + i + 1 }}</td>
+            <td class="px-3 py-3 font-semibold text-white">{{ s.asset }}</td>
+            <td class="px-3 py-3 text-gray-400">{{ s.timeframe }}</td>
+            <td class="px-3 py-3">
               <span class="badge" :class="s.direction === 'LONG' ? 'badge-green' : 'badge-red'">{{ s.direction }}</span>
             </td>
-            <td class="px-4 py-3 text-right font-mono">{{ s.score }}</td>
-            <td class="px-4 py-3 text-right font-mono">{{ s.prix_entree.toFixed(2) }}</td>
-            <td class="px-4 py-3 text-right text-red-400 font-mono">{{ s.stop_loss.toFixed(2) }}</td>
-            <td class="px-4 py-3 text-right text-emerald-400 font-mono">{{ s.take_profit }}</td>
-            <td class="px-4 py-3 text-gray-400">{{ s.strategie }}</td>
-            <td class="px-4 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
+            <td class="px-3 py-3 text-right font-mono text-gray-300">{{ s.score.toFixed(0) }}</td>
+            <td class="px-3 py-3 text-right font-mono text-white">{{ formatNombre(s.prix_entree) }}</td>
+            <td class="px-3 py-3 text-right font-mono text-red-400">{{ formatNombre(s.stop_loss) }}</td>
+            <td class="px-3 py-3 text-right font-mono text-emerald-400">{{ formatNombre(s.take_profit[0]) }}</td>
+            <td class="px-3 py-3 text-right font-mono text-emerald-300">{{ s.take_profit[1] ? formatNombre(s.take_profit[1]) : '—' }}</td>
+            <td class="px-3 py-3 text-right font-mono text-emerald-200">{{ s.take_profit[2] ? formatNombre(s.take_profit[2]) : '—' }}</td>
+            <td class="px-3 py-3">
+              <span class="badge" :class="classeVerdictSignal(s.verdict)">{{ labelVerdictSignal(s.verdict) }}</span>
+            </td>
+            <td class="px-3 py-3 text-gray-400 text-xs">{{ s.strategie }}</td>
+            <td class="px-3 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
           </tr>
         </tbody>
       </table>
@@ -166,6 +174,31 @@ watch(rocketsMode, (val) => { if (val) charger() })
 function formatDate(ts: number): string {
   if (!ts) return '—'
   return new Date(ts * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+function formatNombre(v: number | undefined): string {
+  if (v === undefined || v === null) return '—'
+  if (v >= 1000) return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(v)
+  if (v >= 1) return v.toFixed(4)
+  return v.toFixed(6)
+}
+
+function classeVerdictSignal(verdict: string | null): string {
+  if (verdict === 'TP3') return 'badge-green'
+  if (verdict === 'TP2') return 'badge-green'
+  if (verdict === 'TP1') return 'badge-blue'
+  if (verdict === 'SL')  return 'badge-red'
+  if (verdict === 'expire') return 'badge-gray'
+  return 'badge-yellow'
+}
+
+function labelVerdictSignal(verdict: string | null): string {
+  if (verdict === 'TP3') return '✅ TP3'
+  if (verdict === 'TP2') return '✅ TP2'
+  if (verdict === 'TP1') return '🟡 TP1'
+  if (verdict === 'SL')  return '❌ SL'
+  if (verdict === 'expire') return '⏰ Expiré'
+  return '⏳ Actif'
 }
 
 function classePhase(phase: string): string {

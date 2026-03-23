@@ -1,8 +1,76 @@
 use chrono::Utc;
 use common::{Asset, Result, Signal, Timeframe, TradingError};
-use sqlx::Row;
+use serde::Serialize;
+use sqlx::{Row, SqlitePool};
 
 use crate::Database;
+
+/// Signal actif retourné par le worker de suivi
+#[derive(Debug, Serialize)]
+pub struct SignalActif {
+    pub id:          String,
+    pub asset:       String,
+    pub direction:   String,
+    pub prix_entree: f64,
+    pub stop_loss:   f64,
+    pub take_profit: Vec<f64>,
+    pub cree_le:     i64,
+}
+
+// ── Fonctions libres sur SqlitePool (utilisées par le worker) ────────────────
+
+pub async fn lister_actifs(pool: &SqlitePool) -> Result<Vec<SignalActif>> {
+    let rows = sqlx::query(
+        "SELECT id, asset, direction, prix_entree, stop_loss, take_profit, cree_le
+         FROM signaux WHERE statut = 'Actif' ORDER BY cree_le DESC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+
+    Ok(rows.iter().map(|row| {
+        let tp_raw = row.get::<String, _>("take_profit");
+        let take_profit: Vec<f64> = serde_json::from_str(&tp_raw).unwrap_or_default();
+        SignalActif {
+            id:          row.get("id"),
+            asset:       row.get("asset"),
+            direction:   row.get("direction"),
+            prix_entree: row.get("prix_entree"),
+            stop_loss:   row.get("stop_loss"),
+            take_profit,
+            cree_le:     row.get("cree_le"),
+        }
+    }).collect())
+}
+
+pub async fn maj_verdict(pool: &SqlitePool, id: &str, verdict: &str, prix: f64) -> Result<()> {
+    let now = Utc::now().timestamp();
+    sqlx::query(
+        "UPDATE signaux SET statut='Fermé', verdict=?, prix_verdict=?, ferme_le=? WHERE id=?",
+    )
+    .bind(verdict)
+    .bind(prix)
+    .bind(now)
+    .bind(id)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(())
+}
+
+pub async fn expirer_anciens(pool: &SqlitePool) -> Result<i64> {
+    let seuil = Utc::now().timestamp() - 24 * 3600;
+    let res = sqlx::query(
+        "UPDATE signaux SET statut='Fermé', verdict='expire', ferme_le=?
+         WHERE statut='Actif' AND cree_le < ?",
+    )
+    .bind(Utc::now().timestamp())
+    .bind(seuil)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(res.rows_affected() as i64)
+}
 
 impl Database {
     /// Enregistre un signal en base
@@ -33,11 +101,12 @@ impl Database {
         Ok(())
     }
 
-    /// Récupère les derniers signaux enregistrés
+    /// Récupère les derniers signaux enregistrés (avec verdict si disponible)
     pub async fn obtenir_signaux(&self, limit: i64) -> Result<Vec<serde_json::Value>> {
         let rows = sqlx::query(
             "SELECT id, asset, timeframe, direction, score, prix_entree,
-                    stop_loss, take_profit, strategie, cree_le
+                    stop_loss, take_profit, strategie, statut,
+                    verdict, prix_verdict, cree_le, ferme_le
              FROM signaux ORDER BY cree_le DESC LIMIT ?",
         )
         .bind(limit)
@@ -48,22 +117,39 @@ impl Database {
         let signaux: Vec<serde_json::Value> = rows
             .iter()
             .map(|row| {
+                // take_profit est stocké comme JSON "[tp1,tp2,tp3]"
+                let tp_raw = row.get::<String, _>("take_profit");
+                let tp_arr: Vec<f64> = serde_json::from_str(&tp_raw).unwrap_or_default();
                 serde_json::json!({
-                    "id":         row.get::<String, _>("id"),
-                    "asset":      row.get::<String, _>("asset"),
-                    "timeframe":  row.get::<String, _>("timeframe"),
-                    "direction":  row.get::<String, _>("direction"),
-                    "score":      row.get::<f64, _>("score"),
-                    "prix_entree":row.get::<f64, _>("prix_entree"),
-                    "stop_loss":  row.get::<f64, _>("stop_loss"),
-                    "take_profit":row.get::<String, _>("take_profit"),
-                    "strategie":  row.get::<String, _>("strategie"),
-                    "cree_le":    row.get::<i64, _>("cree_le"),
+                    "id":           row.get::<String, _>("id"),
+                    "asset":        row.get::<String, _>("asset"),
+                    "timeframe":    row.get::<String, _>("timeframe"),
+                    "direction":    row.get::<String, _>("direction"),
+                    "score":        row.get::<f64, _>("score"),
+                    "prix_entree":  row.get::<f64, _>("prix_entree"),
+                    "stop_loss":    row.get::<f64, _>("stop_loss"),
+                    "take_profit":  tp_arr,
+                    "strategie":    row.get::<String, _>("strategie"),
+                    "statut":       row.get::<String, _>("statut"),
+                    "verdict":      row.get::<Option<String>, _>("verdict"),
+                    "prix_verdict": row.get::<Option<f64>, _>("prix_verdict"),
+                    "cree_le":      row.get::<i64, _>("cree_le"),
+                    "ferme_le":     row.get::<Option<i64>, _>("ferme_le"),
                 })
             })
             .collect();
 
         Ok(signaux)
+    }
+
+    /// Liste les signaux encore actifs (pour le worker de suivi).
+    pub async fn lister_signaux_actifs(&self) -> Result<Vec<SignalActif>> {
+        lister_actifs(&self.pool).await
+    }
+
+    /// Expire les signaux actifs depuis plus de 24h sans verdict.
+    pub async fn expirer_signaux_anciens(&self) -> Result<i64> {
+        expirer_anciens(&self.pool).await
     }
 
     /// Vérifie si un signal (même asset/timeframe) existe dans la fenêtre anti-doublon.
