@@ -92,6 +92,7 @@
             <th class="text-center px-4 py-3">Fréquence</th>
             <th class="text-center px-4 py-3">Conviction</th>
             <th class="text-left px-4 py-3">Raison LLM</th>
+            <th class="text-center px-4 py-3">Précision M5</th>
             <th class="text-center px-4 py-3">Statut</th>
             <th class="text-center px-4 py-3">Backtest</th>
             <th class="px-4 py-3"></th>
@@ -121,6 +122,22 @@
             </td>
             <td class="px-4 py-3 text-gray-400 text-xs max-w-sm truncate" :title="c.llm_raison ?? ''">
               {{ c.llm_raison ?? '—' }}
+            </td>
+            <!-- Précision M5 -->
+            <td class="px-4 py-3 text-center text-xs">
+              <template v-if="c.timing_optimal">
+                <div class="text-cyan-400 font-mono font-bold">⏱ {{ c.timing_optimal }}</div>
+                <div class="text-gray-400">{{ c.fenetre_entree }}</div>
+                <div v-if="c.whipsaw_minutes" class="text-amber-400">whipsaw ~{{ c.whipsaw_minutes }}min</div>
+              </template>
+              <button
+                v-else
+                class="px-2 py-1 text-xs rounded border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 transition-all"
+                :disabled="precisionEnCours.has(c.id)"
+                @click="analyserPrecision(c)"
+              >
+                {{ precisionEnCours.has(c.id) ? '⏳…' : '🎯 M5' }}
+              </button>
             </td>
             <td class="px-4 py-3 text-center">
               <select
@@ -193,6 +210,7 @@ const chargementListe = ref(false)
 const creneaux = ref<StraddleCreneau[]>([])
 const dernierResultat = ref<{ nb_analyses: number; nb_retenus: number; message?: string } | null>(null)
 const filtreStatut = ref<'tous' | 'a_tester' | 'valide' | 'invalide'>('tous')
+const precisionEnCours = ref(new Set<number>())
 
 const filtresStatut = [
   { val: 'tous',     label: 'Tous' },
@@ -259,6 +277,34 @@ async function changerStatut(c: StraddleCreneau, statut: string) {
     if (idx !== -1) creneaux.value[idx] = { ...creneaux.value[idx], statut: statut as StraddleCreneau['statut'] }
   } catch (e: unknown) {
     alerteStore.afficherErreur(`Mise à jour échouée: ${(e as Error).message}`)
+  }
+}
+
+async function analyserPrecision(c: StraddleCreneau) {
+  precisionEnCours.value.add(c.id)
+  try {
+    const res = await apiService.analyserPrecisionCreneau(c.id)
+    if (res.timing_optimal) {
+      const idx = creneaux.value.findIndex(x => x.id === c.id)
+      if (idx !== -1) {
+        creneaux.value[idx] = {
+          ...creneaux.value[idx],
+          timing_optimal: res.timing_optimal ?? null,
+          fenetre_entree: res.fenetre_entree ?? null,
+          whipsaw_minutes: res.whipsaw_minutes ?? null,
+          precision_nb_occurrences: res.nb_occurrences ?? null,
+          precision_atr_pic: res.atr_pic ?? null,
+        }
+      }
+    } else {
+      alerteStore.afficherErreur(res.message ?? 'Précision M5 indisponible')
+    }
+  } catch (e: unknown) {
+    alerteStore.afficherErreur(`Précision M5 échouée: ${(e as Error).message}`)
+  } finally {
+    precisionEnCours.value.delete(c.id)
+    // Force reactivity
+    precisionEnCours.value = new Set(precisionEnCours.value)
   }
 }
 

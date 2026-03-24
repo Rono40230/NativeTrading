@@ -31,6 +31,7 @@ mod signaux_handlers;
 mod smc_handlers;
 mod state;
 mod straddle_handlers;
+mod straddle_precision;
 mod tendance_handlers;
 mod utils;
 mod volatility_handlers;
@@ -150,6 +151,10 @@ async fn main() -> std::io::Result<()> {
             .route(
                 "/api/straddle/creneaux/{id}",
                 web::patch().to(straddle_handlers::mettre_a_jour_creneau),
+            )
+            .route(
+                "/api/straddle/creneaux/{id}/precision",
+                web::post().to(straddle_handlers::analyser_precision),
             )
             .route("/api/config", web::get().to(config_handlers::get_config))
             .route("/api/config", web::post().to(config_handlers::post_config))

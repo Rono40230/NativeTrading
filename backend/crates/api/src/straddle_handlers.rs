@@ -1,9 +1,11 @@
 use actix_web::{web, HttpResponse, Responder};
+use common::Timeframe;
 use data::{providers::BinanceProvider, providers::IbGatewayProvider, DataProvider};
 use serde::{Deserialize, Serialize};
 
 use crate::ollama::straddle_analyse;
 use crate::state::AppState;
+use crate::straddle_precision;
 use crate::utils::parse_asset;
 
 // ── Requêtes / réponses ──────────────────────────────────────────────────────
@@ -55,8 +57,6 @@ pub async fn analyser(
     state: web::Data<AppState>,
     body: web::Json<RequeteAnalyse>,
 ) -> impl Responder {
-    use common::Timeframe;
-
     let asset_str = body.asset.trim().to_uppercase();
     let asset = match parse_asset(&asset_str) {
         Some(a) => a,
@@ -208,5 +208,107 @@ pub async fn mettre_a_jour_creneau(
         Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
         Err(e) => HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+// ── POST /api/straddle/creneaux/{id}/precision ────────────────────────────────
+/// Analyse M5 pour affiner le timing d'entrée d'un créneau H1 identifié.
+pub async fn analyser_precision(
+    state: web::Data<AppState>,
+    path: web::Path<i64>,
+) -> impl Responder {
+    let id = path.into_inner();
+
+    // Récupérer le créneau
+    let creneau = match db::straddle::lister_creneaux(state.db.pool()).await {
+        Ok(liste) => match liste.into_iter().find(|c| c.id == id) {
+            Some(c) => c,
+            None => {
+                return HttpResponse::NotFound()
+                    .json(serde_json::json!({ "error": "Créneau introuvable" }))
+            }
+        },
+        Err(e) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": e.to_string() }))
+        }
+    };
+
+    let asset = match parse_asset(&creneau.asset) {
+        Some(a) => a,
+        None => {
+            return HttpResponse::BadRequest()
+                .json(serde_json::json!({ "error": "Asset non supporté" }))
+        }
+    };
+
+    // Récupérer les bougies M5 (6 mois de cache)
+    let limite_m5 = 6 * 30 * 24 * 12; // 6 mois × 12 bougies M5/heure
+    let candles_m5 = match state.db.obtenir_bougies(&asset, &Timeframe::M5, limite_m5).await {
+        Ok(b) if !b.is_empty() => b,
+        _ => {
+            // Fallback réseau
+            let res = if asset.is_crypto() {
+                BinanceProvider
+                    .fetch_candles(asset.clone(), Timeframe::M5, 1000)
+                    .await
+            } else {
+                IbGatewayProvider::new(state.ib_port, state.ib_client_id)
+                    .fetch_candles(asset.clone(), Timeframe::M5, 1000)
+                    .await
+            };
+            match res {
+                Ok(b) => {
+                    let _ = state.db.inserer_bougies(&asset, &Timeframe::M5, &b).await;
+                    b
+                }
+                Err(e) => {
+                    return HttpResponse::Ok().json(serde_json::json!({
+                        "ok": false,
+                        "message": format!(
+                            "Données M5 indisponibles pour {} : {}. \
+                             Vérifiez que le provider est démarré.",
+                            creneau.asset, e
+                        )
+                    }))
+                }
+            }
+        }
+    };
+
+    tracing::info!(
+        "Précision M5 créneau#{} {} {}–{}: {} bougies M5",
+        id,
+        creneau.asset,
+        creneau.heure_debut,
+        creneau.heure_fin,
+        candles_m5.len()
+    );
+
+    match straddle_precision::analyser_precision(
+        &candles_m5,
+        creneau.jour_semaine,
+        &creneau.heure_debut,
+        &creneau.heure_fin,
+    ) {
+        Some(precision) => {
+            let result = serde_json::json!({
+                "timing_optimal": precision.timing_optimal,
+                "fenetre_entree": precision.fenetre_entree,
+                "whipsaw_minutes": precision.whipsaw_minutes,
+                "nb_occurrences": precision.nb_occurrences,
+                "atr_pic": precision.atr_pic,
+            });
+            if let Err(e) =
+                db::straddle::mettre_a_jour_precision(state.db.pool(), id, &precision).await
+            {
+                tracing::warn!("Impossible de sauvegarder la précision M5: {}", e);
+            }
+            HttpResponse::Ok().json(result)
+        }
+        None => HttpResponse::Ok().json(serde_json::json!({
+            "ok": false,
+            "message": "Pas assez de bougies M5 dans ce créneau pour calculer la précision."
+        })),
     }
 }

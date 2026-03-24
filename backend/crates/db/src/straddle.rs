@@ -8,17 +8,23 @@ use sqlx::{Row, SqlitePool};
 pub struct StraddleCreneau {
     pub id: i64,
     pub asset: String,
-    pub jour_semaine: Option<i64>, // 0=Lundi...6=Dimanche, NULL=tous les jours
-    pub heure_debut: String,       // "14:00" UTC
-    pub heure_fin: String,         // "16:00" UTC
+    pub jour_semaine: Option<i64>,
+    pub heure_debut: String,
+    pub heure_fin: String,
     pub atr_moyen: Option<f64>,
-    pub frequence: Option<f64>,      // 0.0–1.0
+    pub frequence: Option<f64>,
     pub llm_raison: Option<String>,
-    pub llm_conviction: Option<i64>, // 0–100
-    pub statut: String,              // 'a_tester' | 'valide' | 'invalide'
+    pub llm_conviction: Option<i64>,
+    pub statut: String,
     pub cree_le: String,
     pub backtest_winrate: Option<f64>,
     pub backtest_profit_factor: Option<f64>,
+    // Précision M5
+    pub timing_optimal: Option<String>,
+    pub fenetre_entree: Option<String>,
+    pub whipsaw_minutes: Option<i64>,
+    pub precision_nb_occurrences: Option<i64>,
+    pub precision_atr_pic: Option<f64>,
 }
 
 // ── Lecture ──────────────────────────────────────────────────────────────────
@@ -27,7 +33,9 @@ pub async fn lister_creneaux(pool: &SqlitePool) -> Result<Vec<StraddleCreneau>> 
     let rows = sqlx::query(
         "SELECT id, asset, jour_semaine, heure_debut, heure_fin, atr_moyen,
                 frequence, llm_raison, llm_conviction, statut, cree_le,
-                backtest_winrate, backtest_profit_factor
+                backtest_winrate, backtest_profit_factor,
+                timing_optimal, fenetre_entree, whipsaw_minutes,
+                precision_nb_occurrences, precision_atr_pic
          FROM straddle_creneaux
          ORDER BY llm_conviction DESC, cree_le DESC",
     )
@@ -51,6 +59,11 @@ pub async fn lister_creneaux(pool: &SqlitePool) -> Result<Vec<StraddleCreneau>> 
             cree_le: r.get("cree_le"),
             backtest_winrate: r.get("backtest_winrate"),
             backtest_profit_factor: r.get("backtest_profit_factor"),
+            timing_optimal: r.get("timing_optimal"),
+            fenetre_entree: r.get("fenetre_entree"),
+            whipsaw_minutes: r.get("whipsaw_minutes"),
+            precision_nb_occurrences: r.get("precision_nb_occurrences"),
+            precision_atr_pic: r.get("precision_atr_pic"),
         })
         .collect())
 }
@@ -62,7 +75,9 @@ pub async fn lister_creneaux_asset(
     let rows = sqlx::query(
         "SELECT id, asset, jour_semaine, heure_debut, heure_fin, atr_moyen,
                 frequence, llm_raison, llm_conviction, statut, cree_le,
-                backtest_winrate, backtest_profit_factor
+                backtest_winrate, backtest_profit_factor,
+                timing_optimal, fenetre_entree, whipsaw_minutes,
+                precision_nb_occurrences, precision_atr_pic
          FROM straddle_creneaux
          WHERE asset = ?
          ORDER BY llm_conviction DESC",
@@ -88,6 +103,11 @@ pub async fn lister_creneaux_asset(
             cree_le: r.get("cree_le"),
             backtest_winrate: r.get("backtest_winrate"),
             backtest_profit_factor: r.get("backtest_profit_factor"),
+            timing_optimal: r.get("timing_optimal"),
+            fenetre_entree: r.get("fenetre_entree"),
+            whipsaw_minutes: r.get("whipsaw_minutes"),
+            precision_nb_occurrences: r.get("precision_nb_occurrences"),
+            precision_atr_pic: r.get("precision_atr_pic"),
         })
         .collect())
 }
@@ -160,5 +180,41 @@ pub async fn supprimer_creneaux_asset(pool: &SqlitePool, asset: &str) -> Result<
         .execute(pool)
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(())
+}
+
+// ── Précision M5 ──────────────────────────────────────────────────────────────
+
+pub struct PrecisionM5 {
+    pub timing_optimal: String,
+    pub fenetre_entree: String,
+    pub whipsaw_minutes: i64,
+    pub nb_occurrences: i64,
+    pub atr_pic: f64,
+}
+
+pub async fn mettre_a_jour_precision(
+    pool: &SqlitePool,
+    id: i64,
+    p: &PrecisionM5,
+) -> Result<()> {
+    sqlx::query(
+        "UPDATE straddle_creneaux
+         SET timing_optimal           = ?,
+             fenetre_entree           = ?,
+             whipsaw_minutes          = ?,
+             precision_nb_occurrences = ?,
+             precision_atr_pic        = ?
+         WHERE id = ?",
+    )
+    .bind(&p.timing_optimal)
+    .bind(&p.fenetre_entree)
+    .bind(p.whipsaw_minutes)
+    .bind(p.nb_occurrences)
+    .bind(p.atr_pic)
+    .bind(id)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
     Ok(())
 }

@@ -324,4 +324,17 @@ export const apiService = {
   ): Promise<void> {
     await http.patch(`/api/straddle/creneaux/${id}`, data)
   },
+
+  async analyserPrecisionCreneau(id: number): Promise<{
+    timing_optimal?: string
+    fenetre_entree?: string
+    whipsaw_minutes?: number
+    nb_occurrences?: number
+    atr_pic?: number
+    ok?: boolean
+    message?: string
+  }> {
+    const res = await http.post(`/api/straddle/creneaux/${id}/precision`, {}, { timeout: 30000 })
+    return res.data
+  },
 }

@@ -314,17 +314,23 @@ export interface RocketsConfig {
 export interface StraddleCreneau {
   id: number
   asset: string
-  jour_semaine: number | null    // 0=Lundi...6=Dimanche, null=tous
-  heure_debut: string            // "14:00" UTC
-  heure_fin: string              // "16:00" UTC
+  jour_semaine: number | null
+  heure_debut: string
+  heure_fin: string
   atr_moyen: number | null
-  frequence: number | null       // 0.0–1.0
+  frequence: number | null
   llm_raison: string | null
-  llm_conviction: number | null  // 0–100
+  llm_conviction: number | null
   statut: 'a_tester' | 'valide' | 'invalide'
   cree_le: string
   backtest_winrate: number | null
   backtest_profit_factor: number | null
+  // Précision M5
+  timing_optimal: string | null
+  fenetre_entree: string | null
+  whipsaw_minutes: number | null
+  precision_nb_occurrences: number | null
+  precision_atr_pic: number | null
 }
 
 export interface ReponseAnalyseStraddle {
