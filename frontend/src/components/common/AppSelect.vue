@@ -15,6 +15,7 @@
     <Teleport to="body">
       <div
         v-if="ouvert"
+        ref="dropdown"
         class="app-select-dropdown"
         :style="dropdownStyle"
       >
@@ -24,6 +25,7 @@
           type="button"
           class="app-select-option"
           :class="{ 'app-select-option--active': opt.value === modelValue }"
+          @mousedown.prevent
           @click="choisir(opt.value)"
         >
           {{ opt.label }}
@@ -52,6 +54,7 @@ const emit = defineEmits<{
 
 const ouvert = ref(false)
 const root = ref<HTMLElement | null>(null)
+const dropdown = ref<HTMLElement | null>(null)
 const dropdownStyle = ref<Record<string, string>>({})
 
 const labelSelectionne = computed(
@@ -88,7 +91,11 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 function fermerSiExterieur(e: MouseEvent) {
-  if (root.value && !root.value.contains(e.target as Node)) {
+  const cible = e.target as Node
+  if (
+    root.value && !root.value.contains(cible) &&
+    dropdown.value && !dropdown.value.contains(cible)
+  ) {
     ouvert.value = false
   }
 }
