@@ -170,15 +170,15 @@ Un bon créneau Straddle est un moment où le marché bouge fortement dans une d
   - Ouverture de Tokyo (0h–1h UTC)
 
 ## FORMAT DE RÉPONSE
-Réponds UNIQUEMENT en JSON valide — un tableau de créneaux, sans texte avant ou après :
+Réponds UNIQUEMENT en JSON valide — un tableau de créneaux, sans texte avant ou après, SANS commentaires (pas de // ni de /* */) :
 [
   {
-    "jour_semaine": 1,       (0=Lundi...4=Vendredi, null=tous les jours)
-    "heure_debut": "14:00",  (UTC)
-    "heure_fin": "16:00",    (UTC)
-    "atr_moyen": 0.85,       (ratio ATR observé)
-    "frequence": 0.72,       (0.0–1.0)
-    "llm_conviction": 78,    (0–100 — ta conviction que ce créneau mérite un test)
+    "jour_semaine": 1,
+    "heure_debut": "14:00",
+    "heure_fin": "16:00",
+    "atr_moyen": 0.85,
+    "frequence": 0.72,
+    "llm_conviction": 78,
     "llm_raison": "Ouverture NY + corrélation publications hebdomadaires"
   }
 ]
@@ -252,11 +252,50 @@ pub async fn analyser_creneaux(
     let debut = texte.find('[').unwrap_or(0);
     let fin = texte.rfind(']').map(|i| i + 1).unwrap_or(texte.len());
 
+    // Supprimer les commentaires de style // que le LLM insère parfois dans le JSON
+    let json_brut: String = texte[debut..fin]
+        .lines()
+        .map(|ligne| {
+            // Retirer tout ce qui suit // en dehors d'une chaîne — simple heuristique : premier //
+            if let Some(pos) = ligne.find("//") {
+                ligne[..pos].trim_end().to_string()
+            } else {
+                ligne.to_string()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    // Nettoyer les virgules traînantes avant } ou ] (autre artefact LLM courant)
+    let json_propre = {
+        let mut s = json_brut;
+        // virgule suivie de whitespace puis } ou ]
+        let mut resultat = String::with_capacity(s.len());
+        let chars: Vec<char> = s.chars().collect();
+        let n = chars.len();
+        let mut i = 0;
+        while i < n {
+            if chars[i] == ',' {
+                let mut j = i + 1;
+                while j < n && chars[j].is_whitespace() {
+                    j += 1;
+                }
+                if j < n && (chars[j] == '}' || chars[j] == ']') {
+                    i += 1;
+                    continue; // sauter la virgule traînante
+                }
+            }
+            resultat.push(chars[i]);
+            i += 1;
+        }
+        s = resultat;
+        s
+    };
+
     let bruts: Vec<CreneauBrut> =
-        serde_json::from_str(&texte[debut..fin]).map_err(|e| {
+        serde_json::from_str(&json_propre).map_err(|e| {
             TradingError::Api(format!(
                 "JSON créneaux LLM non parsable: {e} — texte: {}",
-                &texte[..texte.len().min(300)]
+                &json_propre[..json_propre.len().min(300)]
             ))
         })?;
 
