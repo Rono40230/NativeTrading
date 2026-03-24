@@ -140,10 +140,10 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', fermerSiExterieu
 }
 
 .app-select-dropdown {
-  background: rgb(31 41 55); /* gray-800 */
-  border: 1px solid rgba(255 255 255 / 0.15);
+  background: #ffffff;
+  border: 1px solid #d1d5db; /* gray-300 */
   border-radius: 0.5rem;
-  box-shadow: 0 10px 25px rgba(0 0 0 / 0.5);
+  box-shadow: 0 10px 25px rgba(0 0 0 / 0.35);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -154,16 +154,17 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', fermerSiExterieu
   text-align: left;
   background: transparent;
   border: none;
-  color: #e5e7eb; /* gray-200 */
+  color: #111827; /* gray-900 — texte noir */
   font-size: 0.875rem;
   cursor: pointer;
   transition: background 0.1s;
 }
 .app-select-option:hover {
-  background: rgba(255 255 255 / 0.08);
+  background: #f3f4f6; /* gray-100 */
 }
 .app-select-option--active {
-  color: #fbbf24; /* yellow-400 */
-  background: rgba(251 191 36 / 0.1);
+  color: #92400e; /* amber-800 — lisible sur blanc */
+  background: #fef3c7; /* amber-100 */
+  font-weight: 600;
 }
 </style>
