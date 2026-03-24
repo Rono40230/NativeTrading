@@ -309,7 +309,7 @@ export const apiService = {
     asset: string,
     periode: string,
   ): Promise<import('./api.types').ReponseAnalyseStraddle> {
-    const res = await http.post('/api/straddle/analyser', { asset, periode }, { timeout: 90000 })
+    const res = await http.post('/api/straddle/analyser', { asset, periode }, { timeout: 150000 })
     return res.data
   },
 

@@ -188,7 +188,7 @@ const alerteStore = useAlerteStore()
 // Assets disponibles : Forex, Métaux, BTC/ETH uniquement
 const assetsDisponibles = computed(() => {
   const liste = assetsStore.assets
-  if (liste.length === 0) return ['XAUUSD', 'XAGUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTCUSDT', 'ETHUSDT']
+  if (liste.length === 0) return ['XAUUSD', 'XAGUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTC', 'ETH']
   return liste.map(a => a.id)
 })
 

@@ -225,7 +225,7 @@ pub async fn analyser_creneaux(
     };
 
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(60))
+        .timeout(Duration::from_secs(120))
         .build()
         .map_err(|e| TradingError::Api(e.to_string()))?;
 

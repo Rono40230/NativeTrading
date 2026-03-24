@@ -210,7 +210,7 @@ pub async fn filtrer_signal(
     });
 
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
+        .timeout(Duration::from_secs(90))
         .build()
         .map_err(|e| TradingError::Api(e.to_string()))?;
 
