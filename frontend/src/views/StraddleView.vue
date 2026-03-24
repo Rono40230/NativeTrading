@@ -172,9 +172,7 @@ const alerteStore = useAlerteStore()
 const assetsDisponibles = computed(() => {
   const liste = assetsStore.assets
   if (liste.length === 0) return ['XAUUSD', 'XAGUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTCUSDT', 'ETHUSDT']
-  return liste
-    .filter(a => a.type !== 'crypto' || ['BTC', 'ETH'].includes(a.id))
-    .map(a => a.id)
+  return liste.map(a => a.id)
 })
 
 const optionsAssets = computed(() =>
