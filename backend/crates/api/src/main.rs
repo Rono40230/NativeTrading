@@ -32,6 +32,7 @@ mod smc_handlers;
 mod state;
 mod straddle_handlers;
 mod straddle_precision;
+mod straddle_utils;
 mod tendance_handlers;
 mod utils;
 mod volatility_handlers;

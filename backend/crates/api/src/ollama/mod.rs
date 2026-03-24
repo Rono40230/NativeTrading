@@ -3,11 +3,12 @@ mod prompts;
 pub mod rockets_analyse;
 pub mod rockets_filtre;
 pub mod straddle_analyse;
+pub mod straddle_stats;
 mod types;
 
 use common::TradingError;
 pub use contexte::formater_contexte_historique;
-pub use prompts::{PROMPT_SIGNAL_SMC, PROMPT_SIGNAL_STRADDLE};
+pub use prompts::PROMPT_SIGNAL_SMC;
 use prompts::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF, SYSTEM_PROMPT};
 use types::{MessageOllama, ReponseOllama, RequeteOllama, MODELE_DEFAUT, OLLAMA_URL};
 

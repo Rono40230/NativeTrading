@@ -1,54 +1,13 @@
 use actix_web::{web, HttpResponse, Responder};
-use common::Timeframe;
 use data::{providers::BinanceProvider, providers::IbGatewayProvider, DataProvider};
-use serde::{Deserialize, Serialize};
 
 use crate::ollama::straddle_analyse;
 use crate::state::AppState;
 use crate::straddle_precision;
+use crate::straddle_utils::{
+    limite_bougies, periode_en_mois, MaJCreneau, ReponseAnalyse, RequeteAnalyse, MAX_BOUGIES_RESEAU,
+};
 use crate::utils::parse_asset;
-
-// ── Requêtes / réponses ──────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct RequeteAnalyse {
-    pub asset: String,
-    pub periode: Option<String>, // "3m" | "6m" | "1a" | "2a"
-}
-
-#[derive(Deserialize)]
-pub struct MaJCreneau {
-    pub statut: Option<String>,
-    pub backtest_winrate: Option<f64>,
-    pub backtest_profit_factor: Option<f64>,
-}
-
-#[derive(Serialize)]
-struct ReponseAnalyse {
-    creneaux: Vec<db::straddle::StraddleCreneau>,
-    nb_analyses: usize,
-    nb_retenus: usize,
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-fn periode_en_mois(p: Option<&str>) -> u32 {
-    match p {
-        Some("3m") => 3,
-        Some("1a") => 12,
-        Some("2a") => 24,
-        _ => 6, // défaut : 6 mois
-    }
-}
-
-/// Nombre de bougies H1 demandées en DB selon la période.
-/// Pas de plafond ici — le cache peut contenir beaucoup de données.
-fn limite_bougies(mois: u32) -> usize {
-    mois as usize * 30 * 24
-}
-
-/// Plafond pour les providers réseau (Binance limite à 1000 par appel).
-const MAX_BOUGIES_RESEAU: usize = 1000;
 
 // ── POST /api/straddle/analyser ───────────────────────────────────────────────
 /// Lance une analyse LLM des créneaux de volatilité pour un asset donné.
@@ -57,6 +16,8 @@ pub async fn analyser(
     state: web::Data<AppState>,
     body: web::Json<RequeteAnalyse>,
 ) -> impl Responder {
+    use common::Timeframe;
+
     let asset_str = body.asset.trim().to_uppercase();
     let asset = match parse_asset(&asset_str) {
         Some(a) => a,
@@ -77,13 +38,19 @@ pub async fn analyser(
     );
 
     // Récupérer les bougies H1 (cache DB puis provider réseau en fallback)
-    let bougies = match state.db.obtenir_bougies(&asset, &Timeframe::H1, limite as i64).await {
+    let bougies = match state
+        .db
+        .obtenir_bougies(&asset, &Timeframe::H1, limite as i64)
+        .await
+    {
         Ok(b) if !b.is_empty() => b,
         _ => {
             // Fallback: provider réseau (plafonné car API Binance : max 1000/appel)
             let limite_reseau = limite.min(MAX_BOUGIES_RESEAU);
             let res = if asset.is_crypto() {
-                BinanceProvider.fetch_candles(asset.clone(), Timeframe::H1, limite_reseau).await
+                BinanceProvider
+                    .fetch_candles(asset.clone(), Timeframe::H1, limite_reseau)
+                    .await
             } else {
                 IbGatewayProvider::new(state.ib_port, state.ib_client_id)
                     .fetch_candles(asset.clone(), Timeframe::H1, limite_reseau)
@@ -183,8 +150,9 @@ pub async fn analyser(
 pub async fn lister_creneaux(state: web::Data<AppState>) -> impl Responder {
     match db::straddle::lister_creneaux(state.db.pool()).await {
         Ok(creneaux) => HttpResponse::Ok().json(creneaux),
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => {
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
+        }
     }
 }
 
@@ -206,20 +174,21 @@ pub async fn mettre_a_jour_creneau(
     .await
     {
         Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => {
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
+        }
     }
 }
 
-// ── POST /api/straddle/creneaux/{id}/precision ────────────────────────────────
-/// Analyse M5 pour affiner le timing d'entrée d'un créneau H1 identifié.
+// ── POST /api/straddle/creneaux/{id}/precision ───────────────────────────────
+/// Analyse les bougies M5 pour calculer la précision d'entrée sur un créneau.
 pub async fn analyser_precision(
     state: web::Data<AppState>,
     path: web::Path<i64>,
 ) -> impl Responder {
+    use common::Timeframe;
     let id = path.into_inner();
 
-    // Récupérer le créneau
     let creneau = match db::straddle::lister_creneaux(state.db.pool()).await {
         Ok(liste) => match liste.into_iter().find(|c| c.id == id) {
             Some(c) => c,
@@ -242,12 +211,14 @@ pub async fn analyser_precision(
         }
     };
 
-    // Récupérer les bougies M5 (6 mois de cache)
-    let limite_m5 = 6 * 30 * 24 * 12; // 6 mois × 12 bougies M5/heure
-    let candles_m5 = match state.db.obtenir_bougies(&asset, &Timeframe::M5, limite_m5).await {
+    let limite_m5 = 6 * 30 * 24 * 12_i64;
+    let candles_m5 = match state
+        .db
+        .obtenir_bougies(&asset, &Timeframe::M5, limite_m5)
+        .await
+    {
         Ok(b) if !b.is_empty() => b,
         _ => {
-            // Fallback réseau
             let res = if asset.is_crypto() {
                 BinanceProvider
                     .fetch_candles(asset.clone(), Timeframe::M5, 1000)
@@ -266,8 +237,7 @@ pub async fn analyser_precision(
                     return HttpResponse::Ok().json(serde_json::json!({
                         "ok": false,
                         "message": format!(
-                            "Données M5 indisponibles pour {} : {}. \
-                             Vérifiez que le provider est démarré.",
+                            "Données M5 indisponibles pour {} : {}. Vérifiez que le provider est démarré.",
                             creneau.asset, e
                         )
                     }))

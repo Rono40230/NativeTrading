@@ -68,10 +68,7 @@ pub async fn lister_creneaux(pool: &SqlitePool) -> Result<Vec<StraddleCreneau>> 
         .collect())
 }
 
-pub async fn lister_creneaux_asset(
-    pool: &SqlitePool,
-    asset: &str,
-) -> Result<Vec<StraddleCreneau>> {
+pub async fn lister_creneaux_asset(pool: &SqlitePool, asset: &str) -> Result<Vec<StraddleCreneau>> {
     let rows = sqlx::query(
         "SELECT id, asset, jour_semaine, heure_debut, heure_fin, atr_moyen,
                 frequence, llm_raison, llm_conviction, statut, cree_le,
@@ -193,11 +190,7 @@ pub struct PrecisionM5 {
     pub atr_pic: f64,
 }
 
-pub async fn mettre_a_jour_precision(
-    pool: &SqlitePool,
-    id: i64,
-    p: &PrecisionM5,
-) -> Result<()> {
+pub async fn mettre_a_jour_precision(pool: &SqlitePool, id: i64, p: &PrecisionM5) -> Result<()> {
     sqlx::query(
         "UPDATE straddle_creneaux
          SET timing_optimal           = ?,

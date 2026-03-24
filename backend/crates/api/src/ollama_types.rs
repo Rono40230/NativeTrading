@@ -104,33 +104,3 @@ pub struct ReponseSignalIA {
     pub raisonnement: String,
     pub modele: String,
 }
-
-// ─── /api/ia/signal/straddle ──────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct RequeteStraddleIA {
-    pub asset: String,
-    pub timeframe: String,
-    pub prix_actuel: f64,
-    pub atr_actuel: f64,
-    pub atr_moyen: f64,
-    pub kill_zone_active: Option<bool>,
-    pub sessions_actives: Option<Vec<String>>,
-    pub annonces_imminentes: Option<Vec<String>>,
-}
-
-#[derive(Serialize)]
-pub struct ReponseStraddleIA {
-    /// Signal stockable (Direction::Both) — None si signal = WAIT.
-    pub signal: Option<common::Signal>,
-    pub sl_long: f64,
-    pub sl_short: f64,
-    pub tp1_long: f64,
-    pub tp1_short: f64,
-    pub tp2_long: f64,
-    pub tp2_short: f64,
-    pub score_confiance: f64,
-    pub declencheur: String,
-    pub raisonnement: String,
-    pub modele: String,
-}

@@ -10,26 +10,7 @@ A ajouter dans le vibe coding pour toute les app à developper :
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Où le code fait-il la distinction entre la stratégie smc et la stratégie straddle ?
-Dans l'UI rien ne distingue les 2 stratégies. 
-Je rappelle que l'app grace à l'IA doit genérer des signaux pour :
-1 - la stratégie straddle basée sur les récurences de forts mouvements de volatilité et doit donc apprendre à repérer ces mouvements.
-2 - la stratégie SMC grace aux indicateurs smc.
-Repond sans coder
-
---------------------------------------------------------------------------------------------------------------------------
-
-Est ce que l'app surveille en permanence tous les actifs affichés dans les blocs du dashboard : assets, cryptos et rockets ?
-
---------------------------------------------------------------------------------------------------------------------------
-
 Analyse ces bugs de terminal lorsque IB gateway est connecté.
-
---------------------------------------------------------------------------------------------------------------------------
-
-Maintenant que nous avons terminer l'implémentation complète de la roadmap où en est on des promptsSTRADDLE et promptsSMC ?
-Ont ils été corrigés/implémentés ?
-Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -37,23 +18,13 @@ La modale qui s'affiche au clic sur le bouton "Analyse (IA)" dans la fenetre gra
 
 --------------------------------------------------------------------------------------------------------------------------
 
-
-
---------------------------------------------------------------------------------------------------------------------------
-
+Vérifier que le badge IA apparaisse dans sa colonne
 
 --------------------------------------------------------------------------------------------------------------------------
 
 
-rive Sud 
-jean charles moyen
 
-
-
-
-
-
-
+--------------------------------------------------------------------------------------------------------------------------
 
 Analyse dans les moindre détails ce code.
 Fais moi un état complet de ces fonctionnalités, de ses objectifs et de la manière dont il utilise l'IA et le LLM
@@ -65,3 +36,11 @@ Je veux que tu me dises si tu y trouves :
 - 
 
 Dis moi ce qui pourrait être supprimé/améliorer pour qu'il soit utilisé à usage professionnel et capable de produire des signaux de trading surs et rentables.
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Est ce que le fichier App.jsx est utile dans le code ?
+
+Dans la page "Données historiques" on a bien en haut l'affichage des assets correspondants à ceux de "surveillance assets" dans le dashboard.
+Par contre je veux que dans la liste/tableau de la page n'apparaissent également que ces assets = aucun autre.
+

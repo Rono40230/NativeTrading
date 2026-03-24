@@ -131,7 +131,7 @@ pub fn analyser_precision(
     };
 
     // Whipsaw estimation : ATR moyen des bougies AVANT le pic médian
-    let atr_avant_pic: f64 = {
+    let _atr_avant_pic: f64 = {
         let vals: Vec<f64> = trs
             .iter()
             .filter(|(o, _, _)| *o < median_offset)
