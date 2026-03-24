@@ -86,7 +86,13 @@ pub fn calculer_stats(candles: &[Candle]) -> (Vec<StatSlot>, f64) {
         }
     }
 
-    let seuil_min = 3u32; // ignorer les créneaux avec < 3 occurrences
+    let seuil_min = if candles.len() >= 1000 {
+        4u32
+    } else if candles.len() >= 400 {
+        3u32
+    } else {
+        2u32 // peu de données : accepter 2 occurrences minimales
+    };
     let mut stats: Vec<StatSlot> = sommes
         .into_iter()
         .filter(|(_, (_, nb, _))| *nb >= seuil_min)

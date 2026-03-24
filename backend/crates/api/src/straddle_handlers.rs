@@ -118,7 +118,27 @@ pub async fn analyser(
 
     let nb_analyses = bougies.len();
 
-    // Supprimer les anciens créneaux `a_tester` de cet asset
+    // Guard : pas assez de bougies pour une analyse statistique fiable
+    if nb_analyses < 100 {
+        tracing::warn!(
+            "Straddle {}: seulement {} bougies H1 en cache — analyse impossible",
+            asset_str,
+            nb_analyses
+        );
+        return HttpResponse::Ok().json(serde_json::json!({
+            "creneaux": [],
+            "nb_analyses": nb_analyses,
+            "nb_retenus": 0,
+            "message": format!(
+                "{} : seulement {} bougies H1 disponibles (≈{} jours). \
+                 L'analyse Straddle nécessite au moins 3 semaines de données. \
+                 Démarrez IB Gateway / MetaTrader pour alimenter le cache.",
+                asset_str,
+                nb_analyses,
+                nb_analyses / 24
+            )
+        }));
+    }
     let _ = db::straddle::supprimer_creneaux_asset(state.db.pool(), &asset_str).await;
 
     // Analyse LLM
