@@ -80,7 +80,7 @@ async fn main() -> std::io::Result<()> {
         let cors = Cors::default()
             .allowed_origin("tauri://localhost")
             .allowed_origin("http://localhost:1420") // dev Tauri uniquement (port Vite)
-            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+            .allowed_methods(vec!["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
             .allowed_headers(vec![
                 header::CONTENT_TYPE,
                 header::AUTHORIZATION,
