@@ -14,7 +14,7 @@
       <div class="flex items-center gap-2">
         <span v-if="erreur" class="text-[10px] text-red-400">Binance indisponible</span>
         <div v-if="chargement" class="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
-        <span v-else-if="top20.length > 0" class="text-[9px] text-gray-600">60s</span>
+        <span v-else-if="top20.length > 0" class="text-[9px] text-gray-600">{{ countdown }}s</span>
         <button
           v-if="top20.length > 0"
           class="text-[10px] font-semibold text-blue-300 hover:text-blue-100 border border-blue-500/40 hover:border-blue-400/70 rounded-lg px-2.5 py-1 transition-all hover:bg-blue-500/10"
@@ -115,8 +115,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { CryptoAlert, BadgeNiveau } from '@/composables/useCryptosAlert'
+import { usePrixStore } from '@/stores/prix.store'
 import CryptosOpportunitesModal from '@/components/common/CryptosOpportunitesModal.vue'
 
 const props = defineProps<{
@@ -216,8 +217,21 @@ function onCardClick(event: MouseEvent, c: CryptoAlert) {
 }
 
 function fermerTooltip() { hovered.value = null }
-onMounted(() => document.addEventListener('click', fermerTooltip))
-onUnmounted(() => document.removeEventListener('click', fermerTooltip))
+
+// Countdown : se réinitialise à chaque refresh du store (10s)
+const prixStore = usePrixStore()
+const countdown = ref(10)
+let tickInterval: ReturnType<typeof setInterval> | null = null
+watch(() => prixStore.tickers, () => { countdown.value = 10 })
+
+onMounted(() => {
+  document.addEventListener('click', fermerTooltip)
+  tickInterval = setInterval(() => { if (countdown.value > 0) countdown.value-- }, 1000)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', fermerTooltip)
+  if (tickInterval) clearInterval(tickInterval)
+})
 </script>
 
 <style scoped>

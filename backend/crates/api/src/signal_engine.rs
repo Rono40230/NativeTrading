@@ -3,6 +3,7 @@
 //! Boucle Tokio toutes les 5 minutes — analyse 13 assets × M5/M15.
 //! Guard Kill Zone intégré dans `SmcDirectionalStrategy`.
 //! Anti-doublon 30 min via requête DB avant insertion.
+use crate::signal_filtre::sauvegarder_signal_avec_filtre;
 use common::{Asset, Signal, Timeframe};
 use db::Database;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -244,19 +245,50 @@ async fn analyser_asset(
         strategie_nom,
     );
 
-    db.inserer_signal(&signal).await?;
+    // ── Filtre LLM pré-sauvegarde (conviction ≥ 65) ─────────────────────────
+    let atr_vals = indicators::calculer_atr(&bougies, 14);
+    let atr_now = atr_vals.last().copied().unwrap_or(0.0);
+    let atr_moyen = if atr_vals.len() >= 14 {
+        atr_vals[atr_vals.len().saturating_sub(14)..].iter().sum::<f64>() / 14.0
+    } else {
+        atr_now
+    };
+    let atr_ratio = if atr_moyen > 0.0 { atr_now / atr_moyen } else { 1.0 };
 
-    tracing::info!(
-        "✅ Signal {}/{} {:?} score={:.1} entry={:.4}",
-        asset.as_str(),
-        timeframe.as_str(),
-        signal.direction,
-        signal.score,
-        signal.prix_entree
-    );
+    let rsi_vals = indicators::calculer_rsi(&bougies, 14);
+    let rsi = rsi_vals.last().copied().unwrap_or(50.0);
 
-    // Broadcast vers les WS abonnés (erreur ignorée si aucun abonné)
-    let _ = tx.send(signal);
+    let (score_smc, kill_zone, sweep) = match smc::scorer(&bougies) {
+        Some(s) => (s.total, s.kill_zone_active, s.sweep_detecte),
+        None => (signal_strat.confiance * 100.0, false, false),
+    };
 
-    Ok(())
+    let historique_smc = db.obtenir_historique_smc(asset.as_str(), 10).await;
+    let historique_filtre: Vec<crate::ollama::smc_filtre::HistoriqueSMCSignal> = historique_smc
+        .into_iter()
+        .map(|(direction, tf, score, statut)| crate::ollama::smc_filtre::HistoriqueSMCSignal {
+            direction,
+            timeframe: tf,
+            score,
+            statut,
+        })
+        .collect();
+
+    let candidat = crate::ollama::smc_filtre::SignalSMCCandidat {
+        asset: asset.as_str().to_string(),
+        timeframe: timeframe.as_str().to_string(),
+        direction: format!("{:?}", signal_strat.direction),
+        score_smc,
+        confiance_ml: signal_strat.confiance,
+        prix_entree: signal_strat.prix_entree,
+        stop_loss: signal_strat.stop_loss,
+        tp1: signal_strat.take_profit,
+        atr14: atr_now,
+        atr_ratio,
+        rsi,
+        kill_zone_active: kill_zone,
+        sweep_detecte: sweep,
+    };
+
+    sauvegarder_signal_avec_filtre(db, tx, &signal, asset, timeframe, &candidat, &historique_filtre).await
 }

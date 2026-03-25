@@ -60,6 +60,13 @@ cp -r "$VIBE_SOURCE"/* .
 cp -r "$VIBE_SOURCE"/.* . 2>/dev/null || true  # Copier les fichiers cachés comme .vibe
 rm -rf screenshots videos  # Nettoyer les médias du template
 
+# Injecter le template global de preferences si present
+if [ -f "$VIBE_SOURCE/global-vibe-rules.toml" ]; then
+    mkdir -p .vibe
+    cp "$VIBE_SOURCE/global-vibe-rules.toml" .vibe/global-vibe-rules.toml
+    echo "✅ Template global vibe copié vers .vibe/global-vibe-rules.toml"
+fi
+
 # Installer Vibe
 ./install-vibe.sh "$VIBE_SOURCE"
 
@@ -127,6 +134,44 @@ EOF
         echo "⚙️ Configurez .vibe/config.toml manuellement."
         ;;
 esac
+
+# Appliquer les preferences globales valideses par defaut
+if [ -f ".vibe/config.toml" ]; then
+    sed -i 's/^language = .*/language = "agnostic"/' .vibe/config.toml
+    sed -i 's/^require_docs = .*/require_docs = false/' .vibe/config.toml
+    sed -i 's/^require_function_docs = .*/require_function_docs = false/' .vibe/config.toml
+    sed -i 's/^require_module_docs = .*/require_module_docs = false/' .vibe/config.toml
+
+    if grep -q '^max_file_lines = ' .vibe/config.toml; then
+        if grep -q '^file_lines_warning = ' .vibe/config.toml; then
+            sed -i 's/^file_lines_warning = .*/file_lines_warning = 250/' .vibe/config.toml
+        else
+            sed -i '/^max_file_lines = /a file_lines_warning = 250' .vibe/config.toml
+        fi
+    fi
+
+    # Remplacer ou ajouter la section frontend_ui pour standardiser les apps
+    temp_cfg=$(mktemp)
+    awk '
+    BEGIN { skip=0 }
+    /^\[frontend_ui\]/ { skip=1; next }
+    /^\[/ && skip==1 { skip=0 }
+    skip==0 { print }
+    ' .vibe/config.toml > "$temp_cfg"
+    mv "$temp_cfg" .vibe/config.toml
+    cat >> .vibe/config.toml << 'EOF'
+
+[frontend_ui]
+dark_mode_required = true
+tauri_vue_required = true
+collapsible_sidebar_required = true
+horizontal_menu_forbidden = true
+dropdown_background = "white"
+dropdown_text_color = "black"
+EOF
+
+    echo "✅ Préférences globales appliquées dans .vibe/config.toml"
+fi
 
 # Installer un hook Git pre-commit pour audits automatiques (si repo Git existe)
 if [ -d ".git" ]; then

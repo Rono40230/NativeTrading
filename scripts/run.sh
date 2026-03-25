@@ -6,6 +6,16 @@ LOG_DIR="$ROOT_DIR/data/logs"
 mkdir -p "$LOG_DIR"
 mkdir -p "$ROOT_DIR/data"
 
+# ─── Initialisation nvm (npm/node non disponibles hors shell interactif) ──────
+export NVM_DIR="/home/rono/.nvm/.nvm"
+# shellcheck source=/dev/null
+[ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh" --no-use
+# Fallback : utiliser directement le binaire nvm par défaut
+if ! command -v npm &>/dev/null; then
+  NVM_NODE_BIN=$(ls -d "$NVM_DIR/versions/node"/*/bin 2>/dev/null | tail -1)
+  [ -n "$NVM_NODE_BIN" ] && export PATH="$NVM_NODE_BIN:$PATH"
+fi
+
 echo "🚀 Native Trading AI — démarrage..."
 
 # ─── Compilation backend si nécessaire ───────────────────────────────────────

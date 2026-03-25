@@ -27,7 +27,9 @@ mod rockets_suivi;
 mod scheduler;
 mod sentiment_handlers;
 mod signal_engine;
+mod signal_filtre;
 mod signaux_handlers;
+mod smc_analyse_handler;
 mod smc_handlers;
 mod state;
 mod straddle_handlers;
@@ -155,7 +157,7 @@ async fn main() -> std::io::Result<()> {
             )
             .route(
                 "/api/straddle/creneaux/{id}/precision",
-                web::post().to(straddle_handlers::analyser_precision),
+                web::post().to(straddle_handlers::handler_analyser_precision),
             )
             .route("/api/config", web::get().to(config_handlers::get_config))
             .route("/api/config", web::post().to(config_handlers::post_config))
@@ -231,6 +233,11 @@ async fn main() -> std::io::Result<()> {
                 web::resource("/api/rockets/analyse-llm")
                     .route(web::get().to(rockets_analyse_handler::get_derniere_analyse))
                     .route(web::post().to(rockets_analyse_handler::lancer_analyse)),
+            )
+            .service(
+                web::resource("/api/smc/analyse-llm")
+                    .route(web::get().to(smc_analyse_handler::get_derniere_analyse))
+                    .route(web::post().to(smc_analyse_handler::lancer_analyse)),
             )
             .route(
                 "/api/volatility/patterns",

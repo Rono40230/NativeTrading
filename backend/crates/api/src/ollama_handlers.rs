@@ -20,15 +20,28 @@ pub async fn analyser(body: web::Json<RequeteAnalyse>) -> impl Responder {
     };
 
     let prompt = format!(
-        "Analyse trading SMC pour {asset} {tf}:\n\
-        - Direction signal: {dir}\n\
-        - Score confluence SMC: {score:.1}/100\n\
-        - Prix d'entrée: {entree:.2} | Stop-Loss: {sl:.2} | Take-Profit: {tp:.2}\n\
-        - Risk/Reward: {rr}\n\
-        - Détail SMC: Tendance={tend:.1} OrderBlock={ob:.1} Imbalance={imb:.1} IFVG={ifvg:.1} Fibonacci={fib:.1}\n\
-        - Confiance ML: {ml:.1}%\n\n\
-        Fournis une analyse concise (5-8 phrases) couvrant: \
-        validité du signal, points de vigilance, zones clés, et recommandation finale.",
+        "Tu es un trader institutionnel SMC/ICT expert. Analyse ce signal candidat avec rigueur.\n\n\
+        ## SIGNAL CANDIDAT : {asset} {tf}\n\
+        - Direction : {dir}\n\
+        - Score confluence SMC : {score:.1}/100\n\
+        - Prix entrée : {entree:.2} | Stop-Loss : {sl:.2} | Take-Profit : {tp:.2}\n\
+        - Risk/Reward : {rr}\n\
+        - Détail SMC : Tendance={tend:.1}/30 OB={ob:.1}/20 Imbalance={imb:.1}/15 IFVG={ifvg:.1}/10 Fibonacci={fib:.1}/5\n\
+        - Confiance ML : {ml:.1}%\n\n\
+        ## CRITÈRES À VÉRIFIER\n\
+        1. Kill Zone active ? (London 07h-10h / NY 13h30-16h30 UTC) — BLOQUANT si absent\n\
+        2. Sweep de liquidité confirmé ? — BLOQUANT si absent\n\
+        3. Order Block non mitigé aligné avec la direction ?\n\
+        4. R:R ≥ 2:1 minimum ? (calculé : {rr})\n\
+        5. Score SMC ≥ 60/100 et ML ≥ 60% ? (actuels : {score:.0} / {ml:.0}%)\n\n\
+        ## PHILOSOPHIE : QUALITÉ > QUANTITÉ\n\
+        Il vaut mieux passer ce signal que le valider sans confluence suffisante.\n\n\
+        Fournis une analyse en 5-7 phrases couvrant dans l'ordre :\n\
+        1. Verdict (Valide / À éviter) et raison principale\n\
+        2. Points forts du setup (confluences présentes)\n\
+        3. Points faibles ou risques (critères manquants, zone dangereuse)\n\
+        4. Niveau d'invalidation clé à surveiller\n\
+        5. Recommandation finale (trader, patienter, ou rejeter)",
         asset = body.asset,
         tf = body.timeframe,
         dir = body.direction,

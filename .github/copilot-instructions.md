@@ -404,6 +404,5 @@ cargo fmt --all --check
 4. **Performance** : Mesurer latences critiques (ML <200ms, signaux <10s)
 5. **Risk first** : Vérifier limites avant tout signal
 6. **DAG strict** : Pas d'imports horizontaux entre services
-7. **Tests** : Coverage minimum sur risk management + ML pipeline
-
+7. **Tests** : Coverage minimum sur risk management + ML pipeline8. **Post-refactorisation** : Après tout refactoring (extraction composable, split fichier, déplacement fonction), demander SYSTÉMATIQUEMENT à l'utilisateur de vérifier dans l'app les régressions et erreurs avant de continuer
 **VIBE CODING = Flow + Qualité + Zero Stress**

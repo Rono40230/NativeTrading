@@ -216,4 +216,80 @@ impl Database {
             Err(_) => vec![],
         }
     }
+
+    /// Retourne les N derniers signaux SMC d'un asset pour le filtre LLM pré-sauvegarde.
+    /// Sans propagation d'erreur — retourne vec![] si la DB est indisponible.
+    pub async fn obtenir_historique_smc(
+        &self,
+        asset: &str,
+        limit: i64,
+    ) -> Vec<(String, String, f64, String)> {
+        let rows = sqlx::query(
+            "SELECT direction, timeframe, score, statut
+             FROM signaux WHERE asset = ?
+             ORDER BY cree_le DESC LIMIT ?",
+        )
+        .bind(asset)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await;
+
+        match rows {
+            Ok(rows) => rows
+                .iter()
+                .map(|row| {
+                    (
+                        row.get::<String, _>("direction"),
+                        row.get::<String, _>("timeframe"),
+                        row.get::<f64, _>("score"),
+                        row.get::<String, _>("statut"),
+                    )
+                })
+                .collect(),
+            Err(_) => vec![],
+        }
+    }
+
+    /// Enregistre un signal avec les métadonnées LLM du filtre pré-sauvegarde.
+    pub async fn inserer_signal_avec_llm(
+        &self,
+        signal: &Signal,
+        llm_valide: i64,
+        llm_conviction: i64,
+        llm_raison: &str,
+        llm_sl_suggere: Option<f64>,
+        llm_tp1_suggere: Option<f64>,
+    ) -> Result<()> {
+        let tp_json = serde_json::to_string(&signal.take_profit)
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        sqlx::query(
+            "INSERT OR IGNORE INTO signaux
+             (id, asset, timeframe, direction, score, prix_entree,
+              stop_loss, take_profit, strategie, cree_le,
+              llm_valide, llm_conviction, llm_raison, llm_sl_suggere, llm_tp1_suggere)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(signal.id.to_string())
+        .bind(signal.asset.as_str())
+        .bind(signal.timeframe.as_str())
+        .bind(format!("{:?}", signal.direction))
+        .bind(signal.score)
+        .bind(signal.prix_entree)
+        .bind(signal.stop_loss)
+        .bind(tp_json)
+        .bind(&signal.strategie)
+        .bind(signal.cree_le.timestamp())
+        .bind(llm_valide)
+        .bind(llm_conviction)
+        .bind(llm_raison)
+        .bind(llm_sl_suggere)
+        .bind(llm_tp1_suggere)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        Ok(())
+    }
 }
+

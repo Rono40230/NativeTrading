@@ -1,0 +1,156 @@
+//! Handler HTTP pour l'analyse LLM périodique des performances SMC Directionnel.
+//! POST /api/smc/analyse-llm  — déclenche une analyse sur demande.
+//! GET  /api/smc/analyse-llm  — retourne la dernière analyse stockée.
+use actix_web::{web, HttpResponse, Responder};
+use sqlx::Row;
+
+use crate::state::AppState;
+use crate::ollama::smc_analyse::{analyser_strategie, SignalSMCClotl};
+use db::Database;
+
+const MIN_TRADES: i64 = 5;
+const LIMITE_TRADES: i64 = 100;
+
+// ── Handlers HTTP ─────────────────────────────────────────────────────────────
+
+/// POST /api/smc/analyse-llm — déclenche une analyse stratégique immédiate.
+pub async fn lancer_analyse(state: web::Data<AppState>) -> impl Responder {
+    match executer_analyse(&state.db).await {
+        Ok(analyse) => HttpResponse::Ok().json(analyse),
+        Err(e) => {
+            tracing::error!("Analyse LLM SMC: {}", e);
+            HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": e.to_string() }))
+        }
+    }
+}
+
+/// GET /api/smc/analyse-llm — retourne la dernière analyse stockée.
+pub async fn get_derniere_analyse(state: web::Data<AppState>) -> impl Responder {
+    match lire_derniere_analyse(state.db.pool()).await {
+        Ok(Some(a)) => HttpResponse::Ok().json(a),
+        Ok(None) => HttpResponse::NoContent().finish(),
+        Err(e) => {
+            tracing::error!("Lecture analyse LLM SMC: {}", e);
+            HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": e.to_string() }))
+        }
+    }
+}
+
+// ── Logique métier ────────────────────────────────────────────────────────────
+
+async fn charger_signaux_smc(db: &Database, limite: i64) -> anyhow::Result<Vec<SignalSMCClotl>> {
+    let rows = sqlx::query(
+        "SELECT asset, timeframe, direction, score, statut, verdict,
+                llm_conviction, cree_le
+         FROM signaux
+         WHERE statut IN ('Fermé', 'Actif')
+         ORDER BY cree_le DESC
+         LIMIT ?",
+    )
+    .bind(limite)
+    .fetch_all(db.pool())
+    .await?;
+
+    Ok(rows
+        .iter()
+        .map(|row| SignalSMCClotl {
+            asset: row.get("asset"),
+            timeframe: row.get("timeframe"),
+            direction: row.get("direction"),
+            _score: row.get("score"),
+            statut: row.get("statut"),
+            verdict: row.get("verdict"),
+            llm_conviction: row.get("llm_conviction"),
+            _cree_le: row.get("cree_le"),
+        })
+        .collect())
+}
+
+async fn sauvegarder_analyse(
+    pool: &sqlx::SqlitePool,
+    nb_trades: i64,
+    synthese: &str,
+    meilleur_setup: Option<&str>,
+    pire_setup: Option<&str>,
+    recommandations_json: &str,
+) -> anyhow::Result<i64> {
+    let row = sqlx::query(
+        "INSERT INTO smc_analyses_llm
+         (nb_trades, synthese, meilleur_setup, pire_setup, recommandations)
+         VALUES (?, ?, ?, ?, ?)
+         RETURNING id",
+    )
+    .bind(nb_trades)
+    .bind(synthese)
+    .bind(meilleur_setup)
+    .bind(pire_setup)
+    .bind(recommandations_json)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.get("id"))
+}
+
+async fn lire_derniere_analyse(
+    pool: &sqlx::SqlitePool,
+) -> anyhow::Result<Option<serde_json::Value>> {
+    let row = sqlx::query(
+        "SELECT id, nb_trades, synthese, meilleur_setup, pire_setup,
+                recommandations, cree_le
+         FROM smc_analyses_llm ORDER BY cree_le DESC LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    Ok(row.map(|r| {
+        let recomm_raw: String = r.get("recommandations");
+        let recommandations: serde_json::Value =
+            serde_json::from_str(&recomm_raw).unwrap_or(serde_json::json!([]));
+        serde_json::json!({
+            "id":              r.get::<i64, _>("id"),
+            "nb_trades":       r.get::<i64, _>("nb_trades"),
+            "synthese":        r.get::<String, _>("synthese"),
+            "meilleur_setup":  r.get::<Option<String>, _>("meilleur_setup"),
+            "pire_setup":      r.get::<Option<String>, _>("pire_setup"),
+            "recommandations": recommandations,
+            "cree_le":         r.get::<String, _>("cree_le"),
+        })
+    }))
+}
+
+async fn executer_analyse(db: &Database) -> anyhow::Result<serde_json::Value> {
+    let signaux = charger_signaux_smc(db, LIMITE_TRADES).await?;
+    let fermes = signaux.iter().filter(|s| s.statut == "Fermé").count() as i64;
+
+    if fermes < MIN_TRADES {
+        anyhow::bail!(
+            "Pas assez de trades SMC clôturés ({} < {})",
+            fermes,
+            MIN_TRADES
+        );
+    }
+
+    let reponse = analyser_strategie(&signaux).await?;
+    let recommandations_json = serde_json::to_string(&reponse.recommandations)?;
+
+    let id = sauvegarder_analyse(
+        db.pool(),
+        signaux.len() as i64,
+        &reponse.synthese,
+        reponse.meilleur_setup.as_deref(),
+        reponse.pire_setup.as_deref(),
+        &recommandations_json,
+    )
+    .await?;
+
+    tracing::info!(
+        "Analyse LLM SMC sauvegardée (id={}, {} signaux)",
+        id,
+        signaux.len()
+    );
+
+    lire_derniere_analyse(db.pool())
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("Analyse SMC introuvable après insertion"))
+}

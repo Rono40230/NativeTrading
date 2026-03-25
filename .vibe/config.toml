@@ -6,8 +6,8 @@
 name = "Native Trading AI"
 # Stack supportée: "rust", "vue"
 stack = ["rust", "vue"]
-# Force nommage métier en français, APIs standard en anglais OK
-language = "fr"
+# Aucune langue imposée pour le nommage (fr/en libre)
+language = "agnostic"
 
 [sentinel]
 # Fréquence de vérification (secondes)
@@ -49,6 +49,8 @@ custom_plugins = []
 [quality]
 # Limites strictes (CRITIQUE - Voir Règle 16 .clinerules)
 max_file_lines = 300
+# Seuil d'alerte anticipée pendant le développement
+file_lines_warning = 250
 max_function_lines = 30
 max_complexity = 10
 
@@ -88,7 +90,8 @@ block_on_warning = false
 require_tests = true
 
 # Exiger une documentation à jour ?
-require_docs = true
+# Mode solo: pas de documentation de suivi exigée
+require_docs = false
 
 # Seuil de sécurité cargo-audit (low, moderate, high)
 security_threshold = "high"
@@ -185,9 +188,18 @@ max_websocket_reconnect = 10   # Tentatives reconnexion WebSocket
 
 [documentation]
 # Exigences documentation
-require_function_docs = true   # Fonctions publiques doivent avoir docs
-require_module_docs = true     # Modules doivent avoir docs niveau fichier
+require_function_docs = false  # Mode solo: docs fonctions non obligatoires
+require_module_docs = false    # Mode solo: docs modules non obligatoires
 docs_language = "fr"           # Langue documentation
+
+[frontend_ui]
+# Standards UI globaux pour toutes les apps
+dark_mode_required = true
+tauri_vue_required = true
+collapsible_sidebar_required = true
+horizontal_menu_forbidden = true
+dropdown_background = "white"
+dropdown_text_color = "black"
 
 [experimental]
 # Features expérimentales Vibe Framework

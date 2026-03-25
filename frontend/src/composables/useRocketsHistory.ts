@@ -1,8 +1,40 @@
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Ref } from 'vue'
 import { apiService } from '@/services/api.service'
-import type { RocketSignalHistorique } from '@/services/api.types'
-import { useAlerteStore } from '@/stores/alerte.store'
+import type { RocketSignalHistorique, Signal } from '@/services/api.types'
+import { usePrixStore } from '@/stores/prix.store'
+
+// Normalise les verdicts rockets (invalide/confirme) vers les valeurs Signal (SL/TP1)
+function normaliserVerdictRocket(v: string | null): string | null {
+  if (v === 'invalide') return 'SL'
+  if (v === 'confirme') return 'TP1'
+  return v // TP1, TP2, TP3, expire, null → inchangés
+}
+
+export function rocketToSignal(r: RocketSignalHistorique): Signal {
+  const verdict = normaliserVerdictRocket(r.verdict)
+  return {
+    id: String(r.id),
+    asset: r.ticker,
+    timeframe: r.phase,
+    direction: 'LONG',
+    score: r.score,
+    prix_entree: r.prix_entree,
+    stop_loss: r.stop_loss,
+    take_profit: [r.target, ...(r.target2 ? [r.target2] : []), ...(r.target3 ? [r.target3] : [])],
+    strategie: 'Rockets',
+    statut: verdict ? 'Fermé' : 'Actif',
+    verdict,
+    prix_verdict: r.prix_verdict,
+    ferme_le: null,
+    cree_le: Math.floor(new Date(r.cree_le).getTime() / 1000),
+    llm_valide: r.llm_valide,
+    llm_conviction: r.llm_conviction,
+    llm_raison: r.llm_raison,
+    llm_sl_suggere: null,
+    llm_tp1_suggere: null,
+  }
+}
 
 export function useRocketsHistory(
   rocketsMode: Ref<boolean>,
@@ -10,39 +42,20 @@ export function useRocketsHistory(
   triColonne: Ref<string>,
   triDir: Ref<'asc' | 'desc'>,
 ) {
-  const alerteStore = useAlerteStore()
+  const prixStore = usePrixStore()
   const rockets = ref<RocketSignalHistorique[]>([])
   const prixActuels = ref<Record<string, number>>({})
 
-  // ── Chargement ────────────────────────────────────────────────────────────
+  // ── Mise à jour prix depuis le store centralisé ───────────────────────────
 
-  async function chargerRockets() {
-    await apiService.syncRockets().catch(() => {})
-    rockets.value = await apiService.historiqueRockets(200)
-    const tickers = [...new Set(rockets.value.map(r => r.ticker))]
-    prixActuels.value = {}
-    await Promise.allSettled(
-      tickers.map(async ticker => {
-        const prix = await apiService.getPrixActuel(ticker)
-        if (prix !== null) prixActuels.value[ticker] = prix
-      })
-    )
-  }
-
-  // ── Rafraîchissement prix (toutes les 5s) ─────────────────────────────────
-
-  async function rafraichirPrix() {
-    if (!rocketsMode.value || rockets.value.length === 0) return
+  function mettreAJourPrix() {
     const enCours = rockets.value.filter(r => !r.verdict)
-    const tickers = [...new Set(enCours.map(r => r.ticker))]
-    if (tickers.length === 0) return
+    if (enCours.length === 0) return
 
-    await Promise.allSettled(
-      tickers.map(async ticker => {
-        const prix = await apiService.getPrixActuel(ticker)
-        if (prix !== null) prixActuels.value[ticker] = prix
-      })
-    )
+    for (const r of enCours) {
+      const prix = prixStore.getPrix(r.ticker)
+      if (prix !== null) prixActuels.value[r.ticker] = prix
+    }
 
     const franchissement = enCours.some(r => {
       const prix = prixActuels.value[r.ticker]
@@ -55,24 +68,24 @@ export function useRocketsHistory(
     })
 
     if (franchissement) {
-      await apiService.syncRockets().catch(() => {})
-      rockets.value = await apiService.historiqueRockets(200).catch(() => rockets.value)
+      apiService.syncRockets().catch(() => {}).then(() =>
+        apiService.historiqueRockets(200).then(data => { rockets.value = data }).catch(() => {})
+      )
     }
   }
 
-  // ── Boucle de rafraîchissement ────────────────────────────────────────────
+  // Réagit automatiquement aux mises à jour du store (toutes les 10s)
+  watch(() => prixStore.tickers, () => {
+    if (rocketsMode.value && rockets.value.length > 0) mettreAJourPrix()
+  })
 
-  let timeoutPrix: ReturnType<typeof setTimeout> | null = null
-  let actif = false
+  // ── Chargement ────────────────────────────────────────────────────────────
 
-  async function boucleRafraichissement() {
-    if (!actif) return
-    await rafraichirPrix()
-    if (actif) timeoutPrix = setTimeout(boucleRafraichissement, 5_000)
+  async function chargerRockets() {
+    await apiService.syncRockets().catch(() => {})
+    rockets.value = await apiService.historiqueRockets(200)
+    mettreAJourPrix()
   }
-
-  onMounted(() => { actif = true; boucleRafraichissement() })
-  onUnmounted(() => { actif = false; if (timeoutPrix) clearTimeout(timeoutPrix) })
 
   // ── Filtrage + tri ────────────────────────────────────────────────────────
 

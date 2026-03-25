@@ -3,9 +3,9 @@ use data::{providers::BinanceProvider, providers::IbGatewayProvider, DataProvide
 
 use crate::ollama::straddle_analyse;
 use crate::state::AppState;
-use crate::straddle_precision;
 use crate::straddle_utils::{
-    limite_bougies, periode_en_mois, MaJCreneau, ReponseAnalyse, RequeteAnalyse, MAX_BOUGIES_RESEAU,
+    limite_bougies, periode_en_mois, MaJCreneau, RequeteAnalyse, ReponseAnalyse,
+    MAX_BOUGIES_RESEAU,
 };
 use crate::utils::parse_asset;
 
@@ -38,19 +38,13 @@ pub async fn analyser(
     );
 
     // Récupérer les bougies H1 (cache DB puis provider réseau en fallback)
-    let bougies = match state
-        .db
-        .obtenir_bougies(&asset, &Timeframe::H1, limite as i64)
-        .await
-    {
+    let bougies = match state.db.obtenir_bougies(&asset, &Timeframe::H1, limite as i64).await {
         Ok(b) if !b.is_empty() => b,
         _ => {
             // Fallback: provider réseau (plafonné car API Binance : max 1000/appel)
             let limite_reseau = limite.min(MAX_BOUGIES_RESEAU);
             let res = if asset.is_crypto() {
-                BinanceProvider
-                    .fetch_candles(asset.clone(), Timeframe::H1, limite_reseau)
-                    .await
+                BinanceProvider.fetch_candles(asset.clone(), Timeframe::H1, limite_reseau).await
             } else {
                 IbGatewayProvider::new(state.ib_port, state.ib_client_id)
                     .fetch_candles(asset.clone(), Timeframe::H1, limite_reseau)
@@ -145,14 +139,79 @@ pub async fn analyser(
     }
 }
 
-// ── GET /api/straddle/creneaux ────────────────────────────────────────────────
+// ── POST /api/straddle/creneaux/{id}/precision ──────────────────────────────
+/// Analyse la précision M5 (timing optimal) pour un créneau existant.
+#[derive(serde::Deserialize)]
+pub struct RequetePrecision {
+    pub asset: String,
+    pub jour_semaine: Option<i64>,
+    pub heure_debut: String,
+    pub heure_fin: String,
+}
+
+pub async fn handler_analyser_precision(
+    state: web::Data<AppState>,
+    path: web::Path<i64>,
+    body: web::Json<RequetePrecision>,
+) -> impl Responder {
+    use common::Timeframe;
+    let id = path.into_inner();
+    let asset = match crate::utils::parse_asset(&body.asset) {
+        Some(a) => a,
+        None => {
+            return HttpResponse::BadRequest()
+                .json(serde_json::json!({ "error": "Asset inconnu" }))
+        }
+    };
+
+    let bougies = match state
+        .db
+        .obtenir_bougies(&asset, &Timeframe::M5, 20000)
+        .await
+    {
+        Ok(b) => b,
+        Err(e) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": e.to_string() }))
+        }
+    };
+
+    let precision = crate::straddle_precision::analyser_precision(
+        &bougies,
+        body.jour_semaine,
+        &body.heure_debut,
+        &body.heure_fin,
+    );
+
+    match precision {
+        None => HttpResponse::Ok().json(
+            serde_json::json!({ "ok": false, "message": "Données insuffisantes" }),
+        ),
+        Some(p) => {
+            if let Err(e) =
+                db::straddle::mettre_a_jour_precision(state.db.pool(), id, &p).await
+            {
+                return HttpResponse::InternalServerError()
+                    .json(serde_json::json!({ "error": e.to_string() }));
+            }
+            HttpResponse::Ok().json(serde_json::json!({
+                "ok": true,
+                "timing_optimal": p.timing_optimal,
+                "fenetre_entree": p.fenetre_entree,
+                "whipsaw_minutes": p.whipsaw_minutes,
+                "nb_occurrences": p.nb_occurrences,
+                "atr_pic": p.atr_pic,
+            }))
+        }
+    }
+}
+
 /// Liste tous les créneaux identifiés, triés par conviction LLM.
 pub async fn lister_creneaux(state: web::Data<AppState>) -> impl Responder {
     match db::straddle::lister_creneaux(state.db.pool()).await {
         Ok(creneaux) => HttpResponse::Ok().json(creneaux),
-        Err(e) => {
-            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
-        }
+        Err(e) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "error": e.to_string() })),
     }
 }
 
@@ -174,111 +233,7 @@ pub async fn mettre_a_jour_creneau(
     .await
     {
         Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
-        Err(e) => {
-            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
-        }
-    }
-}
-
-// ── POST /api/straddle/creneaux/{id}/precision ───────────────────────────────
-/// Analyse les bougies M5 pour calculer la précision d'entrée sur un créneau.
-pub async fn analyser_precision(
-    state: web::Data<AppState>,
-    path: web::Path<i64>,
-) -> impl Responder {
-    use common::Timeframe;
-    let id = path.into_inner();
-
-    let creneau = match db::straddle::lister_creneaux(state.db.pool()).await {
-        Ok(liste) => match liste.into_iter().find(|c| c.id == id) {
-            Some(c) => c,
-            None => {
-                return HttpResponse::NotFound()
-                    .json(serde_json::json!({ "error": "Créneau introuvable" }))
-            }
-        },
-        Err(e) => {
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": e.to_string() }))
-        }
-    };
-
-    let asset = match parse_asset(&creneau.asset) {
-        Some(a) => a,
-        None => {
-            return HttpResponse::BadRequest()
-                .json(serde_json::json!({ "error": "Asset non supporté" }))
-        }
-    };
-
-    let limite_m5 = 6 * 30 * 24 * 12_i64;
-    let candles_m5 = match state
-        .db
-        .obtenir_bougies(&asset, &Timeframe::M5, limite_m5)
-        .await
-    {
-        Ok(b) if !b.is_empty() => b,
-        _ => {
-            let res = if asset.is_crypto() {
-                BinanceProvider
-                    .fetch_candles(asset.clone(), Timeframe::M5, 1000)
-                    .await
-            } else {
-                IbGatewayProvider::new(state.ib_port, state.ib_client_id)
-                    .fetch_candles(asset.clone(), Timeframe::M5, 1000)
-                    .await
-            };
-            match res {
-                Ok(b) => {
-                    let _ = state.db.inserer_bougies(&asset, &Timeframe::M5, &b).await;
-                    b
-                }
-                Err(e) => {
-                    return HttpResponse::Ok().json(serde_json::json!({
-                        "ok": false,
-                        "message": format!(
-                            "Données M5 indisponibles pour {} : {}. Vérifiez que le provider est démarré.",
-                            creneau.asset, e
-                        )
-                    }))
-                }
-            }
-        }
-    };
-
-    tracing::info!(
-        "Précision M5 créneau#{} {} {}–{}: {} bougies M5",
-        id,
-        creneau.asset,
-        creneau.heure_debut,
-        creneau.heure_fin,
-        candles_m5.len()
-    );
-
-    match straddle_precision::analyser_precision(
-        &candles_m5,
-        creneau.jour_semaine,
-        &creneau.heure_debut,
-        &creneau.heure_fin,
-    ) {
-        Some(precision) => {
-            let result = serde_json::json!({
-                "timing_optimal": precision.timing_optimal,
-                "fenetre_entree": precision.fenetre_entree,
-                "whipsaw_minutes": precision.whipsaw_minutes,
-                "nb_occurrences": precision.nb_occurrences,
-                "atr_pic": precision.atr_pic,
-            });
-            if let Err(e) =
-                db::straddle::mettre_a_jour_precision(state.db.pool(), id, &precision).await
-            {
-                tracing::warn!("Impossible de sauvegarder la précision M5: {}", e);
-            }
-            HttpResponse::Ok().json(result)
-        }
-        None => HttpResponse::Ok().json(serde_json::json!({
-            "ok": false,
-            "message": "Pas assez de bougies M5 dans ce créneau pour calculer la précision."
-        })),
+        Err(e) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "error": e.to_string() })),
     }
 }

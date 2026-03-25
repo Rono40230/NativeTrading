@@ -15,7 +15,7 @@
         <span v-if="erreur" class="text-[10px] text-red-400">Erreur Binance</span>
         <span v-if="chargement" class="text-[9px] text-orange-400">{{ progression }}%</span>
         <div v-if="chargement" class="h-2 w-2 animate-pulse rounded-full bg-orange-500" />
-        <span v-else-if="signaux.length > 0" class="text-[9px] text-gray-600">5min</span>
+        <span v-else-if="signaux.length > 0" class="text-[9px] text-gray-600">{{ countdown }}s</span>
         <button
           v-if="signaux.length > 0"
           class="text-[10px] font-semibold text-orange-300 hover:text-orange-100 border border-orange-500/40 hover:border-orange-400/70 rounded-lg px-2.5 py-1 transition-all hover:bg-orange-500/10"
@@ -102,7 +102,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { SignalRocket, PhaseRocket } from '@/composables/useVeilleRockets'
 import RocketsOpportunitesModal from '@/components/common/RocketsOpportunitesModal.vue'
 
@@ -170,8 +170,21 @@ function onCardClick(event: MouseEvent, s: SignalRocket) {
 }
 
 function fermerTooltip() { hovered.value = null }
-onMounted(() => document.addEventListener('click', fermerTooltip))
-onUnmounted(() => document.removeEventListener('click', fermerTooltip))
+
+// Countdown 30s : se réinitialise quand le scan se termine
+const SCAN_S = 30
+const countdown = ref(SCAN_S)
+let tickInterval: ReturnType<typeof setInterval> | null = null
+watch(() => props.chargement, (val) => { if (!val) countdown.value = SCAN_S })
+
+onMounted(() => {
+  document.addEventListener('click', fermerTooltip)
+  tickInterval = setInterval(() => { if (countdown.value > 0) countdown.value-- }, 1000)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', fermerTooltip)
+  if (tickInterval) clearInterval(tickInterval)
+})
 </script>
 
 <style scoped>

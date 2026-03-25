@@ -34,20 +34,19 @@
 - **Communication** : Français, orienté solution, métriques quantitatives
 
 ### RÈGLE 2 : Conventions de Nommage (CRITIQUE / VIBEOS)
-**Domaine Trading = Métier Français prioritaire**
+**AUCUNE langue imposée pour les noms**.
 
-#### Backend Rust (Métier en français)
-- ✅ `calculer_volatilite()`, `detecter_order_block()`, `executer_strategie()`
-- ✅ `struct Signal`, `struct Bougie`, `enum Direction`
-- ✅ Variables métier : `prix_ouverture`, `volume_moyen`, `seuil_risque`
-- ⚠️ APIs externes : `request()`, `parse()`, `serialize()` (anglais OK)
+#### Backend Rust (Nommage libre, cohérent)
+- ✅ Noms explicites et métier : `calculer_volatilite()`, `compute_volatility()`
+- ✅ Types clairs : `struct Signal`, `struct Candle`, `enum Direction`
+- ⚠️ APIs externes : garder leur vocabulaire standard (`request`, `parse`, `serialize`)
 
-#### Frontend Vue.js (Métier en français)
-- ✅ `calculerRendement()`, `formaterDateTrade()`, `afficherAlertes()`
-- ✅ `const signalActif`, `let prochainSignal`, `const tauxReussite`
-- ⚠️ Composants : `<SignalCard>`, `<ChartView>` (anglais OK pour composants)
+#### Frontend Vue.js (Nommage libre, cohérent)
+- ✅ Fonctions/variables lisibles : `calculerRendement()`, `computeReturn()`
+- ✅ Composants en PascalCase : `<SignalCard>`, `<ChartView>`
 
-**Cohérence** : camelCase (JS/TS), snake_case (Rust), PascalCase (Types/Composants)
+**Cohérence obligatoire** : camelCase (JS/TS), snake_case (Rust), PascalCase (Types/Composants).
+**Interdit** : mélanger plusieurs conventions dans un même module.
 
 ### RÈGLE 3 : Intégrité des Dépendances (Anti-Hallucination)
 - **JAMAIS** inventer de dépendance
@@ -67,6 +66,7 @@
 
 **Frontend Vue.js 3 + Tauri :**
 - **Tauri** — wrapper natif Linux (fenêtre système, pas de navigateur)
+- **Tauri + Vue.js obligatoires pour toutes les applications du workspace**
 - Composition API (`<script setup>` obligatoire)
 - TypeScript strict
 - Pinia (state management)
@@ -217,11 +217,16 @@ try {
 - Signal generation logic
 - Backtesting engine accuracy
 
-### RÈGLE 9 : Documentation & Traçabilité
-**REQUIS ABSOLU** :
-- Fonctions publiques : Doc Rust (`///`) ou JSDoc (`/** */`)
-- Algorithmes complexes : Commentaires inline français
-- Pas de code cryptique : Lisibilité > Concision
+### RÈGLE 9 : Documentation Minimale (Mode Solo)
+**PRINCIPE** : Aucun fichier de documentation/suivi généré pendant le développement vibe coding.
+
+**INTERDIT** :
+- Créer ou mettre à jour des fichiers de type compte-rendu, journal de suivi, explication de changements, changelog interne.
+- Ajouter des documents dédiés uniquement à expliquer ce qui vient d'être codé.
+
+**AUTORISÉ UNIQUEMENT SI NÉCESSAIRE** :
+- Commentaires inline courts quand un bloc est réellement complexe.
+- Lisibilité du code prioritaire, sans sur-documentation.
 
 **ERREURS UX** :
 - Jamais de page blanche sans message
@@ -254,10 +259,17 @@ if duree > Duration::from_millis(200) {
 ### RÈGLE 11 : Design Trading Premium
 **STYLE IMPOSÉ** :
 - Dark Mode natif (fond #0a0e27 ou équivalent)
+- Navigation via sidebar rétractable obligatoire
+- Jamais de menu principal en barre horizontale
 - Palette : Vert success (#10b981), Rouge danger (#ef4444), Bleu info (#3b82f6)
 - Glassmorphism : `backdrop-blur-md bg-white/10`
 - Animations : Framer Motion ou Tailwind transitions
 - Responsive : Mobile-first (priorité Desktop mais adaptable)
+
+**DROPDOWNS (LISIBILITÉ NON NÉGOCIABLE)** :
+- Fond blanc obligatoire
+- Texte noir obligatoire
+- États hover/focus doivent conserver un contraste lisible
 
 **COMPOSANTS CRITIQUES** :
 - Graphiques temps réel TradingView (pas de Chart.js)
@@ -405,6 +417,7 @@ impl GestionnaireRisque {
 - `max_complexity = 10`
 
 **SI DÉPASSEMENT** : Refactoring immédiat obligatoire.
+**PENDANT LE DÉVELOPPEMENT** : vérifier la taille des fichiers créés/modifiés à chaque lot de changements pour éviter les refactorings massifs en phase d'audit.
 
 ### RÈGLE 17 : Logging & Observabilité
 ```rust
@@ -459,6 +472,21 @@ Objectifs Phase Production (14 semaines) :
 - ✅ Win rate >55%
 - ✅ Max drawdown <20%
 - ✅ Inférence <200ms
+
+---
+
+---
+
+### RÈGLE 21 : Post-Refactorisation (OBLIGATOIRE)
+
+Après **tout** refactoring (extraction composable, split fichier, déplacement de fonction, renommage) :
+- ❌ Ne jamais enchaîner sur la tâche suivante directement
+- ✅ Demander SYSTÉMATIQUEMENT à l'utilisateur de tester dans l'app
+- ✅ Lister les points précis à vérifier (fonctionnalités impactées)
+- ✅ Attendre confirmation "ça marche" avant de continuer
+
+**Formule obligatoire** :
+> "Avant de continuer, vérifie dans l'app : [liste des points impactés]. Des régressions ou erreurs ?"
 
 ---
 

@@ -133,6 +133,11 @@ export interface Signal {
   prix_verdict: number | null
   ferme_le: number | null
   cree_le: number
+  llm_valide: number | null      // 1=validé | 0=rejeté | null=LLM indispo
+  llm_conviction: number | null  // 0–100
+  llm_raison: string | null
+  llm_sl_suggere: number | null
+  llm_tp1_suggere: number | null
 }
 
 export interface StatutSignalEngine {

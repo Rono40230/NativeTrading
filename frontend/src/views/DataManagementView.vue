@@ -171,13 +171,15 @@ const bougiesParMoisParTf: Record<string, number> = {
 }
 
 const lignesEnrichies = computed(() =>
-  couverture.value.map(c => {
-    const attendu = (bougiesParMoisParTf[c.timeframe] ?? 1) * moisSelectionne.value
-    const pct = Math.min(100, Math.round((c.count / attendu) * 100))
-    const dateMin = c.min_ts ? new Date(c.min_ts * 1000).toLocaleDateString('fr-FR') : '—'
-    const dateMax = c.max_ts ? new Date(c.max_ts * 1000).toLocaleDateString('fr-FR') : '—'
-    return { ...c, pct, dateMin, dateMax }
-  })
+  couverture.value
+    .filter(c => TOUS_ASSETS.value.includes(c.asset))
+    .map(c => {
+      const attendu = (bougiesParMoisParTf[c.timeframe] ?? 1) * moisSelectionne.value
+      const pct = Math.min(100, Math.round((c.count / attendu) * 100))
+      const dateMin = c.min_ts ? new Date(c.min_ts * 1000).toLocaleDateString('fr-FR') : '—'
+      const dateMax = c.max_ts ? new Date(c.max_ts * 1000).toLocaleDateString('fr-FR') : '—'
+      return { ...c, pct, dateMin, dateMax }
+    })
 )
 
 async function chargerCouverture() {

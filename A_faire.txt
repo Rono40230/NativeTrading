@@ -1,12 +1,6 @@
 --------------------------------------------------------------------------------------------------------------------------
 
-A ajouter dans le vibe coding pour toute les app à developper :
-1 - toujours en mode sombre
-2 - toujours tauri + vue
-3 - toujours avec une sidebar rétractable comme menu = jamais de menu en barre horizontale
-4 - le texte toujours en noir dans les dropdowns sur fond blanc
-5 - toujours vérifier la taille des fichiers créés et modifiés en cours de développement pour ne pas avoir à faire de grosses refactorisations lors des audits.
-6 - Supprimer la règle de nommage des fichiers en français.
+
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -14,33 +8,32 @@ Analyse ces bugs de terminal lorsque IB gateway est connecté.
 
 --------------------------------------------------------------------------------------------------------------------------
 
-La modale qui s'affiche au clic sur le bouton "Analyse (IA)" dans la fenetre graphiques prend elle en compte le nouveau prompt SMC ?
+
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Vérifier que le badge IA apparaisse dans sa colonne
+
 
 --------------------------------------------------------------------------------------------------------------------------
-
 
 
 --------------------------------------------------------------------------------------------------------------------------
 
 Analyse dans les moindre détails ce code.
-Fais moi un état complet de ces fonctionnalités, de ses objectifs et de la manière dont il utilise l'IA et le LLM
+Je veux un état complet et exhaustif de ces fonctionnalités, de ses objectifs et de la manière dont il utilise l'IA et le LLM
 Je veux que tu me dises si tu y trouves :
 - des erreurs de logiques
 - des erreurs d'architecture
 - des doublons de code ou du code mort 
-- des carences/erreurs/manquement dans la manière dont il gère l'IA locale 
-- 
+- des carences/erreurs/manquement dans la manière dont il gère l'IA locale
+- des incohérences/manquements entre backend et Frontend
 
-Dis moi ce qui pourrait être supprimé/améliorer pour qu'il soit utilisé à usage professionnel et capable de produire des signaux de trading surs et rentables.
+
+Dis moi ce qui pourrait être supprimé/améliorer pour qu'il soit utilisé à usage professionnel
+et capable de produire des signaux de trading surs et rentables.
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Est ce que le fichier App.jsx est utile dans le code ?
 
-Dans la page "Données historiques" on a bien en haut l'affichage des assets correspondants à ceux de "surveillance assets" dans le dashboard.
-Par contre je veux que dans la liste/tableau de la page n'apparaissent également que ces assets = aucun autre.
+
 
