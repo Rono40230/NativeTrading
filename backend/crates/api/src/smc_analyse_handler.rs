@@ -2,7 +2,10 @@
 //! POST /api/smc/analyse-llm  — déclenche une analyse sur demande.
 //! GET  /api/smc/analyse-llm  — retourne la dernière analyse stockée.
 use actix_web::{web, HttpResponse, Responder};
+use chrono::{Datelike, Timelike, Utc, Weekday};
 use sqlx::Row;
+use std::sync::Arc;
+use tokio::time::Duration;
 
 use crate::state::AppState;
 use crate::ollama::smc_analyse::{analyser_strategie, SignalSMCClotl};
@@ -153,4 +156,45 @@ async fn executer_analyse(db: &Database) -> anyhow::Result<serde_json::Value> {
     lire_derniere_analyse(db.pool())
         .await?
         .ok_or_else(|| anyhow::anyhow!("Analyse SMC introuvable après insertion"))
+}
+
+// ── Worker hebdomadaire planifié ─────────────────────────────────────────────
+
+/// Attend jusqu'au prochain lundi 02h00 UTC.
+fn secondes_jusqu_lundi_2h_utc() -> u64 {
+    let now = Utc::now();
+    // jours jusqu'au lundi (0=lundi dans notre sens)
+    let jours_restants = match now.weekday() {
+        Weekday::Mon => 7, // déjà lundi → prochain lundi
+        Weekday::Tue => 6,
+        Weekday::Wed => 5,
+        Weekday::Thu => 4,
+        Weekday::Fri => 3,
+        Weekday::Sat => 2,
+        Weekday::Sun => 1,
+    };
+    let secondes_journee =
+        now.hour() as u64 * 3600 + now.minute() as u64 * 60 + now.second() as u64;
+    // secondes restantes dans la journée + jours complets + 2h (02:00 UTC)
+    let restant_journee = 86400u64.saturating_sub(secondes_journee);
+    restant_journee + (jours_restants - 1) * 86400 + 2 * 3600
+}
+
+/// Worker planifié : déclenche l'analyse SMC LLM chaque lundi à 02h00 UTC.
+pub async fn demarrer_worker_analyse_smc(db: Arc<Database>) {
+    let attente = secondes_jusqu_lundi_2h_utc();
+    tracing::info!(
+        "⏰ Analyse SMC hebdo: prochain déclenchement dans {}h{}m (lundi 02:00 UTC)",
+        attente / 3600,
+        (attente % 3600) / 60
+    );
+    tokio::time::sleep(Duration::from_secs(attente)).await;
+
+    loop {
+        match executer_analyse(&db).await {
+            Ok(_) => tracing::info!("✅ Analyse LLM SMC hebdo terminée"),
+            Err(e) => tracing::warn!("❌ Analyse LLM SMC hebdo: {}", e),
+        }
+        tokio::time::sleep(Duration::from_secs(7 * 24 * 3600)).await;
+    }
 }

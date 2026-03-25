@@ -11,6 +11,7 @@
           >
             <span class="text-sm leading-none">{{ item.icone }}</span>
             <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider flex-1 text-left">{{ item.groupe }}</span>
+            <span v-if="item.groupe === 'SMC' && nouvelleAnalyse" class="w-2 h-2 rounded-full bg-orange-400 animate-pulse" title="Nouvelle analyse SMC disponible" />
             <span class="text-gray-600 text-[10px] transition-transform duration-200" :class="groupesOuverts[item.groupe] ? 'rotate-180' : ''">▼</span>
           </button>
           <div v-show="groupesOuverts[item.groupe]" class="flex flex-col gap-0.5">
@@ -49,6 +50,9 @@
 <script setup lang="ts">
 import { computed, reactive } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useSmcAnalyseNotif } from '@/composables/useSmcAnalyseNotif'
+
+const { nouvelleAnalyse } = useSmcAnalyseNotif()
 
 type LienSimple = { to: string; icone: string; label: string }
 type LienGroupe = { groupe: string; icone: string; liens: LienSimple[] }

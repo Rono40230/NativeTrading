@@ -78,6 +78,10 @@ async fn main() -> std::io::Result<()> {
         pool_signaux,
     ));
 
+    tokio::spawn(smc_analyse_handler::demarrer_worker_analyse_smc(
+        app_state.db.clone(),
+    ));
+
     HttpServer::new(move || {
         // CORS limité au dev Tauri uniquement — en production l'app est native (fenêtre Tauri)
         let cors = Cors::default()
