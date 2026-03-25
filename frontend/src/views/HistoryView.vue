@@ -66,7 +66,7 @@
           <tr class="text-gray-400 text-xs uppercase border-b border-white/10">
             <th class="px-3 py-3 text-left">#</th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('asset')">Asset <span class="tri-icone">{{ icone('asset') }}</span></th>
-            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('timeframe')">TF <span class="tri-icone">{{ icone('timeframe') }}</span></th>
+            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('timeframe')">TF / Phase <span class="tri-icone">{{ icone('timeframe') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('direction')">Direction <span class="tri-icone">{{ icone('direction') }}</span></th>
             <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('score')">Score <span class="tri-icone">{{ icone('score') }}</span></th>
             <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_entree')">Entrée <span class="tri-icone">{{ icone('prix_entree') }}</span></th>
@@ -264,11 +264,11 @@ async function charger() {
     if (rocketsMode.value) {
       await chargerRockets()
     } else {
-      const [signauxData, rocketsData] = await Promise.all([
+      const [signauxData] = await Promise.all([
         apiService.getSignaux(500),
-        filtreStrategie.value === '' ? apiService.historiqueRockets(200) : Promise.resolve([]),
+        filtreStrategie.value === '' ? chargerRockets() : Promise.resolve(),
       ])
-      const rocketsConverties = rocketsData.map(rocketToSignal)
+      const rocketsConverties = filtreStrategie.value === '' ? rockets.value.map(rocketToSignal) : []
       signaux.value = [...signauxData, ...rocketsConverties]
     }
   } catch (e: unknown) {
