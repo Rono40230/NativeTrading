@@ -3,14 +3,15 @@ use common::{Candle, Direction, Result, TradingError};
 use crate::{
     features::{extraire_features, labelliser, NB_FEATURES},
     lstm::{ModeleHybrideLstm, LONGUEUR_SEQ},
-    modele::ModeleRandomForest,
+    xgboost::ModeleXGBoost,
 };
 
 /// Résultat d'un entraînement walk-forward (métriques out-of-sample)
 pub struct ResultatWalkForward {
-    pub accuracy_rf: f64,
+    /// Accuracy XGBoost out-of-sample
+    pub accuracy_xgb: f64,
     pub accuracy_lstm: f64,
-    /// Score fusion pondéré : 0.6 × lstm + 0.4 × rf
+    /// Score fusion pondéré : 0.6 × lstm + 0.4 × xgb
     pub accuracy_finale: f64,
     pub nb_bougies_train: usize,
     pub nb_bougies_test: usize,
@@ -35,7 +36,7 @@ pub fn entrainer_walk_forward(bougies: &[Candle]) -> Result<ResultatWalkForward>
     let _test = &bougies[split..];
 
     // ── Entraînement sur le jeu train ───────────────────────────────────────
-    let mut rf_tmp = ModeleRandomForest::new(100);
+    let mut xgb_tmp = ModeleXGBoost::new(50);
     let mut lstm_tmp = ModeleHybrideLstm::nouveau(NB_FEATURES);
 
     let mut features_train = Vec::new();
@@ -56,7 +57,7 @@ pub fn entrainer_walk_forward(bougies: &[Candle]) -> Result<ResultatWalkForward>
         ));
     }
 
-    rf_tmp.entrainer(&features_train, &labels_train)?;
+    xgb_tmp.entrainer(&features_train, &labels_train)?;
 
     let sequences: Vec<Vec<Vec<f64>>> = (LONGUEUR_SEQ..features_train.len())
         .map(|i| features_train[i - LONGUEUR_SEQ..i].to_vec())
@@ -68,12 +69,12 @@ pub fn entrainer_walk_forward(bougies: &[Candle]) -> Result<ResultatWalkForward>
     // Le test set commence après 60 bougies de contexte (issues du train)
     let contexte: Vec<Candle> = bougies[split.saturating_sub(60)..].to_vec();
 
-    let acc_rf = evaluer_rf(&rf_tmp, &contexte);
+    let acc_xgb = evaluer_xgb(&xgb_tmp, &contexte);
     let acc_lstm = evaluer_lstm(&lstm_tmp, &contexte);
-    let acc_finale = 0.6 * acc_lstm + 0.4 * acc_rf;
+    let acc_finale = 0.6 * acc_lstm + 0.4 * acc_xgb;
 
     Ok(ResultatWalkForward {
-        accuracy_rf: (acc_rf * 1000.0).round() / 1000.0,
+        accuracy_xgb: (acc_xgb * 1000.0).round() / 1000.0,
         accuracy_lstm: (acc_lstm * 1000.0).round() / 1000.0,
         accuracy_finale: (acc_finale * 1000.0).round() / 1000.0,
         nb_bougies_train: split,
@@ -81,8 +82,8 @@ pub fn entrainer_walk_forward(bougies: &[Candle]) -> Result<ResultatWalkForward>
     })
 }
 
-/// Évalue le RandomForest sur une fenêtre de bougies.
-fn evaluer_rf(rf: &ModeleRandomForest, bougies: &[Candle]) -> f64 {
+/// Évalue le XGBoost sur une fenêtre de bougies.
+fn evaluer_xgb(xgb: &ModeleXGBoost, bougies: &[Candle]) -> f64 {
     let mut ok = 0usize;
     let mut total = 0usize;
     for i in 60..bougies.len() {
@@ -92,12 +93,8 @@ fn evaluer_rf(rf: &ModeleRandomForest, bougies: &[Candle]) -> f64 {
         ) else {
             continue;
         };
-        let Ok(pred) = rf.predire(&f) else { continue };
-        let pred_label = if pred.direction == Direction::Long {
-            1.0
-        } else {
-            0.0
-        };
+        let Ok((direction, _)) = xgb.predire(&f) else { continue };
+        let pred_label = if direction == Direction::Long { 1.0 } else { 0.0 };
         if (pred_label - label).abs() < 0.5 {
             ok += 1;
         }

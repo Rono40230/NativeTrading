@@ -39,7 +39,7 @@ export interface PredictionML {
 
 export interface ReponseEntrainement {
   success: boolean
-  accuracy_rf: number
+  accuracy_xgb: number
   accuracy_lstm: number
   accuracy_finale: number
   nb_echantillons: number
@@ -54,7 +54,7 @@ export interface HistoriqueEntrainement {
   asset: string
   timeframe: string
   nb_bougies: number
-  accuracy_rf: number
+  accuracy_xgb: number
   accuracy_lstm: number
   accuracy_finale: number
   duree_ms: number

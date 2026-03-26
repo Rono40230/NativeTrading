@@ -18,7 +18,7 @@ pub struct EntrainementQuery {
 #[derive(Serialize)]
 pub struct ReponseEntrainement {
     pub success: bool,
-    pub accuracy_rf: f64,
+    pub accuracy_xgb: f64,
     pub accuracy_lstm: f64,
     pub accuracy_finale: f64,
     pub nb_echantillons: usize,
@@ -95,7 +95,7 @@ pub async fn entrainer_ml(
                 asset: format!("{:?}", asset),
                 timeframe: query.timeframe.clone().unwrap_or_else(|| "M15".to_string()),
                 nb_bougies: nb as i64,
-                accuracy_rf: wf.accuracy_rf,
+                accuracy_rf: wf.accuracy_xgb,
                 accuracy_lstm: wf.accuracy_lstm,
                 accuracy_finale: wf.accuracy_finale,
                 duree_ms: duree_ms as i64,
@@ -110,23 +110,23 @@ pub async fn entrainer_ml(
             }
 
             tracing::info!(
-                "Entraînement terminé en {}ms: RF={:.1}% LSTM={:.1}% Finale={:.1}%",
+                "Entraînement terminé en {}ms: XGB={:.1}% LSTM={:.1}% Finale={:.1}%",
                 duree_ms,
-                wf.accuracy_rf * 100.0,
+                wf.accuracy_xgb * 100.0,
                 wf.accuracy_lstm * 100.0,
                 wf.accuracy_finale * 100.0,
             );
             HttpResponse::Ok().json(ReponseEntrainement {
                 success: true,
-                accuracy_rf: wf.accuracy_rf,
+                accuracy_xgb: wf.accuracy_xgb,
                 accuracy_lstm: wf.accuracy_lstm,
                 accuracy_finale: wf.accuracy_finale,
                 nb_echantillons: nb,
                 duree_ms,
                 derive_detectee: derive,
                 message: format!(
-                    "RF: {:.1}% | LSTM: {:.1}% | Finale: {:.1}% ({} bougies en {}ms){}",
-                    wf.accuracy_rf * 100.0,
+                    "XGB: {:.1}% | LSTM: {:.1}% | Finale: {:.1}% ({} bougies en {}ms){}",
+                    wf.accuracy_xgb * 100.0,
                     wf.accuracy_lstm * 100.0,
                     wf.accuracy_finale * 100.0,
                     nb,

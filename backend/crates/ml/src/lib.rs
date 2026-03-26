@@ -6,40 +6,42 @@ pub mod features;
 pub mod lstm;
 pub mod modele;
 pub mod walk_forward;
+pub mod xgboost;
 
 pub use features::{extraire_features, labelliser, NB_FEATURES};
 pub use lstm::{ModeleHybrideLstm, LONGUEUR_SEQ};
 pub use modele::{ModeleRandomForest, PredictionML};
 pub use walk_forward::entrainer_walk_forward;
+pub use xgboost::ModeleXGBoost;
 
-const CHEMIN_RF: &str = "data/modele_rf.json";
+const CHEMIN_XGB: &str = "data/modele_xgboost.json";
 const CHEMIN_LSTM: &str = "data/modele_lstm.json";
 
-/// Pipeline ML hybride : RandomForest (40%) + LSTM (60%)
+/// Pipeline ML hybride : XGBoost (40%) + LSTM (60%)
 pub struct PipelineML {
-    pub modele: ModeleRandomForest,
+    pub xgb: ModeleXGBoost,
     pub lstm: ModeleHybrideLstm,
 }
 
 impl PipelineML {
     pub fn new() -> Self {
         Self {
-            modele: ModeleRandomForest::new(100),
+            xgb: ModeleXGBoost::new(100),
             lstm: ModeleHybrideLstm::nouveau(NB_FEATURES),
         }
     }
 
     /// Tente de charger les modèles persistés depuis le disque.
-    /// Retourne Ok(true) si au moins le RF est chargé, Ok(false) si aucun fichier trouvé.
+    /// Retourne Ok(true) si XGBoost est chargé, Ok(false) si aucun fichier trouvé.
     pub fn charger_depuis_disque(&mut self) -> Result<bool> {
-        let rf_charge = match ModeleRandomForest::charger(CHEMIN_RF) {
-            Ok(rf) => {
-                self.modele = rf;
+        let xgb_charge = match ModeleXGBoost::charger(CHEMIN_XGB) {
+            Ok(xgb) => {
+                self.xgb = xgb;
                 true
             }
             Err(e) => {
                 tracing::debug!(
-                    "RF non chargé depuis disque (normal au 1er démarrage): {}",
+                    "XGBoost non chargé depuis disque (normal au 1er démarrage): {}",
                     e
                 );
                 false
@@ -56,22 +58,22 @@ impl PipelineML {
             }
         }
 
-        if rf_charge {
-            tracing::info!("Pipeline ML rechargé depuis disque");
+        if xgb_charge {
+            tracing::info!("Pipeline ML XGBoost+LSTM rechargé depuis disque");
         }
-        Ok(rf_charge)
+        Ok(xgb_charge)
     }
 
     /// Sauvegarde les modèles entraînés sur disque.
     pub fn sauvegarder_sur_disque(&self) -> Result<()> {
         // Créer le dossier data/ s'il n'existe pas encore
-        if let Some(parent) = std::path::Path::new(CHEMIN_RF).parent() {
+        if let Some(parent) = std::path::Path::new(CHEMIN_XGB).parent() {
             std::fs::create_dir_all(parent)
-                .map_err(|e| TradingError::ML(format!("Création dossier modèles: {}", e)))?;
+                .map_err(|e| TradingError::ML(format!("Création dossier modèles: {}", e)))?
         }
-        self.modele.sauvegarder(CHEMIN_RF)?;
+        self.xgb.sauvegarder(CHEMIN_XGB)?;
         self.lstm.sauvegarder(CHEMIN_LSTM)?;
-        tracing::info!("Pipeline ML sauvegardé sur disque");
+        tracing::info!("Pipeline ML XGBoost+LSTM sauvegardé sur disque");
         Ok(())
     }
 
@@ -105,8 +107,8 @@ impl PipelineML {
             return Err(TradingError::ML("Aucun échantillon valide".into()));
         }
 
-        // ── Entraînement RandomForest ──────────────────────────────────────────
-        let acc_rf = self.modele.entrainer(&features_dataset, &labels)?;
+        // ── Entraînement XGBoost ──────────────────────────────────────────────────
+        let acc_xgb = self.xgb.entrainer(&features_dataset, &labels)?;
 
         // ── Préparation séquences LSTM (T=10 timesteps) ───────────────────────
         let sequences: Vec<Vec<Vec<f64>>> = (LONGUEUR_SEQ..features_dataset.len())
@@ -117,10 +119,10 @@ impl PipelineML {
         let acc_lstm = self.lstm.entrainer(&sequences, &labels_seq, 15, 0.001);
 
         tracing::info!(
-            "Pipeline hybride entraîné en {:?}: {} éch. RF={:.1}% LSTM={:.1}%",
+            "Pipeline hybride XGB+LSTM entraîné en {:?}: {} éch. XGB={:.1}% LSTM={:.1}%",
             debut.elapsed(),
             features_dataset.len(),
-            acc_rf * 100.0,
+            acc_xgb * 100.0,
             acc_lstm * 100.0
         );
 
@@ -129,18 +131,17 @@ impl PipelineML {
             tracing::warn!("Échec sauvegarde pipeline ML: {}", e);
         }
 
-        Ok((acc_rf, acc_lstm))
+        Ok((acc_xgb, acc_lstm))
     }
 
-    /// Inférence hybride — LSTM 60% + RF 40% si LSTM entraîné, sinon RF seul
+    /// Inférence hybride — LSTM 60% + XGBoost 40% si entraînés, sinon XGB seul
     pub fn predire(&self, bougies: &[Candle]) -> Result<PredictionML> {
         let debut = Instant::now();
 
         let f = extraire_features(bougies)
             .ok_or_else(|| TradingError::ML("Pas assez de bougies (min 60)".into()))?;
-        let pred_rf = self.modele.predire(&f)?;
 
-        let pred = if self.lstm.est_pret() && bougies.len() >= 60 + LONGUEUR_SEQ {
+        let pred = if self.xgb.est_pret() && self.lstm.est_pret() && bougies.len() >= 60 + LONGUEUR_SEQ {
             // Construire la séquence des LONGUEUR_SEQ derniers vecteurs de features
             let n = bougies.len();
             let sequence: Vec<Vec<f64>> = (n - LONGUEUR_SEQ..n)
@@ -149,13 +150,9 @@ impl PipelineML {
 
             if sequence.len() == LONGUEUR_SEQ {
                 let conf_long_lstm = self.lstm.predire(&sequence);
-                let conf_long_rf = if pred_rf.direction == Direction::Long {
-                    pred_rf.confiance
-                } else {
-                    1.0 - pred_rf.confiance
-                };
-                // Fusion pondérée
-                let conf_long = 0.6 * conf_long_lstm + 0.4 * conf_long_rf;
+                let score_xgb = self.xgb.predire_score(&f).unwrap_or(0.5);
+                // Fusion pondérée : LSTM 60% + XGBoost 40%
+                let conf_long = 0.6 * conf_long_lstm + 0.4 * score_xgb;
                 let direction = if conf_long >= 0.5 {
                     Direction::Long
                 } else {
@@ -172,10 +169,16 @@ impl PipelineML {
                     est_confiant: confiance >= 0.60,
                 }
             } else {
-                pred_rf
+                // Fallback : XGBoost seul si séquence LSTM incomplète
+                let (direction, confiance) = self.xgb.predire(&f)?;
+                PredictionML { direction, confiance, est_confiant: confiance >= 0.60 }
             }
+        } else if self.xgb.est_pret() {
+            // XGBoost seul si LSTM non entraîné
+            let (direction, confiance) = self.xgb.predire(&f)?;
+            PredictionML { direction, confiance, est_confiant: confiance >= 0.60 }
         } else {
-            pred_rf
+            return Err(TradingError::ML("Pipeline ML non entraîné".into()));
         };
 
         let duree = debut.elapsed();
@@ -185,12 +188,10 @@ impl PipelineML {
         Ok(pred)
     }
 
-    /// Raffine le RandomForest depuis les trades réels d'un backtest.
+    /// Raffine le XGBoost depuis les trades réels d'un backtest.
     ///
     /// Pour chaque feedback `(indice_bougie, gagne)`, extrait les features de la bougie
     /// correspondante et entraîne une passe de calibration sur ces données validées.
-    /// Ces labels proviennent d'outcomes réels (strategy + risk management),
-    /// ce qui en fait des labels plus riches que les seuls mouvements de prix futurs.
     pub fn raffiner_depuis_backtest(
         &mut self,
         bougies: &[Candle],
@@ -216,20 +217,20 @@ impl PipelineML {
         let n = features.len();
         if n < 50 {
             tracing::info!(
-                "Raffinement backtest: {} échantillons valides (min 50 pour RF) — ignoré",
+                "Raffinement backtest: {} échantillons valides (min 50 pour XGB) — ignoré",
                 n
             );
             return Ok(n);
         }
 
-        match self.modele.entrainer(&features, &labels) {
+        match self.xgb.entrainer(&features, &labels) {
             Ok(acc) => tracing::info!(
-                "Pipeline ML raffiné depuis backtest: {} trades → RF accuracy={:.1}%",
+                "Pipeline ML raffiné depuis backtest: {} trades → XGBoost accuracy={:.1}%",
                 n,
                 acc * 100.0
             ),
             Err(e) => {
-                tracing::warn!("Raffinement backtest RF échoué: {} — modèle inchangé", e);
+                tracing::warn!("Raffinement backtest XGB échoué: {} — modèle inchangé", e);
                 return Ok(0);
             }
         }
@@ -242,7 +243,7 @@ impl PipelineML {
     }
 
     pub fn est_pret(&self) -> bool {
-        self.modele.est_pret()
+        self.xgb.est_pret()
     }
 }
 

@@ -82,8 +82,8 @@ async fn executer_entrainement_auto(db: &Arc<Database>, pipeline_ml: &Arc<Mutex<
     let derive = db.detecter_derive_ml(0.60).await.unwrap_or(false);
     if derive {
         tracing::warn!(
-            "⚠️ DÉRIVE ML DÉTECTÉE — accuracy moyenne < 60% sur 7 jours (RF={:.1}% LSTM={:.1}% Finale={:.1}%)",
-            wf.accuracy_rf * 100.0,
+            "⚠️ DÉRIVE ML DÉTECTÉE — accuracy moyenne < 60% sur 7 jours (XGB={:.1}% LSTM={:.1}% Finale={:.1}%)",
+            wf.accuracy_xgb * 100.0,
             wf.accuracy_lstm * 100.0,
             wf.accuracy_finale * 100.0,
         );
@@ -93,7 +93,7 @@ async fn executer_entrainement_auto(db: &Arc<Database>, pipeline_ml: &Arc<Mutex<
         asset: format!("{:?}", asset),
         timeframe: "M15".to_string(),
         nb_bougies: nb_total as i64,
-        accuracy_rf: wf.accuracy_rf,
+        accuracy_rf: wf.accuracy_xgb,
         accuracy_lstm: wf.accuracy_lstm,
         accuracy_finale: wf.accuracy_finale,
         duree_ms,
@@ -104,10 +104,10 @@ async fn executer_entrainement_auto(db: &Arc<Database>, pipeline_ml: &Arc<Mutex<
         tracing::error!("Scheduler ML: échec enregistrement historique: {}", e);
     } else {
         tracing::info!(
-            "✅ Entraînement ML quotidien terminé en {}ms | {} bougies | RF={:.1}% LSTM={:.1}% Finale={:.1}%",
+            "✅ Entraînement ML quotidien terminé en {}ms | {} bougies | XGB={:.1}% LSTM={:.1}% Finale={:.1}%",
             duree_ms,
             nb_total,
-            wf.accuracy_rf * 100.0,
+            wf.accuracy_xgb * 100.0,
             wf.accuracy_lstm * 100.0,
             wf.accuracy_finale * 100.0,
         );

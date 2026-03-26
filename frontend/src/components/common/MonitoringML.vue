@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between">
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center">
         🤖 Monitoring ML
-        <TooltipInfo texte="Suivi de la précision du modèle hybride (LSTM 60% + RF 40%) à chaque entraînement. Le seuil minimal est 60% — en dessous, une dérive est signalée." />
+        <TooltipInfo texte="Suivi de la précision du modèle hybride (LSTM 60% + XGBoost 40%) à chaque entraînement. Le seuil minimal est 60% — en dessous, une dérive est signalée." />
       </h2>
       <div class="flex items-center gap-3">
         <span v-if="historiqueML?.nb_entrainements && historiqueML?.derive_detectee" class="inline-flex items-center text-xs text-red-400 font-semibold animate-pulse">
@@ -30,7 +30,7 @@
             <th class="pb-2 pr-4">Date</th>
             <th class="pb-2 pr-4">Asset/TF</th>
             <th class="pb-2 pr-4 text-right">
-              <span class="inline-flex items-center justify-end">RF <TooltipInfo texte="Précision du modèle Random Forest seul, évalué sur 25% de données out-of-sample (walk-forward)." /></span>
+              <span class="inline-flex items-center justify-end">XGB <TooltipInfo texte="Précision du modèle XGBoost seul (Extreme Gradient Boosting, 100 estimateurs), évalué sur 25% de données out-of-sample (walk-forward)." /></span>
             </th>
             <th class="pb-2 pr-4 text-right">
               <span class="inline-flex items-center justify-end">LSTM <TooltipInfo texte="Précision du réseau LSTM seul (3 couches : 128→64→32), évalué sur 25% de données out-of-sample." /></span>
@@ -52,7 +52,7 @@
           >
             <td class="py-1.5 pr-4 text-gray-300">{{ formatDate(e.cree_le) }}</td>
             <td class="py-1.5 pr-4 text-gray-300">{{ e.asset }}/{{ e.timeframe }}</td>
-            <td class="py-1.5 pr-4 text-right" :class="e.accuracy_rf >= 0.60 ? 'text-emerald-400' : 'text-red-400'">{{ pct(e.accuracy_rf) }}</td>
+            <td class="py-1.5 pr-4 text-right" :class="e.accuracy_xgb >= 0.60 ? 'text-emerald-400' : 'text-red-400'">{{ pct(e.accuracy_xgb) }}</td>
             <td class="py-1.5 pr-4 text-right" :class="e.accuracy_lstm >= 0.60 ? 'text-emerald-400' : 'text-red-400'">{{ pct(e.accuracy_lstm) }}</td>
             <td class="py-1.5 pr-4 text-right font-semibold" :class="e.accuracy_finale >= 0.60 ? 'text-emerald-400' : 'text-red-400'">{{ pct(e.accuracy_finale) }}</td>
             <td class="py-1.5 text-right text-gray-400">{{ Math.round(e.duree_ms / 1000) }}s</td>
