@@ -116,3 +116,42 @@ fn trouver_swing_high(bougies: &[Candle], avant_idx: usize) -> Option<f64> {
         })
         .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+
+    fn b(open: f64, high: f64, low: f64, close: f64) -> Candle {
+        Candle {
+            timestamp: Utc::now(),
+            open,
+            high,
+            low,
+            close,
+            volume: 1000.0,
+        }
+    }
+
+    #[test]
+    fn sweep_none_si_moins_de_27_bougies() {
+        // PROFONDEUR_SWING(20) + FENETRE_SWEEP(5) + 2 = 27 minimum
+        let bougies: Vec<Candle> = (0..26).map(|i| b(i as f64 + 10., i as f64 + 11., i as f64 + 9., i as f64 + 10.5)).collect();
+        assert!(
+            detecter_sweep(&bougies).is_none(),
+            "Moins de 27 bougies → None"
+        );
+    }
+
+    #[test]
+    fn sweep_none_sur_prix_monotone_croissant() {
+        // Prix strictement croissants → aucun swing low → aucun sweep possible
+        let bougies: Vec<Candle> = (0..35)
+            .map(|i| b(i as f64 * 10. + 1., i as f64 * 10. + 9., i as f64 * 10. + 1., i as f64 * 10. + 5.))
+            .collect();
+        assert!(
+            detecter_sweep(&bougies).is_none(),
+            "Prix monotone → pas de sweep"
+        );
+    }
+}

@@ -1,38 +1,26 @@
 --------------------------------------------------------------------------------------------------------------------------
 
-
-
---------------------------------------------------------------------------------------------------------------------------
-
-Analyse ces bugs de terminal lorsque IB gateway est connecté.
-
---------------------------------------------------------------------------------------------------------------------------
-
-
-
---------------------------------------------------------------------------------------------------------------------------
-
 Analyse dans les moindre détails ce code.
 Je veux une analyse critique et constructive.
 Je veux un état complet et exhaustif de ces fonctionnalités, de ses objectifs et de la manière dont il utilise l'IA et le LLM
 Je veux que tu analyses les 3 stratégies straddle, SMC et rockets en les critiquant ou en validant leur logique.
 Je veux que tu me dises si tu y trouves :
 - des erreurs de logiques
+- des logiques redondantes ou répétitives inutilement
+- des logique inutilement complexes
 - des erreurs d'architecture
 - des doublons de code ou du code mort 
 - des carences/erreurs/manquement dans la manière dont il gère l'IA locale
 - des incohérences/manquements entre backend et Frontend
-
+- des dettes techniques
 
 Dis moi ce qui pourrait être supprimé/améliorer pour qu'il soit utilisé à usage professionnel
 et capable de produire des signaux de trading surs et rentables.
 
---------------------------------------------------------------------------------------------------------------------------
-
-Pourquoi avoir un dropdown pour les différents timeframe alors que le backtest se fait sur une heure fixe ?
-Après avoir lancé le backtest, si je change les timeframe = les valeurs changent. Il n'y a t il pas là une erreur de logique ? Car à heure fixe
-Quel que soit le timeframe le backtest n'est il pas censé fournir les memes valeurs ?
+Si l'analyse est trop lourde en une seule fois, on peut la répéter pour chaque stratégie indépendament.
+Qu'en penses tu ?
 Repond sans coder
+
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -46,3 +34,17 @@ Exactement comme fonctionne le backtesting des EA sur MT5 = va te renseigner sur
 Qu'est ce que cela signifie comme refonte du code ?
 Est ce possible ?
 repond sans coder.
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Analyse ces bugs de terminal lorsque IB gateway est connecté.
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Ajoute aux règle de vibe coding :
+- pas de calculs en frontend = tous les calculs en backend puis appelés par le frontend
+Est ce judicieux ?
+repond sans coder
+
+
+

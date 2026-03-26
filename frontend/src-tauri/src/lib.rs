@@ -6,6 +6,53 @@ use std::process::{Command, Stdio};
 use std::thread;
 use std::time::Duration;
 
+// ─── Commandes Tauri ──────────────────────────────────────────────────────────
+
+/// Affiche une notification OS native via `notify-send` (Linux).
+///
+/// Appelée depuis le frontend : `invoke('notifier', { titre, corps, urgence })`
+/// `urgence` : "low" | "normal" | "critical"
+#[tauri::command]
+fn notifier(titre: &str, corps: &str, urgence: Option<&str>) {
+    let niveau = urgence.unwrap_or("normal");
+    let _ = Command::new("notify-send")
+        .args([
+            "--urgency", niveau,
+            "--app-name", "Native Trading AI",
+            "--icon", "dialog-information",
+            titre,
+            corps,
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+}
+
+/// Joue le son d'alerte `sounds/signal.ogg` via `paplay` (PulseAudio).
+///
+/// Appelée depuis le frontend : `invoke('jouer_son_signal')`
+#[tauri::command]
+fn jouer_son_signal() {
+    // Chercher le fichier son dans plusieurs emplacements (dev + prod)
+    let candidats = [
+        std::path::PathBuf::from("src-tauri/sounds/signal.ogg"),
+        std::env::current_exe()
+            .ok()
+            .and_then(|e| e.parent().map(|p| p.join("sounds/signal.ogg")))
+            .unwrap_or_default(),
+    ];
+
+    let chemin = candidats.iter().find(|p| p.exists()).cloned();
+
+    if let Some(p) = chemin {
+        let _ = Command::new("paplay")
+            .arg(p)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn();
+    }
+}
+
 /// Démarre le backend API Rust sur le port 8080 si non actif.
 fn demarrer_backend_si_absent() {
     if std::net::TcpStream::connect("127.0.0.1:8080").is_ok() {
@@ -78,6 +125,7 @@ pub fn run() {
     demarrer_ollama_si_absent();
 
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![notifier, jouer_son_signal])
         .run(tauri::generate_context!())
         .expect("Erreur lors du lancement de l'application Tauri");
 }

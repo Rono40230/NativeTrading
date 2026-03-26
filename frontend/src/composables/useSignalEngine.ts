@@ -7,6 +7,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useSignalStore } from '@/stores/signal.store'
+import { useNotification } from '@/composables/useNotification'
 
 const WS_URL = 'ws://localhost:8080/api/signal-engine/stream'
 const POLL_INTERVAL_MS = 30_000
@@ -14,6 +15,7 @@ const POLL_INTERVAL_MS = 30_000
 export function useSignalEngine() {
   const alerteStore = useAlerteStore()
   const signalStore = useSignalStore()
+  const { signalerSignal } = useNotification()
 
   const actif = ref(false)
   const secondesRestantes = ref(0)
@@ -46,9 +48,15 @@ export function useSignalEngine() {
     ws.onmessage = (event) => {
       try {
         const signal = JSON.parse(event.data as string)
-        // Injecter en tête de liste dans le store signaux
         signalStore.ajouterSignalTempsReel(signal)
         alerteStore.afficher(`🎯 Signal ${signal.asset}/${signal.timeframe} ${signal.direction}`, 'info')
+        // Notification OS + son
+        signalerSignal(
+          signal.asset ?? 'Inconnu',
+          signal.timeframe ?? '—',
+          signal.direction ?? '—',
+          signal.confiance ?? 0
+        )
       } catch {
         // Message non-JSON ignoré
       }

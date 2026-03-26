@@ -193,3 +193,47 @@ pub fn score_pour_direction(ifvgs: &[Ifvg], direction: Direction) -> f64 {
         0.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+
+    fn b(open: f64, high: f64, low: f64, close: f64) -> Candle {
+        Candle {
+            timestamp: Utc::now(),
+            open,
+            high,
+            low,
+            close,
+            volume: 1000.0,
+        }
+    }
+
+    #[test]
+    fn detecter_vide_si_moins_de_5_bougies() {
+        let bougies: Vec<Candle> = (0..4).map(|i| b(i as f64 + 10., i as f64 + 11., i as f64 + 9., i as f64 + 10.5)).collect();
+        assert!(
+            detecter(&bougies, 5, false, 1.0).is_empty(),
+            "Moins de 5 bougies → vide"
+        );
+    }
+
+    #[test]
+    fn score_pour_direction_zero_si_pas_ifvg() {
+        let ifvgs: Vec<Ifvg> = vec![];
+        assert_eq!(score_pour_direction(&ifvgs, Direction::Long), 0.0);
+    }
+
+    #[test]
+    fn score_pour_direction_15_si_ifvg_aligne() {
+        let ifvg = Ifvg {
+            prix_haut: 110.,
+            prix_bas: 100.,
+            direction: Direction::Long,
+            timestamp: 0,
+            timestamp_inversion: 0,
+        };
+        assert_eq!(score_pour_direction(&[ifvg], Direction::Long), 15.0);
+    }
+}

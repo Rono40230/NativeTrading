@@ -151,3 +151,71 @@ pub fn score_pour_direction(bougies: &[Candle], direction: common::Direction) ->
 pub fn score_pour_direction_legacy(bougies: &[Candle], direction: common::Direction) -> f64 {
     score_pour_direction(bougies, direction)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+
+    fn b(open: f64, high: f64, low: f64, close: f64) -> Candle {
+        Candle {
+            timestamp: Utc::now(),
+            open,
+            high,
+            low,
+            close,
+            volume: 1000.0,
+        }
+    }
+
+    #[test]
+    fn detecter_vide_si_moins_de_3_bougies() {
+        let bougies = vec![b(10., 12., 9., 11.), b(11., 13., 10., 12.)];
+        assert!(detecter(&bougies, 5, true, true, false).is_empty());
+    }
+
+    #[test]
+    fn detecter_fvg_bull() {
+        // b0.high=10, b2.low=12 > b0.high=10 → FVG Bull attendu
+        let bougies = vec![
+            b(9., 10., 8., 9.5),   // b0 (i=0)
+            b(10., 11., 9., 10.5), // b1 (i=1), close > b0.high
+            b(11., 13., 12., 12.5), // b2 (i=2), low=12 > b0.high=10
+        ];
+        let zones = detecter(&bougies, 5, true, false, false);
+        assert!(
+            zones.iter().any(|z| z.type_zone == "FvgBull"),
+            "FVG Bull attendu"
+        );
+    }
+
+    #[test]
+    fn detecter_fvg_bear() {
+        // b0.low=10, b2.high=8 < b0.low=10 → FVG Bear attendu
+        let bougies = vec![
+            b(11., 12., 10., 10.5), // b0
+            b(10., 11., 9., 9.5),   // b1, close < b0.low
+            b(9., 8., 7., 7.5),     // b2, high=8 < b0.low=10
+        ];
+        let zones = detecter(&bougies, 5, true, false, false);
+        assert!(
+            zones.iter().any(|z| z.type_zone == "FvgBear"),
+            "FVG Bear attendu"
+        );
+    }
+
+    #[test]
+    fn detecter_og_bull() {
+        // b2.low > b1.high → OG Bull
+        let bougies = vec![
+            b(10., 11., 9., 10.5),
+            b(10., 11., 9., 10.),  // b1, high=11
+            b(12., 14., 12., 13.), // b2, low=12 > b1.high=11
+        ];
+        let zones = detecter(&bougies, 5, false, true, false);
+        assert!(
+            zones.iter().any(|z| z.type_zone == "OgBull"),
+            "OG Bull attendu"
+        );
+    }
+}

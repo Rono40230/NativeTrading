@@ -300,8 +300,10 @@
 ### ✦ COMPLEXITÉ 7 — Finalisation + tests + alertes système
 
 #### Semaine 23-24: Alertes OS, Coverage tests >80%
-- [ ] Notifications OS natives via Tauri (tauri-plugin-notification)
-- [ ] Alertes sonores sur nouveau signal (fichier .ogg embarqué)
+- [x] Notifications OS natives via `notify-send` — commande Tauri `notifier` dans `lib.rs`
+- [x] Alertes sonores sur nouveau signal — `sounds/signal.ogg` (ffmpeg 880Hz) + commande `jouer_son_signal` (paplay)
+- [x] Composable `useNotification.ts` — `signalerSignal()`, `alerterCritique()`, fallback silencieux hors Tauri
+- [x] Branchement dans `useSignalEngine.ts` — WS signal → toast + notification OS + son
 - [ ] Coverage tests >80% : smc (4 modules), strategies (SMC Directionnel), api, data, db
 
 ---
@@ -333,7 +335,7 @@ Classé par effort croissant :
 | 2 | ~~XGBoost + fusion LSTM/XGBoost (S22)~~ ✅ | ~~2 jours~~ | Terminé 26 mars 2026 |
 | 3 | ~~Accélération GPU CUDA pour LSTM (S22)~~ ✅ | ~~3 jours~~ | Terminé 26 mars 2026 — `lstm/gpu.rs` |
 | 4 | Coverage tests >80% (S23-24) | ~3 jours | tous les crates |
-| 5 | Notifications OS + alertes sonores (S23-24) | ~1 jour | Tauri, `src-tauri/` |
+| 5 | ~~Notifications OS + alertes sonores (S23-24)~~ ✅ | ~~1 jour~~ | Terminé 26 mars 2026 |
 | 6 | Paper trading simulateur (Phase 4) | ~1 semaine | nouveau crate ou `strategies/` |
 | 7 | IB Gateway LIVE + gestion positions (Phase 4) | ~2 semaines | `data/`, `api/src/` |
 
