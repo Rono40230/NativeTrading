@@ -333,7 +333,7 @@ Classé par effort croissant :
 |---|-------|---------------|---------------------|
 | 1 | ~~Injecter annonces `/api/calendar` dans prompt Straddle~~ ✅ | ~~1h~~ | Déjà implémenté |
 | 2 | ~~XGBoost + fusion LSTM/XGBoost (S22)~~ ✅ | ~~2 jours~~ | Terminé 26 mars 2026 |
-| 3 | Accélération GPU CUDA pour LSTM (S22) | ~3 jours | `ml/src/`, `Cargo.toml` |
+| 3 | ~~Accélération GPU CUDA pour LSTM (S22)~~ ✅ | ~~3 jours~~ | Terminé 26 mars 2026 — `lstm/gpu.rs` |
 | 4 | Coverage tests >80% (S23-24) | ~3 jours | tous les crates |
 | 5 | Notifications OS + alertes sonores (S23-24) | ~1 jour | Tauri, `src-tauri/` |
 | 6 | Export PDF P&L (S23-24) | ~1 jour | `api/src/`, `PnLView.vue` |
@@ -348,19 +348,16 @@ Classé par effort croissant :
 
 | Crate | Tests | Couverture estimée |
 |-------|-------|--------------------|
-
 | backtest | 2 | ~60% |
 | indicators | 4 | ~70% |
-| ml | 3 | ~40% |
+| ml | 6 | ~50% — 3 Pipeline + 3 XGBoost |
 | risk | 5 | ~80% |
 | smc | 6 | ~40% — Kill Zone (4 tests) + Fibonacci + Tendances |
 | strategies | 3 | ~50% — SMC Directionnel non testé |
 | api, data, db | 0 | 0% |
-| **Total** | **23** | **~38%** — objectif Phase 3 : >80% |
+| **Total** | **37** | **~45%** — objectif Phase 3 : >80% |
 
-> ✅ Audit 26 mars 2026 : k-means S21 implémenté (`smartcore::cluster::kmeans` + fallback), enrichissement calendrier Straddle branché dans `straddle_handlers.rs`.
-
----
+> ✅ Audit 26 mars 2026 : k-means S21 implémenté (`smartcore::cluster::kmeans` + fallback), enrichissement calendrier Straddle branché dans `straddle_handlers.rs`. XGBoost + GPU LSTM terminés (commit `541d208`).
 
 ## 📈 MÉTRIQUES CIBLES
 
