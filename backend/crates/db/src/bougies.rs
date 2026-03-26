@@ -116,7 +116,7 @@ impl Database {
         let rows = sqlx::query(
             "SELECT timestamp, open, high, low, close, volume
              FROM bougies
-             WHERE asset = ? AND timeframe = 'm1'
+             WHERE asset = ? AND timeframe = 'M1'
                AND (timestamp % 86400) >= ?
                AND (timestamp % 86400) < ?
              ORDER BY timestamp ASC",

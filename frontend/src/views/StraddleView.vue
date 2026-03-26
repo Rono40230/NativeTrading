@@ -109,7 +109,11 @@
             <td class="px-4 py-3 text-yellow-300 font-mono">{{ c.heure_debut }}–{{ c.heure_fin }}</td>
             <td class="px-4 py-3 text-center text-xs">
               <template v-if="chargementPrecision[c.id]">⏳</template>
-              <template v-else-if="c.timing_optimal"><span class="text-orange-400 font-mono font-bold text-sm">{{ c.timing_optimal }}</span><br /><span class="text-gray-500">{{ c.fenetre_entree }}</span></template>
+              <template v-else-if="c.timing_optimal">
+                <span class="text-orange-400 font-mono font-bold text-sm">{{ c.timing_optimal }}</span>
+                <br /><span class="text-gray-500">{{ c.fenetre_entree }}</span>
+                <br /><button class="text-gray-600 hover:text-blue-400 text-xs mt-0.5" @click="chargerPrecision(c)">↻</button>
+              </template>
               <button v-else class="text-blue-400 hover:underline" @click="chargerPrecision(c)">⏱ Analyser</button>
             </td>
             <td class="px-4 py-3 text-center">
