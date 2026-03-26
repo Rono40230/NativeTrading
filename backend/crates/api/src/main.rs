@@ -1,6 +1,7 @@
 use actix_cors::Cors;
 use actix_web::{http::header, middleware, web, App, HttpServer};
 
+mod ab_test_handlers;
 mod assets_handlers;
 mod backtest_handlers;
 mod calendar_handlers;
@@ -247,6 +248,7 @@ async fn main() -> std::io::Result<()> {
                 "/api/volatility/patterns",
                 web::get().to(volatility_handlers::get_patterns),
             )
+            .route("/api/ia/ab-test", web::get().to(ab_test_handlers::get_ab_test))
     })
     .bind(("0.0.0.0", 8080))?
     .run()

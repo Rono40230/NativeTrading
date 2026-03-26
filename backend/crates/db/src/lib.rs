@@ -1,3 +1,4 @@
+pub mod ab_test;
 pub mod assets;
 pub mod bougies;
 pub mod calendrier;

@@ -159,7 +159,7 @@
 - [x] Prompt signal dédié (`PROMPT_SIGNAL_JSON`) : JSON strict avec direction, prix_entree, stop_loss, TP1/TP2/TP3, confluences, score_confiance /10, niveau_invalidation
 - [x] Prompt analyse narrative conservé (`PROMPT_VISION_ANALYST`) pour SMCAnalyzerView
 - [x] Endpoint `POST /api/ia/signal` — parse JSON LLM → construit `common::Signal` injecté dans le pipeline (`strategie = "SMC-IA"`)
-- [ ] Test A/B — **reporté à S19** (nécessite données historiques massives S19 — collecte)
+- [x] Test A/B — endpoint `GET /api/ia/ab-test` + tableau comparatif dans `PnLView.vue` (win rate / conviction / score par variante sur données historiques résolues)
 
 #### ✅ Semaine 18d: Mise à niveau prompts + Kill Zone filter + Liquidity Sweep — TERMINÉE 20 mars 2026
 > Carences identifiées lors de l'analyse comparative des prompts SMC/Straddle (20 mars 2026)
@@ -327,7 +327,7 @@ Classé par effort croissant :
 |---|-------|---------------|---------------------|
 | 1 | Injecter annonces `/api/calendar` dans prompt Straddle | ~1h | `ollama/straddle_analyse.rs` |
 | 2 | K-means réel (remplace quartiles statiques) ✅ | ~2h | `db/src/volatilite.rs` |
-| 3 | Test A/B prompts SMC (S18a reporté) | ~2h | données historiques signaux |
+| 3 | Test A/B prompts SMC (S18a reporté) ✅ | ~2h | `db/src/ab_test.rs`, `PnLView.vue` |
 | 4 | XGBoost + fusion LSTM/XGBoost (S22) | ~2 jours | `ml/src/` |
 | 5 | Accélération GPU CUDA (S22) | ~3 jours | `ml/src/`, `Cargo.toml` |
 | 6 | Coverage tests >80% (S23-24) | ~3 jours | tous les crates |

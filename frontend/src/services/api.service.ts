@@ -337,4 +337,9 @@ export const apiService = {
     const res = await http.post(`/api/straddle/creneaux/${id}/precision`, {}, { timeout: 30000 })
     return res.data
   },
+
+  async getAbTest(): Promise<{ strategie: string; nb_total: number; nb_wins: number; nb_pertes: number; win_rate: number; conviction_moy: number; score_moy: number }[]> {
+    const res = await http.get('/api/ia/ab-test')
+    return res.data
+  },
 }
