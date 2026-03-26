@@ -262,19 +262,20 @@
 - [x] Calibration automatique des seuils ATR pour la stratégie Straddle
 - [x] Rapport `GET /api/volatility/patterns` — heatmap horaire des pics ATR
 - [x] Visualisation dans `HeatmapView.vue` (axe heure du jour + jours semaine — grille 24h×7j)
-- [ ] **Enrichissement contexte LLM Straddle** : injecter les annonces High (<2h) dans
+- [x] **Enrichissement contexte LLM Straddle** : injecter les annonces High (<2h) dans
       le prompt Ollama avant décision (`/api/calendar` → champ `annonces_imminentes`)
-      ⚠️ `formater_contexte_straddle()` ne fetch pas `/api/calendar` — à brancher dans `straddle_analyse.rs`
+      → `straddle_handlers.rs` fetch `lire_calendrier_cache(3600)`, filtre impact=High + <2h,
+        passe à `analyser_creneaux()` → `formater_contexte_straddle()` — ✅ branché
 
 ---
 
-### ✦ COMPLEXITÉ 5b — Finition S21 (2 tâches restantes)
+### ✦ COMPLEXITÉ 5b — Finition S21 ✅ TERMINÉE
 
-#### Semaine 21b: Branchement calendrier Straddle + K-means
-> Correction des 2 points incorrectement cochés en S21
+#### Semaine 21b: Branchement calendrier Straddle + K-means — TERMINÉE 26 mars 2026
+> Vérification du code : les 2 points étaient déjà implémentés, ROADMAP en retard
 
-- [ ] **K-means réel** — remplacer quartiles statiques par `smartcore::cluster::kmeans` dans `db/src/volatilite.rs` (crate déjà importée)
-- [ ] **Calendrier → prompt Straddle** — dans `ollama/straddle_analyse.rs`, appeler `db::calendar::get_prochaines_annonces(pool, 2h)` et injecter dans `formater_contexte_straddle()` (champ `annonces_imminentes`)
+- [x] **K-means réel** — `smartcore::cluster::kmeans` branché dans `db/src/volatilite.rs` avec fallback quartiles si k-means échoue
+- [x] **Calendrier → prompt Straddle** — `straddle_handlers.rs` fetch `lire_calendrier_cache(3600)`, filtre impact=High + ts dans les 2h, injecte dans `formater_contexte_straddle()` via `annonces_imminentes`
 
 ---
 
@@ -325,18 +326,16 @@ Classé par effort croissant :
 
 | # | Tâche | Effort estimé | Fichier(s) cible(s) |
 |---|-------|---------------|---------------------|
-| 1 | Injecter annonces `/api/calendar` dans prompt Straddle | ~1h | `ollama/straddle_analyse.rs` |
-| 2 | K-means réel (remplace quartiles statiques) ✅ | ~2h | `db/src/volatilite.rs` |
-| 3 | Test A/B prompts SMC (S18a reporté) ✅ | ~2h | `db/src/ab_test.rs`, `PnLView.vue` |
-| 4 | XGBoost + fusion LSTM/XGBoost (S22) | ~2 jours | `ml/src/` |
-| 5 | Accélération GPU CUDA (S22) | ~3 jours | `ml/src/`, `Cargo.toml` |
-| 6 | Coverage tests >80% (S23-24) | ~3 jours | tous les crates |
-| 7 | Notifications OS + alertes sonores (S23-24) | ~1 jour | Tauri, `src-tauri/` |
-| 8 | Export PDF P&L (S23-24) | ~1 jour | `api/src/`, `PnLView.vue` |
-| 9 | Paper trading simulateur (Phase 4) | ~1 semaine | nouveau crate ou `strategies/` |
-| 10 | IB Gateway LIVE + gestion positions (Phase 4) | ~2 semaines | `data/`, `api/src/` |
+| 1 | ~~Injecter annonces `/api/calendar` dans prompt Straddle~~ ✅ | ~~1h~~ | Déjà implémenté |
+| 2 | XGBoost + fusion LSTM/XGBoost (S22) | ~2 jours | `ml/src/` |
+| 3 | Accélération GPU CUDA (S22) | ~3 jours | `ml/src/`, `Cargo.toml` |
+| 4 | Coverage tests >80% (S23-24) | ~3 jours | tous les crates |
+| 5 | Notifications OS + alertes sonores (S23-24) | ~1 jour | Tauri, `src-tauri/` |
+| 6 | Export PDF P&L (S23-24) | ~1 jour | `api/src/`, `PnLView.vue` |
+| 7 | Paper trading simulateur (Phase 4) | ~1 semaine | nouveau crate ou `strategies/` |
+| 8 | IB Gateway LIVE + gestion positions (Phase 4) | ~2 semaines | `data/`, `api/src/` |
 
-**→ Commencer par #1 (1h, impact immédiat sur qualité des signaux Straddle)**
+**→ Prochaine étape : #2 XGBoost (S22) — remplacement RandomForest, impact direct sur précision ML**
 
 ---
 
@@ -354,7 +353,7 @@ Classé par effort croissant :
 | api, data, db | 0 | 0% |
 | **Total** | **23** | **~38%** — objectif Phase 3 : >80% |
 
-> ⚠️ Audit 26 mars 2026 : k-means S21 non implémenté (quartiles statiques), enrichissement calendrier Straddle non branché.
+> ✅ Audit 26 mars 2026 : k-means S21 implémenté (`smartcore::cluster::kmeans` + fallback), enrichissement calendrier Straddle branché dans `straddle_handlers.rs`.
 
 ---
 
