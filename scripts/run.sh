@@ -19,18 +19,22 @@ fi
 echo "🚀 Native Trading AI — démarrage..."
 
 # ─── Démarrage Ollama (si pas déjà lancé) ────────────────────────────────────
-if ! curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; then
-  echo "🤖 Démarrage Ollama..."
-  ollama serve > "$LOG_DIR/ollama.log" 2>&1 &
-  OLLAMA_PID=$!
-  # Attendre max 15s qu'Ollama soit prêt
-  for i in $(seq 1 30); do
-    if curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; then
-      echo "   ✅ Ollama prêt"
-      break
-    fi
-    sleep 0.5
-  done
+OLLAMA_BIN=$(command -v ollama 2>/dev/null || ls /usr/local/bin/ollama /usr/bin/ollama ~/.local/bin/ollama 2>/dev/null | head -1)
+
+if ! ss -tlnp 2>/dev/null | grep -q 11434; then
+  if [ -z "$OLLAMA_BIN" ]; then
+    echo "   ⚠️  Ollama non installé — fonctionnalités IA désactivées"
+    echo "      Pour installer : curl -fsSL https://ollama.com/install.sh | sh"
+  else
+    echo "🤖 Démarrage Ollama..."
+    OLLAMA_MODELS="${OLLAMA_MODELS:-$ROOT_DIR/data/ollama}" \
+      "$OLLAMA_BIN" serve > "$LOG_DIR/ollama.log" 2>&1 &
+    OLLAMA_PID=$!
+    for i in $(seq 1 30); do
+      ss -tlnp 2>/dev/null | grep -q 11434 && { echo "   ✅ Ollama prêt"; break; }
+      sleep 0.5
+    done
+  fi
 else
   echo "   ✅ Ollama déjà en cours"
 fi
