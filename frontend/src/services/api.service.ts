@@ -325,7 +325,10 @@ export const apiService = {
     await http.patch(`/api/straddle/creneaux/${id}`, data)
   },
 
-  async analyserPrecisionCreneau(id: number): Promise<{
+  async analyserPrecisionCreneau(
+    id: number,
+    creneau: { asset: string; jour_semaine: number | null; heure_debut: string; heure_fin: string },
+  ): Promise<{
     timing_optimal?: string
     fenetre_entree?: string
     whipsaw_minutes?: number
@@ -334,7 +337,7 @@ export const apiService = {
     ok?: boolean
     message?: string
   }> {
-    const res = await http.post(`/api/straddle/creneaux/${id}/precision`, {}, { timeout: 30000 })
+    const res = await http.post(`/api/straddle/creneaux/${id}/precision`, creneau, { timeout: 30000 })
     return res.data
   },
 

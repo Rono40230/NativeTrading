@@ -88,6 +88,7 @@
             <th class="text-left px-4 py-3">Asset</th>
             <th class="text-left px-4 py-3">Jour</th>
             <th class="text-left px-4 py-3">Créneau UTC</th>
+            <th class="text-center px-4 py-3">Pic volatilité</th>
             <th class="text-center px-4 py-3">ATR ×</th>
             <th class="text-center px-4 py-3">Fréquence</th>
             <th class="text-center px-4 py-3">Conviction</th>
@@ -106,6 +107,11 @@
             <td class="px-4 py-3 font-bold text-white">{{ c.asset }}</td>
             <td class="px-4 py-3 text-gray-300">{{ nomJour(c.jour_semaine) }}</td>
             <td class="px-4 py-3 text-yellow-300 font-mono">{{ c.heure_debut }}–{{ c.heure_fin }}</td>
+            <td class="px-4 py-3 text-center text-xs">
+              <template v-if="chargementPrecision[c.id]">⏳</template>
+              <template v-else-if="c.timing_optimal"><span class="text-orange-400 font-mono font-bold text-sm">{{ c.timing_optimal }}</span><br /><span class="text-gray-500">{{ c.fenetre_entree }}</span></template>
+              <button v-else class="text-blue-400 hover:underline" @click="chargerPrecision(c)">⏱ Analyser</button>
+            </td>
             <td class="px-4 py-3 text-center">
               <span :class="couleurAtr(c.atr_moyen)" class="font-semibold">
                 {{ c.atr_moyen != null ? c.atr_moyen.toFixed(2) + '×' : '—' }}
@@ -195,6 +201,7 @@ const chargementListe = ref(false)
 const creneaux = ref<StraddleCreneau[]>([])
 const dernierResultat = ref<{ nb_analyses: number; nb_retenus: number; message?: string } | null>(null)
 const filtreStatut = ref<'tous' | 'a_tester' | 'valide' | 'invalide'>('tous')
+const chargementPrecision = ref<Record<number, boolean>>({})
 
 const filtresStatut = [
   { val: 'tous',     label: 'Tous' },
@@ -203,11 +210,10 @@ const filtresStatut = [
   { val: 'invalide', label: '❌ Invalides' },
 ] as const
 
-const creneauxFiltres = computed(() =>
-  filtreStatut.value === 'tous'
-    ? creneaux.value
-    : creneaux.value.filter(c => c.statut === filtreStatut.value)
-)
+const creneauxFiltres = computed(() => {
+  const liste = creneaux.value.filter(c => c.asset === asset.value)
+  return filtreStatut.value === 'tous' ? liste : liste.filter(c => c.statut === filtreStatut.value)
+})
 
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
 function nomJour(jour: number | null): string {
@@ -227,6 +233,25 @@ function couleurConviction(v: number | null): string {
   if (v >= 80) return 'text-emerald-400'
   if (v >= 65) return 'text-yellow-400'
   return 'text-red-400'
+}
+
+async function chargerPrecision(c: StraddleCreneau) {
+  chargementPrecision.value[c.id] = true
+  try {
+    const r = await apiService.analyserPrecisionCreneau(c.id, {
+      asset: c.asset, jour_semaine: c.jour_semaine, heure_debut: c.heure_debut, heure_fin: c.heure_fin,
+    })
+    if (r.timing_optimal) {
+      const idx = creneaux.value.findIndex(x => x.id === c.id)
+      if (idx !== -1) creneaux.value[idx] = { ...creneaux.value[idx], timing_optimal: r.timing_optimal ?? null, fenetre_entree: r.fenetre_entree ?? null, whipsaw_minutes: r.whipsaw_minutes ?? null }
+    } else if (r.message) {
+      alerteStore.afficherErreur(r.message)
+    }
+  } catch (e: unknown) {
+    alerteStore.afficherErreur(`Précision: ${(e as Error).message}`)
+  } finally {
+    chargementPrecision.value[c.id] = false
+  }
 }
 
 async function chargerCreneaux() {
