@@ -1,6 +1,8 @@
 use crate::Database;
 use common::{Asset, Result, Timeframe, TradingError};
 use serde::Serialize;
+use smartcore::cluster::kmeans::{KMeans, KMeansParameters};
+use smartcore::linalg::basic::matrix::DenseMatrix;
 use sqlx::Row;
 
 #[derive(Debug, Clone, Serialize)]
@@ -21,8 +23,60 @@ pub struct ReponsePatternsVolatilite {
     pub timeframe: String,
 }
 
-/// Classification par quartiles : 0=calme, 1=modéré, 2=élevé, 3=extrême
+/// Classification par k-means (k=4) : 0=calme, 1=modéré, 2=élevé, 3=extrême.
+/// Fallback automatique vers quartiles si k-means échoue (trop peu de données, etc.).
 fn assigner_clusters(mut patterns: Vec<PatternHoraire>) -> Vec<PatternHoraire> {
+    let n = patterns.len();
+    let k = 4usize.min(n);
+    if k == 0 {
+        return patterns;
+    }
+
+    let data: Vec<Vec<f64>> = patterns.iter().map(|p| vec![p.atr_moyen]).collect();
+    let x = DenseMatrix::from_2d_vec(&data);
+
+    let labels: Vec<usize> =
+        match KMeans::fit(&x, KMeansParameters::default().with_k(k)) {
+            Ok(km) => match km.predict(&x) {
+                Ok(l) => l,
+                Err(_) => return assigner_clusters_quartiles(patterns),
+            },
+            Err(_) => return assigner_clusters_quartiles(patterns),
+        };
+
+    // Calcul du centre (ATR moyen) de chaque cluster pour trier 0=calme → 3=extrême
+    let mut centres: Vec<(usize, f64)> = (0..k)
+        .map(|c| {
+            let vals: Vec<f64> = labels
+                .iter()
+                .zip(patterns.iter())
+                .filter(|(l, _)| **l == c)
+                .map(|(_, p)| p.atr_moyen)
+                .collect();
+            let moy = if vals.is_empty() {
+                0.0
+            } else {
+                vals.iter().sum::<f64>() / vals.len() as f64
+            };
+            (c, moy)
+        })
+        .collect();
+    centres.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Table de remapping : label kmeans → rang trié (0=calme, 3=extrême)
+    let mut rang = vec![0u8; k];
+    for (rang_trie, (label_orig, _)) in centres.iter().enumerate() {
+        rang[*label_orig] = rang_trie as u8;
+    }
+
+    for (p, l) in patterns.iter_mut().zip(labels.iter()) {
+        p.cluster = rang[*l];
+    }
+    patterns
+}
+
+/// Fallback : classification par quartiles (comportement original)
+fn assigner_clusters_quartiles(mut patterns: Vec<PatternHoraire>) -> Vec<PatternHoraire> {
     let mut valeurs: Vec<f64> = patterns.iter().map(|p| p.atr_moyen).collect();
     valeurs.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let n = valeurs.len();

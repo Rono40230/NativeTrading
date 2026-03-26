@@ -1,6 +1,6 @@
 # 🗺️ ROADMAP - NATIVE TRADING AI
 
-**Durée totale:** 18 semaines | **Version:** 3.2 | **Dernière mise à jour:** 20 mars 2026
+**Durée totale:** 18 semaines | **Version:** 3.3 | **Dernière mise à jour:** 26 mars 2026
 
 ---
 
@@ -199,7 +199,7 @@
   - Devise + titre + countdown par carte, tooltip détail au survol (heure locale, UTC, préc, prévis)
   - Toasts persistants (fermeture manuelle uniquement)
 - [x] Alerte toast automatique 15min avant une annonce à fort impact (+ `annoncesAlertees` Set anti-doublon)
-- [x] ROADMAP S21 : enrichissement contexte LLM Straddle via `/api/calendar`
+- [x] ROADMAP S21 : enrichissement contexte LLM Straddle via `/api/calendar` (**non branché — à faire**)
 
 ---
 
@@ -252,18 +252,29 @@
 - [x] `GET /api/ml/history` — historique entraînements (date, accuracy, durée)
 - [x] Affichage courbe d'accuracy dans `PnLView.vue`
 
-#### Semaine 21: Détection automatique de volatilités récurrentes (Straddle IA)
+#### Semaine 21: Détection automatique de volatilités récurrentes (Straddle IA) — 🟡 PARTIELLE
 > Dépend de la collecte S19 — nécessite 6 mois d'historique minimum
 > Le prompt Straddle définitif (`promptSTRADDLE.md`) est prêt — S21 l'alimente en données historiques
 
 - [x] Analyse distribution ATR par heure du jour et jour de la semaine
 - [x] Identification patterns récurrents : ouvertures marché, annonces économiques
-- [x] Clustering k-means sur features temporelles (heure, jour, session)
+- [x] **Clustering k-means** sur features temporelles (heure, jour, session) — k-means réel via `smartcore::cluster::kmeans` dans `db/src/volatilite.rs`, fallback quartiles si échec
 - [x] Calibration automatique des seuils ATR pour la stratégie Straddle
 - [x] Rapport `GET /api/volatility/patterns` — heatmap horaire des pics ATR
-- [x] Visualisation dans `HeatmapView.vue` (axe heure du jour en plus de l'axe asset)
-- [x] Enrichissement contexte LLM Straddle : injecter les annonces High (<2h) dans
+- [x] Visualisation dans `HeatmapView.vue` (axe heure du jour + jours semaine — grille 24h×7j)
+- [ ] **Enrichissement contexte LLM Straddle** : injecter les annonces High (<2h) dans
       le prompt Ollama avant décision (`/api/calendar` → champ `annonces_imminentes`)
+      ⚠️ `formater_contexte_straddle()` ne fetch pas `/api/calendar` — à brancher dans `straddle_analyse.rs`
+
+---
+
+### ✦ COMPLEXITÉ 5b — Finition S21 (2 tâches restantes)
+
+#### Semaine 21b: Branchement calendrier Straddle + K-means
+> Correction des 2 points incorrectement cochés en S21
+
+- [ ] **K-means réel** — remplacer quartiles statiques par `smartcore::cluster::kmeans` dans `db/src/volatilite.rs` (crate déjà importée)
+- [ ] **Calendrier → prompt Straddle** — dans `ollama/straddle_analyse.rs`, appeler `db::calendar::get_prochaines_annonces(pool, 2h)` et injecter dans `formater_contexte_straddle()` (champ `annonces_imminentes`)
 
 ---
 
@@ -308,7 +319,28 @@
 
 ---
 
-## 📊 ÉTAT COUVERTURE TESTS (20 mars 2026)
+## 🎯 À FAIRE MAINTENANT (26 mars 2026)
+
+Classé par effort croissant :
+
+| # | Tâche | Effort estimé | Fichier(s) cible(s) |
+|---|-------|---------------|---------------------|
+| 1 | Injecter annonces `/api/calendar` dans prompt Straddle | ~1h | `ollama/straddle_analyse.rs` |
+| 2 | K-means réel (remplace quartiles statiques) ✅ | ~2h | `db/src/volatilite.rs` |
+| 3 | Test A/B prompts SMC (S18a reporté) | ~2h | données historiques signaux |
+| 4 | XGBoost + fusion LSTM/XGBoost (S22) | ~2 jours | `ml/src/` |
+| 5 | Accélération GPU CUDA (S22) | ~3 jours | `ml/src/`, `Cargo.toml` |
+| 6 | Coverage tests >80% (S23-24) | ~3 jours | tous les crates |
+| 7 | Notifications OS + alertes sonores (S23-24) | ~1 jour | Tauri, `src-tauri/` |
+| 8 | Export PDF P&L (S23-24) | ~1 jour | `api/src/`, `PnLView.vue` |
+| 9 | Paper trading simulateur (Phase 4) | ~1 semaine | nouveau crate ou `strategies/` |
+| 10 | IB Gateway LIVE + gestion positions (Phase 4) | ~2 semaines | `data/`, `api/src/` |
+
+**→ Commencer par #1 (1h, impact immédiat sur qualité des signaux Straddle)**
+
+---
+
+## 📊 ÉTAT COUVERTURE TESTS (26 mars 2026)
 
 | Crate | Tests | Couverture estimée |
 |-------|-------|--------------------|
@@ -321,6 +353,8 @@
 | strategies | 3 | ~50% — SMC Directionnel non testé |
 | api, data, db | 0 | 0% |
 | **Total** | **23** | **~38%** — objectif Phase 3 : >80% |
+
+> ⚠️ Audit 26 mars 2026 : k-means S21 non implémenté (quartiles statiques), enrichissement calendrier Straddle non branché.
 
 ---
 
