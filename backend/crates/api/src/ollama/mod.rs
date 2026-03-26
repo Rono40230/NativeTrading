@@ -8,6 +8,7 @@ pub mod straddle_analyse;
 mod types;
 
 use common::TradingError;
+pub use contexte::formater_contexte_backtest;
 pub use contexte::formater_contexte_historique;
 pub use prompts::PROMPT_SIGNAL_SMC;
 use prompts::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF, SYSTEM_PROMPT};

@@ -3,30 +3,63 @@ use common::{Candle, Direction, Result};
 use indicators::calculer_atr;
 use ml::PipelineML;
 
-/// Seuil ATR : >150% de sa moyenne sur 14 périodes = volatilité extrême
-const SEUIL_ATR_RATIO: f64 = 1.5;
-/// Multiplicateur ATR pour TP et SL
-const MULTIPLICATEUR_TP: f64 = 2.0;
-const MULTIPLICATEUR_SL: f64 = 0.5;
+/// Paramètres configurables de la stratégie Straddle — injectés depuis le backtest ou le LLM.
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct StraddleParams {
+    /// Multiplicateur ATR pour TP1 (défaut : 2.0)
+    pub tp_mult_1: f64,
+    /// Multiplicateur ATR pour TP2 (défaut : 3.5)
+    pub tp_mult_2: f64,
+    /// Multiplicateur ATR pour TP3 (défaut : 5.0)
+    pub tp_mult_3: f64,
+    /// Multiplicateur ATR pour SL (défaut : 0.5)
+    pub sl_mult: f64,
+    /// Ratio ATR/moyenne déclencheur (défaut : 1.5)
+    pub seuil_atr: f64,
+}
+
+impl Default for StraddleParams {
+    fn default() -> Self {
+        Self {
+            tp_mult_1: 2.0,
+            tp_mult_2: 3.5,
+            tp_mult_3: 5.0,
+            sl_mult: 0.5,
+            seuil_atr: 1.5,
+        }
+    }
+}
 
 /// Stratégie Straddle — volatilité extrême + IA indécise
 ///
 /// Déclencheur : ATR > 150% de sa moyenne ET confiance ML < 60%
 /// Exécution : positions opposées simultanées (LONG + SHORT)
-/// TP : ATR × 2 | SL : ATR × 0.5
+/// TP : ATR × params.tp_mult_1 | SL : ATR × params.sl_mult
 /// Risk : 1% par direction (2% total)
 pub struct StraddleStrategy {
     pub pipeline_ml: Option<PipelineML>,
+    pub params: StraddleParams,
 }
 
 impl StraddleStrategy {
     pub fn new() -> Self {
-        Self { pipeline_ml: None }
+        Self {
+            pipeline_ml: None,
+            params: StraddleParams::default(),
+        }
+    }
+
+    pub fn avec_params(params: StraddleParams) -> Self {
+        Self {
+            pipeline_ml: None,
+            params,
+        }
     }
 
     pub fn avec_ml(pipeline: PipelineML) -> Self {
         Self {
             pipeline_ml: Some(pipeline),
+            params: StraddleParams::default(),
         }
     }
 }
@@ -64,8 +97,8 @@ impl Strategy for StraddleStrategy {
         let atr_moyen = atr_valides.iter().sum::<f64>() / atr_valides.len() as f64;
         let ratio_atr = atr_courant / atr_moyen.max(1e-10);
 
-        // Condition 1 : volatilité extrême (ATR > 150% de sa moyenne)
-        if ratio_atr <= SEUIL_ATR_RATIO {
+        // Condition 1 : volatilité extrême (ATR > seuil × sa moyenne)
+        if ratio_atr <= self.params.seuil_atr {
             return Ok(None);
         }
 
@@ -88,8 +121,8 @@ impl Strategy for StraddleStrategy {
         }
 
         let prix_entree = bougies[n - 1].close;
-        let tp = prix_entree + atr_courant * MULTIPLICATEUR_TP;
-        let sl = prix_entree - atr_courant * MULTIPLICATEUR_SL;
+        let tp = prix_entree + atr_courant * self.params.tp_mult_1;
+        let sl = prix_entree - atr_courant * self.params.sl_mult;
 
         tracing::info!(
             "Signal STRADDLE: prix={:.2} ATR={:.4} ratio={:.2}x TP={:.2} SL={:.2}",
@@ -100,15 +133,94 @@ impl Strategy for StraddleStrategy {
             sl
         );
 
+        let tp2 = prix_entree + atr_courant * self.params.tp_mult_2;
+        let tp3 = prix_entree + atr_courant * self.params.tp_mult_3;
+
         Ok(Some(Signal {
             direction: Direction::Both,
             confiance: ratio_atr.min(3.0) / 3.0, // normalisé 0-1
             prix_entree,
             stop_loss: sl,
             take_profit: tp,
-            take_profit_2: None,
-            take_profit_3: None,
+            take_profit_2: Some(tp2),
+            take_profit_3: Some(tp3),
         }))
+    }
+}
+
+/// Straddle filtré sur le pic de volatilité précis `timing_optimal ± fenetre_min`.
+/// Seules les bougies dont le timestamp UTC tombe dans cette fenêtre minute sont
+/// éligibles à générer un signal. Jour optionnel (0=Lundi…4=Vendredi).
+pub struct StraddleCreneauStrategy {
+    inner: StraddleStrategy,
+    /// Heure + minute du pic (ex: (14, 32) pour "14:32")
+    pub timing_heure: u32,
+    pub timing_minute: u32,
+    /// Fenêtre de tolérance en minutes de part et d'autre du timing
+    pub fenetre_min: u32,
+    pub jour_semaine: Option<i64>,
+}
+
+impl StraddleCreneauStrategy {
+    /// `timing` : "HH:MM" — pic de volatilité exact détecté par l'analyse de précision.
+    /// `fenetre_min` : tolérance en minutes (défaut recommandé : 5 à 15 min).
+    pub fn new(timing: &str, fenetre_min: u32, jour_semaine: Option<i64>) -> Self {
+        let (h, m) = parse_timing_hm(timing);
+        Self {
+            inner: StraddleStrategy::new(),
+            timing_heure: h,
+            timing_minute: m,
+            fenetre_min,
+            jour_semaine,
+        }
+    }
+
+    pub fn avec_params(
+        timing: &str,
+        fenetre_min: u32,
+        jour_semaine: Option<i64>,
+        params: StraddleParams,
+    ) -> Self {
+        let (h, m) = parse_timing_hm(timing);
+        Self {
+            inner: StraddleStrategy::avec_params(params),
+            timing_heure: h,
+            timing_minute: m,
+            fenetre_min,
+            jour_semaine,
+        }
+    }
+}
+
+/// Parse "HH:MM" en (heure, minute) — retourne (0, 0) si invalide.
+fn parse_timing_hm(s: &str) -> (u32, u32) {
+    let mut it = s.splitn(2, ':');
+    let h = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
+    let m = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
+    (h, m)
+}
+
+impl Strategy for StraddleCreneauStrategy {
+    fn analyze(&self, bougies: &[Candle]) -> Result<Option<Signal>> {
+        use chrono::{Datelike, Timelike};
+        if let Some(last) = bougies.last() {
+            // Filtrage par jour
+            if let Some(jour) = self.jour_semaine {
+                if last.timestamp.weekday().num_days_from_monday() as i64 != jour {
+                    return Ok(None);
+                }
+            }
+            // Contrôle sur le timing précis ± fenetre_min
+            let h = last.timestamp.hour();
+            let m = last.timestamp.minute();
+            let ts_min = h * 60 + m;
+            let cible_min = self.timing_heure * 60 + self.timing_minute;
+            let delta = (ts_min as i64 - cible_min as i64).unsigned_abs() as u32;
+            if delta > self.fenetre_min {
+                return Ok(None);
+            }
+        }
+        self.inner.analyze(bougies)
     }
 }
 

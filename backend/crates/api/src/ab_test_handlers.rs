@@ -10,8 +10,7 @@ pub async fn get_ab_test(state: web::Data<AppState>) -> impl Responder {
         Ok(stats) => HttpResponse::Ok().json(stats),
         Err(e) => {
             tracing::error!("Stats A/B test: {}", e);
-            HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": e.to_string() }))
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
         }
     }
 }

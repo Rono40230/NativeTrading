@@ -16,6 +16,8 @@ pub struct AppState {
     pub ib_client_id: i32,
     /// Moteur de génération automatique de signaux SMC
     pub signal_engine: Arc<SignalEngine>,
+    /// Dernier contexte backtest formaté — injecté dans les analyses LLM SMC.
+    pub contexte_backtest: Arc<tokio::sync::RwLock<Option<String>>>,
 }
 
 impl AppState {
@@ -77,6 +79,7 @@ impl AppState {
             ib_port,
             ib_client_id,
             signal_engine,
+            contexte_backtest: Arc::new(tokio::sync::RwLock::new(None)),
         })
     }
 }

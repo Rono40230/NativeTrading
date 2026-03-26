@@ -4,8 +4,7 @@ use data::{providers::BinanceProvider, providers::IbGatewayProvider, DataProvide
 use crate::ollama::straddle_analyse;
 use crate::state::AppState;
 use crate::straddle_utils::{
-    limite_bougies, periode_en_mois, MaJCreneau, RequeteAnalyse, ReponseAnalyse,
-    MAX_BOUGIES_RESEAU,
+    limite_bougies, periode_en_mois, MaJCreneau, ReponseAnalyse, RequeteAnalyse, MAX_BOUGIES_RESEAU,
 };
 use crate::utils::parse_asset;
 
@@ -38,13 +37,19 @@ pub async fn analyser(
     );
 
     // Récupérer les bougies H1 (cache DB puis provider réseau en fallback)
-    let bougies = match state.db.obtenir_bougies(&asset, &Timeframe::H1, limite as i64).await {
+    let bougies = match state
+        .db
+        .obtenir_bougies(&asset, &Timeframe::H1, limite as i64)
+        .await
+    {
         Ok(b) if !b.is_empty() => b,
         _ => {
             // Fallback: provider réseau (plafonné car API Binance : max 1000/appel)
             let limite_reseau = limite.min(MAX_BOUGIES_RESEAU);
             let res = if asset.is_crypto() {
-                BinanceProvider.fetch_candles(asset.clone(), Timeframe::H1, limite_reseau).await
+                BinanceProvider
+                    .fetch_candles(asset.clone(), Timeframe::H1, limite_reseau)
+                    .await
             } else {
                 IbGatewayProvider::new(state.ib_port, state.ib_client_id)
                     .fetch_candles(asset.clone(), Timeframe::H1, limite_reseau)
@@ -127,7 +132,14 @@ pub async fn analyser(
     };
 
     // Analyse LLM
-    match straddle_analyse::analyser_creneaux(&asset_str, periode_mois, &bougies, &annonces_imminentes).await {
+    match straddle_analyse::analyser_creneaux(
+        &asset_str,
+        periode_mois,
+        &bougies,
+        &annonces_imminentes,
+    )
+    .await
+    {
         Ok(nouveaux) => {
             let nb_retenus = nouveaux.len();
             if let Err(e) = db::straddle::inserer_creneaux(state.db.pool(), &nouveaux).await {
@@ -182,8 +194,7 @@ pub async fn handler_analyser_precision(
     let asset = match crate::utils::parse_asset(&body.asset) {
         Some(a) => a,
         None => {
-            return HttpResponse::BadRequest()
-                .json(serde_json::json!({ "error": "Asset inconnu" }))
+            return HttpResponse::BadRequest().json(serde_json::json!({ "error": "Asset inconnu" }))
         }
     };
 
@@ -207,13 +218,10 @@ pub async fn handler_analyser_precision(
     );
 
     match precision {
-        None => HttpResponse::Ok().json(
-            serde_json::json!({ "ok": false, "message": "Données insuffisantes" }),
-        ),
+        None => HttpResponse::Ok()
+            .json(serde_json::json!({ "ok": false, "message": "Données insuffisantes" })),
         Some(p) => {
-            if let Err(e) =
-                db::straddle::mettre_a_jour_precision(state.db.pool(), id, &p).await
-            {
+            if let Err(e) = db::straddle::mettre_a_jour_precision(state.db.pool(), id, &p).await {
                 return HttpResponse::InternalServerError()
                     .json(serde_json::json!({ "error": e.to_string() }));
             }
@@ -233,8 +241,9 @@ pub async fn handler_analyser_precision(
 pub async fn lister_creneaux(state: web::Data<AppState>) -> impl Responder {
     match db::straddle::lister_creneaux(state.db.pool()).await {
         Ok(creneaux) => HttpResponse::Ok().json(creneaux),
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => {
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
+        }
     }
 }
 
@@ -256,7 +265,8 @@ pub async fn mettre_a_jour_creneau(
     .await
     {
         Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": e.to_string() })),
+        Err(e) => {
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
+        }
     }
 }

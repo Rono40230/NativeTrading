@@ -71,9 +71,11 @@ export const apiService = {
     asset: string,
     timeframe = 'M15',
     capital = 2000,
-    limit = 500
+    nb_jours = 90,
+    creneau?: { timing_optimal: string; jour_semaine?: number | null },
+    straddleParams?: { tp_mult_1?: number; tp_mult_2?: number; tp_mult_3?: number; sl_mult?: number; seuil_atr?: number }
   ): Promise<BacktestResults> {
-    const res = await http.post('/api/backtest', { asset, timeframe, capital, limit })
+    const res = await http.post('/api/backtest', { asset, timeframe, capital, nb_jours, ...creneau, ...straddleParams })
     return res.data
   },
 
@@ -341,6 +343,23 @@ export const apiService = {
     data: { statut?: string; backtest_winrate?: number; backtest_profit_factor?: number },
   ): Promise<void> {
     await http.patch(`/api/straddle/creneaux/${id}`, data)
+  },
+
+  async demanderAjustements(params: {
+    asset: string
+    roi_pct: number
+    win_rate: number
+    max_drawdown_pct: number
+    profit_factor: number
+    sharpe_ratio: number
+    tp_mult_1?: number
+    tp_mult_2?: number
+    tp_mult_3?: number
+    sl_mult?: number
+    seuil_atr?: number
+  }): Promise<{ tp_mult_1: number; tp_mult_2: number; tp_mult_3: number; sl_mult: number; seuil_atr: number; raison: string; modele: string }> {
+    const res = await http.post('/api/ia/ajustements', params, { timeout: 120000 })
+    return res.data
   },
 
   async analyserPrecisionCreneau(

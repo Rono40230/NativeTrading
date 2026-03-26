@@ -90,10 +90,7 @@ fn formater_contexte(signaux: &[SignalSMCClotl]) -> String {
         return "Aucun signal SMC clôturé disponible pour analyse.".to_string();
     }
 
-    let fermes: Vec<&SignalSMCClotl> = signaux
-        .iter()
-        .filter(|s| s.statut == "Fermé")
-        .collect();
+    let fermes: Vec<&SignalSMCClotl> = signaux.iter().filter(|s| s.statut == "Fermé").collect();
 
     let gains = fermes
         .iter()
@@ -128,7 +125,11 @@ fn formater_contexte(signaux: &[SignalSMCClotl]) -> String {
             .iter()
             .filter(|s| s.verdict.as_deref().map(est_gain).unwrap_or(false))
             .count();
-        let wr = if !ferms.is_empty() { g * 100 / ferms.len() } else { 0 };
+        let wr = if !ferms.is_empty() {
+            g * 100 / ferms.len()
+        } else {
+            0
+        };
         ctx.push_str(&format!(
             "{asset}: {} signaux, winrate={wr}%\n",
             groupe.len()
@@ -147,7 +148,11 @@ fn formater_contexte(signaux: &[SignalSMCClotl]) -> String {
             .iter()
             .filter(|s| s.verdict.as_deref().map(est_gain).unwrap_or(false))
             .count();
-        let wr = if !ferms.is_empty() { g * 100 / ferms.len() } else { 0 };
+        let wr = if !ferms.is_empty() {
+            g * 100 / ferms.len()
+        } else {
+            0
+        };
         ctx.push_str(&format!("{tf}: {} signaux, winrate={wr}%\n", groupe.len()));
     }
 
@@ -170,13 +175,20 @@ fn formater_contexte(signaux: &[SignalSMCClotl]) -> String {
             .iter()
             .filter(|s| s.verdict.as_deref().map(est_gain).unwrap_or(false))
             .count();
-        let wr = if !ferms.is_empty() { g * 100 / ferms.len() } else { 0 };
+        let wr = if !ferms.is_empty() {
+            g * 100 / ferms.len()
+        } else {
+            0
+        };
         ctx.push_str(&format!(
             "Conviction {min}-{max}: {} signaux, winrate={wr}%\n",
             groupe.len()
         ));
     }
-    let sans_llm = signaux.iter().filter(|s| s.llm_conviction.is_none()).count();
+    let sans_llm = signaux
+        .iter()
+        .filter(|s| s.llm_conviction.is_none())
+        .count();
     if sans_llm > 0 {
         ctx.push_str(&format!("Sans LLM (avant filtre) : {sans_llm} signaux\n"));
     }
@@ -184,14 +196,17 @@ fn formater_contexte(signaux: &[SignalSMCClotl]) -> String {
     // Par direction
     ctx.push_str("\n=== PAR DIRECTION ===\n");
     for dir in &["Long", "Short"] {
-        let groupe: Vec<&SignalSMCClotl> =
-            signaux.iter().filter(|s| s.direction == *dir).collect();
+        let groupe: Vec<&SignalSMCClotl> = signaux.iter().filter(|s| s.direction == *dir).collect();
         let ferms: Vec<&&SignalSMCClotl> = groupe.iter().filter(|s| s.statut == "Fermé").collect();
         let g = ferms
             .iter()
             .filter(|s| s.verdict.as_deref().map(est_gain).unwrap_or(false))
             .count();
-        let wr = if !ferms.is_empty() { g * 100 / ferms.len() } else { 0 };
+        let wr = if !ferms.is_empty() {
+            g * 100 / ferms.len()
+        } else {
+            0
+        };
         ctx.push_str(&format!("{dir}: {} signaux, winrate={wr}%\n", groupe.len()));
     }
 
@@ -202,8 +217,12 @@ fn formater_contexte(signaux: &[SignalSMCClotl]) -> String {
 
 pub async fn analyser_strategie(
     signaux: &[SignalSMCClotl],
+    contexte_backtest: Option<&str>,
 ) -> Result<AnalyseSMCReponse, TradingError> {
-    let contexte = formater_contexte(signaux);
+    let mut contexte = formater_contexte(signaux);
+    if let Some(ctx) = contexte_backtest {
+        contexte.push_str(ctx);
+    }
     let prompt = format!("{PROMPT_ANALYSE_SMC}\n\n{contexte}");
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());

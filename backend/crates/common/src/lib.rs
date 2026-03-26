@@ -80,6 +80,21 @@ impl Timeframe {
             Timeframe::W1 => "W1",
         }
     }
+
+    /// Durée d'une bougie en minutes — utilisé pour convertir un horizon temporel
+    /// (ex: 30 min) en nombre de bougies selon le timeframe actif.
+    pub fn minutes(&self) -> u64 {
+        match self {
+            Timeframe::M1 => 1,
+            Timeframe::M5 => 5,
+            Timeframe::M15 => 15,
+            Timeframe::M30 => 30,
+            Timeframe::H1 => 60,
+            Timeframe::H4 => 240,
+            Timeframe::D1 => 1440,
+            Timeframe::W1 => 10080,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]

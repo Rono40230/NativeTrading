@@ -105,7 +105,11 @@ pub fn calculer_stats(candles: &[Candle]) -> (Vec<StatSlot>, f64) {
         })
         .collect();
 
-    stats.sort_by(|a, b| b.atr_ratio.partial_cmp(&a.atr_ratio).unwrap_or(std::cmp::Ordering::Equal));
+    stats.sort_by(|a, b| {
+        b.atr_ratio
+            .partial_cmp(&a.atr_ratio)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     (stats, atr_ref)
 }
 
@@ -120,13 +124,7 @@ pub fn formater_contexte_straddle(
     annonces_imminentes: &[serde_json::Value],
 ) -> String {
     let jours = [
-        "Lundi",
-        "Mardi",
-        "Mercredi",
-        "Jeudi",
-        "Vendredi",
-        "Samedi",
-        "Dimanche",
+        "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche",
     ];
 
     let mut ctx = format!(
@@ -154,7 +152,9 @@ pub fn formater_contexte_straddle(
             let devise = a["devise"].as_str().unwrap_or("?");
             let titre = a["titre"].as_str().unwrap_or("?");
             let prevision = a["prevision"].as_str().unwrap_or("n/a");
-            ctx.push_str(&format!("  - {heure} | {devise} | {titre} | Prévis.: {prevision}\n"));
+            ctx.push_str(&format!(
+                "  - {heure} | {devise} | {titre} | Prévis.: {prevision}\n"
+            ));
         }
     }
     ctx
@@ -217,7 +217,14 @@ pub async fn analyser_creneaux(
         return Ok(vec![]);
     }
 
-    let contexte = formater_contexte_straddle(asset, periode_mois, &stats, atr_ref, candles.len(), annonces_imminentes);
+    let contexte = formater_contexte_straddle(
+        asset,
+        periode_mois,
+        &stats,
+        atr_ref,
+        candles.len(),
+        annonces_imminentes,
+    );
     let prompt = format!("{PROMPT_ANALYSE_STRADDLE}\n\n## DONNÉES\n{contexte}");
 
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
@@ -263,13 +270,12 @@ pub async fn analyser_creneaux(
     let debut = texte.find('[').unwrap_or(0);
     let fin = texte.rfind(']').map(|i| i + 1).unwrap_or(texte.len());
 
-    let bruts: Vec<CreneauBrut> =
-        serde_json::from_str(&texte[debut..fin]).map_err(|e| {
-            TradingError::Api(format!(
-                "JSON créneaux LLM non parsable: {e} — texte: {}",
-                &texte[..texte.len().min(300)]
-            ))
-        })?;
+    let bruts: Vec<CreneauBrut> = serde_json::from_str(&texte[debut..fin]).map_err(|e| {
+        TradingError::Api(format!(
+            "JSON créneaux LLM non parsable: {e} — texte: {}",
+            &texte[..texte.len().min(300)]
+        ))
+    })?;
 
     let creneaux = bruts
         .into_iter()

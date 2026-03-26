@@ -1,70 +1,100 @@
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">💰 Profit &amp; Loss</h1>
+      <div class="flex items-center gap-3">
+        <button class="text-gray-400 hover:text-white transition-colors" title="Retour aux créneaux de volatilité" @click="$router.push('/straddle')">← </button>
+        <h1 class="text-2xl font-bold">💰 Profit &amp; Loss</h1>
+      </div>
       <div class="flex gap-3">
         <select v-model="asset" class="glass-select" @change="lancerBacktest">
           <option v-for="a in assets" :key="a" :value="a">{{ a }}</option>
         </select>
-        <select v-model="timeframe" class="glass-select" @change="lancerBacktest">
-          <option v-for="tf in timeframes" :key="tf" :value="tf">{{ tf }}</option>
+        <select v-model="dureeLabel" class="glass-select" @change="lancerBacktest">
+          <option v-for="d in dureesDisponibles" :key="d.label" :value="d.label">{{ d.label }}</option>
         </select>
-        <button class="btn-primary" :disabled="chargement" @click="lancerBacktest">
-          {{ chargement ? '⏳ Calcul...' : '▶ Lancer Backtest' }}
-        </button>
+        <span v-if="chargement" class="text-sm text-gray-400">⏳ Calcul...</span>
       </div>
     </div>
 
 
+    <!-- Avertissement données manquantes -->
+    <div v-if="resultats && resultats.total_trades === 0" class="glass-card p-3 border-yellow-500/30 bg-yellow-900/10 flex items-center gap-3 text-sm">
+      <span class="text-yellow-400">⚠</span>
+      <span class="text-yellow-300 font-semibold">Aucun trade simulé</span>
+      <span class="text-yellow-200/60">— Pas assez de bougies en base. Vérifiez la connexion à la source de données.</span>
+    </div>
+
     <!-- KPIs -->
     <div v-if="resultats" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <div class="glass-card p-4 text-center">
-        <p class="label flex items-center justify-center">ROI <TooltipInfo texte="Retour sur investissement total du backtest. Objectif ≥ 15% pour la mise en production réelle." /></p>
+        <p class="label flex items-center justify-center">ROI <TooltipInfo texte="Retour sur investissement sur la période simulée." :niveaux="niveaux?.roi" /></p>
         <p class="text-2xl font-bold" :class="resultats.roi_pct >= 0 ? 'text-emerald-400' : 'text-red-400'">
           {{ resultats.roi_pct.toFixed(2) }}%
         </p>
       </div>
       <div class="glass-card p-4 text-center">
-        <p class="label flex items-center justify-center">Sharpe <TooltipInfo texte="Rapport rendement / risque annualisé. ≥ 1.5 = excellent, 1.0–1.5 = correct, < 1.0 = insuffisant." /></p>
+        <p class="label flex items-center justify-center">Sharpe <TooltipInfo texte="Rapport rendement / risque ajusté (annualisé)." :niveaux="niveaux?.sharpe" /></p>
         <p class="text-2xl font-bold" :class="resultats.sharpe_ratio >= 1.5 ? 'text-emerald-400' : 'text-yellow-400'">
           {{ resultats.sharpe_ratio.toFixed(2) }}
         </p>
       </div>
       <div class="glass-card p-4 text-center">
-        <p class="label flex items-center justify-center">Win Rate <TooltipInfo texte="Pourcentage de trades gagnants sur le total des positions clôturées. Objectif ≥ 55%." /></p>
+        <p class="label flex items-center justify-center">Win Rate <TooltipInfo texte="Pourcentage de trades clôturés avec un gain positif." :niveaux="niveaux?.winRate" /></p>
         <p class="text-2xl font-bold" :class="resultats.win_rate >= 55 ? 'text-emerald-400' : 'text-yellow-400'">
           {{ resultats.win_rate.toFixed(1) }}%
         </p>
       </div>
       <div class="glass-card p-4 text-center">
-        <p class="label flex items-center justify-center">Max Drawdown <TooltipInfo texte="Perte maximale depuis un pic de capital. Au-delà de 20%, le trading s'arrête automatiquement." /></p>
+        <p class="label flex items-center justify-center">Max Drawdown <TooltipInfo texte="Perte maximale depuis un pic de portefeuille. Au-delà de 20%, le trading s'arrête automatiquement." :niveaux="niveaux?.drawdown" /></p>
         <p class="text-2xl font-bold" :class="resultats.max_drawdown_pct <= 20 ? 'text-emerald-400' : 'text-red-400'">
           {{ resultats.max_drawdown_pct.toFixed(2) }}%
         </p>
       </div>
     </div>
 
-    <!-- Métriques secondaires -->
-    <div v-if="resultats" class="glass-card p-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <div>
-        <p class="label flex items-center">Capital initial <TooltipInfo texte="Capital de départ utilisé pour simuler ce backtest (configurable dans les paramètres)." /></p>
-        <p class="text-white font-semibold">{{ formatEur(resultats.capital_initial) }}</p>
+    <!-- Métriques secondaires + Pyramidalisation sur la même ligne -->
+    <div v-if="resultats" class="flex gap-4">
+      <!-- Bloc capital -->
+      <div class="glass-card p-5 flex-[5] min-w-0">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Résumé</h2>
+        <div class="grid grid-cols-5 gap-2">
+          <div class="text-center p-2 rounded-lg border border-white/10 bg-white/5">
+            <p class="text-xs text-gray-400 mb-1">Capital initial</p>
+            <p class="text-sm font-bold text-white">{{ formatEur(resultats.capital_initial) }}</p>
+          </div>
+          <div class="text-center p-2 rounded-lg border" :class="resultats.capital_final >= resultats.capital_initial ? 'bg-emerald-900/20 border-emerald-500/20' : 'bg-red-900/20 border-red-500/20'">
+            <p class="text-xs text-gray-400 mb-1">Capital final</p>
+            <p class="text-sm font-bold" :class="resultats.capital_final >= resultats.capital_initial ? 'text-emerald-400' : 'text-red-400'">{{ formatEur(resultats.capital_final) }}</p>
+          </div>
+          <div class="text-center p-2 rounded-lg border border-white/10 bg-white/5">
+            <p class="text-xs text-gray-400 mb-1">Trades</p>
+            <p class="text-sm font-bold text-white">{{ resultats.total_trades }}<span class="text-xs text-gray-500 ml-1">({{ resultats.nb_straddles }})</span></p>
+            <p class="text-xs"><span class="text-emerald-400">{{ resultats.winning_trades }}W</span> <span class="text-red-400">{{ resultats.losing_trades }}L</span></p>
+          </div>
+          <div class="text-center p-2 rounded-lg border" :class="resultats.profit_factor >= 1.5 ? 'bg-emerald-900/20 border-emerald-500/20' : 'bg-yellow-900/20 border-yellow-500/20'">
+            <p class="text-xs text-gray-400 mb-1">Profit Factor</p>
+            <p class="text-sm font-bold" :class="resultats.profit_factor >= 1.5 ? 'text-emerald-400' : 'text-yellow-400'">{{ resultats.profit_factor.toFixed(2) }}</p>
+          </div>
+          <div class="text-center p-2 rounded-lg border" :class="resultats.profit_net >= 0 ? 'bg-emerald-900/20 border-emerald-500/20' : 'bg-red-900/20 border-red-500/20'">
+            <p class="text-xs text-gray-400 mb-1">Profit net</p>
+            <p class="text-sm font-bold" :class="resultats.profit_net >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ formatEur(resultats.profit_net) }}</p>
+          </div>
+        </div>
       </div>
-      <div>
-        <p class="label flex items-center">Capital final <TooltipInfo texte="Valeur totale du portefeuille après l'ensemble des trades simulés sur la période." /></p>
-        <p class="font-semibold" :class="resultats.capital_final >= resultats.capital_initial ? 'text-emerald-400' : 'text-red-400'">
-          {{ formatEur(resultats.capital_final) }}
-        </p>
-      </div>
-      <div>
-        <p class="label flex items-center">Trades total <TooltipInfo texte="Nombre de positions ouvertes et fermées pendant la période de backtest analysée." /></p>
-        <p class="text-white font-semibold">{{ resultats.total_trades }}</p>
-      </div>
-      <div>
-        <p class="label flex items-center">Profit Factor <TooltipInfo texte="Ratio gains bruts / pertes brutes. ≥ 1.5 = performant, 1.0–1.5 = neutre, < 1.0 = stratégie perdante." /></p>
-        <p class="font-semibold" :class="resultats.profit_factor >= 1.5 ? 'text-emerald-400' : 'text-yellow-400'">
-          {{ resultats.profit_factor.toFixed(2) }}
-        </p>
+
+      <!-- Bloc sorties pyramidales -->
+      <div v-if="pyramidalisation.some(p => p.n > 0)" class="glass-card p-5 flex-[4] min-w-0">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center">
+          Sorties
+          <TooltipInfo texte="Répartition des sorties pyramidales. TP3 = trade complet, TP2 = ⅔ fermés, TP1 = ⅓ seulement (BE activé), SL = perte." />
+        </h2>
+        <div class="grid grid-cols-4 gap-2">
+          <div v-for="p in pyramidalisation" :key="p.label" class="text-center p-2 rounded-lg border" :class="p.classes">
+            <p class="text-xs text-gray-400 mb-1">{{ p.label }}</p>
+            <p class="text-sm font-bold" :class="p.color">{{ p.n }}</p>
+            <p class="text-xs text-gray-500 mt-1">{{ resultats.total_trades > 0 ? ((p.n / resultats.total_trades) * 100).toFixed(0) : 0 }}%</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -93,39 +123,21 @@
       </div>
     </div>
 
+    <!-- Optimisation LLM — Paramètres Straddle -->
+    <StraddleParamsPanel
+      v-model="straddleParams"
+      :has-resultats="!!resultats"
+      :chargement-llm="chargementLlm"
+      :suggestion="suggestionLlm"
+      @optimiser="demanderOptimisation"
+      @relancer="lancerBacktest"
+    />
+
     <!-- Monitoring ML -->
     <MonitoringML />
 
-    <!-- Test A/B Prompts -->
-    <div v-if="abStats.length" class="glass-card p-5">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">⚖️ Comparaison A/B par stratégie</h2>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-gray-500 text-xs border-b border-white/10">
-              <th class="text-left pb-2">Stratégie</th>
-              <th class="text-right pb-2">Signaux</th>
-              <th class="text-right pb-2">Wins</th>
-              <th class="text-right pb-2">Win Rate</th>
-              <th class="text-right pb-2">Conviction IA</th>
-              <th class="text-right pb-2">Score SMC</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="s in abStats" :key="s.strategie" class="border-b border-white/5 hover:bg-white/5">
-              <td class="py-2 font-medium text-white">{{ s.strategie }}</td>
-              <td class="text-right text-gray-300">{{ s.nb_total }}</td>
-              <td class="text-right text-emerald-400">{{ s.nb_wins }}</td>
-              <td class="text-right font-semibold" :class="s.win_rate >= 55 ? 'text-emerald-400' : s.win_rate >= 45 ? 'text-yellow-400' : 'text-red-400'">
-                {{ s.win_rate.toFixed(1) }}%
-              </td>
-              <td class="text-right text-blue-400">{{ s.conviction_moy > 0 ? s.conviction_moy.toFixed(0) : '—' }}</td>
-              <td class="text-right text-purple-400">{{ s.score_moy.toFixed(1) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <!-- Test A/B Prompts (composant indépendant) -->
+    <AbTestTable />
   </div>
 </template>
 
@@ -139,39 +151,40 @@ import { useAlerteStore } from '@/stores/alerte.store'
 import { useAssetsStore } from '@/stores/assets.store'
 import TooltipInfo from '@/components/common/TooltipInfo.vue'
 import MonitoringML from '@/components/common/MonitoringML.vue'
+import AbTestTable from '@/components/common/AbTestTable.vue'
+import { useBacktestDuree } from '@/composables/useBacktestDuree'
+import { useCreneauParams } from '@/composables/useCreneauParams'
+import { usePnLNiveaux } from '@/composables/usePnLNiveaux'
+import StraddleParamsPanel from '@/components/common/StraddleParamsPanel.vue'
 
 // Inline sub-component pour les lignes d'objectif
 const ObjectifLigne = defineComponent({
   props: { label: String, atteint: Boolean, valeur: String },
-  setup(props) {
-    return () =>
-      h('div', { class: 'flex justify-between items-center py-1 border-b border-white/5' }, [
-        h('span', { class: 'text-sm text-gray-300' }, props.label),
-        h(
-          'span',
-          { class: `text-sm font-semibold ${props.atteint ? 'text-emerald-400' : 'text-red-400'}` },
-          `${props.atteint ? '✓' : '✗'} ${props.valeur}`,
-        ),
-      ])
-  },
+  setup: (p) => () => h('div', { class: 'flex justify-between items-center py-1 border-b border-white/5' }, [
+    h('span', { class: 'text-sm text-gray-300' }, p.label),
+    h('span', { class: `text-sm font-semibold ${p.atteint ? 'text-emerald-400' : 'text-red-400'}` }, `${p.atteint ? '✓' : '✗'} ${p.valeur}`),
+  ])
 })
 
 const settingsStore = useSettingsStore()
 const alerteStore = useAlerteStore()
 const assetsStore = useAssetsStore()
-const assets = computed(() =>
-  assetsStore.assets.length > 0
-    ? assetsStore.assets.map(a => a.id)
-    : ['BTC', 'ETH']
-)
-const timeframes = ['M1', 'M5', 'M15', 'H1', 'H4', 'D1', 'W1']
+const assets = computed(() => assetsStore.assets.length > 0 ? assetsStore.assets.map(a => a.id) : ['BTC', 'ETH'])
 const asset = ref(settingsStore.assetActif)
-const timeframe = ref(settingsStore.timeframeActif)
+const timeframe = ref('M5')
+const { dureeLabel, dureesDisponibles, limiteBougies } = useBacktestDuree(timeframe)
+const { modeCreneau, creneauApi } = useCreneauParams()
 const chargement = ref(false)
 const resultats = ref<BacktestResults | null>(null)
+const { niveaux, pyramidalisation } = usePnLNiveaux(resultats)
 const equityChart = ref<HTMLElement | null>(null)
 let chart: IChartApi | null = null
 let roEquity: ResizeObserver | null = null
+
+// ── Paramètres Straddle éditables (LLM ou manuels) ────────────────────────
+const straddleParams = ref({ tp_mult_1: 2.0, tp_mult_2: 3.5, tp_mult_3: 5.0, sl_mult: 0.5, seuil_atr: 1.5 })
+const suggestionLlm = ref<string | null>(null)
+const chargementLlm = ref(false)
 
 function formatEur(v: number): string {
   return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(v)
@@ -180,12 +193,14 @@ function formatEur(v: number): string {
 async function lancerBacktest() {
   chargement.value = true
   try {
-    resultats.value = await apiService.runBacktest(
-      asset.value,
-      timeframe.value,
-      settingsStore.capitalDepart,
-      500,
-    )
+    resultats.value = await apiService.runBacktest(asset.value, timeframe.value, settingsStore.capitalDepart, limiteBougies.value, creneauApi(), straddleParams.value)
+    // Mise à jour du tableau de volatilité si on vient d'un créneau identifié
+    if (modeCreneau.value?.id && resultats.value) {
+      await apiService.patchStraddleCreneau(modeCreneau.value.id, {
+        backtest_winrate: resultats.value.win_rate,
+        backtest_profit_factor: resultats.value.profit_factor,
+      })
+    }
     await nextTick()
     afficherCourbe()
   } catch (e: unknown) {
@@ -195,21 +210,49 @@ async function lancerBacktest() {
   }
 }
 
+async function demanderOptimisation() {
+  if (!resultats.value) return
+  chargementLlm.value = true
+  suggestionLlm.value = null
+  try {
+    const r = resultats.value
+    const suggestion = await apiService.demanderAjustements({
+      asset: asset.value,
+      roi_pct: r.roi_pct,
+      win_rate: r.win_rate,
+      max_drawdown_pct: r.max_drawdown_pct,
+      profit_factor: r.profit_factor,
+      sharpe_ratio: r.sharpe_ratio,
+      ...straddleParams.value,
+    })
+    straddleParams.value = {
+      tp_mult_1: suggestion.tp_mult_1,
+      tp_mult_2: suggestion.tp_mult_2,
+      tp_mult_3: suggestion.tp_mult_3,
+      sl_mult: suggestion.sl_mult,
+      seuil_atr: suggestion.seuil_atr,
+    }
+    suggestionLlm.value = suggestion.raison
+  } catch (e: unknown) {
+    alerteStore.afficherErreur(`IA indisponible: ${(e as Error).message}`)
+  } finally {
+    chargementLlm.value = false
+  }
+}
+
 function afficherCourbe() {
   if (!equityChart.value || !resultats.value) return
   chart?.remove()
   chart = createChart(equityChart.value, {
     layout: { background: { color: 'transparent' }, textColor: '#9ca3af' },
     grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } },
-    width: equityChart.value.clientWidth,
-    height: 256,
+    width: equityChart.value.clientWidth, height: 256,
   })
   const series = chart.addAreaSeries({
     lineColor: resultats.value.roi_pct >= 0 ? '#10b981' : '#ef4444',
     topColor: resultats.value.roi_pct >= 0 ? '#10b98133' : '#ef444433',
     bottomColor: 'transparent',
   })
-  // Courbe equity simulée (capital_initial → capital_final, linéaire pour la démo)
   const n = Math.max(resultats.value.total_trades, 10)
   const pts = Array.from({ length: n }, (_, i) => ({
     time: (Math.floor(Date.now() / 1000) - (n - i) * 86400) as unknown as import('lightweight-charts').Time,
@@ -219,24 +262,18 @@ function afficherCourbe() {
 }
 
 watch(equityChart, (el) => {
-  if (el && resultats.value) afficherCourbe()
-})
-
-watch(equityChart, (el, old) => {
   roEquity?.disconnect()
   if (!el) return
-  roEquity = new ResizeObserver(() => {
-    chart?.applyOptions({ width: el.clientWidth })
-  })
+  if (resultats.value) afficherCourbe()
+  roEquity = new ResizeObserver(() => chart?.applyOptions({ width: el.clientWidth }))
   roEquity.observe(el)
-  if (old) roEquity.disconnect()
 })
 
-const abStats = ref<{ strategie: string; nb_total: number; nb_wins: number; nb_pertes: number; win_rate: number; conviction_moy: number; score_moy: number }[]>([])
+
 
 onMounted(() => {
   assetsStore.chargerAssets()
-  apiService.getAbTest().then(d => { abStats.value = d }).catch(() => {})
+  if (modeCreneau.value) { asset.value = modeCreneau.value.asset; lancerBacktest() }
 })
 onUnmounted(() => {
   roEquity?.disconnect()

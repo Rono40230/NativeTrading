@@ -5,7 +5,7 @@
       <h1 class="text-xl font-bold text-white">⚡ Straddle — Créneaux de volatilité</h1>
       <p class="text-sm text-gray-400 mt-1">
         Le LLM analyse l'historique OHLCV et identifie les créneaux récurrents de forte volatilité bidirectionnelle.
-        <RouterLink to="/straddle/backtest" class="text-yellow-400 hover:underline ml-1">→ Backtest</RouterLink>
+        <RouterLink to="/pnl" class="text-yellow-400 hover:underline ml-1">→ P&amp;L</RouterLink>
       </p>
     </div>
 
@@ -87,7 +87,6 @@
           <tr class="border-b border-white/10 text-xs text-gray-400 uppercase">
             <th class="text-left px-4 py-3">Asset</th>
             <th class="text-left px-4 py-3">Jour</th>
-            <th class="text-left px-4 py-3">Créneau UTC</th>
             <th class="text-center px-4 py-3">Pic volatilité</th>
             <th class="text-center px-4 py-3">ATR ×</th>
             <th class="text-center px-4 py-3">Fréquence</th>
@@ -106,7 +105,6 @@
           >
             <td class="px-4 py-3 font-bold text-white">{{ c.asset }}</td>
             <td class="px-4 py-3 text-gray-300">{{ nomJour(c.jour_semaine) }}</td>
-            <td class="px-4 py-3 text-yellow-300 font-mono">{{ c.heure_debut }}–{{ c.heure_fin }}</td>
             <td class="px-4 py-3 text-center text-xs">
               <template v-if="chargementPrecision[c.id]">⏳</template>
               <template v-else-if="c.timing_optimal">
@@ -149,8 +147,10 @@
             </td>
             <td class="px-4 py-3 text-center">
               <RouterLink
-                :to="`/straddle/backtest?asset=${c.asset}&heure=${c.heure_debut}&fin=${c.heure_fin}&jour=${c.jour_semaine ?? ''}&id=${c.id}`"
+                :to="`/pnl?asset=${c.asset}&timing=${c.timing_optimal ?? ''}&jour=${c.jour_semaine ?? ''}&id=${c.id}`"
                 class="text-xs text-blue-400 hover:underline"
+                :class="!c.timing_optimal ? 'opacity-40 pointer-events-none' : ''"
+                :title="c.timing_optimal ? '' : 'Lancez ⏱ Analyser pour obtenir le timing précis'"
               >
                 🧪 Tester
               </RouterLink>

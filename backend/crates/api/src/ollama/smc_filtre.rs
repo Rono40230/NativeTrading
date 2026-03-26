@@ -35,7 +35,7 @@ pub struct SignalSMCCandidat {
     pub stop_loss: f64,
     pub tp1: f64,
     pub atr14: f64,
-    pub atr_ratio: f64,  // ATR courant / ATR moyen 14
+    pub atr_ratio: f64, // ATR courant / ATR moyen 14
     pub rsi: f64,
     pub kill_zone_active: bool,
     pub sweep_detecte: bool,
@@ -110,10 +110,7 @@ Si conviction < 65, retourne valide=false directement, même si certains critèr
 
 // ── Formatage du contexte ─────────────────────────────────────────────────────
 
-fn formater_contexte(
-    candidat: &SignalSMCCandidat,
-    historique: &[HistoriqueSMCSignal],
-) -> String {
+fn formater_contexte(candidat: &SignalSMCCandidat, historique: &[HistoriqueSMCSignal]) -> String {
     let mut ctx = format!(
         "=== SIGNAL CANDIDAT : {} {} ===\n\
         Direction: {} | Score SMC: {:.1}/100 | ML confiance: {:.1}%\n\
@@ -150,10 +147,7 @@ fn formater_contexte(
         .iter()
         .filter(|s| matches!(s.statut.as_str(), "Fermé" | "TP1" | "TP2" | "TP3"))
         .count();
-    let clotls: Vec<_> = historique
-        .iter()
-        .filter(|s| s.statut != "Actif")
-        .collect();
+    let clotls: Vec<_> = historique.iter().filter(|s| s.statut != "Actif").collect();
     if !clotls.is_empty() {
         let wr = succes * 100 / clotls.len().max(1);
         ctx.push_str(&format!("Winrate estimé : {}%\n", wr));

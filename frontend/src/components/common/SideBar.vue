@@ -90,7 +90,6 @@ const nav: NavItem[] = [
   },
 
   // ── Performance ──────────────────────────────────────────────────────────
-  { to: '/pnl',     icone: '💰', label: 'P&L' },
   { to: '/history', icone: '📜', label: 'Historique' },
 
   // ── Outils IA ─────────────────────────────────────────────────────────────

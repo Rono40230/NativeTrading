@@ -249,11 +249,18 @@ async fn analyser_asset(
     let atr_vals = indicators::calculer_atr(&bougies, 14);
     let atr_now = atr_vals.last().copied().unwrap_or(0.0);
     let atr_moyen = if atr_vals.len() >= 14 {
-        atr_vals[atr_vals.len().saturating_sub(14)..].iter().sum::<f64>() / 14.0
+        atr_vals[atr_vals.len().saturating_sub(14)..]
+            .iter()
+            .sum::<f64>()
+            / 14.0
     } else {
         atr_now
     };
-    let atr_ratio = if atr_moyen > 0.0 { atr_now / atr_moyen } else { 1.0 };
+    let atr_ratio = if atr_moyen > 0.0 {
+        atr_now / atr_moyen
+    } else {
+        1.0
+    };
 
     let rsi_vals = indicators::calculer_rsi(&bougies, 14);
     let rsi = rsi_vals.last().copied().unwrap_or(50.0);
@@ -266,12 +273,14 @@ async fn analyser_asset(
     let historique_smc = db.obtenir_historique_smc(asset.as_str(), 10).await;
     let historique_filtre: Vec<crate::ollama::smc_filtre::HistoriqueSMCSignal> = historique_smc
         .into_iter()
-        .map(|(direction, tf, score, statut)| crate::ollama::smc_filtre::HistoriqueSMCSignal {
-            direction,
-            timeframe: tf,
-            score,
-            statut,
-        })
+        .map(
+            |(direction, tf, score, statut)| crate::ollama::smc_filtre::HistoriqueSMCSignal {
+                direction,
+                timeframe: tf,
+                score,
+                statut,
+            },
+        )
         .collect();
 
     let candidat = crate::ollama::smc_filtre::SignalSMCCandidat {
@@ -290,5 +299,14 @@ async fn analyser_asset(
         sweep_detecte: sweep,
     };
 
-    sauvegarder_signal_avec_filtre(db, tx, &signal, asset, timeframe, &candidat, &historique_filtre).await
+    sauvegarder_signal_avec_filtre(
+        db,
+        tx,
+        &signal,
+        asset,
+        timeframe,
+        &candidat,
+        &historique_filtre,
+    )
+    .await
 }

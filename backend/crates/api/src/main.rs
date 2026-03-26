@@ -18,6 +18,7 @@ mod news_rss;
 mod news_scraper;
 mod news_traduction;
 mod ollama;
+mod ollama_ajustements_handler;
 mod ollama_handlers;
 mod ollama_types;
 mod rockets_analyse_handler;
@@ -123,6 +124,10 @@ async fn main() -> std::io::Result<()> {
                 web::post().to(backtest_handlers::run_backtest),
             )
             .route(
+                "/api/backtest/raffiner-ml",
+                web::post().to(backtest_handlers::raffiner_ml),
+            )
+            .route(
                 "/api/signaux/export",
                 web::get().to(export_handlers::exporter_signaux_csv),
             )
@@ -145,6 +150,10 @@ async fn main() -> std::io::Result<()> {
             .route(
                 "/api/ia/signal",
                 web::post().to(ollama_handlers::generer_signal),
+            )
+            .route(
+                "/api/ia/ajustements",
+                web::post().to(ollama_ajustements_handler::ajustements),
             )
             .route(
                 "/api/ia/signal/straddle",
@@ -254,7 +263,10 @@ async fn main() -> std::io::Result<()> {
                 "/api/volatility/patterns",
                 web::get().to(volatility_handlers::get_patterns),
             )
-            .route("/api/ia/ab-test", web::get().to(ab_test_handlers::get_ab_test))
+            .route(
+                "/api/ia/ab-test",
+                web::get().to(ab_test_handlers::get_ab_test),
+            )
     })
     .bind(("0.0.0.0", 8080))?
     .run()

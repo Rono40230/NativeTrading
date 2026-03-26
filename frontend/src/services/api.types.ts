@@ -19,6 +19,14 @@ export interface BacktestResults {
   sharpe_ratio: number
   max_drawdown_pct: number
   profit_factor: number
+  // Pyramidalisation SMC (0 pour Straddle)
+  nb_tp1: number
+  nb_tp2: number
+  nb_tp3: number
+  nb_sl: number
+  nb_expirations: number
+  // Nombre de Straddles posés (= total_trades / 2)
+  nb_straddles: number
 }
 
 export interface PredictionML {

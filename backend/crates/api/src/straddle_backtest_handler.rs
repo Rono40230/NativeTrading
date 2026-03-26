@@ -1,5 +1,5 @@
-use actix_web::{web, HttpResponse, Responder};
 use crate::state::AppState;
+use actix_web::{web, HttpResponse, Responder};
 
 // ── POST /api/straddle/backtest ───────────────────────────────────────────────
 /// Backteste un créneau straddle filtré par plage horaire et jour sur l'historique H1.
@@ -9,6 +9,11 @@ pub struct RequeteSlotBacktest {
     pub heure_debut: String,
     pub jour_semaine: Option<i64>,
     pub capital: Option<f64>,
+    /// Si fourni, backteste sur une fenêtre centrée [timing - avant_min, timing + apres_min]
+    /// avec des bougies M5 (ex: "14:32"). Sinon, backtest H1 sur l'heure de heure_debut.
+    pub timing_optimal: Option<String>,
+    pub avant_min: Option<u32>, // défaut 15
+    pub apres_min: Option<u32>, // défaut 30
 }
 
 pub async fn handler_backtest_slot(
@@ -19,30 +24,50 @@ pub async fn handler_backtest_slot(
     let asset = match crate::utils::parse_asset(&body.asset) {
         Some(a) => a,
         None => {
-            return HttpResponse::BadRequest()
-                .json(serde_json::json!({ "error": "Asset inconnu" }))
+            return HttpResponse::BadRequest().json(serde_json::json!({ "error": "Asset inconnu" }))
         }
     };
-    let h_debut: u32 = body
-        .heure_debut
-        .splitn(2, ':')
-        .next()
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0);
     let capital = body.capital.unwrap_or(2000.0);
-    let bougies = match state.db.obtenir_bougies(&asset, &Timeframe::H1, 5000).await {
-        Ok(b) => b,
-        Err(e) => {
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": e.to_string() }))
-        }
+    let r = if let Some(ref timing) = body.timing_optimal {
+        // Fenêtre centrée sur le timing précis — bougies M5
+        let avant = body.avant_min.unwrap_or(15);
+        let apres = body.apres_min.unwrap_or(30);
+        let bougies = match state
+            .db
+            .obtenir_bougies(&asset, &Timeframe::M5, 20_000)
+            .await
+        {
+            Ok(b) => b,
+            Err(e) => {
+                return HttpResponse::InternalServerError()
+                    .json(serde_json::json!({ "error": e.to_string() }))
+            }
+        };
+        crate::straddle_slot_backtest::backtest_slot_fenetre(
+            &bougies,
+            body.jour_semaine,
+            timing,
+            avant,
+            apres,
+            capital,
+        )
+    } else {
+        // Fallback : backtest H1 sur l'heure entière
+        let h_debut: u32 = body
+            .heure_debut
+            .split(':')
+            .next()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0);
+        let bougies = match state.db.obtenir_bougies(&asset, &Timeframe::H1, 5000).await {
+            Ok(b) => b,
+            Err(e) => {
+                return HttpResponse::InternalServerError()
+                    .json(serde_json::json!({ "error": e.to_string() }))
+            }
+        };
+        crate::straddle_slot_backtest::backtest_slot(&bougies, body.jour_semaine, h_debut, capital)
     };
-    let r = crate::straddle_slot_backtest::backtest_slot(
-        &bougies,
-        body.jour_semaine,
-        h_debut,
-        capital,
-    );
     HttpResponse::Ok().json(serde_json::json!({
         "total_trades": r.total_trades,
         "win_rate": r.win_rate,

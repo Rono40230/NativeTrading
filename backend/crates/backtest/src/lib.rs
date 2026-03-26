@@ -1,4 +1,6 @@
-use calculs::{calculer_resultats, simuler_sortie, TradeDirection, TradeSimule};
+use calculs::{
+    calculer_resultats, simuler_sortie, simuler_sortie_pyramidal, TradeDirection, TradeSimule,
+};
 use common::{Candle, Direction, Result};
 use serde::{Deserialize, Serialize};
 use strategies::Strategy;
@@ -19,6 +21,25 @@ pub struct BacktestResults {
     pub sharpe_ratio: f64,
     pub max_drawdown_pct: f64,
     pub profit_factor: f64,
+    /// Trades SMC sortis exactement à TP1 (⅓ fermé, SL → BE, reste annulé)
+    pub nb_tp1: u32,
+    /// Trades SMC sortis exactement à TP2 (⅔ fermé)
+    pub nb_tp2: u32,
+    /// Trades SMC sortis à TP3 complet
+    pub nb_tp3: u32,
+    /// Trades stoppés (SL ou BE après TP1)
+    pub nb_sl: u32,
+    /// Trades fermés à l'expiration de l'horizon (ni TP ni SL atteints)
+    pub nb_expirations: u32,
+    /// Nombre de Straddles posés (= total_trades / 2 car Long+Short par signal)
+    pub nb_straddles: u32,
+}
+
+/// Données de feedback d'un trade simulé pour raffinement du pipeline ML.
+/// Contient l'index de la bougie d'entrée et le résultat (gagné/perdu).
+pub struct FeedbackTrade {
+    pub indice_entree: usize,
+    pub gagne: bool,
 }
 
 /// Moteur de backtesting — rejoue les bougies et simule les trades
@@ -28,6 +49,10 @@ pub struct BacktestEngine {
     pub cout_friction_pct: f64,
     /// Risk par trade en % du capital
     pub risk_par_trade_pct: f64,
+    /// Nombre de bougies APRÈS l'entrée formant l'horizon d'expiration.
+    /// Calculé côté handler depuis `horizon_minutes / timeframe.minutes()`.
+    /// Défaut : 5 bougies (compatible M5 = 25 min, proche du créneau Straddle).
+    pub horizon_bougies: usize,
 }
 
 impl BacktestEngine {
@@ -36,18 +61,38 @@ impl BacktestEngine {
             capital_initial,
             cout_friction_pct: 0.0003,
             risk_par_trade_pct: 0.02,
+            horizon_bougies: 5,
         }
     }
 
     /// Lance un backtest walk-forward sur les bougies fournies.
     pub fn run(&self, bougies: &[Candle], strategy: &dyn Strategy) -> Result<BacktestResults> {
+        self.run_interne(bougies, strategy).map(|(r, _)| r)
+    }
+
+    /// Identique à `run()` mais retourne aussi le feedback par trade
+    /// (index bougie + résultat gagnant/perdant) pour raffiner le pipeline ML.
+    pub fn run_avec_feedback(
+        &self,
+        bougies: &[Candle],
+        strategy: &dyn Strategy,
+    ) -> Result<(BacktestResults, Vec<FeedbackTrade>)> {
+        self.run_interne(bougies, strategy)
+    }
+
+    fn run_interne(
+        &self,
+        bougies: &[Candle],
+        strategy: &dyn Strategy,
+    ) -> Result<(BacktestResults, Vec<FeedbackTrade>)> {
         if bougies.len() < 62 {
-            return Ok(self.resultats_vides());
+            return Ok((self.resultats_vides(), Vec::new()));
         }
 
         let mut capital = self.capital_initial;
         let mut equity: Vec<f64> = vec![capital];
         let mut trades: Vec<TradeSimule> = Vec::new();
+        let mut feedback: Vec<FeedbackTrade> = Vec::new();
         let mut capital_max = capital;
         let fenetre = 60usize;
 
@@ -65,8 +110,16 @@ impl BacktestEngine {
 
             let prochaine = &bougies[i];
             let friction = self.cout_friction_pct;
-            let horizon = (i + 5).min(bougies.len() - 1);
-            let horizon_bougies = &bougies[i..=horizon];
+            // Horizon commençant à i+1 pour éviter le look-ahead sur la bougie d'entrée.
+            // Straddle (Both) : horizon illimité → chaque jambe scanne jusqu'à toucher un niveau.
+            // SMC (Long/Short) : horizon limité à horizon_bougies (ex. 4h).
+            let horizon_bougies: &[Candle] = match signal.direction {
+                Direction::Both => &bougies[i + 1..],
+                _ => {
+                    let horizon = (i + 1 + self.horizon_bougies).min(bougies.len());
+                    &bougies[i + 1..horizon]
+                }
+            };
 
             let directions: &[TradeDirection] = match signal.direction {
                 Direction::Long => &[TradeDirection::Long],
@@ -80,18 +133,43 @@ impl BacktestEngine {
                     TradeDirection::Short => prochaine.open * (1.0 - friction),
                 };
 
-                let (tp, sl) = match dir {
-                    TradeDirection::Long => (signal.take_profit, signal.stop_loss),
-                    TradeDirection::Short => {
-                        let dist = signal.prix_entree - signal.stop_loss;
-                        (
-                            prix_entree - (signal.take_profit - signal.prix_entree),
-                            prix_entree + dist,
-                        )
+                // Recalcul des niveaux TP/SL depuis l'entrée réelle (open ± friction).
+                // Straddle (Both) : TPs fournis en perspective Long → mirroir pour Short.
+                // SMC (Long/Short) : TPs déjà direction-ajustés → offset direct.
+                let (tp1, sl) = match signal.direction {
+                    Direction::Both => match dir {
+                        TradeDirection::Long => (signal.take_profit, signal.stop_loss),
+                        TradeDirection::Short => {
+                            let dist_tp = signal.take_profit - signal.prix_entree;
+                            let dist_sl = signal.prix_entree - signal.stop_loss;
+                            (prix_entree - dist_tp, prix_entree + dist_sl)
+                        }
+                    },
+                    _ => {
+                        let tp = prix_entree + (signal.take_profit - signal.prix_entree);
+                        let sl = prix_entree + (signal.stop_loss - signal.prix_entree);
+                        (tp, sl)
                     }
                 };
 
-                let prix_sortie = simuler_sortie(horizon_bougies, dir, tp, sl, prochaine.close);
+                // Sortie pyramidale si TP2/TP3 disponibles (SMC), sinon sortie simple (Straddle)
+                let (prix_sortie, sortie_type) = match (signal.take_profit_2, signal.take_profit_3)
+                {
+                    (Some(tp2_sig), Some(tp3_sig)) => {
+                        let tp2 = prix_entree + (tp2_sig - signal.prix_entree);
+                        let tp3 = prix_entree + (tp3_sig - signal.prix_entree);
+                        simuler_sortie_pyramidal(
+                            horizon_bougies,
+                            dir,
+                            prix_entree,
+                            tp1,
+                            tp2,
+                            tp3,
+                            sl,
+                        )
+                    }
+                    _ => simuler_sortie(horizon_bougies, dir, tp1, sl, prochaine.close),
+                };
                 let dist_sl = (prix_entree - sl).abs().max(1e-10);
                 let taille_pos = (capital * self.risk_par_trade_pct) / dist_sl;
 
@@ -100,6 +178,7 @@ impl BacktestEngine {
                     TradeDirection::Short => (prix_entree - prix_sortie) * taille_pos,
                 };
 
+                let gagne = pnl > 0.0;
                 capital = (capital + pnl).max(0.0);
                 if capital > capital_max {
                     capital_max = capital;
@@ -109,11 +188,18 @@ impl BacktestEngine {
                     prix_entree,
                     prix_sortie,
                     direction: dir.clone(),
+                    sortie: Some(sortie_type),
+                });
+                feedback.push(FeedbackTrade {
+                    indice_entree: i,
+                    gagne,
                 });
             }
         }
 
-        calculer_resultats(trades, equity, self.capital_initial, capital, capital_max)
+        let resultats =
+            calculer_resultats(trades, equity, self.capital_initial, capital, capital_max)?;
+        Ok((resultats, feedback))
     }
 
     fn resultats_vides(&self) -> BacktestResults {
@@ -129,6 +215,12 @@ impl BacktestEngine {
             sharpe_ratio: 0.0,
             max_drawdown_pct: 0.0,
             profit_factor: 0.0,
+            nb_tp1: 0,
+            nb_tp2: 0,
+            nb_tp3: 0,
+            nb_sl: 0,
+            nb_expirations: 0,
+            nb_straddles: 0,
         }
     }
 }

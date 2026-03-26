@@ -1,3 +1,37 @@
+/// Formate les résultats d'un backtest en bloc de contexte compact pour les prompts LLM.
+///
+/// Le LLM dispose ainsi d'une référence chiffrée sur les performances historiques
+/// de la stratégie (win rate, Sharpe, drawdown, profit factor) pour calibrer
+/// sa conviction lors du filtrage des signaux.
+#[allow(clippy::too_many_arguments)]
+pub fn formater_contexte_backtest(
+    win_rate: f64,
+    roi_pct: f64,
+    sharpe_ratio: f64,
+    max_drawdown_pct: f64,
+    profit_factor: f64,
+    total_trades: u32,
+    asset: &str,
+    strategie: &str,
+) -> String {
+    let qualite = if win_rate >= 55.0 && sharpe_ratio >= 1.0 {
+        "STRATÉGIE PERFORMANTE"
+    } else if win_rate >= 45.0 {
+        "STRATÉGIE CORRECTE"
+    } else {
+        "STRATÉGIE À AMÉLIORER"
+    };
+
+    format!(
+        "\n=== BACKTEST {asset} ({strategie}) — {qualite} ===\n\
+        Trades: {total_trades} | WinRate: {win_rate:.1}% | ROI: {roi_pct:.2}%\n\
+        Sharpe: {sharpe_ratio:.2} | MaxDD: {max_drawdown_pct:.1}% | PF: {profit_factor:.2}\n\
+        Calibre ta conviction en conséquence : WinRate élevé → confiance possible, \
+        WinRate faible ou MaxDD élevé → sois TRÈS conservateur.\n\
+        ===\n"
+    )
+}
+
 /// Formate les signaux passés en bloc de contexte compact injecté dans les prompts LLM.
 ///
 /// Le LLM reçoit ainsi le "vécu" récent de la stratégie sur l'asset :

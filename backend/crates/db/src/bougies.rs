@@ -53,6 +53,46 @@ impl Database {
         Ok(inseres)
     }
 
+    /// Récupère toutes les bougies depuis `nb_jours` jours en arrière (ordre ASC).
+    /// Utilise un filtre `WHERE timestamp >= ?` — pas de cap arbitraire.
+    pub async fn obtenir_bougies_depuis_jours(
+        &self,
+        asset: &Asset,
+        timeframe: &Timeframe,
+        nb_jours: u32,
+    ) -> Result<Vec<Candle>> {
+        let depuis = Utc::now().timestamp() - (nb_jours as i64 * 86_400);
+        let rows = sqlx::query(
+            "SELECT timestamp, open, high, low, close, volume
+             FROM bougies
+             WHERE asset = ? AND timeframe = ? AND timestamp >= ?
+             ORDER BY timestamp ASC",
+        )
+        .bind(asset.as_str())
+        .bind(timeframe.as_str())
+        .bind(depuis)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        let bougies = rows
+            .iter()
+            .map(|r| {
+                let ts: i64 = r.get("timestamp");
+                Candle {
+                    timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or(Utc::now()),
+                    open: r.get("open"),
+                    high: r.get("high"),
+                    low: r.get("low"),
+                    close: r.get("close"),
+                    volume: r.get("volume"),
+                }
+            })
+            .collect();
+
+        Ok(bougies)
+    }
+
     /// Récupère les N dernières bougies d'un asset/timeframe (ordre ASC)
     pub async fn obtenir_bougies(
         &self,
@@ -108,10 +148,10 @@ impl Database {
             let m: i64 = p.next()?.parse().ok()?;
             Some(h * 3600 + m * 60)
         };
-        let debut_sec = parse(heure_debut)
-            .ok_or_else(|| TradingError::Data("heure_debut invalide".into()))?;
-        let fin_sec = parse(heure_fin)
-            .ok_or_else(|| TradingError::Data("heure_fin invalide".into()))?;
+        let debut_sec =
+            parse(heure_debut).ok_or_else(|| TradingError::Data("heure_debut invalide".into()))?;
+        let fin_sec =
+            parse(heure_fin).ok_or_else(|| TradingError::Data("heure_fin invalide".into()))?;
 
         let rows = sqlx::query(
             "SELECT timestamp, open, high, low, close, volume

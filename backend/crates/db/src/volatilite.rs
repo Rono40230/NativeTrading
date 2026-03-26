@@ -38,14 +38,13 @@ fn assigner_clusters(mut patterns: Vec<PatternHoraire>) -> Vec<PatternHoraire> {
         Err(_) => return assigner_clusters_quartiles(patterns),
     };
 
-    let labels: Vec<usize> =
-        match KMeans::fit(&x, KMeansParameters::default().with_k(k)) {
-            Ok(km) => match km.predict(&x) {
-                Ok(l) => l,
-                Err(_) => return assigner_clusters_quartiles(patterns),
-            },
+    let labels: Vec<usize> = match KMeans::fit(&x, KMeansParameters::default().with_k(k)) {
+        Ok(km) => match km.predict(&x) {
+            Ok(l) => l,
             Err(_) => return assigner_clusters_quartiles(patterns),
-        };
+        },
+        Err(_) => return assigner_clusters_quartiles(patterns),
+    };
 
     // Calcul du centre (ATR moyen) de chaque cluster pour trier 0=calme → 3=extrême
     let mut centres: Vec<(usize, f64)> = (0..k)

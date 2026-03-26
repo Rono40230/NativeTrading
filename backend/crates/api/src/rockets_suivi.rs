@@ -207,6 +207,9 @@ mod tests {
             prix_verdict: None,
             cree_le: "2026-01-01T00:00:00".into(),
             maj_le: None,
+            llm_valide: None,
+            llm_conviction: None,
+            llm_raison: None,
         }
     }
 
