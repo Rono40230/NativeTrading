@@ -45,14 +45,17 @@ pub fn analyser_precision(
     let debut_min = h_debut * 60 + m_debut;
     let fin_min = h_fin * 60 + m_fin;
 
-    // Calculer les TR avec la bougie précédente
+    // Calculer les TR avec la bougie précédente (M1 = gap max 90s entre deux bougies consécutives)
     let trs: Vec<(i64, u8, f64)> = candles_m5 // (minute_slot, jour, tr)
         .windows(2)
         .filter_map(|w| {
             let prev = &w[0];
             let c = &w[1];
+            // Ignorer les frontières de jour : gap > 90s = bougies non-consécutives
+            if (c.timestamp - prev.timestamp).num_seconds() > 90 {
+                return None;
+            }
             let jour = c.timestamp.weekday().num_days_from_monday() as i64;
-            // Filtre jour de la semaine
             if let Some(j) = jour_semaine {
                 if jour != j {
                     return None;
@@ -65,7 +68,6 @@ pub fn analyser_precision(
                 return None;
             }
             let tr = true_range(prev.close, c);
-            // Slot = offset en minutes depuis le début du créneau, arrondi à 5
             let offset = (slot_min - debut_min) as i64;
             Some((offset, jour as u8, tr))
         })
@@ -83,6 +85,10 @@ pub fn analyser_precision(
     for w in candles_m5.windows(2) {
         let prev = &w[0];
         let c = &w[1];
+        // Ignorer les frontières de jour
+        if (c.timestamp - prev.timestamp).num_seconds() > 90 {
+            continue;
+        }
         let jour = c.timestamp.weekday().num_days_from_monday() as i64;
         if let Some(j) = jour_semaine {
             if jour != j {
