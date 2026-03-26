@@ -102,8 +102,32 @@ pub async fn analyser(
     }
     let _ = db::straddle::supprimer_creneaux_asset(state.db.pool(), &asset_str).await;
 
+    // Annonces économiques HIGH impact imminentes (<2h) — enrichit le prompt LLM
+    let annonces_imminentes = {
+        let maintenant = chrono::Utc::now().timestamp();
+        let dans_2h = maintenant + 7200;
+        state
+            .db
+            .lire_calendrier_cache(3600)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|a| {
+                a["impact"].as_str() == Some("High")
+                    && a["date_heure"]
+                        .as_str()
+                        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                        .map(|dt| {
+                            let ts = dt.timestamp();
+                            ts >= maintenant && ts <= dans_2h
+                        })
+                        .unwrap_or(false)
+            })
+            .collect::<Vec<_>>()
+    };
+
     // Analyse LLM
-    match straddle_analyse::analyser_creneaux(&asset_str, periode_mois, &bougies).await {
+    match straddle_analyse::analyser_creneaux(&asset_str, periode_mois, &bougies, &annonces_imminentes).await {
         Ok(nouveaux) => {
             let nb_retenus = nouveaux.len();
             if let Err(e) = db::straddle::inserer_creneaux(state.db.pool(), &nouveaux).await {

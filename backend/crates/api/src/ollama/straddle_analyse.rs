@@ -117,6 +117,7 @@ pub fn formater_contexte_straddle(
     stats: &[StatSlot],
     atr_ref: f64,
     nb_bougies: usize,
+    annonces_imminentes: &[serde_json::Value],
 ) -> String {
     let jours = [
         "Lundi",
@@ -146,7 +147,16 @@ pub fn formater_contexte_straddle(
             s.nb_occurrences,
         ));
     }
-
+    if !annonces_imminentes.is_empty() {
+        ctx.push_str("\n\nAnnonces économiques HIGH impact dans les 2h :\n");
+        for a in annonces_imminentes {
+            let heure = a["date_heure"].as_str().unwrap_or("?");
+            let devise = a["devise"].as_str().unwrap_or("?");
+            let titre = a["titre"].as_str().unwrap_or("?");
+            let prevision = a["prevision"].as_str().unwrap_or("n/a");
+            ctx.push_str(&format!("  - {heure} | {devise} | {titre} | Prévis.: {prevision}\n"));
+        }
+    }
     ctx
 }
 
@@ -194,6 +204,7 @@ pub async fn analyser_creneaux(
     asset: &str,
     periode_mois: u32,
     candles: &[Candle],
+    annonces_imminentes: &[serde_json::Value],
 ) -> Result<Vec<NouveauCreneau>, TradingError> {
     if candles.len() < 10 {
         return Err(TradingError::Data(
@@ -206,7 +217,7 @@ pub async fn analyser_creneaux(
         return Ok(vec![]);
     }
 
-    let contexte = formater_contexte_straddle(asset, periode_mois, &stats, atr_ref, candles.len());
+    let contexte = formater_contexte_straddle(asset, periode_mois, &stats, atr_ref, candles.len(), annonces_imminentes);
     let prompt = format!("{PROMPT_ANALYSE_STRADDLE}\n\n## DONNÉES\n{contexte}");
 
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
