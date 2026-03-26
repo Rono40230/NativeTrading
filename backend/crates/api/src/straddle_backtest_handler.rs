@@ -48,5 +48,10 @@ pub async fn handler_backtest_slot(
         "win_rate": r.win_rate,
         "profit_factor": r.profit_factor,
         "max_drawdown_pct": r.max_drawdown_pct,
+        "esperance_pct": r.esperance_pct,
+        "payoff_ratio": r.payoff_ratio,
+        "serie_pertes_max": r.serie_pertes_max,
+        "direction_dominante": r.direction_dominante,
+        "amplitude_moyenne": r.amplitude_moyenne,
     }))
 }

@@ -20,6 +20,11 @@ pub struct SlotBacktestResult {
     pub profit_factor: f64,
     pub win_rate: f64,
     pub max_drawdown_pct: f64,
+    pub esperance_pct: f64,      // gain attendu par trade en % du capital
+    pub payoff_ratio: f64,       // gain moyen / perte moyenne
+    pub serie_pertes_max: usize, // max pertes consécutives
+    pub direction_dominante: String, // "Long", "Short", "Équilibré"
+    pub amplitude_moyenne: f64,  // amplitude moyenne du créneau (high-low)
 }
 
 /// Backteste un créneau (heure UTC + jour optionnel) sur l'historique H1.
@@ -38,6 +43,13 @@ pub fn backtest_slot(
     let mut gross_losses = 0.0f64;
     let mut total = 0usize;
     let mut wins = 0usize;
+    let mut gains_vals: Vec<f64> = vec![];
+    let mut pertes_vals: Vec<f64> = vec![];
+    let mut consec = 0usize;
+    let mut max_consec = 0usize;
+    let mut long_wins_count = 0usize;
+    let mut short_wins_count = 0usize;
+    let mut amplitudes: Vec<f64> = vec![];
 
     for i in 14..candles_h1.len().saturating_sub(5) {
         let c = &candles_h1[i];
@@ -57,6 +69,7 @@ pub fn backtest_slot(
 
         let entree = c.close;
         let futures = &candles_h1[i + 1..(i + 5).min(candles_h1.len())];
+        amplitudes.push(c.high - c.low);
 
         let long_win =
             simuler_direction(futures, entree + TP_MULT * atr, entree - SL_MULT * atr, true);
@@ -75,8 +88,15 @@ pub fn backtest_slot(
         if pnl > 0.0 {
             wins += 1;
             gross_profits += pnl;
+            gains_vals.push(pnl);
+            consec = 0;
+            if long_win { long_wins_count += 1; }
+            else if short_win { short_wins_count += 1; }
         } else {
             gross_losses += pnl.abs();
+            pertes_vals.push(pnl.abs());
+            consec += 1;
+            if consec > max_consec { max_consec = consec; }
         }
         total += 1;
 
@@ -99,6 +119,31 @@ pub fn backtest_slot(
     } else {
         gross_profits.max(0.0)
     };
+    let gain_moyen = if !gains_vals.is_empty() {
+        gains_vals.iter().sum::<f64>() / gains_vals.len() as f64
+    } else {
+        0.0
+    };
+    let perte_moyenne = if !pertes_vals.is_empty() {
+        pertes_vals.iter().sum::<f64>() / pertes_vals.len() as f64
+    } else {
+        0.0
+    };
+    let wr = win_rate / 100.0;
+    let esperance_pct = (wr * gain_moyen - (1.0 - wr) * perte_moyenne) / capital.max(1.0) * 100.0;
+    let payoff_ratio = if perte_moyenne > 0.0 { gain_moyen / perte_moyenne } else { gain_moyen };
+    let amplitude_moyenne = if !amplitudes.is_empty() {
+        amplitudes.iter().sum::<f64>() / amplitudes.len() as f64
+    } else {
+        0.0
+    };
+    let direction_dominante = if long_wins_count > short_wins_count + 2 {
+        "Long".to_string()
+    } else if short_wins_count > long_wins_count + 2 {
+        "Short".to_string()
+    } else {
+        "Équilibré".to_string()
+    };
 
     SlotBacktestResult {
         total_trades: total,
@@ -106,6 +151,11 @@ pub fn backtest_slot(
         profit_factor,
         win_rate,
         max_drawdown_pct: max_dd,
+        esperance_pct,
+        payoff_ratio,
+        serie_pertes_max: max_consec,
+        direction_dominante,
+        amplitude_moyenne,
     }
 }
 

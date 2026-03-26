@@ -45,7 +45,7 @@
     <div v-if="resultats" class="glass-card p-5 space-y-4">
       <h2 class="text-sm font-semibold text-white">📊 Résultats backtest</h2>
 
-      <!-- KPIs -->
+      <!-- KPIs ligne 1 -->
       <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
         <div class="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
           <p class="text-xs text-gray-400 mb-1">Trades</p>
@@ -68,6 +68,35 @@
           <p class="text-2xl font-bold text-red-400">
             {{ resultats.max_drawdown.toFixed(1) }}%
           </p>
+        </div>
+      </div>
+
+      <!-- KPIs ligne 2 -->
+      <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div class="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
+          <p class="text-xs text-gray-400 mb-1">Espérance / trade</p>
+          <p class="text-2xl font-bold" :class="resultats.esperance_pct >= 0 ? 'text-emerald-400' : 'text-red-400'">
+            {{ resultats.esperance_pct >= 0 ? '+' : '' }}{{ resultats.esperance_pct.toFixed(2) }}%
+          </p>
+        </div>
+        <div class="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
+          <p class="text-xs text-gray-400 mb-1">Payoff Ratio</p>
+          <p class="text-2xl font-bold" :class="resultats.payoff_ratio >= 1.5 ? 'text-emerald-400' : 'text-yellow-400'">
+            {{ resultats.payoff_ratio.toFixed(2) }}
+          </p>
+        </div>
+        <div class="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
+          <p class="text-xs text-gray-400 mb-1">Série pertes max</p>
+          <p class="text-2xl font-bold" :class="resultats.serie_pertes_max <= 3 ? 'text-yellow-400' : 'text-red-400'">
+            {{ resultats.serie_pertes_max }}
+          </p>
+        </div>
+        <div class="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
+          <p class="text-xs text-gray-400 mb-1">Direction dominante</p>
+          <p class="text-xl font-bold" :class="resultats.direction_dominante === '\u00c9quilibr\u00e9' ? 'text-gray-300' : 'text-blue-400'">
+            {{ resultats.direction_dominante }}
+          </p>
+          <p class="text-xs text-gray-500 mt-0.5">amplitude ~{{ resultats.amplitude_moyenne.toFixed(4) }}</p>
         </div>
       </div>
 
@@ -131,7 +160,11 @@ const resultats = ref<{
   win_rate: number
   profit_factor: number
   max_drawdown: number
-  roi_pct: number
+  esperance_pct: number
+  payoff_ratio: number
+  serie_pertes_max: number
+  direction_dominante: string
+  amplitude_moyenne: number
 } | null>(null)
 
 const verdictClass = computed(() => {
@@ -167,7 +200,11 @@ async function lancerBacktest() {
       win_rate: res.win_rate,
       profit_factor: res.profit_factor,
       max_drawdown: res.max_drawdown_pct,
-      roi_pct: 0,
+      esperance_pct: res.esperance_pct,
+      payoff_ratio: res.payoff_ratio,
+      serie_pertes_max: res.serie_pertes_max,
+      direction_dominante: res.direction_dominante,
+      amplitude_moyenne: res.amplitude_moyenne,
     }
     // Auto-save si on vient d'un créneau
     if (creneauId.value != null) await sauvegarder()

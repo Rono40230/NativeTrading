@@ -309,7 +309,17 @@ export const apiService = {
     heure_debut: string,
     jour_semaine: number | null,
     capital?: number,
-  ): Promise<{ total_trades: number; win_rate: number; profit_factor: number; max_drawdown_pct: number }> {
+  ): Promise<{
+    total_trades: number
+    win_rate: number
+    profit_factor: number
+    max_drawdown_pct: number
+    esperance_pct: number
+    payoff_ratio: number
+    serie_pertes_max: number
+    direction_dominante: string
+    amplitude_moyenne: number
+  }> {
     const res = await http.post('/api/straddle/backtest', { asset, heure_debut, jour_semaine, capital })
     return res.data
   },
