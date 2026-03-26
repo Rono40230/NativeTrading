@@ -164,7 +164,7 @@ pub async fn analyser(
 }
 
 // ── POST /api/straddle/creneaux/{id}/precision ──────────────────────────────
-/// Analyse la précision M5 (timing optimal) pour un créneau existant.
+/// Analyse la précision M1 (timing optimal à la minute) pour un créneau existant.
 #[derive(serde::Deserialize)]
 pub struct RequetePrecision {
     pub asset: String,
@@ -178,7 +178,6 @@ pub async fn handler_analyser_precision(
     path: web::Path<i64>,
     body: web::Json<RequetePrecision>,
 ) -> impl Responder {
-    use common::Timeframe;
     let id = path.into_inner();
     let asset = match crate::utils::parse_asset(&body.asset) {
         Some(a) => a,
@@ -190,7 +189,7 @@ pub async fn handler_analyser_precision(
 
     let bougies = match state
         .db
-        .obtenir_bougies(&asset, &Timeframe::M5, 20000)
+        .obtenir_bougies_plage_horaire_m1(&asset, &body.heure_debut, &body.heure_fin)
         .await
     {
         Ok(b) => b,

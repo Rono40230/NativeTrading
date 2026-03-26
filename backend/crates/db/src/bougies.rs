@@ -93,6 +93,59 @@ impl Database {
         Ok(bougies)
     }
 
+    /// Récupère les bougies M1 d'un asset filtrées sur une plage horaire UTC (SQL),
+    /// évitant de charger l'intégralité des données M1 en mémoire.
+    /// `heure_debut` / `heure_fin` : format "HH:MM" UTC
+    pub async fn obtenir_bougies_plage_horaire_m1(
+        &self,
+        asset: &Asset,
+        heure_debut: &str,
+        heure_fin: &str,
+    ) -> Result<Vec<Candle>> {
+        let parse = |s: &str| -> Option<i64> {
+            let mut p = s.splitn(2, ':');
+            let h: i64 = p.next()?.parse().ok()?;
+            let m: i64 = p.next()?.parse().ok()?;
+            Some(h * 3600 + m * 60)
+        };
+        let debut_sec = parse(heure_debut)
+            .ok_or_else(|| TradingError::Data("heure_debut invalide".into()))?;
+        let fin_sec = parse(heure_fin)
+            .ok_or_else(|| TradingError::Data("heure_fin invalide".into()))?;
+
+        let rows = sqlx::query(
+            "SELECT timestamp, open, high, low, close, volume
+             FROM bougies
+             WHERE asset = ? AND timeframe = 'm1'
+               AND (timestamp % 86400) >= ?
+               AND (timestamp % 86400) < ?
+             ORDER BY timestamp ASC",
+        )
+        .bind(asset.as_str())
+        .bind(debut_sec)
+        .bind(fin_sec)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        let bougies = rows
+            .iter()
+            .map(|r| {
+                let ts: i64 = r.get("timestamp");
+                Candle {
+                    timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or(Utc::now()),
+                    open: r.get("open"),
+                    high: r.get("high"),
+                    low: r.get("low"),
+                    close: r.get("close"),
+                    volume: r.get("volume"),
+                }
+            })
+            .collect();
+
+        Ok(bougies)
+    }
+
     /// Nombre de bougies stockées pour un asset/timeframe
     pub async fn compter_bougies(&self, asset: &Asset, timeframe: &Timeframe) -> Result<i64> {
         let row =

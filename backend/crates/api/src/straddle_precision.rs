@@ -2,10 +2,10 @@ use chrono::{Datelike, Timelike};
 use common::Candle;
 use db::straddle::PrecisionM5;
 
-// ── Analyse de précision M5 ──────────────────────────────────────────────────
+// ── Analyse de précision M1 ──────────────────────────────────────────────────
 //
-// Pour un créneau H1 donné (ex: mardi 14h–16h), on analyse les bougies M5
-// históriques à l'intérieur de ce créneau pour trouver :
+// Pour un créneau H1 donné (ex: mardi 14h–16h), on analyse les bougies M1
+// historiques à l'intérieur de ce créneau pour trouver :
 // - timing_optimal : à quelle minute le pic de volatilité se produit typiquement
 // - fenetre_entree : plage de ±2 bougies M5 autour du pic médian
 // - whipsaw_minutes : durée du faux mouvement avant le pic (bougies faibles)
