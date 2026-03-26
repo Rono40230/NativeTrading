@@ -18,6 +18,23 @@ fi
 
 echo "🚀 Native Trading AI — démarrage..."
 
+# ─── Démarrage Ollama (si pas déjà lancé) ────────────────────────────────────
+if ! curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; then
+  echo "🤖 Démarrage Ollama..."
+  ollama serve > "$LOG_DIR/ollama.log" 2>&1 &
+  OLLAMA_PID=$!
+  # Attendre max 15s qu'Ollama soit prêt
+  for i in $(seq 1 30); do
+    if curl -sf http://localhost:11434/api/tags > /dev/null 2>&1; then
+      echo "   ✅ Ollama prêt"
+      break
+    fi
+    sleep 0.5
+  done
+else
+  echo "   ✅ Ollama déjà en cours"
+fi
+
 # ─── Compilation backend si nécessaire ───────────────────────────────────────
 echo "🔨 Vérification backend..."
 cd "$ROOT_DIR/backend"
