@@ -33,7 +33,10 @@ fn assigner_clusters(mut patterns: Vec<PatternHoraire>) -> Vec<PatternHoraire> {
     }
 
     let data: Vec<Vec<f64>> = patterns.iter().map(|p| vec![p.atr_moyen]).collect();
-    let x = DenseMatrix::from_2d_vec(&data);
+    let x = match DenseMatrix::from_2d_vec(&data) {
+        Ok(m) => m,
+        Err(_) => return assigner_clusters_quartiles(patterns),
+    };
 
     let labels: Vec<usize> =
         match KMeans::fit(&x, KMeansParameters::default().with_k(k)) {
