@@ -53,8 +53,8 @@
         </div>
         <div class="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
           <p class="text-xs text-gray-400 mb-1">Win Rate</p>
-          <p class="text-2xl font-bold" :class="resultats.win_rate >= 0.5 ? 'text-emerald-400' : 'text-red-400'">
-            {{ (resultats.win_rate * 100).toFixed(1) }}%
+          <p class="text-2xl font-bold" :class="resultats.win_rate >= 50 ? 'text-emerald-400' : 'text-red-400'">
+            {{ resultats.win_rate.toFixed(1) }}%
           </p>
         </div>
         <div class="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
@@ -66,7 +66,7 @@
         <div class="rounded-xl bg-white/5 border border-white/10 p-4 text-center">
           <p class="text-xs text-gray-400 mb-1">Drawdown max</p>
           <p class="text-2xl font-bold text-red-400">
-            {{ (resultats.max_drawdown * 100).toFixed(1) }}%
+            {{ resultats.max_drawdown.toFixed(1) }}%
           </p>
         </div>
       </div>
@@ -137,9 +137,9 @@ const resultats = ref<{
 const verdictClass = computed(() => {
   if (!resultats.value) return ''
   const r = resultats.value
-  if (r.win_rate >= 0.55 && r.profit_factor >= 1.3)
+  if (r.win_rate >= 55 && r.profit_factor >= 1.3)
     return 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-  if (r.win_rate >= 0.45 && r.profit_factor >= 1.0)
+  if (r.win_rate >= 45 && r.profit_factor >= 1.0)
     return 'bg-amber-500/10 border-amber-500/30 text-amber-300'
   return 'bg-red-500/10 border-red-500/30 text-red-300'
 })
@@ -147,24 +147,30 @@ const verdictClass = computed(() => {
 const verdictTexte = computed(() => {
   if (!resultats.value) return ''
   const r = resultats.value
-  if (r.win_rate >= 0.55 && r.profit_factor >= 1.3)
-    return `✅ Créneau validé — WR ${(r.win_rate * 100).toFixed(0)}%, PF ${r.profit_factor.toFixed(2)} — à inclure dans la stratégie Straddle.`
-  if (r.win_rate >= 0.45 && r.profit_factor >= 1.0)
+  if (r.win_rate >= 55 && r.profit_factor >= 1.3)
+    return `✅ Créneau validé — WR ${r.win_rate.toFixed(0)}%, PF ${r.profit_factor.toFixed(2)} — à inclure dans la stratégie Straddle.`
+  if (r.win_rate >= 45 && r.profit_factor >= 1.0)
     return `⚠️ Résultats mitigés — surveiller sur davantage de données avant de valider.`
-  return `❌ Créneau non concluant — WR ${(r.win_rate * 100).toFixed(0)}% insuffisant. Ne pas utiliser.`
+  return `❌ Créneau non concluant — WR ${r.win_rate.toFixed(0)}% insuffisant. Ne pas utiliser.`
 })
 
 async function lancerBacktest() {
   chargement.value = true
   try {
-    const res = await apiService.runBacktest(params.value.asset, 'H1', 2000, 1000)
+    const res = await apiService.runStraddleSlotBacktest(
+      params.value.asset,
+      params.value.heure_debut,
+      params.value.jour_semaine,
+    )
     resultats.value = {
       total_trades: res.total_trades,
       win_rate: res.win_rate,
       profit_factor: res.profit_factor,
-      max_drawdown: res.max_drawdown_pct / 100,
-      roi_pct: res.roi_pct,
+      max_drawdown: res.max_drawdown_pct,
+      roi_pct: 0,
     }
+    // Auto-save si on vient d'un créneau
+    if (creneauId.value != null) await sauvegarder()
   } catch (e: unknown) {
     alerteStore.afficherErreur(`Backtest échoué: ${(e as Error).message}`)
   } finally {
@@ -178,7 +184,7 @@ async function sauvegarder() {
     await apiService.patchStraddleCreneau(creneauId.value, {
       backtest_winrate: resultats.value.win_rate,
       backtest_profit_factor: resultats.value.profit_factor,
-      statut: resultats.value.win_rate >= 0.55 && resultats.value.profit_factor >= 1.3 ? 'valide' : 'invalide',
+      statut: resultats.value.win_rate >= 55 && resultats.value.profit_factor >= 1.3 ? 'valide' : 'invalide',
     })
     alerteStore.afficherSucces('Résultats sauvegardés dans le créneau')
   } catch (e: unknown) {

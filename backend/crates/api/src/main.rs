@@ -33,8 +33,10 @@ mod signaux_handlers;
 mod smc_analyse_handler;
 mod smc_handlers;
 mod state;
+mod straddle_backtest_handler;
 mod straddle_handlers;
 mod straddle_precision;
+mod straddle_slot_backtest;
 mod straddle_utils;
 mod tendance_handlers;
 mod utils;
@@ -163,6 +165,10 @@ async fn main() -> std::io::Result<()> {
             .route(
                 "/api/straddle/creneaux/{id}/precision",
                 web::post().to(straddle_handlers::handler_analyser_precision),
+            )
+            .route(
+                "/api/straddle/backtest",
+                web::post().to(straddle_backtest_handler::handler_backtest_slot),
             )
             .route("/api/config", web::get().to(config_handlers::get_config))
             .route("/api/config", web::post().to(config_handlers::post_config))

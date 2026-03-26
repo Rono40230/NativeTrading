@@ -304,7 +304,15 @@ export const apiService = {
   },
 
   // ── Straddle ──────────────────────────────────────────────────────────────
-
+  async runStraddleSlotBacktest(
+    asset: string,
+    heure_debut: string,
+    jour_semaine: number | null,
+    capital?: number,
+  ): Promise<{ total_trades: number; win_rate: number; profit_factor: number; max_drawdown_pct: number }> {
+    const res = await http.post('/api/straddle/backtest', { asset, heure_debut, jour_semaine, capital })
+    return res.data
+  },
   async analyserStraddle(
     asset: string,
     periode: string,

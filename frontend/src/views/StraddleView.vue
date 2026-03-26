@@ -141,7 +141,7 @@
             </td>
             <td class="px-4 py-3 text-center text-xs">
               <template v-if="c.backtest_winrate != null">
-                <span class="text-emerald-400">{{ (c.backtest_winrate * 100).toFixed(0) }}% WR</span>
+                <span class="text-emerald-400">{{ c.backtest_winrate.toFixed(0) }}% WR</span>
                 <br />
                 <span class="text-gray-400">PF {{ c.backtest_profit_factor?.toFixed(2) ?? '—' }}</span>
               </template>
@@ -149,7 +149,7 @@
             </td>
             <td class="px-4 py-3 text-center">
               <RouterLink
-                :to="`/straddle/backtest?asset=${c.asset}&heure=${c.heure_debut}&jour=${c.jour_semaine ?? ''}`"
+                :to="`/straddle/backtest?asset=${c.asset}&heure=${c.heure_debut}&fin=${c.heure_fin}&jour=${c.jour_semaine ?? ''}&id=${c.id}`"
                 class="text-xs text-blue-400 hover:underline"
               >
                 🧪 Tester
