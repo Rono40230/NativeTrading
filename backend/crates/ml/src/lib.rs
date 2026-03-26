@@ -21,6 +21,9 @@ const CHEMIN_LSTM: &str = "data/modele_lstm.json";
 pub struct PipelineML {
     pub xgb: ModeleXGBoost,
     pub lstm: ModeleHybrideLstm,
+    /// Cache GPU — reconstruit depuis les poids CPU. `None` si CUDA absent.
+    #[cfg(feature = "cuda")]
+    pub lstm_gpu: Option<lstm::LstmGpu>,
 }
 
 impl PipelineML {
@@ -28,6 +31,19 @@ impl PipelineML {
         Self {
             xgb: ModeleXGBoost::new(100),
             lstm: ModeleHybrideLstm::nouveau(NB_FEATURES),
+            #[cfg(feature = "cuda")]
+            lstm_gpu: None,
+        }
+    }
+
+    /// Transfère les poids LSTM CPU → GPU CUDA. Sans effet si CUDA absent.
+    #[cfg(feature = "cuda")]
+    fn activer_gpu_si_pret(&mut self) {
+        if self.lstm.est_pret() {
+            self.lstm_gpu = lstm::LstmGpu::depuis_modele_cpu(&self.lstm);
+            if self.lstm_gpu.is_some() {
+                tracing::info!("LSTM GPU: tenseurs chargés sur CUDA:0");
+            }
         }
     }
 
@@ -61,6 +77,8 @@ impl PipelineML {
         if xgb_charge {
             tracing::info!("Pipeline ML XGBoost+LSTM rechargé depuis disque");
         }
+        #[cfg(feature = "cuda")]
+        self.activer_gpu_si_pret();
         Ok(xgb_charge)
     }
 
@@ -131,6 +149,8 @@ impl PipelineML {
             tracing::warn!("Échec sauvegarde pipeline ML: {}", e);
         }
 
+        #[cfg(feature = "cuda")]
+        self.activer_gpu_si_pret();
         Ok((acc_xgb, acc_lstm))
     }
 
@@ -149,6 +169,11 @@ impl PipelineML {
                 .collect();
 
             if sequence.len() == LONGUEUR_SEQ {
+                #[cfg(feature = "cuda")]
+                let conf_long_lstm = self.lstm_gpu.as_ref()
+                    .and_then(|g| g.predire(&sequence))
+                    .unwrap_or_else(|| self.lstm.predire(&sequence));
+                #[cfg(not(feature = "cuda"))]
                 let conf_long_lstm = self.lstm.predire(&sequence);
                 let score_xgb = self.xgb.predire_score(&f).unwrap_or(0.5);
                 // Fusion pondérée : LSTM 60% + XGBoost 40%
@@ -254,44 +279,4 @@ impl Default for PipelineML {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::Utc;
-    use common::Candle;
-
-    fn bougie(c: f64) -> Candle {
-        Candle {
-            timestamp: Utc::now(),
-            open: c,
-            high: c + 1.0,
-            low: c - 1.0,
-            close: c,
-            volume: 100.0,
-        }
-    }
-
-    #[test]
-    fn pipeline_nouveau_non_pret() {
-        let pipeline = PipelineML::new();
-        assert!(
-            !pipeline.est_pret(),
-            "Un pipeline non entraîné ne doit pas être prêt"
-        );
-    }
-
-    #[test]
-    fn predire_erreur_si_pas_assez_de_bougies() {
-        let pipeline = PipelineML::new();
-        let bougies: Vec<Candle> = (1..=30).map(|i| bougie(i as f64)).collect();
-        // Moins de 60 bougies → extraire_features retourne None → Err
-        assert!(pipeline.predire(&bougies).is_err());
-    }
-
-    #[test]
-    fn predire_erreur_si_modele_non_entraine() {
-        let pipeline = PipelineML::new();
-        // 60 bougies valides mais RF non entraîné
-        let bougies: Vec<Candle> = (1..=70).map(|i| bougie(i as f64 * 100.0)).collect();
-        assert!(pipeline.predire(&bougies).is_err());
-    }
-}
+mod tests;

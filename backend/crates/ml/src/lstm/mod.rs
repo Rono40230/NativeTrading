@@ -1,12 +1,28 @@
 mod couche;
 mod math;
 
+#[cfg(feature = "cuda")]
+pub(crate) mod gpu;
+
 pub use couche::CoucheLinSortie;
+#[cfg(feature = "cuda")]
+pub(crate) use gpu::LstmGpu;
 
 use common::{Result, TradingError};
 use couche::CoucheLstm;
 use math::softmax;
 use serde::{Deserialize, Serialize};
+
+/// Poids bruts extraits des 3 couches LSTM + sortie.
+/// Permet le transfert CPU → GPU sans exposer `CoucheLstm` hors du module.
+#[cfg(feature = "cuda")]
+pub(crate) struct PoidsCouches {
+    pub l1_poids: Vec<f64>, pub l1_biais: Vec<f64>, pub l1_in: usize, pub l1_h: usize,
+    pub l2_poids: Vec<f64>, pub l2_biais: Vec<f64>, pub l2_in: usize, pub l2_h: usize,
+    pub l3_poids: Vec<f64>, pub l3_biais: Vec<f64>, pub l3_in: usize, pub l3_h: usize,
+    pub sortie_poids: Vec<Vec<f64>>,
+    pub sortie_biais: Vec<f64>,
+}
 
 /// Longueur de séquence : 10 timesteps (dernières 10 fenêtres de features)
 pub const LONGUEUR_SEQ: usize = 10;
@@ -167,5 +183,26 @@ impl ModeleHybrideLstm {
             .map_err(|e| TradingError::ML(format!("Lecture LSTM: {}", e)))?;
         serde_json::from_str(&json)
             .map_err(|e| TradingError::ML(format!("Désérialisation LSTM: {}", e)))
+    }
+
+    /// Extrait les poids pour transfert vers GPU (feature `cuda` uniquement).
+    #[cfg(feature = "cuda")]
+    pub(crate) fn extraire_poids_gpu(&self) -> PoidsCouches {
+        PoidsCouches {
+            l1_poids: self.l1.poids_ref().to_vec(),
+            l1_biais: self.l1.biais_ref().to_vec(),
+            l1_in: self.l1.entree,
+            l1_h: self.l1.cachee,
+            l2_poids: self.l2.poids_ref().to_vec(),
+            l2_biais: self.l2.biais_ref().to_vec(),
+            l2_in: self.l2.entree,
+            l2_h: self.l2.cachee,
+            l3_poids: self.l3.poids_ref().to_vec(),
+            l3_biais: self.l3.biais_ref().to_vec(),
+            l3_in: self.l3.entree,
+            l3_h: self.l3.cachee,
+            sortie_poids: self.sortie.poids.clone(),
+            sortie_biais: self.sortie.biais.clone(),
+        }
     }
 }

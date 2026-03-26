@@ -293,7 +293,7 @@
 - [x] Frontend : `api.types.ts` + `MonitoringML.vue` — colonne "XGB" (tooltip mis à jour)
 - [x] 3 tests unitaires XGBoost : entraînement/inférence, min_échantillons, non-entraîné
 - [x] **37 tests total, 0 échec** ✅ | Clippy zéro warning ✅ | Fichiers < 300 l ✅
-- [ ] Accélération GPU für LSTM via `candle` (Hugging Face) ou `cudarc` — reporté (complexité installation CUDA, priorité basse vs. paper trading)
+- [x] Accélération GPU LSTM via `tch` (libtorch CUDA) — `ml/src/lstm/gpu.rs` : `LstmGpu` + passe avant 3 couches sur CUDA:0, fallback CPU si indisponible, activation automatique post-entraînement
 
 ---
 

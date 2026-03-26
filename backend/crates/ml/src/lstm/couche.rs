@@ -157,6 +157,18 @@ impl CoucheLstm {
         let d_input: Vec<f64> = d_xh[..self.entree].to_vec();
         (d_input, dc_prev)
     }
+
+    /// Référence vers les poids combinés [4*H, I+H] — accès depuis le module parent.
+    #[cfg(feature = "cuda")]
+    pub(super) fn poids_ref(&self) -> &[f64] {
+        &self.poids
+    }
+
+    /// Référence vers le biais [4*H] — accès depuis le module parent.
+    #[cfg(feature = "cuda")]
+    pub(super) fn biais_ref(&self) -> &[f64] {
+        &self.biais
+    }
 }
 
 // ─── Couche linéaire de sortie ────────────────────────────────────────────────
