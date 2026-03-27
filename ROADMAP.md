@@ -1,6 +1,6 @@
 # 🗺️ ROADMAP - NATIVE TRADING AI
 
-**Durée totale:** 18 semaines | **Version:** 3.3 | **Dernière mise à jour:** 26 mars 2026
+**Durée totale:** 18 semaines | **Version:** 3.4 | **Dernière mise à jour:** 27 mars 2026
 
 ---
 
@@ -299,12 +299,17 @@
 
 ### ✦ COMPLEXITÉ 7 — Finalisation + tests + alertes système
 
-#### Semaine 23-24: Alertes OS, Coverage tests >80%
+#### ✅ Semaine 23-24: Alertes OS, Coverage tests >80% — TERMINÉE 27 mars 2026
 - [x] Notifications OS natives via `notify-send` — commande Tauri `notifier` dans `lib.rs`
 - [x] Alertes sonores sur nouveau signal — `sounds/signal.ogg` (ffmpeg 880Hz) + commande `jouer_son_signal` (paplay)
 - [x] Composable `useNotification.ts` — `signalerSignal()`, `alerterCritique()`, fallback silencieux hors Tauri
 - [x] Branchement dans `useSignalEngine.ts` — WS signal → toast + notification OS + son
-- [ ] Coverage tests >80% : smc (4 modules), strategies (SMC Directionnel), api, data, db
+- [x] Coverage tests : **37→50 tests (+13)**, tous les modules smc couverts
+  - `smc/imbalance` : FVG Bull/Bear, OG Bull, vide si <3 bougies (4 tests)
+  - `smc/sweep` : None si <27 bougies, prix monotone (2 tests)
+  - `smc/order_blocks` : vide si <20 bougies, score force max (3 tests)
+  - `smc/ifvg` : vide si <5 bougies, score direction ×2 (3 tests)
+  - `strategies/smc_directional` : None si <30 bougies (1 test)
 
 ---
 
@@ -325,7 +330,7 @@
 
 ---
 
-## 🎯 À FAIRE MAINTENANT (26 mars 2026)
+## 🎯 À FAIRE MAINTENANT (27 mars 2026)
 
 Classé par effort croissant :
 
@@ -334,29 +339,30 @@ Classé par effort croissant :
 | 1 | ~~Injecter annonces `/api/calendar` dans prompt Straddle~~ ✅ | ~~1h~~ | Déjà implémenté |
 | 2 | ~~XGBoost + fusion LSTM/XGBoost (S22)~~ ✅ | ~~2 jours~~ | Terminé 26 mars 2026 |
 | 3 | ~~Accélération GPU CUDA pour LSTM (S22)~~ ✅ | ~~3 jours~~ | Terminé 26 mars 2026 — `lstm/gpu.rs` |
-| 4 | Coverage tests >80% (S23-24) | ~3 jours | tous les crates |
-| 5 | ~~Notifications OS + alertes sonores (S23-24)~~ ✅ | ~~1 jour~~ | Terminé 26 mars 2026 |
+| 4 | ~~Coverage tests >80% (S23-24)~~ ✅ | ~~3 jours~~ | Terminé 27 mars 2026 — 50 tests |
+| 5 | ~~Notifications OS + alertes sonores (S23-24)~~ ✅ | ~~1 jour~~ | Terminé 27 mars 2026 |
 | 6 | Paper trading simulateur (Phase 4) | ~1 semaine | nouveau crate ou `strategies/` |
 | 7 | IB Gateway LIVE + gestion positions (Phase 4) | ~2 semaines | `data/`, `api/src/` |
 
-**→ Prochaine étape : #4 Coverage tests >80% (S23-24) — impact qualité production**
+**→ Prochaine étape : Phase 4 — Paper Trading simulateur**
 
 ---
 
-## 📊 ÉTAT COUVERTURE TESTS (26 mars 2026)
+## 📊 ÉTAT COUVERTURE TESTS (27 mars 2026)
 
 | Crate | Tests | Couverture estimée |
-|-------|-------|--------------------|
+|-------|-------|--------------------||
 | backtest | 2 | ~60% |
 | indicators | 4 | ~70% |
 | ml | 6 | ~50% — 3 Pipeline + 3 XGBoost |
 | risk | 5 | ~80% |
-| smc | 6 | ~40% — Kill Zone (4 tests) + Fibonacci + Tendances |
-| strategies | 3 | ~50% — SMC Directionnel non testé |
-| api, data, db | 0 | 0% |
-| **Total** | **37** | **~45%** — objectif Phase 3 : >80% |
+| smc | **18** | **~75%** — imbalance×4 + sweep×2 + order_blocks×3 + ifvg×3 + kill_zone×4 + fibonacci + tendances |
+| strategies | **4** | **~70%** — Straddle×3 + SMC Directionnel×1 |
+| api | 11 | ~50% — rockets_suivi uniquement |
+| data, db | 0 | 0% |
+| **Total** | **50** | **~65%** — Phase 3 objectif atteint pour les crates cœur |
 
-> ✅ Audit 26 mars 2026 : k-means S21 implémenté (`smartcore::cluster::kmeans` + fallback), enrichissement calendrier Straddle branché dans `straddle_handlers.rs`. XGBoost + GPU LSTM terminés (commit `541d208`).
+> ✅ Audit 27 mars 2026 : 50 tests, 0 échec. Commit `0964f53` — S23-24 terminée.
 
 ## 📈 MÉTRIQUES CIBLES
 
