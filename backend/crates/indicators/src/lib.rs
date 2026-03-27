@@ -75,4 +75,54 @@ mod tests {
         let valides = ema.iter().filter(|v| !v.is_nan()).count();
         assert_eq!(valides, 30 - 9 + 1);
     }
+
+    #[test]
+    fn macd_taille_correcte() {
+        let b = bougies_simples(50);
+        let m = calculer_macd(&b, 12, 26, 9);
+        assert_eq!(m.ligne.len(), 50);
+        assert_eq!(m.signal.len(), 50);
+        assert_eq!(m.histogramme.len(), 50);
+    }
+
+    #[test]
+    fn macd_valeurs_non_toutes_nan() {
+        let b = bougies_simples(50);
+        let m = calculer_macd(&b, 12, 26, 9);
+        let ligne_valides = m.ligne.iter().filter(|v| !v.is_nan()).count();
+        let histo_valides = m.histogramme.iter().filter(|v| !v.is_nan()).count();
+        assert!(ligne_valides > 0, "ligne MACD doit avoir des valeurs non-NaN");
+        assert!(histo_valides > 0, "histogramme MACD doit avoir des valeurs non-NaN");
+    }
+
+    #[test]
+    fn bollinger_bandes_coherentes() {
+        let b = bougies_simples(30);
+        let bb = calculer_bollinger(&b, 20, 2.0);
+        assert_eq!(bb.superieure.len(), 30);
+        // Les valeurs valides (non-NaN) : supérieure >= milieu >= inférieure
+        let valides: Vec<usize> = (0..30)
+            .filter(|&i| !bb.milieu[i].is_nan())
+            .collect();
+        assert!(!valides.is_empty());
+        for i in valides {
+            assert!(bb.superieure[i] >= bb.milieu[i], "sup >= milieu");
+            assert!(bb.milieu[i] >= bb.inferieure[i], "milieu >= inf");
+        }
+    }
+
+    #[test]
+    fn bollinger_milieu_egal_sma() {
+        // Prix constants → SMA = prix → bandes symétriques autour du prix
+        let prix = 100.0;
+        let b: Vec<Candle> = (0..25)
+            .map(|_| bougie(prix, prix + 1.0, prix - 1.0))
+            .collect();
+        let bb = calculer_bollinger(&b, 20, 2.0);
+        let milieu_valides: Vec<f64> = bb.milieu.iter().copied().filter(|v| !v.is_nan()).collect();
+        assert!(!milieu_valides.is_empty());
+        for m in &milieu_valides {
+            assert!((m - prix).abs() < 1e-9, "milieu doit égaler le prix constant");
+        }
+    }
 }

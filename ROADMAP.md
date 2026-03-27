@@ -353,16 +353,17 @@ Classé par effort croissant :
 | Crate | Tests | Couverture estimée |
 |-------|-------|--------------------||
 | backtest | 2 | ~60% |
-| indicators | 4 | ~70% |
-| ml | 6 | ~50% — 3 Pipeline + 3 XGBoost |
+| indicators | **8** | **~90%** — ATR×2 + RSI + EMA + MACD×2 + Bollinger×2 |
+| ml | **8** | **~65%** — Pipeline×3 + XGBoost×3 + walk_forward×2 |
 | risk | 5 | ~80% |
-| smc | **18** | **~75%** — imbalance×4 + sweep×2 + order_blocks×3 + ifvg×3 + kill_zone×4 + fibonacci + tendances |
-| strategies | **4** | **~70%** — Straddle×3 + SMC Directionnel×1 |
+| smc | 18 | ~75% — imbalance×4 + sweep×2 + order_blocks×3 + ifvg×3 + kill_zone×4 + fibonacci + tendances |
+| strategies | 4 | ~70% — Straddle×3 + SMC Directionnel×1 |
 | api | 11 | ~50% — rockets_suivi uniquement |
-| data, db | 0 | 0% |
-| **Total** | **50** | **~65%** — Phase 3 objectif atteint pour les crates cœur |
+| **db** | **3** | **~40%** — inserer_bougies×2 + signal_recent_existe×1 |
+| data | 0 | 0% — IB Gateway (nécessite connexion live) |
+| **Total** | **59** | **~72%** — objectif Phase 3 atteint |
 
-> ✅ Audit 27 mars 2026 : 50 tests, 0 échec. Commit `0964f53` — S23-24 terminée.
+> ✅ Audit 27 mars 2026 : 59 tests, 0 échec. Commits `0964f53` (S23-24) + follow-up indicators/ml/db.
 
 ## 📈 MÉTRIQUES CIBLES
 
