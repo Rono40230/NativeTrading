@@ -45,7 +45,7 @@ Criteres de fin:
 - Aucun export/usage actif de ModeleRandomForest dans le backend.
 - Pipeline ML garde un comportement fonctionnel et teste.
 
-### 3.3 - Robustesse d'entrainement LSTM
+### 3.3 - Robustesse d'entrainement LSTM ✅ TERMINÉ
 Fichier principal:
 - backend/crates/ml/src/lstm/mod.rs
 
@@ -58,7 +58,7 @@ Criteres de fin:
 - Entrainement ne diverge pas silencieusement.
 - Logs explicites en cas de derive.
 
-### 3.4 - Rate limiting centralise Ollama
+### 3.4 - Rate limiting centralise Ollama ✅ TERMINÉ
 Fichiers principaux:
 - backend/crates/api/src/ollama/mod.rs
 - backend/crates/api/src/state.rs
@@ -72,7 +72,7 @@ Criteres de fin:
 - Pas d'emballement concurrent sur appels Ollama.
 - Degradation propre sous charge.
 
-### 3.5 - Reentrainement periodique pilote metrique
+### 3.5 - Reentrainement periodique pilote metrique ✅ TERMINÉ
 Fichiers principaux:
 - backend/crates/api/src/state.rs
 - backend/crates/ml/src/lib.rs
@@ -103,7 +103,7 @@ Criteres de fin:
 Objectif:
 - Assainir le front et finaliser la coherence runtime.
 
-### 4.1 - Supprimer les doublons .js dans frontend/src
+### 4.1 - Supprimer les doublons .js dans frontend/src ✅ TERMINÉ (commit 31cdd02)
 Zone:
 - frontend/src/**
 
@@ -148,16 +148,16 @@ Statut:
 Action restante:
 1. Verification de robustesse et stabilite en usage prolonge.
 
-### 4.5 - Corriger ml-pret hardcode dans SmcView
+### 4.5 - Corriger ml-pret hardcode dans SmcView ✅ OBSOLÈTE — FERMÉ
 Fichier principal:
 - frontend/src/views/SmcView.vue
 
-A faire:
-1. Lire /api/ml/status au montage.
-2. Passer la vraie valeur au composant DashboardSystemStatus.
+Raison: SmcView a été remplacé par <SignauxTableau strategie="SmcDirectional" />
+(commit 985fdce). Le composant DashboardSystemStatus n'est plus utilisé dans SmcView,
+le problème de hardcode est implicitement résolu.
 
 Criteres de fin:
-- Affichage ML pret/non pret fiable dans SmcView.
+- N/A (composant retiré du flux)
 
 ### Tests de sortie Phase 4
 1. Verifier suppression doublons .js.
