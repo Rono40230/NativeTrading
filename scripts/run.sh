@@ -44,6 +44,18 @@ echo "🔨 Vérification backend..."
 cd "$ROOT_DIR/backend"
 cargo build -p api --release 2>&1 | grep -E "Compiling|Finished|error"
 
+# ─── Arrêt propre de TOUS les processus backend ──────────────────────────────
+# (peut en exister plusieurs si lancements manuels accumulés)
+if pgrep -f "target/release/api" > /dev/null 2>&1; then
+  echo "🔄 Arrêt instances backend existantes..."
+  pkill -9 -f "target/release/api" 2>/dev/null || true
+  # Attendre libération du port 8080
+  for i in $(seq 1 20); do
+    ss -tlnp 2>/dev/null | grep -q ':8080' || break
+    sleep 0.3
+  done
+fi
+
 # ─── Démarrage backend ────────────────────────────────────────────────────────
 echo "🔌 Backend API → port 8080"
 DATABASE_PATH="$ROOT_DIR/data/trading.db" \
