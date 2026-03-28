@@ -1,20 +1,18 @@
 use super::{Signal, Strategy};
 use common::{Candle, Direction, Result};
+use db::strategies_params::SmcParams;
 use indicators::calculer_atr;
 use smc::{kill_zone, scorer, sweep};
 
-/// Multiplicateurs ATR pour TP / SL
-const ATR_TP1: f64 = 1.5;
-const ATR_TP2: f64 = 3.0;
-const ATR_TP3: f64 = 5.0;
-const ATR_SL: f64 = 1.0;
-
-/// Stratégie SMC Directionnelle — scoring confluence ≥70/100.
+/// Stratégie SMC Directionnelle — scoring confluence configurable (défaut ≥70/100).
 ///
-/// Déclencheur : Score SMC ≥ 70 (Tendance + OB + Imbalance + IFVG + Fibonacci).
-/// Entrée : close actuel | SL : ATR×1 | TP1 : ATR×1.5 | TP2 : ATR×3
+/// Déclencheur : Score SMC ≥ params.score_min (Tendance + OB + Imbalance + IFVG + Fibonacci).
+/// Entrée : close actuel | SL : ATR×atr_sl | TP1-3 : ATR×atr_tp1/2/3
 /// Risk : 1.5% par trade
-pub struct SmcDirectionalStrategy;
+#[derive(Default)]
+pub struct SmcDirectionalStrategy {
+    pub params: SmcParams,
+}
 
 impl Strategy for SmcDirectionalStrategy {
     fn analyze(&self, bougies: &[Candle]) -> Result<Option<Signal>> {
@@ -37,11 +35,11 @@ impl Strategy for SmcDirectionalStrategy {
         }
 
         let score = match scorer(bougies) {
-            Some(s) if s.confluence => s,
+            Some(s) if s.total >= self.params.score_min as f64 => s,
             _ => return Ok(None),
         };
 
-        let atr = calculer_atr(bougies, 14);
+        let atr = calculer_atr(bougies, self.params.atr_periode as usize);
         let n = bougies.len();
         let atr_val = atr[n - 1];
         if atr_val.is_nan() || atr_val <= 0.0 {
@@ -53,16 +51,16 @@ impl Strategy for SmcDirectionalStrategy {
 
         let (stop_loss, take_profit, take_profit_2, take_profit_3) = match score.direction {
             Direction::Long => (
-                prix_entree - atr_val * ATR_SL,
-                prix_entree + atr_val * ATR_TP1,
-                Some(prix_entree + atr_val * ATR_TP2),
-                Some(prix_entree + atr_val * ATR_TP3),
+                prix_entree - atr_val * self.params.atr_sl,
+                prix_entree + atr_val * self.params.atr_tp1,
+                Some(prix_entree + atr_val * self.params.atr_tp2),
+                Some(prix_entree + atr_val * self.params.atr_tp3),
             ),
             Direction::Short => (
-                prix_entree + atr_val * ATR_SL,
-                prix_entree - atr_val * ATR_TP1,
-                Some(prix_entree - atr_val * ATR_TP2),
-                Some(prix_entree - atr_val * ATR_TP3),
+                prix_entree + atr_val * self.params.atr_sl,
+                prix_entree - atr_val * self.params.atr_tp1,
+                Some(prix_entree - atr_val * self.params.atr_tp2),
+                Some(prix_entree - atr_val * self.params.atr_tp3),
             ),
             Direction::Both => return Ok(None),
         };
@@ -108,7 +106,7 @@ mod tests {
 
     #[test]
     fn analyze_none_si_moins_de_30_bougies() {
-        let strat = SmcDirectionalStrategy;
+        let strat = SmcDirectionalStrategy::default();
         let bougies: Vec<Candle> = (0..29)
             .map(|i| {
                 b(

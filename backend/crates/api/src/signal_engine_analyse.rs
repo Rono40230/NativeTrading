@@ -2,7 +2,7 @@
 //! Séparé de signal_engine.rs pour respecter la limite de 300 lignes.
 use crate::signal_filtre::sauvegarder_signal_avec_filtre;
 use common::{Asset, Signal, Timeframe};
-use db::Database;
+use db::{strategies_params::lire_smc_params, Database};
 use ml::PipelineML;
 use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::Arc;
@@ -33,8 +33,6 @@ pub(crate) async fn boucle_detection(
         TIMEFRAMES.len()
     );
 
-    let strategie = SmcDirectionalStrategy;
-
     while running.load(Ordering::SeqCst) {
         let ts_debut = chrono::Utc::now().timestamp();
         {
@@ -42,6 +40,10 @@ pub(crate) async fn boucle_detection(
                 *guard = ts_debut + INTERVALLE_SECS as i64;
             }
         }
+
+        // Rechargement des paramètres SMC depuis la DB à chaque cycle
+        let smc_params = lire_smc_params(db.pool()).await;
+        let strategie = SmcDirectionalStrategy { params: smc_params };
 
         analyser_tous_assets(&strategie, &db, &pipeline_ml, &tx, &score_news, &fg_valeur).await;
 

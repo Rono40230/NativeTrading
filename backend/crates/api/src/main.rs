@@ -41,6 +41,7 @@ mod smc_handlers;
 mod state;
 mod straddle_backtest_handler;
 mod straddle_handlers;
+mod strategies_params_handlers;
 mod straddle_prompt;
 mod straddle_signal_handler;
 mod straddle_slot_backtest;
@@ -186,6 +187,22 @@ async fn main() -> std::io::Result<()> {
             .route(
                 "/api/straddle/backtest",
                 web::post().to(straddle_backtest_handler::handler_backtest_slot),
+            )
+            .route(
+                "/api/straddle/params",
+                web::get().to(strategies_params_handlers::get_straddle_params),
+            )
+            .route(
+                "/api/straddle/params",
+                web::put().to(strategies_params_handlers::put_straddle_params),
+            )
+            .route(
+                "/api/smc/params",
+                web::get().to(strategies_params_handlers::get_smc_params),
+            )
+            .route(
+                "/api/smc/params",
+                web::put().to(strategies_params_handlers::put_smc_params),
             )
             .route("/api/config", web::get().to(config_handlers::get_config))
             .route("/api/config", web::post().to(config_handlers::post_config))

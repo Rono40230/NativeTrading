@@ -1,9 +1,10 @@
 use actix_web::{web, HttpResponse, Responder};
 use backtest::BacktestEngine;
+use db::strategies_params::StraddleParams;
 use serde::Deserialize;
 use strategies::{
     smc_directional::SmcDirectionalStrategy,
-    straddle::{StraddleCreneauStrategy, StraddleParams, StraddleStrategy},
+    straddle::{StraddleCreneauStrategy, StraddleStrategy},
 };
 
 use crate::ollama::formater_contexte_backtest;
@@ -91,7 +92,7 @@ pub async fn run_backtest(
     };
 
     let result = match strategie {
-        "smc" => engine.run(&bougies, &SmcDirectionalStrategy),
+        "smc" => engine.run(&bougies, &SmcDirectionalStrategy::default()),
         _ => {
             let params = straddle_params_from_body(&body);
             match &body.timing_optimal {
@@ -158,7 +159,7 @@ pub async fn raffiner_ml(
         ..BacktestEngine::new(capital)
     };
     let (results, feedback) = match strategie {
-        "smc" => match engine.run_avec_feedback(&bougies, &SmcDirectionalStrategy) {
+        "smc" => match engine.run_avec_feedback(&bougies, &SmcDirectionalStrategy::default()) {
             Ok(r) => r,
             Err(e) => {
                 return HttpResponse::InternalServerError()
@@ -230,14 +231,17 @@ pub async fn raffiner_ml(
 }
 
 /// Construit un `StraddleParams` depuis les champs optionnels du `BacktestRequest`.
-/// Si un champ est absent, on utilise la valeur par défaut.
+/// Les champs absents utilisent la valeur par défaut DB (atr_periode, horizon_bougies, trailing_atr).
 fn straddle_params_from_body(body: &BacktestRequest) -> StraddleParams {
     let def = StraddleParams::default();
     StraddleParams {
+        atr_periode: def.atr_periode,
+        atr_seuil: body.seuil_atr.unwrap_or(def.atr_seuil),
         tp_mult_1: body.tp_mult_1.unwrap_or(def.tp_mult_1),
         tp_mult_2: body.tp_mult_2.unwrap_or(def.tp_mult_2),
         tp_mult_3: body.tp_mult_3.unwrap_or(def.tp_mult_3),
         sl_mult: body.sl_mult.unwrap_or(def.sl_mult),
-        seuil_atr: body.seuil_atr.unwrap_or(def.seuil_atr),
+        horizon_bougies: def.horizon_bougies,
+        trailing_atr: def.trailing_atr,
     }
 }

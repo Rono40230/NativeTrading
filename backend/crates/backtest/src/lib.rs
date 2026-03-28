@@ -2,6 +2,7 @@ use calculs::{
     calculer_resultats, simuler_sortie, simuler_sortie_pyramidal, TradeDirection, TradeSimule,
 };
 use common::{Candle, Direction, Result};
+use indicators::calculer_atr;
 use serde::{Deserialize, Serialize};
 use strategies::Strategy;
 mod calculs;
@@ -57,6 +58,8 @@ pub struct BacktestEngine {
     /// Calculé côté handler depuis `horizon_minutes / timeframe.minutes()`.
     /// Défaut : 5 bougies (compatible M5 = 25 min, proche du créneau Straddle).
     pub horizon_bougies: usize,
+    /// Trailing stop Straddle : SL remonte à peak - ATR × mult (None = désactivé).
+    pub trailing_atr_mult: Option<f64>,
 }
 
 impl BacktestEngine {
@@ -66,6 +69,7 @@ impl BacktestEngine {
             cout_friction_pct: 0.0003,
             risk_par_trade_pct: 0.02,
             horizon_bougies: 5,
+            trailing_atr_mult: None,
         }
     }
 
@@ -184,7 +188,15 @@ impl BacktestEngine {
                             sl,
                         )
                     }
-                    _ => simuler_sortie(horizon_bougies, dir, tp1, sl, prochaine.close),
+                    _ => {
+                        // Trailing stop Straddle : calculer ATR courant si activé
+                        let trailing = self.trailing_atr_mult.map(|mult| {
+                            let atr_vals = calculer_atr(slice, 14);
+                            let atr_val = atr_vals.last().copied().unwrap_or(0.0);
+                            (atr_val, mult)
+                        });
+                        simuler_sortie(horizon_bougies, dir, tp1, sl, prochaine.close, trailing)
+                    }
                 };
                 let dist_sl = (prix_entree - sl).abs().max(1e-10);
                 let taille_pos = (capital * self.risk_par_trade_pct) / dist_sl;

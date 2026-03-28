@@ -26,27 +26,59 @@ pub(crate) struct TradeSimule {
     pub sortie: Option<SortieType>,
 }
 
-/// Sortie simple (Straddle) — retourne (prix, type_sortie).
+/// Sortie simple (Straddle) avec trailing stop optionnel.
+/// `trailing_atr` : si Some((atr_val, mult)), SL remonte à peak - atr_val * mult.
 pub(crate) fn simuler_sortie(
     bougies: &[Candle],
     direction: &TradeDirection,
     tp: f64,
     sl: f64,
     prix_defaut: f64,
+    trailing_atr: Option<(f64, f64)>,
 ) -> (f64, SortieType) {
+    let mut sl_courant = sl;
+    let mut peak = match direction {
+        TradeDirection::Long => sl, // peak démarre bas (favorable = montée)
+        TradeDirection::Short => sl, // symétrique
+    };
+
     for b in bougies {
+        // Mettre à jour le peak et SL trailing
+        if let Some((atr_val, mult)) = trailing_atr {
+            match direction {
+                TradeDirection::Long => {
+                    if b.high > peak {
+                        peak = b.high;
+                        let new_sl = peak - atr_val * mult;
+                        if new_sl > sl_courant {
+                            sl_courant = new_sl;
+                        }
+                    }
+                }
+                TradeDirection::Short => {
+                    if b.low < peak {
+                        peak = b.low;
+                        let new_sl = peak + atr_val * mult;
+                        if new_sl < sl_courant {
+                            sl_courant = new_sl;
+                        }
+                    }
+                }
+            }
+        }
+
         match direction {
             TradeDirection::Long => {
-                if b.low <= sl {
-                    return (sl, SortieType::Sl);
+                if b.low <= sl_courant {
+                    return (sl_courant, SortieType::Sl);
                 }
                 if b.high >= tp {
                     return (tp, SortieType::Tp1);
                 }
             }
             TradeDirection::Short => {
-                if b.high >= sl {
-                    return (sl, SortieType::Sl);
+                if b.high >= sl_courant {
+                    return (sl_courant, SortieType::Sl);
                 }
                 if b.low <= tp {
                     return (tp, SortieType::Tp1);
@@ -54,7 +86,7 @@ pub(crate) fn simuler_sortie(
             }
         }
     }
-    // Expiration : sortie au close de la dernière bougie de l'horizon (pas de la bougie d'entrée)
+    // Expiration : sortie au close de la dernière bougie de l'horizon
     let close_final = bougies.last().map(|b| b.close).unwrap_or(prix_defaut);
     (close_final, SortieType::Expiration)
 }

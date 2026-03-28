@@ -115,6 +115,9 @@
 
     <!-- Assets -->
     <GestionAssets />
+
+    <!-- Paramètres stratégies Straddle + SMC -->
+    <StrategiesParamsPanel />
   </div>
 </template>
 
@@ -123,6 +126,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useSettingsStore } from '@/stores/settings.store'
 import { apiService } from '@/services/api.service'
 import GestionAssets from '@/components/common/GestionAssets.vue'
+import StrategiesParamsPanel from '@/components/StrategiesParamsPanel.vue'
 
 const settingsStore = useSettingsStore()
 const capitalSaisie = ref(settingsStore.capitalDepart)

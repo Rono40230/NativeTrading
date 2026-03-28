@@ -11,6 +11,7 @@ pub mod rockets_config;
 pub mod signaux;
 pub mod signaux_lecture;
 pub mod straddle;
+pub mod strategies_params;
 pub mod volatilite;
 
 use common::{Result, TradingError};

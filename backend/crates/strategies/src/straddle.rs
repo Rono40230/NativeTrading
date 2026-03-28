@@ -3,32 +3,8 @@ use common::{Candle, Direction, Result};
 use indicators::calculer_atr;
 use ml::PipelineML;
 
-/// Paramètres configurables de la stratégie Straddle — injectés depuis le backtest ou le LLM.
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct StraddleParams {
-    /// Multiplicateur ATR pour TP1 (défaut : 2.0)
-    pub tp_mult_1: f64,
-    /// Multiplicateur ATR pour TP2 (défaut : 3.5)
-    pub tp_mult_2: f64,
-    /// Multiplicateur ATR pour TP3 (défaut : 5.0)
-    pub tp_mult_3: f64,
-    /// Multiplicateur ATR pour SL (défaut : 0.5)
-    pub sl_mult: f64,
-    /// Ratio ATR/moyenne déclencheur (défaut : 1.5)
-    pub seuil_atr: f64,
-}
-
-impl Default for StraddleParams {
-    fn default() -> Self {
-        Self {
-            tp_mult_1: 2.0,
-            tp_mult_2: 3.5,
-            tp_mult_3: 5.0,
-            sl_mult: 0.5,
-            seuil_atr: 1.5,
-        }
-    }
-}
+/// Paramètres Straddle — source unique : DB (partage live + backtest).
+pub use db::strategies_params::StraddleParams;
 
 /// Stratégie Straddle — volatilité extrême + IA indécise
 ///
@@ -98,7 +74,7 @@ impl Strategy for StraddleStrategy {
         let ratio_atr = atr_courant / atr_moyen.max(1e-10);
 
         // Condition 1 : volatilité extrême (ATR > seuil × sa moyenne)
-        if ratio_atr <= self.params.seuil_atr {
+        if ratio_atr <= self.params.atr_seuil {
             return Ok(None);
         }
 

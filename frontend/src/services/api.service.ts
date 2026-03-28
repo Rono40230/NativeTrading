@@ -292,6 +292,24 @@ export const apiService = {
     await http.delete(`/api/assets/${encodeURIComponent(id)}`)
   },
 
+  async getStraddleParams(): Promise<Record<string, number>> {
+    const res = await http.get('/api/straddle/params')
+    return res.data
+  },
+
+  async putStraddleParams(params: Record<string, number>): Promise<void> {
+    await http.put('/api/straddle/params', params)
+  },
+
+  async getSmcParams(): Promise<Record<string, number>> {
+    const res = await http.get('/api/smc/params')
+    return res.data
+  },
+
+  async putSmcParams(params: Record<string, number>): Promise<void> {
+    await http.put('/api/smc/params', params)
+  },
+
   ...rocketsApi,
   ...straddleApi,
 }
