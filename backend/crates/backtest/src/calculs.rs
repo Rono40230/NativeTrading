@@ -238,6 +238,7 @@ pub(crate) fn calculer_resultats(
         nb_sl,
         nb_expirations: nb_exp,
         nb_straddles: total / 2,
+        equity_curve: Vec::new(),
     })
 }
 

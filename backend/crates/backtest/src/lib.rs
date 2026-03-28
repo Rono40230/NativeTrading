@@ -4,9 +4,13 @@ use calculs::{
 use common::{Candle, Direction, Result};
 use serde::{Deserialize, Serialize};
 use strategies::Strategy;
-
 mod calculs;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EquityPoint {
+    pub timestamp: i64,
+    pub capital: f64,
+}
 /// Résultats complets d'un backtest
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BacktestResults {
@@ -33,6 +37,7 @@ pub struct BacktestResults {
     pub nb_expirations: u32,
     /// Nombre de Straddles posés (= total_trades / 2 car Long+Short par signal)
     pub nb_straddles: u32,
+    pub equity_curve: Vec<EquityPoint>,
 }
 
 /// Données de feedback d'un trade simulé pour raffinement du pipeline ML.
@@ -41,7 +46,6 @@ pub struct FeedbackTrade {
     pub indice_entree: usize,
     pub gagne: bool,
 }
-
 /// Moteur de backtesting — rejoue les bougies et simule les trades
 pub struct BacktestEngine {
     pub capital_initial: f64,
@@ -89,12 +93,16 @@ impl BacktestEngine {
             return Ok((self.resultats_vides(), Vec::new()));
         }
 
+        let fenetre = 60usize;
         let mut capital = self.capital_initial;
         let mut equity: Vec<f64> = vec![capital];
+        let mut equity_curve = vec![EquityPoint {
+            timestamp: bougies[fenetre - 1].timestamp.timestamp(),
+            capital,
+        }];
         let mut trades: Vec<TradeSimule> = Vec::new();
         let mut feedback: Vec<FeedbackTrade> = Vec::new();
         let mut capital_max = capital;
-        let fenetre = 60usize;
 
         for i in fenetre..bougies.len().saturating_sub(1) {
             let slice = &bougies[i.saturating_sub(fenetre)..i];
@@ -203,10 +211,24 @@ impl BacktestEngine {
                     gagne,
                 });
             }
+
+            if trades.last().is_some() {
+                equity_curve.push(EquityPoint {
+                    timestamp: prochaine.timestamp.timestamp(),
+                    capital,
+                });
+            }
         }
 
-        let resultats =
-            calculer_resultats(trades, equity, self.capital_initial, capital, capital_max)?;
+        if equity_curve.len() == 1 {
+            equity_curve.push(EquityPoint {
+                timestamp: bougies.last().map(|b| b.timestamp.timestamp()).unwrap_or_default(),
+                capital,
+            });
+        }
+
+        let mut resultats = calculer_resultats(trades, equity, self.capital_initial, capital, capital_max)?;
+        resultats.equity_curve = equity_curve;
         Ok((resultats, feedback))
     }
 
@@ -229,6 +251,7 @@ impl BacktestEngine {
             nb_sl: 0,
             nb_expirations: 0,
             nb_straddles: 0,
+            equity_curve: Vec::new(),
         }
     }
 }
