@@ -175,10 +175,6 @@ impl CoucheLstm {
         &mut self.poids
     }
 
-    /// Référence mutable vers biais pour vérifications.
-    pub(super) fn biais_mut(&mut self) -> &mut [f64] {
-        &mut self.biais
-    }
 }
 
 // ─── Couche linéaire de sortie ────────────────────────────────────────────────

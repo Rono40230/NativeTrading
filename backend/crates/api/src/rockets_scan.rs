@@ -3,7 +3,7 @@ use crate::rockets_analyse::analyser_symbol;
 use crate::rockets_indicateurs::{
     est_eligible, phase_priorite, Ticker24h, BATCH_SIZE, MAX_DISPLAY, SCAN_SECS,
 };
-use db::rockets::{self, NouveauRocket, RocketsConfig};
+use db::rockets::{self, NouveauRocket};
 use futures_util::future::join_all;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;

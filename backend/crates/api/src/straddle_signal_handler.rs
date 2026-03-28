@@ -1,12 +1,11 @@
 use actix_web::{web, HttpResponse, Responder};
 use chrono::{Datelike, Timelike, Utc};
 use common::{Direction, Signal, Timeframe};
-use serde::Deserialize;
 use std::time::Duration;
 
 use crate::state::AppState;
 use crate::straddle_prompt::PROMPT_SIGNAL_STRADDLE;
-use crate::straddle_types::{OllamaMsg, OllamaResp, ReponseLlm, RequeteStraddleSignal};
+use crate::straddle_types::{OllamaResp, ReponseLlm, RequeteStraddleSignal};
 use crate::utils::parse_asset;
 
 // ── Handler : POST /api/ia/signal/straddle ───────────────────────────────────
