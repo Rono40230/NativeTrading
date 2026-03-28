@@ -5,26 +5,28 @@ Date: 28 mars 2026
 
 ## Phase 4 — Architecture/Nettoyage
 
-### 4.2 Supprimer code ML mort (RandomForest)
+### 4.2 Supprimer code ML mort (RandomForest) ✅ TERMINÉ (commit 5d4469e)
 Zone: `backend/crates/ml`
-- [ ] Verifier et supprimer références restantes au RandomForest
-- [ ] Vérifier que les types/API restent propres après suppression
+- [x] Supprimer log "RF+LSTM" → "XGBoost+LSTM" dans ml/src/lib.rs
+- [x] Supprimer commentaire RandomForest dans ml/src/features.rs
 Critère: backend ML sans références mortes, `cargo clippy` vert
 
-### 4.3 Extraction logique métier hors couche API
+### 4.3 Extraction logique métier hors couche API ✅ TERMINÉ (commit 5d4469e)
 Zone: `backend/crates/api/src`, `backtest/src`, `strategies/src`
-- [ ] Déplacer les blocs métier encore dans les handlers API vers les crates dédiées
-- [ ] Garder handlers API minces: parse → appel service → réponse
+- [x] `rockets_indicateurs.rs` déplacé api/src → strategies/src
+- [x] `straddle_precision.rs` déplacé api/src → strategies/src
+- [x] `strategies/Cargo.toml`: ajout dépendance `db`
+- [x] Tous les imports mis à jour dans les fichiers api consommateurs
 Critère: couche API centrée transport HTTP uniquement
 
 ### 4.4 WebSocket signaux — vérification robustesse
 - [ ] Tester stabilité en usage prolongé (composable `useSignalEngine`)
 
-### Tests de sortie Phase 4
-- [ ] `bash scripts/check-file-size.sh` → 0 fichier >300 lignes
-- [ ] `cd backend && cargo clippy --workspace -- -D warnings` → 0 warnings
-- [ ] `cd backend && cargo test --workspace`
-- [ ] `cd frontend && npm run build`
+### Tests de sortie Phase 4 ✅ TERMINÉ (commit 5d4469e)
+- [x] `bash scripts/check-file-size.sh` → 0 fichier >300 lignes
+- [x] `cd backend && cargo clippy --workspace -- -D warnings` → 0 warnings
+- [x] `cd backend && cargo test --workspace` → 59/59 OK
+- [ ] `cd frontend && npm run build` (vérifier app Tauri)
 - [ ] Vérifier signaux temps réel reçus en UI via WebSocket
 
 ---
