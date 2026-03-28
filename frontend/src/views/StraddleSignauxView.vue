@@ -1,5 +1,5 @@
 <template>
-  <SignauxTableau strategie="Rockets" />
+  <SignauxTableau strategie="Straddle" />
 </template>
 
 <script setup lang="ts">

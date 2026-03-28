@@ -41,7 +41,14 @@ Analyse ces bugs de terminal lorsque IB gateway est connecté.
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Dans P&L pourquoi l'axe X du graphique Courbe equity n'indique pas clairement la période ? Repond sans coder
+Dans la vue graphique de SMC il est possible d'afficher les signaux des indicateurs techniques.
+Comment pourrions nous générer/afficher des signaux SMC ?
+PAr exemple cet indicateur OB ultimate affiche les meme OB que notre indicateur OB mais affiche en plus des signaux.
+Peut on reproduire cela ?
+Est ce utile ?
+Repônd sans coder 
 
 --------------------------------------------------------------------------------------------------------------------------
 
+Réfléchir à un système d'alarme qui affiche une modale lorsqu'un nouveau signal (quelle que soit la stratégie) est généré.
+Cette modale doit s'afficher automatiquement quelque soit la page ouverte dans l'app et ne pourra être fermée que par une action de l'utilisateur = clic sur x
