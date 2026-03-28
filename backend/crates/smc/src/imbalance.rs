@@ -178,8 +178,8 @@ mod tests {
     fn detecter_fvg_bull() {
         // b0.high=10, b2.low=12 > b0.high=10 → FVG Bull attendu
         let bougies = vec![
-            b(9., 10., 8., 9.5),   // b0 (i=0)
-            b(10., 11., 9., 10.5), // b1 (i=1), close > b0.high
+            b(9., 10., 8., 9.5),    // b0 (i=0)
+            b(10., 11., 9., 10.5),  // b1 (i=1), close > b0.high
             b(11., 13., 12., 12.5), // b2 (i=2), low=12 > b0.high=10
         ];
         let zones = detecter(&bougies, 5, true, false, false);

@@ -108,6 +108,102 @@ pub async fn traduire_avec_cache(pool: &SqlitePool, titre: &str) -> String {
     traduit
 }
 
+// ── Sentiment Ollama par article ─────────────────────────────────────────────
+
+/// Lit le sentiment mis en cache pour un article, ou None si absent.
+pub async fn lire_sentiment_cache(pool: &SqlitePool, hash: &str) -> Option<String> {
+    sqlx::query_scalar::<_, String>("SELECT sentiment FROM news_sentiment WHERE hash_titre = ?")
+        .bind(hash)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+}
+
+/// Persiste un sentiment en cache.
+pub async fn ecrire_sentiment_cache(pool: &SqlitePool, hash: &str, sentiment: &str) {
+    let now = chrono::Utc::now().timestamp();
+    if let Err(e) = sqlx::query(
+        "INSERT OR REPLACE INTO news_sentiment (hash_titre, sentiment, analyse_le) VALUES (?, ?, ?)",
+    )
+    .bind(hash)
+    .bind(sentiment)
+    .bind(now)
+    .execute(pool)
+    .await
+    {
+        tracing::warn!("Cache sentiment écriture: {e}");
+    }
+}
+
+/// Analyse le sentiment d'un titre financier via Ollama.
+/// Retourne `"haussier"`, `"neutre"` ou `"baissier"`.
+/// Dégradation silencieuse → `"neutre"` si Ollama indisponible.
+pub async fn analyser_sentiment_avec_cache(pool: &SqlitePool, titre: &str) -> String {
+    let hash = hash_titre(titre);
+
+    if let Some(cached) = lire_sentiment_cache(pool, &hash).await {
+        return cached;
+    }
+
+    let sentiment = analyser_sentiment(titre).await;
+    ecrire_sentiment_cache(pool, &hash, &sentiment).await;
+    sentiment
+}
+
+async fn analyser_sentiment(titre: &str) -> String {
+    let prompt = format!(
+        "En un seul mot parmi [haussier, neutre, baissier], quel est l'impact probable de ce titre \
+        financier sur les prix des actifs (BTC, or, forex) ? Réponds uniquement avec un des trois mots.\n\n\
+        Titre: {titre}"
+    );
+
+    let corps = serde_json::json!({
+        "model": MODELE_TRADUCTION,
+        "messages": [{ "role": "user", "content": prompt }],
+        "stream": false
+    });
+
+    let url = std::env::var("OLLAMA_URL")
+        .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
+
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return "neutre".to_string(),
+    };
+
+    let res = client.post(&url).json(&corps).send().await;
+
+    let texte = match res {
+        Ok(r) if r.status().is_success() => {
+            #[derive(serde::Deserialize)]
+            struct Rep {
+                message: Msg,
+            }
+            #[derive(serde::Deserialize)]
+            struct Msg {
+                content: String,
+            }
+            r.json::<Rep>()
+                .await
+                .map(|r| r.message.content.trim().to_lowercase())
+                .unwrap_or_default()
+        }
+        _ => return "neutre".to_string(),
+    };
+
+    if texte.contains("haussier") {
+        "haussier".to_string()
+    } else if texte.contains("baissier") {
+        "baissier".to_string()
+    } else {
+        "neutre".to_string()
+    }
+}
+
 /// Traduit un texte long (corps d'article) — sans cache (trop volumineux).
 pub async fn traduire_contenu(texte: &str) -> String {
     // Tronquer à 3000 caractères pour éviter les timeouts

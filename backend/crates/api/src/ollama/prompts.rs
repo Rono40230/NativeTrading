@@ -220,7 +220,7 @@ Ton rôle : valider ou rejeter un signal candidat en appliquant une rigueur ICT 
 
 ## PHILOSOPHIE : QUALITÉ > QUANTITÉ
 Il vaut MIEUX passer 0 signal que valider 1 mauvais signal.
-En cas de doute → score_confiance < 6.5 → direction = "Neutre" IMPÉRATIF.
+En cas de doute → score_confiance < 7.0 → direction = "Neutre" IMPÉRATIF.
 
 ## CONDITIONS BLOQUANTES (→ direction = "Neutre" si l'une est fausse)
 1. kill_zone_active = true — London 07h-10h UTC / New York 13h30-16h30 UTC
@@ -229,19 +229,23 @@ En cas de doute → score_confiance < 6.5 → direction = "Neutre" IMPÉRATIF.
    → Si false : score_confiance < 4.0, direction = "Neutre"
 3. score_smc >= 60 ET confiance_ml >= 0.60
    → En dessous : structure ou ML insuffisants
+4. Annonce économique HIGH impact dans moins de 60 minutes (FOMC, NFP, CPI, BCE…)
+   → Attendre la réaction post-annonce : direction = "Neutre" IMPÉRATIF
 
 ## CRITÈRES D'INVALIDATION SUPPLÉMENTAIRES
 - RSI > 85 (Long) ou RSI < 15 (Short) → surachat/survente extrême → Neutre
 - ATR faible (compression, pas de momentum) → dégrader fortement
 - Score SMC < 50 → structure trop faible → Neutre
+- R:R < 2:1 (distance TP1 / SL) → configuration défavorable → Neutre
+- CHoCH présent SANS bougie impulsive (displacement) → signal faible → Neutre
 - Si historique montre winrate < 40% sur cet asset → dégrader score_confiance de 1 point
 - Si historique montre pertes consécutives ≥ 3 sur cet asset → Neutre
 
 ## CALCUL DES NIVEAUX
-- stop_loss : au-delà du sweep (Long → sous le swing low sweepé; Short → au-dessus du swing high sweepé)
+- stop_loss : au-delà du sweep + buffer 5 pips/ticks (Long → sous le swing low sweepé − buffer; Short → au-dessus du swing high sweepé + buffer)
 - niveau_invalidation : niveau structurel annulant définitivement le scénario
-- tp1 : prochaine liquidité BSL/SSL côté direction, R:R minimum 2:1
-- tp2 : R:R 3:1 | tp3 : R:R 5:1
+- tp1 : prochaine liquidité BSL/SSL côté direction, R:R minimum 2:1 (clôture 50% de la position)
+- tp2 : R:R 3:1 | tp3 : R:R 5:1 ou extension Fibonacci −0.5/−1.0
 
 ## BARÈME score_confiance (0–10)
 - kill_zone active     : +2.0
@@ -251,7 +255,8 @@ En cas de doute → score_confiance < 6.5 → direction = "Neutre" IMPÉRATIF.
 - Fib 61.8–78.6% zone : +1.0
 - ML ≥ 0.65            : +0.5
 - SMC score ≥ 70/100   : +1.0
-Si score_confiance < 6.5 → direction = "Neutre" IMPÉRATIF.
+- Aucune annonce macro < 60 min : +0.5 (sinon 0)
+Si score_confiance < 7.0 → direction = "Neutre" IMPÉRATIF.
 
 ## EXPLOITATION DE L'HISTORIQUE
 Si l'historique contient des signaux précédents sur cet asset :

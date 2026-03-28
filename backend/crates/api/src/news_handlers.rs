@@ -5,29 +5,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::news_rss::fetch_rss;
 use crate::news_scraper::{est_url_externe_sure, recuperer_contenu_article};
-use crate::news_traduction::{traduire_avec_cache, traduire_contenu};
+use crate::news_scoring::{
+    classer_theme, dedupliquer, niveau, scorer, AlertesNews, ArticleNews,
+};
+use crate::news_traduction::{
+    hash_titre, lire_cache, lire_sentiment_cache, traduire_avec_cache, traduire_contenu,
+};
 use crate::state::AppState;
-
-// ── Types de sortie ──────────────────────────────────────────────────────────
-
-#[derive(Serialize)]
-pub struct ArticleNews {
-    pub id: String,
-    pub titre: String,
-    pub titre_fr: Option<String>,
-    pub source: String,
-    pub url: String,
-    pub date: String,
-    pub score: u8,
-    pub niveau: &'static str,
-}
-
-#[derive(Serialize)]
-pub struct AlertesNews {
-    pub articles: Vec<ArticleNews>,
-    pub score_max: u8,
-    pub mis_a_jour: String,
-}
 
 // ── Sources RSS publiques ────────────────────────────────────────────────────
 
@@ -54,78 +38,17 @@ const SOURCES: &[(&str, &str, u8)] = &[
         "Yahoo Finance",
         28,
     ),
+    ("https://cryptonews.com/news/feed/", "CryptoNews", 28),
+    ("https://decrypt.co/feed", "Decrypt", 30),
+    ("https://www.fxstreet.com/rss/news", "FXStreet", 38),
+    (
+        "https://www.kitco.com/news/rss/metals-news.xml",
+        "Kitco",
+        38,
+    ),
 ];
 
-// ── Mots-clés avec leur poids ────────────────────────────────────────────────
-
-const MOTS_MACRO: &[(&str, u8)] = &[
-    ("federal reserve", 15),
-    ("rate hike", 15),
-    ("rate cut", 15),
-    ("nfp", 14),
-    ("cpi", 14),
-    ("inflation", 12),
-    ("payroll", 12),
-    ("recession", 13),
-    ("debt ceiling", 13),
-    ("crisis", 12),
-    ("crash", 12),
-    ("circuit breaker", 14),
-    ("gdp", 10),
-    ("ecb", 10),
-    ("fed ", 10),
-    ("bce", 8),
-];
-
-const MOTS_MARCHES: &[(&str, u8)] = &[
-    ("bitcoin", 10),
-    ("btc", 10),
-    ("selloff", 10),
-    ("sell-off", 10),
-    ("liquidation", 10),
-    ("crypto", 7),
-    ("sec ", 8),
-    ("halving", 9),
-    ("stablecoin", 7),
-    ("etf", 6),
-    ("earnings", 6),
-    ("volatility", 6),
-];
-
-// ── Scoring et classification ────────────────────────────────────────────────
-
-fn scorer(titre_lower: &str, base: u8) -> u8 {
-    let mut bonus: u8 = 0;
-    for (mot, poids) in MOTS_MACRO {
-        if titre_lower.contains(mot) {
-            bonus = bonus.saturating_add(*poids);
-        }
-    }
-    for (mot, poids) in MOTS_MARCHES {
-        if titre_lower.contains(mot) {
-            bonus = bonus.saturating_add(*poids);
-        }
-    }
-    base.saturating_add(bonus).min(100)
-}
-
-fn niveau(score: u8) -> &'static str {
-    match score {
-        80..=100 => "critique",
-        60..=79 => "important",
-        40..=59 => "modere",
-        _ => "veille",
-    }
-}
-
-/// Hash DJB2 du titre pour un ID stable et déterministe.
-fn hash_titre(titre: &str) -> String {
-    let mut h: u64 = 5381;
-    for b in titre.bytes() {
-        h = h.wrapping_mul(33).wrapping_add(b as u64);
-    }
-    format!("{h:016x}")
-}
+// ── Utilitaire interne ───────────────────────────────────────────────────────
 
 fn normaliser_date(s: &str) -> String {
     chrono::DateTime::parse_from_rfc2822(s)
@@ -133,12 +56,11 @@ fn normaliser_date(s: &str) -> String {
         .unwrap_or_else(|_| Utc::now().to_rfc3339())
 }
 
-// ── Handler ──────────────────────────────────────────────────────────────────
+// ── Handler principal ────────────────────────────────────────────────────────
 
 /// GET /api/news/alertes
-/// Agrège 5 flux RSS publics, score chaque titre par mots-clés,
-/// retourne les 20 articles les mieux classés.
-/// Dégradation silencieuse par source — timeout global 10s.
+/// Agrège les flux RSS, score chaque titre par mots-clés,
+/// retourne les 30 articles les mieux classés.
 pub async fn get_news_alertes(state: web::Data<AppState>) -> impl Responder {
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -153,7 +75,6 @@ pub async fn get_news_alertes(state: web::Data<AppState>) -> impl Responder {
         }
     };
 
-    // Fetch toutes les sources en parallèle via tokio::spawn
     let taches: Vec<_> = SOURCES
         .iter()
         .map(|(url, nom, base)| {
@@ -176,31 +97,66 @@ pub async fn get_news_alertes(state: web::Data<AppState>) -> impl Responder {
         .flat_map(|(rss_articles, nom, base)| {
             rss_articles.into_iter().map(move |a| {
                 let titre_lower = a.titre.to_lowercase();
-                let score = scorer(&titre_lower, base);
+                let date = normaliser_date(&a.date_rss);
+                let score = scorer(&titre_lower, base, &date);
                 ArticleNews {
                     id: hash_titre(&a.titre),
                     titre: a.titre,
                     titre_fr: None,
                     source: nom.to_string(),
                     url: a.lien,
-                    date: normaliser_date(&a.date_rss),
+                    date,
                     score,
                     niveau: niveau(score),
+                    theme: classer_theme(&titre_lower, nom),
+                    sentiment: None,
                 }
             })
         })
         .collect();
 
     articles.sort_unstable_by(|a, b| b.score.cmp(&a.score));
-    articles.truncate(20);
+    let articles = dedupliquer(articles);
+    let mut articles = articles;
+    articles.truncate(30);
 
-    // Traduction des titres via cache SQLite + Ollama (en arrière-plan)
     let pool = state.db.pool();
+    let mut titres_a_traduire: Vec<String> = Vec::new();
+    let mut titres_a_analyser: Vec<String> = Vec::new();
     for article in &mut articles {
-        article.titre_fr = Some(traduire_avec_cache(pool, &article.titre).await);
+        let h = hash_titre(&article.titre);
+        match lire_cache(pool, &h).await {
+            Some(t) => article.titre_fr = Some(t),
+            None => titres_a_traduire.push(article.titre.clone()),
+        }
+        match lire_sentiment_cache(pool, &h).await {
+            Some(s) => article.sentiment = Some(s),
+            None => titres_a_analyser.push(article.titre.clone()),
+        }
+    }
+
+    if !titres_a_traduire.is_empty() {
+        let pool_bg = pool.clone();
+        tokio::spawn(async move {
+            for titre in titres_a_traduire {
+                traduire_avec_cache(&pool_bg, &titre).await;
+            }
+        });
+    }
+
+    if !titres_a_analyser.is_empty() {
+        let pool_bg = pool.clone();
+        tokio::spawn(async move {
+            for titre in titres_a_analyser {
+                crate::news_traduction::analyser_sentiment_avec_cache(&pool_bg, &titre).await;
+            }
+        });
     }
 
     let score_max = articles.first().map(|a| a.score).unwrap_or(0);
+    state
+        .signal_engine
+        .mettre_a_jour_score_news(score_max as i32);
 
     HttpResponse::Ok().json(AlertesNews {
         articles,
@@ -222,7 +178,6 @@ pub struct ContenuArticle {
 }
 
 /// GET /api/news/contenu?url=...
-/// Scrape et retourne le texte lisible d'un article externe.
 /// Protection SSRF : HTTPS uniquement, adresses internes bloquées.
 pub async fn get_contenu_article(
     _state: web::Data<AppState>,
@@ -253,7 +208,7 @@ pub async fn get_contenu_article(
     }
 }
 
-// ── Traduction à la demande ─────────────────────────────────────────────────────
+// ── Traduction à la demande ──────────────────────────────────────────────────
 
 #[derive(Deserialize)]
 pub struct TraductionParams {
@@ -268,7 +223,6 @@ pub struct TraductionReponse {
 }
 
 /// GET /api/news/traduire?texte=...&long=true
-/// Traduit un texte via Ollama. long=true pour les corps d'articles.
 /// Dégradation silencieuse : retourne le texte original si Ollama est absent.
 pub async fn get_traduire(
     state: web::Data<AppState>,

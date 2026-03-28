@@ -24,114 +24,103 @@
       <span class="text-yellow-200/60">— Pas assez de bougies en base. Vérifiez la connexion à la source de données.</span>
     </div>
 
-    <!-- KPIs -->
-    <div v-if="resultats" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <div class="glass-card p-4 text-center">
-        <p class="label flex items-center justify-center">ROI <TooltipInfo texte="Retour sur investissement sur la période simulée." :niveaux="niveaux?.roi" /></p>
-        <p class="text-2xl font-bold" :class="resultats.roi_pct >= 0 ? 'text-emerald-400' : 'text-red-400'">
-          {{ resultats.roi_pct.toFixed(2) }}%
-        </p>
-      </div>
-      <div class="glass-card p-4 text-center">
-        <p class="label flex items-center justify-center">Sharpe <TooltipInfo texte="Rapport rendement / risque ajusté (annualisé)." :niveaux="niveaux?.sharpe" /></p>
-        <p class="text-2xl font-bold" :class="resultats.sharpe_ratio >= 1.5 ? 'text-emerald-400' : 'text-yellow-400'">
-          {{ resultats.sharpe_ratio.toFixed(2) }}
-        </p>
-      </div>
-      <div class="glass-card p-4 text-center">
-        <p class="label flex items-center justify-center">Win Rate <TooltipInfo texte="Pourcentage de trades clôturés avec un gain positif." :niveaux="niveaux?.winRate" /></p>
-        <p class="text-2xl font-bold" :class="resultats.win_rate >= 55 ? 'text-emerald-400' : 'text-yellow-400'">
-          {{ resultats.win_rate.toFixed(1) }}%
-        </p>
-      </div>
-      <div class="glass-card p-4 text-center">
-        <p class="label flex items-center justify-center">Max Drawdown <TooltipInfo texte="Perte maximale depuis un pic de portefeuille. Au-delà de 20%, le trading s'arrête automatiquement." :niveaux="niveaux?.drawdown" /></p>
-        <p class="text-2xl font-bold" :class="resultats.max_drawdown_pct <= 20 ? 'text-emerald-400' : 'text-red-400'">
-          {{ resultats.max_drawdown_pct.toFixed(2) }}%
-        </p>
-      </div>
-    </div>
+    <!-- Bloc métriques unifié : badges pleine largeur -->
+    <div v-if="resultats" class="glass-card px-3 py-2.5 flex items-stretch gap-2">
 
-    <!-- Métriques secondaires + Pyramidalisation sur la même ligne -->
-    <div v-if="resultats" class="flex gap-4">
-      <!-- Bloc capital -->
-      <div class="glass-card p-5 flex-[5] min-w-0">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Résumé</h2>
-        <div class="grid grid-cols-5 gap-2">
-          <div class="text-center p-2 rounded-lg border border-white/10 bg-white/5">
-            <p class="text-xs text-gray-400 mb-1">Capital initial</p>
-            <p class="text-sm font-bold text-white">{{ formatEur(resultats.capital_initial) }}</p>
-          </div>
-          <div class="text-center p-2 rounded-lg border" :class="resultats.capital_final >= resultats.capital_initial ? 'bg-emerald-900/20 border-emerald-500/20' : 'bg-red-900/20 border-red-500/20'">
-            <p class="text-xs text-gray-400 mb-1">Capital final</p>
-            <p class="text-sm font-bold" :class="resultats.capital_final >= resultats.capital_initial ? 'text-emerald-400' : 'text-red-400'">{{ formatEur(resultats.capital_final) }}</p>
-          </div>
-          <div class="text-center p-2 rounded-lg border border-white/10 bg-white/5">
-            <p class="text-xs text-gray-400 mb-1">Trades</p>
-            <p class="text-sm font-bold text-white">{{ resultats.total_trades }}<span class="text-xs text-gray-500 ml-1">({{ resultats.nb_straddles }})</span></p>
-            <p class="text-xs"><span class="text-emerald-400">{{ resultats.winning_trades }}W</span> <span class="text-red-400">{{ resultats.losing_trades }}L</span></p>
-          </div>
-          <div class="text-center p-2 rounded-lg border" :class="resultats.profit_factor >= 1.5 ? 'bg-emerald-900/20 border-emerald-500/20' : 'bg-yellow-900/20 border-yellow-500/20'">
-            <p class="text-xs text-gray-400 mb-1">Profit Factor</p>
-            <p class="text-sm font-bold" :class="resultats.profit_factor >= 1.5 ? 'text-emerald-400' : 'text-yellow-400'">{{ resultats.profit_factor.toFixed(2) }}</p>
-          </div>
-          <div class="text-center p-2 rounded-lg border" :class="resultats.profit_net >= 0 ? 'bg-emerald-900/20 border-emerald-500/20' : 'bg-red-900/20 border-red-500/20'">
-            <p class="text-xs text-gray-400 mb-1">Profit net</p>
-            <p class="text-sm font-bold" :class="resultats.profit_net >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ formatEur(resultats.profit_net) }}</p>
-          </div>
+      <!-- Groupe 1 — KPIs (4 badges) -->
+      <div class="flex flex-1 gap-2">
+        <div class="flex flex-col items-center justify-center flex-1 px-2 py-2 rounded-lg border" :class="resultats.roi_pct >= 15 ? 'bg-emerald-900/30 border-emerald-500/20' : resultats.roi_pct >= 0 ? 'bg-yellow-900/30 border-yellow-500/20' : 'bg-red-900/30 border-red-500/20'">
+          <span class="text-[11px] text-gray-400 flex items-center gap-0.5 mb-1">ROI <TooltipInfo texte="Retour sur investissement sur la période simulée." :niveaux="niveaux?.roi" /></span>
+          <span class="text-base font-bold leading-none" :class="resultats.roi_pct >= 15 ? 'text-emerald-400' : resultats.roi_pct >= 0 ? 'text-yellow-400' : 'text-red-400'">{{ resultats.roi_pct.toFixed(2) }}%</span>
+        </div>
+        <div class="flex flex-col items-center justify-center flex-1 px-2 py-2 rounded-lg border" :class="resultats.sharpe_ratio >= 1.5 ? 'bg-emerald-900/30 border-emerald-500/20' : resultats.sharpe_ratio >= 1.0 ? 'bg-yellow-900/30 border-yellow-500/20' : 'bg-red-900/30 border-red-500/20'">
+          <span class="text-[11px] text-gray-400 flex items-center gap-0.5 mb-1">Sharpe <TooltipInfo texte="Rapport rendement / risque ajusté (annualisé)." :niveaux="niveaux?.sharpe" /></span>
+          <span class="text-base font-bold leading-none" :class="resultats.sharpe_ratio >= 1.5 ? 'text-emerald-400' : resultats.sharpe_ratio >= 1.0 ? 'text-yellow-400' : 'text-red-400'">{{ resultats.sharpe_ratio.toFixed(2) }}</span>
+        </div>
+        <div class="flex flex-col items-center justify-center flex-1 px-2 py-2 rounded-lg border" :class="resultats.win_rate >= 55 ? 'bg-emerald-900/30 border-emerald-500/20' : resultats.win_rate >= 45 ? 'bg-yellow-900/30 border-yellow-500/20' : 'bg-red-900/30 border-red-500/20'">
+          <span class="text-[11px] text-gray-400 flex items-center gap-0.5 mb-1">Win Rate <TooltipInfo texte="Pourcentage de trades clôturés avec un gain positif." :niveaux="niveaux?.winRate" /></span>
+          <span class="text-base font-bold leading-none" :class="resultats.win_rate >= 55 ? 'text-emerald-400' : resultats.win_rate >= 45 ? 'text-yellow-400' : 'text-red-400'">{{ resultats.win_rate.toFixed(1) }}%</span>
+        </div>
+        <div class="flex flex-col items-center justify-center flex-1 px-2 py-2 rounded-lg border" :class="resultats.max_drawdown_pct <= 20 ? 'bg-emerald-900/30 border-emerald-500/20' : resultats.max_drawdown_pct <= 30 ? 'bg-yellow-900/30 border-yellow-500/20' : 'bg-red-900/30 border-red-500/20'">
+          <span class="text-[11px] text-gray-400 flex items-center gap-0.5 mb-1">Drawdown <TooltipInfo texte="Perte maximale depuis un pic de portefeuille. Au-delà de 20%, le trading s'arrête automatiquement." :niveaux="niveaux?.drawdown" /></span>
+          <span class="text-base font-bold leading-none" :class="resultats.max_drawdown_pct <= 20 ? 'text-emerald-400' : resultats.max_drawdown_pct <= 30 ? 'text-yellow-400' : 'text-red-400'">{{ resultats.max_drawdown_pct.toFixed(2) }}%</span>
         </div>
       </div>
 
-      <!-- Bloc sorties pyramidales -->
-      <div v-if="pyramidalisation.some(p => p.n > 0)" class="glass-card p-5 flex-[4] min-w-0">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center">
-          Sorties
-          <TooltipInfo texte="Répartition des sorties pyramidales. TP3 = trade complet, TP2 = ⅔ fermés, TP1 = ⅓ seulement (BE activé), SL = perte." />
-        </h2>
-        <div class="grid grid-cols-4 gap-2">
-          <div v-for="p in pyramidalisation" :key="p.label" class="text-center p-2 rounded-lg border" :class="p.classes">
-            <p class="text-xs text-gray-400 mb-1">{{ p.label }}</p>
-            <p class="text-sm font-bold" :class="p.color">{{ p.n }}</p>
-            <p class="text-xs text-gray-500 mt-1">{{ resultats.total_trades > 0 ? ((p.n / resultats.total_trades) * 100).toFixed(0) : 0 }}%</p>
-          </div>
+      <!-- Séparateur -->
+      <div class="w-px bg-white/10 shrink-0 self-stretch" />
+
+      <!-- Groupe 2 — Résumé capital (5 badges) -->
+      <div class="flex flex-1 gap-2">
+        <div class="flex flex-col items-center justify-center flex-1 px-2 py-2 rounded-lg bg-white/5 border border-white/10">
+          <span class="text-[11px] text-gray-400 mb-1">Cap. initial</span>
+          <span class="text-sm font-semibold leading-none text-white">{{ formatEur(resultats.capital_initial) }}</span>
+        </div>
+        <div class="flex flex-col items-center justify-center flex-1 px-2 py-2 rounded-lg border" :class="resultats.capital_final >= resultats.capital_initial ? 'bg-emerald-900/30 border-emerald-500/20' : 'bg-red-900/30 border-red-500/20'">
+          <span class="text-[11px] text-gray-400 mb-1">Cap. final</span>
+          <span class="text-sm font-semibold leading-none" :class="resultats.capital_final >= resultats.capital_initial ? 'text-emerald-400' : 'text-red-400'">{{ formatEur(resultats.capital_final) }}</span>
+        </div>
+        <div class="flex flex-col items-center justify-center flex-1 px-2 py-2 rounded-lg bg-white/5 border border-white/10">
+          <span class="text-[11px] text-gray-400 mb-1">Trades</span>
+          <span class="text-sm font-semibold leading-none text-white">{{ resultats.total_trades }} <span class="text-emerald-400 text-xs">{{ resultats.winning_trades }}W</span> <span class="text-red-400 text-xs">{{ resultats.losing_trades }}L</span></span>
+        </div>
+        <div class="flex flex-col items-center justify-center flex-1 px-2 py-2 rounded-lg border" :class="resultats.profit_factor >= 1.5 ? 'bg-emerald-900/30 border-emerald-500/20' : resultats.profit_factor >= 1.0 ? 'bg-yellow-900/30 border-yellow-500/20' : 'bg-red-900/30 border-red-500/20'">
+          <span class="text-[11px] text-gray-400 mb-1">Profit Factor</span>
+          <span class="text-sm font-semibold leading-none" :class="resultats.profit_factor >= 1.5 ? 'text-emerald-400' : resultats.profit_factor >= 1.0 ? 'text-yellow-400' : 'text-red-400'">{{ resultats.profit_factor.toFixed(2) }}</span>
+        </div>
+        <div class="flex flex-col items-center justify-center flex-1 px-2 py-2 rounded-lg border" :class="resultats.profit_net >= 0 ? 'bg-emerald-900/30 border-emerald-500/20' : 'bg-red-900/30 border-red-500/20'">
+          <span class="text-[11px] text-gray-400 mb-1">Profit net</span>
+          <span class="text-sm font-semibold leading-none" :class="resultats.profit_net >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ formatEur(resultats.profit_net) }}</span>
+        </div>
+      </div>
+
+      <!-- Séparateur -->
+      <div class="w-px bg-white/10 shrink-0 self-stretch" />
+
+      <!-- Groupe 3 — Sorties pyramidales (4 badges) -->
+      <div class="flex flex-1 gap-2">
+        <div v-for="p in pyramidalisation" :key="p.label" class="flex flex-col items-center justify-center flex-1 px-2 py-2 rounded-lg border" :class="p.classes">
+          <span class="text-[11px] text-gray-400 mb-1">{{ p.label }}</span>
+          <span class="text-sm font-bold leading-none" :class="p.color">{{ p.n }} <span class="text-[11px] text-gray-500 font-normal">{{ resultats.total_trades > 0 ? `${((p.n / resultats.total_trades) * 100).toFixed(0)}%` : '' }}</span></span>
         </div>
       </div>
     </div>
 
-    <!-- Courbe equity + Objectifs sur la même ligne (2/3 + 1/3) -->
-    <div class="flex gap-4">
-      <!-- Courbe equity — 3/4 -->
-      <div class="glass-card p-5 flex-[3] min-w-0">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center">Courbe Equity <TooltipInfo texte="Évolution du capital au fil du temps. Une pente régulièrement croissante traduit une stratégie stable et résiliente sur la durée." /></h2>
-        <div v-if="chargement" class="text-center text-gray-500 py-8">Calcul en cours...</div>
-        <div v-else-if="!resultats" class="text-center text-gray-500 py-8">
+    <!-- Courbe equity + Objectifs + Paramètres Straddle sur la même ligne -->
+    <div class="flex gap-4 items-stretch">
+      <!-- Courbe equity — 5/12 -->
+      <div class="glass-card p-5 flex-[5] min-w-0 flex flex-col">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center shrink-0">Courbe Equity <TooltipInfo texte="Évolution du capital au fil du temps. Une pente régulièrement croissante traduit une stratégie stable et résiliente sur la durée." /></h2>
+        <div v-if="chargement" class="text-center text-gray-500 flex-1 flex items-center justify-center">Calcul en cours...</div>
+        <div v-else-if="!resultats" class="text-center text-gray-500 flex-1 flex items-center justify-center">
           Lancez un backtest pour voir la courbe equity
         </div>
-        <div v-else ref="equityChart" class="h-52 w-full" />
+        <div v-else ref="equityChart" class="flex-1 min-h-[140px] w-full" />
       </div>
 
-      <!-- Objectifs — 1/4 -->
-      <div class="glass-card p-5 flex-[1] min-w-0">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center">Objectifs Production <TooltipInfo texte="Seuils minimaux requis pour déploiement en production réelle. ✓ = objectif atteint, ✗ = en dessous du seuil cible." /></h2>
-        <div v-if="resultats" class="space-y-2">
+      <!-- Objectifs — 2/12 -->
+      <div class="glass-card p-5 flex-[2] min-w-0 flex flex-col">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center shrink-0">Objectifs Production <TooltipInfo texte="Seuils minimaux requis pour déploiement en production réelle. ✓ = objectif atteint, ✗ = en dessous du seuil cible." /></h2>
+        <div v-if="resultats" class="space-y-2 flex-1">
           <ObjectifLigne label="ROI ≥ 15%" :atteint="resultats.roi_pct >= 15" :valeur="`${resultats.roi_pct.toFixed(1)}%`" />
           <ObjectifLigne label="Sharpe ≥ 1.5" :atteint="resultats.sharpe_ratio >= 1.5" :valeur="resultats.sharpe_ratio.toFixed(2)" />
           <ObjectifLigne label="Win Rate ≥ 55%" :atteint="resultats.win_rate >= 55" :valeur="`${resultats.win_rate.toFixed(1)}%`" />
           <ObjectifLigne label="Drawdown ≤ 20%" :atteint="resultats.max_drawdown_pct <= 20" :valeur="`${resultats.max_drawdown_pct.toFixed(1)}%`" />
         </div>
-        <p v-else class="text-gray-500 text-sm pt-2">Lancez un backtest</p>
+        <p v-else class="text-gray-500 text-sm flex-1 flex items-center">Lancez un backtest</p>
       </div>
-    </div>
 
-    <!-- Optimisation LLM — Paramètres Straddle -->
-    <StraddleParamsPanel
-      v-model="straddleParams"
-      :has-resultats="!!resultats"
-      :chargement-llm="chargementLlm"
-      :suggestion="suggestionLlm"
-      @optimiser="demanderOptimisation"
-      @relancer="lancerBacktest"
-    />
+      <!-- Paramètres Straddle — 5/12 -->
+      <StraddleParamsPanel
+        class="flex-[5] min-w-0"
+        v-model="straddleParams"
+        :has-resultats="!!resultats"
+        :chargement-llm="chargementLlm"
+        :suggestion="suggestionLlm"
+        @optimiser="demanderOptimisation"
+        @relancer="lancerBacktest"
+      />
+    </div>
 
     <!-- Monitoring ML -->
     <MonitoringML />

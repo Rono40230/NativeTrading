@@ -91,8 +91,14 @@ mod tests {
         let m = calculer_macd(&b, 12, 26, 9);
         let ligne_valides = m.ligne.iter().filter(|v| !v.is_nan()).count();
         let histo_valides = m.histogramme.iter().filter(|v| !v.is_nan()).count();
-        assert!(ligne_valides > 0, "ligne MACD doit avoir des valeurs non-NaN");
-        assert!(histo_valides > 0, "histogramme MACD doit avoir des valeurs non-NaN");
+        assert!(
+            ligne_valides > 0,
+            "ligne MACD doit avoir des valeurs non-NaN"
+        );
+        assert!(
+            histo_valides > 0,
+            "histogramme MACD doit avoir des valeurs non-NaN"
+        );
     }
 
     #[test]
@@ -101,9 +107,7 @@ mod tests {
         let bb = calculer_bollinger(&b, 20, 2.0);
         assert_eq!(bb.superieure.len(), 30);
         // Les valeurs valides (non-NaN) : supérieure >= milieu >= inférieure
-        let valides: Vec<usize> = (0..30)
-            .filter(|&i| !bb.milieu[i].is_nan())
-            .collect();
+        let valides: Vec<usize> = (0..30).filter(|&i| !bb.milieu[i].is_nan()).collect();
         assert!(!valides.is_empty());
         for i in valides {
             assert!(bb.superieure[i] >= bb.milieu[i], "sup >= milieu");
@@ -122,7 +126,10 @@ mod tests {
         let milieu_valides: Vec<f64> = bb.milieu.iter().copied().filter(|v| !v.is_nan()).collect();
         assert!(!milieu_valides.is_empty());
         for m in &milieu_valides {
-            assert!((m - prix).abs() < 1e-9, "milieu doit égaler le prix constant");
+            assert!(
+                (m - prix).abs() < 1e-9,
+                "milieu doit égaler le prix constant"
+            );
         }
     }
 }

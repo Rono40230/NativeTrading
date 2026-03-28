@@ -13,7 +13,11 @@ mod handlers;
 mod indicators_handlers;
 mod indicators_types;
 mod ml_handlers;
+mod news_context_handler;
+mod news_fear_greed;
 mod news_handlers;
+mod news_lus_handlers;
+mod news_scoring;
 mod news_rss;
 mod news_scraper;
 mod news_traduction;
@@ -21,6 +25,7 @@ mod ollama;
 mod ollama_ajustements_handler;
 mod ollama_handlers;
 mod ollama_types;
+mod rockets_analyse;
 mod rockets_analyse_handler;
 mod rockets_handlers;
 mod rockets_indicateurs;
@@ -29,6 +34,7 @@ mod rockets_suivi;
 mod scheduler;
 mod sentiment_handlers;
 mod signal_engine;
+mod signal_engine_analyse;
 mod signal_filtre;
 mod signaux_handlers;
 mod smc_analyse_handler;
@@ -37,7 +43,11 @@ mod state;
 mod straddle_backtest_handler;
 mod straddle_handlers;
 mod straddle_precision;
+mod straddle_prompt;
+mod straddle_signal_handler;
 mod straddle_slot_backtest;
+mod straddle_slot_backtest_fenetre;
+mod straddle_types;
 mod straddle_utils;
 mod tendance_handlers;
 mod utils;
@@ -157,7 +167,7 @@ async fn main() -> std::io::Result<()> {
             )
             .route(
                 "/api/ia/signal/straddle",
-                web::post().to(straddle_handlers::analyser),
+                web::post().to(straddle_signal_handler::generer_signal_straddle),
             )
             .route(
                 "/api/straddle/analyser",
@@ -201,6 +211,19 @@ async fn main() -> std::io::Result<()> {
             .route(
                 "/api/news/traduire",
                 web::get().to(news_handlers::get_traduire),
+            )
+            .route(
+                "/api/news/fear-greed",
+                web::get().to(news_fear_greed::get_fear_greed),
+            )
+            .route(
+                "/api/news/lu",
+                web::post().to(news_lus_handlers::marquer_lu),
+            )
+            .route("/api/news/lus", web::get().to(news_lus_handlers::lire_lus))
+            .route(
+                "/api/news/contexte-marche",
+                web::get().to(news_context_handler::get_contexte_marche),
             )
             .route("/api/stream", web::get().to(ws_handlers::stream_market))
             .route(

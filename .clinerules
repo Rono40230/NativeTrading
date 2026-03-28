@@ -256,6 +256,23 @@ if duree > Duration::from_millis(200) {
 
 ## 🎨 RÈGLES FRONTEND SPÉCIFIQUES
 
+### RÈGLE 10b : Séparation Frontend / Backend (RÈGLE ABSOLUE)
+**Zéro calcul métier en frontend.** Tout ce qui touche aux prix, indicateurs, signaux, risk, P&L, SL/TP, scores ML doit être calculé par le backend Rust et consommé par le frontend via l'API.
+
+**Autorisé en frontend** (présentation uniquement) :
+- Formatage d'affichage (`toFixed(2)`, dates, labels)
+- Tri/filtrage local d'une liste déjà reçue du backend
+- Calcul de couleur ou état visuel selon un seuil (`score > 7 → vert`)
+- Agrégations visuelles légères sur données déjà calculées
+
+**Interdit en frontend** :
+- Calcul d'ATR, RSI, MACD, Fibonacci, SL/TP, R:R
+- Logique de scoring SMC, Straddle ou Rockets
+- Toute décision de risk management
+- Duplication d'une formule déjà présente dans un crate Rust
+
+> Garantit que les garde-fous backend (drawdown, position sizing) ne peuvent pas être contournés et évite la désynchronisation silencieuse entre deux implémentations du même calcul.
+
 ### RÈGLE 11 : Design Trading Premium
 **STYLE IMPOSÉ** :
 - Dark Mode natif (fond #0a0e27 ou équivalent)

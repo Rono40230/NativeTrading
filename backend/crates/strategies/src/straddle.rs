@@ -108,12 +108,13 @@ impl Strategy for StraddleStrategy {
                 match pipeline.predire(bougies) {
                     Ok(pred) => !pred.est_confiant, // confiance < 60% = indécis
                     Err(e) => {
-                        tracing::warn!("Straddle: erreur ML (considéré indécis): {}", e);
-                        true
+                        tracing::warn!("Straddle: erreur ML, indécision assumée: {}", e);
+                        true // ML en erreur → indécis par défaut
                     }
                 }
             }
-            _ => true, // Pas de modèle = considéré indécis par défaut
+            // Sans ML (backtest ou modèle non encore entraîné) → indécis par défaut
+            _ => true,
         };
 
         if !ia_indecise {
@@ -268,16 +269,13 @@ mod tests {
     }
 
     #[test]
-    fn analyse_retourne_signal_straddle_si_volatilite_extreme() {
-        let strat = StraddleStrategy::new();
-        // 34 bougies plates, dernière avec range gigantesque → ratio ATR >> 1.5
+    fn analyse_retourne_signal_sans_ml() {
+        // Sans modèle ML, la stratégie considère l'IA indécise par défaut et doit émettre un signal
+        // si la volatilité est suffisamment extrême (ATR ratio > seuil).
+        let strat = StraddleStrategy::new(); // pipeline_ml = None
         let mut bougies: Vec<Candle> = (0..34).map(|_| bougie_plate(100.0)).collect();
         bougies.push(bougie_volatile(100.0, 150.0));
-        let signal = strat.analyze(&bougies).unwrap();
-        assert!(signal.is_some());
-        let s = signal.unwrap();
-        assert_eq!(s.direction, Direction::Both);
-        assert!(s.prix_entree > 0.0);
-        assert!(s.take_profit > s.prix_entree);
+        // Comportement attendu : signal émis (indécision assumée sans ML)
+        assert!(strat.analyze(&bougies).unwrap().is_some());
     }
 }

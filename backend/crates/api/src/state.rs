@@ -18,6 +18,8 @@ pub struct AppState {
     pub signal_engine: Arc<SignalEngine>,
     /// Dernier contexte backtest formaté — injecté dans les analyses LLM SMC.
     pub contexte_backtest: Arc<tokio::sync::RwLock<Option<String>>>,
+    /// Cache Fear & Greed Index (TTL 1h) — (Instant du fetch, données JSON)
+    pub fear_greed_cache: Arc<tokio::sync::RwLock<Option<(std::time::Instant, serde_json::Value)>>>,
 }
 
 impl AppState {
@@ -66,7 +68,7 @@ impl AppState {
         let db = Arc::new(db);
         let pipeline_ml = Arc::new(Mutex::new(pipeline_ml));
         let signal_engine = Arc::new(SignalEngine::new());
-        signal_engine.demarrer(db.clone());
+        signal_engine.demarrer(db.clone(), pipeline_ml.clone());
         tracing::info!("🤖 Signal Engine démarré automatiquement");
 
         // Scheduler ML quotidien : ré-entraînement à 00h00 UTC
@@ -80,6 +82,7 @@ impl AppState {
             ib_client_id,
             signal_engine,
             contexte_backtest: Arc::new(tokio::sync::RwLock::new(None)),
+            fear_greed_cache: Arc::new(tokio::sync::RwLock::new(None)),
         })
     }
 }

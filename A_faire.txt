@@ -41,10 +41,7 @@ Analyse ces bugs de terminal lorsque IB gateway est connecté.
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Ajoute aux règle de vibe coding :
-- pas de calculs en frontend = tous les calculs en backend puis appelés par le frontend
-Est ce judicieux ?
-repond sans coder
+Dans P&L pourquoi l'axe X du graphique Courbe equity n'indique pas clairement la période ? Repond sans coder
 
-
+--------------------------------------------------------------------------------------------------------------------------
 

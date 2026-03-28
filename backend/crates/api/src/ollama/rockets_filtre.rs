@@ -36,6 +36,12 @@ pub struct SignalCandidat {
     pub change1h: f64,
     /// Ratio corps/amplitude de la bougie de signal (0.0–1.0)
     pub ratio_corps: f64,
+    /// Tendance préalable confirmée (EMA20 > EMA50)
+    pub tendance_haussiere: bool,
+    /// Bougies consécutives en compression avant la bougie de signal
+    pub nb_bougies_compression: usize,
+    /// Range de la zone de consolidation (measured move pour TP1)
+    pub hauteur_base: f64,
 }
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
@@ -59,6 +65,8 @@ bougie de breakout avec momentum (change1h > 0). RSI idéal entre 50 et 75 (mome
 - RSI entre 55–75 au breakout = idéal | RSI > 85 = surachat extrême → invalider
 - ATR ratio > 1.2 = bonne expansion de volatilité
 - Change 1h > 2% = momentum réel | < 0.5% = breakout mou
+- `tendance_haussiere=true` (EMA20 > EMA50) = tendance haussière préalable confirmée → +10 conviction
+- `nb_bougies_compression ≥ 5` = compression significative (+5) | ≥ 10 = forte (+10) | < 3 = négligeable
 
 **Critères d'invalidation** :
 - RSI > 85 : surachat extrême, risque de retournement immédiat
@@ -68,11 +76,16 @@ bougie de breakout avec momentum (change1h > 0). RSI idéal entre 50 et 75 (mome
 - Volume ratio < 1.3× sur un breakout = fort risque de faux breakout
 - Ratio corps/mèche < 0.3 : longue mèche de rejet, clôture loin du haut → invalider ou dégrader conviction
 - Ratio corps/mèche > 0.7 : corps fort sans rejet → signal de qualité ✅
+- `tendance_haussiere=false` sur un breakout → dégrader conviction de −20 (signal à contre-tendance)
+- `nb_bougies_compression < 3` en phase "prelancement" → pas de vraie compression → invalider
+- Consolidation chaotique : `nb_bougies_compression` faible + `ratio_corps` < 0.4 = structure instable → dégrader
+- Faux breakout : si le prix actuel est inférieur au niveau de cassure (target20) → invalider
 
 ## COEFFICIENTS ATR ACTUELS
-SL = entrée − 1×ATR14 | TP1 = entrée + 1×ATR14 | TP2 = entrée + 2×ATR14 | TP3 = entrée + 20×ATR14
+SL = entrée − 1×ATR14 | TP1 = entrée + hauteur_base (measured move) si hauteur_base > ATR14, sinon + 1×ATR14 | TP2 = entrée + 2×ATR14 | TP3 = entrée + 20×ATR14
 Si les données historiques montrent que ces niveaux sont trop serrés ou trop larges sur ce ticker,
-suggère un SL ou TP1 ajusté.
+suggère un SL ou TP1 ajusté. Le measured move (hauteur_base = range de consolidation) est plus fidèle
+à la stratégie Rockets originale.
 
 ## FORMAT DE RÉPONSE
 Réponds UNIQUEMENT en JSON valide, sans texte avant ou après :
@@ -108,7 +121,8 @@ fn formater_contexte(candidat: &SignalCandidat, historique: &[RocketSignal]) -> 
         Prix entrée: {:.6} | SL: {:.6} | TP1: {:.6}\n\
         ATR14: {:.6} | ATR ratio (accélération): {:.2}\n\
         Volume ratio: {:.2}× | RSI: {:.1} | Change 1h: {:.2}%\n\
-        Ratio corps/mèche bougie: {:.2} (1.0=pleine, <0.3=rejet probable)\n\n",
+        Ratio corps/mèche bougie: {:.2} (1.0=pleine, <0.3=rejet probable)\n\
+        Tendance préalable (EMA20>EMA50): {} | Compression: {} bougies | Hauteur base (measured move): {:.6}\n\n",
         candidat.ticker,
         candidat.phase,
         candidat.score,
@@ -121,6 +135,9 @@ fn formater_contexte(candidat: &SignalCandidat, historique: &[RocketSignal]) -> 
         candidat.rsi,
         candidat.change1h,
         candidat.ratio_corps,
+        if candidat.tendance_haussiere { "✅ oui" } else { "❌ non" },
+        candidat.nb_bougies_compression,
+        candidat.hauteur_base,
     );
 
     if historique.is_empty() {

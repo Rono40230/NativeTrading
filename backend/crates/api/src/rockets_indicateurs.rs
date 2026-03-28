@@ -34,6 +34,12 @@ pub struct ScanResultat {
     /// Ratio corps/amplitude totale de la dernière bougie (0.0–1.0)
     /// 1.0 = bougie pleine sans mèche | <0.3 = mèche dominante (rejet possible)
     pub ratio_corps: f64,
+    /// EMA20 > EMA50 = tendance haussière préalable confirmée
+    pub tendance_haussiere: bool,
+    /// Bougies consécutives en compression (range < 90% ATR14) avant la dernière bougie
+    pub nb_bougies_compression: usize,
+    /// Hauteur de la base = max_recent − support (measured move pour TP1)
+    pub hauteur_base: f64,
 }
 
 #[derive(serde::Deserialize)]
@@ -62,15 +68,27 @@ pub fn calc_atr(highs: &[f64], lows: &[f64], closes: &[f64]) -> (f64, f64) {
             .fold(f64::NEG_INFINITY, f64::max)
         })
         .collect();
+
+    // Wilder EMA (période 14) : même algorithme que indicators::calculer_atr
     let atr14 = if trs.len() >= ATR_P {
-        trs[trs.len() - ATR_P..].iter().sum::<f64>() / ATR_P as f64
+        let mut val = trs[..ATR_P].iter().sum::<f64>() / ATR_P as f64; // SMA initiale
+        for &tr in &trs[ATR_P..] {
+            val = (val * (ATR_P as f64 - 1.0) + tr) / ATR_P as f64;
+        }
+        val
     } else if !trs.is_empty() {
         trs.iter().sum::<f64>() / trs.len() as f64
     } else {
         0.0
     };
+
+    // Wilder EMA (période 5)
     let atr5 = if trs.len() >= 5 {
-        trs[trs.len() - 5..].iter().sum::<f64>() / 5.0
+        let mut val = trs[..5].iter().sum::<f64>() / 5.0;
+        for &tr in &trs[5..] {
+            val = (val * 4.0 + tr) / 5.0;
+        }
+        val
     } else {
         atr14
     };
@@ -94,6 +112,36 @@ pub fn calc_rsi(closes: &[f64]) -> f64 {
         return 100.0;
     }
     100.0 - 100.0 / (1.0 + gains / losses)
+}
+
+pub fn calc_ema(closes: &[f64], period: usize) -> f64 {
+    if closes.is_empty() || period == 0 {
+        return 0.0;
+    }
+    if closes.len() < period {
+        return closes.iter().sum::<f64>() / closes.len() as f64;
+    }
+    let k = 2.0 / (period as f64 + 1.0);
+    let mut ema = closes[..period].iter().sum::<f64>() / period as f64;
+    for &c in &closes[period..] {
+        ema = c * k + ema * (1.0 - k);
+    }
+    ema
+}
+
+/// Bougies consécutives dont le range (high−low) < 90% ATR14, depuis la fin (hors dernière bougie).
+pub fn calc_nb_compression(highs: &[f64], lows: &[f64], atr14: f64) -> usize {
+    let seuil = atr14 * 0.90;
+    let n = highs.len().saturating_sub(1);
+    let mut count = 0usize;
+    for i in (0..n).rev() {
+        if highs[i] - lows[i] < seuil {
+            count += 1;
+        } else {
+            break;
+        }
+    }
+    count
 }
 
 pub fn calculer_phase(

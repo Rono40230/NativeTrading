@@ -1,4 +1,6 @@
 import axios from 'axios'
+import { rocketsApi } from './api.rockets'
+import { straddleApi } from './api.straddle'
 
 export type {
   Candle, BacktestResults, PredictionML, ReponseEntrainement,
@@ -10,7 +12,7 @@ export type {
   SentimentMarche, EntiteSentiment, ArticleNews, AlertesNews, NiveauAlerte, ContenuArticle, TraductionReponse,
   StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, ResultatCollecteItem,
   HistoriqueEntrainement, HistoriqueML, PatternHoraire, ReponsePatternsVolatilite,
-  StraddleCreneau, ReponseAnalyseStraddle,
+  StraddleCreneau, ReponseAnalyseStraddle, FearGreedData,
 } from './api.types'
 
 import type {
@@ -20,6 +22,7 @@ import type {
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
   ModeCalculTendance, AnnonceCalendrier, SentimentMarche, AlertesNews, ContenuArticle, TraductionReponse,
   StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, HistoriqueML, ReponsePatternsVolatilite,
+  FearGreedData,
 } from './api.types'
 
 const BASE_URL = 'http://localhost:8080'
@@ -183,6 +186,32 @@ export const apiService = {
     }
   },
 
+  async obtenirFearGreed(): Promise<FearGreedData | null> {
+    try {
+      const res = await http.get('/api/news/fear-greed', { timeout: 6000 })
+      return res.data
+    } catch {
+      return null
+    }
+  },
+
+  async obtenirArticlesLus(): Promise<string[]> {
+    try {
+      const res = await http.get<{ urls: string[] }>('/api/news/lus')
+      return res.data.urls
+    } catch {
+      return []
+    }
+  },
+
+  async marquerArticleLu(url: string): Promise<void> {
+    try {
+      await http.post('/api/news/lu', { url })
+    } catch (e) {
+      // Non-bloquant : la persistance lus est best-effort
+    }
+  },
+
   async obtenirSentimentMarche(): Promise<SentimentMarche> {
     const res = await http.get('/api/sentiment/marche')
     return res.data
@@ -263,123 +292,6 @@ export const apiService = {
     await http.delete(`/api/assets/${encodeURIComponent(id)}`)
   },
 
-  async sauvegarderRocket(signal: import('./api.types').RocketSignalSave): Promise<void> {
-    await http.post('/api/rockets/signal', signal)
-  },
-
-  async getRocketsScan(): Promise<unknown> {
-    const res = await http.get('/api/rockets/scan')
-    return res.data
-  },
-
-  async historiqueRockets(limite = 50): Promise<import('./api.types').RocketSignalHistorique[]> {
-    const res = await http.get('/api/rockets/historique', { params: { limite } })
-    return res.data
-  },
-
-  async syncRockets(): Promise<{ fermes: number; ouverts_nouveaux: number }> {
-    const res = await http.post('/api/rockets/sync', null, { timeout: 60000 })
-    return res.data
-  },
-
-  async lancerAnalyseLlmRockets(): Promise<import('./api.types').RocketAnalyseLlm> {
-    const res = await http.post('/api/rockets/analyse-llm', null, { timeout: 120000 })
-    return res.data
-  },
-
-  async getDerniereAnalyseLlmRockets(): Promise<import('./api.types').RocketAnalyseLlm | null> {
-    try {
-      const res = await http.get('/api/rockets/analyse-llm')
-      return res.status === 204 ? null : res.data
-    } catch {
-      return null
-    }
-  },
-
-  async getRocketsConfig(): Promise<import('./api.types').RocketsConfig> {
-    const res = await http.get('/api/rockets/config')
-    return res.data
-  },
-
-  async putRocketsConfig(cfg: import('./api.types').RocketsConfig): Promise<void> {
-    await http.put('/api/rockets/config', cfg)
-  },
-
-  // ── Straddle ──────────────────────────────────────────────────────────────
-  async runStraddleSlotBacktest(
-    asset: string,
-    heure_debut: string,
-    jour_semaine: number | null,
-    capital?: number,
-  ): Promise<{
-    total_trades: number
-    win_rate: number
-    profit_factor: number
-    max_drawdown_pct: number
-    esperance_pct: number
-    payoff_ratio: number
-    serie_pertes_max: number
-    direction_dominante: string
-    amplitude_moyenne: number
-  }> {
-    const res = await http.post('/api/straddle/backtest', { asset, heure_debut, jour_semaine, capital })
-    return res.data
-  },
-  async analyserStraddle(
-    asset: string,
-    periode: string,
-  ): Promise<import('./api.types').ReponseAnalyseStraddle> {
-    const res = await http.post('/api/straddle/analyser', { asset, periode }, { timeout: 150000 })
-    return res.data
-  },
-
-  async getStraddleCreneaux(): Promise<import('./api.types').StraddleCreneau[]> {
-    const res = await http.get('/api/straddle/creneaux')
-    return res.data
-  },
-
-  async patchStraddleCreneau(
-    id: number,
-    data: { statut?: string; backtest_winrate?: number; backtest_profit_factor?: number },
-  ): Promise<void> {
-    await http.patch(`/api/straddle/creneaux/${id}`, data)
-  },
-
-  async demanderAjustements(params: {
-    asset: string
-    roi_pct: number
-    win_rate: number
-    max_drawdown_pct: number
-    profit_factor: number
-    sharpe_ratio: number
-    tp_mult_1?: number
-    tp_mult_2?: number
-    tp_mult_3?: number
-    sl_mult?: number
-    seuil_atr?: number
-  }): Promise<{ tp_mult_1: number; tp_mult_2: number; tp_mult_3: number; sl_mult: number; seuil_atr: number; raison: string; modele: string }> {
-    const res = await http.post('/api/ia/ajustements', params, { timeout: 120000 })
-    return res.data
-  },
-
-  async analyserPrecisionCreneau(
-    id: number,
-    creneau: { asset: string; jour_semaine: number | null; heure_debut: string; heure_fin: string },
-  ): Promise<{
-    timing_optimal?: string
-    fenetre_entree?: string
-    whipsaw_minutes?: number
-    nb_occurrences?: number
-    atr_pic?: number
-    ok?: boolean
-    message?: string
-  }> {
-    const res = await http.post(`/api/straddle/creneaux/${id}/precision`, creneau, { timeout: 30000 })
-    return res.data
-  },
-
-  async getAbTest(): Promise<{ strategie: string; nb_total: number; nb_wins: number; nb_pertes: number; win_rate: number; conviction_moy: number; score_moy: number }[]> {
-    const res = await http.get('/api/ia/ab-test')
-    return res.data
-  },
+  ...rocketsApi,
+  ...straddleApi,
 }

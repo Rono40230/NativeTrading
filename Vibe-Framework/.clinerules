@@ -85,6 +85,21 @@
 
 ## 🎨 RÈGLES FRONTEND (Vue.js)
 
+### RÈGLE 8b : Séparation Frontend / Backend (RÈGLE ABSOLUE)
+**Zéro calcul métier en frontend.** Tout ce qui touche aux prix, indicateurs, signaux, risk, P&L, SL/TP, scores ML doit être calculé par le backend et consommé par le frontend via l'API.
+
+**Autorisé en frontend** (présentation uniquement) :
+- Formatage d'affichage (`toFixed(2)`, dates, labels)
+- Tri/filtrage local d'une liste déjà reçue du backend
+- Calcul de couleur ou état visuel selon un seuil (`score > 7 → vert`)
+- Agrégations visuelles légères sur données déjà calculées
+
+**Interdit en frontend** :
+- Tout indicateur technique ou financier (ATR, RSI, SL/TP, R:R…)
+- Toute logique de scoring ou de décision métier
+- Toute décision de risk management
+- Duplication d'une formule déjà présente dans le backend
+
 ### RÈGLE 9 : Design Premium & Solidité
 - **Jamais de placeholders** : Utiliser générateurs si besoin
 - **Couleurs** : Riches, pas de couleurs primaires génériques (rouge/bleu html)

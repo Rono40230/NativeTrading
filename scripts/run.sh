@@ -65,10 +65,33 @@ done
 # ─── Démarrage frontend Tauri ─────────────────────────────────────────────────
 echo "🖥️  Lancement fenêtre Tauri..."
 cd "$ROOT_DIR/frontend"
-# Forcer X11 — WebKitGTK a des problèmes avec Wayland (erreur protocole 71)
-GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 \
-  npm run tauri:start > "$LOG_DIR/frontend.log" 2>&1 &
-TAURI_PID=$!
+
+# Bibliothèques WebKit/GTK depuis le système hôte (non visibles du sandbox Flatpak)
+HOST_LIB="/run/host/usr/lib64"
+HOST_PULSE="/run/host/usr/lib64/pulseaudio"
+export LD_LIBRARY_PATH="$HOST_LIB:$HOST_PULSE:${LD_LIBRARY_PATH:-}"
+
+TAURI_BIN="$ROOT_DIR/frontend/src-tauri/target/debug/native-trading-ai"
+TAURI_BIN_REL="$ROOT_DIR/frontend/src-tauri/target/release/native-trading-ai"
+
+if [ -f "$TAURI_BIN_REL" ]; then
+  TAURI_BIN="$TAURI_BIN_REL"
+fi
+
+if [ -f "$TAURI_BIN" ]; then
+  # Lancer Vite (dev server) + binaire pré-compilé directement (évite recompilation avec libs manquantes)
+  npx vite --port 1420 > "$LOG_DIR/vite.log" 2>&1 &
+  VITE_PID=$!
+  sleep 2  # attendre que Vite soit prêt
+  GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 \
+    "$TAURI_BIN" > "$LOG_DIR/tauri.log" 2>&1 &
+  TAURI_PID=$!
+else
+  # Fallback : tauri dev (nécessite les libs devel installées)
+  GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 \
+    npm run tauri:start > "$LOG_DIR/frontend.log" 2>&1 &
+  TAURI_PID=$!
+fi
 
 echo ""
 echo "╔════════════════════════════════════════╗"
@@ -86,7 +109,7 @@ TAIL_PID=$!
 cleanup() {
   echo ""
   echo "🛑 Arrêt de l'application..."
-  kill $BACKEND_PID $TAURI_PID $TAIL_PID 2>/dev/null
+  kill $BACKEND_PID $TAURI_PID ${VITE_PID:-} $TAIL_PID 2>/dev/null
   wait 2>/dev/null
   echo "✅ Arrêt propre."
 }

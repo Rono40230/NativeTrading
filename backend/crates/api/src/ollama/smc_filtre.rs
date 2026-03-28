@@ -75,9 +75,11 @@ Un signal SMC valide DOIT réunir :
 ## CRITÈRES D'INVALIDATION STRICTS
 - Kill Zone non active → conviction < 30, valide=false IMPÉRATIF
 - Sweep non confirmé → conviction < 40, valide=false IMPÉRATIF
+- Annonce HIGH impact dans moins de 60 min (FOMC, NFP, CPI…) → valide=false IMPÉRATIF
 - RSI > 85 (Long) ou < 15 (Short) → surachat/survente extrême → invalider
 - ATR ratio < 0.7 → compression, pas de momentum → invalider
 - Score SMC < 50 → structure trop faible → invalider
+- R:R < 2:1 (distance TP1 / SL) → configuration défavorable → invalider
 - Winrate historique < 40% sur cet asset+timeframe → dégrader fortement
 
 ## AJUSTEMENTS SL/TP
@@ -99,14 +101,14 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ni après :
 
 ## PHILOSOPHIE : QUALITÉ > QUANTITÉ
 Tu es conservateur. Il vaut MIEUX passer 0 signal que valider 1 mauvais signal.
-En cas de doute → conviction < 65 → valide=false.
+En cas de doute → conviction < 70 → valide=false.
 
 ## BARÈME CONVICTION
 - 80–100 : tous les critères ICT alignés, Kill Zone + Sweep + score élevé → valide=true
-- 65–79  : bonne confluence, quelques critères légèrement faibles → valide=true
-- < 65   : confluence insuffisante ou critères bloquants → valide=false IMPÉRATIF
+- 70–79  : bonne confluence, quelques critères légèrement faibles → valide=true
+- < 70   : confluence insuffisante ou critères bloquants → valide=false IMPÉRATIF
 
-Si conviction < 65, retourne valide=false directement, même si certains critères sont positifs."#;
+Si conviction < 70, retourne valide=false directement, même si certains critères sont positifs."#;
 
 // ── Formatage du contexte ─────────────────────────────────────────────────────
 

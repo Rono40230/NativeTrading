@@ -140,7 +140,7 @@ const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dim
 
 const assetsDisponibles = computed(() => {
   const liste = assetsStore.assets
-  if (liste.length === 0) return ['XAUUSD', 'XAGUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTCUSDT', 'ETHUSDT']
+  if (liste.length === 0) return ['XAUUSD', 'XAGUSD', 'EURUSD', 'GBPUSD', 'USDJPY', 'BTC', 'ETH']
   return liste
     .filter(a => a.type !== 'crypto' || ['BTC', 'ETH'].includes(a.id))
     .map(a => a.id)
@@ -194,6 +194,7 @@ async function lancerBacktest() {
       params.value.asset,
       params.value.heure_debut,
       params.value.jour_semaine,
+      params.value.heure_fin,
     )
     resultats.value = {
       total_trades: res.total_trades,

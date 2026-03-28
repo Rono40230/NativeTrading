@@ -161,50 +161,61 @@ impl PipelineML {
         let f = extraire_features(bougies)
             .ok_or_else(|| TradingError::ML("Pas assez de bougies (min 60)".into()))?;
 
-        let pred = if self.xgb.est_pret() && self.lstm.est_pret() && bougies.len() >= 60 + LONGUEUR_SEQ {
-            // Construire la séquence des LONGUEUR_SEQ derniers vecteurs de features
-            let n = bougies.len();
-            let sequence: Vec<Vec<f64>> = (n - LONGUEUR_SEQ..n)
-                .filter_map(|i| extraire_features(&bougies[..=i]))
-                .collect();
+        let pred =
+            if self.xgb.est_pret() && self.lstm.est_pret() && bougies.len() >= 60 + LONGUEUR_SEQ {
+                // Construire la séquence des LONGUEUR_SEQ derniers vecteurs de features
+                let n = bougies.len();
+                let sequence: Vec<Vec<f64>> = (n - LONGUEUR_SEQ..n)
+                    .filter_map(|i| extraire_features(&bougies[..=i]))
+                    .collect();
 
-            if sequence.len() == LONGUEUR_SEQ {
-                #[cfg(feature = "cuda")]
-                let conf_long_lstm = self.lstm_gpu.as_ref()
-                    .and_then(|g| g.predire(&sequence))
-                    .unwrap_or_else(|| self.lstm.predire(&sequence));
-                #[cfg(not(feature = "cuda"))]
-                let conf_long_lstm = self.lstm.predire(&sequence);
-                let score_xgb = self.xgb.predire_score(&f).unwrap_or(0.5);
-                // Fusion pondérée : LSTM 60% + XGBoost 40%
-                let conf_long = 0.6 * conf_long_lstm + 0.4 * score_xgb;
-                let direction = if conf_long >= 0.5 {
-                    Direction::Long
+                if sequence.len() == LONGUEUR_SEQ {
+                    #[cfg(feature = "cuda")]
+                    let conf_long_lstm = self
+                        .lstm_gpu
+                        .as_ref()
+                        .and_then(|g| g.predire(&sequence))
+                        .unwrap_or_else(|| self.lstm.predire(&sequence));
+                    #[cfg(not(feature = "cuda"))]
+                    let conf_long_lstm = self.lstm.predire(&sequence);
+                    let score_xgb = self.xgb.predire_score(&f).unwrap_or(0.5);
+                    // Fusion pondérée : LSTM 60% + XGBoost 40%
+                    let conf_long = 0.6 * conf_long_lstm + 0.4 * score_xgb;
+                    let direction = if conf_long >= 0.5 {
+                        Direction::Long
+                    } else {
+                        Direction::Short
+                    };
+                    let confiance = if direction == Direction::Long {
+                        conf_long
+                    } else {
+                        1.0 - conf_long
+                    };
+                    PredictionML {
+                        direction,
+                        confiance,
+                        est_confiant: confiance >= 0.60,
+                    }
                 } else {
-                    Direction::Short
-                };
-                let confiance = if direction == Direction::Long {
-                    conf_long
-                } else {
-                    1.0 - conf_long
-                };
+                    // Fallback : XGBoost seul si séquence LSTM incomplète
+                    let (direction, confiance) = self.xgb.predire(&f)?;
+                    PredictionML {
+                        direction,
+                        confiance,
+                        est_confiant: confiance >= 0.60,
+                    }
+                }
+            } else if self.xgb.est_pret() {
+                // XGBoost seul si LSTM non entraîné
+                let (direction, confiance) = self.xgb.predire(&f)?;
                 PredictionML {
                     direction,
                     confiance,
                     est_confiant: confiance >= 0.60,
                 }
             } else {
-                // Fallback : XGBoost seul si séquence LSTM incomplète
-                let (direction, confiance) = self.xgb.predire(&f)?;
-                PredictionML { direction, confiance, est_confiant: confiance >= 0.60 }
-            }
-        } else if self.xgb.est_pret() {
-            // XGBoost seul si LSTM non entraîné
-            let (direction, confiance) = self.xgb.predire(&f)?;
-            PredictionML { direction, confiance, est_confiant: confiance >= 0.60 }
-        } else {
-            return Err(TradingError::ML("Pipeline ML non entraîné".into()));
-        };
+                return Err(TradingError::ML("Pipeline ML non entraîné".into()));
+            };
 
         let duree = debut.elapsed();
         if duree > std::time::Duration::from_millis(200) {

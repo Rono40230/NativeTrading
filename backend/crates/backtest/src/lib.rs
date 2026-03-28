@@ -156,8 +156,16 @@ impl BacktestEngine {
                 let (prix_sortie, sortie_type) = match (signal.take_profit_2, signal.take_profit_3)
                 {
                     (Some(tp2_sig), Some(tp3_sig)) => {
-                        let tp2 = prix_entree + (tp2_sig - signal.prix_entree);
-                        let tp3 = prix_entree + (tp3_sig - signal.prix_entree);
+                        // Les niveaux stockés sont les offsets Long (> prix_entree).
+                        // Pour la jambe Short (Direction::Both), les TP doivent être sous le prix d'entrée.
+                        let dist_tp2 = tp2_sig - signal.prix_entree;
+                        let dist_tp3 = tp3_sig - signal.prix_entree;
+                        let (tp2, tp3) = match (&signal.direction, &dir) {
+                            (Direction::Both, TradeDirection::Short) => {
+                                (prix_entree - dist_tp2, prix_entree - dist_tp3)
+                            }
+                            _ => (prix_entree + dist_tp2, prix_entree + dist_tp3),
+                        };
                         simuler_sortie_pyramidal(
                             horizon_bougies,
                             dir,

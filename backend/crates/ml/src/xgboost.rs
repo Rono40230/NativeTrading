@@ -60,7 +60,10 @@ impl ModeleXGBoost {
         let preds = modele
             .predict(&x)
             .map_err(|e| TradingError::ML(format!("Prédiction XGBoost train: {}", e)))?;
-        let pred_classes: Vec<u8> = preds.iter().map(|&p| if p >= 0.5 { 1 } else { 0 }).collect();
+        let pred_classes: Vec<u8> = preds
+            .iter()
+            .map(|&p| if p >= 0.5 { 1 } else { 0 })
+            .collect();
         let true_classes: Vec<u8> = y.iter().map(|&l| if l >= 0.5 { 1 } else { 0 }).collect();
         let acc = accuracy(&true_classes, &pred_classes);
 
@@ -137,9 +140,8 @@ impl ModeleXGBoost {
     pub fn charger(chemin: &str) -> Result<Self> {
         let json = std::fs::read_to_string(chemin)
             .map_err(|e| TradingError::ML(format!("Lecture XGBoost: {}", e)))?;
-        let modele: XGRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> =
-            serde_json::from_str(&json)
-                .map_err(|e| TradingError::ML(format!("Désérialisation XGBoost: {}", e)))?;
+        let modele: XGRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>> = serde_json::from_str(&json)
+            .map_err(|e| TradingError::ML(format!("Désérialisation XGBoost: {}", e)))?;
         tracing::info!("XGBoost chargé: {}", chemin);
         Ok(Self {
             modele: Some(modele),

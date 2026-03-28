@@ -35,6 +35,32 @@ impl Database {
             .collect())
     }
 
+    /// Retourne le prochain événement macro High-impact USD/EUR dans les 30 min.
+    /// Résultat : Some((titre, minutes_restantes)) ou None.
+    pub async fn fenetre_macro_smc_dans_minutes(&self) -> Result<Option<(String, i64)>> {
+        let events = self.lire_calendrier_cache(4 * 3600).await?;
+        let maintenant = chrono::Utc::now();
+        for ev in &events {
+            if ev["impact"].as_str().unwrap_or("") != "High" {
+                continue;
+            }
+            let date_str = ev["date_heure"].as_str().unwrap_or("");
+            let dt = match chrono::DateTime::parse_from_rfc3339(date_str) {
+                Ok(d) => d.with_timezone(&chrono::Utc),
+                Err(_) => continue,
+            };
+            let diff_min = (dt - maintenant).num_minutes();
+            if (0..=30).contains(&diff_min) {
+                let titre = ev["titre"]
+                    .as_str()
+                    .unwrap_or("Événement macro")
+                    .to_string();
+                return Ok(Some((titre, diff_min)));
+            }
+        }
+        Ok(None)
+    }
+
     /// Efface et ré-insère toutes les annonces économiques (mise à jour du cache)
     pub async fn ecrire_calendrier_cache(&self, annonces: &[serde_json::Value]) -> Result<()> {
         let now = Utc::now().timestamp();

@@ -104,45 +104,46 @@ impl Database {
         Ok(())
     }
 
-    /// Récupère les derniers signaux enregistrés (avec verdict si disponible)
-    pub async fn obtenir_signaux(&self, limit: i64) -> Result<Vec<serde_json::Value>> {
-        let rows = sqlx::query(
-            "SELECT id, asset, timeframe, direction, score, prix_entree,
-                    stop_loss, take_profit, strategie, statut,
-                    verdict, prix_verdict, cree_le, ferme_le
-             FROM signaux ORDER BY cree_le DESC LIMIT ?",
+    /// Enregistre un signal Straddle (Direction::Both) avec les niveaux des deux jambes.
+    /// - `stop_loss`         = SL jambe LONG  (< prix_entree)
+    /// - `take_profit`       = [tp1, tp2, tp3] jambe LONG  (> prix_entree)
+    /// - `sl_short`          = SL jambe SHORT (> prix_entree)
+    /// - `take_profit_short` = [tp1, tp2, tp3] jambe SHORT (< prix_entree)
+    pub async fn inserer_signal_straddle_complet(
+        &self,
+        signal: &Signal,
+        sl_short: f64,
+        take_profit_short: &[f64],
+    ) -> Result<()> {
+        let tp_long_json = serde_json::to_string(&signal.take_profit)
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+        let tp_short_json = serde_json::to_string(take_profit_short)
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        sqlx::query(
+            "INSERT OR IGNORE INTO signaux
+             (id, asset, timeframe, direction, score, prix_entree,
+              stop_loss, take_profit, strategie, cree_le,
+              sl_short, take_profit_short)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
-        .bind(limit)
-        .fetch_all(&self.pool)
+        .bind(signal.id.to_string())
+        .bind(signal.asset.as_str())
+        .bind(signal.timeframe.as_str())
+        .bind(format!("{:?}", signal.direction))
+        .bind(signal.score)
+        .bind(signal.prix_entree)
+        .bind(signal.stop_loss)
+        .bind(tp_long_json)
+        .bind(&signal.strategie)
+        .bind(signal.cree_le.timestamp())
+        .bind(sl_short)
+        .bind(tp_short_json)
+        .execute(&self.pool)
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
 
-        let signaux: Vec<serde_json::Value> = rows
-            .iter()
-            .map(|row| {
-                // take_profit est stocké comme JSON "[tp1,tp2,tp3]"
-                let tp_raw = row.get::<String, _>("take_profit");
-                let tp_arr: Vec<f64> = serde_json::from_str(&tp_raw).unwrap_or_default();
-                serde_json::json!({
-                    "id":           row.get::<String, _>("id"),
-                    "asset":        row.get::<String, _>("asset"),
-                    "timeframe":    row.get::<String, _>("timeframe"),
-                    "direction":    row.get::<String, _>("direction"),
-                    "score":        row.get::<f64, _>("score"),
-                    "prix_entree":  row.get::<f64, _>("prix_entree"),
-                    "stop_loss":    row.get::<f64, _>("stop_loss"),
-                    "take_profit":  tp_arr,
-                    "strategie":    row.get::<String, _>("strategie"),
-                    "statut":       row.get::<String, _>("statut"),
-                    "verdict":      row.get::<Option<String>, _>("verdict"),
-                    "prix_verdict": row.get::<Option<f64>, _>("prix_verdict"),
-                    "cree_le":      row.get::<i64, _>("cree_le"),
-                    "ferme_le":     row.get::<Option<i64>, _>("ferme_le"),
-                })
-            })
-            .collect();
-
-        Ok(signaux)
+        Ok(())
     }
 
     /// Liste les signaux encore actifs (pour le worker de suivi).
@@ -185,69 +186,6 @@ impl Database {
             .await
             .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(row.get::<i64, _>("n"))
-    }
-
-    /// Retourne les N derniers signaux d'un asset pour injection dans les prompts LLM.
-    /// Ne propage pas les erreurs — retourne vec![] si la DB est indisponible.
-    pub async fn obtenir_contexte_llm(&self, asset: &str, limit: i64) -> Vec<serde_json::Value> {
-        let rows = sqlx::query(
-            "SELECT direction, timeframe, score, prix_entree, statut, cree_le
-             FROM signaux WHERE asset = ? ORDER BY cree_le DESC LIMIT ?",
-        )
-        .bind(asset)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await;
-
-        match rows {
-            Ok(rows) => rows
-                .iter()
-                .map(|row| {
-                    serde_json::json!({
-                        "direction":  row.get::<String, _>("direction"),
-                        "timeframe":  row.get::<String, _>("timeframe"),
-                        "score":      row.get::<f64, _>("score"),
-                        "prix_entree": row.get::<f64, _>("prix_entree"),
-                        "statut":     row.get::<String, _>("statut"),
-                        "cree_le":    row.get::<i64, _>("cree_le"),
-                    })
-                })
-                .collect(),
-            Err(_) => vec![],
-        }
-    }
-
-    /// Retourne les N derniers signaux SMC d'un asset pour le filtre LLM pré-sauvegarde.
-    /// Sans propagation d'erreur — retourne vec![] si la DB est indisponible.
-    pub async fn obtenir_historique_smc(
-        &self,
-        asset: &str,
-        limit: i64,
-    ) -> Vec<(String, String, f64, String)> {
-        let rows = sqlx::query(
-            "SELECT direction, timeframe, score, statut
-             FROM signaux WHERE asset = ?
-             ORDER BY cree_le DESC LIMIT ?",
-        )
-        .bind(asset)
-        .bind(limit)
-        .fetch_all(&self.pool)
-        .await;
-
-        match rows {
-            Ok(rows) => rows
-                .iter()
-                .map(|row| {
-                    (
-                        row.get::<String, _>("direction"),
-                        row.get::<String, _>("timeframe"),
-                        row.get::<f64, _>("score"),
-                        row.get::<String, _>("statut"),
-                    )
-                })
-                .collect(),
-            Err(_) => vec![],
-        }
     }
 
     /// Enregistre un signal avec les métadonnées LLM du filtre pré-sauvegarde.

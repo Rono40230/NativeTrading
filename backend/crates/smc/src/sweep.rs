@@ -136,7 +136,16 @@ mod tests {
     #[test]
     fn sweep_none_si_moins_de_27_bougies() {
         // PROFONDEUR_SWING(20) + FENETRE_SWEEP(5) + 2 = 27 minimum
-        let bougies: Vec<Candle> = (0..26).map(|i| b(i as f64 + 10., i as f64 + 11., i as f64 + 9., i as f64 + 10.5)).collect();
+        let bougies: Vec<Candle> = (0..26)
+            .map(|i| {
+                b(
+                    i as f64 + 10.,
+                    i as f64 + 11.,
+                    i as f64 + 9.,
+                    i as f64 + 10.5,
+                )
+            })
+            .collect();
         assert!(
             detecter_sweep(&bougies).is_none(),
             "Moins de 27 bougies → None"
@@ -147,7 +156,14 @@ mod tests {
     fn sweep_none_sur_prix_monotone_croissant() {
         // Prix strictement croissants → aucun swing low → aucun sweep possible
         let bougies: Vec<Candle> = (0..35)
-            .map(|i| b(i as f64 * 10. + 1., i as f64 * 10. + 9., i as f64 * 10. + 1., i as f64 * 10. + 5.))
+            .map(|i| {
+                b(
+                    i as f64 * 10. + 1.,
+                    i as f64 * 10. + 9.,
+                    i as f64 * 10. + 1.,
+                    i as f64 * 10. + 5.,
+                )
+            })
             .collect();
         assert!(
             detecter_sweep(&bougies).is_none(),

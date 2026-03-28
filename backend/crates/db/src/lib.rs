@@ -4,9 +4,12 @@ pub mod bougies;
 pub mod calendrier;
 pub mod config;
 pub mod entrainements;
+pub mod news_lus;
 pub mod rockets;
+pub mod rockets_analyses;
 pub mod rockets_config;
 pub mod signaux;
+pub mod signaux_lecture;
 pub mod straddle;
 pub mod volatilite;
 
@@ -77,11 +80,7 @@ mod tests {
     #[tokio::test]
     async fn inserer_et_compter_bougies() {
         let db = db_test().await;
-        let bougies = vec![
-            bougie(100.0, -120),
-            bougie(101.0, -60),
-            bougie(102.0, 0),
-        ];
+        let bougies = vec![bougie(100.0, -120), bougie(101.0, -60), bougie(102.0, 0)];
         let n = db
             .inserer_bougies(&Asset::BTC, &Timeframe::M1, &bougies)
             .await

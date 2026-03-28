@@ -56,7 +56,9 @@ impl LstmGpu {
 
         let n_out = p.sortie_poids.len() as i64;
         let m_out = p.sortie_poids.first().map_or(0, |r| r.len()) as i64;
-        let w_out_flat: Vec<f32> = p.sortie_poids.iter()
+        let w_out_flat: Vec<f32> = p
+            .sortie_poids
+            .iter()
             .flat_map(|r| r.iter().map(|&x| x as f32))
             .collect();
         let b_out_flat: Vec<f32> = p.sortie_biais.iter().map(|&x| x as f32).collect();
@@ -73,7 +75,13 @@ impl LstmGpu {
         })
     }
 
-    fn build_couche(poids: &[f64], biais: &[f64], input: usize, cachee: usize, dev: Device) -> LstmGpuCouche {
+    fn build_couche(
+        poids: &[f64],
+        biais: &[f64],
+        input: usize,
+        cachee: usize,
+        dev: Device,
+    ) -> LstmGpuCouche {
         let poids_f32: Vec<f32> = poids.iter().map(|&x| x as f32).collect();
         let biais_f32: Vec<f32> = biais.iter().map(|&x| x as f32).collect();
         LstmGpuCouche {
@@ -94,9 +102,9 @@ impl LstmGpu {
         let mut states: Vec<Tensor> = Vec::with_capacity(t as usize);
 
         for step in 0..t {
-            let x = seq.select(0, step).unsqueeze(0);          // [1, I]
-            let xh = Tensor::cat(&[x, hidden.copy()], 1);       // [1, I+H]
-            let pre = xh.mm(&couche.w.t()) + &couche.b;         // [1, 4H]
+            let x = seq.select(0, step).unsqueeze(0); // [1, I]
+            let xh = Tensor::cat(&[x, hidden.copy()], 1); // [1, I+H]
+            let pre = xh.mm(&couche.w.t()) + &couche.b; // [1, 4H]
 
             let i_g = pre.narrow(1, 0, h).sigmoid();
             let f_g = pre.narrow(1, h, h).sigmoid();
@@ -105,9 +113,9 @@ impl LstmGpu {
 
             cell = f_g * cell + i_g * g_g;
             hidden = o_g * cell.tanh();
-            states.push(hidden.squeeze_dim(0));                  // [H]
+            states.push(hidden.squeeze_dim(0)); // [H]
         }
-        Tensor::stack(&states, 0)                               // [T, H]
+        Tensor::stack(&states, 0) // [T, H]
     }
 
     /// Inférence GPU : P(Long) ∈ [0,1].
@@ -134,21 +142,22 @@ impl LstmGpu {
     fn predire_interne(&self, seq: &[Vec<f64>]) -> f64 {
         let t = seq.len() as i64;
         let i_dim = seq[0].len() as i64;
-        let flat: Vec<f32> = seq.iter()
+        let flat: Vec<f32> = seq
+            .iter()
             .flat_map(|r| r.iter().map(|&x| x as f32))
             .collect();
         let seq_t = Tensor::of_slice(&flat)
             .reshape(&[t, i_dim])
-            .to_device(self.device);                             // [T, NB_FEATURES]
+            .to_device(self.device); // [T, NB_FEATURES]
 
-        let h1 = self.forward_couche(&self.l1, &seq_t);         // [T, 128]
-        let h2 = self.forward_couche(&self.l2, &h1);            // [T, 64]
-        let h3 = self.forward_couche(&self.l3, &h2);            // [T, 32]
+        let h1 = self.forward_couche(&self.l1, &seq_t); // [T, 128]
+        let h2 = self.forward_couche(&self.l2, &h1); // [T, 64]
+        let h3 = self.forward_couche(&self.l3, &h2); // [T, 32]
 
         // Dernier état caché → couche de sortie
-        let h3_last = h3.select(0, t - 1).unsqueeze(0);         // [1, 32]
+        let h3_last = h3.select(0, t - 1).unsqueeze(0); // [1, 32]
         let logits = h3_last.mm(&self.w_out.t()) + &self.b_out; // [1, 2]
-        let proba = logits.softmax(-1, Kind::Float);             // [1, 2]
-        proba.double_value(&[0, 1])                             // P(Long)
+        let proba = logits.softmax(-1, Kind::Float); // [1, 2]
+        proba.double_value(&[0, 1]) // P(Long)
     }
 }

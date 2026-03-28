@@ -138,7 +138,16 @@ mod tests {
 
     #[test]
     fn detecter_vide_si_moins_de_20_bougies() {
-        let bougies: Vec<Candle> = (0..19).map(|i| b(i as f64 + 10., i as f64 + 11., i as f64 + 9., i as f64 + 10.5)).collect();
+        let bougies: Vec<Candle> = (0..19)
+            .map(|i| {
+                b(
+                    i as f64 + 10.,
+                    i as f64 + 11.,
+                    i as f64 + 9.,
+                    i as f64 + 10.5,
+                )
+            })
+            .collect();
         assert!(
             detecter(&bougies, 28.0, false).is_empty(),
             "Moins de 20 bougies → vide"
@@ -154,8 +163,20 @@ mod tests {
     #[test]
     fn score_pour_direction_retourne_force_maximale() {
         let obs = vec![
-            OrderBlock { prix_haut: 110., prix_bas: 100., direction: Direction::Long, force: 60.0, timestamp: 0 },
-            OrderBlock { prix_haut: 120., prix_bas: 110., direction: Direction::Long, force: 85.0, timestamp: 0 },
+            OrderBlock {
+                prix_haut: 110.,
+                prix_bas: 100.,
+                direction: Direction::Long,
+                force: 60.0,
+                timestamp: 0,
+            },
+            OrderBlock {
+                prix_haut: 120.,
+                prix_bas: 110.,
+                direction: Direction::Long,
+                force: 85.0,
+                timestamp: 0,
+            },
         ];
         assert_eq!(score_pour_direction(&obs, Direction::Long), 85.0);
     }

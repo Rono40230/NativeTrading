@@ -93,8 +93,14 @@ fn evaluer_xgb(xgb: &ModeleXGBoost, bougies: &[Candle]) -> f64 {
         ) else {
             continue;
         };
-        let Ok((direction, _)) = xgb.predire(&f) else { continue };
-        let pred_label = if direction == Direction::Long { 1.0 } else { 0.0 };
+        let Ok((direction, _)) = xgb.predire(&f) else {
+            continue;
+        };
+        let pred_label = if direction == Direction::Long {
+            1.0
+        } else {
+            0.0
+        };
         if (pred_label - label).abs() < 0.5 {
             ok += 1;
         }

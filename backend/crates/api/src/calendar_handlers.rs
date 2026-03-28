@@ -106,6 +106,10 @@ pub async fn get_calendar(
             if ev.impact != "High" && ev.impact != "Medium" {
                 continue;
             }
+            // Filtrer sur les devises pertinentes pour nos actifs (BTC, XAUUSD)
+            if ev.country != "USD" && ev.country != "EUR" {
+                continue;
+            }
             let dt_utc: DateTime<Utc> = match DateTime::parse_from_rfc3339(&ev.date) {
                 Ok(dt) => dt.into(),
                 Err(_) => continue,

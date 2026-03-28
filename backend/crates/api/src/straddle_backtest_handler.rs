@@ -7,6 +7,7 @@ use actix_web::{web, HttpResponse, Responder};
 pub struct RequeteSlotBacktest {
     pub asset: String,
     pub heure_debut: String,
+    pub heure_fin: Option<String>,
     pub jour_semaine: Option<i64>,
     pub capital: Option<f64>,
     /// Si fourni, backteste sur une fenêtre centrée [timing - avant_min, timing + apres_min]
@@ -43,7 +44,7 @@ pub async fn handler_backtest_slot(
                     .json(serde_json::json!({ "error": e.to_string() }))
             }
         };
-        crate::straddle_slot_backtest::backtest_slot_fenetre(
+        crate::straddle_slot_backtest_fenetre::backtest_slot_fenetre(
             &bougies,
             body.jour_semaine,
             timing,
@@ -59,6 +60,11 @@ pub async fn handler_backtest_slot(
             .next()
             .and_then(|s| s.parse().ok())
             .unwrap_or(0);
+        let h_fin: Option<u32> = body
+            .heure_fin
+            .as_deref()
+            .and_then(|s| s.split(':').next())
+            .and_then(|s| s.parse().ok());
         let bougies = match state.db.obtenir_bougies(&asset, &Timeframe::H1, 5000).await {
             Ok(b) => b,
             Err(e) => {
@@ -66,7 +72,13 @@ pub async fn handler_backtest_slot(
                     .json(serde_json::json!({ "error": e.to_string() }))
             }
         };
-        crate::straddle_slot_backtest::backtest_slot(&bougies, body.jour_semaine, h_debut, capital)
+        crate::straddle_slot_backtest::backtest_slot(
+            &bougies,
+            body.jour_semaine,
+            h_debut,
+            h_fin,
+            capital,
+        )
     };
     HttpResponse::Ok().json(serde_json::json!({
         "total_trades": r.total_trades,

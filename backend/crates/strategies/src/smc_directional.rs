@@ -109,7 +109,16 @@ mod tests {
     #[test]
     fn analyze_none_si_moins_de_30_bougies() {
         let strat = SmcDirectionalStrategy;
-        let bougies: Vec<Candle> = (0..29).map(|i| b(i as f64 + 10., i as f64 + 11., i as f64 + 9., i as f64 + 10.5)).collect();
+        let bougies: Vec<Candle> = (0..29)
+            .map(|i| {
+                b(
+                    i as f64 + 10.,
+                    i as f64 + 11.,
+                    i as f64 + 9.,
+                    i as f64 + 10.5,
+                )
+            })
+            .collect();
         let result = strat.analyze(&bougies);
         assert!(result.is_ok());
         assert!(result.unwrap().is_none(), "Moins de 30 bougies → None");

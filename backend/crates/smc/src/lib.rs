@@ -23,6 +23,15 @@ pub use liquidites::RangeAsie;
 pub use order_blocks::OrderBlock;
 pub use tendances::ResultatTendance;
 
+/// Barèmes publics du scoring SMC (source de vérité unique).
+pub const SCORE_MAX_TENDANCE: f64 = 25.0;
+pub const SCORE_MAX_ORDER_BLOCK: f64 = 25.0;
+pub const SCORE_MAX_IFVG: f64 = 20.0;
+pub const SCORE_MAX_IMBALANCE: f64 = 15.0;
+pub const SCORE_MAX_FIBONACCI: f64 = 15.0;
+/// Score total max (somme des composantes ci-dessus)
+pub const SCORE_TOTAL_MAX: f64 = 100.0;
+
 /// Score de confluence SMC (0–100). Seuil déclencheur stratégie : ≥70.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScoreSmc {

@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-card p-5">
+  <div class="glass-card p-5 flex flex-col">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
         🤖 Paramètres Straddle
@@ -23,7 +23,7 @@
       💡 {{ suggestion }}
     </div>
 
-    <div class="grid grid-cols-5 gap-4">
+    <div class="grid grid-cols-5 gap-4 flex-1 content-end">
       <div v-for="p in config" :key="p.key" class="flex flex-col gap-1">
         <label class="text-xs text-gray-400">{{ p.label }}</label>
         <input

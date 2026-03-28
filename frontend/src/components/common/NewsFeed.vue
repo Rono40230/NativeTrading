@@ -8,13 +8,44 @@
       <div v-if="newsStore.chargement" class="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
     </div>
 
-    <!-- Indicateur risque global -->
-    <div class="mb-3 flex items-center gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-1.5 shrink-0">
-      <span class="text-xs text-slate-400">Risque news</span>
-      <span class="ml-auto text-xs font-bold" :class="classeRisque(newsStore.scoreMax)">
-        {{ newsStore.scoreMax }}/100
-      </span>
-      <span class="text-sm">{{ iconeRisque(newsStore.scoreMax) }}</span>
+    <!-- D.1 — Jauge de risque news globale -->
+    <div class="mb-3 shrink-0">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-[10px] text-slate-400">Risque news</span>
+        <span class="text-[10px] font-bold" :class="classeRisque(newsStore.scoreMax)">
+          {{ labelRisque(newsStore.scoreMax) }} · {{ newsStore.scoreMax }}/100
+        </span>
+      </div>
+      <div class="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+        <div
+          class="h-full rounded-full transition-all duration-700"
+          :style="{ width: `${newsStore.scoreMax}%` }"
+          :class="gaugeClasse(newsStore.scoreMax)"
+        />
+      </div>
+    </div>
+
+    <!-- Barre Fear & Greed + prochain événement macro -->
+    <NewsAuxBar />
+
+    <!-- Onglets thème -->
+    <div class="mb-2 flex gap-1 shrink-0">
+      <button
+        v-for="tab in ONGLETS"
+        :key="tab.id"
+        class="flex-1 rounded-md border px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wide transition-colors"
+        :class="newsStore.themeActif === tab.id
+          ? 'border-blue-500/40 bg-blue-500/15 text-blue-300'
+          : 'border-white/5 bg-white/5 text-slate-500 hover:text-slate-300'"
+        @click="newsStore.themeActif = tab.id"
+      >
+        {{ tab.label }}
+        <span
+          v-if="newsStore.scoreMaxParTheme[tab.id] >= 60"
+          class="ml-0.5 text-[8px]"
+          :class="newsStore.scoreMaxParTheme[tab.id] >= 80 ? 'text-red-400' : 'text-orange-400'"
+        >●</span>
+      </button>
     </div>
 
     <!-- Liste articles -->
@@ -22,21 +53,34 @@
       <button
         v-for="article in newsStore.articlesPertinents"
         :key="article.id"
-        class="group w-full text-left rounded-lg border border-white/5 bg-white/5 p-2 transition hover:bg-white/10 cursor-pointer"
+        class="group w-full text-left rounded-lg border border-white/5 p-2 transition hover:bg-white/10 cursor-pointer"
+        :class="estAncien(article.date) ? 'bg-white/3 opacity-50' : 'bg-white/5'"
         @click="ouvrir(article)"
       >
         <div class="mb-0.5 flex items-center gap-1.5">
           <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="couleurNiveau(article.niveau)" />
           <span class="text-[10px] text-slate-400">{{ article.source }}</span>
-          <span v-if="articlesLus.has(article.id)" class="text-[9px] font-semibold text-blue-200 bg-blue-600/70 border border-blue-500/50 rounded-full px-1.5 py-0.5 leading-none">Déjà lu</span>
+          <!-- D.3 — Badge NOUVEAU < 30min -->
+          <span
+            v-if="estNouveau(article.date)"
+            class="text-[9px] font-bold text-red-300 bg-red-600/40 border border-red-500/40 rounded-full px-1.5 py-0.5 leading-none animate-pulse"
+          >NOUVEAU</span>
+          <span v-else-if="articlesLus.has(article.url)" class="text-[9px] font-semibold text-blue-200 bg-blue-600/70 border border-blue-500/50 rounded-full px-1.5 py-0.5 leading-none">Vu</span>
           <span class="ml-auto text-[10px] font-semibold" :class="classeRisque(article.score)">
             {{ article.score }}
           </span>
         </div>
         <p class="line-clamp-2 text-[11px] leading-snug text-slate-200 group-hover:text-white">
-          {{ article.titre_fr ?? article.titre }}
+          <!-- C.2 — Flèche sentiment Ollama -->
+          <span
+            v-if="article.sentiment"
+            class="mr-1 font-bold"
+            :class="article.sentiment === 'haussier' ? 'text-emerald-400' : article.sentiment === 'baissier' ? 'text-red-400' : 'text-slate-400'"
+            :title="`Sentiment IA : ${article.sentiment}`"
+          >{{ article.sentiment === 'haussier' ? '↑' : article.sentiment === 'baissier' ? '↓' : '↔' }}</span>{{ article.titre_fr ?? article.titre }}
         </p>
-        <p class="mt-0.5 text-[10px] text-slate-500">{{ tempsRelatif(article.date) }}</p>
+        <!-- D.3 — Temps relatif enrichi -->
+        <p class="mt-0.5 text-[10px]" :class="classeTemps(article.date)">{{ tempsRelatif(article.date) }}</p>
       </button>
     </div>
 
@@ -51,159 +95,48 @@
     <p v-else class="text-center text-[10px] text-slate-500">Aucune actualité filtrée</p>
   </div>
 
-  <!-- Modale article -->
-  <Teleport to="body">
-    <Transition name="modal-fade">
-      <div
-        v-if="articleOuvert"
-        class="fixed inset-0 z-50 flex items-center justify-center p-6"
-        @click.self="fermer"
-      >
-        <!-- Fond -->
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="fermer" />
-
-        <!-- Carte modale -->
-        <div class="relative z-10 w-full max-w-lg rounded-2xl border border-white/10 bg-[#0f1629] p-6 shadow-2xl">
-          <!-- En-tête modale -->
-          <div class="mb-4 flex items-start justify-between gap-3">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="h-2 w-2 shrink-0 rounded-full mt-0.5" :class="couleurNiveau(articleOuvert.niveau)" />
-              <span class="text-[11px] font-semibold uppercase tracking-widest" :class="classeRisque(articleOuvert.score)">
-                {{ articleOuvert.source }}
-              </span>
-              <span class="rounded-full px-2 py-0.5 text-[10px] font-bold border" :class="badgeNiveau(articleOuvert.niveau)">
-                {{ labelNiveau(articleOuvert.niveau) }}
-              </span>
-            </div>
-            <button
-              class="shrink-0 text-slate-400 hover:text-white transition-colors text-lg leading-none"
-              @click="fermer"
-            >✕</button>
-          </div>
-
-          <!-- Titre -->
-          <h2 class="text-sm font-semibold text-white leading-snug mb-4">
-            {{ articleOuvert.titre_fr ?? articleOuvert.titre }}
-            <span v-if="articleOuvert.titre_fr" class="ml-1 text-[9px] text-slate-500 font-normal">(traduit)</span>
-          </h2>
-
-          <!-- Méta -->
-          <div class="flex items-center gap-4 text-[10px] text-slate-400 mb-3">
-            <span>🕐 {{ formatDate(articleOuvert.date) }}</span>
-            <span>Score : <span class="font-bold" :class="classeRisque(articleOuvert.score)">{{ articleOuvert.score }}/100</span></span>
-          </div>
-
-          <!-- Contenu article -->
-          <div class="mb-4 max-h-72 overflow-y-auto scroll-zone rounded-lg bg-white/5 p-3">
-            <div v-if="contenuChargement" class="space-y-2 animate-pulse">
-              <div v-for="i in 5" :key="i" class="h-2 rounded bg-white/10" :style="{ width: `${50 + i * 9}%` }" />
-            </div>
-            <div v-else-if="contenu">
-              <!-- Indicateurs traduction -->
-              <div v-if="traductionContenuChargement" class="mb-2 flex items-center gap-1.5 text-[9px] text-blue-400">
-                <span class="inline-block h-2 w-2 animate-spin rounded-full border border-blue-400 border-t-transparent" />
-                Traduction en cours…
-              </div>
-              <div v-else-if="contenuFr" class="mb-2 flex items-center gap-2">
-                <span class="text-[9px] text-slate-500">🌐 Traduit automatiquement</span>
-                <button
-                  class="rounded border border-slate-600/40 bg-white/5 px-1.5 py-0.5 text-[9px] text-slate-500 hover:text-slate-300 transition-colors"
-                  @click="contenuFr = null"
-                >Voir original</button>
-              </div>
-              <p class="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">
-                {{ contenuFr ?? contenu }}
-              </p>
-            </div>
-            <p v-else class="text-center text-[11px] text-slate-500 py-2">
-              Article non accessible directement.
-            </p>
-          </div>
-
-          <!-- Actions -->
-          <div class="flex gap-2">
-            <button
-              class="flex-1 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-4 py-2.5 text-xs text-slate-300"
-              @click="fermer"
-            >
-              Fermer
-            </button>
-          </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  <!-- Modale article (composant dédié) -->
+  <NewsArticleModal :article="articleOuvert" @fermer="fermer" />
 </template>
 
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false })
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import { useNewsStore } from '@/stores/news.store'
+import type { ThemeNews } from '@/stores/news.store'
+import NewsAuxBar from '@/components/common/NewsAuxBar.vue'
+import NewsArticleModal from '@/components/common/NewsArticleModal.vue'
 import type { ArticleNews, NiveauAlerte } from '@/services/api.types'
 
+const ONGLETS: { id: ThemeNews; label: string }[] = [
+  { id: 'tous', label: 'Tout' },
+  { id: 'macro', label: 'Macro' },
+  { id: 'crypto', label: 'Crypto' },
+  { id: 'metaux', label: 'Métaux' },
+]
+
 const newsStore = useNewsStore()
-
-const CLE_STOCKAGE = 'news_articles_lus'
-function chargerLus(): Set<string> {
-  try {
-    const raw = localStorage.getItem(CLE_STOCKAGE)
-    return raw ? new Set<string>(JSON.parse(raw)) : new Set()
-  } catch { return new Set() }
-}
-const articlesLus = ref<Set<string>>(chargerLus())
-function marquerLu(id: string) {
-  articlesLus.value.add(id)
-  try { localStorage.setItem(CLE_STOCKAGE, JSON.stringify([...articlesLus.value])) } catch { /* silencieux */ }
-}
-
+const articlesLus = ref<Set<string>>(new Set())
 const articleOuvert = ref<ArticleNews | null>(null)
-const contenu = ref<string | null>(null)
-const contenuFr = ref<string | null>(null)
-const contenuChargement = ref(false)
-const contenuInaccessible = ref(false)
-const traductionContenuChargement = ref(false)
 
-async function ouvrir(article: ArticleNews) {
-  marquerLu(article.id)
+onMounted(async () => {
+  const urls = await apiService.obtenirArticlesLus()
+  articlesLus.value = new Set(urls)
+})
+
+function marquerLu(url: string) {
+  articlesLus.value.add(url)
+  apiService.marquerArticleLu(url)
+}
+
+function ouvrir(article: ArticleNews) {
+  marquerLu(article.url)
   articleOuvert.value = article
-  contenu.value = null
-  contenuFr.value = null
-  contenuInaccessible.value = false
-  traductionContenuChargement.value = false
-  if (!article.url) return
-  contenuChargement.value = true
-  try {
-    const res = await apiService.obtenirContenuArticle(article.url)
-    contenu.value = res.texte
-    traduireContenu()
-  } catch {
-    contenuInaccessible.value = true
-  } finally {
-    contenuChargement.value = false
-  }
 }
 
 function fermer() {
   articleOuvert.value = null
-  contenu.value = null
-  contenuFr.value = null
-  contenuInaccessible.value = false
-  contenuChargement.value = false
-  traductionContenuChargement.value = false
-}
-
-async function traduireContenu() {
-  if (!contenu.value || traductionContenuChargement.value) return
-  traductionContenuChargement.value = true
-  try {
-    const res = await apiService.traduire(contenu.value, true)
-    contenuFr.value = res.texte_fr
-  } catch {
-    // silencieux
-  } finally {
-    traductionContenuChargement.value = false
-  }
 }
 
 function tempsRelatif(iso: string): string {
@@ -211,14 +144,24 @@ function tempsRelatif(iso: string): string {
   const min = Math.floor(diff / 60_000)
   if (min < 1) return 'à l\'instant'
   if (min < 60) return `il y a ${min} min`
-  return `il y a ${Math.floor(min / 60)}h`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `il y a ${h}h`
+  return `il y a ${Math.floor(h / 24)}j`
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('fr-FR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
+function estNouveau(iso: string): boolean {
+  return Date.now() - new Date(iso).getTime() < 30 * 60_000
+}
+
+function estAncien(iso: string): boolean {
+  return Date.now() - new Date(iso).getTime() > 6 * 3_600_000
+}
+
+function classeTemps(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  if (diff < 30 * 60_000) return 'text-red-400'
+  if (diff < 4 * 3_600_000) return 'text-slate-400'
+  return 'text-slate-600'
 }
 
 function couleurNiveau(niveau: NiveauAlerte): string {
@@ -229,22 +172,18 @@ function couleurNiveau(niveau: NiveauAlerte): string {
   return map[niveau]
 }
 
-function badgeNiveau(niveau: NiveauAlerte): string {
-  const map: Record<NiveauAlerte, string> = {
-    critique: 'border-red-500/40 text-red-400 bg-red-500/10',
-    important: 'border-orange-400/40 text-orange-400 bg-orange-400/10',
-    modere: 'border-yellow-400/40 text-yellow-400 bg-yellow-400/10',
-    veille: 'border-slate-500/40 text-slate-400 bg-slate-500/10',
-  }
-  return map[niveau]
+function gaugeClasse(score: number): string {
+  if (score >= 80) return 'bg-red-500'
+  if (score >= 60) return 'bg-orange-400'
+  if (score >= 40) return 'bg-yellow-400'
+  return 'bg-emerald-500'
 }
 
-function labelNiveau(niveau: NiveauAlerte): string {
-  const map: Record<NiveauAlerte, string> = {
-    critique: 'Critique', important: 'Important',
-    modere: 'Modéré', veille: 'Veille',
-  }
-  return map[niveau]
+function labelRisque(score: number): string {
+  if (score >= 80) return 'Critique'
+  if (score >= 60) return 'Important'
+  if (score >= 40) return 'Modéré'
+  return 'Veille'
 }
 
 function classeRisque(score: number): string {
@@ -252,13 +191,6 @@ function classeRisque(score: number): string {
   if (score >= 60) return 'text-orange-400'
   if (score >= 40) return 'text-yellow-400'
   return 'text-slate-400'
-}
-
-function iconeRisque(score: number): string {
-  if (score >= 80) return '🔴'
-  if (score >= 60) return '🟠'
-  if (score >= 40) return '🟡'
-  return '🔵'
 }
 </script>
 
@@ -271,7 +203,4 @@ function iconeRisque(score: number): string {
 .scroll-zone::-webkit-scrollbar { width: 4px; }
 .scroll-zone::-webkit-scrollbar-track { background: transparent; }
 .scroll-zone::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
-.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.2s ease; }
-.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
 </style>
-

@@ -17,9 +17,18 @@ use serde::{Deserialize, Serialize};
 /// Permet le transfert CPU → GPU sans exposer `CoucheLstm` hors du module.
 #[cfg(feature = "cuda")]
 pub(crate) struct PoidsCouches {
-    pub l1_poids: Vec<f64>, pub l1_biais: Vec<f64>, pub l1_in: usize, pub l1_h: usize,
-    pub l2_poids: Vec<f64>, pub l2_biais: Vec<f64>, pub l2_in: usize, pub l2_h: usize,
-    pub l3_poids: Vec<f64>, pub l3_biais: Vec<f64>, pub l3_in: usize, pub l3_h: usize,
+    pub l1_poids: Vec<f64>,
+    pub l1_biais: Vec<f64>,
+    pub l1_in: usize,
+    pub l1_h: usize,
+    pub l2_poids: Vec<f64>,
+    pub l2_biais: Vec<f64>,
+    pub l2_in: usize,
+    pub l2_h: usize,
+    pub l3_poids: Vec<f64>,
+    pub l3_biais: Vec<f64>,
+    pub l3_in: usize,
+    pub l3_h: usize,
     pub sortie_poids: Vec<Vec<f64>>,
     pub sortie_biais: Vec<f64>,
 }

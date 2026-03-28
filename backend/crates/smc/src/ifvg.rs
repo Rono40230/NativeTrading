@@ -212,7 +212,16 @@ mod tests {
 
     #[test]
     fn detecter_vide_si_moins_de_5_bougies() {
-        let bougies: Vec<Candle> = (0..4).map(|i| b(i as f64 + 10., i as f64 + 11., i as f64 + 9., i as f64 + 10.5)).collect();
+        let bougies: Vec<Candle> = (0..4)
+            .map(|i| {
+                b(
+                    i as f64 + 10.,
+                    i as f64 + 11.,
+                    i as f64 + 9.,
+                    i as f64 + 10.5,
+                )
+            })
+            .collect();
         assert!(
             detecter(&bougies, 5, false, 1.0).is_empty(),
             "Moins de 5 bougies → vide"

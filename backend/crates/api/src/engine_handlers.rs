@@ -16,7 +16,9 @@ pub async fn demarrer_engine(state: web::Data<AppState>) -> impl Responder {
         }));
     }
 
-    state.signal_engine.demarrer(state.db.clone());
+    state
+        .signal_engine
+        .demarrer(state.db.clone(), state.pipeline_ml.clone());
 
     tracing::info!("Signal Engine démarré via API");
     HttpResponse::Ok().json(serde_json::json!({

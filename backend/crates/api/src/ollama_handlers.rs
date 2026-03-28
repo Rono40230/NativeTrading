@@ -1,5 +1,9 @@
 use actix_web::{web, HttpResponse, Responder};
 use serde::Deserialize;
+use smc::{
+    SCORE_MAX_FIBONACCI, SCORE_MAX_IFVG, SCORE_MAX_IMBALANCE, SCORE_MAX_ORDER_BLOCK,
+    SCORE_MAX_TENDANCE,
+};
 
 use crate::ollama;
 use crate::ollama_types::{
@@ -26,7 +30,7 @@ pub async fn analyser(body: web::Json<RequeteAnalyse>) -> impl Responder {
         - Score confluence SMC : {score:.1}/100\n\
         - Prix entrée : {entree:.2} | Stop-Loss : {sl:.2} | Take-Profit : {tp:.2}\n\
         - Risk/Reward : {rr}\n\
-        - Détail SMC : Tendance={tend:.1}/30 OB={ob:.1}/20 Imbalance={imb:.1}/15 IFVG={ifvg:.1}/10 Fibonacci={fib:.1}/5\n\
+        - Détail SMC : Tendance={tend:.1}/{smax_tend} OB={ob:.1}/{smax_ob} Imbalance={imb:.1}/{smax_imb} IFVG={ifvg:.1}/{smax_ifvg} Fibonacci={fib:.1}/{smax_fib}\n\
         - Confiance ML : {ml:.1}%\n\n\
         ## CRITÈRES À VÉRIFIER\n\
         1. Kill Zone active ? (London 07h-10h / NY 13h30-16h30 UTC) — BLOQUANT si absent\n\
@@ -56,6 +60,11 @@ pub async fn analyser(body: web::Json<RequeteAnalyse>) -> impl Responder {
         ifvg = body.ifvg,
         fib = body.fibonacci,
         ml = body.confiance_ml * 100.0,
+        smax_tend = SCORE_MAX_TENDANCE as u32,
+        smax_ob = SCORE_MAX_ORDER_BLOCK as u32,
+        smax_imb = SCORE_MAX_IMBALANCE as u32,
+        smax_ifvg = SCORE_MAX_IFVG as u32,
+        smax_fib = SCORE_MAX_FIBONACCI as u32,
     );
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());

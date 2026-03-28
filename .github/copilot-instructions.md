@@ -265,6 +265,23 @@ pub fn valider_signal(signal: &Signal, capital: f64) -> Result<bool> {
 
 ## 🎨 RÈGLES FRONTEND (Vue.js 3)
 
+### Séparation Frontend / Backend (RÈGLE ABSOLUE)
+**Zéro calcul métier en frontend.** Tout ce qui touche aux prix, indicateurs, signaux, risk, P&L, SL/TP, scores ML doit être calculé par le backend Rust et consommé par le frontend via l'API.
+
+**Autorisé en frontend** (calculs de présentation uniquement) :
+- Formatage d'affichage (`toFixed(2)`, dates, labels)
+- Tri/filtrage local d'une liste déjà reçue du backend
+- Calcul de couleur ou état visuel selon un seuil (`score > 7 → vert`)
+- Agrégations visuelles légères sur données déjà calculées
+
+**Interdit en frontend** :
+- Calcul d'ATR, RSI, MACD, Fibonacci, SL/TP, R:R
+- Logique de scoring SMC, Straddle ou Rockets
+- Toute décision de risk management
+- Duplication d'une formule déjà présente dans un crate Rust
+
+> **Pourquoi** : garantit que les garde-fous du backend (drawdown, position sizing) ne peuvent pas être contournés, et évite la désynchronisation silencieuse entre deux implémentations du même calcul.
+
 ### Design Premium
 - **Dark Mode** : Natif (fond #0a0e27 ou similaire)
 - **Palette** : Vert #10b981, Rouge #ef4444, Bleu #3b82f6
