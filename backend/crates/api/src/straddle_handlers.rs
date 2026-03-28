@@ -210,7 +210,7 @@ pub async fn handler_analyser_precision(
         }
     };
 
-    let precision = crate::straddle_precision::analyser_precision(
+    let precision = strategies::straddle_precision::analyser_precision(
         &bougies,
         body.jour_semaine,
         &body.heure_debut,

@@ -1,6 +1,6 @@
 //! Analyse technique d'un symbol Binance pour le scan Rockets.
 //! Séparé de rockets_scan.rs pour respecter la limite de 300 lignes.
-use crate::rockets_indicateurs::{
+use strategies::rockets_indicateurs::{
     calc_atr, calc_ema, calc_nb_compression, calc_rsi, calculer_phase, ScanResultat, KLINES_N,
     LOOKBACK,
 };

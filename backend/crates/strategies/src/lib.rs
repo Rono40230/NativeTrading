@@ -1,7 +1,9 @@
 use common::{Candle, Direction, Result};
 
+pub mod rockets_indicateurs;
 pub mod smc_directional;
 pub mod straddle;
+pub mod straddle_precision;
 
 pub trait Strategy: Send + Sync {
     fn analyze(&self, bougies: &[Candle]) -> Result<Option<Signal>>;

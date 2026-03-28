@@ -1,6 +1,6 @@
-pub use crate::rockets_indicateurs::ScanResultat;
+pub use strategies::rockets_indicateurs::ScanResultat;
 use crate::rockets_analyse::analyser_symbol;
-use crate::rockets_indicateurs::{
+use strategies::rockets_indicateurs::{
     est_eligible, phase_priorite, Ticker24h, BATCH_SIZE, MAX_DISPLAY, SCAN_SECS,
 };
 use db::rockets::{self, NouveauRocket};

@@ -110,7 +110,7 @@ impl PipelineML {
         horizon: usize,
         seuil_pct: f64,
     ) -> Result<(f64, f64)> {
-        tracing::info!("Entraînement hybride RF+LSTM sur {} bougies", bougies.len());
+        tracing::info!("Entraînement hybride XGBoost+LSTM sur {} bougies", bougies.len());
         let debut = Instant::now();
 
         let mut features_dataset = Vec::new();

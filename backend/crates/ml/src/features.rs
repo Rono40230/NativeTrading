@@ -1,7 +1,7 @@
 use common::Candle;
 use indicators::{calculer_atr, calculer_bollinger, calculer_ema, calculer_macd, calculer_rsi};
 
-/// Vecteur de features normalisées prêt pour XGBoost/RandomForest
+/// Vecteur de features normalisées prêt pour XGBoost/LSTM
 /// Dimensions : 52 features par bougie (OHLCV normalisés + indicateurs)
 pub const NB_FEATURES: usize = 52;
 
