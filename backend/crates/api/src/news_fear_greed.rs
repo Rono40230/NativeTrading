@@ -37,18 +37,24 @@ pub async fn get_fear_greed(state: web::Data<AppState>) -> impl Responder {
     {
         Ok(r) => r,
         Err(e) => {
-            tracing::warn!("Fear&Greed – fetch échoué: {e}");
-            return HttpResponse::ServiceUnavailable()
-                .json(serde_json::json!({ "error": "Service indisponible" }));
+            tracing::warn!("Fear&Greed – fetch échoué (fallback neutre): {e}");
+            return HttpResponse::Ok().json(serde_json::json!({
+                "valeur": 50,
+                "label": "Neutral",
+                "source": "fallback"
+            }));
         }
     };
 
     let raw: serde_json::Value = match resp.json().await {
         Ok(v) => v,
         Err(e) => {
-            tracing::warn!("Fear&Greed – parse JSON: {e}");
-            return HttpResponse::ServiceUnavailable()
-                .json(serde_json::json!({ "error": "Données invalides" }));
+            tracing::warn!("Fear&Greed – parse JSON (fallback neutre): {e}");
+            return HttpResponse::Ok().json(serde_json::json!({
+                "valeur": 50,
+                "label": "Neutral",
+                "source": "fallback"
+            }));
         }
     };
 

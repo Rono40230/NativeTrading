@@ -11,8 +11,10 @@ pub struct ResultatWalkForward {
     /// Accuracy XGBoost out-of-sample
     pub accuracy_xgb: f64,
     pub accuracy_lstm: f64,
-    /// Score fusion pondéré : 0.6 × lstm + 0.4 × xgb
+    /// Score fusion pondéré : 0.6 × lstm + 0.4 × xgb (sur jeu test OOS)
     pub accuracy_finale: f64,
+    /// Score fusion sur le jeu d'entraînement (indicateur d'overfit)
+    pub accuracy_train: f64,
     pub nb_bougies_train: usize,
     pub nb_bougies_test: usize,
 }
@@ -73,10 +75,16 @@ pub fn entrainer_walk_forward(bougies: &[Candle]) -> Result<ResultatWalkForward>
     let acc_lstm = evaluer_lstm(&lstm_tmp, &contexte);
     let acc_finale = 0.6 * acc_lstm + 0.4 * acc_xgb;
 
+    // Score sur le jeu d'entraînement (indicateur d'overfit vs OOS)
+    let acc_xgb_train = evaluer_xgb(&xgb_tmp, train);
+    let acc_lstm_train = evaluer_lstm(&lstm_tmp, train);
+    let acc_train = 0.6 * acc_lstm_train + 0.4 * acc_xgb_train;
+
     Ok(ResultatWalkForward {
         accuracy_xgb: (acc_xgb * 1000.0).round() / 1000.0,
         accuracy_lstm: (acc_lstm * 1000.0).round() / 1000.0,
         accuracy_finale: (acc_finale * 1000.0).round() / 1000.0,
+        accuracy_train: (acc_train * 1000.0).round() / 1000.0,
         nb_bougies_train: split,
         nb_bougies_test: n - split,
     })

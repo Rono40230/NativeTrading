@@ -93,9 +93,11 @@ async fn executer_entrainement_auto(db: &Arc<Database>, pipeline_ml: &Arc<Mutex<
         asset: format!("{:?}", asset),
         timeframe: "M15".to_string(),
         nb_bougies: nb_total as i64,
-        accuracy_rf: wf.accuracy_xgb,
+        accuracy_xgb: wf.accuracy_xgb,
         accuracy_lstm: wf.accuracy_lstm,
         accuracy_finale: wf.accuracy_finale,
+        accuracy_train: wf.accuracy_train,
+        accuracy_val: wf.accuracy_finale,
         duree_ms,
         derive_detectee: derive,
     };
@@ -112,6 +114,32 @@ async fn executer_entrainement_auto(db: &Arc<Database>, pipeline_ml: &Arc<Mutex<
             wf.accuracy_finale * 100.0,
         );
     }
+}
+
+/// Démarre la surveillance ML toutes les 6h.
+/// Déclenche un ré-entraînement immédiat si accuracy_val récente < 52%.
+pub fn demarrer_surveillance_ml(db: Arc<Database>, pipeline_ml: Arc<Mutex<PipelineML>>) {
+    tokio::spawn(async move {
+        // Premier check décalé de 6h (évite un double entraînement au démarrage)
+        sleep(Duration::from_secs(6 * 3600)).await;
+        loop {
+            match db.accuracy_val_recente(3).await {
+                Ok(Some(moy)) if moy < 0.52 => {
+                    tracing::warn!(
+                        "🔁 Surveillance ML: accuracy_val={:.1}% < 52% — ré-entraînement auto",
+                        moy * 100.0
+                    );
+                    executer_entrainement_auto(&db, &pipeline_ml).await;
+                }
+                Ok(Some(moy)) => {
+                    tracing::debug!("Surveillance ML: accuracy_val={:.1}% ✓", moy * 100.0);
+                }
+                Ok(None) => tracing::debug!("Surveillance ML: aucun historique disponible"),
+                Err(e) => tracing::error!("Surveillance ML: erreur DB: {}", e),
+            }
+            sleep(Duration::from_secs(6 * 3600)).await;
+        }
+    });
 }
 
 /// Calcule le nombre de secondes jusqu'au prochain 00h00 UTC.

@@ -75,6 +75,10 @@ impl AppState {
         demarrer_scheduler(db.clone(), pipeline_ml.clone());
         tracing::info!("⏰ Scheduler ML quotidien activé (00h00 UTC)");
 
+        // Surveillance ML toutes les 6h : ré-entraînement auto si accuracy_val < 52%
+        crate::scheduler::demarrer_surveillance_ml(db.clone(), pipeline_ml.clone());
+        tracing::info!("🔍 Surveillance ML activée (check toutes les 6h, seuil 52%)");
+
         Ok(Self {
             db,
             pipeline_ml,

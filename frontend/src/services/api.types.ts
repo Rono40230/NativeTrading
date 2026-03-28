@@ -7,6 +7,11 @@ export interface Candle {
   volume: number
 }
 
+export interface EquityPoint {
+  timestamp: number
+  capital: number
+}
+
 export interface BacktestResults {
   total_trades: number
   winning_trades: number
@@ -27,6 +32,7 @@ export interface BacktestResults {
   nb_expirations: number
   // Nombre de Straddles posés (= total_trades / 2)
   nb_straddles: number
+  equity_curve?: EquityPoint[]
 }
 
 export interface PredictionML {

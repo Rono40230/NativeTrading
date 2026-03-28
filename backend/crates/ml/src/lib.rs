@@ -4,15 +4,23 @@ use common::{Candle, Direction, Result, TradingError};
 
 pub mod features;
 pub mod lstm;
-pub mod modele;
 pub mod walk_forward;
 pub mod xgboost;
 
 pub use features::{extraire_features, labelliser, NB_FEATURES};
 pub use lstm::{ModeleHybrideLstm, LONGUEUR_SEQ};
-pub use modele::{ModeleRandomForest, PredictionML};
 pub use walk_forward::entrainer_walk_forward;
 pub use xgboost::ModeleXGBoost;
+
+/// Résultat d'inférence du pipeline hybride XGBoost + LSTM
+#[derive(Debug, Clone)]
+pub struct PredictionML {
+    pub direction: Direction,
+    /// Probabilité de la direction (0.5 = incertain, 0.8+ = confiant)
+    pub confiance: f64,
+    /// true si le modèle est suffisamment confiant (≥ 60%)
+    pub est_confiant: bool,
+}
 
 const CHEMIN_XGB: &str = "data/modele_xgboost.json";
 const CHEMIN_LSTM: &str = "data/modele_lstm.json";
@@ -95,7 +103,7 @@ impl PipelineML {
         Ok(())
     }
 
-    /// Entraîne RF + LSTM sur l'historique. Retourne (accuracy_rf, accuracy_lstm).
+    /// Entraîne XGBoost + LSTM sur l'historique. Retourne (accuracy_xgb, accuracy_lstm).
     pub fn entrainer_sur_historique(
         &mut self,
         bougies: &[Candle],
@@ -282,12 +290,10 @@ impl PipelineML {
         self.xgb.est_pret()
     }
 }
-
 impl Default for PipelineML {
     fn default() -> Self {
         Self::new()
     }
 }
-
 #[cfg(test)]
 mod tests;

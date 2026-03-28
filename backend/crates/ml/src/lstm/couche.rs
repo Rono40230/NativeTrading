@@ -169,6 +169,16 @@ impl CoucheLstm {
     pub(super) fn biais_ref(&self) -> &[f64] {
         &self.biais
     }
+
+    /// Référence mutable pour gradient clipping (CPU + GPU).
+    pub(super) fn poids_mut(&mut self) -> &mut [f64] {
+        &mut self.poids
+    }
+
+    /// Référence mutable vers biais pour vérifications.
+    pub(super) fn biais_mut(&mut self) -> &mut [f64] {
+        &mut self.biais
+    }
 }
 
 // ─── Couche linéaire de sortie ────────────────────────────────────────────────

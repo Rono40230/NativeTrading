@@ -100,11 +100,16 @@ pub async fn analyser_images(
     appeler_ollama(&url, &corps).await
 }
 
-// ─── Fonctions privées ────────────────────────────────────────────────────────
+/// Semaphore Ollama : max 2 appels concurrents, timeout 60s.
+static OLLAMA_SEMAPHORE: std::sync::LazyLock<tokio::sync::Semaphore> =
+    std::sync::LazyLock::new(|| tokio::sync::Semaphore::new(2));
 
-/// Appel HTTP générique vers l'API Ollama — partagé par toutes les fonctions chat/vision.
 async fn appeler_ollama(url: &str, corps: &serde_json::Value) -> Result<String, TradingError> {
-    let client = reqwest::Client::new();
+    let _permit = OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
     let reponse = client
         .post(url)
         .json(corps)

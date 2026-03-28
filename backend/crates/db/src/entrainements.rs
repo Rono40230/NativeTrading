@@ -9,9 +9,11 @@ pub struct EntrainementRecord {
     pub asset: String,
     pub timeframe: String,
     pub nb_bougies: i64,
-    pub accuracy_rf: f64,
+    pub accuracy_xgb: f64,
     pub accuracy_lstm: f64,
     pub accuracy_finale: f64,
+    pub accuracy_train: f64,
+    pub accuracy_val: f64,
     pub duree_ms: i64,
     pub derive_detectee: bool,
 }
@@ -23,16 +25,18 @@ impl Database {
         let derive = i64::from(rec.derive_detectee);
         sqlx::query(
             "INSERT INTO historique_entrainements
-             (cree_le, asset, timeframe, nb_bougies, accuracy_rf, accuracy_lstm, accuracy_finale, duree_ms, derive_detectee)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+             (cree_le, asset, timeframe, nb_bougies, accuracy_rf, accuracy_lstm, accuracy_finale, accuracy_train, accuracy_val, duree_ms, derive_detectee)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(maintenant)
         .bind(&rec.asset)
         .bind(&rec.timeframe)
         .bind(rec.nb_bougies)
-        .bind(rec.accuracy_rf)
+        .bind(rec.accuracy_xgb)
         .bind(rec.accuracy_lstm)
         .bind(rec.accuracy_finale)
+        .bind(rec.accuracy_train)
+        .bind(rec.accuracy_val)
         .bind(rec.duree_ms)
         .bind(derive)
         .execute(&self.pool)
@@ -48,7 +52,7 @@ impl Database {
     ) -> Result<Vec<serde_json::Value>> {
         let rows = sqlx::query(
             "SELECT id, cree_le, asset, timeframe, nb_bougies,
-                    accuracy_rf, accuracy_lstm, accuracy_finale, duree_ms, derive_detectee
+                    accuracy_rf, accuracy_lstm, accuracy_finale, accuracy_train, accuracy_val, duree_ms, derive_detectee
              FROM historique_entrainements
              ORDER BY cree_le DESC
              LIMIT ?",
@@ -69,13 +73,30 @@ impl Database {
                     "timeframe": r.get::<String, _>("timeframe"),
                     "nb_bougies": r.get::<i64, _>("nb_bougies"),
                     "accuracy_rf": r.get::<f64, _>("accuracy_rf"),
+                    "accuracy_xgb": r.get::<f64, _>("accuracy_rf"),
                     "accuracy_lstm": r.get::<f64, _>("accuracy_lstm"),
                     "accuracy_finale": r.get::<f64, _>("accuracy_finale"),
+                    "accuracy_train": r.get::<f64, _>("accuracy_train"),
+                    "accuracy_val": r.get::<f64, _>("accuracy_val"),
                     "duree_ms": r.get::<i64, _>("duree_ms"),
                     "derive_detectee": derive_val != 0,
                 })
             })
             .collect())
+    }
+
+    /// Retourne la moyenne d'accuracy_val sur les `nb` derniers entraînements.
+    /// Utilisé par la surveillance 6h pour détecter une dégradation rapide.
+    pub async fn accuracy_val_recente(&self, nb: i64) -> Result<Option<f64>> {
+        let row = sqlx::query(
+            "SELECT AVG(accuracy_val) as moy FROM \
+             (SELECT accuracy_val FROM historique_entrainements ORDER BY cree_le DESC LIMIT ?)",
+        )
+        .bind(nb)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(row.try_get::<Option<f64>, _>("moy").unwrap_or(None))
     }
 
     /// Détecte une dérive : accuracy_finale moyenne < seuil sur les 7 derniers jours.
