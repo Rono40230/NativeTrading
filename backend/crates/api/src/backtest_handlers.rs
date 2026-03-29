@@ -31,6 +31,9 @@ pub struct BacktestRequest {
     pub tp_mult_3: Option<f64>,
     pub sl_mult: Option<f64>,
     pub seuil_atr: Option<f64>,
+    pub atr_periode: Option<i64>,
+    pub horizon_bougies: Option<i64>,
+    pub trailing_atr: Option<f64>,
 }
 
 pub async fn run_backtest(
@@ -85,7 +88,10 @@ pub async fn run_backtest(
 
     // Horizon adapté au timeframe : Straddle = 30 min, SMC = 240 min (4h)
     let horizon_minutes: u64 = if strategie == "smc" { 240 } else { 30 };
-    let horizon_bougies = ((horizon_minutes / timeframe.minutes()) as usize).max(2);
+    let horizon_bougies = body
+        .horizon_bougies
+        .map(|h| h as usize)
+        .unwrap_or_else(|| ((horizon_minutes / timeframe.minutes()) as usize).max(2));
     let engine = BacktestEngine {
         horizon_bougies,
         ..BacktestEngine::new(capital)
@@ -235,13 +241,13 @@ pub async fn raffiner_ml(
 fn straddle_params_from_body(body: &BacktestRequest) -> StraddleParams {
     let def = StraddleParams::default();
     StraddleParams {
-        atr_periode: def.atr_periode,
+        atr_periode: body.atr_periode.unwrap_or(def.atr_periode),
         atr_seuil: body.seuil_atr.unwrap_or(def.atr_seuil),
         tp_mult_1: body.tp_mult_1.unwrap_or(def.tp_mult_1),
         tp_mult_2: body.tp_mult_2.unwrap_or(def.tp_mult_2),
         tp_mult_3: body.tp_mult_3.unwrap_or(def.tp_mult_3),
         sl_mult: body.sl_mult.unwrap_or(def.sl_mult),
-        horizon_bougies: def.horizon_bougies,
-        trailing_atr: def.trailing_atr,
+        horizon_bougies: body.horizon_bougies.unwrap_or(def.horizon_bougies),
+        trailing_atr: body.trailing_atr.unwrap_or(def.trailing_atr),
     }
 }

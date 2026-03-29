@@ -38,7 +38,7 @@ pub(crate) fn simuler_sortie(
 ) -> (f64, SortieType) {
     let mut sl_courant = sl;
     let mut peak = match direction {
-        TradeDirection::Long => sl, // peak démarre bas (favorable = montée)
+        TradeDirection::Long => sl,  // peak démarre bas (favorable = montée)
         TradeDirection::Short => sl, // symétrique
     };
 

@@ -122,6 +122,7 @@
           :suggestion="suggestionLlm"
           @optimiser="demanderOptimisation"
           @relancer="lancerBacktest"
+          @params-saved="rechargerParamsEtRelancer"
         />
       </div>
     </div>
@@ -135,8 +136,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick, onMounted, onUnmounted, defineComponent, h } from 'vue'
-import { createChart, type IChartApi } from 'lightweight-charts'
+import { ref, computed, nextTick, onMounted, onUnmounted, defineComponent, h } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { BacktestResults } from '@/services/api.service'
 import { useSettingsStore } from '@/stores/settings.store'
@@ -145,10 +145,10 @@ import { useAssetsStore } from '@/stores/assets.store'
 import TooltipInfo from '@/components/common/TooltipInfo.vue'
 import MonitoringML from '@/components/common/MonitoringML.vue'
 import AbTestTable from '@/components/common/AbTestTable.vue'
-import { tickMarkFormatterEquity } from '@/composables/chartTimeScale'
 import { useBacktestDuree } from '@/composables/useBacktestDuree'
 import { useCreneauParams } from '@/composables/useCreneauParams'
 import { usePnLNiveaux } from '@/composables/usePnLNiveaux'
+import { useEquityChart } from '@/composables/useEquityChart'
 import StraddleParamsPanel from '@/components/common/StraddleParamsPanel.vue'
 const ObjectifLigne = defineComponent({
   props: { label: String, atteint: Boolean, valeur: String },
@@ -169,10 +169,8 @@ const { modeCreneau, creneauApi } = useCreneauParams()
 const chargement = ref(false)
 const resultats = ref<BacktestResults | null>(null)
 const { niveaux, pyramidalisation } = usePnLNiveaux(resultats)
-const equityChart = ref<HTMLElement | null>(null)
-let chart: IChartApi | null = null
-let roEquity: ResizeObserver | null = null
-const straddleParams = ref({ tp_mult_1: 2.0, tp_mult_2: 3.5, tp_mult_3: 5.0, sl_mult: 0.5, seuil_atr: 1.5 })
+const { equityChart, afficherCourbe, cleanup } = useEquityChart(resultats)
+const straddleParams = ref({ atr_periode: 14, seuil_atr: 1.5, tp_mult_1: 2.0, tp_mult_2: 3.5, tp_mult_3: 5.0, sl_mult: 0.5, trailing_atr: 1.5 })
 const suggestionLlm = ref<string | null>(null)
 const chargementLlm = ref(false)
 
@@ -197,6 +195,22 @@ async function lancerBacktest() {
   } finally {
     chargement.value = false
   }
+}
+
+async function rechargerParamsEtRelancer() {
+  try {
+    const p = await apiService.getStraddleParams()
+    straddleParams.value = {
+      atr_periode:  p.atr_periode  ?? straddleParams.value.atr_periode,
+      seuil_atr:    p.atr_seuil    ?? straddleParams.value.seuil_atr,
+      tp_mult_1:    p.tp_mult_1    ?? straddleParams.value.tp_mult_1,
+      tp_mult_2:    p.tp_mult_2    ?? straddleParams.value.tp_mult_2,
+      tp_mult_3:    p.tp_mult_3    ?? straddleParams.value.tp_mult_3,
+      sl_mult:      p.sl_mult      ?? straddleParams.value.sl_mult,
+      trailing_atr: p.trailing_atr ?? straddleParams.value.trailing_atr,
+    }
+  } catch { /* garde les valeurs actuelles */ }
+  await lancerBacktest()
 }
 
 async function demanderOptimisation() {
@@ -229,61 +243,11 @@ async function demanderOptimisation() {
   }
 }
 
-function afficherCourbe() {
-  if (!equityChart.value || !resultats.value) return
-  chart?.remove()
-  chart = createChart(equityChart.value, {
-    layout: { background: { color: 'transparent' }, textColor: '#9ca3af' },
-    grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } },
-    timeScale: { timeVisible: true, secondsVisible: false, tickMarkFormatter: tickMarkFormatterEquity },
-    width: equityChart.value.clientWidth, height: 256,
-  })
-  const series = chart.addAreaSeries({
-    lineColor: resultats.value.roi_pct >= 0 ? '#10b981' : '#ef4444',
-    topColor: resultats.value.roi_pct >= 0 ? '#10b98133' : '#ef444433',
-    bottomColor: 'transparent',
-  })
-  const capitalInitialSerie = chart.addLineSeries({
-    color: '#3b82f6',
-    lineWidth: 1,
-    lineStyle: 2,
-    lastValueVisible: false,
-    priceLineVisible: false,
-  })
-  const pointsReels = resultats.value.equity_curve?.map((point) => ({
-    time: point.timestamp as unknown as import('lightweight-charts').Time,
-    value: point.capital,
-  }))
-  const n = Math.max(resultats.value.total_trades, 10)
-  const pointsFallback = Array.from({ length: n }, (_, i) => ({
-    time: (Math.floor(Date.now() / 1000) - (n - i) * 86400) as unknown as import('lightweight-charts').Time,
-    value: resultats.value!.capital_initial + (resultats.value!.profit_net * i) / (n - 1),
-  }))
-  const pts = pointsReels && pointsReels.length >= 2 ? pointsReels : pointsFallback
-  series.setData(pts)
-  const debut = pts[0]?.time
-  const fin = pts[pts.length - 1]?.time
-  if (debut && fin) {
-    capitalInitialSerie.setData([
-      { time: debut, value: resultats.value.capital_initial },
-      { time: fin, value: resultats.value.capital_initial },
-    ])
-  }
-  chart.timeScale().fitContent()
-}
-
-watch(equityChart, (el) => {
-  roEquity?.disconnect()
-  if (!el) return
-  if (resultats.value) afficherCourbe()
-  roEquity = new ResizeObserver(() => chart?.applyOptions({ width: el.clientWidth }))
-  roEquity.observe(el)
-})
 onMounted(() => {
   assetsStore.chargerAssets()
   if (modeCreneau.value) { asset.value = modeCreneau.value.asset; lancerBacktest() }
 })
-onUnmounted(() => { roEquity?.disconnect() })
+onUnmounted(cleanup)
 </script>
 
 <style scoped>

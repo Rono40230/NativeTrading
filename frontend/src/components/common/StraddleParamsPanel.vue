@@ -16,6 +16,10 @@
           Optimiser avec l'IA
         </button>
         <button class="btn-primary text-xs" @click="$emit('relancer')">↺ Relancer</button>
+        <button
+          class="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs font-medium transition-colors"
+          @click="showParams = true"
+        >⚙️ Sauvegarde des paramètres</button>
       </div>
     </div>
 
@@ -23,7 +27,7 @@
       💡 {{ suggestion }}
     </div>
 
-    <div class="grid grid-cols-5 gap-4 flex-1 content-end">
+    <div class="grid grid-cols-7 gap-3 flex-1 content-end">
       <div v-for="p in config" :key="p.key" class="flex flex-col gap-1">
         <label class="text-xs text-gray-400">{{ p.label }}</label>
         <input
@@ -38,16 +42,22 @@
         <span class="text-xs text-gray-600">{{ p.min }}–{{ p.max }}</span>
       </div>
     </div>
+    <StraddleParamsModal v-if="showParams" @close="showParams = false" @saved="onParamsSaved" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+import StraddleParamsModal from '@/components/common/StraddleParamsModal.vue'
+
 export interface StraddleParams {
+  atr_periode: number
+  seuil_atr: number
   tp_mult_1: number
   tp_mult_2: number
   tp_mult_3: number
   sl_mult: number
-  seuil_atr: number
+  trailing_atr: number
 }
 
 const props = defineProps<{
@@ -61,15 +71,25 @@ const emit = defineEmits<{
   (e: 'update:modelValue', v: StraddleParams): void
   (e: 'optimiser'): void
   (e: 'relancer'): void
+  (e: 'params-saved'): void
 }>()
 
 const config = [
-  { key: 'seuil_atr' as const, label: 'Seuil ATR',  min: 1.2,  max: 3.0,  step: 0.05 },
-  { key: 'tp_mult_1' as const, label: 'TP1 × ATR',  min: 1.0,  max: 4.0,  step: 0.1 },
-  { key: 'tp_mult_2' as const, label: 'TP2 × ATR',  min: 2.0,  max: 6.0,  step: 0.1 },
-  { key: 'tp_mult_3' as const, label: 'TP3 × ATR',  min: 3.0,  max: 10.0, step: 0.25 },
-  { key: 'sl_mult'   as const, label: 'SL × ATR',   min: 0.2,  max: 1.5,  step: 0.05 },
+  { key: 'atr_periode' as const, label: 'Période ATR',       min: 5,   max: 50,  step: 1    },
+  { key: 'seuil_atr'  as const, label: 'Seuil ATR (×moy)', min: 0.5, max: 3.0, step: 0.05 },
+  { key: 'tp_mult_1'  as const, label: 'TP1 × ATR',         min: 1.0, max: 4.0, step: 0.1  },
+  { key: 'tp_mult_2'  as const, label: 'TP2 × ATR',         min: 2.0, max: 6.0, step: 0.1  },
+  { key: 'tp_mult_3'  as const, label: 'TP3 × ATR',         min: 3.0, max: 10.0,step: 0.25 },
+  { key: 'sl_mult'    as const, label: 'SL × ATR',          min: 0.2, max: 1.5, step: 0.05 },
+  { key: 'trailing_atr' as const, label: 'Trailing × ATR',  min: 0.0, max: 3.0, step: 0.1  },
 ]
+
+const showParams = ref(false)
+
+function onParamsSaved() {
+  showParams.value = false
+  emit('params-saved')
+}
 
 function onInput(key: keyof StraddleParams, val: number) {
   emit('update:modelValue', { ...props.modelValue, [key]: val })

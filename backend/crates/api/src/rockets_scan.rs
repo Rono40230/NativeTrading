@@ -1,12 +1,12 @@
-pub use strategies::rockets_indicateurs::ScanResultat;
 use crate::rockets_analyse::analyser_symbol;
-use strategies::rockets_indicateurs::{
-    est_eligible, phase_priorite, Ticker24h, BATCH_SIZE, MAX_DISPLAY, SCAN_SECS,
-};
 use db::rockets::{self, NouveauRocket};
 use futures_util::future::join_all;
 use std::sync::{Arc, OnceLock};
 use std::time::Duration;
+pub use strategies::rockets_indicateurs::ScanResultat;
+use strategies::rockets_indicateurs::{
+    est_eligible, phase_priorite, Ticker24h, BATCH_SIZE, MAX_DISPLAY, SCAN_SECS,
+};
 use tokio::sync::RwLock;
 
 // ── État partagé (lecture depuis le handler HTTP) ────────────────────────────

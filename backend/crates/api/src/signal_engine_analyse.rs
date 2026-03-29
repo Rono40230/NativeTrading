@@ -96,19 +96,14 @@ async fn analyser_tous_assets(
 
     tracing::debug!("Signal Engine — analyse {} assets", assets_actifs.len());
 
-    let ctx = ContexteSignal { score_news, fg_valeur };
+    let ctx = ContexteSignal {
+        score_news,
+        fg_valeur,
+    };
     for asset in &assets_actifs {
         for timeframe in TIMEFRAMES {
-            if let Err(e) = analyser_asset(
-                strategie,
-                db,
-                pipeline_ml,
-                tx,
-                asset,
-                timeframe,
-                &ctx,
-            )
-            .await
+            if let Err(e) =
+                analyser_asset(strategie, db, pipeline_ml, tx, asset, timeframe, &ctx).await
             {
                 tracing::warn!(
                     "Signal Engine — {}/{}: {}",

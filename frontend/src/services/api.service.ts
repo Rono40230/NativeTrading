@@ -1,6 +1,8 @@
 import axios from 'axios'
 import { rocketsApi } from './api.rockets'
 import { straddleApi } from './api.straddle'
+import { newsApi } from './api.news'
+import { engineApi } from './api.engine'
 
 export type {
   Candle, BacktestResults, PredictionML, ReponseEntrainement,
@@ -20,9 +22,7 @@ import type {
   ImageAvecTF, StatutIA, PredictionML, BacktestResults, ScoreSmc,
   ReponseEntrainement, ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
-  ModeCalculTendance, AnnonceCalendrier, SentimentMarche, AlertesNews, ContenuArticle, TraductionReponse,
-  StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, HistoriqueML, ReponsePatternsVolatilite,
-  FearGreedData,
+  ModeCalculTendance,
 } from './api.types'
 
 const BASE_URL = 'http://localhost:8080'
@@ -76,7 +76,11 @@ export const apiService = {
     capital = 2000,
     nb_jours = 90,
     creneau?: { timing_optimal: string; jour_semaine?: number | null },
-    straddleParams?: { tp_mult_1?: number; tp_mult_2?: number; tp_mult_3?: number; sl_mult?: number; seuil_atr?: number }
+    straddleParams?: {
+      tp_mult_1?: number; tp_mult_2?: number; tp_mult_3?: number
+      sl_mult?: number; seuil_atr?: number
+      atr_periode?: number; horizon_bougies?: number; trailing_atr?: number
+    }
   ): Promise<BacktestResults> {
     const res = await http.post('/api/backtest', { asset, timeframe, capital, nb_jours, ...creneau, ...straddleParams })
     return res.data
@@ -177,100 +181,6 @@ export const apiService = {
     return res.data
   },
 
-  async obtenirCalendrier(days = 7): Promise<AnnonceCalendrier[]> {
-    try {
-      const res = await http.get('/api/calendar', { params: { days } })
-      return res.data
-    } catch {
-      return []
-    }
-  },
-
-  async obtenirFearGreed(): Promise<FearGreedData | null> {
-    try {
-      const res = await http.get('/api/news/fear-greed', { timeout: 6000 })
-      return res.data
-    } catch {
-      return null
-    }
-  },
-
-  async obtenirArticlesLus(): Promise<string[]> {
-    try {
-      const res = await http.get<{ urls: string[] }>('/api/news/lus')
-      return res.data.urls
-    } catch {
-      return []
-    }
-  },
-
-  async marquerArticleLu(url: string): Promise<void> {
-    try {
-      await http.post('/api/news/lu', { url })
-    } catch (e) {
-      // Non-bloquant : la persistance lus est best-effort
-    }
-  },
-
-  async obtenirSentimentMarche(): Promise<SentimentMarche> {
-    const res = await http.get('/api/sentiment/marche')
-    return res.data
-  },
-
-  async obtenirAlertes(): Promise<AlertesNews> {
-    const res = await http.get('/api/news/alertes', { timeout: 20_000 })
-    return res.data
-  },
-
-  async obtenirContenuArticle(url: string): Promise<ContenuArticle> {
-    const res = await http.get('/api/news/contenu', { params: { url }, timeout: 20_000 })
-    return res.data
-  },
-
-  async traduire(texte: string, long = false): Promise<TraductionReponse> {
-    const res = await http.get('/api/news/traduire', { params: { texte, long }, timeout: 60_000 })
-    return res.data
-  },
-
-  async signalEngineStatut(): Promise<StatutSignalEngine> {
-    const res = await http.get('/api/signal-engine/status')
-    return res.data
-  },
-
-  async signalEngineDemarrer(): Promise<{ statut: string; message: string }> {
-    const res = await http.post('/api/signal-engine/start')
-    return res.data
-  },
-
-  async signalEngineArreter(): Promise<{ statut: string; message: string }> {
-    const res = await http.post('/api/signal-engine/stop')
-    return res.data
-  },
-
-  async obtenirCouvertureDonnees(): Promise<{ couverture: CouvertureDonnees[] }> {
-    const res = await http.get('/api/data/coverage')
-    return res.data
-  },
-
-  async collecterDonnees(params: RequeteCollecte): Promise<ResultatCollecte> {
-    const res = await http.post('/api/data/collect', params, { timeout: 300_000 })
-    return res.data
-  },
-
-  async obtenirHistoriqueML(limit = 30): Promise<HistoriqueML> {
-    const res = await http.get('/api/ml/history', { params: { limit } })
-    return res.data
-  },
-
-  async obtenirPatternsVolatilite(
-    asset = 'BTC',
-    timeframe = 'M15',
-    mois = 12,
-  ): Promise<ReponsePatternsVolatilite> {
-    const res = await http.get('/api/volatility/patterns', { params: { asset, timeframe, mois } })
-    return res.data
-  },
-
   async ajouterAsset(
     id: string,
     nom: string,
@@ -312,4 +222,6 @@ export const apiService = {
 
   ...rocketsApi,
   ...straddleApi,
+  ...newsApi,
+  ...engineApi,
 }

@@ -1,12 +1,14 @@
 <template>
   <div class="flex flex-col gap-5">
     <!-- En-tête -->
-    <div>
-      <h1 class="text-xl font-bold text-white">⚡ Straddle — Créneaux de volatilité</h1>
-      <p class="text-sm text-gray-400 mt-1">
-        Le LLM analyse l'historique OHLCV et identifie les créneaux récurrents de forte volatilité bidirectionnelle.
-        <RouterLink to="/pnl" class="text-yellow-400 hover:underline ml-1">→ P&amp;L</RouterLink>
-      </p>
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-bold text-white">⚡ Straddle — Créneaux de volatilité</h1>
+        <p class="text-sm text-gray-400 mt-1">
+          Le LLM analyse l'historique OHLCV et identifie les créneaux récurrents de forte volatilité bidirectionnelle.
+          <RouterLink to="/pnl" class="text-yellow-400 hover:underline ml-1">→ P&amp;L</RouterLink>
+        </p>
+      </div>
     </div>
 
     <!-- Panneau de lancement -->

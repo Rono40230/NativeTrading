@@ -174,7 +174,6 @@ impl CoucheLstm {
     pub(super) fn poids_mut(&mut self) -> &mut [f64] {
         &mut self.poids
     }
-
 }
 
 // ─── Couche linéaire de sortie ────────────────────────────────────────────────

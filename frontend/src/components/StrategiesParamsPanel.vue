@@ -1,71 +1,68 @@
 <template>
-  <div class="space-y-6">
+  <!-- 2 colonnes côte à côte : Straddle | SMC -->
+  <div class="grid grid-cols-2 gap-4">
 
     <!-- Straddle -->
-    <div class="glass-card p-6">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-        ⚡ Stratégie Straddle — Paramètres
-      </h2>
+    <div class="glass-card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">⚡ Straddle</h2>
+        <div class="flex items-center gap-2">
+          <button
+            class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs font-medium transition-colors"
+            :disabled="savingStraddle"
+            @click="sauvegarderStraddle"
+          >{{ savingStraddle ? '…' : 'Enregistrer' }}</button>
+          <span v-if="msgStraddle" :class="msgStraddle.ok ? 'text-green-400' : 'text-red-400'" class="text-xs">
+            {{ msgStraddle.text }}
+          </span>
+        </div>
+      </div>
 
-      <div v-if="loadingStraddle" class="text-gray-400 text-sm">Chargement…</div>
+      <div v-if="loadingStraddle" class="text-gray-400 text-xs">Chargement…</div>
 
-      <div v-else class="grid grid-cols-2 gap-4">
-        <div v-for="field in straddleFields" :key="field.key">
-          <label class="block mb-1 text-xs text-gray-400">{{ field.label }}</label>
+      <div v-else class="space-y-1">
+        <div v-for="field in straddleFields" :key="field.key" class="flex items-center justify-between gap-2">
+          <label class="text-[11px] text-gray-400 whitespace-nowrap">{{ field.label }}</label>
           <input
             v-model.number="straddleParams[field.key]"
             type="number"
             :step="field.step"
             :min="field.min"
-            class="bg-gray-700 text-white rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            class="bg-gray-700 text-white rounded px-2 py-0.5 w-20 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
-          <p class="text-xs text-gray-500 mt-1">{{ field.hint }}</p>
         </div>
-      </div>
-
-      <div class="flex items-center gap-3 mt-4">
-        <button
-          class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium transition-colors"
-          :disabled="savingStraddle"
-          @click="sauvegarderStraddle"
-        >{{ savingStraddle ? 'Sauvegarde…' : 'Enregistrer Straddle' }}</button>
-        <span v-if="msgStraddle" :class="msgStraddle.ok ? 'text-green-400' : 'text-red-400'" class="text-sm">
-          {{ msgStraddle.text }}
-        </span>
       </div>
     </div>
 
     <!-- SMC Directionnel -->
-    <div class="glass-card p-6">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
-        🎯 Stratégie SMC Directionnel — Paramètres
-      </h2>
+    <div class="glass-card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">🎯 SMC Directionnel</h2>
+        <div class="flex items-center gap-2">
+          <button
+            class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs font-medium transition-colors"
+            :disabled="savingSmc"
+            @click="sauvegarderSmc"
+          >{{ savingSmc ? '…' : 'Enregistrer' }}</button>
+          <span v-if="msgSmc" :class="msgSmc.ok ? 'text-green-400' : 'text-red-400'" class="text-xs">
+            {{ msgSmc.text }}
+          </span>
+        </div>
+      </div>
 
-      <div v-if="loadingSmc" class="text-gray-400 text-sm">Chargement…</div>
+      <div v-if="loadingSmc" class="text-gray-400 text-xs">Chargement…</div>
 
-      <div v-else class="grid grid-cols-2 gap-4">
-        <div v-for="field in smcFields" :key="field.key">
-          <label class="block mb-1 text-xs text-gray-400">{{ field.label }}</label>
+      <div v-else class="space-y-1">
+        <div v-for="field in smcFields" :key="field.key" class="flex items-center justify-between gap-2">
+          <label class="text-[11px] text-gray-400 whitespace-nowrap">{{ field.label }}</label>
           <input
             v-model.number="smcParams[field.key]"
             type="number"
             :step="field.step"
             :min="field.min"
-            class="bg-gray-700 text-white rounded px-3 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            class="bg-gray-700 text-white rounded px-2 py-0.5 w-20 text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
           />
-          <p class="text-xs text-gray-500 mt-1">{{ field.hint }}</p>
         </div>
-      </div>
-
-      <div class="flex items-center gap-3 mt-4">
-        <button
-          class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium transition-colors"
-          :disabled="savingSmc"
-          @click="sauvegarderSmc"
-        >{{ savingSmc ? 'Sauvegarde…' : 'Enregistrer SMC' }}</button>
-        <span v-if="msgSmc" :class="msgSmc.ok ? 'text-green-400' : 'text-red-400'" class="text-sm">
-          {{ msgSmc.text }}
-        </span>
       </div>
     </div>
 

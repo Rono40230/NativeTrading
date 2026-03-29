@@ -22,9 +22,12 @@ export interface RequeteAnalyseIA {
   timeframe: string
   direction: string
   score_smc: number
+  score_min?: number
   prix_entree: number
   stop_loss: number
-  take_profit: number
+  take_profit_1: number
+  take_profit_2?: number
+  take_profit_3?: number
   tendance: number
   order_block: number
   imbalance: number

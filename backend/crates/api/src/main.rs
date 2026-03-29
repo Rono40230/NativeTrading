@@ -17,8 +17,8 @@ mod news_context_handler;
 mod news_fear_greed;
 mod news_handlers;
 mod news_lus_handlers;
-mod news_scoring;
 mod news_rss;
+mod news_scoring;
 mod news_scraper;
 mod news_traduction;
 mod ollama;
@@ -41,17 +41,19 @@ mod smc_handlers;
 mod state;
 mod straddle_backtest_handler;
 mod straddle_handlers;
-mod strategies_params_handlers;
 mod straddle_prompt;
 mod straddle_signal_handler;
 mod straddle_slot_backtest;
 mod straddle_slot_backtest_fenetre;
 mod straddle_types;
 mod straddle_utils;
+mod strategies_params_handlers;
 mod tendance_handlers;
 mod utils;
 mod volatility_handlers;
 mod ws_handlers;
+
+mod routes;
 
 use state::AppState;
 
@@ -112,199 +114,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(app_state.clone())
             .wrap(middleware::Logger::default())
             .wrap(cors)
-            .route("/health", web::get().to(handlers::health_check))
-            .route("/api/assets", web::get().to(assets_handlers::lister_assets))
-            .route(
-                "/api/assets",
-                web::post().to(assets_handlers::ajouter_asset),
-            )
-            .route(
-                "/api/assets/{id}",
-                web::delete().to(assets_handlers::supprimer_asset),
-            )
-            .route("/api/candles", web::get().to(handlers::get_candles))
-            .route("/api/prix-actuel", web::get().to(handlers::get_prix_actuel))
-            .route("/api/signaux", web::get().to(signaux_handlers::get_signaux))
-            .route("/api/ml/predict", web::get().to(handlers::predict_ml))
-            .route("/api/ml/train", web::post().to(ml_handlers::entrainer_ml))
-            .route("/api/ml/status", web::get().to(ml_handlers::statut_ml))
-            .route(
-                "/api/backtest",
-                web::post().to(backtest_handlers::run_backtest),
-            )
-            .route(
-                "/api/backtest/raffiner-ml",
-                web::post().to(backtest_handlers::raffiner_ml),
-            )
-            .route(
-                "/api/signaux/export",
-                web::get().to(export_handlers::exporter_signaux_csv),
-            )
-            .route("/api/smc/analyse", web::get().to(smc_handlers::analyse_smc))
-            .route(
-                "/api/indicators",
-                web::get().to(indicators_handlers::get_indicators),
-            )
-            .route(
-                "/api/tendance/multi-tf",
-                web::get().to(tendance_handlers::tendance_multi_tf),
-            )
-            .route("/api/ia/analyse", web::post().to(ollama_handlers::analyser))
-            .route("/api/ia/chat", web::post().to(ollama_handlers::chat))
-            .route(
-                "/api/ia/chart",
-                web::post().to(ollama_handlers::analyser_chart),
-            )
-            .route("/api/ia/status", web::get().to(ollama_handlers::statut))
-            .route(
-                "/api/ia/signal",
-                web::post().to(ollama_handlers::generer_signal),
-            )
-            .route(
-                "/api/ia/ajustements",
-                web::post().to(ollama_ajustements_handler::ajustements),
-            )
-            .route(
-                "/api/ia/signal/straddle",
-                web::post().to(straddle_signal_handler::generer_signal_straddle),
-            )
-            .route(
-                "/api/straddle/analyser",
-                web::post().to(straddle_handlers::analyser),
-            )
-            .route(
-                "/api/straddle/creneaux",
-                web::get().to(straddle_handlers::lister_creneaux),
-            )
-            .route(
-                "/api/straddle/creneaux/{id}",
-                web::patch().to(straddle_handlers::mettre_a_jour_creneau),
-            )
-            .route(
-                "/api/straddle/creneaux/{id}/precision",
-                web::post().to(straddle_handlers::handler_analyser_precision),
-            )
-            .route(
-                "/api/straddle/backtest",
-                web::post().to(straddle_backtest_handler::handler_backtest_slot),
-            )
-            .route(
-                "/api/straddle/params",
-                web::get().to(strategies_params_handlers::get_straddle_params),
-            )
-            .route(
-                "/api/straddle/params",
-                web::put().to(strategies_params_handlers::put_straddle_params),
-            )
-            .route(
-                "/api/smc/params",
-                web::get().to(strategies_params_handlers::get_smc_params),
-            )
-            .route(
-                "/api/smc/params",
-                web::put().to(strategies_params_handlers::put_smc_params),
-            )
-            .route("/api/config", web::get().to(config_handlers::get_config))
-            .route("/api/config", web::post().to(config_handlers::post_config))
-            .route("/api/ib/status", web::get().to(handlers::ib_status))
-            .route(
-                "/api/calendar",
-                web::get().to(calendar_handlers::get_calendar),
-            )
-            .route(
-                "/api/sentiment/marche",
-                web::get().to(sentiment_handlers::get_sentiment_marche),
-            )
-            .route(
-                "/api/news/alertes",
-                web::get().to(news_handlers::get_news_alertes),
-            )
-            .route(
-                "/api/news/contenu",
-                web::get().to(news_handlers::get_contenu_article),
-            )
-            .route(
-                "/api/news/traduire",
-                web::get().to(news_handlers::get_traduire),
-            )
-            .route(
-                "/api/news/fear-greed",
-                web::get().to(news_fear_greed::get_fear_greed),
-            )
-            .route(
-                "/api/news/lu",
-                web::post().to(news_lus_handlers::marquer_lu),
-            )
-            .route("/api/news/lus", web::get().to(news_lus_handlers::lire_lus))
-            .route(
-                "/api/news/contexte-marche",
-                web::get().to(news_context_handler::get_contexte_marche),
-            )
-            .route("/api/stream", web::get().to(ws_handlers::stream_market))
-            .route(
-                "/api/signal-engine/start",
-                web::post().to(engine_handlers::demarrer_engine),
-            )
-            .route(
-                "/api/signal-engine/stop",
-                web::post().to(engine_handlers::arreter_engine),
-            )
-            .route(
-                "/api/signal-engine/status",
-                web::get().to(engine_handlers::statut_engine),
-            )
-            .route(
-                "/api/signal-engine/stream",
-                web::get().to(engine_handlers::stream_signaux),
-            )
-            .route(
-                "/api/data/coverage",
-                web::get().to(data_handlers::get_coverage),
-            )
-            .route(
-                "/api/data/collect",
-                web::post().to(data_handlers::post_collect),
-            )
-            .route("/api/ml/history", web::get().to(ml_handlers::historique_ml))
-            .route(
-                "/api/rockets/signal",
-                web::post().to(rockets_handlers::sauvegarder_signal),
-            )
-            .route(
-                "/api/rockets/scan",
-                web::get().to(rockets_handlers::get_scan),
-            )
-            .route(
-                "/api/rockets/historique",
-                web::get().to(rockets_handlers::get_historique),
-            )
-            .route(
-                "/api/rockets/sync",
-                web::post().to(rockets_suivi::sync_verdicts),
-            )
-            .service(
-                web::resource("/api/rockets/config")
-                    .route(web::get().to(rockets_handlers::get_config))
-                    .route(web::put().to(rockets_handlers::put_config)),
-            )
-            .service(
-                web::resource("/api/rockets/analyse-llm")
-                    .route(web::get().to(rockets_analyse_handler::get_derniere_analyse))
-                    .route(web::post().to(rockets_analyse_handler::lancer_analyse)),
-            )
-            .service(
-                web::resource("/api/smc/analyse-llm")
-                    .route(web::get().to(smc_analyse_handler::get_derniere_analyse))
-                    .route(web::post().to(smc_analyse_handler::lancer_analyse)),
-            )
-            .route(
-                "/api/volatility/patterns",
-                web::get().to(volatility_handlers::get_patterns),
-            )
-            .route(
-                "/api/ia/ab-test",
-                web::get().to(ab_test_handlers::get_ab_test),
-            )
+            .configure(routes::configurer)
     })
     .bind(("0.0.0.0", 8080))?
     .run()

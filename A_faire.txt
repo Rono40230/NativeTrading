@@ -24,16 +24,7 @@ Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Il faudrait pouvoir "manipuler" les paramètres de la logique de prise de position pour SMC et STRADDLE.
-Analyse comment sont coder les fichiers bidi.mq5 et uni.mq5.
-Pour le straddle c'est la logique bidi qui prime et pour le SMC c'est uni.
-Pour affiner les résultats du backtesting au plus proche de la réalité il faudrait pouvoir modifier les paramètres bidi et uni.
-A chaque modification de paramètres le backtesting doit réagir avec les nouveaux paramètres.
-Exactement comme fonctionne le backtesting des EA sur MT5 = va te renseigner sur le web pour voir comment cela fonctionne.
 
-Qu'est ce que cela signifie comme refonte du code ?
-Est ce possible ?
-repond sans coder.
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -52,3 +43,32 @@ Repônd sans coder
 
 Réfléchir à un système d'alarme qui affiche une modale lorsqu'un nouveau signal (quelle que soit la stratégie) est généré.
 Cette modale doit s'afficher automatiquement quelque soit la page ouverte dans l'app et ne pourra être fermée que par une action de l'utilisateur = clic sur x
+Est ce clair ?
+Repond sans coder
+
+
+Lorsque de nouveau paramètres ont été enregistrés il faut qu'ils deviennent les nouveaux paramètres par défaut du prompt.
+Est ce le cas ?
+Si oui ils doivent être automatiquement mis à jour/affichés dans le bloc "paramètres straddle".
+Est ce clair ?
+Repond sans coder
+
+Comportement de uni et bidi :
+Risque = entre 1 et 3% du montant du capital par Position, donc trade Rocket ou SMC = 1 à 3% par trade et position straddle = entre 0.5 et 1.5 par jambe.
+- entrée = R
+- SL = R-1 = multiplicateur X ATR
+- TP 1 = R+1
+- TP 2 = R+2
+- TP 3 = Stop suiveur avec multiplicateur ATR
+
+Pour la sécurisation des trades = 2 options :
+Option 1 = vente partielle
+- si SL touché = R-1 = perdant
+- si tp1 touché = vente de 33% de la position et déplacement du SL au niveau de l'entrée
+- si TP2 touché = vente de 33% de la position restante et déplacement du SL en TP1
+- le reste de la position court vers tp3 suivi par le stop suiveur.
+Option 2 = pas de vente partielle = le lot n'est pas parcélisé à la revente pendant l'évolution de la position.
+- si SL touché = R-1 = perdant
+- si tp1 touché = vente de 33% de la position et déplacement du SL au niveau de l'entrée
+- si TP2 touché = vente de 33% de la position restante et déplacement du SL en TP1
+- le reste de la position court vers tp3 suivi par le stop suiveur.

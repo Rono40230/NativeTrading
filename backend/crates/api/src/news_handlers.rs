@@ -4,10 +4,8 @@ use futures_util::future;
 use serde::{Deserialize, Serialize};
 
 use crate::news_rss::fetch_rss;
+use crate::news_scoring::{classer_theme, dedupliquer, niveau, scorer, AlertesNews, ArticleNews};
 use crate::news_scraper::{est_url_externe_sure, recuperer_contenu_article};
-use crate::news_scoring::{
-    classer_theme, dedupliquer, niveau, scorer, AlertesNews, ArticleNews,
-};
 use crate::news_traduction::{
     hash_titre, lire_cache, lire_sentiment_cache, traduire_avec_cache, traduire_contenu,
 };

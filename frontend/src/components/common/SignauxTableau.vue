@@ -37,6 +37,7 @@
             <th class="px-3 py-3 text-center">IA</th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Résultat <span>{{ icone('verdict') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Date <span>{{ icone('cree_le') }}</span></th>
+            <th v-if="strategie === 'SmcDirectional'" class="px-3 py-3 text-center w-10"></th>
           </tr>
         </thead>
         <tbody>
@@ -63,6 +64,9 @@
               <span class="badge" :class="classeVerdictSignal(s.verdict)">{{ labelVerdictSignal(s.verdict) }}</span>
             </td>
             <td class="px-3 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
+            <td v-if="strategie === 'SmcDirectional'" class="px-3 py-3 text-center">
+              <button class="text-blue-400 hover:text-blue-200 text-sm transition-colors" title="Analyser ce signal avec l'IA" @click="analyserSignal(s)">🔍</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -77,6 +81,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import type { Signal, RocketSignalHistorique } from '@/services/api.types'
 import { apiService } from '@/services/api.service'
 import { usePrixStore } from '@/stores/prix.store'
@@ -88,6 +93,24 @@ import SmcAnalyseModal from '@/components/common/SmcAnalyseModal.vue'
 import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
 
 const props = defineProps<{ strategie: 'SmcDirectional' | 'Straddle' | 'Rockets' }>()
+
+const router = useRouter()
+
+function analyserSignal(s: Signal) {
+  router.push({
+    path: '/smc/analyser',
+    query: {
+      asset: s.asset,
+      tf: s.timeframe,
+      dir: s.direction,
+      entree: String(s.prix_entree),
+      sl: String(s.stop_loss),
+      tp1: String(s.take_profit[0] ?? 0),
+      tp2: String(s.take_profit[1] ?? 0),
+      tp3: String(s.take_profit[2] ?? 0),
+    }
+  })
+}
 
 const prixStore = usePrixStore()
 const signaux = ref<Signal[]>([])

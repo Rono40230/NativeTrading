@@ -54,10 +54,7 @@ pub async fn lire_straddle_params(pool: &SqlitePool) -> StraddleParams {
     }
 }
 
-pub async fn sauvegarder_straddle_params(
-    pool: &SqlitePool,
-    p: &StraddleParams,
-) -> Result<()> {
+pub async fn sauvegarder_straddle_params(pool: &SqlitePool, p: &StraddleParams) -> Result<()> {
     sqlx::query(
         "INSERT INTO straddle_params
              (id, atr_periode, atr_seuil, tp_mult_1, tp_mult_2, tp_mult_3,

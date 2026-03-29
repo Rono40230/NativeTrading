@@ -6,108 +6,101 @@
     <div class="grid grid-cols-3 gap-4 items-start">
 
     <!-- IB Gateway -->
-    <div class="glass-card p-6">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">IB Gateway — Connexion</h2>
-      <div class="space-y-4">
-        <div class="grid grid-cols-2 gap-4">
-          <!-- Port -->
-          <div>
-            <label class="block mb-2 text-sm text-gray-300">Port</label>
-            <div class="flex gap-2">
-              <input
-                v-model.number="ibPort"
-                type="number"
-                min="1024"
-                max="65535"
-                placeholder="4002"
-                class="bg-gray-700 text-white rounded px-3 py-2 w-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <span class="text-xs text-gray-500 self-center">4002 = paper · 4001 = live</span>
-            </div>
-          </div>
-          <!-- Client ID -->
-          <div>
-            <label class="block mb-2 text-sm text-gray-300">Client ID</label>
-            <input
-              v-model.number="ibClientId"
-              type="number"
-              min="1"
-              max="9999"
-              placeholder="100"
-              class="bg-gray-700 text-white rounded px-3 py-2 w-32 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-
-        <div class="flex items-center gap-3 flex-wrap">
+    <div class="glass-card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">IB Gateway — Connexion</h2>
+        <div class="flex items-center gap-2 flex-wrap">
           <button
-            class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium transition-colors"
+            class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-xs font-medium transition-colors"
             @click="sauvegarderIB"
           >
             Enregistrer
           </button>
           <button
-            class="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-medium transition-colors"
+            class="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-xs font-medium transition-colors"
             :disabled="testEnCours"
             @click="testerConnexion"
           >
-            {{ testEnCours ? 'Test en cours…' : '🔌 Tester la connexion' }}
+            {{ testEnCours ? '…' : '🔌 Tester' }}
           </button>
-          <span v-if="ibSauvegarde" class="text-emerald-400 text-sm">✓ Sauvegardé</span>
-
-          <!-- Résultat du test -->
-          <span v-if="statutConnexion === 'ok'" class="text-xs px-3 py-1 rounded bg-emerald-900/40 text-emerald-300 border border-emerald-700/30">
-            ✅ IB Gateway connecté
-          </span>
-          <span v-else-if="statutConnexion === 'erreur'" class="text-xs px-3 py-1 rounded bg-red-900/40 text-red-400 border border-red-700/30">
-            ❌ {{ erreurConnexion }}
-          </span>
+          <span v-if="ibSauvegarde" class="text-emerald-400 text-xs">✓</span>
+          <span v-if="statutConnexion === 'ok'" class="text-xs px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-300 border border-emerald-700/30">✅ Connecté</span>
+          <span v-else-if="statutConnexion === 'erreur'" class="text-xs px-2 py-0.5 rounded bg-red-900/40 text-red-400 border border-red-700/30">❌ {{ erreurConnexion }}</span>
         </div>
-
-        <div class="flex items-center gap-3 px-4 py-3 bg-blue-900/20 border border-blue-700/30 rounded-lg">
-          <span class="text-2xl">🔌</span>
-          <div>
-            <p class="text-sm font-medium text-blue-300">Interactive Brokers — Provider unique</p>
-            <p class="text-xs text-gray-400 mt-0.5">XAUUSD · XAGUSD · BTC · ETH · Timeframes M1→W1</p>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <!-- Port -->
+        <div>
+          <label class="block mb-1 text-xs text-gray-400">Port</label>
+          <div class="flex gap-2 items-center">
+            <input
+              v-model.number="ibPort"
+              type="number"
+              min="1024"
+              max="65535"
+              placeholder="4002"
+              class="bg-gray-700 text-white rounded px-2 py-1.5 w-24 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <span class="text-xs text-gray-500">4002 paper · 4001 live</span>
           </div>
+        </div>
+        <!-- Client ID -->
+        <div>
+          <label class="block mb-1 text-xs text-gray-400">Client ID</label>
+          <input
+            v-model.number="ibClientId"
+            type="number"
+            min="1"
+            max="9999"
+            placeholder="100"
+            class="bg-gray-700 text-white rounded px-2 py-1.5 w-24 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
       </div>
     </div>
 
     <!-- Capital de départ -->
-    <div class="glass-card p-6">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Compte</h2>
+    <div class="glass-card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Compte</h2>
+        <div class="flex items-center gap-2">
+          <button
+            class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded text-xs font-medium transition-colors"
+            @click="sauvegarder"
+          >
+            Enregistrer
+          </button>
+          <span v-if="sauvegarde" class="text-emerald-400 text-xs">✓</span>
+        </div>
+      </div>
       <div>
-        <label class="block mb-2 text-sm text-gray-300">Capital de départ (€)</label>
-        <div class="flex gap-3 items-center">
+        <label class="block mb-1 text-xs text-gray-400">Capital de départ (€)</label>
+        <div class="flex gap-2 items-center">
           <input
             v-model.number="capitalSaisie"
             type="number"
             min="1"
             step="100"
-            class="bg-gray-700 text-white rounded px-3 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            class="bg-gray-700 text-white rounded px-2 py-1.5 w-36 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             @keyup.enter="sauvegarder"
           />
-          <button
-            class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm font-medium transition-colors"
-            @click="sauvegarder"
-          >
-            Enregistrer
-          </button>
-          <span v-if="sauvegarde" class="text-emerald-400 text-sm">✓ Sauvegardé</span>
+          <span class="text-xs text-gray-500">Utilisé pour le backtesting et le dimensionnement des positions</span>
         </div>
-        <p class="text-xs text-gray-500 mt-1">Utilisé pour le backtesting et le dimensionnement des positions</p>
       </div>
     </div>
 
     <!-- Risque par trade -->
-    <div class="glass-card p-6">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Gestion du risque</h2>
+    <div class="glass-card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Gestion du risque</h2>
+      </div>
       <div>
-        <label class="block mb-2 text-sm text-gray-300">Risque par trade (%)</label>
-        <input type="number" value="1.0" min="0.1" max="5" step="0.1"
-          class="bg-gray-700 text-white rounded px-3 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-emerald-500">
-        <p class="text-xs text-gray-500 mt-1">Max 2% recommandé (limite absolue : 2%)</p>
+        <label class="block mb-1 text-xs text-gray-400">Risque par trade (%)</label>
+        <div class="flex gap-2 items-center">
+          <input type="number" value="1.0" min="0.1" max="5" step="0.1"
+            class="bg-gray-700 text-white rounded px-2 py-1.5 w-36 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          <span class="text-xs text-gray-500">Max 2% recommandé (limite absolue : 2%)</span>
+        </div>
       </div>
     </div>
 
@@ -116,8 +109,6 @@
     <!-- Assets -->
     <GestionAssets />
 
-    <!-- Paramètres stratégies Straddle + SMC -->
-    <StrategiesParamsPanel />
   </div>
 </template>
 
@@ -126,7 +117,6 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useSettingsStore } from '@/stores/settings.store'
 import { apiService } from '@/services/api.service'
 import GestionAssets from '@/components/common/GestionAssets.vue'
-import StrategiesParamsPanel from '@/components/StrategiesParamsPanel.vue'
 
 const settingsStore = useSettingsStore()
 const capitalSaisie = ref(settingsStore.capitalDepart)

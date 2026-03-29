@@ -1,46 +1,48 @@
 <template>
-  <div class="glass-card p-6 space-y-6">
-    <div class="flex items-center justify-between">
+  <div class="glass-card p-4">
+    <div class="flex items-center justify-between mb-3">
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Assets actifs</h2>
       <span class="text-xs text-gray-500">{{ nbActifs }} / {{ tous.length }} activés</span>
     </div>
 
-    <div v-for="cat in CATEGORIES" :key="cat.type" class="space-y-2">
-      <p class="text-xs font-semibold uppercase tracking-wider" :class="cat.couleur">
-        {{ cat.label }}
-      </p>
-      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-        <label
-          v-for="a in cat.assets"
-          :key="a.id"
-          class="flex items-center gap-2 cursor-pointer rounded-lg border px-3 py-2 transition select-none"
-          :class="estActif(a.id)
-            ? 'border-emerald-500/40 bg-emerald-500/10'
-            : 'border-white/20 bg-white/[0.03] hover:bg-white/[0.07] hover:border-white/30'"
-        >
-          <input
-            type="checkbox"
-            class="hidden"
-            :checked="estActif(a.id)"
-            :disabled="enCours === a.id"
-            @change="basculer(a)"
-          />
-          <span class="w-3 h-3 rounded-sm border flex items-center justify-center shrink-0 transition"
-            :class="estActif(a.id) ? 'bg-emerald-500 border-emerald-500' : 'border-white/30'">
-            <svg v-if="estActif(a.id)" class="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 12 12">
-              <path d="M10 3L5 8.5 2 5.5" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <div class="min-w-0">
-            <p class="font-mono text-xs font-bold text-white truncate">{{ a.id }}</p>
-            <p class="text-[10px] text-gray-400 truncate">{{ a.nom }}</p>
-          </div>
-          <span v-if="enCours === a.id" class="ml-auto text-[10px] text-gray-500">…</span>
-        </label>
+    <!-- 4 colonnes côte à côte : Crypto | Métaux | Forex | Indices -->
+    <div class="grid grid-cols-4 gap-3">
+      <div v-for="cat in CATEGORIES" :key="cat.type">
+        <p class="text-[11px] font-semibold uppercase tracking-wider mb-1.5" :class="cat.couleur">
+          {{ cat.label }}
+        </p>
+        <div class="space-y-0.5">
+          <label
+            v-for="a in cat.assets"
+            :key="a.id"
+            class="flex items-center gap-1.5 cursor-pointer rounded border px-2 py-1 transition select-none"
+            :class="estActif(a.id)
+              ? 'border-emerald-500/40 bg-emerald-500/10'
+              : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/20'"
+          >
+            <input
+              type="checkbox"
+              class="hidden"
+              :checked="estActif(a.id)"
+              :disabled="enCours === a.id"
+              @change="basculer(a)"
+            />
+            <span
+              class="w-2.5 h-2.5 rounded-sm border flex items-center justify-center shrink-0 transition"
+              :class="estActif(a.id) ? 'bg-emerald-500 border-emerald-500' : 'border-white/30'"
+            >
+              <svg v-if="estActif(a.id)" class="w-2 h-2 text-white" fill="none" viewBox="0 0 12 12">
+                <path d="M10 3L5 8.5 2 5.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </span>
+            <span class="font-mono text-[22px] font-bold text-white truncate leading-tight">{{ a.id }}</span>
+            <span v-if="enCours === a.id" class="ml-auto text-[10px] text-gray-500">…</span>
+          </label>
+        </div>
       </div>
     </div>
 
-    <p v-if="erreur" class="text-red-400 text-xs">{{ erreur }}</p>
+    <p v-if="erreur" class="text-red-400 text-xs mt-2">{{ erreur }}</p>
   </div>
 </template>
 

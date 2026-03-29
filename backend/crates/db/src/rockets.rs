@@ -5,7 +5,9 @@ use sqlx::{Row, SqlitePool};
 // Config scan déléguée au module dédié
 pub use crate::rockets_config::{lire_config, sauvegarder_config, RocketsConfig};
 // Analyses LLM déléguées au module dédié
-pub use crate::rockets_analyses::{derniere_analyse, sauvegarder_analyse, signaux_pour_analyse, AnalyseLlm};
+pub use crate::rockets_analyses::{
+    derniere_analyse, sauvegarder_analyse, signaux_pour_analyse, AnalyseLlm,
+};
 
 #[derive(Serialize, Clone)]
 pub struct RocketSignal {
@@ -228,4 +230,3 @@ pub async fn historique(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSign
     .map_err(|e| TradingError::Database(e.to_string()))?;
     Ok(rows.iter().map(row_to_signal).collect())
 }
-

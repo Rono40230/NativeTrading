@@ -5,54 +5,73 @@
         <h1 class="text-2xl font-bold">🧠 Analyse IA SMC</h1>
         <p class="text-xs text-gray-500 mt-0.5">Via Ollama local — {{ modeleActif }}</p>
       </div>
-      <span
-        class="text-xs px-2 py-1 rounded-full font-semibold"
-        :class="ollamaOk ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/50 text-red-300'"
-      >
-        {{ ollamaOk ? '🟢 Ollama actif' : '🔴 Ollama hors ligne' }}
-      </span>
+        <span
+          class="text-xs px-2 py-1 rounded-full font-semibold"
+          :class="ollamaOk ? 'bg-emerald-900/50 text-emerald-300' : 'bg-red-900/50 text-red-300'"
+        >
+          {{ ollamaOk ? '🟢 Ollama actif' : '🔴 Ollama hors ligne' }}
+        </span>
     </div>
 
+    <!-- Paramètres SMC : supprimé ici, déplacé sous le bouton -->
+
     <!-- Formulaire signal -->
-    <div class="glass-card p-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-      <div>
-        <label class="label">Asset</label>
-        <select v-model="form.asset" class="glass-select w-full">
-          <option v-for="a in assetsIds" :key="a" :value="a">{{ a }}</option>
-        </select>
+    <div class="glass-card-analyse">
+      <div class="flex items-center gap-2 px-5 pt-4 pb-3 border-b border-white/5">
+        <h2 class="text-sm font-semibold text-gray-300">🔍 Signal à analyser</h2>
+        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-600/30 text-purple-300 border border-purple-500/40 uppercase tracking-wider">Analyse Manuelle</span>
       </div>
-      <div>
-        <label class="label">Timeframe</label>
-        <select v-model="form.timeframe" class="glass-select w-full">
-          <option v-for="tf in ['M5', 'M15', 'H1', 'H4']" :key="tf" :value="tf">{{ tf }}</option>
-        </select>
-      </div>
-      <div>
-        <label class="label">Direction</label>
-        <select v-model="form.direction" class="glass-select w-full">
-          <option value="LONG">LONG</option>
-          <option value="SHORT">SHORT</option>
-        </select>
-      </div>
-      <div>
-        <label class="label">Score SMC</label>
-        <input v-model.number="form.score_smc" type="number" min="0" max="100" step="1" class="glass-input w-full" />
-      </div>
-      <div>
-        <label class="label">Prix d'entrée</label>
-        <input v-model.number="form.prix_entree" type="number" step="0.01" class="glass-input w-full" />
-      </div>
-      <div>
-        <label class="label">Stop-Loss</label>
-        <input v-model.number="form.stop_loss" type="number" step="0.01" class="glass-input w-full" />
-      </div>
-      <div>
-        <label class="label">Take-Profit</label>
-        <input v-model.number="form.take_profit" type="number" step="0.01" class="glass-input w-full" />
-      </div>
-      <div>
-        <label class="label">Confiance ML (%)</label>
-        <input v-model.number="form.confiance_ml_pct" type="number" min="0" max="100" step="1" class="glass-input w-full" />
+      <div class="p-5 grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <div>
+          <label class="label">Asset</label>
+          <select v-model="form.asset" class="glass-select w-full">
+            <option v-for="a in assetsIds" :key="a" :value="a">{{ a }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Timeframe</label>
+          <select v-model="form.timeframe" class="glass-select w-full">
+            <option v-for="tf in ['M5', 'M15', 'H1', 'H4']" :key="tf" :value="tf">{{ tf }}</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Direction</label>
+          <select v-model="form.direction" class="glass-select w-full">
+            <option value="LONG">LONG</option>
+            <option value="SHORT">SHORT</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">Score SMC <span class="text-gray-600 font-normal">(calculé)</span></label>
+          <div class="glass-input w-full flex items-center justify-between cursor-default">
+            <span class="font-mono font-bold text-base" :class="scoreSmc >= smcParams.score_min ? 'text-emerald-400' : 'text-red-400'">{{ scoreSmc }}</span>
+            <span class="text-xs text-gray-500">/ 80</span>
+          </div>
+        </div>
+        <div>
+          <label class="label">Confiance ML (%)</label>
+          <input v-model.number="form.confiance_ml_pct" type="number" min="0" max="100" step="1" class="glass-input w-full" />
+        </div>
+        <div>
+          <label class="label">Prix d'entrée</label>
+          <input v-model.number="form.prix_entree" type="number" step="0.01" class="glass-input w-full" />
+        </div>
+        <div>
+          <label class="label">Stop-Loss</label>
+          <input v-model.number="form.stop_loss" type="number" step="0.01" class="glass-input w-full" />
+        </div>
+        <div>
+          <label class="label">TP1</label>
+          <input v-model.number="form.tp1" type="number" step="0.01" class="glass-input w-full" />
+        </div>
+        <div>
+          <label class="label">TP2</label>
+          <input v-model.number="form.tp2" type="number" step="0.01" class="glass-input w-full" />
+        </div>
+        <div>
+          <label class="label">TP3</label>
+          <input v-model.number="form.tp3" type="number" step="0.01" class="glass-input w-full" />
+        </div>
       </div>
     </div>
 
@@ -77,6 +96,12 @@
       {{ chargement ? '⏳ Analyse en cours...' : '🔍 Analyser ce signal' }}
     </button>
 
+    <!-- Séparateur -->
+    <div class="border-t-4 border-white/10 rounded-full" />
+
+    <!-- Paramètres Moteur SMC -->
+    <SmcParamsPanel v-model="smcParams" />
+
     <!-- Résultat -->
     <transition name="fade">
       <div v-if="analyse" class="glass-card p-6 space-y-3">
@@ -100,9 +125,20 @@ ollama serve</pre>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { apiService } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useAssetsStore } from '@/stores/assets.store'
+import SmcParamsPanel, { type SmcParams } from '@/components/common/SmcParamsPanel.vue'
+
+const smcParams = ref<SmcParams>({
+  atr_periode: 14,
+  score_min: 70,
+  atr_tp1: 1.5,
+  atr_tp2: 3.0,
+  atr_tp3: 5.0,
+  atr_sl: 1.0,
+})
 
 const alerteStore = useAlerteStore()
 const assetsStore = useAssetsStore()
@@ -116,14 +152,19 @@ const ollamaOk = ref(false)
 const modeleActif = ref('qwen2.5:14b')
 const analyse = ref('')
 
+const scoreSmc = computed(() =>
+  form.tendance + form.order_block + form.imbalance + form.ifvg + form.fibonacci
+)
+
 const form = reactive({
   asset: 'BTC',
   timeframe: 'M15',
   direction: 'LONG',
-  score_smc: 75,
   prix_entree: 0,
   stop_loss: 0,
-  take_profit: 0,
+  tp1: 0,
+  tp2: 0,
+  tp3: 0,
   confiance_ml_pct: 65,
   tendance: 30,
   order_block: 20,
@@ -158,10 +199,13 @@ async function analyser() {
       asset: form.asset,
       timeframe: form.timeframe,
       direction: form.direction,
-      score_smc: form.score_smc,
+      score_smc: scoreSmc.value,
+      score_min: smcParams.value.score_min,
       prix_entree: form.prix_entree,
       stop_loss: form.stop_loss,
-      take_profit: form.take_profit,
+      take_profit_1: form.tp1,
+      take_profit_2: form.tp2 || undefined,
+      take_profit_3: form.tp3 || undefined,
       tendance: form.tendance,
       order_block: form.order_block,
       imbalance: form.imbalance,
@@ -178,14 +222,27 @@ async function analyser() {
   }
 }
 
+const route = useRoute()
 onMounted(() => {
   assetsStore.chargerAssets()
   verifierStatut()
+  const q = route.query
+  if (q.asset) {
+    form.asset = String(q.asset)
+    form.timeframe = String(q.tf ?? 'M15')
+    form.direction = String(q.dir ?? 'LONG')
+    form.prix_entree = Number(q.entree ?? 0)
+    form.stop_loss = Number(q.sl ?? 0)
+    form.tp1 = Number(q.tp1 ?? 0)
+    form.tp2 = Number(q.tp2 ?? 0)
+    form.tp3 = Number(q.tp3 ?? 0)
+  }
 })
 </script>
 
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
+.glass-card-analyse { @apply rounded-xl border border-purple-500/20 bg-purple-900/5 backdrop-blur-sm; }
 .glass-select { @apply bg-white border border-gray-300 text-black text-sm rounded-lg px-3 py-2; }
 .glass-select option { @apply text-black bg-white; }
 .glass-input { @apply bg-gray-800 border border-gray-600 text-white text-sm rounded-lg px-3 py-2; }
