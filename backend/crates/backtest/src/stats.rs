@@ -1,5 +1,5 @@
+use crate::calculs::{SortieType, TradeDirection, TradeSimule};
 use crate::BacktestResults;
-use crate::calculs::{TradeDirection, SortieType, TradeSimule};
 use common::Result;
 
 pub(crate) fn resultats_vides(capital_initial: f64) -> BacktestResults {

@@ -208,7 +208,12 @@ pub async fn maj_verdict(pool: &SqlitePool, id: i64, verdict: &str, prix: f64) -
 
 /// Enregistre une vente partielle (TP1 ou TP2) SANS fermer la position.
 /// Met à jour `verdict` pour mémoriser le niveau atteint, `statut` reste 'ouvert'.
-pub async fn enregistrer_tp_partiel(pool: &SqlitePool, id: i64, niveau: &str, prix: f64) -> Result<()> {
+pub async fn enregistrer_tp_partiel(
+    pool: &SqlitePool,
+    id: i64,
+    niveau: &str,
+    prix: f64,
+) -> Result<()> {
     sqlx::query(
         "UPDATE rockets_signaux
          SET verdict = ?, prix_verdict = ?, maj_le = datetime('now')

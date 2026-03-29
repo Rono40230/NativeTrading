@@ -115,6 +115,12 @@ impl SignalEngine {
             .store(score, std::sync::atomic::Ordering::Relaxed);
     }
 
+    /// Publie un signal dans le canal broadcast → WebSocket → modale d'alerte.
+    /// À utiliser par toutes les stratégies pour un pipeline unifié.
+    pub fn publier(&self, signal: Signal) {
+        let _ = self.tx.send(signal);
+    }
+
     /// Mise à jour du Fear & Greed (appelé par le handler /api/news/fear-greed).
     pub fn mettre_a_jour_fg(&self, valeur: i32) {
         self.fg_valeur

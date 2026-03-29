@@ -79,6 +79,9 @@ impl AppState {
         crate::scheduler::demarrer_surveillance_ml(db.clone(), pipeline_ml.clone());
         tracing::info!("🔍 Surveillance ML activée (check toutes les 6h, seuil 52%)");
 
+        // Boucle Straddle automatique toutes les 15 min (BTC/ETH/XAUUSD)
+        crate::straddle_boucle::demarrer_boucle_straddle(db.clone(), signal_engine.clone());
+
         Ok(Self {
             db,
             pipeline_ml,

@@ -1,4 +1,5 @@
 use crate::rockets_analyse::analyser_symbol;
+use crate::signal_engine::SignalEngine;
 use db::rockets::{self, NouveauRocket};
 use futures_util::future::join_all;
 use std::sync::{Arc, OnceLock};
@@ -28,7 +29,7 @@ pub fn get_total_candidats() -> Arc<RwLock<usize>> {
 
 // ── Worker de scan ───────────────────────────────────────────────────────────
 
-pub async fn demarrer_worker_scan(pool: sqlx::SqlitePool) {
+pub async fn demarrer_worker_scan(pool: sqlx::SqlitePool, signal_engine: Arc<SignalEngine>) {
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
         .build()
@@ -41,14 +42,18 @@ pub async fn demarrer_worker_scan(pool: sqlx::SqlitePool) {
     };
 
     loop {
-        if let Err(e) = executer_scan(&client, &pool).await {
+        if let Err(e) = executer_scan(&client, &pool, &signal_engine).await {
             tracing::warn!("Scan rockets erreur: {}", e);
         }
         tokio::time::sleep(Duration::from_secs(SCAN_SECS)).await;
     }
 }
 
-async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> anyhow::Result<()> {
+async fn executer_scan(
+    client: &reqwest::Client,
+    pool: &sqlx::SqlitePool,
+    signal_engine: &Arc<SignalEngine>,
+) -> anyhow::Result<()> {
     use anyhow::Context;
 
     // Lire la config depuis la DB (paramètres ajustables par l'utilisateur)
@@ -205,6 +210,29 @@ async fn executer_scan(client: &reqwest::Client, pool: &sqlx::SqlitePool) -> any
         };
         if let Err(e) = rockets::sauvegarder(pool, &nouveau).await {
             tracing::warn!("Auto-save rocket {}: {}", r.ticker, e);
+        } else {
+            // Pipeline unifié : publier dans WebSocket + Telegram
+            use common::{Direction, Signal, Timeframe};
+            if let Some(asset) = crate::utils::parse_asset(&r.ticker) {
+                let sl_final = nouveau.llm_sl_suggere.unwrap_or(nouveau.stop_loss);
+                let tp1_final = nouveau.llm_tp1_suggere.unwrap_or(nouveau.target);
+                let signal = Signal::nouveau(
+                    asset,
+                    Timeframe::M15,
+                    Direction::Long,
+                    r.score as f64,
+                    nouveau.prix_entree,
+                    sl_final,
+                    vec![
+                        tp1_final,
+                        nouveau.target2.unwrap_or(tp1_final),
+                        nouveau.target3.unwrap_or(tp1_final),
+                    ],
+                    "Rockets",
+                );
+                signal_engine.publier(signal.clone());
+                crate::telegram::notifier_telegram(signal);
+            }
         }
     }
 

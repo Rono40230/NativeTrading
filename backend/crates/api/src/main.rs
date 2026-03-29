@@ -40,6 +40,7 @@ mod smc_analyse_handler;
 mod smc_handlers;
 mod state;
 mod straddle_backtest_handler;
+mod straddle_boucle;
 mod straddle_handlers;
 mod straddle_prompt;
 mod straddle_signal_handler;
@@ -48,6 +49,7 @@ mod straddle_slot_backtest_fenetre;
 mod straddle_types;
 mod straddle_utils;
 mod strategies_params_handlers;
+mod telegram;
 mod tendance_handlers;
 mod utils;
 mod volatility_handlers;
@@ -59,6 +61,7 @@ use state::AppState;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    dotenvy::from_filename("telegram.env").ok();
     dotenvy::dotenv().ok();
 
     tracing_subscriber::fmt()
@@ -81,7 +84,11 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(rockets_suivi::demarrer_worker_suivi(pool_rockets));
 
     let pool_scan = app_state.db.pool().clone();
-    tokio::spawn(rockets_scan::demarrer_worker_scan(pool_scan));
+    let signal_engine_rockets = app_state.signal_engine.clone();
+    tokio::spawn(rockets_scan::demarrer_worker_scan(
+        pool_scan,
+        signal_engine_rockets,
+    ));
 
     let pool_analyse = app_state.db.pool().clone();
     tokio::spawn(rockets_analyse_handler::demarrer_worker_analyse(

@@ -68,5 +68,6 @@ pub async fn sauvegarder_signal_avec_filtre(
     }
 
     let _ = tx.send(signal.clone());
+    crate::telegram::notifier_telegram(signal.clone());
     Ok(())
 }

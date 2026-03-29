@@ -48,7 +48,10 @@ fn entre_prix_neutre_aucun_verdict() {
 #[test]
 fn sl_touche_invalide() {
     let s = signal(1.0, 0.90, 1.10, None, None, 0.05);
-    assert_eq!(calculer_verdict_rocket(&s, 0.89, 0.89, 0.89), Some("invalide"));
+    assert_eq!(
+        calculer_verdict_rocket(&s, 0.89, 0.89, 0.89),
+        Some("invalide")
+    );
 }
 
 #[test]
@@ -80,14 +83,20 @@ fn retour_breakeven_apres_tp1_invalide() {
     let s = signal(1.0, 0.90, 1.10, Some(1.20), None, 0.05);
     // peak = 1.12 → SL = entrée = 1.0, prix retombe à 1.0 → invalide
     let peak = 1.12;
-    assert_eq!(calculer_verdict_rocket(&s, 1.0, peak, peak), Some("invalide"));
+    assert_eq!(
+        calculer_verdict_rocket(&s, 1.0, peak, peak),
+        Some("invalide")
+    );
 }
 
 #[test]
 fn retour_sous_breakeven_apres_tp1_invalide() {
     let s = signal(1.0, 0.90, 1.10, Some(1.20), None, 0.05);
     let peak = 1.12;
-    assert_eq!(calculer_verdict_rocket(&s, 0.95, peak, peak), Some("invalide"));
+    assert_eq!(
+        calculer_verdict_rocket(&s, 0.95, peak, peak),
+        Some("invalide")
+    );
 }
 
 // ── Scénario 3 : TP2 (pyramidal complet) ─────────────────────────────────────
@@ -98,7 +107,10 @@ fn tp2_premier_franchissement_vente_partielle() {
     // peak_precedent = 1.15 (TP1 déjà hit, < TP2), peak = 1.22 (>= TP2) → transition TP2
     let peak_precedent = 1.15;
     let peak = 1.22;
-    assert_eq!(calculer_verdict_rocket(&s, peak, peak, peak_precedent), Some("TP2"));
+    assert_eq!(
+        calculer_verdict_rocket(&s, peak, peak, peak_precedent),
+        Some("TP2")
+    );
 }
 
 #[test]
@@ -114,7 +126,10 @@ fn retour_tp1_apres_tp2_invalide() {
     let s = signal(1.0, 0.90, 1.10, Some(1.20), Some(1.50), 0.05);
     // peak = 1.25 → SL = TP1 = 1.10, prix retombe à 1.10 → invalide
     let peak = 1.25;
-    assert_eq!(calculer_verdict_rocket(&s, 1.10, peak, peak), Some("invalide"));
+    assert_eq!(
+        calculer_verdict_rocket(&s, 1.10, peak, peak),
+        Some("invalide")
+    );
 }
 
 #[test]
@@ -132,7 +147,10 @@ fn tp3_zone_trailing_stop_non_touche() {
     let s = signal(1.0, 0.90, 1.10, Some(1.20), Some(1.50), 0.05);
     let peak = 1.60;
     let trailing = peak - 0.05 * 1.5;
-    assert_eq!(calculer_verdict_rocket(&s, trailing + 0.01, peak, peak), None);
+    assert_eq!(
+        calculer_verdict_rocket(&s, trailing + 0.01, peak, peak),
+        None
+    );
 }
 
 #[test]

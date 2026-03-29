@@ -259,4 +259,3 @@ pub(crate) fn simuler_sortie_pyramidal(
         (prix_final, sortie)
     }
 }
-

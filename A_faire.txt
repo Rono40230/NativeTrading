@@ -26,8 +26,8 @@ Repond sans coder
 
 Analyse en profondeur et dans les moindres détails toutes les fonctionnalités de cette app.
 Ecrie un fichier test.md qui :
-- liste (classée par vues/pages de l'app) tout ce que fait l'app
-- détaille tous les tests à réaliser à partir de l'UI pour valider le fonctionnement de toutes les fonctionnalités de l'app.
+- liste, classée par vues/pages puis par blocs tout ce que fait chaque bloc de l'app 
+- détaille tous les tests à réaliser à partir de l'UI pour valider le fonctionnement de toutes les blocs de l'app.
 
 
 --------------------------------------------------------------------------------------------------------------------------
@@ -75,4 +75,5 @@ Est ce ainsi que sont codées les suivis des positions actuellement pour les 3 s
 Est ce clair ?
 As tu besoin d'éclaircissement ou de précisions ?
 Repond sans coder
+
 

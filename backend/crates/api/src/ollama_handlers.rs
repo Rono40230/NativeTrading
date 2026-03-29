@@ -268,6 +268,14 @@ pub async fn generer_signal(
             } else {
                 None
             };
+
+            // Pipeline unifié : DB + broadcast (modale) + Telegram
+            if let Some(ref sig) = signal {
+                let _ = state.db.inserer_signal(sig).await;
+                state.signal_engine.publier(sig.clone());
+                crate::telegram::notifier_telegram(sig.clone());
+            }
+
             HttpResponse::Ok().json(ReponseSignalIA {
                 signal,
                 score_confiance: brut.score_confiance,

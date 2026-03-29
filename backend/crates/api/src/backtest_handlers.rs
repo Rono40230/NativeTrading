@@ -101,7 +101,11 @@ pub async fn run_backtest(
     let engine = BacktestEngine {
         horizon_bougies,
         be_atr_mult: body.be_atr.filter(|&v| v > 0.0),
-        vente_partielle: body.vente_partielle.as_ref().map(|v| v.as_bool().unwrap_or_else(|| v.as_i64().unwrap_or(1) != 0)).unwrap_or(true),
+        vente_partielle: body
+            .vente_partielle
+            .as_ref()
+            .map(|v| v.as_bool().unwrap_or_else(|| v.as_i64().unwrap_or(1) != 0))
+            .unwrap_or(true),
         ..BacktestEngine::new(capital)
     };
 
@@ -171,7 +175,11 @@ pub async fn raffiner_ml(
     let engine = BacktestEngine {
         horizon_bougies,
         be_atr_mult: body.be_atr.filter(|&v| v > 0.0),
-        vente_partielle: body.vente_partielle.as_ref().map(|v| v.as_bool().unwrap_or_else(|| v.as_i64().unwrap_or(1) != 0)).unwrap_or(true),
+        vente_partielle: body
+            .vente_partielle
+            .as_ref()
+            .map(|v| v.as_bool().unwrap_or_else(|| v.as_i64().unwrap_or(1) != 0))
+            .unwrap_or(true),
         ..BacktestEngine::new(capital)
     };
     let (results, feedback) = match strategie {

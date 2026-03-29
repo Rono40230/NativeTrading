@@ -244,9 +244,9 @@ pub fn calculer_verdict_rocket(
 
     // ── SL effectif progressif selon les TPs déjà atteints (via peak) ───────
     let sl_effectif = match (s.target2, s.target3) {
-        (Some(tp2), _) if peak >= tp2 => s.target,   // SL → TP1
-        _ if peak >= s.target => s.prix_entree,       // SL → entrée (BE)
-        _ => s.stop_loss,                             // SL original
+        (Some(tp2), _) if peak >= tp2 => s.target, // SL → TP1
+        _ if peak >= s.target => s.prix_entree,    // SL → entrée (BE)
+        _ => s.stop_loss,                          // SL original
     };
 
     if prix <= sl_effectif {
