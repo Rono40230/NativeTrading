@@ -252,7 +252,9 @@ async function demanderOptimisation() {
 
 onMounted(() => {
   assetsStore.chargerAssets()
-  if (modeCreneau.value) { asset.value = modeCreneau.value.asset; lancerBacktest() }
+  if (modeCreneau.value) { asset.value = modeCreneau.value.asset }
+  rechargerParamsEtRelancer()
+})
 })
 onUnmounted(cleanup)
 </script>
