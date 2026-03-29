@@ -79,7 +79,7 @@ export const apiService = {
     straddleParams?: {
       tp_mult_1?: number; tp_mult_2?: number; tp_mult_3?: number
       sl_mult?: number; seuil_atr?: number
-      atr_periode?: number; horizon_bougies?: number; trailing_atr?: number
+      atr_periode?: number; horizon_bougies?: number; trailing_atr?: number; be_atr?: number; vente_partielle?: number
     }
   ): Promise<BacktestResults> {
     const res = await http.post('/api/backtest', { asset, timeframe, capital, nb_jours, ...creneau, ...straddleParams })

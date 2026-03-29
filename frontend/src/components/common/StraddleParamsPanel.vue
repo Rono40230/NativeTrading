@@ -41,6 +41,20 @@
         />
         <span class="text-xs text-gray-600">{{ p.min }}–{{ p.max }}</span>
       </div>
+      <!-- Toggle vente partielle -->
+      <div class="flex flex-col gap-1 justify-center">
+        <label class="text-xs text-gray-400">Vente partielle</label>
+        <button
+          :class="modelValue.vente_partielle
+            ? 'bg-green-600 hover:bg-green-700'
+            : 'bg-gray-600 hover:bg-gray-500'"
+          class="rounded px-2 py-1 text-xs font-medium text-white transition-colors"
+          @click="onInput('vente_partielle', modelValue.vente_partielle ? 0 : 1)"
+        >
+          {{ modelValue.vente_partielle ? '⅓ Partielle' : 'Lot entier' }}
+        </button>
+        <span class="text-xs text-gray-600">⅓ / lot</span>
+      </div>
     </div>
     <StraddleParamsModal v-if="showParams" @close="showParams = false" @saved="onParamsSaved" />
   </div>
@@ -58,6 +72,8 @@ export interface StraddleParams {
   tp_mult_3: number
   sl_mult: number
   trailing_atr: number
+  be_atr: number
+  vente_partielle: number  // 1 = true, 0 = false (number pour simplifier v-model)
 }
 
 const props = defineProps<{
@@ -82,6 +98,7 @@ const config = [
   { key: 'tp_mult_3'  as const, label: 'TP3 × ATR',         min: 3.0, max: 10.0,step: 0.25 },
   { key: 'sl_mult'    as const, label: 'SL × ATR',          min: 0.2, max: 1.5, step: 0.05 },
   { key: 'trailing_atr' as const, label: 'Trailing × ATR',  min: 0.0, max: 3.0, step: 0.1  },
+  { key: 'be_atr'       as const, label: 'Break-Even × ATR', min: 0.0, max: 3.0, step: 0.1  },
 ]
 
 const showParams = ref(false)

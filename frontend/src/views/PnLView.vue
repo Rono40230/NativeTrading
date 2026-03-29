@@ -170,7 +170,7 @@ const chargement = ref(false)
 const resultats = ref<BacktestResults | null>(null)
 const { niveaux, pyramidalisation } = usePnLNiveaux(resultats)
 const { equityChart, afficherCourbe, cleanup } = useEquityChart(resultats)
-const straddleParams = ref({ atr_periode: 14, seuil_atr: 1.5, tp_mult_1: 2.0, tp_mult_2: 3.5, tp_mult_3: 5.0, sl_mult: 0.5, trailing_atr: 1.5 })
+const straddleParams = ref({ atr_periode: 14, seuil_atr: 1.5, tp_mult_1: 2.0, tp_mult_2: 3.5, tp_mult_3: 5.0, sl_mult: 0.5, trailing_atr: 1.5, be_atr: 0, vente_partielle: 1 })
 const suggestionLlm = ref<string | null>(null)
 const chargementLlm = ref(false)
 

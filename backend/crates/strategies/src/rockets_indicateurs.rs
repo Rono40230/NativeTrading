@@ -213,37 +213,70 @@ pub fn phase_priorite(phase: &str) -> u8 {
 
 // ── Logique de progression de position ──────────────────────────────────────
 
-pub fn calculer_verdict_rocket(s: &RocketSignal, prix: f64, peak: f64) -> Option<&'static str> {
+/// Calcule le verdict pour un signal ouvert.
+/// `peak`           : max prix atteint depuis l'entrée (tick courant inclus).
+/// `peak_precedent` : valeur `prix_peak` en DB avant ce tick (détection 1ères franchissements).
+///
+/// Retours :
+/// - `Some("TP1")` / `Some("TP2")` → vente partielle ⅓ — **NE PAS fermer la position**
+/// - `Some("TP3")`  → trailing touché après zone TP3 — fermer la position
+/// - `Some("invalide")` → SL touché — fermer la position
+/// - `None` → rien à faire
+pub fn calculer_verdict_rocket(
+    s: &RocketSignal,
+    prix: f64,
+    peak: f64,
+    peak_precedent: f64,
+) -> Option<&'static str> {
     let atr14 = s.atr14.unwrap_or(s.prix_entree * 0.01);
-    let trailing_stop = peak - atr14 * 1.5;
 
-    // SL effectif progressif selon le niveau TP atteint (break-even)
-    let sl_effectif = match (s.target2, s.target3) {
-        (Some(_tp2), Some(tp3)) if peak >= tp3 => {
-            // TP3 en route : trailing stop
+    // ── Zone TP3 : trailing stop actif (peak a atteint tp3) ─────────────────
+    if let Some(tp3) = s.target3 {
+        if peak >= tp3 {
+            let trailing_stop = peak - atr14 * 1.5;
             return if prix <= trailing_stop {
                 Some("TP3")
             } else {
                 None
             };
         }
-        (Some(tp2), _) if peak >= tp2 => s.target, // BE = TP1
-        _ if peak >= s.target => s.prix_entree,    // BE = entrée
-        _ => s.stop_loss,                          // SL original
+    }
+
+    // ── SL effectif progressif selon les TPs déjà atteints (via peak) ───────
+    let sl_effectif = match (s.target2, s.target3) {
+        (Some(tp2), _) if peak >= tp2 => s.target,   // SL → TP1
+        _ if peak >= s.target => s.prix_entree,       // SL → entrée (BE)
+        _ => s.stop_loss,                             // SL original
     };
 
     if prix <= sl_effectif {
         return Some("invalide");
     }
-    // TP2 : fermeture immédiate si prix >= TP2 et pas encore en zone TP3
-    if let Some(tp2) = s.target2 {
-        if prix >= tp2 {
-            return Some("TP2");
+
+    // ── Détection premières franchissements — vente partielle ────────────────
+    match (s.target2, s.target3) {
+        (Some(tp2), Some(_)) => {
+            // Pyramidal complet (⅓ TP1 / ⅓ TP2 / ⅓ trailing) :
+            // on détecte la TRANSITION (peak vient de franchir le niveau ce tick).
+            if peak_precedent < s.target && peak >= s.target {
+                return Some("TP1"); // vente ⅓, garder ouvert, SL → BE
+            }
+            if peak_precedent >= s.target && peak_precedent < tp2 && peak >= tp2 {
+                return Some("TP2"); // vente ⅓, garder ouvert, SL → TP1
+            }
+        }
+        _ => {
+            // Pas de pyramidal complet : fermetures normales (comportement original)
+            if let Some(tp2) = s.target2 {
+                if prix >= tp2 {
+                    return Some("TP2"); // fermeture totale
+                }
+            }
+            if prix >= s.target && s.target2.is_none() {
+                return Some("TP1"); // fermeture totale
+            }
         }
     }
-    // TP1 : fermeture uniquement si pas de TP2 (sinon on attend TP2, SL=BE)
-    if prix >= s.target && s.target2.is_none() {
-        return Some("TP1");
-    }
+
     None
 }

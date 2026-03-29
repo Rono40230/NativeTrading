@@ -206,6 +206,23 @@ pub async fn maj_verdict(pool: &SqlitePool, id: i64, verdict: &str, prix: f64) -
     Ok(())
 }
 
+/// Enregistre une vente partielle (TP1 ou TP2) SANS fermer la position.
+/// Met à jour `verdict` pour mémoriser le niveau atteint, `statut` reste 'ouvert'.
+pub async fn enregistrer_tp_partiel(pool: &SqlitePool, id: i64, niveau: &str, prix: f64) -> Result<()> {
+    sqlx::query(
+        "UPDATE rockets_signaux
+         SET verdict = ?, prix_verdict = ?, maj_le = datetime('now')
+         WHERE id = ?",
+    )
+    .bind(niveau)
+    .bind(prix)
+    .bind(id)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(())
+}
+
 pub async fn marquer_expires(pool: &SqlitePool) -> Result<u64> {
     let res = sqlx::query(
         "UPDATE rockets_signaux SET verdict = 'expire', statut = 'ferme', maj_le = datetime('now')

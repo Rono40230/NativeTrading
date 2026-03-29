@@ -1,5 +1,6 @@
 use calculs::{
-    calculer_resultats, simuler_sortie, simuler_sortie_pyramidal, TradeDirection, TradeSimule,
+    calculer_resultats, simuler_sortie, simuler_sortie_pyramidal, OptionsGestion, ParamsPyramidal,
+    TradeDirection, TradeSimule,
 };
 use common::{Candle, Direction, Result};
 use indicators::calculer_atr;
@@ -21,6 +22,11 @@ pub struct BacktestEngine {
     pub horizon_bougies: usize,
     /// Trailing stop Straddle : SL remonte à peak - ATR × mult (None = désactivé).
     pub trailing_atr_mult: Option<f64>,
+    /// Break-even Straddle : quand gain > ATR × mult, SL → prix d'entrée (None = désactivé).
+    pub be_atr_mult: Option<f64>,
+    /// true (défaut) = vente partielle (⅓ à TP1, ⅓ à TP2, ⅓ au trailing).
+    /// false = lot entier sorti au trailing, SL déplacé seulement.
+    pub vente_partielle: bool,
 }
 
 impl BacktestEngine {
@@ -31,6 +37,8 @@ impl BacktestEngine {
             risk_par_trade_pct: 0.02,
             horizon_bougies: 5,
             trailing_atr_mult: None,
+            be_atr_mult: None,
+            vente_partielle: true,
         }
     }
 
@@ -125,38 +133,50 @@ impl BacktestEngine {
                     }
                 };
 
-                // Sortie pyramidale si TP2/TP3 disponibles (SMC), sinon sortie simple (Straddle)
+                // ATR courant — calculé une fois, partagé trailing/BE/pyramidal
+                let atr_courant = {
+                    let atr_vals = calculer_atr(slice, 14);
+                    atr_vals.last().copied().unwrap_or(0.0)
+                };
+
+                // Sortie pyramidale si TP2/TP3 disponibles (SMC + Straddle), sinon sortie simple
                 let (prix_sortie, sortie_type) = match (signal.take_profit_2, signal.take_profit_3)
                 {
-                    (Some(tp2_sig), Some(tp3_sig)) => {
-                        // Les niveaux stockés sont les offsets Long (> prix_entree).
-                        // Pour la jambe Short (Direction::Both), les TP doivent être sous le prix d'entrée.
+                    (Some(tp2_sig), Some(_)) => {
                         let dist_tp2 = tp2_sig - signal.prix_entree;
-                        let dist_tp3 = tp3_sig - signal.prix_entree;
-                        let (tp2, tp3) = match (&signal.direction, &dir) {
-                            (Direction::Both, TradeDirection::Short) => {
-                                (prix_entree - dist_tp2, prix_entree - dist_tp3)
-                            }
-                            _ => (prix_entree + dist_tp2, prix_entree + dist_tp3),
+                        let tp2 = match (&signal.direction, dir) {
+                            (Direction::Both, TradeDirection::Short) => prix_entree - dist_tp2,
+                            _ => prix_entree + dist_tp2,
                         };
+                        let trailing_mult = self.trailing_atr_mult.unwrap_or(1.5);
                         simuler_sortie_pyramidal(
                             horizon_bougies,
                             dir,
-                            prix_entree,
-                            tp1,
-                            tp2,
-                            tp3,
-                            sl,
+                            ParamsPyramidal {
+                                prix_entree,
+                                tp1,
+                                tp2,
+                                trailing_tp3: (atr_courant, trailing_mult),
+                                sl_initial: sl,
+                                vente_partielle: self.vente_partielle,
+                            },
                         )
                     }
                     _ => {
-                        // Trailing stop Straddle : calculer ATR courant si activé
-                        let trailing = self.trailing_atr_mult.map(|mult| {
-                            let atr_vals = calculer_atr(slice, 14);
-                            let atr_val = atr_vals.last().copied().unwrap_or(0.0);
-                            (atr_val, mult)
-                        });
-                        simuler_sortie(horizon_bougies, dir, tp1, sl, prochaine.close, trailing)
+                        let trailing = self.trailing_atr_mult.map(|mult| (atr_courant, mult));
+                        let be = self.be_atr_mult.map(|mult| (atr_courant, mult));
+                        simuler_sortie(
+                            horizon_bougies,
+                            dir,
+                            tp1,
+                            sl,
+                            prochaine.close,
+                            OptionsGestion {
+                                prix_entree,
+                                trailing_atr: trailing,
+                                be_atr: be,
+                            },
+                        )
                     }
                 };
                 let dist_sl = (prix_entree - sl).abs().max(1e-10);
@@ -224,7 +244,6 @@ impl BacktestEngine {
             profit_factor: 0.0,
             nb_tp1: 0,
             nb_tp2: 0,
-            nb_tp3: 0,
             nb_sl: 0,
             nb_expirations: 0,
             nb_straddles: 0,

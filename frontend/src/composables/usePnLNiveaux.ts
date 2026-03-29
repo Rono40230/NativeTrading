@@ -20,10 +20,9 @@ export function usePnLNiveaux(resultats: Ref<BacktestResults | null>) {
     if (!resultats.value) return []
     const r = resultats.value
     return [
-      { label: 'TP3 complet', n: r.nb_tp3, color: 'text-emerald-400', classes: 'bg-emerald-900/30 border-emerald-500/20' },
-      { label: 'TP2 (⅔)',     n: r.nb_tp2, color: 'text-blue-400',    classes: 'bg-blue-900/30 border-blue-500/20' },
-      { label: 'TP1 (⅓)',     n: r.nb_tp1, color: 'text-yellow-400',  classes: 'bg-yellow-900/30 border-yellow-500/20' },
-      { label: 'SL / BE',     n: r.nb_sl,  color: 'text-red-400',     classes: 'bg-red-900/30 border-red-500/20' },
+      { label: 'TP2 complet', n: r.nb_tp2, color: 'text-emerald-400', classes: 'bg-emerald-900/30 border-emerald-500/20' },
+      { label: 'TP1 (⅔)',     n: r.nb_tp1, color: 'text-blue-400',    classes: 'bg-blue-900/30 border-blue-500/20' },
+      { label: 'SL / trailing', n: r.nb_sl,  color: 'text-red-400', classes: 'bg-red-900/30 border-red-500/20' },
     ]
   })
 

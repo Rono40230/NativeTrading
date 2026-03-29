@@ -65,14 +65,22 @@ pub async fn sync_verdicts(state: web::Data<AppState>) -> impl Responder {
             let Some(prix) = fetch_prix(&client, &s.ticker).await else {
                 continue;
             };
-            let peak = s.prix_peak.unwrap_or(s.prix_entree).max(prix);
-            if peak > s.prix_peak.unwrap_or(0.0) {
+            let peak_precedent = s.prix_peak.unwrap_or(s.prix_entree);
+            let peak = peak_precedent.max(prix);
+            if peak > peak_precedent {
                 let _ = rockets::maj_prix_peak(pool, s.id, peak).await;
             }
-            if let Some(v) = calculer_verdict_rocket(s, prix, peak) {
-                if rockets::maj_verdict(pool, s.id, v, prix).await.is_ok() {
-                    fermes += 1;
+            match calculer_verdict_rocket(s, prix, peak, peak_precedent) {
+                Some(v @ "TP1") | Some(v @ "TP2") => {
+                    // Vente partielle ⅓ — position reste ouverte
+                    let _ = rockets::enregistrer_tp_partiel(pool, s.id, v, prix).await;
                 }
+                Some(v) => {
+                    if rockets::maj_verdict(pool, s.id, v, prix).await.is_ok() {
+                        fermes += 1;
+                    }
+                }
+                None => {}
             }
         }
     }
@@ -152,20 +160,31 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
                 continue;
             };
 
-            let peak = s.prix_peak.unwrap_or(s.prix_entree).max(prix);
-            if peak > s.prix_peak.unwrap_or(0.0) {
+            let peak_precedent = s.prix_peak.unwrap_or(s.prix_entree);
+            let peak = peak_precedent.max(prix);
+            if peak > peak_precedent {
                 if let Err(e) = rockets::maj_prix_peak(&pool, s.id, peak).await {
                     tracing::warn!("Rocket {} maj peak: {}", s.ticker, e);
                 }
             }
 
-            let verdict = calculer_verdict_rocket(s, prix, peak);
-            if let Some(v) = verdict {
-                if let Err(e) = rockets::maj_verdict(&pool, s.id, v, prix).await {
-                    tracing::warn!("Worker rockets verdict: {}", e);
-                } else {
-                    tracing::info!("Rocket {} → {} @ {:.5}", s.ticker, v, prix);
+            match calculer_verdict_rocket(s, prix, peak, peak_precedent) {
+                Some(v @ "TP1") | Some(v @ "TP2") => {
+                    // Vente partielle ⅓ — position reste ouverte
+                    if let Err(e) = rockets::enregistrer_tp_partiel(&pool, s.id, v, prix).await {
+                        tracing::warn!("Rocket {} tp partiel: {}", s.ticker, e);
+                    } else {
+                        tracing::info!("Rocket {} → {} partiel @ {:.5}", s.ticker, v, prix);
+                    }
                 }
+                Some(v) => {
+                    if let Err(e) = rockets::maj_verdict(&pool, s.id, v, prix).await {
+                        tracing::warn!("Worker rockets verdict: {}", e);
+                    } else {
+                        tracing::info!("Rocket {} → {} @ {:.5}", s.ticker, v, prix);
+                    }
+                }
+                None => {}
             }
         }
     }

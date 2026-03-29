@@ -34,6 +34,12 @@ pub struct BacktestRequest {
     pub atr_periode: Option<i64>,
     pub horizon_bougies: Option<i64>,
     pub trailing_atr: Option<f64>,
+    /// Break-even : quand gain > ATR × be_atr, SL → prix d'entrée (0 = désactivé).
+    pub be_atr: Option<f64>,
+    /// true (défaut) = vente partielle (⅓ TP1, ⅓ TP2, ⅓ trailing).
+    /// false = lot entier, SL seul se déplace aux niveaux TP.
+    /// Envoyé comme 1 (true) ou 0 (false) depuis le frontend.
+    pub vente_partielle: Option<serde_json::Value>,
 }
 
 pub async fn run_backtest(
@@ -94,6 +100,8 @@ pub async fn run_backtest(
         .unwrap_or_else(|| ((horizon_minutes / timeframe.minutes()) as usize).max(2));
     let engine = BacktestEngine {
         horizon_bougies,
+        be_atr_mult: body.be_atr.filter(|&v| v > 0.0),
+        vente_partielle: body.vente_partielle.as_ref().map(|v| v.as_bool().unwrap_or_else(|| v.as_i64().unwrap_or(1) != 0)).unwrap_or(true),
         ..BacktestEngine::new(capital)
     };
 
@@ -162,6 +170,8 @@ pub async fn raffiner_ml(
     let horizon_bougies = ((horizon_minutes / timeframe.minutes()) as usize).max(2);
     let engine = BacktestEngine {
         horizon_bougies,
+        be_atr_mult: body.be_atr.filter(|&v| v > 0.0),
+        vente_partielle: body.vente_partielle.as_ref().map(|v| v.as_bool().unwrap_or_else(|| v.as_i64().unwrap_or(1) != 0)).unwrap_or(true),
         ..BacktestEngine::new(capital)
     };
     let (results, feedback) = match strategie {

@@ -27,7 +27,6 @@ export interface BacktestResults {
   // Pyramidalisation SMC (0 pour Straddle)
   nb_tp1: number
   nb_tp2: number
-  nb_tp3: number
   nb_sl: number
   nb_expirations: number
   // Nombre de Straddles posés (= total_trades / 2)

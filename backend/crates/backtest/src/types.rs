@@ -20,13 +20,11 @@ pub struct BacktestResults {
     pub sharpe_ratio: f64,
     pub max_drawdown_pct: f64,
     pub profit_factor: f64,
-    /// Trades SMC sortis exactement à TP1 (⅓ fermé, SL → BE, reste annulé)
+    /// Trades avec sortie partielle à TP1 (SL → BE, position réduite)
     pub nb_tp1: u32,
-    /// Trades SMC sortis exactement à TP2 (⅔ fermé)
+    /// Trades avec sortie partielle à TP2 (SL → TP1, position réduite)
     pub nb_tp2: u32,
-    /// Trades SMC sortis à TP3 complet
-    pub nb_tp3: u32,
-    /// Trades stoppés (SL ou BE après TP1)
+    /// Trades stoppés (SL ou trailing après TP2)
     pub nb_sl: u32,
     /// Trades fermés à l'expiration de l'horizon (ni TP ni SL atteints)
     pub nb_expirations: u32,
