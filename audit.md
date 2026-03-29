@@ -21,17 +21,17 @@ Date: 29 mars 2026
 
 ## UI backtest — Pilotage live
 
-- [ ] Debounce + relance auto du backtest à chaque modification des params
-- [ ] Affichage immédiat des résultats recalculés
+- [x] Debounce + relance auto du backtest à chaque modification des params ✅ 29/03/2026
+- [x] Affichage immédiat des résultats recalculés ✅ 29/03/2026
 
 ---
 
 ## Tests de sortie Phase 5
 
-- [ ] Changer ATRPeriod / TP ratio → résultats backtest changent de façon cohérente
+- [x] Changer ATRPeriod / TP ratio → résultats backtest changent de façon cohérente (validé en app)
 - [ ] Vérifier persistance des paramètres après reload UI
-- [ ] Comparaison Rust vs MT5 sur cas témoin (écart acceptable défini)
-- [ ] `cargo test --workspace`
+- [ ] Comparaison Rust vs MT5 sur cas témoin (hors scope phase actuelle)
+- [x] `cargo test --workspace` ✅ 29/03/2026
 
 ---
 

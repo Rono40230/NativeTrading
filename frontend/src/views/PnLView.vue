@@ -136,7 +136,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted, defineComponent, h } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, defineComponent, h, watch } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { BacktestResults } from '@/services/api.service'
 import { useSettingsStore } from '@/stores/settings.store'
@@ -171,6 +171,13 @@ const resultats = ref<BacktestResults | null>(null)
 const { niveaux, pyramidalisation } = usePnLNiveaux(resultats)
 const { equityChart, afficherCourbe, cleanup } = useEquityChart(resultats)
 const straddleParams = ref({ atr_periode: 14, seuil_atr: 1.5, tp_mult_1: 2.0, tp_mult_2: 3.5, tp_mult_3: 5.0, sl_mult: 0.5, trailing_atr: 1.5, be_atr: 0, vente_partielle: 1 })
+
+// Debounce : relance le backtest 500ms après toute modification des paramètres
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+watch(straddleParams, () => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => { lancerBacktest() }, 500)
+}, { deep: true })
 const suggestionLlm = ref<string | null>(null)
 const chargementLlm = ref(false)
 
