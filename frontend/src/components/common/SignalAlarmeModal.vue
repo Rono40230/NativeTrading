@@ -88,12 +88,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
-import { useNotification } from '@/composables/useNotification'
 
 const store = useSignalAlarmeStore()
-const { jouerSon } = useNotification()
 
 const signal = computed(() => store.signalActuel!)
 
@@ -127,11 +125,6 @@ function stopDrag() {
   window.removeEventListener('mouseup', stopDrag)
 }
 
-// ── Son à chaque nouveau signal ───────────────────────────────────────────────
-watch(() => store.total, (n, prev) => {
-  if (n > prev) jouerSon()
-})
-
 // ── Actions ───────────────────────────────────────────────────────────────────
 function fermer() {
   store.fermerActuel()
@@ -161,10 +154,10 @@ function formatDate(ts: number): string {
   z-index: 9999;
   width: 360px;
   border-radius: 0.75rem;
-  background: rgba(10, 14, 39, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(60, 5, 5, 0.97);
+  border: 2px solid rgba(239, 68, 68, 0.8);
   backdrop-filter: blur(20px);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 24px rgba(239, 68, 68, 0.35);
   user-select: none;
 }
 .alarme-header {
@@ -172,7 +165,7 @@ function formatDate(ts: number): string {
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.3);
   cursor: grab;
 }
 .alarme-header:active { cursor: grabbing; }
@@ -184,22 +177,22 @@ function formatDate(ts: number): string {
   align-items: center;
   justify-content: space-between;
   padding: 0.5rem 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid rgba(239, 68, 68, 0.3);
 }
 .prix-bloc {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: 0.5rem;
   padding: 0.4rem 0.5rem;
 }
-.prix-label { font-size: 0.65rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
+.prix-label { font-size: 0.65rem; color: #f87171; text-transform: uppercase; letter-spacing: 0.05em; }
 .prix-val { font-size: 0.8rem; font-family: monospace; font-weight: 700; margin-top: 0.1rem; }
 .raison-bloc {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.15);
   border-radius: 0.5rem;
   padding: 0.5rem 0.625rem;
   max-height: 80px;

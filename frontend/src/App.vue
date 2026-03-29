@@ -12,17 +12,24 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import SideBar from './components/common/SideBar.vue'
 import ToastAlerte from './components/common/ToastAlerte.vue'
 import SignalAlarmeModal from './components/common/SignalAlarmeModal.vue'
 import { useAssetsStore } from '@/stores/assets.store'
 import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
+import { useNotification } from '@/composables/useNotification'
 import type { Signal } from '@/services/api.types'
 
 const assetsStore = useAssetsStore()
 const alarmeStore = useSignalAlarmeStore()
+const { jouerSon } = useNotification()
+
+// Son à chaque nouveau signal (watch ici car App.vue est toujours monté, contrairement à SignalAlarmeModal en v-if)
+watch(() => alarmeStore.total, (n, prev) => {
+  if (n > prev) jouerSon()
+})
 
 const WS_SIGNAUX = 'ws://localhost:8080/api/signal-engine/stream'
 let ws: WebSocket | null = null
@@ -56,6 +63,37 @@ function connecterWs() {
 onMounted(() => {
   assetsStore.chargerAssets()
   connecterWs()
+
+    // Exposition dev uniquement — test alarme + son depuis la console Tauri
+  if (import.meta.env.DEV) {
+    ;(window as Record<string, unknown>).__testSon = () => jouerSon()
+    ;(window as Record<string, unknown>).__testAlarme = (overrides: Partial<Signal> = {}) => {
+      alarmeStore.ajouterSignal({
+        id: `test-${Date.now()}`,
+        asset: 'BTCUSDT',
+        timeframe: 'M5',
+        direction: 'LONG',
+        score: 85,
+        prix_entree: 65000,
+        stop_loss: 64000,
+        take_profit: [67000, 68500, 70000],
+        strategie: 'SMC Directionnel',
+        statut: 'Actif',
+        verdict: null,
+        prix_verdict: null,
+        ferme_le: null,
+        cree_le: Math.floor(Date.now() / 1000),
+        llm_valide: 1,
+        llm_conviction: 82,
+        llm_raison: 'Signal test — confluence Order Block H1 + RSI survente',
+        llm_sl_suggere: null,
+        llm_tp1_suggere: null,
+        sl_short: null,
+        take_profit_short: null,
+        ...overrides,
+      })
+    }
+  }
 })
 
 onUnmounted(() => {

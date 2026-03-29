@@ -37,9 +37,9 @@ Date: 29 mars 2026
 
 ## Alarme signal — Vérifications app
 
-- [ ] Déclencher un signal test → modale apparaît sur toutes les pages
-- [ ] Navigation N/N avec plusieurs signaux simultanés
-- [ ] Fermeture uniquement par X (pas de fermeture accidentelle)
-- [ ] Son Tauri joué à chaque nouveau signal
+- [x] Déclencher un signal test → modale apparaît sur toutes les pages ✅ 29/03/2026
+- [x] Navigation N/N avec plusieurs signaux simultanés ✅ 29/03/2026
+- [x] Fermeture uniquement par X (pas de fermeture accidentelle) ✅ 29/03/2026
+- [x] Son Tauri joué à chaque nouveau signal ✅ 29/03/2026
 - [ ] Bouton 🔍 tableau SMC → pré-remplit correctement `/smc/analyser`
 oui

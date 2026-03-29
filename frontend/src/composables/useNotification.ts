@@ -45,14 +45,22 @@ export function useNotification() {
   }
 
   /**
-   * Joue le son d'alerte signal.ogg via paplay.
+   * Joue le son d'alerte signal.ogg.
+   * Priorité : Audio HTML5 (fiable partout) → invoke Tauri/paplay en fallback.
    */
   async function jouerSon(): Promise<void> {
-    if (!tauriDisponible()) return
     try {
-      await invoke('jouer_son_signal')
+      const audio = new Audio('/signal.ogg')
+      audio.volume = 0.8
+      await audio.play()
     } catch {
-      // Silencieux
+      // Fallback Tauri/paplay si Audio API bloquée
+      if (!tauriDisponible()) return
+      try {
+        await invoke('jouer_son_signal')
+      } catch {
+        // Silencieux
+      }
     }
   }
 

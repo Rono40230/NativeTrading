@@ -35,7 +35,13 @@ fn notifier(titre: &str, corps: &str, urgence: Option<&str>) {
 fn jouer_son_signal() {
     // Chercher le fichier son dans plusieurs emplacements (dev + prod)
     let candidats = [
+        // Dev : CWD = frontend/, lancé depuis src-tauri/
         std::path::PathBuf::from("src-tauri/sounds/signal.ogg"),
+        // Dev alternatif : CWD = frontend/src-tauri/
+        std::path::PathBuf::from("sounds/signal.ogg"),
+        // Chemin absolu workspace (dev Linux)
+        std::path::PathBuf::from("/mnt/IA/native-trading-ai/frontend/src-tauri/sounds/signal.ogg"),
+        // Prod : à côté du binaire
         std::env::current_exe()
             .ok()
             .and_then(|e| e.parent().map(|p| p.join("sounds/signal.ogg")))
