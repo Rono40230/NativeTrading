@@ -102,17 +102,6 @@
     <!-- Paramètres Moteur SMC -->
     <SmcParamsPanel v-model="smcParams" />
 
-    <!-- Résultat -->
-    <transition name="fade">
-      <div v-if="analyse" class="glass-card p-6 space-y-3">
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Analyse IA</h2>
-          <span class="text-xs text-gray-500">{{ modeleActif }}</span>
-        </div>
-        <div class="text-gray-100 leading-relaxed whitespace-pre-wrap text-sm">{{ analyse }}</div>
-      </div>
-    </transition>
-
     <!-- Aide installation -->
     <div v-if="!ollamaOk" class="glass-card p-5 border-yellow-500/30 bg-yellow-900/10">
       <h3 class="text-yellow-400 font-semibold mb-2">⚠️ Ollama n'est pas démarré</h3>
@@ -120,6 +109,23 @@
 ollama pull qwen2.5:14b
 ollama serve</pre>
     </div>
+
+    <!-- Modale résultat draggable -->
+    <SmcAnalyseResultModal
+      :visible="modalVisible"
+      :analyse="analyse"
+      :modele="modeleActif"
+      :asset="form.asset"
+      :timeframe="form.timeframe"
+      :direction="form.direction"
+      :score="scoreSmc"
+      :prix-entree="form.prix_entree"
+      :stop-loss="form.stop_loss"
+      :tp1="form.tp1"
+      :tp2="form.tp2"
+      :tp3="form.tp3"
+      @fermer="modalVisible = false"
+    />
   </div>
 </template>
 
@@ -130,6 +136,7 @@ import { apiService } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useAssetsStore } from '@/stores/assets.store'
 import SmcParamsPanel, { type SmcParams } from '@/components/common/SmcParamsPanel.vue'
+import SmcAnalyseResultModal from '@/components/common/SmcAnalyseResultModal.vue'
 
 const smcParams = ref<SmcParams>({
   atr_periode: 14,
@@ -151,6 +158,7 @@ const chargement = ref(false)
 const ollamaOk = ref(false)
 const modeleActif = ref('qwen2.5:14b')
 const analyse = ref('')
+const modalVisible = ref(false)
 
 const scoreSmc = computed(() =>
   form.tendance + form.order_block + form.imbalance + form.ifvg + form.fibonacci
@@ -215,6 +223,7 @@ async function analyser() {
     })
     analyse.value = res.analyse
     modeleActif.value = res.modele
+    modalVisible.value = true
   } catch (e: unknown) {
     alerteStore.afficherErreur(`Ollama: ${(e as Error).message}`)
   } finally {

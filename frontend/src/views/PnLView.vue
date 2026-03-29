@@ -116,6 +116,7 @@
         </div>
 
         <StraddleParamsPanel
+          class="flex-1"
           v-model="straddleParams"
           :has-resultats="!!resultats"
           :chargement-llm="chargementLlm"
