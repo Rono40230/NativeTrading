@@ -12,8 +12,10 @@ Date: 29 mars 2026
 
 ## Backtest — Fonctionnalités manquantes
 
-- [x] Break-even (`be_atr_mult` dans `BacktestEngine`, slider UI, câblé API) ✅ 29/03/2026
-- [ ] TP partiels Straddle : ⅓ à TP1 (SL→BE), trailing actif, sortie finale au trailing après TP2
+- [x] Break-even (`be_atr_mult` dans `BacktestEngine`, câblé API, fixé à 0 en dur — retiré de l'UI) ✅ 29/03/2026
+- [x] TP partiels Straddle : ⅓ à TP1 (SL→BE), ⅓ à TP2 (SL→TP1), trailing ATR actif après TP2 ✅ 29/03/2026
+- [x] Straddle hybride : jambe survivante bascule en SMC directionnel (pyramidalisation) ✅ 29/03/2026
+- [x] Toggle vente partielle (⅓ ou lot entier) en UI ✅ 29/03/2026
 
 ---
 
@@ -40,3 +42,4 @@ Date: 29 mars 2026
 - [ ] Fermeture uniquement par X (pas de fermeture accidentelle)
 - [ ] Son Tauri joué à chaque nouveau signal
 - [ ] Bouton 🔍 tableau SMC → pré-remplit correctement `/smc/analyser`
+oui

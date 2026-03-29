@@ -27,7 +27,7 @@
       💡 {{ suggestion }}
     </div>
 
-    <div class="grid grid-cols-9 gap-3 flex-1 content-end">
+    <div class="grid grid-cols-8 gap-3 flex-1 content-end">
       <div v-for="p in config" :key="p.key" class="flex flex-col gap-1">
         <label class="text-xs text-gray-400">{{ p.label }}</label>
         <input
@@ -72,7 +72,6 @@ export interface StraddleParams {
   tp_mult_3: number
   sl_mult: number
   trailing_atr: number
-  be_atr: number
   vente_partielle: number  // 1 = true, 0 = false (number pour simplifier v-model)
 }
 
@@ -98,7 +97,6 @@ const config = [
   { key: 'tp_mult_3'  as const, label: 'TP3 × ATR',         min: 3.0, max: 10.0,step: 0.25 },
   { key: 'sl_mult'    as const, label: 'SL × ATR',          min: 0.2, max: 1.5, step: 0.05 },
   { key: 'trailing_atr' as const, label: 'Trailing × ATR',  min: 0.0, max: 3.0, step: 0.1  },
-  { key: 'be_atr'       as const, label: 'BE × ATR',         min: 0.0, max: 3.0, step: 0.1  },
 ]
 
 const showParams = ref(false)
