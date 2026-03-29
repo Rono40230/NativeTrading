@@ -27,7 +27,7 @@
       💡 {{ suggestion }}
     </div>
 
-    <div class="grid grid-cols-7 gap-3 flex-1 content-end">
+    <div class="grid grid-cols-9 gap-3 flex-1 content-end">
       <div v-for="p in config" :key="p.key" class="flex flex-col gap-1">
         <label class="text-xs text-gray-400">{{ p.label }}</label>
         <input
@@ -92,13 +92,13 @@ const emit = defineEmits<{
 
 const config = [
   { key: 'atr_periode' as const, label: 'Période ATR',       min: 5,   max: 50,  step: 1    },
-  { key: 'seuil_atr'  as const, label: 'Seuil ATR (×moy)', min: 0.5, max: 3.0, step: 0.05 },
+  { key: 'seuil_atr'  as const, label: 'Seuil ATR',        min: 0.5, max: 3.0, step: 0.05 },
   { key: 'tp_mult_1'  as const, label: 'TP1 × ATR',         min: 1.0, max: 4.0, step: 0.1  },
   { key: 'tp_mult_2'  as const, label: 'TP2 × ATR',         min: 2.0, max: 6.0, step: 0.1  },
   { key: 'tp_mult_3'  as const, label: 'TP3 × ATR',         min: 3.0, max: 10.0,step: 0.25 },
   { key: 'sl_mult'    as const, label: 'SL × ATR',          min: 0.2, max: 1.5, step: 0.05 },
   { key: 'trailing_atr' as const, label: 'Trailing × ATR',  min: 0.0, max: 3.0, step: 0.1  },
-  { key: 'be_atr'       as const, label: 'Break-Even × ATR', min: 0.0, max: 3.0, step: 0.1  },
+  { key: 'be_atr'       as const, label: 'BE × ATR',         min: 0.0, max: 3.0, step: 0.1  },
 ]
 
 const showParams = ref(false)
