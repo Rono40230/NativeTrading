@@ -41,5 +41,5 @@ Date: 29 mars 2026
 - [x] Navigation N/N avec plusieurs signaux simultanés ✅ 29/03/2026
 - [x] Fermeture uniquement par X (pas de fermeture accidentelle) ✅ 29/03/2026
 - [x] Son Tauri joué à chaque nouveau signal ✅ 29/03/2026
-- [ ] Bouton 🔍 tableau SMC → pré-remplit correctement `/smc/analyser`
+- [x] Bouton 🔍 tableau SMC → pré-remplit correctement `/smc/analyser` ✅ 29/03/2026
 oui
