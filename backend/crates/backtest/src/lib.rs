@@ -1,11 +1,12 @@
-use calculs::{
-    calculer_resultats, simuler_sortie, simuler_sortie_pyramidal, simuler_straddle_hybride,
-    OptionsGestion, ParamsPyramidal, ParamsStraddleHybride, TradeDirection, TradeSimule,
-};
+use calculs::{simuler_sortie, simuler_sortie_pyramidal, OptionsGestion, ParamsPyramidal, TradeDirection, TradeSimule};
+use straddle_hybride::{simuler_straddle_hybride, ParamsStraddleHybride};
+use stats::calculer_resultats;
 use common::{Candle, Direction, Result};
 use indicators::calculer_atr;
 use strategies::Strategy;
 mod calculs;
+mod stats;
+mod straddle_hybride;
 mod types;
 pub use types::{BacktestResults, EquityPoint, FeedbackTrade};
 
@@ -280,67 +281,9 @@ impl BacktestEngine {
     }
 
     fn resultats_vides(&self) -> BacktestResults {
-        BacktestResults {
-            total_trades: 0,
-            winning_trades: 0,
-            losing_trades: 0,
-            win_rate: 0.0,
-            capital_initial: self.capital_initial,
-            capital_final: self.capital_initial,
-            roi_pct: 0.0,
-            profit_net: 0.0,
-            sharpe_ratio: 0.0,
-            max_drawdown_pct: 0.0,
-            profit_factor: 0.0,
-            nb_tp1: 0,
-            nb_tp2: 0,
-            nb_sl: 0,
-            nb_expirations: 0,
-            nb_straddles: 0,
-            equity_curve: Vec::new(),
-        }
+        stats::resultats_vides(self.capital_initial)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::Utc;
-    use common::Candle;
-
-    fn bougie(close: f64) -> Candle {
-        Candle {
-            timestamp: Utc::now(),
-            open: close,
-            high: close * 1.01,
-            low: close * 0.99,
-            close,
-            volume: 1000.0,
-        }
-    }
-
-    struct StrategieVide;
-    impl strategies::Strategy for StrategieVide {
-        fn analyze(&self, _: &[Candle]) -> common::Result<Option<strategies::Signal>> {
-            Ok(None)
-        }
-    }
-
-    #[test]
-    fn backtest_sans_trades_retourne_capital_initial() {
-        let bougies: Vec<Candle> = (1..=70).map(|i| bougie(i as f64 * 100.0)).collect();
-        let engine = BacktestEngine::new(2000.0);
-        let resultats = engine.run(&bougies, &StrategieVide).unwrap();
-        assert_eq!(resultats.total_trades, 0);
-        assert!((resultats.capital_final - 2000.0).abs() < 1e-10);
-        assert!((resultats.roi_pct).abs() < 1e-10);
-    }
-
-    #[test]
-    fn backtest_peu_de_bougies_retourne_vide() {
-        let bougies: Vec<Candle> = (1..=10).map(|i| bougie(i as f64 * 100.0)).collect();
-        let engine = BacktestEngine::new(2000.0);
-        let resultats = engine.run(&bougies, &StrategieVide).unwrap();
-        assert_eq!(resultats.total_trades, 0);
-    }
-}
+mod lib_tests;
