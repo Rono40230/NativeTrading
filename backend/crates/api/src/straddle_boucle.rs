@@ -91,7 +91,10 @@ async fn analyser_asset(
     if atr_valides.len() < 2 {
         return;
     }
-    let atr_actuel = *atr_valides.last().unwrap();
+    let atr_actuel = match atr_valides.last().copied() {
+        Some(v) => v,
+        None => return,
+    };
     let n_moy = atr_valides.len().min(14);
     let atr_moyen = atr_valides.iter().rev().take(n_moy).sum::<f64>() / n_moy as f64;
     let prix = bougies.last().map(|b| b.close).unwrap_or(0.0);

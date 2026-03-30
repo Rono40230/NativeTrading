@@ -86,23 +86,100 @@ pub async fn sauvegarder_signal(
     }
 }
 
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ScanReponse<'a> {
-    signaux: &'a [rockets_scan::ScanResultat],
-    total_candidats: usize,
-}
-
 /// GET /api/rockets/scan — résultats du dernier scan worker
 pub async fn get_scan() -> impl Responder {
+    use strategies::rockets_indicateurs::MAX_DISPLAY;
     let results = rockets_scan::get_scan_results();
     let total = rockets_scan::get_total_candidats();
     let locked = results.read().await;
     let nb_total = *total.read().await;
-    HttpResponse::Ok().json(ScanReponse {
-        signaux: &locked,
-        total_candidats: nb_total,
-    })
+    // Appliquer MAX_DISPLAY ici, pas dans le worker (le cache garde tout)
+    let signaux: Vec<_> = locked.iter().take(MAX_DISPLAY).collect();
+    HttpResponse::Ok().json(serde_json::json!({
+        "signaux": signaux,
+        "total_candidats": nb_total,
+    }))
+}
+
+/// GET /api/rockets/scan/debug
+/// Lit les résultats du dernier scan worker et retourne les candidats momentum-compression
+/// (phase=compression + change1h ≥ seuil) AVANT filtre LLM.
+pub async fn scan_momentum_debug() -> impl Responder {
+    use db::rockets;
+
+    const CHANGE_1H_MOMENTUM_MIN: f64 = 0.5;
+    const SCORE_MOMENTUM_MIN: i64 = 15;
+
+    // Lire les résultats déjà calculés par le worker (pas de re-scan)
+    let scan_lock = crate::rockets_scan::get_scan_results();
+    let total_eligibles_lock = crate::rockets_scan::get_total_candidats();
+    let resultats = scan_lock.read().await;
+    let total_eligibles = *total_eligibles_lock.read().await;
+    let cfg = rockets::RocketsConfig::default();
+
+    // Distribution des phases pour diagnostic
+    let mut nb_compression = 0usize;
+    let mut nb_prelancement = 0usize;
+    let mut nb_breakout = 0usize;
+    for r in resultats.iter() {
+        match r.phase.as_str() {
+            "compression"  => nb_compression  += 1,
+            "prelancement" => nb_prelancement += 1,
+            "breakout"     => nb_breakout     += 1,
+            _ => {}
+        }
+    }
+
+    // Toutes les compressions avec leurs métriques
+    let compressions_detail: Vec<serde_json::Value> = resultats
+        .iter()
+        .filter(|r| r.phase == "compression")
+        .map(|r| serde_json::json!({
+            "ticker":   r.ticker,
+            "score":    r.score,
+            "change1h": r.change1h,
+            "rsi":      r.rsi,
+            "atrRatio": r.atr_ratio,
+            "volRatio": r.ratio_volume,
+            "passeScore":   r.score >= SCORE_MOMENTUM_MIN,
+            "passe1h":      r.change1h >= CHANGE_1H_MOMENTUM_MIN,
+            "passeRsi":     r.rsi <= cfg.rsi_max,
+        }))
+        .collect();
+
+    let momentum: Vec<serde_json::Value> = resultats
+        .iter()
+        .filter(|r| {
+            r.phase == "compression"
+                && r.change1h >= CHANGE_1H_MOMENTUM_MIN
+                && r.score >= SCORE_MOMENTUM_MIN
+                && r.rsi <= cfg.rsi_max
+        })
+        .map(|r| serde_json::json!({
+            "ticker":   r.ticker,
+            "score":    r.score,
+            "change1h": r.change1h,
+            "rsi":      r.rsi,
+            "atrRatio": r.atr_ratio,
+            "volRatio": r.ratio_volume,
+        }))
+        .collect();
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "source":                   "dernier_scan_worker",
+        "total_eligibles_usdt":     total_eligibles,    // paires USDT avec volume suffisant
+        "total_avec_phase":         resultats.len(),    // assets avec phase détectée (atrRatio<0.80)
+        "distribution_phases": {
+            "compression":  nb_compression,
+            "prelancement": nb_prelancement,
+            "breakout":     nb_breakout,
+        },
+        "compressions_detail":      compressions_detail,
+        "total_candidats_momentum": momentum.len(),
+        "seuil_change1h":           CHANGE_1H_MOMENTUM_MIN,
+        "seuil_score":              SCORE_MOMENTUM_MIN,
+        "candidats":                momentum,
+    }))
 }
 
 /// GET /api/rockets/historique?limite=50

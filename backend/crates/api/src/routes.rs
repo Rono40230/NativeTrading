@@ -207,6 +207,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::rockets_handlers::get_scan),
         )
         .route(
+            "/api/rockets/scan/debug",
+            web::get().to(crate::rockets_handlers::scan_momentum_debug),
+        )
+        .route(
             "/api/rockets/historique",
             web::get().to(crate::rockets_handlers::get_historique),
         )

@@ -142,3 +142,71 @@ pub(crate) fn simuler_straddle_hybride(
         dir2: TradeDirection::Short,
     }
 }
+
+// ── API haut niveau pour le moteur de backtest ───────────────────────────────
+
+/// Résultat d'une jambe calculée par `preparer_jambes_straddle`.
+pub(crate) struct JambeStraddle {
+    pub prix_entree: f64,
+    pub prix_sortie: f64,
+    pub direction: TradeDirection,
+    pub sortie: SortieType,
+    pub sl_ref: f64,
+}
+
+/// Niveaux issus du signal (côté Long, le Short sera mis en miroir).
+pub(crate) struct NiveauxSignalStraddle {
+    pub take_profit: f64,
+    pub stop_loss: f64,
+    pub prix_entree: f64,
+    pub tp2: f64,
+}
+
+/// Paramètres du moteur nécessaires au calcul des jambes.
+pub(crate) struct ParamsMoteurStraddle {
+    pub open: f64,
+    pub friction: f64,
+    pub atr: f64,
+    pub trailing_mult: f64,
+    pub be: Option<(f64, f64)>,
+    pub vente_partielle: bool,
+}
+
+/// Calcule les deux jambes d'un straddle hybride et retourne prix entrée/sortie + SL de référence.
+/// Le calcul du PnL et la mise à jour du capital restent dans le moteur (lib.rs).
+pub(crate) fn preparer_jambes_straddle(
+    horizon: &[Candle],
+    n: NiveauxSignalStraddle,
+    p: ParamsMoteurStraddle,
+) -> [JambeStraddle; 2] {
+    let pe_l = p.open * (1.0 + p.friction);
+    let pe_s = p.open * (1.0 - p.friction);
+    let dist_tp1 = n.take_profit - n.prix_entree;
+    let dist_sl_v = n.prix_entree - n.stop_loss;
+    let dist_tp2 = n.tp2 - n.prix_entree;
+    let tp1_l = n.take_profit;
+    let sl_l = n.stop_loss;
+    let tp1_s = pe_s - dist_tp1;
+    let sl_s = pe_s + dist_sl_v;
+    let tp2_l = pe_l + dist_tp2;
+    let tp2_s = pe_s - dist_tp2;
+
+    let res = simuler_straddle_hybride(horizon, ParamsStraddleHybride {
+        pe_l, tp1_l, sl_l, tp2_l,
+        pe_s, tp1_s, sl_s, tp2_s,
+        atr: p.atr,
+        trail: p.trailing_mult,
+        vente_partielle: p.vente_partielle,
+        be: p.be,
+    });
+
+    let pe1 = if matches!(res.dir1, TradeDirection::Long) { pe_l } else { pe_s };
+    let sl1 = if matches!(res.dir1, TradeDirection::Long) { sl_l } else { sl_s };
+    let pe2 = if matches!(res.dir2, TradeDirection::Long) { pe_l } else { pe_s };
+    let sl2 = if matches!(res.dir2, TradeDirection::Long) { sl_l } else { sl_s };
+
+    [
+        JambeStraddle { prix_entree: pe1, prix_sortie: res.jambe1.0, direction: res.dir1, sortie: res.jambe1.1, sl_ref: sl1 },
+        JambeStraddle { prix_entree: pe2, prix_sortie: res.jambe2.0, direction: res.dir2, sortie: res.jambe2.1, sl_ref: sl2 },
+    ]
+}

@@ -5,7 +5,7 @@ use calculs::{
 use common::{Candle, Direction, Result};
 use indicators::calculer_atr;
 use stats::calculer_resultats;
-use straddle_hybride::{simuler_straddle_hybride, ParamsStraddleHybride};
+use straddle_hybride::{preparer_jambes_straddle, JambeStraddle, NiveauxSignalStraddle, ParamsMoteurStraddle};
 use strategies::Strategy;
 mod calculs;
 mod stats;
@@ -115,87 +115,38 @@ impl BacktestEngine {
             // Straddle hybride : Long + Short simultanés, jambe survivante bascule en SMC
             if matches!(signal.direction, Direction::Both) {
                 if let Some(tp2_sig) = signal.take_profit_2 {
-                    let pe_l = prochaine.open * (1.0 + friction);
-                    let pe_s = prochaine.open * (1.0 - friction);
-                    let dist_tp1 = signal.take_profit - signal.prix_entree;
-                    let dist_sl_v = signal.prix_entree - signal.stop_loss;
-                    let dist_tp2 = tp2_sig - signal.prix_entree;
-                    let tp1_l = signal.take_profit; // Long TP1 absolu (convention signal)
-                    let sl_l = signal.stop_loss; // Long SL absolu
-                    let tp1_s = pe_s - dist_tp1; // Short TP1 miroir
-                    let sl_s = pe_s + dist_sl_v; // Short SL miroir
-                    let tp2_l = pe_l + dist_tp2; // Long TP2 relatif à pe_l
-                    let tp2_s = pe_s - dist_tp2; // Short TP2 relatif à pe_s
-                    let trail = self.trailing_atr_mult.unwrap_or(1.5);
-                    let be_opt = self.be_atr_mult.map(|m| (atr_courant, m));
-                    let res = simuler_straddle_hybride(
+                    let jambes = preparer_jambes_straddle(
                         horizon_bougies,
-                        ParamsStraddleHybride {
-                            pe_l,
-                            tp1_l,
-                            sl_l,
-                            tp2_l,
-                            pe_s,
-                            tp1_s,
-                            sl_s,
-                            tp2_s,
+                        NiveauxSignalStraddle {
+                            take_profit: signal.take_profit,
+                            stop_loss: signal.stop_loss,
+                            prix_entree: signal.prix_entree,
+                            tp2: tp2_sig,
+                        },
+                        ParamsMoteurStraddle {
+                            open: prochaine.open,
+                            friction,
                             atr: atr_courant,
-                            trail,
+                            trailing_mult: self.trailing_atr_mult.unwrap_or(1.5),
+                            be: self.be_atr_mult.map(|m| (atr_courant, m)),
                             vente_partielle: self.vente_partielle,
-                            be: be_opt,
                         },
                     );
-                    let pe1 = if matches!(res.dir1, TradeDirection::Long) {
-                        pe_l
-                    } else {
-                        pe_s
-                    };
-                    let sl1 = if matches!(res.dir1, TradeDirection::Long) {
-                        sl_l
-                    } else {
-                        sl_s
-                    };
-                    let pe2 = if matches!(res.dir2, TradeDirection::Long) {
-                        pe_l
-                    } else {
-                        pe_s
-                    };
-                    let sl2 = if matches!(res.dir2, TradeDirection::Long) {
-                        sl_l
-                    } else {
-                        sl_s
-                    };
-                    for (pe, px, sortie, dir, sl_ref) in [
-                        (pe1, res.jambe1.0, res.jambe1.1, res.dir1, sl1),
-                        (pe2, res.jambe2.0, res.jambe2.1, res.dir2, sl2),
-                    ] {
-                        let dist = (pe - sl_ref).abs().max(1e-10);
+                    for JambeStraddle { prix_entree, prix_sortie, direction, sortie, sl_ref } in jambes {
+                        let dist = (prix_entree - sl_ref).abs().max(1e-10);
                         let taille = (capital * self.risk_par_trade_pct) / dist;
-                        let pnl = match dir {
-                            TradeDirection::Long => (px - pe) * taille,
-                            TradeDirection::Short => (pe - px) * taille,
+                        let pnl = match direction {
+                            calculs::TradeDirection::Long => (prix_sortie - prix_entree) * taille,
+                            calculs::TradeDirection::Short => (prix_entree - prix_sortie) * taille,
                         };
                         capital = (capital + pnl).max(0.0);
-                        if capital > capital_max {
-                            capital_max = capital;
-                        }
+                        if capital > capital_max { capital_max = capital; }
                         equity.push(capital);
-                        trades.push(TradeSimule {
-                            prix_entree: pe,
-                            prix_sortie: px,
-                            direction: dir,
-                            sortie: Some(sortie),
-                        });
-                        feedback.push(FeedbackTrade {
-                            indice_entree: i,
-                            gagne: pnl > 0.0,
-                        });
+                        trades.push(TradeSimule { prix_entree, prix_sortie, direction, sortie: Some(sortie) });
+                        feedback.push(FeedbackTrade { indice_entree: i, gagne: pnl > 0.0 });
                     }
-                    equity_curve.push(EquityPoint {
-                        timestamp: prochaine.timestamp.timestamp(),
-                        capital,
-                    });
-                    continue; // jambes traitées, passer au signal suivant
+                    equity_curve.push(EquityPoint { timestamp: prochaine.timestamp.timestamp(), capital });
+                    continue;
                 }
             }
 

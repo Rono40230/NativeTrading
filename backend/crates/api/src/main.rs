@@ -29,6 +29,7 @@ mod rockets_analyse;
 mod rockets_analyse_handler;
 mod rockets_handlers;
 mod rockets_scan;
+mod rockets_sauvegarder;
 mod rockets_suivi;
 mod scheduler;
 mod sentiment_handlers;
