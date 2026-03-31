@@ -60,7 +60,7 @@ pub fn backtest_slot_fenetre(
     let mut amplitudes: Vec<f64> = vec![];
     let mut dates_traitees: HashSet<NaiveDate> = HashSet::new();
 
-    for i in 14..candles_m5.len() {
+    for i in 15..candles_m5.len() {
         let c = &candles_m5[i];
         let slot_min = c.timestamp.hour() * 60 + c.timestamp.minute();
         if slot_min < debut_min || slot_min >= fin_min {
@@ -77,7 +77,7 @@ pub fn backtest_slot_fenetre(
         }
         dates_traitees.insert(date);
 
-        let atr = calculer_atr(&candles_m5[i.saturating_sub(14)..i]);
+        let atr = calculer_atr(&candles_m5[i.saturating_sub(15)..i]);
         if atr <= 0.0 {
             continue;
         }

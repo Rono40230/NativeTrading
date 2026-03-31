@@ -54,7 +54,7 @@ pub fn backtest_slot(
     let mut short_wins_count = 0usize;
     let mut amplitudes: Vec<f64> = vec![];
 
-    for i in 14..candles_h1.len().saturating_sub(5) {
+    for i in 15..candles_h1.len().saturating_sub(5) {
         let c = &candles_h1[i];
         let h = c.timestamp.hour();
         let dans_fenetre = match heure_fin {
@@ -70,7 +70,7 @@ pub fn backtest_slot(
             }
         }
 
-        let atr = calculer_atr(&candles_h1[i - 14..i]);
+        let atr = calculer_atr(&candles_h1[i - 15..i]);
         if atr <= 0.0 {
             continue;
         }
