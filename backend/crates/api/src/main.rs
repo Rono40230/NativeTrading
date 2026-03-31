@@ -65,8 +65,18 @@ async fn main() -> std::io::Result<()> {
     dotenvy::from_filename("telegram.env").ok();
     dotenvy::dotenv().ok();
 
+    // Les logs ibapi internes sont tous non-actionnables depuis notre code :
+    //  - ibapi::connection::common : timezone FR non reconnue, [326] client_id (géré par retry)
+    //  - ibapi::transport::r#async : Code 2104/2106/2158 (statut fermes données IB)
+    //  - ibapi::market_data::historical::r#async : timezone unknown (fallback UTC OK)
+    // Notre code produit ses propres tracing::info/warn pour les événements significatifs.
+    // Surcharger via RUST_LOG si besoin de débogage ibapi (ex: RUST_LOG=ibapi=debug).
+    let env_filter = tracing_subscriber::EnvFilter::from_default_env()
+        .add_directive(tracing::Level::INFO.into())
+        .add_directive("ibapi=off".parse().unwrap());
+
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
+        .with_env_filter(env_filter)
         .init();
 
     tracing::info!("🚀 Native Trading AI Backend starting...");
@@ -104,6 +114,9 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(smc_analyse_handler::demarrer_worker_analyse_smc(
         app_state.db.clone(),
     ));
+
+    scheduler::demarrer_scheduler(app_state.db.clone(), app_state.pipeline_ml.clone());
+    scheduler::demarrer_surveillance_ml(app_state.db.clone(), app_state.pipeline_ml.clone());
 
     HttpServer::new(move || {
         // CORS limité au dev Tauri uniquement — en production l'app est native (fenêtre Tauri)

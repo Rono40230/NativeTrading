@@ -72,6 +72,12 @@
         >⚙</button>
       </div>
 
+      <!-- Actualiser -->
+      <button
+        class="ml-auto px-3 py-1 text-xs rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-50"
+        :disabled="chargement"
+        @click="$emit('actualiser')"
+      >{{ chargement ? '⏳...' : '🔄 Actualiser' }}</button>
     </div>
 
     <IndicatorModal
@@ -96,7 +102,9 @@ import IndicatorModal from './IndicatorModal.vue'
 import SmcIndicatorModal from './SmcIndicatorModal.vue'
 
 const prefs = defineModel<PrefsIndicateurs>({ required: true })
-const emit = defineEmits<{ appliquer: [] }>()
+const props = defineProps<{ chargement?: boolean }>()
+
+const emit = defineEmits<{ appliquer: []; actualiser: [] }>()
 
 const modaleOuverte = ref<string | null>(null)
 const smcModaleOuverte = ref<string | null>(null)

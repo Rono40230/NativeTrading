@@ -17,6 +17,24 @@
     </div>
 
     <div v-if="stats" class="flex items-center gap-2 ml-auto">
+      <!-- Dropdown Asset -->
+      <select
+        :value="selectedAsset"
+        class="px-2 py-1 text-xs font-medium rounded-lg bg-white text-black border border-white/20 cursor-pointer focus:outline-none"
+        @change="$emit('changer-asset', ($event.target as HTMLSelectElement).value)"
+      >
+        <option v-for="a in assets" :key="a" :value="a">{{ a }}</option>
+      </select>
+
+      <!-- Dropdown Timeframe -->
+      <select
+        :value="selectedTimeframe"
+        class="px-2 py-1 text-xs font-medium rounded-lg bg-white text-black border border-white/20 cursor-pointer focus:outline-none"
+        @change="$emit('changer-timeframe', ($event.target as HTMLSelectElement).value)"
+      >
+        <option v-for="tf in timeframes" :key="tf" :value="tf">{{ tf }}</option>
+      </select>
+
       <div v-for="b in badges" :key="b.label"
         class="cpx-badge"
         @mouseenter="(e) => ouvrirTip(e, b)"
@@ -61,6 +79,13 @@ const props = defineProps<{
   selectedAsset: string
   selectedTimeframe: string
   wsConnecte: boolean
+  assets: string[]
+  timeframes: string[]
+}>()
+
+defineEmits<{
+  'changer-asset': [asset: string]
+  'changer-timeframe': [tf: string]
 }>()
 
 interface Niveau { label: string; color: string; actif: boolean }

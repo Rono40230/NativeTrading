@@ -7,9 +7,14 @@ use actix_ws::Message;
 use ibapi::market_data::historical::{Duration, HistoricalBarUpdate};
 use ibapi::market_data::TradingHours;
 use ibapi::Client;
+use std::sync::atomic::{AtomicI32, Ordering};
 
 use super::ib_contracts::{ib_bar_size, ib_contrat_hist, ib_contrat_tick, what_to_show_hist};
 use super::types::{CandleData, CandleEvent};
+
+/// Compteur global : chaque connexion IB reçoit un offset unique croissant,
+/// ce qui évite les conflits [326] "client_id déjà utilisé" entre reconnexions.
+static IB_OFFSET_COUNTER: AtomicI32 = AtomicI32::new(1);
 
 // ─── Stream principal ─────────────────────────────────────────────────────────
 
@@ -34,16 +39,20 @@ pub(super) async fn stream_ib(
 
     let adresse = format!("127.0.0.1:{}", ib_port);
 
-    // Retry avec des client_id différents si [326] "déjà utilisé"
+    // Compteur atomique : chaque connexion obtient un offset unique croissant,
+    // ce qui garantit qu'on ne réutilise pas un client_id encore enregistré
+    // côté IB Gateway (timeout ~30s).
     let client = {
         let mut conn_result: Option<Client> = None;
         let mut last_err = String::new();
-        for offset in 1i32..=20 {
-            match Client::connect(&adresse, ib_client_id + offset).await {
+        for _ in 0..10 {
+            let offset = IB_OFFSET_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let candidate_id = ib_client_id + offset;
+            match Client::connect(&adresse, candidate_id).await {
                 Ok(c) => {
                     tracing::info!(
                         "IB Gateway connecté avec client_id={}",
-                        ib_client_id + offset
+                        candidate_id
                     );
                     conn_result = Some(c);
                     break;
@@ -54,8 +63,8 @@ pub(super) async fn stream_ib(
                         break;
                     }
                     tracing::debug!(
-                        "client_id={} indisponible ({}), essai suivant",
-                        ib_client_id + offset,
+                        "client_id={} indisponible ({}), prochain",
+                        candidate_id,
                         last_err
                     );
                 }

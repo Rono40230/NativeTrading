@@ -128,8 +128,17 @@
       </div>
     </div>
 
-    <!-- Monitoring ML -->
-    <MonitoringML />
+    <!-- Monitoring ML — Volatilité Straddle (à implémenter) -->
+    <div class="glass-card p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          🤖 Monitoring ML — Volatilité Straddle
+        </h2>
+      </div>
+      <p class="text-center text-sm text-gray-500 py-6">
+        Monitoring ML dédié à la volatilité Straddle — à implémenter
+      </p>
+    </div>
 
     <!-- Test A/B Prompts (composant indépendant) -->
     <AbTestTable />
@@ -144,7 +153,6 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useAssetsStore } from '@/stores/assets.store'
 import TooltipInfo from '@/components/common/TooltipInfo.vue'
-import MonitoringML from '@/components/common/MonitoringML.vue'
 import AbTestTable from '@/components/common/AbTestTable.vue'
 import { useBacktestDuree } from '@/composables/useBacktestDuree'
 import { useCreneauParams } from '@/composables/useCreneauParams'

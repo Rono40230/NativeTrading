@@ -1,7 +1,7 @@
 <template>
-  <div class="flex gap-4 items-stretch">
-    <!-- Prédiction IA -->
-    <div class="glass-card p-5 flex-1">
+  <div class="flex gap-4 items-stretch h-56">
+    <!-- Prédiction IA — 1/5 -->
+    <div class="glass-card p-5 flex-[1]">
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
         Prédiction IA — {{ asset }} {{ timeframe }}
       </h2>
@@ -37,16 +37,29 @@
           {{ entraineEnCours ? '⏳ Entraînement...' : '🧠 Entraîner RF + LSTM' }}
         </button>
       </div>
-      <div v-else class="text-gray-500 text-sm">Chargement prédiction...</div>
+      <div v-else class="space-y-2">
+        <p class="text-yellow-400/80 text-sm">⚠ Modèle non disponible</p>
+        <p class="text-xs text-gray-500">Entraînez le modèle pour obtenir une prédiction sur cet actif/TF.</p>
+        <button
+          class="mt-1 w-full py-2 px-3 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-all"
+          :disabled="entraineEnCours"
+          @click="lancerEntrainement"
+        >{{ entraineEnCours ? '⏳ Entraînement...' : '🧠 Entraîner RF + LSTM' }}</button>
+      </div>
     </div>
 
-    <!-- Score SMC -->
-    <div class="flex-1">
+    <!-- Score SMC — 2/5 -->
+    <div class="flex-[2]">
       <SmcScoreCard
         :score-smc="signalStore.scoreSmc"
         :asset="asset"
         :timeframe="timeframe"
       />
+    </div>
+
+    <!-- Monitoring ML — 2/5 -->
+    <div class="flex-[2]">
+      <MonitoringML />
     </div>
   </div>
 </template>
@@ -57,6 +70,7 @@ import { useSignalStore } from '@/stores/signal.store'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { apiService } from '@/services/api.service'
 import SmcScoreCard from './SmcScoreCard.vue'
+import MonitoringML from './MonitoringML.vue'
 
 const props = defineProps<{
   asset: string
@@ -81,7 +95,9 @@ async function lancerEntrainement() {
     alerteStore.afficherSucces(`✅ ${res.message}`)
     await signalStore.chargerPrediction(props.asset, props.timeframe)
   } catch (err: unknown) {
-    alerteStore.afficherErreur(`Entraînement échoué: ${(err as Error).message}`)
+    const axiosBody = (err as any)?.response?.data?.error
+    const msg = axiosBody ?? (err instanceof Error ? err.message : 'Erreur inconnue')
+    alerteStore.afficherErreur(`Entraînement échoué: ${msg}`)
   } finally {
     entraineEnCours.value = false
   }

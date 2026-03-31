@@ -186,6 +186,59 @@ impl Database {
         Ok(bougies)
     }
 
+    /// Toutes les bougies d'un asset/timeframe sans plafond (ordre ASC)
+    pub async fn obtenir_bougies_toutes(
+        &self,
+        asset: &Asset,
+        timeframe: &Timeframe,
+    ) -> Result<Vec<Candle>> {
+        let rows = sqlx::query(
+            "SELECT timestamp, open, high, low, close, volume
+             FROM bougies
+             WHERE asset = ? AND timeframe = ?
+             ORDER BY timestamp ASC",
+        )
+        .bind(asset.as_str())
+        .bind(timeframe.as_str())
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        Ok(rows
+            .iter()
+            .map(|r| {
+                let ts: i64 = r.get("timestamp");
+                Candle {
+                    timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or(Utc::now()),
+                    open: r.get("open"),
+                    high: r.get("high"),
+                    low: r.get("low"),
+                    close: r.get("close"),
+                    volume: r.get("volume"),
+                }
+            })
+            .collect())
+    }
+
+    /// Retourne toutes les combinaisons (asset_str, timeframe_str) ayant ≥ min_bougies en DB.
+    pub async fn combinaisons_entrainables(&self, min_bougies: i64) -> Result<Vec<(String, String)>> {
+        let rows = sqlx::query(
+            "SELECT asset, timeframe FROM bougies
+             GROUP BY asset, timeframe
+             HAVING COUNT(*) >= ?
+             ORDER BY asset, timeframe",
+        )
+        .bind(min_bougies)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        Ok(rows
+            .iter()
+            .map(|r| (r.get::<String, _>("asset"), r.get::<String, _>("timeframe")))
+            .collect())
+    }
+
     /// Nombre de bougies stockées pour un asset/timeframe
     pub async fn compter_bougies(&self, asset: &Asset, timeframe: &Timeframe) -> Result<i64> {
         let row =

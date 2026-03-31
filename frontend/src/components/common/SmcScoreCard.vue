@@ -1,11 +1,11 @@
 <template>
-  <div class="glass-card p-5">
+  <div class="glass-card p-5 overflow-y-auto shrink-0">
     <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
       Score SMC — {{ asset }} {{ timeframe }}
     </h2>
     <div v-if="scoreSmc" class="space-y-3">
-      <!-- Score total + badge confluence -->
-      <div class="flex items-center gap-4">
+      <!-- Score total + badge confluence + Kill Zone + Sweep -->
+      <div class="flex items-center gap-3">
         <span class="text-4xl font-bold" :class="scoreCouleur(scoreSmc.total)">
           {{ scoreSmc.total.toFixed(0) }}
           <span class="text-lg text-gray-400">/100</span>
@@ -21,6 +21,18 @@
         <span class="text-sm font-medium" :class="directionColor(scoreSmc.direction)">
           {{ scoreSmc.direction.toUpperCase() === 'LONG' ? 'BUY' : scoreSmc.direction.toUpperCase() === 'SHORT' ? 'SELL' : scoreSmc.direction.toUpperCase() }}
         </span>
+        <!-- Kill Zone + Sweep poussés à droite -->
+        <div class="ml-auto flex items-center gap-2">
+          <span
+            class="px-2 py-0.5 rounded text-xs font-medium"
+            :class="scoreSmc.kill_zone_active ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-700/60 text-gray-500'"
+          >{{ scoreSmc.kill_zone_active ? '✓' : '✗' }} Kill Zone</span>
+          <span
+            class="px-2 py-0.5 rounded text-xs font-medium"
+            :class="scoreSmc.sweep_detecte ? 'bg-emerald-500/20 text-emerald-300' : 'bg-gray-700/60 text-gray-500'"
+          >{{ scoreSmc.sweep_detecte ? '✓' : '✗' }} Sweep</span>
+          <span v-if="!scoreSmc.kill_zone_active || !scoreSmc.sweep_detecte" class="text-xs text-yellow-600">⚠ Signal bloqué</span>
+        </div>
       </div>
       <!-- Barre de progression globale -->
       <div class="w-full bg-gray-700 rounded-full h-2">
@@ -30,36 +42,13 @@
           :style="{ width: `${scoreSmc.total}%` }"
         />
       </div>
-      <!-- Prérequis ICT (Kill Zone + Sweep) -->
-      <div class="flex gap-2 mt-1">
-        <span
-          class="px-2 py-0.5 rounded text-xs font-medium"
-          :class="scoreSmc.kill_zone_active
-            ? 'bg-emerald-500/20 text-emerald-300'
-            : 'bg-gray-700/60 text-gray-500'"
-        >
-          {{ scoreSmc.kill_zone_active ? '✓' : '✗' }} Kill Zone
-        </span>
-        <span
-          class="px-2 py-0.5 rounded text-xs font-medium"
-          :class="scoreSmc.sweep_detecte
-            ? 'bg-emerald-500/20 text-emerald-300'
-            : 'bg-gray-700/60 text-gray-500'"
-        >
-          {{ scoreSmc.sweep_detecte ? '✓' : '✗' }} Sweep
-        </span>
-        <span v-if="!scoreSmc.kill_zone_active || !scoreSmc.sweep_detecte" class="text-xs text-yellow-600 self-center">
-          ⚠ Signal bloqué
-        </span>
-      </div>
       <!-- Détail composants -->
       <div class="grid grid-cols-5 gap-2 mt-2">
         <div v-for="comp in composants" :key="comp.label" class="text-center">
           <div class="text-xs text-gray-500 mb-1">{{ comp.label }}</div>
           <div class="text-sm font-bold" :class="comp.pts > 0 ? 'text-emerald-400' : 'text-gray-600'">
-            {{ comp.pts.toFixed(0) }}
+            {{ comp.pts.toFixed(0) }}<span class="text-xs text-gray-600 font-normal">/{{ comp.max }}</span>
           </div>
-          <div class="text-xs text-gray-600">/{{ comp.max }}</div>
         </div>
       </div>
     </div>

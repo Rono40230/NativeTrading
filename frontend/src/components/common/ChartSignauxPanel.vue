@@ -7,6 +7,16 @@
       <span class="w-px h-4 bg-white/20 mx-1" />
 
       <!-- Sources -->
+      <!-- "Tous" actif quand toutes les sources sont sélectionnées -->
+      <button
+        @click="filtre.sources.length === SOURCES.length ? filtre.sources = [] : filtre.sources = [...SOURCES]"
+        :class="[
+          'px-2 py-0.5 rounded border transition-colors',
+          filtre.sources.length === SOURCES.length
+            ? 'bg-blue-500/30 border-blue-500/60 text-white'
+            : 'border-white/10 text-gray-500 hover:border-white/30',
+        ]"
+      >Tous</button>
       <button
         v-for="src in SOURCES"
         :key="src"
@@ -61,21 +71,14 @@
         ]"
       >{{ n }}</button>
 
-      <!-- Compteur -->
-      <span class="ml-auto text-gray-500">{{ signaux_filtres.length }} / {{ signaux.length }}</span>
-
-      <span class="w-px h-4 bg-white/20 mx-1" />
-
-      <!-- Toggle SL/TP -->
+      <!-- Analyser (IA) -->
       <button
-        @click="filtre.afficherSlTp = !filtre.afficherSlTp"
-        :class="[
-          'px-2 py-0.5 rounded border transition-colors',
-          filtre.afficherSlTp
-            ? 'bg-amber-500/20 border-amber-500/60 text-amber-300'
-            : 'border-white/10 text-gray-500',
-        ]"
-      >SL/TP</button>
+        class="ml-auto px-3 py-0.5 rounded border transition-colors bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40"
+        :disabled="analyseEnCours"
+        @click="$emit('analyser')"
+      >{{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyser (IA)' }}</button>
+
+
     </div>
   </div>
 </template>
@@ -84,6 +87,7 @@
 import { computed, reactive, watch } from 'vue'
 import {
   FORCE_LABEL,
+  TOUTES_SOURCES,
   filtreDefaut,
   filtrerSignaux,
   type SignalIndicateur,
@@ -92,16 +96,17 @@ import {
 } from '@/composables/chartSignauxTypes'
 
 const FORCES: NiveauForce[] = ['moyen', 'fort']
-const SOURCES = ['EMA', 'RSI', 'MACD', 'Bollinger', 'Combiné']
+const SOURCES = [...TOUTES_SOURCES]
 const NB_OPTIONS = [5, 10, 40]
 
 const props = defineProps<{
   signaux: SignalIndicateur[]
-  timestampCurseur: number | null
+  analyseEnCours?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update:filtre', f: FiltreSignaux): void
+  (e: 'analyser'): void
 }>()
 
 const filtre = reactive<FiltreSignaux>(filtreDefaut())
@@ -113,37 +118,6 @@ function toggleSource(src: string) {
   if (idx >= 0) filtre.sources.splice(idx, 1)
   else filtre.sources.push(src)
 }
-
-const CONSEILS: Record<string, string> = {
-  golden_cross: `Envisagez un buy sur pullback vers l'EMA.`,
-  death_cross: `Réduisez l'exposition buy, envisagez un sell sur rebond.`,
-  survente_sortie: `Le vendeur s'épuise — cherchez un buy à confirmation.`,
-  surachat_sortie: `Momentum haussier s'affaiblit — serrez le stop ou prenez profit sur le buy.`,
-  mi_ligne_haussiere: `Tendance favorise les acheteurs, renforcez le buy en pullback.`,
-  mi_ligne_baissiere: `Tendance favorise les vendeurs, allégez ou basculez en sell.`,
-  croisement_haussier: `MACD croise à la hausse — signal d'entrée buy de court terme.`,
-  croisement_baissier: `MACD croise à la baisse — signal de sortie buy ou d'entrée sell.`,
-  zero_haussier: `MACD passe au-dessus de zéro — tendance haussière confirmée, favorisez le buy.`,
-  zero_baissier: `MACD passe sous zéro — tendance baissière confirmée, favorisez le sell.`,
-  touche_bande_basse: `Prix en zone de survente — possible rebond buy, attendez confirmation.`,
-  touche_bande_haute: `Prix en zone de surachat — possible retournement sell, gérez le risque.`,
-  cassure_basse: `Rupture baissière Bollinger — volatilité en hausse, trailing stop sur sell conseillé.`,
-  cassure_haute: `Breakout haussier Bollinger — momentum fort sur buy, suivez avec stop serré.`,
-  squeeze: `Contraction de volatilité — anticipez un mouvement directionnel imminent (buy ou sell).`,
-  atr_spike: `Volatilité anormale — évitez d'entrer en position, attendez que la bougie se ferme.`,
-  atr_compression: `ATR au plus bas — explosion imminente, positionnez-vous avant le breakout.`,
-  boll_rsi_bull: `Double confluence : bande basse + oversold — buy avec stop sous la bande basse.`,
-  boll_rsi_bear: `Double confluence : bande haute + overbought — sell avec stop au-dessus de la bande haute.`,
-  squeeze_macd_bull: `Compression + MACD haussier — le breakout buy est imminent, entrez sur confirmation.`,
-  squeeze_macd_bear: `Compression + MACD baissier — le breakout sell est imminent, entrez sur confirmation.`,
-  atr_macd_bull: `Volatilité + momentum haussier alignés — tendance forte buy, trailing stop recommandé.`,
-  atr_macd_bear: `Volatilité + momentum baissier alignés — tendance forte sell, trailing stop recommandé.`,
-  ema_macd_bull: `EMA + MACD tous deux haussiers — buy en continuation, stop sous l'EMA.`,
-  ema_macd_bear: `EMA + MACD tous deux baissiers — sell en continuation, stop au-dessus de l'EMA.`,
-  cross_macd_bull: `Golden Cross confirmé par le MACD — signal buy majeur, taille de position normale.`,
-  cross_macd_bear: `Death Cross confirmé par le MACD — signal sell majeur, taille de position normale.`,
-}
-
 
 // Propagation du filtre au parent pour re-rendu des marqueurs
 watch(filtre, () => emit('update:filtre', { ...filtre, sources: [...filtre.sources] }), {

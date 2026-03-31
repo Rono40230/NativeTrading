@@ -166,7 +166,7 @@ onUnmounted(() => {
 .scroll-zone::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }
 
 .tooltip-detail {
-  @apply absolute bottom-full left-0 z-50 mb-1.5 w-52
+  @apply absolute top-full left-0 z-50 mt-1.5 w-52
          rounded-xl border border-white/15 bg-[#0f1629]
          p-3 shadow-2xl pointer-events-none;
   min-width: 13rem;

@@ -45,6 +45,8 @@ export interface FiltreSignaux {
   afficherSlTp: boolean
 }
 
+export const TOUTES_SOURCES = ['EMA', 'RSI', 'MACD', 'Bollinger', 'Combiné'] as const
+
 export function filtreDefaut(): FiltreSignaux {
   return {
     forceMin: 'moyen',
@@ -71,6 +73,7 @@ export function filtrerSignaux(
       if (s.direction === 'bearish' && !filtre.afficherBearish) return false
       if (s.direction === 'neutre'  && !filtre.afficherNeutre)  return false
     }
+    // sources vide = aucune source active = rien afficher
     if (!filtre.sources.includes(s.source)) return false
     return true
   })

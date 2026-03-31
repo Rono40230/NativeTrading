@@ -50,16 +50,16 @@ pub async fn entrainer_ml(
     let bougies = match state
         .db
         .obtenir_bougies(
-            &parse_asset(query.asset.as_deref().unwrap_or("XAUUSD")).unwrap_or(Asset::XAUUSD),
-            &parse_timeframe(query.timeframe.as_deref().unwrap_or("M15")),
+            &asset,
+            &timeframe,
             limit as i64,
         )
         .await
     {
-        Ok(b) if b.len() >= 100 => b,
+        Ok(b) if b.len() >= 200 => b,
         Ok(b) => {
             return HttpResponse::BadRequest().json(serde_json::json!({
-                "error": format!("Données insuffisantes: {} bougies (min 100) — IB Gateway doit être connecté", b.len())
+                "error": format!("Données insuffisantes: {} bougies (min 200 requises) — lancez une collecte de données depuis /data", b.len())
             }));
         }
         Err(e) => {

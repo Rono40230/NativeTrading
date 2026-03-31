@@ -3,7 +3,7 @@
     <!-- En-tête -->
     <div class="mb-2 flex items-center justify-between shrink-0">
       <div class="flex items-center gap-3 flex-wrap">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-white">🚀 Veille Rockets</p>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-white">🚀 Veille Cryptos — Stratégie Rockets (variation 1h)</p>
         <div class="flex items-center gap-3 text-[9px] font-medium">
           <span class="text-blue-400">🌀 Compression</span>
           <span class="text-yellow-400">⚡ Pré-lancement</span>
@@ -30,12 +30,12 @@
     </div>
 
     <!-- Squelette -->
-    <div v-else-if="signaux.length === 0 && chargement" class="grid grid-cols-6 gap-2">
+    <div v-else-if="signaux.length === 0 && chargement" class="grid grid-cols-8 gap-2">
       <div v-for="n in 10" :key="n" class="rounded-lg border border-white/5 bg-white/5 h-[36px] animate-pulse" />
     </div>
 
     <!-- Grille 5 colonnes, scroll 3 lignes -->
-    <div v-else class="grid grid-cols-6 gap-2 overflow-y-auto scroll-zone" style="max-height: calc(3 * 44px + 2 * 8px)">
+    <div v-else class="grid grid-cols-8 gap-2 overflow-y-auto scroll-zone" style="max-height: calc(2 * 44px + 1 * 8px)">
       <div
         v-for="s in signaux"
         :key="s.symbol"
@@ -63,15 +63,26 @@
           <span class="text-sm font-bold text-white">{{ hovered.ticker }}</span>
           <span class="text-[11px]">{{ icone(hovered.phase) }} <span class="text-gray-400 text-[10px]">{{ labelPhase(hovered.phase) }}</span></span>
         </div>
-        <!-- Sparkline 1h -->
+        <!-- Sparkline multi-TF -->
         <div class="mb-3">
-          <p class="text-[10px] text-gray-500 mb-1">Tendance 1h (24 bougies)</p>
+          <div class="flex items-center justify-between mb-1">
+            <p class="text-[10px] text-gray-500">Tendance — {{ selectedTF }}</p>
+            <div class="flex gap-0.5">
+              <button
+                v-for="tf in TF_CONFIGS"
+                :key="tf.label"
+                class="text-[9px] px-1.5 py-0.5 rounded transition-colors"
+                :class="selectedTF === tf.label ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'"
+                @click.stop="choisirTF(tf)"
+              >{{ tf.label }}</button>
+            </div>
+          </div>
           <svg viewBox="0 0 240 48" class="w-full" style="height:44px">
-            <template v-if="hovered.closes.length >= 2">
+            <template v-if="sparklineActive.length >= 2">
               <polyline
-                :points="sparklinePath(hovered.closes)"
+                :points="sparklinePath(sparklineActive)"
                 fill="none"
-                :stroke="hovered.change1h >= 0 ? '#10b981' : '#ef4444'"
+                :stroke="couleurSparkline"
                 stroke-width="1.5"
                 stroke-linejoin="round"
                 stroke-linecap="round"
@@ -82,7 +93,7 @@
         </div>
         <div class="space-y-1.5 text-[11px]">
           <div class="flex justify-between"><span class="text-gray-500">Prix</span><span class="text-white font-mono">{{ formatPrix(hovered.prix) }}$</span></div>
-          <div class="flex justify-between"><span class="text-gray-500">Variation 1h</span><span :class="hovered.change1h >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ hovered.change1h >= 0 ? '+' : '' }}{{ hovered.change1h.toFixed(2) }}%</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Variation {{ selectedTF }}</span><span :class="variationTF >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ variationTF >= 0 ? '+' : '' }}{{ variationTF.toFixed(2) }}%</span></div>
           <div class="flex justify-between"><span class="text-gray-500">Volume spike</span><span :class="hovered.ratioVolume >= 2 ? 'text-orange-400' : 'text-gray-300'">{{ hovered.ratioVolume.toFixed(2) }}×</span></div>
           <div class="flex justify-between"><span class="text-gray-500">ATR ratio</span><span :class="hovered.atrRatio < 0.75 ? 'text-blue-400' : 'text-gray-300'">{{ hovered.atrRatio.toFixed(2) }}</span></div>
           <div class="flex justify-between"><span class="text-gray-500">RSI (14)</span><span :class="hovered.rsi > 70 ? 'text-orange-400' : hovered.rsi > 60 ? 'text-emerald-400' : 'text-gray-300'">{{ hovered.rsi.toFixed(1) }}</span></div>
@@ -145,9 +156,34 @@ function formatPrix(v: number): string {
   return v >= 1 ? v.toFixed(4) : v.toFixed(6)
 }
 
-const hovered = ref<SignalRocket | null>(null)
+const TF_CONFIGS = [
+  { label: '1H', interval: null  as string | null, limit: 0  },
+  { label: '4H', interval: '5m'  as string | null, limit: 48 },
+  { label: 'D1', interval: '1h'  as string | null, limit: 24 },
+  { label: 'W1', interval: '4h'  as string | null, limit: 42 },
+]
+
+const hoveredSymbol = ref<string | null>(null)
+const hovered = computed(() => hoveredSymbol.value ? props.signaux.find(s => s.symbol === hoveredSymbol.value) ?? null : null)
 const modalOuverte = ref(false)
 const pos = ref({ x: 0, y: 0 })
+const selectedTF = ref('1H')
+const sparklineTF = ref<number[]>([])
+
+const sparklineActive = computed(() =>
+  selectedTF.value === '1H' ? (hovered.value?.closes ?? []) : sparklineTF.value
+)
+const couleurSparkline = computed(() => {
+  const s = sparklineActive.value
+  if (s.length < 2) return '#10b981'
+  return s.at(-1)! >= s[0] ? '#10b981' : '#ef4444'
+})
+
+const variationTF = computed(() => {
+  const s = sparklineActive.value
+  if (s.length < 2) return hovered.value?.change1h ?? 0
+  return ((s.at(-1)! - s[0]) / s[0]) * 100
+})
 
 function sparklinePath(closes: number[]): string {
   const W = 240, H = 44
@@ -160,16 +196,33 @@ function sparklinePath(closes: number[]): string {
   }).join(' ')
 }
 
+async function fetchSparklineTF(ticker: string, interval: string, limit: number) {
+  sparklineTF.value = []
+  try {
+    const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${ticker}USDT&interval=${interval}&limit=${limit}`)
+    if (!res.ok) return
+    const data = await res.json() as unknown[][]
+    sparklineTF.value = data.map(k => parseFloat(k[4] as string))
+  } catch { /* silencieux */ }
+}
+
+function choisirTF(tf: { label: string; interval: string | null; limit: number }) {
+  selectedTF.value = tf.label
+  if (hovered.value && tf.interval) fetchSparklineTF(hovered.value.ticker, tf.interval, tf.limit)
+}
+
 function onCardClick(event: MouseEvent, s: SignalRocket) {
-  if (hovered.value?.symbol === s.symbol) { hovered.value = null; return }
+  if (hoveredSymbol.value === s.symbol) { hoveredSymbol.value = null; return }
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const rawX = rect.left + rect.width / 2
   const clampX = Math.max(124, Math.min(window.innerWidth - 124, rawX))
   pos.value = { x: clampX, y: rect.top - 8 }
-  hovered.value = s
+  selectedTF.value = '1H'
+  sparklineTF.value = []
+  hoveredSymbol.value = s.symbol
 }
 
-function fermerTooltip() { hovered.value = null }
+function fermerTooltip() { hoveredSymbol.value = null }
 
 // Countdown 30s : se réinitialise quand le scan se termine
 const SCAN_S = 30

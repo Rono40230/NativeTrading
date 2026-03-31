@@ -1,5 +1,5 @@
 use crate::rockets_analyse::analyser_symbol;
-use crate::rockets_sauvegarder::{calculer_niveaux, filtrer_sauvegarder_publier, CONVICTION_MIN};
+use crate::rockets_sauvegarder::{calculer_niveaux, filtrer_sauvegarder_publier};
 use crate::signal_engine::SignalEngine;
 use db::rockets;
 use futures_util::future::join_all;

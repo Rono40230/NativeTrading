@@ -4,12 +4,14 @@
     <div class="mb-3 flex items-center justify-between shrink-0">
       <div class="flex items-center gap-3 flex-wrap">
         <p class="text-[11px] font-semibold uppercase tracking-widest text-white">
-          ⚡ Alertes Cryptos — Top 20 hausse 24h
+          ⚡ Momentum Cryptos — Forte variation 24h
         </p>
         <div class="flex items-center gap-3 text-[9px] font-medium">
           <span class="text-red-400">🚀 Explosion</span>
-          <span class="text-orange-400">⚡ Breakout</span>
+          <span class="text-orange-400">⚡ Élan</span>
           <span class="text-yellow-400">🔥 Chaud</span>
+          <span class="text-amber-400">🎯 + Rockets</span>
+          <span class="text-orange-300">↘ Ralentissement</span>
         </div>        <span class="text-[9px] text-gray-600">{{ labelPaires }}</span>      </div>
       <div class="flex items-center gap-2">
         <span v-if="erreur" class="text-[10px] text-red-400">Binance indisponible</span>
@@ -29,7 +31,7 @@
     </div>
 
     <!-- Squelette chargement -->
-    <div v-else-if="top20.length === 0 && chargement" class="grid grid-cols-6 gap-2">
+    <div v-else-if="top20.length === 0 && chargement" class="grid grid-cols-8 gap-2">
       <div
         v-for="n in 15"
         :key="n"
@@ -38,18 +40,19 @@
     </div>
 
     <!-- Grille 5 colonnes, scroll après 3 lignes, triée score décroissant -->
-    <div v-else class="grid grid-cols-6 gap-2 overflow-y-auto scroll-zone" style="max-height: calc(3 * 44px + 2 * 8px)">
+    <div v-else class="grid grid-cols-8 gap-2 overflow-y-auto scroll-zone" style="max-height: calc(2 * 44px + 1 * 8px)">
       <div
         v-for="c in top20ParScore"
         :key="c.symbol"
         class="rounded-lg border px-2.5 py-1.5 flex items-center gap-1.5 transition-colors hover:brightness-125 cursor-pointer"
-        :class="classeCard(c.badge)"
+        :class="[classeCard(c.badge), dansScan(c.ticker) ? 'ring-2 ring-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]' : '']"
         @click.stop="onCardClick($event, c)"
       >
         <span class="text-[11px] font-bold text-white truncate flex-1 min-w-0">{{ c.ticker }}</span>
-        <span class="text-[10px] shrink-0">{{ icone(c.badge) }}</span>
+        <span class="text-[10px] shrink-0">{{ dansScan(c.ticker) ? '🎯' : icone(c.badge) }}</span>
         <span class="text-[10px] font-bold text-emerald-400 shrink-0">+{{ c.change24h.toFixed(2) }}%</span>
-        <span class="text-[9px] text-gray-500 shrink-0">{{ formatVolume(c.volume24h) }}</span>
+        <span v-if="c.ralentissement" class="text-[9px] text-orange-400 shrink-0">↘2</span>
+        <span v-else class="text-[9px] text-gray-500 shrink-0">{{ formatVolume(c.volume24h) }}</span>
       </div>
     </div>
   </div>
@@ -63,17 +66,31 @@
         @click.stop
       >
         <div class="flex items-center justify-between mb-3">
-          <span class="text-base font-bold text-white">{{ hovered.ticker }}</span>
+          <div>
+            <span class="text-base font-bold text-white">{{ hovered.ticker }}</span>
+            <span v-if="dansScan(hovered.ticker)" class="ml-2 text-[10px] font-bold text-amber-400">🎯 Confirmé Rockets</span>
+          </div>
           <span class="text-[11px]">{{ icone(hovered.badge) }}</span>
         </div>
         <div class="mb-3">
-          <p class="text-[10px] text-gray-500 mb-1">Tendance 24h (1h)</p>
+          <div class="flex items-center justify-between mb-1">
+            <p class="text-[10px] text-gray-500">Tendance — {{ selectedTF }}</p>
+            <div class="flex gap-0.5">
+              <button
+                v-for="tf in TF_CONFIGS"
+                :key="tf.label"
+                class="text-[9px] px-1.5 py-0.5 rounded transition-colors"
+                :class="selectedTF === tf.label ? 'bg-white/15 text-white' : 'text-gray-500 hover:text-gray-300'"
+                @click.stop="choisirTF(tf)"
+              >{{ tf.label }}</button>
+            </div>
+          </div>
           <svg viewBox="0 0 240 50" class="w-full" style="height:48px">
             <template v-if="sparkline.length >= 2">
               <polyline
                 :points="sparklinePath(sparkline)"
                 fill="none"
-                :stroke="hovered!.change24h >= 0 ? '#10b981' : '#ef4444'"
+                :stroke="couleurSparkline"
                 stroke-width="1.5"
                 stroke-linejoin="round"
                 stroke-linecap="round"
@@ -88,16 +105,24 @@
             <span class="text-white font-mono">{{ formatPrix(hovered.prix) }}$</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-500">Variation 24h</span>
-            <span class="font-bold text-emerald-400">+{{ hovered.change24h.toFixed(2) }}%</span>
+            <span class="text-gray-500">Variation {{ selectedTF }}</span>
+            <span class="font-bold" :class="variationTF >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ variationTF >= 0 ? '+' : '' }}{{ variationTF.toFixed(2) }}%</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-gray-500">Variation 1h</span>
+            <span v-if="hovered.change1h !== null" class="font-bold" :class="hovered.change1h >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ hovered.change1h >= 0 ? '+' : '' }}{{ hovered.change1h.toFixed(2) }}%</span>
+            <span v-else class="text-gray-600 text-[10px]">chargement…</span>
+          </div>
+          <div v-if="hovered.ralentissement" class="flex items-center gap-1 text-orange-400 text-[10px] bg-orange-500/10 rounded px-2 py-1">
+            <span>⚠️</span><span>Momentum 1h en baisse — pullback potentiel</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-500">Volume 24h</span>
             <span class="text-white">{{ formatVolume(hovered.volume24h) }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-500">Trades 24h</span>
-            <span class="text-white">{{ hovered.nbTrades.toLocaleString('fr-FR') }}</span>
+            <span class="text-gray-500">Volume spike</span>
+            <span :class="hovered.volumeRatio >= 5 ? 'text-orange-400' : hovered.volumeRatio >= 2 ? 'text-yellow-400' : 'text-gray-300'">{{ hovered.volumeRatio.toFixed(1) }}×</span>
           </div>
           <div class="flex justify-between border-t border-white/10 pt-1.5 mt-1.5">
             <span class="text-gray-500">Score</span>
@@ -117,6 +142,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { CryptoAlert, BadgeNiveau } from '@/composables/useCryptosAlert'
+import {
+  TF_CONFIGS, icone, classeCard, formatVolume, formatPrix,
+  classScore, labelBadge, sparklinePath,
+} from '@/composables/useCryptosAlert'
 import { usePrixStore } from '@/stores/prix.store'
 import CryptosOpportunitesModal from '@/components/common/CryptosOpportunitesModal.vue'
 
@@ -125,7 +154,12 @@ const props = defineProps<{
   chargement: boolean
   erreur: boolean
   totalPaires: number
+  rocketsTickers: string[]
 }>()
+
+function dansScan(ticker: string): boolean {
+  return props.rocketsTickers.includes(ticker)
+}
 
 const labelPaires = computed(() =>
   props.chargement
@@ -135,45 +169,6 @@ const labelPaires = computed(() =>
       : `${props.totalPaires > 0 ? props.totalPaires : '…'} paires Binance`
 )
 
-function icone(badge: BadgeNiveau): string {
-  if (badge === 'explosion') return '🚀'
-  if (badge === 'breakout') return '⚡'
-  if (badge === 'chaud') return '🔥'
-  return '📈'
-}
-
-function classeCard(badge: BadgeNiveau): string {
-  if (badge === 'explosion') return 'border-red-500/50 bg-red-500/10'
-  if (badge === 'breakout') return 'border-orange-500/40 bg-orange-500/10'
-  if (badge === 'chaud') return 'border-yellow-500/30 bg-yellow-500/[0.08]'
-  return 'border-emerald-500/20 bg-emerald-500/[0.05]'
-}
-
-function formatVolume(v: number): string {
-  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B$`
-  if (v >= 1_000_000)     return `${(v / 1_000_000).toFixed(1)}M$`
-  if (v >= 1_000)         return `${(v / 1_000).toFixed(0)}K$`
-  return `${v.toFixed(0)}$`
-}
-
-function formatPrix(v: number): string {
-  if (v >= 1000) return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(v)
-  return v >= 1 ? v.toFixed(4) : v.toFixed(6)
-}
-
-function classScore(s: number): string {
-  if (s >= 70) return 'text-red-400'
-  if (s >= 50) return 'text-orange-400'
-  return 'text-emerald-400'
-}
-
-function labelBadge(badge: BadgeNiveau): string {
-  if (badge === 'explosion') return '🚀 Explosion'
-  if (badge === 'breakout') return '⚡ Breakout'
-  if (badge === 'chaud') return '🔥 Chaud'
-  return '📈 Haussier'
-}
-
 const modalOuverte = ref(false)
 
 /** Tri réactif côté composant : score décroissant, mise à jour automatique */
@@ -181,42 +176,52 @@ const top20ParScore = computed(() =>
   [...props.top20].sort((a, b) => b.change24h - a.change24h)
 )
 
-const hovered = ref<CryptoAlert | null>(null)
+const hoveredTicker = ref<string | null>(null)
+const hovered = computed(() => hoveredTicker.value ? props.top20.find(c => c.ticker === hoveredTicker.value) ?? null : null)
 const pos = ref({ x: 0, y: 0 })
 const sparkline = ref<number[]>([])
+const selectedTF = ref('D1')
 
-function sparklinePath(closes: number[]): string {
-  const W = 240, H = 48
-  const min = Math.min(...closes), max = Math.max(...closes)
-  const range = max - min || 1
-  return closes.map((v, i) => {
-    const x = (i / (closes.length - 1)) * W
-    const y = H - ((v - min) / range) * (H - 4) - 2
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  }).join(' ')
-}
+const couleurSparkline = computed(() => {
+  if (sparkline.value.length < 2) return '#10b981'
+  return sparkline.value.at(-1)! >= sparkline.value[0] ? '#10b981' : '#ef4444'
+})
+
+const variationTF = computed(() => {
+  if (sparkline.value.length < 2) return hovered.value?.change24h ?? 0
+  const first = sparkline.value[0]
+  const last = sparkline.value.at(-1)!
+  return ((last - first) / first) * 100
+})
 
 async function fetchSparkline(ticker: string) {
   sparkline.value = []
+  const tf = TF_CONFIGS.find(t => t.label === selectedTF.value) ?? TF_CONFIGS[2]
   try {
-    const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${ticker}USDT&interval=1h&limit=24`)
+    const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${ticker}USDT&interval=${tf.interval}&limit=${tf.limit}`)
     if (!res.ok) return
     const data = await res.json() as unknown[][]
     sparkline.value = data.map(k => parseFloat(k[4] as string))
   } catch { /* silencieux */ }
 }
 
+function choisirTF(tf: { label: string; interval: string; limit: number }) {
+  selectedTF.value = tf.label
+  if (hoveredTicker.value) fetchSparkline(hoveredTicker.value)
+}
+
 function onCardClick(event: MouseEvent, c: CryptoAlert) {
-  if (hovered.value?.ticker === c.ticker) { hovered.value = null; return }
+  if (hoveredTicker.value === c.ticker) { hoveredTicker.value = null; return }
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
   const rawX = rect.left + rect.width / 2
   const clampedX = Math.max(136, Math.min(window.innerWidth - 136, rawX))
   pos.value = { x: clampedX, y: rect.top - 8 }
+  selectedTF.value = 'D1'
   fetchSparkline(c.ticker)
-  hovered.value = c
+  hoveredTicker.value = c.ticker
 }
 
-function fermerTooltip() { hovered.value = null }
+function fermerTooltip() { hoveredTicker.value = null }
 
 // Countdown : se réinitialise à chaque refresh du store (10s)
 const prixStore = usePrixStore()

@@ -1,114 +1,111 @@
 <template>
-  <div class="flex flex-col gap-4 h-full min-h-0">
-    <!-- Controles -->
-    <ChartBarreControles
-      :assets="assets"
-      :timeframes="timeframes"
-      :selected-asset="selectedAsset"
-      :selected-timeframe="selectedTimeframe"
-      :chargement="marketStore.chargement"
-      :analyse-en-cours="analyseEnCours"
-      @changer-asset="changerAsset"
-      @changer-timeframe="changerTimeframe"
-      @actualiser="actualiser"
-      @analyser="analyserAvecLlava"
-    />
+  <div class="relative h-full min-h-0">
 
-    <!-- Panneau indicateurs (toujours visible) -->
-    <IndicatorPanel v-model="settingsStore.indicateurs" @appliquer="chargerIndicateurs" />
+    <!-- ── Zone graphique (plein format) ────────────────────────────── -->
+    <div class="flex flex-col gap-4 w-full h-full min-h-0">
+      <!-- Dernier prix + variation + metriques + sélecteurs -->
+      <ChartPrixStats
+        :dernier-prix="dernierPrix"
+        :variation="variation"
+        :stats="stats"
+        :selected-asset="selectedAsset"
+        :selected-timeframe="selectedTimeframe"
+        :ws-connecte="marketStore.wsConnecte"
+        :assets="assets"
+        :timeframes="timeframes"
+        @changer-asset="changerAsset"
+        @changer-timeframe="changerTimeframe"
+      />
 
-    <!-- Dernier prix + variation + metriques -->
-    <ChartPrixStats
-      :dernier-prix="dernierPrix"
-      :variation="variation"
-      :stats="stats"
-      :selected-asset="selectedAsset"
-      :selected-timeframe="selectedTimeframe"
-      :ws-connecte="marketStore.wsConnecte"
-    />
+      <!-- Canvas TradingView -->
+      <div class="glass-card flex-1 min-h-0" style="min-height: 350px; position: relative;">
+        <div v-if="marketStore.erreur" class="absolute inset-0 z-10 flex items-center justify-center bg-black/60 text-red-400 text-sm rounded-xl">
+          ⚠ {{ marketStore.erreur }}
+        </div>
+        <div v-if="marketStore.erreurWs && !marketStore.wsConnecte" class="absolute bottom-2 left-2 z-10 px-3 py-1 rounded bg-yellow-900/70 text-yellow-300 text-xs border border-yellow-700/40">
+          ⚠ {{ marketStore.erreurWs }}
+        </div>
+        <div v-if="marketStore.chargement" class="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-gray-400 text-sm rounded-xl">
+          <span class="animate-pulse">Chargement des bougies...</span>
+        </div>
+        <div ref="chartContainer" class="w-full h-full" style="position: relative;" />
+        <EcoCalTooltip :annonce="tooltipAnnonce" :x="tooltipX" :y="tooltipY" />
+        <TendanceMultiTF
+          v-if="settingsStore.indicateurs.kasperTendance"
+          :key="selectedAsset + '_' + selectedTimeframe"
+          :asset="selectedAsset"
+          :timeframe="selectedTimeframe"
+          :periode-rapide="settingsStore.indicateurs.kasperPeriodeRapide"
+          :periode-lente="settingsStore.indicateurs.kasperPeriodeLente"
+          :mode-calcul="settingsStore.indicateurs.kasperModeCalcul"
+        />
+      </div>
 
-    <!-- Canvas TradingView -->
-    <div class="glass-card flex-1 min-h-0" style="min-height: 350px; position: relative;">
-      <!-- Overlay erreur de chargement REST (bloquant) -->
-      <div v-if="marketStore.erreur" class="absolute inset-0 z-10 flex items-center justify-center bg-black/60 text-red-400 text-sm rounded-xl">
-        ⚠ {{ marketStore.erreur }}
-      </div>
-      <!-- Badge erreur WS (non bloquant — données REST toujours affichées) -->
-      <div v-if="marketStore.erreurWs && !marketStore.wsConnecte" class="absolute bottom-2 left-2 z-10 px-3 py-1 rounded bg-yellow-900/70 text-yellow-300 text-xs border border-yellow-700/40">
-        ⚠ {{ marketStore.erreurWs }}
-      </div>
-      <!-- Overlay chargement -->
-      <div v-if="marketStore.chargement" class="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-gray-400 text-sm rounded-xl">
-        <span class="animate-pulse">Chargement des bougies...</span>
-      </div>
-      <!-- Container toujours monté pour éviter la destruction du canvas -->
-      <div ref="chartContainer" class="w-full h-full" style="position: relative;" />
-      <!-- Tooltip annonce économique (hover sur drapeau) -->
-      <EcoCalTooltip :annonce="tooltipAnnonce" :x="tooltipX" :y="tooltipY" />
-      <!-- Tableau Tendance Kasper Bootcamp (overlay coin haut-gauche) -->
-      <TendanceMultiTF
-        v-if="settingsStore.indicateurs.kasperTendance"
-        :key="selectedAsset + '_' + selectedTimeframe"
-        :asset="selectedAsset"
-        :timeframe="selectedTimeframe"
-        :periode-rapide="settingsStore.indicateurs.kasperPeriodeRapide"
-        :periode-lente="settingsStore.indicateurs.kasperPeriodeLente"
-        :mode-calcul="settingsStore.indicateurs.kasperModeCalcul"
+      <!-- Sous-graphique RSI séparé -->
+      <div
+        v-if="settingsStore.indicateurs.rsi"
+        ref="rsiContainer"
+        class="glass-card"
+        style="height: 140px; position: relative;"
+      />
+
+      <!-- Sous-graphique MACD séparé -->
+      <div
+        v-if="settingsStore.indicateurs.macd"
+        ref="macdContainer"
+        class="glass-card"
+        style="height: 140px; position: relative;"
+      />
+
+      <!-- Sous-graphique ATR séparé -->
+      <div
+        v-if="settingsStore.indicateurs.atr"
+        ref="atrContainer"
+        class="glass-card"
+        style="height: 110px; position: relative;"
+      />
+
+      <!-- Panneau indicateurs (techniques + SMC) -->
+      <IndicatorPanel
+        v-model="settingsStore.indicateurs"
+        :chargement="marketStore.chargement"
+        @appliquer="chargerIndicateurs"
+        @actualiser="actualiser"
+      />
+
+      <!-- Panneau signaux indicateurs -->
+      <ChartSignauxPanel
+        :signaux="signauxActifs"
+        :analyse-en-cours="analyseEnCours"
+        @update:filtre="onFiltreSignaux"
+        @analyser="analyserAvecLlava"
       />
     </div>
 
-    <!-- Sous-graphique RSI séparé -->
-    <div
-      v-if="settingsStore.indicateurs.rsi"
-      ref="rsiContainer"
-      class="glass-card"
-      style="height: 140px; position: relative;"
+    <!-- Sidebar IA (toggle + drawer) -->
+    <ChartSidebarIA
+      :asset="selectedAsset"
+      :timeframe="selectedTimeframe"
+      :open="sidebarIA"
+      @toggle="sidebarIA = !sidebarIA"
     />
 
-    <!-- Sous-graphique MACD séparé -->
-    <div
-      v-if="settingsStore.indicateurs.macd"
-      ref="macdContainer"
-      class="glass-card"
-      style="height: 140px; position: relative;"
-    />
-
-    <!-- Sous-graphique ATR séparé -->
-    <div
-      v-if="settingsStore.indicateurs.atr"
-      ref="atrContainer"
-      class="glass-card"
-      style="height: 110px; position: relative;"
-    />
-
-    <!-- Panneau signaux indicateurs -->
-    <ChartSignauxPanel
-      :signaux="signauxActifs"
-      :timestamp-curseur="timestampCurseur"
-      @update:filtre="onFiltreSignaux"
-    />
-
-    <!-- Analyse vision llava — modale draggable -->
+    <!-- Modales (hors flux) -->
     <AnalyseIAModal
       :analyse="analyseResultat"
       :modele="analyseModele"
       @fermer="analyseResultat = null"
     />
-
-    <!-- Modale signal — clic sur marker graphique -->
     <SignalModal
       :signal="signalModal"
       :niveaux="niveauxModal"
       @fermer="signalModal = null"
     />
-
-    <!-- Prédiction IA + Score SMC -->
-    <PredictionSMCPanel :asset="selectedAsset" :timeframe="selectedTimeframe" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onUnmounted } from 'vue'
 import { useChartStats } from '@/composables/useChartStats'
 import { useChartTradingView } from '@/composables/useChartTradingView'
 import { useMarketStore } from '@/stores/market.store'
@@ -126,10 +123,9 @@ import EcoCalTooltip from '@/components/common/EcoCalTooltip.vue'
 import { useChartOrchestration } from '@/composables/useChartOrchestration'
 import { useSignalTradeBox } from '@/composables/useSignalTradeBox'
 import { useSignalStore } from '@/stores/signal.store'
-import PredictionSMCPanel from '@/components/common/PredictionSMCPanel.vue'
+import ChartSidebarIA from '@/components/common/ChartSidebarIA.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
 import TendanceMultiTF from '@/components/common/TendanceMultiTF.vue'
-import ChartBarreControles from '@/components/common/ChartBarreControles.vue'
 import ChartPrixStats from '@/components/common/ChartPrixStats.vue'
 import AnalyseIAModal from '@/components/common/AnalyseIAModal.vue'
 import SignalModal from '@/components/common/SignalModal.vue'
@@ -175,6 +171,7 @@ const timestampCurseur = ref<number | null>(null)
 const filtreCourant = ref<FiltreSignaux>(filtreDefaut())
 const signalModal = ref<SignalIndicateur | null>(null)
 const niveauxModal = ref<NiveauSlTp | null>(null)
+const sidebarIA = ref(true)
 
 function onFiltreSignaux(f: FiltreSignaux) {
   filtreCourant.value = f
@@ -247,7 +244,6 @@ const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestra
 })
 
 // Nettoyage Trade Box au démontage de la vue
-import { onUnmounted } from 'vue'
 onUnmounted(() => tradeBox.detruire())
 
 chargerAnnonces()

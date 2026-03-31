@@ -21,18 +21,12 @@ Si l'analyse est trop lourde en une seule fois, on peut la répéter pour chaque
 Qu'en penses tu ?
 Repond sans coder
 
-
 --------------------------------------------------------------------------------------------------------------------------
 
-Analyse en profondeur et dans les moindres détails toutes les fonctionnalités de cette app.
-Ecrie un fichier test.md qui :
+Je veux que tu prennes tout ton temps pour analyse en profondeur et dans les moindres détails toutes les fonctionnalités de cette app.
+après l'analyse, écrie un fichier test.md qui :
 - liste, classée par vues/pages puis par blocs tout ce que fait chaque bloc de l'app 
 - détaille tous les tests à réaliser à partir de l'UI pour valider le fonctionnement de toutes les blocs de l'app.
-
-
---------------------------------------------------------------------------------------------------------------------------
-
-Analyse ces bugs de terminal lorsque IB gateway est connecté.
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -45,10 +39,27 @@ Repônd sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
+Il faut alimenter le bloc du dashboard ⚡ SURVEILLANCE DES ÉVÉNEMENTS DE VOLATILITÉ — STRATÉGIE STRADDLE.
+Comprends tu la logique de la stratégie Straddle ?
+Que manque t il actuellement dans le code pour :
+- repérer les mouvements de volatilité
+- les catégoriser : annonces économiques, ouverture de marché, évenements, etc...
+- entrainer le LLM avec ces résultats
+- calibrer la génération de signaux en fonctions de ces résultats.
 
+Comprends tu ma problèmatique ?
+As tu besoin de précisions ?
+Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
+Télécharger les données de toutes les paires présentes dans l'app
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Pourquoi la stratégie SMC ne génère aucun signal ?
+
+--------------------------------------------------------------------------------------------------------------------------
 
 Voici comment doivent impérativement se comporter les positions pour les backtesting :
 Risque = entre 1 et 3% du montant du capital par Position, donc trade Rocket ou SMC = 1 à 3% par trade et position straddle = entre 0.5 et 1.5 par jambe.

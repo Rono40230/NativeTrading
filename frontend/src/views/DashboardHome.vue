@@ -33,12 +33,7 @@
         />
         <!-- Surveillance Assets puis Alertes Cryptos en dessous -->
         <SurveillanceAssets :assets="assetsDisplay" :chargement="assetsAvecPrix.length === 0" />
-        <CryptosAlert
-          :top20="cryptos.top20.value"
-          :chargement="cryptos.chargement.value"
-          :erreur="cryptos.erreur.value"
-          :total-paires="cryptos.totalPaires.value"
-        />
+        <StraddleVolatiliteBloc />
         <!-- Veille Rockets -->
         <VeilleRockets
           :signaux="rockets.signaux.value"
@@ -46,6 +41,14 @@
           :chargement="rockets.chargement.value"
           :erreur="rockets.erreur.value"
           :progression="rockets.progression.value"
+        />
+        <!-- Momentum Cryptos — forte variation 24h -->
+        <CryptosAlert
+          :top20="cryptos.top20.value"
+          :chargement="cryptos.chargement.value"
+          :erreur="cryptos.erreur.value"
+          :total-paires="cryptos.totalPaires.value"
+          :rockets-tickers="rockets.signaux.value.map(s => s.ticker)"
         />
       </div>
 
@@ -88,6 +91,7 @@ import NewsFeed from '@/components/common/NewsFeed.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
 import CryptosAlert from '@/components/common/CryptosAlert.vue'
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
+import StraddleVolatiliteBloc from '@/components/common/StraddleVolatiliteBloc.vue'
 import VeilleRockets from '@/components/common/VeilleRockets.vue'
 import { useCryptosAlert } from '@/composables/useCryptosAlert'
 import { useVeilleRockets } from '@/composables/useVeilleRockets'

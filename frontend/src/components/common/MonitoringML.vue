@@ -204,12 +204,16 @@ watch(accuracyChart, (el, old) => {
   if (old) roAccuracy.disconnect()
 })
 
+let intervalML: ReturnType<typeof setInterval>
+
 onMounted(() => {
   chargerHistoriqueML()
+  intervalML = setInterval(chargerHistoriqueML, 5 * 60_000)
 })
 
 onUnmounted(() => {
   roAccuracy?.disconnect()
+  clearInterval(intervalML)
 })
 </script>
 
