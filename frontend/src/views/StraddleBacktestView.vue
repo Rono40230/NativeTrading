@@ -19,17 +19,27 @@
       </div>
       <div class="flex flex-col gap-1">
         <label class="text-xs text-gray-400 uppercase tracking-wider">Heure début UTC</label>
-        <input v-model="params.heure_debut" type="text" placeholder="14:00" class="glass-input" />
+        <select v-model="params.heure_debut" class="glass-select">
+          <option v-for="h in HEURES" :key="h" :value="h">{{ h }}</option>
+        </select>
       </div>
       <div class="flex flex-col gap-1">
         <label class="text-xs text-gray-400 uppercase tracking-wider">Heure fin UTC</label>
-        <input v-model="params.heure_fin" type="text" placeholder="16:00" class="glass-input" />
+        <select v-model="params.heure_fin" class="glass-select">
+          <option v-for="h in HEURES" :key="h" :value="h">{{ h }}</option>
+        </select>
       </div>
       <div class="flex flex-col gap-1">
         <label class="text-xs text-gray-400 uppercase tracking-wider">Jour (optionnel)</label>
         <select v-model="params.jour_semaine" class="glass-select">
           <option :value="null">Tous les jours</option>
           <option v-for="(j, i) in JOURS" :key="i" :value="i">{{ j }}</option>
+        </select>
+      </div>
+      <div class="flex flex-col gap-1">
+        <label class="text-xs text-gray-400 uppercase tracking-wider">Période</label>
+        <select v-model="dureeLabel" class="glass-select">
+          <option v-for="d in dureesDisponibles" :key="d.label" :value="d.label">{{ d.label }}</option>
         </select>
       </div>
       <button class="btn-primary disabled:opacity-50" :disabled="chargement || !params.heure_debut" @click="lancerBacktest">
@@ -117,6 +127,18 @@
       <p class="text-3xl mb-2">🧪</p>
       <p class="text-sm">Configurez les paramètres et lancez le backtest.</p>
     </div>
+
+    <!-- Monitoring ML -->
+    <div class="glass-card p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          🤖 Monitoring ML — Volatilité Straddle
+        </h2>
+      </div>
+      <p class="text-center text-sm text-gray-500 py-6">
+        Monitoring ML dédié à la volatilité Straddle — à implémenter
+      </p>
+    </div>
   </div>
 </template>
 
@@ -131,6 +153,7 @@ import { useAssetsStore } from '@/stores/assets.store'
 import StraddleParamsPanel from '@/components/common/StraddleParamsPanel.vue'
 import { usePnLNiveaux } from '@/composables/usePnLNiveaux'
 import { useEquityChart } from '@/composables/useEquityChart'
+import { useBacktestDuree } from '@/composables/useBacktestDuree'
 
 const ObjectifLigne = defineComponent({
   props: { label: String, atteint: Boolean, valeur: String },
@@ -145,6 +168,7 @@ const settingsStore = useSettingsStore()
 const alerteStore = useAlerteStore()
 const assetsStore = useAssetsStore()
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+const HEURES = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0') + ':00')
 
 const assetsDisponibles = computed(() => {
   const liste = assetsStore.assets
@@ -159,6 +183,7 @@ const params = ref({
   jour_semaine: route.query.jour ? Number(route.query.jour) : null as number | null,
 })
 
+const { dureeLabel, dureesDisponibles, limiteBougies } = useBacktestDuree()
 const chargement = ref(false)
 const resultats = ref<BacktestResults | null>(null)
 const { pyramidalisation } = usePnLNiveaux(resultats)
@@ -191,7 +216,7 @@ async function lancerBacktest() {
   chargement.value = true
   try {
     resultats.value = await apiService.runBacktest(
-      params.value.asset, 'H1', settingsStore.capitalDepart, 365,
+      params.value.asset, 'H1', settingsStore.capitalDepart, limiteBougies.value,
       { timing_optimal: params.value.heure_debut, jour_semaine: params.value.jour_semaine },
       straddleParams.value,
     )
@@ -217,6 +242,7 @@ async function rechargerParamsEtRelancer() {
       trailing_atr: p.trailing_atr ?? straddleParams.value.trailing_atr,
     }
   } catch { /* garde les valeurs actuelles */ }
+  if (resultats.value !== null) await lancerBacktest()
 }
 
 onMounted(() => {
@@ -230,6 +256,5 @@ onUnmounted(cleanup)
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
 .glass-select { @apply bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white; }
-.glass-input { @apply bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white w-24; }
 .btn-primary { @apply px-5 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-500 text-white text-sm font-semibold transition-all; }
 </style>

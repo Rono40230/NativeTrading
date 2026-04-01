@@ -1,6 +1,12 @@
 import { computed } from 'vue'
 import type { ComputedRef } from 'vue'
 import type { RocketSignalHistorique } from '@/services/api.types'
+import {
+  useProbaHeatmap,
+  couleurProba,
+  K_VALUES as kValues,
+  LOSS_RATES as lossRates,
+} from '@/composables/useProbaHeatmap'
 
 // ── Helpers privés ─────────────────────────────────────────────────────────
 
@@ -32,9 +38,6 @@ const TRANCHES_DEF = [
   { label: '60–79',  min: 60,  max: 79  },
   { label: '80–100', min: 80,  max: 100 },
 ]
-
-const kValues   = [2, 3, 4, 5, 6, 7, 8, 9, 10]
-const lossRates = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95]
 
 function probAtLeastKCons(n: number, p: number, k: number): number {
   if (n < k || p <= 0) return 0
@@ -84,39 +87,12 @@ export function useRocketsStats(rocketsRef: ComputedRef<RocketSignalHistorique[]
   const sampleSize   = computed(() => Math.max(rocketsRef.value.length, 10))
   const lossRateReel = computed(() => stats.value.tauxSL)
 
-  const tableauPertes = computed(() => {
-    const n      = sampleSize.value
-    const actual = lossRateReel.value
-    const nearest = lossRates.reduce((prev, cur) =>
-      Math.abs(cur - actual) < Math.abs(prev - actual) ? cur : prev, lossRates[0])
-    return lossRates.map(lr => ({
-      lossRate: lr,
-      isActual: lr === nearest && actual > 0,
-      probs: kValues.map(k => probAtLeastKCons(n, lr / 100, k)),
-    }))
-  })
-
-  const analyseProba = computed(() => {
-    const n  = sampleSize.value
-    const lr = lossRateReel.value
-    if (lr === 0) return { kCritique50: 0, kDanger: 0, probAuKDanger: 0, kSurete: 0, esperance: 0 }
-    const p  = lr / 100
-
-    const kCritique50   = kValues.find(k => probAtLeastKCons(n, p, k) >= 50) ?? kValues[kValues.length - 1]
-    const kDanger       = kValues.find(k => probAtLeastKCons(n, p, k) < 30) ?? kValues[kValues.length - 1]
-    const probAuKDanger = probAtLeastKCons(n, p, kDanger)
-    const kSurete       = kValues.find(k => probAtLeastKCons(n, p, k) < 5)  ?? kValues[kValues.length - 1]
-    const wr            = stats.value.tauxGagnants / 100
-    const esperance     = parseFloat((wr * stats.value.rMoyen + (1 - wr) * (-1)).toFixed(2))
-
-    return { kCritique50, kDanger, probAuKDanger, kSurete, esperance }
-  })
-
-  function couleurProba(pct: number): string {
-    const hue       = Math.round(pct * 1.2)
-    const lightness = pct > 5 ? 28 : 12
-    return `hsl(${hue}, 70%, ${lightness}%)`
-  }
+  const { tableauPertes, analyseProba } = useProbaHeatmap(
+    lossRateReel,
+    sampleSize,
+    computed(() => stats.value.rMoyen),
+    computed(() => stats.value.tauxGagnants),
+  )
 
   return {
     stats, tranches, phases, classePhase,

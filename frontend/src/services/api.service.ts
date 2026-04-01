@@ -60,6 +60,18 @@ export const apiService = {
     }
   },
 
+  async getPrixAssets(assets: string[]): Promise<Record<string, number>> {
+    try {
+      const res = await http.get('/api/prix', {
+        params: { assets: assets.join(',') },
+        timeout: 10000,
+      })
+      return res.data as Record<string, number>
+    } catch {
+      return {}
+    }
+  },
+
   async getSignaux(limit = 20): Promise<Signal[]> {
     const res = await http.get('/api/signaux', { params: { limit } })
     return res.data
@@ -101,8 +113,19 @@ export const apiService = {
     return res.data
   },
 
-  exportSignauxUrl(limit = 500): string {
-    return `${BASE_URL}/api/signaux/export?limit=${limit}`
+  async exporterCsv(filtres: {
+    limit?: number
+    strategie?: string
+    statut?: string
+    direction?: string
+    asset?: string
+    verdict?: string
+    depuis_ts?: number
+    jusqu_ts?: number
+    separateur?: string
+  }): Promise<Blob> {
+    const res = await http.post('/api/signaux/export', filtres, { responseType: 'blob' })
+    return res.data as Blob
   },
 
   async statutIA(): Promise<StatutIA> {

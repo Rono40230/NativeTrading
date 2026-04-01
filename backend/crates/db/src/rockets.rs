@@ -252,3 +252,13 @@ pub async fn historique(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSign
     .map_err(|e| TradingError::Database(e.to_string()))?;
     Ok(rows.iter().map(row_to_signal).collect())
 }
+
+// ── Méthode exposée sur Database ────────────────────────────────────────────
+
+use crate::Database;
+
+impl Database {
+    pub async fn lister_rockets_historique(&self, limite: i64) -> Result<Vec<RocketSignal>> {
+        historique(&self.pool, limite).await
+    }
+}

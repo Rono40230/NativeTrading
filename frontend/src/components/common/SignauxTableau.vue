@@ -73,8 +73,8 @@
     </div>
 
     <!-- Modales analyse -->
-    <StraddleAnalyseModal v-if="strategie === 'Straddle'" :open="analyseOuverte" :stats="straddleStats" @close="analyseOuverte = false" />
-    <SmcAnalyseModal v-if="strategie === 'SmcDirectional'" :open="analyseOuverte" :stats="smcStats" @close="analyseOuverte = false" />
+    <StraddleAnalyseModal v-if="strategie === 'Straddle'" :open="analyseOuverte" :signaux="signaux" @close="analyseOuverte = false" />
+    <SmcAnalyseModal v-if="strategie === 'SmcDirectional'" :open="analyseOuverte" :signaux="signaux" @close="analyseOuverte = false" />
     <RocketsAnalyseModal v-if="strategie === 'Rockets'" :open="analyseOuverte" :rockets="rocketsRaw" @close="analyseOuverte = false" />
   </div>
 </template>
@@ -85,7 +85,6 @@ import { useRouter } from 'vue-router'
 import type { Signal, RocketSignalHistorique } from '@/services/api.types'
 import { apiService } from '@/services/api.service'
 import { usePrixStore } from '@/stores/prix.store'
-import { useHistoryStats } from '@/composables/useHistoryStats'
 import { formatDate, formatNombre, classeVerdictSignal, labelVerdictSignal } from '@/composables/useSignalFormat'
 import { rocketToSignal } from '@/composables/useRocketsHistory'
 import StraddleAnalyseModal from '@/components/common/StraddleAnalyseModal.vue'
@@ -120,8 +119,6 @@ const analyseOuverte = ref(false)
 const filtreStatut = ref<'en_cours' | 'cloturees' | ''>('en_cours')
 const triColonne = ref('')
 const triDir = ref<'asc' | 'desc'>('desc')
-
-const { smcStats, straddleStats } = useHistoryStats(signaux)
 
 function trierPar(col: string) {
   if (triColonne.value === col) triDir.value = triDir.value === 'asc' ? 'desc' : 'asc'

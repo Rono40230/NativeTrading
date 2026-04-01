@@ -1,8 +1,17 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { apiService } from '@/services/api.service'
 
 const BINANCE_24H_URL = 'https://api.binance.com/api/v3/ticker/24hr'
 const POLL_MS = 10_000
+
+// Assets non-crypto alimentés par Yahoo Finance via le backend (métaux, forex, indices)
+const NON_CRYPTO_ASSETS = [
+  'XAUUSD', 'XAGUSD', 'XPTUSD', 'XPDUSD',
+  'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+  'GBPJPY', 'CADJPY', 'NZDJPY', 'EURJPY', 'EURGBP',
+  'DAX', 'NAS100', 'SP500', 'US30', 'FTSE100', 'CAC40', 'JP225',
+]
 
 export interface TickerData {
   prix: number
@@ -42,8 +51,17 @@ export const usePrixStore = defineStore('prix', () => {
         }
         count++
       }
-      tickers.value = map
+      // Fusion en place : ne jamais vider le store - mettre à jour seulement les entrées reçues
+      for (const [ticker, data] of Object.entries(map)) {
+        tickers.value[ticker] = data
+      }
       totalPaires.value = count
+
+      // Enrichissement non-crypto (métaux, forex, indices) via backend → Yahoo Finance
+      const prixIb = await apiService.getPrixAssets(NON_CRYPTO_ASSETS)
+      for (const [ticker, prix] of Object.entries(prixIb)) {
+        tickers.value[ticker] = { prix, change24h: 0, volume24h: 0, nbTrades: 0 }
+      }
     } catch {
       erreur.value = true
     } finally {

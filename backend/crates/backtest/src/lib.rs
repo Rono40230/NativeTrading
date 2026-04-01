@@ -5,7 +5,9 @@ use calculs::{
 use common::{Candle, Direction, Result};
 use indicators::calculer_atr;
 use stats::calculer_resultats;
-use straddle_hybride::{preparer_jambes_straddle, JambeStraddle, NiveauxSignalStraddle, ParamsMoteurStraddle};
+use straddle_hybride::{
+    preparer_jambes_straddle, JambeStraddle, NiveauxSignalStraddle, ParamsMoteurStraddle,
+};
 use strategies::Strategy;
 mod calculs;
 mod stats;
@@ -67,7 +69,7 @@ impl BacktestEngine {
         strategy: &dyn Strategy,
     ) -> Result<(BacktestResults, Vec<FeedbackTrade>)> {
         if bougies.len() < 62 {
-            return Ok((self.resultats_vides(), Vec::new()));
+            return Ok((stats::resultats_vides(self.capital_initial), Vec::new()));
         }
 
         let fenetre = 60usize;
@@ -132,7 +134,14 @@ impl BacktestEngine {
                             vente_partielle: self.vente_partielle,
                         },
                     );
-                    for JambeStraddle { prix_entree, prix_sortie, direction, sortie, sl_ref } in jambes {
+                    for JambeStraddle {
+                        prix_entree,
+                        prix_sortie,
+                        direction,
+                        sortie,
+                        sl_ref,
+                    } in jambes
+                    {
                         let dist = (prix_entree - sl_ref).abs().max(1e-10);
                         let taille = (capital * self.risk_par_trade_pct) / dist;
                         let pnl = match direction {
@@ -140,12 +149,25 @@ impl BacktestEngine {
                             calculs::TradeDirection::Short => (prix_entree - prix_sortie) * taille,
                         };
                         capital = (capital + pnl).max(0.0);
-                        if capital > capital_max { capital_max = capital; }
+                        if capital > capital_max {
+                            capital_max = capital;
+                        }
                         equity.push(capital);
-                        trades.push(TradeSimule { prix_entree, prix_sortie, direction, sortie: Some(sortie) });
-                        feedback.push(FeedbackTrade { indice_entree: i, gagne: pnl > 0.0 });
+                        trades.push(TradeSimule {
+                            prix_entree,
+                            prix_sortie,
+                            direction,
+                            sortie: Some(sortie),
+                        });
+                        feedback.push(FeedbackTrade {
+                            indice_entree: i,
+                            gagne: pnl > 0.0,
+                        });
                     }
-                    equity_curve.push(EquityPoint { timestamp: prochaine.timestamp.timestamp(), capital });
+                    equity_curve.push(EquityPoint {
+                        timestamp: prochaine.timestamp.timestamp(),
+                        capital,
+                    });
                     continue;
                 }
             }
@@ -271,9 +293,6 @@ impl BacktestEngine {
         Ok((resultats, feedback))
     }
 
-    fn resultats_vides(&self) -> BacktestResults {
-        stats::resultats_vides(self.capital_initial)
-    }
 }
 
 #[cfg(test)]

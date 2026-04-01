@@ -15,6 +15,7 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/assets/{id}",
             web::delete().to(crate::assets_handlers::supprimer_asset),
         )
+        .route("/api/prix", web::get().to(crate::prix_handlers::get_prix))
         .route("/api/candles", web::get().to(crate::handlers::get_candles))
         .route(
             "/api/prix-actuel",
@@ -46,7 +47,7 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         )
         .route(
             "/api/signaux/export",
-            web::get().to(crate::export_handlers::exporter_signaux_csv),
+            web::post().to(crate::export_handlers::exporter_signaux_csv),
         )
         .route(
             "/api/smc/analyse",

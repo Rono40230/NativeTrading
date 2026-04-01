@@ -50,10 +50,7 @@ pub(super) async fn stream_ib(
             let candidate_id = ib_client_id + offset;
             match Client::connect(&adresse, candidate_id).await {
                 Ok(c) => {
-                    tracing::info!(
-                        "IB Gateway connecté avec client_id={}",
-                        candidate_id
-                    );
+                    tracing::info!("IB Gateway connecté avec client_id={}", candidate_id);
                     conn_result = Some(c);
                     break;
                 }

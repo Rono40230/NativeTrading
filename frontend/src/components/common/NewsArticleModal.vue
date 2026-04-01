@@ -10,7 +10,7 @@
         <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="$emit('fermer')" />
 
         <!-- Carte modale -->
-        <div class="relative z-10 w-full max-w-lg rounded-2xl border border-white/10 bg-[#0f1629] p-6 shadow-2xl">
+        <div class="relative z-10 w-full max-w-3xl rounded-2xl border border-white/10 bg-[#0f1629] p-8 shadow-2xl">
           <!-- En-tête modale -->
           <div class="mb-4 flex items-start justify-between gap-3">
             <div class="flex items-center gap-2 flex-wrap">
@@ -41,7 +41,7 @@
           </div>
 
           <!-- Contenu article -->
-          <div class="mb-4 max-h-72 overflow-y-auto scroll-zone rounded-lg bg-white/5 p-3">
+          <div class="mb-4 max-h-[36rem] overflow-y-auto scroll-zone rounded-lg bg-white/5 p-3">
             <div v-if="chargement" class="space-y-2 animate-pulse">
               <div v-for="i in 5" :key="i" class="h-2 rounded bg-white/10" :style="{ width: `${50 + i * 9}%` }" />
             </div>

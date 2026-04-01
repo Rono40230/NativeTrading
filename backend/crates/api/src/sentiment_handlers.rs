@@ -64,12 +64,13 @@ async fn fetch_yahoo(
     nom: &str,
 ) -> Option<EntiteSentiment> {
     let url = format!(
-        "https://query1.finance.yahoo.com/v8/finance/chart/{}?interval=1d&range=2d",
+        "https://query2.finance.yahoo.com/v8/finance/chart/{}?interval=1d&range=2d",
         symbole
     );
     let resp: YahooResponse = client
         .get(&url)
         .header("Accept", "application/json")
+        .header("User-Agent", "Mozilla/5.0 (X11; Linux x86_64)")
         .send()
         .await
         .ok()?

@@ -123,9 +123,9 @@ pub async fn scan_momentum_debug() -> impl Responder {
     let mut nb_breakout = 0usize;
     for r in resultats.iter() {
         match r.phase.as_str() {
-            "compression"  => nb_compression  += 1,
+            "compression" => nb_compression += 1,
             "prelancement" => nb_prelancement += 1,
-            "breakout"     => nb_breakout     += 1,
+            "breakout" => nb_breakout += 1,
             _ => {}
         }
     }
@@ -134,17 +134,19 @@ pub async fn scan_momentum_debug() -> impl Responder {
     let compressions_detail: Vec<serde_json::Value> = resultats
         .iter()
         .filter(|r| r.phase == "compression")
-        .map(|r| serde_json::json!({
-            "ticker":   r.ticker,
-            "score":    r.score,
-            "change1h": r.change1h,
-            "rsi":      r.rsi,
-            "atrRatio": r.atr_ratio,
-            "volRatio": r.ratio_volume,
-            "passeScore":   r.score >= SCORE_MOMENTUM_MIN,
-            "passe1h":      r.change1h >= CHANGE_1H_MOMENTUM_MIN,
-            "passeRsi":     r.rsi <= cfg.rsi_max,
-        }))
+        .map(|r| {
+            serde_json::json!({
+                "ticker":   r.ticker,
+                "score":    r.score,
+                "change1h": r.change1h,
+                "rsi":      r.rsi,
+                "atrRatio": r.atr_ratio,
+                "volRatio": r.ratio_volume,
+                "passeScore":   r.score >= SCORE_MOMENTUM_MIN,
+                "passe1h":      r.change1h >= CHANGE_1H_MOMENTUM_MIN,
+                "passeRsi":     r.rsi <= cfg.rsi_max,
+            })
+        })
         .collect();
 
     let momentum: Vec<serde_json::Value> = resultats
@@ -155,14 +157,16 @@ pub async fn scan_momentum_debug() -> impl Responder {
                 && r.score >= SCORE_MOMENTUM_MIN
                 && r.rsi <= cfg.rsi_max
         })
-        .map(|r| serde_json::json!({
-            "ticker":   r.ticker,
-            "score":    r.score,
-            "change1h": r.change1h,
-            "rsi":      r.rsi,
-            "atrRatio": r.atr_ratio,
-            "volRatio": r.ratio_volume,
-        }))
+        .map(|r| {
+            serde_json::json!({
+                "ticker":   r.ticker,
+                "score":    r.score,
+                "change1h": r.change1h,
+                "rsi":      r.rsi,
+                "atrRatio": r.atr_ratio,
+                "volRatio": r.ratio_volume,
+            })
+        })
         .collect();
 
     HttpResponse::Ok().json(serde_json::json!({

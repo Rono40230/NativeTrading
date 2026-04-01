@@ -13,6 +13,7 @@ impl Database {
             "SELECT id, asset, timeframe, direction, score, prix_entree,
                     stop_loss, take_profit, strategie, statut,
                     verdict, prix_verdict, cree_le, ferme_le,
+                    llm_conviction, llm_raison,
                     sl_short, take_profit_short
              FROM signaux ORDER BY cree_le DESC LIMIT ?",
         )
@@ -45,6 +46,8 @@ impl Database {
                     "statut":              row.get::<String, _>("statut"),
                     "verdict":             row.get::<Option<String>, _>("verdict"),
                     "prix_verdict":        row.get::<Option<f64>, _>("prix_verdict"),
+                    "llm_conviction":      row.get::<Option<i64>, _>("llm_conviction"),
+                    "llm_raison":          row.get::<Option<String>, _>("llm_raison"),
                     "cree_le":             row.get::<i64, _>("cree_le"),
                     "ferme_le":            row.get::<Option<i64>, _>("ferme_le"),
                     "sl_short":            row.get::<Option<f64>, _>("sl_short"),

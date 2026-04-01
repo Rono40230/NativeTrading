@@ -171,7 +171,7 @@ const timestampCurseur = ref<number | null>(null)
 const filtreCourant = ref<FiltreSignaux>(filtreDefaut())
 const signalModal = ref<SignalIndicateur | null>(null)
 const niveauxModal = ref<NiveauSlTp | null>(null)
-const sidebarIA = ref(true)
+const sidebarIA = ref(false)
 
 function onFiltreSignaux(f: FiltreSignaux) {
   filtreCourant.value = f

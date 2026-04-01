@@ -25,11 +25,13 @@ mod ollama;
 mod ollama_ajustements_handler;
 mod ollama_handlers;
 mod ollama_types;
+mod prix_handlers;
+mod prix_utils;
 mod rockets_analyse;
 mod rockets_analyse_handler;
 mod rockets_handlers;
-mod rockets_scan;
 mod rockets_sauvegarder;
+mod rockets_scan;
 mod rockets_suivi;
 mod scheduler;
 mod sentiment_handlers;
@@ -75,9 +77,7 @@ async fn main() -> std::io::Result<()> {
         .add_directive(tracing::Level::INFO.into())
         .add_directive("ibapi=off".parse().unwrap());
 
-    tracing_subscriber::fmt()
-        .with_env_filter(env_filter)
-        .init();
+    tracing_subscriber::fmt().with_env_filter(env_filter).init();
 
     tracing::info!("🚀 Native Trading AI Backend starting...");
 
@@ -115,7 +115,6 @@ async fn main() -> std::io::Result<()> {
         app_state.db.clone(),
     ));
 
-    scheduler::demarrer_scheduler(app_state.db.clone(), app_state.pipeline_ml.clone());
     scheduler::demarrer_surveillance_ml(app_state.db.clone(), app_state.pipeline_ml.clone());
 
     HttpServer::new(move || {

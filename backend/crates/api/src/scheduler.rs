@@ -1,6 +1,6 @@
 use chrono::{Timelike, Utc};
-use db::Database;
 use db::entrainements::EntrainementRecord;
+use db::Database;
 use ml::{walk_forward::entrainer_walk_forward, PipelineML};
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -11,9 +11,25 @@ use crate::utils::{parse_asset, parse_timeframe};
 const MIN_BOUGIES_ENTRAINEMENT: i64 = 200;
 
 /// Démarre le scheduler d'entraînement automatique.
-/// Attend 00h00 UTC puis ré-entraîne toutes les 24h sur tous les couples asset × TF disponibles.
-pub fn demarrer_scheduler(db: Arc<Database>, pipeline_ml: Arc<Mutex<PipelineML>>) {
+/// Si `modele_deja_charge` = false (pas de modèle persisté), lance un entraînement immédiat.
+/// Sinon attend 00h00 UTC. Dans les deux cas, re-entraîne toutes les 24h.
+pub fn demarrer_scheduler(
+    db: Arc<Database>,
+    pipeline_ml: Arc<Mutex<PipelineML>>,
+    modele_deja_charge: bool,
+) {
     tokio::spawn(async move {
+        if !modele_deja_charge {
+            tracing::info!(
+                "🤖 Scheduler ML: aucun modèle persisté — entraînement immédiat au démarrage"
+            );
+            executer_entrainements_tous(&db, &pipeline_ml).await;
+        } else {
+            tracing::info!(
+                "✅ Scheduler ML: modèle chargé depuis disque — pas d'entraînement immédiat"
+            );
+        }
+
         let delai_init = secondes_jusqu_a_minuit_utc();
         tracing::info!(
             "⏰ Scheduler ML: prochain entraînement dans {}h{}m",
@@ -48,7 +64,10 @@ async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<Mutex
         return;
     }
 
-    tracing::info!("Scheduler ML: {} combinaison(s) à entraîner", combinaisons.len());
+    tracing::info!(
+        "Scheduler ML: {} combinaison(s) à entraîner",
+        combinaisons.len()
+    );
 
     for (asset_str, tf_str) in combinaisons {
         let asset = match parse_asset(&asset_str) {
@@ -65,7 +84,9 @@ async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<Mutex
             Ok(b) => {
                 tracing::warn!(
                     "Scheduler ML: {}/{} — {} bougies insuffisantes",
-                    asset_str, tf_str, b.len()
+                    asset_str,
+                    tf_str,
+                    b.len()
                 );
                 continue;
             }
@@ -83,7 +104,9 @@ async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<Mutex
             Err(e) => {
                 tracing::error!(
                     "Scheduler ML: {}/{} — walk-forward échoué: {}",
-                    asset_str, tf_str, e
+                    asset_str,
+                    tf_str,
+                    e
                 );
                 continue;
             }
@@ -94,7 +117,9 @@ async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<Mutex
             if let Err(e) = pipeline.entrainer_sur_historique(&bougies, 5, 0.002) {
                 tracing::error!(
                     "Scheduler ML: {}/{} — entraînement échoué: {}",
-                    asset_str, tf_str, e
+                    asset_str,
+                    tf_str,
+                    e
                 );
                 continue;
             }
@@ -119,12 +144,17 @@ async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<Mutex
         if let Err(e) = db.inserer_historique_entrainement(&rec).await {
             tracing::error!(
                 "Scheduler ML: {}/{} — échec enregistrement: {}",
-                asset_str, tf_str, e
+                asset_str,
+                tf_str,
+                e
             );
         } else {
             tracing::info!(
                 "✅ {}/{} — {}ms | {} bougies | XGB={:.1}% LSTM={:.1}% Finale={:.1}%{}",
-                asset_str, tf_str, duree_ms, nb_total,
+                asset_str,
+                tf_str,
+                duree_ms,
+                nb_total,
                 wf.accuracy_xgb * 100.0,
                 wf.accuracy_lstm * 100.0,
                 wf.accuracy_finale * 100.0,
@@ -161,8 +191,11 @@ pub fn demarrer_surveillance_ml(db: Arc<Database>, pipeline_ml: Arc<Mutex<Pipeli
 
 fn secondes_jusqu_a_minuit_utc() -> u64 {
     let now = Utc::now();
-    let ecoules =
-        now.hour() as u64 * 3600 + now.minute() as u64 * 60 + now.second() as u64;
+    let ecoules = now.hour() as u64 * 3600 + now.minute() as u64 * 60 + now.second() as u64;
     let restant = 86400u64.saturating_sub(ecoules);
-    if restant == 0 { 86400 } else { restant }
+    if restant == 0 {
+        86400
+    } else {
+        restant
+    }
 }

@@ -49,11 +49,7 @@ pub async fn entrainer_ml(
     // Récupération des bougies depuis la DB
     let bougies = match state
         .db
-        .obtenir_bougies(
-            &asset,
-            &timeframe,
-            limit as i64,
-        )
+        .obtenir_bougies(&asset, &timeframe, limit as i64)
         .await
     {
         Ok(b) if b.len() >= 200 => b,

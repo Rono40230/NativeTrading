@@ -6,7 +6,7 @@
       <div class="flex space-x-6">
         <RouterLink to="/" class="text-gray-300 hover:text-white">🏠 Home</RouterLink>
         <RouterLink to="/charts" class="text-gray-300 hover:text-white">📈 Charts</RouterLink>
-        <RouterLink to="/pnl" class="text-gray-300 hover:text-white">💰 P&L</RouterLink>
+        <RouterLink to="/pnl" class="text-gray-300 hover:text-white">⚡ Backtest heure précise</RouterLink>
         <RouterLink to="/history" class="text-gray-300 hover:text-white">📜 History</RouterLink>
         <RouterLink to="/heatmap" class="text-gray-300 hover:text-white">🔥 Heatmap</RouterLink>
         <RouterLink to="/ia/analyser" class="text-gray-300 hover:text-white">🧠 IA Analyse</RouterLink>

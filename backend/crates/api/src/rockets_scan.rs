@@ -130,11 +130,23 @@ async fn executer_scan(
             && r.rsi <= cfg.rsi_max
     }) {
         let niveaux = calculer_niveaux(r);
-        filtrer_sauvegarder_publier(r, &niveaux, "momentum-compression", "Rockets-Momentum", pool, signal_engine).await;
+        filtrer_sauvegarder_publier(
+            r,
+            &niveaux,
+            "momentum-compression",
+            "Rockets-Momentum",
+            pool,
+            signal_engine,
+        )
+        .await;
     }
 
     let n = resultats.len();
     *get_scan_results().write().await = resultats; // cache complet (non tronqué)
-    tracing::info!("Scan rockets terminé: {} résultats en cache ({} max affichés UI)", n, MAX_DISPLAY);
+    tracing::info!(
+        "Scan rockets terminé: {} résultats en cache ({} max affichés UI)",
+        n,
+        MAX_DISPLAY
+    );
     Ok(())
 }

@@ -191,22 +191,59 @@ pub(crate) fn preparer_jambes_straddle(
     let tp2_l = pe_l + dist_tp2;
     let tp2_s = pe_s - dist_tp2;
 
-    let res = simuler_straddle_hybride(horizon, ParamsStraddleHybride {
-        pe_l, tp1_l, sl_l, tp2_l,
-        pe_s, tp1_s, sl_s, tp2_s,
-        atr: p.atr,
-        trail: p.trailing_mult,
-        vente_partielle: p.vente_partielle,
-        be: p.be,
-    });
+    let res = simuler_straddle_hybride(
+        horizon,
+        ParamsStraddleHybride {
+            pe_l,
+            tp1_l,
+            sl_l,
+            tp2_l,
+            pe_s,
+            tp1_s,
+            sl_s,
+            tp2_s,
+            atr: p.atr,
+            trail: p.trailing_mult,
+            vente_partielle: p.vente_partielle,
+            be: p.be,
+        },
+    );
 
-    let pe1 = if matches!(res.dir1, TradeDirection::Long) { pe_l } else { pe_s };
-    let sl1 = if matches!(res.dir1, TradeDirection::Long) { sl_l } else { sl_s };
-    let pe2 = if matches!(res.dir2, TradeDirection::Long) { pe_l } else { pe_s };
-    let sl2 = if matches!(res.dir2, TradeDirection::Long) { sl_l } else { sl_s };
+    let pe1 = if matches!(res.dir1, TradeDirection::Long) {
+        pe_l
+    } else {
+        pe_s
+    };
+    let sl1 = if matches!(res.dir1, TradeDirection::Long) {
+        sl_l
+    } else {
+        sl_s
+    };
+    let pe2 = if matches!(res.dir2, TradeDirection::Long) {
+        pe_l
+    } else {
+        pe_s
+    };
+    let sl2 = if matches!(res.dir2, TradeDirection::Long) {
+        sl_l
+    } else {
+        sl_s
+    };
 
     [
-        JambeStraddle { prix_entree: pe1, prix_sortie: res.jambe1.0, direction: res.dir1, sortie: res.jambe1.1, sl_ref: sl1 },
-        JambeStraddle { prix_entree: pe2, prix_sortie: res.jambe2.0, direction: res.dir2, sortie: res.jambe2.1, sl_ref: sl2 },
+        JambeStraddle {
+            prix_entree: pe1,
+            prix_sortie: res.jambe1.0,
+            direction: res.dir1,
+            sortie: res.jambe1.1,
+            sl_ref: sl1,
+        },
+        JambeStraddle {
+            prix_entree: pe2,
+            prix_sortie: res.jambe2.0,
+            direction: res.dir2,
+            sortie: res.jambe2.1,
+            sl_ref: sl2,
+        },
     ]
 }

@@ -38,15 +38,24 @@ impl AppState {
         db.run_migrations().await?;
         tracing::info!("Base de données initialisée + migrations: {}", db_path);
 
-        // Pipeline ML
+        // Pipeline ML — tente de recharger les modèles persistés
         let mut pipeline_ml = PipelineML::new();
-        match pipeline_ml.charger_depuis_disque() {
-            Ok(true) => tracing::info!("Pipeline ML rechargé depuis disque"),
-            Ok(false) => tracing::info!(
-                "Pipeline ML initialisé (pas de modèle persisté — entraînement requis)"
-            ),
-            Err(e) => tracing::warn!("Impossible de charger le pipeline ML: {}", e),
-        }
+        let modele_deja_charge = match pipeline_ml.charger_depuis_disque() {
+            Ok(true) => {
+                tracing::info!("Pipeline ML rechargé depuis disque");
+                true
+            }
+            Ok(false) => {
+                tracing::info!(
+                    "Pipeline ML initialisé (pas de modèle persisté — entraînement immédiat prévu)"
+                );
+                false
+            }
+            Err(e) => {
+                tracing::warn!("Impossible de charger le pipeline ML: {}", e);
+                false
+            }
+        };
 
         // Configuration IB Gateway depuis variables d'environnement ou valeurs par défaut
         let ib_port = std::env::var("IB_GATEWAY_PORT")
@@ -71,9 +80,9 @@ impl AppState {
         signal_engine.demarrer(db.clone(), pipeline_ml.clone());
         tracing::info!("🤖 Signal Engine démarré automatiquement");
 
-        // Scheduler ML quotidien : ré-entraînement à 00h00 UTC
-        demarrer_scheduler(db.clone(), pipeline_ml.clone());
-        tracing::info!("⏰ Scheduler ML quotidien activé (00h00 UTC)");
+        // Scheduler ML : entraînement immédiat si pas de modèle, puis quotidien à 00h00 UTC
+        demarrer_scheduler(db.clone(), pipeline_ml.clone(), modele_deja_charge);
+        tracing::info!("⏰ Scheduler ML activé (immédiat si pas de modèle, puis 00h00 UTC)");
 
         // Surveillance ML toutes les 6h : ré-entraînement auto si accuracy_val < 52%
         crate::scheduler::demarrer_surveillance_ml(db.clone(), pipeline_ml.clone());

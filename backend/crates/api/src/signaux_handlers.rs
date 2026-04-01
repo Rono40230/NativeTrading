@@ -27,26 +27,6 @@ pub async fn get_signaux(
 
 // ── Worker de suivi ──────────────────────────────────────────────────────────
 
-#[derive(serde::Deserialize)]
-struct BinancePrix {
-    price: String,
-}
-
-async fn fetch_prix_binance(client: &reqwest::Client, asset: &str) -> Option<f64> {
-    let symbole = match asset {
-        "BTC" => "BTCUSDT",
-        "ETH" => "ETHUSDT",
-        "SOL" => "SOLUSDT",
-        _ => return None,
-    };
-    let url = format!(
-        "https://api.binance.com/api/v3/ticker/price?symbol={}",
-        symbole
-    );
-    let resp: BinancePrix = client.get(&url).send().await.ok()?.json().await.ok()?;
-    resp.price.parse::<f64>().ok()
-}
-
 fn calculer_verdict(
     direction: &str,
     stop_loss: f64,
@@ -86,10 +66,7 @@ fn calculer_verdict(
 
 /// Worker lancé au démarrage : toutes les 5min, vérifie TP/SL des signaux SMC/Straddle.
 pub async fn demarrer_worker_suivi_signaux(pool: sqlx::SqlitePool) {
-    let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-    {
+    let client = match crate::prix_utils::client_http() {
         Ok(c) => c,
         Err(e) => {
             tracing::error!("Worker signaux HTTP: {}", e);
@@ -115,7 +92,7 @@ pub async fn demarrer_worker_suivi_signaux(pool: sqlx::SqlitePool) {
         };
 
         for s in &actifs {
-            let prix = match fetch_prix_binance(&client, &s.asset).await {
+            let prix = match crate::prix_utils::fetch_prix_asset(&client, &s.asset).await {
                 Some(p) => p,
                 None => continue,
             };

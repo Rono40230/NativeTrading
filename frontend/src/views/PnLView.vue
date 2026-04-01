@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-3">
         <button class="text-gray-400 hover:text-white transition-colors" title="Retour aux créneaux de volatilité" @click="$router.push('/straddle')">← </button>
-        <h1 class="text-2xl font-bold">💰 Profit &amp; Loss</h1>
+        <h1 class="text-2xl font-bold">⚡ Backtest sur une heure précise</h1>
       </div>
       <div class="flex gap-3">
         <select v-model="asset" class="glass-select" @change="lancerBacktest">
@@ -140,8 +140,6 @@
       </p>
     </div>
 
-    <!-- Test A/B Prompts (composant indépendant) -->
-    <AbTestTable />
   </div>
 </template>
 
@@ -153,7 +151,6 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useAssetsStore } from '@/stores/assets.store'
 import TooltipInfo from '@/components/common/TooltipInfo.vue'
-import AbTestTable from '@/components/common/AbTestTable.vue'
 import { useBacktestDuree } from '@/composables/useBacktestDuree'
 import { useCreneauParams } from '@/composables/useCreneauParams'
 import { usePnLNiveaux } from '@/composables/usePnLNiveaux'

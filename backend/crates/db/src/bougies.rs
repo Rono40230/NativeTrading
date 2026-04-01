@@ -221,7 +221,10 @@ impl Database {
     }
 
     /// Retourne toutes les combinaisons (asset_str, timeframe_str) ayant ≥ min_bougies en DB.
-    pub async fn combinaisons_entrainables(&self, min_bougies: i64) -> Result<Vec<(String, String)>> {
+    pub async fn combinaisons_entrainables(
+        &self,
+        min_bougies: i64,
+    ) -> Result<Vec<(String, String)>> {
         let rows = sqlx::query(
             "SELECT asset, timeframe FROM bougies
              GROUP BY asset, timeframe

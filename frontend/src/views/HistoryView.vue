@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">📋 Historique des Signaux</h1>
-      <a v-if="!rocketsMode" :href="exportUrl" target="_blank" class="btn-outline text-sm" title="Exporter CSV">⬇ Export CSV</a>
+      <button v-if="!rocketsMode" class="btn-outline text-sm" @click="exportOuvert = true">⬇ Export CSV/PDF</button>
     </div>
 
     <!-- Filtres -->
@@ -114,17 +114,19 @@
       {{ listeActive.length }} entrée{{ listeActive.length > 1 ? 's' : '' }}
     </div>
 
+    <!-- Modales -->
+    <ExportCsvModal :open="exportOuvert" :assets-dispos="assetsConnus" @close="exportOuvert = false" />
     <!-- Modale Analyse Straddle -->
     <StraddleAnalyseModal
       :open="analyseOuverte && filtreStrategie === 'Straddle'"
-      :stats="straddleStats"
+      :signaux="signaux"
       @close="analyseOuverte = false"
     />
 
     <!-- Modale Analyse SMC -->
     <SmcAnalyseModal
       :open="analyseOuverte && filtreStrategie === 'SmcDirectional'"
-      :stats="smcStats"
+      :signaux="signaux"
       @close="analyseOuverte = false"
     />
 
@@ -147,16 +149,17 @@ import { usePrixStore } from '@/stores/prix.store'
 import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
 import RocketsTableau from '@/components/common/RocketsTableau.vue'
 import { useRocketsHistory, rocketToSignal } from '@/composables/useRocketsHistory'
-import { useHistoryStats } from '@/composables/useHistoryStats'
 import { formatDate, formatNombre, classeVerdictSignal, labelVerdictSignal } from '@/composables/useSignalFormat'
 import SmcAnalyseModal from '@/components/common/SmcAnalyseModal.vue'
 import StraddleAnalyseModal from '@/components/common/StraddleAnalyseModal.vue'
+import ExportCsvModal from '@/components/common/ExportCsvModal.vue'
 
 const alerteStore = useAlerteStore()
 const prixStore = usePrixStore()
 const signaux  = ref<Signal[]>([])
 const chargement    = ref(false)
 const analyseOuverte = ref(false)
+const exportOuvert   = ref(false)
 const filtreAsset   = ref('')
 const filtreDirection = ref('')
 const filtreStrategie = ref('')
@@ -218,8 +221,6 @@ const assetsConnus = computed(() =>
   [...new Set(signaux.value.map(s => s.asset))].sort()
 )
 
-const exportUrl = apiService.exportSignauxUrl(500)
-
 const signalsFiltres = computed(() =>
   signaux.value.filter(s =>
     (!filtreAsset.value || s.asset === filtreAsset.value) &&
@@ -232,8 +233,6 @@ const signalsFiltres = computed(() =>
 const listeActive = computed(() =>
   rocketsMode.value ? rocketsFiltrés.value : signalsFiltres.value
 )
-
-const { smcStats, straddleStats } = useHistoryStats(signaux)
 
 const signauxTries = computed(() => {
   const col = triColonne.value

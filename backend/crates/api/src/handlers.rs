@@ -10,24 +10,22 @@ use crate::utils::{parse_asset, parse_timeframe};
 
 // ─── IB Gateway status ───────────────────────────────────────────────────────
 
-/// GET /api/ib/status — Tente une vraie connexion TCP à IB Gateway (timeout 5s)
+/// GET /api/ib/status — Vérifie uniquement si le port TCP est joignable (sans handshake TWS).
+/// Un handshake complet échoue souvent après redémarrage (client_id encore occupé côté IB).
 pub async fn ib_status(state: web::Data<AppState>) -> impl Responder {
     let adresse = format!("127.0.0.1:{}", state.ib_port);
-    let connexion = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        ibapi::Client::connect(&adresse, state.ib_client_id + 10),
+
+    let tcp_ok = tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        tokio::net::TcpStream::connect(&adresse),
     )
     .await;
 
-    match connexion {
-        Ok(Ok(client)) => {
-            let version = client.server_version();
-            HttpResponse::Ok().json(serde_json::json!({
-                "connecte": true,
-                "adresse": adresse,
-                "server_version": version
-            }))
-        }
+    match tcp_ok {
+        Ok(Ok(_)) => HttpResponse::Ok().json(serde_json::json!({
+            "connecte": true,
+            "adresse": adresse
+        })),
         Ok(Err(e)) => HttpResponse::Ok().json(serde_json::json!({
             "connecte": false,
             "adresse": adresse,
@@ -36,7 +34,7 @@ pub async fn ib_status(state: web::Data<AppState>) -> impl Responder {
         Err(_) => HttpResponse::Ok().json(serde_json::json!({
             "connecte": false,
             "adresse": adresse,
-            "erreur": "Timeout — IB Gateway ne répond pas (>5s)"
+            "erreur": "Timeout — port IB Gateway inaccessible (>3s)"
         })),
     }
 }
