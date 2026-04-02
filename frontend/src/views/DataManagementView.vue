@@ -111,7 +111,8 @@
           <tr
             v-for="ligne in lignesEnrichies"
             :key="ligne.asset + ligne.timeframe"
-            class="border-t border-white/5 hover:bg-white/5 transition"
+            class="border-t border-white/5 hover:bg-white/10 transition"
+            :class="ligne.groupIndex % 2 === 1 ? 'bg-white/[0.04]' : ''"
           >
             <td class="px-3 py-2 font-bold text-white">{{ ligne.asset }}</td>
             <td class="px-3 py-2 text-gray-300 text-center">{{ ligne.timeframe }}</td>
@@ -170,8 +171,12 @@ const bougiesParMoisParTf: Record<string, number> = {
   H1: 720, H4: 180, D1: 30, W1: 4,
 }
 
-const lignesEnrichies = computed(() =>
-  couverture.value
+const TF_ORDRE: Record<string, number> = {
+  M1: 0, M5: 1, M15: 2, M30: 3, H1: 4, H4: 5, D1: 6, W1: 7,
+}
+
+const lignesEnrichies = computed(() => {
+  const lignes = couverture.value
     .filter(c => TOUS_ASSETS.value.includes(c.asset))
     .map(c => {
       const attendu = (bougiesParMoisParTf[c.timeframe] ?? 1) * moisSelectionne.value
@@ -180,7 +185,17 @@ const lignesEnrichies = computed(() =>
       const dateMax = c.max_ts ? new Date(c.max_ts * 1000).toLocaleDateString('fr-FR') : '—'
       return { ...c, pct, dateMin, dateMax }
     })
-)
+    .sort((a, b) => {
+      if (a.asset !== b.asset) return a.asset.localeCompare(b.asset)
+      return (TF_ORDRE[a.timeframe] ?? 99) - (TF_ORDRE[b.timeframe] ?? 99)
+    })
+
+  const assetsVus: string[] = []
+  return lignes.map(l => {
+    if (!assetsVus.includes(l.asset)) assetsVus.push(l.asset)
+    return { ...l, groupIndex: assetsVus.indexOf(l.asset) }
+  })
+})
 
 async function chargerCouverture() {
   chargement.value = true
