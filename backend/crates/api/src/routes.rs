@@ -245,5 +245,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/ia/ab-test",
             web::get().to(crate::ab_test_handlers::get_ab_test),
+        )
+        .route(
+            "/api/prompts",
+            web::get().to(crate::prompts_handler::lister_prompts),
+        )
+        .service(
+            web::resource("/api/prompts/{id}")
+                .route(web::put().to(crate::prompts_handler::modifier_prompt))
+                .route(web::delete().to(crate::prompts_handler::restaurer_prompt)),
         );
 }

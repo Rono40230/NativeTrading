@@ -24,7 +24,7 @@ pub struct AnalyseReponse {
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
 
-const PROMPT_ANALYSE_ROCKETS: &str = r#"Tu es un expert en trading algorithmique quantitatif spécialisé en crypto, stratégie "Rockets".
+pub const PROMPT_ANALYSE_ROCKETS: &str = r#"Tu es un expert en trading algorithmique quantitatif spécialisé en crypto, stratégie "Rockets".
 
 ## CONTEXTE DE LA STRATÉGIE ROCKETS
 La stratégie Rockets détecte des cryptos après une compression de volatilité (ATR ratio < 0.80)

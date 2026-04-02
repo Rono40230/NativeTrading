@@ -30,8 +30,9 @@ const router = createRouter({
     { path: '/lexique',  component: () => import('../views/LexiqueView.vue') },
 
     // Système
-    { path: '/data',     component: () => import('../views/DataManagementView.vue') },
-    { path: '/settings', component: () => import('../views/SettingsView.vue') },
+    { path: '/data',            component: () => import('../views/DataManagementView.vue') },
+    { path: '/settings',        component: () => import('../views/SettingsView.vue') },
+    { path: '/config/prompts',  component: () => import('../views/PromptsIAView.vue') },
   ]
 })
 

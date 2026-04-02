@@ -40,7 +40,7 @@ pub struct SignalSMCClotl {
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
 
-const PROMPT_ANALYSE_SMC: &str = r#"Tu es un expert en trading algorithmique SMC/ICT quantitatif.
+pub const PROMPT_ANALYSE_SMC: &str = r#"Tu es un expert en trading algorithmique SMC/ICT quantitatif.
 
 ## CONTEXTE DE LA STRATÉGIE SMC DIRECTIONNEL
 La stratégie SMC Directionnel génère des signaux directionnels basés sur la confluence de :

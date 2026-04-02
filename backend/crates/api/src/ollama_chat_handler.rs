@@ -64,7 +64,10 @@ pub async fn analyser(body: web::Json<RequeteAnalyse>) -> impl Responder {
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
     match ollama::interroger(&prompt).await {
-        Ok(texte) => HttpResponse::Ok().json(ReponseAnalyse { analyse: texte, modele }),
+        Ok(texte) => HttpResponse::Ok().json(ReponseAnalyse {
+            analyse: texte,
+            modele,
+        }),
         Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
             "error": format!("{}", e),
             "aide": "Lancez Ollama: ollama serve && ollama pull qwen2.5:14b"
@@ -89,7 +92,12 @@ pub async fn chat(state: web::Data<AppState>, body: web::Json<RequeteChat>) -> i
         .map(|m| (m.role.clone(), m.contenu.clone()))
         .collect();
 
-    let api_key = state.db.lire_config("anthropic_api_key").await.ok().flatten();
+    let api_key = state
+        .db
+        .lire_config("anthropic_api_key")
+        .await
+        .ok()
+        .flatten();
     if let Some(key) = api_key.filter(|k| !k.is_empty()) {
         return match crate::anthropic::chat_claude(&historique, ollama::SYSTEM_PROMPT_COACH, &key)
             .await
@@ -134,5 +142,9 @@ pub async fn statut() -> impl Responder {
         .map(|r| r.status().is_success())
         .unwrap_or(false);
 
-    HttpResponse::Ok().json(StatutIA { ollama_disponible: disponible, modele, url })
+    HttpResponse::Ok().json(StatutIA {
+        ollama_disponible: disponible,
+        modele,
+        url,
+    })
 }

@@ -52,7 +52,7 @@ pub struct HistoriqueSMCSignal {
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
 
-const PROMPT_FILTRE_SMC: &str = r#"Tu es un trader institutionnel SMC/ICT expert, spécialiste de la stratégie "SMC Directionnel".
+pub const PROMPT_FILTRE_SMC: &str = r#"Tu es un trader institutionnel SMC/ICT expert, spécialiste de la stratégie "SMC Directionnel".
 
 ## DÉFINITION DE LA STRATÉGIE SMC DIRECTIONNEL
 La stratégie SMC Directionnel génère des signaux directionnels basés sur la confluence de :

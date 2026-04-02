@@ -162,7 +162,7 @@ pub fn formater_contexte_straddle(
 
 // ── Appel LLM ────────────────────────────────────────────────────────────────
 
-const PROMPT_ANALYSE_STRADDLE: &str = r#"Tu es un expert en trading quantitatif spécialisé dans les stratégies de volatilité bidirectionnelle (Straddle).
+pub const PROMPT_ANALYSE_STRADDLE: &str = r#"Tu es un expert en trading quantitatif spécialisé dans les stratégies de volatilité bidirectionnelle (Straddle).
 
 ## MISSION
 Analyser les statistiques de volatilité horaire fournies et identifier les **créneaux récurrents de forte volatilité** qui méritent d'être testés en backtest avec une stratégie bidirectionnelle (Long + Short simultané).

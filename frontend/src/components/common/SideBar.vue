@@ -49,15 +49,11 @@
       </template>
     </nav>
 
-    <!-- Pied de sidebar : date -->
-    <div class="px-4 py-3 border-t border-white/8">
-      <p class="text-[10px] text-gray-600 text-center">{{ dateActuelle }}</p>
-    </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+
 import { RouterLink } from 'vue-router'
 import { useSmcAnalyseNotif } from '@/composables/useSmcAnalyseNotif'
 
@@ -134,15 +130,13 @@ const nav: NavItem[] = [
   {
     groupe: 'Configuration', icone: '⚙️',
     liens: [
-      { to: '/settings', icone: '⚙️', label: 'Paramètres' },
-      { to: '/data',     icone: '📦', label: 'Import des données' },
+      { to: '/settings',       icone: '⚙️', label: 'Paramètres' },
+      { to: '/data',           icone: '📦', label: 'Import des données' },
+      { to: '/config/prompts', icone: '🧠', label: 'Prompts IA' },
     ]
   },
 ]
 
-const dateActuelle = computed(() =>
-  new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' }).format(new Date())
-)
 </script>
 
 <style scoped>

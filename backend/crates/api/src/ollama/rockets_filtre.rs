@@ -46,7 +46,7 @@ pub struct SignalCandidat {
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
 
-const PROMPT_FILTRE_ROCKET: &str = r#"Tu es un trader quantitatif expert en crypto, spécialisé dans la stratégie "Rockets".
+pub const PROMPT_FILTRE_ROCKET: &str = r#"Tu es un trader quantitatif expert en crypto, spécialisé dans la stratégie "Rockets".
 
 ## DÉFINITION DE LA STRATÉGIE ROCKETS
 La stratégie Rockets capture les mouvements explosifs après une compression de volatilité.

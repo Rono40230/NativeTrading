@@ -1,8 +1,8 @@
 use common::TradingError;
 
 use super::prompts::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF};
-use super::types::{ReponseOllama, OLLAMA_URL};
 use super::types::tf_libelle;
+use super::types::{ReponseOllama, OLLAMA_URL};
 
 pub const MODELE_VISION: &str = "llama3.2-vision:11b";
 
