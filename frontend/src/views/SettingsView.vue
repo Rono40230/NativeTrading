@@ -71,6 +71,7 @@
             Enregistrer
           </button>
           <span v-if="sauvegarde" class="text-emerald-400 text-xs">✓</span>
+          <span v-if="erreurCapital" class="text-red-400 text-xs">⚠️ Capital invalide</span>
         </div>
       </div>
       <div>
@@ -81,7 +82,8 @@
             type="number"
             min="1"
             step="100"
-            class="bg-gray-700 text-white rounded px-2 py-1.5 w-36 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            :class="erreurCapital ? 'ring-2 ring-red-500' : 'focus:ring-2 focus:ring-emerald-500'"
+            class="bg-gray-700 text-white rounded px-2 py-1.5 w-36 text-sm focus:outline-none"
             @keyup.enter="sauvegarder"
           />
           <span class="text-xs text-gray-500">Utilisé pour le backtesting et le dimensionnement des positions</span>
@@ -106,6 +108,41 @@
 
     </div> <!-- fin grid 3 colonnes -->
 
+    <!-- IA Vision (Anthropic) -->
+    <div class="glass-card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">IA Vision — Anthropic</h2>
+          <p class="text-xs text-gray-500 mt-0.5">Utilisée pour l'analyse de charts (Chart Import)</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            class="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 rounded text-xs font-medium transition-colors"
+            @click="sauvegarderAnthropicKey"
+          >
+            Enregistrer
+          </button>
+          <span v-if="anthropicSauvegarde" class="text-emerald-400 text-xs">✓</span>
+          <span v-if="anthropicErreur" class="text-red-400 text-xs">⚠️ Clé invalide</span>
+        </div>
+      </div>
+      <div class="flex gap-3 items-center">
+        <input
+          v-model="anthropicKey"
+          :type="afficherCle ? 'text' : 'password'"
+          placeholder="sk-ant-..."
+          autocomplete="off"
+          class="bg-gray-700 text-white rounded px-2 py-1.5 w-80 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
+          @keyup.enter="sauvegarderAnthropicKey"
+        />
+        <button
+          class="text-xs text-gray-400 hover:text-white transition-colors"
+          @click="afficherCle = !afficherCle"
+        >{{ afficherCle ? '🙈 Masquer' : '👁️ Afficher' }}</button>
+        <span class="text-xs text-gray-500">Obtenir une clé : console.anthropic.com</span>
+      </div>
+    </div>
+
     <!-- Assets -->
     <GestionAssets />
 
@@ -121,6 +158,7 @@ import GestionAssets from '@/components/common/GestionAssets.vue'
 const settingsStore = useSettingsStore()
 const capitalSaisie = ref(settingsStore.capitalDepart)
 const sauvegarde = ref(false)
+const erreurCapital = ref(false)
 
 const ibPort = ref(4002)
 const ibClientId = ref(100)
@@ -128,6 +166,11 @@ const ibSauvegarde = ref(false)
 const statutConnexion = ref<'idle' | 'ok' | 'erreur'>('idle')
 const erreurConnexion = ref('')
 const testEnCours = ref(false)
+
+const anthropicKey = ref('')
+const anthropicSauvegarde = ref(false)
+const anthropicErreur = ref(false)
+const afficherCle = ref(false)
 
 // Nettoyage des timers si l'utilisateur navigue avant qu'ils tirent
 const timers: ReturnType<typeof setTimeout>[] = []
@@ -139,6 +182,8 @@ onMounted(async () => {
     if (port?.valeur != null) ibPort.value = Number(port.valeur)
     const cid = await apiService.obtenirConfig('ibgateway_client_id')
     if (cid?.valeur != null) ibClientId.value = Number(cid.valeur)
+    const key = await apiService.obtenirConfig('anthropic_api_key')
+    if (key?.valeur) anthropicKey.value = key.valeur
   } catch {
     // Backend non disponible — valeurs par défaut utilisées
   }
@@ -146,9 +191,31 @@ onMounted(async () => {
 
 function sauvegarder() {
   if (capitalSaisie.value > 0) {
+    erreurCapital.value = false
     settingsStore.definirCapital(capitalSaisie.value)
     sauvegarde.value = true
     timers.push(setTimeout(() => { sauvegarde.value = false }, 2000))
+  } else {
+    erreurCapital.value = true
+    timers.push(setTimeout(() => { erreurCapital.value = false }, 3000))
+  }
+}
+
+async function sauvegarderAnthropicKey() {
+  const cle = anthropicKey.value.trim()
+  if (!cle.startsWith('sk-ant-') && cle !== '') {
+    anthropicErreur.value = true
+    timers.push(setTimeout(() => { anthropicErreur.value = false }, 3000))
+    return
+  }
+  try {
+    await apiService.sauvegarderConfig('anthropic_api_key', cle)
+    anthropicSauvegarde.value = true
+    anthropicErreur.value = false
+    timers.push(setTimeout(() => { anthropicSauvegarde.value = false }, 2000))
+  } catch {
+    anthropicErreur.value = true
+    timers.push(setTimeout(() => { anthropicErreur.value = false }, 3000))
   }
 }
 

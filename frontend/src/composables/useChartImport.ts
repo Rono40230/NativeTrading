@@ -3,6 +3,10 @@ import { apiService } from '@/services/api.service'
 import type { ImageAvecTF } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
 
+export type StatutAnthropic = 'non-configure' | 'ok' | 'credits-insuffisants'
+// Module-level : partagé entre ChartImportPanel et ChartImportView
+export const anthropicStatutChart = ref<StatutAnthropic>('non-configure')
+
 export interface ContentPart {
   type: 'text' | 'diagram'
   content: string
@@ -123,6 +127,11 @@ export function useChartImport() {
   const dragActif = ref(false)
   const modeleUtilise = ref('')
 
+  // Comparaison modèle local
+  const analyseLocalEnCours = ref(false)
+  const partsResultatLocal = ref<ContentPart[]>([])
+  const modeleLocalUtilise = ref('')
+
   function traiterFichiers(files: File[]) {
     const valides = files.filter(f => f.type.startsWith('image/'))
     if (valides.length === 0) {
@@ -135,7 +144,7 @@ export function useChartImport() {
         const dataUrl = e.target?.result as string
         images.value.push({
           preview: dataUrl,
-          base64: dataUrl.split(',')[1] ?? '',
+          base64: dataUrl,   // envoyer le data URL complet (préfixe inclus) pour détecter le mime type côté backend
           timeframe: 'M15',
         })
       }
@@ -175,11 +184,41 @@ export function useChartImport() {
       }))
       const res = await apiService.analyserChart(asset, payload, notes.value || undefined)
       modeleUtilise.value = res.modele
+      anthropicStatutChart.value = 'ok'
       partsResultat.value = parseContent(res.analyse)
     } catch (e: unknown) {
-      alerteStore.afficherErreur(`Vision IA: ${(e as Error).message}`)
+      const axiosErr = e as any
+      const detail: string = axiosErr?.response?.data?.error ?? (e as Error).message
+      if (detail.toLowerCase().includes('crédit') || detail.toLowerCase().includes('credit')) {
+        anthropicStatutChart.value = 'credits-insuffisants'
+      }
+      alerteStore.afficherErreur(`Vision IA: ${detail}`)
     } finally {
       analyseEnCours.value = false
+    }
+  }
+
+  async function analyserImageLocal(asset: string) {
+    if (images.value.length === 0) {
+      alerteStore.afficherErreur("Importez d'abord au moins un chart")
+      return
+    }
+    analyseLocalEnCours.value = true
+    partsResultatLocal.value = []
+    try {
+      const payload: ImageAvecTF[] = images.value.map(img => ({
+        base64: img.base64,
+        timeframe: img.timeframe,
+      }))
+      const res = await apiService.analyserChartLocal(asset, payload, notes.value || undefined)
+      modeleLocalUtilise.value = res.modele
+      partsResultatLocal.value = parseContent(res.analyse)
+    } catch (e: unknown) {
+      const axiosErr = e as any
+      const detail: string = axiosErr?.response?.data?.error ?? (e as Error).message
+      alerteStore.afficherErreur(`Vision locale: ${detail}`)
+    } finally {
+      analyseLocalEnCours.value = false
     }
   }
 
@@ -188,6 +227,8 @@ export function useChartImport() {
     notes.value = ''
     partsResultat.value = []
     modeleUtilise.value = ''
+    partsResultatLocal.value = []
+    modeleLocalUtilise.value = ''
   }
 
   return {
@@ -197,9 +238,13 @@ export function useChartImport() {
     partsResultat,
     dragActif,
     modeleUtilise,
+    analyseLocalEnCours,
+    partsResultatLocal,
+    modeleLocalUtilise,
     onDrop,
     onInputFile,
     analyserImage,
+    analyserImageLocal,
     supprimerImage,
     mettreAJourTF,
     reinitialiser,

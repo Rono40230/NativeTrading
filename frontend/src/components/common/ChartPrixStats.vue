@@ -16,8 +16,8 @@
       </span>
     </div>
 
-    <div v-if="stats" class="flex items-center gap-2 ml-auto">
-      <!-- Dropdown Asset -->
+    <div class="flex items-center gap-2 ml-auto">
+      <!-- Dropdown Asset (toujours visible) -->
       <select
         :value="selectedAsset"
         class="px-2 py-1 text-xs font-medium rounded-lg bg-white text-black border border-white/20 cursor-pointer focus:outline-none"
@@ -26,7 +26,7 @@
         <option v-for="a in assets" :key="a" :value="a">{{ a }}</option>
       </select>
 
-      <!-- Dropdown Timeframe -->
+      <!-- Dropdown Timeframe (toujours visible) -->
       <select
         :value="selectedTimeframe"
         class="px-2 py-1 text-xs font-medium rounded-lg bg-white text-black border border-white/20 cursor-pointer focus:outline-none"
@@ -35,14 +35,17 @@
         <option v-for="tf in timeframes" :key="tf" :value="tf">{{ tf }}</option>
       </select>
 
-      <div v-for="b in badges" :key="b.label"
-        class="cpx-badge"
-        @mouseenter="(e) => ouvrirTip(e, b)"
-        @mouseleave="fermerTip"
-      >
-        <span class="text-xs text-slate-400 leading-none">{{ b.label }}</span>
-        <span class="text-sm font-semibold mt-1" :class="b.color">{{ b.valeur }}</span>
-      </div>
+      <!-- Badges métriques (seulement si données disponibles) -->
+      <template v-if="stats">
+        <div v-for="b in badges" :key="b.label"
+          class="cpx-badge"
+          @mouseenter="(e) => ouvrirTip(e, b)"
+          @mouseleave="fermerTip"
+        >
+          <span class="text-xs text-slate-400 leading-none">{{ b.label }}</span>
+          <span class="text-sm font-semibold mt-1" :class="b.color">{{ b.valeur }}</span>
+        </div>
+      </template>
     </div>
   </div>
 

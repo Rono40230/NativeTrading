@@ -23,13 +23,6 @@ Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Je veux que tu prennes tout ton temps pour analyse en profondeur et dans les moindres détails toutes les fonctionnalités de cette app.
-après l'analyse, écrie un fichier test.md qui :
-- liste, classée par vues/pages puis par blocs tout ce que fait chaque bloc de l'app 
-- détaille tous les tests à réaliser à partir de l'UI pour valider le fonctionnement de toutes les blocs de l'app.
-
---------------------------------------------------------------------------------------------------------------------------
-
 Dans la vue graphique de SMC il est possible d'afficher les signaux des indicateurs techniques.
 Comment pourrions nous générer/afficher des signaux SMC ?
 PAr exemple cet indicateur OB ultimate affiche les meme OB que notre indicateur OB mais affiche en plus des signaux.
@@ -39,7 +32,11 @@ Repônd sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Il faut alimenter le bloc du dashboard ⚡ SURVEILLANCE DES ÉVÉNEMENTS DE VOLATILITÉ — STRATÉGIE STRADDLE.
+Il faut alimenter en données ML :
+- le bloc du dashboard ⚡ SURVEILLANCE DES ÉVÉNEMENTS DE VOLATILITÉ — STRATÉGIE STRADDLE.
+- le bloc Monitoring ML de la page ⚡ Backtest sur une heure précise
+- le bloc Monitoring ML de la page 🧪 Backtest sur un créneau horaire
+
 Comprends tu la logique de la stratégie Straddle ?
 Que manque t il actuellement dans le code pour :
 - repérer les mouvements de volatilité
@@ -53,7 +50,11 @@ Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Télécharger les données de toutes les paires présentes dans l'app
+Télécharger les données de toutes les paires présentes dans l'app.
+Faire en sorte que les données soient toujours à jour = mise à jour quotidienne.
+Comment s'assurer que toutes les données sont toujours à jour ?
+Réfléchir à un système de bandeau d'affichage qui précise l'état de la DB = A jour ou problème de mise à jour.
+Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -87,4 +88,24 @@ Est ce clair ?
 As tu besoin d'éclaircissement ou de précisions ?
 Repond sans coder
 
+--------------------------------------------------------------------------------------------------------------------------
 
+Il faut revoir l'affichage, les calculs, l'apprentissage du LM pour les pages ⚡ Backtest sur une heure précise et 🧪 Backtest sur un créneau horaire
+1 - ajouter TP 3 à ⚡ Backtest sur une heure précise = implémenter la logique uni à bidi
+2 - reprendre les tests de ⚡ Backtest sur une heure précise
+3 - quand les tests sont ok faire un copier/coller de la page ⚡ Backtest sur une heure précise vers la page 🧪 Backtest sur un créneau horaire
+  = ces 2 pages doivent produire exactement les memes calculs et afficher les mêmes données.
+  la seule différences est que les calculs se font sur un créneau et non pas sur une heure précise
+
+Vérifier une fois terminer que l'ancienne page n'est pas en doublon
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Analyse dans le détail ce code et réécris intégralement ARCHITECTURE.md en décrivant précisément l'architecture du projet.
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Est on bien certain que les tableaux des signaux respectent la logique des trades une jambe/2 jambes et vente partielle.
+A vérifier dans les signaux de rockets, straddle, smc et l'historique
+
+--------------------------------------------------------------------------------------------------------------------------

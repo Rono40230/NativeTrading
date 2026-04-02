@@ -53,7 +53,11 @@
         </div>
 
         <!-- Confiance ML -->
-        <div v-if="signal.llm_conviction !== null" class="flex items-center gap-2 mb-3">
+        <div
+          v-if="signal.llm_conviction !== null"
+          class="flex items-center gap-2 mb-3 cursor-help"
+          :title="signal.llm_raison ? `Justification IA : ${signal.llm_raison}` : 'Aucune justification disponible'"
+        >
           <span class="text-xs text-gray-400">Conviction IA</span>
           <div class="flex-1 bg-gray-700 rounded-full h-1.5 overflow-hidden">
             <div class="h-full rounded-full transition-all"
@@ -78,10 +82,16 @@
       <!-- Pied -->
       <div class="alarme-footer">
         <span class="text-[10px] text-gray-600">{{ formatDate(signal.cree_le) }}</span>
-        <button
-          class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
-          @click.stop="fermer"
-        >Ignorer ✕</button>
+        <div class="flex gap-2">
+          <button
+            class="text-xs px-3 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white transition-colors"
+            @click.stop="fermer"
+          >Prendre le trade ✔</button>
+          <button
+            class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+            @click.stop="fermer"
+          >Ignorer ✕</button>
+        </div>
       </div>
     </div>
   </Teleport>

@@ -7,9 +7,13 @@ const router = createRouter({
     { path: '/', component: () => import('../views/DashboardHome.vue') },
 
     // Stratégies
-    { path: '/rockets',             component: () => import('../views/RocketsView.vue') },
+    { path: '/rockets',                    component: () => import('../views/RocketsView.vue') },
+    { path: '/rockets/definition',         component: () => import('../views/RocketsDefinitionView.vue') },
+    { path: '/smc/definition',             component: () => import('../views/SmcDefinitionView.vue') },
+    { path: '/straddle/definition',        component: () => import('../views/VolatiliteDefinitionView.vue') },
     { path: '/smc',                 component: () => import('../views/SmcView.vue') },
     { path: '/smc/analyser',        component: () => import('../views/SMCAnalyzerView.vue') },
+    { path: '/smc/backtests',       component: () => import('../views/SmcBacktestsView.vue') },
     { path: '/smc/graphiques',      component: () => import('../views/ChartsView.vue') },
     { path: '/straddle',            component: () => import('../views/StraddleView.vue') },
     { path: '/straddle/signaux',    component: () => import('../views/StraddleSignauxView.vue') },

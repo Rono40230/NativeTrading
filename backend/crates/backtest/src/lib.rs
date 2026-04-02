@@ -292,7 +292,6 @@ impl BacktestEngine {
         resultats.equity_curve = equity_curve;
         Ok((resultats, feedback))
     }
-
 }
 
 #[cfg(test)]

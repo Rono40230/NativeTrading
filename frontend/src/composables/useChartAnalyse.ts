@@ -22,7 +22,7 @@ export function useChartAnalyse(
       const canvas = chart.takeScreenshot()
       const base64 = canvas.toDataURL('image/png').split(',')[1]
 
-      const response = await fetch('http://localhost:8080/api/ia/chart', {
+      const response = await fetch('http://localhost:8080/api/ia/chart/local', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

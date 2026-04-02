@@ -6,7 +6,6 @@
         <h1 class="text-xl font-bold text-white">🧪 Backtest sur un créneau horaire</h1>
         <p class="text-sm text-gray-400 mt-1">Valide statistiquement les créneaux identifiés par le LLM.</p>
       </div>
-      <RouterLink to="/straddle" class="text-yellow-400 text-sm hover:underline">← Retour créneaux</RouterLink>
     </div>
 
     <!-- Paramètres -->

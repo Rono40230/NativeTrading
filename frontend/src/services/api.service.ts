@@ -158,6 +158,19 @@ export const apiService = {
     return res.data
   },
 
+  async analyserChartLocal(
+    asset: string,
+    images: ImageAvecTF[],
+    notes?: string,
+  ): Promise<ReponseChartIA> {
+    const res = await http.post(
+      '/api/ia/chart/local',
+      { asset, images, ...(notes ? { notes } : {}) },
+      { timeout: 240000 },
+    )
+    return res.data
+  },
+
   async obtenirConfig(cle: string): Promise<{ cle: string; valeur: string } | null> {
     try {
       const res = await http.get('/api/config', { params: { cle } })

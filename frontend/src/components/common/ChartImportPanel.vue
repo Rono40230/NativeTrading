@@ -1,14 +1,15 @@
 <template>
-  <div class="space-y-4">
+  <div class="flex flex-col gap-4 h-full min-h-0">
     <!-- Zone drag & drop -->
     <div
-      class="rounded-xl border-2 border-dashed transition-colors cursor-pointer relative min-h-[260px]"
+      class="flex-shrink-0 rounded-xl border-2 border-dashed transition-colors cursor-pointer relative"
       :class="[
         dragActif
           ? 'border-blue-400 bg-blue-500/8'
           : images.length > 0
             ? 'border-emerald-500/40 bg-emerald-900/5'
             : 'border-white/20 hover:border-white/40',
+        images.length === 0 ? 'min-h-[220px]' : ''
       ]"
       @dragover.prevent="setDragActif(true)"
       @dragleave.prevent="setDragActif(false)"
@@ -61,11 +62,11 @@
       v-model="notes"
       rows="2"
       placeholder="Notes contextuelles optionnelles — contexte macro, niveaux importants…"
-      class="w-full bg-gray-800 border border-gray-600 text-white text-sm rounded-lg px-3 py-2 resize-none placeholder:text-gray-600 focus:outline-none focus:border-blue-500"
+      class="flex-shrink-0 w-full bg-gray-800 border border-gray-600 text-white text-sm rounded-lg px-3 py-2 resize-none placeholder:text-gray-600 focus:outline-none focus:border-blue-500"
     />
 
-    <!-- Asset + Bouton -->
-    <div class="flex gap-3 items-end flex-wrap">
+    <!-- Asset + Boutons -->
+    <div class="flex-shrink-0 flex gap-3 items-end flex-wrap">
       <div class="min-w-[100px]">
         <label class="text-xs text-gray-400 font-medium block mb-1">Asset</label>
         <select v-model="asset" class="w-full bg-white border border-gray-300 text-black text-sm rounded-lg px-3 py-2">
@@ -73,7 +74,7 @@
         </select>
       </div>
       <button
-        class="flex-1 py-2 px-6 rounded-lg text-sm font-semibold transition-all"
+        class="flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all"
         :class="
           analyseEnCours || images.length === 0
             ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
@@ -82,32 +83,58 @@
         :disabled="analyseEnCours || images.length === 0"
         @click="analyserImage(asset)"
       >
-        {{ analyseEnCours ? '⏳ Analyse en cours…' : `🔍 Analyser (${images.length} image${images.length > 1 ? 's' : ''})` }}
+        {{ analyseEnCours ? '⏳ Claude…' : `🔍 Claude (${images.length}img)` }}
+      </button>
+      <button
+        class="py-2 px-4 rounded-lg text-sm font-semibold transition-all border"
+        :class="
+          analyseLocalEnCours || images.length === 0
+            ? 'border-gray-700 text-gray-500 cursor-not-allowed'
+            : 'border-orange-500/50 text-orange-400 hover:bg-orange-500/10'
+        "
+        :disabled="analyseLocalEnCours || images.length === 0"
+        @click="analyserImageLocal(asset)"
+      >
+        {{ analyseLocalEnCours ? '⏳ Local…' : '🤖 Local' }}
       </button>
     </div>
 
     <!-- Résultats -->
-    <template v-for="(part, idx) in partsResultat" :key="idx">
-      <div v-if="part.type === 'text' && part.content.trim()" class="glass-card p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="text-xs font-semibold text-purple-400">🧠 Analyse IA — {{ modeleUtilise }}</span>
-        </div>
-        <!-- eslint-disable-next-line vue/no-v-html -->
-        <div class="text-sm text-gray-200 leading-relaxed" v-html="renderMd(part.content)" />
+    <div
+      v-if="partsResultat.length > 0 || partsResultatLocal.length > 0"
+      class="flex-1 overflow-y-auto min-h-0 min-w-0"
+      :class="partsResultat.length > 0 && partsResultatLocal.length > 0 ? 'grid grid-cols-2 gap-4 items-start' : 'space-y-4 pr-1'"
+    >
+      <!-- Colonne Claude -->
+      <div v-if="partsResultat.length > 0" class="space-y-4">
+        <div class="text-xs font-semibold text-purple-400 px-1">🧠 Claude Sonnet — {{ modeleUtilise }}</div>
+        <template v-for="(part, idx) in partsResultat" :key="'c'+idx">
+          <div v-if="part.type === 'text' && part.content.trim()" class="glass-card p-5">
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <div class="text-sm text-gray-200 leading-relaxed" v-html="renderMd(part.content)" />
+          </div>
+          <div v-else-if="part.type === 'diagram'" class="glass-card overflow-hidden">
+            <div class="px-4 py-2 border-b border-white/10"><span class="text-xs font-semibold text-blue-400">📐 Diagramme</span></div>
+            <iframe :srcdoc="buildSrcdoc(part.content)" sandbox="allow-scripts" class="w-full border-0 block" style="height:440px;background:#0d1117" title="Diagramme" />
+          </div>
+        </template>
       </div>
-      <div v-else-if="part.type === 'diagram'" class="glass-card overflow-hidden">
-        <div class="px-4 py-2 border-b border-white/10">
-          <span class="text-xs font-semibold text-blue-400">📐 Diagramme interactif</span>
-        </div>
-        <iframe
-          :srcdoc="buildSrcdoc(part.content)"
-          sandbox="allow-scripts"
-          class="w-full border-0 block"
-          style="height: 440px; background: #0d1117;"
-          title="Diagramme SMC"
-        />
+
+      <!-- Colonne Local -->
+      <div v-if="partsResultatLocal.length > 0" class="space-y-4">
+        <div class="text-xs font-semibold text-orange-400 px-1">🤖 Local — {{ modeleLocalUtilise }}</div>
+        <template v-for="(part, idx) in partsResultatLocal" :key="'l'+idx">
+          <div v-if="part.type === 'text' && part.content.trim()" class="glass-card p-5 border-orange-500/20">
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <div class="text-sm text-gray-200 leading-relaxed" v-html="renderMd(part.content)" />
+          </div>
+          <div v-else-if="part.type === 'diagram'" class="glass-card overflow-hidden">
+            <div class="px-4 py-2 border-b border-white/10"><span class="text-xs font-semibold text-orange-400">📐 Diagramme</span></div>
+            <iframe :srcdoc="buildSrcdoc(part.content)" sandbox="allow-scripts" class="w-full border-0 block" style="height:440px;background:#0d1117" title="Diagramme" />
+          </div>
+        </template>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -139,9 +166,13 @@ const {
   partsResultat,
   dragActif,
   modeleUtilise,
+  analyseLocalEnCours,
+  partsResultatLocal,
+  modeleLocalUtilise,
   onDrop,
   onInputFile,
   analyserImage,
+  analyserImageLocal,
   supprimerImage,
   mettreAJourTF,
   setDragActif,

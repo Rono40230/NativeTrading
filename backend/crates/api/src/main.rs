@@ -2,6 +2,7 @@ use actix_cors::Cors;
 use actix_web::{http::header, middleware, web, App, HttpServer};
 
 mod ab_test_handlers;
+mod anthropic;
 mod assets_handlers;
 mod backtest_handlers;
 mod calendar_handlers;
@@ -23,7 +24,10 @@ mod news_scraper;
 mod news_traduction;
 mod ollama;
 mod ollama_ajustements_handler;
+mod ollama_chat_handler;
+mod ollama_chart_handler;
 mod ollama_handlers;
+mod ollama_signal_ia_handler;
 mod ollama_types;
 mod prix_handlers;
 mod prix_utils;

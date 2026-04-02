@@ -1,5 +1,5 @@
 <template>
-  <aside class="sidebar flex flex-col w-56 min-h-screen bg-[#0d1117] border-r border-white/8 shrink-0 fixed left-0 top-0 h-full z-40 overflow-y-auto">
+  <aside class="sidebar flex flex-col w-64 min-h-screen bg-[#0d1117] border-r border-white/8 shrink-0 fixed left-0 top-0 h-full z-40 overflow-y-auto">
 
     <!-- Navigation -->
     <nav class="flex flex-col px-3 py-3 flex-1 gap-1">
@@ -13,7 +13,7 @@
             <span class="text-[10px] font-bold uppercase tracking-widest" :class="accentText(item.groupe)">
               {{ item.groupe }}
             </span>
-            <span v-if="item.groupe === 'SMC' && nouvelleAnalyse"
+            <span v-if="item.groupe === 'Stratégie SMC' && nouvelleAnalyse"
               class="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse"
               title="Nouvelle analyse SMC disponible"
             />
@@ -70,11 +70,12 @@ type NavItem = LienSimple | LienGroupe
 function estGroupe(item: NavItem): item is LienGroupe { return 'groupe' in item }
 
 const ACCENT: Record<string, { text: string; border: string; active: string }> = {
-  'Rockets':   { text: 'text-orange-400', border: 'bg-orange-500/40', active: 'background: rgba(249,115,22,0.12)' },
-  'SMC':       { text: 'text-blue-400',   border: 'bg-blue-500/40',   active: 'background: rgba(59,130,246,0.12)'  },
-  'Straddle':  { text: 'text-yellow-400', border: 'bg-yellow-500/40', active: 'background: rgba(234,179,8,0.12)'   },
-  'Outils IA':      { text: 'text-purple-400', border: 'bg-purple-500/40', active: 'background: rgba(168,85,247,0.12)'  },
-  'Configuration':  { text: 'text-gray-400',   border: 'bg-gray-500/30',   active: 'background: rgba(107,114,128,0.12)' },
+  'Général':              { text: 'text-cyan-400',   border: 'bg-cyan-500/40',   active: 'background: rgba(6,182,212,0.12)'   },
+  'Stratégie Rockets':    { text: 'text-orange-400', border: 'bg-orange-500/40', active: 'background: rgba(249,115,22,0.12)' },
+  'Stratégie SMC':        { text: 'text-blue-400',   border: 'bg-blue-500/40',   active: 'background: rgba(59,130,246,0.12)'  },
+  'Stratégie Volatilité': { text: 'text-yellow-400', border: 'bg-yellow-500/40', active: 'background: rgba(234,179,8,0.12)'   },
+  'Outils IA':            { text: 'text-purple-400', border: 'bg-purple-500/40', active: 'background: rgba(168,85,247,0.12)'  },
+  'Configuration':        { text: 'text-gray-400',   border: 'bg-gray-500/30',   active: 'background: rgba(107,114,128,0.12)' },
 }
 
 function accentText(groupe: string) { return ACCENT[groupe]?.text ?? 'text-gray-500' }
@@ -84,41 +85,47 @@ function activeStyle(groupe: string) { return ACCENT[groupe]?.active ?? '' }
 const nav: NavItem[] = [
   { to: '/', icone: '🏠', label: 'Dashboard' },
 
-  // ── Stratégies ────────────────────────────────────────────────────────────
+  // ── Général ───────────────────────────────────────────────────────────────
   {
-    groupe: 'Rockets', icone: '🚀',
+    groupe: 'Général', icone: '🗂️',
     liens: [
-      { to: '/rockets', icone: '⚡', label: 'Signaux' },
-    ]
-  },
-  {
-    groupe: 'SMC', icone: '📐',
-    liens: [
-      { to: '/smc',           icone: '⚡', label: 'Signaux' },
-      { to: '/smc/analyser',  icone: '📊', label: 'Analyser' },
-      { to: '/smc/graphiques',icone: '📈', label: 'Graphiques' },
-      { to: '/lexique',       icone: '📖', label: 'Lexique SMC' },
-    ]
-  },
-  {
-    groupe: 'Straddle', icone: '⚡',
-    liens: [
-      { to: '/straddle/signaux',  icone: '⚡', label: 'Signaux' },
-      { to: '/straddle',          icone: '🔍', label: 'Backtest heure' },
-      { to: '/straddle/backtest', icone: '🧪', label: 'Backtest créneau' },
-      { to: '/heatmap',           icone: '🔥', label: 'Heatmap' },
-      { to: '/data',              icone: '📦', label: 'Données' },
+      { to: '/smc/graphiques', icone: '📈', label: 'Graphiques' },
+      { to: '/history',        icone: '📜', label: 'Historique des positions' },
+      { to: '/lexique',        icone: '📖', label: 'Lexique' },
     ]
   },
 
-  // ── Performance ──────────────────────────────────────────────────────────
-  { to: '/history', icone: '📜', label: 'Toutes stratégies' },
+  // ── Stratégies ────────────────────────────────────────────────────────────
+  {
+    groupe: 'Stratégie Rockets', icone: '🚀',
+    liens: [
+      { to: '/rockets',            icone: '⚡', label: 'Signaux' },
+      { to: '/rockets/definition', icone: '🤖', label: 'Définition & Prompt IA' },
+    ]
+  },
+  {
+    groupe: 'Stratégie SMC', icone: '📐',
+    liens: [
+      { to: '/smc',            icone: '⚡', label: 'Signaux' },
+      { to: '/smc/analyser',   icone: '📊', label: 'Analyser un setup' },
+      { to: '/smc/definition', icone: '🤖', label: 'Définition & Prompt IA' },
+    ]
+  },
+  {
+    groupe: 'Stratégie Volatilité', icone: '⚡',
+    liens: [
+      { to: '/straddle/signaux',    icone: '⚡', label: 'Signaux' },
+      { to: '/smc/backtests',       icone: '🧪', label: 'Backtests' },
+      { to: '/heatmap',             icone: '🔥', label: 'Heatmap' },
+      { to: '/straddle/definition', icone: '🤖', label: 'Définition & Prompt IA' },
+    ]
+  },
 
   // ── Outils IA ─────────────────────────────────────────────────────────────
   {
     groupe: 'Outils IA', icone: '🧠',
     liens: [
-      { to: '/ia/chart', icone: '🖼️',  label: 'Analyse graphique' },
+      { to: '/ia/chart', icone: '🖼️', label: 'Analyse graphique' },
       { to: '/ia/coach', icone: '💬', label: 'Coach IA' },
     ]
   },
@@ -128,6 +135,7 @@ const nav: NavItem[] = [
     groupe: 'Configuration', icone: '⚙️',
     liens: [
       { to: '/settings', icone: '⚙️', label: 'Paramètres' },
+      { to: '/data',     icone: '📦', label: 'Import des données' },
     ]
   },
 ]

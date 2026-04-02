@@ -9,6 +9,7 @@ const CLES_AUTORISEES: &[&str] = &[
     "risque_trade",
     "ibgateway_port",
     "ibgateway_client_id",
+    "anthropic_api_key",
 ];
 
 #[derive(Deserialize)]
