@@ -34,13 +34,14 @@ pub async fn generer_signal(
         &historique_raw,
     );
 
+    let smc_signal_prompt = crate::prompts_handler::prompt_effectif("smc_signal");
     let prompt = format!(
         "{contexte}{base}\n\nAsset: {asset} {tf}\nPrix actuel: {prix:.5} | ATR: {atr:.5}\n\
         kill_zone_active: {kz} | sweep_detecte: {sw}\n\
         SMC: Tendance={tend:.1} OB={ob:.1} Imbalance={imb:.1} IFVG={ifvg:.1} Fib={fib:.1}\n\
         ML confiance={ml:.1}% | Score SMC total={score:.1}/100",
         contexte = contexte,
-        base = crate::ollama::PROMPT_SIGNAL_SMC,
+        base = smc_signal_prompt,
         asset = body.asset,
         tf = body.timeframe,
         prix = body.prix_actuel,

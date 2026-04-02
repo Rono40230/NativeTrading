@@ -1,6 +1,5 @@
 use common::TradingError;
 
-use super::prompts::PROMPT_SIGNAL_SMC;
 
 /// Confirmation LLM d'un signal SMC validé par `SmcDirectionalStrategy`.
 /// Retourne le raisonnement si le LLM confirme (score_confiance ≥ 0.5), `None` sinon.
@@ -25,7 +24,7 @@ pub async fn confirmer_signal_smc(
         Direction SMC: {dir} | Score SMC: {score:.1}/100\n\
         ML confiance: {ml:.1}% | SL: {sl:.5} | TP1: {tp:.5}",
         contexte = contexte_historique,
-        prompt = PROMPT_SIGNAL_SMC,
+        prompt = crate::prompts_handler::prompt_effectif("smc_signal"),
         asset = asset,
         tf = timeframe,
         entree = prix_entree,

@@ -11,7 +11,6 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::signal_engine::SignalEngine;
-use crate::straddle_prompt::PROMPT_SIGNAL_STRADDLE;
 use crate::straddle_types::{OllamaResp, ReponseLlm};
 
 /// Assets/timeframes analysés automatiquement par la boucle Straddle.
@@ -210,7 +209,7 @@ async fn appeler_ollama_et_publier(
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
 
-    let prompt = format!("{PROMPT_SIGNAL_STRADDLE}\n\n{ctx}");
+    let prompt = format!("{}\n\n{ctx}", crate::prompts_handler::prompt_effectif("straddle_signal"));
     let corps = serde_json::json!({
         "model": modele,
         "messages": [{"role": "user", "content": prompt}],

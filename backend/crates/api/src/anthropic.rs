@@ -14,12 +14,11 @@ pub async fn analyser_images_claude(
     api_key: &str,
 ) -> Result<String, TradingError> {
     use crate::ollama::tf_libelle;
-    use crate::ollama::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF};
 
     let system_prompt = if images.len() == 1 {
-        PROMPT_VISION_ANALYST
+        crate::prompts_handler::prompt_effectif("vision_1tf")
     } else {
-        PROMPT_VISION_MULTI_TF
+        crate::prompts_handler::prompt_effectif("vision_multi_tf")
     };
 
     // Construction du contenu utilisateur : images + texte contextuel

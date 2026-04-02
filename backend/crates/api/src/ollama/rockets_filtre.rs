@@ -214,7 +214,7 @@ pub async fn filtrer_signal(
     historique: &[RocketSignal],
 ) -> Result<FiltreReponse, TradingError> {
     let contexte = formater_contexte(candidat, historique);
-    let prompt = format!("{PROMPT_FILTRE_ROCKET}\n\n{contexte}");
+    let prompt = format!("{}\n\n{contexte}", crate::prompts_handler::prompt_effectif("rockets_filtre"));
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());

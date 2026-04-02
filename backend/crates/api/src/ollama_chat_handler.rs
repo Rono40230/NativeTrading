@@ -99,7 +99,8 @@ pub async fn chat(state: web::Data<AppState>, body: web::Json<RequeteChat>) -> i
         .ok()
         .flatten();
     if let Some(key) = api_key.filter(|k| !k.is_empty()) {
-        return match crate::anthropic::chat_claude(&historique, ollama::SYSTEM_PROMPT_COACH, &key)
+        let coach_prompt = crate::prompts_handler::prompt_effectif("coach");
+        return match crate::anthropic::chat_claude(&historique, &coach_prompt, &key)
             .await
         {
             Ok(reponse) => HttpResponse::Ok().json(ReponseChat {
@@ -111,10 +112,11 @@ pub async fn chat(state: web::Data<AppState>, body: web::Json<RequeteChat>) -> i
         };
     }
 
+    let coach_prompt = crate::prompts_handler::prompt_effectif("coach");
     match ollama::interroger_chat_modele_avec_systeme(
         &historique,
         ollama::MODELE_COACH,
-        ollama::SYSTEM_PROMPT_COACH,
+        &coach_prompt,
     )
     .await
     {

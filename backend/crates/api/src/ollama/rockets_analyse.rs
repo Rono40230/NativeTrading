@@ -226,7 +226,7 @@ pub async fn analyser_strategie(
     cfg: &RocketsConfig,
 ) -> Result<AnalyseReponse, TradingError> {
     let contexte = formater_contexte(signaux, cfg);
-    let prompt = format!("{PROMPT_ANALYSE_ROCKETS}\n\n{contexte}");
+    let prompt = format!("{}\n\n{contexte}", crate::prompts_handler::prompt_effectif("rockets_analyse"));
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());

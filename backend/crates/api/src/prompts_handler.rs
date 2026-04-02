@@ -37,6 +37,20 @@ fn charger_overrides() -> HashMap<String, String> {
         .unwrap_or_default()
 }
 
+/// Retourne le prompt effectif pour `id` : override persistant s'il existe, sinon constante par défaut.
+/// À utiliser dans **tous** les handlers qui appellent Ollama/Anthropic.
+pub fn prompt_effectif(id: &str) -> String {
+    let ovs = charger_overrides();
+    if let Some(ov) = ovs.get(id) {
+        return ov.clone();
+    }
+    defaults()
+        .get(id)
+        .copied()
+        .unwrap_or("")
+        .to_string()
+}
+
 fn sauvegarder_overrides(map: &HashMap<String, String>) -> std::io::Result<()> {
     let json = serde_json::to_string_pretty(map).map_err(std::io::Error::other)?;
     fs::write(OVERRIDES_PATH, json)

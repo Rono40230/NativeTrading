@@ -1,6 +1,5 @@
 use common::TradingError;
 
-use super::prompts::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF};
 use super::types::tf_libelle;
 use super::types::{ReponseOllama, OLLAMA_URL};
 
@@ -19,9 +18,9 @@ pub async fn analyser_images(
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
 
     let prompt = if images.len() == 1 {
-        PROMPT_VISION_ANALYST
+        crate::prompts_handler::prompt_effectif("vision_1tf")
     } else {
-        PROMPT_VISION_MULTI_TF
+        crate::prompts_handler::prompt_effectif("vision_multi_tf")
     };
 
     let descriptions: Vec<String> = images

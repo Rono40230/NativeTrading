@@ -225,7 +225,7 @@ pub async fn analyser_creneaux(
         candles.len(),
         annonces_imminentes,
     );
-    let prompt = format!("{PROMPT_ANALYSE_STRADDLE}\n\n## DONNÉES\n{contexte}");
+    let prompt = format!("{}\n\n## DONNÉES\n{contexte}", crate::prompts_handler::prompt_effectif("straddle_analyse"));
 
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
 
