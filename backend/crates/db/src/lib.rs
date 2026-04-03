@@ -11,6 +11,9 @@ pub mod rockets_config;
 pub mod signaux;
 pub mod signaux_lecture;
 pub mod straddle;
+pub mod straddle_calibration;
+pub mod straddle_feedback;
+pub mod straddle_pics;
 pub mod strategies_params;
 pub mod volatilite;
 

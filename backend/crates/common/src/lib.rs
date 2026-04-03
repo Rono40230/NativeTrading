@@ -145,6 +145,67 @@ pub enum Asset {
     JP225,
 }
 
+impl TryFrom<&str> for Asset {
+    type Error = TradingError;
+
+    fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
+        match s {
+            "BTC" => Ok(Asset::BTC),
+            "ETH" => Ok(Asset::ETH),
+            "SOL" => Ok(Asset::SOL),
+            "BNB" => Ok(Asset::BNB),
+            "XRP" => Ok(Asset::XRP),
+            "ADA" => Ok(Asset::ADA),
+            "DOGE" => Ok(Asset::DOGE),
+            "AVAX" => Ok(Asset::AVAX),
+            "LINK" => Ok(Asset::LINK),
+            "DOT" => Ok(Asset::DOT),
+            "XAUUSD" => Ok(Asset::XAUUSD),
+            "XAGUSD" => Ok(Asset::XAGUSD),
+            "XPTUSD" => Ok(Asset::XPTUSD),
+            "XPDUSD" => Ok(Asset::XPDUSD),
+            "EURUSD" => Ok(Asset::EURUSD),
+            "GBPUSD" => Ok(Asset::GBPUSD),
+            "USDJPY" => Ok(Asset::USDJPY),
+            "USDCHF" => Ok(Asset::USDCHF),
+            "AUDUSD" => Ok(Asset::AUDUSD),
+            "USDCAD" => Ok(Asset::USDCAD),
+            "NZDUSD" => Ok(Asset::NZDUSD),
+            "GBPJPY" => Ok(Asset::GBPJPY),
+            "CADJPY" => Ok(Asset::CADJPY),
+            "NZDJPY" => Ok(Asset::NZDJPY),
+            "EURJPY" => Ok(Asset::EURJPY),
+            "EURGBP" => Ok(Asset::EURGBP),
+            "DAX" => Ok(Asset::DAX),
+            "NAS100" => Ok(Asset::NAS100),
+            "SP500" => Ok(Asset::SP500),
+            "US30" => Ok(Asset::US30),
+            "FTSE100" => Ok(Asset::FTSE100),
+            "CAC40" => Ok(Asset::CAC40),
+            "JP225" => Ok(Asset::JP225),
+            other => Err(TradingError::Data(format!("Asset inconnu: {}", other))),
+        }
+    }
+}
+
+impl TryFrom<&str> for Timeframe {
+    type Error = TradingError;
+
+    fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
+        match s {
+            "M1" => Ok(Timeframe::M1),
+            "M5" => Ok(Timeframe::M5),
+            "M15" => Ok(Timeframe::M15),
+            "M30" => Ok(Timeframe::M30),
+            "H1" => Ok(Timeframe::H1),
+            "H4" => Ok(Timeframe::H4),
+            "D1" => Ok(Timeframe::D1),
+            "W1" => Ok(Timeframe::W1),
+            other => Err(TradingError::Data(format!("Timeframe inconnu: {}", other))),
+        }
+    }
+}
+
 impl Asset {
     /// Retourne true si l'asset est une crypto (source Binance).
     pub fn is_crypto(&self) -> bool {

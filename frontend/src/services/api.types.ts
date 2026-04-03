@@ -130,4 +130,63 @@ export type { PointSerie, ZoneOb, ZoneImbalance, ZoneFvgBpr, ZoneBpr, ZoneIfvg, 
 export type { PatternHoraire, ReponsePatternsVolatilite, RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA, ImageAvecTF, LigneTendanceKasper, ModeCalculTendance, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier, FearGreedData, EntiteSentiment, SentimentMarche, NiveauAlerte, ArticleNews, AlertesNews, ContenuArticle, TraductionReponse } from './api.types.marche'
 export type { CouvertureDonnees, RequeteCollecte, ResultatCollecteItem, ResultatCollecte, RocketSignalSave, RocketSignalHistorique, RocketRecommandation, RocketAnalyseLlm, RocketsConfig, StraddleCreneau, ReponseAnalyseStraddle } from './api.types.rockets'
 
+// ── Types ML Straddle adaptatif ───────────────────────────────────────────────
+
+export interface StraddlePicLive {
+  asset: string
+  timeframe: string
+  timestamp_pic: number
+  ratio_atr: number
+  categorie: string
+  evenement_nom: string | null
+  session_active: string
+  kill_zone: boolean
+  signal_genere: boolean
+  signal_id: number | null
+}
+
+export interface AnnonceImminente {
+  nom: string | null
+  devise: string | null
+  impact: string
+  dans_min: number
+}
+
+export interface StraddleVolatiliteLive {
+  pics: StraddlePicLive[]
+  resume: {
+    pics_2h: number
+    assets_actifs: string[]
+    annonces_prochaines_90min: AnnonceImminente[]
+  }
+}
+
+export interface StraddleStatCategorie {
+  categorie: string
+  nb_trades: number
+  win_rate: number
+  score_llm_win: number | null
+  score_llm_lose: number | null
+  pnl_r_moyen: number | null
+}
+
+export interface StraddleMonitoringData {
+  total_trades: number
+  nb_gagnants: number
+  win_rate_global: number
+  pnl_r_total: number | null
+  derive_detectee: boolean
+  par_categorie: StraddleStatCategorie[]
+}
+
+export interface StraddleCalibrationRow {
+  asset: string
+  categorie: string
+  score_seuil: number
+  ratio_atr_min: number
+  fiabilite: string
+  nb_trades: number
+  win_rate: number
+}
+
 

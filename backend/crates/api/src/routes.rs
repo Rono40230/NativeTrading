@@ -119,6 +119,30 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::put().to(crate::strategies_params_handlers::put_straddle_params),
         )
         .route(
+            "/api/straddle/volatilite-live",
+            web::get().to(crate::straddle_ml_handlers::volatilite_live),
+        )
+        .route(
+            "/api/straddle/monitoring-ml",
+            web::get().to(crate::straddle_ml_handlers::monitoring_ml),
+        )
+        .route(
+            "/api/straddle/calibration",
+            web::get().to(crate::straddle_ml_handlers::get_calibration),
+        )
+        .route(
+            "/api/straddle/pics",
+            web::get().to(crate::straddle_ml_handlers::get_pics),
+        )
+        .route(
+            "/api/straddle/feedback",
+            web::get().to(crate::straddle_ml_handlers::get_feedback),
+        )
+        .route(
+            "/api/straddle/feedback/{signal_id}/cloturer",
+            web::post().to(crate::straddle_ml_handlers::cloturer_feedback),
+        )
+        .route(
             "/api/smc/params",
             web::get().to(crate::strategies_params_handlers::get_smc_params),
         )

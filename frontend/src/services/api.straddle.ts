@@ -3,7 +3,10 @@
  * Importées et spreadées dans apiService (api.service.ts).
  */
 import axios from 'axios'
-import type { ReponseAnalyseStraddle, StraddleCreneau } from './api.types'
+import type {
+  ReponseAnalyseStraddle, StraddleCreneau,
+  StraddleVolatiliteLive, StraddleMonitoringData, StraddleCalibrationRow,
+} from './api.types'
 
 const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
 
@@ -81,6 +84,23 @@ export const straddleApi = {
 
   async getAbTest(): Promise<{ strategie: string; nb_total: number; nb_wins: number; nb_pertes: number; win_rate: number; conviction_moy: number; score_moy: number }[]> {
     const res = await http.get('/api/ia/ab-test')
+    return res.data
+  },
+
+  // ── ML Straddle adaptatif ──────────────────────────────────────────────────
+
+  async getStraddleVolatiliteLive(): Promise<StraddleVolatiliteLive> {
+    const res = await http.get('/api/straddle/volatilite-live', { timeout: 10000 })
+    return res.data
+  },
+
+  async getStraddleMonitoringML(): Promise<StraddleMonitoringData> {
+    const res = await http.get('/api/straddle/monitoring-ml', { timeout: 10000 })
+    return res.data
+  },
+
+  async getStraddleCalibration(): Promise<StraddleCalibrationRow[]> {
+    const res = await http.get('/api/straddle/calibration', { timeout: 10000 })
     return res.data
   },
 }

@@ -4,24 +4,20 @@
 //! Reproduit la logique de `straddle_signal_handler` sans passer par HTTP.
 //! Pipeline unifié : DB → signal_engine.publier() → Telegram.
 use chrono::{Datelike, Timelike, Utc};
-use common::{Asset, Direction, Signal, Timeframe};
+use common::{Asset, Timeframe};
 use db::Database;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::signal_engine::SignalEngine;
-use crate::straddle_types::{OllamaResp, ReponseLlm};
-
-/// Assets/timeframes analysés automatiquement par la boucle Straddle.
-const ASSETS_STRADDLE: &[(Asset, Timeframe)] = &[
-    (Asset::BTC, Timeframe::M5),
-    (Asset::ETH, Timeframe::M5),
-    (Asset::XAUUSD, Timeframe::M15),
-];
+use crate::straddle_signal_ollama::{ParamsOllama, appeler_ollama_et_publier};
 
 /// Anti-doublon : pas de second signal Straddle sur le même asset/TF avant N minutes.
 const ANTI_DOUBLON_MIN: i64 = 60;
+
+/// Seuil ratio ATR par défaut (utilisé si pas de calibration disponible).
+const SEUIL_SIGNAL_DEFAUT: f64 = 1.5;
 
 /// Démarre la boucle en background — ne bloque pas.
 pub fn demarrer_boucle_straddle(db: Arc<Database>, signal_engine: Arc<SignalEngine>) {
@@ -29,16 +25,25 @@ pub fn demarrer_boucle_straddle(db: Arc<Database>, signal_engine: Arc<SignalEngi
         // Délai initial : laisser la DB et les bougies se charger
         sleep(Duration::from_secs(180)).await;
         loop {
-            for (asset, tf) in ASSETS_STRADDLE {
-                analyser_asset(&db, &signal_engine, asset, tf).await;
+            let assets = db.lister_assets().await.unwrap_or_default();
+            let nb = assets.len();
+            for asset_db in &assets {
+                let asset = match Asset::try_from(asset_db.id.as_str()) {
+                    Ok(a) => a,
+                    Err(_) => continue,
+                };
+                let tf = if asset_db.type_asset == "crypto" {
+                    Timeframe::M5
+                } else {
+                    Timeframe::M15
+                };
+                analyser_asset(&db, &signal_engine, &asset, &tf).await;
             }
+            tracing::debug!("🌪️  Boucle Straddle cycle terminé ({} assets)", nb);
             sleep(Duration::from_secs(15 * 60)).await;
         }
     });
-    tracing::info!(
-        "🌪️  Boucle Straddle auto démarrée (15 min, {} assets)",
-        ASSETS_STRADDLE.len()
-    );
+    tracing::info!("🌪️  Boucle Straddle auto démarrée (15 min, assets dynamiques depuis DB)");
 }
 
 async fn analyser_asset(
@@ -101,6 +106,11 @@ async fn analyser_asset(
         return;
     }
     let ratio_atr = atr_actuel / atr_moyen.max(f64::EPSILON);
+
+    // Seuil ATR : vérification préliminaire avec seuil par défaut (avant catégorisation)
+    if ratio_atr < SEUIL_SIGNAL_DEFAUT {
+        return;
+    }
 
     let now = Utc::now();
     let kill_zone = smc::kill_zone::est_en_kill_zone(now);
@@ -189,99 +199,64 @@ async fn analyser_asset(
         }
     }
 
-    if let Err(e) =
-        appeler_ollama_et_publier(db, signal_engine, asset, tf, prix, atr_actuel, &ctx).await
-    {
+    // Catégoriser le contexte actuel (pour cibler les feedbacks historiques pertinents)
+    let creneaux_valides_complets: Vec<_> = creneaux
+        .iter()
+        .filter(|c| c.statut == "valide" || c.statut == "a_tester")
+        .cloned()
+        .collect();
+    let categorie_ctx = crate::straddle_categorisation::categoriser(
+        &annonces,
+        now,
+        &creneaux_valides_complets,
+        asset.as_str(),
+    );
+
+    // Charger les seuils calibrés pour cette paire + catégorie
+    let seuils = db::straddle_calibration::charger_seuils(
+        db.pool(),
+        asset.as_str(),
+        categorie_ctx.categorie.as_str(),
+    )
+    .await;
+
+    // Catégorie marquée invalide → skip
+    if seuils.invalide {
+        tracing::debug!(
+            "Straddle boucle {}/{}: catégorie {} invalide (WR < 50%), skip",
+            asset.as_str(), tf.as_str(), categorie_ctx.categorie.as_str()
+        );
+        return;
+    }
+
+    // Seuil ATR calibré : vérification affinée
+    if ratio_atr < seuils.ratio_atr {
+        tracing::debug!(
+            "Straddle boucle {}/{}: ratio {:.2} < seuil calibré {:.2}",
+            asset.as_str(), tf.as_str(), ratio_atr, seuils.ratio_atr
+        );
+        return;
+    }
+
+    // Charger les feedbacks clôturés pour cette paire + catégorie (few-shot)
+    let feedbacks = db::straddle_feedback::lister_recents_asset_categorie(
+        db.pool(),
+        asset.as_str(),
+        categorie_ctx.categorie.as_str(),
+        10,
+    )
+    .await
+    .unwrap_or_default();
+
+    let params = ParamsOllama {
+        prix,
+        atr: atr_actuel,
+        ctx: &ctx,
+        feedbacks: &feedbacks,
+        categorie: &categorie_ctx.categorie,
+        score_seuil: seuils.score_llm,
+    };
+    if let Err(e) = appeler_ollama_et_publier(db, signal_engine, asset, tf, params).await {
         tracing::warn!("Straddle auto {}/{}: {}", asset.as_str(), tf.as_str(), e);
     }
-}
-
-async fn appeler_ollama_et_publier(
-    db: &Arc<Database>,
-    signal_engine: &Arc<SignalEngine>,
-    asset: &Asset,
-    tf: &Timeframe,
-    prix: f64,
-    atr: f64,
-    ctx: &str,
-) -> anyhow::Result<()> {
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
-    let url = std::env::var("OLLAMA_URL")
-        .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
-
-    let prompt = format!("{}\n\n{ctx}", crate::prompts_handler::prompt_effectif("straddle_signal"));
-    let corps = serde_json::json!({
-        "model": modele,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": false,
-        "options": { "temperature": 0.1, "num_predict": 300 }
-    });
-
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(120))
-        .build()?;
-    let texte = client
-        .post(&url)
-        .json(&corps)
-        .send()
-        .await?
-        .json::<OllamaResp>()
-        .await?
-        .message
-        .content;
-
-    let debut = texte.find('{').unwrap_or(0);
-    let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
-    let brut: ReponseLlm = match serde_json::from_str::<ReponseLlm>(&texte[debut..fin]) {
-        Ok(b) => b,
-        Err(_) => {
-            tracing::debug!(
-                "Straddle auto {}/{}: WAIT (JSON non parsable)",
-                asset.as_str(),
-                tf.as_str()
-            );
-            return Ok(());
-        }
-    };
-
-    if brut.signal != "STRADDLE" || brut.score_confiance < 6.0 {
-        tracing::debug!(
-            "Straddle auto {}/{}: {} (score {:.1})",
-            asset.as_str(),
-            tf.as_str(),
-            brut.signal,
-            brut.score_confiance
-        );
-        return Ok(());
-    }
-
-    let sl_long = prix - 0.5 * atr;
-    let sl_short = prix + 0.5 * atr;
-    let tps_long = vec![prix + 2.0 * atr, prix + 3.5 * atr, prix + 5.0 * atr];
-    let tps_short = [prix - 2.0 * atr, prix - 3.5 * atr, prix - 5.0 * atr];
-
-    let signal = Signal::nouveau(
-        asset.clone(),
-        *tf,
-        Direction::Both,
-        brut.score_confiance * 10.0,
-        prix,
-        sl_long,
-        tps_long,
-        "Straddle",
-    );
-
-    let _ = db
-        .inserer_signal_straddle_complet(&signal, sl_short, &tps_short)
-        .await;
-    signal_engine.publier(signal.clone());
-    crate::telegram::notifier_telegram(signal);
-
-    tracing::info!(
-        "🌪️  Straddle auto signal générée {}/{} score={:.0}",
-        asset.as_str(),
-        tf.as_str(),
-        brut.score_confiance * 10.0
-    );
-    Ok(())
 }

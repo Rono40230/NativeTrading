@@ -128,16 +128,14 @@
       </div>
     </div>
 
-    <!-- Monitoring ML — Volatilité Straddle (à implémenter) -->
+    <!-- Monitoring ML Straddle -->
     <div class="glass-card p-5">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">
           🤖 Monitoring ML — Volatilité Straddle
         </h2>
       </div>
-      <p class="text-center text-sm text-gray-500 py-6">
-        Monitoring ML dédié à la volatilité Straddle — à implémenter
-      </p>
+      <StraddleMonitoringML />
     </div>
 
   </div>
@@ -156,6 +154,7 @@ import { useCreneauParams } from '@/composables/useCreneauParams'
 import { usePnLNiveaux } from '@/composables/usePnLNiveaux'
 import { useEquityChart } from '@/composables/useEquityChart'
 import StraddleParamsPanel from '@/components/common/StraddleParamsPanel.vue'
+import StraddleMonitoringML from '@/components/common/StraddleMonitoringML.vue'
 const ObjectifLigne = defineComponent({
   props: { label: String, atteint: Boolean, valeur: String },
   setup: (p) => () => h('div', { class: 'flex justify-between items-center py-1 border-b border-white/5' }, [
