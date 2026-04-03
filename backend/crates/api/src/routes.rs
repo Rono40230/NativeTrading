@@ -200,6 +200,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::data_handlers::post_collect),
         )
         .route(
+            "/api/data/import-mt5",
+            web::post().to(crate::data_mt5_handlers::post_import_mt5),
+        )
+        .route(
             "/api/ml/history",
             web::get().to(crate::ml_handlers::historique_ml),
         )

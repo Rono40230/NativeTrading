@@ -4,8 +4,12 @@
       <h1 class="text-2xl font-bold">📦 Données Historiques</h1>
       <div class="flex items-center gap-3">
         <span v-if="derniereMaj" class="text-xs text-gray-400">MAJ {{ derniereMaj }}</span>
-        <button class="btn-sm" :disabled="chargement" @click="chargerCouverture">
-          {{ chargement ? '⏳' : '🔄' }} Actualiser
+        <button
+          class="px-4 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 text-sm font-semibold hover:bg-blue-500/30 transition disabled:opacity-50"
+          :disabled="enImportMt5"
+          @click="importerMt5"
+        >
+          {{ enImportMt5 ? '⏳ Import MT5…' : '📥 Importer depuis MT5' }}
         </button>
       </div>
     </div>
@@ -70,6 +74,14 @@
       </div>
     </div>
 
+    <!-- Résultats du dernier import MT5 -->
+    <div v-if="messageImportMt5" class="glass-card p-4 flex items-center gap-3">
+      <span :class="erreurImportMt5 ? 'text-red-400' : 'text-blue-400'" class="text-sm font-semibold">{{ messageImportMt5 }}</span>
+      <span v-if="!erreurImportMt5 && statsImportMt5" class="text-xs text-gray-400">
+        ({{ statsImportMt5.total_bougies.toLocaleString() }} lues · {{ statsImportMt5.total_inseres.toLocaleString() }} insérées)
+      </span>
+    </div>
+
     <!-- Résultats de la dernière collecte -->
     <div v-if="resultatsCollecte.length > 0" class="glass-card p-5 space-y-2">
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Résultats collecte</h2>
@@ -104,7 +116,7 @@
             <th class="px-3 py-2 text-gray-400 text-right">Bougies</th>
             <th class="px-3 py-2 text-gray-400 text-right">Depuis</th>
             <th class="px-3 py-2 text-gray-400 text-right">Jusqu'à</th>
-            <th class="px-3 py-2 text-gray-400 text-right">Couverture (obj. {{ moisSelectionne }} mois)</th>
+            <th class="px-3 py-2 text-gray-400 text-right">Statut</th>
           </tr>
         </thead>
         <tbody>
@@ -120,7 +132,7 @@
             <td class="px-3 py-2 text-right text-gray-300 text-xs">{{ ligne.dateMin }}</td>
             <td class="px-3 py-2 text-right text-gray-300 text-xs">{{ ligne.dateMax }}</td>
             <td class="px-3 py-2 text-right">
-              <div class="flex items-center justify-end gap-2">
+              <div v-if="ligne.estCrypto" class="flex items-center justify-end gap-2">
                 <div class="w-20 h-1.5 rounded-full bg-white/10 overflow-hidden">
                   <div
                     class="h-full rounded-full transition-all"
@@ -128,10 +140,11 @@
                     :style="{ width: ligne.pct + '%' }"
                   />
                 </div>
-                <span class="text-xs text-right whitespace-nowrap" :class="ligne.pct >= 80 ? 'text-emerald-400' : ligne.pct >= 40 ? 'text-yellow-400' : 'text-red-400'">
-                  {{ ligne.pct }}%
-                  <span class="text-gray-500 font-normal">/ {{ moisSelectionne }}m</span>
-                </span>
+                <span class="text-xs whitespace-nowrap" :class="ligne.pct >= 80 ? 'text-emerald-400' : ligne.pct >= 40 ? 'text-yellow-400' : 'text-red-400'">{{ ligne.pct }}%</span>
+              </div>
+              <div v-else class="flex items-center justify-end gap-1.5">
+                <span class="w-2 h-2 rounded-full shrink-0" :class="ligne.ageDays <= 2 ? 'bg-emerald-400' : ligne.ageDays <= 7 ? 'bg-yellow-400' : 'bg-red-400'" />
+                <span class="text-xs" :class="ligne.ageDays <= 2 ? 'text-emerald-400' : ligne.ageDays <= 7 ? 'text-yellow-400' : 'text-red-400'">{{ ligne.fraicheurLabel }}</span>
               </div>
             </td>
           </tr>
@@ -158,6 +171,10 @@ const enCollecte = ref(false)
 const messageCollecte = ref<string | null>(null)
 const erreurCollecte = ref(false)
 const resultatsCollecte = ref<ResultatCollecteItem[]>([])
+const enImportMt5 = ref(false)
+const messageImportMt5 = ref<string | null>(null)
+const erreurImportMt5 = ref(false)
+const statsImportMt5 = ref<{ total_bougies: number; total_inseres: number } | null>(null)
 const moisSelectionne = ref(6)
 const assetsSelectionnes = ref<string[]>([])
 const tfsSelectionnes = ref<string[]>(['M5', 'M15', 'H1', 'H4'])
@@ -165,10 +182,17 @@ const tousAssetsSelectionnes = computed(() =>
   TOUS_ASSETS.value.length > 0 && TOUS_ASSETS.value.every(a => assetsSelectionnes.value.includes(a))
 )
 
-// Calcul estimé du nombre de bougies attendu pour 6 mois selon TF
-const bougiesParMoisParTf: Record<string, number> = {
+// Assets crypto (24/7) vs marchés régulés (≈5/7 jours, sessions limitées)
+const ASSETS_CRYPTO = new Set(['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'AVAX', 'LINK', 'DOT'])
+
+// Bougies attendues par mois — crypto 24/7 uniquement (non-crypto → fraîcheur)
+const bougiesParMoisCrypto: Record<string, number> = {
   M1: 43200, M5: 8640, M15: 2880, M30: 1440,
   H1: 720, H4: 180, D1: 30, W1: 4,
+}
+
+function bougiesAttendues(tf: string, mois: number): number {
+  return (bougiesParMoisCrypto[tf] ?? 1) * mois
 }
 
 const TF_ORDRE: Record<string, number> = {
@@ -179,11 +203,15 @@ const lignesEnrichies = computed(() => {
   const lignes = couverture.value
     .filter(c => TOUS_ASSETS.value.includes(c.asset))
     .map(c => {
-      const attendu = (bougiesParMoisParTf[c.timeframe] ?? 1) * moisSelectionne.value
-      const pct = Math.min(100, Math.round((c.count / attendu) * 100))
+      const estCrypto = ASSETS_CRYPTO.has(c.asset)
+      const pct = estCrypto
+        ? Math.min(100, Math.round((c.count / bougiesAttendues(c.timeframe, moisSelectionne.value)) * 100))
+        : 0
       const dateMin = c.min_ts ? new Date(c.min_ts * 1000).toLocaleDateString('fr-FR') : '—'
       const dateMax = c.max_ts ? new Date(c.max_ts * 1000).toLocaleDateString('fr-FR') : '—'
-      return { ...c, pct, dateMin, dateMax }
+      const ageDays = c.max_ts ? Math.floor((Date.now() / 1000 - c.max_ts) / 86400) : 999
+      const fraicheurLabel = ageDays === 0 ? "Aujourd'hui" : ageDays === 1 ? 'Hier' : `${ageDays}j`
+      return { ...c, estCrypto, pct, dateMin, dateMax, ageDays, fraicheurLabel }
     })
     .sort((a, b) => {
       if (a.asset !== b.asset) return a.asset.localeCompare(b.asset)
@@ -207,6 +235,28 @@ async function chargerCouverture() {
     couverture.value = []
   } finally {
     chargement.value = false
+  }
+}
+
+async function importerMt5() {
+  enImportMt5.value = true
+  messageImportMt5.value = null
+  erreurImportMt5.value = false
+  statsImportMt5.value = null
+  try {
+    const res = await apiService.importerMt5()
+    statsImportMt5.value = { total_bougies: res.total_bougies, total_inseres: res.total_inseres }
+    if (res.message) {
+      messageImportMt5.value = `ℹ️ ${res.message}`
+    } else {
+      messageImportMt5.value = `✅ Import MT5 terminé — ${res.resultats.length} fichier(s) traité(s)`
+    }
+    await chargerCouverture()
+  } catch (err: unknown) {
+    erreurImportMt5.value = true
+    messageImportMt5.value = `❌ Erreur MT5 : ${err instanceof Error ? err.message : 'inconnue'}`
+  } finally {
+    enImportMt5.value = false
   }
 }
 
@@ -242,5 +292,4 @@ onMounted(async () => {
 
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
-.btn-sm { @apply px-3 py-1.5 rounded-lg bg-white/10 text-gray-300 text-sm hover:bg-white/20 transition disabled:opacity-50; }
 </style>

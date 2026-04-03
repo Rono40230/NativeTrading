@@ -36,6 +36,25 @@ export const engineApi = {
     return res.data
   },
 
+  async importerMt5(chemin?: string): Promise<{
+    dossier: string
+    total_bougies: number
+    total_inseres: number
+    resultats: Array<{
+      fichier: string
+      asset?: string
+      timeframe?: string
+      lues?: number
+      inseres?: number
+      doublons?: number
+      erreur?: string
+    }>
+    message?: string
+  }> {
+    const res = await http.post('/api/data/import-mt5', { chemin }, { timeout: 300_000 })
+    return res.data
+  },
+
   async obtenirHistoriqueML(limit = 30): Promise<HistoriqueML> {
     const res = await http.get('/api/ml/history', { params: { limit } })
     return res.data

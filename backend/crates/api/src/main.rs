@@ -8,6 +8,7 @@ mod backtest_handlers;
 mod calendar_handlers;
 mod config_handlers;
 mod data_handlers;
+mod data_mt5_handlers;
 mod engine_handlers;
 mod export_handlers;
 mod handlers;
