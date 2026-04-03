@@ -1,41 +1,65 @@
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between flex-wrap gap-3">
-      <h1 class="text-2xl font-bold">🌡 Heatmap Volatilité</h1>
+      <h1 class="text-2xl font-bold">
+        <span v-if="onglet === 'atr'">⚡ Radar ATR Temps Réel</span>
+        <span v-else>📅 Calendrier Historique de Volatilité</span>
+      </h1>
       <!-- Sélecteur d'onglets -->
       <div class="flex rounded-lg overflow-hidden border border-white/10">
         <button
           class="px-4 py-2 text-sm font-medium transition-colors"
           :class="onglet === 'atr' ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'"
           @click="onglet = 'atr'"
-        >Heatmap ATR</button>
+        >⚡ Radar ATR Temps Réel</button>
         <button
           class="px-4 py-2 text-sm font-medium transition-colors"
           :class="onglet === 'horaire' ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'"
           @click="onglet = 'horaire'"
-        >Patterns Horaires</button>
+        >📅 Calendrier Historique</button>
       </div>
     </div>
 
     <!-- Onglet Heatmap ATR (existant) -->
     <template v-if="onglet === 'atr'">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3 ml-auto">
-          <span class="text-xs text-gray-400">MAJ auto toutes les 60s</span>
-          <button class="btn-sm" :disabled="chargement" @click="actualiser">
-            {{ chargement ? '⏳' : '🔄' }} Actualiser
-          </button>
-        </div>
-      </div>
 
-    <!-- Légende -->
+    <!-- Légende + contrôles MAJ -->
     <div class="glass-card p-3 flex items-center gap-4 flex-wrap">
       <span class="text-xs text-gray-400 font-semibold">Volatilité ATR :</span>
       <span v-for="n in legendes" :key="n.label" class="flex items-center gap-1 text-xs text-gray-300">
         <span class="w-4 h-4 rounded-sm" :style="{ background: n.couleur }" />
         {{ n.label }}
       </span>
+      <div class="flex items-center gap-2 ml-auto">
+        <span class="text-xs text-gray-500">MAJ 60s</span>
+        <button class="btn-sm" :disabled="chargement" @click="actualiser">
+          {{ chargement ? '⏳' : '🔄' }} Actualiser
+        </button>
+        <button class="btn-sm" @click="modaleAnalyse = true">📊 Analyse</button>
+      </div>
     </div>
+
+    <!-- Bandeau confluence -->
+    <transition name="slide-down">
+      <div v-if="confluences.length" class="rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-3 flex items-start gap-3">
+        <span class="text-xl shrink-0">⚡</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-bold text-orange-300 uppercase tracking-wider mb-1">Confluence détectée — ATR élevé + pattern historique favorable</p>
+          <div class="flex flex-wrap gap-2">
+            <span
+              v-for="c in confluences"
+              :key="c.asset + c.tf"
+              class="flex items-center gap-1.5 bg-orange-500/15 border border-orange-500/30 rounded-lg px-2.5 py-1 text-xs"
+            >
+              <span class="font-bold text-white">{{ c.asset }}</span>
+              <span class="text-[10px] bg-white/10 text-gray-300 px-1 py-0.5 rounded font-mono">{{ c.tf }}</span>
+              <span class="text-orange-300 font-mono">{{ c.atrRatio.toFixed(0) }}%</span>
+              <span class="text-orange-400 font-semibold">· {{ c.cluster }}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </transition>
 
     <!-- Grille -->
     <div class="glass-card p-5">
@@ -57,16 +81,13 @@
               class="px-3 py-2"
             >
               <div
-                class="rounded-lg p-3 text-center transition-all cursor-default"
+                class="rounded-lg px-2 py-2 text-center transition-all cursor-default whitespace-nowrap"
                 :style="celluleStyle(asset, tf)"
                 :title="`ATR ratio: ${celluleValeur(asset, tf).toFixed(1)}%`"
               >
-                <div class="text-xs font-bold text-white drop-shadow">
-                  {{ celluleLabel(asset, tf) }}
-                </div>
-                <div class="text-xs text-white/70 mt-0.5">
-                  {{ celluleValeur(asset, tf).toFixed(1) }} <span>{{ uniteAsset(asset) }}</span>
-                </div>
+                <span class="text-xs font-bold text-white drop-shadow">
+                  {{ celluleLabel(asset, tf) }} / {{ celluleValeur(asset, tf).toFixed(1) }}&nbsp;{{ uniteAsset(asset) }}
+                </span>
               </div>
             </td>
           </tr>
@@ -74,58 +95,20 @@
       </table>
     </div>
 
-    <!-- Classement mini -->
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <div class="glass-card p-4">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Plus volatile</h3>
-        <div v-for="item in classementVol.slice(0, 3)" :key="item.cle" class="flex justify-between py-1.5 border-b border-white/5 text-sm">
-          <span class="text-gray-300">{{ item.asset }} {{ item.tf }}</span>
-          <span class="text-red-400 font-semibold">{{ item.atr.toFixed(1) }} {{ uniteAsset(item.asset) }}</span>
-        </div>
-      </div>
-      <div class="glass-card p-4">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Moins volatile</h3>
-        <div v-for="item in classementVol.slice(-3).reverse()" :key="item.cle" class="flex justify-between py-1.5 border-b border-white/5 text-sm">
-          <span class="text-gray-300">{{ item.asset }} {{ item.tf }}</span>
-          <span class="text-emerald-400 font-semibold">{{ item.atr.toFixed(1) }} {{ uniteAsset(item.asset) }}</span>
-        </div>
-      </div>
-      <!-- Analyse -->
-      <div v-if="analyseAtr" class="glass-card p-4 space-y-2">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Analyse</h3>
-        <div class="flex justify-between text-sm py-1 border-b border-white/5">
-          <span class="text-gray-400">Asset le plus actif</span>
-          <span class="text-white font-semibold">{{ analyseAtr.assetActif }}</span>
-        </div>
-        <div class="flex justify-between text-sm py-1 border-b border-white/5">
-          <span class="text-gray-400">Asset le plus calme</span>
-          <span class="text-white font-semibold">{{ analyseAtr.assetCalme }}</span>
-        </div>
-        <!-- TFs actifs par asset -->
-        <div v-for="a in assets" :key="a" class="py-1 border-b border-white/5 last:border-0">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-gray-400 text-sm shrink-0">{{ a }} actif sur</span>
-            <span v-if="analyseAtr.tfsActifsParAsset[a].length" class="flex flex-wrap gap-1 justify-end">
-              <span
-                v-for="tf in analyseAtr.tfsActifsParAsset[a]"
-                :key="tf"
-                class="bg-red-500/20 text-red-300 text-[10px] font-mono px-1.5 py-0.5 rounded"
-              >{{ tf }}</span>
-            </span>
-            <span v-else class="text-gray-600 text-xs italic">aucun créneau élevé</span>
-          </div>
-        </div>
-        <div class="mt-2 rounded-lg px-3 py-2 text-xs" :class="analyseAtr.straddleClass">
-          {{ analyseAtr.straddleConseil }}
-        </div>
-      </div>
-    </div>
     </template>
 
     <!-- Onglet Patterns Horaires (S21) -->
     <template v-if="onglet === 'horaire'">
-      <HoraireHeatmap />
+      <HoraireHeatmap :assets-heatmap="assets" />
     </template>
+
+    <HeatmapAnalyseModal
+      :visible="modaleAnalyse"
+      :classement-vol="classementVol"
+      :analyse-atr="analyseAtr"
+      :assets="assets"
+      @close="modaleAnalyse = false"
+    />
   </div>
 </template>
 
@@ -135,11 +118,15 @@ import { apiService } from '@/services/api.service'
 import type { Candle } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useAssetsStore } from '@/stores/assets.store'
+import { useHeatmapConfluence } from '@/composables/useHeatmapConfluence'
 import HoraireHeatmap from '@/components/common/HoraireHeatmap.vue'
+import HeatmapAnalyseModal from '@/components/common/HeatmapAnalyseModal.vue'
 
 const onglet = ref<'atr' | 'horaire'>('atr')
+const modaleAnalyse = ref(false)
 const alerteStore = useAlerteStore()
 const assetsStore = useAssetsStore()
+const { confluences, detecterConfluences } = useHeatmapConfluence()
 const assetsInfos = computed(() => assetsStore.assets)
 const assets = computed(() => assetsInfos.value.map(a => a.id))
 const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
@@ -192,7 +179,12 @@ function couleurRatio(ratio: number): string {
 function celluleStyle(asset: string, tf: string) {
   const ratio = celluleValeur(asset, tf)
   const couleur = couleurRatio(ratio)
-  return { background: `${couleur}25`, borderColor: `${couleur}60`, border: '1px solid', opacity: chargement.value ? 0.5 : 1 }
+  const eleve = ratio >= 120
+  return {
+    background: `${couleur}25`,
+    border: eleve ? '2px solid #ef4444' : `1px solid ${couleur}60`,
+    opacity: chargement.value ? 0.5 : 1,
+  }
 }
 
 function celluleLabel(asset: string, tf: string): string {
@@ -263,6 +255,14 @@ async function actualiser() {
     }
   }
   chargement.value = false
+  // Détection confluence en arrière-plan (throttlée via cache 5min)
+  detecterConfluences(classementVol.value).then(() => {
+    if (confluences.value.length) {
+      alerteStore.afficherSucces(
+        `⚡ ${confluences.value.length} confluence${confluences.value.length > 1 ? 's' : ''} : ${confluences.value.map(c => `${c.asset} ${c.tf}`).join(', ')}`
+      )
+    }
+  })
 }
 
 let intervalId: ReturnType<typeof setInterval> | null = null
@@ -280,5 +280,7 @@ onUnmounted(() => { if (intervalId) clearInterval(intervalId) })
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
 .btn-sm { @apply bg-gray-700 hover:bg-gray-600 disabled:opacity-40 text-white text-sm px-3 py-1.5 rounded-lg transition-all; }
+.slide-down-enter-active, .slide-down-leave-active { transition: all 0.3s ease; }
+.slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-8px); }
 </style>
 

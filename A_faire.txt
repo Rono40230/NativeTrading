@@ -109,3 +109,6 @@ Est on bien certain que les tableaux des signaux respectent la logique des trade
 A vérifier dans les signaux de rockets, straddle, smc et l'historique
 
 --------------------------------------------------------------------------------------------------------------------------
+
+A quoi va servir ## Priorité 3 — Scoring LLM Signals → DeepSeek API V3.1
+

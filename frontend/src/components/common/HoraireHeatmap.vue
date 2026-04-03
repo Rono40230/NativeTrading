@@ -3,7 +3,7 @@
     <!-- Contrôles -->
     <div class="flex flex-wrap items-center gap-3">
       <select v-model="asset" class="glass-select" @change="charger">
-        <option v-for="a in assets" :key="a" :value="a">{{ a }}</option>
+        <option v-for="a in assetsDropdown" :key="a" :value="a">{{ a }}</option>
       </select>
       <select v-model="timeframe" class="glass-select" @change="charger">
         <option v-for="tf in timeframes" :key="tf" :value="tf">{{ tf }}</option>
@@ -143,9 +143,12 @@ import { apiService } from '@/services/api.service'
 import type { ReponsePatternsVolatilite, AssetInfo } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
 
+const props = defineProps<{ assetsHeatmap?: string[] }>()
+
 const alerteStore = useAlerteStore()
 const assetsInfos = ref<AssetInfo[]>([])
-const assets = computed(() => assetsInfos.value.map(a => a.id))
+const assetsInterne = computed(() => assetsInfos.value.map(a => a.id))
+const assetsDropdown = computed(() => props.assetsHeatmap?.length ? props.assetsHeatmap : assetsInterne.value)
 const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const periodesDisponibles = [6, 12, 18, 24]
 const asset = ref('BTC')
