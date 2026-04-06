@@ -24,7 +24,14 @@ pub async fn appeler_ollama_et_publier(
     tf: &Timeframe,
     params: ParamsOllama<'_>,
 ) -> anyhow::Result<()> {
-    let ParamsOllama { prix, atr, ctx, feedbacks, categorie, score_seuil } = params;
+    let ParamsOllama {
+        prix,
+        atr,
+        ctx,
+        feedbacks,
+        categorie,
+        score_seuil,
+    } = params;
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
@@ -113,7 +120,9 @@ pub async fn appeler_ollama_et_publier(
 
     // Charger le pic depuis la DB pour récupérer catégorie, session, ratio réels
     let pic = if let Some(pid) = pic_id {
-        db::straddle_pics::charger_par_id(db.pool(), pid).await.unwrap_or(None)
+        db::straddle_pics::charger_par_id(db.pool(), pid)
+            .await
+            .unwrap_or(None)
     } else {
         None
     };
@@ -125,7 +134,10 @@ pub async fn appeler_ollama_et_publier(
         asset: asset.as_str(),
         timeframe: tf.as_str(),
         timestamp_signal: signal.cree_le.timestamp(),
-        categorie: pic.as_ref().map(|p| p.categorie.as_str()).unwrap_or("choc_isole"),
+        categorie: pic
+            .as_ref()
+            .map(|p| p.categorie.as_str())
+            .unwrap_or("choc_isole"),
         evenement_nom: pic.as_ref().and_then(|p| p.evenement_nom.as_deref()),
         session_active: pic.as_ref().map(|p| p.session_active.as_str()),
         ratio_atr: pic.as_ref().map(|p| p.ratio_atr).unwrap_or(0.0),

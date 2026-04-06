@@ -22,11 +22,11 @@ struct SignalStraddleOuvert {
     asset: String,
     timeframe: String,
     prix_entree: f64,
-    score: f64,                 // score 0-100 (stocké × 10 dans la boucle)
-    stop_loss: f64,             // SL jambe long (< prix_entree)
-    tp_long: Vec<f64>,          // [tp1, tp2, tp3] long (> prix_entree)
-    sl_short: f64,              // SL jambe short (> prix_entree)
-    tp_short: Vec<f64>,         // [tp1, tp2, tp3] short (< prix_entree)
+    score: f64,         // score 0-100 (stocké × 10 dans la boucle)
+    stop_loss: f64,     // SL jambe long (< prix_entree)
+    tp_long: Vec<f64>,  // [tp1, tp2, tp3] long (> prix_entree)
+    sl_short: f64,      // SL jambe short (> prix_entree)
+    tp_short: Vec<f64>, // [tp1, tp2, tp3] short (< prix_entree)
     cree_le: i64,
 }
 
@@ -60,7 +60,10 @@ async fn reconcilier_signaux_ouverts(db: &Arc<Database>) {
         return;
     }
 
-    tracing::debug!("Job feedback: {} signaux Straddle ouverts à vérifier", signaux.len());
+    tracing::debug!(
+        "Job feedback: {} signaux Straddle ouverts à vérifier",
+        signaux.len()
+    );
 
     for s in &signaux {
         traiter_signal(db, s).await;

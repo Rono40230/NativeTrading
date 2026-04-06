@@ -31,7 +31,11 @@ pub struct SeuilsEffectifs {
 
 impl Default for SeuilsEffectifs {
     fn default() -> Self {
-        Self { score_llm: 6.0, ratio_atr: 1.5, invalide: false }
+        Self {
+            score_llm: 6.0,
+            ratio_atr: 1.5,
+            invalide: false,
+        }
     }
 }
 
@@ -73,11 +77,7 @@ pub async fn sauvegarder(pool: &SqlitePool, row: &CalibrationRow) -> Result<()> 
 
 /// Charge les seuils effectifs pour un (asset, categorie).
 /// Retourne les valeurs par défaut si aucune calibration ou fiabilité insuffisante.
-pub async fn charger_seuils(
-    pool: &SqlitePool,
-    asset: &str,
-    categorie: &str,
-) -> SeuilsEffectifs {
+pub async fn charger_seuils(pool: &SqlitePool, asset: &str, categorie: &str) -> SeuilsEffectifs {
     let row = sqlx::query(
         "SELECT score_llm_seuil, atr_seuil, fiabilite, invalide
          FROM straddle_calibration WHERE asset = ? AND categorie = ?",

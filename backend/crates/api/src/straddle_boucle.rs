@@ -11,7 +11,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 use crate::signal_engine::SignalEngine;
-use crate::straddle_signal_ollama::{ParamsOllama, appeler_ollama_et_publier};
+use crate::straddle_signal_ollama::{appeler_ollama_et_publier, ParamsOllama};
 
 /// Anti-doublon : pas de second signal Straddle sur le même asset/TF avant N minutes.
 const ANTI_DOUBLON_MIN: i64 = 60;
@@ -224,7 +224,9 @@ async fn analyser_asset(
     if seuils.invalide {
         tracing::debug!(
             "Straddle boucle {}/{}: catégorie {} invalide (WR < 50%), skip",
-            asset.as_str(), tf.as_str(), categorie_ctx.categorie.as_str()
+            asset.as_str(),
+            tf.as_str(),
+            categorie_ctx.categorie.as_str()
         );
         return;
     }
@@ -233,7 +235,10 @@ async fn analyser_asset(
     if ratio_atr < seuils.ratio_atr {
         tracing::debug!(
             "Straddle boucle {}/{}: ratio {:.2} < seuil calibré {:.2}",
-            asset.as_str(), tf.as_str(), ratio_atr, seuils.ratio_atr
+            asset.as_str(),
+            tf.as_str(),
+            ratio_atr,
+            seuils.ratio_atr
         );
         return;
     }

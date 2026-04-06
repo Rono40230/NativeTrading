@@ -189,4 +189,65 @@ export interface StraddleCalibrationRow {
   win_rate: number
 }
 
+// ── Rockets ML adaptatif ──────────────────────────────────────────────────────
 
+export interface RocketsStatPhase {
+  phase: string
+  nb_trades: number
+  win_rate: number
+  conv_win: number | null
+  conv_lose: number | null
+  pnl_r_moyen: number | null
+}
+
+export interface RocketsMonitoringData {
+  nb_signals_total: number
+  nb_feedbacks_clotures: number
+  win_rate_global: number
+  pnl_moyen_r: number | null
+  derive_detectee: boolean
+  par_phase: RocketsStatPhase[]
+}
+
+export interface RocketsCalibrationRow {
+  phase: string
+  session: string
+  score_min: number
+  conviction_min: number
+  nb_trades: number
+  win_rate: number
+  fiabilite: string
+  invalide: boolean
+}
+
+// ── SMC Directionnel ML ───────────────────────────────────────────────────────
+
+export interface SmcStatCategorie {
+  categorie: string
+  nb_trades: number
+  win_rate: number
+  conv_win: number | null
+  conv_lose: number | null
+  pnl_r_moyen: number | null
+}
+
+export interface SmcMonitoringData {
+  nb_signals_total: number
+  nb_feedbacks_clotures: number
+  win_rate_global: number
+  pnl_moyen_r: number | null
+  derive_detectee: boolean
+  par_categorie: SmcStatCategorie[]
+}
+
+export interface SmcCalibrationRow {
+  asset: string
+  timeframe: string
+  categorie: string
+  score_smc_seuil: number
+  conviction_seuil: number
+  nb_trades: number
+  win_rate: number
+  fiabilite: string
+  invalide: boolean
+}

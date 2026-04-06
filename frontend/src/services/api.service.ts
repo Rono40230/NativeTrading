@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { rocketsApi } from './api.rockets'
 import { straddleApi } from './api.straddle'
+import { apiSmcMethods } from './api.smc'
 import { newsApi } from './api.news'
 import { engineApi } from './api.engine'
 
@@ -260,4 +261,5 @@ export const apiService = {
   ...straddleApi,
   ...newsApi,
   ...engineApi,
+  ...apiSmcMethods,
 }

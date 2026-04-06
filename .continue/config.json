@@ -1,0 +1,10 @@
+{
+    "models": [
+        {
+            "title": "Ollama qwen2.5-coder",
+            "provider": "ollama",
+            "model": "qwen2.5-coder:14b",
+            "baseUrl": "http://localhost:11434"
+        }
+    ]
+}

@@ -1,6 +1,7 @@
 use crate::ollama::types::{MODELE_DEFAUT, OLLAMA_URL};
 use common::TradingError;
 use db::rockets::RocketSignal;
+use db::rockets_feedback::RocketsFeedbackRow;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
@@ -207,14 +208,49 @@ fn formater_contexte(candidat: &SignalCandidat, historique: &[RocketSignal]) -> 
     ctx
 }
 
-// ── Appel LLM avec timeout 5s ─────────────────────────────────────────────────
+// ── Appel LLM avec timeout 90s ───────────────────────────────────────────────
+
+/// Construit le bloc "leçons passées" injecté dans le prompt few-shot.
+fn construire_few_shot(feedbacks: &[RocketsFeedbackRow]) -> String {
+    if feedbacks.is_empty() {
+        return String::new();
+    }
+    let mut bloc = String::from("=== LEÇONS PASSÉES (signaux similaires clôturés) ===\n");
+    for fb in feedbacks {
+        let resultat = if fb.gagnant == Some(1) {
+            "✅ GAGNANT"
+        } else {
+            "❌ PERDANT"
+        };
+        let pnl = fb.pnl_r.map(|r| format!("{:.2}R", r)).unwrap_or_default();
+        bloc.push_str(&format!(
+            "  • {} | score={} conviction={} RSI={:.0} vol={:.1}× → {} {}\n",
+            fb.verdict.as_deref().unwrap_or("?"),
+            fb.score_scan,
+            fb.conviction_llm,
+            fb.rsi,
+            fb.ratio_volume,
+            resultat,
+            pnl,
+        ));
+    }
+    bloc
+}
 
 pub async fn filtrer_signal(
     candidat: &SignalCandidat,
     historique: &[RocketSignal],
+    feedbacks: &[RocketsFeedbackRow],
 ) -> Result<FiltreReponse, TradingError> {
-    let contexte = formater_contexte(candidat, historique);
-    let prompt = format!("{}\n\n{contexte}", crate::prompts_handler::prompt_effectif("rockets_filtre"));
+    let mut contexte = formater_contexte(candidat, historique);
+    let few_shot = construire_few_shot(feedbacks);
+    if !few_shot.is_empty() {
+        contexte.push_str(&few_shot);
+    }
+    let prompt = format!(
+        "{}\n\n{contexte}",
+        crate::prompts_handler::prompt_effectif("rockets_filtre")
+    );
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());

@@ -127,15 +127,6 @@
       <p class="text-sm">Configurez les paramètres et lancez le backtest.</p>
     </div>
 
-    <!-- Monitoring ML Straddle -->
-    <div class="glass-card p-5">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-          🤖 Monitoring ML — Volatilité Straddle
-        </h2>
-      </div>
-      <StraddleMonitoringML />
-    </div>
   </div>
 </template>
 
@@ -148,7 +139,6 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useAssetsStore } from '@/stores/assets.store'
 import StraddleParamsPanel from '@/components/common/StraddleParamsPanel.vue'
-import StraddleMonitoringML from '@/components/common/StraddleMonitoringML.vue'
 import { usePnLNiveaux } from '@/composables/usePnLNiveaux'
 import { useEquityChart } from '@/composables/useEquityChart'
 import { useBacktestDuree } from '@/composables/useBacktestDuree'

@@ -173,7 +173,10 @@ pub async fn filtrer_signal_smc(
     historique: &[HistoriqueSMCSignal],
 ) -> Result<FiltreSMCReponse, TradingError> {
     let contexte = formater_contexte(candidat, historique);
-    let prompt = format!("{}\n\n{contexte}", crate::prompts_handler::prompt_effectif("smc_filtre"));
+    let prompt = format!(
+        "{}\n\n{contexte}",
+        crate::prompts_handler::prompt_effectif("smc_filtre")
+    );
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());

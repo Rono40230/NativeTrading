@@ -44,11 +44,7 @@ pub fn prompt_effectif(id: &str) -> String {
     if let Some(ov) = ovs.get(id) {
         return ov.clone();
     }
-    defaults()
-        .get(id)
-        .copied()
-        .unwrap_or("")
-        .to_string()
+    defaults().get(id).copied().unwrap_or("").to_string()
 }
 
 fn sauvegarder_overrides(map: &HashMap<String, String>) -> std::io::Result<()> {

@@ -150,10 +150,7 @@ pub async fn lister_recents_asset_categorie(
 
 /// Statistiques agrégées par catégorie pour un asset — pour le monitoring ML.
 /// Retourne le nombre de trades, win rate, score LLM moyen, pnl_r moyen.
-pub async fn stats_monitoring(
-    pool: &SqlitePool,
-    asset: &str,
-) -> Result<Vec<serde_json::Value>> {
+pub async fn stats_monitoring(pool: &SqlitePool, asset: &str) -> Result<Vec<serde_json::Value>> {
     let rows = sqlx::query(
         "SELECT categorie,
                 COUNT(*) as nb_trades,

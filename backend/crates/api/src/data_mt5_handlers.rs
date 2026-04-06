@@ -11,20 +11,19 @@ use std::path::PathBuf;
 use crate::state::AppState;
 
 /// Chemin par défaut du dossier MQL5/Files sous Wine
-const MT5_PATH_DEFAUT: &str =
-    "/home/rono/.mt5/drive_c/Program Files/MetaTrader 5/MQL5/Files";
+const MT5_PATH_DEFAUT: &str = "/home/rono/.mt5/drive_c/Program Files/MetaTrader 5/MQL5/Files";
 
 fn parse_timeframe(s: &str) -> Option<Timeframe> {
     match s {
-        "M1"  => Some(Timeframe::M1),
-        "M5"  => Some(Timeframe::M5),
+        "M1" => Some(Timeframe::M1),
+        "M5" => Some(Timeframe::M5),
         "M15" => Some(Timeframe::M15),
         "M30" => Some(Timeframe::M30),
-        "H1"  => Some(Timeframe::H1),
-        "H4"  => Some(Timeframe::H4),
-        "D1"  => Some(Timeframe::D1),
-        "W1"  => Some(Timeframe::W1),
-        _     => None,
+        "H1" => Some(Timeframe::H1),
+        "H4" => Some(Timeframe::H4),
+        "D1" => Some(Timeframe::D1),
+        "W1" => Some(Timeframe::W1),
+        _ => None,
     }
 }
 
@@ -39,13 +38,20 @@ fn parse_ligne(ligne: &str) -> Option<Candle> {
         return None;
     }
     let ts_unix: i64 = parts[0].trim().parse().ok()?;
-    let open: f64    = parts[1].trim().parse().ok()?;
-    let high: f64    = parts[2].trim().parse().ok()?;
-    let low: f64     = parts[3].trim().parse().ok()?;
-    let close: f64   = parts[4].trim().parse().ok()?;
-    let volume: f64  = parts[5].trim().parse().ok()?;
+    let open: f64 = parts[1].trim().parse().ok()?;
+    let high: f64 = parts[2].trim().parse().ok()?;
+    let low: f64 = parts[3].trim().parse().ok()?;
+    let close: f64 = parts[4].trim().parse().ok()?;
+    let volume: f64 = parts[5].trim().parse().ok()?;
     let timestamp: DateTime<Utc> = Utc.timestamp_opt(ts_unix, 0).single()?;
-    Some(Candle { timestamp, open, high, low, close, volume })
+    Some(Candle {
+        timestamp,
+        open,
+        high,
+        low,
+        close,
+        volume,
+    })
 }
 
 #[derive(Deserialize)]
@@ -82,7 +88,7 @@ pub async fn post_import_mt5(
         let path: PathBuf = entree.path();
         let nom = match path.file_name().and_then(|n| n.to_str()) {
             Some(n) => n.to_string(),
-            None    => continue,
+            None => continue,
         };
 
         // Ne traiter que export_*.csv
@@ -98,7 +104,7 @@ pub async fn post_import_mt5(
             resultats.push(serde_json::json!({ "fichier": nom, "erreur": "Nom invalide (attendu: export_ASSET_TF.csv)" }));
             continue;
         }
-        let db_id  = parties[1]; // Déjà l'id DB — pas de mapping nécessaire
+        let db_id = parties[1]; // Déjà l'id DB — pas de mapping nécessaire
         let tf_str = parties[2];
 
         let asset = match parse_asset(db_id) {
@@ -130,10 +136,7 @@ pub async fn post_import_mt5(
             }
         };
 
-        let bougies: Vec<Candle> = contenu
-            .lines()
-            .filter_map(parse_ligne)
-            .collect();
+        let bougies: Vec<Candle> = contenu.lines().filter_map(parse_ligne).collect();
 
         let nb_lues = bougies.len() as u64;
         if nb_lues == 0 {
@@ -149,7 +152,11 @@ pub async fn post_import_mt5(
                 let doublons = nb_lues.saturating_sub(inseres);
                 tracing::info!(
                     "Import MT5 {} {} : {} lues, {} insérées, {} doublons",
-                    db_id, tf_str, nb_lues, inseres, doublons
+                    db_id,
+                    tf_str,
+                    nb_lues,
+                    inseres,
+                    doublons
                 );
                 total_bougies += nb_lues;
                 total_inseres += inseres;

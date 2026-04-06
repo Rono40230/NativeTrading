@@ -91,6 +91,18 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::straddle_signal_handler::generer_signal_straddle),
         )
         .route(
+            "/api/rockets/monitoring-ml",
+            web::get().to(crate::rockets_ml_handlers::monitoring_ml),
+        )
+        .route(
+            "/api/rockets/calibration",
+            web::get().to(crate::rockets_ml_handlers::get_calibration),
+        )
+        .route(
+            "/api/rockets/feedback",
+            web::get().to(crate::rockets_ml_handlers::get_feedback),
+        )
+        .route(
             "/api/straddle/analyser",
             web::post().to(crate::straddle_handlers::analyser),
         )
@@ -149,6 +161,18 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/smc/params",
             web::put().to(crate::strategies_params_handlers::put_smc_params),
+        )
+        .route(
+            "/api/smc/monitoring-ml",
+            web::get().to(crate::smc_monitoring_handlers::monitoring_ml),
+        )
+        .route(
+            "/api/smc/calibration",
+            web::get().to(crate::smc_monitoring_handlers::get_calibration),
+        )
+        .route(
+            "/api/smc/feedback",
+            web::get().to(crate::smc_monitoring_handlers::get_feedback),
         )
         .route(
             "/api/config",

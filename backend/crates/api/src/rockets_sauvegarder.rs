@@ -2,11 +2,11 @@
 //! Séparé de rockets_scan.rs pour respecter la limite de 300 lignes.
 
 use crate::signal_engine::SignalEngine;
+use crate::straddle_categorisation::session_active;
 use db::rockets::{self, NouveauRocket};
+use db::rockets_feedback::{inserer_feedback, lister_recents_ticker_phase, NouveauFeedbackRocket};
 use std::sync::Arc;
 use strategies::rockets_indicateurs::ScanResultat;
-
-pub const CONVICTION_MIN: i64 = 65;
 
 /// Niveaux TP/SL pré-calculés pour un candidat.
 pub struct NiveauxRocket {
@@ -40,6 +40,12 @@ pub async fn filtrer_sauvegarder_publier(
     pool: &sqlx::SqlitePool,
     signal_engine: &Arc<SignalEngine>,
 ) {
+    let session = session_active(chrono::Utc::now());
+    let seuils = db::rockets_calibration::charger_seuils(pool, phase_sauvegardee, &session).await;
+    let feedbacks = lister_recents_ticker_phase(pool, &r.ticker, phase_sauvegardee, 5)
+        .await
+        .unwrap_or_default();
+
     let historique = rockets::historique_ticker(pool, &r.ticker, 10).await;
     let candidat = crate::ollama::rockets_filtre::SignalCandidat {
         ticker: r.ticker.clone(),
@@ -60,7 +66,9 @@ pub async fn filtrer_sauvegarder_publier(
     };
 
     let (llm_valide, llm_conviction, llm_raison, llm_sl, llm_tp1) =
-        match crate::ollama::rockets_filtre::filtrer_signal(&candidat, &historique).await {
+        match crate::ollama::rockets_filtre::filtrer_signal(&candidat, &historique, &feedbacks)
+            .await
+        {
             Ok(rep) => {
                 tracing::info!(
                     "LLM {} {} : valide={} conviction={}",
@@ -69,7 +77,7 @@ pub async fn filtrer_sauvegarder_publier(
                     rep.valide,
                     rep.conviction
                 );
-                if !rep.valide || rep.conviction < CONVICTION_MIN {
+                if !rep.valide || rep.conviction < seuils.conviction_min {
                     tracing::info!(
                         "LLM rejette {} {} ({}/100): {}",
                         label_signal,
@@ -115,10 +123,17 @@ pub async fn filtrer_sauvegarder_publier(
         llm_tp1_suggere: llm_tp1,
     };
 
-    if let Err(e) = rockets::sauvegarder(pool, &nouveau).await {
-        tracing::warn!("Auto-save {} {}: {}", label_signal, r.ticker, e);
-        return;
-    }
+    let signal_id = match rockets::sauvegarder(pool, &nouveau).await {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            tracing::warn!("Doublon {} {} — signal ignoré", label_signal, r.ticker);
+            return;
+        }
+        Err(e) => {
+            tracing::warn!("Auto-save {} {}: {}", label_signal, r.ticker, e);
+            return;
+        }
+    };
 
     use common::{Direction, Signal, Timeframe};
     if let Some(asset) = crate::utils::parse_asset(&r.ticker) {
@@ -140,5 +155,22 @@ pub async fn filtrer_sauvegarder_publier(
         );
         signal_engine.publier(signal.clone());
         crate::telegram::notifier_telegram(signal);
+    }
+
+    // Enregistrer le feedback initial (verdict=NULL, sera réconcilié par rockets_suivi)
+    let fb = NouveauFeedbackRocket {
+        signal_id,
+        ticker: r.ticker.clone(),
+        phase: phase_sauvegardee.to_string(),
+        session_active: session,
+        timestamp_signal: chrono::Utc::now().timestamp(),
+        score_scan: r.score,
+        conviction_llm: llm_conviction.unwrap_or(0),
+        ratio_volume: r.ratio_volume,
+        atr_ratio: r.atr_ratio,
+        rsi: r.rsi,
+    };
+    if let Err(e) = inserer_feedback(pool, &fb).await {
+        tracing::warn!("Feedback Rockets {} {}: {}", label_signal, r.ticker, e);
     }
 }

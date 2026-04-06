@@ -3,7 +3,10 @@
  * Importées et spreadées dans apiService (api.service.ts).
  */
 import axios from 'axios'
-import type { RocketSignalSave, RocketSignalHistorique, RocketAnalyseLlm, RocketsConfig } from './api.types'
+import type {
+  RocketSignalSave, RocketSignalHistorique, RocketAnalyseLlm, RocketsConfig,
+  RocketsMonitoringData, RocketsCalibrationRow,
+} from './api.types'
 
 const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
 
@@ -48,5 +51,17 @@ export const rocketsApi = {
 
   async putRocketsConfig(cfg: RocketsConfig): Promise<void> {
     await http.put('/api/rockets/config', cfg)
+  },
+
+  // ── ML Rockets adaptatif ──────────────────────────────────────────────────
+
+  async getRocketsMonitoringML(): Promise<RocketsMonitoringData> {
+    const res = await http.get('/api/rockets/monitoring-ml', { timeout: 10000 })
+    return res.data
+  },
+
+  async getRocketsCalibration(): Promise<RocketsCalibrationRow[]> {
+    const res = await http.get('/api/rockets/calibration', { timeout: 10000 })
+    return res.data
   },
 }

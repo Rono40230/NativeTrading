@@ -1,6 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import axios from 'axios'
+import StraddleMonitoringML from '@/components/common/StraddleMonitoringML.vue'
+import MonitoringML from '@/components/common/MonitoringML.vue'
+import RocketsMonitoringML from '@/components/common/RocketsMonitoringML.vue'
+import SmcMonitoringML from '@/components/common/SmcMonitoringML.vue'
 
 type PromptsGroupe = Record<string, Record<string, unknown>>
 type StrMap = Record<string, string>
@@ -8,7 +12,8 @@ type BoolMap = Record<string, boolean>
 
 const BASE_URL = 'http://localhost:8080'
 
-const ongletActif = ref('rockets')
+const ongletActif = ref('straddle')
+const sousOngletActif = ref('prompts')
 const prompts = ref<PromptsGroupe | null>(null)
 const chargement = ref(false)
 const erreur = ref('')
@@ -17,11 +22,13 @@ const editValues = ref<StrMap>({})
 const enCours = ref<BoolMap>({})
 
 const onglets = [
-  { id: 'rockets',   label: '🚀 Stratégie Rockets' },
-  { id: 'smc',       label: '📊 Stratégie SMC' },
-  { id: 'straddle',  label: '⚡ Stratégie Volatilité' },
+  { id: 'straddle',  label: '⚡ Straddle' },
+  { id: 'smc',       label: '📊 SMC' },
+  { id: 'rockets',   label: '🚀 Rockets' },
   { id: 'outils_ia', label: '🧠 Outils IA' },
 ]
+
+watch(ongletActif, () => { sousOngletActif.value = 'prompts' })
 
 async function chargerPrompts() {
   chargement.value = true
@@ -79,13 +86,13 @@ onMounted(chargerPrompts)
 
     <!-- En-tête -->
     <div>
-      <h1 class="text-xl font-bold text-white">Prompts IA</h1>
+      <h1 class="text-xl font-bold text-white">Configuration de l'IA</h1>
       <p class="text-sm text-gray-400 mt-1">
-        Prompts utilisés par l'IA locale (Ollama) — modifiables et persistants
+        Prompts et métriques ML par stratégie — modifiables et persistants
       </p>
     </div>
 
-    <!-- Onglets -->
+    <!-- Onglets principaux (stratégies) -->
     <div class="flex gap-2 flex-wrap shrink-0">
       <button
         v-for="o in onglets"
@@ -102,17 +109,58 @@ onMounted(chargerPrompts)
       </button>
     </div>
 
+    <!-- Sous-onglets (sauf Outils IA) -->
+    <div v-if="ongletActif !== 'outils_ia'" class="flex gap-2 shrink-0">
+      <button
+        @click="sousOngletActif = 'prompts'"
+        :class="[
+          'px-3 py-1.5 rounded-md text-xs font-medium transition-colors border',
+          sousOngletActif === 'prompts'
+            ? 'bg-white/10 border-white/20 text-white'
+            : 'bg-transparent border-white/5 text-gray-500 hover:border-white/15 hover:text-gray-300'
+        ]"
+      >
+        📝 Prompts
+      </button>
+      <button
+        @click="sousOngletActif = 'metriques'"
+        :class="[
+          'px-3 py-1.5 rounded-md text-xs font-medium transition-colors border',
+          sousOngletActif === 'metriques'
+            ? 'bg-white/10 border-white/20 text-white'
+            : 'bg-transparent border-white/5 text-gray-500 hover:border-white/15 hover:text-gray-300'
+        ]"
+      >
+        📊 Métriques IA
+      </button>
+    </div>
+
     <!-- Erreur globale -->
     <div v-if="erreur" class="text-red-400 text-sm p-3 rounded-lg bg-red-500/10 border border-red-500/20 shrink-0">
       {{ erreur }}
     </div>
 
-    <!-- Chargement -->
-    <div v-if="chargement" class="text-gray-400 text-sm animate-pulse">
+    <!-- Métriques Straddle -->
+    <div v-if="ongletActif === 'straddle' && sousOngletActif === 'metriques'" class="overflow-y-auto flex-1 min-h-0">
+      <StraddleMonitoringML />
+    </div>
+
+    <!-- Métriques SMC -->
+    <div v-else-if="ongletActif === 'smc' && sousOngletActif === 'metriques'" class="overflow-y-auto flex-1 min-h-0">
+      <SmcMonitoringML />
+    </div>
+
+    <!-- Métriques Rockets -->
+    <div v-else-if="ongletActif === 'rockets' && sousOngletActif === 'metriques'" class="flex-1 min-h-0 overflow-y-auto">
+      <RocketsMonitoringML />
+    </div>
+
+    <!-- Chargement prompts -->
+    <div v-else-if="chargement" class="text-gray-400 text-sm animate-pulse">
       Chargement des prompts…
     </div>
 
-    <!-- Liste des prompts de l'onglet actif -->
+    <!-- Liste des prompts (onglet actif, sous-onglet prompts ou outils_ia) -->
     <div v-else-if="prompts && prompts[ongletActif]" class="flex flex-col gap-3 overflow-y-auto pr-1 flex-1 min-h-0">
       <div
         v-for="(prompt, cle) in prompts[ongletActif]"

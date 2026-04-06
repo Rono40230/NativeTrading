@@ -90,11 +90,7 @@ pub async fn lier_signal(pool: &SqlitePool, pic_id: i64, signal_id: &str) -> Res
 }
 
 /// Retourne les pics des N dernières heures (toutes les paires), triés du plus récent.
-pub async fn lister_recents(
-    pool: &SqlitePool,
-    heures: u32,
-    limit: i64,
-) -> Result<Vec<PicDetecte>> {
+pub async fn lister_recents(pool: &SqlitePool, heures: u32, limit: i64) -> Result<Vec<PicDetecte>> {
     let seuil = chrono::Utc::now().timestamp() - (heures as i64 * 3600);
     let rows = sqlx::query(
         "SELECT id, asset, timeframe, timestamp_pic, prix, atr_actuel, atr_moyen_14, ratio_atr,

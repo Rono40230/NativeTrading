@@ -50,14 +50,6 @@ Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Télécharger les données de toutes les paires présentes dans l'app.
-Faire en sorte que les données soient toujours à jour = mise à jour quotidienne.
-Comment s'assurer que toutes les données sont toujours à jour ?
-Réfléchir à un système de bandeau d'affichage qui précise l'état de la DB = A jour ou problème de mise à jour.
-Repond sans coder
-
---------------------------------------------------------------------------------------------------------------------------
-
 Pourquoi la stratégie SMC ne génère aucun signal ?
 
 --------------------------------------------------------------------------------------------------------------------------
@@ -101,14 +93,37 @@ Vérifier une fois terminer que l'ancienne page n'est pas en doublon
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Analyse dans le détail ce code et réécris intégralement ARCHITECTURE.md en décrivant précisément l'architecture du projet.
-
---------------------------------------------------------------------------------------------------------------------------
-
 Est on bien certain que les tableaux des signaux respectent la logique des trades une jambe/2 jambes et vente partielle.
 A vérifier dans les signaux de rockets, straddle, smc et l'historique
 
 --------------------------------------------------------------------------------------------------------------------------
 
 A quoi va servir ## Priorité 3 — Scoring LLM Signals → DeepSeek API V3.1
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Dans les 3 pages "signaux" des 3 stratégies, les tableaux "en cours" et "cloturés" doivent avoir un affichage responsive jusqu'en bas de page.
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Actuellement comment sont calculés les SL et TP de chaque asset lors d'un signal de position ou dans les analyse proposées dans :
+- la stratégie rockets
+- la stratégie smc
+- la stratégie de volatilité
+
+D'autre part, concernant le backtesting de la stratégie de volatilité, comment sont calculés les lots de prise de positions pour faire évoluer le capital de départ ?
+
+Chaque assets doit répondre à des règles établies concernant le calcul du lot, du SL, tp1, tp2, tp3.
+Ces règles doivent pouvoir être modifiées selon le momentum = tableau de saisie qui met à jour le tableau de référence (dans les paramètres)
+Tableau de référence = capture
+- cellule A1 = capital à saisir
+- Colonne Valeur PIPS = à mettre à jour avec une api
+- colonne SL en pips = à saisir et à enregistrér pour les calculs de lot et de TP
+- colonne risque = à saisir et à enregistrér pour les calculs de lot
+- colonne investi = capital*risque
+- colonne Lot = (investi)/(SL en PIPS*valeur en pips)
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Sur les bases de ce qui a été implémenté pour la stratégie volatilité, comment pouvons nous implémenter le meme système pour les stratégies rockets et SMC ?
 

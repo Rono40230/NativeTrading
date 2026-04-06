@@ -11,7 +11,7 @@ use tokio::time::sleep;
 
 const SEUIL_GRID: &[f64] = &[4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5];
 const ATR_GRID: &[f64] = &[1.2, 1.3, 1.4, 1.5, 1.6, 1.8, 2.0, 2.5];
-const WIN_RATE_MIN: f64 = 0.50;  // Catégorie invalide si WR < 50% sur tout seuil
+const WIN_RATE_MIN: f64 = 0.50; // Catégorie invalide si WR < 50% sur tout seuil
 
 // ── Point d'entrée ────────────────────────────────────────────────────────────
 
@@ -114,7 +114,11 @@ async fn calibrer_paire(
 
     // Statistiques globales
     let nb_gagnants = trades.iter().filter(|t| t.3 == 1).count() as i64;
-    let win_rate = if nb_total > 0 { nb_gagnants as f64 / nb_total as f64 } else { 0.0 };
+    let win_rate = if nb_total > 0 {
+        nb_gagnants as f64 / nb_total as f64
+    } else {
+        0.0
+    };
     let pnl_moyen = if nb_total > 0 {
         trades.iter().map(|t| t.2).sum::<f64>() / nb_total as f64
     } else {

@@ -1,5 +1,6 @@
 use actix_web::{web, HttpResponse, Responder};
 use db::rockets;
+use db::rockets_feedback;
 use std::time::Duration;
 
 use crate::state::AppState;
@@ -137,6 +138,17 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
                         s.ticker,
                         prix
                     );
+                    reconcilier_feedback(
+                        &pool,
+                        &s.ticker,
+                        s.id,
+                        "invalide",
+                        s.prix_entree,
+                        prix,
+                        s.atr14,
+                        &s.cree_le,
+                    )
+                    .await;
                 }
             } else if prix >= s.prix_entree {
                 if let Err(e) = rockets::entrer_position(&pool, s.id).await {
@@ -182,11 +194,56 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
                         tracing::warn!("Worker rockets verdict: {}", e);
                     } else {
                         tracing::info!("Rocket {} → {} @ {:.5}", s.ticker, v, prix);
+                        reconcilier_feedback(
+                            &pool,
+                            &s.ticker,
+                            s.id,
+                            v,
+                            s.prix_entree,
+                            prix,
+                            s.atr14,
+                            &s.cree_le,
+                        )
+                        .await;
                     }
                 }
                 None => {}
             }
         }
+    }
+}
+
+// ── Helper feedback ──────────────────────────────────────────────────────────
+
+/// Réconcilie le feedback Rockets après une clôture TP/SL.
+/// `cree_le_str` est au format SQLite `datetime('now')` → "2026-04-06 14:32:00".
+async fn reconcilier_feedback(
+    pool: &sqlx::SqlitePool,
+    ticker: &str,
+    signal_id: i64,
+    verdict: &str,
+    prix_entree: f64,
+    prix_verdict: f64,
+    atr14: Option<f64>,
+    cree_le_str: &str,
+) {
+    let timestamp_signal = chrono::NaiveDateTime::parse_from_str(cree_le_str, "%Y-%m-%d %H:%M:%S")
+        .map(|dt| dt.and_utc().timestamp())
+        .unwrap_or_else(|_| chrono::Utc::now().timestamp());
+
+    let atr = atr14.unwrap_or(1.0).max(1e-9);
+    if let Err(e) = rockets_feedback::maj_feedback_verdict(
+        pool,
+        signal_id,
+        verdict,
+        prix_entree,
+        prix_verdict,
+        atr,
+        timestamp_signal,
+    )
+    .await
+    {
+        tracing::warn!("Feedback Rockets {} id={}: {}", ticker, signal_id, e);
     }
 }
 

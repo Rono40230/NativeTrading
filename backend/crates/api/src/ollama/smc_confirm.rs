@@ -1,6 +1,5 @@
 use common::TradingError;
 
-
 /// Confirmation LLM d'un signal SMC validé par `SmcDirectionalStrategy`.
 /// Retourne le raisonnement si le LLM confirme (score_confiance ≥ 0.5), `None` sinon.
 #[allow(clippy::too_many_arguments)]

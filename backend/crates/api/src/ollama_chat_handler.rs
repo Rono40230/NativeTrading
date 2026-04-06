@@ -100,9 +100,7 @@ pub async fn chat(state: web::Data<AppState>, body: web::Json<RequeteChat>) -> i
         .flatten();
     if let Some(key) = api_key.filter(|k| !k.is_empty()) {
         let coach_prompt = crate::prompts_handler::prompt_effectif("coach");
-        return match crate::anthropic::chat_claude(&historique, &coach_prompt, &key)
-            .await
-        {
+        return match crate::anthropic::chat_claude(&historique, &coach_prompt, &key).await {
             Ok(reponse) => HttpResponse::Ok().json(ReponseChat {
                 reponse,
                 modele: crate::anthropic::MODELE_CLAUDE.to_string(),

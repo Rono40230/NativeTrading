@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-5">
+  <div class="flex-1 min-h-0 flex flex-col">
     <SignauxTableau strategie="SmcDirectional" />
   </div>
 </template>

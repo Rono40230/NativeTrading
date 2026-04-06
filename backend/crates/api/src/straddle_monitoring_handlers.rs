@@ -33,7 +33,11 @@ pub async fn volatilite_live(state: web::Data<AppState>) -> impl Responder {
     };
 
     let ts_90min = now + 5400;
-    let annonces_raw = state.db.lire_calendrier_cache(3600).await.unwrap_or_default();
+    let annonces_raw = state
+        .db
+        .lire_calendrier_cache(3600)
+        .await
+        .unwrap_or_default();
     let annonces_prochaines: Vec<serde_json::Value> = annonces_raw
         .into_iter()
         .filter(|a| {

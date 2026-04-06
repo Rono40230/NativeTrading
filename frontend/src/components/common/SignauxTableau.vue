@@ -1,8 +1,8 @@
 <template>
-  <div class="flex flex-col gap-4">
+  <div class="flex-1 min-h-0 flex flex-col gap-4">
 
     <!-- Filtres -->
-    <div class="glass-card p-3 flex items-center gap-3 flex-wrap">
+    <div class="glass-card p-3 flex items-center gap-3 flex-wrap shrink-0">
       <div class="flex gap-1">
         <button class="filtre-btn" :class="{ 'filtre-btn-actif': filtreStatut === '' }" @click="filtreStatut = ''">Tous</button>
         <button class="filtre-btn" :class="{ 'filtre-btn-actif': filtreStatut === 'en_cours' }" @click="filtreStatut = 'en_cours'">⏳ En cours</button>
@@ -16,7 +16,7 @@
     </div>
 
     <!-- Tableau -->
-    <div class="glass-card overflow-hidden" style="max-height: calc(100vh - 280px); overflow-y: auto;">
+    <div class="glass-card overflow-x-hidden overflow-y-auto flex-1 min-h-0">
       <div v-if="chargement" class="text-center text-gray-500 py-10">Chargement…</div>
       <div v-else-if="!listeActive.length" class="text-center text-gray-500 py-10">Aucun signal correspondant</div>
       <table v-else class="w-full text-sm">

@@ -59,10 +59,22 @@ async fn scanner_tous_assets(db: &Arc<Database>) {
 
 async fn scanner_asset(db: &Arc<Database>, asset: &Asset, tf: &Timeframe, _type_asset: &str) {
     // Anti-doublon
-    match db::straddle_pics::dernier_pic_asset(db.pool(), asset.as_str(), tf.as_str(), ANTI_DOUBLON_MIN).await {
-        Ok(Some(_)) => return,  // Pic récent déjà enregistré
+    match db::straddle_pics::dernier_pic_asset(
+        db.pool(),
+        asset.as_str(),
+        tf.as_str(),
+        ANTI_DOUBLON_MIN,
+    )
+    .await
+    {
+        Ok(Some(_)) => return, // Pic récent déjà enregistré
         Err(e) => {
-            tracing::warn!("Scan pics anti-doublon {}/{}: {}", asset.as_str(), tf.as_str(), e);
+            tracing::warn!(
+                "Scan pics anti-doublon {}/{}: {}",
+                asset.as_str(),
+                tf.as_str(),
+                e
+            );
             return;
         }
         Ok(None) => {}
@@ -71,9 +83,14 @@ async fn scanner_asset(db: &Arc<Database>, asset: &Asset, tf: &Timeframe, _type_
     // Chargement des bougies
     let bougies = match db.obtenir_bougies(asset, tf, 60).await {
         Ok(b) if b.len() >= 20 => b,
-        Ok(_) => return,  // Pas assez de données
+        Ok(_) => return, // Pas assez de données
         Err(e) => {
-            tracing::debug!("Scan pics bougies {}/{}: {}", asset.as_str(), tf.as_str(), e);
+            tracing::debug!(
+                "Scan pics bougies {}/{}: {}",
+                asset.as_str(),
+                tf.as_str(),
+                e
+            );
             return;
         }
     };
@@ -105,7 +122,12 @@ async fn scanner_asset(db: &Arc<Database>, asset: &Asset, tf: &Timeframe, _type_
         return;
     }
 
-    let donnees = DonneesAtr { prix, atr_actuel, atr_moyen, ratio_atr };
+    let donnees = DonneesAtr {
+        prix,
+        atr_actuel,
+        atr_moyen,
+        ratio_atr,
+    };
     enregistrer_pic(db, asset, tf, donnees).await;
 }
 
@@ -116,21 +138,18 @@ struct DonneesAtr {
     ratio_atr: f64,
 }
 
-async fn enregistrer_pic(
-    db: &Arc<Database>,
-    asset: &Asset,
-    tf: &Timeframe,
-    donnees: DonneesAtr,
-) {
-    let DonneesAtr { prix, atr_actuel, atr_moyen, ratio_atr } = donnees;
+async fn enregistrer_pic(db: &Arc<Database>, asset: &Asset, tf: &Timeframe, donnees: DonneesAtr) {
+    let DonneesAtr {
+        prix,
+        atr_actuel,
+        atr_moyen,
+        ratio_atr,
+    } = donnees;
     let maintenant = Utc::now();
 
     // Annonces économiques prochaines (fenêtre ±90 min)
     let ts_now = maintenant.timestamp();
-    let annonces: Vec<serde_json::Value> = db
-        .lire_calendrier_cache(3600)
-        .await
-        .unwrap_or_default();
+    let annonces: Vec<serde_json::Value> = db.lire_calendrier_cache(3600).await.unwrap_or_default();
 
     // Créneaux Straddle validés pour cet asset
     let creneaux = db::straddle::lister_creneaux_asset(db.pool(), asset.as_str())

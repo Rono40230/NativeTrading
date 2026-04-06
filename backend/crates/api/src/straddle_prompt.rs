@@ -64,9 +64,18 @@ pub fn construire_prompt_few_shot(
             .to_string();
         let evt = f.evenement_nom.as_deref().unwrap_or("-");
         let verdict = f.verdict.as_deref().unwrap_or("?");
-        let amplitude = f.amplitude_reelle_pct.map(|a| format!("{:+.1}%", a)).unwrap_or_else(|| "-".into());
-        let duree = f.duree_trade_min.map(|d| format!("{}min", d)).unwrap_or_else(|| "-".into());
-        let pnl = f.pnl_r.map(|r| format!("{:+.2}R", r)).unwrap_or_else(|| "-".into());
+        let amplitude = f
+            .amplitude_reelle_pct
+            .map(|a| format!("{:+.1}%", a))
+            .unwrap_or_else(|| "-".into());
+        let duree = f
+            .duree_trade_min
+            .map(|d| format!("{}min", d))
+            .unwrap_or_else(|| "-".into());
+        let pnl = f
+            .pnl_r
+            .map(|r| format!("{:+.2}R", r))
+            .unwrap_or_else(|| "-".into());
         lignes.push_str(&format!(
             "  {} | {} | ratio={:.2} | score={:.1} → {} ({}) | {} | {}\n",
             date, evt, f.ratio_atr, f.score_llm, verdict, amplitude, duree, pnl

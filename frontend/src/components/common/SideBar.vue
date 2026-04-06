@@ -132,7 +132,7 @@ const nav: NavItem[] = [
     liens: [
       { to: '/settings',       icone: '⚙️', label: 'Paramètres' },
       { to: '/data',           icone: '📦', label: 'Import des données' },
-      { to: '/config/prompts', icone: '🧠', label: 'Prompts IA' },
+      { to: '/config/prompts', icone: '🧠', label: 'Configuration de l\'IA' },
     ]
   },
 ]
