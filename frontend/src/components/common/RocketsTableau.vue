@@ -11,8 +11,8 @@
         <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'target')">TP1 <span>{{ icone('target') }}</span></th>
         <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'target2')">TP2 <span>{{ icone('target2') }}</span></th>
         <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'target3')">TP3 <span>{{ icone('target3') }}</span></th>
-        <th class="px-4 py-3 text-right">Prix actuel</th>
-        <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'prix_verdict')">Sortie <span>{{ icone('prix_verdict') }}</span></th>
+        <th v-if="showPrixActuel" class="px-4 py-3 text-right">Prix actuel</th>
+        <th v-if="showSortie" class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'prix_verdict')">Sortie <span>{{ icone('prix_verdict') }}</span></th>
         <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'verdict')">Verdict <span>{{ icone('verdict') }}</span></th>
         <th class="px-4 py-3 text-center">IA</th>
         <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'cree_le')">Date <span>{{ icone('cree_le') }}</span></th>
@@ -31,11 +31,11 @@
         <td class="px-4 py-3 text-right font-mono text-emerald-400">{{ fmt(r.target) }}</td>
         <td class="px-4 py-3 text-right font-mono text-emerald-300">{{ r.target2 ? fmt(r.target2) : '—' }}</td>
         <td class="px-4 py-3 text-right font-mono text-emerald-200">{{ r.target3 ? fmt(r.target3) : '—' }}</td>
-        <td class="px-4 py-3 text-right font-mono">
+        <td v-if="showPrixActuel" class="px-4 py-3 text-right font-mono">
           <span v-if="prixActuels[r.ticker]" :class="classePrixActuel(r)">{{ fmt(prixActuels[r.ticker]) }}</span>
           <span v-else class="text-gray-600">—</span>
         </td>
-        <td class="px-4 py-3 text-right font-mono text-white">{{ r.prix_verdict ? fmt(r.prix_verdict) : '—' }}</td>
+        <td v-if="showSortie" class="px-4 py-3 text-right font-mono text-white">{{ r.prix_verdict ? fmt(r.prix_verdict) : '—' }}</td>
         <td class="px-4 py-3">
           <span class="badge" :class="classeVerdict(r)">{{ labelVerdict(r) }}</span>
         </td>
@@ -55,6 +55,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { RocketSignalHistorique } from '@/services/api.types'
 
 const props = defineProps<{
@@ -62,7 +63,12 @@ const props = defineProps<{
   prixActuels: Record<string, number>
   triColonne: string
   triDir: 'asc' | 'desc'
+  showPrixActuel?: boolean
+  showSortie?: boolean
 }>()
+
+const showPrixActuel = computed(() => props.showPrixActuel !== false)
+const showSortie = computed(() => props.showSortie !== false)
 
 defineEmits<{ trierPar: [col: string] }>()
 

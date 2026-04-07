@@ -4,12 +4,12 @@ use std::collections::HashMap;
 use std::fs;
 
 use crate::ollama::rockets_analyse::PROMPT_ANALYSE_ROCKETS;
-use crate::ollama::rockets_filtre::PROMPT_FILTRE_ROCKET;
 use crate::ollama::smc_analyse::PROMPT_ANALYSE_SMC;
 use crate::ollama::smc_filtre::PROMPT_FILTRE_SMC;
 use crate::ollama::straddle_analyse::PROMPT_ANALYSE_STRADDLE;
 use crate::ollama::{
-    PROMPT_SIGNAL_SMC, PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF, SYSTEM_PROMPT_COACH,
+    PROMPT_FILTRE_ROCKET, PROMPT_SIGNAL_SMC, PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF,
+    SYSTEM_PROMPT_COACH,
 };
 use crate::straddle_prompt::PROMPT_SIGNAL_STRADDLE;
 

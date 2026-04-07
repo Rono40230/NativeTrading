@@ -217,6 +217,7 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
 
 /// Réconcilie le feedback Rockets après une clôture TP/SL.
 /// `cree_le_str` est au format SQLite `datetime('now')` → "2026-04-06 14:32:00".
+#[allow(clippy::too_many_arguments)]
 async fn reconcilier_feedback(
     pool: &sqlx::SqlitePool,
     ticker: &str,

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 pub const OLLAMA_URL: &str = "http://localhost:11434/api/chat";
-pub const MODELE_DEFAUT: &str = "qwen2.5:14b";
+pub const MODELE_DEFAUT: &str = "qwen2.5vl:7b";
 
 #[derive(Serialize)]
 pub struct MessageOllama<'a> {

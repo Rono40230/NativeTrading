@@ -5,7 +5,9 @@ use smc::{
 };
 
 use crate::ollama;
-use crate::ollama_types::{ReponseAnalyse, ReponseChat, RequeteAnalyse, RequeteChat, StatutIA};
+use crate::ollama_types::{
+    ReponseAnalyse, ReponseChat, RequeteAnalyse, RequeteChat, RequeteDiagram, StatutIA,
+};
 use crate::state::AppState;
 
 // ─── POST /api/ia/analyse ─────────────────────────────────────────────────────
@@ -98,23 +100,27 @@ pub async fn chat(state: web::Data<AppState>, body: web::Json<RequeteChat>) -> i
         .await
         .ok()
         .flatten();
-    if let Some(key) = api_key.filter(|k| !k.is_empty()) {
-        let coach_prompt = crate::prompts_handler::prompt_effectif("coach");
-        return match crate::anthropic::chat_claude(&historique, &coach_prompt, &key).await {
-            Ok(reponse) => HttpResponse::Ok().json(ReponseChat {
-                reponse,
-                modele: crate::anthropic::MODELE_CLAUDE.to_string(),
-            }),
-            Err(e) => HttpResponse::ServiceUnavailable()
-                .json(serde_json::json!({ "error": format!("{}", e) })),
-        };
-    }
+    let forcer_ollama = body.forcer_ollama.unwrap_or(false);
+    if !forcer_ollama {
+        if let Some(key) = api_key.filter(|k| !k.is_empty()) {
+            let coach_prompt = crate::prompts_handler::prompt_effectif("coach");
+            return match crate::anthropic::chat_claude(&historique, &coach_prompt, &key).await {
+                Ok(reponse) => HttpResponse::Ok().json(ReponseChat {
+                    reponse,
+                    modele: crate::anthropic::MODELE_CLAUDE.to_string(),
+                }),
+                Err(e) => HttpResponse::ServiceUnavailable()
+                    .json(serde_json::json!({ "error": format!("{}", e) })),
+            };
+        }
+    } // fin bloc !forcer_ollama
 
-    let coach_prompt = crate::prompts_handler::prompt_effectif("coach");
+    let _coach_prompt = crate::prompts_handler::prompt_effectif("coach");
+
     match ollama::interroger_chat_modele_avec_systeme(
         &historique,
         ollama::MODELE_COACH,
-        &coach_prompt,
+        ollama::SYSTEM_PROMPT_COACH_OLLAMA,
     )
     .await
     {
@@ -125,6 +131,42 @@ pub async fn chat(state: web::Data<AppState>, body: web::Json<RequeteChat>) -> i
         Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
             "error": format!("{}", e),
             "aide": "Clé Anthropic non configurée et Ollama injoignable. Configurez la clé dans Paramètres ou lancez: ollama serve"
+        })),
+    }
+}
+
+// ─── POST /api/ia/diagram ─────────────────────────────────────────────────────
+pub async fn generer_diagram(body: web::Json<RequeteDiagram>) -> impl Responder {
+    if body.sujet.trim().is_empty() {
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({ "error": "sujet ne peut pas être vide" }));
+    }
+    // Templates pré-construits : résultat garanti, zéro latence GPU
+    if let Some(svg) = ollama::diagram_templates::trouver_template(&body.sujet) {
+        return HttpResponse::Ok().json(ReponseChat {
+            reponse: format!("<htmldiagram>{}</htmldiagram>", svg),
+            modele: "smc-templates".to_string(),
+        });
+    }
+    let prompt_utilisateur = format!(
+        "Génère un diagramme SVG de trading SMC illustrant : {}",
+        body.sujet.trim()
+    );
+    let historique = vec![("user".to_string(), prompt_utilisateur)];
+    match ollama::interroger_chat_modele_avec_systeme(
+        &historique,
+        ollama::MODELE_COACH_DIAGRAM,
+        ollama::SYSTEM_PROMPT_COACH_DIAGRAM,
+    )
+    .await
+    {
+        Ok(reponse) => HttpResponse::Ok().json(ReponseChat {
+            reponse,
+            modele: ollama::MODELE_COACH_DIAGRAM.to_string(),
+        }),
+        Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "error": format!("{}", e),
+            "aide": "qwen2.5-coder:14b requis : ollama pull qwen2.5-coder:14b"
         })),
     }
 }

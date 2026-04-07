@@ -76,7 +76,7 @@
         class="ml-auto px-3 py-0.5 rounded border transition-colors bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40"
         :disabled="analyseEnCours"
         @click="$emit('analyser')"
-      >{{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyser (IA)' }}</button>
+      >{{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyse SMC par l\'IA' }}</button>
 
 
     </div>

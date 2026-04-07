@@ -80,6 +80,7 @@ mod volatility_handlers;
 mod ws_handlers;
 
 mod routes;
+mod routes_rockets;
 
 use state::AppState;
 
@@ -157,6 +158,8 @@ async fn main() -> std::io::Result<()> {
             .wrap(cors)
             .configure(routes::configurer)
     })
+    .keep_alive(std::time::Duration::from_secs(310))
+    .client_request_timeout(std::time::Duration::from_secs(310))
     .bind(("0.0.0.0", 8080))?
     .run()
     .await

@@ -98,8 +98,13 @@ pub async fn filtrer_sauvegarder_publier(
                 )
             }
             Err(e) => {
-                tracing::warn!("LLM {} indisponible pour {}: {}", label_signal, r.ticker, e);
-                (None, None, None, None, None)
+                tracing::warn!(
+                    "LLM {} indisponible pour {} — signal abandonné: {}",
+                    label_signal,
+                    r.ticker,
+                    e
+                );
+                return;
             }
         };
 

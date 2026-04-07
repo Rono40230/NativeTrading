@@ -13,7 +13,7 @@
       :disabled="analyseEnCours"
       @click="$emit('analyser')"
     >
-      {{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyser (IA)' }}
+      {{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyse SMC par l\'IA' }}
     </button>
   </div>
 </template>

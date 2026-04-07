@@ -3,7 +3,7 @@ use common::TradingError;
 use super::types::tf_libelle;
 use super::types::{ReponseOllama, OLLAMA_URL};
 
-pub const MODELE_VISION: &str = "llama3.2-vision:11b";
+pub const MODELE_VISION: &str = "qwen2.5vl:7b";
 
 /// Semaphore Ollama : max 2 appels concurrents.
 static OLLAMA_SEMAPHORE: std::sync::LazyLock<tokio::sync::Semaphore> =
@@ -67,7 +67,7 @@ pub async fn analyser_images(
 pub async fn appeler_ollama(url: &str, corps: &serde_json::Value) -> Result<String, TradingError> {
     let _permit = OLLAMA_SEMAPHORE.acquire().await.ok();
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
+        .timeout(std::time::Duration::from_secs(300))
         .build()
         .unwrap_or_else(|_| reqwest::Client::new());
     let reponse = client

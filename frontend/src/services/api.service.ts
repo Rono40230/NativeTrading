@@ -140,9 +140,15 @@ export const apiService = {
   },
 
   async chatIA(
-    messages: { role: string; contenu: string }[]
+    messages: { role: string; contenu: string }[],
+    forcerOllama = false
   ): Promise<ReponseChatIA> {
-    const res = await http.post('/api/ia/chat', { messages }, { timeout: 120000 })
+    const res = await http.post('/api/ia/chat', { messages, forcer_ollama: forcerOllama }, { timeout: 300000 })
+    return res.data
+  },
+
+  async genererDiagramme(sujet: string): Promise<ReponseChatIA> {
+    const res = await http.post('/api/ia/diagram', { sujet }, { timeout: 300000 })
     return res.data
   },
 

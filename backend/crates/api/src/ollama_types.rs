@@ -39,12 +39,19 @@ pub struct MessageChat {
 #[derive(Deserialize)]
 pub struct RequeteChat {
     pub messages: Vec<MessageChat>,
+    pub forcer_ollama: Option<bool>,
 }
 
 #[derive(Serialize)]
 pub struct ReponseChat {
     pub reponse: String,
     pub modele: String,
+}
+
+// ─── /api/ia/diagram ─────────────────────────────────────────────────────────
+#[derive(Deserialize)]
+pub struct RequeteDiagram {
+    pub sujet: String,
 }
 
 // ─── /api/ia/status ───────────────────────────────────────────────────────────

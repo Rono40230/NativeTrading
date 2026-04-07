@@ -1,5 +1,7 @@
 mod contexte;
+pub mod diagram_templates;
 mod prompts;
+mod prompts_vision;
 pub mod rockets_analyse;
 pub mod rockets_filtre;
 pub mod smc_analyse;
@@ -14,16 +16,18 @@ pub use contexte::formater_contexte_backtest;
 pub use contexte::formater_contexte_historique;
 use prompts::SYSTEM_PROMPT;
 pub use prompts::{
-    PROMPT_SIGNAL_SMC, PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF, SYSTEM_PROMPT_COACH,
+    PROMPT_FILTRE_ROCKET, PROMPT_SIGNAL_SMC, SYSTEM_PROMPT_COACH, SYSTEM_PROMPT_COACH_DIAGRAM,
+    SYSTEM_PROMPT_COACH_OLLAMA,
 };
+pub use prompts_vision::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF};
 use types::{MessageOllama, ReponseOllama, RequeteOllama, MODELE_DEFAUT, OLLAMA_URL};
 
 pub use smc_confirm::enrichir_signal_avec_ollama;
 pub use types::tf_libelle;
 pub use vision::{analyser_images, appeler_ollama, MODELE_VISION};
 
-pub const MODELE_COACH: &str = "deepseek-r1-14b";
-
+pub const MODELE_COACH: &str = "qwen2.5vl:7b";
+pub const MODELE_COACH_DIAGRAM: &str = "qwen2.5-coder:14b";
 /// Envoie un prompt à Ollama et retourne la réponse textuelle.
 pub async fn interroger(prompt: &str) -> Result<String, TradingError> {
     interroger_avec_systeme(prompt, SYSTEM_PROMPT).await

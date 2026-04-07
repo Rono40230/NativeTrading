@@ -1,146 +1,156 @@
 <template>
-  <div class="flex flex-col gap-4 h-full min-h-0">
-    <!-- Zone drag & drop -->
-    <div
-      class="flex-shrink-0 rounded-xl border-2 border-dashed transition-colors cursor-pointer relative"
-      :class="[
-        dragActif
-          ? 'border-blue-400 bg-blue-500/8'
-          : images.length > 0
-            ? 'border-emerald-500/40 bg-emerald-900/5'
-            : 'border-white/20 hover:border-white/40',
-        images.length === 0 ? 'min-h-[220px]' : ''
-      ]"
-      @dragover.prevent="setDragActif(true)"
-      @dragleave.prevent="setDragActif(false)"
-      @drop.prevent="onDrop"
-      @click="fileInputEl?.click()"
-    >
-      <input ref="fileInputEl" type="file" accept="image/*" multiple class="hidden" @change="onInputFile" />
+  <div class="grid grid-cols-2 gap-5 h-full min-h-0">
 
-      <div v-if="images.length === 0" class="flex flex-col items-center justify-center gap-2 py-10 pointer-events-none">
-        <span class="text-3xl">📊</span>
-        <p class="text-sm text-gray-400">Glissez vos screenshots de charts ici</p>
-        <p class="text-xs text-gray-600">Plusieurs images acceptées — analyse top-down multi-TF</p>
-      </div>
+    <!-- ── Colonne 1 : Importation ── -->
+    <div class="flex flex-col gap-3 min-h-0">
 
-      <div v-else class="p-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" @click.stop>
-        <div
-          v-for="(img, idx) in images"
-          :key="idx"
-          class="relative rounded-lg overflow-hidden border border-white/10 bg-black/20"
-        >
-          <img :src="img.preview" :alt="`Chart ${idx + 1}`" class="w-full h-56 object-cover" />
-          <div class="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1 flex items-center justify-between gap-1">
-            <select
-              :value="img.timeframe"
-              class="flex-1 bg-white text-black text-xs font-semibold border-0 outline-none cursor-pointer rounded"
-              @change="mettreAJourTF(idx, ($event.target as HTMLSelectElement).value)"
-              @click.stop
-            >
-              <option v-for="tf in TIMEFRAMES" :key="tf" :value="tf" class="bg-white text-black">{{ tf }}</option>
-            </select>
+      <!-- Zone drag & drop — image unique (flex-1 = prend tout l'espace dispo) -->
+      <div
+        class="flex-1 min-h-0 rounded-xl border-2 border-dashed transition-colors relative overflow-hidden"
+        :class="dragActif ? 'border-blue-400 bg-blue-500/8' : images.length > 0 ? 'border-emerald-500/40 bg-emerald-900/5 cursor-default' : 'border-white/20 hover:border-white/40 cursor-pointer'"
+        @dragover.prevent="setDragActif(true)"
+        @dragleave.prevent="setDragActif(false)"
+        @drop.prevent="onDrop"
+        @click="images.length === 0 && fileInputEl?.click()"
+      >
+        <input ref="fileInputEl" type="file" accept="image/*" class="hidden" @change="onInputFile" />
+
+        <!-- État vide -->
+        <div v-if="images.length === 0" class="flex flex-col items-center justify-center gap-3 h-full pointer-events-none">
+          <span class="text-5xl">📊</span>
+          <p class="text-sm text-gray-400">Glissez votre screenshot ici</p>
+          <p class="text-xs text-gray-600">Un seul graphique — cliquez ou déposez</p>
+        </div>
+
+        <!-- Image chargée -->
+        <div v-else class="h-full flex flex-col" @click.stop>
+          <img :src="images[0].preview" alt="Chart importé" class="flex-1 w-full object-contain min-h-0 bg-black" />
+          <div class="flex-shrink-0 bg-black/90 px-3 py-2 flex items-center justify-between gap-2 border-t border-white/10">
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs text-gray-500">TF :</span>
+                <select
+                  :value="images[0].timeframe"
+                  class="bg-white text-black text-xs font-semibold border-0 outline-none cursor-pointer rounded px-2 py-1"
+                  @change="mettreAJourTF(0, ($event.target as HTMLSelectElement).value)"
+                  @click.stop
+                >
+                  <option v-for="tf in TIMEFRAMES" :key="tf" :value="tf" class="bg-white text-black">{{ tf }}</option>
+                </select>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-xs text-gray-500">Asset :</span>
+                <select v-model="asset" class="bg-white text-black text-xs font-semibold border-0 outline-none cursor-pointer rounded px-2 py-1" @click.stop>
+                  <option v-for="a in ASSETS" :key="a" :value="a" class="bg-white text-black">{{ a }}</option>
+                </select>
+              </div>
+            </div>
             <button
-              class="text-gray-400 hover:text-red-400 text-xs leading-none ml-1"
-              @click.stop="supprimerImage(idx)"
-            >✕</button>
+              class="text-xs text-red-400 hover:text-red-300 px-3 py-1 rounded border border-red-500/30 hover:bg-red-500/10 transition-colors"
+              @click.stop="supprimerImage(0)"
+            >✕ Retirer</button>
           </div>
         </div>
-        <!-- Tuile Ajouter -->
-        <div
-          class="flex flex-col items-center justify-center gap-1 h-56 rounded-lg border border-dashed border-white/20 hover:border-white/40 transition-colors text-gray-600 hover:text-gray-400 cursor-pointer"
-          @click.stop="fileInputEl?.click()"
+      </div>
+
+      <!-- Notes contextuelles -->
+      <textarea
+        v-model="notes"
+        rows="2"
+        placeholder="Notes contextuelles — contexte macro, niveaux clés, biais HTF…"
+        class="flex-shrink-0 w-full bg-gray-800 border border-gray-600 text-white text-sm rounded-lg px-3 py-2 resize-none placeholder:text-gray-600 focus:outline-none focus:border-blue-500"
+      />
+
+      <!-- Bouton analyse -->
+      <div class="flex-shrink-0">
+        <button
+          class="w-full py-2.5 px-4 rounded-lg text-sm font-semibold transition-all"
+          :class="analyseEnCours || analyseLocalEnCours || images.length === 0 ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:brightness-110 text-white'"
+          :disabled="analyseEnCours || analyseLocalEnCours || images.length === 0"
+          @click="analyserImage(asset)"
         >
-          <span class="text-2xl leading-none">＋</span>
-          <span class="text-xs">Ajouter</span>
+          {{ analyseEnCours || analyseLocalEnCours ? '⏳ Analyse en cours…' : anthropicActifChart ? '🔍 Analyser avec Claude' : '🔍 Analyser avec qwen2.5vl:7b' }}
+        </button>
+      </div>
+
+    </div>
+
+    <!-- ── Colonne 2 : Résultats ── -->
+    <div class="flex flex-col h-full min-h-0 rounded-xl border border-white/8 bg-white/5">
+
+      <!-- Placeholder vide -->
+      <div
+        v-if="activeSections.length === 0 && !analyseEnCours && !analyseLocalEnCours"
+        class="flex flex-col items-center justify-center h-full text-gray-700 select-none"
+      >
+        <span class="text-5xl mb-4">🧠</span>
+        <p class="text-sm">L’analyse apparaîtra ici</p>
+        <p class="text-xs mt-1">Importez un graphique puis lancez l’analyse</p>
+      </div>
+
+      <!-- Loader -->
+      <div
+        v-else-if="(analyseEnCours || analyseLocalEnCours) && activeSections.length === 0"
+        class="flex flex-col items-center justify-center h-full gap-4 text-gray-500"
+      >
+        <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <p class="text-sm">Analyse en cours…</p>
+      </div>
+
+      <!-- Résultats -->
+      <template v-else>
+
+        <!-- Badge modèle + asset -->
+        <div class="flex-shrink-0 flex items-center gap-2 px-4 pt-4 pb-3 border-b border-white/8">
+          <span
+            class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border"
+            :class="anthropicActifChart ? 'bg-purple-500/15 text-purple-300 border-purple-500/30' : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'"
+          >
+            {{ anthropicActifChart ? '🧠 Claude Sonnet' : '🤖 qwen2.5vl:7b' }}
+          </span>
+          <span class="text-xs font-bold text-white/70 tracking-wide">{{ asset }}</span>
         </div>
-      </div>
+
+        <!-- Sections scrollables -->
+        <div class="flex-1 overflow-y-auto min-h-0 p-3 space-y-2.5">
+          <template v-for="(section, si) in activeSections" :key="si">
+
+            <!-- Section texte structurée -->
+            <div v-if="section.type === 'section'" class="section-card" :class="section.colorClass">
+              <div v-if="section.title" class="section-header" :class="section.headerClass">
+                <span class="section-icon">{{ section.icon }}</span>
+                <span class="section-title">{{ section.title }}</span>
+              </div>
+              <!-- eslint-disable-next-line vue/no-v-html -->
+              <div class="section-body" v-html="section.html" />
+            </div>
+
+            <!-- Tableau -->
+            <div v-else-if="section.type === 'table'" class="table-card">
+              <!-- eslint-disable-next-line vue/no-v-html -->
+              <div v-html="section.html" />
+            </div>
+
+            <!-- Diagramme -->
+            <div v-else-if="section.type === 'diagram'" class="glass-card overflow-hidden">
+              <div class="px-4 py-2 border-b border-white/10">
+                <span class="text-xs font-semibold text-blue-400">📐 Diagramme</span>
+              </div>
+              <iframe :srcdoc="buildSrcdoc(section.html)" sandbox="allow-scripts" class="w-full border-0 block" style="height:400px;background:#0d1117" title="Diagramme" />
+            </div>
+
+          </template>
+        </div>
+      </template>
+
     </div>
 
-    <!-- Notes contextuelles -->
-    <textarea
-      v-model="notes"
-      rows="2"
-      placeholder="Notes contextuelles optionnelles — contexte macro, niveaux importants…"
-      class="flex-shrink-0 w-full bg-gray-800 border border-gray-600 text-white text-sm rounded-lg px-3 py-2 resize-none placeholder:text-gray-600 focus:outline-none focus:border-blue-500"
-    />
-
-    <!-- Asset + Boutons -->
-    <div class="flex-shrink-0 flex gap-3 items-end flex-wrap">
-      <div class="min-w-[100px]">
-        <label class="text-xs text-gray-400 font-medium block mb-1">Asset</label>
-        <select v-model="asset" class="w-full bg-white border border-gray-300 text-black text-sm rounded-lg px-3 py-2">
-          <option v-for="a in ASSETS" :key="a" :value="a">{{ a }}</option>
-        </select>
-      </div>
-      <button
-        class="flex-1 py-2 px-4 rounded-lg text-sm font-semibold transition-all"
-        :class="
-          analyseEnCours || images.length === 0
-            ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-            : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:brightness-110 text-white'
-        "
-        :disabled="analyseEnCours || images.length === 0"
-        @click="analyserImage(asset)"
-      >
-        {{ analyseEnCours ? '⏳ Claude…' : `🔍 Claude (${images.length}img)` }}
-      </button>
-      <button
-        class="py-2 px-4 rounded-lg text-sm font-semibold transition-all border"
-        :class="
-          analyseLocalEnCours || images.length === 0
-            ? 'border-gray-700 text-gray-500 cursor-not-allowed'
-            : 'border-orange-500/50 text-orange-400 hover:bg-orange-500/10'
-        "
-        :disabled="analyseLocalEnCours || images.length === 0"
-        @click="analyserImageLocal(asset)"
-      >
-        {{ analyseLocalEnCours ? '⏳ Local…' : '🤖 Local' }}
-      </button>
-    </div>
-
-    <!-- Résultats -->
-    <div
-      v-if="partsResultat.length > 0 || partsResultatLocal.length > 0"
-      class="flex-1 overflow-y-auto min-h-0 min-w-0"
-      :class="partsResultat.length > 0 && partsResultatLocal.length > 0 ? 'grid grid-cols-2 gap-4 items-start' : 'space-y-4 pr-1'"
-    >
-      <!-- Colonne Claude -->
-      <div v-if="partsResultat.length > 0" class="space-y-4">
-        <div class="text-xs font-semibold text-purple-400 px-1">🧠 Claude Sonnet — {{ modeleUtilise }}</div>
-        <template v-for="(part, idx) in partsResultat" :key="'c'+idx">
-          <div v-if="part.type === 'text' && part.content.trim()" class="glass-card p-5">
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <div class="text-sm text-gray-200 leading-relaxed" v-html="renderMd(part.content)" />
-          </div>
-          <div v-else-if="part.type === 'diagram'" class="glass-card overflow-hidden">
-            <div class="px-4 py-2 border-b border-white/10"><span class="text-xs font-semibold text-blue-400">📐 Diagramme</span></div>
-            <iframe :srcdoc="buildSrcdoc(part.content)" sandbox="allow-scripts" class="w-full border-0 block" style="height:440px;background:#0d1117" title="Diagramme" />
-          </div>
-        </template>
-      </div>
-
-      <!-- Colonne Local -->
-      <div v-if="partsResultatLocal.length > 0" class="space-y-4">
-        <div class="text-xs font-semibold text-orange-400 px-1">🤖 Local — {{ modeleLocalUtilise }}</div>
-        <template v-for="(part, idx) in partsResultatLocal" :key="'l'+idx">
-          <div v-if="part.type === 'text' && part.content.trim()" class="glass-card p-5 border-orange-500/20">
-            <!-- eslint-disable-next-line vue/no-v-html -->
-            <div class="text-sm text-gray-200 leading-relaxed" v-html="renderMd(part.content)" />
-          </div>
-          <div v-else-if="part.type === 'diagram'" class="glass-card overflow-hidden">
-            <div class="px-4 py-2 border-b border-white/10"><span class="text-xs font-semibold text-orange-400">📐 Diagramme</span></div>
-            <iframe :srcdoc="buildSrcdoc(part.content)" sandbox="allow-scripts" class="w-full border-0 block" style="height:440px;background:#0d1117" title="Diagramme" />
-          </div>
-        </template>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useChartImport, renderMd } from '@/composables/useChartImport'
+import { useChartImport, buildSections, anthropicActifChart } from '@/composables/useChartImport'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useAssetsStore } from '@/stores/assets.store'
 
@@ -172,11 +182,16 @@ const {
   onDrop,
   onInputFile,
   analyserImage,
-  analyserImageLocal,
   supprimerImage,
   mettreAJourTF,
   setDragActif,
 } = useChartImport()
+
+const activeParts = computed(() =>
+  partsResultat.value.length > 0 ? partsResultat.value : partsResultatLocal.value
+)
+
+const activeSections = computed(() => buildSections(activeParts.value))
 
 function buildSrcdoc(html: string): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;padding:16px;background:#0d1117;color:#e6edf3;font-family:-apple-system,system-ui,sans-serif;font-size:13px;}</style></head><body>${html}</body></html>`
@@ -185,4 +200,32 @@ function buildSrcdoc(html: string): string {
 
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
+
+.section-card {
+  @apply rounded-xl border overflow-hidden;
+}
+.section-card.blue   { @apply border-blue-500/20 bg-blue-950/25; }
+.section-card.green  { @apply border-emerald-500/20 bg-emerald-950/25; }
+.section-card.red    { @apply border-red-500/20 bg-red-950/20; }
+.section-card.yellow { @apply border-yellow-500/20 bg-yellow-950/20; }
+.section-card.purple { @apply border-purple-500/20 bg-purple-950/25; }
+.section-card.orange { @apply border-orange-500/20 bg-orange-950/20; }
+.section-card.gray   { @apply border-white/10 bg-white/5; }
+
+.section-header {
+  @apply flex items-center gap-2 px-4 py-2 border-b border-white/10;
+}
+.section-header.blue   { @apply bg-blue-900/30; }
+.section-header.green  { @apply bg-emerald-900/30; }
+.section-header.red    { @apply bg-red-900/25; }
+.section-header.yellow { @apply bg-yellow-900/25; }
+.section-header.purple { @apply bg-purple-900/30; }
+.section-header.orange { @apply bg-orange-900/25; }
+.section-header.gray   { @apply bg-white/5; }
+
+.section-icon  { @apply text-base leading-none; }
+.section-title { @apply text-sm font-bold text-white/90 tracking-wide; }
+.section-body  { @apply px-4 py-3 text-sm text-gray-200 leading-6; }
+
+.table-card { @apply rounded-xl border border-white/10 bg-white/5 overflow-hidden px-4 py-3; }
 </style>

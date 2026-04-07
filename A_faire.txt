@@ -32,24 +32,6 @@ Repônd sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Il faut alimenter en données ML :
-- le bloc du dashboard ⚡ SURVEILLANCE DES ÉVÉNEMENTS DE VOLATILITÉ — STRATÉGIE STRADDLE.
-- le bloc Monitoring ML de la page ⚡ Backtest sur une heure précise
-- le bloc Monitoring ML de la page 🧪 Backtest sur un créneau horaire
-
-Comprends tu la logique de la stratégie Straddle ?
-Que manque t il actuellement dans le code pour :
-- repérer les mouvements de volatilité
-- les catégoriser : annonces économiques, ouverture de marché, évenements, etc...
-- entrainer le LLM avec ces résultats
-- calibrer la génération de signaux en fonctions de ces résultats.
-
-Comprends tu ma problèmatique ?
-As tu besoin de précisions ?
-Repond sans coder
-
---------------------------------------------------------------------------------------------------------------------------
-
 Pourquoi la stratégie SMC ne génère aucun signal ?
 
 --------------------------------------------------------------------------------------------------------------------------
@@ -75,6 +57,7 @@ Option 2 = pas de vente partielle = le lot n'est pas parcélisé à la revente p
 - le reste de la position court vers tp3 suivi par le stop suiveur.
 
 Est ce ainsi que sont codées les suivis des positions actuellement pour les 3 stratégie ?
+Peut on choisir option 1 ou 2 pour chaque stratégie ?
 
 Est ce clair ?
 As tu besoin d'éclaircissement ou de précisions ?
@@ -90,19 +73,6 @@ Il faut revoir l'affichage, les calculs, l'apprentissage du LM pour les pages �
   la seule différences est que les calculs se font sur un créneau et non pas sur une heure précise
 
 Vérifier une fois terminer que l'ancienne page n'est pas en doublon
-
---------------------------------------------------------------------------------------------------------------------------
-
-Est on bien certain que les tableaux des signaux respectent la logique des trades une jambe/2 jambes et vente partielle.
-A vérifier dans les signaux de rockets, straddle, smc et l'historique
-
---------------------------------------------------------------------------------------------------------------------------
-
-A quoi va servir ## Priorité 3 — Scoring LLM Signals → DeepSeek API V3.1
-
---------------------------------------------------------------------------------------------------------------------------
-
-Dans les 3 pages "signaux" des 3 stratégies, les tableaux "en cours" et "cloturés" doivent avoir un affichage responsive jusqu'en bas de page.
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -125,5 +95,13 @@ Tableau de référence = capture
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Sur les bases de ce qui a été implémenté pour la stratégie volatilité, comment pouvons nous implémenter le meme système pour les stratégies rockets et SMC ?
+Dans la modale "Analyse SMC par l'IA" ajoute un bouton "Afficher la position"
+Ce bouton doit afficher le signal sur le graphique comme le fait tradingview.
+Est ce clair ?
+As tu besoin de précision comme une capture d'écran de tradingview avec une position affichée ?
+Repond sans coder
 
+Je ne comprends pas bien l'utilité de la page "analyser un setup" dans SMC.
+Explique
+
+revoir l'agencement de l'affichage du coach

@@ -32,8 +32,8 @@
             <th class="px-3 py-3 text-right">TP1</th>
             <th class="px-3 py-3 text-right">TP2</th>
             <th class="px-3 py-3 text-right">TP3</th>
-            <th class="px-3 py-3 text-right">Prix actuel</th>
-            <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_verdict')">Sortie <span>{{ icone('prix_verdict') }}</span></th>
+            <th v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right">Prix actuel</th>
+            <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_verdict')">Sortie <span>{{ icone('prix_verdict') }}</span></th>
             <th class="px-3 py-3 text-center">IA</th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Résultat <span>{{ icone('verdict') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Date <span>{{ icone('cree_le') }}</span></th>
@@ -54,8 +54,8 @@
             <td class="px-3 py-3 text-right font-mono text-emerald-400">{{ formatNombre(s.take_profit[0]) }}</td>
             <td class="px-3 py-3 text-right font-mono text-emerald-300">{{ s.take_profit[1] ? formatNombre(s.take_profit[1]) : '—' }}</td>
             <td class="px-3 py-3 text-right font-mono text-emerald-200">{{ s.take_profit[2] ? formatNombre(s.take_profit[2]) : '—' }}</td>
-            <td class="px-3 py-3 text-right font-mono" :class="classePrix(s)">{{ prixStore.getPrix(s.asset) !== null ? formatNombre(prixStore.getPrix(s.asset)!) : '—' }}</td>
-            <td class="px-3 py-3 text-right font-mono text-white">{{ s.prix_verdict ? formatNombre(s.prix_verdict) : '—' }}</td>
+            <td v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right font-mono" :class="classePrix(s)">{{ prixStore.getPrix(s.asset) !== null ? formatNombre(prixStore.getPrix(s.asset)!) : '—' }}</td>
+            <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right font-mono text-white">{{ s.prix_verdict ? formatNombre(s.prix_verdict) : '—' }}</td>
             <td class="px-3 py-3 text-center">
               <span v-if="s.llm_conviction !== null" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help" :class="classeConviction(s.llm_conviction)" :title="s.llm_raison ?? ''">{{ s.llm_conviction }}</span>
               <span v-else class="text-gray-700 text-xs">—</span>

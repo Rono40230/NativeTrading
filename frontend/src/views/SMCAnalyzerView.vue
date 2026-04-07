@@ -106,7 +106,7 @@
     <div v-if="!ollamaOk" class="glass-card p-5 border-yellow-500/30 bg-yellow-900/10">
       <h3 class="text-yellow-400 font-semibold mb-2">⚠️ Ollama n'est pas démarré</h3>
       <pre class="text-xs text-gray-300 bg-black/30 p-3 rounded">curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen2.5:14b
+ollama pull qwen2.5vl:32b
 ollama serve</pre>
     </div>
 
@@ -156,7 +156,7 @@ const assetsIds = computed(() =>
 )
 const chargement = ref(false)
 const ollamaOk = ref(false)
-const modeleActif = ref('qwen2.5:14b')
+const modeleActif = ref('qwen2.5vl:32b')
 const analyse = ref('')
 const modalVisible = ref(false)
 

@@ -67,6 +67,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         )
         .route("/api/ia/chat", web::post().to(crate::ollama_handlers::chat))
         .route(
+            "/api/ia/diagram",
+            web::post().to(crate::ollama_handlers::generer_diagram),
+        )
+        .route(
             "/api/ia/chart",
             web::post().to(crate::ollama_handlers::analyser_chart),
         )
@@ -89,18 +93,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/ia/signal/straddle",
             web::post().to(crate::straddle_signal_handler::generer_signal_straddle),
-        )
-        .route(
-            "/api/rockets/monitoring-ml",
-            web::get().to(crate::rockets_ml_handlers::monitoring_ml),
-        )
-        .route(
-            "/api/rockets/calibration",
-            web::get().to(crate::rockets_ml_handlers::get_calibration),
-        )
-        .route(
-            "/api/rockets/feedback",
-            web::get().to(crate::rockets_ml_handlers::get_feedback),
         )
         .route(
             "/api/straddle/analyser",
@@ -255,36 +247,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/ml/history",
             web::get().to(crate::ml_handlers::historique_ml),
         )
-        .route(
-            "/api/rockets/signal",
-            web::post().to(crate::rockets_handlers::sauvegarder_signal),
-        )
-        .route(
-            "/api/rockets/scan",
-            web::get().to(crate::rockets_handlers::get_scan),
-        )
-        .route(
-            "/api/rockets/scan/debug",
-            web::get().to(crate::rockets_handlers::scan_momentum_debug),
-        )
-        .route(
-            "/api/rockets/historique",
-            web::get().to(crate::rockets_handlers::get_historique),
-        )
-        .route(
-            "/api/rockets/sync",
-            web::post().to(crate::rockets_suivi::sync_verdicts),
-        )
-        .service(
-            web::resource("/api/rockets/config")
-                .route(web::get().to(crate::rockets_handlers::get_config))
-                .route(web::put().to(crate::rockets_handlers::put_config)),
-        )
-        .service(
-            web::resource("/api/rockets/analyse-llm")
-                .route(web::get().to(crate::rockets_analyse_handler::get_derniere_analyse))
-                .route(web::post().to(crate::rockets_analyse_handler::lancer_analyse)),
-        )
         .service(
             web::resource("/api/smc/analyse-llm")
                 .route(web::get().to(crate::smc_analyse_handler::get_derniere_analyse))
@@ -307,4 +269,5 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
                 .route(web::put().to(crate::prompts_handler::modifier_prompt))
                 .route(web::delete().to(crate::prompts_handler::restaurer_prompt)),
         );
+    crate::routes_rockets::configurer(cfg);
 }
