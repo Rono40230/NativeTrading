@@ -42,10 +42,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiService } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
+import { useStrategyParamsStore } from '@/stores/strategyParams.store'
 
 const alerteStore = useAlerteStore()
+const strategyStore = useStrategyParamsStore()
 const emit = defineEmits(['close', 'saved'])
 
 const fields = [
@@ -67,7 +68,7 @@ async function sauvegarder() {
   msg.value = { ok: true, text: 'Envoi en cours…' }
   saving.value = true
   try {
-    await apiService.putStraddleParams(params.value)
+    await strategyStore.saveStraddle(params.value)
     msg.value = { ok: true, text: 'Sauvegardé ✓' }
     alerteStore.afficherSucces('Paramètres Straddle sauvegardés')
     setTimeout(() => emit('saved'), 800)
@@ -81,7 +82,8 @@ async function sauvegarder() {
 
 onMounted(async () => {
   try {
-    params.value = await apiService.getStraddleParams()
+    await strategyStore.charger()
+    params.value = { ...strategyStore.straddleRaw }
   } finally {
     loading.value = false
   }

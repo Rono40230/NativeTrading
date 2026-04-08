@@ -102,6 +102,11 @@ export interface Signal {
   // Jambe SHORT — uniquement renseigné pour les signaux Straddle (direction === 'Both')
   sl_short: number | null
   take_profit_short: number[] | null  // [tp1_short, tp2_short, tp3_short]
+  // État courant des deux jambes Straddle (mis à jour par le job toutes les 5 min)
+  sl_long_effectif: number | null     // SL courant jambe LONG (null = SL d'origine)
+  sl_short_effectif: number | null    // SL courant jambe SHORT (null = sl_short d'origine)
+  tps_long_atteints: string[] | null  // ex. ['tp1'] ou ['tp1','tp2']
+  tps_short_atteints: string[] | null
 }
 
 export interface StatutSignalEngine {

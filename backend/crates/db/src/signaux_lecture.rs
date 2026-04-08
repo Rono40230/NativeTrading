@@ -14,7 +14,9 @@ impl Database {
                     stop_loss, take_profit, strategie, statut,
                     verdict, prix_verdict, cree_le, ferme_le,
                     llm_conviction, llm_raison,
-                    sl_short, take_profit_short
+                    sl_short, take_profit_short,
+                    sl_long_effectif, sl_short_effectif,
+                    tps_long_atteints, tps_short_atteints
              FROM signaux ORDER BY cree_le DESC LIMIT ?",
         )
         .bind(limit)
@@ -34,24 +36,32 @@ impl Database {
                     .unwrap_or_default();
 
                 serde_json::json!({
-                    "id":                  row.get::<String, _>("id"),
-                    "asset":               row.get::<String, _>("asset"),
-                    "timeframe":           row.get::<String, _>("timeframe"),
-                    "direction":           row.get::<String, _>("direction"),
-                    "score":               row.get::<f64, _>("score"),
-                    "prix_entree":         row.get::<f64, _>("prix_entree"),
-                    "stop_loss":           row.get::<f64, _>("stop_loss"),
-                    "take_profit":         tp_arr,
-                    "strategie":           row.get::<String, _>("strategie"),
-                    "statut":              row.get::<String, _>("statut"),
-                    "verdict":             row.get::<Option<String>, _>("verdict"),
-                    "prix_verdict":        row.get::<Option<f64>, _>("prix_verdict"),
-                    "llm_conviction":      row.get::<Option<i64>, _>("llm_conviction"),
-                    "llm_raison":          row.get::<Option<String>, _>("llm_raison"),
-                    "cree_le":             row.get::<i64, _>("cree_le"),
-                    "ferme_le":            row.get::<Option<i64>, _>("ferme_le"),
-                    "sl_short":            row.get::<Option<f64>, _>("sl_short"),
-                    "take_profit_short":   tp_short_arr,
+                    "id":                    row.get::<String, _>("id"),
+                    "asset":                 row.get::<String, _>("asset"),
+                    "timeframe":             row.get::<String, _>("timeframe"),
+                    "direction":             row.get::<String, _>("direction"),
+                    "score":                 row.get::<f64, _>("score"),
+                    "prix_entree":           row.get::<f64, _>("prix_entree"),
+                    "stop_loss":             row.get::<f64, _>("stop_loss"),
+                    "take_profit":           tp_arr,
+                    "strategie":             row.get::<String, _>("strategie"),
+                    "statut":                row.get::<String, _>("statut"),
+                    "verdict":               row.get::<Option<String>, _>("verdict"),
+                    "prix_verdict":          row.get::<Option<f64>, _>("prix_verdict"),
+                    "llm_conviction":        row.get::<Option<i64>, _>("llm_conviction"),
+                    "llm_raison":            row.get::<Option<String>, _>("llm_raison"),
+                    "cree_le":               row.get::<i64, _>("cree_le"),
+                    "ferme_le":              row.get::<Option<i64>, _>("ferme_le"),
+                    "sl_short":              row.get::<Option<f64>, _>("sl_short"),
+                    "take_profit_short":     tp_short_arr,
+                    "sl_long_effectif":      row.get::<Option<f64>, _>("sl_long_effectif"),
+                    "sl_short_effectif":     row.get::<Option<f64>, _>("sl_short_effectif"),
+                    "tps_long_atteints":     serde_json::from_str::<Vec<String>>(
+                        &row.get::<Option<String>, _>("tps_long_atteints").unwrap_or_else(|| "[]".into())
+                    ).unwrap_or_default(),
+                    "tps_short_atteints":    serde_json::from_str::<Vec<String>>(
+                        &row.get::<Option<String>, _>("tps_short_atteints").unwrap_or_else(|| "[]".into())
+                    ).unwrap_or_default(),
                 })
             })
             .collect();

@@ -10,6 +10,9 @@ const CLES_AUTORISEES: &[&str] = &[
     "ibgateway_port",
     "ibgateway_client_id",
     "anthropic_api_key",
+    "telegram_bot_token",
+    "telegram_chat_id",
+    "twelvedata_api_key",
 ];
 
 #[derive(Deserialize)]

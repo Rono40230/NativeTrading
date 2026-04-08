@@ -1,18 +1,47 @@
 //! Envoi de notifications Telegram sur chaque nouveau signal validé.
 //!
-//! Lit `TELEGRAM_BOT_TOKEN` et `TELEGRAM_CHAT_ID` depuis les variables
-//! d'environnement (chargées via `telegram.env` au démarrage).
+//! Lit `telegram_bot_token` et `telegram_chat_id` depuis la DB (Settings UI)
+//! avec repli sur les variables d'environnement `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`.
 //!
-//! Appelé en tâche Tokio detachée depuis `signal_filtre.rs` → aucun impact
+//! Appelé en tâche Tokio detachée depuis les handlers de signaux — aucun impact
 //! sur la latence du signal engine si Telegram est lent ou indisponible.
 use common::Signal;
+use db::Database;
+use std::sync::Arc;
+
+/// Lit les tokens Telegram depuis la DB (via Database wrapper) avec repli env.
+pub async fn lire_tokens_telegram(db: &Database) -> (String, String) {
+    lire_tokens_pool(db.pool()).await
+}
+
+/// Lit les tokens Telegram depuis un SqlitePool brut (pour les workers sans Database wrapper).
+pub async fn lire_tokens_pool(pool: &sqlx::SqlitePool) -> (String, String) {
+    let token = sqlx::query_scalar::<_, String>(
+        "SELECT valeur FROM configuration WHERE cle = 'telegram_bot_token'",
+    )
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+    .filter(|s| !s.is_empty())
+    .unwrap_or_else(|| std::env::var("TELEGRAM_BOT_TOKEN").unwrap_or_default());
+
+    let chat_id = sqlx::query_scalar::<_, String>(
+        "SELECT valeur FROM configuration WHERE cle = 'telegram_chat_id'",
+    )
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+    .filter(|s| !s.is_empty())
+    .unwrap_or_else(|| std::env::var("TELEGRAM_CHAT_ID").unwrap_or_default());
+
+    (token, chat_id)
+}
 
 /// Envoie un message Telegram pour le signal donné.
 /// Spawn une tâche détachée — ne bloque jamais le caller.
-pub fn notifier_telegram(signal: Signal) {
-    let token = std::env::var("TELEGRAM_BOT_TOKEN").unwrap_or_default();
-    let chat_id = std::env::var("TELEGRAM_CHAT_ID").unwrap_or_default();
-
+pub fn notifier_telegram(signal: Signal, token: String, chat_id: String) {
     if token.is_empty() || chat_id.is_empty() {
         return; // Telegram non configuré — silencieux
     }

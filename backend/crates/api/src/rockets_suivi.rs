@@ -1,6 +1,7 @@
 use actix_web::{web, HttpResponse, Responder};
 use db::rockets;
 use db::rockets_feedback;
+use db::rockets_config;
 use std::time::Duration;
 
 use crate::state::AppState;
@@ -160,6 +161,7 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
         }
 
         // 3. Signaux OUVERTS : TP pyramidal + trailing TP3 + SL
+        let config = rockets_config::lire_config(&pool).await;
         let signaux = match rockets::lister_ouverts(&pool).await {
             Ok(s) => s,
             Err(e) => {
@@ -182,11 +184,16 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
 
             match calculer_verdict_rocket(s, prix, peak, peak_precedent) {
                 Some(v @ "TP1") | Some(v @ "TP2") => {
-                    // Vente partielle ⅓ — position reste ouverte
-                    if let Err(e) = rockets::enregistrer_tp_partiel(&pool, s.id, v, prix).await {
-                        tracing::warn!("Rocket {} tp partiel: {}", s.ticker, e);
+                    if config.vente_partielle {
+                        // Option 1 : vente partielle ⅓ — position reste ouverte
+                        if let Err(e) = rockets::enregistrer_tp_partiel(&pool, s.id, v, prix).await {
+                            tracing::warn!("Rocket {} tp partiel: {}", s.ticker, e);
+                        } else {
+                            tracing::info!("Rocket {} → {} partiel @ {:.5}", s.ticker, v, prix);
+                        }
                     } else {
-                        tracing::info!("Rocket {} → {} partiel @ {:.5}", s.ticker, v, prix);
+                        // Option 2 : pas de vente — SL progresse via peak, on logue seulement
+                        tracing::info!("Rocket {} → {} (SL progresse, Option 2) @ {:.5}", s.ticker, v, prix);
                     }
                 }
                 Some(v) => {

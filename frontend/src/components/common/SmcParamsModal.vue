@@ -40,11 +40,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiService } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
+import { useStrategyParamsStore } from '@/stores/strategyParams.store'
 
 const emit = defineEmits(['close', 'saved'])
 const alerteStore = useAlerteStore()
+const strategyStore = useStrategyParamsStore()
 
 const fields = [
   { key: 'atr_periode', label: 'Période ATR',       step: 1,   min: 5   },
@@ -62,7 +63,7 @@ const saving = ref(false)
 async function sauvegarder() {
   saving.value = true
   try {
-    await apiService.putSmcParams(params.value)
+    await strategyStore.saveSmc(params.value)
     alerteStore.afficherSucces('Paramètres SMC sauvegardés')
     setTimeout(() => emit('saved'), 800)
   } catch (err: any) {
@@ -74,7 +75,8 @@ async function sauvegarder() {
 
 onMounted(async () => {
   try {
-    params.value = await apiService.getSmcParams()
+    await strategyStore.charger()
+    params.value = { ...strategyStore.smcRaw }
   } finally {
     loading.value = false
   }

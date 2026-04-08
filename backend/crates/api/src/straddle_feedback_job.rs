@@ -2,12 +2,13 @@
 //!
 //! Tourne toutes les 5 minutes. Pour chaque signal Straddle sans verdict :
 //!   1. Charge les bougies depuis la création du signal
-//!   2. Vérifie bougie par bougie si un TP ou SL a été touché
-//!   3. Met à jour `signaux` (verdict) et `straddle_feedback` (pnl_r, gagnant, ...)
-//!   4. Expire automatiquement les signaux Straddle ouvert depuis plus de 24h
+//!   2. Rejoue toutes les bougies via machine à états par jambe (LONG + SHORT indépendants)
+//!   3. Sauvegarde l'état intermédiaire (sl_*_effectif, tps_*_atteints) pour le frontend
+//!   4. Clôture uniquement sur SL final ou TP3 de l'une ou l'autre jambe
+//!   5. Expire automatiquement les signaux ouverts depuis plus de 24h
 use chrono::Utc;
 use common::{Asset, Timeframe};
-use db::Database;
+use db::{strategies_params, Database};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -15,19 +16,27 @@ use tokio::time::sleep;
 /// Horizon d'expiration d'un signal Straddle sans verdict (en secondes).
 const HORIZON_EXPIRE_SEC: i64 = 24 * 3600;
 
-// ── Signal Straddle ouvert (requête dédiée avec les deux jambes) ──────────────
+// ── Signal Straddle ouvert ────────────────────────────────────────────────────
 
 struct SignalStraddleOuvert {
     id: String,
     asset: String,
     timeframe: String,
     prix_entree: f64,
-    score: f64,         // score 0-100 (stocké × 10 dans la boucle)
-    stop_loss: f64,     // SL jambe long (< prix_entree)
+    score: f64,
+    stop_loss: f64,     // SL jambe LONG d'origine (< prix_entree)
     tp_long: Vec<f64>,  // [tp1, tp2, tp3] long (> prix_entree)
-    sl_short: f64,      // SL jambe short (> prix_entree)
+    sl_short: f64,      // SL jambe SHORT d'origine (> prix_entree)
     tp_short: Vec<f64>, // [tp1, tp2, tp3] short (< prix_entree)
     cree_le: i64,
+}
+
+/// Résultat d'une machine à états pour une jambe.
+struct EtatJambe<'a> {
+    sl_courant: f64,
+    tps_done: Vec<&'a str>,
+    verdict: Option<(&'a str, f64)>,
+    etat_change: bool,
 }
 
 // ── Point d'entrée public ─────────────────────────────────────────────────────
@@ -35,7 +44,6 @@ struct SignalStraddleOuvert {
 /// Démarre le job de réconciliation en background — ne bloque pas.
 pub fn demarrer_job_feedback(db: Arc<Database>) {
     tokio::spawn(async move {
-        // Délai initial pour laisser la boucle Straddle démarrer d'abord.
         sleep(Duration::from_secs(120)).await;
         loop {
             reconcilier_signaux_ouverts(&db).await;
@@ -48,38 +56,29 @@ pub fn demarrer_job_feedback(db: Arc<Database>) {
 // ── Réconciliation ────────────────────────────────────────────────────────────
 
 async fn reconcilier_signaux_ouverts(db: &Arc<Database>) {
+    let params = strategies_params::lire_straddle_params(db.pool()).await;
     let signaux = match charger_signaux_straddle_ouverts(db).await {
         Ok(s) => s,
         Err(e) => {
-            tracing::warn!("Job feedback: chargement signaux Straddle: {}", e);
+            tracing::warn!("Job feedback Straddle: chargement signaux: {}", e);
             return;
         }
     };
-
     if signaux.is_empty() {
         return;
     }
-
-    tracing::debug!(
-        "Job feedback: {} signaux Straddle ouverts à vérifier",
-        signaux.len()
-    );
-
+    tracing::debug!("Job feedback Straddle: {} signaux ouverts", signaux.len());
     for s in &signaux {
-        traiter_signal(db, s).await;
+        traiter_signal(db, s, params.vente_partielle).await;
     }
 }
 
-async fn traiter_signal(db: &Arc<Database>, s: &SignalStraddleOuvert) {
-    let now = Utc::now().timestamp();
-
-    // Expiration automatique
-    if now - s.cree_le > HORIZON_EXPIRE_SEC {
+async fn traiter_signal(db: &Arc<Database>, s: &SignalStraddleOuvert, vente_partielle: bool) {
+    if Utc::now().timestamp() - s.cree_le > HORIZON_EXPIRE_SEC {
         cloturer(db, s, "expire", s.prix_entree).await;
         return;
     }
 
-    // Déduction de l'asset et timeframe
     let asset = match Asset::try_from(s.asset.as_str()) {
         Ok(a) => a,
         Err(_) => return,
@@ -89,71 +88,141 @@ async fn traiter_signal(db: &Arc<Database>, s: &SignalStraddleOuvert) {
         Err(_) => return,
     };
 
-    // Bougies depuis la création du signal (au max 1 jour)
     let bougies = match db.obtenir_bougies_depuis_jours(&asset, &tf, 1).await {
         Ok(b) => b,
         Err(e) => {
-            tracing::debug!("Job feedback bougies {}/{}: {}", s.asset, s.timeframe, e);
+            tracing::debug!("Job Straddle bougies {}/{}: {}", s.asset, s.timeframe, e);
             return;
         }
     };
 
-    // Ne garder que les bougies postérieures à la création du signal
     let bougies_post: Vec<_> = bougies
         .iter()
         .filter(|b| b.timestamp.timestamp() >= s.cree_le)
         .collect();
 
-    if bougies_post.is_empty() {
+    if bougies_post.is_empty() || (s.tp_long.is_empty() && s.tp_short.is_empty()) {
         return;
     }
 
-    // Niveaux à surveiller (TP par ordre croissant pour jambe long)
-    let tp_long_labels = ["tp1", "tp2", "tp3"];
-    let tp_short_labels = ["tp1", "tp2", "tp3"];
+    // Machine à états LONG
+    let long = if !s.tp_long.is_empty() {
+        jouer_machine_etats(&bougies_post, s.stop_loss, s.prix_entree, &s.tp_long, true, vente_partielle, &s.id, "LONG")
+    } else {
+        None
+    };
 
-    // Parcours chronologique des bougies
-    let mut verdict_trouve: Option<(&str, f64)> = None;
+    // Machine à états SHORT
+    let short = if !s.tp_short.is_empty() {
+        jouer_machine_etats(&bougies_post, s.sl_short, s.prix_entree, &s.tp_short, false, vente_partielle, &s.id, "SHORT")
+    } else {
+        None
+    };
 
-    'boucle: for bougie in &bougies_post {
-        // SL long touché
-        if !s.tp_long.is_empty() && bougie.low <= s.stop_loss {
-            verdict_trouve = Some(("sl", s.stop_loss));
-            break 'boucle;
-        }
-        // SL short touché
-        if !s.tp_short.is_empty() && bougie.high >= s.sl_short {
-            verdict_trouve = Some(("sl", s.sl_short));
-            break 'boucle;
-        }
-        // TP long du plus élevé au moins élevé (TP3 > TP2 > TP1)
-        for (i, &tp) in s.tp_long.iter().enumerate().rev() {
-            if bougie.high >= tp {
-                verdict_trouve = Some((tp_long_labels[i], tp));
-                break 'boucle;
-            }
-        }
-        // TP short du plus bas au plus haut (TP3 < TP2 < TP1)
-        for (i, &tp) in s.tp_short.iter().enumerate().rev() {
-            if bougie.low <= tp {
-                verdict_trouve = Some((tp_short_labels[i], tp));
-                break 'boucle;
-            }
+    // Sauvegarder l'état intermédiaire si une transition a eu lieu
+    let sl_long_save = long.as_ref().map(|e| e.sl_courant).unwrap_or(s.stop_loss);
+    let sl_short_save = short.as_ref().map(|e| e.sl_courant).unwrap_or(s.sl_short);
+    let tps_long_save: Vec<&str> = long.as_ref().map(|e| e.tps_done.clone()).unwrap_or_default();
+    let tps_short_save: Vec<&str> = short.as_ref().map(|e| e.tps_done.clone()).unwrap_or_default();
+    let any_change = long.as_ref().map(|e| e.etat_change).unwrap_or(false)
+        || short.as_ref().map(|e| e.etat_change).unwrap_or(false);
+
+    // Chercher un verdict terminal (SL ou TP3 d'une jambe)
+    let verdict_long = long.as_ref().and_then(|e| e.verdict);
+    let verdict_short = short.as_ref().and_then(|e| e.verdict);
+
+    let verdict_final = verdict_long.or(verdict_short);
+
+    if verdict_final.is_none() && any_change {
+        if let Err(e) = db::signaux::maj_suivi_progressif_straddle(
+            db.pool(),
+            &s.id,
+            sl_long_save,
+            sl_short_save,
+            &tps_long_save,
+            &tps_short_save,
+        )
+        .await
+        {
+            tracing::warn!("Job Straddle maj suivi {}: {}", s.id, e);
         }
     }
 
-    if let Some((verdict, prix)) = verdict_trouve {
+    if let Some((verdict, prix)) = verdict_final {
         cloturer(db, s, verdict, prix).await;
     }
 }
 
-async fn cloturer(db: &Arc<Database>, s: &SignalStraddleOuvert, verdict: &str, prix_verdict: f64) {
-    // 1. Mettre à jour la table `signaux`
-    if let Err(e) = db::signaux::maj_verdict(db.pool(), &s.id, verdict, prix_verdict).await {
-        tracing::warn!("Job feedback maj_verdict {}: {}", s.id, e);
-    }
+/// Machine à états unifiée pour une jambe (LONG ou SHORT).
+/// `is_long = true` : TP touché quand high >= tp, SL quand low <= sl.
+/// `is_long = false`: TP touché quand low <= tp, SL quand high >= sl.
+fn jouer_machine_etats<'a>(
+    bougies: &[&common::Candle],
+    sl_origine: f64,
+    prix_entree: f64,
+    tps: &'a [f64],
+    is_long: bool,
+    vente_partielle: bool,
+    id: &str,
+    jambe: &str,
+) -> Option<EtatJambe<'a>> {
+    let (tp1, tp2, tp3) = match tps {
+        [a, b, c, ..] => (*a, Some(*b), Some(*c)),
+        [a, b] => (*a, Some(*b), None),
+        [a] => (*a, None, None),
+        _ => return None,
+    };
+    let tp_labels = ["tp1", "tp2", "tp3"];
+    let mut sl_courant = sl_origine;
+    let mut tps_done: Vec<&'a str> = Vec::with_capacity(3);
+    let mut verdict = None;
+    let mut etat_change = false;
 
-    // 2. Mettre à jour `straddle_feedback`
+    'b: for bougie in bougies {
+        let sl_touche = if is_long { bougie.low <= sl_courant } else { bougie.high >= sl_courant };
+        if sl_touche {
+            verdict = Some(("sl", sl_courant));
+            break 'b;
+        }
+        let tp1_touche = if is_long { bougie.high >= tp1 } else { bougie.low <= tp1 };
+        if !tps_done.contains(&"tp1") && tp1_touche {
+            tps_done.push(tp_labels[0]);
+            sl_courant = prix_entree;
+            etat_change = true;
+            log_tp_straddle(id, jambe, "TP1", tp1, vente_partielle);
+        }
+        if let Some(tp2_val) = tp2 {
+            let tp2_touche = if is_long { bougie.high >= tp2_val } else { bougie.low <= tp2_val };
+            if tps_done.contains(&"tp1") && !tps_done.contains(&"tp2") && tp2_touche {
+                tps_done.push(tp_labels[1]);
+                sl_courant = tp1;
+                etat_change = true;
+                log_tp_straddle(id, jambe, "TP2", tp2_val, vente_partielle);
+            }
+        }
+        if let Some(tp3_val) = tp3 {
+            let tp3_touche = if is_long { bougie.high >= tp3_val } else { bougie.low <= tp3_val };
+            if tps_done.contains(&"tp2") && tp3_touche {
+                verdict = Some(("tp3", tp3_val));
+                break 'b;
+            }
+        }
+    }
+    Some(EtatJambe { sl_courant, tps_done, verdict, etat_change })
+}
+
+fn log_tp_straddle(id: &str, jambe: &str, tp: &str, prix: f64, vente_partielle: bool) {
+    if vente_partielle {
+        tracing::info!("📋 Straddle {} jambe {} {} partiel ⅓ @ {:.5}", id, jambe, tp, prix);
+    } else {
+        tracing::info!("📋 Straddle {} jambe {} {} atteint, SL progresse (Option 2) @ {:.5}", id, jambe, tp, prix);
+    }
+}
+
+async fn cloturer(db: &Arc<Database>, s: &SignalStraddleOuvert, verdict: &str, prix_verdict: f64) {
+    if let Err(e) = db::signaux::maj_verdict(db.pool(), &s.id, verdict, prix_verdict).await {
+        tracing::warn!("Job feedback Straddle maj_verdict {}: {}", s.id, e);
+    }
     let risque = (s.prix_entree - s.stop_loss).abs().max(f64::EPSILON);
     if let Err(e) = db::straddle_feedback::maj_feedback_verdict(
         db.pool(),
@@ -166,17 +235,11 @@ async fn cloturer(db: &Arc<Database>, s: &SignalStraddleOuvert, verdict: &str, p
     )
     .await
     {
-        tracing::warn!("Job feedback maj_feedback {}: {}", s.id, e);
+        tracing::warn!("Job feedback Straddle maj_feedback {}: {}", s.id, e);
     }
-
     tracing::info!(
         "📋 Straddle clôturé {} {}/{} → {} @ {:.5} (score {:.0})",
-        s.id,
-        s.asset,
-        s.timeframe,
-        verdict,
-        prix_verdict,
-        s.score,
+        s.id, s.asset, s.timeframe, verdict, prix_verdict, s.score,
     );
 }
 
@@ -186,7 +249,6 @@ async fn charger_signaux_straddle_ouverts(
     db: &Arc<Database>,
 ) -> common::Result<Vec<SignalStraddleOuvert>> {
     use sqlx::Row;
-
     let rows = sqlx::query(
         "SELECT id, asset, timeframe, prix_entree, score,
                 stop_loss, take_profit, sl_short, take_profit_short, cree_le
@@ -224,3 +286,7 @@ async fn charger_signaux_straddle_ouverts(
         })
         .collect())
 }
+
+#[cfg(test)]
+#[path = "straddle_feedback_job_tests.rs"]
+mod tests;

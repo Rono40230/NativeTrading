@@ -161,13 +161,14 @@
 </template>
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { rocketsApi } from '@/services/api.rockets'
+import { useStrategyParamsStore } from '@/stores/strategyParams.store'
 import type { RocketsConfig } from '@/services/api.types'
 
+const strategyStore = useStrategyParamsStore()
 const config = ref<RocketsConfig | null>(null)
 
 onMounted(async () => {
-  try { config.value = await rocketsApi.getRocketsConfig() } catch { /* silencieux */ }
+  try { await strategyStore.charger(); config.value = { ...strategyStore.rocketsRaw } as RocketsConfig } catch { /* silencieux */ }
 })
 
 const phases = [

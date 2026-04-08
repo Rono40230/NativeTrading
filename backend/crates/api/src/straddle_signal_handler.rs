@@ -264,7 +264,8 @@ pub async fn generer_signal_straddle(
         .inserer_signal_straddle_complet(&signal, sl_short, &[tp1_short, tp2_short, tp3_short])
         .await;
     state.signal_engine.publier(signal.clone());
-    crate::telegram::notifier_telegram(signal);
+    let (tok, cid) = crate::telegram::lire_tokens_telegram(&state.db).await;
+    crate::telegram::notifier_telegram(signal, tok, cid);
 
     HttpResponse::Ok().json(serde_json::json!({
         "signal": "STRADDLE",

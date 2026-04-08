@@ -138,6 +138,7 @@ import type { BacktestResults } from '@/services/api.service'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useAssetsStore } from '@/stores/assets.store'
+import { useStrategyParamsStore } from '@/stores/strategyParams.store'
 import TooltipInfo from '@/components/common/TooltipInfo.vue'
 import { useBacktestDuree } from '@/composables/useBacktestDuree'
 import { useCreneauParams } from '@/composables/useCreneauParams'
@@ -155,6 +156,7 @@ const ObjectifLigne = defineComponent({
 const settingsStore = useSettingsStore()
 const alerteStore = useAlerteStore()
 const assetsStore = useAssetsStore()
+const strategyStore = useStrategyParamsStore()
 const assets = computed(() => assetsStore.assets.length > 0 ? assetsStore.assets.map(a => a.id) : ['BTC', 'ETH'])
 const asset = ref(settingsStore.assetActif)
 const timeframe = ref('M5')
@@ -199,18 +201,8 @@ async function lancerBacktest() {
 }
 
 async function rechargerParamsEtRelancer() {
-  try {
-    const p = await apiService.getStraddleParams()
-    straddleParams.value = {
-      atr_periode:  p.atr_periode  ?? straddleParams.value.atr_periode,
-      seuil_atr:    p.atr_seuil    ?? straddleParams.value.seuil_atr,
-      tp_mult_1:    p.tp_mult_1    ?? straddleParams.value.tp_mult_1,
-      tp_mult_2:    p.tp_mult_2    ?? straddleParams.value.tp_mult_2,
-      tp_mult_3:    p.tp_mult_3    ?? straddleParams.value.tp_mult_3,
-      sl_mult:      p.sl_mult      ?? straddleParams.value.sl_mult,
-      trailing_atr: p.trailing_atr ?? straddleParams.value.trailing_atr,
-    }
-  } catch { /* garde les valeurs actuelles */ }
+  await strategyStore.charger()
+  straddleParams.value = { ...strategyStore.straddleParams, be_atr: straddleParams.value.be_atr ?? 0 }
   await lancerBacktest()
 }
 

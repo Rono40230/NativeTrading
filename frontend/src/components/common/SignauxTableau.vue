@@ -41,7 +41,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(s, i) in signauxTries" :key="s.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
+          <template v-for="(s, i) in signauxTries" :key="s.id">
+          <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
             <td class="px-3 py-3 text-gray-500">{{ i + 1 }}</td>
             <td class="px-3 py-3 font-semibold text-white">{{ s.asset }}</td>
             <td class="px-3 py-3 text-gray-400">{{ s.timeframe }}</td>
@@ -68,6 +69,33 @@
               <button class="text-blue-400 hover:text-blue-200 text-sm transition-colors" title="Analyser ce signal avec l'IA" @click="analyserSignal(s)">🔍</button>
             </td>
           </tr>
+          <!-- Sous-ligne jambes Straddle : visible sur signaux 'Both' en cours -->
+          <tr v-if="strategie === 'Straddle' && s.direction === 'Both' && filtreStatut !== 'cloturees'"
+              :key="`${s.id}-legs`"
+              class="border-b border-white/5 bg-white/2">
+            <td colspan="99" class="px-4 pb-2 pt-0">
+              <div class="flex items-center gap-3 text-[11px]">
+                <span class="text-emerald-500 font-bold tracking-wide">LONG</span>
+                <span class="text-gray-500">SL</span>
+                <span class="font-mono text-red-300">{{ formatNombre(s.sl_long_effectif ?? s.stop_loss) }}</span>
+                <span v-for="tp in ['tp1','tp2','tp3']" :key="`long-${tp}`"
+                      class="font-mono"
+                      :class="(s.tps_long_atteints ?? []).includes(tp) ? 'text-emerald-400' : 'text-gray-700'">
+                  {{ tp.toUpperCase() }}{{ (s.tps_long_atteints ?? []).includes(tp) ? ' ✓' : '' }}
+                </span>
+                <span class="text-white/15 mx-1">┃</span>
+                <span class="text-red-400 font-bold tracking-wide">SHORT</span>
+                <span class="text-gray-500">SL</span>
+                <span class="font-mono text-red-300">{{ formatNombre(s.sl_short_effectif ?? (s.sl_short ?? 0)) }}</span>
+                <span v-for="tp in ['tp1','tp2','tp3']" :key="`short-${tp}`"
+                      class="font-mono"
+                      :class="(s.tps_short_atteints ?? []).includes(tp) ? 'text-emerald-400' : 'text-gray-700'">
+                  {{ tp.toUpperCase() }}{{ (s.tps_short_atteints ?? []).includes(tp) ? ' ✓' : '' }}
+                </span>
+              </div>
+            </td>
+          </tr>
+          </template>
         </tbody>
       </table>
     </div>

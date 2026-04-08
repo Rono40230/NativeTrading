@@ -61,6 +61,60 @@ pub async fn maj_verdict(pool: &SqlitePool, id: &str, verdict: &str, prix: f64) 
     Ok(())
 }
 
+/// Met à jour l'état de suivi progressif d'un signal SMC (SL courant + TPs atteints).
+/// Appelée par le job de réconciliation SMC à chaque transition (TP1 → BE, TP2 → TP1).
+/// N'altère pas le statut du signal (reste 'Actif').
+pub async fn maj_suivi_progressif_smc(
+    pool: &SqlitePool,
+    id: &str,
+    sl_effectif: f64,
+    tps_atteints: &[&str],
+) -> Result<()> {
+    let tps_json = serde_json::to_string(tps_atteints)
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+    sqlx::query(
+        "UPDATE signaux SET sl_effectif = ?, tps_atteints = ? WHERE id = ?",
+    )
+    .bind(sl_effectif)
+    .bind(tps_json)
+    .bind(id)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(())
+}
+
+/// Met à jour l'état de suivi progressif d'un signal Straddle, par jambe.
+/// Appelée par le job de réconciliation Straddle à chaque transition.
+pub async fn maj_suivi_progressif_straddle(
+    pool: &SqlitePool,
+    id: &str,
+    sl_long: f64,
+    sl_short: f64,
+    tps_long: &[&str],
+    tps_short: &[&str],
+) -> Result<()> {
+    let long_json = serde_json::to_string(tps_long)
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+    let short_json = serde_json::to_string(tps_short)
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+    sqlx::query(
+        "UPDATE signaux
+         SET sl_long_effectif = ?, sl_short_effectif = ?,
+             tps_long_atteints = ?, tps_short_atteints = ?
+         WHERE id = ?",
+    )
+    .bind(sl_long)
+    .bind(sl_short)
+    .bind(long_json)
+    .bind(short_json)
+    .bind(id)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(())
+}
+
 pub async fn expirer_anciens(pool: &SqlitePool) -> Result<i64> {
     let seuil = Utc::now().timestamp() - 24 * 3600;
     let res = sqlx::query(

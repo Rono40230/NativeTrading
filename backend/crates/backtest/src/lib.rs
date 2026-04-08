@@ -22,10 +22,6 @@ pub struct BacktestEngine {
     pub cout_friction_pct: f64,
     /// Risk par trade en % du capital
     pub risk_par_trade_pct: f64,
-    /// Nombre de bougies APRÈS l'entrée formant l'horizon d'expiration.
-    /// Calculé côté handler depuis `horizon_minutes / timeframe.minutes()`.
-    /// Défaut : 5 bougies (compatible M5 = 25 min, proche du créneau Straddle).
-    pub horizon_bougies: usize,
     /// Trailing stop Straddle : SL remonte à peak - ATR × mult (None = désactivé).
     pub trailing_atr_mult: Option<f64>,
     /// Break-even Straddle : quand gain > ATR × mult, SL → prix d'entrée (None = désactivé).
@@ -41,7 +37,6 @@ impl BacktestEngine {
             capital_initial,
             cout_friction_pct: 0.0003,
             risk_par_trade_pct: 0.02,
-            horizon_bougies: 5,
             trailing_atr_mult: None,
             be_atr_mult: None,
             vente_partielle: true,
@@ -97,16 +92,8 @@ impl BacktestEngine {
 
             let prochaine = &bougies[i];
             let friction = self.cout_friction_pct;
-            // Horizon commençant à i+1 pour éviter le look-ahead sur la bougie d'entrée.
-            // Straddle (Both) : horizon illimité → chaque jambe scanne jusqu'à toucher un niveau.
-            // SMC (Long/Short) : horizon limité à horizon_bougies (ex. 4h).
-            let horizon_bougies: &[Candle] = match signal.direction {
-                Direction::Both => &bougies[i + 1..],
-                _ => {
-                    let horizon = (i + 1 + self.horizon_bougies).min(bougies.len());
-                    &bougies[i + 1..horizon]
-                }
-            };
+            // Horizon illimité : les trades ne s'expirent que sur SL ou TP, jamais sur une durée.
+            let horizon_bougies: &[Candle] = &bougies[i + 1..];
 
             // ATR courant — calculé une fois, partagé entre straddle hybride et boucle directionnelle
             let atr_courant = {

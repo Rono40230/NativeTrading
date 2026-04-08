@@ -16,16 +16,15 @@ pub struct NiveauxRocket {
     pub tp3: f64,
 }
 
-/// Calcule les niveaux TP/SL depuis un ScanResultat.
-pub fn calculer_niveaux(r: &ScanResultat) -> NiveauxRocket {
-    let sl = r.prix - r.atr14;
-    let tp1 = if r.hauteur_base > r.atr14 {
-        r.prix + r.hauteur_base
-    } else {
-        r.prix + r.atr14
-    };
-    let tp2 = r.prix + 2.0 * r.atr14;
-    let tp3 = r.prix + 2.0 * r.hauteur_base.max(r.atr14);
+/// Calcule les niveaux TP/SL depuis un ScanResultat en respectant la R:R configurée.
+/// TP1 = entrée + ATR × tp_mult_1 (recommandé : sl_mult + 1.0)
+/// TP2 = entrée + ATR × tp_mult_2 (recommandé : sl_mult + 2.0)
+/// TP3 = trailing stop based on ATR × tp_mult_3
+pub fn calculer_niveaux(r: &ScanResultat, cfg: &db::rockets_config::RocketsConfig) -> NiveauxRocket {
+    let sl = r.prix - r.atr14 * cfg.sl_mult;
+    let tp1 = r.prix + r.atr14 * cfg.tp_mult_1;
+    let tp2 = r.prix + r.atr14 * cfg.tp_mult_2;
+    let tp3 = r.prix + r.atr14 * cfg.tp_mult_3;
     NiveauxRocket { sl, tp1, tp2, tp3 }
 }
 
@@ -159,7 +158,8 @@ pub async fn filtrer_sauvegarder_publier(
             label_signal,
         );
         signal_engine.publier(signal.clone());
-        crate::telegram::notifier_telegram(signal);
+        let (tok, cid) = crate::telegram::lire_tokens_pool(pool).await;
+        crate::telegram::notifier_telegram(signal, tok, cid);
     }
 
     // Enregistrer le feedback initial (verdict=NULL, sera réconcilié par rockets_suivi)

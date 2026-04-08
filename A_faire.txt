@@ -36,8 +36,8 @@ Pourquoi la stratégie SMC ne génère aucun signal ?
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Voici comment doivent impérativement se comporter les positions pour les backtesting :
-Risque = entre 1 et 3% du montant du capital par Position, donc trade Rocket ou SMC = 1 à 3% par trade et position straddle = entre 0.5 et 1.5 par jambe.
+Voici comment doivent impérativement se comporter les positions pour leurs suivis dans leurs tableaux respectifs :
+Risque = entre 1 et 3% du montant du capital par Position (déterminé dans les paramètres de l'app), donc trade Rocket ou SMC = 1 à 3% par trade et position straddle = entre 0.5 et 1.5 par jambe.
 - entrée = R
 - SL = R-1 = multiplicateur X ATR
 - TP 1 = R+1
@@ -61,6 +61,7 @@ Peut on choisir option 1 ou 2 pour chaque stratégie ?
 
 Est ce clair ?
 As tu besoin d'éclaircissement ou de précisions ?
+Détectes tu des incohérences ?
 Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
@@ -95,13 +96,12 @@ Tableau de référence = capture
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Dans la modale "Analyse SMC par l'IA" ajoute un bouton "Afficher la position"
-Ce bouton doit afficher le signal sur le graphique comme le fait tradingview.
-Est ce clair ?
-As tu besoin de précision comme une capture d'écran de tradingview avec une position affichée ?
-Repond sans coder
-
 Je ne comprends pas bien l'utilité de la page "analyser un setup" dans SMC.
 Explique
 
-revoir l'agencement de l'affichage du coach
+
+
+
+
+
+

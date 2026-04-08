@@ -179,7 +179,8 @@ pub async fn appeler_smc_et_publier(
     }
 
     signal_engine.publier(signal.clone());
-    crate::telegram::notifier_telegram(signal);
+    let (tok, cid) = crate::telegram::lire_tokens_telegram(db.as_ref()).await;
+    crate::telegram::notifier_telegram(signal, tok, cid);
 
     tracing::info!(
         "📐 SMC Directionnel signal {}/{} {} score={:.1} conviction={}",

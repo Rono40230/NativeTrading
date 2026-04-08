@@ -104,14 +104,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { apiService } from '@/services/api.service'
 import type { RocketsConfig } from '@/services/api.types'
+import { useStrategyParamsStore } from '@/stores/strategyParams.store'
 
 const PHASES = [
   { val: 'breakout',     label: '⚡ Breakout' },
   { val: 'prelancement', label: '🔶 Pré-lancement' },
 ]
 
+const strategyStore = useStrategyParamsStore()
 const cfg = ref<RocketsConfig | null>(null)
 const original = ref<RocketsConfig | null>(null)
 const chargement = ref(true)
@@ -121,11 +122,11 @@ const messageOk = ref(true)
 
 onMounted(async () => {
   try {
-    const data = await apiService.getRocketsConfig()
-    cfg.value = { ...data }
-    original.value = { ...data }
+    await strategyStore.charger()
+    cfg.value      = { ...strategyStore.rocketsRaw } as RocketsConfig
+    original.value = { ...strategyStore.rocketsRaw } as RocketsConfig
   } catch {
-    message.value = 'Erreur chargement configuration'
+    message.value  = 'Erreur chargement configuration'
     messageOk.value = false
   } finally {
     chargement.value = false
@@ -147,12 +148,12 @@ async function sauvegarder() {
   sauvegarde.value = true
   message.value = ''
   try {
-    await apiService.putRocketsConfig(cfg.value)
+    await strategyStore.saveRockets(cfg.value)
     original.value = { ...cfg.value }
-    message.value = '✅ Réglages appliqués — actifs au prochain scan'
+    message.value  = '✅ Réglages appliqués — actifs au prochain scan'
     messageOk.value = true
   } catch {
-    message.value = '❌ Erreur lors de la sauvegarde'
+    message.value  = '❌ Erreur lors de la sauvegarde'
     messageOk.value = false
   } finally {
     sauvegarde.value = false

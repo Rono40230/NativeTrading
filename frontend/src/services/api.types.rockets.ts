@@ -70,6 +70,12 @@ export interface RocketsConfig {
   rsi_min: number
   ratio_volume_min: number
   vol_marche_min: number
+  vente_partielle?: boolean
+  sl_mult: number
+  tp_mult_1: number
+  tp_mult_2: number
+  tp_mult_3: number
+  trailing_atr: number
 }
 
 // ── Straddle ──────────────────────────────────────────────────────────────────

@@ -38,6 +38,7 @@
 import { ref, onMounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import SmcParamsModal from '@/components/common/SmcParamsModal.vue'
+import { useStrategyParamsStore } from '@/stores/strategyParams.store'
 
 export interface SmcParams {
   atr_periode: number
@@ -68,19 +69,17 @@ const config = [
 
 const showParams = ref(false)
 const loading = ref(true)
+const strategyStore = useStrategyParamsStore()
 
 async function chargerParams() {
-  try {
-    const data = await apiService.getSmcParams()
-    emit('update:modelValue', data as unknown as SmcParams)
-  } finally {
-    loading.value = false
-  }
+  await strategyStore.charger()
+  emit('update:modelValue', strategyStore.smcParams)
+  loading.value = false
 }
 
 async function onParamsSaved() {
   showParams.value = false
-  await chargerParams()
+  emit('update:modelValue', strategyStore.smcParams)
   emit('params-saved')
 }
 

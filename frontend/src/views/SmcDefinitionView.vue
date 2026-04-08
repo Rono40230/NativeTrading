@@ -136,11 +136,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { apiService } from '@/services/api.service'
+import { useStrategyParamsStore } from '@/stores/strategyParams.store'
 
+const strategyStore = useStrategyParamsStore()
 const params = ref<Record<string, number> | null>(null)
 onMounted(async () => {
-  try { params.value = await apiService.getSmcParams() } catch { /* silencieux */ }
+  try { await strategyStore.charger(); params.value = { ...strategyStore.smcRaw } } catch { /* silencieux */ }
 })
 
 const paramCards = computed(() => params.value ? [

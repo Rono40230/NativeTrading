@@ -115,7 +115,7 @@ async fn executer_scan(
             && r.ratio_volume >= cfg.ratio_volume_min
             && r.ratio_corps >= 0.35
     }) {
-        let niveaux = calculer_niveaux(r);
+        let niveaux = calculer_niveaux(r, &cfg);
         filtrer_sauvegarder_publier(r, &niveaux, &r.phase, "Rockets", pool, signal_engine).await;
     }
 
@@ -129,7 +129,7 @@ async fn executer_scan(
             && r.score >= SCORE_MOMENTUM_MIN
             && r.rsi <= cfg.rsi_max
     }) {
-        let niveaux = calculer_niveaux(r);
+        let niveaux = calculer_niveaux(r, &cfg);
         filtrer_sauvegarder_publier(
             r,
             &niveaux,

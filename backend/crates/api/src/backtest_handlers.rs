@@ -32,7 +32,6 @@ pub struct BacktestRequest {
     pub sl_mult: Option<f64>,
     pub seuil_atr: Option<f64>,
     pub atr_periode: Option<i64>,
-    pub horizon_bougies: Option<i64>,
     pub trailing_atr: Option<f64>,
     /// Break-even : quand gain > ATR × be_atr, SL → prix d'entrée (0 = désactivé).
     pub be_atr: Option<f64>,
@@ -92,14 +91,8 @@ pub async fn run_backtest(
         }
     };
 
-    // Horizon adapté au timeframe : Straddle = 30 min, SMC = 240 min (4h)
-    let horizon_minutes: u64 = if strategie == "smc" { 240 } else { 30 };
-    let horizon_bougies = body
-        .horizon_bougies
-        .map(|h| h as usize)
-        .unwrap_or_else(|| ((horizon_minutes / timeframe.minutes()) as usize).max(2));
+    // Horizon illimité : les trades ne s'expirent que sur SL ou TP.
     let engine = BacktestEngine {
-        horizon_bougies,
         be_atr_mult: body.be_atr.filter(|&v| v > 0.0),
         vente_partielle: body
             .vente_partielle
@@ -170,10 +163,8 @@ pub async fn raffiner_ml(
         }
     };
 
-    let horizon_minutes: u64 = if strategie == "smc" { 240 } else { 30 };
-    let horizon_bougies = ((horizon_minutes / timeframe.minutes()) as usize).max(2);
+    // Horizon illimité : les trades ne s'expirent que sur SL ou TP.
     let engine = BacktestEngine {
-        horizon_bougies,
         be_atr_mult: body.be_atr.filter(|&v| v > 0.0),
         vente_partielle: body
             .vente_partielle
@@ -255,7 +246,7 @@ pub async fn raffiner_ml(
 }
 
 /// Construit un `StraddleParams` depuis les champs optionnels du `BacktestRequest`.
-/// Les champs absents utilisent la valeur par défaut DB (atr_periode, horizon_bougies, trailing_atr).
+/// Les champs absents utilisent la valeur par défaut DB (atr_periode, trailing_atr).
 fn straddle_params_from_body(body: &BacktestRequest) -> StraddleParams {
     let def = StraddleParams::default();
     StraddleParams {
@@ -265,7 +256,7 @@ fn straddle_params_from_body(body: &BacktestRequest) -> StraddleParams {
         tp_mult_2: body.tp_mult_2.unwrap_or(def.tp_mult_2),
         tp_mult_3: body.tp_mult_3.unwrap_or(def.tp_mult_3),
         sl_mult: body.sl_mult.unwrap_or(def.sl_mult),
-        horizon_bougies: body.horizon_bougies.unwrap_or(def.horizon_bougies),
         trailing_atr: body.trailing_atr.unwrap_or(def.trailing_atr),
+        vente_partielle: def.vente_partielle,
     }
 }
