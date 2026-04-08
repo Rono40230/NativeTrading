@@ -70,17 +70,15 @@ pub async fn maj_suivi_progressif_smc(
     sl_effectif: f64,
     tps_atteints: &[&str],
 ) -> Result<()> {
-    let tps_json = serde_json::to_string(tps_atteints)
+    let tps_json =
+        serde_json::to_string(tps_atteints).map_err(|e| TradingError::Database(e.to_string()))?;
+    sqlx::query("UPDATE signaux SET sl_effectif = ?, tps_atteints = ? WHERE id = ?")
+        .bind(sl_effectif)
+        .bind(tps_json)
+        .bind(id)
+        .execute(pool)
+        .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
-    sqlx::query(
-        "UPDATE signaux SET sl_effectif = ?, tps_atteints = ? WHERE id = ?",
-    )
-    .bind(sl_effectif)
-    .bind(tps_json)
-    .bind(id)
-    .execute(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
     Ok(())
 }
 
@@ -94,10 +92,10 @@ pub async fn maj_suivi_progressif_straddle(
     tps_long: &[&str],
     tps_short: &[&str],
 ) -> Result<()> {
-    let long_json = serde_json::to_string(tps_long)
-        .map_err(|e| TradingError::Database(e.to_string()))?;
-    let short_json = serde_json::to_string(tps_short)
-        .map_err(|e| TradingError::Database(e.to_string()))?;
+    let long_json =
+        serde_json::to_string(tps_long).map_err(|e| TradingError::Database(e.to_string()))?;
+    let short_json =
+        serde_json::to_string(tps_short).map_err(|e| TradingError::Database(e.to_string()))?;
     sqlx::query(
         "UPDATE signaux
          SET sl_long_effectif = ?, sl_short_effectif = ?,

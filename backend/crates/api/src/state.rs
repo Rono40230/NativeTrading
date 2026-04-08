@@ -112,6 +112,9 @@ impl AppState {
         // Job de calibration automatique des seuils SMC (toutes les 6h)
         crate::smc_calibration_job::demarrer_calibration_smc(db.clone());
 
+        // Job quotidien de mise à jour des valeur_pips (paires JPY)
+        crate::pip_updater::demarrer_pip_updater(db.clone());
+
         Ok(Self {
             db,
             pipeline_ml,

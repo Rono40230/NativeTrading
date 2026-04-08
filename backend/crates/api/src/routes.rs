@@ -4,6 +4,14 @@ use actix_web::web;
 pub fn configurer(cfg: &mut web::ServiceConfig) {
     cfg.route("/health", web::get().to(crate::handlers::health_check))
         .route(
+            "/api/assets/params",
+            web::get().to(crate::asset_params_handlers::get_asset_params),
+        )
+        .route(
+            "/api/assets/params",
+            web::put().to(crate::asset_params_handlers::put_asset_params),
+        )
+        .route(
             "/api/assets",
             web::get().to(crate::assets_handlers::lister_assets),
         )

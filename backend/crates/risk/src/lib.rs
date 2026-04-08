@@ -96,6 +96,34 @@ impl GestionnaireRisque {
         risque_capital / distance_stop
     }
 
+    // ── Formule pips-aware (Phase 2) ─────────────────────────────────────────────
+
+    /// Calcule la taille en lots à partir des paramètres de l'asset.
+    /// Formule : Lot = (Capital × risque_pct/100) / (sl_pips × valeur_pips)
+    /// Le résultat est clampé entre lot_min et lot_max.
+    pub fn calculer_lot_asset(
+        capital: f64,
+        risque_pct: f64,
+        sl_pips: f64,
+        valeur_pips: f64,
+        lot_min: f64,
+        lot_max: f64,
+    ) -> Result<f64> {
+        if sl_pips <= 0.0 || valeur_pips <= 0.0 {
+            return Err(TradingError::Risk(
+                "sl_pips et valeur_pips doivent être > 0".into(),
+            ));
+        }
+        if risque_pct <= 0.0 || risque_pct > 100.0 {
+            return Err(TradingError::Risk(
+                "risque_pct doit être entre 0 et 100".into(),
+            ));
+        }
+        let investi = capital * (risque_pct / 100.0);
+        let lot = investi / (sl_pips * valeur_pips);
+        Ok(lot.clamp(lot_min, lot_max))
+    }
+
     pub fn mettre_a_jour_drawdown(&mut self, drawdown_pct: f64) {
         self.drawdown_courant = drawdown_pct;
     }

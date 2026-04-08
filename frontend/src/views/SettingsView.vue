@@ -61,50 +61,14 @@
 
     <!-- ── Onglet 3 : Paramétrages des stratégies ──────────────────────────── -->
     <div v-else-if="activeTab === 'strategies'" class="space-y-4">
-
-      <!-- Compte + Risque -->
-      <div class="grid grid-cols-2 gap-4 items-start">
-
-        <div class="glass-card p-4">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Compte</h2>
-            <div class="flex items-center gap-2">
-              <button class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded text-xs font-medium transition-colors" @click="sauvegarder">Enregistrer</button>
-              <span v-if="sauvegarde" class="text-emerald-400 text-xs">✓</span>
-              <span v-if="erreurCapital" class="text-red-400 text-xs">⚠️ Capital invalide</span>
-            </div>
-          </div>
-          <div>
-            <label class="block mb-1 text-xs text-gray-400">Capital de départ (€)</label>
-            <div class="flex gap-2 items-center">
-              <input v-model.number="capitalSaisie" type="number" min="1" step="100"
-                :class="erreurCapital ? 'ring-2 ring-red-500' : 'focus:ring-2 focus:ring-emerald-500'"
-                class="bg-gray-700 text-white rounded px-2 py-1.5 w-36 text-sm focus:outline-none"
-                @keyup.enter="sauvegarder" />
-              <span class="text-xs text-gray-500">Utilisé pour le backtesting et le dimensionnement des positions</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="glass-card p-4">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Gestion du risque</h2>
-          </div>
-          <div>
-            <label class="block mb-1 text-xs text-gray-400">Risque par trade (%)</label>
-            <div class="flex gap-2 items-center">
-              <input type="number" value="1.0" min="0.1" max="5" step="0.1"
-                class="bg-gray-700 text-white rounded px-2 py-1.5 w-36 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-              <span class="text-xs text-gray-500">Max 2% recommandé (limite absolue : 2%)</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Paramètres stratégies -->
       <StrategiesParamsPanel />
+    </div>
 
+    <!-- ── Onglet 4 : Gestion du risque ───────────────────────────────────── -->
+    <div v-else-if="activeTab === 'risque'" class="space-y-4">
+      <div class="glass-card p-4">
+        <AssetParamsPanel />
+      </div>
     </div>
 
   </div>
@@ -117,18 +81,17 @@ import { apiService } from '@/services/api.service'
 import GestionAssets from '@/components/common/GestionAssets.vue'
 import ApiKeysPanel from '@/components/common/ApiKeysPanel.vue'
 import StrategiesParamsPanel from '@/components/StrategiesParamsPanel.vue'
+import AssetParamsPanel from '@/components/common/AssetParamsPanel.vue'
 
-const activeTab = ref<'assets' | 'connexion' | 'strategies'>('assets')
+const activeTab = ref<'assets' | 'connexion' | 'strategies' | 'risque'>('assets')
 const tabs = [
   { id: 'assets',     label: '📋 Choix des assets' },
   { id: 'connexion',  label: '🔌 Connexion / API' },
   { id: 'strategies', label: '⚙️ Paramétrages des stratégies' },
+  { id: 'risque',     label: '📊 Gestion du risque' },
 ]
 
 const settingsStore = useSettingsStore()
-const capitalSaisie = ref(settingsStore.capitalDepart)
-const sauvegarde = ref(false)
-const erreurCapital = ref(false)
 
 const ibPort = ref(4002)
 const ibClientId = ref(100)
@@ -152,18 +115,6 @@ onMounted(async () => {
     // Backend non disponible — valeurs par défaut utilisées
   }
 })
-
-function sauvegarder() {
-  if (capitalSaisie.value > 0) {
-    erreurCapital.value = false
-    settingsStore.definirCapital(capitalSaisie.value)
-    sauvegarde.value = true
-    timers.push(setTimeout(() => { sauvegarde.value = false }, 2000))
-  } else {
-    erreurCapital.value = true
-    timers.push(setTimeout(() => { erreurCapital.value = false }, 3000))
-  }
-}
 
 async function sauvegarderIB() {
   try {

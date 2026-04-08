@@ -256,3 +256,16 @@ export interface SmcCalibrationRow {
   fiabilite: string
   invalide: boolean
 }
+
+export interface AssetParams {
+  asset: string
+  valeur_pips: number
+  sl_pips: number
+  pip_to_points: number
+  risque_pct: number
+  lot_min: number
+  lot_max: number
+  // champs calculés côté frontend (présentation uniquement)
+  investi?: number
+  lot?: number
+}

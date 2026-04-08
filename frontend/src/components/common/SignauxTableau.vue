@@ -69,8 +69,8 @@
               <button class="text-blue-400 hover:text-blue-200 text-sm transition-colors" title="Analyser ce signal avec l'IA" @click="analyserSignal(s)">🔍</button>
             </td>
           </tr>
-          <!-- Sous-ligne jambes Straddle : visible sur signaux 'Both' en cours -->
-          <tr v-if="strategie === 'Straddle' && s.direction === 'Both' && filtreStatut !== 'cloturees'"
+          <!-- Sous-ligne jambes Straddle : uniquement pour signaux actifs (sans verdict) -->
+          <tr v-if="strategie === 'Straddle' && s.direction === 'Both' && s.verdict === null"
               :key="`${s.id}-legs`"
               class="border-b border-white/5 bg-white/2">
             <td colspan="99" class="px-4 pb-2 pt-0">

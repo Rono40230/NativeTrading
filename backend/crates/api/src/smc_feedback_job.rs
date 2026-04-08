@@ -22,7 +22,7 @@ struct SignalSmcOuvert {
     id: String,
     asset: String,
     timeframe: String,
-    direction: String,     // "Long" | "Short"
+    direction: String, // "Long" | "Short"
     prix_entree: f64,
     stop_loss: f64,        // SL d'origine (immuable)
     take_profit: Vec<f64>, // [tp1, tp2, tp3]
@@ -125,7 +125,11 @@ async fn traiter_signal_smc(db: &Arc<Database>, s: &SignalSmcOuvert, vente_parti
 
         // TP1 : SL → Break-Even
         if !tps_done.contains(&"tp1") {
-            let tp1_touche = if is_long { bougie.high >= tp1 } else { bougie.low <= tp1 };
+            let tp1_touche = if is_long {
+                bougie.high >= tp1
+            } else {
+                bougie.low <= tp1
+            };
             if tp1_touche {
                 tps_done.push("tp1");
                 sl_courant = s.prix_entree;
@@ -133,7 +137,11 @@ async fn traiter_signal_smc(db: &Arc<Database>, s: &SignalSmcOuvert, vente_parti
                 if vente_partielle {
                     tracing::info!("📋 SMC {} TP1 partiel ⅓ @ {:.5}", s.id, tp1);
                 } else {
-                    tracing::info!("📋 SMC {} TP1 atteint, SL → BE (Option 2) @ {:.5}", s.id, tp1);
+                    tracing::info!(
+                        "📋 SMC {} TP1 atteint, SL → BE (Option 2) @ {:.5}",
+                        s.id,
+                        tp1
+                    );
                 }
             }
         }
@@ -141,7 +149,11 @@ async fn traiter_signal_smc(db: &Arc<Database>, s: &SignalSmcOuvert, vente_parti
         // TP2 : SL → TP1 (seulement après TP1)
         if let Some(tp2_val) = tp2 {
             if tps_done.contains(&"tp1") && !tps_done.contains(&"tp2") {
-                let tp2_touche = if is_long { bougie.high >= tp2_val } else { bougie.low <= tp2_val };
+                let tp2_touche = if is_long {
+                    bougie.high >= tp2_val
+                } else {
+                    bougie.low <= tp2_val
+                };
                 if tp2_touche {
                     tps_done.push("tp2");
                     sl_courant = tp1;
@@ -149,7 +161,11 @@ async fn traiter_signal_smc(db: &Arc<Database>, s: &SignalSmcOuvert, vente_parti
                     if vente_partielle {
                         tracing::info!("📋 SMC {} TP2 partiel ⅓ @ {:.5}", s.id, tp2_val);
                     } else {
-                        tracing::info!("📋 SMC {} TP2 atteint, SL → TP1 (Option 2) @ {:.5}", s.id, tp2_val);
+                        tracing::info!(
+                            "📋 SMC {} TP2 atteint, SL → TP1 (Option 2) @ {:.5}",
+                            s.id,
+                            tp2_val
+                        );
                     }
                 }
             }
@@ -158,7 +174,11 @@ async fn traiter_signal_smc(db: &Arc<Database>, s: &SignalSmcOuvert, vente_parti
         // TP3 : clôture finale (seulement après TP2)
         if let Some(tp3_val) = tp3 {
             if tps_done.contains(&"tp2") {
-                let tp3_touche = if is_long { bougie.high >= tp3_val } else { bougie.low <= tp3_val };
+                let tp3_touche = if is_long {
+                    bougie.high >= tp3_val
+                } else {
+                    bougie.low <= tp3_val
+                };
                 if tp3_touche {
                     verdict_final = Some(("tp3", tp3_val));
                     break 'boucle;
@@ -169,13 +189,8 @@ async fn traiter_signal_smc(db: &Arc<Database>, s: &SignalSmcOuvert, vente_parti
 
     // Sauvegarder l'état intermédiaire si des TPs ont été touchés
     if etat_change && verdict_final.is_none() {
-        if let Err(e) = db::signaux::maj_suivi_progressif_smc(
-            db.pool(),
-            &s.id,
-            sl_courant,
-            &tps_done,
-        )
-        .await
+        if let Err(e) =
+            db::signaux::maj_suivi_progressif_smc(db.pool(), &s.id, sl_courant, &tps_done).await
         {
             tracing::warn!("Job SMC maj suivi {}: {}", s.id, e);
         }
@@ -212,7 +227,11 @@ async fn cloturer_smc(db: &Arc<Database>, s: &SignalSmcOuvert, verdict: &str, pr
 
     tracing::info!(
         "📋 SMC clôturé {} {}/{} → {} @ {:.5}",
-        s.id, s.asset, s.timeframe, verdict, prix_verdict,
+        s.id,
+        s.asset,
+        s.timeframe,
+        verdict,
+        prix_verdict,
     );
 }
 

@@ -7,7 +7,6 @@
 //! sur la latence du signal engine si Telegram est lent ou indisponible.
 use common::Signal;
 use db::Database;
-use std::sync::Arc;
 
 /// Lit les tokens Telegram depuis la DB (via Database wrapper) avec repli env.
 pub async fn lire_tokens_telegram(db: &Database) -> (String, String) {

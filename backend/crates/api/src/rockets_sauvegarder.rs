@@ -20,7 +20,10 @@ pub struct NiveauxRocket {
 /// TP1 = entrée + ATR × tp_mult_1 (recommandé : sl_mult + 1.0)
 /// TP2 = entrée + ATR × tp_mult_2 (recommandé : sl_mult + 2.0)
 /// TP3 = trailing stop based on ATR × tp_mult_3
-pub fn calculer_niveaux(r: &ScanResultat, cfg: &db::rockets_config::RocketsConfig) -> NiveauxRocket {
+pub fn calculer_niveaux(
+    r: &ScanResultat,
+    cfg: &db::rockets_config::RocketsConfig,
+) -> NiveauxRocket {
     let sl = r.prix - r.atr14 * cfg.sl_mult;
     let tp1 = r.prix + r.atr14 * cfg.tp_mult_1;
     let tp2 = r.prix + r.atr14 * cfg.tp_mult_2;

@@ -13,6 +13,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 
+pub(crate) use crate::straddle_machine_etats::jouer_machine_etats;
+
 /// Horizon d'expiration d'un signal Straddle sans verdict (en secondes).
 const HORIZON_EXPIRE_SEC: i64 = 24 * 3600;
 
@@ -29,14 +31,6 @@ struct SignalStraddleOuvert {
     sl_short: f64,      // SL jambe SHORT d'origine (> prix_entree)
     tp_short: Vec<f64>, // [tp1, tp2, tp3] short (< prix_entree)
     cree_le: i64,
-}
-
-/// Résultat d'une machine à états pour une jambe.
-struct EtatJambe<'a> {
-    sl_courant: f64,
-    tps_done: Vec<&'a str>,
-    verdict: Option<(&'a str, f64)>,
-    etat_change: bool,
 }
 
 // ── Point d'entrée public ─────────────────────────────────────────────────────
@@ -107,14 +101,32 @@ async fn traiter_signal(db: &Arc<Database>, s: &SignalStraddleOuvert, vente_part
 
     // Machine à états LONG
     let long = if !s.tp_long.is_empty() {
-        jouer_machine_etats(&bougies_post, s.stop_loss, s.prix_entree, &s.tp_long, true, vente_partielle, &s.id, "LONG")
+        jouer_machine_etats(
+            &bougies_post,
+            s.stop_loss,
+            s.prix_entree,
+            &s.tp_long,
+            true,
+            vente_partielle,
+            &s.id,
+            "LONG",
+        )
     } else {
         None
     };
 
     // Machine à états SHORT
     let short = if !s.tp_short.is_empty() {
-        jouer_machine_etats(&bougies_post, s.sl_short, s.prix_entree, &s.tp_short, false, vente_partielle, &s.id, "SHORT")
+        jouer_machine_etats(
+            &bougies_post,
+            s.sl_short,
+            s.prix_entree,
+            &s.tp_short,
+            false,
+            vente_partielle,
+            &s.id,
+            "SHORT",
+        )
     } else {
         None
     };
@@ -122,8 +134,14 @@ async fn traiter_signal(db: &Arc<Database>, s: &SignalStraddleOuvert, vente_part
     // Sauvegarder l'état intermédiaire si une transition a eu lieu
     let sl_long_save = long.as_ref().map(|e| e.sl_courant).unwrap_or(s.stop_loss);
     let sl_short_save = short.as_ref().map(|e| e.sl_courant).unwrap_or(s.sl_short);
-    let tps_long_save: Vec<&str> = long.as_ref().map(|e| e.tps_done.clone()).unwrap_or_default();
-    let tps_short_save: Vec<&str> = short.as_ref().map(|e| e.tps_done.clone()).unwrap_or_default();
+    let tps_long_save: Vec<&str> = long
+        .as_ref()
+        .map(|e| e.tps_done.clone())
+        .unwrap_or_default();
+    let tps_short_save: Vec<&str> = short
+        .as_ref()
+        .map(|e| e.tps_done.clone())
+        .unwrap_or_default();
     let any_change = long.as_ref().map(|e| e.etat_change).unwrap_or(false)
         || short.as_ref().map(|e| e.etat_change).unwrap_or(false);
 
@@ -153,72 +171,6 @@ async fn traiter_signal(db: &Arc<Database>, s: &SignalStraddleOuvert, vente_part
     }
 }
 
-/// Machine à états unifiée pour une jambe (LONG ou SHORT).
-/// `is_long = true` : TP touché quand high >= tp, SL quand low <= sl.
-/// `is_long = false`: TP touché quand low <= tp, SL quand high >= sl.
-fn jouer_machine_etats<'a>(
-    bougies: &[&common::Candle],
-    sl_origine: f64,
-    prix_entree: f64,
-    tps: &'a [f64],
-    is_long: bool,
-    vente_partielle: bool,
-    id: &str,
-    jambe: &str,
-) -> Option<EtatJambe<'a>> {
-    let (tp1, tp2, tp3) = match tps {
-        [a, b, c, ..] => (*a, Some(*b), Some(*c)),
-        [a, b] => (*a, Some(*b), None),
-        [a] => (*a, None, None),
-        _ => return None,
-    };
-    let tp_labels = ["tp1", "tp2", "tp3"];
-    let mut sl_courant = sl_origine;
-    let mut tps_done: Vec<&'a str> = Vec::with_capacity(3);
-    let mut verdict = None;
-    let mut etat_change = false;
-
-    'b: for bougie in bougies {
-        let sl_touche = if is_long { bougie.low <= sl_courant } else { bougie.high >= sl_courant };
-        if sl_touche {
-            verdict = Some(("sl", sl_courant));
-            break 'b;
-        }
-        let tp1_touche = if is_long { bougie.high >= tp1 } else { bougie.low <= tp1 };
-        if !tps_done.contains(&"tp1") && tp1_touche {
-            tps_done.push(tp_labels[0]);
-            sl_courant = prix_entree;
-            etat_change = true;
-            log_tp_straddle(id, jambe, "TP1", tp1, vente_partielle);
-        }
-        if let Some(tp2_val) = tp2 {
-            let tp2_touche = if is_long { bougie.high >= tp2_val } else { bougie.low <= tp2_val };
-            if tps_done.contains(&"tp1") && !tps_done.contains(&"tp2") && tp2_touche {
-                tps_done.push(tp_labels[1]);
-                sl_courant = tp1;
-                etat_change = true;
-                log_tp_straddle(id, jambe, "TP2", tp2_val, vente_partielle);
-            }
-        }
-        if let Some(tp3_val) = tp3 {
-            let tp3_touche = if is_long { bougie.high >= tp3_val } else { bougie.low <= tp3_val };
-            if tps_done.contains(&"tp2") && tp3_touche {
-                verdict = Some(("tp3", tp3_val));
-                break 'b;
-            }
-        }
-    }
-    Some(EtatJambe { sl_courant, tps_done, verdict, etat_change })
-}
-
-fn log_tp_straddle(id: &str, jambe: &str, tp: &str, prix: f64, vente_partielle: bool) {
-    if vente_partielle {
-        tracing::info!("📋 Straddle {} jambe {} {} partiel ⅓ @ {:.5}", id, jambe, tp, prix);
-    } else {
-        tracing::info!("📋 Straddle {} jambe {} {} atteint, SL progresse (Option 2) @ {:.5}", id, jambe, tp, prix);
-    }
-}
-
 async fn cloturer(db: &Arc<Database>, s: &SignalStraddleOuvert, verdict: &str, prix_verdict: f64) {
     if let Err(e) = db::signaux::maj_verdict(db.pool(), &s.id, verdict, prix_verdict).await {
         tracing::warn!("Job feedback Straddle maj_verdict {}: {}", s.id, e);
@@ -239,7 +191,12 @@ async fn cloturer(db: &Arc<Database>, s: &SignalStraddleOuvert, verdict: &str, p
     }
     tracing::info!(
         "📋 Straddle clôturé {} {}/{} → {} @ {:.5} (score {:.0})",
-        s.id, s.asset, s.timeframe, verdict, prix_verdict, s.score,
+        s.id,
+        s.asset,
+        s.timeframe,
+        verdict,
+        prix_verdict,
+        s.score,
     );
 }
 
