@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};
 use data::{
-    providers::{BinanceProvider, IbGatewayProvider},
+    providers::BinanceProvider,
     DataProvider,
 };
 use indicators::calculer_ema;
@@ -156,9 +156,9 @@ pub async fn tendance_multi_tf(
                     .fetch_candles(asset.clone(), tf, limit_bougies as usize)
                     .await
             } else {
-                IbGatewayProvider::new(state.ib_port, state.ib_client_id)
-                    .fetch_candles(asset.clone(), tf, limit_bougies as usize)
-                    .await
+                // IG : Lightstreamer alimentera le cache
+                tracing::debug!("Tendance multi-TF: cache {} {} insuffisant — LS alimentera", label, query.asset);
+                Ok(bougies_db.clone())
             };
             match resultat {
                 Ok(b) => {

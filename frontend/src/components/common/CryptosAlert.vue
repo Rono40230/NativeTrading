@@ -198,7 +198,7 @@ async function fetchSparkline(ticker: string) {
   sparkline.value = []
   const tf = TF_CONFIGS.find(t => t.label === selectedTF.value) ?? TF_CONFIGS[2]
   try {
-    const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${ticker}USDT&interval=${tf.interval}&limit=${tf.limit}`)
+    const res = await fetch(`/api/marche/klines?symbol=${ticker}&interval=${tf.interval}&limit=${tf.limit}`)
     if (!res.ok) return
     const data = await res.json() as unknown[][]
     sparkline.value = data.map(k => parseFloat(k[4] as string))

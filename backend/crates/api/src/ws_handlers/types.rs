@@ -40,4 +40,7 @@ pub(super) struct BinanceKline {
     pub close: String,
     #[serde(rename = "v")]
     pub volume: String,
+    /// Bougie clôturée (true) ou en cours (false)
+    #[serde(rename = "x")]
+    pub is_closed: bool,
 }

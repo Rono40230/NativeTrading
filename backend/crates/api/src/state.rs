@@ -4,9 +4,8 @@ use ml::PipelineML;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-/// Cache du statut IB Gateway : (Instant du check, connecte, adresse, erreur optionnelle)
-pub type IbStatusCache = Option<(std::time::Instant, bool, String, Option<String>)>;
-
+use crate::ig_lightstreamer::IgLightstreamer;
+use crate::ig_session::IgSession;
 use crate::scheduler::demarrer_scheduler;
 use crate::signal_engine::SignalEngine;
 
@@ -15,19 +14,16 @@ pub struct AppState {
     pub pipeline_ml: Arc<Mutex<PipelineML>>,
     /// État du job de réentraînement incrémental (Phase 8.4)
     pub retrain_state: Arc<tokio::sync::RwLock<crate::ml_retrain_handler::RetainState>>,
-    /// Port IB Gateway (4002 = paper, 4001 = live)
-    pub ib_port: u16,
-    /// Client ID pour la connexion IB (doit être unique par connexion)
-    pub ib_client_id: i32,
+    /// Session IG Markets (CST + X-SECURITY-TOKEN, TTL 5h, relogin auto)
+    pub ig_session: Arc<Mutex<IgSession>>,
+    /// Client Lightstreamer IG — streaming CHART: OHLC temps réel
+    pub ig_lightstreamer: Arc<IgLightstreamer>,
     /// Moteur de génération automatique de signaux SMC
     pub signal_engine: Arc<SignalEngine>,
     /// Dernier contexte backtest formaté — injecté dans les analyses LLM SMC.
     pub contexte_backtest: Arc<tokio::sync::RwLock<Option<String>>>,
     /// Cache Fear & Greed Index (TTL 1h) — (Instant du fetch, données JSON)
     pub fear_greed_cache: Arc<tokio::sync::RwLock<Option<(std::time::Instant, serde_json::Value)>>>,
-    /// Cache statut IB Gateway (TTL 90s) — évite de créer une connexion ibapi par poll.
-    /// Contenu : (instant du check, connecte, adresse, message_erreur_opt)
-    pub ib_status_cache: Arc<tokio::sync::RwLock<IbStatusCache>>,
 }
 
 impl AppState {
@@ -65,21 +61,11 @@ impl AppState {
             }
         };
 
-        // Configuration IB Gateway depuis variables d'environnement ou valeurs par défaut
-        let ib_port = std::env::var("IB_GATEWAY_PORT")
-            .ok()
-            .and_then(|s| s.parse::<u16>().ok())
-            .unwrap_or(4002);
-        let ib_client_id = std::env::var("IB_GATEWAY_CLIENT_ID")
-            .ok()
-            .and_then(|s| s.parse::<i32>().ok())
-            .unwrap_or(100);
-
-        tracing::info!(
-            "IB Gateway configuré: 127.0.0.1:{} (client_id={})",
-            ib_port,
-            ib_client_id
-        );
+        // Session IG Markets — login immédiat en arrière-plan si credentials présents
+        let ig_client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(15))
+            .build()?;
+        let ig_session = Arc::new(Mutex::new(IgSession::new(ig_client)));
 
         // Démarrage automatique du Signal Engine au lancement du serveur
         let db = Arc::new(db);
@@ -87,6 +73,30 @@ impl AppState {
         let signal_engine = Arc::new(SignalEngine::new());
         signal_engine.demarrer(db.clone(), pipeline_ml.clone());
         tracing::info!("🤖 Signal Engine démarré automatiquement");
+
+        // Pré-connexion IG en arrière-plan au démarrage (db déjà dans Arc)
+        {
+            let ig_init = ig_session.clone();
+            let db_init = db.clone();
+            tokio::spawn(async move {
+                let mut session = ig_init.lock().await;
+                match session.login(&db_init).await {
+                    Ok(()) => tracing::info!("✅ IG Markets: connecté au démarrage"),
+                    Err(e) => tracing::warn!("⚠️  IG Markets: login différé — {}", e),
+                }
+            });
+        }
+
+        // Client Lightstreamer — démarrage de la boucle de streaming
+        let (ls_client, _rx) = IgLightstreamer::new(ig_session.clone(), db.clone());
+        let ig_lightstreamer = Arc::new(ls_client);
+        {
+            let ls = ig_lightstreamer.clone();
+            tokio::spawn(async move {
+                ls.run().await;
+            });
+        }
+        tracing::info!("📡 IG Lightstreamer: boucle de streaming démarrée");
 
         // Scheduler ML : entraînement immédiat si pas de modèle, puis quotidien à 00h00 UTC
         demarrer_scheduler(db.clone(), pipeline_ml.clone(), modele_deja_charge);
@@ -125,7 +135,7 @@ impl AppState {
         crate::smc_calibration_job::demarrer_calibration_smc(db.clone());
 
         // Job quotidien de mise à jour des valeur_pips (paires JPY)
-        crate::pip_updater::demarrer_pip_updater(db.clone());
+        crate::pip_updater::demarrer_pip_updater(db.clone(), ig_session.clone());
 
         Ok(Self {
             db,
@@ -133,12 +143,11 @@ impl AppState {
             retrain_state: Arc::new(tokio::sync::RwLock::new(
                 crate::ml_retrain_handler::RetainState::default(),
             )),
-            ib_port,
-            ib_client_id,
+            ig_session,
+            ig_lightstreamer,
             signal_engine,
             contexte_backtest: Arc::new(tokio::sync::RwLock::new(None)),
             fear_greed_cache: Arc::new(tokio::sync::RwLock::new(None)),
-            ib_status_cache: Arc::new(tokio::sync::RwLock::new(None)),
         })
     }
 }

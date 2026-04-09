@@ -1,6 +1,10 @@
-//! Fetch de prix dispatché par type d'asset.
-//! Crypto → Binance | Métaux / Forex / Indices → Yahoo Finance
+//! Fetch de prix spot dispatché par type d'asset.
+//! Crypto → Binance | Métaux / Forex / Indices → IG Markets REST
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
+
+use crate::ig_session::IgSession;
 
 // ── Désérialisation Binance ──────────────────────────────────────────────────
 
@@ -9,30 +13,20 @@ struct BinancePrix {
     price: String,
 }
 
-// ── Désérialisation Yahoo Finance v8 ────────────────────────────────────────
+// ── Désérialisation IG Markets (prix snapshot) ───────────────────────────────
 
 #[derive(serde::Deserialize)]
-struct YahooMeta {
-    #[serde(rename = "regularMarketPrice")]
-    prix: Option<f64>,
+struct IgSnapshotPrix {
+    bid: Option<f64>,
+    offer: Option<f64>,
 }
 
 #[derive(serde::Deserialize)]
-struct YahooResultItem {
-    meta: YahooMeta,
+struct IgPrixResponse {
+    snapshot: IgSnapshotPrix,
 }
 
-#[derive(serde::Deserialize)]
-struct YahooChartResult {
-    result: Option<Vec<YahooResultItem>>,
-}
-
-#[derive(serde::Deserialize)]
-struct YahooResponse {
-    chart: YahooChartResult,
-}
-
-// ── Mapping asset → symbole source ──────────────────────────────────────────
+// ── Mapping asset → symbole Binance ──────────────────────────────────────────
 
 fn binance_symbol(asset: &str) -> Option<&'static str> {
     match asset {
@@ -50,38 +44,39 @@ fn binance_symbol(asset: &str) -> Option<&'static str> {
     }
 }
 
-/// Symboles Yahoo Finance pré-encodés (= → %3D, ^ → %5E).
-fn yahoo_symbol(asset: &str) -> Option<&'static str> {
+/// Epic IG pour un asset (string brut).
+fn ig_epic_str(asset: &str) -> Option<&'static str> {
     match asset {
-        "XAUUSD" => Some("GC%3DF"),
-        "XAGUSD" => Some("SI%3DF"),
-        "XPTUSD" => Some("PL%3DF"),
-        "XPDUSD" => Some("PA%3DF"),
-        "EURUSD" => Some("EURUSD%3DX"),
-        "GBPUSD" => Some("GBPUSD%3DX"),
-        "USDJPY" => Some("JPY%3DX"),
-        "USDCHF" => Some("CHF%3DX"),
-        "AUDUSD" => Some("AUDUSD%3DX"),
-        "USDCAD" => Some("CAD%3DX"),
-        "NZDUSD" => Some("NZDUSD%3DX"),
-        "GBPJPY" => Some("GBPJPY%3DX"),
-        "CADJPY" => Some("CADJPY%3DX"),
-        "NZDJPY" => Some("NZDJPY%3DX"),
-        "EURJPY" => Some("EURJPY%3DX"),
-        "EURGBP" => Some("EURGBP%3DX"),
-        "DAX" => Some("%5EGDAXI"),
-        "NAS100" => Some("NQ%3DF"),
-        "SP500" => Some("%5EGSPC"),
-        "US30" => Some("%5EDJI"),
-        "FTSE100" => Some("%5EFTSE"),
-        "CAC40" => Some("%5EFCHI"),
-        "JP225" => Some("%5EN225"),
+        "XAUUSD" => Some("CS.D.CFDGOLD.CFDGC.IP"),
+        "XAGUSD" => Some("CS.D.CFDSILVER.CFDSI.IP"),
+        "XPTUSD" => Some("CS.D.PLATINUM.CFD.IP"),
+        "XPDUSD" => Some("CS.D.PALLADIUM.CFD.IP"),
+        "EURUSD" => Some("CS.D.EURUSD.CFD.IP"),
+        "GBPUSD" => Some("CS.D.GBPUSD.CFD.IP"),
+        "USDJPY" => Some("CS.D.USDJPY.CFD.IP"),
+        "USDCHF" => Some("CS.D.USDCHF.CFD.IP"),
+        "AUDUSD" => Some("CS.D.AUDUSD.CFD.IP"),
+        "USDCAD" => Some("CS.D.USDCAD.CFD.IP"),
+        "NZDUSD" => Some("CS.D.NZDUSD.CFD.IP"),
+        "GBPJPY" => Some("CS.D.GBPJPY.CFD.IP"),
+        "CADJPY" => Some("CS.D.CADJPY.CFD.IP"),
+        "NZDJPY" => Some("CS.D.NZDJPY.CFD.IP"),
+        "EURJPY" => Some("CS.D.EURJPY.CFD.IP"),
+        "EURGBP" => Some("CS.D.EURGBP.CFD.IP"),
+        "DAX"    => Some("IX.D.DAX.IFD.IP"),
+        "NAS100" => Some("IX.D.NASDAQ.IFD.IP"),
+        "SP500"  => Some("IX.D.SPTRD.IFD.IP"),
+        "US30"   => Some("IX.D.DOW.IFD.IP"),
+        "FTSE100" => Some("IX.D.FTSE.IFD.IP"),
+        "CAC40"  => Some("IX.D.CAC.IFD.IP"),
+        "JP225"  => Some("IX.D.NIKKEI.IFD.IP"),
         _ => None,
     }
 }
 
 // ── Fonctions fetch internes ─────────────────────────────────────────────────
 
+/// Fetch prix spot Binance.
 async fn fetch_binance(client: &reqwest::Client, symbole: &str) -> Option<f64> {
     let url = format!(
         "https://api.binance.com/api/v3/ticker/price?symbol={}",
@@ -91,35 +86,54 @@ async fn fetch_binance(client: &reqwest::Client, symbole: &str) -> Option<f64> {
     resp.price.parse::<f64>().ok()
 }
 
-async fn fetch_yahoo(client: &reqwest::Client, symbole: &str) -> Option<f64> {
-    let url = format!(
-        "https://query2.finance.yahoo.com/v8/finance/chart/{}?interval=1d&range=2d",
-        symbole
-    );
-    let resp: YahooResponse = client
+/// Fetch prix spot IG via GET /markets/{epic} (snapshot bid/offer).
+async fn fetch_ig(
+    client: &reqwest::Client,
+    session: &Arc<Mutex<IgSession>>,
+    db: &Arc<db::Database>,
+    epic: &str,
+) -> Option<f64> {
+    let (url_base, headers) = {
+        let mut sess = session.lock().await;
+        let url_base = sess.url();
+        let headers = sess.headers(db).await.ok()?;
+        (url_base, headers)
+    };
+    let url = format!("{}/markets/{}", url_base, epic);
+    let resp: IgPrixResponse = client
         .get(&url)
-        .header("Accept", "application/json")
-        .header("User-Agent", "Mozilla/5.0 (X11; Linux x86_64)")
+        .headers(headers)
+        .header("Version", "1")
         .send()
         .await
         .ok()?
         .json()
         .await
         .ok()?;
-    resp.chart.result?.into_iter().next()?.meta.prix
+    match (resp.snapshot.bid, resp.snapshot.offer) {
+        (Some(b), Some(o)) => Some((b + o) / 2.0),
+        (Some(b), None) => Some(b),
+        (None, Some(o)) => Some(o),
+        _ => None,
+    }
 }
 
 // ── API publique ─────────────────────────────────────────────────────────────
 
 /// Retourne le prix spot d'un asset selon sa source :
-/// crypto → Binance | métaux / forex / indices → Yahoo Finance.
+/// crypto → Bybit | métaux / forex / indices → IG Markets REST.
 /// Retourne `None` si l'asset est inconnu ou si la source est inaccessible.
-pub async fn fetch_prix_asset(client: &reqwest::Client, asset: &str) -> Option<f64> {
+pub async fn fetch_prix_asset(
+    client: &reqwest::Client,
+    asset: &str,
+    ig: &Arc<Mutex<IgSession>>,
+    db: &Arc<db::Database>,
+) -> Option<f64> {
     if let Some(sym) = binance_symbol(asset) {
         return fetch_binance(client, sym).await;
     }
-    if let Some(sym) = yahoo_symbol(asset) {
-        return fetch_yahoo(client, sym).await;
+    if let Some(epic) = ig_epic_str(asset) {
+        return fetch_ig(client, ig, db, epic).await;
     }
     tracing::debug!("fetch_prix_asset: asset inconnu '{}'", asset);
     None

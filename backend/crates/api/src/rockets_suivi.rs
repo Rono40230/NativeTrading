@@ -11,9 +11,7 @@ pub use strategies::rockets_indicateurs::calculer_verdict_rocket;
 // ── Helpers HTTP ─────────────────────────────────────────────────────────────
 
 #[derive(serde::Deserialize)]
-struct BinancePrix {
-    price: String,
-}
+struct BinancePrix { price: String }
 
 pub async fn fetch_prix(client: &reqwest::Client, ticker: &str) -> Option<f64> {
     let url = format!(

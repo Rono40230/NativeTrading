@@ -16,10 +16,10 @@
         </span>
       </div>
       <div class="rounded-lg bg-white/5 px-3 py-2 flex flex-col gap-0.5 shrink-0">
-        <span class="text-gray-500 text-[10px] uppercase tracking-wider">IB Gateway</span>
-        <span v-if="ibGatewayOk === null" class="text-gray-500 text-sm font-semibold animate-pulse">⏳ Vérif…</span>
-        <span v-else :class="ibGatewayOk ? 'text-emerald-400' : 'text-red-400'" class="text-sm font-semibold">
-          {{ ibGatewayOk ? '🟢 Connecté' : '🔴 Déconnecté' }}
+        <span class="text-gray-500 text-[10px] uppercase tracking-wider">IG Markets</span>
+        <span v-if="igOk === null" class="text-gray-500 text-sm font-semibold animate-pulse">⏳ Vérif…</span>
+        <span v-else :class="igOk ? 'text-emerald-400' : 'text-red-400'" class="text-sm font-semibold">
+          {{ igOk ? '🟢 Connecté' : '🔴 Déconnecté' }}
         </span>
       </div>
       <div class="rounded-lg bg-white/5 px-3 py-2 flex flex-col gap-0.5 shrink-0">
@@ -78,7 +78,7 @@
 defineProps<{
   backendOk: boolean
   btcPrix: number | null
-  ibGatewayOk: boolean | null
+  igOk: boolean | null
   ollamaOk: boolean | null
   mlPret: boolean
   engineActif: boolean

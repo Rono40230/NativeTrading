@@ -73,14 +73,25 @@ async fn executer_scan(
         cfg.phases_actives
     );
 
+    // Binance response: Vec<{ symbol, quoteVolume, ... }>
+    #[derive(serde::Deserialize)]
+    struct BinanceTicker {
+        symbol: String,
+        #[serde(rename = "quoteVolume")]
+        quote_volume: String,
+    }
+
     let tickers: Vec<Ticker24h> = client
         .get("https://api.binance.com/api/v3/ticker/24hr")
         .send()
         .await
-        .context("fetch ticker/24hr")?
-        .json()
+        .context("fetch ticker Binance")?
+        .json::<Vec<BinanceTicker>>()
         .await
-        .context("parse ticker/24hr")?;
+        .context("parse ticker Binance")?
+        .into_iter()
+        .map(|item| Ticker24h { symbol: item.symbol, quote_volume: item.quote_volume })
+        .collect();
 
     let vol_min = cfg.vol_marche_min;
     let candidats: Vec<String> = tickers

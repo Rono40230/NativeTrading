@@ -69,15 +69,15 @@ const CATEGORIES = computed(() => [
     assets: tous.value.filter(a => a.type === 'crypto'),
   },
   {
-    type: 'metal', label: '🥇 Métaux (IB)', couleur: 'text-amber-400',
+    type: 'metal', label: '🥇 Métaux (IG)', couleur: 'text-amber-400',
     assets: tous.value.filter(a => a.type === 'metal'),
   },
   {
-    type: 'forex', label: '💱 Forex (IB)', couleur: 'text-blue-400',
+    type: 'forex', label: '💱 Forex (IG)', couleur: 'text-blue-400',
     assets: tous.value.filter(a => a.type === 'forex'),
   },
   {
-    type: 'indice', label: '📈 Indices (IB)', couleur: 'text-purple-400',
+    type: 'indice', label: '📈 Indices (IG)', couleur: 'text-purple-400',
     assets: tous.value.filter(a => a.type === 'indice'),
   },
 ])

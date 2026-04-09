@@ -13,6 +13,8 @@ mod data_mt5_handlers;
 mod engine_handlers;
 mod export_handlers;
 mod handlers;
+mod ig_lightstreamer;
+mod ig_session;
 mod indicators_handlers;
 mod indicators_types;
 mod ml_handlers;
@@ -97,15 +99,8 @@ async fn main() -> std::io::Result<()> {
     dotenvy::from_filename("telegram.env").ok();
     dotenvy::dotenv().ok();
 
-    // Les logs ibapi internes sont tous non-actionnables depuis notre code :
-    //  - ibapi::connection::common : timezone FR non reconnue, [326] client_id (géré par retry)
-    //  - ibapi::transport::r#async : Code 2104/2106/2158 (statut fermes données IB)
-    //  - ibapi::market_data::historical::r#async : timezone unknown (fallback UTC OK)
-    // Notre code produit ses propres tracing::info/warn pour les événements significatifs.
-    // Surcharger via RUST_LOG si besoin de débogage ibapi (ex: RUST_LOG=ibapi=debug).
     let env_filter = tracing_subscriber::EnvFilter::from_default_env()
-        .add_directive(tracing::Level::INFO.into())
-        .add_directive("ibapi=off".parse().unwrap());
+        .add_directive(tracing::Level::INFO.into());
 
     tracing_subscriber::fmt().with_env_filter(env_filter).init();
 
@@ -139,8 +134,12 @@ async fn main() -> std::io::Result<()> {
     ));
 
     let pool_signaux = app_state.db.pool().clone();
+    let ig_signaux = app_state.ig_session.clone();
+    let db_signaux = app_state.db.clone();
     tokio::spawn(signaux_handlers::demarrer_worker_suivi_signaux(
         pool_signaux,
+        ig_signaux,
+        db_signaux,
     ));
 
     tokio::spawn(smc_analyse_handler::demarrer_worker_analyse_smc(

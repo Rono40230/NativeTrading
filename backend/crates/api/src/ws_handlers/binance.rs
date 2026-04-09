@@ -81,7 +81,7 @@ pub(super) async fn stream_binance(
                         if let Ok(km) = serde_json::from_str::<BinanceKlineMsg>(&txt) {
                             let k = &km.kline;
                             let event = CandleEvent {
-                                r#type: "candle",
+                                r#type: if k.is_closed { "candle" } else { "bar_update" },
                                 asset: asset_str.clone(),
                                 timeframe: timeframe_str.clone(),
                                 data: CandleData {

@@ -1,5 +1,5 @@
 use actix_web::{web, HttpResponse, Responder};
-use data::{providers::BinanceProvider, providers::IbGatewayProvider, DataProvider};
+use data::{providers::BinanceProvider, DataProvider};
 
 use crate::ollama::straddle_analyse;
 use crate::state::AppState;
@@ -51,9 +51,8 @@ pub async fn analyser(
                     .fetch_candles(asset.clone(), Timeframe::H1, limite_reseau)
                     .await
             } else {
-                IbGatewayProvider::new(state.ib_port, state.ib_client_id)
-                    .fetch_candles(asset.clone(), Timeframe::H1, limite_reseau)
-                    .await
+                tracing::warn!("Straddle: cache H1 vide pour {} — Lightstreamer alimentera", asset_str);
+                Ok(vec![])
             };
             match res {
                 Ok(b) => {

@@ -1,9 +1,8 @@
 //! WebSocket streaming temps réel — module racine
-//! Dispatche vers Binance (crypto) ou IB Gateway (métaux).
+//! Dispatche vers Binance (crypto) ou IG Markets via Lightstreamer (métaux/forex/indices).
 
 mod binance;
-mod ib;
-mod ib_contracts;
+mod ig;
 mod types;
 
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -30,8 +29,8 @@ pub async fn stream_market(
 
     let asset = parse_asset(&asset_str);
     let timeframe = parse_timeframe(&timeframe_str);
-    let ib_port = state.ib_port;
-    let ib_client_id = state.ib_client_id;
+    let ls = state.ig_lightstreamer.clone();
+    let db = state.db.clone();
 
     let (response, session, client_stream) = actix_ws::handle(&req, body)?;
 
@@ -49,15 +48,15 @@ pub async fn stream_market(
             )
             .await;
         } else {
-            ib::stream_ib(
+            ig::stream_ig(
                 session,
                 client_stream,
                 asset,
                 timeframe,
                 asset_str,
                 timeframe_str,
-                ib_port,
-                ib_client_id,
+                ls,
+                db,
             )
             .await;
         }

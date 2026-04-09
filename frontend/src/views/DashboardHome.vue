@@ -21,7 +21,7 @@
         <DashboardSystemStatus
           :backend-ok="backendOk"
           :btc-prix="btcPrix"
-          :ib-gateway-ok="ibGatewayOk"
+          :ig-ok="igOk"
           :ollama-ok="ollamaOk"
           :ml-pret="mlPret"
           :engine-actif="engineActif"
@@ -118,7 +118,7 @@ const cryptos  = useCryptosAlert()
 const rockets  = useVeilleRockets()
 const mlPret = computed(() => signalStore.prediction?.modele_pret ?? false)
 const backendOk = ref(false)
-const ibGatewayOk = ref<boolean | null>(null)
+const igOk = ref<boolean | null>(null)
 const ollamaOk = ref<boolean | null>(null)
 const metriques = ref<BacktestResults | null>(null)
 const assetsAvecPrix = ref<AssetAvecPrix[]>([])
@@ -178,7 +178,7 @@ async function chargerPrixActifs() {
 
 onMounted(async () => {
   try { await apiService.healthCheck(); backendOk.value = true } catch { backendOk.value = false }
-  try { const ib = await apiService.ibStatus(); ibGatewayOk.value = ib.connecte } catch { ibGatewayOk.value = false }
+  try { const ig = await apiService.igStatutLocal(); igOk.value = ig.connecte } catch { igOk.value = false }
   try { const ia = await apiService.statutIA(); ollamaOk.value = ia.ollama_disponible } catch { ollamaOk.value = false }
   await Promise.allSettled([
     chargerPrixActifs(),

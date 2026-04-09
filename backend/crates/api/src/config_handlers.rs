@@ -7,8 +7,10 @@ use crate::state::AppState;
 const CLES_AUTORISEES: &[&str] = &[
     "capital_depart",
     "risque_trade",
-    "ibgateway_port",
-    "ibgateway_client_id",
+    "ig_api_key",
+    "ig_username",
+    "ig_password",
+    "ig_env",
     "anthropic_api_key",
     "telegram_bot_token",
     "telegram_chat_id",
@@ -61,6 +63,13 @@ pub async fn post_config(
     match state.db.ecrire_config(&body.cle, &body.valeur).await {
         Ok(()) => {
             tracing::info!("Config mise à jour: {}", body.cle);
+
+            // Si un credential IG est mis à jour → invalider la session pour relogin au prochain appel
+            const IG_KEYS: &[&str] = &["ig_api_key", "ig_username", "ig_password", "ig_env"];
+            if IG_KEYS.contains(&body.cle.as_str()) {
+                state.ig_session.lock().await.reset();
+            }
+
             HttpResponse::Ok().json(serde_json::json!({ "ok": true }))
         }
         Err(e) => HttpResponse::InternalServerError()

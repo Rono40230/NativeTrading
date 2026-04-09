@@ -67,10 +67,10 @@ pub async fn ajouter_asset(
             "error": format!("Type invalide. Valeurs autorisées : {:?}", types_valides)
         }));
     }
-    let sources_valides = ["binance", "ib"];
+    let sources_valides = ["binance", "ig"];
     if !sources_valides.contains(&body.source.as_str()) {
         return HttpResponse::BadRequest().json(serde_json::json!({
-            "error": "Source invalide. Valeurs : 'binance' ou 'ib'."
+            "error": "Source invalide. Valeurs : 'binance' ou 'ig'."
         }));
     }
 

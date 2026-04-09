@@ -100,16 +100,15 @@ export function useCryptosAlert() {
 
   async function enrichir1h(tickers: string[]) {
     if (tickers.length === 0) return
-    const symbols = JSON.stringify(tickers.map(t => `${t}USDT`))
     try {
       const res = await fetch(
-        `https://api.binance.com/api/v3/ticker?symbols=${encodeURIComponent(symbols)}&windowSize=1h`
+        `/api/marche/variation1h?symbols=${tickers.join(',')}`
       )
       if (!res.ok) return
-      const data = await res.json() as Array<{ symbol: string; priceChangePercent: string }>
+      const data = await res.json() as Record<string, number>
       const next: Record<string, number> = { ...change1hMap.value }
-      for (const t of data) {
-        next[t.symbol.slice(0, -4)] = parseFloat(t.priceChangePercent)
+      for (const [ticker, pct] of Object.entries(data)) {
+        next[ticker] = pct
       }
       change1hMap.value = next
     } catch { /* silencieux */ }

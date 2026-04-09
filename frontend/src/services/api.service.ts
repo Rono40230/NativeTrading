@@ -196,14 +196,22 @@ export const apiService = {
     }
   },
 
-  async ibStatus(): Promise<{ connecte: boolean; adresse: string; erreur?: string }> {
+  async igStatus(): Promise<{ connecte: boolean; source: string; erreur?: string }> {
     try {
-      const res = await http.get('/api/ib/status')
+      const res = await http.get('/api/ig/status')
       return res.data
     } catch (err: any) {
-      // 503 : IB Gateway inaccessible — retourner les données du body si présentes
       if (err?.response?.data) return err.response.data
-      return { connecte: false, adresse: '', erreur: err?.message ?? 'Erreur réseau' }
+      return { connecte: false, source: 'ig_markets', erreur: err?.message ?? 'Erreur réseau' }
+    }
+  },
+
+  async igStatutLocal(): Promise<{ connecte: boolean; source: string }> {
+    try {
+      const res = await http.get('/api/ig/statut-local')
+      return res.data
+    } catch {
+      return { connecte: false, source: 'ig_markets' }
     }
   },
 
@@ -228,7 +236,7 @@ export const apiService = {
     id: string,
     nom: string,
     type: AssetInfo['type'],
-    source: 'binance' | 'ib',
+    source: 'binance' | 'ig',
   ): Promise<void> {
     try {
       await http.post('/api/assets', { id, nom, type, source })

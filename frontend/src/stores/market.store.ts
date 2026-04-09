@@ -49,12 +49,12 @@ export const useMarketStore = defineStore('market', () => {
   async function connecterStream(asset: string, timeframe = 'M5') {
     deconnecterStream()
 
-    // WebSocket pour tous les assets : crypto (Binance) et métaux (IB Gateway historical_data_streaming)
+    // WebSocket pour tous les assets : crypto (Binance) et métaux/forex/indices (IG Markets)
     ws = new WebSocket(`${WS_URL}/api/stream?asset=${asset}&timeframe=${timeframe}`)
     ws.onopen = () => { wsConnecte.value = true }
     ws.onclose = () => { wsConnecte.value = false }
 
-    // Buffer pour les bougies historiques IB reçues en batch avant les updates temps réel
+    // Buffer pour les bougies historiques reçues en batch avant les updates temps réel
     let historiqueBuffer: Candle[] = []
     let enModeHistorique = false
 
@@ -63,7 +63,7 @@ export const useMarketStore = defineStore('market', () => {
         const msg = JSON.parse(event.data as string)
         const key = `${asset}_${timeframe}`
 
-        // Début du batch historique IB : basculer en mode buffer
+        // Début du batch historique : basculer en mode buffer
         if (msg.type === 'historical_start') {
           enModeHistorique = true
           historiqueBuffer = []
@@ -82,11 +82,11 @@ export const useMarketStore = defineStore('market', () => {
         }
 
         if (msg.type === 'error') {
-          erreurWs.value = msg.message ?? 'Erreur flux IB Gateway'
+          erreurWs.value = msg.message ?? 'Erreur flux IG Markets'
           return
         }
 
-        // Prix live 5s (IB realtime_bars) — met à jour la dernière bougie sans modifier le chart
+        // Prix live 5s (IG polling) — met à jour la dernière bougie sans modifier le chart
         if (msg.type === 'price' && msg.price != null) {
           const liste = bougies.value[key]
           if (liste && liste.length > 0) {
@@ -97,7 +97,7 @@ export const useMarketStore = defineStore('market', () => {
           return
         }
 
-        if (msg.type !== 'candle' || !msg.data) return
+        if ((msg.type !== 'candle' && msg.type !== 'bar_update') || !msg.data) return
 
         // DateTime<Utc> Rust sérialise en ISO string, pas en timestamp numérique
         const rawTs = msg.data.timestamp as string | number
@@ -136,7 +136,7 @@ export const useMarketStore = defineStore('market', () => {
     erreurWs.value = null
   }
 
-  // ─── Prix live ticker dashboard (WS par asset : Binance pour crypto, IB pour le reste) ──────────
+  // ─── Prix live ticker dashboard (WS par asset : Binance pour crypto, IG pour le reste) ──────────
   const prixLive = ref<Record<string, number>>({})
   const variationLive = ref<Record<string, number>>({})
   const wsLiveMap: Record<string, WebSocket> = {}
@@ -150,7 +150,7 @@ export const useMarketStore = defineStore('market', () => {
       liveWs.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data as string)
-          // Binance envoie type:"candle", IB envoie type:"price" (tick bid/ask) ou type:"candle"
+          // Binance envoie type:"candle", IG envoie type:"price" ou type:"candle"
           if (msg.type === 'price' && msg.price != null) {
             prixLive.value[asset] = msg.price
           } else if (msg.type === 'candle' && msg.data) {
@@ -162,7 +162,7 @@ export const useMarketStore = defineStore('market', () => {
         } catch { /* message invalide ignoré */ }
       }
       liveWs.onclose = () => { delete wsLiveMap[asset] }
-      // Si IB offline → fermeture silencieuse, fallback REST géré par le dashboard
+      // Si IG offline → fermeture silencieuse, fallback REST géré par le dashboard
       liveWs.onerror = () => { delete wsLiveMap[asset] }
     })
   }

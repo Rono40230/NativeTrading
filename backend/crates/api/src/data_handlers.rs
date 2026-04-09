@@ -82,10 +82,10 @@ pub async fn post_collect(
         let provider: Box<dyn DataProvider> = if asset.is_crypto() {
             Box::new(BinanceProvider)
         } else {
-            // IB Gateway pour métaux, forex, indices
-            let ib =
-                data::providers::IbGatewayProvider::new(state.ib_port, state.ib_client_id + 200);
-            Box::new(ib)
+            // IG : pas de provider REST (Lightstreamer). data_collect ne fonctionne que pour crypto.
+            return HttpResponse::Ok().json(serde_json::json!({
+                "message": "Collecte historique IG non disponible — utiliser import CSV MT5"
+            }));
         };
 
         for tf_str in &tf_ids {

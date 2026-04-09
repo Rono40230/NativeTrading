@@ -15,18 +15,26 @@ pub async fn analyser_symbol(
         "https://api.binance.com/api/v3/klines?symbol={}USDT&interval=1h&limit={}",
         ticker, KLINES_N
     );
-    let raw: Vec<serde_json::Value> = client.get(&url).send().await.ok()?.json().await.ok()?;
+
+    // Binance response: Vec<Vec<serde_json::Value>>
+    // [openTime(ms), open, high, low, close, volume, closeTime, ...]
+    // Ordre: chronologique (plus ancien → plus récent)
+    let raw: Vec<Vec<serde_json::Value>> = client.get(&url).send().await.ok()?.json().await.ok()?;
+
     if raw.len() < 20 {
         return None;
     }
 
-    let parse = |k: &serde_json::Value, idx: usize| -> f64 {
-        k[idx].as_str().and_then(|s| s.parse().ok()).unwrap_or(0.0)
+    let parse = |row: &Vec<serde_json::Value>, idx: usize| -> f64 {
+        row.get(idx)
+            .and_then(|v| v.as_str().and_then(|s| s.parse().ok()).or_else(|| v.as_f64()))
+            .unwrap_or(0.0)
     };
+    // Binance: [openTime(ms), open, high, low, close, volume, closeTime, ...]
     let opens: Vec<f64> = raw.iter().map(|k| parse(k, 1)).collect();
-    let closes: Vec<f64> = raw.iter().map(|k| parse(k, 4)).collect();
     let highs: Vec<f64> = raw.iter().map(|k| parse(k, 2)).collect();
     let lows: Vec<f64> = raw.iter().map(|k| parse(k, 3)).collect();
+    let closes: Vec<f64> = raw.iter().map(|k| parse(k, 4)).collect();
     let volumes: Vec<f64> = raw.iter().map(|k| parse(k, 5)).collect();
     let prix = *closes.last()?;
 

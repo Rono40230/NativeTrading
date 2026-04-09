@@ -225,7 +225,7 @@ function formatPrix(v: number): string {
 async function fetchSparklines() {
   await Promise.all(top5.value.map(async (c) => {
     try {
-      const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${c.ticker}USDT&interval=1h&limit=24`)
+      const res = await fetch(`/api/marche/klines?symbol=${c.ticker}&interval=1h&limit=24`)
       if (!res.ok) return
       const data = await res.json() as unknown[][]
       sparklines.value[c.symbol] = data.map(k => parseFloat(k[4] as string))

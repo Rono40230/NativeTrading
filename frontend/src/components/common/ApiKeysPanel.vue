@@ -1,6 +1,72 @@
 <template>
   <div class="space-y-4">
 
+    <!-- IG Markets -->
+    <div class="glass-card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Données de marché — IG Markets</h2>
+          <p class="text-xs text-gray-500 mt-0.5">Forex, métaux, indices — compte démo ou live (AMF réglementé)</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded text-xs font-medium transition-colors" @click="sauvegarderIG">Enregistrer</button>
+          <span v-if="igSauvegarde" class="text-emerald-400 text-xs">✓</span>
+          <span v-if="igErreur" class="text-red-400 text-xs">⚠️ Erreur</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 gap-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block mb-1 text-xs text-gray-400">API Key</label>
+            <div class="flex gap-2 items-center">
+              <input v-model="igApiKey" :type="afficherIgKey ? 'text' : 'password'" placeholder="••••••••••••••••"
+                autocomplete="off"
+                class="bg-gray-700 text-white rounded px-2 py-1.5 w-56 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <button class="text-xs text-gray-400 hover:text-white transition-colors" @click="afficherIgKey = !afficherIgKey">
+                {{ afficherIgKey ? '🙈' : '👁️' }}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block mb-1 text-xs text-gray-400">Identifiant (login)</label>
+            <div class="flex gap-2 items-center">
+              <input v-model="igUsername" :type="afficherIgUser ? 'text' : 'password'" placeholder="••••••••"
+                autocomplete="off"
+                class="bg-gray-700 text-white rounded px-2 py-1.5 w-40 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <button class="text-xs text-gray-400 hover:text-white transition-colors" @click="afficherIgUser = !afficherIgUser">
+                {{ afficherIgUser ? '🙈' : '👁️' }}
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block mb-1 text-xs text-gray-400">Mot de passe</label>
+            <div class="flex gap-2 items-center">
+              <input v-model="igPassword" :type="afficherIgPass ? 'text' : 'password'" placeholder="••••••••"
+                autocomplete="off"
+                class="bg-gray-700 text-white rounded px-2 py-1.5 w-40 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              <button class="text-xs text-gray-400 hover:text-white transition-colors" @click="afficherIgPass = !afficherIgPass">
+                {{ afficherIgPass ? '🙈' : '👁️' }}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label class="block mb-1 text-xs text-gray-400">Environnement</label>
+            <div class="flex gap-2">
+              <button :class="igEnv === 'demo' ? 'bg-emerald-700 text-emerald-200' : 'bg-gray-600 text-gray-300'"
+                class="px-3 py-1.5 rounded text-xs font-medium transition-colors"
+                @click="igEnv = 'demo'">Démo</button>
+              <button :class="igEnv === 'live' ? 'bg-red-700 text-red-200' : 'bg-gray-600 text-gray-300'"
+                class="px-3 py-1.5 rounded text-xs font-medium transition-colors"
+                @click="igEnv = 'live'">Live</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="text-xs text-gray-500 mt-2">Mon Compte IG → Mon Profil → API → Générer une clé</p>
+    </div>
+
     <!-- IA Vision (Anthropic) -->
     <div class="glass-card p-4">
       <div class="flex items-center justify-between mb-3">
@@ -94,6 +160,18 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
 
+// ── IG Markets ────────────────────────────────────────────────────────────────
+const igApiKey = ref('')
+const igUsername = ref('')
+const igPassword = ref('')
+const igEnv = ref<'demo' | 'live'>('demo')
+const igSauvegarde = ref(false)
+const igErreur = ref(false)
+const afficherIgKey = ref(false)
+const afficherIgUser = ref(false)
+const afficherIgPass = ref(false)
+
+// ── Anthropic ─────────────────────────────────────────────────────────────────
 const anthropicKey = ref('')
 const anthropicSauvegarde = ref(false)
 const anthropicErreur = ref(false)
@@ -114,12 +192,20 @@ onUnmounted(() => timers.forEach(clearTimeout))
 
 onMounted(async () => {
   try {
-    const [key, tok, chatId, tdKey] = await Promise.all([
+    const [igKey, igUser, igPass, igEnvVal, key, tok, chatId, tdKey] = await Promise.all([
+      apiService.obtenirConfig('ig_api_key'),
+      apiService.obtenirConfig('ig_username'),
+      apiService.obtenirConfig('ig_password'),
+      apiService.obtenirConfig('ig_env'),
       apiService.obtenirConfig('anthropic_api_key'),
       apiService.obtenirConfig('telegram_bot_token'),
       apiService.obtenirConfig('telegram_chat_id'),
       apiService.obtenirConfig('twelvedata_api_key'),
     ])
+    if (igKey?.valeur) igApiKey.value = igKey.valeur
+    if (igUser?.valeur) igUsername.value = igUser.valeur
+    if (igPass?.valeur) igPassword.value = igPass.valeur
+    if (igEnvVal?.valeur) igEnv.value = igEnvVal.valeur as 'demo' | 'live'
     if (key?.valeur) anthropicKey.value = key.valeur
     if (tok?.valeur) telegramToken.value = tok.valeur
     if (chatId?.valeur) telegramChatId.value = chatId.valeur
@@ -128,6 +214,23 @@ onMounted(async () => {
     // Backend non disponible — valeurs par défaut
   }
 })
+
+async function sauvegarderIG() {
+  try {
+    await Promise.all([
+      apiService.sauvegarderConfig('ig_api_key', igApiKey.value.trim()),
+      apiService.sauvegarderConfig('ig_username', igUsername.value.trim()),
+      apiService.sauvegarderConfig('ig_password', igPassword.value.trim()),
+      apiService.sauvegarderConfig('ig_env', igEnv.value),
+    ])
+    igSauvegarde.value = true
+    igErreur.value = false
+    timers.push(setTimeout(() => { igSauvegarde.value = false }, 2000))
+  } catch {
+    igErreur.value = true
+    timers.push(setTimeout(() => { igErreur.value = false }, 3000))
+  }
+}
 
 async function sauvegarderAnthropic() {
   const cle = anthropicKey.value.trim()

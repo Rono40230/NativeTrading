@@ -65,7 +65,11 @@ fn calculer_verdict(
 }
 
 /// Worker lancé au démarrage : toutes les 5min, vérifie TP/SL des signaux SMC/Straddle.
-pub async fn demarrer_worker_suivi_signaux(pool: sqlx::SqlitePool) {
+pub async fn demarrer_worker_suivi_signaux(
+    pool: sqlx::SqlitePool,
+    ig_session: std::sync::Arc<tokio::sync::Mutex<crate::ig_session::IgSession>>,
+    db: std::sync::Arc<db::Database>,
+) {
     let client = match crate::prix_utils::client_http() {
         Ok(c) => c,
         Err(e) => {
@@ -92,7 +96,7 @@ pub async fn demarrer_worker_suivi_signaux(pool: sqlx::SqlitePool) {
         };
 
         for s in &actifs {
-            let prix = match crate::prix_utils::fetch_prix_asset(&client, &s.asset).await {
+            let prix = match crate::prix_utils::fetch_prix_asset(&client, &s.asset, &ig_session, &db).await {
                 Some(p) => p,
                 None => continue,
             };

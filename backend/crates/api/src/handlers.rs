@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse, Responder};
 use data::{
-    providers::{BinanceProvider, IbGatewayProvider},
+    providers::BinanceProvider,
     DataProvider,
 };
 use serde::{Deserialize, Serialize};
@@ -8,55 +8,67 @@ use serde::{Deserialize, Serialize};
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};
 
-// ─── IB Gateway status ───────────────────────────────────────────────────────
+// ─── IG Markets status ────────────────────────────────────────────────────────
 
-/// GET /api/ib/status — Vérifie la connexion IB Gateway.
-/// Résultat mis en cache 90 secondes pour éviter de saturer IB Gateway
-/// avec des sessions ibapi non fermées (une par appel = fuites de clients).
-pub async fn ib_status(state: web::Data<AppState>) -> impl Responder {
-    // — Lecture cache —————————————————————————————
-    {
-        let cache = state.ib_status_cache.read().await;
-        if let Some((t, connecte, adresse, erreur)) = cache.as_ref() {
-            if t.elapsed() < std::time::Duration::from_secs(90) {
-                let mut resp = serde_json::json!({ "connecte": connecte, "adresse": adresse, "cache": true });
-                if let Some(e) = erreur {
-                    resp["erreur"] = serde_json::Value::String(e.clone());
-                }
-                return HttpResponse::Ok().json(resp);
+/// GET /api/ig/status — Force un re-login IG (bouton "Tester" dans Settings).
+pub async fn ig_status(state: web::Data<AppState>) -> impl Responder {
+    match state.ig_session.lock().await.tester_connexion(&state.db).await {
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({
+            "connecte": true,
+            "source": "ig_markets"
+        })),
+        Err(e) => HttpResponse::Ok().json(serde_json::json!({
+            "connecte": false,
+            "source": "ig_markets",
+            "erreur": format!("{}", e)
+        })),
+    }
+}
+
+/// GET /api/ig/statut-local — Retourne l'état de la session IG sans appel réseau.
+/// Utilisé par le Dashboard pour afficher le badge sans provoquer de re-login.
+pub async fn ig_statut_local(state: web::Data<AppState>) -> impl Responder {
+    let connecte = state.ig_session.lock().await.est_connecte();
+    HttpResponse::Ok().json(serde_json::json!({
+        "connecte": connecte,
+        "source": "ig_markets"
+    }))
+}
+
+/// GET /api/ig/search?q=EURUSD
+/// Recherche les marchés disponibles sur IG pour un terme donné.
+/// Utilisé pour découvrir les epics valides pour le compte connecté.
+pub async fn ig_search_markets(
+    state: web::Data<AppState>,
+    query: web::Query<std::collections::HashMap<String, String>>,
+) -> impl Responder {
+    let terme = match query.get("q") {
+        Some(t) if !t.is_empty() && t.len() <= 20 && t.chars().all(|c| c.is_ascii_alphanumeric()) => t.to_uppercase(),
+        _ => return HttpResponse::BadRequest().json(serde_json::json!({ "error": "Paramètre q requis (ex: EURUSD)" })),
+    };
+
+    let (url_base, headers, client) = {
+        let mut session = state.ig_session.lock().await;
+        let url_base = session.url();
+        let headers = match session.headers(&state.db).await {
+            Ok(h) => h,
+            Err(e) => return HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": format!("Session IG: {}", e) })),
+        };
+        let client = session.client().clone();
+        (url_base, headers, client)
+    };
+
+    let url = format!("{}/markets?searchTerm={}", url_base, terme);
+    match client.get(&url).headers(headers).header("Version", "1").send().await {
+        Ok(r) if r.status().is_success() => {
+            match r.json::<serde_json::Value>().await {
+                Ok(data) => HttpResponse::Ok().json(data),
+                Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": format!("Parse: {}", e) })),
             }
         }
+        Ok(r) => HttpResponse::BadGateway().json(serde_json::json!({ "error": format!("IG {}", r.status()) })),
+        Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": format!("{}", e) })),
     }
-
-    // — Contrôle réel (une seule fois toutes les 90s) —————————
-    let port = match state.db.lire_config("ibgateway_port").await {
-        Ok(Some(v)) => v.parse::<u16>().unwrap_or(state.ib_port),
-        _ => state.ib_port,
-    };
-    let adresse = format!("127.0.0.1:{}", port);
-    let connexion = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        ibapi::Client::connect(&adresse, state.ib_client_id + 10),
-    )
-    .await;
-
-    let (connecte, erreur) = match connexion {
-        Ok(Ok(_client)) => (true, None),
-        Ok(Err(e)) => (false, Some(format!("{}", e))),
-        Err(_) => (false, Some("Timeout — IB Gateway ne répond pas (>5s)".to_string())),
-    };
-
-    // — Mise à jour cache ——————————————————————————
-    {
-        let mut cache = state.ib_status_cache.write().await;
-        *cache = Some((std::time::Instant::now(), connecte, adresse.clone(), erreur.clone()));
-    }
-
-    let mut resp = serde_json::json!({ "connecte": connecte, "adresse": adresse });
-    if let Some(e) = erreur {
-        resp["erreur"] = serde_json::Value::String(e);
-    }
-    HttpResponse::Ok().json(resp)
 }
 
 // ─── Health ───────────────────────────────────────────────────────────────────
@@ -75,8 +87,6 @@ pub struct CandlesQuery {
     pub asset: String,
     pub timeframe: Option<String>,
     pub limit: Option<u32>,
-    /// Si true, ignore le cache DB et force un appel au provider
-    pub force: Option<bool>,
 }
 
 pub async fn get_candles(
@@ -90,48 +100,49 @@ pub async fn get_candles(
     };
 
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
-    // Plafond à 5000 : couvre M1×3j (4320), H4×30j (180), D1×90j (90), etc.
     let limit = query.limit.unwrap_or(200).min(5000) as usize;
-    let force = query.force.unwrap_or(false);
 
-    // 1. Cache local — ignorer si force=true (polling temps réel)
-    // Condition : retourner le cache si on a UNE bougie au minimum.
-    // On ne conditionne pas sur `len >= limit` car certains assets (ex: CADJPY W1)
-    // n'ont jamais assez de bougies IB → boucle infinie de reconnexions IB.
-    if !force {
-        if let Ok(bougies) = state
-            .db
-            .obtenir_bougies(&asset, &timeframe, limit as i64)
-            .await
-        {
-            if !bougies.is_empty() {
+    // 1. Cache DB — toujours (Lightstreamer alimente le cache en background)
+    if let Ok(bougies) = state
+        .db
+        .obtenir_bougies(&asset, &timeframe, limit as i64)
+        .await
+    {
+        if !bougies.is_empty() {
+            return HttpResponse::Ok().json(bougies);
+        }
+    }
+
+    // 2. Pour les crypto : fallback Binance REST si cache vide
+    if asset.is_crypto() {
+        let resultat = BinanceProvider
+            .fetch_candles(asset.clone(), timeframe, limit)
+            .await;
+        match resultat {
+            Ok(bougies) => {
+                if let Err(e) = state.db.inserer_bougies(&asset, &timeframe, &bougies).await {
+                    tracing::warn!("Impossible de mettre en cache les bougies crypto: {}", e);
+                }
                 return HttpResponse::Ok().json(bougies);
             }
+            Err(e) => {
+                tracing::warn!("get_candles Binance échoué pour {}: {}", query.asset, e);
+            }
         }
+    } else {
+        // Pour les assets IG : abonner Lightstreamer pour remplir le cache au prochain tick
+        let ls = state.ig_lightstreamer.clone();
+        let a = asset.clone();
+        let tf = timeframe;
+        tokio::spawn(async move {
+            ls.subscribe(&a, tf)
+                .await
+                .unwrap_or_else(|e| tracing::warn!("LS subscribe depuis get_candles: {}", e));
+        });
+        tracing::info!("get_candles {}: cache vide, abonnement LS déclenché", query.asset);
     }
 
-    // 2. Fallback provider : Binance pour crypto, IB Gateway pour métaux/forex/indices
-    let resultat = if asset.is_crypto() {
-        BinanceProvider
-            .fetch_candles(asset.clone(), timeframe, limit)
-            .await
-    } else {
-        IbGatewayProvider::new(state.ib_port, state.ib_client_id)
-            .fetch_candles(asset.clone(), timeframe, limit)
-            .await
-    };
-    match resultat {
-        Ok(bougies) => {
-            if let Err(e) = state.db.inserer_bougies(&asset, &timeframe, &bougies).await {
-                tracing::warn!("Impossible de mettre en cache les bougies: {}", e);
-            }
-            HttpResponse::Ok().json(bougies)
-        }
-        Err(e) => {
-            tracing::warn!("get_candles échoué pour {}: {}", query.asset, e);
-            HttpResponse::Ok().json(Vec::<serde_json::Value>::new())
-        }
-    }
+    HttpResponse::Ok().json(Vec::<serde_json::Value>::new())
 }
 
 // ─── Prédiction ML ────────────────────────────────────────────────────────────
@@ -212,9 +223,7 @@ pub struct PrixActuelQuery {
 }
 
 #[derive(serde::Deserialize)]
-struct BinanceTickerPrix {
-    price: String,
-}
+struct BinancePrix { price: String }
 
 /// GET /api/prix-actuel?ticker=SNX
 /// Retourne le prix spot Binance pour n'importe quel ticker USDT,
@@ -245,7 +254,7 @@ pub async fn get_prix_actuel(query: web::Query<PrixActuelQuery>) -> impl Respond
     };
 
     match client.get(&url).send().await {
-        Ok(resp) if resp.status().is_success() => match resp.json::<BinanceTickerPrix>().await {
+        Ok(resp) if resp.status().is_success() => match resp.json::<BinancePrix>().await {
             Ok(data) => match data.price.parse::<f64>() {
                 Ok(prix) => HttpResponse::Ok().json(serde_json::json!({
                     "ticker": ticker,

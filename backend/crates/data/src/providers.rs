@@ -1,4 +1,3 @@
 pub mod binance;
-pub mod ibgateway;
+pub mod ig;
 pub use binance::BinanceProvider;
-pub use ibgateway::IbGatewayProvider;

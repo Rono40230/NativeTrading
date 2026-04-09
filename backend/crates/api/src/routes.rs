@@ -24,6 +24,9 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::delete().to(crate::assets_handlers::supprimer_asset),
         )
         .route("/api/prix", web::get().to(crate::prix_handlers::get_prix))
+        .route("/api/marche/tickers", web::get().to(crate::prix_handlers::get_tickers_crypto))
+        .route("/api/marche/klines", web::get().to(crate::prix_handlers::get_klines_crypto))
+        .route("/api/marche/variation1h", web::get().to(crate::prix_handlers::get_variation1h_crypto))
         .route("/api/candles", web::get().to(crate::handlers::get_candles))
         .route(
             "/api/prix-actuel",
@@ -170,7 +173,9 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/config",
             web::post().to(crate::config_handlers::post_config),
         )
-        .route("/api/ib/status", web::get().to(crate::handlers::ib_status))
+        .route("/api/ig/status", web::get().to(crate::handlers::ig_status))
+        .route("/api/ig/statut-local", web::get().to(crate::handlers::ig_statut_local))
+        .route("/api/ig/search", web::get().to(crate::handlers::ig_search_markets))
         .route(
             "/api/calendar",
             web::get().to(crate::calendar_handlers::get_calendar),
