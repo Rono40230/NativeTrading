@@ -63,6 +63,14 @@
             {{ store.smcRaw['vente_partielle'] ? 'Option 1 — Partielle ⅓' : 'Option 2 — Lot entier' }}
           </button>
         </div>
+        <div class="flex items-center justify-between gap-2 pt-1">
+          <label class="text-[11px] text-gray-400 whitespace-nowrap" title="London 07h-10h · NY 13h30-16h30 UTC">Kill Zone ICT</label>
+          <button :class="store.smcRaw['kill_zone_filtre'] ? 'bg-emerald-700 text-emerald-200' : 'bg-amber-700 text-amber-200'"
+            class="px-2 py-0.5 rounded text-[11px] font-medium transition-colors"
+            @click="store.smcRaw['kill_zone_filtre'] = !store.smcRaw['kill_zone_filtre']">
+            {{ store.smcRaw['kill_zone_filtre'] ? '🕐 Activée' : '⚠️ Désactivée' }}
+          </button>
+        </div>
       </div>
     </div>
 

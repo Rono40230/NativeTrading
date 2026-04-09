@@ -205,7 +205,12 @@ async function charger() {
       signaux.value = rocketsRaw.value.map(rocketToSignal)
     } else {
       const data = await apiService.getSignaux(500)
-      signaux.value = data.filter(s => s.strategie === props.strategie)
+      const SMC_NOMS = ['SmcDirectional', 'SMC Directionnel', 'SMC+IA']
+      signaux.value = data.filter(s =>
+        props.strategie === 'SmcDirectional'
+          ? SMC_NOMS.includes(s.strategie)
+          : s.strategie === props.strategie
+      )
     }
   } catch { /* silencieux */ } finally {
     chargement.value = false

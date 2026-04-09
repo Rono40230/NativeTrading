@@ -21,6 +21,8 @@ pub mod straddle_feedback;
 pub mod straddle_pics;
 pub mod strategies_params;
 pub mod volatilite;
+pub mod ml_feedback;
+pub mod ml_samples;
 
 use common::{Result, TradingError};
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};

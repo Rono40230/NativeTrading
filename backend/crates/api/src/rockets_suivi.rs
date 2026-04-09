@@ -150,6 +150,17 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
                         &s.cree_le,
                     )
                     .await;
+                    db::ml_samples::sauvegarder_sample(&pool, &db::ml_samples::MlSample {
+                        strategie:   "ROCKETS".to_string(),
+                        asset:       s.ticker.clone(),
+                        timeframe:   "M5".to_string(),
+                        direction:   "LONG".to_string(),
+                        prix_entree: s.prix_entree,
+                        prix_sortie: prix,
+                        stop_loss:   s.stop_loss,
+                        outcome:     "invalide".to_string(),
+                        rr_realise:  Some(-1.0),
+                    }).await.ok();
                 }
             } else if prix >= s.prix_entree {
                 if let Err(e) = rockets::entrer_position(&pool, s.id).await {
@@ -218,6 +229,23 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
                             &s.cree_le,
                         )
                         .await;
+                        let risque = (s.prix_entree - s.stop_loss).abs().max(f64::EPSILON);
+                        let rr = if v == "sl" {
+                            -((s.prix_entree - prix).abs() / risque)
+                        } else {
+                            (prix - s.prix_entree).abs() / risque
+                        };
+                        db::ml_samples::sauvegarder_sample(&pool, &db::ml_samples::MlSample {
+                            strategie:   "ROCKETS".to_string(),
+                            asset:       s.ticker.clone(),
+                            timeframe:   "M5".to_string(),
+                            direction:   "LONG".to_string(),
+                            prix_entree: s.prix_entree,
+                            prix_sortie: prix,
+                            stop_loss:   s.stop_loss,
+                            outcome:     v.to_string(),
+                            rr_realise:  Some(rr),
+                        }).await.ok();
                     }
                 }
                 None => {}

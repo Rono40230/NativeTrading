@@ -98,6 +98,8 @@ pub struct SmcParams {
     pub atr_sl: f64,
     /// true = Option 1 (vente ⅓ à chaque TP) ; false = Option 2 (SL progresse, pas de vente)
     pub vente_partielle: bool,
+    /// true = Kill Zone ICT requise ; false = filtre désactivé (diagnostic/tests)
+    pub kill_zone_filtre: bool,
 }
 
 impl Default for SmcParams {
@@ -110,6 +112,7 @@ impl Default for SmcParams {
             atr_tp3: 5.0,
             atr_sl: 1.0,
             vente_partielle: true,
+            kill_zone_filtre: true,
         }
     }
 }
@@ -117,7 +120,7 @@ impl Default for SmcParams {
 pub async fn lire_smc_params(pool: &SqlitePool) -> SmcParams {
     let row = sqlx::query(
         "SELECT atr_periode, score_min, atr_tp1, atr_tp2, atr_tp3, atr_sl,
-                vente_partielle
+                vente_partielle, kill_zone_filtre
          FROM smc_params WHERE id = 1",
     )
     .fetch_optional(pool)
@@ -132,6 +135,7 @@ pub async fn lire_smc_params(pool: &SqlitePool) -> SmcParams {
             atr_tp3: r.get("atr_tp3"),
             atr_sl: r.get("atr_sl"),
             vente_partielle: r.get::<i64, _>("vente_partielle") != 0,
+            kill_zone_filtre: r.get::<Option<i64>, _>("kill_zone_filtre").unwrap_or(1) != 0,
         },
         _ => SmcParams::default(),
     }
@@ -141,17 +145,18 @@ pub async fn sauvegarder_smc_params(pool: &SqlitePool, p: &SmcParams) -> Result<
     sqlx::query(
         "INSERT INTO smc_params
              (id, atr_periode, score_min, atr_tp1, atr_tp2, atr_tp3, atr_sl,
-              vente_partielle, maj_le)
-         VALUES (1, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+              vente_partielle, kill_zone_filtre, maj_le)
+         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(id) DO UPDATE SET
-             atr_periode     = excluded.atr_periode,
-             score_min       = excluded.score_min,
-             atr_tp1         = excluded.atr_tp1,
-             atr_tp2         = excluded.atr_tp2,
-             atr_tp3         = excluded.atr_tp3,
-             atr_sl          = excluded.atr_sl,
-             vente_partielle = excluded.vente_partielle,
-             maj_le          = excluded.maj_le",
+             atr_periode      = excluded.atr_periode,
+             score_min        = excluded.score_min,
+             atr_tp1          = excluded.atr_tp1,
+             atr_tp2          = excluded.atr_tp2,
+             atr_tp3          = excluded.atr_tp3,
+             atr_sl           = excluded.atr_sl,
+             vente_partielle  = excluded.vente_partielle,
+             kill_zone_filtre = excluded.kill_zone_filtre,
+             maj_le           = excluded.maj_le",
     )
     .bind(p.atr_periode)
     .bind(p.score_min)
@@ -160,6 +165,7 @@ pub async fn sauvegarder_smc_params(pool: &SqlitePool, p: &SmcParams) -> Result<
     .bind(p.atr_tp3)
     .bind(p.atr_sl)
     .bind(if p.vente_partielle { 1i64 } else { 0i64 })
+    .bind(if p.kill_zone_filtre { 1i64 } else { 0i64 })
     .execute(pool)
     .await
     .map_err(|e| TradingError::Database(e.to_string()))?;

@@ -189,6 +189,22 @@ async fn cloturer(db: &Arc<Database>, s: &SignalStraddleOuvert, verdict: &str, p
     {
         tracing::warn!("Job feedback Straddle maj_feedback {}: {}", s.id, e);
     }
+    let rr = if matches!(verdict, "sl" | "invalide" | "expire") {
+        -1.0_f64
+    } else {
+        (prix_verdict - s.prix_entree).abs() / risque
+    };
+    db::ml_samples::sauvegarder_sample(db.pool(), &db::ml_samples::MlSample {
+        strategie:   "STRADDLE".to_string(),
+        asset:       s.asset.clone(),
+        timeframe:   s.timeframe.clone(),
+        direction:   "STRADDLE".to_string(),
+        prix_entree: s.prix_entree,
+        prix_sortie: prix_verdict,
+        stop_loss:   s.stop_loss,
+        outcome:     verdict.to_string(),
+        rr_realise:  Some(rr),
+    }).await.ok();
     tracing::info!(
         "📋 Straddle clôturé {} {}/{} → {} @ {:.5} (score {:.0})",
         s.id,

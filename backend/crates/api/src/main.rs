@@ -47,6 +47,7 @@ mod scheduler;
 mod sentiment_handlers;
 mod signal_engine;
 mod signal_engine_analyse;
+mod signal_engine_asset;
 mod signal_filtre;
 mod signaux_handlers;
 mod smc_analyse_handler;
@@ -56,6 +57,8 @@ mod smc_categorisation;
 mod smc_feedback_job;
 mod smc_handlers;
 mod smc_monitoring_handlers;
+mod ml_insights_handlers;
+mod ml_retrain_handler;
 mod smc_signal_ollama;
 mod state;
 mod straddle_backtest_handler;
@@ -65,6 +68,7 @@ mod straddle_categorisation;
 mod straddle_feedback_job;
 mod straddle_handlers;
 mod straddle_machine_etats;
+mod straddle_ml_gate;
 mod straddle_ml_handlers;
 mod straddle_monitoring_handlers;
 mod straddle_prompt;
@@ -83,6 +87,7 @@ mod volatility_handlers;
 mod ws_handlers;
 
 mod routes;
+mod routes_ml;
 mod routes_rockets;
 
 use state::AppState;
@@ -121,9 +126,11 @@ async fn main() -> std::io::Result<()> {
 
     let pool_scan = app_state.db.pool().clone();
     let signal_engine_rockets = app_state.signal_engine.clone();
+    let pipeline_ml_rockets = app_state.pipeline_ml.clone();
     tokio::spawn(rockets_scan::demarrer_worker_scan(
         pool_scan,
         signal_engine_rockets,
+        pipeline_ml_rockets,
     ));
 
     let pool_analyse = app_state.db.pool().clone();

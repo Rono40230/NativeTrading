@@ -84,10 +84,6 @@
         <span class="text-[10px] text-gray-600">{{ formatDate(signal.cree_le) }}</span>
         <div class="flex gap-2">
           <button
-            class="text-xs px-3 py-1 rounded bg-emerald-700 hover:bg-emerald-600 text-white transition-colors"
-            @click.stop="fermer"
-          >Prendre le trade ✔</button>
-          <button
             class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
             @click.stop="fermer"
           >Ignorer ✕</button>

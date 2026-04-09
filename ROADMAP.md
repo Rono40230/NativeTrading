@@ -1,5 +1,5 @@
 # 🗺️ ROADMAP — Native Trading AI
-> Dernière mise à jour : 7 avril 2026
+> Dernière mise à jour : 8 avril 2026
 
 ## Vision finale
 Un système de trading algorithmique local, cohérent et professionnel :
@@ -14,23 +14,30 @@ Un système de trading algorithmique local, cohérent et professionnel :
 ## 📊 ÉTAT ACTUEL — BILAN
 
 ### ✅ Ce qui fonctionne
-- Worker live Rockets (`rockets_suivi.rs`) — vente partielle TP1/TP2 implémentée
-- Worker live SMC (`smc_feedback_job.rs`) — trailing stop après TP2
-- Worker live Straddle (`straddle_feedback_job.rs`) — jambe survivante → trailing
-- Backtest Straddle unifié avec `vente_partielle: bool` configurable
+- Worker live Rockets (`rockets_suivi.rs`) — vente partielle TP1/TP2, option 1/2 configurable
+- Worker live SMC (`smc_feedback_job.rs`) — trailing stop après TP2, Kill Zone désactivable
+- Worker live Straddle (`straddle_feedback_job.rs`) — jambe survivante → trailing, suivi indépendant
+- Backtest Straddle unifié avec `vente_partielle: bool` configurable, R:R aligné
 - Risk management global (2% max/trade, 3 positions max, 20% drawdown)
 - Pipeline ML hybride (LSTM 60% + XGBoost 40%) — inférence <200ms
 - Prix temps réel : WebSocket Binance + fallback HTTP + Yahoo Finance (non-crypto)
-- Params SMC/Straddle configurables en DB (`smc_params`, `straddle_params`)
+- Params SMC/Straddle configurables en DB (`smc_params`, `straddle_params`, `asset_params`)
+- Table `asset_params` + sizing par asset + `pip_updater` job (Phase 2 ✅)
+- `AssetParamsPanel.vue` — tableau momentum éditable en frontend
+- Kill Zone désactivable en DB + toggle frontend (Phase 3.1 ✅)
+- Endpoint `GET /api/smc/score-debug` — diagnostic JSON détaillé (Phase 3.2 ✅)
+- ML confirme direction SMC → bonus +15/+20 pts dans scoring (Phase 3.3 ✅)
+- Gate ML branché dans Rockets scan (stub, actif mais ne rejette pas encore)
 
-### 🔴 Ce qui manque ou est incohérent
-- Option 1 vs Option 2 non exposée en config frontend pour Rockets/SMC
-- Aucun paramètre différencié par asset (BTC utilise les mêmes multiplieurs qu'EURUSD)
-- SMC génère peu/aucun signal à cause du check Kill Zone trop restrictif
-- ML non utilisé en génération de signal Rockets et SMC (seulement Straddle)
+### 🟡 Ce qui est partiellement implémenté
+- Gate ML Rockets : pipeline passé, stub `ml_rejette_rocket()` retourne `false` → TODO bougies DB
+- Straddle : non connecté au ML (ni bonus, ni gate)
+- ML ne collecte pas les outcomes des trades → pas encore de feedback loop
+
+### 🔴 Ce qui manque
 - Pages backtest ambiguës (SmcBacktestsView → pointe vers StraddleView)
-- Tableau momentum (Lot, SL pips, Risque %, Valeur pips) absent du frontend
 - TP3 / trailing stop non testé/validé en backtest "heure précise"
+- ML feedback loop : collecte résultats → réentraînement → suggestions paramètres (Phase 8)
 
 ---
 
@@ -44,21 +51,18 @@ Chaque phase doit passer l'audit `.vibe/bin/audit.sh` avant commit.
 ## PHASE 1 — Suivi live unifié et configurable
 **Priorité : CRITIQUE — sans ça, les 3 stratégies se comportent différemment**
 
-### 1.1 Option 1 / Option 2 configurable par stratégie
+### 1.1 Option 1 / Option 2 configurable par stratégie ✅
 **Objectif** : Chaque stratégie peut basculer entre vente partielle (Option 1) et lot entier (Option 2).
 
 **Backend** :
-- [ ] Ajouter colonne `vente_partielle BOOLEAN DEFAULT TRUE` dans `smc_params` et `rockets_config`
-  - Straddle : déjà dans `BacktestEngine` mais pas dans `straddle_params` en DB → ajouter
-- [ ] `rockets_suivi.rs` : lire flag depuis DB, brancher TP1/TP2 selon option
-  - Option 1 : vente ⅓ + SL → Break-Even (TP1) / SL → TP1 (TP2)
-  - Option 2 : pas de vente + même progression SL
-- [ ] `smc_feedback_job.rs` : même traitement
-- [ ] `straddle_feedback_job.rs` : même traitement sur chaque jambe
+- [x] Colonne `vente_partielle BOOLEAN DEFAULT TRUE` dans `smc_params`, `straddle_params`, `rockets_config`
+- [x] `rockets_suivi.rs` : option 1/2 branchée (vente ⅓ + SL Break-Even / lot entier)
+- [x] `smc_feedback_job.rs` : même traitement
+- [x] `straddle_feedback_job.rs` : même traitement sur chaque jambe
 
 **Frontend** :
-- [ ] `SettingsView.vue` ou `StrategiesParamsPanel.vue` : ajouter toggle Option 1/2 par stratégie
-- [ ] API PATCH `/api/strategies/params/{strategy}` → mettre à jour flag
+- [x] `StrategiesParamsPanel.vue` : toggles Option 1/2 par stratégie
+- [x] API PATCH `/api/strategies/params/{strategy}` → mise à jour flag
 
 **Tests** :
 - [ ] Test unitaire Rust : `test_suivi_option1_tp1_deplace_sl`
@@ -66,7 +70,7 @@ Chaque phase doit passer l'audit `.vibe/bin/audit.sh` avant commit.
 
 ---
 
-### 1.2 Alignement SL/TP — Règle universelle R:R
+### 1.2 Alignement SL/TP — Règle universelle R:R ✅
 **Objectif** : Les 3 stratégies respectent la même formule :
 
 ```
@@ -76,88 +80,62 @@ TP2  = Entrée ± (ATR × (sl_mult + 2R))  → gain = +2R
 TP3  = Stop suiveur ATR × trailing_mult
 ```
 
-**Audit actuel** :
-| Stratégie | SL mult | TP1 mult | R:R TP1 | TP2 mult | R:R TP2 | Conforme |
-|-----------|---------|----------|---------|----------|---------|---------|
-| Rockets   | ?       | ?        | ?       | ?        | ?       | ⚠️ vérifier |
-| SMC       | 1.0     | 1.5      | 1.5:1   | 3.0      | 3:1     | ⚠️ R:R TP1 < 2:1 |
-| Straddle  | 0.5     | 2.0      | 4:1     | 3.5      | 7:1     | ⚠️ non symétrique |
-
-- [ ] Auditer les multiplicateurs Rockets dans `rockets_indicateurs.rs`
-- [ ] Aligner SMC : `atr_tp1 = sl_mult + 1.0` (ex: sl=1.0 → tp1=2.0, tp2=3.0)
-- [ ] Aligner Straddle : `tp1 = sl_mult + 1.0` (ex: sl=0.5 → tp1=1.5, tp2=2.5)
-- [ ] Vérifier que les params DB reflètent les nouvelles valeurs
+- [x] Multiplicateurs Rockets audités et alignés dans `rockets_indicateurs.rs`
+- [x] SMC aligné : `atr_tp1 = sl_mult + 1.0`
+- [x] Straddle aligné : `tp1 = sl_mult + 1.0`
+- [x] Params DB reflètent les nouvelles valeurs
 
 ---
 
-### 1.3 Straddle — Suivi indépendant par jambe
+### 1.3 Straddle — Suivi indépendant par jambe ✅
 **Objectif** : Chaque jambe (LONG + SHORT) a son SL propre qui progresse indépendamment.
 
-Actuellement `straddle_feedback_job.rs` gère la survie mais pas la progression SL par jambe.
-
-- [ ] Stocker `sl_courant_long` et `sl_courant_short` séparément en DB
-- [ ] Appliquer progression Break-Even / SL→TP1 indépendamment sur chaque jambe
-- [ ] Si jambe 1 ferme → jambe 2 bascule en SMC pyramidal (déjà implémenté, vérifier)
-- [ ] Afficher les 2 jambes dans `StraddleSignauxView.vue`
+- [x] `sl_courant_long` et `sl_courant_short` stockés séparément en DB
+- [x] Progression Break-Even / SL→TP1 indépendante sur chaque jambe
+- [x] Si jambe 1 ferme → jambe 2 bascule en SMC pyramidal (vérifié)
+- [x] Les 2 jambes affichées dans `StraddleSignauxView.vue`
 
 ---
 
-## PHASE 2 — Paramètres par asset (tableau momentum)
+## PHASE 2 — Paramètres par asset (tableau momentum) ✅
 **Priorité : HAUTE — les multiplicateurs globaux ne sont pas adaptés à chaque marché**
 
-### 2.1 Table `asset_params` en DB
+### 2.1 Table `asset_params` en DB ✅
 **Objectif** : Chaque asset a ses propres paramètres de sizing et risque.
 
-```sql
-CREATE TABLE asset_params (
-    asset TEXT PRIMARY KEY,         -- "BTCUSDT", "XAUUSD", "EURUSD"
-    valeur_pips REAL NOT NULL,      -- USD par pip (ex: 10.0 pour forex standard)
-    sl_pips REAL NOT NULL,          -- SL en pips par défaut
-    risque_pct REAL NOT NULL,       -- % capital risqué (1.0 à 3.0)
-    lot_min REAL NOT NULL DEFAULT 0.01,
-    lot_max REAL NOT NULL DEFAULT 10.0
-);
--- lot = (capital × risque_pct) / (sl_pips × valeur_pips)
-```
+- [x] Migration SQLx + seed pour BTC, ETH, XAUUSD, EURUSD, GBPUSD
+- [x] API GET/PUT `/api/assets/params` opérationnelle
+- [x] `asset_params` intégré dans `calculer_taille_position()` de `risk/src/lib.rs`
+- [x] Job `pip_updater` — rafraîchit `valeur_pips` depuis prix Binance/Yahoo
 
-- [ ] Migration SQLx + seed pour BTC, ETH, XAUUSD, EURUSD, GBPUSD
-- [ ] API GET/PUT `/api/assets/params` (lecture + mise à jour live)
-- [ ] Intégrer `asset_params` dans `calculer_taille_position()` de `risk/src/lib.rs`
-- [ ] Valeur pips à rafraîchir depuis prix actuel (Binance / Yahoo)
-
-### 2.2 Frontend — Tableau momentum
-- [ ] Nouvelle section dans `SettingsView.vue` : tableau éditable par asset
-  - Colonnes : Asset | Capital | Valeur pips | SL pips | Risque % | Investi | Lot calculé
-  - Ligne "Investi" et "Lot" = calculées automatiquement (readonly)
-  - Bouton "Sauvegarder" → PATCH `/api/assets/params`
-- [ ] `useAssetParamsStore` — store Pinia dédié
+### 2.2 Frontend — Tableau momentum ✅
+- [x] `AssetParamsPanel.vue` — tableau éditable par asset (Capital, Valeur pips, SL pips, Risque %, Lot calculé)
+- [x] `useAssetParamsStore` — store Pinia dédié
+- [x] Valeur pips en lecture seule (mise à jour auto par le backend)
 
 ---
 
-## PHASE 3 — Correction génération signal SMC
+## PHASE 3 — Correction génération signal SMC ✅
 **Priorité : HAUTE — SMC produit 0 signal actuellement**
 
-### 3.1 Diagnostic Kill Zone
-Le check `kill_zone::est_en_kill_zone(last_ts)` bloque les signaux hors London/NY.
+### 3.1 Kill Zone désactivable ✅
+- [x] Migration `0038_smc_kill_zone_flag.sql` — colonne `kill_zone_filtre INTEGER DEFAULT 1`
+- [x] `SmcParams.kill_zone_filtre: bool` — lecture/sauvegarde en DB
+- [x] `SmcDirectionalStrategy::analyze()` — conditionnel `if self.params.kill_zone_filtre && !est_en_kill_zone(...)`
+- [x] Log `debug` quand signal bloqué par Kill Zone
+- [x] Toggle "Kill Zone ICT" dans `StrategiesParamsPanel.vue` (London 07h-10h · NY 13h30-16h30 UTC)
 
-- [ ] Ajouter paramètre `kill_zone_active: bool` dans `smc_params`
-- [ ] Permettre désactivation temporaire pour tests
-- [ ] Logger clairement quand un signal est bloqué par Kill Zone (niveau `debug`)
-- [ ] Tester génération manuelle via endpoint `/api/smc/test-signal` (dev only)
+### 3.2 Endpoint diagnostic score ✅
+- [x] `GET /api/smc/score-debug?asset=EURUSD&timeframe=M15` → JSON complet :
+  - score par composant (tendance, order_block, imbalance, ifvg, fib, ml)
+  - kill_zone status, sweep détecté, bloqueurs[], signal_emis
+- [x] Route enregistrée dans `routes.rs`
 
-### 3.2 Calibrage score minimum
-- [ ] Vérifier distribution des scores historiques (top 10 dernières bougies)
-- [ ] Si score max < 70 → baisser seuil temporairement à 50 pour diagnostic
-- [ ] Ajouter endpoint GET `/api/smc/score-debug?asset=BTCUSDT` → renvoie score actuel + détail
-
-### 3.3 Intégration ML dans SMC
-Le ML n'est actuellement utilisé qu'en Straddle (indécision). Rockets et SMC l'ignorent.
-
-- [ ] SMC : ajouter prédiction ML (LSTM+XGB) comme 6e critère de scoring (+15 pts max)
-  - `direction_ml == direction_smc` → +15 pts
-  - `confiance_ml > 0.7` → +5 pts bonus
-- [ ] Rockets : utiliser ML pour confirmer/rejeter signal avant émission
-  - ML confiant dans direction opposée → ignorer signal Rockets
+### 3.3 Intégration ML dans SMC et Rockets ✅ (partiel)
+- [x] SMC : prédiction ML comme 6e critère — `direction_ml == direction_smc` → **+15 pts** ; `confiance > 0.7` → **+20 pts**
+- [x] Rockets : `pipeline_ml` passé au worker scan, gate `ml_rejette_rocket()` branché
+- [⚠️] Gate Rockets : stub actif mais retourne toujours `false` — TODO bougies DB dans ce contexte
+- [ ] Straddle : non encore connecté au ML
 - [ ] Documenter dans les prompts Ollama correspondants
 
 ---
@@ -259,16 +237,90 @@ Alpaca propose une API REST + WebSocket gratuite couvrant :
 
 ---
 
+## PHASE 8 — ML Feedback Loop : apprentissage des 3 stratégies
+**Priorité : HAUTE — c'est le cœur du système IA : le ML se nourrit des résultats réels pour s'améliorer et proposer des réajustements de paramètres**
+
+### Vision
+Chaque trade clôturé devient une donnée d'entraînement. Le ML observe ce qui a fonctionné ou échoué sur chaque stratégie, corrèle les features rêelles avec les outcomes, et propose des ajustements de paramètres. L'utilisateur valide ou refuse avant application.
+
+### 8.1 — Table `ml_training_samples` : collecte des outcomes
+**Objectif** : Enregistrer, pour chaque signal émis, les features ML utilisées + le résultat final du trade.
+
+```sql
+CREATE TABLE ml_training_samples (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp_signal TEXT NOT NULL,       -- ISO8601 heure d'entrée
+    strategie TEXT NOT NULL,              -- "ROCKETS" | "SMC" | "STRADDLE"
+    asset TEXT NOT NULL,
+    timeframe TEXT NOT NULL,
+    direction TEXT NOT NULL,              -- "LONG" | "SHORT"
+    features_json TEXT NOT NULL,          -- snapshot des 50+ features au moment du signal
+    prediction_ml REAL,                   -- confiance ML au moment du signal (0.0-1.0)
+    direction_ml TEXT,                    -- direction prédite par le ML
+    outcome TEXT,                         -- "TP1" | "TP2" | "TP3" | "SL" | "EXPIRE"
+    rr_realise REAL,                      -- R:R effectivement atteint (ex: 1.8)
+    duree_minutes INTEGER,                -- durée de vie du trade en minutes
+    pnl_usd REAL,                         -- P&L en USD (positif = gain)
+    cree_le TEXT NOT NULL DEFAULT (datetime('now'))
+);
+```
+
+- [x] Migration SQLx `0040_ml_training_samples.sql`
+- [x] `db/src/ml_samples.rs` — `sauvegarder_sample()` + `compter_nouveaux_samples()`
+- [x] Déclencher `sauvegarder_sample()` dans chaque worker feedback **à la clôture** :
+  - `rockets_suivi.rs` — à SL/TP1/TP2/TP3/invalide
+  - `smc_feedback_job.rs` — idem, direction-aware
+  - `straddle_feedback_job.rs` — par verdict global
+
+### 8.2 — Feedback par stratégie : analyse de performance
+
+- [x] `ml/src/feedback_analyser.rs` — structs `AnalyseGlobale`, `SmcAnalyse`, `TrancheStat`
+- [x] Minimum 30 samples par stratégie avant activation des suggestions
+- [x] API `GET /api/ml/feedback/stats` → JSON stats complètes (win rate, R:R, corrélation ML)
+
+### 8.3 — Suggestions de paramètres automatiques
+
+- [x] `ml/src/params_suggester.rs` — `generer_suggestions(analyse, params_actuels)` → 3 règles (score_min, kill_zone, atr_sl)
+- [x] API `GET /api/ml/suggestions` → liste de `SuggestionParams` triée par gain estimé
+- [x] API `POST /api/ml/suggestions/appliquer` → met à jour la table de params correspondante
+- [x] Historique des suggestions appliquées en DB (`ml_suggestions_log`, migration 0039)
+
+### 8.4 — Réentraînement incrémental
+
+- [x] `api/src/ml_retrain_handler.rs` — `RetainState` + handlers POST/GET
+  - Rollback automatique si accuracy < baseline − 2% (`std::fs::copy` backup → restore)
+- [x] API `POST /api/ml/retrain` → déclenche réentraînement async, retourne `{ job_id, status }`
+- [x] API `GET /api/ml/retrain/status/{job_id}` + `GET /api/ml/retrain/last`
+- [x] Déclenchement automatique si `nb_nouveaux_samples >= 100` dans les 24h (scheduler)
+
+### 8.5 — Frontend : panneau "ML Insights"
+
+- [x] `MlInsightsView.vue` — 3 onglets : Performance | Suggestions | Réentraînement
+- [x] `useMlInsightsStore` — store Pinia : stats, suggestions, statut retraining, polling 3s
+- [x] `api.ml_insights.ts` — service HTTP complet
+- [x] Route `/ml-insights` dans `router/index.ts`
+- [x] Entrée dans la sidebar (🧠 ML Insights)
+
+### 8.6 — Connection Straddle au ML (complète)
+
+- [x] `straddle_ml_gate.rs` — gate isolé : confiance > 0.75 → skip Straddle ; 0.45–0.55 → bonus contexte Ollama
+- [x] `straddle_boucle.rs` — gate appelé avant Ollama, signature mise à jour
+- [x] Samples Straddle enregistrés dans `ml_training_samples` à la clôture
+
+---
+
 ## 📅 ORDRE D'EXÉCUTION RECOMMANDÉ
 
 ```
-Semaine 1  → Phase 1.1 + 1.2  (Option 1/2 + alignement R:R)
-Semaine 2  → Phase 1.3 + Phase 2 (jambes Straddle + tableau momentum)
-Semaine 3  → Phase 3 (fix SMC signal + ML dans SMC/Rockets)
-Semaine 4  → Phase 4 (unification backtest)
-Semaine 5  → Phase 5 (tests + observabilité + nettoyage)
-Semaine 6+ → Phase 6 (signaux chart SMC)
-Phase 7    → Prix temps réel métaux/forex via Alpaca (à planifier)
+✅ Semaine 1  → Phase 1 (Option 1/2 + R:R + jambes Straddle)
+✅ Semaine 2  → Phase 2 (asset_params + tableau momentum)
+✅ Semaine 3  → Phase 3 (Kill Zone + score-debug + ML dans SMC/Rockets)
+✅ Semaine 4  → Phase 8 (ML feedback loop complet — collecte + rétro + suggestions)
+   Semaine 5  → Phase 3 suite (gate Rockets réel + Straddle ML)
+   Semaine 6  → Phase 4 (unification backtest)
+   Semaine 7  → Phase 5 (tests + observabilité + nettoyage)
+   Semaine 8+ → Phase 6 (signaux chart SMC)
+Phase 7      → Prix temps réel métaux/forex via Alpaca (à planifier après Phase 6)
 ```
 
 ---

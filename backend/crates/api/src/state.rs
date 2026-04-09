@@ -4,12 +4,17 @@ use ml::PipelineML;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+/// Cache du statut IB Gateway : (Instant du check, connecte, adresse, erreur optionnelle)
+pub type IbStatusCache = Option<(std::time::Instant, bool, String, Option<String>)>;
+
 use crate::scheduler::demarrer_scheduler;
 use crate::signal_engine::SignalEngine;
 
 pub struct AppState {
     pub db: Arc<Database>,
     pub pipeline_ml: Arc<Mutex<PipelineML>>,
+    /// État du job de réentraînement incrémental (Phase 8.4)
+    pub retrain_state: Arc<tokio::sync::RwLock<crate::ml_retrain_handler::RetainState>>,
     /// Port IB Gateway (4002 = paper, 4001 = live)
     pub ib_port: u16,
     /// Client ID pour la connexion IB (doit être unique par connexion)
@@ -20,6 +25,9 @@ pub struct AppState {
     pub contexte_backtest: Arc<tokio::sync::RwLock<Option<String>>>,
     /// Cache Fear & Greed Index (TTL 1h) — (Instant du fetch, données JSON)
     pub fear_greed_cache: Arc<tokio::sync::RwLock<Option<(std::time::Instant, serde_json::Value)>>>,
+    /// Cache statut IB Gateway (TTL 90s) — évite de créer une connexion ibapi par poll.
+    /// Contenu : (instant du check, connecte, adresse, message_erreur_opt)
+    pub ib_status_cache: Arc<tokio::sync::RwLock<IbStatusCache>>,
 }
 
 impl AppState {
@@ -89,7 +97,11 @@ impl AppState {
         tracing::info!("🔍 Surveillance ML activée (check toutes les 6h, seuil 52%)");
 
         // Boucle Straddle automatique toutes les 15 min (assets dynamiques)
-        crate::straddle_boucle::demarrer_boucle_straddle(db.clone(), signal_engine.clone());
+        crate::straddle_boucle::demarrer_boucle_straddle(
+            db.clone(),
+            signal_engine.clone(),
+            pipeline_ml.clone(),
+        );
 
         // Scan pics ATR toutes les 5 min (tous assets dynamiques, seuil 1.3)
         crate::straddle_scan_pics::demarrer_scan_pics(db.clone(), signal_engine.clone());
@@ -118,11 +130,15 @@ impl AppState {
         Ok(Self {
             db,
             pipeline_ml,
+            retrain_state: Arc::new(tokio::sync::RwLock::new(
+                crate::ml_retrain_handler::RetainState::default(),
+            )),
             ib_port,
             ib_client_id,
             signal_engine,
             contexte_backtest: Arc::new(tokio::sync::RwLock::new(None)),
             fear_greed_cache: Arc::new(tokio::sync::RwLock::new(None)),
+            ib_status_cache: Arc::new(tokio::sync::RwLock::new(None)),
         })
     }
 }

@@ -10,33 +10,53 @@ use crate::utils::{parse_asset, parse_timeframe};
 
 // ─── IB Gateway status ───────────────────────────────────────────────────────
 
-/// GET /api/ib/status — Vérifie uniquement si le port TCP est joignable (sans handshake TWS).
-/// Un handshake complet échoue souvent après redémarrage (client_id encore occupé côté IB).
+/// GET /api/ib/status — Vérifie la connexion IB Gateway.
+/// Résultat mis en cache 90 secondes pour éviter de saturer IB Gateway
+/// avec des sessions ibapi non fermées (une par appel = fuites de clients).
 pub async fn ib_status(state: web::Data<AppState>) -> impl Responder {
-    let adresse = format!("127.0.0.1:{}", state.ib_port);
+    // — Lecture cache —————————————————————————————
+    {
+        let cache = state.ib_status_cache.read().await;
+        if let Some((t, connecte, adresse, erreur)) = cache.as_ref() {
+            if t.elapsed() < std::time::Duration::from_secs(90) {
+                let mut resp = serde_json::json!({ "connecte": connecte, "adresse": adresse, "cache": true });
+                if let Some(e) = erreur {
+                    resp["erreur"] = serde_json::Value::String(e.clone());
+                }
+                return HttpResponse::Ok().json(resp);
+            }
+        }
+    }
 
-    let tcp_ok = tokio::time::timeout(
-        std::time::Duration::from_secs(3),
-        tokio::net::TcpStream::connect(&adresse),
+    // — Contrôle réel (une seule fois toutes les 90s) —————————
+    let port = match state.db.lire_config("ibgateway_port").await {
+        Ok(Some(v)) => v.parse::<u16>().unwrap_or(state.ib_port),
+        _ => state.ib_port,
+    };
+    let adresse = format!("127.0.0.1:{}", port);
+    let connexion = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        ibapi::Client::connect(&adresse, state.ib_client_id + 10),
     )
     .await;
 
-    match tcp_ok {
-        Ok(Ok(_)) => HttpResponse::Ok().json(serde_json::json!({
-            "connecte": true,
-            "adresse": adresse
-        })),
-        Ok(Err(e)) => HttpResponse::Ok().json(serde_json::json!({
-            "connecte": false,
-            "adresse": adresse,
-            "erreur": format!("{}", e)
-        })),
-        Err(_) => HttpResponse::Ok().json(serde_json::json!({
-            "connecte": false,
-            "adresse": adresse,
-            "erreur": "Timeout — port IB Gateway inaccessible (>3s)"
-        })),
+    let (connecte, erreur) = match connexion {
+        Ok(Ok(_client)) => (true, None),
+        Ok(Err(e)) => (false, Some(format!("{}", e))),
+        Err(_) => (false, Some("Timeout — IB Gateway ne répond pas (>5s)".to_string())),
+    };
+
+    // — Mise à jour cache ——————————————————————————
+    {
+        let mut cache = state.ib_status_cache.write().await;
+        *cache = Some((std::time::Instant::now(), connecte, adresse.clone(), erreur.clone()));
     }
+
+    let mut resp = serde_json::json!({ "connecte": connecte, "adresse": adresse });
+    if let Some(e) = erreur {
+        resp["erreur"] = serde_json::Value::String(e);
+    }
+    HttpResponse::Ok().json(resp)
 }
 
 // ─── Health ───────────────────────────────────────────────────────────────────
@@ -75,13 +95,16 @@ pub async fn get_candles(
     let force = query.force.unwrap_or(false);
 
     // 1. Cache local — ignorer si force=true (polling temps réel)
+    // Condition : retourner le cache si on a UNE bougie au minimum.
+    // On ne conditionne pas sur `len >= limit` car certains assets (ex: CADJPY W1)
+    // n'ont jamais assez de bougies IB → boucle infinie de reconnexions IB.
     if !force {
         if let Ok(bougies) = state
             .db
             .obtenir_bougies(&asset, &timeframe, limit as i64)
             .await
         {
-            if bougies.len() >= limit {
+            if !bougies.is_empty() {
                 return HttpResponse::Ok().json(bougies);
             }
         }

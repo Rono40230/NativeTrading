@@ -222,6 +222,7 @@ async function demanderOptimisation() {
       ...straddleParams.value,
     })
     straddleParams.value = {
+      ...straddleParams.value,
       tp_mult_1: suggestion.tp_mult_1,
       tp_mult_2: suggestion.tp_mult_2,
       tp_mult_3: suggestion.tp_mult_3,

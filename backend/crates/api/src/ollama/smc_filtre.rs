@@ -4,8 +4,17 @@
 //! sinon le signal est écarté avant toute insertion en base.
 use crate::ollama::types::{MODELE_DEFAUT, OLLAMA_URL};
 use common::TradingError;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::time::Duration;
+
+/// Tolère que le LLM retourne un float (ex: `74.8`) pour un champ entier.
+pub fn deserialiser_conviction<'de, D: Deserializer<'de>>(d: D) -> Result<i64, D::Error> {
+    let v = serde_json::Value::deserialize(d)?;
+    match v {
+        serde_json::Value::Number(n) => Ok(n.as_f64().unwrap_or(0.0) as i64),
+        _ => Ok(0),
+    }
+}
 
 // ── Types publics ─────────────────────────────────────────────────────────────
 
@@ -18,7 +27,8 @@ pub struct AjustementsSmc {
 #[derive(Serialize, Deserialize)]
 pub struct FiltreSMCReponse {
     pub valide: bool,
-    pub conviction: i64, // 0–100
+    #[serde(deserialize_with = "crate::ollama::smc_filtre::deserialiser_conviction")]
+    pub conviction: i64, // 0–100 (le LLM peut retourner un float → on tronque)
     pub raison: String,
     pub ajustements: Option<AjustementsSmc>,
 }

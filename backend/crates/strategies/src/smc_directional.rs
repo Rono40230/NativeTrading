@@ -20,12 +20,17 @@ impl Strategy for SmcDirectionalStrategy {
             return Ok(None);
         }
 
-        // Kill Zone ICT — condition préalable absolue (London 07h-10h / NY 13h30-16h30 UTC)
+        // Kill Zone ICT — désactivable via params (London 07h-10h / NY 13h30-16h30 UTC)
         let last_ts = match bougies.last() {
             Some(b) => b.timestamp,
             None => return Ok(None),
         };
-        if !kill_zone::est_en_kill_zone(last_ts) {
+        if self.params.kill_zone_filtre && !kill_zone::est_en_kill_zone(last_ts) {
+            tracing::debug!(
+                "SMC {}: hors Kill Zone à {} — signal ignoré",
+                std::any::type_name::<Self>(),
+                last_ts.format("%H:%M UTC")
+            );
             return Ok(None);
         }
 

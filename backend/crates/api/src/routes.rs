@@ -34,24 +34,8 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::signaux_handlers::get_signaux),
         )
         .route(
-            "/api/ml/predict",
-            web::get().to(crate::handlers::predict_ml),
-        )
-        .route(
-            "/api/ml/train",
-            web::post().to(crate::ml_handlers::entrainer_ml),
-        )
-        .route(
-            "/api/ml/status",
-            web::get().to(crate::ml_handlers::statut_ml),
-        )
-        .route(
             "/api/backtest",
             web::post().to(crate::backtest_handlers::run_backtest),
-        )
-        .route(
-            "/api/backtest/raffiner-ml",
-            web::post().to(crate::backtest_handlers::raffiner_ml),
         )
         .route(
             "/api/signaux/export",
@@ -60,6 +44,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/smc/analyse",
             web::get().to(crate::smc_handlers::analyse_smc),
+        )
+        .service(
+            web::resource("/api/smc/score-debug")
+                .route(web::get().to(crate::smc_handlers::score_debug)),
         )
         .route(
             "/api/indicators",
@@ -251,10 +239,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/data/import-mt5",
             web::post().to(crate::data_mt5_handlers::post_import_mt5),
         )
-        .route(
-            "/api/ml/history",
-            web::get().to(crate::ml_handlers::historique_ml),
-        )
         .service(
             web::resource("/api/smc/analyse-llm")
                 .route(web::get().to(crate::smc_analyse_handler::get_derniere_analyse))
@@ -277,5 +261,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
                 .route(web::put().to(crate::prompts_handler::modifier_prompt))
                 .route(web::delete().to(crate::prompts_handler::restaurer_prompt)),
         );
+    crate::routes_ml::configurer(cfg);
     crate::routes_rockets::configurer(cfg);
 }

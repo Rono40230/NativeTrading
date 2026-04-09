@@ -25,9 +25,10 @@ const router = createRouter({
     { path: '/heatmap',  component: () => import('../views/HeatmapView.vue') },
 
     // Outils IA
-    { path: '/ia/chart', component: () => import('../views/ChartImportView.vue') },
-    { path: '/ia/coach', component: () => import('../views/SMCCoachView.vue') },
-    { path: '/lexique',  component: () => import('../views/LexiqueView.vue') },
+    { path: '/ia/chart',    component: () => import('../views/ChartImportView.vue') },
+    { path: '/ia/coach',    component: () => import('../views/SMCCoachView.vue') },
+    { path: '/ml-insights', component: () => import('../views/MlInsightsView.vue') },
+    { path: '/lexique',     component: () => import('../views/LexiqueView.vue') },
 
     // Système
     { path: '/data',            component: () => import('../views/DataManagementView.vue') },

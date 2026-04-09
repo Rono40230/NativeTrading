@@ -6,11 +6,14 @@
 use chrono::{Datelike, Timelike, Utc};
 use common::{Asset, Timeframe};
 use db::Database;
+use ml::PipelineML;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use crate::signal_engine::SignalEngine;
+use crate::straddle_ml_gate::{evaluer_ml_straddle, MlContexteStraddle};
 use crate::straddle_signal_ollama::{appeler_ollama_et_publier, ParamsOllama};
 
 /// Anti-doublon : pas de second signal Straddle sur le même asset/TF avant N minutes.
@@ -20,7 +23,11 @@ const ANTI_DOUBLON_MIN: i64 = 60;
 const SEUIL_SIGNAL_DEFAUT: f64 = 1.5;
 
 /// Démarre la boucle en background — ne bloque pas.
-pub fn demarrer_boucle_straddle(db: Arc<Database>, signal_engine: Arc<SignalEngine>) {
+pub fn demarrer_boucle_straddle(
+    db: Arc<Database>,
+    signal_engine: Arc<SignalEngine>,
+    pipeline_ml: Arc<Mutex<PipelineML>>,
+) {
     tokio::spawn(async move {
         // Délai initial : laisser la DB et les bougies se charger
         sleep(Duration::from_secs(180)).await;
@@ -37,7 +44,7 @@ pub fn demarrer_boucle_straddle(db: Arc<Database>, signal_engine: Arc<SignalEngi
                 } else {
                     Timeframe::M15
                 };
-                analyser_asset(&db, &signal_engine, &asset, &tf).await;
+                analyser_asset(&db, &signal_engine, &pipeline_ml, &asset, &tf).await;
             }
             tracing::debug!("🌪️  Boucle Straddle cycle terminé ({} assets)", nb);
             sleep(Duration::from_secs(15 * 60)).await;
@@ -49,6 +56,7 @@ pub fn demarrer_boucle_straddle(db: Arc<Database>, signal_engine: Arc<SignalEngi
 async fn analyser_asset(
     db: &Arc<Database>,
     signal_engine: &Arc<SignalEngine>,
+    pipeline_ml: &Arc<Mutex<PipelineML>>,
     asset: &Asset,
     tf: &Timeframe,
 ) {
@@ -253,6 +261,21 @@ async fn analyser_asset(
     .await
     .unwrap_or_default();
 
+    // Gate ML Straddle : si ML très confiant d'un côté → signal directionnel préférable, skip
+    // Si ML indécis → bonus contexte pour Ollama
+    let ml_contexte = evaluer_ml_straddle(pipeline_ml, &bougies, asset.as_str(), tf.as_str()).await;
+    match ml_contexte {
+        MlContexteStraddle::Directionnel(direction) => {
+            tracing::debug!(
+                "Straddle {}/{}: ML confiant direction {} — signal directionnel préférable, skip",
+                asset.as_str(), tf.as_str(), direction
+            );
+            return;
+        }
+        MlContexteStraddle::Indecis(texte) => ctx.push_str(&texte),
+        MlContexteStraddle::NonDisponible => {}
+    }
+
     let params = ParamsOllama {
         prix,
         atr: atr_actuel,
@@ -265,3 +288,5 @@ async fn analyser_asset(
         tracing::warn!("Straddle auto {}/{}: {}", asset.as_str(), tf.as_str(), e);
     }
 }
+
+// ── Gate ML — voir straddle_ml_gate.rs ───────────────────────────────────────

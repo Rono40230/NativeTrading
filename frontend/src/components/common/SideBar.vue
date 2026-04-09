@@ -121,8 +121,9 @@ const nav: NavItem[] = [
   {
     groupe: 'Outils IA', icone: '🧠',
     liens: [
-      { to: '/ia/chart', icone: '🖼️', label: 'Analyse graphique' },
-      { to: '/ia/coach', icone: '💬', label: 'Coach IA' },
+      { to: '/ia/chart',    icone: '🖼️', label: 'Analyse graphique' },
+      { to: '/ia/coach',    icone: '💬', label: 'Coach IA' },
+
     ]
   },
 

@@ -5,6 +5,7 @@ import StraddleMonitoringML from '@/components/common/StraddleMonitoringML.vue'
 import MonitoringML from '@/components/common/MonitoringML.vue'
 import RocketsMonitoringML from '@/components/common/RocketsMonitoringML.vue'
 import SmcMonitoringML from '@/components/common/SmcMonitoringML.vue'
+import MlInsightsView from '@/views/MlInsightsView.vue'
 
 type PromptsGroupe = Record<string, Record<string, unknown>>
 type StrMap = Record<string, string>
@@ -22,10 +23,11 @@ const editValues = ref<StrMap>({})
 const enCours = ref<BoolMap>({})
 
 const onglets = [
-  { id: 'straddle',  label: '⚡ Straddle' },
-  { id: 'smc',       label: '📊 SMC' },
-  { id: 'rockets',   label: '🚀 Rockets' },
-  { id: 'outils_ia', label: '🧠 Outils IA' },
+  { id: 'straddle',     label: '⚡ Straddle' },
+  { id: 'smc',          label: '📊 SMC' },
+  { id: 'rockets',      label: '🚀 Rockets' },
+  { id: 'outils_ia',    label: '🧠 Outils IA' },
+  { id: 'ml_insights',  label: '🤖 ML Insights' },
 ]
 
 watch(ongletActif, () => { sousOngletActif.value = 'prompts' })
@@ -109,8 +111,8 @@ onMounted(chargerPrompts)
       </button>
     </div>
 
-    <!-- Sous-onglets (sauf Outils IA) -->
-    <div v-if="ongletActif !== 'outils_ia'" class="flex gap-2 shrink-0">
+    <!-- Sous-onglets (sauf Outils IA et ML Insights) -->
+    <div v-if="ongletActif !== 'outils_ia' && ongletActif !== 'ml_insights'" class="flex gap-2 shrink-0">
       <button
         @click="sousOngletActif = 'prompts'"
         :class="[
@@ -221,6 +223,11 @@ onMounted(chargerPrompts)
         </div>
 
       </div>
+    </div>
+
+    <!-- ML Insights -->
+    <div v-else-if="ongletActif === 'ml_insights'" class="flex-1 min-h-0 overflow-y-auto">
+      <MlInsightsView />
     </div>
 
   </div>

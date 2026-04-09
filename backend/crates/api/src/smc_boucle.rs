@@ -14,7 +14,7 @@ use crate::smc_signal_ollama::{appeler_smc_et_publier, ParamsSmc};
 /// Intervalle entre deux cycles complets.
 const INTERVALLE_SEC: u64 = 900; // 15 min
 /// Anti-doublon : pas de second signal SMC sur le même asset/TF avant N minutes.
-const ANTI_DOUBLON_MIN: i64 = 30;
+const ANTI_DOUBLON_MIN: i64 = 60;
 /// Seuil SMC minimal par défaut avant calibration.
 const SEUIL_SCORE_DEFAUT: f64 = 70.0;
 

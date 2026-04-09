@@ -225,6 +225,22 @@ async fn cloturer_smc(db: &Arc<Database>, s: &SignalSmcOuvert, verdict: &str, pr
         tracing::warn!("Job feedback SMC reconcilier {}: {}", s.id, e);
     }
 
+    let is_long = s.direction != "Short";
+    let risque = (s.prix_entree - s.stop_loss).abs().max(f64::EPSILON);
+    let rr = if is_long { (prix_verdict - s.prix_entree) / risque }
+             else       { (s.prix_entree - prix_verdict) / risque };
+    db::ml_samples::sauvegarder_sample(db.pool(), &db::ml_samples::MlSample {
+        strategie:   "SMC".to_string(),
+        asset:       s.asset.clone(),
+        timeframe:   s.timeframe.clone(),
+        direction:   s.direction.clone(),
+        prix_entree: s.prix_entree,
+        prix_sortie: prix_verdict,
+        stop_loss:   s.stop_loss,
+        outcome:     verdict.to_string(),
+        rr_realise:  Some(rr),
+    }).await.ok();
+
     tracing::info!(
         "📋 SMC clôturé {} {}/{} → {} @ {:.5}",
         s.id,

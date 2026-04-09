@@ -47,7 +47,8 @@ pub fn demarrer_scheduler(
 }
 
 /// Itère sur toutes les combinaisons asset × TF disponibles en DB et ré-entraîne le pipeline.
-async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<Mutex<PipelineML>>) {
+/// Appelé par le scheduler quotidien ET par les retraining manuels (ml_retrain_handler).
+pub async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<Mutex<PipelineML>>) {
     let combinaisons = match db.combinaisons_entrainables(MIN_BOUGIES_ENTRAINEMENT).await {
         Ok(c) => c,
         Err(e) => {
@@ -99,15 +100,21 @@ async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<Mutex
         let nb_total = bougies.len();
         let debut = std::time::Instant::now();
 
-        let wf = match entrainer_walk_forward(&bougies) {
-            Ok(r) => r,
-            Err(e) => {
+        // Walk-forward est CPU-intensif (LSTM + XGBoost) — spawn_blocking évite de bloquer le runtime
+        let bougies_clone = bougies.clone();
+        let wf = match tokio::task::spawn_blocking(move || entrainer_walk_forward(&bougies_clone)).await {
+            Ok(Ok(r)) => r,
+            Ok(Err(e)) => {
                 tracing::error!(
                     "Scheduler ML: {}/{} — walk-forward échoué: {}",
                     asset_str,
                     tf_str,
                     e
                 );
+                continue;
+            }
+            Err(e) => {
+                tracing::error!("Scheduler ML: {}/{} — spawn_blocking échoué: {}", asset_str, tf_str, e);
                 continue;
             }
         };
@@ -170,6 +177,7 @@ pub fn demarrer_surveillance_ml(db: Arc<Database>, pipeline_ml: Arc<Mutex<Pipeli
     tokio::spawn(async move {
         sleep(Duration::from_secs(6 * 3600)).await;
         loop {
+            // Dérive accuracy : ré-entraîner si accuracy < 52%
             match db.accuracy_val_recente(3).await {
                 Ok(Some(moy)) if moy < 0.52 => {
                     tracing::warn!(
@@ -183,6 +191,18 @@ pub fn demarrer_surveillance_ml(db: Arc<Database>, pipeline_ml: Arc<Mutex<Pipeli
                 }
                 Ok(None) => tracing::debug!("Surveillance ML: aucun historique disponible"),
                 Err(e) => tracing::error!("Surveillance ML: erreur DB: {}", e),
+            }
+            // Accumulation samples réels : ré-entraîner si ≥100 nouveaux trades dans les 24h
+            match db::ml_samples::compter_nouveaux_samples(db.pool(), -24).await {
+                Ok(n) if n >= 100 => {
+                    tracing::info!(
+                        "🔁 Surveillance ML: {} nouveaux samples (24h) ≥ 100 — ré-entraînement incrémental",
+                        n
+                    );
+                    executer_entrainements_tous(&db, &pipeline_ml).await;
+                }
+                Ok(n) => tracing::debug!("Surveillance ML: {} nouveaux samples (24h)", n),
+                Err(e) => tracing::warn!("Surveillance ML: erreur compter samples: {}", e),
             }
             sleep(Duration::from_secs(6 * 3600)).await;
         }

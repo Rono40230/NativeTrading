@@ -32,76 +32,14 @@ Repônd sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Pourquoi la stratégie SMC ne génère aucun signal ?
-
---------------------------------------------------------------------------------------------------------------------------
-
-Voici comment doivent impérativement se comporter les positions pour leurs suivis dans leurs tableaux respectifs :
-Risque = entre 1 et 3% du montant du capital par Position (déterminé dans les paramètres de l'app), donc trade Rocket ou SMC = 1 à 3% par trade et position straddle = entre 0.5 et 1.5 par jambe.
-- entrée = R
-- SL = R-1 = multiplicateur X ATR
-- TP 1 = R+1
-- TP 2 = R+2
-- TP 3 = Stop suiveur avec multiplicateur ATR
-
-Pour la sécurisation des trades = 2 options :
-Option 1 = vente partielle
-- si SL touché = R-1 = perdant
-- si tp1 touché = vente de 33% de la position et déplacement du SL au niveau de l'entrée
-- si TP2 touché = vente de 33% de la position restante et déplacement du SL en TP1
-- le reste de la position court vers tp3 suivi par le stop suiveur.
-Option 2 = pas de vente partielle = le lot n'est pas parcélisé à la revente pendant l'évolution de la position.
-- si SL touché = R-1 = perdant
-- si tp1 touché = déplacement du SL au niveau de l'entrée
-- si TP2 touché = déplacement du SL en TP1
-- le reste de la position court vers tp3 suivi par le stop suiveur.
-
-Est ce ainsi que sont codées les suivis des positions actuellement pour les 3 stratégie ?
-Peut on choisir option 1 ou 2 pour chaque stratégie ?
-
-Est ce clair ?
-As tu besoin d'éclaircissement ou de précisions ?
-Détectes tu des incohérences ?
-Repond sans coder
-
---------------------------------------------------------------------------------------------------------------------------
-
-Il faut revoir l'affichage, les calculs, l'apprentissage du LM pour les pages ⚡ Backtest sur une heure précise et 🧪 Backtest sur un créneau horaire
-1 - ajouter TP 3 à ⚡ Backtest sur une heure précise = implémenter la logique uni à bidi
-2 - reprendre les tests de ⚡ Backtest sur une heure précise
-3 - quand les tests sont ok faire un copier/coller de la page ⚡ Backtest sur une heure précise vers la page 🧪 Backtest sur un créneau horaire
-  = ces 2 pages doivent produire exactement les memes calculs et afficher les mêmes données.
-  la seule différences est que les calculs se font sur un créneau et non pas sur une heure précise
-
-Vérifier une fois terminer que l'ancienne page n'est pas en doublon
-
---------------------------------------------------------------------------------------------------------------------------
-
-Actuellement comment sont calculés les SL et TP de chaque asset lors d'un signal de position ou dans les analyse proposées dans :
-- la stratégie rockets
-- la stratégie smc
-- la stratégie de volatilité
-
-D'autre part, concernant le backtesting de la stratégie de volatilité, comment sont calculés les lots de prise de positions pour faire évoluer le capital de départ ?
-
-Chaque assets doit répondre à des règles établies concernant le calcul du lot, du SL, tp1, tp2, tp3.
-Ces règles doivent pouvoir être modifiées selon le momentum = tableau de saisie qui met à jour le tableau de référence (dans les paramètres)
-Tableau de référence = capture
-- cellule A1 = capital à saisir
-- Colonne Valeur PIPS = à mettre à jour avec une api
-- colonne SL en pips = à saisir et à enregistrér pour les calculs de lot et de TP
-- colonne risque = à saisir et à enregistrér pour les calculs de lot
-- colonne investi = capital*risque
-- colonne Lot = (investi)/(SL en PIPS*valeur en pips)
-
---------------------------------------------------------------------------------------------------------------------------
-
 Je ne comprends pas bien l'utilité de la page "analyser un setup" dans SMC.
 Explique
 
+--------------------------------------------------------------------------------------------------------------------------
 
+Pourquoi je n'ai pas :
+- score minimum dans stratégie volatilité
+- trailing stop dans SMC
 
-
-
-
+--------------------------------------------------------------------------------------------------------------------------
 

@@ -14,7 +14,7 @@ use tokio::sync::{broadcast, Mutex};
 pub(crate) const INTERVALLE_SECS: u64 = 300; // 5 minutes
 
 /// Durée de la fenêtre anti-doublon (en minutes)
-pub(crate) const DOUBLON_MINUTES: i64 = 30;
+pub(crate) const DOUBLON_MINUTES: i64 = 60;
 
 /// Assets analysés automatiquement — chargés dynamiquement depuis la DB
 /// (les assets actifs = actif=1 dans la table assets)
