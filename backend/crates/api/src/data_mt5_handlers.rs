@@ -147,7 +147,11 @@ pub async fn post_import_mt5(
             continue;
         }
 
-        match state.db.inserer_bougies(&asset, &tf, &bougies).await {
+        match state
+            .db
+            .inserer_bougies_avec_source(&asset, &tf, &bougies, "mt5")
+            .await
+        {
             Ok(inseres) => {
                 let doublons = nb_lues.saturating_sub(inseres);
                 tracing::info!(

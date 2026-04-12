@@ -107,10 +107,7 @@ pub async fn declencher_retrain(state: web::Data<AppState>) -> HttpResponse {
 
 /// GET /api/ml/retrain/status/{job_id}
 /// Retourne l'état actuel du dernier job (le job_id est vérifié pour cohérence).
-pub async fn statut_retrain(
-    state: web::Data<AppState>,
-    path: web::Path<String>,
-) -> HttpResponse {
+pub async fn statut_retrain(state: web::Data<AppState>, path: web::Path<String>) -> HttpResponse {
     let job_id = path.into_inner();
     let s = state.retrain_state.read().await;
 

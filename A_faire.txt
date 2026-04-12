@@ -32,14 +32,15 @@ Repônd sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Je ne comprends pas bien l'utilité de la page "analyser un setup" dans SMC.
-Explique
-
---------------------------------------------------------------------------------------------------------------------------
-
 Pourquoi je n'ai pas :
 - score minimum dans stratégie volatilité
 - trailing stop dans SMC
 
 --------------------------------------------------------------------------------------------------------------------------
 
+Dans l'analyse des potentielles rockets ne faudrait il pas ajouter une vérification multi TF pour confirmer un fort mouvement à venir ?
+Repond sans coder
+
+Comment sont calculés les SL et TP ?
+Il y a un problème avec le TP 3 qui est inférieur au TP 1
+Il manque le prix d'entrée.

@@ -37,28 +37,32 @@ export function rocketToSignal(r: RocketSignalHistorique): Signal {
 }
 
 export function useRocketsHistory(
-  rocketsMode: Ref<boolean>,
   filtreStatut: Ref<'en_cours' | 'cloturees' | ''>,
   triColonne: Ref<string>,
   triDir: Ref<'asc' | 'desc'>,
 ) {
   const prixStore = usePrixStore()
+  // Garantit que le polling des prix est actif même si le Dashboard n'est pas monté
+  prixStore.demarrer()
   const rockets = ref<RocketSignalHistorique[]>([])
-  const prixActuels = ref<Record<string, number>>({})
 
-  // ── Mise à jour prix depuis le store centralisé ───────────────────────────
-
-  function mettreAJourPrix() {
-    const enCours = rockets.value.filter(r => !r.verdict)
-    if (enCours.length === 0) return
-
-    for (const r of enCours) {
+  // prixActuels est un computed dérivé directement du store :
+  // toujours réactif, se met à jour automatiquement à chaque poll (toutes les 10s)
+  const prixActuels = computed<Record<string, number>>(() => {
+    const result: Record<string, number> = {}
+    for (const r of rockets.value) {
+      if (r.verdict) continue
       const prix = prixStore.getPrix(r.ticker)
-      if (prix !== null) prixActuels.value[r.ticker] = prix
+      if (prix !== null) result[r.ticker] = prix
     }
+    return result
+  })
 
+  // Franchissement SL/TP → re-sync depuis le backend pour récupérer le verdict
+  watch(prixActuels, (nouveaux) => {
+    const enCours = rockets.value.filter(r => !r.verdict)
     const franchissement = enCours.some(r => {
-      const prix = prixActuels.value[r.ticker]
+      const prix = nouveaux[r.ticker]
       if (!prix) return false
       if (prix <= r.stop_loss) return true
       if (r.target3 && prix >= r.target3) return true
@@ -66,25 +70,21 @@ export function useRocketsHistory(
       if (!r.target2 && prix >= r.target) return true
       return false
     })
-
     if (franchissement) {
       apiService.syncRockets().catch(() => {}).then(() =>
         apiService.historiqueRockets(200).then(data => { rockets.value = data }).catch(() => {})
       )
     }
-  }
-
-  // Réagit automatiquement aux mises à jour du store (toutes les 10s)
-  watch(() => prixStore.tickers, () => {
-    if (rocketsMode.value && rockets.value.length > 0) mettreAJourPrix()
-  })
+  }, { deep: true })
 
   // ── Chargement ────────────────────────────────────────────────────────────
 
   async function chargerRockets() {
     await apiService.syncRockets().catch(() => {})
     rockets.value = await apiService.historiqueRockets(200)
-    mettreAJourPrix()
+    // Abonner les tickers ouverts au WS prix (1s) — couvre FRONT et tout autre token
+    const openTickers = rockets.value.filter(r => !r.verdict).map(r => r.ticker)
+    if (openTickers.length > 0) prixStore.abonner(openTickers)
   }
 
   // ── Filtrage + tri ────────────────────────────────────────────────────────

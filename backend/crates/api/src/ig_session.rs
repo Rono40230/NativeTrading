@@ -147,15 +147,16 @@ impl IgSession {
             self.login(db).await?;
         }
 
-        let cst = self.cst.as_deref()
+        let cst = self
+            .cst
+            .as_deref()
             .ok_or_else(|| anyhow::anyhow!("CST absent après login"))?;
-        let token = self.token.as_deref()
+        let token = self
+            .token
+            .as_deref()
             .ok_or_else(|| anyhow::anyhow!("X-SECURITY-TOKEN absent après login"))?;
 
-        let api_key = db
-            .lire_config("ig_api_key")
-            .await?
-            .unwrap_or_default();
+        let api_key = db.lire_config("ig_api_key").await?.unwrap_or_default();
 
         let mut map = reqwest::header::HeaderMap::new();
         map.insert("X-IG-API-KEY", api_key.parse()?);
@@ -188,6 +189,11 @@ impl IgSession {
         self.cst.as_deref()
     }
 
+    /// Retourne le X-SECURITY-TOKEN actuel (nécessaire pour Lightstreamer LS_password avec IG live).
+    pub fn security_token(&self) -> Option<&str> {
+        self.token.as_deref()
+    }
+
     /// Force un relogin (utilisé par le endpoint /api/ig/status — bouton Tester).
     /// Si le login échoue, la session précédente valide est restaurée.
     pub async fn tester_connexion(&mut self, db: &Arc<Database>) -> Result<()> {
@@ -207,7 +213,10 @@ impl IgSession {
                     self.cst = saved_cst;
                     self.token = saved_token;
                     self.derniere_connexion = saved_connexion;
-                    tracing::warn!("IG test connexion échoué — session précédente restaurée: {}", e);
+                    tracing::warn!(
+                        "IG test connexion échoué — session précédente restaurée: {}",
+                        e
+                    );
                 }
                 Err(e)
             }

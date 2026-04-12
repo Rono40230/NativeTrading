@@ -268,7 +268,9 @@ async fn analyser_asset(
         MlContexteStraddle::Directionnel(direction) => {
             tracing::debug!(
                 "Straddle {}/{}: ML confiant direction {} — signal directionnel préférable, skip",
-                asset.as_str(), tf.as_str(), direction
+                asset.as_str(),
+                tf.as_str(),
+                direction
             );
             return;
         }

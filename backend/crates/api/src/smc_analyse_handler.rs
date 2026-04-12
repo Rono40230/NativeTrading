@@ -18,9 +18,7 @@ const LIMITE_TRADES: i64 = 100;
 
 /// POST /api/smc/analyse-llm — déclenche une analyse stratégique immédiate.
 pub async fn lancer_analyse(state: web::Data<AppState>) -> impl Responder {
-    let ctx_backtest = state.contexte_backtest.read().await;
-    let ctx_ref = ctx_backtest.as_deref();
-    match executer_analyse(&state.db, ctx_ref).await {
+    match executer_analyse(&state.db).await {
         Ok(analyse) => HttpResponse::Ok().json(analyse),
         Err(e) => {
             tracing::error!("Analyse LLM SMC: {}", e);
@@ -124,7 +122,6 @@ async fn lire_derniere_analyse(
 
 async fn executer_analyse(
     db: &Database,
-    contexte_backtest: Option<&str>,
 ) -> anyhow::Result<serde_json::Value> {
     let signaux = charger_signaux_smc(db, LIMITE_TRADES).await?;
     let fermes = signaux.iter().filter(|s| s.statut == "Fermé").count() as i64;
@@ -137,7 +134,7 @@ async fn executer_analyse(
         );
     }
 
-    let reponse = analyser_strategie(&signaux, contexte_backtest).await?;
+    let reponse = analyser_strategie(&signaux, None).await?;
     let recommandations_json = serde_json::to_string(&reponse.recommandations)?;
 
     let id = sauvegarder_analyse(
@@ -194,7 +191,7 @@ pub async fn demarrer_worker_analyse_smc(db: Arc<Database>) {
     tokio::time::sleep(Duration::from_secs(attente)).await;
 
     loop {
-        match executer_analyse(&db, None).await {
+        match executer_analyse(&db).await {
             Ok(_) => tracing::info!("✅ Analyse LLM SMC hebdo terminée"),
             Err(e) => tracing::warn!("❌ Analyse LLM SMC hebdo: {}", e),
         }

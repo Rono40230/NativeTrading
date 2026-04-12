@@ -12,7 +12,6 @@ mod types;
 mod vision;
 
 use common::TradingError;
-pub use contexte::formater_contexte_backtest;
 pub use contexte::formater_contexte_historique;
 use prompts::SYSTEM_PROMPT;
 pub use prompts::{

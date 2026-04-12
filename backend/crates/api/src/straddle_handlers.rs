@@ -51,7 +51,10 @@ pub async fn analyser(
                     .fetch_candles(asset.clone(), Timeframe::H1, limite_reseau)
                     .await
             } else {
-                tracing::warn!("Straddle: cache H1 vide pour {} — Lightstreamer alimentera", asset_str);
+                tracing::warn!(
+                    "Straddle: cache H1 vide pour {} — Lightstreamer alimentera",
+                    asset_str
+                );
                 Ok(vec![])
             };
             match res {

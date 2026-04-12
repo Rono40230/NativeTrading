@@ -93,7 +93,14 @@ async fn analyser_tous_assets(
     for asset in &assets_actifs {
         for timeframe in TIMEFRAMES {
             if let Err(e) = crate::signal_engine_asset::analyser_asset(
-                strategie, db, pipeline_ml, tx, asset, timeframe, score_news, fg_valeur,
+                strategie,
+                db,
+                pipeline_ml,
+                tx,
+                asset,
+                timeframe,
+                score_news,
+                fg_valeur,
             )
             .await
             {
@@ -107,4 +114,3 @@ async fn analyser_tous_assets(
         }
     }
 }
-

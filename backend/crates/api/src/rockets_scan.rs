@@ -90,7 +90,10 @@ async fn executer_scan(
         .await
         .context("parse ticker Binance")?
         .into_iter()
-        .map(|item| Ticker24h { symbol: item.symbol, quote_volume: item.quote_volume })
+        .map(|item| Ticker24h {
+            symbol: item.symbol,
+            quote_volume: item.quote_volume,
+        })
         .collect();
 
     let vol_min = cfg.vol_marche_min;
@@ -136,7 +139,7 @@ async fn executer_scan(
             continue;
         }
         let niveaux = calculer_niveaux(r, &cfg);
-        filtrer_sauvegarder_publier(r, &niveaux, &r.phase, "Rockets", pool, signal_engine).await;
+        filtrer_sauvegarder_publier(r, &niveaux, &r.phase, "Rockets", pool, signal_engine, &cfg).await;
     }
 
     // ── Passe "Confirmé Momentum" : compression avec élan 1h ─────────────────
@@ -160,6 +163,7 @@ async fn executer_scan(
             "Rockets-Momentum",
             pool,
             signal_engine,
+            &cfg,
         )
         .await;
     }

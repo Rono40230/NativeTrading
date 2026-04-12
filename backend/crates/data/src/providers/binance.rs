@@ -33,14 +33,14 @@ impl BinanceProvider {
     /// Interval Bybit en minutes (1,3,5,15,30,60,120,240,360,720) ou "D","W"
     fn interval(tf: &Timeframe) -> &'static str {
         match tf {
-            Timeframe::M1  => "1",
-            Timeframe::M5  => "5",
+            Timeframe::M1 => "1",
+            Timeframe::M5 => "5",
             Timeframe::M15 => "15",
             Timeframe::M30 => "30",
-            Timeframe::H1  => "60",
-            Timeframe::H4  => "240",
-            Timeframe::D1  => "D",
-            Timeframe::W1  => "W",
+            Timeframe::H1 => "60",
+            Timeframe::H4 => "240",
+            Timeframe::D1 => "D",
+            Timeframe::W1 => "W",
         }
     }
 }
@@ -87,26 +87,32 @@ impl DataProvider for BinanceProvider {
         // Bybit response: { retCode: 0, result: { list: [[startTime, open, high, low, close, volume, turnover], ...] } }
         // list est trié du plus récent au plus ancien — on inverse après parsing
         #[derive(serde::Deserialize)]
-        struct BybitResult { list: Vec<Vec<String>> }
+        struct BybitResult {
+            list: Vec<Vec<String>>,
+        }
         #[derive(serde::Deserialize)]
-        struct BybitResp { result: BybitResult }
+        struct BybitResp {
+            result: BybitResult,
+        }
 
         let data: BybitResp = resp
             .json()
             .await
             .map_err(|e| TradingError::Data(format!("Bybit parse JSON: {}", e)))?;
 
-        let mut bougies: Vec<Candle> = data.result.list
+        let mut bougies: Vec<Candle> = data
+            .result
+            .list
             .into_iter()
             .filter_map(|row| {
                 let ts_ms: i64 = row.first()?.parse().ok()?;
                 let timestamp = DateTime::from_timestamp(ts_ms / 1000, 0)?;
                 Some(Candle {
                     timestamp,
-                    open:   row.get(1)?.parse().ok()?,
-                    high:   row.get(2)?.parse().ok()?,
-                    low:    row.get(3)?.parse().ok()?,
-                    close:  row.get(4)?.parse().ok()?,
+                    open: row.get(1)?.parse().ok()?,
+                    high: row.get(2)?.parse().ok()?,
+                    low: row.get(3)?.parse().ok()?,
+                    close: row.get(4)?.parse().ok()?,
                     volume: row.get(5)?.parse::<f64>().unwrap_or(0.0),
                 })
             })
@@ -117,9 +123,10 @@ impl DataProvider for BinanceProvider {
 
         tracing::info!(
             "Bybit: {} bougies {} pour {}",
-            bougies.len(), interval, symbole
+            bougies.len(),
+            interval,
+            symbole
         );
         Ok(bougies)
     }
 }
-

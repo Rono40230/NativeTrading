@@ -20,8 +20,6 @@ pub struct AppState {
     pub ig_lightstreamer: Arc<IgLightstreamer>,
     /// Moteur de génération automatique de signaux SMC
     pub signal_engine: Arc<SignalEngine>,
-    /// Dernier contexte backtest formaté — injecté dans les analyses LLM SMC.
-    pub contexte_backtest: Arc<tokio::sync::RwLock<Option<String>>>,
     /// Cache Fear & Greed Index (TTL 1h) — (Instant du fetch, données JSON)
     pub fear_greed_cache: Arc<tokio::sync::RwLock<Option<(std::time::Instant, serde_json::Value)>>>,
 }
@@ -146,7 +144,6 @@ impl AppState {
             ig_session,
             ig_lightstreamer,
             signal_engine,
-            contexte_backtest: Arc::new(tokio::sync::RwLock::new(None)),
             fear_greed_cache: Arc::new(tokio::sync::RwLock::new(None)),
         })
     }

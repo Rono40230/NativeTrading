@@ -1,4 +1,4 @@
-use db::rockets::{RocketSignal, RocketsConfig};
+use db::rockets::RocketsConfig;
 use serde::Serialize;
 
 // ── Constantes ───────────────────────────────────────────────────────────────
@@ -40,6 +40,24 @@ pub struct ScanResultat {
     pub nb_bougies_compression: usize,
     /// Hauteur de la base = max_recent − support (measured move pour TP1)
     pub hauteur_base: f64,
+    /// Coefficient trailing stop calculé dynamiquement (score + volatilité)
+    pub trailing_coeff: f64,
+    /// TP1 précalculé = prix + ATR × cfg.tp1_mult() — niveau affiché en modale
+    pub tp1: f64,
+    /// TP2 précalculé = prix + ATR × cfg.tp2_mult()
+    pub tp2: f64,
+    /// Trigger trailing = prix + ATR × cfg.trailing_trigger_mult()
+    pub tp3_trigger: f64,
+    /// SL précalculé = prix - ATR × cfg.sl_mult
+    pub sl: f64,
+    /// Niveau d'entrée limite : pullback vers l'ancienne résistance (devenue support)
+    pub entree_limite: f64,
+    /// Niveau d'entrée stop : confirmation de momentum au-dessus de la zone
+    pub entree_stop: f64,
+    /// Niveau d'invalidation : setup annulé si le prix atteint ce niveau avant l'entrée
+    pub niveau_invalidation: f64,
+    /// Type d'entrée recommandé algorithmiquement : "limite" ou "stop"
+    pub type_entree_rec: String,
 }
 
 #[derive(serde::Deserialize)]
@@ -144,14 +162,21 @@ pub fn calc_nb_compression(highs: &[f64], lows: &[f64], atr14: f64) -> usize {
     count
 }
 
-pub fn calculer_phase(
-    breakout: bool,
-    ratio_volume: f64,
-    rsi: f64,
-    atr_ratio: f64,
-    change1h: f64,
-    cfg: &RocketsConfig,
-) -> Option<(String, i64)> {
+/// Données brutes passées à `calculer_phase` pour éviter une liste d'arguments trop longue.
+pub struct ContextePhase {
+    pub breakout: bool,
+    pub ratio_volume: f64,
+    pub rsi: f64,
+    pub atr_ratio: f64,
+    pub change1h: f64,
+    pub nb_bougies_compression: usize,
+    pub tendance_haussiere: bool,
+}
+
+pub fn calculer_phase(ctx: &ContextePhase, cfg: &RocketsConfig) -> Option<(String, i64)> {
+    let ContextePhase { breakout, ratio_volume, rsi, atr_ratio, change1h, nb_bougies_compression, tendance_haussiere } = ctx;
+    let (breakout, ratio_volume, rsi, atr_ratio, change1h, nb_bougies_compression, tendance_haussiere) =
+        (*breakout, *ratio_volume, *rsi, *atr_ratio, *change1h, *nb_bougies_compression, *tendance_haussiere);
     if breakout && ratio_volume >= cfg.ratio_volume_min {
         let mut s = 40i64;
         if ratio_volume >= 2.0 {
@@ -178,6 +203,14 @@ pub fn calculer_phase(
             s += 15;
         }
         if rsi > 50.0 && rsi < 70.0 {
+            s += 10;
+        }
+        // Bonus ressort comprimé : plus de bougies en compression = meilleure opportunité
+        if nb_bougies_compression >= 4 {
+            s += 15;
+        }
+        // Bonus tendance haussière confirmée (EMA20 > EMA50 1h) = continuation probable
+        if tendance_haussiere {
             s += 10;
         }
         if s < 15 {
@@ -209,74 +242,4 @@ pub fn phase_priorite(phase: &str) -> u8 {
         "prelancement" => 1,
         _ => 0,
     }
-}
-
-// ── Logique de progression de position ──────────────────────────────────────
-
-/// Calcule le verdict pour un signal ouvert.
-/// `peak`           : max prix atteint depuis l'entrée (tick courant inclus).
-/// `peak_precedent` : valeur `prix_peak` en DB avant ce tick (détection 1ères franchissements).
-///
-/// Retours :
-/// - `Some("TP1")` / `Some("TP2")` → vente partielle ⅓ — **NE PAS fermer la position**
-/// - `Some("TP3")`  → trailing touché après zone TP3 — fermer la position
-/// - `Some("invalide")` → SL touché — fermer la position
-/// - `None` → rien à faire
-pub fn calculer_verdict_rocket(
-    s: &RocketSignal,
-    prix: f64,
-    peak: f64,
-    peak_precedent: f64,
-) -> Option<&'static str> {
-    let atr14 = s.atr14.unwrap_or(s.prix_entree * 0.01);
-
-    // ── Zone TP3 : trailing stop actif (peak a atteint tp3) ─────────────────
-    if let Some(tp3) = s.target3 {
-        if peak >= tp3 {
-            let trailing_stop = peak - atr14 * 1.5;
-            return if prix <= trailing_stop {
-                Some("TP3")
-            } else {
-                None
-            };
-        }
-    }
-
-    // ── SL effectif progressif selon les TPs déjà atteints (via peak) ───────
-    let sl_effectif = match (s.target2, s.target3) {
-        (Some(tp2), _) if peak >= tp2 => s.target, // SL → TP1
-        _ if peak >= s.target => s.prix_entree,    // SL → entrée (BE)
-        _ => s.stop_loss,                          // SL original
-    };
-
-    if prix <= sl_effectif {
-        return Some("invalide");
-    }
-
-    // ── Détection premières franchissements — vente partielle ────────────────
-    match (s.target2, s.target3) {
-        (Some(tp2), Some(_)) => {
-            // Pyramidal complet (⅓ TP1 / ⅓ TP2 / ⅓ trailing) :
-            // on détecte la TRANSITION (peak vient de franchir le niveau ce tick).
-            if peak_precedent < s.target && peak >= s.target {
-                return Some("TP1"); // vente ⅓, garder ouvert, SL → BE
-            }
-            if peak_precedent >= s.target && peak_precedent < tp2 && peak >= tp2 {
-                return Some("TP2"); // vente ⅓, garder ouvert, SL → TP1
-            }
-        }
-        _ => {
-            // Pas de pyramidal complet : fermetures normales (comportement original)
-            if let Some(tp2) = s.target2 {
-                if prix >= tp2 {
-                    return Some("TP2"); // fermeture totale
-                }
-            }
-            if prix >= s.target && s.target2.is_none() {
-                return Some("TP1"); // fermeture totale
-            }
-        }
-    }
-
-    None
 }

@@ -1,8 +1,5 @@
 use actix_web::{web, HttpResponse, Responder};
-use data::{
-    providers::BinanceProvider,
-    DataProvider,
-};
+use data::{providers::BinanceProvider, DataProvider};
 use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
@@ -12,7 +9,13 @@ use crate::utils::{parse_asset, parse_timeframe};
 
 /// GET /api/ig/status — Force un re-login IG (bouton "Tester" dans Settings).
 pub async fn ig_status(state: web::Data<AppState>) -> impl Responder {
-    match state.ig_session.lock().await.tester_connexion(&state.db).await {
+    match state
+        .ig_session
+        .lock()
+        .await
+        .tester_connexion(&state.db)
+        .await
+    {
         Ok(()) => HttpResponse::Ok().json(serde_json::json!({
             "connecte": true,
             "source": "ig_markets"
@@ -43,8 +46,15 @@ pub async fn ig_search_markets(
     query: web::Query<std::collections::HashMap<String, String>>,
 ) -> impl Responder {
     let terme = match query.get("q") {
-        Some(t) if !t.is_empty() && t.len() <= 20 && t.chars().all(|c| c.is_ascii_alphanumeric()) => t.to_uppercase(),
-        _ => return HttpResponse::BadRequest().json(serde_json::json!({ "error": "Paramètre q requis (ex: EURUSD)" })),
+        Some(t)
+            if !t.is_empty() && t.len() <= 20 && t.chars().all(|c| c.is_ascii_alphanumeric()) =>
+        {
+            t.to_uppercase()
+        }
+        _ => {
+            return HttpResponse::BadRequest()
+                .json(serde_json::json!({ "error": "Paramètre q requis (ex: EURUSD)" }))
+        }
     };
 
     let (url_base, headers, client) = {
@@ -52,22 +62,32 @@ pub async fn ig_search_markets(
         let url_base = session.url();
         let headers = match session.headers(&state.db).await {
             Ok(h) => h,
-            Err(e) => return HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": format!("Session IG: {}", e) })),
+            Err(e) => {
+                return HttpResponse::ServiceUnavailable()
+                    .json(serde_json::json!({ "error": format!("Session IG: {}", e) }))
+            }
         };
         let client = session.client().clone();
         (url_base, headers, client)
     };
 
     let url = format!("{}/markets?searchTerm={}", url_base, terme);
-    match client.get(&url).headers(headers).header("Version", "1").send().await {
-        Ok(r) if r.status().is_success() => {
-            match r.json::<serde_json::Value>().await {
-                Ok(data) => HttpResponse::Ok().json(data),
-                Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": format!("Parse: {}", e) })),
-            }
-        }
-        Ok(r) => HttpResponse::BadGateway().json(serde_json::json!({ "error": format!("IG {}", r.status()) })),
-        Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": format!("{}", e) })),
+    match client
+        .get(&url)
+        .headers(headers)
+        .header("Version", "1")
+        .send()
+        .await
+    {
+        Ok(r) if r.status().is_success() => match r.json::<serde_json::Value>().await {
+            Ok(data) => HttpResponse::Ok().json(data),
+            Err(e) => HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": format!("Parse: {}", e) })),
+        },
+        Ok(r) => HttpResponse::BadGateway()
+            .json(serde_json::json!({ "error": format!("IG {}", r.status()) })),
+        Err(e) => HttpResponse::ServiceUnavailable()
+            .json(serde_json::json!({ "error": format!("{}", e) })),
     }
 }
 
@@ -102,7 +122,7 @@ pub async fn get_candles(
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
     let limit = query.limit.unwrap_or(200).min(5000) as usize;
 
-    // 1. Cache DB — toujours (Lightstreamer alimente le cache en background)
+    // 1. Cache DB — toutes sources (MT5 inclus pour avoir l'historique)
     if let Ok(bougies) = state
         .db
         .obtenir_bougies(&asset, &timeframe, limit as i64)
@@ -129,18 +149,9 @@ pub async fn get_candles(
                 tracing::warn!("get_candles Binance échoué pour {}: {}", query.asset, e);
             }
         }
-    } else {
-        // Pour les assets IG : abonner Lightstreamer pour remplir le cache au prochain tick
-        let ls = state.ig_lightstreamer.clone();
-        let a = asset.clone();
-        let tf = timeframe;
-        tokio::spawn(async move {
-            ls.subscribe(&a, tf)
-                .await
-                .unwrap_or_else(|e| tracing::warn!("LS subscribe depuis get_candles: {}", e));
-        });
-        tracing::info!("get_candles {}: cache vide, abonnement LS déclenché", query.asset);
     }
+    // Pour les assets IG sans cache : le WebSocket stream_ig gère l'initialisation
+    // (fetch_historique avec protection anti-403 intégrée)
 
     HttpResponse::Ok().json(Vec::<serde_json::Value>::new())
 }
@@ -223,7 +234,9 @@ pub struct PrixActuelQuery {
 }
 
 #[derive(serde::Deserialize)]
-struct BinancePrix { price: String }
+struct BinancePrix {
+    price: String,
+}
 
 /// GET /api/prix-actuel?ticker=SNX
 /// Retourne le prix spot Binance pour n'importe quel ticker USDT,

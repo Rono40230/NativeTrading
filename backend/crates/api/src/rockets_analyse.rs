@@ -2,9 +2,14 @@
 //! Séparé de rockets_scan.rs pour respecter la limite de 300 lignes.
 use db::rockets::RocketsConfig;
 use strategies::rockets_indicateurs::{
-    calc_atr, calc_ema, calc_nb_compression, calc_rsi, calculer_phase, ScanResultat, KLINES_N,
-    LOOKBACK,
+    calc_atr, calc_ema, calc_nb_compression, calc_rsi, calculer_phase,
+    ScanResultat, KLINES_N, LOOKBACK,
 };
+use strategies::rockets_niveaux::{
+    calculer_entree_limite, calculer_entree_stop,
+    calculer_niveau_invalidation, recommander_type_entree,
+};
+use strategies::rockets_position::calculer_trailing_coeff;
 
 pub async fn analyser_symbol(
     client: &reqwest::Client,
@@ -27,7 +32,11 @@ pub async fn analyser_symbol(
 
     let parse = |row: &Vec<serde_json::Value>, idx: usize| -> f64 {
         row.get(idx)
-            .and_then(|v| v.as_str().and_then(|s| s.parse().ok()).or_else(|| v.as_f64()))
+            .and_then(|v| {
+                v.as_str()
+                    .and_then(|s| s.parse().ok())
+                    .or_else(|| v.as_f64())
+            })
             .unwrap_or(0.0)
     };
     // Binance: [openTime(ms), open, high, low, close, volume, closeTime, ...]
@@ -73,7 +82,8 @@ pub async fn analyser_symbol(
         .iter()
         .cloned()
         .fold(f64::NEG_INFINITY, f64::max);
-    let breakout = prix > max_recent && max_recent > 0.0;
+    // Breakout strict : prix dépasse le max récent ET corps suffisant ET volatilité en expansion
+    let breakout = prix > max_recent && max_recent > 0.0 && ratio_corps >= 0.40 && atr_ratio >= 0.85;
 
     let low_start = lows.len().saturating_sub(LOOKBACK);
     let support = lows[low_start..]
@@ -92,12 +102,31 @@ pub async fn analyser_symbol(
         0.0
     };
 
-    let (phase, score) = calculer_phase(breakout, ratio_volume, rsi, atr_ratio, change1h, cfg)?;
-
+    // Calculés avant calculer_phase car ils influencent le score (compression/prelancement)
     let tendance_haussiere = calc_ema(&closes, 20) > calc_ema(&closes, 50);
     let nb_bougies_compression = calc_nb_compression(&highs, &lows, atr14);
+
+    let ctx_phase = strategies::rockets_indicateurs::ContextePhase {
+        breakout,
+        ratio_volume,
+        rsi,
+        atr_ratio,
+        change1h,
+        nb_bougies_compression,
+        tendance_haussiere,
+    };
+    let (phase, score) = calculer_phase(&ctx_phase, cfg)?;
+    let trailing_coeff = calculer_trailing_coeff(score, atr_ratio, cfg);
     let hauteur_base = (max_recent - support).max(0.0);
     let closes_spark: Vec<f64> = closes[closes.len().saturating_sub(24)..].to_vec();
+    let sl = prix - atr14 * cfg.sl_mult;
+    let tp1 = prix + atr14 * cfg.tp1_mult();
+    let tp2 = prix + atr14 * cfg.tp2_mult();
+    let tp3_trigger = prix + atr14 * cfg.trailing_trigger_mult();
+    let entree_limite = calculer_entree_limite(prix, max_recent, support, &phase);
+    let entree_stop = calculer_entree_stop(prix, max_recent, &phase);
+    let niveau_invalidation = calculer_niveau_invalidation(support, atr14);
+    let type_entree_rec = recommander_type_entree(atr_ratio, ratio_corps, change1h).to_string();
 
     Some(ScanResultat {
         symbol: format!("{}USDT", ticker),
@@ -117,5 +146,14 @@ pub async fn analyser_symbol(
         tendance_haussiere,
         nb_bougies_compression,
         hauteur_base,
+        trailing_coeff,
+        sl,
+        tp1,
+        tp2,
+        tp3_trigger,
+        entree_limite,
+        entree_stop,
+        niveau_invalidation,
+        type_entree_rec,
     })
 }

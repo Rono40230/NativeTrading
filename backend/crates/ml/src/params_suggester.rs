@@ -5,21 +5,21 @@ use serde::{Deserialize, Serialize};
 
 use crate::feedback_analyser::{AnalyseGlobale, SmcAnalyse, TrancheStat};
 
-const SEUIL_MIN_SAMPLES:   i64 = 30;
+const SEUIL_MIN_SAMPLES: i64 = 30;
 const SEUIL_MIN_CONFIANCE: f64 = 0.70;
 
 // ── Structure suggestion ──────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SuggestionParams {
-    pub strategie:           String,
-    pub param_name:          String,
-    pub valeur_actuelle:     f64,
-    pub valeur_suggeree:     f64,
+    pub strategie: String,
+    pub param_name: String,
+    pub valeur_actuelle: f64,
+    pub valeur_suggeree: f64,
     pub gain_winrate_estime: f64, // % points WR estimés
-    pub confiance:           f64, // 0.0-1.0
-    pub justification:       String,
-    pub nb_samples_base:     i64,
+    pub confiance: f64,           // 0.0-1.0
+    pub justification: String,
+    pub nb_samples_base: i64,
 }
 
 // ── Point d'entrée principal ──────────────────────────────────────────────────
@@ -53,16 +53,16 @@ pub fn generer_suggestions(
 
 // ── Règles de suggestion ──────────────────────────────────────────────────────
 
-fn suggerer_score_min(
-    smc: &SmcAnalyse,
-    score_min_actuel: i64,
-    out: &mut Vec<SuggestionParams>,
-) {
+fn suggerer_score_min(smc: &SmcAnalyse, score_min_actuel: i64, out: &mut Vec<SuggestionParams>) {
     if score_min_actuel >= 65 {
         return; // Score déjà suffisamment élevé
     }
-    let Some((nb_bas, wr_bas)) = tranche(&smc.par_score, "50-65") else { return };
-    let Some((_, wr_moyen))    = tranche(&smc.par_score, "65-75") else { return };
+    let Some((nb_bas, wr_bas)) = tranche(&smc.par_score, "50-65") else {
+        return;
+    };
+    let Some((_, wr_moyen)) = tranche(&smc.par_score, "65-75") else {
+        return;
+    };
 
     if nb_bas < SEUIL_MIN_SAMPLES || wr_bas >= 45.0 {
         return;
@@ -77,10 +77,10 @@ fn suggerer_score_min(
     }
 
     out.push(SuggestionParams {
-        strategie:           "SMC".into(),
-        param_name:          "score_min".into(),
-        valeur_actuelle:     score_min_actuel as f64,
-        valeur_suggeree:     65.0,
+        strategie: "SMC".into(),
+        param_name: "score_min".into(),
+        valeur_actuelle: score_min_actuel as f64,
+        valeur_suggeree: 65.0,
         gain_winrate_estime: gain,
         confiance,
         justification: format!(
@@ -96,9 +96,17 @@ fn suggerer_kill_zone(
     kill_zone_active: bool,
     out: &mut Vec<SuggestionParams>,
 ) {
-    let Some(wr_kz)   = analyse.smc_win_rate_kill_zone()       else { return };
-    let Some(wr_hors) = analyse.smc_win_rate_hors_kill_zone()  else { return };
-    let nb = analyse.smc.as_ref().map(|s| s.global.nb_trades).unwrap_or(0);
+    let Some(wr_kz) = analyse.smc_win_rate_kill_zone() else {
+        return;
+    };
+    let Some(wr_hors) = analyse.smc_win_rate_hors_kill_zone() else {
+        return;
+    };
+    let nb = analyse
+        .smc
+        .as_ref()
+        .map(|s| s.global.nb_trades)
+        .unwrap_or(0);
 
     if nb < SEUIL_MIN_SAMPLES {
         return;
@@ -107,12 +115,12 @@ fn suggerer_kill_zone(
     // Kill Zone désactivée mais clairement moins bonne hors Kill Zone → réactiver
     if !kill_zone_active && wr_hors < 40.0 && wr_kz > wr_hors + 10.0 {
         out.push(SuggestionParams {
-            strategie:           "SMC".into(),
-            param_name:          "kill_zone_filtre".into(),
-            valeur_actuelle:     0.0,
-            valeur_suggeree:     1.0,
+            strategie: "SMC".into(),
+            param_name: "kill_zone_filtre".into(),
+            valeur_actuelle: 0.0,
+            valeur_suggeree: 1.0,
             gain_winrate_estime: wr_kz - wr_hors,
-            confiance:           0.80,
+            confiance: 0.80,
             justification: format!(
                 "Hors Kill Zone : {:.0}% WR vs {:.0}% en Kill Zone ({} trades) — filtre recommandé",
                 wr_hors, wr_kz, nb
@@ -139,11 +147,7 @@ fn suggerer_kill_zone(
     }
 }
 
-fn suggerer_atr_sl(
-    smc: &SmcAnalyse,
-    atr_sl_actuel: f64,
-    out: &mut Vec<SuggestionParams>,
-) {
+fn suggerer_atr_sl(smc: &SmcAnalyse, atr_sl_actuel: f64, out: &mut Vec<SuggestionParams>) {
     // R:R moyen inférieur à 0.5 sur au moins 50 trades → SL probablement trop serré
     if smc.global.pnl_r_moyen >= 0.5 || smc.global.nb_trades < 50 {
         return;
@@ -154,12 +158,12 @@ fn suggerer_atr_sl(
     }
 
     out.push(SuggestionParams {
-        strategie:           "SMC".into(),
-        param_name:          "atr_sl".into(),
-        valeur_actuelle:     atr_sl_actuel,
+        strategie: "SMC".into(),
+        param_name: "atr_sl".into(),
+        valeur_actuelle: atr_sl_actuel,
         valeur_suggeree,
         gain_winrate_estime: 3.0, // Estimation conservatrice
-        confiance:           0.65,
+        confiance: 0.65,
         justification: format!(
             "R:R moyen {:.2} sur {} trades — SL trop serré, élargir de {:.1} à {:.1}×ATR",
             smc.global.pnl_r_moyen, smc.global.nb_trades, atr_sl_actuel, valeur_suggeree

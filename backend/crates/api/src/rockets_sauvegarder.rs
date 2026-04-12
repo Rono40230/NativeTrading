@@ -7,6 +7,7 @@ use db::rockets::{self, NouveauRocket};
 use db::rockets_feedback::{inserer_feedback, lister_recents_ticker_phase, NouveauFeedbackRocket};
 use std::sync::Arc;
 use strategies::rockets_indicateurs::ScanResultat;
+use strategies::rockets_position::calculer_split_vente;
 
 /// Niveaux TP/SL pré-calculés pour un candidat.
 pub struct NiveauxRocket {
@@ -14,21 +15,23 @@ pub struct NiveauxRocket {
     pub tp1: f64,
     pub tp2: f64,
     pub tp3: f64,
+    pub trailing_coeff: f64,
 }
 
 /// Calcule les niveaux TP/SL depuis un ScanResultat en respectant la R:R configurée.
-/// TP1 = entrée + ATR × tp_mult_1 (recommandé : sl_mult + 1.0)
-/// TP2 = entrée + ATR × tp_mult_2 (recommandé : sl_mult + 2.0)
-/// TP3 = trailing stop based on ATR × tp_mult_3
+/// SL  = entrée − ATR × sl_mult            (R−1)
+/// TP1 = entrée + ATR × tp1_mult()         (R+1 = sl_mult+1)
+/// TP2 = entrée + ATR × tp2_mult()         (R+2 = sl_mult+2)
+/// TP3 = entrée + ATR × trailing_trigger   (R+3 = déclencheur SL→TP2)
 pub fn calculer_niveaux(
     r: &ScanResultat,
     cfg: &db::rockets_config::RocketsConfig,
 ) -> NiveauxRocket {
     let sl = r.prix - r.atr14 * cfg.sl_mult;
-    let tp1 = r.prix + r.atr14 * cfg.tp_mult_1;
-    let tp2 = r.prix + r.atr14 * cfg.tp_mult_2;
-    let tp3 = r.prix + r.atr14 * cfg.tp_mult_3;
-    NiveauxRocket { sl, tp1, tp2, tp3 }
+    let tp1 = r.prix + r.atr14 * cfg.tp1_mult();
+    let tp2 = r.prix + r.atr14 * cfg.tp2_mult();
+    let tp3 = r.prix + r.atr14 * cfg.trailing_trigger_mult();
+    NiveauxRocket { sl, tp1, tp2, tp3, trailing_coeff: r.trailing_coeff }
 }
 
 /// Filtre LLM → sauvegarde → publication WebSocket + Telegram.
@@ -41,6 +44,7 @@ pub async fn filtrer_sauvegarder_publier(
     label_signal: &str,
     pool: &sqlx::SqlitePool,
     signal_engine: &Arc<SignalEngine>,
+    cfg: &db::rockets_config::RocketsConfig,
 ) {
     let session = session_active(chrono::Utc::now());
     let seuils = db::rockets_calibration::charger_seuils(pool, phase_sauvegardee, &session).await;
@@ -65,9 +69,13 @@ pub async fn filtrer_sauvegarder_publier(
         tendance_haussiere: r.tendance_haussiere,
         nb_bougies_compression: r.nb_bougies_compression,
         hauteur_base: r.hauteur_base,
+        entree_limite: r.entree_limite,
+        entree_stop: r.entree_stop,
+        niveau_invalidation: r.niveau_invalidation,
+        type_entree_rec_algo: r.type_entree_rec.clone(),
     };
 
-    let (llm_valide, llm_conviction, llm_raison, llm_sl, llm_tp1) =
+    let (llm_valide, llm_conviction, llm_raison, llm_sl, llm_tp1, llm_trailing_coeff) =
         match crate::ollama::rockets_filtre::filtrer_signal(&candidat, &historique, &feedbacks)
             .await
         {
@@ -91,12 +99,28 @@ pub async fn filtrer_sauvegarder_publier(
                 }
                 let sl_s = rep.ajustements.as_ref().and_then(|a| a.sl_suggere);
                 let tp1_s = rep.ajustements.as_ref().and_then(|a| a.tp1_suggere);
+                // Clamp strict pour éviter les hallucinations LLM
+                let tc_s = rep.ajustements.as_ref()
+                    .and_then(|a| a.trailing_coeff_suggere)
+                    .map(|v| v.clamp(cfg.trailing_coeff_min, cfg.trailing_coeff_max));
+                // Annoter entry_type si le LLM diverge de l'algo
+                let raison_avec_entree = {
+                    let et_llm = rep.ajustements.as_ref().and_then(|a| a.entry_type_suggere.as_deref());
+                    let et_algo = r.type_entree_rec.as_str();
+                    match et_llm {
+                        Some(et) if et != et_algo => {
+                            rep.raison + &format!(" [entrée: {}→{}]", et_algo, et)
+                        }
+                        _ => rep.raison,
+                    }
+                };
                 (
                     Some(true),
                     Some(rep.conviction),
-                    Some(rep.raison),
+                    Some(raison_avec_entree),
                     sl_s,
                     tp1_s,
+                    tc_s,
                 )
             }
             Err(e) => {
@@ -109,6 +133,25 @@ pub async fn filtrer_sauvegarder_publier(
                 return;
             }
         };
+
+    let (pct_tp1, pct_tp2, pct_trailing) = calculer_split_vente(r.score, cfg);
+
+    // Enrichir llm_raison si le LLM a ajusté le trailing_coeff
+    let llm_raison_finale = match (llm_trailing_coeff, &llm_raison) {
+        (Some(tc_llm), Some(raison)) => {
+            let tc_algo = niveaux.trailing_coeff;
+            if (tc_llm - tc_algo).abs() > 0.1 {
+                tracing::info!(
+                    "LLM ajuste trailing_coeff {} : {:.1} → {:.1}",
+                    r.ticker, tc_algo, tc_llm
+                );
+                Some(format!("{} [trail {:.1}×→{:.1}×]", raison, tc_algo, tc_llm))
+            } else {
+                Some(raison.clone())
+            }
+        }
+        _ => llm_raison,
+    };
 
     let nouveau = NouveauRocket {
         ticker: r.ticker.clone(),
@@ -125,9 +168,13 @@ pub async fn filtrer_sauvegarder_publier(
         rsi: r.rsi,
         llm_valide,
         llm_conviction,
-        llm_raison,
+        llm_raison: llm_raison_finale,
         llm_sl_suggere: llm_sl,
         llm_tp1_suggere: llm_tp1,
+        trailing_coeff: llm_trailing_coeff.unwrap_or(niveaux.trailing_coeff),
+        pct_tp1,
+        pct_tp2,
+        pct_trailing,
     };
 
     let signal_id = match rockets::sauvegarder(pool, &nouveau).await {

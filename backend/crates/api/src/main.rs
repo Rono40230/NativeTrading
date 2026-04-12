@@ -1,11 +1,10 @@
 use actix_cors::Cors;
-use actix_web::{http::header, middleware, web, App, HttpServer};
+use actix_web::{http::header, web, App, HttpServer};
 
 mod ab_test_handlers;
 mod anthropic;
 mod asset_params_handlers;
 mod assets_handlers;
-mod backtest_handlers;
 mod calendar_handlers;
 mod config_handlers;
 mod data_handlers;
@@ -18,6 +17,8 @@ mod ig_session;
 mod indicators_handlers;
 mod indicators_types;
 mod ml_handlers;
+mod ml_insights_handlers;
+mod ml_retrain_handler;
 mod news_context_handler;
 mod news_fear_greed;
 mod news_handlers;
@@ -35,6 +36,7 @@ mod ollama_signal_ia_handler;
 mod ollama_types;
 mod pip_updater;
 mod prix_handlers;
+mod prix_stream;
 mod prix_utils;
 mod prompts_handler;
 mod rockets_analyse;
@@ -42,6 +44,7 @@ mod rockets_analyse_handler;
 mod rockets_calibration;
 mod rockets_handlers;
 mod rockets_ml_handlers;
+mod rockets_prix;
 mod rockets_sauvegarder;
 mod rockets_scan;
 mod rockets_suivi;
@@ -56,20 +59,19 @@ mod smc_analyse_handler;
 mod smc_boucle;
 mod smc_calibration_job;
 mod smc_categorisation;
+mod smc_feedback_db;
 mod smc_feedback_job;
 mod smc_handlers;
 mod smc_monitoring_handlers;
-mod ml_insights_handlers;
-mod ml_retrain_handler;
 mod smc_signal_ollama;
 mod state;
-mod straddle_backtest_handler;
 mod straddle_boucle;
 mod straddle_calibration;
 mod straddle_categorisation;
 mod straddle_feedback_job;
 mod straddle_handlers;
 mod straddle_machine_etats;
+mod straddle_precision_handler;
 mod straddle_ml_gate;
 mod straddle_ml_handlers;
 mod straddle_monitoring_handlers;
@@ -77,8 +79,6 @@ mod straddle_prompt;
 mod straddle_scan_pics;
 mod straddle_signal_handler;
 mod straddle_signal_ollama;
-mod straddle_slot_backtest;
-mod straddle_slot_backtest_fenetre;
 mod straddle_types;
 mod straddle_utils;
 mod strategies_params_handlers;
@@ -163,7 +163,6 @@ async fn main() -> std::io::Result<()> {
 
         App::new()
             .app_data(app_state.clone())
-            .wrap(middleware::Logger::default())
             .wrap(cors)
             .configure(routes::configurer)
     })

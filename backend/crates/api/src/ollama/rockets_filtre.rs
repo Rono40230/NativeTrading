@@ -11,6 +11,10 @@ use std::time::Duration;
 pub struct AjustementsSl {
     pub sl_suggere: Option<f64>,
     pub tp1_suggere: Option<f64>,
+    /// Coefficient trailing dynamique proposé par le LLM (borné en [1.5, 5.0])
+    pub trailing_coeff_suggere: Option<f64>,
+    /// Type d'entrée recommandé par le LLM : "limite", "stop", ou null si pas d'avis
+    pub entry_type_suggere: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -43,6 +47,14 @@ pub struct SignalCandidat {
     pub nb_bougies_compression: usize,
     /// Range de la zone de consolidation (measured move pour TP1)
     pub hauteur_base: f64,
+    /// Entrée limite calculée algorithmiquement (pullback vers zone de consolidation)
+    pub entree_limite: f64,
+    /// Entrée stop calculée algorithmiquement (confirmation de cassure)
+    pub entree_stop: f64,
+    /// Niveau d'invalidation structurelle (setup annulé si atteint avant l'entrée)
+    pub niveau_invalidation: f64,
+    /// Type d'entrée recommandé par l'algo : "limite" ou "stop"
+    pub type_entree_rec_algo: String,
 }
 
 // ── Formatage du contexte ─────────────────────────────────────────────────────
@@ -52,6 +64,8 @@ fn formater_contexte(candidat: &SignalCandidat, historique: &[RocketSignal]) -> 
         "=== SIGNAL CANDIDAT : {} ===\n\
         Phase: {} | Score: {}/100\n\
         Prix entrée: {:.6} | SL: {:.6} | TP1: {:.6}\n\
+        Entrée limite: {:.6} | Entrée stop: {:.6} | Invalidation: {:.6}\n\
+        Type entrée algo: {} \n\
         ATR14: {:.6} | ATR ratio (accélération): {:.2}\n\
         Volume ratio: {:.2}× | RSI: {:.1} | Change 1h: {:.2}%\n\
         Ratio corps/mèche bougie: {:.2} (1.0=pleine, <0.3=rejet probable)\n\
@@ -62,6 +76,10 @@ fn formater_contexte(candidat: &SignalCandidat, historique: &[RocketSignal]) -> 
         candidat.prix_entree,
         candidat.stop_loss,
         candidat.tp1,
+        candidat.entree_limite,
+        candidat.entree_stop,
+        candidat.niveau_invalidation,
+        candidat.type_entree_rec_algo,
         candidat.atr14,
         candidat.atr_ratio,
         candidat.ratio_volume,

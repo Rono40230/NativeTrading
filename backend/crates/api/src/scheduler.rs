@@ -102,7 +102,9 @@ pub async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<M
 
         // Walk-forward est CPU-intensif (LSTM + XGBoost) — spawn_blocking évite de bloquer le runtime
         let bougies_clone = bougies.clone();
-        let wf = match tokio::task::spawn_blocking(move || entrainer_walk_forward(&bougies_clone)).await {
+        let wf = match tokio::task::spawn_blocking(move || entrainer_walk_forward(&bougies_clone))
+            .await
+        {
             Ok(Ok(r)) => r,
             Ok(Err(e)) => {
                 tracing::error!(
@@ -114,7 +116,12 @@ pub async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<M
                 continue;
             }
             Err(e) => {
-                tracing::error!("Scheduler ML: {}/{} — spawn_blocking échoué: {}", asset_str, tf_str, e);
+                tracing::error!(
+                    "Scheduler ML: {}/{} — spawn_blocking échoué: {}",
+                    asset_str,
+                    tf_str,
+                    e
+                );
                 continue;
             }
         };

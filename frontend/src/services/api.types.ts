@@ -7,33 +7,6 @@ export interface Candle {
   volume: number
 }
 
-export interface EquityPoint {
-  timestamp: number
-  capital: number
-}
-
-export interface BacktestResults {
-  total_trades: number
-  winning_trades: number
-  losing_trades: number
-  win_rate: number
-  capital_initial: number
-  capital_final: number
-  roi_pct: number
-  profit_net: number
-  sharpe_ratio: number
-  max_drawdown_pct: number
-  profit_factor: number
-  // Pyramidalisation SMC (0 pour Straddle)
-  nb_tp1: number
-  nb_tp2: number
-  nb_sl: number
-  nb_expirations: number
-  // Nombre de Straddles posés (= total_trades / 2)
-  nb_straddles: number
-  equity_curve?: EquityPoint[]
-}
-
 export interface PredictionML {
   asset: string
   direction: string
@@ -268,4 +241,16 @@ export interface AssetParams {
   // champs calculés côté frontend (présentation uniquement)
   investi?: number
   lot?: number
+}
+
+export interface PrecisionHoraire {
+  ok: boolean
+  timing_optimal?: string
+  fenetre_entree?: string
+  whipsaw_minutes?: number
+  nb_occurrences?: number
+  atr_pic?: number
+  session?: string
+  raison?: string
+  message?: string
 }

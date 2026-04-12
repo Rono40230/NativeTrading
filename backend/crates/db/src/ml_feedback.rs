@@ -9,54 +9,54 @@ use sqlx::{Row, SqlitePool};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FeedbackGlobal {
-    pub nb_trades:   i64,
+    pub nb_trades: i64,
     pub nb_gagnants: i64,
-    pub win_rate:    f64, // 0.0-100.0
+    pub win_rate: f64, // 0.0-100.0
     pub pnl_r_moyen: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SmcScoreStats {
-    pub tranche:   String, // "50-65" | "65-75" | "75-85" | "85+"
+    pub tranche: String, // "50-65" | "65-75" | "75-85" | "85+"
     pub nb_trades: i64,
-    pub win_rate:  f64,
+    pub win_rate: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SmcSessionStats {
     pub en_kill_zone: bool,
-    pub nb_trades:    i64,
-    pub win_rate:     f64,
+    pub nb_trades: i64,
+    pub win_rate: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MlCorrelationStats {
-    pub tranche:   String, // "0.5-0.6" | "0.6-0.7" | "0.7-0.8" | "0.8+"
+    pub tranche: String, // "0.5-0.6" | "0.6-0.7" | "0.7-0.8" | "0.8+"
     pub nb_trades: i64,
-    pub win_rate:  f64,
+    pub win_rate: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SuggestionLogEntry {
-    pub id:                  i64,
-    pub strategie:           String,
-    pub param_name:          String,
-    pub valeur_avant:        f64,
-    pub valeur_apres:        f64,
+    pub id: i64,
+    pub strategie: String,
+    pub param_name: String,
+    pub valeur_avant: f64,
+    pub valeur_apres: f64,
     pub gain_winrate_estime: f64,
-    pub confiance:           f64,
-    pub nb_samples_base:     i64,
-    pub appliquee_le:        String,
+    pub confiance: f64,
+    pub nb_samples_base: i64,
+    pub appliquee_le: String,
 }
 
 pub struct NouvelleSuggestionLog<'a> {
-    pub strategie:           &'a str,
-    pub param_name:          &'a str,
-    pub valeur_avant:        f64,
-    pub valeur_apres:        f64,
+    pub strategie: &'a str,
+    pub param_name: &'a str,
+    pub valeur_avant: f64,
+    pub valeur_apres: f64,
     pub gain_winrate_estime: f64,
-    pub confiance:           f64,
-    pub nb_samples_base:     i64,
+    pub confiance: f64,
+    pub nb_samples_base: i64,
 }
 
 // ── Stats globales ────────────────────────────────────────────────────────────
@@ -74,9 +74,9 @@ pub async fn stats_globales_smc(pool: &SqlitePool) -> Result<FeedbackGlobal> {
     .map_err(|e| TradingError::Database(e.to_string()))?;
 
     Ok(FeedbackGlobal {
-        nb_trades:   r.get("nb_trades"),
+        nb_trades: r.get("nb_trades"),
         nb_gagnants: r.get("nb_gagnants"),
-        win_rate:    r.get("win_rate"),
+        win_rate: r.get("win_rate"),
         pnl_r_moyen: r.get("pnl_r_moyen"),
     })
 }
@@ -94,9 +94,9 @@ pub async fn stats_globales_rockets(pool: &SqlitePool) -> Result<FeedbackGlobal>
     .map_err(|e| TradingError::Database(e.to_string()))?;
 
     Ok(FeedbackGlobal {
-        nb_trades:   r.get("nb_trades"),
+        nb_trades: r.get("nb_trades"),
         nb_gagnants: r.get("nb_gagnants"),
-        win_rate:    r.get("win_rate"),
+        win_rate: r.get("win_rate"),
         pnl_r_moyen: r.get("pnl_r_moyen"),
     })
 }
@@ -114,9 +114,9 @@ pub async fn stats_globales_straddle(pool: &SqlitePool) -> Result<FeedbackGlobal
     .map_err(|e| TradingError::Database(e.to_string()))?;
 
     Ok(FeedbackGlobal {
-        nb_trades:   r.get("nb_trades"),
+        nb_trades: r.get("nb_trades"),
         nb_gagnants: r.get("nb_gagnants"),
-        win_rate:    r.get("win_rate"),
+        win_rate: r.get("win_rate"),
         pnl_r_moyen: r.get("pnl_r_moyen"),
     })
 }
@@ -145,9 +145,9 @@ pub async fn stats_smc_par_score(pool: &SqlitePool) -> Result<Vec<SmcScoreStats>
     Ok(rows
         .iter()
         .map(|r| SmcScoreStats {
-            tranche:   r.get("tranche"),
+            tranche: r.get("tranche"),
             nb_trades: r.get("nb_trades"),
-            win_rate:  r.get("win_rate"),
+            win_rate: r.get("win_rate"),
         })
         .collect())
 }
@@ -169,8 +169,8 @@ pub async fn stats_smc_par_kill_zone(pool: &SqlitePool) -> Result<Vec<SmcSession
         .iter()
         .map(|r| SmcSessionStats {
             en_kill_zone: r.get::<i64, _>("kill_zone_active") != 0,
-            nb_trades:    r.get("nb_trades"),
-            win_rate:     r.get("win_rate"),
+            nb_trades: r.get("nb_trades"),
+            win_rate: r.get("win_rate"),
         })
         .collect())
 }
@@ -197,9 +197,9 @@ pub async fn stats_smc_ml_correlation(pool: &SqlitePool) -> Result<Vec<MlCorrela
     Ok(rows
         .iter()
         .map(|r| MlCorrelationStats {
-            tranche:   r.get("tranche"),
+            tranche: r.get("tranche"),
             nb_trades: r.get("nb_trades"),
-            win_rate:  r.get("win_rate"),
+            win_rate: r.get("win_rate"),
         })
         .collect())
 }
@@ -229,10 +229,7 @@ pub async fn sauvegarder_suggestion(
     Ok(())
 }
 
-pub async fn lister_suggestions(
-    pool: &SqlitePool,
-    limite: i64,
-) -> Result<Vec<SuggestionLogEntry>> {
+pub async fn lister_suggestions(pool: &SqlitePool, limite: i64) -> Result<Vec<SuggestionLogEntry>> {
     let rows = sqlx::query(
         "SELECT id, strategie, param_name, valeur_avant, valeur_apres,
                 gain_winrate_estime, confiance, nb_samples_base, appliquee_le
@@ -248,15 +245,15 @@ pub async fn lister_suggestions(
     Ok(rows
         .iter()
         .map(|r| SuggestionLogEntry {
-            id:                  r.get("id"),
-            strategie:           r.get("strategie"),
-            param_name:          r.get("param_name"),
-            valeur_avant:        r.get("valeur_avant"),
-            valeur_apres:        r.get("valeur_apres"),
+            id: r.get("id"),
+            strategie: r.get("strategie"),
+            param_name: r.get("param_name"),
+            valeur_avant: r.get("valeur_avant"),
+            valeur_apres: r.get("valeur_apres"),
             gain_winrate_estime: r.get("gain_winrate_estime"),
-            confiance:           r.get("confiance"),
-            nb_samples_base:     r.get("nb_samples_base"),
-            appliquee_le:        r.get("appliquee_le"),
+            confiance: r.get("confiance"),
+            nb_samples_base: r.get("nb_samples_base"),
+            appliquee_le: r.get("appliquee_le"),
         })
         .collect())
 }

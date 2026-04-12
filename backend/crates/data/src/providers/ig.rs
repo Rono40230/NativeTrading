@@ -25,13 +25,13 @@ pub fn epic_pour_asset(asset: &Asset) -> Option<&'static str> {
         Asset::EURJPY => Some("CS.D.EURJPY.CFD.IP"),
         Asset::EURGBP => Some("CS.D.EURGBP.CFD.IP"),
         // Indices (IFD = daily rolling futures CFD)
-        Asset::DAX    => Some("IX.D.DAX.IFD.IP"),
+        Asset::DAX => Some("IX.D.DAX.IFD.IP"),
         Asset::NAS100 => Some("IX.D.NASDAQ.IFD.IP"),
-        Asset::SP500  => Some("IX.D.SPTRD.IFD.IP"),
-        Asset::US30   => Some("IX.D.DOW.IFD.IP"),
+        Asset::SP500 => Some("IX.D.SPTRD.IFD.IP"),
+        Asset::US30 => Some("IX.D.DOW.IFD.IP"),
         Asset::FTSE100 => Some("IX.D.FTSE.IFD.IP"),
-        Asset::CAC40  => Some("IX.D.CAC.IFD.IP"),
-        Asset::JP225  => Some("IX.D.NIKKEI.IFD.IP"),
+        Asset::CAC40 => Some("IX.D.CAC.IFD.IP"),
+        Asset::JP225 => Some("IX.D.NIKKEI.IFD.IP"),
         // Crypto : géré par Binance
         _ => None,
     }
@@ -40,14 +40,13 @@ pub fn epic_pour_asset(asset: &Asset) -> Option<&'static str> {
 /// Convertit un Timeframe en paramètre `resolution` IG.
 pub fn resolution_pour_tf(tf: &Timeframe) -> &'static str {
     match tf {
-        Timeframe::M1  => "MINUTE",
-        Timeframe::M5  => "MINUTE_5",
+        Timeframe::M1 => "MINUTE",
+        Timeframe::M5 => "MINUTE_5",
         Timeframe::M15 => "MINUTE_15",
         Timeframe::M30 => "MINUTE_30",
-        Timeframe::H1  => "HOUR",
-        Timeframe::H4  => "HOUR_4",
-        Timeframe::D1  => "DAY",
-        Timeframe::W1  => "WEEK",
+        Timeframe::H1 => "HOUR",
+        Timeframe::H4 => "HOUR_4",
+        Timeframe::D1 => "DAY",
+        Timeframe::W1 => "WEEK",
     }
 }
-

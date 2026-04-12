@@ -10,7 +10,8 @@
         <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'stop_loss')">SL <span>{{ icone('stop_loss') }}</span></th>
         <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'target')">TP1 <span>{{ icone('target') }}</span></th>
         <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'target2')">TP2 <span>{{ icone('target2') }}</span></th>
-        <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'target3')">TP3 <span>{{ icone('target3') }}</span></th>
+        <th class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'target3')">Trailing (R+3) <span>{{ icone('target3') }}</span></th>
+        <th class="px-4 py-3 text-left">Phase</th>
         <th v-if="showPrixActuel" class="px-4 py-3 text-right">Prix actuel</th>
         <th v-if="showSortie" class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'prix_verdict')">Sortie <span>{{ icone('prix_verdict') }}</span></th>
         <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'verdict')">Verdict <span>{{ icone('verdict') }}</span></th>
@@ -31,6 +32,9 @@
         <td class="px-4 py-3 text-right font-mono text-emerald-400">{{ fmt(r.target) }}</td>
         <td class="px-4 py-3 text-right font-mono text-emerald-300">{{ r.target2 ? fmt(r.target2) : '—' }}</td>
         <td class="px-4 py-3 text-right font-mono text-emerald-200">{{ r.target3 ? fmt(r.target3) : '—' }}</td>
+        <td class="px-4 py-3">
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium" :class="classePhasePosition(r)">{{ labelPhasePosition(r) }}</span>
+        </td>
         <td v-if="showPrixActuel" class="px-4 py-3 text-right font-mono">
           <span v-if="prixActuels[r.ticker]" :class="classePrixActuel(r)">{{ fmt(prixActuels[r.ticker]) }}</span>
           <span v-else class="text-gray-600">—</span>
@@ -138,10 +142,34 @@ function labelVerdict(r: RocketSignalHistorique): string {
   if (v === 'expire') return '⏰ Délai 6h dépassé'
   const prix = props.prixActuels[r.ticker]
   if (!prix) return '⏳ En cours'
-  if (r.target3 && prix >= r.target3) return '🟢 TP3 ✓ · SL@TP2'
-  if (r.target2 && prix >= r.target2) return '🔵 TP2 ✓ · SL@TP1'
-  if (prix >= r.target) return '🔵 TP1 ✓ · SL@BE'
+  if (r.target3 && prix >= r.target3) return '🟢 R+3 ✓ · Trail ON'
+  if (r.target2 && prix >= r.target2) return '🔵 R+2 ✓ · Trail ON'
+  if (prix >= r.target) return '🔵 R+1 ✓ · SL@BE'
   if (prix <= r.stop_loss) return '🔴 SL touché'
   return '⏳ En cours'
+}
+
+function labelPhasePosition(r: RocketSignalHistorique): string {
+  const v = r.verdict
+  const prix = props.prixActuels[r.ticker]
+  // Verdict final (position fermée)
+  if (v === 'TP3') return 'TRAILING'
+  if (v === 'TP2') return 'POST_TP2'
+  if (v === 'TP1' || v === 'confirme') return 'POST_TP1'
+  if (v === 'invalide' || v === 'expire') return 'INIT'
+  // Position ouverte : phase courante via prix
+  if (prix) {
+    if (r.target2 && prix >= r.target2) return 'TRAILING'
+    if (prix >= r.target) return 'POST_TP1'
+  }
+  return 'INIT'
+}
+
+function classePhasePosition(r: RocketSignalHistorique): string {
+  const p = labelPhasePosition(r)
+  if (p === 'TRAILING') return 'bg-emerald-900/60 text-emerald-300'
+  if (p === 'POST_TP2') return 'bg-blue-900/60 text-blue-300'
+  if (p === 'POST_TP1') return 'bg-blue-900/40 text-blue-400'
+  return 'bg-gray-800 text-gray-500'
 }
 </script>

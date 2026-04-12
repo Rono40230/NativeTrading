@@ -1,6 +1,6 @@
 # 🏛️ Architecture Technique — Native Trading AI
 
-**Stack:** Rust (10 crates) + Vue 3 + Tauri | **DB:** SQLite | **ML:** XGBoost + LSTM hybride | **GPU:** CUDA 11.8+ (optionnel)
+**Stack:** Rust (9 crates) + Vue 3 + Tauri | **DB:** SQLite (42 migrations) | **ML:** XGBoost + LSTM hybride | **GPU:** CUDA 11.8+ (optionnel)
 
 ---
 
@@ -12,50 +12,57 @@
 ┌────────────────────────────────────────────────────────────────────┐
 │               Fenêtre Tauri Native (1440×900, maximisée)           │
 │                Vue.js 3 + TypeScript + TailwindCSS                 │
-│  21 dashboards │ Charts TradingView │ Pinia Stores │ Composables  │
+│  18 vues │ 70+ composants │ 11 stores Pinia │ 39 composables       │
 └─────────────────────────────┬──────────────────────────────────────┘
                               │ HTTP + WebSocket (localhost:8080)
 ┌─────────────────────────────▼──────────────────────────────────────┐
 │                  Backend Rust — Actix-Web 4 (port 8080)            │
-│  75+ endpoints REST │ 2 WebSocket streams │ Signal Engine (Tokio)  │
-│  Dépend de 9 crates: data, db, ml, indicators, smc, strategies,    │
-│                       backtest, risk, common                       │
+│  97 endpoints REST (3 fichiers routes) │ 2 WebSocket streams       │
+│  Signal Engine (Tokio) │ Workers périodiques (hebdo/5min)          │
+│  Dépend de 8 crates: data, db, ml, indicators, smc, strategies,    │
+│                       risk, common                                 │
 └───────┬────────────────────┬───────────────────────┬───────────────┘
         │                    │                       │
         ▼                    ▼                       ▼
-┌───────────────┐  ┌──────────────────┐  ┌──────────────────────┐
-│ SQLite (WAL)  │  │  ML Models       │  │  Providers externes  │
-│ 24 migrations │  │ modele_xgboost   │  │  Binance WebSocket   │
-│ 10+ tables    │  │ modele_lstm      │  │  IB Gateway (TCP)    │
-│ WAL + 10s TO  │  │ modele_rf.json   │  │  Ollama LLM (local)  │
-└───────────────┘  └──────────────────┘  └──────────────────────┘
+┌───────────────┐  ┌──────────────────┐  ┌──────────────────────────┐
+│ SQLite (WAL)  │  │  ML Models       │  │  Providers externes      │
+│ 42 migrations │  │ modele_xgboost   │  │  Binance WebSocket       │
+│ WAL + 10s TO  │  │ modele_lstm      │  │  IG Markets (REST+LS)    │
+│               │  │ modele_rf.json   │  │  Ollama LLM (local)      │
+└───────────────┘  └──────────────────┘  └──────────────────────────┘
 ```
 
 ---
 
-## 2. Backend Rust — Workspace (10 Crates)
+## 2. Backend Rust — Workspace (9 Crates)
 
 ```toml
-# Cargo.toml workspace
+[workspace]
 resolver = "2"
-[profile.release]
-lto = true
-opt-level = 3
-codegen-units = 1
-strip = true
+members = [
+  "crates/api",
+  "crates/common",
+  "crates/data",
+  "crates/db",
+  "crates/indicators",
+  "crates/ml",
+  "crates/risk",
+  "crates/smc",
+  "crates/strategies",
+]
 ```
 
 ### Couches DAG (Dependency Acyclic Graph)
 
 ```
-Layer 4 — API Handlers (commands)
+Layer 4 — API Handlers + Workers
     crate: api  ←  dépend de tous les autres
          │ imports only ↓
-Layer 3 — Services (Strategies, ML)
-    crates: strategies, backtest, ml
+Layer 3 — Services (Strategies, ML, Risk)
+    crates: strategies, ml, risk
          │ imports only ↓
 Layer 2 — Data Access (DB, Providers)
-    crates: db, data, risk
+    crates: db, data
          │ imports only ↓
 Layer 1 — Modèles partagés
     crates: common, indicators, smc
@@ -67,8 +74,6 @@ Layer 1 — Modèles partagés
 
 ### Crate `common` — Types partagés (Layer 1)
 
-Types métier fondamentaux :
-
 ```rust
 pub struct Candle {
     pub timestamp: DateTime<Utc>,
@@ -76,792 +81,312 @@ pub struct Candle {
     pub volume: f64,
 }
 
-pub struct Signal {
-    pub id: Uuid,
-    pub asset: String,
-    pub timeframe: String,
-    pub direction: Direction,
-    pub score: f64,             // 0–100
-    pub prix_entree: f64,
-    pub stop_loss: f64,
-    pub take_profit: Vec<f64>,  // [tp1, tp2, tp3]
-    pub strategie: String,
-    pub cree_le: DateTime<Utc>,
-}
-
 pub enum Timeframe { M1, M5, M15, M30, H1, H4, D1, W1 }
 pub enum Direction { Long, Short, Both }
-
-// 35 assets : Crypto Binance + Métaux IB + Forex IB + Indices IB
-pub enum Asset { BTC, ETH, SOL, XAUUSD, XAGUSD, EURUSD, ... }
+pub enum Asset { BTC, ETH, SOL, XAUUSD, XAGUSD, EURUSD, GBPUSD, ... }
 ```
 
-**Dépendances :** serde, chrono, uuid, thiserror
+**Dépendances :** serde, chrono, uuid, thiserror, anyhow
 
 ---
 
-### Crate `data` — Acquisition Marché (Layer 2)
+### Crate `smc` — Indicateurs SMC (Layer 1)
 
-```rust
-pub trait DataProvider: Send + Sync {
-    async fn fetch_candles(
-        &self, asset: &str, timeframe: Timeframe, limit: usize
-    ) -> Result<Vec<Candle>>;
-}
-```
-
-**Implémentations :**
-
-| Provider | Assets | Transport |
-|----------|--------|-----------|
-| `BinanceProvider` | BTC, ETH, SOL, ... (Crypto) | WebSocket temps réel + REST fallback |
-| `IbGatewayProvider` | XAUUSD, XAGUSD, Forex, Indices | IB API async (TCP port configurable) |
-| `DataAggregator` | Tous | Dispatch : crypto → Binance, autres → IB |
-
-**Dépendances :** common, tokio, reqwest, ibapi 2.10
+5 modules d'indicateurs :
+- `bpr` — Break of Structure + Price Reversal
+- `fibonacci` — Niveaux 38.2%, 50%, 61.8%
+- `imbalance` — Fair Value Gap (FVG ≥3 pips)
+- `order_blocks` — OB avec volume élevé
+- `tendances` — Structure HH/HL (haussier) vs LH/LL (baissier)
 
 ---
 
-### Crate `db` — Persistance SQLite (Layer 2)
+### Crate `indicators` — Indicateurs techniques (Layer 1)
 
-- **Engine :** SQLite via SQLx 0.8, WAL mode, `busy_timeout = 10s`
-- **Migrations :** 24 fichiers, appliquées au démarrage automatiquement
-
-**Tables principales :**
-
-```sql
--- OHLCV
-bougies(id, asset, timeframe, timestamp, open, high, low, close, volume)
-  UNIQUE(asset, timeframe, timestamp)
-  INDEX(asset, timeframe, timestamp DESC)
-
--- Signaux
-signaux(id UUID, asset, timeframe, direction, score, prix_entree,
-        stop_loss, take_profit JSON, strategie, statut, cree_le, ferme_le)
-  INDEX(asset, statut, cree_le DESC)
-
--- Positions
-positions(id, signal_id FK, asset, direction, taille, prix_entree,
-          prix_sortie, pnl, statut, ouverte_le, fermee_le)
-```
-
-**Tables spécialisées (24 migrations) :**
-
-| Table | Migration | Usage |
-|-------|-----------|-------|
-| `rockets_signaux` | 0008 | Signaux Rockets + verdict |
-| `straddle_creneaux` | 0015 | Créneaux Straddle (jour, heure, ATR, fréq) |
-| `entrainements` | 0004 | Historique ML |
-| `assets` | 0005 | Catalogue assets |
-| `calendrier` | 0002 | Événements économiques |
-| `news_*` | 0003, 0020, 0021 | News, lus, sentiments |
-| `strategies_params` | 0023 | Paramètres persistés |
-
-**Modules :** bougies (INSERT OR IGNORE), signaux, rockets, straddle, volatilite, strategies_params
+ATR, RSI, MACD, Bollinger Bands, Volume Profile.
 
 ---
 
-### Crate `indicators` — Indicateurs Techniques (Layer 1)
+### Crate `data` — Providers (Layer 2)
 
-Calculs pur Rust sur `Vec<Candle>` :
-
-| Fonction | Description |
-|----------|-------------|
-| `calculer_atr(bougies, period)` | Average True Range |
-| `calculer_rsi(bougies, period)` | RSI (14 par défaut) |
-| `calculer_macd(bougies, 12, 26, 9)` | MACD + Signal + Histogramme |
-| `calculer_bollinger(bougies, 20, 2.0)` | Bandes de Bollinger |
-| `calculer_sma(bougies, period)` | Simple Moving Average |
-| `calculer_ema(bougies, period)` | Exponential Moving Average |
-| `calculer_supertrend(bougies, period, mult)` | SuperTrend |
-
-**Dépendances :** common, ta 0.5
+- **Binance** : WebSocket temps réel (BTC, ETH, SOL — OHLCV M1/M5/M15)
+- **IG Markets** : REST + Lightstreamer (métaux, forex, indices)
+- Trait `DataProvider` → implémentation interchangeable
 
 ---
 
-### Crate `smc` — Smart Money Concept (Layer 1)
+### Crate `db` — SQLite (Layer 2)
 
-Scoring de confluence 100 points :
-
-```
-scorer(bougies: &[Candle]) -> Option<ScoreSmc>
-    Retourne None si score < 70
-```
-
-**Décomposition du score :**
-
-| Module | Poids | Logique |
-|--------|-------|---------|
-| `tendances` | 25 pts | Structure HH/HL (haussier) ou LH/LL (baissier) |
-| `order_blocks` | 25 pts | Dernière bougie avant impulsion, volume élevé |
-| `ifvg` | 20 pts | FVG + break of structure |
-| `imbalance` | 15 pts | Gap ≥3 pips sans retrace |
-| `fibonacci` | 15 pts | Niveaux 38.2%, 50%, 61.8% |
-
-**Modules annexes :** kill_zone, sweep, liquidites
-
-**Dépendances :** common, indicators
+- Pool SQLx avec WAL mode, timeout 10s
+- 42 migrations (schema versionné)
+- Modules : `bougies`, `bougies_ext`, `calendrier`, `signaux`, `straddle`, `rockets`, `smc_*`, `ml_*`, `assets`, `volatilite`, `config`
 
 ---
 
-### Crate `ml` — Pipeline ML Hybride (Layer 3)
+### Crate `ml` — Pipeline ML (Layer 3)
 
-Architecture d'inférence :
-
+**Modèle hybride :**
 ```
-60 bougies M15 (900 min = 15h)
-        ↓
-50+ Features extraites :
-  OHLCV normalisés + ATR, RSI(14), MACD(12,26,9)
-  Bollinger(20,2) + SMA(9,20,50) + Volume profile
-  SMC scores (tendance, OB, IFVG, imbalance, fib)
-  Quantiles prix + Volatilité (std)
-        ↓
-  ┌─────────────────────┬──────────────────────┐
-  │   XGBoost (40%)     │     LSTM (60%)        │
-  │  100 trees          │  3 layers: 128→64→32  │
-  │  max_depth = 6      │  seq_len = 10         │
-  │  100% CPU           │  CPU ou CUDA optionnel│
-  │  modele_xgboost.json│  modele_lstm.json     │
-  └──────────┬──────────┴──────────┬────────────┘
-             └──────────┬──────────┘
-                        ↓
-              score_final = 0.4×XGB + 0.6×LSTM
-                        ↓
-               PredictionML {
-                 direction: Direction,
-                 confiance: f64,     // 0.0–1.0
-                 est_confiant: bool, // confiance > 0.6
-               }
+Score_Final = 0.6 × LSTM + 0.4 × XGBoost
 ```
 
-**Performance cible :**
-
-| Scénario | Latence cible |
-|----------|---------------|
-| Inférence CPU | < 200ms |
-| Inférence CUDA (RTX 3090) | < 50ms |
-| Accuracy fusion | > 65% |
-| F1-Score | > 0.55 |
-
-**Fichiers spéciaux :** `walk_forward.rs` (validation walk-forward), `raffinement.rs` (update weights post-backtest)
-
-**Dépendances :** common, ndarray 0.15, polars 0.35, tch 0.14 (optionnel CUDA), smartcore 0.4, statrs 0.16
+- **LSTM** : 3 couches (128→64→32), séquences 60 bougies
+- **XGBoost** : 100 arbres, max_depth=6
+- **Features** : 50+ (OHLCV normalisés, ATR, RSI, MACD, Bollinger, SMC)
+- **Contrainte** : inférence < 200ms (mesurée avec `Instant::now()`)
 
 ---
 
-### Crate `strategies` — Logique Métier (Layer 3)
+### Crate `strategies` — Stratégies de trading (Layer 3)
 
-```rust
-pub trait Strategy: Send + Sync {
-    fn analyze(&self, bougies: &[Candle]) -> Result<Option<Signal>>;
-}
-```
+3 stratégies métier :
 
-**3 Stratégies implémentées :**
+**1. Straddle (Volatilité extrême)**
+- Déclencheur : ATR > 150% moyenne + IA indécise
+- Exécution : positions opposées simultanées (LONG + SHORT)
+- TP/SL : ATR × 2 / ATR × 0.5
+- Risk : 1% par direction (2% total)
 
-#### SMC Directionnel
-- **Déclencheur :** ScoreSmc ≥ 70/100 ET ML confiant (`est_confiant = true`)
-- **Direction :** Long ou Short selon confluence SMC
-- **TP :** Pyramidal 3 niveaux (tp1, tp2, tp3)
-- **SL :** ATR × multiplicateur configurable
-- **Risk :** 1.5% capital par trade
+**2. SMC Directionnel (Confluence)**
+- Scoring : Tendance + IA + Order Block + Imbalance + FVG + Fibonacci
+- Seuil : ≥ 70/100
+- Exécution : direction unique, TP pyramidal (3 niveaux)
+- Risk : 1.5% par trade
 
-#### Straddle Volatilité
-- **Déclencheur :** ATR > 150% de sa moyenne ET ML indécis (`est_confiant = false`)
-- **Direction :** `Direction::Both` (LONG + SHORT simultanés)
-- **TP :** ATR × 2
-- **SL :** ATR × 0.5
-- **Risk :** 1% par direction (2% total)
+**3. Rockets (Momentum)**
+- Scan multi-actifs sur rupture de structure
+- Scoring ML + confluence SMC
+- Suivi progressif (vente partielle aux TP)
 
-#### Rockets Momentum
-- **Déclencheur :** Volume ratio élevé + ATR ratio extrême + RSI
-- **Direction :** Long ou Short selon momentum
-- **Usage :** Scanner multi-actifs, signaux court terme
-
-**Dépendances :** common, indicators, smc, ml
+Module `straddle_precision` : analyse M1 historique pour trouver le timing exact (à la minute) du pic de volatilité dans un créneau horaire donné.
 
 ---
 
-### Crate `risk` — Gestion du Risque (Layer 2)
+### Crate `risk` — Risk Management (Layer 3)
 
-```rust
-pub struct GestionnaireRisque {
-    pub capital: f64,
-    pub drawdown_actuel: f64,
-    pub positions_ouvertes: Vec<Position>,
-    pub exposition_par_actif: HashMap<String, f64>,
-}
-```
-
-**Limites non-négociables :**
-
-```
-MAX_RISK_PAR_TRADE        = 2%   (capital)
-MAX_POSITIONS_SIMULTANEES = 3
-MAX_EXPOSITION_ACTIF      = 25%  (capital)
-MAX_DRAWDOWN              = 20%  → arrêt auto trading
-```
-
-**Méthodes :**
-- `valider_signal(signal: &Signal) -> Result<bool>` — Vérifie les 4 règles ci-dessus
-- `calculer_taille_position(prix_entree, stop_loss) -> f64` — 1% capital / risque par unité
-- `mettre_a_jour_drawdown(drawdown_pct)`
-
-**Dépendances :** common, serde, tracing
+Vérifications pré-signal **non négociables** :
+- Position size ≤ 2% capital
+- Positions simultanées ≤ 3
+- Exposition par actif ≤ 25% capital
+- Drawdown max 20% → arrêt automatique du trading
 
 ---
 
-### Crate `backtest` — Simulation & Métriques (Layer 3)
+### Crate `api` — Actix-Web (Layer 4)
 
-```rust
-pub struct BacktestEngine {
-    pub capital_initial: f64,
-    pub cout_friction_pct: f64,      // Spread + slippage réalistes
-    pub risk_par_trade_pct: f64,     // 0.02 = 2%
-    pub horizon_bougies: usize,      // Expiration post-entrée
-    pub trailing_atr_mult: Option<f64>,
-    pub be_atr_mult: Option<f64>,    // Break-even
-    pub vente_partielle: bool,       // ⅓ TP1 + ⅓ TP2 + ⅓ trailing
-}
-```
+**97 routes REST** réparties en 3 fichiers :
+- `routes.rs` — 75 routes (signaux, straddle, SMC, IA, assets, data, settings...)
+- `routes_ml.rs` — 10 routes (ML insights, retrain, calibration...)
+- `routes_rockets.rs` — 12 routes (Rockets signaux, analyses, feedback...)
 
-**Méthodes :**
-- `run(bougies, strategy) -> Result<BacktestResults>`
-- `run_avec_feedback(...) -> Result<(BacktestResults, Vec<FeedbackTrade>)>` — Pour ML refinement
-
-**Résultats retournés :**
-
-```rust
-pub struct BacktestResults {
-    pub total_trades: usize,
-    pub win_rate: f64,           // 0.55 = 55%
-    pub roi_pct: f64,
-    pub sharpe_ratio: f64,
-    pub max_drawdown_pct: f64,
-    pub profit_factor: f64,      // Gains/Pertes
-    pub equity_curve: Option<Vec<EquityPoint>>,
-    // ... tp1/tp2/sl/expiration counts
-}
-```
-
-**Logic walk-forward :** fenêtre 60 bougies, sliding window i=60..N-1, friction simulée à chaque trade.
-
-**Dépendances :** common, strategies, indicators, chrono, serde_json, statrs
-
----
-
-### Crate `api` — Serveur REST + WebSocket (Layer 4)
-
-```
-Dépend de : common + db + data + ml + strategies + backtest + risk + smc + indicators
-```
-
-**AppState (partagé via `Arc<AppState>`) :**
-
+**AppState (état partagé) :**
 ```rust
 pub struct AppState {
     pub db: Arc<Database>,
-    pub ml_pipeline: Arc<Mutex<PipelineML>>,
-    pub ib_port: u16,
-    pub ib_client_id: i32,
-    pub data_provider: Arc<DataAggregator>,
-    pub engine_actif: Arc<AtomicBool>,
+    pub pipeline_ml: Arc<Mutex<PipelineML>>,
+    pub retrain_state: Arc<RwLock<RetainState>>,
+    pub ig_session: Arc<Mutex<IgSession>>,
+    pub ig_lightstreamer: Arc<IgLightstreamer>,
+    pub signal_engine: Arc<SignalEngine>,
+    pub fear_greed_cache: Arc<RwLock<Option<(Instant, Value)>>>,
 }
 ```
 
-**Organisation :** `main.rs` (~50L) → `routes.rs` (~250L) → 50+ handlers spécialisés
+**78 modules déclarés** dans `main.rs` dont :
+- Handlers : `signaux_handlers`, `straddle_handlers`, `smc_handlers`, `rockets_handlers`, `ml_handlers`, `engine_handlers`, `calendar_handlers`, `news_handlers`, `prix_handlers`...
+- Workers : `straddle_boucle`, `smc_boucle`, `straddle_feedback_job`, `smc_feedback_job`, `rockets_scan`, `scheduler`
+- IA : `ollama`, `ollama_signal_ia_handler`, `ollama_chart_handler`, `ollama_chat_handler`
+- Intégration : `ig_session`, `ig_lightstreamer`, `telegram`
+- Nouveau : `straddle_precision_handler` (endpoint `/api/straddle/precision-horaire`)
 
 ---
 
-## 3. API REST — 75+ Endpoints
+## 3. Frontend — Vue 3 + TypeScript
 
-### A. Santé & Infrastructure
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| GET | `/health` | `health_check()` |
-| GET | `/api/ib/status` | Vérification TCP port IB Gateway |
+### Navigation (SideBar)
 
-### B. Assets & Marché
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| GET | `/api/assets` | `lister_assets()` |
-| POST | `/api/assets` | `ajouter_asset()` |
-| DELETE | `/api/assets/{id}` | `supprimer_asset()` |
-| GET | `/api/prix` | `get_prix()` |
-| GET | `/api/prix-actuel?ticker=BTC` | `get_prix_actuel()` |
-| GET | `/api/candles?asset=&timeframe=&limit=&force=` | `get_candles()` |
+| Groupe | Liens |
+|--------|-------|
+| 🏠 *(racine)* | Dashboard |
+| 🗂️ **Général** | Graphiques, Historique des positions (clôturés seulement), Lexique |
+| 🚀 **Rockets** | Signaux (en cours), Définition & Prompt IA |
+| 📐 **SMC** | Signaux (en cours), Définition & Prompt IA |
+| ⚡ **Volatilité** | Signaux (en cours), Heatmap, Définition & Prompt IA |
+| 🧠 **Outils IA** | Analyse graphique, Coach IA |
+| ⚙️ **Configuration** | Paramètres, Import des données, Configuration IA |
 
-### C. Signaux Trading
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| GET | `/api/signaux` | `get_signaux()` |
-| POST | `/api/signal-engine/start` | `demarrer_engine()` |
-| POST | `/api/signal-engine/stop` | `arreter_engine()` |
-| GET | `/api/signal-engine/status` | `statut_engine()` |
-| GET | `/api/signal-engine/stream` | **WebSocket — signaux live** |
+### Vues (18)
 
-### D. ML & Entraînement
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| GET | `/api/ml/predict?asset=&timeframe=` | `predict_ml()` → `PredictionML` |
-| POST | `/api/ml/train` | `entrainer_ml()` → `ReponseEntrainement` |
-| GET | `/api/ml/status` | `statut_ml()` |
-| POST | `/api/ml/raffine-ml` | `raffiner_ml()` — Post-backtest |
-| GET | `/api/ml/history` | `historique_ml()` |
+```
+DashboardHome.vue          — Dashboard principal (temps réel)
+RocketsView.vue            — Trades Rockets en cours
+RocketsDefinitionView.vue  — Configuration stratégie Rockets
+SmcView.vue                — Trades SMC en cours
+SmcDefinitionView.vue      — Configuration stratégie SMC
+SMCCoachView.vue           — Coach IA (chat Ollama)
+StraddleView.vue           — Vue principale Straddle
+StraddleSignauxView.vue    — Trades Straddle en cours
+VolatiliteDefinitionView.vue — Configuration stratégie Volatilité
+HeatmapView.vue            — Calendrier historique + Radar ATR temps réel
+HistoryView.vue            — Historique (trades clôturés uniquement)
+ChartsView.vue             — Graphiques TradingView + indicateurs SMC
+ChartImportView.vue        — Import de données + analyse graphique IA
+MlInsightsView.vue         — Insights ML (performances modèles)
+LexiqueView.vue            — Lexique trading
+DataManagementView.vue     — Gestion des données
+SettingsView.vue           — Paramètres application
+PromptsIAView.vue          — Configuration des prompts IA
+```
 
-### E. Indicateurs & Analyse Technique
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| GET | `/api/indicators?asset=&...` | `get_indicators()` |
-| GET | `/api/tendance/multi-tf?asset=` | `tendance_multi_tf()` |
-| GET | `/api/smc/analyse?asset=&...` | `analyse_smc()` → `ScoreSmc` |
+### Stores Pinia (11)
 
-### F. Stratégie SMC
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| GET | `/api/smc/params` | `get_smc_params()` |
-| PUT | `/api/smc/params` | `put_smc_params()` |
-| GET | `/api/smc/analyse-llm` | Dernière analyse LLM |
-| POST | `/api/smc/analyse-llm` | Lancer analyse LLM |
+| Store | Rôle |
+|-------|------|
+| `signal.store` | Signaux actifs + live trading state |
+| `prix.store` | Prix temps réel par asset |
+| `assets.store` | Catalogue assets disponibles |
+| `assetParams.store` | Paramètres par asset (lot, spread...) |
+| `market.store` | État des marchés (sessions, horaires) |
+| `mlInsights.store` | Métriques performances ML |
+| `news.store` | Actualités + sentiment marché |
+| `settings.store` | Configuration utilisateur |
+| `strategyParams.store` | Paramètres SMC/Straddle/Rockets |
+| `alerte.store` | Toasts, erreurs, notifications |
+| `signal-alarme.store` | Alertes sur signaux |
 
-### G. Stratégie Straddle
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| POST | `/api/ia/signal/straddle` | `generer_signal_straddle()` — avec LLM |
-| POST | `/api/straddle/analyser` | `analyser()` |
-| GET | `/api/straddle/creneaux` | `lister_creneaux()` |
-| PATCH | `/api/straddle/creneaux/{id}` | `mettre_a_jour_creneau()` |
-| POST | `/api/straddle/creneaux/{id}/precision` | Feedback précision |
-| POST | `/api/straddle/backtest` | `handler_backtest_slot()` |
-| GET/PUT | `/api/straddle/params` | Paramètres Straddle |
+### Services API (12 fichiers)
 
-### H. IA & LLM (Ollama / Anthropic)
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| POST | `/api/ia/analyse` | Texte → Ollama |
-| POST | `/api/ia/chat` | Chatbot LLM |
-| POST | `/api/ia/chart` | Vision chart (llava) |
-| POST | `/api/ia/chart/local` | Vision locale |
-| GET | `/api/ia/status` | Disponibilité Ollama |
-| POST | `/api/ia/signal` | Génération signal via LLM |
-| POST | `/api/ia/ajustements` | Ajuste paramètres via LLM |
+```
+api.service.ts         — Client principal (agrège tous les sous-services)
+api.straddle.ts        — Endpoints Straddle + precision-horaire
+api.smc.ts             — Endpoints SMC
+api.rockets.ts         — Endpoints Rockets
+api.engine.ts          — Signal Engine
+api.news.ts            — Actualités + sentiment
+api.ml_insights.ts     — ML performances
+api.asset_params.ts    — Paramètres assets
+api.types.ts           — Types partagés (Signal, PrecisionHoraire...)
+api.types.indicators.ts — Types indicateurs
+api.types.marche.ts    — Types marché (sessions, prix...)
+api.types.rockets.ts   — Types spécifiques Rockets
+```
 
-### I. Rockets (Momentum Scan)
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| GET | `/api/rockets/scan` | `get_scan()` — scan multi-actifs |
-| GET | `/api/rockets/scan/debug` | `scan_momentum_debug()` |
-| POST | `/api/rockets/signal` | `sauvegarder_signal()` |
-| GET | `/api/rockets/historique` | `get_historique()` |
-| GET/PUT | `/api/rockets/config` | Config Rockets |
-| GET/POST | `/api/rockets/analyse-llm` | Analyse LLM Rockets |
-| POST | `/api/rockets/sync` | `sync_verdicts()` |
+### Composables clés (39 fichiers)
 
-### J. Backtest & Export
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| POST | `/api/backtest` | `run_backtest()` |
-| POST | `/api/signaux/export` | `exporter_signaux_csv()` |
+**Graphiques TradingView :**
+`useChartTradingView`, `useChartOrchestration`, `chartMainOverlays`, `chartSubgraphs`, `chartSignauxRendu`, `chartIndicatorsConfig`, `chartAtrSlTp`, `chartTimeScale`, `chartAnalyseRenderer`
 
-### K. News & Calendrier
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| GET | `/api/calendar` | `get_calendar()` |
-| GET | `/api/news/alertes` | `get_news_alertes()` |
-| GET | `/api/news/contenu` | `get_contenu_article()` |
-| GET | `/api/news/traduire` | `get_traduire()` |
-| GET | `/api/news/fear-greed` | Fear & Greed Index |
-| POST | `/api/news/lu` | `marquer_lu()` |
-| GET | `/api/news/contexte-marche` | Contexte marché global |
-| GET | `/api/sentiment/marche` | Sentiment marché |
+**SMC :**
+`useSmcCanvas`, `useSmcFibCanvas`, `useSmcLiqCanvas`, `useSmcStats`, `useSmcAnalyseNotif`
 
-### L. Data Management
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| GET | `/api/data/coverage` | `get_coverage()` |
-| POST | `/api/data/collect` | `post_collect()` |
-| POST | `/api/data/import-mt5` | `post_import_mt5()` — Import MT5 CSV/TSV |
+**Heatmap :**
+`useHeatmapConfluence`, `useHoraireAnalyse`, `useProbaHeatmap`
 
-### M. Config & Paramètres
-| Méthode | Endpoint | Handler |
-|---------|----------|---------|
-| GET/POST | `/api/config` | Config globale |
-| GET/PUT | `/api/strategies-params/*` | Paramètres stratégies |
-| GET | `/api/volatility/patterns` | Patterns volatilité |
-| POST | `/api/ia/ab-test` | AB testing stratégies |
-| GET | `/api/stream` | **WebSocket — market data live** |
+**Stratégies :**
+`useStraddleStats`, `useRocketsStats`, `useRocketsHistory`, `useSignalEngine`
+
+**Utilitaires :**
+`useSignalFormat`, `useSignalTradeBox`, `useHistoryStats`, `useExportPdf`, `useNotification`
 
 ---
 
-## 4. Frontend Vue.js 3
+## 4. Règles d'Architecture
 
-```
-frontend/src/
-├── App.vue               # Layout : sidebar rétractable + <router-view>
-├── main.ts               # Point d'entrée, montage app
-├── router/               # Vue Router — 21 routes
-├── views/                # 21 dashboards (pages)
-├── components/           # 20+ composants réutilisables
-│   └── common/           # Composants partagés entre views
-├── composables/          # 30+ hooks (useChartXxx, useHeatmapXxx, ...)
-├── stores/               # 8 Pinia stores
-├── services/             # Axios client + types TypeScript
-└── data/                 # Fixtures statiques
-```
+### Séparation Frontend / Backend
 
-### Views (21 Dashboards)
+**Zéro calcul métier en frontend.** Tout calcul de prix, indicateurs, signaux, risk, P&L, SL/TP, scores ML est effectué par le backend Rust.
 
-| Vue | Priorité | Responsabilité |
-|-----|----------|----------------|
-| `DashboardHome.vue` | Home | Alertes news + Market Clocks + État système |
-| `ChartsView.vue` | ⭐ P1 | TradingView Charts 4 actifs + indicateurs superposés |
-| `PnLView.vue` | ⭐ P2 | P&L live, positions ouvertes, trades récents |
-| `HistoryView.vue` | ⭐ P3 | Historique signaux filtré/exportable |
-| `SettingsView.vue` | ⭐ P4 | Configuration globale |
-| `HeatmapView.vue` | ⭐ P5 | Radar ATR volatilité multi-actifs + patterns horaires |
-| `ChartImportView.vue` | — | Import manuel OHLCV |
-| `DataManagementView.vue` | — | Gestion couverture + import MT5 |
-| `StraddleView.vue` | — | Straddle créneau manager |
-| `StraddleBacktestView.vue` | — | Backtests Straddle par créneau |
-| `StraddleSignauxView.vue` | — | Signaux Straddle historique |
-| `SMCAnalyzerView.vue` | — | Analyseur SMC interactif |
-| `SmcView.vue` | — | SMC principal + score live |
-| `SmcBacktestsView.vue` | — | Historique backtests SMC |
-| `SmcCoachView.vue` | — | Coach SMC (LLM) |
-| `SmcDefinitionView.vue` | — | Définitions SMC (éducatif) |
-| `RocketsView.vue` | — | Scanner Rockets momentum multi-actifs |
-| `RocketsDefinitionView.vue` | — | Définitions Rockets (éducatif) |
-| `VolatiliteDefinitionView.vue` | — | Guide volatilité (éducatif) |
-| `PromptsIAView.vue` | — | Gestion prompts LLM (éditeur) |
-| `LexiqueView.vue` | — | Lexique trading (éducatif) |
+**Autorisé en frontend :** formatage d'affichage, tri/filtrage local de listes déjà reçues, calcul de couleur/état visuel, agrégations légères sur données déjà calculées.
 
-### Stores Pinia (8 Stores)
+**Interdit en frontend :** calcul d'ATR, RSI, MACD, Fibonacci, SL/TP, R:R, logique de scoring SMC/Straddle/Rockets, risk management.
 
-```typescript
-// Pattern standard — composition API
-export const useSignalStore = defineStore('signals', () => {
-  const signaux = ref<Signal[]>([])
-  const chargement = ref(false)
-
-  async function chargerSignaux(limit = 20) {
-    chargement.value = true
-    try {
-      signaux.value = await apiService.getSignaux(limit)
-    } catch (err) {
-      useAlertStore().afficherErreur(`Erreur: ${err.message}`)
-    } finally {
-      chargement.value = false
-    }
-  }
-  return { signaux, chargement, chargerSignaux }
-})
-```
-
-| Store | État Global |
-|-------|-------------|
-| `signal.store.ts` | Signaux actifs, prédictions, backtests, scores SMC |
-| `market.store.ts` | OHLCV temps réel, WebSocket, erreurs |
-| `prix.store.ts` | Prix actuels multi-actifs |
-| `settings.store.ts` | Configuration utilisateur |
-| `news.store.ts` | Articles, alertes, Fear & Greed |
-| `assets.store.ts` | Catalogue assets + tri |
-| `alerte.store.ts` | Notifications globales (toasts) |
-| `signal-alarme.store.ts` | Alarmes signaux (son + toast) |
-
-### Services (9 Fichiers)
-
-| Fichier | Responsabilité |
-|---------|----------------|
-| `api.service.ts` | Client Axios central — 50+ méthodes |
-| `api.types.ts` | Types core : Signal, Candle, PredictionML, ScoreSmc |
-| `api.types.marche.ts` | Types marché : RequeteAnalyseIA, AssetInfo, CalendarEvent, News |
-| `api.types.rockets.ts` | Types Rockets : RocketSignal, RocketAnalyseLlm, RocketsConfig |
-| `api.types.indicators.ts` | Types indicateurs : IndicatorsParams, ZoneOb, Fibonacci |
-| `api.engine.ts` | Signal Engine streaming + commands |
-| `api.straddle.ts` | Straddle API calls |
-| `api.rockets.ts` | Rockets API calls |
-| `api.news.ts` | News API calls |
-
-### Composables (30+ Hooks)
-
-**Chart TradingView Lightweight :**
-
-| Composable | Rôle |
-|-----------|------|
-| `useChartOrchestration.ts` | Orchestration complète (init, data, indicateurs) |
-| `useChartAnalyse.ts` | Analyse LLM vision (llava) |
-| `useChartImport.ts` | Import données |
-| `useChartEcoCal.ts` | Calendrier économique overlay |
-| `useChartIndicators.ts` | Indicateurs dynamiques |
-| `useChartLimite.ts` | Rate limiting |
-| `chartMainOverlays.ts` | Overlays SMC (order blocs, zones) |
-| `chartSubgraphs.ts` | Sous-graphiques (volume, momentum) |
-| `chartAtrSlTp.ts` | Affichage ATR + SL/TP visuels |
-| `chartSignauxRendu.ts` | Rendu signaux sur chart |
-| `chartTimeScale.ts` | Gestion échelle temps |
-| `chartIndicatorsConfig.ts` | Configuration indicateurs |
-
-**Business :**
-
-| Composable | Rôle |
-|-----------|------|
-| `useBacktestDuree.ts` | Calcul horizon backtest |
-| `useHeatmapConfluence.ts` | Détection confluences patterns horaires (cache TTL 5min) |
-
-### Composants Réutilisables (20+)
-
-| Composant | Rôle |
-|----------|------|
-| `DashboardPrixStrip.vue` | Strip prix 4 actifs + variations multi-TF |
-| `VeilleRockets.vue` | Moniteur Rockets temps réel |
-| `StrategiesParamsPanel.vue` | Éditeur paramètres stratégies |
-| `RocketsAnalyseModal.vue` | Modale analyses Rockets LLM |
-| `HeatmapAnalyseModal.vue` | Modale analyse volatilité (top volatil/calme + tendances) |
-| `HeatmapTendancesTable.vue` | Table tendances SMC/MT (court vs long TF) |
-| `HoraireHeatmap.vue` | Patterns horaires volatilité (dropdown filtré par assets ATR) |
-| `NewsArticleModal.vue` | Lecteur articles news |
-| `MarketClocks.vue` | Horloges sessions forex |
-| `EconomicCalendar.vue` | Calendrier macro |
-| `EcoCalTooltip.vue` | Tooltip événement macro |
-
----
-
-## 5. Tauri — Fenêtre Native
-
-**Config :** `frontend/src-tauri/tauri.conf.json`
-
-```json
-{
-  "productName": "Native Trading AI",
-  "version": "0.1.0",
-  "identifier": "ai.native-trading.app",
-  "app": {
-    "windows": [{
-      "width": 1440, "height": 900,
-      "minWidth": 1200, "minHeight": 700,
-      "resizable": true, "maximized": true,
-      "decorations": true, "center": true
-    }],
-    "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://localhost:8080 ws://localhost:8080 https://api.binance.com; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
-    }
-  },
-  "bundle": {
-    "resources": ["sounds/"]
-  }
-}
-```
-
-**Points clés :**
-- Frontend embarqué : `../dist` (build Vite)
-- Backend autorisé par CSP : `localhost:8080` + `api.binance.com`
-- Ressources bundlées : sons alertes
-- Aucun navigateur, aucun port exposé au réseau
-
----
-
-## 6. Flux de Données Complet
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│  Sources Marché                                               │
-│  Binance WS (BTC, ETH, SOL, ...)                             │
-│  IB Gateway TCP (XAUUSD, XAGUSD, Forex, Indices)             │
-└────────────────────────────┬─────────────────────────────────┘
-                             │ crate data (DataAggregator)
-                             ▼
-                    DB Cache — bougies (SQLite)
-                             │
-                             ▼
-               Signal Engine (background Tokio task)
-               ┌─────────────────────────────────┐
-               │ 1. Obtenir 60 bougies / asset   │
-               │ 2. Calculer indicateurs (ATR,   │
-               │    RSI, MACD, ...) ← indicators │
-               │ 3. Scoring SMC ← crate smc      │
-               │ 4. ML predict ← crate ml        │
-               │    (XGBoost 40% + LSTM 60%)     │
-               │ 5. Détection stratégie :        │
-               │    - SMC (score ≥70 + ML ok)   │
-               │    - Straddle (ATR>150% + !ML) │
-               │    - Rockets (momentum)         │
-               │ 6. Risk validation ← crate risk │
-               │ 7. Sauvegarde DB si valide      │
-               │ 8. Broadcast WebSocket →        │
-               └─────────────────────────────────┘
-                             │ WS /api/signal-engine/stream
-                             ▼
-                 Frontend Vue.js (Tauri)
-                 ├── Chart TradingView + signal overlay
-                 ├── alerteStore toast
-                 └── Utilisateur peut :
-                     ├── Lancer backtest → crate backtest
-                     │   └── FeedbackTrade → ML refinement
-                     └── Modifier paramètres → PUT /api/*-params
-```
-
----
-
-## 7. Pipeline ML Détaillé
-
-### Entraînement
-
-```
-Données : XAUUSD/XAGUSD M15 historique
-Horizon prédiction : 30 bougies post-entrée
-Seuil signal valide : ±2% mouvement
-
-Phase 1 : XGBoost (features statiques)
-Phase 2 : LSTM (séquences T=10)
-Phase 3 : Walk-forward refinement (post-backtest)
-```
-
-### Modèles sur disque
-- `data/modele_xgboost.json` — XGBoost sérialisé
-- `data/modele_lstm.json` — LSTM sérialisé (poids)
-- `data/modele_rf.json` — Random Forest (backup)
-
----
-
-## 8. Risk Management — Règles Non-Négociables
+### Gestion d'erreurs
 
 ```rust
-pub fn valider_signal(signal: &Signal, etat: &GestionnaireRisque) -> Result<bool> {
-    // 1. Drawdown global
-    if etat.drawdown_actuel >= 20.0 { return Ok(false); }
-
-    // 2. Positions simultanées
-    if etat.positions_ouvertes.len() >= 3 { return Ok(false); }
-
-    // 3. Exposition par actif
-    let expo = etat.exposition_par_actif.get(&signal.asset).unwrap_or(&0.0);
-    let taille = calculer_taille_position(signal, etat.capital)?;
-    if expo + taille > etat.capital * 0.25 { return Ok(false); }
-
-    // 4. Risk par trade
-    let risque = (signal.prix_entree - signal.stop_loss).abs() * taille;
-    if risque > etat.capital * 0.02 { return Ok(false); }
-
-    Ok(true)
-}
-```
-
----
-
-## 9. Dépendances Rust — Workspace
-
-| Crate | Version | Usage |
-|-------|---------|-------|
-| tokio | 1 | Runtime async (Actix, DB) |
-| actix-web | 4 | Serveur HTTP |
-| sqlx | 0.8 | SQLite ORM + migrations auto |
-| serde / serde_json | 1 | Sérialisation |
-| chrono | 0.4 | Timestamps UTC |
-| uuid | 1 v4 | IDs signaux |
-| ndarray | 0.15 | Algèbre linéaire (features ML) |
-| polars | 0.35 | DataFrames |
-| ta | 0.5 | Indicateurs techniques |
-| tch | 0.14 | PyTorch LSTM (CPU/CUDA optionnel) |
-| smartcore | 0.4 | XGBoost (train + serde) |
-| statrs | 0.16 | Stats (Sharpe, std) |
-| aes-gcm | 0.10 | Chiffrement configs sensibles |
-| tracing | 0.1 | Logging structuré |
-| config | 0.13 | Parsing .env |
-| ibapi | 2.10 | IB Gateway client async |
-
-**Frontend npm :**
-
-| Package | Version | Usage |
-|---------|---------|-------|
-| vue | ^3.4.0 | UI framework |
-| vue-router | ^4.2.0 | Routing SPA |
-| pinia | ^2.1.0 | State management |
-| @tauri-apps/api | ^2 | IPC natif |
-| axios | ^1.6.0 | HTTP client |
-| lightweight-charts | ^4.1.0 | Charts TradingView |
-| tailwindcss | ^3.4.0 | CSS utility-first |
-| typescript | ^5.3.0 | Typage strict |
-| vite | ^5.0.0 | Build tool |
-| vitest | ^4.1.2 | Tests unitaires |
-| jspdf | ^4.2.1 | Export PDF |
-
----
-
-## 10. Convention de Code
-
-### Rust — Zéro Panic en Production
-
-```rust
-// ❌ Interdit
+// ❌ INTERDIT
 .unwrap()
 .expect()
 panic!()
 
-// ✅ Requis
-use anyhow::Result;
-fn calculer_signal() -> Result<Signal, TradingError> {
-    let data = obtenir_donnees()?;
-    Ok(Signal::from(data))
+// ✅ REQUIS
+pub fn calculer_signal() -> Result<Signal, TradingError> {
+    let data = obtenir_données()?;
+    match data.valider() {
+        Some(v) => Ok(Signal::from(v)),
+        None => Err(TradingError::Data("Données invalides".into())),
+    }
 }
 ```
 
-### Vue/TypeScript — Zéro Console
+### Taille des fichiers
 
-```typescript
-// ❌ Interdit
-console.log()
-debugger
-alert()
-
-// ✅ Requis
-try {
-  const signal = await api.obtenirSignal()
-  useAlertStore().afficherSucces('Signal reçu')
-} catch (err) {
-  useAlertStore().afficherErreur(`Échec: ${err.message}`)
-}
-```
-
-### Limites de Fichiers
-
-| Seuil | Action |
-|-------|--------|
-| > 250 lignes | Alerte — envisager split |
-| > 300 lignes | Split obligatoire |
-| Fonction > 30 lignes | Extraire sous-fonctions |
-| Complexité > 10 | Simplifier |
-
-### Séparation Frontend / Backend
-
-**Interdit en frontend :** Calcul ATR, RSI, MACD, Fibonacci, SL/TP, R:R, scoring SMC, logique risk. Tout calcul métier est fait par le backend Rust et consommé via l'API.
-
-**Autorisé en frontend :** Formatage affichage (`toFixed(2)`, dates), tri/filtrage liste reçue, calcul couleur selon seuil, agrégations visuelles légères.
+- **Limite dure :** 300 lignes par fichier
+- Déclencheur refactoring : > 250 lignes → split immédiat
+- Fonction > 30 lignes → extraire sous-fonctions
 
 ---
 
-## 11. Commandes Utiles
+## 5. Flux de données
 
-```bash
-# Lancer l'application (Tauri + backend)
-./scripts/run.sh
-
-# Tests
-cargo test --workspace
-cd frontend && npm run test
-
-# Qualité
-cargo clippy --workspace -- -D warnings
-cargo fmt --all --check
-./scripts/check-file-size.sh
-
-# Audit sécurité
-cargo audit
-
-# Backup
-./scripts/backup.sh
+```
+Market Data (Binance WS / IG Lightstreamer)
+    ↓
+DataProvider (crate data)
+    ↓
+SQLite bougies (crate db)
+    ↓
+ML Pipeline — LSTM + XGBoost (crate ml)
+    ↓  (score 0-100)
+Strategy Engine — Straddle / SMC / Rockets (crate strategies)
+    ↓  (signal candidat)
+Risk Management (crate risk)
+    ↓  (validé ou rejeté)
+Signal Engine (api/signal_engine.rs — Tokio)
+    ↓
+WebSocket stream (/api/signal-engine/stream)
+    ↓
+Frontend Vue.js — Pinia stores → Composants
 ```
 
 ---
 
-**Documents :** [ROADMAP.md](ROADMAP.md) | [README.md](README.md)
+## 6. Workers Périodiques
+
+| Worker | Fréquence | Rôle |
+|--------|-----------|------|
+| `straddle_boucle` | ~5min | Scan des créneaux Straddle actifs |
+| `smc_boucle` | ~5min | Monitoring positions SMC |
+| `rockets_scan` | ~5min | Scan opportunités Rockets multi-actifs |
+| `straddle_feedback_job` | Continu | Clôture auto positions Straddle |
+| `smc_feedback_job` | Continu | Clôture auto positions SMC |
+| `smc_analyse_handler::worker` | Hebdo (Lun 02h UTC) | LLM analyse performances SMC |
+| `scheduler` | Configurable | Orchestration des jobs |
+
+---
+
+## 7. Intégrations Externes
+
+| Service | Protocole | Usage |
+|---------|-----------|-------|
+| Binance | WebSocket | OHLCV temps réel BTC/ETH/SOL |
+| IG Markets | REST + Lightstreamer | Métaux, Forex, Indices |
+| Ollama | HTTP local | LLM analyse signaux (llama3/mistral) |
+| Anthropic Claude | HTTPS | LLM fallback cloud |
+| ForexFactory | HTTPS | Calendrier économique (TTL 1h) |
+| Telegram | HTTPS | Notifications alertes |
+| Fear & Greed Index | HTTPS | Sentiment marché crypto |
+
+---
+
+## 8. Métriques de Performance
+
+| Métrique | Objectif |
+|----------|---------|
+| Inférence ML | < 200ms |
+| Latence signaux | < 10s end-to-end |
+| ROI annualisé | > 15% |
+| Sharpe ratio | > 1.5 |
+| Win rate | > 55% |
+| Max drawdown | < 20% |
+| Accuracy ML classification | > 60% |
+| F1-Score ML | > 0.55 |

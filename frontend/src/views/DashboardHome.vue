@@ -42,22 +42,7 @@
           :erreur="rockets.erreur.value"
           :progression="rockets.progression.value"
         />
-        <!-- Momentum Cryptos — forte variation 24h -->
-        <CryptosAlert
-          :top20="cryptos.top20.value"
-          :chargement="cryptos.chargement.value"
-          :erreur="cryptos.erreur.value"
-          :total-paires="cryptos.totalPaires.value"
-          :rockets-tickers="rockets.signaux.value.map(s => s.ticker)"
-        />
-      </div>
 
-      <!-- Métriques performance (backtest BTC) -->
-      <div v-if="metriques" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div class="glass-card p-4"><p class="label">Win Rate</p><p class="kpi-value text-emerald-400">{{ metriques.win_rate.toFixed(1) }}%</p></div>
-        <div class="glass-card p-4"><p class="label">ROI Backtest</p><p class="kpi-value" :class="metriques.roi_pct >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ metriques.roi_pct.toFixed(1) }}%</p></div>
-        <div class="glass-card p-4"><p class="label">Total Trades</p><p class="kpi-value">{{ metriques.total_trades }}</p></div>
-        <div class="glass-card p-4"><p class="label">Max Drawdown</p><p class="kpi-value text-red-400">{{ metriques.max_drawdown_pct.toFixed(1) }}%</p></div>
       </div>
     </div>
 
@@ -75,13 +60,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useSignalStore } from '@/stores/signal.store'
 import { useSettingsStore } from '@/stores/settings.store'
-import { useMarketStore } from '@/stores/market.store'
+import { usePrixStore } from '@/stores/prix.store'
 import { useNewsStore } from '@/stores/news.store'
 import { useSignalEngine } from '@/composables/useSignalEngine'
 import { apiService } from '@/services/api.service'
-import type { BacktestResults, Candle } from '@/services/api.service'
+import type { Candle } from '@/services/api.service'
 import { useAssetsStore } from '@/stores/assets.store'
 import MarketClocks from '@/components/common/MarketClocks.vue'
 import EconomicCalendar from '@/components/common/EconomicCalendar.vue'
@@ -89,11 +75,9 @@ import SentimentMarche from '@/components/common/SentimentMarche.vue'
 import AlerteBandeau from '@/components/common/AlerteBandeau.vue'
 import NewsFeed from '@/components/common/NewsFeed.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
-import CryptosAlert from '@/components/common/CryptosAlert.vue'
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
 import StraddleVolatiliteBloc from '@/components/common/StraddleVolatiliteBloc.vue'
 import VeilleRockets from '@/components/common/VeilleRockets.vue'
-import { useCryptosAlert } from '@/composables/useCryptosAlert'
 import { useVeilleRockets } from '@/composables/useVeilleRockets'
 
 type VariationsMultiTF = { h1: number | null; h4: number | null; d1: number | null; w1: number | null; m1: number | null }
@@ -101,7 +85,8 @@ type AssetAvecPrix = { id: string; prix: number | null; variation: number | null
 
 const signalStore = useSignalStore()
 const settingsStore = useSettingsStore()
-const marketStore = useMarketStore()
+const prixStore = usePrixStore()
+const { variationLive } = storeToRefs(prixStore)
 const newsStore = useNewsStore()
 const assetsStore = useAssetsStore()
 
@@ -114,24 +99,22 @@ const {
   arreter: engineArreter,
 } = useSignalEngine()
 
-const cryptos  = useCryptosAlert()
 const rockets  = useVeilleRockets()
 const mlPret = computed(() => signalStore.prediction?.modele_pret ?? false)
 const backendOk = ref(false)
 const igOk = ref<boolean | null>(null)
 const ollamaOk = ref<boolean | null>(null)
-const metriques = ref<BacktestResults | null>(null)
 const assetsAvecPrix = ref<AssetAvecPrix[]>([])
 
 const assetsDisplay = computed(() =>
   assetsAvecPrix.value.map(a => ({
     ...a,
-    prix: marketStore.prixLive[a.id] ?? a.prix,
-    variation: marketStore.variationLive[a.id] !== undefined ? marketStore.variationLive[a.id] : a.variation,
-    chargement: a.chargement && marketStore.prixLive[a.id] === undefined,
+    prix: prixStore.getPrix(a.id) ?? a.prix,
+    variation: variationLive.value[a.id] !== undefined ? variationLive.value[a.id] : a.variation,
+    chargement: a.chargement && prixStore.getPrix(a.id) === null,
   }))
 )
-const btcPrix = computed(() => marketStore.prixLive['BTC'] ?? assetsAvecPrix.value.find(a => a.id === 'BTC')?.prix ?? null)
+const btcPrix = computed(() => prixStore.getPrix('BTC') ?? assetsAvecPrix.value.find(a => a.id === 'BTC')?.prix ?? null)
 
 let intervalPrix: ReturnType<typeof setInterval> | null = null
 
@@ -186,18 +169,16 @@ onMounted(async () => {
     signalStore.chargerPrediction(settingsStore.assetActif, settingsStore.timeframeActif),
   ])
   const tousLesAssets = assetsAvecPrix.value.map(a => a.id)
-  if (tousLesAssets.length > 0) marketStore.connecterPrixLiveAssets(tousLesAssets)
+  if (tousLesAssets.length > 0) prixStore.demarrer(tousLesAssets)
   newsStore.demarrerPolling()
-  cryptos.demarrer()
   rockets.demarrer()
   intervalPrix = setInterval(chargerPrixActifs, 60000)
 })
 
 onUnmounted(() => {
   if (intervalPrix !== null) clearInterval(intervalPrix)
-  marketStore.deconnecterPrixLiveAssets()
+  // prixStore reste actif pour les autres vues (Rockets, etc.)
   newsStore.arreterPolling()
-  cryptos.arreter()
   rockets.arreter()
 })
 </script>

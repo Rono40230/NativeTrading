@@ -5,13 +5,14 @@ use sqlx::Row;
 use crate::Database;
 
 impl Database {
-    /// Insère un lot de bougies en une seule transaction (ignore les doublons via UNIQUE).
-    /// Beaucoup plus rapide que N inserts individuels et libère le lock SQLite immédiatement.
-    pub async fn inserer_bougies(
+    /// Insère un lot de bougies avec une source explicite.
+    /// `source` : 'binance' | 'rest_ig' | 'lightstreamer' | 'mt5'
+    pub async fn inserer_bougies_avec_source(
         &self,
         asset: &Asset,
         timeframe: &Timeframe,
         bougies: &[Candle],
+        source: &str,
     ) -> Result<u64> {
         if bougies.is_empty() {
             return Ok(0);
@@ -30,8 +31,8 @@ impl Database {
             let ts = bougie.timestamp.timestamp();
             let res = sqlx::query(
                 "INSERT OR IGNORE INTO bougies
-                 (asset, timeframe, timestamp, open, high, low, close, volume)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                 (asset, timeframe, timestamp, open, high, low, close, volume, source)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )
             .bind(asset_str)
             .bind(tf_str)
@@ -41,6 +42,7 @@ impl Database {
             .bind(bougie.low)
             .bind(bougie.close)
             .bind(bougie.volume)
+            .bind(source)
             .execute(&mut *tx)
             .await
             .map_err(|e| TradingError::Database(e.to_string()))?;
@@ -51,6 +53,18 @@ impl Database {
             .await
             .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(inseres)
+    }
+
+    /// Insère un lot de bougies (source 'binance' par défaut).
+    /// Compatibilité avec les anciens appels qui ne précisent pas la source.
+    pub async fn inserer_bougies(
+        &self,
+        asset: &Asset,
+        timeframe: &Timeframe,
+        bougies: &[Candle],
+    ) -> Result<u64> {
+        self.inserer_bougies_avec_source(asset, timeframe, bougies, "binance")
+            .await
     }
 
     /// Récupère toutes les bougies depuis `nb_jours` jours en arrière (ordre ASC).
@@ -133,6 +147,67 @@ impl Database {
         Ok(bougies)
     }
 
+    /// Récupère les N dernières bougies réelles pour les charts (exclut source='mt5').
+    /// À utiliser exclusivement pour l'affichage graphique.
+    pub async fn obtenir_bougies_chart(
+        &self,
+        asset: &Asset,
+        timeframe: &Timeframe,
+        limit: i64,
+    ) -> Result<Vec<Candle>> {
+        let rows = sqlx::query(
+            "SELECT timestamp, open, high, low, close, volume
+             FROM bougies
+             WHERE asset = ? AND timeframe = ? AND source != 'mt5'
+             ORDER BY timestamp DESC
+             LIMIT ?",
+        )
+        .bind(asset.as_str())
+        .bind(timeframe.as_str())
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        let mut bougies: Vec<Candle> = rows
+            .iter()
+            .map(|r| {
+                let ts: i64 = r.get("timestamp");
+                Candle {
+                    timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or(Utc::now()),
+                    open: r.get("open"),
+                    high: r.get("high"),
+                    low: r.get("low"),
+                    close: r.get("close"),
+                    volume: r.get("volume"),
+                }
+            })
+            .collect();
+
+        bougies.reverse();
+        Ok(bougies)
+    }
+
+    /// Retourne le timestamp Unix (secondes) de la bougie réelle la plus récente
+    /// pour un asset/timeframe (exclut mt5). None si aucune bougie réelle en cache.
+    pub async fn timestamp_derniere_bougie_chart(
+        &self,
+        asset: &Asset,
+        timeframe: &Timeframe,
+    ) -> Result<Option<i64>> {
+        let row = sqlx::query(
+            "SELECT MAX(timestamp) as max_ts FROM bougies
+             WHERE asset = ? AND timeframe = ? AND source != 'mt5'",
+        )
+        .bind(asset.as_str())
+        .bind(timeframe.as_str())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        Ok(row.get::<Option<i64>, _>("max_ts"))
+    }
+
     /// Récupère les bougies M1 d'un asset filtrées sur une plage horaire UTC (SQL),
     /// évitant de charger l'intégralité des données M1 en mémoire.
     /// `heure_debut` / `heure_fin` : format "HH:MM" UTC
@@ -186,100 +261,4 @@ impl Database {
         Ok(bougies)
     }
 
-    /// Toutes les bougies d'un asset/timeframe sans plafond (ordre ASC)
-    pub async fn obtenir_bougies_toutes(
-        &self,
-        asset: &Asset,
-        timeframe: &Timeframe,
-    ) -> Result<Vec<Candle>> {
-        let rows = sqlx::query(
-            "SELECT timestamp, open, high, low, close, volume
-             FROM bougies
-             WHERE asset = ? AND timeframe = ?
-             ORDER BY timestamp ASC",
-        )
-        .bind(asset.as_str())
-        .bind(timeframe.as_str())
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| TradingError::Database(e.to_string()))?;
-
-        Ok(rows
-            .iter()
-            .map(|r| {
-                let ts: i64 = r.get("timestamp");
-                Candle {
-                    timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or(Utc::now()),
-                    open: r.get("open"),
-                    high: r.get("high"),
-                    low: r.get("low"),
-                    close: r.get("close"),
-                    volume: r.get("volume"),
-                }
-            })
-            .collect())
-    }
-
-    /// Retourne toutes les combinaisons (asset_str, timeframe_str) ayant ≥ min_bougies en DB.
-    pub async fn combinaisons_entrainables(
-        &self,
-        min_bougies: i64,
-    ) -> Result<Vec<(String, String)>> {
-        let rows = sqlx::query(
-            "SELECT asset, timeframe FROM bougies
-             GROUP BY asset, timeframe
-             HAVING COUNT(*) >= ?
-             ORDER BY asset, timeframe",
-        )
-        .bind(min_bougies)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| TradingError::Database(e.to_string()))?;
-
-        Ok(rows
-            .iter()
-            .map(|r| (r.get::<String, _>("asset"), r.get::<String, _>("timeframe")))
-            .collect())
-    }
-
-    /// Nombre de bougies stockées pour un asset/timeframe
-    pub async fn compter_bougies(&self, asset: &Asset, timeframe: &Timeframe) -> Result<i64> {
-        let row =
-            sqlx::query("SELECT COUNT(*) as n FROM bougies WHERE asset = ? AND timeframe = ?")
-                .bind(asset.as_str())
-                .bind(timeframe.as_str())
-                .fetch_one(&self.pool)
-                .await
-                .map_err(|e| TradingError::Database(e.to_string()))?;
-        Ok(row.get::<i64, _>("n"))
-    }
-
-    /// Couverture données : count + min/max timestamp par asset × timeframe
-    pub async fn obtenir_couverture_donnees(&self) -> Result<Vec<serde_json::Value>> {
-        let rows = sqlx::query(
-            "SELECT asset, timeframe,
-                    COUNT(*) as n,
-                    MIN(timestamp) as min_ts,
-                    MAX(timestamp) as max_ts
-             FROM bougies
-             GROUP BY asset, timeframe
-             ORDER BY asset, timeframe",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| TradingError::Database(e.to_string()))?;
-
-        Ok(rows
-            .iter()
-            .map(|r| {
-                serde_json::json!({
-                    "asset":     r.get::<String, _>("asset"),
-                    "timeframe": r.get::<String, _>("timeframe"),
-                    "count":     r.get::<i64, _>("n"),
-                    "min_ts":    r.get::<i64, _>("min_ts"),
-                    "max_ts":    r.get::<i64, _>("max_ts"),
-                })
-            })
-            .collect())
-    }
 }

@@ -43,6 +43,7 @@ export interface RocketSignalHistorique {
   prix_peak: number | null; atr14: number | null; rsi: number
   ratio_volume: number; atr_ratio: number
   llm_valide: number | null; llm_conviction: number | null; llm_raison: string | null
+  trailing_coeff: number | null; pct_tp1: number; pct_tp2: number; pct_trailing: number
   cree_le: string; maj_le: string | null
 }
 
@@ -72,10 +73,10 @@ export interface RocketsConfig {
   vol_marche_min: number
   vente_partielle?: boolean
   sl_mult: number
-  tp_mult_1: number
-  tp_mult_2: number
-  tp_mult_3: number
-  trailing_atr: number
+  trailing_coeff_min: number
+  trailing_coeff_max: number
+  seuil_score_faible: number
+  seuil_score_fort: number
 }
 
 // ── Straddle ──────────────────────────────────────────────────────────────────

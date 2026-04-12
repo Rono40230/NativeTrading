@@ -119,7 +119,7 @@ bougie de breakout avec momentum (change1h > 0). RSI idéal entre 50 et 75 (mome
 - Faux breakout : si le prix actuel est inférieur au niveau de cassure (target20) → invalider
 
 ## COEFFICIENTS ATR ACTUELS
-SL = entrée − 1×ATR14 | TP1 = entrée + hauteur_base (measured move) si hauteur_base > ATR14, sinon + 1×ATR14 | TP2 = entrée + 2×ATR14 | TP3 = entrée + 20×ATR14
+SL = entrée − 1×ATR14 | TP1 = entrée + 1×ATR14 | TP2 = entrée + 2×ATR14 | Trailing actif dès TP2 atteint (stop = peak − trailing_coeff×ATR14, coeff 1.5–5.0 selon score)
 Si les données historiques montrent que ces niveaux sont trop serrés ou trop larges sur ce ticker,
 suggère un SL ou TP1 ajusté. Le measured move (hauteur_base = range de consolidation) est plus fidèle
 à la stratégie Rockets originale.
@@ -132,7 +132,9 @@ Réponds UNIQUEMENT en JSON valide, sans texte avant ou après :
   "raison": "explication courte et factuelle (max 120 caractères)",
   "ajustements": {
     "sl_suggere": <float ou null>,
-    "tp1_suggere": <float ou null>
+    "tp1_suggere": <float ou null>,
+    "trailing_coeff_suggere": <float entre 1.5 et 5.0, ou null>,
+    "entry_type_suggere": "limite" | "stop" | null
   }
 }
 
@@ -147,7 +149,9 @@ En cas de doute → mettre valide=false. Ne valide que ce qui te semble SOLIDE.
 
 Si la conviction serait < 65 même avec valide=true, retourne valide=false directement.
 Si pas d'historique sur ce ticker, évalue uniquement sur les critères techniques actuels.
-Ne suggère sl_suggere ou tp1_suggere que si l'ajustement est justifié par des données concrètes."#;
+Ne suggère sl_suggere ou tp1_suggere que si l'ajustement est justifié par des données concrètes.
+Pour trailing_coeff_suggere : valeur > 3.0 si l'historique du ticker montre des moves longs et peu de faux breakouts, valeur < 2.0 si le ticker a tendance à retourner rapidement après un breakout. Laisser null si pas d'avis différent du calcul algorithmique.
+Pour entry_type_suggere : "stop" si le momentum est déjà fort et que attendre un pullback risque de rater le move, "limite" si une zone de pullback claire existe et que le R:R s'améliore en attendant, null si l'algo a déjà fait le bon choix."#;
 
 pub const PROMPT_SIGNAL_SMC: &str = r#"Tu es un trader institutionnel SMC/ICT expert, spécialiste de la stratégie "SMC Directionnel".
 Ton rôle : valider ou rejeter un signal candidat en appliquant une rigueur ICT professionnelle.

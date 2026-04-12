@@ -6,7 +6,7 @@ import { newsApi } from './api.news'
 import { engineApi } from './api.engine'
 
 export type {
-  Candle, BacktestResults, PredictionML, ReponseEntrainement,
+  Candle, PredictionML, ReponseEntrainement,
   RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA,
   ImageAvecTF, StatutIA, Signal, ScoreSmc, PointSerie,
   ZoneOb, ZoneIfvg, NiveauxFibonacci, ResultatTendance,
@@ -20,7 +20,7 @@ export type {
 
 import type {
   RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA,
-  ImageAvecTF, StatutIA, PredictionML, BacktestResults, ScoreSmc,
+  ImageAvecTF, StatutIA, PredictionML, ScoreSmc,
   ReponseEntrainement, ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
   ModeCalculTendance,
@@ -80,22 +80,6 @@ export const apiService = {
 
   async predictML(asset: string, timeframe = 'M15'): Promise<PredictionML> {
     const res = await http.get('/api/ml/predict', { params: { asset, timeframe } })
-    return res.data
-  },
-
-  async runBacktest(
-    asset: string,
-    timeframe = 'M15',
-    capital = 2000,
-    nb_jours = 90,
-    creneau?: { timing_optimal: string; jour_semaine?: number | null },
-    straddleParams?: {
-      tp_mult_1?: number; tp_mult_2?: number; tp_mult_3?: number
-      sl_mult?: number; seuil_atr?: number
-      atr_periode?: number; horizon_bougies?: number; trailing_atr?: number; be_atr?: number; vente_partielle?: number
-    }
-  ): Promise<BacktestResults> {
-    const res = await http.post('/api/backtest', { asset, timeframe, capital, nb_jours, ...creneau, ...straddleParams })
     return res.data
   },
 

@@ -63,13 +63,13 @@ fn ig_epic_str(asset: &str) -> Option<&'static str> {
         "NZDJPY" => Some("CS.D.NZDJPY.CFD.IP"),
         "EURJPY" => Some("CS.D.EURJPY.CFD.IP"),
         "EURGBP" => Some("CS.D.EURGBP.CFD.IP"),
-        "DAX"    => Some("IX.D.DAX.IFD.IP"),
+        "DAX" => Some("IX.D.DAX.IFD.IP"),
         "NAS100" => Some("IX.D.NASDAQ.IFD.IP"),
-        "SP500"  => Some("IX.D.SPTRD.IFD.IP"),
-        "US30"   => Some("IX.D.DOW.IFD.IP"),
+        "SP500" => Some("IX.D.SPTRD.IFD.IP"),
+        "US30" => Some("IX.D.DOW.IFD.IP"),
         "FTSE100" => Some("IX.D.FTSE.IFD.IP"),
-        "CAC40"  => Some("IX.D.CAC.IFD.IP"),
-        "JP225"  => Some("IX.D.NIKKEI.IFD.IP"),
+        "CAC40" => Some("IX.D.CAC.IFD.IP"),
+        "JP225" => Some("IX.D.NIKKEI.IFD.IP"),
         _ => None,
     }
 }
@@ -93,8 +93,13 @@ async fn fetch_ig(
     db: &Arc<db::Database>,
     epic: &str,
 ) -> Option<f64> {
+    // try_lock : si le mutex est tenu par le login Lightstreamer (~25s), on skip ce tick
+    // plutôt que de bloquer et créer un burst de mises à jour en rafale après
     let (url_base, headers) = {
-        let mut sess = session.lock().await;
+        let mut sess = match session.try_lock() {
+            Ok(s) => s,
+            Err(_) => return None,
+        };
         let url_base = sess.url();
         let headers = sess.headers(db).await.ok()?;
         (url_base, headers)
@@ -121,7 +126,7 @@ async fn fetch_ig(
 // ── API publique ─────────────────────────────────────────────────────────────
 
 /// Retourne le prix spot d'un asset selon sa source :
-/// crypto → Bybit | métaux / forex / indices → IG Markets REST.
+/// crypto → Binance | métaux / forex / indices → IG Markets REST.
 /// Retourne `None` si l'asset est inconnu ou si la source est inaccessible.
 pub async fn fetch_prix_asset(
     client: &reqwest::Client,
@@ -135,13 +140,36 @@ pub async fn fetch_prix_asset(
     if let Some(epic) = ig_epic_str(asset) {
         return fetch_ig(client, ig, db, epic).await;
     }
-    tracing::debug!("fetch_prix_asset: asset inconnu '{}'", asset);
+    // Fallback : tout asset inconnu est tenté comme paire USDT sur Binance (FRONT, RNDR, etc.)
+    let sym = format!("{}USDT", asset);
+    fetch_binance(client, &sym).await
+}
+
+/// Retourne `true` si l'asset est géré par IG Markets (pas Binance).
+pub fn est_asset_ig(asset: &str) -> bool {
+    ig_epic_str(asset).is_some()
+}
+
+/// Dernier close connu en DB pour un asset (fallback quand IG REST est inaccessible).
+/// Requête ultra-rapide grâce à l'index (asset, timeframe, timestamp DESC).
+pub async fn dernier_prix_db(asset: &str, db: &Arc<db::Database>) -> Option<f64> {
+    use common::{Asset, Timeframe};
+    let a = Asset::try_from(asset).ok()?;
+    // M1 = bougies les plus récentes, sinon M5
+    for tf in [Timeframe::M1, Timeframe::M5] {
+        if let Ok(bougies) = db.obtenir_bougies(&a, &tf, 1).await {
+            if let Some(b) = bougies.last() {
+                return Some(b.close);
+            }
+        }
+    }
     None
 }
 
-/// Crée un client HTTP réutilisable avec timeout 10s.
+/// Crée un client HTTP réutilisable avec timeout 1.5s.
+/// Doit être inférieur à l'intervalle de polling (2s WS, 3s dashboard).
 pub fn client_http() -> Result<reqwest::Client, reqwest::Error> {
     reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
+        .timeout(Duration::from_millis(1500))
         .build()
 }

@@ -3,12 +3,7 @@
 
     <!-- Filtres -->
     <div class="glass-card p-3 flex items-center gap-3 flex-wrap shrink-0">
-      <div class="flex gap-1">
-        <button class="filtre-btn" :class="{ 'filtre-btn-actif': filtreStatut === '' }" @click="filtreStatut = ''">Tous</button>
-        <button class="filtre-btn" :class="{ 'filtre-btn-actif': filtreStatut === 'en_cours' }" @click="filtreStatut = 'en_cours'">⏳ En cours</button>
-        <button class="filtre-btn" :class="{ 'filtre-btn-actif': filtreStatut === 'cloturees' }" @click="filtreStatut = 'cloturees'">✅ Clôturées</button>
-      </div>
-      <span class="text-xs text-gray-500 ml-2">{{ listeActive.length }} signal{{ listeActive.length !== 1 ? 's' : '' }}</span>
+      <span class="text-xs text-gray-500">{{ listeActive.length }} signal{{ listeActive.length !== 1 ? 's' : '' }}</span>
       <div class="flex gap-2 ml-auto">
         <button class="btn-sm" @click="charger">🔄 Actualiser</button>
         <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse</button>
@@ -203,6 +198,9 @@ async function charger() {
     if (props.strategie === 'Rockets') {
       rocketsRaw.value = await apiService.historiqueRockets(500)
       signaux.value = rocketsRaw.value.map(rocketToSignal)
+      // Abonner les tickers des positions ouvertes au WS prix (1s)
+      const openTickers = rocketsRaw.value.filter(r => !r.verdict).map(r => r.ticker)
+      if (openTickers.length > 0) prixStore.abonner(openTickers)
     } else {
       const data = await apiService.getSignaux(500)
       const SMC_NOMS = ['SmcDirectional', 'SMC Directionnel', 'SMC+IA']

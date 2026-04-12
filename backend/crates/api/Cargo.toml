@@ -9,7 +9,6 @@ db = { path = "../db" }
 data = { path = "../data" }
 ml = { path = "../ml" }
 strategies = { path = "../strategies" }
-backtest = { path = "../backtest" }
 risk = { path = "../risk" }
 smc = { path = "../smc" }
 indicators = { path = "../indicators" }

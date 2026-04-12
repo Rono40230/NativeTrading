@@ -24,9 +24,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::delete().to(crate::assets_handlers::supprimer_asset),
         )
         .route("/api/prix", web::get().to(crate::prix_handlers::get_prix))
-        .route("/api/marche/tickers", web::get().to(crate::prix_handlers::get_tickers_crypto))
-        .route("/api/marche/klines", web::get().to(crate::prix_handlers::get_klines_crypto))
-        .route("/api/marche/variation1h", web::get().to(crate::prix_handlers::get_variation1h_crypto))
+        .route(
+            "/api/prix/stream",
+            web::get().to(crate::prix_stream::stream_prix),
+        )
+        .route(
+            "/api/marche/klines",
+            web::get().to(crate::prix_handlers::get_klines_crypto),
+        )
         .route("/api/candles", web::get().to(crate::handlers::get_candles))
         .route(
             "/api/prix-actuel",
@@ -35,10 +40,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/signaux",
             web::get().to(crate::signaux_handlers::get_signaux),
-        )
-        .route(
-            "/api/backtest",
-            web::post().to(crate::backtest_handlers::run_backtest),
         )
         .route(
             "/api/signaux/export",
@@ -110,8 +111,8 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::straddle_handlers::handler_analyser_precision),
         )
         .route(
-            "/api/straddle/backtest",
-            web::post().to(crate::straddle_backtest_handler::handler_backtest_slot),
+            "/api/straddle/precision-horaire",
+            web::post().to(crate::straddle_precision_handler::handler_precision_horaire),
         )
         .route(
             "/api/straddle/params",
@@ -174,8 +175,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::config_handlers::post_config),
         )
         .route("/api/ig/status", web::get().to(crate::handlers::ig_status))
-        .route("/api/ig/statut-local", web::get().to(crate::handlers::ig_statut_local))
-        .route("/api/ig/search", web::get().to(crate::handlers::ig_search_markets))
+        .route(
+            "/api/ig/statut-local",
+            web::get().to(crate::handlers::ig_statut_local),
+        )
+        .route(
+            "/api/ig/search",
+            web::get().to(crate::handlers::ig_search_markets),
+        )
         .route(
             "/api/calendar",
             web::get().to(crate::calendar_handlers::get_calendar),

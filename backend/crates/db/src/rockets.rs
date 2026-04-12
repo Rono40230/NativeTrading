@@ -33,6 +33,10 @@ pub struct RocketSignal {
     pub llm_valide: Option<i64>,
     pub llm_conviction: Option<i64>,
     pub llm_raison: Option<String>,
+    pub trailing_coeff: Option<f64>,
+    pub pct_tp1: f64,
+    pub pct_tp2: f64,
+    pub pct_trailing: f64,
 }
 
 pub struct NouveauRocket {
@@ -54,6 +58,10 @@ pub struct NouveauRocket {
     pub llm_raison: Option<String>,
     pub llm_sl_suggere: Option<f64>,
     pub llm_tp1_suggere: Option<f64>,
+    pub trailing_coeff: f64,
+    pub pct_tp1: f64,
+    pub pct_tp2: f64,
+    pub pct_trailing: f64,
 }
 
 pub(crate) fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
@@ -80,6 +88,10 @@ pub(crate) fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
         llm_valide: row.try_get("llm_valide").unwrap_or(None),
         llm_conviction: row.try_get("llm_conviction").unwrap_or(None),
         llm_raison: row.try_get("llm_raison").unwrap_or(None),
+        trailing_coeff: row.try_get::<f64, _>("trailing_coeff").ok(),
+        pct_tp1: row.try_get::<f64, _>("pct_tp1").unwrap_or(0.25),
+        pct_tp2: row.try_get::<f64, _>("pct_tp2").unwrap_or(0.25),
+        pct_trailing: row.try_get::<f64, _>("pct_trailing").unwrap_or(0.50),
     }
 }
 
@@ -88,8 +100,9 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
     let id = sqlx::query(
         "INSERT INTO rockets_signaux
          (ticker, phase, score, prix_entree, stop_loss, target, target2, target3, ratio_volume, atr_ratio, atr14, rsi,
-          llm_valide, llm_conviction, llm_raison, llm_sl_suggere, llm_tp1_suggere)
-         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          llm_valide, llm_conviction, llm_raison, llm_sl_suggere, llm_tp1_suggere,
+          trailing_coeff, pct_tp1, pct_tp2, pct_trailing)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          WHERE NOT EXISTS (
            SELECT 1 FROM rockets_signaux
            WHERE ticker = ? AND phase = ? AND cree_le >= datetime('now', '-6 hours')
@@ -112,6 +125,10 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
     .bind(&s.llm_raison)
     .bind(s.llm_sl_suggere)
     .bind(s.llm_tp1_suggere)
+    .bind(s.trailing_coeff)
+    .bind(s.pct_tp1)
+    .bind(s.pct_tp2)
+    .bind(s.pct_trailing)
     .bind(&s.ticker)
     .bind(&s.phase)
     .execute(pool)
@@ -128,7 +145,8 @@ pub async fn historique_ticker(pool: &SqlitePool, ticker: &str, limite: i64) -> 
     let rows = sqlx::query(
         "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
                 ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
-                llm_valide, llm_conviction, llm_raison
+                llm_valide, llm_conviction, llm_raison,
+                trailing_coeff, pct_tp1, pct_tp2, pct_trailing
          FROM rockets_signaux
          WHERE ticker = ? AND statut = 'ferme' AND verdict IS NOT NULL AND verdict != 'expire'
          ORDER BY cree_le DESC LIMIT ?",
@@ -148,7 +166,8 @@ pub async fn lister_ouverts(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {
     let rows = sqlx::query(
         "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
                 ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
-                llm_valide, llm_conviction, llm_raison
+                llm_valide, llm_conviction, llm_raison,
+                trailing_coeff, pct_tp1, pct_tp2, pct_trailing
          FROM rockets_signaux WHERE statut = 'ouvert' ORDER BY cree_le DESC",
     )
     .fetch_all(pool)
@@ -161,7 +180,8 @@ pub async fn lister_en_attente(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {
     let rows = sqlx::query(
         "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
                 ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
-                llm_valide, llm_conviction, llm_raison
+                llm_valide, llm_conviction, llm_raison,
+                trailing_coeff, pct_tp1, pct_tp2, pct_trailing
          FROM rockets_signaux WHERE statut = 'attente' ORDER BY cree_le DESC",
     )
     .fetch_all(pool)
@@ -243,7 +263,8 @@ pub async fn historique(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSign
     let rows = sqlx::query(
         "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
                 ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
-                llm_valide, llm_conviction, llm_raison
+                llm_valide, llm_conviction, llm_raison,
+                trailing_coeff, pct_tp1, pct_tp2, pct_trailing
          FROM rockets_signaux ORDER BY cree_le DESC LIMIT ?",
     )
     .bind(limite)

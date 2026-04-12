@@ -99,9 +99,14 @@ export const useMarketStore = defineStore('market', () => {
 
         if ((msg.type !== 'candle' && msg.type !== 'bar_update') || !msg.data) return
 
-        // DateTime<Utc> Rust sérialise en ISO string, pas en timestamp numérique
+        // Convertir en ms depuis epoch
         const rawTs = msg.data.timestamp as string | number
-        const timestamp = typeof rawTs === 'string' ? rawTs : new Date(rawTs * 1000).toISOString()
+        const rawMs = typeof rawTs === 'string' ? new Date(rawTs).getTime() : rawTs * 1000
+        // Arrondir à l'ouverture de la barre (UTM = heure courante ≠ open time de la barre)
+        // Sans ça, chaque tick crée une nouvelle mini-barre au lieu de mettre à jour la barre courante
+        const tf_ms = dureeMs(timeframe)
+        const barOpenMs = Math.floor(rawMs / tf_ms) * tf_ms
+        const timestamp = new Date(barOpenMs).toISOString()
         const nouvelleBougie: Candle = { timestamp, open: msg.data.open, high: msg.data.high, low: msg.data.low, close: msg.data.close, volume: msg.data.volume }
 
         // Phase historique : accumuler dans le buffer
@@ -112,16 +117,21 @@ export const useMarketStore = defineStore('market', () => {
 
         // Phase temps réel : mise à jour incrémentale
         const liste = bougies.value[key]
-        if (!liste || liste.length === 0) return
+        if (!liste || liste.length === 0) {
+          // Aucune donnée historique — initialiser avec cette bougie
+          bougies.value[key] = [nouvelleBougie]
+          wsMiseAJour.value = { asset, timeframe, bougie: nouvelleBougie, estNouvelle: true }
+          return
+        }
         const tsDerniere = new Date(liste[liste.length - 1].timestamp).getTime()
         const tsNouvelle = new Date(timestamp).getTime()
         const duree = dureeMs(timeframe)
-        if (tsNouvelle - tsDerniere < duree) {
-          // Même bougie — mutation in-place (ne déclenche pas le watcher shallow)
+        // Si timestamp identique ou dans la même barre → mise à jour de la dernière bougie
+        if (tsNouvelle <= tsDerniere || tsNouvelle - tsDerniere < duree) {
+          // Conserver les valeurs OHLC correctes : ne pas écraser si bougie live sans historique
           liste[liste.length - 1] = nouvelleBougie
           wsMiseAJour.value = { asset, timeframe, bougie: nouvelleBougie, estNouvelle: false }
         } else {
-          // Nouvelle bougie — push in-place
           liste.push(nouvelleBougie)
           wsMiseAJour.value = { asset, timeframe, bougie: nouvelleBougie, estNouvelle: true }
         }
@@ -136,41 +146,6 @@ export const useMarketStore = defineStore('market', () => {
     erreurWs.value = null
   }
 
-  // ─── Prix live ticker dashboard (WS par asset : Binance pour crypto, IG pour le reste) ──────────
-  const prixLive = ref<Record<string, number>>({})
-  const variationLive = ref<Record<string, number>>({})
-  const wsLiveMap: Record<string, WebSocket> = {}
-
-  function connecterPrixLiveAssets(assets: string[]) {
-    assets.forEach(asset => {
-      if (wsLiveMap[asset]) return
-      const liveWs = new WebSocket(`${WS_URL}/api/stream?asset=${asset}&timeframe=M1`)
-      wsLiveMap[asset] = liveWs
-
-      liveWs.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data as string)
-          // Binance envoie type:"candle", IG envoie type:"price" ou type:"candle"
-          if (msg.type === 'price' && msg.price != null) {
-            prixLive.value[asset] = msg.price
-          } else if (msg.type === 'candle' && msg.data) {
-            prixLive.value[asset] = msg.data.close
-            if (msg.data.open > 0) {
-              variationLive.value[asset] = ((msg.data.close - msg.data.open) / msg.data.open) * 100
-            }
-          }
-        } catch { /* message invalide ignoré */ }
-      }
-      liveWs.onclose = () => { delete wsLiveMap[asset] }
-      // Si IG offline → fermeture silencieuse, fallback REST géré par le dashboard
-      liveWs.onerror = () => { delete wsLiveMap[asset] }
-    })
-  }
-
-  function deconnecterPrixLiveAssets() {
-    Object.values(wsLiveMap).forEach(liveWs => liveWs.close())
-    Object.keys(wsLiveMap).forEach(k => delete wsLiveMap[k])
-  }
-
-  return { bougies, chargement, erreur, erreurWs, wsMiseAJour, wsConnecte, dernierPrix, prixLive, variationLive, chargerBougies, getBougies, connecterStream, deconnecterStream, connecterPrixLiveAssets, deconnecterPrixLiveAssets }
+  // ─── fin du store ────────────────────────────────────────────────────────────
+  return { bougies, chargement, erreur, erreurWs, wsMiseAJour, wsConnecte, dernierPrix, chargerBougies, getBougies, connecterStream, deconnecterStream }
 })

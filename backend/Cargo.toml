@@ -6,7 +6,6 @@ members = [
     "crates/indicators",
     "crates/smc",
     "crates/strategies",
-    "crates/backtest",
     "crates/risk",
     "crates/db",
     "crates/common",

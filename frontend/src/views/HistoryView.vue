@@ -32,12 +32,7 @@
       </div>
 
       <div class="flex gap-1 ml-auto">
-        <button
-          class="filtre-btn" :class="{ 'filtre-btn-actif': filtreStatut === 'en_cours' }"
-          @click="filtreStatut = 'en_cours'">⏳ En cours</button>
-        <button
-          class="filtre-btn" :class="{ 'filtre-btn-actif': filtreStatut === 'cloturees' }"
-          @click="filtreStatut = 'cloturees'">✅ Clôturées</button>
+        <span class="text-xs text-gray-400 self-center">✅ Trades clôturés</span>
       </div>
       <button class="btn-sm" @click="charger">🔄 Actualiser</button>
       <button v-if="filtreStrategie !== ''" class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse {{ labelStrategie }}</button>
@@ -165,14 +160,14 @@ const exportOuvert   = ref(false)
 const filtreAsset   = ref('')
 const filtreDirection = ref('')
 const filtreStrategie = ref('')
-const filtreStatut = ref<'en_cours' | 'cloturees' | ''>('en_cours')
+const filtreStatut = ref<'en_cours' | 'cloturees' | ''>('cloturees')
 const triColonne = ref('')
 const triDir = ref<'asc' | 'desc'>('desc')
 
 const rocketsMode = computed(() => filtreStrategie.value === 'Rockets')
 
 const { rockets, prixActuels, chargerRockets, rocketsTries, rocketsFiltrés } =
-  useRocketsHistory(rocketsMode, filtreStatut, triColonne, triDir)
+  useRocketsHistory(filtreStatut, triColonne, triDir)
 
 function trierPar(col: string) {
   if (triColonne.value === col) {

@@ -30,6 +30,7 @@ pub async fn stream_market(
     let asset = parse_asset(&asset_str);
     let timeframe = parse_timeframe(&timeframe_str);
     let ls = state.ig_lightstreamer.clone();
+    let ig_session = state.ig_session.clone();
     let db = state.db.clone();
 
     let (response, session, client_stream) = actix_ws::handle(&req, body)?;
@@ -56,6 +57,7 @@ pub async fn stream_market(
                 asset_str,
                 timeframe_str,
                 ls,
+                ig_session,
                 db,
             )
             .await;

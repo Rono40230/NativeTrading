@@ -8,11 +8,9 @@
       <span class="text-xs text-gray-500">
         {{ selectedAsset.includes('USD') ? selectedAsset : `${selectedAsset}/USDT` }} · {{ selectedTimeframe }}
       </span>
-      <span v-if="wsConnecte" class="flex items-center gap-1 text-xs ml-2"
-        :class="['BTC','ETH'].includes(selectedAsset) ? 'text-emerald-400' : 'text-blue-400'">
-        <span class="w-1.5 h-1.5 rounded-full animate-pulse inline-block"
-          :class="['BTC','ETH'].includes(selectedAsset) ? 'bg-emerald-400' : 'bg-blue-400'" />
-        {{ ['BTC','ETH'].includes(selectedAsset) ? 'LIVE' : 'LIVE 5s' }}
+      <span v-if="wsConnecte" class="flex items-center gap-1 text-xs ml-2 text-emerald-400">
+        <span class="w-1.5 h-1.5 rounded-full animate-pulse inline-block bg-emerald-400" />
+        LIVE
       </span>
     </div>
 

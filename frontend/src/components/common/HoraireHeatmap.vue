@@ -5,9 +5,6 @@
       <select v-model="asset" class="glass-select" @change="charger">
         <option v-for="a in assetsDropdown" :key="a" :value="a">{{ a }}</option>
       </select>
-      <select v-model="timeframe" class="glass-select" @change="charger">
-        <option v-for="tf in timeframes" :key="tf" :value="tf">{{ tf }}</option>
-      </select>
       <select v-model="mois" class="glass-select" @change="charger">
         <option v-for="m in periodesDisponibles" :key="m" :value="m">{{ m }} mois</option>
       </select>
@@ -19,7 +16,6 @@
       </span>
     </div>
 
-    <!-- Seuil Straddle calibré -->
     <div v-if="reponse" class="glass-card p-4 flex flex-wrap items-center gap-4">
       <div>
         <p class="text-xs text-gray-400 mb-0.5">Seuil Straddle calibré (P85)</p>
@@ -30,7 +26,6 @@
       </p>
     </div>
 
-    <!-- Légende clusters -->
     <div class="flex items-center gap-4 flex-wrap">
       <span v-for="c in clusters" :key="c.label" class="flex items-center gap-1.5 text-xs text-gray-300">
         <span class="w-3.5 h-3.5 rounded-sm" :style="{ background: c.couleur }" />
@@ -38,7 +33,6 @@
       </span>
     </div>
 
-    <!-- Heatmap 24h × 7j -->
     <div v-if="reponse?.patterns.length" class="glass-card p-4 overflow-x-auto">
       <table class="w-full table-fixed text-xs border-separate border-spacing-0.5">
         <thead>
@@ -56,10 +50,11 @@
             <td class="text-gray-400 pr-3 py-0.5 whitespace-nowrap font-medium">{{ j.label }}</td>
             <td v-for="h in heures" :key="h" class="p-0">
               <div
-                class="w-full h-8 rounded flex items-center justify-center cursor-default transition-transform hover:scale-110"
+                class="w-full h-8 rounded flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
                 :style="celluleStyle(h, j.index)"
                 @mouseenter="(e) => afficherTooltip(e, h, j.index)"
                 @mouseleave="masquerTooltip"
+                @click="selectionnerCellule(h, j.index)"
               >
                 <span v-if="cellulePoints(h, j.index) > 0" class="text-[10px] text-white/80 font-mono leading-none">
                   {{ celluleAtr(h, j.index).toFixed(1) }} <span>{{ unite }}</span>
@@ -71,58 +66,54 @@
       </table>
     </div>
 
-    <!-- État vide -->
     <div v-else-if="!chargement" class="glass-card p-8 text-center text-gray-500 text-sm">
-      Sélectionnez un asset et un timeframe puis cliquez sur Charger.
+      Sélectionnez un asset et cliquez sur Charger.
     </div>
 
-    <!-- Bloc d'analyse statistique -->
-    <div v-if="analyse" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div v-if="analyse" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
 
-      <!-- Meilleures fenêtres -->
       <div class="glass-card p-4 space-y-3">
         <p class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Meilleures fenêtres de trading</p>
-        <div v-for="f in analyse.top3" :key="f.heureUtc" class="flex items-center justify-between">
-          <span class="text-sm text-white font-mono">{{ f.heureParis }}h – {{ (f.heureParis + 1) % 24 }}h Paris</span>
+        <div v-for="f in analyse.top3" :key="f.heureDebut" class="flex items-center justify-between">
+          <span class="text-sm text-white font-mono">{{ f.heureDebut }}h – {{ f.heureFin }}h Paris</span>
           <span :class="COULEUR_CLUSTER_TEXTE[f.cluster]" class="text-xs font-medium">{{ NOM_CLUSTER[f.cluster] }}</span>
         </div>
         <p class="text-[10px] text-gray-500 pt-1">Cluster dominant sur l'ensemble de la semaine</p>
       </div>
 
-      <!-- Heures à éviter -->
       <div class="glass-card p-4 space-y-3">
         <p class="text-xs font-semibold text-red-400 uppercase tracking-wider">Fenêtres à éviter</p>
-        <div v-for="f in analyse.pires3" :key="f.heureUtc" class="flex items-center justify-between">
-          <span class="text-sm text-white font-mono">{{ f.heureParis }}h – {{ (f.heureParis + 1) % 24 }}h Paris</span>
+        <div v-for="f in analyse.pires3" :key="f.heureDebut" class="flex items-center justify-between">
+          <span class="text-sm text-white font-mono">{{ f.heureDebut }}h – {{ f.heureFin }}h Paris</span>
           <span :class="COULEUR_CLUSTER_TEXTE[f.cluster]" class="text-xs font-medium">{{ NOM_CLUSTER[f.cluster] }}</span>
         </div>
         <p class="text-[10px] text-gray-500 pt-1">Faible volatilité — spread défavorable</p>
       </div>
 
-      <!-- Jours + heure actuelle -->
-      <div class="glass-card p-4 flex flex-col gap-4 items-start">
-        <div class="flex-1 min-w-[160px] space-y-1">
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Jours de la semaine</p>
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span class="text-sm text-gray-300">{{ analyse.meilleurJour.label }} — jour le plus actif</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-red-400"></span>
-            <span class="text-sm text-gray-300">{{ analyse.pireJour.label }} — jour le plus calme</span>
-          </div>
+      <!-- Bloc jours de la semaine -->
+      <div class="glass-card p-4 space-y-3">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Jours de la semaine</p>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span class="text-sm text-gray-300">{{ analyse.meilleurJour.label }} — jour le plus actif</span>
         </div>
-        <div class="flex-1 min-w-[200px] space-y-1">
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Maintenant — {{ analyse.hParisActuelle }}h Paris</p>
-          <template v-if="analyse.patternActuel">
-            <p :class="COULEUR_CLUSTER_TEXTE[analyse.patternActuel.cluster]" class="text-sm font-semibold">
-              {{ NOM_CLUSTER[analyse.patternActuel.cluster] }} — ATR moyen {{ analyse.patternActuel.atr_moyen.toFixed(1) }}
-            </p>
-            <p class="text-xs text-gray-500">{{ analyse.patternActuel.cluster >= 2 ? 'Fenêtre favorable au trading actif.' : 'Attendre une fenêtre plus volatile.' }}</p>
-          </template>
-          <p v-else class="text-xs text-gray-500">Pas de données pour ce créneau.</p>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-red-400"></span>
+          <span class="text-sm text-gray-300">{{ analyse.pireJour.label }} — jour le plus calme</span>
         </div>
-        <p class="w-full text-[10px] text-gray-600 mt-1">Basé sur l'historique — pas une garantie de performance future.</p>
+      </div>
+
+      <!-- Bloc maintenant -->
+      <div class="glass-card p-4 space-y-3">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Maintenant — {{ analyse.hParisActuelle }}h Paris</p>
+        <template v-if="analyse.patternActuel">
+          <p :class="COULEUR_CLUSTER_TEXTE[analyse.patternActuel.cluster]" class="text-sm font-semibold">
+            {{ NOM_CLUSTER[analyse.patternActuel.cluster] }} — ATR moyen {{ analyse.patternActuel.atr_moyen.toFixed(1) }}
+          </p>
+          <p class="text-xs text-gray-500">{{ analyse.patternActuel.cluster >= 2 ? 'Fenêtre favorable au trading actif.' : 'Attendre une fenêtre plus volatile.' }}</p>
+        </template>
+        <p v-else class="text-xs text-gray-500">Pas de données pour ce créneau.</p>
+        <p class="text-[10px] text-gray-600">Basé sur l'historique — pas une garantie.</p>
       </div>
     </div>
 
@@ -133,6 +124,10 @@
         :style="{ top: `${tooltipPos.top}px`, left: `${tooltipPos.left}px`, transform: 'translate(-50%, calc(-100% - 8px))' }"
       >{{ tooltipTexte }}</div>
     </Teleport>
+
+    <HoraireHeatmapPrecisionPanel :asset="asset" :cellule="celluleSelectionnee"
+      :jour-label="celluleSelectionnee ? (jours[celluleSelectionnee.jour]?.label ?? '') : ''"
+      :heure-paris="celluleSelectionnee ? heureParis(celluleSelectionnee.heure) : null" @fermer="celluleSelectionnee = null" />
   </div>
 </template>
 
@@ -142,6 +137,7 @@ import { JOURS as jours, CLUSTERS as clusters, COULEURS_CLUSTER, COULEURS_CLUSTE
 import { apiService } from '@/services/api.service'
 import type { ReponsePatternsVolatilite, AssetInfo } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
+import HoraireHeatmapPrecisionPanel from './HoraireHeatmapPrecisionPanel.vue'
 
 const props = defineProps<{ assetsHeatmap?: string[] }>()
 
@@ -149,13 +145,18 @@ const alerteStore = useAlerteStore()
 const assetsInfos = ref<AssetInfo[]>([])
 const assetsInterne = computed(() => assetsInfos.value.map(a => a.id))
 const assetsDropdown = computed(() => props.assetsHeatmap?.length ? props.assetsHeatmap : assetsInterne.value)
-const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const periodesDisponibles = [6, 12, 18, 24]
 const asset = ref('BTC')
-const timeframe = ref('M15')
 const mois = ref(12)
 const chargement = ref(false)
 const reponse = ref<ReponsePatternsVolatilite | null>(null)
+const celluleSelectionnee = ref<{ heure: number; jour: number } | null>(null)
+
+function selectionnerCellule(heure: number, jour: number) {
+  if (cellulePoints(heure, jour) === 0) return
+  const meme = celluleSelectionnee.value?.heure === heure && celluleSelectionnee.value?.jour === jour
+  celluleSelectionnee.value = meme ? null : { heure, jour }
+}
 
 /** Unité selon le type d'asset sélectionné. */
 const unite = computed(() => {
@@ -239,8 +240,10 @@ const analyse = computed(() => {
     return { heureUtc: h, heureParis: heureParis(h), cluster: clusterMoyen, atrMoyen }
   }).filter(Boolean) as { heureUtc: number; heureParis: number; cluster: number; atrMoyen: number }[]
 
-  const top3 = [...parHeure].sort((a, b) => b.cluster - a.cluster || b.atrMoyen - a.atrMoyen).slice(0, 3)
-  const pires3 = [...parHeure].sort((a, b) => a.cluster - b.cluster || a.atrMoyen - b.atrMoyen).slice(0, 3)
+  type Slot = { heureDebut: number; heureFin: number; cluster: number }
+  const fusionner = (h: typeof parHeure): Slot[] => [...h].sort((a, b) => a.heureParis - b.heureParis).reduce<Slot[]>((r, x) => { const l = r.at(-1); l && x.heureParis === l.heureFin ? (l.heureFin++, l.cluster = Math.max(l.cluster, x.cluster)) : r.push({ heureDebut: x.heureParis, heureFin: x.heureParis + 1, cluster: x.cluster }); return r }, []).slice(0, 3)
+  const top3 = fusionner([...parHeure].sort((a, b) => b.cluster - a.cluster || b.atrMoyen - a.atrMoyen).slice(0, 6))
+  const pires3 = fusionner([...parHeure].sort((a, b) => a.cluster - b.cluster || a.atrMoyen - b.atrMoyen).slice(0, 6))
 
   const parJour = jours.map(j => {
     const pts = patterns.filter(p => p.jour_semaine === j.index && p.nb_points > 0)
@@ -262,7 +265,7 @@ const analyse = computed(() => {
 async function charger() {
   chargement.value = true
   try {
-    reponse.value = await apiService.obtenirPatternsVolatilite(asset.value, timeframe.value, mois.value)
+    reponse.value = await apiService.obtenirPatternsVolatilite(asset.value, 'M1', mois.value)
   } catch (e: unknown) {
     alerteStore.afficherErreur(`Patterns volatilité: ${(e as Error).message}`)
   } finally {

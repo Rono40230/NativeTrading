@@ -2,11 +2,9 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiService } from '@/services/api.service'
 
-const TICKERS_URL = '/api/marche/tickers'   // proxy backend → Binance (évite CORS/451)
-const NON_CRYPTO_POLL_MS = 15_000
-const CRYPTO_POLL_MS = 10_000              // polling backend au lieu du WS Binance direct
+const NON_CRYPTO_POLL_MS  = 15_000
 
-// Assets non-crypto alimentés par IG Markets via le backend (métaux, forex, indices)
+// Assets IG Markets (métaux, forex, indices) — le backend les route via IG REST
 const NON_CRYPTO_ASSETS = [
   'XAUUSD', 'XAGUSD', 'XPTUSD', 'XPDUSD',
   'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
@@ -16,71 +14,86 @@ const NON_CRYPTO_ASSETS = [
 
 export interface TickerData {
   prix: number
-  change24h: number
-  volume24h: number
-  nbTrades: number
 }
 
 export const usePrixStore = defineStore('prix', () => {
-  const tickers = ref<Record<string, TickerData>>({})
-  const chargement = ref(false)
-  const erreur = ref(false)
-  const totalPaires = ref(0)
+  const tickers       = ref<Record<string, TickerData>>({})
+  const variationLive = ref<Record<string, number>>({})   // variation tick-à-tick (flash dashboard)
+  const chargement    = ref(false)
+  const erreur        = ref(false)
 
   let actif = false
-  let intervalCrypto: ReturnType<typeof setInterval> | null = null
+  let wsCrypto: WebSocket | null = null
+  const assetsAbonnes = new Set<string>()
   let intervalNonCrypto: ReturnType<typeof setInterval> | null = null
 
-  // Appel backend proxy — pas d'appel direct vers api.binance.com
-  async function chargerCrypto() {
-    try {
-      const res = await fetch(TICKERS_URL)
-      if (!res.ok) { erreur.value = true; return }
-      const data = await res.json() as Record<string, { prix: number; change24h: number; volume24h: number; nb_trades: number }>
-      let count = 0
-      for (const [ticker, t] of Object.entries(data)) {
-        tickers.value[ticker] = {
-          prix: t.prix,
-          change24h: t.change24h,
-          volume24h: t.volume24h,
-          nbTrades: t.nb_trades,
+  // ── WebSocket 1s — prix live pour tous les assets abonnés (crypto + IG via backend) ──
+  function _connecterWs() {
+    if (wsCrypto) { wsCrypto.close(); wsCrypto = null }
+    const assets = [...assetsAbonnes]
+    if (assets.length === 0) return
+    const url = `ws://localhost:8080/api/prix/stream?assets=${assets.join(',')}`
+    const ws = new WebSocket(url)
+
+    ws.onmessage = (evt) => {
+      try {
+        const data = JSON.parse(evt.data) as Record<string, number>
+        for (const [ticker, prix] of Object.entries(data)) {
+          if (typeof prix === 'number' && prix > 0) {
+            const prev = tickers.value[ticker]?.prix
+            if (prev && prev > 0) variationLive.value[ticker] = ((prix - prev) / prev) * 100
+            tickers.value[ticker] = { prix }
+          }
         }
-        count++
-      }
-      totalPaires.value = count
-      erreur.value = false
-    } catch { erreur.value = true }
+        erreur.value    = false
+        chargement.value = false
+      } catch { /* message invalide ignoré */ }
+    }
+    ws.onerror = () => { erreur.value = true }
+    ws.onclose = () => {
+      setTimeout(() => { if (actif && wsCrypto === ws) _connecterWs() }, 3000)
+    }
+    wsCrypto = ws
   }
 
+  // ── Fallback REST IG (15s) — backup si WS IG inaccessible ──
   async function chargerNonCrypto() {
     try {
       const prixIg = await apiService.getPrixAssets(NON_CRYPTO_ASSETS)
       for (const [ticker, prix] of Object.entries(prixIg)) {
-        tickers.value[ticker] = { prix, change24h: 0, volume24h: 0, nbTrades: 0 }
+        tickers.value[ticker] = { prix }
       }
     } catch { /* données précédentes conservées */ }
+  }
+
+  /** Ajoute des assets à surveiller — démarre le store si pas encore actif, reconnecte le WS */
+  function abonner(assets: string[]) {
+    let changed = false
+    for (const a of assets) { if (!assetsAbonnes.has(a)) { assetsAbonnes.add(a); changed = true } }
+    if (!actif) { demarrer(); return }  // demarrer() inclut _connecterWs()
+    if (changed) _connecterWs()
   }
 
   function getPrix(ticker: string): number | null {
     return tickers.value[ticker]?.prix ?? null
   }
 
-  function demarrer() {
-    if (actif) return
+  function demarrer(assets: string[] = []) {
+    for (const a of assets) assetsAbonnes.add(a)
+    if (actif) { if (assets.length > 0) _connecterWs(); return }
     actif = true
     chargement.value = true
-    chargerCrypto().then(() => { chargement.value = false })
     chargerNonCrypto()
-    intervalCrypto = setInterval(chargerCrypto, CRYPTO_POLL_MS)
+    _connecterWs()
     intervalNonCrypto = setInterval(chargerNonCrypto, NON_CRYPTO_POLL_MS)
   }
 
   function arreter() {
     actif = false
-    if (intervalCrypto) { clearInterval(intervalCrypto); intervalCrypto = null }
+    if (wsCrypto)          { wsCrypto.close(); wsCrypto = null }
     if (intervalNonCrypto) { clearInterval(intervalNonCrypto); intervalNonCrypto = null }
   }
 
-  return { tickers, chargement, erreur, totalPaires, getPrix, demarrer, arreter }
+  return { tickers, variationLive, chargement, erreur, getPrix, demarrer, abonner, arreter }
 })
 

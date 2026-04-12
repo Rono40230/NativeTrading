@@ -103,7 +103,6 @@ const nav: NavItem[] = [
     groupe: 'Stratégie SMC', icone: '📐',
     liens: [
       { to: '/smc',            icone: '⚡', label: 'Signaux' },
-      { to: '/smc/analyser',   icone: '📊', label: 'Analyser un setup' },
       { to: '/smc/definition', icone: '🤖', label: 'Définition & Prompt IA' },
     ]
   },
@@ -111,7 +110,6 @@ const nav: NavItem[] = [
     groupe: 'Stratégie Volatilité', icone: '⚡',
     liens: [
       { to: '/straddle/signaux',    icone: '⚡', label: 'Signaux' },
-      { to: '/smc/backtests',       icone: '🧪', label: 'Backtests' },
       { to: '/heatmap',             icone: '🔥', label: 'Heatmap' },
       { to: '/straddle/definition', icone: '🤖', label: 'Définition & Prompt IA' },
     ]

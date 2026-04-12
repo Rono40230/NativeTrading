@@ -13,21 +13,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 
+use crate::smc_feedback_db::{charger_signaux_smc_ouverts, lire_atr14_feedback, SignalSmcOuvert};
+
 /// Horizon d'expiration d'un signal SMC sans verdict (en secondes).
 const HORIZON_EXPIRE_SEC: i64 = 48 * 3600;
-
-// ── Signal SMC ouvert ─────────────────────────────────────────────────────────
-
-struct SignalSmcOuvert {
-    id: String,
-    asset: String,
-    timeframe: String,
-    direction: String, // "Long" | "Short"
-    prix_entree: f64,
-    stop_loss: f64,        // SL d'origine (immuable)
-    take_profit: Vec<f64>, // [tp1, tp2, tp3]
-    cree_le: i64,
-}
 
 // ── Point d'entrée public ─────────────────────────────────────────────────────
 
@@ -227,19 +216,27 @@ async fn cloturer_smc(db: &Arc<Database>, s: &SignalSmcOuvert, verdict: &str, pr
 
     let is_long = s.direction != "Short";
     let risque = (s.prix_entree - s.stop_loss).abs().max(f64::EPSILON);
-    let rr = if is_long { (prix_verdict - s.prix_entree) / risque }
-             else       { (s.prix_entree - prix_verdict) / risque };
-    db::ml_samples::sauvegarder_sample(db.pool(), &db::ml_samples::MlSample {
-        strategie:   "SMC".to_string(),
-        asset:       s.asset.clone(),
-        timeframe:   s.timeframe.clone(),
-        direction:   s.direction.clone(),
-        prix_entree: s.prix_entree,
-        prix_sortie: prix_verdict,
-        stop_loss:   s.stop_loss,
-        outcome:     verdict.to_string(),
-        rr_realise:  Some(rr),
-    }).await.ok();
+    let rr = if is_long {
+        (prix_verdict - s.prix_entree) / risque
+    } else {
+        (s.prix_entree - prix_verdict) / risque
+    };
+    db::ml_samples::sauvegarder_sample(
+        db.pool(),
+        &db::ml_samples::MlSample {
+            strategie: "SMC".to_string(),
+            asset: s.asset.clone(),
+            timeframe: s.timeframe.clone(),
+            direction: s.direction.clone(),
+            prix_entree: s.prix_entree,
+            prix_sortie: prix_verdict,
+            stop_loss: s.stop_loss,
+            outcome: verdict.to_string(),
+            rr_realise: Some(rr),
+        },
+    )
+    .await
+    .ok();
 
     tracing::info!(
         "📋 SMC clôturé {} {}/{} → {} @ {:.5}",
@@ -251,48 +248,3 @@ async fn cloturer_smc(db: &Arc<Database>, s: &SignalSmcOuvert, verdict: &str, pr
     );
 }
 
-async fn lire_atr14_feedback(db: &Arc<Database>, signal_id: &str) -> common::Result<f64> {
-    use sqlx::Row;
-    let row = sqlx::query("SELECT atr14 FROM smc_feedback WHERE signal_id = ? LIMIT 1")
-        .bind(signal_id)
-        .fetch_optional(db.pool())
-        .await
-        .map_err(|e| common::TradingError::Database(e.to_string()))?;
-    match row {
-        Some(r) => Ok(r.get::<f64, _>("atr14")),
-        None => Err(common::TradingError::Data("atr14 introuvable".into())),
-    }
-}
-
-// ── Requête signaux SMC Directionnel ouverts ──────────────────────────────────
-
-async fn charger_signaux_smc_ouverts(db: &Arc<Database>) -> common::Result<Vec<SignalSmcOuvert>> {
-    use sqlx::Row;
-    let rows = sqlx::query(
-        "SELECT id, asset, timeframe, direction, prix_entree, stop_loss, take_profit, cree_le
-         FROM signaux
-         WHERE statut = 'Actif' AND strategie = 'SMC Directionnel'
-         ORDER BY cree_le ASC",
-    )
-    .fetch_all(db.pool())
-    .await
-    .map_err(|e| common::TradingError::Database(e.to_string()))?;
-
-    Ok(rows
-        .iter()
-        .map(|r| {
-            let take_profit: Vec<f64> =
-                serde_json::from_str(r.get::<&str, _>("take_profit")).unwrap_or_default();
-            SignalSmcOuvert {
-                id: r.get("id"),
-                asset: r.get("asset"),
-                timeframe: r.get("timeframe"),
-                direction: r.get("direction"),
-                prix_entree: r.get("prix_entree"),
-                stop_loss: r.get("stop_loss"),
-                take_profit,
-                cree_le: r.get("cree_le"),
-            }
-        })
-        .collect())
-}

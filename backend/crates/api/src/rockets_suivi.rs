@@ -1,26 +1,12 @@
 use actix_web::{web, HttpResponse, Responder};
 use db::rockets;
 use db::rockets_config;
-use db::rockets_feedback;
 use std::time::Duration;
 
+use crate::rockets_prix::{fetch_prix, reconcilier_feedback};
 use crate::state::AppState;
 
-pub use strategies::rockets_indicateurs::calculer_verdict_rocket;
-
-// ── Helpers HTTP ─────────────────────────────────────────────────────────────
-
-#[derive(serde::Deserialize)]
-struct BinancePrix { price: String }
-
-pub async fn fetch_prix(client: &reqwest::Client, ticker: &str) -> Option<f64> {
-    let url = format!(
-        "https://api.binance.com/api/v3/ticker/price?symbol={}USDT",
-        ticker
-    );
-    let resp: BinancePrix = client.get(&url).send().await.ok()?.json().await.ok()?;
-    resp.price.parse::<f64>().ok()
-}
+pub use strategies::rockets_niveaux::calculer_verdict_rocket;
 
 // ── POST /api/rockets/sync ───────────────────────────────────────────────────
 
@@ -148,17 +134,22 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
                         &s.cree_le,
                     )
                     .await;
-                    db::ml_samples::sauvegarder_sample(&pool, &db::ml_samples::MlSample {
-                        strategie:   "ROCKETS".to_string(),
-                        asset:       s.ticker.clone(),
-                        timeframe:   "M5".to_string(),
-                        direction:   "LONG".to_string(),
-                        prix_entree: s.prix_entree,
-                        prix_sortie: prix,
-                        stop_loss:   s.stop_loss,
-                        outcome:     "invalide".to_string(),
-                        rr_realise:  Some(-1.0),
-                    }).await.ok();
+                    db::ml_samples::sauvegarder_sample(
+                        &pool,
+                        &db::ml_samples::MlSample {
+                            strategie: "ROCKETS".to_string(),
+                            asset: s.ticker.clone(),
+                            timeframe: "M5".to_string(),
+                            direction: "LONG".to_string(),
+                            prix_entree: s.prix_entree,
+                            prix_sortie: prix,
+                            stop_loss: s.stop_loss,
+                            outcome: "invalide".to_string(),
+                            rr_realise: Some(-1.0),
+                        },
+                    )
+                    .await
+                    .ok();
                 }
             } else if prix >= s.prix_entree {
                 if let Err(e) = rockets::entrer_position(&pool, s.id).await {
@@ -233,57 +224,27 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
                         } else {
                             (prix - s.prix_entree).abs() / risque
                         };
-                        db::ml_samples::sauvegarder_sample(&pool, &db::ml_samples::MlSample {
-                            strategie:   "ROCKETS".to_string(),
-                            asset:       s.ticker.clone(),
-                            timeframe:   "M5".to_string(),
-                            direction:   "LONG".to_string(),
-                            prix_entree: s.prix_entree,
-                            prix_sortie: prix,
-                            stop_loss:   s.stop_loss,
-                            outcome:     v.to_string(),
-                            rr_realise:  Some(rr),
-                        }).await.ok();
+                        db::ml_samples::sauvegarder_sample(
+                            &pool,
+                            &db::ml_samples::MlSample {
+                                strategie: "ROCKETS".to_string(),
+                                asset: s.ticker.clone(),
+                                timeframe: "M5".to_string(),
+                                direction: "LONG".to_string(),
+                                prix_entree: s.prix_entree,
+                                prix_sortie: prix,
+                                stop_loss: s.stop_loss,
+                                outcome: v.to_string(),
+                                rr_realise: Some(rr),
+                            },
+                        )
+                        .await
+                        .ok();
                     }
                 }
                 None => {}
             }
         }
-    }
-}
-
-// ── Helper feedback ──────────────────────────────────────────────────────────
-
-/// Réconcilie le feedback Rockets après une clôture TP/SL.
-/// `cree_le_str` est au format SQLite `datetime('now')` → "2026-04-06 14:32:00".
-#[allow(clippy::too_many_arguments)]
-async fn reconcilier_feedback(
-    pool: &sqlx::SqlitePool,
-    ticker: &str,
-    signal_id: i64,
-    verdict: &str,
-    prix_entree: f64,
-    prix_verdict: f64,
-    atr14: Option<f64>,
-    cree_le_str: &str,
-) {
-    let timestamp_signal = chrono::NaiveDateTime::parse_from_str(cree_le_str, "%Y-%m-%d %H:%M:%S")
-        .map(|dt| dt.and_utc().timestamp())
-        .unwrap_or_else(|_| chrono::Utc::now().timestamp());
-
-    let atr = atr14.unwrap_or(1.0).max(1e-9);
-    if let Err(e) = rockets_feedback::maj_feedback_verdict(
-        pool,
-        signal_id,
-        verdict,
-        prix_entree,
-        prix_verdict,
-        atr,
-        timestamp_signal,
-    )
-    .await
-    {
-        tracing::warn!("Feedback Rockets {} id={}: {}", ticker, signal_id, e);
     }
 }
 

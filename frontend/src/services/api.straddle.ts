@@ -5,33 +5,12 @@
 import axios from 'axios'
 import type {
   ReponseAnalyseStraddle, StraddleCreneau,
-  StraddleVolatiliteLive, StraddleMonitoringData, StraddleCalibrationRow,
+  StraddleVolatiliteLive, StraddleMonitoringData, StraddleCalibrationRow, PrecisionHoraire,
 } from './api.types'
 
 const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
 
 export const straddleApi = {
-  async runStraddleSlotBacktest(
-    asset: string,
-    heure_debut: string,
-    jour_semaine: number | null,
-    heure_fin?: string,
-    capital?: number,
-  ): Promise<{
-    total_trades: number
-    win_rate: number
-    profit_factor: number
-    max_drawdown_pct: number
-    esperance_pct: number
-    payoff_ratio: number
-    serie_pertes_max: number
-    direction_dominante: string
-    amplitude_moyenne: number
-  }> {
-    const res = await http.post('/api/straddle/backtest', { asset, heure_debut, jour_semaine, heure_fin, capital })
-    return res.data
-  },
-
   async analyserStraddle(asset: string, periode: string): Promise<ReponseAnalyseStraddle> {
     const res = await http.post('/api/straddle/analyser', { asset, periode }, { timeout: 150000 })
     return res.data
@@ -101,6 +80,19 @@ export const straddleApi = {
 
   async getStraddleCalibration(): Promise<StraddleCalibrationRow[]> {
     const res = await http.get('/api/straddle/calibration', { timeout: 10000 })
+    return res.data
+  },
+
+  async analyserPrecisionHoraire(
+    asset: string,
+    heure: number,
+    jourSemaine: number | null,
+  ): Promise<PrecisionHoraire> {
+    const res = await http.post('/api/straddle/precision-horaire', {
+      asset,
+      heure,
+      jour_semaine: jourSemaine,
+    }, { timeout: 30000 })
     return res.data
   },
 }

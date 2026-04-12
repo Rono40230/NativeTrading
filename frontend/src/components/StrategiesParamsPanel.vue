@@ -161,16 +161,16 @@ async function sauvegarderSmc() {
 // ── Rockets ───────────────────────────────────────────────────────────────────
 
 const rocketsFields = [
-  { key: 'score_min',        label: 'Score minimum',    step: 1,     min: 20    },
-  { key: 'rsi_max',          label: 'RSI max',          step: 1,     min: 50    },
-  { key: 'rsi_min',          label: 'RSI min',          step: 1,     min: 0     },
-  { key: 'ratio_volume_min', label: 'Volume ratio min', step: 0.1,   min: 1     },
-  { key: 'vol_marche_min',   label: 'Vol. marché min',  step: 10000, min: 10000 },
-  { key: 'sl_mult',          label: 'SL × ATR',         step: 0.1,   min: 0.1   },
-  { key: 'tp_mult_1',        label: 'TP1 × ATR',        step: 0.1,   min: 0.5   },
-  { key: 'tp_mult_2',        label: 'TP2 × ATR',        step: 0.1,   min: 0.5   },
-  { key: 'tp_mult_3',        label: 'TP3 × ATR',        step: 0.1,   min: 0.5   },
-  { key: 'trailing_atr',     label: 'Trailing Stop × ATR', step: 0.1, min: 0.5  },
+  { key: 'score_min',            label: 'Score minimum',        step: 1,     min: 20    },
+  { key: 'rsi_max',              label: 'RSI max',              step: 1,     min: 50    },
+  { key: 'rsi_min',              label: 'RSI min',              step: 1,     min: 0     },
+  { key: 'ratio_volume_min',     label: 'Volume ratio min',     step: 0.1,   min: 1     },
+  { key: 'vol_marche_min',       label: 'Vol. marché min',      step: 10000, min: 10000 },
+  { key: 'sl_mult',              label: 'SL × ATR',             step: 0.1,   min: 0.1   },
+  { key: 'trailing_coeff_min',   label: 'Trailing coeff. min',  step: 0.1,   min: 0.5   },
+  { key: 'trailing_coeff_max',   label: 'Trailing coeff. max',  step: 0.1,   min: 1.0   },
+  { key: 'seuil_score_faible',   label: 'Seuil score faible',   step: 1,     min: 30    },
+  { key: 'seuil_score_fort',     label: 'Seuil score fort',     step: 1,     min: 50    },
 ]
 
 const savingRockets = ref(false)

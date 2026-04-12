@@ -66,9 +66,20 @@
         @click.stop
       >
         <div class="flex items-center justify-between mb-3">
-          <div>
-            <span class="text-base font-bold text-white">{{ hovered.ticker }}</span>
-            <span v-if="dansScan(hovered.ticker)" class="ml-2 text-[10px] font-bold text-amber-400">🎯 Confirmé Rockets</span>
+          <div class="flex items-center gap-2.5">
+            <img
+              :src="cryptoLogoUrl(hovered.ticker)"
+              :alt="hovered.ticker"
+              class="w-8 h-8 rounded-full border border-white/10 bg-white/5 object-contain"
+              @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
+            />
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-base font-bold text-white">{{ hovered.ticker }}</span>
+                <span v-if="dansScan(hovered.ticker)" class="text-[10px] font-bold text-amber-400">🎯 Rockets</span>
+              </div>
+              <span class="text-[10px] text-gray-400">{{ cryptoName(hovered.ticker) }}</span>
+            </div>
           </div>
           <span class="text-[11px]">{{ icone(hovered.badge) }}</span>
         </div>
@@ -146,6 +157,7 @@ import {
   TF_CONFIGS, icone, classeCard, formatVolume, formatPrix,
   classScore, labelBadge, sparklinePath,
 } from '@/composables/useCryptosAlert'
+import { cryptoName, cryptoLogoUrl } from '@/composables/useCryptoMeta'
 import { usePrixStore } from '@/stores/prix.store'
 import CryptosOpportunitesModal from '@/components/common/CryptosOpportunitesModal.vue'
 

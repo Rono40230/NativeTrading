@@ -3,10 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};
-use data::{
-    providers::BinanceProvider,
-    DataProvider,
-};
+use data::{providers::BinanceProvider, DataProvider};
 use indicators::calculer_ema;
 
 // ─── Query params ─────────────────────────────────────────────────────────────
@@ -157,7 +154,11 @@ pub async fn tendance_multi_tf(
                     .await
             } else {
                 // IG : Lightstreamer alimentera le cache
-                tracing::debug!("Tendance multi-TF: cache {} {} insuffisant — LS alimentera", label, query.asset);
+                tracing::debug!(
+                    "Tendance multi-TF: cache {} {} insuffisant — LS alimentera",
+                    label,
+                    query.asset
+                );
                 Ok(bougies_db.clone())
             };
             match resultat {

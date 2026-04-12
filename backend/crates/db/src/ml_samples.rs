@@ -6,15 +6,15 @@ use sqlx::SqlitePool;
 
 /// Données à persister pour un trade clôturé.
 pub struct MlSample {
-    pub strategie:   String, // "SMC" | "ROCKETS" | "STRADDLE"
-    pub asset:       String,
-    pub timeframe:   String,
-    pub direction:   String, // "Long" | "Short" | "LONG" | "STRADDLE"
+    pub strategie: String, // "SMC" | "ROCKETS" | "STRADDLE"
+    pub asset: String,
+    pub timeframe: String,
+    pub direction: String, // "Long" | "Short" | "LONG" | "STRADDLE"
     pub prix_entree: f64,
     pub prix_sortie: f64,
-    pub stop_loss:   f64,
-    pub outcome:     String, // "tp1"|"tp2"|"tp3"|"sl"|"invalide"|"expire"
-    pub rr_realise:  Option<f64>,
+    pub stop_loss: f64,
+    pub outcome: String, // "tp1"|"tp2"|"tp3"|"sl"|"invalide"|"expire"
+    pub rr_realise: Option<f64>,
 }
 
 /// Persiste un sample de trade clôturé.

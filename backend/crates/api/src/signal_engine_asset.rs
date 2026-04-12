@@ -52,7 +52,11 @@ pub(crate) async fn analyser_asset(
                 }
                 Ok(pred) => {
                     let bonus = if pred.direction == signal_strat.direction {
-                        if pred.confiance > 0.7 { 20.0 } else { 15.0 }
+                        if pred.confiance > 0.7 {
+                            20.0
+                        } else {
+                            15.0
+                        }
                     } else {
                         0.0
                     };
@@ -150,7 +154,11 @@ pub(crate) async fn analyser_asset(
     } else {
         atr_now
     };
-    let atr_ratio = if atr_moyen > 0.0 { atr_now / atr_moyen } else { 1.0 };
+    let atr_ratio = if atr_moyen > 0.0 {
+        atr_now / atr_moyen
+    } else {
+        1.0
+    };
 
     let rsi_vals = indicators::calculer_rsi(&bougies, 14);
     let rsi = rsi_vals.last().copied().unwrap_or(50.0);
@@ -163,12 +171,14 @@ pub(crate) async fn analyser_asset(
     let historique_smc = db.obtenir_historique_smc(asset.as_str(), 10).await;
     let historique_filtre: Vec<crate::ollama::smc_filtre::HistoriqueSMCSignal> = historique_smc
         .into_iter()
-        .map(|(direction, tf, score, statut)| crate::ollama::smc_filtre::HistoriqueSMCSignal {
-            direction,
-            timeframe: tf,
-            score,
-            statut,
-        })
+        .map(
+            |(direction, tf, score, statut)| crate::ollama::smc_filtre::HistoriqueSMCSignal {
+                direction,
+                timeframe: tf,
+                score,
+                statut,
+            },
+        )
         .collect();
 
     let candidat = crate::ollama::smc_filtre::SignalSMCCandidat {

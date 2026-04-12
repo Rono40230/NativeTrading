@@ -1,23 +1,24 @@
 //! Gestion de la connexion Lightstreamer : session, bind et parsing TLCP.
+#![allow(dead_code)]
 
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
-use common::{Asset, Candle, Timeframe};
+use common::Candle;
 use db::Database;
 use futures_util::StreamExt;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex};
 
-use crate::ig_session::IgSession;
-use super::{LsCandle, SubKey};
 use super::protocol;
+use super::{LsCandle, SubKey};
+use crate::ig_session::IgSession;
 
 // ─── Session Lightstreamer active ─────────────────────────────────────────────
 
 pub(super) struct LsSession {
     pub(super) session_id: String,
-    pub(super) endpoint:   String,
+    pub(super) endpoint: String,
 }
 
 // ─── Connexion + abonnements + bind ──────────────────────────────────────────
@@ -30,7 +31,7 @@ pub(super) async fn connect_and_bind(
     tx: &broadcast::Sender<LsCandle>,
 ) -> Result<()> {
     // 1. S'assurer que la session REST IG est active
-    let (ls_endpoint, cst, account_id) = {
+    let (ls_endpoint, cst, xst, account_id) = {
         let mut sess = ig_session.lock().await;
         if !sess.est_connecte() {
             sess.login(db).await?;
@@ -43,12 +44,16 @@ pub(super) async fn connect_and_bind(
             .cst()
             .map(|s| s.to_string())
             .ok_or_else(|| anyhow!("CST absent"))?;
+        let xst = sess
+            .security_token()
+            .map(|s| s.to_string())
+            .ok_or_else(|| anyhow!("X-SECURITY-TOKEN absent"))?;
         let account_id = sess.account_id.clone().unwrap_or_default();
-        (endpoint, cst, account_id)
+        (endpoint, cst, xst, account_id)
     };
 
     // 2. Ouvrir une session Lightstreamer
-    let session_id = protocol::create_session(&ls_endpoint, &account_id, &cst).await?;
+    let session_id = protocol::create_session(&ls_endpoint, &account_id, &cst, &xst).await?;
     tracing::info!(
         "IG Lightstreamer: session créée ({})",
         &session_id[..12.min(session_id.len())]
@@ -58,18 +63,28 @@ pub(super) async fn connect_and_bind(
         let mut ls = ls_session.lock().await;
         *ls = Some(LsSession {
             session_id: session_id.clone(),
-            endpoint:   ls_endpoint.clone(),
+            endpoint: ls_endpoint.clone(),
         });
     }
 
     // 3. Réabonner toutes les souscriptions connues
     let subs_snap: Vec<(SubKey, usize)> = {
-        subs.lock().await.iter().map(|(k, v)| (k.clone(), *v)).collect()
+        subs.lock()
+            .await
+            .iter()
+            .map(|(k, v)| (k.clone(), *v))
+            .collect()
     };
     for (key, sub_id) in &subs_snap {
-        protocol::send_subscribe(&ls_endpoint, &session_id, &key.epic, &key.resolution, *sub_id)
-            .await
-            .unwrap_or_else(|e| tracing::warn!("Réabonnement échoué: {}", e));
+        protocol::send_subscribe(
+            &ls_endpoint,
+            &session_id,
+            &key.epic,
+            &key.resolution,
+            *sub_id,
+        )
+        .await
+        .unwrap_or_else(|e| tracing::warn!("Réabonnement échoué: {}", e));
     }
 
     // 4. Boucle bind infinie
@@ -85,7 +100,7 @@ async fn bind_loop(
     tx: &broadcast::Sender<LsCandle>,
     db: &Arc<Database>,
 ) -> Result<()> {
-    let url  = format!("{}/lightstreamer/bind_session.txt", endpoint);
+    let url = format!("{}/lightstreamer/bind_session.txt", endpoint);
     let body = format!("LS_session={}", session_id);
 
     let client = reqwest::Client::builder()
@@ -130,12 +145,27 @@ async fn handle_line(
     tx: &broadcast::Sender<LsCandle>,
     db: &Arc<Database>,
 ) {
-    if line.is_empty() || line.starts_with("PROBE") || line.starts_with("LOOP") {
+    if line.is_empty()
+        || line.starts_with("PROBE")
+        || line.starts_with("LOOP")
+        || line.starts_with("SUBOK")
+        || line.starts_with("SYNC")
+        || line.starts_with("END")
+    {
         return;
     }
 
+    // Format TLCP LS : "U,<sub_id>,<item_pos>,<f1>|<f2>|...|<fN>"
+    // Le préfixe "U," indique un message de mise à jour. On l'ignore pour parser sub_id.
+    let data = if let Some(rest) = line.strip_prefix("U,") {
+        rest
+    } else {
+        tracing::debug!("LS ligne inconnue: {}", &line[..line.len().min(80)]);
+        return;
+    };
+
     // Format mise à jour : "<sub_id>,<item_pos>,<f1>|<f2>|...|<fN>"
-    let parts: Vec<&str> = line.splitn(3, ',').collect();
+    let parts: Vec<&str> = data.splitn(3, ',').collect();
     if parts.len() < 3 {
         return;
     }
@@ -148,18 +178,32 @@ async fn handle_line(
     // Mettre à jour l'état MERGE pour ce sub_id (valeurs partielles possibles)
     let state = field_state.entry(sub_id).or_insert_with(|| vec![None; 10]);
     for (i, val) in parts[2].split('|').enumerate() {
-        if i >= state.len() { break; }
+        if i >= state.len() {
+            break;
+        }
         if !val.is_empty() {
             state[i] = val.parse::<f64>().ok();
         }
     }
 
     // Calculer les mid prices bid/ask
-    let open  = protocol::mid(state.get(protocol::IDX_BID_OPEN),  state.get(protocol::IDX_OFR_OPEN));
-    let high  = protocol::mid(state.get(protocol::IDX_BID_HIGH),  state.get(protocol::IDX_OFR_HIGH));
-    let low   = protocol::mid(state.get(protocol::IDX_BID_LOW),   state.get(protocol::IDX_OFR_LOW));
-    let close = protocol::mid(state.get(protocol::IDX_BID_CLOSE), state.get(protocol::IDX_OFR_CLOSE));
-    let utm   = state.get(protocol::IDX_UTM).and_then(|v| *v);
+    let open = protocol::mid(
+        state.get(protocol::IDX_BID_OPEN),
+        state.get(protocol::IDX_OFR_OPEN),
+    );
+    let high = protocol::mid(
+        state.get(protocol::IDX_BID_HIGH),
+        state.get(protocol::IDX_OFR_HIGH),
+    );
+    let low = protocol::mid(
+        state.get(protocol::IDX_BID_LOW),
+        state.get(protocol::IDX_OFR_LOW),
+    );
+    let close = protocol::mid(
+        state.get(protocol::IDX_BID_CLOSE),
+        state.get(protocol::IDX_OFR_CLOSE),
+    );
+    let utm = state.get(protocol::IDX_UTM).and_then(|v| *v);
     let closed = state
         .get(protocol::IDX_CONS_END)
         .and_then(|v| *v)
@@ -172,8 +216,7 @@ async fn handle_line(
         _ => return,
     };
 
-    let timestamp = DateTime::<Utc>::from_timestamp_millis(utm as i64)
-        .unwrap_or_else(Utc::now);
+    let timestamp = DateTime::<Utc>::from_timestamp_millis(utm as i64).unwrap_or_else(Utc::now);
 
     // Retrouver asset + timeframe depuis le sub_id
     let (asset, timeframe) = {
@@ -184,9 +227,28 @@ async fn handle_line(
         }
     };
 
-    let candle    = Candle { timestamp, open, high, low, close, volume: 0.0 };
-    let ls_candle = LsCandle { asset: asset.clone(), timeframe, candle: candle.clone(), closed };
+    let candle = Candle {
+        timestamp,
+        open,
+        high,
+        low,
+        close,
+        volume: 0.0,
+    };
+    let ls_candle = LsCandle {
+        asset: asset.clone(),
+        timeframe,
+        candle: candle.clone(),
+        closed,
+    };
 
+    tracing::debug!(
+        "LS tick: {} {} close={} closed={}",
+        asset.as_str(),
+        timeframe.as_str(),
+        close,
+        closed
+    );
     let _ = tx.send(ls_candle);
 
     // Persister en DB uniquement à la clôture de la bougie
@@ -194,7 +256,10 @@ async fn handle_line(
         let db = db.clone();
         let tf = timeframe;
         tokio::spawn(async move {
-            if let Err(e) = db.inserer_bougies(&asset, &tf, &[candle]).await {
+            if let Err(e) = db
+                .inserer_bougies_avec_source(&asset, &tf, &[candle], "lightstreamer")
+                .await
+            {
                 tracing::warn!("LS: erreur insert DB: {}", e);
             }
         });

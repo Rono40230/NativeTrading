@@ -96,7 +96,14 @@ pub async fn demarrer_worker_suivi_signaux(
         };
 
         for s in &actifs {
-            let prix = match crate::prix_utils::fetch_prix_asset(&client, &s.asset, &ig_session, &db).await {
+            let prix = match crate::prix_utils::fetch_prix_asset(
+                &client,
+                &s.asset,
+                &ig_session,
+                &db,
+            )
+            .await
+            {
                 Some(p) => p,
                 None => continue,
             };

@@ -12,13 +12,13 @@ use crate::state::AppState;
 
 #[derive(Deserialize)]
 pub struct AppliquerRequest {
-    pub strategie:           String,
-    pub param_name:          String,
-    pub valeur_actuelle:     f64,
-    pub valeur_suggeree:     f64,
+    pub strategie: String,
+    pub param_name: String,
+    pub valeur_actuelle: f64,
+    pub valeur_suggeree: f64,
     pub gain_winrate_estime: f64,
-    pub confiance:           f64,
-    pub nb_samples_base:     i64,
+    pub confiance: f64,
+    pub nb_samples_base: i64,
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -68,28 +68,39 @@ pub async fn appliquer_suggestion(
     // Appliquer le changement de paramètre sur la table correspondante
     let result = appliquer_param(pool, req).await;
     if let Err(e) = result {
-        tracing::error!("Erreur application suggestion ML {}/{}: {}", req.strategie, req.param_name, e);
+        tracing::error!(
+            "Erreur application suggestion ML {}/{}: {}",
+            req.strategie,
+            req.param_name,
+            e
+        );
         return HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": e.to_string() }));
     }
 
     // Logger la suggestion appliquée (non-bloquant sur erreur)
     let log = db::ml_feedback::NouvelleSuggestionLog {
-        strategie:           &req.strategie,
-        param_name:          &req.param_name,
-        valeur_avant:        req.valeur_actuelle,
-        valeur_apres:        req.valeur_suggeree,
+        strategie: &req.strategie,
+        param_name: &req.param_name,
+        valeur_avant: req.valeur_actuelle,
+        valeur_apres: req.valeur_suggeree,
         gain_winrate_estime: req.gain_winrate_estime,
-        confiance:           req.confiance,
-        nb_samples_base:     req.nb_samples_base,
+        confiance: req.confiance,
+        nb_samples_base: req.nb_samples_base,
     };
     if let Err(e) = db::ml_feedback::sauvegarder_suggestion(pool, &log).await {
-        tracing::warn!("Log suggestion ML échoué (suggestion quand même appliquée): {}", e);
+        tracing::warn!(
+            "Log suggestion ML échoué (suggestion quand même appliquée): {}",
+            e
+        );
     }
 
     tracing::info!(
         "✅ Suggestion ML appliquée : {} {} {} → {}",
-        req.strategie, req.param_name, req.valeur_actuelle, req.valeur_suggeree
+        req.strategie,
+        req.param_name,
+        req.valeur_actuelle,
+        req.valeur_suggeree
     );
     HttpResponse::Ok().json(serde_json::json!({
         "ok":          true,
@@ -141,47 +152,59 @@ async fn charger_analyse(pool: &SqlitePool) -> ml::feedback_analyser::AnalyseGlo
 
     let score_trs = |rows: Vec<db::ml_feedback::SmcScoreStats>| -> Vec<TrancheStat> {
         rows.into_iter()
-            .map(|r| TrancheStat { tranche: r.tranche, nb_trades: r.nb_trades, win_rate: r.win_rate })
+            .map(|r| TrancheStat {
+                tranche: r.tranche,
+                nb_trades: r.nb_trades,
+                win_rate: r.win_rate,
+            })
             .collect()
     };
     let kz_trs = |rows: Vec<db::ml_feedback::SmcSessionStats>| -> Vec<TrancheStat> {
         rows.into_iter()
             .map(|r| TrancheStat {
-                tranche:   if r.en_kill_zone { "Kill Zone".into() } else { "Hors Kill Zone".into() },
+                tranche: if r.en_kill_zone {
+                    "Kill Zone".into()
+                } else {
+                    "Hors Kill Zone".into()
+                },
                 nb_trades: r.nb_trades,
-                win_rate:  r.win_rate,
+                win_rate: r.win_rate,
             })
             .collect()
     };
     let ml_trs = |rows: Vec<db::ml_feedback::MlCorrelationStats>| -> Vec<TrancheStat> {
         rows.into_iter()
-            .map(|r| TrancheStat { tranche: r.tranche, nb_trades: r.nb_trades, win_rate: r.win_rate })
+            .map(|r| TrancheStat {
+                tranche: r.tranche,
+                nb_trades: r.nb_trades,
+                win_rate: r.win_rate,
+            })
             .collect()
     };
     let to_sg = |res: Result<db::ml_feedback::FeedbackGlobal, _>| -> Option<StatsGlobales> {
         res.ok().map(|g| StatsGlobales {
-            nb_trades:   g.nb_trades,
+            nb_trades: g.nb_trades,
             nb_gagnants: g.nb_gagnants,
-            win_rate:    g.win_rate,
+            win_rate: g.win_rate,
             pnl_r_moyen: g.pnl_r_moyen,
         })
     };
 
     let smc = smc_g.ok().map(|g| SmcAnalyse {
         global: StatsGlobales {
-            nb_trades:   g.nb_trades,
+            nb_trades: g.nb_trades,
             nb_gagnants: g.nb_gagnants,
-            win_rate:    g.win_rate,
+            win_rate: g.win_rate,
             pnl_r_moyen: g.pnl_r_moyen,
         },
-        par_score:      score_trs(smc_s.unwrap_or_default()),
-        par_kill_zone:  kz_trs(smc_kz.unwrap_or_default()),
+        par_score: score_trs(smc_s.unwrap_or_default()),
+        par_kill_zone: kz_trs(smc_kz.unwrap_or_default()),
         ml_correlation: ml_trs(smc_ml.unwrap_or_default()),
     });
 
     AnalyseGlobale {
         smc,
-        rockets:  to_sg(rkt_g),
+        rockets: to_sg(rkt_g),
         straddle: to_sg(str_g),
     }
 }

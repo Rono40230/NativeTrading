@@ -3,12 +3,11 @@ use std::time::Instant;
 use common::{Candle, Direction, Result, TradingError};
 
 pub mod features;
+pub mod feedback_analyser;
 pub mod lstm;
-mod raffinement;
+pub mod params_suggester;
 pub mod walk_forward;
 pub mod xgboost;
-pub mod feedback_analyser;
-pub mod params_suggester;
 
 pub use features::{extraire_features, labelliser, NB_FEATURES};
 pub use lstm::{ModeleHybrideLstm, LONGUEUR_SEQ};

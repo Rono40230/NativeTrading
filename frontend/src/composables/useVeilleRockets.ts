@@ -4,18 +4,27 @@ import { apiService } from '@/services/api.service'
 export type PhaseRocket = 'compression' | 'prelancement' | 'breakout'
 
 export interface SignalRocket {
-  symbol:      string
-  ticker:      string
-  prix:        number
-  change1h:    number
-  phase:       PhaseRocket
-  score:       number
-  ratioVolume: number
-  atrRatio:    number
-  rsi:         number
-  support:     number
-  target20:    number
-  closes:      number[]
+  symbol:             string
+  ticker:             string
+  prix:               number
+  change1h:           number
+  phase:              PhaseRocket
+  score:              number
+  ratioVolume:        number
+  atrRatio:           number
+  rsi:                number
+  support:            number
+  target20:           number
+  closes:             number[]
+  trailingCoeff:      number
+  sl:                 number
+  tp1:                number
+  tp2:                number
+  tp3Trigger:         number
+  entreeLimite:       number
+  entreeStop:         number
+  niveauInvalidation: number
+  typeEntreeRec:      string  // "limite" | "stop"
 }
 
 const POLL_MS = 30_000

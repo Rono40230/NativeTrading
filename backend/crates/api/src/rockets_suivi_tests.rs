@@ -34,6 +34,10 @@ fn signal(
         llm_valide: None,
         llm_conviction: None,
         llm_raison: None,
+        trailing_coeff: None,
+        pct_tp1: 0.25,
+        pct_tp2: 0.25,
+        pct_trailing: 0.50,
     }
 }
 
@@ -124,11 +128,11 @@ fn tp2_deja_atteint_pas_de_re_declenchement() {
 #[test]
 fn retour_tp1_apres_tp2_invalide() {
     let s = signal(1.0, 0.90, 1.10, Some(1.20), Some(1.50), 0.05);
-    // peak = 1.25 → SL = TP1 = 1.10, prix retombe à 1.10 → invalide
+    // peak = 1.25 → trailing_stop = 1.25 - 0.05*2.0 = 1.15 → prix=1.10 < 1.15 → "TP3" (trailing)
     let peak = 1.25;
     assert_eq!(
         calculer_verdict_rocket(&s, 1.10, peak, peak),
-        Some("invalide")
+        Some("TP3")
     );
 }
 
@@ -146,7 +150,8 @@ fn entre_tp1_et_tp2_apres_tp2_depasse_aucun_verdict() {
 fn tp3_zone_trailing_stop_non_touche() {
     let s = signal(1.0, 0.90, 1.10, Some(1.20), Some(1.50), 0.05);
     let peak = 1.60;
-    let trailing = peak - 0.05 * 1.5;
+    // trailing_stop = peak - atr14 * coeff_default(2.0) = 1.60 - 0.10 = 1.50
+    let trailing = peak - 0.05 * 2.0;
     assert_eq!(
         calculer_verdict_rocket(&s, trailing + 0.01, peak, peak),
         None
@@ -157,7 +162,8 @@ fn tp3_zone_trailing_stop_non_touche() {
 fn tp3_zone_trailing_stop_touche() {
     let s = signal(1.0, 0.90, 1.10, Some(1.20), Some(1.50), 0.05);
     let peak = 1.60;
-    let trailing = peak - 0.05 * 1.5;
+    // trailing_stop = peak - atr14 * coeff_default(2.0) = 1.60 - 0.10 = 1.50
+    let trailing = peak - 0.05 * 2.0;
     assert_eq!(
         calculer_verdict_rocket(&s, trailing - 0.001, peak, peak),
         Some("TP3")

@@ -99,7 +99,11 @@ pub async fn score_debug(
     let en_kill_zone = kill_zone::est_en_kill_zone(derniere_ts);
     let nom_kz = kill_zone::nom_kill_zone(derniere_ts);
     let sweep = sweep::detecter_sweep(&bougies);
-    let score = if bougies.len() >= 30 { scorer(&bougies) } else { None };
+    let score = if bougies.len() >= 30 {
+        scorer(&bougies)
+    } else {
+        None
+    };
 
     // Diagnostiquer ce qui bloquerait le signal
     let mut bloqueurs: Vec<&str> = Vec::new();

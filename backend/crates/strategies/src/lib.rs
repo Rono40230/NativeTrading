@@ -1,6 +1,8 @@
 use common::{Candle, Direction, Result};
 
 pub mod rockets_indicateurs;
+pub mod rockets_niveaux;
+pub mod rockets_position;
 pub mod smc_directional;
 pub mod straddle;
 pub mod straddle_precision;

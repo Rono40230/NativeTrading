@@ -3,7 +3,7 @@
     <!-- En-tête -->
     <div class="mb-2 flex items-center justify-between shrink-0">
       <div class="flex items-center gap-3 flex-wrap">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-white">🚀 Veille Cryptos — Stratégie Rockets (variation 1h)</p>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-white">🚀 Surveillance Cryptos — Stratégie Rockets</p>
         <div class="flex items-center gap-3 text-[9px] font-medium">
           <span class="text-blue-400">🌀 Compression</span>
           <span class="text-yellow-400">⚡ Pré-lancement</span>
@@ -60,7 +60,18 @@
         @click.stop
       >
         <div class="flex items-center justify-between mb-2">
-          <span class="text-sm font-bold text-white">{{ hovered.ticker }}</span>
+          <div class="flex items-center gap-2.5">
+            <img
+              :src="cryptoLogoUrl(hovered.ticker)"
+              :alt="hovered.ticker"
+              class="w-8 h-8 rounded-full border border-white/10 bg-white/5 object-contain"
+              @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
+            />
+            <div>
+              <span class="text-sm font-bold text-white block">{{ hovered.ticker }}</span>
+              <span class="text-[10px] text-gray-400">{{ cryptoName(hovered.ticker) }}</span>
+            </div>
+          </div>
           <span class="text-[11px]">{{ icone(hovered.phase) }} <span class="text-gray-400 text-[10px]">{{ labelPhase(hovered.phase) }}</span></span>
         </div>
         <!-- Sparkline multi-TF -->
@@ -115,6 +126,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { SignalRocket, PhaseRocket } from '@/composables/useVeilleRockets'
+import { cryptoName, cryptoLogoUrl } from '@/composables/useCryptoMeta'
 import RocketsOpportunitesModal from '@/components/common/RocketsOpportunitesModal.vue'
 
 const props = defineProps<{
