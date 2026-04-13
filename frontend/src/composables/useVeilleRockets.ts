@@ -1,33 +1,69 @@
 import { ref } from 'vue'
 import { apiService } from '@/services/api.service'
+import type { RocketSignalHistorique } from '@/services/api.types'
 
 export type PhaseRocket = 'compression' | 'prelancement' | 'breakout'
 
 export interface SignalRocket {
-  symbol:             string
-  ticker:             string
-  prix:               number
-  change1h:           number
-  phase:              PhaseRocket
-  score:              number
-  ratioVolume:        number
-  atrRatio:           number
-  rsi:                number
-  support:            number
-  target20:           number
-  closes:             number[]
-  trailingCoeff:      number
-  sl:                 number
-  tp1:                number
-  tp2:                number
-  tp3Trigger:         number
-  entreeLimite:       number
-  entreeStop:         number
-  niveauInvalidation: number
-  typeEntreeRec:      string  // "limite" | "stop"
+  symbol:                string
+  ticker:                string
+  prix:                  number
+  change1h:              number
+  phase:                 PhaseRocket
+  score:                 number
+  ratioVolume:           number
+  atrRatio:              number
+  atr14:                 number
+  rsi:                   number
+  support:               number
+  target20:              number
+  closes:                number[]
+  trailingCoeff:         number
+  sl:                    number
+  tp1:                   number
+  tp2:                   number
+  tp3Trigger:            number
+  entreeLimite:          number
+  entreeStop:            number
+  niveauInvalidation:    number
+  typeEntreeRec:         string  // "limite" | "stop"
+  nbBougiesCompression:  number
+  tendanceHaussiere:     boolean
+  volumeSeche:           number  // <0.75 = assèchement VCP valide
+  ratioCorps:            number  // qualité bougie (0.0–1.0)
 }
 
 const POLL_MS = 30_000
+
+// ── Détection nouveaux signaux (partagée entre instances) ─────────────────────
+const dernierIdConnu = ref<number | null>(null)
+const signalAlerte   = ref<RocketSignalHistorique | null>(null)
+
+async function verifierNouveauxSignaux() {
+  try {
+    const liste = await apiService.historiqueRockets(5)
+    // Filtrer only attente/ouvert (signaux actifs, pas clôturés)
+    const actifs = liste.filter(s => s.statut === 'attente' || s.statut === 'ouvert')
+    if (actifs.length === 0) return
+    const plusRecent = actifs[0]
+    // Premier chargement : mémoriser sans alerter
+    if (dernierIdConnu.value === null) {
+      dernierIdConnu.value = plusRecent.id
+      return
+    }
+    // Nouveau signal détecté
+    if (plusRecent.id > dernierIdConnu.value) {
+      dernierIdConnu.value = plusRecent.id
+      signalAlerte.value = plusRecent
+    }
+  } catch {
+    // Silencieux
+  }
+}
+
+export function useRocketAlerte() {
+  return { signalAlerte }
+}
 
 export function useVeilleRockets() {
   const signaux        = ref<SignalRocket[]>([])
@@ -63,7 +99,9 @@ export function useVeilleRockets() {
 
   function demarrer() {
     scanner()
-    intervalle = setInterval(scanner, POLL_MS)
+    intervalle = setInterval(() => {
+      scanner()
+    }, POLL_MS)
   }
 
   function arreter() {

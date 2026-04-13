@@ -15,6 +15,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         web::get().to(crate::rockets_ml_handlers::get_feedback),
     )
     .route(
+        "/api/rockets/feedback/trader",
+        web::post().to(crate::rockets_ml_handlers::post_feedback_trader),
+    )
+    .route(
+        "/api/rockets/equity",
+        web::get().to(crate::rockets_ml_handlers::get_equity),
+    )
+    .route(
         "/api/rockets/signal",
         web::post().to(crate::rockets_handlers::sauvegarder_signal),
     )
@@ -43,5 +51,9 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         web::resource("/api/rockets/analyse-llm")
             .route(web::get().to(crate::rockets_analyse_handler::get_derniere_analyse))
             .route(web::post().to(crate::rockets_analyse_handler::lancer_analyse)),
+    )
+    .route(
+        "/api/rockets/analyse-opportunites",
+        web::post().to(crate::rockets_analyse_handler::analyser_opportunites),
     );
 }

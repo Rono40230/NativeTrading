@@ -39,6 +39,7 @@ export interface RocketSignalHistorique {
   id: number; ticker: string; phase: string; score: number
   prix_entree: number; stop_loss: number
   target: number; target2: number | null; target3: number | null
+  statut: string
   verdict: string | null; prix_verdict: number | null
   prix_peak: number | null; atr14: number | null; rsi: number
   ratio_volume: number; atr_ratio: number

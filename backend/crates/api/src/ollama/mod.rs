@@ -1,8 +1,9 @@
 mod contexte;
 pub mod diagram_templates;
-mod prompts;
+pub mod prompts;
 mod prompts_vision;
 pub mod rockets_analyse;
+pub mod rockets_contexte;
 pub mod rockets_filtre;
 pub mod smc_analyse;
 pub mod smc_confirm;

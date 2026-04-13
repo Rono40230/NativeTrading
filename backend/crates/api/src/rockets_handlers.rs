@@ -79,6 +79,10 @@ pub async fn sauvegarder_signal(
         pct_tp1: 0.25,
         pct_tp2: 0.25,
         pct_trailing: 0.50,
+        entree_limite: None,
+        entree_stop: None,
+        niveau_invalidation: None,
+        type_entree_rec: None,
     };
     match rockets::sauvegarder(pool, &nouveau).await {
         Ok(Some(id)) => HttpResponse::Ok().json(serde_json::json!({ "id": id, "nouveau": true })),
@@ -91,14 +95,24 @@ pub async fn sauvegarder_signal(
 }
 
 /// GET /api/rockets/scan — résultats du dernier scan worker
-pub async fn get_scan() -> impl Responder {
+pub async fn get_scan(state: web::Data<AppState>) -> impl Responder {
     use strategies::rockets_indicateurs::MAX_DISPLAY;
     let results = rockets_scan::get_scan_results();
     let total = rockets_scan::get_total_candidats();
     let locked = results.read().await;
     let nb_total = *total.read().await;
-    // Appliquer MAX_DISPLAY ici, pas dans le worker (le cache garde tout)
-    let signaux: Vec<_> = locked.iter().take(MAX_DISPLAY).collect();
+
+    // Exclure les tickers qui ont déjà un trade actif (statut='ouvert')
+    let tickers_actifs: std::collections::HashSet<String> = match rockets::lister_ouverts(state.db.pool()).await {
+        Ok(ouverts) => ouverts.into_iter().map(|s| s.ticker).collect(),
+        Err(_) => std::collections::HashSet::new(),
+    };
+
+    let signaux: Vec<_> = locked
+        .iter()
+        .filter(|r| !tickers_actifs.contains(&r.ticker))
+        .take(MAX_DISPLAY)
+        .collect();
     HttpResponse::Ok().json(serde_json::json!({
         "signaux": signaux,
         "total_candidats": nb_total,

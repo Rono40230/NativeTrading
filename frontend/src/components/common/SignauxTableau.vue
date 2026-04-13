@@ -6,7 +6,7 @@
       <span class="text-xs text-gray-500">{{ listeActive.length }} signal{{ listeActive.length !== 1 ? 's' : '' }}</span>
       <div class="flex gap-2 ml-auto">
         <button class="btn-sm" @click="charger">🔄 Actualiser</button>
-        <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse</button>
+        <button v-if="strategie !== 'Rockets'" class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse</button>
       </div>
     </div>
 
@@ -57,7 +57,7 @@
               <span v-else class="text-gray-700 text-xs">—</span>
             </td>
             <td class="px-3 py-3">
-              <span class="badge" :class="classeVerdictSignal(s.verdict)">{{ labelVerdictSignal(s.verdict) }}</span>
+              <span class="badge" :class="classeResultat(s)">{{ labelResultat(s) }}</span>
             </td>
             <td class="px-3 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
             <td v-if="strategie === 'SmcDirectional'" class="px-3 py-3 text-center">
@@ -103,7 +103,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Signal, RocketSignalHistorique } from '@/services/api.types'
 import { apiService } from '@/services/api.service'
@@ -172,8 +172,8 @@ function classePrix(s: Signal): string {
 
 const listeActive = computed(() =>
   signaux.value.filter(s => {
-    if (filtreStatut.value === 'en_cours') return s.verdict === null
-    if (filtreStatut.value === 'cloturees') return s.verdict !== null
+    if (filtreStatut.value === 'en_cours') return s.statut !== 'Fermé'
+    if (filtreStatut.value === 'cloturees') return s.statut === 'Fermé'
     return true
   })
 )
@@ -192,6 +192,24 @@ const signauxTries = computed(() => {
   })
 })
 
+function labelResultat(s: Signal): string {
+  if (props.strategie === 'Rockets' && s.statut !== 'Fermé') {
+    if (s.verdict === 'TP2') return '🔵 TP1+2 ✓ · Trail'
+    if (s.verdict === 'TP1') return '🟡 TP1 ✓ · BE actif'
+    return '⏳ En cours'
+  }
+  return labelVerdictSignal(s.verdict)
+}
+
+function classeResultat(s: Signal): string {
+  if (props.strategie === 'Rockets' && s.statut !== 'Fermé') {
+    if (s.verdict === 'TP2') return 'badge-green'
+    if (s.verdict === 'TP1') return 'badge-blue'
+    return 'badge-yellow'
+  }
+  return classeVerdictSignal(s.verdict)
+}
+
 async function charger() {
   chargement.value = true
   try {
@@ -199,7 +217,7 @@ async function charger() {
       rocketsRaw.value = await apiService.historiqueRockets(500)
       signaux.value = rocketsRaw.value.map(rocketToSignal)
       // Abonner les tickers des positions ouvertes au WS prix (1s)
-      const openTickers = rocketsRaw.value.filter(r => !r.verdict).map(r => r.ticker)
+      const openTickers = rocketsRaw.value.filter(r => r.statut !== 'ferme').map(r => r.ticker)
       if (openTickers.length > 0) prixStore.abonner(openTickers)
     } else {
       const data = await apiService.getSignaux(500)
@@ -215,7 +233,16 @@ async function charger() {
   }
 }
 
-onMounted(() => charger())
+let _poll: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  charger()
+  _poll = setInterval(() => charger(), 30_000)
+})
+
+onUnmounted(() => {
+  if (_poll !== null) { clearInterval(_poll); _poll = null }
+})
 </script>
 
 <style scoped>

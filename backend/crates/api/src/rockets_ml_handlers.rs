@@ -1,9 +1,11 @@
 //! Endpoints API pour le monitoring ML de la stratégie Rockets.
 //!
 //! Routes :
-//!   GET  /api/rockets/monitoring-ml  → stats globales + par phase + dérive
-//!   GET  /api/rockets/calibration    → seuils calibrés par phase+session
-//!   GET  /api/rockets/feedback       → historique des feedbacks filtrés
+//!   GET  /api/rockets/monitoring-ml      → stats globales + par phase + dérive
+//!   GET  /api/rockets/calibration        → seuils calibrés par phase+session
+//!   GET  /api/rockets/feedback           → historique des feedbacks filtrés
+//!   POST /api/rockets/feedback/trader    → saisie résultat trader
+//!   GET  /api/rockets/equity             → courbe equity simulée
 
 use actix_web::{web, HttpResponse, Responder};
 use serde::Deserialize;
@@ -18,12 +20,29 @@ pub struct QueryFeedback {
     pub limit: Option<i64>,
 }
 
+#[derive(Deserialize)]
+pub struct QueryEquity {
+    pub capital: Option<f64>,
+    pub risk_pct: Option<f64>,
+}
+
+#[derive(Deserialize)]
+pub struct BodyFeedbackTrader {
+    pub signal_id: i64,
+    /// "tp1" | "tp2" | "tp3" | "sl" | "ignore"
+    pub verdict: String,
+    pub prix_entree_reel: Option<f64>,
+    pub prix_sortie_reel: Option<f64>,
+    pub notes: Option<String>,
+}
+
+
 // ── GET /api/rockets/monitoring-ml ───────────────────────────────────────────
 
 pub async fn monitoring_ml(state: web::Data<AppState>) -> impl Responder {
     let pool = state.db.pool();
 
-    let globales = match db::rockets_feedback::stats_globales(pool).await {
+    let globales = match db::rockets_feedback_stats::stats_globales(pool).await {
         Ok(g) => g,
         Err(e) => {
             return HttpResponse::InternalServerError()
@@ -121,3 +140,62 @@ pub async fn get_feedback(
         }
     }
 }
+
+// ── POST /api/rockets/feedback/trader ────────────────────────────────────────
+
+pub async fn post_feedback_trader(
+    state: web::Data<AppState>,
+    body: web::Json<BodyFeedbackTrader>,
+) -> impl Responder {
+    let pool = state.db.pool();
+
+    let verdicts_valides = ["tp1", "tp2", "tp3", "sl", "ignore"];
+    if !verdicts_valides.contains(&body.verdict.as_str()) {
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({ "error": "verdict invalide (tp1|tp2|tp3|sl|ignore)" }));
+    }
+
+    match db::rockets_feedback_trader::saisir_verdict_trader(
+        pool,
+        body.signal_id,
+        &body.verdict,
+        body.prix_entree_reel.unwrap_or(0.0),
+        body.prix_sortie_reel,
+        body.notes.as_deref(),
+    )
+    .await
+    {
+        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
+        Err(e) => {
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
+        }
+    }
+}
+
+// ── GET /api/rockets/equity ───────────────────────────────────────────────────
+
+pub async fn get_equity(
+    state: web::Data<AppState>,
+    query: web::Query<QueryEquity>,
+) -> impl Responder {
+    let capital = query.capital.unwrap_or(10_000.0);
+    let risk_pct = query.risk_pct.unwrap_or(0.015);
+    let risk_montant = capital * risk_pct;
+    let pool = state.db.pool();
+
+    match db::rockets_feedback_stats::courbe_equity(pool, capital, risk_montant).await {
+        Ok(points) => {
+            let nb_trades = points.len() as i64;
+            HttpResponse::Ok().json(serde_json::json!({
+                "capital_initial": capital,
+                "risk_pct": risk_pct,
+                "nb_trades_saisis": nb_trades,
+                "points": points,
+            }))
+        }
+        Err(e) => {
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
+        }
+    }
+}
+

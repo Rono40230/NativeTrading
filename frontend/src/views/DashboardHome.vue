@@ -31,17 +31,25 @@
           @engine-demarrer="engineDemarrer"
           @engine-arreter="engineArreter"
         />
-        <!-- Surveillance Assets puis Alertes Cryptos en dessous -->
-        <SurveillanceAssets :assets="assetsDisplay" :chargement="assetsAvecPrix.length === 0" />
-        <StraddleVolatiliteBloc />
-        <!-- Veille Rockets -->
-        <VeilleRockets
-          :signaux="rockets.signaux.value"
-          :total-candidats="rockets.totalCandidats.value"
-          :chargement="rockets.chargement.value"
-          :erreur="rockets.erreur.value"
-          :progression="rockets.progression.value"
-        />
+        <!-- Barres SMC + Straddle -->
+        <div class="flex gap-2">
+          <div class="w-1/2 min-w-0"><SurveillanceAssets :assets="assetsDisplay" :chargement="assetsAvecPrix.length === 0" /></div>
+          <div class="w-1/2 min-w-0"><StraddleVolatiliteBloc /></div>
+        </div>
+
+        <!-- Ligne Rockets : VeilleRockets 1/5 + En attente 1/5 + Performance 3/5 -->
+        <div class="flex gap-2 items-stretch">
+          <div class="w-1/5 min-w-0 flex flex-col"><VeilleRockets
+            class="flex-1"
+            :signaux="rockets.signaux.value"
+            :total-candidats="rockets.totalCandidats.value"
+            :chargement="rockets.chargement.value"
+            :erreur="rockets.erreur.value"
+            :progression="rockets.progression.value"
+          /></div>
+          <div class="w-1/5 min-w-0 flex flex-col"><RocketsEnCoursBloc class="flex-1" /></div>
+          <div class="w-3/5 min-w-0"><RocketsPerfBloc /></div>
+        </div>
 
       </div>
     </div>
@@ -56,6 +64,7 @@
 
     </div>
   </div>
+
 </template>
 
 <script setup lang="ts">
@@ -78,6 +87,8 @@ import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
 import StraddleVolatiliteBloc from '@/components/common/StraddleVolatiliteBloc.vue'
 import VeilleRockets from '@/components/common/VeilleRockets.vue'
+import RocketsPerfBloc from '@/components/common/RocketsPerfBloc.vue'
+import RocketsEnCoursBloc from '@/components/common/RocketsEnCoursBloc.vue'
 import { useVeilleRockets } from '@/composables/useVeilleRockets'
 
 type VariationsMultiTF = { h1: number | null; h4: number | null; d1: number | null; w1: number | null; m1: number | null }

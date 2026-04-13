@@ -83,14 +83,23 @@ pub async fn maj_feedback_verdict(
     atr14: f64,
     timestamp_signal: i64,
 ) -> Result<()> {
+    // Normaliser en minuscules pour garantir la cohérence en DB
+    let verdict_lc = verdict.to_lowercase();
     let now = chrono::Utc::now().timestamp();
     let duree_min = (now - timestamp_signal) / 60;
-    let pnl_r = if atr14 > 0.0 {
-        (prix_verdict - prix_entree) / atr14
+
+    // Ne pas calculer pnl_r pour les signaux jamais entrés en position
+    let (pnl_r, gagnant): (Option<f64>, i64) = if verdict_lc == "invalide" || verdict_lc == "expire" {
+        (None, 0)
     } else {
-        0.0
+        let p = if atr14 > 0.0 {
+            (prix_verdict - prix_entree) / atr14
+        } else {
+            0.0
+        };
+        let g = if verdict_lc.starts_with("tp") { 1 } else { 0 };
+        (Some(p), g)
     };
-    let gagnant: i64 = if verdict.starts_with("tp") { 1 } else { 0 };
 
     sqlx::query(
         "UPDATE rockets_feedback
@@ -98,7 +107,7 @@ pub async fn maj_feedback_verdict(
              duree_trade_min = ?, ferme_le = ?
          WHERE signal_id = ?",
     )
-    .bind(verdict)
+    .bind(&verdict_lc)
     .bind(pnl_r)
     .bind(gagnant)
     .bind(duree_min)
@@ -140,61 +149,29 @@ pub async fn lister_recents_ticker_phase(
     Ok(rows.iter().map(mapper_row).collect())
 }
 
-/// Statistiques globales — pour le endpoint `/api/rockets/monitoring`.
-pub async fn stats_globales(pool: &SqlitePool) -> Result<serde_json::Value> {
-    let row = sqlx::query(
-        "SELECT COUNT(*) as nb_total,
-                SUM(CASE WHEN verdict IS NOT NULL THEN 1 ELSE 0 END) as nb_clos,
-                AVG(CASE WHEN verdict IS NOT NULL THEN gagnant END) as win_rate,
-                AVG(CASE WHEN verdict IS NOT NULL THEN pnl_r END) as pnl_moyen_r
-         FROM rockets_feedback",
-    )
-    .fetch_one(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
-
-    Ok(serde_json::json!({
-        "nb_signals_total":      row.get::<i64, _>("nb_total"),
-        "nb_feedbacks_clotures": row.get::<i64, _>("nb_clos"),
-        "win_rate_global":       row.get::<Option<f64>, _>("win_rate").unwrap_or(0.0),
-        "pnl_moyen_r":           row.get::<Option<f64>, _>("pnl_moyen_r").unwrap_or(0.0),
-        "derniere_maj":          chrono::Utc::now().timestamp(),
-    }))
-}
-
-/// Statistiques par phase — pour le monitoring ML.
-pub async fn stats_par_phase(pool: &SqlitePool) -> Result<Vec<serde_json::Value>> {
+/// Retourne un pool de feedbacks clôturés sur une phase, tous tickers confondus,
+/// pour permettre une sélection par similarité de profil côté appelant.
+pub async fn lister_pool_phase(
+    pool: &SqlitePool,
+    phase: &str,
+    limit: i64,
+) -> Result<Vec<RocketsFeedbackRow>> {
     let rows = sqlx::query(
-        "SELECT phase,
-                COUNT(*) as nb_trades,
-                SUM(gagnant) as nb_gagnants,
-                AVG(CASE WHEN gagnant = 1 THEN conviction_llm END) as conviction_win,
-                AVG(CASE WHEN gagnant = 0 THEN conviction_llm END) as conviction_lose,
-                AVG(pnl_r) as pnl_r_moyen
+        "SELECT id, signal_id, ticker, phase, session_active, timestamp_signal,
+                score_scan, conviction_llm, ratio_volume, atr_ratio, rsi,
+                verdict, pnl_r, gagnant, duree_trade_min, ferme_le, cree_le
          FROM rockets_feedback
-         WHERE verdict IS NOT NULL
-         GROUP BY phase
-         ORDER BY nb_trades DESC",
+         WHERE phase = ? AND verdict IS NOT NULL
+         ORDER BY cree_le DESC
+         LIMIT ?",
     )
+    .bind(phase)
+    .bind(limit)
     .fetch_all(pool)
     .await
     .map_err(|e| TradingError::Database(e.to_string()))?;
 
-    Ok(rows
-        .iter()
-        .map(|r| {
-            let nb: i64 = r.get("nb_trades");
-            let wins: i64 = r.get::<Option<i64>, _>("nb_gagnants").unwrap_or(0);
-            serde_json::json!({
-                "phase":           r.get::<String, _>("phase"),
-                "nb_trades":       nb,
-                "win_rate":        if nb > 0 { wins as f64 / nb as f64 } else { 0.0 },
-                "conviction_win":  r.get::<Option<f64>, _>("conviction_win"),
-                "conviction_lose": r.get::<Option<f64>, _>("conviction_lose"),
-                "pnl_r_moyen":     r.get::<Option<f64>, _>("pnl_r_moyen"),
-            })
-        })
-        .collect())
+    Ok(rows.iter().map(mapper_row).collect())
 }
 
 // ── Helper interne ────────────────────────────────────────────────────────────
@@ -243,3 +220,5 @@ pub async fn lister_recents_ticker_phase_like(
 
     Ok(rows.iter().map(mapper_row).collect())
 }
+
+

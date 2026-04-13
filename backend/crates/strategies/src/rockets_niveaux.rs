@@ -95,6 +95,11 @@ pub fn calculer_verdict_rocket(
     };
 
     if prix <= sl_effectif {
+        // position jamais ouverte (peak sous l'entrée) → invalide (-1R fixe)
+        // position ouverte (peak >= entrée) → sl (perte variable)
+        if peak >= s.prix_entree {
+            return Some("sl");
+        }
         return Some("invalide");
     }
 

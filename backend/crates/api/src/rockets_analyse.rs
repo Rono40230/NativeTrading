@@ -1,6 +1,7 @@
 //! Analyse technique d'un symbol Binance pour le scan Rockets.
 //! Séparé de rockets_scan.rs pour respecter la limite de 300 lignes.
 use db::rockets::RocketsConfig;
+use strategies::rockets_filtres::{calc_atr50, calc_contraction_qualite, calc_swing_amplitudes, calc_volume_seche};
 use strategies::rockets_indicateurs::{
     calc_atr, calc_ema, calc_nb_compression, calc_rsi, calculer_phase,
     ScanResultat, KLINES_N, LOOKBACK,
@@ -106,6 +107,12 @@ pub async fn analyser_symbol(
     let tendance_haussiere = calc_ema(&closes, 20) > calc_ema(&closes, 50);
     let nb_bougies_compression = calc_nb_compression(&highs, &lows, atr14);
 
+    // ── Filtres professionnels VCP ────────────────────────────────────────────
+    let atr50 = calc_atr50(&highs, &lows, &closes);
+    let volume_seche = calc_volume_seche(&volumes, nb_bougies_compression, LOOKBACK);
+    let contraction_qualite = calc_contraction_qualite(&highs, &lows, nb_bougies_compression);
+    let swing_amplitudes = calc_swing_amplitudes(&highs, &lows, nb_bougies_compression);
+
     let ctx_phase = strategies::rockets_indicateurs::ContextePhase {
         breakout,
         ratio_volume,
@@ -114,6 +121,11 @@ pub async fn analyser_symbol(
         change1h,
         nb_bougies_compression,
         tendance_haussiere,
+        volume_seche,
+        contraction_qualite,
+        atr50,
+        atr14,
+        ratio_corps,
     };
     let (phase, score) = calculer_phase(&ctx_phase, cfg)?;
     let trailing_coeff = calculer_trailing_coeff(score, atr_ratio, cfg);
@@ -155,5 +167,9 @@ pub async fn analyser_symbol(
         entree_stop,
         niveau_invalidation,
         type_entree_rec,
+        volume_seche,
+        contraction_qualite,
+        atr50,
+        swing_amplitudes,
     })
 }

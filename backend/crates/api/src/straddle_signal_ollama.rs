@@ -146,8 +146,6 @@ pub async fn appeler_ollama_et_publier(
     let _ = db::straddle_feedback::inserer_feedback(db.pool(), &fb).await;
 
     signal_engine.publier(signal.clone());
-    let (tok, cid) = crate::telegram::lire_tokens_telegram(db.as_ref()).await;
-    crate::telegram::notifier_telegram(signal, tok, cid);
 
     tracing::info!(
         "🌪️  Straddle auto signal générée {}/{} score={:.0}",

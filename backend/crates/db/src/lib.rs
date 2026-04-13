@@ -14,6 +14,8 @@ pub mod rockets_analyses;
 pub mod rockets_calibration;
 pub mod rockets_config;
 pub mod rockets_feedback;
+pub mod rockets_feedback_stats;
+pub mod rockets_feedback_trader;
 pub mod signaux;
 pub mod signaux_lecture;
 pub mod smc_calibration;

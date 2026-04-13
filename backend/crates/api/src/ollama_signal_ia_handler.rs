@@ -106,8 +106,6 @@ pub async fn generer_signal(
             if let Some(ref sig) = signal {
                 let _ = state.db.inserer_signal(sig).await;
                 state.signal_engine.publier(sig.clone());
-                let (tok, cid) = crate::telegram::lire_tokens_telegram(&state.db).await;
-                crate::telegram::notifier_telegram(sig.clone(), tok, cid);
             }
 
             HttpResponse::Ok().json(ReponseSignalIA {

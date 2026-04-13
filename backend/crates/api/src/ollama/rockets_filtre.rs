@@ -55,137 +55,26 @@ pub struct SignalCandidat {
     pub niveau_invalidation: f64,
     /// Type d'entrée recommandé par l'algo : "limite" ou "stop"
     pub type_entree_rec_algo: String,
+    /// Ratio volume compression vs baseline (VCP) : <0.75 = assèchement valide
+    pub volume_seche: f64,
+    /// Score 0.0–1.0 progressivité des contractions (VCP Minervini) : >0.7 = valide
+    pub contraction_qualite: f64,
+    /// ATR 50 périodes (référence long terme)
+    pub atr50: f64,
+    /// Série ordonnée des amplitudes (high−low) des bougies de compression (la plus ancienne en premier).
+    /// Décroissante = VCP authentique. Vide si < 2 bougies en compression.
+    pub swing_amplitudes: Vec<f64>,
+    /// Session de marché active : "london" | "ny" | "asia" | "off"
+    pub session: String,
+    /// Contexte marché global 48h : (nb_trades, win_rate 0.0–1.0, pnl_moyen_r)
+    pub tendance_marche_48h: (i64, f64, f64),
 }
 
-// ── Formatage du contexte ─────────────────────────────────────────────────────
+// ── Formatage du contexte (délégué à rockets_contexte.rs) ────────────────────
 
-fn formater_contexte(candidat: &SignalCandidat, historique: &[RocketSignal]) -> String {
-    let mut ctx = format!(
-        "=== SIGNAL CANDIDAT : {} ===\n\
-        Phase: {} | Score: {}/100\n\
-        Prix entrée: {:.6} | SL: {:.6} | TP1: {:.6}\n\
-        Entrée limite: {:.6} | Entrée stop: {:.6} | Invalidation: {:.6}\n\
-        Type entrée algo: {} \n\
-        ATR14: {:.6} | ATR ratio (accélération): {:.2}\n\
-        Volume ratio: {:.2}× | RSI: {:.1} | Change 1h: {:.2}%\n\
-        Ratio corps/mèche bougie: {:.2} (1.0=pleine, <0.3=rejet probable)\n\
-        Tendance préalable (EMA20>EMA50): {} | Compression: {} bougies | Hauteur base (measured move): {:.6}\n\n",
-        candidat.ticker,
-        candidat.phase,
-        candidat.score,
-        candidat.prix_entree,
-        candidat.stop_loss,
-        candidat.tp1,
-        candidat.entree_limite,
-        candidat.entree_stop,
-        candidat.niveau_invalidation,
-        candidat.type_entree_rec_algo,
-        candidat.atr14,
-        candidat.atr_ratio,
-        candidat.ratio_volume,
-        candidat.rsi,
-        candidat.change1h,
-        candidat.ratio_corps,
-        if candidat.tendance_haussiere { "✅ oui" } else { "❌ non" },
-        candidat.nb_bougies_compression,
-        candidat.hauteur_base,
-    );
-
-    if historique.is_empty() {
-        ctx.push_str("=== HISTORIQUE : Aucun trade clôturé sur ce ticker ===\n");
-        return ctx;
-    }
-
-    ctx.push_str(&format!(
-        "=== HISTORIQUE {} ({} trades clôturés) ===\n",
-        candidat.ticker,
-        historique.len()
-    ));
-
-    let gains = historique
-        .iter()
-        .filter(|s| {
-            s.verdict
-                .as_deref()
-                .map(|v| matches!(v, "TP1" | "TP2" | "TP3" | "confirme"))
-                .unwrap_or(false)
-        })
-        .count();
-    let winrate = gains * 100 / historique.len();
-
-    let rs: Vec<f64> = historique
-        .iter()
-        .filter_map(|s| {
-            let pv = s.prix_verdict?;
-            let risk = s.prix_entree - s.stop_loss;
-            if risk <= 0.0 {
-                return None;
-            }
-            Some((pv - s.prix_entree) / risk)
-        })
-        .collect();
-    let r_moyen = if rs.is_empty() {
-        0.0
-    } else {
-        rs.iter().sum::<f64>() / rs.len() as f64
-    };
-
-    ctx.push_str(&format!(
-        "Winrate: {}% | R moyen: {:.2}R\n",
-        winrate, r_moyen
-    ));
-
-    ctx.push_str("Derniers résultats :\n");
-    for s in historique.iter().take(5) {
-        let verdict = s.verdict.as_deref().unwrap_or("?");
-        let r_str = s
-            .prix_verdict
-            .and_then(|pv| {
-                let risk = s.prix_entree - s.stop_loss;
-                if risk > 0.0 {
-                    Some(format!("{:.2}R", (pv - s.prix_entree) / risk))
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_else(|| "?R".to_string());
-        ctx.push_str(&format!(
-            "  • {} | phase={} score={} RSI={:.0} vol={:.1}× → {} ({})\n",
-            s.ticker, s.phase, s.score, s.rsi, s.ratio_volume, verdict, r_str
-        ));
-    }
-
-    ctx
-}
+use crate::ollama::rockets_contexte::{construire_few_shot, formater_contexte};
 
 // ── Appel LLM avec timeout 90s ───────────────────────────────────────────────
-
-/// Construit le bloc "leçons passées" injecté dans le prompt few-shot.
-fn construire_few_shot(feedbacks: &[RocketsFeedbackRow]) -> String {
-    if feedbacks.is_empty() {
-        return String::new();
-    }
-    let mut bloc = String::from("=== LEÇONS PASSÉES (signaux similaires clôturés) ===\n");
-    for fb in feedbacks {
-        let resultat = if fb.gagnant == Some(1) {
-            "✅ GAGNANT"
-        } else {
-            "❌ PERDANT"
-        };
-        let pnl = fb.pnl_r.map(|r| format!("{:.2}R", r)).unwrap_or_default();
-        bloc.push_str(&format!(
-            "  • {} | score={} conviction={} RSI={:.0} vol={:.1}× → {} {}\n",
-            fb.verdict.as_deref().unwrap_or("?"),
-            fb.score_scan,
-            fb.conviction_llm,
-            fb.rsi,
-            fb.ratio_volume,
-            resultat,
-            pnl,
-        ));
-    }
-    bloc
-}
 
 pub async fn filtrer_signal(
     candidat: &SignalCandidat,
@@ -249,6 +138,44 @@ pub async fn filtrer_signal(
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
 
-    serde_json::from_str::<FiltreReponse>(&texte[debut..fin])
-        .map_err(|e| TradingError::Api(format!("JSON filtre non parsable: {}", e)))
+    if let Ok(reponse) = serde_json::from_str::<FiltreReponse>(&texte[debut..fin]) {
+        return Ok(reponse);
+    }
+
+    // Retry avec prompt minimaliste si le JSON est malformé
+    tracing::warn!(
+        ticker = %candidat.ticker,
+        "JSON Ollama malformé — retry prompt simplifié"
+    );
+    let prompt_retry = format!(
+        "Réponds UNIQUEMENT avec ce JSON exact, sans aucun autre texte :\n\
+        {{\"valide\": true, \"conviction\": 60, \"raison\": \"...\"}}\n\n\
+        Signal : {} phase={} score={} RSI={:.0} atr_ratio={:.2}\n\
+        Question : ce signal Rockets vaut-il la peine d'être tradé ?",
+        candidat.ticker, candidat.phase, candidat.score, candidat.rsi, candidat.atr_ratio
+    );
+    let corps_retry = serde_json::json!({
+        "model": modele,
+        "messages": [{"role": "user", "content": prompt_retry}],
+        "stream": false,
+        "options": { "temperature": 0.0, "num_predict": 64 }
+    });
+    let reponse_retry = client
+        .post(&url)
+        .json(&corps_retry)
+        .send()
+        .await
+        .map_err(|e| TradingError::Api(format!("Ollama retry timeout: {}", e)))?;
+
+    let data_retry: OllamaResp = reponse_retry
+        .json()
+        .await
+        .map_err(|e| TradingError::Api(format!("JSON retry Ollama: {}", e)))?;
+
+    let texte_retry = data_retry.message.content;
+    let debut_r = texte_retry.find('{').unwrap_or(0);
+    let fin_r = texte_retry.rfind('}').map(|i| i + 1).unwrap_or(texte_retry.len());
+
+    serde_json::from_str::<FiltreReponse>(&texte_retry[debut_r..fin_r])
+        .map_err(|e| TradingError::Api(format!("JSON filtre non parsable après retry: {}", e)))
 }

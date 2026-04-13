@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse, Responder};
 use db::rockets;
-use db::rockets_config;
+use sqlx::Row;
 use std::time::Duration;
 
 use crate::rockets_prix::{fetch_prix, reconcilier_feedback};
@@ -77,6 +77,85 @@ pub async fn sync_verdicts(state: web::Data<AppState>) -> impl Responder {
     }))
 }
 
+// ── POST /api/rockets/sync-feedback ──────────────────────────────────────────
+
+/// Rétro-synchronise rockets_feedback pour tous les trades déjà clôturés
+/// dont le pnl_r est encore NULL (trades fermés avant la mise en place du feedback).
+#[allow(dead_code)]
+pub async fn sync_feedback_historique(state: web::Data<AppState>) -> impl Responder {
+    let pool = state.db.pool();
+
+    let rows = match sqlx::query(
+        "SELECT rs.id, rs.ticker, rs.verdict, rs.prix_entree, rs.prix_verdict, rs.atr14, rs.cree_le
+         FROM rockets_signaux rs
+         LEFT JOIN rockets_feedback rf ON rf.signal_id = rs.id
+         WHERE rs.verdict IS NOT NULL
+           AND rs.verdict NOT IN ('invalide', 'expire')
+           AND rs.prix_verdict IS NOT NULL
+           AND (rf.pnl_r IS NULL OR rf.id IS NULL)
+         ORDER BY rs.cree_le ASC",
+    )
+    .fetch_all(pool)
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": e.to_string() }))
+        }
+    };
+
+    let total = rows.len() as u32;
+    let mut synces = 0u32;
+
+    for row in &rows {
+        let signal_id: i64 = row.get("id");
+        let ticker: String = row.get("ticker");
+        let verdict: String = row.get("verdict");
+        let prix_entree: f64 = row.get("prix_entree");
+        let prix_verdict: f64 = row.get("prix_verdict");
+        let atr14: Option<f64> = row.try_get("atr14").ok().flatten();
+        let cree_le: String = row.get("cree_le");
+
+        // Créer la ligne feedback si elle n'existe pas
+        let _ = sqlx::query(
+            "INSERT OR IGNORE INTO rockets_feedback
+             (signal_id, ticker, phase, session_active, timestamp_signal,
+              score_scan, conviction_llm, ratio_volume, atr_ratio, rsi)
+             SELECT rs.id, rs.ticker, rs.phase, 'retrosynced',
+                    strftime('%s', rs.cree_le),
+                    COALESCE(rs.score, 0), 0,
+                    COALESCE(rs.ratio_volume, 1.0),
+                    COALESCE(rs.atr_ratio, 1.0),
+                    COALESCE(rs.rsi, 50.0)
+             FROM rockets_signaux rs WHERE rs.id = ?",
+        )
+        .bind(signal_id)
+        .execute(pool)
+        .await;
+
+        reconcilier_feedback(
+            pool,
+            &ticker,
+            signal_id,
+            &verdict,
+            prix_entree,
+            prix_verdict,
+            atr14,
+            &cree_le,
+        )
+        .await;
+
+        synces += 1;
+        tracing::info!("Rétro-sync feedback Rockets {} id={} verdict={}", ticker, signal_id, verdict);
+    }
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "total_eligibles": total,
+        "synces": synces,
+    }))
+}
+
 // ── Worker de suivi ──────────────────────────────────────────────────────────
 
 /// Worker lancé au démarrage : toutes les 3min, gère cycle de vie complet.
@@ -94,157 +173,7 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
 
     loop {
         tokio::time::sleep(Duration::from_secs(3 * 60)).await;
-
-        // 1. Expirer les signaux EN ATTENTE depuis >6h (position jamais ouverte)
-        if let Ok(n) = rockets::marquer_expires(&pool).await {
-            if n > 0 {
-                tracing::info!("Rockets: {} signal(s) expirés (jamais entrés)", n);
-            }
-        }
-
-        // 2. Signaux en attente : SL touché avant entrée → invalide, sinon ouvrir si prix atteint
-        let en_attente = match rockets::lister_en_attente(&pool).await {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::warn!("Worker rockets attente: {}", e);
-                continue;
-            }
-        };
-        for s in &en_attente {
-            let Some(prix) = fetch_prix(&client, &s.ticker).await else {
-                continue;
-            };
-            if prix <= s.stop_loss {
-                if let Err(e) = rockets::maj_verdict(&pool, s.id, "invalide", prix).await {
-                    tracing::warn!("Rocket {} SL avant entrée: {}", s.ticker, e);
-                } else {
-                    tracing::info!(
-                        "Rocket {} → invalide (SL avant entrée) @ {:.5}",
-                        s.ticker,
-                        prix
-                    );
-                    reconcilier_feedback(
-                        &pool,
-                        &s.ticker,
-                        s.id,
-                        "invalide",
-                        s.prix_entree,
-                        prix,
-                        s.atr14,
-                        &s.cree_le,
-                    )
-                    .await;
-                    db::ml_samples::sauvegarder_sample(
-                        &pool,
-                        &db::ml_samples::MlSample {
-                            strategie: "ROCKETS".to_string(),
-                            asset: s.ticker.clone(),
-                            timeframe: "M5".to_string(),
-                            direction: "LONG".to_string(),
-                            prix_entree: s.prix_entree,
-                            prix_sortie: prix,
-                            stop_loss: s.stop_loss,
-                            outcome: "invalide".to_string(),
-                            rr_realise: Some(-1.0),
-                        },
-                    )
-                    .await
-                    .ok();
-                }
-            } else if prix >= s.prix_entree {
-                if let Err(e) = rockets::entrer_position(&pool, s.id).await {
-                    tracing::warn!("Rocket {} entrée position: {}", s.ticker, e);
-                } else {
-                    tracing::info!("Rocket {} → ouvert @ {:.5}", s.ticker, prix);
-                }
-            }
-        }
-
-        // 3. Signaux OUVERTS : TP pyramidal + trailing TP3 + SL
-        let config = rockets_config::lire_config(&pool).await;
-        let signaux = match rockets::lister_ouverts(&pool).await {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::warn!("Worker rockets ouverts: {}", e);
-                continue;
-            }
-        };
-        for s in &signaux {
-            let Some(prix) = fetch_prix(&client, &s.ticker).await else {
-                continue;
-            };
-
-            let peak_precedent = s.prix_peak.unwrap_or(s.prix_entree);
-            let peak = peak_precedent.max(prix);
-            if peak > peak_precedent {
-                if let Err(e) = rockets::maj_prix_peak(&pool, s.id, peak).await {
-                    tracing::warn!("Rocket {} maj peak: {}", s.ticker, e);
-                }
-            }
-
-            match calculer_verdict_rocket(s, prix, peak, peak_precedent) {
-                Some(v @ "TP1") | Some(v @ "TP2") => {
-                    if config.vente_partielle {
-                        // Option 1 : vente partielle ⅓ — position reste ouverte
-                        if let Err(e) = rockets::enregistrer_tp_partiel(&pool, s.id, v, prix).await
-                        {
-                            tracing::warn!("Rocket {} tp partiel: {}", s.ticker, e);
-                        } else {
-                            tracing::info!("Rocket {} → {} partiel @ {:.5}", s.ticker, v, prix);
-                        }
-                    } else {
-                        // Option 2 : pas de vente — SL progresse via peak, on logue seulement
-                        tracing::info!(
-                            "Rocket {} → {} (SL progresse, Option 2) @ {:.5}",
-                            s.ticker,
-                            v,
-                            prix
-                        );
-                    }
-                }
-                Some(v) => {
-                    if let Err(e) = rockets::maj_verdict(&pool, s.id, v, prix).await {
-                        tracing::warn!("Worker rockets verdict: {}", e);
-                    } else {
-                        tracing::info!("Rocket {} → {} @ {:.5}", s.ticker, v, prix);
-                        reconcilier_feedback(
-                            &pool,
-                            &s.ticker,
-                            s.id,
-                            v,
-                            s.prix_entree,
-                            prix,
-                            s.atr14,
-                            &s.cree_le,
-                        )
-                        .await;
-                        let risque = (s.prix_entree - s.stop_loss).abs().max(f64::EPSILON);
-                        let rr = if v == "sl" {
-                            -((s.prix_entree - prix).abs() / risque)
-                        } else {
-                            (prix - s.prix_entree).abs() / risque
-                        };
-                        db::ml_samples::sauvegarder_sample(
-                            &pool,
-                            &db::ml_samples::MlSample {
-                                strategie: "ROCKETS".to_string(),
-                                asset: s.ticker.clone(),
-                                timeframe: "M5".to_string(),
-                                direction: "LONG".to_string(),
-                                prix_entree: s.prix_entree,
-                                prix_sortie: prix,
-                                stop_loss: s.stop_loss,
-                                outcome: v.to_string(),
-                                rr_realise: Some(rr),
-                            },
-                        )
-                        .await
-                        .ok();
-                    }
-                }
-                None => {}
-            }
-        }
+        crate::rockets_suivi_worker::executer_cycle_suivi(&pool, &client).await;
     }
 }
 

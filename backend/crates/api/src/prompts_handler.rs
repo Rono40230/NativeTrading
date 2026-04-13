@@ -3,6 +3,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs;
 
+use crate::ollama::prompts::PROMPT_ANALYSE_OPPORTUNITES;
 use crate::ollama::rockets_analyse::PROMPT_ANALYSE_ROCKETS;
 use crate::ollama::smc_analyse::PROMPT_ANALYSE_SMC;
 use crate::ollama::smc_filtre::PROMPT_FILTRE_SMC;
@@ -19,6 +20,7 @@ fn defaults() -> HashMap<&'static str, &'static str> {
     let mut m = HashMap::new();
     m.insert("rockets_filtre", PROMPT_FILTRE_ROCKET);
     m.insert("rockets_analyse", PROMPT_ANALYSE_ROCKETS);
+    m.insert("rockets_opportunites", PROMPT_ANALYSE_OPPORTUNITES);
     m.insert("smc_filtre", PROMPT_FILTRE_SMC);
     m.insert("smc_signal", PROMPT_SIGNAL_SMC);
     m.insert("smc_analyse", PROMPT_ANALYSE_SMC);

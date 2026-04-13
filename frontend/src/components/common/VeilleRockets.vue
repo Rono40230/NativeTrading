@@ -1,55 +1,57 @@
 <template>
-  <div class="glass-card p-4">
-    <!-- En-tête -->
-    <div class="mb-2 flex items-center justify-between shrink-0">
-      <div class="flex items-center gap-3 flex-wrap">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-white">🚀 Surveillance Cryptos — Stratégie Rockets</p>
-        <div class="flex items-center gap-3 text-[9px] font-medium">
-          <span class="text-blue-400">🌀 Compression</span>
-          <span class="text-yellow-400">⚡ Pré-lancement</span>
-          <span class="text-emerald-400">🚀 Breakout</span>
-        </div>
-        <span class="text-[9px] text-gray-600">{{ labelCandidats }}</span>
+  <div class="rocket-bar px-4 py-2.5 flex flex-col gap-1.5 cursor-pointer hover:bg-white/5 transition-colors h-full" @click="modalSurveillance = true">
+    <!-- Header -->
+    <div class="flex items-center justify-between shrink-0">
+      <p class="text-[11px] font-semibold uppercase tracking-widest text-orange-400">🚀 Rockets</p>
+      <span class="text-[9px] text-gray-600">{{ countdown }}s ▸</span>
+    </div>
+
+    <!-- Chargement -->
+    <template v-if="chargement">
+      <span class="text-[10px] text-orange-400 animate-pulse">Scan {{ progression }}%</span>
+    </template>
+
+    <!-- Top 5 liste -->
+    <template v-else-if="signaux.length > 0">
+      <div v-for="s in top5" :key="s.symbol" class="flex items-center gap-1.5">
+        <span class="text-[10px] font-bold text-white w-14 truncate shrink-0">{{ s.ticker }}</span>
+        <span class="text-[10px] font-semibold shrink-0" :class="s.change1h >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ s.change1h >= 0 ? '+' : '' }}{{ s.change1h.toFixed(2) }}%</span>
+        <span class="text-[9px] ml-auto shrink-0">{{ icone(s.phase) }}</span>
+      </div>
+    </template>
+
+    <!-- Vide -->
+    <template v-else>
+      <span class="text-[10px] text-gray-500 italic">Aucun candidat</span>
+    </template>
+
+    <!-- Footer -->
+    <div class="mt-auto shrink-0">
+      <span class="text-[9px] text-gray-600">{{ signaux.length }} candidats</span>
+    </div>
+  </div>
+
+  <ModalSurveillance :visible="modalSurveillance" titre="🚀 Surveillance Cryptos — Stratégie Rockets" @close="modalSurveillance = false">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <div class="flex items-center gap-3 text-[9px] font-medium">
+        <span class="text-blue-400">🌀 Compression</span>
+        <span class="text-yellow-400">⚡ Pré-lancement</span>
+        <span class="text-emerald-400">🚀 Breakout</span>
+        <span class="text-gray-600">{{ labelCandidats }}</span>
       </div>
       <div class="flex items-center gap-2">
         <span v-if="erreur" class="text-[10px] text-red-400">Erreur Binance</span>
-        <span v-if="chargement" class="text-[9px] text-orange-400">{{ progression }}%</span>
-        <div v-if="chargement" class="h-2 w-2 animate-pulse rounded-full bg-orange-500" />
-        <span v-else-if="signaux.length > 0" class="text-[9px] text-gray-600">{{ countdown }}s</span>
-        <button
-          v-if="signaux.length > 0"
-          class="text-[10px] font-semibold text-orange-300 hover:text-orange-100 border border-orange-500/40 hover:border-orange-400/70 rounded-lg px-2.5 py-1 transition-all hover:bg-orange-500/10"
-          @click="modalOuverte = true"
-        >Opportunités ▸</button>
+        <button v-if="signaux.length > 0" class="text-[10px] font-semibold text-orange-300 hover:text-orange-100 border border-orange-500/40 rounded-lg px-2.5 py-1 transition-all hover:bg-orange-500/10" @click.stop="modalOuverte = true">Opportunités ▸</button>
       </div>
     </div>
 
-    <!-- Vide -->
-    <div v-if="signaux.length === 0 && !chargement" class="flex items-center justify-center py-5 text-xs text-gray-500">
-      Aucun signal Rocket détecté pour l'instant
+    <div v-if="signaux.length === 0" class="flex items-center justify-center py-10 text-xs">
+      <span :class="chargement ? 'text-orange-400 animate-pulse' : 'text-gray-500'">{{ chargement ? `Scan en cours… ${progression}%` : 'Aucun signal Rocket détecté pour l\'instant' }}</span>
     </div>
-
-    <!-- Squelette -->
-    <div v-else-if="signaux.length === 0 && chargement" class="grid grid-cols-8 gap-2">
-      <div v-for="n in 10" :key="n" class="rounded-lg border border-white/5 bg-white/5 h-[36px] animate-pulse" />
+    <div v-else class="grid grid-cols-4 gap-3">
+      <RocketCard v-for="s in signaux" :key="s.symbol" :s="s" @click="onCardClick($event, s)" />
     </div>
-
-    <!-- Grille 5 colonnes, scroll 3 lignes -->
-    <div v-else class="grid grid-cols-8 gap-2 overflow-y-auto scroll-zone" style="max-height: calc(2 * 44px + 1 * 8px)">
-      <div
-        v-for="s in signaux"
-        :key="s.symbol"
-        class="rounded-lg border px-2.5 py-1.5 flex items-center gap-1.5 cursor-pointer transition-colors hover:brightness-125"
-        :class="classeCard(s.phase)"
-        @click.stop="onCardClick($event, s)"
-      >
-        <span class="text-[11px] font-bold text-white truncate flex-1 min-w-0">{{ s.ticker }}</span>
-        <span class="text-[10px] shrink-0">{{ icone(s.phase) }}</span>
-        <span class="text-[10px] font-bold shrink-0" :class="s.change1h >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ s.change1h >= 0 ? '+' : '' }}{{ s.change1h.toFixed(2) }}%</span>
-        <span class="text-[9px] shrink-0" :class="s.ratioVolume >= 2 ? 'text-orange-400 font-bold' : 'text-gray-400'">{{ s.ratioVolume.toFixed(1) }}×</span>
-      </div>
-    </div>
-  </div>
+  </ModalSurveillance>
 
   <Teleport to="body">
     <Transition name="tooltip">
@@ -107,7 +109,7 @@
           <div class="flex justify-between"><span class="text-gray-500">Variation {{ selectedTF }}</span><span :class="variationTF >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ variationTF >= 0 ? '+' : '' }}{{ variationTF.toFixed(2) }}%</span></div>
           <div class="flex justify-between"><span class="text-gray-500">Volume spike</span><span :class="hovered.ratioVolume >= 2 ? 'text-orange-400' : 'text-gray-300'">{{ hovered.ratioVolume.toFixed(2) }}×</span></div>
           <div class="flex justify-between"><span class="text-gray-500">ATR ratio</span><span :class="hovered.atrRatio < 0.75 ? 'text-blue-400' : 'text-gray-300'">{{ hovered.atrRatio.toFixed(2) }}</span></div>
-          <div class="flex justify-between"><span class="text-gray-500">RSI (14)</span><span :class="hovered.rsi > 70 ? 'text-orange-400' : hovered.rsi > 60 ? 'text-emerald-400' : 'text-gray-300'">{{ hovered.rsi.toFixed(1) }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">RSI (14)</span><span :class="labelRsi(hovered.rsi).classe">{{ hovered.rsi.toFixed(1) }} — {{ labelRsi(hovered.rsi).label }}</span></div>
           <div class="border-t border-white/10 pt-1.5 mt-1.5 space-y-1">
             <div class="flex justify-between"><span class="text-gray-500">Support / SL</span><span class="text-red-400 font-mono">{{ formatPrix(hovered.support) }}</span></div>
             <div class="flex justify-between"><span class="text-gray-500">Résistance / TP</span><span class="text-emerald-400 font-mono">{{ formatPrix(hovered.target20) }}</span></div>
@@ -128,6 +130,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { SignalRocket, PhaseRocket } from '@/composables/useVeilleRockets'
 import { cryptoName, cryptoLogoUrl } from '@/composables/useCryptoMeta'
 import RocketsOpportunitesModal from '@/components/common/RocketsOpportunitesModal.vue'
+import ModalSurveillance from '@/components/common/ModalSurveillance.vue'
+import RocketCard from '@/components/common/RocketCard.vue'
 
 const props = defineProps<{
   signaux: SignalRocket[]
@@ -157,6 +161,15 @@ function labelPhase(phase: PhaseRocket): string {
   return 'Compression'
 }
 
+function labelRsi(rsi: number): { label: string; classe: string } {
+  if (rsi < 40) return { label: 'survendu',  classe: 'text-blue-400' }
+  if (rsi < 50) return { label: 'neutre↓',   classe: 'text-gray-400' }
+  if (rsi < 65) return { label: 'idéal ✓',   classe: 'text-emerald-400' }
+  if (rsi < 75) return { label: 'momentum',  classe: 'text-yellow-400' }
+  if (rsi < 85) return { label: 'chaud',     classe: 'text-orange-400' }
+  return               { label: 'extrême !', classe: 'text-red-400' }
+}
+
 function classeCard(phase: PhaseRocket): string {
   if (phase === 'breakout')    return 'border-emerald-500/50 bg-emerald-500/10'
   if (phase === 'prelancement') return 'border-yellow-500/40 bg-yellow-500/[0.08]'
@@ -178,6 +191,13 @@ const TF_CONFIGS = [
 const hoveredSymbol = ref<string | null>(null)
 const hovered = computed(() => hoveredSymbol.value ? props.signaux.find(s => s.symbol === hoveredSymbol.value) ?? null : null)
 const modalOuverte = ref(false)
+const modalSurveillance = ref(false)
+const topSignal = computed(() =>
+  props.signaux.length > 0 ? [...props.signaux].reduce((best, s) => s.score > best.score ? s : best) : null
+)
+const top5 = computed(() =>
+  [...props.signaux].sort((a, b) => b.score - a.score).slice(0, 5)
+)
 const pos = ref({ x: 0, y: 0 })
 const selectedTF = ref('1H')
 const sparklineTF = ref<number[]>([])
@@ -254,6 +274,8 @@ onUnmounted(() => {
 
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
+.glass-bar  { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
+.rocket-bar { @apply rounded-xl border-2 border-orange-500/50 bg-white/5 backdrop-blur-sm; }
 .scroll-zone { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
 .scroll-zone::-webkit-scrollbar { width: 4px; }
 .scroll-zone::-webkit-scrollbar-track { background: transparent; }

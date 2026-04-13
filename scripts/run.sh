@@ -16,6 +16,13 @@ if ! command -v npm &>/dev/null; then
   [ -n "$NVM_NODE_BIN" ] && export PATH="$NVM_NODE_BIN:$PATH"
 fi
 
+# ─── Fuseau horaire système pour Tauri/WebKit ──────────────────────────────
+# WebKit sur Linux peut ignorer /etc/localtime — on force explicitement.
+if [ -z "$TZ" ]; then
+  SYS_TZ=$(cat /etc/timezone 2>/dev/null || timedatectl show -p Timezone --value 2>/dev/null || echo '')
+  [ -n "$SYS_TZ" ] && export TZ="$SYS_TZ"
+fi
+
 echo "🚀 Native Trading AI — démarrage..."
 
 # ─── Démarrage Ollama (si pas déjà lancé) ────────────────────────────────────

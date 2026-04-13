@@ -4,7 +4,8 @@
 use crate::signal_engine::SignalEngine;
 use crate::straddle_categorisation::session_active;
 use db::rockets::{self, NouveauRocket};
-use db::rockets_feedback::{inserer_feedback, lister_recents_ticker_phase, NouveauFeedbackRocket};
+use db::rockets_feedback::{inserer_feedback, lister_pool_phase, lister_recents_ticker_phase, NouveauFeedbackRocket};
+use db::rockets_feedback_stats::taux_reussite_recent;
 use std::sync::Arc;
 use strategies::rockets_indicateurs::ScanResultat;
 use strategies::rockets_position::calculer_split_vente;
@@ -48,9 +49,44 @@ pub async fn filtrer_sauvegarder_publier(
 ) {
     let session = session_active(chrono::Utc::now());
     let seuils = db::rockets_calibration::charger_seuils(pool, phase_sauvegardee, &session).await;
-    let feedbacks = lister_recents_ticker_phase(pool, &r.ticker, phase_sauvegardee, 5)
-        .await
-        .unwrap_or_default();
+
+    // Contexte de marché global : taux de réussite des 48 dernières heures
+    let (nb_recent, wr_recent, pnl_recent) = taux_reussite_recent(pool, 48).await;
+
+    // Sélection des feedbacks few-shot par similarité de profil :
+    // On charge un pool large sur la phase (tous tickers), puis on trie par distance
+    // sur les 3 axes les plus discriminants (ratio_volume, atr_ratio, rsi).
+    // Si le ticker a lui-même suffisamment d'historique, ses trades propres sont prioritaires.
+    let feedbacks = {
+        let propres = lister_recents_ticker_phase(pool, &r.ticker, phase_sauvegardee, 5)
+            .await
+            .unwrap_or_default();
+        if propres.len() >= 5 {
+            propres
+        } else {
+            // Compléter avec le pool large trié par similarité
+            let pool_large = lister_pool_phase(pool, phase_sauvegardee, 60)
+                .await
+                .unwrap_or_default();
+            let rv = r.ratio_volume;
+            let ar = r.atr_ratio;
+            let rsi = r.rsi;
+            let mut scored: Vec<_> = pool_large
+                .into_iter()
+                .filter(|fb| fb.ticker != r.ticker) // déjà dans propres
+                .map(|fb| {
+                    let dist = ((fb.ratio_volume - rv) / rv.max(0.1)).powi(2)
+                        + ((fb.atr_ratio - ar) / ar.max(0.1)).powi(2)
+                        + ((fb.rsi - rsi) / 100.0).powi(2);
+                    (dist, fb)
+                })
+                .collect();
+            scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+            let mut resultats = propres;
+            resultats.extend(scored.into_iter().take(5 - resultats.len()).map(|(_, fb)| fb));
+            resultats
+        }
+    };
 
     let historique = rockets::historique_ticker(pool, &r.ticker, 10).await;
     let candidat = crate::ollama::rockets_filtre::SignalCandidat {
@@ -73,6 +109,12 @@ pub async fn filtrer_sauvegarder_publier(
         entree_stop: r.entree_stop,
         niveau_invalidation: r.niveau_invalidation,
         type_entree_rec_algo: r.type_entree_rec.clone(),
+        volume_seche: r.volume_seche,
+        contraction_qualite: r.contraction_qualite,
+        atr50: r.atr50,
+        swing_amplitudes: r.swing_amplitudes.clone(),
+        session: session.clone(),
+        tendance_marche_48h: (nb_recent, wr_recent, pnl_recent),
     };
 
     let (llm_valide, llm_conviction, llm_raison, llm_sl, llm_tp1, llm_trailing_coeff) =
@@ -87,7 +129,7 @@ pub async fn filtrer_sauvegarder_publier(
                     rep.valide,
                     rep.conviction
                 );
-                if !rep.valide || rep.conviction < seuils.conviction_min {
+                if rep.conviction < seuils.conviction_min {
                     tracing::info!(
                         "LLM rejette {} {} ({}/100): {}",
                         label_signal,
@@ -175,6 +217,10 @@ pub async fn filtrer_sauvegarder_publier(
         pct_tp1,
         pct_tp2,
         pct_trailing,
+        entree_limite:       Some(r.entree_limite),
+        entree_stop:         Some(r.entree_stop),
+        niveau_invalidation: Some(r.niveau_invalidation),
+        type_entree_rec:     Some(r.type_entree_rec.clone()),
     };
 
     let signal_id = match rockets::sauvegarder(pool, &nouveau).await {
@@ -190,7 +236,12 @@ pub async fn filtrer_sauvegarder_publier(
     };
 
     use common::{Direction, Signal, Timeframe};
-    if let Some(asset) = crate::utils::parse_asset(&r.ticker) {
+    // Les tickers Rockets sont au format "BTCUSDT" — on retire le quote asset pour parse_asset
+    let ticker_base = r.ticker
+        .trim_end_matches("USDT")
+        .trim_end_matches("BUSD")
+        .trim_end_matches("BTC");
+    if let Some(asset) = crate::utils::parse_asset(ticker_base) {
         let sl_final = nouveau.llm_sl_suggere.unwrap_or(nouveau.stop_loss);
         let tp1_final = nouveau.llm_tp1_suggere.unwrap_or(nouveau.target);
         let signal = Signal::nouveau(
@@ -208,8 +259,6 @@ pub async fn filtrer_sauvegarder_publier(
             label_signal,
         );
         signal_engine.publier(signal.clone());
-        let (tok, cid) = crate::telegram::lire_tokens_pool(pool).await;
-        crate::telegram::notifier_telegram(signal, tok, cid);
     }
 
     // Enregistrer le feedback initial (verdict=NULL, sera réconcilié par rockets_suivi)

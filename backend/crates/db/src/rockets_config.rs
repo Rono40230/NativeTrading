@@ -42,7 +42,7 @@ impl Default for RocketsConfig {
             phases_actives: vec!["breakout".into(), "prelancement".into()],
             rsi_max: 85.0,
             rsi_min: 0.0,
-            ratio_volume_min: 1.8,
+            ratio_volume_min: 1.0,
             vol_marche_min: 500_000.0,
             vente_partielle: true,
             sl_mult: 1.0,

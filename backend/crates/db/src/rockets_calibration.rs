@@ -34,7 +34,7 @@ impl Default for SeuilsRockets {
     fn default() -> Self {
         Self {
             score_min: 65,
-            conviction_min: 65,
+            conviction_min: 50,
             invalide: false,
         }
     }

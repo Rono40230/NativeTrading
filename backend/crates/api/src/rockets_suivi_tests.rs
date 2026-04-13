@@ -85,21 +85,22 @@ fn tp1_deja_atteint_pas_de_re_declenchement() {
 #[test]
 fn retour_breakeven_apres_tp1_invalide() {
     let s = signal(1.0, 0.90, 1.10, Some(1.20), None, 0.05);
-    // peak = 1.12 → SL = entrée = 1.0, prix retombe à 1.0 → invalide
+    // peak = 1.12 >= entrée (1.0) → position ouverte → sl (break-even 0R)
     let peak = 1.12;
     assert_eq!(
         calculer_verdict_rocket(&s, 1.0, peak, peak),
-        Some("invalide")
+        Some("sl")
     );
 }
 
 #[test]
 fn retour_sous_breakeven_apres_tp1_invalide() {
     let s = signal(1.0, 0.90, 1.10, Some(1.20), None, 0.05);
+    // peak = 1.12 >= entrée (1.0) → position ouverte → sl
     let peak = 1.12;
     assert_eq!(
         calculer_verdict_rocket(&s, 0.95, peak, peak),
-        Some("invalide")
+        Some("sl")
     );
 }
 

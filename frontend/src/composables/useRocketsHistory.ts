@@ -23,11 +23,11 @@ export function rocketToSignal(r: RocketSignalHistorique): Signal {
     stop_loss: r.stop_loss,
     take_profit: [r.target, ...(r.target2 ? [r.target2] : []), ...(r.target3 ? [r.target3] : [])],
     strategie: 'Rockets',
-    statut: verdict ? 'Fermé' : 'Actif',
+    statut: r.statut === 'ferme' ? 'Fermé' : 'Actif',
     verdict,
     prix_verdict: r.prix_verdict,
     ferme_le: null,
-    cree_le: Math.floor(new Date(r.cree_le).getTime() / 1000),
+    cree_le: Math.floor(new Date(r.cree_le.replace(' ', 'T') + 'Z').getTime() / 1000),
     llm_valide: r.llm_valide,
     llm_conviction: r.llm_conviction,
     llm_raison: r.llm_raison,
@@ -60,7 +60,7 @@ export function useRocketsHistory(
 
   // Franchissement SL/TP → re-sync depuis le backend pour récupérer le verdict
   watch(prixActuels, (nouveaux) => {
-    const enCours = rockets.value.filter(r => !r.verdict)
+    const enCours = rockets.value.filter(r => r.statut !== 'ferme')
     const franchissement = enCours.some(r => {
       const prix = nouveaux[r.ticker]
       if (!prix) return false
@@ -83,15 +83,15 @@ export function useRocketsHistory(
     await apiService.syncRockets().catch(() => {})
     rockets.value = await apiService.historiqueRockets(200)
     // Abonner les tickers ouverts au WS prix (1s) — couvre FRONT et tout autre token
-    const openTickers = rockets.value.filter(r => !r.verdict).map(r => r.ticker)
+    const openTickers = rockets.value.filter(r => r.statut !== 'ferme').map(r => r.ticker)
     if (openTickers.length > 0) prixStore.abonner(openTickers)
   }
 
   // ── Filtrage + tri ────────────────────────────────────────────────────────
 
   const rocketsFiltrés = computed(() => {
-    if (filtreStatut.value === 'en_cours') return rockets.value.filter(r => !r.verdict)
-    if (filtreStatut.value === 'cloturees') return rockets.value.filter(r => !!r.verdict)
+    if (filtreStatut.value === 'en_cours') return rockets.value.filter(r => r.statut !== 'ferme')
+    if (filtreStatut.value === 'cloturees') return rockets.value.filter(r => r.statut === 'ferme')
     return rockets.value
   })
 

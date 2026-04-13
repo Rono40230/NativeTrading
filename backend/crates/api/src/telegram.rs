@@ -1,14 +1,134 @@
-//! Envoi de notifications Telegram sur chaque nouveau signal validé.
+//! Infrastructure Telegram : envoi HTTP et lecture des tokens depuis la DB.
 //!
-//! Lit `telegram_bot_token` et `telegram_chat_id` depuis la DB (Settings UI)
-//! avec repli sur les variables d'environnement `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID`.
-//!
-//! Appelé en tâche Tokio detachée depuis les handlers de signaux — aucun impact
-//! sur la latence du signal engine si Telegram est lent ou indisponible.
-use common::Signal;
+//! La logique de formatage et d'envoi effective est dans `telegram_worker`.
+//! Ce module n'expose que les primitives partagées.
 use db::Database;
 
+/// Envoie un message texte brut via l'API Telegram (parse_mode HTML).
+/// Retourne une erreur si l'envoi échoue — le caller décide du retry.
+pub async fn post_message(token: &str, chat_id: &str, texte: &str) -> anyhow::Result<()> {
+    let url = format!("https://api.telegram.org/bot{}/sendMessage", token);
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+    let resp = client
+        .post(&url)
+        .json(&serde_json::json!({
+            "chat_id": chat_id,
+            "text": texte,
+            "parse_mode": "HTML"
+        }))
+        .send()
+        .await?;
+    if !resp.status().is_success() {
+        let body = resp.text().await.unwrap_or_default();
+        anyhow::bail!("Telegram API: {}", body);
+    }
+    Ok(())
+}
+
+// ── SUPPRIMÉ (conservé pour éviter les erreurs de compilation) ────────────────
+// Les fonctions notifier_telegram, notifier_telegram_rocket, RocketTelegramData
+// ont été remplacées par telegram_worker.rs (worker centralisé).
+
+#[allow(dead_code)]
+pub struct RocketTelegramData {
+    pub ticker:              String,
+    pub phase:               String,
+    pub score_composite:     i64,
+    pub entree_limite:       f64,
+    pub entree_stop:         f64,
+    pub type_entree_ideal:   String,
+    pub sl:                  f64,
+    pub tp1:                 f64,
+    pub tp2:                 f64,
+    pub niveau_invalidation: f64,
+    pub trailing_coeff:      f64,
+    pub llm_raison:          Option<String>,
+}
+
+/// Envoie une notification Telegram dédiée aux signaux Rockets.
+/// Spawn une tâche détachée — ne bloque jamais le caller.
+#[allow(dead_code)]
+pub fn notifier_telegram_rocket(data: RocketTelegramData, token: String, chat_id: String) {
+    if token.is_empty() || chat_id.is_empty() {
+        return;
+    }
+    tokio::spawn(async move {
+        if let Err(e) = envoyer_rocket(&token, &chat_id, &data).await {
+            tracing::warn!("Telegram Rocket {}: {}", data.ticker, e);
+        }
+    });
+}
+
+#[allow(dead_code)]
+async fn envoyer_rocket(token: &str, chat_id: &str, d: &RocketTelegramData) -> anyhow::Result<()> {
+    let ref_prix = d.entree_limite.min(d.entree_stop);
+    let phase_label = match d.phase.as_str() {
+        "breakout"    => "Breakout",
+        "prelancement" => "Pré-lancement",
+        "compression" => "Compression",
+        other         => other,
+    };
+    let entree_ideal_label = if d.type_entree_ideal == "limite" { "Limite" } else { "Stop" };
+
+    let raison = d.llm_raison.as_deref().unwrap_or("—");
+
+    let texte = format!(
+        "🚀 <b>Rocket — {ticker} · {phase}</b>\n\
+        Score : <b>{score}/100</b>\n\
+        \n\
+        <code>\
+Entrée Limite  : {el}\n\
+Entrée Stop    : {es}\n\
+Entrée idéale  : {ei}\n\
+SL             : {sl}\n\
+TP1            : {tp1}\n\
+TP2            : {tp2}\n\
+Invalidation   : {inv}\n\
+\n\
+Trailing TP3   : {trail}×</code>\n\
+📝 {raison}",
+        ticker = d.ticker,
+        phase  = phase_label,
+        score  = d.score_composite,
+        el     = fmt(d.entree_limite, ref_prix),
+        es     = fmt(d.entree_stop,   ref_prix),
+        ei     = entree_ideal_label,
+        sl     = fmt(d.sl,  ref_prix),
+        tp1    = fmt(d.tp1, ref_prix),
+        tp2    = fmt(d.tp2, ref_prix),
+        inv    = fmt(d.niveau_invalidation, ref_prix),
+        trail  = d.trailing_coeff,
+        raison = raison,
+    );
+
+    let url = format!("https://api.telegram.org/bot{}/sendMessage", token);
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()?;
+
+    let resp = client
+        .post(&url)
+        .json(&serde_json::json!({
+            "chat_id": chat_id,
+            "text": texte,
+            "parse_mode": "HTML"
+        }))
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let body = resp.text().await.unwrap_or_default();
+        anyhow::bail!("Telegram API: {}", body);
+    }
+
+    tracing::info!("✉️  Telegram Rocket envoyé → {}", d.ticker);
+    Ok(())
+}
+
 /// Lit les tokens Telegram depuis la DB (via Database wrapper) avec repli env.
+#[allow(dead_code)]
 pub async fn lire_tokens_telegram(db: &Database) -> (String, String) {
     lire_tokens_pool(db.pool()).await
 }
@@ -38,126 +158,8 @@ pub async fn lire_tokens_pool(pool: &sqlx::SqlitePool) -> (String, String) {
     (token, chat_id)
 }
 
-/// Envoie un message Telegram pour le signal donné.
-/// Spawn une tâche détachée — ne bloque jamais le caller.
-pub fn notifier_telegram(signal: Signal, token: String, chat_id: String) {
-    if token.is_empty() || chat_id.is_empty() {
-        return; // Telegram non configuré — silencieux
-    }
-
-    tokio::spawn(async move {
-        if let Err(e) = envoyer(&token, &chat_id, &signal).await {
-            tracing::warn!(
-                "Telegram: échec envoi signal {}/{}: {}",
-                signal.asset.as_str(),
-                signal.timeframe.as_str(),
-                e
-            );
-        }
-    });
-}
-
-async fn envoyer(token: &str, chat_id: &str, signal: &Signal) -> anyhow::Result<()> {
-    let dir_str = format!("{:?}", signal.direction).to_uppercase();
-    let est_long = dir_str.contains("LONG");
-    let strat_lower = signal.strategie.to_lowercase();
-    let est_straddle = strat_lower.contains("straddle");
-
-    // Emoji selon la stratégie
-    let emoji_strat = if strat_lower.contains("rocket") {
-        "🚀"
-    } else if est_straddle {
-        "🌪️"
-    } else {
-        "📊"
-    };
-
-    let action = if est_straddle {
-        format!(
-            "🌪️ 2 positions simultanées sur <b>{}</b>",
-            signal.asset.as_str()
-        )
-    } else if est_long {
-        format!("📈 J'achète <b>{}</b>", signal.asset.as_str())
-    } else {
-        format!("📉 Je vends <b>{}</b>", signal.asset.as_str())
-    };
-
-    let ref_prix = signal.prix_entree;
-
-    // Lignes TP sans balises imbriquées (on est déjà dans <code>)
-    let tps = signal
-        .take_profit
-        .iter()
-        .enumerate()
-        .map(|(i, &tp)| {
-            let pct = (tp - ref_prix) / ref_prix * 100.0;
-            let signe = if pct >= 0.0 { "+" } else { "" };
-            format!(
-                "🎯 TP{}      {}  ({}{:.2}%)",
-                i + 1,
-                fmt(tp, ref_prix),
-                signe,
-                pct
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-
-    let sl_pct = (signal.stop_loss - ref_prix) / ref_prix * 100.0;
-    let sl_signe = if sl_pct >= 0.0 { "+" } else { "" };
-
-    let texte = format!(
-        "{emoji} <b>Stratégie {strategie}</b>\n\
-        ⭐ Score <b>{score:.0}/100</b>\n\
-        \n\
-        {action}\n\
-        \n\
-        <code>\
-📍 Entrée   {entree}\n\
-🛑 Stop     {sl}  ({sl_signe}{sl_pct:.2}%)\n\
-{tps}</code>",
-        emoji = emoji_strat,
-        strategie = signal.strategie,
-        score = signal.score,
-        action = action,
-        entree = fmt(ref_prix, ref_prix),
-        sl = fmt(signal.stop_loss, ref_prix),
-        sl_signe = sl_signe,
-        sl_pct = sl_pct,
-        tps = tps,
-    );
-
-    let url = format!("https://api.telegram.org/bot{}/sendMessage", token);
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()?;
-
-    let resp = client
-        .post(&url)
-        .json(&serde_json::json!({
-            "chat_id": chat_id,
-            "text": texte,
-            "parse_mode": "HTML"
-        }))
-        .send()
-        .await?;
-
-    if !resp.status().is_success() {
-        let body = resp.text().await.unwrap_or_default();
-        anyhow::bail!("Telegram API erreur: {}", body);
-    }
-
-    tracing::info!(
-        "✉️  Telegram signal envoyé → {}/{}",
-        signal.asset.as_str(),
-        signal.timeframe.as_str()
-    );
-    Ok(())
-}
-
-/// Formate un prix : 2 décimales si ≥ 100, sinon 5
-fn fmt(prix: f64, reference: f64) -> String {
+/// Formate un prix : 2 décimales si ≥ 100, sinon 5.
+pub fn fmt(prix: f64, reference: f64) -> String {
     if reference >= 100.0 {
         format!("{:.2}", prix)
     } else {

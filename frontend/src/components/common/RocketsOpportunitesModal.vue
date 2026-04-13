@@ -116,7 +116,7 @@ const props = defineProps<{ visible: boolean; signaux: SignalRocket[] }>()
 defineEmits<{ close: [] }>()
 
 const {
-  icone, labelPhase, classeScore, formatPrix,
+  icone, labelPhase, classeScore,
   classeCarteSignal, classeBadgePhase, classeBadgeVerdict, labelVerdict,
 } = useRocketsHelpers()
 
@@ -185,34 +185,26 @@ async function lancerAnalyse() {
   if (top5.value.length === 0) return
   chargementIA.value = true; erreurIA.value = ''; analyseIA.value = ''
   try {
-    const liste = top5.value.map((s, i) => {
-      return `${i + 1}. ${s.ticker} — Phase: ${labelPhase(s.phase)} | Variation 1h: ${s.change1h >= 0 ? '+' : ''}${s.change1h.toFixed(2)}% | Vol×: ${s.ratioVolume.toFixed(2)} | ATR ratio: ${s.atrRatio.toFixed(2)} | RSI: ${s.rsi.toFixed(1)} | E.Limite: ${formatPrix(s.entreeLimite)}$ | E.Stop: ${formatPrix(s.entreeStop)}$ | Invalidation: ${formatPrix(s.niveauInvalidation)}$ | Entrée idéale: ${s.typeEntreeRec} | SL: ${formatPrix(s.sl)}$ | TP1 (1.5R): ${formatPrix(s.tp1)}$ | TP2 (2.5R): ${formatPrix(s.tp2)}$ | Trailing trigger (3.5R): ${formatPrix(s.tp3Trigger)}$ | Coef trailing: ${s.trailingCoeff.toFixed(1)}× | Score: ${s.score}/100`
-    }).join('\n')
-    const res = await apiService.chatIA([
-      {
-        role: 'system',
-        contenu: `Tu es un trader algorithmique spécialisé en stratégie Rocket (compression volatilité → breakout LONG, sortie pyramidale TP1/TP2/TP3 avec BreakEven).
-
-FORMAT DE RÉPONSE STRICT — respecte exactement cette structure :
-
-SIGNAL: TICKER | VERDICT: <verdict>
-<2 phrases d'analyse max, sans répéter les chiffres du prompt>
-
-SIGNAL: TICKER2 | VERDICT: <verdict>
-<2 phrases d'analyse max>
-
-CONCLUSION: <synthèse globale en 2 phrases : phase de marché, meilleur setup, R-multiple>
-
-Où <verdict> est EXACTEMENT l'un de ces trois textes : "LONG imminent" ou "Attendre confirmation" ou "Signal épuisé"
-
-Règles :
-- Réponds TOUJOURS en français
-- INTERDIT ABSOLU : citer un chiffre (%, ×, $, ratio, RSI, score, prix) — les données sont déjà affichées, parle uniquement de leur signification qualitative
-- Ne mets aucun titre, aucun markdown, aucune liste à puces`
-      },
-      { role: 'user', contenu: `Signaux Rocket à analyser :\n\n${liste}` }
-    ])
-    analyseIA.value = res.reponse
+    const payload = top5.value.map(s => ({
+      ticker: s.ticker,
+      phase: s.phase,
+      change1h: s.change1h,
+      ratio_volume: s.ratioVolume,
+      atr_ratio: s.atrRatio,
+      rsi: s.rsi,
+      score: s.score,
+      entree_limite: s.entreeLimite,
+      entree_stop: s.entreeStop,
+      niveau_invalidation: s.niveauInvalidation,
+      type_entree_rec: s.typeEntreeRec,
+      sl: s.sl,
+      tp1: s.tp1,
+      tp2: s.tp2,
+      tp3_trigger: s.tp3Trigger,
+      trailing_coeff: s.trailingCoeff,
+    }))
+    const res = await apiService.analyserOpportunites(payload)
+    analyseIA.value = res.texte
   } catch (err) {
     erreurIA.value = `Erreur IA : ${err instanceof Error ? err.message : String(err)}`
   } finally {

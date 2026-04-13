@@ -138,7 +138,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { Signal } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
@@ -223,7 +223,7 @@ const signalsFiltres = computed(() =>
     (!filtreAsset.value || s.asset === filtreAsset.value) &&
     (!filtreDirection.value || s.direction === filtreDirection.value) &&
     (!filtreStrategie.value || s.strategie === filtreStrategie.value) &&
-    (filtreStatut.value === 'en_cours' ? s.verdict === null : s.verdict !== null)
+    (filtreStatut.value === 'en_cours' ? s.statut !== 'Fermé' : s.statut === 'Fermé')
   )
 )
 
@@ -274,7 +274,16 @@ async function charger() {
   }
 }
 
-onMounted(() => charger())
+let _pollInterval: ReturnType<typeof setInterval> | null = null
+
+onMounted(() => {
+  charger()
+  _pollInterval = setInterval(() => charger(), 30_000)
+})
+
+onUnmounted(() => {
+  if (_pollInterval !== null) { clearInterval(_pollInterval); _pollInterval = null }
+})
 </script>
 
 <style src="./HistoryView.css" />

@@ -1,36 +1,43 @@
 <template>
-  <div class="glass-card p-4">
-    <!-- En-tête -->
-    <div class="mb-3 flex items-center justify-between shrink-0">
+  <!-- Barre résumé collapsed -->
+  <div
+    class="glass-bar px-4 py-2.5 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors"
+    @click="modalSurveillanceOuverte = true"
+  >
+    <p class="text-[11px] font-semibold uppercase tracking-widest text-white shrink-0">⚡ Straddle</p>
+    <span class="text-[10px] text-gray-500 shrink-0">Session&nbsp;: <span class="text-blue-300 font-semibold">{{ sessionLabel }}</span></span>
+    <span class="text-[10px] shrink-0" :class="picsRecents.length > 0 ? 'text-orange-400' : 'text-gray-500'">
+      {{ picsRecents.length }} pic(s) actif(s)
+    </span>
+    <span
+      v-if="data?.resume.annonces_prochaines_90min.some(a => a.dans_min <= 30)"
+      class="text-[10px] font-bold text-red-400 border border-red-500/40 px-1.5 py-0.5 rounded animate-pulse"
+    >⚠️ ZONE À RISQUE</span>
+    <span class="ml-auto text-[10px] text-gray-600 shrink-0">▸</span>
+  </div>
+
+  <!-- Contenu complet en modal -->
+  <ModalSurveillance :visible="modalSurveillanceOuverte" titre="⚡ Surveillance Volatilité — Straddle ML" @close="modalSurveillanceOuverte = false">
+    <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-2">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-white">
-          ⚡ Surveillance volatilité — Straddle ML
-        </p>
+        <span class="text-[10px] text-gray-500">Session&nbsp;: <span class="text-blue-300 font-semibold">{{ sessionLabel }}</span></span>
         <span
           v-if="data?.resume.annonces_prochaines_90min.some(a => a.dans_min <= 30)"
           class="text-[10px] font-bold text-red-400 border border-red-500/40 px-1.5 py-0.5 rounded animate-pulse"
         >⚠️ ZONE À RISQUE</span>
       </div>
-      <div class="flex items-center gap-2">
-        <span class="text-[10px] text-gray-500">Session : <span class="text-blue-300 font-semibold">{{ sessionLabel }}</span></span>
-        <button
-          class="text-[10px] font-semibold text-yellow-300 hover:text-yellow-100 border border-yellow-500/40 hover:border-yellow-400/70 rounded-lg px-2.5 py-1 transition-all hover:bg-yellow-500/10"
-          @click="modalOuverte = true"
-        >Opportunités ▸</button>
-      </div>
+      <button
+        class="text-[10px] font-semibold text-yellow-300 hover:text-yellow-100 border border-yellow-500/40 hover:border-yellow-400/70 rounded-lg px-2.5 py-1 transition-all hover:bg-yellow-500/10"
+        @click.stop="modalOuverte = true"
+      >Opportunités ▸</button>
     </div>
 
-    <!-- Chargement -->
-    <div v-if="chargement && !data" class="flex items-center justify-center py-5 text-xs text-gray-600">
+    <div v-if="chargement && !data" class="flex items-center justify-center py-8 text-xs text-gray-600">
       <span class="animate-pulse">Chargement volatilité...</span>
     </div>
-
-    <!-- Erreur -->
-    <div v-else-if="erreur" class="py-3 text-xs text-red-400 text-center">{{ erreur }}</div>
-
+    <div v-else-if="erreur" class="py-4 text-xs text-red-400 text-center">{{ erreur }}</div>
     <template v-else-if="data">
-      <!-- Annonces imminentes -->
-      <div v-if="data.resume.annonces_prochaines_90min.length" class="mb-3 flex flex-wrap gap-1.5">
+      <div v-if="data.resume.annonces_prochaines_90min.length" class="mb-4 flex flex-wrap gap-1.5">
         <div
           v-for="(a, i) in data.resume.annonces_prochaines_90min"
           :key="i"
@@ -43,7 +50,6 @@
         </div>
       </div>
 
-      <!-- Tableau des pics -->
       <div v-if="picsRecents.length" class="overflow-x-auto">
         <table class="w-full text-[11px]">
           <thead>
@@ -58,11 +64,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="(p, i) in picsRecents"
-              :key="i"
-              class="border-b border-white/5 hover:bg-white/5"
-            >
+            <tr v-for="(p, i) in picsRecents" :key="i" class="border-b border-white/5 hover:bg-white/5">
               <td class="py-1 pr-3 font-semibold text-white">{{ p.asset }}</td>
               <td class="py-1 pr-3 text-gray-400">{{ p.timeframe }}</td>
               <td class="py-1 pr-3 text-right font-mono" :class="p.ratio_atr >= 2.0 ? 'text-red-400' : p.ratio_atr >= 1.5 ? 'text-orange-400' : 'text-yellow-400'">
@@ -83,19 +85,16 @@
           </tbody>
         </table>
       </div>
-
-      <!-- État vide -->
-      <div v-else class="py-5 text-center text-xs text-gray-600 italic">
+      <div v-else class="py-6 text-center text-xs text-gray-600 italic">
         Aucun pic de volatilité détecté dans les 2 dernières heures
       </div>
 
-      <!-- Footer résumé -->
-      <div class="mt-2 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500">
+      <div class="mt-3 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-500">
         <span>{{ data.resume.pics_2h }} asset(s) actifs · {{ picsRecents.length }} pic(s)</span>
         <span v-if="derniereMaj">MAJ {{ formatHeure(derniereMaj) }}</span>
       </div>
     </template>
-  </div>
+  </ModalSurveillance>
 
   <StraddleVolatiliteModal :visible="modalOuverte" @close="modalOuverte = false" />
 </template>
@@ -106,6 +105,7 @@ import { apiService } from '@/services/api.service'
 import type { StraddleVolatiliteLive } from '@/services/api.types'
 import { useAlerteStore } from '@/stores/alerte.store'
 import StraddleVolatiliteModal from './StraddleVolatiliteModal.vue'
+import ModalSurveillance from './ModalSurveillance.vue'
 
 const alerteStore = useAlerteStore()
 const data = ref<StraddleVolatiliteLive | null>(null)
@@ -113,6 +113,7 @@ const chargement = ref(false)
 const erreur = ref<string | null>(null)
 const derniereMaj = ref<number | null>(null)
 const modalOuverte = ref(false)
+const modalSurveillanceOuverte = ref(false)
 let intervalId: ReturnType<typeof setInterval> | null = null
 
 const picsRecents = computed(() => data.value?.pics ?? [])
@@ -184,5 +185,6 @@ onUnmounted(() => {
 
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
+.glass-bar  { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
 </style>
 

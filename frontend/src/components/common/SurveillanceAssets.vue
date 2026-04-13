@@ -1,24 +1,28 @@
 <template>
-  <div class="glass-card p-4">
-    <!-- En-tête -->
-    <div class="mb-3 flex items-center justify-between shrink-0">
-      <p class="text-[11px] font-semibold uppercase tracking-widest text-white">
-        📊 Surveillance des assets — Stratégie SMC
-      </p>
-      <div v-if="chargement" class="h-2 w-2 animate-pulse rounded-full bg-blue-500" />
+  <!-- Barre résumé collapsed -->
+  <div
+    class="glass-bar px-4 py-2.5 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors"
+    @click="modalOuverte = true"
+  >
+    <p class="text-[11px] font-semibold uppercase tracking-widest text-white shrink-0">📊 SMC</p>
+    <span class="text-[10px] text-gray-500 shrink-0">{{ assets.length }} assets</span>
+    <div class="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
+      <template v-for="a in topAssets" :key="a.id">
+        <span class="text-[10px] font-mono shrink-0" :class="(a.variation ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
+          {{ a.id }} {{ a.variation !== null ? ((a.variation >= 0 ? '+' : '') + a.variation.toFixed(2) + '%') : '—' }}
+        </span>
+      </template>
     </div>
+    <div v-if="chargement" class="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500 shrink-0" />
+    <span class="text-[10px] text-gray-600 shrink-0">▸</span>
+  </div>
 
-    <!-- Squelette chargement -->
-    <div v-if="chargement && assets.length === 0" class="grid grid-cols-8 gap-2">
-      <div
-        v-for="n in 15"
-        :key="n"
-        class="rounded-lg border border-white/5 bg-white/5 px-3 py-2 h-[36px] animate-pulse"
-      />
+  <!-- Contenu complet en modal -->
+  <ModalSurveillance :visible="modalOuverte" titre="📊 Surveillance des Assets — Stratégie SMC" @close="modalOuverte = false">
+    <div v-if="chargement && assets.length === 0" class="grid grid-cols-8 gap-2 mb-4">
+      <div v-for="n in 15" :key="n" class="rounded-lg border border-white/5 bg-white/5 px-3 py-2 h-[36px] animate-pulse" />
     </div>
-
-    <!-- Grille 5 colonnes, scroll après 3 lignes -->
-    <div v-else class="grid grid-cols-8 gap-2 overflow-y-auto scroll-zone" style="max-height: calc(2 * 44px + 1 * 8px)">
+    <div v-else class="grid grid-cols-8 gap-2">
       <div
         v-for="a in assets"
         :key="a.id"
@@ -35,7 +39,7 @@
         <span v-else class="text-[9px] text-gray-600 shrink-0">—</span>
       </div>
     </div>
-  </div>
+  </ModalSurveillance>
 
   <Teleport to="body">
     <Transition name="tooltip">
@@ -108,7 +112,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import ModalSurveillance from './ModalSurveillance.vue'
 
 type VariationsMultiTF = { h1: number | null; h4: number | null; d1: number | null; w1: number | null; m1: number | null }
 type AssetAvecPrix = {
@@ -121,6 +126,14 @@ type AssetAvecPrix = {
 }
 
 const props = defineProps<{ assets: AssetAvecPrix[]; chargement?: boolean }>()
+
+const modalOuverte = ref(false)
+const topAssets = computed(() =>
+  [...props.assets]
+    .filter(a => a.variation !== null)
+    .sort((a, b) => Math.abs(b.variation ?? 0) - Math.abs(a.variation ?? 0))
+    .slice(0, 4)
+)
 
 const TF_LABELS: Record<string, string> = {
   h1: '1H', h4: '4H', d1: 'D1', w1: 'W1',
@@ -221,6 +234,7 @@ onUnmounted(() => document.removeEventListener('click', fermerTooltip))
 
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
+.glass-bar  { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
 .scroll-zone { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.1) transparent; }
 .scroll-zone::-webkit-scrollbar { width: 4px; }
 .scroll-zone::-webkit-scrollbar-track { background: transparent; }

@@ -58,6 +58,15 @@ pub struct ScanResultat {
     pub niveau_invalidation: f64,
     /// Type d'entrée recommandé algorithmiquement : "limite" ou "stop"
     pub type_entree_rec: String,
+    /// Ratio volume compression vs volume baseline (VCP) : <0.75 = assèchement valide
+    pub volume_seche: f64,
+    /// Score 0.0–1.0 de progressivité des contractions (VCP Minervini) : >0.7 = valide
+    pub contraction_qualite: f64,
+    /// ATR Wilder 50 périodes — référence long terme pour détecter vraie expansion
+    pub atr50: f64,
+    /// Série ordonnée des amplitudes (high−low) des bougies de compression.
+    /// Décroissante = VCP authentique. Envoyée au LLM pour analyse structurelle.
+    pub swing_amplitudes: Vec<f64>,
 }
 
 #[derive(serde::Deserialize)]
@@ -171,12 +180,29 @@ pub struct ContextePhase {
     pub change1h: f64,
     pub nb_bougies_compression: usize,
     pub tendance_haussiere: bool,
+    /// Ratio volume compression/baseline (VCP) : <0.75 = bon assèchement
+    pub volume_seche: f64,
+    /// Score 0.0–1.0 progressivité contractions : >0.70 = VCP authentique
+    pub contraction_qualite: f64,
+    /// ATR 50 périodes pour distinguer expansion réelle vs. bruit
+    pub atr50: f64,
+    /// ATR 14 périodes absolu (nécessaire pour comparaison long terme)
+    pub atr14: f64,
+    /// Ratio corps dernière bougie (qualité bougie de breakout)
+    pub ratio_corps: f64,
 }
 
 pub fn calculer_phase(ctx: &ContextePhase, cfg: &RocketsConfig) -> Option<(String, i64)> {
-    let ContextePhase { breakout, ratio_volume, rsi, atr_ratio, change1h, nb_bougies_compression, tendance_haussiere } = ctx;
+    let ContextePhase {
+        breakout, ratio_volume, rsi, atr_ratio, change1h,
+        nb_bougies_compression, tendance_haussiere,
+        volume_seche, contraction_qualite, atr50, atr14, ratio_corps,
+    } = ctx;
     let (breakout, ratio_volume, rsi, atr_ratio, change1h, nb_bougies_compression, tendance_haussiere) =
         (*breakout, *ratio_volume, *rsi, *atr_ratio, *change1h, *nb_bougies_compression, *tendance_haussiere);
+    let (volume_seche, contraction_qualite, atr50, atr14, ratio_corps) =
+        (*volume_seche, *contraction_qualite, *atr50, *atr14, *ratio_corps);
+
     if breakout && ratio_volume >= cfg.ratio_volume_min {
         let mut s = 40i64;
         if ratio_volume >= 2.0 {
@@ -189,6 +215,16 @@ pub fn calculer_phase(ctx: &ContextePhase, cfg: &RocketsConfig) -> Option<(Strin
             s += 10;
         }
         if change1h > 1.0 {
+            s += 10;
+        }
+        // Qualité de la bougie de breakout (VCP : clôture forte = setup solide)
+        if ratio_corps >= 0.70 {
+            s += 10; // Bougie de breakout pleine = conviction institutionnelle
+        } else if ratio_corps < 0.50 {
+            s -= 10; // Mèche dominante = rejet potentiel / bull trap
+        }
+        // Expansion réelle vs. long terme : ATR14 > ATR50 × 1.2 = vraie volatilité
+        if atr50 > 0.0 && atr14 > atr50 * 1.2 {
             s += 10;
         }
         Some(("breakout".to_string(), s.min(100)))
@@ -212,6 +248,17 @@ pub fn calculer_phase(ctx: &ContextePhase, cfg: &RocketsConfig) -> Option<(Strin
         // Bonus tendance haussière confirmée (EMA20 > EMA50 1h) = continuation probable
         if tendance_haussiere {
             s += 10;
+        }
+        // ── Filtres professionnels VCP ────────────────────────────────────────
+        // Assèchement du volume (signal clé VCP Minervini) : distribution absente
+        if volume_seche < 0.75 {
+            s += 15; // Volume qui sèche = smart money accumule silencieusement
+        } else if volume_seche < 0.55 {
+            s += 5; // Bonus supplémentaire pour assèchement fort (déjà compté ci-dessus)
+        }
+        // Progressivité des contractions (authenticité du pattern VCP)
+        if contraction_qualite > 0.70 {
+            s += 10; // Contractions progressivement décroissantes = VCP classique
         }
         if s < 15 {
             return None;

@@ -48,6 +48,7 @@ mod rockets_prix;
 mod rockets_sauvegarder;
 mod rockets_scan;
 mod rockets_suivi;
+mod rockets_suivi_worker;
 mod scheduler;
 mod sentiment_handlers;
 mod signal_engine;
@@ -83,6 +84,8 @@ mod straddle_types;
 mod straddle_utils;
 mod strategies_params_handlers;
 mod telegram;
+mod telegram_formatage;
+mod telegram_worker;
 mod tendance_handlers;
 mod utils;
 mod volatility_handlers;
@@ -145,6 +148,9 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(smc_analyse_handler::demarrer_worker_analyse_smc(
         app_state.db.clone(),
     ));
+
+    let pool_telegram = app_state.db.pool().clone();
+    tokio::spawn(telegram_worker::demarrer_worker_telegram(pool_telegram));
 
     scheduler::demarrer_surveillance_ml(app_state.db.clone(), app_state.pipeline_ml.clone());
 

@@ -62,6 +62,11 @@ pub struct NouveauRocket {
     pub pct_tp1: f64,
     pub pct_tp2: f64,
     pub pct_trailing: f64,
+    // Champs d'entrée détaillés (pour Telegram et affichage)
+    pub entree_limite:        Option<f64>,
+    pub entree_stop:          Option<f64>,
+    pub niveau_invalidation:  Option<f64>,
+    pub type_entree_rec:      Option<String>,
 }
 
 pub(crate) fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
@@ -101,8 +106,9 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
         "INSERT INTO rockets_signaux
          (ticker, phase, score, prix_entree, stop_loss, target, target2, target3, ratio_volume, atr_ratio, atr14, rsi,
           llm_valide, llm_conviction, llm_raison, llm_sl_suggere, llm_tp1_suggere,
-          trailing_coeff, pct_tp1, pct_tp2, pct_trailing)
-         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          trailing_coeff, pct_tp1, pct_tp2, pct_trailing,
+          entree_limite, entree_stop, niveau_invalidation, type_entree_rec)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          WHERE NOT EXISTS (
            SELECT 1 FROM rockets_signaux
            WHERE ticker = ? AND phase = ? AND cree_le >= datetime('now', '-6 hours')
@@ -129,6 +135,10 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
     .bind(s.pct_tp1)
     .bind(s.pct_tp2)
     .bind(s.pct_trailing)
+    .bind(s.entree_limite)
+    .bind(s.entree_stop)
+    .bind(s.niveau_invalidation)
+    .bind(&s.type_entree_rec)
     .bind(&s.ticker)
     .bind(&s.phase)
     .execute(pool)

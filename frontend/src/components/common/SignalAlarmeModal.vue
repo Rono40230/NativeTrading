@@ -150,7 +150,8 @@ function fmt(n: number | null | undefined): string {
 }
 
 function formatDate(ts: number): string {
-  return new Date(ts * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+  return new Date(ts * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: tz })
 }
 </script>
 
