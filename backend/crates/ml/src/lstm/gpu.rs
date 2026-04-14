@@ -42,6 +42,11 @@ pub struct LstmGpu {
     device: Device,
 }
 
+// SAFETY: LstmGpu est protégé par Arc<RwLock<PipelineML>> — jamais accédé
+// concurrentiellement. tch::Tensor utilise des raw ptr CUDA thread-local safe.
+unsafe impl Send for LstmGpu {}
+unsafe impl Sync for LstmGpu {}
+
 impl LstmGpu {
     /// Transfert des poids CPU vers tenseurs CUDA.
     ///
@@ -67,10 +72,10 @@ impl LstmGpu {
             l1: Self::build_couche(&p.l1_poids, &p.l1_biais, p.l1_in, p.l1_h, dev),
             l2: Self::build_couche(&p.l2_poids, &p.l2_biais, p.l2_in, p.l2_h, dev),
             l3: Self::build_couche(&p.l3_poids, &p.l3_biais, p.l3_in, p.l3_h, dev),
-            w_out: Tensor::of_slice(&w_out_flat)
+            w_out: Tensor::from_slice(&w_out_flat)
                 .reshape(&[n_out, m_out])
                 .to_device(dev),
-            b_out: Tensor::of_slice(&b_out_flat).to_device(dev),
+            b_out: Tensor::from_slice(&b_out_flat).to_device(dev),
             device: dev,
         })
     }
@@ -85,10 +90,10 @@ impl LstmGpu {
         let poids_f32: Vec<f32> = poids.iter().map(|&x| x as f32).collect();
         let biais_f32: Vec<f32> = biais.iter().map(|&x| x as f32).collect();
         LstmGpuCouche {
-            w: Tensor::of_slice(&poids_f32)
+            w: Tensor::from_slice(&poids_f32)
                 .reshape(&[4 * cachee as i64, (input + cachee) as i64])
                 .to_device(dev),
-            b: Tensor::of_slice(&biais_f32).to_device(dev),
+            b: Tensor::from_slice(&biais_f32).to_device(dev),
             cachee: cachee as i64,
         }
     }
@@ -104,7 +109,7 @@ impl LstmGpu {
         for step in 0..t {
             let x = seq.select(0, step).unsqueeze(0); // [1, I]
             let xh = Tensor::cat(&[x, hidden.copy()], 1); // [1, I+H]
-            let pre = xh.mm(&couche.w.t()) + &couche.b; // [1, 4H]
+            let pre = xh.mm(&couche.w.transpose(0, 1)) + &couche.b; // [1, 4H]
 
             let i_g = pre.narrow(1, 0, h).sigmoid();
             let f_g = pre.narrow(1, h, h).sigmoid();
@@ -146,7 +151,7 @@ impl LstmGpu {
             .iter()
             .flat_map(|r| r.iter().map(|&x| x as f32))
             .collect();
-        let seq_t = Tensor::of_slice(&flat)
+        let seq_t = Tensor::from_slice(&flat)
             .reshape(&[t, i_dim])
             .to_device(self.device); // [T, NB_FEATURES]
 
@@ -156,7 +161,7 @@ impl LstmGpu {
 
         // Dernier état caché → couche de sortie
         let h3_last = h3.select(0, t - 1).unsqueeze(0); // [1, 32]
-        let logits = h3_last.mm(&self.w_out.t()) + &self.b_out; // [1, 2]
+        let logits = h3_last.mm(&self.w_out.transpose(0, 1)) + &self.b_out; // [1, 2]
         let proba = logits.softmax(-1, Kind::Float); // [1, 2]
         proba.double_value(&[0, 1]) // P(Long)
     }

@@ -8,6 +8,8 @@ pub use crate::rockets_config::{lire_config, sauvegarder_config, RocketsConfig};
 pub use crate::rockets_analyses::{
     derniere_analyse, sauvegarder_analyse, signaux_pour_analyse, AnalyseLlm,
 };
+// Listing trades (ouvert/attente/actifs) délégué au module dédié
+pub use crate::rockets_listing::{lister_actifs, lister_en_attente, lister_ouverts};
 
 #[derive(Serialize, Clone)]
 pub struct RocketSignal {
@@ -172,34 +174,6 @@ pub async fn historique_ticker(pool: &SqlitePool, ticker: &str, limite: i64) -> 
     }
 }
 
-pub async fn lister_ouverts(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {
-    let rows = sqlx::query(
-        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
-                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
-                llm_valide, llm_conviction, llm_raison,
-                trailing_coeff, pct_tp1, pct_tp2, pct_trailing
-         FROM rockets_signaux WHERE statut = 'ouvert' ORDER BY cree_le DESC",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
-    Ok(rows.iter().map(row_to_signal).collect())
-}
-
-pub async fn lister_en_attente(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {
-    let rows = sqlx::query(
-        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
-                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
-                llm_valide, llm_conviction, llm_raison,
-                trailing_coeff, pct_tp1, pct_tp2, pct_trailing
-         FROM rockets_signaux WHERE statut = 'attente' ORDER BY cree_le DESC",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
-    Ok(rows.iter().map(row_to_signal).collect())
-}
-
 pub async fn entrer_position(pool: &SqlitePool, id: i64) -> Result<()> {
     sqlx::query(
         "UPDATE rockets_signaux SET statut = 'ouvert', maj_le = datetime('now') WHERE id = ?",
@@ -269,13 +243,14 @@ pub async fn marquer_expires(pool: &SqlitePool) -> Result<u64> {
     Ok(res.rows_affected())
 }
 
+/// Retourne uniquement les trades clôturés (statut = 'ferme').
 pub async fn historique(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSignal>> {
     let rows = sqlx::query(
         "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
                 ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
                 llm_valide, llm_conviction, llm_raison,
                 trailing_coeff, pct_tp1, pct_tp2, pct_trailing
-         FROM rockets_signaux ORDER BY cree_le DESC LIMIT ?",
+         FROM rockets_signaux WHERE statut = 'ferme' ORDER BY cree_le DESC LIMIT ?",
     )
     .bind(limite)
     .fetch_all(pool)
@@ -284,12 +259,16 @@ pub async fn historique(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSign
     Ok(rows.iter().map(row_to_signal).collect())
 }
 
-// ── Méthode exposée sur Database ────────────────────────────────────────────
+// ── Méthodes exposées sur Database ────────────────────────────────────────────
 
 use crate::Database;
 
 impl Database {
     pub async fn lister_rockets_historique(&self, limite: i64) -> Result<Vec<RocketSignal>> {
         historique(&self.pool, limite).await
+    }
+
+    pub async fn lister_rockets_actifs(&self) -> Result<Vec<RocketSignal>> {
+        crate::rockets_listing::lister_actifs(&self.pool).await
     }
 }

@@ -4,6 +4,8 @@ mod math;
 
 #[cfg(feature = "cuda")]
 pub(crate) mod gpu;
+#[cfg(feature = "cuda")]
+pub(crate) mod entrainement_gpu;
 
 pub use couche::CoucheLinSortie;
 #[cfg(feature = "cuda")]
@@ -157,6 +159,17 @@ impl ModeleHybrideLstm {
             .map_err(|e| TradingError::ML(format!("Lecture LSTM: {}", e)))?;
         serde_json::from_str(&json)
             .map_err(|e| TradingError::ML(format!("Désérialisation LSTM: {}", e)))
+    }
+
+    /// Applique les poids rapatriés depuis le GPU vers le modèle CPU sérialisable.
+    #[cfg(feature = "cuda")]
+    pub(crate) fn appliquer_poids_depuis_gpu(&mut self, p: PoidsCouches) {
+        self.l1.set_poids_biais(p.l1_poids, p.l1_biais);
+        self.l2.set_poids_biais(p.l2_poids, p.l2_biais);
+        self.l3.set_poids_biais(p.l3_poids, p.l3_biais);
+        self.sortie.poids = p.sortie_poids;
+        self.sortie.biais = p.sortie_biais;
+        self.entraine = true;
     }
 
     /// Extrait les poids pour transfert vers GPU (feature `cuda` uniquement).

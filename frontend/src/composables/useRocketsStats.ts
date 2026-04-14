@@ -23,7 +23,7 @@ function calcStats(liste: RocketSignalHistorique[]) {
   const tp1    = clos.filter(r => r.verdict === 'TP1' || r.verdict === 'confirme').length
   const tp2    = clos.filter(r => r.verdict === 'TP2').length
   const tp3    = clos.filter(r => r.verdict === 'TP3').length
-  const sl     = clos.filter(r => r.verdict === 'invalide').length
+  const sl     = clos.filter(r => r.verdict === 'invalide' || r.verdict === 'sl').length
   const expire = liste.filter(r => r.verdict === 'expire').length
   const gain   = tp1 + tp2 + tp3
   const winPct = total > 0 ? Math.round(gain / total * 100) : 0

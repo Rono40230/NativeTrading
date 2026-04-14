@@ -39,6 +39,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         web::get().to(crate::rockets_handlers::get_historique),
     )
     .route(
+        "/api/rockets/actifs",
+        web::get().to(crate::rockets_handlers::get_actifs),
+    )
+    .route(
         "/api/rockets/sync",
         web::post().to(crate::rockets_suivi::sync_verdicts),
     )

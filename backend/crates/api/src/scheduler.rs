@@ -3,9 +3,10 @@ use db::entrainements::EntrainementRecord;
 use db::Database;
 use ml::{walk_forward::entrainer_walk_forward, PipelineML};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tokio::time::{sleep, Duration};
 
+use crate::ml_retrain_handler::RetainState;
 use crate::utils::{parse_asset, parse_timeframe};
 
 const MIN_BOUGIES_ENTRAINEMENT: i64 = 200;
@@ -23,7 +24,7 @@ pub fn demarrer_scheduler(
             tracing::info!(
                 "🤖 Scheduler ML: aucun modèle persisté — entraînement immédiat au démarrage"
             );
-            executer_entrainements_tous(&db, &pipeline_ml).await;
+            executer_entrainements_tous(&db, &pipeline_ml, None).await;
         } else {
             tracing::info!(
                 "✅ Scheduler ML: modèle chargé depuis disque — pas d'entraînement immédiat"
@@ -40,15 +41,21 @@ pub fn demarrer_scheduler(
 
         loop {
             tracing::info!("🤖 Scheduler ML: démarrage entraînement quotidien (tous assets × TF)");
-            executer_entrainements_tous(&db, &pipeline_ml).await;
+            executer_entrainements_tous(&db, &pipeline_ml, None).await;
+            // Fine-tuning P3 : Rockets sur trades clôturés (silencieux si < 50 samples)
+            crate::ml_retrain_job::executer_fine_tuning_rockets(&db, &pipeline_ml).await;
             sleep(Duration::from_secs(86400)).await;
         }
     });
 }
 
 /// Itère sur toutes les combinaisons asset × TF disponibles en DB et ré-entraîne le pipeline.
-/// Appelé par le scheduler quotidien ET par les retraining manuels (ml_retrain_handler).
-pub async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<Mutex<PipelineML>>) {
+/// Appelé par le scheduler quotidien (progress_state=None) et les retraining manuels (Some).
+pub async fn executer_entrainements_tous(
+    db: &Arc<Database>,
+    pipeline_ml: &Arc<Mutex<PipelineML>>,
+    progress_state: Option<Arc<RwLock<RetainState>>>,
+) {
     let combinaisons = match db.combinaisons_entrainables(MIN_BOUGIES_ENTRAINEMENT).await {
         Ok(c) => c,
         Err(e) => {
@@ -65,12 +72,20 @@ pub async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<M
         return;
     }
 
-    tracing::info!(
-        "Scheduler ML: {} combinaison(s) à entraîner",
-        combinaisons.len()
-    );
+    let total = combinaisons.len();
+    tracing::info!("Scheduler ML: {} combinaison(s) à entraîner", total);
 
-    for (asset_str, tf_str) in combinaisons {
+    if let Some(ref s) = progress_state {
+        let mut g = s.write().await;
+        g.nb_combinaisons_total = total;
+        g.nb_combinaisons_done = 0;
+    }
+
+    for (i, (asset_str, tf_str)) in combinaisons.into_iter().enumerate() {
+        if let Some(ref s) = progress_state {
+            let mut g = s.write().await;
+            g.nb_combinaisons_done = i;
+        }
         let asset = match parse_asset(&asset_str) {
             Some(a) => a,
             None => {
@@ -97,6 +112,8 @@ pub async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<M
             }
         };
 
+        let nb_total_db = bougies.len();
+        let bougies = limiter_bougies_par_tf(bougies, &tf_str);
         let nb_total = bougies.len();
         let debut = std::time::Instant::now();
 
@@ -163,12 +180,17 @@ pub async fn executer_entrainements_tous(db: &Arc<Database>, pipeline_ml: &Arc<M
                 e
             );
         } else {
+            if let Some(ref s) = progress_state {
+                let mut g = s.write().await;
+                g.nb_combinaisons_done = i + 1;
+            }
             tracing::info!(
-                "✅ {}/{} — {}ms | {} bougies | XGB={:.1}% LSTM={:.1}% Finale={:.1}%{}",
+                "✅ {}/{} — {}ms | {}/{} bougies | XGB={:.1}% LSTM={:.1}% Finale={:.1}%{}",
                 asset_str,
                 tf_str,
                 duree_ms,
                 nb_total,
+                nb_total_db,
                 wf.accuracy_xgb * 100.0,
                 wf.accuracy_lstm * 100.0,
                 wf.accuracy_finale * 100.0,
@@ -191,7 +213,7 @@ pub fn demarrer_surveillance_ml(db: Arc<Database>, pipeline_ml: Arc<Mutex<Pipeli
                         "🔁 Surveillance ML: accuracy_val={:.1}% < 52% — ré-entraînement auto",
                         moy * 100.0
                     );
-                    executer_entrainements_tous(&db, &pipeline_ml).await;
+                    executer_entrainements_tous(&db, &pipeline_ml, None).await;
                 }
                 Ok(Some(moy)) => {
                     tracing::debug!("Surveillance ML: accuracy_val={:.1}% ✓", moy * 100.0);
@@ -206,7 +228,7 @@ pub fn demarrer_surveillance_ml(db: Arc<Database>, pipeline_ml: Arc<Mutex<Pipeli
                         "🔁 Surveillance ML: {} nouveaux samples (24h) ≥ 100 — ré-entraînement incrémental",
                         n
                     );
-                    executer_entrainements_tous(&db, &pipeline_ml).await;
+                    executer_entrainements_tous(&db, &pipeline_ml, None).await;
                 }
                 Ok(n) => tracing::debug!("Surveillance ML: {} nouveaux samples (24h)", n),
                 Err(e) => tracing::warn!("Surveillance ML: erreur compter samples: {}", e),
@@ -214,6 +236,25 @@ pub fn demarrer_surveillance_ml(db: Arc<Database>, pipeline_ml: Arc<Mutex<Pipeli
             sleep(Duration::from_secs(6 * 3600)).await;
         }
     });
+}
+
+/// Tronque aux N bougies les plus récentes. Évite les durées excessives (M1 ≈ 1M → 50k).
+fn limiter_bougies_par_tf(mut bougies: Vec<common::Candle>, tf: &str) -> Vec<common::Candle> {
+    let max: usize = match tf {
+        "M1" => 50_000,
+        "M5" => 50_000,
+        "M15" => 30_000,
+        "M30" => 20_000,
+        "H1" => 10_000,
+        "H4" => 5_000,
+        "D1" => 1_000,
+        _ => 500, // W1 et autres
+    };
+    if bougies.len() > max {
+        let debut = bougies.len() - max;
+        bougies.drain(..debut);
+    }
+    bougies
 }
 
 fn secondes_jusqu_a_minuit_utc() -> u64 {

@@ -16,11 +16,6 @@ use tokio::sync::RwLock;
 
 use crate::state::AppState;
 
-const CHEMIN_XGB: &str = "data/modele_xgboost.json";
-const CHEMIN_LSTM: &str = "data/modele_lstm.json";
-const CHEMIN_XGB_BACKUP: &str = "data/modele_xgboost_backup.json";
-const CHEMIN_LSTM_BACKUP: &str = "data/modele_lstm_backup.json";
-
 // ── État du job de réentraînement ─────────────────────────────────────────────
 
 /// Cycle de vie d'un job de réentraînement (stocké en mémoire dans AppState).
@@ -30,10 +25,19 @@ pub struct RetainState {
     pub en_cours: bool,
     pub accuracy_avant: f64,
     pub accuracy_apres: Option<f64>,
+    /// Score walk-forward OOS du dernier entraînement
+    pub wf_score_apres: Option<f64>,
+    /// Écart accuracy_train − accuracy_val_oos (>15% = overfitting)
+    pub gap_train_wf: Option<f64>,
+    pub overfitting: bool,
     pub rolled_back: bool,
     pub message: String,
     pub demarre_le: Option<i64>,
     pub termine_le: Option<i64>,
+    /// Nombre total de combinaisons asset×TF à entraîner
+    pub nb_combinaisons_total: usize,
+    /// Nombre de combinaisons terminées (succès ou ignorées)
+    pub nb_combinaisons_done: usize,
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -72,15 +76,20 @@ pub async fn declencher_retrain(state: web::Data<AppState>) -> HttpResponse {
             en_cours: true,
             accuracy_avant,
             accuracy_apres: None,
+            wf_score_apres: None,
+            gap_train_wf: None,
+            overfitting: false,
             rolled_back: false,
             message: "Réentraînement en cours…".to_string(),
             demarre_le: Some(now_ts),
             termine_le: None,
+            nb_combinaisons_total: 0,
+            nb_combinaisons_done: 0,
         };
     }
 
     // Sauvegarder les modèles actuels (rollback possible)
-    if let Err(e) = sauvegarder_backup() {
+    if let Err(e) = crate::ml_retrain_job::sauvegarder_backup() {
         let mut s = state.retrain_state.write().await;
         s.en_cours = false;
         s.message = format!("Impossible de sauvegarder les modèles avant entraînement: {e}");
@@ -121,7 +130,7 @@ pub async fn statut_retrain(state: web::Data<AppState>, path: web::Path<String>)
 
 // ── Logique interne ───────────────────────────────────────────────────────────
 
-/// Corps du job de réentraînement : entraîne, compare, rollback si besoin.
+/// Corps du job de réentraînement : délégué à ml_retrain_job.
 async fn executer_retrain_job(
     db: Arc<db::Database>,
     pipeline_ml: Arc<tokio::sync::Mutex<ml::PipelineML>>,
@@ -129,112 +138,14 @@ async fn executer_retrain_job(
     accuracy_avant: f64,
     job_id: String,
 ) {
-    tracing::info!("🔁 Réentraînement manuel déclenché (job_id={})", job_id);
-
-    // Lancer le réentraînement complet (même logique que le scheduler)
-    crate::scheduler::executer_entrainements_tous(&db, &pipeline_ml).await;
-
-    // Mesurer la nouvelle accuracy (moyenne sur le dernier entraînement)
-    let accuracy_apres: f64 = db
-        .accuracy_val_recente(1)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or(0.0);
-    let seuil_rollback = accuracy_avant - 0.02;
-
-    let now_ts = chrono::Utc::now().timestamp();
-
-    if accuracy_avant > 0.0 && accuracy_apres < seuil_rollback {
-        // --- ROLLBACK ---
-        tracing::warn!(
-            "Réentraînement dégradé ({:.3} → {:.3}) — rollback",
-            accuracy_avant,
-            accuracy_apres
-        );
-
-        let rolled_back = match restaurer_backup() {
-            Ok(_) => {
-                let mut pipeline = pipeline_ml.lock().await;
-                match pipeline.charger_depuis_disque() {
-                    Ok(_) => {
-                        tracing::info!("Rollback modèles ML effectué avec succès");
-                        true
-                    }
-                    Err(e) => {
-                        tracing::error!("Rollback charger_depuis_disque échoué: {}", e);
-                        false
-                    }
-                }
-            }
-            Err(e) => {
-                tracing::error!("Rollback copie fichiers échoué: {}", e);
-                false
-            }
-        };
-
-        let mut s = retrain_state.write().await;
-        s.en_cours = false;
-        s.accuracy_apres = Some(accuracy_apres);
-        s.rolled_back = rolled_back;
-        s.termine_le = Some(now_ts);
-        s.message = if rolled_back {
-            format!(
-                "Dégradation détectée ({:.1}% → {:.1}%) — anciens modèles restaurés",
-                accuracy_avant * 100.0,
-                accuracy_apres * 100.0
-            )
-        } else {
-            format!(
-                "Dégradation détectée ({:.1}% → {:.1}%) — rollback échoué, modèles dégradés conservés",
-                accuracy_avant * 100.0,
-                accuracy_apres * 100.0
-            )
-        };
-    } else {
-        // --- SUCCÈS ---
-        let gain = accuracy_apres - accuracy_avant;
-        tracing::info!(
-            "Réentraînement terminé: {:.3} → {:.3} (Δ{:+.3})",
-            accuracy_avant,
-            accuracy_apres,
-            gain
-        );
-
-        let mut s = retrain_state.write().await;
-        s.en_cours = false;
-        s.accuracy_apres = Some(accuracy_apres);
-        s.rolled_back = false;
-        s.termine_le = Some(now_ts);
-        s.message = format!(
-            "Réentraînement terminé : {:.1}% → {:.1}% (Δ{:+.1}%)",
-            accuracy_avant * 100.0,
-            accuracy_apres * 100.0,
-            gain * 100.0
-        );
-    }
-}
-
-/// Copie les modèles actuels vers les chemins de backup.
-fn sauvegarder_backup() -> anyhow::Result<()> {
-    if std::path::Path::new(CHEMIN_XGB).exists() {
-        std::fs::copy(CHEMIN_XGB, CHEMIN_XGB_BACKUP)?;
-    }
-    if std::path::Path::new(CHEMIN_LSTM).exists() {
-        std::fs::copy(CHEMIN_LSTM, CHEMIN_LSTM_BACKUP)?;
-    }
-    Ok(())
-}
-
-/// Restaure les modèles depuis les backups.
-fn restaurer_backup() -> anyhow::Result<()> {
-    if std::path::Path::new(CHEMIN_XGB_BACKUP).exists() {
-        std::fs::copy(CHEMIN_XGB_BACKUP, CHEMIN_XGB)?;
-    }
-    if std::path::Path::new(CHEMIN_LSTM_BACKUP).exists() {
-        std::fs::copy(CHEMIN_LSTM_BACKUP, CHEMIN_LSTM)?;
-    }
-    Ok(())
+    crate::ml_retrain_job::executer_retrain_job(
+        db,
+        pipeline_ml,
+        retrain_state,
+        accuracy_avant,
+        job_id,
+    )
+    .await;
 }
 
 // ── GET /api/ml/retrain/last ──────────────────────────────────────────────────

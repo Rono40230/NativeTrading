@@ -6,7 +6,7 @@ import { usePrixStore } from '@/stores/prix.store'
 
 // Normalise les verdicts rockets (invalide/confirme) vers les valeurs Signal (SL/TP1)
 function normaliserVerdictRocket(v: string | null): string | null {
-  if (v === 'invalide') return 'SL'
+  if (v === 'invalide' || v === 'sl') return 'SL'
   if (v === 'confirme') return 'TP1'
   return v // TP1, TP2, TP3, expire, null → inchangés
 }
@@ -26,7 +26,7 @@ export function rocketToSignal(r: RocketSignalHistorique): Signal {
     statut: r.statut === 'ferme' ? 'Fermé' : 'Actif',
     verdict,
     prix_verdict: r.prix_verdict,
-    ferme_le: null,
+    ferme_le: r.maj_le ? Math.floor(new Date(r.maj_le.replace(' ', 'T') + 'Z').getTime() / 1000) : null,
     cree_le: Math.floor(new Date(r.cree_le.replace(' ', 'T') + 'Z').getTime() / 1000),
     llm_valide: r.llm_valide,
     llm_conviction: r.llm_conviction,

@@ -10,7 +10,7 @@ cuda = ["tch"]
 [dependencies]
 common = { path = "../common" }
 indicators = { path = "../indicators" }
-tch = { version = "0.14", optional = true }
+tch = { version = "0.16", optional = true }
 ndarray.workspace = true
 smartcore.workspace = true
 serde.workspace = true

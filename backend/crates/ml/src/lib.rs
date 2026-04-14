@@ -6,6 +6,7 @@ pub mod features;
 pub mod feedback_analyser;
 pub mod lstm;
 pub mod params_suggester;
+pub mod rockets_trainer;
 pub mod walk_forward;
 pub mod xgboost;
 
@@ -13,6 +14,7 @@ pub use features::{extraire_features, labelliser, NB_FEATURES};
 pub use lstm::{ModeleHybrideLstm, LONGUEUR_SEQ};
 pub use walk_forward::entrainer_walk_forward;
 pub use xgboost::ModeleXGBoost;
+pub use rockets_trainer::{entrainer_sur_trades_clotures, XgbRockets};
 
 /// Résultat d'inférence du pipeline hybride XGBoost + LSTM
 #[derive(Debug, Clone)]
@@ -27,10 +29,12 @@ pub struct PredictionML {
 const CHEMIN_XGB: &str = "data/modele_xgboost.json";
 const CHEMIN_LSTM: &str = "data/modele_lstm.json";
 
-/// Pipeline ML hybride : XGBoost (40%) + LSTM (60%)
+/// Pipeline ML hybride : XGBoost (40%) + LSTM (60%) + XGB Rockets fine-tuné
 pub struct PipelineML {
     pub xgb: ModeleXGBoost,
     pub lstm: ModeleHybrideLstm,
+    /// XGBoost fine-tuné sur les trades Rockets clôturés (P3). Optionnel.
+    pub xgb_rockets: XgbRockets,
     /// Cache GPU — reconstruit depuis les poids CPU. `None` si CUDA absent.
     #[cfg(feature = "cuda")]
     pub lstm_gpu: Option<lstm::LstmGpu>,
@@ -41,6 +45,7 @@ impl PipelineML {
         Self {
             xgb: ModeleXGBoost::new(100),
             lstm: ModeleHybrideLstm::nouveau(NB_FEATURES),
+            xgb_rockets: XgbRockets::charger_depuis_disque(),
             #[cfg(feature = "cuda")]
             lstm_gpu: None,
         }
@@ -87,6 +92,8 @@ impl PipelineML {
         if xgb_charge {
             tracing::info!("Pipeline ML XGBoost+LSTM rechargé depuis disque");
         }
+        // Recharger XGB Rockets si disponible (silencieux si absent)
+        self.xgb_rockets = XgbRockets::charger_depuis_disque();
         #[cfg(feature = "cuda")]
         self.activer_gpu_si_pret();
         Ok(xgb_charge)
@@ -142,12 +149,37 @@ impl PipelineML {
         let acc_xgb = self.xgb.entrainer(&features_dataset, &labels)?;
 
         // ── Préparation séquences LSTM (T=10 timesteps) ───────────────────────
-        let sequences: Vec<Vec<Vec<f64>>> = (LONGUEUR_SEQ..features_dataset.len())
+        let seq_total: Vec<Vec<Vec<f64>>> = (LONGUEUR_SEQ..features_dataset.len())
             .map(|i| features_dataset[i - LONGUEUR_SEQ..i].to_vec())
             .collect();
-        let labels_seq: Vec<f64> = labels[LONGUEUR_SEQ..].to_vec();
+        let labels_seq_total: Vec<f64> = labels[LONGUEUR_SEQ..].to_vec();
 
-        let acc_lstm = self.lstm.entrainer(&sequences, &labels_seq, 15, 0.001);
+        // GPU : toutes les séquences, cuDNN accéléré (RTX 3090).
+        // CPU fallback : plafond 5000 séquences (BPTT cpu pur Rust).
+        #[cfg(feature = "cuda")]
+        let acc_lstm = if tch::Cuda::is_available() {
+            match lstm::entrainement_gpu::entrainer_sur_gpu(
+                &mut self.lstm, &seq_total, &labels_seq_total, 15, 0.001,
+            ) {
+                Ok(acc) => acc,
+                Err(e) => {
+                    tracing::warn!("LSTM GPU échoué, fallback CPU: {}", e);
+                    const MAX: usize = 5_000;
+                    let d = seq_total.len().saturating_sub(MAX);
+                    self.lstm.entrainer(&seq_total[d..], &labels_seq_total[d..], 15, 0.001)
+                }
+            }
+        } else {
+            const MAX: usize = 5_000;
+            let d = seq_total.len().saturating_sub(MAX);
+            self.lstm.entrainer(&seq_total[d..], &labels_seq_total[d..], 15, 0.001)
+        };
+        #[cfg(not(feature = "cuda"))]
+        let acc_lstm = {
+            const MAX: usize = 5_000;
+            let d = seq_total.len().saturating_sub(MAX);
+            self.lstm.entrainer(&seq_total[d..], &labels_seq_total[d..], 15, 0.001)
+        };
 
         tracing::info!(
             "Pipeline hybride XGB+LSTM entraîné en {:?}: {} éch. XGB={:.1}% LSTM={:.1}%",
@@ -192,8 +224,15 @@ impl PipelineML {
                     #[cfg(not(feature = "cuda"))]
                     let conf_long_lstm = self.lstm.predire(&sequence);
                     let score_xgb = self.xgb.predire_score(&f).unwrap_or(0.5);
-                    // Fusion pondérée : LSTM 60% + XGBoost 40%
-                    let conf_long = 0.6 * conf_long_lstm + 0.4 * score_xgb;
+
+                    // Fusion pondérée selon disponibilité du modèle Rockets fine-tuné
+                    let conf_long = if let Some(score_rockets) = self.xgb_rockets.predire_score(&f) {
+                        // P3 disponible : LSTM 40% + XGB général 30% + XGB Rockets 30%
+                        0.4 * conf_long_lstm + 0.3 * score_xgb + 0.3 * score_rockets
+                    } else {
+                        // P3 absent : LSTM 60% + XGB général 40%
+                        0.6 * conf_long_lstm + 0.4 * score_xgb
+                    };
                     let direction = if conf_long >= 0.5 {
                         Direction::Long
                     } else {

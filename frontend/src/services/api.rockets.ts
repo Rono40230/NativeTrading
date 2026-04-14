@@ -25,6 +25,11 @@ export const rocketsApi = {
     return res.data
   },
 
+  async rocketsActifs(): Promise<RocketSignalHistorique[]> {
+    const res = await http.get('/api/rockets/actifs')
+    return res.data
+  },
+
   async syncRockets(): Promise<{ fermes: number; ouverts_nouveaux: number }> {
     const res = await http.post('/api/rockets/sync', null, { timeout: 60000 })
     return res.data

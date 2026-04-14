@@ -67,6 +67,10 @@ pub struct ScanResultat {
     /// Série ordonnée des amplitudes (high−low) des bougies de compression.
     /// Décroissante = VCP authentique. Envoyée au LLM pour analyse structurelle.
     pub swing_amplitudes: Vec<f64>,
+    /// Features ML (52 valeurs) calculées à l'émission — stockées dans rockets_features_snapshot.
+    /// Skippé en sérialisation JSON (pas utile côté UI).
+    #[serde(skip)]
+    pub features_ml: Option<Vec<f64>>,
 }
 
 #[derive(serde::Deserialize)]

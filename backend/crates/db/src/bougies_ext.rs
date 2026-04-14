@@ -42,16 +42,18 @@ impl Database {
             .collect())
     }
 
-    /// Retourne toutes les combinaisons (asset_str, timeframe_str) ayant ≥ min_bougies en DB.
+    /// Retourne toutes les combinaisons (asset_str, timeframe_str) ayant ≥ min_bougies en DB,
+    /// restreintes aux assets marqués `actif=1` dans la table `assets`.
     pub async fn combinaisons_entrainables(
         &self,
         min_bougies: i64,
     ) -> Result<Vec<(String, String)>> {
         let rows = sqlx::query(
-            "SELECT asset, timeframe FROM bougies
-             GROUP BY asset, timeframe
+            "SELECT b.asset, b.timeframe FROM bougies b
+             JOIN assets a ON a.id = b.asset AND a.actif = 1
+             GROUP BY b.asset, b.timeframe
              HAVING COUNT(*) >= ?
-             ORDER BY asset, timeframe",
+             ORDER BY b.asset, b.timeframe",
         )
         .bind(min_bougies)
         .fetch_all(&self.pool)

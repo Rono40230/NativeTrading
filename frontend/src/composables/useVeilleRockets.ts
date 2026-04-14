@@ -41,7 +41,7 @@ const signalAlerte   = ref<RocketSignalHistorique | null>(null)
 
 async function verifierNouveauxSignaux() {
   try {
-    const liste = await apiService.historiqueRockets(5)
+    const liste = await apiService.rocketsActifs()
     // Filtrer only attente/ouvert (signaux actifs, pas clôturés)
     const actifs = liste.filter(s => s.statut === 'attente' || s.statut === 'ouvert')
     if (actifs.length === 0) return

@@ -40,7 +40,7 @@
 
     <!-- Tableau -->
     <div class="glass-card overflow-hidden" style="max-height: calc(100vh - 240px); overflow-y: auto;">
-      <div v-if="chargement" class="text-center text-gray-500 py-10">Chargement...</div>
+      <div v-if="chargement && !listeActive.length" class="text-center text-gray-500 py-10">Chargement...</div>
       <div v-else-if="!listeActive.length" class="text-center text-gray-500 py-10">
         Aucun signal correspondant aux filtres
       </div>
@@ -54,6 +54,7 @@
         :tri-dir="triDir"
         :show-prix-actuel="filtreStatut !== 'cloturees'"
         :show-sortie="filtreStatut !== 'en_cours'"
+        :show-ferme-le="true"
         @trier-par="trierPar"
       />
 
@@ -76,7 +77,8 @@
             <th class="px-3 py-3 text-center">IA</th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Résultat <span class="tri-icone">{{ icone('verdict') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('strategie')">Stratégie <span class="tri-icone">{{ icone('strategie') }}</span></th>
-            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Date <span class="tri-icone">{{ icone('cree_le') }}</span></th>
+            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Ouvert le <span class="tri-icone">{{ icone('cree_le') }}</span></th>
+            <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('ferme_le')">Fermé le <span class="tri-icone">{{ icone('ferme_le') }}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -101,6 +103,7 @@
             </td>
             <td class="px-3 py-3 text-gray-400 text-xs">{{ s.strategie }}</td>
             <td class="px-3 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
+            <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-gray-500 text-xs">{{ s.ferme_le ? formatDate(s.ferme_le) : '—' }}</td>
           </tr>
         </tbody>
       </table>
@@ -255,7 +258,8 @@ watch(filtreStrategie, (val, old) => {
 })
 
 async function charger() {
-  chargement.value = true
+  // N'afficher le spinner que si le tableau est encore vide (premier chargement)
+  if (!listeActive.value.length) chargement.value = true
   try {
     if (rocketsMode.value) {
       await chargerRockets()

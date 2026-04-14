@@ -1,5 +1,5 @@
 <template>
-  <div class="rocket-bar px-4 py-2.5 flex flex-col gap-1.5 cursor-pointer hover:bg-white/5 transition-colors h-full" @click="modalSurveillance = true">
+  <div class="rocket-bar px-4 py-2.5 flex flex-col gap-1.5 cursor-pointer hover:bg-white/5 transition-colors h-full" v-bind="$attrs" @click="modalSurveillance = true">
     <!-- Header -->
     <div class="flex items-center justify-between shrink-0">
       <p class="text-[11px] font-semibold uppercase tracking-widest text-orange-400">🚀 Rockets</p>
@@ -126,6 +126,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false })
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import type { SignalRocket, PhaseRocket } from '@/composables/useVeilleRockets'
 import { cryptoName, cryptoLogoUrl } from '@/composables/useCryptoMeta'

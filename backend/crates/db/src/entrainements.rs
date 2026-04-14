@@ -116,4 +116,18 @@ impl Database {
         let moy: Option<f64> = row.try_get("moy").ok();
         Ok(moy.is_some_and(|m| m < seuil))
     }
+
+    /// Retourne (accuracy_train, accuracy_val_oos) du dernier entraînement.
+    /// Utilisé pour calculer le gap train/OOS (détection d'overfitting).
+    pub async fn dernier_gap_train_val(&self) -> Result<Option<(f64, f64)>> {
+        let row = sqlx::query(
+            "SELECT accuracy_train, accuracy_val FROM historique_entrainements
+             ORDER BY cree_le DESC LIMIT 1",
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        Ok(row.map(|r| (r.get("accuracy_train"), r.get("accuracy_val"))))
+    }
 }

@@ -170,6 +170,13 @@ impl CoucheLstm {
         &self.biais
     }
 
+    /// Remplace poids et biais après entraînement GPU (feature cuda uniquement).
+    #[cfg(feature = "cuda")]
+    pub(super) fn set_poids_biais(&mut self, poids: Vec<f64>, biais: Vec<f64>) {
+        self.poids = poids;
+        self.biais = biais;
+    }
+
     /// Référence mutable pour gradient clipping (CPU + GPU).
     pub(super) fn poids_mut(&mut self) -> &mut [f64] {
         &mut self.poids

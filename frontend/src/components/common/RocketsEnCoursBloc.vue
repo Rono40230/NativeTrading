@@ -31,7 +31,7 @@ function ouvrirModal(s: RocketSignalHistorique) {
 
 async function charger() {
   try {
-    const tous = await apiService.historiqueRockets(200)
+    const tous = await apiService.rocketsActifs()
     enAttente.value = tous.filter(r => r.statut === 'attente')
   } catch {
     enAttente.value = []

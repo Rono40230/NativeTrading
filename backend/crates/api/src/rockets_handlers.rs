@@ -204,7 +204,7 @@ pub async fn scan_momentum_debug() -> impl Responder {
     }))
 }
 
-/// GET /api/rockets/historique?limite=50
+/// GET /api/rockets/historique?limite=50 — uniquement les trades clôturés (statut='ferme')
 pub async fn get_historique(
     state: web::Data<AppState>,
     query: web::Query<QueryHistorique>,
@@ -215,6 +215,17 @@ pub async fn get_historique(
         Ok(liste) => HttpResponse::Ok().json(liste),
         Err(e) => {
             tracing::error!("Historique rockets: {}", e);
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
+        }
+    }
+}
+
+/// GET /api/rockets/actifs — trades en cours (statut='ouvert' ou 'attente')
+pub async fn get_actifs(state: web::Data<AppState>) -> impl Responder {
+    match rockets::lister_actifs(state.db.pool()).await {
+        Ok(liste) => HttpResponse::Ok().json(liste),
+        Err(e) => {
+            tracing::error!("Rockets actifs: {}", e);
             HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
         }
     }

@@ -235,6 +235,18 @@ pub async fn filtrer_sauvegarder_publier(
         }
     };
 
+    // ── Snapshot features ML ─────────────────────────────────────────────────
+    // Persiste les 52 features calculées au moment du scan pour le fine-tuning P3.
+    if let Some(ref features) = r.features_ml {
+        if let Err(e) = db::rockets_features::inserer_snapshot(pool, signal_id, &r.ticker, features).await {
+            tracing::warn!("Snapshot features {} {}: {}", label_signal, r.ticker, e);
+        } else {
+            tracing::debug!("Snapshot features {} {} (signal_id={}) — {} features", label_signal, r.ticker, signal_id, features.len());
+        }
+    } else {
+        tracing::debug!("Snapshot features {} {} — features_ml absent (< 60 bougies)", label_signal, r.ticker);
+    }
+
     use common::{Direction, Signal, Timeframe};
     // Les tickers Rockets sont au format "BTCUSDT" — on retire le quote asset pour parse_asset
     let ticker_base = r.ticker

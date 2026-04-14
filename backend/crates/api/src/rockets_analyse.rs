@@ -12,6 +12,28 @@ use strategies::rockets_niveaux::{
 };
 use strategies::rockets_position::calculer_trailing_coeff;
 
+/// Construit un Vec<Candle> depuis les vecs OHLCV extraits de Binance klines.
+/// Utilisé pour appeler `ml::features::extraire_features` sans re-requête.
+fn bougies_depuis_vecs(
+    opens: &[f64],
+    highs: &[f64],
+    lows: &[f64],
+    closes: &[f64],
+    volumes: &[f64],
+) -> Vec<common::Candle> {
+    let n = opens.len().min(highs.len()).min(lows.len()).min(closes.len()).min(volumes.len());
+    (0..n)
+        .map(|i| common::Candle {
+            timestamp: chrono::Utc::now(), // non utilisé par extraire_features
+            open: opens[i],
+            high: highs[i],
+            low: lows[i],
+            close: closes[i],
+            volume: volumes[i],
+        })
+        .collect()
+}
+
 pub async fn analyser_symbol(
     client: &reqwest::Client,
     ticker: &str,
@@ -140,6 +162,12 @@ pub async fn analyser_symbol(
     let niveau_invalidation = calculer_niveau_invalidation(support, atr14);
     let type_entree_rec = recommander_type_entree(atr_ratio, ratio_corps, change1h).to_string();
 
+    // ── Features ML snapshot ──────────────────────────────────────────────────
+    // Reconstruit les Candles depuis les vecs pour appeler extraire_features.
+    // Stockées dans ScanResultat.features_ml → persistées en DB à la sauvegarde du signal.
+    let bougies_ml = bougies_depuis_vecs(&opens, &highs, &lows, &closes, &volumes);
+    let features_ml = ml::features::extraire_features(&bougies_ml);
+
     Some(ScanResultat {
         symbol: format!("{}USDT", ticker),
         ticker: ticker.to_string(),
@@ -171,5 +199,6 @@ pub async fn analyser_symbol(
         contraction_qualite,
         atr50,
         swing_amplitudes,
+        features_ml,
     })
 }

@@ -19,6 +19,7 @@ mod indicators_types;
 mod ml_handlers;
 mod ml_insights_handlers;
 mod ml_retrain_handler;
+mod ml_retrain_job;
 mod news_context_handler;
 mod news_fear_greed;
 mod news_handlers;

@@ -12,7 +12,7 @@
 
     <!-- Tableau -->
     <div class="glass-card overflow-x-hidden overflow-y-auto flex-1 min-h-0">
-      <div v-if="chargement" class="text-center text-gray-500 py-10">Chargement…</div>
+      <div v-if="chargement && !listeActive.length" class="text-center text-gray-500 py-10">Chargement…</div>
       <div v-else-if="!listeActive.length" class="text-center text-gray-500 py-10">Aucun signal correspondant</div>
       <table v-else class="w-full text-sm">
         <thead>
@@ -31,7 +31,7 @@
             <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_verdict')">Sortie <span>{{ icone('prix_verdict') }}</span></th>
             <th class="px-3 py-3 text-center">IA</th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Résultat <span>{{ icone('verdict') }}</span></th>
-            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Date <span>{{ icone('cree_le') }}</span></th>
+            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Ouvert le <span>{{ icone('cree_le') }}</span></th>
             <th v-if="strategie === 'SmcDirectional'" class="px-3 py-3 text-center w-10"></th>
           </tr>
         </thead>
@@ -211,13 +211,13 @@ function classeResultat(s: Signal): string {
 }
 
 async function charger() {
-  chargement.value = true
+  if (!listeActive.value.length) chargement.value = true
   try {
     if (props.strategie === 'Rockets') {
-      rocketsRaw.value = await apiService.historiqueRockets(500)
+      rocketsRaw.value = await apiService.rocketsActifs()
       signaux.value = rocketsRaw.value.map(rocketToSignal)
       // Abonner les tickers des positions ouvertes au WS prix (1s)
-      const openTickers = rocketsRaw.value.filter(r => r.statut !== 'ferme').map(r => r.ticker)
+      const openTickers = rocketsRaw.value.map(r => r.ticker)
       if (openTickers.length > 0) prixStore.abonner(openTickers)
     } else {
       const data = await apiService.getSignaux(500)

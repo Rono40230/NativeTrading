@@ -38,9 +38,16 @@ Pourquoi je n'ai pas :
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Dans l'analyse des potentielles rockets ne faudrait il pas ajouter une vérification multi TF pour confirmer un fort mouvement à venir ?
-Repond sans coder
+Dans la modale 📊 SURVEILLANCE DES ASSETS — STRATÉGIE SMC le % de progression à côté du prix est calculé sur quel TF ?
 
-Comment sont calculés les SL et TP ?
-Il y a un problème avec le TP 3 qui est inférieur au TP 1
-Il manque le prix d'entrée.
+--------------------------------------------------------------------------------------------------------------------------
+
+Que signifie ce log de backend : 2026-04-13T16:29:31.503110Z  WARN api::ig_lightstreamer: IG Lightstreamer: erreur — LS create_session: réponse inattendue: ERROR 71
+License not valid for this Client type
+ — reconnexion dans 10s
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Dans le dashboard ajouter un bloc "5 derniers signaux" à droite du bloc signaux en attente et de la meme taille que signaux en attente.
+Ce bloc doit afficher les 5 derniers badges des 5 derniers signaux ouverts.
+Au clic sur un badge = ouverture modale du signal

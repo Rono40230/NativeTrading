@@ -64,10 +64,15 @@ export interface RetainJobState {
   en_cours:      boolean
   accuracy_avant: number
   accuracy_apres: number | null
+  wf_score_apres: number | null
+  gap_train_wf:  number | null
+  overfitting:   boolean
   rolled_back:   boolean
   message:       string
   demarre_le:    number | null
   termine_le:    number | null
+  nb_combinaisons_total: number
+  nb_combinaisons_done:  number
 }
 
 export const mlInsightsApi = {

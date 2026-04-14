@@ -16,7 +16,8 @@
         <th v-if="showSortie" class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'prix_verdict')">Sortie <span>{{ icone('prix_verdict') }}</span></th>
         <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'verdict')">Verdict <span>{{ icone('verdict') }}</span></th>
         <th class="px-4 py-3 text-center">IA</th>
-        <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'cree_le')">Date <span>{{ icone('cree_le') }}</span></th>
+        <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'cree_le')">Ouvert le <span>{{ icone('cree_le') }}</span></th>
+        <th v-if="showFermeLe" class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'maj_le')">Fermé le <span>{{ icone('maj_le') }}</span></th>
       </tr>
     </thead>
     <tbody>
@@ -53,6 +54,7 @@
           <span v-else class="text-gray-700 text-xs">—</span>
         </td>
         <td class="px-4 py-3 text-gray-500 text-xs">{{ new Date(r.cree_le.replace(' ', 'T') + 'Z').toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) }}</td>
+        <td v-if="showFermeLe" class="px-4 py-3 text-gray-500 text-xs">{{ r.maj_le ? new Date(r.maj_le.replace(' ', 'T') + 'Z').toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) : '—' }}</td>
       </tr>
     </tbody>
   </table>
@@ -69,10 +71,12 @@ const props = defineProps<{
   triDir: 'asc' | 'desc'
   showPrixActuel?: boolean
   showSortie?: boolean
+  showFermeLe?: boolean
 }>()
 
 const showPrixActuel = computed(() => props.showPrixActuel !== false)
 const showSortie = computed(() => props.showSortie !== false)
+const showFermeLe = computed(() => props.showFermeLe === true)
 
 defineEmits<{ trierPar: [col: string] }>()
 
@@ -115,7 +119,7 @@ function classeConvictionLlm(conviction: number | null): string {
 function classeVerdict(r: RocketSignalHistorique): string {
   const v = r.verdict
   if (v === 'TP1' || v === 'TP2' || v === 'TP3' || v === 'confirme') return 'badge-green'
-  if (v === 'invalide') return 'badge-red'
+  if (v === 'invalide' || v === 'sl') return 'badge-red'
   if (v === 'expire') return 'badge-gray'
   const prix = props.prixActuels[r.ticker]
   if (prix) {
@@ -129,7 +133,7 @@ function classeVerdict(r: RocketSignalHistorique): string {
 
 function labelVerdict(r: RocketSignalHistorique): string {
   const v = r.verdict
-  if (v === 'invalide') return '❌ −1R'
+  if (v === 'invalide' || v === 'sl') return '❌ −1R'
   if (v === 'TP1' || v === 'confirme') return '✅ +1R'
   if (v === 'TP2') return '✅ +2R'
   if (v === 'TP3') {
