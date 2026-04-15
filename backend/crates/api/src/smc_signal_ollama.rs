@@ -68,13 +68,18 @@ pub async fn appeler_smc_et_publier(
         sweep_detecte: params.sweep_detecte,
     };
 
-    // Few-shot injecté dans le contexte formaté
-    let contexte_few_shot = construire_few_shot(params.feedbacks, params.categorie);
+    // Few-shot injecté dans le contexte formaté + leçons systémiques
+    let mut contexte_few_shot = construire_few_shot(params.feedbacks, params.categorie);
+    let lecons = crate::patterns_echec_job::charger_lecons_systemiques(db, "SMC").await;
+    if !lecons.is_empty() {
+        contexte_few_shot.push('\n');
+        contexte_few_shot.push_str(&lecons);
+    }
 
     // Appel LLM avec mesure latence
     let debut = Instant::now();
     let rep =
-        match filtrer_signal_smc_avec_contexte(&candidat, &historique_signaux, &contexte_few_shot)
+        match crate::ollama::smc_filtre::filtrer_signal_smc(&candidat, &historique_signaux, &contexte_few_shot)
             .await
         {
             Ok(r) => r,
@@ -202,38 +207,24 @@ fn construire_few_shot(
     }
     let mut bloc = format!("=== LEÇONS PASSÉES — {} ===\n", cat.as_str());
     for fb in feedbacks.iter().take(5) {
-        let res = if fb.gagnant == Some(1) {
-            "✅ GAGNANT"
-        } else {
-            "❌ PERDANT"
-        };
+        let res = if fb.gagnant == Some(1) { "✅ GAGNANT" } else { "❌ PERDANT" };
         let pnl = fb.pnl_r.map(|r| format!("{:.2}R", r)).unwrap_or_default();
+        let duree = fb.duree_trade_min.map(|d| format!("{}min", d)).unwrap_or_else(|| "-".into());
+        let session_out = fb.session_sortie.as_deref().unwrap_or("-");
+        let notes = fb.notes_trader.as_deref().map(|n| format!(" | note: {}", n)).unwrap_or_default();
         bloc.push_str(&format!(
-            "  • {} score={:.0} conv={} kz={} sweep={} rsi={:.0} → {} {}\n",
+            "  • {} score={:.0} conv={} kz={} sweep={} | durée={} session_sortie={} → {} {}{}\n",
             fb.verdict.as_deref().unwrap_or("?"),
             fb.score_smc,
             fb.conviction_llm,
             fb.kill_zone_active,
             fb.sweep_detecte,
-            0.0f64, // rsi non stocké dans SmcFeedbackRow — future amélioration
+            duree,
+            session_out,
             res,
             pnl,
+            notes,
         ));
     }
     bloc
-}
-
-/// Wrapper autour de `filtrer_signal_smc` qui injecte le few-shot dans le contexte.
-async fn filtrer_signal_smc_avec_contexte(
-    candidat: &crate::ollama::smc_filtre::SignalSMCCandidat,
-    historique: &[crate::ollama::smc_filtre::HistoriqueSMCSignal],
-    few_shot: &str,
-) -> Result<crate::ollama::smc_filtre::FiltreSMCReponse, common::TradingError> {
-    // Pour l'instant on délègue à filtrer_signal_smc — le few_shot sera
-    // intégré dans smc_filtre.rs si besoin (même pattern que rockets_filtre.rs).
-    // Ici on l'ajoute en log uniquement pour ne pas modifier smc_filtre.rs.
-    if !few_shot.is_empty() {
-        tracing::debug!("SMC few-shot injecté:\n{}", few_shot);
-    }
-    crate::ollama::smc_filtre::filtrer_signal_smc(candidat, historique).await
 }

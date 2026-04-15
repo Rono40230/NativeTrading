@@ -84,6 +84,7 @@ mod straddle_signal_ollama;
 mod straddle_types;
 mod straddle_utils;
 mod strategies_params_handlers;
+mod patterns_echec_job;
 mod telegram;
 mod telegram_formatage;
 mod telegram_worker;

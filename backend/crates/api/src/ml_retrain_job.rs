@@ -200,6 +200,32 @@ pub(crate) async fn executer_fine_tuning_rockets(
                 r.accuracy_oos * 100.0,
                 r.sauvegarde
             );
+
+            // P4 : persister les importances de features en DB
+            if !r.importances.is_empty() {
+                let fis: Vec<db::ml_feature_importance::FeatureImportance> = r
+                    .importances
+                    .iter()
+                    .map(|fi| db::ml_feature_importance::FeatureImportance {
+                        feature_idx: fi.feature_idx as i64,
+                        feature_nom: fi.feature_nom.to_string(),
+                        importance: fi.importance,
+                    })
+                    .collect();
+                if let Err(e) =
+                    db::ml_feature_importance::inserer_importances(db.pool(), "rockets", &fis)
+                        .await
+                {
+                    tracing::warn!("Fine-tuning Rockets: échec persistance importances: {}", e);
+                } else {
+                    tracing::info!(
+                        "Fine-tuning Rockets: top feature = {} ({:.4})",
+                        r.importances[0].feature_nom,
+                        r.importances[0].importance
+                    );
+                }
+            }
+
             // Recharger le modèle Rockets dans le pipeline si sauvegardé
             if r.sauvegarde {
                 let mut pipeline = pipeline_ml.lock().await;

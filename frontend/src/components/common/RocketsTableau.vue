@@ -118,9 +118,11 @@ function classeConvictionLlm(conviction: number | null): string {
 
 function classeVerdict(r: RocketSignalHistorique): string {
   const v = r.verdict
-  if (v === 'TP1' || v === 'TP2' || v === 'TP3' || v === 'confirme') return 'badge-green'
-  if (v === 'invalide' || v === 'sl') return 'badge-red'
+  if (v === 'TP1' || v === 'TP2' || v === 'TP3' || v === 'tp1' || v === 'tp2' || v === 'tp3' || v === 'confirme') return 'badge-green'
+  if (v === 'sl') return 'badge-red'
+  if (v === 'invalide') return 'badge-orange'
   if (v === 'expire') return 'badge-gray'
+  if (v === 'be') return 'badge-gray'
   const prix = props.prixActuels[r.ticker]
   if (prix) {
     if (r.target3 && prix >= r.target3) return 'badge-green'
@@ -133,8 +135,12 @@ function classeVerdict(r: RocketSignalHistorique): string {
 
 function labelVerdict(r: RocketSignalHistorique): string {
   const v = r.verdict
-  if (v === 'invalide' || v === 'sl') return '❌ −1R'
-  if (v === 'TP1' || v === 'confirme') return '✅ +1R'
+  if (v === 'invalide') return '↩️ Entrée non atteinte'
+  if (v === 'sl') return '❌ SL'
+  if (v === 'be') return '⚪ BE'
+  if (v === 'tp1' || v === 'TP1' || v === 'confirme') return '✅ TP1 (SL→BE)'
+  if (v === 'tp2' || v === 'TP2') return '✅ TP2 (SL→TP1)'
+  if (v === 'TP1') return '✅ +1R'
   if (v === 'TP2') return '✅ +2R'
   if (v === 'TP3') {
     const risk = r.prix_entree - r.stop_loss

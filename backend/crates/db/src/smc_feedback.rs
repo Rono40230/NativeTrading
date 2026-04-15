@@ -44,6 +44,11 @@ pub struct SmcFeedbackRow {
     pub duree_trade_min: Option<i64>,
     pub ferme_le: Option<i64>,
     pub cree_le: i64,
+    // P9 — enrichissement
+    pub prix_entree_reel: Option<f64>,
+    pub prix_sortie_reel: Option<f64>,
+    pub session_sortie: Option<String>,
+    pub notes_trader: Option<String>,
 }
 
 // ── Écriture ─────────────────────────────────────────────────────────────────
@@ -99,13 +104,17 @@ pub async fn reconcilier_feedback(
     sqlx::query(
         "UPDATE smc_feedback
          SET verdict = ?, pnl_r = ?, gagnant = ?,
-             duree_trade_min = ?, ferme_le = unixepoch()
+             duree_trade_min = ?, ferme_le = unixepoch(),
+             prix_entree_reel = ?, prix_sortie_reel = ?, session_sortie = ?
          WHERE signal_id = ? AND verdict IS NULL",
     )
     .bind(verdict)
     .bind(pnl_r)
     .bind(gagnant)
     .bind(duree_min)
+    .bind(prix_entree)
+    .bind(prix_verdict)
+    .bind(crate::session_sortie_courante(ts_now))
     .bind(signal_id)
     .execute(pool)
     .await
@@ -251,5 +260,9 @@ fn mapper_row(r: &sqlx::sqlite::SqliteRow) -> SmcFeedbackRow {
         duree_trade_min: r.get("duree_trade_min"),
         ferme_le: r.get("ferme_le"),
         cree_le: r.get("cree_le"),
+        prix_entree_reel: r.get("prix_entree_reel"),
+        prix_sortie_reel: r.get("prix_sortie_reel"),
+        session_sortie: r.get("session_sortie"),
+        notes_trader: r.get("notes_trader"),
     }
 }

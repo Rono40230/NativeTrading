@@ -147,6 +147,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::straddle_ml_handlers::cloturer_feedback),
         )
         .route(
+            "/api/straddle/equity",
+            web::get().to(crate::straddle_ml_handlers::get_equity),
+        )
+        .route(
             "/api/smc/params",
             web::get().to(crate::strategies_params_handlers::get_smc_params),
         )
@@ -165,6 +169,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/smc/feedback",
             web::get().to(crate::smc_monitoring_handlers::get_feedback),
+        )
+        .route(
+            "/api/smc/equity",
+            web::get().to(crate::smc_monitoring_handlers::get_equity),
         )
         .route(
             "/api/config",

@@ -156,6 +156,72 @@ pub async fn sync_feedback_historique(state: web::Data<AppState>) -> impl Respon
     }))
 }
 
+// ── Réconciliation interne ───────────────────────────────────────────────────
+
+/// Réconcilie tous les trades clôturés dans rockets_signaux
+/// dont le feedback est absent ou sans pnl_r.
+/// Appelée au démarrage du worker et après chaque cycle.
+pub(crate) async fn reconcilier_orphelins(pool: &sqlx::SqlitePool) {
+    let rows = match sqlx::query(
+        "SELECT rs.id, rs.ticker, rs.verdict, rs.prix_entree, rs.prix_verdict, rs.atr14, rs.cree_le
+         FROM rockets_signaux rs
+         LEFT JOIN rockets_feedback rf ON rf.signal_id = rs.id
+         WHERE rs.verdict IS NOT NULL
+           AND rs.verdict NOT IN ('invalide', 'expire')
+           AND rs.prix_verdict IS NOT NULL
+           AND (rf.pnl_r IS NULL OR rf.id IS NULL)
+         ORDER BY rs.cree_le ASC",
+    )
+    .fetch_all(pool)
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("reconcilier_orphelins: {}", e);
+            return;
+        }
+    };
+
+    for row in &rows {
+        let signal_id: i64 = row.get("id");
+        let ticker: String = row.get("ticker");
+        let verdict: String = row.get("verdict");
+        let prix_entree: f64 = row.get("prix_entree");
+        let prix_verdict: f64 = row.get("prix_verdict");
+        let atr14: Option<f64> = row.try_get("atr14").ok().flatten();
+        let cree_le: String = row.get("cree_le");
+
+        // Crée la ligne feedback si elle n'existe pas encore
+        let _ = sqlx::query(
+            "INSERT OR IGNORE INTO rockets_feedback
+             (signal_id, ticker, phase, session_active, timestamp_signal,
+              score_scan, conviction_llm, ratio_volume, atr_ratio, rsi)
+             SELECT rs.id, rs.ticker, rs.phase, 'retrosynced',
+                    strftime('%s', rs.cree_le),
+                    COALESCE(rs.score, 0), 0,
+                    COALESCE(rs.ratio_volume, 1.0),
+                    COALESCE(rs.atr_ratio, 1.0),
+                    COALESCE(rs.rsi, 50.0)
+             FROM rockets_signaux rs WHERE rs.id = ?",
+        )
+        .bind(signal_id)
+        .execute(pool)
+        .await;
+
+        reconcilier_feedback(
+            pool, &ticker, signal_id, &verdict,
+            prix_entree, prix_verdict, atr14, &cree_le,
+        )
+        .await;
+
+        tracing::info!("Orphelin réconcilié: Rockets {} id={} verdict={}", ticker, signal_id, verdict);
+    }
+
+    if !rows.is_empty() {
+        tracing::info!("Réconciliation feedback: {} orphelin(s) traité(s)", rows.len());
+    }
+}
+
 // ── Worker de suivi ──────────────────────────────────────────────────────────
 
 /// Worker lancé au démarrage : toutes les 3min, gère cycle de vie complet.
@@ -171,9 +237,17 @@ pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
         }
     };
 
+    // Rattrape les trades clôturés sans feedback avant le premier cycle
+    reconcilier_orphelins(&pool).await;
+    // Reclassifie les anciens SL qui étaient en réalité des BE/TP1/TP2
+    if let Err(e) = db::rockets_feedback_reclassify::reclassifier_verdicts_sl(&pool).await {
+        tracing::warn!("reclassifier_verdicts_sl: {}", e);
+    }
+
     loop {
         tokio::time::sleep(Duration::from_secs(3 * 60)).await;
         crate::rockets_suivi_worker::executer_cycle_suivi(&pool, &client).await;
+        reconcilier_orphelins(&pool).await;
     }
 }
 

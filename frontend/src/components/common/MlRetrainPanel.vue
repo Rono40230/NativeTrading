@@ -82,14 +82,59 @@
     <div v-else-if="!store.retrainState?.job_id" class="text-gray-500 text-sm">
       Aucun réentraînement effectué dans cette session.
     </div>
+
+    <!-- P4 : Top features Rockets -->
+    <div v-if="topFeatures.length > 0" class="space-y-2 border-t border-white/10 pt-4">
+      <h3 class="text-sm font-semibold text-gray-300">🔍 Top features prédictives (Rockets)</h3>
+      <div class="space-y-1">
+        <div v-for="(f, idx) in topFeatures" :key="f.feature_idx" class="flex items-center gap-2">
+          <span class="text-xs text-gray-500 w-4 text-right">{{ idx + 1 }}</span>
+          <span class="text-xs text-gray-300 w-36 truncate">{{ f.feature_nom }}</span>
+          <div class="flex-1 h-2 rounded-full bg-white/10">
+            <div
+              class="h-2 rounded-full bg-blue-500 transition-all"
+              :style="{ width: barWidth(f.importance) }"
+            />
+          </div>
+          <span class="text-xs text-gray-400 w-12 text-right">{{ (f.importance * 100).toFixed(2) }}%</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useMlInsightsStore } from '@/stores/mlInsights.store'
+import axios from 'axios'
 
 const store = useMlInsightsStore()
+
+interface FeatureImportance {
+  feature_idx: number
+  feature_nom: string
+  importance: number
+}
+
+const topFeatures = ref<FeatureImportance[]>([])
+
+async function chargerTopFeatures() {
+  try {
+    const res = await axios.get('http://localhost:8080/api/ml/feature-importance/rockets')
+    topFeatures.value = res.data
+  } catch {
+    // Silencieux : les importances n'existent pas encore (avant le 1er fine-tuning)
+  }
+}
+
+const maxImportance = computed(() =>
+  topFeatures.value.length > 0 ? topFeatures.value[0].importance : 1
+)
+
+function barWidth(importance: number): string {
+  const max = maxImportance.value || 1
+  return Math.round((importance / max) * 100) + '%'
+}
 
 const elapsed = ref(0)
 let timer: ReturnType<typeof setInterval> | null = null
@@ -120,5 +165,6 @@ watch(
   { immediate: true }
 )
 
+onMounted(() => { chargerTopFeatures() })
 onUnmounted(() => { if (timer) clearInterval(timer) })
 </script>

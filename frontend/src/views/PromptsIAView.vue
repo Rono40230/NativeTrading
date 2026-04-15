@@ -6,6 +6,7 @@ import MonitoringML from '@/components/common/MonitoringML.vue'
 import RocketsMonitoringML from '@/components/common/RocketsMonitoringML.vue'
 import SmcMonitoringML from '@/components/common/SmcMonitoringML.vue'
 import MlInsightsView from '@/views/MlInsightsView.vue'
+import MlSeuilsPanel from '@/components/common/MlSeuilsPanel.vue'
 
 type PromptsGroupe = Record<string, Record<string, unknown>>
 type StrMap = Record<string, string>
@@ -28,6 +29,7 @@ const onglets = [
   { id: 'rockets',      label: '🚀 Rockets' },
   { id: 'outils_ia',    label: '🧠 Outils IA' },
   { id: 'ml_insights',  label: '🤖 ML Insights' },
+  { id: 'seuils_ml',    label: '🎚️ Seuils ML' },
 ]
 
 watch(ongletActif, () => { sousOngletActif.value = 'prompts' })
@@ -95,24 +97,22 @@ onMounted(chargerPrompts)
     </div>
 
     <!-- Onglets principaux (stratégies) -->
-    <div class="flex gap-2 flex-wrap shrink-0">
+    <div class="flex gap-1 border-b border-white/10 shrink-0">
       <button
         v-for="o in onglets"
         :key="o.id"
         @click="ongletActif = o.id"
-        :class="[
-          'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
-          ongletActif === o.id
-            ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-            : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
-        ]"
+        :class="ongletActif === o.id
+          ? 'border-b-2 border-blue-500 text-white bg-white/5'
+          : 'text-gray-400 hover:text-white hover:bg-white/5'"
+        class="px-4 py-2 text-sm font-medium rounded-t transition-colors"
       >
         {{ o.label }}
       </button>
     </div>
 
-    <!-- Sous-onglets (sauf Outils IA et ML Insights) -->
-    <div v-if="ongletActif !== 'outils_ia' && ongletActif !== 'ml_insights'" class="flex gap-2 shrink-0">
+    <!-- Sous-onglets (sauf Outils IA, ML Insights, Seuils ML) -->
+    <div v-if="ongletActif !== 'outils_ia' && ongletActif !== 'ml_insights' && ongletActif !== 'seuils_ml'" class="flex gap-2 shrink-0">
       <button
         @click="sousOngletActif = 'prompts'"
         :class="[
@@ -228,6 +228,11 @@ onMounted(chargerPrompts)
     <!-- ML Insights -->
     <div v-else-if="ongletActif === 'ml_insights'" class="flex-1 min-h-0 overflow-y-auto">
       <MlInsightsView />
+    </div>
+
+    <!-- Seuils ML -->
+    <div v-else-if="ongletActif === 'seuils_ml'" class="flex-1 min-h-0 overflow-y-auto">
+      <MlSeuilsPanel />
     </div>
 
   </div>

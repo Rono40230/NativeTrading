@@ -124,13 +124,16 @@ impl AppState {
         crate::rockets_calibration::demarrer_calibration_rockets(db.clone());
 
         // Boucle analyse SMC Directionnel (toutes les 15 min)
-        crate::smc_boucle::demarrer_boucle_smc(db.clone(), signal_engine.clone());
+        crate::smc_boucle::demarrer_boucle_smc(db.clone(), signal_engine.clone(), pipeline_ml.clone());
 
         // Job de réconciliation des signaux SMC ouverts (toutes les 5 min)
         crate::smc_feedback_job::demarrer_job_feedback_smc(db.clone());
 
         // Job de calibration automatique des seuils SMC (toutes les 6h)
         crate::smc_calibration_job::demarrer_calibration_smc(db.clone());
+
+        // Job de détection de patterns d'échec récurrents (toutes les 6h)
+        crate::patterns_echec_job::demarrer_job_patterns_echec(db.clone());
 
         // Job quotidien de mise à jour des valeur_pips (paires JPY)
         crate::pip_updater::demarrer_pip_updater(db.clone(), ig_session.clone());

@@ -83,24 +83,23 @@ pub fn calculer_verdict_rocket(
     }
 
     // ── SL effectif progressif ───────────────────────────────────────────────
-    // peak ≥ target3 (R+3) → SL = TP2
-    // peak ≥ target2 (R+2) → SL = TP1
-    // peak ≥ target  (R+1) → SL = entrée (BE)
-    // sinon               → SL original
-    let sl_effectif = match (s.target2, s.target3) {
-        (Some(tp2), Some(tp3)) if peak >= tp3 => tp2,
-        (Some(tp2), _) if peak >= tp2 => s.target,
-        _ if peak >= s.target => s.prix_entree,
-        _ => s.stop_loss,
+    // peak ≥ target3 (R+3) → SL remonte à TP2  → verdict final "tp2" (gain)
+    // peak ≥ target2 (R+2) → SL remonte à TP1  → verdict final "tp1" (gain)
+    // peak ≥ target  (R+1) → SL remonte au BE   → verdict final "be"  (neutre)
+    // sinon               → SL original         → verdict final "sl"  (perte)
+    let (sl_effectif, verdict_sl) = match (s.target2, s.target3) {
+        (Some(tp2), Some(tp3)) if peak >= tp3 => (tp2,           "tp2"),
+        (Some(tp2), _)         if peak >= tp2 => (s.target,      "tp1"),
+        _                      if peak >= s.target => (s.prix_entree, "be"),
+        _                                          => (s.stop_loss,   "sl"),
     };
 
     if prix <= sl_effectif {
         // position jamais ouverte (peak sous l'entrée) → invalide (-1R fixe)
-        // position ouverte (peak >= entrée) → sl (perte variable)
-        if peak >= s.prix_entree {
-            return Some("sl");
+        if peak < s.prix_entree {
+            return Some("invalide");
         }
-        return Some("invalide");
+        return Some(verdict_sl);
     }
 
     None

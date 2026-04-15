@@ -2,6 +2,7 @@ use std::time::Instant;
 
 use common::{Candle, Direction, Result, TradingError};
 
+pub mod feature_noms;
 pub mod features;
 pub mod feedback_analyser;
 pub mod lstm;
@@ -11,6 +12,7 @@ pub mod walk_forward;
 pub mod xgboost;
 
 pub use features::{extraire_features, labelliser, NB_FEATURES};
+pub use feature_noms::FEATURE_NOMS;
 pub use lstm::{ModeleHybrideLstm, LONGUEUR_SEQ};
 pub use walk_forward::entrainer_walk_forward;
 pub use xgboost::ModeleXGBoost;

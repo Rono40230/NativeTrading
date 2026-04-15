@@ -166,8 +166,11 @@ pub fn construire_few_shot(feedbacks: &[RocketsFeedbackRow]) -> String {
     for fb in feedbacks {
         let resultat = if fb.gagnant == Some(1) { "✅ GAGNANT" } else { "❌ PERDANT" };
         let pnl = fb.pnl_r.map(|r| format!("{:.2}R", r)).unwrap_or_default();
+        let duree = fb.duree_trade_min.map(|d| format!("{}min", d)).unwrap_or_else(|| "-".into());
+        let session_out = fb.session_sortie.as_deref().unwrap_or("-");
+        let notes = fb.notes_trader.as_deref().map(|n| format!(" | note: {}", n)).unwrap_or_default();
         bloc.push_str(&format!(
-            "  \u{2022} {} ticker={} | score={} conviction={} RSI={:.0} vol={:.1}\u{00d7} atr_ratio={:.2} \u{2192} {} {}\n",
+            "  \u{2022} {} ticker={} | score={} conviction={} RSI={:.0} vol={:.1}\u{00d7} atr_ratio={:.2} | durée={} session_sortie={} \u{2192} {} {}{}\n",
             fb.verdict.as_deref().unwrap_or("?"),
             fb.ticker,
             fb.score_scan,
@@ -175,8 +178,11 @@ pub fn construire_few_shot(feedbacks: &[RocketsFeedbackRow]) -> String {
             fb.rsi,
             fb.ratio_volume,
             fb.atr_ratio,
+            duree,
+            session_out,
             resultat,
             pnl,
+            notes,
         ));
     }
     bloc

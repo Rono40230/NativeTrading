@@ -76,9 +76,11 @@ pub fn construire_prompt_few_shot(
             .pnl_r
             .map(|r| format!("{:+.2}R", r))
             .unwrap_or_else(|| "-".into());
+        let session_out = f.session_sortie.as_deref().unwrap_or("-");
+        let notes = f.notes_trader.as_deref().map(|n| format!(" | note: {}", n)).unwrap_or_default();
         lignes.push_str(&format!(
-            "  {} | {} | ratio={:.2} | score={:.1} → {} ({}) | {} | {}\n",
-            date, evt, f.ratio_atr, f.score_llm, verdict, amplitude, duree, pnl
+            "  {} | {} | ratio={:.2} | score={:.1} → {} ({}) | {} | {} | session_sortie={}{}\n",
+            date, evt, f.ratio_atr, f.score_llm, verdict, amplitude, duree, pnl, session_out, notes
         ));
     }
 

@@ -25,10 +25,22 @@ export interface SmcAnalyse {
   ml_correlation: TrancheStat[]
 }
 
+export interface RocketsAnalyse {
+  global:         StatsGlobales
+  par_phase:      TrancheStat[]
+  conviction_llm: TrancheStat[]
+}
+
+export interface StraddleAnalyse {
+  global:         StatsGlobales
+  par_categorie:  TrancheStat[]
+  score_llm:      TrancheStat[]
+}
+
 export interface AnalyseGlobale {
   smc?:      SmcAnalyse
-  rockets?:  StatsGlobales
-  straddle?: StatsGlobales
+  rockets?:  RocketsAnalyse
+  straddle?: StraddleAnalyse
 }
 
 export interface SuggestionParams {

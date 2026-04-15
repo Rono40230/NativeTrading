@@ -53,3 +53,7 @@
 .badge-gray {
     @apply bg-gray-700/60 text-gray-400;
 }
+
+.badge-orange {
+    @apply bg-orange-900/60 text-orange-400;
+}

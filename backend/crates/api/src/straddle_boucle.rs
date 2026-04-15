@@ -34,6 +34,9 @@ pub fn demarrer_boucle_straddle(
         loop {
             let assets = db.lister_assets().await.unwrap_or_default();
             let nb = assets.len();
+            // Lire le seuil une seule fois par cycle (pas par asset)
+            let seuil_straddle: f64 = db.lire_config("seuil_confiance_straddle").await
+                .ok().flatten().and_then(|v| v.parse().ok()).unwrap_or(0.75);
             for asset_db in &assets {
                 let asset = match Asset::try_from(asset_db.id.as_str()) {
                     Ok(a) => a,
@@ -44,7 +47,7 @@ pub fn demarrer_boucle_straddle(
                 } else {
                     Timeframe::M15
                 };
-                analyser_asset(&db, &signal_engine, &pipeline_ml, &asset, &tf).await;
+                analyser_asset(&db, &signal_engine, &pipeline_ml, seuil_straddle, &asset, &tf).await;
             }
             tracing::debug!("🌪️  Boucle Straddle cycle terminé ({} assets)", nb);
             sleep(Duration::from_secs(15 * 60)).await;
@@ -57,6 +60,7 @@ async fn analyser_asset(
     db: &Arc<Database>,
     signal_engine: &Arc<SignalEngine>,
     pipeline_ml: &Arc<Mutex<PipelineML>>,
+    seuil_straddle: f64,
     asset: &Asset,
     tf: &Timeframe,
 ) {
@@ -263,7 +267,7 @@ async fn analyser_asset(
 
     // Gate ML Straddle : si ML très confiant d'un côté → signal directionnel préférable, skip
     // Si ML indécis → bonus contexte pour Ollama
-    let ml_contexte = evaluer_ml_straddle(pipeline_ml, &bougies, asset.as_str(), tf.as_str()).await;
+    let ml_contexte = evaluer_ml_straddle(pipeline_ml, &bougies, asset.as_str(), tf.as_str(), seuil_straddle).await;
     match ml_contexte {
         MlContexteStraddle::Directionnel(direction) => {
             tracing::debug!(

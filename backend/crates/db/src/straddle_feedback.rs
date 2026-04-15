@@ -43,6 +43,11 @@ pub struct StraddleFeedbackRow {
     pub gagnant: Option<i64>,
     pub cree_le: i64,
     pub ferme_le: Option<i64>,
+    // P9 — enrichissement
+    pub prix_entree_reel: Option<f64>,
+    pub prix_sortie_reel: Option<f64>,
+    pub session_sortie: Option<String>,
+    pub notes_trader: Option<String>,
 }
 
 // ── Écriture ─────────────────────────────────────────────────────────────────
@@ -101,7 +106,8 @@ pub async fn maj_feedback_verdict(
     sqlx::query(
         "UPDATE straddle_feedback
          SET verdict = ?, amplitude_reelle_pct = ?, duree_trade_min = ?,
-             pnl_r = ?, gagnant = ?, ferme_le = ?
+             pnl_r = ?, gagnant = ?, ferme_le = ?,
+             prix_entree_reel = ?, prix_sortie_reel = ?, session_sortie = ?
          WHERE signal_id = ?",
     )
     .bind(verdict)
@@ -110,6 +116,9 @@ pub async fn maj_feedback_verdict(
     .bind(pnl_r)
     .bind(gagnant)
     .bind(now)
+    .bind(prix_entree)
+    .bind(prix_verdict)
+    .bind(crate::session_sortie_courante(now))
     .bind(signal_id)
     .execute(pool)
     .await
@@ -229,5 +238,9 @@ fn mapper_row(r: &sqlx::sqlite::SqliteRow) -> StraddleFeedbackRow {
         gagnant: r.get("gagnant"),
         cree_le: r.get("cree_le"),
         ferme_le: r.get("ferme_le"),
+        prix_entree_reel: r.get("prix_entree_reel"),
+        prix_sortie_reel: r.get("prix_sortie_reel"),
+        session_sortie: r.get("session_sortie"),
+        notes_trader: r.get("notes_trader"),
     }
 }

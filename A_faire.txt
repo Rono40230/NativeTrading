@@ -42,12 +42,23 @@ Dans la modale 📊 SURVEILLANCE DES ASSETS — STRATÉGIE SMC le % de progressi
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Que signifie ce log de backend : 2026-04-13T16:29:31.503110Z  WARN api::ig_lightstreamer: IG Lightstreamer: erreur — LS create_session: réponse inattendue: ERROR 71
+Que signifie ce log de backend qui apparait de nombreuses fois : 2026-04-13T16:29:31.503110Z  WARN api::ig_lightstreamer: IG Lightstreamer: erreur — LS create_session: réponse inattendue: ERROR 71
 License not valid for this Client type
  — reconnexion dans 10s
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Dans le dashboard ajouter un bloc "5 derniers signaux" à droite du bloc signaux en attente et de la meme taille que signaux en attente.
-Ce bloc doit afficher les 5 derniers badges des 5 derniers signaux ouverts.
-Au clic sur un badge = ouverture modale du signal
+Sur le bouton "annuler" en bout de ligne du tableau des trades en cours, ajoute une modale de confirmation et vérifie bien que c'est le trade selectionné qui est supprimé par "annuler"
+
+
+dans 🚀 Performance Rockets aere l'affichage des métriques en utilisant toute la largeur du bloc et en séparant chaque métrique avec un | discret
+
+Analyse le code et met à jour la roadmap pour voir où nous en sommes de son exécution.
+
+Dans ML insight, pourquoi l'onglet Suggestion de paramètres est vide alors que nous avons plus de 30 trades cloturés dans la stratégie rocket ?
+
+Confirme moi que désormais :
+- les prises de positions sont bien envoyées et étudiées par le LLM pour améliorer l'éfficacité du LLM = filtrage des trades et améliroation des paramètres des trades
+- que tout est cohérent dans la gestion de la vie d'un trade et correctement affiché dans l'ui 
+- que le réapprentissage quotidien se lance soit automatiquement soit manuellement
+- 

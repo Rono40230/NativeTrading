@@ -4,8 +4,10 @@
 //! → few-shot feedbacks → filtre LLM → signal publié + feedback inséré.
 use common::{Asset, Timeframe};
 use db::Database;
+use ml::PipelineML;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use crate::signal_engine::SignalEngine;
@@ -19,7 +21,11 @@ const ANTI_DOUBLON_MIN: i64 = 60;
 const SEUIL_SCORE_DEFAUT: f64 = 70.0;
 
 /// Démarre la boucle en background — ne bloque pas.
-pub fn demarrer_boucle_smc(db: Arc<Database>, signal_engine: Arc<SignalEngine>) {
+pub fn demarrer_boucle_smc(
+    db: Arc<Database>,
+    signal_engine: Arc<SignalEngine>,
+    pipeline_ml: Arc<Mutex<PipelineML>>,
+) {
     tokio::spawn(async move {
         sleep(Duration::from_secs(120)).await;
         loop {
@@ -35,7 +41,7 @@ pub fn demarrer_boucle_smc(db: Arc<Database>, signal_engine: Arc<SignalEngine>) 
                 } else {
                     Timeframe::M15
                 };
-                analyser_asset(&db, &signal_engine, &asset, &tf).await;
+                analyser_asset(&db, &signal_engine, &pipeline_ml, &asset, &tf).await;
             }
             tracing::debug!("📐 Boucle SMC cycle terminé ({} assets)", nb);
             sleep(Duration::from_secs(INTERVALLE_SEC)).await;
@@ -47,6 +53,7 @@ pub fn demarrer_boucle_smc(db: Arc<Database>, signal_engine: Arc<SignalEngine>) 
 async fn analyser_asset(
     db: &Arc<Database>,
     signal_engine: &Arc<SignalEngine>,
+    pipeline_ml: &Arc<Mutex<PipelineML>>,
     asset: &Asset,
     tf: &Timeframe,
 ) {
@@ -149,8 +156,37 @@ async fn analyser_asset(
         return;
     }
 
-    // Confiance ML — fallback 0.0 (pipeline LSTM/XGBoost non exposé par méthode dédiée)
-    let confiance_ml: f64 = 0.0;
+    // Gate ML : rejeter si modèle insuffisamment confiant
+    let seuil_smc: f64 = sqlx::query_scalar(
+        "SELECT valeur FROM configuration WHERE cle = 'seuil_confiance_smc'",
+    )
+    .fetch_optional(db.pool())
+    .await
+    .ok()
+    .flatten()
+    .and_then(|v: String| v.parse().ok())
+    .unwrap_or(0.60);
+    let confiance_ml: f64 = {
+        let ml = pipeline_ml.lock().await;
+        if ml.est_pret() {
+            match ml.predire(&bougies) {
+                Ok(pred) if pred.confiance < seuil_smc => {
+                    tracing::debug!(
+                        "SMC {}/{}: ML peu confiant ({:.2} < {:.2}), skip",
+                        asset_str,
+                        tf_str,
+                        pred.confiance,
+                        seuil_smc,
+                    );
+                    return;
+                }
+                Ok(pred) => pred.confiance,
+                Err(_) => 0.0,
+            }
+        } else {
+            0.0
+        }
+    };
 
     // Feedbacks few-shot (5 derniers trades clôturés sur ce triplet)
     let feedbacks = db::smc_feedback::lister_feedbacks_asset_categorie(

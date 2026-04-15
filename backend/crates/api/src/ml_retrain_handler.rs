@@ -148,6 +148,35 @@ async fn executer_retrain_job(
     .await;
 }
 
+// ── GET /api/ml/feature-importance/{strategie} ───────────────────────────────
+
+/// GET /api/ml/feature-importance/{strategie}
+/// Retourne le top 10 des features les plus prédictives pour une stratégie.
+pub async fn feature_importance(
+    state: web::Data<AppState>,
+    path: web::Path<String>,
+) -> HttpResponse {
+    let strategie = path.into_inner();
+    match db::ml_feature_importance::lire_top_importances(state.db.pool(), &strategie, 10).await {
+        Ok(items) => {
+            let json: Vec<_> = items
+                .iter()
+                .map(|fi| {
+                    serde_json::json!({
+                        "feature_idx": fi.feature_idx,
+                        "feature_nom": fi.feature_nom,
+                        "importance":  fi.importance,
+                    })
+                })
+                .collect();
+            HttpResponse::Ok().json(json)
+        }
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({
+            "error": format!("Lecture feature importance: {}", e)
+        })),
+    }
+}
+
 // ── GET /api/ml/retrain/last ──────────────────────────────────────────────────
 
 /// GET /api/ml/retrain/last — Retourne l'état du dernier job sans connaître l'ID

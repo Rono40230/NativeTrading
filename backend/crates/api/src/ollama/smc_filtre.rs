@@ -181,10 +181,16 @@ fn formater_contexte(candidat: &SignalSMCCandidat, historique: &[HistoriqueSMCSi
 pub async fn filtrer_signal_smc(
     candidat: &SignalSMCCandidat,
     historique: &[HistoriqueSMCSignal],
+    few_shot: &str,
 ) -> Result<FiltreSMCReponse, TradingError> {
     let contexte = formater_contexte(candidat, historique);
+    let few_shot_bloc = if few_shot.is_empty() {
+        String::new()
+    } else {
+        format!("\n{few_shot}")
+    };
     let prompt = format!(
-        "{}\n\n{contexte}",
+        "{}\n\n{contexte}{few_shot_bloc}",
         crate::prompts_handler::prompt_effectif("smc_filtre")
     );
 

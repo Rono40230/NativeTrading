@@ -11,6 +11,7 @@ serde_json.workspace = true
 chrono.workspace = true
 anyhow.workspace = true
 smartcore.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true }

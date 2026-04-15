@@ -230,3 +230,20 @@ pub async fn get_actifs(state: web::Data<AppState>) -> impl Responder {
         }
     }
 }
+
+/// DELETE /api/rockets/signal/{id} — annule et supprime un signal actif
+pub async fn supprimer_signal(
+    state: web::Data<AppState>,
+    path: web::Path<i64>,
+) -> impl Responder {
+    let id = path.into_inner();
+    match rockets::supprimer(state.db.pool(), id).await {
+        Ok(true)  => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
+        Ok(false) => HttpResponse::NotFound()
+            .json(serde_json::json!({ "error": "Signal introuvable ou déjà clôturé" })),
+        Err(e) => {
+            tracing::error!("Suppression rocket {}: {}", id, e);
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
+        }
+    }
+}

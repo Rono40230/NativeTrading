@@ -43,6 +43,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         web::get().to(crate::rockets_handlers::get_actifs),
     )
     .route(
+        "/api/rockets/signal/{id}",
+        web::delete().to(crate::rockets_handlers::supprimer_signal),
+    )
+    .route(
         "/api/rockets/sync",
         web::post().to(crate::rockets_suivi::sync_verdicts),
     )

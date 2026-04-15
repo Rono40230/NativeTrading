@@ -5,6 +5,7 @@
 //!
 //! Garde-fou : min 50 trades clôturés avec snapshot. En dessous → skip silencieux.
 
+use crate::feature_noms::FEATURE_NOMS;
 use common::{Result, TradingError};
 use smartcore::linalg::basic::matrix::DenseMatrix;
 use smartcore::metrics::accuracy;
@@ -13,6 +14,14 @@ use std::time::Instant;
 
 const MIN_SAMPLES: usize = 50;
 const CHEMIN_XGB_ROCKETS: &str = "data/modele_xgboost_rockets.json";
+
+/// Importance d'une feature (chute accuracy OOS lors de la permutation).
+#[derive(Debug, Clone)]
+pub struct ImportanceFeature {
+    pub feature_idx: usize,
+    pub feature_nom: &'static str,
+    pub importance: f64,
+}
 
 /// Résultat du fine-tuning stratégie Rockets.
 #[derive(Debug, Clone)]
@@ -23,6 +32,8 @@ pub struct ResultatFineTuning {
     pub nb_samples: usize,
     /// `true` si le modèle a été persisté sur disque.
     pub sauvegarde: bool,
+    /// Importances des features par permutation, triées par importance décroissante.
+    pub importances: Vec<ImportanceFeature>,
 }
 
 /// Modèle XGBoost fine-tuné sur les trades Rockets clôturés.
@@ -164,5 +175,54 @@ pub fn entrainer_sur_trades_clotures(
         accuracy_oos,
         nb_samples: nb,
         sauvegarde,
+        importances: calculer_importances(&modele, &features_oos, &labels_oos, accuracy_oos),
     }))
+}
+
+/// Calcule l'importance de chaque feature par permutation sur le jeu OOS.
+/// Pour chaque feature i : on permute sa colonne, on mesure la chute d'accuracy.
+/// Chute importante = feature très prédictive.
+fn calculer_importances(
+    modele: &XGRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>>,
+    features_oos: &[Vec<f64>],
+    labels_oos: &[f64],
+    accuracy_base: f64,
+) -> Vec<ImportanceFeature> {
+    let n = features_oos.len();
+    if n < 5 {
+        return Vec::new();
+    }
+    let nb_features = features_oos[0].len().min(FEATURE_NOMS.len());
+    let true_cls: Vec<u8> = labels_oos.iter().map(|&l| if l >= 0.5 { 1 } else { 0 }).collect();
+
+    let mut importances: Vec<ImportanceFeature> = (0..nb_features)
+        .filter_map(|i| {
+            // Permutation circulaire de la colonne i (décalage de n/2)
+            let decalage = n / 2;
+            let permute: Vec<Vec<f64>> = features_oos
+                .iter()
+                .enumerate()
+                .map(|(row, f)| {
+                    let mut perm = f.clone();
+                    perm[i] = features_oos[(row + decalage) % n][i];
+                    perm
+                })
+                .collect();
+
+            let x_perm = DenseMatrix::from_2d_vec(&permute).ok()?;
+            let preds = modele.predict(&x_perm).ok()?;
+            let pred_cls: Vec<u8> = preds.iter().map(|&p| if p >= 0.5 { 1 } else { 0 }).collect();
+            let acc_perm = accuracy(&true_cls, &pred_cls);
+            let chute = (accuracy_base - acc_perm).max(0.0);
+
+            Some(ImportanceFeature {
+                feature_idx: i,
+                feature_nom: FEATURE_NOMS[i],
+                importance: chute,
+            })
+        })
+        .collect();
+
+    importances.sort_by(|a, b| b.importance.partial_cmp(&a.importance).unwrap_or(std::cmp::Ordering::Equal));
+    importances
 }

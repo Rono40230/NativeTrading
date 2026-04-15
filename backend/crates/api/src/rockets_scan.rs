@@ -127,6 +127,17 @@ async fn executer_scan(
     // MAX_DISPLAY est appliqué dans get_scan() au moment de servir l'UI
 
     // ── Passe principale : breakout / pré-lancement ──────────────────────────
+    // Lire le seuil de confiance ML une seule fois (table configuration)
+    let seuil_rockets: f64 = sqlx::query_scalar(
+        "SELECT valeur FROM configuration WHERE cle = 'seuil_confiance_rockets'",
+    )
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten()
+    .and_then(|v: String| v.parse().ok())
+    .unwrap_or(0.60);
+
     for r in resultats.iter().filter(|r| {
         cfg.phases_actives.contains(&r.phase)
             && r.score >= cfg.score_min
@@ -135,7 +146,7 @@ async fn executer_scan(
             && r.ratio_volume >= cfg.ratio_volume_min
             && r.ratio_corps >= 0.35
     }) {
-        if ml_rejette_rocket(r, pipeline_ml).await {
+        if ml_rejette_rocket(r, pipeline_ml, seuil_rockets).await {
             continue;
         }
         let niveaux = calculer_niveaux(r, &cfg);
@@ -152,7 +163,7 @@ async fn executer_scan(
             && r.score >= SCORE_MOMENTUM_MIN
             && r.rsi <= cfg.rsi_max
     }) {
-        if ml_rejette_rocket(r, pipeline_ml).await {
+        if ml_rejette_rocket(r, pipeline_ml, seuil_rockets).await {
             continue;
         }
         let niveaux = calculer_niveaux(r, &cfg);
@@ -178,18 +189,30 @@ async fn executer_scan(
     Ok(())
 }
 
-/// Retourne `true` si le ML est prêt, confiant, et prédit une direction BAISSIÈRE (SHORT).
-/// Dans ce cas le signal Rockets (toujours LONG) doit être rejeté.
-async fn ml_rejette_rocket(r: &ScanResultat, pipeline_ml: &Arc<Mutex<PipelineML>>) -> bool {
+/// Retourne `true` si le modèle XGB Rockets fine-tuné prédit un score TP insuffisant.
+/// Si le modèle n'est pas encore entraîné (< 50 trades) → laisse passer (false).
+async fn ml_rejette_rocket(
+    r: &ScanResultat,
+    pipeline_ml: &Arc<Mutex<PipelineML>>,
+    seuil: f64,
+) -> bool {
+    let features = match &r.features_ml {
+        Some(f) => f,
+        None => return false, // pas assez de bougies pour extraire les features
+    };
     let ml = pipeline_ml.lock().await;
-    if !ml.est_pret() {
-        return false;
+    if !ml.xgb_rockets.est_pret() {
+        return false; //模型 pas encore entraîné, on laisse passer
     }
-    // Rockets n'a pas de bougies directement — on ne peut pas appeler predire().
-    // On utilise uniquement la tendance détectée par le scanner comme proxy.
-    // Si ML n'est pas disponible ou pas confiant, on laisse passer.
-    // TODO Phase 3.3 avancé : charger les bougies DB ici pour prédiction ML complète.
-    let _ = r; // pas de bougies disponibles dans ce contexte
-    drop(ml);
-    false
+    match ml.xgb_rockets.predire_score(features) {
+        Some(score) if score < seuil => {
+            tracing::debug!(
+                "ML Rockets rejette {} (score_tp={:.2} < seuil={:.2})",
+                r.ticker, score, seuil
+            );
+            true
+        }
+        Some(_) => false,
+        None => false,
+    }
 }

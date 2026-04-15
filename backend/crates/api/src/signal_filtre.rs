@@ -20,7 +20,7 @@ pub async fn sauvegarder_signal_avec_filtre(
 ) -> common::Result<()> {
     match tokio::time::timeout(
         std::time::Duration::from_secs(90),
-        crate::ollama::smc_filtre::filtrer_signal_smc(candidat, historique),
+        crate::ollama::smc_filtre::filtrer_signal_smc(candidat, historique, ""),
     )
     .await
     {

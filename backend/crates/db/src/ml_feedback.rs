@@ -87,7 +87,7 @@ pub async fn stats_globales_rockets(pool: &SqlitePool) -> Result<FeedbackGlobal>
                 COALESCE(SUM(CASE WHEN gagnant = 1 THEN 1 ELSE 0 END), 0) as nb_gagnants,
                 COALESCE(AVG(CASE WHEN gagnant = 1 THEN 100.0 ELSE 0.0 END), 0.0) as win_rate,
                 COALESCE(AVG(pnl_r), 0.0) as pnl_r_moyen
-         FROM rockets_feedback WHERE verdict IS NOT NULL",
+         FROM rockets_feedback WHERE verdict IS NOT NULL AND verdict NOT IN ('invalide','expire')",
     )
     .fetch_one(pool)
     .await

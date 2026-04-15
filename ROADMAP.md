@@ -1,5 +1,5 @@
 # 🗺️ ROADMAP — Native Trading AI
-> Dernière mise à jour : 13 avril 2026
+> Dernière mise à jour : 15 avril 2026
 
 ## � RÈGLES ABSOLUES (non négociables)
 
@@ -56,7 +56,7 @@ Signal d'alerte :
 
 ---
 
-### ⚠️ PROBLÈME ARCHITECTURAL IDENTIFIÉ (13 avril 2026)
+### ⚠️ PROBLÈME ARCHITECTURAL IDENTIFIÉ (13 avril 2026) — ✅ RÉSOLU
 
 Le pipeline ML entraînait XGBoost/LSTM uniquement sur des **bougies brutes OHLCV** (prédiction directionnelle générique). Il n'analysait **jamais** les résultats réels des trades clôturés. La boucle d'apprentissage stratégie-spécifique était donc absente.
 
@@ -99,11 +99,43 @@ Bloc C — Calibration + extension stratégies
 
 ---
 
+## 📊 BILAN D'AVANCEMENT — 15 avril 2026
+
+| Priorité | Intitulé | Statut | Ce qui manque |
+|---|---|---|---|
+| **P1** | Walk-forward rollback ML | ⚠️ PARTIEL | Rollback n'utilise pas le WF score ; gap train/OOS non loggé ni affiché |
+| **P2** | Snapshot features Rockets | ✅ FAIT | — |
+| **P3** | Ré-entraînement sur trades clôturés | ✅ FAIT | — |
+| **P4** | Feature importance | ⚠️ PARTIEL | Stockées en DB ; graphique barres horizontal dans ML Insights absent |
+| **P5** | Seuil de confiance ML dynamique | ✅ FAIT | — |
+| **P6** | Feedback loop trader (UI) | ⚠️ PARTIEL | Endpoint `POST /api/rockets/feedback/trader` OK ; boutons « Pris / Ignoré » absents dans `SignauxTableau.vue` |
+| **P7** | Capital simulé + position sizing | ⚠️ PARTIEL | `calculer_taille_position` présent dans `risk` ; pas injecté dans le signal publié ; UI Money Management absente |
+| **P8** | Dashboard performances LLM | ✅ FAIT | — |
+| **P9** | Enrichissement automatique feedback | ✅ FAIT | — |
+| **P10** | Détection patterns d'échec | ✅ FAIT | — |
+| **P11** | UI tableau suivi signaux pris | ⚠️ PARTIEL | Colonnes PnL R et comparaison Conviction LLM vs résultat absentes |
+| **P12** | Calibration automatique paramètres scan | ⚠️ PARTIEL | Grid search backend OK ; panneau validation humaine dans `SettingsView` absent |
+| **P13** | Extension Straddle + SMC | ❌ À FAIRE | Aucun snapshot features, aucun fine-tuning, aucun modèle séparé |
+
+**Récap** : 5 items ✅ terminés · 7 items ⚠️ partiels · 1 item ❌ à faire
+
+**Prochains chantiers prioritaires :**
+1. **P6** — Boutons « Pris / Ignoré » dans `SignauxTableau.vue` ← impact immédiat sur la boucle LLM
+2. **P4** — Graphique feature importance dans ML Insights ← visible rapidement, code déjà en DB
+3. **P1** — Utiliser le WF score dans le rollback ← robustesse ML sans dépendance
+4. **P7** — Injecter position sizing dans signal + UI Money Management
+5. **P11** — Colonnes PnL R + conviction vs résultat dans `SignauxTableau`
+6. **P12** — Panneau UI validation calibration dans `SettingsView`
+
+---
+
 ## BLOC A — ML robuste
 
 ---
 
 ### P1 — Walk-forward comme critère de rollback ML
+
+> **État : ⚠️ PARTIEL** — WF score calculé et persisté en DB, mais le rollback dans `ml_retrain_handler.rs` compare toujours l'accuracy d'entraînement, jamais le score OOS. Le gap train/WF n'est pas loggé ni affiché dans ML Insights.
 
 > **Aucune dépendance — implémentable immédiatement.**
 
@@ -134,6 +166,8 @@ if wf_score_apres < wf_score_avant - 0.02 { rollback() }
 
 ### P2 — Snapshot features ML à l'émission du signal (Rockets)
 
+> **État : ✅ IMPLÉMENTÉ** — Table `rockets_features_snapshot` (migration 0047), fonctions `inserer_snapshot` + `lire_snapshots_avec_labels` dans `rockets_features.rs`, appelé depuis `rockets_handlers.rs`.
+
 **C'est le chaînon manquant.** Sans ce snapshot, on ne peut jamais reconstruire fidèlement les features qui existaient au moment du signal.
 
 **Table à créer :**
@@ -157,6 +191,8 @@ CREATE TABLE rockets_features_snapshot (
 ---
 
 ### P3 — Ré-entraînement sur trades clôturés (Rockets)
+
+> **État : ✅ IMPLÉMENTÉ** — `entrainer_sur_trades_clotures` dans `rockets_trainer.rs`, job `executer_fine_tuning_rockets` dans `ml_retrain_job.rs`, guard min 50 samples, appelé par le scheduler quotidien.
 
 **Dépend de P2.** Les 57 trades clôturés actuels suffisent pour amorcer (minimum 50 requis).
 
@@ -192,6 +228,8 @@ Le poids XGB_trades monte progressivement avec le nombre d'échantillons disponi
 
 ### P4 — Feature importance : surfacer ce que le modèle a appris
 
+> **État : ⚠️ PARTIEL** — Table `ml_feature_importance` (migration 0048) et persistance dans `ml_retrain_job.rs` opérationnelles. Aucun graphique dans `MlInsightsView.vue` — les importances sont calculées mais invisibles pour le trader.
+
 **Dépend de P3.** XGBoost calcule nativement les importances après entraînement — elles sont actuellement ignorées.
 
 **Utilités :**
@@ -219,6 +257,8 @@ CREATE TABLE ml_feature_importance (
 ---
 
 ### P5 — Seuil de confiance ML dynamique par stratégie
+
+> **État : ✅ IMPLÉMENTÉ** — Table `configuration` avec clés `seuil_confiance_rockets/straddle/smc` (migration 0049), seuils calibrés par phase/session dans `rockets_calibration.rs`.
 
 **Dépend de P3.** Actuellement un score de 0.51 et 0.95 produisent tous les deux un signal publié.
 
@@ -250,6 +290,8 @@ seuil_confiance_smc      = 0.65
 
 ### P6 — Saisie du résultat par le trader (feedback loop)
 
+> **État : ⚠️ PARTIEL** — Endpoint `POST /api/rockets/feedback/trader` implémenté (accepte verdict tp1/tp2/tp3/sl/ignore, prix réels, notes). Côté UI : **aucun bouton « Pris » / « Ignoré »** dans `SignauxTableau.vue` — c'est le seul maillon manquant pour activer la boucle LLM.
+
 **C'est le maillon le plus critique de la boucle LLM.** Sans résultats réels saisis, le LLM tourne à vide.
 
 **Flux UX :**
@@ -270,6 +312,8 @@ Signal Rockets affiché → bouton "J'ai pris ce trade"
 ---
 
 ### P7 — Capital simulé + position sizing indicatif
+
+> **État : ⚠️ PARTIEL** — `calculer_taille_position` implémenté dans `risk/src/lib.rs` (risque 1% capital). Non injecté dans le signal publié vers le frontend. Bloc Money Management absent dans `SettingsView.vue`.
 
 **Indépendant — peut être implémenté en parallèle de P6.**
 
@@ -299,6 +343,8 @@ pub fn position_sizing_indicatif(capital: f64, risk_pct: f64, distance_sl_pct: f
 
 ### P8 — Tableau de bord performances LLM
 
+> **État : ✅ IMPLÉMENTÉ** — Endpoint `GET /api/rockets/monitoring-ml` + handler, stats globales + par phase, courbe equity (`GET /api/rockets/equity`), `rockets_feedback_stats.rs`, section Rockets dans `MlInsightsView.vue`.
+
 **Dépend de P6.**
 
 **Métriques :**
@@ -316,6 +362,8 @@ pub fn position_sizing_indicatif(capital: f64, risk_pct: f64, distance_sl_pct: f
 
 ### P9 — Enrichissement automatique du feedback
 
+> **État : ✅ IMPLÉMENTÉ** — Migration 0050 : colonnes `prix_entree_reel`, `prix_sortie_reel`, `session_sortie`, `notes_trader` ajoutées sur les 3 tables feedback (rockets/straddle/smc). Mise à jour dans `maj_feedback_verdict` à chaque clôture.
+
 **Dépend de P6.**
 
 **Données à ajouter dans `rockets_feedback` :**
@@ -332,6 +380,8 @@ Impact LLM : `construire_few_shot` peut afficher durée, session de sortie, note
 ---
 
 ### P10 — Détection de patterns d'échec récurrents
+
+> **État : ✅ IMPLÉMENTÉ** — Table `regles_rejet_apprises` (migration 0051), job `patterns_echec_job.rs`, fonctions `upsert_regle` et `lister_actives` dans `regles_rejet.rs`.
 
 **Dépend de P6 + P8. Job toutes les 6h, min 10 trades par combinaison.**
 
@@ -374,6 +424,8 @@ CREATE TABLE regles_rejet_apprises (
 
 ### P12 — Calibration automatique des paramètres de détection
 
+> **État : ⚠️ PARTIEL** — `rockets_calibration.rs` implémente un grid search sur `(score_scan, conviction_llm)` toutes les 6h. Table `rockets_calibration` (migration 0029) stocke les seuils optimaux par phase+session. `straddle_calibration.rs` suit le même pattern. **Manque** : panneau UI « Calibration — propositions en attente » dans `SettingsView.vue` (validation humaine obligatoire avant application).
+
 **Dépend de P3 (labels fiables) + P6 (résultats saisis). Job toutes les 24h, min 30 trades.**
 
 **Paramètres candidats :** `score_min`, `atr_ratio_max`, `rsi_min/max`, `nb_bougies_compression_min`, `volume_seche_max`.
@@ -414,6 +466,8 @@ CREATE TABLE calibration_parametres (
 
 ### P13 — Extension à Straddle et SMC (apprentissages indépendants)
 
+> **État : ❌ À FAIRE** — Aucun snapshot features pour Straddle/SMC, aucun fine-tuning, aucun modèle séparé. Seul `modele_xgboost.json` généraliste existe. Les stats Straddle/SMC sont affichées dans ML Insights mais sans boucle d'apprentissage stratégie-spécifique.
+
 **Dépend de P12 validé et stable sur Rockets.**
 
 **Règle absolue :** chaque stratégie a ses propres tables, son propre modèle, son propre prompt LLM. Aucune donnée partagée entre stratégies.
@@ -452,7 +506,11 @@ CREATE TABLE calibration_parametres (
 
 ---
 
-### ⚠️ PROBLÈME ARCHITECTURAL IDENTIFIÉ (13 avril 2026)
+> ⚠️ **SECTION ARCHIVÉE** — Le contenu ci-dessous correspond à l'ancienne organisation de la roadmap (avant le 13 avril 2026). La référence canonique est le Bloc A/B/C ci-dessus avec les statuts à jour. Cette section est conservée pour traçabilité.
+
+---
+
+### ⚠️ PROBLÈME ARCHITECTURAL IDENTIFIÉ (13 avril 2026) — ✅ RÉSOLU
 
 Le pipeline ML entraînait XGBoost/LSTM uniquement sur des **bougies brutes OHLCV** (prédiction directionnelle générique). Il n'analysait **jamais** les résultats réels des trades Rockets clôturés. La boucle d'apprentissage stratégie-spécifique était donc absente.
 

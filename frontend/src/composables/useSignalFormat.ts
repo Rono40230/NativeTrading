@@ -12,18 +12,24 @@ export function formatNombre(v: number | undefined): string {
 }
 
 export function classeVerdictSignal(verdict: string | null): string {
-  if (verdict === 'TP3' || verdict === 'TP2') return 'badge-green'
-  if (verdict === 'TP1') return 'badge-blue'
-  if (verdict === 'SL') return 'badge-red'
-  if (verdict === 'expire') return 'badge-gray'
+  const v = verdict?.toLowerCase() ?? ''
+  if (v === 'tp3' || v === 'tp2') return 'badge-green'
+  if (v === 'tp1') return 'badge-blue'
+  if (v === 'be') return 'badge-gray'
+  if (v === 'sl') return 'badge-red'
+  if (v === 'invalide') return 'badge-orange'
+  if (v === 'expire') return 'badge-gray'
   return 'badge-yellow'
 }
 
 export function labelVerdictSignal(verdict: string | null): string {
-  if (verdict === 'TP3') return '✅ TP3'
-  if (verdict === 'TP2') return '✅ TP2'
-  if (verdict === 'TP1') return '🟡 TP1'
-  if (verdict === 'SL') return '❌ SL'
-  if (verdict === 'expire') return '⏰ Expiré'
+  const v = verdict?.toLowerCase() ?? ''
+  if (v === 'tp3') return '✅ TP3'
+  if (v === 'tp2') return '✅ TP2 (SL→TP1)'
+  if (v === 'tp1') return '✅ TP1 (SL→BE)'
+  if (v === 'be')  return '⚪ BE (neutre)'
+  if (v === 'sl')  return '❌ SL'
+  if (v === 'invalide') return '↩️ Entrée non atteinte'
+  if (v === 'expire') return '⏰ Expiré'
   return '⏳ En cours'
 }

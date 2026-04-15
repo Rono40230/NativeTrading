@@ -4,11 +4,12 @@ import { apiService } from '@/services/api.service'
 import type { RocketSignalHistorique, Signal } from '@/services/api.types'
 import { usePrixStore } from '@/stores/prix.store'
 
-// Normalise les verdicts rockets (invalide/confirme) vers les valeurs Signal (SL/TP1)
+// Normalise les verdicts rockets vers les valeurs Signal affichées dans HistoryView (SMC/Straddle)
 function normaliserVerdictRocket(v: string | null): string | null {
-  if (v === 'invalide' || v === 'sl') return 'SL'
+  if (v === 'sl') return 'SL'
+  if (v === 'invalide') return 'invalide'  // badge orange distinct du SL
   if (v === 'confirme') return 'TP1'
-  return v // TP1, TP2, TP3, expire, null → inchangés
+  return v // tp1, tp2, tp3, be, expire, null → inchangés
 }
 
 export function rocketToSignal(r: RocketSignalHistorique): Signal {

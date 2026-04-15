@@ -31,11 +31,20 @@
           @engine-demarrer="engineDemarrer"
           @engine-arreter="engineArreter"
         />
-        <!-- Barres SMC + Straddle -->
-        <div class="flex gap-2">
-          <div class="w-1/2 min-w-0"><SurveillanceAssets :assets="assetsDisplay" :chargement="assetsAvecPrix.length === 0" /></div>
-          <div class="w-1/2 min-w-0"><StraddleVolatiliteBloc /></div>
+        <!-- Ligne SMC : barre 2/5 + Performance 3/5 -->
+        <div class="flex gap-2 items-stretch">
+          <div class="w-2/5 min-w-0"><SurveillanceAssets :assets="assetsDisplay" :chargement="assetsAvecPrix.length === 0" /></div>
+          <div class="w-3/5 min-w-0"><StratPerfBloc titre="📐 Performance SMC" :data="smcPerf.data.value" :chargement="smcPerf.chargement.value" :charger="smcPerf.charger" /></div>
         </div>
+
+        <!-- Ligne Straddle : barre 2/5 + Performance 3/5 -->
+        <div class="flex gap-2 items-stretch">
+          <div class="w-2/5 min-w-0"><StraddleVolatiliteBloc /></div>
+          <div class="w-3/5 min-w-0"><StratPerfBloc titre="⚡ Performance Volatilité" :data="straddlePerf.data.value" :chargement="straddlePerf.chargement.value" :charger="straddlePerf.charger" /></div>
+        </div>
+
+        <!-- Courbe equity Rockets — pleine largeur -->
+        <RocketsEquityChart />
 
         <!-- Ligne Rockets : VeilleRockets 1/5 + En attente 1/5 + Performance 3/5 -->
         <div class="flex gap-2 items-stretch">
@@ -89,7 +98,10 @@ import StraddleVolatiliteBloc from '@/components/common/StraddleVolatiliteBloc.v
 import VeilleRockets from '@/components/common/VeilleRockets.vue'
 import RocketsPerfBloc from '@/components/common/RocketsPerfBloc.vue'
 import RocketsEnCoursBloc from '@/components/common/RocketsEnCoursBloc.vue'
+import RocketsEquityChart from '@/components/common/RocketsEquityChart.vue'
+import StratPerfBloc from '@/components/common/StratPerfBloc.vue'
 import { useVeilleRockets } from '@/composables/useVeilleRockets'
+import { useSmcPerf, useStraddlePerf } from '@/composables/useStrategiesPerf'
 
 type VariationsMultiTF = { h1: number | null; h4: number | null; d1: number | null; w1: number | null; m1: number | null }
 type AssetAvecPrix = { id: string; prix: number | null; variation: number | null; variationsMultiTF: VariationsMultiTF | null; clotures: Record<string, number[]>; chargement: boolean }
@@ -111,6 +123,8 @@ const {
 } = useSignalEngine()
 
 const rockets  = useVeilleRockets()
+const smcPerf = useSmcPerf()
+const straddlePerf = useStraddlePerf()
 const mlPret = computed(() => signalStore.prediction?.modele_pret ?? false)
 const backendOk = ref(false)
 const igOk = ref<boolean | null>(null)

@@ -35,6 +35,10 @@ export const rocketsApi = {
     return res.data
   },
 
+  async annulerRocket(id: number): Promise<void> {
+    await http.delete(`/api/rockets/signal/${id}`)
+  },
+
   async lancerAnalyseLlmRockets(): Promise<RocketAnalyseLlm> {
     const res = await http.post('/api/rockets/analyse-llm', null, { timeout: 120000 })
     return res.data

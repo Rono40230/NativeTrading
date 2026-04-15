@@ -19,13 +19,14 @@ pub async fn evaluer_ml_straddle(
     bougies: &[common::Candle],
     asset: &str,
     tf: &str,
+    seuil: f64,
 ) -> MlContexteStraddle {
     let ml = pipeline_ml.lock().await;
     if !ml.est_pret() {
         return MlContexteStraddle::NonDisponible;
     }
     match ml.predire(bougies) {
-        Ok(pred) if pred.confiance > 0.75 => {
+        Ok(pred) if pred.confiance > seuil => {
             tracing::debug!(
                 "Gate ML Straddle {}/{}: ML confiant {:.0}% {:?} — skip",
                 asset,

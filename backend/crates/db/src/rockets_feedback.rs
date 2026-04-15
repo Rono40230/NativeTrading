@@ -5,6 +5,7 @@
 use common::{Result, TradingError};
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
+use tracing;
 
 // ── Types publics ─────────────────────────────────────────────────────────────
 
@@ -42,6 +43,11 @@ pub struct RocketsFeedbackRow {
     pub duree_trade_min: Option<i64>,
     pub ferme_le: Option<i64>,
     pub cree_le: i64,
+    // P9 — enrichissement
+    pub prix_entree_reel: Option<f64>,
+    pub prix_sortie_reel: Option<f64>,
+    pub session_sortie: Option<String>,
+    pub notes_trader: Option<String>,
 }
 
 // ── Écriture ─────────────────────────────────────────────────────────────────
@@ -91,6 +97,9 @@ pub async fn maj_feedback_verdict(
     // Ne pas calculer pnl_r pour les signaux jamais entrés en position
     let (pnl_r, gagnant): (Option<f64>, i64) = if verdict_lc == "invalide" || verdict_lc == "expire" {
         (None, 0)
+    } else if verdict_lc == "be" {
+        // Break-even : neutre (ni gain ni perte)
+        (Some(0.0), 0)
     } else {
         let p = if atr14 > 0.0 {
             (prix_verdict - prix_entree) / atr14
@@ -101,10 +110,13 @@ pub async fn maj_feedback_verdict(
         (Some(p), g)
     };
 
+    let session_sortie = crate::session_sortie_courante(now);
+
     sqlx::query(
         "UPDATE rockets_feedback
          SET verdict = ?, pnl_r = ?, gagnant = ?,
-             duree_trade_min = ?, ferme_le = ?
+             duree_trade_min = ?, ferme_le = ?,
+             prix_entree_reel = ?, prix_sortie_reel = ?, session_sortie = ?
          WHERE signal_id = ?",
     )
     .bind(&verdict_lc)
@@ -112,6 +124,9 @@ pub async fn maj_feedback_verdict(
     .bind(gagnant)
     .bind(duree_min)
     .bind(now)
+    .bind(prix_entree)
+    .bind(prix_verdict)
+    .bind(&session_sortie)
     .bind(signal_id)
     .execute(pool)
     .await
@@ -133,7 +148,8 @@ pub async fn lister_recents_ticker_phase(
     let rows = sqlx::query(
         "SELECT id, signal_id, ticker, phase, session_active, timestamp_signal,
                 score_scan, conviction_llm, ratio_volume, atr_ratio, rsi,
-                verdict, pnl_r, gagnant, duree_trade_min, ferme_le, cree_le
+                verdict, pnl_r, gagnant, duree_trade_min, ferme_le, cree_le,
+                prix_entree_reel, prix_sortie_reel, session_sortie, notes_trader
          FROM rockets_feedback
          WHERE ticker = ? AND phase = ? AND verdict IS NOT NULL
          ORDER BY cree_le DESC
@@ -159,7 +175,8 @@ pub async fn lister_pool_phase(
     let rows = sqlx::query(
         "SELECT id, signal_id, ticker, phase, session_active, timestamp_signal,
                 score_scan, conviction_llm, ratio_volume, atr_ratio, rsi,
-                verdict, pnl_r, gagnant, duree_trade_min, ferme_le, cree_le
+                verdict, pnl_r, gagnant, duree_trade_min, ferme_le, cree_le,
+                prix_entree_reel, prix_sortie_reel, session_sortie, notes_trader
          FROM rockets_feedback
          WHERE phase = ? AND verdict IS NOT NULL
          ORDER BY cree_le DESC
@@ -195,6 +212,10 @@ fn mapper_row(r: &sqlx::sqlite::SqliteRow) -> RocketsFeedbackRow {
         duree_trade_min: r.get("duree_trade_min"),
         ferme_le: r.get("ferme_le"),
         cree_le: r.get("cree_le"),
+        prix_entree_reel: r.get("prix_entree_reel"),
+        prix_sortie_reel: r.get("prix_sortie_reel"),
+        session_sortie: r.get("session_sortie"),
+        notes_trader: r.get("notes_trader"),
     }
 }
 

@@ -16,7 +16,9 @@ pub async fn taux_reussite_recent(pool: &SqlitePool, heures: i64) -> (i64, f64, 
                 AVG(CAST(gagnant AS REAL)) as wr,
                 AVG(pnl_r) as pnl
          FROM rockets_feedback
-         WHERE verdict IS NOT NULL AND cree_le >= ?",
+         WHERE verdict IS NOT NULL
+           AND verdict NOT IN ('invalide', 'expire')
+           AND cree_le >= ?",
     )
     .bind(seuil)
     .fetch_one(pool)
@@ -39,10 +41,11 @@ pub async fn taux_reussite_recent(pool: &SqlitePool, heures: i64) -> (i64, f64, 
 pub async fn stats_globales(pool: &SqlitePool) -> Result<serde_json::Value> {
     let row = sqlx::query(
         "SELECT COUNT(*) as nb_total,
-                SUM(CASE WHEN verdict IS NOT NULL THEN 1 ELSE 0 END) as nb_clos,
-                AVG(CASE WHEN verdict IS NOT NULL THEN gagnant END) as win_rate,
-                AVG(CASE WHEN verdict IS NOT NULL THEN pnl_r END) as pnl_moyen_r
-         FROM rockets_feedback",
+                SUM(CASE WHEN verdict NOT IN ('invalide','expire') THEN 1 ELSE 0 END) as nb_clos,
+                AVG(CASE WHEN verdict NOT IN ('invalide','expire') THEN gagnant END) as win_rate,
+                AVG(CASE WHEN verdict NOT IN ('invalide','expire') THEN pnl_r END) as pnl_moyen_r
+         FROM rockets_feedback
+         WHERE verdict IS NOT NULL",
     )
     .fetch_one(pool)
     .await
@@ -68,6 +71,7 @@ pub async fn stats_par_phase(pool: &SqlitePool) -> Result<Vec<serde_json::Value>
                 AVG(pnl_r) as pnl_r_moyen
          FROM rockets_feedback
          WHERE verdict IS NOT NULL
+           AND verdict NOT IN ('invalide', 'expire')
          GROUP BY phase
          ORDER BY nb_trades DESC",
     )
@@ -101,6 +105,7 @@ pub struct EquityPoint {
     pub pnl_r: f64,
     pub equity_cumulee: f64,
     pub ferme_le: i64,
+    pub duree_min: i64,
 }
 
 /// Retourne la série equity simulée cumulée depuis `rockets_signaux` (source de vérité).
@@ -112,12 +117,13 @@ pub async fn courbe_equity(
 ) -> Result<Vec<EquityPoint>> {
     let rows = sqlx::query(
         "SELECT ticker, LOWER(verdict) as verdict, prix_entree, prix_verdict, atr14,
-                CAST(strftime('%s', maj_le) AS INTEGER) as ferme_le
+                CAST(strftime('%s', maj_le) AS INTEGER) as ferme_le,
+                CAST((JULIANDAY(COALESCE(maj_le,'now')) - JULIANDAY(cree_le)) * 24 * 60 AS INTEGER) as duree_min
          FROM rockets_signaux
          WHERE statut = 'ferme'
-           AND UPPER(verdict) IN ('SL', 'TP1', 'TP2', 'TP3', 'INVALIDE')
+           AND UPPER(verdict) IN ('SL', 'BE', 'TP1', 'TP2', 'TP3')
            AND prix_verdict IS NOT NULL
-           AND (UPPER(verdict) = 'INVALIDE' OR (atr14 IS NOT NULL AND atr14 > 0))
+           AND (UPPER(verdict) = 'BE' OR (atr14 IS NOT NULL AND atr14 > 0))
          ORDER BY maj_le ASC",
     )
     .fetch_all(pool)
@@ -129,8 +135,8 @@ pub async fn courbe_equity(
 
     for r in &rows {
         let verdict: String = r.get("verdict");
-        let pnl_r = if verdict == "invalide" {
-            -1.0
+        let pnl_r = if verdict == "be" {
+            0.0
         } else {
             let prix_entree: f64 = r.get("prix_entree");
             let prix_verdict: f64 = r.get("prix_verdict");
@@ -144,6 +150,7 @@ pub async fn courbe_equity(
             pnl_r,
             equity_cumulee: equity,
             ferme_le: r.get("ferme_le"),
+            duree_min: r.get::<Option<i64>, _>("duree_min").unwrap_or(0),
         });
     }
 

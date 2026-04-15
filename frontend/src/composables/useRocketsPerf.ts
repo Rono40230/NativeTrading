@@ -7,6 +7,7 @@ export type EquityPoint = {
   pnl_r: number
   equity_cumulee: number
   ferme_le: number
+  duree_min: number
 }
 
 export type EquityData = {
@@ -20,14 +21,15 @@ export function useRocketsPerf(capital = 10000, risk_pct = 0.015) {
   const data = ref<EquityData | null>(null)
   const chargement = ref(false)
 
-  async function charger() {
-    chargement.value = true
+  async function charger(silencieux = false) {
+    if (!silencieux) chargement.value = true
     try {
-      data.value = await apiService.getRocketsEquity(capital, risk_pct)
+      const result = await apiService.getRocketsEquity(capital, risk_pct)
+      data.value = result
     } catch {
       data.value = null
     } finally {
-      chargement.value = false
+      if (!silencieux) chargement.value = false
     }
   }
 
@@ -35,7 +37,7 @@ export function useRocketsPerf(capital = 10000, risk_pct = 0.015) {
 
   onMounted(() => {
     charger()
-    _poll = setInterval(() => charger(), 30_000)
+    _poll = setInterval(() => charger(true), 30_000)
   })
 
   onUnmounted(() => {

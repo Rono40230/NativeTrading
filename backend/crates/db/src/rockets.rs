@@ -243,6 +243,28 @@ pub async fn marquer_expires(pool: &SqlitePool) -> Result<u64> {
     Ok(res.rows_affected())
 }
 
+/// Supprime un signal actif (et son feedback) de la DB.
+/// Ne supprime que les signaux encore en cours (statut != 'ferme').
+pub async fn supprimer(pool: &SqlitePool, id: i64) -> Result<bool> {
+    let res = sqlx::query(
+        "DELETE FROM rockets_signaux WHERE id = ? AND statut != 'ferme'",
+    )
+    .bind(id)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+
+    if res.rows_affected() > 0 {
+        let _ = sqlx::query("DELETE FROM rockets_feedback WHERE signal_id = ?")
+            .bind(id)
+            .execute(pool)
+            .await;
+        Ok(true)
+    } else {
+        Ok(false)
+    }
+}
+
 /// Retourne uniquement les trades clôturés (statut = 'ferme').
 pub async fn historique(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSignal>> {
     let rows = sqlx::query(

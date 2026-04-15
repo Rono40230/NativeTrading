@@ -6,15 +6,20 @@ pub mod bougies_ext;
 pub mod calendrier;
 pub mod config;
 pub mod entrainements;
+pub mod ml_feature_importance;
 pub mod ml_feedback;
+pub mod ml_feedback_rockets;
+pub mod ml_feedback_straddle;
 pub mod ml_samples;
 pub mod news_lus;
+pub mod regles_rejet;
 pub mod rockets;
 pub mod rockets_listing;
 pub mod rockets_analyses;
 pub mod rockets_calibration;
 pub mod rockets_config;
 pub mod rockets_feedback;
+pub mod rockets_feedback_reclassify;
 pub mod rockets_feedback_stats;
 pub mod rockets_feedback_trader;
 pub mod rockets_features;
@@ -22,9 +27,11 @@ pub mod signaux;
 pub mod signaux_lecture;
 pub mod smc_calibration;
 pub mod smc_feedback;
+pub mod smc_feedback_stats;
 pub mod straddle;
 pub mod straddle_calibration;
 pub mod straddle_feedback;
+pub mod straddle_feedback_stats;
 pub mod straddle_pics;
 pub mod strategies_params;
 pub mod volatilite;
@@ -32,6 +39,21 @@ pub mod volatilite;
 use common::{Result, TradingError};
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 use std::str::FromStr;
+
+/// Retourne le label de session de marché pour le timestamp Unix courant.
+/// London: 07h-16h UTC | New York: 12h-21h UTC | Asia: 22h-07h UTC.
+pub fn session_sortie_courante(ts_unix: i64) -> String {
+    let heure = (ts_unix % 86_400) / 3_600; // heure UTC 0-23
+    if heure >= 7 && heure < 12 {
+        "London".to_string()
+    } else if heure >= 12 && heure < 16 {
+        "London+NY".to_string()
+    } else if heure >= 16 && heure < 21 {
+        "New York".to_string()
+    } else {
+        "Asia/Off".to_string()
+    }
+}
 
 pub struct Database {
     pool: SqlitePool,

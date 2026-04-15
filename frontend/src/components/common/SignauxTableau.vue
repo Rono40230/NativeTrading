@@ -33,6 +33,7 @@
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Résultat <span>{{ icone('verdict') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Ouvert le <span>{{ icone('cree_le') }}</span></th>
             <th v-if="strategie === 'SmcDirectional'" class="px-3 py-3 text-center w-10"></th>
+            <th v-if="strategie === 'Rockets' && filtreStatut === 'en_cours'" class="px-3 py-3 text-center w-20">Annuler</th>
           </tr>
         </thead>
         <tbody>
@@ -63,6 +64,13 @@
             <td v-if="strategie === 'SmcDirectional'" class="px-3 py-3 text-center">
               <button class="text-blue-400 hover:text-blue-200 text-sm transition-colors" title="Analyser ce signal avec l'IA" @click="analyserSignal(s)">🔍</button>
             </td>
+            <td v-if="strategie === 'Rockets' && filtreStatut === 'en_cours' && s.statut !== 'Fermé'" class="px-3 py-3 text-center">
+              <button
+                class="text-xs px-2 py-1 rounded border border-red-700/50 bg-red-900/20 text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-all disabled:opacity-30"
+                :disabled="annulationEnCours.has(s.id)"
+                @click="demanderAnnulation(s)"
+              >{{ annulationEnCours.has(s.id) ? '…' : 'Annuler' }}</button>
+            </td>
           </tr>
           <!-- Sous-ligne jambes Straddle : uniquement pour signaux actifs (sans verdict) -->
           <tr v-if="strategie === 'Straddle' && s.direction === 'Both' && s.verdict === null"
@@ -87,6 +95,20 @@
                       :class="(s.tps_short_atteints ?? []).includes(tp) ? 'text-emerald-400' : 'text-gray-700'">
                   {{ tp.toUpperCase() }}{{ (s.tps_short_atteints ?? []).includes(tp) ? ' ✓' : '' }}
                 </span>
+                <span v-if="lotPourSignal(s)" class="text-white/15 mx-1">┃</span>
+                <span v-if="lotPourSignal(s)" class="text-yellow-400/70">Lot : <span class="font-mono font-bold text-yellow-300">{{ lotPourSignal(s) }}</span></span>
+              </div>
+            </td>
+          </tr>
+          <!-- Sous-ligne lot SMC : uniquement pour signaux actifs -->
+          <tr v-else-if="strategie === 'SmcDirectional' && s.verdict === null && lotPourSignal(s)"
+              :key="`${s.id}-lot`"
+              class="border-b border-white/5 bg-white/2">
+            <td colspan="99" class="px-4 pb-2 pt-0">
+              <div class="flex items-center gap-2 text-[11px]">
+                <span class="text-yellow-400/70">Lot : <span class="font-mono font-bold text-yellow-300">{{ lotPourSignal(s) }}</span></span>
+                <span class="text-white/15">—</span>
+                <span class="text-gray-600">{{ (settingsStore.capitalDepart * ((assetParamsStore.liste.find(p => p.asset === s.asset)?.risque_pct ?? 0) / 100)).toFixed(0) }} $ risqués</span>
               </div>
             </td>
           </tr>
@@ -99,150 +121,94 @@
     <StraddleAnalyseModal v-if="strategie === 'Straddle'" :open="analyseOuverte" :signaux="signaux" @close="analyseOuverte = false" />
     <SmcAnalyseModal v-if="strategie === 'SmcDirectional'" :open="analyseOuverte" :signaux="signaux" @close="analyseOuverte = false" />
     <RocketsAnalyseModal v-if="strategie === 'Rockets'" :open="analyseOuverte" :rockets="rocketsRaw" @close="analyseOuverte = false" />
+
+    <!-- Modale de confirmation annulation Rocket -->
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div v-if="signalAnnuler" class="fixed inset-0 z-50 flex items-center justify-center">
+          <!-- Backdrop -->
+          <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="signalAnnuler = null" />
+          <!-- Fenêtre -->
+          <div class="relative z-10 w-80 rounded-xl border border-red-700/40 bg-[#0f1629] shadow-2xl p-5 flex flex-col gap-4">
+            <div class="flex items-center gap-2">
+              <span class="text-red-400 text-lg">⚠️</span>
+              <span class="text-white font-semibold text-sm">Confirmer l'annulation</span>
+            </div>
+            <div class="text-xs text-gray-400 space-y-1">
+              <p>Tu vas annuler le trade suivant :</p>
+              <div class="bg-white/5 rounded-lg px-3 py-2 space-y-1 border border-white/10">
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Asset</span>
+                  <span class="text-white font-bold font-mono">{{ signalAnnuler.asset }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Direction</span>
+                  <span class="font-bold" :class="signalAnnuler.direction === 'LONG' ? 'text-emerald-400' : 'text-red-400'">{{ signalAnnuler.direction }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Entrée</span>
+                  <span class="text-white font-mono">{{ formatNombre(signalAnnuler.prix_entree) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">SL</span>
+                  <span class="text-red-300 font-mono">{{ formatNombre(signalAnnuler.stop_loss) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">TP1</span>
+                  <span class="text-emerald-300 font-mono">{{ formatNombre(signalAnnuler.take_profit[0]) }}</span>
+                </div>
+              </div>
+              <p class="text-yellow-400/80 pt-1">Cette action est irréversible.</p>
+            </div>
+            <div class="flex gap-2 justify-end">
+              <button
+                class="text-xs px-3 py-1.5 rounded border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                @click="signalAnnuler = null"
+              >Garder</button>
+              <button
+                class="text-xs px-3 py-1.5 rounded border border-red-700/50 bg-red-900/30 text-red-400 hover:bg-red-900/60 hover:text-red-300 transition-all"
+                @click="confirmerAnnulation"
+              >Confirmer l'annulation</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
-import type { Signal, RocketSignalHistorique } from '@/services/api.types'
-import { apiService } from '@/services/api.service'
-import { usePrixStore } from '@/stores/prix.store'
-import { formatDate, formatNombre, classeVerdictSignal, labelVerdictSignal } from '@/composables/useSignalFormat'
-import { rocketToSignal } from '@/composables/useRocketsHistory'
+import { ref } from 'vue'
+import { useSignauxTableau } from '@/composables/useSignauxTableau'
+import { formatDate, formatNombre } from '@/composables/useSignalFormat'
+import type { Signal } from '@/services/api.types'
 import StraddleAnalyseModal from '@/components/common/StraddleAnalyseModal.vue'
 import SmcAnalyseModal from '@/components/common/SmcAnalyseModal.vue'
 import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
 
 const props = defineProps<{ strategie: 'SmcDirectional' | 'Straddle' | 'Rockets' }>()
 
-const router = useRouter()
+const {
+  signaux, rocketsRaw, chargement, analyseOuverte,
+  filtreStatut, annulationEnCours, listeActive, signauxTries,
+  charger, annuler, trierPar, icone, analyserSignal,
+  classeConviction, classePrix, labelResultat, classeResultat, lotPourSignal,
+  prixStore, assetParamsStore, settingsStore,
+} = useSignauxTableau(props.strategie)
 
-function analyserSignal(s: Signal) {
-  router.push({
-    path: '/smc/analyser',
-    query: {
-      asset: s.asset,
-      tf: s.timeframe,
-      dir: s.direction,
-      entree: String(s.prix_entree),
-      sl: String(s.stop_loss),
-      tp1: String(s.take_profit[0] ?? 0),
-      tp2: String(s.take_profit[1] ?? 0),
-      tp3: String(s.take_profit[2] ?? 0),
-    }
-  })
+// ── Modale confirmation annulation ───────────────────────────────────────────
+const signalAnnuler = ref<Signal | null>(null)
+
+function demanderAnnulation(s: Signal) {
+  signalAnnuler.value = s
 }
 
-const prixStore = usePrixStore()
-const signaux = ref<Signal[]>([])
-const rocketsRaw = ref<RocketSignalHistorique[]>([])
-const chargement = ref(true)
-const analyseOuverte = ref(false)
-const filtreStatut = ref<'en_cours' | 'cloturees' | ''>('en_cours')
-const triColonne = ref('')
-const triDir = ref<'asc' | 'desc'>('desc')
-
-function trierPar(col: string) {
-  if (triColonne.value === col) triDir.value = triDir.value === 'asc' ? 'desc' : 'asc'
-  else { triColonne.value = col; triDir.value = 'desc' }
+async function confirmerAnnulation() {
+  if (!signalAnnuler.value) return
+  const s = signalAnnuler.value
+  signalAnnuler.value = null
+  await annuler(s)
 }
-
-function icone(col: string): string {
-  if (triColonne.value !== col) return '⇅'
-  return triDir.value === 'asc' ? '↑' : '↓'
-}
-
-function classeConviction(c: number | null): string {
-  if (c === null) return 'bg-gray-700 text-gray-400'
-  return c >= 70 ? 'bg-emerald-900 text-emerald-300 border border-emerald-600'
-    : c >= 50 ? 'bg-yellow-900 text-yellow-300 border border-yellow-600'
-    : 'bg-red-900 text-red-300 border border-red-600'
-}
-
-function classePrix(s: Signal): string {
-  const prix = prixStore.getPrix(s.asset)
-  if (!prix || s.direction === 'Both') return 'text-gray-400'
-  const long = s.direction === 'LONG'
-  if (long ? prix <= s.stop_loss : prix >= s.stop_loss) return 'text-red-400'
-  if (s.take_profit[2] && (long ? prix >= s.take_profit[2] : prix <= s.take_profit[2])) return 'text-emerald-200'
-  if (s.take_profit[1] && (long ? prix >= s.take_profit[1] : prix <= s.take_profit[1])) return 'text-emerald-300'
-  return (long ? prix >= s.take_profit[0] : prix <= s.take_profit[0]) ? 'text-emerald-400' : 'text-blue-300'
-}
-
-const listeActive = computed(() =>
-  signaux.value.filter(s => {
-    if (filtreStatut.value === 'en_cours') return s.statut !== 'Fermé'
-    if (filtreStatut.value === 'cloturees') return s.statut === 'Fermé'
-    return true
-  })
-)
-
-const signauxTries = computed(() => {
-  const col = triColonne.value
-  if (!col) return listeActive.value
-  return [...listeActive.value].sort((a, b) => {
-    let va: unknown, vb: unknown
-    if (col === 'tp1') { va = a.take_profit[0] ?? 0; vb = b.take_profit[0] ?? 0 }
-    else { va = (a as Record<string, unknown>)[col] ?? ''; vb = (b as Record<string, unknown>)[col] ?? '' }
-    if (typeof va === 'string') va = va.toLowerCase()
-    if (typeof vb === 'string') vb = vb.toLowerCase()
-    const cmp = (va as string | number) < (vb as string | number) ? -1 : (va as string | number) > (vb as string | number) ? 1 : 0
-    return triDir.value === 'asc' ? cmp : -cmp
-  })
-})
-
-function labelResultat(s: Signal): string {
-  if (props.strategie === 'Rockets' && s.statut !== 'Fermé') {
-    if (s.verdict === 'TP2') return '🔵 TP1+2 ✓ · Trail'
-    if (s.verdict === 'TP1') return '🟡 TP1 ✓ · BE actif'
-    return '⏳ En cours'
-  }
-  return labelVerdictSignal(s.verdict)
-}
-
-function classeResultat(s: Signal): string {
-  if (props.strategie === 'Rockets' && s.statut !== 'Fermé') {
-    if (s.verdict === 'TP2') return 'badge-green'
-    if (s.verdict === 'TP1') return 'badge-blue'
-    return 'badge-yellow'
-  }
-  return classeVerdictSignal(s.verdict)
-}
-
-async function charger() {
-  if (!listeActive.value.length) chargement.value = true
-  try {
-    if (props.strategie === 'Rockets') {
-      rocketsRaw.value = await apiService.rocketsActifs()
-      signaux.value = rocketsRaw.value.map(rocketToSignal)
-      // Abonner les tickers des positions ouvertes au WS prix (1s)
-      const openTickers = rocketsRaw.value.map(r => r.ticker)
-      if (openTickers.length > 0) prixStore.abonner(openTickers)
-    } else {
-      const data = await apiService.getSignaux(500)
-      const SMC_NOMS = ['SmcDirectional', 'SMC Directionnel', 'SMC+IA']
-      signaux.value = data.filter(s =>
-        props.strategie === 'SmcDirectional'
-          ? SMC_NOMS.includes(s.strategie)
-          : s.strategie === props.strategie
-      )
-    }
-  } catch { /* silencieux */ } finally {
-    chargement.value = false
-  }
-}
-
-let _poll: ReturnType<typeof setInterval> | null = null
-
-onMounted(() => {
-  charger()
-  _poll = setInterval(() => charger(), 30_000)
-})
-
-onUnmounted(() => {
-  if (_poll !== null) { clearInterval(_poll); _poll = null }
-})
 </script>
 
 <style scoped>
@@ -251,7 +217,15 @@ onUnmounted(() => {
 .filtre-btn { @apply text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all; }
 .filtre-btn-actif { @apply bg-blue-600/30 border-blue-500/50 text-blue-300; }
 .badge { @apply text-xs font-bold px-2 py-0.5 rounded-full; }
-.badge-green { @apply bg-emerald-900/60 text-emerald-300; }
-.badge-red   { @apply bg-red-900/60 text-red-300; }
-.badge-blue  { @apply bg-blue-900/60 text-blue-300; }
+.badge-green  { @apply bg-emerald-900/60 text-emerald-300; }
+.badge-red    { @apply bg-red-900/60 text-red-300; }
+.badge-blue   { @apply bg-blue-900/60 text-blue-300; }
+.badge-gray   { @apply bg-gray-700/60 text-gray-400; }
+.badge-orange { @apply bg-orange-900/60 text-orange-400; }
+.badge-yellow { @apply bg-yellow-900/60 text-yellow-300; }
+
+.modal-fade-enter-active,
+.modal-fade-leave-active { transition: opacity 0.15s ease; }
+.modal-fade-enter-from,
+.modal-fade-leave-to { opacity: 0; }
 </style>

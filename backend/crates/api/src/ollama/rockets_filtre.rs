@@ -80,11 +80,16 @@ pub async fn filtrer_signal(
     candidat: &SignalCandidat,
     historique: &[RocketSignal],
     feedbacks: &[RocketsFeedbackRow],
+    lecons_systemiques: &str,
 ) -> Result<FiltreReponse, TradingError> {
     let mut contexte = formater_contexte(candidat, historique);
     let few_shot = construire_few_shot(feedbacks);
     if !few_shot.is_empty() {
         contexte.push_str(&few_shot);
+    }
+    if !lecons_systemiques.is_empty() {
+        contexte.push('\n');
+        contexte.push_str(lecons_systemiques);
     }
     let prompt = format!(
         "{}\n\n{contexte}",

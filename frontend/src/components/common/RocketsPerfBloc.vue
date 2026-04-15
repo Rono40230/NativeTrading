@@ -4,50 +4,106 @@
     <div class="flex items-center justify-between flex-wrap gap-2">
       <span class="text-white font-semibold text-sm">🚀 Performance Rockets</span>
       <div class="flex items-center gap-3 text-xs">
-        <span class="text-gray-500">{{ data?.nb_trades_saisis ?? 0 }} trades clôturés</span>
+        <span class="text-gray-500 flex items-center gap-1">
+          {{ data?.nb_trades_saisis ?? 0 }} trades clôturés
+          <TooltipIcon>Trades réellement ouverts (hors invalides/expirés)</TooltipIcon>
+        </span>
         <button class="text-gray-600 hover:text-gray-400 transition-colors" @click="charger">↺</button>
       </div>
     </div>
 
     <div v-if="chargement" class="text-center text-gray-600 text-xs py-4">Chargement…</div>
-
     <div v-else-if="!data || data.points.length === 0" class="text-center text-gray-600 text-xs py-4">
-      Aucun trade clôturé pour le moment — le bloc se remplira automatiquement.
+      Aucun trade clôturé — le bloc se remplira automatiquement.
     </div>
 
     <template v-else>
-      <!-- KPIs -->
-      <div class="flex gap-4 flex-wrap">
-        <div class="flex flex-col">
-          <span class="text-gray-500 text-xs">Capital simulé</span>
-          <span class="font-mono font-bold" :class="capitalFinal >= data.capital_initial ? 'text-emerald-400' : 'text-red-400'">
-            {{ formatEuro(capitalFinal) }}
-            <span class="text-xs ml-1">({{ pctTotal >= 0 ? '+' : '' }}{{ pctTotal.toFixed(1) }}%)</span>
+      <!-- Alerte sample size -->
+      <div v-if="data.points.length < 100" class="text-xs text-yellow-400/80 bg-yellow-900/20 rounded px-2 py-1">
+        ⚠️ {{ data.points.length }} trades — statistiques non significatives (&lt; 100 requis)
+      </div>
+
+      <!-- Ligne 1 : métriques principales -->
+      <div class="grid grid-cols-5 divide-x divide-white/[0.08]">
+        <div class="flex flex-col gap-0.5 px-3 first:pl-0">
+          <span class="text-gray-500 text-xs flex items-center gap-1">Capital net
+            <TooltipIcon>Frais estimés à 0.2% aller-retour par trade sur le montant risqué</TooltipIcon>
+          </span>
+          <span class="font-mono font-bold" :class="capitalNet >= data.capital_initial ? 'text-emerald-400' : 'text-red-400'">
+            {{ formatEuro(capitalNet) }}
+            <span class="text-xs font-normal text-gray-400">{{ pctNet >= 0 ? '+' : '' }}{{ pctNet.toFixed(1) }}%</span>
           </span>
         </div>
-        <div class="flex flex-col">
-          <span class="text-gray-500 text-xs">WR</span>
-          <span class="font-mono font-bold" :class="winRate >= 0.5 ? 'text-emerald-400' : 'text-red-400'">{{ Math.round(winRate * 100) }}%</span>
+        <div class="flex flex-col gap-0.5 px-3">
+          <span class="text-gray-500 text-xs flex items-center gap-1">WR
+            <TooltipIcon>IC 95% : intervalle de confiance Wilson</TooltipIcon>
+          </span>
+          <span class="font-mono font-bold" :class="winRate >= 0.5 ? 'text-emerald-400' : 'text-red-400'">
+            {{ Math.round(winRate * 100) }}%
+            <span class="text-gray-500 text-xs">±{{ icWr }}%</span>
+          </span>
         </div>
-        <div class="flex flex-col">
-          <span class="text-gray-500 text-xs">Meilleur</span>
-          <span class="font-mono text-emerald-300 text-sm">+{{ meilleurt.toFixed(2) }}R</span>
+        <div class="flex flex-col gap-0.5 px-3">
+          <span class="text-gray-500 text-xs">G / P</span>
+          <span class="font-mono text-sm">
+            <span class="text-emerald-400">{{ nbGagnants }}</span>
+            <span class="text-gray-600"> / </span>
+            <span class="text-red-400">{{ nbPerdants }}</span>
+          </span>
         </div>
-        <div class="flex flex-col">
-          <span class="text-gray-500 text-xs">Pire</span>
-          <span class="font-mono text-red-300 text-sm">{{ pireR.toFixed(2) }}R</span>
+        <div class="flex flex-col gap-0.5 px-3">
+          <span class="text-gray-500 text-xs flex items-center gap-1">Profit Factor
+            <TooltipIcon>Gains R totaux ÷ pertes R totales. &gt;1.5 = acceptable, &gt;2 = bon</TooltipIcon>
+          </span>
+          <span class="font-mono text-sm" :class="profitFactor >= 1.5 ? 'text-emerald-400' : profitFactor >= 1 ? 'text-yellow-400' : 'text-red-400'">
+            {{ profitFactor === Infinity ? '∞' : profitFactor.toFixed(2) }}
+          </span>
+        </div>
+        <div class="flex flex-col gap-0.5 px-3">
+          <span class="text-gray-500 text-xs flex items-center gap-1">Expectancy
+            <TooltipIcon>Gain moyen par trade en R. Positif = stratégie profitable à long terme</TooltipIcon>
+          </span>
+          <span class="font-mono text-sm" :class="expectancy >= 0 ? 'text-emerald-400' : 'text-red-400'">
+            {{ expectancy >= 0 ? '+' : '' }}{{ expectancy.toFixed(2) }}R
+          </span>
         </div>
       </div>
 
-      <!-- Courbe SVG -->
-      <svg :viewBox="`0 0 ${W} ${H}`" class="w-full rounded-lg bg-white/3" style="height:80px">
-        <!-- Ligne zéro -->
-        <line :x1="0" :y1="yZero" :x2="W" :y2="yZero" stroke="white" stroke-opacity="0.06" stroke-width="1" />
-        <!-- Remplissage -->
-        <path :d="areaPath" :fill="couleur" fill-opacity="0.12" />
-        <!-- Ligne equity -->
-        <path :d="linePath" :stroke="couleur" fill="none" stroke-width="2" stroke-linejoin="round" />
-      </svg>
+      <!-- Ligne 2 : métriques secondaires -->
+      <div class="grid grid-cols-6 divide-x divide-white/[0.08] border-t border-white/5 pt-2">
+        <div class="flex flex-col gap-0.5 px-3 first:pl-0">
+          <span class="text-gray-500 text-xs">R moy. wins</span>
+          <span class="font-mono text-xs text-emerald-300">+{{ avgRWins.toFixed(2) }}R</span>
+        </div>
+        <div class="flex flex-col gap-0.5 px-3">
+          <span class="text-gray-500 text-xs">R moy. pertes</span>
+          <span class="font-mono text-xs text-red-300">{{ avgRLosses.toFixed(2) }}R</span>
+        </div>
+        <div class="flex flex-col gap-0.5 px-3">
+          <span class="text-gray-500 text-xs flex items-center gap-1">ROI annualisé
+            <TooltipIcon>Projection sur 1 an. Fiable seulement sur &gt;30 jours de données</TooltipIcon>
+          </span>
+          <span class="font-mono text-xs" :class="(roiAnnualise ?? 0) >= 0 ? 'text-emerald-300' : 'text-red-300'">
+            <template v-if="roiAnnualise === null">N/A</template>
+            <template v-else>{{ roiAnnualise >= 0 ? '+' : '' }}{{ Math.round(roiAnnualise) }}%/an</template>
+            <span v-if="roiAnnualise !== null && nbJours < 30" class="text-yellow-500"> ⚠️</span>
+          </span>
+        </div>
+        <div class="flex flex-col gap-0.5 px-3">
+          <span class="text-gray-500 text-xs flex items-center gap-1">Max DD
+            <TooltipIcon>Pire chute du capital simulé depuis un sommet, en %</TooltipIcon>
+          </span>
+          <span class="font-mono text-xs text-red-300">-{{ maxDrawdownPct.toFixed(1) }}%</span>
+        </div>
+        <div class="flex flex-col gap-0.5 px-3">
+          <span class="text-gray-500 text-xs">Durée moy.</span>
+          <span class="font-mono text-xs text-gray-300">{{ dureeMoyenne }}</span>
+        </div>
+        <div class="flex flex-col gap-0.5 px-3">
+          <span class="text-gray-500 text-xs">Frais est.</span>
+          <span class="font-mono text-xs text-orange-300">-{{ formatEuro(fraisEstimes) }}</span>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -55,78 +111,93 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRocketsPerf } from '@/composables/useRocketsPerf'
+import TooltipIcon from './TooltipIcon.vue'
 
 const { data, chargement, charger } = useRocketsPerf()
 
-const W = 400
-const H = 80
-const PAD = 8
+const FRAIS_RT = 0.002 // 0.2% aller-retour estimé sur le montant risqué
 
+// ── Base ─────────────────────────────────────────────────────────────────────
 const capitalFinal = computed(() =>
   data.value?.points.at(-1)?.equity_cumulee ?? data.value?.capital_initial ?? 10000
 )
-
-const pctTotal = computed(() => {
+const fraisEstimes = computed(() => {
   if (!data.value) return 0
-  return (capitalFinal.value - data.value.capital_initial) / data.value.capital_initial * 100
+  return data.value.points.length * data.value.capital_initial * data.value.risk_pct * FRAIS_RT
 })
-
+const capitalNet = computed(() => capitalFinal.value - fraisEstimes.value)
+const pctNet = computed(() => {
+  if (!data.value) return 0
+  return (capitalNet.value - data.value.capital_initial) / data.value.capital_initial * 100
+})
+const nbGagnants = computed(() =>
+  data.value?.points.filter(p => p.verdict.startsWith('tp')).length ?? 0
+)
+const nbPerdants = computed(() =>
+  data.value ? data.value.points.length - nbGagnants.value : 0
+)
 const winRate = computed(() => {
-  if (!data.value?.points.length) return 0
-  const wins = data.value.points.filter(p => p.verdict.startsWith('tp')).length
-  return wins / data.value.points.length
+  const n = data.value?.points.length ?? 0
+  return n > 0 ? nbGagnants.value / n : 0
+})
+const icWr = computed(() => {
+  const n = data.value?.points.length ?? 0
+  if (n === 0) return 0
+  return Math.round(1.96 * Math.sqrt((winRate.value * (1 - winRate.value)) / n) * 100)
 })
 
-const meilleurt = computed(() =>
-  data.value?.points.reduce((m, p) => Math.max(m, p.pnl_r), 0) ?? 0
+// ── Métriques avancées ───────────────────────────────────────────────────────
+const avgRWins = computed(() => {
+  const wins = data.value?.points.filter(p => p.verdict.startsWith('tp')) ?? []
+  return wins.length ? wins.reduce((s, p) => s + p.pnl_r, 0) / wins.length : 0
+})
+const avgRLosses = computed(() => {
+  const losses = data.value?.points.filter(p => !p.verdict.startsWith('tp')) ?? []
+  return losses.length ? losses.reduce((s, p) => s + p.pnl_r, 0) / losses.length : 0
+})
+const profitFactor = computed(() => {
+  const gains = data.value?.points.filter(p => p.verdict.startsWith('tp')).reduce((s, p) => s + p.pnl_r, 0) ?? 0
+  const pertes = Math.abs(data.value?.points.filter(p => !p.verdict.startsWith('tp')).reduce((s, p) => s + p.pnl_r, 0) ?? 0)
+  return pertes === 0 ? Infinity : gains / pertes
+})
+const expectancy = computed(() =>
+  winRate.value * avgRWins.value + (1 - winRate.value) * avgRLosses.value
 )
 
-const pireR = computed(() =>
-  data.value?.points.reduce((m, p) => Math.min(m, p.pnl_r), 0) ?? 0
-)
-
-const couleur = computed(() => capitalFinal.value >= (data.value?.capital_initial ?? 10000) ? '#10b981' : '#ef4444')
-
-function yCoord(equity: number, minE: number, maxE: number): number {
-  const range = maxE - minE || 1
-  return PAD + (1 - (equity - minE) / range) * (H - PAD * 2)
-}
-
-const yZero = computed(() => {
-  if (!data.value?.points.length) return H / 2
-  const vals = data.value.points.map(p => p.equity_cumulee)
-  const minE = Math.min(...vals, data.value.capital_initial)
-  const maxE = Math.max(...vals, data.value.capital_initial)
-  return yCoord(data.value.capital_initial, minE, maxE)
+// ── Temporel ─────────────────────────────────────────────────────────────────
+const nbJours = computed(() => {
+  const pts = data.value?.points
+  if (!pts?.length) return 0
+  return Math.max(1, (pts.at(-1)!.ferme_le - pts[0].ferme_le) / 86400)
 })
-
-const linePath = computed(() => {
-  if (!data.value?.points.length) return ''
-  const pts = data.value.points
-  const vals = pts.map(p => p.equity_cumulee)
-  const minE = Math.min(...vals, data.value.capital_initial)
-  const maxE = Math.max(...vals, data.value.capital_initial)
-  return pts.map((p, i) => {
-    const x = PAD + (i / (pts.length - 1 || 1)) * (W - PAD * 2)
-    const y = yCoord(p.equity_cumulee, minE, maxE)
-    return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
-  }).join(' ')
+const roiAnnualise = computed(() => {
+  if (!data.value || nbJours.value < 2) return null
+  const roi = (capitalNet.value - data.value.capital_initial) / data.value.capital_initial
+  const annuel = ((1 + roi) ** (365 / nbJours.value) - 1) * 100
+  return Math.max(-9999, Math.min(9999, annuel))
 })
-
-const areaPath = computed(() => {
-  if (!data.value?.points.length) return ''
-  const pts = data.value.points
-  const vals = pts.map(p => p.equity_cumulee)
-  const minE = Math.min(...vals, data.value.capital_initial)
-  const maxE = Math.max(...vals, data.value.capital_initial)
-  const line = pts.map((p, i) => {
-    const x = PAD + (i / (pts.length - 1 || 1)) * (W - PAD * 2)
-    const y = yCoord(p.equity_cumulee, minE, maxE)
-    return `${x.toFixed(1)},${y.toFixed(1)}`
-  })
-  const xFirst = PAD
-  const xLast = PAD + (W - PAD * 2)
-  return `M ${xFirst},${yZero.value} L ${line.join(' L ')} L ${xLast},${yZero.value} Z`
+const maxDrawdownPct = computed(() => {
+  const pts = data.value?.points
+  if (!pts?.length || !data.value) return 0
+  let peak = data.value.capital_initial
+  let maxDD = 0
+  for (const p of pts) {
+    if (p.equity_cumulee > peak) peak = p.equity_cumulee
+    const dd = (peak - p.equity_cumulee) / peak * 100
+    if (dd > maxDD) maxDD = dd
+  }
+  return maxDD
+})
+const dureeMoyenne = computed(() => {
+  const pts = data.value?.points
+  if (!pts?.length) return '—'
+  const valides = pts.filter(p => p.duree_min > 0)
+  if (!valides.length) return '—'
+  const avg = valides.reduce((s, p) => s + p.duree_min, 0) / valides.length
+  if (avg < 60) return `${Math.round(avg)}min`
+  const h = Math.floor(avg / 60)
+  const m = Math.round(avg % 60)
+  return `${h}h${m.toString().padStart(2, '0')}`
 })
 
 function formatEuro(v: number): string {

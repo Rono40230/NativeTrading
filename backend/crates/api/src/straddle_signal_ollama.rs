@@ -36,13 +36,19 @@ pub async fn appeler_ollama_et_publier(
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
 
-    let prompt = crate::straddle_prompt::construire_prompt_few_shot(
+    let lecons = crate::patterns_echec_job::charger_lecons_systemiques(db, "STRADDLE").await;
+    let prompt_base = crate::straddle_prompt::construire_prompt_few_shot(
         &crate::prompts_handler::prompt_effectif("straddle_signal"),
         ctx,
         feedbacks,
         asset.as_str(),
         categorie,
     );
+    let prompt = if lecons.is_empty() {
+        prompt_base
+    } else {
+        format!("{}\n\n{lecons}", prompt_base)
+    };
     let corps = serde_json::json!({
         "model": modele,
         "messages": [{"role": "user", "content": prompt}],

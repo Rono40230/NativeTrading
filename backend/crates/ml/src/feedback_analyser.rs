@@ -30,12 +30,28 @@ pub struct SmcAnalyse {
     pub ml_correlation: Vec<TrancheStat>, // tranches confiance ML
 }
 
+/// Analyse Rockets avec détail par phase et conviction LLM
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RocketsAnalyse {
+    pub global: StatsGlobales,
+    pub par_phase: Vec<TrancheStat>,       // win rate par phase (momentum, breakout…)
+    pub conviction_llm: Vec<TrancheStat>,  // tranches conviction LLM vs résultat
+}
+
+/// Analyse Straddle avec détail par catégorie et score LLM
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StraddleAnalyse {
+    pub global: StatsGlobales,
+    pub par_categorie: Vec<TrancheStat>,   // win rate par catégorie (Annonce, Volatilité…)
+    pub score_llm: Vec<TrancheStat>,       // tranches score LLM vs résultat
+}
+
 /// Vue consolidée de toutes les stratégies — input du `params_suggester`
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnalyseGlobale {
     pub smc: Option<SmcAnalyse>,
-    pub rockets: Option<StatsGlobales>,
-    pub straddle: Option<StatsGlobales>,
+    pub rockets: Option<RocketsAnalyse>,
+    pub straddle: Option<StraddleAnalyse>,
 }
 
 // ── Accès rapides ─────────────────────────────────────────────────────────────

@@ -133,3 +133,36 @@ pub async fn cloturer_feedback(
 
     HttpResponse::Ok().json(serde_json::json!({ "ok": true }))
 }
+
+// ── GET /api/straddle/equity ──────────────────────────────────────────────────
+
+#[derive(serde::Deserialize)]
+pub struct QueryEquity {
+    pub capital: Option<f64>,
+    pub risk_pct: Option<f64>,
+}
+
+pub async fn get_equity(
+    state: web::Data<AppState>,
+    query: web::Query<QueryEquity>,
+) -> impl Responder {
+    let capital = query.capital.unwrap_or(10_000.0);
+    let risk_pct = query.risk_pct.unwrap_or(0.015);
+    let risk_montant = capital * risk_pct;
+    let pool = state.db.pool();
+
+    match db::straddle_feedback_stats::courbe_equity(pool, capital, risk_montant).await {
+        Ok(points) => {
+            let nb_trades = points.len() as i64;
+            HttpResponse::Ok().json(serde_json::json!({
+                "capital_initial": capital,
+                "risk_pct": risk_pct,
+                "nb_trades_saisis": nb_trades,
+                "points": points,
+            }))
+        }
+        Err(e) => {
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
+        }
+    }
+}

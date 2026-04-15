@@ -15,6 +15,9 @@ const CLES_AUTORISEES: &[&str] = &[
     "telegram_bot_token",
     "telegram_chat_id",
     "twelvedata_api_key",
+    "seuil_confiance_rockets",
+    "seuil_confiance_straddle",
+    "seuil_confiance_smc",
 ];
 
 #[derive(Deserialize)]

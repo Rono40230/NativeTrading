@@ -117,8 +117,9 @@ pub async fn filtrer_sauvegarder_publier(
         tendance_marche_48h: (nb_recent, wr_recent, pnl_recent),
     };
 
+    let lecons = crate::patterns_echec_job::charger_lecons_pool(pool, "ROCKETS").await;
     let (llm_valide, llm_conviction, llm_raison, llm_sl, llm_tp1, llm_trailing_coeff) =
-        match crate::ollama::rockets_filtre::filtrer_signal(&candidat, &historique, &feedbacks)
+        match crate::ollama::rockets_filtre::filtrer_signal(&candidat, &historique, &feedbacks, &lecons)
             .await
         {
             Ok(rep) => {

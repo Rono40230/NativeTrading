@@ -43,5 +43,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
     .route(
         "/api/ml/retrain/status/{job_id}",
         web::get().to(crate::ml_retrain_handler::statut_retrain),
+    )
+    // ── P4 : Feature importance ────────────────────────────────────────
+    .route(
+        "/api/ml/feature-importance/{strategie}",
+        web::get().to(crate::ml_retrain_handler::feature_importance),
     );
 }
