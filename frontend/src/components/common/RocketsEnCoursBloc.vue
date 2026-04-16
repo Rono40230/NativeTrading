@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-bar px-4 py-2.5 flex flex-wrap gap-2 content-start">
+  <div class="glass-bar px-4 py-2.5 flex flex-wrap gap-2 content-start h-full">
     <span class="text-[11px] font-semibold uppercase tracking-widest text-white w-full shrink-0">⏳ Signaux en attente</span>
     <span v-if="enAttente.length === 0" class="text-xs text-gray-600 italic">Aucun signal</span>
     <button

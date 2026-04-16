@@ -96,8 +96,10 @@
                   {{ tp.toUpperCase() }}{{ (s.tps_short_atteints ?? []).includes(tp) ? ' ✓' : '' }}
                 </span>
                 <span v-if="lotPourSignal(s)" class="text-white/15 mx-1">┃</span>
-                <span v-if="lotPourSignal(s)" class="text-yellow-400/70">Lot : <span class="font-mono font-bold text-yellow-300">{{ lotPourSignal(s) }}</span></span>
-              </div>
+                <span v-if="lotPourSignal(s)" class="text-yellow-400/70">Lot : <span class="font-mono font-bold text-yellow-300">{{ lotPourSignal(s) }}</span></span>                <template v-if="labelHeureEntree(s)">
+                  <span class="text-white/15 mx-1">┃</span>
+                  <span class="badge badge-yellow text-[10px]">{{ labelHeureEntree(s) }}</span>
+                </template>              </div>
             </td>
           </tr>
           <!-- Sous-ligne lot SMC : uniquement pour signaux actifs -->
@@ -208,6 +210,17 @@ async function confirmerAnnulation() {
   const s = signalAnnuler.value
   signalAnnuler.value = null
   await annuler(s)
+}
+
+// ── Heure d'entrée Straddle ───────────────────────────────────────────────────
+function labelHeureEntree(s: Signal): string | null {
+  if (!s.heure_entree) return null
+  const resteSec = s.heure_entree - Math.floor(Date.now() / 1000)
+  if (resteSec > 0) {
+    const min = Math.ceil(resteSec / 60)
+    return `⏱ dans ${min}min`
+  }
+  return 'Entrée active'
 }
 </script>
 

@@ -48,8 +48,10 @@ License not valid for this Client type
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Dans ML insight, pourquoi l'onglet Suggestion de paramètres est vide alors que nous avons plus de 30 trades cloturés dans la stratégie rocket ?
+Revoir Paramètres des stratégies après tous les changements qui ont été implémentés.
+Ces tableaux de paramètres sont ils toujours en accord avec le code ?
+Modifier ces paramètres a quelles conséquence dans le code ?
+
+--------------------------------------------------------------------------------------------------------------------------
 
 
-P12 Calibration auto scan	⚠️ PARTIEL	Grid search OK — panneau UI validation dans SettingsView absent
-P13 Extension Straddle/SMC	❌ À FAIRE	Aucun snapshot, aucun fine-tuning, aucun modèle séparé

@@ -40,6 +40,10 @@ pub struct ReponseLlm {
         alias = "duration"
     )]
     pub duree_exposition_estimee_min: Option<i64>,
+    /// Heure d'entrée suggérée par le LLM (ISO 8601, ex: "2026-04-16T14:30:00Z").
+    /// Optionnel — si absent, l'entrée est immédiate.
+    #[serde(alias = "entry_time", alias = "entry_at", alias = "heure_entree_utc")]
+    pub heure_entree_utc: Option<String>,
 }
 
 // ── Réponses intermédiaires Ollama ───────────────────────────────────────────

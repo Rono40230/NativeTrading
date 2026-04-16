@@ -1,23 +1,26 @@
 <template>
+  <div class="h-full flex flex-col">
   <!-- Barre résumé collapsed -->
   <div
-    class="glass-bar px-4 py-2.5 flex items-center gap-3 cursor-pointer hover:bg-white/5 transition-colors"
+    class="glass-bar px-4 py-2.5 flex flex-col gap-1 cursor-pointer hover:bg-white/5 transition-colors flex-1"
     @click="modalSurveillanceOuverte = true"
   >
-    <p class="text-[11px] font-semibold uppercase tracking-widest text-white shrink-0">⚡ Straddle</p>
-    <span class="text-[10px] text-gray-500 shrink-0">Session&nbsp;: <span class="text-blue-300 font-semibold">{{ sessionLabel }}</span></span>
-    <span class="text-[10px] shrink-0" :class="picsRecents.length > 0 ? 'text-orange-400' : 'text-gray-500'">
+    <div class="flex items-center justify-between">
+      <p class="text-xs font-semibold uppercase tracking-widest text-white">⚡ Straddle</p>
+      <span class="text-[10px] text-gray-600">▸</span>
+    </div>
+    <span class="text-xs text-gray-500">Session&nbsp;: <span class="text-blue-300 font-semibold">{{ sessionLabel }}</span></span>
+    <span class="text-xs" :class="picsRecents.length > 0 ? 'text-orange-400' : 'text-gray-500'">
       {{ picsRecents.length }} pic(s) actif(s)
     </span>
     <span
       v-if="data?.resume.annonces_prochaines_90min.some(a => a.dans_min <= 30)"
-      class="text-[10px] font-bold text-red-400 border border-red-500/40 px-1.5 py-0.5 rounded animate-pulse"
+      class="text-xs font-bold text-red-400 animate-pulse"
     >⚠️ ZONE À RISQUE</span>
-    <span class="ml-auto text-[10px] text-gray-600 shrink-0">▸</span>
   </div>
 
   <!-- Contenu complet en modal -->
-  <ModalSurveillance :visible="modalSurveillanceOuverte" titre="⚡ Surveillance Volatilité — Straddle ML" @close="modalSurveillanceOuverte = false">
+  <ModalSurveillance :visible="modalSurveillanceOuverte" titre="⚡ Surveillance Volatilité — Straddle ML" @close="modalSurveillanceOuverte = false">  
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-2">
         <span class="text-[10px] text-gray-500">Session&nbsp;: <span class="text-blue-300 font-semibold">{{ sessionLabel }}</span></span>
@@ -26,10 +29,6 @@
           class="text-[10px] font-bold text-red-400 border border-red-500/40 px-1.5 py-0.5 rounded animate-pulse"
         >⚠️ ZONE À RISQUE</span>
       </div>
-      <button
-        class="text-[10px] font-semibold text-yellow-300 hover:text-yellow-100 border border-yellow-500/40 hover:border-yellow-400/70 rounded-lg px-2.5 py-1 transition-all hover:bg-yellow-500/10"
-        @click.stop="modalOuverte = true"
-      >Opportunités ▸</button>
     </div>
 
     <div v-if="chargement && !data" class="flex items-center justify-center py-8 text-xs text-gray-600">
@@ -97,6 +96,7 @@
   </ModalSurveillance>
 
   <StraddleVolatiliteModal :visible="modalOuverte" @close="modalOuverte = false" />
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -185,6 +185,6 @@ onUnmounted(() => {
 
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
-.glass-bar  { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
+.glass-bar  { @apply rounded-xl border-2 border-yellow-500/50 bg-white/5 backdrop-blur-sm; }
 </style>
 

@@ -37,17 +37,19 @@
           <div class="w-3/5 min-w-0"><StratPerfBloc titre="📐 Performance SMC" :data="smcPerf.data.value" :chargement="smcPerf.chargement.value" :charger="smcPerf.charger" /></div>
         </div>
 
-        <!-- Ligne Straddle : barre 2/5 + Performance 3/5 -->
-        <div class="flex gap-2 items-stretch">
-          <div class="w-2/5 min-w-0"><StraddleVolatiliteBloc /></div>
-          <div class="w-3/5 min-w-0"><StratPerfBloc titre="⚡ Performance Volatilité" :data="straddlePerf.data.value" :chargement="straddlePerf.chargement.value" :charger="straddlePerf.charger" /></div>
+        <!-- Courbe equity Straddle — pleine largeur -->
+        <StraddleEquityChart />
+
+        <div class="flex gap-2 items-stretch h-[162px]">
+          <div class="w-1/5 min-w-0 flex flex-col"><StraddleVolatiliteBloc class="flex-1" /></div>
+          <div class="w-1/5 min-w-0 flex flex-col"><StraddleProchainCreneau class="flex-1" /></div>
+          <div class="w-3/5 min-w-0 flex flex-col overflow-hidden"><StratPerfBloc class="flex-1 min-h-0 overflow-hidden" titre="⚡ Performance Volatilité" :data="straddlePerf.data.value" :chargement="straddlePerf.chargement.value" :charger="straddlePerf.charger" /></div>
         </div>
 
         <!-- Courbe equity Rockets — pleine largeur -->
         <RocketsEquityChart />
 
-        <!-- Ligne Rockets : VeilleRockets 1/5 + En attente 1/5 + Performance 3/5 -->
-        <div class="flex gap-2 items-stretch">
+        <div class="flex gap-2 items-stretch h-[162px]">
           <div class="w-1/5 min-w-0 flex flex-col"><VeilleRockets
             class="flex-1"
             :signaux="rockets.signaux.value"
@@ -56,8 +58,8 @@
             :erreur="rockets.erreur.value"
             :progression="rockets.progression.value"
           /></div>
-          <div class="w-1/5 min-w-0 flex flex-col"><RocketsEnCoursBloc class="flex-1" /></div>
-          <div class="w-3/5 min-w-0"><RocketsPerfBloc /></div>
+          <div class="w-1/5 min-w-0 flex flex-col"><RocketsEnCoursBloc class="flex-1 h-full" /></div>
+          <div class="w-3/5 min-w-0 flex flex-col overflow-hidden"><RocketsPerfBloc class="flex-1 min-h-0 overflow-hidden" /></div>
         </div>
 
       </div>
@@ -95,6 +97,8 @@ import NewsFeed from '@/components/common/NewsFeed.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
 import StraddleVolatiliteBloc from '@/components/common/StraddleVolatiliteBloc.vue'
+import StraddleEquityChart from '@/components/common/StraddleEquityChart.vue'
+import StraddleProchainCreneau from '@/components/common/StraddleProchainCreneau.vue'
 import VeilleRockets from '@/components/common/VeilleRockets.vue'
 import RocketsPerfBloc from '@/components/common/RocketsPerfBloc.vue'
 import RocketsEnCoursBloc from '@/components/common/RocketsEnCoursBloc.vue'

@@ -221,7 +221,7 @@ pub async fn generer_signal_straddle(
         }
     };
 
-    if brut.signal != "STRADDLE" || brut.score_confiance < 6.0 {
+    if brut.signal != "STRADDLE" || brut.score_confiance < 5.5 {
         return HttpResponse::Ok().json(serde_json::json!({
             "signal": "WAIT",
             "raison": brut.raison,
@@ -259,11 +259,53 @@ pub async fn generer_signal_straddle(
         "Straddle",
     );
     let signal_id = signal.id.to_string();
+
+    // Heure d'entrée : LLM en priorité, sinon première annonce HIGH impact
+    let heure_entree: Option<i64> = brut
+        .heure_entree_utc
+        .as_deref()
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.timestamp())
+        .or_else(|| {
+            annonces
+                .first()
+                .and_then(|a| a["date_heure"].as_str())
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                .map(|dt| dt.timestamp())
+        });
+
     let _ = state
         .db
-        .inserer_signal_straddle_complet(&signal, sl_short, &[tp1_short, tp2_short, tp3_short])
+        .inserer_signal_straddle_complet(&signal, sl_short, &[tp1_short, tp2_short, tp3_short], heure_entree)
         .await;
     state.signal_engine.publier(signal.clone());
+
+    // Snapshot features ML (56 = 52 OHLCV + 4 contextuelles Straddle)
+    // Charger des bougies récentes pour extraire les features OHLCV standard
+    let ratio_atr_calc = if body.atr_moyen_14 > 0.0 {
+        body.atr_actuel / body.atr_moyen_14
+    } else {
+        1.0
+    };
+    if let Ok(bougies) = state.db.obtenir_bougies(&signal.asset.clone(), &tf, 100).await {
+        if let Some(features_ohlcv) = ml::extraire_features(&bougies) {
+            let session = db::session_sortie_courante(now.timestamp());
+            let features_56 = db::straddle_features::construire_features_56(
+                &features_ohlcv,
+                ratio_atr_calc,
+                "choc_isole", // pas de catégorisation disponible côté handler REST
+                &session,
+                brut.score_confiance,
+            );
+            let _ = db::straddle_features::inserer_snapshot(
+                state.db.pool(),
+                &signal_id,
+                &asset_str,
+                &features_56,
+            )
+            .await;
+        }
+    }
 
     HttpResponse::Ok().json(serde_json::json!({
         "signal": "STRADDLE",
@@ -273,6 +315,7 @@ pub async fn generer_signal_straddle(
         "amplitude_attendue_pct": brut.amplitude_attendue_pct,
         "duree_exposition_estimee_min": brut.duree_exposition_estimee_min,
         "signal_id": signal_id,
+        "heure_entree": heure_entree,
         "prix_entree": prix,
         "sl_long": sl_long,
         "sl_short": sl_short,

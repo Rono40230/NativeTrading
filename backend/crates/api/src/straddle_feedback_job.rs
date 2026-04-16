@@ -31,6 +31,9 @@ struct SignalStraddleOuvert {
     sl_short: f64,      // SL jambe SHORT d'origine (> prix_entree)
     tp_short: Vec<f64>, // [tp1, tp2, tp3] short (< prix_entree)
     cree_le: i64,
+    /// Heure cible de déclenchement (timestamp événement économique).
+    /// Si Some, la machine à états ne démarre qu'à partir de cet instant.
+    heure_entree: Option<i64>,
 }
 
 // ── Point d'entrée public ─────────────────────────────────────────────────────
@@ -73,6 +76,13 @@ async fn traiter_signal(db: &Arc<Database>, s: &SignalStraddleOuvert, vente_part
         return;
     }
 
+    // Attendre l'heure d'entrée cible si elle est encore dans le futur
+    if let Some(he) = s.heure_entree {
+        if Utc::now().timestamp() < he {
+            return;
+        }
+    }
+
     let asset = match Asset::try_from(s.asset.as_str()) {
         Ok(a) => a,
         Err(_) => return,
@@ -92,7 +102,7 @@ async fn traiter_signal(db: &Arc<Database>, s: &SignalStraddleOuvert, vente_part
 
     let bougies_post: Vec<_> = bougies
         .iter()
-        .filter(|b| b.timestamp.timestamp() >= s.cree_le)
+        .filter(|b| b.timestamp.timestamp() >= s.heure_entree.unwrap_or(s.cree_le))
         .collect();
 
     if bougies_post.is_empty() || (s.tp_long.is_empty() && s.tp_short.is_empty()) {
@@ -229,7 +239,7 @@ async fn charger_signaux_straddle_ouverts(
     use sqlx::Row;
     let rows = sqlx::query(
         "SELECT id, asset, timeframe, prix_entree, score,
-                stop_loss, take_profit, sl_short, take_profit_short, cree_le
+                stop_loss, take_profit, sl_short, take_profit_short, cree_le, heure_entree
          FROM signaux
          WHERE statut = 'Actif' AND strategie = 'Straddle'
          ORDER BY cree_le ASC",
@@ -260,6 +270,7 @@ async fn charger_signaux_straddle_ouverts(
                 sl_short,
                 tp_short,
                 cree_le: r.get("cree_le"),
+                heure_entree: r.get("heure_entree"),
             })
         })
         .collect())

@@ -8,6 +8,7 @@ pub mod feedback_analyser;
 pub mod lstm;
 pub mod params_suggester;
 pub mod rockets_trainer;
+pub mod straddle_trainer;
 pub mod walk_forward;
 pub mod xgboost;
 
@@ -17,6 +18,7 @@ pub use lstm::{ModeleHybrideLstm, LONGUEUR_SEQ};
 pub use walk_forward::entrainer_walk_forward;
 pub use xgboost::ModeleXGBoost;
 pub use rockets_trainer::{entrainer_sur_trades_clotures, XgbRockets};
+pub use straddle_trainer::XgbStraddle;
 
 /// Résultat d'inférence du pipeline hybride XGBoost + LSTM
 #[derive(Debug, Clone)]
@@ -37,6 +39,8 @@ pub struct PipelineML {
     pub lstm: ModeleHybrideLstm,
     /// XGBoost fine-tuné sur les trades Rockets clôturés (P3). Optionnel.
     pub xgb_rockets: XgbRockets,
+    /// XGBoost fine-tuné sur les trades Straddle clôturés (P13). Optionnel.
+    pub xgb_straddle: XgbStraddle,
     /// Cache GPU — reconstruit depuis les poids CPU. `None` si CUDA absent.
     #[cfg(feature = "cuda")]
     pub lstm_gpu: Option<lstm::LstmGpu>,
@@ -48,6 +52,7 @@ impl PipelineML {
             xgb: ModeleXGBoost::new(100),
             lstm: ModeleHybrideLstm::nouveau(NB_FEATURES),
             xgb_rockets: XgbRockets::charger_depuis_disque(),
+            xgb_straddle: XgbStraddle::charger_depuis_disque(),
             #[cfg(feature = "cuda")]
             lstm_gpu: None,
         }

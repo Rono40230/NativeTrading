@@ -73,9 +73,9 @@ export function useVeilleRockets() {
   const progression    = ref(0)
   let intervalle: ReturnType<typeof setInterval> | null = null
 
-  async function scanner() {
+  async function scanner(silencieux = false) {
     if (chargement.value) return
-    chargement.value = true
+    if (!silencieux || signaux.value.length === 0) chargement.value = true
     erreur.value     = false
     try {
       const raw = await apiService.getRocketsScan()
@@ -100,7 +100,7 @@ export function useVeilleRockets() {
   function demarrer() {
     scanner()
     intervalle = setInterval(() => {
-      scanner()
+      scanner(true)
     }, POLL_MS)
   }
 

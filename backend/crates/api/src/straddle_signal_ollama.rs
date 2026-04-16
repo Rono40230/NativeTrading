@@ -15,6 +15,13 @@ pub struct ParamsOllama<'a> {
     pub feedbacks: &'a [db::straddle_feedback::StraddleFeedbackRow],
     pub categorie: &'a crate::straddle_categorisation::CategoriePic,
     pub score_seuil: f64,
+    /// Annonces HIGH impact < 90min (depuis le calendrier économique).
+    /// Utilisées pour extraire l'heure d'entrée cible du trade Straddle.
+    pub annonces: &'a [serde_json::Value],
+    /// Bougies récentes — pour extraire les 52 features OHLCV du snapshot.
+    pub bougies: &'a [common::Candle],
+    /// Ratio ATR actuel / ATR moyen 14p — feature contextuelle Straddle.
+    pub ratio_atr: f64,
 }
 
 pub async fn appeler_ollama_et_publier(
@@ -31,6 +38,9 @@ pub async fn appeler_ollama_et_publier(
         feedbacks,
         categorie,
         score_seuil,
+        annonces,
+        bougies,
+        ratio_atr,
     } = params;
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
     let url = std::env::var("OLLAMA_URL")
@@ -110,8 +120,22 @@ pub async fn appeler_ollama_et_publier(
         "Straddle",
     );
 
+    // Heure d'entrée : LLM en priorité, sinon première annonce HIGH impact
+    let heure_entree: Option<i64> = brut
+        .heure_entree_utc
+        .as_deref()
+        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+        .map(|dt| dt.timestamp())
+        .or_else(|| {
+            annonces
+                .first()
+                .and_then(|a| a["date_heure"].as_str())
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                .map(|dt| dt.timestamp())
+        });
+
     let _ = db
-        .inserer_signal_straddle_complet(&signal, sl_short, &tps_short)
+        .inserer_signal_straddle_complet(&signal, sl_short, &tps_short, heure_entree)
         .await;
 
     // Lier le pic ATR détecté à ce signal + charger son contexte pour le feedback
@@ -150,6 +174,28 @@ pub async fn appeler_ollama_et_publier(
         score_llm: brut.score_confiance,
     };
     let _ = db::straddle_feedback::inserer_feedback(db.pool(), &fb).await;
+
+    // Snapshot features ML (56 = 52 OHLCV + 4 contextuelles Straddle)
+    if let Some(features_ohlcv) = ml::extraire_features(bougies) {
+        let session = pic
+            .as_ref()
+            .map(|p| p.session_active.as_str())
+            .unwrap_or("Asia/Off");
+        let features_56 = db::straddle_features::construire_features_56(
+            &features_ohlcv,
+            ratio_atr,
+            fb.categorie,
+            session,
+            brut.score_confiance,
+        );
+        let _ = db::straddle_features::inserer_snapshot(
+            db.pool(),
+            &signal_id_str,
+            asset.as_str(),
+            &features_56,
+        )
+        .await;
+    }
 
     signal_engine.publier(signal.clone());
 

@@ -20,8 +20,8 @@ export function useSmcPerf(capital = 10000, risk_pct = 0.015) {
   const data = ref<StratEquityData | null>(null)
   const chargement = ref(false)
 
-  async function charger() {
-    chargement.value = true
+  async function charger(silencieux = false) {
+    if (!silencieux || data.value === null) chargement.value = true
     try {
       data.value = await apiService.getSmcEquity(capital, risk_pct)
     } catch {
@@ -33,7 +33,7 @@ export function useSmcPerf(capital = 10000, risk_pct = 0.015) {
 
   let _poll: ReturnType<typeof setInterval> | null = null
 
-  onMounted(() => { charger(); _poll = setInterval(charger, 30_000) })
+  onMounted(() => { charger(); _poll = setInterval(() => charger(true), 30_000) })
   onUnmounted(() => { if (_poll !== null) { clearInterval(_poll); _poll = null } })
 
   return { data, chargement, charger }
@@ -43,8 +43,8 @@ export function useStraddlePerf(capital = 10000, risk_pct = 0.015) {
   const data = ref<StratEquityData | null>(null)
   const chargement = ref(false)
 
-  async function charger() {
-    chargement.value = true
+  async function charger(silencieux = false) {
+    if (!silencieux || data.value === null) chargement.value = true
     try {
       data.value = await apiService.getStraddleEquity(capital, risk_pct)
     } catch {
@@ -56,7 +56,7 @@ export function useStraddlePerf(capital = 10000, risk_pct = 0.015) {
 
   let _poll: ReturnType<typeof setInterval> | null = null
 
-  onMounted(() => { charger(); _poll = setInterval(charger, 30_000) })
+  onMounted(() => { charger(); _poll = setInterval(() => charger(true), 30_000) })
   onUnmounted(() => { if (_poll !== null) { clearInterval(_poll); _poll = null } })
 
   return { data, chargement, charger }

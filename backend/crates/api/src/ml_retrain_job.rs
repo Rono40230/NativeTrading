@@ -26,6 +26,9 @@ pub(crate) async fn executer_retrain_job(
     // Fine-tuning P3 : XGBoost Rockets sur trades clôturés (garde-fou 50 samples intégré)
     executer_fine_tuning_rockets(&db, &pipeline_ml).await;
 
+    // Fine-tuning P13 : XGBoost Straddle sur trades clôturés
+    executer_fine_tuning_straddle(&db, &pipeline_ml).await;
+
     // Mesurer la nouvelle accuracy OOS (moyenne sur le dernier entraînement)
     let accuracy_apres: f64 = db
         .accuracy_val_recente(1)
@@ -158,6 +161,55 @@ pub(crate) fn restaurer_backup() -> anyhow::Result<()> {
         std::fs::copy(CHEMIN_LSTM_BACKUP, CHEMIN_LSTM)?;
     }
     Ok(())
+}
+
+/// Fine-tuning XGBoost Straddle sur les trades clôturés (P13).
+/// Silencieux si < 50 samples disponibles.
+pub(crate) async fn executer_fine_tuning_straddle(
+    db: &Arc<db::Database>,
+    pipeline_ml: &Arc<tokio::sync::Mutex<ml::PipelineML>>,
+) {
+    let samples = match db::straddle_features::lire_snapshots_avec_labels(db.pool()).await {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::warn!("Fine-tuning Straddle: lecture snapshots échouée: {}", e);
+            return;
+        }
+    };
+
+    let nb = samples.len();
+    let resultat = match tokio::task::spawn_blocking(move || {
+        ml::straddle_trainer::entrainer_sur_trades_clotures(&samples)
+    })
+    .await
+    {
+        Ok(Ok(r)) => r,
+        Ok(Err(e)) => {
+            tracing::error!("Fine-tuning Straddle: erreur entraînement: {}", e);
+            return;
+        }
+        Err(e) => {
+            tracing::error!("Fine-tuning Straddle: spawn_blocking échoué: {}", e);
+            return;
+        }
+    };
+
+    match resultat {
+        None => tracing::info!("Fine-tuning Straddle: {} samples < 50 — ignoré", nb),
+        Some(r) => {
+            tracing::info!(
+                "Fine-tuning Straddle: {} samples | OOS={:.1}% | sauvegardé={}",
+                r.nb_samples,
+                r.accuracy_oos * 100.0,
+                r.sauvegarde
+            );
+            // Recharger le modèle Straddle dans le pipeline si sauvegardé
+            if r.sauvegarde {
+                let mut pipeline = pipeline_ml.lock().await;
+                pipeline.xgb_straddle = ml::XgbStraddle::charger_depuis_disque();
+            }
+        }
+    }
 }
 
 /// Fine-tuning XGBoost Rockets sur les trades clôturés (P3).

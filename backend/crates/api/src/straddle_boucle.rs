@@ -42,11 +42,7 @@ pub fn demarrer_boucle_straddle(
                     Ok(a) => a,
                     Err(_) => continue,
                 };
-                let tf = if asset_db.type_asset == "crypto" {
-                    Timeframe::M5
-                } else {
-                    Timeframe::M15
-                };
+                let tf = Timeframe::M15;
                 analyser_asset(&db, &signal_engine, &pipeline_ml, seuil_straddle, &asset, &tf).await;
             }
             tracing::debug!("🌪️  Boucle Straddle cycle terminé ({} assets)", nb);
@@ -125,7 +121,6 @@ async fn analyser_asset(
     }
 
     let now = Utc::now();
-    let kill_zone = smc::kill_zone::est_en_kill_zone(now);
     let maintenant = now.timestamp();
     let dans_90min = maintenant + 5400;
 
@@ -166,12 +161,12 @@ async fn analyser_asset(
         "=== CONTEXTE STRADDLE TEMPS RÉEL ===\n\
         Asset: {asset_str} | Timeframe: {tf_str} | {jour} {heure:02}h UTC\n\
         Prix: {prix:.5} | ATR actuel: {atr:.5} | ATR moyen 14p: {moy:.5} | Ratio ATR: {ratio:.2}×\n\
-        Kill Zone active: {kz} | Positions ouvertes: 0 | Drawdown: 0.0%\n",
+        Session active: {session} | Positions ouvertes: 0 | Drawdown: 0.0%\n",
         tf_str = tf.as_str(),
         atr = atr_actuel,
         moy = atr_moyen,
         ratio = ratio_atr,
-        kz = kill_zone,
+        session = smc::kill_zone::nom_kill_zone(now).unwrap_or("Hors session"),
     );
 
     if annonces.is_empty() {
@@ -196,17 +191,23 @@ async fn analyser_asset(
     if creneaux_actifs.is_empty() {
         ctx.push_str("Créneaux historiques: aucun\n");
     } else {
-        ctx.push_str("Créneaux validés:\n");
+        ctx.push_str("Créneaux historiques validés (sur 2 ans de données):\n");
         for c in creneaux_actifs.iter().take(3) {
+            let jours_label = c.jour_semaine
+                .map(|j| ["Lun","Mar","Mer","Jeu","Ven","Sam","Dim"].get(j as usize).copied().unwrap_or("?"))
+                .unwrap_or("tous jours");
+            let timing = c.timing_optimal.as_deref().unwrap_or("-");
+            let fenetre = c.fenetre_entree.as_deref().unwrap_or("-");
+            let whipsaw = c.whipsaw_minutes.map(|w| format!("{}min", w)).unwrap_or_else(|| "-".into());
             ctx.push_str(&format!(
-                "  {}h–{}h | ATR×{:.2} | freq {:.0}% | wr {}%\n",
-                c.heure_debut,
-                c.heure_fin,
-                c.atr_moyen.unwrap_or(0.0),
-                c.frequence.unwrap_or(0.0) * 100.0,
-                c.backtest_winrate
+                "  {jours_label} {hd}–{hf} UTC | ATR×{atr:.2} | freq {freq:.0}% | wr {wr}% | timing:{timing} | fenêtre:{fenetre} | whipsaw:{whipsaw}\n",
+                hd = c.heure_debut,
+                hf = c.heure_fin,
+                atr = c.atr_moyen.unwrap_or(0.0),
+                freq = c.frequence.unwrap_or(0.0) * 100.0,
+                wr = c.backtest_winrate
                     .map(|w| format!("{:.0}", w))
-                    .unwrap_or_else(|| "?".to_string())
+                    .unwrap_or_else(|| "?".to_string()),
             ));
         }
     }
@@ -289,6 +290,9 @@ async fn analyser_asset(
         feedbacks: &feedbacks,
         categorie: &categorie_ctx.categorie,
         score_seuil: seuils.score_llm,
+        annonces: &annonces,
+        bougies: &bougies,
+        ratio_atr,
     };
     if let Err(e) = appeler_ollama_et_publier(db, signal_engine, asset, tf, params).await {
         tracing::warn!("Straddle auto {}/{}: {}", asset.as_str(), tf.as_str(), e);

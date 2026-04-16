@@ -32,6 +32,7 @@ pub mod straddle;
 pub mod straddle_calibration;
 pub mod straddle_feedback;
 pub mod straddle_feedback_stats;
+pub mod straddle_features;
 pub mod straddle_pics;
 pub mod strategies_params;
 pub mod volatilite;

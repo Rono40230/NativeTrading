@@ -80,6 +80,8 @@ export interface Signal {
   sl_short_effectif: number | null    // SL courant jambe SHORT (null = sl_short d'origine)
   tps_long_atteints: string[] | null  // ex. ['tp1'] ou ['tp1','tp2']
   tps_short_atteints: string[] | null
+  /** Timestamp Unix (UTC) de l'heure d'entrée cible (événement éco). null = entrée immédiate. */
+  heure_entree: number | null
 }
 
 export interface StatutSignalEngine {

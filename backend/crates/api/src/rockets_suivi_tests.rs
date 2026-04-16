@@ -38,6 +38,8 @@ fn signal(
         pct_tp1: 0.25,
         pct_tp2: 0.25,
         pct_trailing: 0.50,
+        pnl_r: None,
+        gagnant: None,
     }
 }
 

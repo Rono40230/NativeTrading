@@ -16,7 +16,8 @@ impl Database {
                     llm_conviction, llm_raison,
                     sl_short, take_profit_short,
                     sl_long_effectif, sl_short_effectif,
-                    tps_long_atteints, tps_short_atteints
+                    tps_long_atteints, tps_short_atteints,
+                    heure_entree
              FROM signaux ORDER BY cree_le DESC LIMIT ?",
         )
         .bind(limit)
@@ -62,6 +63,7 @@ impl Database {
                     "tps_short_atteints":    serde_json::from_str::<Vec<String>>(
                         &row.get::<Option<String>, _>("tps_short_atteints").unwrap_or_else(|| "[]".into())
                     ).unwrap_or_default(),
+                    "heure_entree":          row.get::<Option<i64>, _>("heure_entree"),
                 })
             })
             .collect();

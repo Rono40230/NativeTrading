@@ -161,11 +161,13 @@ impl Database {
     /// - `take_profit`       = [tp1, tp2, tp3] jambe LONG  (> prix_entree)
     /// - `sl_short`          = SL jambe SHORT (> prix_entree)
     /// - `take_profit_short` = [tp1, tp2, tp3] jambe SHORT (< prix_entree)
+    /// - `heure_entree`      = timestamp Unix UTC cible (None = entrée immédiate)
     pub async fn inserer_signal_straddle_complet(
         &self,
         signal: &Signal,
         sl_short: f64,
         take_profit_short: &[f64],
+        heure_entree: Option<i64>,
     ) -> Result<()> {
         let tp_long_json = serde_json::to_string(&signal.take_profit)
             .map_err(|e| TradingError::Database(e.to_string()))?;
@@ -176,8 +178,8 @@ impl Database {
             "INSERT OR IGNORE INTO signaux
              (id, asset, timeframe, direction, score, prix_entree,
               stop_loss, take_profit, strategie, cree_le,
-              sl_short, take_profit_short)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              sl_short, take_profit_short, heure_entree)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(signal.id.to_string())
         .bind(signal.asset.as_str())
@@ -191,6 +193,7 @@ impl Database {
         .bind(signal.cree_le.timestamp())
         .bind(sl_short)
         .bind(tp_short_json)
+        .bind(heure_entree)
         .execute(&self.pool)
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;

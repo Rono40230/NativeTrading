@@ -1,20 +1,20 @@
 <template>
   <div class="space-y-4">
     <!-- Bandeau dérive -->
-    <div
-      v-if="monitoring?.derive_detectee"
-      class="flex items-center gap-2 rounded-lg bg-orange-900/30 border border-orange-500/30 px-3 py-2 text-xs text-orange-300"
-    >
+    <div v-if="monitoring?.derive_detectee"
+      class="flex items-center gap-2 rounded-lg bg-orange-900/30 border border-orange-500/30 px-3 py-2 text-xs text-orange-300">
       <span class="text-base">⚠️</span>
       <span class="font-semibold">Dérive LLM détectée</span>
-      <span class="text-orange-400/70">— Win rate &lt; 45% sur les 20 derniers trades. Recalibration en cours (prochaine run dans &lt; 6h).</span>
+      <span class="text-orange-400/70">— Win rate &lt; 45% sur les 20 derniers trades. Recalibration en cours (prochaine
+        run dans &lt; 6h).</span>
     </div>
 
     <!-- Métriques globales -->
     <template v-if="monitoring">
       <!-- Vue compact (colonne) -->
       <div v-if="props.compact">
-        <p class="text-[9px] text-gray-500 mb-2">{{ monitoring.nb_signals_total }} signaux · {{ monitoring.nb_feedbacks_clotures }} clôturés · {{ monitoring.nb_invalides }} invalides</p>
+        <p class="text-[9px] text-gray-500 mb-2">{{ monitoring.nb_signals_total }} signaux · {{
+          monitoring.nb_feedbacks_clotures }} clôturés · {{ monitoring.nb_invalides }} invalides</p>
         <div class="grid grid-cols-2 gap-1.5 mb-3">
           <div class="rounded-md border border-emerald-500/20 bg-emerald-900/10 px-2 py-1.5 flex flex-col gap-0.5">
             <span class="text-[9px] text-emerald-600 uppercase tracking-wider">✅ Gagnants</span>
@@ -26,11 +26,15 @@
           </div>
           <div class="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex flex-col gap-0.5">
             <span class="text-[9px] text-gray-500 uppercase tracking-wider">Win Rate</span>
-            <span class="text-base font-bold" :class="monitoring.win_rate_global >= 0.55 ? 'text-emerald-400' : monitoring.win_rate_global >= 0.45 ? 'text-yellow-400' : 'text-red-400'">{{ pct(monitoring.win_rate_global) }}</span>
+            <span class="text-base font-bold"
+              :class="monitoring.win_rate_global >= 0.55 ? 'text-emerald-400' : monitoring.win_rate_global >= 0.45 ? 'text-yellow-400' : 'text-red-400'">{{
+                pct(monitoring.win_rate_global) }}</span>
           </div>
           <div class="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex flex-col gap-0.5">
             <span class="text-[9px] text-gray-500 uppercase tracking-wider">P&L moy (R)</span>
-            <span class="text-base font-bold" :class="(monitoring.pnl_moyen_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ monitoring.pnl_moyen_r != null ? monitoring.pnl_moyen_r.toFixed(2) + 'R' : '—' }}</span>
+            <span class="text-base font-bold"
+              :class="(monitoring.pnl_moyen_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{
+                monitoring.pnl_moyen_r != null ? monitoring.pnl_moyen_r.toFixed(2) + 'R' : '—' }}</span>
           </div>
         </div>
       </div>
@@ -58,26 +62,31 @@
         </div>
         <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 flex flex-col gap-0.5">
           <span class="text-[10px] text-gray-500 uppercase tracking-wider">Win Rate global</span>
-          <span class="text-xl font-bold" :class="monitoring.win_rate_global >= 0.55 ? 'text-emerald-400' : monitoring.win_rate_global >= 0.45 ? 'text-yellow-400' : 'text-red-400'">
+          <span class="text-xl font-bold"
+            :class="monitoring.win_rate_global >= 0.55 ? 'text-emerald-400' : monitoring.win_rate_global >= 0.45 ? 'text-yellow-400' : 'text-red-400'">
             {{ pct(monitoring.win_rate_global) }}
           </span>
         </div>
         <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 flex flex-col gap-0.5 col-span-2">
           <span class="text-[10px] text-gray-500 uppercase tracking-wider">P&L moyen (R)</span>
-          <span class="text-xl font-bold" :class="(monitoring.pnl_moyen_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
+          <span class="text-xl font-bold"
+            :class="(monitoring.pnl_moyen_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
             {{ monitoring.pnl_moyen_r != null ? monitoring.pnl_moyen_r.toFixed(2) + 'R' : '—' }}
           </span>
         </div>
       </div>
     </template>
-    <div v-else-if="chargementMonitoring" class="text-center text-xs text-gray-500 py-4 animate-pulse">Chargement stats...</div>
+    <div v-else-if="chargementMonitoring" class="text-center text-xs text-gray-500 py-4 animate-pulse">Chargement
+      stats...
+    </div>
     <div v-else-if="!monitoring?.nb_signals_total" class="text-center text-xs text-gray-500 py-4">
       Aucun trade Straddle clôturé — les stats apparaîtront ici après les premiers signaux.
     </div>
 
     <!-- Tableau calibration par catégorie -->
     <div v-if="calibration.length">
-      <p :class="props.compact ? 'text-[10px]' : 'text-[11px]'" class="font-semibold uppercase tracking-wider text-gray-400 mb-2">Calibration par catégorie</p>
+      <p :class="props.compact ? 'text-[10px]' : 'text-[11px]'"
+        class="font-semibold uppercase tracking-wider text-gray-400 mb-2">Calibration par catégorie</p>
       <div class="overflow-x-auto">
         <table class="w-full" :class="props.compact ? 'text-[10px]' : 'text-xs'">
           <thead>
@@ -92,11 +101,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="(r, i) in calibration"
-              :key="i"
-              class="border-b border-white/5 hover:bg-white/5"
-            >
+            <tr v-for="(r, i) in calibration" :key="i" class="border-b border-white/5 hover:bg-white/5">
               <td class="py-1.5 pr-3 font-semibold text-white">{{ r.asset }}</td>
               <td class="py-1.5 pr-3">
                 <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold" :class="badgeCategorie(r.categorie)">
@@ -104,7 +109,8 @@
                 </span>
               </td>
               <td class="py-1.5 pr-3 text-right text-gray-300">{{ r.nb_trades }}</td>
-              <td class="py-1.5 pr-3 text-right font-semibold" :class="r.win_rate >= 0.55 ? 'text-emerald-400' : r.win_rate >= 0.45 ? 'text-yellow-400' : 'text-red-400'">
+              <td class="py-1.5 pr-3 text-right font-semibold"
+                :class="r.win_rate >= 0.55 ? 'text-emerald-400' : r.win_rate >= 0.45 ? 'text-yellow-400' : 'text-red-400'">
                 {{ pct(r.win_rate) }}
               </td>
               <td class="py-1.5 pr-3 text-right text-blue-300 font-mono">{{ r.score_seuil.toFixed(1) }}</td>
@@ -119,7 +125,9 @@
         </table>
       </div>
     </div>
-    <div v-else-if="chargementCalib" class="text-center text-xs text-gray-500 py-2 animate-pulse">Chargement calibration...</div>
+    <div v-else-if="chargementCalib" class="text-center text-xs text-gray-500 py-2 animate-pulse">Chargement
+      calibration...
+    </div>
     <div v-else class="text-center text-xs text-gray-600 py-2 italic">
       Calibration disponible après 10+ trades par catégorie
     </div>
@@ -140,22 +148,23 @@
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="(c, i) in monitoring.par_categorie"
-              :key="i"
-              class="border-b border-white/5 hover:bg-white/5"
-            >
+            <tr v-for="(c, i) in monitoring.par_categorie" :key="i" class="border-b border-white/5 hover:bg-white/5">
               <td class="py-1.5 pr-3">
                 <span class="text-[10px] px-1.5 py-0.5 rounded font-semibold" :class="badgeCategorie(c.categorie)">
                   {{ labelCategorie(c.categorie) }}
                 </span>
               </td>
               <td class="py-1.5 pr-3 text-right text-gray-300">{{ c.nb_trades }}</td>
-              <td class="py-1.5 pr-3 text-right font-semibold" :class="c.win_rate >= 0.55 ? 'text-emerald-400' : c.win_rate >= 0.45 ? 'text-yellow-400' : 'text-red-400'">
+              <td class="py-1.5 pr-3 text-right font-semibold"
+                :class="c.win_rate >= 0.55 ? 'text-emerald-400' : c.win_rate >= 0.45 ? 'text-yellow-400' : 'text-red-400'">
                 {{ pct(c.win_rate) }}
               </td>
-              <td class="py-1.5 pr-3 text-right text-emerald-400">{{ c.score_llm_win != null ? c.score_llm_win.toFixed(1) : '—' }}</td>
-              <td class="py-1.5 pr-3 text-right text-red-400">{{ c.score_llm_lose != null ? c.score_llm_lose.toFixed(1) : '—' }}</td>
+              <td class="py-1.5 pr-3 text-right text-emerald-400">{{ c.score_llm_win != null ?
+                c.score_llm_win.toFixed(1) :
+                '—' }}</td>
+              <td class="py-1.5 pr-3 text-right text-red-400">{{ c.score_llm_lose != null ? c.score_llm_lose.toFixed(1)
+                :
+                '—' }}</td>
               <td class="py-1.5 text-right" :class="(c.pnl_r_moyen ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
                 {{ c.pnl_r_moyen != null ? c.pnl_r_moyen.toFixed(2) + 'R' : '—' }}
               </td>
