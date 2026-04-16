@@ -40,3 +40,22 @@ pub async fn lister_actifs(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {
         .map_err(|e| TradingError::Database(e.to_string()))?;
     Ok(rows.iter().map(row_to_signal).collect())
 }
+
+/// N derniers signaux clôturés hors expire pour un ticker donné.
+/// Utilisé par le filtre LLM pour contextualiser chaque nouveau signal.
+pub async fn historique_ticker(pool: &SqlitePool, ticker: &str, limite: i64) -> Vec<RocketSignal> {
+    let sql = format!(
+        "{} WHERE ticker = ? AND statut = 'ferme' AND verdict IS NOT NULL AND verdict != 'expire'
+         ORDER BY cree_le DESC LIMIT ?",
+        SELECT_COLS
+    );
+    let rows = sqlx::query(&sql)
+        .bind(ticker)
+        .bind(limite)
+        .fetch_all(pool)
+        .await;
+    match rows {
+        Ok(rows) => rows.iter().map(row_to_signal).collect(),
+        Err(_) => vec![],
+    }
+}

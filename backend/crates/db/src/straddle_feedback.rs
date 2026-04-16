@@ -199,6 +199,8 @@ pub async fn stats_globales(pool: &SqlitePool) -> Result<serde_json::Value> {
     let row = sqlx::query(
         "SELECT COUNT(*) as nb_total,
                 SUM(CASE WHEN verdict IS NOT NULL THEN 1 ELSE 0 END) as nb_clos,
+                SUM(CASE WHEN gagnant = 1 AND verdict IS NOT NULL THEN 1 ELSE 0 END) as nb_gagnants,
+                SUM(CASE WHEN gagnant = 0 AND verdict IS NOT NULL THEN 1 ELSE 0 END) as nb_perdants,
                 AVG(CASE WHEN verdict IS NOT NULL THEN gagnant END) as win_rate,
                 AVG(CASE WHEN verdict IS NOT NULL THEN pnl_r END) as pnl_moyen_r
          FROM straddle_feedback",
@@ -207,12 +209,17 @@ pub async fn stats_globales(pool: &SqlitePool) -> Result<serde_json::Value> {
     .await
     .map_err(|e| TradingError::Database(e.to_string()))?;
 
+    let nb_total: i64 = row.get("nb_total");
+    let nb_clos: i64 = row.get("nb_clos");
     Ok(serde_json::json!({
-        "nb_signals_total":     row.get::<i64, _>("nb_total"),
-        "nb_feedbacks_clotures": row.get::<i64, _>("nb_clos"),
-        "win_rate_global":      row.get::<Option<f64>, _>("win_rate").unwrap_or(0.0),
-        "pnl_moyen_r":          row.get::<Option<f64>, _>("pnl_moyen_r").unwrap_or(0.0),
-        "derniere_maj":         chrono::Utc::now().timestamp(),
+        "nb_signals_total":      nb_total,
+        "nb_feedbacks_clotures": nb_clos,
+        "nb_gagnants":           row.get::<Option<i64>, _>("nb_gagnants").unwrap_or(0),
+        "nb_perdants":           row.get::<Option<i64>, _>("nb_perdants").unwrap_or(0),
+        "nb_invalides":          nb_total - nb_clos,
+        "win_rate_global":       row.get::<Option<f64>, _>("win_rate").unwrap_or(0.0),
+        "pnl_moyen_r":           row.get::<Option<f64>, _>("pnl_moyen_r").unwrap_or(0.0),
+        "derniere_maj":          chrono::Utc::now().timestamp(),
     }))
 }
 

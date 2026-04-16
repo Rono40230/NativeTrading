@@ -9,7 +9,7 @@ pub use crate::rockets_analyses::{
     derniere_analyse, sauvegarder_analyse, signaux_pour_analyse, AnalyseLlm,
 };
 // Listing trades (ouvert/attente/actifs) délégué au module dédié
-pub use crate::rockets_listing::{lister_actifs, lister_en_attente, lister_ouverts};
+pub use crate::rockets_listing::{historique_ticker, lister_actifs, lister_en_attente, lister_ouverts};
 
 #[derive(Serialize, Clone)]
 pub struct RocketSignal {
@@ -39,6 +39,9 @@ pub struct RocketSignal {
     pub pct_tp1: f64,
     pub pct_tp2: f64,
     pub pct_trailing: f64,
+    // Données feedback (uniquement renseignées via historique())
+    pub pnl_r: Option<f64>,
+    pub gagnant: Option<i64>,
 }
 
 pub struct NouveauRocket {
@@ -99,6 +102,8 @@ pub(crate) fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
         pct_tp1: row.try_get::<f64, _>("pct_tp1").unwrap_or(0.25),
         pct_tp2: row.try_get::<f64, _>("pct_tp2").unwrap_or(0.25),
         pct_trailing: row.try_get::<f64, _>("pct_trailing").unwrap_or(0.50),
+        pnl_r: row.try_get::<f64, _>("pnl_r").ok(),
+        gagnant: row.try_get::<i64, _>("gagnant").ok(),
     }
 }
 
@@ -149,29 +154,6 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
     .last_insert_rowid();
 
     Ok(if id > 0 { Some(id) } else { None })
-}
-
-/// Retourne les N derniers signaux clôturés (hors expire) pour un ticker donné.
-/// Utilisé par le filtre LLM pour contextualiser chaque nouveau signal.
-pub async fn historique_ticker(pool: &SqlitePool, ticker: &str, limite: i64) -> Vec<RocketSignal> {
-    let rows = sqlx::query(
-        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
-                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
-                llm_valide, llm_conviction, llm_raison,
-                trailing_coeff, pct_tp1, pct_tp2, pct_trailing
-         FROM rockets_signaux
-         WHERE ticker = ? AND statut = 'ferme' AND verdict IS NOT NULL AND verdict != 'expire'
-         ORDER BY cree_le DESC LIMIT ?",
-    )
-    .bind(ticker)
-    .bind(limite)
-    .fetch_all(pool)
-    .await;
-
-    match rows {
-        Ok(rows) => rows.iter().map(row_to_signal).collect(),
-        Err(_) => vec![],
-    }
 }
 
 pub async fn entrer_position(pool: &SqlitePool, id: i64) -> Result<()> {
@@ -266,13 +248,20 @@ pub async fn supprimer(pool: &SqlitePool, id: i64) -> Result<bool> {
 }
 
 /// Retourne uniquement les trades clôturés (statut = 'ferme').
+/// Joint rockets_feedback pour exposer pnl_r et gagnant.
 pub async fn historique(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSignal>> {
     let rows = sqlx::query(
-        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
-                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
-                llm_valide, llm_conviction, llm_raison,
-                trailing_coeff, pct_tp1, pct_tp2, pct_trailing
-         FROM rockets_signaux WHERE statut = 'ferme' ORDER BY cree_le DESC LIMIT ?",
+        "SELECT rs.id, rs.ticker, rs.phase, rs.score, rs.prix_entree, rs.stop_loss,
+                rs.target, rs.target2, rs.target3, rs.ratio_volume, rs.atr_ratio, rs.atr14,
+                rs.rsi, rs.statut, rs.prix_peak, rs.verdict, rs.prix_verdict,
+                rs.cree_le, rs.maj_le, rs.llm_valide, rs.llm_conviction, rs.llm_raison,
+                rs.trailing_coeff, rs.pct_tp1, rs.pct_tp2, rs.pct_trailing,
+                rf.pnl_r, rf.gagnant
+         FROM rockets_signaux rs
+         LEFT JOIN rockets_feedback rf ON rf.signal_id = rs.id
+         WHERE rs.statut = 'ferme'
+           AND COALESCE(rs.verdict, '') NOT IN ('invalide', 'expire')
+         ORDER BY rs.cree_le DESC LIMIT ?",
     )
     .bind(limite)
     .fetch_all(pool)

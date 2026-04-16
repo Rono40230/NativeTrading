@@ -48,17 +48,8 @@ License not valid for this Client type
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Sur le bouton "annuler" en bout de ligne du tableau des trades en cours, ajoute une modale de confirmation et vérifie bien que c'est le trade selectionné qui est supprimé par "annuler"
-
-
-dans 🚀 Performance Rockets aere l'affichage des métriques en utilisant toute la largeur du bloc et en séparant chaque métrique avec un | discret
-
-Analyse le code et met à jour la roadmap pour voir où nous en sommes de son exécution.
-
 Dans ML insight, pourquoi l'onglet Suggestion de paramètres est vide alors que nous avons plus de 30 trades cloturés dans la stratégie rocket ?
 
-Confirme moi que désormais :
-- les prises de positions sont bien envoyées et étudiées par le LLM pour améliorer l'éfficacité du LLM = filtrage des trades et améliroation des paramètres des trades
-- que tout est cohérent dans la gestion de la vie d'un trade et correctement affiché dans l'ui 
-- que le réapprentissage quotidien se lance soit automatiquement soit manuellement
-- 
+
+P12 Calibration auto scan	⚠️ PARTIEL	Grid search OK — panneau UI validation dans SettingsView absent
+P13 Extension Straddle/SMC	❌ À FAIRE	Aucun snapshot, aucun fine-tuning, aucun modèle séparé

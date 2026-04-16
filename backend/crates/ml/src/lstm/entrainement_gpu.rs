@@ -39,7 +39,7 @@ pub(crate) fn entrainer_sur_gpu(
     // RNNConfig : batch_first=true par défaut dans tch 0.16
     let cfg_h = nn::RNNConfig { dropout: 0.1, ..Default::default() };
     let cfg_o = nn::RNNConfig::default();
-    let l1 = nn::lstm(&root / "l1", n_feat, L1 as i64, cfg_h.clone());
+    let l1 = nn::lstm(&root / "l1", n_feat, L1 as i64, cfg_h);
     let l2 = nn::lstm(&root / "l2", L1 as i64, L2 as i64, cfg_h);
     let l3 = nn::lstm(&root / "l3", L2 as i64, L3 as i64, cfg_o);
     let fc = nn::linear(&root / "fc", L3 as i64, 2, Default::default());
@@ -128,7 +128,7 @@ fn seqs_vers_tenseur(seqs: &[Vec<Vec<f64>>], dev: Device) -> Tensor {
         .iter()
         .flat_map(|s| s.iter().flat_map(|r| r.iter().map(|&x| x as f32)))
         .collect();
-    Tensor::from_slice(&flat).reshape(&[n, t, f]).to_device(dev)
+    Tensor::from_slice(&flat).reshape([n, t, f]).to_device(dev)
 }
 
 fn labels_vers_tenseur(lbls: &[f64], dev: Device) -> Tensor {

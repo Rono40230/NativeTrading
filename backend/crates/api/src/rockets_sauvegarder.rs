@@ -130,11 +130,12 @@ pub async fn filtrer_sauvegarder_publier(
                     rep.valide,
                     rep.conviction
                 );
-                if rep.conviction < seuils.conviction_min {
+                if !rep.valide || rep.conviction < seuils.conviction_min {
                     tracing::info!(
-                        "LLM rejette {} {} ({}/100): {}",
+                        "LLM rejette {} {} (valide={} conviction={}/100): {}",
                         label_signal,
                         r.ticker,
+                        rep.valide,
                         rep.conviction,
                         rep.raison
                     );

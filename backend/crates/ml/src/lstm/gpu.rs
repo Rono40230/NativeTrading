@@ -73,7 +73,7 @@ impl LstmGpu {
             l2: Self::build_couche(&p.l2_poids, &p.l2_biais, p.l2_in, p.l2_h, dev),
             l3: Self::build_couche(&p.l3_poids, &p.l3_biais, p.l3_in, p.l3_h, dev),
             w_out: Tensor::from_slice(&w_out_flat)
-                .reshape(&[n_out, m_out])
+                .reshape([n_out, m_out])
                 .to_device(dev),
             b_out: Tensor::from_slice(&b_out_flat).to_device(dev),
             device: dev,
@@ -91,7 +91,7 @@ impl LstmGpu {
         let biais_f32: Vec<f32> = biais.iter().map(|&x| x as f32).collect();
         LstmGpuCouche {
             w: Tensor::from_slice(&poids_f32)
-                .reshape(&[4 * cachee as i64, (input + cachee) as i64])
+                .reshape([4 * cachee as i64, (input + cachee) as i64])
                 .to_device(dev),
             b: Tensor::from_slice(&biais_f32).to_device(dev),
             cachee: cachee as i64,
@@ -102,8 +102,8 @@ impl LstmGpu {
     fn forward_couche(&self, couche: &LstmGpuCouche, seq: &Tensor) -> Tensor {
         let t = seq.size()[0];
         let h = couche.cachee;
-        let mut hidden = Tensor::zeros(&[1, h], (Kind::Float, self.device));
-        let mut cell = Tensor::zeros(&[1, h], (Kind::Float, self.device));
+        let mut hidden = Tensor::zeros([1, h], (Kind::Float, self.device));
+        let mut cell = Tensor::zeros([1, h], (Kind::Float, self.device));
         let mut states: Vec<Tensor> = Vec::with_capacity(t as usize);
 
         for step in 0..t {
@@ -152,7 +152,7 @@ impl LstmGpu {
             .flat_map(|r| r.iter().map(|&x| x as f32))
             .collect();
         let seq_t = Tensor::from_slice(&flat)
-            .reshape(&[t, i_dim])
+            .reshape([t, i_dim])
             .to_device(self.device); // [T, NB_FEATURES]
 
         let h1 = self.forward_couche(&self.l1, &seq_t); // [T, 128]

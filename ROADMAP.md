@@ -103,13 +103,13 @@ Bloc C — Calibration + extension stratégies
 
 | Priorité | Intitulé | Statut | Ce qui manque |
 |---|---|---|---|
-| **P1** | Walk-forward rollback ML | ⚠️ PARTIEL | Rollback n'utilise pas le WF score ; gap train/OOS non loggé ni affiché |
+| **P1** | Walk-forward rollback ML | ✅ FAIT | — |
 | **P2** | Snapshot features Rockets | ✅ FAIT | — |
 | **P3** | Ré-entraînement sur trades clôturés | ✅ FAIT | — |
-| **P4** | Feature importance | ⚠️ PARTIEL | Stockées en DB ; graphique barres horizontal dans ML Insights absent |
+| **P4** | Feature importance | ✅ FAIT | — |
 | **P5** | Seuil de confiance ML dynamique | ✅ FAIT | — |
-| **P6** | Feedback loop trader (UI) | ⚠️ PARTIEL | Endpoint `POST /api/rockets/feedback/trader` OK ; boutons « Pris / Ignoré » absents dans `SignauxTableau.vue` |
-| **P7** | Capital simulé + position sizing | ⚠️ PARTIEL | `calculer_taille_position` présent dans `risk` ; pas injecté dans le signal publié ; UI Money Management absente |
+| **P6** | Feedback loop trader (UI) | ✅ FAIT | — boucle automatique : worker 3min → `reconcilier_feedback` → few-shot LLM. Endpoint saisie manuelle optionnel. |
+| **P7** | Capital simulé + position sizing | ✅ FAIT | — `lotPourSignal()` dans `useSignauxTableau.ts`, affiché en jaune dans `SignauxTableau.vue` pour Rockets et SMC |
 | **P8** | Dashboard performances LLM | ✅ FAIT | — |
 | **P9** | Enrichissement automatique feedback | ✅ FAIT | — |
 | **P10** | Détection patterns d'échec | ✅ FAIT | — |
@@ -121,11 +121,9 @@ Bloc C — Calibration + extension stratégies
 
 **Prochains chantiers prioritaires :**
 1. **P6** — Boutons « Pris / Ignoré » dans `SignauxTableau.vue` ← impact immédiat sur la boucle LLM
-2. **P4** — Graphique feature importance dans ML Insights ← visible rapidement, code déjà en DB
-3. **P1** — Utiliser le WF score dans le rollback ← robustesse ML sans dépendance
-4. **P7** — Injecter position sizing dans signal + UI Money Management
-5. **P11** — Colonnes PnL R + conviction vs résultat dans `SignauxTableau`
-6. **P12** — Panneau UI validation calibration dans `SettingsView`
+2. **P7** — Injecter position sizing dans signal + UI Money Management
+3. **P11** — Colonnes PnL R + conviction vs résultat dans `SignauxTableau`
+4. **P12** — Panneau UI validation calibration dans `SettingsView`
 
 ---
 
@@ -135,7 +133,7 @@ Bloc C — Calibration + extension stratégies
 
 ### P1 — Walk-forward comme critère de rollback ML
 
-> **État : ⚠️ PARTIEL** — WF score calculé et persisté en DB, mais le rollback dans `ml_retrain_handler.rs` compare toujours l'accuracy d'entraînement, jamais le score OOS. Le gap train/WF n'est pas loggé ni affiché dans ML Insights.
+> **État : ✅ IMPLÉMENTÉ** — Le rollback utilise `accuracy_val_recente()` qui lit la colonne `accuracy_val` en DB, alimentée avec `wf.accuracy_finale` (score OOS 25% test set). Détection overfitting active si `gap_train_val > 15%`. Badge « Overfit / OK » + valeur du gap affichés dans `MlRetrainPanel.vue`. L'audit du 15 avril avait tort : ce point est complet.
 
 > **Aucune dépendance — implémentable immédiatement.**
 
@@ -228,7 +226,7 @@ Le poids XGB_trades monte progressivement avec le nombre d'échantillons disponi
 
 ### P4 — Feature importance : surfacer ce que le modèle a appris
 
-> **État : ⚠️ PARTIEL** — Table `ml_feature_importance` (migration 0048) et persistance dans `ml_retrain_job.rs` opérationnelles. Aucun graphique dans `MlInsightsView.vue` — les importances sont calculées mais invisibles pour le trader.
+> **État : ✅ IMPLÉMENTÉ** — Graphique barres horizontales « Top features prédictives (Rockets) » dans `MlRetrainPanel.vue`, alimenté par `chargerTopFeatures()` via `GET /api/ml/feature-importance/rockets`. Endpoint dans `ml_retrain_handler.rs`, persistance dans `ml_feature_importance.rs`. L'audit du 15 avril était erroné.
 
 **Dépend de P3.** XGBoost calcule nativement les importances après entraînement — elles sont actuellement ignorées.
 
@@ -290,7 +288,7 @@ seuil_confiance_smc      = 0.65
 
 ### P6 — Saisie du résultat par le trader (feedback loop)
 
-> **État : ⚠️ PARTIEL** — Endpoint `POST /api/rockets/feedback/trader` implémenté (accepte verdict tp1/tp2/tp3/sl/ignore, prix réels, notes). Côté UI : **aucun bouton « Pris » / « Ignoré »** dans `SignauxTableau.vue` — c'est le seul maillon manquant pour activer la boucle LLM.
+> **État : ✅ IMPLÉMENTÉ** — La boucle est entièrement automatique : `demarrer_worker_suivi()` s'exécute toutes les 3 minutes, fetch le prix Binance, calcule le verdict (`calculer_verdict_rocket`), met à jour `rockets_signaux`, puis appelle `reconcilier_feedback` qui alimente `rockets_feedback` (pnl_r, gagnant, session). `construire_few_shot()` injecte ces feedbacks dans le prochain prompt LLM. L'endpoint `POST /api/rockets/feedback/trader` est un ajout optionnel pour saisie manuelle d'une sortie sur un prix différent du détecté automatiquement.
 
 **C'est le maillon le plus critique de la boucle LLM.** Sans résultats réels saisis, le LLM tourne à vide.
 

@@ -11,34 +11,65 @@
     </div>
 
     <!-- Métriques globales -->
-    <div v-if="monitoring" class="grid grid-cols-4 gap-2">
-      <div class="metric-card">
-        <span class="label">Total signaux</span>
-        <span class="value text-white">{{ monitoring.nb_signals_total }}</span>
+    <template v-if="monitoring">
+      <!-- Vue compact (colonne) -->
+      <div v-if="props.compact">
+        <p class="text-[9px] text-gray-500 mb-2">{{ monitoring.nb_signals_total }} signaux · {{ monitoring.nb_feedbacks_clotures }} clôturés · {{ monitoring.nb_invalides }} invalides</p>
+        <div class="grid grid-cols-2 gap-1.5 mb-3">
+          <div class="rounded-md border border-emerald-500/20 bg-emerald-900/10 px-2 py-1.5 flex flex-col gap-0.5">
+            <span class="text-[9px] text-emerald-600 uppercase tracking-wider">✅ Gagnants</span>
+            <span class="text-base font-bold text-emerald-400">{{ monitoring.nb_gagnants }}</span>
+          </div>
+          <div class="rounded-md border border-red-500/20 bg-red-900/10 px-2 py-1.5 flex flex-col gap-0.5">
+            <span class="text-[9px] text-red-600 uppercase tracking-wider">❌ Perdants</span>
+            <span class="text-base font-bold text-red-400">{{ monitoring.nb_perdants }}</span>
+          </div>
+          <div class="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex flex-col gap-0.5">
+            <span class="text-[9px] text-gray-500 uppercase tracking-wider">Win Rate</span>
+            <span class="text-base font-bold" :class="monitoring.win_rate_global >= 0.55 ? 'text-emerald-400' : monitoring.win_rate_global >= 0.45 ? 'text-yellow-400' : 'text-red-400'">{{ pct(monitoring.win_rate_global) }}</span>
+          </div>
+          <div class="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex flex-col gap-0.5">
+            <span class="text-[9px] text-gray-500 uppercase tracking-wider">P&L moy (R)</span>
+            <span class="text-base font-bold" :class="(monitoring.pnl_moyen_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ monitoring.pnl_moyen_r != null ? monitoring.pnl_moyen_r.toFixed(2) + 'R' : '—' }}</span>
+          </div>
+        </div>
       </div>
-      <div class="metric-card">
-        <span class="label">Clôturés</span>
-        <span class="value text-gray-300">{{ monitoring.nb_feedbacks_clotures }}</span>
+      <!-- Vue complète -->
+      <div v-else class="grid grid-cols-4 gap-2">
+        <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 flex flex-col gap-0.5">
+          <span class="text-[10px] text-gray-500 uppercase tracking-wider">Total signaux</span>
+          <span class="text-xl font-bold text-white">{{ monitoring.nb_signals_total }}</span>
+        </div>
+        <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 flex flex-col gap-0.5">
+          <span class="text-[10px] text-gray-500 uppercase tracking-wider">Clôturés</span>
+          <span class="text-xl font-bold text-gray-300">{{ monitoring.nb_feedbacks_clotures }}</span>
+        </div>
+        <div class="rounded-lg border border-emerald-500/20 bg-emerald-900/10 px-3 py-2.5 flex flex-col gap-0.5">
+          <span class="text-[10px] text-emerald-600 uppercase tracking-wider">✅ Gagnants</span>
+          <span class="text-xl font-bold text-emerald-400">{{ monitoring.nb_gagnants }}</span>
+        </div>
+        <div class="rounded-lg border border-red-500/20 bg-red-900/10 px-3 py-2.5 flex flex-col gap-0.5">
+          <span class="text-[10px] text-red-600 uppercase tracking-wider">❌ Perdants</span>
+          <span class="text-xl font-bold text-red-400">{{ monitoring.nb_perdants }}</span>
+        </div>
+        <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 flex flex-col gap-0.5">
+          <span class="text-[10px] text-gray-500 uppercase tracking-wider">⚠️ Invalides</span>
+          <span class="text-xl font-bold text-gray-400">{{ monitoring.nb_invalides }}</span>
+        </div>
+        <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 flex flex-col gap-0.5">
+          <span class="text-[10px] text-gray-500 uppercase tracking-wider">Win Rate global</span>
+          <span class="text-xl font-bold" :class="monitoring.win_rate_global >= 0.55 ? 'text-emerald-400' : monitoring.win_rate_global >= 0.45 ? 'text-yellow-400' : 'text-red-400'">
+            {{ pct(monitoring.win_rate_global) }}
+          </span>
+        </div>
+        <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 flex flex-col gap-0.5 col-span-2">
+          <span class="text-[10px] text-gray-500 uppercase tracking-wider">P&L moyen (R)</span>
+          <span class="text-xl font-bold" :class="(monitoring.pnl_moyen_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
+            {{ monitoring.pnl_moyen_r != null ? monitoring.pnl_moyen_r.toFixed(2) + 'R' : '—' }}
+          </span>
+        </div>
       </div>
-      <div class="metric-card">
-        <span class="label">Win Rate global</span>
-        <span
-          class="value"
-          :class="monitoring.win_rate_global >= 0.55 ? 'text-emerald-400' : monitoring.win_rate_global >= 0.45 ? 'text-yellow-400' : 'text-red-400'"
-        >
-          {{ pct(monitoring.win_rate_global) }}
-        </span>
-      </div>
-      <div class="metric-card">
-        <span class="label">P&L moyen (R)</span>
-        <span
-          class="value"
-          :class="(monitoring.pnl_moyen_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'"
-        >
-          {{ monitoring.pnl_moyen_r != null ? monitoring.pnl_moyen_r.toFixed(2) + 'R' : '—' }}
-        </span>
-      </div>
-    </div>
+    </template>
     <div v-else-if="chargementMonitoring" class="text-center text-xs text-gray-500 py-4 animate-pulse">Chargement stats...</div>
     <div v-else class="text-center text-xs text-gray-500 py-4">
       Aucun trade Rockets clôturé — les stats apparaîtront après les premiers signaux.
@@ -46,9 +77,9 @@
 
     <!-- Calibration par phase -->
     <div v-if="calibration.length">
-      <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Calibration par phase</p>
+      <p :class="props.compact ? 'text-[10px]' : 'text-[11px]'" class="font-semibold uppercase tracking-wider text-gray-400 mb-2">Calibration par phase</p>
       <div class="overflow-x-auto">
-        <table class="w-full text-xs">
+        <table class="w-full" :class="props.compact ? 'text-[10px]' : 'text-xs'">
           <thead>
             <tr class="text-gray-500 border-b border-white/10">
               <th class="pb-1.5 text-left pr-3">Phase</th>
@@ -95,7 +126,7 @@
     </div>
 
     <!-- Performance par phase -->
-    <div v-if="monitoring?.par_phase?.length">
+    <div v-if="!props.compact && monitoring?.par_phase?.length">
       <p class="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Performance par phase</p>
       <div class="overflow-x-auto">
         <table class="w-full text-xs">
@@ -149,6 +180,7 @@ import { apiService } from '@/services/api.service'
 import type { RocketsMonitoringData, RocketsCalibrationRow } from '@/services/api.types'
 import { useAlerteStore } from '@/stores/alerte.store'
 
+const props = withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
 const alerteStore = useAlerteStore()
 const monitoring = ref<RocketsMonitoringData | null>(null)
 const calibration = ref<RocketsCalibrationRow[]>([])

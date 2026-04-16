@@ -5,7 +5,6 @@
 use common::{Result, TradingError};
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
-use tracing;
 
 // ── Types publics ─────────────────────────────────────────────────────────────
 
@@ -98,8 +97,27 @@ pub async fn maj_feedback_verdict(
     let (pnl_r, gagnant): (Option<f64>, i64) = if verdict_lc == "invalide" || verdict_lc == "expire" {
         (None, 0)
     } else if verdict_lc == "be" {
-        // Break-even : neutre (ni gain ni perte)
-        (Some(0.0), 0)
+        // BE = TP1 atteint (vente partielle), reste sorti au prix d'entrée.
+        // PnL pondéré = pct_tp1 × (target − prix_entree) / atr14
+        let pnl_be = sqlx::query(
+            "SELECT COALESCE(pct_tp1, 0.25) as pct_tp1,
+                    COALESCE(target, prix_entree + atr14) as target_tp1,
+                    COALESCE(atr14, 0.0) as atr14
+             FROM rockets_signaux WHERE id = ?",
+        )
+        .bind(signal_id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+        .map(|r| {
+            let pct: f64 = r.get("pct_tp1");
+            let tp1: f64 = r.get("target_tp1");
+            let atr: f64 = r.get("atr14");
+            if atr > 0.0 { pct * (tp1 - prix_entree) / atr } else { 0.0 }
+        })
+        .unwrap_or(0.25); // fallback : ~25% de 1R
+        (Some(pnl_be.max(0.0)), 1)
     } else {
         let p = if atr14 > 0.0 {
             (prix_verdict - prix_entree) / atr14

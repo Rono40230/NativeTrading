@@ -26,11 +26,6 @@
       <path :d="linePath" :stroke="couleur" fill="none" stroke-width="1.5" stroke-linejoin="round" />
       <!-- Point final -->
       <circle :cx="W - PX" :cy="yDernier" r="3" :fill="couleur" />
-      <!-- Label point final -->
-      <text :x="W - PX - 3" :y="yDernier - 6" fill="couleur" font-size="8"
-        text-anchor="end" :style="{ fill: couleur }">
-        {{ formatEuro(capitalNet) }}
-      </text>
       <!-- Axe X : ticks "Trade N" -->
       <line :x1="PX" :y1="H - PY + 2" :x2="W - PX" :y2="H - PY + 2"
         stroke="white" stroke-opacity="0.1" stroke-width="1" />
@@ -41,6 +36,11 @@
           {{ tick.label }}
         </text>
       </g>
+      <!-- Label capital final sur l'axe X -->
+      <text :x="W - PX" :y="H - 2" font-size="8" text-anchor="end" font-weight="bold"
+        :style="{ fill: couleur }">
+        {{ formatEuro(capitalNet) }}
+      </text>
     </svg>
   </div>
 </template>

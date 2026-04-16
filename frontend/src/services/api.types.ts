@@ -149,10 +149,13 @@ export interface StraddleStatCategorie {
 }
 
 export interface StraddleMonitoringData {
-  total_trades: number
+  nb_signals_total: number
+  nb_feedbacks_clotures: number
   nb_gagnants: number
+  nb_perdants: number
+  nb_invalides: number
   win_rate_global: number
-  pnl_r_total: number | null
+  pnl_moyen_r: number | null
   derive_detectee: boolean
   par_categorie: StraddleStatCategorie[]
 }
@@ -181,6 +184,9 @@ export interface RocketsStatPhase {
 export interface RocketsMonitoringData {
   nb_signals_total: number
   nb_feedbacks_clotures: number
+  nb_gagnants: number
+  nb_perdants: number
+  nb_invalides: number
   win_rate_global: number
   pnl_moyen_r: number | null
   derive_detectee: boolean
@@ -212,6 +218,9 @@ export interface SmcStatCategorie {
 export interface SmcMonitoringData {
   nb_signals_total: number
   nb_feedbacks_clotures: number
+  nb_gagnants: number
+  nb_perdants: number
+  nb_invalides: number
   win_rate_global: number
   pnl_moyen_r: number | null
   derive_detectee: boolean

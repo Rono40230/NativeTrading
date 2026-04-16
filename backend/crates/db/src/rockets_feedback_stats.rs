@@ -42,6 +42,9 @@ pub async fn stats_globales(pool: &SqlitePool) -> Result<serde_json::Value> {
     let row = sqlx::query(
         "SELECT COUNT(*) as nb_total,
                 SUM(CASE WHEN verdict NOT IN ('invalide','expire') THEN 1 ELSE 0 END) as nb_clos,
+                SUM(CASE WHEN gagnant = 1 AND verdict NOT IN ('invalide','expire') THEN 1 ELSE 0 END) as nb_gagnants,
+                SUM(CASE WHEN gagnant = 0 AND verdict NOT IN ('invalide','expire') THEN 1 ELSE 0 END) as nb_perdants,
+                SUM(CASE WHEN verdict IN ('invalide','expire') THEN 1 ELSE 0 END) as nb_invalides,
                 AVG(CASE WHEN verdict NOT IN ('invalide','expire') THEN gagnant END) as win_rate,
                 AVG(CASE WHEN verdict NOT IN ('invalide','expire') THEN pnl_r END) as pnl_moyen_r
          FROM rockets_feedback
@@ -54,6 +57,9 @@ pub async fn stats_globales(pool: &SqlitePool) -> Result<serde_json::Value> {
     Ok(serde_json::json!({
         "nb_signals_total":      row.get::<i64, _>("nb_total"),
         "nb_feedbacks_clotures": row.get::<i64, _>("nb_clos"),
+        "nb_gagnants":           row.get::<Option<i64>, _>("nb_gagnants").unwrap_or(0),
+        "nb_perdants":           row.get::<Option<i64>, _>("nb_perdants").unwrap_or(0),
+        "nb_invalides":          row.get::<Option<i64>, _>("nb_invalides").unwrap_or(0),
         "win_rate_global":       row.get::<Option<f64>, _>("win_rate").unwrap_or(0.0),
         "pnl_moyen_r":           row.get::<Option<f64>, _>("pnl_moyen_r").unwrap_or(0.0),
         "derniere_maj":          chrono::Utc::now().timestamp(),

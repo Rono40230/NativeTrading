@@ -44,11 +44,11 @@ use std::str::FromStr;
 /// London: 07h-16h UTC | New York: 12h-21h UTC | Asia: 22h-07h UTC.
 pub fn session_sortie_courante(ts_unix: i64) -> String {
     let heure = (ts_unix % 86_400) / 3_600; // heure UTC 0-23
-    if heure >= 7 && heure < 12 {
+    if (7..12).contains(&heure) {
         "London".to_string()
-    } else if heure >= 12 && heure < 16 {
+    } else if (12..16).contains(&heure) {
         "London+NY".to_string()
-    } else if heure >= 16 && heure < 21 {
+    } else if (16..21).contains(&heure) {
         "New York".to_string()
     } else {
         "Asia/Off".to_string()

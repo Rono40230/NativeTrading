@@ -46,6 +46,7 @@ export interface RocketSignalHistorique {
   llm_valide: number | null; llm_conviction: number | null; llm_raison: string | null
   trailing_coeff: number | null; pct_tp1: number; pct_tp2: number; pct_trailing: number
   cree_le: string; maj_le: string | null
+  pnl_r: number | null; gagnant: number | null
 }
 
 export interface RocketRecommandation {

@@ -14,6 +14,8 @@
         <th class="px-4 py-3 text-left">Phase</th>
         <th v-if="showPrixActuel" class="px-4 py-3 text-right">Prix actuel</th>
         <th v-if="showSortie" class="px-4 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'prix_verdict')">Sortie <span>{{ icone('prix_verdict') }}</span></th>
+        <th v-if="showSortie" class="px-4 py-3 text-right">PnL R</th>
+        <th v-if="showSortie" class="px-4 py-3 text-center">LLM ✓</th>
         <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'verdict')">Verdict <span>{{ icone('verdict') }}</span></th>
         <th class="px-4 py-3 text-center">IA</th>
         <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'cree_le')">Ouvert le <span>{{ icone('cree_le') }}</span></th>
@@ -41,6 +43,10 @@
           <span v-else class="text-gray-600">—</span>
         </td>
         <td v-if="showSortie" class="px-4 py-3 text-right font-mono text-white">{{ r.prix_verdict ? fmt(r.prix_verdict) : '—' }}</td>
+        <td v-if="showSortie" class="px-4 py-3 text-right font-mono font-semibold" :class="classePnlR(r.pnl_r)">{{ fmtPnlR(r.pnl_r) }}</td>
+        <td v-if="showSortie" class="px-4 py-3 text-center">
+          <span :class="classeLlmVerif(r)" :title="labelLlmVerifTitle(r)">{{ labelLlmVerif(r) }}</span>
+        </td>
         <td class="px-4 py-3">
           <span class="badge" :class="classeVerdict(r)">{{ labelVerdict(r) }}</span>
         </td>
@@ -181,5 +187,50 @@ function classePhasePosition(r: RocketSignalHistorique): string {
   if (p === 'POST_TP2') return 'bg-blue-900/60 text-blue-300'
   if (p === 'POST_TP1') return 'bg-blue-900/40 text-blue-400'
   return 'bg-gray-800 text-gray-500'
+}
+
+// ── PnL R ─────────────────────────────────────────────────────────────────────
+
+function fmtPnlR(v: number | null | undefined): string {
+  if (v === null || v === undefined) return '—'
+  return (v >= 0 ? '+' : '') + v.toFixed(2) + 'R'
+}
+
+function classePnlR(v: number | null | undefined): string {
+  if (v === null || v === undefined) return 'text-gray-500'
+  return v >= 0 ? 'text-emerald-400' : 'text-red-400'
+}
+
+// ── Badge LLM conviction vs résultat ─────────────────────────────────────────
+// conviction ≥ 70 + gagnant = 1 → ✅ vert (LLM juste)
+// conviction ≥ 70 + gagnant = 0 → ❌ rouge (LLM faux)
+// conviction < 70 + gagnant = 1 → ⚠️ orange (chanceux)
+// conviction < 70 + gagnant = 0 → — gris (cohérent)
+
+function labelLlmVerif(r: RocketSignalHistorique): string {
+  if (r.gagnant === null || r.gagnant === undefined) return '—'
+  const conv = r.llm_conviction ?? 0
+  if (conv >= 70 && r.gagnant === 1) return '✅'
+  if (conv >= 70 && r.gagnant === 0) return '❌'
+  if (conv < 70 && r.gagnant === 1) return '⚠️'
+  return '—'
+}
+
+function labelLlmVerifTitle(r: RocketSignalHistorique): string {
+  if (r.gagnant === null || r.gagnant === undefined) return 'Feedback non disponible'
+  const conv = r.llm_conviction ?? 0
+  if (conv >= 70 && r.gagnant === 1) return `LLM confiant (${conv}) — trade gagnant ✓`
+  if (conv >= 70 && r.gagnant === 0) return `LLM confiant (${conv}) — trade perdant ✗`
+  if (conv < 70 && r.gagnant === 1) return `LLM peu confiant (${conv}) — trade gagnant (chanceux)`
+  return `LLM peu confiant (${conv}) — trade perdant (cohérent)`
+}
+
+function classeLlmVerif(r: RocketSignalHistorique): string {
+  if (r.gagnant === null || r.gagnant === undefined) return 'text-gray-600 text-xs'
+  const conv = r.llm_conviction ?? 0
+  if (conv >= 70 && r.gagnant === 1) return 'text-emerald-400 text-base'
+  if (conv >= 70 && r.gagnant === 0) return 'text-red-400 text-base'
+  if (conv < 70 && r.gagnant === 1) return 'text-orange-400 text-base'
+  return 'text-gray-600 text-xs'
 }
 </script>
