@@ -32,9 +32,7 @@ Repônd sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Pourquoi je n'ai pas :
-- score minimum dans stratégie volatilité
-- trailing stop dans SMC
+Après toutes les modifications faites dans l'app, est ce que les pages "Définitions & prompt IA" de chaque stratégie reflètent toujours la réalité du code ?
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -54,4 +52,6 @@ Modifier ces paramètres a quelles conséquence dans le code ?
 
 --------------------------------------------------------------------------------------------------------------------------
 
+Pourquoi je n'ai pas de badge IA dans le historique pour les trades SMC
 
+--------------------------------------------------------------------------------------------------------------------------

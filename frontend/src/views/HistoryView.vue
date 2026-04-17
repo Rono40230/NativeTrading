@@ -101,7 +101,7 @@
             <td class="px-3 py-3">
               <span class="badge" :class="classeVerdictSignal(s.verdict)">{{ labelVerdictSignal(s.verdict) }}</span>
             </td>
-            <td class="px-3 py-3 text-gray-400 text-xs">{{ s.strategie }}</td>
+            <td class="px-3 py-3 text-gray-400 text-xs">{{ s.strategie === 'SMC Directionnel' ? 'SMC' : s.strategie }}</td>
             <td class="px-3 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
             <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-gray-500 text-xs">{{ s.ferme_le ? formatDate(s.ferme_le) : '—' }}</td>
           </tr>
@@ -125,7 +125,7 @@
 
     <!-- Modale Analyse SMC -->
     <SmcAnalyseModal
-      :open="analyseOuverte && filtreStrategie === 'SmcDirectional'"
+      :open="analyseOuverte && filtreStrategie === 'SMC'"
       :signaux="signaux"
       @close="analyseOuverte = false"
     />
@@ -206,14 +206,14 @@ const directionsOpts = [
 const strategiesOpts = [
   { val: '', label: 'Toutes' },
   { val: 'Straddle', label: '⚡ Straddle' },
-  { val: 'SmcDirectional', label: '🧠 SMC' },
+  { val: 'SMC', label: '🧠 SMC' },
   { val: 'Rockets', label: '🚀 Rockets' },
 ]
 
 const labelStrategie = computed(() => {
   if (filtreStrategie.value === 'Rockets') return 'Rockets'
   if (filtreStrategie.value === 'Straddle') return 'Straddle'
-  if (filtreStrategie.value === 'SmcDirectional') return 'SMC Directionnel'
+  if (filtreStrategie.value === 'SMC') return 'SMC'
   return ''
 })
 
@@ -225,7 +225,7 @@ const signalsFiltres = computed(() =>
   signaux.value.filter(s =>
     (!filtreAsset.value || s.asset === filtreAsset.value) &&
     (!filtreDirection.value || s.direction === filtreDirection.value) &&
-    (!filtreStrategie.value || s.strategie === filtreStrategie.value) &&
+    (!filtreStrategie.value || s.strategie === filtreStrategie.value || (filtreStrategie.value === 'SMC' && s.strategie === 'SMC Directionnel')) &&
     (filtreStatut.value === 'en_cours' ? s.statut !== 'Fermé' : s.statut === 'Fermé')
   )
 )

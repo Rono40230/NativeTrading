@@ -24,7 +24,7 @@ pub async fn charger_signaux_smc_ouverts(db: &Arc<Database>) -> Result<Vec<Signa
     let rows = sqlx::query(
         "SELECT id, asset, timeframe, direction, prix_entree, stop_loss, take_profit, cree_le
          FROM signaux
-         WHERE statut = 'Actif' AND strategie = 'SMC Directionnel'
+         WHERE statut = 'Actif' AND strategie IN ('SMC', 'SMC Directionnel')
          ORDER BY cree_le ASC",
     )
     .fetch_all(db.pool())

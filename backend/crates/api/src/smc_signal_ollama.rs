@@ -144,7 +144,7 @@ pub async fn appeler_smc_et_publier(
         params.prix,
         sl_final,
         vec![tp1_final, tp2, tp3],
-        "SMC Directionnel",
+        "SMC",
     );
 
     // Insérer signal avec métadonnées LLM
