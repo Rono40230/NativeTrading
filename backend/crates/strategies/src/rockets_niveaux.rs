@@ -1,6 +1,10 @@
 //! Calcul des niveaux d'entrée, d'invalidation et de verdict pour la stratégie Rockets.
 //! Séparé de rockets_indicateurs.rs pour respecter la limite de 300 lignes.
+//!
+//! La logique de progression de position délègue à `position_tracking` (module commun).
+//! L'API publique est inchangée — `rockets_suivi.rs` n'a aucune modification à faire.
 use db::rockets::RocketSignal;
+use crate::position_tracking::{PositionConfig, Verdict, calculer_verdict};
 
 // ── Niveaux d'entrée ─────────────────────────────────────────────────────────
 
@@ -49,8 +53,10 @@ pub fn recommander_type_entree(atr_ratio: f64, ratio_corps: f64, change1h: f64) 
 /// Retours :
 /// - `Some("TP1")` / `Some("TP2")` → vente partielle — NE PAS fermer la position
 /// - `Some("TP3")`  → trailing touché (dès TP2 atteint) — fermer pct_trailing
-/// - `Some("invalide")` → SL touché — fermer la position
+/// - `Some("invalide")` → SL touché avant ouverture — fermer la position
 /// - `None` → rien à faire
+///
+/// Délègue à `position_tracking::calculer_verdict` — logique commune Rockets / Straddle / SMC.
 pub fn calculer_verdict_rocket(
     s: &RocketSignal,
     prix: f64,
@@ -60,47 +66,41 @@ pub fn calculer_verdict_rocket(
     let atr14 = s.atr14.unwrap_or(s.prix_entree * 0.01);
     let trailing_coeff = s.trailing_coeff.unwrap_or(2.0);
 
-    // ── Détection premières franchissements — vente partielle ────────────────
-    if let Some(tp2) = s.target2 {
-        if peak_precedent < s.target && peak >= s.target {
-            return Some("TP1");
-        }
-        if peak_precedent >= s.target && peak_precedent < tp2 && peak >= tp2 {
-            return Some("TP2");
-        }
-    } else if peak_precedent < s.target && peak >= s.target {
-        return Some("TP1");
-    }
-
-    // ── Trailing stop : actif dès que TP2 est atteint ────────────────────────
-    if let Some(tp2) = s.target2 {
-        if peak >= tp2 {
-            let trailing_stop = peak - atr14 * trailing_coeff;
-            if prix < trailing_stop {
-                return Some("TP3");
+    let tp2 = match s.target2 {
+        Some(v) => v,
+        // Sans TP2 : logique simplifiée — seulement TP1 et SL
+        None => {
+            // TP1 franchi pour la 1ère fois
+            if peak_precedent < s.target && peak >= s.target {
+                return Some("TP1");
             }
+            // SL
+            if peak < s.prix_entree && prix <= s.stop_loss {
+                return Some("invalide");
+            }
+            let sl_eff = if peak >= s.target { s.prix_entree } else { s.stop_loss };
+            let label = if peak >= s.target { "be" } else { "sl" };
+            if prix <= sl_eff { return Some(label); }
+            return None;
         }
-    }
-
-    // ── SL effectif progressif ───────────────────────────────────────────────
-    // peak ≥ target3 (R+3) → SL remonte à TP2  → verdict final "tp2" (gain)
-    // peak ≥ target2 (R+2) → SL remonte à TP1  → verdict final "tp1" (gain)
-    // peak ≥ target  (R+1) → SL remonte au BE   → verdict final "be"  (neutre)
-    // sinon               → SL original         → verdict final "sl"  (perte)
-    let (sl_effectif, verdict_sl) = match (s.target2, s.target3) {
-        (Some(tp2), Some(tp3)) if peak >= tp3 => (tp2,           "tp2"),
-        (Some(tp2), _)         if peak >= tp2 => (s.target,      "tp1"),
-        _                      if peak >= s.target => (s.prix_entree, "be"),
-        _                                          => (s.stop_loss,   "sl"),
     };
 
-    if prix <= sl_effectif {
-        // position jamais ouverte (peak sous l'entrée) → invalide (-1R fixe)
-        if peak < s.prix_entree {
-            return Some("invalide");
-        }
-        return Some(verdict_sl);
-    }
+    let cfg = PositionConfig {
+        prix_entree:     s.prix_entree,
+        stop_loss:       s.stop_loss,
+        tp1:             s.target,
+        tp2,
+        atr:             atr14,
+        trailing_coeff,
+        vente_partielle: true, // Rockets : toujours vente partielle (flag vérifié dans rockets_suivi)
+    };
 
-    None
+    match calculer_verdict(&cfg, prix, peak, peak_precedent) {
+        Verdict::Tp1Partiel                    => Some("TP1"),
+        Verdict::Tp2Partiel                    => Some("TP2"),
+        Verdict::TrailingTouche { .. }         => Some("TP3"),
+        Verdict::Cloture { label: "invalide", .. } => Some("invalide"),
+        Verdict::Cloture { label, .. }         => Some(label),
+        Verdict::Rien                          => None,
+    }
 }

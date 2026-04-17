@@ -80,7 +80,7 @@ async fn calibrer_paire(
 
     // Charger tous les feedbacks clôturés pour cette paire
     let rows = sqlx::query(
-        "SELECT score_llm, ratio_atr, pnl_r, gagnant
+        "SELECT score_llm, ratio_atr, pnl_r, gagnant, verdict
          FROM straddle_feedback
          WHERE asset = ? AND categorie = ? AND verdict IS NOT NULL",
     )
@@ -93,8 +93,8 @@ async fn calibrer_paire(
     let nb_total = rows.len() as i64;
     let fiabilite = fiabilite(nb_total);
 
-    // Données brutes
-    let trades: Vec<(f64, f64, f64, i64)> = rows
+    // Données brutes : (score_llm, ratio_atr, pnl_r, gagnant, verdict)
+    let trades: Vec<(f64, f64, f64, i64, String)> = rows
         .iter()
         .map(|r| {
             (
@@ -102,6 +102,7 @@ async fn calibrer_paire(
                 r.get::<f64, _>("ratio_atr"),
                 r.get::<Option<f64>, _>("pnl_r").unwrap_or(0.0),
                 r.get::<Option<i64>, _>("gagnant").unwrap_or(0),
+                r.get::<Option<String>, _>("verdict").unwrap_or_default(),
             )
         })
         .collect();
@@ -111,6 +112,9 @@ async fn calibrer_paire(
 
     // Grid search : meilleur seuil ATR (parmi trades avec score >= score_optimal)
     let atr_optimal = optimiser_atr_seuil(&trades, score_optimal);
+
+    // Calibration des ratios SL/TP depuis les pnl_r historiques
+    let (sl_ratio, tp1_ratio, tp2_ratio, trailing_coeff) = calibrer_ratios(&trades);
 
     // Statistiques globales
     let nb_gagnants = trades.iter().filter(|t| t.3 == 1).count() as i64;
@@ -130,6 +134,10 @@ async fn calibrer_paire(
         categorie: categorie.to_string(),
         score_llm_seuil: score_optimal,
         atr_seuil: atr_optimal,
+        sl_ratio,
+        tp1_ratio,
+        tp2_ratio,
+        trailing_coeff,
         nb_trades: nb_total,
         win_rate,
         pnl_moyen_r: pnl_moyen,
@@ -143,7 +151,7 @@ async fn calibrer_paire(
 
 /// Cherche le seuil score LLM qui maximise win_rate × profit_factor.
 /// Retourne (seuil_optimal, invalide).
-fn optimiser_score_seuil(trades: &[(f64, f64, f64, i64)]) -> (f64, bool) {
+fn optimiser_score_seuil(trades: &[(f64, f64, f64, i64, String)]) -> (f64, bool) {
     let mut meilleur_score = 0.0f64;
     let mut meilleur_seuil = 6.0f64;
     let mut au_moins_un_valide = false;
@@ -179,7 +187,7 @@ fn optimiser_score_seuil(trades: &[(f64, f64, f64, i64)]) -> (f64, bool) {
 }
 
 /// Cherche le seuil ATR minimal optimal (parmi les trades filtrés par score).
-fn optimiser_atr_seuil(trades: &[(f64, f64, f64, i64)], score_min: f64) -> f64 {
+fn optimiser_atr_seuil(trades: &[(f64, f64, f64, i64, String)], score_min: f64) -> f64 {
     let trades_filtres: Vec<_> = trades.iter().filter(|t| t.0 >= score_min).collect();
     if trades_filtres.is_empty() {
         return 1.5;
@@ -211,6 +219,59 @@ fn fiabilite(nb: i64) -> &'static str {
         10..=29 => "faible",
         30..=99 => "correct",
         _ => "fort",
+    }
+}
+
+/// Calibre les ratios SL/TP depuis les pnl_r historiques par verdict.
+///
+/// Hypothèse : sl_ratio = 0.5 fixé (décision risk management).
+/// `pnl_r = move_en_ATR / sl_ratio`, donc `move_en_ATR = pnl_r × sl_ratio `.
+/// La médiane des moves pour chaque type de clôture calibre les seuils TP.
+///
+/// Retourne (sl_ratio, tp1_ratio, tp2_ratio, trailing_coeff).
+fn calibrer_ratios(trades: &[(f64, f64, f64, i64, String)]) -> (f64, f64, f64, f64) {
+    const SL_RATIO_FIXE: f64 = 0.5; // Non-négociable : 1R = 0.5 × ATR
+
+    // pnl_r des clôtures TP1
+    let mut tp1_pnl: Vec<f64> = trades
+        .iter()
+        .filter(|t| t.4 == "tp1" && t.2 > 0.0)
+        .map(|t| t.2)
+        .collect();
+    // pnl_r des clôtures TP2 et mieux
+    let mut tp2_pnl: Vec<f64> = trades
+        .iter()
+        .filter(|t| (t.4 == "tp2" || t.4 == "tp3") && t.2 > 0.0)
+        .map(|t| t.2)
+        .collect();
+
+    // tp1_ratio = median_pnl_tp1 × sl_ratio, borné [1.5, 4.0]
+    let tp1_ratio = if tp1_pnl.len() >= 3 {
+        let med = mediane(&mut tp1_pnl);
+        (med * SL_RATIO_FIXE).clamp(1.5, 4.0)
+    } else {
+        2.0 // défaut
+    };
+
+    // tp2_ratio = median_pnl_tp2 × sl_ratio, borné [tp1_ratio + 0.5, 7.0]
+    let tp2_ratio = if tp2_pnl.len() >= 3 {
+        let med = mediane(&mut tp2_pnl);
+        (med * SL_RATIO_FIXE).clamp(tp1_ratio + 0.5, 7.0)
+    } else {
+        3.5 // défaut
+    };
+
+    (SL_RATIO_FIXE, tp1_ratio, tp2_ratio, 2.0)
+}
+
+/// Calcule la médiane d'un vecteur mut (tri in-place).
+fn mediane(v: &mut [f64]) -> f64 {
+    v.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let n = v.len();
+    if n.is_multiple_of(2) {
+        (v[n / 2 - 1] + v[n / 2]) / 2.0
+    } else {
+        v[n / 2]
     }
 }
 

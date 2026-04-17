@@ -117,6 +117,12 @@ impl AppState {
         // Job de réconciliation des signaux Straddle ouverts (toutes les 5 min)
         crate::straddle_feedback_job::demarrer_job_feedback(db.clone());
 
+        // Moniteur temps-réel des positions Straddle (trailing + SL progressif, cycle 60s)
+        crate::straddle_moniteur_position::demarrer_moniteur_straddle(
+            db.clone(),
+            ig_session.clone(),
+        );
+
         // Job de calibration automatique des seuils (toutes les 6h)
         crate::straddle_calibration::demarrer_calibration(db.clone());
 

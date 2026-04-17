@@ -92,6 +92,7 @@ const props = defineProps<{
   chargement: boolean
   erreur: boolean
   progression: number
+  derniereMAJ: number
 }>()
 
 const labelCandidats = computed(() =>
@@ -174,11 +175,11 @@ function onCardClick(event: MouseEvent, s: SignalRocket) {
 
 function fermerTooltip() { hoveredSymbol.value = null }
 
-// Countdown 30s : se réinitialise quand le scan se termine
+// Countdown 30s : se réinitialise à chaque fin de poll (silencieux ou non)
 const SCAN_S = 30
 const countdown = ref(SCAN_S)
 let tickInterval: ReturnType<typeof setInterval> | null = null
-watch(() => props.chargement, (val) => { if (!val) countdown.value = SCAN_S })
+watch(() => props.derniereMAJ, () => { countdown.value = SCAN_S })
 
 onMounted(() => {
   document.addEventListener('click', fermerTooltip)

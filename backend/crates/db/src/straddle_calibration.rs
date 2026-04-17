@@ -13,6 +13,10 @@ pub struct CalibrationRow {
     pub categorie: String,
     pub score_llm_seuil: f64,
     pub atr_seuil: f64,
+    pub sl_ratio: f64,
+    pub tp1_ratio: f64,
+    pub tp2_ratio: f64,
+    pub trailing_coeff: f64,
     pub nb_trades: i64,
     pub win_rate: f64,
     pub pnl_moyen_r: f64,
@@ -26,6 +30,10 @@ pub struct CalibrationRow {
 pub struct SeuilsEffectifs {
     pub score_llm: f64,
     pub ratio_atr: f64,
+    pub sl_ratio: f64,
+    pub tp1_ratio: f64,
+    pub tp2_ratio: f64,
+    pub trailing_coeff: f64,
     pub invalide: bool,
 }
 
@@ -34,6 +42,10 @@ impl Default for SeuilsEffectifs {
         Self {
             score_llm: 6.0,
             ratio_atr: 1.5,
+            sl_ratio: 0.5,
+            tp1_ratio: 2.0,
+            tp2_ratio: 3.5,
+            trailing_coeff: 2.0,
             invalide: false,
         }
     }
@@ -45,12 +57,17 @@ impl Default for SeuilsEffectifs {
 pub async fn sauvegarder(pool: &SqlitePool, row: &CalibrationRow) -> Result<()> {
     sqlx::query(
         "INSERT INTO straddle_calibration
-         (asset, categorie, score_llm_seuil, atr_seuil, nb_trades,
-          win_rate, pnl_moyen_r, fiabilite, invalide, maj_le)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
+         (asset, categorie, score_llm_seuil, atr_seuil,
+          sl_ratio, tp1_ratio, tp2_ratio, trailing_coeff,
+          nb_trades, win_rate, pnl_moyen_r, fiabilite, invalide, maj_le)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, unixepoch())
          ON CONFLICT(asset, categorie) DO UPDATE SET
              score_llm_seuil = excluded.score_llm_seuil,
              atr_seuil       = excluded.atr_seuil,
+             sl_ratio        = excluded.sl_ratio,
+             tp1_ratio       = excluded.tp1_ratio,
+             tp2_ratio       = excluded.tp2_ratio,
+             trailing_coeff  = excluded.trailing_coeff,
              nb_trades       = excluded.nb_trades,
              win_rate        = excluded.win_rate,
              pnl_moyen_r     = excluded.pnl_moyen_r,
@@ -62,6 +79,10 @@ pub async fn sauvegarder(pool: &SqlitePool, row: &CalibrationRow) -> Result<()> 
     .bind(&row.categorie)
     .bind(row.score_llm_seuil)
     .bind(row.atr_seuil)
+    .bind(row.sl_ratio)
+    .bind(row.tp1_ratio)
+    .bind(row.tp2_ratio)
+    .bind(row.trailing_coeff)
     .bind(row.nb_trades)
     .bind(row.win_rate)
     .bind(row.pnl_moyen_r)
@@ -79,7 +100,9 @@ pub async fn sauvegarder(pool: &SqlitePool, row: &CalibrationRow) -> Result<()> 
 /// Retourne les valeurs par défaut si aucune calibration ou fiabilité insuffisante.
 pub async fn charger_seuils(pool: &SqlitePool, asset: &str, categorie: &str) -> SeuilsEffectifs {
     let row = sqlx::query(
-        "SELECT score_llm_seuil, atr_seuil, fiabilite, invalide
+        "SELECT score_llm_seuil, atr_seuil,
+                sl_ratio, tp1_ratio, tp2_ratio, trailing_coeff,
+                fiabilite, invalide
          FROM straddle_calibration WHERE asset = ? AND categorie = ?",
     )
     .bind(asset)
@@ -108,6 +131,10 @@ pub async fn charger_seuils(pool: &SqlitePool, asset: &str, categorie: &str) -> 
             SeuilsEffectifs {
                 score_llm: score_final,
                 ratio_atr: atr_brut,
+                sl_ratio: r.get("sl_ratio"),
+                tp1_ratio: r.get("tp1_ratio"),
+                tp2_ratio: r.get("tp2_ratio"),
+                trailing_coeff: r.get("trailing_coeff"),
                 invalide: invalide == 1,
             }
         }
@@ -117,8 +144,9 @@ pub async fn charger_seuils(pool: &SqlitePool, asset: &str, categorie: &str) -> 
 /// Retourne toutes les calibrations — pour le endpoint `/api/straddle/calibration`.
 pub async fn lister_toutes(pool: &SqlitePool) -> Result<Vec<CalibrationRow>> {
     let rows = sqlx::query(
-        "SELECT asset, categorie, score_llm_seuil, atr_seuil, nb_trades,
-                win_rate, pnl_moyen_r, fiabilite, invalide, maj_le
+        "SELECT asset, categorie, score_llm_seuil, atr_seuil,
+                sl_ratio, tp1_ratio, tp2_ratio, trailing_coeff,
+                nb_trades, win_rate, pnl_moyen_r, fiabilite, invalide, maj_le
          FROM straddle_calibration
          ORDER BY asset, categorie",
     )
@@ -133,6 +161,10 @@ pub async fn lister_toutes(pool: &SqlitePool) -> Result<Vec<CalibrationRow>> {
             categorie: r.get("categorie"),
             score_llm_seuil: r.get("score_llm_seuil"),
             atr_seuil: r.get("atr_seuil"),
+            sl_ratio: r.get("sl_ratio"),
+            tp1_ratio: r.get("tp1_ratio"),
+            tp2_ratio: r.get("tp2_ratio"),
+            trailing_coeff: r.get("trailing_coeff"),
             nb_trades: r.get("nb_trades"),
             win_rate: r.get("win_rate"),
             pnl_moyen_r: r.get("pnl_moyen_r"),

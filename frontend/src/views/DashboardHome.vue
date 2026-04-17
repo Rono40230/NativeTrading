@@ -57,6 +57,7 @@
             :chargement="rockets.chargement.value"
             :erreur="rockets.erreur.value"
             :progression="rockets.progression.value"
+            :derniere-m-a-j="rockets.derniereMAJ.value"
           /></div>
           <div class="w-1/5 min-w-0 flex flex-col"><RocketsEnCoursBloc class="flex-1 h-full" /></div>
           <div class="w-3/5 min-w-0 flex flex-col overflow-hidden"><RocketsPerfBloc class="flex-1 min-h-0 overflow-hidden" /></div>

@@ -234,6 +234,13 @@ async fn analyser_asset(
         session_active: &categ.session_active,
         feedbacks: &feedbacks,
         conviction_seuil: seuils.conviction_seuil,
+        // Features pour snapshot ML (P13 SMC)
+        features_ohlcv: ml::extraire_features(&bougies).unwrap_or_default(),
+        tendance_pts: score.tendance,
+        order_block_pts: score.order_block,
+        ifvg_pts: score.ifvg,
+        fibonacci_pts: score.fibonacci,
+        imbalance_pts: score.imbalance,
     };
 
     if let Err(e) = appeler_smc_et_publier(db, signal_engine, params).await {

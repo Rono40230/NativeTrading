@@ -71,6 +71,7 @@ export function useVeilleRockets() {
   const chargement     = ref(false)
   const erreur         = ref(false)
   const progression    = ref(0)
+  const derniereMAJ   = ref(0)  // timestamp ms — mis à jour à chaque fin de poll
   let intervalle: ReturnType<typeof setInterval> | null = null
 
   async function scanner(silencieux = false) {
@@ -94,6 +95,7 @@ export function useVeilleRockets() {
       erreur.value = true
     } finally {
       chargement.value = false
+      derniereMAJ.value = Date.now()
     }
   }
 
@@ -108,6 +110,6 @@ export function useVeilleRockets() {
     if (intervalle !== null) { clearInterval(intervalle); intervalle = null }
   }
 
-  return { signaux, totalCandidats, chargement, erreur, progression, demarrer, arreter }
+  return { signaux, totalCandidats, chargement, erreur, progression, derniereMAJ, demarrer, arreter }
 }
 

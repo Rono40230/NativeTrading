@@ -26,6 +26,13 @@ pub struct ParamsSmc<'a> {
     pub session_active: &'a str,
     pub feedbacks: &'a [db::smc_feedback::SmcFeedbackRow],
     pub conviction_seuil: i64,
+    // Features pour snapshot ML (P13 SMC)
+    pub features_ohlcv: Vec<f64>,
+    pub tendance_pts: f64,
+    pub order_block_pts: f64,
+    pub ifvg_pts: f64,
+    pub fibonacci_pts: f64,
+    pub imbalance_pts: f64,
 }
 
 pub async fn appeler_smc_et_publier(
@@ -182,6 +189,19 @@ pub async fn appeler_smc_et_publier(
     if let Err(e) = db::smc_feedback::inserer_feedback(db.pool(), &fb).await {
         tracing::warn!("SMC feedback insert {}/{}: {}", asset_str, tf_str, e);
     }
+
+    // Snapshot features ML (P13 SMC) — silencieux sur erreur
+    let ctx_smc = db::smc_features::ContexteSmc {
+        tendance: params.tendance_pts,
+        order_block: params.order_block_pts,
+        ifvg: params.ifvg_pts,
+        fibonacci: params.fibonacci_pts,
+        imbalance: params.imbalance_pts,
+        kill_zone_active: params.kill_zone_active,
+        sweep_detecte: params.sweep_detecte,
+    };
+    let features_59 = db::smc_features::construire_features_59(&params.features_ohlcv, &ctx_smc);
+    let _ = db::smc_features::inserer_snapshot(db.pool(), &signal_id_str, asset_str, &features_59).await;
 
     signal_engine.publier(signal.clone());
 

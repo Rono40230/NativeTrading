@@ -45,6 +45,9 @@ pub async fn sync_verdicts(state: web::Data<AppState>) -> impl Responder {
         }
     }
 
+    // Charger config pour respect du flag vente_partielle
+    let cfg = rockets::lire_config(pool).await;
+
     // Ouverts : SL/TP
     if let Ok(signaux) = rockets::lister_ouverts(pool).await {
         for s in &signaux {
@@ -57,7 +60,7 @@ pub async fn sync_verdicts(state: web::Data<AppState>) -> impl Responder {
                 let _ = rockets::maj_prix_peak(pool, s.id, peak).await;
             }
             match calculer_verdict_rocket(s, prix, peak, peak_precedent) {
-                Some(v @ "TP1") | Some(v @ "TP2") => {
+                Some(v @ "TP1") | Some(v @ "TP2") if cfg.vente_partielle => {
                     // Vente partielle ⅓ — position reste ouverte
                     let _ = rockets::enregistrer_tp_partiel(pool, s.id, v, prix).await;
                 }

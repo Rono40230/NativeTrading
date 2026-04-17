@@ -1,5 +1,6 @@
 use common::{Candle, Direction, Result};
 
+pub mod position_tracking;
 pub mod rockets_filtres;
 pub mod rockets_indicateurs;
 pub mod rockets_niveaux;

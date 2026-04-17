@@ -104,24 +104,7 @@ pub async fn generer_signal_straddle(
         dd = drawdown,
     );
 
-    if annonces.is_empty() {
-        ctx.push_str("Annonces HIGH impact < 90min: aucune\n");
-    } else {
-        ctx.push_str("Annonces HIGH impact < 90min:\n");
-        for a in &annonces {
-            let dans = a["date_heure"]
-                .as_str()
-                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-                .map(|dt| (dt.timestamp() - maintenant) / 60)
-                .unwrap_or(0);
-            ctx.push_str(&format!(
-                "  - {} | {} | dans {}min\n",
-                a["titre"].as_str().unwrap_or("?"),
-                a["devise"].as_str().unwrap_or("?"),
-                dans
-            ));
-        }
-    }
+    ctx.push_str(&crate::straddle_utils::formater_annonces_contexte(&annonces, maintenant));
 
     if !creneaux_actifs.is_empty() {
         ctx.push_str("Créneaux validés:\n");
@@ -156,25 +139,17 @@ pub async fn generer_signal_straddle(
         "options": { "temperature": 0.1, "num_predict": 300 }
     });
 
-    let client = match reqwest::Client::builder()
+    let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(120))
         .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            return HttpResponse::ServiceUnavailable()
-                .json(serde_json::json!({ "error": e.to_string() }))
-        }
-    };
+        .map_err(|e| HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": e.to_string() })));
+    let client = match client { Ok(c) => c, Err(r) => return r };
 
-    let reponse = match client.post(&url).json(&corps).send().await {
-        Ok(r) => r,
-        Err(e) => {
-            return HttpResponse::ServiceUnavailable().json(serde_json::json!({
-                "error": format!("Ollama indisponible: {}", e)
-            }))
-        }
-    };
+    let reponse = client.post(&url).json(&corps).send().await
+        .map_err(|e| HttpResponse::ServiceUnavailable().json(serde_json::json!({
+            "error": format!("Ollama indisponible: {}", e)
+        })));
+    let reponse = match reponse { Ok(r) => r, Err(r) => return r };
 
     let data: OllamaResp = match reponse.json().await {
         Ok(d) => d,
@@ -229,17 +204,42 @@ pub async fn generer_signal_straddle(
         }));
     }
 
-    // Calcul SL/TP (3 niveaux par jambe)
+    // Calcul SL/TP (3 niveaux par jambe) — ratios calibrés par catégorie si disponibles
     let atr = body.atr_actuel;
     let prix = body.prix_actuel;
-    let sl_long = prix - 0.5 * atr;
-    let sl_short = prix + 0.5 * atr;
-    let tp1_long = prix + 2.0 * atr;
-    let tp1_short = prix - 2.0 * atr;
-    let tp2_long = prix + 3.5 * atr;
-    let tp2_short = prix - 3.5 * atr;
-    let tp3_long = prix + 5.0 * atr;
-    let tp3_short = prix - 5.0 * atr;
+
+    // Catégoriser le contexte pour charger les ratios calibrés
+    let creneaux_valides_complets: Vec<_> = creneaux
+        .iter()
+        .filter(|c| c.statut == "valide" || c.statut == "a_tester")
+        .cloned()
+        .collect();
+    let categorie_ctx = crate::straddle_categorisation::categoriser(
+        &annonces,
+        now,
+        &creneaux_valides_complets,
+        &asset_str,
+    );
+    let seuils = db::straddle_calibration::charger_seuils(
+        state.db.pool(),
+        &asset_str,
+        categorie_ctx.categorie.as_str(),
+    )
+    .await;
+
+    let sl = seuils.sl_ratio;
+    let r1 = seuils.tp1_ratio;
+    let r2 = seuils.tp2_ratio;
+    let r3 = r2 + (r2 - r1).max(0.5); // TP3 = TP2 + écart TP2−TP1
+
+    let sl_long = prix - sl * atr;
+    let sl_short = prix + sl * atr;
+    let tp1_long = prix + r1 * atr;
+    let tp1_short = prix - r1 * atr;
+    let tp2_long = prix + r2 * atr;
+    let tp2_short = prix - r2 * atr;
+    let tp3_long = prix + r3 * atr;
+    let tp3_short = prix - r3 * atr;
 
     // Enregistrement du signal en DB (deux jambes complètes)
     let tf = match body.timeframe.as_str() {
@@ -280,51 +280,16 @@ pub async fn generer_signal_straddle(
         .await;
     state.signal_engine.publier(signal.clone());
 
-    // Snapshot features ML (56 = 52 OHLCV + 4 contextuelles Straddle)
-    // Charger des bougies récentes pour extraire les features OHLCV standard
-    let ratio_atr_calc = if body.atr_moyen_14 > 0.0 {
-        body.atr_actuel / body.atr_moyen_14
-    } else {
-        1.0
-    };
-    if let Ok(bougies) = state.db.obtenir_bougies(&signal.asset.clone(), &tf, 100).await {
-        if let Some(features_ohlcv) = ml::extraire_features(&bougies) {
-            let session = db::session_sortie_courante(now.timestamp());
-            let features_56 = db::straddle_features::construire_features_56(
-                &features_ohlcv,
-                ratio_atr_calc,
-                "choc_isole", // pas de catégorisation disponible côté handler REST
-                &session,
-                brut.score_confiance,
-            );
-            let _ = db::straddle_features::inserer_snapshot(
-                state.db.pool(),
-                &signal_id,
-                &asset_str,
-                &features_56,
-            )
-            .await;
-        }
-    }
+    // Snapshot features ML
+    let ratio_atr_calc = if body.atr_moyen_14 > 0.0 { body.atr_actuel / body.atr_moyen_14 } else { 1.0 };
+    crate::straddle_utils::sauvegarder_snapshot_ml(
+        state.db.pool(), &state.db, &signal_id, &asset_str, &tf,
+        ratio_atr_calc, categorie_ctx.categorie.as_str(), brut.score_confiance, now,
+    ).await;
 
-    HttpResponse::Ok().json(serde_json::json!({
-        "signal": "STRADDLE",
-        "declencheur": brut.declencheur,
-        "raison": brut.raison,
-        "score_confiance": brut.score_confiance,
-        "amplitude_attendue_pct": brut.amplitude_attendue_pct,
-        "duree_exposition_estimee_min": brut.duree_exposition_estimee_min,
-        "signal_id": signal_id,
-        "heure_entree": heure_entree,
-        "prix_entree": prix,
-        "sl_long": sl_long,
-        "sl_short": sl_short,
-        "tp1_long": tp1_long,
-        "tp1_short": tp1_short,
-        "tp2_long": tp2_long,
-        "tp2_short": tp2_short,
-        "tp3_long": tp3_long,
-        "tp3_short": tp3_short,
-        "modele": modele
-    }))
+    crate::straddle_utils::reponse_signal_straddle(
+        &brut, &signal_id, heure_entree, prix,
+        sl_long, sl_short, tp1_long, tp1_short, tp2_long, tp2_short, tp3_long, tp3_short,
+        &modele,
+    )
 }

@@ -8,6 +8,7 @@ pub mod feedback_analyser;
 pub mod lstm;
 pub mod params_suggester;
 pub mod rockets_trainer;
+pub mod smc_trainer;
 pub mod straddle_trainer;
 pub mod walk_forward;
 pub mod xgboost;
@@ -18,6 +19,7 @@ pub use lstm::{ModeleHybrideLstm, LONGUEUR_SEQ};
 pub use walk_forward::entrainer_walk_forward;
 pub use xgboost::ModeleXGBoost;
 pub use rockets_trainer::{entrainer_sur_trades_clotures, XgbRockets};
+pub use smc_trainer::XgbSmc;
 pub use straddle_trainer::XgbStraddle;
 
 /// Résultat d'inférence du pipeline hybride XGBoost + LSTM
@@ -41,6 +43,8 @@ pub struct PipelineML {
     pub xgb_rockets: XgbRockets,
     /// XGBoost fine-tuné sur les trades Straddle clôturés (P13). Optionnel.
     pub xgb_straddle: XgbStraddle,
+    /// XGBoost fine-tuné sur les trades SMC clôturés (P13). Optionnel.
+    pub xgb_smc: XgbSmc,
     /// Cache GPU — reconstruit depuis les poids CPU. `None` si CUDA absent.
     #[cfg(feature = "cuda")]
     pub lstm_gpu: Option<lstm::LstmGpu>,
@@ -53,6 +57,7 @@ impl PipelineML {
             lstm: ModeleHybrideLstm::nouveau(NB_FEATURES),
             xgb_rockets: XgbRockets::charger_depuis_disque(),
             xgb_straddle: XgbStraddle::charger_depuis_disque(),
+            xgb_smc: XgbSmc::charger_depuis_disque(),
             #[cfg(feature = "cuda")]
             lstm_gpu: None,
         }
@@ -161,8 +166,7 @@ impl PipelineML {
             .collect();
         let labels_seq_total: Vec<f64> = labels[LONGUEUR_SEQ..].to_vec();
 
-        // GPU : toutes les séquences, cuDNN accéléré (RTX 3090).
-        // CPU fallback : plafond 5000 séquences (BPTT cpu pur Rust).
+        // GPU : cuDNN accéléré (RTX 3090). CPU fallback : plafond 5000 séquences.
         #[cfg(feature = "cuda")]
         let acc_lstm = if tch::Cuda::is_available() {
             match lstm::entrainement_gpu::entrainer_sur_gpu(

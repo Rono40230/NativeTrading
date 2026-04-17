@@ -29,6 +29,9 @@ pub(crate) async fn executer_retrain_job(
     // Fine-tuning P13 : XGBoost Straddle sur trades clôturés
     executer_fine_tuning_straddle(&db, &pipeline_ml).await;
 
+    // Fine-tuning P13 : XGBoost SMC sur trades clôturés
+    executer_fine_tuning_smc(&db, &pipeline_ml).await;
+
     // Mesurer la nouvelle accuracy OOS (moyenne sur le dernier entraînement)
     let accuracy_apres: f64 = db
         .accuracy_val_recente(1)
@@ -60,11 +63,7 @@ pub(crate) async fn executer_retrain_job(
 
     if (accuracy_avant > 0.0 && accuracy_apres < seuil_rollback) || overfitting {
         // --- ROLLBACK ---
-        tracing::warn!(
-            "Réentraînement dégradé ({:.3} → {:.3}) — rollback",
-            accuracy_avant,
-            accuracy_apres
-        );
+        tracing::warn!("Réentraînement dégradé ({:.3} → {:.3}) — rollback", accuracy_avant, accuracy_apres);
 
         let rolled_back = match restaurer_backup() {
             Ok(_) => {
@@ -184,29 +183,57 @@ pub(crate) async fn executer_fine_tuning_straddle(
     .await
     {
         Ok(Ok(r)) => r,
-        Ok(Err(e)) => {
-            tracing::error!("Fine-tuning Straddle: erreur entraînement: {}", e);
-            return;
-        }
-        Err(e) => {
-            tracing::error!("Fine-tuning Straddle: spawn_blocking échoué: {}", e);
-            return;
-        }
+        Ok(Err(e)) => { tracing::error!("Fine-tuning Straddle: erreur entraînement: {}", e); return; }
+        Err(e) => { tracing::error!("Fine-tuning Straddle: spawn_blocking échoué: {}", e); return; }
     };
 
     match resultat {
         None => tracing::info!("Fine-tuning Straddle: {} samples < 50 — ignoré", nb),
         Some(r) => {
-            tracing::info!(
-                "Fine-tuning Straddle: {} samples | OOS={:.1}% | sauvegardé={}",
-                r.nb_samples,
-                r.accuracy_oos * 100.0,
-                r.sauvegarde
-            );
-            // Recharger le modèle Straddle dans le pipeline si sauvegardé
+            tracing::info!("Fine-tuning Straddle: {} samples | OOS={:.1}% | sauvegardé={}", r.nb_samples, r.accuracy_oos * 100.0, r.sauvegarde);
             if r.sauvegarde {
                 let mut pipeline = pipeline_ml.lock().await;
                 pipeline.xgb_straddle = ml::XgbStraddle::charger_depuis_disque();
+            }
+        }
+    }
+}
+
+/// Fine-tuning XGBoost SMC sur les trades clôturés (P13).
+/// Silencieux si < 50 samples disponibles.
+pub(crate) async fn executer_fine_tuning_smc(
+    db: &Arc<db::Database>,
+    pipeline_ml: &Arc<tokio::sync::Mutex<ml::PipelineML>>,
+) {
+    let samples = match db::smc_features::lire_snapshots_avec_labels(db.pool()).await {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::warn!("Fine-tuning SMC: lecture snapshots échouée: {}", e);
+            return;
+        }
+    };
+
+    let nb = samples.len();
+    let resultat = match tokio::task::spawn_blocking(move || {
+        ml::smc_trainer::entrainer_sur_trades_clotures(&samples)
+    })
+    .await
+    {
+        Ok(Ok(r)) => r,
+        Ok(Err(e)) => { tracing::error!("Fine-tuning SMC: erreur entraînement: {}", e); return; }
+        Err(e) => { tracing::error!("Fine-tuning SMC: spawn_blocking échoué: {}", e); return; }
+    };
+
+    match resultat {
+        None => tracing::info!("Fine-tuning SMC: {} samples < 50 — ignoré", nb),
+        Some(r) => {
+            tracing::info!(
+                "Fine-tuning SMC: {} samples | OOS={:.1}% | sauvegardé={}",
+                r.nb_samples, r.accuracy_oos * 100.0, r.sauvegarde
+            );
+            if r.sauvegarde {
+                let mut pipeline = pipeline_ml.lock().await;
+                pipeline.xgb_smc = ml::XgbSmc::charger_depuis_disque();
             }
         }
     }
@@ -233,14 +260,8 @@ pub(crate) async fn executer_fine_tuning_rockets(
     .await
     {
         Ok(Ok(r)) => r,
-        Ok(Err(e)) => {
-            tracing::error!("Fine-tuning Rockets: erreur entraînement: {}", e);
-            return;
-        }
-        Err(e) => {
-            tracing::error!("Fine-tuning Rockets: spawn_blocking échoué: {}", e);
-            return;
-        }
+        Ok(Err(e)) => { tracing::error!("Fine-tuning Rockets: erreur entraînement: {}", e); return; }
+        Err(e) => { tracing::error!("Fine-tuning Rockets: spawn_blocking échoué: {}", e); return; }
     };
 
     match resultat {
@@ -255,26 +276,16 @@ pub(crate) async fn executer_fine_tuning_rockets(
 
             // P4 : persister les importances de features en DB
             if !r.importances.is_empty() {
-                let fis: Vec<db::ml_feature_importance::FeatureImportance> = r
-                    .importances
-                    .iter()
+                let fis: Vec<db::ml_feature_importance::FeatureImportance> = r.importances.iter()
                     .map(|fi| db::ml_feature_importance::FeatureImportance {
                         feature_idx: fi.feature_idx as i64,
                         feature_nom: fi.feature_nom.to_string(),
                         importance: fi.importance,
                     })
                     .collect();
-                if let Err(e) =
-                    db::ml_feature_importance::inserer_importances(db.pool(), "rockets", &fis)
-                        .await
-                {
-                    tracing::warn!("Fine-tuning Rockets: échec persistance importances: {}", e);
-                } else {
-                    tracing::info!(
-                        "Fine-tuning Rockets: top feature = {} ({:.4})",
-                        r.importances[0].feature_nom,
-                        r.importances[0].importance
-                    );
+                match db::ml_feature_importance::inserer_importances(db.pool(), "rockets", &fis).await {
+                    Err(e) => tracing::warn!("Fine-tuning Rockets: importances: {}", e),
+                    Ok(_) => tracing::info!("top feature = {} ({:.4})", r.importances[0].feature_nom, r.importances[0].importance),
                 }
             }
 
