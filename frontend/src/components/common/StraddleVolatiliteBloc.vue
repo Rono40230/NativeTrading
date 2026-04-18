@@ -162,8 +162,14 @@ function dansMoins30min(iso: string): boolean {
 }
 
 const sessionLabel = computed(() => {
-  const h = new Date().getUTCHours()
-  if (h >= 23 || h < 1) return { label: 'Tokyo', heures: '23h–01h UTC', cls: 'text-cyan-400' }
+    const now = new Date()
+    const day = now.getUTCDay()
+    const h = now.getUTCHours()
+
+    if (day === 0 || day === 6) {
+      return { label: 'Weekend (Crypto)', heures: '24/7', cls: 'text-gray-400 font-medium tracking-wide' }
+    }
+
   if (h < 7) return { label: 'Sydney', heures: '01h–07h UTC', cls: 'text-teal-400' }
   if (h < 13) return { label: 'London', heures: '07h–13h UTC', cls: 'text-sky-400' }
   if (h < 16) return { label: 'London/NY Overlap', heures: '13h–16h UTC', cls: 'text-purple-400' }
