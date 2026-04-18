@@ -1,27 +1,33 @@
 <template>
   <div
-    class="rounded-xl border px-3 py-2.5 flex flex-col gap-1.5 cursor-pointer transition-colors hover:brightness-110 relative"
+    class="rounded-xl border px-3 py-2 flex flex-col gap-1 cursor-pointer transition-colors hover:brightness-110 relative"
     :class="[classeCard(s.phase), s.score >= 65 ? 'ring-1 ring-emerald-500/60' : '']"
     @click.stop="emit('click', $event)"
   >
-    <!-- Badge ÉLIGIBLE -->
-    <div v-if="s.score >= 65" class="absolute top-2 right-2 text-[9px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/40 rounded px-1.5 py-0.5 animate-pulse">ÉLIGIBLE</div>
-
-    <!-- Ticker + phase + variation -->
-    <div class="flex items-center gap-1 pr-16">
-      <span class="text-[13px] font-bold text-white truncate flex-1">{{ s.ticker }}</span>
-      <span class="text-[10px] shrink-0 text-gray-400 font-medium">{{ labelPhase(s.phase) }}</span>
-      <span class="text-[11px] font-bold shrink-0" :class="s.change1h >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ s.change1h >= 0 ? '+' : '' }}{{ s.change1h.toFixed(2) }}%</span>
+    <!-- Header ligne 1 : Ticker + variation et Badges -->
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-bold text-white">{{ s.ticker }}</span>
+        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded" :class="s.change1h >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'">
+          {{ s.change1h >= 0 ? '+' : '' }}{{ s.change1h.toFixed(2) }}%
+        </span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <div class="text-[9px] font-bold border rounded px-1.5 py-0.5 flex items-center gap-1 transition-all" :class="configPhase(s.phase).classe">
+          <span>{{ configPhase(s.phase).icon }}</span>
+          <span>{{ configPhase(s.phase).label }}</span>
+        </div>
+        <div v-if="s.score >= 65" class="text-[9px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/40 rounded px-1.5 py-0.5 animate-pulse">ÉLIGIBLE</div>
+      </div>
     </div>
 
-    <!-- Prix -->
-    <div class="flex items-center justify-between text-[10px]">
-      <span class="text-gray-500">Prix</span>
+    <!-- Header ligne 2 : Prix -->
+    <div class="flex items-center justify-between text-[11px]">
       <span class="font-mono text-white font-semibold">{{ formatPrix(s.prix) }}$</span>
     </div>
 
     <!-- Barre score -->
-    <div class="flex items-center gap-1.5">
+    <div class="flex items-center gap-1.5 py-0.5">
       <div class="relative flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
         <div class="absolute inset-y-0 left-0 rounded-full transition-all" :class="s.score >= 65 ? 'bg-emerald-500' : s.score >= 45 ? 'bg-yellow-500' : 'bg-gray-500'" :style="{ width: `${Math.min(s.score, 100)}%` }" />
         <div class="absolute inset-y-0 w-px bg-white/50" style="left:65%" />
@@ -29,40 +35,37 @@
       <span class="text-[10px] font-mono shrink-0 font-bold" :class="s.score >= 65 ? 'text-emerald-400' : s.score >= 45 ? 'text-yellow-500' : 'text-gray-500'">{{ s.score }}<span class="text-gray-600 font-normal">/100</span></span>
     </div>
 
-    <!-- RSI -->
-    <div class="flex items-center justify-between text-[10px]">
-      <span class="text-gray-500">RSI {{ s.rsi.toFixed(0) }}</span>
-      <span class="font-semibold" :class="labelRsi(s.rsi).classe">{{ labelRsi(s.rsi).label }}</span>
+    <!-- Métriques compactées sur 1 ligne (3 colonnes) -->
+    <div class="grid grid-cols-3 gap-1 text-[9px] mt-0.5">
+      <!-- RSI -->
+      <div class="flex flex-col bg-black/20 rounded p-1 text-center">
+        <span class="text-gray-500 mb-0.5">RSI {{ s.rsi.toFixed(0) }}</span>
+        <span class="font-semibold truncate" :class="labelRsi(s.rsi).classe">{{ labelRsi(s.rsi).label }}</span>
+      </div>
+      <!-- ATR -->
+      <div class="flex flex-col bg-black/20 rounded p-1 text-center">
+        <span class="text-gray-500 mb-0.5">ATR</span>
+        <span class="font-semibold truncate" :class="s.atrRatio < 0.75 ? 'text-blue-400' : s.atrRatio > 1.5 ? 'text-orange-400' : 'text-gray-300'">
+          {{ s.atrRatio.toFixed(2) }}×
+        </span>
+      </div>
+      <!-- Volume -->
+      <div class="flex flex-col bg-black/20 rounded p-1 text-center">
+        <span class="text-gray-500 mb-0.5">Vol</span>
+        <span class="font-semibold truncate" :class="s.ratioVolume >= 2 ? 'text-orange-400' : s.ratioVolume >= 1.3 ? 'text-yellow-400' : 'text-gray-400'">
+          {{ s.ratioVolume.toFixed(1) }}×
+        </span>
+      </div>
     </div>
 
-    <!-- ATR ratio -->
-    <div class="flex items-center justify-between text-[10px]">
-      <span class="text-gray-500">ATR ratio</span>
-      <span :class="s.atrRatio < 0.75 ? 'text-blue-400 font-semibold' : s.atrRatio > 1.5 ? 'text-orange-400 font-semibold' : 'text-gray-300'">
-        {{ s.atrRatio.toFixed(2) }}{{ s.atrRatio < 0.75 ? ' — ressort chargé' : s.atrRatio > 1.5 ? ' — expansion' : '' }}
-      </span>
-    </div>
-
-    <!-- Volume spike -->
-    <div class="flex items-center justify-between text-[10px]">
-      <span class="text-gray-500">Volume</span>
-      <span :class="s.ratioVolume >= 2 ? 'text-orange-400 font-semibold' : s.ratioVolume >= 1.3 ? 'text-yellow-400' : 'text-gray-400'">
-        {{ s.ratioVolume.toFixed(1) }}× {{ s.ratioVolume >= 2 ? '— spike !' : s.ratioVolume >= 1.3 ? '— élevé' : '— normal' }}
-      </span>
-    </div>
-
-    <!-- Compression (uniquement si phase ≠ breakout) -->
-    <div v-if="s.phase !== 'breakout'" class="text-[10px] text-gray-400">
-      ⏳ <span class="text-white font-medium">{{ s.nbBougiesCompression }}</span> bougies en compression
-      <span v-if="s.volumeSeche < 0.75" class="text-blue-400 ml-1">· VCP actif ({{ s.volumeSeche.toFixed(2) }}×)</span>
-      <span v-else class="text-gray-600 ml-1">· vol. normal</span>
-    </div>
-
-    <!-- Tendance + entrée -->
-    <div class="flex items-center justify-between text-[10px] pt-0.5 border-t border-white/5 mt-0.5">
-      <span class="font-semibold" :class="s.tendanceHaussiere ? 'text-emerald-400' : 'text-gray-500'">{{ s.tendanceHaussiere ? '↗ haussière' : '↘ neutre' }}</span>
-      <span v-if="s.typeEntreeRec" class="shrink-0" :class="s.typeEntreeRec === 'limite' ? 'text-sky-400' : 'text-yellow-400'">
-        {{ s.typeEntreeRec === 'limite' ? `Limite ${formatPrix(s.entreeLimite)}$` : `Stop ${formatPrix(s.entreeStop)}$` }}
+    <!-- Tendance + entrée (condensé à la fin) -->
+    <div class="flex items-center justify-between text-[9px] pt-1 mt-1 border-t border-white/5">
+      <div class="flex items-center gap-1.5">
+        <span class="font-semibold" :class="s.tendanceHaussiere ? 'text-emerald-400' : 'text-gray-500'">{{ s.tendanceHaussiere ? '↗ haussière' : '↘ neutre' }}</span>
+        <span v-if="s.phase !== 'breakout'" class="text-gray-500">· VCP: {{ (s.volumeSeche ?? 0).toFixed(1) }}×</span>
+      </div>
+      <span v-if="s.typeEntreeRec" class="shrink-0 font-medium" :class="s.typeEntreeRec === 'limite' ? 'text-sky-400' : 'text-yellow-400'">
+        {{ s.typeEntreeRec === 'limite' ? `Lim ${formatPrix(s.entreeLimite)}$` : `Stop ${formatPrix(s.entreeStop)}$` }}
       </span>
     </div>
   </div>
@@ -74,10 +77,10 @@ import type { SignalRocket, PhaseRocket } from '@/composables/useVeilleRockets'
 defineProps<{ s: SignalRocket }>()
 const emit = defineEmits<{ click: [e: MouseEvent] }>()
 
-function labelPhase(phase: PhaseRocket): string {
-  if (phase === 'breakout')     return 'Breakout'
-  if (phase === 'prelancement') return 'Pré-lancement'
-  return 'Compression'
+function configPhase(phase: PhaseRocket): { label: string; icon: string; classe: string } {
+  if (phase === 'breakout')     return { label: 'Breakout', icon: '🚀', classe: 'text-emerald-300 bg-emerald-500/20 border-emerald-500/40 animate-pulse' }
+  if (phase === 'prelancement') return { label: 'Pré-lancement', icon: '⏳', classe: 'text-yellow-300 bg-yellow-500/20 border-yellow-500/40 animate-pulse' }
+  return { label: 'Compression', icon: '🗜️', classe: 'text-blue-300 bg-blue-500/20 border-blue-500/40 animate-[pulse_3s_ease-in-out_infinite]' }
 }
 
 function classeCard(phase: PhaseRocket): string {

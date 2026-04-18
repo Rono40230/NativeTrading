@@ -9,7 +9,7 @@
         <div class="relative w-full max-w-2xl rounded-2xl border border-white/10 p-6 shadow-2xl" style="background: #0b0f28">
           <div class="flex items-center justify-between mb-6">
             <div>
-              <p class="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Stratégie Straddle</p>
+              <p class="text-[10px] uppercase tracking-widest text-gray-500 mb-1">Stratégie Volatilité</p>
               <h2 class="text-lg font-bold text-white">⚡ Opportunités de volatilité</h2>
             </div>
             <button

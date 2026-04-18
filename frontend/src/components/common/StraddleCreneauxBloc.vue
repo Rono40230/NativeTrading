@@ -3,8 +3,7 @@
     <!-- Meilleure fenêtre du jour -->
     <section class="border-b border-white/5 pb-2 shrink-0 flex flex-col gap-1.5 mt-1">
       <div class="flex items-center justify-between shrink-0">
-        <span class="text-xs font-semibold uppercase tracking-widest text-white">🕐 Créneaux</span>
-        <span class="bg-blue-600/30 border border-blue-500/40 px-1.5 rounded text-[10px] text-blue-300">Aujourd'hui</span>
+        <span class="text-xs font-semibold uppercase tracking-widest text-white">⚡ CRÉNEAUX DU JOUR</span>
       </div>
       
       <div v-if="chargementHeatmap && !classementVolatiliteJour.length" class="text-[10px] text-gray-500 italic mt-1">Analyse historique en cours...</div>

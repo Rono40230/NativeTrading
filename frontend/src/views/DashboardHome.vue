@@ -12,68 +12,184 @@
       </aside>
 
     <!-- Contenu principal -->
-    <div class="flex-1 min-w-0 flex flex-col gap-4 h-[calc(100vh-3rem)] overflow-y-auto">
-      <!-- Horloges sessions de marché — 1er bloc -->
-      <MarketClocks />
+    <div class="flex-1 min-w-0 flex flex-col gap-2 h-[calc(100vh-3rem)] overflow-hidden pb-1">
+      
+      <!-- En-tête : Horloges + System Status + Surveillance Assets -->
+      <div class="flex gap-2 shrink-0 h-[140px] mb-1">
+        <!-- Clocks -->
+        <div class="flex-1 min-w-0"><MarketClocks class="h-full" /></div>
+        
+        <!-- System Status -->
+        <div class="w-[360px] shrink-0">
+           <DashboardSystemStatus
+              :backend-ok="backendOk"
+              :btc-prix="btcPrix"
+              :ig-ok="igOk"
+              :ollama-ok="ollamaOk"
+              :ml-pret="mlPret"
+              :engine-actif="engineActif"
+              :engine-secondes="engineSecondes"
+              :engine-signaux24h="engineSignaux24h"
+              :engine-chargement="engineChargement"
+              @engine-demarrer="engineDemarrer"
+              @engine-arreter="engineArreter"
+              class="h-full"
+           />
+        </div>
+      </div>
 
-      <!-- Statut Système (avec Signal Engine intégré) -->
-      <div class="flex flex-col gap-3">
-        <DashboardSystemStatus
-          :backend-ok="backendOk"
-          :btc-prix="btcPrix"
-          :ig-ok="igOk"
-          :ollama-ok="ollamaOk"
-          :ml-pret="mlPret"
-          :engine-actif="engineActif"
-          :engine-secondes="engineSecondes"
-          :engine-signaux24h="engineSignaux24h"
-          :engine-chargement="engineChargement"
-          @engine-demarrer="engineDemarrer"
-          @engine-arreter="engineArreter"
-        />
-        <!-- Courbe equity SMC — pleine largeur -->
-        <SmcEquityChart />
+      <!-- LIGNES STRATEGIES (En 3 colonnes) -->
+      <div class="flex-1 min-h-0 grid grid-cols-3 gap-3">
+        
+        <!-- COLONNE 1: SMC -->
+        <div class="flex flex-col p-2 gap-2 relative border border-blue-500/20 bg-blue-500/10 rounded-xl backdrop-blur-sm hover:z-[999] min-h-0">
+           <div class="text-xs font-bold text-blue-400 uppercase tracking-widest pl-1 border-b border-blue-500/30 pb-1 flex items-center gap-1.5">📐 Stratégie SMC</div>
+           
+           <!-- Haut: Graphique -->
+           <div class="h-[160px] shrink-0 flex flex-col relative z-20 cursor-zoom-in group" @click="isHoveredSmc = true">
+              <div class="relative flex-1 min-h-0 flex flex-col transition-all duration-300 ease-out origin-center group-hover:brightness-125 rounded-xl bg-transparent pointer-events-none">
+                 <SmcEquityChart class="flex-1 min-h-0 bg-[#0a0e27]/80 rounded-xl" />
+              </div>
 
-        <!-- Ligne SMC : Assets | Signaux | Perf SMC (3/5) -->
-        <div class="flex gap-2 items-stretch h-[162px]">
-          <div class="flex-1 min-w-0 flex flex-col"><SurveillanceAssets class="flex-1 h-full" :assets="assetsDisplay" :chargement="assetsAvecPrix.length === 0" /></div>
-          <div class="flex-1 min-w-0 flex flex-col"><SmcSignauxBloc class="flex-1" /></div>
-          <div class="w-3/5 shrink-0 min-w-0 flex flex-col overflow-hidden"><SmcPerfBloc class="flex-1 min-h-0 overflow-hidden" /></div>
+              <!-- Fullscreen Centered Click Modal via Teleport -->
+              <Teleport to="body">
+                 <div 
+                    class="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm transition-all duration-300 ease-out flex items-center justify-center cursor-default"
+                    :class="isHoveredSmc ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'"
+                    @click="isHoveredSmc = false"
+                 >
+                    <div 
+                       class="relative w-[1600px] max-w-[95vw] h-[750px] max-h-[90vh] shadow-[0_30px_60px_rgba(0,0,0,0.95)] rounded-2xl bg-[#0c1130]/95 backdrop-blur-xl border border-white/10 p-4 flex flex-col gap-4 transition-transform duration-300 ease-out cursor-default"
+                       :class="isHoveredSmc ? 'scale-100' : 'scale-95'"
+                       @click.stop
+                     >
+                       <button @click="isHoveredSmc = false" class="absolute -top-3 -right-3 w-8 h-8 flex items-center justify-center rounded-full bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/50 transition-colors z-50">
+                          <span class="text-sm font-bold">✕</span>
+                       </button>
+                       <!-- Top: Expanded Chart -->
+                       <div class="flex-1 min-h-0 flex flex-col relative z-10">
+                          <SmcEquityChart class="flex-1 min-h-0 bg-black/20 border border-white/5 rounded-xl block p-3" />
+                       </div>
+                       <!-- Bottom: Metrics -->
+                       <div class="h-[240px] shrink-0 flex flex-col relative z-10">
+                          <SmcPerfBloc class="flex-1 min-h-0 bg-black/20 border border-white/5 rounded-xl block overflow-y-auto" />
+                       </div>
+                    </div>
+                 </div>
+              </Teleport>
+           </div>
+
+           <!-- Bas: Blocs de la stratégie -->
+           <div class="flex-1 min-h-0 flex flex-col gap-2 relative z-10 overflow-hidden">
+              <SmcSignauxBloc class="flex-1 min-h-0 overflow-y-auto" />
+           </div>
         </div>
 
-        <!-- Courbe equity Straddle — pleine largeur -->
-        <StraddleEquityChart />
+        <!-- COLONNE 2: STRADDLE -->
+        <div class="flex flex-col p-2 gap-2 relative border border-yellow-500/20 bg-yellow-500/10 rounded-xl backdrop-blur-sm hover:z-[999] min-h-0">
+           <div class="text-xs font-bold text-yellow-400 uppercase tracking-widest pl-1 border-b border-yellow-500/30 pb-1 flex items-center gap-1.5">⚡ STRATÉGIE VOLATILITÉ</div>
+           
+           <!-- Haut: Graphique -->
+           <div class="h-[160px] shrink-0 flex flex-col relative z-20 cursor-zoom-in group" @click="isHoveredStraddle = true">
+              <div class="relative flex-1 min-h-0 flex flex-col transition-all duration-300 ease-out origin-center group-hover:brightness-125 rounded-xl bg-transparent pointer-events-none">
+                 <StraddleEquityChart class="flex-1 min-h-0 bg-[#0a0e27]/80 rounded-xl" />
+              </div>
 
-        <div class="flex gap-2 items-stretch h-[162px]">
-          <div class="flex-1 min-w-0 flex flex-col"><StraddleVolatiliteBloc class="flex-1" /></div>
-          <div class="flex-1 min-w-0 flex flex-col"><StraddleProchainCreneau class="flex-1" /></div>
-          <div class="flex-1 min-w-0 flex flex-col"><StraddleCreneauxBloc class="flex-1" /></div>
-          <div class="w-3/5 shrink-0 min-w-0 flex flex-col overflow-hidden"><StratPerfBloc class="flex-1 min-h-0 overflow-hidden" titre="⚡ Performance Volatilité" :data="straddlePerf.data.value" :chargement="straddlePerf.chargement.value" :charger="straddlePerf.charger" /></div>
+              <!-- Fullscreen Centered Click Modal via Teleport -->
+              <Teleport to="body">
+                 <div 
+                    class="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm transition-all duration-300 ease-out flex items-center justify-center cursor-default"
+                    :class="isHoveredStraddle ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'"
+                    @click="isHoveredStraddle = false"
+                 >
+                    <div 
+                       class="relative w-[1600px] max-w-[95vw] h-[750px] max-h-[90vh] shadow-[0_30px_60px_rgba(0,0,0,0.95)] rounded-2xl bg-[#0c1130]/95 backdrop-blur-xl border border-white/10 p-4 flex flex-col gap-4 transition-transform duration-300 ease-out cursor-default"
+                       :class="isHoveredStraddle ? 'scale-100' : 'scale-95'"
+                       @click.stop
+                     >
+                       <button @click="isHoveredStraddle = false" class="absolute -top-3 -right-3 w-8 h-8 flex items-center justify-center rounded-full bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/50 transition-colors z-50">
+                          <span class="text-sm font-bold">✕</span>
+                       </button>
+                       <!-- Top: Expanded Chart -->
+                       <div class="flex-1 min-h-0 flex flex-col relative z-10">
+                          <StraddleEquityChart class="flex-1 min-h-0 bg-black/20 border border-white/5 rounded-xl block p-3" />
+                       </div>
+                       <!-- Bottom: Metrics -->
+                       <div class="h-[240px] shrink-0 flex flex-col relative z-10">
+                          <StratPerfBloc class="flex-1 min-h-0 bg-black/20 border border-white/5 rounded-xl block overflow-y-auto" />
+                       </div>
+                    </div>
+                 </div>
+              </Teleport>
+           </div>
+
+           <!-- Bas: Blocs de la stratégie -->
+           <div class="flex-1 min-h-0 flex flex-col gap-2 relative z-10 overflow-hidden">
+              <StraddleVolatiliteBloc class="flex-[3] min-h-0 overflow-y-auto" />
+              <StraddleCreneauxBloc class="flex-[6] min-h-0 overflow-y-auto" />
+           </div>
         </div>
 
-        <!-- Courbe equity Rockets — pleine largeur -->
-        <RocketsEquityChart />
+        <!-- COLONNE 3: ROCKETS -->
+        <div class="flex flex-col p-2 gap-2 relative border border-orange-500/20 bg-orange-500/10 rounded-xl backdrop-blur-sm hover:z-[999] min-h-0">
+           <div class="text-xs font-bold text-orange-400 uppercase tracking-widest pl-1 border-b border-orange-500/30 pb-1 flex items-center gap-1.5">🚀 Stratégie Rockets</div>
+           
+           <!-- Haut: Graphique -->
+           <div class="h-[160px] shrink-0 flex flex-col relative z-20 cursor-zoom-in group" @click="isHoveredRockets = true">
+              <div class="relative flex-1 min-h-0 flex flex-col transition-all duration-300 ease-out origin-center group-hover:brightness-125 rounded-xl bg-transparent pointer-events-none">
+                 <RocketsEquityChart class="flex-1 min-h-0 bg-[#0a0e27]/80 rounded-xl" />
+              </div>
 
-        <div class="flex gap-2 items-stretch h-[162px]">
-          <div class="w-1/5 min-w-0 flex flex-col"><VeilleRockets
-            class="flex-1"
-            :signaux="rockets.signaux.value"
-            :total-candidats="rockets.totalCandidats.value"
-            :chargement="rockets.chargement.value"
-            :erreur="rockets.erreur.value"
-            :progression="rockets.progression.value"
-            :derniere-m-a-j="rockets.derniereMAJ.value"
-          /></div>
-          <div class="w-1/5 min-w-0 flex flex-col"><RocketsEnCoursBloc class="flex-1 h-full" /></div>
-          <div class="w-3/5 min-w-0 flex flex-col overflow-hidden"><RocketsPerfBloc class="flex-1 min-h-0 overflow-hidden" /></div>
+              <!-- Fullscreen Centered Click Modal via Teleport -->
+              <Teleport to="body">
+                 <div 
+                    class="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm transition-all duration-300 ease-out flex items-center justify-center cursor-default"
+                    :class="isHoveredRockets ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none'"
+                    @click="isHoveredRockets = false"
+                 >
+                    <div 
+                       class="relative w-[1600px] max-w-[95vw] h-[750px] max-h-[90vh] shadow-[0_30px_60px_rgba(0,0,0,0.95)] rounded-2xl bg-[#0c1130]/95 backdrop-blur-xl border border-white/10 p-4 flex flex-col gap-4 transition-transform duration-300 ease-out cursor-default"
+                       :class="isHoveredRockets ? 'scale-100' : 'scale-95'"
+                       @click.stop
+                     >
+                       <button @click="isHoveredRockets = false" class="absolute -top-3 -right-3 w-8 h-8 flex items-center justify-center rounded-full bg-red-500/20 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/50 transition-colors z-50">
+                          <span class="text-sm font-bold">✕</span>
+                       </button>
+                       <!-- Top: Expanded Chart -->
+                       <div class="flex-1 min-h-0 flex flex-col relative z-10">
+                          <RocketsEquityChart class="flex-1 min-h-0 bg-black/20 border border-white/5 rounded-xl block p-3" />
+                       </div>
+                       <!-- Bottom: Metrics -->
+                       <div class="h-[240px] shrink-0 flex flex-col relative z-10">
+                          <RocketsPerfBloc class="flex-1 min-h-0 bg-black/20 border border-white/5 rounded-xl block overflow-y-auto" />
+                       </div>
+                    </div>
+                 </div>
+              </Teleport>
+           </div>
+
+           <!-- Bas: Blocs de la stratégie -->
+           <div class="flex-1 min-h-0 flex flex-col gap-2 relative z-10 overflow-hidden">
+              <VeilleRockets
+                class="flex-1 min-h-0"
+                :signaux="rockets.signaux.value"
+                :total-candidats="rockets.totalCandidats.value"
+                :chargement="rockets.chargement.value"
+                :erreur="rockets.erreur.value"
+                :progression="rockets.progression.value"
+                :derniere-m-a-j="rockets.derniereMAJ.value"
+              />
+           </div>
         </div>
 
       </div>
+
     </div>
 
-      <!-- Colonne droite : Sentiment (fixe) + Calendrier (remplit le reste) -->
+      <!-- Colonne droite : Sentiment + Surveillance (remplit le reste avec Calendrier) -->
       <aside class="w-64 shrink-0 sticky top-0 h-[calc(100vh-3rem)] flex flex-col gap-3">
         <SentimentMarche class="shrink-0" />
+        <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
         <div class="flex-1 min-h-0">
           <EconomicCalendar class="h-full" />
         </div>
@@ -145,6 +261,11 @@ const backendOk = ref(false)
 const igOk = ref<boolean | null>(null)
 const ollamaOk = ref<boolean | null>(null)
 const assetsAvecPrix = ref<AssetAvecPrix[]>([])
+  
+// Modals hover state
+const isHoveredRockets = ref(false)
+const isHoveredSmc = ref(false)
+const isHoveredStraddle = ref(false)
 
 const assetsDisplay = computed(() => {
   const sent = sentimentStore.data
