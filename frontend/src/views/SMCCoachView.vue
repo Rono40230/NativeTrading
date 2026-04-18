@@ -70,7 +70,7 @@
                 :key="pi"
               >
                 <span v-if="part.type === 'text'" class="block" v-html="renderCoachMd(part.content)"></span>
-                <span v-else-if="part.type === 'diagram'" class="inline-flex items-center gap-1 text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded px-2 py-0.5 mx-1 cursor-pointer" @click="diagrammeActif = part.content">📐 Voir le diagramme</span>
+                <span v-else-if="part.type === 'diagram'" class="inline-flex items-center gap-1 text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded px-2 py-0.5 mx-1 cursor-pointer" @click="diagrammeActif = part.content">△ Voir le diagramme</span>
                 <button
                   v-else-if="part.type === 'suggestion'"
                   class="flex items-center gap-2 mt-2 px-3 py-1.5 rounded-lg text-xs font-medium border border-blue-500/30 bg-blue-500/10 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400/50 transition-all"
@@ -78,7 +78,7 @@
                   @click="genererDiagram(part.content)"
                 >
                   <span v-if="diagramChargement" class="animate-spin">⏳</span>
-                  <span v-else>📐</span>
+                  <span v-else>△</span>
                   Générer : {{ part.content }}
                 </button>
               </span>
@@ -99,7 +99,7 @@
           v-if="tousLesDiagrammes.length === 0"
           class="glass-card h-full flex flex-col items-center justify-center text-gray-700 select-none"
         >
-          <span class="text-4xl mb-3">📐</span>
+          <span class="text-4xl mb-3">△</span>
           <p class="text-sm">Les diagrammes apparaîtront ici</p>
           <p class="text-xs mt-1">Demandez un schéma ou une illustration visuelle</p>
         </div>
@@ -111,7 +111,7 @@
             class="glass-card overflow-hidden flex-shrink-0"
           >
             <div class="flex items-center gap-2 px-4 py-2 border-b border-white/10 bg-white/5">
-              <span class="text-xs font-semibold text-blue-400">📐 Diagramme {{ tousLesDiagrammes.length > 1 ? di + 1 : '' }}</span>
+              <span class="text-xs font-semibold text-blue-400">△ Diagramme {{ tousLesDiagrammes.length > 1 ? di + 1 : '' }}</span>
             </div>
             <iframe
               :srcdoc="buildSrcdoc(d.content, `diag-${di}`)"

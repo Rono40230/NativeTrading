@@ -7,10 +7,6 @@ use common::{Asset, Timeframe};
 pub fn epic_pour_asset(asset: &Asset) -> Option<&'static str> {
     match asset {
         // Métaux précieux
-        Asset::XAUUSD => Some("CS.D.CFDGOLD.CFDGC.IP"),
-        Asset::XAGUSD => Some("CS.D.CFDSILVER.CFDSI.IP"),
-        Asset::XPTUSD => Some("CS.D.PLATINUM.CFD.IP"),
-        Asset::XPDUSD => Some("CS.D.PALLADIUM.CFD.IP"),
         // Paires Forex
         Asset::EURUSD => Some("CS.D.EURUSD.CFD.IP"),
         Asset::GBPUSD => Some("CS.D.GBPUSD.CFD.IP"),

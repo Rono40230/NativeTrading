@@ -133,7 +133,10 @@ pub(super) async fn stream_ig(
                     &db,
                 ).await {
                     Some(p) => p,
-                    None => continue,
+                    None => match prix_utils::dernier_prix_db(&asset_str, &db).await {
+                        Some(p) => p,
+                        None => continue,
+                    },
                 };
 
                 let now_ts = chrono::Utc::now().timestamp();

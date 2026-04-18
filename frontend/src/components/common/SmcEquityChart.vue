@@ -1,7 +1,7 @@
 <template>
   <div class="glass-card p-3 flex flex-col gap-1">
     <div class="flex items-center justify-between">
-      <span class="text-xs uppercase font-bold text-white">⚡ Courbe de capital simulé — Straddle</span>
+      <span class="text-xs uppercase font-bold text-white">&#128208; Courbe de capital simulé — SMC</span>
       <span class="text-gray-500 text-xs">
         {{ data?.points.length ?? 0 }} trades · capital initial {{ formatEuro(data?.capital_initial ?? 10000) }}
       </span>
@@ -13,22 +13,16 @@
       Aucune donnée — les trades clôturés alimenteront la courbe
     </div>
     <svg v-else :viewBox="`0 0 ${W} ${H}`" class="w-full rounded-lg bg-white/3" style="height:130px">
-      <!-- Grille Y -->
       <line v-for="y in yGridLines" :key="y.val" :x1="PX" :y1="y.coord" :x2="W - PX" :y2="y.coord"
         stroke="white" stroke-opacity="0.05" stroke-width="1" />
-      <!-- Ligne zéro -->
       <line :x1="PX" :y1="yZero" :x2="W - PX" :y2="yZero"
         stroke="white" stroke-opacity="0.15" stroke-width="1" stroke-dasharray="4,3" />
       <text :x="PX + 2" :y="yZero - 3" fill="rgba(255,255,255,0.3)" font-size="8">
         {{ formatEuro(data.capital_initial) }}
       </text>
-      <!-- Aire -->
       <path :d="areaPath" :fill="couleur" fill-opacity="0.12" />
-      <!-- Ligne -->
       <path :d="linePath" :stroke="couleur" fill="none" stroke-width="1.5" stroke-linejoin="round" />
-      <!-- Point final -->
       <circle :cx="W - PX" :cy="yDernier" r="3" :fill="couleur" />
-      <!-- Axe X -->
       <line :x1="PX" :y1="H - PY + 2" :x2="W - PX" :y2="H - PY + 2"
         stroke="white" stroke-opacity="0.1" stroke-width="1" />
       <g v-for="tick in xTicks" :key="tick.i">
@@ -38,7 +32,6 @@
           {{ tick.label }}
         </text>
       </g>
-      <!-- Capital final -->
       <text :x="W - PX" :y="H - 2" font-size="8" text-anchor="end" font-weight="bold" :style="{ fill: couleur }">
         {{ formatEuro(capitalNet) }}
       </text>
@@ -48,9 +41,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useStraddlePerf } from '@/composables/useStrategiesPerf'
+import { useSmcPerf } from '@/composables/useStrategiesPerf'
 
-const { data, chargement } = useStraddlePerf()
+const { data, chargement } = useSmcPerf()
 
 const W = 1000
 const H = 130
@@ -121,7 +114,9 @@ const areaPath = computed(() => {
   const pts = data.value.points
   const n = pts.length
   const base = H - PY + 2
-  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xCoord(i, n).toFixed(1)} ${yCoord(p.equity_cumulee).toFixed(1)}`).join(' ')
+  const line = pts.map((p, i) =>
+    `${i === 0 ? 'M' : 'L'} ${xCoord(i, n).toFixed(1)} ${yCoord(p.equity_cumulee).toFixed(1)}`
+  ).join(' ')
   return `${line} L ${xCoord(n - 1, n).toFixed(1)} ${base} L ${PX} ${base} Z`
 })
 

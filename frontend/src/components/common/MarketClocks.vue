@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-card p-5 relative overflow-hidden">
+  <div class="glass-card p-5 relative overflow-hidden shrink-0">
     <WorldMapBg />
     <div class="grid grid-cols-2 gap-5 lg:grid-cols-5 relative">
       <div v-for="session in sessions" :key="session.nom" class="flex flex-col items-center gap-1.5">

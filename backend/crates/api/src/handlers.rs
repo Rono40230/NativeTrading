@@ -5,92 +5,6 @@ use serde::{Deserialize, Serialize};
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};
 
-// ─── IG Markets status ────────────────────────────────────────────────────────
-
-/// GET /api/ig/status — Force un re-login IG (bouton "Tester" dans Settings).
-pub async fn ig_status(state: web::Data<AppState>) -> impl Responder {
-    match state
-        .ig_session
-        .lock()
-        .await
-        .tester_connexion(&state.db)
-        .await
-    {
-        Ok(()) => HttpResponse::Ok().json(serde_json::json!({
-            "connecte": true,
-            "source": "ig_markets"
-        })),
-        Err(e) => HttpResponse::Ok().json(serde_json::json!({
-            "connecte": false,
-            "source": "ig_markets",
-            "erreur": format!("{}", e)
-        })),
-    }
-}
-
-/// GET /api/ig/statut-local — Retourne l'état de la session IG sans appel réseau.
-/// Utilisé par le Dashboard pour afficher le badge sans provoquer de re-login.
-pub async fn ig_statut_local(state: web::Data<AppState>) -> impl Responder {
-    let connecte = state.ig_session.lock().await.est_connecte();
-    HttpResponse::Ok().json(serde_json::json!({
-        "connecte": connecte,
-        "source": "ig_markets"
-    }))
-}
-
-/// GET /api/ig/search?q=EURUSD
-/// Recherche les marchés disponibles sur IG pour un terme donné.
-/// Utilisé pour découvrir les epics valides pour le compte connecté.
-pub async fn ig_search_markets(
-    state: web::Data<AppState>,
-    query: web::Query<std::collections::HashMap<String, String>>,
-) -> impl Responder {
-    let terme = match query.get("q") {
-        Some(t)
-            if !t.is_empty() && t.len() <= 20 && t.chars().all(|c| c.is_ascii_alphanumeric()) =>
-        {
-            t.to_uppercase()
-        }
-        _ => {
-            return HttpResponse::BadRequest()
-                .json(serde_json::json!({ "error": "Paramètre q requis (ex: EURUSD)" }))
-        }
-    };
-
-    let (url_base, headers, client) = {
-        let mut session = state.ig_session.lock().await;
-        let url_base = session.url();
-        let headers = match session.headers(&state.db).await {
-            Ok(h) => h,
-            Err(e) => {
-                return HttpResponse::ServiceUnavailable()
-                    .json(serde_json::json!({ "error": format!("Session IG: {}", e) }))
-            }
-        };
-        let client = session.client().clone();
-        (url_base, headers, client)
-    };
-
-    let url = format!("{}/markets?searchTerm={}", url_base, terme);
-    match client
-        .get(&url)
-        .headers(headers)
-        .header("Version", "1")
-        .send()
-        .await
-    {
-        Ok(r) if r.status().is_success() => match r.json::<serde_json::Value>().await {
-            Ok(data) => HttpResponse::Ok().json(data),
-            Err(e) => HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": format!("Parse: {}", e) })),
-        },
-        Ok(r) => HttpResponse::BadGateway()
-            .json(serde_json::json!({ "error": format!("IG {}", r.status()) })),
-        Err(e) => HttpResponse::ServiceUnavailable()
-            .json(serde_json::json!({ "error": format!("{}", e) })),
-    }
-}
-
 // ─── Health ───────────────────────────────────────────────────────────────────
 
 pub async fn health_check() -> impl Responder {
@@ -107,6 +21,7 @@ pub struct CandlesQuery {
     pub asset: String,
     pub timeframe: Option<String>,
     pub limit: Option<u32>,
+    pub force: Option<bool>,
 }
 
 pub async fn get_candles(
@@ -121,6 +36,29 @@ pub async fn get_candles(
 
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
     let limit = query.limit.unwrap_or(200).min(5000) as usize;
+    let force = query.force.unwrap_or(false);
+
+    // Si on a forcé une mise à jour cryptos, on passe l'étape cache et on demande à l'API
+    if force && asset.is_crypto() {
+        let resultat = BinanceProvider
+            .fetch_candles(asset.clone(), timeframe, limit)
+            .await;
+        if let Ok(bougies) = resultat {
+            if !bougies.is_empty() {
+                let _ = state.db.inserer_bougies(&asset, &timeframe, &bougies).await;
+                return HttpResponse::Ok().json(bougies);
+            }
+        }
+    }
+
+    // Force pour assets IG (XAU, XAG, indices...)
+    if force && !asset.is_crypto() {
+        let resultat = state.ig_lightstreamer.fetch_rest_ig(&asset, &timeframe, limit).await;
+        if !resultat.is_empty() {
+            let _ = state.db.inserer_bougies_avec_source(&asset, &timeframe, &resultat, "rest_ig").await;
+            return HttpResponse::Ok().json(resultat);
+        }
+    }
 
     // 1. Cache DB — toutes sources (MT5 inclus pour avoir l'historique)
     if let Ok(bougies) = state
@@ -133,7 +71,7 @@ pub async fn get_candles(
         }
     }
 
-    // 2. Pour les crypto : fallback Binance REST si cache vide
+    // 2. Pour les crypto : fallback Binance REST si cache vide (ou si l'option force a échoué mais le cache est vide)
     if asset.is_crypto() {
         let resultat = BinanceProvider
             .fetch_candles(asset.clone(), timeframe, limit)

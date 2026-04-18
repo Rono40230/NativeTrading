@@ -100,7 +100,7 @@ const nav: NavItem[] = [
     ]
   },
   {
-    groupe: 'Stratégie SMC', icone: '📐',
+    groupe: 'Stratégie SMC', icone: '△',
     liens: [
       { to: '/smc',            icone: '⚡', label: 'Signaux' },
       { to: '/smc/definition', icone: '🤖', label: 'Définition & Prompt IA' },

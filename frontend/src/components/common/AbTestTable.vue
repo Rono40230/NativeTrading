@@ -1,6 +1,6 @@
 <template>
   <div v-if="stats.length" class="rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm p-5">
-    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">⚖️ Comparaison A/B par stratégie</h2>
+    <h2 class="text-xs uppercase font-bold text-white mb-4">⚖️ Comparaison A/B par stratégie</h2>
     <div class="overflow-x-auto">
       <table class="w-full text-sm">
         <thead>

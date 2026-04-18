@@ -26,7 +26,7 @@ function sectionTheme(title: string): { colorClass: string; headerClass: string;
   if (t.includes('score') || t.includes('confluence') || t.includes('signal'))
     return { colorClass: 'green', headerClass: 'green', icon: '⭐' }
   if (t.includes('tp') || t.includes('sl') || t.includes('entrée') || t.includes('niveau') || t.includes('prix'))
-    return { colorClass: 'purple', headerClass: 'purple', icon: '📐' }
+    return { colorClass: 'purple', headerClass: 'purple', icon: '△' }
   if (t.includes('règle') || t.includes('direction') || t.includes('note'))
     return { colorClass: 'gray', headerClass: 'gray', icon: '📝' }
   return { colorClass: 'gray', headerClass: 'gray', icon: '📄' }

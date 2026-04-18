@@ -1,7 +1,7 @@
 <template>
   <div class="glass-card p-4">
     <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Assets actifs</h2>
+      <h2 class="text-xs uppercase font-bold text-white">Assets actifs</h2>
       <span class="text-xs text-gray-500">{{ nbActifs }} / {{ tous.length }} activés</span>
     </div>
 

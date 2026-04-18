@@ -75,6 +75,7 @@ impl IgLightstreamer {
     /// Démarre la boucle principale de connexion/reconnexion.
     /// À appeler une seule fois dans AppState::new() via tokio::spawn.
     pub async fn run(self: Arc<Self>) {
+        /*
         loop {
             match connection::connect_and_bind(
                 &self.ig_session,
@@ -95,6 +96,8 @@ impl IgLightstreamer {
             }
             tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
+        */
+        tracing::info!("Boucle LS run() désactivée de force (Error 71 bypass)");
     }
 
     /// Abonne l'asset+timeframe au stream Lightstreamer. Idempotent.
@@ -234,7 +237,7 @@ impl IgLightstreamer {
     }
 
     /// Appel REST IG GET /prices/{epic}?resolution={res}&max=200
-    async fn fetch_rest_ig(&self, asset: &Asset, timeframe: &Timeframe, max: usize) -> Vec<Candle> {
+    pub async fn fetch_rest_ig(&self, asset: &Asset, timeframe: &Timeframe, max: usize) -> Vec<Candle> {
         rest_ig::fetch_rest_ig(&self.ig_session, &self.db, &self.rest_403, asset, timeframe, max).await
     }
 }

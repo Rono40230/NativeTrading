@@ -1,7 +1,7 @@
 <template>
   <div class="glass-card p-5 flex flex-col">
     <div class="flex items-center justify-between mb-4">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+      <h2 class="text-xs uppercase font-bold text-white flex items-center gap-2">
         🤖 Paramètres Straddle
         <span class="text-gray-600 font-normal text-xs normal-case">(éditables — relancer avec ↺)</span>
       </h2>

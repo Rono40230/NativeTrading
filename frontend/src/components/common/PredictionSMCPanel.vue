@@ -2,7 +2,7 @@
   <div class="flex gap-4 items-stretch h-56">
     <!-- Prédiction IA — 1/5 -->
     <div class="glass-card p-5 flex-[1]">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+      <h2 class="text-xs uppercase font-bold text-white mb-4">
         Prédiction IA — {{ asset }} {{ timeframe }}
       </h2>
       <div v-if="signalStore.prediction" class="space-y-3">

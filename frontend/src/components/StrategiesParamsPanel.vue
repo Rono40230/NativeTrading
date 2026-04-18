@@ -5,7 +5,7 @@
     <!-- ── Straddle ──────────────────────────────────────────────────────── -->
     <div class="glass-card p-4">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">⚡ Stratégie volatilité</h2>
+        <h2 class="text-xs uppercase font-bold text-white">⚡ Stratégie volatilité</h2>
         <div class="flex items-center gap-2">
           <button class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs font-medium transition-colors"
             :disabled="savingStraddle" @click="sauvegarderStraddle">
@@ -37,7 +37,7 @@
     <!-- ── SMC Directionnel ──────────────────────────────────────────────── -->
     <div class="glass-card p-4">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">🎯 Stratégie SMC</h2>
+        <h2 class="text-xs uppercase font-bold text-white">🎯 Stratégie SMC</h2>
         <div class="flex items-center gap-2">
           <button class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs font-medium transition-colors"
             :disabled="savingSmc" @click="sauvegarderSmc">
@@ -77,7 +77,7 @@
     <!-- ── Rockets ───────────────────────────────────────────────────────── -->
     <div class="glass-card p-4">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">🚀 Stratégie Rockets</h2>
+        <h2 class="text-xs uppercase font-bold text-white">🚀 Stratégie Rockets</h2>
         <div class="flex items-center gap-2">
           <button class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-xs font-medium transition-colors"
             :disabled="savingRockets" @click="sauvegarderRockets">

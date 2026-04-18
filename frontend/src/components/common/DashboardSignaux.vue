@@ -1,6 +1,6 @@
 <template>
   <div class="glass-card p-5 flex flex-col h-full">
-    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Derniers signaux</h2>
+    <h2 class="text-xs uppercase font-bold text-white mb-4">Derniers signaux</h2>
     <div v-if="signalStore.chargement" class="text-gray-500 text-sm text-center py-4">
       Chargement...
     </div>

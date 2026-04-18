@@ -1,3 +1,4 @@
+#![allow(unused_variables, dead_code)]
 use anyhow::Result;
 use db::Database;
 use ml::PipelineML;
@@ -88,13 +89,14 @@ impl AppState {
         // Client Lightstreamer — démarrage de la boucle de streaming
         let (ls_client, _rx) = IgLightstreamer::new(ig_session.clone(), db.clone());
         let ig_lightstreamer = Arc::new(ls_client);
+        
         {
             let ls = ig_lightstreamer.clone();
             tokio::spawn(async move {
                 ls.run().await;
             });
         }
-        tracing::info!("📡 IG Lightstreamer: boucle de streaming démarrée");
+        tracing::info!("📡 IG Lightstreamer: boucle de streaming démarrée (inactive logic)");
 
         // Scheduler ML : entraînement immédiat si pas de modèle, puis quotidien à 00h00 UTC
         demarrer_scheduler(db.clone(), pipeline_ml.clone(), modele_deja_charge);

@@ -2,7 +2,7 @@
   <div class="card-moteur flex flex-col">
     <div class="flex items-center justify-between px-5 py-3">
       <div class="flex items-center gap-2">
-        <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">⚙️ Paramètres Moteur SMC</h2>
+        <h2 class="text-xs uppercase font-bold text-white">⚙️ Paramètres Moteur SMC</h2>
         <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-600/30 text-blue-300 border border-blue-500/40 uppercase tracking-wider">Moteur Auto</span>
       </div>
       <button

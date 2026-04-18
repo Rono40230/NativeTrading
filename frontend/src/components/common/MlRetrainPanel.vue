@@ -85,7 +85,7 @@
 
     <!-- P4 : Top features Rockets -->
     <div v-if="topFeatures.length > 0" class="space-y-2 border-t border-white/10 pt-4">
-      <h3 class="text-sm font-semibold text-gray-300">🔍 Top features prédictives (Rockets)</h3>
+      <h3 class="text-xs uppercase font-bold text-white">🔍 Top features prédictives (Rockets)</h3>
       <div class="space-y-1">
         <div v-for="(f, idx) in topFeatures" :key="f.feature_idx" class="flex items-center gap-2">
           <span class="text-xs text-gray-500 w-4 text-right">{{ idx + 1 }}</span>

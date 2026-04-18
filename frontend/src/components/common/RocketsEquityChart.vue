@@ -1,7 +1,7 @@
 <template>
   <div class="glass-card p-3 flex flex-col gap-1">
     <div class="flex items-center justify-between">
-      <span class="text-white text-xs font-semibold">📈 Courbe de capital simulé — Rockets</span>
+      <span class="text-xs uppercase font-bold text-white">📈 Courbe de capital simulé — Rockets</span>
       <span class="text-gray-500 text-xs">{{ data?.points.length ?? 0 }} trades · capital initial {{
         formatEuro(data?.capital_initial ?? 10000) }}</span>
     </div>

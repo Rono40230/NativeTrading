@@ -49,7 +49,7 @@
       <div class="glass-card p-4 space-y-3">
         <div class="flex items-center justify-between">
           <div>
-            <p class="font-medium text-white">📐 SMC Directionnel</p>
+            <p class="font-medium text-white">△ SMC Directionnel</p>
             <p class="text-xs text-slate-400">Rejette un signal SMC si confiance ML &lt; seuil</p>
           </div>
           <span class="text-violet-400 font-mono font-bold">{{ (seuils.smc * 100).toFixed(0) }}%</span>

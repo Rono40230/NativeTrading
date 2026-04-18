@@ -7,7 +7,7 @@
   >
     <div class="glass-card p-5 w-80">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">🎯 SMC — Paramètres</h2>
+        <h2 class="text-xs uppercase font-bold text-white">🎯 SMC — Paramètres</h2>
         <button class="text-gray-500 hover:text-white text-lg leading-none" @click="$emit('close')">✕</button>
       </div>
 

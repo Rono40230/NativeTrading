@@ -1,6 +1,6 @@
 <template>
   <div class="glass-card p-5 overflow-y-auto shrink-0">
-    <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">
+    <h2 class="text-xs uppercase font-bold text-white mb-4">
       Score SMC — {{ asset }} {{ timeframe }}
     </h2>
     <div v-if="scoreSmc" class="space-y-3">

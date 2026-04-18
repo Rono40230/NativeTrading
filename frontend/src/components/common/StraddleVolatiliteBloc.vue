@@ -7,8 +7,10 @@
         <p class="text-xs font-semibold uppercase tracking-widest text-white">⚡ Straddle</p>
         <span class="text-[10px] text-gray-600">▸</span>
       </div>
-      <span class="text-xs text-gray-500">Session&nbsp;: <span class="text-blue-300 font-semibold">{{ sessionLabel
-          }}</span></span>
+      <span class="text-xs text-gray-500">Session&nbsp;:
+        <span :class="sessionLabel.cls" class="font-semibold">{{ sessionLabel.label }}</span>
+        <span v-if="sessionLabel.heures" class="text-gray-500 ml-1 text-[10px]">· {{ sessionLabel.heures }}</span>
+      </span>
       <!-- Asset le plus chaud -->
       <span v-if="meilleurPic" class="text-xs font-semibold">
         <span class="text-white">{{ meilleurPic.asset }}</span>
@@ -31,8 +33,10 @@
       @close="modalSurveillanceOuverte = false">
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2">
-          <span class="text-[10px] text-gray-500">Session&nbsp;: <span class="text-blue-300 font-semibold">{{
-              sessionLabel }}</span></span>
+          <span class="text-[10px] text-gray-500">Session&nbsp;:
+            <span :class="sessionLabel.cls" class="font-semibold">{{ sessionLabel.label }}</span>
+            <span v-if="sessionLabel.heures" class="text-gray-500 ml-1">· {{ sessionLabel.heures }}</span>
+          </span>
           <span v-if="data?.resume.annonces_prochaines_90min.some(a => a.dans_min <= 30)"
             class="text-[10px] font-bold text-red-400 border border-red-500/40 px-1.5 py-0.5 rounded animate-pulse">⚠️
             ZONE À RISQUE</span>
@@ -159,12 +163,12 @@ function dansMoins30min(iso: string): boolean {
 
 const sessionLabel = computed(() => {
   const h = new Date().getUTCHours()
-  if (h >= 23 || h < 1) return 'Tokyo'
-  if (h >= 1 && h < 7) return 'Sydney'
-  if (h >= 7 && h < 13) return 'London'
-  if (h >= 13 && h < 16) return 'Overlap'
-  if (h >= 16 && h < 22) return 'New York'
-  return 'Off'
+  if (h >= 23 || h < 1) return { label: 'Tokyo', heures: '23h–01h UTC', cls: 'text-cyan-400' }
+  if (h < 7) return { label: 'Sydney', heures: '01h–07h UTC', cls: 'text-teal-400' }
+  if (h < 13) return { label: 'London', heures: '07h–13h UTC', cls: 'text-sky-400' }
+  if (h < 16) return { label: 'London/NY Overlap', heures: '13h–16h UTC', cls: 'text-purple-400' }
+  if (h < 22) return { label: 'New York', heures: '16h–22h UTC', cls: 'text-blue-400' }
+  return { label: 'Off-session', heures: '', cls: 'text-gray-500' }
 })
 
 function badgeCategorie(cat: string): string {

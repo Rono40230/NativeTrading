@@ -83,14 +83,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { apiService } from '@/services/api.service'
-import type { SentimentMarche } from '@/services/api.types'
+import { computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useSentimentStore } from '@/stores/sentiment.store'
 
-const data = ref<SentimentMarche | null>(null)
-const chargement = ref(false)
-const erreur = ref(false)
-let intervalle: ReturnType<typeof setInterval> | null = null
+const store = useSentimentStore()
+const { data, chargement, erreur } = storeToRefs(store)
 
 const dateAffichee = computed(() => {
   if (!data.value) return ''
@@ -114,28 +112,6 @@ function couleur(v: number): string {
 function formatPrix(p: number): string {
   return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(p) + ' $'
 }
-
-async function charger() {
-  if (chargement.value) return
-  chargement.value = true
-  erreur.value = false
-  try {
-    data.value = await apiService.obtenirSentimentMarche()
-  } catch {
-    erreur.value = !data.value  // erreur seulement si aucune donnée précédente
-  } finally {
-    chargement.value = false
-  }
-}
-
-onMounted(() => {
-  charger()
-  intervalle = setInterval(charger, 60_000)
-})
-
-onUnmounted(() => {
-  if (intervalle !== null) clearInterval(intervalle)
-})
 </script>
 
 <style scoped>

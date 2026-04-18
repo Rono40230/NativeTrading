@@ -2,7 +2,7 @@
   <div class="glass-card p-5 space-y-4">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-3 min-w-0">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider flex items-center shrink-0">
+        <h2 class="text-xs uppercase font-bold text-white flex items-center shrink-0">
           🤖 Monitoring ML
           <TooltipInfo texte="Suivi de la précision du modèle hybride (LSTM 60% + XGBoost 40%) à chaque entraînement. Le seuil minimal est 60% — en dessous, une dérive est signalée." />
         </h2>

@@ -182,14 +182,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/config",
             web::post().to(crate::config_handlers::post_config),
         )
-        .route("/api/ig/status", web::get().to(crate::handlers::ig_status))
+        .route("/api/ig/status", web::get().to(crate::ig_handlers::ig_status))
         .route(
             "/api/ig/statut-local",
-            web::get().to(crate::handlers::ig_statut_local),
+            web::get().to(crate::ig_handlers::ig_statut_local),
         )
         .route(
             "/api/ig/search",
-            web::get().to(crate::handlers::ig_search_markets),
+            web::get().to(crate::ig_handlers::ig_search_markets),
         )
         .route(
             "/api/calendar",

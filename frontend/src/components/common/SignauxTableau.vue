@@ -134,7 +134,7 @@
           <div class="relative z-10 w-80 rounded-xl border border-red-700/40 bg-[#0f1629] shadow-2xl p-5 flex flex-col gap-4">
             <div class="flex items-center gap-2">
               <span class="text-red-400 text-lg">⚠️</span>
-              <span class="text-white font-semibold text-sm">Confirmer l'annulation</span>
+              <span class="text-xs uppercase font-bold text-white">Confirmer l'annulation</span>
             </div>
             <div class="text-xs text-gray-400 space-y-1">
               <p>Tu vas annuler le trade suivant :</p>

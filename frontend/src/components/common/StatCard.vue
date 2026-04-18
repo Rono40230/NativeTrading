@@ -1,6 +1,6 @@
 <template>
   <div class="glass-card p-4 space-y-3">
-    <h3 class="text-sm font-semibold text-gray-300">{{ titre }}</h3>
+    <h3 class="text-xs uppercase font-bold text-white">{{ titre }}</h3>
     <div v-if="stats" class="grid grid-cols-2 gap-3">
       <div class="text-center">
         <div class="text-2xl font-bold" :class="stats.win_rate >= 55 ? 'text-emerald-400' : stats.win_rate >= 45 ? 'text-yellow-400' : 'text-red-400'">

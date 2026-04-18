@@ -5,7 +5,7 @@
     <div class="glass-card p-4">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Données de marché — IG Markets</h2>
+          <h2 class="text-xs uppercase font-bold text-white">Données de marché — IG Markets</h2>
           <p class="text-xs text-gray-500 mt-0.5">Forex, métaux, indices — compte démo ou live (AMF réglementé)</p>
         </div>
         <div class="flex items-center gap-2">
@@ -71,7 +71,7 @@
     <div class="glass-card p-4">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">IA Vision — Anthropic</h2>
+          <h2 class="text-xs uppercase font-bold text-white">IA Vision — Anthropic</h2>
           <p class="text-xs text-gray-500 mt-0.5">Utilisée pour l'analyse de charts (Chart Import)</p>
         </div>
         <div class="flex items-center gap-2">
@@ -96,7 +96,7 @@
     <div class="glass-card p-4">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Notifications — Telegram</h2>
+          <h2 class="text-xs uppercase font-bold text-white">Notifications — Telegram</h2>
           <p class="text-xs text-gray-500 mt-0.5">Envoi d'un message à chaque nouveau signal validé</p>
         </div>
         <div class="flex items-center gap-2">
@@ -132,7 +132,7 @@
     <div class="glass-card p-4">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Données — Twelve Data</h2>
+          <h2 class="text-xs uppercase font-bold text-white">Données — Twelve Data</h2>
           <p class="text-xs text-gray-500 mt-0.5">Clé API pour les données forex, métaux et indices (Phase 7)</p>
         </div>
         <div class="flex items-center gap-2">

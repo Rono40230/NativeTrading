@@ -134,7 +134,7 @@
             <!-- Diagramme -->
             <div v-else-if="section.type === 'diagram'" class="glass-card overflow-hidden">
               <div class="px-4 py-2 border-b border-white/10">
-                <span class="text-xs font-semibold text-blue-400">📐 Diagramme</span>
+                <span class="text-xs font-semibold text-blue-400">△ Diagramme</span>
               </div>
               <iframe :srcdoc="buildSrcdoc(section.html)" sandbox="allow-scripts" class="w-full border-0 block" style="height:400px;background:#0d1117" title="Diagramme" />
             </div>

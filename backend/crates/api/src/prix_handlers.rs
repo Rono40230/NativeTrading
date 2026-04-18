@@ -14,9 +14,6 @@ pub struct PrixQuery {
     pub assets: String,
 }
 
-/// GET /api/prix?assets=XAUUSD,BTC,EURUSD
-/// Retourne `{ "XAUUSD": 3200.5, "BTC": 85000.0, … }`.
-/// Assets inconnus ou sources inaccessibles sont silencieusement omis.
 pub async fn get_prix(state: web::Data<AppState>, query: web::Query<PrixQuery>) -> impl Responder {
     let client = match prix_utils::client_http() {
         Ok(c) => c,
@@ -27,7 +24,6 @@ pub async fn get_prix(state: web::Data<AppState>, query: web::Query<PrixQuery>) 
         }
     };
 
-    // Validation : uniquement alphanumériques, max 50 assets, noms ≤ 10 chars
     let assets: Vec<String> = query
         .assets
         .split(',')
@@ -36,38 +32,55 @@ pub async fn get_prix(state: web::Data<AppState>, query: web::Query<PrixQuery>) 
         .take(50)
         .collect();
 
-    let ig = state.ig_session.clone();
     let db = state.db.clone();
+    let ig_session = state.ig_session.clone();
+    let mut map: HashMap<String, f64> = HashMap::new();
 
-    let futs: Vec<_> = assets
-        .iter()
+    let mut ig_assets = Vec::new();
+    let mut crypto_assets = Vec::new();
+    for a in &assets {
+        if let Some(epic) = prix_utils::ig_epic_str(a) {
+            ig_assets.push((a.clone(), epic.to_string()));
+        } else {
+            crypto_assets.push(a.clone());
+        }
+    }
+
+    if !ig_assets.is_empty() {
+        let epics: Vec<&str> = ig_assets.iter().map(|(_, e)| e.as_str()).collect();
+        let result_ig = prix_utils::fetch_ig_multi(&client, &ig_session, &db, &epics).await;
+        
+        for (asset, epic) in &ig_assets {
+            if let Some(&p) = result_ig.get(epic) {
+                map.insert(asset.clone(), p);
+            } else if let Some(prix) = prix_utils::dernier_prix_db(asset, &db).await {
+                map.insert(asset.clone(), prix);
+            }
+        }
+    }
+
+    let futs: Vec<_> = crypto_assets
+        .into_iter()
         .map(|asset| {
             let c = client.clone();
-            let a = asset.clone();
-            let ig = ig.clone();
-            let db = db.clone();
             async move {
-                (
-                    a.clone(),
-                    prix_utils::fetch_prix_asset(&c, &a, &ig, &db).await,
-                )
+                (asset.clone(), prix_utils::fetch_binance(&c, &asset).await)
             }
         })
         .collect();
 
     let resultats = join_all(futs).await;
-
-    let map: HashMap<String, f64> = resultats
-        .into_iter()
-        .filter_map(|(asset, prix)| prix.map(|p| (asset, p)))
-        .collect();
+    for (asset, prix) in resultats {
+        if let Some(p) = prix {
+            map.insert(asset, p);
+        } else if let Some(prix_db) = prix_utils::dernier_prix_db(&asset, &db).await {
+            map.insert(asset, prix_db);
+        }
+    }
 
     HttpResponse::Ok().json(map)
 }
 
-// ─── Proxy Binance klines (sparklines) ────────────────────────────────────────
-
-/// Intervalles Binance autorisés (liste blanche)
 const INTERVALS_AUTORISES: &[&str] = &[
     "1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w", "1M",
 ];
@@ -79,8 +92,6 @@ pub struct KlinesQuery {
     pub limit: Option<u32>,
 }
 
-/// GET /api/marche/klines?symbol=BTC&interval=1h&limit=24
-/// Proxifie Binance /api/v3/klines côté backend.
 pub async fn get_klines_crypto(query: web::Query<KlinesQuery>) -> impl Responder {
     let symbol = query.symbol.trim().to_uppercase();
     if symbol.is_empty() || symbol.len() > 10 || !symbol.chars().all(|c| c.is_ascii_alphanumeric())
@@ -113,7 +124,6 @@ pub async fn get_klines_crypto(query: web::Query<KlinesQuery>) -> impl Responder
 
     match client.get(&url).send().await {
         Ok(r) if r.status().is_success() => {
-            // Binance retourne Vec<Vec<serde_json::Value>>, ordre chronologique
             let data: Vec<Vec<serde_json::Value>> = match r.json().await {
                 Ok(d) => d,
                 Err(_) => {

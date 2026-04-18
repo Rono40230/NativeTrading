@@ -1,3 +1,4 @@
+#![allow(unused_variables, dead_code)]
 //! Fetch de prix spot dispatché par type d'asset.
 //! Crypto → Binance | Métaux / Forex / Indices → IG Markets REST
 use std::sync::Arc;
@@ -45,12 +46,8 @@ fn binance_symbol(asset: &str) -> Option<&'static str> {
 }
 
 /// Epic IG pour un asset (string brut).
-fn ig_epic_str(asset: &str) -> Option<&'static str> {
+pub fn ig_epic_str(asset: &str) -> Option<&'static str> {
     match asset {
-        "XAUUSD" => Some("CS.D.CFDGOLD.CFDGC.IP"),
-        "XAGUSD" => Some("CS.D.CFDSILVER.CFDSI.IP"),
-        "XPTUSD" => Some("CS.D.PLATINUM.CFD.IP"),
-        "XPDUSD" => Some("CS.D.PALLADIUM.CFD.IP"),
         "EURUSD" => Some("CS.D.EURUSD.CFD.IP"),
         "GBPUSD" => Some("CS.D.GBPUSD.CFD.IP"),
         "USDJPY" => Some("CS.D.USDJPY.CFD.IP"),
@@ -77,7 +74,7 @@ fn ig_epic_str(asset: &str) -> Option<&'static str> {
 // ── Fonctions fetch internes ─────────────────────────────────────────────────
 
 /// Fetch prix spot Binance.
-async fn fetch_binance(client: &reqwest::Client, symbole: &str) -> Option<f64> {
+pub async fn fetch_binance(client: &reqwest::Client, symbole: &str) -> Option<f64> {
     let url = format!(
         "https://api.binance.com/api/v3/ticker/price?symbol={}",
         symbole
@@ -115,12 +112,18 @@ async fn fetch_ig(
         .json()
         .await
         .ok()?;
-    match (resp.snapshot.bid, resp.snapshot.offer) {
+    let mut p = match (resp.snapshot.bid, resp.snapshot.offer) {
         (Some(b), Some(o)) => Some((b + o) / 2.0),
         (Some(b), None) => Some(b),
         (None, Some(o)) => Some(o),
         _ => None,
+    };
+    if let Some(ref mut price) = p {
+        if epic == "CS.D.CFDSILVER.CFDSI.IP" {
+            *price /= 100.0;
+        }
     }
+    p
 }
 
 // ── API publique ─────────────────────────────────────────────────────────────
@@ -172,4 +175,19 @@ pub fn client_http() -> Result<reqwest::Client, reqwest::Error> {
     reqwest::Client::builder()
         .timeout(Duration::from_millis(1500))
         .build()
+}
+
+pub async fn fetch_ig_multi(
+    client: &reqwest::Client,
+    session: &Arc<Mutex<IgSession>>,
+    db: &Arc<db::Database>,
+    epics: &[&str],
+) -> std::collections::HashMap<String, f64> {
+    let mut results = std::collections::HashMap::new();
+    for epic in epics {
+        if let Some(p) = fetch_ig(client, session, db, epic).await {
+            results.insert(epic.to_string(), p);
+        }
+    }
+    results
 }

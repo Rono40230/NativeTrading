@@ -158,7 +158,7 @@ const phases = [
   { id: 'entree', icon: '↕️', label: 'Entrée simultanée',
     description: 'Deux ordres opposés sont ouverts instantanément.',
     details: ['LONG : SL = ATR × 0.5× / TP1 = ATR × TP1', 'SHORT : miroir symétrique', 'Taille = 1% capital chacun'] },
-  { id: 'gestion', icon: '📐', label: 'Gestion pyramidale',
+  { id: 'gestion', icon: '△', label: 'Gestion pyramidale',
     description: 'La direction validée est conservée sur 3 TP, l\'autre coupée.',
     details: ['TP1 atteint → clôture 50% + trailing', 'TP2 → clôture 30% supplémentaire', 'TP3 → solde final'] },
 ]

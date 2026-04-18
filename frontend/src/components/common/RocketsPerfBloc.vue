@@ -2,7 +2,7 @@
   <div class="glass-card p-4 flex flex-col gap-3 overflow-hidden">
     <!-- En-tête -->
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <span class="text-white font-semibold text-sm">🚀 Performance Rockets</span>
+      <span class="text-xs uppercase font-bold text-white">🚀 Performance Rockets</span>
       <div class="flex items-center gap-3 text-xs">
         <span class="text-gray-500 flex items-center gap-1">
           {{ data?.nb_trades_saisis ?? 0 }} trades clôturés

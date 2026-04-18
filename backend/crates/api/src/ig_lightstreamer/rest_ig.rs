@@ -140,12 +140,25 @@ pub(super) async fn fetch_rest_ig(
                 .or_else(|_| DateTime::parse_from_rfc3339(&b.snapshot_time_utc))
                 .ok()
                 .map(|dt| dt.with_timezone(&Utc))?;
+            
+            let mut o = b.open_price.mid()?;
+            let mut h = b.high_price.mid()?;
+            let mut l = b.low_price.mid()?;
+            let mut c = b.close_price.mid()?;
+            
+            if epic == "CS.D.CFDSILVER.CFDSI.IP" {
+                o /= 100.0;
+                h /= 100.0;
+                l /= 100.0;
+                c /= 100.0;
+            }
+
             Some(Candle {
                 timestamp: ts,
-                open: b.open_price.mid()?,
-                high: b.high_price.mid()?,
-                low: b.low_price.mid()?,
-                close: b.close_price.mid()?,
+                open: o,
+                high: h,
+                low: l,
+                close: c,
                 volume: b.last_traded_volume.unwrap_or(0.0),
             })
         })
