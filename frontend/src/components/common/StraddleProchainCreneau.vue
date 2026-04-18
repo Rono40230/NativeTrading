@@ -62,8 +62,16 @@ const topAtr = computed(() =>
 
 async function chargerAtr() {
   chargementAtr.value = true
+  const estWeekend = new Date().getUTCDay() === 0 || new Date().getUTCDay() === 6
+  
+  // On ne charge pas l'ATR des actifs fermés le weekend
+  const actifsACharger = assetsStore.assets.filter(a => {
+    if (estWeekend) return a.type === 'crypto' || a.id.includes('BTC') || a.id.includes('ETH')
+    return true
+  })
+
   const resultats = await Promise.allSettled(
-    assetsStore.assets.map(a => apiService.getCandles(a.id, 'M15', 80).then(c => ({ asset: a.id, c })))
+    actifsACharger.map(a => apiService.getCandles(a.id, 'M15', 80).then(c => ({ asset: a.id, c })))
   )
   const nouveaux: Record<string, number> = {}
   for (const r of resultats) {

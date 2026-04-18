@@ -1,21 +1,31 @@
 <template>
   <div class="glass-bar px-4 py-2.5 flex flex-col gap-2 h-full overflow-y-auto">
-    <span class="text-xs font-semibold uppercase tracking-widest text-white shrink-0">🕐 Créneaux</span>
-
     <!-- Meilleure fenêtre du jour -->
-    <section v-if="fenDujour" class="border-b border-white/5 pb-1.5 shrink-0">
-      <div class="flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold text-orange-300">
-        📅 {{ jourLabel }}
-        <span v-if="estAujourdHui"
-          class="ml-auto bg-blue-600/30 border border-blue-500/40 px-1.5 rounded text-blue-300 normal-case tracking-normal">Aujourd'hui</span>
+    <section class="border-b border-white/5 pb-2 shrink-0 flex flex-col gap-1.5 mt-1">
+      <div class="flex items-center justify-between shrink-0">
+        <span class="text-xs font-semibold uppercase tracking-widest text-white">🕐 Créneaux</span>
+        <span class="bg-blue-600/30 border border-blue-500/40 px-1.5 rounded text-[10px] text-blue-300">Aujourd'hui</span>
       </div>
-      <div class="flex items-center gap-2 text-[11px] mt-0.5">
+      
+      <div v-if="chargementHeatmap && !classementVolatiliteJour.length" class="text-[10px] text-gray-500 italic mt-1">Analyse historique en cours...</div>
+      <div v-else-if="!classementVolatiliteJour.length" class="text-[10px] text-gray-500 italic mt-1">Aucune donnée historique trouvée.</div>
+      <div v-else class="flex flex-col gap-1 mt-1">
+        <div v-for="(res, idx) in classementVolatiliteJour" :key="res.asset" class="flex items-center justify-between text-[10px] bg-orange-900/10 border border-orange-500/10 px-2 py-1 rounded">
+          <span class="text-gray-400">
+            <span v-if="idx === 0">🔥</span><span v-else class="opacity-50">#{{ idx + 1 }}</span>
+            <span class="text-white font-medium ml-1">{{ res.asset }}</span> : 
+            <span class="text-orange-400 font-bold ml-0.5">{{ res.heuresFormatees }}</span>
+          </span>
+          <span :class="res.maxCluster === 3 ? 'text-red-400 font-semibold' : res.maxCluster === 2 ? 'text-orange-400 font-semibold' : res.maxCluster === 1 ? 'text-yellow-500' : 'text-gray-500'">
+            {{ NOM_CLUSTER[res.maxCluster] || 'Niv. '+res.maxCluster }}
+          </span>
+        </div>
+      </div>
+      
+      <div v-if="fenDujour" class="flex items-center gap-2 text-[11px] mt-1 pt-1 border-t border-white/5">
+        <span class="text-gray-400">Créneau programmé :</span>
         <span class="font-bold text-white">{{ fenDujour.asset }}</span>
-        <span class="text-gray-500">{{ fenDujour.heure_debut }}–{{ fenDujour.heure_fin }}</span>
-        <span v-if="fenDujour.backtest_winrate !== null" class="ml-auto">
-          WR <span :class="fenDujour.backtest_winrate >= 60 ? 'text-emerald-400' : 'text-yellow-400'"
-            class="font-semibold">{{ fenDujour.backtest_winrate }}%</span>
-        </span>
+        <span class="text-gray-500">{{ fenDujour.heure_debut }}–{{ fenDujour.heure_fin }} Paris</span>
       </div>
     </section>
 
@@ -43,10 +53,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { apiService } from '@/services/api.service'
 import { useAssetsStore } from '@/stores/assets.store'
-import type { StraddleCreneau } from '@/services/api.types'
+import type { StraddleCreneau, ReponsePatternsVolatilite, PatternHoraire } from '@/services/api.types'
 
 const JOURS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
 
@@ -71,7 +81,97 @@ const fenDujour = computed<StraddleCreneau | null>(() => {
   )[0]
 })
 
-const estAujourdHui = computed(() => fenDujour.value?.jour_semaine === jourUTCAujourdhui.value)
+const reponsesHeatmap = ref<Record<string, ReponsePatternsVolatilite>>({})
+const chargementHeatmap = ref(false)
+
+watch(() => assetsStore.assets.filter(a => a.actif).map(a => a.id), async (actifs) => {
+  if (!actifs.length) return
+  chargementHeatmap.value = true
+  
+  await Promise.allSettled(actifs.map(async (asset) => {
+    if (!reponsesHeatmap.value[asset]) {
+      try {
+        reponsesHeatmap.value[asset] = await apiService.obtenirPatternsVolatilite(asset, 'M15', 12)
+      } catch (e) {
+        console.error(`Erreur chargement heatmap ${asset}`, e)
+      }
+    }
+  }))
+  
+  chargementHeatmap.value = false
+}, { immediate: true, deep: true })
+
+function decalageParis(): 1 | 2 {
+  const maintenant = new Date()
+  const hParis = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(maintenant))
+  const hUtc = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', hour: 'numeric', hour12: false }).format(maintenant))
+  return ((hParis - hUtc + 24) % 24) === 2 ? 2 : 1
+}
+
+const DECALAGE_PARIS = decalageParis()
+
+function heureParis(heureUtc: number): number {
+  return (heureUtc + DECALAGE_PARIS) % 24
+}
+
+function formaterHeures(heuresUtc: number[]): string {
+  if (!heuresUtc.length) return ''
+  const heuresFormatteesParis = heuresUtc.map(h => heureParis(h)).sort((a, b) => a - b)
+  
+  const blocs: string[] = []
+  let debut = heuresFormatteesParis[0]
+  let fin = heuresFormatteesParis[0]
+
+  for (let i = 1; i < heuresFormatteesParis.length; i++) {
+    if (heuresFormatteesParis[i] === fin + 1) {
+      fin = heuresFormatteesParis[i]
+    } else {
+      blocs.push(debut === fin ? `${debut}h` : `${debut}h-${fin}h`)
+      debut = heuresFormatteesParis[i]
+      fin = heuresFormatteesParis[i]
+    }
+  }
+  blocs.push(debut === fin ? `${debut}h` : `${debut}h-${fin}h`)
+  return blocs.join(', ') + ' Paris'
+}
+
+type ClassementJour = {
+  asset: string
+  maxCluster: number
+  heuresFormatees: string
+}
+
+const NOM_CLUSTER = ['Calme', 'Modéré', 'Élevé', 'Extrême']
+
+const classementVolatiliteJour = computed<ClassementJour[]>(() => {
+  const d = jourUTCAujourdhui.value
+  const actifs = assetsStore.assets.filter(a => a.actif).map(a => a.id)
+  const resultats: ClassementJour[] = []
+
+  for (const asset of actifs) {
+    const rep = reponsesHeatmap.value[asset]
+    if (!rep) continue
+    const pts = rep.patterns.filter(p => p.jour_semaine === d && p.nb_points > 0)
+    if (!pts.length) continue
+
+    const topPts = [...pts].sort((a, b) => b.cluster - a.cluster || b.atr_moyen - a.atr_moyen)
+    const maxCluster = topPts[0].cluster
+
+    // On conserve les 4 meilleures heures (départagées par l'ATR max pour éviter d'afficher 0h-23h)
+    const meilleuresHeures = topPts
+      .slice(0, 4)
+      .map(p => p.heure)
+
+    resultats.push({
+      asset,
+      maxCluster,
+      heuresFormatees: formaterHeures(meilleuresHeures)
+    })
+  }
+
+  // Tri par intensité du cluster maximal, puis par nom d'actif
+  return resultats.sort((a, b) => b.maxCluster - a.maxCluster || a.asset.localeCompare(b.asset))
+})
 
 function secondesAvant(c: StraddleCreneau): number {
   const [hd, md] = c.heure_debut.split(':').map(Number)
