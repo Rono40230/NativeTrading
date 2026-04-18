@@ -52,9 +52,6 @@
         :prix-actuels="prixActuels"
         :tri-colonne="triColonne"
         :tri-dir="triDir"
-        :show-prix-actuel="filtreStatut !== 'cloturees'"
-        :show-sortie="filtreStatut !== 'en_cours'"
-        :show-ferme-le="true"
         @trier-par="trierPar"
       />
 

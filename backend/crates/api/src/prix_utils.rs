@@ -75,9 +75,14 @@ pub fn ig_epic_str(asset: &str) -> Option<&'static str> {
 
 /// Fetch prix spot Binance.
 pub async fn fetch_binance(client: &reqwest::Client, symbole: &str) -> Option<f64> {
+    let sym = if symbole.ends_with("USDT") {
+        symbole.to_string()
+    } else {
+        format!("{}USDT", symbole)
+    };
     let url = format!(
         "https://api.binance.com/api/v3/ticker/price?symbol={}",
-        symbole
+        sym
     );
     let resp: BinancePrix = client.get(&url).send().await.ok()?.json().await.ok()?;
     resp.price.parse::<f64>().ok()
