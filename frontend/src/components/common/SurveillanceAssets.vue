@@ -1,13 +1,13 @@
 <template>
   <!-- Bloc Surveillance Assets — liste compacte 1 asset/ligne -->
-  <div class="glass-card p-4 flex flex-col gap-3 h-full overflow-hidden">
+  <div class="glass-card p-4 flex flex-col gap-3 overflow-hidden">
     <!-- Titre -->
     <div class="flex items-center justify-between shrink-0">
       <span class="text-xs uppercase font-bold text-white">&#128208; Surveillance Assets</span>
     </div>
     <!-- Liste -->
     <div v-if="chargement && assets.length === 0" class="flex-1 flex flex-col gap-1 overflow-hidden">
-      <div v-for="n in 6" :key="n" class="h-4 rounded bg-white/5 animate-pulse" />
+      <div v-for="n in 5" :key="n" class="h-4 rounded bg-white/5 animate-pulse" />
     </div>
     <div v-else class="flex-1 flex flex-col gap-0.5 overflow-y-auto min-h-0">
       <div

@@ -20,7 +20,7 @@ export const apiSmcMethods = {
 
   async getSmcEquity(capital = 10000, risk_pct = 0.015): Promise<{
     capital_initial: number; risk_pct: number; nb_trades_saisis: number
-    points: { asset: string; verdict: string; pnl_r: number; equity_cumulee: number; ferme_le: number }[]
+    points: { asset: string; verdict: string; pnl_r: number; equity_cumulee: number; ferme_le: number; duree_min: number }[]
   }> {
     const res = await http.get('/api/smc/equity', { params: { capital, risk_pct } })
     return res.data

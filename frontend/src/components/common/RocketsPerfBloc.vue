@@ -2,7 +2,7 @@
   <div class="glass-card p-4 flex flex-col gap-3 overflow-hidden">
     <!-- En-tête -->
     <div class="flex items-center justify-between flex-wrap gap-2">
-      <span class="text-xs uppercase font-bold text-white">🚀 Performance Rockets</span>
+      <span class="text-xs uppercase font-bold text-white">🚀 Métriques</span>
       <div class="flex items-center gap-3 text-xs">
         <span class="text-gray-500 flex items-center gap-1">
           {{ data?.nb_trades_saisis ?? 0 }} trades clôturés
@@ -23,85 +23,74 @@
         ⚠️ {{ data.points.length }} trades — statistiques non significatives (&lt; 100 requis)
       </div>
 
-      <!-- Ligne 1 : métriques principales -->
-      <div class="grid grid-cols-5 divide-x divide-white/[0.08]">
-        <div class="flex flex-col gap-0.5 px-3 first:pl-0">
-          <span class="text-gray-500 text-xs flex items-center gap-1">Capital net
-            <TooltipIcon>Frais estimés à 0.2% aller-retour par trade sur le montant risqué</TooltipIcon>
-          </span>
-          <span class="font-mono font-bold" :class="capitalNet >= data.capital_initial ? 'text-emerald-400' : 'text-red-400'">
+      <!-- Métriques repensées Ergonomie -->
+      <div class="grid grid-cols-5 gap-y-4 gap-x-2 pt-2">
+        <div class="flex flex-col gap-0.5 bg-white/5 p-2 rounded-lg relative overflow-hidden">
+          <div class="absolute right-0 top-0 bottom-0 w-1 bg-emerald-500/20"></div>
+          <span class="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Capital Net</span>
+          <span class="font-mono font-bold text-sm" :class="capitalNet >= data.capital_initial ? 'text-emerald-400' : 'text-red-400'">
             {{ formatEuro(capitalNet) }}
-            <span class="text-xs font-normal text-gray-400">{{ pctNet >= 0 ? '+' : '' }}{{ pctNet.toFixed(1) }}%</span>
+            <span class="text-[9px] font-normal text-gray-500">{{ pctNet >= 0 ? '+' : '' }}{{ pctNet.toFixed(1) }}%</span>
           </span>
         </div>
-        <div class="flex flex-col gap-0.5 px-3">
-          <span class="text-gray-500 text-xs flex items-center gap-1">WR
-            <TooltipIcon>IC 95% : intervalle de confiance Wilson</TooltipIcon>
-          </span>
-          <span class="font-mono font-bold" :class="winRate >= 0.5 ? 'text-emerald-400' : 'text-red-400'">
-            {{ Math.round(winRate * 100) }}%
-            <span class="text-gray-500 text-xs">±{{ icWr }}%</span>
+        <div class="flex flex-col gap-0.5 bg-white/5 p-2 rounded-lg">
+          <span class="text-gray-400 text-[10px] uppercase font-bold tracking-wider flex items-center gap-1">Win Rate <TooltipIcon>Wilson IC 95%</TooltipIcon></span>
+          <span class="font-mono font-bold text-sm" :class="winRate >= 0.5 ? 'text-emerald-400' : 'text-red-400'">
+            {{ Math.round(winRate * 100) }}% <span class="text-[9px] text-gray-500 font-normal">±{{ icWr }}%</span>
           </span>
         </div>
-        <div class="flex flex-col gap-0.5 px-3">
-          <span class="text-gray-500 text-xs">G / P</span>
-          <span class="font-mono text-sm">
-            <span class="text-emerald-400">{{ nbGagnants }}</span>
-            <span class="text-gray-600"> / </span>
-            <span class="text-red-400">{{ nbPerdants }}</span>
+        <div class="flex flex-col gap-0.5 bg-white/5 p-2 rounded-lg">
+          <span class="text-gray-400 text-[10px] uppercase font-bold tracking-wider">Ratio G/P</span>
+          <span class="font-mono font-bold text-sm">
+            <span class="text-emerald-400">{{ nbGagnants }}</span><span class="text-gray-600 px-1">/</span><span class="text-red-400">{{ nbPerdants }}</span>
           </span>
         </div>
-        <div class="flex flex-col gap-0.5 px-3">
-          <span class="text-gray-500 text-xs flex items-center gap-1">Profit Factor
-            <TooltipIcon>Gains R totaux ÷ pertes R totales. &gt;1.5 = acceptable, &gt;2 = bon</TooltipIcon>
-          </span>
-          <span class="font-mono text-sm" :class="profitFactor >= 1.5 ? 'text-emerald-400' : profitFactor >= 1 ? 'text-yellow-400' : 'text-red-400'">
+        <div class="flex flex-col gap-0.5 bg-white/5 p-2 rounded-lg relative overflow-hidden">
+           <div class="absolute right-0 top-0 bottom-0 w-1" :class="profitFactor >= 1.5 ? 'bg-emerald-500/30' : 'bg-red-500/30'"></div>
+          <span class="text-gray-400 text-[10px] uppercase font-bold tracking-wider flex items-center gap-1">Profit Fact <TooltipIcon>Gains / Pertes</TooltipIcon></span>
+          <span class="font-mono font-bold text-sm" :class="profitFactor >= 1.5 ? 'text-emerald-400' : profitFactor >= 1 ? 'text-yellow-400' : 'text-red-400'">
             {{ profitFactor === Infinity ? '∞' : profitFactor.toFixed(2) }}
           </span>
         </div>
-        <div class="flex flex-col gap-0.5 px-3">
-          <span class="text-gray-500 text-xs flex items-center gap-1">Expectancy
-            <TooltipIcon>Gain moyen par trade en R. Positif = stratégie profitable à long terme</TooltipIcon>
+        <div class="flex flex-col gap-0.5 bg-white/5 p-2 rounded-lg">
+          <span class="text-gray-400 text-[10px] uppercase font-bold tracking-wider flex items-center gap-1">Trades BE <TooltipIcon>Fermés sans gain ni perte significative</TooltipIcon></span>
+          <span class="font-mono font-bold text-sm text-gray-300">
+            {{ nbBE }} <span class="text-gray-500 text-[9px] font-normal font-sans tracking-tight">Neutres</span>
           </span>
-          <span class="font-mono text-sm" :class="expectancy >= 0 ? 'text-emerald-400' : 'text-red-400'">
+        </div>
+
+        <div class="flex flex-col gap-0.5 bg-white/5 p-2 rounded-lg">
+          <span class="text-gray-400 text-[10px] uppercase font-bold tracking-wider flex items-center gap-1">Expectancy <TooltipIcon>Gain moy par trade (R)</TooltipIcon></span>
+          <span class="font-mono font-bold text-sm" :class="expectancy >= 0 ? 'text-emerald-400' : 'text-red-400'">
             {{ expectancy >= 0 ? '+' : '' }}{{ expectancy.toFixed(2) }}R
           </span>
         </div>
-      </div>
-
-      <!-- Ligne 2 : métriques secondaires -->
-      <div class="grid grid-cols-6 divide-x divide-white/[0.08] border-t border-white/5 pt-2">
-        <div class="flex flex-col gap-0.5 px-3 first:pl-0">
-          <span class="text-gray-500 text-xs">R moy. wins</span>
-          <span class="font-mono text-xs text-emerald-300">+{{ avgRWins.toFixed(2) }}R</span>
-        </div>
-        <div class="flex flex-col gap-0.5 px-3">
-          <span class="text-gray-500 text-xs">R moy. pertes</span>
-          <span class="font-mono text-xs text-red-300">{{ avgRLosses.toFixed(2) }}R</span>
-        </div>
-        <div class="flex flex-col gap-0.5 px-3">
-          <span class="text-gray-500 text-xs flex items-center gap-1">ROI annualisé
-            <TooltipIcon>Projection sur 1 an. Fiable seulement sur &gt;30 jours de données</TooltipIcon>
-          </span>
-          <span class="font-mono text-xs" :class="(roiAnnualise ?? 0) >= 0 ? 'text-emerald-300' : 'text-red-300'">
+        <div class="flex flex-col gap-0.5 bg-white/5 p-2 rounded-lg">
+          <span class="text-gray-400 text-[10px] uppercase font-bold tracking-wider flex items-center gap-1">ROI Ann. <span v-if="roiAnnualise !== null && nbJours < 30" class="text-yellow-500 text-[9px]">⚠️</span></span>
+          <span class="font-mono font-bold text-sm" :class="(roiAnnualise ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
             <template v-if="roiAnnualise === null">N/A</template>
-            <template v-else>{{ roiAnnualise >= 0 ? '+' : '' }}{{ Math.round(roiAnnualise) }}%/an</template>
-            <span v-if="roiAnnualise !== null && nbJours < 30" class="text-yellow-500"> ⚠️</span>
+            <template v-else>{{ Math.round(roiAnnualise) }}%/an</template>
           </span>
         </div>
-        <div class="flex flex-col gap-0.5 px-3">
-          <span class="text-gray-500 text-xs flex items-center gap-1">Max DD
-            <TooltipIcon>Pire chute du capital simulé depuis un sommet, en %</TooltipIcon>
+        <div class="flex flex-col gap-0.5 bg-white/5 p-2 rounded-lg relative overflow-hidden">
+          <div class="absolute right-0 top-0 bottom-0 w-1 bg-red-500/20"></div>
+          <span class="text-gray-400 text-[10px] uppercase font-bold tracking-wider flex items-center gap-1">Max DD <TooltipIcon>Max Drawdown (%)</TooltipIcon></span>
+          <span class="font-mono font-bold text-sm text-red-300">-{{ maxDrawdownPct.toFixed(1) }}%</span>
+        </div>
+        <div class="flex flex-col gap-0.5 bg-white/5 p-2 rounded-lg">
+          <span class="text-gray-400 text-[10px] uppercase font-bold tracking-wider flex items-center gap-1">Durée Trade <TooltipIcon>Temps moyen en position</TooltipIcon></span>
+          <span class="font-mono font-bold text-sm text-gray-300">
+            {{ dureeMoyenne }}
           </span>
-          <span class="font-mono text-xs text-red-300">-{{ maxDrawdownPct.toFixed(1) }}%</span>
         </div>
-        <div class="flex flex-col gap-0.5 px-3">
-          <span class="text-gray-500 text-xs">Durée moy.</span>
-          <span class="font-mono text-xs text-gray-300">{{ dureeMoyenne }}</span>
-        </div>
-        <div class="flex flex-col gap-0.5 px-3">
-          <span class="text-gray-500 text-xs">Frais est.</span>
-          <span class="font-mono text-xs text-orange-300">-{{ formatEuro(fraisEstimes) }}</span>
+        <div class="flex flex-col gap-px bg-white/5 p-2 rounded-lg relative overflow-hidden">
+          <span class="text-gray-400 text-[10px] uppercase font-bold tracking-wider flex items-center gap-1">Frais simulés <TooltipIcon>Basé sur une estimation de 0.2% par transaction</TooltipIcon></span>
+          <span class="font-mono font-bold text-xs text-orange-400/90 leading-tight">
+            -{{ formatEuro(fraisEstimes) }}
+          </span>
+          <span class="text-[8px] text-gray-500 font-sans tracking-tight">
+            {{ formatEuro((data?.capital_initial ?? 10000) * (data?.risk_pct ?? 0.015) * FRAIS_RT) }}/tr x {{ data?.points.length ?? 0 }} tr
+          </span>
         </div>
       </div>
     </template>
@@ -133,8 +122,15 @@ const pctNet = computed(() => {
 const nbGagnants = computed(() =>
   data.value?.points.filter(p => p.verdict.startsWith('tp')).length ?? 0
 )
+const nbBE = computed(() =>
+  data.value?.points.filter(p =>
+    p.verdict.toLowerCase().includes('be') ||
+    p.verdict.toLowerCase().includes('neutre') ||
+    p.pnl_r === 0
+  ).length ?? 0
+)
 const nbPerdants = computed(() =>
-  data.value ? data.value.points.length - nbGagnants.value : 0
+  data.value ? data.value.points.length - nbGagnants.value - nbBE.value : 0
 )
 const winRate = computed(() => {
   const n = data.value?.points.length ?? 0

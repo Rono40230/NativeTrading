@@ -10,6 +10,7 @@ pub struct EquityPoint {
     pub pnl_r: f64,
     pub equity_cumulee: f64,
     pub ferme_le: i64,
+    pub duree_min: i64,
 }
 
 /// Retourne la série equity simulée depuis `straddle_feedback` (trades clôturés avec pnl_r).
@@ -19,7 +20,7 @@ pub async fn courbe_equity(
     risk_montant: f64,
 ) -> Result<Vec<EquityPoint>> {
     let rows = sqlx::query(
-        "SELECT asset, LOWER(verdict) as verdict, pnl_r, ferme_le
+        "SELECT asset, LOWER(verdict) as verdict, pnl_r, ferme_le, duree_trade_min
          FROM straddle_feedback
          WHERE verdict IS NOT NULL
            AND pnl_r IS NOT NULL
@@ -42,6 +43,7 @@ pub async fn courbe_equity(
             pnl_r,
             equity_cumulee: equity,
             ferme_le: r.get::<Option<i64>, _>("ferme_le").unwrap_or(0),
+            duree_min: r.get::<Option<i64>, _>("duree_trade_min").unwrap_or(0),
         });
     }
 

@@ -1,14 +1,14 @@
 <template>
-  <div class="glass-card p-5 relative overflow-hidden shrink-0">
+  <div class="glass-card py-1.5 px-3 relative overflow-hidden shrink-0 flex items-center justify-center">
     <WorldMapBg />
-    <div class="grid grid-cols-2 gap-5 lg:grid-cols-5 relative">
-      <div v-for="session in sessions" :key="session.nom" class="flex flex-col items-center gap-1.5">
+    <div class="grid grid-cols-2 gap-2 lg:grid-cols-5 relative w-full">
+      <div v-for="session in sessions" :key="session.nom" class="flex flex-col items-center gap-0">
 
         <!-- Nom de la place au-dessus -->
-        <span class="text-sm font-bold" :class="session.labelCouleur">{{ session.nom }}</span>
+        <span class="text-[11px] font-extrabold uppercase tracking-wider mb-1" :class="session.labelCouleur">{{ session.nom }}</span>
 
         <!-- Cadran analogique SVG -->
-        <svg viewBox="0 0 100 100" class="w-28 h-28 drop-shadow-xl">
+        <svg viewBox="0 0 100 100" class="w-14 h-14 drop-shadow-xl mb-1">
           <!-- Fond -->
           <circle cx="50" cy="50" r="45" :fill="session.bgFill" />
           <!-- Anneau statut -->
@@ -38,13 +38,13 @@
         </svg>
 
         <!-- Infos sous le cadran -->
-        <div class="flex flex-col items-center gap-0.5 text-center w-full">
-          <div class="flex items-center justify-center gap-1.5 flex-wrap">
-            <span class="text-[10px] font-bold" :class="session.badgeCouleur">{{ session.statutCourt }}</span>
-            <span v-if="session.countdown" class="text-[10px] font-semibold" :class="session.countdownCouleur">{{ session.countdown }}</span>
+        <div class="flex flex-col items-center gap-0 text-center w-full">
+          <div class="flex items-center justify-center gap-1 flex-wrap">
+            <span class="text-[8px] font-bold" :class="session.badgeCouleur">{{ session.statutCourt }}</span>
+            <span v-if="session.countdown" class="text-[8px] font-semibold" :class="session.countdownCouleur">{{ session.countdown }}</span>
           </div>
-          <span class="text-base font-mono font-bold tabular-nums leading-tight" :class="session.heureCouleur">{{ session.heureLocale }}</span>
-          <div class="text-[9px] leading-tight flex items-center justify-center gap-1.5 flex-wrap">
+          <span class="text-sm font-mono font-bold tabular-nums leading-none" :class="session.heureCouleur">{{ session.heureLocale }}</span>
+          <div class="text-[8px] leading-tight flex items-center justify-center gap-1 flex-wrap">
             <span class="text-gray-600">{{ session.plageLocale }}</span>
             <span class="text-blue-300/60">🇫🇷 {{ session.plageParis }}</span>
           </div>
