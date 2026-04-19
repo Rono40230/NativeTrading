@@ -130,6 +130,7 @@ impl PipelineML {
         bougies: &[Candle],
         horizon: usize,
         seuil_pct: f64,
+        use_gpu: bool,
     ) -> Result<(f64, f64)> {
         tracing::info!(
             "Entraînement hybride XGBoost+LSTM sur {} bougies",
@@ -162,7 +163,7 @@ impl PipelineML {
 
         // GPU : cuDNN accéléré (RTX 3090). CPU fallback : plafond 5000 séquences.
         #[cfg(feature = "cuda")]
-        let acc_lstm = if tch::Cuda::is_available() {
+        let acc_lstm = if use_gpu && tch::Cuda::is_available() {
             match lstm::entrainement_gpu::entrainer_sur_gpu(
                 &mut self.lstm, &seq_total, &labels_seq_total, 15, 0.001,
             ) {

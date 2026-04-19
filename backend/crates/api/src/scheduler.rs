@@ -90,10 +90,7 @@ pub async fn executer_entrainements_tous(
             let asset_str = asset_str.to_string();
             let tf_str = tf_str.to_string();
             async move {
-                if let Some(ref s) = progress_state {
-                    let mut g = s.write().await;
-                    g.nb_combinaisons_done = i;
-                }
+
                 let asset = match parse_asset(&asset_str) {
                     Some(a) => a,
                     None => {
@@ -127,42 +124,34 @@ pub async fn executer_entrainements_tous(
 
                 // Walk-forward est CPU-intensif (LSTM + XGBoost) — spawn_blocking évite de bloquer le runtime
                 let bougies_clone = bougies.clone();
-                let wf = match tokio::task::spawn_blocking(move || entrainer_walk_forward(&bougies_clone))
-                    .await
+                let (wf, new_xgb, new_lstm) = match tokio::task::spawn_blocking(move || {
+                    let wf_result = ml::walk_forward::entrainer_walk_forward(&bougies_clone)
+                        .map_err(|e| format!("Walk-forward: {}", e))?;
+                        
+                    let mut pipeline_locale = ml::PipelineML::new();
+                    pipeline_locale.entrainer_sur_historique(&bougies_clone, 5, 0.002, false)
+                        .map_err(|e| format!("Entraînement historique: {}", e))?;
+                        
+                    Ok::<_, String>((wf_result, pipeline_locale.xgb, pipeline_locale.lstm))
+                })
+                .await
                 {
                     Ok(Ok(r)) => r,
                     Ok(Err(e)) => {
-                        tracing::error!(
-                            "Scheduler ML: {}/{} — walk-forward échoué: {}",
-                            asset_str,
-                            tf_str,
-                            e
-                        );
+                        tracing::error!("Scheduler ML: {}/{} — ML échoué: {}", asset_str, tf_str, e);
                         return;
                     }
                     Err(e) => {
-                        tracing::error!(
-                            "Scheduler ML: {}/{} — spawn_blocking échoué: {}",
-                            asset_str,
-                            tf_str,
-                            e
-                        );
+                        tracing::error!("Scheduler ML: {}/{} — spawn_blocking échoué: {}", asset_str, tf_str, e);
                         return;
                     }
                 };
 
                 {
-                    // Update du modèle global avec les poids locaux.
+                    // Affectation instantanée (0.1ms) pour ne pas bloquer le wrapper Tokio
                     let mut pipeline = pipeline_ml.lock().await;
-                    if let Err(e) = pipeline.entrainer_sur_historique(&bougies, 5, 0.002) {
-                        tracing::error!(
-                            "Scheduler ML: {}/{} — entraînement échoué: {}",
-                            asset_str,
-                            tf_str,
-                            e
-                        );
-                        return;
-                    }
+                    pipeline.xgb = new_xgb;
+                    pipeline.lstm = new_lstm;
                 }
 
                 let duree_ms = debut.elapsed().as_millis() as i64;
@@ -191,7 +180,7 @@ pub async fn executer_entrainements_tous(
                 } else {
                     if let Some(ref s) = progress_state {
                         let mut g = s.write().await;
-                        g.nb_combinaisons_done = i + 1;
+                        g.nb_combinaisons_done += 1;
                     }
                     tracing::info!(
                         "✅ {}/{} — {}ms | {}/{} bougies | XGB={:.1}% LSTM={:.1}% Finale={:.1}%{}",
@@ -208,7 +197,7 @@ pub async fn executer_entrainements_tous(
                 }
             }
         })
-        .buffer_unordered(4);
+        .buffer_unordered(20);
 
     while let Some(_) = stream.next().await {}
 }
