@@ -137,21 +137,15 @@ impl PipelineML {
         );
         let debut = Instant::now();
 
-        let mut features_dataset = Vec::new();
-        let mut labels = Vec::new();
-
-        for i in 60..bougies.len() {
-            let f = match extraire_features(&bougies[..=i]) {
-                Some(f) => f,
-                None => continue,
-            };
-            let label = match labelliser(bougies, i, horizon, seuil_pct) {
-                Some(l) => l,
-                None => continue,
-            };
-            features_dataset.push(f);
-            labels.push(label);
-        }
+        use rayon::prelude::*;
+        let (features_dataset, labels): (Vec<_>, Vec<_>) = (60..bougies.len())
+            .into_par_iter()
+            .filter_map(|i| {
+                let f = extraire_features(&bougies[..=i])?;
+                let label = labelliser(bougies, i, horizon, seuil_pct)?;
+                Some((f, label))
+            })
+            .unzip();
 
         if features_dataset.is_empty() {
             return Err(TradingError::ML("Aucun échantillon valide".into()));

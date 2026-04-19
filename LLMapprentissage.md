@@ -12,8 +12,8 @@
 ### Ce qui est fait
 - LSTM inférence : GPU (tch/LibTorch CUDA) ✅
 - LSTM entraînement : GPU (cuDNN via tch) ✅
+- Extraction de features : CPU, multi-cœurs (Rayon) ✅
 - XGBoost : CPU, 1 cœur, librairie Rust pure (smartcore)
-- Extraction de features : CPU, 1 cœur, boucle séquentielle
 - Réentraînement : 58 combinaisons traitées **une par une**, séquentiellement
 
 ### Conséquence
@@ -68,10 +68,10 @@ Partie XGBoost : de ~120s/combinaison à ~2s/combinaison.
 
 ---
 
-### Niveau 3 — Extraction de features parallèle (Rayon/Polars)
+### Niveau 3 — Extraction de features parallèle (Rayon/Polars) ✅ TERMINE
 **Gain estimé : ×8 à ×15 sur l'extraction**
 **Risque : faible (module isolé)**
-**Priorité : Phase 3, avant Niveau 1**
+**Statut : Implémenté dans `ml/src/lib.rs` et `walk_forward.rs` via `rayon::par_iter**
 
 #### Principe
 La boucle `for i in 60..bougies.len()` qui calcule ATR/RSI/MACD/etc. sur 50k bougies
@@ -91,7 +91,7 @@ Extraction 50k bougies : de ~20s à ~2s par combinaison.
 
 ```
 Phase 3 (après stabilisation stratégies) :
-  1. Niveau 3 — Feature extraction parallèle (faible risque, bon gain)
+  1. ~~Niveau 3 — Feature extraction parallèle (faible risque, bon gain)~~ ✅ Fait
   2. Niveau 1 — Rayon sur les 58 combinaisons (risque modéré, gain ×10)
 
 Phase 4 (production stable) :
