@@ -4,6 +4,7 @@ use db::Database;
 use ml::{walk_forward::entrainer_walk_forward, PipelineML};
 use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
+use futures_util::stream::{self, StreamExt};
 use tokio::time::{sleep, Duration};
 
 use crate::ml_retrain_handler::RetainState;
@@ -81,123 +82,135 @@ pub async fn executer_entrainements_tous(
         g.nb_combinaisons_done = 0;
     }
 
-    for (i, (asset_str, tf_str)) in combinaisons.into_iter().enumerate() {
-        if let Some(ref s) = progress_state {
-            let mut g = s.write().await;
-            g.nb_combinaisons_done = i;
-        }
-        let asset = match parse_asset(&asset_str) {
-            Some(a) => a,
-            None => {
-                tracing::warn!("Scheduler ML: asset inconnu '{}' — ignoré", asset_str);
-                continue;
-            }
-        };
-        let timeframe = parse_timeframe(&tf_str);
+    let mut stream = stream::iter(combinaisons.into_iter().enumerate())
+        .map(|(i, (asset_str, tf_str))| {
+            let db = db.clone();
+            let pipeline_ml = pipeline_ml.clone();
+            let progress_state = progress_state.clone();
+            let asset_str = asset_str.to_string();
+            let tf_str = tf_str.to_string();
+            async move {
+                if let Some(ref s) = progress_state {
+                    let mut g = s.write().await;
+                    g.nb_combinaisons_done = i;
+                }
+                let asset = match parse_asset(&asset_str) {
+                    Some(a) => a,
+                    None => {
+                        tracing::warn!("Scheduler ML: asset inconnu '{}' — ignoré", asset_str);
+                        return;
+                    }
+                };
+                let timeframe = parse_timeframe(&tf_str);
 
-        let bougies = match db.obtenir_bougies_toutes(&asset, &timeframe).await {
-            Ok(b) if b.len() >= MIN_BOUGIES_ENTRAINEMENT as usize => b,
-            Ok(b) => {
-                tracing::warn!(
-                    "Scheduler ML: {}/{} — {} bougies insuffisantes",
-                    asset_str,
-                    tf_str,
-                    b.len()
-                );
-                continue;
-            }
-            Err(e) => {
-                tracing::error!("Scheduler ML: {}/{} — erreur DB: {}", asset_str, tf_str, e);
-                continue;
-            }
-        };
+                let bougies = match db.obtenir_bougies_toutes(&asset, &timeframe).await {
+                    Ok(b) if b.len() >= MIN_BOUGIES_ENTRAINEMENT as usize => b,
+                    Ok(b) => {
+                        tracing::warn!(
+                            "Scheduler ML: {}/{} — {} bougies insuffisantes",
+                            asset_str,
+                            tf_str,
+                            b.len()
+                        );
+                        return;
+                    }
+                    Err(e) => {
+                        tracing::error!("Scheduler ML: {}/{} — erreur DB: {}", asset_str, tf_str, e);
+                        return;
+                    }
+                };
 
-        let nb_total_db = bougies.len();
-        let bougies = limiter_bougies_par_tf(bougies, &tf_str);
-        let nb_total = bougies.len();
-        let debut = std::time::Instant::now();
+                let nb_total_db = bougies.len();
+                let bougies = limiter_bougies_par_tf(bougies, &tf_str);
+                let nb_total = bougies.len();
+                let debut = std::time::Instant::now();
 
-        // Walk-forward est CPU-intensif (LSTM + XGBoost) — spawn_blocking évite de bloquer le runtime
-        let bougies_clone = bougies.clone();
-        let wf = match tokio::task::spawn_blocking(move || entrainer_walk_forward(&bougies_clone))
-            .await
-        {
-            Ok(Ok(r)) => r,
-            Ok(Err(e)) => {
-                tracing::error!(
-                    "Scheduler ML: {}/{} — walk-forward échoué: {}",
-                    asset_str,
-                    tf_str,
-                    e
-                );
-                continue;
+                // Walk-forward est CPU-intensif (LSTM + XGBoost) — spawn_blocking évite de bloquer le runtime
+                let bougies_clone = bougies.clone();
+                let wf = match tokio::task::spawn_blocking(move || entrainer_walk_forward(&bougies_clone))
+                    .await
+                {
+                    Ok(Ok(r)) => r,
+                    Ok(Err(e)) => {
+                        tracing::error!(
+                            "Scheduler ML: {}/{} — walk-forward échoué: {}",
+                            asset_str,
+                            tf_str,
+                            e
+                        );
+                        return;
+                    }
+                    Err(e) => {
+                        tracing::error!(
+                            "Scheduler ML: {}/{} — spawn_blocking échoué: {}",
+                            asset_str,
+                            tf_str,
+                            e
+                        );
+                        return;
+                    }
+                };
+
+                {
+                    // Update du modèle global avec les poids locaux.
+                    let mut pipeline = pipeline_ml.lock().await;
+                    if let Err(e) = pipeline.entrainer_sur_historique(&bougies, 5, 0.002) {
+                        tracing::error!(
+                            "Scheduler ML: {}/{} — entraînement échoué: {}",
+                            asset_str,
+                            tf_str,
+                            e
+                        );
+                        return;
+                    }
+                }
+
+                let duree_ms = debut.elapsed().as_millis() as i64;
+                let derive = db.detecter_derive_ml(0.60).await.unwrap_or(false);
+
+                let rec = EntrainementRecord {
+                    asset: asset_str.clone(),
+                    timeframe: tf_str.clone(),
+                    nb_bougies: nb_total as i64,
+                    accuracy_xgb: wf.accuracy_xgb,
+                    accuracy_lstm: wf.accuracy_lstm,
+                    accuracy_finale: wf.accuracy_finale,
+                    accuracy_train: wf.accuracy_train,
+                    accuracy_val: wf.accuracy_finale,
+                    duree_ms,
+                    derive_detectee: derive,
+                };
+
+                if let Err(e) = db.inserer_historique_entrainement(&rec).await {
+                    tracing::error!(
+                        "Scheduler ML: {}/{} — échec enregistrement: {}",
+                        asset_str,
+                        tf_str,
+                        e
+                    );
+                } else {
+                    if let Some(ref s) = progress_state {
+                        let mut g = s.write().await;
+                        g.nb_combinaisons_done = i + 1;
+                    }
+                    tracing::info!(
+                        "✅ {}/{} — {}ms | {}/{} bougies | XGB={:.1}% LSTM={:.1}% Finale={:.1}%{}",
+                        asset_str,
+                        tf_str,
+                        duree_ms,
+                        nb_total,
+                        nb_total_db,
+                        wf.accuracy_xgb * 100.0,
+                        wf.accuracy_lstm * 100.0,
+                        wf.accuracy_finale * 100.0,
+                        if derive { " ⚠️ DÉRIVE" } else { "" }
+                    );
+                }
             }
-            Err(e) => {
-                tracing::error!(
-                    "Scheduler ML: {}/{} — spawn_blocking échoué: {}",
-                    asset_str,
-                    tf_str,
-                    e
-                );
-                continue;
-            }
-        };
+        })
+        .buffer_unordered(4);
 
-        {
-            let mut pipeline = pipeline_ml.lock().await;
-            if let Err(e) = pipeline.entrainer_sur_historique(&bougies, 5, 0.002) {
-                tracing::error!(
-                    "Scheduler ML: {}/{} — entraînement échoué: {}",
-                    asset_str,
-                    tf_str,
-                    e
-                );
-                continue;
-            }
-        }
-
-        let duree_ms = debut.elapsed().as_millis() as i64;
-        let derive = db.detecter_derive_ml(0.60).await.unwrap_or(false);
-
-        let rec = EntrainementRecord {
-            asset: asset_str.clone(),
-            timeframe: tf_str.clone(),
-            nb_bougies: nb_total as i64,
-            accuracy_xgb: wf.accuracy_xgb,
-            accuracy_lstm: wf.accuracy_lstm,
-            accuracy_finale: wf.accuracy_finale,
-            accuracy_train: wf.accuracy_train,
-            accuracy_val: wf.accuracy_finale,
-            duree_ms,
-            derive_detectee: derive,
-        };
-
-        if let Err(e) = db.inserer_historique_entrainement(&rec).await {
-            tracing::error!(
-                "Scheduler ML: {}/{} — échec enregistrement: {}",
-                asset_str,
-                tf_str,
-                e
-            );
-        } else {
-            if let Some(ref s) = progress_state {
-                let mut g = s.write().await;
-                g.nb_combinaisons_done = i + 1;
-            }
-            tracing::info!(
-                "✅ {}/{} — {}ms | {}/{} bougies | XGB={:.1}% LSTM={:.1}% Finale={:.1}%{}",
-                asset_str,
-                tf_str,
-                duree_ms,
-                nb_total,
-                nb_total_db,
-                wf.accuracy_xgb * 100.0,
-                wf.accuracy_lstm * 100.0,
-                wf.accuracy_finale * 100.0,
-                if derive { " ⚠️ DÉRIVE" } else { "" }
-            );
-        }
-    }
+    while let Some(_) = stream.next().await {}
 }
 
 /// Démarre la surveillance ML toutes les 6h.
