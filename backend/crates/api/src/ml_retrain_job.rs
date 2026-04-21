@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::ml_retrain_handler::RetainState;
+use crate::ml_retrain_fine_tuning::{executer_fine_tuning_rockets, executer_fine_tuning_straddle, executer_fine_tuning_smc};
 
 const CHEMIN_XGB: &str = "data/modele_xgboost.json";
 const CHEMIN_LSTM: &str = "data/modele_lstm.json";
@@ -21,7 +22,7 @@ pub(crate) async fn executer_retrain_job(
     tracing::info!("🔁 Réentraînement manuel déclenché (job_id={})", job_id);
 
     // Lancer le réentraînement complet avec suivi de progression
-    crate::scheduler::executer_entrainements_tous(&db, &pipeline_ml, Some(retrain_state.clone())).await;
+    crate::scheduler_execution::executer_entrainements_tous(&db, &pipeline_ml, Some(retrain_state.clone())).await;
 
     // Fine-tuning P3 : XGBoost Rockets sur trades clôturés (garde-fou 50 samples intégré)
     executer_fine_tuning_rockets(&db, &pipeline_ml).await;
@@ -160,140 +161,4 @@ pub(crate) fn restaurer_backup() -> anyhow::Result<()> {
         std::fs::copy(CHEMIN_LSTM_BACKUP, CHEMIN_LSTM)?;
     }
     Ok(())
-}
-
-/// Fine-tuning XGBoost Straddle sur les trades clôturés (P13).
-/// Silencieux si < 50 samples disponibles.
-pub(crate) async fn executer_fine_tuning_straddle(
-    db: &Arc<db::Database>,
-    pipeline_ml: &Arc<tokio::sync::Mutex<ml::PipelineML>>,
-) {
-    let samples = match db::straddle_features::lire_snapshots_avec_labels(db.pool()).await {
-        Ok(s) => s,
-        Err(e) => {
-            tracing::warn!("Fine-tuning Straddle: lecture snapshots échouée: {}", e);
-            return;
-        }
-    };
-
-    let nb = samples.len();
-    let resultat = match tokio::task::spawn_blocking(move || {
-        ml::straddle_trainer::entrainer_sur_trades_clotures(&samples)
-    })
-    .await
-    {
-        Ok(Ok(r)) => r,
-        Ok(Err(e)) => { tracing::error!("Fine-tuning Straddle: erreur entraînement: {}", e); return; }
-        Err(e) => { tracing::error!("Fine-tuning Straddle: spawn_blocking échoué: {}", e); return; }
-    };
-
-    match resultat {
-        None => tracing::info!("Fine-tuning Straddle: {} samples < 50 — ignoré", nb),
-        Some(r) => {
-            tracing::info!("Fine-tuning Straddle: {} samples | OOS={:.1}% | sauvegardé={}", r.nb_samples, r.accuracy_oos * 100.0, r.sauvegarde);
-            if r.sauvegarde {
-                let mut pipeline = pipeline_ml.lock().await;
-                pipeline.xgb_straddle = ml::XgbStraddle::charger_depuis_disque();
-            }
-        }
-    }
-}
-
-/// Fine-tuning XGBoost SMC sur les trades clôturés (P13).
-/// Silencieux si < 50 samples disponibles.
-pub(crate) async fn executer_fine_tuning_smc(
-    db: &Arc<db::Database>,
-    pipeline_ml: &Arc<tokio::sync::Mutex<ml::PipelineML>>,
-) {
-    let samples = match db::smc_features::lire_snapshots_avec_labels(db.pool()).await {
-        Ok(s) => s,
-        Err(e) => {
-            tracing::warn!("Fine-tuning SMC: lecture snapshots échouée: {}", e);
-            return;
-        }
-    };
-
-    let nb = samples.len();
-    let resultat = match tokio::task::spawn_blocking(move || {
-        ml::smc_trainer::entrainer_sur_trades_clotures(&samples)
-    })
-    .await
-    {
-        Ok(Ok(r)) => r,
-        Ok(Err(e)) => { tracing::error!("Fine-tuning SMC: erreur entraînement: {}", e); return; }
-        Err(e) => { tracing::error!("Fine-tuning SMC: spawn_blocking échoué: {}", e); return; }
-    };
-
-    match resultat {
-        None => tracing::info!("Fine-tuning SMC: {} samples < 50 — ignoré", nb),
-        Some(r) => {
-            tracing::info!(
-                "Fine-tuning SMC: {} samples | OOS={:.1}% | sauvegardé={}",
-                r.nb_samples, r.accuracy_oos * 100.0, r.sauvegarde
-            );
-            if r.sauvegarde {
-                let mut pipeline = pipeline_ml.lock().await;
-                pipeline.xgb_smc = ml::XgbSmc::charger_depuis_disque();
-            }
-        }
-    }
-}
-
-/// Fine-tuning XGBoost Rockets sur les trades clôturés (P3).
-/// Silencieux si < 50 samples disponibles.
-pub(crate) async fn executer_fine_tuning_rockets(
-    db: &Arc<db::Database>,
-    pipeline_ml: &Arc<tokio::sync::Mutex<ml::PipelineML>>,
-) {
-    let samples = match db::rockets_features::lire_snapshots_avec_labels(db.pool()).await {
-        Ok(s) => s,
-        Err(e) => {
-            tracing::warn!("Fine-tuning Rockets: lecture snapshots échouée: {}", e);
-            return;
-        }
-    };
-
-    let nb = samples.len();
-    let resultat = match tokio::task::spawn_blocking(move || {
-        ml::entrainer_sur_trades_clotures(&samples)
-    })
-    .await
-    {
-        Ok(Ok(r)) => r,
-        Ok(Err(e)) => { tracing::error!("Fine-tuning Rockets: erreur entraînement: {}", e); return; }
-        Err(e) => { tracing::error!("Fine-tuning Rockets: spawn_blocking échoué: {}", e); return; }
-    };
-
-    match resultat {
-        None => tracing::info!("Fine-tuning Rockets: {} samples < 50 — ignoré", nb),
-        Some(r) => {
-            tracing::info!(
-                "Fine-tuning Rockets: {} samples | OOS={:.1}% | sauvegardé={}",
-                r.nb_samples,
-                r.accuracy_oos * 100.0,
-                r.sauvegarde
-            );
-
-            // P4 : persister les importances de features en DB
-            if !r.importances.is_empty() {
-                let fis: Vec<db::ml_feature_importance::FeatureImportance> = r.importances.iter()
-                    .map(|fi| db::ml_feature_importance::FeatureImportance {
-                        feature_idx: fi.feature_idx as i64,
-                        feature_nom: fi.feature_nom.to_string(),
-                        importance: fi.importance,
-                    })
-                    .collect();
-                match db::ml_feature_importance::inserer_importances(db.pool(), "rockets", &fis).await {
-                    Err(e) => tracing::warn!("Fine-tuning Rockets: importances: {}", e),
-                    Ok(_) => tracing::info!("top feature = {} ({:.4})", r.importances[0].feature_nom, r.importances[0].importance),
-                }
-            }
-
-            // Recharger le modèle Rockets dans le pipeline si sauvegardé
-            if r.sauvegarde {
-                let mut pipeline = pipeline_ml.lock().await;
-                pipeline.xgb_rockets = ml::XgbRockets::charger_depuis_disque();
-            }
-        }
-    }
 }

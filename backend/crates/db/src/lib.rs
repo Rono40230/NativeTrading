@@ -14,6 +14,7 @@ pub mod ml_samples;
 pub mod news_lus;
 pub mod regles_rejet;
 pub mod rockets;
+pub mod rockets_blacklist;
 pub mod rockets_listing;
 pub mod rockets_analyses;
 pub mod rockets_calibration;
@@ -40,7 +41,9 @@ pub mod strategies_params;
 pub mod volatilite;
 
 use common::{Result, TradingError};
-use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
+
+use sqlx::{sqlite::SqliteConnectOptions, ConnectOptions, SqlitePool};
+
 use std::str::FromStr;
 
 /// Retourne le label de session de marché pour le timestamp Unix courant.
@@ -67,13 +70,13 @@ impl Database {
         let chemin = path
             .strip_prefix("sqlite://")
             .or_else(|| path.strip_prefix("sqlite:"))
-            .unwrap_or(path);
-
-        let options = SqliteConnectOptions::from_str(&format!("sqlite:{}", chemin))
+            .unwrap_or(path);        let options = SqliteConnectOptions::from_str(&format!("sqlite:{}", chemin))
             .map_err(|e| TradingError::Database(e.to_string()))?
             .create_if_missing(true)
             .journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
-            .busy_timeout(std::time::Duration::from_secs(10));
+            .busy_timeout(std::time::Duration::from_secs(10))
+            .disable_statement_logging();
+
 
         let pool = SqlitePool::connect_with(options)
             .await
@@ -87,6 +90,11 @@ impl Database {
             .run(&self.pool)
             .await
             .map_err(|e| TradingError::Database(e.to_string()))
+    }
+
+    /// Construit un Database depuis un pool existant (ex. pour appels ponctuels sans migration).
+    pub fn depuis_pool(pool: SqlitePool) -> Self {
+        Self { pool }
     }
 
     /// Accès au pool SQLx pour les crates qui en ont besoin directement.

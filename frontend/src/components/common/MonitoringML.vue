@@ -174,7 +174,7 @@ function afficherCourbeAccuracy() {
   })
   const serie = chartAccuracy.addLineSeries({ color: '#3b82f6', lineWidth: 2 })
   const seuil = chartAccuracy.addLineSeries({ color: '#ef444466', lineWidth: 1, lineStyle: 2 })
-  const sorted = [...historiqueML.value.historique].reverse()
+  const uniqueData=new Map();historiqueML.value.historique.forEach((e:any)=>uniqueData.set(e.cree_le,e));const sorted=Array.from(uniqueData.values()).sort((a:any,b:any)=>a.cree_le-b.cree_le)
   serie.setData(
     sorted.map((e) => ({
       time: e.cree_le as unknown as import('lightweight-charts').Time,

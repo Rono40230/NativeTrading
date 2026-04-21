@@ -4,8 +4,7 @@
 use crate::signal_engine::SignalEngine;
 use crate::straddle_categorisation::session_active;
 use db::rockets::{self, NouveauRocket};
-use db::rockets_feedback::{inserer_feedback, lister_pool_phase, lister_recents_ticker_phase, NouveauFeedbackRocket};
-use db::rockets_feedback_stats::taux_reussite_recent;
+use db::rockets_feedback::{inserer_feedback, NouveauFeedbackRocket};
 use std::sync::Arc;
 use strategies::rockets_indicateurs::ScanResultat;
 use strategies::rockets_position::calculer_split_vente;
@@ -50,43 +49,9 @@ pub async fn filtrer_sauvegarder_publier(
     let session = session_active(chrono::Utc::now());
     let seuils = db::rockets_calibration::charger_seuils(pool, phase_sauvegardee, &session).await;
 
-    // Contexte de marché global : taux de réussite des 48 dernières heures
-    let (nb_recent, wr_recent, pnl_recent) = taux_reussite_recent(pool, 48).await;
-
-    // Sélection des feedbacks few-shot par similarité de profil :
-    // On charge un pool large sur la phase (tous tickers), puis on trie par distance
-    // sur les 3 axes les plus discriminants (ratio_volume, atr_ratio, rsi).
-    // Si le ticker a lui-même suffisamment d'historique, ses trades propres sont prioritaires.
-    let feedbacks = {
-        let propres = lister_recents_ticker_phase(pool, &r.ticker, phase_sauvegardee, 5)
-            .await
-            .unwrap_or_default();
-        if propres.len() >= 5 {
-            propres
-        } else {
-            // Compléter avec le pool large trié par similarité
-            let pool_large = lister_pool_phase(pool, phase_sauvegardee, 60)
-                .await
-                .unwrap_or_default();
-            let rv = r.ratio_volume;
-            let ar = r.atr_ratio;
-            let rsi = r.rsi;
-            let mut scored: Vec<_> = pool_large
-                .into_iter()
-                .filter(|fb| fb.ticker != r.ticker) // déjà dans propres
-                .map(|fb| {
-                    let dist = ((fb.ratio_volume - rv) / rv.max(0.1)).powi(2)
-                        + ((fb.atr_ratio - ar) / ar.max(0.1)).powi(2)
-                        + ((fb.rsi - rsi) / 100.0).powi(2);
-                    (dist, fb)
-                })
-                .collect();
-            scored.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-            let mut resultats = propres;
-            resultats.extend(scored.into_iter().take(5 - resultats.len()).map(|(_, fb)| fb));
-            resultats
-        }
-    };
+    // Contexte global et feedbacks par similarité 3D
+    let ((nb_recent, wr_recent, pnl_recent), feedbacks) = 
+        crate::rockets_sauvegarder_feedbacks::preparer_contexte_feedbacks(pool, r, phase_sauvegardee).await;
 
     let historique = rockets::historique_ticker(pool, &r.ticker, 10).await;
     let candidat = crate::ollama::rockets_filtre::SignalCandidat {
@@ -123,24 +88,22 @@ pub async fn filtrer_sauvegarder_publier(
             .await
         {
             Ok(rep) => {
-                tracing::info!(
-                    "LLM {} {} : valide={} conviction={}",
-                    label_signal,
-                    r.ticker,
-                    rep.valide,
-                    rep.conviction
-                );
                 if !rep.valide || rep.conviction < seuils.conviction_min {
-                    tracing::info!(
-                        "LLM rejette {} {} (valide={} conviction={}/100): {}",
+                    tracing::debug!(
+                        "LLM rejette {} {} (conviction={}/100): {}",
                         label_signal,
                         r.ticker,
-                        rep.valide,
                         rep.conviction,
                         rep.raison
                     );
                     return;
                 }
+                tracing::info!(
+                    "LLM valide {} {} conviction={}",
+                    label_signal,
+                    r.ticker,
+                    rep.conviction
+                );
                 let sl_s = rep.ajustements.as_ref().and_then(|a| a.sl_suggere);
                 let tp1_s = rep.ajustements.as_ref().and_then(|a| a.tp1_suggere);
                 // Clamp strict pour éviter les hallucinations LLM
@@ -280,7 +243,7 @@ pub async fn filtrer_sauvegarder_publier(
         signal_id,
         ticker: r.ticker.clone(),
         phase: phase_sauvegardee.to_string(),
-        session_active: session,
+        session_active: session.clone(),
         timestamp_signal: chrono::Utc::now().timestamp(),
         score_scan: r.score,
         conviction_llm: llm_conviction.unwrap_or(0),
@@ -290,5 +253,13 @@ pub async fn filtrer_sauvegarder_publier(
     };
     if let Err(e) = inserer_feedback(pool, &fb).await {
         tracing::warn!("Feedback Rockets {} {}: {}", label_signal, r.ticker, e);
+    }
+
+    // Auto-ban : si le même ticker apparaît ≥3 fois avec le même prix en 72h → blacklist.
+    {
+        let db_tmp = db::Database::depuis_pool(pool.clone());
+        if let Err(e) = db_tmp.auto_blacklist_si_doublon(&r.ticker, 72, 3).await {
+            tracing::warn!("Auto-blacklist check {}: {}", r.ticker, e);
+        }
     }
 }
