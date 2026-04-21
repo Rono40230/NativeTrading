@@ -123,12 +123,12 @@ pub fn entrainer_sur_trades_clotures(
         .map_err(|e| TradingError::ML(format!("Matrice XGB Rockets OOS: {}", e)))?;
 
     let params = XGRegressorParameters {
-        n_estimators: 80,
-        max_depth: 4, // moins profond pour éviter l'overfitting sur dataset limité
-        learning_rate: 0.05,
-        lambda: 2.0,  // régularisation plus forte
-        gamma: 0.2,
-        subsample: 0.7,
+        n_estimators: 100, // Augmenté pour construire plus d'arbres
+        max_depth: 5, // Autorisons un peu d'overfit pour chercher le signal dans le bruit
+        learning_rate: 0.03, // Plus lent, plus robuste
+        lambda: 0.5,  // Réduction forte de la pénalité L2 pour débloquer les splits marginaux
+        gamma: 0.01,  // Quasi zéro : accepte de scinder l'arbre si un gain même infime existe
+        subsample: 0.8,
         ..XGRegressorParameters::default()
     };
 
@@ -185,43 +185,55 @@ pub fn entrainer_sur_trades_clotures(
 fn calculer_importances(
     modele: &XGRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>>,
     features_oos: &[Vec<f64>],
-    labels_oos: &[f64],
-    accuracy_base: f64,
+    _labels_oos: &[f64],
+    _accuracy_base: f64, // Conservé pour compatibilité de signature
 ) -> Vec<ImportanceFeature> {
     let n = features_oos.len();
     if n < 5 {
         return Vec::new();
     }
     let nb_features = features_oos[0].len().min(FEATURE_NOMS.len());
-    let true_cls: Vec<u8> = labels_oos.iter().map(|&l| if l >= 0.5 { 1 } else { 0 }).collect();
+
+    // Calcul des prédictions de base (continues) sur le jeu OOS
+    let features_oos_vec = features_oos.to_vec();
+    let x_base = DenseMatrix::from_2d_vec(&features_oos_vec).ok().unwrap();
+    let preds_base = modele.predict(&x_base).ok().unwrap();
 
     let mut importances: Vec<ImportanceFeature> = (0..nb_features)
         .filter_map(|i| {
-            // Permutation circulaire de la colonne i (décalage de n/2)
-            let decalage = n / 2;
-            let permute: Vec<Vec<f64>> = features_oos
-                .iter()
-                .enumerate()
-                .map(|(row, f)| {
-                    let mut perm = f.clone();
-                    perm[i] = features_oos[(row + decalage) % n][i];
-                    perm
-                })
-                .collect();
+            let mut permute = features_oos.to_vec();
+            // Permutation aléatoire ou circulaire pour casser la corrélation de la feature
+            let mut col_values: Vec<f64> = permute.iter().map(|f| f[i]).collect();
+            col_values.rotate_left(n / 2); // Décalage circulaire garanti sans random externe
+            
+            for (row, val) in permute.iter_mut().zip(col_values) {
+                row[i] = val;
+            }
 
             let x_perm = DenseMatrix::from_2d_vec(&permute).ok()?;
-            let preds = modele.predict(&x_perm).ok()?;
-            let pred_cls: Vec<u8> = preds.iter().map(|&p| if p >= 0.5 { 1 } else { 0 }).collect();
-            let acc_perm = accuracy(&true_cls, &pred_cls);
-            let chute = (accuracy_base - acc_perm).max(0.0);
+            let preds_perm = modele.predict(&x_perm).ok()?;
+            
+            // Mesure du décalage absolu moyen des prédictions (MAE Drift)
+            // L'importance est l'ampleur moyenne du changement occasionné par la permutation
+            let mae_drift: f64 = preds_base.iter().zip(preds_perm.iter())
+                .map(|(&b, &p)| (b - p).abs())
+                .sum::<f64>() / n as f64;
 
             Some(ImportanceFeature {
                 feature_idx: i,
                 feature_nom: FEATURE_NOMS[i],
-                importance: chute,
+                importance: mae_drift, // Plus le drift est grand, plus la feature est importante
             })
         })
         .collect();
+
+    // Normalisation des importances pour que la somme fasse 1.0 au max (ou 100%)
+    let sum_importance: f64 = importances.iter().map(|f| f.importance).sum();
+    if sum_importance > 0.0 {
+        for f in &mut importances {
+            f.importance /= sum_importance;
+        }
+    }
 
     importances.sort_by(|a, b| b.importance.partial_cmp(&a.importance).unwrap_or(std::cmp::Ordering::Equal));
     importances

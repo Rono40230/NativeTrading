@@ -5,7 +5,6 @@
 use crate::ollama::types::{MODELE_DEFAUT, OLLAMA_URL};
 use common::TradingError;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 // ── Types publics ─────────────────────────────────────────────────────────────
 
@@ -235,13 +234,11 @@ pub async fn analyser_strategie(
         "model": modele,
         "messages": [{"role": "user", "content": prompt}],
         "stream": false,
-        "options": { "temperature": 0.3, "num_predict": 1024 }
+        "options": { "temperature": 0.3, "num_predict": 1024, "num_gpu": 99, "num_ctx": 8192 }
     });
 
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(120))
-        .build()
-        .map_err(|e| TradingError::Api(e.to_string()))?;
+    let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*super::OLLAMA_HTTP_CLIENT;
 
     let reponse = client
         .post(&url)

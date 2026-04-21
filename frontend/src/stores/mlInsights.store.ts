@@ -90,7 +90,7 @@ export const useMlInsightsStore = defineStore('mlInsights', () => {
         clearInterval(retrainPollId!)
         retrainPollId = null
       }
-    }, 3000)
+    }, 1000)
   }
 
   return {

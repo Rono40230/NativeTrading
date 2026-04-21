@@ -8,7 +8,7 @@ default = []
 cuda = ["tch"]
 
 [dependencies]
-rayon.workspace = true
+rayon = { workspace = true }
 common = { path = "../common" }
 indicators = { path = "../indicators" }
 tch = { version = "0.16", optional = true }

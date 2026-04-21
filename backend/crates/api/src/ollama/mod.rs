@@ -13,6 +13,7 @@ mod types;
 mod vision;
 
 use common::TradingError;
+use std::sync::LazyLock;
 pub use contexte::formater_contexte_historique;
 use prompts::SYSTEM_PROMPT;
 pub use prompts::{
@@ -20,7 +21,19 @@ pub use prompts::{
     SYSTEM_PROMPT_COACH_OLLAMA,
 };
 pub use prompts_vision::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF};
-use types::{MessageOllama, ReponseOllama, RequeteOllama, MODELE_DEFAUT, OLLAMA_URL};
+use types::{ReponseOllama, MODELE_DEFAUT, OLLAMA_URL};
+
+/// Sémaphore global Ollama : max 2 appels LLM concurrents (évite la saturation VRAM/swap modèle).
+pub static OLLAMA_SEMAPHORE: LazyLock<tokio::sync::Semaphore> =
+    LazyLock::new(|| tokio::sync::Semaphore::new(2));
+
+/// Client HTTP partagé pour tous les appels Ollama (timeout 300s, pas de reconstruction par appel).
+pub static OLLAMA_HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
+    reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(300))
+        .build()
+        .expect("Création client HTTP Ollama")
+});
 
 pub use smc_confirm::enrichir_signal_avec_ollama;
 pub use types::tf_libelle;
@@ -55,7 +68,12 @@ pub async fn interroger_chat_modele_avec_systeme(
         msgs.push(serde_json::json!({ "role": role, "content": contenu }));
     }
 
-    let corps = serde_json::json!({ "model": modele, "messages": msgs, "stream": false });
+    let corps = serde_json::json!({
+        "model": modele,
+        "messages": msgs,
+        "stream": false,
+        "options": { "num_gpu": 99, "num_ctx": 16384 }
+    });
     let texte = appeler_ollama(&url, &corps).await?;
     Ok(filtrer_think(texte))
 }
@@ -64,23 +82,18 @@ async fn interroger_avec_systeme(prompt: &str, system: &str) -> Result<String, T
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
 
-    let corps = RequeteOllama {
-        model: &modele,
-        messages: vec![
-            MessageOllama {
-                role: "system",
-                content: system,
-            },
-            MessageOllama {
-                role: "user",
-                content: prompt,
-            },
+    let corps = serde_json::json!({
+        "model": modele,
+        "messages": [
+            { "role": "system", "content": system },
+            { "role": "user", "content": prompt }
         ],
-        stream: false,
-    };
+        "stream": false,
+        "options": { "num_gpu": 99, "num_ctx": 8192 }
+    });
 
-    let client = reqwest::Client::new();
-    let reponse = client
+    let _permit = OLLAMA_SEMAPHORE.acquire().await.ok();
+    let reponse = OLLAMA_HTTP_CLIENT
         .post(&url)
         .json(&corps)
         .send()

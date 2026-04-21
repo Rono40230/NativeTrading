@@ -267,9 +267,9 @@ fn mapper_row(r: &sqlx::sqlite::SqliteRow) -> SmcFeedbackRow {
         duree_trade_min: r.get("duree_trade_min"),
         ferme_le: r.get("ferme_le"),
         cree_le: r.get("cree_le"),
-        prix_entree_reel: r.get("prix_entree_reel"),
-        prix_sortie_reel: r.get("prix_sortie_reel"),
-        session_sortie: r.get("session_sortie"),
-        notes_trader: r.get("notes_trader"),
+        prix_entree_reel: r.try_get("prix_entree_reel").ok(),
+        prix_sortie_reel: r.try_get("prix_sortie_reel").ok(),
+        session_sortie: r.try_get("session_sortie").ok(),
+        notes_trader: r.try_get("notes_trader").ok(),
     }
 }

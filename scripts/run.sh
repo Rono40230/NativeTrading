@@ -47,15 +47,16 @@ else
 fi
 
 # ─── Compilation backend si nécessaire ───────────────────────────────────────
-echo "🔨 Vérification backend..."
+echo "🔨 Vérification backend (release)..."
 cd "$ROOT_DIR/backend"
-cargo build -p api 2>&1 | grep -E "Compiling|Finished|error"
+cargo build -p api --release 2>&1 | grep -E "Compiling|Finished|error"
 
 # ─── Arrêt propre de TOUS les processus backend ──────────────────────────────
 # (peut en exister plusieurs si lancements manuels accumulés)
-if pgrep -f "target/debug/api" > /dev/null 2>&1; then
+if pgrep -f "target/(debug|release)/api" > /dev/null 2>&1; then
   echo "🔄 Arrêt instances backend existantes..."
   pkill -9 -f "target/debug/api" 2>/dev/null || true
+  pkill -9 -f "target/release/api" 2>/dev/null || true
   # Attendre libération du port 8080
   for i in $(seq 1 20); do
     ss -tlnp 2>/dev/null | grep -q ':8080' || break
@@ -66,7 +67,7 @@ fi
 # ─── Démarrage backend ────────────────────────────────────────────────────────
 echo "🔌 Backend API → port 8080"
 DATABASE_PATH="$ROOT_DIR/data/trading.db" \
-  "$ROOT_DIR/backend/target/debug/api" \
+  "$ROOT_DIR/backend/target/release/api" \
   > "$LOG_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 

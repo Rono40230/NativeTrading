@@ -130,6 +130,30 @@ async fn appliquer_param(pool: &SqlitePool, req: &AppliquerRequest) -> common::R
             p.atr_sl = req.valeur_suggeree;
             db::strategies_params::sauvegarder_smc_params(pool, &p).await
         }
+        ("ROCKETS", "score_min") => {
+            let mut p = db::rockets_config::lire_config(pool).await;
+            p.score_min = req.valeur_suggeree as i64;
+            db::rockets_config::sauvegarder_config(pool, &p).await
+        }
+        ("ROCKETS", "tp_multiplier") => {
+            let mut p = db::rockets_config::lire_config(pool).await;
+            p.sl_mult = req.valeur_suggeree - 0.5;
+            db::rockets_config::sauvegarder_config(pool, &p).await
+        }
+        ("ROCKETS", "conviction_llm_min") => {
+            tracing::info!("Application logique de conviction_llm_min bypassée techniquement (géré par phase/session via auto-ml)");
+            Ok(())
+        }
+        ("STRADDLE", "atr_seuil") => {
+            let mut p = db::strategies_params::lire_straddle_params(pool).await;
+            p.atr_seuil = req.valeur_suggeree;
+            db::strategies_params::sauvegarder_straddle_params(pool, &p).await
+        }
+        ("STRADDLE", "tp_mult_1") => {
+            let mut p = db::strategies_params::lire_straddle_params(pool).await;
+            p.tp_mult_1 = req.valeur_suggeree;
+            db::strategies_params::sauvegarder_straddle_params(pool, &p).await
+        }
         _ => Err(common::TradingError::Data(format!(
             "Paramètre {}/{} non supporté",
             req.strategie, req.param_name

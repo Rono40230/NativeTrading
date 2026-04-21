@@ -64,11 +64,15 @@ async fn recalibrer_tous(db: &Arc<Database>) {
         }
     }
 
-    tracing::info!(
-        "📐 Calibration terminée: {}/{} paires recalibrées",
-        recalibrees,
-        paires.len()
-    );
+    if recalibrees > 0 {
+        tracing::info!(
+            "📐 Calibration terminée: {}/{} paires recalibrées",
+            recalibrees,
+            paires.len()
+        );
+    } else {
+        tracing::debug!("Calibration Straddle: 0/{} paires (aucune donnée suffisante)", paires.len());
+    }
 }
 
 async fn calibrer_paire(

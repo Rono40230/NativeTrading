@@ -5,7 +5,6 @@
 use crate::ollama::types::{MODELE_DEFAUT, OLLAMA_URL};
 use common::TradingError;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::time::Duration;
 
 /// Tolère que le LLM retourne un float (ex: `74.8`) pour un champ entier.
 pub fn deserialiser_conviction<'de, D: Deserializer<'de>>(d: D) -> Result<i64, D::Error> {
@@ -201,13 +200,11 @@ pub async fn filtrer_signal_smc(
         "model": modele,
         "messages": [{"role": "user", "content": prompt}],
         "stream": false,
-        "options": { "temperature": 0.1, "num_predict": 300 }
+        "options": { "temperature": 0.1, "num_predict": 300, "num_gpu": 99, "num_ctx": 4096 }
     });
 
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(90))
-        .build()
-        .map_err(|e| TradingError::Api(e.to_string()))?;
+    let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*super::OLLAMA_HTTP_CLIENT;
 
     let reponse = client
         .post(&url)
@@ -241,6 +238,42 @@ pub async fn filtrer_signal_smc(
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
 
-    serde_json::from_str::<FiltreSMCReponse>(&texte[debut..fin])
-        .map_err(|e| TradingError::Api(format!("JSON smc_filtre non parsable: {}", e)))
+    if let Ok(reponse) = serde_json::from_str::<FiltreSMCReponse>(&texte[debut..fin]) {
+        return Ok(reponse);
+    }
+
+    // Retry avec prompt minimaliste si le JSON est malformé (ajustements ignorés en fallback)
+    let prompt_retry = format!(
+        "Réponds UNIQUEMENT avec ce JSON exact, sans aucun autre texte :\n\
+        {{\"valide\": true, \"conviction\": 60, \"raison\": \"...\", \"ajustements\": null}}\n\n\
+        Signal SMC : {} {} direction={} score={:.0} confiance_ml={:.2}\n\
+        Question : ce signal SMC vaut-il la peine d'être tradé ?",
+        candidat.asset, candidat.timeframe, candidat.direction,
+        candidat.score_smc, candidat.confiance_ml
+    );
+    let corps_retry = serde_json::json!({
+        "model": modele,
+        "messages": [{"role": "user", "content": prompt_retry}],
+        "stream": false,
+        "options": { "temperature": 0.0, "num_predict": 64, "num_gpu": 99, "num_ctx": 1024 }
+    });
+
+    let reponse_retry = client
+        .post(&url)
+        .json(&corps_retry)
+        .send()
+        .await
+        .map_err(|e| TradingError::Api(format!("Ollama retry SMC timeout: {}", e)))?;
+
+    let data_retry: OllamaResp = reponse_retry
+        .json()
+        .await
+        .map_err(|e| TradingError::Api(format!("JSON retry SMC Ollama: {}", e)))?;
+
+    let texte_retry = data_retry.message.content;
+    let debut_r = texte_retry.find('{').unwrap_or(0);
+    let fin_r = texte_retry.rfind('}').map(|i| i + 1).unwrap_or(texte_retry.len());
+
+    serde_json::from_str::<FiltreSMCReponse>(&texte_retry[debut_r..fin_r])
+        .map_err(|e| TradingError::Api(format!("JSON smc_filtre non parsable après retry: {}", e)))
 }

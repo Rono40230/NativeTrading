@@ -3,7 +3,6 @@ use common::TradingError;
 use db::rockets::RocketSignal;
 use db::rockets_feedback::RocketsFeedbackRow;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 // ── Types publics ─────────────────────────────────────────────────────────────
 
@@ -103,13 +102,11 @@ pub async fn filtrer_signal(
         "model": modele,
         "messages": [{"role": "user", "content": prompt}],
         "stream": false,
-        "options": { "temperature": 0.1, "num_predict": 256 }
+        "options": { "temperature": 0.1, "num_predict": 256, "num_gpu": 99, "num_ctx": 4096 }
     });
 
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(90))
-        .build()
-        .map_err(|e| TradingError::Api(e.to_string()))?;
+    let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*super::OLLAMA_HTTP_CLIENT;
 
     let reponse = client
         .post(&url)
@@ -163,7 +160,7 @@ pub async fn filtrer_signal(
         "model": modele,
         "messages": [{"role": "user", "content": prompt_retry}],
         "stream": false,
-        "options": { "temperature": 0.0, "num_predict": 64 }
+        "options": { "temperature": 0.0, "num_predict": 64, "num_gpu": 99, "num_ctx": 1024 }
     });
     let reponse_retry = client
         .post(&url)

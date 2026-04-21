@@ -45,10 +45,10 @@ impl ModeleXGBoost {
 
         let params = XGRegressorParameters {
             n_estimators: self.n_estimateurs,
-            max_depth: 6,
-            learning_rate: 0.1,
-            lambda: 1.0,
-            gamma: 0.1,
+            max_depth: 3, // Réduit de 6 à 3 pour éviter l'overfitting sur 300 samples
+            learning_rate: 0.05, // Apprentissage plus doux
+            lambda: 2.0, // Pénalité L2 augmentée
+            gamma: 0.5, // Taille minimale de coupe augmentée
             subsample: 0.8,
             ..XGRegressorParameters::default()
         };

@@ -52,6 +52,23 @@ impl Database {
         tx.commit()
             .await
             .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        // Mettre à jour bougies_stats pour que combinaisons_entrainables() reste rapide
+        if inseres > 0 {
+            let _ = sqlx::query(
+                "INSERT INTO bougies_stats (asset, timeframe, nb)
+                 VALUES (?, ?, (SELECT COUNT(*) FROM bougies WHERE asset = ? AND timeframe = ?))
+                 ON CONFLICT(asset, timeframe) DO UPDATE SET
+                 nb = (SELECT COUNT(*) FROM bougies WHERE asset = excluded.asset AND timeframe = excluded.timeframe)",
+            )
+            .bind(asset_str)
+            .bind(tf_str)
+            .bind(asset_str)
+            .bind(tf_str)
+            .execute(&self.pool)
+            .await;
+        }
+
         Ok(inseres)
     }
 

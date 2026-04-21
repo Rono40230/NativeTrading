@@ -1,10 +1,20 @@
 use common::{Candle, Direction, Result, TradingError};
 
 use crate::{
-    features::{extraire_features, labelliser, NB_FEATURES},
+    features::{labelliser, NB_FEATURES},
+    features_precalc::{extraire_depuis_series, precalculer, SeriesIndicateurs},
     lstm::{ModeleHybrideLstm, LONGUEUR_SEQ},
     xgboost::ModeleXGBoost,
 };
+
+/// Nombre max d'échantillons XGBoost dans walk_forward.
+/// Walk_forward = métriques OOS uniquement, pas le modèle final.
+/// M1 sans limite : 28k échantillons × 50 arbres → 74s par tâche → système bloqué.
+/// Avec 5k : ~3s par tâche.
+const MAX_SAMPLES_XGB_WF: usize = 5_000;
+
+/// Nombre max de séquences LSTM dans walk_forward.
+const MAX_SEQ_WF: usize = 3_000;
 
 /// Résultat d'un entraînement walk-forward (métriques out-of-sample)
 pub struct ResultatWalkForward {
@@ -35,47 +45,61 @@ pub fn entrainer_walk_forward(bougies: &[Candle]) -> Result<ResultatWalkForward>
 
     let split = (n as f64 * 0.75) as usize;
     let train = &bougies[..split];
-    let _test = &bougies[split..];
 
     // ── Entraînement sur le jeu train ───────────────────────────────────────
     let mut xgb_tmp = ModeleXGBoost::new(50);
     let mut lstm_tmp = ModeleHybrideLstm::nouveau(NB_FEATURES);
 
-    use rayon::prelude::*;
-    let (features_train, labels_train): (Vec<_>, Vec<_>) = (60..train.len())
-        .into_par_iter()
-        .filter_map(|i| {
-            let f = extraire_features(&train[..=i])?;
-            let l = labelliser(train, i, 5, 0.002)?;
-            Some((f, l))
-        })
-        .unzip();
+    // Pré-calcul O(N) des indicateurs sur le jeu d'entraînement
+    let series_train = precalculer(train);
+
+    // Extraction séquentielle des features (O(N) grâce au précalcul)
+    // Pas de par_iter ici : la parallélisation est gérée par rayon au niveau du scheduler
+    let mut features_train = Vec::new();
+    let mut labels_train = Vec::new();
+    for i in 60..train.len() {
+        if let (Some(f), Some(l)) = (
+            extraire_depuis_series(&series_train, train, i),
+            labelliser(train, i, 5, 0.002),
+        ) {
+            features_train.push(f);
+            labels_train.push(l);
+        }
+    }
 
     if features_train.is_empty() {
         return Err(TradingError::ML(
-            "Aucun échantillon valide pour walk-forward".into(),
+            "Aucun échantillon extrait du jeu d'entraînement".into(),
         ));
     }
 
-    xgb_tmp.entrainer(&features_train, &labels_train)?;
+    // XGBoost limité : prendre les MAX_SAMPLES_XGB_WF échantillons les plus récents.
+    // Sans limite : M1 (28k samples) prend 74s → bloque tout le pool rayon.
+    let debut_xgb = features_train.len().saturating_sub(MAX_SAMPLES_XGB_WF);
+    xgb_tmp.entrainer(&features_train[debut_xgb..], &labels_train[debut_xgb..])?;
 
-    let sequences: Vec<Vec<Vec<f64>>> = (LONGUEUR_SEQ..features_train.len())
+    // LSTM limité : prendre les MAX_SEQ_WF séquences les plus récentes.
+    // Walk_forward est uniquement pour les métriques OOS — pas besoin d'entraîner sur tout.
+    let toutes_sequences: Vec<Vec<Vec<f64>>> = (LONGUEUR_SEQ..features_train.len())
         .map(|i| features_train[i - LONGUEUR_SEQ..i].to_vec())
         .collect();
-    let labels_seq: Vec<f64> = labels_train[LONGUEUR_SEQ..].to_vec();
-    lstm_tmp.entrainer(&sequences, &labels_seq, 10, 0.001);
+    let toutes_labels: Vec<f64> = labels_train[LONGUEUR_SEQ..].to_vec();
+    let debut_seq = toutes_sequences.len().saturating_sub(MAX_SEQ_WF);
+    let sequences = &toutes_sequences[debut_seq..];
+    let labels_seq = &toutes_labels[debut_seq..];
+    lstm_tmp.entrainer(sequences, labels_seq, 5, 0.001);
 
-    // ── Évaluation sur le jeu test ───────────────────────────────────────────
-    // Le test set commence après 60 bougies de contexte (issues du train)
+    // Évaluation sur le jeu de test : précalcul sur le contexte
     let contexte: Vec<Candle> = bougies[split.saturating_sub(60)..].to_vec();
+    let series_ctx = precalculer(&contexte);
 
-    let acc_xgb = evaluer_xgb(&xgb_tmp, &contexte);
-    let acc_lstm = evaluer_lstm(&lstm_tmp, &contexte);
+    let acc_xgb = evaluer_xgb(&xgb_tmp, &contexte, &series_ctx);
+    let acc_lstm = evaluer_lstm(&lstm_tmp, &contexte, &series_ctx);
     let acc_finale = 0.6 * acc_lstm + 0.4 * acc_xgb;
 
-    // Score sur le jeu d'entraînement (indicateur d'overfit vs OOS)
-    let acc_xgb_train = evaluer_xgb(&xgb_tmp, train);
-    let acc_lstm_train = evaluer_lstm(&lstm_tmp, train);
+    // Score sur jeu d'entraînement (indicateur d'overfit vs OOS)
+    let acc_xgb_train = evaluer_xgb(&xgb_tmp, train, &series_train);
+    let acc_lstm_train = evaluer_lstm(&lstm_tmp, train, &series_train);
     let acc_train = 0.6 * acc_lstm_train + 0.4 * acc_xgb_train;
 
     Ok(ResultatWalkForward {
@@ -88,53 +112,58 @@ pub fn entrainer_walk_forward(bougies: &[Candle]) -> Result<ResultatWalkForward>
     })
 }
 
-/// Évalue le XGBoost sur une fenêtre de bougies.
-fn evaluer_xgb(xgb: &ModeleXGBoost, bougies: &[Candle]) -> f64 {
-    use rayon::prelude::*;
-    let (ok, total) = (60..bougies.len())
-        .into_par_iter()
-        .filter_map(|i| {
-            let f = extraire_features(&bougies[..=i])?;
-            let label = labelliser(bougies, i, 5, 0.002)?;
-            let Ok((direction, _)) = xgb.predire(&f) else {
-                return None;
-            };
-            let pred_label = if direction == Direction::Long { 1.0 } else { 0.0 };
-            let ok = if (pred_label - label).abs() < 0.5 { 1 } else { 0 };
-            Some((ok, 1))
-        })
-        .reduce(|| (0usize, 0usize), |a, b| (a.0 + b.0, a.1 + b.1));
-
-    if total == 0 {
-        return 0.5;
+/// Évalue le XGBoost sur une fenêtre de bougies (O(N) avec précalc, séquentiel).
+fn evaluer_xgb(xgb: &ModeleXGBoost, bougies: &[Candle], series: &SeriesIndicateurs) -> f64 {
+    let mut ok = 0usize;
+    let mut total = 0usize;
+    for i in 60..bougies.len() {
+        let (Some(f), Some(label)) = (
+            extraire_depuis_series(series, bougies, i),
+            labelliser(bougies, i, 5, 0.002),
+        ) else {
+            continue;
+        };
+        let Ok((direction, _)) = xgb.predire(&f) else {
+            continue;
+        };
+        let pred = if direction == Direction::Long { 1.0 } else { 0.0 };
+        if (pred - label).abs() < 0.5 {
+            ok += 1;
+        }
+        total += 1;
     }
-    ok as f64 / total as f64
+    if total == 0 {
+        0.5
+    } else {
+        ok as f64 / total as f64
+    }
 }
 
-/// Évalue le LSTM sur une fenêtre de bougies.
-fn evaluer_lstm(lstm: &ModeleHybrideLstm, bougies: &[Candle]) -> f64 {
-    use rayon::prelude::*;
-    let (ok, total) = ((60 + LONGUEUR_SEQ)..bougies.len())
-        .into_par_iter()
-        .filter_map(|i| {
-            let label = labelliser(bougies, i, 5, 0.002)?;
-            let sequence: Vec<Vec<f64>> = (i - LONGUEUR_SEQ..i)
-                .filter_map(|j| extraire_features(&bougies[..=j]))
-                .collect();
-            if sequence.len() != LONGUEUR_SEQ {
-                return None;
-            }
-            let conf_long = lstm.predire(&sequence);
-            let pred = if conf_long >= 0.5 { 1.0 } else { 0.0 };
-            let ok = if (pred - label).abs() < 0.5 { 1 } else { 0 };
-            Some((ok, 1))
-        })
-        .reduce(|| (0usize, 0usize), |a, b| (a.0 + b.0, a.1 + b.1));
-
-    if total == 0 {
-        return 0.5;
+/// Évalue le LSTM sur une fenêtre de bougies (O(N) avec précalc, séquentiel).
+fn evaluer_lstm(lstm: &ModeleHybrideLstm, bougies: &[Candle], series: &SeriesIndicateurs) -> f64 {
+    let mut ok = 0usize;
+    let mut total = 0usize;
+    for i in (60 + LONGUEUR_SEQ)..bougies.len() {
+        let Some(label) = labelliser(bougies, i, 5, 0.002) else {
+            continue;
+        };
+        let sequence: Vec<Vec<f64>> = (i - LONGUEUR_SEQ..i)
+            .filter_map(|j| extraire_depuis_series(series, bougies, j))
+            .collect();
+        if sequence.len() != LONGUEUR_SEQ {
+            continue;
+        }
+        let pred = if lstm.predire(&sequence) >= 0.5 { 1.0 } else { 0.0 };
+        if (pred - label).abs() < 0.5 {
+            ok += 1;
+        }
+        total += 1;
     }
-    ok as f64 / total as f64
+    if total == 0 {
+        0.5
+    } else {
+        ok as f64 / total as f64
+    }
 }
 
 #[cfg(test)]
@@ -163,11 +192,7 @@ mod tests {
 
     #[test]
     fn walk_forward_split_coherent() {
-        // Vérifie uniquement le rejet, pas l'entraînement complet (trop lent en CI)
         let bougies_ok: Vec<Candle> = (0..200).map(|i| b(i as f64 + 10.0)).collect();
-        // 200 bougies exactement est valide (pas de rejet précoce)
-        // On ne vérifie pas le résultat ML (trop de dépendances GPU/features)
-        // mais juste que la fonction ne panic pas et ne rejette pas les 200 bougies
-        let _ = entrainer_walk_forward(&bougies_ok); // Ok ou Err(ML "aucun échantillon") — les 2 sont acceptables
+        let _ = entrainer_walk_forward(&bougies_ok);
     }
 }

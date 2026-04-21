@@ -79,7 +79,8 @@ pub fn formater_signal(
     }
     if let Some(r) = llm_raison {
         if !r.is_empty() {
-            texte.push_str(&format!("\n📝 {}", r));
+            let r_echappe = r.replace("<", "&lt;").replace(">", "&gt;");
+            texte.push_str(&format!("\n📝 {}", r_echappe));
         }
     }
     texte
@@ -122,7 +123,7 @@ pub fn formater_rocket(
         None => "—",
     };
 
-    let raison = llm_raison.unwrap_or("—");
+    let raison = llm_raison.unwrap_or("—").replace("<", "&lt;").replace(">", "&gt;");
     let tp2_str = tp2
         .map(|t| crate::telegram::fmt(t, ref_prix))
         .unwrap_or_else(|| "—".to_string());

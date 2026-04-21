@@ -65,7 +65,7 @@ async fn executer_scan(
 
     // Lire la config depuis la DB (paramètres ajustables par l'utilisateur)
     let cfg = rockets::lire_config(pool).await;
-    tracing::info!(
+    tracing::debug!(
         "Config scan: score_min={} rsi_max={} ratio_vol_min={} phases={:?}",
         cfg.score_min,
         cfg.rsi_max,
@@ -97,7 +97,7 @@ async fn executer_scan(
         .collect();
 
     let vol_min = cfg.vol_marche_min;
-    let candidats: Vec<String> = tickers
+    let candidats_bruts: Vec<String> = tickers
         .into_iter()
         .filter(|t| {
             let vol = t.quote_volume.parse::<f64>().unwrap_or(0.0);
@@ -106,7 +106,25 @@ async fn executer_scan(
         .map(|t| t.symbol[..t.symbol.len() - 4].to_string())
         .collect();
 
-    tracing::info!("Scan rockets: {} candidats", candidats.len());
+    // Filtrer les tickers blacklistés (prix figé, doublons permanents, etc.)
+    let mut candidats: Vec<String> = Vec::with_capacity(candidats_bruts.len());
+    for ticker in candidats_bruts {
+        let blackliste: bool = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM rockets_blacklist WHERE ticker = ?",
+        )
+        .bind(&ticker)
+        .fetch_one(pool)
+        .await
+        .map(|n| n > 0)
+        .unwrap_or(false);
+        if blackliste {
+            tracing::debug!("Scan rockets: {} ignoré (blacklist)", ticker);
+        } else {
+            candidats.push(ticker);
+        }
+    }
+
+    tracing::debug!("Scan rockets: {} candidats", candidats.len());
     *get_total_candidats().write().await = candidats.len();
 
     let mut resultats: Vec<ScanResultat> = Vec::new();
@@ -181,7 +199,7 @@ async fn executer_scan(
 
     let n = resultats.len();
     *get_scan_results().write().await = resultats; // cache complet (non tronqué)
-    tracing::info!(
+    tracing::debug!(
         "Scan rockets terminé: {} résultats en cache ({} max affichés UI)",
         n,
         MAX_DISPLAY
@@ -200,6 +218,12 @@ async fn ml_rejette_rocket(
         Some(f) => f,
         None => return false, // pas assez de bougies pour extraire les features
     };
+    // Guard : features corrompues (NaN/Inf) → rejeter SANS acquérir le lock.
+    // Évite les freezes sur assets à prix figé (ex. FRONT).
+    if ml::features_corrompues(features) {
+        tracing::warn!("ML Rockets: features corrompues pour {} — signal rejeté sans lock", r.ticker);
+        return true;
+    }
     let ml = pipeline_ml.lock().await;
     if !ml.xgb_rockets.est_pret() {
         return false; //模型 pas encore entraîné, on laisse passer

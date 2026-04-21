@@ -2,8 +2,7 @@ use crate::ollama::types::{MODELE_DEFAUT, OLLAMA_URL};
 use chrono::{Datelike, Timelike};
 use common::{Candle, TradingError};
 use db::straddle::NouveauCreneau;
-use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use serde::Deserialize;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -232,23 +231,15 @@ pub async fn analyser_creneaux(
 
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
 
-    #[derive(Serialize)]
-    struct Corps<'a> {
-        model: &'a str,
-        messages: Vec<serde_json::Value>,
-        stream: bool,
-    }
+    let corps = serde_json::json!({
+        "model": MODELE_DEFAUT,
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": false,
+        "options": { "temperature": 0.3, "num_predict": 1024, "num_gpu": 99, "num_ctx": 8192 }
+    });
 
-    let corps = Corps {
-        model: MODELE_DEFAUT,
-        messages: vec![serde_json::json!({ "role": "user", "content": prompt })],
-        stream: false,
-    };
-
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(60))
-        .build()
-        .map_err(|e| TradingError::Api(e.to_string()))?;
+    let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*super::OLLAMA_HTTP_CLIENT;
 
     let reponse = client
         .post(&url)

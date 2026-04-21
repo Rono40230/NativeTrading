@@ -1,83 +1,79 @@
 <template>
-  <div class="space-y-6">
-    <h2 class="text-lg font-semibold text-white">🤖 Seuils de confiance ML par stratégie</h2>
-
-    <div v-if="chargement" class="text-slate-400 text-sm">Chargement…</div>
-    <div v-else class="space-y-5">
+  <div class="space-y-3 flex flex-col h-full">
+    <div v-if="chargement" class="p-4 text-center text-gray-400 text-xs h-full flex items-center justify-center">
+      Chargement…
+    </div>
+    <div v-else class="space-y-2 flex-1 flex flex-col justify-between">
 
       <!-- Rockets -->
-      <div class="glass-card p-4 space-y-3">
+      <div class="bg-black/20 rounded-lg border border-white/10 p-3 space-y-2 border-l-2 !border-l-orange-500">
         <div class="flex items-center justify-between">
-          <div>
-            <p class="font-medium text-white">🚀 Rockets</p>
-            <p class="text-xs text-slate-400">Rejette un signal Rockets si score XGBoost &lt; seuil</p>
+          <div class="flex flex-col">
+            <span class="font-bold text-orange-200 text-sm flex items-center gap-1"><span>🚀</span> Rockets</span>
           </div>
-          <span class="text-emerald-400 font-mono font-bold">{{ (seuils.rockets * 100).toFixed(0) }}%</span>
+          <span class="text-emerald-400 font-bold">{{ (seuils.rockets * 100).toFixed(0) }}%</span>
         </div>
         <input
           type="range" min="0.30" max="0.90" step="0.05"
           v-model.number="seuils.rockets"
-          class="w-full accent-emerald-500"
+          @change="enregistrer"
+          class="w-full accent-emerald-500 h-1 cursor-pointer"
         />
-        <div class="flex justify-between text-xs text-slate-500">
-          <span>30% — permissif</span>
-          <span>90% — strict</span>
+        <div class="flex justify-between text-[9px] text-gray-500">
+          <span>30% permissif</span>
+          <span>90% strict</span>
         </div>
       </div>
 
       <!-- Straddle -->
-      <div class="glass-card p-4 space-y-3">
+      <div class="bg-black/20 rounded-lg border border-white/10 p-3 space-y-2 border-l-2 !border-l-purple-500">
         <div class="flex items-center justify-between">
-          <div>
-            <p class="font-medium text-white">⚡ Straddle</p>
-            <p class="text-xs text-slate-400">Skip si ML trop confiant d'une direction (&gt; seuil) — signal directionnel préférable</p>
+          <div class="flex flex-col">
+            <span class="font-bold text-purple-200 text-sm flex items-center gap-1"><span>⚡</span> Straddle</span>
           </div>
-          <span class="text-blue-400 font-mono font-bold">{{ (seuils.straddle * 100).toFixed(0) }}%</span>
+          <span class="text-blue-400 font-bold">{{ (seuils.straddle * 100).toFixed(0) }}%</span>
         </div>
         <input
           type="range" min="0.50" max="0.95" step="0.05"
           v-model.number="seuils.straddle"
-          class="w-full accent-blue-500"
+          @change="enregistrer"
+          class="w-full accent-blue-500 h-1 cursor-pointer"
         />
-        <div class="flex justify-between text-xs text-slate-500">
-          <span>50% — très sélectif</span>
-          <span>95% — très permissif</span>
+        <div class="flex justify-between text-[9px] text-gray-500">
+          <span>50% sélectif</span>
+          <span>95% permissif</span>
         </div>
       </div>
 
       <!-- SMC -->
-      <div class="glass-card p-4 space-y-3">
+      <div class="bg-black/20 rounded-lg border border-white/10 p-3 space-y-2 border-l-2 !border-l-blue-500">
         <div class="flex items-center justify-between">
-          <div>
-            <p class="font-medium text-white">△ SMC Directionnel</p>
-            <p class="text-xs text-slate-400">Rejette un signal SMC si confiance ML &lt; seuil</p>
+          <div class="flex flex-col">
+            <span class="font-bold text-blue-200 text-sm flex items-center gap-1"><span>△</span> SMC</span>
           </div>
-          <span class="text-violet-400 font-mono font-bold">{{ (seuils.smc * 100).toFixed(0) }}%</span>
+          <span class="text-violet-400 font-bold">{{ (seuils.smc * 100).toFixed(0) }}%</span>
         </div>
         <input
           type="range" min="0.30" max="0.90" step="0.05"
           v-model.number="seuils.smc"
-          class="w-full accent-violet-500"
+          @change="enregistrer"
+          class="w-full accent-violet-500 h-1 cursor-pointer"
         />
-        <div class="flex justify-between text-xs text-slate-500">
-          <span>30% — permissif</span>
-          <span>90% — strict</span>
+        <div class="flex justify-between text-[9px] text-gray-500">
+          <span>30% permissif</span>
+          <span>90% strict</span>
         </div>
       </div>
 
-      <!-- Bouton enregistrer -->
-      <button
-        @click="enregistrer"
-        :disabled="sauvegarde"
-        class="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50
-               text-white font-semibold transition-colors"
-      >
-        {{ sauvegarde ? 'Enregistrement…' : '💾 Enregistrer les seuils' }}
-      </button>
+      <!-- Statut enregistrement auto -->
+      <div class="pt-1 flex items-center justify-end h-4">
+        <transition name="fade">
+          <span v-if="message" class="text-[10px] font-bold" :class="messageOk ? 'text-emerald-400' : 'text-red-400'">
+            {{ sauvegarde ? '⏳ Enregistrement...' : message }}
+          </span>
+        </transition>
+      </div>
 
-      <p v-if="message" class="text-center text-sm" :class="messageOk ? 'text-emerald-400' : 'text-red-400'">
-        {{ message }}
-      </p>
     </div>
   </div>
 </template>
@@ -103,7 +99,8 @@ async function chargerSeuil(cle: string): Promise<number | null> {
   }
 }
 
-onMounted(async () => {
+async function chargerSeuils() {
+  chargement.value = true
   const [r, s, m] = await Promise.all([
     chargerSeuil('seuil_confiance_rockets'),
     chargerSeuil('seuil_confiance_straddle'),
@@ -113,7 +110,24 @@ onMounted(async () => {
   if (s !== null) seuils.value.straddle = s
   if (m !== null) seuils.value.smc = m
   chargement.value = false
+}
+
+onMounted(() => {
+  chargerSeuils()
 })
+
+function forcerSeuil(strategie: string, valeurEntiere: number) {
+  let r = false
+  if (strategie === 'ROCKETS')      { seuils.value.rockets = valeurEntiere / 100; r = true }
+  else if (strategie === 'STRADDLE') { seuils.value.straddle = valeurEntiere / 100; r = true }
+  else if (strategie === 'SMC')      { seuils.value.smc = valeurEntiere / 100; r = true }
+  
+  if (r) {
+    enregistrer()
+  }
+}
+
+defineExpose({ chargerSeuils, forcerSeuil })
 
 async function enregistrer() {
   sauvegarde.value = true
@@ -125,10 +139,11 @@ async function enregistrer() {
       apiService.sauvegarderConfig('seuil_confiance_smc', String(seuils.value.smc)),
     ])
     messageOk.value = true
-    message.value = '✅ Seuils enregistrés'
+    message.value = '✅ Enregistré'
+    setTimeout(() => { message.value = '' }, 3000)
   } catch {
     messageOk.value = false
-    message.value = '❌ Échec de l\'enregistrement'
+    message.value = '❌ Échec'
   } finally {
     sauvegarde.value = false
   }

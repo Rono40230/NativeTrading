@@ -85,6 +85,7 @@ export interface RetainJobState {
   termine_le:    number | null
   nb_combinaisons_total: number
   nb_combinaisons_done:  number
+  combinaison_en_cours:  string
 }
 
 export const mlInsightsApi = {

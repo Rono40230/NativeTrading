@@ -13,6 +13,9 @@ pub struct AssetDb {
     pub type_asset: String,
     pub source: String,
     pub actif: bool,
+    /// Si true, cet asset est inclus dans le réentraînement ML.
+    /// Distinct du soft-delete `actif` : un asset peut être actif mais exclu du ML.
+    pub ml_actif: bool,
     pub cree_le: i64,
 }
 
@@ -29,9 +32,9 @@ impl Database {
 
     async fn lister_assets_filtre(&self, actifs_seulement: bool) -> Result<Vec<AssetDb>> {
         let sql = if actifs_seulement {
-            "SELECT id, nom, type, source, actif, cree_le FROM assets WHERE actif = 1 ORDER BY type, id"
+            "SELECT id, nom, type, source, actif, COALESCE(ml_actif, actif) as ml_actif, cree_le FROM assets WHERE actif = 1 ORDER BY type, id"
         } else {
-            "SELECT id, nom, type, source, actif, cree_le FROM assets ORDER BY type, id"
+            "SELECT id, nom, type, source, actif, COALESCE(ml_actif, actif) as ml_actif, cree_le FROM assets ORDER BY type, id"
         };
         let rows = sqlx::query(sql)
             .fetch_all(&self.pool)
@@ -46,6 +49,7 @@ impl Database {
                 type_asset: r.get("type"),
                 source: r.get("source"),
                 actif: r.get::<i64, _>("actif") == 1,
+                ml_actif: r.get::<i64, _>("ml_actif") == 1,
                 cree_le: r.get("cree_le"),
             })
             .collect())
@@ -120,6 +124,18 @@ impl Database {
                 id
             )));
         }
+        Ok(())
+    }
+
+    /// Active ou désactive l'inclusion d'un asset dans le réentraînement ML.
+    /// Indépendant du soft-delete `actif` : un asset peut être affiché mais exclu du ML.
+    pub async fn set_ml_actif(&self, id: &str, valeur: bool) -> Result<()> {
+        sqlx::query("UPDATE assets SET ml_actif = ? WHERE id = ?")
+            .bind(if valeur { 1i64 } else { 0i64 })
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(())
     }
 }

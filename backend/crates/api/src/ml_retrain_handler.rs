@@ -38,6 +38,8 @@ pub struct RetainState {
     pub nb_combinaisons_total: usize,
     /// Nombre de combinaisons terminées (succès ou ignorées)
     pub nb_combinaisons_done: usize,
+    /// Combinaison en cours (ex: "BTCUSD/H1") — vide si aucun job actif
+    pub combinaison_en_cours: String,
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -85,6 +87,7 @@ pub async fn declencher_retrain(state: web::Data<AppState>) -> HttpResponse {
             termine_le: None,
             nb_combinaisons_total: 0,
             nb_combinaisons_done: 0,
+            combinaison_en_cours: String::new(),
         };
     }
 

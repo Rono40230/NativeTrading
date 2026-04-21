@@ -23,6 +23,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/assets/{id}",
             web::delete().to(crate::assets_handlers::supprimer_asset),
         )
+        .route(
+            "/api/assets/{id}/ml",
+            web::patch().to(crate::assets_handlers::set_ml_actif),
+        )
         .route("/api/prix", web::get().to(crate::prix_handlers::get_prix))
         .route(
             "/api/prix/stream",

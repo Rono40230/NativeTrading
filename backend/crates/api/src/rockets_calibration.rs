@@ -63,11 +63,15 @@ async fn recalibrer_tous(db: &Arc<Database>) {
         }
     }
 
-    tracing::info!(
-        "📐 Calibration Rockets terminée: {}/{} paires recalibrées",
-        recalibrees,
-        paires.len()
-    );
+    if recalibrees > 0 {
+        tracing::info!(
+            "📐 Calibration Rockets terminée: {}/{} paires recalibrées",
+            recalibrees,
+            paires.len()
+        );
+    } else {
+        tracing::debug!("Calibration Rockets: 0/{} paires (aucune donnée suffisante)", paires.len());
+    }
 }
 
 async fn calibrer_paire(

@@ -77,11 +77,15 @@ async fn recalibrer_tous(db: &Arc<Database>) {
         }
     }
 
-    tracing::info!(
-        "📐 Calibration SMC terminée: {}/{} triplets recalibrés",
-        recalibrees,
-        triplets.len()
-    );
+    if recalibrees > 0 {
+        tracing::info!(
+            "📐 Calibration SMC terminée: {}/{} triplets recalibrés",
+            recalibrees,
+            triplets.len()
+        );
+    } else {
+        tracing::debug!("Calibration SMC: 0/{} triplets (aucune donnée suffisante)", triplets.len());
+    }
 }
 
 async fn calibrer_triplet(

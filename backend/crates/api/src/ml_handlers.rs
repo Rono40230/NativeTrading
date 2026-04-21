@@ -80,7 +80,7 @@ pub async fn entrainer_ml(
 
     // ── Entraînement pipeline principal sur 100 % des données ─────────────────
     let mut pipeline = state.pipeline_ml.lock().await;
-    match pipeline.entrainer_sur_historique(&bougies, 5, 0.002, false) {
+    match pipeline.entrainer_sur_historique(&bougies, 5, 0.002) {
         Ok(_) => {
             drop(pipeline);
             let duree_ms = debut.elapsed().as_millis();

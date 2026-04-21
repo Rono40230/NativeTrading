@@ -1,102 +1,102 @@
 <template>
-  <div class="glass-card p-6 space-y-6">
-    <!-- Déclencheur -->
-    <div class="flex flex-col md:flex-row md:items-center gap-4">
-      <div class="flex-1 space-y-1">
-        <p class="text-sm font-semibold text-gray-200">Réentraîner le pipeline ML maintenant</p>
-        <p class="text-xs text-gray-400">Lance un entraînement walk-forward sur toutes les combinaisons asset × timeframe disponibles en base. Un rollback automatique est déclenché si l'accuracy chute de plus de 2 pts.</p>
-      </div>
-      <button
-        class="shrink-0 px-5 py-2.5 rounded-lg font-semibold text-sm transition-colors"
-        :class="store.retrainState?.en_cours
-          ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
-          : 'bg-blue-600 hover:bg-blue-500 text-white'"
-        :disabled="store.retrainState?.en_cours"
-        @click="store.declencherRetrain()"
-      >
-        {{ store.retrainState?.en_cours ? '⏳ En cours…' : '🔁 Lancer le réentraînement' }}
-      </button>
-    </div>
-
+  <div class="space-y-4 flex flex-col h-full">
     <!-- Barre de progression (uniquement pendant l'entraînement) -->
-    <div v-if="store.retrainState?.en_cours" class="space-y-1">
-      <div class="flex justify-between text-xs text-gray-500 mb-1">
-        <span>
-          Entraînement walk-forward…
-          <template v-if="store.retrainState.nb_combinaisons_total > 0">
-            — {{ store.retrainState.nb_combinaisons_done }} / {{ store.retrainState.nb_combinaisons_total }} combinaisons
-          </template>
+    <div v-if="store.retrainState?.en_cours" class="space-y-2">
+      <div class="flex justify-between text-xs text-gray-500">
+        <span class="font-medium text-gray-300">
+          {{ store.retrainState.nb_combinaisons_total > 0
+            ? `${store.retrainState.nb_combinaisons_done} / ${store.retrainState.nb_combinaisons_total} combinaisons`
+            : 'Initialisation…' }}
         </span>
         <span>{{ elapsed }}s écoulées</span>
       </div>
-      <div class="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+      <div class="w-full bg-gray-700 rounded-full h-2.5 overflow-hidden">
         <div
-          class="h-2 rounded-full bg-blue-500 transition-all duration-1000"
+          class="h-2.5 rounded-full bg-blue-500 transition-all duration-700"
           :style="{ width: progres + '%' }"
         />
       </div>
-    </div>
-
-    <!-- Résultats du job -->
-    <div v-if="store.retrainState?.job_id && !store.retrainState?.en_cours" class="space-y-3">
-      <div class="flex items-center gap-3">
-        <span class="text-xs text-gray-500">Job {{ store.retrainState.job_id }}</span>
-        <span
-          class="text-xs font-bold px-2 py-0.5 rounded"
-          :class="store.retrainState.rolled_back
-            ? 'bg-yellow-800 text-yellow-200'
-            : 'bg-emerald-800 text-emerald-200'"
-        >
-          {{ store.retrainState.rolled_back ? 'Rollback' : 'Terminé' }}
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-blue-400 font-mono truncate max-w-xs">
+          <template v-if="store.retrainState.combinaison_en_cours">
+            ⚙ {{ store.retrainState.combinaison_en_cours }}
+          </template>
         </span>
-      </div>
-
-      <p class="text-sm text-gray-300">{{ store.retrainState.message }}</p>
-
-      <!-- Métriques -->
-      <div v-if="store.retrainState.accuracy_avant > 0" class="flex items-center gap-6 text-sm">
-        <div class="text-center">
-          <p class="text-xs text-gray-500 mb-1">Accuracy avant</p>
-          <p class="text-lg font-bold text-gray-200">{{ (store.retrainState.accuracy_avant * 100).toFixed(1) }}%</p>
-        </div>
-        <span class="text-gray-600 text-xl">→</span>
-        <div class="text-center">
-          <p class="text-xs text-gray-500 mb-1">Accuracy après</p>
-          <p
-            class="text-lg font-bold"
-            :class="(store.retrainState.accuracy_apres ?? 0) >= store.retrainState.accuracy_avant
-              ? 'text-emerald-400' : 'text-red-400'"
-          >{{ ((store.retrainState.accuracy_apres ?? 0) * 100).toFixed(1) }}%</p>
-        </div>
-        <div v-if="store.retrainState.gap_train_wf !== null" class="text-center border-l border-white/10 pl-6">
-          <p class="text-xs text-gray-500 mb-1">Santé modèle</p>
-          <p
-            class="text-lg font-bold"
-            :class="store.retrainState.overfitting ? 'text-red-400' : 'text-emerald-400'"
-          >{{ store.retrainState.overfitting ? '⚠ Overfit' : '✓ OK' }}</p>
-          <p class="text-xs text-gray-500">gap {{ (store.retrainState.gap_train_wf * 100).toFixed(1) }}%</p>
-        </div>
+        <span class="text-gray-400 font-semibold tabular-nums">{{ progres }}%</span>
       </div>
     </div>
 
-    <div v-else-if="!store.retrainState?.job_id" class="text-gray-500 text-sm">
-      Aucun réentraînement effectué dans cette session.
-    </div>
+    <!-- DASHBOARD PERSISTANT DES MODÈLES ML -->
+    <div class="space-y-4">
 
-    <!-- P4 : Top features Rockets -->
-    <div v-if="topFeatures.length > 0" class="space-y-2 border-t border-white/10 pt-4">
-      <h3 class="text-xs uppercase font-bold text-white">🔍 Top features prédictives (Rockets)</h3>
-      <div class="space-y-1">
-        <div v-for="(f, idx) in topFeatures" :key="f.feature_idx" class="flex items-center gap-2">
-          <span class="text-xs text-gray-500 w-4 text-right">{{ idx + 1 }}</span>
-          <span class="text-xs text-gray-300 w-36 truncate">{{ f.feature_nom }}</span>
-          <div class="flex-1 h-2 rounded-full bg-white/10">
-            <div
-              class="h-2 rounded-full bg-blue-500 transition-all"
-              :style="{ width: barWidth(f.importance) }"
-            />
+      <!-- Métriques globales (Performance & Santé) -->
+      <div v-if="store.retrainState && store.retrainState.accuracy_avant > 0" 
+           class="flex items-center bg-black/20 border border-white/10 rounded-lg p-4 justify-around mb-6">
+        <div class="text-center">
+          <p class="text-[10px] text-gray-500 mb-1 uppercase tracking-wide">Précision Avant</p>
+          <p class="text-base font-bold text-gray-200 tabular-nums">{{ (store.retrainState.accuracy_avant * 100).toFixed(1) }}%</p>
+        </div>
+        <span class="text-gray-600 text-lg mx-2">→</span>
+        <div class="text-center">
+          <p class="text-[10px] text-gray-500 mb-1 uppercase tracking-wide">Précision Après</p>
+          <p class="text-base font-bold tabular-nums"
+            :class="(store.retrainState.accuracy_apres ?? 0) >= store.retrainState.accuracy_avant ? 'text-emerald-400' : 'text-red-400'">
+            {{ ((store.retrainState.accuracy_apres ?? 0) * 100).toFixed(1) }}%
+          </p>
+        </div>
+        <div class="w-px h-10 bg-white/10 mx-4"></div>
+        <div class="text-center flex flex-col items-center">
+          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">État du Pipeline</p>
+          <div class="flex items-center gap-2">
+            <div class="w-2.5 h-2.5 rounded-full" :class="store.retrainState.overfitting || store.retrainState.rolled_back ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'"></div>
+            <p class="text-sm font-bold" :class="store.retrainState.overfitting || store.retrainState.rolled_back ? 'text-red-400' : 'text-emerald-400'">
+              {{ store.retrainState.rolled_back ? 'ROLLBACK / OVERFIT' : 'STABLE & SAIN' }}
+            </p>
           </div>
-          <span class="text-xs text-gray-400 w-12 text-right">{{ (f.importance * 100).toFixed(2) }}%</span>
+          <p v-if="store.retrainState.gap_train_wf !== null" class="text-[10px] text-gray-500 mt-1">
+            Gap Validation: {{ (store.retrainState.gap_train_wf * 100).toFixed(1) }}%
+          </p>
+        </div>
+      </div>
+
+      <!-- Informations par stratégie (Top Features) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2 flex-1">
+        <div v-for="strat in strategiesData" :key="strat.id" class="bg-black/20 rounded-lg p-2 relative overflow-hidden border border-white/10">
+          <!-- Header -->
+          <div class="flex items-center justify-between border-b border-white/10 pb-1 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">{{ strat.icon }}</span>
+              <h4 class="font-bold text-sm text-gray-200">{{ strat.label }}</h4>
+            </div>
+            <!-- Pastille de présence du modèle -->
+            <div class="flex items-center gap-1.5" :title="strat.features.length > 0 ? 'Modèle entraîné en base' : 'Modèle vierge/par défaut'">
+              <div class="w-2 h-2 rounded-full" :class="strat.features.length > 0 ? 'bg-blue-400' : 'bg-gray-600'"></div>
+            </div>
+          </div>
+
+          <!-- Top Variables -->
+          <div class="space-y-1">
+            <h5 class="text-[9px] uppercase font-bold text-gray-500 flex justify-between">
+              <span>Top 3 Prédictif</span>
+              <span>Poids</span>
+            </h5>
+            
+            <template v-if="strat.features.length > 0">
+              <div v-for="(f, idx) in strat.features.slice(0, 3)" :key="f.feature_idx" class="space-y-0.5">
+                <div class="flex justify-between items-center text-[10px]">
+                  <span class="text-gray-300 font-medium truncate">{{ traduireFeature(f.feature_nom) }}</span>
+                  <span class="text-gray-400 tabular-nums">{{ (f.importance * 100).toFixed(1) }}%</span>
+                </div>
+                <div class="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div class="h-full bg-blue-500/80 rounded-full transition-all"
+                       :style="{ width: Math.round((f.importance / strat.max) * 100) + '%' }"></div>
+                </div>
+              </div>
+            </template>
+            <div v-else class="text-center text-xs text-gray-500 py-6">
+              Pas de données ML.<br>En attente du premier entraînement.
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -116,24 +116,116 @@ interface FeatureImportance {
   importance: number
 }
 
-const topFeatures = ref<FeatureImportance[]>([])
-
-async function chargerTopFeatures() {
-  try {
-    const res = await axios.get('http://localhost:8080/api/ml/feature-importance/rockets')
-    topFeatures.value = res.data
-  } catch {
-    // Silencieux : les importances n'existent pas encore (avant le 1er fine-tuning)
-  }
+// ── Dictionnaire de traduction des features ML en Bon Français ───────
+const dictionnaireFeatures: Record<string, string> = {
+  // OHLCV
+  "open_rel": "Ouverture de bougie",
+  "high_rel": "Mèche Haute (Distance)",
+  "low_rel": "Mèche Basse (Distance)",
+  "rendement_1": "Variation immédiate",
+  "volume_rel": "Anomalie de Volume",
+  // Spreads
+  "range_rel": "Ampleur totale",
+  "corps_rel": "Taille du corps",
+  "meche_haute": "Rejet vendeur",
+  "meche_basse": "Rejet acheteur",
+  "rendement_5": "Variation sur 5 bougies",
+  // EMA
+  "ema9_rel": "Écart Moyenne Rapide",
+  "ema21_rel": "Écart Moyenne Normale",
+  "ema50_rel": "Écart Moyenne Lente",
+  "spread_ema9_21": "Spread EMA 9/21",
+  "spread_ema21_50": "Spread EMA 21/50",
+  "pente_ema21": "Tendance (Pente)",
+  // RSI
+  "rsi14": "Pression RSI",
+  "rsi_surachat": "Zone Surachat RSI",
+  "rsi_survente": "Zone Survente RSI",
+  // ATR
+  "atr14_rel": "Volatilité (ATR)",
+  "atr_vs_moyenne": "Volatilité anormale",
+  "atr_extreme_150pct": "Pic Volatilité Extrême",
+  "atr_moyen_rel": "Volatilité Moyenne",
+  // MACD
+  "macd_ligne": "MACD (Force)",
+  "macd_signal": "MACD (Signal)",
+  "macd_histogramme": "MACD (Histogramme)",
+  "macd_croise_haut": "Croisement Haussier",
+  "macd_croise_bas": "Croisement Baissier",
+  // Bollinger
+  "bb_largeur": "Compression Bollinger",
+  "bb_position": "Position dans le Range",
+  "bb_au_dessus_sup": "Cassure Haussière BB",
+  "bb_en_dessous_inf": "Cassure Baissière BB",
+  "bb_pct_b": "Bollinger %B",
+  // Momentum
+  "rdt_1": "Élan (1 bougie)",
+  "rdt_2": "Élan (2 bougies)",
+  "rdt_3": "Élan (3 bougies)",
+  "rdt_4": "Élan (4 bougies)",
+  "rdt_5": "Élan (5 bougies)",
+  "momentum_10": "Momentum (10 min)",
+  "momentum_20": "Momentum (20 min)",
+  "momentum_30": "Momentum (30 min)",
+  "momentum_50": "Momentum (50 min)",
+  // Volume history
+  "vol_1": "Pression Vol (T-1)",
+  "vol_2": "Pression Vol (T-2)",
+  "vol_3": "Pression Vol (T-3)",
+  "vol_4": "Pression Vol (T-4)",
+  "vol_5": "Pression Vol (T-5)",
+  // Patterns
+  "ratio_corps_range": "Compression (Doji)",
+  "trois_haussiers": "3 Soldats Blancs",
+  "trois_baissiers": "3 Corbeaux Noirs",
+  "englobante_haussiere": "Englobante Haussière",
+  "momentum_ema9_50": "Momentum EMA 9/50",
+  // SMC spécifiques
+  "smc_tendance": "Direct. Tendance (SMC)",
+  "smc_order_block": "Ordres Institutionnels (OB)",
+  "smc_ifvg": "Inversion FVG",
+  "smc_fibonacci": "Retracement Fibonacci",
+  "smc_imbalance": "Imbalance (Déséquilibre)",
+  "smc_kill_zone": "Séances Horaires (KZ)",
+  "smc_sweep": "Chasse aux Liquidités",
+  // Straddle spécifiques
+  "ratio_atr": "Puissance du Breakout",
+  "straddle_categorie": "Catégorie de Breakout",
+  "straddle_session": "Volume selon Session",
+  // LLM
+  "score_llm": "Conviction IA",
+  "score_min": "Constante de Filtre"
 }
 
-const maxImportance = computed(() =>
-  topFeatures.value.length > 0 ? topFeatures.value[0].importance : 1
-)
+function traduireFeature(nom: string): string {
+  return dictionnaireFeatures[nom] || nom
+}
+// ───────────────────────────────────────────────────────────────────
 
-function barWidth(importance: number): string {
-  const max = maxImportance.value || 1
-  return Math.round((importance / max) * 100) + '%'
+interface StrategyData {
+  id: string
+  label: string
+  icon: string
+  features: FeatureImportance[]
+  max: number
+}
+
+const strategiesData = ref<StrategyData[]>([
+  { id: 'rockets', label: 'Rockets', icon: '🚀', features: [], max: 1 },
+  { id: 'smc', label: 'SMC Directionnel', icon: '📊', features: [], max: 1 },
+  { id: 'straddle', label: 'Straddle', icon: '⚡', features: [], max: 1 },
+])
+
+async function chargerTopFeatures() {
+  for (const strat of strategiesData.value) {
+    try {
+      const res = await axios.get(`http://localhost:8080/api/ml/feature-importance/${strat.id}`)
+      strat.features = res.data
+      strat.max = strat.features.length > 0 && strat.features[0].importance > 0 ? strat.features[0].importance : 1
+    } catch {
+      // Silencieux : les importances n'existent pas encore
+    }
+  }
 }
 
 const elapsed = ref(0)
@@ -160,6 +252,10 @@ watch(
       timer = setInterval(() => { elapsed.value++ }, 1000)
     } else {
       if (timer) { clearInterval(timer); timer = null }
+      // Rafraîchir les features quand l'entraînement se termine
+      if (store.retrainState?.job_id && store.retrainState?.termine_le) {
+        chargerTopFeatures()
+      }
     }
   },
   { immediate: true }

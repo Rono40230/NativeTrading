@@ -106,8 +106,8 @@ pub async fn enrichir_signal_avec_ollama(
 
     match confirmation {
         Ok(Some(r)) => {
-            tracing::info!(
-                "🤖 LLM confirmé {}/{}: {}",
+            tracing::debug!(
+                "LLM confirmé {}/{}: {}",
                 asset,
                 timeframe,
                 &r[..r.len().min(100)]

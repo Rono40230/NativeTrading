@@ -26,8 +26,8 @@ pub async fn sauvegarder_signal_avec_filtre(
     {
         Ok(Ok(filtre)) => {
             if !filtre.valide {
-                tracing::info!(
-                    "🚫 SMC filtre LLM rejeté {}/{} conviction={} — {}",
+                tracing::debug!(
+                    "SMC filtre LLM rejeté {}/{} conviction={} — {}",
                     asset.as_str(),
                     timeframe.as_str(),
                     filtre.conviction,

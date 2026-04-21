@@ -1,20 +1,7 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 pub const OLLAMA_URL: &str = "http://localhost:11434/api/chat";
 pub const MODELE_DEFAUT: &str = "qwen2.5vl:7b";
-
-#[derive(Serialize)]
-pub struct MessageOllama<'a> {
-    pub role: &'a str,
-    pub content: &'a str,
-}
-
-#[derive(Serialize)]
-pub struct RequeteOllama<'a> {
-    pub model: &'a str,
-    pub messages: Vec<MessageOllama<'a>>,
-    pub stream: bool,
-}
 
 #[derive(Deserialize)]
 pub struct ReponseOllama {

@@ -36,6 +36,7 @@ while IFS= read -r -d '' file; do
     check_file "$file"
 done < <(find "$ROOT" \
     -type f \( -name "*.rs" -o -name "*.vue" -o -name "*.ts" -o -name "*.js" \) \
+    -not -name "*.vue.js" \
     -not -path "*/target/*" \
     -not -path "*/node_modules/*" \
     -not -path "*/dist/*" \

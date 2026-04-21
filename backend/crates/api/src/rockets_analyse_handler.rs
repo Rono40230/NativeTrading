@@ -154,7 +154,7 @@ pub async fn demarrer_worker_analyse(pool: sqlx::SqlitePool) {
 
     loop {
         match executer_analyse(&pool).await {
-            Ok(a) => tracing::info!(
+            Ok(a) => tracing::debug!(
                 "Worker analyse LLM rockets terminé ({} trades analysés)",
                 a.nb_trades
             ),

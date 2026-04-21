@@ -105,3 +105,24 @@ pub async fn supprimer_asset(
         }
     }
 }
+
+#[derive(serde::Deserialize)]
+pub struct MlActifBody {
+    pub ml_actif: bool,
+}
+
+/// PATCH /api/assets/{id}/ml — active ou désactive l'asset pour le réentraînement ML
+pub async fn set_ml_actif(
+    state: web::Data<AppState>,
+    path: web::Path<String>,
+    body: web::Json<MlActifBody>,
+) -> impl Responder {
+    let id = path.into_inner().to_uppercase();
+    match state.db.set_ml_actif(&id, body.ml_actif).await {
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true, "ml_actif": body.ml_actif })),
+        Err(e) => {
+            tracing::warn!("set_ml_actif '{}': {}", id, e);
+            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
+        }
+    }
+}

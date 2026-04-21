@@ -70,7 +70,7 @@ impl Strategy for SmcDirectionalStrategy {
             Direction::Both => return Ok(None),
         };
 
-        tracing::info!(
+        tracing::debug!(
             "SMC signal {:?} score={:.1} entry={:.2} sl={:.2} tp1={:.2} tp2={:.2} tp3={:.2}",
             score.direction,
             score.total,

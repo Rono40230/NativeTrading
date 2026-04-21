@@ -5,10 +5,6 @@ use super::types::{ReponseOllama, OLLAMA_URL};
 
 pub const MODELE_VISION: &str = "qwen2.5vl:7b";
 
-/// Semaphore Ollama : max 2 appels concurrents.
-static OLLAMA_SEMAPHORE: std::sync::LazyLock<tokio::sync::Semaphore> =
-    std::sync::LazyLock::new(|| tokio::sync::Semaphore::new(2));
-
 /// Envoie une ou plusieurs images (base64, timeframe) à llama3.2-vision — analyse SMC top-down.
 pub async fn analyser_images(
     images: &[(&str, &str)],
@@ -58,6 +54,7 @@ pub async fn analyser_images(
             "temperature": 0.2,
             "num_ctx": 32768,
             "num_predict": 2048,
+            "num_gpu": 99,
             "stop": ["— FIN DE L'ANALYSE —", "\n\n---", "<|end|>", "<|im_end|>"]
         }
     });
@@ -65,11 +62,8 @@ pub async fn analyser_images(
 }
 
 pub async fn appeler_ollama(url: &str, corps: &serde_json::Value) -> Result<String, TradingError> {
-    let _permit = OLLAMA_SEMAPHORE.acquire().await.ok();
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(300))
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new());
+    let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*super::OLLAMA_HTTP_CLIENT;
     let reponse = client
         .post(url)
         .json(corps)
