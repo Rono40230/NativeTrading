@@ -41,17 +41,15 @@ pub fn entrainer_walk_forward(bougies: &[Candle]) -> Result<ResultatWalkForward>
     let mut xgb_tmp = ModeleXGBoost::new(50);
     let mut lstm_tmp = ModeleHybrideLstm::nouveau(NB_FEATURES);
 
-    let mut features_train = Vec::new();
-    let mut labels_train = Vec::new();
-    for i in 60..train.len() {
-        if let (Some(f), Some(l)) = (
-            extraire_features(&train[..=i]),
-            labelliser(train, i, 5, 0.002),
-        ) {
-            features_train.push(f);
-            labels_train.push(l);
-        }
-    }
+    use rayon::prelude::*;
+    let (features_train, labels_train): (Vec<_>, Vec<_>) = (60..train.len())
+        .into_par_iter()
+        .filter_map(|i| {
+            let f = extraire_features(&train[..=i])?;
+            let l = labelliser(train, i, 5, 0.002)?;
+            Some((f, l))
+        })
+        .unzip();
 
     if features_train.is_empty() {
         return Err(TradingError::ML(
@@ -92,28 +90,21 @@ pub fn entrainer_walk_forward(bougies: &[Candle]) -> Result<ResultatWalkForward>
 
 /// Évalue le XGBoost sur une fenêtre de bougies.
 fn evaluer_xgb(xgb: &ModeleXGBoost, bougies: &[Candle]) -> f64 {
-    let mut ok = 0usize;
-    let mut total = 0usize;
-    for i in 60..bougies.len() {
-        let (Some(f), Some(label)) = (
-            extraire_features(&bougies[..=i]),
-            labelliser(bougies, i, 5, 0.002),
-        ) else {
-            continue;
-        };
-        let Ok((direction, _)) = xgb.predire(&f) else {
-            continue;
-        };
-        let pred_label = if direction == Direction::Long {
-            1.0
-        } else {
-            0.0
-        };
-        if (pred_label - label).abs() < 0.5 {
-            ok += 1;
-        }
-        total += 1;
-    }
+    use rayon::prelude::*;
+    let (ok, total) = (60..bougies.len())
+        .into_par_iter()
+        .filter_map(|i| {
+            let f = extraire_features(&bougies[..=i])?;
+            let label = labelliser(bougies, i, 5, 0.002)?;
+            let Ok((direction, _)) = xgb.predire(&f) else {
+                return None;
+            };
+            let pred_label = if direction == Direction::Long { 1.0 } else { 0.0 };
+            let ok = if (pred_label - label).abs() < 0.5 { 1 } else { 0 };
+            Some((ok, 1))
+        })
+        .reduce(|| (0usize, 0usize), |a, b| (a.0 + b.0, a.1 + b.1));
+
     if total == 0 {
         return 0.5;
     }
@@ -122,25 +113,24 @@ fn evaluer_xgb(xgb: &ModeleXGBoost, bougies: &[Candle]) -> f64 {
 
 /// Évalue le LSTM sur une fenêtre de bougies.
 fn evaluer_lstm(lstm: &ModeleHybrideLstm, bougies: &[Candle]) -> f64 {
-    let mut ok = 0usize;
-    let mut total = 0usize;
-    for i in (60 + LONGUEUR_SEQ)..bougies.len() {
-        let Some(label) = labelliser(bougies, i, 5, 0.002) else {
-            continue;
-        };
-        let sequence: Vec<Vec<f64>> = (i - LONGUEUR_SEQ..i)
-            .filter_map(|j| extraire_features(&bougies[..=j]))
-            .collect();
-        if sequence.len() != LONGUEUR_SEQ {
-            continue;
-        }
-        let conf_long = lstm.predire(&sequence);
-        let pred = if conf_long >= 0.5 { 1.0 } else { 0.0 };
-        if (pred - label).abs() < 0.5 {
-            ok += 1;
-        }
-        total += 1;
-    }
+    use rayon::prelude::*;
+    let (ok, total) = ((60 + LONGUEUR_SEQ)..bougies.len())
+        .into_par_iter()
+        .filter_map(|i| {
+            let label = labelliser(bougies, i, 5, 0.002)?;
+            let sequence: Vec<Vec<f64>> = (i - LONGUEUR_SEQ..i)
+                .filter_map(|j| extraire_features(&bougies[..=j]))
+                .collect();
+            if sequence.len() != LONGUEUR_SEQ {
+                return None;
+            }
+            let conf_long = lstm.predire(&sequence);
+            let pred = if conf_long >= 0.5 { 1.0 } else { 0.0 };
+            let ok = if (pred - label).abs() < 0.5 { 1 } else { 0 };
+            Some((ok, 1))
+        })
+        .reduce(|| (0usize, 0usize), |a, b| (a.0 + b.0, a.1 + b.1));
+
     if total == 0 {
         return 0.5;
     }
