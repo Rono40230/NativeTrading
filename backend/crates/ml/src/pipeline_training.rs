@@ -44,7 +44,7 @@ pub fn entrainer_sur_historique(
         )));
     }
 
-    const MAX_SAMPLES_XGB: usize = 30_000;
+    const MAX_SAMPLES_XGB: usize = 5_000; // REDUIT de 30k pour accélérer l'itération des 37 assets
     let debut_xgb = features_dataset.len().saturating_sub(MAX_SAMPLES_XGB);
     let acc_xgb = pipeline.xgb.entrainer(&features_dataset[debut_xgb..], &labels[debut_xgb..])?;
 
@@ -55,7 +55,7 @@ pub fn entrainer_sur_historique(
 
     #[cfg(feature = "cuda")]
     let acc_lstm = if tch::Cuda::is_available() {
-        const MAX_GPU: usize = 10_000;
+        const MAX_GPU: usize = 3_000;
         let debut_gpu = seq_total.len().saturating_sub(MAX_GPU);
         match crate::lstm::entrainement_gpu::entrainer_sur_gpu(
             &mut pipeline.lstm, &seq_total[debut_gpu..], &labels_seq_total[debut_gpu..], 15, 0.001,
@@ -63,19 +63,19 @@ pub fn entrainer_sur_historique(
             Ok(acc) => acc,
             Err(e) => {
                 tracing::warn!("LSTM GPU échoué, fallback CPU: {}", e);
-                const MAX: usize = 5_000;
+                const MAX: usize = 2_000;
                 let d = seq_total.len().saturating_sub(MAX);
                 pipeline.lstm.entrainer(&seq_total[d..], &labels_seq_total[d..], 15, 0.001)
             }
         }
     } else {
-        const MAX: usize = 5_000;
+        const MAX: usize = 2_000;
         let d = seq_total.len().saturating_sub(MAX);
         pipeline.lstm.entrainer(&seq_total[d..], &labels_seq_total[d..], 15, 0.001)
     };
     #[cfg(not(feature = "cuda"))]
     let acc_lstm = {
-        const MAX: usize = 5_000;
+        const MAX: usize = 2_000;
         let d = seq_total.len().saturating_sub(MAX);
         pipeline.lstm.entrainer(&seq_total[d..], &labels_seq_total[d..], 15, 0.001)
     };

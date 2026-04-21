@@ -1,5 +1,6 @@
 use common::{Candle, Direction, Result, TradingError};
 
+use rayon::prelude::*;
 use crate::{
     features::{labelliser, NB_FEATURES},
     features_precalc::{extraire_depuis_series, precalculer, SeriesIndicateurs},
@@ -11,10 +12,10 @@ use crate::{
 /// Walk_forward = métriques OOS uniquement, pas le modèle final.
 /// M1 sans limite : 28k échantillons × 50 arbres → 74s par tâche → système bloqué.
 /// Avec 5k : ~3s par tâche.
-const MAX_SAMPLES_XGB_WF: usize = 5_000;
+const MAX_SAMPLES_XGB_WF: usize = 2_000;
 
 /// Nombre max de séquences LSTM dans walk_forward.
-const MAX_SEQ_WF: usize = 3_000;
+const MAX_SEQ_WF: usize = 1_000;
 
 /// Résultat d'un entraînement walk-forward (métriques out-of-sample)
 pub struct ResultatWalkForward {
@@ -53,19 +54,17 @@ pub fn entrainer_walk_forward(bougies: &[Candle]) -> Result<ResultatWalkForward>
     // Pré-calcul O(N) des indicateurs sur le jeu d'entraînement
     let series_train = precalculer(train);
 
-    // Extraction séquentielle des features (O(N) grâce au précalcul)
-    // Pas de par_iter ici : la parallélisation est gérée par rayon au niveau du scheduler
-    let mut features_train = Vec::new();
-    let mut labels_train = Vec::new();
-    for i in 60..train.len() {
-        if let (Some(f), Some(l)) = (
-            extraire_depuis_series(&series_train, train, i),
-            labelliser(train, i, 5, 0.002),
-        ) {
-            features_train.push(f);
-            labels_train.push(l);
-        }
-    }
+    // Extraction parallèle des features
+    let paires: Vec<_> = (60..train.len())
+        .into_par_iter()
+        .filter_map(|i| {
+            let f = extraire_depuis_series(&series_train, train, i)?;
+            let l = labelliser(train, i, 5, 0.002)?;
+            Some((f, l))
+        })
+        .collect();
+
+    let (features_train, labels_train): (Vec<Vec<f64>>, Vec<f64>) = paires.into_iter().unzip();
 
     if features_train.is_empty() {
         return Err(TradingError::ML(
