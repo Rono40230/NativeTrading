@@ -15,7 +15,7 @@
       </text>
       <!-- Remplissage -->
       <path :d="areaPath" :fill="couleur" fill-opacity="0.12" />
-      <!-- Ligne de Moyenne Mobile (P=50) -->
+      <!-- Ligne de Moyenne Mobile (P=100) -->
       <path v-if="smaPath" :d="smaPath" stroke="#fbbf24" fill="none" stroke-width="0.6" stroke-opacity="0.8" stroke-linejoin="round" />
       <!-- Ligne courbe -->
       <path :d="linePath" :stroke="couleur" fill="none" stroke-width="1.5" stroke-linejoin="round" />
@@ -186,7 +186,7 @@ const linePath = computed(() => {
 const smaPath = computed(() => {
   const pts = !data.value || data.value.points.length === 0 ? [] : data.value.points.length === 1 ? [data.value.points[0]] : data.value.points
   if (pts.length < 5) return '' // Pas assez de points pour la moyenne
-  const P = 50 // Période de la moyenne (50 trades)
+  const P = 100 // Période de la moyenne (100 trades)
   const smaPoints = []
   
   for (let i = 0; i < pts.length; i++) {
