@@ -19,6 +19,7 @@ serde_json.workspace = true
 chrono.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
+xgb = "3.0.5"
 
 [dev-dependencies]
 chrono.workspace = true

@@ -47,7 +47,15 @@ else
 fi
 
 # ─── Compilation backend si nécessaire ───────────────────────────────────────
-echo "🔨 Vérification backend (release)..."
+echo "🔨 Vérification backend GPU (CUDA)..."
+export LIBTORCH=/mnt/IA/libtorch
+export XGBOOST_LIB_DIR=/home/rono/.local/lib/python3.14/site-packages/xgboost/lib
+export LIBCLANG_PATH=/run/host/usr/lib64
+export BINDGEN_EXTRA_CLANG_ARGS="-I/run/host/usr/lib/clang/21/include -I/run/host/usr/include"
+export LD_LIBRARY_PATH=$LIBTORCH/lib:$XGBOOST_LIB_DIR:/run/host/usr/lib64:$LD_LIBRARY_PATH
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+
 cd "$ROOT_DIR/backend"
 cargo build -p api --release 2>&1 | grep -E "Compiling|Finished|error"
 

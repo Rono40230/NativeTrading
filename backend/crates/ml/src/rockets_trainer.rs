@@ -196,8 +196,14 @@ fn calculer_importances(
 
     // Calcul des prédictions de base (continues) sur le jeu OOS
     let features_oos_vec = features_oos.to_vec();
-    let x_base = DenseMatrix::from_2d_vec(&features_oos_vec).ok().unwrap();
-    let preds_base = modele.predict(&x_base).ok().unwrap();
+    let x_base = match DenseMatrix::from_2d_vec(&features_oos_vec) {
+        Ok(m) => m,
+        Err(_) => return Vec::new(),
+    };
+    let preds_base = match modele.predict(&x_base) {
+        Ok(p) => p,
+        Err(_) => return Vec::new(),
+    };
 
     let mut importances: Vec<ImportanceFeature> = (0..nb_features)
         .filter_map(|i| {

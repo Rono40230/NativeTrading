@@ -48,19 +48,31 @@ pub fn entrainer_sur_historique(
     let debut_xgb = features_dataset.len().saturating_sub(MAX_SAMPLES_XGB);
     let acc_xgb = pipeline.xgb.entrainer(&features_dataset[debut_xgb..], &labels[debut_xgb..])?;
 
-    let seq_total: Vec<Vec<Vec<f64>>> = (LONGUEUR_SEQ..features_dataset.len())
+    // FIX OOM (Exit Code 137) : On limite l'allocation de Vec<Vec<Vec<>>> avant la création
+    // au lieu de charger tout l'historique et faire le slice ensuite.
+    #[cfg(feature = "cuda")]
+    let max_seq = if tch::Cuda::is_available() { 50_000 } else { 2_000 };
+    #[cfg(not(feature = "cuda"))]
+    let max_seq = 2_000;
+
+    let debut_seq = features_dataset.len().saturating_sub(max_seq).max(LONGUEUR_SEQ);
+    let seq_total: Vec<Vec<Vec<f64>>> = (debut_seq..features_dataset.len())
         .map(|i| features_dataset[i - LONGUEUR_SEQ..i].to_vec())
         .collect();
-    let labels_seq_total: Vec<f64> = labels[LONGUEUR_SEQ..].to_vec();
+    let labels_seq_total: Vec<f64> = labels[debut_seq..].to_vec();
 
     #[cfg(feature = "cuda")]
     let acc_lstm = if tch::Cuda::is_available() {
-        const MAX_GPU: usize = 3_000;
-        let debut_gpu = seq_total.len().saturating_sub(MAX_GPU);
+        tracing::info!("🚀 Démarrage entraînement LSTM GPU sur {} séquences (epochs: 15)...", seq_total.len());
+        let chrono_gpu = std::time::Instant::now();
+        
         match crate::lstm::entrainement_gpu::entrainer_sur_gpu(
-            &mut pipeline.lstm, &seq_total[debut_gpu..], &labels_seq_total[debut_gpu..], 15, 0.001,
+            &mut pipeline.lstm, &seq_total, &labels_seq_total, 15, 0.001,
         ) {
-            Ok(acc) => acc,
+            Ok(acc) => {
+                tracing::info!("✅ LSTM GPU terminé en {:.2?}. Precision OOS: {:.2}%", chrono_gpu.elapsed(), acc * 100.0);
+                acc
+            },
             Err(e) => {
                 tracing::warn!("LSTM GPU échoué, fallback CPU: {}", e);
                 const MAX: usize = 2_000;
