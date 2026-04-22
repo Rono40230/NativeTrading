@@ -3,6 +3,9 @@
 **/*.rs.bk
 Cargo.lock
 
+# Workaround GCC 15 : archive vide libstdc++fs (générée par run.sh)
+/.cargo-fake-libs/
+
 # Node / Frontend
 frontend/node_modules/
 frontend/dist/

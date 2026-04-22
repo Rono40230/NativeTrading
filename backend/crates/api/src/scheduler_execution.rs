@@ -226,14 +226,16 @@ pub async fn executer_entrainements_tous(
     }
 }
 
-/// Tronque aux N bougies les plus récentes. Évite les durées excessives (M1 ≈ 1M → 50k).
+/// Tronque aux N bougies les plus récentes.
+/// Zones de valeur : M1/M5=50k (stable, ~35j), M15=30k (ok), M30=30k (+50% couverture),
+/// H1=15k (~625j, couvre bull+bear), H4/D1 inchangés (déjà dans la zone).
 pub fn limiter_bougies_par_tf(mut bougies: Vec<common::Candle>, tf: &str) -> Vec<common::Candle> {
     let max: usize = match tf {
         "M1" => 50_000,
         "M5" => 50_000,
         "M15" => 30_000,
-        "M30" => 20_000,
-        "H1" => 10_000,
+        "M30" => 30_000,
+        "H1" => 15_000,
         "H4" => 5_000,
         "D1" => 1_000,
         _ => 500, // W1 et autres

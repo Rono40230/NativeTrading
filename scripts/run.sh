@@ -56,6 +56,15 @@ export LD_LIBRARY_PATH=$LIBTORCH/lib:$XGBOOST_LIB_DIR:/run/host/usr/lib64:$LD_LI
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
+# ─── Workaround GCC 15 : libstdc++fs fusionné dans libstdc++ (xgboost_lib-sys v3.0.4) ──
+# GCC 15 a supprimé libstdc++fs séparément. On crée une archive vide pour satisfaire le linker.
+FAKE_LIBS="$ROOT_DIR/.cargo-fake-libs"
+mkdir -p "$FAKE_LIBS"
+if [ ! -f "$FAKE_LIBS/libstdc++fs.a" ]; then
+  ar rcs "$FAKE_LIBS/libstdc++fs.a"
+fi
+export RUSTFLAGS="-L $FAKE_LIBS ${RUSTFLAGS:-}"
+
 cd "$ROOT_DIR/backend"
 cargo build -p api --release 2>&1 | grep -E "Compiling|Finished|error"
 

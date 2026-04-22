@@ -44,14 +44,18 @@ pub fn entrainer_sur_historique(
         )));
     }
 
-    const MAX_SAMPLES_XGB: usize = 5_000; // REDUIT de 30k pour accélérer l'itération des 37 assets
+    // Zone de valeur : 15k-30k. En dessous = sous-apprentissage (3-4j de M1 seulement),
+    // au-delà = régimes conflictuels. Release build gère 20k en ~2-3s par asset.
+    const MAX_SAMPLES_XGB: usize = 20_000;
     let debut_xgb = features_dataset.len().saturating_sub(MAX_SAMPLES_XGB);
     let acc_xgb = pipeline.xgb.entrainer(&features_dataset[debut_xgb..], &labels[debut_xgb..])?;
 
     // FIX OOM (Exit Code 137) : On limite l'allocation de Vec<Vec<Vec<>>> avant la création
     // au lieu de charger tout l'historique et faire le slice ensuite.
+    // Zone de valeur LSTM : 12k-20k. 15k séquences × 60 × 50 features ≈ 180MB tenseur,
+    // safe sur RTX 3090 même avec Ollama actif (23/24GB). Au-delà : gradient vanishing.
     #[cfg(feature = "cuda")]
-    let max_seq = if tch::Cuda::is_available() { 50_000 } else { 2_000 };
+    let max_seq = if tch::Cuda::is_available() { 15_000 } else { 2_000 };
     #[cfg(not(feature = "cuda"))]
     let max_seq = 2_000;
 

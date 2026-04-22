@@ -9,9 +9,9 @@ use crate::{
 
 /// Nombre max d'échantillons XGBoost dans walk_forward.
 /// Walk_forward = métriques OOS uniquement, pas le modèle final.
-/// M1 sans limite : 28k échantillons × 50 arbres → 74s par tâche → système bloqué.
-/// Avec 2k : ~3s par tâche.
-const MAX_SAMPLES_XGB_WF: usize = 2_000;
+/// Zone de valeur : 5k-10k. En dessous de 5k, variance accuracy ±8% → métriques non fiables.
+/// À 6k en release build : ~0.5s par tâche. Au-delà de 10k : gain marginal.
+const MAX_SAMPLES_XGB_WF: usize = 6_000;
 
 /// Résultat d'un entraînement walk-forward (métriques out-of-sample)
 pub struct ResultatWalkForward {
