@@ -132,6 +132,17 @@ export function useSignauxTableau(strategie: 'SmcDirectional' | 'Straddle' | 'Ro
     return lotClampe.toFixed(2)
   }
 
+
+  function infosPips(cible: number | null | undefined, base: number, actif: string): string {
+    if (!cible || cible === 0 || base === 0 || !actif) return ''
+    const param = assetParamsStore.liste.find(p => p.asset === actif)
+    if (!param || param.taille_pip <= 0) return ''
+    const distanceAbs = Math.abs(cible - base)
+    const pips = (distanceAbs / param.taille_pip).toFixed(1)
+    const pts = (distanceAbs / (param.taille_pip / param.pip_to_points)).toFixed(0)
+    return `(${pips} pips | ${pts} pts)`
+  }
+
   async function charger() {
     if (!listeActive.value.length) chargement.value = true
     try {
@@ -169,7 +180,7 @@ export function useSignauxTableau(strategie: 'SmcDirectional' | 'Straddle' | 'Ro
   return {
     signaux, rocketsRaw, chargement, analyseOuverte, filtreStatut,
     annulationEnCours, listeActive, signauxTries,
-    charger, annuler, trierPar, icone, analyserSignal,
+    charger, annuler, trierPar, icone, analyserSignal, infosPips,
     classeConviction, classePrix, labelResultat, classeResultat, lotPourSignal,
     prixStore, assetParamsStore, settingsStore,
   }

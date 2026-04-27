@@ -37,6 +37,7 @@
           <div class="prix-bloc">
             <span class="prix-label">Stop-Loss</span>
             <span class="prix-val text-red-400">{{ fmt(signal.stop_loss) }}</span>
+            <span class="text-[9px] text-gray-400 mt-0.5 whitespace-nowrap">{{ infosPips(signal.stop_loss, signal.prix_entree) }}</span>
           </div>
           <div class="prix-bloc">
             <span class="prix-label">Score</span>
@@ -49,6 +50,7 @@
           <div v-for="(tp, i) in (signal.take_profit ?? []).slice(0, 3)" :key="i" class="prix-bloc">
             <span class="prix-label">TP{{ i + 1 }}</span>
             <span class="prix-val text-emerald-400">{{ fmt(tp) }}</span>
+            <span class="text-[9px] text-gray-400 mt-0.5 whitespace-nowrap">{{ infosPips(tp, signal.prix_entree) }}</span>
           </div>
         </div>
 
@@ -96,8 +98,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
+import { useAssetParamsStore } from '@/stores/assetParams.store'
 
 const store = useSignalAlarmeStore()
+const assetParamsStore = useAssetParamsStore()
 
 const signal = computed(() => store.signalActuel!)
 
@@ -147,6 +151,15 @@ const dirClass = computed(() => {
 function fmt(n: number | null | undefined): string {
   if (n == null) return '—'
   return n >= 1000 ? n.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : n.toFixed(5)
+}
+
+function infosPips(cible: number | null | undefined, reference: number): string {
+  if (cible == null) return ''
+  const params = assetParamsStore.liste.find(p => p.asset === signal.value?.asset)
+  if (!params) return ''
+  const diff_pips = Math.abs(cible - reference) / (params.taille_pip || 0.0001)
+  const diff_pts = diff_pips * (params.pip_to_points || 10.0)
+  return `${diff_pips.toFixed(1)} pips · ${diff_pts.toFixed(0)} pts`
 }
 
 function formatDate(ts: number): string {

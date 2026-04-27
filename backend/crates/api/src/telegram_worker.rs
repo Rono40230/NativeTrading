@@ -58,6 +58,24 @@ async fn traiter_signaux(pool: &SqlitePool, token: &str, chat_id: &str) {
         let llm_conviction: Option<f64> = row.try_get("llm_conviction").ok().flatten();
         let llm_raison: Option<String> = row.try_get("llm_raison").ok().flatten();
 
+        let p_taille: f64 = sqlx::query("SELECT taille_pip FROM asset_params WHERE asset = ?")
+            .bind(&asset)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten()
+            .map(|r| r.get::<f64, _>("taille_pip"))
+            .unwrap_or(0.0001);
+
+        let p_to_pt: f64 = sqlx::query("SELECT pip_to_points FROM asset_params WHERE asset = ?")
+            .bind(&asset)
+            .fetch_optional(pool)
+            .await
+            .ok()
+            .flatten()
+            .map(|r| r.get::<f64, _>("pip_to_points"))
+            .unwrap_or(10.0);
+
         let texte = formater_signal(
             &strategie,
             &direction,
@@ -68,6 +86,8 @@ async fn traiter_signaux(pool: &SqlitePool, token: &str, chat_id: &str) {
             &take_profit,
             llm_conviction,
             llm_raison.as_deref(),
+            p_taille,
+            p_to_pt,
         );
 
         match crate::telegram::post_message(token, chat_id, &texte).await {

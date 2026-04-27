@@ -6,7 +6,7 @@
       <span class="text-xs text-gray-500">{{ listeActive.length }} signal{{ listeActive.length !== 1 ? 's' : '' }}</span>
       <div class="flex gap-2 ml-auto">
         <button class="btn-sm" @click="charger">🔄 Actualiser</button>
-        <button v-if="strategie !== 'Rockets'" class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse</button>
+        <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse</button>
       </div>
     </div>
 
@@ -32,6 +32,7 @@
             <th class="px-3 py-3 text-center">IA</th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Résultat <span>{{ icone('verdict') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Ouvert le <span>{{ icone('cree_le') }}</span></th>
+            <th class="px-3 py-3 text-center w-24">Signal</th>
             <th v-if="strategie === 'SmcDirectional'" class="px-3 py-3 text-center w-10"></th>
             <th v-if="strategie === 'Rockets' && filtreStatut === 'en_cours'" class="px-3 py-3 text-center w-20">Annuler</th>
           </tr>
@@ -47,10 +48,22 @@
             </td>
             <td class="px-3 py-3 text-right font-mono text-gray-300">{{ s.score.toFixed(0) }}</td>
             <td class="px-3 py-3 text-right font-mono text-white">{{ formatNombre(s.prix_entree) }}</td>
-            <td class="px-3 py-3 text-right font-mono text-red-400">{{ formatNombre(s.stop_loss) }}</td>
-            <td class="px-3 py-3 text-right font-mono text-emerald-400">{{ formatNombre(s.take_profit[0]) }}</td>
-            <td class="px-3 py-3 text-right font-mono text-emerald-300">{{ s.take_profit[1] ? formatNombre(s.take_profit[1]) : '—' }}</td>
-            <td class="px-3 py-3 text-right font-mono text-emerald-200">{{ s.take_profit[2] ? formatNombre(s.take_profit[2]) : '—' }}</td>
+            <td class="px-3 py-3 text-right font-mono text-red-400">
+              <div>{{ formatNombre(s.stop_loss) }}</div>
+              <div class="text-[10px] text-gray-500 font-sans tracking-tight">{{ infosPips(s.stop_loss, s.prix_entree, s.asset) }}</div>
+            </td>
+            <td class="px-3 py-3 text-right font-mono text-emerald-400">
+              <div>{{ formatNombre(s.take_profit[0]) }}</div>
+              <div class="text-[10px] text-gray-500 font-sans tracking-tight">{{ infosPips(s.take_profit[0], s.prix_entree, s.asset) }}</div>
+            </td>
+            <td class="px-3 py-3 text-right font-mono text-emerald-300">
+              <div>{{ s.take_profit[1] ? formatNombre(s.take_profit[1]) : '—' }}</div>
+              <div v-if="s.take_profit[1]" class="text-[10px] text-gray-500 font-sans tracking-tight">{{ infosPips(s.take_profit[1], s.prix_entree, s.asset) }}</div>
+            </td>
+            <td class="px-3 py-3 text-right font-mono text-emerald-200">
+              <div>{{ s.take_profit[2] ? formatNombre(s.take_profit[2]) : '—' }}</div>
+              <div v-if="s.take_profit[2]" class="text-[10px] text-gray-500 font-sans tracking-tight">{{ infosPips(s.take_profit[2], s.prix_entree, s.asset) }}</div>
+            </td>
             <td v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right font-mono" :class="classePrix(s)">{{ prixStore.getPrix(s.asset) !== null ? formatNombre(prixStore.getPrix(s.asset)!) : '—' }}</td>
             <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right font-mono text-white">{{ s.prix_verdict ? formatNombre(s.prix_verdict) : '—' }}</td>
             <td class="px-3 py-3 text-center">
@@ -61,6 +74,9 @@
               <span class="badge" :class="classeResultat(s)">{{ labelResultat(s) }}</span>
             </td>
             <td class="px-3 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
+            <td class="px-3 py-3 text-center">
+              <button class="badge bg-blue-900/30 text-blue-400 border border-blue-700/50 hover:bg-blue-800/50 hover:text-blue-300 transition-colors" @click="afficherSignal(s)">👁️ Voir</button>
+            </td>
             <td v-if="strategie === 'SmcDirectional'" class="px-3 py-3 text-center">
               <button class="text-blue-400 hover:text-blue-200 text-sm transition-colors" title="Analyser ce signal avec l'IA" @click="analyserSignal(s)">🔍</button>
             </td>
@@ -182,6 +198,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useSignauxTableau } from '@/composables/useSignauxTableau'
+import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
 import { formatDate, formatNombre } from '@/composables/useSignalFormat'
 import type { Signal } from '@/services/api.types'
 import StraddleAnalyseModal from '@/components/common/StraddleAnalyseModal.vue'
@@ -193,7 +210,7 @@ const props = defineProps<{ strategie: 'SmcDirectional' | 'Straddle' | 'Rockets'
 const {
   signaux, rocketsRaw, chargement, analyseOuverte,
   filtreStatut, annulationEnCours, listeActive, signauxTries,
-  charger, annuler, trierPar, icone, analyserSignal,
+  charger, annuler, trierPar, icone, analyserSignal, infosPips,
   classeConviction, classePrix, labelResultat, classeResultat, lotPourSignal,
   prixStore, assetParamsStore, settingsStore,
 } = useSignauxTableau(props.strategie)
@@ -210,6 +227,10 @@ async function confirmerAnnulation() {
   const s = signalAnnuler.value
   signalAnnuler.value = null
   await annuler(s)
+}
+
+function afficherSignal(s: Signal) {
+  useSignalAlarmeStore().ajouterSignal(s)
 }
 
 // ── Heure d'entrée Straddle ───────────────────────────────────────────────────

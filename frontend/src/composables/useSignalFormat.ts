@@ -33,3 +33,30 @@ export function labelVerdictSignal(verdict: string | null): string {
   if (v === 'expire') return '⏰ Expiré'
   return '⏳ En cours'
 }
+
+export function calculerR(signal: { direction: string; prix_entree: number; stop_loss: number; prix_verdict: number | null }): number | null {
+  if (!signal.prix_verdict || !signal.prix_entree || !signal.stop_loss) return null;
+  const diffPx = signal.prix_entree - signal.stop_loss;
+  if (Math.abs(diffPx) < 0.000001) return null; // Évite la division par zéro
+
+  const risk = Math.abs(diffPx);
+  const isLong = signal.direction.toUpperCase() === 'LONG';
+  const pnl = isLong
+    ? (signal.prix_verdict - signal.prix_entree)
+    : (signal.prix_entree - signal.prix_verdict);
+
+  return pnl / risk;
+}
+
+export function formatR(r: number | null): string {
+  if (r === null) return '';
+  const sign = r > 0 ? '+' : '';
+  return `${sign}${r.toFixed(2)}R`;
+}
+
+export function classeR(r: number | null): string {
+  if (r === null) return '';
+  if (r > 0) return 'text-emerald-400 font-bold';
+  if (r < 0) return 'text-red-400 font-bold';
+  return 'text-gray-400 font-bold';
+}

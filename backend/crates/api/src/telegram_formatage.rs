@@ -12,6 +12,8 @@ pub fn formater_signal(
     take_profit: &[f64],
     llm_conviction: Option<f64>,
     llm_raison: Option<&str>,
+    taille_pip: f64,
+    pip_to_points: f64,
 ) -> String {
     let strat_lower = strategie.to_lowercase();
     let est_straddle = strat_lower.contains("straddle");
@@ -39,19 +41,25 @@ pub fn formater_signal(
         .enumerate()
         .map(|(i, &tp)| {
             let pct = (tp - ref_prix) / ref_prix * 100.0;
+            let diff_pips = (tp - ref_prix).abs() / taille_pip;
+            let diff_pts = diff_pips * pip_to_points;
             let signe = if pct >= 0.0 { "+" } else { "" };
             format!(
-                "🎯 TP{}      {}  ({}{:.2}%)",
+                "🎯 TP{}      {}  ({}{:.2}% | {:.1} pips | {:.0} pts)",
                 i + 1,
                 crate::telegram::fmt(tp, ref_prix),
                 signe,
-                pct
+                pct,
+                diff_pips,
+                diff_pts
             )
         })
         .collect::<Vec<_>>()
         .join("\n");
 
     let sl_pct = (stop_loss - ref_prix) / ref_prix * 100.0;
+    let diff_sl_pips = (stop_loss - ref_prix).abs() / taille_pip;
+    let diff_sl_pts = diff_sl_pips * pip_to_points;
     let sl_signe = if sl_pct >= 0.0 { "+" } else { "" };
 
     let mut texte = format!(
@@ -61,8 +69,10 @@ pub fn formater_signal(
         {action}\n\
         \n\
         <code>📍 Entrée   {entree}\n\
-🛑 Stop     {sl}  ({sl_signe}{sl_pct:.2}%)\n\
+🛑 Stop     {sl}  ({sl_signe}{sl_pct:.2}% | {:.1} pips | {:.0} pts)\n\
 {tps}</code>",
+        diff_sl_pips,
+        diff_sl_pts,
         emoji = emoji,
         strategie = strategie,
         score = score,

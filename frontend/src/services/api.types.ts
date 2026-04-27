@@ -249,6 +249,7 @@ export interface AssetParams {
   risque_pct: number
   lot_min: number
   lot_max: number
+  taille_pip: number
   // champs calculés côté frontend (présentation uniquement)
   investi?: number
   lot?: number

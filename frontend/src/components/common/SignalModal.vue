@@ -54,15 +54,24 @@
             </div>
             <div class="sm-niveau sm-niveau-sl">
               <span class="sm-label">Stop Loss</span>
-              <span class="text-red-400 text-sm font-semibold">{{ formatPrix(niveaux.sl) }}</span>
+              <div class="flex flex-col items-end gap-0.5">
+                <span class="text-red-400 text-sm font-semibold">{{ formatPrix(niveaux.sl) }}</span>
+                <span class="text-[10px] text-gray-500 tracking-tight leading-none">{{ infosPips(niveaux.sl, niveaux.entry) }}</span>
+              </div>
             </div>
             <div class="sm-niveau sm-niveau-tp1">
               <span class="sm-label">TP1 (×2 ATR)</span>
-              <span class="text-emerald-400 text-sm font-semibold">{{ formatPrix(niveaux.tp1) }}</span>
+              <div class="flex flex-col items-end gap-0.5">
+                <span class="text-emerald-400 text-sm font-semibold">{{ formatPrix(niveaux.tp1) }}</span>
+                <span class="text-[10px] text-gray-500 tracking-tight leading-none">{{ infosPips(niveaux.tp1, niveaux.entry) }}</span>
+              </div>
             </div>
             <div class="sm-niveau sm-niveau-tp2">
               <span class="sm-label">TP2 (×3 ATR)</span>
-              <span class="text-emerald-300 text-sm font-semibold">{{ formatPrix(niveaux.tp2) }}</span>
+              <div class="flex flex-col items-end gap-0.5">
+                <span class="text-emerald-300 text-sm font-semibold">{{ formatPrix(niveaux.tp2) }}</span>
+                <span class="text-[10px] text-gray-500 tracking-tight leading-none">{{ infosPips(niveaux.tp2, niveaux.entry) }}</span>
+              </div>
             </div>
           </div>
           <!-- Risk / Reward -->
@@ -88,6 +97,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { FORCE_LABEL } from '@/composables/chartSignauxTypes'
 import type { SignalIndicateur } from '@/composables/chartSignauxTypes'
+import { useAssetParamsStore } from '@/stores/assetParams.store'
 import type { NiveauSlTp } from '@/composables/chartAtrSlTp'
 
 const CONSEILS: Record<string, string> = {
@@ -123,9 +133,22 @@ const CONSEILS: Record<string, string> = {
 const props = defineProps<{
   signal: SignalIndicateur | null
   niveaux: NiveauSlTp | null
+  asset: string | null
 }>()
 
 const emit = defineEmits<{ fermer: [] }>()
+const assetParamsStore = useAssetParamsStore()
+
+function infosPips(cible: number | null | undefined, base: number | null | undefined): string {
+  const actif = props.asset
+  if (!cible || cible === 0 || !base || base === 0 || !actif) return ''
+  const param = assetParamsStore.liste.find(p => p.asset === actif)
+  if (!param || param.taille_pip <= 0) return ''
+  const distanceAbs = Math.abs(cible - base)
+  const pips = (distanceAbs / param.taille_pip).toFixed(1)
+  const pts = (distanceAbs / (param.taille_pip / param.pip_to_points)).toFixed(0)
+  return `(${pips} pips | ${pts} pts)`
+}
 
 // ─── Computed UI ──────────────────────────────────────────────────────────────
 
