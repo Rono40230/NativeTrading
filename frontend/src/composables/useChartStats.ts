@@ -1,13 +1,24 @@
-import { computed, type ComputedRef } from 'vue'
+import { computed, type ComputedRef, ref, watch } from 'vue'
 import type { Candle } from '@/services/api.service'
+import { useMarketStore } from '@/stores/market.store'
 
 export function useChartStats(bougies: ComputedRef<Candle[]>) {
+  const store = useMarketStore()
+  
+  // Utiliser une ref interne qui s'incrémente pour forcer le recalcul
+  const tick = ref(0)
+  watch(() => store.wsMiseAJour, () => {
+    tick.value++
+  }, { deep: true })
+
   const dernierPrix = computed(() => {
+    tick.value // force tracking
     const b = bougies.value
     return b.length > 0 ? b[b.length - 1].close : null
   })
 
   const variation = computed(() => {
+    tick.value // force tracking
     const b = bougies.value
     if (b.length < 2) return 0
     const avant = b[b.length - 2].close
@@ -16,6 +27,7 @@ export function useChartStats(bougies: ComputedRef<Candle[]>) {
   })
 
   const stats = computed(() => {
+    tick.value // force tracking
     const b = bougies.value
     if (b.length === 0) return null
     const high = Math.max(...b.map((c) => c.high))

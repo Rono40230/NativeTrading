@@ -3,7 +3,7 @@
 //! Bybit : même nommage des paires (BTCUSDT), API publique ouverte.
 
 use async_trait::async_trait;
-use chrono::DateTime;
+use chrono::{DateTime, Datelike, Timelike};
 use common::{Asset, Candle, Result, Timeframe, TradingError};
 
 use crate::DataProvider;
@@ -23,8 +23,10 @@ impl BinanceProvider {
             Asset::AVAX => Ok("AVAXUSDT".into()),
             Asset::LINK => Ok("LINKUSDT".into()),
             Asset::DOT => Ok("DOTUSDT".into()),
+            Asset::XAUUSD => Ok("XAUUSDT".into()),
+            Asset::XAGUSD => Ok("XAGUSDT".into()),
             _ => Err(TradingError::Data(format!(
-                "BinanceProvider: {} n'est pas une crypto Bybit",
+                "BinanceProvider: {} n'est pas une crypto ou un métal supporté par Bybit",
                 asset.as_str()
             ))),
         }
@@ -65,9 +67,14 @@ impl DataProvider for BinanceProvider {
 
         // Bybit retourne max 1000 bougies par appel — pas de pagination nécessaire ici
         let max = limit.min(1000);
+        let category = if symbole == "XAUUSDT" || symbole == "XAGUSDT" {
+            "linear"
+        } else {
+            "spot"
+        };
         let url = format!(
-            "https://api.bybit.com/v5/market/kline?category=spot&symbol={}&interval={}&limit={}",
-            symbole, interval, max
+            "https://api.bybit.com/v5/market/kline?category={}&symbol={}&interval={}&limit={}",
+            category, symbole, interval, max
         );
 
         let resp = client
@@ -107,6 +114,23 @@ impl DataProvider for BinanceProvider {
             .filter_map(|row| {
                 let ts_ms: i64 = row.first()?.parse().ok()?;
                 let timestamp = DateTime::from_timestamp(ts_ms / 1000, 0)?;
+
+                // Si c'est un métal (XAU/XAG), on filtre strictement le week-end
+                // Vendredi 22h00 UTC au Dimanche 22h00 UTC (horaires classiques).
+                if matches!(asset, Asset::XAUUSD | Asset::XAGUSD) {
+                    let w = timestamp.weekday();
+                    let h = timestamp.hour();
+                    let is_weekend = match w {
+                        chrono::Weekday::Sat => true,
+                        chrono::Weekday::Fri if h >= 22 => true,
+                        chrono::Weekday::Sun if h < 22 => true,
+                        _ => false,
+                    };
+                    if is_weekend {
+                        return None; // On rejette cette bougie
+                    }
+                }
+
                 Some(Candle {
                     timestamp,
                     open: row.get(1)?.parse().ok()?,

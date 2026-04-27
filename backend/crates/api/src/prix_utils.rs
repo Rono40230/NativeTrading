@@ -41,6 +41,8 @@ fn binance_symbol(asset: &str) -> Option<&'static str> {
         "AVAX" => Some("AVAXUSDT"),
         "LINK" => Some("LINKUSDT"),
         "DOT" => Some("DOTUSDT"),
+        "XAUUSD" => Some("XAUUSDT"),
+        "XAGUSD" => Some("XAGUSDT"),
         _ => None,
     }
 }
@@ -75,17 +77,44 @@ pub fn ig_epic_str(asset: &str) -> Option<&'static str> {
 
 /// Fetch prix spot Binance.
 pub async fn fetch_binance(client: &reqwest::Client, symbole: &str) -> Option<f64> {
-    let sym = if symbole.ends_with("USDT") {
+    let sym = if symbole == "XAUUSD" || symbole == "XAUUSDT" {
+        "XAUUSDT".to_string()
+    } else if symbole == "XAGUSD" || symbole == "XAGUSDT" {
+        "XAGUSDT".to_string()
+    } else if symbole.ends_with("USDT") {
         symbole.to_string()
     } else {
         format!("{}USDT", symbole)
     };
+    
+    // Bybit API route (évite géo-blocage Binance)
+    let category = if sym == "XAUUSDT" || sym == "XAGUSDT" {
+        "linear"
+    } else {
+        "spot"
+    };
+
     let url = format!(
-        "https://api.binance.com/api/v3/ticker/price?symbol={}",
-        sym
+        "https://api.bybit.com/v5/market/tickers?category={}&symbol={}",
+        category, sym
     );
-    let resp: BinancePrix = client.get(&url).send().await.ok()?.json().await.ok()?;
-    resp.price.parse::<f64>().ok()
+    
+    #[derive(serde::Deserialize)]
+    struct BybitTickerItem {
+        lastPrice: String,
+    }
+    #[derive(serde::Deserialize)]
+    struct BybitTickerResult {
+        list: Vec<BybitTickerItem>,
+    }
+    #[derive(serde::Deserialize)]
+    struct BybitTickerResp {
+        result: BybitTickerResult,
+    }
+
+    let resp: BybitTickerResp = client.get(&url).send().await.ok()?.json().await.ok()?;
+    let str_price = resp.result.list.first()?.lastPrice.clone();
+    str_price.parse::<f64>().ok()
 }
 
 /// Fetch prix spot IG via GET /markets/{epic} (snapshot bid/offer).

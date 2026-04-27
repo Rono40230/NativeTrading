@@ -15,7 +15,7 @@
         <th v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right">Prix actuel</th>
         <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'prix_verdict')">Sortie <span class="tri-icone">{{ icone('prix_verdict') }}</span></th>
         <th class="px-3 py-3 text-center">IA</th>
-        <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'verdict')">Résultat <span class="tri-icone">{{ icone('verdict') }}</span></th>
+        <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'verdict')">Résultat (R) <span class="tri-icone">{{ icone('verdict') }}</span></th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'strategie')">Stratégie <span class="tri-icone">{{ icone('strategie') }}</span></th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'cree_le')">Ouvert le <span class="tri-icone">{{ icone('cree_le') }}</span></th>
         <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'ferme_le')">Fermé le <span class="tri-icone">{{ icone('ferme_le') }}</span></th>
@@ -39,7 +39,12 @@
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right font-mono text-white">{{ s.prix_verdict ? formatNombre(s.prix_verdict) : '—' }}</td>
         <td class="px-3 py-3 text-center"><span v-if="s.llm_conviction !== null" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help" :class="classeConviction(s.llm_conviction)" :title="s.llm_raison ?? ''">{{ s.llm_conviction }}</span><span v-else class="text-gray-700 text-xs">—</span></td>
         <td class="px-3 py-3">
-          <span class="badge" :class="classeVerdictSignal(s.verdict)">{{ labelVerdictSignal(s.verdict) }}</span>
+          <div class="flex items-center gap-2">
+            <span class="badge" :class="classeVerdictSignal(s.verdict)">{{ labelVerdictSignal(s.verdict) }}</span>
+            <span v-if="calculerR(s) !== null" :class="classeR(calculerR(s))" class="text-xs">
+              {{ formatR(calculerR(s)) }}
+            </span>
+          </div>
         </td>
         <td class="px-3 py-3 text-gray-400 text-xs">{{ s.strategie === 'SMC Directionnel' ? 'SMC' : s.strategie }}</td>
         <td class="px-3 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
@@ -53,7 +58,7 @@
 import { computed } from 'vue'
 import type { Signal } from '@/services/api.service'
 import { usePrixStore } from '@/stores/prix.store'
-import { formatDate, formatNombre, classeVerdictSignal, labelVerdictSignal } from '@/composables/useSignalFormat'
+import { formatDate, formatNombre, classeVerdictSignal, labelVerdictSignal, calculerR, formatR, classeR } from '@/composables/useSignalFormat'
 
 const props = defineProps<{
   signaux: Signal[]

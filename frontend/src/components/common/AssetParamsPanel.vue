@@ -31,6 +31,7 @@
         <thead>
           <tr>
             <th>Asset</th>
+            <th title="Valeur décimale d'un pip (ex: 0.0001)">Taille pip</th>
             <th title="Valeur monétaire d'1 pip en USD">Valeur pip ($)</th>
             <th title="Stop-Loss par défaut en pips">SL pips</th>
             <th title="Facteur de conversion pip → point MT5">pip→pt</th>
@@ -55,6 +56,15 @@
               :class="`row-${section.id}`"
             >
               <td class="cell-asset">{{ row.asset }}</td>
+              <td>
+                <input
+                  v-model.number="row.taille_pip"
+                  type="number"
+                  min="0.00001"
+                  step="0.00001"
+                  class="input-cell"
+                />
+              </td>
               <td class="cell-computed">{{ Number(row.valeur_pips).toFixed(1) }}</td>
               <td>
                 <input

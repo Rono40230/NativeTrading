@@ -209,6 +209,8 @@ impl TryFrom<&str> for Timeframe {
 impl Asset {
     /// Retourne true si l'asset est une crypto (source Binance).
     pub fn is_crypto(&self) -> bool {
+        // Renommer conceptuellement "is_crypto" par "is_binance" :
+        // Les métaux (XAUUSD, XAGUSD) sont désormais routés vers Binance Futures.
         matches!(
             self,
             Asset::BTC
@@ -221,6 +223,8 @@ impl Asset {
                 | Asset::AVAX
                 | Asset::LINK
                 | Asset::DOT
+                | Asset::XAUUSD
+                | Asset::XAGUSD
         )
     }
 

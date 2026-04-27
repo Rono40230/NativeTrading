@@ -30,10 +30,12 @@ pub(super) fn binance_stream_url(asset: &common::Asset, tf: &common::Timeframe) 
         common::Timeframe::D1 => "1d",
         common::Timeframe::W1 => "1w",
     };
-    format!(
-        "wss://stream.binance.com:9443/ws/{}@kline_{}",
-        symbol, interval
-    )
+
+    if matches!(asset, common::Asset::XAUUSD | common::Asset::XAGUSD) {
+        "wss://stream.bybit.com/v5/public/linear".to_string()
+    } else {
+        format!("wss://stream.binance.com:9443/ws/{}@kline_{}", symbol, interval)
+    }
 }
 
 pub(super) async fn stream_binance(
@@ -53,7 +55,7 @@ pub(super) async fn stream_binance(
     };
 
     let url = binance_stream_url(&asset, &timeframe);
-    let ws_stream = match connect_async(&url).await {
+    let mut ws_stream = match connect_async(&url).await {
         Ok((s, _)) => s,
         Err(e) => {
             let err =
@@ -65,6 +67,27 @@ pub(super) async fn stream_binance(
             return;
         }
     };
+
+    let is_bybit = matches!(asset, common::Asset::XAUUSD | common::Asset::XAGUSD);
+    if is_bybit {
+        let bybit_interval = match timeframe {
+            common::Timeframe::M1 => "1",
+            common::Timeframe::M5 => "5",
+            common::Timeframe::M15 => "15",
+            common::Timeframe::M30 => "30",
+            common::Timeframe::H1 => "60",
+            common::Timeframe::H4 => "240",
+            common::Timeframe::D1 => "D",
+            common::Timeframe::W1 => "W",
+        };
+        use futures_util::SinkExt;
+        let sym = if asset == common::Asset::XAUUSD { "XAUUSDT" } else { "XAGUSDT" };
+        let sub_msg = serde_json::to_string(&serde_json::json!({
+            "op": "subscribe",
+            "args": [format!("kline.{}.{}", bybit_interval, sym)]
+        })).unwrap_or_default();
+        let _ = ws_stream.send(tokio_tungstenite::tungstenite::Message::Text(sub_msg)).await;
+    }
 
     let (_, mut binance_rx) = ws_stream.split();
     let ok =
@@ -78,24 +101,77 @@ pub(super) async fn stream_binance(
             msg = binance_rx.next() => {
                 match msg {
                     Some(Ok(tokio_tungstenite::tungstenite::Message::Text(txt))) => {
-                        if let Ok(km) = serde_json::from_str::<BinanceKlineMsg>(&txt) {
-                            let k = &km.kline;
-                            let event = CandleEvent {
-                                r#type: if k.is_closed { "candle" } else { "bar_update" },
-                                asset: asset_str.clone(),
-                                timeframe: timeframe_str.clone(),
-                                data: CandleData {
-                                    timestamp: (k.open_time_ms / 1000) as i64,
-                                    open: k.open.parse().unwrap_or(0.0),
-                                    high: k.high.parse().unwrap_or(0.0),
-                                    low: k.low.parse().unwrap_or(0.0),
-                                    close: k.close.parse().unwrap_or(0.0),
-                                    volume: k.volume.parse().unwrap_or(0.0),
-                                },
-                            };
-                            if let Ok(p) = serde_json::to_string(&event) {
-                                if session.text(p).await.is_err() {
-                                    break;
+                        if is_bybit {
+                            tracing::info!("Bybit WS RX: {}", txt);
+                            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
+                                // Gérer les messages kline
+                                if v.get("topic").and_then(|t| t.as_str()).map_or(false, |t| t.starts_with("kline.")) {
+                                    if let Some(data_arr) = v.get("data").and_then(|d| d.as_array()) {
+                                        if let Some(k) = data_arr.first() {
+                                            tracing::info!("Bybit kline data block: {:?}", k);
+                                            let start = k.get("start").and_then(|s| s.as_u64());
+                                            let open = k.get("open").and_then(|s| s.as_str()).and_then(|s| s.parse::<f64>().ok());
+                                            let high = k.get("high").and_then(|s| s.as_str()).and_then(|s| s.parse::<f64>().ok());
+                                            let low = k.get("low").and_then(|s| s.as_str()).and_then(|s| s.parse::<f64>().ok());
+                                            let close = k.get("close").and_then(|s| s.as_str()).and_then(|s| s.parse::<f64>().ok());
+                                            let volume = k.get("volume").and_then(|s| s.as_str()).and_then(|s| s.parse::<f64>().ok());
+                                            let confirm = k.get("confirm").and_then(|c| c.as_bool());
+                                            
+                                            tracing::info!("Parsed fields: s={:?} o={:?} h={:?} l={:?} c={:?} v={:?} conf={:?}", start, open, high, low, close, volume, confirm);
+                                            
+                                            if let (
+                                                Some(start),
+                                                Some(open),
+                                                Some(high),
+                                                Some(low),
+                                                Some(close),
+                                                Some(volume),
+                                                Some(confirm),
+                                            ) = (start, open, high, low, close, volume, confirm) {
+                                                let event = CandleEvent {
+                                                    r#type: if confirm { "candle" } else { "bar_update" },
+                                                    asset: asset_str.clone(),
+                                                    timeframe: timeframe_str.clone(),
+                                                    data: CandleData {
+                                                        timestamp: (start / 1000) as i64,
+                                                        open,
+                                                        high,
+                                                        low,
+                                                        close,
+                                                        volume,
+                                                    },
+                                                };
+                                                if let Ok(p) = serde_json::to_string(&event) {
+                                                    tracing::info!("Sending to client: {}", p);
+                                                    if session.text(p).await.is_err() { break; }
+                                                }
+                                            } else {
+                                                tracing::warn!("Failed to parse all bybit kline fields from {:?}", k);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            if let Ok(km) = serde_json::from_str::<BinanceKlineMsg>(&txt) {
+                                let k = &km.kline;
+                                let event = CandleEvent {
+                                    r#type: if k.is_closed { "candle" } else { "bar_update" },
+                                    asset: asset_str.clone(),
+                                    timeframe: timeframe_str.clone(),
+                                    data: CandleData {
+                                        timestamp: (k.open_time_ms / 1000) as i64,
+                                        open: k.open.parse().unwrap_or(0.0),
+                                        high: k.high.parse().unwrap_or(0.0),
+                                        low: k.low.parse().unwrap_or(0.0),
+                                        close: k.close.parse().unwrap_or(0.0),
+                                        volume: k.volume.parse().unwrap_or(0.0),
+                                    },
+                                };
+                                if let Ok(p) = serde_json::to_string(&event) {
+                                    if session.text(p).await.is_err() {
+                                        break;
+                                    }
                                 }
                             }
                         }

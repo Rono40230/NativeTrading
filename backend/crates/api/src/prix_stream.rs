@@ -40,8 +40,9 @@ pub async fn stream_prix(
     let (response, mut session, mut client_stream) = actix_ws::handle(&req, body)?;
 
     actix_web::rt::spawn(async move {
-        // Rafraichissement anti-spammeur IG : Intervalle de 2s.
-        let mut interval = tokio::time::interval(Duration::from_secs(2));
+        // Rafraichissement : Intervalle de 1s pour baisser la latence sur crypto/métaux
+        // On gardera un compteur pour ne requêter IG que toutes les 2s (anti-spammeur IG)
+        let mut interval = tokio::time::interval(Duration::from_secs(1));
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
         // Map Asset > Epic pour optimiser les appels groupés IG
@@ -55,13 +56,17 @@ pub async fn stream_prix(
             }
         }
 
+        let mut tick_counter: u64 = 0;
+
         loop {
             tokio::select! {
                 _ = interval.tick() => {
+                    tick_counter = tick_counter.wrapping_add(1);
                     let mut map = serde_json::Map::new();
                     
                     // 1. IG Multi-markets Request (Tout d'un coup, 1 requête = SAFE)
-                    if !ig_assets.is_empty() {
+                    // Seulement 1 fois sur 2 (toutes les 2 secondes)
+                    if !ig_assets.is_empty() && (tick_counter % 2 == 0) {
                         let epics: Vec<&str> = ig_assets.iter().map(|(_, e)| e.as_str()).collect();
                         let result_ig = prix_utils::fetch_ig_multi(&client, &ig_session, &db, &epics).await;
                         

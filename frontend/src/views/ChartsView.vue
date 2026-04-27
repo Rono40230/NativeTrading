@@ -99,6 +99,7 @@
     <SignalModal
       :signal="signalModal"
       :niveaux="niveauxModal"
+      :asset="selectedAsset"
       @fermer="signalModal = null"
     />
   </div>

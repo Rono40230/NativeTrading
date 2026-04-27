@@ -28,10 +28,6 @@ Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Pourquoi je n'ai pas de badge IA dans le historique pour les trades SMC
-
---------------------------------------------------------------------------------------------------------------------------
-
 Il faut intégralement revoir le prompt SMC en définissant le plus clairement possible la stratégie, ses objectifs, sont fonctionnement, les indicateurs qu'elle utilise et les signaux qu'elle doit générer.
 
 Le prompt SMC doit repérer les zones d'achats et de vente en confirmant les OB sur plusieurs TF.
@@ -39,7 +35,8 @@ Le prompt SMC doit repérer les zones d'achats et de vente en confirmant les OB 
 --------------------------------------------------------------------------------------------------------------------------
 
 En te basant sur le tableau de la gestion du risque dans configuration il faut :
-- intégrer aux signaux des 3 stratégies qui s'affiche dans les modales et qui sont envoyés dans telegram les traductions en points et/ou pips des valeurs en $.
+- intégrer aux signaux SMC et Straddle qui s'affichent dans les modales et qui sont envoyés dans telegram les traductions en points et/ou pips à côté des valeurs en $.
+Est ce clair ? As tu besoin de précisions ? Répond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -57,12 +54,6 @@ Quels sont tes conseils pour l'affichage :
 Répond sans coder
 --------------------------------------------------------------------------------------------------------------------------
 
-Dans le tableau des historiques de trades il manque :
-- la colonne verdict avec calcul des R pour SMC
-- vérifie si cette colonne est présente dans straddle
-
---------------------------------------------------------------------------------------------------------------------------
-
 Peux tu simuler ce que ferait un trade rockets fictif en fonction de ce qui est dans le code ?
 Repond sans coder
 
@@ -78,7 +69,4 @@ Doit on créer de toute pièces ce LLM ou existe t il des LLM ou des sources int
 Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
-
-
-
 
