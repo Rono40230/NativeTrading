@@ -65,6 +65,9 @@ if [ ! -f "$FAKE_LIBS/libstdc++fs.a" ]; then
 fi
 export RUSTFLAGS="-L $FAKE_LIBS ${RUSTFLAGS:-}"
 
+export CC=clang
+export CXX=clang++
+
 cd "$ROOT_DIR/backend"
 cargo build -p api --release 2>&1 | grep -E "Compiling|Finished|error"
 
