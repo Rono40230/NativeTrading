@@ -102,13 +102,13 @@ pub(super) async fn stream_binance(
                 match msg {
                     Some(Ok(tokio_tungstenite::tungstenite::Message::Text(txt))) => {
                         if is_bybit {
-                            tracing::info!("Bybit WS RX: {}", txt);
+                            tracing::debug!("Bybit WS RX: {}", txt);
                             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
                                 // Gérer les messages kline
                                 if v.get("topic").and_then(|t| t.as_str()).map_or(false, |t| t.starts_with("kline.")) {
                                     if let Some(data_arr) = v.get("data").and_then(|d| d.as_array()) {
                                         if let Some(k) = data_arr.first() {
-                                            tracing::info!("Bybit kline data block: {:?}", k);
+                                            tracing::debug!("Bybit kline data block: {:?}", k);
                                             let start = k.get("start").and_then(|s| s.as_u64());
                                             let open = k.get("open").and_then(|s| s.as_str()).and_then(|s| s.parse::<f64>().ok());
                                             let high = k.get("high").and_then(|s| s.as_str()).and_then(|s| s.parse::<f64>().ok());
@@ -117,7 +117,7 @@ pub(super) async fn stream_binance(
                                             let volume = k.get("volume").and_then(|s| s.as_str()).and_then(|s| s.parse::<f64>().ok());
                                             let confirm = k.get("confirm").and_then(|c| c.as_bool());
                                             
-                                            tracing::info!("Parsed fields: s={:?} o={:?} h={:?} l={:?} c={:?} v={:?} conf={:?}", start, open, high, low, close, volume, confirm);
+                                            tracing::debug!("Parsed fields: s={:?} o={:?} h={:?} l={:?} c={:?} v={:?} conf={:?}", start, open, high, low, close, volume, confirm);
                                             
                                             if let (
                                                 Some(start),
@@ -142,7 +142,7 @@ pub(super) async fn stream_binance(
                                                     },
                                                 };
                                                 if let Ok(p) = serde_json::to_string(&event) {
-                                                    tracing::info!("Sending to client: {}", p);
+                                                    tracing::debug!("Sending to client: {}", p);
                                                     if session.text(p).await.is_err() { break; }
                                                 }
                                             } else {
