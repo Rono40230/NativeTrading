@@ -101,7 +101,8 @@ pub async fn fetch_binance(client: &reqwest::Client, symbole: &str) -> Option<f6
     
     #[derive(serde::Deserialize)]
     struct BybitTickerItem {
-        lastPrice: String,
+        #[serde(rename = "lastPrice")]
+        last_price: String,
     }
     #[derive(serde::Deserialize)]
     struct BybitTickerResult {
@@ -113,7 +114,7 @@ pub async fn fetch_binance(client: &reqwest::Client, symbole: &str) -> Option<f6
     }
 
     let resp: BybitTickerResp = client.get(&url).send().await.ok()?.json().await.ok()?;
-    let str_price = resp.result.list.first()?.lastPrice.clone();
+    let str_price = resp.result.list.first()?.last_price.clone();
     str_price.parse::<f64>().ok()
 }
 

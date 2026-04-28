@@ -14,6 +14,8 @@ pub struct StraddleParams {
     pub trailing_atr: f64,
     /// true = Option 1 (vente ⅓ à chaque TP) ; false = Option 2 (SL progresse, pas de vente)
     pub vente_partielle: bool,
+    pub pct_cloture_tp1: f64,
+    pub pct_cloture_tp2: f64,
 }
 
 impl Default for StraddleParams {
@@ -27,6 +29,8 @@ impl Default for StraddleParams {
             sl_mult: 0.5,
             trailing_atr: 1.5,
             vente_partielle: true,
+            pct_cloture_tp1: 0.33,
+            pct_cloture_tp2: 0.33,
         }
     }
 }
@@ -34,7 +38,7 @@ impl Default for StraddleParams {
 pub async fn lire_straddle_params(pool: &SqlitePool) -> StraddleParams {
     let row = sqlx::query(
         "SELECT atr_periode, atr_seuil, tp_mult_1, tp_mult_2, tp_mult_3,
-                sl_mult, trailing_atr, vente_partielle
+                sl_mult, trailing_atr, vente_partielle, pct_cloture_tp1, pct_cloture_tp2
          FROM straddle_params WHERE id = 1",
     )
     .fetch_optional(pool)
@@ -50,6 +54,8 @@ pub async fn lire_straddle_params(pool: &SqlitePool) -> StraddleParams {
             sl_mult: r.get("sl_mult"),
             trailing_atr: r.get("trailing_atr"),
             vente_partielle: r.get::<i64, _>("vente_partielle") != 0,
+            pct_cloture_tp1: r.get("pct_cloture_tp1"),
+            pct_cloture_tp2: r.get("pct_cloture_tp2"),
         },
         _ => StraddleParams::default(),
     }
@@ -59,8 +65,8 @@ pub async fn sauvegarder_straddle_params(pool: &SqlitePool, p: &StraddleParams) 
     sqlx::query(
         "INSERT INTO straddle_params
              (id, atr_periode, atr_seuil, tp_mult_1, tp_mult_2, tp_mult_3,
-              sl_mult, trailing_atr, vente_partielle, maj_le)
-         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+              sl_mult, trailing_atr, vente_partielle, pct_cloture_tp1, pct_cloture_tp2, maj_le)
+         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(id) DO UPDATE SET
              atr_periode      = excluded.atr_periode,
              atr_seuil        = excluded.atr_seuil,
@@ -70,6 +76,8 @@ pub async fn sauvegarder_straddle_params(pool: &SqlitePool, p: &StraddleParams) 
              sl_mult          = excluded.sl_mult,
              trailing_atr     = excluded.trailing_atr,
              vente_partielle  = excluded.vente_partielle,
+             pct_cloture_tp1  = excluded.pct_cloture_tp1,
+             pct_cloture_tp2  = excluded.pct_cloture_tp2,
              maj_le           = excluded.maj_le",
     )
     .bind(p.atr_periode)
@@ -80,6 +88,8 @@ pub async fn sauvegarder_straddle_params(pool: &SqlitePool, p: &StraddleParams) 
     .bind(p.sl_mult)
     .bind(p.trailing_atr)
     .bind(if p.vente_partielle { 1i64 } else { 0i64 })
+    .bind(p.pct_cloture_tp1)
+    .bind(p.pct_cloture_tp2)
     .execute(pool)
     .await
     .map_err(|e| TradingError::Database(e.to_string()))?;
@@ -100,6 +110,8 @@ pub struct SmcParams {
     pub vente_partielle: bool,
     /// true = Kill Zone ICT requise ; false = filtre désactivé (diagnostic/tests)
     pub kill_zone_filtre: bool,
+    pub pct_cloture_tp1: f64,
+    pub pct_cloture_tp2: f64,
 }
 
 impl Default for SmcParams {
@@ -113,6 +125,8 @@ impl Default for SmcParams {
             atr_sl: 1.0,
             vente_partielle: true,
             kill_zone_filtre: true,
+            pct_cloture_tp1: 0.33,
+            pct_cloture_tp2: 0.33,
         }
     }
 }
@@ -120,7 +134,7 @@ impl Default for SmcParams {
 pub async fn lire_smc_params(pool: &SqlitePool) -> SmcParams {
     let row = sqlx::query(
         "SELECT atr_periode, score_min, atr_tp1, atr_tp2, atr_tp3, atr_sl,
-                vente_partielle, kill_zone_filtre
+                vente_partielle, kill_zone_filtre, pct_cloture_tp1, pct_cloture_tp2
          FROM smc_params WHERE id = 1",
     )
     .fetch_optional(pool)
@@ -136,6 +150,8 @@ pub async fn lire_smc_params(pool: &SqlitePool) -> SmcParams {
             atr_sl: r.get("atr_sl"),
             vente_partielle: r.get::<i64, _>("vente_partielle") != 0,
             kill_zone_filtre: r.get::<Option<i64>, _>("kill_zone_filtre").unwrap_or(1) != 0,
+            pct_cloture_tp1: r.try_get("pct_cloture_tp1").unwrap_or(0.33),
+            pct_cloture_tp2: r.try_get("pct_cloture_tp2").unwrap_or(0.33),
         },
         _ => SmcParams::default(),
     }
@@ -145,8 +161,8 @@ pub async fn sauvegarder_smc_params(pool: &SqlitePool, p: &SmcParams) -> Result<
     sqlx::query(
         "INSERT INTO smc_params
              (id, atr_periode, score_min, atr_tp1, atr_tp2, atr_tp3, atr_sl,
-              vente_partielle, kill_zone_filtre, maj_le)
-         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+              vente_partielle, kill_zone_filtre, pct_cloture_tp1, pct_cloture_tp2, maj_le)
+         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(id) DO UPDATE SET
              atr_periode      = excluded.atr_periode,
              score_min        = excluded.score_min,
@@ -156,6 +172,8 @@ pub async fn sauvegarder_smc_params(pool: &SqlitePool, p: &SmcParams) -> Result<
              atr_sl           = excluded.atr_sl,
              vente_partielle  = excluded.vente_partielle,
              kill_zone_filtre = excluded.kill_zone_filtre,
+             pct_cloture_tp1  = excluded.pct_cloture_tp1,
+             pct_cloture_tp2  = excluded.pct_cloture_tp2,
              maj_le           = excluded.maj_le",
     )
     .bind(p.atr_periode)
@@ -166,6 +184,8 @@ pub async fn sauvegarder_smc_params(pool: &SqlitePool, p: &SmcParams) -> Result<
     .bind(p.atr_sl)
     .bind(if p.vente_partielle { 1i64 } else { 0i64 })
     .bind(if p.kill_zone_filtre { 1i64 } else { 0i64 })
+    .bind(p.pct_cloture_tp1)
+    .bind(p.pct_cloture_tp2)
     .execute(pool)
     .await
     .map_err(|e| TradingError::Database(e.to_string()))?;

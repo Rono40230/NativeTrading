@@ -89,7 +89,7 @@ fn secondes_jusqu_a_18h_paris() -> u64 {
     let now_utc = Utc::now();
     // Détection heure d'été simplifiée : UTC+2 d'avril à octobre, UTC+1 sinon
     let mois = now_utc.month();
-    let offset_secs = if mois >= 4 && mois <= 10 { 2 * 3600i32 } else { 3600i32 };
+    let offset_secs = if (4..=10).contains(&mois) { 2 * 3600i32 } else { 3600i32 };
     let paris = FixedOffset::east_opt(offset_secs).expect("offset valide");
     let now_paris = paris.from_utc_datetime(&now_utc.naive_utc());
 

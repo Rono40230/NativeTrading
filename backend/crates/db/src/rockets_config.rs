@@ -24,6 +24,8 @@ pub struct RocketsConfig {
     /// seuil_score_faible ≤ score < seuil_score_fort : split 25/25/50%
     /// score ≥ seuil_score_fort : split 15/20/65%
     pub seuil_score_fort: i64,
+    pub pct_cloture_tp1: f64,
+    pub pct_cloture_tp2: f64,
 }
 
 impl RocketsConfig {
@@ -50,6 +52,8 @@ impl Default for RocketsConfig {
             trailing_coeff_max: 5.0,
             seuil_score_faible: 65,
             seuil_score_fort: 80,
+            pct_cloture_tp1: 0.33,
+            pct_cloture_tp2: 0.33,
         }
     }
 }
@@ -58,7 +62,7 @@ pub async fn lire_config(pool: &SqlitePool) -> RocketsConfig {
     let row = sqlx::query(
         "SELECT score_min, phases_actives, rsi_max, rsi_min, ratio_volume_min,
                 vol_marche_min, vente_partielle, sl_mult,
-                trailing_coeff_min, trailing_coeff_max, seuil_score_faible, seuil_score_fort
+                trailing_coeff_min, trailing_coeff_max, seuil_score_faible, seuil_score_fort, pct_cloture_tp1, pct_cloture_tp2
          FROM rockets_config WHERE id = 1",
     )
     .fetch_optional(pool)
@@ -83,6 +87,8 @@ pub async fn lire_config(pool: &SqlitePool) -> RocketsConfig {
                 trailing_coeff_max: r.try_get("trailing_coeff_max").unwrap_or(def.trailing_coeff_max),
                 seuil_score_faible: r.try_get("seuil_score_faible").unwrap_or(def.seuil_score_faible),
                 seuil_score_fort: r.try_get("seuil_score_fort").unwrap_or(def.seuil_score_fort),
+                pct_cloture_tp1: r.try_get("pct_cloture_tp1").unwrap_or(def.pct_cloture_tp1),
+                pct_cloture_tp2: r.try_get("pct_cloture_tp2").unwrap_or(def.pct_cloture_tp2),
             }
         }
         _ => RocketsConfig::default(),

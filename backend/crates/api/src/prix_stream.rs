@@ -66,7 +66,7 @@ pub async fn stream_prix(
                     
                     // 1. IG Multi-markets Request (Tout d'un coup, 1 requête = SAFE)
                     // Seulement 1 fois sur 2 (toutes les 2 secondes)
-                    if !ig_assets.is_empty() && (tick_counter % 2 == 0) {
+                    if !ig_assets.is_empty() && (tick_counter.is_multiple_of(2)) {
                         let epics: Vec<&str> = ig_assets.iter().map(|(_, e)| e.as_str()).collect();
                         let result_ig = prix_utils::fetch_ig_multi(&client, &ig_session, &db, &epics).await;
                         

@@ -54,10 +54,11 @@ pub async fn lire_snapshots_avec_labels(
 ) -> anyhow::Result<Vec<(Vec<f64>, f64)>> {
     let rows = sqlx::query(
         r#"SELECT s.features_json,
-               CASE WHEN rs.verdict IN ('TP1','TP2','TP3') THEN 1.0 ELSE 0.0 END AS label
+               CAST(COALESCE(rf.pnl_r, CASE WHEN rs.verdict IN ('TP1','TP2','TP3') THEN 1.0 ELSE 0.0 END) AS REAL) AS label
         FROM rockets_features_snapshot s
         JOIN rockets_signaux rs ON rs.id = s.signal_id
-        WHERE rs.statut = 'ferme' AND rs.verdict IS NOT NULL"#,
+        JOIN rockets_feedback rf ON rf.signal_id = rs.id
+        WHERE rs.statut = 'ferme' AND rs.verdict IS NOT NULL AND rf.verdict IS NOT NULL"#,
     )
     .fetch_all(pool)
     .await?;

@@ -71,9 +71,9 @@ async fn run_cycle(db: &Arc<Database>, ig: &Arc<Mutex<IgSession>>) {
         let risque = (jambe.prix_entree - jambe.stop_loss).abs(); // 1R
 
         if jambe.jambe == "LONG" {
-            traiter_long(pool, jambe, prix, risque, params.vente_partielle).await;
+            traiter_long(pool, jambe, prix, risque, &params).await;
         } else {
-            traiter_short(pool, jambe, prix, risque, params.vente_partielle).await;
+            traiter_short(pool, jambe, prix, risque, &params).await;
         }
     }
 }
@@ -136,19 +136,22 @@ async fn traiter_long(
     j: &ssp::SuiviActif,
     prix: f64,
     risque: f64,
-    vente_partielle: bool,
+    params: &db::strategies_params::StraddleParams,
 ) {
     let peak_precedent = j.peak;
     let peak = peak_precedent.max(prix);
 
     let cfg = PositionConfig {
+        is_long: true,
         prix_entree: j.prix_entree,
         stop_loss: j.stop_loss,
         tp1: j.tp1,
         tp2: j.tp2,
         atr: j.atr,
         trailing_coeff: j.trailing_coeff,
-        vente_partielle,
+        vente_partielle_active: params.vente_partielle,
+        pct_cloture_tp1: params.pct_cloture_tp1,
+        pct_cloture_tp2: params.pct_cloture_tp2,
     };
 
     appliquer_verdict(pool, j, peak_precedent, peak, prix, prix, &cfg, risque, false).await;
@@ -163,34 +166,26 @@ async fn traiter_short(
     j: &ssp::SuiviActif,
     prix: f64,
     risque: f64,
-    vente_partielle: bool,
+    params: &db::strategies_params::StraddleParams,
 ) {
-    let e = j.prix_entree;
-    let flip = |x: f64| 2.0 * e - x;
-
-    // peak pour SHORT = nadir (plus bas atteint), stocké tel quel en DB
-    let nadir_precedent = j.peak;   // valeur minimale atteinte avant ce tick
-    let nadir = nadir_precedent.min(prix);
-
-    // Dans l'espace miroir : les prix s'inversent
-    let prix_syn = flip(prix);
-    let peak_syn = flip(nadir);
-    let peak_precedent_syn = flip(nadir_precedent);
+    let peak_precedent = j.peak; 
+    let peak = if peak_precedent == 0.0 { prix } else { peak_precedent.min(prix) }; // pour short, peak est le min (nadir)
 
     let cfg = PositionConfig {
-        prix_entree: e, // entree reste identique dans les deux espaces
-        stop_loss: flip(j.stop_loss),   // SL_short (au-dessus) → en-dessous dans l'espace syn
-        tp1: flip(j.tp1),               // TP1_short (en-dessous) → au-dessus dans l'espace syn
-        tp2: flip(j.tp2),
+        is_long: false,
+        prix_entree: j.prix_entree,
+        stop_loss: j.stop_loss, // On passe les VRAIES valeurs
+        tp1: j.tp1,
+        tp2: j.tp2,
         atr: j.atr,
         trailing_coeff: j.trailing_coeff,
-        vente_partielle,
+        vente_partielle_active: params.vente_partielle,
+        pct_cloture_tp1: params.pct_cloture_tp1,
+        pct_cloture_tp2: params.pct_cloture_tp2,
     };
 
-    appliquer_verdict(pool, j, peak_precedent_syn, peak_syn, prix_syn, prix, &cfg, risque, true).await;
-
-    // Si peak (nadir) a bougé, le persister avec la valeur réelle (pas flippée)
-    let _ = ssp::maj_jambe_peak_sl(pool, j.suivi_id, nadir, j.sl_effectif).await;
+    // Plus besoin de tout flipper ! On passe les prix réels
+    appliquer_verdict(pool, j, peak_precedent, peak, prix, prix, &cfg, risque, true).await;
 }
 
 // ── Application du verdict ────────────────────────────────────────────────────
@@ -201,33 +196,33 @@ async fn appliquer_verdict(
     j: &ssp::SuiviActif,
     peak_precedent: f64,
     peak: f64,
-    prix: f64,           // prix dans l'espace de calcul (flippé pour SHORT)
-    prix_reel: f64,      // prix marché réel — utilisé pour clôturer la jambe opposée
+    prix: f64,           
+    prix_reel: f64,      
     cfg: &PositionConfig,
     risque: f64,
     is_short: bool,
 ) {
     let verdict = calculer_verdict(cfg, prix, peak, peak_precedent);
-    let sl_cour = strategies::position_tracking::sl_effectif(cfg, peak).0;
-
-    // Toujours mettre à jour peak + sl si LONG (SHORT le fait dans traiter_short)
-    if !is_short && (peak > j.peak || sl_cour != j.sl_effectif) {
+    
+    if peak != peak_precedent {
+        let sl_cour = j.sl_effectif; 
         let _ = ssp::maj_jambe_peak_sl(pool, j.suivi_id, peak, sl_cour).await;
     }
 
     match verdict {
-        Verdict::Tp1Partiel => {
+        Verdict::Tp1Partiel { r_encaisse: _, pct_vendu: _ } => {
             tracing::info!(
                 "📈 Straddle {} jambe {} TP1 partiel @ {:.5}",
                 j.signal_id, j.jambe, prix
             );
             let _ = ssp::maj_jambe_tp1(pool, j.suivi_id, prix, j.prix_entree).await;
+            
             // Clôture automatique de la jambe opposée
             let jambe_opposee = if is_short { "LONG" } else { "SHORT" };
             let pnl_r_opposee = if is_short {
-                (prix_reel - j.prix_entree) / risque.max(1e-9)
+                (prix_reel - j.prix_entree) / risque.max(1e-9) // long
             } else {
-                -(prix_reel - j.prix_entree) / risque.max(1e-9)
+                (j.prix_entree - prix_reel) / risque.max(1e-9) // short
             };
             tracing::info!(
                 "🔴 Straddle {} jambe {} clôturée (TP1 opposée) @ {:.5} ({:+.2}R)",
@@ -237,32 +232,20 @@ async fn appliquer_verdict(
                 pool, &j.signal_id, jambe_opposee, prix_reel, pnl_r_opposee,
             ).await;
         }
-        Verdict::Tp2Partiel => {
+        Verdict::Tp2Partiel { r_encaisse, pct_vendu: _ } => {
             tracing::info!(
                 "📈 Straddle {} jambe {} TP2 partiel @ {:.5}",
                 j.signal_id, j.jambe, prix
             );
-            let pnl_r = (j.tp1 - j.prix_entree).abs() / risque.max(1e-9);
             let _ = ssp::maj_jambe_tp2(pool, j.suivi_id, prix, j.tp1).await;
-            let _ = ssp::cloture_jambe(pool, j.suivi_id, prix, pnl_r).await;
+            let _ = ssp::cloture_jambe(pool, j.suivi_id, prix, r_encaisse).await;
         }
-        Verdict::TrailingTouche { prix_cloture } => {
-            let pnl_r = (prix_cloture - j.prix_entree) / risque.max(1e-9);
-            let pnl_r = if is_short { -pnl_r } else { pnl_r };
-            tracing::info!(
-                "🎯 Straddle {} jambe {} trailing @ {:.5} ({:+.2}R)",
-                j.signal_id, j.jambe, prix_cloture, pnl_r
-            );
-            let _ = ssp::cloture_jambe(pool, j.suivi_id, prix_cloture, pnl_r).await;
-        }
-        Verdict::Cloture { label, prix_cloture } => {
-            let pnl_r = (prix_cloture - j.prix_entree) / risque.max(1e-9);
-            let pnl_r = if is_short { -pnl_r } else { pnl_r };
+        Verdict::ClotureTotale { label, r_final, prix_cloture } => {
             tracing::info!(
                 "🔴 Straddle {} jambe {} {} @ {:.5} ({:+.2}R)",
-                j.signal_id, j.jambe, label, prix_cloture, pnl_r
+                j.signal_id, j.jambe, label, prix_cloture, r_final
             );
-            let _ = ssp::cloture_jambe(pool, j.suivi_id, prix_cloture, pnl_r).await;
+            let _ = ssp::cloture_jambe(pool, j.suivi_id, prix_cloture, r_final).await;
         }
         Verdict::Rien => {}
     }

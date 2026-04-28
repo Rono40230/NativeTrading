@@ -66,8 +66,8 @@ onMounted(() => {
 
     // Exposition dev uniquement — test alarme + son depuis la console Tauri
   if (import.meta.env.DEV) {
-    ;(window as Record<string, unknown>).__testSon = () => jouerSon()
-    ;(window as Record<string, unknown>).__testAlarme = (overrides: Partial<Signal> = {}) => {
+    ;(window as any).__testSon = () => jouerSon()
+    ;(window as any).__testAlarme = (overrides: Partial<Signal> = {}) => {
       alarmeStore.ajouterSignal({
         id: `test-${Date.now()}`,
         asset: 'BTCUSDT',

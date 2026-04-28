@@ -105,7 +105,7 @@ pub(super) async fn stream_binance(
                             tracing::debug!("Bybit WS RX: {}", txt);
                             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
                                 // Gérer les messages kline
-                                if v.get("topic").and_then(|t| t.as_str()).map_or(false, |t| t.starts_with("kline.")) {
+                                if v.get("topic").and_then(|t| t.as_str()).is_some_and(|t| t.starts_with("kline.")) {
                                     if let Some(data_arr) = v.get("data").and_then(|d| d.as_array()) {
                                         if let Some(k) = data_arr.first() {
                                             tracing::debug!("Bybit kline data block: {:?}", k);
@@ -184,11 +184,10 @@ pub(super) async fn stream_binance(
                 match msg {
                     Some(Ok(Message::Close(_))) | None => break,
                     Some(Err(_)) => break,
-                    Some(Ok(Message::Ping(bytes))) => {
-                        if session.pong(&bytes).await.is_err() {
-                            break;
-                        }
+                    Some(Ok(Message::Ping(bytes))) if session.pong(&bytes).await.is_err() => {
+                        break;
                     }
+                    Some(Ok(Message::Ping(_))) => {}
                     _ => {}
                 }
             }

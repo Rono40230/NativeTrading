@@ -147,7 +147,7 @@ fn formater_contexte(signaux: &[RocketSignal], cfg: &RocketsConfig) -> String {
         .iter()
         .filter(|s| s.verdict.as_deref() == Some("invalide"))
         .count();
-    let winrate = if total > 0 { gains * 100 / total } else { 0 };
+    let winrate = if total > 0 { gains.checked_mul(100).and_then(|g| g.checked_div(total)).unwrap_or(0) } else { 0 };
     let rs: Vec<f64> = signaux.iter().filter_map(r_realise).collect();
     let r_global = if rs.is_empty() {
         0.0
@@ -176,7 +176,7 @@ fn formater_contexte(signaux: &[RocketSignal], cfg: &RocketsConfig) -> String {
     ctx.push_str("=== PAR PHASE ===\n");
     for m in agreger_par_phase(signaux) {
         let wr = if m.total > 0 {
-            m.gains * 100 / m.total
+            m.gains.checked_mul(100).and_then(|g| g.checked_div(m.total)).unwrap_or(0)
         } else {
             0
         };

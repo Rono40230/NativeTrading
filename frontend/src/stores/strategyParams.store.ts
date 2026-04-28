@@ -24,6 +24,8 @@ export const useStrategyParamsStore = defineStore('strategyParams', () => {
     sl_mult:         (straddleRaw.value.sl_mult         ?? 0.5),
     trailing_atr:    (straddleRaw.value.trailing_atr    ?? 1.5),
     vente_partielle: straddleRaw.value.vente_partielle  ? 1 : 0,
+    pct_cloture_tp1: (straddleRaw.value.pct_cloture_tp1 ?? 0.33),
+    pct_cloture_tp2: (straddleRaw.value.pct_cloture_tp2 ?? 0.33),
   }))
 
   // Forme typée pour SmcParamsPanel
@@ -34,6 +36,9 @@ export const useStrategyParamsStore = defineStore('strategyParams', () => {
     atr_tp2:     (smcRaw.value.atr_tp2     ?? 3.0),
     atr_tp3:     (smcRaw.value.atr_tp3     ?? 5.0),
     atr_sl:      (smcRaw.value.atr_sl      ?? 1.0),
+    vente_partielle: smcRaw.value.vente_partielle ? 1 : 0,
+    pct_cloture_tp1: (smcRaw.value.pct_cloture_tp1 ?? 0.33),
+    pct_cloture_tp2: (smcRaw.value.pct_cloture_tp2 ?? 0.33),
   }))
 
   // Forme typée pour RocketsReglages

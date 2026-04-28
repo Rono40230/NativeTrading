@@ -73,7 +73,7 @@ pub async fn lire_snapshots_avec_labels(
 ) -> anyhow::Result<Vec<(Vec<f64>, f64)>> {
     let rows = sqlx::query(
         "SELECT s.features_json,
-                CASE WHEN f.verdict IN ('TP1','TP2') THEN 1.0 ELSE 0.0 END AS label
+                CAST(COALESCE(f.pnl_r, CASE WHEN f.verdict IN ('TP1','TP2','TP3') THEN 1.0 ELSE 0.0 END) AS REAL) AS label
          FROM smc_features_snapshot s
          JOIN smc_feedback f ON f.signal_id = s.signal_id
          WHERE f.verdict IS NOT NULL",

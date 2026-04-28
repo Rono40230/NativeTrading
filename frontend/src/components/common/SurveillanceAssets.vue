@@ -18,7 +18,7 @@
         <span class="text-[10px] font-bold text-white w-14 shrink-0 truncate">{{ a.id }}</span>
         <div class="flex-1 min-w-0" />
         <span v-if="a.chargement" class="text-[9px] text-gray-500 animate-pulse shrink-0">…</span>
-        <span v-else-if="a.prix !== null" class="text-[10px] font-mono text-gray-300 shrink-0">{{ formatPrix(a.prix, a.id) }}</span>
+        <span v-else-if="a.prix !== null" class="text-[10px] font-mono text-gray-300 shrink-0">{{ formatPrix(a.prix, a.id) }}$</span>
         <span v-else class="text-[9px] text-gray-600 shrink-0">—</span>
         <span
           v-if="a.variation !== null"

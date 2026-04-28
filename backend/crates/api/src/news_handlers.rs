@@ -113,7 +113,7 @@ pub async fn get_news_alertes(state: web::Data<AppState>) -> impl Responder {
         })
         .collect();
 
-    articles.sort_unstable_by(|a, b| b.score.cmp(&a.score));
+    articles.sort_unstable_by_key(|b| std::cmp::Reverse(b.score));
     let articles = dedupliquer(articles);
     let mut articles = articles;
     articles.truncate(30);

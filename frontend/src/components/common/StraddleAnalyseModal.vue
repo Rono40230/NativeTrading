@@ -157,7 +157,7 @@ const statsPerf = computed(() => {
 const strParams = ref<StraddleParams>({
   atr_periode: 14, seuil_atr: 1.5,
   tp_mult_1: 2.0, tp_mult_2: 3.0, tp_mult_3: 5.0,
-  sl_mult: 0.5, trailing_atr: 1.5, vente_partielle: 1,
+  sl_mult: 0.5, trailing_atr: 1.5, vente_partielle: 1, pct_cloture_tp1: 0.33, pct_cloture_tp2: 0.33,
 })
 </script>
 

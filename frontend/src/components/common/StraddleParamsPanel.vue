@@ -51,9 +51,32 @@
           class="rounded px-2 py-1 text-xs font-medium text-white transition-colors"
           @click="onInput('vente_partielle', modelValue.vente_partielle ? 0 : 1)"
         >
-          {{ modelValue.vente_partielle ? '⅓ Partielle' : 'Lot entier' }}
+          {{ modelValue.vente_partielle ? 'Activée' : 'Désactivée' }}
         </button>
-        <span class="text-xs text-gray-600">⅓ / lot</span>
+      </div>
+
+      <div class="flex flex-col gap-1" v-if="modelValue.vente_partielle">
+        <label class="text-xs text-gray-400">% Vente TP1</label>
+        <input
+          type="number"
+          :min="0" :max="1" :step="0.05"
+          :value="modelValue.pct_cloture_tp1 ?? 0.33"
+          class="bg-[#0a0e27] border border-white/20 text-white text-sm rounded px-2 py-1 w-full"
+          @input="onInput('pct_cloture_tp1', ($event.target as HTMLInputElement).valueAsNumber)"
+        />
+        <span class="text-xs text-gray-600">ex: 0.33</span>
+      </div>
+
+      <div class="flex flex-col gap-1" v-if="modelValue.vente_partielle">
+        <label class="text-xs text-gray-400">% Vente TP2</label>
+        <input
+          type="number"
+          :min="0" :max="1" :step="0.05"
+          :value="modelValue.pct_cloture_tp2 ?? 0.33"
+          class="bg-[#0a0e27] border border-white/20 text-white text-sm rounded px-2 py-1 w-full"
+          @input="onInput('pct_cloture_tp2', ($event.target as HTMLInputElement).valueAsNumber)"
+        />
+        <span class="text-xs text-gray-600">ex: 0.33</span>
       </div>
     </div>
     <StraddleParamsModal v-if="showParams" @close="showParams = false" @saved="onParamsSaved" />
@@ -72,7 +95,9 @@ export interface StraddleParams {
   tp_mult_3: number
   sl_mult: number
   trailing_atr: number
-  vente_partielle: number  // 1 = true, 0 = false (number pour simplifier v-model)
+  vente_partielle: number
+  pct_cloture_tp1: number
+  pct_cloture_tp2: number  // 1 = true, 0 = false (number pour simplifier v-model)
 }
 
 const props = defineProps<{

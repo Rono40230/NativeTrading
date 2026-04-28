@@ -74,6 +74,8 @@ export interface RocketsConfig {
   ratio_volume_min: number
   vol_marche_min: number
   vente_partielle?: boolean
+  pct_cloture_tp1?: number
+  pct_cloture_tp2?: number
   sl_mult: number
   trailing_coeff_min: number
   trailing_coeff_max: number

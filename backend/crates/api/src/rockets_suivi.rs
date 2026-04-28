@@ -64,11 +64,10 @@ pub async fn sync_verdicts(state: web::Data<AppState>) -> impl Responder {
                     // Vente partielle ⅓ — position reste ouverte
                     let _ = rockets::enregistrer_tp_partiel(pool, s.id, v, prix).await;
                 }
-                Some(v) => {
-                    if rockets::maj_verdict(pool, s.id, v, prix).await.is_ok() {
-                        fermes += 1;
-                    }
+                Some(v) if rockets::maj_verdict(pool, s.id, v, prix).await.is_ok() => {
+                    fermes += 1;
                 }
+                Some(_) => {}
                 None => {}
             }
         }

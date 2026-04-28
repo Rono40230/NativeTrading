@@ -86,21 +86,24 @@ pub fn calculer_verdict_rocket(
     };
 
     let cfg = PositionConfig {
+        is_long: true,
         prix_entree:     s.prix_entree,
         stop_loss:       s.stop_loss,
         tp1:             s.target,
         tp2,
         atr:             atr14,
         trailing_coeff,
-        vente_partielle: true, // Rockets : toujours vente partielle (flag vérifié dans rockets_suivi)
+        vente_partielle_active: true,
+        pct_cloture_tp1: 0.33,
+        pct_cloture_tp2: 0.33,
     };
 
     match calculer_verdict(&cfg, prix, peak, peak_precedent) {
-        Verdict::Tp1Partiel                    => Some("TP1"),
-        Verdict::Tp2Partiel                    => Some("TP2"),
-        Verdict::TrailingTouche { .. }         => Some("TP3"),
-        Verdict::Cloture { label: "invalide", .. } => Some("invalide"),
-        Verdict::Cloture { label, .. }         => Some(label),
-        Verdict::Rien                          => None,
+        Verdict::Tp1Partiel { .. }                         => Some("TP1"),
+        Verdict::Tp2Partiel { .. }                         => Some("TP2"),
+        Verdict::ClotureTotale { label, .. } if label == "trailing" => Some("TP3"),
+        Verdict::ClotureTotale { label, .. } if label == "invalide" => Some("invalide"),
+        Verdict::ClotureTotale { label, .. }                 => Some(label.leak()),
+        Verdict::Rien                                      => None,
     }
 }

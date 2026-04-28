@@ -108,7 +108,7 @@ pub async fn lire_snapshots_avec_labels(
 ) -> anyhow::Result<Vec<(Vec<f64>, f64)>> {
     let rows = sqlx::query(
         r#"SELECT s.features_json,
-               CAST(COALESCE(sf.gagnant, 0) AS REAL) AS label
+               CAST(COALESCE(sf.pnl_r, COALESCE(sf.gagnant, 0)) AS REAL) AS label
          FROM straddle_features_snapshot s
          JOIN straddle_feedback sf ON sf.signal_id = s.signal_id
          WHERE sf.verdict IS NOT NULL AND sf.gagnant IS NOT NULL"#,

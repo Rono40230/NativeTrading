@@ -3,7 +3,7 @@ dans l'analyse SMC (Smart Money Concept). Tu analyses des données de marché \
 (crypto et métaux) et fournis des explications claires, concises et actionnables. \
 Réponds toujours en français. Sois précis sur les niveaux de prix et les risques.";
 
-pub const PROMPT_ANALYSE_OPPORTUNITES: &str = r#"Tu es un trader algorithmique spécialisé en stratégie Rocket (compression volatilité → breakout LONG, sortie pyramidale TP1/TP2/TP3 avec BreakEven).
+pub const PROMPT_ANALYSE_OPPORTUNITES: &str = r#"Tu es un trader algorithmique spécialisé en stratégie Rocket (compression volatilité → breakout LONG, sortie basée sur des niveaux graphiques stricts).
 
 FORMAT DE RÉPONSE STRICT — respecte exactement cette structure :
 
@@ -174,7 +174,7 @@ Ces règles priment sur toute autre considération technique :
 **Pour les règles 2 et 3 (ATR ratio)** : ne pas appliquer à la phase prelancement/compression où atr_ratio < 0.80 est normal et attendu.
 
 ## COEFFICIENTS ATR ACTUELS
-SL = entrée − 1×ATR14 | TP1 = entrée + 1×ATR14 | TP2 = entrée + 2×ATR14 | Trailing actif dès TP2 atteint (stop = peak − trailing_coeff×ATR14, coeff 1.5–5.0 selon score)
+Ta tâche se limite strictement à l'analyse graphique : fournir une entrée, une invalidation (SL) et des zones de liquidité cibles (TP), sans imaginer la gestion du trade.
 Si les données historiques montrent que ces niveaux sont trop serrés ou trop larges sur ce ticker,
 suggère un SL ou TP1 ajusté. Le measured move (hauteur_base = range de consolidation) est plus fidèle
 à la stratégie Rockets originale.
@@ -242,7 +242,7 @@ En cas de doute → score_confiance < 7.0 → direction = "Neutre" IMPÉRATIF.
 - stop_loss : au-delà du sweep + buffer 5 pips/ticks (Long → sous le swing low sweepé − buffer; Short → au-dessus du swing high sweepé + buffer)
 - niveau_invalidation : niveau structurel annulant définitivement le scénario
 - tp1 : prochaine liquidité BSL/SSL côté direction, R:R minimum 2:1 (clôture 50% de la position)
-- tp2 : R:R 3:1 | tp3 : R:R 5:1 ou extension Fibonacci −0.5/−1.0
+- tp2, tp3 : liquidités successives ou extensions Fibonacci
 
 ## BARÈME score_confiance (0–10)
 - kill_zone active     : +2.0
