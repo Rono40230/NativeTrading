@@ -110,20 +110,14 @@
             </div>
           </div>
           <div class="rounded-lg bg-black/30 px-4 py-3">
-            <div class="text-xs text-gray-500 mb-2">Barème de conviction</div>
-            <div class="flex gap-5">
-              <div class="flex items-center gap-1.5 text-sm">
-                <span class="text-green-400 font-bold">80–100</span>
-                <span class="text-gray-400">Validé ✅</span>
+            <div class="text-xs text-gray-500 mb-2">Seuil conviction LLM</div>
+            <div class="flex flex-col gap-1.5">
+              <div class="flex items-center gap-2 text-sm">
+                <span class="text-yellow-400 font-bold">Calibré</span>
+                <span class="text-gray-400">par phase × session de marché</span>
               </div>
-              <div class="flex items-center gap-1.5 text-sm">
-                <span class="text-yellow-400 font-bold">65–79</span>
-                <span class="text-gray-400">Validé ✅</span>
-              </div>
-              <div class="flex items-center gap-1.5 text-sm">
-                <span class="text-red-400 font-bold">&lt; 65</span>
-                <span class="text-gray-400">Rejeté 🚫</span>
-              </div>
+              <div class="text-xs text-gray-500">Valeur de référence : ≥ 65/100</div>
+              <div class="text-xs text-gray-500">Évolue avec les feedbacks récents</div>
             </div>
           </div>
         </div>
@@ -190,20 +184,21 @@ const phases = [
 ]
 
 const scoring = [
-  { label: 'Ratio volume', detail: '≥ 2.0× fort | 1.5–2.0× acceptable | < 1.5× signal faible' },
-  { label: 'RSI', detail: '55–75 idéal | > 85 surachat → invalider' },
-  { label: 'ATR ratio', detail: '> 1.2 bonne expansion | < 0.8 compression' },
-  { label: 'Tendance EMA', detail: 'EMA20 > EMA50 = haussier confirmé (+10 conviction)' },
-  { label: 'Compression', detail: '≥ 10 bougies = forte (+10) | ≥ 5 = significative (+5)' },
-  { label: 'Ratio corps', detail: '> 0.7 corps fort ✅ | < 0.3 rejet par mèche ❌' },
+  { label: 'Ratio volume',    detail: '≥ 2.0× fort | 1.5–2.0× acceptable | < 1.5× signal faible' },
+  { label: 'RSI',             detail: '55–75 idéal | > 85 surachat → invalider' },
+  { label: 'ATR ratio',       detail: '> 1.2 bonne expansion | < 0.8 compression' },
+  { label: 'Tendance EMA',    detail: 'EMA20 > EMA50 = haussier confirmé (+10 conviction)' },
+  { label: 'Compression',     detail: '≥ 10 bougies = forte (+10) | ≥ 5 = significative (+5)' },
+  { label: 'Ratio corps',     detail: '> 0.7 corps fort ✅ | < 0.3 rejet par mèche ❌' },
+  { label: 'Trailing coeff',  detail: 'LLM peut ajuster entre trailing_coeff_min et trailing_coeff_max (clampé config) — module la sortie dynamique' },
 ]
 
 const filtreRegles = [
-  { icon: '🚫', couleur: 'text-red-400', label: 'RSI > 85 → invalider (surachat extrême)' },
-  { icon: '🚫', couleur: 'text-red-400', label: 'Ratio corps < 0.3 → invalider ou dégrader' },
-  { icon: '🚫', couleur: 'text-red-400', label: 'Compression < 3 bougies en prelancement → invalider' },
+  { icon: '🚫', couleur: 'text-red-400',    label: 'RSI > 85 → invalider (surachat extrême)' },
+  { icon: '🚫', couleur: 'text-red-400',    label: 'Ratio corps < 0.3 → invalider ou dégrader' },
+  { icon: '🚫', couleur: 'text-red-400',    label: 'Compression < 3 bougies en prelancement → invalider' },
   { icon: '⚠️', couleur: 'text-yellow-400', label: 'Tendance baissière (EMA) → −20 conviction' },
-  { icon: '✅', couleur: 'text-green-400', label: 'Peut suggérer SL/TP1 ajustés si justifié' },
+  { icon: '✅', couleur: 'text-green-400',  label: 'Peut suggérer SL/TP1 ajustés et trailing_coeff si justifié' },
 ]
 
 const analyseOutputs = [
@@ -211,6 +206,7 @@ const analyseOutputs = [
   'Meilleur setup observé (phase, score, RSI, volume)',
   'Pire setup à éviter',
   '3 à 6 recommandations classées par impact',
+  'Few-shot contextualisé : feedbacks sélectionnés par similarité 3D (ratio_volume × atr_ratio × score)',
 ]
 
 const recommendationTypes = ['seuil_score', 'filtre_phase', 'coefficients_atr', 'filtre_rsi', 'filtre_volume', 'mode_entree']

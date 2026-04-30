@@ -96,16 +96,14 @@
             </div>
           </div>
           <div class="rounded-lg bg-black/30 px-4 py-3">
-            <div class="text-xs text-gray-500 mb-2">Barème de conviction</div>
-            <div class="flex gap-5">
-              <div class="flex items-center gap-1.5 text-sm">
-                <span class="text-green-400 font-bold">≥ 75</span>
-                <span class="text-gray-400">Entre ✅</span>
+            <div class="text-xs text-gray-500 mb-2">Seuil conviction LLM</div>
+            <div class="flex flex-col gap-1.5">
+              <div class="flex items-center gap-2 text-sm">
+                <span class="text-yellow-400 font-bold">Calibré</span>
+                <span class="text-gray-400">dynamiquement par asset / catégorie</span>
               </div>
-              <div class="flex items-center gap-1.5 text-sm">
-                <span class="text-red-400 font-bold">&lt; 75</span>
-                <span class="text-gray-400">Passe 🚫</span>
-              </div>
+              <div class="text-xs text-gray-500">Warm start (&lt;5 feedbacks) : 5.5/10</div>
+              <div class="text-xs text-gray-500">Corrélation active : seuil +0.7</div>
             </div>
           </div>
         </div>
@@ -144,10 +142,10 @@ onMounted(async () => {
 const paramCards = computed(() => params.value ? [
   { label: 'ATR seuil',   value: `${params.value.atr_seuil}×` },
   { label: 'ATR période', value: params.value.atr_periode },
-  { label: 'TP1',         value: `${params.value.tp_mult_1}×` },
-  { label: 'TP2',         value: `${params.value.tp_mult_2}×` },
-  { label: 'TP3',         value: `${params.value.tp_mult_3}×` },
-  { label: 'SL',          value: `${params.value.sl_mult}×` },
+  { label: 'SL (réel)',   value: '±0.5×ATR' },
+  { label: 'TP1 (réel)',  value: '+2.0×ATR' },
+  { label: 'TP2 (réel)',  value: '+3.5×ATR' },
+  { label: 'TP3 (réel)',  value: '+5.0×ATR' },
   { label: 'Horizon',     value: `${params.value.horizon_bougies}b` },
 ] : [])
 
@@ -157,17 +155,18 @@ const phases = [
     details: ['ATR > seuil × ATR moyen 14p', 'Sur créneau horaire ciblé', 'IA valide l\'opportunité'] },
   { id: 'entree', icon: '↕️', label: 'Entrée simultanée',
     description: 'Deux ordres opposés sont ouverts instantanément.',
-    details: ['LONG : SL = ATR × 0.5× / TP1 = ATR × TP1', 'SHORT : miroir symétrique', 'Taille = 1% capital chacun'] },
+    details: ['LONG : SL = prix − 0.5×ATR | TP1 = prix + 2.0×ATR', 'SHORT : SL = prix + 0.5×ATR | TP1 = prix − 2.0×ATR', 'TP2 = ±3.5×ATR | TP3 = ±5.0×ATR | 1% capital/direction'] },
   { id: 'gestion', icon: '△', label: 'Gestion pyramidale',
     description: 'La direction validée est conservée sur 3 TP, l\'autre coupée.',
     details: ['TP1 atteint → clôture 50% + trailing', 'TP2 → clôture 30% supplémentaire', 'TP3 → solde final'] },
 ]
 
 const conditions = [
-  { label: 'ATR explosif',      detail: `ATR courant > ${1.5}× ATR moyen 14 périodes` },
-  { label: 'Créneau horaire',   detail: 'Ouverture Londres 08h, NY 14h30, ou événement macro planifié' },
-  { label: 'IA indécise',       detail: 'Modèle ML ne donne pas de direction claire (biais < 0.55)' },
-  { label: 'Pas de position',   detail: 'Aucun straddle déjà ouvert sur cet actif' },
+  { label: 'ATR explosif',         detail: 'ATR courant ≥ seuil UI × ATR moyen 14p. Catégorie auto : Calendrier | SessionOuverture | AtrPur | Whipsaw' },
+  { label: 'Créneau horaire',      detail: 'Ouverture Londres 08h, NY 14h30 UTC, ou événement macro HIGH impact dans les 90 min' },
+  { label: 'ML indécis',           detail: 'Pipeline LSTM+XGBoost hybride (seuil 0.75). Si directionnel → skip. Indécis = Straddle éligible. ML indisponible → score règles (50 warm start / 60 calibré).' },
+  { label: 'Anti-doublon 30 min',  detail: 'Aucun signal Straddle actif ou clôturé dans les 30 dernières minutes sur cet asset/TF' },
+  { label: 'Corrélation soft',     detail: 'Asset corrélé en position : score règles −10 pts + seuil LLM +0.7. Mode prudence, pas de blocage dur.' },
 ]
 
 const signalRegles = [

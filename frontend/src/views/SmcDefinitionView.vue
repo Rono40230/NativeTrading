@@ -105,11 +105,11 @@
         <div class="rounded-xl border border-cyan-500/30 bg-cyan-500/5 px-6 py-5 flex flex-col">
           <div class="flex items-center gap-2 mb-3">
             <span class="text-xl">🤖</span>
-            <span class="text-white font-semibold text-base">Génération signal JSON</span>
-            <span class="ml-auto text-sm text-cyan-400 bg-cyan-500/10 px-2.5 py-0.5 rounded-full">POST /ia/signal</span>
+            <span class="text-white font-semibold text-base">Signal généré automatiquement</span>
+            <span class="ml-auto text-sm text-cyan-400 bg-cyan-500/10 px-2.5 py-0.5 rounded-full">Boucle auto 15 min</span>
           </div>
           <p class="text-gray-400 text-sm leading-relaxed">
-            Génère un signal structuré complet : direction, SL, TP pyramidal (3 niveaux), confluences détectées.
+            Signal structuré : direction, SL sur OB identifié, TP pyramidal (TP1 = ATR×1.5 | TP2 = ATR×2.5 | TP3 = ATR×4.0).
           </p>
         </div>
 
@@ -155,35 +155,38 @@ const paramCards = computed(() => params.value ? [
 ] : [])
 
 const confluences = [
-  { id: 'tendance', icon: '📈', label: 'Structure de tendance', points: 20,
+  { id: 'tendance', icon: '📈', label: 'Structure de tendance', points: 25,
     description: 'Biais directionnel basé sur la succession de sommets et creux.',
-    regles: ['Haussier : HH + HL', 'Baissier : LH + LL', 'Neutre → score réduit'] },
+    regles: ['Haussier : HH + HL (force 2/2 = max pts)', 'Baissier : LH + LL', 'Indécis → signal annulé'] },
   { id: 'ob', icon: '🟦', label: 'Order Block', points: 25,
     description: 'Dernière bougie avant impulsion institutionnelle — zone de re-test.',
     regles: ['Volume élevé sur la bougie', 'Impulsion nette après', 'Prix revient dans la zone'] },
-  { id: 'imb', icon: '⬜', label: 'Imbalance (FVG)', points: 20,
-    description: 'Gap de prix ≥ 3 pips sans retrace — liquidité non distribuée.',
-    regles: ['Gap ≥ 3 pips', 'Pas de retrace complète', 'Dans la direction du biais'] },
+  { id: 'imb', icon: '⬜', label: 'Imbalance (FVG)', points: 15,
+    description: 'Gap de prix sans retrace — liquidité non distribuée.',
+    regles: ['1 zone alignée = 8pts | 2+ zones = 15pts', 'Pas de retrace complète', 'Dans la direction du biais'] },
   { id: 'ifvg', icon: '🔷', label: 'IFVG', points: 20,
     description: 'Fair Value Gap avec break of structure — confluence SMC avancée.',
-    regles: ['FVG validé + BOS', 'Aligné avec l\'Order Block', 'Timeframe cohérent'] },
+    regles: ['1 IFVG aligné = 10pts | 2+ = 20pts', 'FVG validé + BOS dans la direction', 'Aligné avec l\'Order Block'] },
   { id: 'fib', icon: '🌀', label: 'Fibonacci', points: 15,
     description: 'Niveaux de retrace institutionnels : 38.2%, 50%, 61.8%.',
     regles: ['38.2% — retrace légère', '50% — niveau équilibré', '61.8% — golden ratio'] },
 ]
 
 const scoring = [
-  { label: 'Structure tendance',  detail: 'Haussier/baissier clair = +20pts | Neutre = 0pts' },
-  { label: 'Order Block actif',    detail: 'Bougie OB présente dans la zone = +25pts' },
-  { label: 'Imbalance ouverte',    detail: 'Gap ≥ 3 pips non retracé = +20pts' },
-  { label: 'IFVG confirmé',        detail: 'FVG + BOS alignés = +20pts' },
-  { label: 'Niveau Fibonacci',     detail: 'Prix sur 38.2/50/61.8% = +15pts' },
+  { label: 'Structure tendance',  detail: 'Force 2/2 = +25pts | Force 1/2 = +12.5pts | Indécis = signal annulé' },
+  { label: 'Order Block actif',   detail: 'Bougie OB présente dans la zone alignée = +25pts' },
+  { label: 'Imbalance ouverte',   detail: '2 zones alignées = +15pts | 1 zone = +8pts | Aucune = 0pts' },
+  { label: 'IFVG confirmé',       detail: '2+ IFVG alignés = +20pts | 1 IFVG = +10pts | Aucun = 0pts' },
+  { label: 'Niveau Fibonacci',    detail: 'Prix sur 38.2/50/61.8% = +15pts' },
+  { label: 'Kill Zone (ICT)',     detail: 'Prérequis session active (Londres 07h–10h | NY 13h–16h UTC) — renforce conviction LLM, sans pts directs' },
+  { label: 'Liquidity Sweep',     detail: 'Prérequis chasse liquidités détectée — validé haussier/baissier, transmis au LLM' },
 ]
 
 const filtreRegles = [
-  { icon: '🚫', couleur: 'text-red-400',    label: 'Score < 70 → rejet systématique' },
-  { icon: '🚫', couleur: 'text-red-400',    label: 'Tendance neutre sans OB → invalider' },
-  { icon: '⚠️', couleur: 'text-yellow-400', label: 'TP/SL divergents du scoring → −15 conviction' },
+  { icon: '🚫', couleur: 'text-red-400',    label: 'Score < 70 → rejet (seuil calibré dynamiquement par asset/TF/catégorie)' },
+  { icon: '🚫', couleur: 'text-red-400',    label: 'Tendance indécise (Direction::Both) → signal annulé en amont du LLM' },
+  { icon: '⚠️', couleur: 'text-yellow-400', label: 'Kill Zone inactive → conviction LLM réduite' },
+  { icon: '⚠️', couleur: 'text-yellow-400', label: 'Sweep absent → contexte défavorable transmis au LLM' },
   { icon: '✅', couleur: 'text-green-400',  label: 'Peut affiner SL sur l\'OB identifié' },
 ]
 
