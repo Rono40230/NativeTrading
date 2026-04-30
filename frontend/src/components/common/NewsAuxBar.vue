@@ -1,15 +1,5 @@
 <template>
   <div class="flex items-center gap-2 flex-wrap shrink-0 mb-3">
-    <!-- Badge Fear & Greed Index -->
-    <span
-      v-if="fg"
-      class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold cursor-default"
-      :class="badgeFg"
-      :title="`Fear & Greed Index BTC — ${fg.label}`"
-    >
-      {{ iconeFg }} Fear &amp; Greed · {{ fg.valeur }}/100
-    </span>
-
     <!-- Prochain événement macro High-impact -->
     <span
       v-if="prochainEvent"
@@ -34,10 +24,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { apiService } from '@/services/api.service'
-import { useFearGreed } from '@/composables/useFearGreed'
 import type { AnnonceCalendrier } from '@/services/api.types'
-
-const { data: fg } = useFearGreed()
 
 const annonces = ref<AnnonceCalendrier[]>([])
 
@@ -71,26 +58,4 @@ function countdown(iso: string): string {
   return `dans ${h}h${m > 0 ? ` ${m}min` : ''}`
 }
 
-const badgeFg = computed(() => {
-  if (!fg.value) return ''
-  switch (fg.value.categorie) {
-    case 'extreme_fear': return 'border-red-600/50 bg-red-600/20 text-red-400'
-    case 'fear':         return 'border-orange-500/40 bg-orange-500/10 text-orange-400'
-    case 'neutral':      return 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400'
-    case 'greed':        return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
-    case 'extreme_greed': return 'border-emerald-400/60 bg-emerald-400/15 text-emerald-300'
-    default:             return 'border-slate-600/30 bg-white/5 text-slate-400'
-  }
-})
-
-const iconeFg = computed(() => {
-  switch (fg.value?.categorie) {
-    case 'extreme_fear': return '🩸'
-    case 'fear':         return '😨'
-    case 'neutral':      return '😐'
-    case 'greed':        return '😏'
-    case 'extreme_greed': return '🤑'
-    default:             return '—'
-  }
-})
 </script>
