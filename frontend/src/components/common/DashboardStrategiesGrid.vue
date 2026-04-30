@@ -154,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
 import SmcEquityChart from '@/components/common/SmcEquityChart.vue'
 import SmcSignauxBloc from '@/components/common/SmcSignauxBloc.vue'
