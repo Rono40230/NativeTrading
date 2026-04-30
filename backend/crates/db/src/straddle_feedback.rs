@@ -141,7 +141,8 @@ pub async fn lister_recents_asset_categorie(
         "SELECT id, signal_id, pic_id, asset, timeframe, timestamp_signal,
                 categorie, evenement_nom, session_active, ratio_atr, score_llm,
                 verdict, amplitude_reelle_pct, duree_trade_min, pnl_r, gagnant,
-                cree_le, ferme_le
+                cree_le, ferme_le,
+                prix_entree_reel, prix_sortie_reel, session_sortie, notes_trader
          FROM straddle_feedback
          WHERE asset = ? AND categorie = ? AND verdict IS NOT NULL
          ORDER BY cree_le DESC

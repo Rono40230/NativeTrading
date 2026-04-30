@@ -116,6 +116,9 @@ impl AppState {
         // Scan pics ATR toutes les 5 min (tous assets dynamiques, seuil 1.3)
         crate::straddle_scan_pics::demarrer_scan_pics(db.clone(), signal_engine.clone());
 
+        // Refresh calendrier économique en arrière-plan (toutes les 30 min)
+        crate::calendar_handlers::demarrer_refresh_calendrier_job(db.clone());
+
         // Job de réconciliation des signaux Straddle ouverts (toutes les 5 min)
         crate::straddle_feedback_job::demarrer_job_feedback(db.clone());
 

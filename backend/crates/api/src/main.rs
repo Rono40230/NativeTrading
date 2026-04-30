@@ -110,8 +110,11 @@ async fn main() -> std::io::Result<()> {
     dotenvy::from_filename("telegram.env").ok();
     dotenvy::dotenv().ok();
 
-    let env_filter = tracing_subscriber::EnvFilter::from_default_env()
-        .add_directive(tracing::Level::INFO.into());
+    let env_filter = if std::env::var("RUST_LOG").is_ok() {
+        tracing_subscriber::EnvFilter::from_default_env()
+    } else {
+        tracing_subscriber::EnvFilter::new("info")
+    };
 
     tracing_subscriber::fmt().with_env_filter(env_filter).init();
 

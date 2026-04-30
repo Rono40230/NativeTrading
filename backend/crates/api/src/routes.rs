@@ -154,6 +154,8 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/straddle/equity",
             web::get().to(crate::straddle_ml_handlers::get_equity),
         )
+        .route("/api/straddle/dev/seed-creneaux", web::post().to(crate::straddle_ml_handlers::dev_seed_creneaux))
+        .route("/api/straddle/dev/signal-test", web::post().to(crate::straddle_ml_handlers::dev_signal_test))
         .route(
             "/api/smc/params",
             web::get().to(crate::strategies_params_handlers::get_smc_params),

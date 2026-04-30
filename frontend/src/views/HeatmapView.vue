@@ -5,7 +5,6 @@
         <span v-if="onglet === 'atr'">⚡ Radar ATR Temps Réel</span>
         <span v-else>📅 Calendrier Historique de Volatilité</span>
       </h1>
-      <!-- Sélecteur d'onglets -->
       <div class="flex rounded-lg overflow-hidden border border-white/10">
         <button
           class="px-4 py-2 text-sm font-medium transition-colors"
@@ -19,11 +18,7 @@
         >📅 Calendrier Historique</button>
       </div>
     </div>
-
-    <!-- Onglet Heatmap ATR (existant) -->
     <template v-if="onglet === 'atr'">
-
-    <!-- Légende + contrôles MAJ -->
     <div class="glass-card p-3 flex items-center gap-4 flex-wrap">
       <span class="text-xs text-gray-400 font-semibold">Volatilité ATR :</span>
       <span v-for="n in legendes" :key="n.label" class="flex items-center gap-1 text-xs text-gray-300">
@@ -33,13 +28,19 @@
       <div class="flex items-center gap-2 ml-auto">
         <span class="text-xs text-gray-500">MAJ 60s</span>
         <button class="btn-sm" :disabled="chargement" @click="actualiser">
-          {{ chargement ? '⏳' : '🔄' }} Actualiser
+          {{ chargement ? '⏳' : '🔄' }} Actualiser ATR
         </button>
-        <button class="btn-sm" @click="modaleAnalyse = true">📊 Analyse</button>
+        <button class="btn-sm" :disabled="analyseStraddle.chargement" @click="lancerAnalyseStraddle">
+          {{ analyseStraddle.chargement ? '⏳' : '⚡' }} Analyse Straddle
+        </button>
+
       </div>
     </div>
-
-    <!-- Bandeau confluence -->
+    <div v-if="analyseStraddle.message" class="glass-card px-4 py-3 text-xs"
+      :class="analyseStraddle.ok ? 'border-emerald-500/40 text-emerald-300' : 'border-red-500/40 text-red-300'">
+      {{ analyseStraddle.message }}
+      <span v-if="analyseStraddle.cause" class="ml-2 text-gray-400">(cause: {{ analyseStraddle.cause }})</span>
+    </div>
     <transition name="slide-down">
       <div v-if="confluences.length" class="rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-3 flex items-start gap-3">
         <span class="text-xl shrink-0">⚡</span>
@@ -61,7 +62,6 @@
       </div>
     </transition>
 
-    <!-- Grille -->
     <div class="glass-card p-5">
       <table class="w-full">
         <thead>
@@ -94,21 +94,10 @@
         </tbody>
       </table>
     </div>
-
     </template>
-
-    <!-- Onglet Patterns Horaires (S21) -->
     <template v-if="onglet === 'horaire'">
       <HoraireHeatmap :assets-heatmap="assets" />
     </template>
-
-    <HeatmapAnalyseModal
-      :visible="modaleAnalyse"
-      :classement-vol="classementVol"
-      :analyse-atr="analyseAtr"
-      :assets="assets"
-      @close="modaleAnalyse = false"
-    />
   </div>
 </template>
 
@@ -120,20 +109,24 @@ import { useAlerteStore } from '@/stores/alerte.store'
 import { useAssetsStore } from '@/stores/assets.store'
 import { useHeatmapConfluence } from '@/composables/useHeatmapConfluence'
 import HoraireHeatmap from '@/components/common/HoraireHeatmap.vue'
-import HeatmapAnalyseModal from '@/components/common/HeatmapAnalyseModal.vue'
 
 const onglet = ref<'atr' | 'horaire'>('atr')
-const modaleAnalyse = ref(false)
 const alerteStore = useAlerteStore()
 const assetsStore = useAssetsStore()
 const { confluences, detecterConfluences } = useHeatmapConfluence()
+const estDev = import.meta.env.DEV
 const assetsInfos = computed(() => assetsStore.assets)
 const assets = computed(() => assetsInfos.value.map(a => a.id))
 const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const chargement = ref(false)
 const donnees = ref<Record<string, number>>({})
-
-/** Unité d'affichage selon le type d'asset. */
+const dernierSignalTestId = ref<string | null>(null)
+const analyseStraddle = ref<{ chargement: boolean; ok: boolean; message: string; cause: '' | 'donnees' | 'llm' | '0_creneaux' }>({
+  chargement: false,
+  ok: false,
+  message: '',
+  cause: '',
+})
 function uniteAsset(assetId: string): string {
   const info = assetsInfos.value.find(a => a.id === assetId)
   return info?.type === 'crypto' ? '$' : 'pts'
@@ -144,7 +137,6 @@ const legendes = [
   { label: 'Modérée (80-120%)', couleur: '#f59e0b' },
   { label: 'Élevée (>120%)', couleur: '#ef4444' },
 ]
-
 function calcAtr(candles: Candle[], periode = 14): number {
   if (candles.length < 2) return 0
   const trs = candles.slice(1).map((c, i) => {
@@ -157,13 +149,10 @@ function calcAtr(candles: Candle[], periode = 14): number {
 
 function calcAtrRatio(candles: Candle[]): number {
   if (candles.length < 30) return 0
-  // ATR court terme : moyenne des 6 derniers TR (7 bougies)
   const atrActuel = calcAtr(candles.slice(-7), 6)
-  // ATR long terme : moyenne des jusqu'à 60 derniers TR (fenêtre large)
   const atrMoyen = calcAtr(candles, Math.min(candles.length - 1, 60))
   return atrMoyen > 0 ? (atrActuel / atrMoyen) * 100 : 100
 }
-
 function cle(asset: string, tf: string): string { return `${asset}_${tf}` }
 
 function celluleValeur(asset: string, tf: string): number {
@@ -201,47 +190,67 @@ const classementVol = computed(() => {
   })))
   return items.filter(i => i.atr > 0).sort((a, b) => b.atr - a.atr)
 })
+function classerCause(message: string, nbRetenus: number): '' | 'donnees' | 'llm' | '0_creneaux' {
+  const m = message.toLowerCase()
+  if (m.includes('données') || m.includes('donnees') || m.includes('insuffisantes')) return 'donnees'
+  if (m.includes('llm') || m.includes('ollama')) return 'llm'
+  if (nbRetenus === 0) return '0_creneaux'
+  return ''
+}
 
-const analyseAtr = computed(() => {
-  const items = classementVol.value
-  if (!items.length) return null
-
-  // ATR moyen par asset (toutes TF confondues)
-  const moyParAsset = assets.value.map(a => {
-    const pts = items.filter(i => i.asset === a)
-    return { asset: a, moy: pts.length ? pts.reduce((s, i) => s + i.atr, 0) / pts.length : 0 }
-  }).filter(x => x.moy > 0).sort((a, b) => b.moy - a.moy)
-
-  const assetActif = moyParAsset[0]?.asset ?? '—'
-  const assetCalme = moyParAsset[moyParAsset.length - 1]?.asset ?? '—'
-
-  // TFs en volatilité élevée (>120%) par asset
-  const tfsActifsParAsset: Record<string, string[]> = {}
-  for (const a of assets.value) {
-    tfsActifsParAsset[a] = items
-      .filter(i => i.asset === a && i.atr > 120)
-      .map(i => i.tf)
+async function lancerAnalyseStraddle() {
+  const topAsset = classementVol.value[0]?.asset ?? assets.value[0] ?? 'BTC'
+  analyseStraddle.value = { chargement: true, ok: false, message: '', cause: '' }
+  try {
+    const res = await apiService.analyserStraddle(topAsset, '6m')
+    const nbRetenus = res.nb_retenus ?? 0
+    const cause = classerCause(res.message ?? '', nbRetenus)
+    analyseStraddle.value = {
+      chargement: false,
+      ok: nbRetenus > 0,
+      message: nbRetenus > 0
+        ? `Analyse Straddle ${topAsset}: ${nbRetenus} créneau(x) retenu(s) sur ${res.nb_analyses} bougies.`
+        : `Analyse Straddle ${topAsset}: aucun créneau retenu.${res.message ? ` ${res.message}` : ''}`,
+      cause,
+    }
+  } catch (e: unknown) {
+    analyseStraddle.value = {
+      chargement: false,
+      ok: false,
+      message: `Analyse Straddle échouée: ${(e as Error).message}`,
+      cause: 'llm',
+    }
+    alerteStore.afficherErreur(analyseStraddle.value.message)
   }
-
-  // Combien de cellules dépassent 120% (Élevé) ?
-  const nbEleve = items.filter(i => i.atr > 120).length
-  const topRatio = items[0]?.atr ?? 0
-  let straddleConseil: string
-  let straddleClass: string
-  if (topRatio > 120) {
-    straddleConseil = `Straddle favorable — ${nbEleve} créneau${nbEleve > 1 ? 'x' : ''} en volatilité élevée (>${120}%).`
-    straddleClass = 'bg-red-500/10 border border-red-500/30 text-red-300'
-  } else if (topRatio > 90) {
-    straddleConseil = 'Volatilité modérée — surveiller avant d\'entrer en Straddle.'
-    straddleClass = 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
-  } else {
-    straddleConseil = 'Marché calme — privilégier SMC Directionnel sur breakout.'
-    straddleClass = 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+}
+async function seedDev() {
+  const assetCible = classementVol.value[0]?.asset ?? assets.value[0] ?? 'BTC'
+  try {
+    const res = await apiService.seedStraddleCreneauxDev(assetCible)
+    alerteStore.afficherSucces(`Seed dev ${res.asset}: ${res.inserted} créneaux`) 
+  } catch (e: unknown) {
+    alerteStore.afficherErreur(`Seed dev: ${(e as Error).message}`)
   }
-
-  return { assetActif, assetCalme, tfsActifsParAsset, straddleConseil, straddleClass }
-})
-
+}
+async function signalTestDev() {
+  const assetCible = classementVol.value[0]?.asset ?? assets.value[0] ?? 'BTC'
+  try {
+    const res = await apiService.creerSignalStraddleTestDev(assetCible, 'M15')
+    dernierSignalTestId.value = res.signal_id
+    alerteStore.afficherSucces(`Signal test créé: ${res.signal_id.slice(0, 8)}…`) 
+  } catch (e: unknown) {
+    alerteStore.afficherErreur(`Signal test: ${(e as Error).message}`)
+  }
+}
+async function cloturerTestDev() {
+  if (!dernierSignalTestId.value) return
+  try {
+    await apiService.cloturerFeedbackStraddleTest(dernierSignalTestId.value, 'tp1', 101)
+    alerteStore.afficherSucces('Feedback test clôturé (tp1)')
+  } catch (e: unknown) {
+    alerteStore.afficherErreur(`Clôture test: ${(e as Error).message}`)
+  }
+}
 async function actualiser() {
   chargement.value = true
   const paires = assets.value.flatMap(a => timeframes.map(tf => ({ a, tf })))
@@ -255,7 +264,6 @@ async function actualiser() {
     }
   }
   chargement.value = false
-  // Détection confluence en arrière-plan (throttlée via cache 5min)
   detecterConfluences(classementVol.value).then(() => {
     if (confluences.value.length) {
       alerteStore.afficherSucces(

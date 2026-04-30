@@ -77,12 +77,26 @@ fn demarrer_backend_si_absent() {
         });
 
     let db_path = "/mnt/IA/native-trading-ai/data/trading.db";
+    let log_path = "/mnt/IA/native-trading-ai/data/logs/backend.log";
+    let stdout_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path)
+        .map(Stdio::from)
+        .unwrap_or_else(|_| Stdio::null());
+    let stderr_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path)
+        .map(Stdio::from)
+        .unwrap_or_else(|_| Stdio::null());
 
     match Command::new(&binaire)
         .env("DATABASE_PATH", db_path)
+        .env("RUST_LOG", "api::straddle_boucle=debug,info")
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(stdout_file)
+        .stderr(stderr_file)
         .spawn()
     {
         Ok(_) => {

@@ -1,8 +1,3 @@
-//! Boucle automatique d'analyse Straddle au démarrage.
-//!
-//! Tourne toutes les 15 minutes pour un ensemble d'assets/timeframes.
-//! Reproduit la logique de `straddle_signal_handler` sans passer par HTTP.
-//! Pipeline unifié : DB → signal_engine.publier() → Telegram.
 use chrono::{Datelike, Timelike, Utc};
 use common::{Asset, Timeframe};
 use db::Database;
@@ -13,36 +8,42 @@ use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
-/// Délais whipsaw par asset : heure d'expiration du délai avant re-check.
 type WhipsawDelais = Arc<Mutex<HashMap<String, Instant>>>;
 
 use crate::signal_engine::SignalEngine;
 use crate::straddle_ml_gate::{evaluer_ml_straddle, MlContexteStraddle};
 use crate::straddle_signal_ollama::{appeler_ollama_et_publier, ParamsOllama};
 
-/// Anti-doublon : pas de second signal Straddle sur le même asset/TF avant N minutes.
-const ANTI_DOUBLON_MIN: i64 = 60;
-
-/// Seuil ratio ATR par défaut (utilisé si pas de calibration disponible).
+const ANTI_DOUBLON_MIN: i64 = 30;
 const SEUIL_SIGNAL_DEFAUT: f64 = 1.5;
 
-/// Démarre la boucle en background — ne bloque pas.
 pub fn demarrer_boucle_straddle(
     db: Arc<Database>,
     signal_engine: Arc<SignalEngine>,
     pipeline_ml: Arc<Mutex<PipelineML>>,
 ) {
     tokio::spawn(async move {
-        // Délai initial : laisser la DB et les bougies se charger
         sleep(Duration::from_secs(180)).await;
         let whipsaw_delais: WhipsawDelais = Arc::new(Mutex::new(HashMap::new()));
         loop {
             let assets = db.lister_assets().await.unwrap_or_default();
             let nb = assets.len();
-            // Lire le seuil une seule fois par cycle (pas par asset)
             let seuil_straddle: f64 = db.lire_config("seuil_confiance_straddle").await
                 .ok().flatten().and_then(|v| v.parse().ok()).unwrap_or(0.75);
-            // P5 — actifs par groupe de corrélation (chargé une fois par cycle)
+            let atr_ui: f64 = {
+                let p = db::strategies_params::lire_straddle_params(db.pool()).await;
+                if p.atr_seuil.is_finite() && p.atr_seuil > 0.0 {
+                    p.atr_seuil
+                } else {
+                    SEUIL_SIGNAL_DEFAUT
+                }
+            };
+            tracing::debug!(
+                "Straddle auto cycle: atr_ui={:.2}, seuil_ml={:.2}, assets_count={}",
+                atr_ui,
+                seuil_straddle,
+                nb
+            );
             let actifs_corr: HashSet<String> = db::straddle_suivi_position::lister_suivi_actifs(db.pool())
                 .await.unwrap_or_default().into_iter().map(|s| s.asset).collect();
             for asset_db in &assets {
@@ -59,7 +60,7 @@ pub fn demarrer_boucle_straddle(
                         else { continue; }
                     } else { false }
                 };
-                analyser_asset(&db, &signal_engine, &pipeline_ml, seuil_straddle, &asset, &tf, &whipsaw_delais, skip_ww, &actifs_corr).await;
+                analyser_asset(&db, &signal_engine, &pipeline_ml, seuil_straddle, atr_ui, &asset, &tf, &whipsaw_delais, skip_ww, &actifs_corr).await;
             }
             tracing::debug!("🌪️  Boucle Straddle cycle terminé ({} assets)", nb);
             sleep(Duration::from_secs(15 * 60)).await;
@@ -74,26 +75,19 @@ async fn analyser_asset(
     signal_engine: &Arc<SignalEngine>,
     pipeline_ml: &Arc<Mutex<PipelineML>>,
     seuil_straddle: f64,
+    atr_seuil_ui: f64,
     asset: &Asset,
     tf: &Timeframe,
     whipsaw_delais: &WhipsawDelais,
     skip_whipsaw: bool,
     actifs_corr: &HashSet<String>,
 ) {
-    // Anti-doublon
-    match db.signal_recent_existe(asset, tf, ANTI_DOUBLON_MIN).await {
+    match db.signal_recent_existe_strategie(asset, tf, "Straddle", ANTI_DOUBLON_MIN).await {
         Ok(true) => return,
         Err(e) => { tracing::warn!("Straddle auto: anti-doublon {}/{}: {}", asset.as_str(), tf.as_str(), e); return; }
         Ok(false) => {}
     }
-
-    // P5 — filtre corrélation inter-assets
-    if let Some(g) = crate::straddle_utils::groupe_correlation(asset.as_str()) {
-        if g.iter().any(|a| *a != asset.as_str() && actifs_corr.contains(*a)) {
-            tracing::debug!("Straddle {}: groupe corrélation actif, skip", asset.as_str()); return;
-        }
-    }
-    // Bougies et indicateurs
+    let correlation_active = crate::straddle_utils::groupe_correlation(asset.as_str()).map(|g| g.iter().any(|a| *a != asset.as_str() && actifs_corr.contains(*a))).unwrap_or(false);
     let bougies = match db.obtenir_bougies(asset, tf, 100).await {
         Ok(b) if b.len() >= 30 => b,
         Ok(b) => { tracing::debug!("Straddle {}/{}: {} bougies", asset.as_str(), tf.as_str(), b.len()); return; }
@@ -117,8 +111,7 @@ async fn analyser_asset(
     }
     let ratio_atr = atr_actuel / atr_moyen.max(f64::EPSILON);
 
-    // Seuil ATR : vérification préliminaire avec seuil par défaut (avant catégorisation)
-    if ratio_atr < SEUIL_SIGNAL_DEFAUT {
+    if ratio_atr < atr_seuil_ui {
         return;
     }
 
@@ -126,10 +119,16 @@ async fn analyser_asset(
     let maintenant = now.timestamp();
     let dans_90min = maintenant + 5400;
 
-    let annonces: Vec<serde_json::Value> = db
-        .lire_calendrier_cache(3600)
-        .await
-        .unwrap_or_default()
+    let annonces_brutes = db.lire_calendrier_cache(3600).await.unwrap_or_default();
+    if annonces_brutes.is_empty() {
+        let db_refresh = Arc::clone(db);
+        tokio::spawn(async move {
+            let n = crate::calendar_handlers::rafraichir_calendrier(db_refresh.as_ref()).await.len();
+            tracing::debug!("Straddle auto: refresh calendrier fallback lancé ({} événements)", n);
+        });
+    }
+
+    let annonces: Vec<serde_json::Value> = annonces_brutes
         .into_iter()
         .filter(|a| {
             a["impact"].as_str() == Some("High")
@@ -138,7 +137,7 @@ async fn analyser_asset(
                     .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
                     .map(|dt| {
                         let ts = dt.timestamp();
-                        ts >= maintenant && ts <= dans_90min
+                        (maintenant..=dans_90min).contains(&ts)
                     })
                     .unwrap_or(false)
         })
@@ -172,6 +171,7 @@ async fn analyser_asset(
     );
 
     ctx.push_str(&crate::straddle_utils::formater_annonces_contexte(&annonces, maintenant));
+    if correlation_active { ctx.push_str("Corrélation groupe: actif corrélé déjà ouvert (mode soft: prudence renforcée)\n"); }
 
     if creneaux_actifs.is_empty() {
         ctx.push_str("Créneaux historiques: aucun\n");
@@ -197,7 +197,6 @@ async fn analyser_asset(
         }
     }
 
-    // Catégoriser le contexte actuel (pour cibler les feedbacks historiques pertinents)
     let creneaux_valides_complets: Vec<_> = creneaux
         .iter()
         .filter(|c| c.statut == "valide" || c.statut == "a_tester")
@@ -210,7 +209,6 @@ async fn analyser_asset(
         asset.as_str(),
     );
 
-    // Charger les seuils calibrés pour cette paire + catégorie
     let seuils = db::straddle_calibration::charger_seuils(
         db.pool(),
         asset.as_str(),
@@ -218,21 +216,26 @@ async fn analyser_asset(
     )
     .await;
 
-    // Catégorie marquée invalide → skip
     if seuils.invalide {
         tracing::debug!("Straddle {}/{}: cat {} invalide, skip", asset.as_str(), tf.as_str(), categorie_ctx.categorie.as_str());
         return;
     }
 
-    // Seuil ATR calibré : vérification affinée
-    if ratio_atr < seuils.ratio_atr {
-        tracing::debug!("Straddle {}/{}: ratio {:.2} < seuil {:.2}", asset.as_str(), tf.as_str(), ratio_atr, seuils.ratio_atr);
+    let seuil_atr_effectif = seuils.ratio_atr.min(atr_seuil_ui);
+    if ratio_atr < seuil_atr_effectif {
+        tracing::debug!(
+            "Straddle {}/{}: ratio {:.2} < seuil_effectif {:.2} (ui {:.2}, calib {:.2})",
+            asset.as_str(),
+            tf.as_str(),
+            ratio_atr,
+            seuil_atr_effectif,
+            atr_seuil_ui,
+            seuils.ratio_atr
+        );
         return;
     }
 
-    // P3 – Délai whipsaw : si le créneau actif a un faux spike connu, différer l'émission
     if !skip_whipsaw {
-        // Si déjà en file d'attente (délai en cours), ne pas reprogrammer
         if whipsaw_delais.lock().await.contains_key(asset.as_str()) { return; }
         let hm = heure * 60 + now.minute();
         if let Some(mins) = crate::straddle_utils::whipsaw_pour_heure(&creneaux_valides_complets, hm) {
@@ -243,7 +246,6 @@ async fn analyser_asset(
         }
     }
 
-    // Feedbacks few-shot + gate ML
     let feedbacks = db::straddle_feedback::lister_recents_asset_categorie(
         db.pool(), asset.as_str(), categorie_ctx.categorie.as_str(), 10,
     ).await.unwrap_or_default();
@@ -256,14 +258,14 @@ async fn analyser_asset(
     match ml_contexte {
         MlContexteStraddle::Indecis(texte) => ctx.push_str(&texte),
         MlContexteStraddle::NonDisponible => {
-            // P4 — fallback règles métier quand ML non encore entraîné
-            let score = crate::straddle_score_regle::calculer_score(
-                &crate::straddle_score_regle::ContexteScoreRegle {
-                    categorie: categorie_ctx.categorie.as_str(),
-                    ratio_atr, now, creneaux_valides: &creneaux_valides_complets,
-                },
-            );
-            if score < crate::straddle_score_regle::SEUIL_SCORE_REGLE {
+            let seuil_regle = crate::straddle_score_regle::seuil_pour_feedback(feedbacks.len());
+            let mut score = crate::straddle_score_regle::calculer_score(&crate::straddle_score_regle::ContexteScoreRegle {
+                categorie: categorie_ctx.categorie.as_str(), ratio_atr, now, creneaux_valides: &creneaux_valides_complets,
+            });
+            if correlation_active {
+                score = score.saturating_sub(10);
+            }
+            if score < seuil_regle {
                 tracing::debug!("Straddle {}: règles {}/100 < seuil, skip", asset.as_str(), score);
                 return;
             }
@@ -278,7 +280,7 @@ async fn analyser_asset(
         ctx: &ctx,
         feedbacks: &feedbacks,
         categorie: &categorie_ctx.categorie,
-        score_seuil: seuils.score_llm,
+        score_seuil: if correlation_active { (seuils.score_llm + 0.7).min(9.5) } else { seuils.score_llm },
         annonces: &annonces,
         bougies: &bougies,
         ratio_atr,

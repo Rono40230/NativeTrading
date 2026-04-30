@@ -138,7 +138,27 @@ export interface StraddleVolatiliteLive {
     pics_2h: number
     assets_actifs: string[]
     annonces_prochaines_90min: AnnonceImminente[]
+    calendar_cache_count?: number
+    next_high_in_min?: number | null
   }
+}
+
+export interface StraddleDevSeedResponse {
+  ok: boolean
+  asset: string
+  inserted: number
+}
+
+export interface StraddleDevSignalResponse {
+  ok: boolean
+  signal_id: string
+  asset: string
+  timeframe: string
+  prix_entree: number
+  stop_loss_long: number
+  stop_loss_short: number
+  tp_long: number[]
+  tp_short: number[]
 }
 
 export interface StraddleStatCategorie {

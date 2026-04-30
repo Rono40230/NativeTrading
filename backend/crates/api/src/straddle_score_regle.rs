@@ -15,6 +15,7 @@ use db::straddle::StraddleCreneau;
 
 /// Seuil minimal pour autoriser l'appel Ollama.
 pub const SEUIL_SCORE_REGLE: u32 = 60;
+pub const SEUIL_SCORE_REGLE_WARM_START: u32 = 50;
 
 /// Contexte nécessaire au calcul du score.
 pub struct ContexteScoreRegle<'a> {
@@ -68,6 +69,14 @@ pub fn texte_contexte(score: u32) -> String {
         "Score confiance règles-métier (sans ML) : {}/100 — autorisé (seuil {})\n",
         score, SEUIL_SCORE_REGLE
     )
+}
+
+pub fn seuil_pour_feedback(nb_feedback: usize) -> u32 {
+    if nb_feedback < 5 {
+        SEUIL_SCORE_REGLE_WARM_START
+    } else {
+        SEUIL_SCORE_REGLE
+    }
 }
 
 fn heure_dans_creneau(hm: u32, debut: &str, fin: &str) -> bool {

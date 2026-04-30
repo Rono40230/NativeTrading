@@ -38,8 +38,21 @@ pub async fn volatilite_live(state: web::Data<AppState>) -> impl Responder {
         .lire_calendrier_cache(3600)
         .await
         .unwrap_or_default();
+    let calendar_cache_count = annonces_raw.len();
+    let next_high_in_min = annonces_raw
+        .iter()
+        .filter(|a| a["impact"].as_str().unwrap_or("") == "High")
+        .filter_map(|a| {
+            a["date_heure"]
+                .as_str()
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+                .map(|dt| (dt.timestamp() - now) / 60)
+        })
+        .filter(|m| *m >= 0)
+        .min();
+
     let annonces_prochaines: Vec<serde_json::Value> = annonces_raw
-        .into_iter()
+        .iter()
         .filter(|a| {
             let impact = a["impact"].as_str().unwrap_or("");
             (impact == "High" || impact == "Medium")
@@ -91,6 +104,8 @@ pub async fn volatilite_live(state: web::Data<AppState>) -> impl Responder {
             "pics_2h":              assets_actifs.len(),
             "assets_actifs":        assets_actifs,
             "annonces_prochaines_90min": annonces_prochaines,
+            "calendar_cache_count": calendar_cache_count,
+            "next_high_in_min": next_high_in_min,
         }
     }))
 }

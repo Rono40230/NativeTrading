@@ -51,6 +51,18 @@ impl Default for SeuilsEffectifs {
     }
 }
 
+fn warm_start() -> SeuilsEffectifs {
+    SeuilsEffectifs {
+        score_llm: 5.5,
+        ratio_atr: 1.3,
+        sl_ratio: 0.5,
+        tp1_ratio: 2.0,
+        tp2_ratio: 3.5,
+        trailing_coeff: 2.0,
+        invalide: false,
+    }
+}
+
 // ── Écriture ─────────────────────────────────────────────────────────────────
 
 /// Upsert d'un résultat de calibration pour un (asset, categorie).
@@ -99,6 +111,21 @@ pub async fn sauvegarder(pool: &SqlitePool, row: &CalibrationRow) -> Result<()> 
 /// Charge les seuils effectifs pour un (asset, categorie).
 /// Retourne les valeurs par défaut si aucune calibration ou fiabilité insuffisante.
 pub async fn charger_seuils(pool: &SqlitePool, asset: &str, categorie: &str) -> SeuilsEffectifs {
+    let nb_feedback = sqlx::query(
+        "SELECT COUNT(*) as n FROM straddle_feedback
+         WHERE asset = ? AND categorie = ? AND verdict IS NOT NULL",
+    )
+    .bind(asset)
+    .bind(categorie)
+    .fetch_one(pool)
+    .await
+    .ok()
+    .map(|r| r.get::<i64, _>("n"))
+    .unwrap_or(0);
+    if nb_feedback < 5 {
+        return warm_start();
+    }
+
     let row = sqlx::query(
         "SELECT score_llm_seuil, atr_seuil,
                 sl_ratio, tp1_ratio, tp2_ratio, trailing_coeff,

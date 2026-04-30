@@ -6,13 +6,29 @@ import axios from 'axios'
 import type {
   ReponseAnalyseStraddle, StraddleCreneau,
   StraddleVolatiliteLive, StraddleMonitoringData, StraddleCalibrationRow, PrecisionHoraire,
+  StraddleDevSeedResponse, StraddleDevSignalResponse,
 } from './api.types'
 
 const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
 
 export const straddleApi = {
-  async analyserStraddle(asset: string, periode: string): Promise<ReponseAnalyseStraddle> {
+  async analyserStraddle(asset: string, periode: string): Promise<ReponseAnalyseStraddle & { message?: string }> {
     const res = await http.post('/api/straddle/analyser', { asset, periode }, { timeout: 150000 })
+    return res.data
+  },
+
+  async seedStraddleCreneauxDev(asset: string): Promise<StraddleDevSeedResponse> {
+    const res = await http.post('/api/straddle/dev/seed-creneaux', { asset })
+    return res.data
+  },
+
+  async creerSignalStraddleTestDev(asset: string, timeframe = 'M15'): Promise<StraddleDevSignalResponse> {
+    const res = await http.post('/api/straddle/dev/signal-test', { asset, timeframe })
+    return res.data
+  },
+
+  async cloturerFeedbackStraddleTest(signalId: string, verdict: 'tp1' | 'tp2' | 'tp3' | 'sl' | 'expire', prix_verdict: number): Promise<{ ok: boolean }> {
+    const res = await http.post(`/api/straddle/feedback/${signalId}/cloturer`, { verdict, prix_verdict })
     return res.data
   },
 
