@@ -20,8 +20,8 @@ pub(crate) async fn analyser_asset(
     tx: &broadcast::Sender<Signal>,
     asset: &Asset,
     timeframe: &Timeframe,
-    score_news: &Arc<AtomicI32>,
-    fg_valeur: &Arc<AtomicI32>,
+    _score_news: &Arc<AtomicI32>,
+    _fg_valeur: &Arc<AtomicI32>,
 ) -> common::Result<()> {
     let bougies = db.obtenir_bougies(asset, timeframe, 200).await?;
     if bougies.len() < 30 {
@@ -77,28 +77,6 @@ pub(crate) async fn analyser_asset(
         } else {
             (signal_strat.confiance, 0.0)
         }
-    };
-
-    // E.2 — Pénalité confiance SMC si environnement macro hostile
-    let sn = score_news.load(Ordering::Relaxed);
-    let fg = fg_valeur.load(Ordering::Relaxed);
-    let penalite: f64 = match sn {
-        s if s >= 80 => 0.15,
-        s if s >= 60 => 0.10,
-        _ => 0.0,
-    } + if (0..25).contains(&fg) { 0.10 } else { 0.0 };
-    let confiance_ml = if penalite > 0.0 {
-        tracing::debug!(
-            "E.2 pénalité SMC {}/{}: -{:.0}% (news={}, fg={})",
-            asset.as_str(),
-            timeframe.as_str(),
-            penalite * 100.0,
-            sn,
-            fg
-        );
-        (confiance_ml - penalite).max(0.0)
-    } else {
-        confiance_ml
     };
 
     if db
