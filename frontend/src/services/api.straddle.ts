@@ -6,7 +6,7 @@ import axios from 'axios'
 import type {
   ReponseAnalyseStraddle, StraddleCreneau,
   StraddleVolatiliteLive, StraddleMonitoringData, StraddleCalibrationRow, PrecisionHoraire,
-  StraddleDevSeedResponse, StraddleDevSignalResponse,
+  StraddleDevSeedResponse, StraddleDevSignalResponse, StraddleSeuilsEffectifs,
 } from './api.types'
 
 const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
@@ -117,6 +117,11 @@ export const straddleApi = {
     points: { asset: string; verdict: string; pnl_r: number; equity_cumulee: number; ferme_le: number; duree_min: number }[]
   }> {
     const res = await http.get('/api/straddle/equity', { params: { capital, risk_pct } })
+    return res.data
+  },
+
+  async getStraddleSeuilsEffectifs(asset = 'BTCUSDT', categorie = 'AtrPur'): Promise<StraddleSeuilsEffectifs> {
+    const res = await http.get('/api/straddle/seuils-effectifs', { params: { asset, categorie } })
     return res.data
   },
 }

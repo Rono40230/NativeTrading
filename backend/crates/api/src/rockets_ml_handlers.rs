@@ -199,3 +199,32 @@ pub async fn get_equity(
     }
 }
 
+// ── GET /api/rockets/seuils-effectifs ────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct QuerySeuilsRockets {
+    pub phase: Option<String>,
+    pub session: Option<String>,
+}
+
+/// Retourne les seuils effectifs calibrés pour un (phase, session).
+/// Fallback automatique sur valeurs par défaut si insuffisant.
+pub async fn get_seuils_effectifs(
+    state: web::Data<AppState>,
+    query: web::Query<QuerySeuilsRockets>,
+) -> impl Responder {
+    let pool = state.db.pool();
+    let phase = query.phase.as_deref().unwrap_or("breakout");
+    let session = query.session.as_deref().unwrap_or("London");
+
+    let seuils = db::rockets_calibration::charger_seuils(pool, phase, session).await;
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "phase":          phase,
+        "session":        session,
+        "score_min":      seuils.score_min,
+        "conviction_min": seuils.conviction_min,
+        "invalide":       seuils.invalide,
+    }))
+}
+

@@ -288,3 +288,36 @@ pub async fn get_equity(
         }
     }
 }
+
+// ── GET /api/straddle/seuils-effectifs ────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct QuerySeuilsStraddle {
+    pub asset: Option<String>,
+    pub categorie: Option<String>,
+}
+
+/// Retourne les seuils effectifs calibrés pour un (asset, catégorie).
+/// Fallback automatique sur warm start ou valeurs par défaut si insuffisant.
+pub async fn get_seuils_effectifs(
+    state: web::Data<AppState>,
+    query: web::Query<QuerySeuilsStraddle>,
+) -> impl Responder {
+    let pool = state.db.pool();
+    let asset = query.asset.as_deref().unwrap_or("BTCUSDT");
+    let categorie = query.categorie.as_deref().unwrap_or("AtrPur");
+
+    let seuils = db::straddle_calibration::charger_seuils(pool, asset, categorie).await;
+
+    HttpResponse::Ok().json(serde_json::json!({
+        "asset":           asset,
+        "categorie":       categorie,
+        "score_llm":       seuils.score_llm,
+        "ratio_atr":       seuils.ratio_atr,
+        "sl_ratio":        seuils.sl_ratio,
+        "tp1_ratio":       seuils.tp1_ratio,
+        "tp2_ratio":       seuils.tp2_ratio,
+        "trailing_coeff":  seuils.trailing_coeff,
+        "invalide":        seuils.invalide,
+    }))
+}

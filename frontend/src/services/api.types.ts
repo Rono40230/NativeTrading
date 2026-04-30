@@ -286,3 +286,34 @@ export interface PrecisionHoraire {
   raison?: string
   message?: string
 }
+
+// ── Barèmes & seuils effectifs pour les pages Définition ─────────────────────
+
+export interface SmcBaremes {
+  tendance: number
+  order_block: number
+  ifvg: number
+  imbalance: number
+  fibonacci: number
+  total_max: number
+}
+
+export interface StraddleSeuilsEffectifs {
+  asset: string
+  categorie: string
+  score_llm: number
+  ratio_atr: number
+  sl_ratio: number
+  tp1_ratio: number
+  tp2_ratio: number
+  trailing_coeff: number
+  invalide: boolean
+}
+
+export interface RocketsSeuilsEffectifs {
+  phase: string
+  session: string
+  score_min: number
+  conviction_min: number
+  invalide: boolean
+}

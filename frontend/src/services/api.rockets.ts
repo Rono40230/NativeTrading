@@ -5,7 +5,7 @@
 import axios from 'axios'
 import type {
   RocketSignalSave, RocketSignalHistorique, RocketAnalyseLlm, RocketsConfig,
-  RocketsMonitoringData, RocketsCalibrationRow,
+  RocketsMonitoringData, RocketsCalibrationRow, RocketsSeuilsEffectifs,
 } from './api.types'
 
 const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
@@ -91,6 +91,11 @@ export const rocketsApi = {
     sl: number; tp1: number; tp2: number; tp3_trigger: number; trailing_coeff: number;
   }[]): Promise<{ texte: string }> {
     const res = await http.post('/api/rockets/analyse-opportunites', signaux, { timeout: 120000 })
+    return res.data
+  },
+
+  async getRocketsSeuilsEffectifs(phase = 'breakout', session = 'London'): Promise<RocketsSeuilsEffectifs> {
+    const res = await http.get('/api/rockets/seuils-effectifs', { params: { phase, session } })
     return res.data
   },
 }

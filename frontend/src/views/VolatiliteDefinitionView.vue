@@ -99,10 +99,12 @@
             <div class="text-xs text-gray-500 mb-2">Seuil conviction LLM</div>
             <div class="flex flex-col gap-1.5">
               <div class="flex items-center gap-2 text-sm">
-                <span class="text-yellow-400 font-bold">Calibré</span>
-                <span class="text-gray-400">dynamiquement par asset / catégorie</span>
+                <span class="text-yellow-400 font-bold">{{ scoreLlmEffectif }}/10</span>
+                <span class="text-gray-400">calibré par asset / catégorie</span>
               </div>
-              <div class="text-xs text-gray-500">Warm start (&lt;5 feedbacks) : 5.5/10</div>
+              <div class="text-xs" :class="estWarmStart ? 'text-amber-500' : 'text-gray-500'">
+                {{ estWarmStart ? 'Warm start actif (&lt;5 feedbacks)' : 'Calibration active' }}
+              </div>
               <div class="text-xs text-gray-500">Corrélation active : seuil +0.7</div>
             </div>
           </div>
@@ -132,11 +134,16 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useStrategyParamsStore } from '@/stores/strategyParams.store'
+import { apiService } from '@/services/api.service'
+import type { StraddleSeuilsEffectifs } from '@/services/api.types'
 
 const strategyStore = useStrategyParamsStore()
 const params = ref<Record<string, number> | null>(null)
+const seuilsEffectifs = ref<StraddleSeuilsEffectifs | null>(null)
+
 onMounted(async () => {
   try { await strategyStore.charger(); params.value = { ...strategyStore.straddleRaw } } catch { /* silencieux */ }
+  try { seuilsEffectifs.value = await apiService.getStraddleSeuilsEffectifs() } catch { /* silencieux */ }
 })
 
 const paramCards = computed(() => params.value ? [
@@ -148,6 +155,9 @@ const paramCards = computed(() => params.value ? [
   { label: 'TP3 (réel)',  value: '+5.0×ATR' },
   { label: 'Horizon',     value: `${params.value.horizon_bougies}b` },
 ] : [])
+
+const scoreLlmEffectif = computed(() => seuilsEffectifs.value?.score_llm?.toFixed(1) ?? '5.5')
+const estWarmStart = computed(() => seuilsEffectifs.value ? seuilsEffectifs.value.score_llm <= 5.5 : true)
 
 const phases = [
   { id: 'declenchement', icon: '🔥', label: 'Déclenchement',

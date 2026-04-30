@@ -181,6 +181,18 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::smc_monitoring_handlers::get_equity),
         )
         .route(
+            "/api/smc/baremes",
+            web::get().to(crate::smc_monitoring_handlers::get_baremes),
+        )
+        .route(
+            "/api/straddle/seuils-effectifs",
+            web::get().to(crate::straddle_ml_handlers::get_seuils_effectifs),
+        )
+        .route(
+            "/api/rockets/seuils-effectifs",
+            web::get().to(crate::rockets_ml_handlers::get_seuils_effectifs),
+        )
+        .route(
             "/api/config",
             web::get().to(crate::config_handlers::get_config),
         )

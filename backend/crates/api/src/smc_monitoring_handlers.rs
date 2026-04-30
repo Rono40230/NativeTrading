@@ -4,6 +4,7 @@
 //!   GET  /api/smc/monitoring-ml  → stats globales + par catégorie + dérive
 //!   GET  /api/smc/calibration    → seuils calibrés par asset/timeframe/catégorie
 //!   GET  /api/smc/feedback       → historique des feedbacks SMC filtrés
+//!   GET  /api/smc/baremes        → constantes SCORE_MAX_* du moteur SMC
 
 use actix_web::{web, HttpResponse, Responder};
 use serde::Deserialize;
@@ -153,4 +154,18 @@ pub async fn get_equity(
             HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
         }
     }
+}
+
+// ── GET /api/smc/baremes ──────────────────────────────────────────────────────
+
+/// Retourne les constantes SCORE_MAX_* du moteur SMC (lecture seule, statique).
+pub async fn get_baremes(_state: web::Data<AppState>) -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({
+        "tendance":    smc::SCORE_MAX_TENDANCE,
+        "order_block": smc::SCORE_MAX_ORDER_BLOCK,
+        "ifvg":        smc::SCORE_MAX_IFVG,
+        "imbalance":   smc::SCORE_MAX_IMBALANCE,
+        "fibonacci":   smc::SCORE_MAX_FIBONACCI,
+        "total_max":   smc::SCORE_TOTAL_MAX,
+    }))
 }

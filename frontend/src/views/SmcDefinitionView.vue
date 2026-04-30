@@ -137,11 +137,16 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useStrategyParamsStore } from '@/stores/strategyParams.store'
+import { apiService } from '@/services/api.service'
+import type { SmcBaremes } from '@/services/api.types'
 
 const strategyStore = useStrategyParamsStore()
 const params = ref<Record<string, number> | null>(null)
+const baremes = ref<SmcBaremes | null>(null)
+
 onMounted(async () => {
   try { await strategyStore.charger(); params.value = { ...strategyStore.smcRaw } } catch { /* silencieux */ }
+  try { baremes.value = await apiService.getSmcBaremes() } catch { /* silencieux */ }
 })
 
 const paramCards = computed(() => params.value ? [
@@ -154,33 +159,33 @@ const paramCards = computed(() => params.value ? [
   { label: 'Horizon',      value: `${params.value.horizon_bougies}b` },
 ] : [])
 
-const confluences = [
-  { id: 'tendance', icon: '📈', label: 'Structure de tendance', points: 25,
+const confluences = computed(() => [
+  { id: 'tendance', icon: '📈', label: 'Structure de tendance', points: baremes.value?.tendance ?? 25,
     description: 'Biais directionnel basé sur la succession de sommets et creux.',
     regles: ['Haussier : HH + HL (force 2/2 = max pts)', 'Baissier : LH + LL', 'Indécis → signal annulé'] },
-  { id: 'ob', icon: '🟦', label: 'Order Block', points: 25,
+  { id: 'ob', icon: '🟦', label: 'Order Block', points: baremes.value?.order_block ?? 25,
     description: 'Dernière bougie avant impulsion institutionnelle — zone de re-test.',
     regles: ['Volume élevé sur la bougie', 'Impulsion nette après', 'Prix revient dans la zone'] },
-  { id: 'imb', icon: '⬜', label: 'Imbalance (FVG)', points: 15,
+  { id: 'imb', icon: '⬜', label: 'Imbalance (FVG)', points: baremes.value?.imbalance ?? 15,
     description: 'Gap de prix sans retrace — liquidité non distribuée.',
-    regles: ['1 zone alignée = 8pts | 2+ zones = 15pts', 'Pas de retrace complète', 'Dans la direction du biais'] },
-  { id: 'ifvg', icon: '🔷', label: 'IFVG', points: 20,
+    regles: [`1 zone alignée = ${Math.round((baremes.value?.imbalance ?? 15) / 2)}pts | 2+ zones = ${baremes.value?.imbalance ?? 15}pts`, 'Pas de retrace complète', 'Dans la direction du biais'] },
+  { id: 'ifvg', icon: '🔷', label: 'IFVG', points: baremes.value?.ifvg ?? 20,
     description: 'Fair Value Gap avec break of structure — confluence SMC avancée.',
-    regles: ['1 IFVG aligné = 10pts | 2+ = 20pts', 'FVG validé + BOS dans la direction', 'Aligné avec l\'Order Block'] },
-  { id: 'fib', icon: '🌀', label: 'Fibonacci', points: 15,
+    regles: [`1 IFVG aligné = ${Math.round((baremes.value?.ifvg ?? 20) / 2)}pts | 2+ = ${baremes.value?.ifvg ?? 20}pts`, 'FVG validé + BOS dans la direction', 'Aligné avec l\'Order Block'] },
+  { id: 'fib', icon: '🌀', label: 'Fibonacci', points: baremes.value?.fibonacci ?? 15,
     description: 'Niveaux de retrace institutionnels : 38.2%, 50%, 61.8%.',
     regles: ['38.2% — retrace légère', '50% — niveau équilibré', '61.8% — golden ratio'] },
-]
+])
 
-const scoring = [
-  { label: 'Structure tendance',  detail: 'Force 2/2 = +25pts | Force 1/2 = +12.5pts | Indécis = signal annulé' },
-  { label: 'Order Block actif',   detail: 'Bougie OB présente dans la zone alignée = +25pts' },
-  { label: 'Imbalance ouverte',   detail: '2 zones alignées = +15pts | 1 zone = +8pts | Aucune = 0pts' },
-  { label: 'IFVG confirmé',       detail: '2+ IFVG alignés = +20pts | 1 IFVG = +10pts | Aucun = 0pts' },
-  { label: 'Niveau Fibonacci',    detail: 'Prix sur 38.2/50/61.8% = +15pts' },
+const scoring = computed(() => [
+  { label: 'Structure tendance',  detail: `Force 2/2 = +${baremes.value?.tendance ?? 25}pts | Force 1/2 = +${Math.round((baremes.value?.tendance ?? 25) / 2)}pts | Indécis = signal annulé` },
+  { label: 'Order Block actif',   detail: `Bougie OB présente dans la zone alignée = +${baremes.value?.order_block ?? 25}pts` },
+  { label: 'Imbalance ouverte',   detail: `2 zones alignées = +${baremes.value?.imbalance ?? 15}pts | 1 zone = +${Math.round((baremes.value?.imbalance ?? 15) / 2)}pts | Aucune = 0pts` },
+  { label: 'IFVG confirmé',       detail: `2+ IFVG alignés = +${baremes.value?.ifvg ?? 20}pts | 1 IFVG = +${Math.round((baremes.value?.ifvg ?? 20) / 2)}pts | Aucun = 0pts` },
+  { label: 'Niveau Fibonacci',    detail: `Prix sur 38.2/50/61.8% = +${baremes.value?.fibonacci ?? 15}pts` },
   { label: 'Kill Zone (ICT)',     detail: 'Prérequis session active (Londres 07h–10h | NY 13h–16h UTC) — renforce conviction LLM, sans pts directs' },
   { label: 'Liquidity Sweep',     detail: 'Prérequis chasse liquidités détectée — validé haussier/baissier, transmis au LLM' },
-]
+])
 
 const filtreRegles = [
   { icon: '🚫', couleur: 'text-red-400',    label: 'Score < 70 → rejet (seuil calibré dynamiquement par asset/TF/catégorie)' },

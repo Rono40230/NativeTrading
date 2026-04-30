@@ -3,7 +3,7 @@
  * Importées et spreadées dans apiService (api.service.ts).
  */
 import axios from 'axios'
-import type { SmcMonitoringData, SmcCalibrationRow } from './api.types'
+import type { SmcMonitoringData, SmcCalibrationRow, SmcBaremes } from './api.types'
 
 const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
 
@@ -23,6 +23,11 @@ export const apiSmcMethods = {
     points: { asset: string; verdict: string; pnl_r: number; equity_cumulee: number; ferme_le: number; duree_min: number }[]
   }> {
     const res = await http.get('/api/smc/equity', { params: { capital, risk_pct } })
+    return res.data
+  },
+
+  async getSmcBaremes(): Promise<SmcBaremes> {
+    const res = await http.get('/api/smc/baremes')
     return res.data
   },
 }

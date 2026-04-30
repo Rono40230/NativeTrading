@@ -113,10 +113,10 @@
             <div class="text-xs text-gray-500 mb-2">Seuil conviction LLM</div>
             <div class="flex flex-col gap-1.5">
               <div class="flex items-center gap-2 text-sm">
-                <span class="text-yellow-400 font-bold">Calibré</span>
+                <span class="text-yellow-400 font-bold">≥ {{ convictionEffective }}/100</span>
                 <span class="text-gray-400">par phase × session de marché</span>
               </div>
-              <div class="text-xs text-gray-500">Valeur de référence : ≥ 65/100</div>
+              <div class="text-xs text-gray-500">Score min : {{ scoreMinEffectif }}/100</div>
               <div class="text-xs text-gray-500">Évolue avec les feedbacks récents</div>
             </div>
           </div>
@@ -154,16 +154,23 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useStrategyParamsStore } from '@/stores/strategyParams.store'
-import type { RocketsConfig } from '@/services/api.types'
+import { apiService } from '@/services/api.service'
+import type { RocketsConfig, RocketsSeuilsEffectifs } from '@/services/api.types'
 
 const strategyStore = useStrategyParamsStore()
 const config = ref<RocketsConfig | null>(null)
+const seuilsEffectifs = ref<RocketsSeuilsEffectifs | null>(null)
 
 onMounted(async () => {
   try { await strategyStore.charger(); config.value = { ...strategyStore.rocketsRaw } as RocketsConfig } catch { /* silencieux */ }
+  try { seuilsEffectifs.value = await apiService.getRocketsSeuilsEffectifs() } catch { /* silencieux */ }
 })
+})
+
+const convictionEffective = computed(() => seuilsEffectifs.value?.conviction_min ?? 65)
+const scoreMinEffectif = computed(() => seuilsEffectifs.value?.score_min ?? 65)
 
 const phases = [
   {
