@@ -25,9 +25,6 @@
       </div>
     </div>
 
-    <!-- Barre Fear & Greed + prochain événement macro -->
-    <NewsAuxBar />
-
     <!-- Onglets thème -->
     <div class="mb-2 flex gap-1 shrink-0">
       <button
@@ -105,7 +102,6 @@ import { ref, onMounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import { useNewsStore } from '@/stores/news.store'
 import type { ThemeNews } from '@/stores/news.store'
-import NewsAuxBar from '@/components/common/NewsAuxBar.vue'
 import NewsArticleModal from '@/components/common/NewsArticleModal.vue'
 import type { ArticleNews, NiveauAlerte } from '@/services/api.types'
 

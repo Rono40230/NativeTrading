@@ -4,7 +4,14 @@
     
     <!-- COLONNE 1: SMC -->
     <div class="flex flex-col p-2 gap-2 relative border border-blue-500/20 bg-blue-500/10 rounded-xl backdrop-blur-sm hover:z-[999] min-h-0">
-       <div class="text-xs font-bold text-blue-400 uppercase tracking-widest pl-1 border-b border-blue-500/30 pb-1 flex items-center gap-1.5">📐 Stratégie SMC</div>
+       <div class="text-xs font-bold text-blue-400 uppercase tracking-widest pl-1 border-b border-blue-500/30 pb-1 flex items-center gap-1.5">📐 Stratégie SMC
+       <span
+         v-if="dansMoins30min"
+         class="ml-auto flex items-center gap-1 rounded-full border border-yellow-500/40 bg-yellow-500/10 px-2 py-0.5 text-[8px] font-bold text-yellow-300"
+         :title="`SMC Directionnel suspendu automatiquement — ${prochainEvent?.titre}`"
+       >
+         ⏸ Suspendu
+       </span></div>
        
        <!-- Haut: Graphique -->
        <div class="h-[160px] shrink-0 flex flex-col relative z-20 cursor-zoom-in group" @click="isHoveredSmc = true">
@@ -163,6 +170,31 @@ import StratPerfBloc from '@/components/common/StratPerfBloc.vue'
 import { useVeilleRockets } from '@/composables/useVeilleRockets'
 
 const rockets = useVeilleRockets()
+
+
+import { apiService } from '@/services/api.service'
+import type { AnnonceCalendrier } from '@/services/api.types'
+
+const annonces = ref<AnnonceCalendrier[]>([])
+
+onMounted(async () => {
+  annonces.value = await apiService.obtenirCalendrier(2)
+})
+
+const prochainEvent = computed<AnnonceCalendrier | undefined>(() => {
+  const maintenant = Date.now()
+  const dans24h = maintenant + 24 * 3_600_000
+  return annonces.value.find((a) => {
+    const ts = new Date(a.date_heure).getTime()
+    return !a.est_passe && ts > maintenant && ts <= dans24h && a.impact === 'High'
+  })
+})
+
+const dansMoins30min = computed(() => {
+  if (!prochainEvent.value) return false
+  const diff = new Date(prochainEvent.value.date_heure).getTime() - Date.now()
+  return diff > 0 && diff < 30 * 60_000
+})
 
 const isHoveredSmc = ref(false)
 const isHoveredStraddle = ref(false)
