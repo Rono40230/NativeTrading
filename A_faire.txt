@@ -1,72 +1,11 @@
 --------------------------------------------------------------------------------------------------------------------------
 
-Dans la vue graphique de SMC il est possible d'afficher les signaux des indicateurs techniques.
-Comment pourrions nous générer/afficher des signaux SMC ?
-PAr exemple cet indicateur OB ultimate affiche les meme OB que notre indicateur OB mais affiche en plus des signaux.
-Peut on reproduire cela ?
-Est ce utile ?
-Repônd sans coder 
-
---------------------------------------------------------------------------------------------------------------------------
-
-Après toutes les modifications faites dans l'app, est ce que les pages "Définitions & prompt IA" de chaque stratégie reflètent toujours la réalité du code ?
-Analyse chaque stratégie et vérifie que chaque définition est toujours correctes ou à compléter/corriger.
-Les paramètres actifs doivent être connecté aux paramètres de chaque stratégie et mis automatiquement à jour en cas de changement de ces paramètres.
-
---------------------------------------------------------------------------------------------------------------------------
-
-Revoir Paramètres des stratégies après tous les changements qui ont été implémentés.
-Ces tableaux de paramètres sont ils toujours en accord avec le code ?
-Modifier ces paramètres a quelles conséquence dans le code ?
-
-
-Pourquoi je ne peux pas choisir les valeurs de la vente partielle dans les paramètres des 3 stratégies ?
-Ces paramètres sont ils codés en dur pour chaque stratégie ?
-Peut être qu'il faudrait 2 colonnes de paramètres par stratégie : colonne 1 = les apramètres générés par le LLM et reportés par défaut dans la colonne 2 qui serait une colonne modifiable/enregistrable par le trader.
-Qu'en penses tu .
-Repond sans coder
-
---------------------------------------------------------------------------------------------------------------------------
-
 Il faut intégralement revoir le prompt SMC en définissant le plus clairement possible la stratégie, ses objectifs, sont fonctionnement, les indicateurs qu'elle utilise et les signaux qu'elle doit générer.
 
 Le prompt SMC doit repérer les zones d'achats et de vente en confirmant les OB sur plusieurs TF.
 
 --------------------------------------------------------------------------------------------------------------------------
 
-En te basant sur le tableau de la gestion du risque dans configuration il faut :
-- intégrer aux signaux SMC et Straddle qui s'affichent dans les modales et qui sont envoyés dans telegram les traductions en points et/ou pips à côté des valeurs en $.
-Est ce clair ? As tu besoin de précisions ? Répond sans coder
 
---------------------------------------------------------------------------------------------------------------------------
 
-Il faut réflechir à un système d'alerte centralisé pour avertir sur :
-- les signaux de chaque stratégies
-- l'entrée dans une zone de volatilité élevées
-- l'iminence ou le rappel en temps réel d'une annonce economique ou d'un événement
-- que vois tu comme autres alertes à ajouter ?
-
-Il faudrait centraliser le code concernant les alertes en supprimant les sytèmes qui existent déjà (signaux de stratégie)
-Quels sont tes conseils pour l'affichage :
-- soit afficher une modale au centre de l'écran lorsqu'une alerte est crée
-- soit créer un bloc alerte sur fond rouge pastel en dessous des 3 colonnes existantes qui affiche et fait persister les alertes tant qu'elles ne sont pas fermées par l'utilisateur
-
-Répond sans coder
---------------------------------------------------------------------------------------------------------------------------
-
-Peux tu simuler ce que ferait un trade rockets fictif en fonction de ce qui est dans le code ?
-Repond sans coder
-
---------------------------------------------------------------------------------------------------------------------------
-
-Pour les trois stratégies, il faut réfléchir à la création d'un LLM destiné à l'analyse fondamentale dans le but de :
-- calibrer les trades
-- saisir les opportunités de momentum
-- augmenter ou réduire le filtrage des signaux en fonction de l'analyse fondamentale.
-
-Doit on créer de toute pièces ce LLM ou existe t il des LLM ou des sources internet disponibles faisant des analyse fondamentales ?
-
-Repond sans coder
-
---------------------------------------------------------------------------------------------------------------------------
 

@@ -1,8 +1,0 @@
-feat(trade-engine): achèvement de la roadmap Trade Engine
-
-- fix(backend): résolution complète des diagnostics clippy (API, requêtes, math).
-- refactor(frontend): découpage de StrategiesParamsPanel.vue en cards dédiées (Straddle, SMC, Rockets) pour respecter l'audit <300 lignes.
-- feat(frontend): ajout du symbole local de monnaie '$' dans SurveillanceAssets.vue.
-- update(db): ajout des migrations pour la config du Trade Engine.
-- fix(ts): correction ciblée des types TypeScript dans App.vue.
-- delete(docs): retrait ou fusion des anciens documents de roadmap et bash de commit périmés suite validation.
