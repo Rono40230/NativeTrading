@@ -4,104 +4,63 @@
     <!-- ── Zone graphique (plein format) ────────────────────────────── -->
     <div class="flex flex-col gap-4 w-full h-full min-h-0">
       <!-- Dernier prix + variation + metriques + sélecteurs -->
-      <ChartPrixStats
-        :dernier-prix="dernierPrix"
-        :variation="variation"
-        :stats="stats"
-        :selected-asset="selectedAsset"
-        :selected-timeframe="selectedTimeframe"
-        :ws-connecte="marketStore.wsConnecte"
-        :assets="assets"
-        :timeframes="timeframes"
-        @changer-asset="changerAsset"
-        @changer-timeframe="changerTimeframe"
-      />
+      <ChartPrixStats :dernier-prix="dernierPrix" :variation="variation" :stats="stats" :selected-asset="selectedAsset"
+        :selected-timeframe="selectedTimeframe" :ws-connecte="marketStore.wsConnecte" :assets="assets"
+        :timeframes="timeframes" @changer-asset="changerAsset" @changer-timeframe="changerTimeframe" />
 
       <!-- Canvas TradingView -->
       <div class="glass-card flex-1 min-h-0" style="min-height: 350px; position: relative;">
-        <div v-if="marketStore.erreur" class="absolute inset-0 z-10 flex items-center justify-center bg-black/60 text-red-400 text-sm rounded-xl">
+        <div v-if="marketStore.erreur"
+          class="absolute inset-0 z-10 flex items-center justify-center bg-black/60 text-red-400 text-sm rounded-xl">
           ⚠ {{ marketStore.erreur }}
         </div>
-        <div v-if="marketStore.erreurWs && !marketStore.wsConnecte" class="absolute bottom-2 left-2 z-10 px-3 py-1 rounded bg-yellow-900/70 text-yellow-300 text-xs border border-yellow-700/40">
+        <div v-if="marketStore.erreurWs && !marketStore.wsConnecte"
+          class="absolute bottom-2 left-2 z-10 px-3 py-1 rounded bg-yellow-900/70 text-yellow-300 text-xs border border-yellow-700/40">
           ⚠ {{ marketStore.erreurWs }}
         </div>
-        <div v-if="marketStore.chargement" class="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-gray-400 text-sm rounded-xl">
+        <div v-if="marketStore.chargement"
+          class="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-gray-400 text-sm rounded-xl">
           <span class="animate-pulse">Chargement des bougies...</span>
         </div>
         <div ref="chartContainer" class="w-full h-full" style="position: relative;" />
         <EcoCalTooltip :annonce="tooltipAnnonce" :x="tooltipX" :y="tooltipY" />
-        <TendanceMultiTF
-          v-if="settingsStore.indicateurs.kasperTendance"
-          :key="selectedAsset + '_' + selectedTimeframe"
-          :asset="selectedAsset"
-          :timeframe="selectedTimeframe"
+        <TendanceMultiTF v-if="settingsStore.indicateurs.kasperTendance" :key="selectedAsset + '_' + selectedTimeframe"
+          :asset="selectedAsset" :timeframe="selectedTimeframe"
           :periode-rapide="settingsStore.indicateurs.kasperPeriodeRapide"
           :periode-lente="settingsStore.indicateurs.kasperPeriodeLente"
-          :mode-calcul="settingsStore.indicateurs.kasperModeCalcul"
-        />
+          :mode-calcul="settingsStore.indicateurs.kasperModeCalcul" />
       </div>
 
       <!-- Sous-graphique RSI séparé -->
-      <div
-        v-if="settingsStore.indicateurs.rsi"
-        ref="rsiContainer"
-        class="glass-card"
-        style="height: 140px; position: relative;"
-      />
+      <div v-if="settingsStore.indicateurs.rsi" ref="rsiContainer" class="glass-card"
+        style="height: 140px; position: relative;" />
 
       <!-- Sous-graphique MACD séparé -->
-      <div
-        v-if="settingsStore.indicateurs.macd"
-        ref="macdContainer"
-        class="glass-card"
-        style="height: 140px; position: relative;"
-      />
+      <div v-if="settingsStore.indicateurs.macd" ref="macdContainer" class="glass-card"
+        style="height: 140px; position: relative;" />
 
       <!-- Sous-graphique ATR séparé -->
-      <div
-        v-if="settingsStore.indicateurs.atr"
-        ref="atrContainer"
-        class="glass-card"
-        style="height: 110px; position: relative;"
-      />
+      <div v-if="settingsStore.indicateurs.atr" ref="atrContainer" class="glass-card"
+        style="height: 110px; position: relative;" />
 
       <!-- Panneau indicateurs (techniques + SMC) -->
-      <IndicatorPanel
-        v-model="settingsStore.indicateurs"
-        :chargement="marketStore.chargement"
-        @appliquer="chargerIndicateurs"
-        @actualiser="actualiser"
-      />
+      <IndicatorPanel v-model="settingsStore.indicateurs" :chargement="marketStore.chargement"
+        @appliquer="chargerIndicateurs" @actualiser="actualiser" />
 
       <!-- Panneau signaux indicateurs -->
-      <ChartSignauxPanel
-        :signaux="signauxActifs"
-        :analyse-en-cours="analyseEnCours"
-        @update:filtre="onFiltreSignaux"
-        @analyser="analyserAvecLlava"
-      />
+      <ChartSignauxPanel :signaux="signauxActifs" :analyse-en-cours="analyseEnCours" :modele-i-a="modeleSelectionne"
+        @update:filtre="onFiltreSignaux" @update:modele-i-a="modeleSelectionne = $event"
+        @analyser="analyserAvecLlava" />
     </div>
 
     <!-- Sidebar IA (toggle + drawer) -->
-    <ChartSidebarIA
-      :asset="selectedAsset"
-      :timeframe="selectedTimeframe"
-      :open="sidebarIA"
-      @toggle="sidebarIA = !sidebarIA"
-    />
+    <ChartSidebarIA :asset="selectedAsset" :timeframe="selectedTimeframe" :open="sidebarIA"
+      @toggle="sidebarIA = !sidebarIA" />
 
     <!-- Modales (hors flux) -->
-    <AnalyseIAModal
-      :analyse="analyseResultat"
-      :modele="analyseModele"
-      @fermer="analyseResultat = null"
-    />
-    <SignalModal
-      :signal="signalModal"
-      :niveaux="niveauxModal"
-      :asset="selectedAsset"
-      @fermer="signalModal = null"
-    />
+    <AnalyseIAModal :analyse="analyseResultat" :modele="analyseModele" :asset="selectedAsset"
+      :timeframe="selectedTimeframe" @fermer="analyseResultat = null" />
+    <SignalModal :signal="signalModal" :niveaux="niveauxModal" :asset="selectedAsset" @fermer="signalModal = null" />
   </div>
 </template>
 
@@ -156,7 +115,7 @@ const {
   configurerRedimensionnement, arreterRedimensionnement, getChart, getCandlestickSeries,
 } = useChartTradingView(chartContainer, bougies)
 
-const { analyseEnCours, analyseResultat, analyseModele, analyserAvecLlava } =
+const { analyseEnCours, analyseResultat, analyseModele, modeleSelectionne, analyserAvecLlava } =
   useChartAnalyse(getChart, selectedAsset, selectedTimeframe)
 
 const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux } = useChartIndicators()
@@ -165,7 +124,7 @@ const liqCanvas = useSmcLiqCanvas()
 const fibCanvas = useSmcFibCanvas()
 const tradeBox = useSignalTradeBox()
 const { initialiser: ecoCalInit, chargerAnnonces, detruire: ecoCalDetruire,
-        tooltipAnnonce, tooltipX, tooltipY } = useChartEcoCal()
+  tooltipAnnonce, tooltipX, tooltipY } = useChartEcoCal()
 
 
 const timestampCurseur = ref<number | null>(null)

@@ -76,6 +76,7 @@ pub struct RequeteChartAnalyse {
     pub asset: String,
     pub images: Vec<ImageAvecTF>,
     pub notes: Option<String>,
+    pub model: Option<String>,
 }
 
 #[derive(Serialize)]

@@ -3,13 +3,10 @@ use actix_web::web;
 
 pub fn configurer(cfg: &mut web::ServiceConfig) {
     cfg.route("/health", web::get().to(crate::handlers::health_check))
-        .route(
-            "/api/assets/params",
-            web::get().to(crate::asset_params_handlers::get_asset_params),
-        )
-        .route(
-            "/api/assets/params",
-            web::put().to(crate::asset_params_handlers::put_asset_params),
+        .service(
+            web::resource("/api/assets/params")
+                .route(web::get().to(crate::asset_params_handlers::get_asset_params))
+                .route(web::put().to(crate::asset_params_handlers::put_asset_params)),
         )
         .route(
             "/api/assets",
@@ -83,6 +80,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::ollama_handlers::analyser_chart_local),
         )
         .route(
+            "/api/ia/save-analysis",
+            web::post().to(crate::ollama_handlers::analyser_chart_sauvegarde),
+        )
+        .route(
             "/api/ia/status",
             web::get().to(crate::ollama_handlers::statut),
         )
@@ -118,13 +119,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/straddle/precision-horaire",
             web::post().to(crate::straddle_precision_handler::handler_precision_horaire),
         )
-        .route(
-            "/api/straddle/params",
-            web::get().to(crate::strategies_params_handlers::get_straddle_params),
-        )
-        .route(
-            "/api/straddle/params",
-            web::put().to(crate::strategies_params_handlers::put_straddle_params),
+        .service(
+            web::resource("/api/straddle/params")
+                .route(web::get().to(crate::strategies_params_handlers::get_straddle_params))
+                .route(web::put().to(crate::strategies_params_handlers::put_straddle_params)),
         )
         .route(
             "/api/straddle/volatilite-live",
@@ -156,13 +154,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         )
         .route("/api/straddle/dev/seed-creneaux", web::post().to(crate::straddle_ml_handlers::dev_seed_creneaux))
         .route("/api/straddle/dev/signal-test", web::post().to(crate::straddle_ml_handlers::dev_signal_test))
-        .route(
-            "/api/smc/params",
-            web::get().to(crate::strategies_params_handlers::get_smc_params),
-        )
-        .route(
-            "/api/smc/params",
-            web::put().to(crate::strategies_params_handlers::put_smc_params),
+        .service(
+            web::resource("/api/smc/params")
+                .route(web::get().to(crate::strategies_params_handlers::get_smc_params))
+                .route(web::put().to(crate::strategies_params_handlers::put_smc_params)),
         )
         .route(
             "/api/smc/monitoring-ml",

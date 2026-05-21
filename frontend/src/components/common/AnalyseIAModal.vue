@@ -14,6 +14,13 @@
           <span class="text-gray-400 text-xs">{{ modele }}</span>
         </div>
         <div class="flex items-center gap-2">
+          <button
+            class="text-xs font-medium text-emerald-400 bg-emerald-900/30 hover:bg-emerald-800/50 hover:text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/20 transition-colors"
+            @click="enregistrerImage"
+            title="Enregistrer sous forme d'image"
+          >
+            {{ enSauvegarde ? '⏳' : '💾' }} Enregistrer
+          </button>
           <span class="text-gray-600 text-xs select-none cursor-move">⠿ déplacer</span>
           <button
             class="text-gray-500 hover:text-white transition-colors text-sm leading-none px-1.5 py-0.5 rounded hover:bg-white/10"
@@ -52,7 +59,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onUnmounted } from 'vue'
 
-const props = defineProps<{ analyse: string | null; modele: string }>()
+const props = defineProps<{ analyse: string | null; modele: string; asset?: string; timeframe?: string }>()
 const emit = defineEmits<{ fermer: [] }>()
 
 // ─── Parsing ──────────────────────────────────────────────────────────────────
@@ -119,9 +126,79 @@ const blocs = computed((): Bloc[] => props.analyse ? parserAnalyse(props.analyse
 const posX = ref(0)
 const posY = ref(0)
 
+const enSauvegarde = ref(false)
+const erreurSauvegarde = ref<string | null>(null)
+
+async function enregistrerImage() {
+  if (enSauvegarde.value) return
+  enSauvegarde.value = true
+
+  try {
+    if (!(window as any).html2canvas) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
+        script.onload = resolve
+        script.onerror = reject
+        document.head.appendChild(script)
+      })
+    }
+
+    const el = document.querySelector('.modal-window') as HTMLElement
+    const bodyEl = document.querySelector('.modal-body') as HTMLElement
+    if (!el || !bodyEl) throw new Error('Modale introuvable')
+
+    // Sauvegarde des styles initiaux pour les remettre après
+    const baseWindowMaxHeight = el.style.maxHeight
+    const baseWindowHeight = el.style.height
+    const baseBodyOverflow = bodyEl.style.overflowY
+
+    // Forcer le déploiement complet en hauteur pour capturer tout le scroll
+    el.style.maxHeight = 'none'
+    el.style.height = 'auto'
+    bodyEl.style.overflowY = 'visible'
+
+    // Laisser un tick au navigateur pour recalculer la mise en page
+    await new Promise(r => setTimeout(r, 50))
+
+    // @ts-ignore
+    const canvas = await window.html2canvas(el, {
+      backgroundColor: '#0a0e27',
+      scale: 2,
+      scrollY: -window.scrollY // Empêche les décalages de capture si la page était scrollée
+    })
+
+    // Restauration de la vue scrollable
+    el.style.maxHeight = baseWindowMaxHeight
+    el.style.height = baseWindowHeight
+    bodyEl.style.overflowY = baseBodyOverflow
+
+    const base64 = canvas.toDataURL('image/png').split(',')[1]
+
+    const res = await fetch('http://localhost:8080/api/ia/save-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image_base64: base64,
+        asset: props.asset || 'UNKNOWN',
+        timeframe: props.timeframe || 'UNKNOWN',
+      })
+    })
+
+    if (!res.ok) throw new Error('Erreur HTTP ' + res.status)
+
+    // Optionnel : un petit effet visuel ou flash de réussite
+  } catch (err) {
+    console.error('Echec capture:', err)
+    erreurSauvegarde.value = (err as Error).message
+  } finally {
+    enSauvegarde.value = false
+  }
+}
+
 function centrer() {
-  posX.value = Math.max(0, window.innerWidth / 2 - 340)
-  posY.value = Math.max(0, window.innerHeight * 0.1)
+  posX.value = Math.max(0, window.innerWidth / 2 - 550)
+  posY.value = Math.max(0, window.innerHeight * 0.01)
 }
 
 watch(() => props.analyse, (val) => { if (val) centrer() })
@@ -162,7 +239,7 @@ onUnmounted(() => {
 <style scoped>
 .modal-window {
   position: fixed; z-index: 9999;
-  width: 680px; max-width: calc(100vw - 32px); max-height: 82vh;
+  width: 1100px; max-width: calc(100vw - 32px); height: 98vh; max-height: 98vh;
   display: flex; flex-direction: column;
   border-radius: 14px;
   border: 1px solid rgba(168, 85, 247, 0.35);

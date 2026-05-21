@@ -8,41 +8,29 @@
 
       <!-- Sources -->
       <!-- "Tous" actif quand toutes les sources sont sélectionnées -->
-      <button
-        @click="filtre.sources.length === SOURCES.length ? filtre.sources = [] : filtre.sources = [...SOURCES]"
+      <button @click="filtre.sources.length === SOURCES.length ? filtre.sources = [] : filtre.sources = [...SOURCES]"
         :class="[
           'px-2 py-0.5 rounded border transition-colors',
           filtre.sources.length === SOURCES.length
             ? 'bg-blue-500/30 border-blue-500/60 text-white'
             : 'border-white/10 text-gray-500 hover:border-white/30',
-        ]"
-      >Tous</button>
-      <button
-        v-for="src in SOURCES"
-        :key="src"
-        @click="toggleSource(src)"
-        :class="[
-          'px-2 py-0.5 rounded border transition-colors',
-          filtre.sources.includes(src)
-            ? 'bg-purple-500/20 border-purple-500/60 text-purple-300'
-            : 'border-white/10 text-gray-500',
-        ]"
-      >{{ src }}</button>
+        ]">Tous</button>
+      <button v-for="src in SOURCES" :key="src" @click="toggleSource(src)" :class="[
+        'px-2 py-0.5 rounded border transition-colors',
+        filtre.sources.includes(src)
+          ? 'bg-purple-500/20 border-purple-500/60 text-purple-300'
+          : 'border-white/10 text-gray-500',
+      ]">{{ src }}</button>
 
       <span class="w-px h-4 bg-white/20 mx-1" />
 
       <!-- Min force -->
-      <button
-        v-for="f in FORCES"
-        :key="f"
-        @click="filtre.forceMin = f"
-        :class="[
-          'px-2 py-0.5 rounded border transition-colors',
-          filtre.forceMin === f
-            ? 'bg-blue-500/30 border-blue-500/60 text-white'
-            : 'border-white/10 text-gray-400 hover:border-white/30',
-        ]"
-      >{{ FORCE_LABEL[f] }} {{ f }}</button>
+      <button v-for="f in FORCES" :key="f" @click="filtre.forceMin = f" :class="[
+        'px-2 py-0.5 rounded border transition-colors',
+        filtre.forceMin === f
+          ? 'bg-blue-500/30 border-blue-500/60 text-white'
+          : 'border-white/10 text-gray-400 hover:border-white/30',
+      ]">{{ FORCE_LABEL[f] }} {{ f }}</button>
 
       <span class="w-px h-4 bg-white/20 mx-1" />
 
@@ -59,24 +47,25 @@
       <span class="w-px h-4 bg-white/20 mx-1" />
 
       <!-- Nb derniers signaux -->
-      <button
-        v-for="n in NB_OPTIONS"
-        :key="n"
-        @click="filtre.nbSignaux = filtre.nbSignaux === n ? 0 : n"
-        :class="[
-          'px-2 py-0.5 rounded border transition-colors',
-          filtre.nbSignaux === n
-            ? 'bg-blue-500/30 border-blue-500/60 text-white'
-            : 'border-white/10 text-gray-400 hover:border-white/30',
-        ]"
-      >{{ n }}</button>
+      <button v-for="n in NB_OPTIONS" :key="n" @click="filtre.nbSignaux = filtre.nbSignaux === n ? 0 : n" :class="[
+        'px-2 py-0.5 rounded border transition-colors',
+        filtre.nbSignaux === n
+          ? 'bg-blue-500/30 border-blue-500/60 text-white'
+          : 'border-white/10 text-gray-400 hover:border-white/30',
+      ]">{{ n }}</button>
 
-      <!-- Analyser (IA) -->
-      <button
-        class="ml-auto px-3 py-0.5 rounded border transition-colors bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40"
-        :disabled="analyseEnCours"
-        @click="$emit('analyser')"
-      >{{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyse SMC par l\'IA' }}</button>
+      <!-- Dropdown modèle IA + Analyser (IA) -->
+      <div class="ml-auto flex items-center gap-1">
+        <select :value="modeleIA" @change="$emit('update:modeleIA', ($event.target as HTMLSelectElement).value)"
+          class="h-7 text-xs bg-black/30 border border-purple-500/30 text-purple-300 rounded px-2 cursor-pointer hover:border-purple-400/60 transition-colors"
+          title="Modèle IA Vision">
+          <option v-for="m in MODELES_VISION" :key="m.value" :value="m.value">{{ m.label }}</option>
+        </select>
+        <button
+          class="h-7 px-3 rounded border transition-colors bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40"
+          :disabled="analyseEnCours" @click="$emit('analyser')">{{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyse SMC
+          par l\'IA' }}</button>
+      </div>
 
 
     </div>
@@ -94,6 +83,7 @@ import {
   type NiveauForce,
   type FiltreSignaux,
 } from '@/composables/chartSignauxTypes'
+import { MODELES_VISION } from '@/composables/useChartAnalyse'
 
 const FORCES: NiveauForce[] = ['moyen', 'fort']
 const SOURCES = [...TOUTES_SOURCES]
@@ -102,11 +92,13 @@ const NB_OPTIONS = [5, 10, 40]
 const props = defineProps<{
   signaux: SignalIndicateur[]
   analyseEnCours?: boolean
+  modeleIA?: string
 }>()
 
 const emit = defineEmits<{
   (e: 'update:filtre', f: FiltreSignaux): void
   (e: 'analyser'): void
+  (e: 'update:modeleIA', v: string): void
 }>()
 
 const filtre = reactive<FiltreSignaux>(filtreDefaut())

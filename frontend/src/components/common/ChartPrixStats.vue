@@ -99,7 +99,7 @@ function ouvrirTip(e: MouseEvent, b: Badge) {
   const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
   const rawX = r.left + r.width / 2
   tip.x = Math.max(158, Math.min(window.innerWidth - 158, rawX))
-  tip.y = r.top - 8
+  tip.y = r.bottom + 8
   tip.def = b.tip.def
   tip.niveaux = b.tip.niveaux
   tip.visible = true
@@ -242,7 +242,7 @@ function formatVolume(v: number): string {
 .cpx-badge:hover { border-color: rgba(168,85,247,0.45); }
 .cpx-tooltip {
   position: fixed;
-  transform: translate(-50%, -100%);
+  transform: translate(-50%, 0);
   width: 300px;
   background: rgba(10,14,39,0.97);
   border: 1px solid rgba(168,85,247,0.4);

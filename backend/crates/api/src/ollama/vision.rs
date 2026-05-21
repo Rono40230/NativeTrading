@@ -10,6 +10,7 @@ pub async fn analyser_images(
     images: &[(&str, &str)],
     asset: &str,
     notes: Option<&str>,
+    modele_option: Option<&str>,
 ) -> Result<String, TradingError> {
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
 
@@ -42,23 +43,58 @@ pub async fn analyser_images(
         }
     }
 
+    let modele_utilise = modele_option.unwrap_or(MODELE_VISION);
+    let modele_lourd = modele_utilise.contains("32b");
+    let num_ctx = if modele_lourd { 8192 } else { 32768 };
+    let num_predict = if modele_lourd { 768 } else { 2048 };
+
     let bases64: Vec<&str> = images.iter().map(|(b, _)| *b).collect();
     let contenu_complet = format!("{}\n\n---\n\n{}", prompt, contenu);
     let corps = serde_json::json!({
-        "model": MODELE_VISION,
+        "model": modele_utilise,
         "messages": [
             {"role": "user", "content": contenu_complet, "images": bases64}
         ],
         "stream": false,
         "options": {
             "temperature": 0.2,
-            "num_ctx": 32768,
-            "num_predict": 2048,
-            "num_gpu": 99,
-            "stop": ["— FIN DE L'ANALYSE —", "\n\n---", "<|end|>", "<|im_end|>"]
+            "num_ctx": num_ctx,
+            "num_predict": num_predict,
+            "stop": ["— FIN DE L'ANALYSE —", "<|end|>", "<|im_end|>"]
         }
     });
+    if modele_lourd {
+        dechargement_ollama().await;
+    }
     appeler_ollama(&url, &corps).await
+}
+
+/// Libère tous les modèles chargés en VRAM via l'API Ollama (keep_alive=0).
+/// À appeler avant un modèle lourd (32b+) pour éviter les 503 par manque de VRAM.
+async fn dechargement_ollama() {
+    let base = std::env::var("OLLAMA_BASE_URL")
+        .unwrap_or_else(|_| "http://localhost:11434".to_string());
+    // L'endpoint /api/generate avec keep_alive=0 décharge le modèle spécifié.
+    // On récupère la liste des modèles actifs et on les décharge un par un.
+    let client = &*super::OLLAMA_HTTP_CLIENT;
+    if let Ok(r) = client.get(format!("{}/api/ps", base)).send().await {
+        if let Ok(v) = r.json::<serde_json::Value>().await {
+            if let Some(models) = v["models"].as_array() {
+                for m in models {
+                    if let Some(name) = m["name"].as_str() {
+                        let _ = client
+                            .post(format!("{}/api/generate", base))
+                            .json(&serde_json::json!({ "model": name, "keep_alive": 0 }))
+                            .send()
+                            .await;
+                        tracing::info!("Modèle déchargé de la VRAM: {}", name);
+                    }
+                }
+            }
+        }
+    }
+    // Pause pour laisser Ollama libérer la mémoire
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 }
 
 pub async fn appeler_ollama(url: &str, corps: &serde_json::Value) -> Result<String, TradingError> {

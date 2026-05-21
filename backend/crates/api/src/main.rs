@@ -179,6 +179,7 @@ async fn main() -> std::io::Result<()> {
             .max_age(3600);
 
         App::new()
+            .app_data(web::JsonConfig::default().limit(20_971_520)) // 20 MB payload limit for base64 images
             .app_data(app_state.clone())
             .wrap(cors)
             .configure(routes::configurer)

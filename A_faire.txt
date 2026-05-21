@@ -1,11 +1,7 @@
 --------------------------------------------------------------------------------------------------------------------------
 
-Il faut intégralement revoir le prompt SMC en définissant le plus clairement possible la stratégie, ses objectifs, sont fonctionnement, les indicateurs qu'elle utilise et les signaux qu'elle doit générer.
-
-Le prompt SMC doit repérer les zones d'achats et de vente en confirmant les OB sur plusieurs TF.
 
 --------------------------------------------------------------------------------------------------------------------------
 
 
-
-
+--------------------------------------------------------------------------------------------------------------------------

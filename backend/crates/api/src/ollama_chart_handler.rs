@@ -77,14 +77,58 @@ pub async fn analyser_chart_local(body: web::Json<RequeteChartAnalyse>) -> impl 
         .map(|(b, tf)| (b.as_str(), *tf))
         .collect();
 
-    match ollama::analyser_images(&slices, &body.asset, body.notes.as_deref()).await {
+    match ollama::analyser_images(&slices, &body.asset, body.notes.as_deref(), body.model.as_deref()).await {
         Ok(analyse) => HttpResponse::Ok().json(ReponseChartAnalyse {
             analyse,
-            modele: ollama::MODELE_VISION.to_string(),
+            modele: body.model.clone().unwrap_or_else(|| ollama::MODELE_VISION.to_string()),
         }),
         Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
             "error": format!("{}", e),
             "aide": "Vérifiez qu'Ollama est démarré et que llama3.2-vision:11b est installé"
         })),
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct SauvegardeAnalyseReq {
+    pub image_base64: String,
+    pub asset: String,
+    pub timeframe: String,
+}
+
+// ─── POST /api/ia/save-analysis ──────────────────────────────────────────────
+pub async fn analyser_chart_sauvegarde(body: web::Json<SauvegardeAnalyseReq>) -> impl Responder {
+    use chrono::{Local, Datelike, Timelike};
+    let maintenant = Local::now();
+    
+    let mois_noms = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+    let nom_mois = mois_noms.get(maintenant.month() as usize).unwrap_or(&"");
+
+    let nom_fichier = format!(
+        "{} en {} le {} {} {} à {:02}h{:02}.png",
+        body.asset.replace('/', "_"),
+        body.timeframe.replace('/', "_"),
+        maintenant.day(),
+        nom_mois,
+        maintenant.year(),
+        maintenant.hour(),
+        maintenant.minute()
+    );
+    let chemin_nom = format!("/home/rono/Téléchargements/{}", nom_fichier);
+
+    let path = std::path::Path::new(&chemin_nom);
+    if let Some(parent) = path.parent() {
+        if let Err(e) = std::fs::create_dir_all(parent) {
+            return HttpResponse::InternalServerError().json(serde_json::json!({ "error": format!("Impossible de créer les dossiers: {}", e) }));
+        }
+    }
+
+    use base64::{engine::general_purpose, Engine as _};
+    match general_purpose::STANDARD.decode(&body.image_base64) {
+        Ok(bytes) => match std::fs::write(&path, bytes) {
+            Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "path": chemin_nom, "status": "success" })),
+            Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": format!("Erreur d'écriture: {}", e) }))
+        },
+        Err(e) => HttpResponse::BadRequest().json(serde_json::json!({ "error": format!("Base64 invalide: {}", e) }))
     }
 }

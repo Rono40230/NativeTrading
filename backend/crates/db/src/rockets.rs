@@ -2,14 +2,7 @@ use common::{Result, TradingError};
 use serde::Serialize;
 use sqlx::{Row, SqlitePool};
 
-// Config scan déléguée au module dédié
 pub use crate::rockets_config::{lire_config, sauvegarder_config, RocketsConfig};
-// Analyses LLM déléguées au module dédié
-pub use crate::rockets_analyses::{
-    derniere_analyse, sauvegarder_analyse, signaux_pour_analyse, AnalyseLlm,
-};
-// Listing trades (ouvert/attente/actifs) délégué au module dédié
-pub use crate::rockets_listing::{historique_ticker, lister_actifs, lister_en_attente, lister_ouverts};
 
 #[derive(Serialize, Clone)]
 pub struct RocketSignal {
@@ -35,13 +28,6 @@ pub struct RocketSignal {
     pub llm_valide: Option<i64>,
     pub llm_conviction: Option<i64>,
     pub llm_raison: Option<String>,
-    pub trailing_coeff: Option<f64>,
-    pub pct_tp1: f64,
-    pub pct_tp2: f64,
-    pub pct_trailing: f64,
-    // Données feedback (uniquement renseignées via historique())
-    pub pnl_r: Option<f64>,
-    pub gagnant: Option<i64>,
 }
 
 pub struct NouveauRocket {
@@ -63,18 +49,9 @@ pub struct NouveauRocket {
     pub llm_raison: Option<String>,
     pub llm_sl_suggere: Option<f64>,
     pub llm_tp1_suggere: Option<f64>,
-    pub trailing_coeff: f64,
-    pub pct_tp1: f64,
-    pub pct_tp2: f64,
-    pub pct_trailing: f64,
-    // Champs d'entrée détaillés (pour Telegram et affichage)
-    pub entree_limite:        Option<f64>,
-    pub entree_stop:          Option<f64>,
-    pub niveau_invalidation:  Option<f64>,
-    pub type_entree_rec:      Option<String>,
 }
 
-pub(crate) fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
+fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
     RocketSignal {
         id: row.get("id"),
         ticker: row.get("ticker"),
@@ -98,12 +75,6 @@ pub(crate) fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
         llm_valide: row.try_get("llm_valide").unwrap_or(None),
         llm_conviction: row.try_get("llm_conviction").unwrap_or(None),
         llm_raison: row.try_get("llm_raison").unwrap_or(None),
-        trailing_coeff: row.try_get::<f64, _>("trailing_coeff").ok(),
-        pct_tp1: row.try_get::<f64, _>("pct_tp1").unwrap_or(0.25),
-        pct_tp2: row.try_get::<f64, _>("pct_tp2").unwrap_or(0.25),
-        pct_trailing: row.try_get::<f64, _>("pct_trailing").unwrap_or(0.50),
-        pnl_r: row.try_get::<f64, _>("pnl_r").ok(),
-        gagnant: row.try_get::<i64, _>("gagnant").ok(),
     }
 }
 
@@ -112,10 +83,8 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
     let id = sqlx::query(
         "INSERT INTO rockets_signaux
          (ticker, phase, score, prix_entree, stop_loss, target, target2, target3, ratio_volume, atr_ratio, atr14, rsi,
-          llm_valide, llm_conviction, llm_raison, llm_sl_suggere, llm_tp1_suggere,
-          trailing_coeff, pct_tp1, pct_tp2, pct_trailing,
-          entree_limite, entree_stop, niveau_invalidation, type_entree_rec)
-         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          llm_valide, llm_conviction, llm_raison, llm_sl_suggere, llm_tp1_suggere)
+         SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
          WHERE NOT EXISTS (
            SELECT 1 FROM rockets_signaux
            WHERE ticker = ? AND phase = ? AND cree_le >= datetime('now', '-6 hours')
@@ -138,14 +107,6 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
     .bind(&s.llm_raison)
     .bind(s.llm_sl_suggere)
     .bind(s.llm_tp1_suggere)
-    .bind(s.trailing_coeff)
-    .bind(s.pct_tp1)
-    .bind(s.pct_tp2)
-    .bind(s.pct_trailing)
-    .bind(s.entree_limite)
-    .bind(s.entree_stop)
-    .bind(s.niveau_invalidation)
-    .bind(&s.type_entree_rec)
     .bind(&s.ticker)
     .bind(&s.phase)
     .execute(pool)
@@ -154,6 +115,54 @@ pub async fn sauvegarder(pool: &SqlitePool, s: &NouveauRocket) -> Result<Option<
     .last_insert_rowid();
 
     Ok(if id > 0 { Some(id) } else { None })
+}
+
+/// Retourne les N derniers signaux clôturés (hors expire) pour un ticker donné.
+/// Utilisé par le filtre LLM pour contextualiser chaque nouveau signal.
+pub async fn historique_ticker(pool: &SqlitePool, ticker: &str, limite: i64) -> Vec<RocketSignal> {
+    let rows = sqlx::query(
+        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
+                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
+                llm_valide, llm_conviction, llm_raison
+         FROM rockets_signaux
+         WHERE ticker = ? AND statut = 'ferme' AND verdict IS NOT NULL AND verdict != 'expire'
+         ORDER BY cree_le DESC LIMIT ?",
+    )
+    .bind(ticker)
+    .bind(limite)
+    .fetch_all(pool)
+    .await;
+
+    match rows {
+        Ok(rows) => rows.iter().map(row_to_signal).collect(),
+        Err(_) => vec![],
+    }
+}
+
+pub async fn lister_ouverts(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {
+    let rows = sqlx::query(
+        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
+                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
+                llm_valide, llm_conviction, llm_raison
+         FROM rockets_signaux WHERE statut = 'ouvert' ORDER BY cree_le DESC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(rows.iter().map(row_to_signal).collect())
+}
+
+pub async fn lister_en_attente(pool: &SqlitePool) -> Result<Vec<RocketSignal>> {
+    let rows = sqlx::query(
+        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
+                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
+                llm_valide, llm_conviction, llm_raison
+         FROM rockets_signaux WHERE statut = 'attente' ORDER BY cree_le DESC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(rows.iter().map(row_to_signal).collect())
 }
 
 pub async fn entrer_position(pool: &SqlitePool, id: i64) -> Result<()> {
@@ -192,28 +201,6 @@ pub async fn maj_verdict(pool: &SqlitePool, id: i64, verdict: &str, prix: f64) -
     Ok(())
 }
 
-/// Enregistre une vente partielle (TP1 ou TP2) SANS fermer la position.
-/// Met à jour `verdict` pour mémoriser le niveau atteint, `statut` reste 'ouvert'.
-pub async fn enregistrer_tp_partiel(
-    pool: &SqlitePool,
-    id: i64,
-    niveau: &str,
-    prix: f64,
-) -> Result<()> {
-    sqlx::query(
-        "UPDATE rockets_signaux
-         SET verdict = ?, prix_verdict = ?, maj_le = datetime('now')
-         WHERE id = ?",
-    )
-    .bind(niveau)
-    .bind(prix)
-    .bind(id)
-    .execute(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
-    Ok(())
-}
-
 pub async fn marquer_expires(pool: &SqlitePool) -> Result<u64> {
     let res = sqlx::query(
         "UPDATE rockets_signaux SET verdict = 'expire', statut = 'ferme', maj_le = datetime('now')
@@ -225,43 +212,12 @@ pub async fn marquer_expires(pool: &SqlitePool) -> Result<u64> {
     Ok(res.rows_affected())
 }
 
-/// Supprime un signal actif (et son feedback) de la DB.
-/// Ne supprime que les signaux encore en cours (statut != 'ferme').
-pub async fn supprimer(pool: &SqlitePool, id: i64) -> Result<bool> {
-    let res = sqlx::query(
-        "DELETE FROM rockets_signaux WHERE id = ? AND statut != 'ferme'",
-    )
-    .bind(id)
-    .execute(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
-
-    if res.rows_affected() > 0 {
-        let _ = sqlx::query("DELETE FROM rockets_feedback WHERE signal_id = ?")
-            .bind(id)
-            .execute(pool)
-            .await;
-        Ok(true)
-    } else {
-        Ok(false)
-    }
-}
-
-/// Retourne uniquement les trades clôturés (statut = 'ferme').
-/// Joint rockets_feedback pour exposer pnl_r et gagnant.
 pub async fn historique(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSignal>> {
     let rows = sqlx::query(
-        "SELECT rs.id, rs.ticker, rs.phase, rs.score, rs.prix_entree, rs.stop_loss,
-                rs.target, rs.target2, rs.target3, rs.ratio_volume, rs.atr_ratio, rs.atr14,
-                rs.rsi, rs.statut, rs.prix_peak, rs.verdict, rs.prix_verdict,
-                rs.cree_le, rs.maj_le, rs.llm_valide, rs.llm_conviction, rs.llm_raison,
-                rs.trailing_coeff, rs.pct_tp1, rs.pct_tp2, rs.pct_trailing,
-                rf.pnl_r, rf.gagnant
-         FROM rockets_signaux rs
-         LEFT JOIN rockets_feedback rf ON rf.signal_id = rs.id
-         WHERE rs.statut = 'ferme'
-           AND COALESCE(rs.verdict, '') NOT IN ('invalide', 'expire')
-         ORDER BY rs.cree_le DESC LIMIT ?",
+        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
+                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le,
+                llm_valide, llm_conviction, llm_raison
+         FROM rockets_signaux ORDER BY cree_le DESC LIMIT ?",
     )
     .bind(limite)
     .fetch_all(pool)
@@ -270,16 +226,75 @@ pub async fn historique(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSign
     Ok(rows.iter().map(row_to_signal).collect())
 }
 
-// ── Méthodes exposées sur Database ────────────────────────────────────────────
+// ── Analyses LLM stratégiques ─────────────────────────────────────────────────
 
-use crate::Database;
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+pub struct AnalyseLlm {
+    pub id: i64,
+    pub nb_trades: i64,
+    pub synthese: String,
+    pub meilleur_setup: Option<String>,
+    pub pire_setup: Option<String>,
+    pub recommandations: String, // JSON brut
+    pub cree_le: String,
+}
 
-impl Database {
-    pub async fn lister_rockets_historique(&self, limite: i64) -> Result<Vec<RocketSignal>> {
-        historique(&self.pool, limite).await
-    }
+pub async fn sauvegarder_analyse(
+    pool: &SqlitePool,
+    nb_trades: i64,
+    synthese: &str,
+    meilleur_setup: Option<&str>,
+    pire_setup: Option<&str>,
+    recommandations: &str,
+) -> Result<i64> {
+    let id = sqlx::query(
+        "INSERT INTO rockets_analyses_llm (nb_trades, synthese, meilleur_setup, pire_setup, recommandations)
+         VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(nb_trades)
+    .bind(synthese)
+    .bind(meilleur_setup)
+    .bind(pire_setup)
+    .bind(recommandations)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?
+    .last_insert_rowid();
+    Ok(id)
+}
 
-    pub async fn lister_rockets_actifs(&self) -> Result<Vec<RocketSignal>> {
-        crate::rockets_listing::lister_actifs(&self.pool).await
-    }
+pub async fn derniere_analyse(pool: &SqlitePool) -> Result<Option<AnalyseLlm>> {
+    let row = sqlx::query(
+        "SELECT id, nb_trades, synthese, meilleur_setup, pire_setup, recommandations, cree_le
+         FROM rockets_analyses_llm ORDER BY cree_le DESC LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+
+    Ok(row.map(|r| AnalyseLlm {
+        id: r.get("id"),
+        nb_trades: r.get("nb_trades"),
+        synthese: r.get("synthese"),
+        meilleur_setup: r.get("meilleur_setup"),
+        pire_setup: r.get("pire_setup"),
+        recommandations: r.get("recommandations"),
+        cree_le: r.get("cree_le"),
+    }))
+}
+
+/// Retourne les signaux clôturés (hors expire) pour alimenter l'analyse LLM.
+pub async fn signaux_pour_analyse(pool: &SqlitePool, limite: i64) -> Result<Vec<RocketSignal>> {
+    let rows = sqlx::query(
+        "SELECT id, ticker, phase, score, prix_entree, stop_loss, target, target2, target3,
+                ratio_volume, atr_ratio, atr14, rsi, statut, prix_peak, verdict, prix_verdict, cree_le, maj_le
+         FROM rockets_signaux
+         WHERE statut = 'ferme' AND verdict IS NOT NULL AND verdict != 'expire'
+         ORDER BY cree_le DESC LIMIT ?",
+    )
+    .bind(limite)
+    .fetch_all(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(rows.iter().map(row_to_signal).collect())
 }
