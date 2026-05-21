@@ -71,6 +71,7 @@ mod smc_handlers;
 mod smc_monitoring_handlers;
 mod smc_signal_ollama;
 mod state;
+mod straddle_dev_handlers;
 mod straddle_boucle;
 mod straddle_calibration;
 mod straddle_categorisation;

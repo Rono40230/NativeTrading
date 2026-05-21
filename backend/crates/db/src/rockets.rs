@@ -1,7 +1,6 @@
 use common::{Result, TradingError};
 use serde::Serialize;
 use sqlx::{Row, SqlitePool};
-
 pub use crate::rockets_config::{lire_config, sauvegarder_config, RocketsConfig};
 
 #[derive(Serialize, Clone)]
@@ -28,6 +27,7 @@ pub struct RocketSignal {
     pub llm_valide: Option<i64>,
     pub llm_conviction: Option<i64>,
     pub llm_raison: Option<String>,
+    pub trailing_coeff: Option<f64>,
 }
 
 pub struct NouveauRocket {
@@ -43,7 +43,6 @@ pub struct NouveauRocket {
     pub atr_ratio: f64,
     pub atr14: Option<f64>,
     pub rsi: f64,
-    // Résultat du filtre LLM (Mode 1) — None si Ollama indisponible
     pub llm_valide: Option<bool>,
     pub llm_conviction: Option<i64>,
     pub llm_raison: Option<String>,
@@ -51,7 +50,7 @@ pub struct NouveauRocket {
     pub llm_tp1_suggere: Option<f64>,
 }
 
-fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
+pub(crate) fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
     RocketSignal {
         id: row.get("id"),
         ticker: row.get("ticker"),
@@ -75,6 +74,7 @@ fn row_to_signal(row: &sqlx::sqlite::SqliteRow) -> RocketSignal {
         llm_valide: row.try_get("llm_valide").unwrap_or(None),
         llm_conviction: row.try_get("llm_conviction").unwrap_or(None),
         llm_raison: row.try_get("llm_raison").unwrap_or(None),
+        trailing_coeff: row.try_get("trailing_coeff").unwrap_or(None),
     }
 }
 
