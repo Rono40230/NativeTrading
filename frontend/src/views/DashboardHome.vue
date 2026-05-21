@@ -136,6 +136,12 @@ const assetsDisplay = computed(() => {
 const btcPrix = computed(() => prixStore.getPrix('BTC') ?? assetsAvecPrix.value.find(a => a.id === 'BTC')?.prix ?? null)
 
 let intervalPrix: ReturnType<typeof setInterval> | null = null
+let intervalStatuts: ReturnType<typeof setInterval> | null = null
+
+async function rafraichirStatuts() {
+  try { const ig = await apiService.igStatutLocal(); igOk.value = ig.connecte } catch { igOk.value = false }
+  try { const ia = await apiService.statutIA(); ollamaOk.value = ia.ollama_disponible } catch { /* silencieux */ }
+}
 
 async function chargerPrixActifs() {
   function calcVar(candles: Candle[], idxOld = -2, idxNew = -1): number | null {
@@ -182,6 +188,8 @@ onMounted(async () => {
   try { await apiService.healthCheck(); backendOk.value = true } catch { backendOk.value = false }
   try { const ig = await apiService.igStatutLocal(); igOk.value = ig.connecte } catch { igOk.value = false }
   try { const ia = await apiService.statutIA(); ollamaOk.value = ia.ollama_disponible } catch { ollamaOk.value = false }
+  // Re-vérification après 6s : le login IG est async, peut ne pas être prêt au premier check
+  setTimeout(rafraichirStatuts, 6000)
   await Promise.allSettled([
     chargerPrixActifs(),
     signalStore.chargerSignaux(10),
@@ -192,10 +200,12 @@ onMounted(async () => {
   newsStore.demarrerPolling()
   sentimentStore.demarrer()
   intervalPrix = setInterval(chargerPrixActifs, 60000)
+  intervalStatuts = setInterval(rafraichirStatuts, 30000)
 })
 
 onUnmounted(() => {
   if (intervalPrix !== null) clearInterval(intervalPrix)
+  if (intervalStatuts !== null) clearInterval(intervalStatuts)
   // prixStore reste actif pour les autres vues (Rockets, etc.)
   newsStore.arreterPolling()
   sentimentStore.arreter()

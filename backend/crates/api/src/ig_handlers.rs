@@ -24,8 +24,23 @@ pub async fn ig_status(state: web::Data<AppState>) -> impl Responder {
 
 /// GET /api/ig/statut-local — Retourne l'état de la session IG sans appel réseau.
 /// Utilisé par le Dashboard pour afficher le badge sans provoquer de re-login.
+/// Si la session est expirée, déclenche un re-login en arrière-plan.
 pub async fn ig_statut_local(state: web::Data<AppState>) -> impl Responder {
     let connecte = state.ig_session.lock().await.est_connecte();
+    if !connecte {
+        // Re-login silencieux en arrière-plan (login async, peut prendre quelques secondes)
+        let ig = state.ig_session.clone();
+        let db = state.db.clone();
+        tokio::spawn(async move {
+            let mut sess = ig.lock().await;
+            if !sess.est_connecte() {
+                match sess.login(&db).await {
+                    Ok(()) => tracing::info!("IG Markets: reconnexion automatique réussie"),
+                    Err(e) => tracing::warn!("IG Markets: échec reconnexion auto — {}", e),
+                }
+            }
+        });
+    }
     HttpResponse::Ok().json(serde_json::json!({
         "connecte": connecte,
         "source": "ig_markets"

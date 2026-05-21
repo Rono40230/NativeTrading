@@ -102,6 +102,14 @@ impl Database {
     pub fn pool(&self) -> &SqlitePool {
         &self.pool
     }
+
+    /// Retourne les N derniers signaux Rockets clôturés, toutes phases confondues.
+    pub async fn lister_rockets_historique(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<rockets::RocketSignal>> {
+        rockets::historique(&self.pool, limit).await
+    }
 }
 
 #[cfg(test)]

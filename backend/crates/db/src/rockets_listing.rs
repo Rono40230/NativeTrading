@@ -59,3 +59,37 @@ pub async fn historique_ticker(pool: &SqlitePool, ticker: &str, limite: i64) -> 
         Err(_) => vec![],
     }
 }
+
+/// Supprime un signal actif (statut attente ou ouvert).
+/// Retourne true si un signal a été supprimé, false si introuvable ou déjà clôturé.
+pub async fn supprimer(pool: &SqlitePool, id: i64) -> Result<bool> {
+    let res = sqlx::query(
+        "DELETE FROM rockets_signaux WHERE id = ? AND statut IN ('attente', 'ouvert')",
+    )
+    .bind(id)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(res.rows_affected() > 0)
+}
+
+/// Enregistre l'atteinte d'un TP partiel (TP1/TP2) sans clôturer la position.
+/// Met à jour le prix peak et la date de mise à jour.
+pub async fn enregistrer_tp_partiel(
+    pool: &SqlitePool,
+    id: i64,
+    _verdict: &str,
+    prix: f64,
+) -> Result<()> {
+    sqlx::query(
+        "UPDATE rockets_signaux
+         SET prix_peak = MAX(COALESCE(prix_peak, 0.0), ?), maj_le = datetime('now')
+         WHERE id = ? AND statut = 'ouvert'",
+    )
+    .bind(prix)
+    .bind(id)
+    .execute(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(())
+}

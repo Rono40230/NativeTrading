@@ -4,7 +4,7 @@ use crate::signal_filtre::sauvegarder_signal_avec_filtre;
 use common::{Asset, Signal, Timeframe};
 use db::Database;
 use ml::PipelineML;
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::AtomicI32;
 use std::sync::Arc;
 use strategies::smc_directional::SmcDirectionalStrategy;
 use strategies::Strategy;

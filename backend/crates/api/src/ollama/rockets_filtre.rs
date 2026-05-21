@@ -102,7 +102,7 @@ pub async fn filtrer_signal(
         "model": modele,
         "messages": [{"role": "user", "content": prompt}],
         "stream": false,
-        "options": { "temperature": 0.1, "num_predict": 256, "num_gpu": 99, "num_ctx": 4096 }
+        "options": { "temperature": 0.1, "num_predict": 400, "num_gpu": 99, "num_ctx": 4096 }
     });
 
     let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
@@ -143,6 +143,11 @@ pub async fn filtrer_signal(
     if let Ok(reponse) = serde_json::from_str::<FiltreReponse>(&texte[debut..fin]) {
         return Ok(reponse);
     }
+    // JSON complet non parsable — tenter extraction partielle (tronqué à num_predict)
+    if let Some(partiel) = extraire_reponse_partielle(&texte[debut..fin]) {
+        tracing::warn!(ticker = %candidat.ticker, "JSON Ollama tronqué — conviction extraite: {}", partiel.conviction);
+        return Ok(partiel);
+    }
 
     // Retry avec prompt minimaliste si le JSON est malformé
     tracing::warn!(
@@ -178,6 +183,33 @@ pub async fn filtrer_signal(
     let debut_r = texte_retry.find('{').unwrap_or(0);
     let fin_r = texte_retry.rfind('}').map(|i| i + 1).unwrap_or(texte_retry.len());
 
-    serde_json::from_str::<FiltreReponse>(&texte_retry[debut_r..fin_r])
-        .map_err(|e| TradingError::Api(format!("JSON filtre non parsable après retry: {}", e)))
+    if let Ok(r) = serde_json::from_str::<FiltreReponse>(&texte_retry[debut_r..fin_r]) {
+        return Ok(r);
+    }
+    // Dernier recours : extraction partielle sur le retry
+    extraire_reponse_partielle(&texte_retry[debut_r..fin_r])
+        .ok_or_else(|| TradingError::Api("JSON filtre non parsable après retry".into()))
+}
+
+/// Extrait valide + conviction d'un JSON partiellement tronqué.
+/// Utilisé quand num_predict coupe le JSON en plein milieu de la raison.
+fn extraire_reponse_partielle(texte: &str) -> Option<FiltreReponse> {
+    let valide = texte.contains("\"valide\": true") || texte.contains("\"valide\":true");
+    let conviction_pos = texte.find("\"conviction\":")
+        .or_else(|| texte.find("\"conviction\": "))?;
+    let apres = texte[conviction_pos + 13..].trim_start();
+    let conviction: i64 = apres
+        .split(|c: char| !c.is_ascii_digit())
+        .next()?
+        .parse()
+        .ok()?;
+    if conviction == 0 {
+        return None; // pas d'info utile
+    }
+    Some(FiltreReponse {
+        valide,
+        conviction,
+        raison: "[Réponse LLM tronquée — conviction extraite]".into(),
+        ajustements: None,
+    })
 }
