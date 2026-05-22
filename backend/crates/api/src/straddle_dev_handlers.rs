@@ -37,7 +37,11 @@ pub async fn dev_seed_creneaux(
         }));
     }
 
-    let asset = body.asset.clone().unwrap_or_else(|| "BTC".to_string()).to_uppercase();
+    let asset = body
+        .asset
+        .clone()
+        .unwrap_or_else(|| "BTC".to_string())
+        .to_uppercase();
     if crate::utils::parse_asset(&asset).is_none() {
         return HttpResponse::BadRequest()
             .json(serde_json::json!({ "error": "Asset non supporté" }));
@@ -91,7 +95,8 @@ pub async fn dev_signal_test(
 
     let asset_str = body.asset.trim().to_uppercase();
     let Some(asset) = crate::utils::parse_asset(&asset_str) else {
-        return HttpResponse::BadRequest().json(serde_json::json!({ "error": "Asset non supporté" }));
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({ "error": "Asset non supporté" }));
     };
     let tf = crate::utils::parse_timeframe(body.timeframe.as_deref().unwrap_or("M15"));
     let prix_entree = body.prix_entree.unwrap_or(100.0).max(0.0001);
@@ -99,9 +104,9 @@ pub async fn dev_signal_test(
     // Charger les multiplicateurs SL/TP depuis StraddleParams (même source que la boucle auto)
     let straddle_params = db::strategies_params::lire_straddle_params(state.db.pool()).await;
     let atr = body.atr.unwrap_or(prix_entree * 0.004).max(0.0001);
-    let sl_long  = prix_entree - straddle_params.sl_mult  * atr;
-    let sl_short = prix_entree + straddle_params.sl_mult  * atr;
-    let tp_long  = vec![
+    let sl_long = prix_entree - straddle_params.sl_mult * atr;
+    let sl_short = prix_entree + straddle_params.sl_mult * atr;
+    let tp_long = vec![
         prix_entree + straddle_params.tp_mult_1 * atr,
         prix_entree + straddle_params.tp_mult_2 * atr,
         prix_entree + straddle_params.tp_mult_3 * atr,
@@ -128,7 +133,8 @@ pub async fn dev_signal_test(
         .inserer_signal_straddle_complet(&signal, sl_short, &tp_short, None)
         .await
     {
-        return HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }));
+        return HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "error": e.to_string() }));
     }
 
     let categorie = body.categorie.as_deref().unwrap_or("dev_test");

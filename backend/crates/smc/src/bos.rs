@@ -15,43 +15,52 @@ pub struct ResultatBos {
 /// Lookback pour identifier un swing high/low (bougies de chaque côté)
 const LOOKBACK: usize = 3;
 
-/// Détecte un Break of Structure sur les dernières bougies.
+/// Nombre de bougies récentes à scanner pour trouver le BOS le plus récent
+const MAX_SCAN: usize = 50;
+
+/// Détecte le Break of Structure le plus récent dans les dernières bougies.
 ///
-/// BOS Long  = le close actuel dépasse un swing high récent (dernière résistance pivot)
-/// BOS Short = le close actuel casse un swing low récent (dernier support pivot)
+/// BOS Long  = une bougie a cassé un swing high récent (résistance pivot)
+/// BOS Short = une bougie a cassé un swing low récent (support pivot)
 ///
-/// Requiert au moins `2 * LOOKBACK + 2` bougies.
+/// Scanne les `MAX_SCAN` dernières bougies pour retourner l'événement le plus récent.
 pub fn detecter_bos(bougies: &[Candle]) -> Option<ResultatBos> {
     let n = bougies.len();
-    if n < 2 * LOOKBACK + 2 {
+    let min_requis = 2 * LOOKBACK + 2;
+    if n < min_requis {
         return None;
     }
 
-    let close_actuel = bougies[n - 1].close;
+    // Scan du plus récent au plus ancien pour trouver le BOS le plus récent
+    // min_idx = minimum idx pour que l'historique soit suffisant pour les swings
+    let min_idx = 2 * LOOKBACK + 1;
+    let debut_scan = n.saturating_sub(MAX_SCAN).max(min_idx);
 
-    // Chercher le dernier swing high dans les bougies hors la bougie actuelle
-    let historique = &bougies[..n - 1];
-    let swing_high = dernier_swing_high(historique, LOOKBACK);
-    let swing_low = dernier_swing_low(historique, LOOKBACK);
+    for idx in (debut_scan..n).rev() {
+        let historique = &bougies[..idx];
+        let close = bougies[idx].close;
 
-    // Priorité au signal le plus récent (swing high cassé → BOS Long)
-    if let Some(niveau) = swing_high {
-        if close_actuel > niveau {
-            return Some(ResultatBos {
-                direction: Direction::Long,
-                niveau_casse: niveau,
-                prix_cassure: close_actuel,
-            });
+        let swing_high = dernier_swing_high(historique, LOOKBACK);
+        let swing_low = dernier_swing_low(historique, LOOKBACK);
+
+        if let Some(niveau) = swing_high {
+            if close > niveau {
+                return Some(ResultatBos {
+                    direction: Direction::Long,
+                    niveau_casse: niveau,
+                    prix_cassure: close,
+                });
+            }
         }
-    }
 
-    if let Some(niveau) = swing_low {
-        if close_actuel < niveau {
-            return Some(ResultatBos {
-                direction: Direction::Short,
-                niveau_casse: niveau,
-                prix_cassure: close_actuel,
-            });
+        if let Some(niveau) = swing_low {
+            if close < niveau {
+                return Some(ResultatBos {
+                    direction: Direction::Short,
+                    niveau_casse: niveau,
+                    prix_cassure: close,
+                });
+            }
         }
     }
 

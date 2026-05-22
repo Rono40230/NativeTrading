@@ -64,7 +64,7 @@ pub async fn analyser(body: web::Json<RequeteAnalyse>) -> impl Responder {
         smax_fib = SCORE_MAX_FIBONACCI as u32,
     );
 
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
+    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3:32b".to_string());
     match ollama::interroger(&prompt).await {
         Ok(texte) => HttpResponse::Ok().json(ReponseAnalyse {
             analyse: texte,
@@ -72,7 +72,7 @@ pub async fn analyser(body: web::Json<RequeteAnalyse>) -> impl Responder {
         }),
         Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
             "error": format!("{}", e),
-            "aide": "Lancez Ollama: ollama serve && ollama pull qwen2.5:14b"
+            "aide": "Lancez Ollama: ollama serve && ollama pull qwen3:32b"
         })),
     }
 }
@@ -177,7 +177,7 @@ pub async fn generer_diagram(body: web::Json<RequeteDiagram>) -> impl Responder 
 
 // ─── GET /api/ia/status ───────────────────────────────────────────────────────
 pub async fn statut() -> impl Responder {
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
+    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3:32b".to_string());
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
 

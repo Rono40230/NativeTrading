@@ -49,8 +49,9 @@
 
       <!-- Panneau signaux indicateurs -->
       <ChartSignauxPanel :signaux="signauxActifs"
+        :analyseEnCours="signalStore.analyseIaChargement"
         @update:filtre="onFiltreSignaux"
-        @analyser="() => {}" />
+        @analyser="lancerAnalyseSmc" />
     </div>
 
     <!-- Sidebar IA (toggle + drawer) -->
@@ -59,6 +60,19 @@
 
     <!-- Modales (hors flux) -->
     <SignalModal :signal="signalModal" :niveaux="niveauxModal" :asset="selectedAsset" @fermer="signalModal = null" />
+    <ChartAnalyseSmcModal
+      :open="analyseSmcOuverte"
+      :asset="selectedAsset"
+      :timeframe="selectedTimeframe"
+      :score-smc="signalStore.scoreSmc"
+      :prix-entree="prixEntreeSnapshot"
+      :sl-analyse="signalStore.slAnalyse"
+      :tp1-analyse="signalStore.tp1Analyse"
+      :tp2-analyse="signalStore.tp2Analyse"
+      :chargement="signalStore.analyseIaChargement"
+      :analyse-texte="signalStore.analyseIaTexte"
+      @close="analyseSmcOuverte = false"
+    />
   </div>
 </template>
 
@@ -81,6 +95,7 @@ import { useChartOrchestration } from '@/composables/useChartOrchestration'
 import { useSignalTradeBox } from '@/composables/useSignalTradeBox'
 import { useSignalStore } from '@/stores/signal.store'
 import ChartSidebarIA from '@/components/common/ChartSidebarIA.vue'
+import ChartAnalyseSmcModal from '@/components/common/ChartAnalyseSmcModal.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
 import TendanceMultiTF from '@/components/common/TendanceMultiTF.vue'
 import ChartPrixStats from '@/components/common/ChartPrixStats.vue'
@@ -105,13 +120,14 @@ const bougies = computed(() =>
 )
 
 const { dernierPrix, variation, stats } = useChartStats(bougies)
+const prixEntreeSnapshot = ref<number>(0)
 
 const {
   initChart, mettreAJourSerie, mettreAJourEnDirect, detruireChart,
   configurerRedimensionnement, arreterRedimensionnement, getChart, getCandlestickSeries,
 } = useChartTradingView(chartContainer, bougies)
 
-const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux } = useChartIndicators()
+const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux, dernierAtrValeur } = useChartIndicators()
 const smcCanvas = useSmcCanvas()
 const liqCanvas = useSmcLiqCanvas()
 const fibCanvas = useSmcFibCanvas()
@@ -125,10 +141,18 @@ const filtreCourant = ref<FiltreSignaux>(filtreDefaut())
 const signalModal = ref<SignalIndicateur | null>(null)
 const niveauxModal = ref<NiveauSlTp | null>(null)
 const sidebarIA = ref(false)
+const analyseSmcOuverte = ref(false)
 
 function onFiltreSignaux(f: FiltreSignaux) {
   filtreCourant.value = f
   appliquerMarqueursSignaux(getCandlestickSeries(), f)
+}
+
+async function lancerAnalyseSmc() {
+  analyseSmcOuverte.value = true
+  prixEntreeSnapshot.value = dernierPrix.value ?? 0
+  const confianceMl = signalStore.prediction?.confiance ?? 0
+  await signalStore.chargerAnalyseIA(selectedAsset.value, selectedTimeframe.value, prixEntreeSnapshot.value, confianceMl, dernierAtrValeur.value)
 }
 
 function configurerCrosshair() {

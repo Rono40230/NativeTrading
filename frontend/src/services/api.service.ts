@@ -16,6 +16,7 @@ export type {
   StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, ResultatCollecteItem,
   HistoriqueEntrainement, HistoriqueML, PatternHoraire, ReponsePatternsVolatilite,
   StraddleCreneau, ReponseAnalyseStraddle, FearGreedData,
+  RequeteSignalIA, ReponseSignalIA,
 } from './api.types'
 
 import type {
@@ -23,7 +24,7 @@ import type {
   ImageAvecTF, StatutIA, PredictionML, ScoreSmc,
   ReponseEntrainement, ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
-  ModeCalculTendance,
+  ModeCalculTendance, RequeteSignalIA, ReponseSignalIA,
 } from './api.types'
 
 const BASE_URL = 'http://localhost:8080'
@@ -105,6 +106,11 @@ export const apiService = {
 
   async analyserIA(requete: RequeteAnalyseIA): Promise<ReponseAnalyseIA> {
     const res = await http.post('/api/ia/analyse', requete, { timeout: 120000 })
+    return res.data
+  },
+
+  async genererSignalIA(requete: RequeteSignalIA): Promise<ReponseSignalIA> {
+    const res = await http.post('/api/ia/signal', requete, { timeout: 120000 })
     return res.data
   },
 

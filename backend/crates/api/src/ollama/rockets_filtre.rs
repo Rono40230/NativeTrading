@@ -90,8 +90,9 @@ pub async fn filtrer_signal(
         contexte.push('\n');
         contexte.push_str(lecons_systemiques);
     }
+    // /no_think : mode non-thinking Qwen3 — classification rapide, pas besoin de raisonnement profond
     let prompt = format!(
-        "{}\n\n{contexte}",
+        "{}\n\n{contexte}\n/no_think",
         crate::prompts_handler::prompt_effectif("rockets_filtre")
     );
 
@@ -102,7 +103,7 @@ pub async fn filtrer_signal(
         "model": modele,
         "messages": [{"role": "user", "content": prompt}],
         "stream": false,
-        "options": { "temperature": 0.1, "num_predict": 400, "num_gpu": 99, "num_ctx": 4096 }
+        "options": { "temperature": 0.7, "num_predict": 400, "num_gpu": 99, "num_ctx": 4096 }
     });
 
     let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
@@ -136,7 +137,7 @@ pub async fn filtrer_signal(
         .await
         .map_err(|e| TradingError::Api(format!("JSON Ollama: {}", e)))?;
 
-    let texte = data.message.content;
+    let texte = super::filtrer_think(data.message.content);
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
 
@@ -179,9 +180,12 @@ pub async fn filtrer_signal(
         .await
         .map_err(|e| TradingError::Api(format!("JSON retry Ollama: {}", e)))?;
 
-    let texte_retry = data_retry.message.content;
+    let texte_retry = super::filtrer_think(data_retry.message.content);
     let debut_r = texte_retry.find('{').unwrap_or(0);
-    let fin_r = texte_retry.rfind('}').map(|i| i + 1).unwrap_or(texte_retry.len());
+    let fin_r = texte_retry
+        .rfind('}')
+        .map(|i| i + 1)
+        .unwrap_or(texte_retry.len());
 
     if let Ok(r) = serde_json::from_str::<FiltreReponse>(&texte_retry[debut_r..fin_r]) {
         return Ok(r);
@@ -195,7 +199,8 @@ pub async fn filtrer_signal(
 /// Utilisé quand num_predict coupe le JSON en plein milieu de la raison.
 fn extraire_reponse_partielle(texte: &str) -> Option<FiltreReponse> {
     let valide = texte.contains("\"valide\": true") || texte.contains("\"valide\":true");
-    let conviction_pos = texte.find("\"conviction\":")
+    let conviction_pos = texte
+        .find("\"conviction\":")
         .or_else(|| texte.find("\"conviction\": "))?;
     let apres = texte[conviction_pos + 13..].trim_start();
     let conviction: i64 = apres

@@ -18,49 +18,66 @@ pub struct ResultatChoch {
 
 const LOOKBACK: usize = 3;
 
-/// Détecte un Change of Character (CHoCH) sur les dernières bougies.
+/// Nombre de bougies récentes à scanner pour trouver le CHoCH le plus récent
+const MAX_SCAN: usize = 50;
+
+/// Détecte le Change of Character (CHoCH) le plus récent dans les dernières bougies.
 ///
 /// CHoCH Long  = tendance baissière (LH+LL) puis cassure haussière d'un swing high récent
 /// CHoCH Short = tendance haussière (HH+HL) puis cassure baissière d'un swing low récent
 ///
 /// Différence avec BOS : le CHoCH va à l'encontre de la tendance structurelle,
 /// c'est donc la **première** rupture de la structure en place.
+///
+/// Scanne les `MAX_SCAN` dernières bougies pour retourner l'événement le plus récent.
 pub fn detecter_choch(bougies: &[Candle]) -> Option<ResultatChoch> {
     let n = bougies.len();
-    if n < 2 * LOOKBACK + 6 {
+    let min_requis = 2 * LOOKBACK + 6;
+    if n < min_requis {
         return None;
     }
 
-    let close_actuel = bougies[n - 1].close;
+    // Scan du plus récent au plus ancien
+    // min_idx = minimum idx pour que l'historique soit suffisant (tendance + swings)
+    let min_idx = 2 * LOOKBACK + 5;
+    let debut_scan = n.saturating_sub(MAX_SCAN).max(min_idx);
 
-    // Analyser la tendance récente sur les bougies hors la dernière
-    let historique = &bougies[..n - 1];
-    let tendance = tendance_recente(historique, LOOKBACK)?;
+    for idx in (debut_scan..n).rev() {
+        let historique = &bougies[..idx];
+        let close = bougies[idx].close;
 
-    match tendance {
-        Direction::Short => {
-            // Tendance baissière → CHoCH Long si on casse un swing high récent
-            let swing_high = dernier_swing_high(historique, LOOKBACK)?;
-            if close_actuel > swing_high {
-                return Some(ResultatChoch {
-                    direction: Direction::Long,
-                    niveau_casse: swing_high,
-                    prix_cassure: close_actuel,
-                });
+        let tendance = match tendance_recente(historique, LOOKBACK) {
+            Some(t) => t,
+            None => continue,
+        };
+
+        match tendance {
+            Direction::Short => {
+                // Tendance baissière → CHoCH Long si on casse un swing high récent
+                if let Some(swing_high) = dernier_swing_high(historique, LOOKBACK) {
+                    if close > swing_high {
+                        return Some(ResultatChoch {
+                            direction: Direction::Long,
+                            niveau_casse: swing_high,
+                            prix_cassure: close,
+                        });
+                    }
+                }
             }
-        }
-        Direction::Long => {
-            // Tendance haussière → CHoCH Short si on casse un swing low récent
-            let swing_low = dernier_swing_low(historique, LOOKBACK)?;
-            if close_actuel < swing_low {
-                return Some(ResultatChoch {
-                    direction: Direction::Short,
-                    niveau_casse: swing_low,
-                    prix_cassure: close_actuel,
-                });
+            Direction::Long => {
+                // Tendance haussière → CHoCH Short si on casse un swing low récent
+                if let Some(swing_low) = dernier_swing_low(historique, LOOKBACK) {
+                    if close < swing_low {
+                        return Some(ResultatChoch {
+                            direction: Direction::Short,
+                            niveau_casse: swing_low,
+                            prix_cassure: close,
+                        });
+                    }
+                }
             }
+            Direction::Both => {}
         }
-        Direction::Both => {}
     }
 
     None

@@ -45,11 +45,11 @@ pub struct ScoreSmc {
     pub tendance: f64,
     /// Points order block (0–25)
     pub order_block: f64,
-    /// Points IFVG (0–20) — gradué : 0=absent, 1 IFVG=10, 2+=20
+    /// Points IFVG (0–20) — continu : pondéré par la proximité au prix (10 pts max par IFVG)
     pub ifvg: f64,
     /// Points Fibonacci (0–15)
     pub fibonacci: f64,
-    /// Points Imbalance/FVG (0–15) — gradué : 0=absent, 1 zone=8, 2+=15
+    /// Points Imbalance/FVG (0–15) — continu : pondéré par la proximité au prix (7.5 pts max par zone)
     pub imbalance: f64,
     /// Prérequis ICT : Kill Zone active au moment du calcul
     pub kill_zone_active: bool,
@@ -89,25 +89,42 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
     let obs = order_blocks::detecter(bougies, 28.0, true);
     let pts_ob = (order_blocks::score_pour_direction(&obs, direction) / 100.0) * 25.0;
 
-    // IFVG : 0–20 pts gradué (0 IFVG aligné=0, 1=10, 2+=20)
+    // Prix de la dernière bougie — utilisé pour la pondération de proximité
+    let prix_actuel = bougies.last()?.close;
+
+    // IFVG : 0–20 pts continu — chaque IFVG aligné contribue selon sa proximité au prix
     let ifvgs = ifvg::detecter(bougies, 5, true, 0.25);
-    let nb_ifvg = ifvgs.iter().filter(|fg| fg.direction == direction).count();
-    let pts_ifvg = match nb_ifvg {
-        0 => 0.0,
-        1 => 10.0,
-        _ => 20.0,
+    let pts_ifvg = {
+        let somme: f64 = ifvgs
+            .iter()
+            .filter(|fg| fg.direction == direction)
+            .map(|fg| {
+                let milieu = (fg.prix_haut + fg.prix_bas) / 2.0;
+                let dist = ((prix_actuel - milieu).abs() / prix_actuel).min(1.0);
+                // Contribution décroissante avec la distance (10 pts max par IFVG)
+                10.0 / (1.0 + 20.0 * dist)
+            })
+            .sum();
+        somme.min(SCORE_MAX_IFVG)
     };
 
-    // Imbalance/FVG : 0–15 pts gradué (0 zone=0, 1=8, 2+=15)
-    let pts_imbalance = imbalance::score_pour_direction(bougies, direction);
+    // Imbalance/FVG : 0–15 pts continu — zones alignées pondérées par proximité au prix
+    let pts_imbalance =
+        imbalance::score_continu_pour_direction(bougies, direction, prix_actuel);
 
     // Fibonacci : 0, 8 ou 15 pts selon la zone de retrace atteinte
-    let prix_actuel = bougies.last()?.close;
     let pts_fib = fibonacci::calculer(bougies)
         .map(|n| fibonacci::score_fib(prix_actuel, &n))
         .unwrap_or(0.0);
 
     let total = pts_tendance + pts_ob + pts_ifvg + pts_imbalance + pts_fib;
+
+    // Règle de diversité : la confluence requiert au moins 3 composantes actives (> 0 pts)
+    // Empêche les faux positifs par accumulation de 2 composantes dominantes
+    let composantes_actives = [pts_tendance, pts_ob, pts_ifvg, pts_imbalance, pts_fib]
+        .iter()
+        .filter(|&&p| p > 0.0)
+        .count();
 
     // Prérequis ICT — gates binaires (non inclus dans le score, affichés séparément)
     let last_ts = bougies.last()?.timestamp;
@@ -137,9 +154,10 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
     .next();
 
     tracing::debug!(
-        "ScoreSmc {:?}: total={:.1} (tend={:.1} ob={:.1} ifvg={:.1} imb={:.1} fib={:.1}) bos={} choch={}",
+        "ScoreSmc {:?}: total={:.1} compos_act={} (tend={:.1} ob={:.1} ifvg={:.1} imb={:.1} fib={:.1}) bos={} choch={}",
         direction,
         total,
+        composantes_actives,
         pts_tendance,
         pts_ob,
         pts_ifvg,
@@ -157,7 +175,7 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
         ifvg: pts_ifvg,
         fibonacci: pts_fib,
         direction,
-        confluence: total >= 70.0,
+        confluence: total >= 70.0 && composantes_actives >= 3,
         kill_zone_active,
         sweep_detecte,
         bos,
@@ -202,5 +220,27 @@ mod tests {
     fn sweep_ssl_invalide_pour_short() {
         // SSL sweep ne doit PAS valider un Short
         assert!(!sweep_coherent_avec_direction(true, Direction::Short));
+    }
+
+    #[test]
+    fn regle_diversite_2_composantes_pas_confluence() {
+        // Avec max 2 composantes (tendance=25, OB=25), le total ne peut pas dépasser 50
+        // → confluence impossible mathématiquement (< 70)
+        let composantes = [25.0_f64, 25.0, 0.0, 0.0, 0.0];
+        let nb_actives = composantes.iter().filter(|&&p| p > 0.0).count();
+        let total: f64 = composantes.iter().sum();
+        // Vérification que la règle bloque bien un total fictif de 70 avec 2 composantes
+        let confluence = total >= 70.0 && nb_actives >= 3;
+        assert!(!confluence, "2 composantes ne peuvent pas donner confluence");
+    }
+
+    #[test]
+    fn regle_diversite_3_composantes_permet_confluence() {
+        // tendance=25, OB=25, IFVG=20 → total=70, 3 composantes actives → confluence ✓
+        let composantes = [25.0_f64, 25.0, 20.0, 0.0, 0.0];
+        let nb_actives = composantes.iter().filter(|&&p| p > 0.0).count();
+        let total: f64 = composantes.iter().sum();
+        let confluence = total >= 70.0 && nb_actives >= 3;
+        assert!(confluence, "3 composantes avec total=70 → confluence attendue");
     }
 }

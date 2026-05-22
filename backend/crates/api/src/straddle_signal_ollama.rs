@@ -52,7 +52,7 @@ pub async fn appeler_ollama_et_publier(
         tp_mult_2,
         tp_mult_3,
     } = params;
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
+    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3:32b".to_string());
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
 
@@ -64,22 +64,23 @@ pub async fn appeler_ollama_et_publier(
         asset.as_str(),
         categorie,
     );
+    // /no_think : mode non-thinking Qwen3 — classification de contexte Straddle
     let prompt = if lecons.is_empty() {
-        prompt_base
+        format!("{prompt_base}\n/no_think")
     } else {
-        format!("{}\n\n{lecons}", prompt_base)
+        format!("{prompt_base}\n\n{lecons}\n/no_think")
     };
     let corps = serde_json::json!({
         "model": modele,
         "messages": [{"role": "user", "content": prompt}],
         "stream": false,
-        "options": { "temperature": 0.1, "num_predict": 300 }
+        "options": { "temperature": 0.7, "num_predict": 300 }
     });
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(120))
         .build()?;
-    let texte = client
+    let texte_brut = client
         .post(&url)
         .json(&corps)
         .send()
@@ -88,6 +89,8 @@ pub async fn appeler_ollama_et_publier(
         .await?
         .message
         .content;
+    // Filtrer les balises <think> au cas où Qwen3 en produit malgré /no_think
+    let texte = crate::ollama::filtrer_think(texte_brut);
 
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
@@ -116,10 +119,18 @@ pub async fn appeler_ollama_et_publier(
         return Ok(());
     }
 
-    let sl_long  = prix - sl_mult  * atr;
-    let sl_short = prix + sl_mult  * atr;
-    let tps_long  = vec![prix + tp_mult_1 * atr, prix + tp_mult_2 * atr, prix + tp_mult_3 * atr];
-    let tps_short = [prix - tp_mult_1 * atr, prix - tp_mult_2 * atr, prix - tp_mult_3 * atr];
+    let sl_long = prix - sl_mult * atr;
+    let sl_short = prix + sl_mult * atr;
+    let tps_long = vec![
+        prix + tp_mult_1 * atr,
+        prix + tp_mult_2 * atr,
+        prix + tp_mult_3 * atr,
+    ];
+    let tps_short = [
+        prix - tp_mult_1 * atr,
+        prix - tp_mult_2 * atr,
+        prix - tp_mult_3 * atr,
+    ];
 
     let signal = Signal::nouveau(
         asset.clone(),
@@ -150,64 +161,16 @@ pub async fn appeler_ollama_et_publier(
         .inserer_signal_straddle_complet(&signal, sl_short, &tps_short, heure_entree)
         .await;
 
-    // Lier le pic ATR détecté à ce signal + charger son contexte pour le feedback
-    let pic_id = if let Ok(Some(pid)) =
-        db::straddle_pics::dernier_pic_asset(db.pool(), asset.as_str(), tf.as_str(), 60).await
-    {
-        let _ = db::straddle_pics::lier_signal(db.pool(), pid, &signal.id.to_string()).await;
-        Some(pid)
-    } else {
-        None
-    };
-
-    // Charger le pic depuis la DB pour récupérer catégorie, session, ratio réels
-    let pic = if let Some(pid) = pic_id {
-        db::straddle_pics::charger_par_id(db.pool(), pid)
-            .await
-            .unwrap_or(None)
-    } else {
-        None
-    };
-
-    let signal_id_str = signal.id.to_string();
-    let fb = db::straddle_feedback::NouveauFeedback {
-        signal_id: &signal_id_str,
-        pic_id,
-        asset: asset.as_str(),
-        timeframe: tf.as_str(),
-        timestamp_signal: signal.cree_le.timestamp(),
-        categorie: pic
-            .as_ref()
-            .map(|p| p.categorie.as_str())
-            .unwrap_or("choc_isole"),
-        evenement_nom: pic.as_ref().and_then(|p| p.evenement_nom.as_deref()),
-        session_active: pic.as_ref().map(|p| p.session_active.as_str()),
-        ratio_atr: pic.as_ref().map(|p| p.ratio_atr).unwrap_or(0.0),
-        score_llm: brut.score_confiance,
-    };
-    let _ = db::straddle_feedback::inserer_feedback(db.pool(), &fb).await;
-
-    // Snapshot features ML (56 = 52 OHLCV + 4 contextuelles Straddle)
-    if let Some(features_ohlcv) = ml::extraire_features(bougies) {
-        let session = pic
-            .as_ref()
-            .map(|p| p.session_active.as_str())
-            .unwrap_or("Asia/Off");
-        let features_56 = db::straddle_features::construire_features_56(
-            &features_ohlcv,
-            ratio_atr,
-            fb.categorie,
-            session,
-            brut.score_confiance,
-        );
-        let _ = db::straddle_features::inserer_snapshot(
-            db.pool(),
-            &signal_id_str,
-            asset.as_str(),
-            &features_56,
-        )
-        .await;
-    }
+    crate::straddle_signal_feedback::sauvegarder_feedback_et_features(
+        db,
+        &signal,
+        asset,
+        tf,
+        brut.score_confiance,
+        ratio_atr,
+        bougies,
+    )
+    .await;
 
     signal_engine.publier(signal.clone());
 
@@ -234,19 +197,51 @@ mod tests {
         let tp_mult_2 = 2.5_f64;
         let tp_mult_3 = 5.0_f64;
 
-        let sl_long  = prix - sl_mult  * atr;
-        let sl_short = prix + sl_mult  * atr;
-        let tps_long  = [prix + tp_mult_1 * atr, prix + tp_mult_2 * atr, prix + tp_mult_3 * atr];
-        let tps_short = [prix - tp_mult_1 * atr, prix - tp_mult_2 * atr, prix - tp_mult_3 * atr];
+        let sl_long = prix - sl_mult * atr;
+        let sl_short = prix + sl_mult * atr;
+        let tps_long = [
+            prix + tp_mult_1 * atr,
+            prix + tp_mult_2 * atr,
+            prix + tp_mult_3 * atr,
+        ];
+        let tps_short = [
+            prix - tp_mult_1 * atr,
+            prix - tp_mult_2 * atr,
+            prix - tp_mult_3 * atr,
+        ];
 
-        assert!((sl_long  - (prix - 0.8 * atr)).abs() < 1e-9, "SL long incorrect");
-        assert!((sl_short - (prix + 0.8 * atr)).abs() < 1e-9, "SL short incorrect");
-        assert!((tps_long[0]  - (prix + 1.5 * atr)).abs() < 1e-9, "TP1 long incorrect");
-        assert!((tps_long[1]  - (prix + 2.5 * atr)).abs() < 1e-9, "TP2 long incorrect");
-        assert!((tps_long[2]  - (prix + 5.0 * atr)).abs() < 1e-9, "TP3 long incorrect");
-        assert!((tps_short[0] - (prix - 1.5 * atr)).abs() < 1e-9, "TP1 short incorrect");
-        assert!((tps_short[1] - (prix - 2.5 * atr)).abs() < 1e-9, "TP2 short incorrect");
-        assert!((tps_short[2] - (prix - 5.0 * atr)).abs() < 1e-9, "TP3 short incorrect");
+        assert!(
+            (sl_long - (prix - 0.8 * atr)).abs() < 1e-9,
+            "SL long incorrect"
+        );
+        assert!(
+            (sl_short - (prix + 0.8 * atr)).abs() < 1e-9,
+            "SL short incorrect"
+        );
+        assert!(
+            (tps_long[0] - (prix + 1.5 * atr)).abs() < 1e-9,
+            "TP1 long incorrect"
+        );
+        assert!(
+            (tps_long[1] - (prix + 2.5 * atr)).abs() < 1e-9,
+            "TP2 long incorrect"
+        );
+        assert!(
+            (tps_long[2] - (prix + 5.0 * atr)).abs() < 1e-9,
+            "TP3 long incorrect"
+        );
+        assert!(
+            (tps_short[0] - (prix - 1.5 * atr)).abs() < 1e-9,
+            "TP1 short incorrect"
+        );
+        assert!(
+            (tps_short[1] - (prix - 2.5 * atr)).abs() < 1e-9,
+            "TP2 short incorrect"
+        );
+        assert!(
+            (tps_short[2] - (prix - 5.0 * atr)).abs() < 1e-9,
+            "TP3 short incorrect"
+        );
     }
 
     /// Vérifie que les valeurs par défaut DB (sl_mult=0.5, tp=2.0/3.5/5.0) produisent
@@ -254,19 +249,23 @@ mod tests {
     #[test]
     fn valeurs_par_defaut_db_identiques_aux_anciens_hardcodes() {
         let prix = 1800.0_f64;
-        let atr  = 30.0_f64;
+        let atr = 30.0_f64;
 
-        let sl_mult   = 0.5_f64;
+        let sl_mult = 0.5_f64;
         let tp_mult_1 = 2.0_f64;
         let tp_mult_2 = 3.5_f64;
         let tp_mult_3 = 5.0_f64;
 
-        let sl_long  = prix - sl_mult  * atr;
-        let tps_long = [prix + tp_mult_1 * atr, prix + tp_mult_2 * atr, prix + tp_mult_3 * atr];
+        let sl_long = prix - sl_mult * atr;
+        let tps_long = [
+            prix + tp_mult_1 * atr,
+            prix + tp_mult_2 * atr,
+            prix + tp_mult_3 * atr,
+        ];
 
-        assert!((sl_long       - (prix - 0.5 * atr)).abs() < 1e-9);
-        assert!((tps_long[0]   - (prix + 2.0 * atr)).abs() < 1e-9);
-        assert!((tps_long[1]   - (prix + 3.5 * atr)).abs() < 1e-9);
-        assert!((tps_long[2]   - (prix + 5.0 * atr)).abs() < 1e-9);
+        assert!((sl_long - (prix - 0.5 * atr)).abs() < 1e-9);
+        assert!((tps_long[0] - (prix + 2.0 * atr)).abs() < 1e-9);
+        assert!((tps_long[1] - (prix + 3.5 * atr)).abs() < 1e-9);
+        assert!((tps_long[2] - (prix + 5.0 * atr)).abs() < 1e-9);
     }
 }

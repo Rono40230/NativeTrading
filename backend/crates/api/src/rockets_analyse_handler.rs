@@ -63,9 +63,10 @@ pub async fn analyser_opportunites(body: web::Json<Vec<SignalResume>>) -> impl R
         .collect::<Vec<_>>()
         .join("\n");
 
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5vl:7b".to_string());
+    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3:32b".to_string());
     let system = crate::prompts_handler::prompt_effectif("rockets_opportunites");
-    let messages = vec![("user".to_string(), format!("Signaux Rocket à analyser :\n\n{}", liste))];
+    // /no_think ajouté dans le message user pour Qwen3 fast path
+    let messages = vec![("user".to_string(), format!("Signaux Rocket à analyser :\n\n{}\n/no_think", liste))];
 
     match crate::ollama::interroger_chat_modele_avec_systeme(&messages, &modele, &system).await {
         Ok(texte) => HttpResponse::Ok().json(serde_json::json!({ "texte": texte })),

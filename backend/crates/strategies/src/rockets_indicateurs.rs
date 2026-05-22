@@ -119,14 +119,43 @@ pub struct ContextePhase {
 
 pub fn calculer_phase(ctx: &ContextePhase, cfg: &RocketsConfig) -> Option<(String, i64)> {
     let ContextePhase {
-        breakout, ratio_volume, rsi, atr_ratio, change1h,
-        nb_bougies_compression, tendance_haussiere,
-        volume_seche, contraction_qualite, atr50, atr14, ratio_corps,
+        breakout,
+        ratio_volume,
+        rsi,
+        atr_ratio,
+        change1h,
+        nb_bougies_compression,
+        tendance_haussiere,
+        volume_seche,
+        contraction_qualite,
+        atr50,
+        atr14,
+        ratio_corps,
     } = ctx;
-    let (breakout, ratio_volume, rsi, atr_ratio, change1h, nb_bougies_compression, tendance_haussiere) =
-        (*breakout, *ratio_volume, *rsi, *atr_ratio, *change1h, *nb_bougies_compression, *tendance_haussiere);
-    let (volume_seche, contraction_qualite, atr50, atr14, ratio_corps) =
-        (*volume_seche, *contraction_qualite, *atr50, *atr14, *ratio_corps);
+    let (
+        breakout,
+        ratio_volume,
+        rsi,
+        atr_ratio,
+        change1h,
+        nb_bougies_compression,
+        tendance_haussiere,
+    ) = (
+        *breakout,
+        *ratio_volume,
+        *rsi,
+        *atr_ratio,
+        *change1h,
+        *nb_bougies_compression,
+        *tendance_haussiere,
+    );
+    let (volume_seche, contraction_qualite, atr50, atr14, ratio_corps) = (
+        *volume_seche,
+        *contraction_qualite,
+        *atr50,
+        *atr14,
+        *ratio_corps,
+    );
 
     if breakout && ratio_volume >= cfg.ratio_volume_min {
         let mut s = 40i64;

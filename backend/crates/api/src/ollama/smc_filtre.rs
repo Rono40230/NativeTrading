@@ -1,8 +1,9 @@
 //! Filtre LLM pré-sauvegarde pour les signaux SMC Directionnel.
 //!
+//! Utilise Qwen3-32B en mode thinking (raisonnement logique sur confluences ICT).
 //! Identique dans sa philosophie au filtre Rockets : conviction ≥ 65 → valide,
 //! sinon le signal est écarté avant toute insertion en base.
-use crate::ollama::types::{MODELE_DEFAUT, OLLAMA_URL};
+use crate::ollama::types::{MODELE_SMC, OLLAMA_URL};
 use common::TradingError;
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -188,19 +189,23 @@ pub async fn filtrer_signal_smc(
     } else {
         format!("\n{few_shot}")
     };
+    // /no_think est le soft-switch Qwen3 — pour le filtre SMC on veut le mode thinking complet.
+    // On l'indique explicitement en ajoutant /think dans le prompt utilisateur.
     let prompt = format!(
-        "{}\n\n{contexte}{few_shot_bloc}",
+        "{}\n\n{contexte}{few_shot_bloc}\n/think",
         crate::prompts_handler::prompt_effectif("smc_filtre")
     );
 
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());
+    let modele = std::env::var("OLLAMA_MODEL_SMC")
+        .unwrap_or_else(|_| MODELE_SMC.to_string());
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
 
     let corps = serde_json::json!({
         "model": modele,
         "messages": [{"role": "user", "content": prompt}],
         "stream": false,
-        "options": { "temperature": 0.1, "num_predict": 300, "num_gpu": 99, "num_ctx": 4096 }
+        // temperature=0.6 recommandé pour le mode thinking Qwen3
+        "options": { "temperature": 0.6, "num_predict": 800, "num_gpu": 99, "num_ctx": 8192 }
     });
 
     let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
@@ -234,7 +239,8 @@ pub async fn filtrer_signal_smc(
         .await
         .map_err(|e| TradingError::Api(format!("JSON Ollama smc_filtre: {}", e)))?;
 
-    let texte = data.message.content;
+    // Filtrer le bloc <think>...</think> produit par Qwen3 en mode thinking
+    let texte = super::filtrer_think(data.message.content);
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
 
@@ -242,12 +248,12 @@ pub async fn filtrer_signal_smc(
         return Ok(reponse);
     }
 
-    // Retry avec prompt minimaliste si le JSON est malformé (ajustements ignorés en fallback)
+    // Retry avec prompt minimaliste + /no_think (fast path Qwen3, pas besoin de reasoning ici)
     let prompt_retry = format!(
         "Réponds UNIQUEMENT avec ce JSON exact, sans aucun autre texte :\n\
         {{\"valide\": true, \"conviction\": 60, \"raison\": \"...\", \"ajustements\": null}}\n\n\
         Signal SMC : {} {} direction={} score={:.0} confiance_ml={:.2}\n\
-        Question : ce signal SMC vaut-il la peine d'être tradé ?",
+        Question : ce signal SMC vaut-il la peine d'être tradé ? /no_think",
         candidat.asset, candidat.timeframe, candidat.direction,
         candidat.score_smc, candidat.confiance_ml
     );
@@ -255,7 +261,8 @@ pub async fn filtrer_signal_smc(
         "model": modele,
         "messages": [{"role": "user", "content": prompt_retry}],
         "stream": false,
-        "options": { "temperature": 0.0, "num_predict": 64, "num_gpu": 99, "num_ctx": 1024 }
+        // /no_think → mode rapide, pas de raisonnement interne
+        "options": { "temperature": 0.7, "num_predict": 64, "num_gpu": 99, "num_ctx": 1024 }
     });
 
     let reponse_retry = client
@@ -270,7 +277,7 @@ pub async fn filtrer_signal_smc(
         .await
         .map_err(|e| TradingError::Api(format!("JSON retry SMC Ollama: {}", e)))?;
 
-    let texte_retry = data_retry.message.content;
+    let texte_retry = super::filtrer_think(data_retry.message.content);
     let debut_r = texte_retry.find('{').unwrap_or(0);
     let fin_r = texte_retry.rfind('}').map(|i| i + 1).unwrap_or(texte_retry.len());
 

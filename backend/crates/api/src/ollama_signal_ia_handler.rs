@@ -58,9 +58,10 @@ pub async fn generer_signal(
         ml = body.confiance_ml * 100.0,
         score = body.score_smc,
     );
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
+    let modele = std::env::var("OLLAMA_MODEL_SMC")
+        .unwrap_or_else(|_| crate::ollama::MODELE_SMC.to_string());
 
-    match ollama::interroger(&prompt).await {
+    match ollama::interroger_avec_modele_smc(&prompt).await {
         Err(e) => {
             HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": format!("{e}") }))
         }

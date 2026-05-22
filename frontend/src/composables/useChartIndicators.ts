@@ -14,6 +14,7 @@ export function useChartIndicators() {
   const enChargement = ref(false)
   const erreur = ref<string | null>(null)
   const signauxActifs = ref<SignalIndicateur[]>([])
+  const dernierAtrValeur = ref(0)
 
   // Tableau plain non-reactif
   let seriesActives: ISeriesApi<SeriesType>[] = []
@@ -181,6 +182,10 @@ export function useChartIndicators() {
       // Valeurs ATR pour SL/TP
       if (data.atr_valeurs) {
         atrValeurs = new Map(data.atr_valeurs.map((p) => [p.time, p.value]))
+        if (atrValeurs.size > 0) {
+          const maxTs = Math.max(...atrValeurs.keys())
+          dernierAtrValeur.value = atrValeurs.get(maxTs) ?? 0
+        }
       } else {
         atrValeurs = new Map()
       }
@@ -267,5 +272,5 @@ export function useChartIndicators() {
     return { signal, niveaux: atr ? calculerSlTp(signal, atr) : null }
   }
 
-  return { enChargement, erreur, signauxActifs, chargerEtAppliquer, supprimerOverlays, reinitialiser, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux }
+  return { enChargement, erreur, signauxActifs, dernierAtrValeur, chargerEtAppliquer, supprimerOverlays, reinitialiser, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux }
 }

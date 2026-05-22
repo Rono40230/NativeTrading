@@ -147,9 +147,42 @@ pub fn score_pour_direction(bougies: &[Candle], direction: common::Direction) ->
     }
 }
 
-/// Conservé pour compatibilité — utiliser `score_pour_direction()` à la place.
+/// Conservé pour compatibilité — utiliser `score_continu_pour_direction()` à la place.
 pub fn score_pour_direction_legacy(bougies: &[Candle], direction: common::Direction) -> f64 {
     score_pour_direction(bougies, direction)
+}
+
+/// Score Imbalance/FVG continu basé sur la proximité du prix (0–15 pts).
+///
+/// Chaque zone FVG alignée contribue proportionnellement à sa proximité avec `prix_actuel` :
+/// - Zone au prix : ~7.5 pts
+/// - Zone à 5% du prix : ~3.75 pts
+/// - Plusieurs zones : contributions sommées, plafonnées à 15 pts
+pub fn score_continu_pour_direction(
+    bougies: &[Candle],
+    direction: common::Direction,
+    prix_actuel: f64,
+) -> f64 {
+    if prix_actuel <= 0.0 {
+        return 0.0;
+    }
+    let zones = detecter(bougies, 5, true, false, true);
+    let type_cible = match direction {
+        common::Direction::Long => "FvgBull",
+        common::Direction::Short => "FvgBear",
+        common::Direction::Both => return 0.0,
+    };
+    let somme: f64 = zones
+        .iter()
+        .filter(|z| z.type_zone == type_cible)
+        .map(|z| {
+            let milieu = (z.haut + z.bas) / 2.0;
+            let dist = ((prix_actuel - milieu).abs() / prix_actuel).min(1.0);
+            // Contribution décroissante avec la distance (7.5 pts max par zone)
+            7.5 / (1.0 + 20.0 * dist)
+        })
+        .sum();
+    somme.min(15.0)
 }
 
 #[cfg(test)]
@@ -217,5 +250,50 @@ mod tests {
             zones.iter().any(|z| z.type_zone == "OgBull"),
             "OG Bull attendu"
         );
+    }
+
+    #[test]
+    fn score_continu_zero_si_prix_nul() {
+        let bougies = vec![
+            b(9., 10., 8., 9.5),
+            b(10., 11., 9., 10.5),
+            b(11., 13., 12., 12.5),
+        ];
+        assert_eq!(
+            score_continu_pour_direction(&bougies, common::Direction::Long, 0.0),
+            0.0
+        );
+    }
+
+    #[test]
+    fn score_continu_diminue_avec_distance() {
+        // FVG Bull entre 10 et 12 (milieu=11)
+        let bougies = vec![
+            b(9., 10., 8., 9.5),
+            b(10., 11., 9., 10.5),
+            b(11., 13., 12., 12.5),
+        ];
+        // Prix proche du milieu : score élevé
+        let score_proche = score_continu_pour_direction(&bougies, common::Direction::Long, 11.0);
+        // Prix loin (20% au-dessus) : score inférieur
+        let score_loin = score_continu_pour_direction(&bougies, common::Direction::Long, 13.5);
+        assert!(
+            score_proche > score_loin,
+            "score proche ({score_proche:.2}) doit être > score loin ({score_loin:.2})"
+        );
+    }
+
+    #[test]
+    fn score_continu_plafonne_a_15() {
+        // Générer un grand nombre de zones bullish — score doit être ≤ 15
+        let mut bougies = Vec::new();
+        for i in 0..50i64 {
+            let base = i as f64 * 5.0;
+            bougies.push(b(base, base + 1.0, base - 1.0, base));
+            bougies.push(b(base + 1.0, base + 2.0, base, base + 1.5));
+            bougies.push(b(base + 1.5, base + 4.0, base + 2.5, base + 3.0));
+        }
+        let score = score_continu_pour_direction(&bougies, common::Direction::Long, 125.0);
+        assert!(score <= 15.0, "Score {score:.2} doit être ≤ 15");
     }
 }

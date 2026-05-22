@@ -69,7 +69,7 @@ pub async fn ajustements(body: web::Json<RequeteAjustements>) -> impl Responder 
         sl = body.sl_mult.unwrap_or(0.5),
     );
 
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
+    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3:32b".to_string());
 
     match ollama::interroger(&prompt).await {
         Ok(texte) => {
@@ -117,7 +117,7 @@ pub async fn ajustements(body: web::Json<RequeteAjustements>) -> impl Responder 
         }
         Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
             "error": format!("{}", e),
-            "aide": "Lancez Ollama: ollama serve && ollama pull qwen2.5:14b"
+            "aide": "Lancez Ollama: ollama serve && ollama pull qwen3:32b"
         })),
     }
 }

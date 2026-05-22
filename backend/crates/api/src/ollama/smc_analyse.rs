@@ -2,7 +2,7 @@
 //!
 //! Calqué sur `rockets_analyse.rs` — déclenché sur demande via `/api/smc/analyse-llm`.
 //! Analyse les signaux SMC clôturés et produit des recommandations d'optimisation.
-use crate::ollama::types::{MODELE_DEFAUT, OLLAMA_URL};
+use crate::ollama::types::{MODELE_SMC, OLLAMA_URL};
 use common::TradingError;
 use serde::{Deserialize, Serialize};
 
@@ -222,19 +222,22 @@ pub async fn analyser_strategie(
     if let Some(ctx) = contexte_backtest {
         contexte.push_str(ctx);
     }
+    // /no_think : l'analyse de performances n'a pas besoin du reasoning chain-of-thought,
+    // on gagne en vitesse avec le mode non-thinking de Qwen3.
     let prompt = format!(
-        "{}\n\n{contexte}",
+        "{}\n\n{contexte}\n/no_think",
         crate::prompts_handler::prompt_effectif("smc_analyse")
     );
 
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());
+    let modele = std::env::var("OLLAMA_MODEL_SMC")
+        .unwrap_or_else(|_| MODELE_SMC.to_string());
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
 
     let corps = serde_json::json!({
         "model": modele,
         "messages": [{"role": "user", "content": prompt}],
         "stream": false,
-        "options": { "temperature": 0.3, "num_predict": 1024, "num_gpu": 99, "num_ctx": 8192 }
+        "options": { "temperature": 0.7, "num_predict": 1024, "num_gpu": 99, "num_ctx": 8192 }
     });
 
     let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
@@ -268,7 +271,8 @@ pub async fn analyser_strategie(
         .await
         .map_err(|e| TradingError::Api(format!("Réponse Ollama invalide: {}", e)))?;
 
-    let texte = data.message.content;
+    // Filtrer les balises <think>...</think> (Qwen3 peut les produire même avec /no_think)
+    let texte = super::filtrer_think(data.message.content);
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
     serde_json::from_str::<AnalyseSMCReponse>(&texte[debut..fin]).map_err(|e| {

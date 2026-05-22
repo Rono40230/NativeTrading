@@ -20,6 +20,7 @@ pub use prompts::{
     SYSTEM_PROMPT_COACH_OLLAMA,
 };
 use types::{ReponseOllama, MODELE_DEFAUT, OLLAMA_URL};
+pub use types::MODELE_SMC;
 
 /// Sémaphore global Ollama : max 2 appels LLM concurrents (évite la saturation VRAM/swap modèle).
 pub static OLLAMA_SEMAPHORE: LazyLock<tokio::sync::Semaphore> =
@@ -37,11 +38,54 @@ pub use smc_confirm::enrichir_signal_avec_ollama;
 pub use types::tf_libelle;
 pub use vision::appeler_ollama;
 
-pub const MODELE_COACH: &str = "qwen2.5vl:7b";
+pub const MODELE_COACH: &str = "qwen3:32b";
 pub const MODELE_COACH_DIAGRAM: &str = "qwen2.5-coder:14b";
 /// Envoie un prompt à Ollama et retourne la réponse textuelle.
 pub async fn interroger(prompt: &str) -> Result<String, TradingError> {
     interroger_avec_systeme(prompt, SYSTEM_PROMPT).await
+}
+
+/// Envoie un prompt via le modèle SMC (OLLAMA_MODEL_SMC, défaut qwen3:32b).
+/// Active le mode thinking Qwen3 (/think) et filtre les balises <think>.
+pub async fn interroger_avec_modele_smc(prompt: &str) -> Result<String, TradingError> {
+    let modele = std::env::var("OLLAMA_MODEL_SMC")
+        .unwrap_or_else(|_| MODELE_SMC.to_string());
+    let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
+
+    // /think active le mode raisonnement Qwen3
+    let prompt_thinking = format!("{}\n/think", prompt);
+
+    let corps = serde_json::json!({
+        "model": modele,
+        "messages": [
+            { "role": "system", "content": SYSTEM_PROMPT },
+            { "role": "user",   "content": prompt_thinking }
+        ],
+        "stream": false,
+        "options": { "temperature": 0.6, "num_predict": 800, "num_gpu": 99, "num_ctx": 8192 }
+    });
+
+    let _permit = OLLAMA_SEMAPHORE.acquire().await.ok();
+    let reponse = OLLAMA_HTTP_CLIENT
+        .post(&url)
+        .json(&corps)
+        .send()
+        .await
+        .map_err(|e| TradingError::Api(format!("Ollama SMC injoignable: {}", e)))?;
+
+    if !reponse.status().is_success() {
+        return Err(TradingError::Api(format!(
+            "Ollama SMC HTTP {}: vérifier que le serveur est démarré (`ollama serve`)",
+            reponse.status()
+        )));
+    }
+
+    let data: ReponseOllama = reponse
+        .json()
+        .await
+        .map_err(|e| TradingError::Api(format!("Réponse Ollama SMC invalide: {}", e)))?;
+
+    Ok(filtrer_think(data.message.content))
 }
 
 /// Envoie un prompt avec historique en spécifiant explicitement le modèle.
@@ -80,14 +124,17 @@ async fn interroger_avec_systeme(prompt: &str, system: &str) -> Result<String, T
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());
     let url = std::env::var("OLLAMA_URL").unwrap_or_else(|_| OLLAMA_URL.to_string());
 
+    // /no_think : mode non-thinking Qwen3 — rapide et suffisant pour Straddle/chat/Rockets
+    let prompt_no_think = format!("{prompt}\n/no_think");
+
     let corps = serde_json::json!({
         "model": modele,
         "messages": [
             { "role": "system", "content": system },
-            { "role": "user", "content": prompt }
+            { "role": "user",   "content": prompt_no_think }
         ],
         "stream": false,
-        "options": { "num_gpu": 99, "num_ctx": 8192 }
+        "options": { "temperature": 0.7, "num_gpu": 99, "num_ctx": 8192 }
     });
 
     let _permit = OLLAMA_SEMAPHORE.acquire().await.ok();
@@ -110,11 +157,11 @@ async fn interroger_avec_systeme(prompt: &str, system: &str) -> Result<String, T
         .await
         .map_err(|e| TradingError::Api(format!("Réponse Ollama invalide: {}", e)))?;
 
-    Ok(data.message.content)
+    Ok(filtrer_think(data.message.content))
 }
 
-/// Supprime les balises `<think>...</think>` (raisonnement interne DeepSeek-R1).
-fn filtrer_think(texte: String) -> String {
+/// Supprime les balises `<think>...</think>` (raisonnement interne Qwen3 / DeepSeek-R1).
+pub(crate) fn filtrer_think(texte: String) -> String {
     let mut resultat = texte;
     loop {
         let debut = resultat.find("<think>");

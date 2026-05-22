@@ -124,11 +124,12 @@ pub async fn generer_signal_straddle(
         ctx.push_str("Créneaux historiques: aucun\n");
     }
 
+    // /no_think : mode non-thinking Qwen3 — classification de contexte macro
     let prompt = format!(
-        "{}\n\n{ctx}",
+        "{}\n\n{ctx}\n/no_think",
         crate::prompts_handler::prompt_effectif("straddle_signal")
     );
-    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
+    let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3:32b".to_string());
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
 
@@ -136,7 +137,7 @@ pub async fn generer_signal_straddle(
         "model": modele,
         "messages": [{"role": "user", "content": prompt}],
         "stream": false,
-        "options": { "temperature": 0.1, "num_predict": 300 }
+        "options": { "temperature": 0.7, "num_predict": 300 }
     });
 
     let client = reqwest::Client::builder()
@@ -159,7 +160,7 @@ pub async fn generer_signal_straddle(
         }
     };
 
-    let texte = data.message.content;
+    let texte = crate::ollama::filtrer_think(data.message.content);
 
     // Extraction robuste : cherche le premier { et le dernier } correspondant.
     // Si le LLM enveloppe dans {"response":{...}}, on descend d'un niveau.

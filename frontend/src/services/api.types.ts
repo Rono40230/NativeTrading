@@ -113,6 +113,32 @@ export type { PointSerie, ZoneOb, ZoneImbalance, ZoneFvgBpr, ZoneBpr, ZoneIfvg, 
 export type { PatternHoraire, ReponsePatternsVolatilite, RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA, ImageAvecTF, LigneTendanceKasper, ModeCalculTendance, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier, FearGreedData, EntiteSentiment, SentimentMarche, NiveauAlerte, ArticleNews, AlertesNews, ContenuArticle, TraductionReponse } from './api.types.marche'
 export type { CouvertureDonnees, RequeteCollecte, ResultatCollecteItem, ResultatCollecte, RocketSignalSave, RocketSignalHistorique, RocketRecommandation, RocketAnalyseLlm, RocketsConfig, StraddleCreneau, ReponseAnalyseStraddle, StraddlePicLive, AnnonceImminente, StraddleVolatiliteLive, StraddleDevSeedResponse, StraddleDevSignalResponse, StraddleStatCategorie, StraddleMonitoringData, StraddleCalibrationRow, RocketsStatPhase, RocketsMonitoringData, RocketsCalibrationRow, StraddleSeuilsEffectifs, RocketsSeuilsEffectifs } from './api.types.rockets'
 
+// ── Signal IA (POST /api/ia/signal) ──────────────────────────────────────────
+export interface RequeteSignalIA {
+  asset: string
+  timeframe: string
+  score_smc: number
+  prix_actuel: number
+  tendance: number
+  order_block: number
+  imbalance: number
+  ifvg: number
+  fibonacci: number
+  confiance_ml: number
+  atr: number
+  kill_zone_active?: boolean
+  sweep_detecte?: boolean
+}
+
+export interface ReponseSignalIA {
+  signal: Signal | null
+  score_confiance: number   // 0–10
+  niveau_invalidation: number
+  confluences: string[]
+  raisonnement: string
+  modele: string
+}
+
 // ── Types ML Straddle adaptatif ───────────────────────────────────────────────
 
 // ── SMC Directionnel ML ───────────────────────────────────────────────────────

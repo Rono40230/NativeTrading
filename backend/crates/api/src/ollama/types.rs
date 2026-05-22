@@ -1,7 +1,10 @@
 use serde::Deserialize;
 
 pub const OLLAMA_URL: &str = "http://localhost:11434/api/chat";
-pub const MODELE_DEFAUT: &str = "qwen2.5vl:7b";
+/// Modèle par défaut pour tous les contextes (Straddle, chat, Rockets) — mode non-thinking.
+pub const MODELE_DEFAUT: &str = "qwen3:32b";
+/// Modèle dédié aux analyses SMC — même modèle, mode thinking activé (/think).
+pub const MODELE_SMC: &str = "qwen3:32b";
 
 #[derive(Deserialize)]
 pub struct ReponseOllama {
