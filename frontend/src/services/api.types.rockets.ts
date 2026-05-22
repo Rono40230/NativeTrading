@@ -113,3 +113,139 @@ export interface ReponseAnalyseStraddle {
   nb_retenus: number
   message?: string
 }
+
+// ── Monitoring adaptatif Straddle ─────────────────────────────────────────────
+
+export interface StraddlePicLive {
+  asset: string
+  timeframe: string
+  timestamp_pic: number
+  ratio_atr: number
+  categorie: string
+  evenement_nom: string | null
+  session_active: string
+  kill_zone: boolean
+  signal_genere: boolean
+  signal_id: number | null
+}
+
+export interface AnnonceImminente {
+  nom: string | null
+  devise: string | null
+  impact: string
+  dans_min: number
+}
+
+export interface StraddleVolatiliteLive {
+  pics: StraddlePicLive[]
+  resume: {
+    pics_2h: number
+    assets_actifs: string[]
+    annonces_prochaines_90min: AnnonceImminente[]
+    calendar_cache_count?: number
+    next_high_in_min?: number | null
+  }
+}
+
+export interface StraddleDevSeedResponse {
+  ok: boolean
+  asset: string
+  inserted: number
+}
+
+export interface StraddleDevSignalResponse {
+  ok: boolean
+  signal_id: string
+  asset: string
+  timeframe: string
+  prix_entree: number
+  stop_loss_long: number
+  stop_loss_short: number
+  tp_long: number[]
+  tp_short: number[]
+}
+
+export interface StraddleStatCategorie {
+  categorie: string
+  nb_trades: number
+  win_rate: number
+  score_llm_win: number | null
+  score_llm_lose: number | null
+  pnl_r_moyen: number | null
+}
+
+export interface StraddleMonitoringData {
+  nb_signals_total: number
+  nb_feedbacks_clotures: number
+  nb_gagnants: number
+  nb_perdants: number
+  nb_invalides: number
+  win_rate_global: number
+  pnl_moyen_r: number | null
+  derive_detectee: boolean
+  par_categorie: StraddleStatCategorie[]
+}
+
+export interface StraddleCalibrationRow {
+  asset: string
+  categorie: string
+  score_seuil: number
+  ratio_atr_min: number
+  fiabilite: string
+  nb_trades: number
+  win_rate: number
+}
+
+// ── Monitoring adaptatif Rockets ──────────────────────────────────────────────
+
+export interface RocketsStatPhase {
+  phase: string
+  nb_trades: number
+  win_rate: number
+  conv_win: number | null
+  conv_lose: number | null
+  pnl_r_moyen: number | null
+}
+
+export interface RocketsMonitoringData {
+  nb_signals_total: number
+  nb_feedbacks_clotures: number
+  nb_gagnants: number
+  nb_perdants: number
+  nb_invalides: number
+  win_rate_global: number
+  pnl_moyen_r: number | null
+  derive_detectee: boolean
+  par_phase: RocketsStatPhase[]
+}
+
+export interface RocketsCalibrationRow {
+  phase: string
+  session: string
+  score_min: number
+  conviction_min: number
+  nb_trades: number
+  win_rate: number
+  fiabilite: string
+  invalide: boolean
+}
+
+export interface StraddleSeuilsEffectifs {
+  asset: string
+  categorie: string
+  score_llm: number
+  ratio_atr: number
+  sl_ratio: number
+  tp1_ratio: number
+  tp2_ratio: number
+  trailing_coeff: number
+  invalide: boolean
+}
+
+export interface RocketsSeuilsEffectifs {
+  phase: string
+  session: string
+  score_min: number
+  conviction_min: number
+  invalide: boolean
+}

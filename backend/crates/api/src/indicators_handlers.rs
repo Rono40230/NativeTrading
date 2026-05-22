@@ -181,6 +181,18 @@ pub async fn get_indicators(
         smc::liquidites::detecter_ranges_asie(&bougies, params, nb)
     });
 
+    let bos = query
+        .smc_bos
+        .unwrap_or(false)
+        .then(|| smc::bos::detecter_bos(&bougies))
+        .flatten();
+
+    let choch = query
+        .smc_choch
+        .unwrap_or(false)
+        .then(|| smc::choch::detecter_choch(&bougies))
+        .flatten();
+
     // ── Signaux indicateurs (détection + confluence) ─────────────────────────
     let signaux = query.signaux.unwrap_or(false).then(|| {
         let closes: Vec<f64> = bougies.iter().map(|b| b.close).collect();
@@ -274,6 +286,8 @@ pub async fn get_indicators(
         tendance,
         liquidites,
         range_asie,
+        bos,
+        choch,
         signaux,
         atr_valeurs,
     })

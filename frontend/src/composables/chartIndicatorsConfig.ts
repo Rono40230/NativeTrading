@@ -13,6 +13,9 @@ export const COULEURS = {
   fib: 'rgba(148, 163, 184, 0.6)',
   bsl: 'rgba(16, 185, 129, 0.8)',
   ssl: 'rgba(239, 68, 68, 0.8)',
+  bos_long: '#10b981',
+  bos_short: '#ef4444',
+  choch: '#a855f7',
 }
 
 /** Convertit un hex #rrggbb en rgba(r,g,b,alpha) */
@@ -68,6 +71,8 @@ export function buildIndicatorsParams(asset: string, tf: string, prefs: PrefsInd
     smc_liq_asie_heure_fin: prefs.smcLiqAsieHeureFin,
     smc_liq_asie_deviations_nb: prefs.smcLiqAsieDeviationsNb,
     smc_liq_asie_nb_sessions: prefs.smcLiqAsieNbSessions,
+    smc_bos: prefs.smcBos,
+    smc_choch: prefs.smcChoch,
     signaux: true, limit: 500,
   }
 }

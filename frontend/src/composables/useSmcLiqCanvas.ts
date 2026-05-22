@@ -103,13 +103,8 @@ export function useSmcLiqCanvas() {
     deviationsRef = []
     dernierTimestampRef = dernierTimestamp ?? null
 
-    if (!prefs.smcLiquidites) {
-      planifierRedessiner()
-      return
-    }
-
     // ── Lignes EQH/EQL ───────────────────────────────────────────────────────
-    if (data.liquidites?.length) {
+    if (prefs.smcLiquidites && data.liquidites?.length) {
       for (const liq of data.liquidites) {
         if (liq.swepe) continue
         if (liq.categorie === 'swing' && !prefs.smcLiqSwingsActif) continue
@@ -131,7 +126,7 @@ export function useSmcLiqCanvas() {
     }
 
     // ── Rectangles range Asie + déviations ───────────────────────────────────
-    if (data.range_asie?.length && prefs.smcLiqAsieRangeActif) {
+    if (prefs.smcLiquidites && data.range_asie?.length && prefs.smcLiqAsieRangeActif) {
       const couleurBord = hexVersRgba(prefs.smcLiqAsieCouleur, 0.8)
       const couleurFond = hexVersRgba(prefs.smcLiqAsieCouleur, prefs.smcLiqAsieOpacite)
       for (const r of data.range_asie) {
@@ -155,6 +150,27 @@ export function useSmcLiqCanvas() {
           }
         }
       }
+    }
+
+    // ── BOS / CHoCH — lignes tiretées au niveau cassé ─────────────────────────
+    if (prefs.smcBos && data.bos) {
+      const isBosLong = data.bos.direction === 'Long'
+      lignesRef.push({
+        prix:      data.bos.niveau_casse,
+        timestamp: 0,
+        couleur:   hexVersRgba(prefs.smcBosCouleur, 0.9),
+        label:     isBosLong ? 'BOS ↑' : 'BOS ↓',
+        pointille: true,
+      })
+    }
+    if (prefs.smcChoch && data.choch) {
+      lignesRef.push({
+        prix:      data.choch.niveau_casse,
+        timestamp: 0,
+        couleur:   hexVersRgba(prefs.smcChochCouleur, 0.9),
+        label:     data.choch.direction === 'Long' ? 'CHoCH ↑' : 'CHoCH ↓',
+        pointille: true,
+      })
     }
 
     planifierRedessiner()

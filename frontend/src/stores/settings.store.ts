@@ -92,6 +92,11 @@ export interface PrefsIndicateurs {
   smcLiqAsieHeureFin: number
   smcLiqAsieOpacite: number
   smcLiqAsieCouleur: string
+  // Structure SMC : BOS / CHoCH
+  smcBos: boolean
+  smcChoch: boolean
+  smcBosCouleur: string
+  smcChochCouleur: string
   // Tendance EMA Multi-TF
   kasperTendance: boolean
   kasperPeriodeRapide: number
@@ -184,6 +189,11 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcLiqAsieHeureFin: 1,
   smcLiqAsieOpacite: 0.15,
   smcLiqAsieCouleur: '#f59e0b',
+  // Structure SMC : BOS / CHoCH
+  smcBos: true,
+  smcChoch: true,
+  smcBosCouleur: '#10b981',
+  smcChochCouleur: '#a855f7',
   // Tendance EMA Multi-TF
   kasperTendance: false,
   kasperPeriodeRapide: 9,

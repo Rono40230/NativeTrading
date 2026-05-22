@@ -63,6 +63,8 @@ pub struct ScoreSmc {
     pub bos: bool,
     /// Change of Character détecté (premier retournement contre la tendance structurelle)
     pub choch: bool,
+    /// Range de la session asiatique la plus récente (high/low pour overlay graphique)
+    pub asian_range: Option<liquidites_range::RangeAsie>,
 }
 
 /// Calcule le score de confluence SMC pour un jeu de bougies.
@@ -125,6 +127,15 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
         .map(|c| c.direction == direction)
         .unwrap_or(false);
 
+    // Range session asiatique (informatif — 1 session récente)
+    let asian_range = liquidites_range::detecter_ranges_asie(
+        bougies,
+        liquidites_range::ParamsRangeAsie::default(),
+        1,
+    )
+    .into_iter()
+    .next();
+
     tracing::debug!(
         "ScoreSmc {:?}: total={:.1} (tend={:.1} ob={:.1} ifvg={:.1} imb={:.1} fib={:.1}) bos={} choch={}",
         direction,
@@ -151,6 +162,7 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
         sweep_detecte,
         bos,
         choch,
+        asian_range,
     })
 }
 

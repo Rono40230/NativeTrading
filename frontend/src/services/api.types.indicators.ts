@@ -87,6 +87,17 @@ export interface RangeAsie {
 export type NiveauForceSignal = 'faible' | 'moyen' | 'fort'
 export type DirectionSignal = 'bullish' | 'bearish' | 'neutre'
 
+export interface ResultatBos {
+  direction: 'Long' | 'Short'
+  niveau_casse: number
+  prix_cassure: number
+}
+
+export interface ResultatChoch {
+  direction: 'Long' | 'Short'
+  niveau_casse: number
+  prix_cassure: number
+}
 export interface SignalIndicateur {
   timestamp: number
   source: string
@@ -112,6 +123,8 @@ export interface ReponseIndicators {
   tendance?: ResultatTendance
   liquidites?: NiveauLiquidite[]
   range_asie?: RangeAsie[]
+  bos?: ResultatBos
+  choch?: ResultatChoch
   signaux?: SignalIndicateur[]
   atr_valeurs?: PointSerie[]
 }
@@ -165,6 +178,8 @@ export interface IndicatorsParams {
   smc_liq_asie_heure_fin?: number
   smc_liq_asie_deviations_nb?: number
   smc_liq_asie_nb_sessions?: number
+  smc_bos?: boolean
+  smc_choch?: boolean
   /** Si true, calcule et retourne les signaux pour indicateurs actifs */
   signaux?: boolean
   limit?: number

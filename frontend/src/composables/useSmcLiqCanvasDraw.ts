@@ -6,7 +6,8 @@ export interface LigneLiq {
   prix: number
   timestamp: number  // Unix secondes — bord gauche (formation)
   couleur: string
-  label: string  // 'EQH' | 'EQL' | ''
+  label: string  // 'EQH' | 'EQL' | 'BOS ↑' | ...
+  pointille?: boolean  // true = ligne tiretée (BOS/CHoCH)
 }
 
 export interface RectAsie {
@@ -44,25 +45,31 @@ export function dessinerLignesLiq(
 
     ctx.strokeStyle = ligne.couleur
     if (xDroit > xGauche) {
+      ctx.setLineDash(ligne.pointille ? [6, 4] : [])
       ctx.lineWidth = 1.5
       ctx.beginPath()
       ctx.moveTo(xGauche, y)
       ctx.lineTo(xDroit, y)
       ctx.stroke()
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.moveTo(xGauche, y - 4)
-      ctx.lineTo(xGauche, y + 4)
-      ctx.stroke()
+      ctx.setLineDash([])
+      if (!ligne.pointille) {
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(xGauche, y - 4)
+        ctx.lineTo(xGauche, y + 4)
+        ctx.stroke()
+      }
     }
 
     if (ligne.label) {
-      const xLabel = Math.max(Math.min(xGauche, W - 60), 4)
+      const xLabel = ligne.pointille
+        ? Math.min(xDroit !== null ? xDroit - 2 : W - 4, W - 4)
+        : Math.max(Math.min(xGauche, W - 60), 4)
       ctx.font = 'bold 10px sans-serif'
       ctx.fillStyle = ligne.couleur
-      ctx.textAlign = 'left'
+      ctx.textAlign = ligne.pointille ? 'right' : 'left'
       ctx.textBaseline = 'bottom'
-      ctx.fillText(ligne.label, xLabel + 3, y - 2)
+      ctx.fillText(ligne.label, xLabel, y - 2)
     }
   }
 }
