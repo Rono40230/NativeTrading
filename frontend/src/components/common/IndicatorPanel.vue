@@ -133,11 +133,14 @@ const techniques = [
 ]
 
 const smcOptions = [
-  { key: 'smcOb',         label: 'Order Blocks', activeClass: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300',   gearClass: 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20' },
-  { key: 'smcBpr',        label: 'IFVG/BPR',    activeClass: 'bg-sky-500/20 border-sky-500/40 text-sky-300',               gearClass: 'bg-sky-500/10 border-sky-500/40 text-sky-400 hover:bg-sky-500/20'               },
-  { key: 'smcImbalance',   label: 'Imbalances',   activeClass: 'bg-violet-500/20 border-violet-500/40 text-violet-300',    gearClass: 'bg-violet-500/10 border-violet-500/40 text-violet-400 hover:bg-violet-500/20'  },
-  { key: 'smcFib',        label: 'Fibonacci',    activeClass: 'bg-slate-400/20 border-slate-400/40 text-slate-300',        gearClass: 'bg-slate-400/10 border-slate-400/40 text-slate-400 hover:bg-slate-400/20'       },
-  { key: 'smcLiquidites', label: 'Liquidité',    activeClass: 'bg-rose-500/20 border-rose-500/40 text-rose-300',           gearClass: 'bg-rose-500/10 border-rose-500/40 text-rose-400 hover:bg-rose-500/20'           },
+  { key: 'smcOb',           label: 'Order Blocks', activeClass: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300',   gearClass: 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20' },
+  { key: 'smcBpr',          label: 'IFVG/BPR',    activeClass: 'bg-sky-500/20 border-sky-500/40 text-sky-300',               gearClass: 'bg-sky-500/10 border-sky-500/40 text-sky-400 hover:bg-sky-500/20'               },
+  { key: 'smcImbalance',    label: 'Imbalances',   activeClass: 'bg-violet-500/20 border-violet-500/40 text-violet-300',      gearClass: 'bg-violet-500/10 border-violet-500/40 text-violet-400 hover:bg-violet-500/20'   },
+  { key: 'smcFib',          label: 'Fibonacci',    activeClass: 'bg-slate-400/20 border-slate-400/40 text-slate-300',         gearClass: 'bg-slate-400/10 border-slate-400/40 text-slate-400 hover:bg-slate-400/20'       },
+  { key: 'smcLiquidites',   label: 'Liquidité',    activeClass: 'bg-rose-500/20 border-rose-500/40 text-rose-300',            gearClass: 'bg-rose-500/10 border-rose-500/40 text-rose-400 hover:bg-rose-500/20'           },
+  { key: 'smcBos',          label: 'BOS',          activeClass: 'bg-teal-500/20 border-teal-500/40 text-teal-300',            gearClass: 'bg-teal-500/10 border-teal-500/40 text-teal-400 hover:bg-teal-500/20'           },
+  { key: 'smcChoch',        label: 'CHoCH',        activeClass: 'bg-fuchsia-500/20 border-fuchsia-500/40 text-fuchsia-300',   gearClass: 'bg-fuchsia-500/10 border-fuchsia-500/40 text-fuchsia-400 hover:bg-fuchsia-500/20' },
+  { key: 'smcAsianSession', label: 'Range Asie',   activeClass: 'bg-amber-500/20 border-amber-500/40 text-amber-300',         gearClass: 'bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/20'       },
 ]
 </script>
 

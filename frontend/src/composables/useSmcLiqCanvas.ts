@@ -126,7 +126,7 @@ export function useSmcLiqCanvas() {
     }
 
     // ── Rectangles range Asie + déviations ───────────────────────────────────
-    if (prefs.smcLiquidites && data.range_asie?.length && prefs.smcLiqAsieRangeActif) {
+    if (prefs.smcAsianSession && data.range_asie?.length) {
       const couleurBord = hexVersRgba(prefs.smcLiqAsieCouleur, 0.8)
       const couleurFond = hexVersRgba(prefs.smcLiqAsieCouleur, prefs.smcLiqAsieOpacite)
       for (const r of data.range_asie) {

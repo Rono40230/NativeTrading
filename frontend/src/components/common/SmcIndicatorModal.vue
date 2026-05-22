@@ -160,6 +160,89 @@
             <SmcLiquiditeParams v-model="prefs" />
           </template>
 
+          <!-- BOS (Break of Structure) -->
+          <template v-else-if="indicateur === 'smcBos'">
+            <p class="text-[10px] text-slate-500 mb-3">
+              Cassure d'un swing high/low confirmant la continuité de structure. Signal de tendance en cours.
+            </p>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Couleur ligne</label>
+              <div class="flex items-center gap-2 mb-1">
+                <input type="color" v-model="prefs.smcBosCouleur"
+                  class="w-8 h-7 rounded cursor-pointer border border-white/15 bg-transparent" />
+                <span class="text-[10px] text-slate-500 font-mono">{{ prefs.smcBosCouleur }}</span>
+              </div>
+            </div>
+          </template>
+
+          <!-- CHoCH (Change of Character) -->
+          <template v-else-if="indicateur === 'smcChoch'">
+            <p class="text-[10px] text-slate-500 mb-3">
+              Premier retournement de structure — signal de changement de tendance. Précède souvent un BOS inverse.
+            </p>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Couleur ligne</label>
+              <div class="flex items-center gap-2 mb-1">
+                <input type="color" v-model="prefs.smcChochCouleur"
+                  class="w-8 h-7 rounded cursor-pointer border border-white/15 bg-transparent" />
+                <span class="text-[10px] text-slate-500 font-mono">{{ prefs.smcChochCouleur }}</span>
+              </div>
+            </div>
+          </template>
+
+          <!-- Range session asiatique -->
+          <template v-else-if="indicateur === 'smcAsianSession'">
+            <p class="text-[10px] text-slate-500 mb-3">
+              Range High/Low formé pendant la session asiatique. Zone de liquidité ciblée lors de l'ouverture London.
+            </p>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+              <div class="bg-white/5 rounded-lg px-2 py-2">
+                <p class="text-[10px] text-slate-500 mb-1.5">Couleur</p>
+                <div class="flex items-center gap-2">
+                  <input type="color" v-model="prefs.smcLiqAsieCouleur"
+                    class="w-8 h-7 rounded cursor-pointer border border-white/15 bg-transparent" />
+                  <span class="text-[10px] text-slate-400 font-mono">{{ prefs.smcLiqAsieCouleur }}</span>
+                </div>
+              </div>
+              <div class="bg-white/5 rounded-lg px-2 py-2">
+                <p class="text-[10px] text-slate-500 mb-1.5">Opacité fond</p>
+                <input type="number" min="0.05" max="0.5" step="0.05" v-model.number="prefs.smcLiqAsieOpacite"
+                  class="w-full text-center text-xs bg-[#0f1629] border border-white/10 rounded px-2 py-1 text-white focus:outline-none" />
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-3">
+              <div class="bg-white/5 rounded-lg px-2 py-2">
+                <p class="text-[10px] text-slate-500 mb-1.5">Nb sessions</p>
+                <input type="number" min="1" max="5" step="1" v-model.number="prefs.smcLiqAsieNbSessions"
+                  class="w-full text-center text-xs bg-[#0f1629] border border-white/10 rounded px-1 py-1 text-white focus:outline-none" />
+              </div>
+              <div class="bg-white/5 rounded-lg px-2 py-2">
+                <p class="text-[10px] text-slate-500 mb-1.5">Heures Paris</p>
+                <div class="flex items-center gap-1">
+                  <input type="number" min="0" max="23" step="1" v-model.number="prefs.smcLiqAsieHeureDebut"
+                    class="w-full text-center text-xs bg-[#0f1629] border border-white/10 rounded px-1 py-1 text-white focus:outline-none" />
+                  <span class="text-slate-500 text-[10px]">→</span>
+                  <input type="number" min="0" max="23" step="1" v-model.number="prefs.smcLiqAsieHeureFin"
+                    class="w-full text-center text-xs bg-[#0f1629] border border-white/10 rounded px-1 py-1 text-white focus:outline-none" />
+                </div>
+              </div>
+            </div>
+            <div class="bg-white/5 rounded-lg px-3 py-2">
+              <div class="flex items-center justify-between">
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" v-model="prefs.smcLiqAsieDeviationsActif" class="rounded accent-amber-500" />
+                  <span class="text-xs text-slate-300">Déviations</span>
+                </label>
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] text-slate-500">Nombre</span>
+                  <input type="number" min="1" max="5" step="1" v-model.number="prefs.smcLiqAsieDeviationsNb"
+                    :disabled="!prefs.smcLiqAsieDeviationsActif"
+                    class="w-12 text-center text-xs bg-[#0f1629] border border-white/10 rounded px-1 py-1 text-white focus:outline-none disabled:opacity-40" />
+                </div>
+              </div>
+            </div>
+          </template>
+
           <div class="flex justify-end gap-2 mt-5">
             <button
               @click="$emit('fermer')"
@@ -188,12 +271,15 @@ const prefs = defineModel<PrefsIndicateurs>({ required: true })
 defineEmits<{ fermer: []; appliquer: [] }>()
 
 const TITRES: Record<string, string> = {
-  smcOb:          'Order Blocks — Paramètres',
-  smcBpr:         'IFVG / BPR — Paramètres',
-  smcIfvg:        'IFVG (Inversion FVG) — Paramètres',
-  smcImbalance:   'Imbalances (FVG + OG) — Paramètres',
-  smcFib:         'Fibonacci — Paramètres',
-  smcLiquidites: 'Liquidité — Paramètres',
+  smcOb:            'Order Blocks — Paramètres',
+  smcBpr:           'IFVG / BPR — Paramètres',
+  smcIfvg:          'IFVG (Inversion FVG) — Paramètres',
+  smcImbalance:     'Imbalances (FVG + OG) — Paramètres',
+  smcFib:           'Fibonacci — Paramètres',
+  smcLiquidites:    'Liquidité — Paramètres',
+  smcBos:           'BOS (Break of Structure) — Paramètres',
+  smcChoch:         'CHoCH (Change of Character) — Paramètres',
+  smcAsianSession:  'Range Session Asiatique — Paramètres',
 }
 
 const titreModale = computed(() =>

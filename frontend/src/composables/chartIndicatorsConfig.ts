@@ -66,7 +66,7 @@ export function buildIndicatorsParams(asset: string, tf: string, prefs: PrefsInd
     smc_liq_session_asie: prefs.smcLiqSessionAsie,
     smc_liq_dwm: prefs.smcLiqDwmActif,
     smc_liq_dwm_nb: prefs.smcLiqDwmNbJours,
-    smc_liq_asie_range: prefs.smcLiqAsieRangeActif,
+    smc_liq_asie_range: prefs.smcAsianSession,
     smc_liq_asie_heure_debut: prefs.smcLiqAsieHeureDebut,
     smc_liq_asie_heure_fin: prefs.smcLiqAsieHeureFin,
     smc_liq_asie_deviations_nb: prefs.smcLiqAsieDeviationsNb,

@@ -97,6 +97,8 @@ export interface PrefsIndicateurs {
   smcChoch: boolean
   smcBosCouleur: string
   smcChochCouleur: string
+  // Range session asiatique (bouton standalone)
+  smcAsianSession: boolean
   // Tendance EMA Multi-TF
   kasperTendance: boolean
   kasperPeriodeRapide: number
@@ -190,10 +192,11 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   smcLiqAsieOpacite: 0.15,
   smcLiqAsieCouleur: '#f59e0b',
   // Structure SMC : BOS / CHoCH
-  smcBos: true,
-  smcChoch: true,
+  smcBos: false,
+  smcChoch: false,
   smcBosCouleur: '#10b981',
   smcChochCouleur: '#a855f7',
+  smcAsianSession: false,
   // Tendance EMA Multi-TF
   kasperTendance: false,
   kasperPeriodeRapide: 9,
