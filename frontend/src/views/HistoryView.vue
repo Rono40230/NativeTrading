@@ -2,7 +2,7 @@
   <div class="space-y-6">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">📋 Historique des Signaux</h1>
-      <button v-if="!rocketsMode" class="btn-outline text-sm" @click="exportOuvert = true">⬇ Export CSV/PDF</button>
+
     </div>
 
     <!-- Filtres -->
@@ -72,7 +72,7 @@
     </div>
 
     <!-- Modales -->
-    <ExportCsvModal :open="exportOuvert" :assets-dispos="assetsConnus" @close="exportOuvert = false" />
+
     <!-- Modale Analyse Straddle -->
     <StraddleAnalyseModal
       :open="analyseOuverte && filtreStrategie === 'Straddle'"
@@ -109,14 +109,11 @@ import HistoryTable from '@/components/common/HistoryTable.vue'
 import { useRocketsHistory, rocketToSignal } from '@/composables/useRocketsHistory'
 import SmcAnalyseModal from '@/components/common/SmcAnalyseModal.vue'
 import StraddleAnalyseModal from '@/components/common/StraddleAnalyseModal.vue'
-import ExportCsvModal from '@/components/common/ExportCsvModal.vue'
-
 const alerteStore = useAlerteStore()
 const prixStore = usePrixStore()
 const signaux  = ref<Signal[]>([])
 const chargement    = ref(false)
 const analyseOuverte = ref(false)
-const exportOuvert   = ref(false)
 const filtreAsset   = ref('')
 const filtreDirection = ref('')
 const filtreStrategie = ref('')

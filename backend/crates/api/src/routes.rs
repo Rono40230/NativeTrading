@@ -36,10 +36,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route("/api/candles", web::get().to(crate::handlers::get_candles))
         .route("/api/prix-actuel", web::get().to(crate::handlers::get_prix_actuel))
         .route("/api/signaux", web::get().to(crate::signaux_handlers::get_signaux))
-        .route(
-            "/api/signaux/export",
-            web::post().to(crate::export_handlers::exporter_signaux_csv),
-        )
         .route("/api/smc/analyse", web::get().to(crate::smc_handlers::analyse_smc))
         .service(
             web::resource("/api/smc/score-debug")

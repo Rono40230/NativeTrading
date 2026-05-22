@@ -98,21 +98,6 @@ export const apiService = {
     return res.data
   },
 
-  async exporterCsv(filtres: {
-    limit?: number
-    strategie?: string
-    statut?: string
-    direction?: string
-    asset?: string
-    verdict?: string
-    depuis_ts?: number
-    jusqu_ts?: number
-    separateur?: string
-  }): Promise<Blob> {
-    const res = await http.post('/api/signaux/export', filtres, { responseType: 'blob' })
-    return res.data as Blob
-  },
-
   async statutIA(): Promise<StatutIA> {
     const res = await http.get('/api/ia/status')
     return res.data
