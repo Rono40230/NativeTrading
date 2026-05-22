@@ -7,7 +7,7 @@ export type EquityPoint = {
   pnl_r: number
   equity_cumulee: number
   ferme_le: number
-  duree_min: number
+  duree_min?: number
 }
 
 export type EquityData = {

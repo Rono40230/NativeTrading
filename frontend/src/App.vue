@@ -90,6 +90,11 @@ onMounted(() => {
         llm_tp1_suggere: null,
         sl_short: null,
         take_profit_short: null,
+        sl_long_effectif: null,
+        sl_short_effectif: null,
+        tps_long_atteints: null,
+        tps_short_atteints: null,
+        heure_entree: null,
         ...overrides,
       })
     }

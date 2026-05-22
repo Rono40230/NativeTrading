@@ -94,7 +94,6 @@ export function useChartImport() {
       alerteStore.afficherErreur("Importez d'abord au moins un chart")
       return
     }
-    if (!anthropicActifChart.value) return analyserImageLocal(asset)
     analyseEnCours.value = true
     partsResultat.value = []
     try {

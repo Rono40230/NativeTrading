@@ -79,7 +79,7 @@
     <div v-else-if="chargementMonitoring" class="text-center text-xs text-gray-500 py-4 animate-pulse">Chargement
       stats...
     </div>
-    <div v-else-if="!monitoring?.nb_signals_total" class="text-center text-xs text-gray-500 py-4">
+    <div v-else class="text-center text-xs text-gray-500 py-4">
       Aucun trade Straddle clôturé — les stats apparaîtront ici après les premiers signaux.
     </div>
 

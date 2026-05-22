@@ -84,8 +84,8 @@ pub async fn analyser_chart_sauvegarde(body: web::Json<SauvegardeAnalyseReq>) ->
     }
 
     use base64::{engine::general_purpose, Engine as _};
-    match general_purpose::STANDARD.decode(&body.image_base64) {
-        Ok(bytes) => match std::fs::write(&path, bytes) {
+    match general_purpose::STANDARD.decode(body.image_base64.as_bytes()) {
+        Ok(bytes) => match std::fs::write(path, bytes) {
             Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "path": chemin_nom, "status": "success" })),
             Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": format!("Erreur d'écriture: {}", e) }))
         },

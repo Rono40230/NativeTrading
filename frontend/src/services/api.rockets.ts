@@ -98,4 +98,14 @@ export const rocketsApi = {
     const res = await http.get('/api/rockets/seuils-effectifs', { params: { phase, session } })
     return res.data
   },
+
+  async postFeedbackTrader(body: {
+    signal_id: number
+    verdict: 'tp1' | 'tp2' | 'tp3' | 'sl' | 'ignore'
+    prix_entree_reel?: number
+    prix_sortie_reel?: number
+    notes?: string
+  }): Promise<void> {
+    await http.post('/api/rockets/feedback/trader', body)
+  },
 }

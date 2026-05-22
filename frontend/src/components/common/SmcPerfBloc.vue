@@ -8,7 +8,7 @@
           {{ data?.nb_trades_saisis ?? 0 }} trades clôturés
           <TooltipIcon>Trades réellement ouverts (hors invalides/expirés)</TooltipIcon>
         </span>
-        <button class="text-gray-600 hover:text-gray-400 transition-colors" @click="charger">↺</button>
+        <button class="text-gray-600 hover:text-gray-400 transition-colors" @click="() => charger()">↺</button>
       </div>
     </div>
 

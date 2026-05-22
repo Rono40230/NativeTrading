@@ -97,7 +97,7 @@
         >
           → Voir les créneaux &amp; backtest horaire complet
         </RouterLink>
-        <StraddleCreneauxTable />
+
       </div>
 
       <!-- Onglet Réglages -->
@@ -125,7 +125,6 @@ import { RouterLink } from 'vue-router'
 import { useStraddleStats } from '@/composables/useStraddleStats'
 import AnalysePerfBloc from '@/components/common/AnalysePerfBloc.vue'
 import StraddleParamsPanel from '@/components/common/StraddleParamsPanel.vue'
-import StraddleCreneauxTable from '@/components/common/StraddleCreneauxTable.vue'
 import type { StraddleParams } from '@/components/common/StraddleParamsPanel.vue'
 
 type OngletStr = 'perf' | 'creneaux' | 'reglages'

@@ -70,7 +70,7 @@ import StrategiesParamsPanel from '@/components/StrategiesParamsPanel.vue'
 import AssetParamsPanel from '@/components/common/AssetParamsPanel.vue'
 
 const activeTab = ref<'assets' | 'connexion' | 'strategies' | 'risque'>('assets')
-const tabs = [
+const tabs: { id: typeof activeTab.value; label: string }[] = [
   { id: 'assets', label: '📋 Choix des assets' },
   { id: 'connexion', label: '🔌 Connexion / API' },
   { id: 'strategies', label: '⚙️ Paramétrages des stratégies' },
