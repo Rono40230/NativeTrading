@@ -85,7 +85,29 @@ pub async fn sauvegarder_signal(
         type_entree_rec: None,
     };
     match rockets::sauvegarder(pool, &nouveau).await {
-        Ok(Some(id)) => HttpResponse::Ok().json(serde_json::json!({ "id": id, "nouveau": true })),
+        Ok(Some(id)) => {
+            let ticker_base = body
+                .ticker
+                .trim_end_matches("USDT")
+                .trim_end_matches("USD")
+                .trim_end_matches("BTC");
+            if let Some(asset) = crate::utils::parse_asset(ticker_base) {
+                use common::{Direction, Signal, Timeframe};
+                let tp1 = body.target;
+                let signal = Signal::nouveau(
+                    asset,
+                    Timeframe::M15,
+                    Direction::Long,
+                    body.score as f64,
+                    body.prix_entree,
+                    body.stop_loss,
+                    vec![tp1, body.target2.unwrap_or(tp1), body.target3.unwrap_or(tp1)],
+                    "Rockets",
+                );
+                state.signal_engine.publier(signal);
+            }
+            HttpResponse::Ok().json(serde_json::json!({ "id": id, "nouveau": true }))
+        }
         Ok(None) => HttpResponse::Ok().json(serde_json::json!({ "nouveau": false })),
         Err(e) => {
             tracing::error!("Sauvegarde rocket: {}", e);
