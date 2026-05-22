@@ -1,7 +1,6 @@
 mod contexte;
 pub mod diagram_templates;
 pub mod prompts;
-mod prompts_vision;
 pub mod rockets_analyse;
 pub mod rockets_contexte;
 pub mod rockets_filtre;
@@ -20,7 +19,6 @@ pub use prompts::{
     PROMPT_FILTRE_ROCKET, PROMPT_SIGNAL_SMC, SYSTEM_PROMPT_COACH, SYSTEM_PROMPT_COACH_DIAGRAM,
     SYSTEM_PROMPT_COACH_OLLAMA,
 };
-pub use prompts_vision::{PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF};
 use types::{ReponseOllama, MODELE_DEFAUT, OLLAMA_URL};
 
 /// Sémaphore global Ollama : max 2 appels LLM concurrents (évite la saturation VRAM/swap modèle).
@@ -32,12 +30,12 @@ pub static OLLAMA_HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(300))
         .build()
-        .expect("Création client HTTP Ollama")
+        .unwrap_or_else(|_| reqwest::Client::new())
 });
 
 pub use smc_confirm::enrichir_signal_avec_ollama;
 pub use types::tf_libelle;
-pub use vision::{analyser_images, appeler_ollama, MODELE_VISION};
+pub use vision::appeler_ollama;
 
 pub const MODELE_COACH: &str = "qwen2.5vl:7b";
 pub const MODELE_COACH_DIAGRAM: &str = "qwen2.5-coder:14b";

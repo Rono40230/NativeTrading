@@ -48,9 +48,9 @@
         @appliquer="chargerIndicateurs" @actualiser="actualiser" />
 
       <!-- Panneau signaux indicateurs -->
-      <ChartSignauxPanel :signaux="signauxActifs" :analyse-en-cours="analyseEnCours" :modele-i-a="modeleSelectionne"
-        @update:filtre="onFiltreSignaux" @update:modele-i-a="modeleSelectionne = $event"
-        @analyser="analyserAvecLlava" />
+      <ChartSignauxPanel :signaux="signauxActifs"
+        @update:filtre="onFiltreSignaux"
+        @analyser="() => {}" />
     </div>
 
     <!-- Sidebar IA (toggle + drawer) -->
@@ -58,8 +58,6 @@
       @toggle="sidebarIA = !sidebarIA" />
 
     <!-- Modales (hors flux) -->
-    <AnalyseIAModal :analyse="analyseResultat" :modele="analyseModele" :asset="selectedAsset"
-      :timeframe="selectedTimeframe" @fermer="analyseResultat = null" />
     <SignalModal :signal="signalModal" :niveaux="niveauxModal" :asset="selectedAsset" @fermer="signalModal = null" />
   </div>
 </template>
@@ -72,7 +70,6 @@ import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
 import ChartSignauxPanel from '@/components/common/ChartSignauxPanel.vue'
 import { filtreDefaut, type FiltreSignaux } from '@/composables/chartSignauxTypes'
-import { useChartAnalyse } from '@/composables/useChartAnalyse'
 import { useChartIndicators } from '@/composables/useChartIndicators'
 import { useSmcCanvas } from '@/composables/useSmcCanvas'
 import { useSmcLiqCanvas } from '@/composables/useSmcLiqCanvas'
@@ -87,7 +84,6 @@ import ChartSidebarIA from '@/components/common/ChartSidebarIA.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
 import TendanceMultiTF from '@/components/common/TendanceMultiTF.vue'
 import ChartPrixStats from '@/components/common/ChartPrixStats.vue'
-import AnalyseIAModal from '@/components/common/AnalyseIAModal.vue'
 import SignalModal from '@/components/common/SignalModal.vue'
 import type { NiveauSlTp } from '@/composables/chartAtrSlTp'
 import type { SignalIndicateur } from '@/composables/chartSignauxTypes'
@@ -114,9 +110,6 @@ const {
   initChart, mettreAJourSerie, mettreAJourEnDirect, detruireChart,
   configurerRedimensionnement, arreterRedimensionnement, getChart, getCandlestickSeries,
 } = useChartTradingView(chartContainer, bougies)
-
-const { analyseEnCours, analyseResultat, analyseModele, modeleSelectionne, analyserAvecLlava } =
-  useChartAnalyse(getChart, selectedAsset, selectedTimeframe)
 
 const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux } = useChartIndicators()
 const smcCanvas = useSmcCanvas()

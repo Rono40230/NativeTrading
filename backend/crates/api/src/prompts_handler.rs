@@ -9,8 +9,7 @@ use crate::ollama::smc_analyse::PROMPT_ANALYSE_SMC;
 use crate::ollama::smc_filtre::PROMPT_FILTRE_SMC;
 use crate::ollama::straddle_analyse::PROMPT_ANALYSE_STRADDLE;
 use crate::ollama::{
-    PROMPT_FILTRE_ROCKET, PROMPT_SIGNAL_SMC, PROMPT_VISION_ANALYST, PROMPT_VISION_MULTI_TF,
-    SYSTEM_PROMPT_COACH,
+    PROMPT_FILTRE_ROCKET, PROMPT_SIGNAL_SMC, SYSTEM_PROMPT_COACH,
 };
 use crate::straddle_prompt::PROMPT_SIGNAL_STRADDLE;
 
@@ -27,8 +26,6 @@ fn defaults() -> HashMap<&'static str, &'static str> {
     m.insert("straddle_signal", PROMPT_SIGNAL_STRADDLE);
     m.insert("straddle_analyse", PROMPT_ANALYSE_STRADDLE);
     m.insert("coach", SYSTEM_PROMPT_COACH);
-    m.insert("vision_1tf", PROMPT_VISION_ANALYST);
-    m.insert("vision_multi_tf", PROMPT_VISION_MULTI_TF);
     m
 }
 

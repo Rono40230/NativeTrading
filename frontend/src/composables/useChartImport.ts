@@ -115,27 +115,6 @@ export function useChartImport() {
     }
   }
 
-  async function analyserImageLocal(asset: string) {
-    if (images.value.length === 0) {
-      alerteStore.afficherErreur("Importez d'abord au moins un chart")
-      return
-    }
-    analyseLocalEnCours.value = true
-    partsResultatLocal.value = []
-    try {
-      const payload: ImageAvecTF[] = images.value.map(img => ({ base64: img.base64, timeframe: img.timeframe }))
-      const res = await apiService.analyserChartLocal(asset, payload, notes.value || undefined)
-      modeleLocalUtilise.value = res.modele
-      partsResultatLocal.value = parseContent(res.analyse)
-    } catch (e: unknown) {
-      const axiosErr = e as any
-      const detail: string = axiosErr?.response?.data?.error ?? (e as Error).message
-      alerteStore.afficherErreur(`Vision locale: ${detail}`)
-    } finally {
-      analyseLocalEnCours.value = false
-    }
-  }
-
   function reinitialiser() {
     images.value = []
     notes.value = ''
@@ -148,7 +127,7 @@ export function useChartImport() {
   return {
     images, notes, analyseEnCours, partsResultat, dragActif, modeleUtilise,
     analyseLocalEnCours, partsResultatLocal, modeleLocalUtilise,
-    onDrop, onInputFile, analyserImage, analyserImageLocal,
+    onDrop, onInputFile, analyserImage,
     supprimerImage, mettreAJourTF, reinitialiser,
     setDragActif: (v: boolean) => { dragActif.value = v },
   }
