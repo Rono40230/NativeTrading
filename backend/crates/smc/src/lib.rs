@@ -1,7 +1,9 @@
 use common::{Candle, Direction};
 use serde::{Deserialize, Serialize};
 
+pub mod bos;
 pub mod bpr;
+pub mod choch;
 pub mod fibonacci;
 pub mod ifvg;
 pub mod imbalance;
@@ -13,7 +15,9 @@ pub mod order_blocks;
 pub mod sweep;
 pub mod tendances;
 
+pub use bos::ResultatBos;
 pub use bpr::Bpr;
+pub use choch::ResultatChoch;
 pub use fibonacci::NiveauxFibonacci;
 pub use ifvg::Ifvg;
 pub use imbalance::ZoneImbalance;
@@ -55,6 +59,10 @@ pub struct ScoreSmc {
     pub direction: Direction,
     /// Vrai si total >= 70 (seuil déclencheur)
     pub confluence: bool,
+    /// Break of Structure détecté (cassure d'un swing dans la direction du signal)
+    pub bos: bool,
+    /// Change of Character détecté (premier retournement contre la tendance structurelle)
+    pub choch: bool,
 }
 
 /// Calcule le score de confluence SMC pour un jeu de bougies.
@@ -107,15 +115,27 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
         .map(|s| sweep_coherent_avec_direction(s.ssl_swepe, direction))
         .unwrap_or(false);
 
+    // BOS : cassure d'un swing dans la direction du signal
+    let bos = bos::detecter_bos(bougies)
+        .map(|b| b.direction == direction)
+        .unwrap_or(false);
+
+    // CHoCH : premier retournement dans la direction du signal
+    let choch = choch::detecter_choch(bougies)
+        .map(|c| c.direction == direction)
+        .unwrap_or(false);
+
     tracing::debug!(
-        "ScoreSmc {:?}: total={:.1} (tend={:.1} ob={:.1} ifvg={:.1} imb={:.1} fib={:.1})",
+        "ScoreSmc {:?}: total={:.1} (tend={:.1} ob={:.1} ifvg={:.1} imb={:.1} fib={:.1}) bos={} choch={}",
         direction,
         total,
         pts_tendance,
         pts_ob,
         pts_ifvg,
         pts_imbalance,
-        pts_fib
+        pts_fib,
+        bos,
+        choch
     );
 
     Some(ScoreSmc {
@@ -129,6 +149,8 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
         confluence: total >= 70.0,
         kill_zone_active,
         sweep_detecte,
+        bos,
+        choch,
     })
 }
 
