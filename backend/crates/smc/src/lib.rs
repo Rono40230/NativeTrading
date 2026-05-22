@@ -102,7 +102,10 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
     // Prérequis ICT — gates binaires (non inclus dans le score, affichés séparément)
     let last_ts = bougies.last()?.timestamp;
     let kill_zone_active = kill_zone::est_en_kill_zone(last_ts);
-    let sweep_detecte = sweep::detecter_sweep(bougies).is_some();
+    // Sweep directionnalisé : SSL (ssl_swepe=true) → Long, BSL (ssl_swepe=false) → Short
+    let sweep_detecte = sweep::detecter_sweep(bougies)
+        .map(|s| sweep_coherent_avec_direction(s.ssl_swepe, direction))
+        .unwrap_or(false);
 
     tracing::debug!(
         "ScoreSmc {:?}: total={:.1} (tend={:.1} ob={:.1} ifvg={:.1} imb={:.1} fib={:.1})",
@@ -127,4 +130,43 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
         kill_zone_active,
         sweep_detecte,
     })
+}
+
+/// Vérifie la cohérence direction sweep ↔ direction signal.
+/// SSL sweep (ssl_swepe=true) précède un Long, BSL (ssl_swepe=false) précède un Short.
+fn sweep_coherent_avec_direction(ssl_swepe: bool, direction: Direction) -> bool {
+    match direction {
+        Direction::Long  => ssl_swepe,
+        Direction::Short => !ssl_swepe,
+        Direction::Both  => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sweep_ssl_valide_direction_long() {
+        // SSL sweep (wick bas sous swing low) → signal Long attendu
+        assert!(sweep_coherent_avec_direction(true, Direction::Long));
+    }
+
+    #[test]
+    fn sweep_bsl_invalide_pour_long() {
+        // BSL sweep (wick haut) ne doit PAS valider un Long
+        assert!(!sweep_coherent_avec_direction(false, Direction::Long));
+    }
+
+    #[test]
+    fn sweep_bsl_valide_direction_short() {
+        // BSL sweep (wick haut au-dessus swing high) → signal Short attendu
+        assert!(sweep_coherent_avec_direction(false, Direction::Short));
+    }
+
+    #[test]
+    fn sweep_ssl_invalide_pour_short() {
+        // SSL sweep ne doit PAS valider un Short
+        assert!(!sweep_coherent_avec_direction(true, Direction::Short));
+    }
 }

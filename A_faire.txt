@@ -1,7 +1,11 @@
 --------------------------------------------------------------------------------------------------------------------------
 
+est il utile d'ajouter le modèle qwen3-32b à l'app pour les analyse smc et globalement.
+Existe t il un modèle disponible en local spécialisé dans l'analyse smc que nous pourrions dédié à cette analyse = va voir sur le net
 
 --------------------------------------------------------------------------------------------------------------------------
 
+Dans le graphique et l'analyse SMC il faut ajouter l'indicateurs des sessions asiatiques pour repérer les asian low et high (liquidités)
 
 --------------------------------------------------------------------------------------------------------------------------
+

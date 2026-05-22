@@ -30,13 +30,14 @@ pub fn demarrer_boucle_straddle(
             let nb = assets.len();
             let seuil_straddle: f64 = db.lire_config("seuil_confiance_straddle").await
                 .ok().flatten().and_then(|v| v.parse().ok()).unwrap_or(0.75);
-            let atr_ui: f64 = {
+            let (atr_ui, sl_mult, tp_mult_1, tp_mult_2, tp_mult_3): (f64, f64, f64, f64, f64) = {
                 let p = db::strategies_params::lire_straddle_params(db.pool()).await;
-                if p.atr_seuil.is_finite() && p.atr_seuil > 0.0 {
+                let atr = if p.atr_seuil.is_finite() && p.atr_seuil > 0.0 {
                     p.atr_seuil
                 } else {
                     SEUIL_SIGNAL_DEFAUT
-                }
+                };
+                (atr, p.sl_mult, p.tp_mult_1, p.tp_mult_2, p.tp_mult_3)
             };
             tracing::debug!(
                 "Straddle auto cycle: atr_ui={:.2}, seuil_ml={:.2}, assets_count={}",
@@ -60,7 +61,7 @@ pub fn demarrer_boucle_straddle(
                         else { continue; }
                     } else { false }
                 };
-                analyser_asset(&db, &signal_engine, &pipeline_ml, seuil_straddle, atr_ui, &asset, &tf, &whipsaw_delais, skip_ww, &actifs_corr).await;
+                analyser_asset(&db, &signal_engine, &pipeline_ml, seuil_straddle, atr_ui, sl_mult, tp_mult_1, tp_mult_2, tp_mult_3, &asset, &tf, &whipsaw_delais, skip_ww, &actifs_corr).await;
             }
             tracing::debug!("🌪️  Boucle Straddle cycle terminé ({} assets)", nb);
             sleep(Duration::from_secs(15 * 60)).await;
@@ -76,6 +77,7 @@ async fn analyser_asset(
     pipeline_ml: &Arc<Mutex<PipelineML>>,
     seuil_straddle: f64,
     atr_seuil_ui: f64,
+    sl_mult: f64, tp_mult_1: f64, tp_mult_2: f64, tp_mult_3: f64,
     asset: &Asset,
     tf: &Timeframe,
     whipsaw_delais: &WhipsawDelais,
@@ -284,6 +286,10 @@ async fn analyser_asset(
         annonces: &annonces,
         bougies: &bougies,
         ratio_atr,
+        sl_mult,
+        tp_mult_1,
+        tp_mult_2,
+        tp_mult_3,
     };
     if let Err(e) = appeler_ollama_et_publier(db, signal_engine, asset, tf, params).await {
         tracing::warn!("Straddle auto {}/{}: {}", asset.as_str(), tf.as_str(), e);

@@ -85,6 +85,7 @@ duree_exposition_estimee_min : durée estimée de l'impulsion de prix avant cons
 FORMAT JSON OBLIGATOIRE (sans texte autour, sans commentaires) :
 Si STRADDLE :
 {"signal":"STRADDLE","declencheur":"NFP dans 18min | London/NY Overlap | ratio_atr=1.6","raison":"Compression pré-NFP confirmée en plein chevauchement London/NY, amplitude attendue > 2×ATR","score_confiance":8.0,"amplitude_attendue_pct":1.2,"duree_exposition_estimee_min":25}
+⚠️  score_confiance DOIT être entre 0.0 et 10.0 — PAS entre 0.0 et 1.0
 
 Si WAIT :
 {"signal":"WAIT","raison":"Score insuffisant (4.0/10) — Macro ICT seule sans annonce ni créneau validé","score_confiance":4.0}"#;

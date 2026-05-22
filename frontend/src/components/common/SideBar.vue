@@ -58,6 +58,7 @@ function estGroupe(item: NavItem): item is LienGroupe { return 'groupe' in item 
 
 const nav: NavItem[] = [
   { to: '/', icone: '🏠', label: 'Dashboard' },
+  { to: '/smc/graphiques', icone: '📈', label: 'Graphiques' },
 
   // ── Stratégies ────────────────────────────────────────────────────────────
   {
@@ -71,7 +72,6 @@ const nav: NavItem[] = [
     liens: [
       { to: '/smc',           icone: '⚡', label: 'Signaux actifs' },
       { to: '/smc/analyser',  icone: '📊', label: 'Analyser' },
-      { to: '/smc/graphiques',icone: '📈', label: 'Graphiques' },
       { to: '/lexique',       icone: '📖', label: 'Lexique SMC' },
     ]
   },

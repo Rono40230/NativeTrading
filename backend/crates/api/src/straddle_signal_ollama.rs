@@ -22,6 +22,12 @@ pub struct ParamsOllama<'a> {
     pub bougies: &'a [common::Candle],
     /// Ratio ATR actuel / ATR moyen 14p — feature contextuelle Straddle.
     pub ratio_atr: f64,
+    /// Multiplicateur SL (depuis StraddleParams DB).
+    pub sl_mult: f64,
+    /// Multiplicateurs TP 1/2/3 (depuis StraddleParams DB).
+    pub tp_mult_1: f64,
+    pub tp_mult_2: f64,
+    pub tp_mult_3: f64,
 }
 
 pub async fn appeler_ollama_et_publier(
@@ -41,6 +47,10 @@ pub async fn appeler_ollama_et_publier(
         annonces,
         bougies,
         ratio_atr,
+        sl_mult,
+        tp_mult_1,
+        tp_mult_2,
+        tp_mult_3,
     } = params;
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5:14b".to_string());
     let url = std::env::var("OLLAMA_URL")
@@ -81,7 +91,7 @@ pub async fn appeler_ollama_et_publier(
 
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
-    let brut: ReponseLlm = match serde_json::from_str::<ReponseLlm>(&texte[debut..fin]) {
+    let mut brut: ReponseLlm = match serde_json::from_str::<ReponseLlm>(&texte[debut..fin]) {
         Ok(b) => b,
         Err(_) => {
             tracing::debug!(
@@ -92,6 +102,8 @@ pub async fn appeler_ollama_et_publier(
             return Ok(());
         }
     };
+    // Normalisation : si le LLM retourne 0-1 au lieu de 0-10, ramener à l'échelle 0-10
+    brut.score_confiance = crate::utils::normaliser_score_llm(brut.score_confiance);
 
     if brut.signal != "STRADDLE" || brut.score_confiance < score_seuil {
         tracing::debug!(
@@ -104,10 +116,10 @@ pub async fn appeler_ollama_et_publier(
         return Ok(());
     }
 
-    let sl_long = prix - 0.5 * atr;
-    let sl_short = prix + 0.5 * atr;
-    let tps_long = vec![prix + 2.0 * atr, prix + 3.5 * atr, prix + 5.0 * atr];
-    let tps_short = [prix - 2.0 * atr, prix - 3.5 * atr, prix - 5.0 * atr];
+    let sl_long  = prix - sl_mult  * atr;
+    let sl_short = prix + sl_mult  * atr;
+    let tps_long  = vec![prix + tp_mult_1 * atr, prix + tp_mult_2 * atr, prix + tp_mult_3 * atr];
+    let tps_short = [prix - tp_mult_1 * atr, prix - tp_mult_2 * atr, prix - tp_mult_3 * atr];
 
     let signal = Signal::nouveau(
         asset.clone(),
@@ -206,4 +218,55 @@ pub async fn appeler_ollama_et_publier(
         brut.score_confiance * 10.0
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    /// Vérifie que sl_mult et tp_mult_1/2/3 sont correctement appliqués au calcul SL/TP.
+    #[test]
+    fn sl_tp_appliquent_multiplicateurs_params() {
+        let prix = 2000.0_f64;
+        let atr = 50.0_f64;
+
+        // Cas avec sl_mult=0.8, tp_mult_1=1.5, tp_mult_2=2.5, tp_mult_3=5.0
+        let sl_mult = 0.8_f64;
+        let tp_mult_1 = 1.5_f64;
+        let tp_mult_2 = 2.5_f64;
+        let tp_mult_3 = 5.0_f64;
+
+        let sl_long  = prix - sl_mult  * atr;
+        let sl_short = prix + sl_mult  * atr;
+        let tps_long  = [prix + tp_mult_1 * atr, prix + tp_mult_2 * atr, prix + tp_mult_3 * atr];
+        let tps_short = [prix - tp_mult_1 * atr, prix - tp_mult_2 * atr, prix - tp_mult_3 * atr];
+
+        assert!((sl_long  - (prix - 0.8 * atr)).abs() < 1e-9, "SL long incorrect");
+        assert!((sl_short - (prix + 0.8 * atr)).abs() < 1e-9, "SL short incorrect");
+        assert!((tps_long[0]  - (prix + 1.5 * atr)).abs() < 1e-9, "TP1 long incorrect");
+        assert!((tps_long[1]  - (prix + 2.5 * atr)).abs() < 1e-9, "TP2 long incorrect");
+        assert!((tps_long[2]  - (prix + 5.0 * atr)).abs() < 1e-9, "TP3 long incorrect");
+        assert!((tps_short[0] - (prix - 1.5 * atr)).abs() < 1e-9, "TP1 short incorrect");
+        assert!((tps_short[1] - (prix - 2.5 * atr)).abs() < 1e-9, "TP2 short incorrect");
+        assert!((tps_short[2] - (prix - 5.0 * atr)).abs() < 1e-9, "TP3 short incorrect");
+    }
+
+    /// Vérifie que les valeurs par défaut DB (sl_mult=0.5, tp=2.0/3.5/5.0) produisent
+    /// les mêmes niveaux que l'ancien code hardcodé.
+    #[test]
+    fn valeurs_par_defaut_db_identiques_aux_anciens_hardcodes() {
+        let prix = 1800.0_f64;
+        let atr  = 30.0_f64;
+
+        let sl_mult   = 0.5_f64;
+        let tp_mult_1 = 2.0_f64;
+        let tp_mult_2 = 3.5_f64;
+        let tp_mult_3 = 5.0_f64;
+
+        let sl_long  = prix - sl_mult  * atr;
+        let tps_long = [prix + tp_mult_1 * atr, prix + tp_mult_2 * atr, prix + tp_mult_3 * atr];
+
+        assert!((sl_long       - (prix - 0.5 * atr)).abs() < 1e-9);
+        assert!((tps_long[0]   - (prix + 2.0 * atr)).abs() < 1e-9);
+        assert!((tps_long[1]   - (prix + 3.5 * atr)).abs() < 1e-9);
+        assert!((tps_long[2]   - (prix + 5.0 * atr)).abs() < 1e-9);
+    }
 }

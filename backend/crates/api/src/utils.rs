@@ -44,6 +44,43 @@ pub fn parse_asset(s: &str) -> Option<Asset> {
     }
 }
 
+/// Normalise un score LLM vers l'échelle 0-10.
+/// Si le LLM retourne 0-1 au lieu de 0-10, multiplie par 10.
+/// Résultat clampé entre 0.0 et 10.0.
+pub fn normaliser_score_llm(score: f64) -> f64 {
+    let normalise = if score > 0.0 && score <= 1.0 {
+        score * 10.0
+    } else {
+        score
+    };
+    normalise.clamp(0.0, 10.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normaliser_score_llm;
+
+    #[test]
+    fn score_sur_echelle_0_10_inchange() {
+        assert_eq!(normaliser_score_llm(7.5), 7.5);
+    }
+
+    #[test]
+    fn score_sur_echelle_0_1_normalise_vers_0_10() {
+        assert_eq!(normaliser_score_llm(0.75), 7.5);
+    }
+
+    #[test]
+    fn score_negatif_clamp_a_zero() {
+        assert_eq!(normaliser_score_llm(-1.0), 0.0);
+    }
+
+    #[test]
+    fn score_superieur_10_clamp_a_10() {
+        assert_eq!(normaliser_score_llm(12.0), 10.0);
+    }
+}
+
 /// Parse un timeframe avec M15 comme valeur par défaut.
 pub fn parse_timeframe(s: &str) -> Timeframe {
     match s {

@@ -255,10 +255,10 @@ pub fn calculer_phase(ctx: &ContextePhase, cfg: &RocketsConfig) -> Option<(Strin
         }
         // ── Filtres professionnels VCP ────────────────────────────────────────
         // Assèchement du volume (signal clé VCP Minervini) : distribution absente
-        if volume_seche < 0.75 {
-            s += 15; // Volume qui sèche = smart money accumule silencieusement
-        } else if volume_seche < 0.55 {
-            s += 5; // Bonus supplémentaire pour assèchement fort (déjà compté ci-dessus)
+        if volume_seche < 0.55 {
+            s += 20; // Assèchement fort : bonus maximal (volume quasi-absent)
+        } else if volume_seche < 0.75 {
+            s += 15; // Assèchement normal : smart money accumule silencieusement
         }
         // Progressivité des contractions (authenticité du pattern VCP)
         if contraction_qualite > 0.70 {

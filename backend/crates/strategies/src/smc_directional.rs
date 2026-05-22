@@ -2,7 +2,7 @@ use super::{Signal, Strategy};
 use common::{Candle, Direction, Result};
 use db::strategies_params::SmcParams;
 use indicators::calculer_atr;
-use smc::{kill_zone, scorer, sweep};
+use smc::{kill_zone, scorer};
 
 /// Stratégie SMC Directionnelle — scoring confluence configurable (défaut ≥70/100).
 ///
@@ -34,15 +34,15 @@ impl Strategy for SmcDirectionalStrategy {
             return Ok(None);
         }
 
-        // Liquidity Sweep — faux breakout d'un swing high/low requis
-        if sweep::detecter_sweep(bougies).is_none() {
-            return Ok(None);
-        }
-
         let score = match scorer(bougies) {
             Some(s) if s.total >= self.params.score_min as f64 => s,
             _ => return Ok(None),
         };
+
+        // Liquidity Sweep — direction du sweep doit correspondre à la direction du signal
+        if !score.sweep_detecte {
+            return Ok(None);
+        }
 
         let atr = calculer_atr(bougies, self.params.atr_periode as usize);
         let n = bougies.len();

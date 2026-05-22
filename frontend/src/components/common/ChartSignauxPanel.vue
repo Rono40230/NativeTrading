@@ -63,8 +63,7 @@
         </select>
         <button
           class="h-7 px-3 rounded border transition-colors bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40"
-          :disabled="analyseEnCours" @click="$emit('analyser')">{{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyse SMC
-          par l\'IA' }}</button>
+          :disabled="analyseEnCours" @click="$emit('analyser')">{{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyse SMC par l\'IA' }}</button>
       </div>
 
 

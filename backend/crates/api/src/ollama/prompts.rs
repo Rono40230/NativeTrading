@@ -112,6 +112,7 @@ Si l'historique contient des signaux précédents sur cet asset :
 - Adapter niveau_invalidation aux zones historiquement significatives
 
 ## FORMAT JSON STRICT (répondre UNIQUEMENT avec ce JSON, aucun texte avant ni après)
+⚠️  score_confiance DOIT être entre 0.0 et 10.0 — PAS entre 0.0 et 1.0
 {
   "direction": "Long" | "Short" | "Neutre",
   "prix_entree": 0.0,
@@ -119,7 +120,7 @@ Si l'historique contient des signaux précédents sur cet asset :
   "tp1": 0.0,
   "tp2": 0.0,
   "tp3": 0.0,
-  "score_confiance": 0.0,
+  "score_confiance": 7.5,
   "niveau_invalidation": 0.0,
   "confluences": ["éléments SMC effectivement présents et alignés"],
   "raisonnement": "3-4 phrases factuelles : confluences retenues, raison d'invalidation si Neutre, niveau clé"

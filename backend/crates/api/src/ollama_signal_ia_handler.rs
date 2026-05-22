@@ -67,11 +67,13 @@ pub async fn generer_signal(
         Ok(texte) => {
             let debut: usize = texte.find('{').unwrap_or(0);
             let fin: usize = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
-            let Ok(brut) = serde_json::from_str::<SignalBrut>(&texte[debut..fin]) else {
+            let Ok(mut brut) = serde_json::from_str::<SignalBrut>(&texte[debut..fin]) else {
                 return HttpResponse::UnprocessableEntity().json(serde_json::json!({
                     "error": "Réponse LLM non parsable en JSON", "brut": texte
                 }));
             };
+            // Normalisation : si le LLM retourne 0-1 au lieu de 0-10, ramener à l'échelle 0-10
+            brut.score_confiance = crate::utils::normaliser_score_llm(brut.score_confiance);
             let signal = if brut.direction != "Neutre" {
                 let asset = crate::utils::parse_asset(&body.asset).unwrap_or(Asset::BTC);
                 let tf = match body.timeframe.as_str() {

@@ -21,6 +21,8 @@ pub struct BodySignalTestDev {
     pub asset: String,
     pub timeframe: Option<String>,
     pub prix_entree: Option<f64>,
+    /// ATR actuel — si absent, fallback sur 0.4% du prix d'entrée.
+    pub atr: Option<f64>,
     pub ratio_atr: Option<f64>,
     pub categorie: Option<String>,
 }
@@ -93,11 +95,22 @@ pub async fn dev_signal_test(
     };
     let tf = crate::utils::parse_timeframe(body.timeframe.as_deref().unwrap_or("M15"));
     let prix_entree = body.prix_entree.unwrap_or(100.0).max(0.0001);
-    let risque = (prix_entree * 0.004).max(0.0001);
-    let sl_long = prix_entree - risque;
-    let sl_short = prix_entree + risque;
-    let tp_long = vec![prix_entree + 2.0 * risque, prix_entree + 3.0 * risque, prix_entree + 5.0 * risque];
-    let tp_short = vec![prix_entree - 2.0 * risque, prix_entree - 3.0 * risque, prix_entree - 5.0 * risque];
+
+    // Charger les multiplicateurs SL/TP depuis StraddleParams (même source que la boucle auto)
+    let straddle_params = db::strategies_params::lire_straddle_params(state.db.pool()).await;
+    let atr = body.atr.unwrap_or(prix_entree * 0.004).max(0.0001);
+    let sl_long  = prix_entree - straddle_params.sl_mult  * atr;
+    let sl_short = prix_entree + straddle_params.sl_mult  * atr;
+    let tp_long  = vec![
+        prix_entree + straddle_params.tp_mult_1 * atr,
+        prix_entree + straddle_params.tp_mult_2 * atr,
+        prix_entree + straddle_params.tp_mult_3 * atr,
+    ];
+    let tp_short = vec![
+        prix_entree - straddle_params.tp_mult_1 * atr,
+        prix_entree - straddle_params.tp_mult_2 * atr,
+        prix_entree - straddle_params.tp_mult_3 * atr,
+    ];
 
     let signal = Signal::nouveau(
         asset.clone(),
@@ -143,9 +156,16 @@ pub async fn dev_signal_test(
         "asset": asset_str,
         "timeframe": tf.as_str(),
         "prix_entree": prix_entree,
-        "stop_loss_long": sl_long,
+        "atr_utilise": atr,
+        "params_utilises": {
+            "sl_mult":   straddle_params.sl_mult,
+            "tp_mult_1": straddle_params.tp_mult_1,
+            "tp_mult_2": straddle_params.tp_mult_2,
+            "tp_mult_3": straddle_params.tp_mult_3,
+        },
+        "stop_loss_long":  sl_long,
         "stop_loss_short": sl_short,
-        "tp_long": tp_long,
+        "tp_long":  tp_long,
         "tp_short": tp_short,
     }))
 }

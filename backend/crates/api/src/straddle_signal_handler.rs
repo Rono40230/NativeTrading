@@ -168,7 +168,7 @@ pub async fn generer_signal_straddle(
     let fragment = &texte[debut..fin];
 
     // Tentative directe, puis descente dans le premier objet imbriqué si ça échoue.
-    let brut: ReponseLlm = match serde_json::from_str::<ReponseLlm>(fragment) {
+    let mut brut: ReponseLlm = match serde_json::from_str::<ReponseLlm>(fragment) {
         Ok(b) => b,
         Err(_) => {
             // Le LLM a peut-être enveloppé dans {"response":{...}} ou similaire.
@@ -195,6 +195,8 @@ pub async fn generer_signal_straddle(
             }
         }
     };
+    // Normalisation : si le LLM retourne 0-1 au lieu de 0-10, ramener à l'échelle 0-10
+    brut.score_confiance = crate::utils::normaliser_score_llm(brut.score_confiance);
 
     if brut.signal != "STRADDLE" || brut.score_confiance < 5.5 {
         return HttpResponse::Ok().json(serde_json::json!({

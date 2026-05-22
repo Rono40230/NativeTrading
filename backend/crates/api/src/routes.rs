@@ -34,22 +34,13 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::prix_handlers::get_klines_crypto),
         )
         .route("/api/candles", web::get().to(crate::handlers::get_candles))
-        .route(
-            "/api/prix-actuel",
-            web::get().to(crate::handlers::get_prix_actuel),
-        )
-        .route(
-            "/api/signaux",
-            web::get().to(crate::signaux_handlers::get_signaux),
-        )
+        .route("/api/prix-actuel", web::get().to(crate::handlers::get_prix_actuel))
+        .route("/api/signaux", web::get().to(crate::signaux_handlers::get_signaux))
         .route(
             "/api/signaux/export",
             web::post().to(crate::export_handlers::exporter_signaux_csv),
         )
-        .route(
-            "/api/smc/analyse",
-            web::get().to(crate::smc_handlers::analyse_smc),
-        )
+        .route("/api/smc/analyse", web::get().to(crate::smc_handlers::analyse_smc))
         .service(
             web::resource("/api/smc/score-debug")
                 .route(web::get().to(crate::smc_handlers::score_debug)),
@@ -152,8 +143,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/straddle/equity",
             web::get().to(crate::straddle_ml_handlers::get_equity),
         )
-        .route("/api/straddle/dev/seed-creneaux", web::post().to(crate::straddle_ml_handlers::dev_seed_creneaux))
-        .route("/api/straddle/dev/signal-test", web::post().to(crate::straddle_ml_handlers::dev_signal_test))
+        .route(
+            "/api/straddle/dev/seed-creneaux",
+            web::post().to(crate::straddle_ml_handlers::dev_seed_creneaux),
+        )
+        .route(
+            "/api/straddle/dev/signal-test",
+            web::post().to(crate::straddle_ml_handlers::dev_signal_test),
+        )
         .service(
             web::resource("/api/smc/params")
                 .route(web::get().to(crate::strategies_params_handlers::get_smc_params))
@@ -195,7 +192,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/config",
             web::post().to(crate::config_handlers::post_config),
         )
-        .route("/api/ig/status", web::get().to(crate::ig_handlers::ig_status))
+        .route(
+            "/api/ig/status",
+            web::get().to(crate::ig_handlers::ig_status),
+        )
         .route(
             "/api/ig/statut-local",
             web::get().to(crate::ig_handlers::ig_statut_local),

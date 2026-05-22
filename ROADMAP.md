@@ -1,7 +1,7 @@
 # ROADMAP — Native Trading AI
 # Feuille de route unifiée : corrections critiques + améliorations + SMC V2 + backtesting
 
-> **Dernière mise à jour** : 21 mai 2026  
+> **Dernière mise à jour** : 22 mai 2026  
 > **Intègre** : Analyse critique générale + ROADMAP_SMC_V2.md (désormais archivé)  
 > **Philosophie** : chaque étape est un prérequis de la suivante. Ne pas sauter d'étape.
 
@@ -12,7 +12,7 @@
 Ces 5 règles s'appliquent **sans exception** à chaque modification apportée dans le cadre de cette roadmap. Elles priment sur toute considération de vitesse ou de praticité.
 
 **Règle 1 — Valeur ajoutée prouvée**  
-Chaque modification doit améliorer concrètement l'app et ses objectifs (fiabilité des signaux, qualité du risk management, précision ML, performance). Aucune fonction non réclamée ne sera ajoutée. Le doute bénéficie toujours à l'abstention.
+Chaque modification doit améliorer concrètement l'app et ses objectifs (fiabilité des signaux, qualité des analyses LLM, précision ML, performance). Aucune fonction non réclamée ne sera ajoutée. Le doute bénéficie toujours à l'abstention.
 
 **Règle 2 — Analyse de l'existant obligatoire**  
 Avant tout code : lire et comprendre le code existant concerné. Identifier les redondances, les conflits potentiels et les doublons. Si une implémentation équivalente existe déjà, l'utiliser ou la corriger plutôt que d'en créer une nouvelle.
@@ -39,34 +39,12 @@ Elle détecte les opportunités 24h/24 sur crypto (Binance), forex et métaux (I
 ---
 
 ## PHASE 0 — Corrections Critiques Bloquantes
-> Ces bugs compromettent directement la fiabilité des signaux ou la sécurité du capital.  
+> Ces bugs compromettent directement la fiabilité des signaux générés.  
 > **À traiter avant toute amélioration.**
 
 ---
 
-### 0.1 — Brancher le GestionnaireRisque dans les 3 boucles de génération
-
-**Problème actuel**  
-`GestionnaireRisque` existe dans le crate `risk` avec toutes ses règles (2% max par trade, 3 positions max, 25% par asset, 20% drawdown). Il est testé unitairement. Mais il n'est **jamais appelé** dans `straddle_boucle.rs`, `smc_boucle.rs`, ou `rockets_scan.rs`. Le risk management réel repose uniquement sur des seuils ad hoc dans chaque boucle, sans vérification centralisée du drawdown ou du nombre de positions agrégées.
-
-**Conséquences du changement**  
-- Impacte les 3 fichiers de boucle + `AppState` (le gestionnaire doit être partagé en `Arc<Mutex<GestionnaireRisque>>`)
-- Nécessite une mise à jour en temps réel du drawdown : brancher sur les callbacks de verdict (TP/SL) pour `mettre_a_jour_drawdown()`
-- Nécessite `ouvrir_position()` / `fermer_position()` sur chaque signal inséré / chaque verdict clôturé
-- Risque de conflit : le gestionnaire est stateful — si le serveur redémarre, l'état est perdu. Solution : reconstruire l'état depuis la DB au démarrage (positions ouvertes + drawdown courant)
-
-**Tests automatisés**  
-- Rust : test unitaire — générer 4 signaux simultanés → le 4ème doit être refusé
-- Rust : test unitaire — simuler drawdown 20% → tout signal suivant refusé
-- Rust : test unitaire — reconstruction état depuis DB au démarrage
-
-**Tests manuels**  
-- Ouvrir manuellement 3 positions en DB, vérifier que le 4ème signal automatique est loggué `Signal refusé: 3 positions ouvertes`
-- Vérifier l'indicateur "positions ouvertes" dans le DashboardSystemStatus
-
----
-
-### 0.2 — Corriger le bug `volume_seche` dans Rockets (condition morte)
+### 0.1 — Corriger le bug `volume_seche` dans Rockets (condition morte)
 
 **Problème actuel**  
 Dans `rockets_indicateurs.rs` fonction `calculer_phase` :
@@ -97,7 +75,7 @@ else if volume_seche < 0.75 { s += 15; } // assèchement normal
 
 ---
 
-### 0.3 — Normaliser le score LLM pour Straddle et SMC
+### 0.2 — Normaliser le score LLM pour Straddle et SMC
 
 **Problème actuel**  
 Dans `straddle_signal_ollama.rs` et `ollama_signal_ia_handler.rs` :
@@ -123,7 +101,7 @@ Le format de sortie JSON du LLM (Qwen2.5:14b ou autre) n'est pas contraint de ma
 
 ---
 
-### 0.4 — Unifier les SL/TP Straddle entre strategy Rust et boucle automatique
+### 0.3 — Unifier les SL/TP Straddle entre strategy Rust et boucle automatique
 
 **Problème actuel**  
 La boucle automatique (`straddle_signal_ollama.rs`) hardcode les niveaux :
@@ -146,7 +124,7 @@ La `StraddleStrategy` dans le crate `strategies` utilise `params.sl_mult`, `para
 
 ---
 
-### 0.5 — Directionnaliser le Liquidity Sweep dans le scoring SMC
+### 0.4 — Directionnaliser le Liquidity Sweep dans le scoring SMC
 
 **Problème actuel**  
 Dans `smc_directional.rs` et `smc/src/lib.rs`, `sweep::detecter_sweep()` est utilisé comme booléen (`is_some()`). Un sweep vers le bas (piège baissier) précède un signal LONG. Un sweep vers le haut (piège haussier) précède un signal SHORT. Si la direction du sweep n'est pas réconciliée avec la direction du signal, on peut valider un signal LONG après un sweep haussier (signal contre-confluence).
@@ -173,11 +151,10 @@ Ces conditions doivent **toutes** être vraies avant de passer à la Phase 1 :
 
 - [ ] `cargo test --workspace` : 0 échec, 0 erreur
 - [ ] `cargo build --workspace --release` : compilation propre
-- [ ] Test manuel 0.1 : un 4ème signal est bien refusé avec log `Signal refusé: 3 positions ouvertes`
-- [ ] Test manuel 0.2 : score Rockets sur asset VCP avec `volume_seche < 0.55` = 20 pts bonus (vérifiable dans les logs)
-- [ ] Test manuel 0.3 : `signal.score` dans la DB pour un nouveau signal Straddle ∈ [0, 100]
-- [ ] Test manuel 0.4 : modifier `sl_mult` en DB → le SL du signal généré reflète la modification
-- [ ] Test manuel 0.5 : aucun log `sweep_detecte: true` pour un signal dont la direction est opposée au sweep
+- [ ] Test manuel 0.1 : score Rockets sur asset VCP avec `volume_seche < 0.55` = 20 pts bonus (vérifiable dans les logs)
+- [ ] Test manuel 0.2 : `signal.score` dans la DB pour un nouveau signal Straddle ∈ [0, 100]
+- [ ] Test manuel 0.3 : modifier `sl_mult` en DB → le SL du signal généré reflète la modification
+- [ ] Test manuel 0.4 : aucun log `sweep_detecte: true` pour un signal dont la direction est opposée au sweep
 - [ ] Aucune régression visuelle dans l'UI (dashboard, tableaux de signaux)
 
 ---
@@ -587,7 +564,7 @@ backend/crates/backtest/
 - Problème identifié : le seuil 70/100 avec des sauts discrets IFVG/Imbalance peut être atteint par 3 composantes seulement. Une vraie confluence ICT requiert idéalement 4+ composantes actives.
 
 **Points faibles à valider en backtest**  
-1. Le Liquidity Sweep sans directionnalisation (Phase 0.5) génère potentiellement des signaux contre-confluence.
+1. Le Liquidity Sweep sans directionnalisation (Phase 0.4) génère potentiellement des signaux contre-confluence.
 2. L'entrée au `close` actuel est rarement optimale en SMC. L'entrée idéale est au **retour sur l'Order Block** (après le sweep). Mesurer l'écart entre "entrée market actuel" et "entrée limitée sur OB".
 3. La Kill Zone filtre les heures hors London/NY mais l'analyse SMC doit aussi tenir compte des sessions asiatiques (formation des ranges de liquidité).
 
@@ -736,11 +713,10 @@ Ces conditions marquent la **roadmap complète** comme terminée :
 
 | Phase | Étape | Priorité | Prérequis | Impact Signaux |
 |-------|-------|----------|-----------|----------------|
-| 0 | 0.1 Risk Manager | 🔴 Critique | Aucun | Sécurité capital |
-| 0 | 0.2 Bug volume_seche | 🔴 Critique | Aucun | Qualité Rockets |
-| 0 | 0.3 Score LLM | 🔴 Critique | Aucun | Fiabilité scores |
-| 0 | 0.4 SL Straddle | 🔴 Critique | Aucun | Cohérence niveaux |
-| 0 | 0.5 Sweep direction | 🔴 Critique | Aucun | Précision SMC |
+| 0 | 0.1 Bug volume_seche | 🔴 Critique | Aucun | Qualité Rockets |
+| 0 | 0.2 Score LLM | 🔴 Critique | Aucun | Fiabilité scores |
+| 0 | 0.3 SL Straddle | 🔴 Critique | Aucun | Cohérence niveaux |
+| 0 | 0.4 Sweep direction | 🔴 Critique | Aucun | Précision SMC |
 | 1 | 1.1 Indicateurs dupliqués | 🟠 Important | Phase 0 | Fiabilité calculs |
 | 1 | 1.2 Fichiers .vue.js | 🟡 Mineur | Aucun | Aucun |
 | 1 | 1.3 Retrait Vision | 🟠 Important | Aucun | Architecture |
@@ -776,5 +752,5 @@ Ces conditions marquent la **roadmap complète** comme terminée :
 | Latence cycle SMC | ~900s (15 assets séq.) | < 60s (parallèle) |
 | Accuracy ML (val OOS) | ~ 52% | ≥ 58% |
 | Utilisation GPU (entraînement) | ~ 0% | > 80% |
-| Drawdown max réel | non mesuré | < 20% |
-| Sharpe ratio backtesté | non calculé | > 1.5 |
+| Drawdown max (simulation backtest) | non calculé | < 20% |
+| Sharpe ratio (simulation backtest) | non calculé | > 1.5 |
