@@ -8,7 +8,6 @@ pub const STABLECOINS: &[&str] = &[
 ];
 pub const KLINES_N: usize = 50;
 pub const LOOKBACK: usize = 20;
-pub const ATR_P: usize = 14;
 pub const BATCH_SIZE: usize = 20;
 pub const SCAN_SECS: u64 = 5 * 60;
 pub const MAX_DISPLAY: usize = 30;
@@ -80,87 +79,9 @@ pub struct Ticker24h {
     pub quote_volume: String,
 }
 
-// ── Indicateurs techniques ───────────────────────────────────────────────────
+// ── Indicateurs compression ──────────────────────────────────────────────────────
 
-pub fn calc_atr(highs: &[f64], lows: &[f64], closes: &[f64]) -> (f64, f64) {
-    let n = highs.len().min(lows.len()).min(closes.len());
-    if n < 2 {
-        return (0.0, 0.0);
-    }
-    let trs: Vec<f64> = (1..n)
-        .map(|i| {
-            let p = closes[i - 1];
-            [
-                highs[i] - lows[i],
-                (highs[i] - p).abs(),
-                (lows[i] - p).abs(),
-            ]
-            .into_iter()
-            .fold(f64::NEG_INFINITY, f64::max)
-        })
-        .collect();
-
-    // Wilder EMA (période 14) : même algorithme que indicators::calculer_atr
-    let atr14 = if trs.len() >= ATR_P {
-        let mut val = trs[..ATR_P].iter().sum::<f64>() / ATR_P as f64; // SMA initiale
-        for &tr in &trs[ATR_P..] {
-            val = (val * (ATR_P as f64 - 1.0) + tr) / ATR_P as f64;
-        }
-        val
-    } else if !trs.is_empty() {
-        trs.iter().sum::<f64>() / trs.len() as f64
-    } else {
-        0.0
-    };
-
-    // Wilder EMA (période 5)
-    let atr5 = if trs.len() >= 5 {
-        let mut val = trs[..5].iter().sum::<f64>() / 5.0;
-        for &tr in &trs[5..] {
-            val = (val * 4.0 + tr) / 5.0;
-        }
-        val
-    } else {
-        atr14
-    };
-    (atr14, atr5)
-}
-
-pub fn calc_rsi(closes: &[f64]) -> f64 {
-    if closes.len() < 15 {
-        return 50.0;
-    }
-    let slice = &closes[closes.len() - 15..];
-    let (gains, losses) = slice.windows(2).fold((0.0f64, 0.0f64), |(g, l), w| {
-        let d = w[1] - w[0];
-        if d > 0.0 {
-            (g + d, l)
-        } else {
-            (g, l - d)
-        }
-    });
-    if losses == 0.0 {
-        return 100.0;
-    }
-    100.0 - 100.0 / (1.0 + gains / losses)
-}
-
-pub fn calc_ema(closes: &[f64], period: usize) -> f64 {
-    if closes.is_empty() || period == 0 {
-        return 0.0;
-    }
-    if closes.len() < period {
-        return closes.iter().sum::<f64>() / closes.len() as f64;
-    }
-    let k = 2.0 / (period as f64 + 1.0);
-    let mut ema = closes[..period].iter().sum::<f64>() / period as f64;
-    for &c in &closes[period..] {
-        ema = c * k + ema * (1.0 - k);
-    }
-    ema
-}
-
-/// Bougies consécutives dont le range (high−low) < 90% ATR14, depuis la fin (hors dernière bougie).
+/// Bougies cons/// Bougies consécutives dont le range (high−low) < 90% ATR14, depuis la fin (hors dernière bougie).
 pub fn calc_nb_compression(highs: &[f64], lows: &[f64], atr14: f64) -> usize {
     let seuil = atr14 * 0.90;
     let n = highs.len().saturating_sub(1);

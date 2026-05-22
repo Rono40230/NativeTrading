@@ -15,3 +15,5 @@ chrono.workspace = true
 
 [dev-dependencies]
 chrono.workspace = true
+common = { path = "../common" }
+indicators = { path = "../indicators" }

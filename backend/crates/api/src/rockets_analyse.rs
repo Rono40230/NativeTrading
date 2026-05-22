@@ -1,9 +1,10 @@
 //! Analyse technique d'un symbol Binance pour le scan Rockets.
 //! Séparé de rockets_scan.rs pour respecter la limite de 300 lignes.
 use db::rockets::RocketsConfig;
-use strategies::rockets_filtres::{calc_atr50, calc_contraction_qualite, calc_swing_amplitudes, calc_volume_seche};
+use indicators::{calculer_atr, calculer_ema, calculer_rsi};
+use strategies::rockets_filtres::{calc_contraction_qualite, calc_swing_amplitudes, calc_volume_seche};
 use strategies::rockets_indicateurs::{
-    calc_atr, calc_ema, calc_nb_compression, calc_rsi, calculer_phase,
+    calc_nb_compression, calculer_phase,
     ScanResultat, KLINES_N, LOOKBACK,
 };
 use strategies::rockets_niveaux::{
@@ -32,6 +33,11 @@ fn bougies_depuis_vecs(
             volume: volumes[i],
         })
         .collect()
+}
+
+/// Extrait le dernier élément non-NaN d'un Vec retourné par le crate indicators.
+fn dernier_non_nan(vals: &[f64], defaut: f64) -> f64 {
+    vals.iter().rev().find(|&&v| !v.is_nan()).copied().unwrap_or(defaut)
 }
 
 pub async fn analyser_symbol(
@@ -83,7 +89,9 @@ pub async fn analyser_symbol(
         }
     };
 
-    let (atr14, atr5) = calc_atr(&highs, &lows, &closes);
+    let bougies = bougies_depuis_vecs(&opens, &highs, &lows, &closes, &volumes);
+    let atr14 = dernier_non_nan(&calculer_atr(&bougies, 14), 0.0);
+    let atr5  = dernier_non_nan(&calculer_atr(&bougies, 5), 0.0);
     let atr_ratio = if atr14 > 0.0 { atr5 / atr14 } else { 1.0 };
 
     let prev_end = volumes.len().saturating_sub(1);
@@ -113,7 +121,7 @@ pub async fn analyser_symbol(
         .iter()
         .cloned()
         .fold(f64::INFINITY, f64::min);
-    let rsi = calc_rsi(&closes);
+    let rsi = dernier_non_nan(&calculer_rsi(&bougies, 14), 50.0);
     let change1h = if closes.len() >= 2 {
         let prev = closes[closes.len() - 2];
         if prev > 0.0 {
@@ -126,11 +134,12 @@ pub async fn analyser_symbol(
     };
 
     // Calculés avant calculer_phase car ils influencent le score (compression/prelancement)
-    let tendance_haussiere = calc_ema(&closes, 20) > calc_ema(&closes, 50);
+    let tendance_haussiere = dernier_non_nan(&calculer_ema(&bougies, 20), 0.0)
+        > dernier_non_nan(&calculer_ema(&bougies, 50), 0.0);
     let nb_bougies_compression = calc_nb_compression(&highs, &lows, atr14);
 
     // ── Filtres professionnels VCP ────────────────────────────────────────────
-    let atr50 = calc_atr50(&highs, &lows, &closes);
+    let atr50 = dernier_non_nan(&calculer_atr(&bougies, 50), 0.0);
     let volume_seche = calc_volume_seche(&volumes, nb_bougies_compression, LOOKBACK);
     let contraction_qualite = calc_contraction_qualite(&highs, &lows, nb_bougies_compression);
     let swing_amplitudes = calc_swing_amplitudes(&highs, &lows, nb_bougies_compression);
@@ -165,8 +174,7 @@ pub async fn analyser_symbol(
     // ── Features ML snapshot ──────────────────────────────────────────────────
     // Reconstruit les Candles depuis les vecs pour appeler extraire_features.
     // Stockées dans ScanResultat.features_ml → persistées en DB à la sauvegarde du signal.
-    let bougies_ml = bougies_depuis_vecs(&opens, &highs, &lows, &closes, &volumes);
-    let features_ml = ml::features::extraire_features(&bougies_ml);
+    let features_ml = ml::features::extraire_features(&bougies);
 
     Some(ScanResultat {
         symbol: format!("{}USDT", ticker),

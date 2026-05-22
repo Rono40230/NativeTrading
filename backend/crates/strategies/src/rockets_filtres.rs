@@ -5,43 +5,6 @@
 //! - Progressivité des contractions → setup VCP authentique
 //! - ATR long terme → distinguer expansion réelle vs. bruit normal
 
-// ── ATR référence long terme ─────────────────────────────────────────────────
-
-/// ATR Wilder sur 50 périodes — référence long terme.
-/// Permet de distinguer une vraie expansion de volatilité (ATR14 > ATR50 × 1.2)
-/// d'un simple bruit aléatoire. Nécessite >= 52 bougies (50 TRs + 1 init).
-pub fn calc_atr50(highs: &[f64], lows: &[f64], closes: &[f64]) -> f64 {
-    let n = highs.len().min(lows.len()).min(closes.len());
-    if n < 2 {
-        return 0.0;
-    }
-    let trs: Vec<f64> = (1..n)
-        .map(|i| {
-            let p = closes[i - 1];
-            [
-                highs[i] - lows[i],
-                (highs[i] - p).abs(),
-                (lows[i] - p).abs(),
-            ]
-            .into_iter()
-            .fold(f64::NEG_INFINITY, f64::max)
-        })
-        .collect();
-
-    const P: usize = 50;
-    if trs.len() >= P {
-        let mut val = trs[..P].iter().sum::<f64>() / P as f64;
-        for &tr in &trs[P..] {
-            val = (val * (P as f64 - 1.0) + tr) / P as f64;
-        }
-        val
-    } else if !trs.is_empty() {
-        trs.iter().sum::<f64>() / trs.len() as f64
-    } else {
-        0.0
-    }
-}
-
 // ── Assèchement du volume (VCP key signal) ───────────────────────────────────
 
 /// Ratio entre le volume moyen pendant la compression et le volume moyen sur 20p avant.
