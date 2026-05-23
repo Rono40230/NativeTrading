@@ -1,11 +1,7 @@
-export interface Candle {
-  timestamp: string
-  open: number
-  high: number
-  low: number
-  close: number
-  volume: number
-}
+export type { Candle } from '../generated/Candle'
+export type { Timeframe } from '../generated/Timeframe'
+export type { Direction } from '../generated/Direction'
+export type { Asset } from '../generated/Asset'
 
 export interface PredictionML {
   asset: string
@@ -93,21 +89,7 @@ export interface StatutSignalEngine {
   intervalle_secs: number
 }
 
-export interface ScoreSmc {
-  total: number
-  tendance: number
-  order_block: number
-  imbalance: number
-  ifvg: number
-  fibonacci: number
-  direction: string
-  confluence: boolean
-  kill_zone_active: boolean
-  sweep_detecte: boolean
-  bos: boolean
-  choch: boolean
-  asian_range: import('./api.types.indicators').RangeAsie | null
-}
+export type { ScoreSmc } from '../generated/ScoreSmc'
 
 export type { PointSerie, ZoneOb, ZoneImbalance, ZoneFvgBpr, ZoneBpr, ZoneIfvg, NiveauxFibonacci, ResultatTendance, NiveauLiquidite, DeviationAsie, RangeAsie, NiveauForceSignal, DirectionSignal, SignalIndicateur, ReponseIndicators, IndicatorsParams } from './api.types.indicators'
 export type { PatternHoraire, ReponsePatternsVolatilite, RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA, ImageAvecTF, LigneTendanceKasper, ModeCalculTendance, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier, FearGreedData, EntiteSentiment, SentimentMarche, NiveauAlerte, ArticleNews, AlertesNews, ContenuArticle, TraductionReponse } from './api.types.marche'

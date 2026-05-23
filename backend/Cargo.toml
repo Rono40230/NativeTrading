@@ -46,6 +46,7 @@ rayon = "1.7"
 uuid = { version = "1", features = ["v4", "serde"] }
 async-trait = "0.1"
 smartcore = { version = "0.4", features = ["serde"] }
+ts-rs = { version = "12", features = ["chrono-impl", "uuid-impl"] }
 
 [profile.release]
 opt-level = 3

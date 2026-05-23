@@ -1,8 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/Candle.ts")]
 pub struct Candle {
     pub timestamp: DateTime<Utc>,
     pub open: f64,
@@ -55,7 +57,8 @@ impl Signal {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/Timeframe.ts")]
 pub enum Timeframe {
     M1,
     M5,
@@ -97,14 +100,16 @@ impl Timeframe {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/Direction.ts")]
 pub enum Direction {
     Long,
     Short,
     Both,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/Asset.ts")]
 pub enum Asset {
     // Crypto (Binance)
     BTC,

@@ -1,5 +1,6 @@
 use common::{Candle, Direction};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 pub mod bos;
 pub mod bpr;
@@ -37,7 +38,8 @@ pub const SCORE_MAX_FIBONACCI: f64 = 15.0;
 pub const SCORE_TOTAL_MAX: f64 = 100.0;
 
 /// Score de confluence SMC (0–100). Seuil déclencheur stratégie : ≥70.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/ScoreSmc.ts")]
 pub struct ScoreSmc {
     /// Score total sur 100
     pub total: f64,

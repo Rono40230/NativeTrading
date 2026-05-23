@@ -1,5 +1,6 @@
 use common::Candle;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use super::liquidites_tz::heure_paris;
 
@@ -26,7 +27,8 @@ impl Default for ParamsRangeAsie {
 
 // ─── Types de sortie ──────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/RangeAsie.ts")]
 pub struct RangeAsie {
     /// Unix secondes — première bougie de la session
     pub timestamp_debut: i64,
@@ -38,7 +40,8 @@ pub struct RangeAsie {
     pub deviations: Vec<DeviationAsie>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/DeviationAsie.ts")]
 pub struct DeviationAsie {
     pub prix: f64,
     pub direction: String, // "H" = au-dessus | "L" = en-dessous

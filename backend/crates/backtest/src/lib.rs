@@ -19,10 +19,12 @@ pub mod straddle;
 use chrono::{DateTime, Utc};
 use common::{Asset, Direction, Timeframe};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 // ── Types de configuration ─────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/StrategieType.ts")]
 pub enum StrategieType {
     Straddle,
     Smc,
@@ -30,7 +32,8 @@ pub enum StrategieType {
 }
 
 /// Configuration d'un backtest — passée à `engine::rejouer()`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/BacktestConfig.ts")]
 pub struct BacktestConfig {
     pub asset: Asset,
     pub timeframe: Timeframe,
@@ -42,18 +45,21 @@ pub struct BacktestConfig {
     /// Risque par trade en % du capital (ex: 0.02 = 2%)
     pub risque_par_trade: f64,
     /// Paramètres de stratégie lus depuis la DB (fidélité live)
+    #[ts(skip)]
     pub params: StrategieParams,
 }
 
 /// Paramètres injectés depuis la DB pour que le backtest soit fidèle au live.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/StrategieParams.ts")]
 pub enum StrategieParams {
     Straddle(ParamsStraddle),
     Smc(ParamsSmc),
     Rockets,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/ParamsStraddle.ts")]
 pub struct ParamsStraddle {
     pub atr_periode:    usize,
     pub atr_seuil:      f64,
@@ -78,7 +84,8 @@ impl Default for ParamsStraddle {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/ParamsSmc.ts")]
 pub struct ParamsSmc {
     pub atr_periode:       usize,
     pub score_min:         f64,
@@ -105,7 +112,8 @@ impl Default for ParamsSmc {
 
 // ── Types de résultat d'un trade rejoué ───────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/ResultatTrade.ts")]
 pub enum ResultatTrade {
     Tp1,
     Tp2,
@@ -115,7 +123,8 @@ pub enum ResultatTrade {
 }
 
 /// Un trade individuel tel que simulé par le moteur de replay.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/TradeBacktest.ts")]
 pub struct TradeBacktest {
     pub ouvert_a: DateTime<Utc>,
     pub ferme_a: Option<DateTime<Utc>>,
@@ -139,7 +148,8 @@ pub struct TradeBacktest {
 
 // ── Statistiques par créneau horaire ─────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/StatHeure.ts")]
 pub struct StatHeure {
     pub heure: u8,
     pub nb_trades: usize,
@@ -148,7 +158,8 @@ pub struct StatHeure {
 }
 
 /// Statistiques par jour de la semaine (0=Lundi … 6=Dimanche).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/StatJour.ts")]
 pub struct StatJour {
     pub jour: u8,          // 0=Lundi … 6=Dimanche
     pub nom: String,       // "Lundi", "Mardi"…
@@ -159,7 +170,8 @@ pub struct StatJour {
 
 /// Fenêtre horaire propice identifiée pour le Straddle
 /// (combinaison heure+jour avec bon profil de volatilité).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/FenetrePropice.ts")]
 pub struct FenetrePropice {
     pub heure: u8,
     pub jour_semaine: Option<u8>,  // None = tous les jours de la semaine
@@ -173,7 +185,8 @@ pub struct FenetrePropice {
 // ── Résultat global du backtest ───────────────────────────────────────────
 
 /// Résultat complet d'un backtest — retourné par `engine::rejouer()`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/BacktestResult.ts")]
 pub struct BacktestResult {
     pub config: BacktestConfig,
     pub trades: Vec<TradeBacktest>,

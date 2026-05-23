@@ -8,3 +8,4 @@ common = { path = "../common" }
 serde.workspace = true
 tracing.workspace = true
 chrono.workspace = true
+ts-rs.workspace = true

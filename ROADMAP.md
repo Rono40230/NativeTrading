@@ -721,11 +721,11 @@ Les types TypeScript dans `frontend/src/services/api.types.ts` sont maintenus ma
 
 Ces conditions doivent **toutes** être vraies avant de passer à la Phase 6 :
 
-- [ ] `cargo test --workspace` : 0 échec
-- [ ] `npm run build` : 0 erreur TypeScript sur les types générés
-- [ ] `git ls-files frontend/src/generated/` liste les fichiers `.ts` générés
-- [ ] Modifier un champ Rust → erreur TypeScript immédiate dans le frontend sans intervention manuelle
-- [ ] Aucune duplication entre `api.types.ts` (supprimé ou vide) et les fichiers générés
+- [x] `cargo test --workspace` : 0 échec
+- [x] `npm run build` : 0 erreur TypeScript sur les types générés
+- [x] `git ls-files frontend/src/generated/` liste les fichiers `.ts` générés
+- [x] Modifier un champ Rust → erreur TypeScript immédiate dans le frontend sans intervention manuelle
+- [x] Aucune duplication entre `api.types.ts` (supprimé ou vide) et les fichiers générés
 
 ---
 

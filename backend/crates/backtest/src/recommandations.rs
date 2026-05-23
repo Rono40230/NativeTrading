@@ -5,11 +5,13 @@
 //! Aucune modification automatique — le trader décide et applique.
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 use crate::BacktestResult;
 
 /// Une recommandation adressée au trader après analyse des métriques backtest.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/Recommandation.ts")]
 pub struct Recommandation {
     /// Titre court affiché dans l'UI (≤ 80 caractères)
     pub titre: String,

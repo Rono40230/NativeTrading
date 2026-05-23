@@ -1,6 +1,6 @@
 //! Tests unitaires du moteur de recommandations.
 use super::*;
-use crate::{BacktestConfig, BacktestResult, StrategieType, TradeBacktest};
+use crate::{BacktestConfig, BacktestResult, ParamsStraddle, StrategieParams, StrategieType, TradeBacktest};
 use chrono::Utc;
 use common::{Asset, Direction, Timeframe};
 
@@ -13,6 +13,7 @@ fn config_straddle() -> BacktestConfig {
         strategie: StrategieType::Straddle,
         capital_initial: 10_000.0,
         risque_par_trade: 0.02,
+        params: StrategieParams::Straddle(ParamsStraddle::default()),
     }
 }
 
@@ -55,9 +56,17 @@ fn resultat_avec_double_sl(taux: f64) -> BacktestResult {
         drawdown_max: 0.1,
         capital_final: 9_500.0,
         pnl_total_r: -2.0,
+        pnl_r_moyen: -0.1,
+        perf_annualisee: -0.05,
+        capital_min: 9_000.0,
+        serie_pertes_max: 5,
+        serie_gains_max: 3,
         double_sl_rate: Some(taux),
         double_win_rate: Some(0.1),
         stats_par_heure: vec![],
+        stats_par_jour: vec![],
+        equity_curve: vec![],
+        fenetres_propices: None,
         trades,
     }
 }
@@ -86,9 +95,17 @@ fn resultat_parfait_liste_vide() {
         drawdown_max: 0.05,
         capital_final: 12_000.0,
         pnl_total_r: 15.0,
+        pnl_r_moyen: 0.5,
+        perf_annualisee: 0.32,
+        capital_min: 10_000.0,
+        serie_pertes_max: 2,
+        serie_gains_max: 8,
         double_sl_rate: Some(0.05),
         double_win_rate: Some(0.45),
         stats_par_heure: vec![],
+        stats_par_jour: vec![],
+        equity_curve: vec![],
+        fenetres_propices: None,
         trades: vec![],
     };
     let recs = analyser_recommandations(&result);
