@@ -1,4 +1,4 @@
-use chrono::{Datelike, Timelike, Utc, FixedOffset, TimeZone};
+use chrono::{Datelike, FixedOffset, TimeZone, Timelike, Utc};
 use db::Database;
 use ml::PipelineML;
 use std::sync::Arc;
@@ -89,16 +89,19 @@ fn secondes_jusqu_a_18h_paris() -> u64 {
     let now_utc = Utc::now();
     // Détection heure d'été simplifiée : UTC+2 d'avril à octobre, UTC+1 sinon
     let mois = now_utc.month();
-    let offset_secs = if (4..=10).contains(&mois) { 2 * 3600i32 } else { 3600i32 };
+    let offset_secs = if (4..=10).contains(&mois) {
+        2 * 3600i32
+    } else {
+        3600i32
+    };
     let Some(paris) = FixedOffset::east_opt(offset_secs) else {
         return 0;
     };
     let now_paris = paris.from_utc_datetime(&now_utc.naive_utc());
 
     let heure_cible = 18u64 * 3600; // 18h00
-    let ecoules = now_paris.hour() as u64 * 3600
-        + now_paris.minute() as u64 * 60
-        + now_paris.second() as u64;
+    let ecoules =
+        now_paris.hour() as u64 * 3600 + now_paris.minute() as u64 * 60 + now_paris.second() as u64;
 
     if ecoules < heure_cible {
         heure_cible - ecoules

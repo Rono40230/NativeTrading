@@ -111,8 +111,7 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
     };
 
     // Imbalance/FVG : 0–15 pts continu — zones alignées pondérées par proximité au prix
-    let pts_imbalance =
-        imbalance::score_continu_pour_direction(bougies, direction, prix_actuel);
+    let pts_imbalance = imbalance::score_continu_pour_direction(bougies, direction, prix_actuel);
 
     // Fibonacci : 0, 8 ou 15 pts selon la zone de retrace atteinte
     let pts_fib = fibonacci::calculer(bougies)
@@ -190,9 +189,9 @@ pub fn scorer(bougies: &[Candle]) -> Option<ScoreSmc> {
 /// SSL sweep (ssl_swepe=true) précède un Long, BSL (ssl_swepe=false) précède un Short.
 fn sweep_coherent_avec_direction(ssl_swepe: bool, direction: Direction) -> bool {
     match direction {
-        Direction::Long  => ssl_swepe,
+        Direction::Long => ssl_swepe,
         Direction::Short => !ssl_swepe,
-        Direction::Both  => false,
+        Direction::Both => false,
     }
 }
 
@@ -233,7 +232,10 @@ mod tests {
         let total: f64 = composantes.iter().sum();
         // Vérification que la règle bloque bien un total fictif de 70 avec 2 composantes
         let confluence = total >= 70.0 && nb_actives >= 3;
-        assert!(!confluence, "2 composantes ne peuvent pas donner confluence");
+        assert!(
+            !confluence,
+            "2 composantes ne peuvent pas donner confluence"
+        );
     }
 
     #[test]
@@ -243,6 +245,9 @@ mod tests {
         let nb_actives = composantes.iter().filter(|&&p| p > 0.0).count();
         let total: f64 = composantes.iter().sum();
         let confluence = total >= 70.0 && nb_actives >= 3;
-        assert!(confluence, "3 composantes avec total=70 → confluence attendue");
+        assert!(
+            confluence,
+            "3 composantes avec total=70 → confluence attendue"
+        );
     }
 }

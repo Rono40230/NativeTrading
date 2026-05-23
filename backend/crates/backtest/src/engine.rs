@@ -57,7 +57,11 @@ pub(crate) fn assembler_resultat(
     let win_rate = calculer_win_rate(&trades);
     let profit_factor = calculer_profit_factor(&trades);
     let pnl_total_r: f64 = trades.iter().map(|t| t.pnl_r).sum();
-    let pnl_r_moyen = if nb_trades > 0 { pnl_total_r / nb_trades as f64 } else { 0.0 };
+    let pnl_r_moyen = if nb_trades > 0 {
+        pnl_total_r / nb_trades as f64
+    } else {
+        0.0
+    };
 
     // Série de capital pour drawdown + equity curve
     let mut capital = config.capital_initial;
@@ -70,7 +74,10 @@ pub(crate) fn assembler_resultat(
         })
         .collect();
 
-    let capital_final = equity_curve.last().copied().unwrap_or(config.capital_initial);
+    let capital_final = equity_curve
+        .last()
+        .copied()
+        .unwrap_or(config.capital_initial);
     let drawdown_max = calculer_drawdown_max(&equity_curve);
     let capital_min = calculer_capital_min(&equity_curve, config.capital_initial);
 
@@ -86,23 +93,24 @@ pub(crate) fn assembler_resultat(
     let stats_par_jour = calculer_stats_par_jour(&trades);
 
     // Métriques Straddle spécifiques
-    let (double_sl_rate, double_win_rate, fenetres_propices) = if config.strategie == StrategieType::Straddle {
-        let n = nb_trades as f64;
-        if n > 0.0 {
-            let dsl = trades.iter().filter(|t| t.categorie == "double_sl").count() as f64 / n;
-            let dwn = trades
-                .iter()
-                .filter(|t| t.categorie == "double_win")
-                .count() as f64
-                / n;
-            let fp = identifier_fenetres_propices(&trades);
-            (Some(dsl), Some(dwn), Some(fp))
+    let (double_sl_rate, double_win_rate, fenetres_propices) =
+        if config.strategie == StrategieType::Straddle {
+            let n = nb_trades as f64;
+            if n > 0.0 {
+                let dsl = trades.iter().filter(|t| t.categorie == "double_sl").count() as f64 / n;
+                let dwn = trades
+                    .iter()
+                    .filter(|t| t.categorie == "double_win")
+                    .count() as f64
+                    / n;
+                let fp = identifier_fenetres_propices(&trades);
+                (Some(dsl), Some(dwn), Some(fp))
+            } else {
+                (Some(0.0), Some(0.0), Some(vec![]))
+            }
         } else {
-            (Some(0.0), Some(0.0), Some(vec![]))
-        }
-    } else {
-        (None, None, None)
-    };
+            (None, None, None)
+        };
 
     BacktestResult {
         config,

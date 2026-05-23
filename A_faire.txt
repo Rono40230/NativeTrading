@@ -4,9 +4,7 @@
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Réécris entièrement le fichier readme.md qui n'est plus représentatifs de l'app.
-En décrivant ce que fais l'app.
-Je ne veux pas un enorme fichier, mais je veux qu'il soit exhaustif pour que un trader qui découvre l'app sache à quoi elle sert.
+
 
 --------------------------------------------------------------------------------------------------------------------------
 

@@ -10,8 +10,8 @@ use indicators::calculer_atr;
 use strategies::position_tracking::PositionConfig;
 
 use crate::{
-    simulateur::simuler_position, BacktestConfig, ParamsStraddle, ResultatTrade,
-    StrategieParams, TradeBacktest,
+    simulateur::simuler_position, BacktestConfig, ParamsStraddle, ResultatTrade, StrategieParams,
+    TradeBacktest,
 };
 
 /// Rejoue la stratégie Straddle sur la série de bougies.
@@ -35,9 +35,15 @@ pub fn rejouer_straddle(bougies: &[Candle], config: &BacktestConfig) -> Vec<Trad
         }
 
         let debut = i.saturating_sub(p.atr_periode);
-        let valides: Vec<f64> = atr[debut..i].iter().copied()
-            .filter(|v| !v.is_nan() && *v > 0.0).collect();
-        if valides.is_empty() { i += 1; continue; }
+        let valides: Vec<f64> = atr[debut..i]
+            .iter()
+            .copied()
+            .filter(|v| !v.is_nan() && *v > 0.0)
+            .collect();
+        if valides.is_empty() {
+            i += 1;
+            continue;
+        }
         let atr_moyen = valides.iter().sum::<f64>() / valides.len() as f64;
 
         if atr_courant < atr_moyen * p.atr_seuil {
@@ -55,11 +61,11 @@ pub fn rejouer_straddle(bougies: &[Candle], config: &BacktestConfig) -> Vec<Trad
 
         let cfg_long = PositionConfig {
             is_long: true,
-            prix_entree:  entree,
-            stop_loss:    entree - sl_dist,
-            tp1:          tp1_l,
-            tp2:          tp2_l,
-            atr:          atr_courant,
+            prix_entree: entree,
+            stop_loss: entree - sl_dist,
+            tp1: tp1_l,
+            tp2: tp2_l,
+            atr: atr_courant,
             trailing_coeff: p.trailing_atr,
             vente_partielle_active: p.vente_partielle,
             pct_cloture_tp1: p.pct_cloture_tp1,
@@ -67,11 +73,11 @@ pub fn rejouer_straddle(bougies: &[Candle], config: &BacktestConfig) -> Vec<Trad
         };
         let cfg_short = PositionConfig {
             is_long: false,
-            prix_entree:  entree,
-            stop_loss:    entree + sl_dist,
-            tp1:          tp1_s,
-            tp2:          tp2_s,
-            atr:          atr_courant,
+            prix_entree: entree,
+            stop_loss: entree + sl_dist,
+            tp1: tp1_s,
+            tp2: tp2_s,
+            atr: atr_courant,
             trailing_coeff: p.trailing_atr,
             vente_partielle_active: p.vente_partielle,
             pct_cloture_tp1: p.pct_cloture_tp1,
@@ -79,14 +85,20 @@ pub fn rejouer_straddle(bougies: &[Candle], config: &BacktestConfig) -> Vec<Trad
         };
 
         let suite = &bougies[i + 1..];
-        let res_long  = simuler_position(&cfg_long,  suite);
+        let res_long = simuler_position(&cfg_long, suite);
         let res_short = simuler_position(&cfg_short, suite);
 
         let pnl_r = res_long.pnl_r + res_short.pnl_r;
 
-        let res_gagnant = if !matches!(res_long.resultat, ResultatTrade::StopLoss | ResultatTrade::NonFerme) {
+        let res_gagnant = if !matches!(
+            res_long.resultat,
+            ResultatTrade::StopLoss | ResultatTrade::NonFerme
+        ) {
             Some(&res_long.resultat)
-        } else if !matches!(res_short.resultat, ResultatTrade::StopLoss | ResultatTrade::NonFerme) {
+        } else if !matches!(
+            res_short.resultat,
+            ResultatTrade::StopLoss | ResultatTrade::NonFerme
+        ) {
             Some(&res_short.resultat)
         } else {
             None
@@ -97,31 +109,41 @@ pub fn rejouer_straddle(bougies: &[Candle], config: &BacktestConfig) -> Vec<Trad
             Some(ResultatTrade::Tp3) => "Tp3",
             Some(ResultatTrade::Tp2) => "Tp2",
             Some(ResultatTrade::Tp1) => "Tp1",
-            None                     => "double_sl",
-            _                        => "Tp1",
+            None => "double_sl",
+            _ => "Tp1",
         };
 
-        let heure = bougie.timestamp.format("%H").to_string().parse::<u8>().unwrap_or(0);
+        let heure = bougie
+            .timestamp
+            .format("%H")
+            .to_string()
+            .parse::<u8>()
+            .unwrap_or(0);
         let ferme_a = res_long.ferme_a.or(res_short.ferme_a);
 
         trades.push(TradeBacktest {
-            ouvert_a:     bougie.timestamp,
+            ouvert_a: bougie.timestamp,
             ferme_a,
-            direction:    Direction::Both,
-            prix_entree:  entree,
-            prix_sortie:  None,
-            stop_loss:    entree - sl_dist,
+            direction: Direction::Both,
+            prix_entree: entree,
+            prix_sortie: None,
+            stop_loss: entree - sl_dist,
             take_profit_1: tp1_l,
             take_profit_2: Some(tp2_l),
             take_profit_3: Some(entree + atr_courant * p.tp_mult_3),
-            resultat:     if pnl_r >= 0.0 { ResultatTrade::Tp1 } else { ResultatTrade::StopLoss },
+            resultat: if pnl_r >= 0.0 {
+                ResultatTrade::Tp1
+            } else {
+                ResultatTrade::StopLoss
+            },
             pnl_r,
-            pnl_usd:      pnl_r * risque_usd,
+            pnl_usd: pnl_r * risque_usd,
             heure_ouverture: heure,
-            categorie:    categorie.to_string(),
+            categorie: categorie.to_string(),
         });
 
-        let bougies_consommees = res_long.ferme_a
+        let bougies_consommees = res_long
+            .ferme_a
             .or(res_short.ferme_a)
             .and_then(|ts| bougies[i + 1..].iter().position(|b| b.timestamp >= ts))
             .unwrap_or(suite.len().saturating_sub(1));
@@ -141,7 +163,10 @@ mod tests {
     fn bougie(ts_offset_min: i64, open: f64, high: f64, low: f64, close: f64) -> Candle {
         Candle {
             timestamp: Utc::now() + chrono::Duration::minutes(ts_offset_min),
-            open, high, low, close,
+            open,
+            high,
+            low,
+            close,
             volume: 1000.0,
         }
     }
@@ -171,6 +196,9 @@ mod tests {
             params: StrategieParams::Straddle(ParamsStraddle::default()),
         };
         let trades = rejouer_straddle(&bougies, &config);
-        assert!(!trades.is_empty(), "Aucun trade Straddle détecté sur le spike ATR");
+        assert!(
+            !trades.is_empty(),
+            "Aucun trade Straddle détecté sur le spike ATR"
+        );
     }
 }

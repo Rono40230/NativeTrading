@@ -14,6 +14,7 @@ Je veux que tu me dises si tu y trouves :
 - des incohérences/manquements entre backend et Frontend
 - des dettes techniques
 - et tous les autres bugs, problèmes, incohérences, etc... que je te laisse compléter.
+- vérifie si les différentes fonctions de l'app communiquent correctement entre elles lorsque c'est nécessaire
 
 Dis moi ce qui pourrait être supprimé/améliorer pour qu'il soit utilisé à usage professionnel
 et capable de produire des signaux de trading surs et rentables.

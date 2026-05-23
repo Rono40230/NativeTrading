@@ -41,7 +41,9 @@ pub fn demarrer_boucle_straddle(
             };
             tracing::debug!(
                 "Straddle auto cycle: atr_ui={:.2}, seuil_ml={:.2}, assets_count={}",
-                atr_ui, seuil_straddle, nb
+                atr_ui,
+                seuil_straddle,
+                nb
             );
             let actifs_corr: HashSet<String> =
                 db::straddle_suivi_position::lister_suivi_actifs(db.pool())
@@ -83,9 +85,20 @@ pub fn demarrer_boucle_straddle(
                 );
                 async move {
                     analyser_asset(
-                        &db, &se, &ml,
-                        seuil_straddle, atr_ui, sl_mult, tp_mult_1, tp_mult_2, tp_mult_3,
-                        &asset, &tf, &wd, skip_ww, &ac,
+                        &db,
+                        &se,
+                        &ml,
+                        seuil_straddle,
+                        atr_ui,
+                        sl_mult,
+                        tp_mult_1,
+                        tp_mult_2,
+                        tp_mult_3,
+                        &asset,
+                        &tf,
+                        &wd,
+                        skip_ww,
+                        &ac,
                     )
                     .await;
                 }
@@ -97,4 +110,3 @@ pub fn demarrer_boucle_straddle(
     });
     tracing::info!("🌪️  Boucle Straddle auto démarrée (15 min, assets dynamiques depuis DB)");
 }
-
