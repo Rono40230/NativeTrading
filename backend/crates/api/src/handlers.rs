@@ -139,7 +139,7 @@ pub async fn predict_ml(
         }
     };
 
-    let pipeline = state.pipeline_ml.lock().await;
+    let pipeline = state.pipeline_ml.read().await;
 
     if !pipeline.est_pret() {
         return HttpResponse::Ok().json(ReponsePrediction {

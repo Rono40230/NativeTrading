@@ -8,7 +8,7 @@ use db::Database;
 use ml::PipelineML;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::{broadcast, RwLock};
 
 /// Intervalle entre chaque cycle d'analyse complet
 pub(crate) const INTERVALLE_SECS: u64 = 300; // 5 minutes
@@ -80,7 +80,7 @@ impl SignalEngine {
 
     /// Démarrage de la boucle en background.
     /// Sans effet si déjà actif.
-    pub fn demarrer(&self, db: Arc<Database>, pipeline_ml: Arc<Mutex<PipelineML>>) {
+    pub fn demarrer(&self, db: Arc<Database>, pipeline_ml: Arc<RwLock<PipelineML>>) {
         if self.running.swap(true, Ordering::SeqCst) {
             return; // Déjà actif
         }

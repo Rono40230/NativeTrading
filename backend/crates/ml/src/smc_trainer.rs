@@ -4,7 +4,9 @@
 //! particulier a réussi (TP1/TP2) ou échoué (SL).
 //!
 //! Features : 59 (52 OHLCV + 7 contextuelles SMC).
-//! Label    : 1.0=TP1/TP2, 0.0=SL.
+//! Label    : tenue jusqu'au TP1 — `1.0` si verdict TP1/TP2/TP3, `0.0` si SL.
+//!            C'est le label sémantiquement correct pour SMC directionnel.
+//!            Voir aussi `features::labelliser_smc` pour le label candle (direction + seuil%).
 //! Garde-fou : min 50 trades clôturés avec snapshot. En dessous → skip silencieux.
 
 use common::{Result, TradingError};

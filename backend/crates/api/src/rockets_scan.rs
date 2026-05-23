@@ -10,7 +10,7 @@ pub use strategies::rockets_indicateurs::ScanResultat;
 use strategies::rockets_indicateurs::{
     est_eligible, phase_priorite, Ticker24h, BATCH_SIZE, MAX_DISPLAY, SCAN_SECS,
 };
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 // ── État partagé (lecture depuis le handler HTTP) ────────────────────────────
 
@@ -34,7 +34,7 @@ pub fn get_total_candidats() -> Arc<RwLock<usize>> {
 pub async fn demarrer_worker_scan(
     pool: sqlx::SqlitePool,
     signal_engine: Arc<SignalEngine>,
-    pipeline_ml: Arc<Mutex<PipelineML>>,
+    pipeline_ml: Arc<RwLock<PipelineML>>,
 ) {
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(15))
@@ -59,7 +59,7 @@ async fn executer_scan(
     client: &reqwest::Client,
     pool: &sqlx::SqlitePool,
     signal_engine: &Arc<SignalEngine>,
-    pipeline_ml: &Arc<Mutex<PipelineML>>,
+    pipeline_ml: &Arc<RwLock<PipelineML>>,
 ) -> anyhow::Result<()> {
     use anyhow::Context;
 
@@ -211,7 +211,7 @@ async fn executer_scan(
 /// Si le modèle n'est pas encore entraîné (< 50 trades) → laisse passer (false).
 async fn ml_rejette_rocket(
     r: &ScanResultat,
-    pipeline_ml: &Arc<Mutex<PipelineML>>,
+    pipeline_ml: &Arc<RwLock<PipelineML>>,
     seuil: f64,
 ) -> bool {
     let features = match &r.features_ml {
@@ -224,7 +224,7 @@ async fn ml_rejette_rocket(
         tracing::warn!("ML Rockets: features corrompues pour {} — signal rejeté sans lock", r.ticker);
         return true;
     }
-    let ml = pipeline_ml.lock().await;
+    let ml = pipeline_ml.read().await;
     if !ml.xgb_rockets.est_pret() {
         return false; //模型 pas encore entraîné, on laisse passer
     }

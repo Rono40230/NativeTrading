@@ -3,7 +3,7 @@ use anyhow::Result;
 use db::Database;
 use ml::PipelineML;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use crate::ig_lightstreamer::IgLightstreamer;
 use crate::ig_session::IgSession;
@@ -12,7 +12,7 @@ use crate::signal_engine::SignalEngine;
 
 pub struct AppState {
     pub db: Arc<Database>,
-    pub pipeline_ml: Arc<Mutex<PipelineML>>,
+    pub pipeline_ml: Arc<RwLock<PipelineML>>,
     /// État du job de réentraînement incrémental (Phase 8.4)
     pub retrain_state: Arc<tokio::sync::RwLock<crate::ml_retrain_handler::RetainState>>,
     /// Session IG Markets (CST + X-SECURITY-TOKEN, TTL 5h, relogin auto)
@@ -68,7 +68,7 @@ impl AppState {
 
         // Démarrage automatique du Signal Engine au lancement du serveur
         let db = Arc::new(db);
-        let pipeline_ml = Arc::new(Mutex::new(pipeline_ml));
+        let pipeline_ml = Arc::new(RwLock::new(pipeline_ml));
         let signal_engine = Arc::new(SignalEngine::new());
         signal_engine.demarrer(db.clone(), pipeline_ml.clone());
         tracing::info!("🤖 Signal Engine démarré automatiquement");
@@ -89,7 +89,7 @@ impl AppState {
         // Client Lightstreamer — démarrage de la boucle de streaming
         let (ls_client, _rx) = IgLightstreamer::new(ig_session.clone(), db.clone());
         let ig_lightstreamer = Arc::new(ls_client);
-        
+
         {
             let ls = ig_lightstreamer.clone();
             tokio::spawn(async move {
@@ -135,7 +135,11 @@ impl AppState {
         crate::rockets_calibration::demarrer_calibration_rockets(db.clone());
 
         // Boucle analyse SMC Directionnel (toutes les 15 min)
-        crate::smc_boucle::demarrer_boucle_smc(db.clone(), signal_engine.clone(), pipeline_ml.clone());
+        crate::smc_boucle::demarrer_boucle_smc(
+            db.clone(),
+            signal_engine.clone(),
+            pipeline_ml.clone(),
+        );
 
         // Job de réconciliation des signaux SMC ouverts (toutes les 5 min)
         crate::smc_feedback_job::demarrer_job_feedback_smc(db.clone());

@@ -28,6 +28,7 @@ frontend/src-tauri/gen/
 # Modèles ML entraînés (binaires lourds)
 /backend/models/*.pt
 /backend/models/*.bin
+/backend/data/*.pt
 *.onnx
 
 # Variables d'environnement (clés API — NE JAMAIS COMMITER)

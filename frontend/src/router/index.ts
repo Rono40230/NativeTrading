@@ -15,6 +15,7 @@ const router = createRouter({
     { path: '/smc/graphiques',      component: () => import('../views/ChartsView.vue') },
     { path: '/straddle',            component: () => import('../views/StraddleView.vue') },
     { path: '/straddle/signaux',    component: () => import('../views/StraddleSignauxView.vue') },
+    { path: '/straddle/backtest',   component: () => import('../views/BacktestView.vue') },
 
 
     // Performance

@@ -3,6 +3,8 @@
 //! Distinct du pipeline général (entraîné sur bougies OHLCV brutes) :
 //! ce modèle apprend POURQUOI un signal Rockets particulier a réussi ou échoué.
 //!
+//! Label    : probabilité de breakout haussier — `1.0` si TP atteint (verdict TP1/TP2/TP3).
+//!            Voir aussi `features::labelliser_rockets` pour le label candle (breakout X%).
 //! Garde-fou : min 50 trades clôturés avec snapshot. En dessous → skip silencieux.
 
 use crate::feature_noms::FEATURE_NOMS;

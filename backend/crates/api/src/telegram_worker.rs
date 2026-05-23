@@ -9,7 +9,7 @@
 use sqlx::{Row, SqlitePool};
 use tokio::time::{interval, Duration};
 
-use crate::telegram_formatage::{formater_rocket, formater_signal};
+use crate::telegram_formatage::{formater_prealerte, formater_rocket, formater_signal};
 
 /// Lance le worker. À appeler une seule fois dans main.rs.
 pub async fn demarrer_worker_telegram(pool: SqlitePool) {
@@ -23,6 +23,7 @@ pub async fn demarrer_worker_telegram(pool: SqlitePool) {
         }
         traiter_signaux(&pool, &token, &chat_id).await;
         traiter_rockets(&pool, &token, &chat_id).await;
+        traiter_pre_alertes(&pool, &token, &chat_id).await;
     }
 }
 
@@ -173,3 +174,53 @@ async fn traiter_rockets(pool: &SqlitePool, token: &str, chat_id: &str) {
     }
 }
 
+// ── Pré-alertes (setups en formation) ────────────────────────────────────────
+
+async fn traiter_pre_alertes(pool: &SqlitePool, token: &str, chat_id: &str) {
+    let rows = match sqlx::query(
+        "SELECT id, asset, strategie, raison, score_actuel, evenement, minutes_avant
+         FROM pre_alertes WHERE telegram_envoye = 0
+         ORDER BY cree_le ASC LIMIT 10",
+    )
+    .fetch_all(pool)
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("Telegram worker pre_alertes: {}", e);
+            return;
+        }
+    };
+
+    for row in rows {
+        let id: String = row.get("id");
+        let asset: String = row.get("asset");
+        let strategie: String = row.get("strategie");
+        let raison: String = row.get("raison");
+        let score_actuel: Option<f64> = row.try_get("score_actuel").ok().flatten();
+        let evenement: Option<String> = row.try_get("evenement").ok().flatten();
+        let minutes_avant: Option<i64> = row.try_get("minutes_avant").ok().flatten();
+
+        let texte = formater_prealerte(
+            &strategie,
+            &asset,
+            &raison,
+            score_actuel,
+            evenement.as_deref(),
+            minutes_avant,
+        );
+
+        match crate::telegram::post_message(token, chat_id, &texte).await {
+            Ok(_) => {
+                tracing::info!("⚠️  Telegram Pré-alerte → {}/{}", strategie, asset);
+                let _ = sqlx::query(
+                    "UPDATE pre_alertes SET telegram_envoye = 1 WHERE id = ?",
+                )
+                .bind(&id)
+                .execute(pool)
+                .await;
+            }
+            Err(e) => tracing::warn!("Telegram pre_alerte {}: {}", id, e),
+        }
+    }
+}

@@ -79,14 +79,13 @@ const nav: NavItem[] = [
     groupe: 'Straddle', icone: '⚡',
     liens: [
       { to: '/straddle',          icone: '🔍', label: 'Créneaux volatilité' },
-      { to: '/straddle/backtest', icone: '🧪', label: 'Backtest' },
       { to: '/heatmap',           icone: '🔥', label: 'Heatmap' },
       { to: '/data',              icone: '📦', label: 'Données' },
     ]
   },
 
   // ── Performance ──────────────────────────────────────────────────────────
-  { to: '/pnl',     icone: '💰', label: 'P&L' },
+  { to: '/straddle/backtest', icone: '🧪', label: 'Backtest' },
   { to: '/history', icone: '📜', label: 'Historique' },
 
   // ── Outils IA ─────────────────────────────────────────────────────────────

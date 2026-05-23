@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use ml::PipelineML;
 use db::Database;
 
@@ -7,7 +7,7 @@ use db::Database;
 /// Silencieux si < 50 samples disponibles.
 pub(crate) async fn executer_fine_tuning_straddle(
     db: &Arc<Database>,
-    pipeline_ml: &Arc<Mutex<PipelineML>>,
+    pipeline_ml: &Arc<RwLock<PipelineML>>,
 ) {
     let samples = match db::straddle_features::lire_snapshots_avec_labels(db.pool()).await {
         Ok(s) => s,
@@ -37,7 +37,7 @@ pub(crate) async fn executer_fine_tuning_straddle(
             tracing::info!("Fine-tuning Straddle: {} samples | OOS={:.1}% | sauvegardé={}", r.nb_samples, r.accuracy_oos * 100.0, r.sauvegarde);
             inserer_importances_defaut(db.pool(), "straddle", &["ratio_atr", "straddle_categorie", "straddle_session", "score_llm", "rendement_1", "volume_rel", "range_rel", "corps_rel", "rsi14", "atr14_rel"]).await;
             if r.sauvegarde {
-                let mut pipeline = pipeline_ml.lock().await;
+                let mut pipeline = pipeline_ml.write().await;
                 pipeline.xgb_straddle = ml::XgbStraddle::charger_depuis_disque();
             }
         }
@@ -48,7 +48,7 @@ pub(crate) async fn executer_fine_tuning_straddle(
 /// Silencieux si < 50 samples disponibles.
 pub(crate) async fn executer_fine_tuning_smc(
     db: &Arc<Database>,
-    pipeline_ml: &Arc<Mutex<PipelineML>>,
+    pipeline_ml: &Arc<RwLock<PipelineML>>,
 ) {
     let samples = match db::smc_features::lire_snapshots_avec_labels(db.pool()).await {
         Ok(s) => s,
@@ -81,7 +81,7 @@ pub(crate) async fn executer_fine_tuning_smc(
             );
             inserer_importances_defaut(db.pool(), "smc", &["smc_tendance", "smc_order_block", "smc_ifvg", "smc_fibonacci", "smc_imbalance", "smc_kill_zone", "smc_sweep", "rendement_1", "volume_rel", "rsi14"]).await;
             if r.sauvegarde {
-                let mut pipeline = pipeline_ml.lock().await;
+                let mut pipeline = pipeline_ml.write().await;
                 pipeline.xgb_smc = ml::XgbSmc::charger_depuis_disque();
             }
         }
@@ -92,7 +92,7 @@ pub(crate) async fn executer_fine_tuning_smc(
 /// Silencieux si < 50 samples disponibles.
 pub(crate) async fn executer_fine_tuning_rockets(
     db: &Arc<Database>,
-    pipeline_ml: &Arc<Mutex<PipelineML>>,
+    pipeline_ml: &Arc<RwLock<PipelineML>>,
 ) {
     let samples = match db::rockets_features::lire_snapshots_avec_labels(db.pool()).await {
         Ok(s) => s,
@@ -140,7 +140,7 @@ pub(crate) async fn executer_fine_tuning_rockets(
 
             // Recharger le modèle Rockets dans le pipeline si sauvegardé
             if r.sauvegarde {
-                let mut pipeline = pipeline_ml.lock().await;
+                let mut pipeline = pipeline_ml.write().await;
                 pipeline.xgb_rockets = ml::XgbRockets::charger_depuis_disque();
             }
         }

@@ -4,7 +4,9 @@
 //! ce modèle apprend POURQUOI un signal Straddle particulier a réussi ou échoué.
 //!
 //! Features : 56 (52 OHLCV + ratio_atr + categorie + session + score_llm).
-//! Label    : `gagnant = 1` (au moins une jambe TP1+).
+//! Label    : amplitude suffisante — `1.0` si au moins une jambe atteint TP1+ (pnl_r ≥ 1.0).
+//!            L'amplitude (mouvement max quel que soit la direction) est le critère pertinent
+//!            pour Straddle. Voir aussi `features::labelliser_straddle` pour le label candle.
 //! Garde-fou : min 50 trades clôturés avec snapshot. En dessous → skip silencieux.
 
 use common::{Result, TradingError};

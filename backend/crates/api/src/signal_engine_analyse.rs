@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use strategies::smc_directional::SmcDirectionalStrategy;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::{broadcast, RwLock};
 
 use super::signal_engine::{ASSETS_FALLBACK, INTERVALLE_SECS, TIMEFRAMES};
 
@@ -16,7 +16,7 @@ pub(crate) async fn boucle_detection(
     running: Arc<AtomicBool>,
     prochain: Arc<std::sync::Mutex<i64>>,
     db: Arc<Database>,
-    pipeline_ml: Arc<Mutex<PipelineML>>,
+    pipeline_ml: Arc<RwLock<PipelineML>>,
     tx: broadcast::Sender<Signal>,
     score_news: Arc<AtomicI32>,
     fg_valeur: Arc<AtomicI32>,
@@ -56,7 +56,7 @@ pub(crate) async fn boucle_detection(
 async fn analyser_tous_assets(
     strategie: &SmcDirectionalStrategy,
     db: &Arc<Database>,
-    pipeline_ml: &Arc<Mutex<PipelineML>>,
+    pipeline_ml: &Arc<RwLock<PipelineML>>,
     tx: &broadcast::Sender<Signal>,
     score_news: &Arc<AtomicI32>,
     fg_valeur: &Arc<AtomicI32>,

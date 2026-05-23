@@ -45,6 +45,7 @@
       <aside class="w-64 shrink-0 sticky top-0 h-[calc(100vh-3rem)] flex flex-col gap-3">
         <SentimentMarche class="shrink-0" />
         <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
+        <PreAlertesWidget class="shrink-0" />
         <div class="flex-1 min-h-0">
           <EconomicCalendar class="h-full" />
         </div>
@@ -75,6 +76,7 @@ import NewsFeed from '@/components/common/NewsFeed.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
 import DashboardStrategiesGrid from '@/components/common/DashboardStrategiesGrid.vue'
+import PreAlertesWidget from '@/components/common/PreAlertesWidget.vue'
 
 type VariationsMultiTF = { h1: number | null; h4: number | null; d1: number | null; w1: number | null; m1: number | null }
 type AssetAvecPrix = { id: string; prix: number | null; variation: number | null; variationsMultiTF: VariationsMultiTF | null; clotures: Record<string, number[]>; chargement: boolean }

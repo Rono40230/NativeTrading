@@ -38,6 +38,17 @@ impl Database {
     /// Retourne le prochain événement macro High-impact USD/EUR dans les 30 min.
     /// Résultat : Some((titre, minutes_restantes)) ou None.
     pub async fn fenetre_macro_smc_dans_minutes(&self) -> Result<Option<(String, i64)>> {
+        self.prochain_evenement_macro_high(0, 30).await
+    }
+
+    /// Retourne le prochain événement High-impact dans la fenêtre [min_avant, max_avant] minutes.
+    /// Utilisé par les pré-alertes avec un horizon configurable (ex : 0..90 min pour Straddle).
+    /// Résultat : Some((titre, devise, minutes_restantes)) ou None.
+    pub async fn prochain_evenement_macro_high(
+        &self,
+        min_avant: i64,
+        max_avant: i64,
+    ) -> Result<Option<(String, i64)>> {
         let events = self.lire_calendrier_cache(4 * 3600).await?;
         let maintenant = chrono::Utc::now();
         for ev in &events {
@@ -50,7 +61,7 @@ impl Database {
                 Err(_) => continue,
             };
             let diff_min = (dt - maintenant).num_minutes();
-            if (0..=30).contains(&diff_min) {
+            if diff_min >= min_avant && diff_min <= max_avant {
                 let titre = ev["titre"]
                     .as_str()
                     .unwrap_or("Événement macro")

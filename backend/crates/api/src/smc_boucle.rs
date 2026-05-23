@@ -7,7 +7,7 @@ use db::Database;
 use ml::PipelineML;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use tokio::time::sleep;
 
 use crate::signal_engine::SignalEngine;
@@ -24,26 +24,27 @@ const SEUIL_SCORE_DEFAUT: f64 = 70.0;
 pub fn demarrer_boucle_smc(
     db: Arc<Database>,
     signal_engine: Arc<SignalEngine>,
-    pipeline_ml: Arc<Mutex<PipelineML>>,
+    pipeline_ml: Arc<RwLock<PipelineML>>,
 ) {
     tokio::spawn(async move {
         sleep(Duration::from_secs(120)).await;
         loop {
             let assets = db.lister_assets().await.unwrap_or_default();
             let nb = assets.len();
-            for asset_db in &assets {
-                let asset = match Asset::try_from(asset_db.id.as_str()) {
-                    Ok(a) => a,
-                    Err(_) => continue,
-                };
-                let tf = if asset_db.type_asset == "crypto" {
-                    Timeframe::M5
-                } else {
-                    Timeframe::M15
-                };
-                analyser_asset(&db, &signal_engine, &pipeline_ml, &asset, &tf).await;
-            }
-            tracing::debug!("📐 Boucle SMC cycle terminé ({} assets)", nb);
+            let debut_cycle = std::time::Instant::now();
+            let futs = assets.iter().filter_map(|asset_db| {
+                let asset = Asset::try_from(asset_db.id.as_str()).ok()?;
+                let tf = if asset_db.type_asset == "crypto" { Timeframe::M5 } else { Timeframe::M15 };
+                let db = db.clone(); let se = signal_engine.clone(); let ml = pipeline_ml.clone();
+                Some(async move { analyser_asset(db, se, ml, asset, tf).await; })
+            });
+            futures_util::future::join_all(futs).await;
+            let duree_cycle = debut_cycle.elapsed();
+            tracing::info!(
+                "📐 Boucle SMC cycle terminé ({} assets) en {:.1}s",
+                nb,
+                duree_cycle.as_secs_f64()
+            );
             sleep(Duration::from_secs(INTERVALLE_SEC)).await;
         }
     });
@@ -51,14 +52,14 @@ pub fn demarrer_boucle_smc(
 }
 
 async fn analyser_asset(
-    db: &Arc<Database>,
-    signal_engine: &Arc<SignalEngine>,
-    pipeline_ml: &Arc<Mutex<PipelineML>>,
-    asset: &Asset,
-    tf: &Timeframe,
+    db: Arc<Database>,
+    signal_engine: Arc<SignalEngine>,
+    pipeline_ml: Arc<RwLock<PipelineML>>,
+    asset: Asset,
+    tf: Timeframe,
 ) {
     // Anti-doublon
-    match db.signal_recent_existe(asset, tf, ANTI_DOUBLON_MIN).await {
+    match db.signal_recent_existe(&asset, &tf, ANTI_DOUBLON_MIN).await {
         Ok(true) => return,
         Err(e) => {
             tracing::warn!(
@@ -73,7 +74,7 @@ async fn analyser_asset(
     }
 
     // Bougies
-    let bougies = match db.obtenir_bougies(asset, tf, 200).await {
+    let bougies = match db.obtenir_bougies(&asset, &tf, 200).await {
         Ok(b) if b.len() >= 30 => b,
         Ok(_) => return,
         Err(e) => {
@@ -167,7 +168,7 @@ async fn analyser_asset(
     .and_then(|v: String| v.parse().ok())
     .unwrap_or(0.60);
     let confiance_ml: f64 = {
-        let ml = pipeline_ml.lock().await;
+        let ml = pipeline_ml.read().await;
         if ml.est_pret() {
             match ml.predire(&bougies) {
                 Ok(pred) if pred.confiance < seuil_smc => {
@@ -217,8 +218,8 @@ async fn analyser_asset(
     };
 
     let params = ParamsSmc {
-        asset,
-        tf,
+        asset: &asset,
+        tf: &tf,
         direction_str,
         prix,
         sl,
@@ -243,7 +244,50 @@ async fn analyser_asset(
         imbalance_pts: score.imbalance,
     };
 
-    if let Err(e) = appeler_smc_et_publier(db, signal_engine, params).await {
+    if let Err(e) = appeler_smc_et_publier(&db, &signal_engine, params).await {
         tracing::warn!("SMC boucle {}/{}: {}", asset_str, tf_str, e);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+    use tokio::sync::RwLock;
+
+    /// Test de concurrence : 10 lecteurs simultanés sur un RwLock ne causent pas de deadlock.
+    #[tokio::test]
+    async fn test_rwlock_concurrent_readers_no_deadlock() {
+        let shared = Arc::new(RwLock::new(0u64));
+        let mut handles = Vec::new();
+        for _ in 0..10 {
+            let s = shared.clone();
+            handles.push(tokio::spawn(async move {
+                let guard = s.read().await;
+                tokio::time::sleep(Duration::from_millis(5)).await;
+                *guard
+            }));
+        }
+        let results = futures_util::future::join_all(handles).await;
+        for r in &results {
+            assert!(r.is_ok(), "Tâche en erreur ou deadlock détecté");
+        }
+    }
+
+    /// Test de performance : join_all sur 20 tâches de 10ms doit terminer en < 200ms
+    /// (parallélisme réel, pas 20 × 10ms = 200ms séquentiel).
+    #[tokio::test]
+    async fn test_join_all_parallelisme_20_assets() {
+        let futs = (0..20_u32).map(|_| async {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        });
+        let debut = Instant::now();
+        futures_util::future::join_all(futs).await;
+        let duree = debut.elapsed();
+        assert!(
+            duree < Duration::from_millis(200),
+            "join_all trop lent ({:?}) — pas de parallélisme",
+            duree
+        );
     }
 }

@@ -14,7 +14,7 @@ const CHEMIN_LSTM_BACKUP: &str = "data/modele_lstm_backup.json";
 /// Corps du job de réentraînement : entraîne, compare, rollback si besoin.
 pub(crate) async fn executer_retrain_job(
     db: Arc<db::Database>,
-    pipeline_ml: Arc<tokio::sync::Mutex<ml::PipelineML>>,
+    pipeline_ml: Arc<tokio::sync::RwLock<ml::PipelineML>>,
     retrain_state: Arc<RwLock<RetainState>>,
     accuracy_avant: f64,
     job_id: String,
@@ -68,7 +68,7 @@ pub(crate) async fn executer_retrain_job(
 
         let rolled_back = match restaurer_backup() {
             Ok(_) => {
-                let mut pipeline = pipeline_ml.lock().await;
+                let mut pipeline = pipeline_ml.write().await;
                 match pipeline.charger_depuis_disque() {
                     Ok(_) => {
                         tracing::info!("Rollback modèles ML effectué avec succès");

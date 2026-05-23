@@ -238,3 +238,4 @@ pub fn labelliser(bougies: &[Candle], index: usize, horizon: usize, seuil_pct: f
         None // Neutre → exclure du dataset
     }
 }
+

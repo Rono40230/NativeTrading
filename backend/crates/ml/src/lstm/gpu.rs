@@ -1,44 +1,33 @@
-//! Inférence LSTM accélérée GPU via tch (libtorch CUDA).
+//! Inférence LSTM accélérée GPU via tch::nn::LSTM (cuDNN natif).
 //!
-//! Ce module ne compile qu'avec `--features cuda`. Il convertit les poids
-//! CPU du [`ModeleHybrideLstm`] sérialisable en tenseurs f32 sur CUDA:0,
-//! puis exécute la passe avant des 3 couches LSTM + softmax sur GPU.
+//! Ce module ne compile qu'avec `--features cuda`. Il charge le modèle
+//! depuis le fichier `.pt` sauvegardé par `entrainement_gpu` et exécute
+//! la passe avant via cuDNN — aucune boucle cellule par cellule.
 //!
 //! Usage :
 //! ```ignore
-//! let gpu = LstmGpu::depuis_modele_cpu(&pipeline.lstm);
+//! let gpu = LstmGpu::depuis_pt("data/modele_lstm.pt");
 //! if let Some(g) = gpu {
 //!     let p_long = g.predire(&sequence);
 //! }
 //! ```
 
-use tch::{Device, Kind, Tensor};
+use tch::{nn, nn::Module as _, nn::RNN as _, Device, Kind, Tensor};
 
-use super::{ModeleHybrideLstm, PoidsCouches};
-
-// ─── Couche LSTM GPU ──────────────────────────────────────────────────────────
-
-struct LstmGpuCouche {
-    /// Matrice combinée [4*H, I+H] — f32 CUDA
-    w: Tensor,
-    /// Biais [4*H] — f32 CUDA
-    b: Tensor,
-    cachee: i64,
-}
+use super::{L1, L2, L3};
+use crate::features::NB_FEATURES;
 
 // ─── Accélérateur GPU ────────────────────────────────────────────────────────
 
-/// LSTM 3 couches (128→64→32) inférence sur GPU CUDA.
+/// LSTM 3 couches (128→64→32) inférence cuDNN sur GPU CUDA.
 ///
-/// Non-sérialisable — reconstruit depuis les poids CPU à chaque démarrage
-/// ou après chaque entraînement, via [`LstmGpu::depuis_modele_cpu`].
+/// Non-sérialisable — chargé depuis le fichier `.pt` après chaque entraînement,
+/// via [`LstmGpu::depuis_pt`].
 pub struct LstmGpu {
-    l1: LstmGpuCouche,
-    l2: LstmGpuCouche,
-    l3: LstmGpuCouche,
-    /// Couche de sortie [2, L3] — f32 CUDA
-    w_out: Tensor,
-    b_out: Tensor,
+    l1: nn::LSTM,
+    l2: nn::LSTM,
+    l3: nn::LSTM,
+    fc: nn::Linear,
     device: Device,
 }
 
@@ -48,82 +37,84 @@ unsafe impl Send for LstmGpu {}
 unsafe impl Sync for LstmGpu {}
 
 impl LstmGpu {
-    /// Transfert des poids CPU vers tenseurs CUDA.
+    /// Charge le modèle depuis le fichier `.pt` (format PyTorch tch VarStore).
     ///
-    /// Retourne `None` si CUDA n'est pas disponible sur la machine.
-    pub fn depuis_modele_cpu(modele: &ModeleHybrideLstm) -> Option<Self> {
+    /// Retourne `None` si CUDA indisponible ou fichier absent / corrompu.
+    pub fn depuis_pt(chemin: &str) -> Option<Self> {
         if !tch::Cuda::is_available() {
             tracing::warn!("GPU LSTM: CUDA non disponible — inférence CPU conservée");
             return None;
         }
+        if !std::path::Path::new(chemin).exists() {
+            tracing::debug!(
+                "GPU LSTM: fichier .pt absent ('{}') — premier démarrage ?",
+                chemin
+            );
+            return None;
+        }
+        match Self::charger(chemin) {
+            Ok(g) => {
+                tracing::info!("LSTM GPU: modèle chargé depuis '{}'", chemin);
+                Some(g)
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "GPU LSTM: échec chargement '{}': {} — fallback CPU",
+                    chemin,
+                    e
+                );
+                None
+            }
+        }
+    }
+
+    fn charger(chemin: &str) -> anyhow::Result<Self> {
         let dev = Device::Cuda(0);
-        let p: PoidsCouches = modele.extraire_poids_gpu();
+        let vs = nn::VarStore::new(dev);
+        let root = vs.root();
+        // Même architecture et configs que l'entraînement (entrainement_gpu.rs)
+        let cfg_h = nn::RNNConfig {
+            dropout: 0.0,
+            ..Default::default()
+        };
+        let l1 = nn::lstm(&root / "l1", NB_FEATURES as i64, L1 as i64, cfg_h);
+        let l2 = nn::lstm(&root / "l2", L1 as i64, L2 as i64, cfg_h);
+        let l3 = nn::lstm(&root / "l3", L2 as i64, L3 as i64, nn::RNNConfig::default());
+        let fc = nn::linear(&root / "fc", L3 as i64, 2, Default::default());
 
-        let n_out = p.sortie_poids.len() as i64;
-        let m_out = p.sortie_poids.first().map_or(0, |r| r.len()) as i64;
-        let w_out_flat: Vec<f32> = p
-            .sortie_poids
-            .iter()
-            .flat_map(|r| r.iter().map(|&x| x as f32))
-            .collect();
-        let b_out_flat: Vec<f32> = p.sortie_biais.iter().map(|&x| x as f32).collect();
+        // Contournement : vs.load() utilise at_load_multi_with_device →
+        // torch::jit::_load_parameters (format TorchScript), incompatible avec
+        // vs.save() qui écrit en format pickle dict via at_save_multi.
+        // Solution : Tensor::load_multi (torch::pickle_load, symétrique) +
+        // copie manuelle via shallow_clone (même mémoire sous-jacente que les couches).
+        let tenseurs = Tensor::load_multi(chemin)
+            .map_err(|e| anyhow::anyhow!("Chargement tenseurs LSTM depuis '{}': {}", chemin, e))?;
+        // shallow_clone → même stockage que l1/l2/l3/fc ; mut requis par copy_(&mut self)
+        let mut vars = vs.variables();
+        tch::no_grad(|| {
+            for (nom, src) in &tenseurs {
+                if let Some(dst) = vars.get_mut(nom) {
+                    dst.copy_(&src.to_device(dev));
+                } else {
+                    tracing::debug!(
+                        "GPU LSTM chargement: clé '{}' absente dans l'architecture",
+                        nom
+                    );
+                }
+            }
+        });
 
-        Some(LstmGpu {
-            l1: Self::build_couche(&p.l1_poids, &p.l1_biais, p.l1_in, p.l1_h, dev),
-            l2: Self::build_couche(&p.l2_poids, &p.l2_biais, p.l2_in, p.l2_h, dev),
-            l3: Self::build_couche(&p.l3_poids, &p.l3_biais, p.l3_in, p.l3_h, dev),
-            w_out: Tensor::from_slice(&w_out_flat)
-                .reshape([n_out, m_out])
-                .to_device(dev),
-            b_out: Tensor::from_slice(&b_out_flat).to_device(dev),
+        // vs dropped ici — l1/l2/l3/fc conservent leurs tenseurs via Arc
+        Ok(LstmGpu {
+            l1,
+            l2,
+            l3,
+            fc,
             device: dev,
         })
     }
 
-    fn build_couche(
-        poids: &[f64],
-        biais: &[f64],
-        input: usize,
-        cachee: usize,
-        dev: Device,
-    ) -> LstmGpuCouche {
-        let poids_f32: Vec<f32> = poids.iter().map(|&x| x as f32).collect();
-        let biais_f32: Vec<f32> = biais.iter().map(|&x| x as f32).collect();
-        LstmGpuCouche {
-            w: Tensor::from_slice(&poids_f32)
-                .reshape([4 * cachee as i64, (input + cachee) as i64])
-                .to_device(dev),
-            b: Tensor::from_slice(&biais_f32).to_device(dev),
-            cachee: cachee as i64,
-        }
-    }
-
-    /// Passe avant d'une couche LSTM — retourne la séquence des états cachés [T, H].
-    fn forward_couche(&self, couche: &LstmGpuCouche, seq: &Tensor) -> Tensor {
-        let t = seq.size()[0];
-        let h = couche.cachee;
-        let mut hidden = Tensor::zeros([1, h], (Kind::Float, self.device));
-        let mut cell = Tensor::zeros([1, h], (Kind::Float, self.device));
-        let mut states: Vec<Tensor> = Vec::with_capacity(t as usize);
-
-        for step in 0..t {
-            let x = seq.select(0, step).unsqueeze(0); // [1, I]
-            let xh = Tensor::cat(&[x, hidden.copy()], 1); // [1, I+H]
-            let pre = xh.mm(&couche.w.transpose(0, 1)) + &couche.b; // [1, 4H]
-
-            let i_g = pre.narrow(1, 0, h).sigmoid();
-            let f_g = pre.narrow(1, h, h).sigmoid();
-            let g_g = pre.narrow(1, 2 * h, h).tanh();
-            let o_g = pre.narrow(1, 3 * h, h).sigmoid();
-
-            cell = f_g * cell + i_g * g_g;
-            hidden = o_g * cell.tanh();
-            states.push(hidden.squeeze_dim(0)); // [H]
-        }
-        Tensor::stack(&states, 0) // [T, H]
-    }
-
-    /// Inférence GPU : P(Long) ∈ [0,1].
+    /// Inférence GPU via cuDNN : P(Long) ∈ [0,1].
     ///
     /// Retourne `None` si la séquence est vide ou en cas d'erreur GPU
     /// (le pipeline bascule alors automatiquement sur CPU).
@@ -131,7 +122,6 @@ impl LstmGpu {
         if seq.is_empty() || seq[0].is_empty() {
             return None;
         }
-        // Capture d'un éventuel panic tch pour garantir zero-panic en production
         let résultat = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             tch::no_grad(|| self.predire_interne(seq))
         }));
@@ -146,23 +136,22 @@ impl LstmGpu {
 
     fn predire_interne(&self, seq: &[Vec<f64>]) -> f64 {
         let t = seq.len() as i64;
-        let i_dim = seq[0].len() as i64;
+        let f = seq[0].len() as i64;
         let flat: Vec<f32> = seq
             .iter()
             .flat_map(|r| r.iter().map(|&x| x as f32))
             .collect();
-        let seq_t = Tensor::from_slice(&flat)
-            .reshape([t, i_dim])
-            .to_device(self.device); // [T, NB_FEATURES]
+        // [1, T, F] — batch=1, batch_first (même convention que l'entraînement)
+        let x = Tensor::from_slice(&flat)
+            .reshape([1, t, f])
+            .to_device(self.device);
 
-        let h1 = self.forward_couche(&self.l1, &seq_t); // [T, 128]
-        let h2 = self.forward_couche(&self.l2, &h1); // [T, 64]
-        let h3 = self.forward_couche(&self.l3, &h2); // [T, 32]
+        let (h1, _) = self.l1.seq(&x); // [1, T, L1]
+        let (h2, _) = self.l2.seq(&h1); // [1, T, L2]
+        let (h3, _) = self.l3.seq(&h2); // [1, T, L3]
 
-        // Dernier état caché → couche de sortie
-        let h3_last = h3.select(0, t - 1).unsqueeze(0); // [1, 32]
-        let logits = h3_last.mm(&self.w_out.transpose(0, 1)) + &self.b_out; // [1, 2]
-        let proba = logits.softmax(-1, Kind::Float); // [1, 2]
-        proba.double_value(&[0, 1]) // P(Long)
+        let last = h3.select(1, t - 1); // [1, L3]
+        let logits = self.fc.forward(&last); // [1, 2]
+        logits.softmax(-1, Kind::Float).double_value(&[0, 1]) // P(Long)
     }
 }

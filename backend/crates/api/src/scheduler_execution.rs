@@ -3,7 +3,7 @@ use db::entrainements::EntrainementRecord;
 use db::Database;
 use ml::{walk_forward::entrainer_walk_forward, PipelineML};
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 use crate::ml_retrain_handler::RetainState;
 use crate::utils::{parse_asset, parse_timeframe};
@@ -14,7 +14,7 @@ pub const MIN_BOUGIES_ENTRAINEMENT: i64 = 200;
 /// Appelé par le scheduler quotidien (progress_state=None) et les retraining manuels (Some).
 pub async fn executer_entrainements_tous(
     db: &Arc<Database>,
-    pipeline_ml: &Arc<Mutex<PipelineML>>,
+    pipeline_ml: &Arc<RwLock<PipelineML>>,
     progress_state: Option<Arc<RwLock<RetainState>>>,
 ) {
     let combinaisons = match db.combinaisons_entrainables(MIN_BOUGIES_ENTRAINEMENT).await {
@@ -169,7 +169,7 @@ pub async fn executer_entrainements_tous(
         let pipeline_shared = pipeline_ml.clone();
         let b_owned = bougies;
         let entrainement_res = tokio::task::spawn_blocking(move || {
-            let mut pipeline = pipeline_shared.blocking_lock();
+            let mut pipeline = pipeline_shared.blocking_write();
             pipeline.entrainer_sur_historique(&b_owned, 5, 0.002)
         }).await.unwrap_or_else(|e| {
             tracing::error!("Pannic de spawn_blocking: {}", e);

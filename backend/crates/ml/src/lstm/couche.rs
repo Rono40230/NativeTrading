@@ -158,18 +158,6 @@ impl CoucheLstm {
         (d_input, dc_prev)
     }
 
-    /// Référence vers les poids combinés [4*H, I+H] — accès depuis le module parent.
-    #[cfg(feature = "cuda")]
-    pub(super) fn poids_ref(&self) -> &[f64] {
-        &self.poids
-    }
-
-    /// Référence vers le biais [4*H] — accès depuis le module parent.
-    #[cfg(feature = "cuda")]
-    pub(super) fn biais_ref(&self) -> &[f64] {
-        &self.biais
-    }
-
     /// Remplace poids et biais après entraînement GPU (feature cuda uniquement).
     #[cfg(feature = "cuda")]
     pub(super) fn set_poids_biais(&mut self, poids: Vec<f64>, biais: Vec<f64>) {

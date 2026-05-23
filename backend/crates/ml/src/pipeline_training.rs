@@ -50,12 +50,12 @@ pub fn entrainer_sur_historique(
     let debut_xgb = features_dataset.len().saturating_sub(MAX_SAMPLES_XGB);
     let acc_xgb = pipeline.xgb.entrainer(&features_dataset[debut_xgb..], &labels[debut_xgb..])?;
 
-    // FIX OOM (Exit Code 137) : On limite l'allocation de Vec<Vec<Vec<>>> avant la création
-    // au lieu de charger tout l'historique et faire le slice ensuite.
-    // Zone de valeur LSTM : 12k-20k. 15k séquences × 60 × 50 features ≈ 180MB tenseur,
-    // safe sur RTX 3090 même avec Ollama actif (23/24GB). Au-delà : gradient vanishing.
+    // FIX OOM : Ollama occupe ~22 GB VRAM → ~2 GB libres sur RTX 3090.
+    // 4k séquences × [60, 52] × float32 ≈ 47 MB tenseur + ~100 MB gradients
+    // = ~150 MB peak VRAM, safe même avec seulement 1.5 GB libres.
+    // Le mutex dans entrainement_gpu sérialise les jobs concurrents.
     #[cfg(feature = "cuda")]
-    let max_seq = if tch::Cuda::is_available() { 15_000 } else { 2_000 };
+    let max_seq = if tch::Cuda::is_available() { 4_000 } else { 2_000 };
     #[cfg(not(feature = "cuda"))]
     let max_seq = 2_000;
 
@@ -70,15 +70,27 @@ pub fn entrainer_sur_historique(
         tracing::info!("🚀 Démarrage entraînement LSTM GPU sur {} séquences (epochs: 15)...", seq_total.len());
         let chrono_gpu = std::time::Instant::now();
         
-        match crate::lstm::entrainement_gpu::entrainer_sur_gpu(
-            &mut pipeline.lstm, &seq_total, &labels_seq_total, 15, 0.001,
-        ) {
-            Ok(acc) => {
+        // catch_unwind : tch-rs peut paniquer (unwrap interne) sur CUDA OOM.
+        // On convertit le panic en fallback CPU sans crasher la tâche scheduler.
+        let gpu_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            crate::lstm::entrainement_gpu::entrainer_sur_gpu(
+                &mut pipeline.lstm, &seq_total, &labels_seq_total, 15, 0.001,
+                crate::pipeline::CHEMIN_LSTM_PT,
+            )
+        }));
+        match gpu_result {
+            Ok(Ok(acc)) => {
                 tracing::info!("✅ LSTM GPU terminé en {:.2?}. Precision OOS: {:.2}%", chrono_gpu.elapsed(), acc * 100.0);
                 acc
-            },
-            Err(e) => {
+            }
+            Ok(Err(e)) => {
                 tracing::warn!("LSTM GPU échoué, fallback CPU: {}", e);
+                const MAX: usize = 2_000;
+                let d = seq_total.len().saturating_sub(MAX);
+                pipeline.lstm.entrainer(&seq_total[d..], &labels_seq_total[d..], 15, 0.001)
+            }
+            Err(_) => {
+                tracing::warn!("LSTM GPU panic (CUDA OOM probable), fallback CPU");
                 const MAX: usize = 2_000;
                 let d = seq_total.len().saturating_sub(MAX);
                 pipeline.lstm.entrainer(&seq_total[d..], &labels_seq_total[d..], 15, 0.001)

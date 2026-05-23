@@ -1,6 +1,5 @@
 //! Configuration des routes HTTP — séparé de main.rs pour lisibilité.
 use actix_web::web;
-
 pub fn configurer(cfg: &mut web::ServiceConfig) {
     cfg.route("/health", web::get().to(crate::handlers::health_check))
         .service(
@@ -297,4 +296,5 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         );
     crate::routes_ml::configurer(cfg);
     crate::routes_rockets::configurer(cfg);
+    crate::routes_backtest::configurer(cfg);
 }

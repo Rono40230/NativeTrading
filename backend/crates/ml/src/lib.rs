@@ -2,6 +2,7 @@ pub mod feature_noms;
 pub mod features;
 pub mod features_precalc;
 pub mod feedback_analyser;
+pub mod labels_strategies;
 pub mod lstm;
 pub mod params_suggester;
 pub mod rockets_trainer;
@@ -13,6 +14,7 @@ pub mod pipeline;
 pub mod pipeline_training;
 
 pub use features::{extraire_features, labelliser, NB_FEATURES};
+pub use labels_strategies::{labelliser_straddle, labelliser_rockets, labelliser_smc};
 pub use feature_noms::FEATURE_NOMS;
 pub use lstm::{ModeleHybrideLstm, LONGUEUR_SEQ};
 pub use walk_forward::entrainer_walk_forward;

@@ -173,3 +173,42 @@ Trailing TP3   : {trail}×",
 
     texte
 }
+
+/// Formate un message de pré-alerte Telegram.
+/// Ton distinct : ⚠️ "setup en formation" vs 🚀 "signal actif".
+pub fn formater_prealerte(
+    strategie: &str,
+    asset: &str,
+    raison: &str,
+    score_actuel: Option<f64>,
+    evenement: Option<&str>,
+    minutes_avant: Option<i64>,
+) -> String {
+    let (emoji, label) = if strategie.to_lowercase().contains("straddle") {
+        ("🌪️", "Straddle")
+    } else {
+        ("📊", "SMC Directionnel")
+    };
+
+    let mut texte = format!(
+        "⚠️ <b>Pré-alerte {label} — {asset}</b>\n{emoji} Setup en formation\n\n{raison}",
+        label = label,
+        asset = asset,
+        emoji = emoji,
+        raison = raison.replace("<", "&lt;").replace(">", "&gt;"),
+    );
+
+    if let Some(score) = score_actuel {
+        texte.push_str(&format!("\n📈 Score actuel : <b>{:.0}/100</b>", score));
+    }
+    if let Some(ev) = evenement {
+        let min = minutes_avant.unwrap_or(0);
+        texte.push_str(&format!(
+            "\n📅 Événement : <b>{}</b> dans {} min",
+            ev.replace("<", "&lt;").replace(">", "&gt;"),
+            min
+        ));
+    }
+    texte.push_str("\n\n<i>Préparez-vous — pas encore d'entrée confirmée.</i>");
+    texte
+}

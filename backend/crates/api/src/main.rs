@@ -5,6 +5,7 @@ mod ab_test_handlers;
 mod anthropic;
 mod asset_params_handlers;
 mod assets_handlers;
+mod backtest_handler;
 mod calendar_handlers;
 mod config_handlers;
 mod data_handlers;
@@ -72,6 +73,8 @@ mod smc_monitoring_handlers;
 mod smc_signal_ollama;
 mod state;
 mod straddle_boucle;
+mod straddle_boucle_analyse;
+mod straddle_boucle_signal;
 mod straddle_calibration;
 mod straddle_categorisation;
 mod straddle_dev_handlers;
@@ -95,12 +98,15 @@ mod strategies_params_handlers;
 mod telegram;
 mod telegram_formatage;
 mod telegram_worker;
+mod prealerte_worker;
+mod prealerte_handlers;
 mod tendance_handlers;
 mod utils;
 mod volatility_handlers;
 mod ws_handlers;
 
 mod routes;
+mod routes_backtest;
 mod routes_ml;
 mod routes_rockets;
 
@@ -161,10 +167,25 @@ async fn main() -> std::io::Result<()> {
         app_state.db.clone(),
     ));
 
+    // ── Boucles automatiques SMC + Straddle (toutes les 15 min, assets actifs) ─
+    smc_boucle::demarrer_boucle_smc(
+        app_state.db.clone(),
+        app_state.signal_engine.clone(),
+        app_state.pipeline_ml.clone(),
+    );
+    straddle_boucle::demarrer_boucle_straddle(
+        app_state.db.clone(),
+        app_state.signal_engine.clone(),
+        app_state.pipeline_ml.clone(),
+    );
+
     let pool_telegram = app_state.db.pool().clone();
     tokio::spawn(telegram_worker::demarrer_worker_telegram(pool_telegram));
 
     scheduler::demarrer_surveillance_ml(app_state.db.clone(), app_state.pipeline_ml.clone());
+
+    // ── Worker pré-alertes (cycle 5 min — setups en formation) ──────────────
+    prealerte_worker::demarrer_worker_prealerte(app_state.db.clone());
 
     HttpServer::new(move || {
         // CORS limité au dev Tauri uniquement — en production l'app est native (fenêtre Tauri)

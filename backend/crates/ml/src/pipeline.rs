@@ -11,6 +11,7 @@ use crate::features_corrompues;
 
 pub const CHEMIN_XGB: &str = "data/modele_xgboost.json";
 pub const CHEMIN_LSTM: &str = "data/modele_lstm.json";
+pub const CHEMIN_LSTM_PT: &str = "data/modele_lstm.pt";
 
 #[derive(Debug, Clone)]
 pub struct PredictionML {
@@ -44,11 +45,9 @@ impl PipelineML {
 
     #[cfg(feature = "cuda")]
     pub fn activer_gpu_si_pret(&mut self) {
-        if self.lstm.est_pret() {
-            self.lstm_gpu = crate::lstm::LstmGpu::depuis_modele_cpu(&self.lstm);
-            if self.lstm_gpu.is_some() {
-                tracing::info!("LSTM GPU: tenseurs chargés sur CUDA:0");
-            }
+        self.lstm_gpu = crate::lstm::LstmGpu::depuis_pt(CHEMIN_LSTM_PT);
+        if self.lstm_gpu.is_some() {
+            tracing::info!("LSTM GPU: tenseurs chargés sur CUDA:0 depuis .pt");
         }
     }
 

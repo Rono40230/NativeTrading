@@ -13,10 +13,9 @@ Je veux que tu me dises si tu y trouves :
 - mon materiel est il exploité à 100% de ses capacités (Intel 9 - 20 coeurs + 48Go ram + RTX 3090 24Go de VRAM)
 - des incohérences/manquements entre backend et Frontend
 - des dettes techniques
+- et tous les autres bugs, problèmes, incohérences, etc... que je te laisse compléter.
 
 Dis moi ce qui pourrait être supprimé/améliorer pour qu'il soit utilisé à usage professionnel
 et capable de produire des signaux de trading surs et rentables.
 
-Si l'analyse est trop lourde en une seule fois, on peut la répéter pour chaque stratégie indépendament.
-Qu'en penses tu ?
 Repond sans coder

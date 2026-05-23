@@ -8,7 +8,7 @@ use std::sync::atomic::AtomicI32;
 use std::sync::Arc;
 use strategies::smc_directional::SmcDirectionalStrategy;
 use strategies::Strategy;
-use tokio::sync::{broadcast, Mutex};
+use tokio::sync::{broadcast, RwLock};
 
 use crate::signal_engine::DOUBLON_MINUTES;
 
@@ -16,7 +16,7 @@ use crate::signal_engine::DOUBLON_MINUTES;
 pub(crate) async fn analyser_asset(
     strategie: &SmcDirectionalStrategy,
     db: &Arc<Database>,
-    pipeline_ml: &Arc<Mutex<PipelineML>>,
+    pipeline_ml: &Arc<RwLock<PipelineML>>,
     tx: &broadcast::Sender<Signal>,
     asset: &Asset,
     timeframe: &Timeframe,
@@ -36,7 +36,7 @@ pub(crate) async fn analyser_asset(
     // Gate ML : filtre si ML confiant et direction opposée à SMC.
     // Bonus scoring : +15 pts si ML confirme la direction, +20 pts si confiance >70%.
     let (confiance_ml, bonus_ml) = {
-        let ml = pipeline_ml.lock().await;
+        let ml = pipeline_ml.read().await;
         if ml.est_pret() {
             match ml.predire(&bougies) {
                 Ok(pred) if pred.est_confiant && pred.direction != signal_strat.direction => {

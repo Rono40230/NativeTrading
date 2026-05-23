@@ -1,28 +1,30 @@
 --------------------------------------------------------------------------------------------------------------------------
 
-est il utile d'ajouter le modèle qwen3-32b à l'app pour les analyse smc et globalement.
-Existe t il un modèle disponible en local spécialisé dans l'analyse smc que nous pourrions dédié à cette analyse = va voir sur le net
+
 
 --------------------------------------------------------------------------------------------------------------------------
 
 Réécris entièrement le fichier readme.md qui n'est plus représentatifs de l'app.
-En décrivant ce que fais l'app désormais
+En décrivant ce que fais l'app.
+Je ne veux pas un enorme fichier, mais je veux qu'il soit exhaustif pour que un trader qui découvre l'app sache à quoi elle sert.
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Il faut réfléchir à un système d'alertes qui prévient l'utilisateur d'une opportunité imminente.
-Actuellement le système envoie des positions à telegram lorsqu'il faut entrer en position (confirme moi ce point) ne faudrait il pas implémenter des alertes qui prévient de l'éminence d'une opportunité ?
-Le système le permet il ?
+Il faut vérifier quel est le fuseau horaire utilisé pour l'affichage de l'indicateur range asie sur le graphique.
+Je veux que ce soit le creneaux de l'heure de paris
 Repond sans coder
 
-
-Dans le graphique il faut ajouter à "Afficher et trier les signaux" les boutons :
-1 - Straddle
-2 - SMC
-qui si ils sont sélectionnés affichent les signaux smc et straddle qui ont été générés par l'app sous la meme forme que les autres signaux.
-Est ce clair ?
-As tu besoin de précisions ?
-Repond sans coder
+--------------------------------------------------------------------------------------------------------------------------
 
 
-Vérifier que l'app n'utilise pas que le CPU = ollama ps
+
+--------------------------------------------------------------------------------------------------------------------------
+
+
+
+--------------------------------------------------------------------------------------------------------------------------
+
+
+
+
+

@@ -136,7 +136,7 @@ pub async fn statut_retrain(state: web::Data<AppState>, path: web::Path<String>)
 /// Corps du job de réentraînement : délégué à ml_retrain_job.
 async fn executer_retrain_job(
     db: Arc<db::Database>,
-    pipeline_ml: Arc<tokio::sync::Mutex<ml::PipelineML>>,
+    pipeline_ml: Arc<tokio::sync::RwLock<ml::PipelineML>>,
     retrain_state: Arc<RwLock<RetainState>>,
     accuracy_avant: f64,
     job_id: String,

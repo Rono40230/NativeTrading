@@ -3,7 +3,7 @@
 //! - ML indécis (0.45–0.74) → bonus de contexte ajouté au prompt Ollama
 use ml::PipelineML;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 
 const ZONE_INDECIS_MIN: f64 = 0.45;
 const ZONE_INDECIS_MAX: f64 = 0.74;
@@ -18,13 +18,13 @@ pub enum MlContexteStraddle {
 }
 
 pub async fn evaluer_ml_straddle(
-    pipeline_ml: &Arc<Mutex<PipelineML>>,
+    pipeline_ml: &Arc<RwLock<PipelineML>>,
     bougies: &[common::Candle],
     asset: &str,
     tf: &str,
     seuil: f64,
 ) -> MlContexteStraddle {
-    let ml = pipeline_ml.lock().await;
+    let ml = pipeline_ml.read().await;
     if !ml.est_pret() {
         return MlContexteStraddle::NonDisponible;
     }

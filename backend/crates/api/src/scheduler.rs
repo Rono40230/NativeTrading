@@ -2,7 +2,7 @@ use chrono::{Datelike, Timelike, Utc, FixedOffset, TimeZone};
 use db::Database;
 use ml::PipelineML;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::RwLock;
 use tokio::time::{sleep, Duration};
 
 use crate::scheduler_execution::executer_entrainements_tous;
@@ -12,7 +12,7 @@ use crate::scheduler_execution::executer_entrainements_tous;
 /// Sinon attend 18h00 heure de Paris. Dans les deux cas, re-entraîne toutes les 24h.
 pub fn demarrer_scheduler(
     db: Arc<Database>,
-    pipeline_ml: Arc<Mutex<PipelineML>>,
+    pipeline_ml: Arc<RwLock<PipelineML>>,
     modele_deja_charge: bool,
 ) {
     tokio::spawn(async move {
@@ -47,7 +47,7 @@ pub fn demarrer_scheduler(
 
 /// Démarre la surveillance ML toutes les 6h.
 /// Déclenche un ré-entraînement si accuracy_val récente < 52%.
-pub fn demarrer_surveillance_ml(db: Arc<Database>, pipeline_ml: Arc<Mutex<PipelineML>>) {
+pub fn demarrer_surveillance_ml(db: Arc<Database>, pipeline_ml: Arc<RwLock<PipelineML>>) {
     tokio::spawn(async move {
         sleep(Duration::from_secs(6 * 3600)).await;
         loop {
@@ -90,7 +90,9 @@ fn secondes_jusqu_a_18h_paris() -> u64 {
     // Détection heure d'été simplifiée : UTC+2 d'avril à octobre, UTC+1 sinon
     let mois = now_utc.month();
     let offset_secs = if (4..=10).contains(&mois) { 2 * 3600i32 } else { 3600i32 };
-    let paris = FixedOffset::east_opt(offset_secs).expect("offset valide");
+    let Some(paris) = FixedOffset::east_opt(offset_secs) else {
+        return 0;
+    };
     let now_paris = paris.from_utc_datetime(&now_utc.naive_utc());
 
     let heure_cible = 18u64 * 3600; // 18h00

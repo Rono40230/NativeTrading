@@ -79,7 +79,7 @@ pub async fn entrainer_ml(
     };
 
     // ── Entraînement pipeline principal sur 100 % des données ─────────────────
-    let mut pipeline = state.pipeline_ml.lock().await;
+    let mut pipeline = state.pipeline_ml.write().await;
     match pipeline.entrainer_sur_historique(&bougies, 5, 0.002) {
         Ok(_) => {
             drop(pipeline);
@@ -145,7 +145,7 @@ pub async fn entrainer_ml(
 
 /// GET /api/ml/status — état du pipeline ML
 pub async fn statut_ml(state: web::Data<AppState>) -> impl Responder {
-    let pipeline = state.pipeline_ml.lock().await;
+    let pipeline = state.pipeline_ml.read().await;
     HttpResponse::Ok().json(serde_json::json!({
         "modele_pret": pipeline.est_pret(),
         "lstm_pret": pipeline.lstm.est_pret(),
