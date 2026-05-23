@@ -1,223 +1,156 @@
-# 📊 Native Trading AI
+# Native Trading AI
 
-> Système d'intelligence artificielle native pour trading algorithmique
-
-[![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/Rust-1.82+-orange.svg)](https://www.rust-lang.org/)
 [![Vue](https://img.shields.io/badge/Vue.js-3.4+-green.svg)](https://vuejs.org/)
+[![Tauri](https://img.shields.io/badge/Tauri-2-blue.svg)](https://tauri.app/)
 [![CUDA](https://img.shields.io/badge/CUDA-11.8+-76B900.svg)](https://developer.nvidia.com/cuda-toolkit)
 
----
-
-## 🎯 Objectif
-
-IA locale pour détecter volatilité et générer signaux de trading sur **XAUUSD, XAGUSD, BTC, ETH** avec :
-- **Modèle hybride** LSTM + XGBoost
-- **Indicateurs SMC** (Order Blocks, Imbalance, IFVG, Fibonacci)
-- **2 stratégies** : Straddle + SMC Directionnel
-- **Backtesting** avec métriques avancées
-- **Dashboard** Vue.js temps réel
-
-**100% local** - GPU CUDA - Aucune dépendance cloud
+Application de trading algorithmique **100 % locale** — aucun cloud, aucun abonnement.  
+Elle surveille les marchés en continu, détecte les setups, génère des signaux et permet de backtester les stratégies, le tout depuis une fenêtre native (Tauri).
 
 ---
 
-## 📋 Documentation
+## Actifs suivis
 
-| Document | Description |
-|----------|-------------|
-| **[CAHIER_DES_CHARGES.md](CAHIER_DES_CHARGES.md)** | Spécifications complètes |
-| **[ROADMAP.md](ROADMAP.md)** | Feuille de route (18 semaines) |
-| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Architecture technique |
-| **README.md** | Ce document |
+| Actif | Source |
+|-------|--------|
+| BTC/USDT, ETH/USDT | Binance WebSocket |
+| XAUUSD, XAGUSD | MetaTrader 5 |
 
----
-
-## ⚙️ Prérequis
-
-- **OS:** Fedora 43 (Linux)
-- **GPU:** NVIDIA RTX 3090 (CUDA 11.8+)
-- **RAM:** 48 GB
-- **Disque:** ~50 GB libres
-
-**Logiciels** (installés automatiquement):
-- Rust 1.70+
-- **Tauri CLI** (fenêtre native — aucun navigateur)
-- CUDA Toolkit 11.8
-- LibTorch (PyTorch C++)
-- Node.js 20+ (build Tauri uniquement)
-- SQLite 3
+Timeframes analysés : **M1 · M5 · M15**
 
 ---
 
-## 🚀 Installation
+## 3 stratégies de trading
+
+### 1. Straddle — Volatilité extrême
+Déclenché quand l'ATR dépasse 150 % de sa moyenne et que le modèle IA est indécis.  
+L'app ouvre deux positions opposées simultanément (Long + Short) pour capturer le mouvement dans n'importe quelle direction.
+
+- Risk : 1 % par jambe (2 % total)
+- TP : 2 × ATR · SL : 0,5 × ATR
+- Machine à états : suivi indépendant de chaque jambe jusqu'à clôture
+
+### 2. SMC Directionnel — Confluence Smart Money
+Score de 0 à 100 calculé à partir de 6 composantes : tendance structurelle, Order Block, Imbalance, IFVG, Fibonacci, Kill Zone.  
+Un signal est émis uniquement si le score ≥ 70/100.
+
+- Risk : 1,5 % par trade
+- Take-profits pyramidaux : TP1 / TP2 / TP3 trailing
+
+### 3. Rockets — Contraction de volatilité (VCP)
+Détecte les compressions de range (ATR actuel < 60 % de l'ATR moyen 20 périodes) suivies d'un breakout au-dessus du plus-haut des 10 dernières bougies.
+
+- Risk : configurable par trade
+- SL : dernier bas des 5 bougies · TP : 2 × (entrée − SL)
+
+---
+
+## Intelligence artificielle embarquée
+
+**Modèle hybride LSTM + XGBoost** entraîné et exécuté localement sur GPU (RTX 3090).
+
+| Modèle | Rôle | Poids |
+|--------|------|-------|
+| LSTM 3 couches (128→64→32) | Patterns temporels sur 60 bougies | 60 % |
+| XGBoost 100 arbres | Classification rapide sur 50+ features | 40 % |
+
+Features : OHLCV normalisé, ATR, RSI, MACD, Bollinger, tendance SMC, Order Blocks, Imbalance, IFVG, Fibonacci.  
+Inférence < 200 ms · Réentraînement automatique planifiable.
+
+**Coach IA** : analyse de graphiques importés par l'utilisateur (vision Claude / Ollama) avec commentaire en langage naturel.
+
+---
+
+## Interface — vues disponibles
+
+| Vue | Contenu |
+|-----|---------|
+| **Dashboard** | État global du système, positions actives, alertes |
+| **SMC — Graphiques** | Charts TradingView temps réel + indicateurs SMC superposés |
+| **SMC — Signaux** | Liste des signaux actifs et historique SMC |
+| **Straddle — Live** | Positions Straddle en cours, machine à états par jambe |
+| **Straddle — Signaux** | Historique et scores des setups Straddle |
+| **Straddle — Backtest** | Lancement backtest, résultats, courbe equity, stats par heure/jour |
+| **Rockets** | Signaux VCP actifs et historique |
+| **Heatmap** | Volatilité comparée multi-actifs / multi-timeframes |
+| **ML Insights** | Métriques du modèle, accuracy, feature importance |
+| **IA — Analyse chart** | Import d'un screenshot → analyse IA visuelle |
+| **IA — Coach SMC** | Chat avec l'IA pour comprendre un setup ou affiner une stratégie |
+| **Historique** | Tous les trades passés, filtres, export |
+| **Gestion des données** | Import CSV, backfill, état de la base SQLite |
+| **Paramètres** | Clés API, seuils de risque, configuration par stratégie |
+| **Prompts IA** | Édition des prompts Ollama utilisés par l'app |
+| **Lexique** | Définitions SMC, Straddle, Rockets pour référence rapide |
+
+---
+
+## Prérequis
+
+- **OS :** Linux (Fedora 43+)
+- **GPU :** NVIDIA avec CUDA 11.8+ (RTX 3090 recommandée)
+- **RAM :** 16 GB minimum, 32 GB recommandé
+- Rust 1.82+ · Node.js 20+ · LibTorch · SQLite 3
+
+---
+
+## Démarrage
 
 ```bash
-# 1. Rendre les scripts exécutables
+# Installation (première fois — 15-20 min)
 chmod +x scripts/*.sh
-
-# 2. Lancer l'installation (15-20 min)
 ./scripts/install.sh
 
-# 3. Configuration
-cp .env.example .env
-nano .env  # Ajouter vos clés API
-```
-
----
-
-## 🎮 Démarrage
-
-```bash
 # Lancer l'application
 ./scripts/run.sh
 ```
 
-**Résultat:**
-- 🖥️ Une fenêtre native s'ouvre (aucun navigateur)
-- 🔌 API interne: http://localhost:8080 (backend, usage Tauri uniquement)
-- 📡 WebSocket: ws://localhost:8080/api/stream
-
-**Arrêter:** `Ctrl+C`
-
----
-
-## 📊 Dashboards
-
-1. **Home** - Vue d'ensemble système
-2. **Charts** (priorité 1) - Graphiques 4 actifs temps réel + indicateurs
-3. **P&L** (priorité 2) - Profit & Loss live, positions
-4. **History** (priorité 3) - Historique signaux/trades
-5. **Settings** (priorité 4) - Configuration paramètres
-6. **Heatmap** (priorité 5) - Volatilité multi-actifs
-
----
-
-## 🏗️ Structure
-
-```
-native-trading-ai/
-├── backend/                # Rust workspace (9 crates)
-│   ├── crates/
-│   │   ├── api/           # REST API + WebSocket
-│   │   ├── data/          # Acquisition données
-│   │   ├── ml/            # Machine Learning
-│   │   ├── indicators/    # Indicateurs techniques
-│   │   ├── smc/           # Indicateurs SMC
-│   │   ├── strategies/    # Stratégies trading
-│   │   ├── backtest/      # Backtesting
-│   │   ├── risk/          # Risk management
-│   │   ├── db/            # SQLite
-│   │   └── common/        # Types communs
-│   └── models/            # Modèles ML (.pt)
-├── frontend/              # Vue.js 3 + TypeScript
-├── data/                  # SQLite + backups
-├── scripts/               # install.sh, run.sh, backup.sh
-├── CAHIER_DES_CHARGES.md
-├── ROADMAP.md
-├── ARCHITECTURE.md
-└── README.md
-```
-
----
-
-## 🤖 Intelligence Artificielle
-
-**Modèle hybride:**
-- **LSTM:** 3 couches (128-64-32) - Patterns temporels
-- **XGBoost:** 200 trees - Classification rapide
-- **Fusion:** Voting pondéré 60/40
-
-**Outputs:**
-- Classification binaire/ternaire
-- Régression multi-horizon (T+5min, T+15min, T+1h)
-- Confidence score 0-100%
-
-**Training:**
-- Walk-forward validation
-- GPU CUDA <1h
-- Réentraînement quotidien auto (Phase 3)
-
----
-
-## 📈 Stratégies
-
-### 1. Straddle (Volatilité extrême)
-- **Conditions:** ATR >150% + IA indécis
-- **Exécution:** Long + Short simultanés
-- **SL:** 20 pips / 0.5%
-- **TP:** Trailing stop 2× ATR
-
-### 2. SMC Directionnel (Confluence)
-- **Scoring:** IA 35% + Tendance 20% + OB 15% + ...
-- **Seuil:** ≥70/100
-- **TP pyramidal:** TP1 (40%) + TP2 (40%) + TP3 trailing (20%)
-
----
-
-## 🧪 Tests
+Une fenêtre native s'ouvre. Aucun navigateur nécessaire.  
+Le backend écoute sur `localhost:8080` (usage interne Tauri uniquement).
 
 ```bash
-./scripts/test.sh
-```
+# Tests
+cargo test --workspace
 
----
-
-## 💾 Backup
-
-```bash
-# Backup manuel
+# Backup des données
 ./scripts/backup.sh
-
-# Automatiser (cron hebdo)
-crontab -e
-# 0 2 * * 0 /path/to/scripts/backup.sh
 ```
 
 ---
 
-## 📈 Métriques cibles
+## Architecture
 
-| Métrique | MVP | Production |
-|----------|-----|------------|
-| ROI 1 an | >0% | >15% |
-| Sharpe | >0.5 | >1.5 |
-| Max DD | <30% | <20% |
-| Win rate | >45% | >55% |
-
----
-
-## 🔧 Configuration
-
-**Backend:** `.env`
-```bash
-DATABASE_URL=sqlite:./data/trading.db
-RUST_LOG=info
-CUDA_VISIBLE_DEVICES=0
 ```
+backend/crates/
+  api/          REST + WebSocket (port 8080)
+  common/       Types partagés (Candle, Asset, Direction…)
+  data/         Connecteurs Binance / MetaTrader 5
+  db/           Couche SQLite (SQLx)
+  ml/           Pipeline LSTM + XGBoost (tch-rs + xgboost)
+  indicators/   ATR, RSI, MACD, Bollinger…
+  smc/          5 indicateurs SMC (OB, Imbalance, IFVG, Fib, Tendance)
+  strategies/   Straddle · SMC · Rockets
+  backtest/     Moteur de backtesting
+  risk/         Position sizing, drawdown, garde-fous
 
-**Frontend:** `frontend/vite.config.ts`
-```typescript
-server: {
-  port: 3000,
-  proxy: { '/api': 'http://localhost:8080' }
-}
+frontend/src/
+  views/        20 pages Vue 3
+  stores/       État global Pinia
+  services/     Clients API (types générés automatiquement depuis Rust via ts-rs)
+  composables/  Logique réutilisable (charts, indicateurs…)
 ```
 
 ---
 
-## 🚧 État actuel
+## Métriques cibles
 
-**Version:** 0.1.0 - Structure initiale  
-**Phase:** 1 - MVP en développement
-
-**Prochaines étapes:**
-1. ✅ Setup infrastructure (terminé)
-2. ⏳ Acquisition données Binance
-3. ⏳ Détection volatilité
-4. ⏳ ML modèle basique
-5. ⏳ Stratégie Straddle
-6. ⏳ Backtesting
-7. ⏳ Dashboard minimal
+| Métrique | Cible |
+|----------|-------|
+| ROI annualisé | > 15 % |
+| Sharpe ratio | > 1,5 |
+| Win rate | > 55 % |
+| Drawdown max | < 20 % |
+| Inférence ML | < 200 ms |
 
 ---
 
