@@ -760,12 +760,12 @@ Ces conditions doivent **toutes** être vraies avant de passer à la Phase 6 :
 
 Ces conditions marquent la **roadmap complète** comme terminée :
 
-- [ ] `cargo test --workspace` : 0 échec
-- [ ] `cargo clippy --workspace -- -D warnings` : 0 warning
-- [ ] `npm run build` : 0 erreur
-- [ ] Aucun fichier `test_*.rs` dans un crate de production
-- [ ] `grep -r 'anthropic' backend/` retourne vide (si non utilisé)
-- [ ] Aucune fonction publique non appelée dans `api/src/` (détectée par clippy dead_code)
+- [x] `cargo test --workspace` : 0 échec
+- [x] `cargo clippy --workspace -- -D warnings` : 0 warning
+- [x] `npm run build` : 0 erreur
+- [x] Aucun fichier `test_*.rs` dans un crate de production
+- [x] `grep -r 'anthropic' backend/` retourne vide (si non utilisé) — anthropic.rs est utilisé (ollama_chart_handler, ollama_chat_handler), conservé intentionnellement
+- [x] Aucune fonction publique non appelée dans `api/src/` (détectée par clippy dead_code)
 - [ ] Revue humaine des 3 stratégies : les cycles auto tournent sans erreur pendant 24h
 
 ---

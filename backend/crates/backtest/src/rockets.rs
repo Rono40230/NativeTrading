@@ -14,6 +14,7 @@ use crate::{simulateur::simuler_position, BacktestConfig, TradeBacktest};
 /// Détection VCP simplifiée pour le backtest :
 /// - Contraction : ATR actuel < 60% de l'ATR moyen sur 20 périodes
 /// - Breakout : close dépasse le high des 10 dernières bougies
+///
 /// SL = dernier low des 5 bougies, TP = 2×(entree - SL)
 pub fn rejouer_rockets(bougies: &[Candle], config: &BacktestConfig) -> Vec<TradeBacktest> {
     let risque_usd = config.capital_initial * config.risque_par_trade;
