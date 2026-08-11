@@ -45,10 +45,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/smc/analyse",
             web::get().to(crate::smc_handlers::analyse_smc),
         )
-        .service(
-            web::resource("/api/smc/score-debug")
-                .route(web::get().to(crate::smc_handlers::score_debug)),
-        )
         .route(
             "/api/indicators",
             web::get().to(crate::indicators_handlers::get_indicators),
