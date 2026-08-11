@@ -34,7 +34,7 @@ async fn executer(
     db: &Arc<Database>,
     ig_session: &std::sync::Arc<tokio::sync::Mutex<crate::ig_session::IgSession>>,
 ) {
-    let client = prix_utils::client_http();
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     // Récupère le taux USDJPY via IG Markets
     let usdjpy = match prix_utils::fetch_prix_asset(&client, "USDJPY", ig_session, db).await {

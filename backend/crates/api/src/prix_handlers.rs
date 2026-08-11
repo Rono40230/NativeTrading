@@ -15,7 +15,7 @@ pub struct PrixQuery {
 }
 
 pub async fn get_prix(state: web::Data<AppState>, query: web::Query<PrixQuery>) -> impl Responder {
-    let client = prix_utils::client_http();
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     let assets: Vec<String> = query
         .assets

@@ -26,7 +26,7 @@ pub async fn stream_prix(
         .take(50)
         .collect();
 
-    let client = prix_utils::client_http();
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     let ig_session = state.ig_session.clone();
     let db = state.db.clone();

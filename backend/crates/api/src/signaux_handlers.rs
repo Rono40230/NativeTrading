@@ -70,7 +70,7 @@ pub async fn demarrer_worker_suivi_signaux(
     ig_session: std::sync::Arc<tokio::sync::Mutex<crate::ig_session::IgSession>>,
     db: std::sync::Arc<db::Database>,
 ) {
-    let client = crate::prix_utils::client_http();
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     loop {
         tokio::time::sleep(Duration::from_secs(5 * 60)).await;

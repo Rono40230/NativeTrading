@@ -105,7 +105,7 @@ pub(super) async fn stream_ig(
     }
 
     // ── 2. Polling REST /markets/{epic} toutes les 2s ─────────────────────────
-    let http_client = prix_utils::client_http();
+    let http_client = &*crate::http_client::HTTP_CLIENT;
 
     let bar_dur = tf_secs(timeframe);
     let mut bar_ts: i64 = 0;
