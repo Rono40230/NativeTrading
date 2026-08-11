@@ -3,10 +3,10 @@ use chrono::Utc;
 use futures_util::future;
 use serde::{Deserialize, Serialize};
 
-use crate::news_rss::fetch_rss;
-use crate::news_scoring::{classer_theme, dedupliquer, niveau, scorer, AlertesNews, ArticleNews};
-use crate::news_scraper::{est_url_externe_sure, recuperer_contenu_article};
-use crate::news_traduction::{
+use news::news_rss::fetch_rss;
+use news::news_scoring::{classer_theme, dedupliquer, niveau, scorer, AlertesNews, ArticleNews};
+use news::news_scraper::{est_url_externe_sure, recuperer_contenu_article};
+use news::news_traduction::{
     hash_titre, lire_cache, lire_sentiment_cache, traduire_avec_cache, traduire_contenu,
 };
 use crate::state::AppState;
@@ -134,7 +134,7 @@ pub async fn get_news_alertes(state: web::Data<AppState>) -> impl Responder {
         let pool_bg = pool.clone();
         tokio::spawn(async move {
             for titre in titres_a_analyser {
-                crate::news_traduction::analyser_sentiment_avec_cache(&pool_bg, &titre).await;
+                news::news_traduction::analyser_sentiment_avec_cache(&pool_bg, &titre).await;
             }
         });
     }

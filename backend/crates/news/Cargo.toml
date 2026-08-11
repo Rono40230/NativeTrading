@@ -1,0 +1,13 @@
+[package]
+name = "news"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+llm = { path = "../llm" }
+reqwest = { workspace = true }
+sqlx = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }

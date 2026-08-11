@@ -11,6 +11,7 @@ members = [
     "crates/common",
     "crates/notifications",
     "crates/llm",
+    "crates/news",
 ]
 resolver = "2"
 

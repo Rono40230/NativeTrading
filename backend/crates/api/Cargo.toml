@@ -9,6 +9,7 @@ db = { path = "../db" }
 data = { path = "../data" }
 notifications = { path = "../notifications" }
 llm = { path = "../llm" }
+news = { path = "../news" }
 ml = { path = "../ml", features = ["cuda"] }
 strategies = { path = "../strategies" }
 risk = { path = "../risk" }
