@@ -1,5 +1,4 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import type { Signal, RocketSignalHistorique } from '@/services/api.types'
 import { apiService } from '@/services/api.service'
 import { usePrixStore } from '@/stores/prix.store'
@@ -9,7 +8,6 @@ import { classeVerdictSignal, labelVerdictSignal } from '@/composables/useSignal
 import { rocketToSignal } from '@/composables/useRocketsHistory'
 
 export function useSignauxTableau(strategie: 'SmcDirectional' | 'Straddle' | 'Rockets') {
-  const router = useRouter()
   const prixStore = usePrixStore()
   const assetParamsStore = useAssetParamsStore()
   const settingsStore = useSettingsStore()
@@ -22,22 +20,6 @@ export function useSignauxTableau(strategie: 'SmcDirectional' | 'Straddle' | 'Ro
   const triColonne = ref('')
   const triDir = ref<'asc' | 'desc'>('desc')
   const annulationEnCours = ref(new Set<string | number>())
-
-  function analyserSignal(s: Signal) {
-    router.push({
-      path: '/smc/analyser',
-      query: {
-        asset: s.asset,
-        tf: s.timeframe,
-        dir: s.direction,
-        entree: String(s.prix_entree),
-        sl: String(s.stop_loss),
-        tp1: String(s.take_profit[0] ?? 0),
-        tp2: String(s.take_profit[1] ?? 0),
-        tp3: String(s.take_profit[2] ?? 0),
-      }
-    })
-  }
 
   async function annuler(s: Signal) {
     const rkt = rocketsRaw.value.find(r => r.ticker === s.asset)
@@ -180,7 +162,7 @@ export function useSignauxTableau(strategie: 'SmcDirectional' | 'Straddle' | 'Ro
   return {
     signaux, rocketsRaw, chargement, analyseOuverte, filtreStatut,
     annulationEnCours, listeActive, signauxTries,
-    charger, annuler, trierPar, icone, analyserSignal, infosPips,
+    charger, annuler, trierPar, icone, infosPips,
     classeConviction, classePrix, labelResultat, classeResultat, lotPourSignal,
     prixStore, assetParamsStore, settingsStore,
   }

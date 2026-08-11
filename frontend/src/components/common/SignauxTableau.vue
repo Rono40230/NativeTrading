@@ -33,7 +33,6 @@
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Résultat <span>{{ icone('verdict') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Ouvert le <span>{{ icone('cree_le') }}</span></th>
             <th class="px-3 py-3 text-center w-24">Signal</th>
-            <th v-if="strategie === 'SmcDirectional'" class="px-3 py-3 text-center w-10"></th>
             <th v-if="strategie === 'Rockets' && filtreStatut === 'en_cours'" class="px-3 py-3 text-center w-20">Annuler</th>
           </tr>
         </thead>
@@ -76,9 +75,6 @@
             <td class="px-3 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
             <td class="px-3 py-3 text-center">
               <button class="badge bg-blue-900/30 text-blue-400 border border-blue-700/50 hover:bg-blue-800/50 hover:text-blue-300 transition-colors" @click="afficherSignal(s)">👁️ Voir</button>
-            </td>
-            <td v-if="strategie === 'SmcDirectional'" class="px-3 py-3 text-center">
-              <button class="text-blue-400 hover:text-blue-200 text-sm transition-colors" title="Analyser ce signal avec l'IA" @click="analyserSignal(s)">🔍</button>
             </td>
             <td v-if="strategie === 'Rockets' && filtreStatut === 'en_cours' && s.statut !== 'Fermé'" class="px-3 py-3 text-center">
               <button
@@ -210,7 +206,7 @@ const props = defineProps<{ strategie: 'SmcDirectional' | 'Straddle' | 'Rockets'
 const {
   signaux, rocketsRaw, chargement, analyseOuverte,
   filtreStatut, annulationEnCours, listeActive, signauxTries,
-  charger, annuler, trierPar, icone, analyserSignal, infosPips,
+  charger, annuler, trierPar, icone, infosPips,
   classeConviction, classePrix, labelResultat, classeResultat, lotPourSignal,
   prixStore, assetParamsStore, settingsStore,
 } = useSignauxTableau(props.strategie)
