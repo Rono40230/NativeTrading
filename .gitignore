@@ -56,3 +56,6 @@ frontend/src/main.js
 
 # Cargo config local
 backend/.cargo/
+
+# scratch SDD (subagent-driven-development)
+.superpowers/
