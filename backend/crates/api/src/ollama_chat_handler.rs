@@ -181,7 +181,8 @@ pub async fn statut() -> impl Responder {
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
 
-    let disponible = reqwest::Client::new()
+    let client = &*crate::ollama::OLLAMA_HTTP_CLIENT;
+    let disponible = client
         .get("http://localhost:11434/api/tags")
         .send()
         .await
