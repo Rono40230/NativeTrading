@@ -8,7 +8,7 @@
 
 use anyhow::{anyhow, Result};
 use common::{Asset, Candle, Timeframe};
-use data::providers::ig as ig_helpers;
+use crate::providers::ig as ig_helpers;
 use db::Database;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;

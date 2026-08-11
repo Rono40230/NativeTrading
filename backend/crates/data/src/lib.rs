@@ -1,5 +1,6 @@
 use common::{Asset, Candle, Result, Timeframe, TradingError};
 
+pub mod ig_lightstreamer;
 pub mod ig_session;
 pub mod providers;
 

@@ -4,7 +4,7 @@
 // anyhow::Result supprimé (non utilisé)
 use chrono::{DateTime, Utc};
 use common::{Asset, Candle, Timeframe};
-use data::providers::ig as ig_helpers;
+use crate::providers::ig as ig_helpers;
 use db::Database;
 use std::collections::HashSet;
 use std::sync::Arc;
