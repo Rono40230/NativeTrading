@@ -26,15 +26,6 @@ struct CreneauBrut {
     llm_raison: String,
 }
 
-#[derive(Deserialize)]
-struct OllamaResp {
-    message: OllamaMsg,
-}
-#[derive(Deserialize)]
-struct OllamaMsg {
-    content: String,
-}
-
 // ── Calcul des stats ATR par créneau ─────────────────────────────────────────
 
 /// Calcule l'ATR(1) bougie par bougie (True Range).
@@ -255,7 +246,7 @@ pub async fn analyser_creneaux(
         )));
     }
 
-    let data: OllamaResp = reponse
+    let data: super::ReponseOllama = reponse
         .json()
         .await
         .map_err(|e| TradingError::Api(format!("Réponse Ollama invalide: {e}")))?;

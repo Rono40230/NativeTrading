@@ -5,8 +5,9 @@ use db::Database;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::ollama::ReponseOllama;
 use crate::signal_engine::SignalEngine;
-use crate::straddle_types::{OllamaResp, ReponseLlm};
+use crate::straddle_types::ReponseLlm;
 
 pub struct ParamsOllama<'a> {
     pub prix: f64,
@@ -85,7 +86,7 @@ pub async fn appeler_ollama_et_publier(
         .json(&corps)
         .send()
         .await?
-        .json::<OllamaResp>()
+        .json::<ReponseOllama>()
         .await?
         .message
         .content;

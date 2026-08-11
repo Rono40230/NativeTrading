@@ -257,16 +257,7 @@ pub async fn analyser_strategie(
         )));
     }
 
-    #[derive(Deserialize)]
-    struct OllamaResp {
-        message: OllamaMsg,
-    }
-    #[derive(Deserialize)]
-    struct OllamaMsg {
-        content: String,
-    }
-
-    let data: OllamaResp = reponse
+    let data: super::ReponseOllama = reponse
         .json()
         .await
         .map_err(|e| TradingError::Api(format!("Réponse Ollama invalide: {}", e)))?;

@@ -45,15 +45,3 @@ pub struct ReponseLlm {
     #[serde(alias = "entry_time", alias = "entry_at", alias = "heure_entree_utc")]
     pub heure_entree_utc: Option<String>,
 }
-
-// ── Réponses intermédiaires Ollama ───────────────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct OllamaResp {
-    pub message: OllamaMsg,
-}
-
-#[derive(Deserialize)]
-pub struct OllamaMsg {
-    pub content: String,
-}

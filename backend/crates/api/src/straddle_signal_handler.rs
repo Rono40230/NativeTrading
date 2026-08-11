@@ -3,8 +3,9 @@ use chrono::{Datelike, Timelike, Utc};
 use common::{Direction, Signal, Timeframe};
 use std::time::Duration;
 
+use crate::ollama::ReponseOllama;
 use crate::state::AppState;
-use crate::straddle_types::{OllamaResp, ReponseLlm, RequeteStraddleSignal};
+use crate::straddle_types::{ReponseLlm, RequeteStraddleSignal};
 use crate::utils::parse_asset;
 
 // ── Handler : POST /api/ia/signal/straddle ───────────────────────────────────
@@ -152,7 +153,7 @@ pub async fn generer_signal_straddle(
         })));
     let reponse = match reponse { Ok(r) => r, Err(r) => return r };
 
-    let data: OllamaResp = match reponse.json().await {
+    let data: ReponseOllama = match reponse.json().await {
         Ok(d) => d,
         Err(e) => {
             return HttpResponse::UnprocessableEntity()

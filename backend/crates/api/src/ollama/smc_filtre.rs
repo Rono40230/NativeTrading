@@ -225,16 +225,7 @@ pub async fn filtrer_signal_smc(
         )));
     }
 
-    #[derive(Deserialize)]
-    struct OllamaResp {
-        message: OllamaMsg,
-    }
-    #[derive(Deserialize)]
-    struct OllamaMsg {
-        content: String,
-    }
-
-    let data: OllamaResp = reponse
+    let data: super::ReponseOllama = reponse
         .json()
         .await
         .map_err(|e| TradingError::Api(format!("JSON Ollama smc_filtre: {}", e)))?;
@@ -272,7 +263,7 @@ pub async fn filtrer_signal_smc(
         .await
         .map_err(|e| TradingError::Api(format!("Ollama retry SMC timeout: {}", e)))?;
 
-    let data_retry: OllamaResp = reponse_retry
+    let data_retry: super::ReponseOllama = reponse_retry
         .json()
         .await
         .map_err(|e| TradingError::Api(format!("JSON retry SMC Ollama: {}", e)))?;

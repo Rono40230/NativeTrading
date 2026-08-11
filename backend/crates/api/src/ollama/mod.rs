@@ -19,7 +19,8 @@ pub use prompts::{
     PROMPT_FILTRE_ROCKET, PROMPT_SIGNAL_SMC, SYSTEM_PROMPT_COACH, SYSTEM_PROMPT_COACH_DIAGRAM,
     SYSTEM_PROMPT_COACH_OLLAMA,
 };
-use types::{ReponseOllama, MODELE_DEFAUT, OLLAMA_URL};
+pub use types::ReponseOllama;
+use types::{MODELE_DEFAUT, OLLAMA_URL};
 pub use types::MODELE_SMC;
 
 /// Sémaphore global Ollama : max 2 appels LLM concurrents (évite la saturation VRAM/swap modèle).
