@@ -5,6 +5,7 @@
 use common::{Asset, Timeframe};
 use db::Database;
 use ml::PipelineML;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -12,6 +13,16 @@ use tokio::time::sleep;
 
 use crate::signal_engine::SignalEngine;
 use crate::smc_signal_ollama::{appeler_smc_et_publier, ParamsSmc};
+
+/// Garde anti-double-start. La boucle SMC doit n'être spawnée qu'une fois
+/// (déjà lancée par AppState::new). Un second appel est un no-op + warning.
+static SMC_DEMARREE: AtomicBool = AtomicBool::new(false);
+
+/// Marque la boucle SMC comme démarrée. Retourne `true` si c'est le premier
+/// appel (le spawn doit avoir lieu), `false` sinon. Fonction pure → testable.
+fn marquer_smc_demarree() -> bool {
+    !SMC_DEMARREE.swap(true, Ordering::SeqCst)
+}
 
 /// Intervalle entre deux cycles complets.
 const INTERVALLE_SEC: u64 = 900; // 15 min
@@ -26,6 +37,10 @@ pub fn demarrer_boucle_smc(
     signal_engine: Arc<SignalEngine>,
     pipeline_ml: Arc<RwLock<PipelineML>>,
 ) {
+    if !marquer_smc_demarree() {
+        tracing::warn!("⚠️  Boucle SMC déjà démarrée — second spawn ignoré");
+        return;
+    }
     tokio::spawn(async move {
         sleep(Duration::from_secs(120)).await;
         loop {
@@ -250,44 +265,5 @@ async fn analyser_asset(
 }
 
 #[cfg(test)]
-mod tests {
-    use std::sync::Arc;
-    use std::time::{Duration, Instant};
-    use tokio::sync::RwLock;
-
-    /// Test de concurrence : 10 lecteurs simultanés sur un RwLock ne causent pas de deadlock.
-    #[tokio::test]
-    async fn test_rwlock_concurrent_readers_no_deadlock() {
-        let shared = Arc::new(RwLock::new(0u64));
-        let mut handles = Vec::new();
-        for _ in 0..10 {
-            let s = shared.clone();
-            handles.push(tokio::spawn(async move {
-                let guard = s.read().await;
-                tokio::time::sleep(Duration::from_millis(5)).await;
-                *guard
-            }));
-        }
-        let results = futures_util::future::join_all(handles).await;
-        for r in &results {
-            assert!(r.is_ok(), "Tâche en erreur ou deadlock détecté");
-        }
-    }
-
-    /// Test de performance : join_all sur 20 tâches de 10ms doit terminer en < 200ms
-    /// (parallélisme réel, pas 20 × 10ms = 200ms séquentiel).
-    #[tokio::test]
-    async fn test_join_all_parallelisme_20_assets() {
-        let futs = (0..20_u32).map(|_| async {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        });
-        let debut = Instant::now();
-        futures_util::future::join_all(futs).await;
-        let duree = debut.elapsed();
-        assert!(
-            duree < Duration::from_millis(200),
-            "join_all trop lent ({:?}) — pas de parallélisme",
-            duree
-        );
-    }
-}
+#[path = "smc_boucle_tests.rs"]
+mod tests;

@@ -2,6 +2,7 @@ use common::{Asset, Timeframe};
 use db::Database;
 use ml::PipelineML;
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{Mutex, RwLock};
@@ -12,11 +13,20 @@ use crate::straddle_boucle_analyse::{analyser_asset, WhipsawDelais};
 
 const SEUIL_SIGNAL_DEFAUT: f64 = 1.5;
 
+static STRADDLE_DEMARREE: AtomicBool = AtomicBool::new(false);
+fn marquer_straddle_demarree() -> bool {
+    !STRADDLE_DEMARREE.swap(true, Ordering::SeqCst)
+}
+
 pub fn demarrer_boucle_straddle(
     db: Arc<Database>,
     signal_engine: Arc<SignalEngine>,
     pipeline_ml: Arc<RwLock<PipelineML>>,
 ) {
+    if !marquer_straddle_demarree() {
+        tracing::warn!("⚠️  Boucle Straddle déjà démarrée — second spawn ignoré");
+        return;
+    }
     tokio::spawn(async move {
         sleep(Duration::from_secs(180)).await;
         let whipsaw_delais: WhipsawDelais = Arc::new(Mutex::new(HashMap::new()));

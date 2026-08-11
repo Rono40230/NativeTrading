@@ -1,11 +1,17 @@
 use chrono::{Datelike, FixedOffset, TimeZone, Timelike, Utc};
 use db::Database;
 use ml::PipelineML;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{sleep, Duration};
 
 use crate::scheduler_execution::executer_entrainements_tous;
+
+static SURVEILLANCE_ML_DEMARREE: AtomicBool = AtomicBool::new(false);
+fn marquer_surveillance_demarree() -> bool {
+    !SURVEILLANCE_ML_DEMARREE.swap(true, Ordering::SeqCst)
+}
 
 /// Démarre le scheduler d'entraînement automatique.
 /// Si `modele_deja_charge` = false (pas de modèle persisté), lance un entraînement immédiat.
@@ -48,6 +54,10 @@ pub fn demarrer_scheduler(
 /// Démarre la surveillance ML toutes les 6h.
 /// Déclenche un ré-entraînement si accuracy_val récente < 52%.
 pub fn demarrer_surveillance_ml(db: Arc<Database>, pipeline_ml: Arc<RwLock<PipelineML>>) {
+    if !marquer_surveillance_demarree() {
+        tracing::warn!("⚠️  Surveillance ML déjà démarrée — second appel ignoré");
+        return;
+    }
     tokio::spawn(async move {
         sleep(Duration::from_secs(6 * 3600)).await;
         loop {

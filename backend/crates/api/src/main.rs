@@ -167,22 +167,14 @@ async fn main() -> std::io::Result<()> {
         app_state.db.clone(),
     ));
 
-    // ── Boucles automatiques SMC + Straddle (toutes les 15 min, assets actifs) ─
-    smc_boucle::demarrer_boucle_smc(
-        app_state.db.clone(),
-        app_state.signal_engine.clone(),
-        app_state.pipeline_ml.clone(),
-    );
-    straddle_boucle::demarrer_boucle_straddle(
-        app_state.db.clone(),
-        app_state.signal_engine.clone(),
-        app_state.pipeline_ml.clone(),
-    );
+    // ── Boucles automatiques ─────────────────────────────────────────────────
+    // Rappel : SMC + Straddle + surveillance ML sont DÉJÀ démarrés par
+    // AppState::new() (voir state.rs). Ne pas les relancer ici (sinon
+    // double-spawn → charge doublée + races). Garde idempotence dans chaque
+    // demarrer_* au cas où.
 
     let pool_telegram = app_state.db.pool().clone();
     tokio::spawn(telegram_worker::demarrer_worker_telegram(pool_telegram));
-
-    scheduler::demarrer_surveillance_ml(app_state.db.clone(), app_state.pipeline_ml.clone());
 
     // ── Worker pré-alertes (cycle 5 min — setups en formation) ──────────────
     prealerte_worker::demarrer_worker_prealerte(app_state.db.clone());
