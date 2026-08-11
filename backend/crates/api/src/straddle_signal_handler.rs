@@ -1,7 +1,6 @@
 use actix_web::{web, HttpResponse, Responder};
 use chrono::{Datelike, Timelike, Utc};
 use common::{Direction, Signal, Timeframe};
-use std::time::Duration;
 
 use crate::ollama::ReponseOllama;
 use crate::state::AppState;
@@ -141,11 +140,8 @@ pub async fn generer_signal_straddle(
         "options": { "temperature": 0.7, "num_predict": 300 }
     });
 
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(120))
-        .build()
-        .map_err(|e| HttpResponse::ServiceUnavailable().json(serde_json::json!({ "error": e.to_string() })));
-    let client = match client { Ok(c) => c, Err(r) => return r };
+    let _permit = crate::ollama::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*crate::ollama::OLLAMA_HTTP_CLIENT;
 
     let reponse = client.post(&url).json(&corps).send().await
         .map_err(|e| HttpResponse::ServiceUnavailable().json(serde_json::json!({

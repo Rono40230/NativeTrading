@@ -63,27 +63,14 @@ pub async fn traduire(texte: &str) -> String {
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
 
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-    {
-        Ok(c) => c,
-        Err(_) => return texte.to_string(),
-    };
+    let _permit = crate::ollama::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*crate::ollama::OLLAMA_HTTP_CLIENT;
 
     let res = client.post(&url).json(&corps).send().await;
 
     match res {
         Ok(r) if r.status().is_success() => {
-            #[derive(serde::Deserialize)]
-            struct Rep {
-                message: Msg,
-            }
-            #[derive(serde::Deserialize)]
-            struct Msg {
-                content: String,
-            }
-            r.json::<Rep>()
+            r.json::<crate::ollama::ReponseOllama>()
                 .await
                 .map(|r| r.message.content.trim().to_string())
                 .unwrap_or_else(|_| texte.to_string())
@@ -167,27 +154,14 @@ async fn analyser_sentiment(titre: &str) -> String {
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
 
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-    {
-        Ok(c) => c,
-        Err(_) => return "neutre".to_string(),
-    };
+    let _permit = crate::ollama::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*crate::ollama::OLLAMA_HTTP_CLIENT;
 
     let res = client.post(&url).json(&corps).send().await;
 
     let texte = match res {
         Ok(r) if r.status().is_success() => {
-            #[derive(serde::Deserialize)]
-            struct Rep {
-                message: Msg,
-            }
-            #[derive(serde::Deserialize)]
-            struct Msg {
-                content: String,
-            }
-            r.json::<Rep>()
+            r.json::<crate::ollama::ReponseOllama>()
                 .await
                 .map(|r| r.message.content.trim().to_lowercase())
                 .unwrap_or_default()

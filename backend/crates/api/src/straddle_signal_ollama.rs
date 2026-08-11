@@ -3,7 +3,6 @@
 use common::{Asset, Direction, Signal, Timeframe};
 use db::Database;
 use std::sync::Arc;
-use std::time::Duration;
 
 use crate::ollama::ReponseOllama;
 use crate::signal_engine::SignalEngine;
@@ -78,9 +77,8 @@ pub async fn appeler_ollama_et_publier(
         "options": { "temperature": 0.7, "num_predict": 300 }
     });
 
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(120))
-        .build()?;
+    let _permit = crate::ollama::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*crate::ollama::OLLAMA_HTTP_CLIENT;
     let texte_brut = client
         .post(&url)
         .json(&corps)
