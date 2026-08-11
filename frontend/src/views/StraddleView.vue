@@ -6,7 +6,6 @@
         <h1 class="text-xl font-bold text-white">📊 Tableau de volatilité horaire</h1>
         <p class="text-sm text-gray-400 mt-1">
           Le LLM analyse l'historique OHLCV et identifie les créneaux récurrents de forte volatilité bidirectionnelle.
-          <RouterLink to="/pnl" class="text-yellow-400 hover:underline ml-1">→ Backtest heure précise</RouterLink>
         </p>
       </div>
     </div>
