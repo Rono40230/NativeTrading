@@ -48,9 +48,10 @@ custom_plugins = []
 
 [quality]
 # Limites strictes (CRITIQUE - Voir Règle 16 .clinerules)
-max_file_lines = 300
+# D0 (2026-08-11) : assoupli de 300 à 600 sur logique métier cohérente.
+max_file_lines = 600
 # Seuil d'alerte anticipée pendant le développement
-file_lines_warning = 250
+file_lines_warning = 500
 max_function_lines = 30
 max_complexity = 10
 

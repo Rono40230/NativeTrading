@@ -36,13 +36,13 @@ for f in $TS_FILES; do
   fi
 done
 
-echo "[preaudit] Vérification taille fichiers (limite 300 lignes)..."
+echo "[preaudit] Vérification taille fichiers (limite 600 lignes)..."
 ALL_FILES=$(git diff --cached --name-only | grep -E '\.(rs|ts|vue)$' || true)
 for f in $ALL_FILES; do
   [ -f "$f" ] || continue
   NB=$(wc -l < "$f")
-  if [ "$NB" -gt 300 ]; then
-    echo "  ❌ $f dépasse 300 lignes ($NB lignes)"
+  if [ "$NB" -gt 600 ]; then
+    echo "  ❌ $f dépasse 600 lignes ($NB lignes)"
     ERREURS=$((ERREURS + 1))
   fi
 done

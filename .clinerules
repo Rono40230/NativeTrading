@@ -131,10 +131,10 @@ pub fn calculer_signal() -> Result<Signal, TradingError> {
 **RÈGLE ABSOLUE** : Audit rejette tout `unwrap()`. Gérer maintenant, pas en prod.
 
 #### ✂️ ARCHITECTURE & TAILLE FICHIERS (Anti-Monolithe)
-**LIMITE DURE** : 300 lignes par fichier (Rust/Vue/TS)
+**LIMITE DURE** : 600 lignes par fichier (Rust/Vue/TS) — *D0 (2026-08-11) : assoupli depuis 300 pour réduire la fragmentation excessive (ex. 16 fichiers pour le pipeline Straddle). Le dur reste de mise pour handlers/routes très courts ; viser la cohérence par responsabilité plutôt que l'éclatement.*
 
 **DÉCLENCHEURS REFACTORING** :
-- Fichier > 250 lignes → SPLIT IMMÉDIAT
+- Fichier > 500 lignes → évaluer un SPLIT par responsabilité
 - Fonction > 30 lignes → Extraire sous-fonctions
 - Complexité cyclomatique >10 → Simplifier
 

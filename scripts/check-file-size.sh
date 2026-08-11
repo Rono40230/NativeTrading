@@ -1,6 +1,6 @@
 #!/bin/bash
 # check-file-size.sh — Vérifie la taille de tous les fichiers source
-# Règle .clinerules #16 : alerte à 250 lignes, limite dure à 300 lignes
+# Règle .clinerules #16 (D0) : alerte à 500 lignes, limite dure à 600 lignes
 
 set -e
 
@@ -10,8 +10,8 @@ GREEN='\033[0;32m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-WARN_LIMIT=250
-HARD_LIMIT=300
+WARN_LIMIT=500
+HARD_LIMIT=600
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
