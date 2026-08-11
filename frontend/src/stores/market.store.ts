@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { apiService, type Candle } from '@/services/api.service'
+import { WS_BASE_URL } from '@/services/http.client'
 
-const WS_URL = 'ws://localhost:8080'
+const WS_URL = WS_BASE_URL
 
 export const useMarketStore = defineStore('market', () => {
   const bougies = ref<Record<string, Candle[]>>({})

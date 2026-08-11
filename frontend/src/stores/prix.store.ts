@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { apiService } from '@/services/api.service'
+import { WS_BASE_URL } from '@/services/http.client'
 
 const NON_CRYPTO_POLL_MS  = 15_000
 
@@ -32,7 +33,7 @@ export const usePrixStore = defineStore('prix', () => {
     if (wsCrypto) { wsCrypto.close(); wsCrypto = null }
     const assets = [...assetsAbonnes]
     if (assets.length === 0) return
-    const url = `ws://localhost:8080/api/prix/stream?assets=${assets.join(',')}`
+    const url = `${WS_BASE_URL}/api/prix/stream?assets=${assets.join(',')}`
     const ws = new WebSocket(url)
 
     ws.onmessage = (evt) => {

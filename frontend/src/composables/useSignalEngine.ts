@@ -1,21 +1,22 @@
 /**
- * useSignalEngine — gestion du Signal Engine (start/stop/status + stream WS).
+ * useSignalEngine — contrôle du Signal Engine (start/stop/status + polling).
+ *
+ * Le flux temps réel (WS signal-engine/stream) est désormais détenu en un seul
+ * exemplaire par App.vue (racine toujours montée), qui nourrit le signalStore,
+ * l'alarme modale, le toast et la notification OS. Ce composable ne gère plus que
+ * le contrôle (démarrage/arrêt) et le polling du statut — il n'ouvre plus de WS,
+ * ce qui met fin aux notifications dupliquées sur le Dashboard.
  *
  * Usage : const { actif, secondesRestantes, signaux24h, demarrer, arreter } = useSignalEngine()
  */
 import { ref, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
-import { useSignalStore } from '@/stores/signal.store'
-import { useNotification } from '@/composables/useNotification'
 
-const WS_URL = 'ws://localhost:8080/api/signal-engine/stream'
 const POLL_INTERVAL_MS = 30_000
 
 export function useSignalEngine() {
   const alerteStore = useAlerteStore()
-  const signalStore = useSignalStore()
-  const { signalerSignal } = useNotification()
 
   const actif = ref(false)
   const secondesRestantes = ref(0)
@@ -23,7 +24,6 @@ export function useSignalEngine() {
   const chargement = ref(false)
 
   let pollTimer: ReturnType<typeof setInterval> | null = null
-  let ws: WebSocket | null = null
 
   // ── Polling statut ─────────────────────────────────────────────────────────
 
@@ -38,44 +38,6 @@ export function useSignalEngine() {
     }
   }
 
-  // ── WebSocket signaux temps réel ───────────────────────────────────────────
-
-  function connecterWs() {
-    if (ws?.readyState === WebSocket.OPEN) return
-
-    ws = new WebSocket(WS_URL)
-
-    ws.onmessage = (event) => {
-      try {
-        const signal = JSON.parse(event.data as string)
-        signalStore.ajouterSignalTempsReel(signal)
-        alerteStore.afficher(`🎯 Signal ${signal.asset}/${signal.timeframe} ${signal.direction}`, 'info')
-        // Notification OS + son
-        signalerSignal(
-          signal.asset ?? 'Inconnu',
-          signal.timeframe ?? '—',
-          signal.direction ?? '—',
-          signal.confiance ?? 0
-        )
-      } catch {
-        // Message non-JSON ignoré
-      }
-    }
-
-    ws.onerror = () => {
-      // Reconnexion au prochain cycle de polling
-    }
-
-    ws.onclose = () => {
-      ws = null
-    }
-  }
-
-  function deconnecterWs() {
-    ws?.close()
-    ws = null
-  }
-
   // ── Commandes ──────────────────────────────────────────────────────────────
 
   async function demarrer() {
@@ -83,7 +45,6 @@ export function useSignalEngine() {
     try {
       await apiService.signalEngineDemarrer()
       await actualiserStatut()
-      connecterWs()
       alerteStore.afficherSucces('Signal Engine démarré — analyse toutes les 5 min')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erreur réseau'
@@ -98,7 +59,6 @@ export function useSignalEngine() {
     try {
       await apiService.signalEngineArreter()
       await actualiserStatut()
-      deconnecterWs()
       alerteStore.afficher('Signal Engine arrêté', 'info')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erreur réseau'
@@ -112,13 +72,11 @@ export function useSignalEngine() {
 
   onMounted(async () => {
     await actualiserStatut()
-    if (actif.value) connecterWs()
     pollTimer = setInterval(actualiserStatut, POLL_INTERVAL_MS)
   })
 
   onUnmounted(() => {
     if (pollTimer) clearInterval(pollTimer)
-    deconnecterWs()
   })
 
   return {

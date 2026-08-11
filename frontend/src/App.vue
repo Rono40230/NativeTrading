@@ -19,19 +19,28 @@ import ToastAlerte from './components/common/ToastAlerte.vue'
 import SignalAlarmeModal from './components/common/SignalAlarmeModal.vue'
 import { useAssetsStore } from '@/stores/assets.store'
 import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
+import { useSignalStore } from '@/stores/signal.store'
+import { useAlerteStore } from '@/stores/alerte.store'
 import { useNotification } from '@/composables/useNotification'
+import { WS_BASE_URL } from '@/services/http.client'
 import type { Signal } from '@/services/api.types'
 
 const assetsStore = useAssetsStore()
 const alarmeStore = useSignalAlarmeStore()
-const { jouerSon } = useNotification()
+const signalStore = useSignalStore()
+const alerteStore = useAlerteStore()
+const { jouerSon, signalerSignal } = useNotification()
 
 // Son à chaque nouveau signal (watch ici car App.vue est toujours monté, contrairement à SignalAlarmeModal en v-if)
 watch(() => alarmeStore.total, (n, prev) => {
   if (n > prev) jouerSon()
 })
 
-const WS_SIGNAUX = 'ws://localhost:8080/api/signal-engine/stream'
+// Connexion WebSocket UNIQUE au Signal Engine. App.vue (racine toujours montée)
+// est le seul propriétaire du flux temps réel : nourrit l'alarme modale, le store
+// signaux, le toast et la notification OS. (Auparavant doublonnait celle de
+// useSignalEngine → notifications dupliquées sur le Dashboard.)
+const WS_SIGNAUX = `${WS_BASE_URL}/api/signal-engine/stream`
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -42,8 +51,16 @@ function connecterWs() {
 
   ws.onmessage = (event) => {
     try {
-      const signal = JSON.parse(event.data as string) as Signal
+      const signal = JSON.parse(event.data as string) as Signal & { confiance?: number }
       alarmeStore.ajouterSignal(signal)
+      signalStore.ajouterSignalTempsReel(signal)
+      alerteStore.afficher(`🎯 Signal ${signal.asset}/${signal.timeframe} ${signal.direction}`, 'info')
+      signalerSignal(
+        signal.asset ?? 'Inconnu',
+        signal.timeframe ?? '—',
+        signal.direction ?? '—',
+        signal.confiance ?? 0,
+      )
     } catch {
       // message non-JSON ignoré
     }
