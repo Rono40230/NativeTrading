@@ -5,7 +5,6 @@ mod ab_test_handlers;
 mod anthropic;
 mod asset_params_handlers;
 mod assets_handlers;
-mod backtest_handler;
 mod calendar_handlers;
 mod config_handlers;
 mod data_handlers;
@@ -106,7 +105,7 @@ mod volatility_handlers;
 mod ws_handlers;
 
 mod routes;
-mod routes_backtest;
+mod routes_prealerte;
 mod routes_ml;
 mod routes_rockets;
 

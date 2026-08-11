@@ -292,5 +292,5 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         );
     crate::routes_ml::configurer(cfg);
     crate::routes_rockets::configurer(cfg);
-    crate::routes_backtest::configurer(cfg);
+    crate::routes_prealerte::configurer(cfg);
 }

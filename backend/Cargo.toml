@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "crates/api",
-    "crates/backtest",
     "crates/data",
     "crates/ml",
     "crates/indicators",
