@@ -71,7 +71,6 @@ const nav: NavItem[] = [
     groupe: 'SMC', icone: '📐',
     liens: [
       { to: '/smc',           icone: '⚡', label: 'Signaux actifs' },
-      { to: '/smc/analyser',  icone: '📊', label: 'Analyser' },
       { to: '/lexique',       icone: '📖', label: 'Lexique SMC' },
     ]
   },
