@@ -71,10 +71,10 @@
           
           <div class="flex items-center justify-between gap-4 pt-1">
             <span class="text-gray-300 text-xs">Kill Zone ICT</span>
-            <button @click="store.smcRaw['kill_zone_ict_active'] = !store.smcRaw['kill_zone_ict_active']"
-              :class="store.smcRaw['kill_zone_ict_active'] ? 'bg-orange-500' : 'bg-gray-600'"
+            <button @click="store.smcRaw['kill_zone_filtre'] = !store.smcRaw['kill_zone_filtre']"
+              :class="store.smcRaw['kill_zone_filtre'] ? 'bg-orange-500' : 'bg-gray-600'"
               class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none">
-              <span :class="store.smcRaw['kill_zone_ict_active'] ? 'translate-x-5' : 'translate-x-1'"
+              <span :class="store.smcRaw['kill_zone_filtre'] ? 'translate-x-5' : 'translate-x-1'"
                 class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"></span>
             </button>
           </div>
@@ -108,12 +108,12 @@ import { useStrategyParamsStore } from '@/stores/strategyParams.store'
 const store = useStrategyParamsStore()
 
 const smcFields = [
-  { key: 'atr_periode',     label: 'Période ATR',      step: 1,   min: 5   },
-  { key: 'score_min',       label: 'Score minimum',    step: 1,   min: 40  },
-  { key: 'atr_tp1',         label: 'TP1 × ATR',        step: 0.1, min: 0.5 },
-  { key: 'atr_tp2',         label: 'TP2 × ATR',        step: 0.1, min: 0.5 },
-  { key: 'atr_tp3',         label: 'TP3 × ATR',        step: 0.1, min: 0.5 },
-  { key: 'atr_sl',          label: 'SL × ATR',         step: 0.1, min: 0.1 },
+  { key: 'atr_periode' as const,     label: 'Période ATR',      step: 1,   min: 5   },
+  { key: 'score_min' as const,       label: 'Score minimum',    step: 1,   min: 40  },
+  { key: 'atr_tp1' as const,         label: 'TP1 × ATR',        step: 0.1, min: 0.5 },
+  { key: 'atr_tp2' as const,         label: 'TP2 × ATR',        step: 0.1, min: 0.5 },
+  { key: 'atr_tp3' as const,         label: 'TP3 × ATR',        step: 0.1, min: 0.5 },
+  { key: 'atr_sl' as const,          label: 'SL × ATR',         step: 0.1, min: 0.1 },
 ]
 
 const savingSmc = ref(false)

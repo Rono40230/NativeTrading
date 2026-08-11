@@ -3,13 +3,9 @@ export type { Timeframe } from '../generated/Timeframe'
 export type { Direction } from '../generated/Direction'
 export type { Asset } from '../generated/Asset'
 
-export interface PredictionML {
-  asset: string
-  direction: string
-  confiance: number
-  est_confiant: boolean
-  modele_pret: boolean
-}
+// PredictionML : généré depuis api::handlers::ReponsePrediction (source de vérité Rust).
+// Re-export aliasé pour préserver le nom historique côté frontend.
+export type { ReponsePrediction as PredictionML } from '../generated/PredictionML'
 
 export interface ReponseEntrainement {
   success: boolean

@@ -26,6 +26,8 @@ import type {
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
   ModeCalculTendance, RequeteSignalIA, ReponseSignalIA,
 } from './api.types'
+import type { StraddleParams as ParamsStraddle } from '@/generated/ParamsStraddle'
+import type { SmcParams as ParamsSmc } from '@/generated/ParamsSmc'
 
 const BASE_URL = 'http://localhost:8080'
 
@@ -215,21 +217,21 @@ export const apiService = {
     await http.delete(`/api/assets/${encodeURIComponent(id)}`)
   },
 
-  async getStraddleParams(): Promise<Record<string, number>> {
+  async getStraddleParams(): Promise<ParamsStraddle> {
     const res = await http.get('/api/straddle/params')
     return res.data
   },
 
-  async putStraddleParams(params: Record<string, number>): Promise<void> {
+  async putStraddleParams(params: ParamsStraddle): Promise<void> {
     await http.put('/api/straddle/params', params)
   },
 
-  async getSmcParams(): Promise<Record<string, number>> {
+  async getSmcParams(): Promise<ParamsSmc> {
     const res = await http.get('/api/smc/params')
     return res.data
   },
 
-  async putSmcParams(params: Record<string, number>): Promise<void> {
+  async putSmcParams(params: ParamsSmc): Promise<void> {
     await http.put('/api/smc/params', params)
   },
 

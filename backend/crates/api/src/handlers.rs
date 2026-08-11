@@ -102,7 +102,8 @@ pub struct PredictQuery {
     pub timeframe: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ts_rs::TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/PredictionML.ts")]
 pub struct ReponsePrediction {
     pub asset: String,
     pub direction: String,

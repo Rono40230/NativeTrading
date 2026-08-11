@@ -127,6 +127,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useStrategyParamsStore } from '@/stores/strategyParams.store'
 import { apiService } from '@/services/api.service'
 import type { SmcBaremes } from '@/services/api.types'
+import type { SmcParams as ParamsSmc } from '@/generated/ParamsSmc'
 import DefinitionParamCard from '@/components/common/DefinitionParamCard.vue'
 import DefinitionScoringRow from '@/components/common/DefinitionScoringRow.vue'
 import DefinitionLlmRegle from '@/components/common/DefinitionLlmRegle.vue'
@@ -134,7 +135,7 @@ import DefinitionTerme from '@/components/common/DefinitionTerme.vue'
 import DefinitionSanteBar from '@/components/common/DefinitionSanteBar.vue'
 
 const strategyStore = useStrategyParamsStore()
-const params = ref<Record<string, number> | null>(null)
+const params = ref<ParamsSmc | null>(null)
 const baremes = ref<SmcBaremes | null>(null)
 const colOpen = ref([true, true])
 

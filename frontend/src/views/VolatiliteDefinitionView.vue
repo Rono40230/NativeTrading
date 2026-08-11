@@ -136,13 +136,14 @@ import { ref, onMounted, computed } from 'vue'
 import { useStrategyParamsStore } from '@/stores/strategyParams.store'
 import { apiService } from '@/services/api.service'
 import type { StraddleSeuilsEffectifs } from '@/services/api.types'
+import type { StraddleParams as ParamsStraddle } from '@/generated/ParamsStraddle'
 import DefinitionParamCard from '@/components/common/DefinitionParamCard.vue'
 import DefinitionLlmRegle from '@/components/common/DefinitionLlmRegle.vue'
 import DefinitionTerme from '@/components/common/DefinitionTerme.vue'
 import DefinitionSanteBar from '@/components/common/DefinitionSanteBar.vue'
 
 const strategyStore = useStrategyParamsStore()
-const params = ref<Record<string, number> | null>(null)
+const params = ref<ParamsStraddle | null>(null)
 const seuilsEffectifs = ref<StraddleSeuilsEffectifs | null>(null)
 const colOpen = ref([true, true])
 

@@ -42,21 +42,22 @@
 import { ref, onMounted } from 'vue'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useStrategyParamsStore } from '@/stores/strategyParams.store'
+import type { SmcParams as ParamsSmc } from '@/generated/ParamsSmc'
 
 const emit = defineEmits(['close', 'saved'])
 const alerteStore = useAlerteStore()
 const strategyStore = useStrategyParamsStore()
 
 const fields = [
-  { key: 'atr_periode', label: 'Période ATR',       step: 1,   min: 5   },
-  { key: 'score_min',   label: 'Score minimum',     step: 1,   min: 40  },
-  { key: 'atr_tp1',     label: 'TP1 × ATR',         step: 0.1, min: 0.5 },
-  { key: 'atr_tp2',     label: 'TP2 × ATR',         step: 0.1, min: 0.5 },
-  { key: 'atr_tp3',     label: 'TP3 × ATR',         step: 0.1, min: 0.5 },
-  { key: 'atr_sl',      label: 'SL × ATR',          step: 0.1, min: 0.1 },
+  { key: 'atr_periode' as const, label: 'Période ATR',       step: 1,   min: 5   },
+  { key: 'score_min' as const,   label: 'Score minimum',     step: 1,   min: 40  },
+  { key: 'atr_tp1' as const,     label: 'TP1 × ATR',         step: 0.1, min: 0.5 },
+  { key: 'atr_tp2' as const,     label: 'TP2 × ATR',         step: 0.1, min: 0.5 },
+  { key: 'atr_tp3' as const,     label: 'TP3 × ATR',         step: 0.1, min: 0.5 },
+  { key: 'atr_sl' as const,      label: 'SL × ATR',          step: 0.1, min: 0.1 },
 ]
 
-const params = ref<Record<string, number>>({})
+const params = ref<ParamsSmc>({ ...strategyStore.smcRaw })
 const loading = ref(true)
 const saving = ref(false)
 

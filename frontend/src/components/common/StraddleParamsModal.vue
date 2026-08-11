@@ -44,22 +44,23 @@
 import { ref, onMounted } from 'vue'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useStrategyParamsStore } from '@/stores/strategyParams.store'
+import type { StraddleParams as ParamsStraddle } from '@/generated/ParamsStraddle'
 
 const alerteStore = useAlerteStore()
 const strategyStore = useStrategyParamsStore()
 const emit = defineEmits(['close', 'saved'])
 
 const fields = [
-  { key: 'atr_periode',  label: 'Période ATR',         step: 1,   min: 5   },
-  { key: 'atr_seuil',    label: 'Seuil ATR (×moy)',    step: 0.1, min: 0.5 },
-  { key: 'tp_mult_1',    label: 'TP1 × ATR',           step: 0.1, min: 0.5 },
-  { key: 'tp_mult_2',    label: 'TP2 × ATR',           step: 0.1, min: 0.5 },
-  { key: 'tp_mult_3',    label: 'TP3 × ATR',           step: 0.1, min: 0.5 },
-  { key: 'sl_mult',      label: 'SL × ATR',            step: 0.1, min: 0.1 },
-  { key: 'trailing_atr', label: 'Trailing Stop × ATR', step: 0.1, min: 0.0 },
+  { key: 'atr_periode' as const,  label: 'Période ATR',         step: 1,   min: 5   },
+  { key: 'atr_seuil' as const,    label: 'Seuil ATR (×moy)',    step: 0.1, min: 0.5 },
+  { key: 'tp_mult_1' as const,    label: 'TP1 × ATR',           step: 0.1, min: 0.5 },
+  { key: 'tp_mult_2' as const,    label: 'TP2 × ATR',           step: 0.1, min: 0.5 },
+  { key: 'tp_mult_3' as const,    label: 'TP3 × ATR',           step: 0.1, min: 0.5 },
+  { key: 'sl_mult' as const,      label: 'SL × ATR',            step: 0.1, min: 0.1 },
+  { key: 'trailing_atr' as const, label: 'Trailing Stop × ATR', step: 0.1, min: 0.0 },
 ]
 
-const params = ref<Record<string, number>>({})
+const params = ref<ParamsStraddle>({ ...strategyStore.straddleRaw })
 const loading = ref(true)
 const saving = ref(false)
 const msg = ref<{ ok: boolean; text: string } | null>(null)

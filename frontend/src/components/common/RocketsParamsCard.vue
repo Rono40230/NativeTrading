@@ -96,16 +96,16 @@ import { useStrategyParamsStore } from '@/stores/strategyParams.store'
 const store = useStrategyParamsStore()
 
 const rocketsFields = [
-  { key: 'score_min',            label: 'Score mini.',          step: 1,     min: 20    },
-  { key: 'rsi_max',              label: 'RSI max',              step: 1,     min: 50    },
-  { key: 'rsi_min',              label: 'RSI min',              step: 1,     min: 0     },
-  { key: 'ratio_volume_min',     label: 'Vol ratio min',        step: 0.1,   min: 1     },
-  { key: 'vol_marche_min',       label: 'Vol. marché',          step: 10000, min: 10000 },
-  { key: 'sl_mult',              label: 'SL × ATR',             step: 0.1,   min: 0.1   },
-  { key: 'trailing_coeff_min',   label: 'Trailing min',         step: 0.1,   min: 0.5   },
-  { key: 'trailing_coeff_max',   label: 'Trailing max',         step: 0.1,   min: 1.0   },
-  { key: 'seuil_score_faible',   label: 'Seuil faible',         step: 1,     min: 30    },
-  { key: 'seuil_score_fort',     label: 'Seuil fort',           step: 1,     min: 50    },
+  { key: 'score_min' as const,            label: 'Score mini.',          step: 1,     min: 20    },
+  { key: 'rsi_max' as const,              label: 'RSI max',              step: 1,     min: 50    },
+  { key: 'rsi_min' as const,              label: 'RSI min',              step: 1,     min: 0     },
+  { key: 'ratio_volume_min' as const,     label: 'Vol ratio min',        step: 0.1,   min: 1     },
+  { key: 'vol_marche_min' as const,       label: 'Vol. marché',          step: 10000, min: 10000 },
+  { key: 'sl_mult' as const,              label: 'SL × ATR',             step: 0.1,   min: 0.1   },
+  { key: 'trailing_coeff_min' as const,   label: 'Trailing min',         step: 0.1,   min: 0.5   },
+  { key: 'trailing_coeff_max' as const,   label: 'Trailing max',         step: 0.1,   min: 1.0   },
+  { key: 'seuil_score_faible' as const,   label: 'Seuil faible',         step: 1,     min: 30    },
+  { key: 'seuil_score_fort' as const,     label: 'Seuil fort',           step: 1,     min: 50    },
 ]
 
 const savingRockets = ref(false)
