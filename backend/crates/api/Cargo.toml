@@ -7,6 +7,7 @@ edition.workspace = true
 common = { path = "../common" }
 db = { path = "../db" }
 data = { path = "../data" }
+notifications = { path = "../notifications" }
 ml = { path = "../ml", features = ["cuda"] }
 strategies = { path = "../strategies" }
 risk = { path = "../risk" }

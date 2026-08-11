@@ -97,9 +97,6 @@ mod straddle_signal_ollama;
 mod straddle_types;
 mod straddle_utils;
 mod strategies_params_handlers;
-mod telegram;
-mod telegram_formatage;
-mod telegram_worker;
 mod tendance_handlers;
 mod utils;
 mod volatility_handlers;
@@ -174,7 +171,7 @@ async fn main() -> std::io::Result<()> {
     // demarrer_* au cas où.
 
     let pool_telegram = app_state.db.pool().clone();
-    tokio::spawn(telegram_worker::demarrer_worker_telegram(pool_telegram));
+    tokio::spawn(notifications::telegram_worker::demarrer_worker_telegram(pool_telegram));
 
     // ── Worker pré-alertes (cycle 5 min — setups en formation) ──────────────
     prealerte_worker::demarrer_worker_prealerte(app_state.db.clone());

@@ -8,7 +8,7 @@ use db::Database;
 /// Retourne une erreur si l'envoi échoue — le caller décide du retry.
 pub async fn post_message(token: &str, chat_id: &str, texte: &str) -> anyhow::Result<()> {
     let url = format!("https://api.telegram.org/bot{}/sendMessage", token);
-    let client = &*crate::http_client::HTTP_CLIENT;
+    let client = &*crate::HTTP_CLIENT;
     let resp = client
         .post(&url)
         .json(&serde_json::json!({
@@ -102,7 +102,7 @@ Trailing TP3   : {trail}×</code>\n\
     );
 
     let url = format!("https://api.telegram.org/bot{}/sendMessage", token);
-    let client = &*crate::http_client::HTTP_CLIENT;
+    let client = &*crate::HTTP_CLIENT;
 
     let resp = client
         .post(&url)

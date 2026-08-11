@@ -9,6 +9,7 @@ members = [
     "crates/risk",
     "crates/db",
     "crates/common",
+    "crates/notifications",
 ]
 resolver = "2"
 
