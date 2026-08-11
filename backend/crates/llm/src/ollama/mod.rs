@@ -162,7 +162,7 @@ async fn interroger_avec_systeme(prompt: &str, system: &str) -> Result<String, T
 }
 
 /// Supprime les balises `<think>...</think>` (raisonnement interne Qwen3 / DeepSeek-R1).
-pub(crate) fn filtrer_think(texte: String) -> String {
+pub fn filtrer_think(texte: String) -> String {
     let mut resultat = texte;
     loop {
         let debut = resultat.find("<think>");

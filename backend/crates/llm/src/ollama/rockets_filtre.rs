@@ -93,7 +93,7 @@ pub async fn filtrer_signal(
     // /no_think : mode non-thinking Qwen3 — classification rapide, pas besoin de raisonnement profond
     let prompt = format!(
         "{}\n\n{contexte}\n/no_think",
-        crate::prompts_handler::prompt_effectif("rockets_filtre")
+        crate::prompt_effectif("rockets_filtre")
     );
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| MODELE_DEFAUT.to_string());

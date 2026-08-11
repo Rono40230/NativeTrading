@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse, Responder};
 
-use crate::ollama;
+use llm::ollama;
 
 /// Body — résultats backtest + paramètres actuels.
 #[derive(serde::Deserialize)]

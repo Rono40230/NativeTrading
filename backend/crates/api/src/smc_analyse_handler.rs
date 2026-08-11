@@ -7,7 +7,7 @@ use sqlx::Row;
 use std::sync::Arc;
 use tokio::time::Duration;
 
-use crate::ollama::smc_analyse::{analyser_strategie, SignalSMCClotl};
+use llm::smc_analyse::{analyser_strategie, SignalSMCClotl};
 use crate::state::AppState;
 use db::Database;
 

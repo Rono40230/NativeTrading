@@ -1,6 +1,6 @@
 use sqlx::SqlitePool;
 
-use crate::ollama;
+use llm::ollama;
 
 // ── Hash DJB2 ────────────────────────────────────────────────────────────────
 
@@ -63,14 +63,14 @@ pub async fn traduire(texte: &str) -> String {
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
 
-    let _permit = crate::ollama::OLLAMA_SEMAPHORE.acquire().await.ok();
-    let client = &*crate::ollama::OLLAMA_HTTP_CLIENT;
+    let _permit = llm::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*llm::OLLAMA_HTTP_CLIENT;
 
     let res = client.post(&url).json(&corps).send().await;
 
     match res {
         Ok(r) if r.status().is_success() => {
-            r.json::<crate::ollama::ReponseOllama>()
+            r.json::<llm::ReponseOllama>()
                 .await
                 .map(|r| r.message.content.trim().to_string())
                 .unwrap_or_else(|_| texte.to_string())
@@ -154,14 +154,14 @@ async fn analyser_sentiment(titre: &str) -> String {
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
 
-    let _permit = crate::ollama::OLLAMA_SEMAPHORE.acquire().await.ok();
-    let client = &*crate::ollama::OLLAMA_HTTP_CLIENT;
+    let _permit = llm::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*llm::OLLAMA_HTTP_CLIENT;
 
     let res = client.post(&url).json(&corps).send().await;
 
     let texte = match res {
         Ok(r) if r.status().is_success() => {
-            r.json::<crate::ollama::ReponseOllama>()
+            r.json::<llm::ReponseOllama>()
                 .await
                 .map(|r| r.message.content.trim().to_lowercase())
                 .unwrap_or_default()

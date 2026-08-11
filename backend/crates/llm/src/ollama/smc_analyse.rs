@@ -226,7 +226,7 @@ pub async fn analyser_strategie(
     // on gagne en vitesse avec le mode non-thinking de Qwen3.
     let prompt = format!(
         "{}\n\n{contexte}\n/no_think",
-        crate::prompts_handler::prompt_effectif("smc_analyse")
+        crate::prompt_effectif("smc_analyse")
     );
 
     let modele = std::env::var("OLLAMA_MODEL_SMC")

@@ -7,7 +7,7 @@ use db::Database;
 use std::sync::Arc;
 use tokio::sync::broadcast;
 
-use crate::ollama::smc_filtre::{HistoriqueSMCSignal, SignalSMCCandidat};
+use llm::smc_filtre::{HistoriqueSMCSignal, SignalSMCCandidat};
 
 pub async fn sauvegarder_signal_avec_filtre(
     db: &Arc<Database>,
@@ -20,7 +20,7 @@ pub async fn sauvegarder_signal_avec_filtre(
 ) -> common::Result<()> {
     match tokio::time::timeout(
         std::time::Duration::from_secs(90),
-        crate::ollama::smc_filtre::filtrer_signal_smc(candidat, historique, ""),
+        llm::smc_filtre::filtrer_signal_smc(candidat, historique, ""),
     )
     .await
     {

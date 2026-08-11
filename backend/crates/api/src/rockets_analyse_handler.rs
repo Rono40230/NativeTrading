@@ -64,11 +64,11 @@ pub async fn analyser_opportunites(body: web::Json<Vec<SignalResume>>) -> impl R
         .join("\n");
 
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3:32b".to_string());
-    let system = crate::prompts_handler::prompt_effectif("rockets_opportunites");
+    let system = llm::prompt_effectif("rockets_opportunites");
     // /no_think ajouté dans le message user pour Qwen3 fast path
     let messages = vec![("user".to_string(), format!("Signaux Rocket à analyser :\n\n{}\n/no_think", liste))];
 
-    match crate::ollama::interroger_chat_modele_avec_systeme(&messages, &modele, &system).await {
+    match llm::interroger_chat_modele_avec_systeme(&messages, &modele, &system).await {
         Ok(texte) => HttpResponse::Ok().json(serde_json::json!({ "texte": texte })),
         Err(e) => {
             tracing::warn!("Analyse opportunités LLM: {}", e);
@@ -122,7 +122,7 @@ async fn executer_analyse(pool: &sqlx::SqlitePool) -> anyhow::Result<db::rockets
     }
 
     let cfg = rockets_config::lire_config(pool).await;
-    let reponse = crate::ollama::rockets_analyse::analyser_strategie(&signaux, &cfg).await?;
+    let reponse = llm::rockets_analyse::analyser_strategie(&signaux, &cfg).await?;
 
     let recommandations_json = serde_json::to_string(&reponse.recommandations)?;
     let id = rockets::sauvegarder_analyse(

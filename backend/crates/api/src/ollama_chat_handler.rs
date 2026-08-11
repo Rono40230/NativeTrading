@@ -4,7 +4,7 @@ use smc::{
     SCORE_MAX_TENDANCE,
 };
 
-use crate::ollama;
+use llm::ollama;
 use crate::ollama_types::{
     ReponseAnalyse, ReponseChat, RequeteAnalyse, RequeteChat, RequeteDiagram, StatutIA,
 };
@@ -103,12 +103,12 @@ pub async fn chat(state: web::Data<AppState>, body: web::Json<RequeteChat>) -> i
     let forcer_ollama = body.forcer_ollama.unwrap_or(false);
     if !forcer_ollama {
         if let Some(key) = api_key.filter(|k| !k.is_empty()) {
-            let coach_prompt = crate::prompts_handler::prompt_effectif("coach");
-            match crate::anthropic::chat_claude(&historique, &coach_prompt, &key).await {
+            let coach_prompt = llm::prompt_effectif("coach");
+            match llm::anthropic::chat_claude(&historique, &coach_prompt, &key).await {
                 Ok(reponse) => {
                     return HttpResponse::Ok().json(ReponseChat {
                         reponse,
-                        modele: crate::anthropic::MODELE_CLAUDE.to_string(),
+                        modele: llm::anthropic::MODELE_CLAUDE.to_string(),
                     })
                 }
                 Err(e) => {
@@ -119,7 +119,7 @@ pub async fn chat(state: web::Data<AppState>, body: web::Json<RequeteChat>) -> i
         }
     }
 
-    let _coach_prompt = crate::prompts_handler::prompt_effectif("coach");
+    let _coach_prompt = llm::prompt_effectif("coach");
 
     match ollama::interroger_chat_modele_avec_systeme(
         &historique,
@@ -181,7 +181,7 @@ pub async fn statut() -> impl Responder {
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
 
-    let client = &*crate::ollama::OLLAMA_HTTP_CLIENT;
+    let client = &*llm::OLLAMA_HTTP_CLIENT;
     let disponible = client
         .get("http://localhost:11434/api/tags")
         .send()

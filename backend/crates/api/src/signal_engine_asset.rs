@@ -96,13 +96,13 @@ pub(crate) async fn analyser_asset(
     }
 
     let historique_raw = db.obtenir_contexte_llm(asset.as_str(), 5).await;
-    let contexte = crate::ollama::formater_contexte_historique(
+    let contexte = llm::formater_contexte_historique(
         asset.as_str(),
         "SMC Directionnel",
         &historique_raw,
     );
 
-    let strategie_nom = crate::ollama::enrichir_signal_avec_ollama(
+    let strategie_nom = llm::enrichir_signal_avec_ollama(
         asset.as_str(),
         timeframe.as_str(),
         &signal_strat,
@@ -147,10 +147,10 @@ pub(crate) async fn analyser_asset(
     };
 
     let historique_smc = db.obtenir_historique_smc(asset.as_str(), 10).await;
-    let historique_filtre: Vec<crate::ollama::smc_filtre::HistoriqueSMCSignal> = historique_smc
+    let historique_filtre: Vec<llm::smc_filtre::HistoriqueSMCSignal> = historique_smc
         .into_iter()
         .map(
-            |(direction, tf, score, statut)| crate::ollama::smc_filtre::HistoriqueSMCSignal {
+            |(direction, tf, score, statut)| llm::smc_filtre::HistoriqueSMCSignal {
                 direction,
                 timeframe: tf,
                 score,
@@ -159,7 +159,7 @@ pub(crate) async fn analyser_asset(
         )
         .collect();
 
-    let candidat = crate::ollama::smc_filtre::SignalSMCCandidat {
+    let candidat = llm::smc_filtre::SignalSMCCandidat {
         asset: asset.as_str().to_string(),
         timeframe: timeframe.as_str().to_string(),
         direction: format!("{:?}", signal_strat.direction),

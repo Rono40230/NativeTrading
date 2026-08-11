@@ -31,7 +31,7 @@ pub async fn analyser_chart(
         .map(|img| (img.base64.as_str(), img.timeframe.as_str()))
         .collect();
 
-    match crate::anthropic::analyser_images_claude(
+    match llm::anthropic::analyser_images_claude(
         &slices,
         &body.asset,
         body.notes.as_deref(),
@@ -41,7 +41,7 @@ pub async fn analyser_chart(
     {
         Ok(analyse) => HttpResponse::Ok().json(ReponseChartAnalyse {
             analyse,
-            modele: crate::anthropic::MODELE_CLAUDE.to_string(),
+            modele: llm::anthropic::MODELE_CLAUDE.to_string(),
         }),
         Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
             "error": format!("{}", e)

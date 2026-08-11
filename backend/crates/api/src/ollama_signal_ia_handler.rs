@@ -1,7 +1,7 @@
 use actix_web::{web, HttpResponse, Responder};
 use serde::Deserialize;
 
-use crate::ollama;
+use llm::ollama;
 use crate::ollama_types::{ReponseSignalIA, RequeteSignalIA};
 use crate::state::AppState;
 
@@ -28,13 +28,13 @@ pub async fn generer_signal(
     use common::{Asset, Direction, Signal, Timeframe};
 
     let historique_raw = state.db.obtenir_contexte_llm(&body.asset, 5).await;
-    let contexte = crate::ollama::formater_contexte_historique(
+    let contexte = llm::formater_contexte_historique(
         &body.asset,
         "SMC Directionnel",
         &historique_raw,
     );
 
-    let smc_signal_prompt = crate::prompts_handler::prompt_effectif("smc_signal");
+    let smc_signal_prompt = llm::prompt_effectif("smc_signal");
     let prompt = format!(
         "{contexte}{base}\n\nAsset: {asset} {tf}\nPrix actuel: {prix:.5} | ATR: {atr:.5}\n\
         kill_zone_active: {kz} | sweep_detecte: {sw}\n\
@@ -59,7 +59,7 @@ pub async fn generer_signal(
         score = body.score_smc,
     );
     let modele = std::env::var("OLLAMA_MODEL_SMC")
-        .unwrap_or_else(|_| crate::ollama::MODELE_SMC.to_string());
+        .unwrap_or_else(|_| llm::MODELE_SMC.to_string());
 
     match ollama::interroger_avec_modele_smc(&prompt).await {
         Err(e) => {

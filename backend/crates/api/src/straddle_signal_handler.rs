@@ -2,7 +2,7 @@ use actix_web::{web, HttpResponse, Responder};
 use chrono::{Datelike, Timelike, Utc};
 use common::{Direction, Signal, Timeframe};
 
-use crate::ollama::ReponseOllama;
+use llm::ReponseOllama;
 use crate::state::AppState;
 use crate::straddle_types::{ReponseLlm, RequeteStraddleSignal};
 use crate::utils::parse_asset;
@@ -127,7 +127,7 @@ pub async fn generer_signal_straddle(
     // /no_think : mode non-thinking Qwen3 — classification de contexte macro
     let prompt = format!(
         "{}\n\n{ctx}\n/no_think",
-        crate::prompts_handler::prompt_effectif("straddle_signal")
+        llm::prompt_effectif("straddle_signal")
     );
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3:32b".to_string());
     let url = std::env::var("OLLAMA_URL")
@@ -140,8 +140,8 @@ pub async fn generer_signal_straddle(
         "options": { "temperature": 0.7, "num_predict": 300 }
     });
 
-    let _permit = crate::ollama::OLLAMA_SEMAPHORE.acquire().await.ok();
-    let client = &*crate::ollama::OLLAMA_HTTP_CLIENT;
+    let _permit = llm::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*llm::OLLAMA_HTTP_CLIENT;
 
     let reponse = client.post(&url).json(&corps).send().await
         .map_err(|e| HttpResponse::ServiceUnavailable().json(serde_json::json!({
@@ -157,7 +157,7 @@ pub async fn generer_signal_straddle(
         }
     };
 
-    let texte = crate::ollama::filtrer_think(data.message.content);
+    let texte = llm::filtrer_think(data.message.content);
 
     // Extraction robuste : cherche le premier { et le dernier } correspondant.
     // Si le LLM enveloppe dans {"response":{...}}, on descend d'un niveau.

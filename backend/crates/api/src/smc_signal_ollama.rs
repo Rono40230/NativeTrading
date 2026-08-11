@@ -40,17 +40,17 @@ pub async fn appeler_smc_et_publier(
     signal_engine: &Arc<SignalEngine>,
     params: ParamsSmc<'_>,
 ) -> anyhow::Result<()> {
-    use crate::ollama::smc_filtre::SignalSMCCandidat;
+    use llm::smc_filtre::SignalSMCCandidat;
 
     let asset_str = params.asset.as_str();
     let tf_str = params.tf.as_str();
 
     // Historique récent depuis la DB (pour contexte winrate)
     let historique_raw = db.obtenir_historique_smc(asset_str, 10).await;
-    let historique_signaux: Vec<crate::ollama::smc_filtre::HistoriqueSMCSignal> = historique_raw
+    let historique_signaux: Vec<llm::smc_filtre::HistoriqueSMCSignal> = historique_raw
         .into_iter()
         .map(|(direction, timeframe, score, statut)| {
-            crate::ollama::smc_filtre::HistoriqueSMCSignal {
+            llm::smc_filtre::HistoriqueSMCSignal {
                 direction,
                 timeframe,
                 score,
@@ -86,7 +86,7 @@ pub async fn appeler_smc_et_publier(
     // Appel LLM avec mesure latence
     let debut = Instant::now();
     let rep =
-        match crate::ollama::smc_filtre::filtrer_signal_smc(&candidat, &historique_signaux, &contexte_few_shot)
+        match llm::smc_filtre::filtrer_signal_smc(&candidat, &historique_signaux, &contexte_few_shot)
             .await
         {
             Ok(r) => r,

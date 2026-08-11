@@ -2,7 +2,6 @@ use actix_cors::Cors;
 use actix_web::{http::header, web, App, HttpServer};
 
 mod ab_test_handlers;
-mod anthropic;
 mod asset_params_handlers;
 mod assets_handlers;
 mod calendar_handlers;
@@ -30,7 +29,6 @@ mod news_rss;
 mod news_scoring;
 mod news_scraper;
 mod news_traduction;
-mod ollama;
 mod ollama_ajustements_handler;
 mod ollama_chart_handler;
 mod ollama_chat_handler;

@@ -1,5 +1,5 @@
 //! Client HTTP partagé pour les services externes non-LLM (Anthropic, Telegram,
-//! news, prix, IG REST…). Pour Ollama, utiliser `crate::ollama::OLLAMA_HTTP_CLIENT`
+//! news, prix, IG REST…). Pour Ollama, utiliser `llm::OLLAMA_HTTP_CLIENT`
 //! (timeout 300 s + sémaphore). Les timeouts spéciaux se gèrent par-requête via
 //! `RequestBuilder::timeout(...)`.
 use std::sync::LazyLock;

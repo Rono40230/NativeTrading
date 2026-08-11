@@ -1,7 +1,7 @@
 use actix_web::{web, HttpResponse, Responder};
 use data::{providers::BinanceProvider, DataProvider};
 
-use crate::ollama::straddle_analyse;
+use llm::straddle_analyse;
 use crate::state::AppState;
 use crate::straddle_utils::{
     limite_bougies, periode_en_mois, MaJCreneau, ReponseAnalyse, RequeteAnalyse, MAX_BOUGIES_RESEAU,

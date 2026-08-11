@@ -16,9 +16,9 @@ pub async fn analyser_images_claude(
     use crate::ollama::tf_libelle;
 
     let system_prompt = if images.len() == 1 {
-        crate::prompts_handler::prompt_effectif("vision_1tf")
+        crate::prompt_effectif("vision_1tf")
     } else {
-        crate::prompts_handler::prompt_effectif("vision_multi_tf")
+        crate::prompt_effectif("vision_multi_tf")
     };
 
     // Construction du contenu utilisateur : images + texte contextuel
@@ -110,7 +110,7 @@ pub async fn analyser_images_claude(
 
     let debut = std::time::Instant::now();
 
-    let client = &*crate::http_client::HTTP_CLIENT;
+    let client = &*crate::HTTP_CLIENT;
 
     let reponse = client
         .post("https://api.anthropic.com/v1/messages")
@@ -203,7 +203,7 @@ pub async fn chat_claude(
 
     let debut = std::time::Instant::now();
 
-    let client = &*crate::http_client::HTTP_CLIENT;
+    let client = &*crate::HTTP_CLIENT;
 
     let reponse = client
         .post("https://api.anthropic.com/v1/messages")

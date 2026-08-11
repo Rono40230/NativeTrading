@@ -54,7 +54,7 @@ pub async fn filtrer_sauvegarder_publier(
         crate::rockets_sauvegarder_feedbacks::preparer_contexte_feedbacks(pool, r, phase_sauvegardee).await;
 
     let historique = rockets::historique_ticker(pool, &r.ticker, 10).await;
-    let candidat = crate::ollama::rockets_filtre::SignalCandidat {
+    let candidat = llm::rockets_filtre::SignalCandidat {
         ticker: r.ticker.clone(),
         phase: r.phase.clone(),
         score: r.score,
@@ -84,7 +84,7 @@ pub async fn filtrer_sauvegarder_publier(
 
     let lecons = crate::patterns_echec_job::charger_lecons_pool(pool, "ROCKETS").await;
     let (llm_valide, llm_conviction, llm_raison, llm_sl, llm_tp1, llm_trailing_coeff) =
-        match crate::ollama::rockets_filtre::filtrer_signal(&candidat, &historique, &feedbacks, &lecons)
+        match llm::rockets_filtre::filtrer_signal(&candidat, &historique, &feedbacks, &lecons)
             .await
         {
             Ok(rep) => {

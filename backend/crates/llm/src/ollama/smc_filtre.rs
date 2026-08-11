@@ -193,7 +193,7 @@ pub async fn filtrer_signal_smc(
     // On l'indique explicitement en ajoutant /think dans le prompt utilisateur.
     let prompt = format!(
         "{}\n\n{contexte}{few_shot_bloc}\n/think",
-        crate::prompts_handler::prompt_effectif("smc_filtre")
+        crate::prompt_effectif("smc_filtre")
     );
 
     let modele = std::env::var("OLLAMA_MODEL_SMC")

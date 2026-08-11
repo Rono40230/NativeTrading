@@ -8,6 +8,7 @@ common = { path = "../common" }
 db = { path = "../db" }
 data = { path = "../data" }
 notifications = { path = "../notifications" }
+llm = { path = "../llm" }
 ml = { path = "../ml", features = ["cuda"] }
 strategies = { path = "../strategies" }
 risk = { path = "../risk" }

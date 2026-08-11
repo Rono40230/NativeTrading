@@ -1,55 +1,10 @@
 use actix_web::{web, HttpResponse, Responder};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::fs;
 
-use crate::ollama::prompts::PROMPT_ANALYSE_OPPORTUNITES;
-use crate::ollama::rockets_analyse::PROMPT_ANALYSE_ROCKETS;
-use crate::ollama::smc_analyse::PROMPT_ANALYSE_SMC;
-use crate::ollama::smc_filtre::PROMPT_FILTRE_SMC;
-use crate::ollama::straddle_analyse::PROMPT_ANALYSE_STRADDLE;
-use crate::ollama::{
-    PROMPT_FILTRE_ROCKET, PROMPT_SIGNAL_SMC, SYSTEM_PROMPT_COACH,
-};
-use crate::straddle_prompt::PROMPT_SIGNAL_STRADDLE;
-
-const OVERRIDES_PATH: &str = "data/prompts_overrides.json";
-
-fn defaults() -> HashMap<&'static str, &'static str> {
-    let mut m = HashMap::new();
-    m.insert("rockets_filtre", PROMPT_FILTRE_ROCKET);
-    m.insert("rockets_analyse", PROMPT_ANALYSE_ROCKETS);
-    m.insert("rockets_opportunites", PROMPT_ANALYSE_OPPORTUNITES);
-    m.insert("smc_filtre", PROMPT_FILTRE_SMC);
-    m.insert("smc_signal", PROMPT_SIGNAL_SMC);
-    m.insert("smc_analyse", PROMPT_ANALYSE_SMC);
-    m.insert("straddle_signal", PROMPT_SIGNAL_STRADDLE);
-    m.insert("straddle_analyse", PROMPT_ANALYSE_STRADDLE);
-    m.insert("coach", SYSTEM_PROMPT_COACH);
-    m
-}
-
-fn charger_overrides() -> HashMap<String, String> {
-    fs::read_to_string(OVERRIDES_PATH)
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
-}
-
-/// Retourne le prompt effectif pour `id` : override persistant s'il existe, sinon constante par défaut.
-/// À utiliser dans **tous** les handlers qui appellent Ollama/Anthropic.
-pub fn prompt_effectif(id: &str) -> String {
-    let ovs = charger_overrides();
-    if let Some(ov) = ovs.get(id) {
-        return ov.clone();
-    }
-    defaults().get(id).copied().unwrap_or("").to_string()
-}
-
-fn sauvegarder_overrides(map: &HashMap<String, String>) -> std::io::Result<()> {
-    let json = serde_json::to_string_pretty(map).map_err(std::io::Error::other)?;
-    fs::write(OVERRIDES_PATH, json)
-}
+// Couche de données des prompts (defaults / overrides / prompt_effectif) extraite
+// vers le crate `llm` (phase 1.6b) — découple le cycle anthropic → prompts_handler.
+use llm::{charger_overrides, defaults, sauvegarder_overrides};
 
 fn entree(
     id: &str,

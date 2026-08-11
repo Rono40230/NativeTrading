@@ -4,7 +4,7 @@ use common::{Asset, Direction, Signal, Timeframe};
 use db::Database;
 use std::sync::Arc;
 
-use crate::ollama::ReponseOllama;
+use llm::ReponseOllama;
 use crate::signal_engine::SignalEngine;
 use crate::straddle_types::ReponseLlm;
 
@@ -58,7 +58,7 @@ pub async fn appeler_ollama_et_publier(
 
     let lecons = crate::patterns_echec_job::charger_lecons_systemiques(db, "STRADDLE").await;
     let prompt_base = crate::straddle_prompt::construire_prompt_few_shot(
-        &crate::prompts_handler::prompt_effectif("straddle_signal"),
+        &llm::prompt_effectif("straddle_signal"),
         ctx,
         feedbacks,
         asset.as_str(),
@@ -77,8 +77,8 @@ pub async fn appeler_ollama_et_publier(
         "options": { "temperature": 0.7, "num_predict": 300 }
     });
 
-    let _permit = crate::ollama::OLLAMA_SEMAPHORE.acquire().await.ok();
-    let client = &*crate::ollama::OLLAMA_HTTP_CLIENT;
+    let _permit = llm::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let client = &*llm::OLLAMA_HTTP_CLIENT;
     let texte_brut = client
         .post(&url)
         .json(&corps)
@@ -89,7 +89,7 @@ pub async fn appeler_ollama_et_publier(
         .message
         .content;
     // Filtrer les balises <think> au cas où Qwen3 en produit malgré /no_think
-    let texte = crate::ollama::filtrer_think(texte_brut);
+    let texte = llm::filtrer_think(texte_brut);
 
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
