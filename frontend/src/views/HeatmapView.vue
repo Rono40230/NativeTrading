@@ -114,13 +114,11 @@ const onglet = ref<'atr' | 'horaire'>('atr')
 const alerteStore = useAlerteStore()
 const assetsStore = useAssetsStore()
 const { confluences, detecterConfluences } = useHeatmapConfluence()
-const estDev = import.meta.env.DEV
 const assetsInfos = computed(() => assetsStore.assets)
 const assets = computed(() => assetsInfos.value.map(a => a.id))
 const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const chargement = ref(false)
 const donnees = ref<Record<string, number>>({})
-const dernierSignalTestId = ref<string | null>(null)
 const analyseStraddle = ref<{ chargement: boolean; ok: boolean; message: string; cause: '' | 'donnees' | 'llm' | '0_creneaux' }>({
   chargement: false,
   ok: false,
@@ -221,34 +219,6 @@ async function lancerAnalyseStraddle() {
       cause: 'llm',
     }
     alerteStore.afficherErreur(analyseStraddle.value.message)
-  }
-}
-async function seedDev() {
-  const assetCible = classementVol.value[0]?.asset ?? assets.value[0] ?? 'BTC'
-  try {
-    const res = await apiService.seedStraddleCreneauxDev(assetCible)
-    alerteStore.afficherSucces(`Seed dev ${res.asset}: ${res.inserted} créneaux`) 
-  } catch (e: unknown) {
-    alerteStore.afficherErreur(`Seed dev: ${(e as Error).message}`)
-  }
-}
-async function signalTestDev() {
-  const assetCible = classementVol.value[0]?.asset ?? assets.value[0] ?? 'BTC'
-  try {
-    const res = await apiService.creerSignalStraddleTestDev(assetCible, 'M15')
-    dernierSignalTestId.value = res.signal_id
-    alerteStore.afficherSucces(`Signal test créé: ${res.signal_id.slice(0, 8)}…`) 
-  } catch (e: unknown) {
-    alerteStore.afficherErreur(`Signal test: ${(e as Error).message}`)
-  }
-}
-async function cloturerTestDev() {
-  if (!dernierSignalTestId.value) return
-  try {
-    await apiService.cloturerFeedbackStraddleTest(dernierSignalTestId.value, 'tp1', 101)
-    alerteStore.afficherSucces('Feedback test clôturé (tp1)')
-  } catch (e: unknown) {
-    alerteStore.afficherErreur(`Clôture test: ${(e as Error).message}`)
   }
 }
 async function actualiser() {
