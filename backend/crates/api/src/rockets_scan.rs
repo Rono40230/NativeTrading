@@ -36,16 +36,7 @@ pub async fn demarrer_worker_scan(
     signal_engine: Arc<SignalEngine>,
     pipeline_ml: Arc<RwLock<PipelineML>>,
 ) {
-    let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(15))
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("Worker scan HTTP: {}", e);
-            return;
-        }
-    };
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     loop {
         if let Err(e) = executer_scan(&client, &pool, &signal_engine, &pipeline_ml).await {

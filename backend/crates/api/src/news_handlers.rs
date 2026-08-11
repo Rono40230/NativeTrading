@@ -60,28 +60,16 @@ fn normaliser_date(s: &str) -> String {
 /// Agrège les flux RSS, score chaque titre par mots-clés,
 /// retourne les 30 articles les mieux classés.
 pub async fn get_news_alertes(state: web::Data<AppState>) -> impl Responder {
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("Client HTTP news: {e}");
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": "Client HTTP indisponible" }));
-        }
-    };
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     let taches: Vec<_> = SOURCES
         .iter()
         .map(|(url, nom, base)| {
-            let c = client.clone();
             let url = *url;
             let nom = *nom;
             let base = *base;
             tokio::spawn(async move {
-                let rss = fetch_rss(&c, url).await;
+                let rss = fetch_rss(client, url).await;
                 (rss, nom, base)
             })
         })
@@ -186,20 +174,9 @@ pub async fn get_contenu_article(
             .json(serde_json::json!({ "error": "URL non autorisée" }));
     }
 
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("Client HTTP contenu article: {e}");
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": "Client HTTP indisponible" }));
-        }
-    };
+    let client = &*crate::http_client::HTTP_CLIENT;
 
-    match recuperer_contenu_article(&client, &params.url).await {
+    match recuperer_contenu_article(client, &params.url).await {
         Some(texte) => HttpResponse::Ok().json(ContenuArticle { texte }),
         None => HttpResponse::UnprocessableEntity()
             .json(serde_json::json!({ "error": "Contenu non extractible" })),

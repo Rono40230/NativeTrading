@@ -105,14 +105,7 @@ pub(super) async fn stream_ig(
     }
 
     // ── 2. Polling REST /markets/{epic} toutes les 2s ─────────────────────────
-    let http_client = match prix_utils::client_http() {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("stream_ig: client HTTP: {}", e);
-            let _ = session.close(None).await;
-            return;
-        }
-    };
+    let http_client = prix_utils::client_http();
 
     let bar_dur = tf_secs(timeframe);
     let mut bar_ts: i64 = 0;

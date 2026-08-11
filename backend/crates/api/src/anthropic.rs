@@ -110,13 +110,11 @@ pub async fn analyser_images_claude(
 
     let debut = std::time::Instant::now();
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(180))
-        .build()
-        .map_err(|e| TradingError::Api(format!("Anthropic client error: {}", e)))?;
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     let reponse = client
         .post("https://api.anthropic.com/v1/messages")
+        .timeout(std::time::Duration::from_secs(180))
         .header("x-api-key", api_key)
         .header("anthropic-version", "2023-06-01")
         .header("anthropic-beta", "prompt-caching-2024-07-31")
@@ -205,13 +203,11 @@ pub async fn chat_claude(
 
     let debut = std::time::Instant::now();
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
-        .build()
-        .map_err(|e| TradingError::Api(format!("Anthropic client error: {}", e)))?;
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     let reponse = client
         .post("https://api.anthropic.com/v1/messages")
+        .timeout(std::time::Duration::from_secs(60))
         .header("x-api-key", api_key)
         .header("anthropic-version", "2023-06-01")
         .header("anthropic-beta", "prompt-caching-2024-07-31")

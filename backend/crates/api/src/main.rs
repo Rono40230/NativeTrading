@@ -11,6 +11,7 @@ mod data_handlers;
 mod data_mt5_handlers;
 mod engine_handlers;
 mod handlers;
+mod http_client;
 mod ig_handlers;
 mod ig_lightstreamer;
 mod ig_session;

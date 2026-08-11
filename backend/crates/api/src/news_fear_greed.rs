@@ -17,21 +17,11 @@ pub async fn get_fear_greed(state: web::Data<AppState>) -> impl Responder {
         }
     }
 
-    let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(5))
-        .user_agent("NativeTrading/1.0")
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("Fear&Greed – création client HTTP: {e}");
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": "Client HTTP indisponible" }));
-        }
-    };
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     let resp = match client
         .get("https://api.alternative.me/fng/?limit=1")
+        .header(reqwest::header::USER_AGENT, "NativeTrading/1.0")
         .send()
         .await
     {

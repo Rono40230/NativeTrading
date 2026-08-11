@@ -113,7 +113,15 @@ pub async fn fetch_binance(client: &reqwest::Client, symbole: &str) -> Option<f6
         result: BybitTickerResult,
     }
 
-    let resp: BybitTickerResp = client.get(&url).send().await.ok()?.json().await.ok()?;
+    let resp: BybitTickerResp = client
+        .get(&url)
+        .timeout(Duration::from_millis(1500))
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
     let str_price = resp.result.list.first()?.last_price.clone();
     str_price.parse::<f64>().ok()
 }
@@ -139,6 +147,7 @@ async fn fetch_ig(
     let url = format!("{}/markets/{}", url_base, epic);
     let resp: IgPrixResponse = client
         .get(&url)
+        .timeout(Duration::from_millis(1500))
         .headers(headers)
         .header("Version", "1")
         .send()
@@ -204,12 +213,11 @@ pub async fn dernier_prix_db(asset: &str, db: &Arc<db::Database>) -> Option<f64>
     None
 }
 
-/// Crée un client HTTP réutilisable avec timeout 1.5s.
-/// Doit être inférieur à l'intervalle de polling (2s WS, 3s dashboard).
-pub fn client_http() -> Result<reqwest::Client, reqwest::Error> {
-    reqwest::Client::builder()
-        .timeout(Duration::from_millis(1500))
-        .build()
+/// Client HTTP partagé pour les fetch de prix temps réel.
+/// Le timeout court (1.5s) est posé par-requête dans `fetch_binance`/`fetch_ig`
+/// (doit rester inférieur à l'intervalle de polling : 2s WS, 3s dashboard).
+pub fn client_http() -> &'static reqwest::Client {
+    &crate::http_client::HTTP_CLIENT
 }
 
 pub async fn fetch_ig_multi(

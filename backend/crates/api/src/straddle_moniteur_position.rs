@@ -52,16 +52,7 @@ async fn run_cycle(db: &Arc<Database>, ig: &Arc<Mutex<IgSession>>) {
         return;
     }
 
-    let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(8))
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::warn!("Moniteur Straddle: client HTTP: {}", e);
-            return;
-        }
-    };
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     for jambe in &actifs {
         let Some(prix) = fetch_prix_asset(&client, &jambe.asset, ig, db).await else {

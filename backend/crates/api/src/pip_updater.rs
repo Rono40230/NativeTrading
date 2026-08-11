@@ -34,13 +34,7 @@ async fn executer(
     db: &Arc<Database>,
     ig_session: &std::sync::Arc<tokio::sync::Mutex<crate::ig_session::IgSession>>,
 ) {
-    let client = match prix_utils::client_http() {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("pip_updater: client HTTP indisponible: {}", e);
-            return;
-        }
-    };
+    let client = prix_utils::client_http();
 
     // Récupère le taux USDJPY via IG Markets
     let usdjpy = match prix_utils::fetch_prix_asset(&client, "USDJPY", ig_session, db).await {

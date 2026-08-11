@@ -13,16 +13,7 @@ pub use strategies::rockets_niveaux::calculer_verdict_rocket;
 /// Force un cycle de suivi immédiat (SL/TP attente + ouverts)
 pub async fn sync_verdicts(state: web::Data<AppState>) -> impl Responder {
     let pool = state.db.pool();
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": format!("HTTP client: {}", e) }))
-        }
-    };
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     let mut fermes = 0u32;
     let mut ouverts_nouveaux = 0u32;
@@ -228,16 +219,7 @@ pub(crate) async fn reconcilier_orphelins(pool: &sqlx::SqlitePool) {
 
 /// Worker lancé au démarrage : toutes les 3min, gère cycle de vie complet.
 pub async fn demarrer_worker_suivi(pool: sqlx::SqlitePool) {
-    let client = match reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("Worker rockets HTTP: {}", e);
-            return;
-        }
-    };
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     // Rattrape les trades clôturés sans feedback avant le premier cycle
     reconcilier_orphelins(&pool).await;

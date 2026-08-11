@@ -26,13 +26,7 @@ pub async fn stream_prix(
         .take(50)
         .collect();
 
-    let client = match prix_utils::client_http() {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("prix_stream: client HTTP: {}", e);
-            return Err(actix_web::error::ErrorInternalServerError(e));
-        }
-    };
+    let client = prix_utils::client_http();
 
     let ig_session = state.ig_session.clone();
     let db = state.db.clone();

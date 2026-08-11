@@ -22,17 +22,7 @@ struct FfEvent {
 }
 
 pub async fn rafraichir_calendrier(db: &db::Database) -> Vec<serde_json::Value> {
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(8))
-        .user_agent("NativeTrading/1.0")
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("Création client reqwest: {}", e);
-            return Vec::new();
-        }
-    };
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     let urls = [
         "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
@@ -44,7 +34,12 @@ pub async fn rafraichir_calendrier(db: &db::Database) -> Vec<serde_json::Value> 
     let mut toutes: Vec<serde_json::Value> = Vec::new();
 
     for url in &urls {
-        let resp = match client.get(*url).send().await {
+        let resp = match client
+            .get(*url)
+            .header(reqwest::header::USER_AGENT, "NativeTrading/1.0")
+            .send()
+            .await
+        {
             Ok(r) if r.status().is_success() => r,
             Ok(r) => {
                 tracing::debug!("ForexFactory {} → HTTP {}", url, r.status());

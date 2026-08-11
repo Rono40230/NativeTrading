@@ -15,14 +15,7 @@ pub struct PrixQuery {
 }
 
 pub async fn get_prix(state: web::Data<AppState>, query: web::Query<PrixQuery>) -> impl Responder {
-    let client = match prix_utils::client_http() {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("Client HTTP /api/prix: {}", e);
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": "Client HTTP indisponible" }));
-        }
-    };
+    let client = prix_utils::client_http();
 
     let assets: Vec<String> = query
         .assets
@@ -112,16 +105,7 @@ pub async fn get_klines_crypto(query: web::Query<KlinesQuery>) -> impl Responder
         format!("{}USDT", symbol)
     };
 
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-    {
-        Ok(c) => c,
-        Err(_) => {
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": "Client HTTP indisponible" }))
-        }
-    };
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     let category = if symbol_usdt == "XAUUSDT" || symbol_usdt == "XAGUSDT" {
         "linear"

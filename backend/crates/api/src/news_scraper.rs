@@ -143,6 +143,10 @@ pub async fn recuperer_contenu_article(client: &Client, url: &str) -> Option<Str
         .get(url)
         .header("Accept", "text/html,application/xhtml+xml")
         .header("Accept-Language", "fr-FR,fr;q=0.9,en;q=0.8")
+        .header(
+            reqwest::header::USER_AGENT,
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+        )
         .send()
         .await
         .ok()?

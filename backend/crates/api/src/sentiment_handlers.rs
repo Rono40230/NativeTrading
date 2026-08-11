@@ -103,7 +103,18 @@ async fn fetch_binance(
         "https://api.binance.com/api/v3/ticker/24hr?symbol={}",
         symbole
     );
-    let resp: BinanceTicker = client.get(&url).send().await.ok()?.json().await.ok()?;
+    let resp: BinanceTicker = client
+        .get(&url)
+        .header(
+            reqwest::header::USER_AGENT,
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+        )
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
 
     let prix = resp.last_price.parse::<f64>().ok()?;
     let variation = resp.price_change_percent.parse::<f64>().ok()?;
@@ -122,18 +133,7 @@ async fn fetch_binance(
 /// Sources : Yahoo Finance (indices, matières premières), Binance (crypto).
 /// Timeout 10s par source — dégradation silencieuse si une source échoue.
 pub async fn get_sentiment_marche(_state: web::Data<AppState>) -> impl Responder {
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36")
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("Client HTTP sentiment: {}", e);
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": "Client HTTP indisponible" }));
-        }
-    };
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     // Toutes les requêtes en parallèle — dégradation silencieuse par source
     let (sp500, nasdaq, dji, n100, dax, cac, or_, argent, petrole, agri, btc, eth, vix_raw) = tokio::join!(

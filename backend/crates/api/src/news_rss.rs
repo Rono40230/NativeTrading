@@ -56,6 +56,10 @@ pub async fn fetch_rss(client: &Client, url: &str) -> Vec<ArticleRss> {
     let res = client
         .get(url)
         .header("Accept", "application/rss+xml, application/xml, text/xml")
+        .header(
+            reqwest::header::USER_AGENT,
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+        )
         .send()
         .await;
 

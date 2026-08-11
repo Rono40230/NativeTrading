@@ -192,17 +192,7 @@ pub async fn get_prix_actuel(query: web::Query<PrixActuelQuery>) -> impl Respond
         symbole
     );
 
-    let client = match reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            tracing::error!("Création client reqwest: {}", e);
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": "Client HTTP indisponible" }));
-        }
-    };
+    let client = &*crate::http_client::HTTP_CLIENT;
 
     match client.get(&url).send().await {
         Ok(resp) if resp.status().is_success() => match resp.json::<BinancePrix>().await {
