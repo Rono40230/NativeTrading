@@ -2,10 +2,8 @@
  * Méthodes API dédiées au monitoring ML SMC Directionnel.
  * Importées et spreadées dans apiService (api.service.ts).
  */
-import axios from 'axios'
+import { http } from './http.client'
 import type { SmcMonitoringData, SmcCalibrationRow, SmcBaremes } from './api.types'
-
-const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
 
 export const apiSmcMethods = {
   async getSmcMonitoringML(): Promise<SmcMonitoringData> {

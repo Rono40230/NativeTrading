@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import { apiService } from '@/services/api.service'
 import StraddleMonitoringML from '@/components/common/StraddleMonitoringML.vue'
 import RocketsMonitoringML from '@/components/common/RocketsMonitoringML.vue'
 import SmcMonitoringML from '@/components/common/SmcMonitoringML.vue'
@@ -9,8 +9,6 @@ import MlInsightsView from '@/views/MlInsightsView.vue'
 type PromptsGroupe = Record<string, Record<string, any>>
 type StrMap = Record<string, string>
 type BoolMap = Record<string, boolean>
-
-const BASE_URL = 'http://localhost:8080'
 
 const ongletActif = ref('prompts')
 const prompts = ref<PromptsGroupe | null>(null)
@@ -37,9 +35,9 @@ async function chargerPrompts() {
   chargement.value = true
   erreur.value = ''
   try {
-    const rep = await axios.get(`${BASE_URL}/api/prompts`)
-    prompts.value = rep.data
-    for (const groupe of Object.values(rep.data) as Record<string, any>[]) {
+    const rep = await apiService.getPrompts()
+    prompts.value = rep
+    for (const groupe of Object.values(rep) as Record<string, any>[]) {
       for (const prompt of Object.values(groupe) as any[]) {
         editValues.value[prompt.id] = prompt.contenu
       }
@@ -58,9 +56,7 @@ function basculer(id: string) {
 async function sauvegarder(promptId: string) {
   enCours.value[promptId] = true
   try {
-    await axios.put(`${BASE_URL}/api/prompts/${promptId}`, {
-      contenu: editValues.value[promptId]
-    })
+    await apiService.putPrompt(promptId, editValues.value[promptId])
     await chargerPrompts()
   } catch (err: any) {
     erreur.value = `Échec sauvegarde : ${err.message}`
@@ -72,7 +68,7 @@ async function sauvegarder(promptId: string) {
 async function restaurer(promptId: string) {
   enCours.value[promptId] = true
   try {
-    await axios.delete(`${BASE_URL}/api/prompts/${promptId}`)
+    await apiService.deletePrompt(promptId)
     await chargerPrompts()
   } catch (err: any) {
     erreur.value = `Échec restauration : ${err.message}`

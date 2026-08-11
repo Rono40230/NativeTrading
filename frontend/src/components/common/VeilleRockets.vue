@@ -48,6 +48,7 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false })
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { apiService } from '@/services/api.service'
 import type { SignalRocket, PhaseRocket } from '@/composables/useVeilleRockets'
 import RocketTooltip from '@/components/common/RocketTooltip.vue'
 import RocketsOpportunitesModal from '@/components/common/RocketsOpportunitesModal.vue'
@@ -116,9 +117,7 @@ const variationTF = computed(() => {
 async function fetchSparklineTF(ticker: string, interval: string, limit: number) {
   sparklineTF.value = []
   try {
-    const res = await fetch(`/api/marche/klines?symbol=${ticker}&interval=${interval}&limit=${limit}`)
-    if (!res.ok) return
-    const data = await res.json() as unknown[][]
+    const data = await apiService.getMarcheKlines(ticker, interval, limit)
     sparklineTF.value = data.map(k => parseFloat(k[4] as string))
   } catch { /* silencieux */ }
 }

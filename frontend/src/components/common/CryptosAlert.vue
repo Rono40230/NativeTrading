@@ -152,6 +152,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { apiService } from '@/services/api.service'
 import type { CryptoAlert, BadgeNiveau } from '@/composables/useCryptosAlert'
 import {
   TF_CONFIGS, icone, classeCard, formatVolume, formatPrix,
@@ -210,9 +211,7 @@ async function fetchSparkline(ticker: string) {
   sparkline.value = []
   const tf = TF_CONFIGS.find(t => t.label === selectedTF.value) ?? TF_CONFIGS[2]
   try {
-    const res = await fetch(`/api/marche/klines?symbol=${ticker}&interval=${tf.interval}&limit=${tf.limit}`)
-    if (!res.ok) return
-    const data = await res.json() as unknown[][]
+    const data = await apiService.getMarcheKlines(ticker, tf.interval, tf.limit)
     sparkline.value = data.map(k => parseFloat(k[4] as string))
   } catch { /* silencieux */ }
 }

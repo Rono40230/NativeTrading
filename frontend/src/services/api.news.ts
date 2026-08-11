@@ -2,13 +2,11 @@
  * Méthodes API dédiées au flux news, sentiment et calendrier.
  * Importées et spreadées dans apiService (api.service.ts).
  */
-import axios from 'axios'
+import { http } from './http.client'
 import type {
   AnnonceCalendrier, SentimentMarche, AlertesNews,
   ContenuArticle, TraductionReponse, FearGreedData,
 } from './api.types'
-
-const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
 
 export const newsApi = {
   async obtenirCalendrier(days = 7): Promise<AnnonceCalendrier[]> {

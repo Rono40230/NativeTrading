@@ -106,7 +106,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useMlInsightsStore } from '@/stores/mlInsights.store'
-import axios from 'axios'
+import { apiService } from '@/services/api.service'
 
 const store = useMlInsightsStore()
 
@@ -219,8 +219,7 @@ const strategiesData = ref<StrategyData[]>([
 async function chargerTopFeatures() {
   for (const strat of strategiesData.value) {
     try {
-      const res = await axios.get(`http://localhost:8080/api/ml/feature-importance/${strat.id}`)
-      strat.features = res.data
+      strat.features = await apiService.getMlFeatureImportance(strat.id)
       strat.max = strat.features.length > 0 && strat.features[0].importance > 0 ? strat.features[0].importance : 1
     } catch {
       // Silencieux : les importances n'existent pas encore

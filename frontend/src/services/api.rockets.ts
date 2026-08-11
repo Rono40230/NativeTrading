@@ -2,13 +2,11 @@
  * Méthodes API dédiées aux Rockets.
  * Importées et spreadées dans apiService (api.service.ts).
  */
-import axios from 'axios'
+import { http } from './http.client'
 import type {
   RocketSignalSave, RocketSignalHistorique, RocketAnalyseLlm, RocketsConfig,
   RocketsMonitoringData, RocketsCalibrationRow, RocketsSeuilsEffectifs,
 } from './api.types'
-
-const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
 
 export const rocketsApi = {
   async sauvegarderRocket(signal: RocketSignalSave): Promise<void> {

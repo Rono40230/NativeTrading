@@ -1,10 +1,8 @@
 /**
  * Méthodes API dédiées aux paramètres de sizing par asset.
  */
-import axios from 'axios'
+import { http } from './http.client'
 import type { AssetParams } from './api.types'
-
-const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
 
 export const assetParamsApi = {
   async getAssetParams(): Promise<AssetParams[]> {

@@ -1,9 +1,7 @@
 /**
  * Service API pour le module ML Insights (Phase 8).
  */
-import axios from 'axios'
-
-const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15_000 })
+import { http } from './http.client'
 
 export interface StatsGlobales {
   nb_trades:   number

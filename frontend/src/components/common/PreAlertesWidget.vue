@@ -43,6 +43,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { apiService } from '@/services/api.service'
 
 interface PreAlerte {
   id: string
@@ -62,8 +63,7 @@ let timer: ReturnType<typeof setInterval> | null = null
 async function charger() {
   chargement.value = true
   try {
-    const res = await fetch('http://localhost:8080/api/pre_alertes?limit=10')
-    if (res.ok) preAlertes.value = await res.json()
+    preAlertes.value = (await apiService.getPreAlertes(10)) as PreAlerte[]
   } catch {
     // silencieux — widget non critique
   } finally {

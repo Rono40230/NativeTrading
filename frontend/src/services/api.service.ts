@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { http } from './http.client'
 import { rocketsApi } from './api.rockets'
 import { straddleApi } from './api.straddle'
 import { apiSmcMethods } from './api.smc'
@@ -28,13 +28,6 @@ import type {
 } from './api.types'
 import type { StraddleParams as ParamsStraddle } from '@/generated/ParamsStraddle'
 import type { SmcParams as ParamsSmc } from '@/generated/ParamsSmc'
-
-const BASE_URL = 'http://localhost:8080'
-
-const http = axios.create({
-  baseURL: BASE_URL,
-  timeout: 15000,
-})
 
 export const apiService = {
   async healthCheck(): Promise<{ status: string }> {
@@ -233,6 +226,62 @@ export const apiService = {
 
   async putSmcParams(params: ParamsSmc): Promise<void> {
     await http.put('/api/smc/params', params)
+  },
+
+  // ── Prompts IA (CRUD) ──────────────────────────────────────────────────────
+  // Structure dynamique { catégorie: { clé: { id, contenu, ... } } }.
+  async getPrompts(): Promise<Record<string, any>> {
+    const res = await http.get('/api/prompts')
+    return res.data
+  },
+
+  async putPrompt(id: string, contenu: string): Promise<void> {
+    await http.put(`/api/prompts/${id}`, { contenu })
+  },
+
+  async deletePrompt(id: string): Promise<void> {
+    await http.delete(`/api/prompts/${id}`)
+  },
+
+  // ── Pré-alertes (widget tableau de bord) ───────────────────────────────────
+  async getPreAlertes(limit = 10): Promise<unknown[]> {
+    const res = await http.get('/api/pre_alertes', { params: { limit } })
+    return res.data
+  },
+
+  // ── Marché : klines Binance (sparklines CryptosAlert / VeilleRockets) ───────
+  async getMarcheKlines(symbol: string, interval: string, limit: number): Promise<unknown[][]> {
+    const res = await http.get('/api/marche/klines', { params: { symbol, interval, limit } })
+    return res.data
+  },
+
+  // ── IA : sauvegarde d'analyse (capture écran) ──────────────────────────────
+  async saveAnalyseIA(payload: {
+    image_base64: string
+    asset: string
+    timeframe: string
+  }): Promise<void> {
+    await http.post('/api/ia/save-analysis', payload)
+  },
+
+  // ── ML : feature importance par stratégie ──────────────────────────────────
+  async getMlFeatureImportance(strategie: string): Promise<{
+    feature_idx: number
+    feature_nom: string
+    importance: number
+  }[]> {
+    const res = await http.get(`/api/ml/feature-importance/${strategie}`)
+    return res.data
+  },
+
+  // ── SMC : dernière analyse LLM (notification nouveau contenu) ───────────────
+  async getDerniereAnalyseLlmSmc(): Promise<{ cree_le?: string } | null> {
+    try {
+      const res = await http.get('/api/smc/analyse-llm', { timeout: 5000 })
+      return res.status === 204 ? null : res.data
+    } catch {
+      return null
+    }
   },
 
   ...rocketsApi,

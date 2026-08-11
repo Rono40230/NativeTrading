@@ -2,13 +2,11 @@
  * Méthodes API dédiées au Signal Engine, données et ML historique.
  * Importées et spreadées dans apiService (api.service.ts).
  */
-import axios from 'axios'
+import { http } from './http.client'
 import type {
   StatutSignalEngine, CouvertureDonnees, RequeteCollecte,
   ResultatCollecte, HistoriqueML, ReponsePatternsVolatilite,
 } from './api.types'
-
-const http = axios.create({ baseURL: 'http://localhost:8080', timeout: 15000 })
 
 export const engineApi = {
   async signalEngineStatut(): Promise<StatutSignalEngine> {

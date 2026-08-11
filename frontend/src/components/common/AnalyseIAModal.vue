@@ -58,6 +58,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, onUnmounted } from 'vue'
+import { apiService } from '@/services/api.service'
 
 const props = defineProps<{ analyse: string | null; modele: string; asset?: string; timeframe?: string }>()
 const emit = defineEmits<{ fermer: [] }>()
@@ -175,21 +176,14 @@ async function enregistrerImage() {
 
     const base64 = canvas.toDataURL('image/png').split(',')[1]
 
-    const res = await fetch('http://localhost:8080/api/ia/save-analysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image_base64: base64,
-        asset: props.asset || 'UNKNOWN',
-        timeframe: props.timeframe || 'UNKNOWN',
-      })
+    await apiService.saveAnalyseIA({
+      image_base64: base64,
+      asset: props.asset || 'UNKNOWN',
+      timeframe: props.timeframe || 'UNKNOWN',
     })
-
-    if (!res.ok) throw new Error('Erreur HTTP ' + res.status)
 
     // Optionnel : un petit effet visuel ou flash de réussite
   } catch (err) {
-    console.error('Echec capture:', err)
     erreurSauvegarde.value = (err as Error).message
   } finally {
     enSauvegarde.value = false

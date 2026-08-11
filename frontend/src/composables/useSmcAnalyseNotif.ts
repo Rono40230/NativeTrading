@@ -10,9 +10,8 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAlerteStore } from '@/stores/alerte.store'
-import axios from 'axios'
+import { apiService } from '@/services/api.service'
 
-const BASE_URL = 'http://localhost:8080'
 const LS_KEY   = 'smc_analyse_vue_le'
 const POLL_MS  = 10 * 60 * 1000 // 10 minutes
 
@@ -24,8 +23,8 @@ export function useSmcAnalyseNotif() {
 
   async function verifier() {
     try {
-      const res = await axios.get(`${BASE_URL}/api/smc/analyse-llm`, { timeout: 5000 })
-      const creeLe: string | undefined = res.data?.cree_le
+      const data = await apiService.getDerniereAnalyseLlmSmc()
+      const creeLe: string | undefined = data?.cree_le
       if (!creeLe) return
 
       const vue = localStorage.getItem(LS_KEY)
