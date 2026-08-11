@@ -84,7 +84,6 @@ const nav: NavItem[] = [
   },
 
   // ── Performance ──────────────────────────────────────────────────────────
-  { to: '/straddle/backtest', icone: '🧪', label: 'Backtest' },
   { to: '/history', icone: '📜', label: 'Historique' },
 
   // ── Outils IA ─────────────────────────────────────────────────────────────

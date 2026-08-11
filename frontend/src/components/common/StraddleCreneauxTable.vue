@@ -36,7 +36,6 @@
           <th class="text-center px-4 py-3">Conviction</th>
           <th class="text-left px-4 py-3">Raison LLM</th>
           <th class="text-center px-4 py-3">Statut</th>
-          <th class="text-center px-4 py-3">Backtest</th>
           <th class="px-4 py-3"></th>
         </tr>
       </thead>
@@ -79,14 +78,6 @@
               :options="OPTIONS_STATUT"
               @update:model-value="(v) => $emit('changerStatut', c, String(v))"
             />
-          </td>
-          <td class="px-4 py-3 text-center text-xs">
-            <template v-if="c.backtest_winrate != null">
-              <span class="text-emerald-400">{{ c.backtest_winrate.toFixed(0) }}% WR</span>
-              <br />
-              <span class="text-gray-400">PF {{ c.backtest_profit_factor?.toFixed(2) ?? '—' }}</span>
-            </template>
-            <span v-else class="text-gray-600">–</span>
           </td>
           <td class="px-4 py-3 text-center">
             <RouterLink

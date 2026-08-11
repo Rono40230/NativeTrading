@@ -97,8 +97,6 @@ export interface StraddleCreneau {
   llm_conviction: number | null
   statut: 'a_tester' | 'valide' | 'invalide'
   cree_le: string
-  backtest_winrate: number | null
-  backtest_profit_factor: number | null
   // Précision M5
   timing_optimal: string | null
   fenetre_entree: string | null

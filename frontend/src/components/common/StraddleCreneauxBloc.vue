@@ -40,10 +40,6 @@
           <span class="font-mono font-bold ml-auto text-[10px]" :class="reboursCls(c)">{{ rebours(c) }}</span>
         </div>
         <div class="flex items-center gap-2 text-[10px] text-gray-500 flex-wrap">
-          <span v-if="c.backtest_winrate !== null">WR <span class="font-semibold"
-              :class="c.backtest_winrate >= 60 ? 'text-emerald-400' : c.backtest_winrate >= 50 ? 'text-yellow-400' : 'text-red-400'">{{
-                c.backtest_winrate }}%</span></span>
-          <span v-if="c.backtest_profit_factor !== null">PF {{ c.backtest_profit_factor?.toFixed(1) }}</span>
           <span v-if="c.whipsaw_minutes" class="text-orange-400 ml-auto">⚠ ws {{ c.whipsaw_minutes }}min</span>
         </div>
       </div>
@@ -75,7 +71,6 @@ const fenDujour = computed<StraddleCreneau | null>(() => {
   )
   if (!candidats.length) return null
   return candidats.sort((a, b) =>
-    (b.backtest_winrate ?? 0) - (a.backtest_winrate ?? 0) ||
     (b.llm_conviction ?? 0) - (a.llm_conviction ?? 0)
   )[0]
 })

@@ -95,7 +95,7 @@
           class="block mb-4 text-center py-2.5 rounded-lg bg-yellow-500/20 text-yellow-400 font-semibold hover:bg-yellow-500/30 transition text-sm"
           @click="$emit('close')"
         >
-          → Voir les créneaux &amp; backtest horaire complet
+          → Voir les créneaux &amp; l'analyse horaire complète
         </RouterLink>
 
       </div>

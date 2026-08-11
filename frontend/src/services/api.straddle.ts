@@ -39,7 +39,7 @@ export const straddleApi = {
 
   async patchStraddleCreneau(
     id: number,
-    data: { statut?: string; backtest_winrate?: number; backtest_profit_factor?: number },
+    data: { statut?: string },
   ): Promise<void> {
     await http.patch(`/api/straddle/creneaux/${id}`, data)
   },

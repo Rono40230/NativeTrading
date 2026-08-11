@@ -176,7 +176,7 @@ function lotCalculePour(row: AssetParams): number {
 
 async function sauvegarder() {
   feedback.value = null
-  // Persiste le capital dans le store global (backtesting + dimensionnement)
+  // Persiste le capital dans le store global (dimensionnement)
   if (capitalRef.value > 0) {
     settingsStore.definirCapital(capitalRef.value)
   }
