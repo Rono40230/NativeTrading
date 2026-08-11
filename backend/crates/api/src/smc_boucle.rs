@@ -66,6 +66,28 @@ pub fn demarrer_boucle_smc(
     tracing::info!("📐 Boucle SMC Directionnel démarrée (15 min, assets dynamiques depuis DB)");
 }
 
+/// Calcule (SL, TP1) à partir du prix, de l'ATR et des params SMC.
+/// Extrait de `analyser_asset` pour être testable indépendamment de la DB/ML.
+/// Retourne None si la direction est `Both` (pas de SL/TP univoque).
+fn calculer_sl_tp(
+    direction: common::Direction,
+    prix: f64,
+    atr14: f64,
+    params: &db::strategies_params::SmcParams,
+) -> Option<(f64, f64)> {
+    match direction {
+        common::Direction::Long => Some((
+            prix - atr14 * params.atr_sl,
+            prix + atr14 * params.atr_tp1,
+        )),
+        common::Direction::Short => Some((
+            prix + atr14 * params.atr_sl,
+            prix - atr14 * params.atr_tp1,
+        )),
+        common::Direction::Both => None,
+    }
+}
+
 async fn analyser_asset(
     db: Arc<Database>,
     signal_engine: Arc<SignalEngine>,
@@ -221,15 +243,12 @@ async fn analyser_asset(
         common::Direction::Short => "Baissier",
         common::Direction::Both => return, // ne devrait pas arriver après scorer()
     };
-    let sl = if score.direction == common::Direction::Long {
-        prix - atr14
-    } else {
-        prix + atr14
-    };
-    let tp1 = if score.direction == common::Direction::Long {
-        prix + atr14 * 1.5
-    } else {
-        prix - atr14 * 1.5
+    // Paramètres SMC depuis la DB (même pattern que signal_engine_analyse.rs:39).
+    // Évite un hardcodage 1.0/1.5 qui ignorait le paramétrage utilisateur.
+    let smc_params = db::strategies_params::lire_smc_params(db.pool()).await;
+    let (sl, tp1) = match calculer_sl_tp(score.direction, prix, atr14, &smc_params) {
+        Some(v) => v,
+        None => return, // direction Both : pas de signal univoque (mort après le match ci-dessus)
     };
 
     let params = ParamsSmc {
