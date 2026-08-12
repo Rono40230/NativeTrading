@@ -68,7 +68,7 @@ impl AssetCalibration {
         let asset_reconnu = is_xau || is_xag || is_nas || is_btc || is_dax;
 
         // _autoSwing (Pine lignes 42-47) : TF ≤ M15 → 3, sinon 5 (spécifique asset inchangé).
-        let tf_mins = parse_tf_minutes(timeframe);
+        let tf_mins = tf_minutes(timeframe);
         let tf_m15 = tf_mins <= 15;
         let swing_length = if tf_m15 {
             3
@@ -162,7 +162,7 @@ impl AssetCalibration {
 
 /// Parse un timeframe Pine en minutes. Reconnait M1/M5/M15/M30/H1/H4/D1/W1 ;
 /// sinon tente d'extraire le préfixe numérique (ex. "45" → 45), défaut 15.
-fn parse_tf_minutes(tf: &str) -> u32 {
+pub fn tf_minutes(tf: &str) -> u32 {
     match tf.trim().to_uppercase().as_str() {
         "M1" => 1,
         "M5" => 5,
@@ -177,6 +177,11 @@ fn parse_tf_minutes(tf: &str) -> u32 {
             .parse()
             .unwrap_or(15),
     }
+}
+
+/// Équivalent Pine `timeframe.in_seconds()` pour un timeframe texte.
+pub fn tf_seconds(tf: &str) -> i64 {
+    tf_minutes(tf) as i64 * 60
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@
 //!
 //! Coexiste avec l'ancien `smc::scorer` jusqu'à validation, puis bascule.
 //! Phase 2.0 : socle (calibration + ATR14 + pivots + structure + BOS).
-//! Phase 2.1 : MODULE 3 (MSS/CHOCH) + MODULE 4 (Liquidités PDH/PDL/PWH/PWL + EQH/EQL).
+//! Phase 2.1 : MODULES 3/4/5 (MSS/CHOCH + Liquidités PDH/PDL/PWH/PWL + EQH/EQL + Sweep).
 
 pub mod atr;
 pub mod bos;
@@ -11,23 +11,25 @@ pub mod liquidites;
 pub mod mss;
 pub mod pivots;
 pub mod structure;
+pub mod sweep;
 pub mod types;
 #[cfg(test)]
 mod tests;
 
 pub use atr::Atr14;
 pub use bos::BosDetector;
-pub use calibration::AssetCalibration;
+pub use calibration::{tf_seconds, AssetCalibration};
 pub use liquidites::LiquiditesDetector;
 pub use mss::MssDetector;
 pub use pivots::PivotDetector;
 pub use structure::StructureDetector;
+pub use sweep::SweepDetector;
 pub use types::*;
 
 /// Le moteur SMC v12 — orchestre tous les indicateurs dans l'ordre strict du Pine.
 ///
 /// Ordre d'exécution `update` (Pine) :
-///   ATR → Pivots → Structure → BOS → MSS/CHOCH → Liquidités → (Sweep : module 5)
+///   ATR → Pivots → Structure → BOS → MSS/CHOCH → Liquidités (PDH/PDL/EQH/EQL) → Sweep
 pub struct SmcV12Engine {
     pub calibration: AssetCalibration,
     pub atr: Atr14,
@@ -36,12 +38,16 @@ pub struct SmcV12Engine {
     pub bos: BosDetector,
     pub mss: MssDetector,
     pub liquidites: LiquiditesDetector,
+    pub sweep: SweepDetector,
+    /// Timeframe en secondes (Pine `timeframe.in_seconds()`).
+    tf_sec: i64,
 }
 
 impl SmcV12Engine {
     /// Crée le moteur pour un actif + timeframe donnés (calibration auto Module 0).
     pub fn new(asset: &str, timeframe: &str) -> Self {
         let cal = AssetCalibration::detect(asset, timeframe);
+        let tf_sec = tf_seconds(timeframe);
         Self {
             calibration: cal.clone(),
             atr: Atr14::new(),
@@ -50,11 +56,13 @@ impl SmcV12Engine {
             bos: BosDetector::new(),
             mss: MssDetector::new(),
             liquidites: LiquiditesDetector::new(),
+            sweep: SweepDetector::new(tf_sec),
+            tf_sec,
         }
     }
 
     /// Traite une nouvelle bar clôturée. Ordre strict = ordre Pine
-    /// (ATR → pivots → structure → BOS → MSS/CHOCH → liquidités).
+    /// (ATR → pivots → structure → BOS → MSS/CHOCH → liquidités → sweep).
     pub fn update(&mut self, bar: &BarInput) -> SmcOutput {
         // 1. ATR
         self.atr.update(bar);
@@ -86,23 +94,32 @@ impl SmcV12Engine {
         let bos_out = mask_bos_by_mss(&bos_raw, &mss_event);
 
         // 6. Liquidités (PDH/PDL/PWH/PWL + EQH/EQL) — produit dernierEQH/EQL_level.
-        let liq_event = self
-            .liquidites
-            .update(bar, &self.pivots, &pivot_event, atr14);
+        let liq_event =
+            self.liquidites
+                .update(bar, &self.pivots, &pivot_event, atr14);
+
+        // 7. Sweep — consomme dernierEQH/EQL_level et marque le pool sweepé.
+        let sweep_event = self.sweep.update(bar, &mut self.liquidites, atr14);
 
         SmcOutput {
             atr14,
             pivot: pivot_event,
             structure: struct_event.clone(),
             bos: bos_out,
-            mss: mss_event,
+            mss: mss_event.clone(),
             liquidite: liq_event,
+            sweep: sweep_event,
             sh1: self.pivots.sh1(),
             sl1: self.pivots.sl1(),
             // Tendance PRÉ-reset MSS (fidélité Pine : calculée ligne 381 avant reset 504).
             tendance_haussiere: struct_event.tendance_haussiere,
             tendance_baissiere: struct_event.tendance_baissiere,
         }
+    }
+
+    /// Timeframe en secondes (Pine `timeframe.in_seconds()`).
+    pub fn tf_sec(&self) -> i64 {
+        self.tf_sec
     }
 }
 

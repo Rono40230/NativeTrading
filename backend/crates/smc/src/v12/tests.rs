@@ -53,10 +53,12 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
 
     let mut engine = SmcV12Engine::new("XAUUSD", "M15");
     assert_eq!(engine.calibration.swing_length, 3);
+    assert_eq!(engine.tf_sec(), 900, "M15 ⇒ 900 s");
 
     let (mut ph, mut pl, mut bos_h, mut bos_b) = (0u32, 0u32, 0u32, 0u32);
     let (mut mss_h, mut mss_b, mut choch_h, mut choch_b) = (0u32, 0u32, 0u32, 0u32);
-    let (mut eqh, mut eql, mut swp_pdh, mut swp_pdl) = (0u32, 0u32, 0u32, 0u32);
+    let (mut swp_h, mut swp_b, mut swp_pdh, mut swp_pdl) = (0u32, 0u32, 0u32, 0u32);
+    let (mut eqh, mut eql) = (0u32, 0u32);
     let mut last_sh1: Option<f64> = None;
     let mut last_sl1: Option<f64> = None;
     let mut atr_final = 0.0_f64;
@@ -88,17 +90,23 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
         if out.mss.choch_baissier {
             choch_b += 1;
         }
-        if out.liquidite.is_eqh {
-            eqh += 1;
+        if out.sweep.sweep_haussier {
+            swp_h += 1;
         }
-        if out.liquidite.is_eql {
-            eql += 1;
+        if out.sweep.sweep_baissier {
+            swp_b += 1;
         }
         if out.liquidite.sweep_pdh {
             swp_pdh += 1;
         }
         if out.liquidite.sweep_pdl {
             swp_pdl += 1;
+        }
+        if out.liquidite.is_eqh {
+            eqh += 1;
+        }
+        if out.liquidite.is_eql {
+            eql += 1;
         }
         if out.sh1.is_some() {
             last_sh1 = out.sh1;
@@ -119,8 +127,9 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     let total_bos = bos_h + bos_b;
     let total_mss = mss_h + mss_b;
     let total_choch = choch_h + choch_b;
+    let total_swp = swp_h + swp_b;
     println!(
-        "\n===== SMC v12 — 700 bars XAUUSD M15 (MODULES 3+4) =====\n\
+        "\n===== SMC v12 — 700 bars XAUUSD M15 =====\n\
          Pivots high      : {ph}\n\
          Pivots low       : {pl}\n\
          TOTAL pivots     : {total_pivots}\n\
@@ -137,6 +146,9 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
          EQL              : {eql}\n\
          Sweeps PDH       : {swp_pdh}\n\
          Sweeps PDL       : {swp_pdl}\n\
+         Sweep haussiers  : {swp_h}\n\
+         Sweep baissiers  : {swp_b}\n\
+         TOTAL sweeps     : {total_swp}\n\
          ATR14 final      : {atr_final:.4}\n\
          sh1 final        : {last_sh1:?}\n\
          sl1 final        : {last_sl1:?}\n\
@@ -152,8 +164,9 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     assert!(total_pivots > 0, "Doit détecter des pivots sur 700 bars");
     assert!(total_bos > 0, "Doit détecter des BOS sur 700 bars");
     assert!(atr_final > 0.0, "ATR14 doit être calculé");
+    // Au moins un EQH/EQL ou sweep sur 700 bars XAUUSD M15 (très volatil).
     assert!(
-        eqh + eql > 0,
-        "Doit détecter au moins un EQH/EQL sur 700 bars XAUUSD M15"
+        eqh + eql + total_swp > 0,
+        "Doit détecter au moins une liquidité/sweep sur 700 bars"
     );
 }

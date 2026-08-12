@@ -123,6 +123,34 @@ pub struct LiquiditeEvent {
     pub nb_liq_swept: usize,
 }
 
+/// Sweep (MODULE 5 Pine, lignes 730-816) — machine 5 phases.
+///
+/// Phases : armé → expire → confirmé → consommé → fraîcheur.
+#[derive(Debug, Clone, Default)]
+pub struct SweepEvent {
+    /// Sweep haussier confirmé (close > sweep_h_level après armement sur EQL).
+    pub sweep_haussier: bool,
+    /// Sweep baissier confirmé (close < sweep_b_level après armement sur EQH).
+    pub sweep_baissier: bool,
+    pub sweep_h_level: Option<f64>,
+    pub sweep_h_bar: Option<usize>,
+    pub sweep_b_level: Option<f64>,
+    pub sweep_b_bar: Option<usize>,
+    /// Armement en cours (sweepH_bar/sweepB_bar non-na, pas encore confirmé ni expiré).
+    pub sweep_h_armed: bool,
+    pub sweep_b_armed: bool,
+    /// Dernier sweep haussier confirmé (level/bar) — pour scoring.
+    pub dernier_sweep_h_level: Option<f64>,
+    pub dernier_sweep_h_bar: Option<usize>,
+    pub dernier_sweep_b_level: Option<f64>,
+    pub dernier_sweep_b_bar: Option<usize>,
+    /// Fraîcheur (≤ SWEEP_FRESH_BARS) — Phase 5.1 Pine.
+    pub sweep_bull_frais: bool,
+    pub sweep_bear_frais: bool,
+    /// Fenêtre de fraîcheur courante (barres).
+    pub sweep_fresh_bars: i64,
+}
+
 /// Sortie complète du moteur pour une bar.
 #[derive(Debug, Clone, Default)]
 pub struct SmcOutput {
@@ -134,6 +162,7 @@ pub struct SmcOutput {
     pub bos: BosEvent,
     pub mss: MssEvent,
     pub liquidite: LiquiditeEvent,
+    pub sweep: SweepEvent,
     /// Dernier swing high (sh1).
     pub sh1: Option<f64>,
     /// Dernier swing low (sl1).
