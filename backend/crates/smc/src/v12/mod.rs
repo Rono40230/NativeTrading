@@ -4,6 +4,7 @@
 //! Phase 2.0 : socle (calibration + ATR14 + pivots + structure + BOS).
 //! Phase 2.1 : MODULES 3/4/5 (MSS/CHOCH + Liquidités PDH/PDL/PWH/PWL + EQH/EQL + Sweep).
 //! Phase 2.2 : MODULES 6/7/8b/8c/13b (FVG + Order Blocks + Breaker + Propulsion + Imbalance).
+//! Phase 2.3 : MODULES 4b/10b/12/13c + Kill Zones + Zone-cœur (contexte).
 
 pub mod atr;
 pub mod bos;
@@ -11,16 +12,22 @@ pub mod breaker;
 pub mod calibration;
 pub mod fvg;
 pub mod imbalance;
+pub mod kill_zones;
 pub mod liquidites;
 pub mod mss;
+pub mod mtf;
+pub mod ndog;
 pub mod order_blocks;
+pub mod ote;
 pub mod pivots;
+pub mod premium_discount;
 pub mod propulsion;
 pub mod structure;
 pub mod sweep;
 pub mod types;
 #[cfg(test)]
 mod tests;
+pub mod zone_coeur;
 
 pub use atr::Atr14;
 pub use bos::BosDetector;
@@ -28,20 +35,27 @@ pub use breaker::BreakerDetector;
 pub use calibration::{tf_seconds, AssetCalibration};
 pub use fvg::FvgDetector;
 pub use imbalance::ImbalanceDetector;
+pub use kill_zones::KillZoneDetector;
 pub use liquidites::LiquiditesDetector;
 pub use mss::MssDetector;
+pub use mtf::MtfDetector;
+pub use ndog::NdogDetector;
 pub use order_blocks::ObDetector;
+pub use ote::OteDetector;
 pub use pivots::PivotDetector;
+pub use premium_discount::PdDetector;
 pub use propulsion::PropulsionDetector;
 pub use structure::StructureDetector;
 pub use sweep::SweepDetector;
 pub use types::*;
+pub use zone_coeur::ZoneCoeurDetector;
 
 /// Le moteur SMC v12 — orchestre tous les indicateurs dans l'ordre strict du Pine.
 ///
 /// Ordre d'exécution `update` (Pine) :
 ///   ATR → Pivots → Structure → BOS → MSS/CHOCH → Liquidités (PDH/PDL/EQH/EQL) → Sweep
 ///   → FVG → Order Blocks → Breaker → Propulsion → Imbalance
+///   → Premium/Discount → OTE → Kill Zones → NDOG/NWOG → MTF → Zone-cœur
 pub struct SmcV12Engine {
     pub calibration: AssetCalibration,
     pub atr: Atr14,
@@ -56,6 +70,18 @@ pub struct SmcV12Engine {
     pub breaker: BreakerDetector,
     pub propulsion: PropulsionDetector,
     pub imbalance: ImbalanceDetector,
+    /// MODULE 4b — Premium/Discount.
+    pub premium_discount: PdDetector,
+    /// MODULE 13c — Fibonacci OTE.
+    pub ote: OteDetector,
+    /// Kill Zones (UTC).
+    pub kill_zone: KillZoneDetector,
+    /// MODULE 10b — NDOG/NWOG.
+    pub ndog: NdogDetector,
+    /// MODULE 12 — Multi-Timeframe.
+    pub mtf: MtfDetector,
+    /// Zone-cœur (intersection OB ∩ OTE ∩ FVG).
+    pub zone_coeur: ZoneCoeurDetector,
     /// Timeframe en secondes (Pine `timeframe.in_seconds()`).
     tf_sec: i64,
 }
@@ -79,6 +105,12 @@ impl SmcV12Engine {
             breaker: BreakerDetector::new(),
             propulsion: PropulsionDetector::new(),
             imbalance: ImbalanceDetector::new(),
+            premium_discount: PdDetector::new(),
+            ote: OteDetector::new(tf_sec),
+            kill_zone: KillZoneDetector::new(),
+            ndog: NdogDetector::new(tf_sec),
+            mtf: MtfDetector::new(),
+            zone_coeur: ZoneCoeurDetector::new(),
             tf_sec,
         }
     }
@@ -148,6 +180,42 @@ impl SmcV12Engine {
         //     son flag `last_ib_*` soit lisible comme `[1]` par l'OB à la bar suivante.
         let imbalance_event = self.imbalance.update(bar, atr14, self.calibration.seuil_ib);
 
+        // --- Contexte (Phase 2.3) ---
+        // 13. Premium/Discount (MODULE 4b) — capture au BOS BRUT (bos_raw, non masqué MSS).
+        let sh1 = self.pivots.sh1();
+        let sl1 = self.pivots.sl1();
+        let pd_event =
+            self.premium_discount
+                .update(bar, bos_raw.bullish, bos_raw.bearish, sh1, sl1);
+
+        // 14. OTE (MODULE 13c) — capture au BOS BRUT + expiration temporelle.
+        let ote_event = self
+            .ote
+            .update(bar, bos_raw.bullish, bos_raw.bearish, sh1, sl1);
+
+        // 15. Kill Zones (timestamp UTC uniquement).
+        let kz_event = self.kill_zone.update(bar);
+
+        // 16. NDOG/NWOG (MODULE 10b) — gaps jour/semaine (gating TF).
+        let ndog_event = self.ndog.update(bar, atr14);
+
+        // 17. MTF (MODULE 12) — agrégation H1/H4/W1/MN + confluences (repaint assumé).
+        let mtf_event = self.mtf.update(bar);
+
+        // 18. Zone-cœur — intersection OB ∩ OTE ∩ FVG (post-lifecycle).
+        //     Lit les zones vivantes (bull_zones/bear_zones) + bornes OTE + sweep frais.
+        let zone_coeur_event = self.zone_coeur.update(
+            self.order_blocks.bull_zones(),
+            self.order_blocks.bear_zones(),
+            self.fvg.bull_zones(),
+            self.fvg.bear_zones(),
+            self.ote.bull_bounds(),
+            self.ote.bear_bounds(),
+            sweep_event.sweep_bull_frais,
+            sweep_event.sweep_bear_frais,
+            pd_event.equilibrium,
+        );
+
         SmcOutput {
             atr14,
             pivot: pivot_event,
@@ -161,6 +229,12 @@ impl SmcV12Engine {
             breaker: breaker_event,
             propulsion: propulsion_event,
             imbalance: imbalance_event,
+            premium_discount: pd_event,
+            ote: ote_event,
+            kill_zone: kz_event,
+            ndog: ndog_event,
+            mtf: mtf_event,
+            zone_coeur: zone_coeur_event,
             sh1: self.pivots.sh1(),
             sl1: self.pivots.sl1(),
             // Tendance PRÉ-reset MSS (fidélité Pine : calculée ligne 381 avant reset 504).

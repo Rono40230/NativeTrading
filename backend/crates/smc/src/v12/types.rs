@@ -346,6 +346,164 @@ pub struct ImbalanceEvent {
     pub new_bear: Option<ImbalanceZone>,
 }
 
+// ============================================================================
+// MODULE 4b — PREMIUM / DISCOUNT (Equilibrium ICT)
+// ============================================================================
+
+/// Événement Premium/Discount (MODULE 4b Pine, lignes 1654-1691).
+///
+/// Plage de référence = dernier dealing range BOS (sh1/sl1 capturés au BOS).
+#[derive(Debug, Clone, Default)]
+pub struct PdEvent {
+    /// `inPremium` — close > equilibrium + tolérance.
+    pub in_premium: bool,
+    /// `inDiscount` — close < equilibrium - tolérance.
+    pub in_discount: bool,
+    /// `pdEquilibrium = (_pdRangeH + _pdRangeL) / 2`.
+    pub equilibrium: Option<f64>,
+    /// `_pdRangeH` = sh1 au dernier BOS.
+    pub pd_range_h: Option<f64>,
+    /// `_pdRangeL` = sl1 au dernier BOS.
+    pub pd_range_l: Option<f64>,
+}
+
+// ============================================================================
+// MODULE 13c — FIBONACCI OTE (Optimal Trade Entry)
+// ============================================================================
+
+/// Événement OTE (MODULE 13c Pine, lignes 2022-2110).
+///
+/// Zone OTE = Fibonacci 61.8 % - 78.6 % du dernier dealing range BOS.
+#[derive(Debug, Clone, Default)]
+pub struct OteEvent {
+    /// `inOTE_bull` — close ∈ [_oteBotBull, _oteTopBull].
+    pub in_ote_bull: bool,
+    /// `inOTE_bear` — close ∈ [_oteBotBear, _oteTopBear].
+    pub in_ote_bear: bool,
+    pub bull_top: Option<f64>,
+    pub bull_bot: Option<f64>,
+    pub bear_top: Option<f64>,
+    pub bear_bot: Option<f64>,
+    /// `OTE_EXPIRY_BARS = max(1, round(10800/_tfSec))` (12 en M15).
+    pub expiry_bars: i64,
+}
+
+// ============================================================================
+// KILL ZONES (Pine lignes 124-161)
+// ============================================================================
+
+/// Kill Zone active à la bar courante (UTC).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum KillZone {
+    #[default]
+    None,
+    Asian,
+    London,
+    NyAm,
+    NyPm,
+}
+
+/// Événement Kill Zone (time-based, UTC minutes depuis minuit).
+#[derive(Debug, Clone, Default)]
+pub struct KillZoneEvent {
+    /// `inKZ` — OU des 4 plages UTC.
+    pub in_kz: bool,
+    pub zone: KillZone,
+    /// `_gKzMins = (timestamp % 86400) / 60` — minutes UTC depuis minuit.
+    pub mins: i64,
+}
+
+// ============================================================================
+// MODULE 10b — NDOG / NWOG (New Day / New Week Opening Gaps)
+// ============================================================================
+
+/// Un gap d'ouverture NDOG (jour) ou NWOG (semaine) — MODULE 10b Pine (1533-1652).
+#[derive(Debug, Clone, Copy)]
+pub struct GapZone {
+    /// `_gTop = max(open, close[1])`.
+    pub top: f64,
+    /// `_gBot = min(open, close[1])`.
+    pub bot: f64,
+    /// Mitigé quand `low <= bot and high >= top` (prix remplit le gap).
+    pub mitigated: bool,
+    /// `bar_index` de création.
+    pub bar: usize,
+    /// `false` = NDOG (jour), `true` = NWOG (semaine).
+    pub is_week: bool,
+}
+
+/// Événement NDOG/NWOG pour une bar.
+#[derive(Debug, Clone, Default)]
+pub struct NdogEvent {
+    /// Nouveau NDOG créé cette bar (gating TF M1–M15).
+    pub new_ndog: Option<GapZone>,
+    /// Nouveau NWOG créé cette bar (gating TF H1–H4).
+    pub new_nwog: Option<GapZone>,
+}
+
+// ============================================================================
+// MODULE 12 — MULTI-TIMEFRAME (MTF)
+// ============================================================================
+
+/// Un Order Block HTF (Pine `_b1T/_b1B` etc.) — borne + timestamp de création.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HtfObZone {
+    pub top: f64,
+    pub bot: f64,
+    /// `_b1time`/`_r1time` (Pine) — `time` de la bougie OB HTF.
+    pub timestamp: i64,
+}
+
+/// État MTF d'un TF supérieur (trend + 3 derniers OB bull + 3 derniers OB bear).
+#[derive(Debug, Clone, Default)]
+pub struct HtfState {
+    /// `_trend` Pine : 1 = bull, -1 = bear, 0 = neutre.
+    pub trend: i32,
+    /// 3 derniers OB bull (`_b1.._b3`), index 0 = plus récent. Peut contenir < 3.
+    pub bull_obs: Vec<HtfObZone>,
+    /// 3 derniers OB bear (`_r1.._r3`), index 0 = plus récent.
+    pub bear_obs: Vec<HtfObZone>,
+}
+
+/// Événement MTF pour une bar (MODULE 12 Pine, lignes 1693-1878).
+///
+/// ⚠️ **REPAINT assumé** : les OB/confluences HTF reflètent la bougie HTF en cours
+/// (équivalent Pine `request.security(..., lookahead_off)` live).
+#[derive(Debug, Clone, Default)]
+pub struct MtfEvent {
+    /// `confluenceH1` — close ∈ au moins une des 6 zones OB H1.
+    pub confluence_h1: bool,
+    pub confluence_h4: bool,
+    pub confluence_w1: bool,
+    pub confluence_mn: bool,
+    pub h1: HtfState,
+    pub h4: HtfState,
+    pub w1: HtfState,
+    pub mn: HtfState,
+}
+
+// ============================================================================
+// ZONE-CŒUR (Pine lignes 2112-2154)
+// ============================================================================
+
+/// Une zone-cœur = intersection OB ∩ OTE ∩ 1er FVG chevauchant (Pine `f_coeurBull/Bear`).
+#[derive(Debug, Clone, Copy)]
+pub struct ZoneCoeurZone {
+    pub top: f64,
+    pub bot: f64,
+    /// `ob_bar` de l'OB à l'origine de la zone-cœur.
+    pub ob_bar: usize,
+    /// `true` = zone-cœur bull (Discount), `false` = bear (Premium).
+    pub bull: bool,
+}
+
+/// Événement Zone-cœur pour une bar.
+#[derive(Debug, Clone, Default)]
+pub struct ZoneCoeurEvent {
+    pub bull: Vec<ZoneCoeurZone>,
+    pub bear: Vec<ZoneCoeurZone>,
+}
+
 /// Sortie complète du moteur pour une bar.
 #[derive(Debug, Clone, Default)]
 pub struct SmcOutput {
@@ -368,6 +526,18 @@ pub struct SmcOutput {
     pub propulsion: PropulsionEvent,
     /// MODULE 13b — Imbalance.
     pub imbalance: ImbalanceEvent,
+    /// MODULE 4b — Premium/Discount (Equilibrium ICT).
+    pub premium_discount: PdEvent,
+    /// MODULE 13c — Fibonacci OTE.
+    pub ote: OteEvent,
+    /// Kill Zones (UTC).
+    pub kill_zone: KillZoneEvent,
+    /// MODULE 10b — NDOG/NWOG.
+    pub ndog: NdogEvent,
+    /// MODULE 12 — Multi-Timeframe (repaint assumé).
+    pub mtf: MtfEvent,
+    /// Zone-cœur (intersection OB ∩ OTE ∩ FVG).
+    pub zone_coeur: ZoneCoeurEvent,
     /// Dernier swing high (sh1).
     pub sh1: Option<f64>,
     /// Dernier swing low (sl1).

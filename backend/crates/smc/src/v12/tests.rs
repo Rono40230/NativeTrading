@@ -65,6 +65,11 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     let (mut brk_bull, mut brk_bear) = (0u32, 0u32);
     let (mut prop_bull, mut prop_bear) = (0u32, 0u32);
     let (mut ib_bull, mut ib_bear) = (0u32, 0u32);
+    // Compteurs Phase 2.3 (contexte).
+    let (mut pd_prem, mut pd_disc, mut ote_bull, mut ote_bear) = (0u32, 0u32, 0u32, 0u32);
+    let (mut kz, mut ndog_new, mut nwog_new) = (0u32, 0u32, 0u32);
+    let (mut conf_h1, mut conf_h4, mut conf_w1, mut conf_mn) = (0u32, 0u32, 0u32, 0u32);
+    let (mut coeur_bull, mut coeur_bear) = (0u32, 0u32);
     let mut last_sh1: Option<f64> = None;
     let mut last_sl1: Option<f64> = None;
     let mut atr_final = 0.0_f64;
@@ -142,6 +147,42 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
         if out.imbalance.new_bear.is_some() {
             ib_bear += 1;
         }
+        // Phase 2.3 — contexte.
+        if out.premium_discount.in_premium {
+            pd_prem += 1;
+        }
+        if out.premium_discount.in_discount {
+            pd_disc += 1;
+        }
+        if out.ote.in_ote_bull {
+            ote_bull += 1;
+        }
+        if out.ote.in_ote_bear {
+            ote_bear += 1;
+        }
+        if out.kill_zone.in_kz {
+            kz += 1;
+        }
+        if out.ndog.new_ndog.is_some() {
+            ndog_new += 1;
+        }
+        if out.ndog.new_nwog.is_some() {
+            nwog_new += 1;
+        }
+        if out.mtf.confluence_h1 {
+            conf_h1 += 1;
+        }
+        if out.mtf.confluence_h4 {
+            conf_h4 += 1;
+        }
+        if out.mtf.confluence_w1 {
+            conf_w1 += 1;
+        }
+        if out.mtf.confluence_mn {
+            conf_mn += 1;
+        }
+        coeur_bull += out.zone_coeur.bull.len() as u32;
+        coeur_bear += out.zone_coeur.bear.len() as u32;
         if out.sh1.is_some() {
             last_sh1 = out.sh1;
         }
@@ -214,6 +255,18 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
          ================================================================"
     );
 
+    println!(
+        "\n===== PHASE 2.3 — CONTEXTE (700 bars XAUUSD M15) =====\n\
+         Premium/Discount : premium={pd_prem} discount={pd_disc}\n\
+         OTE              : inOTE bull={ote_bull} bear={ote_bear} (expiry {} bars)\n\
+         Kill Zones       : bars inKZ={kz}\n\
+         NDOG/NWOG        : NDOG créés={ndog_new} NWOG créés={nwog_new}\n\
+         MTF confluences  : H1={conf_h1} H4={conf_h4} W1={conf_w1} MN={conf_mn}\n\
+         Zone-cœur        : bull={coeur_bull} bear={coeur_bear}\n\
+         ========================================================",
+        engine.ote.expiry_bars(),
+    );
+
     assert!(total_pivots > 0, "Doit détecter des pivots sur 700 bars");
     assert!(total_bos > 0, "Doit détecter des BOS sur 700 bars");
     assert!(atr_final > 0.0, "ATR14 doit être calculé");
@@ -259,4 +312,32 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
             && engine.imbalance.bear_zones().len() <= 10,
         "Imbalance FIFO ≤ 10 par sens"
     );
+
+    // --- Phase 2.3 : assertions contexte ---
+    // Premium/Discount : au moins un BOS sur 700 bars ⇒ la plage doit être capturée à la fin.
+    assert!(
+        engine.premium_discount.last_event().pd_range_h.is_some(),
+        "PD : plage capturée au dernier BOS (≥1 BOS sur 700 bars)"
+    );
+    assert!(
+        engine.premium_discount.last_event().equilibrium.is_some(),
+        "PD : equilibrium calculé"
+    );
+    // PD premium+discount couvre une partie des 700 bars (sans panic, sans tout couvrir).
+    assert!(
+        (pd_prem + pd_disc) > 0 && (pd_prem + pd_disc) < 700,
+        "PD : au moins une bar classée, mais pas toutes (zone tampon equilibrium)"
+    );
+    // OTE : expiration M15 = 12 bars.
+    assert_eq!(engine.ote.expiry_bars(), 12, "OTE_EXPIRY_BARS M15 = 12");
+    // Kill Zones : les 700 bars M15 XAUUSD couvrent plusieurs jours UTC ⇒ KZ non vide.
+    assert!(kz > 0, "Kill Zones : au moins une bar en KZ sur 700 bars");
+    // NDOG : M15 ⇒ tf_ndog actif ; sur plusieurs jours, des gaps se créent (ou aucun si
+    // marché continu, mais le mécanisme tourne sans panic). On bornit le compteur.
+    assert!(ndog_new <= 700, "NDOG compteur cohérent");
+    // MTF : H1 doit produire au moins une confluence sur 700 bars M15 (≈175 bars H1,
+    // suffisamment de pivots/OB). W1/MN peuvent rester à 0 (fenêtre trop courte).
+    assert!(conf_h1 > 0, "MTF : au moins une confluence H1 sur 700 bars M15");
+    // Zone-cœur : pas de panic ; borne supérieure lâche (détection stricte).
+    assert!(coeur_bull + coeur_bear <= 700, "Zone-cœur : compteur cohérent");
 }
