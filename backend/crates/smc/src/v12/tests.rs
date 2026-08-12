@@ -341,3 +341,135 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     // Zone-cœur : pas de panic ; borne supérieure lâche (détection stricte).
     assert!(coeur_bull + coeur_bear <= 700, "Zone-cœur : compteur cohérent");
 }
+
+/// Phase 2.5 — Test d'intégration du CERVEAU : scoring + signaux + lifecycle
+/// sur les 700 bars XAUUSD M15. Affiche le nombre de signaux v11 vs BSZones, les
+/// verdicts (TP1/TP2/TP3/SL/BE/Expire) et les stats (win rate, R moyen).
+#[test]
+fn engine_genere_signaux_et_lifecycle_700_bars() {
+    let bars = load_xauusd_m15();
+    assert_eq!(bars.len(), 700, "Le CSV doit contenir 700 bars XAUUSD M15");
+
+    let mut engine = SmcV12Engine::new("XAUUSD", "M15");
+    for bar in &bars {
+        let _ = engine.update(bar);
+    }
+
+    use crate::v12::trade::{CloseReason, TradeSource, TradeState, Verdict};
+    let trades = &engine.signals.trades;
+
+    let total = trades.len();
+    let v11 = trades.iter().filter(|t| t.source == TradeSource::Ob).count();
+    let bs = trades.iter().filter(|t| t.source == TradeSource::BsZones).count();
+    let closed = trades.iter().filter(|t| t.state == TradeState::Closed).count();
+    let open = total - closed;
+
+    // Verdicts (sur clôturés).
+    let mut n_tp1 = 0usize;
+    let mut n_tp2 = 0usize;
+    let mut n_tp3 = 0usize;
+    let mut n_sl = 0usize;
+    let mut n_be = 0usize;
+    let mut n_expire = 0usize;
+    let mut n_cancel = 0usize;
+    for t in trades {
+        if t.state != TradeState::Closed {
+            continue;
+        }
+        match t.close_reason {
+            Some(CloseReason::Cancel) => n_cancel += 1,
+            _ => match t.verdict() {
+                Verdict::Tp3 => n_tp3 += 1,
+                Verdict::Tp2 => n_tp2 += 1,
+                Verdict::Tp1 => n_tp1 += 1,
+                Verdict::Sl => n_sl += 1,
+                Verdict::Be => n_be += 1,
+                Verdict::Expire => n_expire += 1,
+            },
+        }
+    }
+
+    // Win rate / R moyen sur trades clôturés réellement exécutés (exclut Cancel =
+    // ordre jamais rempli). Win = TP1/TP2/TP3.
+    let executed: Vec<&Trade> = trades
+        .iter()
+        .filter(|t| t.state == TradeState::Closed && t.close_reason != Some(CloseReason::Cancel))
+        .collect();
+    let wins = executed.iter().filter(|t| t.is_win()).count();
+    let win_rate = if executed.is_empty() {
+        0.0
+    } else {
+        wins as f64 / executed.len() as f64 * 100.0
+    };
+    let r_mean = if executed.is_empty() {
+        0.0
+    } else {
+        executed.iter().map(|t| t.realized_r()).sum::<f64>() / executed.len() as f64
+    };
+    let r_total = executed.iter().map(|t| t.realized_r()).sum::<f64>();
+    let n_exec = executed.len();
+    let s_wr = format!("{:.1}", win_rate);
+    let s_rm = format!("{:+.3}", r_mean);
+    let s_rt = format!("{:+.2}", r_total);
+
+    // Diagnostic BSZones : zones encore actives + derniers scores + tendance HTF finale.
+    let bs_bull = engine.scoring_bs.bull_zones();
+    let bs_bear = engine.scoring_bs.bear_zones();
+    let bs_bull_max = bs_bull.iter().map(|z| z.score).max().unwrap_or(-1);
+    let bs_bear_max = bs_bear.iter().map(|z| z.score).max().unwrap_or(-1);
+    let (bs_births_bull, bs_births_bear) = engine.scoring_bs.total_births();
+    let (bs_ds_bull, bs_ds_bear) = engine.scoring_bs.total_disp_sweep();
+    let (mb_bull, mb_bear, bok_bull, bok_bear) = engine.scoring_bs.gate_diag();
+    let h1t = engine.mtf.last_event().h1.trend;
+    let h4t = engine.mtf.last_event().h4.trend;
+
+    println!(
+        "\n===== PHASE 2.5 — CERVEAU (700 bars XAUUSD M15) =====\n\
+         Trades créés      : {total}  (v11={v11} · BSZones={bs})\n\
+         Clôturés / ouverts: {closed} / {open}\n\
+         --- VERDICTS (clôturés) ---\n\
+         TP3   : {n_tp3}\n\
+         TP2   : {n_tp2}\n\
+         TP1   : {n_tp1}\n\
+         SL    : {n_sl}\n\
+         BE    : {n_be}\n\
+         Expire: {n_expire}\n\
+         Cancel: {n_cancel}  (ordre jamais rempli)\n\
+         --- STATS (executes, hors Cancel) ---\n\
+         Win rate : {s_wr}%  ({wins}/{n_exec})\n\
+         R moyen  : {s_rm}R\n\
+         R total  : {s_rt}R\n\
+         --- DIAGNOSTIC BSZones ---\n\
+         Zones actives     : bull={} bear={}  (score max bull={} bear={})\n\
+         Zones nées (cumul): bull={bs_births_bull} bear={bs_births_bear}\n\
+         disp+sweep (cumul): bull={bs_ds_bull} bear={bs_ds_bear}  (pré-gate baseScore/HTF)\n\
+         max baseScore     : bull={mb_bull} bear={mb_bear}  (base≥6 : bull={bok_bull} bear={bok_bear})\n\
+         HTF trend final   : h1={} h4={}\n\
+         =====================================================",
+        bs_bull.len(),
+        bs_bear.len(),
+        bs_bull_max,
+        bs_bear_max,
+        h1t,
+        h4t,
+    );
+
+    // --- Assertions de bon sens (pas de panic, lifecycle cohérent) ---
+    assert!(total < 700, "Nettement moins de trades que de bars (anti-doublon)");
+    assert_eq!(v11 + bs, total, "source v11 + BS = total");
+    assert_eq!(
+        n_tp1 + n_tp2 + n_tp3 + n_sl + n_be + n_expire + n_cancel,
+        closed,
+        "somme des verdicts = clôturés"
+    );
+    // 1 trade max par bar (anti-doublon) : le nombre de trades ≤ nombre de bars.
+    assert!(total <= 700);
+    // Tout trade fermé a un close_reason et un R.
+    for t in trades {
+        if t.state == TradeState::Closed {
+            assert!(t.close_reason.is_some(), "trade fermé sans close_reason");
+            assert!(t.close_r.is_some(), "trade fermé sans close_r");
+        }
+    }
+}
+

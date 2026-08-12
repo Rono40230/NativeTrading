@@ -44,6 +44,10 @@ pub struct AssetCalibration {
     /// `_autoSeuilIB` (Pine lignes 53-55) — seuil d'imbalance en × ATR14 (MODULE 13b).
     pub seuil_ib: f64,
 
+    /// `_autoAtrScore` (Pine lignes 57-59) — seuil ATR scoring en × ATR14 (MODULE 11).
+    /// XAU 3.0 · XAG 2.5 · NAS 3.0 · BTC 3.5 · DAX 3.0 · défaut 3.0.
+    pub atr_score: f64,
+
     // --- Seuils scoring (Pine lignes 986-991) — utilisés en phase 2.5 ---
     pub seuil_moyen: i32,
     pub seuil_fort: i32,
@@ -125,6 +129,20 @@ impl AssetCalibration {
             // NAS / DAX / défaut = 1.5
             1.5
         };
+        // _autoAtrScore (Pine lignes 57-59) : seuil ATR scoring (× ATR14).
+        let atr_score = if is_xau {
+            3.0
+        } else if is_xag {
+            2.5
+        } else if is_nas {
+            3.0
+        } else if is_btc {
+            3.5
+        } else if is_dax {
+            3.0
+        } else {
+            3.0
+        };
 
         // Seuils scoring (Pine lignes 986-991 ; PseudoCode PARTIE 1 MODULE 11)
         let (seuil_moyen, seuil_fort, seuil_instit, score_max) = if is_xau {
@@ -169,6 +187,7 @@ impl AssetCalibration {
             sl_mode,
             roc_seuil,
             seuil_ib,
+            atr_score,
             seuil_moyen,
             seuil_fort,
             seuil_instit,

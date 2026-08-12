@@ -8,11 +8,13 @@
 
 pub mod atr;
 pub mod bos;
+pub mod bs_helpers;
 pub mod breaker;
 pub mod calibration;
 pub mod fvg;
 pub mod imbalance;
 pub mod kill_zones;
+pub mod lifecycle;
 pub mod liquidites;
 pub mod mss;
 pub mod mtf;
@@ -22,8 +24,12 @@ pub mod ote;
 pub mod pivots;
 pub mod premium_discount;
 pub mod propulsion;
+pub mod scoring_bs_zones;
+pub mod scoring_v11;
+pub mod signals;
 pub mod structure;
 pub mod sweep;
+pub mod trade;
 pub mod types;
 #[cfg(test)]
 mod tests;
@@ -36,6 +42,7 @@ pub use calibration::{tf_seconds, AssetCalibration};
 pub use fvg::FvgDetector;
 pub use imbalance::ImbalanceDetector;
 pub use kill_zones::KillZoneDetector;
+pub use lifecycle::TradeLifecycle;
 pub use liquidites::LiquiditesDetector;
 pub use mss::MssDetector;
 pub use mtf::MtfDetector;
@@ -45,8 +52,12 @@ pub use ote::OteDetector;
 pub use pivots::PivotDetector;
 pub use premium_discount::PdDetector;
 pub use propulsion::PropulsionDetector;
+pub use scoring_bs_zones::ScoringBsZones;
+pub use scoring_v11::ScoringV11;
+pub use signals::SignalGenerator;
 pub use structure::StructureDetector;
 pub use sweep::SweepDetector;
+pub use trade::Trade;
 pub use types::*;
 pub use zone_coeur::ZoneCoeurDetector;
 
@@ -82,6 +93,19 @@ pub struct SmcV12Engine {
     pub mtf: MtfDetector,
     /// Zone-cœur (intersection OB ∩ OTE ∩ FVG).
     pub zone_coeur: ZoneCoeurDetector,
+    // --- Phase 2.5 : CERVEAU (scoring + signaux + lifecycle) ---
+    /// MODULE 11 — Scoring v11 (OB).
+    pub scoring_v11: ScoringV11,
+    /// MODULE BSZones — second moteur de scoring + zones.
+    pub scoring_bs: ScoringBsZones,
+    /// Générateur de signaux + carnet de trades.
+    pub signals: SignalGenerator,
+    /// Cycle de vie des trades (SL/BE/TP/expire intrabar).
+    pub lifecycle: TradeLifecycle,
+    /// Historique rolling (dernier = bar courante) pour les lookbacks `[1]..[20]`.
+    history: Vec<BarInput>,
+    /// Compteur de bars (= `bar_index` Pine, 0-based).
+    bar_count: usize,
     /// Timeframe en secondes (Pine `timeframe.in_seconds()`).
     tf_sec: i64,
 }
@@ -91,7 +115,16 @@ impl SmcV12Engine {
     pub fn new(asset: &str, timeframe: &str) -> Self {
         let cal = AssetCalibration::detect(asset, timeframe);
         let tf_sec = tf_seconds(timeframe);
+        let tf_mins = calibration::tf_minutes(timeframe);
+        let trade_max_secs = trade_max_mins(tf_mins) * 60;
+        let tp3_max_secs = tp3_max_mins(&cal, tf_mins) * 60;
         Self {
+            scoring_v11: ScoringV11::new(&cal, tf_mins),
+            scoring_bs: ScoringBsZones::new(),
+            signals: SignalGenerator::new(),
+            lifecycle: TradeLifecycle::new(trade_max_secs, tp3_max_secs),
+            history: Vec::with_capacity(32),
+            bar_count: 0,
             calibration: cal.clone(),
             atr: Atr14::new(),
             pivots: PivotDetector::new(cal.swing_length),
@@ -216,7 +249,7 @@ impl SmcV12Engine {
             pd_event.equilibrium,
         );
 
-        SmcOutput {
+        let out = SmcOutput {
             atr14,
             pivot: pivot_event,
             structure: struct_event.clone(),
@@ -240,12 +273,108 @@ impl SmcV12Engine {
             // Tendance PRÉ-reset MSS (fidélité Pine : calculée ligne 381 avant reset 504).
             tendance_haussiere: struct_event.tendance_haussiere,
             tendance_baissiere: struct_event.tendance_baissiere,
+        };
+
+        // --- Phase 2.5 : CERVEAU (scoring + signaux + lifecycle) ---
+        // Historique rolling (lookbacks [1]..[20]) + bar_index global.
+        self.history.push(*bar);
+        if self.history.len() > 30 {
+            self.history.remove(0);
         }
+        let bar_index = self.bar_count;
+        self.bar_count += 1;
+
+        // 19. Scoring v11 — f_accumScores sur les OB vivants (freshness + proximity).
+        {
+            let ob_bull = self.order_blocks.bull_zones();
+            let ob_bear = self.order_blocks.bear_zones();
+            self.scoring_v11
+                .update(&out, bar, &self.calibration, ob_bull, ob_bear);
+        }
+        // 20. Scoring BSZones — naissances (gate HTF) + lifecycle (mitigation).
+        {
+            let fvg_bull = self.fvg.bull_zones();
+            let fvg_bear = self.fvg.bear_zones();
+            self.scoring_bs.update(
+                &out,
+                bar,
+                fvg_bull,
+                fvg_bear,
+                &self.history,
+                bar_index,
+                self.tf_sec,
+            );
+        }
+        // 21. Signaux — v11 + BSZones (anti-doublon : 1 trade max par bar).
+        {
+            let ob_bull = self.order_blocks.bull_zones();
+            let ob_bear = self.order_blocks.bear_zones();
+            let fvg_bull = self.fvg.bull_zones();
+            let fvg_bear = self.fvg.bear_zones();
+            self.signals.reset_bar();
+            self.signals.generate(
+                &out,
+                bar,
+                bar_index,
+                &self.calibration,
+                ob_bull,
+                ob_bear,
+                &mut self.scoring_v11,
+                &mut self.scoring_bs,
+                fvg_bull,
+                fvg_bear,
+            );
+        }
+        // 22. Lifecycle — évaluation intrabar (fill/SL/BE/TP/expire/BE-forcé).
+        self.lifecycle.update(
+            &mut self.signals.trades,
+            &out,
+            bar,
+            bar_index,
+            &self.calibration,
+            &self.scoring_v11,
+        );
+
+        out
     }
 
     /// Timeframe en secondes (Pine `timeframe.in_seconds()`).
     pub fn tf_sec(&self) -> i64 {
         self.tf_sec
+    }
+
+    /// Nombre de bars traitées (= prochain `bar_index`).
+    pub fn bar_index(&self) -> usize {
+        self.bar_count
+    }
+}
+
+/// `_autoTradeMaxMins` (Pine 2374) — durée max trade en minutes selon le TF.
+fn trade_max_mins(tf_mins: u32) -> i64 {
+    match tf_mins {
+        60 => 480,             // H1
+        240 => 1920,           // H4
+        1440 => 5760,          // D1
+        _ => 240,              // défaut (M1–M30)
+    }
+}
+
+/// `_autoTp3Mins` (Pine 71-76) — durée max TP3 en minutes selon asset × TF.
+fn tp3_max_mins(cal: &AssetCalibration, tf_mins: u32) -> i64 {
+    let m15 = tf_mins == 15;
+    let h1 = tf_mins == 60;
+    if cal.is_xau {
+        if m15 { 60 } else if h1 { 240 } else { 60 }
+    } else if cal.is_xag {
+        if m15 { 45 } else if h1 { 180 } else { 60 }
+    } else if cal.is_nas {
+        if m15 { 30 } else if h1 { 120 } else { 60 }
+    } else if cal.is_btc {
+        if m15 { 90 } else if h1 { 360 } else { 60 }
+    } else if cal.is_dax {
+        if m15 { 30 } else if h1 { 120 } else { 60 }
+    } else {
+        60
     }
 }
 
