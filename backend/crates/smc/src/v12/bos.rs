@@ -9,10 +9,15 @@
 //! Au BOS, on fige `dernierSH1_sig := bsh1` (anti-doublon : un même pivot sh1 ne
 //! peut déclencher qu'un seul BOS tant qu'il n'est pas rafraîchi par un nouveau pivot).
 //!
-//! NOTE de périmètre : la condition Pine `and not mssHaussier` (lignes 524-527) n'est
-//! pas appliquée ici car MSS/CHOCH (MODULE 3) sont hors scope phase 2.0 — ils seront
-//! intégrés en phase 2.x. Sans MSS, `mssHaussier` est toujours faux ⇒ comportement
-//! BOS pur identique à la fondation Pine.
+//! NOTE : la condition Pine `and not mssHaussier` (lignes 524-527, 540) n'est PAS
+//! appliquée à l'intérieur de ce détecteur : il expose le BOS BRUT pour que le
+//! `MssDetector` (MODULE 3) puisse en déduire le MSS (`mssHaussier = tendanceBaissiere
+//! and bosHaussier`). Le masque `bosHaussier and not mssHaussier` est appliqué au
+//! niveau du moteur (`SmcV12Engine::update` via `mask_bos_by_mss`) sur l'événement
+//! de sortie — un BOS qui est aussi un MSS n'est pas exposé deux fois.
+//!
+//! Rappel anti-doublon : `dernier_sh1_sig` est figé sur TOUT BOS brut (MSS inclus,
+//! car MSS ⇒ BOS), ce qui couvre les deux affectations Pine (lignes 507 et 524).
 
 use super::pivots::PivotDetector;
 use super::structure::StructureDetector;
@@ -163,9 +168,9 @@ mod tests {
         let closes = [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 111.0, 109.0, 111.0];
         let mut bull_at_8 = false;
         let mut bull_at_10 = false;
-        for i in 0..closes.len() {
+        for (i, &c) in closes.iter().enumerate() {
             let high = if i == 3 { 110.0 } else { 100.0 };
-            let b = bar(i, high, 90.0, closes[i]);
+            let b = bar(i, high, 90.0, c);
             piv.update(&b);
             st.update(&b, &piv.last_event());
             bos.update(&b, &piv, &st);

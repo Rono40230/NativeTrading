@@ -48,7 +48,12 @@ pub struct StructureEvent {
     pub tendance_baissiere: bool,
 }
 
-/// BOS (Break of Structure) détecté à la bar courante.
+/// BOS (Break of Structure) détecté à la bar courante (BRUT, pré-MSS).
+///
+/// `bullish`/`bearish` reflètent `bosHaussier`/`bosBaissier` du Pine (ligne 437-438),
+/// SANS le masque `not mssHaussier`. Le masque est appliqué dans `SmcOutput::bos`
+/// (cf. MODULE 3, concern 2.0 #2) : un BOS qui est aussi un MSS n'est pas exposé
+/// comme BOS afin d'éviter le double-compte downstream.
 #[derive(Debug, Clone, Default)]
 pub struct BosEvent {
     pub bullish: bool,
@@ -57,17 +62,51 @@ pub struct BosEvent {
     pub bar_index: Option<usize>,
 }
 
+/// MSS / CHOCH (MODULE 3 Pine, lignes 452-527).
+///
+/// - MSS = premier BOS contre la tendance dominante (alerte précoce, non confirmé).
+/// - CHOCH = MSS pending + nouveau swing confirmé dans le nouveau sens (HL bull / LH bear).
+#[derive(Debug, Clone, Default)]
+pub struct MssEvent {
+    pub mss_haussier: bool,
+    pub mss_baissier: bool,
+    pub choch_haussier: bool,
+    pub choch_baissier: bool,
+    pub mss_level: Option<f64>,
+    pub mss_bar: Option<usize>,
+    pub mss_dir: Option<MssDir>,
+    pub choch_level: Option<f64>,
+    pub choch_bar: Option<usize>,
+    pub choch_dir: Option<MssDir>,
+    /// `_mssHPending` (Pine) — MSS haussier déclenché, en attente d'un HL de confirmation.
+    pub mss_h_pending: bool,
+    /// `_mssBPending` (Pine) — MSS baissier déclenché, en attente d'un LH de confirmation.
+    pub mss_b_pending: bool,
+}
+
+/// Sens d'un MSS/CHOCH.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MssDir {
+    Haussier,
+    Baissier,
+}
+
 /// Sortie complète du moteur pour une bar.
 #[derive(Debug, Clone, Default)]
 pub struct SmcOutput {
     pub atr14: f64,
     pub pivot: PivotEvent,
     pub structure: StructureEvent,
+    /// BOS **masqué** : `bosHaussier and not mssHaussier` (Pine lignes 524-527, 540).
+    /// Un BOS qui est aussi un MSS n'apparaît pas ici.
     pub bos: BosEvent,
+    pub mss: MssEvent,
     /// Dernier swing high (sh1).
     pub sh1: Option<f64>,
     /// Dernier swing low (sl1).
     pub sl1: Option<f64>,
+    /// Tendance **pré-reset MSS** (fidélité Pine : `tendanceHaussiere` est calculé
+    /// ligne 381 avant la réinitialisation MSS ligne 504).
     pub tendance_haussiere: bool,
     pub tendance_baissiere: bool,
 }

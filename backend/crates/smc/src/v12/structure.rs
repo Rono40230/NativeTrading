@@ -89,6 +89,21 @@ impl StructureDetector {
     pub fn tendance_baissiere(&self) -> bool {
         self.bear_count >= 2
     }
+
+    /// Réinitialise les compteurs de tendance à 0 (Pine lignes 504-506, 511-513).
+    ///
+    /// Appelée par le `MssDetector` au moment d'un MSS : "Réinitialisation de la
+    /// tendance dès le MSS (signal précoce = context change)". La tendance est
+    /// reconstruite par les classifications HH/HL/LH/LL suivantes.
+    pub fn reset_counts(&mut self) {
+        self.bull_count = 0;
+        self.bear_count = 0;
+    }
+
+    /// Compteurs courants (pour tests/inspection).
+    pub fn counts(&self) -> (u32, u32) {
+        (self.bull_count, self.bear_count)
+    }
 }
 
 impl Default for StructureDetector {

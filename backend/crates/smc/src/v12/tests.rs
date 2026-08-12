@@ -55,6 +55,7 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     assert_eq!(engine.calibration.swing_length, 3);
 
     let (mut ph, mut pl, mut bos_h, mut bos_b) = (0u32, 0u32, 0u32, 0u32);
+    let (mut mss_h, mut mss_b, mut choch_h, mut choch_b) = (0u32, 0u32, 0u32, 0u32);
     let mut last_sh1: Option<f64> = None;
     let mut last_sl1: Option<f64> = None;
     let mut atr_final = 0.0_f64;
@@ -72,6 +73,18 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
         if out.bos.bearish {
             bos_b += 1;
         }
+        if out.mss.mss_haussier {
+            mss_h += 1;
+        }
+        if out.mss.mss_baissier {
+            mss_b += 1;
+        }
+        if out.mss.choch_haussier {
+            choch_h += 1;
+        }
+        if out.mss.choch_baissier {
+            choch_b += 1;
+        }
         if out.sh1.is_some() {
             last_sh1 = out.sh1;
         }
@@ -83,14 +96,22 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
 
     let total_pivots = ph + pl;
     let total_bos = bos_h + bos_b;
+    let total_mss = mss_h + mss_b;
+    let total_choch = choch_h + choch_b;
     println!(
-        "\n===== SMC v12 — 700 bars XAUUSD M15 =====\n\
+        "\n===== SMC v12 — 700 bars XAUUSD M15 (MODULE 3) =====\n\
          Pivots high      : {ph}\n\
          Pivots low       : {pl}\n\
          TOTAL pivots     : {total_pivots}\n\
          BOS haussiers    : {bos_h}\n\
          BOS baissiers    : {bos_b}\n\
          TOTAL BOS        : {total_bos}\n\
+         MSS haussiers    : {mss_h}\n\
+         MSS baissiers    : {mss_b}\n\
+         TOTAL MSS        : {total_mss}\n\
+         CHOCH haussiers  : {choch_h}\n\
+         CHOCH baissiers  : {choch_b}\n\
+         TOTAL CHOCH      : {total_choch}\n\
          ATR14 final      : {atr_final:.4}\n\
          sh1 final        : {last_sh1:?}\n\
          sl1 final        : {last_sl1:?}\n\
