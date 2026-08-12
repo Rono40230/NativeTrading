@@ -38,6 +38,12 @@ pub struct AssetCalibration {
     /// `_autoSlMode` (Pine lignes 78-81).
     pub sl_mode: SlMode,
 
+    /// `_autoRocSeuil` (Pine ligne 51) — seuil ROC en bps pour la détection d'impulsion
+    /// OB (MODULE 7). Constante 5 bps tous actifs.
+    pub roc_seuil: f64,
+    /// `_autoSeuilIB` (Pine lignes 53-55) — seuil d'imbalance en × ATR14 (MODULE 13b).
+    pub seuil_ib: f64,
+
     // --- Seuils scoring (Pine lignes 986-991) — utilisés en phase 2.5 ---
     pub seuil_moyen: i32,
     pub seuil_fort: i32,
@@ -106,6 +112,20 @@ impl AssetCalibration {
             SlMode::BasOb
         };
 
+        // _autoRocSeuil (Pine ligne 51) : constante 5 bps tous actifs.
+        let roc_seuil = 5.0_f64;
+        // _autoSeuilIB (Pine lignes 53-55) : profil par asset (× ATR14).
+        let seuil_ib = if is_xau {
+            1.5
+        } else if is_xag {
+            1.2
+        } else if is_btc {
+            2.0
+        } else {
+            // NAS / DAX / défaut = 1.5
+            1.5
+        };
+
         // Seuils scoring (Pine lignes 986-991 ; PseudoCode PARTIE 1 MODULE 11)
         let (seuil_moyen, seuil_fort, seuil_instit, score_max) = if is_xau {
             (7, 10, 12, 13)
@@ -147,6 +167,8 @@ impl AssetCalibration {
             pip_value,
             pv_lot,
             sl_mode,
+            roc_seuil,
+            seuil_ib,
             seuil_moyen,
             seuil_fort,
             seuil_instit,
@@ -197,6 +219,8 @@ mod tests {
         assert!((c.pv_lot - 10.0).abs() < 1e-9);
         assert_eq!(c.sl_mode, SlMode::Atr1x);
         assert_eq!(c.score_max, 13);
+        assert_eq!(c.roc_seuil, 5.0, "_autoRocSeuil = 5 bps");
+        assert_eq!(c.seuil_ib, 1.5, "XAU _autoSeuilIB = 1.5");
     }
 
     #[test]
@@ -212,6 +236,8 @@ mod tests {
         assert_eq!(c.seuil_moyen, 8);
         assert_eq!(c.score_max, 15);
         assert_eq!(c.w_sweep, 1);
+        assert_eq!(c.seuil_ib, 2.0, "BTC _autoSeuilIB = 2.0");
+        assert_eq!(c.roc_seuil, 5.0);
     }
 
     #[test]

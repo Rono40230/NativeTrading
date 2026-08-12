@@ -151,6 +151,201 @@ pub struct SweepEvent {
     pub sweep_fresh_bars: i64,
 }
 
+// ============================================================================
+// MODULE 6 — FVG (Fair Value Gap)
+// ============================================================================
+
+/// État d'un FVG (Pine `fvgBullState`/`fvgBearState`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum FvgState {
+    /// `0` — frais, non encore touché.
+    #[default]
+    Fresh,
+    /// `1` — partiellement touché (`low < topB` pour un FVG bull).
+    Partial,
+}
+
+/// Une zone FVG active (Pine : 5 arrays parallèles `fvg{Bull,Bear}{Top,Bot,State,Bar}`).
+#[derive(Debug, Clone, Copy)]
+pub struct FvgZone {
+    /// `topB` (bull) / `topBr` (bear) — bord supérieur du gap.
+    pub top: f64,
+    /// `botB` (bull) / `botBr` (bear) — bord inférieur du gap.
+    pub bot: f64,
+    pub state: FvgState,
+    /// `fvgBullBar` (Pine) = `bar_index[2]` à la création.
+    pub bar: usize,
+}
+
+/// Événement FVG pour une bar (MODULE 6 Pine, lignes 818-973).
+#[derive(Debug, Clone)]
+pub struct FvgEvent {
+    /// `isFVGBull` (Pine ligne 833) — détection courante.
+    pub is_fvg_bull: bool,
+    /// `isFVGBear` (Pine ligne 834).
+    pub is_fvg_bear: bool,
+    /// Bornes du FVG bull courant (`low` / `high[2]`) — pour Propulsion.
+    pub bull_top: f64,
+    pub bull_bot: f64,
+    /// Bornes du FVG bear courant (`low[2]` / `high`).
+    pub bear_top: f64,
+    pub bear_bot: f64,
+    /// Nouveau FVG bull créé cette bar (None si rien).
+    pub new_bull: Option<FvgZone>,
+    /// Nouveau FVG bear créé cette bar.
+    pub new_bear: Option<FvgZone>,
+}
+
+impl Default for FvgEvent {
+    fn default() -> Self {
+        Self {
+            is_fvg_bull: false,
+            is_fvg_bear: false,
+            bull_top: 0.0,
+            bull_bot: 0.0,
+            bear_top: 0.0,
+            bear_bot: 0.0,
+            new_bull: None,
+            new_bear: None,
+        }
+    }
+}
+
+// ============================================================================
+// MODULE 7 — ORDER BLOCKS
+// ============================================================================
+
+/// État d'un OB (Pine `obBullState`/`obBearState`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ObState {
+    /// `0` — vierge.
+    #[default]
+    Vierge,
+    /// `1` — partiel (`close > mid` bull / `close < mid` bear).
+    Partiel,
+    /// `2` — profond (`close <= mid` bull / `close >= mid` bear).
+    Profond,
+}
+
+/// Un Order Block actif (Pine : 11 arrays parallèles `ob{Bull,Bear}*`).
+#[derive(Debug, Clone, Copy)]
+pub struct ObZone {
+    /// `topB` = `high[1]` (bougie précédant l'impulsion).
+    pub top: f64,
+    /// `botB` = `low[1]`.
+    pub bot: f64,
+    pub state: ObState,
+    /// `obBullBar` (Pine) = `bar_index` de l'impulsion — garde anti-suppression.
+    pub impulse_bar: usize,
+    /// `bar_index[1]` — bougie OB réelle.
+    pub ob_bar: usize,
+    /// `int(time[1])` (Pine).
+    pub timestamp: i64,
+    /// `ibBull[1]` / `ibBear[1]` (Pine) — la bougie OB était-elle une imbalance ?
+    pub is_ib: bool,
+}
+
+/// Événement OB pour une bar (MODULE 7 Pine, lignes 1016-1337).
+#[derive(Debug, Clone, Default)]
+pub struct ObEvent {
+    /// Nouvel OB bull créé cette bar.
+    pub new_bull: Option<ObZone>,
+    /// Nouvel OB bear créé cette bar.
+    pub new_bear: Option<ObZone>,
+    /// OBs bulls invalidés (supprimés) cette bar — peuvent avoir spawné un Breaker.
+    pub invalidated_bull: Vec<ObZone>,
+    /// OBs bears invalidés cette bar.
+    pub invalidated_bear: Vec<ObZone>,
+}
+
+// ============================================================================
+// MODULE 8b — BREAKER BLOCKS
+// ============================================================================
+
+/// Un Breaker Block (Pine : `bb{Bull,Bear}{Top,Bot}`).
+///
+/// - **Bullish Breaker** (`bbBull`) = Bear OB invalidé par `close > top` → support.
+/// - **Bearish Breaker** (`bbBear`) = Bull OB invalidé par `close < bot` → résistance.
+#[derive(Debug, Clone, Copy)]
+pub struct BreakerZone {
+    pub top: f64,
+    pub bot: f64,
+    /// `bar_index` de création (Pine `box.new(bar_index, ...)`).
+    pub bar: usize,
+    /// `true` = Bullish Breaker (`bbBull`), `false` = Bearish Breaker (`bbBear`).
+    pub bull: bool,
+}
+
+/// Événement Breaker pour une bar (MODULE 8b Pine, lignes 1078-1397).
+#[derive(Debug, Clone, Default)]
+pub struct BreakerEvent {
+    /// Nouveaux breakers créés cette bar (par invalidation OB).
+    pub created: Vec<BreakerZone>,
+}
+
+// ============================================================================
+// MODULE 8c — PROPULSION BLOCKS
+// ============================================================================
+
+/// Un Propulsion Block = chevauchement FVG ∩ OB (Pine `prop{Bull,Bear}{Top,Bot}`).
+///
+/// `top = min(fTop, oTop)`, `bot = max(fBot, oBot)` avec `top > bot`.
+#[derive(Debug, Clone, Copy)]
+pub struct PropulsionZone {
+    pub top: f64,
+    pub bot: f64,
+    /// `bar_index` de création.
+    pub bar: usize,
+    /// `true` = Propulsion bull, `false` = Propulsion bear.
+    pub bull: bool,
+}
+
+/// Événement Propulsion pour une bar (MODULE 8c Pine, lignes 1398-1518).
+#[derive(Debug, Clone, Default)]
+pub struct PropulsionEvent {
+    pub new_bull: Vec<PropulsionZone>,
+    pub new_bear: Vec<PropulsionZone>,
+}
+
+// ============================================================================
+// MODULE 13b — IMBALANCE
+// ============================================================================
+
+/// État d'une Imbalance (Pine `ib{Bull,Bear}State`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum ImbalanceState {
+    /// `0` — frais.
+    #[default]
+    Fresh,
+    /// `1` — partiellement mitigé.
+    Partial,
+}
+
+/// Une zone d'Imbalance active (Pine : `ib{Bull,Bear}{Top,Bot,State}`).
+///
+/// Box = corps de la bougie : bull `top=close, bot=open` ; bear `top=open, bot=close`.
+#[derive(Debug, Clone, Copy)]
+pub struct ImbalanceZone {
+    pub top: f64,
+    pub bot: f64,
+    pub state: ImbalanceState,
+    /// `bar_index` de création.
+    pub bar: usize,
+    /// `true` = imbalance bull, `false` = bear.
+    pub bull: bool,
+}
+
+/// Événement Imbalance pour une bar (MODULE 13b Pine, lignes 2578-2702).
+#[derive(Debug, Clone, Default)]
+pub struct ImbalanceEvent {
+    /// `ibBull` (Pine ligne 432) — flag de la bar courante.
+    pub ib_bull: bool,
+    /// `ibBear` (Pine ligne 433).
+    pub ib_bear: bool,
+    pub new_bull: Option<ImbalanceZone>,
+    pub new_bear: Option<ImbalanceZone>,
+}
+
 /// Sortie complète du moteur pour une bar.
 #[derive(Debug, Clone, Default)]
 pub struct SmcOutput {
@@ -163,6 +358,16 @@ pub struct SmcOutput {
     pub mss: MssEvent,
     pub liquidite: LiquiditeEvent,
     pub sweep: SweepEvent,
+    /// MODULE 6 — FVG.
+    pub fvg: FvgEvent,
+    /// MODULE 7 — Order Blocks.
+    pub order_blocks: ObEvent,
+    /// MODULE 8b — Breaker Blocks.
+    pub breaker: BreakerEvent,
+    /// MODULE 8c — Propulsion Blocks.
+    pub propulsion: PropulsionEvent,
+    /// MODULE 13b — Imbalance.
+    pub imbalance: ImbalanceEvent,
     /// Dernier swing high (sh1).
     pub sh1: Option<f64>,
     /// Dernier swing low (sl1).

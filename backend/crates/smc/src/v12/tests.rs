@@ -59,6 +59,12 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     let (mut mss_h, mut mss_b, mut choch_h, mut choch_b) = (0u32, 0u32, 0u32, 0u32);
     let (mut swp_h, mut swp_b, mut swp_pdh, mut swp_pdl) = (0u32, 0u32, 0u32, 0u32);
     let (mut eqh, mut eql) = (0u32, 0u32);
+    // Compteurs cumulés de création (MODULES 6/7/8b/8c/13b).
+    let (mut fvg_bull, mut fvg_bear) = (0u32, 0u32);
+    let (mut ob_bull, mut ob_bear) = (0u32, 0u32);
+    let (mut brk_bull, mut brk_bear) = (0u32, 0u32);
+    let (mut prop_bull, mut prop_bear) = (0u32, 0u32);
+    let (mut ib_bull, mut ib_bear) = (0u32, 0u32);
     let mut last_sh1: Option<f64> = None;
     let mut last_sl1: Option<f64> = None;
     let mut atr_final = 0.0_f64;
@@ -107,6 +113,34 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
         }
         if out.liquidite.is_eql {
             eql += 1;
+        }
+        // MODULES 6/7/8b/8c/13b — comptage des zones créées.
+        if out.fvg.new_bull.is_some() {
+            fvg_bull += 1;
+        }
+        if out.fvg.new_bear.is_some() {
+            fvg_bear += 1;
+        }
+        if out.order_blocks.new_bull.is_some() {
+            ob_bull += 1;
+        }
+        if out.order_blocks.new_bear.is_some() {
+            ob_bear += 1;
+        }
+        for bz in &out.breaker.created {
+            if bz.bull {
+                brk_bull += 1;
+            } else {
+                brk_bear += 1;
+            }
+        }
+        prop_bull += out.propulsion.new_bull.len() as u32;
+        prop_bear += out.propulsion.new_bear.len() as u32;
+        if out.imbalance.new_bull.is_some() {
+            ib_bull += 1;
+        }
+        if out.imbalance.new_bear.is_some() {
+            ib_bear += 1;
         }
         if out.sh1.is_some() {
             last_sh1 = out.sh1;
@@ -161,6 +195,25 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
         engine.structure.tendance_baissiere(),
     );
 
+    // Comptes actifs (zones encore vivantes à la dernière bar) + cumuls créés.
+    let fvg_act = engine.fvg.bull_zones().len() + engine.fvg.bear_zones().len();
+    let ob_act = engine.order_blocks.bull_zones().len()
+        + engine.order_blocks.bear_zones().len();
+    let brk_act = engine.breaker.bull_zones().len() + engine.breaker.bear_zones().len();
+    let prop_act = engine.propulsion.bull_zones().len()
+        + engine.propulsion.bear_zones().len();
+    let ib_act = engine.imbalance.bull_zones().len()
+        + engine.imbalance.bear_zones().len();
+    println!(
+        "\n===== MODULES 6/7/8b/8c/13b — ZONES (700 bars XAUUSD M15) =====\n\
+         FVG      : créés bull={fvg_bull} bear={fvg_bear} | actifs={fvg_act}\n\
+         OB       : créés bull={ob_bull} bear={ob_bear} | actifs={ob_act}\n\
+         Breaker  : créés bull={brk_bull} bear={brk_bear} | actifs={brk_act}\n\
+         Propuls. : créés bull={prop_bull} bear={prop_bear} | actifs={prop_act}\n\
+         Imbalan. : créés bull={ib_bull} bear={ib_bear} | actifs={ib_act}\n\
+         ================================================================"
+    );
+
     assert!(total_pivots > 0, "Doit détecter des pivots sur 700 bars");
     assert!(total_bos > 0, "Doit détecter des BOS sur 700 bars");
     assert!(atr_final > 0.0, "ATR14 doit être calculé");
@@ -168,5 +221,42 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     assert!(
         eqh + eql + total_swp > 0,
         "Doit détecter au moins une liquidité/sweep sur 700 bars"
+    );
+    // Les nouveaux modules doivent produire des zones sur 700 bars XAUUSD M15.
+    assert!(
+        fvg_bull + fvg_bear > 0,
+        "Doit détecter au moins un FVG sur 700 bars"
+    );
+    assert!(
+        ob_bull + ob_bear > 0,
+        "Doit détecter au moins un Order Block sur 700 bars"
+    );
+    assert!(
+        ib_bull + ib_bear > 0,
+        "Doit détecter au moins une Imbalance sur 700 bars"
+    );
+    // FIFO respectés.
+    assert!(
+        engine.fvg.bull_zones().len() <= 10 && engine.fvg.bear_zones().len() <= 10,
+        "FVG FIFO ≤ 10 par sens"
+    );
+    assert!(
+        engine.order_blocks.bull_zones().len() <= 40
+            && engine.order_blocks.bear_zones().len() <= 40,
+        "OB FIFO ≤ 40 par sens"
+    );
+    assert!(
+        engine.breaker.bull_zones().len() <= 5 && engine.breaker.bear_zones().len() <= 5,
+        "Breaker FIFO ≤ 5 par sens"
+    );
+    assert!(
+        engine.propulsion.bull_zones().len() <= 3
+            && engine.propulsion.bear_zones().len() <= 3,
+        "Propulsion FIFO ≤ 3 par sens"
+    );
+    assert!(
+        engine.imbalance.bull_zones().len() <= 10
+            && engine.imbalance.bear_zones().len() <= 10,
+        "Imbalance FIFO ≤ 10 par sens"
     );
 }
