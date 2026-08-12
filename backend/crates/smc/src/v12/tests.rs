@@ -1,0 +1,107 @@
+//! Tests d'intégration du moteur SMC v12 sur les 700 bars XAUUSD M15 du spike.
+//!
+//! Le test principal affiche (println) le compte de pivots et BOS détectés pour
+//! comparaison visuelle avec TradingView (mêmes labels HH/HL/BOS sur XAUUSD M15).
+
+use super::*;
+use std::io::BufRead;
+
+const XAUUSD_M15_CSV: &str = "/mnt/IA/nautilus-smc-spike/xauusd_m15.csv";
+
+/// Charge le CSV (timestamp,open,high,low,close,volume) en `BarInput`.
+/// Robuste : ignore lignes mal formées (aucun panic/unwrap).
+fn load_xauusd_m15() -> Vec<BarInput> {
+    let file = match std::fs::File::open(XAUUSD_M15_CSV) {
+        Ok(f) => f,
+        Err(_) => return Vec::new(),
+    };
+    let mut bars = Vec::new();
+    for line in std::io::BufReader::new(file).lines().skip(1) {
+        let Ok(l) = line else { continue };
+        let f: Vec<&str> = l.split(',').collect();
+        if f.len() < 6 {
+            continue;
+        }
+        let parsed = (
+            f[0].parse::<i64>().ok(),
+            f[1].parse::<f64>().ok(),
+            f[2].parse::<f64>().ok(),
+            f[3].parse::<f64>().ok(),
+            f[4].parse::<f64>().ok(),
+            f[5].parse::<f64>().ok(),
+        );
+        let (Some(timestamp), Some(open), Some(high), Some(low), Some(close), Some(volume)) = parsed
+        else {
+            continue;
+        };
+        bars.push(BarInput {
+            timestamp,
+            open,
+            high,
+            low,
+            close,
+            volume,
+        });
+    }
+    bars
+}
+
+#[test]
+fn engine_traite_700_bars_xauusd_sans_panic() {
+    let bars = load_xauusd_m15();
+    assert_eq!(bars.len(), 700, "Le CSV doit contenir 700 bars XAUUSD M15");
+
+    let mut engine = SmcV12Engine::new("XAUUSD", "M15");
+    assert_eq!(engine.calibration.swing_length, 3);
+
+    let (mut ph, mut pl, mut bos_h, mut bos_b) = (0u32, 0u32, 0u32, 0u32);
+    let mut last_sh1: Option<f64> = None;
+    let mut last_sl1: Option<f64> = None;
+    let mut atr_final = 0.0_f64;
+    for bar in &bars {
+        let out = engine.update(bar);
+        if out.pivot.is_pivot_high {
+            ph += 1;
+        }
+        if out.pivot.is_pivot_low {
+            pl += 1;
+        }
+        if out.bos.bullish {
+            bos_h += 1;
+        }
+        if out.bos.bearish {
+            bos_b += 1;
+        }
+        if out.sh1.is_some() {
+            last_sh1 = out.sh1;
+        }
+        if out.sl1.is_some() {
+            last_sl1 = out.sl1;
+        }
+        atr_final = out.atr14;
+    }
+
+    let total_pivots = ph + pl;
+    let total_bos = bos_h + bos_b;
+    println!(
+        "\n===== SMC v12 — 700 bars XAUUSD M15 =====\n\
+         Pivots high      : {ph}\n\
+         Pivots low       : {pl}\n\
+         TOTAL pivots     : {total_pivots}\n\
+         BOS haussiers    : {bos_h}\n\
+         BOS baissiers    : {bos_b}\n\
+         TOTAL BOS        : {total_bos}\n\
+         ATR14 final      : {atr_final:.4}\n\
+         sh1 final        : {last_sh1:?}\n\
+         sl1 final        : {last_sl1:?}\n\
+         tendance hauss.  : {}\n\
+         tendance baiss.  : {}\n\
+         ==========================================",
+        engine.structure.tendance_haussiere(),
+        engine.structure.tendance_baissiere(),
+    );
+
+    assert!(total_pivots > 0, "Doit détecter des pivots sur 700 bars");
+    assert!(total_bos > 0, "Doit détecter des BOS sur 700 bars");
+    assert!(atr_final > 0.0, "ATR14 doit être calculé");
+}

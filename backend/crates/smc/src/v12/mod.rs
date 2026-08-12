@@ -10,6 +10,8 @@ pub mod calibration;
 pub mod pivots;
 pub mod structure;
 pub mod types;
+#[cfg(test)]
+mod tests;
 
 pub use atr::Atr14;
 pub use bos::BosDetector;
