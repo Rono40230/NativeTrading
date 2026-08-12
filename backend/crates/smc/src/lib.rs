@@ -15,6 +15,7 @@ pub mod liquidites_tz;
 pub mod order_blocks;
 pub mod sweep;
 pub mod tendances;
+pub mod v12;
 
 pub use bos::ResultatBos;
 pub use bpr::Bpr;
