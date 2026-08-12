@@ -2,11 +2,12 @@
 //!
 //! Coexiste avec l'ancien `smc::scorer` jusqu'à validation, puis bascule.
 //! Phase 2.0 : socle (calibration + ATR14 + pivots + structure + BOS).
-//! Phase 2.1 : MODULE 3 (MSS/CHOCH). Modules 4/5 à suivre.
+//! Phase 2.1 : MODULE 3 (MSS/CHOCH) + MODULE 4 (Liquidités PDH/PDL/PWH/PWL + EQH/EQL).
 
 pub mod atr;
 pub mod bos;
 pub mod calibration;
+pub mod liquidites;
 pub mod mss;
 pub mod pivots;
 pub mod structure;
@@ -17,6 +18,7 @@ mod tests;
 pub use atr::Atr14;
 pub use bos::BosDetector;
 pub use calibration::AssetCalibration;
+pub use liquidites::LiquiditesDetector;
 pub use mss::MssDetector;
 pub use pivots::PivotDetector;
 pub use structure::StructureDetector;
@@ -25,7 +27,7 @@ pub use types::*;
 /// Le moteur SMC v12 — orchestre tous les indicateurs dans l'ordre strict du Pine.
 ///
 /// Ordre d'exécution `update` (Pine) :
-///   ATR → Pivots → Structure → BOS → MSS/CHOCH → (Liquidités → Sweep : modules 4/5)
+///   ATR → Pivots → Structure → BOS → MSS/CHOCH → Liquidités → (Sweep : module 5)
 pub struct SmcV12Engine {
     pub calibration: AssetCalibration,
     pub atr: Atr14,
@@ -33,6 +35,7 @@ pub struct SmcV12Engine {
     pub structure: StructureDetector,
     pub bos: BosDetector,
     pub mss: MssDetector,
+    pub liquidites: LiquiditesDetector,
 }
 
 impl SmcV12Engine {
@@ -46,11 +49,12 @@ impl SmcV12Engine {
             structure: StructureDetector::new(),
             bos: BosDetector::new(),
             mss: MssDetector::new(),
+            liquidites: LiquiditesDetector::new(),
         }
     }
 
     /// Traite une nouvelle bar clôturée. Ordre strict = ordre Pine
-    /// (ATR → pivots → structure → BOS → MSS/CHOCH).
+    /// (ATR → pivots → structure → BOS → MSS/CHOCH → liquidités).
     pub fn update(&mut self, bar: &BarInput) -> SmcOutput {
         // 1. ATR
         self.atr.update(bar);
@@ -81,12 +85,18 @@ impl SmcV12Engine {
         // un BOS qui est aussi un MSS n'est pas exposé comme BOS (pas de double-compte).
         let bos_out = mask_bos_by_mss(&bos_raw, &mss_event);
 
+        // 6. Liquidités (PDH/PDL/PWH/PWL + EQH/EQL) — produit dernierEQH/EQL_level.
+        let liq_event = self
+            .liquidites
+            .update(bar, &self.pivots, &pivot_event, atr14);
+
         SmcOutput {
             atr14,
             pivot: pivot_event,
             structure: struct_event.clone(),
             bos: bos_out,
             mss: mss_event,
+            liquidite: liq_event,
             sh1: self.pivots.sh1(),
             sl1: self.pivots.sl1(),
             // Tendance PRÉ-reset MSS (fidélité Pine : calculée ligne 381 avant reset 504).

@@ -56,9 +56,12 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
 
     let (mut ph, mut pl, mut bos_h, mut bos_b) = (0u32, 0u32, 0u32, 0u32);
     let (mut mss_h, mut mss_b, mut choch_h, mut choch_b) = (0u32, 0u32, 0u32, 0u32);
+    let (mut eqh, mut eql, mut swp_pdh, mut swp_pdl) = (0u32, 0u32, 0u32, 0u32);
     let mut last_sh1: Option<f64> = None;
     let mut last_sl1: Option<f64> = None;
     let mut atr_final = 0.0_f64;
+    let mut last_pdha: Option<f64> = None;
+    let mut last_pwha: Option<f64> = None;
     for bar in &bars {
         let out = engine.update(bar);
         if out.pivot.is_pivot_high {
@@ -85,11 +88,29 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
         if out.mss.choch_baissier {
             choch_b += 1;
         }
+        if out.liquidite.is_eqh {
+            eqh += 1;
+        }
+        if out.liquidite.is_eql {
+            eql += 1;
+        }
+        if out.liquidite.sweep_pdh {
+            swp_pdh += 1;
+        }
+        if out.liquidite.sweep_pdl {
+            swp_pdl += 1;
+        }
         if out.sh1.is_some() {
             last_sh1 = out.sh1;
         }
         if out.sl1.is_some() {
             last_sl1 = out.sl1;
+        }
+        if out.liquidite.pdh_active.is_some() {
+            last_pdha = out.liquidite.pdh_active;
+        }
+        if out.liquidite.pwh_active.is_some() {
+            last_pwha = out.liquidite.pwh_active;
         }
         atr_final = out.atr14;
     }
@@ -99,7 +120,7 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     let total_mss = mss_h + mss_b;
     let total_choch = choch_h + choch_b;
     println!(
-        "\n===== SMC v12 — 700 bars XAUUSD M15 (MODULE 3) =====\n\
+        "\n===== SMC v12 — 700 bars XAUUSD M15 (MODULES 3+4) =====\n\
          Pivots high      : {ph}\n\
          Pivots low       : {pl}\n\
          TOTAL pivots     : {total_pivots}\n\
@@ -112,9 +133,15 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
          CHOCH haussiers  : {choch_h}\n\
          CHOCH baissiers  : {choch_b}\n\
          TOTAL CHOCH      : {total_choch}\n\
+         EQH              : {eqh}\n\
+         EQL              : {eql}\n\
+         Sweeps PDH       : {swp_pdh}\n\
+         Sweeps PDL       : {swp_pdl}\n\
          ATR14 final      : {atr_final:.4}\n\
          sh1 final        : {last_sh1:?}\n\
          sl1 final        : {last_sl1:?}\n\
+         PDH active       : {last_pdha:?}\n\
+         PWH active       : {last_pwha:?}\n\
          tendance hauss.  : {}\n\
          tendance baiss.  : {}\n\
          ==========================================",
@@ -125,4 +152,8 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     assert!(total_pivots > 0, "Doit détecter des pivots sur 700 bars");
     assert!(total_bos > 0, "Doit détecter des BOS sur 700 bars");
     assert!(atr_final > 0.0, "ATR14 doit être calculé");
+    assert!(
+        eqh + eql > 0,
+        "Doit détecter au moins un EQH/EQL sur 700 bars XAUUSD M15"
+    );
 }

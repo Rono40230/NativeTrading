@@ -91,6 +91,38 @@ pub enum MssDir {
     Baissier,
 }
 
+/// Liquidités (MODULE 4 Pine, lignes 163-728).
+///
+/// Combine les niveaux précédents Day/Week (PDH/PDL/PWH/PWL) avec leur sweep brut,
+/// et les égalités EQH/EQL (pool `LiqLevel`).
+#[derive(Debug, Clone, Default)]
+pub struct LiquiditeEvent {
+    // --- Niveaux précédents (bruts, Pine request.security high[1]/low[1]) ---
+    pub pdh: Option<f64>,
+    pub pdl: Option<f64>,
+    pub pwh: Option<f64>,
+    pub pwl: Option<f64>,
+    // --- Niveaux actifs (invalidés après sweep) ---
+    pub pdh_active: Option<f64>,
+    pub pdl_active: Option<f64>,
+    pub pwh_active: Option<f64>,
+    pub pwl_active: Option<f64>,
+    // --- Sweeps bruts (high > niveau ET close revers) ---
+    pub sweep_pdh: bool,
+    pub sweep_pdl: bool,
+    pub sweep_pwh: bool,
+    pub sweep_pwl: bool,
+    // --- EQH/EQL ---
+    pub is_eqh: bool,
+    pub is_eql: bool,
+    pub dernier_eqh_level: Option<f64>,
+    pub dernier_eql_level: Option<f64>,
+    /// Nombre de niveaux EQH/EQL actifs (non sweepés) dans le pool.
+    pub nb_liq_levels: usize,
+    /// Nombre de niveaux sweepés dans le pool (contexte historique).
+    pub nb_liq_swept: usize,
+}
+
 /// Sortie complète du moteur pour une bar.
 #[derive(Debug, Clone, Default)]
 pub struct SmcOutput {
@@ -101,6 +133,7 @@ pub struct SmcOutput {
     /// Un BOS qui est aussi un MSS n'apparaît pas ici.
     pub bos: BosEvent,
     pub mss: MssEvent,
+    pub liquidite: LiquiditeEvent,
     /// Dernier swing high (sh1).
     pub sh1: Option<f64>,
     /// Dernier swing low (sl1).

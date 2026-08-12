@@ -24,6 +24,10 @@ pub struct PivotDetector {
     last_pivot_high_bar: Option<usize>,
     /// Index de la bar du pivot low courant (Pine `bsl1`).
     last_pivot_low_bar: Option<usize>,
+    /// Index de la bar du pivot high précédent (Pine `bsh2`) — bord gauche EQH.
+    last_pivot_high_bar_prev: Option<usize>,
+    /// Index de la bar du pivot low précédent (Pine `bsl2`) — bord gauche EQL.
+    last_pivot_low_bar_prev: Option<usize>,
     last_event: PivotEvent,
 }
 
@@ -38,6 +42,8 @@ impl PivotDetector {
             sl2: None,
             last_pivot_high_bar: None,
             last_pivot_low_bar: None,
+            last_pivot_high_bar_prev: None,
+            last_pivot_low_bar_prev: None,
             last_event: PivotEvent::default(),
         }
     }
@@ -70,6 +76,7 @@ impl PivotDetector {
         if is_ph {
             self.sh2 = self.sh1;
             self.sh1 = Some(pivot_high);
+            self.last_pivot_high_bar_prev = self.last_pivot_high_bar;
             self.last_pivot_high_bar = Some(pivot_idx);
             self.last_event.is_pivot_high = true;
             self.last_event.pivot_high_price = Some(pivot_high);
@@ -78,6 +85,7 @@ impl PivotDetector {
         if is_pl {
             self.sl2 = self.sl1;
             self.sl1 = Some(pivot_low);
+            self.last_pivot_low_bar_prev = self.last_pivot_low_bar;
             self.last_pivot_low_bar = Some(pivot_idx);
             self.last_event.is_pivot_low = true;
             self.last_event.pivot_low_price = Some(pivot_low);
@@ -107,6 +115,14 @@ impl PivotDetector {
     }
     pub fn last_pivot_low_bar(&self) -> Option<usize> {
         self.last_pivot_low_bar
+    }
+    /// Index de la bar du pivot high précédent (Pine `bsh2`).
+    pub fn last_pivot_high_bar_prev(&self) -> Option<usize> {
+        self.last_pivot_high_bar_prev
+    }
+    /// Index de la bar du pivot low précédent (Pine `bsl2`).
+    pub fn last_pivot_low_bar_prev(&self) -> Option<usize> {
+        self.last_pivot_low_bar_prev
     }
 }
 
