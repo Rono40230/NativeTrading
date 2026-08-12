@@ -53,6 +53,11 @@ pub struct AssetCalibration {
 
 impl AssetCalibration {
     /// Détecte l'actif et calcule la calibration. `asset` insensible à la casse.
+    ///
+    /// Les tables ci-dessous sont des traductions LITTÉRALES du Pine (Module 0) :
+    /// certains actifs partagent volontairement les mêmes valeurs (ex. NAS/DAX
+    /// ont des poids scoring identiques). On lève donc le lint clippy correspondant.
+    #[allow(clippy::if_same_then_else)]
     pub fn detect(asset: &str, timeframe: &str) -> Self {
         let a = asset.to_uppercase();
         let is_xau = a.contains("XAU");
