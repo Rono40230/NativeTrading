@@ -193,7 +193,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { apiService } from '@/services/api.service'
 import type { RocketSignalHistorique } from '@/services/api.types'
 import RocketsAnalyseLlm from '@/components/common/RocketsAnalyseLlm.vue'
 import RocketsReglages from '@/components/common/RocketsReglages.vue'
@@ -209,11 +210,25 @@ const onglet = ref<'perf' | 'ia' | 'reglages'>('perf')
 const props = defineProps<{ open: boolean; rockets: RocketSignalHistorique[] }>()
 defineEmits(['close'])
 
+// L'historique clôturé (avec verdicts) est chargé à l'ouverture de la modale.
+// props.rockets ne contient que les signaux ACTIFS (sans verdict) → stats à 0.
+// On fetch donc l'historique complet pour alimenter useRocketsStats.
+const historique = ref<RocketSignalHistorique[]>([])
+
+watch(() => props.open, async (ouvert) => {
+  if (!ouvert) return
+  try {
+    historique.value = await apiService.historiqueRockets(500)
+  } catch {
+    historique.value = []
+  }
+})
+
 const {
   stats, tranches, phases, classePhase,
   kValues, lossRates, sampleSize, lossRateReel,
   tableauPertes, analyseProba, couleurProba,
-} = useRocketsStats(computed(() => props.rockets))
+} = useRocketsStats(computed(() => historique.value))
 </script>
 
 <style scoped>
