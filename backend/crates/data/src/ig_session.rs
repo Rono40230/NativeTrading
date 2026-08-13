@@ -1,6 +1,8 @@
 //! Gestion de la session IG Markets REST API.
 //! Les credentials sont lus depuis SQLite (jamais depuis le code ou .env).
 //! La session (CST + X-SECURITY-TOKEN) est renouvelée automatiquement après 6h.
+//! Circuit breaker : après des échecs consécutifs, le login est mis en cooldown
+//! pour éviter de saturer l'API IG (et épuiser le quota de la clé).
 
 use anyhow::{anyhow, Result};
 use db::Database;
@@ -8,6 +10,13 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 const SESSION_TTL: Duration = Duration::from_secs(5 * 3600); // 5h par sécurité (IG = 6h)
+
+/// Cooldown de base après un échec de login (5 min).
+const COOLDOWN_LOGIN_BASE: Duration = Duration::from_secs(5 * 60);
+/// Cooldown maximal après plusieurs échecs consécutifs (30 min).
+const COOLDOWN_LOGIN_MAX: Duration = Duration::from_secs(30 * 60);
+/// Seuil de déclenchement du cooldown maximal.
+const SEUIL_CIRCUIT_BREAKER: u32 = 5;
 
 // ─── Types désérialisation ────────────────────────────────────────────────────
 
@@ -29,6 +38,11 @@ pub struct IgSession {
     token: Option<String>,
     /// Instant du dernier login réussi
     derniere_connexion: Option<Instant>,
+    /// Instant de la dernière tentative de login (réussie ou non).
+    /// Utilisé par le circuit breaker pour imposer un cooldown.
+    derniere_tentative: Option<Instant>,
+    /// Nombre d'échecs consécutifs (reset à 0 sur succès).
+    echecs_consecutifs: u32,
     /// Environnement : "demo" ou "live"
     env: String,
     /// Endpoint Lightstreamer fourni par IG au login (ex: https://apd.marketdatasystems.com)
@@ -44,6 +58,8 @@ impl IgSession {
             cst: None,
             token: None,
             derniere_connexion: None,
+            derniere_tentative: None,
+            echecs_consecutifs: 0,
             env: "demo".into(),
             lightstreamer_endpoint: None,
             account_id: None,
@@ -66,8 +82,28 @@ impl IgSession {
     }
 
     /// Tente un login avec les credentials stockés en DB.
-    /// Retourne Err si les credentials sont absents ou si IG refuse.
+    /// Circuit breaker : si la dernière tentative est trop récente (cooldown),
+    /// retourne une erreur sans contacter IG. Le cooldown est de 5 min après
+    /// le 1er échec, puis 30 min après 5 échecs consécutifs.
     pub async fn login(&mut self, db: &Database) -> Result<()> {
+        // ── Circuit breaker ────────────────────────────────────────────────
+        if let Some(derniere) = self.derniere_tentative {
+            let cooldown = if self.echecs_consecutifs >= SEUIL_CIRCUIT_BREAKER {
+                COOLDOWN_LOGIN_MAX
+            } else {
+                COOLDOWN_LOGIN_BASE
+            };
+            let elapsed = derniere.elapsed();
+            if elapsed < cooldown {
+                let restant = cooldown - elapsed;
+                return Err(anyhow!(
+                    "IG login en cooldown ({} échecs consécutifs, prochain essai dans {:?})",
+                    self.echecs_consecutifs,
+                    restant
+                ));
+            }
+        }
+        self.derniere_tentative = Some(Instant::now());
         let api_key = db
             .lire_config("ig_api_key")
             .await?
@@ -108,6 +144,7 @@ impl IgSession {
         if !resp.status().is_success() {
             let status = resp.status();
             let texte = resp.text().await.unwrap_or_default();
+            self.echecs_consecutifs += 1;
             return Err(anyhow!("IG login échoué ({}): {}", status, texte));
         }
 
@@ -134,6 +171,7 @@ impl IgSession {
         self.cst = Some(cst);
         self.token = Some(token);
         self.derniere_connexion = Some(Instant::now());
+        self.echecs_consecutifs = 0;
 
         tracing::info!("IG Markets session établie (env={})", self.env);
         Ok(())
