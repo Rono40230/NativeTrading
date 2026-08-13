@@ -172,6 +172,11 @@ async fn main() -> std::io::Result<()> {
     let pool_telegram = app_state.db.pool().clone();
     tokio::spawn(notifications::telegram_worker::demarrer_worker_telegram(pool_telegram));
 
+    // ── Worker ingestion Bybit WS (crypto + métaux, gratuit, 24/7) ──────────
+    // Connexion publique, sans clé API. Écrit en continu les bougies fermées
+    // des 12 actifs × 5 timeframes. Indépendant du frontend.
+    data::bybit_ws::demarrer_worker_bybit(app_state.db.clone());
+
     // ── Worker pré-alertes (cycle 5 min — setups en formation) ──────────────
     prealerte_worker::demarrer_worker_prealerte(app_state.db.clone());
 
