@@ -42,6 +42,7 @@ pub(crate) struct PivotOut {
 #[derive(Serialize)]
 pub(crate) struct NiveauStructOut {
     pub ts: i64,
+    pub pivot_ts: i64,
     pub dir: &'static str,
     pub level: f64,
     pub bar_idx: usize,

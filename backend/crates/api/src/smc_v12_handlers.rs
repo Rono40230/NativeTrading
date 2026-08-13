@@ -127,9 +127,11 @@ pub async fn analyse_v12(
         // ── BOS ── bar courante (cassure).
         if (out.bos.bullish || out.bos.bearish) && out.bos.level.is_some() {
             if let (Some(level), Some(bi)) = (out.bos.level, out.bos.bar_index) {
+                let bullish = out.bos.bullish;
                 bos_list.push(NiveauStructOut {
                     ts: ts_at(&ts_by_idx, bi, bar.timestamp),
-                    dir: if out.bos.bullish { "bull" } else { "bear" },
+                    pivot_ts: dernier_pivot_ts(&pivots, bullish),
+                    dir: if bullish { "bull" } else { "bear" },
                     level,
                     bar_idx: bi,
                 });
@@ -139,9 +141,11 @@ pub async fn analyse_v12(
         // ── MSS ──
         if (out.mss.mss_haussier || out.mss.mss_baissier) && out.mss.mss_level.is_some() {
             if let (Some(level), Some(bi)) = (out.mss.mss_level, out.mss.mss_bar) {
+                let bullish = out.mss.mss_haussier;
                 mss_list.push(NiveauStructOut {
                     ts: ts_at(&ts_by_idx, bi, bar.timestamp),
-                    dir: if out.mss.mss_haussier { "bull" } else { "bear" },
+                    pivot_ts: dernier_pivot_ts(&pivots, bullish),
+                    dir: if bullish { "bull" } else { "bear" },
                     level,
                     bar_idx: bi,
                 });
@@ -151,20 +155,24 @@ pub async fn analyse_v12(
         // ── CHOCH ──
         if (out.mss.choch_haussier || out.mss.choch_baissier) && out.mss.choch_level.is_some() {
             if let (Some(level), Some(bi)) = (out.mss.choch_level, out.mss.choch_bar) {
+                let bullish = out.mss.choch_haussier;
                 choch_list.push(NiveauStructOut {
                     ts: ts_at(&ts_by_idx, bi, bar.timestamp),
-                    dir: if out.mss.choch_haussier { "bull" } else { "bear" },
+                    pivot_ts: dernier_pivot_ts(&pivots, bullish),
+                    dir: if bullish { "bull" } else { "bear" },
                     level,
                     bar_idx: bi,
                 });
             }
         }
 
-        // ── Sweeps confirmés ──
+        // ── Sweeps confirmés ── (événement ponctuel : pivot_ts = ts, pas de ligne bornée)
         if out.sweep.sweep_haussier && out.sweep.sweep_h_level.is_some() {
             if let (Some(level), Some(bi)) = (out.sweep.sweep_h_level, out.sweep.sweep_h_bar) {
+                let ts = ts_at(&ts_by_idx, bi, bar.timestamp);
                 sweeps.push(NiveauStructOut {
-                    ts: ts_at(&ts_by_idx, bi, bar.timestamp),
+                    ts,
+                    pivot_ts: ts,
                     dir: "bull",
                     level,
                     bar_idx: bi,
@@ -173,8 +181,10 @@ pub async fn analyse_v12(
         }
         if out.sweep.sweep_baissier && out.sweep.sweep_b_level.is_some() {
             if let (Some(level), Some(bi)) = (out.sweep.sweep_b_level, out.sweep.sweep_b_bar) {
+                let ts = ts_at(&ts_by_idx, bi, bar.timestamp);
                 sweeps.push(NiveauStructOut {
-                    ts: ts_at(&ts_by_idx, bi, bar.timestamp),
+                    ts,
+                    pivot_ts: ts,
                     dir: "bear",
                     level,
                     bar_idx: bi,
@@ -283,4 +293,25 @@ pub async fn analyse_v12(
         atr14: last_atr,
         extended,
     })
+}
+
+/// Timestamp du dernier pivot swing cassé : borne de DÉBUT des lignes BOS/MSS/CHOCH.
+///
+/// `high = true` → cherche le dernier swing high (HH/LH), `high = false` → dernier
+/// swing low (HL/LL). Renvoie `0` si aucun pivot du type voulu n'a encore été collecté
+/// (le frontend traite alors la ligne comme un point unique à la cassure).
+fn dernier_pivot_ts(pivots: &[PivotOut], high: bool) -> i64 {
+    pivots
+        .iter()
+        .rev()
+        .filter(|p| {
+            if high {
+                p.ptype == "HH" || p.ptype == "LH"
+            } else {
+                p.ptype == "HL" || p.ptype == "LL"
+            }
+        })
+        .next()
+        .map(|p| p.ts)
+        .unwrap_or(0)
 }

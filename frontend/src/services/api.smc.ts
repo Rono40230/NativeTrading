@@ -13,9 +13,12 @@ export interface PivotV12 {
   price: number
   bar_idx: number
 }
-/** Niveau cassé (BOS / MSS / CHOCH / sweep). */
+/** Niveau cassé (BOS / MSS / CHOCH / sweep).
+ *  `pivot_ts` = timestamp du pivot cassé (borne de début de la ligne pivot→cassure).
+ *  Pour les sweeps (événement ponctuel), `pivot_ts == ts`. */
 export interface NiveauCasseeV12 {
   ts: number
+  pivot_ts: number
   dir: 'bull' | 'bear'
   level: number
   bar_idx: number

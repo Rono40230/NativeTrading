@@ -224,15 +224,15 @@ export function useSmcV12Overlay() {
     }
     pivots = data.pivots.map((p) => ({ ts: p.ts, price: p.price, type: p.type }))
     bos = data.bos.map((b) => ({
-      ts: b.ts, level: b.level, dir: b.dir,
+      ts: b.ts, pivot_ts: b.pivot_ts, level: b.level, dir: b.dir,
       label: b.dir === 'bull' ? 'BOS ↑' : 'BOS ↓',
     }))
     mss = data.mss.map((m) => ({
-      ts: m.ts, level: m.level, dir: m.dir,
+      ts: m.ts, pivot_ts: m.pivot_ts, level: m.level, dir: m.dir,
       label: m.dir === 'bull' ? 'MSS ↑' : 'MSS ↓',
     }))
     chochs = data.chochs.map((c) => ({
-      ts: c.ts, level: c.level, dir: c.dir,
+      ts: c.ts, pivot_ts: c.pivot_ts, level: c.level, dir: c.dir,
       label: c.dir === 'bull' ? 'CHOCH ↑' : 'CHOCH ↓',
     }))
     sweeps = data.sweeps.map((s) => ({ ts: s.ts, level: s.level, dir: s.dir }))

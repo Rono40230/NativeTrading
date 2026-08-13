@@ -71,6 +71,8 @@ export interface ObDessin {
 }
 export interface LigneDessin {
   ts: number
+  /** Timestamp du pivot cassé (borne de DÉBUT de la ligne). 0 = point unique (sweep). */
+  pivot_ts: number
   level: number
   dir: 'bull' | 'bear'
   label: string
@@ -214,24 +216,32 @@ export function dessinerLignes(
   ts: TimeScale,
   lignesList: LigneDessin[],
   W: number,
-  dernierTs: number | null,
+  _dernierTs: number | null,
   kind: KindLigne,
 ): void {
-  const xD = xDroit(ts, W, dernierTs)
   const style = styleLigne(kind)
   for (const l of lignesList) {
     const y = serie.priceToCoordinate(l.level)
     if (y === null) continue
-    const xGRaw = ts.timeToCoordinate(l.ts as any)
-    const xG = xGRaw !== null ? Math.max(0, xGRaw) : 0
+    // Segment BORNÉ : X de fin = cassure (event ts), X de début = pivot cassé.
+    const xDRaw = ts.timeToCoordinate(l.ts as any)
+    if (xDRaw === null) continue
+    const xD: number = xDRaw
+    // pivot_ts == 0 (sweep / pivot absent) → point unique : début = fin (label seul).
+    let xG: number = xD
+    if (l.pivot_ts !== 0) {
+      const xGRaw = ts.timeToCoordinate(l.pivot_ts as any)
+      xG = xGRaw !== null ? Math.max(0, xGRaw) : xD
+    }
     const couleur = l.dir === 'bull' ? style.bull : style.bear
     ctx.strokeStyle = couleur
     ctx.lineWidth = style.width
     ctx.setLineDash(style.dashed ? [6, 4] : [])
-    if (xD > xG) {
+    if (xG < xD) {
       ctx.beginPath(); ctx.moveTo(xG, y); ctx.lineTo(xD, y); ctx.stroke()
     }
     ctx.setLineDash([])
+    // Label à l'extrémité de la cassure (X de fin).
     if (l.label) {
       ctx.font = 'bold 10px sans-serif'
       ctx.fillStyle = couleur
