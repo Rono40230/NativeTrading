@@ -58,8 +58,10 @@ pub struct SauvegardeAnalyseReq {
 
 // ─── POST /api/ia/save-analysis ──────────────────────────────────────────────
 pub async fn analyser_chart_sauvegarde(body: web::Json<SauvegardeAnalyseReq>) -> impl Responder {
-    use chrono::{Local, Datelike, Timelike};
-    let maintenant = Local::now();
+    use chrono::{Datelike, Timelike};
+    // Heure de Paris (Europe/Paris) pour le nom du fichier — fini le Local::now()
+    // dépendant du fuseau du serveur.
+    let maintenant = common::time::paris_from_unix(chrono::Utc::now().timestamp());
     
     let mois_noms = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
     let nom_mois = mois_noms.get(maintenant.month() as usize).unwrap_or(&"");

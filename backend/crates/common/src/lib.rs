@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use uuid::Uuid;
 
+pub mod time;
+
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../frontend/src/generated/Candle.ts")]
 pub struct Candle {

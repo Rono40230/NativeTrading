@@ -127,6 +127,7 @@ pub async fn score_debug(
         "timeframe": query.timeframe.as_deref().unwrap_or("M15"),
         "bougies_disponibles": bougies.len(),
         "heure_utc": maintenant.format("%H:%M UTC").to_string(),
+        "heure_paris": common::time::format_heure_paris(maintenant.timestamp()),
         "derniere_bougie_ts": derniere_ts.format("%Y-%m-%d %H:%M UTC").to_string(),
         "kill_zone": {
             "filtre_actif": params.kill_zone_filtre,

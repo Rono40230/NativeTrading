@@ -352,10 +352,12 @@ fn i_tol_cluster() -> f64 {
     0.50
 }
 
-/// Numéro de jour UTC (Pine `dayofmonth`); on utilise le jour calendaire UTC complet
-/// pour détecter le changement de jour (équivalent `dayofmonth != dayofmonth[1]`).
+/// Clé de jour **Paris** (Europe/Paris, DST auto via `common::time`).
+/// Deux barres ont la même clé ssi elles appartiennent au même jour calendaire
+/// Paris (00:00→23:59 CET/CEST) — utilisé pour détecter le changement de jour
+/// PDH/PDL (équivalent `dayofmonth != dayofmonth[1]` en heure de Paris).
 fn day_key(ts: i64) -> i64 {
-    ts.div_euclid(86_400)
+    common::time::day_key_paris(ts)
 }
 
 /// Clé de semaine ISO (Pine `weekofyear`) : `(year, week)`.

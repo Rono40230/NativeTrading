@@ -168,7 +168,7 @@ fn detecter_daily(bougies: &[Candle], nb_jours: usize) -> Vec<NiveauLiquidite> {
 
     let mut jours: Vec<(i64, f64, f64, usize, i64)> = Vec::new();
     for (i, b) in bougies.iter().enumerate() {
-        let jour = b.timestamp.timestamp() / 86400;
+        let jour = common::time::day_key_paris(b.timestamp.timestamp());
         if let Some(last) = jours.last_mut() {
             if last.0 == jour {
                 last.1 = last.1.max(b.high);

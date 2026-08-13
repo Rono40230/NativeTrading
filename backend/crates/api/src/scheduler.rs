@@ -1,4 +1,4 @@
-use chrono::{Datelike, FixedOffset, TimeZone, Timelike, Utc};
+use chrono::{Timelike, Utc};
 use db::Database;
 use ml::PipelineML;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -93,22 +93,12 @@ pub fn demarrer_surveillance_ml(db: Arc<Database>, pipeline_ml: Arc<RwLock<Pipel
     });
 }
 
-/// Calcule le délai en secondes jusqu'à 18h00 heure de Paris (Europe/Paris = UTC+1 hiver, UTC+2 été).
-/// Détecte automatiquement l'heure d'été (dernier dimanche de mars → dernier dimanche d'octobre).
+/// Calcule le délai en secondes jusqu'à 18h00 heure de Paris (Europe/Paris =
+/// UTC+1 hiver / UTC+2 été). L'offset DST est résolu via `chrono-tz` (base IANA)
+/// à travers le helper unifié `common::time` — fini le DST au mois calendaire.
 fn secondes_jusqu_a_18h_paris() -> u64 {
-    let now_utc = Utc::now();
-    // Détection heure d'été simplifiée : UTC+2 d'avril à octobre, UTC+1 sinon
-    let mois = now_utc.month();
-    let offset_secs = if (4..=10).contains(&mois) {
-        2 * 3600i32
-    } else {
-        3600i32
-    };
-    let Some(paris) = FixedOffset::east_opt(offset_secs) else {
-        return 0;
-    };
-    let now_paris = paris.from_utc_datetime(&now_utc.naive_utc());
-
+    let now_ts = Utc::now().timestamp();
+    let now_paris = common::time::paris_from_unix(now_ts);
     let heure_cible = 18u64 * 3600; // 18h00
     let ecoules =
         now_paris.hour() as u64 * 3600 + now_paris.minute() as u64 * 60 + now_paris.second() as u64;
