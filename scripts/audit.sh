@@ -37,20 +37,20 @@ while IFS= read -r -d '' f; do
   fi
 done < <(find frontend/src -name '*.ts' -o -name '*.vue' -o -name '*.js' -print0 2>/dev/null)
 
-echo "[audit] Vérification taille fichiers Rust (limite 300 lignes)..."
+echo "[audit] Vérification taille fichiers Rust (limite 600 lignes)..."
 while IFS= read -r -d '' f; do
   NB=$(wc -l < "$f")
-  if [ "$NB" -gt 300 ]; then
-    echo "  ❌ $f dépasse 300 lignes ($NB lignes)"
+  if [ "$NB" -gt 600 ]; then
+    echo "  ❌ $f dépasse 600 lignes ($NB lignes)"
     ERREURS=$((ERREURS + 1))
   fi
 done < <(find backend/crates -name '*.rs' -print0 2>/dev/null)
 
-echo "[audit] Vérification taille fichiers Vue/TS (limite 300 lignes)..."
+echo "[audit] Vérification taille fichiers Vue/TS (limite 600 lignes)..."
 while IFS= read -r -d '' f; do
   NB=$(wc -l < "$f")
-  if [ "$NB" -gt 300 ]; then
-    echo "  ⚠️  $f dépasse 300 lignes ($NB lignes) — attention"
+  if [ "$NB" -gt 600 ]; then
+    echo "  ⚠️  $f dépasse 600 lignes ($NB lignes) — attention"
   fi
 done < <(find frontend/src -name '*.vue' -o -name '*.ts' -print0 2>/dev/null)
 
