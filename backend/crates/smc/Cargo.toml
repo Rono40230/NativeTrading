@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 common = { path = "../common" }
+indicators = { path = "../indicators" }
 serde.workspace = true
 tracing.workspace = true
 chrono.workspace = true
