@@ -4,7 +4,7 @@
  */
 import { http } from './http.client'
 import type {
-  AnnonceCalendrier, SentimentMarche, AlertesNews,
+  AnnonceCalendrier, SentimentMarche, SentimentComposite, AlertesNews,
   ContenuArticle, TraductionReponse, FearGreedData,
 } from './api.types'
 
@@ -47,6 +47,15 @@ export const newsApi = {
   async obtenirSentimentMarche(): Promise<SentimentMarche> {
     const res = await http.get('/api/sentiment/marche')
     return res.data
+  },
+
+  async obtenirSentimentComposite(): Promise<SentimentComposite | null> {
+    try {
+      const res = await http.get('/api/sentiment/composite', { timeout: 8000 })
+      return res.data
+    } catch {
+      return null
+    }
   },
 
   async obtenirAlertes(): Promise<AlertesNews> {

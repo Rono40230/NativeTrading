@@ -113,6 +113,22 @@ export interface SentimentMarche {
   vix: number | null
 }
 
+/// Sentiment composite 0-100 par classe d'actifs (GET /api/sentiment/composite).
+export interface SentimentComposite {
+  global: number | null
+  crypto: number | null
+  forex: number | null
+  metaux: number | null
+  indices: number | null
+  rsi_btc: number | null
+  rsi_eth: number | null
+  rsi_xau: number | null
+  breadth_pct: number | null
+  fear_greed: number | null
+  vix_score: number | null
+  vix_brut: number | null
+}
+
 export type NiveauAlerte = 'critique' | 'important' | 'modere' | 'veille'
 
 export interface ArticleNews {

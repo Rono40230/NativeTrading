@@ -16,6 +16,7 @@ export type {
   StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, ResultatCollecteItem,
   HistoriqueEntrainement, HistoriqueML, PatternHoraire, ReponsePatternsVolatilite,
   StraddleCreneau, ReponseAnalyseStraddle, FearGreedData,
+  SentimentComposite,
   RequeteSignalIA, ReponseSignalIA,
 } from './api.types'
 
