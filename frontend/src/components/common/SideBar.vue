@@ -79,7 +79,6 @@ const nav: NavItem[] = [
     liens: [
       { to: '/straddle',          icone: '🔍', label: 'Créneaux volatilité' },
       { to: '/heatmap',           icone: '🔥', label: 'Heatmap' },
-      { to: '/data',              icone: '📦', label: 'Données' },
     ]
   },
 
@@ -98,6 +97,7 @@ const nav: NavItem[] = [
 
   // ── Système ───────────────────────────────────────────────────────────────
   { to: '/settings', icone: '⚙️',  label: 'Paramètres' },
+  { to: '/data',     icone: '📦',  label: 'Données' },
 ]
 
 const groupesOuverts = reactive<Record<string, boolean>>({})
