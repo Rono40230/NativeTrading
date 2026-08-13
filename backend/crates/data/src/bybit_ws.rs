@@ -334,60 +334,49 @@ async fn session_unique(db: &Arc<Database>) -> anyhow::Result<()> {
         nb_morceaux
     );
 
-    // Heartbeat applicatif : Bybit coupe la connexion après inactivité prolongée.
-    let mut heartbeat = tokio::time::interval(Duration::from_secs(HEARTBEAT_SEC));
-    heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    // La première tick est immédiate — on la consomme pour ne pas spammer un
-    // ping juste après la souscription.
-    heartbeat.tick().await;
-
+    // ── Boucle principale : lecture WS uniquement ─────────────────────────────
+    // Bybit SERVEUR envoie {"op":"ping","args":[<ts>]} toutes les 20s.
+    // On répond {"op":"pong","args":[<ts>]}. Le client NE DOIT PAS initier
+    // un ping (sinon Bybit répond error:invalid op).
     loop {
-        tokio::select! {
-            msg = entree.next() => match msg {
-                Some(Ok(Message::Text(texte))) => {
-                    match traiter_texte(&texte) {
-                        ActionWs::Pong => {
-                            if sortie
-                                .send(Message::Text(r#"{"op":"pong"}"#.to_string()))
-                                .await
-                                .is_err()
-                            {
-                                return Err(anyhow::anyhow!("échec envoi pong"));
+        match entree.next().await {
+            Some(Ok(Message::Text(texte))) => {
+                match traiter_texte(&texte) {
+                    ActionWs::Pong => {
+                        let pong = {
+                            let parsed = serde_json::from_str::<serde_json::Value>(&texte);
+                            match parsed {
+                                Ok(v) => match v.get("args").and_then(|a| a.as_array()).and_then(|a| a.first()) {
+                                    Some(ts) => format!(r#"{{"op":"pong","args":[{}]}}"#, ts),
+                                    None => r#"{"op":"pong"}"#.to_string(),
+                                },
+                                Err(_) => r#"{"op":"pong"}"#.to_string(),
                             }
+                        };
+                        if sortie.send(Message::Text(pong)).await.is_err() {
+                            return Err(anyhow::anyhow!("échec envoi pong"));
                         }
-                        ActionWs::Bougies(bougies) => {
-                            inserer_bougies(db, bougies).await;
-                        }
-                        ActionWs::Ignorer => {}
                     }
+                    ActionWs::Bougies(bougies) => {
+                        inserer_bougies(db, bougies).await;
+                    }
+                    ActionWs::Ignorer => {}
                 }
-                // Ping protocolaire : on renvoie un pong (tokio-tungstenite peut
-                // aussi le faire, mais on garantit la réponse côté applicatif).
-                Some(Ok(Message::Ping(payload))) => {
-                    let _ = sortie.send(Message::Pong(payload)).await;
-                }
-                Some(Ok(Message::Pong(_) | Message::Binary(_))) => {}
-                Some(Ok(Message::Close(_))) => {
-                    tracing::info!("Bybit WS: frame Close reçue du serveur");
-                    return Ok(());
-                }
-                // Frame brute déjà décodée par tungstenite — ignorée.
-                Some(Ok(Message::Frame(_))) => {}
-                Some(Err(e)) => {
-                    return Err(anyhow::anyhow!("erreur lecture WS: {}", e));
-                }
-                None => {
-                    return Err(anyhow::anyhow!("flux WS fermé par le serveur"));
-                }
-            },
-            _ = heartbeat.tick() => {
-                if sortie
-                    .send(Message::Text(r#"{"op":"ping"}"#.to_string()))
-                    .await
-                    .is_err()
-                {
-                    return Err(anyhow::anyhow!("échec envoi heartbeat"));
-                }
+            }
+            Some(Ok(Message::Ping(payload))) => {
+                let _ = sortie.send(Message::Pong(payload)).await;
+            }
+            Some(Ok(Message::Pong(_) | Message::Binary(_))) => {}
+            Some(Ok(Message::Close(_))) => {
+                tracing::info!("Bybit WS: frame Close reçue du serveur");
+                return Ok(());
+            }
+            Some(Ok(Message::Frame(_))) => {}
+            Some(Err(e)) => {
+                return Err(anyhow::anyhow!("erreur lecture WS: {}", e));
+            }
+            None => {
+                return Err(anyhow::anyhow!("flux WS fermé par le serveur"));
             }
         }
     }
