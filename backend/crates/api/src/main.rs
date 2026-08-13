@@ -52,6 +52,8 @@ mod rockets_suivi;
 mod rockets_suivi_worker;
 mod scheduler;
 mod scheduler_execution;
+mod sentiment_composite;
+mod sentiment_filter;
 mod sentiment_handlers;
 mod signal_engine;
 mod signal_engine_analyse;

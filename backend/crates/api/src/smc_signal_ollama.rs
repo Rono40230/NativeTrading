@@ -33,6 +33,8 @@ pub struct ParamsSmc<'a> {
     pub ifvg_pts: f64,
     pub fibonacci_pts: f64,
     pub imbalance_pts: f64,
+    /// Sentiment composite courant (None = pas encore calculé, pas de filtre).
+    pub sentiment: Option<smc::v12::sentiment::SentimentScore>,
 }
 
 pub async fn appeler_smc_et_publier(
@@ -103,13 +105,35 @@ pub async fn appeler_smc_et_publier(
         debut.elapsed()
     );
 
-    // Rejet LLM
-    if !rep.valide || rep.conviction < params.conviction_seuil {
+    // ── Post-filtre directionnel par sentiment composite (Phase 3) ──
+    // Ajuste la conviction selon l'alignement direction × sentiment de la classe.
+    // Un signal à contre-sens d'un sentiment extrême est écarté.
+    let mut conviction_finale = rep.conviction;
+    if let Some(ref sc) = params.sentiment {
+        let dir = if params.direction_str == "Haussier" { "Long" } else { "Short" };
+        let verdict = crate::sentiment_filter::filtrer_par_sentiment(dir, asset_str, sc);
+        if verdict.alignement == smc::v12::sentiment::Alignement::Extreme {
+            tracing::info!(
+                "SMC {}/{} {} écarté: sentiment extrême opposé (classe {:.0})",
+                asset_str, tf_str, params.direction_str, verdict.score_classe
+            );
+            return Ok(());
+        }
+        conviction_finale =
+            ((rep.conviction as f64) * (1.0 + verdict.ajustement / 100.0)).clamp(0.0, 100.0) as i64;
+        tracing::info!(
+            "SMC {}/{} sentiment {:?} ({:+.0}%): conviction {}→{}",
+            asset_str, tf_str, verdict.alignement, verdict.ajustement, rep.conviction, conviction_finale
+        );
+    }
+
+    // Rejet LLM (conviction ajustée par le sentiment)
+    if !rep.valide || conviction_finale < params.conviction_seuil {
         tracing::info!(
             "LLM rejette SMC {}/{} ({}/100 < {}): {}",
             asset_str,
             tf_str,
-            rep.conviction,
+            conviction_finale,
             params.conviction_seuil,
             rep.raison
         );
@@ -159,7 +183,7 @@ pub async fn appeler_smc_et_publier(
         .inserer_signal_avec_llm(
             &signal,
             1,
-            rep.conviction,
+            conviction_finale,
             &rep.raison,
             rep.ajustements.as_ref().and_then(|a| a.sl_suggere),
             rep.ajustements.as_ref().and_then(|a| a.tp1_suggere),
@@ -211,7 +235,7 @@ pub async fn appeler_smc_et_publier(
         tf_str,
         params.direction_str,
         params.score_smc,
-        rep.conviction
+        conviction_finale
     );
     Ok(())
 }

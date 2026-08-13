@@ -246,12 +246,23 @@ pub async fn analyse_v12(
         });
     }
 
-    // ── Trades ── tous, avec verdict dérivé du lifecycle.
+    // ── Trades ── tous, avec verdict dérivé du lifecycle + filtre sentiment.
+    // Le sentiment courant (approximation : même score pour tous les trades du replay)
+    // sert à qualifier l'alignement direction × sentiment de chaque signal.
+    let sentiment_snap = state.sentiment.read().await.clone();
     let mut signals: Vec<SignalOut> = Vec::new();
     for t in &engine.signals.trades {
+        let dir_str = if t.side == Side::Buy { "Long" } else { "Short" };
+        let (sentiment_score, alignement) = match &sentiment_snap {
+            Some(sc) => {
+                let v = crate::sentiment_filter::filtrer_par_sentiment(dir_str, asset_str, sc);
+                (Some(v.score_classe), Some(nom_alignement(v.alignement)))
+            }
+            None => (None, None),
+        };
         signals.push(SignalOut {
             ts: t.open_ts,
-            dir: if t.side == Side::Buy { "Long" } else { "Short" },
+            dir: dir_str,
             entry: t.entry,
             sl: t.sl,
             tp1: t.tp1,
@@ -263,6 +274,8 @@ pub async fn analyse_v12(
                 TradeSource::BsZones => "bszones",
             },
             verdict: verdict_str(t.verdict()),
+            sentiment: sentiment_score,
+            alignement,
         });
     }
 
@@ -293,6 +306,17 @@ pub async fn analyse_v12(
         atr14: last_atr,
         extended,
     })
+}
+
+/// Nom sérialisable d'un `Alignement` de sentiment (pour le replay frontend).
+fn nom_alignement(a: smc::v12::sentiment::Alignement) -> &'static str {
+    use smc::v12::sentiment::Alignement;
+    match a {
+        Alignement::Aligne => "aligne",
+        Alignement::Oppose => "oppose",
+        Alignement::Neutre => "neutre",
+        Alignement::Extreme => "extreme",
+    }
 }
 
 /// Timestamp du dernier pivot swing cassé : borne de DÉBUT des lignes BOS/MSS/CHOCH.

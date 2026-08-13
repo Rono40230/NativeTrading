@@ -36,6 +36,7 @@ pub fn demarrer_boucle_smc(
     db: Arc<Database>,
     signal_engine: Arc<SignalEngine>,
     pipeline_ml: Arc<RwLock<PipelineML>>,
+    sentiment: Arc<RwLock<Option<smc::v12::sentiment::SentimentScore>>>,
 ) {
     if !marquer_smc_demarree() {
         tracing::warn!("⚠️  Boucle SMC déjà démarrée — second spawn ignoré");
@@ -47,11 +48,14 @@ pub fn demarrer_boucle_smc(
             let assets = db.lister_assets().await.unwrap_or_default();
             let nb = assets.len();
             let debut_cycle = std::time::Instant::now();
+            // Snapshot du sentiment (clone immuable) pour tout le cycle.
+            let sentiment_snap = sentiment.read().await.clone();
             let futs = assets.iter().filter_map(|asset_db| {
                 let asset = Asset::try_from(asset_db.id.as_str()).ok()?;
                 let tf = if asset_db.type_asset == "crypto" { Timeframe::M5 } else { Timeframe::M15 };
                 let db = db.clone(); let se = signal_engine.clone(); let ml = pipeline_ml.clone();
-                Some(async move { analyser_asset(db, se, ml, asset, tf).await; })
+                let snap = sentiment_snap.clone();
+                Some(async move { analyser_asset(db, se, ml, asset, tf, snap).await; })
             });
             futures_util::future::join_all(futs).await;
             let duree_cycle = debut_cycle.elapsed();
@@ -94,6 +98,7 @@ async fn analyser_asset(
     pipeline_ml: Arc<RwLock<PipelineML>>,
     asset: Asset,
     tf: Timeframe,
+    sentiment: Option<smc::v12::sentiment::SentimentScore>,
 ) {
     // Anti-doublon
     match db.signal_recent_existe(&asset, &tf, ANTI_DOUBLON_MIN).await {
@@ -276,6 +281,7 @@ async fn analyser_asset(
         ifvg_pts: score.ifvg,
         fibonacci_pts: score.fibonacci,
         imbalance_pts: score.imbalance,
+        sentiment,
     };
 
     if let Err(e) = appeler_smc_et_publier(&db, &signal_engine, params).await {

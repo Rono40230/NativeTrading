@@ -81,6 +81,10 @@ pub(crate) struct SignalOut {
     pub force: i32,
     pub source: &'static str,
     pub verdict: &'static str,
+    /// Score de sentiment de la classe de l'asset (None si indispo).
+    pub sentiment: Option<f64>,
+    /// Alignement direction × sentiment ("aligne"|"oppose"|"neutre"|"extreme").
+    pub alignement: Option<&'static str>,
 }
 
 // ── Structs de sérialisation pour les indicateurs supplémentaires ─────────────

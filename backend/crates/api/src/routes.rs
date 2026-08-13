@@ -213,6 +213,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::sentiment_handlers::get_sentiment_marche),
         )
         .route(
+            "/api/sentiment/composite",
+            web::get().to(crate::sentiment_composite::get_sentiment_composite),
+        )
+        .route(
             "/api/news/alertes",
             web::get().to(crate::news_handlers::get_news_alertes),
         )

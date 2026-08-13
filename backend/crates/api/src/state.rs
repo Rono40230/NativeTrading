@@ -9,6 +9,7 @@ use crate::ig_lightstreamer::IgLightstreamer;
 use crate::ig_session::IgSession;
 use crate::scheduler::demarrer_scheduler;
 use crate::signal_engine::SignalEngine;
+use smc::v12::sentiment::SentimentScore;
 
 pub struct AppState {
     pub db: Arc<Database>,
@@ -23,6 +24,8 @@ pub struct AppState {
     pub signal_engine: Arc<SignalEngine>,
     /// Cache Fear & Greed Index (TTL 1h) — (Instant du fetch, données JSON)
     pub fear_greed_cache: Arc<tokio::sync::RwLock<Option<(std::time::Instant, serde_json::Value)>>>,
+    /// Sentiment composite 0-100 par classe (refresh 30 min par le worker).
+    pub sentiment: Arc<RwLock<Option<SentimentScore>>>,
 }
 
 impl AppState {
@@ -70,6 +73,10 @@ impl AppState {
         let db = Arc::new(db);
         let pipeline_ml = Arc::new(RwLock::new(pipeline_ml));
         let signal_engine = Arc::new(SignalEngine::new());
+        // Cache Fear & Greed (TTL 1h) — partagé entre l'endpoint et le worker sentiment.
+        let fear_greed_cache: Arc<
+            tokio::sync::RwLock<Option<(std::time::Instant, serde_json::Value)>>,
+        > = Arc::new(tokio::sync::RwLock::new(None));
         signal_engine.demarrer(db.clone(), pipeline_ml.clone());
         tracing::info!("🤖 Signal Engine démarré automatiquement");
 
@@ -135,11 +142,22 @@ impl AppState {
         crate::rockets_calibration::demarrer_calibration_rockets(db.clone());
 
         // Boucle analyse SMC Directionnel (toutes les 15 min)
+        let sentiment_slot: Arc<RwLock<Option<SentimentScore>>> =
+            Arc::new(RwLock::new(None));
         crate::smc_boucle::demarrer_boucle_smc(
             db.clone(),
             signal_engine.clone(),
             pipeline_ml.clone(),
+            sentiment_slot.clone(),
         );
+
+        // Worker sentiment composite (cycle 30 min) — alimente le post-filtre directionnel
+        crate::sentiment_composite::demarrer_worker_sentiment(
+            db.clone(),
+            sentiment_slot.clone(),
+            fear_greed_cache.clone(),
+        );
+        tracing::info!("📊 Sentiment composite activé (worker 30 min)");
 
         // Job de réconciliation des signaux SMC ouverts (toutes les 5 min)
         crate::smc_feedback_job::demarrer_job_feedback_smc(db.clone());
@@ -162,7 +180,8 @@ impl AppState {
             ig_session,
             ig_lightstreamer,
             signal_engine,
-            fear_greed_cache: Arc::new(tokio::sync::RwLock::new(None)),
+            fear_greed_cache,
+            sentiment: sentiment_slot,
         })
     }
 }
