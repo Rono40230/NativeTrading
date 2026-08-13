@@ -10,16 +10,18 @@
  *   - boxes FVG ;
  *   - boxes trade (SL/TP) + label BUY/SELL pour les signaux.
  *
- * Chaque indicateur est filtré par un flag `settingsStore.indicateurs.v12Xxx`.
- * Si OFF → l'indicateur n'est pas dessiné (comme TradingView).
+ * + 13 indicateurs étendus (rendu délégué à `smcV12OverlayExtra.ts`) :
+ *   bgcolor sessions (Asie/Londres/NY), volume fort, impulsions,
+ *   premium/discount + equilibrium, Asian HL, liquidités PDH/PDL/PWH/PWL,
+ *   EQH/EQL, boxes NDOG/NWOG, MTF OB (H1/H4/W1/MN), zone-cœur, breaker,
+ *   imbalance, OTE.
  *
- * NOTE : seuls les indicateurs réellement retournés par /api/smc/v12/analyse
- * sont dessinables (pivots, bos, mss, chochs, sweeps, obs, fvgs, signals,
- * tendance). Les autres flags v12 (sessions, NDOG, HTF OB, OTE, premium/
- * discount, breaker, zone-cœur, imbalance, volume/impulsion bgcolor,
- * equilibrium, niveaux clés) existent dans le store mais leur donnée n'est
- * pas encore exposée par le backend → rien n'est dessiné tant que l'API
- * n'est pas étendue.
+ * Chaque indicateur est filtré par un flag `settingsStore.indicateurs.v12Xxx`.
+ * Si OFF → l'indicateur n'est pas dessiné (comme TradingView). Les indicateurs
+ * étendus sont optionnels côté API (champs absents si backend non mis à jour).
+ *
+ * Le rendu canvas des 9 indicateurs de base vit dans `smcV12OverlayDrawBase.ts`
+ * (split pour la règle vibe < 600 lignes/fichier).
  *
  * z-index 4 — au-dessus des canvas SMC (2) / liquidités (3).
  */
@@ -27,110 +29,30 @@ import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 import { apiService } from '@/services/api.service'
 import type { SmcV12Analyse } from '@/services/api.smc'
 import { useSettingsStore } from '@/stores/settings.store'
-import { hexVersRgba } from './chartIndicatorsConfig'
-
-// ── Palette (Pine smc_indicateur_v12) ─────────────────────────────────────────
-const COUL_HH = '#00C853' // structure haussière forte
-const COUL_HL = '#69F0AE'
-const COUL_LH = '#FF5252' // structure baissière
-const COUL_LL = '#D50000'
-
-const COUL_BOS_BULL = '#2962FF'
-const COUL_BOS_BEAR = '#FF6D00'
-
-const COUL_MSS_BULL = '#00BCD4' // cyan
-const COUL_MSS_BEAR = '#FF9800' // orange
-
-const COUL_CHOCH_BULL = '#AA00FF' // violet
-const COUL_CHOCH_BEAR = '#FF1744' // rouge
-
-const COUL_SWEEP_BULL = '#00E676'
-const COUL_SWEEP_BEAR = '#FF1744'
-
-const COUL_OB_BULL = '#00C853'
-const COUL_OB_BEAR = '#D50000'
-
-const COUL_FVG_BULL = '#00C853'
-const COUL_FVG_BEAR = '#D50000'
-
-const COUL_TENDANCE_HAUSSE = '#4CAF50'
-const COUL_TENDANCE_BAISSE = '#F44336'
-
-const COUL_SL = '#ef5350'
-const COUL_TP = '#26a69a'
-const COUL_ENTRY = '#3b82f6'
-const COUL_BUY = '#1b5e20'
-const COUL_SELL = '#b71c1c'
-
-// Alpha = (100 - transparence_pine) / 100.
-const OB_ALPHA: Record<string, number> = {
-  vierge: (100 - 70) / 100,
-  partiel: (100 - 83) / 100,
-  profond: (100 - 91) / 100,
-}
-const OB_BORD_ALPHA = (100 - 20) / 100 // bordure = couleur sens transp 20
-const FVG_ALPHA: Record<string, number> = {
-  vierge: (100 - 93) / 100,
-  partiel: (100 - 96) / 100,
-}
-const FVG_BORD_ALPHA = (100 - 85) / 100 // bordure blanche transp 85
-const TENDANCE_ALPHA = (100 - 95) / 100
-
-interface ObDessin {
-  ts: number
-  top: number
-  bot: number
-  force: number
-  dir: 'bull' | 'bear'
-  state: string
-}
-interface LigneDessin {
-  ts: number
-  level: number
-  dir: 'bull' | 'bear'
-  label: string
-}
-interface SignalDessin {
-  ts: number
-  entry: number
-  sl: number
-  tp1: number
-  dir: 'Long' | 'Short'
-  force: number
-}
-interface PivotDessin {
-  ts: number
-  price: number
-  type: 'HH' | 'HL' | 'LH' | 'LL'
-}
-interface FvgDessin {
-  ts: number
-  top: number
-  bot: number
-  dir: 'bull' | 'bear'
-  state: string
-}
-interface SweepDessin {
-  ts: number
-  level: number
-  dir: 'bull' | 'bear'
-}
-
-/** Flags de visibilité lus depuis settingsStore.indicateurs. */
-interface FlagsV12 {
-  tendance: boolean
-  structure: boolean
-  bos: boolean
-  mss: boolean
-  choch: boolean
-  sweeps: boolean
-  ob: boolean
-  fvg: boolean
-  signals: boolean
-}
-
-type TimeScale = ReturnType<IChartApi['timeScale']>
-type KindLigne = 'bos' | 'mss' | 'choch'
+import {
+  dessinerTendance,
+  dessinerObsEtFvgs,
+  dessinerLignes,
+  dessinerSweeps,
+  dessinerSignaux,
+  dessinerPivots,
+} from './smcV12OverlayDrawBase'
+import type {
+  ObDessin,
+  LigneDessin,
+  SignalDessin,
+  PivotDessin,
+  FvgDessin,
+  SweepDessin,
+  FlagsV12,
+} from './smcV12OverlayDrawBase'
+import {
+  dessinerFonds as dessinerFondsExt,
+  dessinerBoxes as dessinerBoxesExt,
+  dessinerLignes as dessinerLignesExt,
+  donneesV12EtenduesVides,
+} from './smcV12OverlayExtra'
+import type { DonneesV12Etendues, FlagsV12Etendus } from './smcV12OverlayExtra'
 
 export function useSmcV12Overlay() {
   const settingsStore = useSettingsStore()
@@ -152,6 +74,8 @@ export function useSmcV12Overlay() {
   let fvgs: FvgDessin[] = []
   let signals: SignalDessin[] = []
   let tendance: 'haussiere' | 'baissiere' | 'neutre' = 'neutre'
+  // Indicateurs v12 étendus (13 types supplémentaires).
+  let donneesExt: DonneesV12Etendues = donneesV12EtenduesVides()
 
   // ── Canvas lifecycle ────────────────────────────────────────────────────────
   function monterCanvas(container: HTMLElement): HTMLCanvasElement {
@@ -195,6 +119,33 @@ export function useSmcV12Overlay() {
     }
   }
 
+  /** Flags de visibilité des 13 indicateurs étendus. */
+  function lireFlagsExt(): FlagsV12Etendus {
+    const p = settingsStore.indicateurs
+    return {
+      sessionAsie: p.v12SessionAsie,
+      sessionLondres: p.v12SessionLondres,
+      sessionNy: p.v12SessionNy,
+      asianHl: p.v12AsianHl,
+      niveauxCles: p.v12NiveauxCles,
+      eqhEql: p.v12EqhEql,
+      ndog: p.v12Ndog,
+      nwog: p.v12Nwog,
+      breaker: p.v12Breaker,
+      imbalance: p.v12Imbalance,
+      ote: p.v12Ote,
+      premium: p.v12Premium,
+      equilibrium: p.v12Equilibrium,
+      obH1: p.v12ObH1,
+      obH4: p.v12ObH4,
+      obW1: p.v12ObW1,
+      obMn: p.v12ObMn,
+      zoneCoeur: p.v12ZoneCoeur,
+      volume: p.v12Volume,
+      impulsion: p.v12Impulsion,
+    }
+  }
+
   // ── Rendu ───────────────────────────────────────────────────────────────────
   function redessiner() {
     if (!canvas || !chartRef || !serieRef) return
@@ -205,9 +156,18 @@ export function useSmcV12Overlay() {
     ctx.clearRect(0, 0, W, H)
     const ts = chartRef.timeScale()
     const flags = lireFlags()
+    const flagsExt = lireFlagsExt()
 
+    // Phase 0 — bgcolor tendance (z le plus bas).
     dessinerTendance(ctx, ts, W, H, tendance, flags, dernierTsRef)
+    // Phase 1 — fonds étendus (sessions, volume fort, impulsions, premium/discount).
+    dessinerFondsExt(ctx, ts, W, H, serieRef, donneesExt, flagsExt, dernierTsRef)
+    // Phase 2 — boxes étendues (NDOG/NWOG, MTF OB, zone-cœur, breaker, imbalance, OTE).
+    dessinerBoxesExt(ctx, serieRef, ts, W, donneesExt, flagsExt, dernierTsRef)
+    // Phase 2b — boxes OB / FVG (par-dessus les boxes étendues).
     if (flags.ob || flags.fvg) dessinerObsEtFvgs(ctx, serieRef, ts, obs, fvgs, W, dernierTsRef, flags)
+    // Phase 3 — lignes horizontales étendues (Asian HL, liquidités, EQH/EQL, equilibrium).
+    dessinerLignesExt(ctx, serieRef, ts, W, donneesExt, flagsExt, dernierTsRef)
     if (flags.bos) dessinerLignes(ctx, serieRef, ts, bos, W, dernierTsRef, 'bos')
     if (flags.mss) dessinerLignes(ctx, serieRef, ts, mss, W, dernierTsRef, 'mss')
     if (flags.choch) dessinerLignes(ctx, serieRef, ts, chochs, W, dernierTsRef, 'choch')
@@ -286,6 +246,22 @@ export function useSmcV12Overlay() {
       ts: s.ts, entry: s.entry, sl: s.sl, tp1: s.tp1, dir: s.dir, force: s.force,
     }))
     tendance = data.tendance
+    // 13 indicateurs étendus (optionnels : absents si backend non mis à jour).
+    donneesExt = {
+      sessions: data.sessions ?? [],
+      vol_fort: data.vol_fort ?? [],
+      impulsions: data.impulsions ?? [],
+      premium_discount: data.premium_discount ?? null,
+      asian_hl: data.asian_hl ?? null,
+      liquidites: data.liquidites ?? [],
+      eqs: data.eqs ?? [],
+      gaps: data.gaps ?? [],
+      breakers: data.breakers ?? [],
+      imbalances: data.imbalances ?? [],
+      otes: data.otes ?? [],
+      mtf_obs: data.mtf_obs ?? [],
+      zone_coeur: data.zone_coeur ?? [],
+    }
     planifierRedessiner()
   }
 
@@ -299,6 +275,7 @@ export function useSmcV12Overlay() {
     fvgs = []
     signals = []
     tendance = 'neutre'
+    donneesExt = donneesV12EtenduesVides()
     if (canvas) {
       const ctx = canvas.getContext('2d')
       if (ctx) ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight)
@@ -330,247 +307,4 @@ export function useSmcV12Overlay() {
   }
 
   return { initialiser, charger, effacer, detruire, setDernierTs, redessiner: planifierRedessiner }
-}
-
-// ── Fonctions de dessin pures ─────────────────────────────────────────────────
-
-/** Bord droit commun : dernière bougie si connue, sinon bord canvas. */
-function xDroit(ts: TimeScale, W: number, dernierTs: number | null): number {
-  if (dernierTs !== null) {
-    const raw = ts.timeToCoordinate(dernierTs as any)
-    if (raw !== null) return Math.min(raw, W - 4)
-  }
-  return W - 70
-}
-
-/** Bgcolor de tendance : teinte verte/rouge sur toute la zone visible. */
-function dessinerTendance(
-  ctx: CanvasRenderingContext2D,
-  _ts: TimeScale,
-  W: number,
-  H: number,
-  tendance: 'haussiere' | 'baissiere' | 'neutre',
-  flags: FlagsV12,
-  _dernierTs: number | null,
-) {
-  if (!flags.tendance) return
-  if (tendance === 'neutre') return
-  const hex = tendance === 'haussiere' ? COUL_TENDANCE_HAUSSE : COUL_TENDANCE_BAISSE
-  ctx.fillStyle = hexVersRgba(hex, TENDANCE_ALPHA)
-  ctx.fillRect(0, 0, W, H)
-}
-
-function dessinerObsEtFvgs(
-  ctx: CanvasRenderingContext2D,
-  serie: ISeriesApi<'Candlestick'>,
-  ts: TimeScale,
-  obsList: ObDessin[],
-  fvgList: FvgDessin[],
-  W: number,
-  dernierTs: number | null,
-  flags: FlagsV12,
-) {
-  const xD = xDroit(ts, W, dernierTs)
-  // OB
-  if (flags.ob) {
-    for (const o of obsList) {
-      const yHaut = serie.priceToCoordinate(o.top)
-      const yBas = serie.priceToCoordinate(o.bot)
-      if (yHaut === null || yBas === null) continue
-      const yTop = Math.min(yHaut, yBas)
-      const hauteur = Math.abs(yHaut - yBas)
-      if (hauteur < 1) continue
-      const xGRaw = ts.timeToCoordinate(o.ts as any)
-      const xG = xGRaw !== null ? Math.max(0, xGRaw) : 0
-      if (xD <= xG) continue
-      const hex = o.dir === 'bull' ? COUL_OB_BULL : COUL_OB_BEAR
-      const alpha = OB_ALPHA[o.state] ?? OB_ALPHA.vierge
-      ctx.fillStyle = hexVersRgba(hex, alpha)
-      ctx.fillRect(xG, yTop, xD - xG, hauteur)
-      // Bordure = couleur sens transp 20.
-      ctx.strokeStyle = hexVersRgba(hex, OB_BORD_ALPHA)
-      ctx.lineWidth = 1.5
-      ctx.beginPath(); ctx.moveTo(xG, yTop); ctx.lineTo(xD, yTop); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(xG, yTop + hauteur); ctx.lineTo(xD, yTop + hauteur); ctx.stroke()
-      ctx.lineWidth = 2
-      ctx.beginPath(); ctx.moveTo(xG, yTop); ctx.lineTo(xG, yTop + hauteur); ctx.stroke()
-      ctx.font = 'bold 10px sans-serif'
-      ctx.fillStyle = hexVersRgba(hex, 1)
-      ctx.textAlign = 'left'
-      ctx.textBaseline = 'top'
-      ctx.fillText(`OB ${o.force}/10`, xG + 3, yTop + 2)
-    }
-  }
-  // FVG
-  if (flags.fvg) {
-    for (const f of fvgList) {
-      const yHaut = serie.priceToCoordinate(f.top)
-      const yBas = serie.priceToCoordinate(f.bot)
-      if (yHaut === null || yBas === null) continue
-      const yTop = Math.min(yHaut, yBas)
-      const hauteur = Math.abs(yHaut - yBas)
-      if (hauteur < 1) continue
-      const xGRaw = ts.timeToCoordinate(f.ts as any)
-      const xG = xGRaw !== null ? Math.max(0, xGRaw) : 0
-      if (xD <= xG) continue
-      const hex = f.dir === 'bull' ? COUL_FVG_BULL : COUL_FVG_BEAR
-      const alpha = FVG_ALPHA[f.state] ?? FVG_ALPHA.vierge
-      ctx.fillStyle = hexVersRgba(hex, alpha)
-      ctx.fillRect(xG, yTop, xD - xG, hauteur)
-      // Bordure blanche transp 85.
-      ctx.strokeStyle = hexVersRgba('#FFFFFF', FVG_BORD_ALPHA)
-      ctx.lineWidth = 1
-      ctx.beginPath(); ctx.moveTo(xG, yTop); ctx.lineTo(xD, yTop); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(xG, yTop + hauteur); ctx.lineTo(xD, yTop + hauteur); ctx.stroke()
-    }
-  }
-}
-
-function dessinerLignes(
-  ctx: CanvasRenderingContext2D,
-  serie: ISeriesApi<'Candlestick'>,
-  ts: TimeScale,
-  lignesList: LigneDessin[],
-  W: number,
-  dernierTs: number | null,
-  kind: KindLigne,
-) {
-  const xD = xDroit(ts, W, dernierTs)
-  const style = styleLigne(kind)
-  for (const l of lignesList) {
-    const y = serie.priceToCoordinate(l.level)
-    if (y === null) continue
-    const xGRaw = ts.timeToCoordinate(l.ts as any)
-    const xG = xGRaw !== null ? Math.max(0, xGRaw) : 0
-    const couleur = l.dir === 'bull' ? style.bull : style.bear
-    ctx.strokeStyle = couleur
-    ctx.lineWidth = style.width
-    ctx.setLineDash(style.dashed ? [6, 4] : [])
-    if (xD > xG) {
-      ctx.beginPath(); ctx.moveTo(xG, y); ctx.lineTo(xD, y); ctx.stroke()
-    }
-    ctx.setLineDash([])
-    if (l.label) {
-      ctx.font = 'bold 10px sans-serif'
-      ctx.fillStyle = couleur
-      ctx.textAlign = 'right'
-      ctx.textBaseline = 'bottom'
-      ctx.fillText(l.label, Math.min(xD - 2, W - 4), y - 2)
-    }
-  }
-}
-
-function styleLigne(kind: KindLigne): { bull: string; bear: string; width: number; dashed: boolean } {
-  if (kind === 'bos') return { bull: COUL_BOS_BULL, bear: COUL_BOS_BEAR, width: 2, dashed: false }
-  if (kind === 'mss') return { bull: COUL_MSS_BULL, bear: COUL_MSS_BEAR, width: 2, dashed: true }
-  return { bull: COUL_CHOCH_BULL, bear: COUL_CHOCH_BEAR, width: 3, dashed: false } // choch
-}
-
-function dessinerSweeps(
-  ctx: CanvasRenderingContext2D,
-  serie: ISeriesApi<'Candlestick'>,
-  ts: TimeScale,
-  sweepList: SweepDessin[],
-  W: number,
-) {
-  for (const s of sweepList) {
-    const y = serie.priceToCoordinate(s.level)
-    if (y === null) continue
-    const xRaw = ts.timeToCoordinate(s.ts as any)
-    if (xRaw === null) continue
-    const x = Math.max(4, Math.min(xRaw, W - 40))
-    const couleur = s.dir === 'bull' ? COUL_SWEEP_BULL : COUL_SWEEP_BEAR
-    const isHaut = s.dir === 'bear' // sweep baissier = prise de liquidité au-dessus
-    ctx.font = 'bold 10px sans-serif'
-    ctx.fillStyle = couleur
-    ctx.textAlign = 'left'
-    ctx.textBaseline = isHaut ? 'bottom' : 'top'
-    const yTxt = isHaut ? y - 3 : y + 3
-    ctx.fillText(s.dir === 'bull' ? 'SWEEP ↑' : 'SWEEP ↓', x + 3, yTxt)
-    ctx.beginPath()
-    ctx.arc(x, y, 2, 0, Math.PI * 2)
-    ctx.fill()
-  }
-}
-
-function dessinerSignaux(
-  ctx: CanvasRenderingContext2D,
-  serie: ISeriesApi<'Candlestick'>,
-  ts: TimeScale,
-  sigList: SignalDessin[],
-  W: number,
-  dernierTs: number | null,
-) {
-  const xD = xDroit(ts, W, dernierTs)
-  for (const s of sigList) {
-    const xGRaw = ts.timeToCoordinate(s.ts as any)
-    const xG = xGRaw !== null ? Math.max(0, xGRaw) : 0
-    if (xD <= xG) continue
-    const yEntry = serie.priceToCoordinate(s.entry)
-    const ySl = serie.priceToCoordinate(s.sl)
-    const yTp = serie.priceToCoordinate(s.tp1)
-    if (yEntry === null) continue
-    // Box SL (entry ↔ sl) — transp 78.
-    if (ySl !== null) {
-      const yTop = Math.min(yEntry, ySl)
-      const h = Math.abs(yEntry - ySl)
-      ctx.fillStyle = hexVersRgba(COUL_SL, (100 - 78) / 100)
-      ctx.fillRect(xG, yTop, xD - xG, h)
-      ctx.strokeStyle = hexVersRgba(COUL_SL, 0.6)
-      ctx.lineWidth = 1
-      ctx.strokeRect(xG, yTop, xD - xG, h)
-    }
-    // Box TP (entry ↔ tp1) — transp 78.
-    if (yTp !== null) {
-      const yTop = Math.min(yEntry, yTp)
-      const h = Math.abs(yEntry - yTp)
-      ctx.fillStyle = hexVersRgba(COUL_TP, (100 - 78) / 100)
-      ctx.fillRect(xG, yTop, xD - xG, h)
-      ctx.strokeStyle = hexVersRgba(COUL_TP, 0.6)
-      ctx.lineWidth = 1
-      ctx.strokeRect(xG, yTop, xD - xG, h)
-    }
-    // Ligne entrée + label BUY/SELL.
-    ctx.strokeStyle = COUL_ENTRY
-    ctx.lineWidth = 1
-    ctx.setLineDash([2, 3])
-    ctx.beginPath(); ctx.moveTo(xG, yEntry); ctx.lineTo(xD, yEntry); ctx.stroke()
-    ctx.setLineDash([])
-    const txt = s.dir === 'Long' ? `BUY ${s.force}/10` : `SELL ${s.force}/10`
-    ctx.font = 'bold 10px sans-serif'
-    ctx.fillStyle = s.dir === 'Long' ? COUL_BUY : COUL_SELL
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'bottom'
-    ctx.fillText(txt, xG + 3, yEntry - 2)
-  }
-}
-
-function dessinerPivots(
-  ctx: CanvasRenderingContext2D,
-  serie: ISeriesApi<'Candlestick'>,
-  ts: TimeScale,
-  pivList: PivotDessin[],
-  W: number,
-) {
-  for (const p of pivList) {
-    const y = serie.priceToCoordinate(p.price)
-    if (y === null) continue
-    const xRaw = ts.timeToCoordinate(p.ts as any)
-    if (xRaw === null) continue
-    const x = Math.max(4, Math.min(xRaw, W - 30))
-    const isHaut = p.type === 'HH' || p.type === 'LH'
-    const couleur = p.type === 'HH' ? COUL_HH
-      : p.type === 'HL' ? COUL_HL
-        : p.type === 'LH' ? COUL_LH : COUL_LL
-    ctx.font = 'bold 11px sans-serif'
-    ctx.fillStyle = couleur
-    ctx.textAlign = 'center'
-    ctx.textBaseline = isHaut ? 'bottom' : 'top'
-    const yTxt = isHaut ? y - 4 : y + 4
-    ctx.fillText(p.type, x, yTxt)
-    // Petit point pivot
-    ctx.beginPath()
-    ctx.arc(x, y, 2, 0, Math.PI * 2)
-    ctx.fill()
-  }
 }

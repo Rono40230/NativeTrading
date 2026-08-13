@@ -52,6 +52,106 @@ export interface SignalV12 {
   source: 'v11' | 'bszones'
   verdict: 'TP3' | 'TP2' | 'TP1' | 'SL' | 'BE' | 'Expire'
 }
+
+// ── Indicateurs v12 étendus (sérialisés à plat via #[serde(flatten)]) ─────────
+// Les noms de champs correspondent EXACTEMENT au JSON backend (snake_case,
+// structs de `smc_v12_out.rs`). Voir .superpowers/sdd/fix-api-complete-report.md.
+
+/** Niveau de liquidité précédent : PDH / PDL / PWH / PWL. */
+export interface LiquiditeLevelV12 {
+  level: 'pdh' | 'pdl' | 'pwh' | 'pwl'
+  price: number | null
+  active: boolean
+}
+/** Niveau EQH/EQL (dir "high" = EQH, "low" = EQL). */
+export interface EqV12 {
+  dir: 'high' | 'low'
+  price: number
+  touches: number
+  swept: boolean
+  bar_idx: number
+}
+/** Breaker block actif. */
+export interface BreakerV12 {
+  ts: number
+  dir: 'bull' | 'bear'
+  top: number
+  bot: number
+  bar_idx: number
+}
+/** Imbalance active (state = vierge | partiel | profond). */
+export interface ImbalanceV12 {
+  ts: number
+  dir: 'bull' | 'bear'
+  top: number
+  bot: number
+  state: string
+  bar_idx: number
+}
+/** Zone OTE active (≤1 par sens, sans ts — étendue sur toute la largeur). */
+export interface OteV12 {
+  dir: 'bull' | 'bear'
+  top: number
+  bot: number
+}
+/** Zone-cœur (intersection OB ∩ OTE ∩ FVG). */
+export interface ZoneCoeurV12 {
+  ts: number
+  dir: 'bull' | 'bear'
+  top: number
+  bot: number
+  ob_bar: number
+}
+/** État final Premium/Discount (équilibrium ICT + dealing range). */
+export interface PremiumDiscountV12 {
+  pd_range_h: number | null
+  pd_range_l: number | null
+  equilibrium: number | null
+  in_premium: boolean
+  in_discount: boolean
+}
+/** Order Block HTF (MTF H1/H4/W1/MN). */
+export interface HtfObV12 {
+  timeframe: 'H1' | 'H4' | 'W1' | 'MN'
+  dir: 'bull' | 'bear'
+  top: number
+  bot: number
+  ts: number
+}
+/** Plage de session Kill Zone (compression run-length). */
+export interface SessionRangeV12 {
+  start_ts: number
+  end_ts: number
+  session: 'asie' | 'londres' | 'ny'
+}
+/** Niveaux Asian High/Low (range de la session Asie du jour le plus récent). */
+export interface AsianHlV12 {
+  high: number
+  low: number
+  invalidated_up: boolean
+  invalidated_down: boolean
+}
+/** Gap NDOG/NWOG actif. */
+export interface GapV12 {
+  ts: number
+  gtype: 'ndog' | 'nwog'
+  top: number
+  bot: number
+  mitigated: boolean
+  bar_idx: number
+}
+/** Plage contiguë de volume fort (compression run-length). */
+export interface VolRangeV12 {
+  start_ts: number
+  end_ts: number
+}
+/** Plage contiguë d'impulsion (compression run-length). */
+export interface ImpRangeV12 {
+  start_ts: number
+  end_ts: number
+  impulsion: 'bull' | 'bear'
+}
+
 export interface SmcV12Analyse {
   asset: string
   timeframe: string
@@ -66,6 +166,20 @@ export interface SmcV12Analyse {
   signals: SignalV12[]
   tendance: 'haussiere' | 'baissiere' | 'neutre'
   atr14: number
+  // ── Indicateurs étendus (optionnels : absents si backend non mis à jour) ──
+  liquidites?: LiquiditeLevelV12[]
+  eqs?: EqV12[]
+  breakers?: BreakerV12[]
+  imbalances?: ImbalanceV12[]
+  otes?: OteV12[]
+  zone_coeur?: ZoneCoeurV12[]
+  premium_discount?: PremiumDiscountV12
+  mtf_obs?: HtfObV12[]
+  sessions?: SessionRangeV12[]
+  asian_hl?: AsianHlV12 | null
+  gaps?: GapV12[]
+  vol_fort?: VolRangeV12[]
+  impulsions?: ImpRangeV12[]
 }
 
 export const apiSmcMethods = {
