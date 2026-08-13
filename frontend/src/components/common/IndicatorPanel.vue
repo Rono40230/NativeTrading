@@ -48,6 +48,28 @@
 
       <div class="w-px self-stretch bg-white/10 mx-1" />
 
+      <!-- SMC v12 -->
+      <span class="text-[10px] text-cyan-400/80 uppercase tracking-wide mr-1">SMC v12</span>
+      <template v-for="groupe in v12Groupes" :key="groupe.label">
+        <span class="text-[9px] text-slate-500 uppercase tracking-wide mr-0.5 ml-1">{{ groupe.label }}</span>
+        <button
+          v-for="ind in groupe.items"
+          :key="ind.key"
+          @click="toggle(ind.key)"
+          :title="ind.pending ? 'Donnée non encore exposée par /api/smc/v12/analyse' : 'Afficher / Masquer'"
+          :class="[
+            'px-2 py-0.5 rounded-md text-[11px] font-medium border transition-all',
+            (prefs as any)[ind.key]
+              ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-200'
+              : ind.pending
+                ? 'bg-white/5 border-white/10 text-slate-500 hover:text-slate-300 italic'
+                : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+          ]"
+        >{{ ind.label }}</button>
+      </template>
+
+      <div class="w-px self-stretch bg-white/10 mx-1" />
+
       <!-- Analyse -->
       <span class="text-[10px] text-slate-500 uppercase tracking-wide mr-1">Analyse</span>
       <div class="flex items-center">
@@ -141,6 +163,66 @@ const smcOptions = [
   { key: 'smcBos',          label: 'BOS',          activeClass: 'bg-teal-500/20 border-teal-500/40 text-teal-300',            gearClass: 'bg-teal-500/10 border-teal-500/40 text-teal-400 hover:bg-teal-500/20'           },
   { key: 'smcChoch',        label: 'CHoCH',        activeClass: 'bg-fuchsia-500/20 border-fuchsia-500/40 text-fuchsia-300',   gearClass: 'bg-fuchsia-500/10 border-fuchsia-500/40 text-fuchsia-400 hover:bg-fuchsia-500/20' },
   { key: 'smcAsianSession', label: 'Range Asie',   activeClass: 'bg-amber-500/20 border-amber-500/40 text-amber-300',         gearClass: 'bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/20'       },
+]
+
+// ── SMC v12 : bascules ON/OFF par indicateur (overlay useSmcV12Overlay).
+// `pending = true` → l'API /api/smc/v12/analyse ne retourne pas encore cette
+// donnée : le bouton bascule le flag mais rien n'est dessiné pour l'instant.
+const v12Groupes = [
+  {
+    label: 'Structure',
+    items: [
+      { key: 'v12Structure', label: 'Structure', pending: false },
+      { key: 'v12Bos',       label: 'BOS',       pending: false },
+      { key: 'v12Mss',       label: 'MSS',       pending: false },
+      { key: 'v12Choch',     label: 'CHoCH',     pending: false },
+      { key: 'v12Sweeps',    label: 'Sweeps',    pending: false },
+      { key: 'v12EqhEql',    label: 'EQH/EQL',   pending: true  },
+      { key: 'v12Tendance',  label: 'Fond tendance', pending: false },
+    ],
+  },
+  {
+    label: 'Zones',
+    items: [
+      { key: 'v12Ob',        label: 'OB',        pending: false },
+      { key: 'v12Fvg',       label: 'FVG',       pending: false },
+      { key: 'v12Breaker',   label: 'Breakers',  pending: true  },
+      { key: 'v12Imbalance', label: 'Imbal.',    pending: true  },
+      { key: 'v12ZoneCoeur', label: 'Zone cœur', pending: true  },
+      { key: 'v12Signals',   label: 'Trades',    pending: false },
+    ],
+  },
+  {
+    label: 'Tech',
+    items: [
+      { key: 'v12Volume',     label: 'Fond volume',     pending: true },
+      { key: 'v12Impulsion',  label: 'Fond impulsion',  pending: true },
+    ],
+  },
+  {
+    label: 'Sessions',
+    items: [
+      { key: 'v12SessionAsie',   label: 'Sess. Asie',   pending: true },
+      { key: 'v12SessionLondres',label: 'Sess. Londres',pending: true },
+      { key: 'v12SessionNy',     label: 'Sess. NY',     pending: true },
+      { key: 'v12AsianHl',       label: 'Asian H/L',    pending: true },
+      { key: 'v12NiveauxCles',   label: 'PDH/PDL/PWH/PWL', pending: true },
+      { key: 'v12Ndog',          label: 'NDOG',         pending: true },
+      { key: 'v12Nwog',          label: 'NWOG',         pending: true },
+    ],
+  },
+  {
+    label: 'Multi-TF',
+    items: [
+      { key: 'v12Premium',     label: 'Fond Prem/Disc', pending: true },
+      { key: 'v12Equilibrium', label: 'Equilibrium',    pending: true },
+      { key: 'v12ObH1',        label: 'OB H1',          pending: true },
+      { key: 'v12ObH4',        label: 'OB H4',          pending: true },
+      { key: 'v12ObW1',        label: 'OB W1',          pending: true },
+      { key: 'v12ObMn',        label: 'OB MN',          pending: true },
+      { key: 'v12Ote',         label: 'Zone OTE',       pending: true },
+    ],
+  },
 ]
 </script>
 
