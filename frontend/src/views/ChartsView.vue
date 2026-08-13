@@ -88,6 +88,7 @@ import { useChartIndicators } from '@/composables/useChartIndicators'
 import { useSmcCanvas } from '@/composables/useSmcCanvas'
 import { useSmcLiqCanvas } from '@/composables/useSmcLiqCanvas'
 import { useSmcFibCanvas } from '@/composables/useSmcFibCanvas'
+import { useSmcV12Overlay } from '@/composables/useSmcV12Overlay'
 import { useChartEcoCal } from '@/composables/useChartEcoCal'
 import EcoCalTooltip from '@/components/common/EcoCalTooltip.vue'
 
@@ -131,6 +132,7 @@ const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSign
 const smcCanvas = useSmcCanvas()
 const liqCanvas = useSmcLiqCanvas()
 const fibCanvas = useSmcFibCanvas()
+const v12Overlay = useSmcV12Overlay()
 const tradeBox = useSignalTradeBox()
 const { initialiser: ecoCalInit, chargerAnnonces, detruire: ecoCalDetruire,
   tooltipAnnonce, tooltipX, tooltipY } = useChartEcoCal()
@@ -179,19 +181,25 @@ async function chargerIndicateurs() {
   if (chartContainer.value && serie) smcCanvas.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value && serie) liqCanvas.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value && serie) fibCanvas.initialiser(chart, serie, chartContainer.value)
+  if (chartContainer.value && serie) v12Overlay.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value && serie) tradeBox.initialiser(chartContainer.value, chart, serie)
   if (chartContainer.value) ecoCalInit(chart, chartContainer.value)
+  // Overlay SMC v12 : fetch du replay moteur (indépendant des indicateurs classiques).
+  const derniereB = bougies.value?.[bougies.value.length - 1]
+  const tsSecV12 = derniereB ? Math.floor(new Date(derniereB.timestamp).getTime() / 1000) : undefined
+  void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, 500, tsSecV12)
   await chargerEtAppliquer(
     chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
     rsiContainer.value, macdContainer.value, atrContainer.value,
     serie, filtreCourant.value,
     (data) => {
-      const derniereB = bougies.value?.[bougies.value.length - 1]
-      const tsMs = derniereB ? new Date(derniereB.timestamp).getTime() : null
+      const derniereB2 = bougies.value?.[bougies.value.length - 1]
+      const tsMs = derniereB2 ? new Date(derniereB2.timestamp).getTime() : null
       const tsSec = tsMs ? Math.floor(tsMs / 1000) : undefined
       smcCanvas.mettreAJourZones(data, settingsStore.indicateurs, tsSec)
       liqCanvas.mettreAJour(data, settingsStore.indicateurs, tsSec)
       fibCanvas.mettreAJour(data.fibonacci, settingsStore.indicateurs, tsSec)
+      v12Overlay.setDernierTs(tsSec)
       // Trade Box — dernier signal SMC pour cet asset × TF
       const dernierSignal = signalStore.signaux.find(
         s => s.asset === selectedAsset.value && s.timeframe === selectedTimeframe.value
@@ -209,6 +217,7 @@ const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestra
     smcCanvas.mettreAJourZones(data, prefs, ts)
     liqCanvas.mettreAJour(data, prefs, ts)
     fibCanvas.mettreAJour(data.fibonacci, prefs, ts)
+    v12Overlay.setDernierTs(ts)
   },
   chargerEtAppliquer, filtreCourant,
   mettreAJourSerie, mettreAJourEnDirect,
@@ -220,8 +229,11 @@ const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestra
   configurerRedimensionnement, arreterRedimensionnement,
 })
 
-// Nettoyage Trade Box au démontage de la vue
-onUnmounted(() => tradeBox.detruire())
+// Nettoyage Trade Box + overlay v12 au démontage de la vue
+onUnmounted(() => {
+  tradeBox.detruire()
+  v12Overlay.detruire()
+})
 
 chargerAnnonces()
 </script>
