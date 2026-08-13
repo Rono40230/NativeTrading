@@ -67,6 +67,7 @@ mod smc_feedback_job;
 mod smc_handlers;
 mod smc_monitoring_handlers;
 mod smc_signal_ollama;
+mod smc_v12_handlers;
 mod state;
 mod straddle_boucle;
 mod straddle_boucle_analyse;

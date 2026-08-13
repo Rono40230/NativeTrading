@@ -46,6 +46,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::smc_handlers::analyse_smc),
         )
         .route(
+            "/api/smc/v12/analyse",
+            web::get().to(crate::smc_v12_handlers::analyse_v12),
+        )
+        .route(
             "/api/indicators",
             web::get().to(crate::indicators_handlers::get_indicators),
         )
