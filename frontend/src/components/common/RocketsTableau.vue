@@ -59,8 +59,8 @@
           >{{ r.llm_conviction }}</span>
           <span v-else class="text-gray-700 text-xs">—</span>
         </td>
-        <td class="px-4 py-3 text-gray-500 text-xs">{{ new Date(r.cree_le.replace(' ', 'T') + 'Z').toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) }}</td>
-        <td v-if="showFermeLe" class="px-4 py-3 text-gray-500 text-xs">{{ r.maj_le ? new Date(r.maj_le.replace(' ', 'T') + 'Z').toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }) : '—' }}</td>
+        <td class="px-4 py-3 text-gray-500 text-xs">{{ new Date(r.cree_le.replace(' ', 'T') + 'Z').toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) }}</td>
+        <td v-if="showFermeLe" class="px-4 py-3 text-gray-500 text-xs">{{ r.maj_le ? new Date(r.maj_le.replace(' ', 'T') + 'Z').toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '—' }}</td>
       </tr>
     </tbody>
   </table>

@@ -39,6 +39,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { AnnonceCalendrier } from '@/services/api.types'
+import { formatParis } from '@/utils/date'
 
 const DRAPEAUX: Record<string, string> = {
   USD: '🇺🇸', EUR: '🇪🇺', GBP: '🇬🇧', JPY: '🇯🇵',
@@ -58,7 +59,7 @@ const drapeau = computed(() =>
 
 const heureLocale = computed(() =>
   props.annonce
-    ? new Date(props.annonce.date_heure).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    ? formatParis(new Date(props.annonce.date_heure), { hour: '2-digit', minute: '2-digit' })
     : ''
 )
 

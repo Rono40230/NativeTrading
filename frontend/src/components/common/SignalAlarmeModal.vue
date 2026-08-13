@@ -98,6 +98,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
+import { dateHeureParis } from '@/utils/date'
 import { useAssetParamsStore } from '@/stores/assetParams.store'
 
 const store = useSignalAlarmeStore()
@@ -163,8 +164,7 @@ function infosPips(cible: number | null | undefined, reference: number): string 
 }
 
 function formatDate(ts: number): string {
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-  return new Date(ts * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: tz })
+  return dateHeureParis(ts)
 }
 </script>
 

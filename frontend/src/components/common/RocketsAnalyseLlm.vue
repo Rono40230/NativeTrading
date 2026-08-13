@@ -80,6 +80,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import type { RocketAnalyseLlm, RocketRecommandation } from '@/services/api.types'
+import { formatParis } from '@/utils/date'
 import { apiService } from '@/services/api.service'
 
 const MIN_TRADES = 5
@@ -122,7 +123,7 @@ const recommandationsTri = computed(() =>
 
 const dateAnalyse = computed(() => {
   if (!analyse.value) return ''
-  return new Date(analyse.value.cree_le).toLocaleDateString('fr-FR', {
+  return formatParis(new Date(analyse.value.cree_le), {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })

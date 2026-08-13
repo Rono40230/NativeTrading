@@ -31,6 +31,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
+import { formatParis } from '@/utils/date'
 import type { StraddleVolatiliteLive, AnnonceCalendrier } from '@/services/api.types'
 import { useAlerteStore } from '@/stores/alerte.store'
 
@@ -123,7 +124,7 @@ function labelCategorie(cat: string): string {
 }
 
 function formatHeure(ts: number): string {
-  return new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return formatParis(new Date(ts), { hour: '2-digit', minute: '2-digit' })
 }
 
 async function charger() {

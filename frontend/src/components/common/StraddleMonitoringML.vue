@@ -185,6 +185,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { apiService } from '@/services/api.service'
+import { formatParis } from '@/utils/date'
 import type { StraddleMonitoringData, StraddleCalibrationRow } from '@/services/api.types'
 import { useAlerteStore } from '@/stores/alerte.store'
 
@@ -201,7 +202,7 @@ function pct(v: number): string {
 }
 
 function formatHeure(ts: number): string {
-  return new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return formatParis(new Date(ts), { hour: '2-digit', minute: '2-digit' })
 }
 
 function badgeCategorie(cat: string): string {

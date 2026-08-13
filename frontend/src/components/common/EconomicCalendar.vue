@@ -75,6 +75,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
+import { formatParis } from '@/utils/date'
 import type { AnnonceCalendrier } from '@/services/api.types'
 import { useAlerteStore } from '@/stores/alerte.store'
 
@@ -96,7 +97,7 @@ async function charger() {
 }
 
 function formatHeureLocale(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return formatParis(new Date(iso), { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatUTC(iso: string): string {

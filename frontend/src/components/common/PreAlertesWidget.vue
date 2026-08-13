@@ -44,6 +44,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
+import { formatParis } from '@/utils/date'
 
 interface PreAlerte {
   id: string
@@ -79,7 +80,7 @@ function badgeClasse(strategie: string): string {
 
 function formatDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    return formatParis(new Date(iso), { hour: '2-digit', minute: '2-digit' })
   } catch {
     return iso
   }

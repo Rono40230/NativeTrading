@@ -65,6 +65,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useSmcPerf } from '@/composables/useStrategiesPerf'
+import { formatParis } from '@/utils/date'
 
 const { data, chargement } = useSmcPerf()
 
@@ -99,9 +100,9 @@ const hoveredPointInfo = computed(() => {
   const pt = data.value.points[hoverIndex.value]
   if (!pt) return null
   
-  const dateStr = new Intl.DateTimeFormat('fr-FR', {
+  const dateStr = formatParis(pt.ferme_le, {
     day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-  }).format(new Date(pt.ferme_le * 1000))
+  })
   
   return {
     x: xCoord(hoverIndex.value, data.value.points.length),

@@ -61,16 +61,20 @@ import WorldMapBg from './WorldMapBg.vue'
 
 interface SessionDef {
   nom: string; timezone: string
-  ouvertureUtcH: number; ouvertureUtcM: number
-  fermetureUtcH: number; fermetureUtcM: number
+  // Horaires en **heure locale de la place** (wall-clock, inchangés par le DST
+  // de la place). L'offset UTC est calculé dynamiquement via Intl.DateTimeFormat
+  // avec le timeZone de la ville — fini les bornes UTC figées incorrectes en
+  // hiver/été.
+  ouvertureLocaleH: number; ouvertureLocaleM: number
+  fermetureLocaleH: number; fermetureLocaleM: number
 }
 
 const SESSIONS: SessionDef[] = [
-  { nom: 'Hong Kong', timezone: 'Asia/Hong_Kong',    ouvertureUtcH: 1,  ouvertureUtcM: 0,  fermetureUtcH: 9,  fermetureUtcM: 0  },
-  { nom: 'New York',  timezone: 'America/New_York',  ouvertureUtcH: 13, ouvertureUtcM: 30, fermetureUtcH: 20, fermetureUtcM: 0  },
-  { nom: 'Londres',   timezone: 'Europe/London',     ouvertureUtcH: 8,  ouvertureUtcM: 0,  fermetureUtcH: 17, fermetureUtcM: 0  },
-  { nom: 'Sydney',    timezone: 'Australia/Sydney',  ouvertureUtcH: 22, ouvertureUtcM: 0,  fermetureUtcH: 6,  fermetureUtcM: 0  },
-  { nom: 'Tokyo',     timezone: 'Asia/Tokyo',        ouvertureUtcH: 0,  ouvertureUtcM: 0,  fermetureUtcH: 9,  fermetureUtcM: 0  },
+  { nom: 'Hong Kong', timezone: 'Asia/Hong_Kong',    ouvertureLocaleH: 9,  ouvertureLocaleM: 0,  fermetureLocaleH: 17, fermetureLocaleM: 0  },
+  { nom: 'New York',  timezone: 'America/New_York',  ouvertureLocaleH: 9,  ouvertureLocaleM: 30, fermetureLocaleH: 16, fermetureLocaleM: 0  },
+  { nom: 'Londres',   timezone: 'Europe/London',     ouvertureLocaleH: 8,  ouvertureLocaleM: 0,  fermetureLocaleH: 17, fermetureLocaleM: 0  },
+  { nom: 'Sydney',    timezone: 'Australia/Sydney',  ouvertureLocaleH: 8,  ouvertureLocaleM: 0,  fermetureLocaleH: 16, fermetureLocaleM: 0  },
+  { nom: 'Tokyo',     timezone: 'Asia/Tokyo',        ouvertureLocaleH: 9,  ouvertureLocaleM: 0,  fermetureLocaleH: 18, fermetureLocaleM: 0  },
 ]
 
 // Ticks pré-calculés
@@ -105,19 +109,39 @@ function heureLocaleFormatee(tz: string, date: Date) {
   return new Intl.DateTimeFormat('fr-FR', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date)
 }
 
-function convertirEnTz(utcH: number, utcM: number, tz: string, ref: Date) {
-  const d = new Date(ref); d.setUTCHours(utcH, utcM, 0, 0)
-  return new Intl.DateTimeFormat('fr-FR', { timeZone: tz, hourCycle: 'h23', hour: '2-digit', minute: '2-digit' }).format(d)
-}
-
 function abrevTz(tz: string, date: Date) {
   return new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' })
     .formatToParts(date).find(p => p.type === 'timeZoneName')?.value ?? ''
 }
 
-function estWeekEnd(d: Date) { const j = d.getUTCDay(); return j === 0 || j === 6 }
+/** Secondes écoulées dans la journée locale de la timezone `tz`. */
+function secLocale(tz: string, date: Date) {
+  const { h, m, s } = getTimeParts(tz, date)
+  return h * 3600 + m * 60 + s
+}
+function ouvLocaleSec(s: SessionDef) { return s.ouvertureLocaleH * 3600 + s.ouvertureLocaleM * 60 }
+function ferLocaleSec(s: SessionDef) { return s.fermetureLocaleH * 3600 + s.fermetureLocaleM * 60 }
 
-function secUtc(d: Date) { return d.getUTCHours() * 3600 + d.getUTCMinutes() * 60 + d.getUTCSeconds() }
+/** Jour de semaine (0=Dim..6=Sam) dans la timezone donnée. */
+function jourSemaineTz(tz: string, date: Date): number {
+  const wd = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(date)
+  const map: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+  return map[wd] ?? 0
+}
+function estWeekEndTz(tz: string, date: Date) { const j = jourSemaineTz(tz, date); return j === 0 || j === 6 }
+
+/**
+ * Convertit une heure locale (HH:MM) de `tzSource` vers l'heure de `tzCible`,
+ * à la date `ref`. L'instant cible est obtenu en décalant `ref` du delta entre
+ * l'heure locale voulue et l'heure locale courante — le DST du jour est ainsi
+ * pris en compte via les parts Intl.
+ */
+function convertirLocaleVersTz(locH: number, locM: number, tzSource: string, tzCible: string, ref: Date) {
+  const src = getTimeParts(tzSource, ref)
+  const deltaMin = (locH * 60 + locM) - (src.h * 60 + src.m)
+  const instant = new Date(ref.getTime() + deltaMin * 60000)
+  return new Intl.DateTimeFormat('fr-FR', { timeZone: tzCible, hourCycle: 'h23', hour: '2-digit', minute: '2-digit' }).format(instant)
+}
 
 function formatDuree(sec: number) {
   if (sec <= 0) return ''
@@ -130,10 +154,10 @@ function formatDuree(sec: number) {
 type Etat = 'weekend' | 'active' | 'bientot' | 'fermee'
 
 function etatSession(s: SessionDef, now: Date): Etat {
-  if (estWeekEnd(now)) return 'weekend'
-  const cur = secUtc(now)
-  const ouv = s.ouvertureUtcH * 3600 + s.ouvertureUtcM * 60
-  const fer = s.fermetureUtcH * 3600 + s.fermetureUtcM * 60
+  if (estWeekEndTz(s.timezone, now)) return 'weekend'
+  const cur = secLocale(s.timezone, now)
+  const ouv = ouvLocaleSec(s)
+  const fer = ferLocaleSec(s)
   const actif = ouv > fer ? (cur >= ouv || cur < fer) : (cur >= ouv && cur < fer)
   if (actif) return 'active'
   if ((ouv - cur + 86400) % 86400 <= 1800) return 'bientot'
@@ -141,10 +165,10 @@ function etatSession(s: SessionDef, now: Date): Etat {
 }
 
 function secAvantOuv(s: SessionDef, now: Date) {
-  return (s.ouvertureUtcH * 3600 + s.ouvertureUtcM * 60 - secUtc(now) + 86400) % 86400
+  return (ouvLocaleSec(s) - secLocale(s.timezone, now) + 86400) % 86400
 }
 function secAvantFer(s: SessionDef, now: Date) {
-  return (s.fermetureUtcH * 3600 + s.fermetureUtcM * 60 - secUtc(now) + 86400) % 86400
+  return (ferLocaleSec(s) - secLocale(s.timezone, now) + 86400) % 86400
 }
 
 const sessions = computed(() => {
@@ -163,12 +187,13 @@ const sessions = computed(() => {
     const sec = handXY(secAngle, 38)
     const secTail = handXY(secAngle + 180, 9)
 
-    const ouvLocal = convertirEnTz(s.ouvertureUtcH, s.ouvertureUtcM, s.timezone, now)
-    const ferLocal = convertirEnTz(s.fermetureUtcH, s.fermetureUtcM, s.timezone, now)
+    // Horaires locaux de la place (wall-clock, fixes) + équivalent Paris.
+    const ouvLocal = `${pad(s.ouvertureLocaleH)}:${pad(s.ouvertureLocaleM)}`
+    const ferLocal = `${pad(s.fermetureLocaleH)}:${pad(s.fermetureLocaleM)}`
     const plageLocale = `${ouvLocal} – ${ferLocal} ${abrevTz(s.timezone, now)}`
 
-    const ouvParis = convertirEnTz(s.ouvertureUtcH, s.ouvertureUtcM, 'Europe/Paris', now)
-    const ferParis = convertirEnTz(s.fermetureUtcH, s.fermetureUtcM, 'Europe/Paris', now)
+    const ouvParis = convertirLocaleVersTz(s.ouvertureLocaleH, s.ouvertureLocaleM, s.timezone, 'Europe/Paris', now)
+    const ferParis = convertirLocaleVersTz(s.fermetureLocaleH, s.fermetureLocaleM, s.timezone, 'Europe/Paris', now)
     const plageParis = `${ouvParis} – ${ferParis} Paris`
 
     let ringColor: string, bgFill: string, handColor: string, secColor: string

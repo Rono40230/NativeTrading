@@ -84,6 +84,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { apiService } from '@/services/api.service'
+import { formatParis } from '@/utils/date'
 import type { ArticleNews, NiveauAlerte } from '@/services/api.types'
 
 const props = defineProps<{ article: ArticleNews | null }>()
@@ -125,7 +126,7 @@ async function traduireContenu() {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString('fr-FR', {
+  return formatParis(new Date(iso), {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })

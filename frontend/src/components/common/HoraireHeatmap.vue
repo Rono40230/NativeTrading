@@ -134,6 +134,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { JOURS as jours, CLUSTERS as clusters, COULEURS_CLUSTER, COULEURS_CLUSTER_PLEIN } from './heatmapConstants'
+import { offsetParisHeures } from '@/utils/date'
 import { apiService } from '@/services/api.service'
 import type { ReponsePatternsVolatilite, AssetInfo } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
@@ -180,19 +181,13 @@ function masquerTooltip() {
   tooltipVisible.value = false
 }
 
-/** Décalage UTC→Paris actuel : +2 en été (CEST), +1 en hiver (CET). */
-function decalageParis(): 1 | 2 {
-  const maintenant = new Date()
-  const hParis = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(maintenant))
-  const hUtc = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', hour: 'numeric', hour12: false }).format(maintenant))
-  return ((hParis - hUtc + 24) % 24) === 2 ? 2 : 1
+/** Offset UTC→Paris recalculé à chaque appel (DST auto via IANA Europe/Paris). */
+function zoneParis(): string {
+  return offsetParisHeures() === 2 ? 'CEST' : 'CET'
 }
 
-const DECALAGE_PARIS = decalageParis()
-const ZONE_PARIS = DECALAGE_PARIS === 2 ? 'CEST' : 'CET'
-
 function heureParis(heureUtc: number): number {
-  return (heureUtc + DECALAGE_PARIS) % 24
+  return (heureUtc + offsetParisHeures()) % 24
 }
 
 function trouverPattern(heure: number, jour: number) {
@@ -219,10 +214,15 @@ function celluleStyle(heure: number, jour: number) {
 
 function celluleTitre(heure: number, jour: number): string {
   const p = trouverPattern(heure, jour)
-  const hParis = heureParis(heure)
-  if (!p) return `${jours[jour]?.label} — ${hParis}h Paris (${ZONE_PARIS}) — aucune donnée`
+  const decalage = offsetParisHeures()
+  const hParis = (heure + decalage) % 24
+  // Roulement de jour : si heureUTC + offset >= 24, l'heure Paris bascule au
+  // jour suivant (convention jours = 0=Dim ... 6=Sam, +1 modulo 7).
+  const roulement = heure + decalage >= 24
+  const jourLabel = roulement ? jours[(jour + 1) % 7]?.label : jours[jour]?.label
+  if (!p) return `${jourLabel} — ${hParis}h Paris (${zoneParis()}) — aucune donnée`
   const nomCluster = ['Calme', 'Modéré', 'Élevé', 'Extrême'][p.cluster] ?? '?'
-  return `${jours[jour]?.label} ${hParis}h Paris (${ZONE_PARIS}) | ATR: ${p.atr_moyen.toFixed(1)} | ${nomCluster} | ${p.nb_points} pts`
+  return `${jourLabel} ${hParis}h Paris (${zoneParis()}) | ATR: ${p.atr_moyen.toFixed(1)} | ${nomCluster} | ${p.nb_points} pts`
 }
 
 const NOM_CLUSTER = ['Calme', 'Modéré', 'Élevé', 'Extrême'] as const
@@ -254,9 +254,13 @@ const analyse = computed(() => {
   const meilleurJour = parJour.reduce((a, b) => a.atrMoyen > b.atrMoyen ? a : b)
   const pireJour = parJour.reduce((a, b) => a.atrMoyen < b.atrMoyen ? a : b)
 
-  const hParisActuelle = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(new Date()))
-  const heureUtcActuelle = (hParisActuelle - DECALAGE_PARIS + 24) % 24
-  const jourActuel = new Date().getDay()
+  // Recherche directe dans la convention des données (heure UTC, jour 0=Dim) :
+  // on lit l'heure/jour UTC courants pour matcher le bucket exact, et l'heure
+  // Paris uniquement pour le label du panneau.
+  const maintenant = new Date()
+  const hParisActuelle = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(maintenant))
+  const heureUtcActuelle = maintenant.getUTCHours()
+  const jourActuel = maintenant.getUTCDay()
   const patternActuel = patterns.find(p => p.heure === heureUtcActuelle && p.jour_semaine === jourActuel) ?? null
 
   return { top3, pires3, meilleurJour, pireJour, patternActuel, hParisActuelle }

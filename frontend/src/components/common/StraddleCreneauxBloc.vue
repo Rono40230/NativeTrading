@@ -24,7 +24,7 @@
       <div v-if="fenDujour" class="flex items-center gap-2 text-[11px] mt-1 pt-1 border-t border-white/5">
         <span class="text-gray-400">Créneau programmé :</span>
         <span class="font-bold text-white">{{ fenDujour.asset }}</span>
-        <span class="text-gray-500">{{ fenDujour.heure_debut }}–{{ fenDujour.heure_fin }} Paris</span>
+        <span class="text-gray-500">{{ heureUtcVersParisStr(fenDujour.heure_debut) }}–{{ heureUtcVersParisStr(fenDujour.heure_fin) }} Paris</span>
       </div>
     </section>
 
@@ -52,6 +52,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { apiService } from '@/services/api.service'
 import { useAssetsStore } from '@/stores/assets.store'
 import type { StraddleCreneau, ReponsePatternsVolatilite, PatternHoraire } from '@/services/api.types'
+import { offsetParisHeures, jourSemaineParis } from '@/utils/date'
 
 const JOURS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
 
@@ -60,12 +61,16 @@ const creneaux = ref<StraddleCreneau[]>([])
 const chargement = ref(true)
 const now = ref(Date.now())
 
-const jourUTCAujourdhui = computed(() => new Date().getUTCDay())
+// Conventions data :
+//  • heatmap volatilité (classementVolatiliteJour) : jour_semaine 0=Dim (SQLite %w), heure UTC.
+//  • créneaux straddle (fenDujour / creneaux)       : jour_semaine 0=Lun (backend LLM), heure UTC.
+const jourUTCAujourdhui = computed(() => new Date().getUTCDay()) // 0=Dim — pour la heatmap
+const jourCreneauAujourdhui = computed(() => jourSemaineParis(Math.floor(now.value / 1000))) // 0=Lun Paris
 const jourLabel = computed(() => JOURS[jourUTCAujourdhui.value] ?? '')
 
 const fenDujour = computed<StraddleCreneau | null>(() => {
   const actifs = new Set(assetsStore.assets.map(a => a.id))
-  const d = jourUTCAujourdhui.value
+  const d = jourCreneauAujourdhui.value
   const candidats = creneaux.value.filter(c =>
     c.statut === 'valide' && actifs.has(c.asset) && c.jour_semaine === d
   )
@@ -95,17 +100,15 @@ watch(() => assetsStore.assets.filter(a => a.actif).map(a => a.id), async (actif
   chargementHeatmap.value = false
 }, { immediate: true, deep: true })
 
-function decalageParis(): 1 | 2 {
-  const maintenant = new Date()
-  const hParis = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(maintenant))
-  const hUtc = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', hour: 'numeric', hour12: false }).format(maintenant))
-  return ((hParis - hUtc + 24) % 24) === 2 ? 2 : 1
+function heureParis(heureUtc: number): number {
+  return (((heureUtc + offsetParisHeures()) % 24) + 24) % 24
 }
 
-const DECALAGE_PARIS = decalageParis()
-
-function heureParis(heureUtc: number): number {
-  return (heureUtc + DECALAGE_PARIS) % 24
+/** Convertit une heure "HH:MM" UTC en "HH:MM" Paris (offset DST dynamique). */
+function heureUtcVersParisStr(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number)
+  const parisH = (((h + offsetParisHeures()) % 24) + 24) % 24
+  return `${String(parisH).padStart(2, '0')}:${String(m ?? 0).padStart(2, '0')}`
 }
 
 function formaterHeures(heuresUtc: number[]): string {
@@ -172,8 +175,11 @@ function secondesAvant(c: StraddleCreneau): number {
   const base = new Date()
   base.setUTCHours(hd, md ?? 0, 0, 0)
   if (c.jour_semaine !== null) {
-    const jourAujourdhuiUTC = new Date().getUTCDay()
-    let delta = (c.jour_semaine - jourAujourdhuiUTC + 7) % 7
+    // Créneaux en convention 0=Lun, heure UTC, déclenchement backend UTC :
+    // on utilise le jour de semaine UTC en base 0=Lun ((getUTCDay()+6)%7) pour
+    // rester cohérent avec le moment exact où le backend déclenche le créneau.
+    const jourAujourdhui = (new Date().getUTCDay() + 6) % 7
+    let delta = (c.jour_semaine - jourAujourdhui + 7) % 7
     if (delta === 0 && base.getTime() <= Date.now()) delta = 7
     base.setUTCDate(base.getUTCDate() + delta)
   } else if (base.getTime() <= Date.now()) {

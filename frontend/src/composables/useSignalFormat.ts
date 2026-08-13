@@ -1,7 +1,8 @@
+import { dateHeureParis } from '@/utils/date'
+
 export function formatDate(ts: number): string {
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
   if (!ts) return '—'
-  return new Date(ts * 1000).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: tz })
+  return dateHeureParis(ts)
 }
 
 export function formatNombre(v: number | undefined): string {

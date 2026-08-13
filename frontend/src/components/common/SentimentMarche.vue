@@ -85,6 +85,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
+import { formatParis } from '@/utils/date'
 import { useSentimentStore } from '@/stores/sentiment.store'
 
 const store = useSentimentStore()
@@ -92,7 +93,7 @@ const { data, chargement, erreur } = storeToRefs(store)
 
 const dateAffichee = computed(() => {
   if (!data.value) return ''
-  return new Date(data.value.date).toLocaleDateString('fr-FR', {
+  return formatParis(new Date(data.value.date), {
     day: '2-digit', month: '2-digit', year: 'numeric',
   })
 })

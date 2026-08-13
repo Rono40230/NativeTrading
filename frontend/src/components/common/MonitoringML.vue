@@ -82,6 +82,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { createChart, type IChartApi } from 'lightweight-charts'
+import { formatParis } from '@/utils/date'
 import { apiService } from '@/services/api.service'
 import type { HistoriqueML } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
@@ -123,11 +124,11 @@ function xgbPct(e: Record<string, unknown>): number {
 }
 
 function formatHeure(tsMs: number): string {
-  return new Date(tsMs).toLocaleTimeString('fr-FR')
+  return formatParis(new Date(tsMs), { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 }
 
 function formatDate(ts: number): string {
-  return new Date(ts * 1000).toLocaleDateString('fr-FR', {
+  return formatParis(ts, {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
@@ -143,7 +144,7 @@ function periodeHistoriqueTexte(): string {
   const dRecent = new Date(recent.cree_le * 1000)
   const dAncien = new Date(ancien.cree_le * 1000)
   const fmt = (d: Date) =>
-    d.toLocaleDateString('fr-FR', {
+    formatParis(d, {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
