@@ -46,8 +46,8 @@ UPDATE assets SET epic_ig = 'IX.D.FTSE.IFD.IP' WHERE id = 'FTSE100';
 UPDATE assets SET epic_ig = 'IX.D.CAC.IFD.IP' WHERE id = 'CAC40';
 UPDATE assets SET epic_ig = 'IX.D.NIKKEI.IFD.IP' WHERE id = 'JP225';
 
--- Config worker par défaut
-INSERT OR REPLACE INTO configuration (cle, valeur) VALUES ('worker_timeframes', '["M5","M15","H1","D1"]');
-INSERT OR REPLACE INTO configuration (cle, valeur) VALUES ('worker_historique_mois', '6');
-INSERT OR REPLACE INTO configuration (cle, valeur) VALUES ('worker_actif_bybit', '1');
-INSERT OR REPLACE INTO configuration (cle, valeur) VALUES ('worker_actif_ig', '1');
+-- Config worker par défaut (maj_le est NOT NULL sans défaut → fourni explicitement)
+INSERT OR REPLACE INTO configuration (cle, valeur, maj_le) VALUES ('worker_timeframes', '["M5","M15","H1","D1"]', strftime('%s','now'));
+INSERT OR REPLACE INTO configuration (cle, valeur, maj_le) VALUES ('worker_historique_mois', '6', strftime('%s','now'));
+INSERT OR REPLACE INTO configuration (cle, valeur, maj_le) VALUES ('worker_actif_bybit', '1', strftime('%s','now'));
+INSERT OR REPLACE INTO configuration (cle, valeur, maj_le) VALUES ('worker_actif_ig', '1', strftime('%s','now'));

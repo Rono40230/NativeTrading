@@ -59,8 +59,14 @@ impl StatutWorker {
 
     /// Consigne l'insertion réussie d'une bougie (timestamp Unix secondes).
     pub fn consigne_bougie(&self, ts_unix: i64) {
+        self.consigne_bougies(ts_unix, 1);
+    }
+
+    /// Consigne l'insertion réussie de `n` bougies d'un même lot, la plus
+    /// récente à `ts_unix` (worker IG : insertion par batch).
+    pub fn consigne_bougies(&self, ts_unix: i64, n: u64) {
         self.derniere_bougie.store(ts_unix, Ordering::Relaxed);
-        self.bougies_inserees.fetch_add(1, Ordering::Relaxed);
+        self.bougies_inserees.fetch_add(n, Ordering::Relaxed);
     }
 
     /// Photographie l'état courant (lecture cohérente pour l'API).

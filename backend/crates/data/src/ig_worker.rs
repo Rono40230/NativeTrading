@@ -1,13 +1,19 @@
 //! Worker d'ingestion IG REST — forex + indices, 24/7, cycle 30 s.
 //!
-//! Boucle persistante qui interroge `GET /prices/{epic}` pour les 19 actifs
-//! non-crypto (12 forex + 7 indices) × 4 timeframes (M5, M15, H1, D1) et
-//! écrit les bougies en DB via `inserer_bougies_avec_source` (INSERT OR
-//! IGNORE → idempotent).
+//! Boucle persistante qui interroge `GET /prices/{epic}` pour les actifs non-
+//! crypto lus en DB (`assets.epic_ig`, source='ig') × les timeframes de la
+//! configuration (`worker_timeframes`) et écrit les bougies en DB via
+//! `inserer_bougies_avec_source` (INSERT OR IGNORE → idempotent).
+//!
+//! La liste des actifs et des timeframes est relue à CHAQUE cycle : activer ou
+//! désactiver un asset, changer les timeframes ou l'historique depuis l'UI est
+//! pris en compte en ≤ 30 s. Le flag `worker_actif_ig=0` met le worker en
+//! sommeil sans le tuer.
 //!
 //! Backfill intelligent : au premier cycle, chaque combinaison stale (> 1
-//! jour) ou absente est rechargée (200 bougies max, dimensionné sur l'écart
-//! réel). Les cycles suivants fetch les 2 dernières bougies fermées.
+//! jour) ou absente est rechargée (dimensionnée sur `worker_historique_mois`
+//! et l'écart réel, plafonné à 1000). Les cycles suivants fetch les 2 dernières
+//! bougies fermées.
 //!
 //! Protection du quota IG (REST historique ≈ 10 000 data points/semaine) :
 //! pacing d'une combinaison à la cadence de clôture de son timeframe (M5 →
@@ -23,6 +29,7 @@
 mod budget;
 mod reponse;
 
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -34,6 +41,8 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use crate::ig_session::IgSession;
+use crate::worker_config::{lire_actif, lire_historique_mois, lire_timeframes, CLE_ACTIF_IG};
+use crate::worker_status::STATUT_IG;
 use budget::BudgetQuota;
 use reponse::IgReponse;
 
@@ -43,8 +52,9 @@ const CYCLE: Duration = Duration::from_secs(30);
 const ESPACEMENT_REQUETE: Duration = Duration::from_millis(200);
 /// Seuil de staleness déclenchant un backfill : données plus vieilles qu'1 jour.
 const SEUIL_STALE_SEC: i64 = 86_400;
-/// Nombre de bougies maximum par backfill.
-const MAX_BACKFILL: usize = 200;
+/// Plafond de sécurité d'un backfill, quelle que soit la profondeur demandée
+/// (protège le quota IG — le budget glissant borne de toute façon).
+const MAX_BACKFILL_SECURITE: usize = 1000;
 /// Nombre de bougies fetch en update périodique (2 = la fermée + la marge).
 const MAX_UPDATE: usize = 2;
 /// Petite pause anti-boucle-chaude quand un cycle (backfill) dépasse 30 s.
@@ -57,32 +67,6 @@ const RETRY_ECHEC: Duration = Duration::from_secs(60);
 /// Source enregistrée en DB pour les bougies issues de ce worker.
 const SOURCE: &str = "ig_worker";
 
-/// Actifs couverts : 12 paires forex + 7 indices (asset DB, epic IG).
-const ASSETS_IG: &[(&str, &str)] = &[
-    ("EURUSD", "CS.D.EURUSD.CFD.IP"),
-    ("GBPJPY", "CS.D.GBPJPY.CFD.IP"),
-    ("USDJPY", "CS.D.USDJPY.CFD.IP"),
-    ("GBPUSD", "CS.D.GBPUSD.CFD.IP"),
-    ("USDCHF", "CS.D.USDCHF.CFD.IP"),
-    ("AUDUSD", "CS.D.AUDUSD.CFD.IP"),
-    ("USDCAD", "CS.D.USDCAD.CFD.IP"),
-    ("NZDUSD", "CS.D.NZDUSD.CFD.IP"),
-    ("CADJPY", "CS.D.CADJPY.CFD.IP"),
-    ("NZDJPY", "CS.D.NZDJPY.CFD.IP"),
-    ("EURJPY", "CS.D.EURJPY.CFD.IP"),
-    ("EURGBP", "CS.D.EURGBP.CFD.IP"),
-    ("DAX", "IX.D.DAX.IFD.IP"),
-    ("NAS100", "IX.D.NASDAQ.IFD.IP"),
-    ("SP500", "IX.D.SPTRD.IFD.IP"),
-    ("US30", "IX.D.DOW.IFD.IP"),
-    ("FTSE100", "IX.D.FTSE.IFD.IP"),
-    ("CAC40", "IX.D.CAC.IFD.IP"),
-    ("JP225", "IX.D.NIKKEI.IFD.IP"),
-];
-
-/// Timeframes couverts (les plus importants pour SMC + sentiment).
-const TIMEFRAMES_IG: &[Timeframe] = &[Timeframe::M5, Timeframe::M15, Timeframe::H1, Timeframe::D1];
-
 /// Garde anti-double-start. Le worker doit n'être spawné qu'une fois.
 /// Pattern identique à `BYBIT_WS_DEMARRE` dans `data::bybit_ws`.
 static IG_WORKER_DEMARRE: AtomicBool = AtomicBool::new(false);
@@ -92,19 +76,50 @@ fn marquer_demarre() -> bool {
     !IG_WORKER_DEMARRE.swap(true, Ordering::SeqCst)
 }
 
-/// Résout la liste des actifs suivis une fois pour toutes au démarrage.
-/// Un identifiant inconnu est loggué ERROR puis ignoré — jamais de panic.
-fn actifs_ig() -> Vec<(Asset, &'static str)> {
-    ASSETS_IG
-        .iter()
-        .filter_map(|(nom, epic)| match Asset::try_from(*nom) {
-            Ok(asset) => Some((asset, *epic)),
-            Err(e) => {
-                tracing::error!("IG worker: asset inconnu {} — ignoré ({})", nom, e);
-                None
-            }
-        })
+/// Filtre les assets DB pour ce worker : `source='ig' AND actif AND epic_ig IS
+/// NOT NULL` → couples `(asset_id, epic)`. Fonction pure → testable.
+fn filtrer_assets_ig(assets: Vec<db::assets::AssetWorker>) -> Vec<(String, String)> {
+    assets
+        .into_iter()
+        .filter(|a| a.actif && a.source == "ig")
+        .filter_map(|a| a.epic_ig.map(|epic| (a.id, epic)))
         .collect()
+}
+
+/// Lit depuis la DB les actifs à ingérer via IG, résolus en `Asset` du crate
+/// common. Un identifiant inconnu est loggué ERROR puis ignoré — jamais de
+/// panic. Toute erreur DB retourne une liste vide (retry au cycle suivant).
+async fn assets_ig_depuis_db(db: &Arc<Database>) -> Vec<(Asset, String)> {
+    match db.lister_assets_worker().await {
+        Ok(assets) => filtrer_assets_ig(assets)
+            .into_iter()
+            .filter_map(|(id, epic)| match Asset::try_from(id.as_str()) {
+                Ok(asset) => Some((asset, epic)),
+                Err(e) => {
+                    tracing::error!("IG worker: asset inconnu {} — ignoré ({})", id, e);
+                    None
+                }
+            })
+            .collect(),
+        Err(e) => {
+            tracing::warn!("IG worker: lecture DB des actifs impossible ({}) — retry plus tard", e);
+            Vec::new()
+        }
+    }
+}
+
+/// Nombre approximatif de bougies par mois pour un timeframe (base 24/7 ;
+/// le forex/indices ont des sessions plus courtes, mais ce calcul ne sert que
+/// de plafond de dimensionnement de backfill).
+fn bougies_par_mois(tf: Timeframe) -> u64 {
+    30 * 24 * 60 / tf.minutes().max(1)
+}
+
+/// Dimensionne le backfill complet selon la profondeur d'historique configurée
+/// (`worker_historique_mois`), plafonnée à `MAX_BACKFILL_SECURITE`.
+fn cible_backfill(tf: Timeframe, mois: i64) -> usize {
+    let mois = mois.clamp(1, 24) as u64;
+    (bougies_par_mois(tf).saturating_mul(mois) as usize).min(MAX_BACKFILL_SECURITE).max(MAX_UPDATE)
 }
 
 /// Durée entre deux fetchs d'une même combinaison : la cadence de clôture du
@@ -120,16 +135,17 @@ fn periode_rafraichissement(tf: &Timeframe) -> Duration {
 
 /// Dimensionne le fetch selon l'état de la DB pour une combinaison asset/tf :
 ///
-/// - aucune bougie → backfill complet (200) ;
+/// - aucune bougie → backfill complet (`cible`) ;
 /// - backfill autorisé (premier cycle) et écart > 1 jour → juste assez de
-///   bougies pour couvrir l'écart (+ marge), plafonné à 200 ;
+///   bougies pour couvrir l'écart (+ marge), plafonné à `cible` ;
 /// - sinon → update normal (2 bougies).
 ///
 /// En cycle normal (`backfill_autorise = false`) on ne backfill JAMAIS : un
-/// marché fermé un week-end ne doit pas déclencher 76 gros fetchs en boucle.
-fn calculer_max(derniere_ts: Option<i64>, tf: Timeframe, backfill_autorise: bool) -> usize {
+/// marché fermé un week-end ne doit pas déclencher des dizaines de gros fetchs
+/// en boucle.
+fn calculer_max(derniere_ts: Option<i64>, tf: Timeframe, backfill_autorise: bool, cible: usize) -> usize {
     let Some(ts) = derniere_ts else {
-        return MAX_BACKFILL;
+        return cible;
     };
     if !backfill_autorise {
         return MAX_UPDATE;
@@ -138,9 +154,9 @@ fn calculer_max(derniere_ts: Option<i64>, tf: Timeframe, backfill_autorise: bool
     if ecart_sec <= SEUIL_STALE_SEC {
         return MAX_UPDATE; // données fraîches → update normal
     }
-    // Stale : couvrir l'écart réel (ex. D1 à J+2 → ~4 bougies, pas 200).
+    // Stale : couvrir l'écart réel (ex. D1 à J+2 → ~4 bougies, pas la cible).
     let duree_tf_sec = tf.minutes() as i64 * 60;
-    ((ecart_sec / duree_tf_sec + 3) as usize).clamp(MAX_UPDATE, MAX_BACKFILL)
+    ((ecart_sec / duree_tf_sec + 3) as usize).clamp(MAX_UPDATE, cible)
 }
 
 // ─── Fetch REST ───────────────────────────────────────────────────────────────
@@ -212,7 +228,7 @@ pub fn demarrer_worker_ig(db: Arc<Database>, ig_session: Arc<Mutex<IgSession>>) 
     tokio::spawn(async move {
         boucle_worker(db, ig_session).await;
         // Ne devrait jamais arriver : la boucle est infinie. Si elle sort, on
-        // libère la garde pour permettre un redémarrage manuel ultérieur.
+        // libère le garde pour permettre un redémarrage manuel ultérieur.
         IG_WORKER_DEMARRE.store(false, Ordering::SeqCst);
         tracing::error!("IG worker: boucle principale terminée — ingestion arrêtée");
     });
@@ -222,35 +238,57 @@ pub fn demarrer_worker_ig(db: Arc<Database>, ig_session: Arc<Mutex<IgSession>>) 
 struct EtatWorker {
     /// true tant que le backfill des données stale n'a pas abouti.
     backfill_autorise: bool,
-    /// Prochaine échéance de fetch par combinaison actif×timeframe.
-    prochaines: Vec<Option<Instant>>,
+    /// Prochaine échéance de fetch par combinaison `(asset_id, timeframe)`.
+    /// HashMap : les combos sont dynamiques (relus en DB à chaque cycle).
+    prochaines: HashMap<(String, String), Instant>,
     /// Budget de data points sur fenêtre glissante.
     budget: BudgetQuota,
 }
 
-/// Boucle infinie : un cycle toutes les 30 s. Le premier cycle autorise le
-/// backfill (données stale), les suivants ne font que des updates à la
-/// cadence de clôture de chaque timeframe. Le temps passé à fetcher est
-/// déduit de l'attente (cycle >= 30 s).
+/// Boucle infinie : un cycle toutes les 30 s. À chaque cycle on relit la DB
+/// (actifs, timeframes, historique, interrupteur) — la configuration UI
+/// s'applique sans redémarrage. Le premier cycle autorise le backfill
+/// (données stale), les suivants ne font que des updates à la cadence de
+/// clôture de chaque timeframe. Le temps passé à fetcher est déduit de
+/// l'attente (cycle >= 30 s).
 async fn boucle_worker(db: Arc<Database>, ig_session: Arc<Mutex<IgSession>>) {
-    let actifs = actifs_ig();
     tracing::info!(
-        "📊 IG worker: démarrage ingestion REST ({} actifs × {} timeframes, cycle {:?}, source '{}')",
-        actifs.len(),
-        TIMEFRAMES_IG.len(),
+        "📊 IG worker: démarrage ingestion REST (actifs/timeframes pilotés en DB, cycle {:?}, source '{}')",
         CYCLE,
         SOURCE
     );
 
     let mut etat = EtatWorker {
         backfill_autorise: true,
-        prochaines: vec![None; actifs.len() * TIMEFRAMES_IG.len()],
+        prochaines: HashMap::new(),
         budget: BudgetQuota::new(),
     };
 
     loop {
         let debut = Instant::now();
-        cycle(&db, &ig_session, &actifs, &mut etat).await;
+
+        // Interrupteur UI : worker désactivé → sommeil, pas de fetch.
+        if !lire_actif(&db, CLE_ACTIF_IG).await {
+            tracing::debug!("IG worker: désactivé (worker_actif_ig=0) — cycle sauté");
+            STATUT_IG.marque_deconnecte();
+            sleep(CYCLE).await;
+            continue;
+        }
+
+        // Listes dynamiques relues à chaque cycle.
+        let actifs = assets_ig_depuis_db(&db).await;
+        let timeframes = lire_timeframes(&db).await;
+        let mois = lire_historique_mois(&db).await;
+        if actifs.is_empty() || timeframes.is_empty() {
+            tracing::warn!(
+                "IG worker: aucun actif (source='ig', epic_ig) ou timeframe à suivre — cycle sauté"
+            );
+            sleep(CYCLE).await;
+            continue;
+        }
+
+        cycle(&db, &ig_session, &actifs, &timeframes, mois, &mut etat).await;
+
         // Attente du reste du cycle ; si le cycle a dépassé 30 s (backfill
         // initial), petite pause de sécurité avant de repartir.
         if let Some(restant) = CYCLE.checked_sub(debut.elapsed()) {
@@ -268,7 +306,9 @@ async fn boucle_worker(db: Arc<Database>, ig_session: Arc<Mutex<IgSession>>) {
 async fn cycle(
     db: &Arc<Database>,
     ig_session: &Arc<Mutex<IgSession>>,
-    actifs: &[(Asset, &'static str)],
+    actifs: &[(Asset, String)],
+    timeframes: &[Timeframe],
+    historique_mois: i64,
     etat: &mut EtatWorker,
 ) {
     let debut_cycle = Instant::now();
@@ -284,22 +324,36 @@ async fn cycle(
                     CYCLE,
                     e
                 );
+                STATUT_IG.marque_deconnecte();
                 return;
             }
         }
     };
+    STATUT_IG.marque_connecte(actifs.len() as u64);
 
     let maintenant = Instant::now();
     let (mut requetes, mut inserees, mut echecs) = (0usize, 0u64, 0usize);
     let mut session_invalide = false;
 
-    'actifs: for (i, (asset, epic)) in actifs.iter().enumerate() {
-        for (j, tf) in TIMEFRAMES_IG.iter().enumerate() {
-            let idx = i * TIMEFRAMES_IG.len() + j;
+    // Pacing : élaguer les échéances des combos retirés de la config (asset
+    // désactivé, timeframe retiré) pour que la map ne grossisse pas indéfiniment.
+    let combos_valides: HashSet<(String, String)> = actifs
+        .iter()
+        .flat_map(|(asset, _)| {
+            timeframes
+                .iter()
+                .map(move |tf| (asset.as_str().to_string(), tf.as_str().to_string()))
+        })
+        .collect();
+    etat.prochaines.retain(|cle, _| combos_valides.contains(cle));
+
+    'actifs: for (asset, epic) in actifs.iter() {
+        for tf in timeframes.iter() {
+            let cle = (asset.as_str().to_string(), tf.as_str().to_string());
 
             // Pacing : rien de neuf attendu avant la prochaine clôture.
-            if let Some(echeance) = etat.prochaines[idx] {
-                if maintenant < echeance {
+            if let Some(echeance) = etat.prochaines.get(&cle) {
+                if &maintenant < echeance {
                     continue;
                 }
             }
@@ -316,7 +370,8 @@ async fn cycle(
                     None
                 }
             };
-            let max = calculer_max(derniere, *tf, etat.backfill_autorise);
+            let cible = cible_backfill(*tf, historique_mois);
+            let max = calculer_max(derniere, *tf, etat.backfill_autorise, cible);
             // Budget IG : une requête ne part que si son coût max tient.
             if !etat.budget.autorise(max) {
                 break 'actifs; // fenêtre pleine : inutile de parcourir le reste
@@ -330,17 +385,24 @@ async fn cycle(
                 ResultatFetch::Ok(_) => periode_rafraichissement(tf) + MARGE_FERMETURE,
                 ResultatFetch::Echec(_) | ResultatFetch::SessionInvalide => RETRY_ECHEC,
             };
-            etat.prochaines[idx] = Some(Instant::now() + rafraichissement);
+            etat.prochaines.insert(cle, Instant::now() + rafraichissement);
 
             match resultat {
                 ResultatFetch::Ok(bougies) => {
                     etat.budget.consigner(bougies.len());
                     if !bougies.is_empty() {
+                        // Timestamp de la plus récente bougie du lot (pour le statut).
+                        let ts_derniere = bougies.last().map(|b| b.timestamp.timestamp());
                         match db
                             .inserer_bougies_avec_source(asset, tf, &bougies, SOURCE)
                             .await
                         {
-                            Ok(n) => inserees += n,
+                            Ok(n) => {
+                                inserees += n;
+                                if let Some(ts) = ts_derniere {
+                                    STATUT_IG.consigne_bougies(ts, n);
+                                }
+                            }
                             Err(e) => tracing::warn!(
                                 "IG worker: écriture DB {} {}: {}",
                                 asset.as_str(),
@@ -378,6 +440,7 @@ async fn cycle(
     }
 
     if session_invalide {
+        STATUT_IG.marque_deconnecte();
         ig_session.lock().await.reset();
         return;
     }
@@ -411,26 +474,44 @@ async fn cycle(
 mod tests {
     use super::*;
 
-    #[test]
-    fn assets_ig_coherents_avec_providers() {
-        // Chaque (asset, epic) du worker doit correspondre au mapping
-        // officiel de providers::ig — protège contre toute divergence.
-        for (nom, epic) in ASSETS_IG {
-            let asset = Asset::try_from(*nom).expect("asset connu du crate common");
-            assert_eq!(
-                crate::providers::ig::epic_pour_asset(&asset),
-                Some(*epic),
-                "{}",
-                nom
-            );
+    fn asset_worker(id: &str, source: &str, epic: Option<&str>, actif: bool) -> db::assets::AssetWorker {
+        db::assets::AssetWorker {
+            id: id.to_string(),
+            source: source.to_string(),
+            symbol_bybit: None,
+            epic_ig: epic.map(|e| e.to_string()),
+            actif,
         }
-        // 12 forex + 7 indices, tous résolus, 4 timeframes.
-        assert_eq!(ASSETS_IG.len(), 19);
-        assert_eq!(actifs_ig().len(), 19);
-        assert_eq!(
-            TIMEFRAMES_IG,
-            &[Timeframe::M5, Timeframe::M15, Timeframe::H1, Timeframe::D1]
-        );
+    }
+
+    #[test]
+    fn filtrer_assets_ig_selectionne_source_ig_actifs_avec_epic() {
+        let assets = vec![
+            asset_worker("EURUSD", "ig", Some("CS.D.EURUSD.CFD.IP"), true),
+            asset_worker("DAX", "ig", Some("IX.D.DAX.IFD.IP"), true),
+            // Crypto routée vers Bybit → exclue.
+            asset_worker("BTC", "binance", Some("FAKE"), true),
+            // Inactif → exclue.
+            asset_worker("GBPUSD", "ig", Some("CS.D.GBPUSD.CFD.IP"), false),
+            // Actif IG sans epic → exclue.
+            asset_worker("XPTUSD", "ig", None, true),
+        ];
+        let retenus = filtrer_assets_ig(assets);
+        assert_eq!(retenus.len(), 2);
+        assert_eq!(retenus[0], ("EURUSD".to_string(), "CS.D.EURUSD.CFD.IP".to_string()));
+        assert_eq!(retenus[1], ("DAX".to_string(), "IX.D.DAX.IFD.IP".to_string()));
+    }
+
+    #[test]
+    fn cible_backfill_dimensionnee_sur_lhistorique_configure() {
+        // D1 sur 6 mois → 180 bougies.
+        assert_eq!(cible_backfill(Timeframe::D1, 6), 180);
+        // H1 sur 3 mois → 2160 → plafonné au maximum de sécurité.
+        assert_eq!(cible_backfill(Timeframe::H1, 3), MAX_BACKFILL_SECURITE);
+        // M5 sur 1 mois → déjà plafonné ; 0 mois est borné à 1.
+        assert_eq!(cible_backfill(Timeframe::M5, 0), MAX_BACKFILL_SECURITE);
+        // Jamais sous MAX_UPDATE.
+        assert!(cible_backfill(Timeframe::W1, 1) >= MAX_UPDATE);
     }
 
     #[test]
@@ -451,27 +532,28 @@ mod tests {
     #[test]
     fn calculer_max_selon_letat_db() {
         let maintenant = Utc::now().timestamp();
+        let cible = cible_backfill(Timeframe::M5, 6); // = MAX_BACKFILL_SECURITE
         // Aucune donnée → backfill complet, même en cycle normal.
-        assert_eq!(calculer_max(None, Timeframe::M5, true), MAX_BACKFILL);
-        assert_eq!(calculer_max(None, Timeframe::M5, false), MAX_BACKFILL);
+        assert_eq!(calculer_max(None, Timeframe::M5, true, cible), cible);
+        assert_eq!(calculer_max(None, Timeframe::M5, false, cible), cible);
         // Données fraîches → update.
         assert_eq!(
-            calculer_max(Some(maintenant - 60), Timeframe::M5, true),
+            calculer_max(Some(maintenant - 60), Timeframe::M5, true, cible),
             MAX_UPDATE
         );
-        // D1 stale de ~30 h → 1 bougie entière + marge 3 = 4, pas 200.
+        // D1 stale de ~30 h → 1 bougie entière + marge 3 = 4, pas la cible.
+        let cible_d1 = cible_backfill(Timeframe::D1, 6);
         assert_eq!(
-            calculer_max(Some(maintenant - 30 * 3600), Timeframe::D1, true),
+            calculer_max(Some(maintenant - 30 * 3600), Timeframe::D1, true, cible_d1),
             4
         );
-        // M5 avec 3 jours de trou → plafonné à 200.
-        assert_eq!(
-            calculer_max(Some(maintenant - 3 * 86_400), Timeframe::M5, true),
-            MAX_BACKFILL
-        );
+        // M5 avec 3 jours de trou → ~867 bougies pour couvrir l'écart réel,
+        // sans jamais dépasser la cible (une seconde d'horlope peut s'ajouter).
+        let pour_trou = calculer_max(Some(maintenant - 3 * 86_400), Timeframe::M5, true, cible);
+        assert!((867..=cible).contains(&pour_trou), "attendu ~867..=cible, obtenu {}", pour_trou);
         // Week-end (écart énorme) mais cycle normal → jamais de backfill.
         assert_eq!(
-            calculer_max(Some(maintenant - 7 * 86_400), Timeframe::M5, false),
+            calculer_max(Some(maintenant - 7 * 86_400), Timeframe::M5, false, cible),
             MAX_UPDATE
         );
     }
