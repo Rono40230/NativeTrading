@@ -6,6 +6,8 @@ pub mod ig_session;
 pub mod ig_worker;
 pub mod prix_utils;
 pub mod providers;
+pub mod worker_config;
+pub mod worker_status;
 
 #[async_trait::async_trait]
 pub trait DataProvider: Send + Sync {

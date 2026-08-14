@@ -1,15 +1,20 @@
 //! Worker d'ingestion Bybit WebSocket — crypto + métaux, 24/7, sans clé API.
 //!
 //! Connexion publique à `wss://stream.bybit.com/v5/public/linear`, souscription
-//! aux topics `kline.{interval}.{symbol}` pour les 12 actifs × 5 timeframes
-//! (60 topics), et écriture en DB des **bougies fermées** uniquement
-//! (champ `confirm: true`).
+//! aux topics `kline.{interval}.{symbol}` pour les actifs × timeframes lus en
+//! DB (`assets.symbol_bybit` × `configuration.worker_timeframes`), et écriture
+//! en DB des **bougies fermées** uniquement (champ `confirm: true`).
+//!
+//! Aucune liste d'actifs n'est hardcodée : chaque session relit la DB —
+//! activer/désactiver un asset ou changer les timeframes depuis l'UI est pris
+//! en compte à la reconnexion suivante (backoff max 60 s).
 //!
 //! Résilience : reconnect automatique avec backoff exponentiel (2 s → 60 s),
 //! réinitialisé après une session stable. Répond aux pings JSON de Bybit
 //! (`{"op":"ping"}` → `{"op":"pong"}`) et aux pings protocolaires, plus un
 //! heartbeat applicatif périodique pour maintenir la connexion ouverte.
 
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -20,6 +25,9 @@ use db::Database;
 use futures_util::{SinkExt, StreamExt};
 use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
+
+use crate::worker_config::{lire_actif, lire_timeframes, CLE_ACTIF_BYBIT};
+use crate::worker_status::STATUT_BYBIT;
 
 /// URL du WebSocket public Bybit (linear perpetuals — crypto + métaux XAU/XAG).
 const BYBIT_WS_URL: &str = "wss://stream.bybit.com/v5/public/linear";
@@ -34,9 +42,6 @@ const BACKOFF_MAX_SEC: u64 = 60;
 /// Durée minimale d'une session pour la considérer « stable » et réinitialiser
 /// le backoff (secondes).
 const SESSION_STABLE_SEC: u64 = 30;
-/// Période du heartbeat applicatif (ping JSON) envoyé à Bybit (secondes).
-/// Bybit ferme la connexion après ~30 s d'inactivité côté serveur.
-const HEARTBEAT_SEC: u64 = 20;
 /// Nombre maximal d'args (topics) par message `subscribe` (limite Bybit = 100).
 const NB_ARGS_MAX: usize = 60;
 
@@ -51,25 +56,24 @@ fn marquer_demarre() -> bool {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mappings Bybit → DB
+// Actifs et timeframes dynamiques (source : DB)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Mappe un symbole Bybit vers l'identifiant d'asset utilisé en DB.
-fn bybit_vers_asset(symbol: &str) -> Option<&'static str> {
-    match symbol {
-        "BTCUSDT" => Some("BTC"),
-        "ETHUSDT" => Some("ETH"),
-        "SOLUSDT" => Some("SOL"),
-        "BNBUSDT" => Some("BNB"),
-        "XRPUSDT" => Some("XRP"),
-        "ADAUSDT" => Some("ADA"),
-        "DOGEUSDT" => Some("DOGE"),
-        "AVAXUSDT" => Some("AVAX"),
-        "LINKUSDT" => Some("LINK"),
-        "DOTUSDT" => Some("DOT"),
-        "XAUUSDT" => Some("XAUUSD"),
-        "XAGUSDT" => Some("XAGUSD"),
-        _ => None,
+/// Lit depuis la DB les actifs à ingérer via Bybit : couples
+/// `(symbol_bybit, asset_id)` filtrés sur `source='binance' AND actif AND
+/// symbol_bybit IS NOT NULL`. Toute erreur DB retourne une liste vide — le
+/// worker retentera à la session suivante.
+async fn assets_bybit_depuis_db(db: &Arc<Database>) -> Vec<(String, String)> {
+    match db.lister_assets_worker().await {
+        Ok(assets) => assets
+            .into_iter()
+            .filter(|a| a.actif && a.source == "binance")
+            .filter_map(|a| a.symbol_bybit.map(|s| (s, a.id)))
+            .collect(),
+        Err(e) => {
+            tracing::warn!("Bybit WS: lecture DB des actifs impossible ({}) — retry plus tard", e);
+            Vec::new()
+        }
     }
 }
 
@@ -79,30 +83,48 @@ fn bybit_interval_vers_tf(interval: &str) -> Option<&'static str> {
         "1" => Some("M1"),
         "5" => Some("M5"),
         "15" => Some("M15"),
+        "30" => Some("M30"),
         "60" => Some("H1"),
+        "240" => Some("H4"),
         "D" => Some("D1"),
+        "W" => Some("W1"),
         _ => None,
     }
 }
 
-/// Symboles Bybit couverts (10 cryptos + 2 métaux).
-const SYMBOLES: &[&str] = &[
-    "BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT", "AVAXUSDT",
-    "LINKUSDT", "DOTUSDT", "XAUUSDT", "XAGUSDT",
-];
+/// Mappe un timeframe DB vers l'interval Bybit (inverse du précédent).
+fn tf_vers_bybit_interval(tf: &Timeframe) -> Option<&'static str> {
+    match tf {
+        Timeframe::M1 => Some("1"),
+        Timeframe::M5 => Some("5"),
+        Timeframe::M15 => Some("15"),
+        Timeframe::M30 => Some("30"),
+        Timeframe::H1 => Some("60"),
+        Timeframe::H4 => Some("240"),
+        Timeframe::D1 => Some("D"),
+        Timeframe::W1 => Some("W"),
+    }
+}
 
-/// Intervals Bybit couverts (5 timeframes du moteur SMC v12 + sentiment).
-const INTERVALS: &[&str] = &["1", "5", "15", "60", "D"];
-
-/// Génère la liste des topics `kline.{interval}.{symbol}` à souscrire.
-fn topics() -> Vec<String> {
-    let mut v = Vec::with_capacity(SYMBOLES.len() * INTERVALS.len());
-    for &interval in INTERVALS {
-        for &symbol in SYMBOLES {
+/// Construit la liste des topics `kline.{interval}.{symbol}` pour les actifs ×
+/// timeframes donnés. Fonction pure → testable.
+fn construire_topics(assets: &[(String, String)], timeframes: &[Timeframe]) -> Vec<String> {
+    let mut v = Vec::with_capacity(assets.len() * timeframes.len());
+    for tf in timeframes {
+        let Some(interval) = tf_vers_bybit_interval(tf) else {
+            continue;
+        };
+        for (symbol, _) in assets {
             v.push(format!("kline.{}.{}", interval, symbol));
         }
     }
     v
+}
+
+/// Construit le mapping symbol Bybit → asset DB pour le parsing des messages.
+/// Un doublon de symbole écrase silencieusement le premier (dernier gagnant).
+fn construire_mapping(assets: &[(String, String)]) -> HashMap<String, String> {
+    assets.iter().cloned().collect()
 }
 
 /// Extrait `(interval, symbol)` d'un topic `kline.{interval}.{symbol}`.
@@ -130,9 +152,11 @@ enum ActionWs {
     Bougies(Vec<(Asset, Timeframe, Candle)>),
 }
 
-/// Parse un message texte brut Bybit en `ActionWs`. Fonction pure → testable
-/// sans DB ni réseau.
-fn traiter_texte(message: &str) -> ActionWs {
+/// Parse un message texte brut Bybit en `ActionWs`. `mapping` (symbol → asset
+/// DB) est construit à partir de la DB au début de chaque session — il
+/// remplace l'ancien mapping hardcodé `bybit_vers_asset()`. Fonction pure →
+/// testable sans DB ni réseau.
+fn traiter_texte(message: &str, mapping: &HashMap<String, String>) -> ActionWs {
     let valeur: serde_json::Value = match serde_json::from_str(message) {
         Ok(v) => v,
         Err(e) => {
@@ -170,13 +194,16 @@ fn traiter_texte(message: &str) -> ActionWs {
     let Some((interval, symbol)) = extraire_topic(topic) else {
         return ActionWs::Ignorer;
     };
-    let Some(asset_str) = bybit_vers_asset(symbol) else {
+    let Some(asset_str) = mapping.get(symbol).map(|s| s.as_str()) else {
         return ActionWs::Ignorer; // symbole non suivi
     };
     let Some(tf_str) = bybit_interval_vers_tf(interval) else {
         return ActionWs::Ignorer; // interval non suivi
     };
     let Ok(asset) = Asset::try_from(asset_str) else {
+        // Asset présent dans la table mais inconnu du crate common → on logge
+        // une fois par message (rare : DB et enum divergent).
+        tracing::warn!("Bybit WS: asset DB '{}' inconnu du crate common — ignoré", asset_str);
         return ActionWs::Ignorer;
     };
     let Ok(tf) = Timeframe::try_from(tf_str) else {
@@ -262,17 +289,13 @@ pub fn demarrer_worker_bybit(db: Arc<Database>) {
 /// croît exponentiellement (×2, plafonné à 60 s) et se réinitialise après une
 /// session stable.
 async fn boucle_reconnect(db: Arc<Database>) {
-    tracing::info!(
-        "🌐 Bybit WS: démarrage worker ingestion ({} topics, {} actifs × {} timeframes)",
-        topics().len(),
-        SYMBOLES.len(),
-        INTERVALS.len()
-    );
+    tracing::info!("🌐 Bybit WS: démarrage worker ingestion (actifs/timeframes pilotés en DB)");
 
     let mut backoff = BACKOFF_DEPART_SEC;
     loop {
         let debut_session = Instant::now();
         let resultat = session_unique(&db).await;
+        STATUT_BYBIT.marque_deconnecte();
 
         let duree = debut_session.elapsed();
         match resultat {
@@ -306,8 +329,34 @@ async fn boucle_reconnect(db: Arc<Database>) {
 }
 
 /// Établit une connexion, souscrit aux topics, et traite les messages jusqu'à
-/// déconnexion ou erreur. Retourne `Ok(())` sur fermeture propre, `Err` sinon.
+/// déconnexion ou erreur. Retourne `Ok(())` sur fermeture propre ou si le
+/// worker est désactivé / n'a aucun actif à suivre (sans se connecter).
 async fn session_unique(db: &Arc<Database>) -> anyhow::Result<()> {
+    // Interrupteur UI : worker désactivé → pas de connexion, retry au backoff max.
+    if !lire_actif(db, CLE_ACTIF_BYBIT).await {
+        tracing::debug!("Bybit WS: worker désactivé (worker_actif_bybit=0) — session sautée");
+        return Ok(());
+    }
+
+    // Actifs et timeframes relus à CHAQUE session : la config UI s'applique
+    // en ≤ 60 s sans redémarrage.
+    let assets = assets_bybit_depuis_db(db).await;
+    let timeframes = lire_timeframes(db).await;
+    if assets.is_empty() || timeframes.is_empty() {
+        tracing::warn!(
+            "Bybit WS: aucun actif (source='binance', symbol_bybit) ou timeframe à suivre — session sautée"
+        );
+        return Ok(());
+    }
+    let topics = construire_topics(&assets, &timeframes);
+    let mapping = construire_mapping(&assets);
+    tracing::info!(
+        "Bybit WS: session prévue pour {} actifs × {} timeframes = {} topics",
+        assets.len(),
+        timeframes.len(),
+        topics.len()
+    );
+
     tracing::info!("Bybit WS: connexion à {}", BYBIT_WS_URL);
     let (ws, reponse) = match connect_async(BYBIT_WS_URL).await {
         Ok((ws, reponse)) => (ws, reponse),
@@ -316,11 +365,11 @@ async fn session_unique(db: &Arc<Database>) -> anyhow::Result<()> {
         }
     };
     tracing::info!("Bybit WS: connecté (HTTP {})", reponse.status());
+    STATUT_BYBIT.marque_connecte(assets.len() as u64);
 
     let (mut sortie, mut entree) = ws.split();
 
     // Souscription aux topics, par morceaux si NB_ARGS_MAX < nb topics.
-    let topics = topics();
     let nb_morceaux = topics.len().div_ceil(NB_ARGS_MAX).max(1);
     for morceau in topics.chunks(NB_ARGS_MAX) {
         let souscription = serde_json::json!({ "op": "subscribe", "args": morceau });
@@ -343,7 +392,7 @@ async fn session_unique(db: &Arc<Database>) -> anyhow::Result<()> {
     loop {
         match entree.next().await {
             Some(Ok(Message::Text(texte))) => {
-                match traiter_texte(&texte) {
+                match traiter_texte(&texte, &mapping) {
                     ActionWs::Pong => {
                         let pong = {
                             let parsed = serde_json::from_str::<serde_json::Value>(&texte);
@@ -396,6 +445,7 @@ async fn inserer_bougies(db: &Arc<Database>, bougies: Vec<(Asset, Timeframe, Can
             .await
         {
             Ok(_) => {
+                STATUT_BYBIT.consigne_bougie(ts);
                 tracing::debug!(
                     "Bybit WS: bougie fermée insérée {} {} ts={}",
                     asset.as_str(),
@@ -416,28 +466,47 @@ async fn inserer_bougies(db: &Arc<Database>, bougies: Vec<(Asset, Timeframe, Can
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tests unitaires (pas de réseau)
+// Tests unitaires (pas de réseau, pas de DB)
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn nombre_de_topics_est_60() {
-        assert_eq!(topics().len(), 60);
-        // Tous les topics sont bien formés.
-        assert!(topics().iter().all(|t| t.starts_with("kline.")));
+    /// Mapping de test équivalent au pré-remplissage de la migration 0064.
+    fn mapping_test() -> HashMap<String, String> {
+        construire_mapping(&[
+            ("BTCUSDT".to_string(), "BTC".to_string()),
+            ("ETHUSDT".to_string(), "ETH".to_string()),
+            ("XAUUSDT".to_string(), "XAUUSD".to_string()),
+            ("XAGUSDT".to_string(), "XAGUSD".to_string()),
+            ("DOGEUSDT".to_string(), "DOGE".to_string()),
+        ])
     }
 
     #[test]
-    fn mapping_symboles_bybit_vers_db() {
-        assert_eq!(bybit_vers_asset("BTCUSDT"), Some("BTC"));
-        assert_eq!(bybit_vers_asset("DOGEUSDT"), Some("DOGE"));
-        assert_eq!(bybit_vers_asset("XAUUSDT"), Some("XAUUSD"));
-        assert_eq!(bybit_vers_asset("XAGUSDT"), Some("XAGUSD"));
-        assert_eq!(bybit_vers_asset("EURUSDT"), None); // non suivi
-        assert_eq!(bybit_vers_asset("MACHIN"), None);
+    fn construire_topics_dynamiques() {
+        let assets = vec![
+            ("BTCUSDT".to_string(), "BTC".to_string()),
+            ("XAUUSDT".to_string(), "XAUUSD".to_string()),
+        ];
+        let tfs = vec![Timeframe::M15, Timeframe::D1];
+        let topics = construire_topics(&assets, &tfs);
+        // 2 actifs × 2 timeframes, intervals Bybit corrects.
+        assert_eq!(topics.len(), 4);
+        assert!(topics.contains(&"kline.15.BTCUSDT".to_string()));
+        assert!(topics.contains(&"kline.D.XAUUSDT".to_string()));
+        // Liste vide → aucun topic.
+        assert!(construire_topics(&[], &tfs).is_empty());
+        assert!(construire_topics(&assets, &[]).is_empty());
+    }
+
+    #[test]
+    fn mapping_dynamique_symbole_vers_asset() {
+        let mapping = mapping_test();
+        assert_eq!(mapping.get("BTCUSDT").map(|s| s.as_str()), Some("BTC"));
+        assert_eq!(mapping.get("XAUUSDT").map(|s| s.as_str()), Some("XAUUSD"));
+        assert!(!mapping.contains_key("EURUSDT")); // non suivi
     }
 
     #[test]
@@ -445,10 +514,20 @@ mod tests {
         assert_eq!(bybit_interval_vers_tf("1"), Some("M1"));
         assert_eq!(bybit_interval_vers_tf("5"), Some("M5"));
         assert_eq!(bybit_interval_vers_tf("15"), Some("M15"));
+        assert_eq!(bybit_interval_vers_tf("30"), Some("M30"));
         assert_eq!(bybit_interval_vers_tf("60"), Some("H1"));
+        assert_eq!(bybit_interval_vers_tf("240"), Some("H4"));
         assert_eq!(bybit_interval_vers_tf("D"), Some("D1"));
-        assert_eq!(bybit_interval_vers_tf("240"), None); // H4 non couvert ici
-        assert_eq!(bybit_interval_vers_tf("W"), None);
+        assert_eq!(bybit_interval_vers_tf("W"), Some("W1"));
+        assert_eq!(bybit_interval_vers_tf("120"), None); // H2 non couvert
+        // Bijection interval ↔ timeframe.
+        for tf in [
+            Timeframe::M1, Timeframe::M5, Timeframe::M15, Timeframe::M30,
+            Timeframe::H1, Timeframe::H4, Timeframe::D1, Timeframe::W1,
+        ] {
+            let interval = tf_vers_bybit_interval(&tf).expect("interval connu");
+            assert_eq!(bybit_interval_vers_tf(interval), Some(tf.as_str()));
+        }
     }
 
     #[test]
@@ -483,7 +562,7 @@ mod tests {
                 "timestamp": 1786521700000
             }]
         }"#;
-        match traiter_texte(message) {
+        match traiter_texte(message, &mapping_test()) {
             ActionWs::Bougies(bougies) => {
                 assert_eq!(bougies.len(), 1, "une bougie attendue");
                 let (asset, tf, c) = &bougies[0];
@@ -517,7 +596,10 @@ mod tests {
                 "confirm": false
             }]
         }"#;
-        assert!(matches!(traiter_texte(message), ActionWs::Ignorer));
+        assert!(matches!(
+            traiter_texte(message, &mapping_test()),
+            ActionWs::Ignorer
+        ));
     }
 
     #[test]
@@ -529,7 +611,7 @@ mod tests {
                 {"start": 2000, "interval": "5", "open": "20", "high": "21", "low": "19", "close": "20.5", "volume": "6", "confirm": false}
             ]
         }"#;
-        match traiter_texte(message) {
+        match traiter_texte(message, &mapping_test()) {
             ActionWs::Bougies(bougies) => {
                 assert_eq!(bougies.len(), 1, "seule la bougie confirmée doit passer");
                 let (asset, tf, _) = &bougies[0];
@@ -542,32 +624,56 @@ mod tests {
 
     #[test]
     fn parsing_ping_applicatif_renvoie_pong() {
-        assert!(matches!(traiter_texte(r#"{"op":"ping"}"#), ActionWs::Pong));
+        assert!(matches!(
+            traiter_texte(r#"{"op":"ping"}"#, &mapping_test()),
+            ActionWs::Pong
+        ));
     }
 
     #[test]
     fn parsing_pong_et_ack_subscribe_ignores() {
-        assert!(matches!(traiter_texte(r#"{"op":"pong"}"#), ActionWs::Ignorer));
         assert!(matches!(
-            traiter_texte(r#"{"op":"subscribe","success":true}"#),
+            traiter_texte(r#"{"op":"pong"}"#, &mapping_test()),
+            ActionWs::Ignorer
+        ));
+        assert!(matches!(
+            traiter_texte(r#"{"op":"subscribe","success":true}"#, &mapping_test()),
             ActionWs::Ignorer
         ));
     }
 
     #[test]
     fn parsing_message_non_json_ignore() {
-        assert!(matches!(traiter_texte("not json {{"), ActionWs::Ignorer));
-        assert!(matches!(traiter_texte(""), ActionWs::Ignorer));
+        assert!(matches!(
+            traiter_texte("not json {{", &mapping_test()),
+            ActionWs::Ignorer
+        ));
+        assert!(matches!(traiter_texte("", &mapping_test()), ActionWs::Ignorer));
     }
 
     #[test]
     fn parsing_symbole_non_suivi_ignore() {
-        // Topic bien formé mais actif non couvert (ex. EURUSD n'existe pas en linear Bybit ici).
+        // Topic bien formé mais symbole absent du mapping DB.
         let message = r#"{
             "topic": "kline.15.EURUSDT",
             "data": [{"start": 1, "interval": "15", "open": "1", "high": "1", "low": "1", "close": "1", "volume": "1", "confirm": true}]
         }"#;
-        assert!(matches!(traiter_texte(message), ActionWs::Ignorer));
+        assert!(matches!(
+            traiter_texte(message, &mapping_test()),
+            ActionWs::Ignorer
+        ));
+    }
+
+    #[test]
+    fn parsing_asset_db_inconnu_du_crate_ignore() {
+        // Symbole mappé vers un id absent de l'enum common → ignoré sans panic.
+        let mut mapping = HashMap::new();
+        mapping.insert("NEWUSDT".to_string(), "NEWCOIN".to_string());
+        let message = r#"{
+            "topic": "kline.15.NEWUSDT",
+            "data": [{"start": 1, "interval": "15", "open": "1", "high": "1", "low": "1", "close": "1", "volume": "1", "confirm": true}]
+        }"#;
+        assert!(matches!(traiter_texte(message, &mapping), ActionWs::Ignorer));
     }
 
     #[test]
