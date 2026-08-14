@@ -276,6 +276,23 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/data/import-mt5",
             web::post().to(crate::data_mt5_handlers::post_import_mt5),
         )
+        .route(
+            "/api/data/import-csv",
+            web::post().to(crate::data_csv_handlers::post_import_csv),
+        )
+        .service(
+            web::resource("/api/worker/config")
+                .route(web::get().to(crate::worker_handlers::get_worker_config))
+                .route(web::put().to(crate::worker_handlers::put_worker_config)),
+        )
+        .route(
+            "/api/worker/status",
+            web::get().to(crate::worker_handlers::get_worker_status),
+        )
+        .route(
+            "/api/worker/assets",
+            web::get().to(crate::worker_handlers::get_worker_assets),
+        )
         .service(
             web::resource("/api/smc/analyse-llm")
                 .route(web::get().to(crate::smc_analyse_handler::get_derniere_analyse))

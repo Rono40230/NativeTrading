@@ -6,6 +6,7 @@ mod asset_params_handlers;
 mod assets_handlers;
 mod calendar_handlers;
 mod config_handlers;
+mod data_csv_handlers;
 mod data_handlers;
 mod data_mt5_handlers;
 mod engine_handlers;
@@ -99,6 +100,7 @@ mod strategies_params_handlers;
 mod tendance_handlers;
 mod utils;
 mod volatility_handlers;
+mod worker_handlers;
 mod ws_handlers;
 
 mod routes;
