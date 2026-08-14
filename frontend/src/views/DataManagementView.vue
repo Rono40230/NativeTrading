@@ -501,10 +501,12 @@ const TF_ORDRE: Record<string, number> = {
 }
 
 const lignesEnrichies = computed(() => {
-  const idsConnus = new Set(tous.value.map(a => a.id))
+  // Ne montrer que les assets ACTIFS (cochés) et les timeframes CONFIGURÉS
+  const idsActifs = new Set(tous.value.filter(a => a.actif).map(a => a.id))
+  const tfsConfigures = new Set(configWorker.value?.timeframes ?? [])
   const moisReference = configWorker.value?.historique_mois ?? 6
   const lignes = couverture.value
-    .filter(c => idsConnus.has(c.asset))
+    .filter(c => idsActifs.has(c.asset) && tfsConfigures.has(c.timeframe))
     .map(c => {
       const estCrypto = ASSETS_CRYPTO.has(c.asset)
       const pct = estCrypto
