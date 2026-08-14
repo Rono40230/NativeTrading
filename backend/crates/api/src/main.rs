@@ -177,6 +177,12 @@ async fn main() -> std::io::Result<()> {
     // des 12 actifs × 5 timeframes. Indépendant du frontend.
     data::bybit_ws::demarrer_worker_bybit(app_state.db.clone());
 
+    // ── Worker ingestion IG REST (forex + indices, 30s cycle) ───────────────
+    // Backfill intelligent au démarrage (si données stale > 1j) puis update
+    // des 2 dernières bougies par cycle. 19 actifs × 4 timeframes, requêtes
+    // espacées de 200 ms (rate limit IG). Session partagée + relogin auto.
+    data::ig_worker::demarrer_worker_ig(app_state.db.clone(), app_state.ig_session.clone());
+
     // ── Worker pré-alertes (cycle 5 min — setups en formation) ──────────────
     prealerte_worker::demarrer_worker_prealerte(app_state.db.clone());
 
