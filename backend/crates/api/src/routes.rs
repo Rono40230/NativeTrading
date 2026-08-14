@@ -268,6 +268,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/data/import-csv",
             web::post().to(crate::data_csv_handlers::post_import_csv),
         )
+        .route(
+            "/api/data/dukascopy-backfill",
+            web::post().to(crate::dukascopy_handlers::post_dukascopy_backfill),
+        )
         .service(
             web::resource("/api/worker/config")
                 .route(web::get().to(crate::worker_handlers::get_worker_config))

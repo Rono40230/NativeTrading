@@ -51,14 +51,28 @@ export interface WorkerAsset {
   actif: boolean
 }
 
-/** Résultat d'un import CSV. */
-export interface ResultatImportCsv {
-  total_lues: number
-  total_inserees: number
-  doublons: number
-  lignes_ignorees: number
+/** Résultat d'un backfill Dukascopy d'un mois (POST /api/data/dukascopy-backfill). */
+export interface ResultatBackfillDukascopy {
   asset: string
+  instrument: string
+  diviseur: number
   timeframe: string
+  annee: number
+  mois: number
+  /** Jours réellement téléchargés avec données. */
+  jours_traites: number
+  /** Jours 404/fériés/week-ends sans requête. */
+  jours_sans_donnees: number
+  /** Bougies M1 téléchargées (avant agrégation). */
+  bougies: number
+  /** Bougies au timeframe demandé (après agrégation). */
+  bougies_cible: number
+  /** Bougies réellement insérées (INSERT OR IGNORE — doublons exclus). */
+  inserees: number
+  /** Signal non bloquant (ex: instrument 404 systématique). */
+  avertissement: string | null
+  /** Erreurs par jour (rate limit, réseau…). */
+  erreurs: string[]
 }
 
 // ── Méthodes ──────────────────────────────────────────────────────────────────
@@ -88,9 +102,19 @@ export const workerApi = {
     return res.data.assets
   },
 
-  /** POST /api/data/import-csv — contenu CSV brut + cible asset/timeframe. */
-  async importerCsv(csv: string, asset: string, timeframe: string): Promise<ResultatImportCsv> {
-    const res = await http.post('/api/data/import-csv', { csv, asset, timeframe }, { timeout: 120000 })
+  /**
+   * POST /api/data/dukascopy-backfill — télécharge UN mois de candles M1
+   * depuis le datafeed public Dukascopy (rate-limité : ~4 s par fichier
+   * quotidien → un mois ouvré ≈ 1,5-3 min). Timeout long volontaire.
+   * L'instrument est résolu côté serveur (colonne assets.datafeed_dukascopy).
+   */
+  async backfillDukascopyMois(params: {
+    asset: string
+    timeframe: string
+    annee: number
+    mois: number
+  }): Promise<ResultatBackfillDukascopy> {
+    const res = await http.post('/api/data/dukascopy-backfill', params, { timeout: 600_000 })
     return res.data
   },
 }

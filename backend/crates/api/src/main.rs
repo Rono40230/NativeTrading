@@ -9,6 +9,7 @@ mod config_handlers;
 mod data_csv_handlers;
 mod data_handlers;
 mod data_mt5_handlers;
+mod dukascopy_handlers;
 mod engine_handlers;
 mod handlers;
 mod http_client;

@@ -144,48 +144,27 @@
       </p>
     </div>
 
-    <!-- ══ SECTION 3 — Import CSV ════════════════════════════════════════════ -->
-    <div class="glass-card p-5 space-y-3">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Import CSV</h2>
-      <div class="flex flex-wrap items-end gap-4">
-        <div class="flex flex-col gap-1.5">
-          <span class="text-xs text-gray-400">Fichier :</span>
-          <label
-            class="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 text-sm font-semibold hover:bg-blue-500/30 transition cursor-pointer"
-          >
-            📄 Choisir un CSV
-            <input type="file" accept=".csv,text/csv" class="hidden" @change="surFichierCsv" />
-          </label>
-          <span v-if="fichierCsv" class="text-xs text-gray-400 truncate max-w-xs">
-            {{ fichierCsv.name }} ({{ (fichierCsv.size / 1024).toFixed(0) }} Ko)
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-400 shrink-0">Asset :</label>
-          <select v-model="assetCsv" class="bg-white border border-white/20 rounded-lg px-3 py-1.5 text-sm text-black">
-            <option v-for="a in tous" :key="a.id" :value="a.id">{{ a.id }}</option>
-          </select>
-        </div>
-        <div class="flex items-center gap-2">
-          <label class="text-sm text-gray-400 shrink-0">Timeframe :</label>
-          <select v-model="timeframeCsv" class="bg-white border border-white/20 rounded-lg px-3 py-1.5 text-sm text-black">
-            <option v-for="tf in TOUS_TF" :key="tf" :value="tf">{{ tf }}</option>
-          </select>
-        </div>
-        <button
-          class="px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 transition disabled:opacity-50"
-          :disabled="enImportCsv || !contenuCsv || !assetCsv"
-          @click="importerCsv"
-        >
-          {{ enImportCsv ? '⏳ Import…' : '⬆ Importer' }}
-        </button>
+    <!-- ══ SECTION 3 — Backfill Dukascopy (remplace l'import CSV) ═════════════ -->
+    <div class="glass-card p-4 space-y-2">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+          Backfill Dukascopy
+        </h2>
+        <span class="text-[11px] text-gray-500">
+          Bouton ⬇ dans la table de couverture — télécharge l'historique depuis le datafeed
+          public Dukascopy (rate-limité : ~2 min par mois, sans clé API).
+        </span>
       </div>
-      <p class="text-gray-500 text-[11px]">
-        Colonnes attendues : timestamp,open,high,low,close,volume — délimiteur , ou ; — timestamp Unix (s/ms) ou date
-        (2026-01-01 14:30:00). L'en-tête textuel est ignoré.
-      </p>
-      <div v-if="messageImportCsv" class="text-sm" :class="erreurImportCsv ? 'text-red-400' : 'text-emerald-400'">
-        {{ messageImportCsv }}
+      <div v-if="progressionBackfill" class="text-sm text-blue-400 flex items-center gap-2">
+        <span class="inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+        {{ progressionBackfill }}
+      </div>
+      <div
+        v-if="resultatBackfill"
+        class="text-sm whitespace-pre-line"
+        :class="erreurBackfill ? 'text-red-400' : 'text-emerald-400'"
+      >
+        {{ resultatBackfill }}
       </div>
     </div>
 
@@ -202,7 +181,7 @@
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Couverture par asset × timeframe</h2>
       <div v-if="chargement" class="text-gray-400 text-sm animate-pulse text-center py-8">Chargement…</div>
       <div v-else-if="couverture.length === 0" class="text-gray-500 text-sm text-center py-8">
-        Aucune donnée — activez les workers ou importez un CSV pour remplir la base.
+        Aucune donnée — activez les workers ou lancez un backfill Dukascopy (⬇) pour remplir la base.
       </div>
       <table v-else class="w-full text-sm">
         <thead>
@@ -213,6 +192,7 @@
             <th class="px-3 py-2 text-gray-400 text-right">Depuis</th>
             <th class="px-3 py-2 text-gray-400 text-right">Jusqu'à</th>
             <th class="px-3 py-2 text-gray-400 text-right">Statut</th>
+            <th class="px-3 py-2 text-gray-400 text-right" title="Télécharger l'historique depuis Dukascopy">⬇</th>
           </tr>
         </thead>
         <tbody>
@@ -242,6 +222,18 @@
                 <span class="w-2 h-2 rounded-full shrink-0" :class="ligne.ageDays <= 2 ? 'bg-emerald-400' : ligne.ageDays <= 7 ? 'bg-yellow-400' : 'bg-red-400'" />
                 <span class="text-xs" :class="ligne.ageDays <= 2 ? 'text-emerald-400' : ligne.ageDays <= 7 ? 'text-yellow-400' : 'text-red-400'">{{ ligne.fraicheurLabel }}</span>
               </div>
+            </td>
+            <td class="px-3 py-2 text-right">
+              <button
+                :disabled="enBackfill"
+                class="text-blue-400 hover:text-blue-200 text-sm transition disabled:opacity-30"
+                :title="enBackfill
+                  ? 'Backfill en cours…'
+                  : `Télécharger ${moisHistorique} mois d'historique ${ligne.asset} ${ligne.timeframe} depuis Dukascopy`"
+                @click="backfillDukascopy(ligne.asset, ligne.timeframe)"
+              >
+                {{ enBackfill && cibleBackfill === `${ligne.asset}-${ligne.timeframe}` ? '⏳' : '⬇' }}
+              </button>
             </td>
           </tr>
         </tbody>
@@ -404,53 +396,82 @@ async function basculerAsset(a: AssetInfo) {
   }
 }
 
-// ── Section 3 : import CSV ────────────────────────────────────────────────────
-const fichierCsv = ref<File | null>(null)
-const contenuCsv = ref('')
-const assetCsv = ref('')
-const timeframeCsv = ref('M15')
-const enImportCsv = ref(false)
-const messageImportCsv = ref<string | null>(null)
-const erreurImportCsv = ref(false)
+// ── Section 3 : backfill Dukascopy (bouton ⬇ de la table de couverture) ──────
+const enBackfill = ref(false)
+const cibleBackfill = ref<string | null>(null)
+const progressionBackfill = ref<string | null>(null)
+const resultatBackfill = ref<string | null>(null)
+const erreurBackfill = ref(false)
 
-function surFichierCsv(e: Event) {
-  const input = e.target as HTMLInputElement
-  const fichier = input.files?.[0] ?? null
-  fichierCsv.value = fichier
-  contenuCsv.value = ''
-  messageImportCsv.value = null
-  if (!fichier) return
-  const lecteur = new FileReader()
-  lecteur.onload = () => {
-    contenuCsv.value = typeof lecteur.result === 'string' ? lecteur.result : ''
-    if (!contenuCsv.value) {
-      erreurImportCsv.value = true
-      messageImportCsv.value = '❌ Fichier vide ou illisible'
-    }
-  }
-  lecteur.onerror = () => {
-    erreurImportCsv.value = true
-    messageImportCsv.value = '❌ Lecture du fichier impossible'
-  }
-  lecteur.readAsText(fichier)
-}
+/**
+ * Télécharge l'historique d'un asset × timeframe depuis le datafeed public
+ * Dukascopy, mois par mois (chaque appel = ~22 fichiers quotidiens espacés
+ * de 4 s à cause du rate limit). L'instrument Dukascopy est résolu côté
+ * serveur via la colonne `assets.datafeed_dukascopy`.
+ */
+async function backfillDukascopy(asset: string, timeframe: string) {
+  if (enBackfill.value) return
+  enBackfill.value = true
+  cibleBackfill.value = `${asset}-${timeframe}`
+  resultatBackfill.value = null
+  erreurBackfill.value = false
+  progressionBackfill.value = `Préparation du backfill ${asset} ${timeframe}…`
 
-async function importerCsv() {
-  if (!contenuCsv.value || !assetCsv.value) return
-  enImportCsv.value = true
-  messageImportCsv.value = null
+  const nbMois = configWorker.value?.historique_mois ?? 6
+  const maintenant = new Date()
+  let totalBougies = 0
+  let totalInserees = 0
+  let totalErreurs = 0
+  const avertissements: string[] = []
+
   try {
-    const res = await apiService.importerCsv(contenuCsv.value, assetCsv.value, timeframeCsv.value)
-    erreurImportCsv.value = false
-    messageImportCsv.value = `✅ ${res.asset} ${res.timeframe} : ${res.total_inserees.toLocaleString()} bougie(s) insérée(s) sur ${res.total_lues.toLocaleString()} lues` +
-      (res.doublons > 0 ? ` (${res.doublons.toLocaleString()} doublon(s))` : '') +
-      (res.lignes_ignorees > 0 ? ` — ${res.lignes_ignorees.toLocaleString()} ligne(s) ignorée(s)` : '')
+    for (let i = 0; i < nbMois; i++) {
+      // Le mois courant est envoyé tel quel : le serveur s'arrête à hier.
+      const date = new Date(maintenant.getFullYear(), maintenant.getMonth() - i, 1)
+      const annee = date.getFullYear()
+      const mois = date.getMonth() + 1 // 1-indexé côté API
+      progressionBackfill.value =
+        `Téléchargement ${asset} ${timeframe} — mois ${i + 1}/${nbMois} ` +
+        `(${mois.toString().padStart(2, '0')}/${annee}) — ${totalInserees.toLocaleString()} bougies`
+
+      const res = await apiService.backfillDukascopyMois({ asset, timeframe, annee, mois })
+      totalBougies += res.bougies
+      totalInserees += res.inserees
+      totalErreurs += res.erreurs.length
+      if (res.avertissement && !avertissements.includes(res.avertissement)) {
+        avertissements.push(res.avertissement)
+      }
+    }
+
+    if (totalInserees > 0) {
+      erreurBackfill.value = false
+      resultatBackfill.value =
+        `✅ ${asset} ${timeframe} : ${totalInserees.toLocaleString()} bougies insérées ` +
+        `(${totalBougies.toLocaleString()} M1 téléchargées sur ${nbMois} mois)` +
+        (totalErreurs > 0 ? ` — ${totalErreurs} jour(s) en erreur (rate limit), relancer pour compléter` : '')
+    } else {
+      erreurBackfill.value = true
+      resultatBackfill.value =
+        `⚠️ ${asset} ${timeframe} : aucune bougie insérée sur ${nbMois} mois`
+    }
+    if (avertissements.length > 0) {
+      resultatBackfill.value += `\n${avertissements.join('\n')}`
+    }
     await chargerCouverture()
   } catch (err: unknown) {
-    erreurImportCsv.value = true
-    messageImportCsv.value = `❌ ${err instanceof Error ? err.message : 'Erreur inconnue'}`
+    erreurBackfill.value = true
+    const message = err instanceof Error ? err.message : 'Erreur inconnue'
+    const detail = /timeout/i.test(message)
+      ? ' (délai dépassé — le rate limit Dukascopy est peut-être actif, relancer dans quelques minutes)'
+      : ''
+    resultatBackfill.value =
+      `❌ Backfill ${asset} ${timeframe} interrompu après ${totalInserees.toLocaleString()} bougies : ${message}${detail}`
+    // On rafraîchit quand même : les mois déjà traités sont en base.
+    await chargerCouverture()
   } finally {
-    enImportCsv.value = false
+    enBackfill.value = false
+    cibleBackfill.value = null
+    progressionBackfill.value = null
   }
 }
 
@@ -554,7 +575,6 @@ onMounted(async () => {
   } catch {
     tous.value = assetsStore.assets
   }
-  if (!assetCsv.value && tous.value.length > 0) assetCsv.value = tous.value[0]!.id
   await chargerConfig()
   await chargerStatutWorkers()
   await chargerCouverture()

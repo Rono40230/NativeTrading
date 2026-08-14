@@ -14,6 +14,9 @@ pub struct AssetWorker {
     pub source: String,
     pub symbol_bybit: Option<String>,
     pub actif: bool,
+    /// Instrument Dukascopy pour le backfill historique (`None` → non
+    /// disponible via le datafeed public, migration 0066).
+    pub datafeed_dukascopy: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,7 +74,7 @@ impl Database {
     /// selon `source`, `actif` et la présence du mapping.
     pub async fn lister_assets_worker(&self) -> Result<Vec<AssetWorker>> {
         let rows = sqlx::query(
-            "SELECT id, source, symbol_bybit, actif FROM assets ORDER BY type, id",
+            "SELECT id, source, symbol_bybit, actif, datafeed_dukascopy FROM assets ORDER BY type, id",
         )
         .fetch_all(&self.pool)
         .await
@@ -84,8 +87,20 @@ impl Database {
                 source: r.get("source"),
                 symbol_bybit: r.get("symbol_bybit"),
                 actif: r.get::<i64, _>("actif") == 1,
+                datafeed_dukascopy: r.get("datafeed_dukascopy"),
             })
             .collect())
+    }
+
+    /// Instrument Dukascopy configuré pour un asset (backfill historique).
+    /// `Ok(None)` si l'asset n'a pas de mapping (migration 0066).
+    pub async fn instrument_dukascopy(&self, id_asset: &str) -> Result<Option<String>> {
+        let row = sqlx::query("SELECT datafeed_dukascopy FROM assets WHERE id = ?")
+            .bind(id_asset)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(row.and_then(|r| r.get::<Option<String>, _>("datafeed_dukascopy")))
     }
 
     /// Ajoute un asset (INSERT OR IGNORE pour éviter les doublons).
@@ -170,5 +185,55 @@ impl Database {
             .await
             .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn db_test() -> Database {
+        let db = Database::new(":memory:").await.expect("DB mémoire");
+        db.run_migrations().await.expect("migrations OK");
+        db
+    }
+
+    #[tokio::test]
+    async fn instruments_dukascopy_mappes_par_la_migration() {
+        let db = db_test().await;
+        // Mapping vérifié empiriquement sur le datafeed (migration 0066).
+        for (id, instrument) in [
+            ("XAUUSD", "XAUUSD"),
+            ("XAGUSD", "XAGUSD"),
+            ("EURUSD", "EURUSD"),
+            ("BTC", "BTCUSD"),
+            ("NAS100", "USATECHIDXUSD"),
+            ("DAX", "DEUIDXEUR"),
+            ("SP500", "USA500IDXUSD"),
+        ] {
+            let obtenu = db
+                .instrument_dukascopy(id)
+                .await
+                .unwrap_or_else(|e| panic!("lecture {} : {}", id, e));
+            assert_eq!(obtenu, Some(instrument.to_string()), "asset {}", id);
+        }
+        // Asset sans mapping (crypto Binance hors BTC) → None, pas d'erreur.
+        assert_eq!(db.instrument_dukascopy("ETH").await.unwrap(), None);
+        // Asset inexistant → None (aucune panic).
+        assert_eq!(db.instrument_dukascopy("INCONNU").await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn lister_assets_worker_expose_le_mapping() {
+        let db = db_test().await;
+        let assets = db.lister_assets_worker().await.expect("liste workers");
+        assert!(assets.len() > 10, "catalogue pré-peuplé");
+        let nas = assets
+            .iter()
+            .find(|a| a.id == "NAS100")
+            .expect("NAS100 présent");
+        assert_eq!(nas.datafeed_dukascopy.as_deref(), Some("USATECHIDXUSD"));
+        let eth = assets.iter().find(|a| a.id == "ETH").expect("ETH présent");
+        assert_eq!(eth.datafeed_dukascopy, None);
     }
 }
