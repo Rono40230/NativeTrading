@@ -171,7 +171,14 @@ async fn fetch_bougies(
         url_base, epic, resolution, max
     );
 
-    let reponse = match client.get(&url).headers(headers.clone()).send().await {
+    let reponse = match client
+        .get(&url)
+        .headers(headers.clone())
+        .header("Version", "3")
+        .header("Accept", "application/json; charset=UTF-8")
+        .send()
+        .await
+    {
         Ok(r) => r,
         Err(e) => return ResultatFetch::Echec(format!("réseau: {}", e)),
     };

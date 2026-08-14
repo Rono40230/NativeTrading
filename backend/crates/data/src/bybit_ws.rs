@@ -196,8 +196,10 @@ fn traiter_texte(message: &str) -> ActionWs {
         let Some(start) = bloc.get("start").and_then(|s| s.as_i64()) else {
             continue;
         };
-        // `start` est en secondes sur l'API kline v5 de Bybit.
-        let Some(timestamp) = DateTime::<Utc>::from_timestamp(start, 0) else {
+        // Bybit WS kline v5 : `start` peut être en secondes (10 chiffres) OU
+        // millisecondes (13 chiffres) selon la version du topic. On détecte.
+        let start_sec = if start > 1_000_000_000_000 { start / 1000 } else { start };
+        let Some(timestamp) = DateTime::<Utc>::from_timestamp(start_sec, 0) else {
             continue;
         };
         let champ_f64 = |cle: &str| bloc.get(cle).and_then(|x| x.as_str()).and_then(|s| s.parse::<f64>().ok());
