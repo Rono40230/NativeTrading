@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">📦 Données Historiques</h1>
+      <h1 class="text-2xl font-bold">📦 Données — Pilotage du pipeline</h1>
       <div class="flex items-center gap-3">
         <span v-if="derniereMaj" class="text-xs text-gray-400">MAJ {{ derniereMaj }}</span>
         <button
@@ -14,63 +14,178 @@
       </div>
     </div>
 
-    <!-- Collecte globale -->
-    <div class="glass-card p-5 flex flex-wrap items-end gap-4">
-      <div class="flex items-center gap-2">
-        <label class="text-sm text-gray-400 shrink-0">Mois d'historique :</label>
-        <select v-model="moisSelectionne" class="bg-white border border-white/20 rounded-lg px-3 py-1.5 text-sm text-black">
-          <option v-for="m in [1, 3, 6, 12, 24]" :key="m" :value="m">{{ m }} mois</option>
-        </select>
+    <!-- ══ SECTION 1 — Contrôle des workers ══════════════════════════════════ -->
+    <div class="glass-card p-5 space-y-4">
+      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Workers d'ingestion</h2>
+
+      <!-- Interrupteurs + statut -->
+      <div class="grid gap-4 md:grid-cols-2">
+        <div
+          v-for="w in cartesWorkers"
+          :key="w.nom"
+          class="rounded-xl border p-4 space-y-3 transition"
+          :class="w.config.actif ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 bg-white/[0.02]'"
+        >
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-bold text-white">{{ w.nom }}</p>
+              <p class="text-xs text-gray-500">{{ w.description }}</p>
+            </div>
+            <button
+              class="px-4 py-1.5 rounded-lg text-sm font-semibold transition disabled:opacity-50"
+              :class="w.config.actif
+                ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'"
+              :disabled="enEcritureConfig"
+              @click="basculerWorker(w.cle)"
+            >
+              {{ w.config.actif ? '⏸ Pause' : '▶ Démarrer' }}
+            </button>
+          </div>
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <span v-if="!w.config.actif" class="text-gray-400">⏸ Désactivé</span>
+            <span v-else-if="w.statut?.connecte" class="text-emerald-400">● Connecté</span>
+            <span v-else class="text-red-400">○ Déconnecté</span>
+            <span class="text-gray-400">
+              {{ w.statut?.nb_assets ?? 0 }} asset(s) suivis
+            </span>
+            <span class="text-gray-400">Dernière bougie : {{ fraicheur(w.statut?.derniere_bougie ?? null) }}</span>
+            <span class="text-gray-500">{{ (w.statut?.bougies_inserees ?? 0).toLocaleString() }} bougies insérées</span>
+          </div>
+        </div>
       </div>
-      <div class="flex flex-col gap-1">
+
+      <!-- Timeframes + historique -->
+      <div class="flex flex-wrap items-end gap-8 pt-2 border-t border-white/5">
+        <div class="flex flex-col gap-1.5">
+          <span class="text-xs text-gray-400">Timeframes collectés :</span>
+          <div class="flex flex-wrap gap-2">
+            <label
+              v-for="tf in TOUS_TF"
+              :key="tf"
+              class="flex items-center gap-1 cursor-pointer select-none text-xs px-2 py-1 rounded-lg border transition"
+              :class="tfsSelectionnes.includes(tf)
+                ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
+                : 'border-white/10 bg-white/5 text-gray-400'"
+            >
+              <input type="checkbox" class="hidden" :value="tf" v-model="tfsSelectionnes" @change="majTimeframes" />
+              {{ tf }}
+            </label>
+          </div>
+        </div>
         <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-400">Assets :</span>
-          <button class="text-xs text-blue-400 hover:underline" @click="tousAssetsSelectionnes ? assetsSelectionnes = [] : assetsSelectionnes = TOUS_ASSETS.slice()">
-            {{ tousAssetsSelectionnes ? 'Tout décocher' : 'Tout cocher' }}
-          </button>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <label
-            v-for="a in TOUS_ASSETS"
-            :key="a"
-            class="flex items-center gap-1 cursor-pointer select-none text-xs px-2 py-1 rounded-lg border transition"
-            :class="assetsSelectionnes.includes(a)
-              ? 'border-blue-500/50 bg-blue-500/10 text-blue-400'
-              : 'border-white/10 bg-white/5 text-gray-400'"
+          <label class="text-sm text-gray-400 shrink-0">Historique (backfill) :</label>
+          <select
+            v-model.number="moisHistorique"
+            class="bg-white border border-white/20 rounded-lg px-3 py-1.5 text-sm text-black disabled:opacity-50"
+            :disabled="enEcritureConfig"
+            @change="majHistorique"
           >
-            <input type="checkbox" class="hidden" :value="a" v-model="assetsSelectionnes" />
-            {{ a }}
-          </label>
+            <option v-for="m in [1, 3, 6, 12, 24]" :key="m" :value="m">{{ m }} mois</option>
+          </select>
         </div>
       </div>
-      <!-- Sélecteur Timeframes -->
-      <div class="flex flex-col gap-1">
-        <span class="text-xs text-gray-400">Timeframes :</span>
-        <div class="flex flex-wrap gap-2">
-          <label
-            v-for="tf in TOUS_TF"
-            :key="tf"
-            class="flex items-center gap-1 cursor-pointer select-none text-xs px-2 py-1 rounded-lg border transition"
-            :class="tfsSelectionnes.includes(tf)
-              ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400'
-              : 'border-white/10 bg-white/5 text-gray-400'"
-          >
-            <input type="checkbox" class="hidden" :value="tf" v-model="tfsSelectionnes" />
-            {{ tf }}
-          </label>
+
+      <p v-if="messageConfig" class="text-sm" :class="erreurConfig ? 'text-red-400' : 'text-emerald-400'">
+        {{ messageConfig }}
+      </p>
+    </div>
+
+    <!-- ══ SECTION 2 — Assets du pipeline ════════════════════════════════════ -->
+    <div class="glass-card p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Assets du pipeline</h2>
+        <span class="text-xs text-gray-500">{{ nbAssetsActifs }} / {{ tous.length }} activés</span>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div v-for="cat in CATEGORIES" :key="cat.type">
+          <p class="text-[11px] font-semibold uppercase tracking-wider mb-1.5" :class="cat.couleur">
+            {{ cat.label }}
+          </p>
+          <div class="space-y-0.5">
+            <label
+              v-for="a in cat.assets"
+              :key="a.id"
+              class="flex items-center gap-1.5 cursor-pointer rounded border px-2 py-1 transition select-none"
+              :class="a.actif
+                ? 'border-emerald-500/40 bg-emerald-500/10'
+                : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/20'"
+            >
+              <input
+                type="checkbox"
+                class="hidden"
+                :checked="a.actif"
+                :disabled="enCoursAsset === a.id"
+                @change="basculerAsset(a)"
+              />
+              <span
+                class="w-2.5 h-2.5 rounded-sm border flex items-center justify-center shrink-0 transition"
+                :class="a.actif ? 'bg-emerald-500 border-emerald-500' : 'border-white/30'"
+              >
+                <svg v-if="a.actif" class="w-2 h-2 text-white" fill="none" viewBox="0 0 12 12">
+                  <path d="M10 3L5 8.5 2 5.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </span>
+              <span class="font-mono text-sm font-bold text-white truncate">{{ a.id }}</span>
+              <span
+                class="ml-auto text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0"
+                :class="badgeSource(a.source).classe"
+              >
+                {{ badgeSource(a.source).label }}
+              </span>
+              <span v-if="enCoursAsset === a.id" class="text-[10px] text-gray-500">…</span>
+            </label>
+          </div>
         </div>
       </div>
-      <div class="flex flex-col gap-2">
+      <p v-if="erreurAssets" class="text-red-400 text-xs mt-2">{{ erreurAssets }}</p>
+      <p class="text-gray-500 text-[11px] mt-2">
+        Décocher un asset l'exclut des workers à leur prochaine session/cycle (≤ 60 s) — les données sont conservées.
+      </p>
+    </div>
+
+    <!-- ══ SECTION 3 — Import CSV ════════════════════════════════════════════ -->
+    <div class="glass-card p-5 space-y-3">
+      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Import CSV</h2>
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex flex-col gap-1.5">
+          <span class="text-xs text-gray-400">Fichier :</span>
+          <label
+            class="px-4 py-2 rounded-lg bg-blue-500/20 text-blue-400 text-sm font-semibold hover:bg-blue-500/30 transition cursor-pointer"
+          >
+            📄 Choisir un CSV
+            <input type="file" accept=".csv,text/csv" class="hidden" @change="surFichierCsv" />
+          </label>
+          <span v-if="fichierCsv" class="text-xs text-gray-400 truncate max-w-xs">
+            {{ fichierCsv.name }} ({{ (fichierCsv.size / 1024).toFixed(0) }} Ko)
+          </span>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-sm text-gray-400 shrink-0">Asset :</label>
+          <select v-model="assetCsv" class="bg-white border border-white/20 rounded-lg px-3 py-1.5 text-sm text-black">
+            <option v-for="a in tous" :key="a.id" :value="a.id">{{ a.id }}</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <label class="text-sm text-gray-400 shrink-0">Timeframe :</label>
+          <select v-model="timeframeCsv" class="bg-white border border-white/20 rounded-lg px-3 py-1.5 text-sm text-black">
+            <option v-for="tf in TOUS_TF" :key="tf" :value="tf">{{ tf }}</option>
+          </select>
+        </div>
         <button
           class="px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 transition disabled:opacity-50"
-          :disabled="enCollecte || tfsSelectionnes.length === 0 || assetsSelectionnes.length === 0"
-          @click="lancerCollecte"
+          :disabled="enImportCsv || !contenuCsv || !assetCsv"
+          @click="importerCsv"
         >
-          {{ enCollecte ? '⏳ Collecte en cours…' : '⬇ Lancer la collecte' }}
+          {{ enImportCsv ? '⏳ Import…' : '⬆ Importer' }}
         </button>
-        <span v-if="messageCollecte" class="text-sm" :class="erreurCollecte ? 'text-red-400' : 'text-emerald-400'">
-          {{ messageCollecte }}
-        </span>
+      </div>
+      <p class="text-gray-500 text-[11px]">
+        Colonnes attendues : timestamp,open,high,low,close,volume — délimiteur , ou ; — timestamp Unix (s/ms) ou date
+        (2026-01-01 14:30:00). L'en-tête textuel est ignoré.
+      </p>
+      <div v-if="messageImportCsv" class="text-sm" :class="erreurImportCsv ? 'text-red-400' : 'text-emerald-400'">
+        {{ messageImportCsv }}
       </div>
     </div>
 
@@ -82,31 +197,12 @@
       </span>
     </div>
 
-    <!-- Résultats de la dernière collecte -->
-    <div v-if="resultatsCollecte.length > 0" class="glass-card p-5 space-y-2">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Résultats collecte</h2>
-      <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-        <div
-          v-for="r in resultatsCollecte"
-          :key="r.asset + r.timeframe"
-          class="rounded-lg px-3 py-2 text-xs"
-          :class="r.erreur ? 'bg-red-500/10 border border-red-500/20' : 'bg-emerald-500/10 border border-emerald-500/20'"
-        >
-          <p class="font-bold text-white">{{ r.asset }} {{ r.timeframe }}</p>
-          <p v-if="r.erreur" class="text-red-400 truncate">{{ r.erreur }}</p>
-          <p v-else class="text-emerald-400">
-            {{ r.inseres }} nouveaux / {{ r.fetched }} reçus
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Grille de couverture -->
+    <!-- ══ SECTION 4 — Couverture DB ═════════════════════════════════════════ -->
     <div class="glass-card p-5">
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Couverture par asset × timeframe</h2>
       <div v-if="chargement" class="text-gray-400 text-sm animate-pulse text-center py-8">Chargement…</div>
       <div v-else-if="couverture.length === 0" class="text-gray-500 text-sm text-center py-8">
-        Aucune donnée — lancez une collecte pour remplir la base.
+        Aucune donnée — activez les workers ou importez un CSV pour remplir la base.
       </div>
       <table v-else class="w-full text-sm">
         <thead>
@@ -155,37 +251,251 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
-import type { CouvertureDonnees, ResultatCollecteItem } from '@/services/api.service'
+import type { CouvertureDonnees, AssetInfo } from '@/services/api.service'
+import type { WorkerConfig, WorkerStatus } from '@/services/api.worker'
 import { useAssetsStore } from '@/stores/assets.store'
 
 const assetsStore = useAssetsStore()
-const TOUS_ASSETS = computed(() => assetsStore.assets.map(a => a.id))
 const TOUS_TF = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 
-const couverture = ref<CouvertureDonnees[]>([])
-const chargement = ref(false)
-const derniereMaj = ref<string | null>(null)
-const enCollecte = ref(false)
-const messageCollecte = ref<string | null>(null)
-const erreurCollecte = ref(false)
-const resultatsCollecte = ref<ResultatCollecteItem[]>([])
+// ── Section 1 : workers ───────────────────────────────────────────────────────
+const configWorker = ref<WorkerConfig | null>(null)
+const statutWorkers = ref<WorkerStatus | null>(null)
+const enEcritureConfig = ref(false)
+const messageConfig = ref<string | null>(null)
+const erreurConfig = ref(false)
+const tfsSelectionnes = ref<string[]>(['M5', 'M15', 'H1', 'D1'])
+const moisHistorique = ref(6)
+
+const cartesWorkers = computed(() => [
+  {
+    nom: 'Bybit WS',
+    description: 'Crypto + métaux — WebSocket temps réel',
+    cle: 'actif_bybit' as const,
+    config: {
+      actif: configWorker.value?.actif_bybit ?? false,
+    },
+    statut: statutWorkers.value?.bybit,
+  },
+  {
+    nom: 'IG REST',
+    description: 'Forex + indices — polling cadencé par clôture',
+    cle: 'actif_ig' as const,
+    config: {
+      actif: configWorker.value?.actif_ig ?? false,
+    },
+    statut: statutWorkers.value?.ig,
+  },
+])
+
+function fraicheur(ts: number | null): string {
+  if (!ts) return '—'
+  const secondes = Math.floor(Date.now() / 1000) - ts
+  if (secondes < 90) return "à l'instant"
+  if (secondes < 3600) return `il y a ${Math.floor(secondes / 60)} min`
+  if (secondes < 86_400) return `il y a ${Math.floor(secondes / 3600)} h`
+  return `il y a ${Math.floor(secondes / 86_400)} j`
+}
+
+async function chargerConfig() {
+  try {
+    const c = await apiService.getWorkerConfig()
+    configWorker.value = c
+    tfsSelectionnes.value = [...c.timeframes]
+    moisHistorique.value = c.historique_mois
+  } catch {
+    // Config par défaut affichée — le PUT réécrira la config serveur.
+  }
+}
+
+async function chargerStatutWorkers() {
+  try {
+    statutWorkers.value = await apiService.getWorkerStatus()
+  } catch {
+    statutWorkers.value = null
+  }
+}
+
+async function basculerWorker(cle: 'actif_bybit' | 'actif_ig') {
+  const c = configWorker.value
+  if (!c || enEcritureConfig.value) return
+  enEcritureConfig.value = true
+  messageConfig.value = null
+  try {
+    configWorker.value = await apiService.putWorkerConfig({ [cle]: !c[cle] })
+    messageConfig.value = `${cle === 'actif_bybit' ? 'Worker Bybit' : 'Worker IG'} ${configWorker.value[cle] ? 'activé' : 'mis en pause'} — effet sous 60 s max`
+    erreurConfig.value = false
+    await chargerStatutWorkers()
+  } catch (err: unknown) {
+    erreurConfig.value = true
+    messageConfig.value = `❌ Erreur : ${err instanceof Error ? err.message : 'inconnue'}`
+  } finally {
+    enEcritureConfig.value = false
+  }
+}
+
+async function majTimeframes() {
+  if (tfsSelectionnes.value.length === 0) {
+    // Toujours au moins un timeframe : on réaffiche la config serveur.
+    erreurConfig.value = true
+    messageConfig.value = 'Au moins un timeframe est requis'
+    if (configWorker.value) tfsSelectionnes.value = [...configWorker.value.timeframes]
+    return
+  }
+  enEcritureConfig.value = true
+  messageConfig.value = null
+  try {
+    configWorker.value = await apiService.putWorkerConfig({ timeframes: [...tfsSelectionnes.value] })
+    tfsSelectionnes.value = [...configWorker.value.timeframes]
+    messageConfig.value = '✅ Timeframes mis à jour — appliqués à la prochaine session/cycle'
+    erreurConfig.value = false
+  } catch (err: unknown) {
+    erreurConfig.value = true
+    messageConfig.value = `❌ Erreur : ${err instanceof Error ? err.message : 'inconnue'}`
+  } finally {
+    enEcritureConfig.value = false
+  }
+}
+
+async function majHistorique() {
+  enEcritureConfig.value = true
+  messageConfig.value = null
+  try {
+    configWorker.value = await apiService.putWorkerConfig({ historique_mois: moisHistorique.value })
+    moisHistorique.value = configWorker.value.historique_mois
+    messageConfig.value = '✅ Historique de backfill mis à jour'
+    erreurConfig.value = false
+  } catch (err: unknown) {
+    erreurConfig.value = true
+    messageConfig.value = `❌ Erreur : ${err instanceof Error ? err.message : 'inconnue'}`
+  } finally {
+    enEcritureConfig.value = false
+  }
+}
+
+// ── Section 2 : assets pipeline ───────────────────────────────────────────────
+const tous = ref<AssetInfo[]>([])
+const enCoursAsset = ref<string | null>(null)
+const erreurAssets = ref('')
+
+const nbAssetsActifs = computed(() => tous.value.filter(a => a.actif).length)
+
+const CATEGORIES = computed(() => [
+  { type: 'crypto', label: '🪙 Crypto (Bybit)', couleur: 'text-yellow-400', assets: tous.value.filter(a => a.type === 'crypto') },
+  { type: 'metal', label: '🥇 Métaux (Bybit)', couleur: 'text-amber-400', assets: tous.value.filter(a => a.type === 'metal') },
+  { type: 'forex', label: '💱 Forex (IG)', couleur: 'text-blue-400', assets: tous.value.filter(a => a.type === 'forex') },
+  { type: 'indice', label: '📈 Indices (IG)', couleur: 'text-purple-400', assets: tous.value.filter(a => a.type === 'indice') },
+])
+
+function badgeSource(source?: string): { label: string; classe: string } {
+  return source === 'ig'
+    ? { label: 'IG', classe: 'bg-blue-500/15 text-blue-300' }
+    : { label: 'Bybit', classe: 'bg-yellow-500/15 text-yellow-300' }
+}
+
+async function basculerAsset(a: AssetInfo) {
+  enCoursAsset.value = a.id
+  erreurAssets.value = ''
+  try {
+    if (a.actif) {
+      await apiService.supprimerAsset(a.id)
+    } else {
+      await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], a.source ?? 'binance')
+    }
+    a.actif = !a.actif
+    await assetsStore.chargerAssets()
+  } catch (e: unknown) {
+    erreurAssets.value = (e as Error).message ?? 'Erreur'
+  } finally {
+    enCoursAsset.value = null
+  }
+}
+
+// ── Section 3 : import CSV ────────────────────────────────────────────────────
+const fichierCsv = ref<File | null>(null)
+const contenuCsv = ref('')
+const assetCsv = ref('')
+const timeframeCsv = ref('M15')
+const enImportCsv = ref(false)
+const messageImportCsv = ref<string | null>(null)
+const erreurImportCsv = ref(false)
+
+function surFichierCsv(e: Event) {
+  const input = e.target as HTMLInputElement
+  const fichier = input.files?.[0] ?? null
+  fichierCsv.value = fichier
+  contenuCsv.value = ''
+  messageImportCsv.value = null
+  if (!fichier) return
+  const lecteur = new FileReader()
+  lecteur.onload = () => {
+    contenuCsv.value = typeof lecteur.result === 'string' ? lecteur.result : ''
+    if (!contenuCsv.value) {
+      erreurImportCsv.value = true
+      messageImportCsv.value = '❌ Fichier vide ou illisible'
+    }
+  }
+  lecteur.onerror = () => {
+    erreurImportCsv.value = true
+    messageImportCsv.value = '❌ Lecture du fichier impossible'
+  }
+  lecteur.readAsText(fichier)
+}
+
+async function importerCsv() {
+  if (!contenuCsv.value || !assetCsv.value) return
+  enImportCsv.value = true
+  messageImportCsv.value = null
+  try {
+    const res = await apiService.importerCsv(contenuCsv.value, assetCsv.value, timeframeCsv.value)
+    erreurImportCsv.value = false
+    messageImportCsv.value = `✅ ${res.asset} ${res.timeframe} : ${res.total_inserees.toLocaleString()} bougie(s) insérée(s) sur ${res.total_lues.toLocaleString()} lues` +
+      (res.doublons > 0 ? ` (${res.doublons.toLocaleString()} doublon(s))` : '') +
+      (res.lignes_ignorees > 0 ? ` — ${res.lignes_ignorees.toLocaleString()} ligne(s) ignorée(s)` : '')
+    await chargerCouverture()
+  } catch (err: unknown) {
+    erreurImportCsv.value = true
+    messageImportCsv.value = `❌ ${err instanceof Error ? err.message : 'Erreur inconnue'}`
+  } finally {
+    enImportCsv.value = false
+  }
+}
+
+// ── Import MT5 (bouton historique conservé) ───────────────────────────────────
 const enImportMt5 = ref(false)
 const messageImportMt5 = ref<string | null>(null)
 const erreurImportMt5 = ref(false)
 const statsImportMt5 = ref<{ total_bougies: number; total_inseres: number } | null>(null)
-const moisSelectionne = ref(6)
-const assetsSelectionnes = ref<string[]>([])
-const tfsSelectionnes = ref<string[]>(['M5', 'M15', 'H1', 'H4'])
-const tousAssetsSelectionnes = computed(() =>
-  TOUS_ASSETS.value.length > 0 && TOUS_ASSETS.value.every(a => assetsSelectionnes.value.includes(a))
-)
 
-// Assets crypto (24/7) vs marchés régulés (≈5/7 jours, sessions limitées)
+async function importerMt5() {
+  enImportMt5.value = true
+  messageImportMt5.value = null
+  erreurImportMt5.value = false
+  statsImportMt5.value = null
+  try {
+    const res = await apiService.importerMt5()
+    statsImportMt5.value = { total_bougies: res.total_bougies, total_inseres: res.total_inseres }
+    messageImportMt5.value = res.message
+      ? `ℹ️ ${res.message}`
+      : `✅ Import MT5 terminé — ${res.resultats.length} fichier(s) traité(s)`
+    await chargerCouverture()
+  } catch (err: unknown) {
+    erreurImportMt5.value = true
+    messageImportMt5.value = `❌ Erreur MT5 : ${err instanceof Error ? err.message : 'inconnue'}`
+  } finally {
+    enImportMt5.value = false
+  }
+}
+
+// ── Section 4 : couverture DB (auto-refresh 60 s) ─────────────────────────────
+const couverture = ref<CouvertureDonnees[]>([])
+const chargement = ref(false)
+const derniereMaj = ref<string | null>(null)
+
 const ASSETS_CRYPTO = new Set(['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'AVAX', 'LINK', 'DOT'])
 
-// Bougies attendues par mois — crypto 24/7 uniquement (non-crypto → fraîcheur)
 const bougiesParMoisCrypto: Record<string, number> = {
   M1: 43200, M5: 8640, M15: 2880, M30: 1440,
   H1: 720, H4: 180, D1: 30, W1: 4,
@@ -200,12 +510,14 @@ const TF_ORDRE: Record<string, number> = {
 }
 
 const lignesEnrichies = computed(() => {
+  const idsConnus = new Set(tous.value.map(a => a.id))
+  const moisReference = configWorker.value?.historique_mois ?? 6
   const lignes = couverture.value
-    .filter(c => TOUS_ASSETS.value.includes(c.asset))
+    .filter(c => idsConnus.has(c.asset))
     .map(c => {
       const estCrypto = ASSETS_CRYPTO.has(c.asset)
       const pct = estCrypto
-        ? Math.min(100, Math.round((c.count / bougiesAttendues(c.timeframe, moisSelectionne.value)) * 100))
+        ? Math.min(100, Math.round((c.count / bougiesAttendues(c.timeframe, moisReference)) * 100))
         : 0
       const dateMin = c.min_ts ? new Date(c.min_ts * 1000).toLocaleDateString('fr-FR') : '—'
       const dateMax = c.max_ts ? new Date(c.max_ts * 1000).toLocaleDateString('fr-FR') : '—'
@@ -238,55 +550,28 @@ async function chargerCouverture() {
   }
 }
 
-async function importerMt5() {
-  enImportMt5.value = true
-  messageImportMt5.value = null
-  erreurImportMt5.value = false
-  statsImportMt5.value = null
-  try {
-    const res = await apiService.importerMt5()
-    statsImportMt5.value = { total_bougies: res.total_bougies, total_inseres: res.total_inseres }
-    if (res.message) {
-      messageImportMt5.value = `ℹ️ ${res.message}`
-    } else {
-      messageImportMt5.value = `✅ Import MT5 terminé — ${res.resultats.length} fichier(s) traité(s)`
-    }
-    await chargerCouverture()
-  } catch (err: unknown) {
-    erreurImportMt5.value = true
-    messageImportMt5.value = `❌ Erreur MT5 : ${err instanceof Error ? err.message : 'inconnue'}`
-  } finally {
-    enImportMt5.value = false
-  }
-}
-
-async function lancerCollecte() {
-  enCollecte.value = true
-  messageCollecte.value = null
-  erreurCollecte.value = false
-  resultatsCollecte.value = []
-  try {
-    const assets = assetsSelectionnes.value
-    const res = await apiService.collecterDonnees({
-      assets,
-      timeframes: tfsSelectionnes.value,
-      mois: moisSelectionne.value,
-    })
-    resultatsCollecte.value = res.resultats
-    messageCollecte.value = `✅ ${res.total_inseres.toLocaleString()} nouvelles bougies insérées`
-    await chargerCouverture()
-  } catch (err: unknown) {
-    erreurCollecte.value = true
-    messageCollecte.value = `❌ Erreur : ${err instanceof Error ? err.message : 'inconnue'}`
-  } finally {
-    enCollecte.value = false
-  }
-}
+// ── Cycle de vie : polls 30 s (statut workers) et 60 s (couverture) ──────────
+let minuteurStatut: ReturnType<typeof setInterval> | null = null
+let minuteurCouverture: ReturnType<typeof setInterval> | null = null
 
 onMounted(async () => {
   await assetsStore.chargerAssets()
-  assetsSelectionnes.value = TOUS_ASSETS.value.slice()
+  try {
+    tous.value = await apiService.obtenirAssets()
+  } catch {
+    tous.value = assetsStore.assets
+  }
+  if (!assetCsv.value && tous.value.length > 0) assetCsv.value = tous.value[0]!.id
+  await chargerConfig()
+  await chargerStatutWorkers()
   await chargerCouverture()
+  minuteurStatut = setInterval(chargerStatutWorkers, 30_000)
+  minuteurCouverture = setInterval(chargerCouverture, 60_000)
+})
+
+onUnmounted(() => {
+  if (minuteurStatut) clearInterval(minuteurStatut)
+  if (minuteurCouverture) clearInterval(minuteurCouverture)
 })
 </script>
 
