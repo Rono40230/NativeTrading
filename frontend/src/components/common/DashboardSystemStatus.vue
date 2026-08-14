@@ -33,13 +33,6 @@
         </span>
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
-        <span class="text-gray-500 text-[9px] uppercase">Forex (IG)</span>
-        <span v-if="igOk === null" class="text-gray-500 text-[10px] font-semibold animate-pulse">⏳ Vérif</span>
-        <span v-else :class="igOk ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold">
-          {{ igOk ? '🟢 Connecté' : '🔴 Déconnecté' }}
-        </span>
-      </div>
-      <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
         <span class="text-gray-500 text-[9px] uppercase">LLM (Ollama)</span>
         <span v-if="ollamaOk === null" class="text-gray-500 text-[10px] font-semibold animate-pulse">⏳ Vérif</span>
         <span v-else :class="ollamaOk ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold">
@@ -66,7 +59,6 @@
 defineProps<{
   backendOk: boolean
   btcPrix: number | null
-  igOk: boolean | null
   ollamaOk: boolean | null
   mlPret: boolean
   engineActif: boolean

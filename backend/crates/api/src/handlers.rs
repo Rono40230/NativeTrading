@@ -51,15 +51,6 @@ pub async fn get_candles(
         }
     }
 
-    // Force pour assets IG (XAU, XAG, indices...)
-    if force && !asset.is_crypto() {
-        let resultat = state.ig_lightstreamer.fetch_rest_ig(&asset, &timeframe, limit).await;
-        if !resultat.is_empty() {
-            let _ = state.db.inserer_bougies_avec_source(&asset, &timeframe, &resultat, "rest_ig").await;
-            return HttpResponse::Ok().json(resultat);
-        }
-    }
-
     // 1. Cache DB — toutes sources (MT5 inclus pour avoir l'historique)
     if let Ok(bougies) = state
         .db
@@ -88,8 +79,7 @@ pub async fn get_candles(
             }
         }
     }
-    // Pour les assets IG sans cache : le WebSocket stream_ig gère l'initialisation
-    // (fetch_historique avec protection anti-403 intégrée)
+    // Pour les assets non-crypto sans cache : pas encore de provider REST.
 
     HttpResponse::Ok().json(Vec::<serde_json::Value>::new())
 }

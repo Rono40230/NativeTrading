@@ -1,7 +1,8 @@
 //! GET /api/prix?assets=XAUUSD,BTC,EURUSD
-//! Retourne les prix actuels depuis Binance (crypto) ou IG Markets (autres).
+//! Retourne les prix actuels depuis Bybit/Binance (crypto + métaux),
+//! avec fallback sur le dernier close en base pour les autres assets.
 //!
-//! GET /api/marche/klines   — proxy Binance OHLCV (sparklines)
+//! GET /api/marche/klines   — proxy Bybit OHLCV (sparklines)
 use actix_web::{web, HttpResponse, Responder};
 use futures_util::future::join_all;
 use std::collections::HashMap;
@@ -26,33 +27,9 @@ pub async fn get_prix(state: web::Data<AppState>, query: web::Query<PrixQuery>) 
         .collect();
 
     let db = state.db.clone();
-    let ig_session = state.ig_session.clone();
     let mut map: HashMap<String, f64> = HashMap::new();
 
-    let mut ig_assets = Vec::new();
-    let mut crypto_assets = Vec::new();
-    for a in &assets {
-        if let Some(epic) = prix_utils::ig_epic_str(a) {
-            ig_assets.push((a.clone(), epic.to_string()));
-        } else {
-            crypto_assets.push(a.clone());
-        }
-    }
-
-    if !ig_assets.is_empty() {
-        let epics: Vec<&str> = ig_assets.iter().map(|(_, e)| e.as_str()).collect();
-        let result_ig = prix_utils::fetch_ig_multi(&client, &ig_session, &db, &epics).await;
-        
-        for (asset, epic) in &ig_assets {
-            if let Some(&p) = result_ig.get(epic) {
-                map.insert(asset.clone(), p);
-            } else if let Some(prix) = prix_utils::dernier_prix_db(asset, &db).await {
-                map.insert(asset.clone(), prix);
-            }
-        }
-    }
-
-    let futs: Vec<_> = crypto_assets
+    let futs: Vec<_> = assets
         .into_iter()
         .map(|asset| {
             let c = client.clone();
@@ -65,7 +42,7 @@ pub async fn get_prix(state: web::Data<AppState>, query: web::Query<PrixQuery>) 
     let resultats = join_all(futs).await;
     for (asset, prix) in resultats {
         if let Some(p) = prix {
-            map.insert(asset, p);
+            map.insert(asset.clone(), p);
         } else if let Some(prix_db) = prix_utils::dernier_prix_db(&asset, &db).await {
             map.insert(asset, prix_db);
         }

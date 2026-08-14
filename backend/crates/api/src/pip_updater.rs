@@ -15,29 +15,23 @@ const PAIRES_JPY: &[&str] = &[
 
 /// Démarre le job de mise à jour des valeur_pips.
 /// Lance une première exécution immédiate au démarrage, puis toutes les 24h.
-pub fn demarrer_pip_updater(
-    db: Arc<Database>,
-    ig_session: std::sync::Arc<tokio::sync::Mutex<crate::ig_session::IgSession>>,
-) {
+pub fn demarrer_pip_updater(db: Arc<Database>) {
     tokio::spawn(async move {
         // Première exécution immédiate (au démarrage du serveur)
-        executer(&db, &ig_session).await;
+        executer(&db).await;
 
         loop {
             sleep(Duration::from_secs(86_400)).await;
-            executer(&db, &ig_session).await;
+            executer(&db).await;
         }
     });
 }
 
-async fn executer(
-    db: &Arc<Database>,
-    ig_session: &std::sync::Arc<tokio::sync::Mutex<crate::ig_session::IgSession>>,
-) {
+async fn executer(db: &Arc<Database>) {
     let client = &*crate::http_client::HTTP_CLIENT;
 
-    // Récupère le taux USDJPY via IG Markets
-    let usdjpy = match prix_utils::fetch_prix_asset(&client, "USDJPY", ig_session, db).await {
+    // Récupère le taux USDJPY (provider REST)
+    let usdjpy = match prix_utils::fetch_prix_asset(&client, "USDJPY").await {
         Some(p) if p > 0.0 => p,
         _ => {
             tracing::warn!("pip_updater: USDJPY non disponible, mise à jour reportée");

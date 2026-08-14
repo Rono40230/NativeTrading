@@ -155,25 +155,6 @@ export const apiService = {
     }
   },
 
-  async igStatus(): Promise<{ connecte: boolean; source: string; erreur?: string }> {
-    try {
-      const res = await http.get('/api/ig/status')
-      return res.data
-    } catch (err: any) {
-      if (err?.response?.data) return err.response.data
-      return { connecte: false, source: 'ig_markets', erreur: err?.message ?? 'Erreur réseau' }
-    }
-  },
-
-  async igStatutLocal(): Promise<{ connecte: boolean; source: string }> {
-    try {
-      const res = await http.get('/api/ig/statut-local')
-      return res.data
-    } catch {
-      return { connecte: false, source: 'ig_markets' }
-    }
-  },
-
   async getIndicators(params: IndicatorsParams): Promise<ReponseIndicators> {
     const res = await http.get('/api/indicators', { params })
     return res.data
@@ -195,7 +176,7 @@ export const apiService = {
     id: string,
     nom: string,
     type: AssetInfo['type'],
-    source: 'binance' | 'ig',
+    source: 'binance',
   ): Promise<void> {
     try {
       await http.post('/api/assets', { id, nom, type, source })

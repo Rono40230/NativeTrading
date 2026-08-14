@@ -50,7 +50,7 @@ export const useMarketStore = defineStore('market', () => {
   async function connecterStream(asset: string, timeframe = 'M5') {
     deconnecterStream()
 
-    // WebSocket pour tous les assets : crypto (Binance) et métaux/forex/indices (IG Markets)
+    // WebSocket pour les assets crypto + métaux (Binance/Bybit)
     ws = new WebSocket(`${WS_URL}/api/stream?asset=${asset}&timeframe=${timeframe}`)
     ws.onopen = () => { wsConnecte.value = true }
     ws.onclose = () => { wsConnecte.value = false }
@@ -83,11 +83,11 @@ export const useMarketStore = defineStore('market', () => {
         }
 
         if (msg.type === 'error') {
-          erreurWs.value = msg.message ?? 'Erreur flux IG Markets'
+          erreurWs.value = msg.message ?? 'Erreur flux'
           return
         }
 
-        // Prix live 5s (IG polling) — met à jour la dernière bougie sans modifier le chart
+        // Prix live — met à jour la dernière bougie sans modifier le chart
         if (msg.type === 'price' && msg.price != null) {
           const liste = bougies.value[key]
           if (liste && liste.length > 0) {

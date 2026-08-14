@@ -10,7 +10,7 @@ use chrono::Utc;
 /// Compteurs de statut d'un worker. Tous les champs sont atomiques → la
 /// structure est constructible en `static` et partagée sans lock.
 pub struct StatutWorker {
-    /// Worker connecté / opérationnel (session WS ouverte, cycle IG OK).
+    /// Worker connecté / opérationnel (session WS ouverte, cycle OK).
     pub connecte: AtomicBool,
     /// Nombre d'actifs suivis par la session/le cycle en cours.
     pub nb_assets: AtomicU64,
@@ -63,7 +63,7 @@ impl StatutWorker {
     }
 
     /// Consigne l'insertion réussie de `n` bougies d'un même lot, la plus
-    /// récente à `ts_unix` (worker IG : insertion par batch).
+    /// récente à `ts_unix` (insertion par batch).
     pub fn consigne_bougies(&self, ts_unix: i64, n: u64) {
         self.derniere_bougie.store(ts_unix, Ordering::Relaxed);
         self.bougies_inserees.fetch_add(n, Ordering::Relaxed);
@@ -83,8 +83,6 @@ impl StatutWorker {
 
 /// Statut du worker Bybit WebSocket.
 pub static STATUT_BYBIT: StatutWorker = StatutWorker::vide();
-/// Statut du worker IG REST.
-pub static STATUT_IG: StatutWorker = StatutWorker::vide();
 
 #[cfg(test)]
 mod tests {

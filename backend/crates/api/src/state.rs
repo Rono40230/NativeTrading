@@ -3,10 +3,8 @@ use anyhow::Result;
 use db::Database;
 use ml::PipelineML;
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
-use crate::ig_lightstreamer::IgLightstreamer;
-use crate::ig_session::IgSession;
 use crate::scheduler::demarrer_scheduler;
 use crate::signal_engine::SignalEngine;
 use smc::v12::sentiment::SentimentScore;
@@ -16,10 +14,6 @@ pub struct AppState {
     pub pipeline_ml: Arc<RwLock<PipelineML>>,
     /// État du job de réentraînement incrémental (Phase 8.4)
     pub retrain_state: Arc<tokio::sync::RwLock<crate::ml_retrain_handler::RetainState>>,
-    /// Session IG Markets (CST + X-SECURITY-TOKEN, TTL 5h, relogin auto)
-    pub ig_session: Arc<Mutex<IgSession>>,
-    /// Client Lightstreamer IG — streaming CHART: OHLC temps réel
-    pub ig_lightstreamer: Arc<IgLightstreamer>,
     /// Moteur de génération automatique de signaux SMC
     pub signal_engine: Arc<SignalEngine>,
     /// Cache Fear & Greed Index (TTL 1h) — (Instant du fetch, données JSON)
@@ -63,12 +57,6 @@ impl AppState {
             }
         };
 
-        // Session IG Markets — login immédiat en arrière-plan si credentials présents
-        let ig_client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(15))
-            .build()?;
-        let ig_session = Arc::new(Mutex::new(IgSession::new(ig_client)));
-
         // Démarrage automatique du Signal Engine au lancement du serveur
         let db = Arc::new(db);
         let pipeline_ml = Arc::new(RwLock::new(pipeline_ml));
@@ -79,31 +67,6 @@ impl AppState {
         > = Arc::new(tokio::sync::RwLock::new(None));
         signal_engine.demarrer(db.clone(), pipeline_ml.clone());
         tracing::info!("🤖 Signal Engine démarré automatiquement");
-
-        // Pré-connexion IG en arrière-plan au démarrage (db déjà dans Arc)
-        {
-            let ig_init = ig_session.clone();
-            let db_init = db.clone();
-            tokio::spawn(async move {
-                let mut session = ig_init.lock().await;
-                match session.login(&db_init).await {
-                    Ok(()) => tracing::info!("✅ IG Markets: connecté au démarrage"),
-                    Err(e) => tracing::warn!("⚠️  IG Markets: login différé — {}", e),
-                }
-            });
-        }
-
-        // Client Lightstreamer — démarrage de la boucle de streaming
-        let (ls_client, _rx) = IgLightstreamer::new(ig_session.clone(), db.clone());
-        let ig_lightstreamer = Arc::new(ls_client);
-
-        {
-            let ls = ig_lightstreamer.clone();
-            tokio::spawn(async move {
-                ls.run().await;
-            });
-        }
-        tracing::info!("📡 IG Lightstreamer: boucle de streaming démarrée (inactive logic)");
 
         // Scheduler ML : entraînement immédiat si pas de modèle, puis quotidien à 00h00 UTC
         demarrer_scheduler(db.clone(), pipeline_ml.clone(), modele_deja_charge);
@@ -130,10 +93,7 @@ impl AppState {
         crate::straddle_feedback_job::demarrer_job_feedback(db.clone());
 
         // Moniteur temps-réel des positions Straddle (trailing + SL progressif, cycle 60s)
-        crate::straddle_moniteur_position::demarrer_moniteur_straddle(
-            db.clone(),
-            ig_session.clone(),
-        );
+        crate::straddle_moniteur_position::demarrer_moniteur_straddle(db.clone());
 
         // Job de calibration automatique des seuils (toutes les 6h)
         crate::straddle_calibration::demarrer_calibration(db.clone());
@@ -169,7 +129,7 @@ impl AppState {
         crate::patterns_echec_job::demarrer_job_patterns_echec(db.clone());
 
         // Job quotidien de mise à jour des valeur_pips (paires JPY)
-        crate::pip_updater::demarrer_pip_updater(db.clone(), ig_session.clone());
+        crate::pip_updater::demarrer_pip_updater(db.clone());
 
         Ok(Self {
             db,
@@ -177,8 +137,6 @@ impl AppState {
             retrain_state: Arc::new(tokio::sync::RwLock::new(
                 crate::ml_retrain_handler::RetainState::default(),
             )),
-            ig_session,
-            ig_lightstreamer,
             signal_engine,
             fear_greed_cache,
             sentiment: sentiment_slot,

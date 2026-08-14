@@ -24,7 +24,7 @@ export const useAssetsStore = defineStore('assets', () => {
     id: string,
     nom: string,
     type: AssetInfo['type'],
-    source: 'binance' | 'ig',
+    source: 'binance',
   ) {
     await apiService.ajouterAsset(id, nom, type, source)
     await chargerAssets()

@@ -6,14 +6,13 @@ use sqlx::Row;
 use crate::Database;
 
 /// Asset vu par les workers d'ingestion : identité + colonnes de routing.
-/// `symbol_bybit` / `epic_ig` déterminent quel worker ingère l'asset
+/// `symbol_bybit` détermine quel worker ingère l'asset
 /// (`None` → non couvert par ce worker).
 #[derive(Debug, Clone, Serialize)]
 pub struct AssetWorker {
     pub id: String,
     pub source: String,
     pub symbol_bybit: Option<String>,
-    pub epic_ig: Option<String>,
     pub actif: bool,
 }
 
@@ -68,11 +67,11 @@ impl Database {
     }
 
     /// Liste tous les assets (actifs + inactifs) avec leurs colonnes de
-    /// routing worker (`symbol_bybit`, `epic_ig`). Les workers filtrent ensuite
+    /// routing worker (`symbol_bybit`). Les workers filtrent ensuite
     /// selon `source`, `actif` et la présence du mapping.
     pub async fn lister_assets_worker(&self) -> Result<Vec<AssetWorker>> {
         let rows = sqlx::query(
-            "SELECT id, source, symbol_bybit, epic_ig, actif FROM assets ORDER BY type, id",
+            "SELECT id, source, symbol_bybit, actif FROM assets ORDER BY type, id",
         )
         .fetch_all(&self.pool)
         .await
@@ -84,7 +83,6 @@ impl Database {
                 id: r.get("id"),
                 source: r.get("source"),
                 symbol_bybit: r.get("symbol_bybit"),
-                epic_ig: r.get("epic_ig"),
                 actif: r.get::<i64, _>("actif") == 1,
             })
             .collect())

@@ -77,7 +77,7 @@ export interface AssetInfo {
   id: string
   nom: string
   type: 'crypto' | 'metal' | 'forex' | 'indice'
-  source?: 'binance' | 'ig'
+  source?: 'binance'
   actif?: boolean
 }
 

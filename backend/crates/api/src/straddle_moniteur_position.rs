@@ -8,24 +8,19 @@
 
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::Mutex;
 use tokio::time::sleep;
 
-use crate::ig_session::IgSession;
 use crate::prix_utils::fetch_prix_asset;
 use db::{straddle_suivi_position as ssp, strategies_params, Database};
 use strategies::position_tracking::{calculer_verdict, PositionConfig, Verdict};
 
 // ── Entrée publique ───────────────────────────────────────────────────────────
 
-pub fn demarrer_moniteur_straddle(
-    db: Arc<Database>,
-    ig: Arc<Mutex<IgSession>>,
-) {
+pub fn demarrer_moniteur_straddle(db: Arc<Database>) {
     tokio::spawn(async move {
         sleep(Duration::from_secs(90)).await; // laisse le temps aux autres workers de démarrer
         loop {
-            run_cycle(&db, &ig).await;
+            run_cycle(&db).await;
             sleep(Duration::from_secs(60)).await;
         }
     });
@@ -34,7 +29,7 @@ pub fn demarrer_moniteur_straddle(
 
 // ── Cycle principal ───────────────────────────────────────────────────────────
 
-async fn run_cycle(db: &Arc<Database>, ig: &Arc<Mutex<IgSession>>) {
+async fn run_cycle(db: &Arc<Database>) {
     let pool = db.pool();
     let params = strategies_params::lire_straddle_params(pool).await;
 
@@ -55,7 +50,7 @@ async fn run_cycle(db: &Arc<Database>, ig: &Arc<Mutex<IgSession>>) {
     let client = &*crate::http_client::HTTP_CLIENT;
 
     for jambe in &actifs {
-        let Some(prix) = fetch_prix_asset(&client, &jambe.asset, ig, db).await else {
+        let Some(prix) = fetch_prix_asset(&client, &jambe.asset).await else {
             continue;
         };
 

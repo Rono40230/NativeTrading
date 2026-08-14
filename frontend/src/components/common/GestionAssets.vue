@@ -69,15 +69,15 @@ const CATEGORIES = computed(() => [
     assets: tous.value.filter(a => a.type === 'crypto'),
   },
   {
-    type: 'metal', label: '🥇 Métaux (IG)', couleur: 'text-amber-400',
+    type: 'metal', label: '🥇 Métaux', couleur: 'text-amber-400',
     assets: tous.value.filter(a => a.type === 'metal'),
   },
   {
-    type: 'forex', label: '💱 Forex (IG)', couleur: 'text-blue-400',
+    type: 'forex', label: '💱 Forex', couleur: 'text-blue-400',
     assets: tous.value.filter(a => a.type === 'forex'),
   },
   {
-    type: 'indice', label: '📈 Indices (IG)', couleur: 'text-purple-400',
+    type: 'indice', label: '📈 Indices', couleur: 'text-purple-400',
     assets: tous.value.filter(a => a.type === 'indice'),
   },
 ])
@@ -90,7 +90,7 @@ async function basculer(a: AssetInfo) {
     if (a.actif) {
       await apiService.supprimerAsset(a.id)
     } else {
-      await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], a.source ?? 'binance')
+      await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], 'binance')
     }
     // Muter directement l'objet dans tous.value — pas de re-fetch, la carte reste toujours visible
     a.actif = !ancienEtat

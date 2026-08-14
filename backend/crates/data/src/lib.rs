@@ -1,9 +1,6 @@
 use common::{Asset, Candle, Result, Timeframe, TradingError};
 
 pub mod bybit_ws;
-pub mod ig_lightstreamer;
-pub mod ig_session;
-pub mod ig_worker;
 pub mod prix_utils;
 pub mod providers;
 pub mod worker_config;

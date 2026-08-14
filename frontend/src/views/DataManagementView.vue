@@ -279,15 +279,6 @@ const cartesWorkers = computed(() => [
     },
     statut: statutWorkers.value?.bybit,
   },
-  {
-    nom: 'IG REST',
-    description: 'Forex + indices — polling cadencé par clôture',
-    cle: 'actif_ig' as const,
-    config: {
-      actif: configWorker.value?.actif_ig ?? false,
-    },
-    statut: statutWorkers.value?.ig,
-  },
 ])
 
 function fraicheur(ts: number | null): string {
@@ -318,14 +309,14 @@ async function chargerStatutWorkers() {
   }
 }
 
-async function basculerWorker(cle: 'actif_bybit' | 'actif_ig') {
+async function basculerWorker(cle: 'actif_bybit') {
   const c = configWorker.value
   if (!c || enEcritureConfig.value) return
   enEcritureConfig.value = true
   messageConfig.value = null
   try {
     configWorker.value = await apiService.putWorkerConfig({ [cle]: !c[cle] })
-    messageConfig.value = `${cle === 'actif_bybit' ? 'Worker Bybit' : 'Worker IG'} ${configWorker.value[cle] ? 'activé' : 'mis en pause'} — effet sous 60 s max`
+    messageConfig.value = `Worker Bybit ${configWorker.value[cle] ? 'activé' : 'mis en pause'} — effet sous 60 s max`
     erreurConfig.value = false
     await chargerStatutWorkers()
   } catch (err: unknown) {
@@ -385,14 +376,14 @@ const nbAssetsActifs = computed(() => tous.value.filter(a => a.actif).length)
 const CATEGORIES = computed(() => [
   { type: 'crypto', label: '🪙 Crypto (Bybit)', couleur: 'text-yellow-400', assets: tous.value.filter(a => a.type === 'crypto') },
   { type: 'metal', label: '🥇 Métaux (Bybit)', couleur: 'text-amber-400', assets: tous.value.filter(a => a.type === 'metal') },
-  { type: 'forex', label: '💱 Forex (IG)', couleur: 'text-blue-400', assets: tous.value.filter(a => a.type === 'forex') },
-  { type: 'indice', label: '📈 Indices (IG)', couleur: 'text-purple-400', assets: tous.value.filter(a => a.type === 'indice') },
+  { type: 'forex', label: '💱 Forex', couleur: 'text-blue-400', assets: tous.value.filter(a => a.type === 'forex') },
+  { type: 'indice', label: '📈 Indices', couleur: 'text-purple-400', assets: tous.value.filter(a => a.type === 'indice') },
 ])
 
 function badgeSource(source?: string): { label: string; classe: string } {
-  return source === 'ig'
-    ? { label: 'IG', classe: 'bg-blue-500/15 text-blue-300' }
-    : { label: 'Bybit', classe: 'bg-yellow-500/15 text-yellow-300' }
+  return source === 'binance'
+    ? { label: 'Bybit', classe: 'bg-yellow-500/15 text-yellow-300' }
+    : { label: '—', classe: 'bg-white/10 text-gray-400' }
 }
 
 async function basculerAsset(a: AssetInfo) {
@@ -402,7 +393,7 @@ async function basculerAsset(a: AssetInfo) {
     if (a.actif) {
       await apiService.supprimerAsset(a.id)
     } else {
-      await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], a.source ?? 'binance')
+      await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], 'binance')
     }
     a.actif = !a.actif
     await assetsStore.chargerAssets()

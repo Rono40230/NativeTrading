@@ -12,7 +12,6 @@ export interface WorkerConfig {
   timeframes: string[]
   historique_mois: number
   actif_bybit: boolean
-  actif_ig: boolean
 }
 
 /** Mise à jour partielle — seules les clés présentes sont écrites côté serveur. */
@@ -20,14 +19,13 @@ export interface WorkerConfigUpdate {
   timeframes?: string[]
   historique_mois?: number
   actif_bybit?: boolean
-  actif_ig?: boolean
 }
 
 /** Statut runtime d'un worker (instantané des compteurs côté serveur). */
 export interface WorkerStatutItem {
   /** Interrupteur configuré (worker_actif_*). */
   actif: boolean
-  /** Connexion vivante (session WS ouverte / dernier cycle IG OK). */
+  /** Connexion vivante (session WS ouverte / dernier cycle OK). */
   connecte: boolean
   /** Nombre d'actifs routés vers ce worker (config DB). */
   nb_assets: number
@@ -43,7 +41,6 @@ export interface WorkerStatutItem {
 
 export interface WorkerStatus {
   bybit: WorkerStatutItem
-  ig: WorkerStatutItem
 }
 
 /** Asset avec colonnes de routing worker. */
@@ -51,7 +48,6 @@ export interface WorkerAsset {
   id: string
   source: string
   symbol_bybit: string | null
-  epic_ig: string | null
   actif: boolean
 }
 

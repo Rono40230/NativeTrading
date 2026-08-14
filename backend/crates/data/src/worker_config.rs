@@ -5,7 +5,6 @@
 //! - `worker_timeframes`       : JSON array `["M5","M15","H1","D1"]`
 //! - `worker_historique_mois`  : profondeur de backfill en mois (1..=24)
 //! - `worker_actif_bybit`      : "0" → le worker Bybit skippe ses sessions
-//! - `worker_actif_ig`         : "0" → le worker IG skippe ses cycles
 
 use std::sync::Arc;
 
@@ -18,8 +17,6 @@ pub const CLE_TIMEFRAMES: &str = "worker_timeframes";
 pub const CLE_HISTORIQUE_MOIS: &str = "worker_historique_mois";
 /// Clé de configuration : worker Bybit activé ("0" = désactivé).
 pub const CLE_ACTIF_BYBIT: &str = "worker_actif_bybit";
-/// Clé de configuration : worker IG activé ("0" = désactivé).
-pub const CLE_ACTIF_IG: &str = "worker_actif_ig";
 
 /// Timeframes par défaut si la clé est absente ou illisible en DB.
 pub const TIMEFRAMES_DEFAUT: &[Timeframe] =
@@ -87,7 +84,7 @@ pub async fn lire_actif(db: &Arc<Database>, cle: &str) -> bool {
 }
 
 /// Lit la profondeur d'historique en mois, bornée 1..=24 pour rester
-/// compatible avec les quotas IG et la taille des requêtes.
+/// compatible avec les quotas des providers et la taille des requêtes.
 pub async fn lire_historique_mois(db: &Arc<Database>) -> i64 {
     match db.lire_config(CLE_HISTORIQUE_MOIS).await {
         Ok(Some(valeur)) => valeur

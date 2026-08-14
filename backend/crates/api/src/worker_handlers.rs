@@ -23,8 +23,6 @@ pub struct MiseAJourWorkerConfig {
     pub historique_mois: Option<i64>,
     /// Interrupteur du worker Bybit WS.
     pub actif_bybit: Option<bool>,
-    /// Interrupteur du worker IG REST.
-    pub actif_ig: Option<bool>,
 }
 
 /// Snapshot JSON de la config worker courante.
@@ -34,7 +32,6 @@ async fn config_courante(db: &std::sync::Arc<db::Database>) -> serde_json::Value
         "timeframes": timeframes.iter().map(|t| t.as_str()).collect::<Vec<&str>>(),
         "historique_mois": worker_config::lire_historique_mois(db).await,
         "actif_bybit": worker_config::lire_actif(db, worker_config::CLE_ACTIF_BYBIT).await,
-        "actif_ig": worker_config::lire_actif(db, worker_config::CLE_ACTIF_IG).await,
     })
 }
 
@@ -82,7 +79,7 @@ pub async fn put_worker_config(
         tracing::info!("Config worker mise à jour: timeframes = {:?}", tfs_bruts);
     }
 
-    // Historique : borné 1..=24 mois (quota IG + taille des requêtes).
+    // Historique : borné 1..=24 mois (quota providers + taille des requêtes).
     if let Some(mois) = body.historique_mois {
         let borne = mois.clamp(1, 24);
         if let Err(e) = state
@@ -96,11 +93,12 @@ pub async fn put_worker_config(
         tracing::info!("Config worker mise à jour: historique_mois = {}", borne);
     }
 
-    // Interrupteurs Bybit / IG ("1"/"0" en DB).
-    for (flag, cle, label) in [
-        (body.actif_bybit, worker_config::CLE_ACTIF_BYBIT, "bybit"),
-        (body.actif_ig, worker_config::CLE_ACTIF_IG, "ig"),
-    ] {
+    // Interrupteur Bybit ("1"/"0" en DB).
+    for (flag, cle, label) in [(
+        body.actif_bybit,
+        worker_config::CLE_ACTIF_BYBIT,
+        "bybit",
+    )] {
         if let Some(valeur) = flag {
             if let Err(e) = state
                 .db
@@ -127,7 +125,7 @@ pub async fn get_worker_status(state: web::Data<AppState>) -> impl Responder {
     let db = &state.db;
 
     // Compteurs de routing depuis la DB (indépendants de l'état des workers).
-    let (mut nb_bybit, mut nb_ig) = (0u64, 0u64);
+    let mut nb_bybit = 0u64;
     match db.lister_assets_worker().await {
         Ok(assets) => {
             for a in &assets {
@@ -136,8 +134,6 @@ pub async fn get_worker_status(state: web::Data<AppState>) -> impl Responder {
                 }
                 if a.source == "binance" && a.symbol_bybit.is_some() {
                     nb_bybit += 1;
-                } else if a.source == "ig" && a.epic_ig.is_some() {
-                    nb_ig += 1;
                 }
             }
         }
@@ -149,7 +145,6 @@ pub async fn get_worker_status(state: web::Data<AppState>) -> impl Responder {
 
     let ts_option = |ts: i64| if ts > 0 { serde_json::json!(ts) } else { serde_json::json!(null) };
     let bybit = worker_status::STATUT_BYBIT.instantane();
-    let ig = worker_status::STATUT_IG.instantane();
 
     HttpResponse::Ok().json(serde_json::json!({
         "bybit": {
@@ -160,15 +155,6 @@ pub async fn get_worker_status(state: web::Data<AppState>) -> impl Responder {
             "derniere_connexion": ts_option(bybit.derniere_connexion),
             "derniere_bougie": ts_option(bybit.derniere_bougie),
             "bougies_inserees": bybit.bougies_inserees,
-        },
-        "ig": {
-            "actif": worker_config::lire_actif(db, worker_config::CLE_ACTIF_IG).await,
-            "connecte": ig.connecte,
-            "nb_assets": nb_ig,
-            "nb_assets_session": ig.nb_assets,
-            "derniere_connexion": ts_option(ig.derniere_connexion),
-            "derniere_bougie": ts_option(ig.derniere_bougie),
-            "bougies_inserees": ig.bougies_inserees,
         },
     }))
 }

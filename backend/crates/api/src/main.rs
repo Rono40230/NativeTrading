@@ -12,9 +12,6 @@ mod data_mt5_handlers;
 mod engine_handlers;
 mod handlers;
 mod http_client;
-mod ig_handlers;
-mod ig_lightstreamer;
-mod ig_session;
 mod indicators_handlers;
 mod indicators_types;
 mod ml_handlers;
@@ -153,12 +150,8 @@ async fn main() -> std::io::Result<()> {
     ));
 
     let pool_signaux = app_state.db.pool().clone();
-    let ig_signaux = app_state.ig_session.clone();
-    let db_signaux = app_state.db.clone();
     tokio::spawn(signaux_handlers::demarrer_worker_suivi_signaux(
         pool_signaux,
-        ig_signaux,
-        db_signaux,
     ));
 
     tokio::spawn(smc_analyse_handler::demarrer_worker_analyse_smc(
@@ -178,12 +171,6 @@ async fn main() -> std::io::Result<()> {
     // Connexion publique, sans clé API. Écrit en continu les bougies fermées
     // des 12 actifs × 5 timeframes. Indépendant du frontend.
     data::bybit_ws::demarrer_worker_bybit(app_state.db.clone());
-
-    // ── Worker ingestion IG REST (forex + indices, 30s cycle) ───────────────
-    // Backfill intelligent au démarrage (si données stale > 1j) puis update
-    // des 2 dernières bougies par cycle. 19 actifs × 4 timeframes, requêtes
-    // espacées de 200 ms (rate limit IG). Session partagée + relogin auto.
-    data::ig_worker::demarrer_worker_ig(app_state.db.clone(), app_state.ig_session.clone());
 
     // ── Worker pré-alertes (cycle 5 min — setups en formation) ──────────────
     prealerte_worker::demarrer_worker_prealerte(app_state.db.clone());

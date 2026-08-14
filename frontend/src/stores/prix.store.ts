@@ -5,7 +5,7 @@ import { WS_BASE_URL } from '@/services/http.client'
 
 const NON_CRYPTO_POLL_MS  = 15_000
 
-// Assets IG Markets (métaux, forex, indices) — le backend les route via IG REST
+// Assets non-crypto (métaux, forex, indices) — prix servis par le backend
 const NON_CRYPTO_ASSETS = [
   'XAUUSD', 'XAGUSD', 'XPTUSD', 'XPDUSD',
   'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
@@ -28,7 +28,7 @@ export const usePrixStore = defineStore('prix', () => {
   const assetsAbonnes = new Set<string>()
   let intervalNonCrypto: ReturnType<typeof setInterval> | null = null
 
-  // ── WebSocket 1s — prix live pour tous les assets abonnés (crypto + IG via backend) ──
+  // ── WebSocket — prix live pour tous les assets abonnés (via backend) ──
   function _connecterWs() {
     if (wsCrypto) { wsCrypto.close(); wsCrypto = null }
     const assets = [...assetsAbonnes]
@@ -57,7 +57,7 @@ export const usePrixStore = defineStore('prix', () => {
     wsCrypto = ws
   }
 
-  // ── Fallback REST IG (15s) — backup si WS IG inaccessible ──
+  // ── Fallback REST (15s) — backup si WS inaccessible ──
   async function chargerNonCrypto() {
     try {
       const prixIg = await apiService.getPrixAssets(NON_CRYPTO_ASSETS)

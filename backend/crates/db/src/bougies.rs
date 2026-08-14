@@ -6,7 +6,7 @@ use crate::Database;
 
 impl Database {
     /// Insère un lot de bougies avec une source explicite.
-    /// `source` : 'binance' | 'rest_ig' | 'lightstreamer' | 'mt5'
+    /// `source` : 'binance' | 'bybit_ws' | 'mt5' | 'csv'
     pub async fn inserer_bougies_avec_source(
         &self,
         asset: &Asset,
