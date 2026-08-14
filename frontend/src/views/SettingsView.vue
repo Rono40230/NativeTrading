@@ -12,13 +12,8 @@
       </button>
     </div>
 
-    <!-- ── Onglet 1 : Choix des assets ─────────────────────────────────────── -->
-    <div v-if="activeTab === 'assets'">
-      <GestionAssets />
-    </div>
-
-    <!-- ── Onglet 2 : Connexion/API ────────────────────────────────────────── -->
-    <div v-else-if="activeTab === 'connexion'" class="space-y-4">
+    <!-- ── Onglet : Connexion/API ───────────────────────────────────────────── -->
+    <div v-if="activeTab === 'connexion'" class="space-y-4">
 
       <!-- Statut IG Markets -->
       <div class="glass-card p-4">
@@ -69,9 +64,8 @@ import ApiKeysPanel from '@/components/common/ApiKeysPanel.vue'
 import StrategiesParamsPanel from '@/components/StrategiesParamsPanel.vue'
 import AssetParamsPanel from '@/components/common/AssetParamsPanel.vue'
 
-const activeTab = ref<'assets' | 'connexion' | 'strategies' | 'risque'>('assets')
+const activeTab = ref<'connexion' | 'strategies' | 'risque'>('connexion')
 const tabs: { id: typeof activeTab.value; label: string }[] = [
-  { id: 'assets', label: '📋 Choix des assets' },
   { id: 'connexion', label: '🔌 Connexion / API' },
   { id: 'strategies', label: '⚙️ Paramétrages des stratégies' },
   { id: 'risque', label: '📊 Gestion du risque' },
