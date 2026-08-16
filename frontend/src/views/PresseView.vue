@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full min-h-0">
+  <div class="flex flex-col min-h-full">
     <!-- Bandeau -->
     <div class="flex items-center justify-between shrink-0 mb-4">
       <h1 class="text-2xl font-bold">📰 Revue de presse</h1>
@@ -9,8 +9,9 @@
       >📡 Sources RSS</button>
     </div>
 
-    <!-- Colonne unique : filtres, brief, cartes enrichies -->
-    <div class="flex-1 min-h-0 overflow-y-auto scroll-zone pr-1">
+    <!-- Colonne unique : filtres, brief, cartes enrichies (le <main> d'App
+         scrolle — la vue reste en flux simple, pas de double scroll) -->
+    <div class="flex-1 space-y-4">
 
       <!-- ── Colonne unique : filtres, brief, cartes ── -->
 
