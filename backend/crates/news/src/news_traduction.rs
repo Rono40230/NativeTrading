@@ -206,14 +206,24 @@ pub fn traduction_reussie(original: &str, traduit: &str) -> bool {
     !traduit.trim().is_empty() && traduit.trim() != original.trim()
 }
 
+/// Décide si une entrée de cache est servable par la voie stricte :
+/// `None` si le cache est absent ou empoisonné (échec de la voie tolérante,
+/// stocké tel quel = identique à l'original).
+pub fn cache_valide(original: &str, cached: Option<String>) -> Option<String> {
+    cached.filter(|c| traduction_reussie(original, c))
+}
+
 /// Traduction STRICTE pour la presse : None = échec (rien n'est caché).
 /// Diffère de `traduire_avec_cache` qui cache aussi les échecs (rend
 /// l'original) — inacceptable pour la règle « porte d'entrée ».
 pub async fn traduire_avec_cache_strict(pool: &SqlitePool, titre: &str) -> Option<String> {
     let hash = hash_titre(titre);
-    if let Some(cached) = lire_cache(pool, &hash).await {
+    if let Some(cached) = cache_valide(titre, lire_cache(pool, &hash).await) {
         return Some(cached);
     }
+    // Cache absent ou empoisonné par la voie tolérante (échec caché tel
+    // quel) : on retente la traduction réelle ci-dessous — un succès
+    // écrasera le poison (ecrire_cache fait INSERT OR REPLACE).
     let traduit = traduire(titre).await;
     if traduction_reussie(titre, &traduit) {
         ecrire_cache(pool, &hash, &traduit).await;
@@ -259,5 +269,19 @@ mod tests_strict {
         assert!(traduction_reussie("Fed cuts rates", "La Fed baisse ses taux"));
         assert!(!traduction_reussie("Fed cuts rates", "Fed cuts rates"));
         assert!(!traduction_reussie("Fed cuts rates", "  "));
+    }
+
+    #[test]
+    fn eval_cache_valide() {
+        // Cache absent → rien à servir, il faut traduire.
+        assert_eq!(cache_valide("Fed cuts rates", None), None);
+        // Cache empoisonné par la voie tolérante (échec caché tel quel) →
+        // invalide pour la voie stricte.
+        assert_eq!(cache_valide("Fed cuts rates", Some("Fed cuts rates".into())), None);
+        // Vraie traduction en cache → servie telle quelle.
+        assert_eq!(
+            cache_valide("Fed cuts rates", Some("La Fed baisse ses taux".into())),
+            Some("La Fed baisse ses taux".to_string())
+        );
     }
 }
