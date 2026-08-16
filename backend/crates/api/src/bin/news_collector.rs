@@ -59,27 +59,53 @@ async fn main() -> anyhow::Result<()> {
 }
 
 /// Un cycle complet : sources actives → fetch RSS → traitement → insertion.
+/// Isolation d'erreur PAR SOURCE : une insertion qui échoue est loggée et la
+/// source suivante est traitée dans la foulée — plus de cycle avorté qui
+/// repousserait tout le monde de 30 min.
 async fn un_cycle(db: Arc<Database>, http: Arc<reqwest::Client>) -> anyhow::Result<()> {
     let sources = db.lister_sources_presse(true).await?;
     let mut total_inserees = 0u64;
+    let mut sources_en_echec: Vec<String> = Vec::new();
     for source in &sources {
-        let items = news::news_rss::fetch_rss(&http, &source.url_rss).await;
-        if items.is_empty() {
-            tracing::debug!("Collecteur : flux vide ou down — {}", source.nom);
-            continue;
+        let resultat: anyhow::Result<Option<(usize, u64)>> = async {
+            let items = news::news_rss::fetch_rss(&http, &source.url_rss).await;
+            if items.is_empty() {
+                return Ok(None); // flux vide ou down : skip (log debug ci-dessous)
+            }
+            let articles = news::presse_classif::traiter_items(&items, &source.nom, source.poids_score);
+            let entrants: Vec<db::presse::ArticleEntrant> =
+                articles.iter().map(vers_article_entrant).collect();
+            let inserees = db.inserer_articles_presse_converts(&entrants).await?;
+            Ok(Some((items.len(), inserees)))
         }
-        let articles = news::presse_classif::traiter_items(&items, &source.nom, source.poids_score);
-        let entrants: Vec<db::presse::ArticleEntrant> =
-            articles.iter().map(vers_article_entrant).collect();
-        let inserees = db.inserer_articles_presse_converts(&entrants).await?;
-        total_inserees += inserees;
-        tracing::info!(
-            "Collecteur : {} — {} items → {} articles insérés",
-            source.nom, items.len(), inserees
-        );
+        .await;
+        match resultat {
+            Ok(Some((nb_items, inserees))) => {
+                total_inserees += inserees;
+                tracing::info!(
+                    "Collecteur : {} — {nb_items} items → {inserees} articles insérés",
+                    source.nom
+                );
+            }
+            Ok(None) => {
+                tracing::debug!("Collecteur : flux vide ou down — {}", source.nom);
+            }
+            Err(e) => {
+                tracing::warn!("Collecteur : source {} en échec ({e}) — on continue", source.nom);
+                sources_en_echec.push(source.nom.clone());
+            }
+        }
     }
-    if total_inserees > 0 {
-        tracing::info!("Collecteur : cycle terminé, {total_inserees} nouveaux articles");
+    if total_inserees > 0 || !sources_en_echec.is_empty() {
+        let mut message = format!("Collecteur : cycle terminé, {total_inserees} nouveaux articles");
+        if !sources_en_echec.is_empty() {
+            message.push_str(&format!(
+                " — {} source(s) en échec : {}",
+                sources_en_echec.len(),
+                sources_en_echec.join(", ")
+            ));
+        }
+        tracing::info!("{message}");
     }
     Ok(())
 }
