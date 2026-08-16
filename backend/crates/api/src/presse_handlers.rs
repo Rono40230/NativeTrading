@@ -1,6 +1,7 @@
 //! Endpoints de la revue de presse (Phase 4.1).
 
 use actix_web::{web, HttpResponse};
+use futures::future::join_all;
 use serde::Deserialize;
 use sqlx::SqlitePool;
 
@@ -139,25 +140,35 @@ pub async fn post_brief(state: web::Data<AppState>) -> HttpResponse {
     }
 
     // Traduire à la volée les articles du brief qui ne le sont pas (seuls eux).
+    // En parallèle (join_all) : jusqu'à 15 traductions séquentielles à froid
+    // (~10 s chacune) frôlaient le timeout HTTP de 180 s. Le sémaphore Ollama
+    // (OLLAMA_SEMAPHORE dans traduire_avec_cache_strict) borne la concurrence
+    // réelle côté LLM ; le pool SQLite (WAL + busy_timeout) tolère le reste.
     let pool: SqlitePool = state.db.pool().clone();
-    let mut entree = String::new();
-    for a in &articles {
-        let fr = if a.statut_traduction == "ok" {
-            // Déjà traduit : le cache suffit (pas de nouvelle tentative).
-            news::news_traduction::traduire_avec_cache_strict(&pool, &a.titre)
-                .await
-                .unwrap_or_else(|| a.titre.clone())
-        } else {
-            match news::news_traduction::traduire_avec_cache_strict(&pool, &a.titre).await {
-                Some(t) => {
-                    let _ = state.db.enregistrer_tentative_traduction(&a.hash_titre, true).await;
-                    t
+    let db = state.db.clone(); // Arc<Database> pour la closure
+    let taches = articles.iter().map(|a| {
+        let pool = pool.clone(); // handle Arc interne — cloné par tâche
+        let db = db.clone();
+        async move {
+            let titre_affiche = if a.statut_traduction == "ok" {
+                // Déjà traduit : le cache suffit (pas de nouvelle tentative).
+                news::news_traduction::traduire_avec_cache_strict(&pool, &a.titre)
+                    .await
+                    .unwrap_or_else(|| a.titre.clone())
+            } else {
+                match news::news_traduction::traduire_avec_cache_strict(&pool, &a.titre).await {
+                    Some(t) => {
+                        let _ = db.enregistrer_tentative_traduction(&a.hash_titre, true).await;
+                        t
+                    }
+                    None => a.titre.clone(), // VO conservée — pas de suppression ici
                 }
-                None => a.titre.clone(), // VO conservée — pas de suppression ici
-            }
-        };
-        entree.push_str(&format!("- [{:3}/100|{}] {} ({})\n", a.score, a.theme, fr, a.source_nom));
-    }
+            };
+            format!("- [{:3}/100|{}] {} ({})\n", a.score, a.theme, titre_affiche, a.source_nom)
+        }
+    });
+    let lignes = join_all(taches).await;
+    let entree = lignes.join("");
 
     let Some(contenu) = news::news_traduction::generer_brief_llm(&entree).await else {
         return HttpResponse::ServiceUnavailable().json(
