@@ -25,32 +25,31 @@
           <p class="text-sm text-gray-200 leading-relaxed">{{ briefParse.contexte }}</p>
         </div>
 
-        <!-- Articles du brief — cartes détaillées, 4/ligne -->
+        <!-- Articles du brief — cartes 4/ligne, MÊME nomenclature que la
+             bibliothèque (score coloré, badges impact/thème, clic → modal) -->
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <article
+          <button
             v-for="art in briefParse.articles"
             :key="art.numero"
-            class="rounded-xl border border-white/10 bg-white/[0.04] p-4 flex flex-col gap-3 hover:bg-white/[0.07] hover:border-white/20 transition relative overflow-hidden"
+            class="rounded-xl border border-white/10 bg-white/[0.04] p-4 flex flex-col gap-3 hover:bg-white/[0.07] hover:border-white/20 transition text-left relative overflow-hidden"
+            @click="ouvrirArticleBrief(art)"
           >
-            <!-- Accent coloré selon le score, en haut de carte -->
             <div class="absolute top-0 left-0 right-0 h-1" :class="art.score >= 60 ? 'bg-red-400/70' : art.score >= 40 ? 'bg-yellow-400/70' : 'bg-gray-500/50'"></div>
 
             <div class="flex items-start justify-between gap-2">
               <span class="text-[10px] font-bold text-gray-500 bg-white/5 rounded-md px-1.5 py-0.5 shrink-0">#{{ art.numero }}</span>
-              <div class="text-right shrink-0">
-                <span class="text-lg font-bold tabular-nums" :class="art.score >= 60 ? 'text-red-300' : art.score >= 40 ? 'text-yellow-300' : 'text-gray-400'">{{ art.score }}</span>
-                <span class="text-[10px] text-gray-500">/100</span>
-              </div>
+              <span class="text-lg font-bold tabular-nums shrink-0" :class="art.score >= 60 ? 'text-red-300' : art.score >= 40 ? 'text-yellow-300' : 'text-gray-400'">{{ art.score }}</span>
             </div>
 
             <h3 class="text-sm font-semibold text-white leading-snug line-clamp-3">{{ art.titre }}</h3>
             <p class="text-xs text-gray-400 leading-relaxed line-clamp-4">{{ art.resume }}</p>
 
             <div class="mt-auto flex flex-wrap items-center gap-1.5 text-[10px]">
+              <span class="px-1.5 py-0.5 rounded" :class="art.score >= 60 ? 'bg-red-500/15 text-red-300' : art.score >= 40 ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-gray-400'">{{ art.score >= 60 ? 'fort' : art.score >= 40 ? 'moyen' : 'faible' }}</span>
               <span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{{ art.theme }}</span>
               <span class="px-1.5 py-0.5 rounded bg-white/10 text-gray-400 truncate max-w-[10rem]">{{ art.source }}</span>
             </div>
-          </article>
+          </button>
         </div>
 
         <p class="text-[10px] text-gray-500 text-right">Brief du {{ new Date(dernierBrief?.genere_le ? dernierBrief.genere_le * 1000 : Date.now()).toLocaleString('fr-FR') }} · {{ briefParse.articles.length }} articles</p>
@@ -288,6 +287,22 @@ async function ouvrir(a: ArticlePresse) {
     }
     // Autre erreur : la modal reste ouverte avec le titre VO (le composant
     // partagé scrape le contenu indépendamment de la traduction du titre).
+  }
+}
+
+/** Ouvre un article du brief dans la MÊME modal partagée (NewsArticleModal).
+ * La conversion reprend la logique de ouvrir() : score → niveau, thème. */
+function ouvrirArticleBrief(art: ArticleBrief) {
+  const niveau = art.score >= 70 ? 'critique' as const : art.score >= 55 ? 'important' as const : art.score >= 35 ? 'modere' as const : 'veille' as const
+  articleModal.value = {
+    id: `brief-${dernierBrief.value?.id ?? 0}-${art.numero}`,
+    titre: art.titre,
+    source: art.source,
+    url: '', // les articles du brief n'ont pas d'URL source (résumé LLM)
+    date: new Date((dernierBrief.value?.genere_le ?? 0) * 1000).toISOString(),
+    score: art.score,
+    niveau,
+    theme: (art.theme as ArticleNews['theme']) ?? 'autre',
   }
 }
 
