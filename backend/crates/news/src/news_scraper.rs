@@ -137,7 +137,8 @@ fn trouver_zone<'a>(html: &'a str, balise: &str) -> Option<&'a str> {
 // ── Entrée publique ──────────────────────────────────────────────────────────
 
 /// Télécharge une page et retourne son texte lisible.
-/// Retourne `None` si la page est inaccessible ou sans paragraphes extractibles.
+/// Retourne `None` si la page est inaccessible, sans paragraphes extractibles,
+/// ou si c'est un mur de consentement cookies/privauté (pas un article).
 pub async fn recuperer_contenu_article(client: &Client, url: &str) -> Option<String> {
     let html = client
         .get(url)
@@ -160,8 +161,50 @@ pub async fn recuperer_contenu_article(client: &Client, url: &str) -> Option<Str
 
     let texte = extraire_paragraphes(zone);
     if texte.len() < 100 {
-        None
-    } else {
-        Some(texte)
+        return None;
+    }
+    // Mur de consentement cookies/privauté : les sites modernes (Yahoo,
+    // Reuters…) servent ces pages aux requêtes sans JavaScript. Le texte
+    // ressemble à une politique de confidentialité, pas à un article —
+    // on le rejette plutôt que de le servir comme contenu.
+    if est_mur_consentement(&texte) {
+        return None;
+    }
+    Some(texte)
+}
+
+/// Détecte une page de consentement cookies/privauté (fr ou en) : une
+/// densité anormale de termes juridiques sur un court texte. Un vrai
+/// article peut mentionner les cookies une fois — pas quinze fois.
+fn est_mur_consentement(texte: &str) -> bool {
+    let t = texte.to_lowercase();
+    let marqueurs = [
+        "cookies", "cookie", "consentement", "consent", "privauté", "privacy",
+        "confidentialité", "données personnelles", "personal data",
+        "paramètres de confidentialité", "privacy settings",
+        "refuser tout", "reject all", "gérer les paramètres",
+    ];
+    let occurrences: usize = marqueurs.iter()
+        .map(|m| t.matches(m).count())
+        .sum();
+    // Un article de presse ne contient pas 8+ occurrences de termes de
+    // consentement dans les ~2000 premiers caractères.
+    occurrences >= 8
+}
+
+#[cfg(test)]
+mod tests_consentement {
+    use super::est_mur_consentement;
+
+    #[test]
+    fn page_cookies_yahoo_detectee() {
+        let texte = "Votre vie privée est importante pour nous. Chez Yahoo, nous utilisons des cookies. Les cookies permettent de stocker et lire des informations. Consultez notre politique relative aux cookies. Si vous ne souhaitez pas que nos partenaires utilisent des cookies et vos données personnelles, cliquez sur Refuser tout. Vous pouvez révoquer votre consentement ou modifier vos choix à tout moment en cliquant sur Paramètres de confidentialité et de cookies. Découvrez comment nous utilisons vos données personnelles dans notre Politique de confidentialité.";
+        assert!(est_mur_consentement(texte), "doit détecter le mur de consentement Yahoo");
+    }
+
+    #[test]
+    fn vrai_article_non_detecte() {
+        let texte = r#"Bitcoin surged past 60000 on Friday as institutional investors continued to accumulate. The rally comes amid growing expectations of Fed rate cuts. Analysts at Goldman Sachs noted that ETF inflows have accelerated, with BlackRock IBIT reaching record volumes. Meanwhile, ether also gained, trading above 3400."#;
+        assert!(!est_mur_consentement(texte), "un vrai article ne doit pas être filtré");
     }
 }
