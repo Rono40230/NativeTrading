@@ -273,6 +273,16 @@ impl Database {
         }).collect())
     }
 
+    /// Rétention presse en mois (clé `retention_presse_mois`). Absence ou
+    /// valeur invalide → 12 mois par défaut (la presse pèse peu, mais la
+    /// bibliothèque n'a pas vocation à croître indéfiniment).
+    pub async fn lire_retention_presse(&self) -> i64 {
+        match self.lire_config("retention_presse_mois").await {
+            Ok(Some(v)) => v.trim().parse().unwrap_or(12),
+            _ => 12,
+        }
+    }
+
     /// Rétention : supprime articles ET briefs au-delà de N mois
     /// (mois approximé à 30 jours, suffisant pour de la rétention).
     /// Retourne le total de lignes supprimées.

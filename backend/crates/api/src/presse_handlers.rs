@@ -122,3 +122,78 @@ pub async fn delete_source(state: web::Data<AppState>, chemin: web::Path<i64>) -
         Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
     }
 }
+
+/// Génération à la demande du brief 24 h : sélection top 15, traduction à la
+/// volée des non-traduits (porte d'entrée = génération, PAS de suppression —
+/// la condamnation reste le privilège de la consultation), synthèse LLM puis
+/// archivage. 503 propre si Ollama est indisponible.
+pub async fn post_brief(state: web::Data<AppState>) -> HttpResponse {
+    let articles = match state.db.selection_brief_24h(15).await {
+        Ok(a) => a,
+        Err(e) => return HttpResponse::InternalServerError().body(format!("{e}")),
+    };
+    if articles.is_empty() {
+        return HttpResponse::BadRequest().json(
+            serde_json::json!({"erreur": "aucun article dans les dernières 24 h"}),
+        );
+    }
+
+    // Traduire à la volée les articles du brief qui ne le sont pas (seuls eux).
+    let pool: SqlitePool = state.db.pool().clone();
+    let mut entree = String::new();
+    for a in &articles {
+        let fr = if a.statut_traduction == "ok" {
+            // Déjà traduit : le cache suffit (pas de nouvelle tentative).
+            news::news_traduction::traduire_avec_cache_strict(&pool, &a.titre)
+                .await
+                .unwrap_or_else(|| a.titre.clone())
+        } else {
+            match news::news_traduction::traduire_avec_cache_strict(&pool, &a.titre).await {
+                Some(t) => {
+                    let _ = state.db.enregistrer_tentative_traduction(&a.hash_titre, true).await;
+                    t
+                }
+                None => a.titre.clone(), // VO conservée — pas de suppression ici
+            }
+        };
+        entree.push_str(&format!("- [{:3}/100|{}] {} ({})\n", a.score, a.theme, fr, a.source_nom));
+    }
+
+    let Some(contenu) = news::news_traduction::generer_brief_llm(&entree).await else {
+        return HttpResponse::ServiceUnavailable().json(
+            serde_json::json!({"erreur": "Ollama indisponible — réessayer plus tard"}),
+        );
+    };
+
+    let maintenant = chrono::Utc::now().timestamp();
+    let id = match state
+        .db
+        .inserer_brief(maintenant - 86_400, maintenant, articles.len(), &contenu)
+        .await
+    {
+        Ok(id) => id,
+        Err(e) => return HttpResponse::InternalServerError().body(format!("{e}")),
+    };
+    HttpResponse::Ok().json(serde_json::json!({
+        "id": id, "contenu": contenu, "nb_articles": articles.len(),
+    }))
+}
+
+/// Les 20 derniers briefs archivés (contenu inclus).
+pub async fn get_briefs(state: web::Data<AppState>) -> HttpResponse {
+    match state.db.lister_briefs(20).await {
+        Ok(briefs) => HttpResponse::Ok().json(briefs),
+        Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
+    }
+}
+
+/// Un brief par identifiant (récupération large puis filtre : volume faible).
+pub async fn get_brief(state: web::Data<AppState>, chemin: web::Path<i64>) -> HttpResponse {
+    match state.db.lister_briefs(1000).await {
+        Ok(briefs) => match briefs.into_iter().find(|b| b.id == *chemin) {
+            Some(b) => HttpResponse::Ok().json(b),
+            None => HttpResponse::NotFound().body("brief inconnu"),
+        },
+        Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
+    }
+}
