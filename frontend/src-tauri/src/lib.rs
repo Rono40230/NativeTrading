@@ -61,8 +61,16 @@ fn jouer_son_signal() {
 
 /// Ouvre une URL externe dans le navigateur par défaut du système.
 ///
-/// En Tauri, un `<a target="_blank">` ne fait RIEN (pas de shell navigateur) :
-/// cette commande délègue à `xdg-open` (Linux).
+/// En Tauri, un `<a target="_blank">` ne fait RIEN (pas de shell navigateur).
+/// L'app tourne dans un sandbox Flatpak : le `xdg-open` du sandbox n'y ouvre
+/// pas le navigateur — on tente successivement :
+///   (1) le xdg-desktop-portal via D-Bus (gdbus) — mécanisme officiel Flatpak,
+///   (2) le `xdg-open` de l'hôte (monté sous /run/host dans les sandboxes
+///       Flatpak courants — lui-même portal-aware),
+///   (3) le `xdg-open` local du PATH en dernier recours.
+///
+/// Note : `dbus-send` ne sait pas encoder le `a{sv}` vide qu'exige
+/// OpenURI.Open — `gdbus` est l'outil canonique (celui qu'utilise xdg-open).
 ///
 /// Appelée depuis le frontend : `invoke('ouvrir_url', { url })`
 #[tauri::command]
@@ -72,6 +80,42 @@ fn ouvrir_url(url: &str) {
         eprintln!("[Tauri] ouvrir_url : URL refusée ({url})");
         return;
     }
+
+    // (1) D-Bus : org.freedesktop.portal.OpenURI.OpenURI (méthode vérifiée
+    // sur ce portail — pas de binaire externe, aucune dépendance au PATH).
+    let portal_ok = Command::new("gdbus")
+        .args([
+            "call",
+            "--session",
+            "--dest=org.freedesktop.portal.Desktop",
+            "--object-path=/org/freedesktop/portal/desktop",
+            "--method=org.freedesktop.portal.OpenURI.OpenURI",
+            "",          // fenêtre parente (vide : aucune)
+            &format!("\"{url}\""),
+            "{}",        // options a{sv} vide
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if portal_ok {
+        return;
+    }
+
+    // (2) xdg-open de l'hôte (monté dans les sandboxes Flatpak courants).
+    let host_ok = Command::new("/run/host/usr/bin/xdg-open")
+        .arg(url)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if host_ok {
+        return;
+    }
+
+    // (3) Dernier recours : xdg-open du PATH local.
     let _ = Command::new("xdg-open")
         .arg(url)
         .stdout(Stdio::null())

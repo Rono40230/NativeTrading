@@ -144,29 +144,12 @@
             </div>
           </div>
 
-          <!-- Corps scrollable -->
+          <!-- Corps scrollable : le résumé RSS est LE contenu (option A) -->
           <div class="flex-1 overflow-y-auto scroll-zone px-5 py-4">
-            <!-- Skeleton : Jina en cours, résumé RSS affiché dessous s'il existe -->
-            <div v-if="liseuse.chargement" class="space-y-3">
-              <p class="text-xs text-blue-300 flex items-center gap-2">
-                <span class="inline-block h-2 w-2 animate-spin rounded-full border border-blue-400 border-t-transparent" />
-                Récupération de l'article…
-              </p>
-              <p v-if="liseuse.contenu" class="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{{ liseuse.contenu }}</p>
-              <div v-else class="animate-pulse space-y-2.5">
-                <div v-for="i in 8" :key="i" class="h-2.5 rounded bg-white/10" :style="{ width: `${55 + i * 5}%` }" />
-              </div>
-            </div>
-
-            <template v-else-if="liseuse.contenu">
+            <template v-if="liseuse.contenu">
               <!-- Origine du contenu -->
               <div class="mb-3 flex items-center gap-2 flex-wrap">
-                <span
-                  class="rounded-full border px-2 py-0.5 text-[10px] font-semibold"
-                  :class="liseuse.sourceContenu === 'jina'
-                    ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
-                    : 'border-blue-400/30 bg-blue-400/10 text-blue-300'"
-                >{{ liseuse.sourceContenu === 'jina' ? '📰 Article complet' : '📄 Résumé RSS' }}</span>
+                <span class="rounded-full border border-blue-400/30 bg-blue-400/10 px-2 py-0.5 text-[10px] font-semibold text-blue-300">{{ liseuse.contenu_fr ? '📄 Résumé traduit' : '📄 Résumé' }}</span>
                 <span v-if="liseuse.enTraduction" class="flex items-center gap-1.5 text-[10px] text-blue-400">
                   <span class="inline-block h-2 w-2 animate-spin rounded-full border border-blue-400 border-t-transparent" />
                   Traduction…
@@ -180,12 +163,19 @@
               <p class="text-sm text-gray-200 leading-7 whitespace-pre-wrap font-light">{{ liseuse.contenu_fr ?? liseuse.contenu }}</p>
             </template>
             <div v-else class="flex flex-col items-center justify-center py-10 gap-2 text-center">
-              <span class="text-2xl opacity-30">🔒</span>
-              <p class="text-xs text-gray-500">Article non accessible<br/><span class="text-[10px]">Ce site bloque la lecture externe</span></p>
+              <span class="text-2xl opacity-30">📄</span>
+              <p class="text-xs text-gray-500">Résumé indisponible pour cet article —
+                <button
+                  v-if="liseuse.article.url"
+                  class="text-blue-400 hover:text-blue-300 hover:underline"
+                  @click="ouvrirExterne(liseuse.article.url)"
+                >ouvre la source ↗</button>
+                <span v-else class="text-gray-600">pas de lien source</span>
+              </p>
             </div>
           </div>
 
-          <!-- Pied : lien source (xdg-open en Tauri, window.open sinon) -->
+          <!-- Pied : lien source (portal Flatpak/xdg-open en Tauri, window.open sinon) -->
           <div class="px-5 py-2.5 border-t border-white/10 bg-white/[0.02] shrink-0">
             <button
               v-if="liseuse.article.url"
@@ -238,9 +228,9 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { apiService } from '@/services/api.service'
 import { presseApi, type ArticlePresse } from '@/services/api.presse'
 
-/** Ouvre une URL externe : commande Tauri `ouvrir_url` (xdg-open) dans
- * l'app native, `window.open` en dev navigateur. Un simple <a target=_blank>
- * ne fait rien en Tauri (pas de shell navigateur). */
+/** Ouvre une URL externe : commande Tauri `ouvrir_url` (portal Flatpak puis
+ * xdg-open) dans l'app native, `window.open` en dev navigateur. Un simple
+ * <a target=_blank> ne fait rien en Tauri (pas de shell navigateur). */
 async function ouvrirExterne(url: string) {
   try {
     const { invoke } = await import('@tauri-apps/api/core')
@@ -260,15 +250,16 @@ interface ArticleBrief {
   resume: string
 }
 
-/** État de la liseuse (panneau droit) : article affiché + contenu chargé. */
+/** État de la liseuse (panneau droit) : article affiché + résumé RSS.
+ *  Option A : le résumé RSS est LE contenu — plus de chargement externe. */
 interface EtatLiseuse {
   article: ArticlePresse
   titre_fr: string | null
+  /** Résumé RSS (VO) tel que collecté. */
   contenu: string | null
+  /** Traduction FR du résumé (null = VO affichée). */
   contenu_fr: string | null
-  chargement: boolean
   enTraduction: boolean
-  sourceContenu: 'rss' | 'jina' | null
 }
 
 const articles = ref<ArticlePresse[]>([])
@@ -378,29 +369,20 @@ async function charger(reset = true) {
   page.value += 1
 }
 
-/** Dépouille le préambule de Jina AI Reader (« Title: … / URL Source: … /
- *  Markdown Content: ») — ne garder que la chair de l'article. */
-function nettoyerJina(texte: string): string {
-  const marqueur = 'Markdown Content:'
-  const idx = texte.indexOf(marqueur)
-  if (idx >= 0) return texte.slice(idx + marqueur.length).trim()
-  return texte.replace(/^(Title|URL Source|Published Time|Warning):.*\n?/gm, '').trim()
-}
-
-/** Traduit le contenu Jina en FR via Ollama (endpoint news partagé
- *  /api/news/traduire). Le backend tronque la traduction à 3000 caractères —
- *  on borne l'envoi à la même longueur (le GET passe le texte en query
- *  param, l'URL doit rester raisonnable). La VO complète reste affichable
- *  via « Voir original ». */
-async function traduireContenuLiseuse(id: number) {
+/** Traduit le résumé RSS en FR via Ollama (endpoint news partagé
+ *  /api/news/traduire, voie courte `long=false`). Cette voie passe par le
+ *  cache backend news_traductions : premier affichage ~1 s Ollama, suivants
+ *  servis depuis le cache. On borne l'envoi à 3000 caractères (le GET passe
+ *  le texte en query param). L'endpoint rend le texte ORIGINAL en cas
+ *  d'échec (Ollama down, ou texte déjà français) : une « traduction »
+ *  identique à l'extrait = échec → VO conservée à l'affichage, en silence. */
+async function traduireResumeLiseuse(id: number) {
   const texte = liseuse.value?.contenu
   if (!texte || !liseuse.value) return
   liseuse.value.enTraduction = true
   try {
     const extrait = Array.from(texte).slice(0, 3000).join('')
-    const res = await apiService.traduire(extrait, true)
-    // L'endpoint rend le texte ORIGINAL en cas d'échec : une « traduction »
-    // identique à l'extrait = échec → VO complète conservée à l'affichage.
+    const res = await apiService.traduire(extrait, false)
     if (res.texte_fr && res.texte_fr.trim() !== extrait.trim()) {
       if (id === selectionLiseuse && liseuse.value) liseuse.value.contenu_fr = res.texte_fr
     }
@@ -411,11 +393,11 @@ async function traduireContenuLiseuse(id: number) {
   }
 }
 
-/** Ouvre un article dans la LISEUSE (panneau droit) : affichage immédiat du
- * titre FR (cache) ou VO + résumé RSS, puis EN PARALLÈLE (a) machine à états
- * traduction + marquage lu (POST /ouvrir) et (b) article complet via Jina AI
- * Reader (rend le JavaScript, contourne les murs de cookies) + traduction FR.
- * Si Jina échoue, le résumé RSS reste le contenu affiché. */
+/** Ouvre un article dans la LISEUSE (panneau droit). Contrat : titre FR/VO +
+ *  résumé RSS affichés immédiatement (< 2 s), jamais de skeleton — le résumé
+ *  RSS est LE contenu (option A : fin du scrape Jina). En parallèle :
+ *  (a) POST /ouvrir → traduction du titre (cache/Ollama) + marquage lu,
+ *  (b) traduction FR du résumé à la volée (cache backend), fallback VO. */
 async function lire(a: ArticlePresse) {
   const id = ++selectionLiseuse
   liseuse.value = {
@@ -423,15 +405,18 @@ async function lire(a: ArticlePresse) {
     titre_fr: a.titre_fr ?? null,
     contenu: a.resume_source ?? null,
     contenu_fr: null,
-    chargement: true,
     enTraduction: false,
-    sourceContenu: a.resume_source ? 'rss' : null,
   }
 
   // (a) Traduction du titre (porte d'entrée) + marquage lu + MAJ carte en place.
   presseApi.ouvrir(a.hash_titre).then(res => {
     if (id !== selectionLiseuse) return
     if (res.titre_fr && liseuse.value) liseuse.value.titre_fr = res.titre_fr
+    // Résumé absent du listing mais servi par ouvrir → on l'affiche puis le traduit.
+    if (liseuse.value && !liseuse.value.contenu && res.article.resume_source) {
+      liseuse.value.contenu = res.article.resume_source
+      traduireResumeLiseuse(id)
+    }
     articles.value = articles.value.map(x => (x.hash_titre === a.hash_titre ? res.article : x))
     // Filtre « Non lus » : l'article désormais lu n'y appartient plus.
     if (filtre.lu === 'false') {
@@ -446,30 +431,8 @@ async function lire(a: ArticlePresse) {
     // Autre erreur : la liseuse reste ouverte sur le titre VO + résumé RSS.
   })
 
-  // (b) Article complet via Jina AI Reader.
-  if (!a.url) {
-    if (id === selectionLiseuse && liseuse.value) liseuse.value.chargement = false
-    return
-  }
-  try {
-    const res = await presseApi.articleComplet(a.url)
-    if (id !== selectionLiseuse || !liseuse.value) return
-    if (res.contenu) {
-      liseuse.value.contenu = nettoyerJina(res.contenu)
-      liseuse.value.sourceContenu = 'jina'
-      liseuse.value.chargement = false
-      await traduireContenuLiseuse(id)
-    } else {
-      // Jina a échoué : le résumé RSS reste le contenu (s'il existe).
-      liseuse.value.chargement = false
-      liseuse.value.sourceContenu = liseuse.value.contenu ? 'rss' : null
-    }
-  } catch {
-    if (id === selectionLiseuse && liseuse.value) {
-      liseuse.value.chargement = false
-      liseuse.value.sourceContenu = liseuse.value.contenu ? 'rss' : null
-    }
-  }
+  // (b) Traduction FR du résumé RSS à la volée (no-op silencieuse si absent).
+  traduireResumeLiseuse(id)
 }
 
 /** Titre normalisé : minuscules, sans accents ni ponctuation. */
@@ -543,11 +506,9 @@ async function ouvrirArticleBrief(art: ArticleBrief) {
       resume_source: art.resume,
     },
     titre_fr: art.titre, // déjà FR (résumé LLM)
-    contenu: art.resume || '—',
+    contenu: art.resume || null,
     contenu_fr: null,
-    chargement: false,
     enTraduction: false,
-    sourceContenu: 'rss',
   }
 }
 
@@ -571,10 +532,10 @@ async function ajouterSource() {
     const res = await presseApi.ajouterSource(nouvelleSource.nom, nouvelleSource.url, 30, 'marches')
     nouvelleSource.nom = ''; nouvelleSource.url = ''
     sources.value = await presseApi.sources()
-    // Avertissement si le flux n'inclut pas de description (articles illisibles)
+    // Avertissement si le flux n'inclut pas de description (pas de résumé)
     messageSource.value = res.description_incluse
       ? { ok: true, texte: `✅ Source ajoutée — ${res.items_avec_description}/${res.items_testes} items avec description` }
-      : { ok: false, texte: `⚠️ Source ajoutée MAIS ce flux n'a AUCUNE description (${res.items_testes} items testés) — les articles afficheront « non accessible ». Considère un flux alternatif.` }
+      : { ok: false, texte: `⚠️ Source ajoutée MAIS ce flux n'a AUCUNE description (${res.items_testes} items testés) — les articles n'afficheront que leur titre. Considère un flux alternatif.` }
   } catch (err: any) {
     messageSource.value = { ok: false, texte: err?.response?.data?.erreur ?? 'Erreur inconnue (flux injoignable ?)' }
   }

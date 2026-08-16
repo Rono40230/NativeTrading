@@ -8,7 +8,7 @@ export interface ArticlePresse {
   hash_titre: string; titre: string; url: string; source_nom: string
   publie_le: string; score: number; theme: string; assets_concernes: string
   impact: string; statut_traduction: string; lu: boolean; ajoute_le: number
-  /** Résumé RSS capté à la collecte — socle d'affichage si le scraper échoue. */
+  /** Résumé RSS capté à la collecte — LE contenu affiché par la liseuse (option A). */
   resume_source?: string
   /** Titre traduit (FR) servi par le listing quand l'article est déjà traduit —
    *  absent tant que la traduction de fond n'a pas eu lieu (VO affichée). */
@@ -24,12 +24,8 @@ export const presseApi = {
     const res = await http.get('/api/presse/articles', { params: filtres })
     return res.data.articles
   },
-  async ouvrir(hash: string): Promise<{ article: ArticlePresse; titre_fr: string | null; sentiment: string | null }> {
+  async ouvrir(hash: string): Promise<{ article: ArticlePresse; titre_fr: string | null; sentiment: string | null; resume_source?: string }> {
     const res = await http.post(`/api/presse/articles/${hash}/ouvrir`, null, { timeout: 60_000 })
-    return res.data
-  },
-  async articleComplet(url: string): Promise<{ contenu: string | null; source: string | null }> {
-    const res = await http.get('/api/presse/article-complet', { params: { url }, timeout: 35_000 })
     return res.data
   },
   async genererBrief(): Promise<{ id: number; contenu: string; nb_articles: number }> {

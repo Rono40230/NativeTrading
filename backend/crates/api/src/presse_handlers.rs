@@ -118,65 +118,10 @@ pub async fn ouvrir_article(state: web::Data<AppState>, chemin: web::Path<String
     article.lu = true;
     HttpResponse::Ok().json(serde_json::json!({
         "article": article, "titre_fr": titre_fr, "sentiment": sentiment,
-        // Résumé RSS de la collecte — socle d'affichage de la modal si le
-        // scraper échoue (sites rendus en JavaScript, cf migration 0072).
+        // Résumé RSS de la collecte — LE contenu affiché par la liseuse
+        // (option A : plus aucun scrape d'article complet).
         "resume_source": article.resume_source,
     }))
-}
-
-/// GET /api/presse/article-complet?url= — récupère l'article COMPLET via
-/// Jina AI Reader (https://r.jina.ai/{url}) qui rend le JavaScript et
-/// contourne les murs de cookies. Retourne le texte propre en markdown.
-/// Fallback : résumé RSS si Jina échoue.
-pub async fn get_article_complet(
-    _state: web::Data<AppState>,
-    q: web::Query<std::collections::HashMap<String, String>>,
-) -> HttpResponse {
-    use crate::http_client::HTTP_CLIENT;
-    let Some(url) = q.get("url").filter(|u| u.starts_with("https://")) else {
-        return HttpResponse::BadRequest().json(serde_json::json!({"erreur": "URL https:// requise"}));
-    };
-    // Jina AI Reader : préfixe l'URL. Sans clé = rate limit généreux.
-    let jina_url = format!("https://r.jina.ai/{}", url);
-    let resp = HTTP_CLIENT
-        .get(&jina_url)
-        .header("Accept", "text/plain")
-        .timeout(std::time::Duration::from_secs(30))
-        .send()
-        .await;
-    match resp {
-        Ok(r) if r.status().is_success() => {
-            match r.text().await {
-                // Un mur anti-bot (Cloudflare « Just a moment… », CAPTCHA)
-                // n'est pas un article : même mécanique que la détection de
-                // consentement du scraper — on rejette et retombe sur le RSS.
-                Ok(texte) if texte.len() > 200 && !est_mur_bot(&texte) => {
-                    HttpResponse::Ok().json(serde_json::json!({"contenu": texte, "source": "jina"}))
-                }
-                _ => HttpResponse::Ok().json(serde_json::json!({"contenu": null, "source": null})),
-            }
-        }
-        _ => HttpResponse::Ok().json(serde_json::json!({"contenu": null, "source": null})),
-    }
-}
-
-/// Détecte un mur anti-bot dans la réponse Jina : une densité anormale de
-/// marqueurs Cloudflare/CAPTCHA au début du texte. Un vrai article peut
-/// mentionner « captcha » une fois — pas trois marqueurs distincts d'affilée.
-/// La page d'erreur générique de Yahoo (« Oops, something went wrong »,
-/// servue aux crawlers même via Jina) est également rejetée d'office.
-fn est_mur_bot(texte: &str) -> bool {
-    let debut: String = texte.chars().take(1500).collect::<String>().to_lowercase();
-    if debut.contains("oops, something went wrong") {
-        return true;
-    }
-    let marqueurs = [
-        "just a moment", "captcha", "verify you are human", "security verification",
-        "unusual traffic", "access denied", "are you a robot",
-        "enable javascript and cookies", "checking your browser",
-    ];
-    let occurrences: usize = marqueurs.iter().map(|m| debut.matches(m).count()).sum();
-    occurrences >= 3
 }
 
 /// Toutes les sources (actives et retirées — pilotage type « assets »).
@@ -203,9 +148,9 @@ pub async fn post_source(state: web::Data<AppState>, corps: web::Json<CorpsSourc
 
     // VALIDATION AU MOMENT DE L'AJOUT : fetch immédiat du flux pour vérifier
     // (a) qu'il répond et contient des items, (b) si les items incluent une
-    // <description> (résumé RSS). Un flux sans description affichera
-    // « Article non accessible » pour tous ses articles (les murs de
-    // cookies/JS empêchent le scrape) — l'utilisateur doit le savoir AVANT.
+    // <description> (résumé RSS). Un flux sans description n'affichera que
+    // les titres dans la liseuse (le résumé RSS EST le contenu, option A) —
+    // l'utilisateur doit le savoir AVANT.
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
         .build()
@@ -235,7 +180,7 @@ pub async fn post_source(state: web::Data<AppState>, corps: web::Json<CorpsSourc
             "items_testes": items.len(),
             "items_avec_description": avec_description,
             "avertissement": if description_incluse { None } else {
-                Some("Ce flux n'inclut pas de description dans ses items — les articles afficheront « non accessible » (le contenu ne peut être ni collecté ni scrapé). Considère un flux alternatif.")
+                Some("Ce flux n'inclut pas de description dans ses items — les articles n'afficheront que leur titre (aucun résumé disponible). Considère un flux alternatif.")
             }
         })),
         Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
@@ -334,31 +279,5 @@ pub async fn get_brief(state: web::Data<AppState>, chemin: web::Path<i64>) -> Ht
             None => HttpResponse::NotFound().body("brief inconnu"),
         },
         Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
-    }
-}
-
-#[cfg(test)]
-mod tests_mur_bot {
-    use super::est_mur_bot;
-
-    #[test]
-    fn mur_cloudflare_fxstreet_detecte() {
-        // Réponse Jina réelle observée sur FXStreet (Cloudflare).
-        let texte = "Title: Just a moment...\n\nURL Source: https://www.fxstreet.com/news/xag\n\nWarning: This page maybe requiring CAPTCHA, please make sure you are authorized to access this page.\n\nMarkdown Content:\n\n## www.fxstreet.com\n\n## Performing security verification\n\nThis website uses a security service to protect against malicious bots.";
-        assert!(est_mur_bot(texte), "doit détecter le mur Cloudflare");
-    }
-
-    #[test]
-    fn page_erreur_yahoo_detectee() {
-        // Réponse Jina réelle observée sur Yahoo Finance (blocage anti-bot).
-        let texte = "Title: Why SK Hynix Stock Skyrocketed This Week\n\nMarkdown Content:\nOops, something went wrong\n\n[Skip to navigation](https://finance.yahoo.com/#navigation-container)[Skip to main content](https://finance.yahoo.com/#nimbus-app)";
-        assert!(est_mur_bot(texte), "doit détecter la page d'erreur Yahoo");
-    }
-
-    #[test]
-    fn vrai_article_non_detecte() {
-        // Réponse Jina réelle observée sur Decrypt (article complet).
-        let texte = "Title: Gemini 3.7 Flash Review: Google's Cheap Model Isn't Dumb Anymore\n\nMarkdown Content:\n#### In brief\n\n* Gemini 3.7 Flash built a playable browser game from a single prompt in 2 minutes and 13 seconds.\n* The model runs at 75 cents per million input tokens through December 31, half of 3.6 Flash's rate.";
-        assert!(!est_mur_bot(texte), "un vrai article ne doit pas être filtré");
     }
 }
