@@ -63,6 +63,39 @@ pub struct ArticleCollecte {
     pub theme: String,
     pub assets_concernes: String,
     pub impact: String,
+    /// Résumé du flux RSS nettoyé (sans HTML) — socle d'affichage de la
+    /// modal quand le scraper échoue sur les sites rendus en JavaScript.
+    pub resume: String,
+}
+
+/// Nettoie le résumé RSS brut : les `<description>` arrivent souvent en HTML
+/// fragmentaire (`<a href=…>`, `&amp;`, `&#39;`…). Strip des balises par
+/// parcours de caractères (équivalent d'un regex `<[^>]*>`), décodage des
+/// entités courantes, espaces blancs réduits à un seul. Sans dépendance.
+fn nettoyer_resume(brut: &str) -> String {
+    let sans_balises: String = {
+        let mut hors_balise = true;
+        brut.chars()
+            .filter(|&c| {
+                if c == '<' {
+                    hors_balise = false;
+                } else if c == '>' {
+                    hors_balise = true;
+                    return false; // le '>' lui-même est avalé
+                }
+                hors_balise
+            })
+            .collect()
+    };
+    let decodee = sans_balises
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&nbsp;", " ");
+    decodee.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// Traite les items d'UN flux : dédoublonnage interne (jaccard ≥ 0.8),
@@ -88,6 +121,7 @@ pub fn traiter_items(items: &[ArticleRss], source_nom: &str, poids_source: u8) -
             theme: classer_theme(&titre_lower, source_nom).to_string(),
             assets_concernes: serde_json::to_string(&assets).unwrap_or_else(|_| "[]".into()),
             impact: impact(score).to_string(),
+            resume: nettoyer_resume(&item.resume),
         });
     }
     retenus
@@ -99,11 +133,11 @@ mod tests {
     use crate::news_rss::ArticleRss;
 
     fn rss(titre: &str) -> ArticleRss {
-        ArticleRss { titre: titre.into(), lien: "https://x.fr".into(), date_rss: "Sat, 15 Aug 2026 10:00:00 GMT".into() }
+        ArticleRss { titre: titre.into(), lien: "https://x.fr".into(), date_rss: "Sat, 15 Aug 2026 10:00:00 GMT".into(), resume: String::new() }
     }
 
     fn rss_dated(titre: &str, date_rss: &str) -> ArticleRss {
-        ArticleRss { titre: titre.into(), lien: "https://x.fr".into(), date_rss: date_rss.into() }
+        ArticleRss { titre: titre.into(), lien: "https://x.fr".into(), date_rss: date_rss.into(), resume: String::new() }
     }
 
     #[test]
@@ -176,5 +210,31 @@ mod tests {
         );
         // Stockage ISO en DB : publie_le doit être parsable en RFC 3339.
         assert!(chrono::DateTime::parse_from_rfc3339(&res_ancien[0].publie_le).is_ok());
+    }
+
+    #[test]
+    fn nettoyer_resume_strip_le_html() {
+        // Balises (avec attributs), entités, espaces multiples/leading
+        assert_eq!(nettoyer_resume("<p>BTC &amp; gold <b>rally</b></p>"), "BTC & gold rally");
+        assert_eq!(nettoyer_resume("  <a href=\"https://x.fr\">Lien</a>\n&#39;quote&#39;  "), "Lien 'quote'");
+        assert_eq!(nettoyer_resume("texte &nbsp;solid&lt;&gt;"), "texte solid<>");
+        // Cas limites : balise non fermée, vide
+        assert_eq!(nettoyer_resume("tronqué <b brav"), "tronqué");
+        assert_eq!(nettoyer_resume(""), "");
+    }
+
+    #[test]
+    fn traiter_items_propage_le_resume_nettoye() {
+        let items = vec![ArticleRss {
+            titre: "Bitcoin surges as fed cuts rates".into(),
+            lien: "https://x.fr".into(),
+            date_rss: "Sat, 15 Aug 2026 10:00:00 GMT".into(),
+            resume: "  <p>Bitcoin &amp; co jump&nbsp;after the cut.</p>  ".into(),
+        }];
+        let res = traiter_items(&items, "Reuters Business", 40);
+        assert_eq!(res[0].resume, "Bitcoin & co jump after the cut.");
+        // Flux sans description → chaîne vide (dégradation, pas d'invention)
+        let vide = traiter_items(&[rss("Unrelated earnings report")], "Reuters Business", 40);
+        assert_eq!(vide[0].resume, "");
     }
 }
