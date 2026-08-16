@@ -13,6 +13,7 @@
       </div>
       <div v-if="dernierBrief" class="text-sm text-gray-200 whitespace-pre-line">{{ sansCloture(dernierBrief.contenu) }}</div>
       <p v-else class="text-sm text-gray-500">Aucun brief — clique « Générer » (Ollama, ~1 min).</p>
+      <p v-if="erreurBrief" class="text-sm text-red-400">{{ erreurBrief }}</p>
     </div>
 
     <!-- Filtres -->
@@ -27,7 +28,8 @@
         <option v-for="a in assets" :key="a" :value="a">{{ a }}</option>
       </select>
       <select v-model="filtre.lu" class="bg-white text-black rounded-lg px-2 py-1.5 text-sm" @change="charger()">
-        <option value="">Lu + non lus</option><option value="true">Non lus</option><option value="false">Lus</option>
+        <!-- lu=true → articles LUS, lu=false → NON LUS (interprétation backend) -->
+        <option value="">Lu + non lus</option><option value="true">Lus</option><option value="false">Non lus</option>
       </select>
       <span class="text-xs text-gray-500">{{ articles.length }} articles</span>
     </div>
@@ -82,11 +84,13 @@ import { presseApi, type ArticlePresse } from '@/services/api.presse'
 const articles = ref<ArticlePresse[]>([])
 const sources = ref<Awaited<ReturnType<typeof presseApi.sources>>>([])
 const enBrief = ref(false)
+const erreurBrief = ref<string | null>(null)
 const dernierBrief = ref<Awaited<ReturnType<typeof presseApi.briefs>>[number] | null>(null)
 const articleOuvert = ref<{ article: ArticlePresse; titre_fr: string | null; sentiment: string | null } | null>(null)
 const filtre = reactive({ q: '', theme: '', asset: '', lu: '' })
 const nouvelleSource = reactive({ nom: '', url: '' })
-const themes = ['macro', 'crypto', 'metaux', 'forex', 'marches']
+// Valeurs réellement produites par classer_theme (backend)
+const themes = ['macro', 'crypto', 'metaux', 'autre']
 const assets = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD', 'EURUSD', 'USDJPY', 'DAX', 'NAS100', 'SP500']
 
 /** Dépouille une éventuelle clôture markdown ```...``` du contenu du brief avant affichage. */
@@ -116,15 +120,19 @@ async function ouvrir(a: ArticlePresse) {
       await charger()
       return
     }
-    throw err
+    // Autre erreur réseau/serveur : on referme sans crash
+    articleOuvert.value = null
   }
 }
 
 async function genererBrief() {
+  erreurBrief.value = null
   enBrief.value = true
   try {
     await presseApi.genererBrief()
     dernierBrief.value = (await presseApi.briefs())[0] ?? null
+  } catch (err: any) {
+    erreurBrief.value = err?.response?.data?.erreur ?? 'Erreur inconnue'
   } finally { enBrief.value = false }
 }
 
