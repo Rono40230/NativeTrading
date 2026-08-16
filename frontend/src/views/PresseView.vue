@@ -34,46 +34,8 @@
           <span class="text-xs text-gray-500">{{ articles.length }} articles</span>
         </div>
 
-        <!-- Bibliothèque — cartes (4/ligne max, clic → liseuse) -->
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <button
-            v-for="a in articles"
-            :key="a.hash_titre"
-            class="glass-card p-3 text-left hover:bg-white/10 transition flex flex-col gap-2 min-h-28"
-            :class="{ 'opacity-50': a.lu, 'border-blue-500/60 ring-1 ring-blue-500/50': selectionnee(a) }"
-            @click="lire(a)"
-          >
-            <div class="flex items-start justify-between gap-1">
-              <span
-                v-if="estNouveau(a.ajoute_le) && !a.lu"
-                class="text-[9px] font-bold text-red-300 bg-red-600/40 border border-red-500/40 rounded-full px-1.5 py-0.5 leading-none animate-pulse shrink-0"
-              >NOUVEAU</span>
-              <span
-                v-else-if="a.lu"
-                class="text-[9px] font-semibold text-blue-200 bg-blue-600/70 border border-blue-500/50 rounded-full px-1.5 py-0.5 leading-none shrink-0"
-              >Vu</span>
-              <span class="ml-auto text-[10px] font-semibold tabular-nums" :class="classeScore(a.score)">{{ a.score }}</span>
-            </div>
-            <span class="text-xs leading-snug line-clamp-3" :class="a.lu ? 'text-gray-500' : 'text-white font-medium'">{{ a.titre_fr ?? a.titre }}</span>
-            <div class="flex flex-wrap gap-1 text-[10px] mt-auto">
-              <span class="px-1.5 py-0.5 rounded" :class="a.impact === 'fort' ? 'bg-red-500/15 text-red-300' : a.impact === 'moyen' ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-gray-400'">{{ a.impact }}</span>
-              <span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{{ a.theme }}</span>
-              <span v-for="asset in parseAssets(a)" :key="asset" class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">{{ asset }}</span>
-            </div>
-            <span class="text-[10px] text-gray-500 truncate">{{ a.source_nom }}</span>
-          </button>
-        </div>
-        <p v-if="articles.length === 0" class="text-sm text-gray-500 p-4">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min).</p>
-        <!-- Pagination : le backend sert 50 articles/page, on empile les pages suivantes -->
-        <div v-if="!aToutCharge && articles.length > 0" class="flex justify-center shrink-0">
-          <button
-            class="px-4 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition"
-            @click="charger(false)"
-          >Charger plus</button>
-        </div>
-
         <!-- Brief repliable (bas de colonne) -->
-        <details class="glass-card p-4 shrink-0">
+        <details open class="glass-card p-4 shrink-0">
           <summary class="flex items-center justify-between cursor-pointer list-none gap-3 [&::-webkit-details-marker]:hidden">
             <span class="text-sm font-semibold text-gray-300">
               📝 Brief 24 h
@@ -126,6 +88,45 @@
             <p v-if="erreurBrief" class="text-sm text-red-400">{{ erreurBrief }}</p>
           </div>
         </details>
+
+        <!-- Bibliothèque — cartes (4/ligne max, clic → liseuse) -->
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <button
+            v-for="a in articles"
+            :key="a.hash_titre"
+            class="glass-card p-3 text-left hover:bg-white/10 transition flex flex-col gap-2 min-h-28"
+            :class="{ 'border-blue-500/60 ring-1 ring-blue-500/50': selectionnee(a) }"
+            @click="lire(a)"
+          >
+            <div class="flex items-start justify-between gap-1">
+              <span
+                v-if="estNouveau(a.ajoute_le) && !a.lu"
+                class="text-[9px] font-bold text-red-300 bg-red-600/40 border border-red-500/40 rounded-full px-1.5 py-0.5 leading-none animate-pulse shrink-0"
+              >NOUVEAU</span>
+              <span
+                v-else-if="a.lu"
+                class="text-[9px] font-semibold text-blue-200 bg-blue-600/70 border border-blue-500/50 rounded-full px-1.5 py-0.5 leading-none shrink-0"
+              >Vu</span>
+              <span class="ml-auto text-[10px] font-semibold tabular-nums" :class="classeScore(a.score)">{{ a.score }}</span>
+            </div>
+            <span class="text-xs leading-snug line-clamp-3" :class="a.lu ? 'text-gray-500' : 'text-white font-medium'">{{ a.titre_fr ?? a.titre }}</span>
+            <div class="flex flex-wrap gap-1 text-[10px] mt-auto">
+              <span class="px-1.5 py-0.5 rounded" :class="a.impact === 'fort' ? 'bg-red-500/15 text-red-300' : a.impact === 'moyen' ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-gray-400'">{{ a.impact }}</span>
+              <span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{{ a.theme }}</span>
+              <span v-for="asset in parseAssets(a)" :key="asset" class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">{{ asset }}</span>
+            </div>
+            <span class="text-[10px] text-gray-500 truncate">{{ a.source_nom }}</span>
+          </button>
+        </div>
+        <p v-if="articles.length === 0" class="text-sm text-gray-500 p-4">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min).</p>
+        <!-- Pagination : le backend sert 50 articles/page, on empile les pages suivantes -->
+        <div v-if="!aToutCharge && articles.length > 0" class="flex justify-center shrink-0">
+          <button
+            class="px-4 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition"
+            @click="charger(false)"
+          >Charger plus</button>
+        </div>
+
       </div>
 
       <!-- ── Liseuse (1/3 écran) — design éditorial ── -->

@@ -257,7 +257,7 @@ pub async fn delete_source(state: web::Data<AppState>, chemin: web::Path<i64>) -
 /// la condamnation reste le privilège de la consultation), synthèse LLM puis
 /// archivage. 503 propre si Ollama est indisponible.
 pub async fn post_brief(state: web::Data<AppState>) -> HttpResponse {
-    let articles = match state.db.selection_brief_24h(15).await {
+    let articles = match state.db.selection_brief_24h(8).await {
         Ok(a) => a,
         Err(e) => return HttpResponse::InternalServerError().body(format!("{e}")),
     };
