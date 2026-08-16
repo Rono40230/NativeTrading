@@ -197,3 +197,67 @@ pub async fn traduire_contenu(texte: &str) -> String {
         Err(_) => texte.to_string(),
     }
 }
+
+// ── Traduction stricte + brief LLM (revue de presse) ──────────────────────────
+
+/// Une traduction est réussie si elle diffère de l'original (contrat :
+/// `traduire` rend le texte original en cas d'échec).
+pub fn traduction_reussie(original: &str, traduit: &str) -> bool {
+    !traduit.trim().is_empty() && traduit.trim() != original.trim()
+}
+
+/// Traduction STRICTE pour la presse : None = échec (rien n'est caché).
+/// Diffère de `traduire_avec_cache` qui cache aussi les échecs (rend
+/// l'original) — inacceptable pour la règle « porte d'entrée ».
+pub async fn traduire_avec_cache_strict(pool: &SqlitePool, titre: &str) -> Option<String> {
+    let hash = hash_titre(titre);
+    if let Some(cached) = lire_cache(pool, &hash).await {
+        return Some(cached);
+    }
+    let traduit = traduire(titre).await;
+    if traduction_reussie(titre, &traduit) {
+        ecrire_cache(pool, &hash, &traduit).await;
+        Some(traduit)
+    } else {
+        None
+    }
+}
+
+/// Génération du brief : un appel Ollama, entrée compilée par l'appelant
+/// (titres FR + scores + thèmes), sortie markdown brute.
+pub async fn generer_brief_llm(entree: &str) -> Option<String> {
+    let prompt = format!(
+        "Tu es analyste financier. Rédige en français un brief matinal en markdown :\n\
+         ## Contexte marché\n3 lignes sur les thèmes dominants.\n\n\
+         ## Articles marquants\nPour chaque article : 2-3 lignes (impact, assets).\n\n\
+         Articles des dernières 24h (score sur 100, thème) :\n{entree}"
+    );
+    let corps = serde_json::json!({
+        "model": MODELE_TRADUCTION,
+        "messages": [{ "role": "user", "content": prompt }],
+        "stream": false
+    });
+    let url = std::env::var("OLLAMA_URL")
+        .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
+    let _permit = llm::OLLAMA_SEMAPHORE.acquire().await.ok();
+    let res = llm::OLLAMA_HTTP_CLIENT.post(&url).json(&corps).send().await;
+    match res {
+        Ok(r) if r.status().is_success() => r
+            .json::<llm::ReponseOllama>().await.ok()
+            .map(|r| r.message.content.trim().to_string())
+            .filter(|s| !s.is_empty()),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests_strict {
+    use super::*;
+
+    #[test]
+    fn eval_traduction() {
+        assert!(traduction_reussie("Fed cuts rates", "La Fed baisse ses taux"));
+        assert!(!traduction_reussie("Fed cuts rates", "Fed cuts rates"));
+        assert!(!traduction_reussie("Fed cuts rates", "  "));
+    }
+}
