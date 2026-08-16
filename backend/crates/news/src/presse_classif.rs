@@ -34,6 +34,24 @@ pub fn impact(score: u8) -> &'static str {
     if score >= 60 { "fort" } else if score >= 35 { "moyen" } else { "faible" }
 }
 
+/// Normalise une date RSS en RFC 3339 : les `<pubDate>` RSS arrivent en RFC 2822
+/// (« Sat, 15 Aug 2026 10:00:00 GMT ») alors que `scorer`/`bonus_temporel` et le
+/// stockage DB attendent du RFC 3339. Si la chaîne est déjà RFC 3339 (ex. flux
+/// `<dc:date>` ISO), elle est retournée telle quelle.
+///
+/// Dégradation assumée : format inconnu → chaîne originale retournée (le scorer
+/// appliquera sa pénalité de date non parsable, la DB stockera la valeur brute —
+/// on préfère une donnée fidèle à une date inventée).
+fn normaliser_date_rss(date: &str) -> String {
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc2822(date) {
+        return dt.to_rfc3339();
+    }
+    if chrono::DateTime::parse_from_rfc3339(date).is_ok() {
+        return date.to_string();
+    }
+    date.to_string()
+}
+
 /// Article prêt pour l'insertion DB (cf db::presse::PresseArticle).
 pub struct ArticleCollecte {
     pub hash_titre: String,
@@ -57,14 +75,15 @@ pub fn traiter_items(items: &[ArticleRss], source_nom: &str, poids_source: u8) -
         if retenus.iter().any(|r| jaccard_bigrammes(&r.titre, &item.titre) >= 0.8) {
             continue;
         }
-        let score = scorer(&titre_lower, poids_source, &item.date_rss);
+        let date_iso = normaliser_date_rss(&item.date_rss);
+        let score = scorer(&titre_lower, poids_source, &date_iso);
         let assets = assets_concernes(&titre_lower);
         retenus.push(ArticleCollecte {
             hash_titre: hash_titre(&item.titre),
             titre: item.titre.clone(),
             url: item.lien.clone(),
             source_nom: source_nom.to_string(),
-            publie_le: item.date_rss.clone(),
+            publie_le: date_iso,
             score,
             theme: classer_theme(&titre_lower, source_nom).to_string(),
             assets_concernes: serde_json::to_string(&assets).unwrap_or_else(|_| "[]".into()),
@@ -81,6 +100,10 @@ mod tests {
 
     fn rss(titre: &str) -> ArticleRss {
         ArticleRss { titre: titre.into(), lien: "https://x.fr".into(), date_rss: "Sat, 15 Aug 2026 10:00:00 GMT".into() }
+    }
+
+    fn rss_dated(titre: &str, date_rss: &str) -> ArticleRss {
+        ArticleRss { titre: titre.into(), lien: "https://x.fr".into(), date_rss: date_rss.into() }
     }
 
     #[test]
@@ -117,5 +140,41 @@ mod tests {
         assert!(premier.score > 0);
         assert!(!premier.hash_titre.is_empty());
         assert!(premier.assets_concernes.contains("BTC"));
+    }
+
+    #[test]
+    fn normaliser_date_rss_convertit_2822_vers_3339() {
+        // RFC 2822 → RFC 3339, date conservée, résultat reparsable
+        let iso = normaliser_date_rss("Sat, 15 Aug 2026 10:00:00 GMT");
+        assert!(iso.contains("2026-08-15"), "attendu 2026-08-15 dans : {iso}");
+        assert!(chrono::DateTime::parse_from_rfc3339(&iso).is_ok());
+        // Déjà RFC 3339 → inchangé
+        assert_eq!(normaliser_date_rss("2026-08-15T10:00:00Z"), "2026-08-15T10:00:00Z");
+        // Format inconnu → original (dégradation documentée)
+        assert_eq!(normaliser_date_rss("pas une date"), "pas une date");
+    }
+
+    #[test]
+    fn traiter_items_bonus_fraicheur_sur_date_rss_2822() {
+        // Avant correctif : date RFC 2822 brute passée au scorer (qui parse du RFC 3339)
+        // → échec silencieux → pénalité -10 pour TOUT article en pubDate, bonus jamais appliqué.
+        let date_fraiche = chrono::Utc::now().format("%a, %d %b %Y %H:%M:%S GMT").to_string();
+        let date_ancienne =
+            (chrono::Utc::now() - chrono::Duration::days(7)).format("%a, %d %b %Y %H:%M:%S GMT").to_string();
+
+        let titre = "Unrelated earnings report from acme corp";
+        let res_frais = traiter_items(&[rss_dated(titre, &date_fraiche)], "Reuters Business", 10);
+        let res_ancien = traiter_items(&[rss_dated(titre, &date_ancienne)], "Reuters Business", 10);
+
+        // Frais (bonus +10) doit STRICTEMENT dépasser ancien > 6 jours (-10) :
+        // égalité = pénalité de parse toujours présente.
+        assert!(
+            res_frais[0].score > res_ancien[0].score,
+            "frais={} ancien={} : la pénalité de parse ne doit plus s'appliquer",
+            res_frais[0].score,
+            res_ancien[0].score
+        );
+        // Stockage ISO en DB : publie_le doit être parsable en RFC 3339.
+        assert!(chrono::DateTime::parse_from_rfc3339(&res_ancien[0].publie_le).is_ok());
     }
 }
