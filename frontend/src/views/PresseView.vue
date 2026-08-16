@@ -174,16 +174,6 @@
               </p>
             </div>
           </div>
-
-          <!-- Pied : lien source (portal Flatpak/xdg-open en Tauri, window.open sinon) -->
-          <div class="px-5 py-2.5 border-t border-white/10 bg-white/[0.02] shrink-0">
-            <button
-              v-if="liseuse.article.url"
-              class="text-[11px] text-blue-400 hover:text-blue-300 hover:underline transition-colors"
-              @click="ouvrirExterne(liseuse.article.url)"
-            >Lire sur le site source ↗</button>
-            <span v-else class="text-[11px] text-gray-600">Pas de lien source (résumé du brief)</span>
-          </div>
         </template>
 
         <!-- Liseuse vide -->
