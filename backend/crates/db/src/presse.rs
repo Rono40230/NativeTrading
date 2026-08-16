@@ -46,6 +46,17 @@ pub struct FiltreArticles {
     pub offset: i64,
 }
 
+/// Brief markdown généré périodiquement à partir de la sélection 24 h.
+#[derive(Debug, Serialize)]
+pub struct PresseBrief {
+    pub id: i64,
+    pub genere_le: i64,
+    pub fenetre_de: i64,
+    pub fenetre_a: i64,
+    pub nb_articles: i64,
+    pub contenu: String,
+}
+
 impl Database {
     pub async fn lister_sources_presse(&self, actives_seules: bool) -> anyhow::Result<Vec<PresseSource>> {
         let sql = if actives_seules {
@@ -93,7 +104,7 @@ impl Database {
             .bind(&a.hash_titre).bind(&a.titre).bind(&a.url).bind(&a.source_nom)
             .bind(&a.publie_le).bind(a.score as i64).bind(&a.theme)
             .bind(&a.assets_concernes).bind(&a.impact)
-            .bind(chrono::Utc::now().timestamp())
+            .bind(a.ajoute_le)
             .execute(&mut *tx).await?;
             inseres += r.rows_affected();
         }
@@ -152,6 +163,83 @@ impl Database {
         sqlx::query("UPDATE presse_articles SET lu = 1 WHERE hash_titre = ?1")
             .bind(hash).execute(self.pool()).await?;
         Ok(())
+    }
+
+    /// Machine à états de la traduction (porte d'entrée de la bibliothèque).
+    /// Retourne true = 2 échecs atteints → l'appelant doit condamner
+    /// (puis supprimer) l'article.
+    pub async fn enregistrer_tentative_traduction(&self, hash: &str, reussie: bool) -> anyhow::Result<bool> {
+        if reussie {
+            sqlx::query("UPDATE presse_articles SET statut_traduction = 'ok' WHERE hash_titre = ?1")
+                .bind(hash).execute(self.pool()).await?;
+            return Ok(false);
+        }
+        let tentatives: i64 = sqlx::query_scalar(
+            "UPDATE presse_articles SET tentatives_traduction = tentatives_traduction + 1
+             WHERE hash_titre = ?1 RETURNING tentatives_traduction",
+        )
+        .bind(hash).fetch_one(self.pool()).await?;
+        Ok(tentatives >= 2)
+    }
+
+    /// Suppression effective des articles condamnés (appelée après le 2e échec).
+    pub async fn supprimer_articles_condamnes(&self) -> anyhow::Result<()> {
+        sqlx::query("DELETE FROM presse_articles WHERE tentatives_traduction >= 2")
+            .execute(self.pool()).await?;
+        Ok(())
+    }
+
+    /// Sélection pour le brief : top score des dernières 24 h (sur `ajoute_le`).
+    pub async fn selection_brief_24h(&self, limite: i64) -> anyhow::Result<Vec<PresseArticle>> {
+        let cutoff = chrono::Utc::now().timestamp() - 86_400;
+        let sql = "SELECT hash_titre, titre, url, source_nom, publie_le, score, theme,
+                          assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le
+                   FROM presse_articles WHERE ajoute_le >= ?1
+                   ORDER BY score DESC, ajoute_le DESC LIMIT ?2";
+        let lignes = sqlx::query_as::<_, (String, String, String, String, String, i64, String, String, String, String, i64, i64, i64)>(sql)
+            .bind(cutoff).bind(limite).fetch_all(self.pool()).await?;
+        Ok(lignes.into_iter().map(|l| PresseArticle {
+            hash_titre: l.0, titre: l.1, url: l.2, source_nom: l.3, publie_le: l.4,
+            score: l.5 as u8, theme: l.6, assets_concernes: l.7, impact: l.8,
+            statut_traduction: l.9, tentatives_traduction: l.10 as u8, lu: l.11 != 0, ajoute_le: l.12,
+        }).collect())
+    }
+
+    /// Insère un brief généré ; `genere_le` est posé ici (horloge serveur).
+    pub async fn inserer_brief(&self, fenetre_de: i64, fenetre_a: i64, nb_articles: usize, contenu: &str) -> anyhow::Result<i64> {
+        let id = sqlx::query_scalar::<_, i64>(
+            "INSERT INTO presse_briefs (genere_le, fenetre_de, fenetre_a, nb_articles, contenu)
+             VALUES (?1, ?2, ?3, ?4, ?5) RETURNING id",
+        )
+        .bind(chrono::Utc::now().timestamp())
+        .bind(fenetre_de).bind(fenetre_a).bind(nb_articles as i64).bind(contenu)
+        .fetch_one(self.pool()).await?;
+        Ok(id)
+    }
+
+    /// Briefs les plus récents en premier (contenu inclus : simple).
+    pub async fn lister_briefs(&self, limite: i64) -> anyhow::Result<Vec<PresseBrief>> {
+        let lignes = sqlx::query_as::<_, (i64, i64, i64, i64, i64, String)>(
+            "SELECT id, genere_le, fenetre_de, fenetre_a, nb_articles, contenu
+             FROM presse_briefs ORDER BY id DESC LIMIT ?1",
+        )
+        .bind(limite).fetch_all(self.pool()).await?;
+        Ok(lignes.into_iter().map(|l| PresseBrief {
+            id: l.0, genere_le: l.1, fenetre_de: l.2, fenetre_a: l.3, nb_articles: l.4, contenu: l.5,
+        }).collect())
+    }
+
+    /// Rétention : supprime articles ET briefs au-delà de N mois
+    /// (mois approximé à 30 jours, suffisant pour de la rétention).
+    /// Retourne le total de lignes supprimées.
+    pub async fn purger_presse_expiree(&self, mois: i64) -> anyhow::Result<u64> {
+        if mois <= 0 { return Ok(0); }
+        let cutoff = chrono::Utc::now().timestamp() - mois * 30 * 86_400;
+        let a = sqlx::query("DELETE FROM presse_articles WHERE ajoute_le < ?1")
+            .bind(cutoff).execute(self.pool()).await?.rows_affected();
+        let b = sqlx::query("DELETE FROM presse_briefs WHERE genere_le < ?1")
+            .bind(cutoff).execute(self.pool()).await?.rows_affected();
+        Ok(a + b)
     }
 }
 
@@ -221,5 +309,56 @@ mod tests {
             q: Some("titre h2".into()), lu: None, limite: 50, offset: 0,
         };
         assert_eq!(db.lister_articles_presse(&filtre_q).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn deux_echecs_traduction_suppriment_larticle() {
+        let db = db_test().await;
+        db.inserer_articles_presse(&[article("h1", "macro", "[]", 50)]).await.unwrap();
+        // 1er échec : garde
+        let suppr = db.enregistrer_tentative_traduction("h1", false).await.unwrap();
+        assert!(!suppr);
+        assert!(db.lire_article_presse("h1").await.unwrap().is_some());
+        // 2e échec : supprimé
+        let suppr = db.enregistrer_tentative_traduction("h1", false).await.unwrap();
+        assert!(suppr);
+        db.supprimer_articles_condamnes().await.unwrap(); // suppression immédiate après condamnation
+        assert!(db.lire_article_presse("h1").await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn succes_traduction_pose_statut_ok() {
+        let db = db_test().await;
+        db.inserer_articles_presse(&[article("h2", "macro", "[]", 50)]).await.unwrap();
+        let suppr = db.enregistrer_tentative_traduction("h2", true).await.unwrap();
+        assert!(!suppr);
+        let a = db.lire_article_presse("h2").await.unwrap().unwrap();
+        assert_eq!(a.statut_traduction, "ok");
+    }
+
+    #[tokio::test]
+    async fn briefs_et_selection_24h() {
+        let db = db_test().await;
+        let maintenant = chrono::Utc::now().timestamp();
+        let vieux = PresseArticle { ajoute_le: maintenant - 86_400 * 3, ..article("vieux", "macro", "[]", 90) };
+        let recent = PresseArticle { ajoute_le: maintenant - 3_600, ..article("recent", "crypto", "[]", 70) };
+        db.inserer_articles_presse(&[vieux, recent]).await.unwrap();
+        let sel = db.selection_brief_24h(15).await.unwrap();
+        assert_eq!(sel.len(), 1, "seul l'article des 24 dernières heures");
+        assert_eq!(sel[0].hash_titre, "recent");
+
+        let id = db.inserer_brief(maintenant - 86_400, maintenant, 1, "# Brief").await.unwrap();
+        let briefs = db.lister_briefs(10).await.unwrap();
+        assert_eq!(briefs.len(), 1);
+        assert_eq!(briefs[0].id, id);
+    }
+
+    #[tokio::test]
+    async fn purge_presse_par_mois() {
+        let db = db_test().await;
+        let vieux = PresseArticle { ajoute_le: chrono::Utc::now().timestamp() - 86_400 * 400, ..article("vieux", "macro", "[]", 50) };
+        db.inserer_articles_presse(&[vieux, article("recent", "macro", "[]", 50)]).await.unwrap();
+        assert_eq!(db.purger_presse_expiree(12).await.unwrap(), 1, "400 jours > 12 mois");
+        assert!(db.lire_article_presse("recent").await.unwrap().is_some());
     }
 }
