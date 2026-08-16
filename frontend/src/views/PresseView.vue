@@ -9,7 +9,7 @@
     </div>
 
     <!-- Brief -->
-    <div class="glass-card p-5 space-y-3">
+    <div class="glass-card p-5 space-y-4">
       <div class="flex items-center justify-between">
         <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Brief 24 h</h2>
         <button
@@ -17,7 +17,45 @@
           :disabled="enBrief" @click="genererBrief()"
         >{{ enBrief ? '⏳ Génération…' : '⚡ Générer le brief' }}</button>
       </div>
-      <div v-if="dernierBrief" class="text-sm text-gray-200 whitespace-pre-line">{{ sansCloture(dernierBrief.contenu) }}</div>
+
+      <template v-if="briefParse">
+        <!-- Contexte marché — bandeau d'intro -->
+        <div class="rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-blue-300 mb-1">🌍 Contexte marché</p>
+          <p class="text-sm text-gray-200 leading-relaxed">{{ briefParse.contexte }}</p>
+        </div>
+
+        <!-- Articles du brief — cartes détaillées, 4/ligne -->
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <article
+            v-for="art in briefParse.articles"
+            :key="art.numero"
+            class="rounded-xl border border-white/10 bg-white/[0.04] p-4 flex flex-col gap-3 hover:bg-white/[0.07] hover:border-white/20 transition relative overflow-hidden"
+          >
+            <!-- Accent coloré selon le score, en haut de carte -->
+            <div class="absolute top-0 left-0 right-0 h-1" :class="art.score >= 60 ? 'bg-red-400/70' : art.score >= 40 ? 'bg-yellow-400/70' : 'bg-gray-500/50'"></div>
+
+            <div class="flex items-start justify-between gap-2">
+              <span class="text-[10px] font-bold text-gray-500 bg-white/5 rounded-md px-1.5 py-0.5 shrink-0">#{{ art.numero }}</span>
+              <div class="text-right shrink-0">
+                <span class="text-lg font-bold tabular-nums" :class="art.score >= 60 ? 'text-red-300' : art.score >= 40 ? 'text-yellow-300' : 'text-gray-400'">{{ art.score }}</span>
+                <span class="text-[10px] text-gray-500">/100</span>
+              </div>
+            </div>
+
+            <h3 class="text-sm font-semibold text-white leading-snug line-clamp-3">{{ art.titre }}</h3>
+            <p class="text-xs text-gray-400 leading-relaxed line-clamp-4">{{ art.resume }}</p>
+
+            <div class="mt-auto flex flex-wrap items-center gap-1.5 text-[10px]">
+              <span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{{ art.theme }}</span>
+              <span class="px-1.5 py-0.5 rounded bg-white/10 text-gray-400 truncate max-w-[10rem]">{{ art.source }}</span>
+            </div>
+          </article>
+        </div>
+
+        <p class="text-[10px] text-gray-500 text-right">Brief du {{ new Date(dernierBrief?.genere_le ? dernierBrief.genere_le * 1000 : Date.now()).toLocaleString('fr-FR') }} · {{ briefParse.articles.length }} articles</p>
+      </template>
+
       <p v-else class="text-sm text-gray-500">Aucun brief — clique « Générer » (Ollama, ~1 min).</p>
       <p v-if="erreurBrief" class="text-sm text-red-400">{{ erreurBrief }}</p>
     </div>
@@ -106,8 +144,18 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { presseApi, type ArticlePresse } from '@/services/api.presse'
+
+/** Article structuré extrait du markdown du brief. */
+interface ArticleBrief {
+  numero: number
+  titre: string
+  source: string
+  score: number
+  theme: string
+  resume: string
+}
 
 const articles = ref<ArticlePresse[]>([])
 const page = ref(1) // prochaine page à demander au backend (50 articles/page)
@@ -128,6 +176,48 @@ const assets = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD', 'EURUSD', 'USDJPY', 'DAX', 'NA
 function sansCloture(c: string): string {
   return c.replace(/^\s*```(?:markdown)?\s*\n?/, '').replace(/\n?\s*```\s*$/, '')
 }
+
+/** Parse le markdown du brief en structure affichable : contexte + articles
+ * détaillés (cartes). Format LLM : « ## Contexte marché » / « ## Articles
+ * marquants » / « ### N. Titre (Source) - [score/100|theme] » + résumé. */
+const briefParse = computed<{ contexte: string; articles: ArticleBrief[] } | null>(() => {
+  if (!dernierBrief.value) return null
+  const texte = sansCloture(dernierBrief.value.contenu)
+  const sections = texte.split(/^##\s+/m)
+
+  let contexte = ''
+  for (const s of sections) {
+    const corps = s.replace(/^Contexte marché\s*\n?/i, '').trim()
+    if (s.toLowerCase().startsWith('contexte marché')) {
+      contexte = corps
+      break
+    }
+  }
+
+  const articles: ArticleBrief[] = []
+  for (const s of sections) {
+    if (!/^Articles marquants/i.test(s)) continue
+    for (const bloc of s.split(/^###\s+/m).slice(1)) {
+      const lignes = bloc.split('\n').map(l => l.trim()).filter(Boolean)
+      if (lignes.length === 0) continue
+      const entete = lignes[0]
+      // « 1. Titre (Source) - [62/100|crypto] » (le / de « /100 » est échappé)
+      const m = entete.match(/^(\d+)[.]\s*(.+?)(?:\s*[（(]([^)）]+)[)）])?\s*-?\s*[（([]\s*(\d+)\s*\/\s*100\s*\|\s*([a-zàâçéèêëîïôùûü]+)\s*[)）\]]/i)
+      if (!m) continue
+      articles.push({
+        numero: parseInt(m[1], 10),
+        titre: m[2].trim(),
+        source: (m[3] ?? '').trim() || '—',
+        score: parseInt(m[4], 10),
+        theme: (m[5] ?? '').trim().toLowerCase(),
+        resume: lignes.slice(1).join(' '),
+      })
+    }
+  }
+
+  if (!contexte && articles.length === 0) return null
+  return { contexte, articles }
+})
 
 function parseAssets(a: ArticlePresse): string[] {
   try { return JSON.parse(a.assets_concernes) } catch { return [] }
