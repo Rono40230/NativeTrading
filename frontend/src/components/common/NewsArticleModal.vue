@@ -128,30 +128,29 @@ watch(() => props.article, async (art, ancien) => {
   contenuFr.value = null
   traductionChargement.value = false
 
-  // Résumé RSS immédiat (toujours disponible, collecté au cycle presse) :
-  // il remplace la skeleton — le scraper devient un simple enrichissement.
+  // Résumé RSS immédiat (toujours disponible, collecté au cycle presse).
+  // Si on a un résumé : c'est LE contenu — PAS de scrape (les sites JS
+  // renvoient des pages de cookies/consentement plus longues que le résumé
+  // et l'écraseraient). Le scrape ne sert que sans résumé RSS.
   contenu.value = art?.resume_source || null
   sourceContenu.value = contenu.value ? 'rss' : 'scrape'
   chargement.value = !!art?.url && !contenu.value
 
   if (!art?.url) return
-  // Enrichissement scraper : utile seulement sans résumé ou résumé court.
-  if (contenu.value && contenu.value.length >= 500) return
-  enrichissement.value = !!contenu.value
+  // Sans résumé RSS → scrape (seule source de contenu).
+  if (contenu.value) return
   try {
     const res = await apiService.obtenirContenuArticle(art.url)
-    // Le scrape ne remplace que s'il apporte PLUS que le résumé RSS.
-    if (res.texte && res.texte.length > (contenu.value?.length ?? 0)) {
+    if (res.texte) {
       contenu.value = res.texte
       sourceContenu.value = 'scrape'
       await traduireContenu()
     }
   } catch {
-    // Échec (page rendue en JavaScript, mur de cookies…) : le résumé RSS
-    // reste affiché — plus jamais d'« Article non accessible ».
+    // Échec (page rendue en JavaScript, mur de cookies…) : rien à afficher
+    // pour cet article sans résumé RSS.
   } finally {
     chargement.value = false
-    enrichissement.value = false
   }
 })
 
