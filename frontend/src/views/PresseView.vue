@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-[calc(100vh-8rem)]">
+  <div class="flex flex-col h-full min-h-0">
     <!-- Bandeau -->
     <div class="flex items-center justify-between shrink-0 mb-4">
       <h1 class="text-2xl font-bold">📰 Revue de presse</h1>
