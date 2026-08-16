@@ -1,6 +1,12 @@
 <template>
   <div class="space-y-6">
-    <h1 class="text-2xl font-bold">📰 Revue de presse</h1>
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">📰 Revue de presse</h1>
+      <button
+        class="px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition"
+        @click="modaleSources = true"
+      >📡 Sources RSS</button>
+    </div>
 
     <!-- Brief -->
     <div class="glass-card p-5 space-y-3">
@@ -29,45 +35,60 @@
       </select>
       <select v-model="filtre.lu" class="bg-white text-black rounded-lg px-2 py-1.5 text-sm" @change="charger()">
         <!-- lu=true → articles LUS, lu=false → NON LUS (interprétation backend) -->
-        <option value="">Lu + non lus</option><option value="true">Lus</option><option value="false">Non lus</option>
+        <option value="">Lu + non lus</option><option value="true">Lis</option><option value="false">Non lus</option>
       </select>
       <!-- articles.length = total chargé (toutes pages « Charger plus » confondues) -->
       <span class="text-xs text-gray-500">{{ articles.length }} articles</span>
     </div>
 
-    <!-- Bibliothèque -->
-    <div class="glass-card p-2 divide-y divide-white/5">
-      <button v-for="a in articles" :key="a.hash_titre" class="w-full text-left px-3 py-2.5 hover:bg-white/5 transition" @click="ouvrir(a)">
-        <div class="flex items-center justify-between gap-3">
-          <span class="text-sm" :class="a.lu ? 'text-gray-500' : 'text-white font-medium'">{{ a.titre }}</span>
-          <span class="text-xs text-gray-500 shrink-0">{{ a.source_nom }}</span>
-        </div>
-        <div class="flex gap-2 mt-1 text-[10px]">
+    <!-- Bibliothèque — cartes -->
+    <div class="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8">
+      <button
+        v-for="a in articles"
+        :key="a.hash_titre"
+        class="glass-card p-3 text-left hover:bg-white/10 transition flex flex-col gap-2 min-h-28"
+        :class="{ 'opacity-50': a.lu }"
+        @click="ouvrir(a)"
+      >
+        <span class="text-xs leading-snug line-clamp-3" :class="a.lu ? 'text-gray-500' : 'text-white font-medium'">{{ a.titre }}</span>
+        <div class="flex flex-wrap gap-1 text-[10px] mt-auto">
           <span class="px-1.5 py-0.5 rounded" :class="a.impact === 'fort' ? 'bg-red-500/15 text-red-300' : a.impact === 'moyen' ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-gray-400'">{{ a.impact }}</span>
           <span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{{ a.theme }}</span>
           <span v-for="asset in parseAssets(a)" :key="asset" class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">{{ asset }}</span>
         </div>
+        <span class="text-[10px] text-gray-500 truncate">{{ a.source_nom }}</span>
       </button>
-      <p v-if="articles.length === 0" class="text-sm text-gray-500 p-4">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min).</p>
-      <!-- Pagination : le backend sert 50 articles/page, on empile les pages suivantes -->
+    </div>
+    <p v-if="articles.length === 0" class="text-sm text-gray-500 p-4">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min).</p>
+    <!-- Pagination : le backend sert 50 articles/page, on empile les pages suivantes -->
+    <div v-if="!aToutCharge && articles.length > 0" class="flex justify-center">
       <button
-        v-if="!aToutCharge && articles.length > 0"
-        class="m-2 px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition"
+        class="px-4 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition"
         @click="charger(false)"
       >Charger plus</button>
     </div>
 
-    <!-- Sources -->
-    <div class="glass-card p-5 space-y-3">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Sources RSS</h2>
-      <div v-for="s in sources" :key="s.id" class="flex items-center justify-between text-sm">
-        <span :class="s.actif ? 'text-gray-300' : 'text-gray-600 line-through'">{{ s.nom }} <span class="text-xs text-gray-500">(poids {{ s.poids_score }})</span></span>
-        <button class="text-red-400 hover:text-red-300 text-xs" @click="retirerSource(s.id)">Retirer</button>
-      </div>
-      <div class="flex gap-2 pt-2 border-t border-white/5">
-        <input v-model="nouvelleSource.nom" placeholder="Nom" class="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white" />
-        <input v-model="nouvelleSource.url" placeholder="https://flux.example/rss" class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white" />
-        <button class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm" @click="ajouterSource()">+ Ajouter</button>
+    <!-- Modal sources (opaque, ouverte par le bouton du bandeau) -->
+    <div v-if="modaleSources" class="fixed inset-0 z-50 flex items-center justify-center bg-black/30" @click.self="modaleSources = false">
+      <div class="w-full max-w-lg p-6 space-y-4 rounded-2xl border border-white/10 bg-[#16181d] shadow-2xl">
+        <div class="flex items-center justify-between">
+          <h3 class="font-bold text-white">📡 Sources RSS</h3>
+          <button class="text-gray-400 hover:text-white transition" @click="modaleSources = false">✕</button>
+        </div>
+        <div class="space-y-2 max-h-72 overflow-y-auto">
+          <div v-for="s in sources" :key="s.id" class="flex items-center justify-between text-sm">
+            <span :class="s.actif ? 'text-gray-300' : 'text-gray-600 line-through'">{{ s.nom }} <span class="text-xs text-gray-500">(poids {{ s.poids_score }})</span></span>
+            <button class="text-red-400 hover:text-red-300 text-xs" @click="retirerSource(s.id)">Retirer</button>
+          </div>
+        </div>
+        <div class="flex gap-2 pt-2 border-t border-white/5">
+          <input v-model="nouvelleSource.nom" placeholder="Nom" class="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white" />
+          <input v-model="nouvelleSource.url" placeholder="https://flux.example/rss" class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white" />
+          <button class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm" @click="ajouterSource()">+ Ajouter</button>
+        </div>
+        <div class="flex justify-end">
+          <button class="px-4 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10" @click="modaleSources = false">Fermer</button>
+        </div>
       </div>
     </div>
 
@@ -97,6 +118,7 @@ const erreurBrief = ref<string | null>(null)
 const dernierBrief = ref<Awaited<ReturnType<typeof presseApi.briefs>>[number] | null>(null)
 const articleOuvert = ref<{ article: ArticlePresse; titre_fr: string | null; sentiment: string | null } | null>(null)
 const filtre = reactive({ q: '', theme: '', asset: '', lu: '' })
+const modaleSources = ref(false)
 const nouvelleSource = reactive({ nom: '', url: '' })
 // Valeurs réellement produites par classer_theme (backend)
 const themes = ['macro', 'crypto', 'metaux', 'autre']
