@@ -124,5 +124,6 @@ fn vers_article_entrant(a: &ArticleCollecte) -> db::presse::ArticleEntrant {
         theme: a.theme.clone(),
         assets_concernes: a.assets_concernes.clone(),
         impact: a.impact.clone(),
+        resume_source: a.resume.clone(),
     }
 }

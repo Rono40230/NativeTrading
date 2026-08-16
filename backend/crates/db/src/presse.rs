@@ -33,6 +33,10 @@ pub struct PresseArticle {
     pub tentatives_traduction: u8,
     pub lu: bool,
     pub ajoute_le: i64,
+    /// Résumé du flux RSS capté à la collecte — socle d'affichage quand le
+    /// scraper échoue (sites rendus en JavaScript). Vide pour les lignes
+    /// antérieures à la migration 0072.
+    pub resume_source: String,
 }
 
 /// Article brut fourni par le collecteur (type témoin : le crate db ne
@@ -48,6 +52,7 @@ pub struct ArticleEntrant {
     pub theme: String,
     pub assets_concernes: String,
     pub impact: String,
+    pub resume_source: String,
 }
 
 /// Filtres de listing de la bibliothèque (tous optionnels).
@@ -113,13 +118,15 @@ impl Database {
             let r = sqlx::query(
                 "INSERT OR IGNORE INTO presse_articles
                     (hash_titre, titre, url, source_nom, publie_le, score, theme,
-                     assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'non_tente', 0, 0, ?10)",
+                     assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le,
+                     resume_source)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'non_tente', 0, 0, ?10, ?11)",
             )
             .bind(&a.hash_titre).bind(&a.titre).bind(&a.url).bind(&a.source_nom)
             .bind(&a.publie_le).bind(a.score as i64).bind(&a.theme)
             .bind(&a.assets_concernes).bind(&a.impact)
             .bind(a.ajoute_le)
+            .bind(&a.resume_source)
             .execute(&mut *tx).await?;
             inseres += r.rows_affected();
         }
@@ -152,6 +159,7 @@ impl Database {
             tentatives_traduction: 0,
             lu: false,
             ajoute_le: collecte_le,
+            resume_source: a.resume_source.clone(),
         }).collect();
         self.inserer_articles_presse(&convertis).await
     }
@@ -163,7 +171,8 @@ impl Database {
         // Phase 1 : construction de la requête (clauses conditionnelles).
         let mut sql = String::from(
             "SELECT hash_titre, titre, url, source_nom, publie_le, score, theme,
-                    assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le
+                    assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le,
+                    resume_source
              FROM presse_articles WHERE 1=1",
         );
         if f.theme.is_some() { sql.push_str(" AND theme = ?"); }
@@ -175,7 +184,7 @@ impl Database {
 
         // Phase 2 : requête figée, puis binds dans le même ordre (le borrow
         // checker impose de ne muter `sql` qu'avant la création de la requête).
-        let mut q = sqlx::query_as::<_, (String, String, String, String, String, i64, String, String, String, String, i64, i64, i64)>(&sql);
+        let mut q = sqlx::query_as::<_, (String, String, String, String, String, i64, String, String, String, String, i64, i64, i64, String)>(&sql);
         if let Some(t) = &f.theme { q = q.bind(t.clone()); }
         if let Some(a) = &f.asset { q = q.bind(format!("%\"{a}\"%")); }
         if let Some(src) = &f.source { q = q.bind(src.clone()); }
@@ -186,20 +195,23 @@ impl Database {
             hash_titre: l.0, titre: l.1, url: l.2, source_nom: l.3, publie_le: l.4,
             score: l.5 as u8, theme: l.6, assets_concernes: l.7, impact: l.8,
             statut_traduction: l.9, tentatives_traduction: l.10 as u8, lu: l.11 != 0, ajoute_le: l.12,
+            resume_source: l.13,
         }).collect())
     }
 
     pub async fn lire_article_presse(&self, hash: &str) -> anyhow::Result<Option<PresseArticle>> {
         // Pas de filtre hash dans FiltreArticles : requête dédiée.
         let sql = "SELECT hash_titre, titre, url, source_nom, publie_le, score, theme,
-                          assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le
+                          assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le,
+                          resume_source
                    FROM presse_articles WHERE hash_titre = ?1";
-        let ligne = sqlx::query_as::<_, (String, String, String, String, String, i64, String, String, String, String, i64, i64, i64)>(sql)
+        let ligne = sqlx::query_as::<_, (String, String, String, String, String, i64, String, String, String, String, i64, i64, i64, String)>(sql)
             .bind(hash).fetch_optional(self.pool()).await?;
         Ok(ligne.map(|l| PresseArticle {
             hash_titre: l.0, titre: l.1, url: l.2, source_nom: l.3, publie_le: l.4,
             score: l.5 as u8, theme: l.6, assets_concernes: l.7, impact: l.8,
             statut_traduction: l.9, tentatives_traduction: l.10 as u8, lu: l.11 != 0, ajoute_le: l.12,
+            resume_source: l.13,
         }))
     }
 
@@ -237,15 +249,17 @@ impl Database {
     pub async fn selection_brief_24h(&self, limite: i64) -> anyhow::Result<Vec<PresseArticle>> {
         let cutoff = chrono::Utc::now().timestamp() - 86_400;
         let sql = "SELECT hash_titre, titre, url, source_nom, publie_le, score, theme,
-                          assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le
+                          assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le,
+                          resume_source
                    FROM presse_articles WHERE ajoute_le >= ?1
                    ORDER BY score DESC, ajoute_le DESC LIMIT ?2";
-        let lignes = sqlx::query_as::<_, (String, String, String, String, String, i64, String, String, String, String, i64, i64, i64)>(sql)
+        let lignes = sqlx::query_as::<_, (String, String, String, String, String, i64, String, String, String, String, i64, i64, i64, String)>(sql)
             .bind(cutoff).bind(limite).fetch_all(self.pool()).await?;
         Ok(lignes.into_iter().map(|l| PresseArticle {
             hash_titre: l.0, titre: l.1, url: l.2, source_nom: l.3, publie_le: l.4,
             score: l.5 as u8, theme: l.6, assets_concernes: l.7, impact: l.8,
             statut_traduction: l.9, tentatives_traduction: l.10 as u8, lu: l.11 != 0, ajoute_le: l.12,
+            resume_source: l.13,
         }).collect())
     }
 
@@ -322,6 +336,7 @@ mod tests {
             tentatives_traduction: 0,
             lu: false,
             ajoute_le: 1_786_700_000,
+            resume_source: String::new(),
         }
     }
 
@@ -378,6 +393,7 @@ mod tests {
             theme: "macro".into(),
             assets_concernes: "[]".into(),
             impact: "moyen".into(),
+            resume_source: "Résumé RSS capté à la collecte.".into(),
         };
         assert_eq!(db.inserer_articles_presse_converts(&[e]).await.unwrap(), 1);
         let insere = db.lire_article_presse("c1").await.unwrap().unwrap();
@@ -385,7 +401,10 @@ mod tests {
         // purge seraient faussées), même si publie_le est ancien.
         assert!(insere.ajoute_le >= chrono::Utc::now().timestamp() - 60, "ajoute_le = {}", insere.ajoute_le);
         assert_eq!(insere.statut_traduction, "non_tente");
-        assert_eq!(db.selection_brief_24h(10).await.unwrap().len(), 1);
+        // Le résumé RSS survit au aller-retour collecteur → DB → lecture
+        // (c'est lui qui alimente la modal quand le scraper échoue).
+        assert_eq!(insere.resume_source, "Résumé RSS capté à la collecte.");
+        assert_eq!(db.selection_brief_24h(10).await.unwrap()[0].resume_source, "Résumé RSS capté à la collecte.");
     }
 
     #[tokio::test]
