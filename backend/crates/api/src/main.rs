@@ -33,6 +33,7 @@ mod ollama_types;
 mod patterns_echec_job;
 mod pip_updater;
 mod prealerte_handlers;
+mod presse_handlers;
 mod prealerte_worker;
 mod prix_handlers;
 mod prix_stream;

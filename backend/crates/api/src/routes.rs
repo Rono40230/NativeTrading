@@ -285,6 +285,27 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/worker/assets",
             web::get().to(crate::worker_handlers::get_worker_assets),
         )
+        // ── Revue de presse (Phase 4.1) ────────────────────────────────────────
+        .route(
+            "/api/presse/articles",
+            web::get().to(crate::presse_handlers::get_articles),
+        )
+        .route(
+            "/api/presse/articles/{hash}/ouvrir",
+            web::post().to(crate::presse_handlers::ouvrir_article),
+        )
+        .route(
+            "/api/presse/sources",
+            web::get().to(crate::presse_handlers::get_sources),
+        )
+        .route(
+            "/api/presse/sources",
+            web::post().to(crate::presse_handlers::post_source),
+        )
+        .route(
+            "/api/presse/sources/{id}",
+            web::delete().to(crate::presse_handlers::delete_source),
+        )
         .service(
             web::resource("/api/smc/analyse-llm")
                 .route(web::get().to(crate::smc_analyse_handler::get_derniere_analyse))
