@@ -310,6 +310,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::presse_handlers::ouvrir_article),
         )
         .route(
+            "/api/presse/article-complet",
+            web::get().to(crate::presse_handlers::get_article_complet),
+        )
+        .route(
             "/api/presse/sources",
             web::get().to(crate::presse_handlers::get_sources),
         )

@@ -28,6 +28,10 @@ export const presseApi = {
     const res = await http.post(`/api/presse/articles/${hash}/ouvrir`, null, { timeout: 60_000 })
     return res.data
   },
+  async articleComplet(url: string): Promise<{ contenu: string | null; source: string | null }> {
+    const res = await http.get('/api/presse/article-complet', { params: { url }, timeout: 35_000 })
+    return res.data
+  },
   async genererBrief(): Promise<{ id: number; contenu: string; nb_articles: number }> {
     const res = await http.post('/api/presse/brief', null, { timeout: 180_000 })
     return res.data

@@ -1,15 +1,11 @@
 <template>
-  <!-- Layout 3 colonnes : news | contenu | sentiment+calendrier -->
+  <!-- Layout 2 colonnes : contenu | sentiment+calendrier (la revue de presse
+       vit désormais dans sa propre vue /presse avec liseuse intégrée) -->
   <div class="flex flex-col gap-3">
     <!-- Bandeau alerte critique (conditionnel) -->
     <AlerteBandeau />
 
     <div class="flex gap-3">
-
-      <!-- Colonne gauche : Revue de Presse -->
-      <aside class="w-60 shrink-0 sticky top-0 h-[calc(100vh-3rem)] flex flex-col">
-        <NewsFeed class="flex-1 min-h-0" />
-      </aside>
 
     <!-- Contenu principal -->
     <div class="flex-1 min-w-0 flex flex-col gap-2 h-[calc(100vh-3rem)] overflow-hidden pb-1">
@@ -71,7 +67,6 @@ import MarketClocks from '@/components/common/MarketClocks.vue'
 import EconomicCalendar from '@/components/common/EconomicCalendar.vue'
 import SentimentMarche from '@/components/common/SentimentMarche.vue'
 import AlerteBandeau from '@/components/common/AlerteBandeau.vue'
-import NewsFeed from '@/components/common/NewsFeed.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
 import DashboardStrategiesGrid from '@/components/common/DashboardStrategiesGrid.vue'
