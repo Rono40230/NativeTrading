@@ -31,6 +31,7 @@
         <!-- lu=true → articles LUS, lu=false → NON LUS (interprétation backend) -->
         <option value="">Lu + non lus</option><option value="true">Lus</option><option value="false">Non lus</option>
       </select>
+      <!-- articles.length = total chargé (toutes pages « Charger plus » confondues) -->
       <span class="text-xs text-gray-500">{{ articles.length }} articles</span>
     </div>
 
@@ -48,6 +49,12 @@
         </div>
       </button>
       <p v-if="articles.length === 0" class="text-sm text-gray-500 p-4">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min).</p>
+      <!-- Pagination : le backend sert 50 articles/page, on empile les pages suivantes -->
+      <button
+        v-if="!aToutCharge && articles.length > 0"
+        class="m-2 px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition"
+        @click="charger(false)"
+      >Charger plus</button>
     </div>
 
     <!-- Sources -->
@@ -82,6 +89,8 @@ import { onMounted, reactive, ref } from 'vue'
 import { presseApi, type ArticlePresse } from '@/services/api.presse'
 
 const articles = ref<ArticlePresse[]>([])
+const page = ref(1) // prochaine page à demander au backend (50 articles/page)
+const aToutCharge = ref(false) // dernière page servie < 50 articles → rien de plus à charger
 const sources = ref<Awaited<ReturnType<typeof presseApi.sources>>>([])
 const enBrief = ref(false)
 const erreurBrief = ref<string | null>(null)
@@ -102,22 +111,40 @@ function parseAssets(a: ArticlePresse): string[] {
   try { return JSON.parse(a.assets_concernes) } catch { return [] }
 }
 
-async function charger() {
-  articles.value = await presseApi.articles({
+/** Charge une page de la bibliothèque. reset=true (filtres, montage) repart de
+ * la page 1 ; reset=false empile la page suivante (« Charger plus »). */
+async function charger(reset = true) {
+  if (reset) {
+    page.value = 1
+    articles.value = []
+  }
+  const res = await presseApi.articles({
     q: filtre.q || undefined, theme: filtre.theme || undefined,
     asset: filtre.asset || undefined, lu: filtre.lu || undefined,
+    page: page.value,
   })
+  if (reset) articles.value = res
+  else articles.value.push(...res)
+  aToutCharge.value = res.length < 50
+  page.value += 1
 }
 
 async function ouvrir(a: ArticlePresse) {
   try {
-    articleOuvert.value = await presseApi.ouvrir(a.hash_titre)
-    await charger() // rafraîchir lu/badges
+    const res = await presseApi.ouvrir(a.hash_titre)
+    articleOuvert.value = res
+    // Mise à jour en place (badge lu, statut) : un rechargement complet
+    // replongerait la bibliothèque à la page 1 et perdrait les pages chargées.
+    articles.value = articles.value.map(x => (x.hash_titre === a.hash_titre ? res.article : x))
+    // Filtre « Non lus » : l'article désormais lu n'y appartient plus.
+    if (filtre.lu === 'false') {
+      articles.value = articles.value.filter(x => x.hash_titre !== a.hash_titre)
+    }
   } catch (err: any) {
-    // 410 Gone : article supprimé après traduction impossible ×2 — on referme et rafraîchit la liste
+    // 410 Gone : article supprimé après traduction impossible ×2 — on referme et on le retire de la liste
     if (err?.response?.status === 410) {
       articleOuvert.value = null
-      await charger()
+      articles.value = articles.value.filter(x => x.hash_titre !== a.hash_titre)
       return
     }
     // Autre erreur réseau/serveur : on referme sans crash
