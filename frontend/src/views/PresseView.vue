@@ -462,37 +462,52 @@ function normaliserTitre(t: string): string {
     .toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-/** Correspondance approximative brief → bibliothèque (le brief affiche des
- * titres FR, la bibliothèque référence les mêmes articles) : titres
- * normalisés identiques/inclus, ou ≥ 60 % de mots significatifs communs. */
-function trouverArticleBibliotheque(titre: string): ArticlePresse | null {
-  const cible = normaliserTitre(titre)
-  if (!cible) return null
-  const motsCible = new Set(cible.split(' ').filter(m => m.length > 3))
-  for (const a of articles.value) {
-    for (const t of [a.titre_fr, a.titre]) {
-      if (!t) continue
-      const n = normaliserTitre(t)
-      if (!n) continue
-      if (n === cible || n.includes(cible) || cible.includes(n)) return a
-      const mots = n.split(' ').filter(m => m.length > 3)
-      if (motsCible.size === 0 || mots.length === 0) continue
-      const communs = [...motsCible].filter(m => mots.includes(m)).length
-      if (communs / Math.max(motsCible.size, mots.length) >= 0.6) return a
+/** Correspondance approximative brief → bibliothèque. Le brief affiche des
+ * titres FR (traduits par le LLM), la bibliothèque les titres VO : le
+ * matching par mots est voué à l'échec entre langues. On s'appuie donc sur
+ * (1) l'inclusion stricte (mêmes titres), puis (2) source identique + score
+ * identique (chaque article du brief cite sa source et son score, qui
+ * viennent directement de la bibliothèque — c'est une clé fiable). */
+function trouverArticleBibliotheque(art: ArticleBrief): ArticlePresse | null {
+  // (1) Titre strictement identique (FR/FR ou VO/VO)
+  const cible = normaliserTitre(art.titre)
+  if (cible) {
+    for (const a of articles.value) {
+      for (const t of [a.titre_fr, a.titre]) {
+        if (t && normaliserTitre(t) === cible) return a
+      }
     }
   }
+  // (2) Source + score : clé stable entre le brief et la bibliothèque.
+  // Le brief compile "- [score/100|theme] titre (source)" — le score et la
+  // source viennent de presse_articles à la génération.
+  const candidats = articles.value.filter(a =>
+    a.source_nom === art.source && a.score === art.score)
+  if (candidats.length > 0) return candidats[0]
   return null
 }
 
 /** Carte du brief : ouvre l'article bibliothèque correspondant dans la
  * liseuse (recherche par titre approximatif) ; à défaut affiche le résumé
  * LLM du brief seul (les articles du brief n'ont pas d'URL source). */
-function ouvrirArticleBrief(art: ArticleBrief) {
-  const correspondance = trouverArticleBibliotheque(art.titre)
+async function ouvrirArticleBrief(art: ArticleBrief) {
+  const correspondance = trouverArticleBibliotheque(art)
   if (correspondance) {
     lire(correspondance)
     return
   }
+
+  // Non trouvé dans les pages chargées → chercher côté serveur par la clé
+  // stable (source exacte), puis affiner par score parmi les résultats.
+  try {
+    const res = await presseApi.articles({ source: art.source })
+    const exact = res.find(a => a.score === art.score) ?? null
+    if (exact) {
+      lire(exact)
+      return
+    }
+  } catch { /* serveur indisponible → fallback résumé */ }
+
   selectionLiseuse++ // invalide les chargements réseau en cours
   liseuse.value = {
     article: {
