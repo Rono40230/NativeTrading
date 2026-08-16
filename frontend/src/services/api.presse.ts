@@ -37,8 +37,15 @@ export const presseApi = {
     const res = await http.get('/api/presse/sources')
     return res.data
   },
-  async ajouterSource(nom: string, url: string, poids: number, categorie: string): Promise<void> {
-    await http.post('/api/presse/sources', { nom, url_rss: url, poids, categorie })
+  async ajouterSource(nom: string, url: string, poids: number, categorie: string): Promise<{
+    id: number
+    description_incluse: boolean
+    items_testes: number
+    items_avec_description: number
+    avertissement: string | null
+  }> {
+    const res = await http.post('/api/presse/sources', { nom, url_rss: url, poids, categorie }, { timeout: 15_000 })
+    return res.data
   },
   async retirerSource(id: number): Promise<void> {
     await http.delete(`/api/presse/sources/${id}`)

@@ -105,6 +105,25 @@ pub async fn post_source(state: web::Data<AppState>, corps: web::Json<CorpsSourc
         return HttpResponse::BadRequest()
             .json(serde_json::json!({"erreur": "nom requis, URL https:// requise"}));
     }
+
+    // VALIDATION AU MOMENT DE L'AJOUT : fetch immédiat du flux pour vérifier
+    // (a) qu'il répond et contient des items, (b) si les items incluent une
+    // <description> (résumé RSS). Un flux sans description affichera
+    // « Article non accessible » pour tous ses articles (les murs de
+    // cookies/JS empêchent le scrape) — l'utilisateur doit le savoir AVANT.
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap_or_default();
+    let items = news::news_rss::fetch_rss(&client, corps.url_rss.trim()).await;
+    if items.is_empty() {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "erreur": "Flux RSS injoignable ou vide — vérifie l'URL (le flux doit répondre à un GET simple, sans JavaScript)"
+        }));
+    }
+    let avec_description = items.iter().filter(|i| !i.resume.trim().is_empty()).count();
+    let description_incluse = avec_description > 0;
+
     match state
         .db
         .ajouter_source_presse(
@@ -115,7 +134,15 @@ pub async fn post_source(state: web::Data<AppState>, corps: web::Json<CorpsSourc
         )
         .await
     {
-        Ok(id) => HttpResponse::Ok().json(serde_json::json!({"id": id})),
+        Ok(id) => HttpResponse::Ok().json(serde_json::json!({
+            "id": id,
+            "description_incluse": description_incluse,
+            "items_testes": items.len(),
+            "items_avec_description": avec_description,
+            "avertissement": if description_incluse { None } else {
+                Some("Ce flux n'inclut pas de description dans ses items — les articles afficheront « non accessible » (le contenu ne peut être ni collecté ni scrapé). Considère un flux alternatif.")
+            }
+        })),
         Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
     }
 }
