@@ -24,7 +24,28 @@ pub async fn get_articles(
         offset: (page - 1) * 50,
     };
     match state.db.lister_articles_presse(&filtre).await {
-        Ok(articles) => HttpResponse::Ok().json(serde_json::json!({ "articles": articles, "page": page })),
+        Ok(articles) => {
+            // Peupler `titre_fr` depuis le cache pour les articles déjà traduits
+            // (statut « ok »). Lecture de cache PURE — jamais d'appel Ollama
+            // dans un listing de 50 articles : les traductions manquantes se
+            // font aux consultations (ouvrir) et par le collecteur (max 5/cycle).
+            let pool = state.db.pool().clone();
+            let mut articles_avec_fr: Vec<serde_json::Value> = Vec::with_capacity(articles.len());
+            for a in &articles {
+                let mut v = serde_json::to_value(a).unwrap_or_default();
+                if a.statut_traduction == "ok" {
+                    let hash = news::news_traduction::hash_titre(&a.titre);
+                    if let Some(fr) = news::news_traduction::cache_valide(
+                        &a.titre,
+                        news::news_traduction::lire_cache(&pool, &hash).await,
+                    ) {
+                        v["titre_fr"] = serde_json::Value::String(fr);
+                    }
+                }
+                articles_avec_fr.push(v);
+            }
+            HttpResponse::Ok().json(serde_json::json!({ "articles": articles_avec_fr, "page": page }))
+        }
         Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
     }
 }
@@ -42,7 +63,8 @@ pub async fn ouvrir_article(state: web::Data<AppState>, chemin: web::Path<String
     };
 
     // Traduction : cache → Ollama strict → machine à états (2 échecs = suppression).
-    let titre_fr = if article.statut_traduction == "ok" {
+    let mut echec_traduction = false;
+    let mut titre_fr = if article.statut_traduction == "ok" {
         // Déjà traduit une fois : le cache suffit (pas de nouvelle tentative).
         news::news_traduction::traduire_avec_cache_strict(&pool, &article.titre).await
     } else {
@@ -53,18 +75,36 @@ pub async fn ouvrir_article(state: web::Data<AppState>, chemin: web::Path<String
                 Some(t)
             }
             None => {
-                let condamne =
-                    state.db.enregistrer_tentative_traduction(&hash, false).await.unwrap_or(false);
-                if condamne {
-                    let _ = state.db.supprimer_articles_condamnes().await;
-                    return HttpResponse::Gone().json(serde_json::json!(
-                        {"erreur": "traduction impossible ×2 — article supprimé"}
-                    ));
-                }
+                echec_traduction = true;
                 None // VO affichée, prochaine ouverture réessaiera
             }
         }
     };
+
+    // Filtre anti-chinois : du CJK dans le titre — VO issue d'une source
+    // chinoise OU traduction corrompue par le modèle — = article non
+    // traduisible. Même mécanique que la traduction impossible : échec
+    // enregistré, 2e offense = suppression.
+    if !echec_traduction
+        && (news::news_traduction::contient_cjk(&article.titre)
+            || titre_fr.as_deref().map_or(false, news::news_traduction::contient_cjk))
+    {
+        echec_traduction = true;
+        titre_fr = None;
+    }
+
+    // Condamnation partagée (traduction impossible ×2 OU CJK ×2) : le 2e
+    // échec déclenche la suppression effective et un 410 au client.
+    if echec_traduction {
+        let condamne =
+            state.db.enregistrer_tentative_traduction(&hash, false).await.unwrap_or(false);
+        if condamne {
+            let _ = state.db.supprimer_articles_condamnes().await;
+            return HttpResponse::Gone().json(serde_json::json!(
+                {"erreur": "traduction impossible ×2 — article supprimé"}
+            ));
+        }
+    }
 
     // Sentiment (non bloquant, caché côté news_sentiment).
     let sentiment = if titre_fr.is_some() {

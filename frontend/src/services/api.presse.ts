@@ -10,6 +10,9 @@ export interface ArticlePresse {
   impact: string; statut_traduction: string; lu: boolean; ajoute_le: number
   /** Résumé RSS capté à la collecte — socle d'affichage si le scraper échoue. */
   resume_source?: string
+  /** Titre traduit (FR) servi par le listing quand l'article est déjà traduit —
+   *  absent tant que la traduction de fond n'a pas eu lieu (VO affichée). */
+  titre_fr?: string
 }
 export interface BriefPresse {
   id: number; genere_le: number; fenetre_de: number; fenetre_a: number

@@ -2,9 +2,10 @@
 //!
 //! Cycle 30 min : lit les sources actives en DB, fetch RSS, traite (dédup +
 //! scoring + classification mots-clés — cf news::presse_classif), insère via
-//! le pont `db::presse::ArticleEntrant`. AUCUNE dépendance Ollama : la
-//! traduction/sentiment sont à la demande côté backend. Un cycle qui échoue
-//! ou panique est loggé et sauté — le process survit.
+//! le pont `db::presse::ArticleEntrant`, puis traduit les titres des nouveaux
+//! articles en arrière-plan (max 5/cycle, pacing 500 ms — Ollama sollicité
+//! avec parcimonie ; le sentiment reste à la demande côté backend). Un cycle
+//! qui échoue ou panique est loggé et sauté — le process survit.
 //!
 //! Usage : cargo run -p api --bin news_collector   (DATABASE_PATH requis)
 
@@ -66,8 +67,11 @@ async fn un_cycle(db: Arc<Database>, http: Arc<reqwest::Client>) -> anyhow::Resu
     let sources = db.lister_sources_presse(true).await?;
     let mut total_inserees = 0u64;
     let mut sources_en_echec: Vec<String> = Vec::new();
+    // Candidats à la traduction de fond : tous les entrants du cycle, dédupliqués
+    // par hash (le même titre sur deux flux = même hash = une seule traduction).
+    let mut entrants_cycle: Vec<db::presse::ArticleEntrant> = Vec::new();
     for source in &sources {
-        let resultat: anyhow::Result<Option<(usize, u64)>> = async {
+        let resultat: anyhow::Result<Option<(usize, u64, Vec<db::presse::ArticleEntrant>)>> = async {
             let items = news::news_rss::fetch_rss(&http, &source.url_rss).await;
             if items.is_empty() {
                 return Ok(None); // flux vide ou down : skip (log debug ci-dessous)
@@ -76,12 +80,13 @@ async fn un_cycle(db: Arc<Database>, http: Arc<reqwest::Client>) -> anyhow::Resu
             let entrants: Vec<db::presse::ArticleEntrant> =
                 articles.iter().map(vers_article_entrant).collect();
             let inserees = db.inserer_articles_presse_converts(&entrants).await?;
-            Ok(Some((items.len(), inserees)))
+            Ok(Some((items.len(), inserees, entrants)))
         }
         .await;
         match resultat {
-            Ok(Some((nb_items, inserees))) => {
+            Ok(Some((nb_items, inserees, entrants))) => {
                 total_inserees += inserees;
+                entrants_cycle.extend(entrants);
                 tracing::info!(
                     "Collecteur : {} — {nb_items} items → {inserees} articles insérés",
                     source.nom
@@ -106,6 +111,22 @@ async fn un_cycle(db: Arc<Database>, http: Arc<reqwest::Client>) -> anyhow::Resu
             ));
         }
         tracing::info!("{message}");
+    }
+
+    // Traduction de fond des titres du cycle (max 5 pour ne pas surcharger
+    // Ollama — le reste sera traduit aux consultations suivantes, ou par un
+    // cycle ultérieur). Garde CJK : une traduction corrompue (caractères
+    // chinois) n'est jamais marquée « ok » — la consultation la condamnera
+    // selon la même mécanique que la traduction impossible.
+    let mut vus: std::collections::HashSet<String> = std::collections::HashSet::new();
+    entrants_cycle.retain(|e| vus.insert(e.hash_titre.clone()));
+    for a in entrants_cycle.iter().take(5) {
+        if let Some(fr) = news::news_traduction::traduire_avec_cache_strict(db.pool(), &a.titre).await {
+            if !news::news_traduction::contient_cjk(&fr) {
+                let _ = db.enregistrer_tentative_traduction(&a.hash_titre, true).await;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await; // pacing Ollama
     }
     Ok(())
 }

@@ -98,7 +98,7 @@
           >Vu</span>
           <span class="ml-auto text-[10px] font-semibold tabular-nums" :class="a.score >= 60 ? 'text-red-300' : a.score >= 40 ? 'text-yellow-300' : 'text-gray-400'">{{ a.score }}</span>
         </div>
-        <span class="text-xs leading-snug line-clamp-3" :class="a.lu ? 'text-gray-500' : 'text-white font-medium'">{{ a.titre }}</span>
+        <span class="text-xs leading-snug line-clamp-3" :class="a.lu ? 'text-gray-500' : 'text-white font-medium'">{{ a.titre_fr ?? a.titre }}</span>
         <div class="flex flex-wrap gap-1 text-[10px] mt-auto">
           <span class="px-1.5 py-0.5 rounded" :class="a.impact === 'fort' ? 'bg-red-500/15 text-red-300' : a.impact === 'moyen' ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-gray-400'">{{ a.impact }}</span>
           <span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{{ a.theme }}</span>
@@ -260,7 +260,9 @@ async function ouvrir(a: ArticlePresse) {
   const niveau = a.score >= 70 ? 'critique' as const : a.score >= 55 ? 'important' as const : a.score >= 35 ? 'modere' as const : 'veille' as const
   articleModal.value = {
     id: a.hash_titre,
-    titre: a.titre,
+    // FR d'emblée si le listing l'a servi (traduction de fond déjà faite) —
+    // sinon VO, remplacée par le FR dès que POST /ouvrir répond.
+    titre: a.titre_fr ?? a.titre,
     source: a.source_nom,
     url: a.url,
     date: new Date(a.ajoute_le * 1000).toISOString(),

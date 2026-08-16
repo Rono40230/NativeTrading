@@ -95,6 +95,16 @@ pub async fn traduire_avec_cache(pool: &SqlitePool, titre: &str) -> String {
     traduit
 }
 
+/// Détecte des caractères CJK (chinois/japonais/coréen) dans un texte.
+/// Un titre avec du CJK après traduction = traduction corrompue → suppression.
+pub fn contient_cjk(texte: &str) -> bool {
+    texte.chars().any(|c| {
+        ('\u{4E00}'..='\u{9FFF}').contains(&c)      // CJK Unified
+            || ('\u{3400}'..='\u{4DBF}').contains(&c) // CJK Extension A
+            || ('\u{F900}'..='\u{FAFF}').contains(&c) // CJK Compat
+    })
+}
+
 // ── Sentiment Ollama par article ─────────────────────────────────────────────
 
 /// Lit le sentiment mis en cache pour un article, ou None si absent.
@@ -283,5 +293,23 @@ mod tests_strict {
             cache_valide("Fed cuts rates", Some("La Fed baisse ses taux".into())),
             Some("La Fed baisse ses taux".to_string())
         );
+    }
+
+    #[test]
+    fn contient_cjk_titre_contamine() {
+        // Traduction corrompue par le modèle (réponse en chinois) → CJK détecté.
+        assert!(contient_cjk("Bitcoin 停止 de monter"));
+        assert!(contient_cjk("比特币"));
+        // Extension A et bloc de compatibilité couverts aussi.
+        assert!(contient_cjk("\u{3430}"));
+        assert!(contient_cjk("\u{F900}"));
+    }
+
+    #[test]
+    fn contient_cjk_titre_normal() {
+        // Titre FR/EN sans CJK (accents inclus) → rien détecté.
+        assert!(!contient_cjk("La Fed baisse ses taux à 4,25 %"));
+        assert!(!contient_cjk("Bitcoin surges past $100k"));
+        assert!(!contient_cjk(""));
     }
 }
