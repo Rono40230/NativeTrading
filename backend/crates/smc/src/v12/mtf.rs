@@ -76,6 +76,7 @@ fn period_key(p: Period, ts: i64) -> i64 {
 }
 
 /// Agrégateur de bars LTF → bars HTF.
+#[derive(Clone)]
 struct HtfAggregator {
     period: Period,
     /// Bars HTF clôturées (les plus anciennes d'abord).
@@ -349,6 +350,7 @@ fn confluence(close: f64, state: &HtfState) -> bool {
 }
 
 /// Détecteur MTF — agrège H1/H4/W1/MN et calcule les confluences OB HTF.
+#[derive(Clone)]
 pub struct MtfDetector {
     h1: HtfAggregator,
     h4: HtfAggregator,

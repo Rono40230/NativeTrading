@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <div class="flex items-center justify-between">
-      <h1 class="text-2xl font-bold">📋 Historique des Signaux</h1>
+      <h1 class="text-2xl font-bold">🔒 Positions clôturées</h1>
 
     </div>
 

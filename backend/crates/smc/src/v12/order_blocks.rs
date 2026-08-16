@@ -30,6 +30,7 @@ use super::types::{BarInput, ObEvent, ObState, ObZone};
 pub const MAX_OB: usize = 40;
 
 /// Détecteur d'Order Blocks (bull + bear) avec lifecycle 3 états + spawn de Breakers.
+#[derive(Clone)]
 pub struct ObDetector {
     bull: Vec<ObZone>,
     bear: Vec<ObZone>,

@@ -4,7 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-db = { path = "../db" }
 reqwest = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }

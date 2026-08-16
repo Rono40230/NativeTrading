@@ -25,6 +25,7 @@ use super::types::{BarInput, SmcOutput};
 const FORCE_MIN: i32 = 4;
 
 /// Gestionnaire du cycle de vie — opère sur le carnet de trades du `SignalGenerator`.
+#[derive(Clone)]
 pub struct TradeLifecycle {
     /// `i_tradeMaxMins × 60` en secondes (Pine 2374-2375).
     trade_max_secs: i64,

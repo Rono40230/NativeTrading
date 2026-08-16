@@ -192,15 +192,6 @@ pub fn calculer(bougies: &[Candle]) -> Option<NiveauxFibonacci> {
     })
 }
 
-/// Vérifie si le prix est proche d'un niveau clé (50%, 61.8%, 78.6%)
-/// avec une tolérance en % du prix.
-pub fn prix_sur_niveau(prix: f64, niveaux: &NiveauxFibonacci, tolerance_pct: f64) -> Option<f64> {
-    [niveaux.niveau_500, niveaux.niveau_618, niveaux.niveau_786]
-        .iter()
-        .copied()
-        .find(|&niveau| (prix - niveau).abs() / prix.max(1e-10) <= tolerance_pct)
-}
-
 /// Score Fibonacci SMC (0, 8 ou 15 pts) basé sur la zone de retrace.
 ///
 /// - **15 pts** : prix dans la golden zone (entre 50% et 61.8% de retrace),

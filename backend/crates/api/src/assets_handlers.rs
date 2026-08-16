@@ -10,6 +10,10 @@ pub struct AjoutAssetBody {
     #[serde(rename = "type")]
     pub type_asset: String,
     pub source: String,
+    /// Symbole Bybit — requis si source = binance.
+    pub symbol_bybit: Option<String>,
+    /// Instrument Dukascopy — requis si source = dukascopy.
+    pub datafeed_dukascopy: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -67,16 +71,69 @@ pub async fn ajouter_asset(
             "error": format!("Type invalide. Valeurs autorisées : {:?}", types_valides)
         }));
     }
-    let sources_valides = ["binance"];
+    // 'binance' = temps réel Bybit WS (crypto + métaux) ;
+    // 'dukascopy' = forex + indices (backfill historique via
+    // datafeed.dukascopy.com — flux live prévu en phase 5).
+    let sources_valides = ["binance", "dukascopy"];
     if !sources_valides.contains(&body.source.as_str()) {
         return HttpResponse::BadRequest().json(serde_json::json!({
-            "error": "Source invalide. Valeurs : 'binance'."
+            "error": "Source invalide. Valeurs : 'binance', 'dukascopy'."
         }));
     }
 
+    // Cohérence source ↔ symboles : un asset Bybit exige son symbole, un
+    // asset Dukascopy exige son instrument (auto-déduit = ticker pour le
+    // forex, formes concaténées pour les indices — ex NAS100 → USATECHIDXUSD).
+    let (symbol_bybit, datafeed_dukascopy) = match body.source.as_str() {
+        "binance" => {
+            let symbole = body
+                .symbol_bybit
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(str::to_uppercase);
+            if symbole.is_none() {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "Un asset Bybit exige son symbole (ex : TON → TONUSDT)."
+                }));
+            }
+            (symbole, None)
+        }
+        "dukascopy" => {
+            let instrument = body
+                .datafeed_dukascopy
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_uppercase())
+                .or_else(|| {
+                    // Défaut : le ticker lui-même (valide pour le forex).
+                    if body.type_asset == "forex" {
+                        Some(id.clone())
+                    } else {
+                        None
+                    }
+                });
+            if instrument.is_none() {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "Un asset Dukascopy exige son instrument (ex : NAS100 → USATECHIDXUSD)."
+                }));
+            }
+            (None, instrument)
+        }
+        _ => (None, None),
+    };
+
     match state
         .db
-        .ajouter_asset(&id, &nom, &body.type_asset, &body.source)
+        .ajouter_asset(
+            &id,
+            &nom,
+            &body.type_asset,
+            &body.source,
+            symbol_bybit.as_deref(),
+            datafeed_dukascopy.as_deref(),
+        )
         .await
     {
         Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true, "id": id })),

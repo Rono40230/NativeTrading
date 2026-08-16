@@ -69,6 +69,7 @@ pub use zone_coeur::ZoneCoeurDetector;
 ///   ATR → Pivots → Structure → BOS → MSS/CHOCH → Liquidités (PDH/PDL/EQH/EQL) → Sweep
 ///   → FVG → Order Blocks → Breaker → Propulsion → Imbalance
 ///   → Premium/Discount → OTE → Kill Zones → NDOG/NWOG → MTF → Zone-cœur
+#[derive(Clone)]
 pub struct SmcV12Engine {
     pub calibration: AssetCalibration,
     pub atr: Atr14,

@@ -2,9 +2,11 @@
 //! pilotable depuis la vue Données de l'UI (aucune valeur hardcodée).
 //!
 //! Clés gérées :
-//! - `worker_timeframes`       : JSON array `["M5","M15","H1","D1"]`
-//! - `worker_historique_mois`  : profondeur de backfill en mois (1..=24)
-//! - `worker_actif_bybit`      : "0" → le worker Bybit skippe ses sessions
+//! - `worker_timeframes`       : JSON array `["M1","M5",...]` — **aucun défaut** :
+//!   si l'utilisateur n'a rien choisi, le worker ne collecte rien et l'UI
+//!   doit lui demander de choisir (décision propriétaire 2026-08-15) ;
+//! - `worker_historique_mois`  : profondeur de backfill en mois (1..=24) ;
+//! - `worker_actif_bybit`      : "0" → le worker Bybit skippe ses sessions.
 
 use std::sync::Arc;
 
@@ -17,10 +19,6 @@ pub const CLE_TIMEFRAMES: &str = "worker_timeframes";
 pub const CLE_HISTORIQUE_MOIS: &str = "worker_historique_mois";
 /// Clé de configuration : worker Bybit activé ("0" = désactivé).
 pub const CLE_ACTIF_BYBIT: &str = "worker_actif_bybit";
-
-/// Timeframes par défaut si la clé est absente ou illisible en DB.
-pub const TIMEFRAMES_DEFAUT: &[Timeframe] =
-    &[Timeframe::M5, Timeframe::M15, Timeframe::H1, Timeframe::D1];
 
 /// Profondeur d'historique par défaut (mois).
 pub const HISTORIQUE_MOIS_DEFAUT: i64 = 6;
@@ -40,18 +38,16 @@ const ORDRE_CANONIQUE: &[Timeframe] = &[
 
 /// Parse une valeur de configuration `'["M5","H1"]'` en timeframes dédoublonnés
 /// et triés dans l'ordre canonique. Les entrées inconnues sont ignorées ;
-/// retourne les défauts si rien n'est reconnu. Fonction pure → testable.
+/// une valeur vide ou illisible donne une liste VIDE — pas de défaut caché,
+/// c'est à l'utilisateur de choisir (le worker ne collecte rien tant que
+/// la liste est vide). Fonction pure → testable.
 pub fn parse_timeframes(valeur: &str) -> Vec<Timeframe> {
     let brute: Vec<String> = serde_json::from_str(valeur).unwrap_or_default();
-    let mut retenus: Vec<Timeframe> = ORDRE_CANONIQUE
+    ORDRE_CANONIQUE
         .iter()
         .copied()
         .filter(|tf| brute.iter().any(|s| s == tf.as_str()))
-        .collect();
-    if retenus.is_empty() {
-        retenus = TIMEFRAMES_DEFAUT.to_vec();
-    }
-    retenus
+        .collect()
 }
 
 /// Sérialise des timeframes en valeur de configuration `'["M5","H1"]'`.
@@ -62,15 +58,23 @@ pub fn serialise_timeframes(timeframes: &[Timeframe]) -> String {
             .map(|tf| tf.as_str())
             .collect::<Vec<&str>>(),
     )
-    .unwrap_or_else(|_| serde_json::to_string(&["M5", "M15", "H1", "D1"]).unwrap_or_default())
+    .unwrap_or_else(|_| "[]".to_string())
 }
 
-/// Lit les timeframes des workers. Toute erreur DB retombe sur les défauts —
-/// un worker ne doit jamais crasher pour un problème de configuration.
+/// Lit les timeframes des workers. Absence ou erreur DB → liste VIDE
+/// (aucune collecte) + avertissement : l'app n'a pas d'opinion, c'est à
+/// l'utilisateur de choisir dans l'UI.
 pub async fn lire_timeframes(db: &Arc<Database>) -> Vec<Timeframe> {
     match db.lire_config(CLE_TIMEFRAMES).await {
         Ok(Some(valeur)) => parse_timeframes(&valeur),
-        _ => TIMEFRAMES_DEFAUT.to_vec(),
+        _ => {
+            tracing::warn!(
+                "Workers: aucun timeframe configuré ({}) — aucune collecte. \
+                 Choisis les timeframes dans la vue Données.",
+                CLE_TIMEFRAMES
+            );
+            Vec::new()
+        }
     }
 }
 
@@ -111,10 +115,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_timeframes_vide_ou_invalide_retombe_sur_defauts() {
-        assert_eq!(parse_timeframes("[]"), TIMEFRAMES_DEFAUT.to_vec());
-        assert_eq!(parse_timeframes("pas du tout json"), TIMEFRAMES_DEFAUT.to_vec());
-        assert_eq!(parse_timeframes(r#"["ABC"]"#), TIMEFRAMES_DEFAUT.to_vec());
+    fn parse_timeframes_vide_ou_invalide_donne_liste_vide() {
+        // Aucun défaut caché : pas de choix utilisateur = pas de collecte.
+        assert!(parse_timeframes("[]").is_empty());
+        assert!(parse_timeframes("pas du tout json").is_empty());
+        assert!(parse_timeframes(r#"["ABC"]"#).is_empty());
     }
 
     #[test]

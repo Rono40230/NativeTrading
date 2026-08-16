@@ -31,6 +31,7 @@ const TRADE_MIN_SCORE: i32 = 7;
 const PROXIMITY_ATR_MULT: f64 = 8.0;
 
 /// Le carnet de trades + générateur de signaux (Pine `stBull*`/`stBear*` + fonctions).
+#[derive(Clone)]
 pub struct SignalGenerator {
     pub trades: Vec<Trade>,
     trade_pousse: bool,

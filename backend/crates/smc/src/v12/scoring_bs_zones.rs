@@ -35,6 +35,7 @@ pub struct BsZone {
 }
 
 /// Détecteur BSZones (zones bull + bear + tracking _m15 BOS / dernier CHOCH).
+#[derive(Clone)]
 pub struct ScoringBsZones {
     bull: Vec<BsZone>,
     bear: Vec<BsZone>,

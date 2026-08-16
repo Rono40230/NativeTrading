@@ -176,10 +176,16 @@ export const apiService = {
     id: string,
     nom: string,
     type: AssetInfo['type'],
-    source: 'binance',
+    source: 'binance' | 'dukascopy',
+    symbolBybit?: string,
+    datafeedDukascopy?: string,
   ): Promise<void> {
     try {
-      await http.post('/api/assets', { id, nom, type, source })
+      await http.post('/api/assets', {
+        id, nom, type, source,
+        symbol_bybit: symbolBybit || undefined,
+        datafeed_dukascopy: datafeedDukascopy || undefined,
+      })
     } catch (err: any) {
       const message = err?.response?.data?.error
       if (err?.response?.status === 409) {

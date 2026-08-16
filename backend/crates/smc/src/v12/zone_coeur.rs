@@ -20,6 +20,7 @@ use std::collections::HashSet;
 use super::types::{FvgZone, ObZone, ZoneCoeurEvent, ZoneCoeurZone};
 
 /// Détecteur Zone-cœur — évalue l'intersection pour chaque OB courant.
+#[derive(Clone)]
 pub struct ZoneCoeurDetector {
     /// `ob_bar` des OB bull ayant déjà produit une zone-cœur (Pine `obBullSignaled`).
     bull_signaled: HashSet<usize>,

@@ -1,0 +1,11 @@
+[package]
+name = "engine_v12"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common = { path = "../common" }
+engine = { path = "../engine" }
+smc = { path = "../smc" }
+chrono = { workspace = true }
+serde = { workspace = true }

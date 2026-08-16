@@ -29,7 +29,7 @@ pub async fn stream_market(
     let timeframe = parse_timeframe(&timeframe_str);
     let (response, session, client_stream) = actix_ws::handle(&req, body)?;
 
-    let crypto = asset.as_ref().map(|a| a.is_crypto()).unwrap_or(false);
+    let crypto = asset.as_ref().map(|a| a.est_cotable_bybit()).unwrap_or(false);
 
     actix_web::rt::spawn(async move {
         if crypto {

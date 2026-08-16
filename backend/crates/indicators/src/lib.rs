@@ -4,15 +4,12 @@ mod macd;
 mod rsi;
 pub mod signaux;
 mod sma_ema;
-mod supertrend;
-pub mod tendance;
 
 pub use atr::calculer_atr;
 pub use bollinger::{calculer_bollinger, calculer_bollinger_avance, Bollinger};
 pub use macd::{calculer_macd, Macd};
 pub use rsi::calculer_rsi;
 pub use sma_ema::{calculer_ema, calculer_sma};
-pub use supertrend::{calculer_supertrend, ResultatSupertrend};
 
 #[cfg(test)]
 mod tests {

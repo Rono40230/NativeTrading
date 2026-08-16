@@ -19,6 +19,7 @@ use super::types::{BarInput, PdEvent};
 pub const EQ_TOL_PCT: f64 = 0.5;
 
 /// Détecteur Premium/Discount (capture la plage au BOS, puis calcule l'equilibrium).
+#[derive(Clone)]
 pub struct PdDetector {
     /// `_pdRangeH` (Pine) = sh1 au dernier BOS.
     range_h: Option<f64>,

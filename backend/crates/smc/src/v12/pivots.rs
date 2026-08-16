@@ -13,6 +13,7 @@
 use super::types::{BarInput, PivotEvent};
 
 /// Détecteur de pivots (swings) high/low avec mémoire sh1/sl1/sh2/sl2.
+#[derive(Clone)]
 pub struct PivotDetector {
     swing_length: usize,
     bars: Vec<BarInput>,

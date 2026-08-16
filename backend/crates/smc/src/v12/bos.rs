@@ -24,6 +24,7 @@ use super::structure::StructureDetector;
 use super::types::{BarInput, BosEvent};
 
 /// Détecteur de BOS avec anti-doublon par pivot.
+#[derive(Clone)]
 pub struct BosDetector {
     /// `dernierSH1_sig` (Pine) : bar du dernier sh1 ayant signalé un BOS haussier.
     dernier_sh1_sig: Option<usize>,

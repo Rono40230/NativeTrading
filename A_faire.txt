@@ -22,7 +22,133 @@ Repond sans coder
 
 --------------------------------------------------------------------------------------------------------------------------
 
+Résumé d'état actuel.
 
+Je dispose d'une UI qui me fournit :
+
+Un dashboard avec :
+    - revue de presse (à améliorer)
+    - fuseaux horaires (à améliorer)
+    - calendrier des événements économiques
+    - veille de setup en formation
+    - surveillance de prix d'assets
+    - sentiment de marché ( améliorer)
+
+Une vue graphique avec :
+    - indicateurs techniques
+    - indicateurs SMC
+    - affichage des signaux
+    - métriques par asset et TF
+    - Analyse SMC par l'IA
+
+Une vue Rockets avec :
+    - un historique détaillé des signaux
+    - une analyse des signaux avec heatmap et métriques (à corriger car actuellement toute les valeurs sont à 0)
+
+Une vue SMC avec : 
+    - un historique détaillé des signaux (certainement à corriger car actuellement vide)
+    - une analyse des signaux avec heatmap et métriques
+    - un lexique SMC/ICT
+
+Une vue Straddle avec :
+    - un tableau de volatilité horaire censé fournir les meilleurs créneaux d'opportunité pour trader en Straddle
+    - une analyse par asset et période fournissant les meilleurs créneaux d'opportunité pour trader en Straddle
+    - un radar ATR temps réel avec calendrier historique et analyse IA pour déterminer les meilleurs créneaux d'opportunité pour trader en Straddle
+    - une DB pour télécharger les données par assets et alimenter les analyses
+Il manque à cette vue (comme pour les stratégies SMC et Rockets) :
+    - un historique détaillé des signaux
+    - une analyse des signaux avec heatmap et métriques
+
+Une vue Historique avec :
+    - un tableau listant tous les trades de toutes les stratégies avec système de triple
+
+Une vue Outils IA avec :
+    - un chart import pour l'analyse visuelle de graphique
+    - un coach IA pour des explications et analyse sur le trading
+
+Une vue Paramètres avec :
+    - choix des assets
+    - choix et paramétrages des fournisseurs de données
+    - Paramétrages des stratégies
+    - gestion du risque par asset
+
+
+
+
+
+
+Dans la vue graphique, dans Afficher et trier les signaux, il faudrait créer les boutons :
+    - SMC
+    - Straddle
+    - Rockets
+pour qu'ils affiches les signaux de chaque stratégie.
+
+Oui c'est ça.
+Il y a déjà des boutons disponibles dans l'actuel graphique dans "SMC" sous le graphique.
+Il faut donc connecter les boutons existant aux bons indicateur et garde les boutons "fibonacci" et "tendances"
+Afin de ne pas t'éparpiller avec différents modes d'affichage, reproduit EXACTEMENT les mêmes affichages avec les mêmes couleurs et le scoring que dans la v12.
+
+Voici la liste éxaustive des indicateurs à vérifier sur l'app et TV.
+
+Sessions & niveaux clé :
+    - Session Asiatique = bloc 
+    - Session européenne = bloc 
+    - session américaine = bloc
+    - Asian high/Low = lignes
+    - PDH/PDL/PWH/PWL = lignes
+    - NDOG = bloc
+    - NWOG = bloc
+
+Structure & Price action :
+    - HH/HL/LH/LL = étiquette sur bougie
+    - Fond de tendance = lignes colorées verticales
+    - BOS = ligne de la bougie d'origine à la bougie de fin + étiquette
+    - MSS = ligne de la bougie d'origine à la bougie de fin + étiquette
+    - Choch = ligne de la bougie d'origine à la bougie de fin + étiquette
+    - Equal high / Equal Low = lignes
+    - Sweeps = étiquette sur bougie
+
+Technique avancé :
+    - Imbalance = bloc
+    - Fond de volume = lignes colorées verticales
+    - Fond d'impulsions fortes = lignes colorées verticales
+
+Order Blocks et FVG :
+    - FVG = bloc
+    - Ob = bloc
+    - Breaker blocks = bloc 
+
+Signaux et Zones :
+    - Zones d'achat/vente = bloc
+    - score minimum d'affichage bszones(/) = dropdown
+    - Score minimum trade (/10) = dropdown
+    - Displacement min bszones (corps=x/10 x ATR) = dropdown
+
+Multi TF & OTE :
+    - fond premium/discount = lignes colorées verticales
+    - equilibrium = ligne
+    - OB H1 = bloc
+    - OB h4 = bloc
+    - OB w1 = bloc
+    - OB MN = bloc
+    - zone OTE = bloc
+
+
+
+
+
+
+
+Finir la revue de presse :
+- supprimer les articles avec du chinois
+
+Finir Sentiment de marché :
+- comment sont calculés les valeurs USA, Europe, Matières premières et cryptos.
+
+
+
+
+Dans le dashboard, à quoi sert le bouton on/stop dans le bloc Data & IA Engine
 
 
 

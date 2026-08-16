@@ -22,6 +22,7 @@ pub const MAX_FVG: usize = 10;
 pub const FVG_MAX_AGE: i64 = 50;
 
 /// Détecteur de FVG (bull + bear) avec lifecycle 2 états + FIFO + âge max.
+#[derive(Clone)]
 pub struct FvgDetector {
     bull: Vec<FvgZone>,
     bear: Vec<FvgZone>,

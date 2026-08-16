@@ -24,6 +24,7 @@ use super::types::{BarInput, FvgEvent, PropulsionEvent, PropulsionZone};
 pub const MAX_PROP: usize = 3;
 
 /// Détecteur de Propulsion Blocks (bull + bear).
+#[derive(Clone)]
 pub struct PropulsionDetector {
     bull: Vec<PropulsionZone>,
     bear: Vec<PropulsionZone>,

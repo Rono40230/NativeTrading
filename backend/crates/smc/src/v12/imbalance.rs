@@ -28,6 +28,7 @@ use super::types::{BarInput, ImbalanceEvent, ImbalanceState, ImbalanceZone};
 pub const MAX_IB: usize = 10;
 
 /// Détecteur d'Imbalance (bull + bear).
+#[derive(Clone)]
 pub struct ImbalanceDetector {
     bull: Vec<ImbalanceZone>,
     bear: Vec<ImbalanceZone>,

@@ -1,12 +1,13 @@
 [workspace]
 members = [
+    "crates/engine_v12",
     "crates/api",
+    "crates/engine",
     "crates/data",
     "crates/ml",
     "crates/indicators",
     "crates/smc",
     "crates/strategies",
-    "crates/risk",
     "crates/db",
     "crates/common",
     "crates/notifications",

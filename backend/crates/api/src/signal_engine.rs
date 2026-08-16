@@ -19,29 +19,14 @@ pub(crate) const DOUBLON_MINUTES: i64 = 60;
 /// Assets analysés automatiquement — chargés dynamiquement depuis la DB
 /// (les assets actifs = actif=1 dans la table assets)
 /// Liste statique de fallback si la DB est indisponible
-pub(crate) const ASSETS_FALLBACK: &[Asset] = &[
-    Asset::BTC,
-    Asset::ETH,
-    Asset::SOL,
-    Asset::BNB,
-    Asset::XRP,
-    Asset::ADA,
-    Asset::DOGE,
-    Asset::AVAX,
-    Asset::LINK,
-    Asset::DOT,
-    Asset::XAUUSD,
-    Asset::XAGUSD,
-    Asset::EURUSD,
-    Asset::GBPJPY,
-    Asset::CADJPY,
-    Asset::NZDJPY,
-    Asset::USDCAD,
-    Asset::USDJPY,
-    Asset::DAX,
-    Asset::NAS100,
-    Asset::SP500,
-];
+pub(crate) fn assets_fallback() -> Vec<Asset> {
+    vec![
+        "BTC", "ETH", "XAUUSD", "XAGUSD", "EURUSD", "USDJPY", "DAX", "NAS100", "SP500",
+    ]
+    .into_iter()
+    .map(Asset::from)
+    .collect()
+}
 
 /// Timeframes analysés automatiquement
 pub(crate) const TIMEFRAMES: &[Timeframe] = &[Timeframe::M5, Timeframe::M15];

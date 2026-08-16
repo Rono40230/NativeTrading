@@ -10,6 +10,7 @@
 use super::types::BarInput;
 
 /// ATR14 avec lissage Wilder.
+#[derive(Clone)]
 pub struct Atr14 {
     period: usize,
     prev_close: Option<f64>,

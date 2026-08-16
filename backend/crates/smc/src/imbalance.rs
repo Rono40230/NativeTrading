@@ -147,11 +147,6 @@ pub fn score_pour_direction(bougies: &[Candle], direction: common::Direction) ->
     }
 }
 
-/// Conservé pour compatibilité — utiliser `score_continu_pour_direction()` à la place.
-pub fn score_pour_direction_legacy(bougies: &[Candle], direction: common::Direction) -> f64 {
-    score_pour_direction(bougies, direction)
-}
-
 /// Score Imbalance/FVG continu basé sur la proximité du prix (0–15 pts).
 ///
 /// Chaque zone FVG alignée contribue proportionnellement à sa proximité avec `prix_actuel` :

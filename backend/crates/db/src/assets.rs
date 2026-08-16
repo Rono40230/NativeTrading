@@ -111,6 +111,8 @@ impl Database {
         nom: &str,
         type_asset: &str,
         source: &str,
+        symbol_bybit: Option<&str>,
+        datafeed_dukascopy: Option<&str>,
     ) -> Result<()> {
         let now = Utc::now().timestamp();
         // Tenter réactivation si existait (soft-deleted)
@@ -121,6 +123,8 @@ impl Database {
         .bind(nom)
         .bind(type_asset)
         .bind(source)
+        .bind(symbol_bybit)
+        .bind(datafeed_dukascopy)
         .bind(id)
         .execute(&self.pool)
         .await
@@ -142,14 +146,17 @@ impl Database {
             }
 
             sqlx::query(
-                "INSERT INTO assets (id, nom, type, source, actif, cree_le)
-                 VALUES (?, ?, ?, ?, 1, ?)",
+                "INSERT INTO assets (id, nom, type, source, actif, cree_le,
+                                     symbol_bybit, datafeed_dukascopy)
+                 VALUES (?, ?, ?, ?, 1, ?, ?, ?)",
             )
             .bind(id)
             .bind(nom)
             .bind(type_asset)
             .bind(source)
             .bind(now)
+            .bind(symbol_bybit)
+            .bind(datafeed_dukascopy)
             .execute(&self.pool)
             .await
             .map_err(|e| TradingError::Database(e.to_string()))?;

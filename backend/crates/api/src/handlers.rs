@@ -39,7 +39,7 @@ pub async fn get_candles(
     let force = query.force.unwrap_or(false);
 
     // Si on a forcé une mise à jour cryptos, on passe l'étape cache et on demande à l'API
-    if force && asset.is_crypto() {
+    if force && asset.est_cotable_bybit() {
         let resultat = BinanceProvider
             .fetch_candles(asset.clone(), timeframe, limit)
             .await;
@@ -63,7 +63,7 @@ pub async fn get_candles(
     }
 
     // 2. Pour les crypto : fallback Binance REST si cache vide (ou si l'option force a échoué mais le cache est vide)
-    if asset.is_crypto() {
+    if asset.est_cotable_bybit() {
         let resultat = BinanceProvider
             .fetch_candles(asset.clone(), timeframe, limit)
             .await;

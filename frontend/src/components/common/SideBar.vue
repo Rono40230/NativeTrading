@@ -64,7 +64,7 @@ const nav: NavItem[] = [
   {
     groupe: 'Rockets', icone: '🚀',
     liens: [
-      { to: '/rockets', icone: '📡', label: 'Veille & Historique' },
+      { to: '/rockets', icone: '⚡', label: 'Signaux actifs' },
     ]
   },
   {
@@ -77,13 +77,14 @@ const nav: NavItem[] = [
   {
     groupe: 'Straddle', icone: '⚡',
     liens: [
-      { to: '/straddle',          icone: '🔍', label: 'Créneaux volatilité' },
-      { to: '/heatmap',           icone: '🔥', label: 'Heatmap' },
+      { to: '/straddle/signaux', icone: '⚡', label: 'Signaux actifs' },
+      { to: '/straddle',         icone: '🔍', label: 'Créneaux volatilité' },
+      { to: '/heatmap',          icone: '🔥', label: 'Heatmap' },
     ]
   },
 
   // ── Performance ──────────────────────────────────────────────────────────
-  { to: '/history', icone: '📜', label: 'Historique' },
+  { to: '/history', icone: '🔒', label: 'Positions clôturées' },
 
   // ── Outils IA ─────────────────────────────────────────────────────────────
   {

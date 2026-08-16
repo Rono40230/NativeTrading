@@ -10,7 +10,7 @@ use std::time::Duration;
 use strategies::smc_directional::SmcDirectionalStrategy;
 use tokio::sync::{broadcast, RwLock};
 
-use super::signal_engine::{ASSETS_FALLBACK, INTERVALLE_SECS, TIMEFRAMES};
+use super::signal_engine::{assets_fallback, INTERVALLE_SECS, TIMEFRAMES};
 
 pub(crate) async fn boucle_detection(
     running: Arc<AtomicBool>,
@@ -84,7 +84,7 @@ async fn analyser_tous_assets(
                 "Signal Engine — impossible de charger les assets DB: {} — fallback",
                 e
             );
-            ASSETS_FALLBACK.to_vec()
+            assets_fallback()
         }
     };
 

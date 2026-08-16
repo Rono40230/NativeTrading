@@ -12,8 +12,12 @@ pub mod ml_feedback_rockets;
 pub mod ml_feedback_straddle;
 pub mod ml_samples;
 pub mod news_lus;
-pub mod presse;
 pub mod regles_rejet;
+pub mod retention;
+pub mod runtime_observation;
+pub mod presse;
+pub mod runtime_emissions;
+pub mod runtime_replay;
 pub mod rockets;
 pub mod rockets_blacklist;
 pub mod rockets_listing;
@@ -141,7 +145,7 @@ mod tests {
         let db = db_test().await;
         let bougies = vec![bougie(100.0, -120), bougie(101.0, -60), bougie(102.0, 0)];
         let n = db
-            .inserer_bougies(&Asset::BTC, &Timeframe::M1, &bougies)
+            .inserer_bougies(&Asset::from("BTC"), &Timeframe::M1, &bougies)
             .await
             .expect("insert OK");
         assert_eq!(n, 3, "3 bougies insérées");
@@ -151,12 +155,12 @@ mod tests {
     async fn inserer_bougies_ignore_doublons() {
         let db = db_test().await;
         let bougies = vec![bougie(100.0, 0)];
-        db.inserer_bougies(&Asset::BTC, &Timeframe::M1, &bougies)
+        db.inserer_bougies(&Asset::from("BTC"), &Timeframe::M1, &bougies)
             .await
             .unwrap();
         // Même bougie (même timestamp) → INSERT OR IGNORE → 0 rows affected
         let n = db
-            .inserer_bougies(&Asset::BTC, &Timeframe::M1, &bougies)
+            .inserer_bougies(&Asset::from("BTC"), &Timeframe::M1, &bougies)
             .await
             .expect("insert OK");
         assert_eq!(n, 0, "doublon ignoré");
@@ -166,7 +170,7 @@ mod tests {
     async fn signal_recent_existe_retourne_false_si_vide() {
         let db = db_test().await;
         let existe = db
-            .signal_recent_existe(&Asset::BTC, &Timeframe::M15, 30)
+            .signal_recent_existe(&Asset::from("BTC"), &Timeframe::M15, 30)
             .await
             .expect("query OK");
         assert!(!existe, "Aucun signal → false");

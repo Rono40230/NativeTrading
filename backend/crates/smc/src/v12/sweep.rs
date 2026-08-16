@@ -20,6 +20,7 @@ use super::types::{BarInput, SweepEvent};
 const MAX_SWP_B: i64 = 3;
 
 /// Détecteur de sweep avec machine 5 phases.
+#[derive(Clone)]
 pub struct SweepDetector {
     /// `sweepH_bar` (Pine) — bar d'armement du sweep haussier (sur EQL).
     sweep_h_bar: Option<usize>,

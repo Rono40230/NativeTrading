@@ -1,0 +1,317 @@
+//! Runtime tick — câblage du cœur temps réel (Phases 1-2 de la ROADMAP).
+//!
+//! Architecture (règle R4 : le chemin du signal ne traverse ni DB ni timer) :
+//!
+//! ```text
+//! Bybit WS (klines, formation + confirmations)
+//!     │  canal mpsc non borné
+//!     ▼
+//! engine::Runtime (en mémoire)
+//!     ├─ bus_signaux  → (phase 2+) API WS, notifications
+//!     └─ bus_bougies  → journal d'observation (Gate 1)
+//! ```
+//!
+//! Phase 2.6 — SHADOW MODE : chaque couple (asset × TF) porte un moteur
+//! v12 (`MoteurV12`). Ses signaux et événements live sont journalisés
+//! (table `runtime_emissions`) mais NE déclenchent RIEN — ni Telegram, ni
+//! table `signaux`. Le journal alimente le test de vérité (Gate 2).
+//!
+//! La config (assets × timeframes) est relue en DB toutes les 60 s —
+//! activer un asset dans l'UI l'ajoute au runtime avec cold start (replay)
+//! en moins d'une minute, sans redémarrage.
+
+use std::collections::HashSet;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
+use common::{Asset, Timeframe};
+use db::Database;
+use engine::{EvenementPrix, Runtime};
+use tokio::sync::mpsc;
+
+/// Profondeur de replay adaptée au moteur v12 : ~7 jours d'historique par
+/// TF (ATR14 stabilisé, pivots, PDH/PDL/PWH/PWL), plafonné.
+fn barres_replay_v12(tf: Timeframe) -> i64 {
+    (7 * 1440 / tf.minutes() as i64).clamp(60, 10_080)
+}
+
+/// Période de relecture de la config workers (assets × timeframes).
+const RELECTURE_CONFIG_SEC: u64 = 60;
+
+/// Garde anti-double-start (pattern identique aux autres workers).
+static RUNTIME_DEMARRE: AtomicBool = AtomicBool::new(false);
+
+/// Poignées du runtime, à conserver par l'appelant pour exposer les bus
+/// (API WS, notifications, journal d'observation — consommées à partir de
+/// la phase 1.5).
+#[allow(dead_code)]
+#[derive(Clone)]
+pub struct PoigneesRuntime {
+    pub bus_signaux: engine::BusSignaux,
+    pub bus_bougies: engine::BusBougies,
+    pub bus_evenements: engine::BusEvenements,
+}
+
+/// Démarre le runtime tick : construit le runtime, lance la boucle de
+/// consommation des événements prix, démarre le worker Bybit WS qui
+/// l'alimente, et le journal d'observation (Gate 1). Non bloquant,
+/// idempotent.
+pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
+    if !RUNTIME_DEMARRE.swap(true, Ordering::SeqCst) {
+        let (tx, rx) = mpsc::unbounded_channel::<EvenementPrix>();
+        let runtime = Runtime::nouveau();
+        let poignees = PoigneesRuntime {
+            bus_signaux: runtime.bus().clone(),
+            bus_bougies: runtime.bus_bougies().clone(),
+            bus_evenements: runtime.bus_evenements().clone(),
+        };
+
+        // Le worker Bybit WS alimente le runtime (klines formation + confirm).
+        data::bybit_ws::demarrer_worker_bybit(db.clone(), Some(tx));
+
+        tokio::spawn(boucle_runtime(db.clone(), runtime, rx));
+        tokio::spawn(journal_observation(db.clone(), poignees.bus_bougies.clone()));
+        tokio::spawn(journal_emissions(
+            db,
+            poignees.bus_signaux.clone(),
+            poignees.bus_evenements.clone(),
+        ));
+
+        tracing::info!("⚡ Runtime tick démarré (shadow mode : moteurs v12 par couple, journalisation seule — aucune action)");
+        poignees
+    } else {
+        tracing::warn!("⚠️  Runtime tick déjà démarré — second appel ignoré");
+        // Les bus sont des poignées broadcast clonables : en renvoyer des
+        // neuves serait mensonger ; on ne peut pas récupérer les originales
+        // sans état partagé — le second appel est une erreur de câblage.
+        PoigneesRuntime {
+            bus_signaux: engine::BusSignaux::nouveau(),
+            bus_bougies: engine::BusBougies::nouveau(),
+            bus_evenements: engine::BusEvenements::nouveau(),
+        }
+    }
+}
+
+/// Journal d'observation (mode shadow) : chaque bougie clôturée par le
+/// runtime est persistée avec son mode de clôture. La comparaison avec les
+/// bougies officielles se fait à la demande (GET /api/runtime/concordance).
+async fn journal_observation(db: Arc<Database>, bus: engine::BusBougies) {
+    let mut rx = bus.abonner();
+    tracing::info!("📓 Journal d'observation du runtime actif (table runtime_observation)");
+    loop {
+        match rx.recv().await {
+            Ok(b) => {
+                if let Err(e) = db
+                    .inserer_observation_runtime(
+                        &b.asset,
+                        &b.tf,
+                        &b.bougie,
+                        b.mode.libelle(),
+                        chrono::Utc::now(),
+                    )
+                    .await
+                {
+                    tracing::warn!(
+                        "Journal observation: erreur DB {} {} ts={} : {}",
+                        b.asset.as_str(),
+                        b.tf.as_str(),
+                        b.bougie.timestamp.timestamp(),
+                        e
+                    );
+                }
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                tracing::warn!("Journal observation: {} bougies sautées (lecteur lent)", n);
+            }
+            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                tracing::error!("Journal observation: bus fermé — writer arrêté");
+                return;
+            }
+        }
+    }
+}
+
+/// Journal des émissions LIVE du runtime (shadow mode 2.6) : chaque signal
+/// et chaque événement lifecycle publiés sur les bus est persisté — c'est
+/// la matière brute du test de vérité (Gate 2). Aucune action n'en découle.
+async fn journal_emissions(
+    db: Arc<Database>,
+    bus_signaux: engine::BusSignaux,
+    bus_evenements: engine::BusEvenements,
+) {
+    let mut rx_signaux = bus_signaux.abonner();
+    let mut rx_evenements = bus_evenements.abonner();
+    tracing::info!("📓 Journal des émissions live actif (table runtime_emissions)");
+
+    loop {
+        tokio::select! {
+            peut_etre = rx_signaux.recv() => {
+                match peut_etre {
+                    Ok(s) => {
+                        let tps = serde_json::to_string(&s.take_profits).unwrap_or_default();
+                        if let Err(e) = db.inserer_emission_signal(
+                            &s.moteur, s.asset.as_str(), s.tf.as_str(),
+                            format!("{:?}", s.direction), s.prix_entree, s.stop_loss,
+                            &tps, s.score, &s.raison, s.debut_barre, s.emis_le,
+                        ).await {
+                            tracing::warn!("Journal émissions (signal): {}", e);
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                        tracing::warn!("Journal émissions: {} signaux sautés", n);
+                    }
+                    Err(_) => return,
+                }
+            }
+            peut_etre = rx_evenements.recv() => {
+                match peut_etre {
+                    Ok(e) => {
+                        if let Err(err) = db.inserer_emission_evenement(
+                            &e.moteur, e.asset.as_str(), e.tf.as_str(),
+                            &e.cle_trade, format!("{:?}", e.evenement), &e.detail,
+                            e.prix, e.debut_barre, e.emis_le,
+                        ).await {
+                            tracing::warn!("Journal émissions (événement): {}", err);
+                        }
+                    }
+                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                        tracing::warn!("Journal émissions: {} événements sautés", n);
+                    }
+                    Err(_) => return,
+                }
+            }
+        }
+    }
+}
+
+/// Boucle principale du runtime : consommation des événements prix +
+/// resynchronisation périodique de la config (nouveaux assets UI).
+async fn boucle_runtime(
+    db: Arc<Database>,
+    mut runtime: Runtime,
+    mut rx: mpsc::UnboundedReceiver<EvenementPrix>,
+) {
+    // Cold start initial.
+    synchroniser_config(&db, &mut runtime).await;
+
+    let mut tick_config = tokio::time::interval(Duration::from_secs(RELECTURE_CONFIG_SEC));
+    tick_config.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+    loop {
+        tokio::select! {
+            biased; // les événements prix passent toujours en premier
+            peut_etre = rx.recv() => {
+                if let Some(ev) = peut_etre {
+                    runtime.traiter_evenement(ev);
+                }
+            }
+            _ = tick_config.tick() => {
+                synchroniser_config(&db, &mut runtime).await;
+            }
+        }
+    }
+}
+
+/// Resynchronise les couples (asset × TF) du runtime avec la config DB :
+/// enregistre + rejoue les nouveaux, retire les disparus.
+async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
+    let assets = assets_runtime(db).await;
+    let timeframes = data::worker_config::lire_timeframes(db).await;
+    if assets.is_empty() || timeframes.is_empty() {
+        tracing::debug!("Runtime tick: aucun asset/timeframe configuré — synchronisation vide");
+        return;
+    }
+
+    let cibles: HashSet<(Asset, Timeframe)> = assets
+        .iter()
+        .flat_map(|a| timeframes.iter().map(move |tf| (a.clone(), *tf)))
+        .collect();
+
+    // Retraits (asset décoché ou timeframe retiré dans l'UI).
+    for cle in runtime.cles() {
+        if !cibles.contains(&cle) {
+            runtime.retirer(cle.0.clone(), cle.1);
+            tracing::info!(
+                "Runtime tick: {} {} retiré (config DB)",
+                cle.0.as_str(),
+                cle.1.as_str()
+            );
+        }
+    }
+
+    // Ajouts avec cold start (replay).
+    let actuelles: HashSet<(Asset, Timeframe)> = runtime.cles().into_iter().collect();
+    let mut ajouts = 0;
+    for (asset, tf) in &cibles {
+        if actuelles.contains(&(asset.clone(), *tf)) {
+            continue;
+        }
+        // Shadow mode (2.6) : moteur v12 par couple — exigence de couverture
+        // SMC M1→D1 (propriétaire). Les émissions live sont journalisées,
+        // sans action.
+        runtime.enregistrer(
+            asset.clone(),
+            *tf,
+            vec![Box::new(engine_v12::MoteurV12::nouveau(asset.clone(), *tf))],
+        );
+        // Backfill automatique : comme un chart TradingView à l'ouverture,
+        // l'historique doit être là — on comble les trous (nuits, week-ends,
+        // pannes) via le REST Bybit avant le cold start.
+        match data::backfill::combler_historique(db, asset.clone(), *tf).await {
+            Ok(n) if n > 0 => {
+                tracing::info!(
+                    "Runtime tick: {} {} backfill : {} bougies récupérées",
+                    asset.as_str(),
+                    tf.as_str(),
+                    n
+                )
+            }
+            Ok(_) => {}
+            Err(e) => {
+                tracing::warn!(
+                    "Runtime tick: {} {} backfill échoué ({}) — replay sur l'existant",
+                    asset.as_str(),
+                    tf.as_str(),
+                    e
+                )
+            }
+        }
+        let profondeur = barres_replay_v12(*tf);
+        if let Ok(bougies) = db.obtenir_bougies(asset, tf, profondeur).await {
+            let debut = std::time::Instant::now();
+            let historique = runtime.rejouer(asset.clone(), *tf, &bougies);
+            tracing::info!(
+                "Runtime tick: {} {} moteur v12 armé (replay {} bougies, {} signaux historiques, {:?})",
+                asset.as_str(),
+                tf.as_str(),
+                bougies.len(),
+                historique.signaux.len(),
+                debut.elapsed()
+            );
+        }
+        ajouts += 1;
+    }
+    if ajouts > 0 {
+        tracing::info!(
+            "Runtime tick: {} nouveau(x) couple(s) — total {}",
+            ajouts,
+            runtime.cles().len()
+        );
+    }
+}
+
+/// Assets Bybit actifs depuis la config DB (même source que le worker WS).
+async fn assets_runtime(db: &Arc<Database>) -> Vec<Asset> {
+    match db.lister_assets_worker().await {
+        Ok(assets) => assets
+            .into_iter()
+            .filter(|a| a.actif && a.source == "binance" && a.symbol_bybit.is_some())
+            .filter_map(|a| Asset::try_from(a.id.as_str()).ok())
+            .collect(),
+        Err(e) => {
+            tracing::warn!("Runtime tick: lecture DB des actifs impossible ({})", e);
+            Vec::new()
+        }
+    }
+}

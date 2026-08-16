@@ -69,7 +69,17 @@ export CC=clang
 export CXX=clang++
 
 cd "$ROOT_DIR/backend"
-cargo build -p api --release 2>&1 | grep -E "Compiling|Finished|error"
+# Le build doit RÉUSSIR — un échec silencieux ferait tourner un binaire
+# PÉRIMÉ (incident du 15/08 : générateurs censés être suspendus toujours
+# actifs, signaux Telegram non sollicités).
+if ! cargo build -p api --release 2>&1 | grep -E "Compiling|Finished|error"; then
+  echo "❌ ÉCHEC du build backend — arrêt (ne pas lancer un binaire périmé)."
+  exit 1
+fi
+if [ ! -f "$ROOT_DIR/backend/target/release/api" ]; then
+  echo "❌ Binaire release introuvable après build — arrêt."
+  exit 1
+fi
 
 # ─── Arrêt propre de TOUS les processus backend ──────────────────────────────
 # (peut en exister plusieurs si lancements manuels accumulés)
@@ -83,6 +93,23 @@ if pgrep -f "target/(debug|release)/api" > /dev/null 2>&1; then
     sleep 0.3
   done
 fi
+
+# ─── Arrêt des instances résiduelles Vite/Tauri (sessions précédentes) ──────
+# Un Vite fantôme sur le port 1420 ferait échouer le nouveau démarrage — et
+# le watchdog (voir bas de script) arrêterait alors toute l'app immédiatement.
+VITE_STALE_PID=$(ss -tlnp 2>/dev/null | grep ':1420' | grep -oP 'pid=\K[0-9]+' | head -1)
+if [ -n "$VITE_STALE_PID" ]; then
+  echo "🔄 Arrêt Vite résiduel (pid $VITE_STALE_PID, port 1420)..."
+  kill "$VITE_STALE_PID" 2>/dev/null || true
+  for i in $(seq 1 10); do
+    ss -tln 2>/dev/null | grep -q ':1420' || break
+    sleep 0.3
+  done
+fi
+# Tauri résiduel : par nom EXACT de process uniquement. JAMAIS par motif de
+# chemin (pkill -f) — un chemin matcherait le présent script si on l'invoque
+# en absolu, tuant le terminal de l'appelant (bug corrigé 2026-08-15).
+pkill -x native-trading-ai 2>/dev/null || true
 
 # ─── Démarrage backend ────────────────────────────────────────────────────────
 echo "🔌 Backend API → port 8080"
@@ -151,20 +178,30 @@ echo "║  ✅ Native Trading AI — en cours       ║"
 echo "║  🖥️  Fenêtre native Tauri ouverte       ║"
 echo "║  🔌 API interne : localhost:8080        ║"
 echo "║  📋 Logs : data/logs/                  ║"
-echo "║  🛑 Arrêter : Ctrl+C                   ║"
+echo "║  🛑 Arrêter : fermer la fenêtre (X) ou Ctrl+C ║"
 echo "╚════════════════════════════════════════╝"
 
 # Suivre les logs backend en temps réel (nouvelles lignes seulement)
 tail -f -n 0 "$LOG_DIR/backend.log" &
 TAIL_PID=$!
 
+NETTOYE_FAIT=0
 cleanup() {
+  [ "$NETTOYE_FAIT" -eq 1 ] && return
+  NETTOYE_FAIT=1
   echo ""
-  echo "🛑 Arrêt de l'application..."
+  echo "🛑 Arrêt de l'application (backend + UI + Vite)..."
   kill $BACKEND_PID $TAURI_PID ${VITE_PID:-} $TAIL_PID 2>/dev/null
   wait 2>/dev/null
-  echo "✅ Arrêt propre."
+  echo "✅ Arrêt propre — tout est clos."
 }
 trap cleanup INT TERM
 
-wait $BACKEND_PID
+# ── Fermeture de la fenêtre (X) = arrêt COMPLET ──────────────────────────────
+# Le process Tauri meurt quand on ferme la fenêtre ; le backend ou Vite peuvent
+# aussi tomber seuls. On surveille les trois : la fin de L'UN QUELCONQUE
+# déclenche l'arrêt propre de tous les autres (compat bash sans wait -n).
+while kill -0 "$BACKEND_PID" 2>/dev/null    && { [ -z "${TAURI_PID:-}" ] || kill -0 "$TAURI_PID" 2>/dev/null; }    && { [ -z "${VITE_PID:-}" ] || kill -0 "$VITE_PID" 2>/dev/null; }; do
+  sleep 1
+done
+cleanup

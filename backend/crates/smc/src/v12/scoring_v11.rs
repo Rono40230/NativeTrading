@@ -28,6 +28,7 @@ const PREV_LIQ_PTS_SWEEP: i32 = 4;
 ///
 /// Les OB sont identifiés par leur `impulse_bar` (stable, contrairement à l'index
 /// dans le `Vec<ObZone>` qui décale à chaque FIFO `remove(0)`).
+#[derive(Clone)]
 pub struct ScoringV11 {
     ob_bull_score: std::collections::HashMap<usize, i32>,
     ob_bear_score: std::collections::HashMap<usize, i32>,

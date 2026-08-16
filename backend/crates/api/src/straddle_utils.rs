@@ -109,7 +109,7 @@ pub async fn sauvegarder_snapshot_ml(
     now: chrono::DateTime<chrono::Utc>,
 ) {
     let Ok(bougies) = db.obtenir_bougies(
-        &common::Asset::try_from(asset_str).unwrap_or(common::Asset::BTC),
+        &common::Asset::try_from(asset_str).unwrap_or(common::Asset::from("BTC")),
         tf,
         100,
     ).await else { return };

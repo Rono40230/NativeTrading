@@ -46,7 +46,7 @@ pub async fn analyser(
         _ => {
             // Fallback: provider réseau (plafonné car API Binance : max 1000/appel)
             let limite_reseau = limite.min(MAX_BOUGIES_RESEAU);
-            let res = if asset.is_crypto() {
+            let res = if asset.est_cotable_bybit() {
                 BinanceProvider
                     .fetch_candles(asset.clone(), Timeframe::H1, limite_reseau)
                     .await

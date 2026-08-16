@@ -25,6 +25,7 @@ pub const KZ_NYPM_START: i64 = 1020;
 pub const KZ_NYPM_END: i64 = 1140;
 
 /// Détecteur Kill Zones (stateless par bar — basé sur le timestamp UTC).
+#[derive(Clone)]
 pub struct KillZoneDetector {
     last_event: KillZoneEvent,
 }

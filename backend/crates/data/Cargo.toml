@@ -6,6 +6,7 @@ edition.workspace = true
 [dependencies]
 common = { path = "../common" }
 db = { path = "../db" }
+engine = { path = "../engine" }
 reqwest.workspace = true
 tokio.workspace = true
 serde.workspace = true

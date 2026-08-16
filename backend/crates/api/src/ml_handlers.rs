@@ -35,7 +35,7 @@ pub async fn entrainer_ml(
     query: web::Query<EntrainementQuery>,
     state: web::Data<AppState>,
 ) -> impl Responder {
-    let asset = parse_asset(query.asset.as_deref().unwrap_or("BTC")).unwrap_or(Asset::BTC);
+    let asset = parse_asset(query.asset.as_deref().unwrap_or("BTC")).unwrap_or(Asset::from("BTC"));
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
     let limit = query.limit.unwrap_or(1000).min(2000) as usize;
 

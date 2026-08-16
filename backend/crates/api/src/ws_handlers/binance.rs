@@ -7,19 +7,8 @@ use tokio_tungstenite::connect_async;
 use super::types::{BinanceKlineMsg, CandleData, CandleEvent};
 
 pub(super) fn binance_stream_url(asset: &common::Asset, tf: &common::Timeframe) -> String {
-    let symbol = match asset {
-        common::Asset::BTC => "btcusdt",
-        common::Asset::ETH => "ethusdt",
-        common::Asset::SOL => "solusdt",
-        common::Asset::BNB => "bnbusdt",
-        common::Asset::XRP => "xrpusdt",
-        common::Asset::ADA => "adausdt",
-        common::Asset::DOGE => "dogeusdt",
-        common::Asset::AVAX => "avaxusdt",
-        common::Asset::LINK => "linkusdt",
-        common::Asset::DOT => "dotusdt",
-        _ => "btcusdt",
-    };
+    // Règle générique, aucune liste codée : ticker → paire USDT minuscule.
+    let symbol = format!("{}usdt", asset.as_str().to_lowercase().trim_end_matches("usd"));
     let interval = match tf {
         common::Timeframe::M1 => "1m",
         common::Timeframe::M5 => "5m",
@@ -31,7 +20,8 @@ pub(super) fn binance_stream_url(asset: &common::Asset, tf: &common::Timeframe) 
         common::Timeframe::W1 => "1w",
     };
 
-    if matches!(asset, common::Asset::XAUUSD | common::Asset::XAGUSD) {
+    let est_metal = matches!(asset.as_str(), "XAUUSD" | "XAGUSD");
+    if est_metal {
         "wss://stream.bybit.com/v5/public/linear".to_string()
     } else {
         format!("wss://stream.binance.com:9443/ws/{}@kline_{}", symbol, interval)
@@ -68,7 +58,7 @@ pub(super) async fn stream_binance(
         }
     };
 
-    let is_bybit = matches!(asset, common::Asset::XAUUSD | common::Asset::XAGUSD);
+    let is_bybit = matches!(asset.as_str(), "XAUUSD" | "XAGUSD");
     if is_bybit {
         let bybit_interval = match timeframe {
             common::Timeframe::M1 => "1",
@@ -81,7 +71,7 @@ pub(super) async fn stream_binance(
             common::Timeframe::W1 => "W",
         };
         use futures_util::SinkExt;
-        let sym = if asset == common::Asset::XAUUSD { "XAUUSDT" } else { "XAGUSDT" };
+        let sym = if asset == common::Asset::from("XAUUSD") { "XAUUSDT" } else { "XAGUSDT" };
         let sub_msg = serde_json::to_string(&serde_json::json!({
             "op": "subscribe",
             "args": [format!("kline.{}.{}", bybit_interval, sym)]

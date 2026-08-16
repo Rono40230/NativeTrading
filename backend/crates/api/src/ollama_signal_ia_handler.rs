@@ -76,7 +76,7 @@ pub async fn generer_signal(
             // Normalisation : si le LLM retourne 0-1 au lieu de 0-10, ramener à l'échelle 0-10
             brut.score_confiance = crate::utils::normaliser_score_llm(brut.score_confiance);
             let signal = if brut.direction != "Neutre" {
-                let asset = crate::utils::parse_asset(&body.asset).unwrap_or(Asset::BTC);
+                let asset = crate::utils::parse_asset(&body.asset).unwrap_or(Asset::from("BTC"));
                 let tf = match body.timeframe.as_str() {
                     "M1" => Timeframe::M1,
                     "M5" => Timeframe::M5,

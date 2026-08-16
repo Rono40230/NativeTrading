@@ -24,6 +24,7 @@ use super::structure::StructureDetector;
 use super::types::{BarInput, BosEvent, MssDir, MssEvent, StructureEvent};
 
 /// Détecteur MSS / CHOCH avec flags pending persistants.
+#[derive(Clone)]
 pub struct MssDetector {
     /// `_mssHPending` (Pine) — MSS haussier déclenché, en attente d'un HL.
     mss_h_pending: bool,

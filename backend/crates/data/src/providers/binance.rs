@@ -11,24 +11,22 @@ use crate::DataProvider;
 pub struct BinanceProvider;
 
 impl BinanceProvider {
+    /// Symbole Bybit dérivé du ticker — **règle générique, aucune liste
+    /// codée** (décision propriétaire 2026-08-15) :
+    /// - métaux → contrats linéaires (XAUUSD → XAUUSDT, XAGUSD → XAGUSDT) ;
+    /// - crypto → paire USDT standard (TON → TONUSDT) — couvre tout ajout
+    ///   futur sans toucher au code.
+    /// Note : le symbole autoritaire reste `assets.symbol_bybit` en DB (chemin
+    /// WS) ; cette dérivation ne sert qu'au REST (backfill de queue/collecte).
     fn symbole(asset: &Asset) -> Result<String> {
-        match asset {
-            Asset::BTC => Ok("BTCUSDT".into()),
-            Asset::ETH => Ok("ETHUSDT".into()),
-            Asset::SOL => Ok("SOLUSDT".into()),
-            Asset::BNB => Ok("BNBUSDT".into()),
-            Asset::XRP => Ok("XRPUSDT".into()),
-            Asset::ADA => Ok("ADAUSDT".into()),
-            Asset::DOGE => Ok("DOGEUSDT".into()),
-            Asset::AVAX => Ok("AVAXUSDT".into()),
-            Asset::LINK => Ok("LINKUSDT".into()),
-            Asset::DOT => Ok("DOTUSDT".into()),
-            Asset::XAUUSD => Ok("XAUUSDT".into()),
-            Asset::XAGUSD => Ok("XAGUSDT".into()),
-            _ => Err(TradingError::Data(format!(
-                "BinanceProvider: {} n'est pas une crypto ou un métal supporté par Bybit",
-                asset.as_str()
-            ))),
+        let ticker = asset.as_str();
+        if ticker == "XAUUSD" || ticker == "XAGUSD" {
+            Ok(format!("{}USDT", ticker.strip_suffix("USD").unwrap_or(ticker)))
+        } else if ticker.ends_with("USD") && ticker.len() > 3 && !ticker.contains('/') {
+            // Autres métaux/actifs forex-like mappés en linéaire si ajoutés.
+            Ok(format!("{}USDT", ticker.strip_suffix("USD").unwrap_or(ticker)))
+        } else {
+            Ok(format!("{}USDT", ticker))
         }
     }
 
@@ -95,10 +93,15 @@ impl DataProvider for BinanceProvider {
         // list est trié du plus récent au plus ancien — on inverse après parsing
         #[derive(serde::Deserialize)]
         struct BybitResult {
+            #[serde(default)]
             list: Vec<Vec<String>>,
         }
         #[derive(serde::Deserialize)]
         struct BybitResp {
+            #[serde(default)]
+            ret_code: i64,
+            #[serde(default)]
+            ret_msg: String,
             result: BybitResult,
         }
 
@@ -106,6 +109,14 @@ impl DataProvider for BinanceProvider {
             .json()
             .await
             .map_err(|e| TradingError::Data(format!("Bybit parse JSON: {}", e)))?;
+        // Bybit répond 200 avec un payload d'erreur métier (ex : symbole non
+        // supporté en spot) — message clair plutôt qu'un échec de décodage.
+        if data.ret_code != 0 {
+            return Err(TradingError::Data(format!(
+                "Bybit refuse {} (code {}) : {} — vérifier le symbole/catégorie",
+                symbole, data.ret_code, data.ret_msg
+            )));
+        }
 
         let mut bougies: Vec<Candle> = data
             .result
@@ -117,7 +128,7 @@ impl DataProvider for BinanceProvider {
 
                 // Si c'est un métal (XAU/XAG), on filtre strictement le week-end
                 // Vendredi 22h00 UTC au Dimanche 22h00 UTC (horaires classiques).
-                if matches!(asset, Asset::XAUUSD | Asset::XAGUSD) {
+                if matches!(asset.as_str(), "XAUUSD" | "XAGUSD" | "XPTUSD" | "XPDUSD") {
                     let w = timestamp.weekday();
                     let h = timestamp.hour();
                     let is_weekend = match w {

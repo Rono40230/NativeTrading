@@ -261,14 +261,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::data_handlers::post_collect),
         )
         .route(
-            "/api/data/import-mt5",
-            web::post().to(crate::data_mt5_handlers::post_import_mt5),
-        )
-        .route(
-            "/api/data/import-csv",
-            web::post().to(crate::data_csv_handlers::post_import_csv),
-        )
-        .route(
             "/api/data/dukascopy-backfill",
             web::post().to(crate::dukascopy_handlers::post_dukascopy_backfill),
         )
@@ -284,6 +276,29 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/worker/assets",
             web::get().to(crate::worker_handlers::get_worker_assets),
+        )
+        // ── Runtime tick (Phase 1 ROADMAP — Gate 1 : concordance bougies) ──
+        .route(
+            "/api/runtime/concordance",
+            web::get().to(crate::runtime_handlers::get_concordance),
+        )
+        // ── Replay harness v12 (Phase 2.5 — Gate 2, méthode R) ──────────────
+        .route(
+            "/api/runtime/replay",
+            web::post().to(crate::runtime_handlers::post_replay),
+        )
+        .route(
+            "/api/runtime/replay",
+            web::get().to(crate::runtime_handlers::get_replays),
+        )
+        .route(
+            "/api/runtime/replay/{id}",
+            web::get().to(crate::runtime_handlers::get_replay_journal),
+        )
+        // ── Émissions live du runtime (shadow mode 2.6 — Gate 2) ────────────
+        .route(
+            "/api/runtime/emissions",
+            web::get().to(crate::runtime_handlers::get_emissions),
         )
         // ── Revue de presse (Phase 4.1) ────────────────────────────────────────
         .route(

@@ -102,99 +102,6 @@ impl Timeframe {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, TS)]
-#[ts(export, export_to = "../../../../frontend/src/generated/Direction.ts")]
-pub enum Direction {
-    Long,
-    Short,
-    Both,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
-#[ts(export, export_to = "../../../../frontend/src/generated/Asset.ts")]
-pub enum Asset {
-    // Crypto (Binance)
-    BTC,
-    ETH,
-    SOL,
-    BNB,
-    XRP,
-    ADA,
-    DOGE,
-    AVAX,
-    LINK,
-    DOT,
-    // Métaux précieux (IB Gateway — Commodity SMART)
-    XAUUSD,
-    XAGUSD,
-    XPTUSD,
-    XPDUSD,
-    // Paires Forex (IB Gateway — ForexPair IDEALPRO)
-    EURUSD,
-    GBPUSD,
-    USDJPY,
-    USDCHF,
-    AUDUSD,
-    USDCAD,
-    NZDUSD,
-    GBPJPY,
-    CADJPY,
-    NZDJPY,
-    EURJPY,
-    EURGBP,
-    // Indices / CFD (IB Gateway — CFD SMART)
-    DAX,
-    NAS100,
-    SP500,
-    US30,
-    FTSE100,
-    CAC40,
-    JP225,
-}
-
-impl TryFrom<&str> for Asset {
-    type Error = TradingError;
-
-    fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
-        match s {
-            "BTC" => Ok(Asset::BTC),
-            "ETH" => Ok(Asset::ETH),
-            "SOL" => Ok(Asset::SOL),
-            "BNB" => Ok(Asset::BNB),
-            "XRP" => Ok(Asset::XRP),
-            "ADA" => Ok(Asset::ADA),
-            "DOGE" => Ok(Asset::DOGE),
-            "AVAX" => Ok(Asset::AVAX),
-            "LINK" => Ok(Asset::LINK),
-            "DOT" => Ok(Asset::DOT),
-            "XAUUSD" => Ok(Asset::XAUUSD),
-            "XAGUSD" => Ok(Asset::XAGUSD),
-            "XPTUSD" => Ok(Asset::XPTUSD),
-            "XPDUSD" => Ok(Asset::XPDUSD),
-            "EURUSD" => Ok(Asset::EURUSD),
-            "GBPUSD" => Ok(Asset::GBPUSD),
-            "USDJPY" => Ok(Asset::USDJPY),
-            "USDCHF" => Ok(Asset::USDCHF),
-            "AUDUSD" => Ok(Asset::AUDUSD),
-            "USDCAD" => Ok(Asset::USDCAD),
-            "NZDUSD" => Ok(Asset::NZDUSD),
-            "GBPJPY" => Ok(Asset::GBPJPY),
-            "CADJPY" => Ok(Asset::CADJPY),
-            "NZDJPY" => Ok(Asset::NZDJPY),
-            "EURJPY" => Ok(Asset::EURJPY),
-            "EURGBP" => Ok(Asset::EURGBP),
-            "DAX" => Ok(Asset::DAX),
-            "NAS100" => Ok(Asset::NAS100),
-            "SP500" => Ok(Asset::SP500),
-            "US30" => Ok(Asset::US30),
-            "FTSE100" => Ok(Asset::FTSE100),
-            "CAC40" => Ok(Asset::CAC40),
-            "JP225" => Ok(Asset::JP225),
-            other => Err(TradingError::Data(format!("Asset inconnu: {}", other))),
-        }
-    }
-}
-
 impl TryFrom<&str> for Timeframe {
     type Error = TradingError;
 
@@ -213,66 +120,67 @@ impl TryFrom<&str> for Timeframe {
     }
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/Direction.ts")]
+pub enum Direction {
+    Long,
+    Short,
+    Both,
+}
+
+/// Un asset de marché — **donnée, pas code** (décision propriétaire 2026-08-15).
+///
+/// N'importe quel ticker peut exister à l'exécution : la légitimité d'un
+/// asset vient de la table `assets` (source, symboles, classe), jamais d'une
+/// liste codée en dur. La sérialisation est la string nue (JSON/TS : `string`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[ts(export, export_to = "../../../../frontend/src/generated/Asset.ts")]
+pub struct Asset(String);
+
 impl Asset {
-    /// Retourne true si l'asset est une crypto (source Binance).
-    pub fn is_crypto(&self) -> bool {
-        // Renommer conceptuellement "is_crypto" par "is_binance" :
-        // Les métaux (XAUUSD, XAGUSD) sont désormais routés vers Binance Futures.
-        matches!(
-            self,
-            Asset::BTC
-                | Asset::ETH
-                | Asset::SOL
-                | Asset::BNB
-                | Asset::XRP
-                | Asset::ADA
-                | Asset::DOGE
-                | Asset::AVAX
-                | Asset::LINK
-                | Asset::DOT
-                | Asset::XAUUSD
-                | Asset::XAGUSD
-        )
+    /// Construit un asset depuis un ticker (usage général, tests inclus).
+    pub fn nouveau(ticker: &str) -> Self {
+        Self(ticker.to_uppercase())
     }
 
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Asset::BTC => "BTC",
-            Asset::ETH => "ETH",
-            Asset::SOL => "SOL",
-            Asset::BNB => "BNB",
-            Asset::XRP => "XRP",
-            Asset::ADA => "ADA",
-            Asset::DOGE => "DOGE",
-            Asset::AVAX => "AVAX",
-            Asset::LINK => "LINK",
-            Asset::DOT => "DOT",
-            Asset::XAUUSD => "XAUUSD",
-            Asset::XAGUSD => "XAGUSD",
-            Asset::XPTUSD => "XPTUSD",
-            Asset::XPDUSD => "XPDUSD",
-            Asset::EURUSD => "EURUSD",
-            Asset::GBPUSD => "GBPUSD",
-            Asset::USDJPY => "USDJPY",
-            Asset::USDCHF => "USDCHF",
-            Asset::AUDUSD => "AUDUSD",
-            Asset::USDCAD => "USDCAD",
-            Asset::NZDUSD => "NZDUSD",
-            Asset::GBPJPY => "GBPJPY",
-            Asset::CADJPY => "CADJPY",
-            Asset::NZDJPY => "NZDJPY",
-            Asset::EURJPY => "EURJPY",
-            Asset::EURGBP => "EURGBP",
-            Asset::DAX => "DAX",
-            Asset::NAS100 => "NAS100",
-            Asset::SP500 => "SP500",
-            Asset::US30 => "US30",
-            Asset::FTSE100 => "FTSE100",
-            Asset::CAC40 => "CAC40",
-            Asset::JP225 => "JP225",
-        }
+    /// Ticker de l'asset.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Heuristique « cotable chez Bybit » (crypto + métaux USDT) — utilisée
+    /// pour router vers le provider REST. La vérité reste la table `assets`
+    /// (source + symbol_bybit) ; cette heuristique ne sert qu'aux chemins
+    /// sans accès DB.
+    pub fn est_cotable_bybit(&self) -> bool {
+        let t = self.0.as_str();
+        !t.contains('/')
+            && !t.is_empty()
+            && (t.ends_with("USDT") || {
+                // Crypto (ticker court) ou métal spot (XAUUSD…)
+                t.len() <= 6 && t.chars().all(|c| c.is_ascii_alphanumeric())
+            })
     }
 }
+
+impl std::fmt::Display for Asset {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl From<&str> for Asset {
+    fn from(s: &str) -> Self {
+        Self::nouveau(s)
+    }
+}
+
+impl From<String> for Asset {
+    fn from(s: String) -> Self {
+        Self(s.to_uppercase())
+    }
+}
+
 
 #[derive(Debug, thiserror::Error)]
 pub enum TradingError {

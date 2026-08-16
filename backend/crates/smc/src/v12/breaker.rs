@@ -23,6 +23,7 @@ use super::types::{BarInput, BreakerEvent, BreakerZone};
 pub const MAX_BB: usize = 5;
 
 /// Détecteur de Breaker Blocks (bull + bear).
+#[derive(Clone)]
 pub struct BreakerDetector {
     /// `bbBull*` (Pine) — Bullish Breakers (support, issus d'OB bear invalidés).
     bull: Vec<BreakerZone>,

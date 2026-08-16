@@ -6,9 +6,7 @@ mod asset_params_handlers;
 mod assets_handlers;
 mod calendar_handlers;
 mod config_handlers;
-mod data_csv_handlers;
 mod data_handlers;
-mod data_mt5_handlers;
 mod dukascopy_handlers;
 mod engine_handlers;
 mod handlers;
@@ -50,6 +48,9 @@ mod rockets_sauvegarder_feedbacks;
 mod rockets_scan;
 mod rockets_suivi;
 mod rockets_suivi_worker;
+mod retention_job;
+mod runtime_handlers;
+mod runtime_tick;
 mod scheduler;
 mod scheduler_execution;
 mod sentiment_composite;
@@ -134,31 +135,39 @@ async fn main() -> std::io::Result<()> {
 
     tracing::info!("🌐 Server running on http://0.0.0.0:8080");
 
-    let pool_rockets = app_state.db.pool().clone();
-    tokio::spawn(rockets_suivi::demarrer_worker_suivi(pool_rockets));
+    // Suivi Rockets : suspendu avec le générateur (aucun signal ouvert).
+    // let pool_rockets = app_state.db.pool().clone();
+    // tokio::spawn(rockets_suivi::demarrer_worker_suivi(pool_rockets));
+    let _ = rockets_suivi::demarrer_worker_suivi;
 
-    let pool_scan = app_state.db.pool().clone();
-    let signal_engine_rockets = app_state.signal_engine.clone();
-    let pipeline_ml_rockets = app_state.pipeline_ml.clone();
-    tokio::spawn(rockets_scan::demarrer_worker_scan(
-        pool_scan,
-        signal_engine_rockets,
-        pipeline_ml_rockets,
-    ));
+    // ── ROCKETS SUSPENDU (décision propriétaire 2026-08-15) ──────────────────
+    // Générateur de l'ancien système + consommateur des modèles ML purgés.
+    // Retour en phase 3 comme plugin du runtime (gate 3).
+    // NB : suspension deux fois manquée silencieusement (15/08) — l'instance
+    // périmée a généré un signal BOME non sollicité avant correction.
+    // let pool_scan = app_state.db.pool().clone();
+    // let signal_engine_rockets = app_state.signal_engine.clone();
+    // let pipeline_ml_rockets = app_state.pipeline_ml.clone();
+    // tokio::spawn(rockets_scan::demarrer_worker_scan(
+    //     pool_scan,
+    //     signal_engine_rockets,
+    //     pipeline_ml_rockets,
+    // ));
+    tracing::warn!("🛑 Worker Rockets scan SUSPENDU — retour prévu en phase 3 (plugin runtime)");
+    let _ = rockets_scan::demarrer_worker_scan;
 
-    let pool_analyse = app_state.db.pool().clone();
-    tokio::spawn(rockets_analyse_handler::demarrer_worker_analyse(
-        pool_analyse,
-    ));
+    // Analyse hebdo LLM Rockets suspendue (consommateur Ollama).
+    // tokio::spawn(rockets_analyse_handler::demarrer_worker_analyse(pool_analyse));
+    let _ = rockets_analyse_handler::demarrer_worker_analyse;
 
-    let pool_signaux = app_state.db.pool().clone();
-    tokio::spawn(signaux_handlers::demarrer_worker_suivi_signaux(
-        pool_signaux,
-    ));
+    // Suivi des signaux de l'ancien système : suspendu avec ses générateurs
+    // (plus aucun signal ouvert à suivre).
+    // tokio::spawn(signaux_handlers::demarrer_worker_suivi_signaux(pool_signaux));
+    let _ = signaux_handlers::demarrer_worker_suivi_signaux;
 
-    tokio::spawn(smc_analyse_handler::demarrer_worker_analyse_smc(
-        app_state.db.clone(),
-    ));
+    // Analyse hebdo LLM SMC suspendue (chemin B éteint — plus de matière).
+    // tokio::spawn(smc_analyse_handler::demarrer_worker_analyse_smc(app_state.db.clone()));
+    let _ = smc_analyse_handler::demarrer_worker_analyse_smc;
 
     // ── Boucles automatiques ─────────────────────────────────────────────────
     // Rappel : SMC + Straddle + surveillance ML sont DÉJÀ démarrés par
@@ -169,13 +178,21 @@ async fn main() -> std::io::Result<()> {
     let pool_telegram = app_state.db.pool().clone();
     tokio::spawn(notifications::telegram_worker::demarrer_worker_telegram(pool_telegram));
 
-    // ── Worker ingestion Bybit WS (crypto + métaux, gratuit, 24/7) ──────────
-    // Connexion publique, sans clé API. Écrit en continu les bougies fermées
-    // des 12 actifs × 5 timeframes. Indépendant du frontend.
-    data::bybit_ws::demarrer_worker_bybit(app_state.db.clone());
+    // ── Runtime tick (Phase 1 ROADMAP — cœur temps réel) ────────────────────
+    // Consomme les klines Bybit (formation + confirmations) en mémoire :
+    // agrégation bougie par bougie, évaluation intrabar des moteurs (à partir
+    // de la phase 2), publication des clôtures. Zéro moteur en phase 1.
+    // Démarre lui-même le worker Bybit WS qui l'alimente.
+    let _poignees_runtime = runtime_tick::demarrer_runtime_tick(app_state.db.clone());
 
-    // ── Worker pré-alertes (cycle 5 min — setups en formation) ──────────────
-    prealerte_worker::demarrer_worker_prealerte(app_state.db.clone());
+    // ── Pré-alertes SUSPENDUES (décision propriétaire 2026-08-15) ────────────
+    // Elles étaient générées par l'ANCIEN système (scorer SMC + ATR Straddle
+    // sur bougies clôturées, cycle 5 min) et envoyées par Telegram — 145 le
+    // 15/08 malgré les suspensions. Plus aucune pré-alerte jusqu'à la bascule
+    // 2.8 : les seules notifications à venir seront les signaux v12 VALIDÉS.
+    // prealerte_worker::demarrer_worker_prealerte(app_state.db.clone());
+    tracing::warn!("🛑 Worker pré-alertes SUSPENDU (ancien système — alimentait Telegram)");
+    let _ = prealerte_worker::demarrer_worker_prealerte;
 
     HttpServer::new(move || {
         // CORS limité au dev Tauri uniquement — en production l'app est native (fenêtre Tauri)

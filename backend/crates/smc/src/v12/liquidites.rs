@@ -37,6 +37,7 @@ pub struct LiqLevel {
 }
 
 /// Détecteur de liquidités (PDH/PDL/PWH/PWL + EQH/EQL).
+#[derive(Clone)]
 pub struct LiquiditesDetector {
     // --- Tracking day (UTC) ---
     cur_day_key: Option<i64>,

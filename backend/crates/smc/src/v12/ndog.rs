@@ -45,6 +45,7 @@ fn week_key(ts: i64) -> (i32, u32) {
 }
 
 /// Détecteur NDOG/NWOG.
+#[derive(Clone)]
 pub struct NdogDetector {
     ndog: Vec<GapZone>,
     nwog: Vec<GapZone>,

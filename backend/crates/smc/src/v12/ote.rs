@@ -26,6 +26,7 @@ pub const FIB_OTE_HIGH: f64 = 0.618;
 pub const FIB_OTE_LOW: f64 = 0.786;
 
 /// Détecteur OTE : capture la plage au BOS, gère l'expiration, calcule la zone Fib.
+#[derive(Clone)]
 pub struct OteDetector {
     /// `_fibSHL` (Pine) = sl1 au dernier BOS haussier (borne basse du range bull).
     fib_shl: Option<f64>,

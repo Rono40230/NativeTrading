@@ -76,24 +76,21 @@ fragmentation illisible (16 fichiers pour le pipeline Straddle).*
 Une stratégie se backteste **ailleurs** (TradingView, MT5, Python) **avant** son
 intégration. Un backtest honnête in-app pourrait revenir en phase 9, sur décision.
 
-### ✅ D2 — Provider de données → **swap direct vers CPG en phase 1**
-**IBKR Client Portal Gateway devient le provider unique.** Faisabilité confirmée :
+### ✅ D2 — Provider de données → **RÉVISÉ (2026-08-12) : CPG abandonné, stratégie gratuite**
 
-| Classe | Couverture CPG |
-|--------|----------------|
-| Forex / méta | ✅ IBKR = broker forex majeur (IdealPro), données REST + streaming |
-| Actions | ✅ Cœur de métier IBKR, 170+ marchés, global |
-| Cryptos | ✅ **BTC + ETH (+ 9 autres) disponibles en EEA depuis le 31/03/2026** (IBKR Ireland + Zero Hash). France = éligible. |
+**Décision révisée** après l'investigation exhaustive des sources (post-démonolithage) :
+l'audit a révélé que les sources actuelles fonctionnent (Bybit métaux/crypto + IG forex/indices en polling 2s + MT5 import). CPG (IBKR) apporterait unification + vrai streaming + actions, **mais** au prix d'abonnements market data + d'une dépendance gateway 24/7 à opérer — **non justifié pour un outil d'aide à la décision** (pas d'exécution auto, la valeur principale de CPG).
 
-**Caveats opérationnels à gérer en phase 1** (le propriétaire a déjà intégré CPG par le passé) :
-- **Abonnements market data** : les flux temps-réel IBKR sont **payants par bourse/feed**. Sans abonnement → données différées (15 min). À vérifier sur le compte IBKR.
-- **Disponibilité gateway 24/7** : la session CPG expire (~quotidien) → il faut un gateway qui se relance/re-auth automatiquement pour la veille continue.
-- **Permissions crypto** : activer la permission « Cryptocurrencies » dans le Client Portal IBKR + l'entité compte doit être IBKR Ireland (EEA).
-- **Mapping symboles** : IBKR crypto = `BTC/USD` (pas `BTCUSDT` comme Binance) ; prévoir la table de mapping par actif.
+**Yahoo Finance écarté** : pas de WebSocket public, données delayed 15-20 min, rate-limits durcis 2026, non officiel.
 
-**Sécurisation du swap (gestion du risque régression)** — phase 1 en deux sous-étapes :
-- **1a** : abstraction `DataProvider` propre + connecteur CPG **ajouté en parallèle** des sources existantes. Vérifier que CPG délivre des données correctes pour les 3 classes + que les 3 stratégies consomment correctement.
-- **1b** : une fois CPG prouvé correct → **supprimer** Binance + IG + MT5 (et la duplication `data/`↔`api/`).
+**TwelveData** : couvre les 5 classes + WebSocket réel, **mais WS payant** (~$29 Grow pour 8 symboles, ~$329 Pro pour ~30). Le **tier gratuit (REST 8/min)** suffit pour les **actions** en décisionnel (clé déjà en `.env`).
+
+**Nouvelle stratégie données (gratuite, sub-plans 1.7A/B/C)** :
+- **1.7A — Signaux temps réel (le vrai besoin, GRATUIT)** : le goulot de latence n'est pas le streaming mais le **cycle signal de 15 min**. Rendre les signaux **événementiels** (déclenchement à la clôture de chaque bougie M1/M5/M15) + robustifier le WS Bybit (métaux reconnect) + conserver IG polling 2s (forex, suffisant pour stratégies basées sur des bougies). → Signaux à la seconde après chaque clôture, sans payer.
+- **1.7B — Actions via TwelveData gratuit** (clé déjà en `.env`, REST polling pour décisionnel) → comble le gap actions.
+- **1.7C — Finir la migration Binance→Bybit** (7 endpoints restants) → tue le risque de géo-blocage France (451).
+
+**Reportés** (non justifiés aujourd'hui) : CPG, TwelveData WS payant, réactivation IG Lightstreamer (bloquée par licence « Error 71 »). Pourraient revenir si besoin d'exécution réelle ou de streaming pro.
 
 ### ✅ D3 — Moteur SMC → **BSZones**
 Calquer le moteur SMC sur **BSZones** (ICT 2022 canonique : Sweep→Displacement→OB,
@@ -265,7 +262,7 @@ Straddle), 1 lien interne cassé (`/pnl`).
 |---|----------|--------|-------|
 | D0 | Règle « 300 lignes » | ✅ **Assouplie à 600** | 1 |
 | D1 | Backtest | ✅ **Supprimé (modèle externe)** | 1 |
-| D2 | Provider de données | ✅ **Swap direct CPG en phase 1** (2 sous-étapes) | 1 |
+| D2 | Provider de données | ✅ **RÉVISÉ : CPG abandonné** → stratégie gratuite (1.7A signaux temps réel + 1.7B actions TwelveData + 1.7C Bybit) | 1.7 |
 | D3 | Moteur SMC | ✅ **BSZones** (+ calibration v11) | 2 |
 | D4 | Ciblage revue de presse (sujets/sources/langues/fréquence/format) | ⬜ Ouvert | 4 |
 | D5 | Type + contenu des alertes | ⬜ Ouvert | 6 |

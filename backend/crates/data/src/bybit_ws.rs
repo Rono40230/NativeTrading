@@ -2,8 +2,13 @@
 //!
 //! Connexion publique à `wss://stream.bybit.com/v5/public/linear`, souscription
 //! aux topics `kline.{interval}.{symbol}` pour les actifs × timeframes lus en
-//! DB (`assets.symbol_bybit` × `configuration.worker_timeframes`), et écriture
-//! en DB des **bougies fermées** uniquement (champ `confirm: true`).
+//! DB (`assets.symbol_bybit` × `configuration.worker_timeframes`).
+//!
+//! Deux sorties par kline reçue :
+//! - **flux runtime** (optionnel, `EvenementPrix`) : TOUTES les klines,
+//!   confirmées ou non — la bougie en formation pousse l'évaluation intrabar
+//!   du runtime tick, la confirmation clôture avec les valeurs officielles ;
+//! - **DB** : uniquement les bougies fermées (`confirm: true`), inchangé.
 //!
 //! Aucune liste d'actifs n'est hardcodée : chaque session relit la DB —
 //! activer/désactiver un asset ou changer les timeframes depuis l'UI est pris
@@ -22,7 +27,9 @@ use std::time::{Duration, Instant};
 use chrono::{DateTime, Utc};
 use common::{Asset, Candle, Timeframe};
 use db::Database;
+use engine::{EvenementPrix, PrixEvent};
 use futures_util::{SinkExt, StreamExt};
+use tokio::sync::mpsc;
 use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 
@@ -121,6 +128,23 @@ fn construire_topics(assets: &[(String, String)], timeframes: &[Timeframe]) -> V
     v
 }
 
+/// Empreinte de la config d'une session (assets × timeframes) — comparée
+/// périodiquement pour détecter un ajout/retrait d'asset et forcer une
+/// reconnexion propre (resouscription avec la nouvelle liste).
+fn empreinte_session(assets: &[(String, String)], timeframes: &[Timeframe]) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    let mut symboles: Vec<&String> = assets.iter().map(|(s, _)| s).collect();
+    symboles.sort();
+    for s in symboles {
+        s.hash(&mut h);
+    }
+    for tf in timeframes {
+        tf.as_str().hash(&mut h);
+    }
+    h.finish()
+}
+
 /// Construit le mapping symbol Bybit → asset DB pour le parsing des messages.
 /// Un doublon de symbole écrase silencieusement le premier (dernier gagnant).
 fn construire_mapping(assets: &[(String, String)]) -> HashMap<String, String> {
@@ -144,12 +168,29 @@ fn extraire_topic(topic: &str) -> Option<(&str, &str)> {
 /// Action à exécuter après parsing d'un message texte WS.
 #[derive(Debug)]
 enum ActionWs {
-    /// Rien à faire (message ignoré : bougie non fermée, ack souscription, etc.).
+    /// Rien à faire (message ignoré : ack souscription, etc.).
     Ignorer,
     /// Bybit a envoyé un ping applicatif → répondre `{"op":"pong"}`.
     Pong,
-    /// Une ou plusieurs bougies fermées à insérer en DB.
-    Bougies(Vec<(Asset, Timeframe, Candle)>),
+    /// Klines parsées — confirmées ET non confirmées. Les non confirmées
+    /// alimentent le runtime tick (évaluation intrabar), les confirmées
+    /// sont en outre insérées en DB.
+    Klines(Vec<KlineWs>),
+}
+
+/// Kline parsée d'un message Bybit — confirmée ou non.
+#[derive(Debug, Clone, PartialEq)]
+struct KlineWs {
+    asset: Asset,
+    tf: Timeframe,
+    /// Début de la bougie (epoch sec — déjà aligné, fourni par Bybit).
+    debut: i64,
+    open: f64,
+    high: f64,
+    low: f64,
+    close: f64,
+    volume: f64,
+    confirmee: bool,
 }
 
 /// Parse un message texte brut Bybit en `ActionWs`. `mapping` (symbol → asset
@@ -200,12 +241,10 @@ fn traiter_texte(message: &str, mapping: &HashMap<String, String>) -> ActionWs {
     let Some(tf_str) = bybit_interval_vers_tf(interval) else {
         return ActionWs::Ignorer; // interval non suivi
     };
-    let Ok(asset) = Asset::try_from(asset_str) else {
-        // Asset présent dans la table mais inconnu du crate common → on logge
-        // une fois par message (rare : DB et enum divergent).
-        tracing::warn!("Bybit WS: asset DB '{}' inconnu du crate common — ignoré", asset_str);
-        return ActionWs::Ignorer;
-    };
+    // La légitimité d'un asset vient de la table `assets` (mapping symbole →
+    // id lu en DB au début de session) — plus de liste codée : tout ticker
+    // ajouté est accepté tel quel.
+    let asset = Asset::from(asset_str);
     let Ok(tf) = Timeframe::try_from(tf_str) else {
         return ActionWs::Ignorer;
     };
@@ -214,21 +253,18 @@ fn traiter_texte(message: &str, mapping: &HashMap<String, String>) -> ActionWs {
         return ActionWs::Ignorer;
     };
 
-    let mut bougies = Vec::with_capacity(blocs.len());
+    let mut klines = Vec::with_capacity(blocs.len());
     for bloc in blocs {
-        // On n'écrit QUE les bougies fermées (confirm: true).
-        if bloc.get("confirm").and_then(|c| c.as_bool()) != Some(true) {
-            continue;
-        }
+        // Toutes les klines sont parsées : les non confirmées alimentent le
+        // runtime tick (bougie en formation), les confirmées ferment la
+        // bougie avec les valeurs officielles (et vont en DB).
+        let confirmee = bloc.get("confirm").and_then(|c| c.as_bool()) == Some(true);
         let Some(start) = bloc.get("start").and_then(|s| s.as_i64()) else {
             continue;
         };
         // Bybit WS kline v5 : `start` peut être en secondes (10 chiffres) OU
         // millisecondes (13 chiffres) selon la version du topic. On détecte.
         let start_sec = if start > 1_000_000_000_000 { start / 1000 } else { start };
-        let Some(timestamp) = DateTime::<Utc>::from_timestamp(start_sec, 0) else {
-            continue;
-        };
         let champ_f64 = |cle: &str| bloc.get(cle).and_then(|x| x.as_str()).and_then(|s| s.parse::<f64>().ok());
         let Some(open) = champ_f64("open") else {
             continue;
@@ -243,24 +279,23 @@ fn traiter_texte(message: &str, mapping: &HashMap<String, String>) -> ActionWs {
             continue;
         };
         let volume = champ_f64("volume").unwrap_or(0.0);
-        bougies.push((
-            asset.clone(),
+        klines.push(KlineWs {
+            asset: asset.clone(),
             tf,
-            Candle {
-                timestamp,
-                open,
-                high,
-                low,
-                close,
-                volume,
-            },
-        ));
+            debut: start_sec,
+            open,
+            high,
+            low,
+            close,
+            volume,
+            confirmee,
+        });
     }
 
-    if bougies.is_empty() {
+    if klines.is_empty() {
         ActionWs::Ignorer
     } else {
-        ActionWs::Bougies(bougies)
+        ActionWs::Klines(klines)
     }
 }
 
@@ -270,15 +305,23 @@ fn traiter_texte(message: &str, mapping: &HashMap<String, String>) -> ActionWs {
 
 /// Démarre le worker en arrière-plan — non bloquant. Idempotent : un second
 /// appel est un no-op + avertissement.
-pub fn demarrer_worker_bybit(db: Arc<Database>) {
+///
+/// `flux_runtime` : si fourni, TOUTES les klines (confirmées et non
+/// confirmées) y sont poussées comme [`EvenementPrix`] pour le runtime
+/// tick — c'est le chemin temps réel (évaluation intrabar). La DB ne
+/// reçoit toujours que les bougies confirmées.
+pub fn demarrer_worker_bybit(
+    db: Arc<Database>,
+    flux_runtime: Option<mpsc::UnboundedSender<EvenementPrix>>,
+) {
     if !marquer_demarre() {
         tracing::warn!("⚠️  Worker Bybit WS déjà démarré — second spawn ignoré");
         return;
     }
     tokio::spawn(async move {
-        boucle_reconnect(db).await;
+        boucle_reconnect(db, flux_runtime).await;
         // Ne devrait jamais arriver : la boucle est infinie. Si elle sort, on
-        // libère le garde pour permettre un redémarrage manuel ultérieur.
+        // libère la garde pour permettre un redémarrage manuel ultérieur.
         BYBIT_WS_DEMARRE.store(false, Ordering::SeqCst);
         tracing::error!("Bybit WS: boucle principale terminée — ingestion arrêtée");
     });
@@ -288,13 +331,13 @@ pub fn demarrer_worker_bybit(db: Arc<Database>) {
 /// déconnexion), on attend `backoff` secondes puis on retente. Le backoff
 /// croît exponentiellement (×2, plafonné à 60 s) et se réinitialise après une
 /// session stable.
-async fn boucle_reconnect(db: Arc<Database>) {
+async fn boucle_reconnect(db: Arc<Database>, flux_runtime: Option<mpsc::UnboundedSender<EvenementPrix>>) {
     tracing::info!("🌐 Bybit WS: démarrage worker ingestion (actifs/timeframes pilotés en DB)");
 
     let mut backoff = BACKOFF_DEPART_SEC;
     loop {
         let debut_session = Instant::now();
-        let resultat = session_unique(&db).await;
+        let resultat = session_unique(&db, &flux_runtime).await;
         STATUT_BYBIT.marque_deconnecte();
 
         let duree = debut_session.elapsed();
@@ -331,7 +374,10 @@ async fn boucle_reconnect(db: Arc<Database>) {
 /// Établit une connexion, souscrit aux topics, et traite les messages jusqu'à
 /// déconnexion ou erreur. Retourne `Ok(())` sur fermeture propre ou si le
 /// worker est désactivé / n'a aucun actif à suivre (sans se connecter).
-async fn session_unique(db: &Arc<Database>) -> anyhow::Result<()> {
+async fn session_unique(
+    db: &Arc<Database>,
+    flux_runtime: &Option<mpsc::UnboundedSender<EvenementPrix>>,
+) -> anyhow::Result<()> {
     // Interrupteur UI : worker désactivé → pas de connexion, retry au backoff max.
     if !lire_actif(db, CLE_ACTIF_BYBIT).await {
         tracing::debug!("Bybit WS: worker désactivé (worker_actif_bybit=0) — session sautée");
@@ -385,13 +431,40 @@ async fn session_unique(db: &Arc<Database>) -> anyhow::Result<()> {
         nb_morceaux
     );
 
-    // ── Boucle principale : lecture WS uniquement ─────────────────────────────
+    // ── Boucle principale : lecture WS + relecture périodique de la config ────
     // Bybit SERVEUR envoie {"op":"ping","args":[<ts>]} toutes les 20s.
     // On répond {"op":"pong","args":[<ts>]}. Le client NE DOIT PAS initier
     // un ping (sinon Bybit répond error:invalid op).
+    //
+    // Toutes les 30 s, l'empreinte assets × timeframes est relue en DB : un
+    // ajout/retrait d'asset (modale UI) force une reconnexion propre — le
+    // nouvel asset est souscrit en ≤ 30 s + backoff, sans redémarrage.
+    let mut dernier_hash = empreinte_session(&assets, &timeframes);
+    let mut tick_config = tokio::time::interval(std::time::Duration::from_secs(30));
+    tick_config.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {
-        match entree.next().await {
-            Some(Ok(Message::Text(texte))) => {
+        let message = tokio::select! {
+            biased;
+            _ = tick_config.tick() => {
+                let assets_maj = assets_bybit_depuis_db(db).await;
+                let tfs_maj = crate::worker_config::lire_timeframes(db).await;
+                if !assets_maj.is_empty() && empreinte_session(&assets_maj, &tfs_maj) != dernier_hash {
+                    tracing::info!(
+                        "Bybit WS: config assets×TF modifiée ({} → {} actifs) — reconnexion pour resouscription",
+                        assets.len(),
+                        assets_maj.len()
+                    );
+                    return Ok(());
+                }
+                continue;
+            }
+            peut_etre = entree.next() => match peut_etre {
+                Some(m) => m,
+                None => return Err(anyhow::anyhow!("flux WS fermé par le serveur")),
+            },
+        };
+        match message {
+            Ok(Message::Text(texte)) => {
                 match traiter_texte(&texte, &mapping) {
                     ActionWs::Pong => {
                         let pong = {
@@ -408,26 +481,63 @@ async fn session_unique(db: &Arc<Database>) -> anyhow::Result<()> {
                             return Err(anyhow::anyhow!("échec envoi pong"));
                         }
                     }
-                    ActionWs::Bougies(bougies) => {
-                        inserer_bougies(db, bougies).await;
+                    ActionWs::Klines(klines) => {
+                        // 1. Runtime tick : TOUTES les klines (formation +
+                        //    confirmations) — chemin temps réel intrabar.
+                        if let Some(tx) = flux_runtime {
+                            for k in &klines {
+                                let _ = tx.send(EvenementPrix {
+                                    asset: k.asset.clone(),
+                                    tf: k.tf,
+                                    debut_bougie: k.debut,
+                                    event: PrixEvent::Kline {
+                                        ouverture: k.open,
+                                        haut: k.high,
+                                        bas: k.low,
+                                        cloture: k.close,
+                                        volume: k.volume,
+                                        confirmee: k.confirmee,
+                                    },
+                                    recu_le: Utc::now(),
+                                });
+                            }
+                        }
+                        // 2. DB : uniquement les bougies confirmées (inchangé).
+                        let confirmees: Vec<(Asset, Timeframe, Candle)> = klines
+                            .iter()
+                            .filter(|k| k.confirmee)
+                            .map(|k| {
+                                (
+                                    k.asset.clone(),
+                                    k.tf,
+                                    Candle {
+                                        timestamp: DateTime::<Utc>::from_timestamp(k.debut, 0)
+                                            .unwrap_or_else(Utc::now),
+                                        open: k.open,
+                                        high: k.high,
+                                        low: k.low,
+                                        close: k.close,
+                                        volume: k.volume,
+                                    },
+                                )
+                            })
+                            .collect();
+                        inserer_bougies(db, confirmees).await;
                     }
                     ActionWs::Ignorer => {}
                 }
             }
-            Some(Ok(Message::Ping(payload))) => {
+            Ok(Message::Ping(payload)) => {
                 let _ = sortie.send(Message::Pong(payload)).await;
             }
-            Some(Ok(Message::Pong(_) | Message::Binary(_))) => {}
-            Some(Ok(Message::Close(_))) => {
+            Ok(Message::Pong(_) | Message::Binary(_)) => {}
+            Ok(Message::Close(_)) => {
                 tracing::info!("Bybit WS: frame Close reçue du serveur");
                 return Ok(());
             }
-            Some(Ok(Message::Frame(_))) => {}
-            Some(Err(e)) => {
+            Ok(Message::Frame(_)) => {}
+            Err(e) => {
                 return Err(anyhow::anyhow!("erreur lecture WS: {}", e));
-            }
-            None => {
-                return Err(anyhow::anyhow!("flux WS fermé par le serveur"));
             }
         }
     }
@@ -563,25 +673,27 @@ mod tests {
             }]
         }"#;
         match traiter_texte(message, &mapping_test()) {
-            ActionWs::Bougies(bougies) => {
-                assert_eq!(bougies.len(), 1, "une bougie attendue");
-                let (asset, tf, c) = &bougies[0];
-                assert_eq!(*asset, Asset::XAUUSD);
-                assert_eq!(*tf, Timeframe::M15);
-                assert_eq!(c.timestamp.timestamp(), 1786521600);
-                assert!((c.open - 4409.66).abs() < 1e-6);
-                assert!((c.high - 4414.0).abs() < 1e-6);
-                assert!((c.low - 4409.45).abs() < 1e-6);
-                assert!((c.close - 4412.28).abs() < 1e-6);
-                assert!((c.volume - 114.787).abs() < 1e-6);
+            ActionWs::Klines(klines) => {
+                assert_eq!(klines.len(), 1, "une kline attendue");
+                let k = &klines[0];
+                assert_eq!(k.asset, Asset::from("XAUUSD"));
+                assert_eq!(k.tf, Timeframe::M15);
+                assert_eq!(k.debut, 1786521600);
+                assert!(k.confirmee, "kline confirmée attendue");
+                assert!((k.open - 4409.66).abs() < 1e-6);
+                assert!((k.high - 4414.0).abs() < 1e-6);
+                assert!((k.low - 4409.45).abs() < 1e-6);
+                assert!((k.close - 4412.28).abs() < 1e-6);
+                assert!((k.volume - 114.787).abs() < 1e-6);
             }
-            autre => panic!("attendu ActionWs::Bougies, obtenu {:?}", autre),
+            autre => panic!("attendu ActionWs::Klines, obtenu {:?}", autre),
         }
     }
 
     #[test]
-    fn parsing_message_kline_non_confirmee_est_ignoree() {
-        // Bougie en cours (confirm: false) → ne doit jamais atteindre la DB.
+    fn parsing_message_kline_non_confirmee_transmise() {
+        // Bougie en cours (confirm: false) : ignorée de la DB mais transmise
+        // au runtime tick (évaluation intrabar).
         let message = r#"{
             "topic": "kline.1.BTCUSDT",
             "type": "delta",
@@ -596,10 +708,17 @@ mod tests {
                 "confirm": false
             }]
         }"#;
-        assert!(matches!(
-            traiter_texte(message, &mapping_test()),
-            ActionWs::Ignorer
-        ));
+        match traiter_texte(message, &mapping_test()) {
+            ActionWs::Klines(klines) => {
+                assert_eq!(klines.len(), 1, "la kline non confirmée doit être transmise");
+                let k = &klines[0];
+                assert_eq!(k.asset, Asset::from("BTC"));
+                assert_eq!(k.tf, Timeframe::M1);
+                assert!(!k.confirmee, "kline non confirmée attendue");
+                assert_eq!(k.debut, 100);
+            }
+            autre => panic!("attendu ActionWs::Klines, obtenu {:?}", autre),
+        }
     }
 
     #[test]
@@ -612,13 +731,14 @@ mod tests {
             ]
         }"#;
         match traiter_texte(message, &mapping_test()) {
-            ActionWs::Bougies(bougies) => {
-                assert_eq!(bougies.len(), 1, "seule la bougie confirmée doit passer");
-                let (asset, tf, _) = &bougies[0];
-                assert_eq!(*asset, Asset::ETH);
-                assert_eq!(*tf, Timeframe::M5);
+            ActionWs::Klines(klines) => {
+                assert_eq!(klines.len(), 2, "les deux klines sont parsées");
+                assert!(klines[0].confirmee);
+                assert!(!klines[1].confirmee);
+                assert_eq!(klines[0].asset, Asset::from("ETH"));
+                assert_eq!(klines[0].tf, Timeframe::M5);
             }
-            autre => panic!("attendu ActionWs::Bougies, obtenu {:?}", autre),
+            autre => panic!("attendu ActionWs::Klines, obtenu {:?}", autre),
         }
     }
 
@@ -665,15 +785,23 @@ mod tests {
     }
 
     #[test]
-    fn parsing_asset_db_inconnu_du_crate_ignore() {
-        // Symbole mappé vers un id absent de l'enum common → ignoré sans panic.
+    fn parsing_nouvel_asset_accepte() {
+        // Asset ajouté à l'exécution (aucune liste codée) : le ticker DB fait
+        // foi — la kline est parsée et routée, sans recompilation.
         let mut mapping = HashMap::new();
         mapping.insert("NEWUSDT".to_string(), "NEWCOIN".to_string());
         let message = r#"{
             "topic": "kline.15.NEWUSDT",
             "data": [{"start": 1, "interval": "15", "open": "1", "high": "1", "low": "1", "close": "1", "volume": "1", "confirm": true}]
         }"#;
-        assert!(matches!(traiter_texte(message, &mapping), ActionWs::Ignorer));
+        match traiter_texte(message, &mapping) {
+            ActionWs::Klines(klines) => {
+                assert_eq!(klines.len(), 1);
+                assert_eq!(klines[0].asset.as_str(), "NEWCOIN");
+                assert!(klines[0].confirmee);
+            }
+            autre => panic!("attendu Klines, obtenu {:?}", autre),
+        }
     }
 
     #[test]

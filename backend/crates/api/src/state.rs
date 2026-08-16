@@ -57,59 +57,59 @@ impl AppState {
             }
         };
 
-        // Démarrage automatique du Signal Engine au lancement du serveur
         let db = Arc::new(db);
         let pipeline_ml = Arc::new(RwLock::new(pipeline_ml));
+        // Le SignalEngine reste instancié : c'est le canal broadcast que
+        // Straddle/Rockets utilisent pour publier vers le WS frontend.
         let signal_engine = Arc::new(SignalEngine::new());
         // Cache Fear & Greed (TTL 1h) — partagé entre l'endpoint et le worker sentiment.
         let fear_greed_cache: Arc<
             tokio::sync::RwLock<Option<(std::time::Instant, serde_json::Value)>>,
         > = Arc::new(tokio::sync::RwLock::new(None));
-        signal_engine.demarrer(db.clone(), pipeline_ml.clone());
-        tracing::info!("🤖 Signal Engine démarré automatiquement");
 
-        // Scheduler ML : entraînement immédiat si pas de modèle, puis quotidien à 00h00 UTC
-        demarrer_scheduler(db.clone(), pipeline_ml.clone(), modele_deja_charge);
-        tracing::info!("⏰ Scheduler ML activé (immédiat si pas de modèle, puis 00h00 UTC)");
+        // ── Générateurs SMC timer ÉTEINTS (décision Gate 0 n°2, 2026-08-15) ──
+        // Les chemins A (Signal Engine 5 min) et B (boucle SMC 15 min) lisaient
+        // des bougies fermées en DB avec 15-45 min de retard — architecture
+        // remplacée par le runtime tick + moteur v12 en shadow (runtime_tick).
+        // ⚠️ Ne pas réactiver : deux générateurs SMC simultanés pollueraient
+        // DB et Telegram pendant le test de vérité (Gate 2).
+        tracing::warn!("🛑 Chemins SMC timer (signal_engine + smc_boucle) ÉTEINTS — remplacés par le runtime tick (shadow v12)");
 
-        // Surveillance ML toutes les 6h : ré-entraînement auto si accuracy_val < 52%
-        crate::scheduler::demarrer_surveillance_ml(db.clone(), pipeline_ml.clone());
-        tracing::info!("🔍 Surveillance ML activée (check toutes les 6h, seuil 52%)");
+        // ── ML SUSPENDU (décision propriétaire 2026-08-15) ─────────────────────
+        // Les modèles avaient été entraînés sur les signaux de l'ancien système
+        // (clôture-bougie, 15-45 min de retard) : données invalides. Purge
+        // effectuée (tables d'apprentissage vides, modèles archivés dans
+        // data/backups/modeles_2026-08-15/). Réactivation après les gates 2-3,
+        // réentraînement sur signaux validés uniquement.
+        // demarrer_scheduler(db.clone(), pipeline_ml.clone(), modele_deja_charge);
+        // crate::scheduler::demarrer_surveillance_ml(db.clone(), pipeline_ml.clone());
+        tracing::warn!("🛑 ML SUSPENDU — modèles purgés (entraînés sur l'ancien système), aucun réentraînement avant les gates 2-3");
+        let _ = (pipeline_ml.clone(), modele_deja_charge);
 
-        // Boucle Straddle automatique toutes les 15 min (assets dynamiques)
-        crate::straddle_boucle::demarrer_boucle_straddle(
-            db.clone(),
-            signal_engine.clone(),
-            pipeline_ml.clone(),
-        );
-
-        // Scan pics ATR toutes les 5 min (tous assets dynamiques, seuil 1.3)
-        crate::straddle_scan_pics::demarrer_scan_pics(db.clone(), signal_engine.clone());
+        // ── STRADDLE SUSPENDU (décision propriétaire 2026-08-15) ────────────────
+        // Générateur de l'ancien système (timer + bougies fermées + gates ML
+        // pollués). Redévient actif en phase 3 comme plugin du runtime, après
+        // validation de fidélité (gate 3).
+        // crate::straddle_boucle::demarrer_boucle_straddle(...);
+        // crate::straddle_scan_pics::demarrer_scan_pics(...);
+        tracing::warn!("🛑 Boucles Straddle SUSPENDUES — retour prévu en phase 3 (plugin runtime)");
 
         // Refresh calendrier économique en arrière-plan (toutes les 30 min)
         crate::calendar_handlers::demarrer_refresh_calendrier_job(db.clone());
 
-        // Job de réconciliation des signaux Straddle ouverts (toutes les 5 min)
-        crate::straddle_feedback_job::demarrer_job_feedback(db.clone());
+        // Suivi Straddle suspendu avec le générateur (plus aucun signal ouvert).
+        // crate::straddle_feedback_job::demarrer_job_feedback(db.clone());
+        // crate::straddle_moniteur_position::demarrer_moniteur_straddle(db.clone());
 
-        // Moniteur temps-réel des positions Straddle (trailing + SL progressif, cycle 60s)
-        crate::straddle_moniteur_position::demarrer_moniteur_straddle(db.clone());
+        // Calibrations SUSPENDUES : elles apprenaient sur les feedbacks des
+        // anciens signaux — tables purgées, recalibration après gates 2-3.
+        // crate::straddle_calibration::demarrer_calibration(db.clone());
+        // crate::rockets_calibration::demarrer_calibration_rockets(db.clone());
 
-        // Job de calibration automatique des seuils (toutes les 6h)
-        crate::straddle_calibration::demarrer_calibration(db.clone());
-
-        // Job de calibration automatique des seuils Rockets (toutes les 6h)
-        crate::rockets_calibration::demarrer_calibration_rockets(db.clone());
-
-        // Boucle analyse SMC Directionnel (toutes les 15 min)
+        // Boucle analyse SMC Directionnel (toutes les 15 min) — ÉTEINTE,
+        // voir décision Gate 0 n°2 ci-dessus (remplacée par le runtime tick).
         let sentiment_slot: Arc<RwLock<Option<SentimentScore>>> =
             Arc::new(RwLock::new(None));
-        crate::smc_boucle::demarrer_boucle_smc(
-            db.clone(),
-            signal_engine.clone(),
-            pipeline_ml.clone(),
-            sentiment_slot.clone(),
-        );
 
         // Worker sentiment composite (cycle 30 min) — alimente le post-filtre directionnel
         crate::sentiment_composite::demarrer_worker_sentiment(
@@ -125,8 +125,12 @@ impl AppState {
         // Job de calibration automatique des seuils SMC (toutes les 6h)
         crate::smc_calibration_job::demarrer_calibration_smc(db.clone());
 
-        // Job de détection de patterns d'échec récurrents (toutes les 6h)
-        crate::patterns_echec_job::demarrer_job_patterns_echec(db.clone());
+        // Patterns d'échec SUSPENDUS : les leçons étaient injectées dans les
+        // prompts LLM depuis les vieux signaux — table purgée.
+        // crate::patterns_echec_job::demarrer_job_patterns_echec(db.clone());
+
+        // Job quotidien de rétention des données (piloté par la config utilisateur)
+        crate::retention_job::demarrer_job_retention(db.clone());
 
         // Job quotidien de mise à jour des valeur_pips (paires JPY)
         crate::pip_updater::demarrer_pip_updater(db.clone());

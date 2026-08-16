@@ -148,7 +148,7 @@ pub async fn tendance_multi_tf(
         let bougies: Vec<common::Candle> = if bougies_db.len() >= limit_bougies as usize {
             bougies_db
         } else {
-            let resultat = if asset.is_crypto() {
+            let resultat = if asset.est_cotable_bybit() {
                 BinanceProvider
                     .fetch_candles(asset.clone(), tf, limit_bougies as usize)
                     .await

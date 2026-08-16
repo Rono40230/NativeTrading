@@ -24,32 +24,17 @@ export const engineApi = {
     return res.data
   },
 
-  async obtenirCouvertureDonnees(): Promise<{ couverture: CouvertureDonnees[] }> {
+  async obtenirCouvertureDonnees(): Promise<{
+    couverture: CouvertureDonnees[]
+    taille_db_octets?: number
+    bougies_aujourd_hui?: number
+  }> {
     const res = await http.get('/api/data/coverage')
     return res.data
   },
 
   async collecterDonnees(params: RequeteCollecte): Promise<ResultatCollecte> {
     const res = await http.post('/api/data/collect', params, { timeout: 300_000 })
-    return res.data
-  },
-
-  async importerMt5(chemin?: string): Promise<{
-    dossier: string
-    total_bougies: number
-    total_inseres: number
-    resultats: Array<{
-      fichier: string
-      asset?: string
-      timeframe?: string
-      lues?: number
-      inseres?: number
-      doublons?: number
-      erreur?: string
-    }>
-    message?: string
-  }> {
-    const res = await http.post('/api/data/import-mt5', { chemin }, { timeout: 300_000 })
     return res.data
   },
 

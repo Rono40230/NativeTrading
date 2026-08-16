@@ -13,6 +13,7 @@
 use super::types::{BarInput, PivotEvent, StructureEvent};
 
 /// Détecteur de structure (HH/HL/LH/LL) + tendance dérivée.
+#[derive(Clone)]
 pub struct StructureDetector {
     bull_count: u32,
     bear_count: u32,
