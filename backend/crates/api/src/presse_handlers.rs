@@ -78,6 +78,9 @@ pub async fn ouvrir_article(state: web::Data<AppState>, chemin: web::Path<String
     article.lu = true;
     HttpResponse::Ok().json(serde_json::json!({
         "article": article, "titre_fr": titre_fr, "sentiment": sentiment,
+        // Résumé RSS de la collecte — socle d'affichage de la modal si le
+        // scraper échoue (sites rendus en JavaScript, cf migration 0072).
+        "resume_source": article.resume_source,
     }))
 }
 

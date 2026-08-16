@@ -142,6 +142,8 @@ export interface ArticleNews {
   niveau: NiveauAlerte
   theme: 'macro' | 'crypto' | 'metaux' | 'autre'
   sentiment?: 'haussier' | 'neutre' | 'baissier'
+  /** Résumé RSS (revue de presse) — affiché immédiatement, avant le scrape. */
+  resume_source?: string
 }
 
 export interface AlertesNews {

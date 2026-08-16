@@ -8,6 +8,8 @@ export interface ArticlePresse {
   hash_titre: string; titre: string; url: string; source_nom: string
   publie_le: string; score: number; theme: string; assets_concernes: string
   impact: string; statut_traduction: string; lu: boolean; ajoute_le: number
+  /** Résumé RSS capté à la collecte — socle d'affichage si le scraper échoue. */
+  resume_source?: string
 }
 export interface BriefPresse {
   id: number; genere_le: number; fenetre_de: number; fenetre_a: number

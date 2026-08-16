@@ -46,6 +46,19 @@
               <div v-for="i in 5" :key="i" class="h-2 rounded bg-white/10" :style="{ width: `${50 + i * 9}%` }" />
             </div>
             <div v-else-if="contenu">
+              <!-- Origine du contenu : résumé RSS (collecte) vs article scrapé -->
+              <div class="mb-2 flex items-center gap-2">
+                <span
+                  class="rounded-full border px-1.5 py-0.5 text-[9px] font-medium"
+                  :class="sourceContenu === 'rss'
+                    ? 'border-blue-400/30 bg-blue-400/5 text-blue-300/80'
+                    : 'border-emerald-400/30 bg-emerald-400/5 text-emerald-300/80'"
+                >{{ sourceContenu === 'rss' ? '📄 Résumé RSS' : '📰 Article complet' }}</span>
+                <span v-if="enrichissement" class="flex items-center gap-1.5 text-[9px] text-slate-500">
+                  <span class="inline-block h-2 w-2 animate-spin rounded-full border border-slate-400 border-t-transparent" />
+                  Récupération de l'article complet…
+                </span>
+              </div>
               <div v-if="traductionChargement" class="mb-2 flex items-center gap-1.5 text-[9px] text-blue-400">
                 <span class="inline-block h-2 w-2 animate-spin rounded-full border border-blue-400 border-t-transparent" />
                 Traduction en cours…
@@ -94,21 +107,51 @@ const contenu = ref<string | null>(null)
 const contenuFr = ref<string | null>(null)
 const chargement = ref(false)
 const traductionChargement = ref(false)
+/** Origine du contenu affiché : résumé RSS (collecte) ou scrape complet. */
+const sourceContenu = ref<'rss' | 'scrape'>('scrape')
+/** Scrape d'enrichissement en cours pendant que le résumé RSS est affiché. */
+const enrichissement = ref(false)
 
-watch(() => props.article, async (art) => {
-  contenu.value = null
+watch(() => props.article, async (art, ancien) => {
+  // Ré-émission du MÊME article (titre_fr/resume_source revenus de
+  // POST /ouvrir côté presse) : pas de re-scrape — on adopte juste le
+  // résumé RSS s'il vient d'arriver et que rien n'est encore affiché.
+  if (art && ancien && art.id === ancien.id) {
+    if (!contenu.value && art.resume_source) {
+      contenu.value = art.resume_source
+      sourceContenu.value = 'rss'
+      chargement.value = false // le scrape en cours reste l'enrichissement
+    }
+    return
+  }
+
   contenuFr.value = null
   traductionChargement.value = false
+
+  // Résumé RSS immédiat (toujours disponible, collecté au cycle presse) :
+  // il remplace la skeleton — le scraper devient un simple enrichissement.
+  contenu.value = art?.resume_source || null
+  sourceContenu.value = contenu.value ? 'rss' : 'scrape'
+  chargement.value = !!art?.url && !contenu.value
+
   if (!art?.url) return
-  chargement.value = true
+  // Enrichissement scraper : utile seulement sans résumé ou résumé court.
+  if (contenu.value && contenu.value.length >= 500) return
+  enrichissement.value = !!contenu.value
   try {
     const res = await apiService.obtenirContenuArticle(art.url)
-    contenu.value = res.texte
-    await traduireContenu()
+    // Le scrape ne remplace que s'il apporte PLUS que le résumé RSS.
+    if (res.texte && res.texte.length > (contenu.value?.length ?? 0)) {
+      contenu.value = res.texte
+      sourceContenu.value = 'scrape'
+      await traduireContenu()
+    }
   } catch {
-    // non-bloquant
+    // Échec (page rendue en JavaScript, mur de cookies…) : le résumé RSS
+    // reste affiché — plus jamais d'« Article non accessible ».
   } finally {
     chargement.value = false
+    enrichissement.value = false
   }
 })
 

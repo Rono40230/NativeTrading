@@ -264,6 +264,9 @@ async function ouvrir(a: ArticlePresse) {
     score: a.score,
     niveau,
     theme: (a.theme as ArticleNews['theme']) ?? 'autre',
+    // Résumé RSS : affiché immédiatement par la modal partagée (le scrape
+    // n'est plus qu'un enrichissement — Yahoo & co rendent en JavaScript).
+    resume_source: a.resume_source,
   }
 
   // Machine à états traduction (porte d'entrée) + marquage lu — en parallèle
@@ -272,6 +275,11 @@ async function ouvrir(a: ArticlePresse) {
     const res = await presseApi.ouvrir(a.hash_titre)
     if (res.titre_fr) {
       articleModal.value = { ...articleModal.value, titre_fr: res.titre_fr, sentiment: res.sentiment as ArticleNews['sentiment'] }
+    }
+    // Résumé RSS tardif (article listé avant un cycle de collecte complet) :
+    // la modal l'adopte si elle n'a encore rien à afficher.
+    if (res.article.resume_source && !articleModal.value.resume_source) {
+      articleModal.value = { ...articleModal.value, resume_source: res.article.resume_source }
     }
     // Mise à jour en place (badge lu, statut)
     articles.value = articles.value.map(x => (x.hash_titre === a.hash_titre ? res.article : x))
