@@ -96,6 +96,14 @@ const nav: NavItem[] = [
     ]
   },
 
+  // ── Presse ────────────────────────────────────────────────────────────────
+  {
+    groupe: 'Presse', icone: '📰',
+    liens: [
+      { to: '/presse', icone: '📚', label: 'Bibliothèque' },
+    ]
+  },
+
   // ── Système ───────────────────────────────────────────────────────────────
   { to: '/settings', icone: '⚙️',  label: 'Paramètres' },
   { to: '/data',     icone: '📦',  label: 'Données' },

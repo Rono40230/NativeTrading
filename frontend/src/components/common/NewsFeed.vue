@@ -90,6 +90,11 @@
     </div>
 
     <p v-else class="text-center text-[10px] text-slate-500">Aucune actualité filtrée</p>
+
+    <!-- Pied de panneau : lien vers la bibliothèque complète -->
+    <div class="pt-2 mt-2 border-t border-white/5 shrink-0 text-right">
+      <RouterLink to="/presse" class="text-xs text-blue-400 hover:underline">Tout voir →</RouterLink>
+    </div>
   </div>
 
   <!-- Modale article (composant dédié) -->
@@ -99,6 +104,7 @@
 <script setup lang="ts">
 defineOptions({ inheritAttrs: false })
 import { ref, onMounted } from 'vue'
+import { RouterLink } from 'vue-router'
 import { apiService } from '@/services/api.service'
 import { useNewsStore } from '@/stores/news.store'
 import type { ThemeNews } from '@/stores/news.store'

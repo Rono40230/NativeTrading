@@ -27,6 +27,9 @@ const router = createRouter({
     { path: '/ml-insights', component: () => import('../views/MlInsightsView.vue') },
     { path: '/lexique',     component: () => import('../views/LexiqueView.vue') },
 
+    // Presse
+    { path: '/presse', component: () => import('../views/PresseView.vue') },
+
     // Système
     { path: '/data',            component: () => import('../views/DataManagementView.vue') },
     { path: '/settings',        component: () => import('../views/SettingsView.vue') },

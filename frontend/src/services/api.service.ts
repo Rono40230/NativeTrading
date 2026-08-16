@@ -5,6 +5,7 @@ import { apiSmcMethods } from './api.smc'
 import { newsApi } from './api.news'
 import { engineApi } from './api.engine'
 import { workerApi } from './api.worker'
+import { presseApi } from './api.presse'
 
 export type {
   Candle, PredictionML, ReponseEntrainement,
@@ -278,5 +279,6 @@ export const apiService = {
   ...newsApi,
   ...engineApi,
   ...workerApi,
+  ...presseApi,
   ...apiSmcMethods,
 }
