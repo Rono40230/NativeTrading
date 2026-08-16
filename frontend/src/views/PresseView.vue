@@ -81,13 +81,13 @@
             <button class="text-red-400 hover:text-red-300 text-xs" @click="retirerSource(s.id)">Retirer</button>
           </div>
         </div>
-        <div class="flex gap-2 pt-2 border-t border-white/5">
+        <div class="grid grid-cols-1 gap-2 pt-2 border-t border-white/5">
           <input v-model="nouvelleSource.nom" placeholder="Nom" class="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white" />
-          <input v-model="nouvelleSource.url" placeholder="https://flux.example/rss" class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white" />
-          <button class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm" @click="ajouterSource()">+ Ajouter</button>
+          <input v-model="nouvelleSource.url" placeholder="https://flux.example/rss" class="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white" />
         </div>
-        <div class="flex justify-end">
-          <button class="px-4 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10" @click="modaleSources = false">Fermer</button>
+        <div class="flex gap-3 pt-1">
+          <button class="flex-1 px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 transition" @click="ajouterSource()">+ Ajouter</button>
+          <button class="flex-1 px-4 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition" @click="modaleSources = false">Fermer</button>
         </div>
       </div>
     </div>
