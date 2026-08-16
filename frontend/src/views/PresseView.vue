@@ -79,7 +79,7 @@
       <span class="text-xs text-gray-500">{{ articles.length }} articles</span>
     </div>
 
-    <!-- Bibliothèque — cartes -->
+    <!-- Bibliothèque — cartes (mêmes badges NOUVEAU/Vu que le dashboard) -->
     <div class="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8">
       <button
         v-for="a in articles"
@@ -88,6 +88,17 @@
         :class="{ 'opacity-50': a.lu }"
         @click="ouvrir(a)"
       >
+        <div class="flex items-start justify-between gap-1">
+          <span
+            v-if="estNouveau(a.ajoute_le) && !a.lu"
+            class="text-[9px] font-bold text-red-300 bg-red-600/40 border border-red-500/40 rounded-full px-1.5 py-0.5 leading-none animate-pulse shrink-0"
+          >NOUVEAU</span>
+          <span
+            v-else-if="a.lu"
+            class="text-[9px] font-semibold text-blue-200 bg-blue-600/70 border border-blue-500/50 rounded-full px-1.5 py-0.5 leading-none shrink-0"
+          >Vu</span>
+          <span class="ml-auto text-[10px] font-semibold tabular-nums" :class="a.score >= 60 ? 'text-red-300' : a.score >= 40 ? 'text-yellow-300' : 'text-gray-400'">{{ a.score }}</span>
+        </div>
         <span class="text-xs leading-snug line-clamp-3" :class="a.lu ? 'text-gray-500' : 'text-white font-medium'">{{ a.titre }}</span>
         <div class="flex flex-wrap gap-1 text-[10px] mt-auto">
           <span class="px-1.5 py-0.5 rounded" :class="a.impact === 'fort' ? 'bg-red-500/15 text-red-300' : a.impact === 'moyen' ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-gray-400'">{{ a.impact }}</span>
@@ -130,22 +141,17 @@
       </div>
     </div>
 
-    <!-- Modal article (opaque) -->
-    <div v-if="articleOuvert" class="fixed inset-0 z-50 flex items-center justify-center bg-black/30" @click.self="articleOuvert = null">
-      <div class="w-full max-w-lg p-6 space-y-3 rounded-2xl border border-white/10 bg-[#16181d] shadow-2xl">
-        <h3 class="font-bold text-white">{{ articleOuvert.titre_fr || articleOuvert.article.titre }}</h3>
-        <p v-if="!articleOuvert.titre_fr" class="text-xs text-yellow-400">Traduction indisponible (réessai à la prochaine ouverture)</p>
-        <p v-if="articleOuvert.sentiment" class="text-sm text-gray-400">Sentiment : {{ articleOuvert.sentiment }}</p>
-        <a :href="articleOuvert.article.url" target="_blank" class="text-sm text-blue-400 hover:underline">Lire l'article source ↗</a>
-        <div class="flex justify-end"><button class="px-4 py-2 rounded-lg bg-white/5 text-gray-300 text-sm" @click="articleOuvert = null">Fermer</button></div>
-      </div>
-    </div>
+    <!-- Modal article : le MÊME composant que le dashboard (NewsArticleModal) —
+         contenu scrapé + traduit, pas juste un titre. -->
+    <NewsArticleModal :article="articleModal" @fermer="articleModal = null" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { presseApi, type ArticlePresse } from '@/services/api.presse'
+import type { ArticleNews } from '@/services/api.types.marche'
+import NewsArticleModal from '@/components/common/NewsArticleModal.vue'
 
 /** Article structuré extrait du markdown du brief. */
 interface ArticleBrief {
@@ -164,7 +170,12 @@ const sources = ref<Awaited<ReturnType<typeof presseApi.sources>>>([])
 const enBrief = ref(false)
 const erreurBrief = ref<string | null>(null)
 const dernierBrief = ref<Awaited<ReturnType<typeof presseApi.briefs>>[number] | null>(null)
-const articleOuvert = ref<{ article: ArticlePresse; titre_fr: string | null; sentiment: string | null } | null>(null)
+const articleModal = ref<ArticleNews | null>(null)
+
+/** Badge NOUVEAU : < 30 min (même logique que NewsFeed dashboard). */
+function estNouveau(epochSec: number): boolean {
+  return Date.now() / 1000 - epochSec < 1800
+}
 const filtre = reactive({ q: '', theme: '', asset: '', lu: '' })
 const modaleSources = ref(false)
 const nouvelleSource = reactive({ nom: '', url: '' })
@@ -242,25 +253,41 @@ async function charger(reset = true) {
 }
 
 async function ouvrir(a: ArticlePresse) {
+  // Conversion vers ArticleNews (format attendu par NewsArticleModal —
+  // le MÊME composant que le dashboard : scrape + traduction du contenu).
+  const niveau = a.score >= 70 ? 'critique' as const : a.score >= 55 ? 'important' as const : a.score >= 35 ? 'modere' as const : 'veille' as const
+  articleModal.value = {
+    id: a.hash_titre,
+    titre: a.titre,
+    source: a.source_nom,
+    url: a.url,
+    date: new Date(a.ajoute_le * 1000).toISOString(),
+    score: a.score,
+    niveau,
+    theme: (a.theme as ArticleNews['theme']) ?? 'autre',
+  }
+
+  // Machine à états traduction (porte d'entrée) + marquage lu — en parallèle
+  // de l'affichage de la modal (le contenu se charge dedans).
   try {
     const res = await presseApi.ouvrir(a.hash_titre)
-    articleOuvert.value = res
-    // Mise à jour en place (badge lu, statut) : un rechargement complet
-    // replongerait la bibliothèque à la page 1 et perdrait les pages chargées.
+    if (res.titre_fr) {
+      articleModal.value = { ...articleModal.value, titre_fr: res.titre_fr, sentiment: res.sentiment as ArticleNews['sentiment'] }
+    }
+    // Mise à jour en place (badge lu, statut)
     articles.value = articles.value.map(x => (x.hash_titre === a.hash_titre ? res.article : x))
     // Filtre « Non lus » : l'article désormais lu n'y appartient plus.
     if (filtre.lu === 'false') {
       articles.value = articles.value.filter(x => x.hash_titre !== a.hash_titre)
     }
   } catch (err: any) {
-    // 410 Gone : article supprimé après traduction impossible ×2 — on referme et on le retire de la liste
+    // 410 Gone : article supprimé après traduction impossible ×2
     if (err?.response?.status === 410) {
-      articleOuvert.value = null
+      articleModal.value = null
       articles.value = articles.value.filter(x => x.hash_titre !== a.hash_titre)
-      return
     }
-    // Autre erreur réseau/serveur : on referme sans crash
-    articleOuvert.value = null
+    // Autre erreur : la modal reste ouverte avec le titre VO (le composant
+    // partagé scrape le contenu indépendamment de la traduction du titre).
   }
 }
 
