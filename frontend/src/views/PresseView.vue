@@ -15,24 +15,6 @@
 
       <!-- ── Colonne unique : filtres, brief, cartes ── -->
 
-        <!-- Filtres (une ligne) -->
-        <div class="glass-card p-3 flex flex-wrap gap-3 items-center shrink-0">
-          <input v-model="filtre.q" placeholder="Recherche…" class="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white" @keyup.enter="charger()" />
-          <select v-model="filtre.theme" class="bg-white text-black rounded-lg px-2 py-1.5 text-sm" @change="charger()">
-            <option value="">Tous thèmes</option>
-            <option v-for="t in themes" :key="t" :value="t">{{ t }}</option>
-          </select>
-          <select v-model="filtre.asset" class="bg-white text-black rounded-lg px-2 py-1.5 text-sm" @change="charger()">
-            <option value="">Tous assets</option>
-            <option v-for="a in assets" :key="a" :value="a">{{ a }}</option>
-          </select>
-          <select v-model="filtre.lu" class="bg-white text-black rounded-lg px-2 py-1.5 text-sm" @change="charger()">
-            <!-- lu=true → articles LUS, lu=false → NON LUS (interprétation backend) -->
-            <option value="">Lu + non lus</option><option value="true">Lis</option><option value="false">Non lus</option>
-          </select>
-          <!-- articles.length = total chargé (toutes pages « Charger plus » confondues) -->
-          <span class="text-xs text-gray-500">{{ articles.length }} articles</span>
-        </div>
 
         <!-- Brief repliable (bas de colonne) -->
         <details open class="glass-card p-4 shrink-0">
@@ -88,6 +70,25 @@
             <p v-if="erreurBrief" class="text-sm text-red-400">{{ erreurBrief }}</p>
           </div>
         </details>
+
+        <!-- Filtres (une ligne) -->
+        <div class="glass-card p-3 flex flex-wrap gap-3 items-center shrink-0">
+          <input v-model="filtre.q" placeholder="Recherche…" class="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white" @keyup.enter="charger()" />
+          <select v-model="filtre.theme" class="bg-white text-black rounded-lg px-2 py-1.5 text-sm" @change="charger()">
+            <option value="">Tous thèmes</option>
+            <option v-for="t in themes" :key="t" :value="t">{{ t }}</option>
+          </select>
+          <select v-model="filtre.asset" class="bg-white text-black rounded-lg px-2 py-1.5 text-sm" @change="charger()">
+            <option value="">Tous assets</option>
+            <option v-for="a in assets" :key="a" :value="a">{{ a }}</option>
+          </select>
+          <select v-model="filtre.lu" class="bg-white text-black rounded-lg px-2 py-1.5 text-sm" @change="charger()">
+            <!-- lu=true → articles LUS, lu=false → NON LUS (interprétation backend) -->
+            <option value="">Lu + non lus</option><option value="true">Lis</option><option value="false">Non lus</option>
+          </select>
+          <!-- articles.length = total chargé (toutes pages « Charger plus » confondues) -->
+          <span class="text-xs text-gray-500">{{ articles.length }} articles</span>
+        </div>
 
         <!-- Bibliothèque — cartes enrichies (résumé FR intégré, design brief) -->
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
