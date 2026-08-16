@@ -301,7 +301,8 @@ impl Database {
         Ok(inseres)
     }
 
-    /// Listing filtré — la clause asset cherche dans le JSON textuel
+    /// Listing filtré — paramètres TOUJOURS liés (jamais de formatage de
+    /// chaîne dans le SQL) ; la clause asset cherche dans le JSON textuel
     /// (`assets LIKE '%"BTC"%'` : suffisant pour des tickers sans ambigüité).
     pub async fn lister_articles_presse(&self, f: &FiltreArticles) -> anyhow::Result<Vec<PresseArticle>> {
         let mut sql = String::from(
@@ -309,16 +310,18 @@ impl Database {
                     assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le
              FROM presse_articles WHERE 1=1",
         );
-        if let Some(t) = &f.theme { sql.push_str(&format!(" AND theme = '{}'", t.replace('\'', "''"))); }
-        if let Some(a) = &f.asset { sql.push_str(&format!(" AND assets_concernes LIKE '%\"{}\"%'", a.replace(['\'', '"'], ""))); }
-        if let Some(s) = &f.source { sql.push_str(&format!(" AND source_nom = '{}'", s.replace('\'', "''"))); }
-        if let Some(q) = &f.q { sql.push_str(&format!(" AND LOWER(titre) LIKE '%{}%'", q.to_lowercase().replace('\'', "''"))); }
+        let mut q = sqlx::query_as::<_, (String, String, String, String, String, i64, String, String, String, String, i64, i64, i64)>(&sql);
+        if let Some(t) = &f.theme { sql.push_str(" AND theme = ?"); q = q.bind(t.clone()); }
+        if let Some(a) = &f.asset {
+            sql.push_str(" AND assets_concernes LIKE ?");
+            q = q.bind(format!("%\"{a}\"%"));
+        }
+        if let Some(src) = &f.source { sql.push_str(" AND source_nom = ?"); q = q.bind(src.clone()); }
+        if let Some(qs) = &f.q { sql.push_str(" AND LOWER(titre) LIKE ?"); q = q.bind(format!("%{}%", qs.to_lowercase())); }
         if let Some(lu) = f.lu { sql.push_str(if lu { " AND lu = 1" } else { " AND lu = 0" }); }
-        sql.push_str(" ORDER BY ajoute_le DESC LIMIT ?1 OFFSET ?2");
-
-        let lignes = sqlx::query_as::<_, (String, String, String, String, String, i64, String, String, String, String, i64, i64, i64)>(&sql)
-            .bind(f.limite).bind(f.offset)
-            .fetch_all(self.pool()).await?;
+        sql.push_str(" ORDER BY ajoute_le DESC LIMIT ? OFFSET ?");
+        let q = q.bind(f.limite).bind(f.offset);
+        let lignes = q.fetch_all(self.pool()).await?;
         Ok(lignes.into_iter().map(|l| PresseArticle {
             hash_titre: l.0, titre: l.1, url: l.2, source_nom: l.3, publie_le: l.4,
             score: l.5 as u8, theme: l.6, assets_concernes: l.7, impact: l.8,
