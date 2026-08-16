@@ -128,53 +128,66 @@
         </details>
       </div>
 
-      <!-- ── Liseuse (1/3 écran) ── -->
-      <aside class="w-1/3 min-w-[22rem] shrink-0 glass-card p-4 overflow-y-auto scroll-zone">
+      <!-- ── Liseuse (1/3 écran) — design éditorial ── -->
+      <aside class="w-1/3 min-w-[22rem] shrink-0 rounded-xl border border-white/10 bg-[#101218] overflow-hidden flex flex-col">
         <template v-if="liseuse">
-          <h2 class="text-lg font-bold text-white leading-snug">{{ liseuse.titre_fr ?? liseuse.article.titre }}</h2>
-          <div class="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-gray-400">
-            <span class="font-semibold text-gray-300">{{ liseuse.article.source_nom }}</span>
-            <span>·</span>
-            <span class="font-bold" :class="classeScore(liseuse.article.score)">{{ liseuse.article.score }}/100</span>
-            <span>·</span>
-            <span>{{ formaterDate(liseuse.article.ajoute_le) }}</span>
-          </div>
-          <hr class="my-3 border-white/10" />
-
-          <!-- Skeleton : Jina en cours, résumé RSS affiché dessous s'il existe -->
-          <div v-if="liseuse.chargement" class="space-y-2">
-            <p class="text-xs text-blue-300 flex items-center gap-2">
-              <span class="inline-block h-2 w-2 animate-spin rounded-full border border-blue-400 border-t-transparent" />
-              Récupération de l'article…
-            </p>
-            <p v-if="liseuse.contenu" class="text-xs text-gray-400 leading-relaxed whitespace-pre-wrap">{{ liseuse.contenu }}</p>
-            <div v-else class="animate-pulse space-y-2">
-              <div v-for="i in 6" :key="i" class="h-2 rounded bg-white/10" :style="{ width: `${60 + i * 6}%` }" />
+          <!-- En-tête éditorial : bandeau coloré + titre + méta -->
+          <div class="relative bg-gradient-to-br from-slate-800/80 to-slate-900/60 px-5 pt-4 pb-3 border-b border-white/10">
+            <div class="absolute top-0 left-0 right-0 h-1" :class="liseuse.article.score >= 60 ? 'bg-red-400/80' : liseuse.article.score >= 40 ? 'bg-yellow-400/80' : 'bg-slate-500/60'"></div>
+            <p class="text-[10px] font-bold uppercase tracking-widest text-blue-300/90 mb-1.5">{{ liseuse.article.source_nom }}</p>
+            <h2 class="text-base font-bold text-white leading-snug">{{ liseuse.titre_fr ?? liseuse.article.titre }}</h2>
+            <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
+              <span class="px-1.5 py-0.5 rounded-full font-bold" :class="liseuse.article.score >= 60 ? 'bg-red-500/20 text-red-300' : liseuse.article.score >= 40 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-white/10 text-gray-400'">Score {{ liseuse.article.score }}/100</span>
+              <span class="px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300">{{ liseuse.article.theme }}</span>
+              <span class="text-gray-500">{{ formaterDate(liseuse.article.ajoute_le) }}</span>
             </div>
           </div>
 
-          <template v-else-if="liseuse.contenu">
-            <!-- Origine du contenu : résumé RSS (collecte) vs Jina complet -->
-            <div class="mb-2 flex items-center gap-2 flex-wrap">
-              <span
-                class="rounded-full border px-1.5 py-0.5 text-[9px] font-medium"
-                :class="liseuse.sourceContenu === 'jina'
-                  ? 'border-emerald-400/30 bg-emerald-400/5 text-emerald-300/80'
-                  : 'border-blue-400/30 bg-blue-400/5 text-blue-300/80'"
-              >{{ liseuse.sourceContenu === 'jina' ? '📰 Article complet traduit' : '📄 Résumé RSS' }}</span>
-              <span v-if="liseuse.enTraduction" class="flex items-center gap-1.5 text-[9px] text-blue-400">
+          <!-- Corps scrollable -->
+          <div class="flex-1 overflow-y-auto scroll-zone px-5 py-4">
+            <!-- Skeleton : Jina en cours, résumé RSS affiché dessous s'il existe -->
+            <div v-if="liseuse.chargement" class="space-y-3">
+              <p class="text-xs text-blue-300 flex items-center gap-2">
                 <span class="inline-block h-2 w-2 animate-spin rounded-full border border-blue-400 border-t-transparent" />
-                Traduction en cours…
-              </span>
-              <button
-                v-else-if="liseuse.contenu_fr"
-                class="rounded border border-slate-600/40 bg-white/5 px-1.5 py-0.5 text-[9px] text-slate-500 hover:text-slate-300 transition-colors"
-                @click="liseuse.contenu_fr = null"
-              >Voir original</button>
+                Récupération de l'article…
+              </p>
+              <p v-if="liseuse.contenu" class="text-sm text-gray-300 leading-relaxed whitespace-pre-wrap">{{ liseuse.contenu }}</p>
+              <div v-else class="animate-pulse space-y-2.5">
+                <div v-for="i in 8" :key="i" class="h-2.5 rounded bg-white/10" :style="{ width: `${55 + i * 5}%` }" />
+              </div>
             </div>
-            <p class="text-xs text-gray-200 leading-relaxed whitespace-pre-wrap">{{ liseuse.contenu_fr ?? liseuse.contenu }}</p>
-          </template>
-          <p v-else class="text-center text-xs text-gray-500 py-6">Article non accessible directement.</p>
+
+            <template v-else-if="liseuse.contenu">
+              <!-- Origine du contenu -->
+              <div class="mb-3 flex items-center gap-2 flex-wrap">
+                <span
+                  class="rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                  :class="liseuse.sourceContenu === 'jina'
+                    ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
+                    : 'border-blue-400/30 bg-blue-400/10 text-blue-300'"
+                >{{ liseuse.sourceContenu === 'jina' ? '📰 Article complet' : '📄 Résumé RSS' }}</span>
+                <span v-if="liseuse.enTraduction" class="flex items-center gap-1.5 text-[10px] text-blue-400">
+                  <span class="inline-block h-2 w-2 animate-spin rounded-full border border-blue-400 border-t-transparent" />
+                  Traduction…
+                </span>
+                <button
+                  v-else-if="liseuse.contenu_fr"
+                  class="rounded-full border border-slate-600/40 bg-white/5 px-2 py-0.5 text-[10px] text-slate-400 hover:text-slate-200 transition-colors"
+                  @click="liseuse.contenu_fr = null"
+                >Voir original</button>
+              </div>
+              <p class="text-sm text-gray-200 leading-7 whitespace-pre-wrap font-light">{{ liseuse.contenu_fr ?? liseuse.contenu }}</p>
+            </template>
+            <div v-else class="flex flex-col items-center justify-center py-10 gap-2 text-center">
+              <span class="text-2xl opacity-30">🔒</span>
+              <p class="text-xs text-gray-500">Article non accessible<br/><span class="text-[10px]">Ce site bloque la lecture externe</span></p>
+            </div>
+          </div>
+
+          <!-- Pied : lien source -->
+          <div class="px-5 py-2.5 border-t border-white/10 bg-white/[0.02] shrink-0">
+            <a :href="liseuse.article.url" target="_blank" class="text-[11px] text-blue-400 hover:text-blue-300 hover:underline transition-colors">Lire sur le site source ↗</a>
+          </div>
         </template>
 
         <!-- Liseuse vide -->
