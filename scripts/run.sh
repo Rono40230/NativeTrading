@@ -102,6 +102,18 @@ for i in $(seq 1 20); do
   echo -n "."
 done
 
+# ── Collecteur de presse (process séparé, hors watchdog : sa mort n'arrête
+# rien — gate 4. Rejoint la flotte des producteurs isolés.)
+# pkill par nom EXACT avant lancement (règle L1) : évite les doublons d'un
+# run précédent. COLLECTOR_PID volontairement NI dans cleanup NI dans le
+# watchdog de fin de script.
+echo "📰 Collecteur de presse"
+pkill -x news_collector 2>/dev/null || true
+DATABASE_PATH="$ROOT_DIR/data/trading.db" \
+  "$ROOT_DIR/backend/target/release/news_collector" \
+  > "$LOG_DIR/news_collector.log" 2>&1 &
+COLLECTOR_PID=$!
+
 # ─── Démarrage frontend Tauri ─────────────────────────────────────────────────
 echo "🖥️  Lancement fenêtre Tauri..."
 cd "$ROOT_DIR/frontend"

@@ -35,6 +35,21 @@ pub struct PresseArticle {
     pub ajoute_le: i64,
 }
 
+/// Article brut fourni par le collecteur (type témoin : le crate db ne
+/// dépend pas du crate news — la conversion `ArticleCollecte` → `ArticleEntrant`
+/// se fait chez l'appelant, champ à champ).
+pub struct ArticleEntrant {
+    pub hash_titre: String,
+    pub titre: String,
+    pub url: String,
+    pub source_nom: String,
+    pub publie_le: String,
+    pub score: u8,
+    pub theme: String,
+    pub assets_concernes: String,
+    pub impact: String,
+}
+
 /// Filtres de listing de la bibliothèque (tous optionnels).
 pub struct FiltreArticles {
     pub theme: Option<String>,
@@ -110,6 +125,35 @@ impl Database {
         }
         tx.commit().await?;
         Ok(inseres)
+    }
+
+    /// Pont collecteur → bibliothèque : convertit des `ArticleEntrant` en
+    /// `PresseArticle` puis délègue à `inserer_articles_presse` (dédup par
+    /// hash). `ajoute_le` = date de COLLECTE posée ici (horloge serveur, un
+    /// timestamp unique pour tout le lot) : le champ n'existe pas côté
+    /// `ArticleEntrant` car il n'a pas de sens à la collecte — revue tâche 3,
+    /// `publie_le` est la date de publication de la source (parfois ancienne),
+    /// `ajoute_le` la date d'entrée en bibliothèque (base de la sélection
+    /// 24 h et de la purge). Le INSERT sous-jacent LIANT `a.ajoute_le`, la
+    /// valeur doit être l'horodatage réel — jamais 0.
+    pub async fn inserer_articles_presse_converts(&self, articles: &[ArticleEntrant]) -> anyhow::Result<u64> {
+        let collecte_le = chrono::Utc::now().timestamp();
+        let convertis: Vec<PresseArticle> = articles.iter().map(|a| PresseArticle {
+            hash_titre: a.hash_titre.clone(),
+            titre: a.titre.clone(),
+            url: a.url.clone(),
+            source_nom: a.source_nom.clone(),
+            publie_le: a.publie_le.clone(),
+            score: a.score,
+            theme: a.theme.clone(),
+            assets_concernes: a.assets_concernes.clone(),
+            impact: a.impact.clone(),
+            statut_traduction: "non_tente".into(),
+            tentatives_traduction: 0,
+            lu: false,
+            ajoute_le: collecte_le,
+        }).collect();
+        self.inserer_articles_presse(&convertis).await
     }
 
     /// Listing filtré — paramètres TOUJOURS liés (jamais de formatage de
@@ -309,6 +353,29 @@ mod tests {
             q: Some("titre h2".into()), lu: None, limite: 50, offset: 0,
         };
         assert_eq!(db.lister_articles_presse(&filtre_q).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn convertis_pose_la_date_de_collecte() {
+        let db = db_test().await;
+        let e = ArticleEntrant {
+            hash_titre: "c1".into(),
+            titre: "Titre c1".into(),
+            url: "https://exemple.fr/c1".into(),
+            source_nom: "Test".into(),
+            publie_le: "2026-08-15T10:00:00Z".into(),
+            score: 50,
+            theme: "macro".into(),
+            assets_concernes: "[]".into(),
+            impact: "moyen".into(),
+        };
+        assert_eq!(db.inserer_articles_presse_converts(&[e]).await.unwrap(), 1);
+        let insere = db.lire_article_presse("c1").await.unwrap().unwrap();
+        // ajoute_le = date de COLLECTE (jamais 0 — sinon sélection 24 h et
+        // purge seraient faussées), même si publie_le est ancien.
+        assert!(insere.ajoute_le >= chrono::Utc::now().timestamp() - 60, "ajoute_le = {}", insere.ajoute_le);
+        assert_eq!(insere.statut_traduction, "non_tente");
+        assert_eq!(db.selection_brief_24h(10).await.unwrap().len(), 1);
     }
 
     #[tokio::test]
