@@ -9,11 +9,10 @@
       >📡 Sources RSS</button>
     </div>
 
-    <!-- Split-panel : bibliothèque 2/3 | liseuse 1/3 -->
-    <div class="flex gap-4 flex-1 min-h-0">
+    <!-- Colonne unique : filtres, brief, cartes enrichies -->
+    <div class="flex-1 min-h-0 overflow-y-auto scroll-zone pr-1">
 
-      <!-- ── Colonne gauche (2/3) : filtres, cartes, brief repliable ── -->
-      <div class="flex-1 min-w-0 flex flex-col gap-4 overflow-y-auto scroll-zone pr-1">
+      <!-- ── Colonne unique : filtres, brief, cartes ── -->
 
         <!-- Filtres (une ligne) -->
         <div class="glass-card p-3 flex flex-wrap gap-3 items-center shrink-0">
@@ -55,7 +54,7 @@
                 <p class="text-sm text-gray-200 leading-relaxed">{{ briefParse.contexte }}</p>
               </div>
 
-              <!-- Articles du brief — cartes, clic → liseuse -->
+              <!-- Articles du brief — cartes autonomes -->
               <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <button
                   v-for="art in briefParse.articles"
@@ -89,13 +88,12 @@
           </div>
         </details>
 
-        <!-- Bibliothèque — cartes (4/ligne max, clic → liseuse) -->
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <button
+        <!-- Bibliothèque — cartes enrichies (résumé FR intégré, design brief) -->
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <article
             v-for="a in articles"
             :key="a.hash_titre"
-            class="glass-card p-3 text-left hover:bg-white/10 transition flex flex-col gap-2 min-h-28"
-            :class="{ 'border-blue-500/60 ring-1 ring-blue-500/50': selectionnee(a) }"
+            class="rounded-xl border border-white/10 bg-white/[0.04] p-4 flex flex-col gap-2 hover:bg-white/[0.07] hover:border-white/20 transition relative overflow-hidden cursor-pointer"
             @click="lire(a)"
           >
             <div class="flex items-start justify-between gap-1">
@@ -109,14 +107,29 @@
               >Vu</span>
               <span class="ml-auto text-[10px] font-semibold tabular-nums" :class="classeScore(a.score)">{{ a.score }}</span>
             </div>
-            <span class="text-xs leading-snug line-clamp-3" :class="a.lu ? 'text-gray-500' : 'text-white font-medium'">{{ a.titre_fr ?? a.titre }}</span>
-            <div class="flex flex-wrap gap-1 text-[10px] mt-auto">
+            <div class="absolute top-0 left-0 right-0 h-1" :class="a.score >= 60 ? 'bg-red-400/70' : a.score >= 40 ? 'bg-yellow-400/70' : 'bg-gray-500/50'"></div>
+
+            <div class="flex items-start justify-between gap-1">
+              <span
+                v-if="estNouveau(a.ajoute_le) && !a.lu"
+                class="text-[9px] font-bold text-red-300 bg-red-600/40 border border-red-500/40 rounded-full px-1.5 py-0.5 leading-none animate-pulse shrink-0"
+              >NOUVEAU</span>
+              <span
+                v-else-if="a.lu"
+                class="text-[9px] font-semibold text-blue-200 bg-blue-600/70 border border-blue-500/50 rounded-full px-1.5 py-0.5 leading-none shrink-0"
+              >Vu</span>
+              <span class="ml-auto text-lg font-bold tabular-nums shrink-0" :class="classeScore(a.score)">{{ a.score }}</span>
+            </div>
+
+            <h3 class="text-sm font-semibold leading-snug line-clamp-2" :class="a.lu ? 'text-gray-500' : 'text-white'">{{ a.titre_fr ?? a.titre }}</h3>
+            <p v-if="resumeAffiche(a)" class="text-xs text-gray-400 leading-relaxed line-clamp-4">{{ resumeAffiche(a) }}</p>
+
+            <div class="mt-auto flex flex-wrap items-center gap-1.5 text-[10px]">
               <span class="px-1.5 py-0.5 rounded" :class="a.impact === 'fort' ? 'bg-red-500/15 text-red-300' : a.impact === 'moyen' ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-gray-400'">{{ a.impact }}</span>
               <span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{{ a.theme }}</span>
-              <span v-for="asset in parseAssets(a)" :key="asset" class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">{{ asset }}</span>
+              <span class="px-1.5 py-0.5 rounded bg-white/10 text-gray-400 truncate max-w-[8rem]">{{ a.source_nom }}</span>
             </div>
-            <span class="text-[10px] text-gray-500 truncate">{{ a.source_nom }}</span>
-          </button>
+          </article>
         </div>
         <p v-if="articles.length === 0" class="text-sm text-gray-500 p-4">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min).</p>
         <!-- Pagination : le backend sert 50 articles/page, on empile les pages suivantes -->
@@ -126,62 +139,6 @@
             @click="charger(false)"
           >Charger plus</button>
         </div>
-
-      </div>
-
-      <!-- ── Liseuse (1/3 écran) — design éditorial ── -->
-      <aside class="w-1/3 min-w-[22rem] shrink-0 rounded-xl border border-white/10 bg-[#101218] overflow-hidden flex flex-col">
-        <template v-if="liseuse">
-          <!-- En-tête éditorial : bandeau coloré + titre + méta -->
-          <div class="relative bg-gradient-to-br from-slate-800/80 to-slate-900/60 px-5 pt-4 pb-3 border-b border-white/10">
-            <div class="absolute top-0 left-0 right-0 h-1" :class="liseuse.article.score >= 60 ? 'bg-red-400/80' : liseuse.article.score >= 40 ? 'bg-yellow-400/80' : 'bg-slate-500/60'"></div>
-            <p class="text-[10px] font-bold uppercase tracking-widest text-blue-300/90 mb-1.5">{{ liseuse.article.source_nom }}</p>
-            <h2 class="text-base font-bold text-white leading-snug">{{ liseuse.titre_fr ?? liseuse.article.titre }}</h2>
-            <div class="mt-2 flex flex-wrap items-center gap-2 text-[10px]">
-              <span class="px-1.5 py-0.5 rounded-full font-bold" :class="liseuse.article.score >= 60 ? 'bg-red-500/20 text-red-300' : liseuse.article.score >= 40 ? 'bg-yellow-500/20 text-yellow-300' : 'bg-white/10 text-gray-400'">Score {{ liseuse.article.score }}/100</span>
-              <span class="px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300">{{ liseuse.article.theme }}</span>
-              <span class="text-gray-500">{{ formaterDate(liseuse.article.ajoute_le) }}</span>
-            </div>
-          </div>
-
-          <!-- Corps scrollable : le résumé RSS est LE contenu (option A) -->
-          <div class="flex-1 overflow-y-auto scroll-zone px-5 py-4">
-            <template v-if="liseuse.contenu">
-              <!-- Origine du contenu -->
-              <div class="mb-3 flex items-center gap-2 flex-wrap">
-                <span class="rounded-full border border-blue-400/30 bg-blue-400/10 px-2 py-0.5 text-[10px] font-semibold text-blue-300">{{ liseuse.contenu_fr ? '📄 Résumé traduit' : '📄 Résumé' }}</span>
-                <span v-if="liseuse.enTraduction" class="flex items-center gap-1.5 text-[10px] text-blue-400">
-                  <span class="inline-block h-2 w-2 animate-spin rounded-full border border-blue-400 border-t-transparent" />
-                  Traduction…
-                </span>
-                <button
-                  v-else-if="liseuse.contenu_fr"
-                  class="rounded-full border border-slate-600/40 bg-white/5 px-2 py-0.5 text-[10px] text-slate-400 hover:text-slate-200 transition-colors"
-                  @click="liseuse.contenu_fr = null"
-                >Voir original</button>
-              </div>
-              <p class="text-sm text-gray-200 leading-7 whitespace-pre-wrap font-light">{{ liseuse.contenu_fr ?? liseuse.contenu }}</p>
-            </template>
-            <div v-else class="flex flex-col items-center justify-center py-10 gap-2 text-center">
-              <span class="text-2xl opacity-30">📄</span>
-              <p class="text-xs text-gray-500">Résumé indisponible pour cet article —
-                <button
-                  v-if="liseuse.article.url"
-                  class="text-blue-400 hover:text-blue-300 hover:underline"
-                  @click="ouvrirExterne(liseuse.article.url)"
-                >ouvre la source ↗</button>
-                <span v-else class="text-gray-600">pas de lien source</span>
-              </p>
-            </div>
-          </div>
-        </template>
-
-        <!-- Liseuse vide -->
-        <div v-else class="h-full flex flex-col items-center justify-center text-center gap-2">
-          <span class="text-3xl opacity-40">📰</span>
-          <p class="text-sm text-gray-500">Clique un article pour le lire ici</p>
-        </div>
-      </aside>
     </div>
 
     <!-- Modal sources (opaque, ouverte par le bouton du bandeau) -->
@@ -240,18 +197,6 @@ interface ArticleBrief {
   resume: string
 }
 
-/** État de la liseuse (panneau droit) : article affiché + résumé RSS.
- *  Option A : le résumé RSS est LE contenu — plus de chargement externe. */
-interface EtatLiseuse {
-  article: ArticlePresse
-  titre_fr: string | null
-  /** Résumé RSS (VO) tel que collecté. */
-  contenu: string | null
-  /** Traduction FR du résumé (null = VO affichée). */
-  contenu_fr: string | null
-  enTraduction: boolean
-}
-
 const articles = ref<ArticlePresse[]>([])
 const page = ref(1) // prochaine page à demander au backend (50 articles/page)
 const aToutCharge = ref(false) // dernière page servie < 50 articles → rien de plus à charger
@@ -259,11 +204,6 @@ const sources = ref<Awaited<ReturnType<typeof presseApi.sources>>>([])
 const enBrief = ref(false)
 const erreurBrief = ref<string | null>(null)
 const dernierBrief = ref<Awaited<ReturnType<typeof presseApi.briefs>>[number] | null>(null)
-const liseuse = ref<EtatLiseuse | null>(null)
-/** Garde-fou concurrence : incrémenté à chaque sélection — une réponse réseau
- *  tardive d'une sélection précédente ne doit pas écraser la nouvelle. */
-let selectionLiseuse = 0
-
 /** Badge NOUVEAU : < 30 min (même logique que NewsFeed dashboard). */
 function estNouveau(epochSec: number): boolean {
   return Date.now() / 1000 - epochSec < 1800
@@ -336,11 +276,6 @@ function parseAssets(a: ArticlePresse): string[] {
   try { return JSON.parse(a.assets_concernes) } catch { return [] }
 }
 
-/** Carte sélectionnée = celle affichée dans la liseuse (surbrillance bleue). */
-function selectionnee(a: ArticlePresse): boolean {
-  return liseuse.value?.article.hash_titre === a.hash_titre
-}
-
 /** Charge une page de la bibliothèque. reset=true (filtres, montage) repart de
  * la page 1 ; reset=false empile la page suivante (« Charger plus »). */
 async function charger(reset = true) {
@@ -366,63 +301,25 @@ async function charger(reset = true) {
  *  le texte en query param). L'endpoint rend le texte ORIGINAL en cas
  *  d'échec (Ollama down, ou texte déjà français) : une « traduction »
  *  identique à l'extrait = échec → VO conservée à l'affichage, en silence. */
-async function traduireResumeLiseuse(id: number) {
-  const texte = liseuse.value?.contenu
-  if (!texte || !liseuse.value) return
-  liseuse.value.enTraduction = true
-  try {
-    const extrait = Array.from(texte).slice(0, 3000).join('')
-    const res = await apiService.traduire(extrait, false)
-    if (res.texte_fr && res.texte_fr.trim() !== extrait.trim()) {
-      if (id === selectionLiseuse && liseuse.value) liseuse.value.contenu_fr = res.texte_fr
-    }
-  } catch {
-    // silencieux : VO affichée
-  } finally {
-    if (id === selectionLiseuse && liseuse.value) liseuse.value.enTraduction = false
-  }
-}
-
-/** Ouvre un article dans la LISEUSE (panneau droit). Contrat : titre FR/VO +
- *  résumé RSS affichés immédiatement (< 2 s), jamais de skeleton — le résumé
- *  RSS est LE contenu (option A : fin du scrape Jina). En parallèle :
- *  (a) POST /ouvrir → traduction du titre (cache/Ollama) + marquage lu,
- *  (b) traduction FR du résumé à la volée (cache backend), fallback VO. */
+/** Clic sur une carte : marquage lu + MAJ de la carte en place (titre FR,
+ *  badge Vu). Le contenu vit DANS la carte — plus de liseuse. */
 async function lire(a: ArticlePresse) {
-  const id = ++selectionLiseuse
-  liseuse.value = {
-    article: a,
-    titre_fr: a.titre_fr ?? null,
-    contenu: a.resume_source ?? null,
-    contenu_fr: null,
-    enTraduction: false,
-  }
-
-  // (a) Traduction du titre (porte d'entrée) + marquage lu + MAJ carte en place.
-  presseApi.ouvrir(a.hash_titre).then(res => {
-    if (id !== selectionLiseuse) return
-    if (res.titre_fr && liseuse.value) liseuse.value.titre_fr = res.titre_fr
-    // Résumé absent du listing mais servi par ouvrir → on l'affiche puis le traduit.
-    if (liseuse.value && !liseuse.value.contenu && res.article.resume_source) {
-      liseuse.value.contenu = res.article.resume_source
-      traduireResumeLiseuse(id)
-    }
+  try {
+    const res = await presseApi.ouvrir(a.hash_titre)
     articles.value = articles.value.map(x => (x.hash_titre === a.hash_titre ? res.article : x))
-    // Filtre « Non lus » : l'article désormais lu n'y appartient plus.
     if (filtre.lu === 'false') {
       articles.value = articles.value.filter(x => x.hash_titre !== a.hash_titre)
     }
-  }).catch((err: any) => {
-    // 410 Gone : article supprimé après traduction impossible ×2
+  } catch (err: any) {
     if (err?.response?.status === 410) {
       articles.value = articles.value.filter(x => x.hash_titre !== a.hash_titre)
-      if (liseuse.value?.article.hash_titre === a.hash_titre) liseuse.value = null
     }
-    // Autre erreur : la liseuse reste ouverte sur le titre VO + résumé RSS.
-  })
+  }
+}
 
-  // (b) Traduction FR du résumé RSS à la volée (no-op silencieuse si absent).
-  traduireResumeLiseuse(id)
+/** Résumé affiché dans la carte : FR servi sinon résumé VO. */
+function resumeAffiche(a: ArticlePresse): string {
+  return (a as any).resume_fr ?? a.resume_source ?? ''
 }
 
 /** Titre normalisé : minuscules, sans accents ni ponctuation. */
@@ -460,46 +357,10 @@ function trouverArticleBibliotheque(art: ArticleBrief): ArticlePresse | null {
 /** Carte du brief : ouvre l'article bibliothèque correspondant dans la
  * liseuse (recherche par titre approximatif) ; à défaut affiche le résumé
  * LLM du brief seul (les articles du brief n'ont pas d'URL source). */
-async function ouvrirArticleBrief(art: ArticleBrief) {
-  const correspondance = trouverArticleBibliotheque(art)
-  if (correspondance) {
-    lire(correspondance)
-    return
-  }
-
-  // Non trouvé dans les pages chargées → chercher côté serveur par la clé
-  // stable (source exacte), puis affiner par score parmi les résultats.
-  try {
-    const res = await presseApi.articles({ source: art.source })
-    const exact = res.find(a => a.score === art.score) ?? null
-    if (exact) {
-      lire(exact)
-      return
-    }
-  } catch { /* serveur indisponible → fallback résumé */ }
-
-  selectionLiseuse++ // invalide les chargements réseau en cours
-  liseuse.value = {
-    article: {
-      hash_titre: `brief-${dernierBrief.value?.id ?? 0}-${art.numero}`,
-      titre: art.titre,
-      url: '',
-      source_nom: art.source,
-      publie_le: '',
-      score: art.score,
-      theme: art.theme,
-      assets_concernes: '[]',
-      impact: art.score >= 60 ? 'fort' : art.score >= 40 ? 'moyen' : 'faible',
-      statut_traduction: 'ok',
-      lu: true,
-      ajoute_le: dernierBrief.value?.genere_le ?? Math.floor(Date.now() / 1000),
-      resume_source: art.resume,
-    },
-    titre_fr: art.titre, // déjà FR (résumé LLM)
-    contenu: art.resume || null,
-    contenu_fr: null,
-    enTraduction: false,
-  }
+function ouvrirArticleBrief(art: ArticleBrief) {
+  // Les cartes du brief portent déjà leur résumé LLM en FR — la liseuse a
+  // été supprimée (contenu dans les cartes), rien à ouvrir.
+  void art
 }
 
 async function genererBrief() {

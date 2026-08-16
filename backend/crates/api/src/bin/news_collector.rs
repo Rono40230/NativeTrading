@@ -113,11 +113,12 @@ async fn un_cycle(db: Arc<Database>, http: Arc<reqwest::Client>) -> anyhow::Resu
         tracing::info!("{message}");
     }
 
-    // Traduction de fond des titres du cycle (max 5 pour ne pas surcharger
-    // Ollama — le reste sera traduit aux consultations suivantes, ou par un
-    // cycle ultérieur). Garde CJK : une traduction corrompue (caractères
-    // chinois) n'est jamais marquée « ok » — la consultation la condamnera
-    // selon la même mécanique que la traduction impossible.
+    // Traduction de fond des titres + résumés du cycle (max 5 pour ne pas
+    // surcharger Ollama — le reste sera traduit aux consultations suivantes,
+    // ou par un cycle ultérieur). Garde CJK : une traduction corrompue
+    // (caractères chinois) n'est jamais marquée « ok ».
+    // Les résumés traduits sont cachés dans news_traductions avec un hash
+    // préfixé « resume: » — le listing les relit (cache pur, zéro Ollama).
     let mut vus: std::collections::HashSet<String> = std::collections::HashSet::new();
     entrants_cycle.retain(|e| vus.insert(e.hash_titre.clone()));
     for a in entrants_cycle.iter().take(5) {
@@ -125,6 +126,12 @@ async fn un_cycle(db: Arc<Database>, http: Arc<reqwest::Client>) -> anyhow::Resu
             if !news::news_traduction::contient_cjk(&fr) {
                 let _ = db.enregistrer_tentative_traduction(&a.hash_titre, true).await;
             }
+        }
+        // Résumé : traduit et caché sous la clé « resume:<hash> » (sans
+        // collision avec les titres du cache partagé).
+        if !a.resume_source.trim().is_empty() {
+            let cle = format!("resume:{}", a.hash_titre);
+            let _ = news::news_traduction::traduire_texte_avec_cle(db.pool(), &cle, &a.resume_source).await;
         }
         tokio::time::sleep(Duration::from_millis(500)).await; // pacing Ollama
     }

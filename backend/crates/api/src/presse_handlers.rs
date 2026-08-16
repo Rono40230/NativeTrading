@@ -41,6 +41,15 @@ pub async fn get_articles(
                     ) {
                         v["titre_fr"] = serde_json::Value::String(fr);
                     }
+                    // Résumé traduit (clé « resume:<hash> ») — cache pur.
+                    if !a.resume_source.is_empty() {
+                        let cle = format!("resume:{}", a.hash_titre);
+                        if let Some(rfr) = news::news_traduction::lire_traduction_cle(&pool, &cle).await {
+                            if rfr.trim() != a.resume_source.trim() {
+                                v["resume_fr"] = serde_json::Value::String(rfr);
+                            }
+                        }
+                    }
                 }
                 articles_avec_fr.push(v);
             }

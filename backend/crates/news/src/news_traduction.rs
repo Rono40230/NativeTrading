@@ -223,6 +223,26 @@ pub fn cache_valide(original: &str, cached: Option<String>) -> Option<String> {
     cached.filter(|c| traduction_reussie(original, c))
 }
 
+/// Traduit un texte arbitraire et le cache sous une clé arbitraire (le
+/// résumé RSS d'un article sous « resume:<hash> », sans collision avec
+/// les titres). Retourne la traduction (ou le texte original si échec —
+/// voie tolérante : l'échec est aussi mis en cache).
+pub async fn traduire_texte_avec_cle(pool: &SqlitePool, cle: &str, texte: &str) -> String {
+    let hash = hash_titre(cle);
+    if let Some(cached) = lire_cache(pool, &hash).await {
+        return cached;
+    }
+    let traduit = traduire(texte).await;
+    ecrire_cache(pool, &hash, &traduit).await;
+    traduit
+}
+
+/// Lecture de cache pour une clé arbitraire (« resume:<hash> ») — pure,
+/// zéro appel Ollama. Utilisée par le listing presse.
+pub async fn lire_traduction_cle(pool: &SqlitePool, cle: &str) -> Option<String> {
+    lire_cache(pool, &hash_titre(cle)).await
+}
+
 /// Traduction STRICTE pour la presse : None = échec (rien n'est caché).
 /// Diffère de `traduire_avec_cache` qui cache aussi les échecs (rend
 /// l'original) — inacceptable pour la règle « porte d'entrée ».
