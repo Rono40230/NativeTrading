@@ -1,0 +1,225 @@
+//! Revue de presse — sources pilotables + bibliothèque d'articles
+//! (Phase 4.1, spec 2026-08-15).
+
+use serde::Serialize;
+
+use crate::Database;
+
+/// Flux RSS pilotable (comme les assets : actif/inactif, jamais supprimé).
+#[derive(Debug, Serialize)]
+pub struct PresseSource {
+    pub id: i64,
+    pub nom: String,
+    pub url_rss: String,
+    pub poids_score: u8,
+    pub categorie: String,
+    pub actif: bool,
+}
+
+/// Article de la bibliothèque. `assets_concernes` est un JSON array
+/// (`["BTC","XAUUSD"]`), attribué par mots-clés au moment de la collecte.
+#[derive(Debug, Clone, Serialize)]
+pub struct PresseArticle {
+    pub hash_titre: String,
+    pub titre: String,
+    pub url: String,
+    pub source_nom: String,
+    pub publie_le: String,
+    pub score: u8,
+    pub theme: String,
+    pub assets_concernes: String,
+    pub impact: String,
+    pub statut_traduction: String,
+    pub tentatives_traduction: u8,
+    pub lu: bool,
+    pub ajoute_le: i64,
+}
+
+/// Filtres de listing de la bibliothèque (tous optionnels).
+pub struct FiltreArticles {
+    pub theme: Option<String>,
+    pub asset: Option<String>,
+    pub source: Option<String>,
+    pub q: Option<String>,
+    pub lu: Option<bool>,
+    pub limite: i64,
+    pub offset: i64,
+}
+
+impl Database {
+    pub async fn lister_sources_presse(&self, actives_seules: bool) -> anyhow::Result<Vec<PresseSource>> {
+        let sql = if actives_seules {
+            "SELECT id, nom, url_rss, poids_score, categorie, actif FROM presse_sources WHERE actif = 1 ORDER BY id"
+        } else {
+            "SELECT id, nom, url_rss, poids_score, categorie, actif FROM presse_sources ORDER BY id"
+        };
+        let lignes = sqlx::query_as::<_, (i64, String, String, i64, String, i64)>(sql)
+            .fetch_all(self.pool()).await?;
+        Ok(lignes.into_iter().map(|l| PresseSource {
+            id: l.0, nom: l.1, url_rss: l.2, poids_score: l.3 as u8,
+            categorie: l.4, actif: l.5 != 0,
+        }).collect())
+    }
+
+    pub async fn ajouter_source_presse(&self, nom: &str, url: &str, poids: u8, categorie: &str) -> anyhow::Result<i64> {
+        let id = sqlx::query_scalar::<_, i64>(
+            "INSERT INTO presse_sources (nom, url_rss, poids_score, categorie, actif, cree_le)
+             VALUES (?1, ?2, ?3, ?4, 1, ?5) RETURNING id",
+        )
+        .bind(nom).bind(url).bind(poids as i64).bind(categorie)
+        .bind(chrono::Utc::now().timestamp())
+        .fetch_one(self.pool()).await?;
+        Ok(id)
+    }
+
+    pub async fn retirer_source_presse(&self, id: i64) -> anyhow::Result<()> {
+        sqlx::query("UPDATE presse_sources SET actif = 0 WHERE id = ?1")
+            .bind(id).execute(self.pool()).await?;
+        Ok(())
+    }
+
+    /// Insertion en masse avec dédoublonnage par hash (UNIQUE PK).
+    /// Retourne le nombre d'articles réellement insérés.
+    pub async fn inserer_articles_presse(&self, articles: &[PresseArticle]) -> anyhow::Result<u64> {
+        let mut tx = self.pool().begin().await?;
+        let mut inseres = 0u64;
+        for a in articles {
+            let r = sqlx::query(
+                "INSERT OR IGNORE INTO presse_articles
+                    (hash_titre, titre, url, source_nom, publie_le, score, theme,
+                     assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'non_tente', 0, 0, ?10)",
+            )
+            .bind(&a.hash_titre).bind(&a.titre).bind(&a.url).bind(&a.source_nom)
+            .bind(&a.publie_le).bind(a.score as i64).bind(&a.theme)
+            .bind(&a.assets_concernes).bind(&a.impact)
+            .bind(chrono::Utc::now().timestamp())
+            .execute(&mut *tx).await?;
+            inseres += r.rows_affected();
+        }
+        tx.commit().await?;
+        Ok(inseres)
+    }
+
+    /// Listing filtré — paramètres TOUJOURS liés (jamais de formatage de
+    /// chaîne dans le SQL) ; la clause asset cherche dans le JSON textuel
+    /// (`assets LIKE '%"BTC"%'` : suffisant pour des tickers sans ambigüité).
+    pub async fn lister_articles_presse(&self, f: &FiltreArticles) -> anyhow::Result<Vec<PresseArticle>> {
+        // Phase 1 : construction de la requête (clauses conditionnelles).
+        let mut sql = String::from(
+            "SELECT hash_titre, titre, url, source_nom, publie_le, score, theme,
+                    assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le
+             FROM presse_articles WHERE 1=1",
+        );
+        if f.theme.is_some() { sql.push_str(" AND theme = ?"); }
+        if f.asset.is_some() { sql.push_str(" AND assets_concernes LIKE ?"); }
+        if f.source.is_some() { sql.push_str(" AND source_nom = ?"); }
+        if f.q.is_some() { sql.push_str(" AND LOWER(titre) LIKE ?"); }
+        if let Some(lu) = f.lu { sql.push_str(if lu { " AND lu = 1" } else { " AND lu = 0" }); }
+        sql.push_str(" ORDER BY ajoute_le DESC LIMIT ? OFFSET ?");
+
+        // Phase 2 : requête figée, puis binds dans le même ordre (le borrow
+        // checker impose de ne muter `sql` qu'avant la création de la requête).
+        let mut q = sqlx::query_as::<_, (String, String, String, String, String, i64, String, String, String, String, i64, i64, i64)>(&sql);
+        if let Some(t) = &f.theme { q = q.bind(t.clone()); }
+        if let Some(a) = &f.asset { q = q.bind(format!("%\"{a}\"%")); }
+        if let Some(src) = &f.source { q = q.bind(src.clone()); }
+        if let Some(qs) = &f.q { q = q.bind(format!("%{}%", qs.to_lowercase())); }
+        q = q.bind(f.limite).bind(f.offset);
+        let lignes = q.fetch_all(self.pool()).await?;
+        Ok(lignes.into_iter().map(|l| PresseArticle {
+            hash_titre: l.0, titre: l.1, url: l.2, source_nom: l.3, publie_le: l.4,
+            score: l.5 as u8, theme: l.6, assets_concernes: l.7, impact: l.8,
+            statut_traduction: l.9, tentatives_traduction: l.10 as u8, lu: l.11 != 0, ajoute_le: l.12,
+        }).collect())
+    }
+
+    pub async fn lire_article_presse(&self, hash: &str) -> anyhow::Result<Option<PresseArticle>> {
+        // Pas de filtre hash dans FiltreArticles : requête dédiée.
+        let sql = "SELECT hash_titre, titre, url, source_nom, publie_le, score, theme,
+                          assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le
+                   FROM presse_articles WHERE hash_titre = ?1";
+        let ligne = sqlx::query_as::<_, (String, String, String, String, String, i64, String, String, String, String, i64, i64, i64)>(sql)
+            .bind(hash).fetch_optional(self.pool()).await?;
+        Ok(ligne.map(|l| PresseArticle {
+            hash_titre: l.0, titre: l.1, url: l.2, source_nom: l.3, publie_le: l.4,
+            score: l.5 as u8, theme: l.6, assets_concernes: l.7, impact: l.8,
+            statut_traduction: l.9, tentatives_traduction: l.10 as u8, lu: l.11 != 0, ajoute_le: l.12,
+        }))
+    }
+
+    pub async fn marquer_lu_presse(&self, hash: &str) -> anyhow::Result<()> {
+        sqlx::query("UPDATE presse_articles SET lu = 1 WHERE hash_titre = ?1")
+            .bind(hash).execute(self.pool()).await?;
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn db_test() -> Database {
+        let db = Database::new(":memory:").await.expect("DB mémoire");
+        db.run_migrations().await.expect("migrations OK");
+        db
+    }
+
+    fn article(hash: &str, theme: &str, assets: &str, score: u8) -> PresseArticle {
+        PresseArticle {
+            hash_titre: hash.into(),
+            titre: format!("Titre {hash}"),
+            url: format!("https://exemple.fr/{hash}"),
+            source_nom: "Test".into(),
+            publie_le: "2026-08-15T10:00:00Z".into(),
+            score,
+            theme: theme.into(),
+            assets_concernes: assets.into(),
+            impact: "moyen".into(),
+            statut_traduction: "non_tente".into(),
+            tentatives_traduction: 0,
+            lu: false,
+            ajoute_le: 1_786_700_000,
+        }
+    }
+
+    #[tokio::test]
+    async fn sources_pre_remplies_et_pilotables() {
+        let db = db_test().await;
+        let toutes = db.lister_sources_presse(false).await.unwrap();
+        assert_eq!(toutes.len(), 9, "9 flux pré-remplis par la migration");
+        assert!(toutes.iter().all(|s| s.actif));
+
+        let id = db.ajouter_source_presse("Test", "https://x.fr/rss", 20, "marches").await.unwrap();
+        db.retirer_source_presse(id).await.unwrap();
+        let actives = db.lister_sources_presse(true).await.unwrap();
+        assert_eq!(actives.len(), 9, "retirée = désactivée, pas supprimée");
+    }
+
+    #[tokio::test]
+    async fn insertion_deduplique_et_filtres() {
+        let db = db_test().await;
+        let a1 = article("h1", "crypto", r#"["BTC"]"#, 80);
+        let a2 = article("h2", "macro", r#"["XAUUSD"]"#, 40);
+        let n = db.inserer_articles_presse(&[a1.clone(), a2]).await.unwrap();
+        assert_eq!(n, 2);
+        // Doublon par hash → ignoré
+        let n = db.inserer_articles_presse(&[a1]).await.unwrap();
+        assert_eq!(n, 0);
+
+        let filtre = FiltreArticles {
+            theme: Some("crypto".into()), asset: Some("BTC".into()),
+            source: None, q: None, lu: None, limite: 50, offset: 0,
+        };
+        let res = db.lister_articles_presse(&filtre).await.unwrap();
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].hash_titre, "h1");
+
+        // Recherche texte
+        let filtre_q = FiltreArticles {
+            theme: None, asset: None, source: None,
+            q: Some("titre h2".into()), lu: None, limite: 50, offset: 0,
+        };
+        assert_eq!(db.lister_articles_presse(&filtre_q).await.unwrap().len(), 1);
+    }
+}

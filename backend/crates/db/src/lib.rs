@@ -12,6 +12,7 @@ pub mod ml_feedback_rockets;
 pub mod ml_feedback_straddle;
 pub mod ml_samples;
 pub mod news_lus;
+pub mod presse;
 pub mod regles_rejet;
 pub mod rockets;
 pub mod rockets_blacklist;
