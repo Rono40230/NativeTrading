@@ -185,9 +185,14 @@
             </div>
           </div>
 
-          <!-- Pied : lien source -->
+          <!-- Pied : lien source (xdg-open en Tauri, window.open sinon) -->
           <div class="px-5 py-2.5 border-t border-white/10 bg-white/[0.02] shrink-0">
-            <a :href="liseuse.article.url" target="_blank" class="text-[11px] text-blue-400 hover:text-blue-300 hover:underline transition-colors">Lire sur le site source ↗</a>
+            <button
+              v-if="liseuse.article.url"
+              class="text-[11px] text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+              @click="ouvrirExterne(liseuse.article.url)"
+            >Lire sur le site source ↗</button>
+            <span v-else class="text-[11px] text-gray-600">Pas de lien source (résumé du brief)</span>
           </div>
         </template>
 
@@ -232,6 +237,18 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { apiService } from '@/services/api.service'
 import { presseApi, type ArticlePresse } from '@/services/api.presse'
+
+/** Ouvre une URL externe : commande Tauri `ouvrir_url` (xdg-open) dans
+ * l'app native, `window.open` en dev navigateur. Un simple <a target=_blank>
+ * ne fait rien en Tauri (pas de shell navigateur). */
+async function ouvrirExterne(url: string) {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('ouvrir_url', { url })
+  } catch {
+    window.open(url, '_blank', 'noopener')
+  }
+}
 
 /** Article structuré extrait du markdown du brief. */
 interface ArticleBrief {

@@ -59,6 +59,26 @@ fn jouer_son_signal() {
     }
 }
 
+/// Ouvre une URL externe dans le navigateur par défaut du système.
+///
+/// En Tauri, un `<a target="_blank">` ne fait RIEN (pas de shell navigateur) :
+/// cette commande délègue à `xdg-open` (Linux).
+///
+/// Appelée depuis le frontend : `invoke('ouvrir_url', { url })`
+#[tauri::command]
+fn ouvrir_url(url: &str) {
+    // Sécurité : n'ouvrir que des URL http(s) — jamais file:, ssh:, etc.
+    if !url.starts_with("https://") && !url.starts_with("http://") {
+        eprintln!("[Tauri] ouvrir_url : URL refusée ({url})");
+        return;
+    }
+    let _ = Command::new("xdg-open")
+        .arg(url)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+}
+
 /// Démarre le backend API Rust sur le port 8080 si non actif.
 fn demarrer_backend_si_absent() {
     if std::net::TcpStream::connect("127.0.0.1:8080").is_ok() {
@@ -145,7 +165,7 @@ pub fn run() {
     demarrer_ollama_si_absent();
 
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![notifier, jouer_son_signal])
+        .invoke_handler(tauri::generate_handler![notifier, jouer_son_signal, ouvrir_url])
         .run(tauri::generate_context!())
         .expect("Erreur lors du lancement de l'application Tauri");
 }
