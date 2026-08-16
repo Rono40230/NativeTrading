@@ -149,7 +149,10 @@ pub async fn post_source(state: web::Data<AppState>, corps: web::Json<CorpsSourc
 
 pub async fn delete_source(state: web::Data<AppState>, chemin: web::Path<i64>) -> HttpResponse {
     match state.db.retirer_source_presse(chemin.into_inner()).await {
-        Ok(_) => HttpResponse::Ok().json(serde_json::json!({"ok": true})),
+        Ok(articles_supprimes) => HttpResponse::Ok().json(serde_json::json!({
+            "ok": true,
+            "articles_supprimes": articles_supprimes,
+        })),
         Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
     }
 }

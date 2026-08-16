@@ -103,10 +103,32 @@ impl Database {
         Ok(id)
     }
 
-    pub async fn retirer_source_presse(&self, id: i64) -> anyhow::Result<()> {
-        sqlx::query("UPDATE presse_sources SET actif = 0 WHERE id = ?1")
-            .bind(id).execute(self.pool()).await?;
-        Ok(())
+    /// Suppression DÉFINITIVE d'une source : la ligne ET tous les articles
+    /// de cette source (décision propriétaire — un flux retiré ne doit
+    /// plus rien laisser dans la bibliothèque).
+    pub async fn retirer_source_presse(&self, id: i64) -> anyhow::Result<u64> {
+        // Nom de la source pour cibler les articles (clé = source_nom).
+        let nom: Option<String> = sqlx::query_scalar(
+            "SELECT nom FROM presse_sources WHERE id = ?1",
+        )
+        .bind(id)
+        .fetch_optional(self.pool())
+        .await?;
+
+        let mut supprimes = 0u64;
+        if let Some(nom) = nom {
+            let articles = sqlx::query("DELETE FROM presse_articles WHERE source_nom = ?1")
+                .bind(&nom)
+                .execute(self.pool())
+                .await?
+                .rows_affected();
+            supprimes += articles;
+        }
+        sqlx::query("DELETE FROM presse_sources WHERE id = ?1")
+            .bind(id)
+            .execute(self.pool())
+            .await?;
+        Ok(supprimes)
     }
 
     /// Insertion en masse avec dédoublonnage par hash (UNIQUE PK).

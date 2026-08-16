@@ -348,7 +348,10 @@ async function ajouterSource() {
 
 async function retirerSource(id: number) {
   await presseApi.retirerSource(id)
+  // Rafraîchir les sources ET la bibliothèque (les articles du flux
+  // supprimé ont été purgés côté backend).
   sources.value = await presseApi.sources()
+  await charger()
 }
 
 onMounted(async () => {
