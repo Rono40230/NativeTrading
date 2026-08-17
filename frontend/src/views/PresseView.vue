@@ -98,17 +98,6 @@
             class="rounded-xl border border-white/10 bg-white/[0.04] p-4 flex flex-col gap-2 hover:bg-white/[0.07] hover:border-white/20 transition relative overflow-hidden cursor-pointer"
             @click="lire(a)"
           >
-            <div class="flex items-start justify-between gap-1">
-              <span
-                v-if="estNouveau(a.ajoute_le) && !a.lu"
-                class="text-[9px] font-bold text-red-300 bg-red-600/40 border border-red-500/40 rounded-full px-1.5 py-0.5 leading-none animate-pulse shrink-0"
-              >NOUVEAU</span>
-              <span
-                v-else-if="a.lu"
-                class="text-[9px] font-semibold text-blue-200 bg-blue-600/70 border border-blue-500/50 rounded-full px-1.5 py-0.5 leading-none shrink-0"
-              >Vu</span>
-              <span class="ml-auto text-[10px] font-semibold tabular-nums" :class="classeScore(a.score)">{{ a.score }}</span>
-            </div>
             <div class="absolute top-0 left-0 right-0 h-1" :class="a.score >= 60 ? 'bg-red-400/70' : a.score >= 40 ? 'bg-yellow-400/70' : 'bg-gray-500/50'"></div>
 
             <div class="flex items-start justify-between gap-1">
