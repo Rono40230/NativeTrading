@@ -143,6 +143,22 @@ PRÉSENTATION
 
 **Objectif** : Straddle puis Rockets migrent en crates plugins. Chacune repasse individuellement l'équivalent de la gate 2.
 
+> ### 📚 Références canoniques (recherche web 2026-08-17 — avant toute implémentation)
+>
+> **ROCKETS = VCP (Volatility Contraction Pattern, Mark Minervini)** — fiche complète : `docs/superpowers/research/2026-08-17-rockets-straddle-recherche.md`
+> - **Contexte requis** (Trend Template) : prix > MA150 > MA200, MA200 montante ≥ 1 mois, prix ≥ 30 % au-dessus du bas 52 semaines, ≤ 25 % sous le haut 52 s, RS ranking > 70
+> - **Le pattern** : 2-6 contractions **strictement décroissantes** (séries types 25→15→8→4 %), base 3-12 semaines, volumes qui s'assèchent (VDU : 40-60 % de la moyenne 50 j), ATR final ≈ 1/3 de sa moyenne
+> - **Le pivot** : haut de la contraction finale ; entrée buy-stop +1-2 % au-dessus, stop sous le bas de la dernière contraction
+> - **Confirmation breakout** : volume ≥ 140-150 % de la moyenne (sources divergent 130-150 %)
+> - **Adaptation crypto à définir** : pas de méthodologie VCP crypto formelle publiée — le projet doit trancher : RS vs BTC, pondération week-end 24/7, profondeurs élargies
+>
+> **STRADDLE = news trading par ordres stop** — même fiche
+> - **Mécanique** : buy-stop + sell-stop 10-30 pips au-delà du range pré-annonce (15-30 min), posés 1-5 min avant l'annonce, **OCO forcé à la seconde du fill**
+> - **Annonces tier 1** : NFP + CPI (08:30 ET), FOMC (14:00 ET + conférence 14:30 = **double vague**) ; bougie d'annonce = 3-10× ATR normal
+> - **Gestion** : SL 15-30 pips, TP 3-5× SL, breakeven dès profit = SL, time-stop 60 min
+> - **Risques chiffrés** : spread EUR/USD 1→5-10 pips à l'annonce, slippage 5-15 pips, whipsaw/chasse-liquidité sur straddle naïf trop serré
+> - **Honnêteté** : aucune validation académique — les win-rates publiés viennent de vendeurs ; la gate 3 (replay + sessions live) tranche
+
 ### Sous-étapes
 | # | Étape | Gate associée |
 |---|---|---|
