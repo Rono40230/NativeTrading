@@ -11,8 +11,17 @@ const JOURS_PAR_TF: Record<string, number> = {
 /** Minimum garanti pour que ATR200 et les algos SMC aient assez de données. */
 const MINIMUM_BOUGIES = 300
 
+/** Aligné sur TradingView Basic (gratuit, 2026-08-17) : 5 000 barres
+ *  intraday ; daily et au-delà = tout l'historique disponible (le plafond
+ *  backend est aussi 5 000 par requête). */
+const LIMITE_TV_BASIC = 5_000
+
+/** H1 et au-delà : plafond fixe (tout l'historique jusqu'à la limite). */
+const TF_PLAFOND = new Set(['H1', 'H4', 'D1', 'W1'])
+
 export function limitPourTimeframe(tf: string): number {
+  if (TF_PLAFOND.has(tf)) return LIMITE_TV_BASIC
   const parJour = BOUGIES_PAR_JOUR[tf] ?? 96
   const jours   = JOURS_PAR_TF[tf]    ?? 4
-  return Math.max(parJour * jours, MINIMUM_BOUGIES)
+  return Math.min(Math.max(parJour * jours, MINIMUM_BOUGIES), LIMITE_TV_BASIC)
 }
