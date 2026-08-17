@@ -38,20 +38,12 @@ pub async fn get_candles(
     let limit = query.limit.unwrap_or(200).min(5000) as usize;
     let force = query.force.unwrap_or(false);
 
-    // Si on a forcé une mise à jour cryptos, on passe l'étape cache et on demande à l'API
-    if force && asset.est_cotable_bybit() {
-        let resultat = BinanceProvider
-            .fetch_candles(asset.clone(), timeframe, limit)
-            .await;
-        if let Ok(bougies) = resultat {
-            if !bougies.is_empty() {
-                let _ = state.db.inserer_bougies(&asset, &timeframe, &bougies).await;
-                return HttpResponse::Ok().json(bougies);
-            }
-        }
-    }
-
-    // 1. Cache DB — toutes sources (MT5 inclus pour avoir l'historique)
+    // 1. Cache DB — toutes sources : c'est LA source du chart. Le backfill
+    //    profond y a déposé l'historique (BTC M15 : ~2 ans) et le WS la
+    //    maintient à jour — le provider REST (plafonné 1000/requête) ne
+    //    servirait qu'à tronquer la fenêtre demandée. `force` ne contourne
+    //    plus la DB : il ne sert qu'au rattrapage si la DB est vide (voir 2).
+    let _ = force;
     if let Ok(bougies) = state
         .db
         .obtenir_bougies(&asset, &timeframe, limit as i64)
