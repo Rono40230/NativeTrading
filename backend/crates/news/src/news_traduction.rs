@@ -43,7 +43,7 @@ pub async fn ecrire_cache(pool: &SqlitePool, hash: &str, titre_fr: &str) {
 
 // ── Traduction Ollama ─────────────────────────────────────────────────────────
 
-const MODELE_TRADUCTION: &str = "qwen2.5:3b";
+const MODELE_TRADUCTION: &str = "maternion/hy-mt2:7b"; // modèle dédié traduction — bien meilleur que qwen2.5:3b
 
 /// Traduit un texte anglais en français via Ollama (modèle léger 3B).
 /// Retourne le texte original en cas d'échec (dégradation silencieuse).
