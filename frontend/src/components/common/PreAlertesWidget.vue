@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-card p-3 flex flex-col gap-2">
+  <div class="glass-card p-3 flex flex-col gap-2 h-full min-h-0">
     <div class="flex items-center justify-between">
       <h3 class="text-[10px] font-bold uppercase tracking-widest text-yellow-400">
         ⚠️ Setups en formation
@@ -15,7 +15,7 @@
       Aucun setup détecté
     </div>
 
-    <div v-else class="flex flex-col gap-1.5 overflow-y-auto max-h-[180px]">
+    <div v-else class="flex flex-col gap-1.5 overflow-y-auto flex-1 min-h-0">
       <div
         v-for="alerte in preAlertes"
         :key="alerte.id"
