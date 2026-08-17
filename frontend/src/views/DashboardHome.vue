@@ -9,12 +9,12 @@
 
     <!-- Contenu principal -->
     <div class="flex-1 min-w-0 flex flex-col gap-2 h-[calc(100vh-3rem)] overflow-hidden pb-1">
-      
-      <!-- En-tête : Horloges + System Status + Surveillance Assets -->
+
+      <!-- En-tête : Horloges + System Status -->
       <div class="flex gap-2 shrink-0 h-[140px] mb-1">
         <!-- Clocks -->
         <div class="flex-1 min-w-0"><MarketClocks class="h-full" /></div>
-        
+
         <!-- System Status -->
         <div class="w-[360px] shrink-0">
            <DashboardSystemStatus
@@ -33,14 +33,25 @@
         </div>
       </div>
 
-      <DashboardStrategiesGrid />
+      <div class="flex gap-2 flex-1 min-h-0">
+        <!-- Colonne gauche : Surveillance assets + Setups en formation -->
+        <div class="w-56 shrink-0 flex flex-col gap-2 min-h-0">
+          <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
+          <div class="flex-1 min-h-0 overflow-y-auto">
+            <PreAlertesWidget class="min-h-full" />
+          </div>
+        </div>
+
+        <!-- Grille stratégies -->
+        <div class="flex-1 min-w-0 min-h-0">
+          <DashboardStrategiesGrid class="h-full" />
+        </div>
+      </div>
     </div>
 
-      <!-- Colonne droite : Sentiment + Surveillance (remplit le reste avec Calendrier) -->
+      <!-- Colonne droite : Sentiment + Calendrier -->
       <aside class="w-64 shrink-0 sticky top-0 h-[calc(100vh-3rem)] flex flex-col gap-3">
         <SentimentMarche class="shrink-0" />
-        <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
-        <PreAlertesWidget class="shrink-0" />
         <div class="flex-1 min-h-0">
           <EconomicCalendar class="h-full" />
         </div>
