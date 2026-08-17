@@ -139,16 +139,23 @@ Multi TF & OTE :
 
 
 
-Finir la revue de presse :
-- supprimer les articles avec du chinois
-
 Finir Sentiment de marché :
 - comment sont calculés les valeurs USA, Europe, Matières premières et cryptos.
-
-
 
 
 Dans le dashboard, à quoi sert le bouton on/stop dans le bloc Data & IA Engine
 
 
 
+
+
+Le clic sur "lire sur le site source" ne donne rien
+
+
+Pour améliorer les traduction il faut ajouter ce modèle à ollama : maternion/hy-mt2:7b
+
+
+Mets à jour la roadmap et ton Repo 
+
+
+Maintenant on peut passer à l'étape suivante de la roadmap qui concerne : Backfill profond Bybit — chantier voie dev n°2 (une soirée = 24 mois d'historique)
