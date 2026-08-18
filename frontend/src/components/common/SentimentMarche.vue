@@ -193,7 +193,7 @@ function bille(v: number, seuil = SEUIL_INDICES): string {
 function couleur(v: number, seuil = SEUIL_INDICES): string {
   if (v > seuil) return 'text-emerald-400'
   if (v < -seuil) return 'text-red-400'
-  return 'text-slate-400'
+  return 'text-sky-400' // neutre : suit la pastille bleue (gris illisible)
 }
 
 function formatPrix(p: number): string {
