@@ -23,9 +23,9 @@
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold" :class="couleurScore(globalScore)">{{ labelSentiment(globalScore) }}</p>
           <p class="text-[10px] text-slate-400 leading-tight mt-0.5">
+            <span v-if="composite.cnn_fg != null">CNN {{ Math.round(composite.cnn_fg) }} · </span>
             <span v-if="composite.fear_greed != null">F&amp;G {{ Math.round(composite.fear_greed) }} · </span>
-            <span v-if="composite.vix_brut != null">VIX {{ composite.vix_brut.toFixed(1) }} · </span>
-            <span v-if="composite.breadth_pct != null">Breadth {{ Math.round(composite.breadth_pct) }}%</span>
+            <span v-if="composite.vix_brut != null">VIX {{ composite.vix_brut.toFixed(1) }}</span>
           </p>
         </div>
       </div>

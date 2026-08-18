@@ -151,6 +151,30 @@ async fn fetch_vix() -> (Option<f64>, Option<f64>) {
     }
 }
 
+/// Fetch le CNN Fear & Greed (actions US — 7 composantes officielles).
+/// Endpoint interne non documenté : exige un `Referer` cnn.com sinon HTTP 418
+/// (anti-bot « teapot »). Retourne `(score, rating)` — `None` si indispo.
+async fn fetch_cnn_fg() -> Option<(f64, String)> {
+    let client = &*crate::http_client::HTTP_CLIENT;
+    let raw: serde_json::Value = client
+        .get("https://production.dataviz.cnn.io/index/fearandgreed/graphdata")
+        .header("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0")
+        .header("Accept", "application/json")
+        .header("Referer", "https://www.cnn.com/markets/fear-and-greed")
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
+    let score = raw["fear_and_greed"]["score"].as_f64()?;
+    let rating = raw["fear_and_greed"]["rating"]
+        .as_str()
+        .unwrap_or("neutral")
+        .to_string();
+    Some((score, rating))
+}
+
 // ── Cœur : calcul du composite ───────────────────────────────────────────────
 
 /// Calcule le sentiment composite complet.
@@ -223,7 +247,7 @@ pub async fn calculer_composite(db: &Database, fg_cache: &FgCache) -> SentimentS
         (vix_inverse, 0.35),
     ]);
 
-    // 6. Global = moyenne des classes disponibles.
+    // 6. Global = moyenne des classes disponibles (repli si CNN indispo).
     let classes: Vec<f64> = [score.crypto, score.forex, score.metaux, score.indices]
         .into_iter()
         .flatten()
@@ -233,6 +257,21 @@ pub async fn calculer_composite(db: &Database, fg_cache: &FgCache) -> SentimentS
     } else {
         Some(classes.iter().sum::<f64>() / classes.len() as f64)
     };
+
+    // 7. CNN Fear & Greed (décision propriétaire 2026-08-18) : LA référence
+    //    du marché — jauge globale et classe indices (7 composantes
+    //    officielles). Crypto = F&G alternative.me pur, même méthode que les
+    //    briefings pro. Forex/métaux : technique local (aucun indice standard
+    //    gratuit pour ces classes). CNN indispo → repli sur le 6.
+    if let Some((cnn, rating)) = fetch_cnn_fg().await {
+        score.cnn_fg = Some(cnn);
+        score.cnn_rating = Some(rating);
+        score.indices = Some(cnn);
+        score.global = Some(cnn);
+    }
+    if let Some(fg) = fg {
+        score.crypto = Some(fg);
+    }
 
     score
 }
@@ -252,6 +291,7 @@ async fn persister_snapshot_quotidien(db: &Database, score: &SentimentScore) {
         "rsi_xau": score.rsi_xau,
         "breadth_pct": score.breadth_pct,
         "fear_greed": score.fear_greed,
+        "cnn_fg": score.cnn_fg,
         "vix_score": score.vix_score,
         "vix_brut": score.vix_brut,
     })
@@ -383,6 +423,8 @@ pub async fn get_sentiment_composite(state: web::Data<AppState>) -> impl Respond
             rsi_xau: moyenne("rsi_xau"),
             breadth_pct: moyenne("breadth_pct"),
             fear_greed: moyenne("fear_greed"),
+            cnn_fg: moyenne("cnn_fg"),
+            cnn_rating: None,
             vix_score: moyenne("vix_score"),
             vix_brut: moyenne("vix_brut"),
         });

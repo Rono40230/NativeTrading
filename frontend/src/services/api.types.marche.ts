@@ -127,6 +127,8 @@ export interface SentimentComposite {
   fear_greed: number | null
   vix_score: number | null
   vix_brut: number | null
+  /// CNN Fear & Greed (référence actions US) — jauge globale.
+  cnn_fg: number | null
 }
 
 export type NiveauAlerte = 'critique' | 'important' | 'modere' | 'veille'

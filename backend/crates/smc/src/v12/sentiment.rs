@@ -44,6 +44,13 @@ pub struct SentimentScore {
     pub vix_score: Option<f64>,
     /// VIX brut (volatilité implicite, ~10-50).
     pub vix_brut: Option<f64>,
+    /// CNN Fear & Greed (actions US) — LA référence du marché (7 composantes
+    /// officielles : put/call, VIX/50, momentum, strength, breadth, junk
+    /// bonds, safe haven). Décision propriétaire 2026-08-18 : jauge globale
+    /// et classe indices.
+    pub cnn_fg: Option<f64>,
+    /// Libellé officiel CNN ("extreme fear".."extreme greed").
+    pub cnn_rating: Option<String>,
 }
 
 /// Alignement du signal par rapport au sentiment de la classe d'actif.
@@ -199,6 +206,8 @@ pub fn agreg_par_classe(scores: &HashMap<String, f64>) -> SentimentScore {
         fear_greed: None,
         vix_score: None,
         vix_brut: None,
+        cnn_fg: None,
+        cnn_rating: None,
     }
 }
 
