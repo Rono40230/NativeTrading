@@ -176,8 +176,6 @@ async fn backfill_couple(
         .unwrap_or_else(|| Utc::now().timestamp_millis());
 
     let mut plus_ancienne_atteinte: Option<i64> = None;
-    let mut pages_vides_consecutives: u32 = 0;
-    let mut pages_sans_insertion: u32 = 0;
 
     for _page in 0..PAGES_MAX {
         if cursor_ms / 1000 <= cible_ts {

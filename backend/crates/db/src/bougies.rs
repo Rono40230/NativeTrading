@@ -72,7 +72,8 @@ impl Database {
         Ok(inseres)
     }
 
-    /// Insère un lot de bougies (source 'binance' par défaut).
+    /// Insère un lot de bougies (étiquette REST Bybit par défaut — la série
+    /// de référence de l'app ; l'ancien défaut 'binance' était mensonger).
     /// Compatibilité avec les anciens appels qui ne précisent pas la source.
     pub async fn inserer_bougies(
         &self,
@@ -80,7 +81,7 @@ impl Database {
         timeframe: &Timeframe,
         bougies: &[Candle],
     ) -> Result<u64> {
-        self.inserer_bougies_avec_source(asset, timeframe, bougies, "binance")
+        self.inserer_bougies_avec_source(asset, timeframe, bougies, "bybit_rest")
             .await
     }
 

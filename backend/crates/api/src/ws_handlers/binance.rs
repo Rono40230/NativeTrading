@@ -7,25 +7,18 @@ use tokio_tungstenite::connect_async;
 use super::types::{BinanceKlineMsg, CandleData, CandleEvent};
 
 pub(super) fn binance_stream_url(asset: &common::Asset, tf: &common::Timeframe) -> String {
-    // Règle générique, aucune liste codée : ticker → paire USDT minuscule.
-    let symbol = format!("{}usdt", asset.as_str().to_lowercase().trim_end_matches("usd"));
-    let interval = match tf {
-        common::Timeframe::M1 => "1m",
-        common::Timeframe::M5 => "5m",
-        common::Timeframe::M15 => "15m",
-        common::Timeframe::M30 => "30m",
-        common::Timeframe::H1 => "1h",
-        common::Timeframe::H4 => "4h",
-        common::Timeframe::D1 => "1d",
-        common::Timeframe::W1 => "1w",
-    };
-
+    // Décision 2026-08-18 : le chart de l'app consomme la MÊME série que la
+    // référence TV (BYBIT:BTCUSDT spot) — avant, il lisait stream.binance.com
+    // pour les cryptos : le prix live divergeait de l'historique Bybit.
+    // Métaux XAU/XAG : uniquement linear chez Bybit.
     let est_metal = matches!(asset.as_str(), "XAUUSD" | "XAGUSD");
-    if est_metal {
-        "wss://stream.bybit.com/v5/public/linear".to_string()
+    let base = if est_metal {
+        "wss://stream.bybit.com/v5/public/linear"
     } else {
-        format!("wss://stream.binance.com:9443/ws/{}@kline_{}", symbol, interval)
-    }
+        "wss://stream.bybit.com/v5/public/spot"
+    };
+    let _ = tf; // l'intervalle est porté par le topic de souscription
+    base.to_string()
 }
 
 pub(super) async fn stream_binance(
@@ -58,7 +51,10 @@ pub(super) async fn stream_binance(
         }
     };
 
-    let is_bybit = matches!(asset.as_str(), "XAUUSD" | "XAGUSD");
+    // Tout passe par le flux Bybit v5 (spot crypto / linear métaux) — même
+    // série de prix que la référence TV et que la DB. Le parsing historique
+    // Binance ci-dessous (branche else) est conservé mort volontairement.
+    let is_bybit = true;
     if is_bybit {
         let bybit_interval = match timeframe {
             common::Timeframe::M1 => "1",
@@ -71,7 +67,12 @@ pub(super) async fn stream_binance(
             common::Timeframe::W1 => "W",
         };
         use futures_util::SinkExt;
-        let sym = if asset == common::Asset::from("XAUUSD") { "XAUUSDT" } else { "XAGUSDT" };
+        let sym = match asset.as_str() {
+            "XAUUSD" => "XAUUSDT".to_string(),
+            "XAGUSD" => "XAGUSDT".to_string(),
+            // Règle générique : ticker → paire USDT (majuscule — format Bybit).
+            t => format!("{}USDT", t.trim_end_matches("USD").to_uppercase()),
+        };
         let sub_msg = serde_json::to_string(&serde_json::json!({
             "op": "subscribe",
             "args": [format!("kline.{}.{}", bybit_interval, sym)]
