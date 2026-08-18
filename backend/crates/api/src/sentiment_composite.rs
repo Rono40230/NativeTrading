@@ -288,9 +288,13 @@ pub fn demarrer_worker_sentiment(db: Arc<Database>, sentiment: SentimentSlot, fg
             let sc = calculer_composite(&db, &fg_cache).await;
             persister_snapshot_quotidien(&db, &sc).await;
 
+            // Référence veille des listes du bloc (décision 2026-08-18) :
+            // clôtures J-1 figées, idempotent — aucun flux tendu servi au front.
+            let figees = crate::sentiment_handlers::figer_veille_marche(&db).await;
+
             *sentiment.write().await = Some(sc.clone());
             tracing::info!(
-                "📊 Sentiment composite MAJ — global={:.0} crypto={:.0} forex={:.0} metaux={:.0} indices={:.0} | F&G={:?} VIX={:?}",
+                "📊 Sentiment composite MAJ — global={:.0} crypto={:.0} forex={:.0} metaux={:.0} indices={:.0} | F&G={:?} VIX={:?} | veille figée : {}/13 entités",
                 sc.global.unwrap_or(50.0),
                 sc.crypto.unwrap_or(0.0),
                 sc.forex.unwrap_or(0.0),
@@ -298,6 +302,7 @@ pub fn demarrer_worker_sentiment(db: Arc<Database>, sentiment: SentimentSlot, fg
                 sc.indices.unwrap_or(0.0),
                 sc.fear_greed,
                 sc.vix_brut,
+                figees,
             );
         }
     });

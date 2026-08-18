@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between mb-3">
       <div>
         <p class="text-[11px] font-semibold text-white uppercase tracking-widest">Sentiment de Marché</p>
-        <p class="text-[10px] text-slate-400">{{ dateAffichee }}</p>
+        <p class="text-[10px] text-slate-400">Référence veille{{ dateAffichee ? ' · ' + dateAffichee : '' }}</p>
       </div>
       <div v-if="chargement" class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
     </div>
