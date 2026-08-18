@@ -180,7 +180,7 @@ function labelSentiment(v: number): string {
 /// Échelle des pastilles par classe (décision 2026-08-18) : un mouvement
 /// n'est significatif qu'au-delà de la volatilité normale de sa classe.
 /// Avant : ±0,3 % partout — un indice quasi plat (-0,4 %) s'affichait rouge.
-const SEUIL_INDICES = 0.5; // indices boursiers
+const SEUIL_INDICES = 1.0; // indices boursiers (ajusté propriétaire 2026-08-18)
 const SEUIL_MATIERES = 0.75; // or, pétrole, agriculture
 const SEUIL_CRYPTOS = 2.0; // Bitcoin : ±2 % est un jour calme
 
