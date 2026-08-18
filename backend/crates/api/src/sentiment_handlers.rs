@@ -196,6 +196,15 @@ async fn cloture_db(db: &Database, asset_str: &str, nom: &'static str) -> Option
     }
     let veille = barres[barres.len() - 1];
     let avant = barres[barres.len() - 2];
+    // Garde d'ancienneté : une DB D1 figée (ex: ETH arrêté en mars) ne doit
+    // JAMAIS être servie comme « référence veille » — dégradation silencieuse.
+    if trop_ancienne(veille.timestamp, Utc::now()) {
+        tracing::warn!(
+            "cloture_db {nom} : bougie D1 du {} périmée — entité ignorée",
+            veille.timestamp.format("%Y-%m-%d")
+        );
+        return None;
+    }
     let variation = if avant.close != 0.0 {
         (veille.close - avant.close) / avant.close * 100.0
     } else {
@@ -208,6 +217,12 @@ async fn cloture_db(db: &Database, asset_str: &str, nom: &'static str) -> Option
         prix: veille.close,
         variation_pct: (variation * 100.0).round() / 100.0,
     })
+}
+
+/// Une clôture servable a moins de 4 jours (week-end + férié = 3 jours sans
+/// marché ; au-delà, la source est considérée figée).
+fn trop_ancienne(cloture: chrono::DateTime<Utc>, maintenant: chrono::DateTime<Utc>) -> bool {
+    (maintenant - cloture).num_days() > 4
 }
 
 /// Collecte les clôtures de la veille et les fige en DB. Idempotent
@@ -398,6 +413,19 @@ mod tests {
         let (date_ref, vues) = condenser_lignes(&lignes);
         assert_eq!(date_ref, "2026-08-14");
         assert_eq!(vues.len(), 5);
+    }
+
+    #[test]
+    fn trop_ancienne_limite_4_jours() {
+        let now = DateTime::parse_from_rfc3339("2026-08-18T14:00:00Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        // Hier et week-end + férié (4 jours) → servable.
+        assert!(!trop_ancienne(now - chrono::Duration::days(1), now));
+        assert!(!trop_ancienne(now - chrono::Duration::days(4), now));
+        // 5 jours (ex: DB figée depuis mars) → rejetée.
+        assert!(trop_ancienne(now - chrono::Duration::days(5), now));
+        assert!(trop_ancienne(now - chrono::Duration::days(145), now));
     }
 
     fn ligne(entite: &str, date: &str) -> LigneVeille {
