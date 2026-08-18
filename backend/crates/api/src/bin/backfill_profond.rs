@@ -77,7 +77,9 @@ async fn main() -> anyhow::Result<()> {
     let couples: Vec<(Asset, Timeframe)> = if tous {
         assets.iter().flat_map(|a| tfs.iter().map(move |tf| (a.clone(), *tf))).collect()
     } else {
-        let a = Asset::try_from(asset_cible.as_deref().unwrap())
+        // Branche atteinte seulement sans --tous : --asset est forcément
+        // fourni (sinon usage bails en amont) — chaîne vide → erreur lisible.
+        let a = Asset::try_from(asset_cible.as_deref().unwrap_or(""))
             .map_err(|e| anyhow::anyhow!("asset inconnu : {e:?}"))?;
         let liste_tfs: Vec<Timeframe> = match &tf_cible {
             Some(t) => vec![Timeframe::try_from(t.as_str())
@@ -124,6 +126,10 @@ async fn main() -> anyhow::Result<()> {
                         inserees,
                         mois
                     ),
+                    None if inserees > 0 => println!(
+                        "  ✅ queue comblée — {} bougies insérées (historique déjà ≥ cible)",
+                        inserees
+                    ),
                     None => println!("  — déjà complet, rien à faire"),
                 }
             }
@@ -139,7 +145,9 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Backfill d'UN couple : pagination descendante depuis la plus ancienne
+/// Backfill d'UN couple : comblement de QUEUE d'abord (trou récent — ex asset
+/// réactivé — invisible à la descente, qui juge la complétude sur la plus
+/// ancienne bougie), puis pagination descendante depuis la plus ancienne
 /// bougie en DB jusqu'à la cible. Retourne (insérées, plus ancienne atteinte).
 async fn backfill_couple(
     db: &Arc<Database>,
@@ -149,13 +157,24 @@ async fn backfill_couple(
     cible_ts: i64,
     delai_ms: u64,
 ) -> anyhow::Result<(u64, Option<i64>)> {
+    // Trous comblés du plus récent au plus ancien (un asset réactivé ou une
+    // collecte intermittente en laisse plusieurs). Un tour qui n'insère
+    // rien = plus de trou comblable → arrêt.
+    let mut inserees: u64 = 0;
+    for _ in 0..200 {
+        let n = combler_trou(db, provider, &asset, tf, delai_ms).await?;
+        if n == 0 {
+            break;
+        }
+        inserees += n;
+    }
+
     // Curseur : plus ancienne bougie existante (ou now si vide).
     let plus_ancienne_db = plus_ancienne_bougie(db, &asset, tf).await?;
     let mut cursor_ms = plus_ancienne_db
         .map(|ts| ts * 1000)
         .unwrap_or_else(|| Utc::now().timestamp_millis());
 
-    let mut inserees: u64 = 0;
     let mut plus_ancienne_atteinte: Option<i64> = None;
     let mut pages_vides_consecutives: u32 = 0;
     let mut pages_sans_insertion: u32 = 0;
@@ -223,6 +242,96 @@ async fn plus_ancienne_bougie(
     .fetch_optional(db.pool())
     .await?;
     Ok(ligne.and_then(|(t,)| if t > 0 { Some(t) } else { None }))
+}
+
+/// Comble le TROU le plus récent d'un couple : détection SQL exhaustive (la
+/// plus grande bougie sans successeur direct), puis pages MONTANTES depuis la
+/// base du trou jusqu'à sa reprise — jamais de re-téléchargement du présent.
+/// Un asset réactivé ou une collecte intermittente y laisse typiquement
+/// plusieurs trous : l'appelant boucle jusqu'à retour 0.
+async fn combler_trou(
+    db: &Arc<Database>,
+    provider: &data::providers::BinanceProvider,
+    asset: &Asset,
+    tf: Timeframe,
+    delai_ms: u64,
+) -> anyhow::Result<u64> {
+    let tf_s = tf.minutes() as i64 * 60;
+
+    // Trou le plus récent : la plus grande bougie sans successeur immédiat
+    // PARMI celles qui ont une bougie au-dessus (la dernière bougie est
+    // toujours sans successeur — ce n'est pas un trou).
+    let base: Option<(i64,)> = sqlx::query_as(
+        "SELECT MAX(b.timestamp) FROM bougies b
+         WHERE b.asset = ?1 AND b.timeframe = ?2
+           AND NOT EXISTS (SELECT 1 FROM bougies n
+                           WHERE n.asset = ?1 AND n.timeframe = ?2
+                             AND n.timestamp = b.timestamp + ?3)
+           AND EXISTS (SELECT 1 FROM bougies s
+                       WHERE s.asset = ?1 AND s.timeframe = ?2
+                         AND s.timestamp > b.timestamp)",
+    )
+    .bind(asset.as_str())
+    .bind(tf.as_str())
+    .bind(tf_s)
+    .fetch_optional(db.pool())
+    .await?;
+    let Some((base_s,)) = base.filter(|(t,)| *t > 0) else {
+        return Ok(0); // aucun trou (ou couple vide)
+    };
+
+    // Reprise au-dessus du trou.
+    let reprise: Option<(i64,)> = sqlx::query_as(
+        "SELECT MIN(timestamp) FROM bougies
+         WHERE asset = ?1 AND timeframe = ?2 AND timestamp > ?3",
+    )
+    .bind(asset.as_str())
+    .bind(tf.as_str())
+    .bind(base_s)
+    .fetch_optional(db.pool())
+    .await?;
+    let Some((reprise_s,)) = reprise.filter(|(t,)| *t > 0) else {
+        return Ok(0); // base = dernière bougie : queue à jour côté WS
+    };
+
+    // Gap mineur (week-end, maintenance ≤ 3 périodes) : pas un trou à combler.
+    if reprise_s - base_s <= 3 * tf_s {
+        return Ok(0);
+    }
+
+    // Pages montantes : fenêtres de 1000 bougies depuis la base, chaque
+    // fenêtre clampée sur la fin du trou — un trou de moins de 1000 bougies
+    // doit être servi par une seule page, pas sauté par la garde.
+    let base_ms = base_s * 1000;
+    let fin_ms = reprise_s * 1000;
+    let tf_ms = tf_s * 1000;
+    let now_ms = Utc::now().timestamp_millis();
+    let fin_page_ms = fin_ms + tf_ms;
+    let mut end_ms = ((base_s + 1000 * tf_s) * 1000).min(fin_page_ms);
+    let mut inserees: u64 = 0;
+    for _ in 0..PAGES_MAX {
+        let (bougies, _) = provider.fetch_page_avant_brute(asset, tf, end_ms).await?;
+        // Bougies du trou uniquement, clôturées uniquement (la bougie en
+        // cours appartient au WS).
+        let nouvelles: Vec<_> = bougies
+            .into_iter()
+            .filter(|b| {
+                let ts = b.timestamp.timestamp_millis();
+                ts > base_ms && ts < fin_ms && ts + tf_ms <= now_ms
+            })
+            .collect();
+        if !nouvelles.is_empty() {
+            inserees += db
+                .inserer_bougies_avec_source(asset, &tf, &nouvelles, "bybit_backfill")
+                .await?;
+        }
+        if end_ms >= fin_page_ms {
+            break; // cette page a couvert la reprise du trou
+        }
+        end_ms = (end_ms + 1000 * tf_ms).min(fin_page_ms);
+        tokio::time::sleep(Duration::from_millis(delai_ms)).await;
+    }
+    Ok(inserees)
 }
 
 /// Assets Bybit actifs depuis la DB (source = binance, symbol_bybit présent) —

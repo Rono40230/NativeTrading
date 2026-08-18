@@ -161,7 +161,11 @@ async fn fetch_vix() -> (Option<f64>, Option<f64>) {
 ///   5. Combinaison pondérée par classe (renormalisée si composante absente).
 ///   6. Recalcul du global (moyenne des classes disponibles).
 pub async fn calculer_composite(db: &Database, fg_cache: &FgCache) -> SentimentScore {
-    // 1. Fetch D1 bougies.
+    // 1. Fetch D1 bougies — garde d'ancienneté : un asset dont la dernière
+    //    bougie D1 date de plus de 4 jours (assets Dukascopy figés depuis
+    //    avril — collecteur en phase 5) est IGNORÉ : son RSI périmé
+    //    fausserait les jauges. `combine_dispo` renormalise sans lui.
+    let maintenant = Utc::now();
     let mut bougies_d1: Vec<(String, Vec<Candle>)> = Vec::with_capacity(ASSETS_PRINCIPAUX.len());
     for asset_str in ASSETS_PRINCIPAUX {
         let asset = match Asset::try_from(*asset_str) {
@@ -169,7 +173,17 @@ pub async fn calculer_composite(db: &Database, fg_cache: &FgCache) -> SentimentS
             Err(_) => continue,
         };
         match db.obtenir_bougies(&asset, &Timeframe::D1, 30).await {
-            Ok(b) if b.len() >= 20 => bougies_d1.push((asset_str.to_string(), b)),
+            Ok(b) if b.len() >= 20 => {
+                let derniere = b.last().map(|c| c.timestamp).unwrap_or_default();
+                if crate::sentiment_handlers::trop_ancienne(derniere, maintenant) {
+                    tracing::warn!(
+                        "composite : {asset_str} D1 figé ({}) — ignoré du score technique",
+                        derniere.format("%Y-%m-%d")
+                    );
+                    continue;
+                }
+                bougies_d1.push((asset_str.to_string(), b));
+            }
             _ => {}
         }
     }

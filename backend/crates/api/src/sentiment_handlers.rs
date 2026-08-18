@@ -220,8 +220,9 @@ async fn cloture_db(db: &Database, asset_str: &str, nom: &'static str) -> Option
 }
 
 /// Une clôture servable a moins de 4 jours (week-end + férié = 3 jours sans
-/// marché ; au-delà, la source est considérée figée).
-fn trop_ancienne(cloture: chrono::DateTime<Utc>, maintenant: chrono::DateTime<Utc>) -> bool {
+/// marché ; au-delà, la source est considérée figée). Partagée avec le
+/// composite (`calculer_composite` skippe les assets D1 périmés).
+pub(crate) fn trop_ancienne(cloture: chrono::DateTime<Utc>, maintenant: chrono::DateTime<Utc>) -> bool {
     (maintenant - cloture).num_days() > 4
 }
 
