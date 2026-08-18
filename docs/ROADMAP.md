@@ -303,6 +303,21 @@ PRÉSENTATION
 | 4 | Extensions isolées | Kill producteur sans impact + dashboard | ⬜ |
 | 5 | Nouvelles sources | Gate 2 rejouée par asset + couverture DB | ⬜ |
 
+# Prochaines étapes (état au soir du 2026-08-18)
+
+> Voies parallèles actives : la preuve du cœur (2.x) et le dev des modules
+> indépendants avancent séparément — les gates bloquent l'intégration, pas le dev.
+
+| # | Étape | Nature | Prérequis |
+|---|---|---|---|
+| 1 | **Investigation queue D1 ETH** — D1 figé au 26/03 en DB (BTC à jour) ; les moteurs v12 shadow ETH s'appuient sur la queue au cold start. Vérifier pourquoi le backfill auto/WS ne l'alimente plus | Autonome (agent) | aucun |
+| 2 | **Phase 2.7 — Test de vérité** : 5 sessions live vs TradingView — le propriétaire note ses alertes TV (bar replay), confrontation au journal `GET /api/runtime/emissions` | **Participation proprio** | sessions de marché |
+| 3 | **Phase 2.7-bis — Audit indicateur par indicateur** v12 vs TradingView (proposition propriétaire) : chaque détecteur vérifié sur des cas connus (BOS/CHoCH/OB/FVG/sweeps…) | Semi-autonome | échantillons TV |
+| 4 | **Phase 2.8 — Bascule officielle** : signaux v12 officiels (Telegram sur le bus < 1 s), suppression de l'ancien chemin (smc boucles, signal_engine) | Autonome | **Gate 2 (2.7)** |
+| 5 | **Phase 3 — Plugin Straddle** (définition canonique sourcée en tête de Phase 3) puis **Rockets** (VCP Minervini) | Autonome | définitions ✅ |
+| 6 | **Phase 5.2 — Sync Dukascopy incrémentale** : les 10 assets Dukascopy n'ont que leur backfill initial (~410 bougies D1, figées) | Autonome | pattern curseur-DB ✅ |
+| 7 | Maintenance consignée : UX fine presse, panique sqlx (« requires a Tokio context »), timestamps hétérogènes (ISO vs epoch), troncature UTF-8 | Autonome | — |
+
 ## Journal des phases
 
 | Date | Phase | Événement |
