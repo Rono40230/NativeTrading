@@ -334,7 +334,15 @@ async fn session_unique(
         let message = tokio::select! {
             biased;
             _ = tick_config.tick() => {
-                let assets_maj = assets_bybit_depuis_db(db).await;
+                // Relire la config AVEC le même filtre de marché que la
+                // session : comparer 4 assets à un sous-ensemble filtré
+                // provoquait une différence permanente → reconnexion en
+                // boucle sans jamais ingérer (bug 2026-08-18 soir).
+                let assets_maj: Vec<(String, String)> = assets_bybit_depuis_db(db)
+                    .await
+                    .into_iter()
+                    .filter(|(symbole, _)| est_metal_linear(symbole) == linear)
+                    .collect();
                 let tfs_maj = crate::worker_config::lire_timeframes(db).await;
                 if !assets_maj.is_empty() && empreinte_session(&assets_maj, &tfs_maj) != dernier_hash {
                     tracing::info!(

@@ -72,7 +72,8 @@ const SOURCES_YAHOO: &[(&str, &str, &str)] = &[
 ];
 
 /// Sources DB locale D1 (Bybit) — les cryptos, comme le reste de l'app.
-const SOURCES_DB: &[(&str, &str)] = &[("BTC", "Bitcoin"), ("ETH", "Ethereum")];
+/// ETH retiré du pipeline le 2026-08-18 (décision propriétaire : BTC seul).
+const SOURCES_DB: &[(&str, &str)] = &[("BTC", "Bitcoin")];
 
 /// Ordre d'affichage des groupes (celui du bloc Sentiment).
 const ORDRE_AFFICHAGE: &[&[&str]] = &[

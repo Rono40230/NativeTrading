@@ -36,8 +36,10 @@ pub type FgCache = Arc<RwLock<Option<(std::time::Instant, Value)>>>;
 pub type SentimentSlot = Arc<RwLock<Option<SentimentScore>>>;
 
 /// Actifs principaux utilisés pour le sentiment technique D1.
+/// ETH retiré du pipeline le 2026-08-18 (décision propriétaire : BTC seul).
+/// Les assets Dukascopy figés sont filtrés par la garde d'ancienneté.
 const ASSETS_PRINCIPAUX: &[&str] = &[
-    "BTC", "ETH", "EURUSD", "GBPJPY", "USDJPY", "XAUUSD", "XAGUSD", "DAX", "NAS100", "SP500",
+    "BTC", "EURUSD", "GBPJPY", "USDJPY", "XAUUSD", "XAGUSD", "DAX", "NAS100", "SP500",
 ];
 
 /// TTL du cache F&G (1 h).
