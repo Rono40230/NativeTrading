@@ -304,32 +304,145 @@ async fn lire_veille(db: &Database) -> Option<(String, Vec<LigneVeille>)> {
 
 // ── Handler ──────────────────────────────────────────────────────────────────
 
-/// GET /api/sentiment/marche — référence veille figée.
-///
-/// Ne fait AUCUN fetch externe : sert la dernière référence de
-/// `sentiment_marche_veille`. Si la table est vide (premier lancement avant
-/// le premier cycle du worker), one-shot du collecteur puis relecture.
-pub async fn get_sentiment_marche(state: web::Data<AppState>) -> impl Responder {
-    let lecture = match lire_veille(&state.db).await {
-        Some(x) => x,
-        None => {
-            tracing::info!("sentiment_marche : table vide, one-shot du collecteur veille");
-            figer_veille_marche(&state.db).await;
-            lire_veille(&state.db)
-                .await
-                .unwrap_or((String::new(), Vec::new()))
-        }
+/// Prix + variation de SÉANCE (live) depuis Yahoo (`regularMarketPrice` vs
+/// `chartPreviousClose`). Dégradation silencieuse par source.
+async fn yahoo_live(client: &reqwest::Client, symbole: &str, nom: &str) -> Option<EntiteSentiment> {
+    #[derive(serde::Deserialize)]
+    struct Meta {
+        #[serde(rename = "regularMarketPrice")]
+        prix: Option<f64>,
+        #[serde(rename = "chartPreviousClose")]
+        precedente: Option<f64>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Reponse {
+        chart: ChartResult,
+    }
+    #[derive(serde::Deserialize)]
+    struct ChartResult {
+        result: Option<Vec<MetaWrap>>,
+    }
+    #[derive(serde::Deserialize)]
+    struct MetaWrap {
+        meta: Meta,
+    }
+    let url = format!(
+        "https://query2.finance.yahoo.com/v8/finance/chart/{}?interval=1d&range=2d",
+        symbole
+    );
+    let r: Reponse = client
+        .get(&url)
+        .header("Accept", "application/json")
+        .header("User-Agent", "Mozilla/5.0 (X11; Linux x86_64)")
+        .send()
+        .await
+        .ok()?
+        .json()
+        .await
+        .ok()?;
+    let meta = r.chart.result?.into_iter().next()?.meta;
+    let prix = meta.prix?;
+    let precedente = meta.precedente?;
+    let variation = if precedente != 0.0 {
+        (prix - precedente) / precedente * 100.0
+    } else {
+        0.0
     };
-    let (date_ref, lignes) = lecture;
+    Some(EntiteSentiment {
+        nom: nom.to_string(),
+        prix,
+        variation_pct: (variation * 100.0).round() / 100.0,
+    })
+}
 
-    let chercher = |nom: &str| lignes.iter().find(|l| l.entite == nom);
-    let entite = |nom: &str| {
-        chercher(nom).map(|l| EntiteSentiment {
+/// Bitcoin live depuis NOTRE série (DB Bybit spot) : dernier prix connu (M1
+/// la plus fraîche) vs close D1 clôturée d'hier. Jamais une autre place —
+/// une seule série de prix par asset (leçon L10).
+async fn btc_live_db(db: &Database) -> Option<EntiteSentiment> {
+    use common::{Asset, Timeframe};
+    let asset = Asset::try_from("BTC").ok()?;
+    // Référence : dernière bougie D1 CLÔTURÉE (avant minuit UTC courant).
+    let d1: Vec<common::Candle> = db
+        .obtenir_bougies(&asset, &Timeframe::D1, 5)
+        .await
+        .ok()?;
+    let minuit = minuit_utc_ms() / 1000;
+    let ref_close = d1
+        .iter()
+        .filter(|c| c.timestamp.timestamp() < minuit)
+        .next_back()?
+        .close;
+    // Prix courant : dernier close M1 en base (~temps réel à la minute).
+    let m1: Vec<common::Candle> = db
+        .obtenir_bougies(&asset, &Timeframe::M1, 2)
+        .await
+        .ok()?;
+    let px = m1.last()?.close;
+    let variation = if ref_close != 0.0 {
+        (px - ref_close) / ref_close * 100.0
+    } else {
+        0.0
+    };
+    Some(EntiteSentiment {
+        nom: "Bitcoin".to_string(),
+        prix: px,
+        variation_pct: (variation * 100.0).round() / 100.0,
+    })
+}
+
+/// GET /api/sentiment/marche — AMBIANCE DU JOUR (décision propriétaire
+/// 2026-08-18, option A) : listes en variation de séance live — Yahoo pour
+/// indices/matières/VIX, DB Bybit spot pour Bitcoin. Les JAUGES composites
+/// restent en référence veille (endpoint `/composite`, inchangé).
+/// Repli : si le live échoue en grande partie, la dernière veille figée est
+/// servie (table `sentiment_marche_veille`, datée).
+pub async fn get_sentiment_marche(state: web::Data<AppState>) -> impl Responder {
+    let client = &*crate::http_client::HTTP_CLIENT;
+    let futurs: Vec<_> = SOURCES_YAHOO
+        .iter()
+        .map(|(symbole, nom, _groupe)| yahoo_live(client, symbole, nom))
+        .collect();
+    let mut entites: Vec<EntiteSentiment> = join_all(futurs)
+        .await
+        .into_iter()
+        .flatten()
+        .collect();
+    if let Some(btc) = btc_live_db(&state.db).await {
+        entites.push(btc);
+    }
+
+    // Repli dégradé : moins de 5 sources live → servir la veille figée
+    // (datée) plutôt qu'un bloc à moitié vide.
+    if entites.len() < 5 {
+        tracing::warn!(
+            "sentiment_marche : live partiel ({}/11) — repli sur la veille figée",
+            entites.len()
+        );
+        let (date_ref, lignes) = lire_veille(&state.db)
+            .await
+            .unwrap_or_else(|| (String::new(), Vec::new()));
+        return construire_reponse(&entites_repli(&lignes), date_ref);
+    }
+
+    construire_reponse(&entites, Utc::now().format("%Y-%m-%d").to_string())
+}
+
+/// Transforme les lignes figées en entités (repli).
+fn entites_repli(lignes: &[LigneVeille]) -> Vec<EntiteSentiment> {
+    lignes
+        .iter()
+        .map(|l| EntiteSentiment {
             nom: l.entite.clone(),
             prix: l.prix,
             variation_pct: l.variation_pct,
         })
-    };
+        .collect()
+}
+
+/// Assemble la réponse dans l'ordre d'affichage canonique.
+fn construire_reponse(entites: &[EntiteSentiment], date: String) -> HttpResponse {
+    let chercher = |nom: &str| entites.iter().find(|e| e.nom == nom);
+    let entite = |nom: &str| chercher(nom).cloned();
 
     let groupes = ORDRE_AFFICHAGE
         .iter()
@@ -337,7 +450,7 @@ pub async fn get_sentiment_marche(state: web::Data<AppState>) -> impl Responder 
         .collect::<Vec<_>>();
 
     HttpResponse::Ok().json(SentimentMarche {
-        date: date_ref,
+        date,
         usa: groupes[0].clone(),
         europe: groupes[1].clone(),
         matieres_premieres: groupes[2].clone(),

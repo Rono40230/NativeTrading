@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between mb-3">
       <div>
         <p class="text-[11px] font-semibold text-white uppercase tracking-widest">Sentiment de Marché</p>
-        <p class="text-[10px] text-slate-400">Référence veille{{ dateAffichee ? ' · ' + dateAffichee : '' }}</p>
+        <p class="text-[10px] text-slate-400">Jauges : réf. veille · Marchés : aujourd'hui</p>
       </div>
       <div v-if="chargement" class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
     </div>
@@ -74,9 +74,9 @@
         <div>
           <p class="text-slate-500 mb-0.5">⛏️ MATIÈRES PREMIÈRES</p>
           <div v-for="e in data.matieres_premieres" :key="e.nom" class="flex items-center gap-2 py-0.5">
-            <span class="text-sm leading-none">{{ bille(e.variation_pct) }}</span>
+            <span class="text-sm leading-none">{{ bille(e.variation_pct, SEUIL_MATIERES) }}</span>
             <span class="text-slate-200">{{ e.nom }}</span>
-            <span class="ml-auto tabular-nums" :class="couleur(e.variation_pct)">
+            <span class="ml-auto tabular-nums" :class="couleur(e.variation_pct, SEUIL_MATIERES)">
               {{ e.variation_pct > 0 ? '+' : '' }}{{ e.variation_pct.toFixed(2) }}%
             </span>
           </div>
@@ -86,10 +86,10 @@
         <div>
           <p class="text-slate-500 mb-0.5">₿ CRYPTOS</p>
           <div v-for="e in data.cryptos" :key="e.nom" class="flex items-center gap-2 py-0.5">
-            <span class="text-sm leading-none">{{ bille(e.variation_pct) }}</span>
+            <span class="text-sm leading-none">{{ bille(e.variation_pct, SEUIL_CRYPTOS) }}</span>
             <span class="text-slate-200">{{ e.nom }}</span>
             <span class="text-slate-400 tabular-nums text-[10px]">{{ formatPrix(e.prix) }}</span>
-            <span class="ml-auto tabular-nums" :class="couleur(e.variation_pct)">
+            <span class="ml-auto tabular-nums" :class="couleur(e.variation_pct, SEUIL_CRYPTOS)">
               {{ e.variation_pct > 0 ? '+' : '' }}{{ e.variation_pct.toFixed(2) }}%
             </span>
           </div>
@@ -177,15 +177,22 @@ function labelSentiment(v: number): string {
   return 'Peur extrême'
 }
 
-function bille(v: number): string {
-  if (v > 0.3) return '🟢'
-  if (v < -0.3) return '🔴'
+/// Échelle des pastilles par classe (décision 2026-08-18) : un mouvement
+/// n'est significatif qu'au-delà de la volatilité normale de sa classe.
+/// Avant : ±0,3 % partout — un indice quasi plat (-0,4 %) s'affichait rouge.
+const SEUIL_INDICES = 0.5; // indices boursiers
+const SEUIL_MATIERES = 0.75; // or, pétrole, agriculture
+const SEUIL_CRYPTOS = 2.0; // Bitcoin : ±2 % est un jour calme
+
+function bille(v: number, seuil = SEUIL_INDICES): string {
+  if (v > seuil) return '🟢'
+  if (v < -seuil) return '🔴'
   return '🔵'
 }
 
-function couleur(v: number): string {
-  if (v > 0) return 'text-emerald-400'
-  if (v < 0) return 'text-red-400'
+function couleur(v: number, seuil = SEUIL_INDICES): string {
+  if (v > seuil) return 'text-emerald-400'
+  if (v < -seuil) return 'text-red-400'
   return 'text-slate-400'
 }
 

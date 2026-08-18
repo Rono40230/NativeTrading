@@ -39,9 +39,9 @@ export const useSentimentStore = defineStore('sentiment', () => {
   function demarrer() {
     charger()
     chargerComposite()
-    // Référence veille : le contenu est figé dans la journée — un refresh
-    // léger ne sert qu'à rattraper le changement de jour si l'app reste ouverte.
-    if (!_interval) _interval = setInterval(charger, 5 * 60_000)
+    // Marchés : variation du jour (live, option A 2026-08-18) — refresh 2 min.
+    // Jauges composites : référence veille — refresh 5 min (changement de jour).
+    if (!_interval) _interval = setInterval(charger, 2 * 60_000)
     if (!_intervalComposite) _intervalComposite = setInterval(chargerComposite, 5 * 60_000)
   }
 
