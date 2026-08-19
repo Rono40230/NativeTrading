@@ -155,9 +155,13 @@ export function dessinerObsEtFvgs(
   flags: FlagsV12,
 ): void {
   const xD = xDroit(ts, W, dernierTs)
-  // OB
+  // OB — filtre d'affichage identique au Pine (lignes 1238/1315 : seules les
+  // zones de force ≥ 5/10 sont dessinées sur TV). Le moteur, lui, qualifie
+  // toujours ses trades dès force ≥ 4 (i_forceMin Pine) : ce filtre ne
+  // concerne QUE le rendu, pas la détection.
   if (flags.ob) {
     for (const o of obsList) {
+      if (o.force < 5) continue
       const yHaut = serie.priceToCoordinate(o.top)
       const yBas = serie.priceToCoordinate(o.bot)
       if (yHaut === null || yBas === null) continue
