@@ -292,8 +292,16 @@ async fn combler_trou(
         return Ok(0); // base = dernière bougie : queue à jour côté WS
     };
 
-    // Gap mineur (week-end, maintenance ≤ 3 périodes) : pas un trou à combler.
-    if reprise_s - base_s <= 3 * tf_s {
+    // Gap mineur : toléré sans fetch. Métaux (linear) : 3 périodes (week-end
+    // D1 = sam+dim). Crypto spot 24/7 : 1 période — un trou d'une bougie est
+    // un VRAI trou à combler (4 barres de transition perp/spot purgées le
+    // 19/08 n'étaient pas re-remplies à cause du seuil uniforme).
+    let tolerance_s = if matches!(asset.as_str(), "XAUUSD" | "XAGUSD") {
+        3 * tf_s
+    } else {
+        tf_s
+    };
+    if reprise_s - base_s <= tolerance_s {
         return Ok(0);
     }
 
