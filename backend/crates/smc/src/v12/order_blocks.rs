@@ -178,23 +178,26 @@ fn lifecycle_ob_bull(
         let top = z.top;
         let bot = z.bot;
         let impulse_bar = z.impulse_bar;
-        let inval = bar.low <= top; // _invalB (Pine ligne 1194)
-        if cur_idx > impulse_bar && inval {
-            // Suppression + Breaker si vraie invalidation directionnelle (close < bot).
-            if bar.close < bot {
-                breaker.push_bear(top, bot, cur_idx); // Bearish Breaker (Pine lignes 1203-1218)
-            }
-            invalidated.push(*z);
-            del.push(i);
-        } else if bar.low <= top {
-            // Transitions d'état — uniquement à la bar de création (garde ci-dessus).
+        // 1) MITIGATION D'ABORD (MQL5 f_obLifecycle « NOTE BUG CORRIGÉ » :
+        //    mitigation AVANT suppression, sur TOUTE barre touchante — le
+        //    placement dans le `else` empêchait les transitions d'état et
+        //    bloquait le ratchet du score → sur-scoring des zones éloignées).
+        if bar.low <= top {
             let mid = (top + bot) * 0.5;
             let st = z.state;
             if bar.close <= mid && st < ObState::Profond {
-                z.state = ObState::Profond; // close <= mid ⇒ DEEP
+                z.state = ObState::Profond; // close <= mid → DEEP (mitigation ≥ 50 %)
             } else if bar.close > mid && st == ObState::Vierge {
-                z.state = ObState::Partiel; // close > mid ⇒ PART
+                z.state = ObState::Partiel; // close > mid → PARTIAL
             }
+        }
+        // 2) PUIS invalidation/suppression (Pine _invalB = low <= top).
+        if cur_idx > impulse_bar && bar.low <= top {
+            if bar.close < bot {
+                breaker.push_bear(top, bot, cur_idx); // Bearish Breaker
+            }
+            invalidated.push(*z);
+            del.push(i);
         }
     }
     remove_descending(zones, &del);
@@ -214,21 +217,23 @@ fn lifecycle_ob_bear(
         let top = z.top;
         let bot = z.bot;
         let impulse_bar = z.impulse_bar;
-        let inval = bar.high >= bot; // _invalBr (Pine ligne 1271)
-        if cur_idx > impulse_bar && inval {
-            if bar.close > top {
-                breaker.push_bull(top, bot, cur_idx); // Bullish Breaker (Pine lignes 1279-1295)
-            }
-            invalidated.push(*z);
-            del.push(i);
-        } else if bar.high >= bot {
+        // 1) MITIGATION D'ABORD (MQL5 : avant suppression, toute barre touchante).
+        if bar.high >= bot {
             let mid = (top + bot) * 0.5;
             let st = z.state;
             if bar.close >= mid && st < ObState::Profond {
-                z.state = ObState::Profond;
+                z.state = ObState::Profond; // close >= mid → DEEP
             } else if bar.close < mid && st == ObState::Vierge {
-                z.state = ObState::Partiel;
+                z.state = ObState::Partiel; // close < mid → PARTIAL
             }
+        }
+        // 2) PUIS invalidation/suppression (Pine _invalBr = high >= bot).
+        if cur_idx > impulse_bar && bar.high >= bot {
+            if bar.close > top {
+                breaker.push_bull(top, bot, cur_idx); // Bullish Breaker
+            }
+            invalidated.push(*z);
+            del.push(i);
         }
     }
     remove_descending(zones, &del);
@@ -269,11 +274,33 @@ mod tests {
         assert_eq!(det.bull_zones().len(), 1);
     }
 
+    /// MQL5 f_obLifecycle « NOTE BUG CORRIGÉ » : la mitigation s'applique
+    /// AVANT la suppression, sur TOUTE barre touchante. Une zone tuée
+    /// post-création avec close ≤ mid doit mourir à l'état Profond (la
+    /// transition précède l'invalidation) — avant le fix, elle mourait
+    /// Vierge et le ratchet du score restait bloqué haut (sur-scoring).
+    #[test]
+    fn mitigation_avant_suppression_sur_barre_touchante_posterieure() {
+        let mut det = ObDetector::new();
+        let mut brk = BreakerDetector::new();
+        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
+        det.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk);
+        det.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk);
+        // Bar 3 post-création : low 99 ≤ top 102 (toucher), close 99.5 ≤ mid 100
+        // → mitigation Profond PUIS invalidation (cur 3 > impulse 2).
+        let ev = det.update(&bar(3, 101.0, 103.0, 99.0, 99.5), 5.0, false, false, &mut brk);
+        assert_eq!(ev.invalidated_bull.len(), 1, "zone tuée par toucher post-création");
+        assert!(
+            matches!(ev.invalidated_bull[0].state, ObState::Profond),
+            "la zone meurt avec l'état de mitigation appliqué (Profond), pas Vierge"
+        );
+        assert!(det.bull_zones().is_empty());
+    }
+
     /// Pas d'OB sans impulsion (ROC insuffisant). ROC = (high-low)/close×10000 bps.
     /// Pour ROC < 5 bps il faut un range très petit (< 0.0005×close).
     #[test]
-    fn pas_d_ob_si_roc_insuffisant() {
-        let mut det = ObDetector::new();
+    fn pas_d_ob_si_roc_insuffisant() {        let mut det = ObDetector::new();
         let mut brk = BreakerDetector::new();
         det.update(&bar(0, 100.0, 100.5, 99.5, 100.0), 5.0, false, false, &mut brk);
         // bar1 baissière : close=99.6 < open=100.
