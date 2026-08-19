@@ -59,7 +59,6 @@ pub async fn analyse_v12(
             mss: Vec::new(),
             chochs: Vec::new(),
             sweeps: Vec::new(),
-            eqh_eql: Vec::new(),
             obs: Vec::new(),
             fvgs: Vec::new(),
             signals: Vec::new(),
@@ -207,20 +206,6 @@ pub async fn analyse_v12(
         col.on_bar(&bar, &out);
     }
 
-    // ── Niveaux EQH/EQL actifs (pool MODULE 4, vague 3 miroir) ──
-    let eqh_eql: Vec<LiqOut> = engine
-        .liquidites
-        .pool()
-        .iter()
-        .map(|l| LiqOut {
-            ts: ts_at(&ts_by_idx, l.t_first, ts_by_idx.last().copied().unwrap_or(0)),
-            price: l.price,
-            touches: l.touches,
-            swept: l.swept,
-            is_high: l.is_high,
-        })
-        .collect();
-
     // ── États actifs (post-replay) : Order Blocks + FVG ──
     let cal = &engine.calibration;
     let mut obs: Vec<ObOut> = Vec::new();
@@ -307,7 +292,12 @@ pub async fn analyse_v12(
     }
 
     // ── Indicateurs étendus : états finaux + compression des séries par barre ──
-    let extended = collect_final_extended(&engine, &ts_by_idx, col);
+    let mut extended = collect_final_extended(&engine, &ts_by_idx, col);
+    // EQH/EQL : bord gauche = timestamp du 1er pivot (Pine tFirst).
+    let dernier_ts = ts_by_idx.last().copied().unwrap_or(0);
+    for eq in extended.eqs.iter_mut() {
+        eq.ts = ts_at(&ts_by_idx, eq.bar_idx, dernier_ts);
+    }
 
     // ── FIFO : ne garder que les N derniers visibles ──
     garder_derniers(&mut bos_list, MAX_BOS);
@@ -326,7 +316,6 @@ pub async fn analyse_v12(
         mss: mss_list,
         chochs: choch_list,
         sweeps,
-        eqh_eql,
         obs,
         fvgs,
         signals,

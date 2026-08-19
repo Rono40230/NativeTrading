@@ -96,9 +96,9 @@ export interface FlagsV12Etendus {
   sessionAsie: boolean
   sessionLondres: boolean
   sessionNy: boolean
+  eqhEql: boolean
   asianHl: boolean
   niveauxCles: boolean
-  eqhEql: boolean
   ndog: boolean
   nwog: boolean
   breaker: boolean
@@ -381,7 +381,9 @@ export function dessinerLignes(
     }
   }
 
-  // EQH / EQL.
+  // EQH / EQL — MODULE 4 Pine : dashed TOUJOURS (style_dashed, même sweepé),
+  // largeur 2 si touches ≥ 3 sinon 1, ligne du 1er PIVOT (tFirst) au bord
+  // droit — pas pleine largeur (Pine line.new(_ll.tFirst, ...)).
   if (flags.eqhEql) {
     for (const eq of d.eqs) {
       const y = serie.priceToCoordinate(eq.price)
@@ -389,7 +391,9 @@ export function dessinerLignes(
       const isHigh = eq.dir === 'high'
       const hex = eq.swept ? COUL_GRIS : (isHigh ? COUL_EQH : COUL_EQL)
       const strong = eq.touches >= 3
-      ligneHoriz(ctx, hex, y, 0, xD, { dashed: strong, width: strong ? 2 : 1 })
+      const xGRaw = eq.ts ? ts.timeToCoordinate(eq.ts as any) : null
+      const xG = xGRaw !== null ? Math.max(0, xGRaw) : 0
+      ligneHoriz(ctx, hex, y, xG, xD, { dashed: true, width: strong ? 2 : 1 })
       labelDroite(ctx, hex, `${isHigh ? 'EQH' : 'EQL'} ×${eq.touches}`, xD, W, y)
     }
   }

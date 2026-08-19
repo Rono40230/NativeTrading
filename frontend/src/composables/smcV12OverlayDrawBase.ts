@@ -97,15 +97,6 @@ export interface FvgDessin {
   dir: 'bull' | 'bear'
   state: string
 }
-export interface LiqDessin {
-  /** Timestamp du 1er pivot (bord gauche de la ligne). */
-  ts: number
-  price: number
-  touches: number
-  swept: boolean
-  isHigh: boolean
-}
-
 export interface SweepDessin {
   ts: number
   level: number
@@ -123,7 +114,6 @@ export interface FlagsV12 {
   mss: boolean
   choch: boolean
   sweeps: boolean
-  eqhEql: boolean
   ob: boolean
   fvg: boolean
   signals: boolean
@@ -338,39 +328,6 @@ export function dessinerSweeps(
     ctx.beginPath()
     ctx.arc(x, yLevel, 2, 0, Math.PI * 2)
     ctx.fill()
-  }
-}
-
-export function dessinerLiq(
-  ctx: CanvasRenderingContext2D,
-  serie: ISeriesApi<'Candlestick'>,
-  ts: TimeScale,
-  liqList: LiqDessin[],
-  W: number,
-  dernierTs: number | null,
-): void {
-  const xD = xDroit(ts, W, dernierTs)
-  // Couleurs MODULE 4 Pine : EQH jaune, EQL cyan, sweepé gris foncé.
-  for (const l of liqList) {
-    const y = serie.priceToCoordinate(l.price)
-    if (y === null) continue
-    const xGRaw = ts.timeToCoordinate(l.ts as any)
-    const xG = xGRaw !== null ? Math.max(0, xGRaw) : 0
-    if (xD <= xG) continue
-    const coul = l.swept ? '#616161' : l.isHigh ? '#FFD600' : '#00BCD4'
-    ctx.strokeStyle = coul
-    ctx.lineWidth = !l.swept && l.touches >= 3 ? 2 : 1
-    ctx.setLineDash(l.swept ? [] : [5, 4])
-    ctx.beginPath()
-    ctx.moveTo(xG, y)
-    ctx.lineTo(xD, y)
-    ctx.stroke()
-    ctx.setLineDash([])
-    ctx.font = 'bold 9px sans-serif'
-    ctx.fillStyle = coul
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(`${l.isHigh ? 'EQH' : 'EQL'} ×${l.touches}`, xG + 4, y - 6)
   }
 }
 

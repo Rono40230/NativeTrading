@@ -31,7 +31,6 @@ import type { SmcV12Analyse } from '@/services/api.smc'
 import { useSettingsStore } from '@/stores/settings.store'
 import {
   dessinerTendance,
-  dessinerLiq,
   dessinerObsEtFvgs,
   dessinerLignes,
   dessinerSweeps,
@@ -44,7 +43,6 @@ import type {
   SignalDessin,
   PivotDessin,
   FvgDessin,
-  LiqDessin,
   SweepDessin,
   FlagsV12,
 } from './smcV12OverlayDrawBase'
@@ -72,7 +70,6 @@ export function useSmcV12Overlay() {
   let mss: LigneDessin[] = []
   let chochs: LigneDessin[] = []
   let sweeps: SweepDessin[] = []
-  let liq: LiqDessin[] = []
   let obs: ObDessin[] = []
   let fvgs: FvgDessin[] = []
   let signals: SignalDessin[] = []
@@ -116,7 +113,6 @@ export function useSmcV12Overlay() {
       mss: p.v12Mss,
       choch: p.v12Choch,
       sweeps: p.v12Sweeps,
-      eqhEql: p.v12EqhEql,
       ob: p.v12Ob,
       fvg: p.v12Fvg,
       signals: p.v12Signals,
@@ -130,9 +126,9 @@ export function useSmcV12Overlay() {
       sessionAsie: p.v12SessionAsie,
       sessionLondres: p.v12SessionLondres,
       sessionNy: p.v12SessionNy,
+      eqhEql: p.v12EqhEql,
       asianHl: p.v12AsianHl,
       niveauxCles: p.v12NiveauxCles,
-      eqhEql: p.v12EqhEql,
       ndog: p.v12Ndog,
       nwog: p.v12Nwog,
       breaker: p.v12Breaker,
@@ -175,7 +171,6 @@ export function useSmcV12Overlay() {
     if (flags.bos) dessinerLignes(ctx, serieRef, ts, bos, W, dernierTsRef, 'bos')
     if (flags.mss) dessinerLignes(ctx, serieRef, ts, mss, W, dernierTsRef, 'mss')
     if (flags.choch) dessinerLignes(ctx, serieRef, ts, chochs, W, dernierTsRef, 'choch')
-    if (flags.eqhEql) dessinerLiq(ctx, serieRef, ts, liq, W, dernierTsRef)
     if (flags.sweeps) dessinerSweeps(ctx, serieRef, ts, sweeps, W)
     if (flags.signals) dessinerSignaux(ctx, serieRef, ts, signals, W, dernierTsRef)
     if (flags.structure) dessinerPivots(ctx, serieRef, ts, pivots, W)
@@ -241,7 +236,6 @@ export function useSmcV12Overlay() {
       label: c.dir === 'bull' ? 'CHOCH ↑' : 'CHOCH ↓',
     }))
     sweeps = data.sweeps.slice(-6).map((s) => ({ ts: s.ts, level: s.level, dir: s.dir, candleHigh: s.candle_high, candleLow: s.candle_low }))
-    liq = (data.eqh_eql ?? []).map((l) => ({ ts: l.ts, price: l.price, touches: l.touches, swept: l.swept, isHigh: l.is_high }))
     obs = data.obs.map((o) => ({
       ts: o.ts, top: o.top, bot: o.bot, force: o.force, dir: o.dir, state: o.state,
     }))
@@ -277,7 +271,6 @@ export function useSmcV12Overlay() {
     mss = []
     chochs = []
     sweeps = []
-    liq = []
     obs = []
     fvgs = []
     signals = []

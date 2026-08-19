@@ -260,6 +260,7 @@ pub(crate) fn collect_final_extended(
             touches: l.touches,
             swept: l.swept,
             bar_idx: l.t_first,
+            ts: 0,
         })
         .collect();
 
