@@ -184,9 +184,11 @@ export function dessinerObsEtFvgs(
       ctx.beginPath(); ctx.moveTo(xG, yTop); ctx.lineTo(xG, yTop + hauteur); ctx.stroke()
       ctx.font = 'bold 10px sans-serif'
       ctx.fillStyle = hexVersRgba(hex, 1)
-      ctx.textAlign = 'left'
+      // Score à droite de la zone (bord actif), aligné sur l'affichage TV.
+      ctx.textAlign = 'right'
       ctx.textBaseline = 'top'
-      ctx.fillText(`OB ${o.force}/10`, xG + 3, yTop + 2)
+      ctx.fillText(`OB ${o.force}/10`, xD - 3, yTop + 2)
+      ctx.textAlign = 'left'
     }
   }
   // FVG
