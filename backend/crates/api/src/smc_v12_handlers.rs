@@ -134,6 +134,8 @@ pub async fn analyse_v12(
                     dir: if bullish { "bull" } else { "bear" },
                     level,
                     bar_idx: bi,
+                    candle_high: None,
+                    candle_low: None,
                 });
             }
         }
@@ -148,6 +150,8 @@ pub async fn analyse_v12(
                     dir: if bullish { "bull" } else { "bear" },
                     level,
                     bar_idx: bi,
+                    candle_high: None,
+                    candle_low: None,
                 });
             }
         }
@@ -162,6 +166,8 @@ pub async fn analyse_v12(
                     dir: if bullish { "bull" } else { "bear" },
                     level,
                     bar_idx: bi,
+                    candle_high: None,
+                    candle_low: None,
                 });
             }
         }
@@ -176,6 +182,8 @@ pub async fn analyse_v12(
                     dir: "bull",
                     level,
                     bar_idx: bi,
+                    candle_high: Some(bar.high),
+                    candle_low: Some(bar.low),
                 });
             }
         }
@@ -188,6 +196,8 @@ pub async fn analyse_v12(
                     dir: "bear",
                     level,
                     bar_idx: bi,
+                    candle_high: Some(bar.high),
+                    candle_low: Some(bar.low),
                 });
             }
         }

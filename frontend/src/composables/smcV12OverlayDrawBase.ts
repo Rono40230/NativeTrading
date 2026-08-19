@@ -101,6 +101,9 @@ export interface SweepDessin {
   ts: number
   level: number
   dir: 'bull' | 'bear'
+  /** Bougie du sweep — ancre l'étiquette sur la bougie elle-même. */
+  candleHigh?: number
+  candleLow?: number
 }
 
 /** Flags de visibilité des 9 indicateurs de base. */
@@ -272,21 +275,58 @@ export function dessinerSweeps(
   W: number,
 ): void {
   for (const s of sweepList) {
-    const y = serie.priceToCoordinate(s.level)
-    if (y === null) continue
+    const yLevel = serie.priceToCoordinate(s.level)
+    if (yLevel === null) continue
     const xRaw = ts.timeToCoordinate(s.ts as any)
     if (xRaw === null) continue
-    const x = Math.max(4, Math.min(xRaw, W - 40))
+    const x = Math.max(4, Math.min(xRaw, W - 44))
     const couleur = s.dir === 'bull' ? COUL_SWEEP_BULL : COUL_SWEEP_BEAR
-    const isHaut = s.dir === 'bear' // sweep baissier = prise de liquidité au-dessus
-    ctx.font = 'bold 10px sans-serif'
+    const isHaut = s.dir === 'bear' // sweep baissier = liquidité prise AU-DESSUS
+
+    // Ancre : la bougie du sweep si dispo (étiquette plaquée dessus),
+    // sinon le niveau cassé.
+    const yAncre = isHaut
+      ? s.candleHigh !== undefined ? serie.priceToCoordinate(s.candleHigh) : yLevel
+      : s.candleLow !== undefined ? serie.priceToCoordinate(s.candleLow) : yLevel
+    if (yAncre === null) continue
+
+    // Flèche ▲/▼ collée à la bougie (au-dessus du high / sous le low).
+    const taille = 5
+    const yBase = isHaut ? yAncre - 4 : yAncre + 4
+    const yPointe = isHaut ? yBase - taille : yBase + taille
     ctx.fillStyle = couleur
-    ctx.textAlign = 'left'
-    ctx.textBaseline = isHaut ? 'bottom' : 'top'
-    const yTxt = isHaut ? y - 3 : y + 3
-    ctx.fillText(s.dir === 'bull' ? 'SWEEP ↑' : 'SWEEP ↓', x + 3, yTxt)
     ctx.beginPath()
-    ctx.arc(x, y, 2, 0, Math.PI * 2)
+    if (isHaut) {
+      // ▼ pointe vers la bougie
+      ctx.moveTo(x, yBase)
+      ctx.lineTo(x - taille * 0.7, yPointe - taille * 2)
+      ctx.lineTo(x + taille * 0.7, yPointe - taille * 2)
+    } else {
+      // ▲ pointe vers la bougie
+      ctx.moveTo(x, yBase)
+      ctx.lineTo(x - taille * 0.7, yPointe + taille * 2)
+      ctx.lineTo(x + taille * 0.7, yPointe + taille * 2)
+    }
+    ctx.closePath()
+    ctx.fill()
+
+    // Étiquette SWEEP à côté de la flèche, sans recouvrir les bougies.
+    ctx.font = 'bold 9px sans-serif'
+    ctx.textAlign = isHaut ? 'center' : 'center'
+    ctx.textBaseline = isHaut ? 'bottom' : 'top'
+    ctx.fillText('SWEEP', x, isHaut ? yPointe - taille * 2 - 1 : yPointe + taille * 2 + 1)
+
+    // Niveau cassé : petit trait pointillé + point (la cible de liquidité).
+    ctx.strokeStyle = hexVersRgba(couleur, 0.55)
+    ctx.lineWidth = 1
+    ctx.setLineDash([3, 3])
+    ctx.beginPath()
+    ctx.moveTo(x - 14, yLevel)
+    ctx.lineTo(x + 14, yLevel)
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.beginPath()
+    ctx.arc(x, yLevel, 2, 0, Math.PI * 2)
     ctx.fill()
   }
 }

@@ -235,7 +235,7 @@ export function useSmcV12Overlay() {
       ts: c.ts, pivot_ts: c.pivot_ts, level: c.level, dir: c.dir,
       label: c.dir === 'bull' ? 'CHOCH ↑' : 'CHOCH ↓',
     }))
-    sweeps = data.sweeps.map((s) => ({ ts: s.ts, level: s.level, dir: s.dir }))
+    sweeps = data.sweeps.map((s) => ({ ts: s.ts, level: s.level, dir: s.dir, candleHigh: s.candle_high, candleLow: s.candle_low }))
     obs = data.obs.map((o) => ({
       ts: o.ts, top: o.top, bot: o.bot, force: o.force, dir: o.dir, state: o.state,
     }))

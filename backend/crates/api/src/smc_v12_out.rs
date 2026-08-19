@@ -46,6 +46,11 @@ pub(crate) struct NiveauStructOut {
     pub dir: &'static str,
     pub level: f64,
     pub bar_idx: usize,
+    /// Bougie du sweep (pour ancrer l'étiquette dessus) — sweeps uniquement.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub candle_high: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub candle_low: Option<f64>,
 }
 
 #[derive(Serialize)]

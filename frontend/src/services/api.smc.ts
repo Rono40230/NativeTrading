@@ -22,6 +22,9 @@ export interface NiveauCasseeV12 {
   dir: 'bull' | 'bear'
   level: number
   bar_idx: number
+  /** Bougie du sweep (ancrage étiquette) — sweeps uniquement. */
+  candle_high?: number
+  candle_low?: number
 }
 /** Order Block actif (non invalidé). */
 export interface ObV12 {
