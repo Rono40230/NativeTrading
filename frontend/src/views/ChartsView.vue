@@ -85,6 +85,7 @@ import { useSettingsStore } from '@/stores/settings.store'
 import ChartSignauxPanel from '@/components/common/ChartSignauxPanel.vue'
 import { filtreDefaut, type FiltreSignaux } from '@/composables/chartSignauxTypes'
 import { useChartIndicators } from '@/composables/useChartIndicators'
+import { limitPourTimeframe } from '@/composables/useChartLimite'
 import { useSmcV12Overlay } from '@/composables/useSmcV12Overlay'
 import { useChartEcoCal } from '@/composables/useChartEcoCal'
 import EcoCalTooltip from '@/components/common/EcoCalTooltip.vue'
@@ -178,7 +179,10 @@ async function chargerIndicateurs() {
   // Overlay SMC v12 : fetch du replay moteur (indépendant des indicateurs classiques).
   const derniereB = bougies.value?.[bougies.value.length - 1]
   const tsSecV12 = derniereB ? Math.floor(new Date(derniereB.timestamp).getTime() / 1000) : undefined
-  void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, 500, tsSecV12)
+  // Même fenêtre que le chart (5 000 = TV Basic) : parité de l'âge max des
+  // zones avec TradingView — avant, l'analyse ne voyait que 500 bougies
+  // (~5 jours M15) et perdait les OB plus anciens encore vivants.
+  void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), tsSecV12)
   await chargerEtAppliquer(
     chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
     rsiContainer.value, macdContainer.value, atrContainer.value,
