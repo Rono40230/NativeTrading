@@ -101,11 +101,16 @@ export interface FearGreedData {
 export interface EntiteSentiment {
   nom: string
   prix: number
+  /** Variation de la séance en cours (colonne « Jour », live). */
   variation_pct: number
+  /** Variation de la veille clôturée (colonne « Veille », figée). */
+  variation_veille?: number
 }
 
 export interface SentimentMarche {
   date: string
+  /** Date de la référence figée (colonne « Veille »). */
+  date_veille?: string
   usa: EntiteSentiment[]
   europe: EntiteSentiment[]
   matieres_premieres: EntiteSentiment[]

@@ -46,14 +46,24 @@
 
     <template v-if="data">
       <div class="space-y-2.5 text-xs">
+        <!-- En-tête des deux colonnes de variation -->
+        <div class="flex items-center gap-2 text-[9px] uppercase tracking-wider text-slate-500 border-b border-white/5 pb-0.5">
+          <span class="flex-1" />
+          <span class="w-[70px] text-center">Veille</span>
+          <span class="w-[70px] text-center">Jour</span>
+        </div>
         <!-- USA -->
         <div>
           <p class="text-slate-500 mb-0.5">🇺🇸 USA</p>
           <div v-for="e in data.usa" :key="e.nom" class="flex items-center gap-2 py-0.5">
-            <span class="text-sm leading-none">{{ bille(e.variation_pct) }}</span>
-            <span class="text-slate-200">{{ e.nom }}</span>
-            <span class="ml-auto tabular-nums" :class="couleur(e.variation_pct)">
-              {{ e.variation_pct > 0 ? '+' : '' }}{{ e.variation_pct.toFixed(2) }}%
+            <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
+            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+              <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct) }}</span>
+              <span :class="couleur(e.variation_veille ?? e.variation_pct)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
+            </span>
+            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+              <span class="text-sm leading-none">{{ bille(e.variation_pct) }}</span>
+              <span :class="couleur(e.variation_pct)">{{ pct(e.variation_pct) }}</span>
             </span>
           </div>
         </div>
@@ -62,10 +72,14 @@
         <div>
           <p class="text-slate-500 mb-0.5">🇪🇺 EUROPE</p>
           <div v-for="e in data.europe" :key="e.nom" class="flex items-center gap-2 py-0.5">
-            <span class="text-sm leading-none">{{ bille(e.variation_pct) }}</span>
-            <span class="text-slate-200">{{ e.nom }}</span>
-            <span class="ml-auto tabular-nums" :class="couleur(e.variation_pct)">
-              {{ e.variation_pct > 0 ? '+' : '' }}{{ e.variation_pct.toFixed(2) }}%
+            <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
+            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+              <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct) }}</span>
+              <span :class="couleur(e.variation_veille ?? e.variation_pct)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
+            </span>
+            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+              <span class="text-sm leading-none">{{ bille(e.variation_pct) }}</span>
+              <span :class="couleur(e.variation_pct)">{{ pct(e.variation_pct) }}</span>
             </span>
           </div>
         </div>
@@ -74,10 +88,14 @@
         <div>
           <p class="text-slate-500 mb-0.5">⛏️ MATIÈRES PREMIÈRES</p>
           <div v-for="e in data.matieres_premieres" :key="e.nom" class="flex items-center gap-2 py-0.5">
-            <span class="text-sm leading-none">{{ bille(e.variation_pct, SEUIL_MATIERES) }}</span>
-            <span class="text-slate-200">{{ e.nom }}</span>
-            <span class="ml-auto tabular-nums" :class="couleur(e.variation_pct, SEUIL_MATIERES)">
-              {{ e.variation_pct > 0 ? '+' : '' }}{{ e.variation_pct.toFixed(2) }}%
+            <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
+            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+              <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct, SEUIL_MATIERES) }}</span>
+              <span :class="couleur(e.variation_veille ?? e.variation_pct, SEUIL_MATIERES)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
+            </span>
+            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+              <span class="text-sm leading-none">{{ bille(e.variation_pct, SEUIL_MATIERES) }}</span>
+              <span :class="couleur(e.variation_pct, SEUIL_MATIERES)">{{ pct(e.variation_pct) }}</span>
             </span>
           </div>
         </div>
@@ -86,18 +104,21 @@
         <div>
           <p class="text-slate-500 mb-0.5">₿ CRYPTOS</p>
           <div v-for="e in data.cryptos" :key="e.nom" class="flex items-center gap-2 py-0.5">
-            <span class="text-sm leading-none">{{ bille(e.variation_pct, SEUIL_CRYPTOS) }}</span>
-            <span class="text-slate-200">{{ e.nom }}</span>
-            <span class="text-slate-400 tabular-nums text-[10px]">{{ formatPrix(e.prix) }}</span>
-            <span class="ml-auto tabular-nums" :class="couleur(e.variation_pct, SEUIL_CRYPTOS)">
-              {{ e.variation_pct > 0 ? '+' : '' }}{{ e.variation_pct.toFixed(2) }}%
+            <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
+            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+              <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct, SEUIL_CRYPTOS) }}</span>
+              <span :class="couleur(e.variation_veille ?? e.variation_pct, SEUIL_CRYPTOS)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
+            </span>
+            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+              <span class="text-sm leading-none">{{ bille(e.variation_pct, SEUIL_CRYPTOS) }}</span>
+              <span :class="couleur(e.variation_pct, SEUIL_CRYPTOS)">{{ pct(e.variation_pct) }}</span>
             </span>
           </div>
         </div>
 
         <!-- VIX -->
         <div v-if="data.vix != null" class="pt-2 border-t border-white/10 flex items-center gap-2">
-          <span class="text-slate-400">VIX {{ data.vix.toFixed(1) }}</span>
+          <span class="text-slate-400">VIX {{ data.vix.toFixed(1) }} <span class="text-[9px] text-slate-500">(veille)</span></span>
           <span
             class="font-semibold"
             :class="data.vix >= 30 ? 'text-red-400' : data.vix >= 20 ? 'text-orange-400' : 'text-emerald-400'"
@@ -184,6 +205,10 @@ const SEUIL_INDICES = 1.0; // indices boursiers (ajusté propriétaire 2026-08-1
 const SEUIL_MATIERES = 0.75; // or, pétrole, agriculture
 const SEUIL_CRYPTOS = 2.0; // Bitcoin : ±2 % est un jour calme
 
+function pct(v: number): string {
+  return (v > 0 ? '+' : '') + v.toFixed(2) + '%'
+}
+
 function bille(v: number, seuil = SEUIL_INDICES): string {
   if (v > seuil) return '🟢'
   if (v < -seuil) return '🔴'
@@ -196,9 +221,6 @@ function couleur(v: number, seuil = SEUIL_INDICES): string {
   return 'text-sky-400' // neutre : suit la pastille bleue (gris illisible)
 }
 
-function formatPrix(p: number): string {
-  return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(p) + ' $'
-}
 </script>
 
 <style scoped>

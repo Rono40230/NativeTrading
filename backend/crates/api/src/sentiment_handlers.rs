@@ -15,6 +15,10 @@ use common::{Asset, Timeframe};
 use futures_util::future::join_all;
 use serde::Serialize;
 
+#[path = "sentiment/mod.rs"]
+mod sentiment;
+use sentiment::yahoo_live;
+
 use crate::state::AppState;
 use db::Database;
 
@@ -22,12 +26,20 @@ use db::Database;
 pub struct EntiteSentiment {
     pub nom: String,
     pub prix: f64,
+    /// Variation de la SÉANCE EN COURS (live, colonne « Jour »).
     pub variation_pct: f64,
+    /// Variation de la VEILLE clôturée (figée, colonne « Veille ») —
+    /// décision propriétaire 2026-08-19 : deux colonnes par entité.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub variation_veille: Option<f64>,
 }
 
 #[derive(Serialize)]
 pub struct SentimentMarche {
     pub date: String,
+    /// Date de la référence figée (colonne « Veille »).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub date_veille: Option<String>,
     pub usa: Vec<EntiteSentiment>,
     pub europe: Vec<EntiteSentiment>,
     pub matieres_premieres: Vec<EntiteSentiment>,
@@ -304,57 +316,6 @@ async fn lire_veille(db: &Database) -> Option<(String, Vec<LigneVeille>)> {
 
 // ── Handler ──────────────────────────────────────────────────────────────────
 
-/// Prix + variation de SÉANCE (live) depuis Yahoo (`regularMarketPrice` vs
-/// `chartPreviousClose`). Dégradation silencieuse par source.
-async fn yahoo_live(client: &reqwest::Client, symbole: &str, nom: &str) -> Option<EntiteSentiment> {
-    #[derive(serde::Deserialize)]
-    struct Meta {
-        #[serde(rename = "regularMarketPrice")]
-        prix: Option<f64>,
-        #[serde(rename = "chartPreviousClose")]
-        precedente: Option<f64>,
-    }
-    #[derive(serde::Deserialize)]
-    struct Reponse {
-        chart: ChartResult,
-    }
-    #[derive(serde::Deserialize)]
-    struct ChartResult {
-        result: Option<Vec<MetaWrap>>,
-    }
-    #[derive(serde::Deserialize)]
-    struct MetaWrap {
-        meta: Meta,
-    }
-    let url = format!(
-        "https://query2.finance.yahoo.com/v8/finance/chart/{}?interval=1d&range=2d",
-        symbole
-    );
-    let r: Reponse = client
-        .get(&url)
-        .header("Accept", "application/json")
-        .header("User-Agent", "Mozilla/5.0 (X11; Linux x86_64)")
-        .send()
-        .await
-        .ok()?
-        .json()
-        .await
-        .ok()?;
-    let meta = r.chart.result?.into_iter().next()?.meta;
-    let prix = meta.prix?;
-    let precedente = meta.precedente?;
-    let variation = if precedente != 0.0 {
-        (prix - precedente) / precedente * 100.0
-    } else {
-        0.0
-    };
-    Some(EntiteSentiment {
-        nom: nom.to_string(),
-        prix,
-        variation_pct: (variation * 100.0).round() / 100.0,
-    })
-}
-
 /// Bitcoin live depuis NOTRE série (DB Bybit spot) : dernier prix connu (M1
 /// la plus fraîche) vs close D1 clôturée d'hier. Jamais une autre place —
 /// une seule série de prix par asset (leçon L10).
@@ -387,6 +348,7 @@ async fn btc_live_db(db: &Database) -> Option<EntiteSentiment> {
         nom: "Bitcoin".to_string(),
         prix: px,
         variation_pct: (variation * 100.0).round() / 100.0,
+        variation_veille: None,
     })
 }
 
@@ -421,10 +383,15 @@ pub async fn get_sentiment_marche(state: web::Data<AppState>) -> impl Responder 
         let (date_ref, lignes) = lire_veille(&state.db)
             .await
             .unwrap_or_else(|| (String::new(), Vec::new()));
-        return construire_reponse(&entites_repli(&lignes), date_ref);
+        return construire_reponse(
+            &entites_repli(&lignes),
+            date_ref.clone(),
+            &Some((date_ref, lignes)),
+        );
     }
 
-    construire_reponse(&entites, Utc::now().format("%Y-%m-%d").to_string())
+    let veille = lire_veille(&state.db).await;
+    construire_reponse(&entites, Utc::now().format("%Y-%m-%d").to_string(), &veille)
 }
 
 /// Transforme les lignes figées en entités (repli).
@@ -435,12 +402,37 @@ fn entites_repli(lignes: &[LigneVeille]) -> Vec<EntiteSentiment> {
             nom: l.entite.clone(),
             prix: l.prix,
             variation_pct: l.variation_pct,
+            variation_veille: Some(l.variation_pct),
         })
         .collect()
 }
 
 /// Assemble la réponse dans l'ordre d'affichage canonique.
-fn construire_reponse(entites: &[EntiteSentiment], date: String) -> HttpResponse {
+fn construire_reponse(
+    entites: &[EntiteSentiment],
+    date: String,
+    veille: &Option<(String, Vec<LigneVeille>)>,
+) -> HttpResponse {
+    // Fusion colonne « Veille » : attache à chaque entité live sa variation
+    // figée (J-1 vs J-2) depuis la table de référence.
+    let (date_veille, veille_map): (Option<String>, std::collections::HashMap<&str, f64>) =
+        match veille {
+            Some((d, lignes)) => (
+                Some(d.clone()),
+                lignes.iter().map(|l| (l.entite.as_str(), l.variation_pct)).collect(),
+            ),
+            None => (None, std::collections::HashMap::new()),
+        };
+    let entites: Vec<EntiteSentiment> = entites
+        .iter()
+        .map(|e| {
+            let mut e = e.clone();
+            if e.variation_veille.is_none() {
+                e.variation_veille = veille_map.get(e.nom.as_str()).copied();
+            }
+            e
+        })
+        .collect();
     let chercher = |nom: &str| entites.iter().find(|e| e.nom == nom);
     let entite = |nom: &str| chercher(nom).cloned();
 
@@ -449,13 +441,26 @@ fn construire_reponse(entites: &[EntiteSentiment], date: String) -> HttpResponse
         .map(|noms| noms.iter().filter_map(|n| entite(n)).collect::<Vec<_>>())
         .collect::<Vec<_>>();
 
+    // VIX : UNE SEULE valeur, FIGÉE (décision propriétaire) — la clôture de
+    // la veille si disponible, sinon le live en repli.
+    let vix_figé: Option<f64> = veille
+        .as_ref()
+        .and_then(|(_, lignes)| {
+            lignes
+                .iter()
+                .find(|l| l.entite == "VIX")
+                .map(|l| (l.prix * 10.0).round() / 10.0)
+        })
+        .or_else(|| chercher("VIX").map(|l| (l.prix * 10.0).round() / 10.0));
+
     HttpResponse::Ok().json(SentimentMarche {
         date,
+        date_veille,
         usa: groupes[0].clone(),
         europe: groupes[1].clone(),
         matieres_premieres: groupes[2].clone(),
         cryptos: groupes[3].clone(),
-        vix: chercher("VIX").map(|l| (l.prix * 10.0).round() / 10.0),
+        vix: vix_figé,
     })
 }
 
