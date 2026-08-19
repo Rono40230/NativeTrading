@@ -66,6 +66,18 @@ pub(crate) struct ObOut {
     pub diag: Option<String>,
 }
 
+/// Niveau EQH/EQL actif (pool MODULE 4) — vague 3 du miroir.
+#[derive(Serialize)]
+pub(crate) struct LiqOut {
+    /// Timestamp du 1er pivot (bord gauche de la ligne).
+    pub ts: i64,
+    pub price: f64,
+    pub touches: u32,
+    pub swept: bool,
+    /// true = EQH, false = EQL.
+    pub is_high: bool,
+}
+
 #[derive(Serialize)]
 pub(crate) struct FvgOut {
     pub ts: i64,
@@ -244,6 +256,8 @@ pub(crate) struct V12AnalyseResponse {
     pub mss: Vec<NiveauStructOut>,
     pub chochs: Vec<NiveauStructOut>,
     pub sweeps: Vec<NiveauStructOut>,
+    /// Niveaux EQH/EQL actifs (pool MODULE 4) — vague 3 miroir.
+    pub eqh_eql: Vec<LiqOut>,
     pub obs: Vec<ObOut>,
     pub fvgs: Vec<FvgOut>,
     pub signals: Vec<SignalOut>,

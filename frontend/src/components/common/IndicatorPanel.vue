@@ -131,7 +131,7 @@ const v12Groupes = [
       { key: 'v12Mss',       label: 'MSS',       pending: false },
       { key: 'v12Choch',     label: 'CHoCH',     pending: false },
       { key: 'v12Sweeps',    label: 'Sweeps',    pending: false },
-      { key: 'v12EqhEql',    label: 'EQH/EQL',   pending: true  },
+      { key: 'v12EqhEql',    label: 'EQH/EQL',   pending: false },
       { key: 'v12Tendance',  label: 'Fond tendance', pending: false },
     ],
   },

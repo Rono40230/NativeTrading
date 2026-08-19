@@ -26,6 +26,15 @@ export interface NiveauCasseeV12 {
   candle_high?: number
   candle_low?: number
 }
+/** Niveau EQH/EQL actif (pool MODULE 4). */
+export interface LiqOut {
+  ts: number
+  price: number
+  touches: number
+  swept: boolean
+  is_high: boolean
+}
+
 /** Order Block actif (non invalidé). */
 export interface ObV12 {
   ts: number
@@ -167,6 +176,8 @@ export interface SmcV12Analyse {
   mss: NiveauCasseeV12[]
   chochs: NiveauCasseeV12[]
   sweeps: NiveauCasseeV12[]
+  /** Niveaux EQH/EQL actifs (pool MODULE 4). */
+  eqh_eql: LiqOut[]
   obs: ObV12[]
   fvgs: FvgV12[]
   signals: SignalV12[]
