@@ -31,74 +31,11 @@ export interface PrefsIndicateurs {
   bollingerCouleurBasse: string
   atrPeriode: number
   atrCouleur: string
-  smcOb: boolean
-  smcBpr: boolean
-  smcIfvg: boolean
-  smcImbalance: boolean
-  smcFib: boolean
-  smcTendance: boolean
-  smcLiquidites: boolean
   // SMC couleurs & opacités
-  smcObCouleurLong: string
-  smcObCouleurShort: string
-  smcObOpacite: number
-  smcObSensibilite: number
-  smcObMitigationType: 'close' | 'wick'
-  smcIfvgCouleurLong: string
-  smcIfvgCouleurShort: string
-  smcIfvgOpacite: number
-  smcIfvgShowLast: number
-  smcIfvgSignalPref: 'close' | 'wick'
-  smcIfvgAtrMult: number
-  smcBprCouleurBull: string
-  smcBprCouleurBear: string
-  smcBprOpacite: number
-  smcBprShowLast: number
-  smcBprAtrMult: number
-  smcBprFenetre: number
-  smcBprMitigation: 'close' | 'wick'
   // Imbalance (FVG + OG)
-  smcImbCouleurBull: string
-  smcImbCouleurBear: string
-  smcImbOpacite: number
-  smcImbShowLast: number
-  smcImbShowFvg: boolean
-  smcImbShowOg: boolean
-  smcImbMitigation: 'close' | 'wick'
-  smcFibCouleur0: string
-  smcFibCouleur500: string
-  smcFibCouleur618: string
-  smcFibCouleur786: string
-  smcFibCouleur1: string
-  smcFibSensHaussier: boolean
-  smcFibGoldenZone: boolean
-  smcFibGoldenCouleur: string
-  smcFibGoldenOpacite: number
-  smcLiqCouleurBsl: string
-  smcLiqCouleurSsl: string
-  smcLiqSwingsActif: boolean
-  smcLiqSessionsActif: boolean
-  smcLiqSessionAsie: boolean
-  smcLiqDwmActif: boolean
-  smcLiqDwmNbJours: number
-  smcLiqCouleurAsie: string
-  smcLiqCouleurDwm: string
   // Range session Asie
-  smcLiqAsieRangeActif: boolean
-  smcLiqAsieDeviationsActif: boolean
-  smcLiqAsieDeviationsNb: number
-  smcLiqAsieNbSessions: number
-  smcLiqAsieHeureDebut: number
-  smcLiqAsieHeureFin: number
-  smcLiqAsieOpacite: number
-  smcLiqAsieCouleur: string
   // Structure SMC : BOS / CHoCH
-  smcBos: boolean
-  smcChoch: boolean
-  smcBosCouleur: string
-  smcChochCouleur: string
   // Range session asiatique (bouton standalone)
-  smcAsianSession: boolean
   // Tendance EMA Multi-TF
   kasperTendance: boolean
   kasperPeriodeRapide: number
@@ -167,73 +104,10 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   bollingerCouleurBasse: '#6366f1',
   atrPeriode: 14,
   atrCouleur: '#f43f5e',
-  smcOb: true,
-  smcBpr: true,
-  smcIfvg: true,
-  smcImbalance: false,
-  smcFib: true,
-  smcTendance: true,
-  smcLiquidites: true,
   // SMC couleurs & opacités
-  smcObCouleurLong: '#10b981',
-  smcObCouleurShort: '#ef4444',
-  smcObOpacite: 0.25,
-  smcObSensibilite: 28,
-  smcObMitigationType: 'close',
-  smcIfvgCouleurLong: '#6366f1',
-  smcIfvgCouleurShort: '#ec4899',
-  smcIfvgOpacite: 0.25,
-  smcIfvgShowLast: 5,
-  smcIfvgSignalPref: 'close',
-  smcIfvgAtrMult: 0.25,
-  smcBprCouleurBull: '#3b82f6',
-  smcBprCouleurBear: '#ef4444',
-  smcBprOpacite: 0.25,
-  smcBprShowLast: 5,
-  smcBprAtrMult: 0.5,
-  smcBprFenetre: 30,
-  smcBprMitigation: 'close',
   // Imbalance
-  smcImbCouleurBull: '#2157f3',
-  smcImbCouleurBear: '#ff1100',
-  smcImbOpacite: 0.2,
-  smcImbShowLast: 5,
-  smcImbShowFvg: true,
-  smcImbShowOg: true,
-  smcImbMitigation: 'close',
-  smcFibCouleur0: '#94a3b8',
-  smcFibCouleur500: '#facc15',
-  smcFibCouleur618: '#f59e0b',
-  smcFibCouleur786: '#fb923c',
-  smcFibCouleur1: '#94a3b8',
-  smcFibSensHaussier: true,
-  smcFibGoldenZone: true,
-  smcFibGoldenCouleur: '#f59e0b',
-  smcFibGoldenOpacite: 0.15,
-  smcLiqCouleurBsl: '#10b981',
-  smcLiqCouleurSsl: '#ef4444',
-  smcLiqSwingsActif: true,
-  smcLiqSessionsActif: true,
-  smcLiqSessionAsie: true,
-  smcLiqDwmActif: false,
-  smcLiqDwmNbJours: 2,
-  smcLiqCouleurAsie: '#f59e0b',
-  smcLiqCouleurDwm: '#94a3b8',
   // Range session Asie
-  smcLiqAsieRangeActif: true,
-  smcLiqAsieDeviationsActif: true,
-  smcLiqAsieDeviationsNb: 2,
-  smcLiqAsieNbSessions: 3,
-  smcLiqAsieHeureDebut: 20,
-  smcLiqAsieHeureFin: 1,
-  smcLiqAsieOpacite: 0.15,
-  smcLiqAsieCouleur: '#f59e0b',
   // Structure SMC : BOS / CHoCH
-  smcBos: false,
-  smcChoch: false,
-  smcBosCouleur: '#10b981',
-  smcChochCouleur: '#a855f7',
-  smcAsianSession: false,
   // Tendance EMA Multi-TF
   kasperTendance: false,
   kasperPeriodeRapide: 9,
@@ -278,11 +152,7 @@ function chargerIndicateurs(): PrefsIndicateurs {
   try {
     const raw = localStorage.getItem(CLE_INDICATEURS)
     if (raw) {
-      const sauvegarde = JSON.parse(raw)
-      // Migration : anciennes valeurs UTC (22h/7h) → nouvelles valeurs heure Paris (20h/1h)
-      if (sauvegarde.smcLiqAsieHeureDebut === 22) sauvegarde.smcLiqAsieHeureDebut = 20
-      if (sauvegarde.smcLiqAsieHeureFin   === 7)  sauvegarde.smcLiqAsieHeureFin   = 1
-      return { ...INDICATEURS_DEFAUT, ...sauvegarde }
+      return { ...INDICATEURS_DEFAUT, ...JSON.parse(raw) }
     }
   } catch {
     // données corrompues — on repart des valeurs par défaut

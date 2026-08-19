@@ -166,7 +166,7 @@ export function useChartIndicators() {
         appliquerBollinger(chart, data.bollinger, prefs, ajouterLigne, (s) => seriesActives.push(s))
       }
 
-      // Overlays SMC — dessinés par canvas (useSmcCanvas, useSmcFibCanvas)
+      // Overlays SMC v12 — dessinés par canvas dédié (useSmcV12Overlay)
       if (candleSerie) {
         candleSerieSmcRef = candleSerie
       }

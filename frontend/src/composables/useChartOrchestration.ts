@@ -29,9 +29,6 @@ interface Opts {
   initChart: () => void
   detruireChart: () => void
   reinitialiser: () => void
-  smcDetruire: () => void
-  liqDetruire: () => void
-  fibDetruire: () => void
   configurerCrosshair: () => void
   configurerClick: () => void
   chargerIndicateurs: () => Promise<void>
@@ -140,9 +137,6 @@ export function useChartOrchestration(o: Opts) {
   })
 
   onUnmounted(() => {
-    o.smcDetruire()
-    o.liqDetruire()
-    o.fibDetruire()
     o.detruireChart()
     o.arreterRedimensionnement()
     arreterLiveFeed()
