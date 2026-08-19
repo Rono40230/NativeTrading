@@ -32,6 +32,10 @@ const PREV_LIQ_PTS_SWEEP: i32 = 4;
 pub struct ScoringV11 {
     ob_bull_score: std::collections::HashMap<usize, i32>,
     ob_bear_score: std::collections::HashMap<usize, i32>,
+    /// Flags actifs au moment du NOUVEAU MAX du score de chaque zone
+    /// (diag MQL5 `diagFlags`) — clé = impulse_bar.
+    ob_bull_diag: std::collections::HashMap<usize, String>,
+    ob_bear_diag: std::collections::HashMap<usize, String>,
     ob_bull_signaled: std::collections::HashSet<usize>,
     ob_bear_signaled: std::collections::HashSet<usize>,
     /// Filtre qualité P1.2 (FVG sur l'OB). Neutralisé pour DAX TF≥M15.
@@ -47,6 +51,8 @@ impl ScoringV11 {
         Self {
             ob_bull_score: Default::default(),
             ob_bear_score: Default::default(),
+            ob_bull_diag: Default::default(),
+            ob_bear_diag: Default::default(),
             ob_bull_signaled: Default::default(),
             ob_bear_signaled: Default::default(),
             // i_znFvgReq / i_znDolReq = not _znDaxHTF (Pine 1075-1076).
@@ -57,8 +63,21 @@ impl ScoringV11 {
 
     /// Score brut live `f_score(isBull)` (Pine lignes 2184-2250).
     pub fn live_score(is_bull: bool, out: &SmcOutput, bar: &BarInput, cal: &AssetCalibration) -> i32 {
+        Self::live_score_detaille(is_bull, out, bar, cal).0
+    }
+
+    /// `live_score` + liste des composantes actives (diag MQL5 `diagFlags` :
+    /// flags au moment du NOUVEAU MAX du score d'une zone — comparaison
+    /// directe avec le MQL5/TV pour traquer les écarts de scoring).
+    pub fn live_score_detaille(
+        is_bull: bool,
+        out: &SmcOutput,
+        bar: &BarInput,
+        cal: &AssetCalibration,
+    ) -> (i32, Vec<&'static str>) {
         let atr = out.atr14;
         let mut sc: i32 = 0;
+        let mut flags: Vec<&'static str> = Vec::new();
 
         // 1. BOS directionnel — poids dynamique selon force du corps (P1.1 + P5.2).
         //    Anti-double-compte : on ne compte le BOS que si aucun MSS directionnel.
@@ -82,27 +101,33 @@ impl ScoringV11 {
                 4
             };
             sc += w;
+            flags.push("BOS");
         }
 
         // 2. FVG.
         if is_bull && out.fvg.is_fvg_bull || !is_bull && out.fvg.is_fvg_bear {
             sc += cal.w_fvg;
+            flags.push("FVG");
         }
         // 3. Sweep frais.
         if is_bull && out.sweep.sweep_bull_frais || !is_bull && out.sweep.sweep_bear_frais {
             sc += cal.w_sweep;
+            flags.push("Sweep");
         }
         // 4. MSS directionnel.
         if mss_dir {
             sc += 3;
+            flags.push("MSS");
         }
         // 5. CHOCH confirmé.
         if is_bull && out.mss.choch_haussier || !is_bull && out.mss.choch_baissier {
             sc += 4;
+            flags.push("CHoCH");
         }
         // 6. ATR impulsion — range1 = high - low (bar courante, Pine ligne 1525).
         if (bar.high - bar.low) > cal.atr_score * atr {
             sc += cal.w_atr;
+            flags.push("ATR");
         }
         // 7. Confluence H4 (+4) — `not na(h4BullTop)` = au moins 1 OB bull H4.
         if out.mtf.confluence_h4
@@ -110,6 +135,7 @@ impl ScoringV11 {
                 || !is_bull && !out.mtf.h4.bear_obs.is_empty())
         {
             sc += 4;
+            flags.push("H4");
         }
         // 8. Confluence H1 (+1).
         if out.mtf.confluence_h1
@@ -117,6 +143,7 @@ impl ScoringV11 {
                 || !is_bull && !out.mtf.h1.bear_obs.is_empty())
         {
             sc += 1;
+            flags.push("H1");
         }
         // 9. Confluence W1 (+5).
         if out.mtf.confluence_w1
@@ -124,6 +151,7 @@ impl ScoringV11 {
                 || !is_bull && !out.mtf.w1.bear_obs.is_empty())
         {
             sc += 5;
+            flags.push("W1");
         }
         // 10. Confluence MN (+6).
         if out.mtf.confluence_mn
@@ -131,33 +159,40 @@ impl ScoringV11 {
                 || !is_bull && !out.mtf.mn.bear_obs.is_empty())
         {
             sc += 6;
+            flags.push("MN");
         }
         // 11. Imbalance (inner bar).
         if is_bull && out.imbalance.ib_bull || !is_bull && out.imbalance.ib_bear {
             sc += 3;
+            flags.push("IB");
         }
         // 12. OTE 61.8–78.6 %.
         if is_bull && out.ote.in_ote_bull || !is_bull && out.ote.in_ote_bear {
             sc += cal.w_ote;
+            flags.push("OTE");
         }
         // 13. Kill Zone.
         if out.kill_zone.in_kz {
             sc += cal.w_kz;
+            flags.push("KZ");
         }
         // 14/15. Proximité / sweep prevLiq (PDL/PWL pour bull, PDH/PWH pour bear).
         if PREV_LIQ_SCORE {
             let (near, swept) = prev_liq_bull_bear(is_bull, out, bar, atr);
             if near {
                 sc += PREV_LIQ_PTS_PROX;
+                flags.push("nearLiq");
             }
             if swept {
                 sc += PREV_LIQ_PTS_SWEEP;
+                flags.push("swpLiq");
             }
         }
         // 16. Premium/Discount.
         if is_bull && out.premium_discount.in_discount || !is_bull && out.premium_discount.in_premium
         {
             sc += 1;
+            flags.push("Disc");
         }
 
         // ── Garde anti-bruit P1.2 : BOS seul (sans sweep/FVG/OTE/HTF≥H4) → plafond 8 ──
@@ -174,7 +209,7 @@ impl ScoringV11 {
         if !cal.asset_reconnu {
             sc = 0;
         }
-        sc
+        (sc, flags)
     }
 
     /// `f_force(sc)` (Pine lignes 1000-1010) — score brut → force /10 sur 4 bandes.
@@ -213,8 +248,8 @@ impl ScoringV11 {
         ob_bear: &[ObZone],
     ) {
         let atr = out.atr14;
-        let live_bull = Self::live_score(true, out, bar, cal);
-        let live_bear = Self::live_score(false, out, bar, cal);
+        let (live_bull, flags_bull) = Self::live_score_detaille(true, out, bar, cal);
+        let (live_bear, flags_bear) = Self::live_score_detaille(false, out, bar, cal);
 
         // Bull.
         let mut alive_bull: std::collections::HashSet<usize> = std::collections::HashSet::new();
@@ -242,11 +277,21 @@ impl ScoringV11 {
             };
             let cand = live_bull + fresh + prox;
             let entry = self.ob_bull_score.entry(z.impulse_bar).or_insert(0);
+            let nouveau_max = cand > *entry;
             *entry = if st == ObState::Profond {
                 cand.max(0)
             } else {
                 (*entry).max(cand)
             };
+            if nouveau_max {
+                self.ob_bull_diag.insert(
+                    z.impulse_bar,
+                    format!("{} (+{}f{:?}p{})", flags_bull.join("+"), fresh, st, {
+                        let d = if dist > 10.0 { -999 } else if dist < 1.0 { 2 } else if dist > 5.0 { -1 } else { 0 };
+                        d
+                    }),
+                );
+            }
         }
         // Bear.
         let mut alive_bear: std::collections::HashSet<usize> = std::collections::HashSet::new();
@@ -274,11 +319,21 @@ impl ScoringV11 {
             };
             let cand = live_bear + fresh + prox;
             let entry = self.ob_bear_score.entry(z.impulse_bar).or_insert(0);
+            let nouveau_max = cand > *entry;
             *entry = if st == ObState::Profond {
                 cand.max(0)
             } else {
                 (*entry).max(cand)
             };
+            if nouveau_max {
+                self.ob_bear_diag.insert(
+                    z.impulse_bar,
+                    format!("{} (+{}f{:?}p{})", flags_bear.join("+"), fresh, st, {
+                        let d = if dist > 10.0 { -999 } else if dist < 1.0 { 2 } else if dist > 5.0 { -1 } else { 0 };
+                        d
+                    }),
+                );
+            }
         }
 
         // Prune : retire les OB disparus (FIFO ou invalidation).
@@ -286,6 +341,8 @@ impl ScoringV11 {
         self.ob_bear_score.retain(|k, _| alive_bear.contains(k));
         self.ob_bull_signaled.retain(|k| alive_bull.contains(k));
         self.ob_bear_signaled.retain(|k| alive_bear.contains(k));
+        self.ob_bull_diag.retain(|k, _| alive_bull.contains(k));
+        self.ob_bear_diag.retain(|k, _| alive_bear.contains(k));
     }
 
     /// Score enrichi d'un OB (0 si inconnu). `is_bull` = sens de l'OB.
@@ -294,6 +351,15 @@ impl ScoringV11 {
             self.ob_bull_score.get(&impulse_bar).copied().unwrap_or(0)
         } else {
             self.ob_bear_score.get(&impulse_bar).copied().unwrap_or(0)
+        }
+    }
+
+    /// Flags au moment du nouveau max du score (diag MQL5).
+    pub fn ob_diag(&self, is_bull: bool, impulse_bar: usize) -> Option<&str> {
+        if is_bull {
+            self.ob_bull_diag.get(&impulse_bar).map(|s| s.as_str())
+        } else {
+            self.ob_bear_diag.get(&impulse_bar).map(|s| s.as_str())
         }
     }
 

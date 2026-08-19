@@ -209,6 +209,7 @@ pub async fn analyse_v12(
             state: ob_state_str(z.state),
             force,
             bar_idx: z.ob_bar,
+            diag: engine.scoring_v11.ob_diag(true, z.impulse_bar).map(str::to_string),
         });
     }
     for z in engine.order_blocks.bear_zones() {
@@ -221,6 +222,7 @@ pub async fn analyse_v12(
             state: ob_state_str(z.state),
             force,
             bar_idx: z.ob_bar,
+            diag: engine.scoring_v11.ob_diag(false, z.impulse_bar).map(str::to_string),
         });
     }
 

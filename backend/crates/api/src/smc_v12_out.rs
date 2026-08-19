@@ -57,6 +57,8 @@ pub(crate) struct ObOut {
     pub state: &'static str,
     pub force: i32,
     pub bar_idx: usize,
+    /// Flags actifs au moment du nouveau max du score (diag MQL5 diagFlags).
+    pub diag: Option<String>,
 }
 
 #[derive(Serialize)]
