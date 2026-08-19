@@ -126,7 +126,7 @@ const v12Groupes = [
   {
     label: 'Structure',
     items: [
-      { key: 'v12Structure', label: 'Structure', pending: false },
+      { key: 'v12Structure', label: 'HH/HL/LH/LL', pending: false },
       { key: 'v12Bos',       label: 'BOS',       pending: false },
       { key: 'v12Mss',       label: 'MSS',       pending: false },
       { key: 'v12Choch',     label: 'CHoCH',     pending: false },
