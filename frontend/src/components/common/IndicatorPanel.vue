@@ -169,7 +169,7 @@ const v12Groupes = [
   {
     label: 'Multi-TF',
     items: [
-      { key: 'v12Premium',     label: 'Fond Prem/Disc', pending: true },
+      { key: 'v12Premium',     label: 'Fonds Premium/Discount', pending: false },
       { key: 'v12Equilibrium', label: 'Equilibrium',    pending: true },
       { key: 'v12ObH1',        label: 'OB H1',          pending: true },
       { key: 'v12ObH4',        label: 'OB H4',          pending: true },
