@@ -72,6 +72,9 @@ export interface LiquiditeLevelV12 {
   ts_origine?: number
 }
 /** Niveau EQH/EQL (dir "high" = EQH, "low" = EQL). */
+/** Plage premium/discount (bgcolor par barre, Pine MODULE 4b). */
+export interface PremRange { start_ts: number; end_ts: number; dir: 'prem' | 'disc' }
+
 /** Plage de tendance (bgcolor par barre, Pine MODULE 1). */
 export interface TrendRange { start_ts: number; end_ts: number; dir: 'bull' | 'bear' }
 
@@ -183,6 +186,7 @@ export interface SmcV12Analyse {
   chochs: NiveauCasseeV12[]
   sweeps: NiveauCasseeV12[]
   trend_ranges?: TrendRange[]
+  prem_ranges?: PremRange[]
   session_boxes?: SessionBox[]
   obs: ObV12[]
   fvgs: FvgV12[]

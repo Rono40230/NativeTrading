@@ -118,6 +118,7 @@ export interface DonneesV12Etendues {
   propulsions: import('@/services/api.smc').PropulsionV12[]
   sessions: SessionRangeV12[]
   trend_ranges: import('@/services/api.smc').TrendRange[]
+  prem_ranges: import('@/services/api.smc').PremRange[]
   session_boxes: import('@/services/api.smc').SessionBox[]
   vol_fort: VolRangeV12[]
   impulsions: ImpRangeV12[]
@@ -136,6 +137,7 @@ export interface DonneesV12Etendues {
 export const donneesV12EtenduesVides = (): DonneesV12Etendues => ({
   sessions: [],
   trend_ranges: [],
+  prem_ranges: [],
   session_boxes: [],
   vol_fort: [],
   impulsions: [],
@@ -202,18 +204,17 @@ export function dessinerFonds(
     }
   }
 
-  // Premium / Discount — bgcolor au-dessus / en-dessous de l'equilibrium.
-  if (flags.premium && d.premium_discount && d.premium_discount.equilibrium != null) {
-    const yEq = serie.priceToCoordinate(d.premium_discount.equilibrium)
-    if (yEq !== null) {
-      if (d.premium_discount.in_premium) {
-        ctx.fillStyle = hexVersRgba(COUL_PREMIUM, t(95))
-        ctx.fillRect(0, 0, W, yEq)
-      }
-      if (d.premium_discount.in_discount) {
-        ctx.fillStyle = hexVersRgba(COUL_DISCOUNT, t(95))
-        ctx.fillRect(0, yEq, W, H - yEq)
-      }
+  // Premium / Discount — Pine MODULE 4b : BANDES VERTICALES pleine hauteur
+  //    (bgcolor par barre) sur chaque plage où le prix est en premium /
+  //    discount ; rien dans la zone de tolérance (±0,5 % equilibrium).
+  if (flags.premium && d.prem_ranges) {
+    for (const r of d.prem_ranges) {
+      const xG = coordX(ts, r.start_ts, 0)
+      const xD = coordX(ts, r.end_ts, W)
+      if (xD <= xG) continue
+      const hex = r.dir === 'prem' ? COUL_PREMIUM : COUL_DISCOUNT
+      ctx.fillStyle = hexVersRgba(hex, t(95))
+      ctx.fillRect(xG, 0, xD - xG, H)
     }
   }
 }

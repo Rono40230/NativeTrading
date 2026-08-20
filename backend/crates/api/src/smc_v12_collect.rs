@@ -116,6 +116,8 @@ pub(crate) struct BarCollectors {
     sessions_raw: Vec<(i64, Option<&'static str>)>,
     /// Tendance par barre ("bull"|"bear"|None) — bgcolor Pine MODULE 1.
     trend_raw: Vec<(i64, Option<&'static str>)>,
+    /// Premium/discount par barre (Pine MODULE 4b bgcolor) : "prem"|"disc"|None.
+    prem_raw: Vec<(i64, Option<&'static str>)>,
     /// Boxes de sessions complètes Paris (Pine MODULE 14) : encours + 24h.
     sess_cur: Option<(&'static str, i64, f64, f64)>, // (label, start, high, low)
     sess_boxes: Vec<crate::smc_v12_out::SessionBox>,
@@ -142,6 +144,7 @@ impl BarCollectors {
             atr_seuil,
             sessions_raw: Vec::with_capacity(cap),
             trend_raw: Vec::with_capacity(cap),
+            prem_raw: Vec::with_capacity(cap),
             sess_cur: None,
             sess_boxes: Vec::new(),
             dernier_ts: 0,
@@ -193,6 +196,17 @@ impl BarCollectors {
             None
         };
         self.trend_raw.push((bar.timestamp, trend));
+
+        // ── Premium/Discount par barre (Pine MODULE 4b : bgcolor
+        //    inPremium/inDiscount, tolérance 0,5 % autour de l'equilibrium).
+        let prem = if out.premium_discount.in_premium {
+            Some("prem")
+        } else if out.premium_discount.in_discount {
+            Some("disc")
+        } else {
+            None
+        };
+        self.prem_raw.push((bar.timestamp, prem));
         self.dernier_ts = bar.timestamp;
 
         // ── Boxes sessions complètes (Pine MODULE 14, heures Europe/Paris) ──
@@ -414,6 +428,7 @@ pub(crate) fn collect_final_extended(
         atr_seuil: _,
         sessions_raw: _,
         trend_raw,
+        prem_raw,
         sess_cur: _,
         sess_boxes,
         dernier_ts: _,
@@ -470,6 +485,10 @@ pub(crate) fn collect_final_extended(
         mtf_obs,
         sessions: Vec::new(), // supprimé : uniquement session_boxes (rectangles Pine)
         trend_ranges,
+        prem_ranges: runs_str(&prem_raw)
+            .into_iter()
+            .map(|(st, en, s)| crate::smc_v12_out::PremRange { start_ts: st, end_ts: en, dir: s })
+            .collect(),
         session_boxes: sess_boxes,
         asian_hl,
         gaps,

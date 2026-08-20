@@ -251,6 +251,7 @@ export function useSmcV12Overlay() {
     donneesExt = {
       sessions: data.sessions ?? [],
       trend_ranges: data.trend_ranges ?? [],
+      prem_ranges: data.prem_ranges ?? [],
       session_boxes: data.session_boxes ?? [],
       vol_fort: data.vol_fort ?? [],
       impulsions: data.impulsions ?? [],

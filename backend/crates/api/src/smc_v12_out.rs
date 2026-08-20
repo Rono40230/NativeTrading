@@ -234,6 +234,14 @@ pub(crate) struct ImpRange {
     pub impulsion: &'static str, // "bull" | "bear"
 }
 
+/// Plage premium/discount (bgcolor par barre, Pine MODULE 4b).
+#[derive(Serialize)]
+pub(crate) struct PremRange {
+    pub start_ts: i64,
+    pub end_ts: i64,
+    pub dir: &'static str, // "prem" | "disc"
+}
+
 /// Plage de tendance (bgcolor vert/rouge par barre, Pine MODULE 1 :
 /// tendanceHaussiere = bullCount>=2 → C_BG_BULL, sinon C_BG_BEAR).
 #[derive(Serialize)]
@@ -268,6 +276,7 @@ pub(crate) struct ExtendedOutputs {
     pub mtf_obs: Vec<HtfObOut>,
     pub sessions: Vec<SessionRange>,
     pub trend_ranges: Vec<TrendRange>,
+    pub prem_ranges: Vec<PremRange>,
     pub session_boxes: Vec<SessionBox>,
     pub asian_hl: Option<AsianHlOut>,
     pub gaps: Vec<GapOut>,
