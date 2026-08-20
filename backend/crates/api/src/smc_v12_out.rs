@@ -102,6 +102,10 @@ pub(crate) struct LiquiditeLevelOut {
     pub level: &'static str, // "pdh" | "pdl" | "pwh" | "pwl"
     pub price: Option<f64>,
     pub active: bool,
+    /// Timestamp où le niveau s'est formé (bord gauche de la ligne, Pine
+    /// _prevDayHighTime).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ts_origine: Option<i64>,
 }
 
 /// Niveau EQH/EQL du pool de liquidités.
@@ -219,6 +223,26 @@ pub(crate) struct ImpRange {
     pub impulsion: &'static str, // "bull" | "bear"
 }
 
+/// Plage de tendance (bgcolor vert/rouge par barre, Pine MODULE 1 :
+/// tendanceHaussiere = bullCount>=2 → C_BG_BULL, sinon C_BG_BEAR).
+#[derive(Serialize)]
+pub(crate) struct TrendRange {
+    pub start_ts: i64,
+    pub end_ts: i64,
+    pub dir: &'static str, // "bull" | "bear"
+}
+
+/// Box de session complète (Pine MODULE 14 : rectangles du range high/low
+/// de la session, heures Europe/Paris, historique 24 h).
+#[derive(Serialize)]
+pub(crate) struct SessionBox {
+    pub start_ts: i64,
+    pub end_ts: i64,
+    pub session: &'static str, // "asie" | "londres" | "ny"
+    pub high: f64,
+    pub low: f64,
+}
+
 /// Tous les indicateurs étendus (sérialisés à plat dans la réponse via `#[serde(flatten)]`).
 #[derive(Serialize, Default)]
 pub(crate) struct ExtendedOutputs {
@@ -231,6 +255,8 @@ pub(crate) struct ExtendedOutputs {
     pub premium_discount: PdOut,
     pub mtf_obs: Vec<HtfObOut>,
     pub sessions: Vec<SessionRange>,
+    pub trend_ranges: Vec<TrendRange>,
+    pub session_boxes: Vec<SessionBox>,
     pub asian_hl: Option<AsianHlOut>,
     pub gaps: Vec<GapOut>,
     pub vol_fort: Vec<VolRange>,

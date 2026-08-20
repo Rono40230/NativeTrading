@@ -73,6 +73,16 @@ fn main() -> anyhow::Result<()> {
     let _ = dernier;
 
     let cal = &engine.calibration;
+    println!("\n── Pool EQH/EQL (MODULE 4) ──");
+    for l in engine.liquidites.pool() {
+        println!(
+            "  {} {:.0} · touches {} · {}",
+            if l.is_high { "EQH" } else { "EQL" },
+            l.price,
+            l.touches,
+            if l.swept { "SWEEPÉ" } else { "actif" }
+        );
+    }
     println!("\n── Zones OB actives ──");
     for z in engine.order_blocks.bull_zones() {
         let score = engine.scoring_v11.ob_score(true, z.impulse_bar);

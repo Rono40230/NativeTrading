@@ -68,8 +68,16 @@ export interface LiquiditeLevelV12 {
   level: 'pdh' | 'pdl' | 'pwh' | 'pwl'
   price: number | null
   active: boolean
+  /** Timestamp où le niveau s'est formé (bord gauche ligne). */
+  ts_origine?: number
 }
 /** Niveau EQH/EQL (dir "high" = EQH, "low" = EQL). */
+/** Plage de tendance (bgcolor par barre, Pine MODULE 1). */
+export interface TrendRange { start_ts: number; end_ts: number; dir: 'bull' | 'bear' }
+
+/** Box de session complète (Pine MODULE 14, heures Paris, 24h). */
+export interface SessionBox { start_ts: number; end_ts: number; session: string; high: number; low: number }
+
 export interface EqV12 {
   dir: 'high' | 'low'
   price: number
@@ -169,6 +177,8 @@ export interface SmcV12Analyse {
   mss: NiveauCasseeV12[]
   chochs: NiveauCasseeV12[]
   sweeps: NiveauCasseeV12[]
+  trend_ranges?: TrendRange[]
+  session_boxes?: SessionBox[]
   obs: ObV12[]
   fvgs: FvgV12[]
   signals: SignalV12[]

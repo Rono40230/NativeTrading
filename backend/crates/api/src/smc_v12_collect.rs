@@ -114,6 +114,12 @@ pub(crate) struct BarCollectors {
     /// `i_atrSeuil` par asset (Pine MODULE 10 : RANGE > seuil × ATR).
     atr_seuil: f64,
     sessions_raw: Vec<(i64, Option<&'static str>)>,
+    /// Tendance par barre ("bull"|"bear"|None) — bgcolor Pine MODULE 1.
+    trend_raw: Vec<(i64, Option<&'static str>)>,
+    /// Boxes de sessions complètes Paris (Pine MODULE 14) : encours + 24h.
+    sess_cur: Option<(&'static str, i64, f64, f64)>, // (label, start, high, low)
+    sess_boxes: Vec<crate::smc_v12_out::SessionBox>,
+    dernier_ts: i64,
     vol_raw: Vec<(i64, bool)>,
     imp_raw: Vec<(i64, Option<&'static str>)>,
     vol_buf: Vec<f64>,
@@ -133,6 +139,10 @@ impl BarCollectors {
             seuil_ib,
             atr_seuil,
             sessions_raw: Vec::with_capacity(cap),
+            trend_raw: Vec::with_capacity(cap),
+            sess_cur: None,
+            sess_boxes: Vec::new(),
+            dernier_ts: 0,
             vol_raw: Vec::with_capacity(cap),
             imp_raw: Vec::with_capacity(cap),
             vol_buf: Vec::with_capacity(21),
@@ -148,10 +158,68 @@ impl BarCollectors {
     }
 
     /// Met à jour les collecteurs avec la sortie moteur d'une bar.
+    /// Finalise la box de session en cours (si présente) et la pousse dans
+    /// l'historique 24h (Pine MODULE 14 : garde-fou _24H_MS).
+    fn finaliser_session(&mut self) {
+        if let Some((l, start, hi, lo)) = self.sess_cur.take() {
+            self.sess_boxes.push(crate::smc_v12_out::SessionBox {
+                start_ts: start,
+                end_ts: self.dernier_ts,
+                session: l,
+                high: hi,
+                low: lo,
+            });
+            // Garde 24h : ne conserve que les boxes terminées il y a < 24h.
+            let limite = self.dernier_ts - 24 * 3600;
+            self.sess_boxes.retain(|b| b.end_ts >= limite);
+        }
+    }
+
     pub(crate) fn on_bar(&mut self, bar: &BarInput, out: &SmcOutput) {
         // ── Sessions (Kill Zones) ──
         self.sessions_raw
             .push((bar.timestamp, kz_label(out.kill_zone.zone)));
+
+        // ── Tendance par barre (Pine MODULE 1 : bullCount>=2 / bearCount>=2) ──
+        let trend = if out.structure.tendance_haussiere {
+            Some("bull")
+        } else if out.structure.tendance_baissiere {
+            Some("bear")
+        } else {
+            None
+        };
+        self.trend_raw.push((bar.timestamp, trend));
+        self.dernier_ts = bar.timestamp;
+
+        // ── Boxes sessions complètes (Pine MODULE 14, heures Europe/Paris) ──
+        // Asie 00:00-06:30, Londres 08:00-16:30, NY 14:30-21:00 (Paris).
+        let utc = chrono::DateTime::from_timestamp(bar.timestamp, 0).unwrap_or_default();
+        let paris = utc.with_timezone(&chrono_tz::Europe::Paris);
+        use chrono::Timelike as _;
+        let mins = paris.hour() as i64 * 60 + paris.minute() as i64;
+        let sess_label = if mins < 390 {
+            Some("asie")
+        } else if (480..990).contains(&mins) {
+            Some("londres")
+        } else if (870..1260).contains(&mins) {
+            Some("ny")
+        } else {
+            None
+        };
+        match (sess_label, &self.sess_cur) {
+            (Some(l), Some((cur, start, hi, lo))) if *cur == l => {
+                // étendre la box en cours
+                let hi = hi.max(bar.high);
+                let lo = lo.min(bar.low);
+                self.sess_cur = Some((l, *start, hi, lo));
+            }
+            (Some(l), _) => {
+                // finaliser la précédente puis ouvrir
+                self.finaliser_session();
+                self.sess_cur = Some((l, bar.timestamp, bar.high, bar.low));
+            }
+            (None, _) => self.finaliser_session(),
+        }
 
         // ── Volume fort : volume > SMA(volume, 20) (inclut la bar courante) ──
         self.vol_buf.push(bar.volume);
@@ -243,15 +311,15 @@ impl BarCollectors {
 pub(crate) fn collect_final_extended(
     engine: &SmcV12Engine,
     ts_by_idx: &[i64],
-    col: BarCollectors,
+    mut col: BarCollectors,
 ) -> ExtendedOutputs {
     // ── Liquidités PDH/PDL/PWH/PWL (état final) ──
     let liq = engine.liquidites.last_event();
     let liquidites = vec![
-        LiquiditeLevelOut { level: "pdh", price: liq.pdh, active: liq.pdh_active.is_some() },
-        LiquiditeLevelOut { level: "pdl", price: liq.pdl, active: liq.pdl_active.is_some() },
-        LiquiditeLevelOut { level: "pwh", price: liq.pwh, active: liq.pwh_active.is_some() },
-        LiquiditeLevelOut { level: "pwl", price: liq.pwl, active: liq.pwl_active.is_some() },
+        LiquiditeLevelOut { level: "pdh", price: liq.pdh, active: liq.pdh_active.is_some(), ts_origine: liq.pdh_ts },
+        LiquiditeLevelOut { level: "pdl", price: liq.pdl, active: liq.pdl_active.is_some(), ts_origine: liq.pdl_ts },
+        LiquiditeLevelOut { level: "pwh", price: liq.pwh, active: liq.pwh_active.is_some(), ts_origine: liq.pwh_ts },
+        LiquiditeLevelOut { level: "pwl", price: liq.pwl, active: liq.pwl_active.is_some(), ts_origine: liq.pwl_ts },
     ];
 
     // ── EQH/EQL (pool de liquidités) ──
@@ -324,10 +392,16 @@ pub(crate) fn collect_final_extended(
         gaps.push(GapOut { ts: ts_at(ts_by_idx, g.bar, 0), gtype: "nwog", top: g.top, bot: g.bot, mitigated: g.mitigated, bar_idx: g.bar });
     }
 
+    // Finaliser la dernière box de session avant collecte.
+    col.finaliser_session();
     let BarCollectors {
         seuil_ib: _,
         atr_seuil: _,
         sessions_raw,
+        trend_raw,
+        sess_cur: _,
+        sess_boxes,
+        dernier_ts: _,
         vol_raw,
         imp_raw,
         vol_buf: _,
@@ -362,6 +436,14 @@ pub(crate) fn collect_final_extended(
         .into_iter()
         .map(|(st, en, s)| ImpRange { start_ts: st, end_ts: en, impulsion: s })
         .collect();
+    let trend_ranges = runs_str(&trend_raw)
+        .into_iter()
+        .map(|(st, en, s)| crate::smc_v12_out::TrendRange {
+            start_ts: st,
+            end_ts: en,
+            dir: s,
+        })
+        .collect();
 
     ExtendedOutputs {
         liquidites,
@@ -373,6 +455,8 @@ pub(crate) fn collect_final_extended(
         premium_discount,
         mtf_obs,
         sessions,
+        trend_ranges,
+        session_boxes: sess_boxes,
         asian_hl,
         gaps,
         vol_fort,

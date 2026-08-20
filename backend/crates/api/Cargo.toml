@@ -37,3 +37,4 @@ async-trait.workspace = true
 futures = "0.3.32"
 rayon.workspace = true
 base64 = "0.22.1"
+chrono-tz = { workspace = true }

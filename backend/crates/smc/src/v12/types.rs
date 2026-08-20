@@ -102,6 +102,11 @@ pub struct LiquiditeEvent {
     pub pdl: Option<f64>,
     pub pwh: Option<f64>,
     pub pwl: Option<f64>,
+    // --- Timestamps d'origine (bord gauche des lignes, Pine _prevDayHighTime) ---
+    pub pdh_ts: Option<i64>,
+    pub pdl_ts: Option<i64>,
+    pub pwh_ts: Option<i64>,
+    pub pwl_ts: Option<i64>,
     // --- Niveaux actifs (invalidés après sweep) ---
     pub pdh_active: Option<f64>,
     pub pdl_active: Option<f64>,

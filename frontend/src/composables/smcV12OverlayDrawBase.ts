@@ -133,18 +133,29 @@ export function xDroit(ts: TimeScale, W: number, dernierTs: number | null): numb
 /** Bgcolor de tendance : teinte verte/rouge sur toute la zone visible. */
 export function dessinerTendance(
   ctx: CanvasRenderingContext2D,
-  _ts: TimeScale,
-  W: number,
+  ts: TimeScale,
+  _W: number,
   H: number,
   tendance: 'haussiere' | 'baissiere' | 'neutre',
   flags: FlagsV12,
-  _dernierTs: number | null,
+  dernierTs: number | null,
+  plages: { start_ts: number; end_ts: number; dir: string }[] = [],
 ): void {
   if (!flags.tendance) return
-  if (tendance === 'neutre') return
-  const hex = tendance === 'haussiere' ? COUL_TENDANCE_HAUSSE : COUL_TENDANCE_BAISSE
-  ctx.fillStyle = hexVersRgba(hex, TENDANCE_ALPHA)
-  ctx.fillRect(0, 0, W, H)
+  // Pine MODULE 1 : bgcolor PAR BARRE — vert (bullCount>=2) / rouge (bear>=2),
+  // alpha 95. Chaque plage de tendance est un bloc coloré distinct.
+  for (const p of plages) {
+    const x1 = ts.timeToCoordinate(p.start_ts as any)
+    const x2 = ts.timeToCoordinate(p.end_ts as any)
+    if (x1 === null && x2 === null) continue
+    const gauche = x1 !== null ? Math.max(0, x1) : 0
+    const droite = x2 !== null ? x2 : _W
+    if (droite <= gauche) continue
+    const hex = p.dir === 'bull' ? COUL_TENDANCE_HAUSSE : COUL_TENDANCE_BAISSE
+    ctx.fillStyle = hexVersRgba(hex, TENDANCE_ALPHA)
+    ctx.fillRect(gauche, 0, droite - gauche + 1, H)
+  }
+  const _ = tendance
 }
 
 export function dessinerObsEtFvgs(

@@ -118,6 +118,8 @@ export interface FlagsV12Etendus {
 /** Données des 13 indicateurs étendus (vide = rien à dessiner). */
 export interface DonneesV12Etendues {
   sessions: SessionRangeV12[]
+  trend_ranges: import('@/services/api.smc').TrendRange[]
+  session_boxes: import('@/services/api.smc').SessionBox[]
   vol_fort: VolRangeV12[]
   impulsions: ImpRangeV12[]
   premium_discount: PremiumDiscountV12 | null
@@ -134,6 +136,8 @@ export interface DonneesV12Etendues {
 
 export const donneesV12EtenduesVides = (): DonneesV12Etendues => ({
   sessions: [],
+  trend_ranges: [],
+  session_boxes: [],
   vol_fort: [],
   impulsions: [],
   premium_discount: null,
@@ -239,6 +243,41 @@ export function dessinerBoxes(
   flags: FlagsV12Etendus,
   dernierTs: number | null,
 ): void {
+  // ── Boxes de sessions complètes (Pine MODULE 14) : rectangles du range
+  //    high/low de chaque session (heures Paris, 24h max), couleur par
+  //    session α90, bordure blanche fine, texte du nom.
+  if (flags.sessionAsie || flags.sessionLondres || flags.sessionNy) {
+    const COUL_SESSION: Record<string, string> = {
+      asie: '#F9A825', londres: '#1565C0', ny: '#B71C1C',
+    }
+    for (const s of d.session_boxes) {
+      const visible = s.session === 'asie' ? flags.sessionAsie : s.session === 'londres' ? flags.sessionLondres : flags.sessionNy
+      if (!visible) continue
+      const yH = serie.priceToCoordinate(s.high)
+      const yL = serie.priceToCoordinate(s.low)
+      if (yH === null || yL === null) continue
+      const x1 = ts.timeToCoordinate(s.start_ts as any)
+      const x2 = ts.timeToCoordinate(s.end_ts as any)
+      if (x1 === null && x2 === null) continue
+      const gauche = x1 !== null ? Math.max(0, x1) : 0
+      const droite = x2 !== null ? x2 : xDroit(ts, W, dernierTs)
+      if (droite <= gauche) continue
+      const coul = COUL_SESSION[s.session] ?? '#666666'
+      const yTop = Math.min(yH, yL)
+      const h = Math.abs(yH - yL)
+      ctx.fillStyle = hexVersRgba(coul, 0.1) // α90 Pine
+      ctx.fillRect(gauche, yTop, droite - gauche, h)
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)' // bordure blanche α85
+      ctx.lineWidth = 1
+      ctx.strokeRect(gauche, yTop, droite - gauche, h)
+      ctx.font = 'bold 9px sans-serif'
+      ctx.fillStyle = coul
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'top'
+      const NOMS: Record<string, string> = { asie: 'Session Asiatique', londres: 'Session Européenne', ny: 'Session Américaine' }
+      ctx.fillText(NOMS[s.session] ?? s.session, gauche + 4, yTop + 2)
+    }
+  }
   const xD = xDroit(ts, W, dernierTs)
 
   // NDOG / NWOG.
@@ -369,15 +408,23 @@ export function dessinerLignes(
     }
   }
 
-  // Liquidités PDH / PDL / PWH / PWL.
+  // Liquidités PDH / PDL / PWH / PWL — Pine MODULE 2 : ligne du TIMESTAMP
+  // où le niveau s'est formé (pas pleine largeur), dashed (day) / dotted
+  // (week), labels complets "Previous Day High" etc.
   if (flags.niveauxCles) {
+    const LABELS: Record<string, string> = {
+      pdh: 'Previous Day High', pdl: 'Previous Day Low',
+      pwh: 'Previous Week High', pwl: 'Previous Week Low',
+    }
     for (const liq of d.liquidites) {
       if (liq.price == null || !liq.active) continue
       const y = serie.priceToCoordinate(liq.price)
       if (y === null) continue
       const { hex, dotted } = couleurLiquidite(liq.level)
-      ligneHoriz(ctx, hex, y, 0, xD, { dashed: !dotted, dotted })
-      labelDroite(ctx, hex, liq.level.toUpperCase(), xD, W, y)
+      const xGRaw = liq.ts_origine ? ts.timeToCoordinate(liq.ts_origine as any) : null
+      const xG = xGRaw !== null ? Math.max(0, xGRaw) : 0
+      ligneHoriz(ctx, hex, y, xG, xD, { dashed: !dotted, dotted })
+      labelDroite(ctx, hex, LABELS[liq.level] ?? liq.level.toUpperCase(), xD, W, y)
     }
   }
 

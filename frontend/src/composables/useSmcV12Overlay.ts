@@ -159,7 +159,7 @@ export function useSmcV12Overlay() {
     const flagsExt = lireFlagsExt()
 
     // Phase 0 — bgcolor tendance (z le plus bas).
-    dessinerTendance(ctx, ts, W, H, tendance, flags, dernierTsRef)
+    dessinerTendance(ctx, ts, W, H, tendance, flags, dernierTsRef, donneesExt.trend_ranges ?? [])
     // Phase 1 — fonds étendus (sessions, volume fort, impulsions, premium/discount).
     dessinerFondsExt(ctx, ts, W, H, serieRef, donneesExt, flagsExt, dernierTsRef)
     // Phase 2 — boxes étendues (NDOG/NWOG, MTF OB, zone-cœur, breaker, imbalance, OTE).
@@ -249,6 +249,8 @@ export function useSmcV12Overlay() {
     // 13 indicateurs étendus (optionnels : absents si backend non mis à jour).
     donneesExt = {
       sessions: data.sessions ?? [],
+      trend_ranges: data.trend_ranges ?? [],
+      session_boxes: data.session_boxes ?? [],
       vol_fort: data.vol_fort ?? [],
       impulsions: data.impulsions ?? [],
       premium_discount: data.premium_discount ?? null,
