@@ -41,9 +41,6 @@ type TimeScale = ReturnType<import('lightweight-charts').IChartApi['timeScale']>
 const t = (transp: number): number => (100 - transp) / 100
 
 // ── Palette v12 (transparence inline pour clarté) ────────────────────────────
-const COUL_SESSION_ASIE = '#F9A825'
-const COUL_SESSION_LONDRES = '#1565C0'
-const COUL_SESSION_NY = '#B71C1C'
 
 const COUL_VOL = '#2962FF'
 
@@ -176,19 +173,8 @@ export function dessinerFonds(
   flags: FlagsV12Etendus,
   dernierTs: number | null,
 ): void {
-  // Sessions — blocs verticaux colorés par plage contiguë.
-  for (const s of d.sessions) {
-    let hex: string | null = null
-    if (s.session === 'asie' && flags.sessionAsie) hex = COUL_SESSION_ASIE
-    else if (s.session === 'londres' && flags.sessionLondres) hex = COUL_SESSION_LONDRES
-    else if (s.session === 'ny' && flags.sessionNy) hex = COUL_SESSION_NY
-    if (!hex) continue
-    const xG = coordX(ts, s.start_ts, 0)
-    const xD = coordX(ts, s.end_ts, W)
-    if (xD <= xG) continue
-    ctx.fillStyle = hexVersRgba(hex, t(90))
-    ctx.fillRect(xG, 0, xD - xG, H)
-  }
+  // (Sessions : PLUS de bandes verticales — uniquement les rectangles du
+  //  MODULE 14 Pine, dessinés dans dessinerBoxes via session_boxes.)
 
   // Volume fort — fond vertical.
   if (flags.volume) {

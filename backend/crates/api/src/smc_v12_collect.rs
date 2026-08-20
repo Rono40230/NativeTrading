@@ -180,8 +180,9 @@ impl BarCollectors {
 
     pub(crate) fn on_bar(&mut self, bar: &BarInput, out: &SmcOutput) {
         // ── Sessions (Kill Zones) ──
-        self.sessions_raw
-            .push((bar.timestamp, kz_label(out.kill_zone.zone)));
+        // (sessions_raw supprimé : les sessions s'affichent uniquement via
+        //  les rectangles session_boxes du MODULE 14 Pine.)
+        let _ = kz_label(out.kill_zone.zone);
 
         // ── Tendance par barre (Pine MODULE 1 : bullCount>=2 / bearCount>=2) ──
         let trend = if out.structure.tendance_haussiere {
@@ -403,7 +404,7 @@ pub(crate) fn collect_final_extended(
     let BarCollectors {
         seuil_ib: _,
         atr_seuil: _,
-        sessions_raw,
+        sessions_raw: _,
         trend_raw,
         sess_cur: _,
         sess_boxes,
@@ -432,10 +433,6 @@ pub(crate) fn collect_final_extended(
     });
 
     // ── Compression run-length des séries par barre ──
-    let sessions = runs_str(&sessions_raw)
-        .into_iter()
-        .map(|(st, en, s)| SessionRange { start_ts: st, end_ts: en, session: s })
-        .collect();
     let vol_fort = compress_vol(&vol_raw)
         .into_iter()
         .map(|(st, en)| VolRange { start_ts: st, end_ts: en })
@@ -462,7 +459,7 @@ pub(crate) fn collect_final_extended(
         zone_coeur,
         premium_discount,
         mtf_obs,
-        sessions,
+        sessions: Vec::new(), // supprimé : uniquement session_boxes (rectangles Pine)
         trend_ranges,
         session_boxes: sess_boxes,
         asian_hl,
