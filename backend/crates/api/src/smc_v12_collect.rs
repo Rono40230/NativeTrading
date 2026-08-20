@@ -111,6 +111,8 @@ fn compress_vol(raw: &[(i64, bool)]) -> Vec<(i64, i64)> {
 /// sessions, volume fort, impulsion, zone-cœur (dédoublonnée), Asian High/Low.
 pub(crate) struct BarCollectors {
     seuil_ib: f64,
+    /// `i_atrSeuil` par asset (Pine MODULE 10 : RANGE > seuil × ATR).
+    atr_seuil: f64,
     sessions_raw: Vec<(i64, Option<&'static str>)>,
     vol_raw: Vec<(i64, bool)>,
     imp_raw: Vec<(i64, Option<&'static str>)>,
@@ -126,9 +128,10 @@ pub(crate) struct BarCollectors {
 }
 
 impl BarCollectors {
-    pub(crate) fn new(cap: usize, seuil_ib: f64) -> Self {
+    pub(crate) fn new(cap: usize, seuil_ib: f64, atr_seuil: f64) -> Self {
         Self {
             seuil_ib,
+            atr_seuil,
             sessions_raw: Vec::with_capacity(cap),
             vol_raw: Vec::with_capacity(cap),
             imp_raw: Vec::with_capacity(cap),
@@ -163,8 +166,10 @@ impl BarCollectors {
         self.vol_raw
             .push((bar.timestamp, vol_ma > 0.0 && bar.volume > vol_ma));
 
-        // ── Impulsion : corps > seuil_ib × ATR14 (bull/bear) ──
-        let atr_ok = out.atr14 > 0.0 && (bar.close - bar.open).abs() > self.seuil_ib * out.atr14;
+        // ── Impulsion (Pine MODULE 10) : RANGE high-low > i_atrSeuil × ATR14
+        //    (le corps était utilisé avant — et le mauvais seuil : atr_seuil
+        //    ≠ seuil_ib ; Pine _autoAtrSeuil BTC=2.5, XAU=2.0).
+        let atr_ok = out.atr14 > 0.0 && (bar.high - bar.low) > self.atr_seuil * out.atr14;
         let imp = if atr_ok {
             if bar.close > bar.open {
                 Some("bull")
@@ -321,6 +326,7 @@ pub(crate) fn collect_final_extended(
 
     let BarCollectors {
         seuil_ib: _,
+        atr_seuil: _,
         sessions_raw,
         vol_raw,
         imp_raw,

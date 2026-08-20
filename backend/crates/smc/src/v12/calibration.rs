@@ -47,6 +47,9 @@ pub struct AssetCalibration {
     /// `_autoAtrScore` (Pine lignes 57-59) — seuil ATR scoring en × ATR14 (MODULE 11).
     /// XAU 3.0 · XAG 2.5 · NAS 3.0 · BTC 3.5 · DAX 3.0 · défaut 3.0.
     pub atr_score: f64,
+    /// `i_atrSeuil` (Pine MODULE 10, affichage fond impulsion) : XAU 2.0,
+    /// XAG 1.8, NAS 2.0, BTC 2.5, DAX 2.0, défaut 2.0.
+    pub atr_seuil_affichage: f64,
 
     // --- Seuils scoring (Pine lignes 986-991) — utilisés en phase 2.5 ---
     pub seuil_moyen: i32,
@@ -62,6 +65,10 @@ pub struct AssetCalibration {
 }
 
 impl AssetCalibration {
+    pub fn atr_seuil_affichage(&self) -> f64 {
+        self.atr_seuil_affichage
+    }
+
     /// Détecte l'actif et calcule la calibration. `asset` insensible à la casse.
     ///
     /// Les tables ci-dessous sont des traductions LITTÉRALES du Pine (Module 0) :
@@ -130,6 +137,20 @@ impl AssetCalibration {
             1.5
         };
         // _autoAtrScore (Pine lignes 57-59) : seuil ATR scoring (× ATR14).
+        let atr_seuil_affichage = if is_xau {
+            2.0
+        } else if is_xag {
+            1.8
+        } else if is_nas {
+            2.0
+        } else if is_btc {
+            2.5
+        } else if is_dax {
+            2.0
+        } else {
+            2.0
+        };
+
         let atr_score = if is_xau {
             3.0
         } else if is_xag {
@@ -188,6 +209,7 @@ impl AssetCalibration {
             roc_seuil,
             seuil_ib,
             atr_score,
+            atr_seuil_affichage,
             seuil_moyen,
             seuil_fort,
             seuil_instit,
