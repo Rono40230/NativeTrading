@@ -54,7 +54,8 @@ export interface PrefsIndicateurs {
   // Order Blocks & FVG
   v12Ob: boolean          // bloc + label "OB x/10"
   v12Fvg: boolean         // bloc
-  v12Breaker: boolean     // bloc breaker
+  v12Breaker: boolean
+  v12Propulsion: boolean     // bloc breaker
   v12Imbalance: boolean   // bloc imbalance
   // Signaux & zones
   v12ZoneCoeur: boolean   // bloc zone d'achat/vente
@@ -127,6 +128,7 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   v12Ob: true,
   v12Fvg: true,
   v12Breaker: false,
+  v12Propulsion: false,
   v12Imbalance: false,
   v12ZoneCoeur: false,
   v12Signals: true,

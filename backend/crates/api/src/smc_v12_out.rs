@@ -122,6 +122,15 @@ pub(crate) struct EqOut {
 }
 
 /// Breaker block actif (zones déjà plafonnées à 5/sens côté moteur).
+/// Propulsion Block actif (MODULE 8c : FVG ∩ OB même sens, FIFO 3/sens).
+#[derive(Serialize)]
+pub(crate) struct PropulsionOut {
+    pub ts: i64,
+    pub dir: &'static str,
+    pub top: f64,
+    pub bot: f64,
+}
+
 #[derive(Serialize)]
 pub(crate) struct BreakerOut {
     pub ts: i64,
@@ -251,6 +260,7 @@ pub(crate) struct ExtendedOutputs {
     pub liquidites: Vec<LiquiditeLevelOut>,
     pub eqs: Vec<EqOut>,
     pub breakers: Vec<BreakerOut>,
+    pub propulsions: Vec<PropulsionOut>,
     pub imbalances: Vec<ImbalanceOut>,
     pub otes: Vec<OteOut>,
     pub zone_coeur: Vec<ZoneCoeurOut>,

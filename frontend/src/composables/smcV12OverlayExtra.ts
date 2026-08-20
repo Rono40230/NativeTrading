@@ -99,6 +99,7 @@ export interface FlagsV12Etendus {
   ndog: boolean
   nwog: boolean
   breaker: boolean
+  propulsion: boolean
   imbalance: boolean
   ote: boolean
   premium: boolean
@@ -114,6 +115,7 @@ export interface FlagsV12Etendus {
 
 /** Données des 13 indicateurs étendus (vide = rien à dessiner). */
 export interface DonneesV12Etendues {
+  propulsions: import('@/services/api.smc').PropulsionV12[]
   sessions: SessionRangeV12[]
   trend_ranges: import('@/services/api.smc').TrendRange[]
   session_boxes: import('@/services/api.smc').SessionBox[]
@@ -143,6 +145,7 @@ export const donneesV12EtenduesVides = (): DonneesV12Etendues => ({
   eqs: [],
   gaps: [],
   breakers: [],
+  propulsions: [],
   imbalances: [],
   otes: [],
   mtf_obs: [],
@@ -229,6 +232,31 @@ export function dessinerBoxes(
   flags: FlagsV12Etendus,
   dernierTs: number | null,
 ): void {
+  // ── Propulsion Blocks (Pine MODULE 8c : FVG ∩ OB même sens) : boxes
+  //    vert/rouge estompé (#00C853/#D50000 α93), bord gauche = création.
+  if (flags.propulsion && d.propulsions) {
+    const xD2 = xDroit(ts, W, dernierTs)
+    for (const p of d.propulsions) {
+      const yT = serie.priceToCoordinate(p.top)
+      const yB = serie.priceToCoordinate(p.bot)
+      if (yT === null || yB === null) continue
+      const xGRaw = ts.timeToCoordinate(p.ts as any)
+      if (xGRaw === null) continue
+      const hex = p.dir === 'bull' ? '#00C853' : '#D50000'
+      const yTop = Math.min(yT, yB)
+      ctx.fillStyle = hexVersRgba(hex, 0.07)
+      ctx.fillRect(xGRaw, yTop, xD2 - xGRaw, Math.abs(yT - yB))
+      ctx.strokeStyle = hexVersRgba(hex, 0.4)
+      ctx.lineWidth = 1
+      ctx.strokeRect(xGRaw, yTop, xD2 - xGRaw, Math.abs(yT - yB))
+      ctx.font = 'bold 9px sans-serif'
+      ctx.fillStyle = hex
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'top'
+      ctx.fillText('PROP', xGRaw + 3, yTop + 2)
+    }
+  }
+
   // ── Boxes de sessions complètes (Pine MODULE 14) : rectangles du range
   //    high/low de chaque session (heures Paris, 24h max), couleur par
   //    session α90, bordure blanche fine, texte du nom.

@@ -87,6 +87,9 @@ export interface EqV12 {
   /** Timestamp du 1er pivot (bord gauche de la ligne, comme le Pine). */
   ts: number
 }
+/** Propulsion Block actif (MODULE 8c). */
+export interface PropulsionV12 { ts: number; dir: 'bull' | 'bear'; top: number; bot: number }
+
 /** Breaker block actif. */
 export interface BreakerV12 {
   ts: number
@@ -190,6 +193,7 @@ export interface SmcV12Analyse {
   liquidites?: LiquiditeLevelV12[]
   eqs?: EqV12[]
   breakers?: BreakerV12[]
+  propulsions?: PropulsionV12[]
   imbalances?: ImbalanceV12[]
   otes?: OteV12[]
   zone_coeur?: ZoneCoeurV12[]

@@ -345,6 +345,14 @@ pub(crate) fn collect_final_extended(
         .collect();
 
     // ── Breaker blocks (FIFO 5/sens côté moteur) ──
+    let mut propulsions: Vec<crate::smc_v12_out::PropulsionOut> = Vec::new();
+    for z in engine.propulsion.bull_zones() {
+        propulsions.push(crate::smc_v12_out::PropulsionOut { ts: ts_at(ts_by_idx, z.bar, 0), dir: "bull", top: z.top, bot: z.bot });
+    }
+    for z in engine.propulsion.bear_zones() {
+        propulsions.push(crate::smc_v12_out::PropulsionOut { ts: ts_at(ts_by_idx, z.bar, 0), dir: "bear", top: z.top, bot: z.bot });
+    }
+
     let mut breakers: Vec<BreakerOut> = Vec::new();
     for z in engine.breaker.bull_zones() {
         breakers.push(BreakerOut { ts: ts_at(ts_by_idx, z.bar, 0), dir: "bull", top: z.top, bot: z.bot, bar_idx: z.bar });
@@ -454,6 +462,7 @@ pub(crate) fn collect_final_extended(
         liquidites,
         eqs,
         breakers,
+        propulsions,
         imbalances,
         otes,
         zone_coeur,

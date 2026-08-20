@@ -140,7 +140,8 @@ const v12Groupes = [
     items: [
       { key: 'v12Ob',        label: 'Order Blocks', pending: false },
       { key: 'v12Fvg',       label: 'Fair Value Gap', pending: false },
-      { key: 'v12Breaker',   label: 'Breakers',  pending: true  },
+      { key: 'v12Breaker',   label: 'Breaker Blocks',  pending: true  },
+      { key: 'v12Propulsion', label: 'Propulsion Blocks', pending: false },
       { key: 'v12Imbalance', label: 'Imbalance', pending: true  },
       { key: 'v12ZoneCoeur', label: 'Zone cœur', pending: true  },
       { key: 'v12Signals',   label: 'Trades',    pending: false },
