@@ -195,6 +195,8 @@ pub(crate) struct AsianHlOut {
     pub low: f64,
     pub invalidated_up: bool,
     pub invalidated_down: bool,
+    /// 1re bougie de la session Asie (bord gauche des lignes, Pine _ahStartBar).
+    pub start_ts: i64,
 }
 
 /// Gap NDOG/NWOG actif (FIFO 1 par type côté moteur).

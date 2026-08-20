@@ -391,20 +391,25 @@ export function dessinerLignes(
 ): void {
   const xD = xDroit(ts, W, dernierTs)
 
-  // Asian High / Low.
+  // Asian High / Low — Pine MODULE 14 : lignes du DÉBUT de session Asie
+  // (Paris 00:00-06:30, _ahStartBar) au bord droit, couleurs exactes
+  // #FFD600 (High) / #FF6F00 (Low), style SOLIDE (Pine line.new défaut),
+  // labels 'Asian High' / 'Asian Low', gris si invalidé par close.
   if (flags.asianHl && d.asian_hl) {
     const ah = d.asian_hl
+    const xGRaw = ah.start_ts ? ts.timeToCoordinate(ah.start_ts as any) : null
+    const xG = xGRaw !== null ? Math.max(0, xGRaw) : 0
     const yH = serie.priceToCoordinate(ah.high)
     if (yH !== null) {
       const hex = ah.invalidated_up ? COUL_GRIS : COUL_AH
-      ligneHoriz(ctx, hex, yH, 0, xD, { dashed: true })
-      labelDroite(ctx, hex, 'AH', xD, W, yH)
+      ligneHoriz(ctx, hex, yH, xG, xD, {})
+      labelDroite(ctx, hex, 'Asian High', xD, W, yH)
     }
     const yL = serie.priceToCoordinate(ah.low)
     if (yL !== null) {
       const hex = ah.invalidated_down ? COUL_GRIS : COUL_AL
-      ligneHoriz(ctx, hex, yL, 0, xD, { dashed: true })
-      labelDroite(ctx, hex, 'AL', xD, W, yL)
+      ligneHoriz(ctx, hex, yL, xG, xD, {})
+      labelDroite(ctx, hex, 'Asian Low', xD, W, yL)
     }
   }
 

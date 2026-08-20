@@ -146,6 +146,8 @@ export interface AsianHlV12 {
   low: number
   invalidated_up: boolean
   invalidated_down: boolean
+  /** 1re bougie de la session Asie (bord gauche des lignes). */
+  start_ts: number
 }
 /** Gap NDOG/NWOG actif. */
 export interface GapV12 {

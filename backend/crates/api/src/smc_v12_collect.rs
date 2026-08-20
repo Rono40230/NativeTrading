@@ -131,6 +131,8 @@ pub(crate) struct BarCollectors {
     asian_l: f64,
     asian_inv_up: bool,
     asian_inv_down: bool,
+    /// 1re bougie de la session Asie (bord gauche des lignes, Pine _ahStartBar).
+    asian_start_ts: i64,
 }
 
 impl BarCollectors {
@@ -152,6 +154,7 @@ impl BarCollectors {
             asian_day_key: None,
             asian_h: 0.0,
             asian_l: 0.0,
+            asian_start_ts: 0,
             asian_inv_up: false,
             asian_inv_down: false,
         }
@@ -275,18 +278,22 @@ impl BarCollectors {
             }
         }
 
-        // ── Asian High/Low (session 00:00-03:00 UTC) ──
+        // ── Asian High/Low (Pine MODULE 14) : session Asie EUROPE/PARIS
+        //    00:00-06:30 (SES_PARIS_ASIE 0-390 min) — pas la KZ UTC 3h.
+        //    Range high/low étendue pendant la session, figée après ;
+        //    invalidation par CLOSE franchissant le niveau (Pine
+        //    close > _ahHighDrawn / close < _ahLowDrawn → ligne supprimée).
         let dk = bar.timestamp.div_euclid(86_400);
-        if out.kill_zone.zone == KillZone::Asian {
+        let en_asie_paris = mins < 390;
+        if en_asie_paris {
             if self.asian_day_key != Some(dk) {
-                // Nouvelle session Asie (nouveau jour) : reset de la range.
                 self.asian_day_key = Some(dk);
                 self.asian_h = bar.high;
                 self.asian_l = bar.low;
                 self.asian_inv_up = false;
                 self.asian_inv_down = false;
+                self.asian_start_ts = bar.timestamp;
             } else {
-                // Même session Asie : on étend la range (high et low indépendants).
                 if bar.high > self.asian_h {
                     self.asian_h = bar.high;
                 }
@@ -295,11 +302,10 @@ impl BarCollectors {
                 }
             }
         } else if self.asian_day_key.is_some() {
-            // Hors session Asie : la range est figée, on détecte l'invalidation.
-            if bar.high > self.asian_h {
+            if bar.close > self.asian_h {
                 self.asian_inv_up = true;
             }
-            if bar.low < self.asian_l {
+            if bar.close < self.asian_l {
                 self.asian_inv_down = true;
             }
         }
@@ -413,6 +419,7 @@ pub(crate) fn collect_final_extended(
         asian_l,
         asian_inv_up,
         asian_inv_down,
+        asian_start_ts,
     } = col;
 
     // ── Asian High/Low (range la plus récente observée) ──
@@ -421,6 +428,7 @@ pub(crate) fn collect_final_extended(
         low: asian_l,
         invalidated_up: asian_inv_up,
         invalidated_down: asian_inv_down,
+        start_ts: asian_start_ts,
     });
 
     // ── Compression run-length des séries par barre ──
