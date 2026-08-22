@@ -26,25 +26,59 @@
 
       <div class="w-px self-stretch bg-white/10 mx-1" />
 
-      <!-- SMC v12 -->
+      <!-- SMC v12 : dropdowns par famille (28 boutons → 5 menus à cocher) -->
       <span class="text-[10px] text-cyan-400/80 uppercase tracking-wide mr-1">SMC v12</span>
-      <template v-for="groupe in v12Groupes" :key="groupe.label">
-        <span class="text-[9px] text-slate-500 uppercase tracking-wide mr-0.5 ml-1">{{ groupe.label }}</span>
+      <div v-for="groupe in v12Groupes" :key="groupe.label" class="relative">
         <button
-          v-for="ind in groupe.items"
-          :key="ind.key"
-          @click="toggle(ind.key)"
-          :title="ind.pending ? 'Donnée non encore exposée par /api/smc/v12/analyse' : 'Afficher / Masquer'"
+          @click="ouvert = ouvert === groupe.label ? null : groupe.label"
+          :title="`${nbActifs(groupe)} indicateur(s) actif(s) — clic pour ouvrir`"
           :class="[
-            'px-2 py-0.5 rounded-md text-[11px] font-medium border transition-all',
-            (prefs as any)[ind.key]
+            'flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border transition-all',
+            nbActifs(groupe) > 0
               ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-200'
-              : ind.pending
-                ? 'bg-white/5 border-white/10 text-slate-500 hover:text-slate-300 italic'
-                : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+              : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
           ]"
-        >{{ ind.label }}</button>
-      </template>
+        >
+          {{ groupe.label }}
+          <span
+            v-if="nbActifs(groupe) > 0"
+            class="min-w-[16px] px-1 rounded-full bg-cyan-500/30 text-cyan-100 text-[9px] leading-[14px] text-center"
+          >{{ nbActifs(groupe) }}</span>
+          <span :class="['text-[8px] transition-transform', ouvert === groupe.label && 'rotate-180']">▼</span>
+        </button>
+
+        <!-- Backdrop : clic extérieur = fermer -->
+        <div v-if="ouvert === groupe.label" class="fixed inset-0 z-40" @click="ouvert = null" />
+        <div
+          v-if="ouvert === groupe.label"
+          class="absolute left-0 top-[calc(100%+4px)] z-50 w-60 bg-slate-900/95 backdrop-blur border border-white/10 rounded-lg shadow-xl py-1"
+        >
+          <div class="flex items-center justify-between px-2.5 py-1 border-b border-white/5">
+            <span class="text-[10px] uppercase tracking-wide text-slate-500">{{ groupe.label }}</span>
+            <span class="flex gap-2 text-[10px]">
+              <button class="text-cyan-400 hover:text-cyan-300" @click="toutOuRien(groupe, true)">Tout</button>
+              <button class="text-slate-500 hover:text-slate-300" @click="toutOuRien(groupe, false)">Aucun</button>
+            </span>
+          </div>
+          <label
+            v-for="ind in groupe.items"
+            :key="ind.key"
+            :title="ind.pending ? 'Donnée non encore exposée par /api/smc/v12/analyse' : 'Afficher / Masquer'"
+            :class="[
+              'flex items-center gap-2 px-2.5 py-1.5 text-[11px] cursor-pointer hover:bg-white/5',
+              ind.pending ? 'italic text-slate-500' : 'text-slate-300'
+            ]"
+          >
+            <input
+              type="checkbox"
+              :checked="(prefs as any)[ind.key]"
+              class="accent-cyan-500 w-3 h-3"
+              @change="toggle(ind.key)"
+            />
+            <span :class="(prefs as any)[ind.key] && 'text-cyan-200'">{{ ind.label }}</span>
+          </label>
+        </div>
+      </div>
 
       <div class="w-px self-stretch bg-white/10 mx-1" />
 
@@ -90,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onUnmounted, ref } from 'vue'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import IndicatorModal from './IndicatorModal.vue'
 
@@ -100,9 +134,29 @@ const props = defineProps<{ chargement?: boolean }>()
 const emit = defineEmits<{ appliquer: []; actualiser: [] }>()
 
 const modaleOuverte = ref<string | null>(null)
+/** Famille dont le menu déroulant est ouvert (null = tous fermés). */
+const ouvert = ref<string | null>(null)
+
+/** Fermeture au clavier (Échap) — posé sur le window au montage. */
+function surEchap(e: KeyboardEvent) {
+  if (e.key === 'Escape') ouvert.value = null
+}
+window.addEventListener('keydown', surEchap)
+onUnmounted(() => window.removeEventListener('keydown', surEchap))
 
 function toggle(key: string) {
   ;(prefs.value as any)[key] = !(prefs.value as any)[key]
+  emit('appliquer')
+}
+
+/** Nombre d'indicateurs actifs dans une famille (badge du bouton). */
+function nbActifs(groupe: { items: { key: string }[] }): number {
+  return groupe.items.filter((i) => (prefs.value as any)[i.key]).length
+}
+
+/** Tout afficher / tout masquer dans une famille. */
+function toutOuRien(groupe: { items: { key: string }[] }, valeur: boolean) {
+  for (const i of groupe.items) (prefs.value as any)[i.key] = valeur
   emit('appliquer')
 }
 
