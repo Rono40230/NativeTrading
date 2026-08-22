@@ -48,14 +48,11 @@
         @appliquer="chargerIndicateurs" @actualiser="actualiser">
         <template #apres-smc>
           <button
-            class="h-7 px-3 rounded border transition-colors bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40"
+            class="px-2.5 py-1 rounded-md border transition-colors bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40 text-xs font-medium"
             :disabled="signalStore.analyseIaChargement" @click="lancerAnalyseSmc">{{ signalStore.analyseIaChargement ? '🔍 Analyse...' : '🔍 Analyse SMC' }}</button>
         </template>
       </IndicatorPanel>
 
-      <!-- Panneau signaux indicateurs -->
-      <ChartSignauxPanel :signaux="signauxActifs"
-        @update:filtre="onFiltreSignaux" />
     </div>
 
     <!-- Sidebar IA (toggle + drawer) -->
@@ -63,7 +60,6 @@
       @toggle="sidebarIA = !sidebarIA" />
 
     <!-- Modales (hors flux) -->
-    <SignalModal :signal="signalModal" :niveaux="niveauxModal" :asset="selectedAsset" @fermer="signalModal = null" />
     <ChartAnalyseSmcModal
       :open="analyseSmcOuverte"
       :asset="selectedAsset"
@@ -86,8 +82,6 @@ import { useChartStats } from '@/composables/useChartStats'
 import { useChartTradingView } from '@/composables/useChartTradingView'
 import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
-import ChartSignauxPanel from '@/components/common/ChartSignauxPanel.vue'
-import { filtreDefaut, type FiltreSignaux } from '@/composables/chartSignauxTypes'
 import { useChartIndicators } from '@/composables/useChartIndicators'
 import { limitPourTimeframe } from '@/composables/useChartLimite'
 import { useSmcV12Overlay } from '@/composables/useSmcV12Overlay'
@@ -102,9 +96,6 @@ import ChartAnalyseSmcModal from '@/components/common/ChartAnalyseSmcModal.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
 import TendanceMultiTF from '@/components/common/TendanceMultiTF.vue'
 import ChartPrixStats from '@/components/common/ChartPrixStats.vue'
-import SignalModal from '@/components/common/SignalModal.vue'
-import type { NiveauSlTp } from '@/composables/chartAtrSlTp'
-import type { SignalIndicateur } from '@/composables/chartSignauxTypes'
 
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
@@ -130,7 +121,7 @@ const {
   configurerRedimensionnement, arreterRedimensionnement, getChart, getCandlestickSeries,
 } = useChartTradingView(chartContainer, bougies)
 
-const { chargerEtAppliquer, reinitialiser, signauxActifs, appliquerMarqueursSignaux, mettreAJourSlTp, obtenirSignalEtNiveaux, dernierAtrValeur } = useChartIndicators()
+const { chargerEtAppliquer, reinitialiser } = useChartIndicators()
 const v12Overlay = useSmcV12Overlay()
 const tradeBox = useSignalTradeBox()
 const { initialiser: ecoCalInit, chargerAnnonces, detruire: ecoCalDetruire,
@@ -138,39 +129,23 @@ const { initialiser: ecoCalInit, chargerAnnonces, detruire: ecoCalDetruire,
 
 
 const timestampCurseur = ref<number | null>(null)
-const filtreCourant = ref<FiltreSignaux>(filtreDefaut())
-const signalModal = ref<SignalIndicateur | null>(null)
-const niveauxModal = ref<NiveauSlTp | null>(null)
 const sidebarIA = ref(false)
 const analyseSmcOuverte = ref(false)
 
-function onFiltreSignaux(f: FiltreSignaux) {
-  filtreCourant.value = f
-  appliquerMarqueursSignaux(getCandlestickSeries(), f)
-}
 
 async function lancerAnalyseSmc() {
   analyseSmcOuverte.value = true
   prixEntreeSnapshot.value = dernierPrix.value ?? 0
   const confianceMl = signalStore.prediction?.confiance ?? 0
-  await signalStore.chargerAnalyseIA(selectedAsset.value, selectedTimeframe.value, prixEntreeSnapshot.value, confianceMl, dernierAtrValeur.value)
+  await signalStore.chargerAnalyseIA(selectedAsset.value, selectedTimeframe.value, prixEntreeSnapshot.value, confianceMl, 0)
 }
 
 function configurerCrosshair() {
   getChart()?.subscribeCrosshairMove((param) => {
-    const ts = param.time ? (param.time as number) : null
-    timestampCurseur.value = ts
-    mettreAJourSlTp(getCandlestickSeries(), ts, filtreCourant.value.afficherSlTp)
+    timestampCurseur.value = param.time ? (param.time as number) : null
   })
 }
 
-function configurerClick() {
-  getChart()?.subscribeClick((param) => {
-    if (!param.hoveredObjectId) return
-    const r = obtenirSignalEtNiveaux(String(param.hoveredObjectId))
-    if (r) { signalModal.value = r.signal; niveauxModal.value = r.niveaux }
-  })
-}
 
 async function chargerIndicateurs() {
   await nextTick()
@@ -190,7 +165,7 @@ async function chargerIndicateurs() {
   await chargerEtAppliquer(
     chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
     rsiContainer.value, macdContainer.value, atrContainer.value,
-    serie, filtreCourant.value,
+    serie,
     (data) => {
       const derniereB2 = bougies.value?.[bougies.value.length - 1]
       const tsMs = derniereB2 ? new Date(derniereB2.timestamp).getTime() : null
@@ -212,10 +187,10 @@ const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestra
   smcMettreAJourZones: (_data, _prefs, ts) => {
     v12Overlay.setDernierTs(ts)
   },
-  chargerEtAppliquer, filtreCourant,
+  chargerEtAppliquer,
   mettreAJourSerie, mettreAJourEnDirect,
   initChart, detruireChart, reinitialiser,
-  configurerCrosshair, configurerClick, chargerIndicateurs,
+  configurerCrosshair, chargerIndicateurs,
   configurerRedimensionnement, arreterRedimensionnement,
 })
 

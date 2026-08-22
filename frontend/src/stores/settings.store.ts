@@ -79,6 +79,8 @@ export interface PrefsIndicateurs {
   v12ObW1: boolean
   v12ObMn: boolean
   v12Ote: boolean         // zone OTE
+  v12SignauxRockets: boolean   // signaux Rockets (rendu à venir)
+  v12SignauxStraddle: boolean  // signaux Straddle (rendu à venir)
 }
 
 const INDICATEURS_DEFAUT: PrefsIndicateurs = {
@@ -148,6 +150,8 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   v12ObW1: false,
   v12ObMn: false,
   v12Ote: false,
+  v12SignauxRockets: false,
+  v12SignauxStraddle: false,
 }
 
 function chargerIndicateurs(): PrefsIndicateurs {

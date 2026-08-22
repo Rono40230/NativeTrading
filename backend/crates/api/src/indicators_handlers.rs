@@ -10,8 +10,6 @@ use crate::utils::{parse_asset, parse_timeframe};
 
 /// GET /api/indicators — Retourne indicateurs techniques + zones SMC + liquidités.
 /// Paramètres actifs uniquement si flag=true pour éviter les calculs inutiles.
-/// Exception : si `signaux=true`, les indicateurs sont calculés en interne pour la
-/// détection de signaux même si leur flag d'affichage est désactivé.
 pub async fn get_indicators(
     state: web::Data<AppState>,
     query: web::Query<IndicatorsQuery>,
@@ -46,9 +44,7 @@ pub async fn get_indicators(
     let boll_std = query.bollinger_stddev.unwrap_or(2.0);
     let boll_ma = query.bollinger_ma_type.as_deref().unwrap_or("sma");
 
-    // ── Valeurs brutes (conservées pour la détection de signaux) ────────────────
     let ts = &timestamps;
-    let need_signals = query.signaux.unwrap_or(false);
     let serie = |vals: &[f64]| -> Vec<PointSerie> {
         vals.iter()
             .zip(ts.iter())
@@ -57,8 +53,7 @@ pub async fn get_indicators(
             .collect()
     };
 
-    // Calculer si le flag d'affichage OU si les signaux sont demandés
-    let ema_raw: Option<Vec<f64>> = (query.ema.unwrap_or(false) || need_signals).then(|| {
+    let ema_raw: Option<Vec<f64>> = (query.ema.unwrap_or(false)).then(|| {
         if ema_sma {
             indicators::calculer_sma(&bougies, ema_p)
         } else {
@@ -72,7 +67,7 @@ pub async fn get_indicators(
         .then(|| ema_raw.as_deref().map(serie))
         .flatten();
 
-    let rsi_raw: Option<Vec<f64>> = (query.rsi.unwrap_or(false) || need_signals)
+    let rsi_raw: Option<Vec<f64>> = (query.rsi.unwrap_or(false))
         .then(|| indicators::calculer_rsi(&bougies, rsi_p));
     let rsi = query
         .rsi
@@ -80,7 +75,7 @@ pub async fn get_indicators(
         .then(|| rsi_raw.as_deref().map(serie))
         .flatten();
 
-    let atr_raw: Option<Vec<f64>> = (query.atr.unwrap_or(false) || need_signals)
+    let atr_raw: Option<Vec<f64>> = (query.atr.unwrap_or(false))
         .then(|| indicators::calculer_atr(&bougies, query.atr_periode.unwrap_or(14)));
     let atr = query
         .atr
@@ -88,7 +83,7 @@ pub async fn get_indicators(
         .then(|| atr_raw.as_deref().map(serie))
         .flatten();
 
-    let macd_computed: Option<indicators::Macd> = (query.macd.unwrap_or(false) || need_signals)
+    let macd_computed: Option<indicators::Macd> = (query.macd.unwrap_or(false))
         .then(|| indicators::calculer_macd(&bougies, macd_rapide_p, macd_lente_p, macd_signal_p));
     let macd = query
         .macd
@@ -103,7 +98,7 @@ pub async fn get_indicators(
         .flatten();
 
     let boll_computed: Option<indicators::Bollinger> = (query.bollinger.unwrap_or(false)
-        || need_signals)
+       )
         .then(|| indicators::calculer_bollinger_avance(&bougies, boll_p, boll_std, boll_ma));
     let bollinger = query
         .bollinger
@@ -193,85 +188,6 @@ pub async fn get_indicators(
         .then(|| smc::choch::detecter_choch(&bougies))
         .flatten();
 
-    // ── Signaux indicateurs (détection + confluence) ─────────────────────────
-    let signaux = query.signaux.unwrap_or(false).then(|| {
-        let closes: Vec<f64> = bougies.iter().map(|b| b.close).collect();
-        let mut tous: Vec<indicators::signaux::SignalIndicateur> = Vec::new();
-        if let Some(ref v) = ema_raw {
-            tous.extend(indicators::signaux::detecter_signaux_ema(
-                &timestamps,
-                &closes,
-                v,
-            ));
-        }
-        if let Some(ref v) = rsi_raw {
-            tous.extend(indicators::signaux::detecter_signaux_rsi(
-                &timestamps,
-                v,
-                70.0,
-                30.0,
-            ));
-        }
-        if let Some(ref m) = macd_computed {
-            tous.extend(indicators::signaux::detecter_signaux_macd(
-                &timestamps,
-                &m.ligne,
-                &m.signal,
-                &m.histogramme,
-            ));
-        }
-        if let Some(ref b) = boll_computed {
-            tous.extend(indicators::signaux::detecter_signaux_bollinger(
-                &timestamps,
-                &closes,
-                &b.superieure,
-                &b.milieu,
-                &b.inferieure,
-                boll_p,
-            ));
-        }
-        if let Some(ref v) = atr_raw {
-            tous.extend(indicators::signaux::detecter_signaux_atr(
-                &timestamps,
-                &closes,
-                v,
-                14,
-            ));
-        }
-        // Signaux combinés multi-indicateurs
-        tous.extend(indicators::signaux::detecter_signaux_combines(
-            &timestamps,
-            &closes,
-            ema_raw.as_deref(),
-            rsi_raw.as_deref(),
-            macd_computed.as_ref().map(|m| m.ligne.as_slice()),
-            macd_computed.as_ref().map(|m| m.signal.as_slice()),
-            boll_computed.as_ref().map(|b| b.superieure.as_slice()),
-            boll_computed.as_ref().map(|b| b.milieu.as_slice()),
-            boll_computed.as_ref().map(|b| b.inferieure.as_slice()),
-            atr_raw.as_deref(),
-        ));
-        // Enrichir prix_entree avec le close réel au timestamp du signal
-        let ts_to_close: std::collections::HashMap<i64, f64> = timestamps
-            .iter()
-            .copied()
-            .zip(closes.iter().copied())
-            .collect();
-        for s in &mut tous {
-            if let Some(&c) = ts_to_close.get(&s.timestamp) {
-                s.prix_entree = c;
-            }
-        }
-        indicators::signaux::calculer_confluence(tous)
-    });
-
-    // Valeurs ATR indexées par timestamp — retournées si signaux=true pour calcul SL/TP
-    let atr_valeurs = query
-        .signaux
-        .unwrap_or(false)
-        .then(|| atr_raw.as_deref().map(serie))
-        .flatten();
-
     HttpResponse::Ok().json(ReponseIndicators {
         ema,
         rsi,
@@ -288,7 +204,5 @@ pub async fn get_indicators(
         range_asie,
         bos,
         choch,
-        signaux,
-        atr_valeurs,
     })
 }

@@ -12,7 +12,7 @@ export type {
   RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA,
   ImageAvecTF, StatutIA, Signal, ScoreSmc, PointSerie,
   ZoneOb, ZoneIfvg, NiveauxFibonacci, ResultatTendance,
-  NiveauLiquidite, ReponseIndicators, IndicatorsParams, SignalIndicateur,
+  NiveauLiquidite, ReponseIndicators, IndicatorsParams,
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
   SentimentMarche, EntiteSentiment, ArticleNews, AlertesNews, NiveauAlerte, ContenuArticle, TraductionReponse,
   StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, ResultatCollecteItem,

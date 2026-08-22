@@ -53,7 +53,7 @@ export function buildIndicatorsParams(asset: string, tf: string, prefs: PrefsInd
     bollinger: prefs.bollinger, bollinger_periode: prefs.bollingerPeriode,
     bollinger_stddev: prefs.bollingerStdDev, bollinger_ma_type: prefs.bollingerMaType,
     atr: prefs.atr, atr_periode: prefs.atrPeriode,
-    signaux: true, limit: 500,
+    limit: 500,
   }
 }
 

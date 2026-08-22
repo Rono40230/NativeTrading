@@ -49,14 +49,15 @@
 
       <div class="w-px self-stretch bg-white/10 mx-1" />
 
-      <!-- SMC : dropdowns par famille (28 boutons → 5 menus à cocher) -->
-      <span class="text-[10px] text-cyan-400/80 uppercase tracking-wide mr-1">SMC</span>
-      <div v-for="groupe in v12Groupes" :key="groupe.label" class="relative">
+      <!-- SMC + Signaux : dropdowns à cocher (même gabarit, mêmes dimensions) -->
+      <template v-for="section in sections" :key="section.label">
+      <span class="text-[10px] text-cyan-400/80 uppercase tracking-wide mr-1 ml-1">{{ section.label }}</span>
+      <div v-for="groupe in section.groupes" :key="`g-${groupe.label}`" class="relative">
         <button
           @click="ouvert = ouvert === groupe.label ? null : groupe.label"
-          :title="`${nbActifs(groupe)} indicateur(s) actif(s) — clic pour ouvrir`"
+          :title="`${nbActifs(groupe)} actif(s) — clic pour ouvrir`"
           :class="[
-            'flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border transition-all',
+            'flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border transition-all',
             nbActifs(groupe) > 0
               ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-200'
               : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
@@ -65,7 +66,7 @@
           {{ groupe.label }}
           <span
             v-if="nbActifs(groupe) > 0"
-            class="min-w-[16px] px-1 rounded-full bg-cyan-500/30 text-cyan-100 text-[9px] leading-[14px] text-center"
+            class="min-w-[16px] px-1 rounded-full bg-cyan-500/30 text-cyan-100 text-[10px] leading-[14px] text-center"
           >{{ nbActifs(groupe) }}</span>
           <span :class="['text-[8px] transition-transform', ouvert === groupe.label && 'rotate-180']">▼</span>
         </button>
@@ -102,13 +103,14 @@
           </label>
         </div>
       </div>
+      </template>
 
       <!-- Slot actions SMC (ex. bouton Analyse SMC) — à droite des dropdowns -->
       <slot name="apres-smc" />
 
       <!-- Actualiser -->
       <button
-        class="ml-auto px-3 py-1 text-xs rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-50"
+        class="ml-auto px-2.5 py-1 text-xs font-medium rounded-md bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-50"
         :disabled="chargement"
         @click="$emit('actualiser')"
       >{{ chargement ? '⏳...' : '🔄 Actualiser' }}</button>
@@ -124,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref } from 'vue'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import IndicatorModal from './IndicatorModal.vue'
 
@@ -174,8 +176,8 @@ const techniques = [
 ]
 
 // ── SMC v12 : bascules ON/OFF par indicateur (overlay useSmcV12Overlay).
-// `pending = true` → l'API /api/smc/v12/analyse ne retourne pas encore cette
-// donnée : le bouton bascule le flag mais rien n'est dessiné pour l'instant.
+// `pending = true` → l'API ne retourne pas encore cette donnée : le bouton
+// bascule le flag mais rien n'est dessiné pour l'instant.
 const v12Groupes = [
   {
     label: 'Structure',
@@ -198,7 +200,6 @@ const v12Groupes = [
       { key: 'v12Propulsion', label: 'Propulsion Blocks', pending: false },
       { key: 'v12Imbalance', label: 'Imbalance', pending: true  },
       { key: 'v12ZoneCoeur', label: 'Zone cœur', pending: true  },
-      { key: 'v12Signals',   label: 'Trades',    pending: false },
     ],
   },
   {
@@ -233,5 +234,21 @@ const v12Groupes = [
     ],
   },
 ]
+
+/** Stratégies du dropdown « Signaux » (multi-sélection ; Trades = SMC v12). */
+const strategieSignaux = {
+  label: 'Stratégies',
+  items: [
+    { key: 'v12Signals',         label: 'Trades',   pending: false },
+    { key: 'v12SignauxRockets',  label: 'Rockets',  pending: true },
+    { key: 'v12SignauxStraddle', label: 'Straddle', pending: true },
+  ],
+}
+
+/** Sections du panneau : SMC (5 familles d'indicateurs) puis Signaux. */
+const sections = computed(() => [
+  { label: 'SMC', groupes: v12Groupes },
+  { label: 'Signaux', groupes: [strategieSignaux] },
+])
 </script>
 

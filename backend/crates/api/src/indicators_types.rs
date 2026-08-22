@@ -58,8 +58,6 @@ pub struct IndicatorsQuery {
     pub smc_bos: Option<bool>,
     /// CHoCH (Change of Character) overlay
     pub smc_choch: Option<bool>,
-    /// Si `true`, calcule et retourne les signaux pour tous les indicateurs actifs
-    pub signaux: Option<bool>,
     pub limit: Option<u32>,
 }
 
@@ -117,8 +115,4 @@ pub struct ReponseIndicators {
     pub bos: Option<smc::ResultatBos>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub choch: Option<smc::ResultatChoch>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub signaux: Option<Vec<indicators::signaux::SignalIndicateur>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub atr_valeurs: Option<Vec<PointSerie>>,
 }

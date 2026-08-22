@@ -2,7 +2,6 @@ mod atr;
 mod bollinger;
 mod macd;
 mod rsi;
-pub mod signaux;
 mod sma_ema;
 
 pub use atr::calculer_atr;

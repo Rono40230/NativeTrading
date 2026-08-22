@@ -98,17 +98,6 @@ export interface ResultatChoch {
   niveau_casse: number
   prix_cassure: number
 }
-export interface SignalIndicateur {
-  timestamp: number
-  source: string
-  type_signal: string
-  direction: DirectionSignal
-  force: NiveauForceSignal
-  description: string
-  valeur: number
-  prix_entree: number
-}
-
 export interface ReponseIndicators {
   ema?: PointSerie[]
   rsi?: PointSerie[]
@@ -125,8 +114,6 @@ export interface ReponseIndicators {
   range_asie?: RangeAsie[]
   bos?: ResultatBos
   choch?: ResultatChoch
-  signaux?: SignalIndicateur[]
-  atr_valeurs?: PointSerie[]
 }
 
 export interface IndicatorsParams {
@@ -180,7 +167,5 @@ export interface IndicatorsParams {
   smc_liq_asie_nb_sessions?: number
   smc_bos?: boolean
   smc_choch?: boolean
-  /** Si true, calcule et retourne les signaux pour indicateurs actifs */
-  signaux?: boolean
   limit?: number
 }

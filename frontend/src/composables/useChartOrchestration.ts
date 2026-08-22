@@ -4,7 +4,6 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { useAssetsStore } from '@/stores/assets.store'
 import type { ReponseIndicators } from '@/services/api.service'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
-import type { FiltreSignaux } from '@/composables/chartSignauxTypes'
 import type { Candle } from '@/services/api.types'
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 import { limitPourTimeframe } from '@/composables/useChartLimite'
@@ -20,17 +19,15 @@ interface Opts {
   chargerEtAppliquer: (
     chart: IChartApi, asset: string, tf: string, prefs: PrefsIndicateurs,
     rsi: HTMLElement | null, macd: HTMLElement | null, atr: HTMLElement | null,
-    serie: ISeriesApi<'Candlestick'> | null, filtre: FiltreSignaux,
+    serie: ISeriesApi<'Candlestick'> | null,
     onDonnees?: (data: ReponseIndicators) => void,
   ) => Promise<void>
-  filtreCourant: Ref<FiltreSignaux>
   mettreAJourSerie: (force?: boolean) => void
   mettreAJourEnDirect: (bougie: Candle) => void
   initChart: () => void
   detruireChart: () => void
   reinitialiser: () => void
   configurerCrosshair: () => void
-  configurerClick: () => void
   chargerIndicateurs: () => Promise<void>
   configurerRedimensionnement: () => void
   arreterRedimensionnement: () => void
@@ -59,7 +56,7 @@ export function useChartOrchestration(o: Opts) {
     if (!chart || !serie) return
     await o.chargerEtAppliquer(
       chart, o.selectedAsset.value, o.selectedTimeframe.value, o.indicateurs.value,
-      null, null, null, serie, o.filtreCourant.value,
+      null, null, null, serie,
       (data) => {
         const derniereB = o.bougies.value?.[o.bougies.value.length - 1]
         const tsMs = derniereB ? new Date(derniereB.timestamp).getTime() : null
@@ -90,7 +87,6 @@ export function useChartOrchestration(o: Opts) {
     await nextTick()
     o.initChart()
     o.configurerCrosshair()
-    o.configurerClick()
     await o.chargerIndicateurs()
   }
 
@@ -130,7 +126,6 @@ export function useChartOrchestration(o: Opts) {
     )
     o.initChart()
     o.configurerCrosshair()
-    o.configurerClick()
     await o.chargerIndicateurs()
     demarrerLiveFeed(o.selectedAsset.value, o.selectedTimeframe.value)
     o.configurerRedimensionnement()
