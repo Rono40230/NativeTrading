@@ -252,9 +252,9 @@ export function dessinerBoxes(
       ctx.strokeRect(xGRaw, yTop, xD2 - xGRaw, Math.abs(yT - yB))
       ctx.font = 'bold 9px sans-serif'
       ctx.fillStyle = hex
-      ctx.textAlign = 'left'
+      ctx.textAlign = 'right'
       ctx.textBaseline = 'top'
-      ctx.fillText('PROP', xGRaw + 3, yTop + 2)
+      ctx.fillText('PROP', xD2 - 3, yTop + 2)
     }
   }
 
@@ -287,10 +287,10 @@ export function dessinerBoxes(
       ctx.strokeRect(gauche, yTop, droite - gauche, h)
       ctx.font = 'bold 9px sans-serif'
       ctx.fillStyle = coul
-      ctx.textAlign = 'left'
+      ctx.textAlign = 'right'
       ctx.textBaseline = 'top'
       const NOMS: Record<string, string> = { asie: 'Session Asiatique', londres: 'Session Européenne', ny: 'Session Américaine' }
-      ctx.fillText(NOMS[s.session] ?? s.session, gauche + 4, yTop + 2)
+      ctx.fillText(NOMS[s.session] ?? s.session, droite - 4, yTop + 2)
     }
   }
   const xD = xDroit(ts, W, dernierTs)
@@ -326,7 +326,10 @@ export function dessinerBoxes(
     ctx.fillRect(xG, box.yTop, xD - xG, box.h)
     tracerBordsBox(ctx, hexVersRgba(hex, 1), xG, xD, box.yTop, box.h)
     const emoji = o.dir === 'bull' ? '🟢' : '🔴'
-    labelBox(ctx, hexVersRgba(hex, 1), `${o.timeframe} ${emoji}`, xG, box.yTop)
+    // Pine f_htfTag : « ◀ ici » si le close courant est DANS la zone.
+    const c = dernierClose(serie)
+    const ici = c !== null && c >= o.bot && c <= o.top ? ' ◀ ici' : ''
+    labelBox(ctx, hexVersRgba(hex, 1), `${emoji} ${o.timeframe}${ici}`, xD, box.yTop)
   }
 
   // Zone-cœur — bord gauche = bougie d'origine de l'OB parent (Pine
@@ -343,7 +346,7 @@ export function dessinerBoxes(
       ctx.fillStyle = hexVersRgba(hexF, t(20))
       ctx.fillRect(xG, box.yTop, xD - xG, box.h)
       tracerBordsBox(ctx, hexVersRgba(hexB, 1), xG, xD, box.yTop, box.h)
-      labelBox(ctx, hexVersRgba(hexB, 1), isBull ? 'Zone Achat' : 'Zone Vente', xG, box.yTop)
+      labelBox(ctx, hexVersRgba(hexB, 1), isBull ? 'Zone Achat' : 'Zone Vente', xD, box.yTop)
     }
   }
 
@@ -358,7 +361,7 @@ export function dessinerBoxes(
       ctx.fillStyle = hexVersRgba(hex, t(93))
       ctx.fillRect(xG, box.yTop, xD - xG, box.h)
       tracerBordsBox(ctx, hexVersRgba('#FFFFFF', t(60)), xG, xD, box.yTop, box.h)
-      labelBox(ctx, hexVersRgba(hex, 1), 'BREAKER', xG, box.yTop)
+      labelBox(ctx, hexVersRgba(hex, 1), 'BREAKER', xD, box.yTop)
     }
   }
 
@@ -373,7 +376,7 @@ export function dessinerBoxes(
       ctx.fillStyle = hexVersRgba(hex, t(93))
       ctx.fillRect(xG, box.yTop, xD - xG, box.h)
       tracerBordsBox(ctx, hexVersRgba('#FFFFFF', t(85)), xG, xD, box.yTop, box.h)
-      labelBox(ctx, hexVersRgba(hex, 1), 'Imbalance', xG, box.yTop)
+      labelBox(ctx, hexVersRgba(hex, 1), 'Imbalance', xD, box.yTop)
     }
   }
 
@@ -389,7 +392,7 @@ export function dessinerBoxes(
       ctx.fillStyle = hexVersRgba(hex, t(80))
       ctx.fillRect(xG, box.yTop, xD - xG, box.h)
       tracerBordsBox(ctx, hexVersRgba(hex, t(40)), xG, xD, box.yTop, box.h)
-      labelBox(ctx, hexVersRgba(hex, 1), 'OTE', xG, box.yTop)
+      labelBox(ctx, hexVersRgba(hex, 1), 'OTE', xD, box.yTop)
     }
   }
 }
@@ -487,6 +490,14 @@ function coordX(ts: TimeScale, time: number, fallback: number): number {
   return raw !== null ? raw : fallback
 }
 
+/** Dernier close de la série (Pine `close` pour le tag « ◀ ici »). */
+function dernierClose(serie: ISeriesApi<'Candlestick'>): number | null {
+  const data = serie.data()
+  const last = data.length > 0 ? data[data.length - 1] : null
+  const c = (last as { close?: number } | null)?.close
+  return typeof c === 'number' ? c : null
+}
+
 /** Coordonnées canvas d'une box prix [top, bot] (yTop = plus petit y). */
 function boxPrix(
   serie: ISeriesApi<'Candlestick'>,
@@ -517,19 +528,20 @@ function tracerBordsBox(
   ctx.beginPath(); ctx.moveTo(xG, yTop + h); ctx.lineTo(xD, yTop + h); ctx.stroke()
 }
 
-/** Label en haut à gauche d'une box. */
+/** Label en haut à DROITE d'une box (Pine C_BLOC_TXT_HALIGN = text.align_right,
+ *  C_BLOC_TXT_VALIGN = text.align_top ; MQL5 SmcBlockLabel ANCHOR_RIGHT_UPPER). */
 function labelBox(
   ctx: CanvasRenderingContext2D,
   couleur: string,
   texte: string,
-  xG: number,
+  xD: number,
   yTop: number,
 ): void {
   ctx.font = 'bold 10px sans-serif'
   ctx.fillStyle = couleur
-  ctx.textAlign = 'left'
+  ctx.textAlign = 'right'
   ctx.textBaseline = 'top'
-  ctx.fillText(texte, xG + 3, yTop + 2)
+  ctx.fillText(texte, xD - 3, yTop + 2)
 }
 
 /** Couleur + style de ligne d'un niveau de liquidité. */
