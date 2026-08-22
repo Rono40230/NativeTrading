@@ -213,7 +213,7 @@ export function dessinerFonds(
       const xD = coordX(ts, r.end_ts, W)
       if (xD <= xG) continue
       const hex = r.dir === 'prem' ? COUL_PREMIUM : COUL_DISCOUNT
-      ctx.fillStyle = hexVersRgba(hex, t(95))
+      ctx.fillStyle = hexVersRgba(hex, t(80)) // 20% opacité — le 5% du Pine était invisible sur fond sombre
       ctx.fillRect(xG, 0, xD - xG, H)
     }
   }
