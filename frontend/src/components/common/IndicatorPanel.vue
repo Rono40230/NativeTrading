@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center gap-1.5">
 
       <!-- Techniques -->
-      <span class="text-[10px] text-slate-500 uppercase tracking-wide mr-1">Techniques</span>
+      <span class="text-[10px] text-cyan-400/80 uppercase tracking-wide mr-1">Techniques</span>
       <div v-for="ind in techniques" :key="ind.key" class="flex items-center">
         <button
           @click="toggle(ind.key)"
@@ -50,7 +50,8 @@
       <div class="w-px self-stretch bg-white/10 mx-1" />
 
       <!-- SMC + Signaux : dropdowns à cocher (même gabarit, mêmes dimensions) -->
-      <template v-for="section in sections" :key="section.label">
+      <template v-for="(section, idxSection) in sections" :key="section.label">
+      <div v-if="idxSection > 0" class="w-px self-stretch bg-white/10 mx-1" />
       <span class="text-[10px] text-cyan-400/80 uppercase tracking-wide mr-1 ml-1">{{ section.label }}</span>
       <div v-for="groupe in section.groupes" :key="`g-${groupe.label}`" class="relative">
         <button
