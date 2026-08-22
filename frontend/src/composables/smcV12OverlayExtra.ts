@@ -377,16 +377,19 @@ export function dessinerBoxes(
     }
   }
 
-  // OTE — sans ts : étendu sur toute la largeur visible (0 → xD).
+  // OTE — box d'affichage Pine _oteBullBox/_oteBearBox : créée au BOS
+  // (bord gauche = bar du BOS), persiste après expiration de la plage.
   if (flags.ote) {
     for (const o of d.otes) {
       const hex = o.dir === 'bull' ? COUL_OTE_BULL : COUL_OTE_BEAR
       const box = boxPrix(serie, o.top, o.bot)
       if (!box) continue
+      const xG = coordX(ts, o.ts, 0)
+      if (xD <= xG) continue
       ctx.fillStyle = hexVersRgba(hex, t(80))
-      ctx.fillRect(0, box.yTop, xD, box.h)
-      tracerBordsBox(ctx, hexVersRgba(hex, t(40)), 0, xD, box.yTop, box.h)
-      labelBox(ctx, hexVersRgba(hex, 1), 'OTE', 3, box.yTop)
+      ctx.fillRect(xG, box.yTop, xD - xG, box.h)
+      tracerBordsBox(ctx, hexVersRgba(hex, t(40)), xG, xD, box.yTop, box.h)
+      labelBox(ctx, hexVersRgba(hex, 1), 'OTE', xG, box.yTop)
     }
   }
 }

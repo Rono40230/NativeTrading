@@ -151,12 +151,14 @@ pub(crate) struct ImbalanceOut {
     pub bar_idx: usize,
 }
 
-/// Zone OTE active (au plus une par sens, état post-replay).
+/// Box OTE d'affichage (au plus une par sens, Pine `_oteBullBox`/`_oteBearBox`).
 #[derive(Serialize)]
 pub(crate) struct OteOut {
     pub dir: &'static str,
     pub top: f64,
     pub bot: f64,
+    /// Timestamp de la bar du BOS (bord gauche de la box).
+    pub ts: i64,
 }
 
 /// Zone-cœur (intersection OB ∩ OTE ∩ FVG) collectée pendant le replay.

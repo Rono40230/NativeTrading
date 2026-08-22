@@ -115,6 +115,8 @@ export interface OteV12 {
   dir: 'bull' | 'bear'
   top: number
   bot: number
+  /** Timestamp de la bar du BOS — bord gauche de la box (Pine _oteBullBox). */
+  ts: number
 }
 /** Zone-cœur (intersection OB ∩ OTE ∩ FVG). */
 export interface ZoneCoeurV12 {

@@ -398,6 +398,14 @@ pub struct OteEvent {
     pub bear_bot: Option<f64>,
     /// `OTE_EXPIRY_BARS = max(1, round(10800/_tfSec))` (12 en M15).
     pub expiry_bars: i64,
+    /// Box d'affichage bull (Pine `_oteBullBox`, lignes 2126-2148) :
+    /// `(top, bot, ts_bos)`. Créée au BOS avec les bornes du moment, remplacée
+    /// à chaque BOS ; **persiste après expiration de la plage Fib** (Pine :
+    /// suppression `close < _oteBotBull` lit les bornes COURANTES → impossible
+    /// une fois la plage expirée `na`).
+    pub bull_box: Option<(f64, f64, i64)>,
+    /// Box d'affichage bear (Pine `_oteBearBox`) : `(top, bot, ts_bos)`.
+    pub bear_box: Option<(f64, f64, i64)>,
 }
 
 // ============================================================================

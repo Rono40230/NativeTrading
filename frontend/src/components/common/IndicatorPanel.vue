@@ -175,7 +175,7 @@ const v12Groupes = [
       { key: 'v12ObH4',        label: 'OB H4',          pending: true },
       { key: 'v12ObW1',        label: 'OB W1',          pending: true },
       { key: 'v12ObMn',        label: 'OB MN',          pending: true },
-      { key: 'v12Ote',         label: 'Zone OTE',       pending: true },
+      { key: 'v12Ote',         label: 'Zones Optimal Trade Entry', pending: false },
     ],
   },
 ]

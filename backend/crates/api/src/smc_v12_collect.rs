@@ -218,19 +218,13 @@ impl BarCollectors {
         self.imp_raw.push((bar.timestamp, imp));
 
         // ── Zone-cœur : miroir des boxes LIVE du moteur (Pine
-        //    f_zoneCoeurLifecycle : box supprimée dès que le setup n'est plus
-        //    valable — on n'exporte donc que les zones vivantes à la barre
-        //    courante, jamais un historique figé qui collerait à l'infini).
+        //    f_zoneCoeurLifecycle : supprimée dès que le setup n'est plus
+        //    valable — on n'exporte que les zones vivantes, jamais un
+        //    historique figé qui collerait à l'infini).
         self.zone_coeur.clear();
-        for (sens, zones) in [
-            (0u8, &out.zone_coeur.live_bull),
-            (1u8, &out.zone_coeur.live_bear),
-        ] {
+        for (sens, zones) in [(0u8, &out.zone_coeur.live_bull), (1u8, &out.zone_coeur.live_bear)] {
             for z in zones.iter() {
-                let crea = *self
-                    .zc_crea
-                    .entry((sens, z.ob_bar))
-                    .or_insert(bar.timestamp);
+                let crea = *self.zc_crea.entry((sens, z.ob_bar)).or_insert(bar.timestamp);
                 self.zone_coeur.push(ZoneCoeurOut {
                     ts: crea,
                     dir: if sens == 0 { "bull" } else { "bear" },
@@ -389,21 +383,26 @@ pub(crate) fn collect_final_extended(
         });
     }
 
-    // ── OTE (au plus une zone par sens, expire avec le temps) ──
+    // ── OTE (Pine _oteBullBox/_oteBearBox, lignes 2126-2148) : box
+    //    d'affichage créée au BOS (ts = bar du BOS), remplacée à chaque BOS,
+    //    qui PERSISTE après expiration de la plage Fib — c'est elle qu'on
+    //    exporte, pas la plage expirable (inOTE reste réservé au scoring). ──
     let mut otes: Vec<OteOut> = Vec::new();
     let ote_ev = engine.ote.last_event();
-    if let (Some(t), Some(b)) = (ote_ev.bull_top, ote_ev.bull_bot) {
+    if let Some((t, b, ts)) = ote_ev.bull_box {
         otes.push(OteOut {
             dir: "bull",
             top: t,
             bot: b,
+            ts,
         });
     }
-    if let (Some(t), Some(b)) = (ote_ev.bear_top, ote_ev.bear_bot) {
+    if let Some((t, b, ts)) = ote_ev.bear_box {
         otes.push(OteOut {
             dir: "bear",
             top: t,
             bot: b,
+            ts,
         });
     }
 
