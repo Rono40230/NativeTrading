@@ -329,7 +329,8 @@ export function dessinerBoxes(
     labelBox(ctx, hexVersRgba(hex, 1), `${o.timeframe} ${emoji}`, xG, box.yTop)
   }
 
-  // Zone-cœur.
+  // Zone-cœur — bord gauche = bougie d'origine de l'OB parent (Pine
+  // box.new(obBullBar[_zi], …)), pas la barre de détection.
   if (flags.zoneCoeur) {
     for (const z of d.zone_coeur) {
       const isBull = z.dir === 'bull'
@@ -337,7 +338,7 @@ export function dessinerBoxes(
       const hexB = isBull ? COUL_ZC_BULL_B : COUL_ZC_BEAR_B
       const box = boxPrix(serie, z.top, z.bot)
       if (!box) continue
-      const xG = coordX(ts, z.ts, 0)
+      const xG = coordX(ts, z.ob_ts > 0 ? z.ob_ts : z.ts, 0)
       if (xD <= xG) continue
       ctx.fillStyle = hexVersRgba(hexF, t(20))
       ctx.fillRect(xG, box.yTop, xD - xG, box.h)

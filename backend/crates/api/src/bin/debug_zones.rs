@@ -40,8 +40,7 @@ fn main() -> anyhow::Result<()> {
         i += 1;
     }
 
-    let db_path = std::env::var("DATABASE_PATH")
-        .unwrap_or_else(|_| "data/trading.db".to_string());
+    let db_path = std::env::var("DATABASE_PATH").unwrap_or_else(|_| "data/trading.db".to_string());
     let rt = tokio::runtime::Runtime::new()?;
     let db = rt.block_on(Database::new(&db_path))?;
     let asset = Asset::try_from(asset_str.as_str())?;
@@ -58,6 +57,9 @@ fn main() -> anyhow::Result<()> {
     );
     let mut engine = SmcV12Engine::new(&asset_str, &tf_str);
     let mut dernier: Option<(i64, SmcOutput)> = None;
+    // Trace zone-cœur : (dir, ob_bar) → (ts_création, ts_dernière_barre vivante).
+    let mut zc_vu: std::collections::BTreeMap<(char, usize), (i64, i64)> =
+        std::collections::BTreeMap::new();
     for b in &bougies {
         let bar = smc::v12::BarInput {
             timestamp: b.timestamp.timestamp(),
@@ -68,7 +70,17 @@ fn main() -> anyhow::Result<()> {
             volume: b.volume,
         };
         let out = engine.update(&bar);
-        dernier = Some((b.timestamp.timestamp(), out));
+        let ts = b.timestamp.timestamp();
+        for (dir, zones) in [
+            ('B', &out.zone_coeur.live_bull),
+            ('S', &out.zone_coeur.live_bear),
+        ] {
+            for z in zones.iter() {
+                let e = zc_vu.entry((dir, z.ob_bar)).or_insert((ts, ts));
+                e.1 = ts;
+            }
+        }
+        dernier = Some((ts, out));
     }
     let _ = dernier;
 
@@ -87,7 +99,10 @@ fn main() -> anyhow::Result<()> {
     for z in engine.order_blocks.bull_zones() {
         let score = engine.scoring_v11.ob_score(true, z.impulse_bar);
         let force = smc::v12::scoring_v11::ScoringV11::force(score, cal);
-        let diag = engine.scoring_v11.ob_diag(true, z.impulse_bar).unwrap_or("?");
+        let diag = engine
+            .scoring_v11
+            .ob_diag(true, z.impulse_bar)
+            .unwrap_or("?");
         println!(
             "  BULL {:.0}/{:.0} · état {:?} · score {score} · force {force}\n       diag: {diag}",
             z.top, z.bot, z.state
@@ -96,10 +111,32 @@ fn main() -> anyhow::Result<()> {
     for z in engine.order_blocks.bear_zones() {
         let score = engine.scoring_v11.ob_score(false, z.impulse_bar);
         let force = smc::v12::scoring_v11::ScoringV11::force(score, cal);
-        let diag = engine.scoring_v11.ob_diag(false, z.impulse_bar).unwrap_or("?");
+        let diag = engine
+            .scoring_v11
+            .ob_diag(false, z.impulse_bar)
+            .unwrap_or("?");
         println!(
             "  BEAR {:.0}/{:.0} · état {:?} · score {score} · force {force}\n       diag: {diag}",
             z.top, z.bot, z.state
+        );
+    }
+    println!("\n── Zone-cœur (lifecycle live) ──");
+    let fmt = |t: i64| {
+        chrono::DateTime::from_timestamp(t, 0)
+            .map(|d| d.format("%d/%m %H:%M").to_string())
+            .unwrap_or_else(|| "?".into())
+    };
+    if zc_vu.is_empty() {
+        println!("  (aucune zone-cœur n'a vécu pendant le replay)");
+    }
+    for ((dir, ob_bar), (crea, fin)) in &zc_vu {
+        let vivante = *fin == dernier.as_ref().map(|(t, _)| *t).unwrap_or(0);
+        println!(
+            "  {} ob_bar={ob_bar} · créée {} · dernière barre vivante {}{}",
+            if *dir == 'B' { "ACHAT" } else { "VENTE" },
+            fmt(*crea),
+            fmt(*fin),
+            if vivante { "  ← ENCORE VIVANTE" } else { "" }
         );
     }
     Ok(())

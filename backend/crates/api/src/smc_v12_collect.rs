@@ -2,15 +2,16 @@
 //!
 //! Deux responsabilités :
 //! - [`BarCollectors`] accumule pendant le replay les indicateurs « par barre »
-//!   (sessions Kill Zones, volume fort, impulsion, zone-cœur dédoublonnée,
-//!   Asian High/Low non tracké par `KillZoneDetector`).
+//!   (sessions Kill Zones, volume fort, impulsion, zone-cœur **live** — miroir
+//!   des boxes Pine supprimées à l'invalidation, Asian High/Low non tracké
+//!   par `KillZoneDetector`).
 //! - [`collect_final_extended`] lit les états finaux sur le moteur post-replay
 //!   (liquidités PDH/PDL/PWH/PWL + EQH/EQL, breaker, imbalance, OTE,
 //!   Premium/Discount, MTF, NDOG/NWOG) et compresse en run-length les séries
 //!   par barre accumulées dans les collecteurs.
 
 use smc::v12::{BarInput, HtfState, ImbalanceState, KillZone, SmcOutput, SmcV12Engine};
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use crate::smc_v12_out::*;
 
@@ -54,57 +55,6 @@ fn collect_htf(tf: &'static str, st: &HtfState, out: &mut Vec<HtfObOut>) {
     }
 }
 
-/// Compression run-length d'une série `(ts, label Optionnel)` : renvoie les plages
-/// contiguës `(start_ts, end_ts, label)` pour les valeurs non-`None`. Les `None`
-/// cassent la contiguïté (saut de session / pas d'impulsion).
-fn runs_str(raw: &[(i64, Option<&'static str>)]) -> Vec<(i64, i64, &'static str)> {
-    let mut out: Vec<(i64, i64, &'static str)> = Vec::new();
-    let mut cur: Option<(&'static str, i64, i64)> = None;
-    for &(ts, label) in raw {
-        match label {
-            Some(v) => match cur {
-                Some((c, st, _)) if c == v => cur = Some((c, st, ts)),
-                _ => {
-                    if let Some((c, st, en)) = cur {
-                        out.push((st, en, c));
-                    }
-                    cur = Some((v, ts, ts));
-                }
-            },
-            None => {
-                if let Some((c, st, en)) = cur.take() {
-                    out.push((st, en, c));
-                }
-            }
-        }
-    }
-    if let Some((c, st, en)) = cur {
-        out.push((st, en, c));
-    }
-    out
-}
-
-/// Compression run-length d'une série booléenne : renvoie les plages `(start, end)`
-/// contiguës où le flag vaut `true` (utilisé pour le volume fort).
-fn compress_vol(raw: &[(i64, bool)]) -> Vec<(i64, i64)> {
-    let mut out: Vec<(i64, i64)> = Vec::new();
-    let mut cur: Option<(i64, i64)> = None;
-    for &(ts, fort) in raw {
-        if fort {
-            match cur {
-                Some((st, _)) => cur = Some((st, ts)),
-                None => cur = Some((ts, ts)),
-            }
-        } else if let Some((st, en)) = cur.take() {
-            out.push((st, en));
-        }
-    }
-    if let Some((st, en)) = cur {
-        out.push((st, en));
-    }
-    out
-}
-
 // ── Collecteurs par barre ────────────────────────────────────────────────────
 
 /// Collecteurs des indicateurs « par barre » accumulés pendant le replay :
@@ -126,8 +76,9 @@ pub(crate) struct BarCollectors {
     imp_raw: Vec<(i64, Option<&'static str>)>,
     vol_buf: Vec<f64>,
     zone_coeur: Vec<ZoneCoeurOut>,
-    zc_bull_seen: HashSet<usize>,
-    zc_bear_seen: HashSet<usize>,
+    /// Timestamp de création de chaque box live (clé = (0=bull/1=bear, ob_bar)) —
+    /// Pine fige la box à sa création, on mémorise la 1re barre où elle est vue.
+    zc_crea: HashMap<(u8, usize), i64>,
     asian_day_key: Option<i64>,
     asian_h: f64,
     asian_l: f64,
@@ -152,8 +103,7 @@ impl BarCollectors {
             imp_raw: Vec::with_capacity(cap),
             vol_buf: Vec::with_capacity(21),
             zone_coeur: Vec::new(),
-            zc_bull_seen: HashSet::new(),
-            zc_bear_seen: HashSet::new(),
+            zc_crea: HashMap::new(),
             asian_day_key: None,
             asian_h: 0.0,
             asian_l: 0.0,
@@ -267,29 +217,28 @@ impl BarCollectors {
         };
         self.imp_raw.push((bar.timestamp, imp));
 
-        // ── Zone-cœur : accumulation dédoublonnée par ob_bar ──
-        if self.zone_coeur.len() < MAX_ZONE_COEUR {
-            for z in &out.zone_coeur.bull {
-                if self.zc_bull_seen.insert(z.ob_bar) {
-                    self.zone_coeur.push(ZoneCoeurOut {
-                        ts: bar.timestamp,
-                        dir: "bull",
-                        top: z.top,
-                        bot: z.bot,
-                        ob_bar: z.ob_bar,
-                    });
-                }
-            }
-            for z in &out.zone_coeur.bear {
-                if self.zc_bear_seen.insert(z.ob_bar) {
-                    self.zone_coeur.push(ZoneCoeurOut {
-                        ts: bar.timestamp,
-                        dir: "bear",
-                        top: z.top,
-                        bot: z.bot,
-                        ob_bar: z.ob_bar,
-                    });
-                }
+        // ── Zone-cœur : miroir des boxes LIVE du moteur (Pine
+        //    f_zoneCoeurLifecycle : box supprimée dès que le setup n'est plus
+        //    valable — on n'exporte donc que les zones vivantes à la barre
+        //    courante, jamais un historique figé qui collerait à l'infini).
+        self.zone_coeur.clear();
+        for (sens, zones) in [
+            (0u8, &out.zone_coeur.live_bull),
+            (1u8, &out.zone_coeur.live_bear),
+        ] {
+            for z in zones.iter() {
+                let crea = *self
+                    .zc_crea
+                    .entry((sens, z.ob_bar))
+                    .or_insert(bar.timestamp);
+                self.zone_coeur.push(ZoneCoeurOut {
+                    ts: crea,
+                    dir: if sens == 0 { "bull" } else { "bear" },
+                    top: z.top,
+                    bot: z.bot,
+                    ob_bar: z.ob_bar,
+                    ob_ts: 0,
+                });
             }
         }
 
@@ -337,10 +286,30 @@ pub(crate) fn collect_final_extended(
     // ── Liquidités PDH/PDL/PWH/PWL (état final) ──
     let liq = engine.liquidites.last_event();
     let liquidites = vec![
-        LiquiditeLevelOut { level: "pdh", price: liq.pdh, active: liq.pdh_active.is_some(), ts_origine: liq.pdh_ts },
-        LiquiditeLevelOut { level: "pdl", price: liq.pdl, active: liq.pdl_active.is_some(), ts_origine: liq.pdl_ts },
-        LiquiditeLevelOut { level: "pwh", price: liq.pwh, active: liq.pwh_active.is_some(), ts_origine: liq.pwh_ts },
-        LiquiditeLevelOut { level: "pwl", price: liq.pwl, active: liq.pwl_active.is_some(), ts_origine: liq.pwl_ts },
+        LiquiditeLevelOut {
+            level: "pdh",
+            price: liq.pdh,
+            active: liq.pdh_active.is_some(),
+            ts_origine: liq.pdh_ts,
+        },
+        LiquiditeLevelOut {
+            level: "pdl",
+            price: liq.pdl,
+            active: liq.pdl_active.is_some(),
+            ts_origine: liq.pdl_ts,
+        },
+        LiquiditeLevelOut {
+            level: "pwh",
+            price: liq.pwh,
+            active: liq.pwh_active.is_some(),
+            ts_origine: liq.pwh_ts,
+        },
+        LiquiditeLevelOut {
+            level: "pwl",
+            price: liq.pwl,
+            active: liq.pwl_active.is_some(),
+            ts_origine: liq.pwl_ts,
+        },
     ];
 
     // ── EQH/EQL (pool de liquidités) ──
@@ -361,37 +330,81 @@ pub(crate) fn collect_final_extended(
     // ── Breaker blocks (FIFO 5/sens côté moteur) ──
     let mut propulsions: Vec<crate::smc_v12_out::PropulsionOut> = Vec::new();
     for z in engine.propulsion.bull_zones() {
-        propulsions.push(crate::smc_v12_out::PropulsionOut { ts: ts_at(ts_by_idx, z.bar, 0), dir: "bull", top: z.top, bot: z.bot });
+        propulsions.push(crate::smc_v12_out::PropulsionOut {
+            ts: ts_at(ts_by_idx, z.bar, 0),
+            dir: "bull",
+            top: z.top,
+            bot: z.bot,
+        });
     }
     for z in engine.propulsion.bear_zones() {
-        propulsions.push(crate::smc_v12_out::PropulsionOut { ts: ts_at(ts_by_idx, z.bar, 0), dir: "bear", top: z.top, bot: z.bot });
+        propulsions.push(crate::smc_v12_out::PropulsionOut {
+            ts: ts_at(ts_by_idx, z.bar, 0),
+            dir: "bear",
+            top: z.top,
+            bot: z.bot,
+        });
     }
 
     let mut breakers: Vec<BreakerOut> = Vec::new();
     for z in engine.breaker.bull_zones() {
-        breakers.push(BreakerOut { ts: ts_at(ts_by_idx, z.bar, 0), dir: "bull", top: z.top, bot: z.bot, bar_idx: z.bar });
+        breakers.push(BreakerOut {
+            ts: ts_at(ts_by_idx, z.bar, 0),
+            dir: "bull",
+            top: z.top,
+            bot: z.bot,
+            bar_idx: z.bar,
+        });
     }
     for z in engine.breaker.bear_zones() {
-        breakers.push(BreakerOut { ts: ts_at(ts_by_idx, z.bar, 0), dir: "bear", top: z.top, bot: z.bot, bar_idx: z.bar });
+        breakers.push(BreakerOut {
+            ts: ts_at(ts_by_idx, z.bar, 0),
+            dir: "bear",
+            top: z.top,
+            bot: z.bot,
+            bar_idx: z.bar,
+        });
     }
 
     // ── Imbalance (FIFO 10/sens côté moteur) ──
     let mut imbalances: Vec<ImbalanceOut> = Vec::new();
     for z in engine.imbalance.bull_zones() {
-        imbalances.push(ImbalanceOut { ts: ts_at(ts_by_idx, z.bar, 0), dir: "bull", top: z.top, bot: z.bot, state: ib_state_str(z.state), bar_idx: z.bar });
+        imbalances.push(ImbalanceOut {
+            ts: ts_at(ts_by_idx, z.bar, 0),
+            dir: "bull",
+            top: z.top,
+            bot: z.bot,
+            state: ib_state_str(z.state),
+            bar_idx: z.bar,
+        });
     }
     for z in engine.imbalance.bear_zones() {
-        imbalances.push(ImbalanceOut { ts: ts_at(ts_by_idx, z.bar, 0), dir: "bear", top: z.top, bot: z.bot, state: ib_state_str(z.state), bar_idx: z.bar });
+        imbalances.push(ImbalanceOut {
+            ts: ts_at(ts_by_idx, z.bar, 0),
+            dir: "bear",
+            top: z.top,
+            bot: z.bot,
+            state: ib_state_str(z.state),
+            bar_idx: z.bar,
+        });
     }
 
     // ── OTE (au plus une zone par sens, expire avec le temps) ──
     let mut otes: Vec<OteOut> = Vec::new();
     let ote_ev = engine.ote.last_event();
     if let (Some(t), Some(b)) = (ote_ev.bull_top, ote_ev.bull_bot) {
-        otes.push(OteOut { dir: "bull", top: t, bot: b });
+        otes.push(OteOut {
+            dir: "bull",
+            top: t,
+            bot: b,
+        });
     }
     if let (Some(t), Some(b)) = (ote_ev.bear_top, ote_ev.bear_bot) {
-        otes.push(OteOut { dir: "bear", top: t, bot: b });
+        otes.push(OteOut {
+            dir: "bear",
+            top: t,
+            bot: b,
+        });
     }
 
     // ── Premium/Discount (état final) ──
@@ -415,10 +428,24 @@ pub(crate) fn collect_final_extended(
     // ── NDOG/NWOG (FIFO 1/type côté moteur) ──
     let mut gaps: Vec<GapOut> = Vec::new();
     for g in engine.ndog.ndog_zones() {
-        gaps.push(GapOut { ts: ts_at(ts_by_idx, g.bar, 0), gtype: "ndog", top: g.top, bot: g.bot, mitigated: g.mitigated, bar_idx: g.bar });
+        gaps.push(GapOut {
+            ts: ts_at(ts_by_idx, g.bar, 0),
+            gtype: "ndog",
+            top: g.top,
+            bot: g.bot,
+            mitigated: g.mitigated,
+            bar_idx: g.bar,
+        });
     }
     for g in engine.ndog.nwog_zones() {
-        gaps.push(GapOut { ts: ts_at(ts_by_idx, g.bar, 0), gtype: "nwog", top: g.top, bot: g.bot, mitigated: g.mitigated, bar_idx: g.bar });
+        gaps.push(GapOut {
+            ts: ts_at(ts_by_idx, g.bar, 0),
+            gtype: "nwog",
+            top: g.top,
+            bot: g.bot,
+            mitigated: g.mitigated,
+            bar_idx: g.bar,
+        });
     }
 
     // Finaliser la dernière box de session avant collecte.
@@ -435,9 +462,8 @@ pub(crate) fn collect_final_extended(
         vol_raw,
         imp_raw,
         vol_buf: _,
-        zone_coeur,
-        zc_bull_seen: _,
-        zc_bear_seen: _,
+        mut zone_coeur,
+        zc_crea: _,
         asian_day_key,
         asian_h,
         asian_l,
@@ -455,14 +481,27 @@ pub(crate) fn collect_final_extended(
         start_ts: asian_start_ts,
     });
 
+    // ── Zone-cœur : bord gauche = bougie d'origine de l'OB parent (Pine
+    //    box.new(obBullBar[_zi], …)) — pas la barre de détection.
+    for z in zone_coeur.iter_mut() {
+        z.ob_ts = ts_at(ts_by_idx, z.ob_bar, z.ts);
+    }
+
     // ── Compression run-length des séries par barre ──
     let vol_fort = compress_vol(&vol_raw)
         .into_iter()
-        .map(|(st, en)| VolRange { start_ts: st, end_ts: en })
+        .map(|(st, en)| VolRange {
+            start_ts: st,
+            end_ts: en,
+        })
         .collect();
     let impulsions = runs_str(&imp_raw)
         .into_iter()
-        .map(|(st, en, s)| ImpRange { start_ts: st, end_ts: en, impulsion: s })
+        .map(|(st, en, s)| ImpRange {
+            start_ts: st,
+            end_ts: en,
+            impulsion: s,
+        })
         .collect();
     let trend_ranges = runs_str(&trend_raw)
         .into_iter()
@@ -487,7 +526,11 @@ pub(crate) fn collect_final_extended(
         trend_ranges,
         prem_ranges: runs_str(&prem_raw)
             .into_iter()
-            .map(|(st, en, s)| crate::smc_v12_out::PremRange { start_ts: st, end_ts: en, dir: s })
+            .map(|(st, en, s)| crate::smc_v12_out::PremRange {
+                start_ts: st,
+                end_ts: en,
+                dir: s,
+            })
             .collect(),
         session_boxes: sess_boxes,
         asian_hl,

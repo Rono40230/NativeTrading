@@ -16,8 +16,8 @@ pub(crate) const MAX_MSS: usize = 6;
 pub(crate) const MAX_CHOCH: usize = 6;
 pub(crate) const MAX_SWEEPS: usize = 6;
 pub(crate) const MAX_FVG_PAR_SENS: usize = 10;
-/// Plafond d'affichage des zones-cœur collectées sur le replay (rare, mais borné).
-pub(crate) const MAX_ZONE_COEUR: usize = 30;
+// Zones-cœur : miroir des boxes LIVE du moteur (supprimées à l'invalidation) —
+// bornées par le nombre d'OB actifs, pas de plafond côté collecteur.
 // OB déjà plafonnés à MAX_OB=40 par sens, Breaker à 5/sens, Imbalance à 10/sens,
 // EQH/EQL pool ≤ 20, NDOG/NWOG 1/type — tous côté moteur.
 
@@ -163,6 +163,9 @@ pub(crate) struct OteOut {
 #[derive(Serialize)]
 pub(crate) struct ZoneCoeurOut {
     pub ts: i64,
+    /// Timestamp de l'OB parent (bornes X de la zone cœur = celles de l'OB,
+    /// Pine sous-box de l'OB).
+    pub ob_ts: i64,
     pub dir: &'static str,
     pub top: f64,
     pub bot: f64,
@@ -306,6 +309,59 @@ pub(crate) struct V12AnalyseResponse {
 // ── Helpers d'affichage partagés ─────────────────────────────────────────────
 
 /// Récupère le timestamp d'une bar par son index global (fallback sécurisé).
+// ── Compression run-length (séries par barre du collecteur) ──────────────────
+
+/// Compression run-length d'une série `(ts, label Optionnel)` : renvoie les plages
+/// contiguës `(start_ts, end_ts, label)` pour les valeurs non-`None`. Les `None`
+/// cassent la contiguïté (saut de session / pas d'impulsion).
+pub(crate) fn runs_str(raw: &[(i64, Option<&'static str>)]) -> Vec<(i64, i64, &'static str)> {
+    let mut out: Vec<(i64, i64, &'static str)> = Vec::new();
+    let mut cur: Option<(&'static str, i64, i64)> = None;
+    for &(ts, label) in raw {
+        match label {
+            Some(v) => match cur {
+                Some((c, st, _)) if c == v => cur = Some((c, st, ts)),
+                _ => {
+                    if let Some((c, st, en)) = cur {
+                        out.push((st, en, c));
+                    }
+                    cur = Some((v, ts, ts));
+                }
+            },
+            None => {
+                if let Some((c, st, en)) = cur.take() {
+                    out.push((st, en, c));
+                }
+            }
+        }
+    }
+    if let Some((c, st, en)) = cur {
+        out.push((st, en, c));
+    }
+    out
+}
+
+/// Compression run-length d'une série booléenne : renvoie les plages `(start, end)`
+/// contiguës où le flag vaut `true` (utilisé pour le volume fort).
+pub(crate) fn compress_vol(raw: &[(i64, bool)]) -> Vec<(i64, i64)> {
+    let mut out: Vec<(i64, i64)> = Vec::new();
+    let mut cur: Option<(i64, i64)> = None;
+    for &(ts, fort) in raw {
+        if fort {
+            match cur {
+                Some((st, _)) => cur = Some((st, ts)),
+                None => cur = Some((ts, ts)),
+            }
+        } else if let Some((st, en)) = cur.take() {
+            out.push((st, en));
+        }
+    }
+    if let Some((st, en)) = cur {
+        out.push((st, en));
+    }
+    out
+}
+
 pub(crate) fn ts_at(ts_by_idx: &[i64], idx: usize, fallback: i64) -> i64 {
     if idx < ts_by_idx.len() {
         ts_by_idx[idx]
@@ -389,9 +445,30 @@ mod tests {
     #[test]
     fn fvg_par_sens_limite_a_n() {
         let fvgs = vec![
-            FvgOut { ts: 0, dir: "bull", top: 1.0, bot: 0.0, state: "vierge", bar_idx: 1 },
-            FvgOut { ts: 0, dir: "bull", top: 1.0, bot: 0.0, state: "vierge", bar_idx: 2 },
-            FvgOut { ts: 0, dir: "bear", top: 1.0, bot: 0.0, state: "vierge", bar_idx: 3 },
+            FvgOut {
+                ts: 0,
+                dir: "bull",
+                top: 1.0,
+                bot: 0.0,
+                state: "vierge",
+                bar_idx: 1,
+            },
+            FvgOut {
+                ts: 0,
+                dir: "bull",
+                top: 1.0,
+                bot: 0.0,
+                state: "vierge",
+                bar_idx: 2,
+            },
+            FvgOut {
+                ts: 0,
+                dir: "bear",
+                top: 1.0,
+                bot: 0.0,
+                state: "vierge",
+                bar_idx: 3,
+            },
         ];
         let out = garder_derniers_fvg_par_sens(fvgs, 1);
         let bulls = out.iter().filter(|f| f.dir == "bull").count();

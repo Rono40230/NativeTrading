@@ -118,11 +118,14 @@ export interface OteV12 {
 }
 /** Zone-cœur (intersection OB ∩ OTE ∩ FVG). */
 export interface ZoneCoeurV12 {
+  /** Timestamp de création de la box live. */
   ts: number
   dir: 'bull' | 'bear'
   top: number
   bot: number
   ob_bar: number
+  /** Bougie d'origine de l'OB parent — bord gauche de la box (Pine obBullBar). */
+  ob_ts: number
 }
 /** État final Premium/Discount (équilibrium ICT + dealing range). */
 export interface PremiumDiscountV12 {

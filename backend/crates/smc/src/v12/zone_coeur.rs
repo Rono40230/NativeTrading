@@ -25,6 +25,10 @@ pub struct ZoneCoeurDetector {
     /// `ob_bar` des OB bull ayant déjà produit une zone-cœur (Pine `obBullSignaled`).
     bull_signaled: HashSet<usize>,
     bear_signaled: HashSet<usize>,
+    /// Boxes live (Pine `obBullCoreBox`/`obBearCoreBox`) : validité re-vérifiée
+    /// à chaque barre, bornes figées à la création (`box.set_right` seulement).
+    live_bull: Vec<ZoneCoeurZone>,
+    live_bear: Vec<ZoneCoeurZone>,
     last_event: ZoneCoeurEvent,
 }
 
@@ -33,6 +37,8 @@ impl ZoneCoeurDetector {
         Self {
             bull_signaled: HashSet::new(),
             bear_signaled: HashSet::new(),
+            live_bull: Vec::new(),
+            live_bear: Vec::new(),
             last_event: ZoneCoeurEvent::default(),
         }
     }
@@ -66,13 +72,9 @@ impl ZoneCoeurDetector {
                     if self.bull_signaled.contains(&ob.ob_bar) {
                         continue;
                     }
-                    if let Some((zc_top, zc_bot)) = Self::coeur_for_ob(
-                        ob.top,
-                        ob.bot,
-                        ote_top,
-                        ote_bot,
-                        fvg_bull,
-                    ) {
+                    if let Some((zc_top, zc_bot)) =
+                        Self::coeur_for_ob(ob.top, ob.bot, ote_top, ote_bot, fvg_bull)
+                    {
                         // Validité : cT > cB ET cT < equilibrium (Discount).
                         if zc_top > zc_bot && zc_top < eq {
                             ev.bull.push(ZoneCoeurZone {
@@ -96,13 +98,8 @@ impl ZoneCoeurDetector {
                     if self.bear_signaled.contains(&ob.ob_bar) {
                         continue;
                     }
-                    if let Some(zc) = Self::coeur_for_ob(
-                        ob.top,
-                        ob.bot,
-                        ote_top,
-                        ote_bot,
-                        fvg_bear,
-                    ) {
+                    if let Some(zc) = Self::coeur_for_ob(ob.top, ob.bot, ote_top, ote_bot, fvg_bear)
+                    {
                         let (zc_top, zc_bot) = zc;
                         // Validité : cT > cB ET cB > equilibrium (Premium).
                         if zc_top > zc_bot && zc_bot > eq {
@@ -119,8 +116,83 @@ impl ZoneCoeurDetector {
             }
         }
 
+        // --- Lifecycle LIVE (Pine f_zoneCoeurLifecycle, lignes 3570-3608) ---
+        // Box créée au 1er setup valide (bornes figées), prolongée tant que
+        // valide, SUPPRIMÉE dès invalidation ou disparition de l'OB parent.
+        // Le gate `not obBullSignaled` de Pine marque les OB porteurs d'un
+        // trade — les trades ne sont pas encore portés (Phase 2.8) : validité
+        // purement géométrique, recréation autorisée après invalidation.
+        self.live_bull = Self::cycle_live(
+            ob_bull,
+            fvg_bull,
+            ote_bull_bounds,
+            sweep_bull_frais,
+            pd_equilibrium,
+            &self.live_bull,
+            true,
+        );
+        self.live_bear = Self::cycle_live(
+            ob_bear,
+            fvg_bear,
+            ote_bear_bounds,
+            sweep_bear_frais,
+            pd_equilibrium,
+            &self.live_bear,
+            false,
+        );
+        ev.live_bull = self.live_bull.clone();
+        ev.live_bear = self.live_bear.clone();
+
         self.last_event = ev.clone();
         ev
+    }
+
+    /// Cycle des boxes live : reconstruit la liste des zones valides à la
+    /// barre courante (Pine re-vérifie `f_coeurBull`/`f_coeurBear` à chaque
+    /// barre). Une box existante garde ses bornes figées (Pine ne fait que
+    /// `box.set_right`) ; une box recréée prend les bornes courantes.
+    fn cycle_live(
+        obs: &[ObZone],
+        fvgs: &[FvgZone],
+        ote_bounds: Option<(f64, f64)>,
+        sweep_frais: bool,
+        pd_equilibrium: Option<f64>,
+        prev: &[ZoneCoeurZone],
+        bull: bool,
+    ) -> Vec<ZoneCoeurZone> {
+        let mut next = Vec::new();
+        let (Some((ote_top, ote_bot)), Some(eq)) = (ote_bounds, pd_equilibrium) else {
+            return next;
+        };
+        if !sweep_frais {
+            return next;
+        }
+        for ob in obs {
+            let Some((c_t, c_b)) = Self::coeur_for_ob(ob.top, ob.bot, ote_top, ote_bot, fvgs)
+            else {
+                continue;
+            };
+            let ok = if bull {
+                c_t > c_b && c_t < eq
+            } else {
+                c_t > c_b && c_b > eq
+            };
+            if !ok {
+                continue;
+            }
+            let zone = prev
+                .iter()
+                .find(|z| z.ob_bar == ob.ob_bar)
+                .cloned()
+                .unwrap_or(ZoneCoeurZone {
+                    top: c_t,
+                    bot: c_b,
+                    ob_bar: ob.ob_bar,
+                    bull,
+                });
+            next.push(zone);
+        }
+        next
     }
 
     /// Calcule l'intersection OB ∩ OTE ∩ 1er FVG chevauchant (Pine `f_coeurBull`/`Bear`).
@@ -220,7 +292,10 @@ mod tests {
             false,
             Some(1000.0),
         );
-        assert!(ev.bull.is_empty(), "pas de FVG chevauchant ⇒ pas de zone-cœur");
+        assert!(
+            ev.bull.is_empty(),
+            "pas de FVG chevauchant ⇒ pas de zone-cœur"
+        );
     }
 
     #[test]
@@ -238,7 +313,10 @@ mod tests {
             false,
             Some(50.0),
         );
-        assert!(ev.bull.is_empty(), "hors Discount (cT > eq) ⇒ invalide bull");
+        assert!(
+            ev.bull.is_empty(),
+            "hors Discount (cT > eq) ⇒ invalide bull"
+        );
     }
 
     #[test]
@@ -267,10 +345,30 @@ mod tests {
             Some((107.0, 101.0)),
             Some(150.0),
         );
-        let ev1 = det.update(inputs.0, &[], inputs.1, &[], inputs.2, None, true, false, inputs.3);
+        let ev1 = det.update(
+            inputs.0,
+            &[],
+            inputs.1,
+            &[],
+            inputs.2,
+            None,
+            true,
+            false,
+            inputs.3,
+        );
         assert_eq!(ev1.bull.len(), 1);
         // Même OB à nouveau ⇒ déjà signalé ⇒ ignoré.
-        let ev2 = det.update(inputs.0, &[], inputs.1, &[], inputs.2, None, true, false, inputs.3);
+        let ev2 = det.update(
+            inputs.0,
+            &[],
+            inputs.1,
+            &[],
+            inputs.2,
+            None,
+            true,
+            false,
+            inputs.3,
+        );
         assert!(ev2.bull.is_empty(), "OB déjà signalé ⇒ pas de 2ᵉ zone-cœur");
     }
 
@@ -292,5 +390,102 @@ mod tests {
         );
         assert_eq!(ev.bear.len(), 1);
         assert!((ev.bear[0].top - 106.0).abs() < 1e-9);
+        assert_eq!(ev.live_bear.len(), 1, "box live créée dès le setup valide");
+    }
+
+    #[test]
+    fn box_live_supprimee_des_que_invalide() {
+        // Pine : « créé/prolongé tant que le setup est valable, supprimé dès
+        // qu'il ne l'est plus » — sweep non frais ⇒ box supprimée.
+        let mut det = ZoneCoeurDetector::new();
+        let obs = [ob(108.0, 100.0, 5)];
+        let fvgs = [fvg(106.0, 102.0)];
+        let ote = Some((107.0, 101.0));
+        let ev1 = det.update(&obs, &[], &fvgs, &[], ote, None, true, false, Some(150.0));
+        assert_eq!(ev1.live_bull.len(), 1);
+        let ev2 = det.update(&obs, &[], &fvgs, &[], ote, None, false, false, Some(150.0));
+        assert!(
+            ev2.live_bull.is_empty(),
+            "sweep non frais ⇒ box live supprimée"
+        );
+    }
+
+    #[test]
+    fn box_live_recreee_apres_revalidation() {
+        // Invalide (sweep non frais) puis re-valide ⇒ box recréée (Pine box.new).
+        let mut det = ZoneCoeurDetector::new();
+        let obs = [ob(108.0, 100.0, 5)];
+        let fvgs = [fvg(106.0, 102.0)];
+        let ote = Some((107.0, 101.0));
+        det.update(&obs, &[], &fvgs, &[], ote, None, true, false, Some(150.0));
+        det.update(&obs, &[], &fvgs, &[], ote, None, false, false, Some(150.0));
+        let ev3 = det.update(&obs, &[], &fvgs, &[], ote, None, true, false, Some(150.0));
+        assert_eq!(ev3.live_bull.len(), 1, "re-validation ⇒ box live recréée");
+        assert_eq!(ev3.live_bull[0].ob_bar, 5);
+    }
+
+    #[test]
+    fn box_live_supprimee_si_ob_parent_disparait() {
+        // Pine lignes 1298-1303 : suppression de l'OB ⇒ box shiftée/supprimée.
+        let mut det = ZoneCoeurDetector::new();
+        let fvgs = [fvg(106.0, 102.0)];
+        let ote = Some((107.0, 101.0));
+        det.update(
+            &[ob(108.0, 100.0, 5)],
+            &[],
+            &fvgs,
+            &[],
+            ote,
+            None,
+            true,
+            false,
+            Some(150.0),
+        );
+        let ev2 = det.update(&[], &[], &fvgs, &[], ote, None, true, false, Some(150.0));
+        assert!(
+            ev2.live_bull.is_empty(),
+            "OB parent disparu ⇒ box live supprimée"
+        );
+    }
+
+    #[test]
+    fn box_live_bornes_figees_a_la_creation() {
+        // Pine ne fait que box.set_right sur une box existante : les bornes
+        // restent celles de la création même si l'intersection bouge.
+        let mut det = ZoneCoeurDetector::new();
+        let obs = [ob(108.0, 100.0, 5)];
+        let ote = Some((107.0, 101.0));
+        det.update(
+            &obs,
+            &[],
+            &[fvg(106.0, 102.0)],
+            &[],
+            ote,
+            None,
+            true,
+            false,
+            Some(150.0),
+        );
+        // FVG plus large à la barre suivante : intersection ≠, box déjà créée.
+        let ev2 = det.update(
+            &obs,
+            &[],
+            &[fvg(107.0, 101.0)],
+            &[],
+            ote,
+            None,
+            true,
+            false,
+            Some(150.0),
+        );
+        assert_eq!(ev2.live_bull.len(), 1);
+        assert!(
+            (ev2.live_bull[0].top - 106.0).abs() < 1e-9,
+            "bornes figées à la création"
+        );
+        assert!(
+            (ev2.live_bull[0].bot - 102.0).abs() < 1e-9,
+            "bornes figées à la création"
+        );
     }
 }

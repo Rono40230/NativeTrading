@@ -20,7 +20,14 @@ pub struct BarInput {
 impl BarInput {
     /// Construit une bar à partir de ses prix bruts (timestamp=0, volume=0).
     pub fn new(open: f64, high: f64, low: f64, close: f64) -> Self {
-        Self { timestamp: 0, open, high, low, close, volume: 0.0 }
+        Self {
+            timestamp: 0,
+            open,
+            high,
+            low,
+            close,
+            volume: 0.0,
+        }
     }
 }
 
@@ -507,6 +514,11 @@ pub struct ZoneCoeurZone {
 pub struct ZoneCoeurEvent {
     pub bull: Vec<ZoneCoeurZone>,
     pub bear: Vec<ZoneCoeurZone>,
+    /// Boxes **live** (Pine `f_zoneCoeurLifecycle`) : créées au premier setup
+    /// valide (bornes figées), supprimées dès invalidation ou disparition de
+    /// l'OB parent — c'est la sortie d'affichage (Pine supprime la box).
+    pub live_bull: Vec<ZoneCoeurZone>,
+    pub live_bear: Vec<ZoneCoeurZone>,
 }
 
 /// Sortie complète du moteur pour une bar.
