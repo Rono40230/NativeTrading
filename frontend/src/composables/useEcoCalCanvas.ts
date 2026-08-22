@@ -109,6 +109,9 @@ export function useEcoCalCanvas() {
     }
 
     for (const annonce of annoncesRef) {
+      // Filtre d'affichage : seuls les événements à FORT impact sont dessinés
+      // sur l'axe du temps (les Medium ne servent qu'au calendrier complet).
+      if (annonce.impact !== 'High') continue
       const tsSec = Math.floor(new Date(annonce.date_heure).getTime() / 1000)
       const x = Math.round(tsVersX(tsSec))
       if (x < 0 || x > xLimiteDroite) continue
