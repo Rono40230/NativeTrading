@@ -79,69 +79,6 @@ type CleTrade = (usize, u8, u8, u64);
 
 /// État lifecycle d'un trade tel que vu à la dernière évaluation — la
 /// comparaison de deux états produit les événements (fill, SL/TP, clôture).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct EtatVu {
-    rempli: bool,
-    tp1_touche: bool,
-    tp2_touche: bool,
-    tp3_touche: bool,
-    be_force: bool,
-    sl_bits: u64,
-    clture_raison: Option<u8>,
-}
-
-impl EtatVu {
-    fn depuis(t: &Trade) -> Self {
-        Self {
-            rempli: t.state != TradeState::Pending,
-            tp1_touche: t.tp1_price_touched,
-            tp2_touche: t.tp2_ts > 0,
-            tp3_touche: t.tp3_touched,
-            be_force: t.be_forced,
-            sl_bits: t.sl.to_bits(),
-            clture_raison: t.close_reason.map(raison_discriminant),
-        }
-    }
-}
-
-/// Discriminant stable de la raison de clôture (sérialisation compacte).
-fn raison_discriminant(r: CloseReason) -> u8 {
-    match r {
-        CloseReason::Sl => 1,
-        CloseReason::Be => 2,
-        CloseReason::Tp2Sl => 3,
-        CloseReason::Tp3 => 4,
-        CloseReason::Expire => 5,
-        CloseReason::Cancel => 6,
-    }
-}
-
-fn raison_texte(r: CloseReason) -> &'static str {
-    match r {
-        CloseReason::Sl => "Sl",
-        CloseReason::Be => "Be",
-        CloseReason::Tp2Sl => "Tp2Sl",
-        CloseReason::Tp3 => "Tp3",
-        CloseReason::Expire => "Expire",
-        CloseReason::Cancel => "Cancel",
-    }
-}
-
-fn cle_du_trade(t: &Trade) -> CleTrade {
-    (
-        t.bar_created,
-        match t.side {
-            Side::Buy => 0,
-            Side::Sell => 1,
-        },
-        match t.source {
-            TradeSource::Ob => 0,
-            TradeSource::BsZones => 1,
-        },
-        t.entry.to_bits(),
-    )
-}
-
 /// Le moteur SMC v12 en plugin du runtime — une instance par (asset × TF),
 /// comme un indicateur Pine par graphique.
 pub struct MoteurV12 {
@@ -153,6 +90,11 @@ pub struct MoteurV12 {
     emis: HashSet<CleTrade>,
     /// Dernier état lifecycle vu par trade — le diff produit les événements.
     vus: std::collections::HashMap<CleTrade, EtatVu>,
+    /// Amorce MTF (H1/H4/W1/MN de la DB) — appliquée paresseusement à la
+    /// 1re bar (t0 connu), sinon les confluences W1 (+5) / MN (+6) du
+    /// scoring ne verraient que la fenêtre de replay (Pine/TV : années).
+    amorce: Option<smc::v12::AmorceMtf>,
+    amorce_appliquee: bool,
 }
 
 impl MoteurV12 {
@@ -163,6 +105,25 @@ impl MoteurV12 {
             moteur: SmcV12Engine::new(asset.as_str(), tf.as_str()),
             emis: HashSet::new(),
             vus: std::collections::HashMap::new(),
+            amorce: None,
+            amorce_appliquee: false,
+        }
+    }
+
+    /// Attache l'amorce MTF (H1/H4/W1/MN de la DB) — appliquée à la 1re bar.
+    pub fn avec_amorce(mut self, amorce: smc::v12::AmorceMtf) -> Self {
+        self.amorce = Some(amorce);
+        self
+    }
+
+    /// Applique l'amorce une seule fois, au premier bar vu (t0 = son ts).
+    fn appliquer_amorce_si_premiere(&mut self, ts: i64) {
+        if self.amorce_appliquee {
+            return;
+        }
+        self.amorce_appliquee = true;
+        if let Some(a) = self.amorce.take() {
+            self.moteur.primer_mtf_amorce(&a, ts);
         }
     }
 
@@ -196,153 +157,6 @@ impl MoteurV12 {
     }
 }
 
-/// Extrait les trades jamais émis d'un carnet, les convertit en signaux et
-/// verrouille leurs clés. Fonction libre : `emis` (mutable) et `trades`
-/// (immutable) appartiennent à des champs distincts de l'appelant.
-fn extraire_nouveaux(
-    emis: &mut HashSet<CleTrade>,
-    trades: &[Trade],
-    asset: Asset,
-    tf: Timeframe,
-    debut_barre: i64,
-) -> Vec<SignalBrut> {
-    let mut signaux = Vec::new();
-    // Clés présentes dans le carnet évalué — borne le cache PAR PRÉSENCE :
-    // un trade vit potentiellement bien plus de 50 barres, et le carnet ne
-    // fait que croître (`bar_created` strictement croissant) — une clé
-    // disparue ne peut plus correspondre à un futur trade.
-    let mut cles_presentes: HashSet<CleTrade> = HashSet::with_capacity(trades.len());
-    for t in trades {
-        let cle = cle_du_trade(t);
-        cles_presentes.insert(cle);
-        if emis.contains(&cle) {
-            continue;
-        }
-        emis.insert(cle);
-        let direction = match t.side {
-            Side::Buy => Direction::Long,
-            Side::Sell => Direction::Short,
-        };
-        let source = match t.source {
-            TradeSource::Ob => "v11-OB",
-            TradeSource::BsZones => "BSZones",
-        };
-        signaux.push(SignalBrut::nouveau(
-            NOM,
-            asset.clone(),
-            tf,
-            direction,
-            t.entry,
-            t.sl,
-            vec![t.tp1, t.tp2, t.tp3],
-            t.score,
-            format!(
-                "{} {} score={} risk={:.4} bar={}",
-                source,
-                match t.side {
-                    Side::Buy => "BUY",
-                    Side::Sell => "SELL",
-                },
-                t.score,
-                t.risk0,
-                t.bar_created
-            ),
-            debut_barre,
-        ));
-    }
-    emis.retain(|cle| cles_presentes.contains(cle));
-    signaux
-}
-
-/// Détecte les transitions lifecycle entre l'état vu précédemment et le
-/// carnet évalué, les convertit en événements et met à jour l'état vu.
-///
-/// Un trade disparu du carnet (condition intrabar évanouie — rollback Pine)
-/// est retiré silencieusement : son signal d'entrée déjà émis n'est JAMAIS
-/// rétracté (R5), et aucun événement d'annulation n'est inventé.
-fn diff_lifecycle(
-    vus: &mut std::collections::HashMap<CleTrade, EtatVu>,
-    trades: &[Trade],
-    asset: Asset,
-    tf: Timeframe,
-    debut_barre: i64,
-) -> Vec<EvenementTrade> {
-    let mut evenements = Vec::new();
-    let mut cles_presentes = HashSet::with_capacity(trades.len());
-
-    for t in trades {
-        let cle = cle_du_trade(t);
-        cles_presentes.insert(cle);
-        let nouvel_etat = EtatVu::depuis(t);
-        let precedent = vus.insert(cle, nouvel_etat);
-
-        // Baseline d'un trade fraîchement créé : rien touché, pas rempli.
-        let vide = EtatVu {
-            rempli: false,
-            tp1_touche: false,
-            tp2_touche: false,
-            tp3_touche: false,
-            be_force: false,
-            sl_bits: t.sl.to_bits(),
-            clture_raison: None,
-        };
-        let avant = precedent.unwrap_or(vide);
-
-        let mut pousser = |type_ev: TypeEvenementTrade, detail: String, prix: f64| {
-            evenements.push(EvenementTrade {
-                moteur: NOM.to_string(),
-                asset: asset.clone(),
-                tf,
-                cle_trade: format!("{}:{}:{}:{}", cle.0, cle.1, cle.2, cle.3),
-                evenement: type_ev,
-                detail,
-                prix,
-                debut_barre,
-                emis_le: chrono::Utc::now(),
-            });
-        };
-
-        // Ordre naturel du cycle : remplissage → BE → TP1 → TP2 → TP3 → clôture.
-        if !avant.rempli && nouvel_etat.rempli {
-            pousser(TypeEvenementTrade::Fill, "retest touché".into(), t.entry);
-        }
-        if !avant.be_force && nouvel_etat.be_force {
-            pousser(TypeEvenementTrade::Be, "BE forcé".into(), t.entry);
-        } else if avant.sl_bits != nouvel_etat.sl_bits && nouvel_etat.rempli && !nouvel_etat.tp3_touche {
-            // SL déplacé vers l'entrée (BE armé après TP1).
-            pousser(TypeEvenementTrade::Be, "SL → entrée".into(), t.entry);
-        }
-        if !avant.tp1_touche && nouvel_etat.tp1_touche {
-            pousser(TypeEvenementTrade::Tp1, "TP1 touché".into(), t.tp1);
-        }
-        if !avant.tp2_touche && nouvel_etat.tp2_touche {
-            pousser(TypeEvenementTrade::Tp2, "TP2 touché".into(), t.tp2);
-        }
-        if !avant.tp3_touche && nouvel_etat.tp3_touche {
-            pousser(TypeEvenementTrade::Tp3, "TP3 touché".into(), t.tp3);
-        }
-        if avant.clture_raison.is_none() && nouvel_etat.clture_raison.is_some() {
-            if let Some(r) = t.close_reason {
-                pousser(
-                    TypeEvenementTrade::Cloture,
-                    raison_texte(r).to_string(),
-                    match r {
-                        CloseReason::Sl => t.sl,
-                        CloseReason::Be | CloseReason::Tp2Sl => t.entry,
-                        CloseReason::Tp3 => t.tp3,
-                        // Prix de sortie exact non porté par le trade : entrée.
-                        CloseReason::Expire | CloseReason::Cancel => t.entry,
-                    },
-                );
-            }
-        }
-    }
-
-    // Trades disparus du carnet (phantoms intrabar) : retrait silencieux.
-    vus.retain(|cle, _| cles_presentes.contains(cle));
-    evenements
-}
-
 impl Engine for MoteurV12 {
     fn nom(&self) -> &str {
         NOM
@@ -352,6 +166,7 @@ impl Engine for MoteurV12 {
         // Rollback Pine : évaluation de la bougie live sur un CLONE de
         // l'état confirmé — l'état commité n'est jamais corrompu.
         let bar = Self::bar_live(ctx.bougie.debut, ctx.bougie);
+        self.appliquer_amorce_si_premiere(bar.timestamp);
         let mut eval = self.moteur.clone();
         eval.update(&bar);
         let signaux = extraire_nouveaux(
@@ -377,6 +192,7 @@ impl Engine for MoteurV12 {
     fn on_close(&mut self, ctx: &ContexteCloture) -> SortieMoteur {
         // Commit autoritaire : la bougie officielle alimente le moteur réel.
         let bar = Self::bar_confirmee(ctx.bougie);
+        self.appliquer_amorce_si_premiere(bar.timestamp);
         self.moteur.update(&bar);
         let signaux = extraire_nouveaux(
             &mut self.emis,
@@ -446,7 +262,12 @@ mod tests {
     }
 
     /// Bougie en formation synthétique reflétant une barre à un instant donné.
-    fn formation_partielle(b: &BarInput, close_actuel: f64, high_vu: f64, low_vu: f64) -> BougieEnFormation {
+    fn formation_partielle(
+        b: &BarInput,
+        close_actuel: f64,
+        high_vu: f64,
+        low_vu: f64,
+    ) -> BougieEnFormation {
         BougieEnFormation {
             debut: b.timestamp,
             open: b.open,
@@ -460,11 +281,25 @@ mod tests {
     }
 
     fn ctx_tick<'a>(asset: &'a Asset, tf: Timeframe, f: &'a BougieEnFormation) -> ContexteTick<'a> {
-        ContexteTick { asset, tf, bougie: f }
+        ContexteTick {
+            asset,
+            tf,
+            bougie: f,
+        }
     }
 
-    fn ctx_close<'a>(asset: &'a Asset, tf: Timeframe, c: &'a Candle, idx: usize) -> ContexteCloture<'a> {
-        ContexteCloture { asset, tf, bougie: c, index_barre: idx }
+    fn ctx_close<'a>(
+        asset: &'a Asset,
+        tf: Timeframe,
+        c: &'a Candle,
+        idx: usize,
+    ) -> ContexteCloture<'a> {
+        ContexteCloture {
+            asset,
+            tf,
+            bougie: c,
+            index_barre: idx,
+        }
     }
 
     /// Fidélité rollback : l'évaluation tick-par-tick (clones) et l'évaluation
@@ -490,7 +325,10 @@ mod tests {
         for (i, b) in bars.iter().enumerate() {
             // Chemin A : clôtures seules.
             let c = candle_depuis_bar(b);
-            total_clotures += par_clotures.on_close(&ctx_close(&asset, tf, &c, i)).signaux.len();
+            total_clotures += par_clotures
+                .on_close(&ctx_close(&asset, tf, &c, i))
+                .signaux
+                .len();
 
             // Chemin B : ticks simulés (open → extrême bas → extrême haut →
             // close) puis clôture. Chaque tick = évaluation clone complète.
@@ -593,7 +431,10 @@ mod tests {
         }
 
         assert!(nb_fills > 0, "au moins un fill attendu sur 700 bars");
-        assert!(nb_clotures > 0, "au moins une clôture attendue sur 700 bars");
+        assert!(
+            nb_clotures > 0,
+            "au moins une clôture attendue sur 700 bars"
+        );
         let _ = nb_tp1; // compté pour diagnostic (peut être 0 — voir ROADMAP)
     }
 
@@ -639,7 +480,10 @@ mod tests {
             let c = candle_depuis_bar(b);
             total += moteur.on_close(&ctx_close(&asset, tf, &c, i)).signaux.len();
         }
-        assert!(total > 0, "le moteur v12 doit émettre des signaux sur 700 bars");
+        assert!(
+            total > 0,
+            "le moteur v12 doit émettre des signaux sur 700 bars"
+        );
     }
 }
 
@@ -651,3 +495,6 @@ impl MoteurV12 {
         format!("{:?}", self.moteur.signals.trades)
     }
 }
+
+mod lifecycle_diff;
+use lifecycle_diff::{cle_du_trade, diff_lifecycle, extraire_nouveaux, EtatVu};

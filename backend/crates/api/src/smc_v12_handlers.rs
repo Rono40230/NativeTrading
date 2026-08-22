@@ -25,6 +25,57 @@ use crate::utils::{parse_asset, parse_timeframe};
 /// GET /api/smc/v12/analyse?asset=XAUUSD&timeframe=M15&limit=500
 ///
 /// Replay complet du moteur v12 sur les `limit` dernières bougies clôturées.
+/// Amorce MTF : charge H1/H4/W1 (+ D1 agrégée en MN) depuis la DB et convertit
+/// en `BarInput` pour `engine.primer_mtf`. Échec DB → listes vides (replay
+/// dégradé façon ancienne, jamais d'erreur 500).
+pub(crate) async fn charger_amorce_mtf(
+    db: &db::Database,
+    asset: &common::Asset,
+) -> (Vec<BarInput>, Vec<BarInput>, Vec<BarInput>, Vec<BarInput>) {
+    use common::Timeframe;
+    const MAX_BARS: i64 = 600; // = MAX_HTF_BARS du moteur (FIFO)
+
+    let vers_bars = |bougies: Vec<common::Candle>| -> Vec<BarInput> {
+        bougies
+            .into_iter()
+            .map(|b| BarInput {
+                timestamp: b.timestamp.timestamp(),
+                open: b.open,
+                high: b.high,
+                low: b.low,
+                close: b.close,
+                volume: b.volume,
+            })
+            .collect()
+    };
+
+    let h1 = db
+        .obtenir_bougies(asset, &Timeframe::H1, MAX_BARS)
+        .await
+        .unwrap_or_default();
+    let h4 = db
+        .obtenir_bougies(asset, &Timeframe::H4, MAX_BARS)
+        .await
+        .unwrap_or_default();
+    let w1 = db
+        .obtenir_bougies(asset, &Timeframe::W1, MAX_BARS)
+        .await
+        .unwrap_or_default();
+    // D1 plus profond (2000 ≈ 5,5 ans) : agrégée en MN, la profondeur
+    // mensuelle alimente la confluence +6 (FIFO 600 du moteur la borne).
+    let d1 = db
+        .obtenir_bougies(asset, &Timeframe::D1, 2000)
+        .await
+        .unwrap_or_default();
+
+    (
+        vers_bars(h1),
+        vers_bars(h4),
+        vers_bars(w1),
+        smc::v12::agreger_mensuel(&vers_bars(d1)),
+    )
+}
+
 pub async fn analyse_v12(
     query: web::Query<V12Query>,
     state: web::Data<AppState>,
@@ -70,6 +121,14 @@ pub async fn analyse_v12(
 
     // Replay bar-par-bar.
     let mut engine = SmcV12Engine::new(asset_str, tf_str);
+    // Amorçage MTF (H1/H4/W1/MN de la DB) : sans lui, f_htf ne verrait que la
+    // fenêtre LTF (~52 j en M15×5000) et les confluences W1 (+5) / MN (+6) du
+    // scoring seraient structurellement froides (Pine/TV : années d'historique).
+    if let Some(premiere) = bougies.first() {
+        let t0 = premiere.timestamp.timestamp();
+        let (h1, h4, w1, mn) = charger_amorce_mtf(&state.db, &asset).await;
+        engine.primer_mtf(&h1, &h4, &w1, &mn, t0);
+    }
     let mut ts_by_idx: Vec<i64> = Vec::with_capacity(bougies.len());
     let mut pivots: Vec<PivotOut> = Vec::new();
     let mut bos_list: Vec<NiveauStructOut> = Vec::new();
@@ -223,7 +282,10 @@ pub async fn analyse_v12(
             state: ob_state_str(z.state),
             force,
             bar_idx: z.ob_bar,
-            diag: engine.scoring_v11.ob_diag(true, z.impulse_bar).map(str::to_string),
+            diag: engine
+                .scoring_v11
+                .ob_diag(true, z.impulse_bar)
+                .map(str::to_string),
         });
     }
     for z in engine.order_blocks.bear_zones() {
@@ -236,7 +298,10 @@ pub async fn analyse_v12(
             state: ob_state_str(z.state),
             force,
             bar_idx: z.ob_bar,
-            diag: engine.scoring_v11.ob_diag(false, z.impulse_bar).map(str::to_string),
+            diag: engine
+                .scoring_v11
+                .ob_diag(false, z.impulse_bar)
+                .map(str::to_string),
         });
     }
 

@@ -75,7 +75,10 @@ pub async fn post_replay(state: web::Data<AppState>, corps: web::Json<CorpsRepla
         }
     };
 
-    let resultat = engine_v12::replay::rejouer_bougies(asset, tf, &bougies, simuler_ticks);
+    // Amorce MTF identique au runtime live (confluences W1/MN fidèles).
+    let amorce = crate::smc_v12_handlers::charger_amorce_mtf(&state.db, &asset).await;
+    let amorce = smc::v12::AmorceMtf { h1: amorce.0, h4: amorce.1, w1: amorce.2, mn: amorce.3 };
+    let resultat = engine_v12::replay::rejouer_bougies(asset, tf, &bougies, simuler_ticks, amorce);
     let resume = engine_v12::replay::resume(&resultat);
 
     let journal = serde_json::json!({

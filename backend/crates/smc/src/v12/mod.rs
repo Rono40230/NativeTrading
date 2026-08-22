@@ -8,8 +8,8 @@
 
 pub mod atr;
 pub mod bos;
-pub mod bs_helpers;
 pub mod breaker;
+pub mod bs_helpers;
 pub mod calibration;
 pub mod fvg;
 pub mod imbalance;
@@ -18,6 +18,7 @@ pub mod lifecycle;
 pub mod liquidites;
 pub mod mss;
 pub mod mtf;
+
 pub mod ndog;
 pub mod order_blocks;
 pub mod ote;
@@ -30,10 +31,10 @@ pub mod sentiment;
 pub mod signals;
 pub mod structure;
 pub mod sweep;
-pub mod trade;
-pub mod types;
 #[cfg(test)]
 mod tests;
+pub mod trade;
+pub mod types;
 pub mod zone_coeur;
 
 pub use atr::Atr14;
@@ -46,7 +47,7 @@ pub use kill_zones::KillZoneDetector;
 pub use lifecycle::TradeLifecycle;
 pub use liquidites::LiquiditesDetector;
 pub use mss::MssDetector;
-pub use mtf::MtfDetector;
+pub use mtf::{agreger_mensuel, AmorceMtf, MtfDetector};
 pub use ndog::NdogDetector;
 pub use order_blocks::ObDetector;
 pub use ote::OteDetector;
@@ -55,8 +56,11 @@ pub use premium_discount::PdDetector;
 pub use propulsion::PropulsionDetector;
 pub use scoring_bs_zones::ScoringBsZones;
 pub use scoring_v11::ScoringV11;
+pub use sentiment::{
+    agreg_par_classe, calculer_sentiment_technique, classe_actif, Alignement, SentimentScore,
+    SentimentVerdict,
+};
 pub use signals::SignalGenerator;
-pub use sentiment::{agreg_par_classe, calculer_sentiment_technique, classe_actif, Alignement, SentimentScore, SentimentVerdict};
 pub use structure::StructureDetector;
 pub use sweep::SweepDetector;
 pub use trade::Trade;
@@ -154,6 +158,27 @@ impl SmcV12Engine {
     /// Traite une nouvelle bar clôturée. Ordre strict = ordre Pine
     /// (ATR → pivots → structure → BOS → MSS/CHOCH → liquidités → sweep
     ///  → FVG → OB → Breaker → Propulsion → Imbalance).
+    /// Amorce le détecteur MTF avec l'historique HTF de la DB (H1/H4/W1/MN),
+    /// AVANT tout replay LTF — sinon `f_htf` ne voit que la fenêtre LTF et les
+    /// confluences W1 (+5) / MN (+6) du scoring sont structurellement froides
+    /// (Pine/TV : `request.security` sur des années d'historique).
+    /// `t0` = timestamp de la 1re bar LTF qui suivra.
+    pub fn primer_mtf(
+        &mut self,
+        h1: &[BarInput],
+        h4: &[BarInput],
+        w1: &[BarInput],
+        mn: &[BarInput],
+        t0: i64,
+    ) {
+        self.mtf.primer(h1, h4, w1, mn, t0);
+    }
+
+    /// Variante struct ([`AmorceMtf`]).
+    pub fn primer_mtf_amorce(&mut self, a: &AmorceMtf, t0: i64) {
+        self.mtf.primer_amorce(a, t0);
+    }
+
     pub fn update(&mut self, bar: &BarInput) -> SmcOutput {
         // 1. ATR
         self.atr.update(bar);
@@ -185,9 +210,9 @@ impl SmcV12Engine {
         let bos_out = mask_bos_by_mss(&bos_raw, &mss_event);
 
         // 6. Liquidités (PDH/PDL/PWH/PWL + EQH/EQL) — produit dernierEQH/EQL_level.
-        let liq_event =
-            self.liquidites
-                .update(bar, &self.pivots, &pivot_event, atr14);
+        let liq_event = self
+            .liquidites
+            .update(bar, &self.pivots, &pivot_event, atr14);
 
         // 7. Sweep — consomme dernierEQH/EQL_level et marque le pool sweepé.
         let sweep_event = self.sweep.update(bar, &mut self.liquidites, atr14);
@@ -355,10 +380,10 @@ impl SmcV12Engine {
 /// `_autoTradeMaxMins` (Pine 2374) — durée max trade en minutes selon le TF.
 fn trade_max_mins(tf_mins: u32) -> i64 {
     match tf_mins {
-        60 => 480,             // H1
-        240 => 1920,           // H4
-        1440 => 5760,          // D1
-        _ => 240,              // défaut (M1–M30)
+        60 => 480,    // H1
+        240 => 1920,  // H4
+        1440 => 5760, // D1
+        _ => 240,     // défaut (M1–M30)
     }
 }
 
@@ -367,15 +392,45 @@ fn tp3_max_mins(cal: &AssetCalibration, tf_mins: u32) -> i64 {
     let m15 = tf_mins == 15;
     let h1 = tf_mins == 60;
     if cal.is_xau {
-        if m15 { 60 } else if h1 { 240 } else { 60 }
+        if m15 {
+            60
+        } else if h1 {
+            240
+        } else {
+            60
+        }
     } else if cal.is_xag {
-        if m15 { 45 } else if h1 { 180 } else { 60 }
+        if m15 {
+            45
+        } else if h1 {
+            180
+        } else {
+            60
+        }
     } else if cal.is_nas {
-        if m15 { 30 } else if h1 { 120 } else { 60 }
+        if m15 {
+            30
+        } else if h1 {
+            120
+        } else {
+            60
+        }
     } else if cal.is_btc {
-        if m15 { 90 } else if h1 { 360 } else { 60 }
+        if m15 {
+            90
+        } else if h1 {
+            360
+        } else {
+            60
+        }
     } else if cal.is_dax {
-        if m15 { 30 } else if h1 { 120 } else { 60 }
+        if m15 {
+            30
+        } else if h1 {
+            120
+        } else {
+            60
+        }
     } else {
         60
     }
@@ -392,6 +447,10 @@ fn mask_bos_by_mss(bos: &BosEvent, mss: &MssEvent) -> BosEvent {
         bullish,
         bearish,
         level: if bullish || bearish { bos.level } else { None },
-        bar_index: if bullish || bearish { bos.bar_index } else { None },
+        bar_index: if bullish || bearish {
+            bos.bar_index
+        } else {
+            None
+        },
     }
 }

@@ -38,7 +38,10 @@ async fn main() -> anyhow::Result<()> {
                 i += 1;
             }
             "--ticks" => simuler_ticks = true,
-            autre => anyhow::bail!("argument inconnu : {} (usage : --asset X --tf M15 --semaines N [--ticks])", autre),
+            autre => anyhow::bail!(
+                "argument inconnu : {} (usage : --asset X --tf M15 --semaines N [--ticks])",
+                autre
+            ),
         }
         i += 1;
     }
@@ -51,8 +54,7 @@ async fn main() -> anyhow::Result<()> {
     let tf = Timeframe::try_from(tf_str.as_str())
         .map_err(|e| anyhow::anyhow!("timeframe inconnu '{}': {:?}", tf_str, e))?;
 
-    let db_path =
-        std::env::var("DATABASE_PATH").unwrap_or_else(|_| "data/trading.db".to_string());
+    let db_path = std::env::var("DATABASE_PATH").unwrap_or_else(|_| "data/trading.db".to_string());
     let db = Arc::new(Database::new(&db_path).await?);
     db.run_migrations().await?;
 
@@ -71,7 +73,46 @@ async fn main() -> anyhow::Result<()> {
         bougies[bougies.len() - 1].timestamp
     );
 
-    let resultat = engine_v12::replay::rejouer_bougies(asset, tf, &bougies, simuler_ticks);
+    // Amorce MTF identique au handler API (H1/H4/W1 + MN agrégée de D1).
+    let amorce = {
+        use common::Timeframe;
+        use smc::v12::{agreger_mensuel, AmorceMtf, BarInput as BarMtf};
+        async fn charger(db: &db::Database, asset: &common::Asset, tf: Timeframe) -> Vec<BarMtf> {
+            let bougies = db
+                .obtenir_bougies(asset, &tf, 600)
+                .await
+                .unwrap_or_default();
+            let vers_bars = |bougies: Vec<common::Candle>| -> Vec<BarMtf> {
+                bougies
+                    .into_iter()
+                    .map(|b| BarMtf {
+                        timestamp: b.timestamp.timestamp(),
+                        open: b.open,
+                        high: b.high,
+                        low: b.low,
+                        close: b.close,
+                        volume: b.volume,
+                    })
+                    .collect()
+            };
+            vers_bars(bougies)
+        }
+        let (h1, h4) = tokio::join!(
+            charger(&db, &asset, Timeframe::H1),
+            charger(&db, &asset, Timeframe::H4)
+        );
+        let (w1, d1) = tokio::join!(
+            charger(&db, &asset, Timeframe::W1),
+            charger(&db, &asset, Timeframe::D1)
+        );
+        AmorceMtf {
+            h1,
+            h4,
+            w1,
+            mn: agreger_mensuel(&d1),
+        }
+    };
+    let resultat = engine_v12::replay::rejouer_bougies(asset, tf, &bougies, simuler_ticks, amorce);
     println!("{}", engine_v12::replay::resume(&resultat));
 
     let journal = serde_json::json!({

@@ -32,6 +32,49 @@ use tokio::sync::mpsc;
 
 /// Profondeur de replay adaptée au moteur v12 : ~7 jours d'historique par
 /// TF (ATR14 stabilisé, pivots, PDH/PDL/PWH/PWL), plafonné.
+/// Amorce MTF pour le runtime live — H1/H4/W1 + MN agrégée de D1 (600 bars
+/// max par TF, échec DB → amorce vide : replay dégradé, jamais de panic).
+async fn charger_amorce_mtf_runtime(db: &db::Database, asset: &Asset) -> smc::v12::AmorceMtf {
+    use common::Timeframe;
+    use smc::v12::{agreger_mensuel, AmorceMtf, BarInput};
+    const MAX_BARS: i64 = 600;
+
+    let vers_bars = |bougies: Vec<common::Candle>| -> Vec<BarInput> {
+        bougies
+            .into_iter()
+            .map(|b| BarInput {
+                timestamp: b.timestamp.timestamp(),
+                open: b.open,
+                high: b.high,
+                low: b.low,
+                close: b.close,
+                volume: b.volume,
+            })
+            .collect()
+    };
+    let charger = |tf: Timeframe| async move {
+        vers_bars(
+            db.obtenir_bougies(asset, &tf, MAX_BARS)
+                .await
+                .unwrap_or_default(),
+        )
+    };
+    let (h1, h4) = tokio::join!(charger(Timeframe::H1), charger(Timeframe::H4));
+    // D1 profond (2000) : agrégée en MN pour la confluence +6.
+    let d1 = vers_bars(
+        db.obtenir_bougies(asset, &Timeframe::D1, 2000)
+            .await
+            .unwrap_or_default(),
+    );
+    let w1 = charger(Timeframe::W1).await;
+    AmorceMtf {
+        h1,
+        h4,
+        w1,
+        mn: agreger_mensuel(&d1),
+    }
+}
+
 fn barres_replay_v12(tf: Timeframe) -> i64 {
     (7 * 1440 / tf.minutes() as i64).clamp(60, 10_080)
 }
@@ -71,7 +114,10 @@ pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
         data::bybit_ws::demarrer_worker_bybit(db.clone(), Some(tx));
 
         tokio::spawn(boucle_runtime(db.clone(), runtime, rx));
-        tokio::spawn(journal_observation(db.clone(), poignees.bus_bougies.clone()));
+        tokio::spawn(journal_observation(
+            db.clone(),
+            poignees.bus_bougies.clone(),
+        ));
         tokio::spawn(journal_emissions(
             db,
             poignees.bus_signaux.clone(),
@@ -250,10 +296,15 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         // Shadow mode (2.6) : moteur v12 par couple — exigence de couverture
         // SMC M1→D1 (propriétaire). Les émissions live sont journalisées,
         // sans action.
+        // Amorce MTF (H1/H4/W1 + MN agrégée de D1) : le Pine/TV calcule f_htf
+        // sur des ANNÉES — sans elle, confluences W1 (+5) / MN (+6) froides.
+        let amorce = charger_amorce_mtf_runtime(db, asset).await;
         runtime.enregistrer(
             asset.clone(),
             *tf,
-            vec![Box::new(engine_v12::MoteurV12::nouveau(asset.clone(), *tf))],
+            vec![Box::new(
+                engine_v12::MoteurV12::nouveau(asset.clone(), *tf).avec_amorce(amorce),
+            )],
         );
         // Backfill automatique : comme un chart TradingView à l'ouverture,
         // l'historique doit être là — on comble les trous (nuits, week-ends,

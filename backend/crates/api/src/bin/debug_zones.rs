@@ -47,7 +47,6 @@ fn main() -> anyhow::Result<()> {
     let timeframe = Timeframe::try_from(tf_str.as_str())?;
     let bougies = rt.block_on(db.obtenir_bougies(&asset, &timeframe, limit))?;
     let db = Arc::new(db); // garde vivant jusqu'à la fin
-    drop(db);
 
     println!(
         "═ debug_zones {} {} — {} bougies ═",
@@ -56,6 +55,50 @@ fn main() -> anyhow::Result<()> {
         bougies.len()
     );
     let mut engine = SmcV12Engine::new(&asset_str, &tf_str);
+    // Amorçage MTF identique au handler API (H1/H4/W1 + MN agrégée de D1).
+    if let Some(premiere) = bougies.first() {
+        let t0 = premiere.timestamp.timestamp();
+        use common::Timeframe;
+        use smc::v12::{agreger_mensuel, BarInput as BarMtf};
+        let charger = |tf: Timeframe| -> Vec<BarMtf> {
+            rt.block_on(db.obtenir_bougies(&asset, &tf, 600))
+                .unwrap_or_default()
+                .into_iter()
+                .map(|b| BarMtf {
+                    timestamp: b.timestamp.timestamp(),
+                    open: b.open,
+                    high: b.high,
+                    low: b.low,
+                    close: b.close,
+                    volume: b.volume,
+                })
+                .collect()
+        };
+
+        let charger_d1 =
+            |db: &std::sync::Arc<db::Database>, asset: &common::Asset| -> Vec<BarMtf> {
+                rt.block_on(db.obtenir_bougies(asset, &Timeframe::D1, 2000))
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|b| BarMtf {
+                        timestamp: b.timestamp.timestamp(),
+                        open: b.open,
+                        high: b.high,
+                        low: b.low,
+                        close: b.close,
+                        volume: b.volume,
+                    })
+                    .collect()
+            };
+
+        let (h1, h4, w1) = (
+            charger(Timeframe::H1),
+            charger(Timeframe::H4),
+            charger(Timeframe::W1),
+        );
+        let mn = agreger_mensuel(&charger_d1(&db, &asset));
+        engine.primer_mtf(&h1, &h4, &w1, &mn, t0);
+    }
     let mut dernier: Option<(i64, SmcOutput)> = None;
     // Trace zone-cœur : (dir, ob_bar) → (ts_création, ts_dernière_barre vivante).
     let mut zc_vu: std::collections::BTreeMap<(char, usize), (i64, i64)> =
@@ -120,6 +163,37 @@ fn main() -> anyhow::Result<()> {
             z.top, z.bot, z.state
         );
     }
+    println!("\n── MTF (amorçage + agrégation) ──");
+    let mtf_ev = engine.mtf.last_event();
+    println!(
+        "  OB H1:{} H4:{} W1:{} MN:{} · confluences H1:{} H4:{} W1:{} MN:{}",
+        mtf_ev.h1.bull_obs.len() + mtf_ev.h1.bear_obs.len(),
+        mtf_ev.h4.bull_obs.len() + mtf_ev.h4.bear_obs.len(),
+        mtf_ev.w1.bull_obs.len() + mtf_ev.w1.bear_obs.len(),
+        mtf_ev.mn.bull_obs.len() + mtf_ev.mn.bear_obs.len(),
+        mtf_ev.confluence_h1 as u8,
+        mtf_ev.confluence_h4 as u8,
+        mtf_ev.confluence_w1 as u8,
+        mtf_ev.confluence_mn as u8,
+    );
+    // Longueurs de séries vues par replay_htf (diagnostic amorçage).
+    {
+        use smc::v12::BarInput as BarMtf;
+        let mut serie: Vec<BarMtf> = Vec::new();
+        engine.mtf.serie_mn(&mut serie);
+        println!(
+            "  série MN vue : {} bars (1re {:?}, dernière {:?})",
+            serie.len(),
+            serie.first().map(|b| b.timestamp),
+            serie.last().map(|b| b.timestamp)
+        );
+    }
+    for (nom, st) in [("W1", &mtf_ev.w1), ("MN", &mtf_ev.mn)] {
+        for z in st.bull_obs.iter().chain(st.bear_obs.iter()) {
+            println!("  {nom} OB {:.0}/{:.0}", z.top, z.bot);
+        }
+    }
+
     println!("\n── Zone-cœur (lifecycle live) ──");
     let fmt = |t: i64| {
         chrono::DateTime::from_timestamp(t, 0)

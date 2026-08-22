@@ -60,8 +60,10 @@ fn period_key(p: Period, ts: i64) -> i64 {
         Period::Week => {
             let dt = chrono::DateTime::<chrono::Utc>::from_timestamp(ts, 0);
             match dt {
-                Some(dt) => (dt.naive_utc().iso_week().year() as i64) * 100
-                    + dt.naive_utc().iso_week().week() as i64,
+                Some(dt) => {
+                    (dt.naive_utc().iso_week().year() as i64) * 100
+                        + dt.naive_utc().iso_week().week() as i64
+                }
                 None => ts.div_euclid(604_800),
             }
         }
@@ -125,6 +127,33 @@ impl HtfAggregator {
         }
     }
 
+    /// Amorce l'agrégateur avec des bars HTF **clôturées** de la DB, antérieures
+    /// à la fenêtre de replay LTF (t0 = timestamp de la 1re bar LTF).
+    ///
+    /// Sans cela, `f_htf` ne verrait que la fenêtre LTF (ex. 5 000 M15 ≈ 52 j
+    /// → ~2 bars MN, ~8 W1) alors que le Pine/TV calcule sur des ANNÉES : les
+    /// OB W1 (+5) et MN (+6) du scoring seraient structurellement invisibles.
+    /// Sémantique : bars de période strictement antérieure à t0 → `closed` ;
+    /// bar CONTENANT t0 → bar "en cours" (complétée aux bornes exactes par les
+    /// bars LTF suivantes — high/low monotones ⇒ état clôturé exact).
+    fn primer(&mut self, bars: &[BarInput], t0: i64) {
+        let key0 = period_key(self.period, t0);
+        for b in bars {
+            let k = period_key(self.period, b.timestamp);
+            if k < key0 {
+                self.closed.push(*b);
+                if self.closed.len() > MAX_HTF_BARS {
+                    self.closed.remove(0);
+                }
+            } else if k == key0 {
+                // Dernière écriture gagne (bars triées croissantes).
+                self.cur_key = Some(k);
+                self.cur_bar = Some(*b);
+            }
+            // k > key0 : postérieure à la fenêtre — ignorée (le replay LTF la reconstruit).
+        }
+    }
+
     /// Série HTF complète = bars clôturées + bar en cours (pour le replay repaint).
     fn series(&self, out: &mut Vec<BarInput>) {
         out.clear();
@@ -133,6 +162,41 @@ impl HtfAggregator {
             out.push(c);
         }
     }
+}
+
+/// Historique HTF (H1/H4/W1/MN) pour l'amorçage du détecteur MTF.
+#[derive(Debug, Clone, Default)]
+pub struct AmorceMtf {
+    pub h1: Vec<BarInput>,
+    pub h4: Vec<BarInput>,
+    pub w1: Vec<BarInput>,
+    pub mn: Vec<BarInput>,
+}
+
+/// Agrège des bars journalières (D1) en bars mensuelles (MN) — la DB ne
+/// collecte pas MN directement ; l'amorçage MTF en a besoin (confluence +6).
+pub fn agreger_mensuel(d1: &[BarInput]) -> Vec<BarInput> {
+    use chrono::Datelike;
+    let mut out: Vec<BarInput> = Vec::new();
+    for b in d1 {
+        let dt = chrono::DateTime::<chrono::Utc>::from_timestamp(b.timestamp, 0);
+        let Some(dt) = dt else { continue };
+        let key = (dt.year() as i64) * 100 + dt.month() as i64;
+        match out.last_mut() {
+            Some(c) if period_key(Period::Month, c.timestamp) == key => {
+                if b.high > c.high {
+                    c.high = b.high;
+                }
+                if b.low < c.low {
+                    c.low = b.low;
+                }
+                c.close = b.close;
+                c.volume += b.volume;
+            }
+            _ => out.push(*b),
+        }
+    }
+    out
 }
 
 /// Rejoue la logique `f_htf` (Pine lignes 1718-1831) sur une série HTF.
@@ -173,17 +237,13 @@ fn replay_htf(bars: &[BarInput], sw_len: usize) -> HtfState {
         if i >= 2 * sw_len {
             let pidx = i - sw_len;
             let ph = bars[pidx].high;
-            let is_ph = (1..=sw_len).all(|j| {
-                ph > bars[pidx - j].high && ph > bars[pidx + j].high
-            });
+            let is_ph = (1..=sw_len).all(|j| ph > bars[pidx - j].high && ph > bars[pidx + j].high);
             if is_ph {
                 sh = Some(ph);
                 bsh = Some(pidx);
             }
             let pl = bars[pidx].low;
-            let is_pl = (1..=sw_len).all(|j| {
-                pl < bars[pidx - j].low && pl < bars[pidx + j].low
-            });
+            let is_pl = (1..=sw_len).all(|j| pl < bars[pidx - j].low && pl < bars[pidx + j].low);
             if is_pl {
                 sl = Some(pl);
                 bsl = Some(pidx);
@@ -372,6 +432,28 @@ impl MtfDetector {
         }
     }
 
+    /// Amorce les 4 agrégateurs avec l'historique HTF de la DB (avant replay LTF).
+    /// `t0` = timestamp de la 1re bar LTF du replay. MN s'amorce depuis des
+    /// bars mensuelles agrégées au préalable ([`agreger_mensuel`]).
+    pub fn primer(
+        &mut self,
+        h1: &[BarInput],
+        h4: &[BarInput],
+        w1: &[BarInput],
+        mn: &[BarInput],
+        t0: i64,
+    ) {
+        self.h1.primer(h1, t0);
+        self.h4.primer(h4, t0);
+        self.w1.primer(w1, t0);
+        self.mn.primer(mn, t0);
+    }
+
+    /// Variante struct ([`AmorceMtf`]).
+    pub fn primer_amorce(&mut self, a: &AmorceMtf, t0: i64) {
+        self.primer(&a.h1, &a.h4, &a.w1, &a.mn, t0);
+    }
+
     /// Traite une bar LTF : agrège les 4 TF, rejoue `f_htf`, calcule les confluences.
     pub fn update(&mut self, bar: &BarInput) -> MtfEvent {
         // Tampon réutilisé (série HTF = closed + cur).
@@ -411,6 +493,11 @@ impl MtfDetector {
         ev
     }
 
+    /// Série MN vue par le replay HTF (diagnostic amorçage).
+    pub fn serie_mn(&self, out: &mut Vec<BarInput>) {
+        self.mn.series(out);
+    }
+
     pub fn last_event(&self) -> MtfEvent {
         self.last_event.clone()
     }
@@ -423,101 +510,5 @@ impl Default for MtfDetector {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn ltf_bar(ts: i64, open: f64, high: f64, low: f64, close: f64) -> BarInput {
-        BarInput {
-            timestamp: ts,
-            open,
-            high,
-            low,
-            close,
-            volume: 1.0,
-        }
-    }
-
-    /// Construit une série H1 haussière : pivot high net confirmé, puis plus tard un BOS
-    /// au-dessus → doit produire un OB bull H1 (la dernière bougie baissière avant le BOS).
-    #[test]
-    fn h1_aggregation_et_ob_bull_apres_bos() {
-        let mut det = MtfDetector::new();
-        // sw_len=3 ⇒ pivot confirmé à i = pivot_idx + 3. Le BOS doit survenir à une bar
-        // POSTÉRIEURE au pivot ET dont le high ne casse pas la confirmation du pivot.
-        //   i0..i2 : doji 100 (high 102)
-        //   i3     : pic high=110 (pivot candidat)
-        //   i4..i6 : doji 100 (high 102 < 110 ⇒ pivot i3 confirmé à i6 ⇒ sh1=110)
-        //   i7     : bear candle (open 105, close 100, low 99) ⇒ OB candidat (l_b_t=105)
-        //   i8     : doji 100 (close==open ⇒ conserve le candidat 105)
-        //   i9     : BOS (close 111 > 110, prev_close 100 <= 110) ⇒ OB bull = [105,99]
-        let bars = [
-            (0 * 3600, 100.0, 102.0, 98.0, 100.0),
-            (1 * 3600, 100.0, 102.0, 98.0, 100.0),
-            (2 * 3600, 100.0, 102.0, 98.0, 100.0),
-            (3 * 3600, 100.0, 110.0, 99.0, 100.0), // pic
-            (4 * 3600, 100.0, 102.0, 98.0, 100.0),
-            (5 * 3600, 100.0, 102.0, 98.0, 100.0),
-            (6 * 3600, 100.0, 102.0, 98.0, 100.0), // pivot i3 confirmé ⇒ sh1=110
-            (7 * 3600, 105.0, 106.0, 99.0, 100.0), // bear candle ⇒ OB candidat [105,99]
-            (8 * 3600, 100.0, 102.0, 98.0, 100.0), // doji ⇒ conserve candidat
-            (9 * 3600, 100.0, 112.0, 99.0, 111.0), // BOS : close 111 > 110
-        ];
-        for (ts, o, h, l, c) in bars {
-            det.update(&ltf_bar(ts, o, h, l, c));
-        }
-        let st = &det.last_event.h1;
-        assert!(!st.bull_obs.is_empty(), "BOS up ⇒ au moins un OB bull H1");
-        let ob = &st.bull_obs[0];
-        assert!((ob.top - 105.0).abs() < 1e-9, "OB top = open du bear candle (105)");
-        assert!((ob.bot - 99.0).abs() < 1e-9, "OB bot = low du bear candle (99)");
-        assert_eq!(st.trend, 1, "BOS up ⇒ trend=1");
-    }
-
-    #[test]
-    fn aggregation_h1_regroupe_4_bars_m15() {
-        let mut det = MtfDetector::new();
-        // 4 bars M15 dans la même heure (ts 0,900,1800,2700).
-        det.update(&ltf_bar(0, 100.0, 102.0, 98.0, 101.0));
-        det.update(&ltf_bar(900, 101.0, 105.0, 100.0, 103.0));
-        det.update(&ltf_bar(1800, 103.0, 108.0, 102.0, 107.0));
-        det.update(&ltf_bar(2700, 107.0, 110.0, 106.0, 109.0));
-        // La bar H1 courante (pas encore clôturée) agrège les 4.
-        let mut series = Vec::new();
-        det.h1.series(&mut series);
-        assert_eq!(series.len(), 1, "4 bars M15 ⇒ 1 bar H1 en cours");
-        let h1bar = series[0];
-        assert!((h1bar.open - 100.0).abs() < 1e-9, "open = 1ʳᵉ bar");
-        assert!((h1bar.high - 110.0).abs() < 1e-9, "high = max");
-        assert!((h1bar.low - 98.0).abs() < 1e-9, "low = min");
-        assert!((h1bar.close - 109.0).abs() < 1e-9, "close = dernière");
-    }
-
-    #[test]
-    fn confluence_fausse_sans_ob() {
-        let mut det = MtfDetector::new();
-        // Aucun pivot/BOS ⇒ aucun OB ⇒ pas de confluence.
-        for i in 0..10 {
-            det.update(&ltf_bar(i * 3600, 100.0, 101.0, 99.0, 100.0));
-        }
-        let ev = det.last_event();
-        assert!(!ev.confluence_h1);
-    }
-
-    #[test]
-    fn fifo_htf_cappe_a_max() {
-        // S'assure qu'au-delà de MAX_HTF_BARS le tampon ne croît pas indéfiniment.
-        let mut agg = HtfAggregator::new(Period::Seconds(3600));
-        for i in 0..(MAX_HTF_BARS + 50) as i64 {
-            agg.add(&ltf_bar(i * 3600, 100.0, 101.0, 99.0, 100.0));
-        }
-        // Toutes les périodes sont distinctes ⇒ chaque bar clôt la précédente (sauf la dernière en cours).
-        assert!(agg.closed.len() <= MAX_HTF_BARS);
-    }
-
-    #[test]
-    fn pas_de_panic_sur_serie_courte() {
-        let st = replay_htf(&[], HTF_SWING);
-        assert_eq!(st.trend, 0);
-        assert!(st.bull_obs.is_empty() && st.bear_obs.is_empty());
-    }
-}
+#[path = "mtf_tests.rs"]
+mod mtf_tests;

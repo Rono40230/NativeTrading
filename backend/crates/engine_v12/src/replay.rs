@@ -44,9 +44,10 @@ pub fn rejouer_bougies(
     tf: Timeframe,
     bougies: &[Candle],
     simuler_ticks: bool,
+    amorce: smc::v12::AmorceMtf,
 ) -> ResultatReplay {
     let debut = std::time::Instant::now();
-    let mut plugin = MoteurV12::nouveau(asset.clone(), tf);
+    let mut plugin = MoteurV12::nouveau(asset.clone(), tf).avec_amorce(amorce.clone());
     let mut journal = SortieMoteur::vide();
 
     for (i, b) in bougies.iter().enumerate() {
@@ -77,8 +78,12 @@ pub fn rejouer_bougies(
         journal.etend(plugin.on_close(&ctx));
     }
 
-    // Référence : moteur nu, bar-replay pur (le mode TradingView).
+    // Référence : moteur nu, bar-replay pur (le mode TradingView) — même
+    // amorçage MTF que le plugin (comparaison conforme_reference valide).
     let mut reference = SmcV12Engine::new(asset.as_str(), tf.as_str());
+    if let Some(premiere) = bougies.first() {
+        reference.primer_mtf_amorce(&amorce, premiere.timestamp.timestamp());
+    }
 
     for b in bougies {
         reference.update(&bar_input_depuis_bougie(b));
@@ -88,7 +93,10 @@ pub fn rejouer_bougies(
         asset: asset.as_str().to_string(),
         timeframe: tf.as_str().to_string(),
         nb_bougies: bougies.len(),
-        periode_de: bougies.first().map(|b| b.timestamp.timestamp()).unwrap_or(0),
+        periode_de: bougies
+            .first()
+            .map(|b| b.timestamp.timestamp())
+            .unwrap_or(0),
         periode_a: bougies.last().map(|b| b.timestamp.timestamp()).unwrap_or(0),
         simule_ticks: simuler_ticks,
         signaux: journal.signaux,
@@ -146,7 +154,9 @@ mod tests {
             let high = open.max(close) + 3.0;
             let low = open.min(close) - 3.0;
             bougies.push(Candle {
-                timestamp: chrono::Utc.timestamp_opt(1_750_000_000 + (i as i64) * 900, 0).unwrap(),
+                timestamp: chrono::Utc
+                    .timestamp_opt(1_750_000_000 + (i as i64) * 900, 0)
+                    .unwrap(),
                 open,
                 high,
                 low,
@@ -156,8 +166,11 @@ mod tests {
             prix += 0.8;
         }
 
-        let r = rejouer_bougies(asset, tf, &bougies, false);
-        assert!(r.conforme_reference, "plugin == moteur nu (chemin clôtures)");
+        let r = rejouer_bougies(asset, tf, &bougies, false, Default::default());
+        assert!(
+            r.conforme_reference,
+            "plugin == moteur nu (chemin clôtures)"
+        );
         assert!(r.nb_bougies == 600);
         let s = resume(&r);
         assert!(s.contains("conforme=true"), "{}", s);
@@ -173,11 +186,14 @@ mod tests {
         }
         let asset = Asset::from("XAUUSD");
         let tf = Timeframe::M15;
-        let r = rejouer_bougies(asset, tf, &bars, true);
+        let r = rejouer_bougies(asset, tf, &bars, true, Default::default());
         // Intrabar : le journal contient des événements lifecycle.
         assert!(!r.evenements.is_empty(), "fills/TP détectés intrabar");
         // ET l'état final reste conforme (clones jetés).
-        assert!(r.conforme_reference, "les clones n'altèrent pas l'état confirmé");
+        assert!(
+            r.conforme_reference,
+            "les clones n'altèrent pas l'état confirmé"
+        );
         assert_eq!(plugin_nom(&r), NOM);
     }
 
