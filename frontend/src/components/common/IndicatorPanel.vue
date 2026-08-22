@@ -24,10 +24,33 @@
         >⚙</button>
       </div>
 
+      <!-- Tendance MTF (ex-section Analyse) — bouton + réglages -->
+      <div class="flex items-center ml-1">
+        <button
+          @click="toggle('kasperTendance')"
+          :class="[
+            'px-2.5 py-1 rounded-l-md text-xs font-medium border-y border-l transition-all',
+            prefs.kasperTendance
+              ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
+              : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+          ]"
+        >Tendance MTF</button>
+        <button
+          @click="modaleOuverte = 'kasperTendance'"
+          :class="[
+            'px-1.5 py-1 rounded-r-md text-[11px] border-y border-r transition-all',
+            prefs.kasperTendance
+              ? 'bg-sky-500/10 border-sky-500/40 text-sky-400 hover:bg-sky-500/20'
+              : 'bg-white/5 border-white/10 text-slate-500 hover:text-slate-300'
+          ]"
+          title="Paramètres Tendance Kasper"
+        >⚙</button>
+      </div>
+
       <div class="w-px self-stretch bg-white/10 mx-1" />
 
-      <!-- SMC v12 : dropdowns par famille (28 boutons → 5 menus à cocher) -->
-      <span class="text-[10px] text-cyan-400/80 uppercase tracking-wide mr-1">SMC v12</span>
+      <!-- SMC : dropdowns par famille (28 boutons → 5 menus à cocher) -->
+      <span class="text-[10px] text-cyan-400/80 uppercase tracking-wide mr-1">SMC</span>
       <div v-for="groupe in v12Groupes" :key="groupe.label" class="relative">
         <button
           @click="ouvert = ouvert === groupe.label ? null : groupe.label"
@@ -51,7 +74,7 @@
         <div v-if="ouvert === groupe.label" class="fixed inset-0 z-40" @click="ouvert = null" />
         <div
           v-if="ouvert === groupe.label"
-          class="absolute left-0 top-[calc(100%+4px)] z-50 w-60 bg-slate-900/95 backdrop-blur border border-white/10 rounded-lg shadow-xl py-1"
+          class="absolute left-0 bottom-[calc(100%+4px)] z-50 w-60 bg-slate-900/95 backdrop-blur border border-white/10 rounded-lg shadow-xl py-1"
         >
           <div class="flex items-center justify-between px-2.5 py-1 border-b border-white/5">
             <span class="text-[10px] uppercase tracking-wide text-slate-500">{{ groupe.label }}</span>
@@ -80,31 +103,8 @@
         </div>
       </div>
 
-      <div class="w-px self-stretch bg-white/10 mx-1" />
-
-      <!-- Analyse -->
-      <span class="text-[10px] text-slate-500 uppercase tracking-wide mr-1">Analyse</span>
-      <div class="flex items-center">
-        <button
-          @click="toggle('kasperTendance')"
-          :class="[
-            'px-2.5 py-1 rounded-l-md text-xs font-medium border-y border-l transition-all',
-            prefs.kasperTendance
-              ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
-              : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
-          ]"
-        >Tendance MTF</button>
-        <button
-          @click="modaleOuverte = 'kasperTendance'"
-          :class="[
-            'px-1.5 py-1 rounded-r-md text-[11px] border-y border-r transition-all',
-            prefs.kasperTendance
-              ? 'bg-sky-500/10 border-sky-500/40 text-sky-400 hover:bg-sky-500/20'
-              : 'bg-white/5 border-white/10 text-slate-500 hover:text-slate-300'
-          ]"
-          title="Paramètres Tendance Kasper"
-        >⚙</button>
-      </div>
+      <!-- Slot actions SMC (ex. bouton Analyse SMC) — à droite des dropdowns -->
+      <slot name="apres-smc" />
 
       <!-- Actualiser -->
       <button

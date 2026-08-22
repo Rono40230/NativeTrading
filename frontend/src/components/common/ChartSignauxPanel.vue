@@ -54,14 +54,6 @@
           : 'border-white/10 text-gray-400 hover:border-white/30',
       ]">{{ n }}</button>
 
-      <!-- Bouton Analyse SMC (text-first, Phase 2.1) -->
-      <div class="ml-auto flex items-center gap-1">
-        <button
-          class="h-7 px-3 rounded border transition-colors bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40"
-          :disabled="analyseEnCours" @click="$emit('analyser')">{{ analyseEnCours ? '🔍 Analyse...' : '🔍 Analyse SMC par l\'IA' }}</button>
-      </div>
-
-
     </div>
   </div>
 </template>
@@ -83,12 +75,10 @@ const NB_OPTIONS = [5, 10, 40]
 
 const props = defineProps<{
   signaux: SignalIndicateur[]
-  analyseEnCours?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'update:filtre', f: FiltreSignaux): void
-  (e: 'analyser'): void
 }>()
 
 const filtre = reactive<FiltreSignaux>(filtreDefaut())

@@ -45,13 +45,17 @@
 
       <!-- Panneau indicateurs (techniques + SMC) -->
       <IndicatorPanel v-model="settingsStore.indicateurs" :chargement="marketStore.chargement"
-        @appliquer="chargerIndicateurs" @actualiser="actualiser" />
+        @appliquer="chargerIndicateurs" @actualiser="actualiser">
+        <template #apres-smc>
+          <button
+            class="h-7 px-3 rounded border transition-colors bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40"
+            :disabled="signalStore.analyseIaChargement" @click="lancerAnalyseSmc">{{ signalStore.analyseIaChargement ? '🔍 Analyse...' : '🔍 Analyse SMC' }}</button>
+        </template>
+      </IndicatorPanel>
 
       <!-- Panneau signaux indicateurs -->
       <ChartSignauxPanel :signaux="signauxActifs"
-        :analyseEnCours="signalStore.analyseIaChargement"
-        @update:filtre="onFiltreSignaux"
-        @analyser="lancerAnalyseSmc" />
+        @update:filtre="onFiltreSignaux" />
     </div>
 
     <!-- Sidebar IA (toggle + drawer) -->
