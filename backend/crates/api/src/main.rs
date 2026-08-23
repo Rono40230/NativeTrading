@@ -160,8 +160,10 @@ async fn main() -> std::io::Result<()> {
     // double-spawn → charge doublée + races). Garde idempotence dans chaque
     // demarrer_* au cas où.
 
-    let pool_telegram = app_state.db.pool().clone();
-    tokio::spawn(notifications::telegram_worker::demarrer_worker_telegram(pool_telegram));
+    // ── Vieux worker Telegram ÉTEINT (audit étape 2) ────────────────────────
+    // Il renvoyait CHAQUE signal de la table dans l'ancien format, en double
+    // du writer officiel et sans consulter le registre (état/son). Le seul
+    // émetteur Telegram est désormais signaux_officiels (maquettes validées).
 
     // ── Runtime tick (Phase 1 ROADMAP — cœur temps réel) ────────────────────
     // Consomme les klines Bybit (formation + confirmations) en mémoire :

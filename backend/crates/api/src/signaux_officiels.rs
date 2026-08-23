@@ -57,7 +57,11 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
         let reg = db.lire_strategie(m.id).await.ok().flatten();
         if reg.as_ref().is_some_and(|r| r.notifications) {
             if let Some(msg) = formater_message(&db, m.id, &s).await {
-                envoyer_telegram(&db, &msg).await;
+                if envoyer_telegram(&db, &msg).await {
+                    if let Err(e) = db.marquer_telegram_envoye(&signal.id.to_string()).await {
+                        tracing::warn!("Signaux officiels (drapeau Telegram): {}", e);
+                    }
+                }
             }
         }
     }
@@ -143,12 +147,17 @@ async fn formater_message(
 }
 
 /// Envoi Telegram direct — erreur = log simple, jamais bloquant.
-async fn envoyer_telegram(db: &Database, texte: &str) {
+/// Retourne true si le message est parti (pour le drapeau en base).
+async fn envoyer_telegram(db: &Database, texte: &str) -> bool {
     let (token, chat) = notifications::telegram::lire_tokens_pool(db.pool()).await;
     if token.is_empty() || chat.is_empty() {
-        return;
+        return false;
     }
-    if let Err(e) = notifications::telegram::post_message(&token, &chat, texte).await {
-        tracing::warn!("Telegram: {}", e);
+    match notifications::telegram::post_message(&token, &chat, texte).await {
+        Ok(_) => true,
+        Err(e) => {
+            tracing::warn!("Telegram: {}", e);
+            false
+        }
     }
 }

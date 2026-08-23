@@ -188,6 +188,17 @@ impl Database {
         Ok(())
     }
 
+    /// Étape 2 — marque le signal comme notifié sur Telegram (le writer
+    /// officiel envoie directement ; ce drapeau trace l'envoi en base).
+    pub async fn marquer_telegram_envoye(&self, id: &str) -> Result<()> {
+        sqlx::query("UPDATE signaux SET telegram_envoye = 1 WHERE id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(())
+    }
+
     /// Phase 2.8 — ferme le signal officiel correspondant à une clé moteur.
     pub async fn fermer_signal_par_cle(&self, cle_moteur: &str, ferme_le: i64) -> Result<u64> {
         let res = sqlx::query(

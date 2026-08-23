@@ -1,26 +1,4 @@
---------------------------------------------------------------------------------------------------------------------------
 
-
-
---------------------------------------------------------------------------------------------------------------------------
-
-
-
---------------------------------------------------------------------------------------------------------------------------
-
-Il faut vérifier quel est le fuseau horaire utilisé pour l'affichage de l'indicateur range asie sur le graphique.
-Je veux que ce soit le creneaux de l'heure de paris
-Repond sans coder
-
---------------------------------------------------------------------------------------------------------------------------
-
-
-
---------------------------------------------------------------------------------------------------------------------------
-
-
-
---------------------------------------------------------------------------------------------------------------------------
 
 Résumé d'état actuel.
 
@@ -72,10 +50,7 @@ Une vue Paramètres avec :
     - Paramétrages des stratégies
     - gestion du risque par asset
 
-
-
-
-
+--------------------------------------------------------------------------------------------------------------------------
 
 Dans la vue graphique, dans Afficher et trier les signaux, il faudrait créer les boutons :
     - SMC
@@ -133,29 +108,28 @@ Multi TF & OTE :
     - OB MN = bloc
     - zone OTE = bloc
 
+--------------------------------------------------------------------------------------------------------------------------
+
+Concernant les trades :
+1 - corriger l'affichage
+2 - comparer la vie des trades dans l'app et dans le pine
+
+--------------------------------------------------------------------------------------------------------------------------
 
 
 
+--------------------------------------------------------------------------------------------------------------------------
 
 
 
-Finir Sentiment de marché :
-- comment sont calculés les valeurs USA, Europe, Matières premières et cryptos.
-
-
-Dans le dashboard, à quoi sert le bouton on/stop dans le bloc Data & IA Engine
+--------------------------------------------------------------------------------------------------------------------------
 
 
 
+--------------------------------------------------------------------------------------------------------------------------
 
 
-Le clic sur "lire sur le site source" ne donne rien
+
+--------------------------------------------------------------------------------------------------------------------------
 
 
-Pour améliorer les traduction il faut ajouter ce modèle à ollama : maternion/hy-mt2:7b
-
-
-Mets à jour la roadmap et ton Repo 
-
-
-Maintenant on peut passer à l'étape suivante de la roadmap qui concerne : Backfill profond Bybit — chantier voie dev n°2 (une soirée = 24 mois d'historique)
