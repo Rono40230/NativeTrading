@@ -19,6 +19,7 @@
 use super::calibration::AssetCalibration;
 use super::scoring_v11::ScoringV11;
 use super::trade::{CloseReason, TradeState};
+    use super::types::{ObState, ObZone};
 use super::types::{BarInput, SmcOutput};
 
 /// Force minimale — seuil de score degradation (Pine `i_forceMin` = 4).
@@ -50,13 +51,15 @@ impl TradeLifecycle {
         bar_index: usize,
         cal: &AssetCalibration,
         scoring: &mut ScoringV11,
+        ob_bull: &[super::types::ObZone],
+        ob_bear: &[super::types::ObZone],
     ) {
         for t in trades.iter_mut() {
             if t.state == TradeState::Closed {
                 continue;
             }
             let is_buy = matches!(t.side, super::trade::Side::Buy);
-            self.update_trade(t, is_buy, out, bar, bar_index, cal, scoring);
+            self.update_trade(t, is_buy, out, bar, bar_index, cal, scoring, ob_bull, ob_bear);
         }
     }
 
@@ -70,6 +73,8 @@ impl TradeLifecycle {
         bar_index: usize,
         cal: &AssetCalibration,
         scoring: &mut ScoringV11,
+        ob_bull: &[super::types::ObZone],
+        ob_bear: &[super::types::ObZone],
     ) {
         // Snapshot de l'état de contrôle (état en début de bar).
         let sl = t.sl;
@@ -173,10 +178,12 @@ impl TradeLifecycle {
             t.tp1_hit = true; // Neutralise (n'a plus besoin de TP1 gate).
             t.be_forced = true;
             t.state = TradeState::Open;
-            // Pine 3961-3962 : un-signal l'OB lié (source OB uniquement) —
-            // l'OB redevient éligible au re-trade et son score reprend.
-            if let Some(key) = t.ob_key {
-                scoring.unmark_signaled(is_buy, key);
+            // Pine 3936-3941 + 3987-3988 : un-signal le PREMIER OB signalé du
+            // carneau (source OB uniquement — _srcBull == 0), PAS forcément
+            // l'OB du trade. Sémantique exacte du Pine : limite les re-trades.
+            if t.ob_key.is_some() {
+                let zones = if is_buy { ob_bull } else { ob_bear };
+                scoring.unmark_premier_signale(is_buy, zones);
             }
             return;
         }
@@ -275,35 +282,30 @@ mod tests {
     }
 
     #[test]
-    fn be_force_un_signale_ob_pour_retrade() {
-        // Pine 3961-3962 : au BE-force, l'OB lié est un-signalé — il redevient
-        // éligible au re-trade et son score reprend (la boucle saute les signalés).
+    fn be_force_un_signale_le_premier_ob_signale() {
+        // Pine 3936-3941 : _obIdx = PREMIER OB signalé en scannant le carnet
+        // (break au premier trouvé), PAS l'OB du trade. Avec deux OB signalés
+        // [A(bar 10), B(bar 20)] et un trade lié à B : le BE-force un-signale A ;
+        // B (l'OB du trade) reste verrouillé — pas de re-trade immédiat.
         let mut t = buy_trade(100.0, 97.0, 103.0, 106.0, 109.0);
-        t.ob_key = Some(42);
+        t.ob_key = Some(20);
         t.filled = true;
         let lc = lc();
         let mut out = SmcOutput::default();
-        out.bos.bearish = true; // BOS opposé ⇒ beForce
+        out.bos_raw.bearish = true; // BOS opposé ⇒ beForce
         let mut c = cal();
         let _ = &mut c;
         let mut sc = scoring();
-        sc.mark_signaled(true, 42);
-        assert!(sc.is_signaled(true, 42), "précondition : OB signalé");
-        lc.update_trade(
-            &mut t,
-            true,
-            &out,
-            &bar(900, 100.0, 101.0, 99.5, 100.0),
-            1,
-            &c,
-            &mut sc,
-        );
+        sc.mark_signaled(true, 10); // OB A (premier du carnet)
+        sc.mark_signaled(true, 20); // OB B (OB du trade)
+        let zones = vec![
+            ObZone { top: 105.0, bot: 100.0, state: ObState::Vierge, impulse_bar: 10, ob_bar: 9, timestamp: 0, is_ib: false },
+            ObZone { top: 110.0, bot: 106.0, state: ObState::Vierge, impulse_bar: 20, ob_bar: 19, timestamp: 0, is_ib: false },
+        ];
+        lc.update_trade(&mut t, true, &out, &bar(900, 100.0, 101.0, 99.5, 100.0), 1, &c, &mut sc, &zones, &[]);
         assert!(t.be_forced, "BE forcé appliqué");
-        assert!((t.sl - 100.0).abs() < 1e-9, "SL → entry");
-        assert!(
-            !sc.is_signaled(true, 42),
-            "OB un-signalé (re-trade possible)"
-        );
+        assert!(!sc.is_signaled(true, 10), "premier OB (A) un-signalé");
+        assert!(sc.is_signaled(true, 20), "OB du trade (B) RESTE signalé — pas de re-trade");
     }
 
     #[test]
@@ -322,6 +324,8 @@ mod tests {
             1,
             &c,
             &mut sc,
+            &[],
+            &[],
         );
         assert!(t.filled);
         assert_eq!(t.fill_ts, Some(900));
@@ -344,6 +348,8 @@ mod tests {
             1,
             &c,
             &mut sc,
+            &[],
+            &[],
         );
         assert_eq!(t.state, TradeState::Closed);
         assert_eq!(t.close_reason, Some(CloseReason::Sl));
@@ -367,6 +373,8 @@ mod tests {
             1,
             &c,
             &mut sc,
+            &[],
+            &[],
         );
         assert!(t.tp1_hit);
         assert!(t.tp1_price_touched);
@@ -380,6 +388,8 @@ mod tests {
             2,
             &c,
             &mut sc,
+            &[],
+            &[],
         );
         assert_eq!(t.state, TradeState::Closed);
         assert_eq!(t.close_reason, Some(CloseReason::Be));
@@ -404,6 +414,8 @@ mod tests {
             1,
             &c,
             &mut sc,
+            &[],
+            &[],
         );
         assert_eq!(t.close_reason, Some(CloseReason::Tp3));
         assert_eq!(t.verdict(), Verdict::Tp3);
@@ -429,6 +441,8 @@ mod tests {
             1,
             &c,
             &mut sc,
+            &[],
+            &[],
         );
         assert!(
             !matches!(t.state, TradeState::Closed),
@@ -448,6 +462,8 @@ mod tests {
             2,
             &c,
             &mut sc,
+            &[],
+            &[],
         );
         assert_eq!(t.verdict(), Verdict::Be);
         assert!((t.realized_r() - 0.0).abs() < 1e-9);
@@ -470,6 +486,8 @@ mod tests {
             1,
             &c,
             &mut sc,
+            &[],
+            &[],
         );
         assert_eq!(t.close_reason, Some(CloseReason::Expire));
         assert_eq!(t.verdict(), Verdict::Expire);
@@ -505,6 +523,8 @@ mod tests {
             1,
             &c,
             &mut sc,
+            &[],
+            &[],
         );
         assert_eq!(t.close_reason, Some(CloseReason::Sl));
     }

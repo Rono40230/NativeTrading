@@ -256,14 +256,20 @@ impl ScoringV11 {
         (r as i32).clamp(1, 10)
     }
 
-    /// Un-signal un OB (Pine BE-force : `array.set(obBullSignaled, _obIdx, false)`
-    /// lignes 3961-3962) — l'OB redevient éligible au re-trade ET son score
-    /// recommence à s'accumuler (la boucle de scoring saute les zones signalées).
-    pub fn unmark_signaled(&mut self, is_bull: bool, key: usize) {
-        if is_bull {
-            self.ob_bull_signaled.remove(&key);
-        } else {
-            self.ob_bear_signaled.remove(&key);
+    /// Un-signal du PREMIER OB signalé dans l'ordre du carnet (Pine BE-force,
+    /// lignes 3936-3941 + 3987-3988 : `_obIdx` = premier `signaled` trouvé en
+    /// scannant les arrays — PAS forcément l'OB du trade). Sémantique exacte :
+    /// l'OB du trade reste généralement verrouillé, ce qui limite les re-trades.
+    pub fn unmark_premier_signale(&mut self, is_bull: bool, zones: &[ObZone]) {
+        for z in zones {
+            let present = if is_bull {
+                self.ob_bull_signaled.remove(&z.impulse_bar)
+            } else {
+                self.ob_bear_signaled.remove(&z.impulse_bar)
+            };
+            if present {
+                return; // premier trouvé, comme le break du Pine
+            }
         }
     }
 

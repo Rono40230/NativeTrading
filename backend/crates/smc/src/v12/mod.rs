@@ -367,6 +367,11 @@ impl SmcV12Engine {
             );
         }
         // 22. Lifecycle — évaluation intrabar (fill/SL/BE/TP/expire/BE-forcé).
+        let (ob_bull_lc, ob_bear_lc) = {
+            let b = self.order_blocks.bull_zones().to_vec();
+            let r = self.order_blocks.bear_zones().to_vec();
+            (b, r)
+        };
         self.lifecycle.update(
             &mut self.signals.trades,
             &out,
@@ -374,6 +379,8 @@ impl SmcV12Engine {
             bar_index,
             &self.calibration,
             &mut self.scoring_v11,
+            &ob_bull_lc,
+            &ob_bear_lc,
         );
 
         out
