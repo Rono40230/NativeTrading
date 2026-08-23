@@ -22,9 +22,9 @@
 //!
 //! ## Anti-ré-émission
 //!
-//! Clé par trade : (barre de création, sens, source, entrée bit à bit).
-//! Un trade vu intrabar n'est jamais ré-émis à la clôture — les deux chemins
-//! calculant les mêmes identités pour les mêmes conditions.
+//! Clé par trade : (open_ts, sens, source, entrée bit à bit) — stable entre
+//! redémarrages. Un trade n'est émis qu'à la CLÔTURE de sa barre de création
+//! (Pine `barstate.isconfirmed`) ; intrabar, seuls les événements lifecycle.
 
 use std::collections::HashSet;
 
@@ -33,7 +33,7 @@ use engine::{
     BougieEnFormation, ContexteCloture, ContexteTick, Engine, EvenementTrade, SignalBrut,
     SortieMoteur, TypeEvenementTrade,
 };
-use smc::v12::trade::{CloseReason, Side, Trade, TradeSource, TradeState};
+use smc::v12::trade::{Side, Trade, TradeSource, TradeState};
 use smc::v12::{BarInput, SmcV12Engine};
 
 /// Nom du moteur (identifiant stable dans `SignalBrut.moteur`).
@@ -74,8 +74,10 @@ pub(crate) fn formation_depuis_bar(
     }
 }
 
-/// Clé d'anti-ré-émission d'un trade.
-type CleTrade = (usize, u8, u8, u64);
+/// Clé d'anti-ré-émission d'un trade — `(open_ts, side, source, entry_bits)`.
+/// `open_ts` (horodatage de la barre de création) plutôt que l'index de barre :
+/// stable d'un redémarrage à l'autre malgré la fenêtre de replay qui glisse.
+type CleTrade = (i64, u8, u8, u64);
 
 /// État lifecycle d'un trade tel que vu à la dernière évaluation — la
 /// comparaison de deux états produit les événements (fill, SL/TP, clôture).
@@ -165,17 +167,15 @@ impl Engine for MoteurV12 {
     fn on_tick(&mut self, ctx: &ContexteTick) -> SortieMoteur {
         // Rollback Pine : évaluation de la bougie live sur un CLONE de
         // l'état confirmé — l'état commité n'est jamais corrompu.
+        // Pine crée les trades sur `barstate.isconfirmed` UNIQUEMENT : aucun
+        // signal n'est émis intrabar (incident 23/08 : trades fantômes émis
+        // mi-bougie puis ré-émis quand le prix revenait les confirmer).
+        // Les événements lifecycle (fill/TP/SL), eux, sont intrabar — comme
+        // l'exécution Pine temps réel (`low`/`high` cumulatifs, monotones).
         let bar = Self::bar_live(ctx.bougie.debut, ctx.bougie);
         self.appliquer_amorce_si_premiere(bar.timestamp);
         let mut eval = self.moteur.clone();
         eval.update(&bar);
-        let signaux = extraire_nouveaux(
-            &mut self.emis,
-            &eval.signals.trades,
-            self.asset.clone(),
-            self.tf,
-            ctx.bougie.debut,
-        );
         let evenements = diff_lifecycle(
             &mut self.vus,
             &eval.signals.trades,
@@ -184,7 +184,7 @@ impl Engine for MoteurV12 {
             ctx.bougie.debut,
         );
         SortieMoteur {
-            signaux,
+            signaux: Vec::new(),
             evenements,
         }
     }
@@ -303,9 +303,9 @@ mod tests {
     }
 
     /// Fidélité rollback : l'évaluation tick-par-tick (clones) et l'évaluation
-    /// par clôtures aboutissent au MÊME état confirmé, et le chemin tick
-    /// émet au moins tous les signaux du chemin clôture (le dernier tick
-    /// simulé porte exactement la barre finale).
+    /// par clôtures aboutissent au MÊME état confirmé. Les signaux ne naissent
+    /// qu'à la clôture (Pine `barstate.isconfirmed`) — le tick intrabar n'en
+    /// émet JAMAIS (anti-fantôme, incident 23/08).
     #[test]
     fn ticks_et_clotures_aboutissent_au_meme_etat_confirme() {
         let bars = charger_bars();
@@ -318,14 +318,14 @@ mod tests {
         let mut par_clotures = MoteurV12::nouveau(asset.clone(), tf);
         let mut par_ticks = MoteurV12::nouveau(asset.clone(), tf);
 
-        let mut total_clotures = 0usize;
-        let mut total_ticks = 0usize;
+        let mut signaux_clotures = 0usize;
+        let mut signaux_ticks = 0usize;
         let mut ajouts_a_la_cloture = 0usize;
 
         for (i, b) in bars.iter().enumerate() {
             // Chemin A : clôtures seules.
             let c = candle_depuis_bar(b);
-            total_clotures += par_clotures
+            signaux_clotures += par_clotures
                 .on_close(&ctx_close(&asset, tf, &c, i))
                 .signaux
                 .len();
@@ -340,12 +340,13 @@ mod tests {
             ];
             for f in &scenarios {
                 let s = par_ticks.on_tick(&ctx_tick(&asset, tf, f));
-                total_ticks += s.signaux.len();
+                signaux_ticks += s.signaux.len();
             }
             // Le dernier tick simulé porte EXACTEMENT la barre finale : la
-            // clôture ne doit strictement rien ajouter (ni signal, ni événement).
+            // clôture ne doit ajouter AUCUN événement (les signaux de création
+            // sont attendus — c'est leur unique chemin d'émission).
             let s_close = par_ticks.on_close(&ctx_close(&asset, tf, &c, i));
-            ajouts_a_la_cloture += s_close.signaux.len() + s_close.evenements.len();
+            ajouts_a_la_cloture += s_close.evenements.len();
         }
 
         // 1. États confirmés identiques : mêmes trades, même index de barre.
@@ -355,22 +356,19 @@ mod tests {
             "le chemin tick (clones jetés) ne doit jamais altérer l'état confirmé"
         );
 
-        // 2. Le dernier tick simulé porte exactement la barre finale : la
-        //    clôture ne voit AUCUN nouveau trade que le tick n'avait pas vu.
-        //    (les ticks peuvent émettre PLUS — conditions intrabar
-        //    évanouies, sémantique alerte Pine).
-        assert!(
-            total_ticks >= total_clotures,
-            "ticks={} clotures={}",
-            total_ticks,
-            total_clotures
+        // 2. Pine : création sur barre confirmée uniquement — aucun signal
+        //    intrabar, aucun fantôme mi-bougie.
+        assert_eq!(
+            signaux_ticks, 0,
+            "le chemin tick ne doit JAMAIS émettre de signal (barstate.isconfirmed)"
         );
+        assert!(signaux_clotures > 0, "signaux attendus à la clôture");
 
-        // 3. Invariant lifecycle : tout ce que la clôture confirme a déjà
-        //    été vu au dernier tick — aucune émission en double.
+        // 3. Invariant lifecycle : le dernier tick simulé porte exactement la
+        //    barre finale — la clôture ne doit rien annoncer de nouveau.
         assert_eq!(
             ajouts_a_la_cloture, 0,
-            "la clôture ne doit rien ajouter après une évaluation tick complète"
+            "la clôture ne doit annoncer aucun événement après un tick complet"
         );
     }
 
@@ -449,7 +447,7 @@ mod tests {
         let tf = Timeframe::M15;
         let mut moteur = MoteurV12::nouveau(asset.clone(), tf);
 
-        let toutes: Vec<(usize, u8, u8, u64)> = Vec::new();
+        let _toutes: Vec<(i64, u8, u8, u64)> = Vec::new();
         for (i, b) in bars.iter().enumerate() {
             // Deux ticks + clôture par barre : l'anti-ré-émission doit tenir.
             let f1 = formation_partielle(b, b.open, b.open, b.open);
@@ -462,7 +460,7 @@ mod tests {
         // Le cache `emis` est élagué par présence dans le carnet à chaque
         // évaluation : sa taille suit le carnet, jamais l'historique complet.
         assert!(moteur.emis.len() <= moteur.livre_trades().len());
-        let _ = toutes;
+        let _ = _toutes;
     }
 
     /// Replay pur par clôtures : des signaux existent sur l'historique XAUUSD.
@@ -497,4 +495,4 @@ impl MoteurV12 {
 }
 
 mod lifecycle_diff;
-use lifecycle_diff::{cle_du_trade, diff_lifecycle, extraire_nouveaux, EtatVu};
+use lifecycle_diff::{diff_lifecycle, extraire_nouveaux, EtatVu};

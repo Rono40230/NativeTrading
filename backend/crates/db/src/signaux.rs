@@ -200,10 +200,21 @@ impl Database {
     }
 
     /// Phase 2.8 — ferme le signal officiel correspondant à une clé moteur.
-    pub async fn fermer_signal_par_cle(&self, cle_moteur: &str, ferme_le: i64) -> Result<u64> {
+    /// Ferme le signal officiel correspondant à une clé moteur, avec son
+    /// verdict (TP1/TP2/TP3/SL/BE/Expire) et le prix de sortie.
+    pub async fn fermer_signal_par_cle(
+        &self,
+        cle_moteur: &str,
+        verdict: &str,
+        prix_verdict: f64,
+        ferme_le: i64,
+    ) -> Result<u64> {
         let res = sqlx::query(
-            "UPDATE signaux SET statut = 'Fermé', ferme_le = ? WHERE cle_moteur = ? AND statut = 'Actif'",
+            "UPDATE signaux SET statut = 'Fermé', verdict = ?, prix_verdict = ?, ferme_le = ?
+             WHERE cle_moteur = ? AND statut = 'Actif'",
         )
+        .bind(verdict)
+        .bind(prix_verdict)
         .bind(ferme_le)
         .bind(cle_moteur)
         .execute(&self.pool)

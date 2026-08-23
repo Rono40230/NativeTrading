@@ -403,6 +403,19 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         if let Ok(bougies) = db.obtenir_bougies(asset, tf, profondeur).await {
             let debut = std::time::Instant::now();
             let historique = runtime.rejouer(asset.clone(), *tf, &bougies);
+            // Réconciliation : les clôtures survenues PENDANT la fenêtre de
+            // replay referment leurs lignes en base (trade ouvert avant un
+            // arrêt, clôturé pendant). Pas de nouveaux signaux, pas de
+            // Telegram — la clé stable (open_ts) fait la correspondance.
+            let nb_reconciliees = reconcilier_clotures(db, &historique.evenements).await;
+            if nb_reconciliees > 0 {
+                tracing::info!(
+                    "Runtime tick: {} {} réconciliation replay : {} clôture(s) appliquée(s)",
+                    asset.as_str(),
+                    tf.as_str(),
+                    nb_reconciliees
+                );
+            }
             tracing::info!(
                 "Runtime tick: {} {} moteur v12 armé (replay {} bougies, {} signaux historiques, {:?})",
                 asset.as_str(),
@@ -421,6 +434,30 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
             runtime.cles().len()
         );
     }
+}
+
+/// Réconciliation du replay : applique en base les clôtures survenues pendant
+/// la fenêtre rejouée (trades ouverts avant un arrêt). Silencieux — pas de
+/// Telegram, pas de nouveaux signaux. Retourne le nombre de lignes fermées.
+async fn reconcilier_clotures(
+    db: &Arc<Database>,
+    evenements: &[engine::EvenementTrade],
+) -> u64 {
+    let mut total = 0u64;
+    for e in evenements {
+        if !matches!(e.evenement, engine::TypeEvenementTrade::Cloture) {
+            continue;
+        }
+        let verdict = e.detail.split('|').next().unwrap_or("Expire");
+        match db
+            .fermer_signal_par_cle(&e.cle_trade, verdict, e.prix, e.emis_le.timestamp())
+            .await
+        {
+            Ok(n) => total += n,
+            Err(err) => tracing::warn!("Réconciliation replay ({}): {}", e.cle_trade, err),
+        }
+    }
+    total
 }
 
 /// Assets Bybit actifs depuis la config DB (même source que le worker WS).

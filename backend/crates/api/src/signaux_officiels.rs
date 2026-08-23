@@ -67,8 +67,9 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
     }
 }
 
-/// Clôtures : mise à jour DB silencieuse (statut Fermé) — pas de message
-/// (décision propriétaire : imminence seule sur Telegram).
+/// Clôtures : mise à jour DB silencieuse (statut Fermé + verdict) — pas de
+/// message (décision propriétaire : imminence seule sur Telegram).
+/// Le détail moteur porte « verdict|R » (ex. « TP2|2.0000 »).
 async fn fermer_signaux(db: Arc<Database>, bus: BusEvenements) {
     let mut rx = bus.abonner();
     while let Ok(e) = rx.recv().await {
@@ -76,7 +77,11 @@ async fn fermer_signaux(db: Arc<Database>, bus: BusEvenements) {
         if !matches!(e.evenement, T::Cloture) {
             continue;
         }
-        if let Err(err) = db.fermer_signal_par_cle(&e.cle_trade, e.emis_le.timestamp()).await {
+        let verdict = e.detail.split('|').next().unwrap_or("Expire");
+        if let Err(err) = db
+            .fermer_signal_par_cle(&e.cle_trade, verdict, e.prix, e.emis_le.timestamp())
+            .await
+        {
             tracing::warn!("Signaux officiels (clôture): {}", err);
         }
     }

@@ -42,20 +42,13 @@ pub(crate) fn raison_discriminant(r: CloseReason) -> u8 {
     }
 }
 
-pub(crate) fn raison_texte(r: CloseReason) -> &'static str {
-    match r {
-        CloseReason::Sl => "Sl",
-        CloseReason::Be => "Be",
-        CloseReason::Tp2Sl => "Tp2Sl",
-        CloseReason::Tp3 => "Tp3",
-        CloseReason::Expire => "Expire",
-        CloseReason::Cancel => "Cancel",
-    }
-}
-
+/// Clé d'unicité d'un trade — STABLE entre redémarrages : `open_ts`
+/// (horodatage Unix de la barre de création) plutôt que l'index de barre,
+/// qui glisse quand la fenêtre de replay avance. La clôture d'un trade
+/// ouvert avant un redémarrage retrouve ainsi sa ligne en base.
 pub(crate) fn cle_du_trade(t: &Trade) -> CleTrade {
     (
-        t.bar_created,
+        t.open_ts,
         match t.side {
             Side::Buy => 0,
             Side::Sell => 1,
@@ -66,6 +59,25 @@ pub(crate) fn cle_du_trade(t: &Trade) -> CleTrade {
         },
         t.entry.to_bits(),
     )
+}
+
+/// Sérialisation canonique de la clé — PARTAGÉE par le signal (cle_moteur en
+/// base) et les événements (cle_trade) : un seul format, jamais de Debug Rust
+/// (incident 23/08 : `(2018, 0, 0, …)` vs `2018:0:0:…` → clôtures perdues).
+pub(crate) fn cle_vers_string(cle: &CleTrade) -> String {
+    format!("{}:{}:{}:{}", cle.0, cle.1, cle.2, cle.3)
+}
+
+/// Verdict canonique en base (TP1/TP2/TP3/SL/BE/Expire).
+fn verdict_texte(v: smc::v12::trade::Verdict) -> &'static str {
+    match v {
+        smc::v12::trade::Verdict::Tp3 => "TP3",
+        smc::v12::trade::Verdict::Tp2 => "TP2",
+        smc::v12::trade::Verdict::Tp1 => "TP1",
+        smc::v12::trade::Verdict::Sl => "SL",
+        smc::v12::trade::Verdict::Be => "BE",
+        smc::v12::trade::Verdict::Expire => "Expire",
+    }
 }
 
 /// Extrait les trades jamais émis d'un carnet, les convertit en signaux et
@@ -99,7 +111,7 @@ pub(crate) fn extraire_nouveaux(
             TradeSource::Ob => "v11-OB",
             TradeSource::BsZones => "BSZones",
         };
-        let cle_str = format!("{:?}", cle);
+        let cle_str = cle_vers_string(&cle);
         signaux.push(SignalBrut::avec_cle(
             NOM,
             asset.clone(),
@@ -167,7 +179,7 @@ pub(crate) fn diff_lifecycle(
                 moteur: NOM.to_string(),
                 asset: asset.clone(),
                 tf,
-                cle_trade: format!("{}:{}:{}:{}", cle.0, cle.1, cle.2, cle.3),
+                cle_trade: cle_vers_string(&cle),
                 evenement: type_ev,
                 detail,
                 prix,
@@ -200,9 +212,11 @@ pub(crate) fn diff_lifecycle(
         }
         if avant.clture_raison.is_none() && nouvel_etat.clture_raison.is_some() {
             if let Some(r) = t.close_reason {
+                // Détail structuré « verdict|R » — le writer officiel sépare sur
+                // '|' pour écrire le verdict et son R en base (courbe de trades).
                 pousser(
                     TypeEvenementTrade::Cloture,
-                    raison_texte(r).to_string(),
+                    format!("{}|{:.4}", verdict_texte(t.verdict()), t.realized_r()),
                     match r {
                         CloseReason::Sl => t.sl,
                         CloseReason::Be | CloseReason::Tp2Sl => t.entry,
@@ -218,4 +232,122 @@ pub(crate) fn diff_lifecycle(
     // Trades disparus du carnet (phantoms intrabar) : retrait silencieux.
     vus.retain(|cle, _| cles_presentes.contains(cle));
     evenements
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use smc::v12::types::BarInput;
+
+
+    fn trade_sl(ts: i64) -> Trade {
+        // Trade bull créé à ts, rempli puis clôturé SL (struct littérale :
+        // `new_buy` est pub(crate) smc, inaccessible depuis engine_v12).
+        let mut t = Trade {
+            id: 1,
+            side: Side::Buy,
+            source: TradeSource::Ob,
+            entry: 100.0,
+            sl: 98.0,
+            tp1: 102.0,
+            tp2: 104.0,
+            tp3: 106.0,
+            score: 8,
+            risk0: 2.0,
+            open_ts: ts,
+            bar_created: 42,
+            ob_key: None,
+            filled: true,
+            tp1_hit: false,
+            tp1_price_touched: false,
+            tp2_ts: 0,
+            tp3_touched: false,
+            be_forced: false,
+            state: TradeState::Open,
+            fill_ts: Some(ts),
+            close_reason: Some(CloseReason::Sl),
+            close_ts: None,
+            close_bar: None,
+            close_r: None,
+        };
+        t.state = TradeState::Closed;
+        t
+    }
+
+    /// Un seul format de clé, sans parenthèse Debug : l'incident 23/08 venait
+    /// d'un signal « (2018, 0, 0, …) » face à un événement « 2018:0:0:… ».
+    #[test]
+    fn cle_format_unique_sans_debug() {
+        let t = trade_sl(1_700_000_000);
+        let cle = cle_du_trade(&t);
+        let s = cle_vers_string(&cle);
+        assert!(!s.contains('('), "pas de format Debug : {}", s);
+        assert!(!s.contains(' '), "pas d'espace : {}", s);
+        // Le champ clé du signal = exactement la clé de l'événement.
+        let mut emis = HashSet::new();
+        let sig = extraire_nouveaux(
+            &mut emis,
+            &[trade_sl(1_700_000_000)],
+            Asset::from("XAUUSD"),
+            Timeframe::M15,
+            0,
+        );
+        assert_eq!(sig.len(), 1);
+        assert_eq!(sig[0].cle, s, "clé signal ≠ clé canonique");
+    }
+
+    /// La clé repose sur open_ts : deux moteurs qui rejouent des fenêtres
+    /// décalées retrouvent la MÊME clé pour le même trade (clôture d'un
+    /// trade ouvert avant redémarrage).
+    #[test]
+    fn cle_stable_malgre_fenetre_decalee() {
+        let t = trade_sl(1_700_000_000);
+        let k1 = cle_vers_string(&cle_du_trade(&t));
+        // Même trade, index de barre différent (fenêtre glissée) → même clé.
+        let mut t2 = trade_sl(1_700_000_000);
+        t2.bar_created = 9_999;
+        let k2 = cle_vers_string(&cle_du_trade(&t2));
+        assert_eq!(k1, k2);
+        // Une seconde plus tard → clé différente.
+        let mut t3 = trade_sl(1_700_000_001);
+        t3.bar_created = t.bar_created;
+        assert_ne!(k1, cle_vers_string(&cle_du_trade(&t3)));
+    }
+
+    /// Clôture : le détail porte « verdict|R » (ex. « SL|-1.0000 »).
+    #[test]
+    fn cloture_detail_porte_verdict_et_r() {
+        let t = trade_sl(1_700_000_000);
+        let mut vus = std::collections::HashMap::new();
+        // 1re évaluation : trade ouvert rempli (pas encore clôturé).
+        let mut ouvert = trade_sl(1_700_000_000);
+        ouvert.close_reason = None;
+        ouvert.state = TradeState::Open;
+        let _ = diff_lifecycle(
+            &mut vus,
+            &[ouvert],
+            Asset::from("XAUUSD"),
+            Timeframe::M15,
+            0,
+        );
+        // 2e évaluation : clôturé SL → un événement Cloture « SL|-1.0000 ».
+        let evs = diff_lifecycle(
+            &mut vus,
+            &[t],
+            Asset::from("XAUUSD"),
+            Timeframe::M15,
+            60,
+        );
+        let clotures: Vec<_> = evs
+            .iter()
+            .filter(|e| matches!(e.evenement, TypeEvenementTrade::Cloture))
+            .collect();
+        assert_eq!(clotures.len(), 1);
+        assert_eq!(clotures[0].detail, "SL|-1.0000");
+        // clé de l'événement = clé canonique du trade (open_ts|side|src|bits).
+        assert_eq!(
+            clotures[0].cle_trade,
+            cle_vers_string(&cle_du_trade(&trade_sl(1_700_000_000)))
+        );
+    }
 }
