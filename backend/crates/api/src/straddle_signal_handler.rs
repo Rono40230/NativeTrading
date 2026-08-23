@@ -278,7 +278,6 @@ pub async fn generer_signal_straddle(
         .db
         .inserer_signal_straddle_complet(&signal, sl_short, &[tp1_short, tp2_short, tp3_short], heure_entree)
         .await;
-    state.signal_engine.publier(signal.clone());
 
     // Snapshot features ML
     let ratio_atr_calc = if body.atr_moyen_14 > 0.0 { body.atr_actuel / body.atr_moyen_14 } else { 1.0 };

@@ -8,7 +8,6 @@ mod calendar_handlers;
 mod config_handlers;
 mod data_handlers;
 mod dukascopy_handlers;
-mod engine_handlers;
 mod handlers;
 mod http_client;
 mod indicators_handlers;
@@ -41,11 +40,11 @@ mod rockets_analyse;
 mod rockets_analyse_handler;
 mod rockets_calibration;
 mod rockets_handlers;
+mod rockets_sauvegarder;
+mod rockets_scan;
 mod rockets_ml_handlers;
 mod rockets_prix;
-mod rockets_sauvegarder;
 mod rockets_sauvegarder_feedbacks;
-mod rockets_scan;
 mod rockets_suivi;
 mod rockets_suivi_worker;
 mod retention_job;
@@ -56,27 +55,20 @@ mod scheduler_execution;
 mod sentiment_composite;
 mod sentiment_filter;
 mod sentiment_handlers;
-mod signal_engine;
-mod signal_engine_analyse;
-mod signal_engine_asset;
 mod signal_filtre;
 mod signaux_handlers;
+mod signaux_officiels;
 mod smc_analyse_handler;
-mod smc_boucle;
 mod smc_calibration_job;
 mod smc_categorisation;
 mod smc_feedback_db;
 mod smc_feedback_job;
 mod smc_handlers;
 mod smc_monitoring_handlers;
-mod smc_signal_ollama;
 mod smc_v12_collect;
 mod smc_v12_handlers;
 mod smc_v12_out;
 mod state;
-mod straddle_boucle;
-mod straddle_boucle_analyse;
-mod straddle_boucle_signal;
 mod straddle_calibration;
 mod straddle_categorisation;
 mod straddle_dev_handlers;
@@ -89,11 +81,9 @@ mod straddle_moniteur_position;
 mod straddle_monitoring_handlers;
 mod straddle_precision_handler;
 mod straddle_prompt;
-mod straddle_scan_pics;
 mod straddle_score_regle;
 mod straddle_signal_feedback;
 mod straddle_signal_handler;
-mod straddle_signal_ollama;
 mod straddle_types;
 mod straddle_utils;
 mod strategies_params_handlers;
@@ -148,13 +138,7 @@ async fn main() -> std::io::Result<()> {
     // let pool_scan = app_state.db.pool().clone();
     // let signal_engine_rockets = app_state.signal_engine.clone();
     // let pipeline_ml_rockets = app_state.pipeline_ml.clone();
-    // tokio::spawn(rockets_scan::demarrer_worker_scan(
-    //     pool_scan,
-    //     signal_engine_rockets,
-    //     pipeline_ml_rockets,
-    // ));
     tracing::warn!("🛑 Worker Rockets scan SUSPENDU — retour prévu en phase 3 (plugin runtime)");
-    let _ = rockets_scan::demarrer_worker_scan;
 
     // Analyse hebdo LLM Rockets suspendue (consommateur Ollama).
     // tokio::spawn(rockets_analyse_handler::demarrer_worker_analyse(pool_analyse));

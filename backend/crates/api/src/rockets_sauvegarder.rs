@@ -1,7 +1,6 @@
 //! Logique partagée de filtrage LLM, sauvegarde et publication d'un signal Rocket.
 //! Séparé de rockets_scan.rs pour respecter la limite de 300 lignes.
 
-use crate::signal_engine::SignalEngine;
 use crate::straddle_categorisation::session_active;
 use db::rockets::{self, NouveauRocket};
 use db::rockets_feedback::{inserer_feedback, NouveauFeedbackRocket};
@@ -43,7 +42,6 @@ pub async fn filtrer_sauvegarder_publier(
     phase_sauvegardee: &str,
     label_signal: &str,
     pool: &sqlx::SqlitePool,
-    signal_engine: &Arc<SignalEngine>,
     cfg: &db::rockets_config::RocketsConfig,
 ) {
     let session = session_active(chrono::Utc::now());
@@ -235,7 +233,6 @@ pub async fn filtrer_sauvegarder_publier(
             ],
             label_signal,
         );
-        signal_engine.publier(signal.clone());
     }
 
     // Enregistrer le feedback initial (verdict=NULL, sera réconcilié par rockets_suivi)

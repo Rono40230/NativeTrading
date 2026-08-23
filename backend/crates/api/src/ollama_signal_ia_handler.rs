@@ -108,7 +108,6 @@ pub async fn generer_signal(
             // Pipeline unifié : DB + broadcast (modale) + Telegram
             if let Some(ref sig) = signal {
                 let _ = state.db.inserer_signal(sig).await;
-                state.signal_engine.publier(sig.clone());
             }
 
             HttpResponse::Ok().json(ReponseSignalIA {

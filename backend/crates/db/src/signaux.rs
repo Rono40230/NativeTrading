@@ -156,6 +156,51 @@ impl Database {
         Ok(())
     }
 
+    /// Phase 2.8 — insère un signal OFFICIEL du runtime v12 (avec `cle_moteur`
+    /// pour fermer la ligne à l'événement de clôture correspondant).
+    pub async fn inserer_signal_officiel(
+        &self,
+        signal: &Signal,
+        cle_moteur: &str,
+    ) -> Result<()> {
+        let tp_json = serde_json::to_string(&signal.take_profit)
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+        sqlx::query(
+            "INSERT OR IGNORE INTO signaux
+             (id, asset, timeframe, direction, score, prix_entree,
+              stop_loss, take_profit, strategie, statut, cree_le, cle_moteur)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Actif', ?, ?)",
+        )
+        .bind(signal.id.to_string())
+        .bind(signal.asset.as_str())
+        .bind(signal.timeframe.as_str())
+        .bind(format!("{:?}", signal.direction))
+        .bind(signal.score)
+        .bind(signal.prix_entree)
+        .bind(signal.stop_loss)
+        .bind(tp_json)
+        .bind(&signal.strategie)
+        .bind(signal.cree_le.timestamp())
+        .bind(cle_moteur)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Phase 2.8 — ferme le signal officiel correspondant à une clé moteur.
+    pub async fn fermer_signal_par_cle(&self, cle_moteur: &str, ferme_le: i64) -> Result<u64> {
+        let res = sqlx::query(
+            "UPDATE signaux SET statut = 'Fermé', ferme_le = ? WHERE cle_moteur = ? AND statut = 'Actif'",
+        )
+        .bind(ferme_le)
+        .bind(cle_moteur)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(res.rows_affected())
+    }
+
     /// Enregistre un signal Straddle (Direction::Both) avec les niveaux des deux jambes.
     /// - `stop_loss`         = SL jambe LONG  (< prix_entree)
     /// - `take_profit`       = [tp1, tp2, tp3] jambe LONG  (> prix_entree)

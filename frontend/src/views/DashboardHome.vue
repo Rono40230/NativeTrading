@@ -22,12 +22,6 @@
               :btc-prix="btcPrix"
               :ollama-ok="ollamaOk"
               :ml-pret="mlPret"
-              :engine-actif="engineActif"
-              :engine-secondes="engineSecondes"
-              :engine-signaux24h="engineSignaux24h"
-              :engine-chargement="engineChargement"
-              @engine-demarrer="engineDemarrer"
-              @engine-arreter="engineArreter"
               class="h-full"
            />
         </div>
@@ -70,7 +64,6 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { usePrixStore } from '@/stores/prix.store'
 import { useNewsStore } from '@/stores/news.store'
 import { useSentimentStore } from '@/stores/sentiment.store'
-import { useSignalEngine } from '@/composables/useSignalEngine'
 import { apiService } from '@/services/api.service'
 import type { Candle } from '@/services/api.service'
 import { useAssetsStore } from '@/stores/assets.store'
@@ -93,15 +86,6 @@ const { variationLive } = storeToRefs(prixStore)
 const newsStore = useNewsStore()
 const sentimentStore = useSentimentStore()
 const assetsStore = useAssetsStore()
-
-const {
-  actif: engineActif,
-  secondesRestantes: engineSecondes,
-  signaux24h: engineSignaux24h,
-  chargement: engineChargement,
-  demarrer: engineDemarrer,
-  arreter: engineArreter,
-} = useSignalEngine()
 
 const mlPret = computed(() => signalStore.prediction?.modele_pret ?? false)
 const backendOk = ref(false)

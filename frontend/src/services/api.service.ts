@@ -274,10 +274,10 @@ export const apiService = {
     }
   },
 
+  ...engineApi,
   ...rocketsApi,
   ...straddleApi,
   ...newsApi,
-  ...engineApi,
   ...workerApi,
   ...presseApi,
   ...apiSmcMethods,

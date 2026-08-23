@@ -1,6 +1,5 @@
 use crate::rockets_analyse::analyser_symbol;
 use crate::rockets_sauvegarder::{calculer_niveaux, filtrer_sauvegarder_publier};
-use crate::signal_engine::SignalEngine;
 use db::rockets;
 use futures_util::future::join_all;
 use ml::PipelineML;
@@ -33,13 +32,12 @@ pub fn get_total_candidats() -> Arc<RwLock<usize>> {
 
 pub async fn demarrer_worker_scan(
     pool: sqlx::SqlitePool,
-    signal_engine: Arc<SignalEngine>,
     pipeline_ml: Arc<RwLock<PipelineML>>,
 ) {
     let client = &*crate::http_client::HTTP_CLIENT;
 
     loop {
-        if let Err(e) = executer_scan(&client, &pool, &signal_engine, &pipeline_ml).await {
+        if let Err(e) = executer_scan(&client, &pool, &pipeline_ml).await {
             tracing::warn!("Scan rockets erreur: {}", e);
         }
         tokio::time::sleep(Duration::from_secs(SCAN_SECS)).await;
@@ -49,7 +47,6 @@ pub async fn demarrer_worker_scan(
 async fn executer_scan(
     client: &reqwest::Client,
     pool: &sqlx::SqlitePool,
-    signal_engine: &Arc<SignalEngine>,
     pipeline_ml: &Arc<RwLock<PipelineML>>,
 ) -> anyhow::Result<()> {
     use anyhow::Context;
@@ -159,7 +156,7 @@ async fn executer_scan(
             continue;
         }
         let niveaux = calculer_niveaux(r, &cfg);
-        filtrer_sauvegarder_publier(r, &niveaux, &r.phase, "Rockets", pool, signal_engine, &cfg).await;
+        filtrer_sauvegarder_publier(r, &niveaux, &r.phase, "Rockets", pool, &cfg).await;
     }
 
     // ── Passe "Confirmé Momentum" : compression avec élan 1h ─────────────────
@@ -182,7 +179,6 @@ async fn executer_scan(
             "momentum-compression",
             "Rockets-Momentum",
             pool,
-            signal_engine,
             &cfg,
         )
         .await;

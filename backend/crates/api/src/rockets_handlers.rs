@@ -104,7 +104,6 @@ pub async fn sauvegarder_signal(
                     vec![tp1, body.target2.unwrap_or(tp1), body.target3.unwrap_or(tp1)],
                     "Rockets",
                 );
-                state.signal_engine.publier(signal);
             }
             HttpResponse::Ok().json(serde_json::json!({ "id": id, "nouveau": true }))
         }

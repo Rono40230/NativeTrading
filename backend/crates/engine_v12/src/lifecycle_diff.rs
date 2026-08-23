@@ -99,7 +99,8 @@ pub(crate) fn extraire_nouveaux(
             TradeSource::Ob => "v11-OB",
             TradeSource::BsZones => "BSZones",
         };
-        signaux.push(SignalBrut::nouveau(
+        let cle_str = format!("{:?}", cle);
+        signaux.push(SignalBrut::avec_cle(
             NOM,
             asset.clone(),
             tf,
@@ -120,6 +121,7 @@ pub(crate) fn extraire_nouveaux(
                 t.bar_created
             ),
             debut_barre,
+            cle_str,
         ));
     }
     emis.retain(|cle| cles_presentes.contains(cle));

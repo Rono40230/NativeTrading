@@ -2,21 +2,7 @@
   <div class="glass-card flex flex-col p-2 min-h-0 shrink-0">
     <div class="flex items-center justify-between shrink-0 mb-1 border-b border-white/10 pb-1">
       <span class="text-[10px] font-bold text-white uppercase tracking-widest">⚙️ DATA & IA ENGINE</span>
-      <div class="flex items-center gap-2">
-        <span class="text-[9px] text-gray-400">{{ engineSignaux24h }} trades / 24h</span>
-        <button
-          v-if="!engineActif"
-          class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold hover:bg-emerald-500/30 transition disabled:opacity-50"
-          :disabled="engineChargement"
-          @click="$emit('engine-demarrer')"
-        >Start</button>
-        <button
-          v-else
-          class="px-2 py-0.5 rounded bg-red-500/20 text-red-400 text-[10px] font-semibold hover:bg-red-500/30 transition disabled:opacity-50"
-          :disabled="engineChargement"
-          @click="$emit('engine-arreter')"
-        >Stop</button>
-      </div>
+      <span class="text-[9px] text-emerald-400">runtime v12 · signaux officiels</span>
     </div>
     
     <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 flex-1 overflow-y-auto">
@@ -47,9 +33,7 @@
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
         <span class="text-gray-500 text-[9px] uppercase">Tick Engine</span>
-        <span :class="engineActif ? 'text-emerald-400' : 'text-gray-400'" class="text-[10px] font-semibold truncate text-right">
-          {{ engineActif ? (engineSecondes > 0 ? `🟢 ${engineSecondes}s` : '🟢 Analyse') : '🔴 Stoppé' }}
-        </span>
+        <span class="text-emerald-400 text-[10px] font-semibold truncate text-right">🟢 Runtime v12</span>
       </div>
     </div>
   </div>
@@ -61,14 +45,5 @@ defineProps<{
   btcPrix: number | null
   ollamaOk: boolean | null
   mlPret: boolean
-  engineActif: boolean
-  engineSecondes: number
-  engineSignaux24h: number
-  engineChargement: boolean
-}>()
-
-defineEmits<{
-  (e: 'engine-demarrer'): void
-  (e: 'engine-arreter'): void
 }>()
 </script>

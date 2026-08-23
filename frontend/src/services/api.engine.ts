@@ -1,29 +1,14 @@
 /**
- * Méthodes API dédiées au Signal Engine, données et ML historique.
- * Importées et spreadées dans apiService (api.service.ts).
+ * Méthodes API données & ML historique (ex-Signal Engine — phase 2.8 :
+ * endpoints signal-engine supprimés, le runtime v12 est officiel).
  */
 import { http } from './http.client'
 import type {
-  StatutSignalEngine, CouvertureDonnees, RequeteCollecte,
+  CouvertureDonnees, RequeteCollecte,
   ResultatCollecte, HistoriqueML, ReponsePatternsVolatilite,
 } from './api.types'
 
 export const engineApi = {
-  async signalEngineStatut(): Promise<StatutSignalEngine> {
-    const res = await http.get('/api/signal-engine/status')
-    return res.data
-  },
-
-  async signalEngineDemarrer(): Promise<{ statut: string; message: string }> {
-    const res = await http.post('/api/signal-engine/start')
-    return res.data
-  },
-
-  async signalEngineArreter(): Promise<{ statut: string; message: string }> {
-    const res = await http.post('/api/signal-engine/stop')
-    return res.data
-  },
-
   async obtenirCouvertureDonnees(): Promise<{
     couverture: CouvertureDonnees[]
     taille_db_octets?: number

@@ -114,6 +114,12 @@ pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
         data::bybit_ws::demarrer_worker_bybit(db.clone(), Some(tx));
 
         tokio::spawn(boucle_runtime(db.clone(), runtime, rx));
+        // Phase 2.8 — signaux OFFICIELS : table signaux + Telegram (bus < 1 s).
+        crate::signaux_officiels::demarrer(
+            db.clone(),
+            poignees.bus_signaux.clone(),
+            poignees.bus_evenements.clone(),
+        );
         tokio::spawn(journal_observation(
             db.clone(),
             poignees.bus_bougies.clone(),

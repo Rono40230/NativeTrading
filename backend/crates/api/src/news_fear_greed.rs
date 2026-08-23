@@ -68,8 +68,10 @@ pub async fn get_fear_greed(state: web::Data<AppState>) -> impl Responder {
     let mut cache = state.fear_greed_cache.write().await;
     *cache = Some((std::time::Instant::now(), data.clone()));
 
-    // E.2 — Alimenter le contexte du Signal Engine
-    state.signal_engine.mettre_a_jour_fg(valeur as i32);
+    // E.2 — Alimenter le contexte (atomiques du state — ex-SignalEngine)
+    state
+        .fg_valeur
+        .store(valeur as i32 as u64, std::sync::atomic::Ordering::Relaxed);
 
     tracing::debug!("Fear&Greed mis en cache: {valeur}/100 ({label})");
     HttpResponse::Ok().json(data)

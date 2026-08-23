@@ -6,7 +6,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use crate::scheduler::demarrer_scheduler;
-use crate::signal_engine::SignalEngine;
 use smc::v12::sentiment::SentimentScore;
 
 pub struct AppState {
@@ -15,7 +14,9 @@ pub struct AppState {
     /// État du job de réentraînement incrémental (Phase 8.4)
     pub retrain_state: Arc<tokio::sync::RwLock<crate::ml_retrain_handler::RetainState>>,
     /// Moteur de génération automatique de signaux SMC
-    pub signal_engine: Arc<SignalEngine>,
+    /// Score news / F&G (ex-SignalEngine — phase 2.8 : atomiques nus).
+    pub score_news: std::sync::atomic::AtomicU64,
+    pub fg_valeur: std::sync::atomic::AtomicU64,
     /// Cache Fear & Greed Index (TTL 1h) — (Instant du fetch, données JSON)
     pub fear_greed_cache: Arc<tokio::sync::RwLock<Option<(std::time::Instant, serde_json::Value)>>>,
     /// Sentiment composite 0-100 par classe (refresh 30 min par le worker).
@@ -61,7 +62,8 @@ impl AppState {
         let pipeline_ml = Arc::new(RwLock::new(pipeline_ml));
         // Le SignalEngine reste instancié : c'est le canal broadcast que
         // Straddle/Rockets utilisent pour publier vers le WS frontend.
-        let signal_engine = Arc::new(SignalEngine::new());
+        let score_news = std::sync::atomic::AtomicU64::new(0);
+        let fg_valeur = std::sync::atomic::AtomicU64::new(0);
         // Cache Fear & Greed (TTL 1h) — partagé entre l'endpoint et le worker sentiment.
         let fear_greed_cache: Arc<
             tokio::sync::RwLock<Option<(std::time::Instant, serde_json::Value)>>,
@@ -73,7 +75,7 @@ impl AppState {
         // remplacée par le runtime tick + moteur v12 en shadow (runtime_tick).
         // ⚠️ Ne pas réactiver : deux générateurs SMC simultanés pollueraient
         // DB et Telegram pendant le test de vérité (Gate 2).
-        tracing::warn!("🛑 Chemins SMC timer (signal_engine + smc_boucle) ÉTEINTS — remplacés par le runtime tick (shadow v12)");
+        tracing::info!("🛑 Ancien chemin SMC timer SUPPRIMÉ (phase 2.8) — signaux officiels = runtime v12");
 
         // ── ML SUSPENDU (décision propriétaire 2026-08-15) ─────────────────────
         // Les modèles avaient été entraînés sur les signaux de l'ancien système
@@ -141,7 +143,8 @@ impl AppState {
             retrain_state: Arc::new(tokio::sync::RwLock::new(
                 crate::ml_retrain_handler::RetainState::default(),
             )),
-            signal_engine,
+            score_news,
+            fg_valeur,
             fear_greed_cache,
             sentiment: sentiment_slot,
         })

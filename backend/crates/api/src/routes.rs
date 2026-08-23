@@ -237,22 +237,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::ws_handlers::stream_market),
         )
         .route(
-            "/api/signal-engine/start",
-            web::post().to(crate::engine_handlers::demarrer_engine),
-        )
-        .route(
-            "/api/signal-engine/stop",
-            web::post().to(crate::engine_handlers::arreter_engine),
-        )
-        .route(
-            "/api/signal-engine/status",
-            web::get().to(crate::engine_handlers::statut_engine),
-        )
-        .route(
-            "/api/signal-engine/stream",
-            web::get().to(crate::engine_handlers::stream_signaux),
-        )
-        .route(
             "/api/data/coverage",
             web::get().to(crate::data_handlers::get_coverage),
         )

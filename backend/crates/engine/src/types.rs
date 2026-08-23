@@ -84,6 +84,8 @@ pub struct SignalBrut {
     /// Début (epoch sec) de la bougie au moment de l'émission.
     pub debut_barre: i64,
     pub emis_le: DateTime<Utc>,
+    /// Clé stable du trade côté moteur (matching événements lifecycle — 2.8).
+    pub cle: String,
 }
 
 impl SignalBrut {
@@ -101,6 +103,36 @@ impl SignalBrut {
         raison: String,
         debut_barre: i64,
     ) -> Self {
+        Self::avec_cle(
+            moteur,
+            asset,
+            tf,
+            direction,
+            prix_entree,
+            stop_loss,
+            take_profits,
+            score,
+            raison,
+            debut_barre,
+            String::new(),
+        )
+    }
+
+    /// Variante avec clé de trade (matching lifecycle — phase 2.8).
+    #[allow(clippy::too_many_arguments)]
+    pub fn avec_cle(
+        moteur: &str,
+        asset: Asset,
+        tf: Timeframe,
+        direction: Direction,
+        prix_entree: f64,
+        stop_loss: f64,
+        take_profits: Vec<f64>,
+        score: i32,
+        raison: String,
+        debut_barre: i64,
+        cle: String,
+    ) -> Self {
         Self {
             moteur: moteur.to_string(),
             asset,
@@ -113,6 +145,7 @@ impl SignalBrut {
             raison,
             debut_barre,
             emis_le: Utc::now(),
+            cle,
         }
     }
 }

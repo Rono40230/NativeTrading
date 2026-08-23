@@ -141,8 +141,8 @@ pub async fn get_news_alertes(state: web::Data<AppState>) -> impl Responder {
 
     let score_max = articles.first().map(|a| a.score).unwrap_or(0);
     state
-        .signal_engine
-        .mettre_a_jour_score_news(score_max as i32);
+        .score_news
+        .store(score_max as i32 as u64, std::sync::atomic::Ordering::Relaxed);
 
     HttpResponse::Ok().json(AlertesNews {
         articles,

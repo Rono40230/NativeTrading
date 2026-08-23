@@ -31,7 +31,7 @@ pub async fn get_contexte_marche(state: web::Data<AppState>) -> impl Responder {
         smc_suspendu,
         raison,
         minutes_restantes,
-        score_news: state.signal_engine.score_news.load(Ordering::Relaxed),
-        fear_greed: state.signal_engine.fg_valeur.load(Ordering::Relaxed),
+        score_news: state.score_news.load(Ordering::Relaxed) as i32,
+        fear_greed: state.fg_valeur.load(Ordering::Relaxed) as i32,
     })
 }
