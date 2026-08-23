@@ -90,8 +90,7 @@
             :key="ind.key"
             :title="ind.pending ? 'Donnée non encore exposée par /api/smc/v12/analyse' : 'Afficher / Masquer'"
             :class="[
-              'flex items-center gap-2 px-2.5 py-1.5 text-[11px] cursor-pointer hover:bg-white/5',
-              ind.pending ? 'italic text-slate-500' : 'text-slate-300'
+              'flex items-center gap-2 px-2.5 py-1.5 text-[11px] cursor-pointer hover:bg-white/5 text-slate-300'
             ]"
           >
             <input
