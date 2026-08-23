@@ -351,10 +351,28 @@ export function dessinerSignaux(
   dernierTs: number | null,
 ): void {
   const xD = xDroit(ts, W, dernierTs)
+  // px/seconde pour extrapoler les bords droits futurs (tsFin > dernière bougie).
+  let pxParSec = 0
+  const vr = ts.getVisibleRange()
+  if (vr) {
+    const xf = ts.timeToCoordinate(vr.from as any)
+    const xt = ts.timeToCoordinate(vr.to as any)
+    const d = (vr.to as number) - (vr.from as number)
+    if (xf !== null && xt !== null && d > 0) pxParSec = (xt - xf) / d
+  }
   for (const s of sigList) {
     const xGRaw = ts.timeToCoordinate(s.ts as any)
     const xG = xGRaw !== null ? Math.max(0, xGRaw) : 0
     if (xD <= xG) continue
+    // Bord droit FINI du trade (Pine i_tpWidth : 40 barres, H1 30, H4 20).
+    const tsFin = (s as { tsFin?: number }).tsFin
+    let xFin = xD
+    if (tsFin !== undefined && xGRaw !== null && pxParSec > 0) {
+      const direct = ts.timeToCoordinate(tsFin as any)
+      xFin = direct !== null ? direct : xGRaw + (tsFin - s.ts) * pxParSec
+    }
+    if (xFin <= xG) continue
+    const xDTrade = Math.min(xD, xFin)
     const yEntry = serie.priceToCoordinate(s.entry)
     const ySl = serie.priceToCoordinate(s.sl)
     const yTp = serie.priceToCoordinate(s.tp1)
@@ -364,26 +382,26 @@ export function dessinerSignaux(
       const yTop = Math.min(yEntry, ySl)
       const h = Math.abs(yEntry - ySl)
       ctx.fillStyle = hexVersRgba(COUL_SL, (100 - 78) / 100)
-      ctx.fillRect(xG, yTop, xD - xG, h)
+      ctx.fillRect(xG, yTop, xDTrade - xG, h)
       ctx.strokeStyle = hexVersRgba(COUL_SL, 0.6)
       ctx.lineWidth = 1
-      ctx.strokeRect(xG, yTop, xD - xG, h)
+      ctx.strokeRect(xG, yTop, xDTrade - xG, h)
     }
     // Box TP (entry ↔ tp1) — transp 78.
     if (yTp !== null) {
       const yTop = Math.min(yEntry, yTp)
       const h = Math.abs(yEntry - yTp)
       ctx.fillStyle = hexVersRgba(COUL_TP, (100 - 78) / 100)
-      ctx.fillRect(xG, yTop, xD - xG, h)
+      ctx.fillRect(xG, yTop, xDTrade - xG, h)
       ctx.strokeStyle = hexVersRgba(COUL_TP, 0.6)
       ctx.lineWidth = 1
-      ctx.strokeRect(xG, yTop, xD - xG, h)
+      ctx.strokeRect(xG, yTop, xDTrade - xG, h)
     }
     // Ligne entrée + label BUY/SELL.
     ctx.strokeStyle = COUL_ENTRY
     ctx.lineWidth = 1
     ctx.setLineDash([2, 3])
-    ctx.beginPath(); ctx.moveTo(xG, yEntry); ctx.lineTo(xD, yEntry); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(xG, yEntry); ctx.lineTo(xDTrade, yEntry); ctx.stroke()
     ctx.setLineDash([])
     const txt = s.dir === 'Long' ? `BUY ${s.force}/10` : `SELL ${s.force}/10`
     ctx.font = 'bold 10px sans-serif'

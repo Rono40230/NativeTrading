@@ -243,9 +243,22 @@ export function useSmcV12Overlay() {
     fvgs = data.fvgs.map((f) => ({
       ts: f.ts, top: f.top, bot: f.bot, dir: f.dir, state: f.state,
     }))
-    signals = data.signals.map((s) => ({
-      ts: s.ts, entry: s.entry, sl: s.sl, tp1: s.tp1, dir: s.dir, force: s.force,
-    }))
+    // Largeur finie des boxes trade (Pine i_tpWidth : 40 barres, H1=30,
+    // H4=20 — jamais jusqu'au bord droit) + visibilité au fill (Pine :
+    // ordre en attente INVISIBLE, objets rendus visibles au fill).
+    const largeurTp: Record<string, number> = { H1: 30, H4: 20 }
+    const dureeBarre: Record<string, number> = {
+      M1: 60, M5: 300, M15: 900, M30: 1800,
+      H1: 3600, H4: 14400, D1: 86400, W1: 604800,
+    }
+    const nbBarres = largeurTp[timeframe] ?? 40
+    const duree = dureeBarre[timeframe] ?? 900
+    signals = data.signals
+      .filter((s) => s.filled !== false)
+      .map((s) => ({
+        ts: s.ts, entry: s.entry, sl: s.sl, tp1: s.tp1, dir: s.dir, force: s.force,
+        tsFin: s.ts + nbBarres * duree,
+      }))
     tendance = data.tendance
     // 13 indicateurs étendus (optionnels : absents si backend non mis à jour).
     donneesExt = {

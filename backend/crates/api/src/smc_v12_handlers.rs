@@ -355,6 +355,7 @@ pub async fn analyse_v12(
                 TradeSource::BsZones => "bszones",
             },
             verdict: verdict_str(t.verdict()),
+            filled: t.filled,
             sentiment: sentiment_score,
             alignement,
         });

@@ -57,6 +57,8 @@ export interface SignalV12 {
   force: number
   source: 'v11' | 'bszones'
   verdict: 'TP3' | 'TP2' | 'TP1' | 'SL' | 'BE' | 'Expire'
+  /** Trade rempli (Pine : invisible tant que non rempli). */
+  filled: boolean
 }
 
 // ── Indicateurs v12 étendus (sérialisés à plat via #[serde(flatten)]) ─────────

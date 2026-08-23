@@ -88,6 +88,8 @@ pub(crate) struct SignalOut {
     pub force: i32,
     pub source: &'static str,
     pub verdict: &'static str,
+    /// Trade rempli (Pine : invisible tant que non rempli).
+    pub filled: bool,
     /// Score de sentiment de la classe de l'asset (None si indispo).
     pub sentiment: Option<f64>,
     /// Alignement direction × sentiment ("aligne"|"oppose"|"neutre"|"extreme").
