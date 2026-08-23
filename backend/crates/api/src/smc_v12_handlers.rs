@@ -349,13 +349,15 @@ pub async fn analyse_v12(
             tp1: t.tp1,
             tp2: t.tp2,
             tp3: t.tp3,
-            force: t.score,
+            // Pine affiche f_force (bandes /10, bornée 1-10), pas le score brut.
+            force: ScoringV11::force(t.score, &engine.calibration),
             source: match t.source {
                 TradeSource::Ob => "v11",
                 TradeSource::BsZones => "bszones",
             },
             verdict: verdict_str(t.verdict()),
             filled: t.filled,
+            fill_ts: t.fill_ts,
             sentiment: sentiment_score,
             alignement,
         });

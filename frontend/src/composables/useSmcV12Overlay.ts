@@ -255,10 +255,14 @@ export function useSmcV12Overlay() {
     const duree = dureeBarre[timeframe] ?? 900
     signals = data.signals
       .filter((s) => s.filled !== false)
-      .map((s) => ({
-        ts: s.ts, entry: s.entry, sl: s.sl, tp1: s.tp1, dir: s.dir, force: s.force,
-        tsFin: s.ts + nbBarres * duree,
-      }))
+      .map((s) => {
+        // Pine : box ancrée sur la barre de FILL (retest), pas la création.
+        const ancrage = s.fill_ts ?? s.ts
+        return {
+          ts: ancrage, entry: s.entry, sl: s.sl, tp1: s.tp1, dir: s.dir, force: s.force,
+          tsFin: ancrage + nbBarres * duree,
+        }
+      })
     tendance = data.tendance
     // 13 indicateurs étendus (optionnels : absents si backend non mis à jour).
     donneesExt = {

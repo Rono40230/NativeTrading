@@ -377,8 +377,9 @@ export function dessinerSignaux(
     const ySl = serie.priceToCoordinate(s.sl)
     const yTp = serie.priceToCoordinate(s.tp1)
     if (yEntry === null) continue
-    // Box SL (entry ↔ sl) — transp 78.
-    if (ySl !== null) {
+    // Box SL (entry ↔ sl) — transp 78. Au BE, le Pine SUPPRIME la box SL
+    // (SL → entry, hauteur nulle) : on ne trace rien.
+    if (ySl !== null && Math.abs(yEntry - ySl) >= 1) {
       const yTop = Math.min(yEntry, ySl)
       const h = Math.abs(yEntry - ySl)
       ctx.fillStyle = hexVersRgba(COUL_SL, (100 - 78) / 100)

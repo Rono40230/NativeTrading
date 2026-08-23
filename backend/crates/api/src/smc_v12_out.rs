@@ -90,6 +90,8 @@ pub(crate) struct SignalOut {
     pub verdict: &'static str,
     /// Trade rempli (Pine : invisible tant que non rempli).
     pub filled: bool,
+    /// Barre de FILL (retest) — le Pine ancre la box sur elle, pas la création.
+    pub fill_ts: Option<i64>,
     /// Score de sentiment de la classe de l'asset (None si indispo).
     pub sentiment: Option<f64>,
     /// Alignement direction × sentiment ("aligne"|"oppose"|"neutre"|"extreme").

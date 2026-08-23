@@ -59,6 +59,8 @@ export interface SignalV12 {
   verdict: 'TP3' | 'TP2' | 'TP1' | 'SL' | 'BE' | 'Expire'
   /** Trade rempli (Pine : invisible tant que non rempli). */
   filled: boolean
+  /** Barre de FILL — le Pine ancre la box sur elle (pas la création). */
+  fill_ts?: number | null
 }
 
 // ── Indicateurs v12 étendus (sérialisés à plat via #[serde(flatten)]) ─────────
