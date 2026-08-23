@@ -566,6 +566,8 @@ pub struct SmcOutput {
     pub mtf: MtfEvent,
     /// Zone-cœur (intersection OB ∩ OTE ∩ FVG).
     pub zone_coeur: ZoneCoeurEvent,
+    /// MODULE 14 — Asian High/Low drawn (DoL znQual + cible TP3).
+    pub asian_hl: super::asian_hl::AsianHlEvent,
     /// Dernier swing high (sh1).
     pub sh1: Option<f64>,
     /// Dernier swing low (sl1).

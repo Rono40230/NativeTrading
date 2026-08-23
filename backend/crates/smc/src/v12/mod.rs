@@ -6,6 +6,7 @@
 //! Phase 2.2 : MODULES 6/7/8b/8c/13b (FVG + Order Blocks + Breaker + Propulsion + Imbalance).
 //! Phase 2.3 : MODULES 4b/10b/12/13c + Kill Zones + Zone-cœur (contexte).
 
+pub mod asian_hl;
 pub mod atr;
 pub mod bos;
 pub mod breaker;
@@ -37,6 +38,7 @@ pub mod trade;
 pub mod types;
 pub mod zone_coeur;
 
+pub use asian_hl::AsianHlDetector;
 pub use atr::Atr14;
 pub use bos::BosDetector;
 pub use breaker::BreakerDetector;
@@ -103,6 +105,8 @@ pub struct SmcV12Engine {
     // --- Phase 2.5 : CERVEAU (scoring + signaux + lifecycle) ---
     /// MODULE 11 — Scoring v11 (OB).
     pub scoring_v11: ScoringV11,
+    /// MODULE 14 — Asian High/Low (DoL znQual + TP3).
+    pub asian_hl: AsianHlDetector,
     /// MODULE BSZones — second moteur de scoring + zones.
     pub scoring_bs: ScoringBsZones,
     /// Générateur de signaux + carnet de trades.
@@ -127,6 +131,7 @@ impl SmcV12Engine {
         let tp3_max_secs = tp3_max_mins(&cal, tf_mins) * 60;
         Self {
             scoring_v11: ScoringV11::new(&cal, tf_mins),
+            asian_hl: AsianHlDetector::new(),
             scoring_bs: ScoringBsZones::new(),
             signals: SignalGenerator::new(),
             lifecycle: TradeLifecycle::new(trade_max_secs, tp3_max_secs),
@@ -265,6 +270,9 @@ impl SmcV12Engine {
 
         // 18. Zone-cœur — intersection OB ∩ OTE ∩ FVG (post-lifecycle).
         //     Lit les zones vivantes (bull_zones/bear_zones) + bornes OTE + sweep frais.
+        // 18b. Asian High/Low (MODULE 14) — niveaux drawn pour znQual/TP3.
+        let asian_ev = self.asian_hl.update(bar);
+
         let zone_coeur_event = self.zone_coeur.update(
             self.order_blocks.bull_zones(),
             self.order_blocks.bear_zones(),
@@ -297,6 +305,7 @@ impl SmcV12Engine {
             ndog: ndog_event,
             mtf: mtf_event,
             zone_coeur: zone_coeur_event,
+            asian_hl: asian_ev,
             sh1: self.pivots.sh1(),
             sl1: self.pivots.sl1(),
             // Tendance PRÉ-reset MSS (fidélité Pine : calculée ligne 381 avant reset 504).

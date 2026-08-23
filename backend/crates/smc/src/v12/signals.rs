@@ -55,9 +55,9 @@ impl SignalGenerator {
     /// `f_tradeBloquant` (Pine 2969-2979) — vrai si un trade ouvert est rempli et
     /// non neutralisé (pas TP1/BE). Les trades en attente ne bloquent pas.
     pub fn trade_bloquant(&self) -> bool {
-        self.trades.iter().any(|t| {
-            t.state != TradeState::Closed && t.filled && !t.neutralized()
-        })
+        self.trades
+            .iter()
+            .any(|t| t.state != TradeState::Closed && t.filled && !t.neutralized())
     }
 
     /// Génère les signaux de la bar dans l'ordre Pine exact.
@@ -86,12 +86,16 @@ impl SignalGenerator {
         let (sl_min, sl_max) = sl_min_max(cal, atr);
 
         // 1. v11 BUY.
-        if self.create_v11(true, out, bar, bar_index, atr, cal, ob_bull, scoring, fvg_bull, sl_min, sl_max) {
+        if self.create_v11(
+            true, out, bar, bar_index, atr, cal, ob_bull, scoring, fvg_bull, sl_min, sl_max,
+        ) {
             self.trade_pousse = true;
             return;
         }
         // 2. v11 SELL.
-        if self.create_v11(false, out, bar, bar_index, atr, cal, ob_bear, scoring, fvg_bear, sl_min, sl_max) {
+        if self.create_v11(
+            false, out, bar, bar_index, atr, cal, ob_bear, scoring, fvg_bear, sl_min, sl_max,
+        ) {
             self.trade_pousse = true;
             return;
         }
@@ -161,9 +165,9 @@ impl SignalGenerator {
             if !qual {
                 continue;
             }
-            let Some((entry, sl, tp1, tp2, tp3, risk0)) = self.build_levels(
-                is_bull, top, bot, atr, cal, out, sl_min, sl_max,
-            ) else {
+            let Some((entry, sl, tp1, tp2, tp3, risk0)) =
+                self.build_levels(is_bull, top, bot, atr, cal, out, sl_min, sl_max)
+            else {
                 continue; // r > 2×slMax → skip ce OB (continue).
             };
             let trade = make_trade(
@@ -203,10 +207,18 @@ impl SignalGenerator {
         sl_min: f64,
         sl_max: f64,
     ) -> bool {
-        let n = if is_bull { bs.bull_zones().len() } else { bs.bear_zones().len() };
+        let n = if is_bull {
+            bs.bull_zones().len()
+        } else {
+            bs.bear_zones().len()
+        };
         for idx in 0..n {
             // BsZone est Copy → on snapshot pour libérer l'emprunt avant mark_signaled.
-            let z = if is_bull { bs.bull_zones()[idx] } else { bs.bear_zones()[idx] };
+            let z = if is_bull {
+                bs.bull_zones()[idx]
+            } else {
+                bs.bear_zones()[idx]
+            };
             if z.signaled {
                 continue;
             }
@@ -235,9 +247,9 @@ impl SignalGenerator {
             if z.score < TRADE_MIN_SCORE {
                 continue;
             }
-            let Some((entry, sl, tp1, tp2, tp3, risk0)) = self.build_levels(
-                is_bull, top, bot, atr, cal, out, sl_min, sl_max,
-            ) else {
+            let Some((entry, sl, tp1, tp2, tp3, risk0)) =
+                self.build_levels(is_bull, top, bot, atr, cal, out, sl_min, sl_max)
+            else {
                 continue;
             };
             let trade = make_trade(
@@ -288,8 +300,16 @@ impl SignalGenerator {
             SlMode::Atr2x => 2.0 * atr,
             SlMode::BasOb => 0.0,
         };
-        let raw_sl = if is_bull { zone_bot - offset } else { zone_top + offset };
-        let raw_r = if is_bull { entry - raw_sl } else { raw_sl - entry };
+        let raw_sl = if is_bull {
+            zone_bot - offset
+        } else {
+            zone_top + offset
+        };
+        let raw_r = if is_bull {
+            entry - raw_sl
+        } else {
+            raw_sl - entry
+        };
         // Garde : r trop grand → skip (Pine 3451/3598/3691/3750 : `continue`).
         if raw_r > 2.0 * sl_max {
             return None;
@@ -298,16 +318,28 @@ impl SignalGenerator {
         let r = raw_r.max(sl_min).min(sl_max);
         let sl = if is_bull { entry - r } else { entry + r };
         let tp1 = if is_bull { entry + r } else { entry - r };
-        let tp2 = if is_bull { entry + 2.0 * r } else { entry - 2.0 * r };
+        let tp2 = if is_bull {
+            entry + 2.0 * r
+        } else {
+            entry - 2.0 * r
+        };
         // TP3 = liquidité la plus proche au-delà de l'entrée (EQH/PDH/PWH bull,
         // EQL/PDL/PWL bear). _ahHighDrawn/_ahLowDrawn omis (Asian HL — voir rapport).
         let tp3_raw = nearest_liq(out, entry, is_bull);
-        let fallback = if is_bull { entry + 3.0 * r } else { entry - 3.0 * r };
+        let fallback = if is_bull {
+            entry + 3.0 * r
+        } else {
+            entry - 3.0 * r
+        };
         // Monotonie TP3 : bull tp3 >= tp2, bear tp3 <= tp2 (Pine 3475/3622/3699/3757).
         let tp3 = match tp3_raw {
             Some(v) => {
                 let ok = if is_bull { v >= tp2 } else { v <= tp2 };
-                if ok { v } else { fallback }
+                if ok {
+                    v
+                } else {
+                    fallback
+                }
             }
             None => fallback,
         };
@@ -339,7 +371,9 @@ fn make_trade(
     ob_key: Option<usize>,
 ) -> Trade {
     let side = if is_bull { Side::Buy } else { Side::Sell };
-    let mut t = Trade::new_buy(id, source, entry, sl, tp1, tp2, tp3, score, risk0, bar, bar_index, ob_key);
+    let mut t = Trade::new_buy(
+        id, source, entry, sl, tp1, tp2, tp3, score, risk0, bar, bar_index, ob_key,
+    );
     t.side = side;
     t
 }
@@ -383,6 +417,7 @@ fn nearest_liq(out: &SmcOutput, entry: f64, is_bull: bool) -> Option<f64> {
             out.liquidite.dernier_eqh_level,
             out.liquidite.pdh_active,
             out.liquidite.pwh_active,
+            out.asian_hl.high, // _tAHH3 (Pine 3512)
         ]
         .into_iter()
         .flatten()
@@ -393,6 +428,7 @@ fn nearest_liq(out: &SmcOutput, entry: f64, is_bull: bool) -> Option<f64> {
             out.liquidite.dernier_eql_level,
             out.liquidite.pdl_active,
             out.liquidite.pwl_active,
+            out.asian_hl.low, // _tAHL3 (Pine)
         ]
         .into_iter()
         .flatten()
@@ -460,6 +496,8 @@ mod tests {
         let gen = SignalGenerator::new();
         let out = SmcOutput::default();
         // top=100 bot=90 → entry=100, raw_sl=90-2=88, raw_r=12 > 2×slMax(=6) → None.
-        assert!(gen.build_levels(true, 100.0, 90.0, 2.0, &c, &out, 1.0, 3.0).is_none());
+        assert!(gen
+            .build_levels(true, 100.0, 90.0, 2.0, &c, &out, 1.0, 3.0)
+            .is_none());
     }
 }

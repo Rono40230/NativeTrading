@@ -62,7 +62,12 @@ impl ScoringV11 {
     }
 
     /// Score brut live `f_score(isBull)` (Pine lignes 2184-2250).
-    pub fn live_score(is_bull: bool, out: &SmcOutput, bar: &BarInput, cal: &AssetCalibration) -> i32 {
+    pub fn live_score(
+        is_bull: bool,
+        out: &SmcOutput,
+        bar: &BarInput,
+        cal: &AssetCalibration,
+    ) -> i32 {
         Self::live_score_detaille(is_bull, out, bar, cal).0
     }
 
@@ -81,15 +86,31 @@ impl ScoringV11 {
 
         // 1. BOS directionnel — poids dynamique selon force du corps (P1.1 + P5.2).
         //    Anti-double-compte : on ne compte le BOS que si aucun MSS directionnel.
-        let bos_dir = if is_bull { out.bos.bullish } else { out.bos.bearish };
-        let mss_dir = if is_bull { out.mss.mss_haussier } else { out.mss.mss_baissier };
+        let bos_dir = if is_bull {
+            out.bos.bullish
+        } else {
+            out.bos.bearish
+        };
+        let mss_dir = if is_bull {
+            out.mss.mss_haussier
+        } else {
+            out.mss.mss_baissier
+        };
         if bos_dir && !mss_dir {
             let body = (bar.close - bar.open).abs();
             let w = if atr > 0.0 {
                 if body >= 1.5 * atr {
-                    if cal.is_btc { 5 } else { 6 }
+                    if cal.is_btc {
+                        5
+                    } else {
+                        6
+                    }
                 } else if body >= 0.5 * atr {
-                    if cal.is_btc { 3 } else { 4 }
+                    if cal.is_btc {
+                        3
+                    } else {
+                        4
+                    }
                 } else if cal.is_btc {
                     1
                 } else {
@@ -189,7 +210,8 @@ impl ScoringV11 {
             }
         }
         // 16. Premium/Discount.
-        if is_bull && out.premium_discount.in_discount || !is_bull && out.premium_discount.in_premium
+        if is_bull && out.premium_discount.in_discount
+            || !is_bull && out.premium_discount.in_premium
         {
             sc += 1;
             flags.push("Disc");
@@ -197,7 +219,8 @@ impl ScoringV11 {
 
         // ── Garde anti-bruit P1.2 : BOS seul (sans sweep/FVG/OTE/HTF≥H4) → plafond 8 ──
         let hs_bos = bos_dir;
-        let hs_sweep = is_bull && out.sweep.sweep_bull_frais || !is_bull && out.sweep.sweep_bear_frais;
+        let hs_sweep =
+            is_bull && out.sweep.sweep_bull_frais || !is_bull && out.sweep.sweep_bear_frais;
         let hs_fvg = is_bull && out.fvg.is_fvg_bull || !is_bull && out.fvg.is_fvg_bear;
         let hs_ote = is_bull && out.ote.in_ote_bull || !is_bull && out.ote.in_ote_bear;
         let hs_htf = out.mtf.confluence_h4 || out.mtf.confluence_w1 || out.mtf.confluence_mn;
@@ -270,7 +293,11 @@ impl ScoringV11 {
                 continue;
             }
             let mid = (z.top + z.bot) * 0.5;
-            let dist = if atr > 0.0 { (bar.close - mid).abs() / atr } else { 0.0 };
+            let dist = if atr > 0.0 {
+                (bar.close - mid).abs() / atr
+            } else {
+                0.0
+            };
             let st = z.state;
             let fresh = match st {
                 ObState::Vierge => 3,
@@ -298,7 +325,15 @@ impl ScoringV11 {
                 self.ob_bull_diag.insert(
                     z.impulse_bar,
                     format!("{} (+{}f{:?}p{})", flags_bull.join("+"), fresh, st, {
-                        let d = if dist > 10.0 { -999 } else if dist < 1.0 { 2 } else if dist > 5.0 { -1 } else { 0 };
+                        let d = if dist > 10.0 {
+                            -999
+                        } else if dist < 1.0 {
+                            2
+                        } else if dist > 5.0 {
+                            -1
+                        } else {
+                            0
+                        };
                         d
                     }),
                 );
@@ -312,7 +347,11 @@ impl ScoringV11 {
                 continue;
             }
             let mid = (z.top + z.bot) * 0.5;
-            let dist = if atr > 0.0 { (bar.close - mid).abs() / atr } else { 0.0 };
+            let dist = if atr > 0.0 {
+                (bar.close - mid).abs() / atr
+            } else {
+                0.0
+            };
             let st = z.state;
             let fresh = match st {
                 ObState::Vierge => 3,
@@ -340,7 +379,15 @@ impl ScoringV11 {
                 self.ob_bear_diag.insert(
                     z.impulse_bar,
                     format!("{} (+{}f{:?}p{})", flags_bear.join("+"), fresh, st, {
-                        let d = if dist > 10.0 { -999 } else if dist < 1.0 { 2 } else if dist > 5.0 { -1 } else { 0 };
+                        let d = if dist > 10.0 {
+                            -999
+                        } else if dist < 1.0 {
+                            2
+                        } else if dist > 5.0 {
+                            -1
+                        } else {
+                            0
+                        };
                         d
                     }),
                 );
@@ -393,7 +440,12 @@ impl ScoringV11 {
 
     /// `f_znQualBull` (Pine lignes 2998-3006) — FVG sur l'OB + DoL au-delà du top.
     /// `fvg_zones` = zones FVG bull vivantes, `out` fournit EQH/PDH/PWH actives.
-    pub fn zn_qual_bull(&self, ob: &ObZone, out: &SmcOutput, fvg_zones: &[super::types::FvgZone]) -> bool {
+    pub fn zn_qual_bull(
+        &self,
+        ob: &ObZone,
+        out: &SmcOutput,
+        fvg_zones: &[super::types::FvgZone],
+    ) -> bool {
         let fvg_ok = if self.zn_fvg_req {
             zn_has_fvg(fvg_zones, ob.top, ob.bot)
         } else {
@@ -404,7 +456,7 @@ impl ScoringV11 {
             out.liquidite.dernier_eqh_level.is_some_and(|l| l > t2)
                 || out.liquidite.pdh_active.is_some_and(|l| l > t2)
                 || out.liquidite.pwh_active.is_some_and(|l| l > t2)
-                // _ahHighDrawn (Asian High) omis — voir concern dans le rapport.
+                || out.asian_hl.high.is_some_and(|l| l > t2) // _ahHighDrawn (Pine 3052)
         } else {
             true
         };
@@ -412,7 +464,12 @@ impl ScoringV11 {
     }
 
     /// `f_znQualBear` (Pine lignes 3008-3016) — FVG sur l'OB + DoL sous le bas.
-    pub fn zn_qual_bear(&self, ob: &ObZone, out: &SmcOutput, fvg_zones: &[super::types::FvgZone]) -> bool {
+    pub fn zn_qual_bear(
+        &self,
+        ob: &ObZone,
+        out: &SmcOutput,
+        fvg_zones: &[super::types::FvgZone],
+    ) -> bool {
         let fvg_ok = if self.zn_fvg_req {
             zn_has_fvg(fvg_zones, ob.top, ob.bot)
         } else {
@@ -423,6 +480,7 @@ impl ScoringV11 {
             out.liquidite.dernier_eql_level.is_some_and(|l| l < b2)
                 || out.liquidite.pdl_active.is_some_and(|l| l < b2)
                 || out.liquidite.pwl_active.is_some_and(|l| l < b2)
+                || out.asian_hl.low.is_some_and(|l| l < b2) // _ahLowDrawn (Pine 3061)
         } else {
             true
         };
@@ -433,9 +491,7 @@ impl ScoringV11 {
 /// `f_znHasFVG` (Pine lignes 2990-2996) — chevauchement FVG avec un OB spécifique.
 /// `fvg.top > ob.bot && fvg.bot < ob.top`.
 fn zn_has_fvg(fvg_zones: &[super::types::FvgZone], ob_top: f64, ob_bot: f64) -> bool {
-    fvg_zones
-        .iter()
-        .any(|f| f.top > ob_bot && f.bot < ob_top)
+    fvg_zones.iter().any(|f| f.top > ob_bot && f.bot < ob_top)
 }
 
 /// Calcule les flags prevLiq (near / swept) pour un sens donné (Pine lignes 2174-2182).
@@ -464,122 +520,5 @@ fn prev_liq_bull_bear(is_bull: bool, out: &SmcOutput, bar: &BarInput, atr: f64) 
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::v12::calibration::AssetCalibration;
-
-    fn cal_xau() -> AssetCalibration {
-        AssetCalibration::detect("XAUUSD", "M15")
-    }
-
-    #[test]
-    fn force_xau_4_bandes() {
-        let c = cal_xau();
-        // XAU : SEUIL_MOYEN=7, FORT=10, INSTIT=12, scoreMax=13.
-        // sc=0 → 1+0 = 1.
-        assert_eq!(ScoringV11::force(0, &c), 1);
-        // sc=7 (==moyen) → 2e bande : 5 + (7-7)/3 = 5.
-        assert_eq!(ScoringV11::force(7, &c), 5);
-        // sc=10 (==fort) → 3e bande : 7 + (10-10)/2 = 7.
-        assert_eq!(ScoringV11::force(10, &c), 7);
-        // sc=12 (==instit) → 4e bande : 9 + (12-12)/1 = 9.
-        assert_eq!(ScoringV11::force(12, &c), 9);
-        // sc=13 → 9 + 1/1 = 10 (plafond).
-        assert_eq!(ScoringV11::force(13, &c), 10);
-        // sc=100 → clamp 10.
-        assert_eq!(ScoringV11::force(100, &c), 10);
-    }
-
-    #[test]
-    fn force_btc_plafond_moyen_only() {
-        // BTC : MOYEN=8, FORT=INSTIT=99 (Moyen-only) → la note plafonne ~5-6.
-        let c = AssetCalibration::detect("BTCUSD", "M15");
-        assert_eq!(ScoringV11::force(8, &c), 5, "sc=moyen → 5");
-        // sc=15 (scoreMax) → 2e bande (15<99) : 5 + (15-8)/91 ≈ 5.077 → 5.
-        assert_eq!(ScoringV11::force(15, &c), 5);
-    }
-
-    #[test]
-    fn live_score_asset_non_reconnu_zero() {
-        let c = AssetCalibration::detect("EURUSD", "M15");
-        let out = SmcOutput::default();
-        let bar = BarInput::new(100.0, 110.0, 99.0, 105.0);
-        assert_eq!(ScoringV11::live_score(true, &out, &bar, &c), 0);
-        assert!(!c.asset_reconnu);
-    }
-
-    #[test]
-    fn live_score_bos_seul_plafonne_a_8() {
-        // Un BOS haussier sans aucune confluence → plafond 8 (garde anti-bruit).
-        let c = cal_xau();
-        let mut out = SmcOutput::default();
-        out.atr14 = 2.0;
-        out.bos.bullish = true;
-        // Corps = 3 (>= 1.5×ATR=3) → poids 6.
-        let bar = BarInput::new(100.0, 106.0, 99.0, 103.0);
-        let sc = ScoringV11::live_score(true, &out, &bar, &c);
-        assert_eq!(sc, 8, "BOS seul (poids 6) → plafond 8, pas 6");
-    }
-
-    #[test]
-    fn live_score_bos_plus_fvg_depasse_plafond() {
-        // BOS (6) + FVG (wFVG=5 pour XAU) → 11 (>8, garde ne s'applique pas).
-        let c = cal_xau();
-        let mut out = SmcOutput::default();
-        out.atr14 = 2.0;
-        out.bos.bullish = true;
-        out.fvg.is_fvg_bull = true;
-        let bar = BarInput::new(100.0, 106.0, 99.0, 103.0);
-        let sc = ScoringV11::live_score(true, &out, &bar, &c);
-        assert!(sc >= 11, "BOS+FVG doit dépasser 8, got {sc}");
-    }
-
-    #[test]
-    fn accum_scores_sticky_max() {
-        // Un OB vierge : score sticky = max(précédent, live+fresh+prox).
-        let c = cal_xau();
-        let mut s = ScoringV11::new(&c, 15);
-        let mut out = SmcOutput::default();
-        out.atr14 = 2.0;
-        out.bos.bullish = true; // live élève
-        let bar = BarInput::new(100.0, 106.0, 99.0, 103.0);
-        let ob = ObZone {
-            top: 102.0,
-            bot: 98.0,
-            state: ObState::Vierge,
-            impulse_bar: 5,
-            ob_bar: 4,
-            timestamp: 0,
-            is_ib: false,
-        };
-        s.update(&out, &bar, &c, &[ob], &[]);
-        let sc1 = s.ob_score(true, 5);
-        assert!(sc1 >= 8, "premier update: score >= 8 (plafond BOS), got {sc1}");
-
-        // Bar suivante sans BOS → live faible, mais sticky max conserve sc1.
-        let mut out2 = SmcOutput::default();
-        out2.atr14 = 2.0;
-        let bar2 = BarInput::new(103.0, 104.0, 102.0, 103.0);
-        s.update(&out2, &bar2, &c, &[ob], &[]);
-        let sc2 = s.ob_score(true, 5);
-        assert_eq!(sc2, sc1, "sticky : le score ne redescend pas pour un OB vierge");
-    }
-
-    #[test]
-    fn zn_qual_neutralise_pour_dax_m15() {
-        // DAX M15 → _znDaxHTF true → filtres neutralisés (toujours qualifiés).
-        let c = AssetCalibration::detect("DAX", "M15");
-        let s = ScoringV11::new(&c, 15);
-        let ob = ObZone {
-            top: 102.0,
-            bot: 98.0,
-            state: ObState::Vierge,
-            impulse_bar: 1,
-            ob_bar: 0,
-            timestamp: 0,
-            is_ib: false,
-        };
-        let out = SmcOutput::default();
-        assert!(s.zn_qual_bull(&ob, &out, &[]), "DAX M15 : zone toujours qualifiée");
-    }
-}
+#[path = "scoring_v11_tests.rs"]
+mod tests;
