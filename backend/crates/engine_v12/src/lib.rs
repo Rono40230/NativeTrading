@@ -23,8 +23,9 @@
 //! ## Anti-ré-émission
 //!
 //! Clé par trade : (open_ts, sens, source, entrée bit à bit) — stable entre
-//! redémarrages. Un trade n'est émis qu'à la CLÔTURE de sa barre de création
-//! (Pine `barstate.isconfirmed`) ; intrabar, seuls les événements lifecycle.
+//! redémarrages. Intrabar : ANNONCE d'imminence (Telegram, une par trade).
+//! À la clôture (Pine `barstate.isconfirmed`) : création du trade + ligne
+//! officielle en base ; intrabar, seuls les événements lifecycle.
 
 use std::collections::HashSet;
 
@@ -90,6 +91,10 @@ pub struct MoteurV12 {
     moteur: SmcV12Engine,
     /// Clés des trades déjà émis (alertes verrouillées).
     emis: HashSet<CleTrade>,
+    /// Clés des setups déjà ANNONCÉS intrabar (message d'imminence) —
+    /// jamais élagué : un setup qui oscille au bord de zone n'est annoncé
+    /// qu'une fois par bougie.
+    annonces: HashSet<CleTrade>,
     /// Dernier état lifecycle vu par trade — le diff produit les événements.
     vus: std::collections::HashMap<CleTrade, EtatVu>,
     /// Amorce MTF (H1/H4/W1/MN de la DB) — appliquée paresseusement à la
@@ -106,6 +111,7 @@ impl MoteurV12 {
             tf,
             moteur: SmcV12Engine::new(asset.as_str(), tf.as_str()),
             emis: HashSet::new(),
+            annonces: HashSet::new(),
             vus: std::collections::HashMap::new(),
             amorce: None,
             amorce_appliquee: false,
@@ -167,15 +173,25 @@ impl Engine for MoteurV12 {
     fn on_tick(&mut self, ctx: &ContexteTick) -> SortieMoteur {
         // Rollback Pine : évaluation de la bougie live sur un CLONE de
         // l'état confirmé — l'état commité n'est jamais corrompu.
-        // Pine crée les trades sur `barstate.isconfirmed` UNIQUEMENT : aucun
-        // signal n'est émis intrabar (incident 23/08 : trades fantômes émis
-        // mi-bougie puis ré-émis quand le prix revenait les confirmer).
-        // Les événements lifecycle (fill/TP/SL), eux, sont intrabar — comme
-        // l'exécution Pine temps réel (`low`/`high` cumulatifs, monotones).
+        // ANNONCES d'imminence : dès que l'évaluation live crée le trade,
+        // le message part (décision propriétaire 23/08 — sans attendre la
+        // clôture ; le Pine, lui, crée le trade sur `barstate.isconfirmed`
+        // et l'insertion en base suit cette règle). Une seule annonce par
+        // trade, même si le prix oscillait au bord de la zone.
+        // Les événements lifecycle (fill/TP/SL), eux, restent intrabar —
+        // comme l'exécution Pine temps réel (`low`/`high` cumulatifs).
         let bar = Self::bar_live(ctx.bougie.debut, ctx.bougie);
         self.appliquer_amorce_si_premiere(bar.timestamp);
         let mut eval = self.moteur.clone();
         eval.update(&bar);
+        let signaux = extraire_annonces(
+            &mut self.annonces,
+            &self.emis,
+            &eval.signals.trades,
+            self.asset.clone(),
+            self.tf,
+            ctx.bougie.debut,
+        );
         let evenements = diff_lifecycle(
             &mut self.vus,
             &eval.signals.trades,
@@ -184,18 +200,22 @@ impl Engine for MoteurV12 {
             ctx.bougie.debut,
         );
         SortieMoteur {
-            signaux: Vec::new(),
+            signaux,
             evenements,
         }
     }
 
     fn on_close(&mut self, ctx: &ContexteCloture) -> SortieMoteur {
         // Commit autoritaire : la bougie officielle alimente le moteur réel.
+        // Création du trade à la confirmation (Pine `barstate.isconfirmed`)
+        // → signal officiel (ligne en base). `deja_annonce` distingue ceux
+        // dont le message d'imminence est déjà parti intrabar.
         let bar = Self::bar_confirmee(ctx.bougie);
         self.appliquer_amorce_si_premiere(bar.timestamp);
         self.moteur.update(&bar);
         let signaux = extraire_nouveaux(
             &mut self.emis,
+            &self.annonces,
             &self.moteur.signals.trades,
             self.asset.clone(),
             self.tf,
@@ -303,9 +323,9 @@ mod tests {
     }
 
     /// Fidélité rollback : l'évaluation tick-par-tick (clones) et l'évaluation
-    /// par clôtures aboutissent au MÊME état confirmé. Les signaux ne naissent
-    /// qu'à la clôture (Pine `barstate.isconfirmed`) — le tick intrabar n'en
-    /// émet JAMAIS (anti-fantôme, incident 23/08).
+    /// par clôtures aboutissent au MÊME état confirmé. Le tick émet des
+    /// ANNONCES d'imminence (une seule par trade) ; la clôture confirme le
+    /// trade en base (deja_annonce si le message est déjà parti).
     #[test]
     fn ticks_et_clotures_aboutissent_au_meme_etat_confirme() {
         let bars = charger_bars();
@@ -319,7 +339,8 @@ mod tests {
         let mut par_ticks = MoteurV12::nouveau(asset.clone(), tf);
 
         let mut signaux_clotures = 0usize;
-        let mut signaux_ticks = 0usize;
+        let mut annonces_ticks = 0usize;
+        let mut annonces_distinctes: HashSet<String> = HashSet::new();
         let mut ajouts_a_la_cloture = 0usize;
 
         for (i, b) in bars.iter().enumerate() {
@@ -340,12 +361,32 @@ mod tests {
             ];
             for f in &scenarios {
                 let s = par_ticks.on_tick(&ctx_tick(&asset, tf, f));
-                signaux_ticks += s.signaux.len();
+                for sig in &s.signaux {
+                    assert!(sig.annonce, "le chemin tick n'émet QUE des annonces");
+                    // Une clé n'est JAMAIS annoncée deux fois.
+                    assert!(
+                        annonces_distinctes.insert(sig.cle.clone()),
+                        "annonce ré-émise pour {}",
+                        sig.cle
+                    );
+                }
+                annonces_ticks += s.signaux.len();
             }
             // Le dernier tick simulé porte EXACTEMENT la barre finale : la
-            // clôture ne doit ajouter AUCUN événement (les signaux de création
-            // sont attendus — c'est leur unique chemin d'émission).
+            // clôture ne doit ajouter AUCUN événement (les signaux de
+            // confirmation sont attendus — c'est leur unique chemin d'entrée
+            // en base, avec deja_annonce si l'imminence est déjà partie).
             let s_close = par_ticks.on_close(&ctx_close(&asset, tf, &c, i));
+            for sig in &s_close.signaux {
+                assert!(!sig.annonce, "la clôture n'émet pas d'annonce");
+                if annonces_distinctes.contains(&sig.cle) {
+                    assert!(
+                        sig.deja_annonce,
+                        "signal confirmé déjà annoncé intrabar : {}",
+                        sig.cle
+                    );
+                }
+            }
             ajouts_a_la_cloture += s_close.evenements.len();
         }
 
@@ -356,11 +397,10 @@ mod tests {
             "le chemin tick (clones jetés) ne doit jamais altérer l'état confirmé"
         );
 
-        // 2. Pine : création sur barre confirmée uniquement — aucun signal
-        //    intrabar, aucun fantôme mi-bougie.
-        assert_eq!(
-            signaux_ticks, 0,
-            "le chemin tick ne doit JAMAIS émettre de signal (barstate.isconfirmed)"
+        // 2. Annonces intrabar émises, sans doublon ; confirmations en base.
+        assert!(
+            annonces_ticks > 0,
+            "annonces d'imminence attendues sur le chemin tick"
         );
         assert!(signaux_clotures > 0, "signaux attendus à la clôture");
 
@@ -495,4 +535,4 @@ impl MoteurV12 {
 }
 
 mod lifecycle_diff;
-use lifecycle_diff::{diff_lifecycle, extraire_nouveaux, EtatVu};
+use lifecycle_diff::{diff_lifecycle, extraire_annonces, extraire_nouveaux, EtatVu};

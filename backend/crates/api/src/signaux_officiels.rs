@@ -40,6 +40,18 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
         if etat != "Officielle" {
             continue;
         }
+        // ANNONCE intrabar (setup qualifié, trade pas encore confirmé) :
+        // message d'imminence seul — pas de ligne en base (elle viendra à
+        // la clôture si le trade confirme, avec deja_annonce).
+        if s.annonce {
+            let reg = db.lire_strategie(m.id).await.ok().flatten();
+            if reg.as_ref().is_some_and(|r| r.notifications) {
+                if let Some(msg) = formater_message(&db, m.id, &s).await {
+                    envoyer_telegram(&db, &msg).await;
+                }
+            }
+            continue;
+        }
         let signal = Signal::nouveau(
             s.asset.clone(),
             s.tf,
@@ -52,16 +64,25 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
         );
         if let Err(e) = db.inserer_signal_officiel(&signal, &s.cle).await {
             tracing::warn!("Signaux officiels (insert): {}", e);
+            continue;
         }
-        // Telegram : son activé ?
+        // Telegram : son activé ? L'annonce intrabar est déjà partie →
+        // on marque la ligne sans re-messager.
         let reg = db.lire_strategie(m.id).await.ok().flatten();
-        if reg.as_ref().is_some_and(|r| r.notifications) {
-            if let Some(msg) = formater_message(&db, m.id, &s).await {
-                if envoyer_telegram(&db, &msg).await {
-                    if let Err(e) = db.marquer_telegram_envoye(&signal.id.to_string()).await {
-                        tracing::warn!("Signaux officiels (drapeau Telegram): {}", e);
-                    }
-                }
+        let notifie = if reg.as_ref().is_some_and(|r| r.notifications) {
+            if s.deja_annonce {
+                false
+            } else if let Some(msg) = formater_message(&db, m.id, &s).await {
+                envoyer_telegram(&db, &msg).await
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        if notifie || s.deja_annonce {
+            if let Err(e) = db.marquer_telegram_envoye(&signal.id.to_string()).await {
+                tracing::warn!("Signaux officiels (drapeau Telegram): {}", e);
             }
         }
     }

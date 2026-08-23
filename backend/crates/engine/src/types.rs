@@ -86,6 +86,14 @@ pub struct SignalBrut {
     pub emis_le: DateTime<Utc>,
     /// Clé stable du trade côté moteur (matching événements lifecycle — 2.8).
     pub cle: String,
+    /// Vrai = annonce d'IMMINENCE intrabar (setup qualifié sur la bougie en
+    /// formation) — Telegram seul, pas de ligne en base : le trade n'existe
+    /// pas encore à l'état confirmé (décision propriétaire 23/08 : le
+    /// message part dès la qualification, sans attendre la clôture).
+    pub annonce: bool,
+    /// Vrai = signal CONFIRMÉ dont l'annonce intrabar est déjà partie
+    /// (le writer ne re-message pas, mais insère la ligne).
+    pub deja_annonce: bool,
 }
 
 impl SignalBrut {
@@ -146,6 +154,8 @@ impl SignalBrut {
             debut_barre,
             emis_le: Utc::now(),
             cle,
+            annonce: false,
+            deja_annonce: false,
         }
     }
 }

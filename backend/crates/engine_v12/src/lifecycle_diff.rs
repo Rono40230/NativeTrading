@@ -80,11 +80,48 @@ fn verdict_texte(v: smc::v12::trade::Verdict) -> &'static str {
     }
 }
 
+/// Construit le `SignalBrut` d'un trade (partagé annonce/confirmation).
+fn signal_depuis_trade(t: &Trade, asset: Asset, tf: Timeframe, debut_barre: i64) -> SignalBrut {
+    let direction = match t.side {
+        Side::Buy => Direction::Long,
+        Side::Sell => Direction::Short,
+    };
+    let source = match t.source {
+        TradeSource::Ob => "v11-OB",
+        TradeSource::BsZones => "BSZones",
+    };
+    let cle = cle_vers_string(&cle_du_trade(t));
+    SignalBrut::avec_cle(
+        NOM,
+        asset,
+        tf,
+        direction,
+        t.entry,
+        t.sl,
+        vec![t.tp1, t.tp2, t.tp3],
+        t.score,
+        format!(
+            "{} {} score={} risk={:.4} bar={}",
+            source,
+            match t.side {
+                Side::Buy => "BUY",
+                Side::Sell => "SELL",
+            },
+            t.score,
+            t.risk0,
+            t.bar_created
+        ),
+        debut_barre,
+        cle,
+    )
+}
+
 /// Extrait les trades jamais émis d'un carnet, les convertit en signaux et
-/// verrouille leurs clés. Fonction libre : `emis` (mutable) et `trades`
-/// (immutable) appartiennent à des champs distincts de l'appelant.
+/// verrouille leurs clés. `annonces` (clés déjà annoncées intrabar) marque
+/// `deja_annonce` — le writer saura ne pas re-messager.
 pub(crate) fn extraire_nouveaux(
     emis: &mut HashSet<CleTrade>,
+    annonces: &HashSet<CleTrade>,
     trades: &[Trade],
     asset: Asset,
     tf: Timeframe,
@@ -103,40 +140,43 @@ pub(crate) fn extraire_nouveaux(
             continue;
         }
         emis.insert(cle);
-        let direction = match t.side {
-            Side::Buy => Direction::Long,
-            Side::Sell => Direction::Short,
-        };
-        let source = match t.source {
-            TradeSource::Ob => "v11-OB",
-            TradeSource::BsZones => "BSZones",
-        };
-        let cle_str = cle_vers_string(&cle);
-        signaux.push(SignalBrut::avec_cle(
-            NOM,
-            asset.clone(),
-            tf,
-            direction,
-            t.entry,
-            t.sl,
-            vec![t.tp1, t.tp2, t.tp3],
-            t.score,
-            format!(
-                "{} {} score={} risk={:.4} bar={}",
-                source,
-                match t.side {
-                    Side::Buy => "BUY",
-                    Side::Sell => "SELL",
-                },
-                t.score,
-                t.risk0,
-                t.bar_created
-            ),
-            debut_barre,
-            cle_str,
-        ));
+        let mut s = signal_depuis_trade(t, asset.clone(), tf, debut_barre);
+        s.deja_annonce = annonces.contains(&cle);
+        signaux.push(s);
     }
     emis.retain(|cle| cles_presentes.contains(cle));
+    signaux
+}
+
+/// Annonces d'imminence INTRABAR : premier instant où l'évaluation live
+/// (clone de la bougie en formation) crée le trade → message Telegram,
+/// sans attendre la clôture (décision propriétaire 23/08 — la règle Pine
+/// `barstate.isconfirmed` garde la création du trade et la ligne en base).
+///
+/// Anti-doublon : `annonces` n'est JAMAIS élagué — un trade qui disparaît
+/// puis réapparaît dans la même bougie (prix oscillant au bord de zone)
+/// n'est annoncé qu'UNE fois. Nouvelle bougie = nouvelle clé (open_ts) =
+/// nouvelle annonce possible, comme l'alerte TV « une fois par barre ».
+pub(crate) fn extraire_annonces(
+    annonces: &mut HashSet<CleTrade>,
+    emis: &HashSet<CleTrade>,
+    trades_eval: &[Trade],
+    asset: Asset,
+    tf: Timeframe,
+    debut_barre: i64,
+) -> Vec<SignalBrut> {
+    let mut signaux = Vec::new();
+    for t in trades_eval {
+        let cle = cle_du_trade(t);
+        // Déjà confirmé (émis à la clôture) ou déjà annoncé → silence.
+        if emis.contains(&cle) || annonces.contains(&cle) {
+            continue;
+        }
+        annonces.insert(cle);
+        let mut s = signal_depuis_trade(t, asset.clone(), tf, debut_barre);
+        s.annonce = true;
+        signaux.push(s);
+    }
     signaux
 }
 
@@ -237,7 +277,6 @@ pub(crate) fn diff_lifecycle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use smc::v12::types::BarInput;
 
 
     fn trade_sl(ts: i64) -> Trade {
@@ -285,8 +324,10 @@ mod tests {
         assert!(!s.contains(' '), "pas d'espace : {}", s);
         // Le champ clé du signal = exactement la clé de l'événement.
         let mut emis = HashSet::new();
+        let annonces = HashSet::new();
         let sig = extraire_nouveaux(
             &mut emis,
+            &annonces,
             &[trade_sl(1_700_000_000)],
             Asset::from("XAUUSD"),
             Timeframe::M15,
@@ -294,6 +335,43 @@ mod tests {
         );
         assert_eq!(sig.len(), 1);
         assert_eq!(sig[0].cle, s, "clé signal ≠ clé canonique");
+    }
+
+    /// Oscillation intrabar : un setup qui disparaît puis réapparaît dans la
+    /// même bougie n'est annoncé qu'UNE fois (l'incident ×9 ne reviendra pas).
+    #[test]
+    fn annonce_une_seule_fois_malgre_oscillation() {
+        let t = trade_sl(1_700_000_000);
+        let mut annonces = HashSet::new();
+        let emis = HashSet::new();
+        let a = Asset::from("XAUUSD");
+        let tf = Timeframe::M15;
+        // 1re évaluation : le trade existe → annonce.
+        let s1 = extraire_annonces(&mut annonces, &emis, &[t.clone()], a.clone(), tf, 0);
+        assert_eq!(s1.len(), 1);
+        assert!(s1[0].annonce);
+        assert!(!s1[0].deja_annonce);
+        // 2e évaluation : le trade a disparu (prix éloigné) → rien.
+        let s2 = extraire_annonces(&mut annonces, &emis, &[], a.clone(), tf, 30);
+        assert!(s2.is_empty());
+        // 3e évaluation : le trade réapparaît → PAS de nouvelle annonce.
+        let s3 = extraire_annonces(&mut annonces, &emis, &[t.clone()], a, tf, 60);
+        assert!(s3.is_empty(), "aucune ré-annonce pour la même clé");
+    }
+
+    /// Le signal confirmé porte deja_annonce quand l'imminence est partie.
+    #[test]
+    fn confirme_marque_deja_annonce() {
+        let t = trade_sl(1_700_000_000);
+        let mut annonces = HashSet::new();
+        let mut emis = HashSet::new();
+        let a = Asset::from("XAUUSD");
+        let tf = Timeframe::M15;
+        let _ = extraire_annonces(&mut annonces, &emis, &[t.clone()], a.clone(), tf, 0);
+        let sig = extraire_nouveaux(&mut emis, &annonces, &[t], a, tf, 60);
+        assert_eq!(sig.len(), 1);
+        assert!(!sig[0].annonce);
+        assert!(sig[0].deja_annonce, "l'annonce partie doit être marquée");
     }
 
     /// La clé repose sur open_ts : deux moteurs qui rejouent des fenêtres
