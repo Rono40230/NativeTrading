@@ -117,7 +117,11 @@ impl ScoringBsZones {
 
     /// Marque une zone comme ayant généré un trade (Pine `bsBullSignaled[i]:=true`).
     pub fn mark_signaled(&mut self, is_bull: bool, idx: usize) {
-        let zones = if is_bull { &mut self.bull } else { &mut self.bear };
+        let zones = if is_bull {
+            &mut self.bull
+        } else {
+            &mut self.bear
+        };
         if let Some(z) = zones.get_mut(idx) {
             z.signaled = true;
         }
@@ -180,11 +184,31 @@ impl ScoringBsZones {
 
         if disp_bull && sweep_recent_bull {
             self.disp_sweep_bull += 1;
-            self.try_birth(true, out, bar, fvg_bull, history, bar_index, atr, vol_sma20, ob_body_range1);
+            self.try_birth(
+                true,
+                out,
+                bar,
+                fvg_bull,
+                history,
+                bar_index,
+                atr,
+                vol_sma20,
+                ob_body_range1,
+            );
         }
         if disp_bear && sweep_recent_bear {
             self.disp_sweep_bear += 1;
-            self.try_birth(false, out, bar, fvg_bear, history, bar_index, atr, vol_sma20, ob_body_range1);
+            self.try_birth(
+                false,
+                out,
+                bar,
+                fvg_bear,
+                history,
+                bar_index,
+                atr,
+                vol_sma20,
+                ob_body_range1,
+            );
         }
 
         // --- Lifecycle zones (Pine 3318-3408) ---
@@ -214,12 +238,20 @@ impl ScoringBsZones {
         let (b1, b2, b3) = if is_bull {
             let bb1 = bar.close - bar.open;
             let bb2 = body_delta(history, 1, bar, true);
-            let bb3 = if bb2 > 0.0 { body_delta(history, 2, bar, true) } else { 0.0 };
+            let bb3 = if bb2 > 0.0 {
+                body_delta(history, 2, bar, true)
+            } else {
+                0.0
+            };
             (bb1, bb2, bb3)
         } else {
             let bb1 = bar.open - bar.close;
             let bb2 = body_delta(history, 1, bar, false);
-            let bb3 = if bb2 > 0.0 { body_delta(history, 2, bar, false) } else { 0.0 };
+            let bb3 = if bb2 > 0.0 {
+                body_delta(history, 2, bar, false)
+            } else {
+                0.0
+            };
             (bb1, bb2, bb3)
         };
         let body3 = b1 + b2 + b3;
@@ -239,7 +271,11 @@ impl ScoringBsZones {
         } else {
             self.dern_choch_bear_bar
         };
-        let in_ote = if is_bull { out.ote.in_ote_bull } else { out.ote.in_ote_bear };
+        let in_ote = if is_bull {
+            out.ote.in_ote_bull
+        } else {
+            out.ote.in_ote_bear
+        };
 
         let base_score = disp_score(b1, atr, body3)
             + sweep_score(dern_sweep, bar_index)
@@ -273,7 +309,17 @@ impl ScoringBsZones {
         if base_score >= 6 && (h1 == d || h4 == d) {
             let has_fvg = zn_has_fvg(fvg, ob_t, ob_b);
             // À la naissance, OTE/coeur utilisent l'OTE COURANT (Pine ligne 3246).
-            let dyn_s = dyn_score(is_bull, bar.close, atr, ob_t, ob_b, has_fvg, in_ote, out, in_dead_zone_safe(bar));
+            let dyn_s = dyn_score(
+                is_bull,
+                bar.close,
+                atr,
+                ob_t,
+                ob_b,
+                has_fvg,
+                in_ote,
+                out,
+                in_dead_zone_safe(bar),
+            );
             let sc = to_force10(base_score + dyn_s);
             let z = BsZone {
                 top: ob_t,
@@ -320,7 +366,11 @@ impl ScoringBsZones {
         atr: f64,
         in_dead_zone: bool,
     ) {
-        let zones: &mut Vec<BsZone> = if is_bull { &mut self.bull } else { &mut self.bear };
+        let zones: &mut Vec<BsZone> = if is_bull {
+            &mut self.bull
+        } else {
+            &mut self.bear
+        };
         let mut i = zones.len() as isize - 1;
         while i >= 0 {
             let idx = i as usize;
@@ -330,7 +380,11 @@ impl ScoringBsZones {
                 (z.top, z.bot, z.state, z.in_ote, z.base_score)
             };
             // Invalidation.
-            let inval = if is_bull { bar.low < bot } else { bar.high > top };
+            let inval = if is_bull {
+                bar.low < bot
+            } else {
+                bar.high > top
+            };
             if inval {
                 zones.remove(idx);
                 i -= 1;
@@ -361,7 +415,17 @@ impl ScoringBsZones {
             };
             // Recalcul dyn : OTE/coeur utilisent le OTE FIGÉ de la zone (Pine 3348).
             let has_fvg = zn_has_fvg(fvg, top, bot);
-            let dyn_s = dyn_score(is_bull, bar.close, atr, top, bot, has_fvg, in_ote, out, in_dead_zone);
+            let dyn_s = dyn_score(
+                is_bull,
+                bar.close,
+                atr,
+                top,
+                bot,
+                has_fvg,
+                in_ote,
+                out,
+                in_dead_zone,
+            );
             let total = to_force10(new_base + dyn_s);
             {
                 let z = &mut zones[idx];

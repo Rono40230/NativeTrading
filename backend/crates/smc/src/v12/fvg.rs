@@ -252,7 +252,7 @@ mod tests {
         det.update(&bar(0, 100.0, 95.0, 99.0), 10.0);
         det.update(&bar(1, 102.0, 98.0, 101.0), 10.0);
         det.update(&bar(2, 108.0, 105.0, 107.0), 10.0); // FVG top=105 bot=100
-        // Bar 3 : low=103 < top=105 ET close=104 > bot=100 ⇒ partial, pas supprimé.
+                                                        // Bar 3 : low=103 < top=105 ET close=104 > bot=100 ⇒ partial, pas supprimé.
         det.update(&bar(3, 106.0, 103.0, 104.0), 10.0);
         assert_eq!(det.bull_zones().len(), 1);
         assert_eq!(det.bull_zones()[0].state, FvgState::Partial);
@@ -311,6 +311,9 @@ mod tests {
         let mut det = FvgDetector::new();
         let ev0 = det.update(&bar(0, 100.0, 95.0, 99.0), 10.0);
         let ev1 = det.update(&bar(1, 200.0, 105.0, 150.0), 10.0);
-        assert!(!ev0.is_fvg_bull && !ev1.is_fvg_bull, "high[2]/low[2] absent");
+        assert!(
+            !ev0.is_fvg_bull && !ev1.is_fvg_bull,
+            "high[2]/low[2] absent"
+        );
     }
 }

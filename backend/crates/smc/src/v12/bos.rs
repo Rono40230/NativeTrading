@@ -156,7 +156,10 @@ mod tests {
                 bull_at_8 = bos.last_event().bullish;
             }
         }
-        assert!(bull_at_8, "close=111 > sh1=110 avec close[1]=100 ⇒ BOS haussier");
+        assert!(
+            bull_at_8,
+            "close=111 > sh1=110 avec close[1]=100 ⇒ BOS haussier"
+        );
         assert_eq!(piv.sh1(), Some(110.0));
     }
 
@@ -166,7 +169,9 @@ mod tests {
         let mut piv = PivotDetector::new(3);
         let mut bos = BosDetector::new();
         let mut st = StructureDetector::new();
-        let closes = [100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 111.0, 109.0, 111.0];
+        let closes = [
+            100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0, 111.0, 109.0, 111.0,
+        ];
         let mut bull_at_8 = false;
         let mut bull_at_10 = false;
         for (i, &c) in closes.iter().enumerate() {
@@ -183,7 +188,10 @@ mod tests {
             }
         }
         assert!(bull_at_8, "1er croisement ⇒ BOS");
-        assert!(!bull_at_10, "2ᵉ croisement du même sh1 ⇒ bloqué par anti-doublon");
+        assert!(
+            !bull_at_10,
+            "2ᵉ croisement du même sh1 ⇒ bloqué par anti-doublon"
+        );
     }
 
     /// Série baissière : creux low=90 à l'index 3 (sl1=90), puis close casse 90 à l'index 8.
@@ -204,7 +212,10 @@ mod tests {
                 bear_at_8 = bos.last_event().bearish;
             }
         }
-        assert!(bear_at_8, "close=89 < sl1=90 avec close[1]=100 ⇒ BOS baissier");
+        assert!(
+            bear_at_8,
+            "close=89 < sl1=90 avec close[1]=100 ⇒ BOS baissier"
+        );
         assert_eq!(piv.sl1(), Some(90.0));
     }
 

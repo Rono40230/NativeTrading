@@ -110,7 +110,11 @@ mod tests {
             atr.update(&bar(i, 101.0, 99.0, 100.5));
         }
         assert!(!atr.is_ready());
-        assert_eq!(atr.value(), 0.0, "ATR = 0 tant que le seed n'est pas calculé");
+        assert_eq!(
+            atr.value(),
+            0.0,
+            "ATR = 0 tant que le seed n'est pas calculé"
+        );
     }
 
     #[test]

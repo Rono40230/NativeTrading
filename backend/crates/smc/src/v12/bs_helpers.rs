@@ -346,10 +346,22 @@ mod tests {
 
     #[test]
     fn prox_score_bandes() {
-        assert_eq!(prox_score(100.0, 101.0, 99.0, 1.0), 2, "dist 1, ratio<=1 → 2");
+        assert_eq!(
+            prox_score(100.0, 101.0, 99.0, 1.0),
+            2,
+            "dist 1, ratio<=1 → 2"
+        );
         // dist = min(|100-103|, |100-97|) = 3 → ratio 3 <= 3 → 1.
-        assert_eq!(prox_score(100.0, 103.0, 97.0, 1.0), 1, "dist 3, ratio<=3 → 1");
-        assert_eq!(prox_score(100.0, 110.0, 90.0, 1.0), 0, "dist 10, ratio>3 → 0");
+        assert_eq!(
+            prox_score(100.0, 103.0, 97.0, 1.0),
+            1,
+            "dist 3, ratio<=3 → 1"
+        );
+        assert_eq!(
+            prox_score(100.0, 110.0, 90.0, 1.0),
+            0,
+            "dist 10, ratio>3 → 0"
+        );
     }
 
     #[test]
@@ -378,13 +390,41 @@ mod tests {
     #[test]
     fn body_delta_bull_exige_memes_sens() {
         // bar courante bull, bar[1] bull → corps bar[1].
-        let cur = BarInput { timestamp: 3, open: 10.0, high: 14.0, low: 9.0, close: 13.0, volume: 0.0 };
-        let b1 = BarInput { timestamp: 2, open: 10.0, high: 12.0, low: 9.0, close: 11.5, volume: 0.0 };
-        let b0 = BarInput { timestamp: 1, open: 10.0, high: 11.0, low: 9.0, close: 10.0, volume: 0.0 };
+        let cur = BarInput {
+            timestamp: 3,
+            open: 10.0,
+            high: 14.0,
+            low: 9.0,
+            close: 13.0,
+            volume: 0.0,
+        };
+        let b1 = BarInput {
+            timestamp: 2,
+            open: 10.0,
+            high: 12.0,
+            low: 9.0,
+            close: 11.5,
+            volume: 0.0,
+        };
+        let b0 = BarInput {
+            timestamp: 1,
+            open: 10.0,
+            high: 11.0,
+            low: 9.0,
+            close: 10.0,
+            volume: 0.0,
+        };
         let hist = vec![b0, b1, cur];
         assert!((body_delta(&hist, 1, &cur, true) - 1.5).abs() < 1e-9);
         // bar courante bear → 0 même si bar[1] bull.
-        let cur_bear = BarInput { timestamp: 3, open: 13.0, high: 14.0, low: 9.0, close: 10.0, volume: 0.0 };
+        let cur_bear = BarInput {
+            timestamp: 3,
+            open: 13.0,
+            high: 14.0,
+            low: 9.0,
+            close: 10.0,
+            volume: 0.0,
+        };
         assert_eq!(body_delta(&hist, 1, &cur_bear, true), 0.0);
     }
 }

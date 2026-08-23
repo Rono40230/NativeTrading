@@ -100,7 +100,11 @@ impl NdogDetector {
         };
 
         let prev_close = self.prev_bar.map(|b| b.close);
-        let gap_min = if atr14 > 0.0 { GAP_MIN_MULT * atr14 } else { 0.0 };
+        let gap_min = if atr14 > 0.0 {
+            GAP_MIN_MULT * atr14
+        } else {
+            0.0
+        };
 
         // --- Création NDOG (f_block3, Pine lignes 1570-1589) ---
         if new_day && self.tf_ndog {
@@ -215,7 +219,7 @@ mod tests {
     fn pas_de_ndog_si_gap_insuffisant() {
         let mut det = NdogDetector::new(900);
         det.update(&bar(100, 100.0, 100.5, 99.5, 100.0), 10.0); // atr=10 ⇒ gapMin=3
-        // gap de 2 (102 vs 100) < 3 ⇒ pas créé.
+                                                                // gap de 2 (102 vs 100) < 3 ⇒ pas créé.
         let ev = det.update(&bar(86_400, 102.0, 103.0, 101.0, 102.0), 10.0);
         assert!(ev.new_ndog.is_none());
         assert!(det.ndog_zones().is_empty());

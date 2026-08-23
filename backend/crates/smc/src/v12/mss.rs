@@ -249,7 +249,10 @@ mod tests {
             },
             &mut st,
         );
-        assert!(ev.mss_haussier, "BOS haussier contre tendance baissière ⇒ MSS");
+        assert!(
+            ev.mss_haussier,
+            "BOS haussier contre tendance baissière ⇒ MSS"
+        );
         assert!(ev.mss_h_pending, "flag pending armé");
         assert_eq!(ev.mss_level, Some(110.0));
         let (b, r) = st.counts();
@@ -271,7 +274,10 @@ mod tests {
             },
             &mut st,
         );
-        assert!(!ev.mss_haussier, "BOS dans le sens de la tendance ⇒ pas de MSS");
+        assert!(
+            !ev.mss_haussier,
+            "BOS dans le sens de la tendance ⇒ pas de MSS"
+        );
     }
 
     #[test]

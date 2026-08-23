@@ -86,7 +86,11 @@ impl TradeLifecycle {
         // Modèle "Retest (limite)" : fill sur bar strictement après création,
         // quand le prix touche l'entrée (low<=entry buy / high>=entry sell).
         if !filled && bar.timestamp > open_ts {
-            let touch_entry = if is_buy { bar.low <= entry } else { bar.high >= entry };
+            let touch_entry = if is_buy {
+                bar.low <= entry
+            } else {
+                bar.high >= entry
+            };
             if touch_entry {
                 t.filled = true;
                 t.fill_ts = Some(bar.timestamp);
@@ -181,7 +185,11 @@ impl TradeLifecycle {
         if filled {
             // TP1 touché → BE (SL→entry).
             if !tp1_hit {
-                let touch_tp1 = if is_buy { bar.high >= tp1 } else { bar.low <= tp1 };
+                let touch_tp1 = if is_buy {
+                    bar.high >= tp1
+                } else {
+                    bar.low <= tp1
+                };
                 if touch_tp1 {
                     t.tp1_hit = true;
                     t.tp1_price_touched = true;
@@ -190,7 +198,11 @@ impl TradeLifecycle {
             }
             // TP2 touché → arme TP3 (timestamp).
             if t.tp1_hit && t.tp2_ts == 0 {
-                let touch_tp2 = if is_buy { bar.high >= tp2 } else { bar.low <= tp2 };
+                let touch_tp2 = if is_buy {
+                    bar.high >= tp2
+                } else {
+                    bar.low <= tp2
+                };
                 if touch_tp2 {
                     t.tp2_ts = bar.timestamp;
                 }
@@ -198,7 +210,11 @@ impl TradeLifecycle {
             // tp3 milestone (cas où tp3 touché sans déclencher tp3_hit car !filled
             // au début — rempli cette bar ; on l'enregistre pour stats).
             if !t.tp3_touched {
-                let touch_tp3 = if is_buy { bar.high >= tp3 } else { bar.low <= tp3 };
+                let touch_tp3 = if is_buy {
+                    bar.high >= tp3
+                } else {
+                    bar.low <= tp3
+                };
                 if touch_tp3 {
                     t.tp3_touched = true;
                 }
@@ -273,10 +289,21 @@ mod tests {
         let mut sc = scoring();
         sc.mark_signaled(true, 42);
         assert!(sc.is_signaled(true, 42), "précondition : OB signalé");
-        lc.update_trade(&mut t, true, &out, &bar(900, 100.0, 101.0, 99.5, 100.0), 1, &c, &mut sc);
+        lc.update_trade(
+            &mut t,
+            true,
+            &out,
+            &bar(900, 100.0, 101.0, 99.5, 100.0),
+            1,
+            &c,
+            &mut sc,
+        );
         assert!(t.be_forced, "BE forcé appliqué");
         assert!((t.sl - 100.0).abs() < 1e-9, "SL → entry");
-        assert!(!sc.is_signaled(true, 42), "OB un-signalé (re-trade possible)");
+        assert!(
+            !sc.is_signaled(true, 42),
+            "OB un-signalé (re-trade possible)"
+        );
     }
 
     #[test]
@@ -287,7 +314,15 @@ mod tests {
         let c = cal();
         let mut sc = scoring();
         // Bar 1 (ts=900>0), low=99.5 <= entry 100 → fill.
-        lc.update_trade(&mut t, true, &out, &bar(900, 101.0, 102.0, 99.5, 101.0), 1, &c, &mut sc);
+        lc.update_trade(
+            &mut t,
+            true,
+            &out,
+            &bar(900, 101.0, 102.0, 99.5, 101.0),
+            1,
+            &c,
+            &mut sc,
+        );
         assert!(t.filled);
         assert_eq!(t.fill_ts, Some(900));
     }
@@ -301,7 +336,15 @@ mod tests {
         let c = cal();
         let mut sc = scoring();
         // low=96 < sl=97, !tp1_hit → slHit.
-        lc.update_trade(&mut t, true, &out, &bar(900, 99.0, 100.0, 96.0, 97.0), 1, &c, &mut sc);
+        lc.update_trade(
+            &mut t,
+            true,
+            &out,
+            &bar(900, 99.0, 100.0, 96.0, 97.0),
+            1,
+            &c,
+            &mut sc,
+        );
         assert_eq!(t.state, TradeState::Closed);
         assert_eq!(t.close_reason, Some(CloseReason::Sl));
         assert_eq!(t.verdict(), Verdict::Sl);
@@ -316,12 +359,28 @@ mod tests {
         let c = cal();
         let mut sc = scoring();
         // Bar A : high=104 >= tp1=103 → tp1_hit, sl→entry(100), tp1_price_touched.
-        lc.update_trade(&mut t, true, &out, &bar(900, 100.0, 104.0, 100.0, 103.0), 1, &c, &mut sc);
+        lc.update_trade(
+            &mut t,
+            true,
+            &out,
+            &bar(900, 100.0, 104.0, 100.0, 103.0),
+            1,
+            &c,
+            &mut sc,
+        );
         assert!(t.tp1_hit);
         assert!(t.tp1_price_touched);
         assert!((t.sl - 100.0).abs() < 1e-9, "SL → entry après TP1");
         // Bar B : low=99 < entry=100, tp1_hit, tp2_ts==0 → beHit → verdict TP1.
-        lc.update_trade(&mut t, true, &out, &bar(1800, 100.0, 101.0, 99.0, 100.0), 2, &c, &mut sc);
+        lc.update_trade(
+            &mut t,
+            true,
+            &out,
+            &bar(1800, 100.0, 101.0, 99.0, 100.0),
+            2,
+            &c,
+            &mut sc,
+        );
         assert_eq!(t.state, TradeState::Closed);
         assert_eq!(t.close_reason, Some(CloseReason::Be));
         assert_eq!(t.verdict(), Verdict::Tp1);
@@ -337,7 +396,15 @@ mod tests {
         let c = cal();
         let mut sc = scoring();
         // high=112 >= tp3=112 → tp3Hit.
-        lc.update_trade(&mut t, true, &out, &bar(900, 105.0, 112.0, 104.0, 111.0), 1, &c, &mut sc);
+        lc.update_trade(
+            &mut t,
+            true,
+            &out,
+            &bar(900, 105.0, 112.0, 104.0, 111.0),
+            1,
+            &c,
+            &mut sc,
+        );
         assert_eq!(t.close_reason, Some(CloseReason::Tp3));
         assert_eq!(t.verdict(), Verdict::Tp3);
         // risk0=3, tp3-entry=12 → 4R.
@@ -354,15 +421,34 @@ mod tests {
         let c = cal();
         let mut sc = scoring();
         // !tp1_hit && beForce → BE forcé : sl→entry, tp1_hit=true, be_forced.
-        lc.update_trade(&mut t, true, &out, &bar(900, 100.0, 101.0, 99.5, 100.0), 1, &c, &mut sc);
-        assert!(!matches!(t.state, TradeState::Closed), "BE forcé : trade maintenu ouvert");
+        lc.update_trade(
+            &mut t,
+            true,
+            &out,
+            &bar(900, 100.0, 101.0, 99.5, 100.0),
+            1,
+            &c,
+            &mut sc,
+        );
+        assert!(
+            !matches!(t.state, TradeState::Closed),
+            "BE forcé : trade maintenu ouvert"
+        );
         assert!(t.be_forced);
         assert!((t.sl - 100.0).abs() < 1e-9);
         assert!(t.tp1_hit);
         assert!(!t.tp1_price_touched, "BE forcé ≠ TP1 prix touché");
         // Bar suivante : low=99 < entry=100, tp1_hit, tp2_ts==0 → beHit → verdict BE (0R).
         let out2 = SmcOutput::default();
-        lc.update_trade(&mut t, true, &out2, &bar(1800, 100.0, 100.5, 99.0, 100.0), 2, &c, &mut sc);
+        lc.update_trade(
+            &mut t,
+            true,
+            &out2,
+            &bar(1800, 100.0, 100.5, 99.0, 100.0),
+            2,
+            &c,
+            &mut sc,
+        );
         assert_eq!(t.verdict(), Verdict::Be);
         assert!((t.realized_r() - 0.0).abs() < 1e-9);
     }
@@ -376,7 +462,15 @@ mod tests {
         let c = cal();
         let mut sc = scoring();
         // age = 15000s > 14400 → expire.
-        lc.update_trade(&mut t, true, &out, &bar(15000, 100.0, 101.0, 99.5, 100.0), 1, &c, &mut sc);
+        lc.update_trade(
+            &mut t,
+            true,
+            &out,
+            &bar(15000, 100.0, 101.0, 99.5, 100.0),
+            1,
+            &c,
+            &mut sc,
+        );
         assert_eq!(t.close_reason, Some(CloseReason::Expire));
         assert_eq!(t.verdict(), Verdict::Expire);
     }
@@ -384,8 +478,18 @@ mod tests {
     #[test]
     fn sell_sl_hit_miroir() {
         let mut t = Trade::new_sell(
-            1, TradeSource::Ob, 100.0, 103.0, 97.0, 94.0, 91.0, 10, 3.0,
-            &bar(0, 0.0, 0.0, 0.0, 0.0), 0, None,
+            1,
+            TradeSource::Ob,
+            100.0,
+            103.0,
+            97.0,
+            94.0,
+            91.0,
+            10,
+            3.0,
+            &bar(0, 0.0, 0.0, 0.0, 0.0),
+            0,
+            None,
         );
         t.filled = true;
         let lc = lc();
@@ -393,7 +497,15 @@ mod tests {
         let c = cal();
         let mut sc = scoring();
         // SELL : sl_hit = high > sl=103, !tp1_hit.
-        lc.update_trade(&mut t, false, &out, &bar(900, 102.0, 104.0, 101.0, 103.0), 1, &c, &mut sc);
+        lc.update_trade(
+            &mut t,
+            false,
+            &out,
+            &bar(900, 102.0, 104.0, 101.0, 103.0),
+            1,
+            &c,
+            &mut sc,
+        );
         assert_eq!(t.close_reason, Some(CloseReason::Sl));
     }
 }

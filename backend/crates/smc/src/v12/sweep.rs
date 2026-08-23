@@ -233,7 +233,11 @@ mod tests {
     #[test]
     fn sweep_fresh_bars_planche_a_1() {
         let det = SweepDetector::new(10_000);
-        assert_eq!(det.sweep_fresh_bars(), 1, "round(4500/10000)=0 plafonné à 1");
+        assert_eq!(
+            det.sweep_fresh_bars(),
+            1,
+            "round(4500/10000)=0 plafonné à 1"
+        );
     }
 
     /// Sweep haussier complet : armement sur EQL, puis close revient au-dessus.
@@ -248,13 +252,24 @@ mod tests {
         let ev0 = det.update(&bar(0, 95.0, 85.0, 88.0), &mut liq, 10.0);
         assert!(ev0.sweep_h_armed, "low<90 ⇒ sweepH armé");
         assert!(!ev0.sweep_haussier, "close=88 < 90 ⇒ pas confirmé");
-        assert_eq!(liq.dernier_eql_level(), Some(90.0), "niveau non consommé tant que non confirmé");
+        assert_eq!(
+            liq.dernier_eql_level(),
+            Some(90.0),
+            "niveau non consommé tant que non confirmé"
+        );
 
         // Bar 1 : close=92 > 90 ⇒ confirmé.
         let ev1 = det.update(&bar(1, 96.0, 89.0, 92.0), &mut liq, 10.0);
-        assert!(ev1.sweep_haussier, "close=92 > sweepH_level=90 ⇒ sweep haussier");
+        assert!(
+            ev1.sweep_haussier,
+            "close=92 > sweepH_level=90 ⇒ sweep haussier"
+        );
         assert!(!ev1.sweep_h_armed, "armement consommé après confirmation");
-        assert_eq!(liq.dernier_eql_level(), None, "dernierEQL_level := na après sweep");
+        assert_eq!(
+            liq.dernier_eql_level(),
+            None,
+            "dernierEQL_level := na après sweep"
+        );
         assert!(ev1.sweep_bull_frais, "sweep récent ⇒ frais");
     }
 
@@ -287,7 +302,10 @@ mod tests {
         let mut det = SweepDetector::new(900);
         // Bar 0 : high=115 > 110 ⇒ armé. close=108 < 110 ⇒ confirmé (same bar).
         let ev = det.update(&bar(0, 115.0, 105.0, 108.0), &mut liq, 10.0);
-        assert!(ev.sweep_baissier, "high>110 ET close<110 même bar ⇒ sweep baissier");
+        assert!(
+            ev.sweep_baissier,
+            "high>110 ET close<110 même bar ⇒ sweep baissier"
+        );
         assert_eq!(liq.dernier_eqh_level(), None, "EQH consommé");
         assert!(ev.sweep_bear_frais);
     }
@@ -318,6 +336,9 @@ mod tests {
         }
         // Bar 6 : (6-0)=6 > 5 ⇒ plus frais.
         let ev = det.update(&bar(6, 95.0, 88.0, 90.0), &mut liq, 10.0);
-        assert!(!ev.sweep_bull_frais, "bar 6 > SWEEP_FRESH_BARS(5) ⇒ plus frais");
+        assert!(
+            !ev.sweep_bull_frais,
+            "bar 6 > SWEEP_FRESH_BARS(5) ⇒ plus frais"
+        );
     }
 }

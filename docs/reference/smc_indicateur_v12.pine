@@ -261,18 +261,17 @@ else
         _curWkLowTime := time
 
 // Détection sweep PDH/PDL/PWH/PWL (barstate.isconfirmed)
-bool _sweepPDH = barstate.isconfirmed and not na(pdh) and high > pdh and close < pdh
-bool _sweepPDL = barstate.isconfirmed and not na(pdl) and low  < pdl and close > pdl
-bool _sweepPWH = barstate.isconfirmed and not na(pwh) and high > pwh and close < pwh
-bool _sweepPWL = barstate.isconfirmed and not na(pwl) and low  < pwl and close > pwl
-// SMC pur : invalider le niveau actif après sweep (liquidity taken → obsolète).
-if _sweepPDH
+// « Décisions trading » 2026-08-23 (option A) : un niveau ATTEINT par le prix
+// sur bar confirmée est CONSOMMÉ et disparaît — sweep (mèche + close retour)
+// OU cassure (close au-delà). Avant : sweep uniquement (la cassure laissait
+// le niveau actif), règle incohérente avec l'Asian H/L (cassure uniquement).
+if barstate.isconfirmed and not na(pdhActive) and high >= pdhActive
     pdhActive := na
-if _sweepPDL
+if barstate.isconfirmed and not na(pdlActive) and low <= pdlActive
     pdlActive := na
-if _sweepPWH
+if barstate.isconfirmed and not na(pwhActive) and high >= pwhActive
     pwhActive := na
-if _sweepPWL
+if barstate.isconfirmed and not na(pwlActive) and low <= pwlActive
     pwlActive := na
 
 var line  _pdhLine = na
@@ -753,12 +752,13 @@ f_liqLabels() =>
             array.clear(_liqLbls)
         for _i = 0 to array.size(liqPool) - 1
             LiqLevel _ll = array.get(liqPool, _i)
-            // Couleur/épaisseur selon touches et état sweep.
+            // « Décisions trading » : niveau touché = consommé = PAS AFFICHÉ.
+            if _ll.swept
+                continue
+            // Couleur/épaisseur selon touches.
             color _c   = _ll.isHigh ? C_EQH : C_EQL
             int   _w   = 1
-            if _ll.swept
-                _c := C_LIQ_SWEEP
-            else if _ll.touches >= 3
+            if _ll.touches >= 3
                 _w := 2
             string _txt = (_ll.isHigh ? "EQH" : "EQL") + " ×" + str.tostring(_ll.touches)
             color _txtColor = _ll.isHigh ? color.black : color.white
@@ -810,8 +810,8 @@ if sweepHaussier
     sweepH_bar          := na
     sweepH_level        := na
     dernierEQL_level    := na  // niveau consommé — invalide après sweep (scoring/DoL)
-    // Marquer le niveau EQL correspondant comme sweepé dans liqPool (refonte 2026-07-27).
-    // On ne le supprime pas : il sera affiché en gris (C_LIQ_SWEEP) pour le contexte historique.
+    // « Décisions trading » 2026-08-23 : les niveaux touchés DISPARAISSENT
+    // (le gris « contexte historique » est supprimé — décision propriétaire).
     if array.size(liqPool) > 0
         for _i = 0 to array.size(liqPool) - 1
             LiqLevel _ll = array.get(liqPool, _i)
@@ -831,6 +831,20 @@ if sweepBaissier
             if _ll.isHigh and not _ll.swept and math.abs(_ll.price - sweepB_level) <= tolEq
                 _ll.swept := true
                 break
+
+// « Décisions trading » 2026-08-23 (option A) : tout niveau ATTEINT sur bar
+// confirmée est consommé — dernierEQH/EQL (couvre la CASSURE, le sweep étant
+// déjà traité ci-dessus) et pool liqPool (purge, plus d'affichage gris).
+if barstate.isconfirmed and not na(dernierEQH_level) and high >= dernierEQH_level
+    dernierEQH_level := na
+if barstate.isconfirmed and not na(dernierEQL_level) and low <= dernierEQL_level
+    dernierEQL_level := na
+if barstate.isconfirmed and array.size(liqPool) > 0
+    for _i = 0 to array.size(liqPool) - 1
+        LiqLevel _ll = array.get(liqPool, _i)
+        if not _ll.swept
+            if (_ll.isHigh and high >= _ll.price) or (not _ll.isHigh and low <= _ll.price)
+                _ll.swept := true
 
 // Phase 5.1 : un sweep ne compte au scoring que s'il est RÉCENT (≤ N barres).
 // Sans cela, dernierSweep*_level persistait indéfiniment → présent dans 94-100 % des trades.
@@ -2895,6 +2909,22 @@ if _s14Asian and not _ahStart
     _ahHigh := math.max(_ahHigh, high)
     _ahLow  := math.min(_ahLow,  low)
 
+// ── CORRECTIF « décisions trading » 2026-08-23 : l'état TRADING (_ahHighDrawn/
+// _ahLowDrawn — consommés par f_znQual DoL et TP3) est dissocié de l'AFFICHAGE.
+// Avant : production nichée dans `if _ahEnd and i_showAsianHL` et invalidation
+// exigeant l'objet graphique ⇒ affichage décoché = niveaux jamais produits.
+if _ahEnd and not na(_ahHigh)
+    _ahHighDrawn := _ahHigh
+    _ahLowDrawn  := _ahLow
+
+if barstate.isconfirmed
+    // « Décisions trading » : niveau ATTEINT (sweep ou cassure) = consommé.
+    if not na(_ahHighDrawn) and high >= _ahHighDrawn
+        _ahHighDrawn := na
+    if not na(_ahLowDrawn) and low <= _ahLowDrawn
+        _ahLowDrawn  := na
+
+// Affichage : suit l'état trading, gated par i_showAsianHL.
 if _ahEnd and i_showAsianHL and not na(_ahHigh)
     if not na(_ahHighLine)
         line.delete(_ahHighLine)
@@ -2918,24 +2948,20 @@ if _ahEnd and i_showAsianHL and not na(_ahHigh)
         xloc=xloc.bar_index,
         color=color.new(i_colAsianL, 80), textcolor=i_colAsianL,
         style=label.style_label_left, size=size.small)
-    _ahHighDrawn := _ahHigh
-    _ahLowDrawn  := _ahLow
 
 if i_showAsianHL and barstate.isconfirmed
-    if not na(_ahHighLine) and not na(_ahHighDrawn) and close > _ahHighDrawn
+    if not na(_ahHighLine) and na(_ahHighDrawn)
         line.delete(_ahHighLine)
         if not na(_ahHighLbl)
             label.delete(_ahHighLbl)
         _ahHighLine  := na
         _ahHighLbl   := na
-        _ahHighDrawn := na
-    if not na(_ahLowLine) and not na(_ahLowDrawn) and close < _ahLowDrawn
+    if not na(_ahLowLine) and na(_ahLowDrawn)
         line.delete(_ahLowLine)
         if not na(_ahLowLbl)
             label.delete(_ahLowLbl)
         _ahLowLine   := na
         _ahLowLbl    := na
-        _ahLowDrawn  := na
 
 // MODULE 15 — ALERTES
 

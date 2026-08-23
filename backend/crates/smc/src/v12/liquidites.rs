@@ -195,23 +195,29 @@ impl LiquiditesDetector {
             }
         }
 
-        // ── 2. Sweep brut PDH/PDL/PWH/PWL (Pine lignes 244-247) ──
-        let sweep_pdh = self.pdh.is_some_and(|lvl| bar.high > lvl && bar.close < lvl);
+        // ── 2. Consommation PDH/PDL/PWH/PWL (« décisions trading » 23/08) ──
+        // Un niveau ATTEINT sur bar confirmée (sweep OU cassure) est consommé.
+        // Avant : sweep uniquement (la cassure laissait le niveau actif).
+        // Les flags d'événement sweep_p* (informatifs, tests/API) gardent la
+        // définition sweep historique : mèche au-delà + close retour.
+        let sweep_pdh = self
+            .pdh
+            .is_some_and(|lvl| bar.high > lvl && bar.close < lvl);
         let sweep_pdl = self.pdl.is_some_and(|lvl| bar.low < lvl && bar.close > lvl);
-        let sweep_pwh = self.pwh.is_some_and(|lvl| bar.high > lvl && bar.close < lvl);
+        let sweep_pwh = self
+            .pwh
+            .is_some_and(|lvl| bar.high > lvl && bar.close < lvl);
         let sweep_pwl = self.pwl.is_some_and(|lvl| bar.low < lvl && bar.close > lvl);
-
-        // Invalidation des niveaux actifs (Pine lignes 249-256).
-        if sweep_pdh {
+        if self.pdh_active.is_some_and(|lvl| bar.high >= lvl) {
             self.pdh_active = None;
         }
-        if sweep_pdl {
+        if self.pdl_active.is_some_and(|lvl| bar.low <= lvl) {
             self.pdl_active = None;
         }
-        if sweep_pwh {
+        if self.pwh_active.is_some_and(|lvl| bar.high >= lvl) {
             self.pwh_active = None;
         }
-        if sweep_pwl {
+        if self.pwl_active.is_some_and(|lvl| bar.low <= lvl) {
             self.pwl_active = None;
         }
 
@@ -293,9 +299,10 @@ impl LiquiditesDetector {
     fn liq_update(&mut self, is_high: bool, p1: f64, p2: f64, bp2: usize, tol_cluster: f64) {
         let new_price = (p1 + p2) / 2.0;
         // Cherche un niveau existant du même type, non sweepé, dans tolCluster du pivot.
-        let found = self.pool.iter_mut().find(|l| {
-            l.is_high == is_high && !l.swept && (l.price - p1).abs() <= tol_cluster
-        });
+        let found = self
+            .pool
+            .iter_mut()
+            .find(|l| l.is_high == is_high && !l.swept && (l.price - p1).abs() <= tol_cluster);
         if let Some(level) = found {
             level.touches += 1;
             // Moyenne cumulée : price = (price × (touches-1) + p1) / touches.
@@ -317,9 +324,10 @@ impl LiquiditesDetector {
 
     /// 3ᵉ touche isolée (Pine lignes 679-694) : incrémente le 1ᵉʳ niveau match.
     fn liq_touch_isolated(&mut self, is_high: bool, p1: f64, tol_cluster: f64) {
-        let found = self.pool.iter_mut().find(|l| {
-            l.is_high == is_high && !l.swept && (l.price - p1).abs() <= tol_cluster
-        });
+        let found = self
+            .pool
+            .iter_mut()
+            .find(|l| l.is_high == is_high && !l.swept && (l.price - p1).abs() <= tol_cluster);
         if let Some(level) = found {
             level.touches += 1;
             level.price = (level.price * (level.touches as f64 - 1.0) + p1) / level.touches as f64;
@@ -333,6 +341,12 @@ impl LiquiditesDetector {
     pub fn dernier_eql_level(&self) -> Option<f64> {
         self.dernier_eql_level
     }
+    /// Test uniquement : injecte un dernierEQH.
+    #[cfg(test)]
+    pub fn set_dernier_eqh_pour_test(&mut self, lvl: f64) {
+        self.dernier_eqh_level = Some(lvl);
+    }
+
     /// `dernierEQL_level := na` (Pine ligne 770) — consommé par un sweep haussier.
     pub fn clear_dernier_eql(&mut self) {
         self.dernier_eql_level = None;
@@ -342,12 +356,38 @@ impl LiquiditesDetector {
         self.dernier_eqh_level = None;
     }
 
+    /// « Décisions trading » 23/08 : consommation à l'ATTEINTE des dernierEQH/EQL
+    /// (couvre la cassure — le sweep confirmé est déjà traité par le détecteur)
+    /// et purge du pool (tout niveau touché est marqué sweepé = invisible).
+    /// À appeler APRÈS `SweepDetector::update` (l'armement du sweep lit les niveaux).
+    pub fn consommer_niveaux_atteints(&mut self, bar: &BarInput) {
+        if self.dernier_eqh_level.is_some_and(|lvl| bar.high >= lvl) {
+            self.dernier_eqh_level = None;
+        }
+        if self.dernier_eql_level.is_some_and(|lvl| bar.low <= lvl) {
+            self.dernier_eql_level = None;
+        }
+        for l in self.pool.iter_mut() {
+            if !l.swept {
+                let atteint = if l.is_high {
+                    bar.high >= l.price
+                } else {
+                    bar.low <= l.price
+                };
+                if atteint {
+                    l.swept = true;
+                }
+            }
+        }
+    }
+
     /// Marque le 1ᵉʳ niveau correspondant comme sweepé (Pine lignes 773-778 / 786-791).
     /// Tolérance `tolEq` (plus stricte que tolCluster).
     pub fn mark_swept(&mut self, is_high: bool, level: f64, tol_eq: f64) {
-        let found = self.pool.iter_mut().find(|l| {
-            l.is_high == is_high && !l.swept && (l.price - level).abs() <= tol_eq
-        });
+        let found = self
+            .pool
+            .iter_mut()
+            .find(|l| l.is_high == is_high && !l.swept && (l.price - level).abs() <= tol_eq);
         if let Some(l) = found {
             l.swept = true;
         }

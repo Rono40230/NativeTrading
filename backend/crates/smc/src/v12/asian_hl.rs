@@ -80,11 +80,12 @@ impl AsianHlDetector {
         }
         self.en_session = en_session;
 
-        // Invalidation par close (Pine : close > _ahHighDrawn / close < _ahLowDrawn).
-        if self.drawn_high.is_some_and(|h| bar.close > h) {
+        // « Décisions trading » 23/08 : niveau ATTEINT (sweep ou cassure) = consommé
+        // (avant : close franchi uniquement — un sweep mèche+retour laissait le niveau).
+        if self.drawn_high.is_some_and(|h| bar.high >= h) {
             self.drawn_high = None;
         }
-        if self.drawn_low.is_some_and(|l| bar.close < l) {
+        if self.drawn_low.is_some_and(|l| bar.low <= l) {
             self.drawn_low = None;
         }
 
@@ -120,7 +121,7 @@ mod tests {
             volume: 0.0,
         }
     }
-    
+
     /// Timestamp UTC d'une date/heure Paris donnée.
     fn paris_ts(annee: i32, mois: u32, jour: u32, heure: u32, minute: u32) -> i64 {
         use chrono::TimeZone;
@@ -129,7 +130,7 @@ mod tests {
             .unwrap()
             .timestamp()
     }
-    
+
     #[test]
     fn range_pendant_session_puis_drawn_a_la_fin() {
         let mut det = AsianHlDetector::new();
@@ -147,7 +148,7 @@ mod tests {
         );
         assert_eq!(ev3.low, Some(98.0), "Asian Low drawn");
     }
-    
+
     #[test]
     fn invalidation_par_close() {
         let mut det = AsianHlDetector::new();
@@ -160,7 +161,7 @@ mod tests {
         let apres = det.update(&bar(fin + 900, 96.0, 95.0, 95.5)); // close 95.5 < low 98
         assert_eq!(apres.low, None, "close < Asian Low ⇒ invalidé");
     }
-    
+
     #[test]
     fn dst_hiver_la_session_est_bien_parisienne() {
         // Le 10/01/2026 (heure d'hiver, UTC+1) : 06:00 Paris = 05:00 UTC.
@@ -171,10 +172,11 @@ mod tests {
         let ev = det.update(&bar(hiver, 100.0, 99.0, 100.0));
         assert!(ev.high.is_none(), "06:00 Paris hiver = encore en session");
         let fin = paris_ts(2026, 1, 10, 6, 45);
-        let ev2 = det.update(&bar(fin, 100.0, 99.0, 100.0));
+        // Bar de fin SANS toucher le high (99.5 < 100) — règle atteinte = consommé.
+        let ev2 = det.update(&bar(fin, 99.5, 99.0, 99.2));
         assert_eq!(ev2.high, Some(100.0), "drawn après la fin de session hiver");
     }
-    
+
     #[test]
     fn remplacement_par_la_session_suivante() {
         let mut det = AsianHlDetector::new();
@@ -183,9 +185,9 @@ mod tests {
         det.update(&bar(paris_ts(2026, 6, 10, 7, 0), 100.0, 99.0, 100.0));
         // J2 : nouvelle session avec un range différent → drawn remplacé à la fin.
         det.update(&bar(paris_ts(2026, 6, 11, 2, 0), 105.0, 100.0, 102.0));
-        let ev = det.update(&bar(paris_ts(2026, 6, 11, 7, 0), 101.0, 100.0, 100.5));
+        // low 100.5 > Asian Low 100 : pas de consommation à l'atteinte.
+        let ev = det.update(&bar(paris_ts(2026, 6, 11, 7, 0), 104.0, 100.5, 101.0));
         assert_eq!(ev.high, Some(105.0), "Asian High de J2 remplace J1");
         assert_eq!(ev.low, Some(100.0), "Asian Low de J2");
     }
-    
 }

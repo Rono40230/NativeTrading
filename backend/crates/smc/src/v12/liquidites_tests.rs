@@ -29,11 +29,25 @@ fn pdh_pdl_apparaissent_au_changement_de_jour() {
     // Jour 1 (ts 0.., multiple bars M15).
     for i in 0..10 {
         let ts = i * 900; // 900s = 15 min
-        det.update(&bar(ts, 100.0 + i as f64, 90.0, 95.0), &PivotDetector::new(3), &no_pivot(), 2.0);
+        det.update(
+            &bar(ts, 100.0 + i as f64, 90.0, 95.0),
+            &PivotDetector::new(3),
+            &no_pivot(),
+            2.0,
+        );
     }
-    assert!(det.pdh.is_none(), "aucun pdh tant qu'un jour complet n'est pas passé");
-    // Jour 2 (ts >= 86400).
-    det.update(&bar(86400, 50.0, 40.0, 45.0), &PivotDetector::new(3), &no_pivot(), 2.0);
+    assert!(
+        det.pdh.is_none(),
+        "aucun pdh tant qu'un jour complet n'est pas passé"
+    );
+    // Jour 2 (ts >= 86400) — barre NEUTRE (ne touche ni PDH 109 ni PDL 90) :
+    // règle « décisions trading » atteinte = consommé.
+    det.update(
+        &bar(86400, 100.0, 95.0, 98.0),
+        &PivotDetector::new(3),
+        &no_pivot(),
+        2.0,
+    );
     // pdh = high max du jour 1 = 109.0 (100..109).
     assert_eq!(det.pdh, Some(109.0));
     assert_eq!(det.pdl, Some(90.0));
@@ -42,19 +56,91 @@ fn pdh_pdl_apparaissent_au_changement_de_jour() {
 }
 
 #[test]
+fn pdh_consomme_a_la_cassure_decisions_trading() {
+    // « Décisions trading » 23/08 : atteinte (sweep OU cassure) = consommé.
+    // Avant, une CASSURE (close au-delà) laissait le niveau actif.
+    let mut det = LiquiditesDetector::new();
+    for i in 0..10 {
+        let ts = i * 900;
+        det.update(
+            &bar(ts, 100.0 + i as f64, 90.0, 95.0),
+            &PivotDetector::new(3),
+            &no_pivot(),
+            2.0,
+        );
+    }
+    // Jour 2 : barre neutre → niveaux actifs.
+    det.update(
+        &bar(86400, 100.0, 95.0, 98.0),
+        &PivotDetector::new(3),
+        &no_pivot(),
+        2.0,
+    );
+    assert_eq!(det.pdh_active, Some(109.0));
+    // Cassure franc : high 111 >= PDH 109 (close au-delà aussi) → consommé.
+    det.update(
+        &bar(86400 + 900, 112.0, 111.0, 110.5),
+        &PivotDetector::new(3),
+        &no_pivot(),
+        2.0,
+    );
+    assert_eq!(
+        det.pdh_active, None,
+        "PDH consommé à l'atteinte (cassure comprise)"
+    );
+}
+
+#[test]
+fn dernier_eqh_consomme_a_la_cassure() {
+    let mut det = LiquiditesDetector::new();
+    // Injecter un dernier_eqh à 120.
+    det.set_dernier_eqh_pour_test(120.0);
+    // Sweep mèche + retour : consommé à l'ATTEINTE (high >= 120).
+    det.consommer_niveaux_atteints(&bar(900, 121.0, 119.0, 119.5));
+    assert_eq!(det.dernier_eqh_level(), None, "EQH consommé dès l'atteinte");
+}
+
+#[test]
+fn pool_niveau_touche_disparait() {
+    let mut det = LiquiditesDetector::new();
+    det.set_dernier_eqh_pour_test(120.0);
+    // Le pool est vide dans ce test : la purge ne panique pas, dernier seul.
+    det.consommer_niveaux_atteints(&bar(900, 119.0, 118.0, 118.5));
+    assert_eq!(det.dernier_eqh_level(), Some(120.0), "non touché = vivant");
+}
+
+#[test]
 fn sweep_pdh_invalide_pdh_active() {
     let mut det = LiquiditesDetector::new();
     // Jour 1 : high monte à 120.
     for i in 0..10 {
         let ts = i * 900;
-        det.update(&bar(ts, 100.0 + i as f64 * 2.0, 90.0, 95.0), &PivotDetector::new(3), &no_pivot(), 2.0);
+        det.update(
+            &bar(ts, 100.0 + i as f64 * 2.0, 90.0, 95.0),
+            &PivotDetector::new(3),
+            &no_pivot(),
+            2.0,
+        );
     }
     // Jour 2 : pdh = 118.0.
-    det.update(&bar(86400, 50.0, 40.0, 45.0), &PivotDetector::new(3), &no_pivot(), 2.0);
+    det.update(
+        &bar(86400, 50.0, 40.0, 45.0),
+        &PivotDetector::new(3),
+        &no_pivot(),
+        2.0,
+    );
     assert_eq!(det.pdh, Some(118.0));
     // Sweep : high > pdh (118) ET close < pdh.
-    let ev = det.update(&bar(86400 + 900, 120.0, 110.0, 115.0), &PivotDetector::new(3), &no_pivot(), 2.0);
-    assert!(ev.sweep_pdh, "high=120 > pdh=118 ET close=115 < 118 ⇒ sweep");
+    let ev = det.update(
+        &bar(86400 + 900, 120.0, 110.0, 115.0),
+        &PivotDetector::new(3),
+        &no_pivot(),
+        2.0,
+    );
+    assert!(
+        ev.sweep_pdh,
+        "high=120 > pdh=118 ET close=115 < 118 ⇒ sweep"
+    );
     assert!(det.pdh_active.is_none(), "pdh_active invalidé après sweep");
     // pdh brut reste disponible (Pine n'efface pas pdh, seulement pdhActive).
     assert_eq!(det.pdh, Some(118.0));
@@ -65,12 +151,27 @@ fn pas_de_sweep_si_close_ne_reviend_pas() {
     let mut det = LiquiditesDetector::new();
     for i in 0..10 {
         let ts = i * 900;
-        det.update(&bar(ts, 100.0 + i as f64, 90.0, 95.0), &PivotDetector::new(3), &no_pivot(), 2.0);
+        det.update(
+            &bar(ts, 100.0 + i as f64, 90.0, 95.0),
+            &PivotDetector::new(3),
+            &no_pivot(),
+            2.0,
+        );
     }
-    det.update(&bar(86400, 50.0, 40.0, 45.0), &PivotDetector::new(3), &no_pivot(), 2.0);
+    det.update(
+        &bar(86400, 50.0, 40.0, 45.0),
+        &PivotDetector::new(3),
+        &no_pivot(),
+        2.0,
+    );
     assert_eq!(det.pdh, Some(109.0));
     // close >= pdh (pas de retour) ⇒ pas un sweep.
-    let ev = det.update(&bar(86400 + 900, 120.0, 110.0, 110.0), &PivotDetector::new(3), &no_pivot(), 2.0);
+    let ev = det.update(
+        &bar(86400 + 900, 120.0, 110.0, 110.0),
+        &PivotDetector::new(3),
+        &no_pivot(),
+        2.0,
+    );
     assert!(!ev.sweep_pdh);
 }
 
@@ -93,7 +194,10 @@ fn pwh_pwl_changement_de_semaine() {
         );
     }
     // Toujours dans W01 ⇒ aucun pwh encore.
-    assert!(det.pwh.is_none(), "aucun pwh tant qu'une semaine ISO complète n'est pas passée");
+    assert!(
+        det.pwh.is_none(),
+        "aucun pwh tant qu'une semaine ISO complète n'est pas passée"
+    );
 
     // d=7 ⇒ lundi W02 : pwh = high max de W01 = 160.0.
     let ts_w2 = base + 7 * 86_400;
@@ -103,9 +207,16 @@ fn pwh_pwl_changement_de_semaine() {
         &no_pivot(),
         2.0,
     );
-    assert_eq!(det.pwh, Some(160.0), "pwh = high max de la semaine précédente");
+    assert_eq!(
+        det.pwh,
+        Some(160.0),
+        "pwh = high max de la semaine précédente"
+    );
     assert_eq!(det.pwl, Some(90.0));
-    assert_eq!(det.pwh_active, det.pwh, "pwh_active rafraîchi au changement de semaine");
+    assert_eq!(
+        det.pwh_active, det.pwh,
+        "pwh_active rafraîchi au changement de semaine"
+    );
 }
 
 // ===================== EQH / EQL =====================
@@ -181,7 +292,10 @@ fn mark_swept_niveau_eqh_via_pool() {
     assert_eq!(det.pool()[0].touches, 2);
     // mark_swept grise le niveau EQH correspondant (consommation par un sweep baissier).
     det.mark_swept(true, 110.0, 2.0);
-    assert!(det.pool()[0].swept, "mark_swept grise le niveau correspondant");
+    assert!(
+        det.pool()[0].swept,
+        "mark_swept grise le niveau correspondant"
+    );
 }
 
 #[test]
@@ -218,4 +332,3 @@ fn pool_fifo_limite_a_20_niveaux() {
     }
     assert_eq!(det.pool.len(), 25 - 1);
 }
-

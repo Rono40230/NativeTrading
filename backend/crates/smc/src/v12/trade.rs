@@ -275,7 +275,20 @@ mod tests {
 
     #[test]
     fn verdict_sl_avant_tp1() {
-        let mut t = Trade::new_buy(1, TradeSource::Ob, 100.0, 98.0, 102.0, 104.0, 106.0, 10, 2.0, &bar(0), 0, None);
+        let mut t = Trade::new_buy(
+            1,
+            TradeSource::Ob,
+            100.0,
+            98.0,
+            102.0,
+            104.0,
+            106.0,
+            10,
+            2.0,
+            &bar(0),
+            0,
+            None,
+        );
         t.state = TradeState::Closed;
         t.close_reason = Some(CloseReason::Sl);
         assert_eq!(t.verdict(), Verdict::Sl);
@@ -286,7 +299,20 @@ mod tests {
     #[test]
     fn verdict_tp1_puis_be() {
         // TP1 touché en prix puis BE : verdict TP1 (win +1R), même si close_reason=Be.
-        let mut t = Trade::new_buy(2, TradeSource::Ob, 100.0, 98.0, 102.0, 104.0, 106.0, 10, 2.0, &bar(0), 0, None);
+        let mut t = Trade::new_buy(
+            2,
+            TradeSource::Ob,
+            100.0,
+            98.0,
+            102.0,
+            104.0,
+            106.0,
+            10,
+            2.0,
+            &bar(0),
+            0,
+            None,
+        );
         t.tp1_price_touched = true;
         t.tp1_hit = true;
         t.close_reason = Some(CloseReason::Be);
@@ -297,7 +323,20 @@ mod tests {
 
     #[test]
     fn verdict_tp3_distance_reelle() {
-        let mut t = Trade::new_buy(3, TradeSource::Ob, 100.0, 98.0, 102.0, 104.0, 110.0, 10, 2.0, &bar(0), 0, None);
+        let mut t = Trade::new_buy(
+            3,
+            TradeSource::Ob,
+            100.0,
+            98.0,
+            102.0,
+            104.0,
+            110.0,
+            10,
+            2.0,
+            &bar(0),
+            0,
+            None,
+        );
         t.tp3_touched = true;
         t.close_reason = Some(CloseReason::Tp3);
         assert_eq!(t.verdict(), Verdict::Tp3);
@@ -308,7 +347,20 @@ mod tests {
     #[test]
     fn verdict_be_force_sans_tp1_prix() {
         // BE forcé par BOS opposé : tp1_hit=true mais tp1_price_touched=false.
-        let mut t = Trade::new_buy(4, TradeSource::Ob, 100.0, 98.0, 102.0, 104.0, 106.0, 10, 2.0, &bar(0), 0, None);
+        let mut t = Trade::new_buy(
+            4,
+            TradeSource::Ob,
+            100.0,
+            98.0,
+            102.0,
+            104.0,
+            106.0,
+            10,
+            2.0,
+            &bar(0),
+            0,
+            None,
+        );
         t.tp1_hit = true;
         t.be_forced = true;
         t.close_reason = Some(CloseReason::Be);

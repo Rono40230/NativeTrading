@@ -87,7 +87,9 @@ pub struct SentimentVerdict {
 pub fn classe_actif(asset: &str) -> &'static str {
     let a = asset.trim().to_uppercase();
     match a.as_str() {
-        "BTC" | "ETH" | "SOL" | "BNB" | "XRP" | "ADA" | "DOGE" | "AVAX" | "LINK" | "DOT" => "crypto",
+        "BTC" | "ETH" | "SOL" | "BNB" | "XRP" | "ADA" | "DOGE" | "AVAX" | "LINK" | "DOT" => {
+            "crypto"
+        }
         "XAUUSD" | "XAGUSD" | "XPTUSD" | "XPDUSD" | "XAU" | "XAG" => "metaux",
         "DAX" | "NAS100" | "SP500" | "US30" | "FTSE100" | "CAC40" | "JP225" => "indices",
         _ => "forex", // Paires 6 lettres (EURUSD…) et défaut → forex
@@ -154,7 +156,10 @@ pub fn agreg_par_classe(scores: &HashMap<String, f64>) -> SentimentScore {
     let mut au_dessus_ma = 0u32;
     let mut total = 0u32;
     for (asset, &score) in scores {
-        par_classe.entry(classe_actif(asset)).or_default().push(score);
+        par_classe
+            .entry(classe_actif(asset))
+            .or_default()
+            .push(score);
         total += 1;
         // Le score technique intègre déjà le bonus MA20 (+5 si prix>MA20) :
         // un score > 50 avec contribution MA20 positive est compté comme breadth.
@@ -228,15 +233,11 @@ mod tests {
     }
 
     fn tendance_haussiere(n: usize) -> Vec<Candle> {
-        (0..n)
-            .map(|i| bougie(100.0 + i as f64 * 2.0))
-            .collect()
+        (0..n).map(|i| bougie(100.0 + i as f64 * 2.0)).collect()
     }
 
     fn tendance_baissiere(n: usize) -> Vec<Candle> {
-        (0..n)
-            .map(|i| bougie(200.0 - i as f64 * 2.0))
-            .collect()
+        (0..n).map(|i| bougie(200.0 - i as f64 * 2.0)).collect()
     }
 
     #[test]
@@ -277,7 +278,11 @@ mod tests {
         let scores = calculer_sentiment_technique(&input);
         let s = scores["BTC"];
         // Hausse régulière → RSI14 élevé + prix > MA20 → score > 60.
-        assert!(s > 60.0, "tendance haussière devrait donner score élevé, eu {}", s);
+        assert!(
+            s > 60.0,
+            "tendance haussière devrait donner score élevé, eu {}",
+            s
+        );
     }
 
     #[test]
@@ -285,7 +290,11 @@ mod tests {
         let input = vec![("EURUSD".to_string(), tendance_baissiere(30))];
         let scores = calculer_sentiment_technique(&input);
         let s = scores["EURUSD"];
-        assert!(s < 40.0, "tendance baissière devrait donner score bas, eu {}", s);
+        assert!(
+            s < 40.0,
+            "tendance baissière devrait donner score bas, eu {}",
+            s
+        );
     }
 
     #[test]

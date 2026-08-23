@@ -159,9 +159,27 @@ mod tests {
         let mut obs = ObDetector::new();
         let mut brk = BreakerDetector::new();
         // Crée un OB bull : bar1 baissière (top=102 bot=98), bar2 impulsion.
-        obs.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
-        obs.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk);
-        let _ = obs.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk);
+        obs.update(
+            &bar(0, 100.0, 101.0, 99.0, 100.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
+        obs.update(
+            &bar(1, 100.0, 102.0, 98.0, 98.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
+        let _ = obs.update(
+            &bar(2, 99.0, 112.0, 99.0, 110.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
         assert!(!obs.bull_zones().is_empty());
 
         // Prépare le détecteur FVG simulé : FVG bull avec top=108, bot=100
@@ -191,9 +209,27 @@ mod tests {
     fn pas_de_propulsion_sans_chevauchement() {
         let mut obs = ObDetector::new();
         let mut brk = BreakerDetector::new();
-        obs.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
-        obs.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk);
-        let _ = obs.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk);
+        obs.update(
+            &bar(0, 100.0, 101.0, 99.0, 100.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
+        obs.update(
+            &bar(1, 100.0, 102.0, 98.0, 98.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
+        let _ = obs.update(
+            &bar(2, 99.0, 112.0, 99.0, 110.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
         // FVG bull loin de l'OB : top=150 bot=140 (OB est à 98-102).
         let fvg = FvgEvent {
             is_fvg_bull: true,
@@ -215,9 +251,27 @@ mod tests {
     fn propulsion_bull_supprime_si_close_sous_bot() {
         let mut obs = ObDetector::new();
         let mut brk = BreakerDetector::new();
-        obs.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
-        obs.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk);
-        let _ = obs.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk);
+        obs.update(
+            &bar(0, 100.0, 101.0, 99.0, 100.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
+        obs.update(
+            &bar(1, 100.0, 102.0, 98.0, 98.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
+        let _ = obs.update(
+            &bar(2, 99.0, 112.0, 99.0, 110.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
         let fvg = FvgEvent {
             is_fvg_bull: true,
             is_fvg_bear: false,
@@ -243,9 +297,27 @@ mod tests {
         let mut obs = ObDetector::new();
         let mut brk = BreakerDetector::new();
         // Un seul OB bull couvrant [98,102].
-        obs.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
-        obs.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk);
-        let _ = obs.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk);
+        obs.update(
+            &bar(0, 100.0, 101.0, 99.0, 100.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
+        obs.update(
+            &bar(1, 100.0, 102.0, 98.0, 98.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
+        let _ = obs.update(
+            &bar(2, 99.0, 112.0, 99.0, 110.0),
+            5.0,
+            false,
+            false,
+            &mut brk,
+        );
         let fvg = FvgEvent {
             is_fvg_bull: true,
             is_fvg_bear: false,

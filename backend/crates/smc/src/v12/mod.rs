@@ -221,6 +221,9 @@ impl SmcV12Engine {
 
         // 7. Sweep — consomme dernierEQH/EQL_level et marque le pool sweepé.
         let sweep_event = self.sweep.update(bar, &mut self.liquidites, atr14);
+        // 7b. « Décisions trading » 23/08 : consommation à l'ATTEINTE des
+        // dernierEQ*/pool (après le sweep — son armement lit les niveaux).
+        self.liquidites.consommer_niveaux_atteints(bar);
 
         // 8. FVG (MODULE 6) — détection + lifecycle. Produit les bornes pour Propulsion.
         let fvg_event = self.fvg.update(bar, atr14);

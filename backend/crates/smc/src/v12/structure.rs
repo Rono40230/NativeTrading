@@ -157,7 +157,10 @@ mod tests {
         s.update(&dummy_bar(), &pivot_high(100.0)); // init, pas de classif
         s.update(&dummy_bar(), &pivot_high(110.0)); // HH
         assert!(s.last_event().is_hh);
-        assert!(!s.tendance_haussiere(), "1 HH ⇒ pas encore tendance (bull=1)");
+        assert!(
+            !s.tendance_haussiere(),
+            "1 HH ⇒ pas encore tendance (bull=1)"
+        );
         s.update(&dummy_bar(), &pivot_high(120.0)); // HH
         assert!(s.last_event().is_hh);
         assert!(s.tendance_haussiere(), "2 HH ⇒ tendance haussière");
@@ -185,8 +188,14 @@ mod tests {
         assert!(s.tendance_haussiere());
         s.update(&dummy_bar(), &pivot_high(115.0)); // LH → bear=1, bull=1
         s.update(&dummy_bar(), &pivot_high(105.0)); // LH → bear=2, bull=0
-        assert!(s.tendance_baissiere(), "2 LH consécutifs ⇒ bascule baissière");
-        assert!(!s.tendance_haussiere(), "bull remis à 0 par décrément saturé");
+        assert!(
+            s.tendance_baissiere(),
+            "2 LH consécutifs ⇒ bascule baissière"
+        );
+        assert!(
+            !s.tendance_haussiere(),
+            "bull remis à 0 par décrément saturé"
+        );
     }
 
     #[test]

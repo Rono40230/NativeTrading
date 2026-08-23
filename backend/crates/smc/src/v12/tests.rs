@@ -30,7 +30,8 @@ fn load_xauusd_m15() -> Vec<BarInput> {
             f[4].parse::<f64>().ok(),
             f[5].parse::<f64>().ok(),
         );
-        let (Some(timestamp), Some(open), Some(high), Some(low), Some(close), Some(volume)) = parsed
+        let (Some(timestamp), Some(open), Some(high), Some(low), Some(close), Some(volume)) =
+            parsed
         else {
             continue;
         };
@@ -238,13 +239,10 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
 
     // Comptes actifs (zones encore vivantes à la dernière bar) + cumuls créés.
     let fvg_act = engine.fvg.bull_zones().len() + engine.fvg.bear_zones().len();
-    let ob_act = engine.order_blocks.bull_zones().len()
-        + engine.order_blocks.bear_zones().len();
+    let ob_act = engine.order_blocks.bull_zones().len() + engine.order_blocks.bear_zones().len();
     let brk_act = engine.breaker.bull_zones().len() + engine.breaker.bear_zones().len();
-    let prop_act = engine.propulsion.bull_zones().len()
-        + engine.propulsion.bear_zones().len();
-    let ib_act = engine.imbalance.bull_zones().len()
-        + engine.imbalance.bear_zones().len();
+    let prop_act = engine.propulsion.bull_zones().len() + engine.propulsion.bear_zones().len();
+    let ib_act = engine.imbalance.bull_zones().len() + engine.imbalance.bear_zones().len();
     println!(
         "\n===== MODULES 6/7/8b/8c/13b — ZONES (700 bars XAUUSD M15) =====\n\
          FVG      : créés bull={fvg_bull} bear={fvg_bear} | actifs={fvg_act}\n\
@@ -303,13 +301,11 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
         "Breaker FIFO ≤ 5 par sens"
     );
     assert!(
-        engine.propulsion.bull_zones().len() <= 3
-            && engine.propulsion.bear_zones().len() <= 3,
+        engine.propulsion.bull_zones().len() <= 3 && engine.propulsion.bear_zones().len() <= 3,
         "Propulsion FIFO ≤ 3 par sens"
     );
     assert!(
-        engine.imbalance.bull_zones().len() <= 10
-            && engine.imbalance.bear_zones().len() <= 10,
+        engine.imbalance.bull_zones().len() <= 10 && engine.imbalance.bear_zones().len() <= 10,
         "Imbalance FIFO ≤ 10 par sens"
     );
 
@@ -337,9 +333,15 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     assert!(ndog_new <= 700, "NDOG compteur cohérent");
     // MTF : H1 doit produire au moins une confluence sur 700 bars M15 (≈175 bars H1,
     // suffisamment de pivots/OB). W1/MN peuvent rester à 0 (fenêtre trop courte).
-    assert!(conf_h1 > 0, "MTF : au moins une confluence H1 sur 700 bars M15");
+    assert!(
+        conf_h1 > 0,
+        "MTF : au moins une confluence H1 sur 700 bars M15"
+    );
     // Zone-cœur : pas de panic ; borne supérieure lâche (détection stricte).
-    assert!(coeur_bull + coeur_bear <= 700, "Zone-cœur : compteur cohérent");
+    assert!(
+        coeur_bull + coeur_bear <= 700,
+        "Zone-cœur : compteur cohérent"
+    );
 }
 
 /// Phase 2.5 — Test d'intégration du CERVEAU : scoring + signaux + lifecycle
@@ -359,9 +361,18 @@ fn engine_genere_signaux_et_lifecycle_700_bars() {
     let trades = &engine.signals.trades;
 
     let total = trades.len();
-    let v11 = trades.iter().filter(|t| t.source == TradeSource::Ob).count();
-    let bs = trades.iter().filter(|t| t.source == TradeSource::BsZones).count();
-    let closed = trades.iter().filter(|t| t.state == TradeState::Closed).count();
+    let v11 = trades
+        .iter()
+        .filter(|t| t.source == TradeSource::Ob)
+        .count();
+    let bs = trades
+        .iter()
+        .filter(|t| t.source == TradeSource::BsZones)
+        .count();
+    let closed = trades
+        .iter()
+        .filter(|t| t.state == TradeState::Closed)
+        .count();
     let open = total - closed;
 
     // Verdicts (sur clôturés).
@@ -455,7 +466,10 @@ fn engine_genere_signaux_et_lifecycle_700_bars() {
     );
 
     // --- Assertions de bon sens (pas de panic, lifecycle cohérent) ---
-    assert!(total < 700, "Nettement moins de trades que de bars (anti-doublon)");
+    assert!(
+        total < 700,
+        "Nettement moins de trades que de bars (anti-doublon)"
+    );
     assert_eq!(v11 + bs, total, "source v11 + BS = total");
     assert_eq!(
         n_tp1 + n_tp2 + n_tp3 + n_sl + n_be + n_expire + n_cancel,
@@ -472,4 +486,3 @@ fn engine_genere_signaux_et_lifecycle_700_bars() {
         }
     }
 }
-

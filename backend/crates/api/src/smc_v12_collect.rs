@@ -306,11 +306,12 @@ pub(crate) fn collect_final_extended(
         },
     ];
 
-    // ── EQH/EQL (pool de liquidités) ──
+    // ── EQH/EQL — « décisions trading » : touchés (sweepés) = DISPARUS.
     let eqs: Vec<EqOut> = engine
         .liquidites
         .pool()
         .iter()
+        .filter(|l| !l.swept)
         .map(|l| EqOut {
             dir: if l.is_high { "high" } else { "low" },
             price: l.price,
