@@ -308,6 +308,8 @@ export function dessinerBoxes(
     ctx.fillStyle = hexVersRgba(hex, t(transp))
     ctx.fillRect(xG, box.yTop, xD - xG, box.h)
     tracerBordsBox(ctx, hexVersRgba(hex, 1), xG, xD, box.yTop, box.h)
+    // Pine : texte « New Day/Week Opening Gap » (tiny, haut droite).
+    labelBox(ctx, hexVersRgba(hex, 1), g.gtype === 'ndog' ? 'New Day Opening Gap' : 'New Week Opening Gap', xD, box.yTop)
   }
 
   // MTF OB (H1/H4/W1/MN).
