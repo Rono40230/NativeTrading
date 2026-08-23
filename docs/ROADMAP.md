@@ -300,7 +300,7 @@ PRÉSENTATION
 |---|---|---|---|
 | 0 | Inventaire validé | `docs/INVENTAIRE.md` relu et tranché | ✅ 2026-08-15 |
 | 1 | Cœur fiable | Tests verts + 24 h bougies 100 % + résilience | ✅ 2026-08-17 |
-| 2 | v12 fidèle | **Pyramide de vérification** (0 bougies → 1 zones SMC → 2 scoring → 3 logique d'entrée → 4 signaux) — chaque étape validée avant la suivante, décision propriétaire 2026-08-18 | ⬜ |
+| 2 | v12 fidèle | **Pyramide de vérification** (0 bougies → 1 zones SMC → 2 scoring → 3 logique d'entrée → 4 signaux) — chaque étape validée avant la suivante, décision propriétaire 2026-08-18 | ✅ 2026-08-23 |
 | 3 | Plugins fidèles | Par stratégie : replay + 2 sessions + non-régression v12 | ⬜ |
 | 4 | Extensions isolées | Kill producteur sans impact + dashboard | ⬜ |
 | 5 | Nouvelles sources | Gate 2 rejouée par asset + couverture DB | ⬜ |
