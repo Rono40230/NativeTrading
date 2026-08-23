@@ -1,40 +1,35 @@
 <template>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm mb-4">
+  <div class="space-y-4">
+    <!-- Réglages par stratégie (registre : état, son TG, capital, risque) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <StrategieReglagesCard v-for="s in strategies" :key="s.id" :s="s" />
+    </div>
+
+    <!-- Paramètres numériques propres au Straddle (moteur branché dessus) -->
     <StraddleParamsCard />
-    <SmcParamsCard />
-    <RocketsParamsCard />
+
+    <!-- Rockets : en construction (moteur VCP à venir) -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
-import { useStrategyParamsStore } from '@/stores/strategyParams.store'
+import { onMounted, ref } from 'vue'
+import { http } from '@/services/http.client'
+import StrategieReglagesCard from './common/StrategieReglagesCard.vue'
 import StraddleParamsCard from './common/StraddleParamsCard.vue'
-import SmcParamsCard from './common/SmcParamsCard.vue'
-import RocketsParamsCard from './common/RocketsParamsCard.vue'
 
-const store = useStrategyParamsStore()
+interface StrategieApi {
+  id: string; nom: string; description: string; icone: string; couleur: string
+  etat: string; notifications: boolean; capital: number; risque_pct: number
+}
+const strategies = ref<StrategieApi[]>([])
 
-onMounted(() => store.charger())
+onMounted(async () => {
+  try {
+    const res = await http.get('/api/strategies')
+    strategies.value = res.data
+  } catch {
+    strategies.value = []
+  }
+})
 </script>
-
-<style>
-/* Global styles for number inputs in settings */
-input[type='number']::-webkit-outer-spin-button,
-input[type='number']::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-input[type='number'] {
-  -moz-appearance: textfield;
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-in-out forwards;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-</style>

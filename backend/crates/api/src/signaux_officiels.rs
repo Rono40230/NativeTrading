@@ -1,16 +1,10 @@
-//! Phase 2.8 — BASCULE OFFICIELLE : les émissions live du runtime v12
-//! deviennent les signaux officiels de l'app.
+//! Étape 2 — signaux OFFICIELS : writer Telegram aux maquettes propriétaire
+//! (message d'IMMINENCE seul — pas de clôture/fill/TP) + table `signaux`.
 //!
-//! Branché aux bus du runtime (comme `journal_emissions`, qui reste actif
-//! comme piste d'audit) :
-//! - **Signal** → INSERT table `signaux` (strategie `SmcDirectional`,
-//!   `cle_moteur` pour le matching) + notification Telegram ;
-//! - **Événement lifecycle** (Fill/BE/TP/Clôture) → notification Telegram,
-//!   et Clôture → `statut='Fermé'` sur la ligne correspondante.
-//!
-//! Telegram est envoyé EN DIRECT depuis ce writer (post_message, timeout
-//! 10 s) — pas de file d'attente : l'objectif roadmap est « sur le bus,
-//! < 1 s ». Une erreur d'envoi ne bloque jamais le flux (log + continue).
+//! Le writer consulte le REGISTRE : seul une stratégie « Officielle » avec
+//! son « son » activé parle sur Telegram (découplé de la vie des signaux).
+//! Le lot se calcule par stratégie : (capital × risque) / (stop en pips ×
+//! valeur du pip) — conventions de l'onglet gestion du risque.
 
 use std::sync::Arc;
 
@@ -18,17 +12,32 @@ use common::{Direction, Signal};
 use db::Database;
 use engine::{BusEvenements, BusSignaux};
 
-/// Démarre le writer (spawn). `db` sert aux tokens Telegram.
+/// Démarre le writer (spawn).
 pub fn demarrer(db: Arc<Database>, bus_signaux: BusSignaux, bus_evenements: BusEvenements) {
     tokio::spawn(ecrire_signaux(db.clone(), bus_signaux));
-    tokio::spawn(traiter_evenements(db, bus_evenements));
+    tokio::spawn(fermer_signaux(db, bus_evenements));
 }
 
 async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
     let mut rx = bus.abonner();
-    tracing::info!("📢 Signaux OFFICIELS v12 actifs (table signaux + Telegram)");
+    tracing::info!("📢 Signaux OFFICIELS actifs (table signaux + Telegram)");
     while let Ok(s) = rx.recv().await {
-        if s.moteur != "smc_v12" {
+        // Manifeste connu ? (moteur → stratégie)
+        let Some(m) = crate::registre_strategies::MANIFESTES
+            .iter()
+            .find(|m| m.moteur == s.moteur)
+        else {
+            continue;
+        };
+        // Table : seule une stratégie Officielle écrit l'historique officiel.
+        let etat = db
+            .lire_strategie(m.id)
+            .await
+            .ok()
+            .flatten()
+            .map(|r| r.etat)
+            .unwrap_or_else(|| "Construction".into());
+        if etat != "Officielle" {
             continue;
         }
         let signal = Signal::nouveau(
@@ -39,44 +48,26 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
             s.prix_entree,
             s.stop_loss,
             s.take_profits.clone(),
-            "SmcDirectional",
+            m.id,
         );
         if let Err(e) = db.inserer_signal_officiel(&signal, &s.cle).await {
             tracing::warn!("Signaux officiels (insert): {}", e);
-            continue;
         }
-        let dir_txt = match s.direction {
-            Direction::Long => "🟢 BUY",
-            Direction::Short => "🔴 SELL",
-            _ => "⚪",
-        };
-        envoyer_telegram(
-            &db,
-            &format!(
-                "{} SMC v12 · {} {} · entrée {:.2} · SL {:.2} · TP1 {:.2} · score {}/10\n{}",
-                dir_txt,
-                s.asset.as_str(),
-                s.tf.as_str(),
-                s.prix_entree,
-                s.stop_loss,
-                s.take_profits.first().copied().unwrap_or(0.0),
-                s.score.min(10).max(1),
-                s.raison,
-            ),
-        )
-        .await;
+        // Telegram : son activé ?
+        let reg = db.lire_strategie(m.id).await.ok().flatten();
+        if reg.as_ref().is_some_and(|r| r.notifications) {
+            if let Some(msg) = formater_message(&db, m.id, &s).await {
+                envoyer_telegram(&db, &msg).await;
+            }
+        }
     }
 }
 
-async fn traiter_evenements(db: Arc<Database>, bus: BusEvenements) {
+/// Clôtures : mise à jour DB silencieuse (statut Fermé) — pas de message
+/// (décision propriétaire : imminence seule sur Telegram).
+async fn fermer_signaux(db: Arc<Database>, bus: BusEvenements) {
     let mut rx = bus.abonner();
     while let Ok(e) = rx.recv().await {
-        if e.moteur != "smc_v12" {
-            continue;
-        }
-        // Option A (décision propriétaire) : Telegram MINIMAL — signal +
-        // clôture uniquement. Fill/BE/TP restent journalisés (audit +
-        // lifecycle DB) mais ne notifient pas.
         use engine::TypeEvenementTrade as T;
         if !matches!(e.evenement, T::Cloture) {
             continue;
@@ -84,21 +75,74 @@ async fn traiter_evenements(db: Arc<Database>, bus: BusEvenements) {
         if let Err(err) = db.fermer_signal_par_cle(&e.cle_trade, e.emis_le.timestamp()).await {
             tracing::warn!("Signaux officiels (clôture): {}", err);
         }
-        envoyer_telegram(
-            &db,
-            &format!(
-                "🔒 CLÔTURE ({}) · {} {} @ {:.2}",
-                e.detail,
-                e.asset.as_str(),
-                e.tf.as_str(),
-                e.prix
-            ),
-        )
-        .await;
     }
 }
 
-/// Envoi Telegram direct (tokens DB) — erreur = log simple, jamais bloquant.
+/// Message d'imminence (maquette propriétaire) + lot par stratégie.
+async fn formater_message(
+    db: &Database,
+    id_strategie: &str,
+    s: &engine::types::SignalBrut,
+) -> Option<String> {
+    let reg = db.lire_strategie(id_strategie).await.ok()??;
+    let dir = match s.direction {
+        Direction::Long => "🟢 ACHAT",
+        Direction::Short => "🔴 VENTE",
+        _ => "⚪",
+    };
+    let asset = s.asset.as_str().to_string();
+    let tf = s.tf.as_str().to_string();
+    let entree = s.prix_entree;
+    let sl = s.stop_loss;
+    let tps: Vec<f64> = s.take_profits.clone();
+
+    // Conventions de pips de l'actif (onglet gestion du risque).
+    let (taille_pip, valeur_pip) = db::asset_params::lire_un(db.pool(), &asset)
+        .await
+        .ok()
+        .flatten()
+        .map(|p| (p.taille_pip, p.valeur_pips))
+        .unwrap_or((1.0, 1.0));
+    let pips = |a: f64, b: f64| ((a - b).abs() / taille_pip).round() as i64;
+
+    // Lot = (capital × risque) / (stop en pips × valeur du pip).
+    let stop_pips = pips(entree, sl);
+    let lot = if stop_pips > 0 && valeur_pip > 0.0 {
+        (reg.capital * reg.risque_pct / 100.0) / (stop_pips as f64 * valeur_pip)
+    } else {
+        0.0
+    };
+
+    let mut msg = format!(
+        "{icone} {nom}\nSetup {dir} en formation sur {asset} en {tf}\nForce {force}/10\nLot = {lot:.4} pour {risque:.0}% de risque\n\nEntrée : {entree:.2}$\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)",
+        icone = crate::registre_strategies::MANIFESTES
+            .iter()
+            .find(|m| m.id == id_strategie)
+            .map(|m| m.icone)
+            .unwrap_or("▪️"),
+        nom = id_strategie,
+        dir = dir,
+        asset = asset,
+        tf = tf,
+        force = s.score.clamp(1, 10),
+        lot = lot,
+        risque = reg.risque_pct,
+        entree = entree,
+        sl = sl,
+        stop_pips = stop_pips,
+    );
+    for (i, tp) in tps.iter().take(3).enumerate() {
+        msg.push_str(&format!(
+            "\nTP{} : {:.2}$ (soit +{} pips)",
+            i + 1,
+            tp,
+            pips(*tp, entree)
+        ));
+    }
+    Some(msg)
+}
+
+/// Envoi Telegram direct — erreur = log simple, jamais bloquant.
 async fn envoyer_telegram(db: &Database, texte: &str) {
     let (token, chat) = notifications::telegram::lire_tokens_pool(db.pool()).await;
     if token.is_empty() || chat.is_empty() {

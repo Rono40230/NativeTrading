@@ -121,11 +121,14 @@ impl AppState {
         );
         tracing::info!("📊 Sentiment composite activé (worker 30 min)");
 
-        // Job de réconciliation des signaux SMC ouverts (toutes les 5 min)
-        crate::smc_feedback_job::demarrer_job_feedback_smc(db.clone());
+        // Étape 2 — registre des stratégies : enregistre les manifestes
+        // code absents de la table (INSERT OR IGNORE, réglages DB préservés).
+        crate::registre_strategies::amorcer_registre(&db).await;
 
-        // Job de calibration automatique des seuils SMC (toutes les 6h)
-        crate::smc_calibration_job::demarrer_calibration_smc(db.clone());
+        // Workers relics SMC v1 ÉTEINTS (audit étape 2 : ils réglaient le
+        // moteur v1 tué — la v12 lit sa calibration Pine figée).
+        // crate::smc_feedback_job::demarrer_job_feedback_smc(db.clone());
+        // crate::smc_calibration_job::demarrer_calibration_smc(db.clone());
 
         // Patterns d'échec SUSPENDUS : les leçons étaient injectées dans les
         // prompts LLM depuis les vieux signaux — table purgée.

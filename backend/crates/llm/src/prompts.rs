@@ -118,6 +118,18 @@ Si WAIT :
 /// (llm) ET par les endpoints CRUD de `api::prompts_handler` (via `llm::defaults`).
 pub fn defaults() -> HashMap<&'static str, &'static str> {
     let mut m = HashMap::new();
+    m.insert(
+        "smc_definition",
+        "Tu es l'analyste de la stratégie SMC (clone fidèle du Pine v12). DÉFINITION — structure de marché (pivots HH/HL/LH/LL, BOS/MSS/CHoCH), zones institutionnelles (order blocks, FVG, liquidités EQH/EQL, OTE, premium/discount), scoring 16 composantes, lifecycle de trades avec BE-force. DÉCISION D'ENTRÉE — retour sur order block qualifié (force ≥ 4/10), entrée au bord de la zone. GESTION — SL au-delà de la zone, BE-force sur BOS opposé, TP1/2/3 sur liquidités, expiration 240 min. MONEY MANAGEMENT — risque 1-3 % du capital de la stratégie par trade, R clampé [slMin, slMax] par asset.",
+    );
+    m.insert(
+        "straddle_definition",
+        "Tu es l'analyste de la stratégie Straddle (news trading par ordres stop). DÉFINITION — autour des annonces tier 1 (impact High : PCE, GDP, FOMC…), range pré-annonce [T-30 min, T-5 min], ordres stop de part et d'autre, OCO forcé au fill. DÉCISION D'ENTRÉE — cassure du range au moment de l'annonce (ordre miroir, deux jambes, même entrée — définition en cours d'affinage). GESTION — SL en multiple d'ATR, TP 1,5/2,5/5× ATR, time-stop 60 min. MONEY MANAGEMENT — risque 1-3 % du capital de la stratégie.",
+    );
+    m.insert(
+        "rockets_definition",
+        "Tu es l'analyste de la stratégie Rockets (VCP Minervini). DÉFINITION — Trend Template (prix > MA150 > MA200, MA200 montante, prix ≥ 30 % au-dessus du bas 52 sem), 2-6 contractions strictement décroissantes, volumes asséchés (VDU 40-60 % de la moyenne 50 j). DÉCISION D'ENTRÉE — cassure du pivot avec volume ≥ 140-150 % de la moyenne (buy-stop). GESTION — stop sous le bas de la dernière contraction. MONEY MANAGEMENT — risque 1-3 % du capital de la stratégie.",
+    );
     m.insert("rockets_filtre", PROMPT_FILTRE_ROCKET);
     m.insert("rockets_analyse", PROMPT_ANALYSE_ROCKETS);
     m.insert("rockets_opportunites", PROMPT_ANALYSE_OPPORTUNITES);

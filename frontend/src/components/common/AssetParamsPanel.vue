@@ -4,16 +4,6 @@
     <div class="panel-header">
       <h3 class="panel-title">Paramètres de sizing par asset</h3>
       <div class="header-actions">
-        <div class="capital-input-group">
-          <label>Capital de référence (USD)</label>
-          <input
-            v-model.number="capitalRef"
-            type="number"
-            min="100"
-            step="100"
-            class="input-field capital-input"
-          />
-        </div>
         <button class="btn-save" :disabled="store.saving" @click="sauvegarder">
           {{ store.saving ? 'Sauvegarde…' : '💾 Sauvegarder' }}
         </button>
@@ -36,9 +26,7 @@
             <th title="Stop-Loss par défaut en pips">SL pips</th>
             <th title="Facteur de conversion pip → point MT5">pip→pt</th>
             <th class="col-computed" title="SL en points MT5 = SL pips × pip→pt">SL points</th>
-            <th title="Risque % du capital par trade">Risque %</th>
             <th class="col-computed" title="Capital × risque% / 100">Investi ($)</th>
-            <th class="col-computed" title="Investi ÷ (SL × val_pip)">Lot calculé</th>
           </tr>
         </thead>
         <tbody>
@@ -87,22 +75,6 @@
               <td class="cell-computed">
                 {{ Math.round(row.sl_pips * row.pip_to_points) }}
               </td>
-              <td>
-                <input
-                  v-model.number="row.risque_pct"
-                  type="number"
-                  min="0.1"
-                  max="5"
-                  step="0.1"
-                  class="input-cell"
-                />
-              </td>
-              <td class="cell-computed">
-                {{ investiPour(row).toFixed(2) }}
-              </td>
-              <td class="cell-computed">
-                {{ lotCalculePour(row).toFixed(2) }}
-              </td>
             </tr>
           </template>
         </tbody>
@@ -119,8 +91,6 @@ import type { AssetParams } from '@/services/api.types'
 
 const store = useAssetParamsStore()
 const settingsStore = useSettingsStore()
-
-const capitalRef = ref(settingsStore.capitalDepart > 0 ? settingsStore.capitalDepart : 2000)
 const editable   = reactive<AssetParams[]>([])
 
 interface Feedback { type: 'ok' | 'err'; msg: string }
@@ -163,23 +133,10 @@ function syncDepuisStore() {
   editable.splice(0, editable.length, ...store.liste.map(p => ({ ...p })))
 }
 
-function investiPour(row: AssetParams): number {
-  return capitalRef.value * (row.risque_pct / 100)
-}
 
-function lotCalculePour(row: AssetParams): number {
-  const denom = row.sl_pips * row.valeur_pips
-  if (denom <= 0) return 0
-  const lot = investiPour(row) / denom
-  return Math.min(Math.max(lot, row.lot_min), row.lot_max)
-}
 
 async function sauvegarder() {
   feedback.value = null
-  // Persiste le capital dans le store global (dimensionnement)
-  if (capitalRef.value > 0) {
-    settingsStore.definirCapital(capitalRef.value)
-  }
   const ok = await store.sauvegarder([...editable])
   feedback.value = ok
     ? { type: 'ok',  msg: '✅ Paramètres sauvegardés.' }

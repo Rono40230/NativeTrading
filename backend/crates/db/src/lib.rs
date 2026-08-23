@@ -30,6 +30,7 @@ pub mod rockets_feedback_stats;
 pub mod rockets_feedback_trader;
 pub mod rockets_features;
 pub mod signaux;
+pub mod strategies;
 pub mod signaux_straddle;
 pub mod signaux_lecture;
 pub mod smc_calibration;

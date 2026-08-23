@@ -349,14 +349,31 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         )];
         if matches!(tf, common::Timeframe::M1 | common::Timeframe::M5) {
             let annonces = annonces_tier1(db).await;
+            // Audit étape 2 : le moteur lisait des constantes — désormais
+            // branché sur la carte Paramètres › Straddle (table DB).
+            let p = db::strategies_params::lire_straddle_params(db.pool()).await;
+            let params = straddle::ParamsStraddle {
+                sl_atr: p.sl_mult,
+                tp1_atr: p.tp_mult_1,
+                tp2_atr: p.tp_mult_2,
+                tp3_atr: p.tp_mult_3,
+                expiration_min: p.horizon_bougies.saturating_mul(5),
+                ..Default::default()
+            };
             tracing::info!(
-                "Runtime tick: {} {} moteur straddle armé ({} annonce(s) à venir)",
+                "Runtime tick: {} {} moteur straddle armé ({} annonce(s) à venir, SL {:.2}×ATR, TP {:.1}/{:.1}/{:.1}×ATR)",
                 asset.as_str(),
                 tf.as_str(),
-                annonces.len()
+                annonces.len(),
+                params.sl_atr,
+                params.tp1_atr,
+                params.tp2_atr,
+                params.tp3_atr,
             );
             moteurs.push(Box::new(
-                straddle::StraddleEngine::nouveau(asset.clone(), *tf).avec_annonces(annonces),
+                straddle::StraddleEngine::nouveau(asset.clone(), *tf)
+                    .avec_params(params)
+                    .avec_annonces(annonces),
             ));
         }
         runtime.enregistrer(asset.clone(), *tf, moteurs);
