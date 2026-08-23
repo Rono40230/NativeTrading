@@ -239,7 +239,7 @@ const v12Groupes = [
 const strategieSignaux = {
   label: 'Stratégies',
   items: [
-    { key: 'v12Signals',         label: 'Trades',   pending: false },
+    { key: 'v12Signals',         label: 'SMC',      pending: false },
     { key: 'v12SignauxRockets',  label: 'Rockets',  pending: true },
     { key: 'v12SignauxStraddle', label: 'Straddle', pending: true },
   ],
