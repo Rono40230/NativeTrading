@@ -46,6 +46,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::put().to(crate::registre_strategies::maj_strategie),
         )
         .route(
+            "/api/strategies/{id}/performance",
+            web::get().to(crate::registre_strategies::performance_strategie),
+        )
+        .route(
             "/api/signaux",
             web::get().to(crate::signaux_handlers::get_signaux),
         )

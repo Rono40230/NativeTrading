@@ -7,7 +7,7 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { classeVerdictSignal, labelVerdictSignal } from '@/composables/useSignalFormat'
 import { rocketToSignal } from '@/composables/useRocketsHistory'
 
-export function useSignauxTableau(strategie: 'SmcDirectional' | 'Straddle' | 'Rockets') {
+export function useSignauxTableau(strategie: 'SMC' | 'Straddle' | 'Rockets') {
   const prixStore = usePrixStore()
   const assetParamsStore = useAssetParamsStore()
   const settingsStore = useSettingsStore()
@@ -135,9 +135,9 @@ export function useSignauxTableau(strategie: 'SmcDirectional' | 'Straddle' | 'Ro
         if (openTickers.length > 0) prixStore.abonner(openTickers)
       } else {
         const data = await apiService.getSignaux(500)
-        const SMC_NOMS = ['SmcDirectional', 'SMC Directionnel', 'SMC+IA']
+        const SMC_NOMS = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA']
         signaux.value = data.filter(s =>
-          strategie === 'SmcDirectional'
+          strategie === 'SMC'
             ? SMC_NOMS.includes(s.strategie)
             : s.strategie === strategie
         )

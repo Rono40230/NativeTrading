@@ -47,7 +47,7 @@ function calcStatsSmc(liste: Signal[]) {
 export function useSmcStats(signauxRef: Ref<Signal[]> | ComputedRef<Signal[]>) {
   const stats = computed(() => {
     const smc = signauxRef.value.filter(
-      s => s.strategie === 'SmcDirectional' || s.strategie === 'SMC+IA'
+      s => ['SMC', 'SmcDirectional', 'SMC+IA'].includes(s.strategie)
     )
     const base = calcStatsSmc(smc)
     const avecConviction = smc.filter(s => s.llm_conviction != null)
@@ -63,7 +63,7 @@ export function useSmcStats(signauxRef: Ref<Signal[]> | ComputedRef<Signal[]>) {
   })
 
   const signaux = computed(() =>
-    signauxRef.value.filter(s => s.strategie === 'SmcDirectional' || s.strategie === 'SMC+IA')
+    signauxRef.value.filter(s => ['SMC', 'SmcDirectional', 'SMC+IA'].includes(s.strategie))
   )
 
   const tranches = computed(() =>

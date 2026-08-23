@@ -25,7 +25,6 @@ const router = createRouter({
     { path: '/ia/chart',    component: () => import('../views/ChartImportView.vue') },
     { path: '/ia/coach',    component: () => import('../views/SMCCoachView.vue') },
     { path: '/ml-insights', component: () => import('../views/MlInsightsView.vue') },
-    { path: '/lexique',     component: () => import('../views/LexiqueView.vue') },
 
     // Presse
     { path: '/presse', component: () => import('../views/PresseView.vue') },

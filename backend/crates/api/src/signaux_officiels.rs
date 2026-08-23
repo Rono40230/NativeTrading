@@ -99,8 +99,9 @@ async fn fermer_signaux(db: Arc<Database>, bus: BusEvenements) {
             continue;
         }
         let verdict = e.detail.split('|').next().unwrap_or("Expire");
+        let r = e.detail.split('|').nth(1).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
         if let Err(err) = db
-            .fermer_signal_par_cle(&e.cle_trade, verdict, e.prix, e.emis_le.timestamp())
+            .fermer_signal_par_cle(&e.cle_trade, verdict, e.prix, r, e.emis_le.timestamp())
             .await
         {
             tracing::warn!("Signaux officiels (clôture): {}", err);

@@ -28,7 +28,7 @@ function entetes(colonnes: string[]): string[] {
 function titreStrategie(strategie: string): string {
   if (strategie === 'Rockets')         return '🚀 Export Rockets'
   if (strategie === 'Straddle')        return '⚡ Export Straddle'
-  if (strategie === 'SmcDirectional')  return '🧠 Export SMC Directionnel'
+  if (strategie === 'SMC')  return '📐 Export SMC'
   return '📊 Historique des signaux'
 }
 

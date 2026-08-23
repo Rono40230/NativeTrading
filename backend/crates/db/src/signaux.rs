@@ -201,20 +201,22 @@ impl Database {
 
     /// Phase 2.8 — ferme le signal officiel correspondant à une clé moteur.
     /// Ferme le signal officiel correspondant à une clé moteur, avec son
-    /// verdict (TP1/TP2/TP3/SL/BE/Expire) et le prix de sortie.
+    /// verdict (TP1/TP2/TP3/SL/BE/Expire), son prix de sortie et son R réel.
     pub async fn fermer_signal_par_cle(
         &self,
         cle_moteur: &str,
         verdict: &str,
         prix_verdict: f64,
+        r_realise: f64,
         ferme_le: i64,
     ) -> Result<u64> {
         let res = sqlx::query(
-            "UPDATE signaux SET statut = 'Fermé', verdict = ?, prix_verdict = ?, ferme_le = ?
+            "UPDATE signaux SET statut = 'Fermé', verdict = ?, prix_verdict = ?, r_realise = ?, ferme_le = ?
              WHERE cle_moteur = ? AND statut = 'Actif'",
         )
         .bind(verdict)
         .bind(prix_verdict)
+        .bind(r_realise)
         .bind(ferme_le)
         .bind(cle_moteur)
         .execute(&self.pool)
@@ -350,5 +352,116 @@ impl Database {
         .map_err(|e| TradingError::Database(e.to_string()))?;
 
         Ok(())
+    }
+}
+
+// ── Performance par stratégie (étape 3 — blocs dashboard) ────────────────────
+
+/// Point de la courbe des trades : une clôture horodatée avec son R.
+#[derive(Debug, Serialize)]
+pub struct PointCloture {
+    pub ferme_le: i64,
+    pub r: f64,
+    pub r_cumule: f64,
+    pub verdict: String,
+    pub asset: String,
+    pub timeframe: String,
+    pub direction: String,
+}
+
+/// Signal en cours (résumé compact pour le bloc).
+#[derive(Debug, Serialize)]
+pub struct SignalEnCours {
+    pub asset: String,
+    pub timeframe: String,
+    pub direction: String,
+    pub force: i32,
+    pub prix_entree: f64,
+    pub cree_le: i64,
+}
+
+/// Performance complète d'une stratégie : courbe R cumulé + stats + en-cours.
+#[derive(Debug, Serialize)]
+pub struct PerformanceStrategie {
+    pub clotures: Vec<PointCloture>,
+    pub en_cours: Vec<SignalEnCours>,
+    pub total: usize,
+    pub gagnants: usize,
+    pub taux_reussite: f64,
+    pub r_total: f64,
+}
+
+impl Database {
+    /// Étape 3 — performance d'une stratégie (courbe des trades clôturés
+    /// en R cumulé + signaux en cours). L'état passe par la table, pas le
+    /// manifeste : les stratégies en Observation ont un historique aussi.
+    pub async fn performance_strategie(&self, id: &str) -> Result<PerformanceStrategie> {
+        let rows = sqlx::query(
+            "SELECT ferme_le, verdict, r_realise, asset, timeframe, direction
+             FROM signaux
+             WHERE strategie = ? AND statut = 'Fermé' AND verdict IS NOT NULL
+             ORDER BY ferme_le ASC",
+        )
+        .bind(id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        let mut cumul = 0.0;
+        let mut clotures = Vec::with_capacity(rows.len());
+        let mut gagnants = 0usize;
+        for r in &rows {
+            let verdict: String = r.get("verdict");
+            let point = verdict.starts_with("TP");
+            if point {
+                gagnants += 1;
+            }
+            cumul += r.try_get::<f64, _>("r_realise").ok().unwrap_or(0.0);
+            clotures.push(PointCloture {
+                ferme_le: r.try_get::<i64, _>("ferme_le").ok().unwrap_or(0),
+                r: r.try_get::<f64, _>("r_realise").ok().unwrap_or(0.0),
+                r_cumule: cumul,
+                verdict,
+                asset: r.get("asset"),
+                timeframe: r.get("timeframe"),
+                direction: r.get("direction"),
+            });
+        }
+        let total = clotures.len();
+
+        let actifs = sqlx::query(
+            "SELECT asset, timeframe, direction, score, prix_entree, cree_le
+             FROM signaux WHERE strategie = ? AND statut = 'Actif'
+             ORDER BY cree_le DESC LIMIT 8",
+        )
+        .bind(id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        let en_cours = actifs
+            .iter()
+            .map(|r| SignalEnCours {
+                asset: r.get("asset"),
+                timeframe: r.get("timeframe"),
+                direction: r.get("direction"),
+                force: (r.get::<f64, _>("score") as i64).clamp(1, 10) as i32,
+                prix_entree: r.get("prix_entree"),
+                cree_le: r.get("cree_le"),
+            })
+            .collect();
+
+        Ok(PerformanceStrategie {
+            taux_reussite: if total > 0 {
+                gagnants as f64 / total as f64
+            } else {
+                0.0
+            },
+            total,
+            gagnants,
+            r_total: cumul,
+            clotures,
+            en_cours,
+        })
     }
 }

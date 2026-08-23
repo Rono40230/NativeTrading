@@ -1,199 +1,254 @@
 <template>
-  <div class="flex flex-col gap-4 p-4 lg:p-6 h-full w-full overflow-y-auto">
+  <div class="flex flex-col gap-4 p-4 lg:p-6 h-full w-full overflow-hidden">
 
-    <!-- Header -->
-    <div class="flex items-baseline gap-3 shrink-0">
-      <h1 class="text-2xl font-bold text-white">🎯 Stratégie SMC</h1>
-      <span class="text-gray-500 text-base hidden sm:inline">Définition, confluences et rôle de l'IA</span>
+    <!-- En-tête : identité + état du registre -->
+    <div class="flex items-center gap-3 shrink-0">
+      <h1 class="text-2xl font-bold text-white">📐 SMC</h1>
+      <span class="text-gray-500 text-base hidden sm:inline">Smart Money Concepts — indicateur v12</span>
+      <span
+        v-if="reglages"
+        class="ml-auto text-[11px] font-semibold px-2.5 py-1 rounded-full border"
+        :class="badgeClasse"
+      >{{ reglages.etat }}</span>
     </div>
 
-    <!-- Barre santé -->
-    <DefinitionSanteBar :warm-start="false" seuil-llm="70/100 (calibré)" class="shrink-0" />
-
-    <!-- Ligne 1 : Concept + Paramètres actifs -->
-    <div class="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4 items-stretch shrink-0">
-
-      <div class="rounded-xl border border-white/10 bg-white/5 px-5 py-4">
-        <div class="text-xs font-semibold text-blue-400 uppercase tracking-widest mb-3">Concept</div>
-        <p class="text-gray-300 text-sm leading-relaxed">
-          SMC Directionnel trade la <span class="text-white font-medium">confluence Smart Money</span> :
-          alignement de la structure de marché, des
-          <DefinitionTerme definition="Zone de prix où les institutionnels ont placé de larges ordres avant une impulsion — point de re-test potentiel.">Order Blocks</DefinitionTerme>,
-          des imbalances et du
-          <DefinitionTerme definition="Niveaux de retrace 38.2%, 50%, 61.8% — zones d'intérêt institutionnel pour les entrées.">Fibonacci</DefinitionTerme>.
-          Signal déclenché si score ≥ 70/100. Position directionnelle, pyramidale sur 3 TP.
-        </p>
-      </div>
-
-      <div class="rounded-xl border border-white/10 bg-white/5 px-5 py-4">
-        <div class="text-xs font-semibold text-blue-400 uppercase tracking-widest mb-3">Paramètres actifs</div>
-        <div v-if="params" class="flex flex-wrap gap-2">
-          <DefinitionParamCard v-for="p in paramCards" :key="p.label" :label="p.label" :value="p.value" :badge="p.badge" />
-        </div>
-        <div v-else class="text-sm text-gray-500 animate-pulse">Chargement…</div>
-      </div>
-
+    <!-- Barre d'onglets (décision étape 3 : Définition / Décision d'entrée /
+         Gestion des trades ouverts / Money management / Lexique en onglet) -->
+    <div class="flex gap-1 border-b border-white/10 shrink-0">
+      <button
+        v-for="t in onglets"
+        :key="t"
+        class="px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
+        :class="onglet === t ? 'text-white border-blue-400' : 'text-gray-400 border-transparent hover:text-white/70'"
+        @click="onglet = t"
+      >{{ t }}</button>
     </div>
 
-    <!-- Ligne 2 : responsive 3 colonnes -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch flex-1">
+    <div class="flex-1 min-h-0 overflow-y-auto pr-1">
 
-      <!-- Col 1 : Confluences -->
-      <div class="rounded-xl border border-white/10 bg-white/5 px-5 py-4 flex flex-col h-full justify-start">
-        <button class="flex items-center gap-2 w-full text-left" @click="colOpen[0] = !colOpen[0]">
-          <span class="text-xs font-semibold text-blue-400 uppercase tracking-widest flex-1">Les 5 confluences SMC</span>
-          <span class="text-gray-500 text-xs xl:hidden">{{ colOpen[0] ? '▲' : '▼' }}</span>
-        </button>
-        <div :class="['flex flex-col gap-3 mt-3', !colOpen[0] && 'hidden xl:flex']">
-          <div v-for="c in confluences" :key="c.id" class="rounded-lg bg-black/20 border border-white/5 px-3 py-3">
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="text-lg leading-none">{{ c.icon }}</span>
-              <span class="text-white font-semibold text-sm">{{ c.label }}</span>
-              <span class="ml-auto text-xs font-bold text-green-400">+{{ c.points }}pts <span v-if="baremes" class="text-green-400/50 text-[9px]">live</span></span>
-            </div>
-            <p class="text-gray-500 text-xs mb-1.5">{{ c.description }}</p>
-            <div class="flex flex-wrap gap-1.5 mt-2">
-              <span v-for="r in c.regles" :key="r" class="text-[10px] sm:text-xs bg-blue-500/10 text-blue-200 border border-blue-500/20 px-2 py-0.5 rounded-md whitespace-nowrap">{{ r }}</span>
-            </div>
-          </div>
+      <!-- ═══ ONGLET DÉFINITION ═══ -->
+      <div v-if="onglet === 'Définition'" class="flex flex-col gap-3">
+        <carte titre="Concept">
+          SMC trade les mouvements de l'argent institutionnel : la structure de marché révèle
+          l'intention (accumulation → manipulation → distribution), les zones où les ordres
+          institutionnels sont posés (Order Blocks) servent de points d'entrée au retest, et les
+          liquidités (sommets/creux apparents, niveaux de la veille et de la semaine) sont chassées
+          avant les impulsions. La stratégie v12 clone l'indicateur Pine éponyme, barre confirmée
+          après barre confirmée, avec évaluation intrabar pour les annonces.
+        </carte>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <carte titre="La structure de marché">
+            Les pivots (swing length calibré par actif) dessinent la succession sommets/creux :
+            HH+HL = tendance haussière, LH+LL = baissière. Le BOS (break of structure) confirme la
+            continuation ; le MSS/CHOCH (changement de caractère) annonce le retournement. Le sens
+            de la structure cadre toute décision — tendance indécise = aucun signal.
+          </carte>
+          <carte titre="Les liquidités et la chasse">
+            PDH/PDL (plus haut/bas de la veille), PWH/PWL (semaine), EQH/EQL (épaules égales) sont
+            les cibles visibles. Le sweep — mèche qui perce un niveau puis referme — signale la
+            manipulation : c'est le carburant des entrées en contre-attaque. Tout niveau touché sur
+            barre confirmée (sweep ou cassure) est consommé et disparaît.
+          </carte>
+          <carte titre="Les zones d'entrée">
+            Order Blocks (dernière bougie avant l'impulsion, lifecycle en 3 états), FVG/imbalance
+            (gap de prix non distribué), IFVG (imbalance inversée par BOS), Breaker (OB cassé
+            devenant résistance/support). La zone cœur croise OB ∩ OTE ∩ FVG — la zone
+            institutionnelle la plus dense.
+          </carte>
+          <carte titre="Le contexte">
+            Premium/Discount (moitié haute/basse du range), OTE (retrace 62-79 % de l'impulsion,
+            zone d'entrée optimale), Kill Zones de Londres (7h-10h UTC) et New York (13h-16h UTC),
+            Asian High/Low (session de Paris), NDOG/NWOG (gaps d'ouverture journalière/hebdo) et
+            confluences multi-timeframe (H1/H4/W1/MN amorcées sur l'historique, comme TradingView).
+          </carte>
         </div>
+
+        <carte titre="Les deux moteurs de signaux">
+          <div class="flex flex-col gap-2">
+            <p><b class="text-white">Moteur v11-OB</b> — Order Blocks : score enrichi (fraîcheur +
+            proximité) par zone, barème calibré par actif et timeframe. Un OB signalé ne re-signalera
+            jamais (règle de l'un-signal : le premier OB signalé du carnet est écarté).</p>
+            <p><b class="text-white">Moteur BSZones</b> — parcours Sweep → Dispersion → OB : zones
+            reconstituées après la chasse de liquidité, score propre, seuil dédié.</p>
+            <p class="text-gray-400">Un seul trade est créé par barre confirmée, tous moteurs confondus.</p>
+          </div>
+        </carte>
       </div>
 
-      <!-- Col 2 : Scoring -->
-      <div class="rounded-xl border border-white/10 bg-white/5 px-5 py-4 flex flex-col h-full justify-start">
-        <button class="flex items-center gap-2 w-full text-left" @click="colOpen[1] = !colOpen[1]">
-          <span class="text-xs font-semibold text-blue-400 uppercase tracking-widest flex-1">Système de scoring</span>
-          <span class="text-gray-500 text-xs xl:hidden">{{ colOpen[1] ? '▲' : '▼' }}</span>
-        </button>
-        <div :class="['flex flex-col gap-2 mt-3', !colOpen[1] && 'hidden xl:flex']">
-          <DefinitionScoringRow v-for="s in scoring" :key="s.label" :label="s.label" :detail="s.detail" :max-pts="s.maxPts" :is-dynamic="s.isDynamic" />
-          <div class="rounded-lg bg-black/30 border border-blue-500/20 px-4 py-2.5 mt-1">
-            <div class="text-xs text-gray-500 mb-1.5">Seuil de déclenchement</div>
-            <div class="flex gap-5">
-              <div class="flex items-center gap-1.5 text-sm"><span class="text-green-400 font-bold">≥ 70</span><span class="text-gray-400">Signal ✅</span></div>
-              <div class="flex items-center gap-1.5 text-sm"><span class="text-red-400 font-bold">&lt; 70</span><span class="text-gray-400">Ignoré 🚫</span></div>
-            </div>
-          </div>
+      <!-- ═══ ONGLET DÉCISION D'ENTREE ═══ -->
+      <div v-if="onglet === 'Décision d\u2019entrée'" class="flex flex-col gap-3">
+        <carte titre="Le parcours d'un signal">
+          <ol class="list-decimal ml-5 space-y-1.5">
+            <li>Le prix revient au-dessus d'un Order Block haussier (ou sous un OB baissier), zone non signalée, état non profond, à moins de 8×ATR.</li>
+            <li>Le score de la zone atteint le seuil de trade et la force minimale (4/10, i_forceMin v11).</li>
+            <li>La qualité de zone est validée (zone cœur / confluences MTF / Fibonacci OTE selon barème).</li>
+            <li>La porte de trade unique est ouverte — sinon, rien (voir règle ci-dessous).</li>
+            <li>Annonce d'imminence immédiate sur Telegram (intrabar, dès la qualification), confirmation du trade à la clôture de la barre (barstate.isconfirmed).</li>
+          </ol>
+        </carte>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <carte titre="La porte de trade unique (f_tradeBloquant)">
+            Interdiction d'ouvrir un nouveau trade tant qu'un trade existant est rempli et n'a pas
+            atteint TP1 (ou son break-even). Complétée par : un seul trade poussé par barre confirmée,
+            et la règle de l'un-signal sur les zones. Un ordre en attente (non rempli) ne bloque pas —
+            comme sur le graphique TradingView.
+          </carte>
+          <carte titre="Les niveaux consommés">
+            Tout niveau de liquidité touché sur barre confirmée — par sweep (mèche qui perce et
+            referme) ou par cassure franche — est consommé : il disparaît du carnet et ne peut plus
+            servir de cible ni de confluence. Décision de la passe « décisions trading ».
+          </carte>
         </div>
+
+        <carte titre="Exécution — retest limite">
+          L'entrée est placée au bord de la zone (order block haut pour un achat, bas pour une vente),
+          en ordre limite : le trade n'est REMPLI que si le prix revient toucher l'entrée. Ce modèle
+          « Retest (limite) » a gagné l'A/B 15/15 contre l'entrée au marché à la cassure — il est
+          figé dans la v12.
+        </carte>
       </div>
 
-      <!-- Col 3 : Rôle de l'IA -->
-      <div class="flex flex-col gap-3 lg:col-span-2 xl:col-span-1 h-full">
+      <!-- ═══ ONGLET GESTION DES TRADES OUVERTS ═══ -->
+      <div v-if="onglet === 'Gestion des trades ouverts'" class="flex flex-col gap-3">
+        <carte titre="Construction des niveaux">
+          <ul class="space-y-1.5">
+            <li><b class="text-white">Stop Loss</b> — bord opposé de la zone ± offset ATR (mode par actif), distance clampée entre slMin et slMax (multiplicateurs ×ATR calibrés par actif : BTC 0,8-2,5, or 0,5-1,5, NAS/DAX 0,5-1,5, argent 0,6-1,8).</li>
+            <li><b class="text-white">TP1 / TP2</b> — +1R / +2R (R = distance entrée-stop après clamp).</li>
+            <li><b class="text-white">TP3</b> — la liquidité la plus proche au-delà de l'entrée (EQH/PDH/PWH/Asian High pour un achat) ; repli sur +3R si aucune cible ou monotonie brisée.</li>
+          </ul>
+        </carte>
 
-        <div class="rounded-xl border border-blue-500/30 bg-blue-500/5 px-5 py-4">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="text-lg">⚡</span>
-            <span class="text-white font-semibold text-sm">Filtre IA temps réel</span>
-            <span class="ml-auto text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-full">Avant chaque signal</span>
-          </div>
-          <p class="text-gray-400 text-xs leading-relaxed mb-3">Valide ou rejette chaque signal SMC candidat. Retourne conviction 0–100 + raison.</p>
-          <div class="space-y-1.5">
-            <DefinitionLlmRegle v-for="r in filtreRegles" :key="r.label" v-bind="r" />
-          </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <carte titre="Le cycle de vie">
+            <ol class="list-decimal ml-5 space-y-1.5">
+              <li><b>En attente</b> — ordre limite au bord de la zone, pas encore touché.</li>
+              <li><b>Rempli</b> — le prix est revenu toucher l'entrée (fill réel au retest).</li>
+              <li><b>TP1 touché</b> — le stop remonte à l'entrée : le trade est neutralisé (break-even garanti).</li>
+              <li><b>TP2 armé</b> — si le prix repasse sous TP1, sortie à break-even (le TP2 est encaissé).</li>
+              <li><b>TP3 touché</b> — clôture complète.</li>
+            </ol>
+          </carte>
+          <carte titre="Sorties anticipées et expiration">
+            <ul class="space-y-1.5">
+              <li><b class="text-white">SL</b> — stop touché avant TP1 : -1R.</li>
+              <li><b class="text-white">BE forcé</b> — BOS opposé pendant le trade : stop ramené à l'entrée, même sans TP1.</li>
+              <li><b class="text-white">Annulation</b> — ordre en attente + BOS opposé : l'ordre est retiré.</li>
+              <li><b class="text-white">Expiration</b> — âge du trade > 4h en intraday (8h en H1, 32h en H4, 4 jours en D1), ou TP3 non atteint dans le délai après TP2.</li>
+            </ul>
+          </carte>
         </div>
 
-        <div class="rounded-xl border border-cyan-500/30 bg-cyan-500/5 px-5 py-3">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="text-lg">🤖</span>
-            <span class="text-white font-semibold text-sm">Signal auto</span>
-            <span class="ml-auto text-xs text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full">Boucle 15 min</span>
-          </div>
-          <p class="text-gray-400 text-xs leading-relaxed">
-            SL sur <DefinitionTerme definition="Dernière bougie avant impulsion institutionnelle — point de re-test.">OB</DefinitionTerme> identifié.
-            TP pyramidal : TP1 = <span class="text-white font-semibold">ATR×1.5</span> | TP2 = ATR×2.5 | TP3 = ATR×4.0
-          </p>
-        </div>
-
-        <div class="rounded-xl border border-purple-500/30 bg-purple-500/5 px-5 py-3 flex-1 flex flex-col">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="text-lg">📊</span>
-            <span class="text-white font-semibold text-sm">Analyse stratégique IA</span>
-            <span class="ml-auto text-xs text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full">Sur demande</span>
-          </div>
-          <div class="space-y-1">
-            <div v-for="o in analyseOutputs" :key="o" class="text-xs text-gray-300 flex items-center gap-2">
-              <span class="text-purple-400 shrink-0">→</span>{{ o }}
-            </div>
-          </div>
-        </div>
-
+        <carte titre="Verdicts">
+          Chaque trade clôturé reçoit son verdict — TP1, TP2, TP3, SL, BE (break-even) ou Expire —
+          écrit en base avec le prix de sortie et le R réel. C'est cette historisation qui alimente
+          la courbe de trades du dashboard. Aucun message de clôture sur Telegram : seule
+          l'imminence parle.
+        </carte>
       </div>
+
+      <!-- ═══ ONGLET MONEY MANAGEMENT ═══ -->
+      <div v-if="onglet === 'Money management'" class="flex flex-col gap-3">
+        <carte titre="Les trois couches (décision étape 2)">
+          <div class="flex flex-col gap-2">
+            <p><b class="text-white">1. Conventions par actif</b> (onglet gestion du risque) — taille
+            du pip, valeur du pip, lot min/max : la grammaire commune de tous les calculs.</p>
+            <p><b class="text-white">2. Allocation par stratégie</b> — capital dédié et risque de 1
+            à 3 % par trade, réglés dans Paramètres › stratégies › SMC.</p>
+            <p><b class="text-white">3. Calcul à l'émission</b> — lot = (capital × risque) ÷ (stop
+            en pips × valeur du pip). Calculé au moment du signal, jamais avant.</p>
+          </div>
+        </carte>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <valeur etiquette="Capital alloué" :valeur="reglageStr('capital')" />
+          <valeur etiquette="Risque par trade" :valeur="reglageStr('risque')" />
+          <valeur etiquette="1R représente" :valeur="reglageStr('unR')" />
+        </div>
+
+        <carte titre="Le R, unité de compte">
+          Tous les trades se mesurent en multiples du risque initial (R) : SL = -1R, BE = 0,
+          TP1 = +1R, TP2 = +2R, TP3 = sa distance réelle. La performance de la stratégie se lit en
+          R cumulé — indépendante du capital et homogène entre actifs — et se convertit en
+          évolution du capital via le risque par trade.
+        </carte>
+      </div>
+
+      <!-- ═══ ONGLET LEXIQUE ═══ -->
+      <LexiquePanel v-if="onglet === 'Lexique'" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useStrategyParamsStore } from '@/stores/strategyParams.store'
-import { apiService } from '@/services/api.service'
-import type { SmcBaremes } from '@/services/api.types'
-import type { SmcParams as ParamsSmc } from '@/generated/ParamsSmc'
-import DefinitionParamCard from '@/components/common/DefinitionParamCard.vue'
-import DefinitionScoringRow from '@/components/common/DefinitionScoringRow.vue'
-import DefinitionLlmRegle from '@/components/common/DefinitionLlmRegle.vue'
-import DefinitionTerme from '@/components/common/DefinitionTerme.vue'
-import DefinitionSanteBar from '@/components/common/DefinitionSanteBar.vue'
+import { ref, computed, defineComponent, h, onMounted } from 'vue'
+import { http } from '@/services/http.client'
+import LexiquePanel from '@/components/common/LexiquePanel.vue'
 
-const strategyStore = useStrategyParamsStore()
-const params = ref<ParamsSmc | null>(null)
-const baremes = ref<SmcBaremes | null>(null)
-const colOpen = ref([true, true])
+interface ReglagesStrategie {
+  etat: string; capital: number; risque_pct: number
+}
 
+// ── Mini-composants locaux (carte titrée + vignette de valeur) ───────────────
+const Carte = defineComponent({
+  props: { titre: { type: String, required: true } },
+  setup(props, { slots }) {
+    return () => h('div', { class: 'rounded-xl border border-white/10 bg-white/5 px-5 py-4' }, [
+      h('div', {
+        class: 'text-xs font-semibold text-blue-400 uppercase tracking-widest mb-2.5',
+        innerHTML: props.titre,
+      }),
+      h('div', {
+        class: 'text-gray-300 text-sm leading-relaxed [&_b]:text-white [&_ol]:list-decimal [&_ol]:ml-5 [&_ul]:space-y-1 [&_p]:mb-2 [&_p:last-child]:mb-0',
+      }, slots.default?.()),
+    ])
+  },
+})
+const carte = Carte
+
+const Valeur = defineComponent({
+  props: {
+    etiquette: { type: String, required: true },
+    valeur: { type: String, required: true },
+  },
+  setup: (p: { etiquette: string; valeur: string }) => () =>
+    h('div', { class: 'rounded-xl border border-white/10 bg-white/5 px-4 py-3' }, [
+      h('div', { class: 'text-[10px] text-gray-500 uppercase tracking-widest' }, p.etiquette),
+      h('div', { class: 'text-lg font-bold text-white mt-1 font-mono' }, p.valeur),
+    ]),
+})
+const valeur = Valeur
+
+// ── Onglets (décision étape 3 : Définition première page + Lexique en onglet)
+const onglets = ['Définition', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Lexique'] as const
+const onglet = ref<(typeof onglets)[number]>('Définition')
+
+// ── Réglages live de la stratégie (registre) ─────────────────────────────────
+const reglages = ref<ReglagesStrategie | null>(null)
 onMounted(async () => {
-  try { await strategyStore.charger(); params.value = { ...strategyStore.smcRaw } } catch { /* silencieux */ }
-  try { baremes.value = await apiService.getSmcBaremes() } catch { /* silencieux */ }
+  try {
+    const res = await http.get('/api/strategies')
+    const smc = (res.data as { id: string; etat: string; capital: number; risque_pct: number }[])
+      .find(s => s.id === 'SMC')
+    if (smc) reglages.value = smc
+  } catch { /* registre indisponible — badge masqué */ }
 })
 
-const paramCards = computed(() => params.value ? [
-  { label: 'Score min',    value: params.value.score_min,             badge: undefined },
-  { label: 'ATR période',  value: params.value.atr_periode,           badge: undefined },
-  { label: 'TP1',          value: `${params.value.atr_tp1}×`,         badge: 'formula' as const },
-  { label: 'TP2',          value: `${params.value.atr_tp2}×`,         badge: 'formula' as const },
-  { label: 'TP3',          value: `${params.value.atr_tp3}×`,         badge: 'formula' as const },
-  { label: 'SL',           value: `${params.value.atr_sl}×`,          badge: 'formula' as const },
-  { label: 'Horizon',      value: `${params.value.horizon_bougies}b`, badge: undefined },
-] : [])
+const badgeClasse = computed(() =>
+  reglages.value?.etat === 'Officielle'
+    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+    : 'bg-amber-500/10 text-amber-400 border-amber-500/30')
 
-const confluences = computed(() => [
-  { id: 'tendance', icon: '📈', label: 'Structure de tendance', points: baremes.value?.tendance ?? 25,
-    description: 'Biais directionnel basé sur la succession de sommets et creux.',
-    regles: ['Haussier : HH + HL (force 2/2 = max pts)', 'Baissier : LH + LL', 'Indécis → signal annulé'] },
-  { id: 'ob', icon: '🟦', label: 'Order Block', points: baremes.value?.order_block ?? 25,
-    description: 'Dernière bougie avant impulsion institutionnelle — zone de re-test.',
-    regles: ['Volume élevé sur la bougie', 'Impulsion nette après', 'Prix revient dans la zone'] },
-  { id: 'imb', icon: '⬜', label: 'Imbalance (FVG)', points: baremes.value?.imbalance ?? 15,
-    description: 'Gap de prix sans retrace — liquidité non distribuée.',
-    regles: [`1 zone alignée = ${Math.round((baremes.value?.imbalance ?? 15) / 2)}pts | 2+ zones = ${baremes.value?.imbalance ?? 15}pts`, 'Pas de retrace complète', 'Dans la direction du biais'] },
-  { id: 'ifvg', icon: '🔷', label: 'IFVG', points: baremes.value?.ifvg ?? 20,
-    description: 'Fair Value Gap avec break of structure — confluence SMC avancée.',
-    regles: [`1 IFVG aligné = ${Math.round((baremes.value?.ifvg ?? 20) / 2)}pts | 2+ = ${baremes.value?.ifvg ?? 20}pts`, 'FVG validé + BOS dans la direction', 'Aligné avec l\'Order Block'] },
-  { id: 'fib', icon: '🌀', label: 'Fibonacci', points: baremes.value?.fibonacci ?? 15,
-    description: 'Niveaux de retrace institutionnels : 38.2%, 50%, 61.8%.',
-    regles: ['38.2% — retrace légère', '50% — niveau équilibré', '61.8% — golden ratio'] },
-])
-
-const scoring = computed(() => [
-  { label: 'Structure tendance',  detail: `Force 2/2 = +${baremes.value?.tendance ?? 25}pts | Force 1/2 = +${Math.round((baremes.value?.tendance ?? 25) / 2)}pts | Indécis = annulé`, maxPts: baremes.value?.tendance ?? 25, isDynamic: !!baremes.value },
-  { label: 'Order Block actif',   detail: `Bougie OB alignée dans la zone = +${baremes.value?.order_block ?? 25}pts`, maxPts: baremes.value?.order_block ?? 25, isDynamic: !!baremes.value },
-  { label: 'Imbalance ouverte',   detail: `2 zones = +${baremes.value?.imbalance ?? 15}pts | 1 zone = +${Math.round((baremes.value?.imbalance ?? 15) / 2)}pts`, maxPts: baremes.value?.imbalance ?? 15, isDynamic: !!baremes.value },
-  { label: 'IFVG confirmé',       detail: `2+ IFVG = +${baremes.value?.ifvg ?? 20}pts | 1 IFVG = +${Math.round((baremes.value?.ifvg ?? 20) / 2)}pts`, maxPts: baremes.value?.ifvg ?? 20, isDynamic: !!baremes.value },
-  { label: 'Fibonacci',           detail: `Prix sur 38.2/50/61.8% = +${baremes.value?.fibonacci ?? 15}pts`, maxPts: baremes.value?.fibonacci ?? 15, isDynamic: !!baremes.value },
-  { label: 'Kill Zone (ICT)',     detail: 'Session active (LDN 07h–10h UTC, NY 13h–16h UTC) | Renforce conviction LLM', maxPts: undefined, isDynamic: false },
-  { label: 'Liquidity Sweep',     detail: 'Chasse liquidités détectée | Transmis au LLM (contexte ICT)', maxPts: undefined, isDynamic: false },
-])
-
-const filtreRegles = [
-  { icon: '🚫', couleur: 'text-red-400',    label: 'Score < 70 → rejet (seuil calibré dynamiquement par asset/TF/catégorie)' },
-  { icon: '🚫', couleur: 'text-red-400',    label: 'Tendance indécise (Direction::Both) → signal annulé en amont du LLM' },
-  { icon: '⚠️', couleur: 'text-yellow-400', label: 'Kill Zone inactive → conviction LLM réduite' },
-  { icon: '⚠️', couleur: 'text-yellow-400', label: 'Sweep absent → contexte défavorable transmis au LLM' },
-  { icon: '✅', couleur: 'text-green-400',  label: 'Peut affiner SL sur l\'OB identifié' },
-]
-
-const analyseOutputs = [
-  'Performance par confluence (win rate par type)',
-  'Confluences les plus fiables sur la période',
-  '3 à 5 recommandations de réglage du score_min',
-]
+function reglageStr(champ: 'capital' | 'risque' | 'unR'): string {
+  const r = reglages.value
+  if (!r) return '—'
+  if (champ === 'capital') return r.capital > 0 ? `${r.capital.toLocaleString('fr-FR')} $` : 'à renseigner'
+  if (champ === 'risque') return `${r.risque_pct} %`
+  return r.capital > 0 ? `${(r.capital * r.risque_pct / 100).toLocaleString('fr-FR')} $` : '—'
+}
 </script>
 
+<script lang="ts">
+export default { name: 'SmcDefinitionView' }
+</script>

@@ -33,14 +33,11 @@
           <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
         </div>
 
-        <!-- Centre : blocs par stratégie (étape 3 de l'architecture verticale).
-             Grille héritée et pré-alertes (moteur SMC v1 tué le 15/08)
-             retirées au ménage du 23/08. -->
-        <div class="flex-1 min-w-0 min-h-0 flex items-center justify-center">
-          <div class="text-center text-gray-600">
-            <p class="text-sm">Blocs centraux par stratégie — à venir</p>
-            <p class="text-xs mt-1 text-gray-700">chaque stratégie : courbe de trades + signaux en cours</p>
-          </div>
+        <!-- Centre : blocs par stratégie (étape 3 — architecture verticale).
+             Chaque bloc : courbe des trades clôturés (R cumulé) + stats +
+             signaux en cours + badge d'état du registre. -->
+        <div class="flex-1 min-w-0 min-h-0">
+          <DashboardStrategiesBlocs />
         </div>
       </div>
     </div>
@@ -75,6 +72,7 @@ import SentimentMarche from '@/components/common/SentimentMarche.vue'
 import AlerteBandeau from '@/components/common/AlerteBandeau.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
+import DashboardStrategiesBlocs from '@/components/common/DashboardStrategiesBlocs.vue'
 
 type VariationsMultiTF = { h1: number | null; h4: number | null; d1: number | null; w1: number | null; m1: number | null }
 type AssetAvecPrix = { id: string; prix: number | null; variation: number | null; variationsMultiTF: VariationsMultiTF | null; clotures: Record<string, number[]>; chargement: boolean }

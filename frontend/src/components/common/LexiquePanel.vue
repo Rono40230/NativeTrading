@@ -1,12 +1,7 @@
 <template>
-  <div class="space-y-5">
-    <div>
-      <h1 class="text-xl font-bold text-white">Lexique SMC / ICT</h1>
-      <p class="text-sm text-gray-400 mt-0.5">{{ filtres.length }} terme{{ filtres.length > 1 ? 's' : '' }} · Cliquez pour voir la définition et le schéma</p>
-    </div>
-
+  <div class="space-y-4">
     <!-- Recherche + filtres catégorie -->
-    <div class="flex flex-col gap-3">
+    <div class="flex flex-col gap-2">
       <input
         v-model="recherche"
         type="text"
@@ -17,25 +12,24 @@
         <button
           v-for="key in toutes"
           :key="key"
-          @click="catActive = key"
-          class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+          class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
           :class="catActive === key ? 'bg-white/20 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'"
+          @click="catActive = key"
         >
-          {{ key === 'tous' ? `Tous (${TERMES.length})` : CAT_LABELS[key as Categorie].label }}
+          {{ key === 'tous' ? `Tous (${TERMES.length})` : CAT_LABELS[key].label }}
         </button>
       </div>
     </div>
 
     <!-- Grille de cartes -->
-    <div v-if="filtres.length > 0" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-if="filtres.length > 0" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       <div
         v-for="t in filtres"
         :key="t.abrev"
-        class="lex-card rounded-xl border border-white/10 p-4 flex flex-col gap-2 cursor-pointer transition-colors"
+        class="rounded-xl border border-white/10 p-3.5 flex flex-col gap-1.5 cursor-pointer transition-colors"
         :class="selectionne?.abrev === t.abrev ? 'border-white/25 bg-white/8' : 'bg-white/5 hover:border-white/18 hover:bg-white/7'"
         @click="selectionne = selectionne?.abrev === t.abrev ? null : t"
       >
-        <!-- En-tête -->
         <div class="flex items-start justify-between gap-2">
           <code class="font-bold text-white text-sm leading-tight">{{ t.abrev }}</code>
           <span class="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 leading-5" :class="CAT_LABELS[t.cat].couleur">
@@ -44,7 +38,6 @@
         </div>
         <p class="text-xs text-gray-400 font-medium leading-snug">{{ t.nom }}</p>
 
-        <!-- Contenu expandé -->
         <div v-if="selectionne?.abrev === t.abrev" class="expand-body mt-1 flex flex-col gap-3">
           <p class="text-xs text-gray-300 leading-relaxed">{{ t.def }}</p>
           <div
@@ -55,7 +48,6 @@
           <p v-if="t.svg" class="text-[10px] text-gray-500 text-center -mt-1">Schéma illustratif</p>
         </div>
 
-        <!-- Indicateur expand -->
         <div class="flex justify-end mt-auto pt-1">
           <span class="text-[10px] select-none" :class="t.svg ? 'text-blue-500/70' : 'text-gray-600'">
             <template v-if="selectionne?.abrev === t.abrev">▲ Réduire</template>
@@ -66,7 +58,7 @@
       </div>
     </div>
 
-    <div v-else class="text-center text-gray-500 py-12 text-sm">
+    <div v-else class="text-center text-gray-500 py-10 text-sm">
       Aucun terme trouvé pour « {{ recherche }} »
     </div>
   </div>

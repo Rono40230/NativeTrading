@@ -62,13 +62,14 @@ const nav: NavItem[] = [
 
   // ── Stratégies ────────────────────────────────────────────────────────────
   // Ménage 23/08 : vues héritées Rockets/Straddle masquées (retour en
-  // verticales neuves, étapes 4-5). SMC conservé en attendant la
-  // restructuration par stratégie (étape 3).
+  // verticales neuves, étapes 4-5). Étape 3 : verticale SMC — Définition en
+  // PREMIÈRE page (décision architecture) ; le Lexique vit en onglet de la
+  // Définition.
   {
     groupe: 'SMC', icone: '📐',
     liens: [
-      { to: '/smc',           icone: '⚡', label: 'Signaux actifs' },
-      { to: '/lexique',       icone: '📖', label: 'Lexique SMC' },
+      { to: '/smc/definition', icone: '📖', label: 'Définition' },
+      { to: '/smc',            icone: '⚡', label: 'Signaux actifs' },
     ]
   },
 

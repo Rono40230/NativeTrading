@@ -5,7 +5,7 @@ import type { Signal } from '@/services/api.service'
 export function useHistoryStats(signaux: Ref<Signal[]>) {
   const smcStats = computed(() => {
     const smc = signaux.value.filter(
-      s => s.strategie === 'SmcDirectional' || s.strategie === 'SMC+IA'
+      s => ['SMC', 'SmcDirectional', 'SMC+IA'].includes(s.strategie)
     )
     const fermes = smc.filter(s => s.statut === 'Fermé')
     const gagnes = fermes.filter(s => s.verdict && ['TP1', 'TP2', 'TP3'].includes(s.verdict))

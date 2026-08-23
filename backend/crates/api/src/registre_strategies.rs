@@ -165,3 +165,21 @@ pub async fn amorcer_registre(db: &std::sync::Arc<db::Database>) {
         }
     }
 }
+
+/// GET /api/strategies/{id}/performance — courbe des trades clôturés (R
+/// cumulé), stats et signaux en cours, pour le bloc central du dashboard.
+pub async fn performance_strategie(
+    state: web::Data<AppState>,
+    path: web::Path<String>,
+) -> impl Responder {
+    let id = path.into_inner();
+    if !MANIFESTES.iter().any(|m| m.id == id) {
+        return HttpResponse::NotFound()
+            .json(serde_json::json!({ "error": "Stratégie inconnue" }));
+    }
+    match state.db.performance_strategie(&id).await {
+        Ok(p) => HttpResponse::Ok().json(p),
+        Err(e) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
