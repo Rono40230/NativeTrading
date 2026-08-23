@@ -61,25 +61,14 @@ const nav: NavItem[] = [
   { to: '/smc/graphiques', icone: '📈', label: 'Graphiques' },
 
   // ── Stratégies ────────────────────────────────────────────────────────────
-  {
-    groupe: 'Rockets', icone: '🚀',
-    liens: [
-      { to: '/rockets', icone: '⚡', label: 'Signaux actifs' },
-    ]
-  },
+  // Ménage 23/08 : vues héritées Rockets/Straddle masquées (retour en
+  // verticales neuves, étapes 4-5). SMC conservé en attendant la
+  // restructuration par stratégie (étape 3).
   {
     groupe: 'SMC', icone: '📐',
     liens: [
       { to: '/smc',           icone: '⚡', label: 'Signaux actifs' },
       { to: '/lexique',       icone: '📖', label: 'Lexique SMC' },
-    ]
-  },
-  {
-    groupe: 'Straddle', icone: '⚡',
-    liens: [
-      { to: '/straddle/signaux', icone: '⚡', label: 'Signaux actifs' },
-      { to: '/straddle',         icone: '🔍', label: 'Créneaux volatilité' },
-      { to: '/heatmap',          icone: '🔥', label: 'Heatmap' },
     ]
   },
 
