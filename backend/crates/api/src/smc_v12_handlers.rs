@@ -14,7 +14,7 @@
 //! [`crate::smc_v12_out`] (champ `extended` aplati dans la réponse JSON).
 
 use actix_web::{web, HttpResponse, Responder};
-use smc::v12::trade::{Side, TradeSource};
+use smc::v12::trade::{Side, TradeSource, TradeState};
 use smc::v12::{BarInput, ScoringV11, SmcV12Engine};
 
 use crate::smc_v12_collect::{collect_final_extended, BarCollectors};
@@ -331,6 +331,21 @@ pub async fn analyse_v12(
     // Le sentiment courant (approximation : même score pour tous les trades du replay)
     // sert à qualifier l'alignement direction × sentiment de chaque signal.
     let sentiment_snap = state.sentiment.read().await.clone();
+    // Label f_lblTrade (Pine 2503) : lot = (capital × risque) / (R / pip ×
+    // valeur_pip) — capital/risque de la stratégie SMC (registre), conventions
+    // pips de l'actif (onglet gestion du risque). Mêmes sources que Telegram.
+    let reg_smc = state.db.lire_strategie("SMC").await.ok().flatten();
+    let (capital, risque_pct) = reg_smc
+        .as_ref()
+        .map(|r| (r.capital, r.risque_pct))
+        .unwrap_or((0.0, 1.0));
+    let (taille_pip, valeur_pip) = db::asset_params::lire_un(state.db.pool(), asset_str)
+        .await
+        .ok()
+        .flatten()
+        .map(|p| (p.taille_pip, p.valeur_pips))
+        .unwrap_or((1.0, 1.0));
+    let pips = |a: f64, b: f64| ((a - b).abs() / taille_pip).round() as i64;
     let mut signals: Vec<SignalOut> = Vec::new();
     for t in &engine.signals.trades {
         let dir_str = if t.side == Side::Buy { "Long" } else { "Short" };
@@ -341,6 +356,27 @@ pub async fn analyse_v12(
             }
             None => (None, None),
         };
+        // f_lblTrade — le lot suit le SL COURANT (Pine 4009 : recalcul au BE).
+        let risque_euros = capital * risque_pct / 100.0;
+        let r_courant = (t.entry - t.sl).abs();
+        let lot = if r_courant > 0.0 && valeur_pip > 0.0 && taille_pip > 0.0 {
+            risque_euros / (r_courant / taille_pip * valeur_pip)
+        } else {
+            0.0
+        };
+        let label = vec![
+            format!(
+                "{} - force {}/10",
+                if t.side == Side::Buy { "BUY" } else { "SELL" },
+                ScoringV11::force(t.score, &engine.calibration)
+            ),
+            format!("→ {:.2} lots ({:.0}$ risqués)", lot, risque_euros),
+            format!("Entrée {:.2}$", t.entry),
+            format!("SL {:.2}$ soit {} pips", t.sl, pips(t.sl, t.entry)),
+            format!("TP1 {:.2}$ soit {} pips", t.tp1, pips(t.tp1, t.entry)),
+            format!("TP2 {:.2}$ soit {} pips", t.tp2, pips(t.tp2, t.entry)),
+            format!("TP3 {:.2}$ soit {} pips", t.tp3, pips(t.tp3, t.entry)),
+        ];
         signals.push(SignalOut {
             ts: t.open_ts,
             dir: dir_str,
@@ -358,6 +394,9 @@ pub async fn analyse_v12(
             verdict: verdict_str(t.verdict()),
             filled: t.filled,
             fill_ts: t.fill_ts,
+            be: t.tp1_hit,
+            ferme: t.state == TradeState::Closed,
+            label,
             sentiment: sentiment_score,
             alignement,
         });

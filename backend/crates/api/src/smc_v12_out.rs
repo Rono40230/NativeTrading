@@ -92,6 +92,13 @@ pub(crate) struct SignalOut {
     pub filled: bool,
     /// Barre de FILL (retest) — le Pine ancre la box sur elle, pas la création.
     pub fill_ts: Option<i64>,
+    /// BE armé (TP1 touché ou BE forcé) — le Pine SUPPRIME box SL + label.
+    pub be: bool,
+    /// Trade clôturé — le Pine SUPPRIME tous les objets du trade.
+    pub ferme: bool,
+    /// Label f_lblTrade (Pine 2503) : lignes prêtes à dessiner — force,
+    /// lot + $ risqués, entrée, SL/TP1-3 en prix et pips.
+    pub label: Vec<String>,
     /// Score de sentiment de la classe de l'asset (None si indispo).
     pub sentiment: Option<f64>,
     /// Alignement direction × sentiment ("aligne"|"oppose"|"neutre"|"extreme").

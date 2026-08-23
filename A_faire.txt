@@ -52,17 +52,6 @@ Une vue Paramètres avec :
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Dans la vue graphique, dans Afficher et trier les signaux, il faudrait créer les boutons :
-    - SMC
-    - Straddle
-    - Rockets
-pour qu'ils affiches les signaux de chaque stratégie.
-
-Oui c'est ça.
-Il y a déjà des boutons disponibles dans l'actuel graphique dans "SMC" sous le graphique.
-Il faut donc connecter les boutons existant aux bons indicateur et garde les boutons "fibonacci" et "tendances"
-Afin de ne pas t'éparpiller avec différents modes d'affichage, reproduit EXACTEMENT les mêmes affichages avec les mêmes couleurs et le scoring que dans la v12.
-
 Voici la liste éxaustive des indicateurs à vérifier sur l'app et TV.
 
 Sessions & niveaux clé :
@@ -110,9 +99,24 @@ Multi TF & OTE :
 
 --------------------------------------------------------------------------------------------------------------------------
 
-Concernant les trades :
-1 - corriger l'affichage
-2 - comparer la vie des trades dans l'app et dans le pine
+Il faut créer les tooltips des trades sur le même modèle que les étiquettes de trades dans pine :
+- Stratégie (SMC ou Straddle OU Rocket)
+- Risque engagé
+- taille du lot
+- Entrée
+- SL 
+- TP1
+- TP2
+- TP3
+
+
+--------------------------------------------------------------------------------------------------------------------------
+
+
+
+--------------------------------------------------------------------------------------------------------------------------
+
+
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -123,13 +127,4 @@ Concernant les trades :
 
 
 --------------------------------------------------------------------------------------------------------------------------
-
-
-
---------------------------------------------------------------------------------------------------------------------------
-
-
-
---------------------------------------------------------------------------------------------------------------------------
-
 

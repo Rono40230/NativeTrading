@@ -253,13 +253,18 @@ export function useSmcV12Overlay() {
     }
     const nbBarres = largeurTp[timeframe] ?? 40
     const duree = dureeBarre[timeframe] ?? 900
+    // Fidélité Pine : invisible avant fill (bgcolor=na à la création) et
+    // SUPPRIMÉ à la clôture (f_delBullSignal) — seuls les trades remplis
+    // vivants se dessinent, ancrés sur leur barre de fill.
     signals = data.signals
-      .filter((s) => s.filled !== false)
+      .filter((s) => s.filled !== false && s.ferme !== true)
       .map((s) => {
-        // Pine : box ancrée sur la barre de FILL (retest), pas la création.
         const ancrage = s.fill_ts ?? s.ts
         return {
-          ts: ancrage, entry: s.entry, sl: s.sl, tp1: s.tp1, dir: s.dir, force: s.force,
+          ts: ancrage, entry: s.entry, sl: s.sl,
+          tp1: s.tp1, tp2: s.tp2, tp3: s.tp3,
+          dir: s.dir, force: s.force,
+          be: s.be === true, label: (s.label ?? []) as string[],
           tsFin: ancrage + nbBarres * duree,
         }
       })

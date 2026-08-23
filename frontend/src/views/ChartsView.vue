@@ -77,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useChartStats } from '@/composables/useChartStats'
 import { useChartTradingView } from '@/composables/useChartTradingView'
 import { useMarketStore } from '@/stores/market.store'
@@ -89,7 +89,6 @@ import { useChartEcoCal } from '@/composables/useChartEcoCal'
 import EcoCalTooltip from '@/components/common/EcoCalTooltip.vue'
 
 import { useChartOrchestration } from '@/composables/useChartOrchestration'
-import { useSignalTradeBox } from '@/composables/useSignalTradeBox'
 import { useSignalStore } from '@/stores/signal.store'
 import ChartSidebarIA from '@/components/common/ChartSidebarIA.vue'
 import ChartAnalyseSmcModal from '@/components/common/ChartAnalyseSmcModal.vue'
@@ -123,7 +122,7 @@ const {
 
 const { chargerEtAppliquer, reinitialiser } = useChartIndicators()
 const v12Overlay = useSmcV12Overlay()
-const tradeBox = useSignalTradeBox()
+let minuteurOverlay: ReturnType<typeof setInterval> | null = null
 const { initialiser: ecoCalInit, chargerAnnonces, detruire: ecoCalDetruire,
   tooltipAnnonce, tooltipX, tooltipY } = useChartEcoCal()
 
@@ -153,7 +152,6 @@ async function chargerIndicateurs() {
   if (!chart) return
   const serie = getCandlestickSeries()
   if (chartContainer.value && serie) v12Overlay.initialiser(chart, serie, chartContainer.value)
-  if (chartContainer.value && serie) tradeBox.initialiser(chartContainer.value, chart, serie)
   if (chartContainer.value) ecoCalInit(chart, chartContainer.value)
   // Overlay SMC v12 : fetch du replay moteur (indépendant des indicateurs classiques).
   const derniereB = bougies.value?.[bougies.value.length - 1]
@@ -171,11 +169,6 @@ async function chargerIndicateurs() {
       const tsMs = derniereB2 ? new Date(derniereB2.timestamp).getTime() : null
       const tsSec = tsMs ? Math.floor(tsMs / 1000) : undefined
       v12Overlay.setDernierTs(tsSec)
-      // Trade Box — dernier signal SMC pour cet asset × TF
-      const dernierSignal = signalStore.signaux.find(
-        s => s.asset === selectedAsset.value && s.timeframe === selectedTimeframe.value
-      ) ?? null
-      tradeBox.mettreAJourSignal(dernierSignal)
     },
   )
 }
@@ -194,9 +187,23 @@ const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestra
   configurerRedimensionnement, arreterRedimensionnement,
 })
 
-// Nettoyage Trade Box + overlay v12 au démontage de la vue
+/// Rafraîchit l'overlay v12 (trades vivants : fills, BE, TP, clôtures) sans
+/// recharger les bougies — le moteur rejoue côté backend et resert l'état.
+function rafraichirOverlayV12() {
+  const derniereB = bougies.value?.[bougies.value.length - 1]
+  const tsSec = derniereB ? Math.floor(new Date(derniereB.timestamp).getTime() / 1000) : undefined
+  void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), tsSec)
+}
+
+// Affichage VIVANT des trades (fidélité Pine : le label et les boxes évoluent
+// barre après barre) — rafraîchissement léger toutes les 30 s.
+onMounted(() => {
+  minuteurOverlay = setInterval(rafraichirOverlayV12, 30_000)
+})
+
+// Nettoyage overlay v12 au démontage de la vue
 onUnmounted(() => {
-  tradeBox.detruire()
+  if (minuteurOverlay !== null) clearInterval(minuteurOverlay)
   v12Overlay.detruire()
 })
 

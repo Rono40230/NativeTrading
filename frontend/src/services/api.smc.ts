@@ -61,6 +61,12 @@ export interface SignalV12 {
   filled: boolean
   /** Barre de FILL — le Pine ancre la box sur elle (pas la création). */
   fill_ts?: number | null
+  /** BE armé (TP1 touché ou forcé) — le Pine supprime box SL + label. */
+  be?: boolean
+  /** Trade clôturé — le Pine supprime tous les objets du trade. */
+  ferme?: boolean
+  /** Lignes du label f_lblTrade (force, lot + $ risqués, niveaux en pips). */
+  label?: string[]
 }
 
 // ── Indicateurs v12 étendus (sérialisés à plat via #[serde(flatten)]) ─────────
