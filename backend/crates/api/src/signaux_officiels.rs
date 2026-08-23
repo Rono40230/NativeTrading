@@ -74,26 +74,21 @@ async fn traiter_evenements(db: Arc<Database>, bus: BusEvenements) {
         if e.moteur != "smc_v12" {
             continue;
         }
+        // Option A (décision propriétaire) : Telegram MINIMAL — signal +
+        // clôture uniquement. Fill/BE/TP restent journalisés (audit +
+        // lifecycle DB) mais ne notifient pas.
         use engine::TypeEvenementTrade as T;
-        let (emoji, libelle, ferme) = match e.evenement {
-            T::Fill => ("✅", "FILL — entrée touchée".to_string(), false),
-            T::Be => ("⚠️", "BE — stop → entrée".to_string(), false),
-            T::Tp1 => ("🎯", "TP1 atteint".to_string(), false),
-            T::Tp2 => ("🎯", "TP2 atteint".to_string(), false),
-            T::Tp3 => ("🎯", "TP3 atteint".to_string(), false),
-            T::Cloture => ("🔒", format!("CLÔTURE ({})", e.detail), true),
-        };
-        if ferme {
-            if let Err(err) = db.fermer_signal_par_cle(&e.cle_trade, e.emis_le.timestamp()).await {
-                tracing::warn!("Signaux officiels (clôture): {}", err);
-            }
+        if !matches!(e.evenement, T::Cloture) {
+            continue;
+        }
+        if let Err(err) = db.fermer_signal_par_cle(&e.cle_trade, e.emis_le.timestamp()).await {
+            tracing::warn!("Signaux officiels (clôture): {}", err);
         }
         envoyer_telegram(
             &db,
             &format!(
-                "{} {} · {} {} @ {:.2}",
-                emoji,
-                libelle,
+                "🔒 CLÔTURE ({}) · {} {} @ {:.2}",
+                e.detail,
                 e.asset.as_str(),
                 e.tf.as_str(),
                 e.prix
