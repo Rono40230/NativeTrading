@@ -49,7 +49,7 @@ impl TradeLifecycle {
         bar: &BarInput,
         bar_index: usize,
         cal: &AssetCalibration,
-        scoring: &ScoringV11,
+        scoring: &mut ScoringV11,
     ) {
         for t in trades.iter_mut() {
             if t.state == TradeState::Closed {
@@ -69,7 +69,7 @@ impl TradeLifecycle {
         bar: &BarInput,
         bar_index: usize,
         cal: &AssetCalibration,
-        scoring: &ScoringV11,
+        scoring: &mut ScoringV11,
     ) {
         // Snapshot de l'état de contrôle (état en début de bar).
         let sl = t.sl;
@@ -117,12 +117,14 @@ impl TradeLifecycle {
         };
 
         // --- BOS opposé (beForce) + score degradation (scoreDeg) ---
-        // beForce = !tp1_hit && BOS opposé (buy: bosBaissier / sell: bosHaussier).
+        // beForce = !tp1_hit && BOS opposé BRUT (Pine `bosBaissier`/`bosHaussier`
+        // lignes 457-458, jamais masqués par le filtre MSS — un BOS-MSS force
+        // aussi le BE).
         let be_force = !tp1_hit
             && if is_buy {
-                out.bos.bearish
+                out.bos_raw.bearish
             } else {
-                out.bos.bullish
+                out.bos_raw.bullish
             };
         // scoreDeg : OB lié (source OB uniquement) dont la force dégrade sous 4.
         let score_deg = match t.ob_key {
@@ -167,8 +169,11 @@ impl TradeLifecycle {
             t.tp1_hit = true; // Neutralise (n'a plus besoin de TP1 gate).
             t.be_forced = true;
             t.state = TradeState::Open;
-            // NOTE : Pine un-signal l'OB lié (obBullSignaled[obIdx]:=false) pour
-            // permettre un re-trade ; on l'omet (impact mineur, voir rapport).
+            // Pine 3961-3962 : un-signal l'OB lié (source OB uniquement) —
+            // l'OB redevient éligible au re-trade et son score reprend.
+            if let Some(key) = t.ob_key {
+                scoring.unmark_signaled(is_buy, key);
+            }
             return;
         }
 
@@ -254,14 +259,35 @@ mod tests {
     }
 
     #[test]
+    fn be_force_un_signale_ob_pour_retrade() {
+        // Pine 3961-3962 : au BE-force, l'OB lié est un-signalé — il redevient
+        // éligible au re-trade et son score reprend (la boucle saute les signalés).
+        let mut t = buy_trade(100.0, 97.0, 103.0, 106.0, 109.0);
+        t.ob_key = Some(42);
+        t.filled = true;
+        let lc = lc();
+        let mut out = SmcOutput::default();
+        out.bos.bearish = true; // BOS opposé ⇒ beForce
+        let mut c = cal();
+        let _ = &mut c;
+        let mut sc = scoring();
+        sc.mark_signaled(true, 42);
+        assert!(sc.is_signaled(true, 42), "précondition : OB signalé");
+        lc.update_trade(&mut t, true, &out, &bar(900, 100.0, 101.0, 99.5, 100.0), 1, &c, &mut sc);
+        assert!(t.be_forced, "BE forcé appliqué");
+        assert!((t.sl - 100.0).abs() < 1e-9, "SL → entry");
+        assert!(!sc.is_signaled(true, 42), "OB un-signalé (re-trade possible)");
+    }
+
+    #[test]
     fn fill_au_retest_bar_suivante() {
         let mut t = buy_trade(100.0, 97.0, 103.0, 106.0, 109.0);
         let lc = lc();
         let out = SmcOutput::default();
         let c = cal();
-        let sc = scoring();
+        let mut sc = scoring();
         // Bar 1 (ts=900>0), low=99.5 <= entry 100 → fill.
-        lc.update_trade(&mut t, true, &out, &bar(900, 101.0, 102.0, 99.5, 101.0), 1, &c, &sc);
+        lc.update_trade(&mut t, true, &out, &bar(900, 101.0, 102.0, 99.5, 101.0), 1, &c, &mut sc);
         assert!(t.filled);
         assert_eq!(t.fill_ts, Some(900));
     }
@@ -273,9 +299,9 @@ mod tests {
         let lc = lc();
         let out = SmcOutput::default();
         let c = cal();
-        let sc = scoring();
+        let mut sc = scoring();
         // low=96 < sl=97, !tp1_hit → slHit.
-        lc.update_trade(&mut t, true, &out, &bar(900, 99.0, 100.0, 96.0, 97.0), 1, &c, &sc);
+        lc.update_trade(&mut t, true, &out, &bar(900, 99.0, 100.0, 96.0, 97.0), 1, &c, &mut sc);
         assert_eq!(t.state, TradeState::Closed);
         assert_eq!(t.close_reason, Some(CloseReason::Sl));
         assert_eq!(t.verdict(), Verdict::Sl);
@@ -288,14 +314,14 @@ mod tests {
         let lc = lc();
         let out = SmcOutput::default();
         let c = cal();
-        let sc = scoring();
+        let mut sc = scoring();
         // Bar A : high=104 >= tp1=103 → tp1_hit, sl→entry(100), tp1_price_touched.
-        lc.update_trade(&mut t, true, &out, &bar(900, 100.0, 104.0, 100.0, 103.0), 1, &c, &sc);
+        lc.update_trade(&mut t, true, &out, &bar(900, 100.0, 104.0, 100.0, 103.0), 1, &c, &mut sc);
         assert!(t.tp1_hit);
         assert!(t.tp1_price_touched);
         assert!((t.sl - 100.0).abs() < 1e-9, "SL → entry après TP1");
         // Bar B : low=99 < entry=100, tp1_hit, tp2_ts==0 → beHit → verdict TP1.
-        lc.update_trade(&mut t, true, &out, &bar(1800, 100.0, 101.0, 99.0, 100.0), 2, &c, &sc);
+        lc.update_trade(&mut t, true, &out, &bar(1800, 100.0, 101.0, 99.0, 100.0), 2, &c, &mut sc);
         assert_eq!(t.state, TradeState::Closed);
         assert_eq!(t.close_reason, Some(CloseReason::Be));
         assert_eq!(t.verdict(), Verdict::Tp1);
@@ -309,9 +335,9 @@ mod tests {
         let lc = lc();
         let out = SmcOutput::default();
         let c = cal();
-        let sc = scoring();
+        let mut sc = scoring();
         // high=112 >= tp3=112 → tp3Hit.
-        lc.update_trade(&mut t, true, &out, &bar(900, 105.0, 112.0, 104.0, 111.0), 1, &c, &sc);
+        lc.update_trade(&mut t, true, &out, &bar(900, 105.0, 112.0, 104.0, 111.0), 1, &c, &mut sc);
         assert_eq!(t.close_reason, Some(CloseReason::Tp3));
         assert_eq!(t.verdict(), Verdict::Tp3);
         // risk0=3, tp3-entry=12 → 4R.
@@ -324,11 +350,11 @@ mod tests {
         t.filled = true;
         let lc = lc();
         let mut out = SmcOutput::default();
-        out.bos.bearish = true; // BOS baissier (opposé d'un BUY).
+        out.bos_raw.bearish = true; // BOS baissier BRUT (opposé d'un BUY).
         let c = cal();
-        let sc = scoring();
+        let mut sc = scoring();
         // !tp1_hit && beForce → BE forcé : sl→entry, tp1_hit=true, be_forced.
-        lc.update_trade(&mut t, true, &out, &bar(900, 100.0, 101.0, 99.5, 100.0), 1, &c, &sc);
+        lc.update_trade(&mut t, true, &out, &bar(900, 100.0, 101.0, 99.5, 100.0), 1, &c, &mut sc);
         assert!(!matches!(t.state, TradeState::Closed), "BE forcé : trade maintenu ouvert");
         assert!(t.be_forced);
         assert!((t.sl - 100.0).abs() < 1e-9);
@@ -336,7 +362,7 @@ mod tests {
         assert!(!t.tp1_price_touched, "BE forcé ≠ TP1 prix touché");
         // Bar suivante : low=99 < entry=100, tp1_hit, tp2_ts==0 → beHit → verdict BE (0R).
         let out2 = SmcOutput::default();
-        lc.update_trade(&mut t, true, &out2, &bar(1800, 100.0, 100.5, 99.0, 100.0), 2, &c, &sc);
+        lc.update_trade(&mut t, true, &out2, &bar(1800, 100.0, 100.5, 99.0, 100.0), 2, &c, &mut sc);
         assert_eq!(t.verdict(), Verdict::Be);
         assert!((t.realized_r() - 0.0).abs() < 1e-9);
     }
@@ -348,9 +374,9 @@ mod tests {
         let lc = lc();
         let out = SmcOutput::default();
         let c = cal();
-        let sc = scoring();
+        let mut sc = scoring();
         // age = 15000s > 14400 → expire.
-        lc.update_trade(&mut t, true, &out, &bar(15000, 100.0, 101.0, 99.5, 100.0), 1, &c, &sc);
+        lc.update_trade(&mut t, true, &out, &bar(15000, 100.0, 101.0, 99.5, 100.0), 1, &c, &mut sc);
         assert_eq!(t.close_reason, Some(CloseReason::Expire));
         assert_eq!(t.verdict(), Verdict::Expire);
     }
@@ -365,9 +391,9 @@ mod tests {
         let lc = lc();
         let out = SmcOutput::default();
         let c = cal();
-        let sc = scoring();
+        let mut sc = scoring();
         // SELL : sl_hit = high > sl=103, !tp1_hit.
-        lc.update_trade(&mut t, false, &out, &bar(900, 102.0, 104.0, 101.0, 103.0), 1, &c, &sc);
+        lc.update_trade(&mut t, false, &out, &bar(900, 102.0, 104.0, 101.0, 103.0), 1, &c, &mut sc);
         assert_eq!(t.close_reason, Some(CloseReason::Sl));
     }
 }

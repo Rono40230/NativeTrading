@@ -282,6 +282,7 @@ impl SmcV12Engine {
             pivot: pivot_event,
             structure: struct_event.clone(),
             bos: bos_out,
+            bos_raw: bos_raw.clone(),
             mss: mss_event.clone(),
             liquidite: liq_event,
             sweep: sweep_event,
@@ -360,7 +361,7 @@ impl SmcV12Engine {
             bar,
             bar_index,
             &self.calibration,
-            &self.scoring_v11,
+            &mut self.scoring_v11,
         );
 
         out

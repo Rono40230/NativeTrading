@@ -538,6 +538,9 @@ pub struct SmcOutput {
     /// BOS **masqué** : `bosHaussier and not mssHaussier` (Pine lignes 524-527, 540).
     /// Un BOS qui est aussi un MSS n'apparaît pas ici.
     pub bos: BosEvent,
+    /// BOS **brut** (`bosHaussier`/`bosBaissier` Pine, jamais masqués) — utilisé
+    /// par le BE-force du lifecycle (Pine `_beForce = not _t1Hit and bosBaissier`).
+    pub bos_raw: BosEvent,
     pub mss: MssEvent,
     pub liquidite: LiquiditeEvent,
     pub sweep: SweepEvent,

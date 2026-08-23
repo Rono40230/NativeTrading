@@ -194,6 +194,44 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
+    println!("\n── Trades (lifecycle complet) ──");
+    {
+        let fmt = |t: i64| {
+            chrono::DateTime::from_timestamp(t, 0)
+                .map(|d| d.format("%d/%m %H:%M").to_string())
+                .unwrap_or_else(|| "?".into())
+        };
+        use smc::v12::trade::{CloseReason, TradeState};
+        for t in &engine.signals.trades {
+            let raison = match t.close_reason {
+                Some(CloseReason::Sl) => "SL",
+                Some(CloseReason::Be) => "BE",
+                Some(CloseReason::Tp2Sl) => "TP2SL",
+                Some(CloseReason::Tp3) => "TP3",
+                Some(CloseReason::Expire) => "Expire",
+                Some(CloseReason::Cancel) => "Cancel",
+                None => match t.state {
+                    TradeState::Closed => "?",
+                    _ => "OUVERT",
+                },
+            };
+            println!(
+                "  #{} {} {:?} · né {} · fill {} · be_forced={} tp1_prix={} · clôturé {} ({}) · verdict {:?} · src {:?}",
+                t.id,
+                if matches!(t.side, smc::v12::trade::Side::Buy) { "BUY" } else { "SELL" },
+                t.verdict(),
+                fmt(t.open_ts),
+                t.fill_ts.map(fmt).unwrap_or("—".into()),
+                t.be_forced,
+                t.tp1_price_touched,
+                t.close_ts.map(fmt).unwrap_or("—".into()),
+                raison,
+                t.verdict(),
+                t.source,
+            );
+        }
+    }
+
     println!("\n── Zone-cœur (lifecycle live) ──");
     let fmt = |t: i64| {
         chrono::DateTime::from_timestamp(t, 0)

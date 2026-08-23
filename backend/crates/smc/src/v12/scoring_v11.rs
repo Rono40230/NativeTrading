@@ -233,6 +233,17 @@ impl ScoringV11 {
         (r as i32).clamp(1, 10)
     }
 
+    /// Un-signal un OB (Pine BE-force : `array.set(obBullSignaled, _obIdx, false)`
+    /// lignes 3961-3962) — l'OB redevient éligible au re-trade ET son score
+    /// recommence à s'accumuler (la boucle de scoring saute les zones signalées).
+    pub fn unmark_signaled(&mut self, is_bull: bool, key: usize) {
+        if is_bull {
+            self.ob_bull_signaled.remove(&key);
+        } else {
+            self.ob_bear_signaled.remove(&key);
+        }
+    }
+
     /// `f_accumScores` (Pine lignes 2257-2285) — enrichit chaque OB non signalé.
     ///
     /// Doit être appelée à chaque bar APRES tous les détecteurs. Calcule le score
