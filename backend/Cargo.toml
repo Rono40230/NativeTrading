@@ -8,6 +8,7 @@ members = [
     "crates/indicators",
     "crates/smc",
     "crates/strategies",
+    "crates/straddle",
     "crates/db",
     "crates/common",
     "crates/notifications",

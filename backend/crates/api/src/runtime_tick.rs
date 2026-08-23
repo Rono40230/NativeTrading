@@ -34,6 +34,43 @@ use tokio::sync::mpsc;
 /// TF (ATR14 stabilisé, pivots, PDH/PDL/PWH/PWL), plafonné.
 /// Amorce MTF pour le runtime live — H1/H4/W1 + MN agrégée de D1 (600 bars
 /// max par TF, échec DB → amorce vide : replay dégradé, jamais de panic).
+/// Annonces tier 1 (impact High) des prochaines 24 h — pour le straddle.
+/// Le moteur filtre par devise pertinente pour l'asset côté runtime.
+async fn annonces_tier1(db: &db::Database) -> Vec<straddle::Annonce> {
+    use chrono::TimeZone;
+    let Ok(rows) = db.lire_calendrier_cache(6 * 3600).await else {
+        return Vec::new();
+    };
+    let maintenant = chrono::Utc::now().timestamp();
+    rows.iter()
+        .filter_map(|r| {
+            let impact = r.get("impact").and_then(|v| v.as_str()).unwrap_or("");
+            if impact != "High" {
+                return None;
+            }
+            let dh = r.get("date_heure").and_then(|v| v.as_str())?;
+            let ts = chrono::DateTime::parse_from_rfc3339(dh)
+                .or_else(|_| {
+                    chrono::DateTime::parse_from_rfc3339(&format!(
+                        "{}:{}",
+                        dh[..dh.len() - 2].to_string(),
+                        &dh[dh.len() - 2..]
+                    ))
+                })
+                .ok()?
+                .timestamp();
+            if ts <= maintenant || ts > maintenant + 7 * 24 * 3600 {
+                return None;
+            }
+            Some(straddle::Annonce {
+                ts,
+                devise: r.get("devise").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                titre: r.get("titre").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            })
+        })
+        .collect()
+}
+
 async fn charger_amorce_mtf_runtime(db: &db::Database, asset: &Asset) -> smc::v12::AmorceMtf {
     use common::Timeframe;
     use smc::v12::{agreger_mensuel, AmorceMtf, BarInput};
@@ -305,13 +342,24 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         // Amorce MTF (H1/H4/W1 + MN agrégée de D1) : le Pine/TV calcule f_htf
         // sur des ANNÉES — sans elle, confluences W1 (+5) / MN (+6) froides.
         let amorce = charger_amorce_mtf_runtime(db, asset).await;
-        runtime.enregistrer(
-            asset.clone(),
-            *tf,
-            vec![Box::new(
-                engine_v12::MoteurV12::nouveau(asset.clone(), *tf).avec_amorce(amorce),
-            )],
-        );
+        // Phase 3.1 — plugin STRADDLE sur M1/M5 (news trading) : calendrier
+        // tier 1 amorcé depuis le cache (jamais de DB dans le moteur, R4).
+        let mut moteurs: Vec<Box<dyn engine::Engine>> = vec![Box::new(
+            engine_v12::MoteurV12::nouveau(asset.clone(), *tf).avec_amorce(amorce),
+        )];
+        if matches!(tf, common::Timeframe::M1 | common::Timeframe::M5) {
+            let annonces = annonces_tier1(db).await;
+            tracing::info!(
+                "Runtime tick: {} {} moteur straddle armé ({} annonce(s) à venir)",
+                asset.as_str(),
+                tf.as_str(),
+                annonces.len()
+            );
+            moteurs.push(Box::new(
+                straddle::StraddleEngine::nouveau(asset.clone(), *tf).avec_annonces(annonces),
+            ));
+        }
+        runtime.enregistrer(asset.clone(), *tf, moteurs);
         // Backfill automatique : comme un chart TradingView à l'ouverture,
         // l'historique doit être là — on comble les trous (nuits, week-ends,
         // pannes) via le REST Bybit avant le cold start.
