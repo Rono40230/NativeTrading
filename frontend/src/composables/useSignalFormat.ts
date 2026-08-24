@@ -26,9 +26,11 @@ export function classeVerdictSignal(verdict: string | null): string {
 export function labelVerdictSignal(verdict: string | null): string {
   const v = verdict?.toLowerCase() ?? ''
   if (v === 'tp3') return '✅ TP3'
+  if (v === 'tp2+be') return '✅ TP2+BE (+2R acquis)'
+  if (v === 'tp1+be') return '✅ TP1+BE (+1R acquis)'
   if (v === 'tp2') return '✅ TP2 (SL→TP1)'
   if (v === 'tp1') return '✅ TP1 (SL→BE)'
-  if (v === 'be')  return '⚪ BE (neutre)'
+  if (v === 'be')  return '⚪ BE forcé (BOS opposé) — 0R'
   if (v === 'sl')  return '❌ SL'
   if (v === 'invalide') return '↩️ Entrée non atteinte'
   if (v === 'expire') return '⏰ Expiré'

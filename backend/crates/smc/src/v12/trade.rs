@@ -152,10 +152,10 @@ impl Trade {
         }
     }
 
-    /// R-multiple réalisé à la clôture (baseline = `risk0`) — SANS prise
-    /// partielle : TP1 touché ne banque rien (le stop monte à l'entrée,
-    /// sortie 0R) ; après TP2 le stop est à TP1 (sortie +1R). TP3 seul
-    /// sort au TP3 (distance réelle).
+    /// R-multiple réalisé à la clôture (baseline = `risk0`) — comptabilité
+    /// propriétaire 24/08 : le TP touché est ACQUIS et comptabilisé
+    /// (TP1+BE = 1R, TP2+BE = 2R) ; TP3 = distance réelle ; BE forcé
+    /// (BOS opposé avant TP1, stop ramené à l'entrée) = 0R ; SL = -1R.
     pub fn realized_r(&self) -> f64 {
         if self.risk0 <= 0.0 {
             return 0.0;
@@ -166,16 +166,17 @@ impl Trade {
         };
         match self.verdict() {
             Verdict::Tp3 => dist(self.tp3) / self.risk0,
-            // Sortie au stop remonté à TP1 (après TP2) : +1R.
-            Verdict::Tp2 => dist(self.tp1) / self.risk0,
-            // Sortie au stop remonté à l'entrée (après TP1) : 0R.
-            Verdict::Tp1 | Verdict::Be | Verdict::Expire => 0.0,
+            // TP2 acquis et comptabilisé.
+            Verdict::Tp2 => 2.0,
+            // TP1 acquis et comptabilisé.
+            Verdict::Tp1 => 1.0,
+            // BE forcé (jamais de TP touché) ou expiration : rien d'acquis.
+            Verdict::Be | Verdict::Expire => 0.0,
             Verdict::Sl => -1.0,
         }
     }
 
-    /// Vrai si le trade est gagnant (R réalisé > 0) — TP1+BE sort à 0R :
-    /// pas un gain. TP2+BE sort à TP1 : +1R, gain.
+    /// Vrai si le trade est gagnant (R réalisé > 0 — TP acquis compris).
     pub fn is_win(&self) -> bool {
         self.realized_r() > 0.0
     }
@@ -315,9 +316,9 @@ mod tests {
         t.tp1_hit = true;
         t.close_reason = Some(CloseReason::Be);
         assert_eq!(t.verdict(), Verdict::Tp1);
-        // Sans prise partielle : TP1 touché banque rien — sortie à l'entrée.
-        assert!((t.realized_r() - 0.0).abs() < 1e-9);
-        assert!(!t.is_win(), "TP1+BE n'est pas un gain net");
+        // Comptabilité propriétaire : TP1 acquis = 1R.
+        assert!((t.realized_r() - 1.0).abs() < 1e-9);
+        assert!(t.is_win(), "TP1+BE = 1R acquis = gain");
     }
 
     #[test]
