@@ -152,34 +152,32 @@ impl Trade {
         }
     }
 
-    /// R-multiple réalisé à la clôture (baseline = `risk0`).
-    ///
-    /// TP3 = distance réelle `(tp3-entry)/risk0` ; TP2 = +2 ; TP1 = +1 ;
-    /// BE/Expire = 0 ; SL = -1.
+    /// R-multiple réalisé à la clôture (baseline = `risk0`) — SANS prise
+    /// partielle : TP1 touché ne banque rien (le stop monte à l'entrée,
+    /// sortie 0R) ; après TP2 le stop est à TP1 (sortie +1R). TP3 seul
+    /// sort au TP3 (distance réelle).
     pub fn realized_r(&self) -> f64 {
+        if self.risk0 <= 0.0 {
+            return 0.0;
+        }
+        let dist = |prix: f64| match self.side {
+            Side::Buy => prix - self.entry,
+            Side::Sell => self.entry - prix,
+        };
         match self.verdict() {
-            Verdict::Tp3 => {
-                if self.risk0 > 0.0 {
-                    let dist = match self.side {
-                        Side::Buy => self.tp3 - self.entry,
-                        Side::Sell => self.entry - self.tp3,
-                    };
-                    dist / self.risk0
-                } else {
-                    0.0
-                }
-            }
-            Verdict::Tp2 => 2.0,
-            Verdict::Tp1 => 1.0,
-            Verdict::Be => 0.0,
-            Verdict::Expire => 0.0,
+            Verdict::Tp3 => dist(self.tp3) / self.risk0,
+            // Sortie au stop remonté à TP1 (après TP2) : +1R.
+            Verdict::Tp2 => dist(self.tp1) / self.risk0,
+            // Sortie au stop remonté à l'entrée (après TP1) : 0R.
+            Verdict::Tp1 | Verdict::Be | Verdict::Expire => 0.0,
             Verdict::Sl => -1.0,
         }
     }
 
-    /// Vrai si le verdict est gagnant (R > 0).
+    /// Vrai si le trade est gagnant (R réalisé > 0) — TP1+BE sort à 0R :
+    /// pas un gain. TP2+BE sort à TP1 : +1R, gain.
     pub fn is_win(&self) -> bool {
-        matches!(self.verdict(), Verdict::Tp1 | Verdict::Tp2 | Verdict::Tp3)
+        self.realized_r() > 0.0
     }
 
     /// Le trade est-il « neutralisé » (TP1 prix touché) — n'a plus besoin de bloquer
@@ -317,8 +315,9 @@ mod tests {
         t.tp1_hit = true;
         t.close_reason = Some(CloseReason::Be);
         assert_eq!(t.verdict(), Verdict::Tp1);
-        assert!((t.realized_r() - 1.0).abs() < 1e-9);
-        assert!(t.is_win());
+        // Sans prise partielle : TP1 touché banque rien — sortie à l'entrée.
+        assert!((t.realized_r() - 0.0).abs() < 1e-9);
+        assert!(!t.is_win(), "TP1+BE n'est pas un gain net");
     }
 
     #[test]

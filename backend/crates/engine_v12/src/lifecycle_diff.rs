@@ -72,8 +72,8 @@ pub(crate) fn cle_vers_string(cle: &CleTrade) -> String {
 fn verdict_texte(v: smc::v12::trade::Verdict) -> &'static str {
     match v {
         smc::v12::trade::Verdict::Tp3 => "TP3",
-        smc::v12::trade::Verdict::Tp2 => "TP2",
-        smc::v12::trade::Verdict::Tp1 => "TP1",
+        smc::v12::trade::Verdict::Tp2 => "TP2+BE",
+        smc::v12::trade::Verdict::Tp1 => "TP1+BE",
         smc::v12::trade::Verdict::Sl => "SL",
         smc::v12::trade::Verdict::Be => "BE",
         smc::v12::trade::Verdict::Expire => "Expire",
@@ -259,7 +259,9 @@ pub(crate) fn diff_lifecycle(
                     format!("{}|{:.4}", verdict_texte(t.verdict()), t.realized_r()),
                     match r {
                         CloseReason::Sl => t.sl,
-                        CloseReason::Be | CloseReason::Tp2Sl => t.entry,
+                        // Après TP2 le stop est remonté à TP1 : sortie à TP1.
+                        CloseReason::Tp2Sl => t.tp1,
+                        CloseReason::Be => t.entry,
                         CloseReason::Tp3 => t.tp3,
                         // Prix de sortie exact non porté par le trade : entrée.
                         CloseReason::Expire | CloseReason::Cancel => t.entry,

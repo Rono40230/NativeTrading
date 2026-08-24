@@ -394,7 +394,7 @@ mod tests {
         assert_eq!(t.state, TradeState::Closed);
         assert_eq!(t.close_reason, Some(CloseReason::Be));
         assert_eq!(t.verdict(), Verdict::Tp1);
-        assert!((t.realized_r() - 1.0).abs() < 1e-9);
+        assert!((t.realized_r() - 0.0).abs() < 1e-9, "TP1+BE = 0R sans prise partielle");
     }
 
     #[test]
