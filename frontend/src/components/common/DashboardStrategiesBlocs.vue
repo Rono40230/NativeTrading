@@ -66,7 +66,8 @@
         <span class="font-mono font-bold" :class="b.perf.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'">
           {{ b.perf.r_total >= 0 ? '+' : '' }}{{ b.perf.r_total.toFixed(1) }} R
         </span>
-        <span class="text-gray-400">{{ b.perf.total }} trade{{ b.perf.total > 1 ? 's' : '' }}</span>
+        <span class="text-gray-400">{{ b.perf.total }} trade{{ b.perf.total > 1 ? 's' : '' }} rempli{{ b.perf.total > 1 ? 's' : '' }}</span>
+        <span v-if="b.perf.non_remplis > 0" class="text-gray-600" title="Ordres posés jamais touchés par le prix">· {{ b.perf.non_remplis }} jamais remplis</span>
         <span v-if="b.perf.total > 0" class="text-gray-400">{{ (b.perf.taux_reussite * 100).toFixed(0) }} % réussite</span>
         <span class="ml-auto text-gray-500">{{ b.perf.en_cours.length }} en cours</span>
       </div>
@@ -115,6 +116,7 @@ interface PerfApi {
   clotures: { ferme_le: number; r_cumule: number }[]
   en_cours: { asset: string; timeframe: string; direction: string; force: number; cree_le: number }[]
   total: number
+  non_remplis: number
   taux_reussite: number
   r_total: number
 }
@@ -137,7 +139,7 @@ const ROUTES: Record<string, string> = {
 }
 
 const PERF_VIDE: PerfApi = {
-  clotures: [], en_cours: [], total: 0, taux_reussite: 0, r_total: 0,
+  clotures: [], en_cours: [], total: 0, non_remplis: 0, taux_reussite: 0, r_total: 0,
 }
 
 interface AgendaApi {

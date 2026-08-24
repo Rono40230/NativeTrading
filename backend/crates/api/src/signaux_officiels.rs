@@ -101,10 +101,16 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
 /// Clôtures : mise à jour DB silencieuse (statut Fermé + verdict) — pas de
 /// message (décision propriétaire : imminence seule sur Telegram).
 /// Le détail moteur porte « verdict|R » (ex. « TP2|2.0000 »).
+/// Les FILL marquent le remplissage : le trade existe au marché (les stats
+/// ne comptent que les remplis).
 async fn fermer_signaux(db: Arc<Database>, bus: BusEvenements) {
     let mut rx = bus.abonner();
     while let Ok(e) = rx.recv().await {
         use engine::TypeEvenementTrade as T;
+        if matches!(e.evenement, T::Fill) {
+            let _ = db.marquer_remplie_par_cle(&e.cle_trade, e.debut_barre).await;
+            continue;
+        }
         if !matches!(e.evenement, T::Cloture) {
             continue;
         }

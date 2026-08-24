@@ -188,6 +188,22 @@ impl Database {
         Ok(())
     }
 
+    /// Étape 6 (préalable stats) — marque le REMPLISSAGE du trade (l'ordre
+    /// au bord de la zone a été touché : le trade existe au marché). Un
+    /// signal jamais rempli puis expiré n'est pas un trade — les stats de
+    /// réussite ne portent que sur les remplis.
+    pub async fn marquer_remplie_par_cle(&self, cle_moteur: &str, ts: i64) -> Result<u64> {
+        let res = sqlx::query(
+            "UPDATE signaux SET heure_entree = ? WHERE cle_moteur = ? AND statut = 'Actif' AND heure_entree IS NULL",
+        )
+        .bind(ts)
+        .bind(cle_moteur)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(res.rows_affected())
+    }
+
     /// Étape 2 — marque le signal comme notifié sur Telegram (le writer
     /// officiel envoie directement ; ce drapeau trace l'envoi en base).
     pub async fn marquer_telegram_envoye(&self, id: &str) -> Result<()> {
@@ -385,8 +401,11 @@ pub struct SignalEnCours {
 pub struct PerformanceStrategie {
     pub clotures: Vec<PointCloture>,
     pub en_cours: Vec<SignalEnCours>,
+    /// Trades REMPLIS clôturés (la base des stats).
     pub total: usize,
     pub gagnants: usize,
+    /// Clôturés sans jamais avoir rempli (ordres non touchés) — à part.
+    pub non_remplis: usize,
     pub taux_reussite: f64,
     pub r_total: f64,
 }
@@ -396,10 +415,13 @@ impl Database {
     /// en R cumulé + signaux en cours). L'état passe par la table, pas le
     /// manifeste : les stratégies en Observation ont un historique aussi.
     pub async fn performance_strategie(&self, id: &str) -> Result<PerformanceStrategie> {
+        // STATS = TRADES REMPLIS uniquement (heure_entree non null) : un
+        // ordre jamais touché puis expiré n'a jamais engagé de capital.
         let rows = sqlx::query(
             "SELECT ferme_le, verdict, r_realise, asset, timeframe, direction
              FROM signaux
              WHERE strategie = ? AND statut = 'Fermé' AND verdict IS NOT NULL
+               AND heure_entree IS NOT NULL
              ORDER BY ferme_le ASC",
         )
         .bind(id)
@@ -441,6 +463,16 @@ impl Database {
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
 
+        // Jamais remplis (clôturés sans toucher l'entrée) — comptés à part.
+        let non_remplis: usize = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(*) FROM signaux
+             WHERE strategie = ? AND statut = 'Fermé' AND heure_entree IS NULL",
+        )
+        .bind(id)
+        .fetch_one(&self.pool)
+        .await
+        .unwrap_or(0) as usize;
+
         let en_cours = actifs
             .iter()
             .map(|r| SignalEnCours {
@@ -461,6 +493,7 @@ impl Database {
             },
             total,
             gagnants,
+            non_remplis,
             r_total: cumul,
             clotures,
             en_cours,
