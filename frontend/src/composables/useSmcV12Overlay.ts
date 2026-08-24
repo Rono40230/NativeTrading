@@ -34,14 +34,13 @@ import {
   dessinerObsEtFvgs,
   dessinerLignes,
   dessinerSweeps,
-  dessinerSignaux,
-  dessinerTradesExternes,
   dessinerPivots,
 } from './smcV12OverlayDrawBase'
+import { dessinerSignaux, dessinerTradesExternes } from './smcV12OverlayDrawTrades'
+import type { SignalDessin } from './smcV12OverlayDrawTrades'
 import type {
   ObDessin,
   LigneDessin,
-  SignalDessin,
   PivotDessin,
   FvgDessin,
   SweepDessin,
