@@ -113,6 +113,42 @@
           cumul : la volatilité événementielle se joue un événement à la fois.
         </carte>
       </div>
+
+      <!-- ═══ ENRICHISSEMENT IA ═══ -->
+      <div v-if="onglet === 'Enrichissement IA'" class="flex flex-col gap-3">
+        <carte titre="Rôle de l'IA dans la stratégie">
+          <div class="flex flex-col gap-2">
+            <p><b class="text-white">1. Repérer les événements qui font bouger chaque actif</b> —
+            au-delà du simple calendrier « impact fort » : mesurer quelles annonces déplacent
+            réellement XAU, BTC, NAS100, SP500, et construire l'agenda pertinent par actif.</p>
+            <p><b class="text-white">2. Affiner l'heure d'entrée</b> — le T-10 s par défaut est
+            réglable : l'IA proposera un minutage par type d'événement et par actif, sur
+            preuve historique.</p>
+            <p><b class="text-white">3. Ouvert</b> — d'autres usages seront définis par le
+            propriétaire au fil des observations.</p>
+          </div>
+        </carte>
+        <carte titre="Fonctionnement">
+          L'IA tourne <b>en local</b> (Ollama), hors du temps réel. Sa matière première :
+          les <b>passes journalisées</b> — chaque annonce, son range, son remplissage, son
+          verdict en R (l'Observation les enregistre dès maintenant). C'est en accumulant
+          ces passes que l'IA apprendra quels événements valent le coup. Les textes des
+          prompts se règlent dans Outils IA › Prompts IA.
+        </carte>
+        <carte titre="Objectifs">
+          <ul class="space-y-1.5">
+            <li>Un agenda par actif pondéré par l'impact réel mesuré — pas seulement le libellé « High » du calendrier.</li>
+            <li>Un minutage d'entrée recommandé par événement et par actif.</li>
+            <li>Étape 6 : benchmark du meilleur modèle local utilisable pour ce travail.</li>
+          </ul>
+        </carte>
+        <carte titre="Garde-fous">
+          <b>L'IA n'ouvre jamais de trade.</b> Le moteur applique la définition figée de
+          cette page : deux jambes à E, OCO, trailing. Les propositions de l'IA (agenda,
+          minutage) ne prennent effet qu'après validation du propriétaire dans les
+          réglages. Aucune autonomie sur l'exécution.
+        </carte>
+      </div>
     </div>
   </div>
 </template>
@@ -155,7 +191,7 @@ const Valeur = defineComponent({
 })
 const valeur = Valeur
 
-const onglets = ['Définition', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management'] as const
+const onglets = ['Définition', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Enrichissement IA'] as const
 const onglet = ref<(typeof onglets)[number]>('Définition')
 
 const reglages = ref<ReglagesStrategie | null>(null)

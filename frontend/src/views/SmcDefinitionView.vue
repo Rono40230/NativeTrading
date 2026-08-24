@@ -177,6 +177,40 @@
 
       <!-- ═══ ONGLET LEXIQUE ═══ -->
       <LexiquePanel v-if="onglet === 'Lexique'" />
+
+      <!-- ═══ ONGLET ENRICHISSEMENT IA ═══ -->
+      <div v-if="onglet === 'Enrichissement IA'" class="flex flex-col gap-3">
+        <carte titre="Rôle de l'IA dans la stratégie">
+          <div class="flex flex-col gap-2">
+            <p><b class="text-white">Analyse stratégique</b> (active aujourd'hui — bouton
+            « Analyse SMC » du graphique) : lit les signaux clôturés, évalue la performance
+            par type de confluence et par contexte, et produit des recommandations lisibles.</p>
+            <p><b class="text-white">Rôles à cadrer à l'étape 6</b> : filtre temps réel et
+            monitoring par stratégie — le cahier des charges sera discuté et acté avant tout
+            branchement.</p>
+          </div>
+        </carte>
+        <carte titre="Fonctionnement">
+          L'IA tourne <b>en local</b> (Ollama). Elle reçoit la définition canonique de la
+          stratégie — dérivée de cette page, source unique — et l'historique des trades
+          clôturés. Elle intervient <b>hors du temps réel</b> : sur demande pour l'analyse,
+          jamais dans la boucle de décision d'un signal. Les textes des prompts se règlent
+          dans Outils IA › Prompts IA.
+        </carte>
+        <carte titre="Objectifs">
+          <ul class="space-y-1.5">
+            <li>Expliquer la performance : quelles confluences gagnent, sur quels actifs, quelles plages horaires.</li>
+            <li>Détecter les dérives du moteur par rapport à sa définition (signaux hors définition, contextes perdants récurrents).</li>
+            <li>À l'étape 6 : évaluer la pertinence d'un filtre temps réel — seulement si la preuve le justifie.</li>
+          </ul>
+        </carte>
+        <carte titre="Garde-fous">
+          <b>L'IA n'ouvre jamais de trade.</b> Le moteur v12 applique la définition figée —
+          l'étalon est le Pine. L'IA conseille et explique ; toute modification de réglage
+          est un acte du propriétaire dans les Paramètres. Aucune autonomie sur les seuils,
+          les signaux ou l'exécution.
+        </carte>
+      </div>
     </div>
   </div>
 </template>
@@ -221,7 +255,7 @@ const Valeur = defineComponent({
 const valeur = Valeur
 
 // ── Onglets (décision étape 3 : Définition première page + Lexique en onglet)
-const onglets = ['Définition', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Lexique'] as const
+const onglets = ['Définition', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Lexique', 'Enrichissement IA'] as const
 const onglet = ref<(typeof onglets)[number]>('Définition')
 
 // ── Réglages live de la stratégie (registre) ─────────────────────────────────
