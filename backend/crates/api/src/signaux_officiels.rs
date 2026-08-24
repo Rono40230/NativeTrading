@@ -44,9 +44,13 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
         }
         let silencieuse = etat != "Officielle";
         // ANNONCE intrabar (setup qualifié, trade pas encore confirmé) :
-        // message d'imminence seul — pas de ligne en base (elle viendra à
-        // la clôture si le trade confirme, avec deja_annonce).
+        // enregistré pour le panneau « Setups en formation » de l'app,
+        // message d'imminence sur Telegram (selon l'état) — pas de ligne en
+        // base (elle viendra à la clôture si le trade confirme).
         if s.annonce {
+            crate::setups_formation::enregistrer_annonce(
+                crate::setups_formation::depuis_annonce(m.id, &s),
+            );
             if !silencieuse {
                 let reg = db.lire_strategie(m.id).await.ok().flatten();
                 if reg.as_ref().is_some_and(|r| r.notifications) {
@@ -71,6 +75,7 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
             tracing::warn!("Signaux officiels (insert): {}", e);
             continue;
         }
+        crate::setups_formation::marquer_confirme(m.id, &s.cle);
         // Telegram : son activé ? L'annonce intrabar est déjà partie →
         // on marque la ligne sans re-messager. Observation = silencieux.
         let reg = db.lire_strategie(m.id).await.ok().flatten();

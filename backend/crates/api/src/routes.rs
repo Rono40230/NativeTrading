@@ -62,6 +62,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::put().to(crate::rockets_verticale::maj_params),
         )
         .route(
+            "/api/setups-formation",
+            web::get().to(crate::setups_formation::get_setups),
+        )
+        .route(
             "/api/signaux",
             web::get().to(crate::signaux_handlers::get_signaux),
         )

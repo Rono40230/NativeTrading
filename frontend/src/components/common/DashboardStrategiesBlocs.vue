@@ -71,6 +71,11 @@
         <span class="ml-auto text-gray-500">{{ b.perf.en_cours.length }} en cours</span>
       </div>
 
+      <!-- Setups en formation (annonces intrabar — la face app de Telegram) -->
+      <div v-if="b.id === 'SMC'" class="border-b border-white/5 pb-2">
+        <SetupsFormationPanel strategie="SMC" />
+      </div>
+
       <!-- Signaux en cours (liste courte) -->
       <div v-if="b.perf.en_cours.length" class="flex flex-col gap-1">
         <div
@@ -101,6 +106,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { http } from '@/services/http.client'
+import SetupsFormationPanel from '@/components/common/SetupsFormationPanel.vue'
 
 interface StrategieApi {
   id: string; nom: string; icone: string; etat: string

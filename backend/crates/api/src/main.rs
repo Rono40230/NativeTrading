@@ -59,6 +59,7 @@ mod signal_filtre;
 mod signaux_handlers;
 mod straddle_agenda;
 mod rockets_verticale;
+mod setups_formation;
 mod registre_strategies;
 mod signaux_officiels;
 mod smc_analyse_handler;
