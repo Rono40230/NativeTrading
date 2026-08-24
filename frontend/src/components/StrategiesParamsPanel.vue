@@ -8,7 +8,8 @@
     <!-- Paramètres numériques propres au Straddle (moteur branché dessus) -->
     <StraddleParamsCard />
 
-    <!-- Rockets : en construction (moteur VCP à venir) -->
+    <!-- Paramètres numériques propres à Rockets (étape 5) -->
+    <RocketsParamsCard />
   </div>
 </template>
 
@@ -17,6 +18,7 @@ import { onMounted, ref } from 'vue'
 import { http } from '@/services/http.client'
 import StrategieReglagesCard from './common/StrategieReglagesCard.vue'
 import StraddleParamsCard from './common/StraddleParamsCard.vue'
+import RocketsParamsCard from './common/RocketsParamsCard.vue'
 
 interface StrategieApi {
   id: string; nom: string; description: string; icone: string; couleur: string

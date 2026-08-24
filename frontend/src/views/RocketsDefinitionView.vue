@@ -1,197 +1,202 @@
 <template>
-  <div class="flex flex-col gap-4 p-4 lg:p-6 h-full w-full overflow-y-auto">
+  <div class="flex flex-col gap-4 p-4 lg:p-6 h-full w-full overflow-hidden">
 
-    <!-- En-tête et Santé -->
-    <div class="flex items-center gap-4 shrink-0 flex-wrap mb-2">
-      <div class="flex items-baseline gap-3">
-        <h1 class="text-2xl font-bold text-white">🚀 Stratégie Rockets</h1>
-        <span class="text-gray-500 text-base hidden sm:inline">Définition, logique de détection et rôle de l'IA</span>
-      </div>
-      <DefinitionSanteBar :conviction-min="convictionEffective" />
+    <div class="flex items-center gap-3 shrink-0">
+      <h1 class="text-2xl font-bold text-white">🚀 Rockets</h1>
+      <span class="text-gray-500 text-base hidden sm:inline">Momentum breakout — VCP × Rocket Hunter</span>
+      <span v-if="reglages" class="ml-auto text-[11px] font-semibold px-2.5 py-1 rounded-full border" :class="badgeClasse">{{ reglages.etat }}</span>
     </div>
 
-    <!-- 1. Concept (Pleine largeur) -->
-    <div class="rounded-xl border border-white/10 bg-white/5 px-5 py-4 shrink-0">
-      <div class="text-xs font-semibold text-orange-400 uppercase tracking-widest mb-3">Le Concept</div>
-      <p class="text-gray-300 text-sm leading-relaxed max-w-4xl">
-        Rockets capture les <span class="text-white font-medium">mouvements explosifs</span> après une
-        compression de volatilité : range serré,
-        <DefinitionTerme definition="Average True Range — mesure la volatilité réelle d'une bougie.">ATR</DefinitionTerme>
-        faible, volume contracté → énergie accumulée.
-        Un
-        <DefinitionTerme definition="Cassure d'un niveau clé (résistance/support) avec volume — signale un mouvement directionnel.">breakout</DefinitionTerme>
-        avec spike de volume déclenche le signal. Le
-        <DefinitionTerme definition="Relative Strength Index (0–100) — oscille pour mesurer la force d'un mouvement.">RSI</DefinitionTerme>
-        valide la santé du mouvement.
-      </p>
+    <div class="flex gap-1 border-b border-white/10 shrink-0 overflow-x-auto">
+      <button v-for="t in onglets" :key="t" class="px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px"
+        :class="onglet === t ? 'text-white border-blue-400' : 'text-gray-400 border-transparent hover:text-white/70'"
+        @click="onglet = t">{{ t }}</button>
     </div>
 
-    <!-- 2. Pipeline d'Exécution (Les 3 étapes) -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch shrink-0">
+    <div class="flex-1 min-h-0 overflow-y-auto pr-1">
 
-      <!-- Étape 1 : Détection -->
-      <div class="rounded-xl border border-white/10 bg-white/5 px-5 py-4 flex flex-col h-full bg-gradient-to-b from-black/0 to-black/20">
-        <div class="text-xs font-semibold text-orange-400 uppercase tracking-widest mb-4">Étape 1 : Détection</div>
-        <div class="flex flex-col gap-3 flex-1 justify-between">
-          <div v-for="phase in phases" :key="phase.id" class="rounded-lg bg-black/20 border border-white/5 px-3 py-3">
-            <div class="flex items-center gap-2 mb-1.5">
-              <span class="text-lg leading-none">{{ phase.icon }}</span>
-              <span class="text-white font-semibold text-sm">{{ phase.label }}</span>
-            </div>
-            <p class="text-gray-500 text-xs mb-1.5">{{ phase.description }}</p>
-            <div class="flex flex-wrap gap-1.5 mt-2">
-              <span v-for="c in phase.criteres" :key="c" class="text-[10px] sm:text-xs bg-orange-500/10 text-orange-200 border border-orange-500/20 px-2 py-0.5 rounded-md whitespace-nowrap">{{ c }}</span>
-            </div>
-          </div>
+      <!-- ═══ DÉFINITION ═══ -->
+      <div v-if="onglet === 'Définition'" class="flex flex-col gap-3">
+        <carte titre="Concept">
+          Rockets capte les mouvements de volatilité VIOLENTS ET BREFS nés d'une compression :
+          après une base où la volatilité et les volumes s'assèchent, la cassure du pivot sur
+          un chandelier marubozu à fort volume déclenche la fusée. La stratégie chasse la
+          sortie de base d'actifs déjà en tendance forte, qui surperforment le marché.
+        </carte>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <carte titre="Le classement — 10 points, 4 piliers">
+            <ul class="space-y-1.5">
+              <li><b class="text-white">Fondamental (3)</b> — sentiment de marché (BTC haussier + secteur/écosystème en tendance), contexte (sortie de large base, 1ère base), news catalyseur.</li>
+              <li><b class="text-white">Technique (3)</b> — tendance (prix &gt; MM50 &gt; MM200 empilées, à moins de 25 % du plus haut 52 sem.), volatilité (compression Bollinger puis expansion), intérêt (volumes asséchés puis explosés).</li>
+              <li><b class="text-white">Chartisme (2)</b> — figure de continuation (VCP / tasse avec anse, contractions décroissantes, micro-base serrée), pas de gros gaps.</li>
+              <li><b class="text-white">Chandeliers (2)</b> — cassure marubozu (corps ≥ 80 %, +3-5 % au-delà du pivot, volume ≥ 150 % MM50), pas de mèches excessives.</li>
+            </ul>
+          </carte>
+          <carte titre="La classification et le véto">
+            <ul class="space-y-1.5">
+              <li><b class="text-white">9-10 : ROCKET ALPHA</b> — trading neutre/offensif</li>
+              <li><b class="text-white">7-8 : ROCKET</b> — trading neutre</li>
+              <li><b class="text-white">&lt; 7 : ÉLIMINÉ</b></li>
+            </ul>
+            <p class="mt-2">Véto éliminatoire : un déverrouillage de tokens majeur (≥ 1-2 % de la supply flottante)
+            dans les 30 prochains jours élimine le candidat, quel que soit son classement — l'étude
+            de 16 000 unlocks montre 90 % de pression vendeuse.</p>
+          </carte>
+        </div>
+        <carte titre="Le périmètre">
+          Crypto uniquement à la naissance : scan quotidien du top 100 Binance en volume
+          (blacklist des paires figées), détection sur bougies quotidiennes. Actions US et ETF
+          prévus via MT5 (phase 5) — le classement ETF dispose de ses propres profils de risque.
+        </carte>
+      </div>
+
+      <!-- ═══ DÉCISION D'ENTRÉE ═══ -->
+      <div v-if="onglet === 'Décision d\u2019entrée'" class="flex flex-col gap-3">
+        <carte titre="Le parcours d'un signal">
+          <ol class="list-decimal ml-5 space-y-1.5">
+            <li>Le scanner quotidien classe l'univers après la clôture D1 (00h40 UTC).</li>
+            <li>Les candidats ≥ 5 points sont journalisés et suivis (page Scanner).</li>
+            <li>La cassure du pivot sur la bougie D1 — décisive (+3 % minimum), marubozu, volume ≥ 150 % de la MM50 — déclenche le signal si le classement ≥ 7.</li>
+            <li>Ordre <b>stop-limit</b> : achat au-delà du pivot, plafond à la limite (+3 %) pour contenir le slippage d'une cassure violente.</li>
+          </ol>
+        </carte>
+        <carte titre="La force relative">
+          Sans surperformance, pas de point Tendance : l'actif doit battre BTC sur 4 semaines
+          (proxy v1 du « secteur en tendance » — le vrai découpage par écosystème viendra avec
+          l'IA, étape 6). C'est le critère commun d'O'Neil (RS ≥ 80) et Minervini.
+        </carte>
+        <carte titre="Ce qui manque encore (honnête)">
+          Le point « News » (1/10) et le véto unlocks demandent des sources externes et de la
+          lecture — réservés à l'enrichissement IA (étape 6). Le classement v1 est donc noté
+          sur 9 chiffrables ; le seuil d'élimination reste 7.
+        </carte>
+      </div>
+
+      <!-- ═══ GESTION ═══ -->
+      <div v-if="onglet === 'Gestion des trades ouverts'" class="flex flex-col gap-3">
+        <carte titre="Le cycle de vie (logique du Journal de Trading)">
+          <ol class="list-decimal ml-5 space-y-1.5">
+            <li><b>Entrée</b> — stop-limit au pivot ; invalidation sous la dernière contraction (−1R).</li>
+            <li><b>R1 atteint</b> (entrée + 1R) — <b>vendre 50 %</b> de la position (fixe) et poser le <b>trailing stop</b> à X % du prix (défaut 5 %, réglable).</li>
+            <li><b>Trailing</b> — suit le prix à la clôture de chaque bougie, jamais vers l'arrière.</li>
+            <li><b>Sortie</b> — le prix touche le trailing : le solde est vendu. P&amp;L = 50 % à R1 + solde à la sortie.</li>
+            <li><b>Sortie sèche</b> — invalidation touchée avant R1 : −1R.</li>
+          </ol>
+        </carte>
+        <carte titre="Verdicts">
+          SL (−1R) ou TS (R mixte : 0,5 R sécurisé à R1 + 0,5 × R de sortie) — écrits en base
+          avec le R réel, ils alimentent la courbe de trades du bloc. En Observation :
+          journalisé, silencieux sur Telegram.
+        </carte>
+      </div>
+
+      <!-- ═══ MONEY MANAGEMENT ═══ -->
+      <div v-if="onglet === 'Money management'" class="flex flex-col gap-3">
+        <carte titre="Profils de risque (du Journal de Trading)">
+          <ul class="space-y-1.5">
+            <li><b class="text-white">Peu Risqué</b> — 0,5 % du capital par rocket (ETF : 2 %)</li>
+            <li><b class="text-white">Neutre</b> — 1 % (ETF : 3 %)</li>
+            <li><b class="text-white">Risqué</b> — 2 % (ETF : 4 %)</li>
+          </ul>
+          <p class="mt-2">Le profil est un <b>choix du propriétaire</b> dans les paramètres (comme au journal),
+          jamais déduit du classement — décision actée. Quantité = capital × profil ÷ |entrée − stop|,
+          <b>plafonnée à 5 % du capital</b> en montant par position.</p>
+        </carte>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <valeur etiquette="Capital alloué" :valeur="reglageStr('capital')" />
+          <valeur etiquette="Risque par rocket" :valeur="reglageStr('risque')" />
+          <valeur etiquette="1R représente" :valeur="reglageStr('unR')" />
         </div>
       </div>
 
-      <!-- Étape 2 : Évaluation (Scoring) -->
-      <div class="rounded-xl border border-white/10 bg-white/5 px-5 py-4 flex flex-col h-full bg-gradient-to-b from-black/0 to-black/20">
-        <div class="text-xs font-semibold text-orange-400 uppercase tracking-widest mb-4">Étape 2 : Évaluation</div>
-        <div class="flex flex-col gap-2 flex-1 justify-start">
-          <div v-for="s in scoring" :key="s.label" class="flex flex-col xl:flex-row xl:items-center gap-1.5 xl:gap-3 rounded-lg bg-black/20 border border-white/5 px-3 py-2">
-            <span class="text-xs xl:text-sm font-semibold text-white whitespace-nowrap xl:w-28 shrink-0">{{ s.label }}</span>
-            <div class="flex flex-wrap gap-1.5">
-              <span v-for="badge in s.detail.split(' | ')" :key="badge" class="text-[10px] xl:text-xs bg-white/5 text-gray-300 border border-white/10 px-2 py-0.5 rounded-md">{{ badge }}</span>
-            </div>
-          </div>
-        </div>
+      <!-- ═══ SCANNER (spécifique Rockets — remplace le lexique) ═══ -->
+      <div v-if="onglet === 'Scanner'" class="flex flex-col gap-3">
+        <carte titre="Le scanner">
+          Chaque jour après la clôture quotidienne (00h40 UTC), le top 100 Binance en volume
+          est classé. Les candidats ≥ 5 points vivent ici — en attente de leur pivot — et la
+          page dédiée (menu Rockets › Scanner) détaille chaque critère du classement.
+        </carte>
       </div>
 
-      <!-- Étape 3 : Validation IA -->
-      <div class="rounded-xl border border-blue-500/30 bg-blue-500/5 px-5 py-4 flex flex-col h-full bg-gradient-to-b from-blue-500/5 to-blue-500/10">
-        <div class="flex items-center gap-2 mb-4">
-          <span class="text-lg">⚡</span>
-          <span class="text-white font-semibold text-sm uppercase tracking-widest flex-1">Étape 3 : Filtre IA</span>
-        </div>
-        <p class="text-gray-400 text-xs leading-relaxed mb-4">
-          L'IA a le dernier mot. Elle valide ou rejette chaque candidat scoré.
-        </p>
-        <div class="space-y-1.5 flex-1 w-full flex flex-col justify-start">
-          <DefinitionLlmRegle v-for="r in filtreRegles" :key="r.label" v-bind="r" />
-        </div>
-        <div class="rounded-lg bg-black/30 px-3 py-2.5 mt-4 border border-blue-500/20">
-          <div class="text-xs text-gray-500 mb-1">Seuil conviction IA attendu</div>
-          <div class="flex items-center gap-2 text-sm">
-            <span class="text-yellow-400 font-bold">≥ {{ convictionEffective }}/100</span>
-            <span class="text-gray-400 text-xs">Score IA min par phase</span>
+      <!-- ═══ ENRICHISSEMENT IA ═══ -->
+      <div v-if="onglet === 'Enrichissement IA'" class="flex flex-col gap-3">
+        <carte titre="Rôle de l'IA dans la stratégie">
+          <div class="flex flex-col gap-2">
+            <p><b class="text-white">1. Évaluer le catalyseur « news »</b> — le point manquant du classement :
+            flux ETF, annonces de listing, réglementation — la lecture qui complète les critères chiffrables.</p>
+            <p><b class="text-white">2. Ranker les faux pivots</b> — conviction sur les candidats détectés,
+            pour écarter les cassures qui n'en sont pas.</p>
+            <p><b class="text-white">3. Analyser la performance par pilier</b> — quels critères du classement
+            gagnent réellement, pour le recalibrer.</p>
           </div>
-          <div class="text-xs text-gray-500 mt-0.5">+ Score technique min : {{ scoreMinEffectif }}</div>
-        </div>
+        </carte>
+        <carte titre="Fonctionnement">
+          IA locale (Ollama), hors temps réel. Matière première : les candidats journalisés
+          avec leur détail point par point, et les trades clôturés avec leur verdict en R.
+          Les textes des prompts se règlent dans Outils IA › Prompts IA.
+        </carte>
+        <carte titre="Garde-fous">
+          <b>L'IA n'ouvre jamais de trade.</b> Le moteur applique la définition figée de cette
+          page. Ses propositions (catalyseur, véto unlocks, ranking) ne prennent effet
+          qu'après validation du propriétaire. Aucune autonomie sur l'exécution.
+        </carte>
       </div>
-
     </div>
-
-    <!-- 3. Paramètres & Évolution -->
-    <div class="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4 items-stretch flex-1 mt-2">
-
-      <!-- Paramètres de l'instance -->
-      <div class="rounded-xl border border-white/10 bg-white/5 px-5 py-4 h-full flex flex-col">
-        <div class="text-xs font-semibold text-orange-400 uppercase tracking-widest mb-3">Vos Paramètres Courants</div>
-        <div v-if="config" class="flex flex-wrap gap-2 flex-1 items-start content-start">
-          <DefinitionParamCard label="Score min" :value="config.score_min" />
-          <DefinitionParamCard label="RSI" :value="`${config.rsi_min}–${config.rsi_max}`" />
-          <DefinitionParamCard label="Vol. ratio min" :value="`${config.ratio_volume_min}×`" />
-          <DefinitionParamCard label="Vol. marché" :value="`${(config.vol_marche_min / 1_000_000).toFixed(0)}M$`" />
-          <div class="rounded-lg bg-black/30 px-3 py-2 flex flex-col gap-1 inline-flex">
-            <span class="text-xs text-gray-500">Phases actives</span>
-            <div class="flex gap-1 flex-wrap">
-              <span v-for="p in config.phases_actives" :key="p"
-                class="text-[10px] bg-orange-500/10 text-orange-300 border border-orange-500/20 px-2 py-0.5 rounded-full">{{ p }}</span>
-            </div>
-          </div>
-        </div>
-        <div v-else class="text-sm text-gray-500 animate-pulse">Chargement…</div>
-      </div>
-
-      <!-- Analyse Stratégique -->
-      <div class="rounded-xl border border-purple-500/30 bg-purple-500/5 px-5 py-4 h-full flex flex-col relative overflow-hidden">
-        <div class="absolute right-0 top-0 w-32 h-32 bg-purple-500/10 blur-3xl rounded-full"></div>
-        <div class="flex items-center gap-2 mb-3 relative z-10">
-          <span class="text-lg">📊</span>
-          <span class="text-white font-semibold text-sm uppercase tracking-widest flex-1">Analyse Stratégique</span>
-        </div>
-        <p class="text-gray-400 text-xs leading-relaxed mb-4 relative z-10">
-          A posteriori, après exécution des trades, le système s'améliore :
-        </p>
-        <div class="space-y-1.5 mb-4 flex-1 relative z-10">
-          <div v-for="o in analyseOutputs" :key="o" class="text-xs text-gray-300 flex items-center gap-2">
-            <span class="text-purple-400 shrink-0">→</span>{{ o }}
-          </div>
-        </div>
-        <div class="flex flex-wrap gap-1 relative z-10">
-          <span v-for="t in recommendationTypes" :key="t"
-            class="text-[10px] bg-purple-500/10 text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded-full">{{ t }}</span>
-        </div>
-      </div>
-
-    </div>
-
   </div>
 </template>
 
-
-
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useStrategyParamsStore } from '@/stores/strategyParams.store'
-import { apiService } from '@/services/api.service'
-import type { RocketsConfig, RocketsSeuilsEffectifs } from '@/services/api.types'
-import DefinitionParamCard from '@/components/common/DefinitionParamCard.vue'
-import DefinitionLlmRegle from '@/components/common/DefinitionLlmRegle.vue'
-import DefinitionTerme from '@/components/common/DefinitionTerme.vue'
-import DefinitionSanteBar from '@/components/common/DefinitionSanteBar.vue'
+import { ref, computed, defineComponent, h, onMounted } from 'vue'
+import { http } from '@/services/http.client'
 
-const strategyStore = useStrategyParamsStore()
-const config = ref<RocketsConfig | null>(null)
-const seuilsEffectifs = ref<RocketsSeuilsEffectifs | null>(null)
-const colOpen = ref([true, true])
+interface ReglagesStrategie { etat: string; capital: number; risque_pct: number }
 
+const Carte = defineComponent({
+  props: { titre: { type: String, required: true } },
+  setup(props, { slots }) {
+    return () => h('div', { class: 'rounded-xl border border-white/10 bg-white/5 px-5 py-4' }, [
+      h('div', { class: 'text-xs font-semibold text-blue-400 uppercase tracking-widest mb-2.5', innerHTML: props.titre }),
+      h('div', { class: 'text-gray-300 text-sm leading-relaxed [&_b]:text-white [&_ol]:list-decimal [&_ol]:ml-5 [&_ul]:space-y-1 [&_p]:mb-2 [&_p:last-child]:mb-0' }, slots.default?.()),
+    ])
+  },
+})
+const carte = Carte
+const Valeur = defineComponent({
+  props: { etiquette: { type: String, required: true }, valeur: { type: String, required: true } },
+  setup: (p: { etiquette: string; valeur: string }) => () =>
+    h('div', { class: 'rounded-xl border border-white/10 bg-white/5 px-4 py-3' }, [
+      h('div', { class: 'text-[10px] text-gray-500 uppercase tracking-widest' }, p.etiquette),
+      h('div', { class: 'text-lg font-bold text-white mt-1 font-mono' }, p.valeur),
+    ]),
+})
+const valeur = Valeur
+
+const onglets = ['Définition', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Scanner', 'Enrichissement IA'] as const
+const onglet = ref<(typeof onglets)[number]>('Définition')
+
+const reglages = ref<ReglagesStrategie | null>(null)
 onMounted(async () => {
-  try { await strategyStore.charger(); config.value = { ...strategyStore.rocketsRaw } as RocketsConfig } catch { /* silencieux */ }
-  try { seuilsEffectifs.value = await apiService.getRocketsSeuilsEffectifs() } catch { /* silencieux */ }
+  try {
+    const res = await http.get('/api/strategies')
+    const s = (res.data as { id: string; etat: string; capital: number; risque_pct: number }[]).find(x => x.id === 'rockets')
+    if (s) reglages.value = s
+  } catch { /* registre indisponible */ }
 })
 
-const convictionEffective = computed(() => seuilsEffectifs.value?.conviction_min ?? 65)
-const scoreMinEffectif = computed(() => seuilsEffectifs.value?.score_min ?? 65)
+const badgeClasse = computed(() =>
+  reglages.value?.etat === 'Officielle'
+    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+    : 'bg-amber-500/10 text-amber-400 border-amber-500/30')
 
-const phases = [
-  { id: 'prelancement', icon: '🔋', label: 'Pré-lancement',
-    description: "Compression de volatilité — l'actif accumule de l'énergie dans un range serré.",
-    criteres: ['ATR ratio < 0.80', 'Volume se contractant', '≥ 5 bougies en compression'] },
-  { id: 'breakout', icon: '💥', label: 'Breakout',
-    description: 'Cassure de la résistance avec conviction — mouvement directionnel explosif.',
-    criteres: ['Volume spike > 1.5×', 'ATR ratio > 1.0', 'RSI idéal 55–75', 'Change 1h > 0%'] },
-  { id: 'momentum', icon: '⚡', label: 'Compression Momentum',
-    description: 'Compression avec élan 1h — mouvement déjà amorcé.',
-    criteres: ['Change 1h > 0.5%', 'Score ≥ 15', 'Phase compression active'] },
-]
+function reglageStr(champ: 'capital' | 'risque' | 'unR'): string {
+  const r = reglages.value
+  if (!r) return '—'
+  if (champ === 'capital') return r.capital > 0 ? `${r.capital.toLocaleString('fr-FR')} $` : 'à renseigner'
+  if (champ === 'risque') return `${r.risque_pct} % (réglable par profil)`
+  return r.capital > 0 ? `${(r.capital * r.risque_pct / 100).toLocaleString('fr-FR')} $` : '—'
+}
+</script>
 
-const scoring = [
-  { label: 'Ratio volume',   detail: '≥ 2.0× fort | 1.5–2.0× acceptable | < 1.5× signal faible' },
-  { label: 'RSI',            detail: '55–75 idéal | > 85 surachat → invalider' },
-  { label: 'ATR ratio',      detail: '> 1.2 bonne expansion | < 0.8 compression' },
-  { label: 'Tendance EMA',   detail: 'EMA20 > EMA50 = haussier confirmé (+10 conviction)' },
-  { label: 'Compression',    detail: '≥ 10 bougies = forte (+10) | ≥ 5 = significative (+5)' },
-  { label: 'Ratio corps',    detail: '> 0.7 corps fort ✅ | < 0.3 rejet par mèche ❌' },
-  { label: 'Trailing coeff', detail: 'LLM peut ajuster entre trailing_coeff_min et trailing_coeff_max (clampé config)' },
-]
-
-const filtreRegles = [
-  { icon: '🚫', couleur: 'text-red-400',    label: 'RSI > 85 → invalider (surachat extrême)' },
-  { icon: '🚫', couleur: 'text-red-400',    label: 'Ratio corps < 0.3 → invalider ou dégrader' },
-  { icon: '🚫', couleur: 'text-red-400',    label: 'Compression < 3 bougies en prelancement → invalider' },
-  { icon: '⚠️', couleur: 'text-yellow-400', label: 'Tendance baissière (EMA) → −20 conviction' },
-  { icon: '✅', couleur: 'text-green-400',  label: 'Peut suggérer SL/TP1 ajustés et trailing_coeff si justifié' },
-]
-
-const analyseOutputs = [
-  'Synthèse de la performance globale (2–3 phrases)',
-  'Meilleur setup observé (phase, score, RSI, volume)',
-  'Pire setup à éviter',
-  '3 à 6 recommandations classées par impact',
-]
-
-const recommendationTypes = ['seuil_score', 'filtre_phase', 'coefficients_atr', 'filtre_rsi', 'filtre_volume', 'mode_entree']
+<script lang="ts">
+export default { name: 'RocketsDefinitionView' }
 </script>

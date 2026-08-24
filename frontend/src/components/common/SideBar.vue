@@ -61,9 +61,8 @@ const nav: NavItem[] = [
   { to: '/smc/graphiques', icone: '📈', label: 'Graphiques' },
 
   // ── Stratégies ────────────────────────────────────────────────────────────
-  // Verticales : SMC (étape 3) et Straddle (étape 4) — Définition en
-  // PREMIÈRE page de chaque groupe (décision architecture). Rockets reste
-  // masqué en attendant sa verticale (étape 5).
+  // Verticales : SMC (étape 3), Straddle (étape 4), Rockets (étape 5) —
+  // Définition en PREMIÈRE page de chaque groupe (décision architecture).
   {
     groupe: 'SMC', icone: '📐',
     liens: [
@@ -78,6 +77,15 @@ const nav: NavItem[] = [
     liens: [
       { to: '/straddle/definition', icone: '📖', label: 'Définition' },
       { to: '/straddle',            icone: '⚡', label: 'Signaux' },
+    ]
+  },
+
+  {
+    groupe: 'Rockets', icone: '🚀',
+    liens: [
+      { to: '/rockets/definition', icone: '📖', label: 'Définition' },
+      { to: '/rockets/scanner',    icone: '🔭', label: 'Scanner' },
+      { to: '/rockets',            icone: '⚡', label: 'Signaux' },
     ]
   },
 

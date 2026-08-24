@@ -58,6 +58,7 @@ mod sentiment_handlers;
 mod signal_filtre;
 mod signaux_handlers;
 mod straddle_agenda;
+mod rockets_verticale;
 mod registre_strategies;
 mod signaux_officiels;
 mod smc_analyse_handler;
@@ -171,7 +172,9 @@ async fn main() -> std::io::Result<()> {
     // agrégation bougie par bougie, évaluation intrabar des moteurs (à partir
     // de la phase 2), publication des clôtures. Zéro moteur en phase 1.
     // Démarre lui-même le worker Bybit WS qui l'alimente.
-    let _poignees_runtime = runtime_tick::demarrer_runtime_tick(app_state.db.clone());
+    let poignees_runtime = runtime_tick::demarrer_runtime_tick(app_state.db.clone());
+    // Étape 5 — verticale Rockets : scanner D1 + gestion (bus signaux).
+    rockets_verticale::demarrer(app_state.db.clone(), poignees_runtime.bus_signaux.clone());
 
     // ── Pré-alertes SUSPENDUES (décision propriétaire 2026-08-15) ────────────
     // Elles étaient générées par l'ANCIEN système (scorer SMC + ATR Straddle

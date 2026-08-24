@@ -15,6 +15,7 @@ news = { path = "../news" }
 ml = { path = "../ml", features = ["cuda"] }
 strategies = { path = "../strategies" }
 straddle = { path = "../straddle" }
+rockets = { path = "../rockets" }
 smc = { path = "../smc" }
 indicators = { path = "../indicators" }
 actix-web.workspace = true

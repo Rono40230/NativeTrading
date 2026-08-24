@@ -154,6 +154,39 @@ async fn formater_message(
         0.0
     };
 
+    // Template ROCKETS (maquette actée étape 2 : « stop-limit + invalidation »
+    // chiffrés — enrichi du lot et du plan R1/trailing). Lot = capital de la
+    // stratégie × profil de risque, plafonné à 5 % du capital en montant.
+    if id_strategie == "rockets" {
+        let params = crate::rockets_verticale::lire_params(db).await;
+        let risque_euros = reg.capital * params.profil.fraction();
+        let dist = (entree - sl).abs();
+        let mut qty = if dist > 0.0 { risque_euros / dist } else { 0.0 };
+        let plafond = reg.capital * params.plafond_position_pct / 100.0;
+        if entree > 0.0 {
+            qty = qty.min(plafond / entree);
+        }
+        let alpha = s.score >= 9;
+        let msg = format!(
+            "{icone} {nom}\n{symbole} — classement {points}/10{alpha}\nLot = {qty:.4} ({risque_euros:.0}$ risqués — {profil})\n\nOrdre stop-limit : achat au-delà de {entree:.4}$ (plafond {limite:.4}$)\nInvalidation : {sl:.4}$ (−{pct_stop:.1} %)\nAu R1 ({r1:.4}$) : vendre 50 % + trailing {trail:.0} %",
+            icone = crate::registre_strategies::MANIFESTES.iter().find(|m| m.id == id_strategie).map(|m| m.icone).unwrap_or("▪️"),
+            nom = id_strategie,
+            symbole = asset,
+            points = s.score.clamp(1, 10),
+            alpha = if alpha { " — ROCKET ALPHA" } else { "" },
+            qty = qty,
+            risque_euros = risque_euros,
+            profil = params.profil.libelle(),
+            entree = entree,
+            limite = entree * (1.0 + params.cassure_min_pct / 100.0),
+            sl = sl,
+            pct_stop = if entree > 0.0 { (entree - sl).abs() / entree * 100.0 } else { 0.0 },
+            r1 = tps.first().copied().unwrap_or(entree),
+            trail = params.trailing_pct,
+        );
+        return Some(msg);
+    }
+
     // Template STRADDLE (maquette provisoire actée étape 2 : annonce +
     // setup + entrée horodatée + SL + trailing — enrichie du lot, 3 couches).
     // La jambe survivante porte le signal : E, SL = E∓1R, TP1/TP2 canoniques.

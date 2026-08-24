@@ -9,6 +9,7 @@ const router = createRouter({
     // Stratégies
     { path: '/rockets',                    component: () => import('../views/RocketsView.vue') },
     { path: '/rockets/definition',         component: () => import('../views/RocketsDefinitionView.vue') },
+    { path: '/rockets/scanner',           component: () => import('../views/RocketsScannerView.vue') },
     { path: '/smc/definition',             component: () => import('../views/SmcDefinitionView.vue') },
     { path: '/straddle/definition',        component: () => import('../views/StraddleDefinitionView.vue') },
     { path: '/smc',                 component: () => import('../views/SmcView.vue') },
