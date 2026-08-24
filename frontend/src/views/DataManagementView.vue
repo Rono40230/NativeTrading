@@ -6,6 +6,28 @@
     <div class="glass-card p-5 space-y-4">
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Workers d'ingestion</h2>
 
+      <!-- Collecteur MT5/Axi (statut de l'EA — pas d'interrupteur : MT5
+           ouvert = collecte, MT5 fermé = silence) -->
+      <div class="rounded-xl border p-4 space-y-3"
+           :class="mt5.connecte ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 bg-white/[0.02]'">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-bold text-white">🖥️ Collecteur MT5 / Axi</p>
+            <p class="text-xs text-gray-500">Bougies M1 de ton broker — l'EA attaché dans MT5</p>
+          </div>
+          <span v-if="mt5.connecte" class="text-emerald-400 text-sm">● Connecté</span>
+          <span v-else class="text-gray-400 text-sm">○ Silencieux (MT5 fermé ?)</span>
+        </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs" v-if="mt5.symboles?.length">
+          <span v-for="s in mt5.symboles" :key="s.asset" class="text-gray-400">
+            {{ s.asset }} :
+            <span v-if="s.age_s >= 0 && s.age_s < 120" class="text-emerald-400">prix il y a {{ s.age_s }}s</span>
+            <span v-else class="text-gray-600">sans prix (marché fermé ?)</span>
+          </span>
+        </div>
+        <p v-else class="text-xs text-gray-600">Aucun actif MT5 actif</p>
+      </div>
+
       <!-- Interrupteurs + statut -->
       <div class="grid gap-4 md:grid-cols-2">
         <div
@@ -55,7 +77,7 @@
         <div class="flex items-center gap-3">
           <button
             class="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition"
-            @click="ouvrirModaleAsset()"
+            @click="modaleAjout?.ouvrirModaleAsset()"
           >
             + Ajouter un asset
           </button>
@@ -109,103 +131,8 @@
       </p>
     </div>
 
-    <!-- ══ MODALE — Ajout d'un asset ═══════════════════════════════════════ -->
-    <div
-      v-if="modaleAsset"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-      @click.self="fermerModaleAsset()"
-    >
-      <div class="w-full max-w-md p-6 space-y-4 rounded-2xl border border-white/10 bg-[#16181d] shadow-2xl">
-        <div class="flex items-center justify-between">
-          <h3 class="font-bold text-lg">Ajouter un asset</h3>
-          <button class="text-gray-400 hover:text-white transition" @click="fermerModaleAsset()">✕</button>
-        </div>
-
-        <div class="space-y-3">
-          <div>
-            <label class="text-xs text-gray-400">Ticker</label>
-            <input
-              v-model="nouvelAsset.ticker"
-              placeholder="ex : TON, GBPAUD, HK50"
-              class="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white uppercase focus:border-emerald-500/50 outline-none"
-              @input="nouvelAsset.ticker = nouvelAsset.ticker.toUpperCase(); majWorkerEtSymboles()"
-            />
-          </div>
-          <div>
-            <label class="text-xs text-gray-400">Nom</label>
-            <input
-              v-model="nouvelAsset.nom"
-              placeholder="ex : Toncoin"
-              class="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500/50 outline-none"
-            />
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="text-xs text-gray-400">Classe</label>
-              <select
-                v-model="nouvelAsset.classe"
-                class="w-full mt-1 bg-white border border-white/20 rounded-lg px-3 py-2 text-sm text-black"
-                @change="majWorkerEtSymboles()"
-              >
-                <option value="crypto">🪙 Crypto</option>
-                <option value="metal">🥇 Métal</option>
-                <option value="forex">💱 Forex</option>
-                <option value="indice">📈 Indice</option>
-              </select>
-            </div>
-            <div>
-              <label class="text-xs text-gray-400">Worker</label>
-              <div class="mt-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm"
-                   :class="sourceWorker === 'binance' ? 'text-yellow-300' : 'text-sky-300'">
-                {{ sourceWorker === 'binance' ? 'Bybit (temps réel)' : 'Dukascopy (historique)' }}
-              </div>
-            </div>
-          </div>
-          <div v-if="sourceWorker === 'binance'">
-            <label class="text-xs text-gray-400">Symbole Bybit</label>
-            <input
-              v-model="nouvelAsset.symbolBybit"
-              placeholder="TONUSDT"
-              class="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white focus:border-emerald-500/50 outline-none"
-              @input="nouvelAsset.symbolBybit = nouvelAsset.symbolBybit.toUpperCase()"
-            />
-          </div>
-          <div v-else>
-            <label class="text-xs text-gray-400">Instrument Dukascopy</label>
-            <input
-              v-model="nouvelAsset.instrumentDukascopy"
-              placeholder="GBPAUD (forex) · USATECHIDXUSD (indices)"
-              class="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white focus:border-emerald-500/50 outline-none"
-              @input="nouvelAsset.instrumentDukascopy = nouvelAsset.instrumentDukascopy.toUpperCase()"
-            />
-          </div>
-        </div>
-
-        <p v-if="erreurModaleAsset" class="text-sm text-red-400">{{ erreurModaleAsset }}</p>
-        <p v-if="succesModaleAsset" class="text-sm text-emerald-400">{{ succesModaleAsset }}</p>
-
-        <p class="text-[11px] text-gray-500">
-          L'asset est ajouté <b>actif</b> : le worker le prend en charge en ≤ 60 s (souscription +
-          backfill de queue + moteur v12 armé pour Bybit ; disponible au backfill ⬇ pour Dukascopy).
-        </p>
-
-        <div class="flex justify-end gap-2 pt-1">
-          <button
-            class="px-4 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition"
-            @click="fermerModaleAsset()"
-          >
-            Annuler
-          </button>
-          <button
-            class="px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 transition disabled:opacity-40"
-            :disabled="enAjoutAsset"
-            @click="creerAsset()"
-          >
-            {{ enAjoutAsset ? '⏳ Ajout…' : "Créer l'asset" }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- Modale d'ajout (composant dédié) -->
+    <ModaleAjoutAsset ref="modaleAjout" @cree="chargerTous" />
 
     <!-- ══ SECTION 3 — Backfill Dukascopy (remplace l'import CSV) ═════════════ -->
     <div class="glass-card p-4 space-y-2">
@@ -314,8 +241,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { http } from '@/services/http.client'
+import ModaleAjoutAsset from '@/components/common/ModaleAjoutAsset.vue'
+import type { AssetInfo } from '@/services/api.service'
 import { apiService } from '@/services/api.service'
-import type { CouvertureDonnees, AssetInfo } from '@/services/api.service'
+import type { CouvertureDonnees } from '@/services/api.service'
 import type { WorkerConfig, WorkerStatus } from '@/services/api.worker'
 import { useAssetsStore } from '@/stores/assets.store'
 
@@ -393,11 +323,46 @@ const erreurAssets = ref('')
 
 const nbAssetsActifs = computed(() => tous.value.filter(a => a.actif).length)
 
+// ── Collecteur MT5 : statut (poll 30 s) ──────────────────────────────────────
+const modaleAjout = ref<InstanceType<typeof ModaleAjoutAsset> | null>(null)
+
+async function basculerAsset(a: AssetInfo) {
+  try {
+    if (a.actif) {
+      await apiService.supprimerAsset(a.id)
+    } else {
+      const source = a.source === 'mt5' ? 'mt5' : a.type === 'crypto' || a.type === 'metal' ? 'binance' : 'dukascopy'
+      await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], source, undefined, undefined, a.symbol_mt5 || undefined)
+    }
+    a.actif = !a.actif
+    await chargerTous()
+  } catch (e: unknown) {
+    /* silencieux : le re-chargement réaligne l'état */
+  }
+}
+
+async function chargerTous() {
+  try {
+    tous.value = await apiService.obtenirAssets()
+  } catch {
+    tous.value = assetsStore.assets
+  }
+}
+
+const mt5 = ref<{ connecte: boolean; symboles: { asset: string; age_s: number }[] }>({ connecte: false, symboles: [] })
+async function chargerMt5() {
+  try {
+    const res = await http.get('/api/mt5/statut')
+    mt5.value = res.data
+  } catch { mt5.value = { connecte: false, symboles: [] } }
+}
+
 const CATEGORIES = computed(() => [
   { type: 'crypto', label: '🪙 Crypto (Bybit)', couleur: 'text-yellow-400', assets: tous.value.filter(a => a.type === 'crypto') },
   { type: 'metal', label: '🥇 Métaux (Bybit)', couleur: 'text-amber-400', assets: tous.value.filter(a => a.type === 'metal') },
   { type: 'forex', label: '💱 Forex (Dukascopy)', couleur: 'text-blue-400', assets: tous.value.filter(a => a.type === 'forex') },
-  { type: 'indice', label: '📈 Indices (Dukascopy)', couleur: 'text-purple-400', assets: tous.value.filter(a => a.type === 'indice') },
+  { type: 'mt5', label: '🖥️ Broker MT5 / Axi (temps réel)', couleur: 'text-violet-400', assets: tous.value.filter(a => a.source === 'mt5') },
+  { type: 'indice', label: '📈 Indices (Dukascopy)', couleur: 'text-purple-400', assets: tous.value.filter(a => a.type === 'indice' && a.source !== 'mt5') },
 ])
 
 function badgeSource(source?: string): { label: string; classe: string } {
@@ -406,108 +371,13 @@ function badgeSource(source?: string): { label: string; classe: string } {
       return { label: 'Bybit', classe: 'bg-yellow-500/15 text-yellow-300' }
     case 'dukascopy':
       return { label: 'Dukascopy', classe: 'bg-sky-500/15 text-sky-300' }
+    case 'mt5':
+      return { label: 'MT5 / Axi', classe: 'bg-violet-500/15 text-violet-300' }
     default:
       return { label: '—', classe: 'bg-white/10 text-gray-400' }
   }
 }
 
-// ── Modale d'ajout d'asset ─────────────────────────────────────────────────────
-const modaleAsset = ref(false)
-const enAjoutAsset = ref(false)
-const erreurModaleAsset = ref('')
-const succesModaleAsset = ref('')
-const nouvelAsset = ref({
-  ticker: '',
-  nom: '',
-  classe: 'crypto' as 'crypto' | 'metal' | 'forex' | 'indice',
-  symbolBybit: '',
-  instrumentDukascopy: '',
-})
-
-/// Règle classe → worker (crypto/métal = Bybit temps réel ; forex/indice =
-/// Dukascopy historique) — la même que l'activation d'un asset existant.
-const sourceWorker = computed(() =>
-  nouvelAsset.value.classe === 'crypto' || nouvelAsset.value.classe === 'metal'
-    ? 'binance'
-    : 'dukascopy',
-)
-
-/// Auto-proposition des symboles quand la classe ou le ticker change :
-/// crypto → TICKERUSDT ; métal → contrats linéaires (XAUUSD → XAUUSDT) ;
-/// forex → ticker tel quel ; indice → à saisir (formes concaténées).
-function majWorkerEtSymboles() {
-  const t = nouvelAsset.value.ticker.trim()
-  if (sourceWorker.value === 'binance') {
-    const base = t.endsWith('USD') && t.length > 3 ? t.slice(0, -3) : t
-    nouvelAsset.value.symbolBybit = base ? `${base}USDT` : ''
-  } else if (nouvelAsset.value.classe === 'forex') {
-    nouvelAsset.value.instrumentDukascopy = t
-  }
-}
-
-function ouvrirModaleAsset() {
-  nouvelAsset.value = { ticker: '', nom: '', classe: 'crypto', symbolBybit: '', instrumentDukascopy: '' }
-  erreurModaleAsset.value = ''
-  succesModaleAsset.value = ''
-  modaleAsset.value = true
-}
-
-function fermerModaleAsset() {
-  modaleAsset.value = false
-}
-
-async function creerAsset() {
-  const a = nouvelAsset.value
-  erreurModaleAsset.value = ''
-  if (a.ticker.trim().length < 2) {
-    erreurModaleAsset.value = 'Le ticker doit faire au moins 2 caractères.'
-    return
-  }
-  if (!a.nom.trim()) {
-    erreurModaleAsset.value = 'Le nom est requis.'
-    return
-  }
-  enAjoutAsset.value = true
-  try {
-    await apiService.ajouterAsset(
-      a.ticker.trim(),
-      a.nom.trim(),
-      a.classe,
-      sourceWorker.value as 'binance' | 'dukascopy',
-      sourceWorker.value === 'binance' ? a.symbolBybit.trim() : undefined,
-      sourceWorker.value === 'dukascopy' ? a.instrumentDukascopy.trim() : undefined,
-    )
-    succesModaleAsset.value = `✅ ${a.ticker} ajouté — prise en charge par le pipeline en ≤ 60 s.`
-    await assetsStore.chargerAssets()
-    setTimeout(() => { modaleAsset.value = false }, 1200)
-  } catch (e: unknown) {
-    erreurModaleAsset.value = (e as Error).message ?? 'Erreur inconnue'
-  } finally {
-    enAjoutAsset.value = false
-  }
-}
-
-async function basculerAsset(a: AssetInfo) {
-  enCoursAsset.value = a.id
-  erreurAssets.value = ''
-  try {
-    if (a.actif) {
-      await apiService.supprimerAsset(a.id)
-    } else {
-      // Source cohérente avec le type : crypto + métaux = temps réel Bybit ;
-      // forex + indices = Dukascopy (backfill historique aujourd'hui, flux
-      // live en phase 5).
-      const source = a.type === 'crypto' || a.type === 'metal' ? 'binance' : 'dukascopy'
-      await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], source)
-    }
-    a.actif = !a.actif
-    await assetsStore.chargerAssets()
-  } catch (e: unknown) {
-    erreurAssets.value = (e as Error).message ?? 'Erreur'
-  } finally {
-    enCoursAsset.value = null
-  }
-}
 
 // ── Section 3 : backfill Dukascopy (bouton ⬇ de la table de couverture) ──────
 const enBackfill = ref(false)
@@ -691,13 +561,17 @@ onMounted(async () => {
   await chargerConfig()
   await chargerStatutWorkers()
   await chargerCouverture()
+  void chargerMt5()
   minuteurStatut = setInterval(chargerStatutWorkers, 30_000)
   minuteurCouverture = setInterval(chargerCouverture, 60_000)
+  minuteurMt5 = setInterval(chargerMt5, 30_000)
 })
 
+let minuteurMt5: ReturnType<typeof setInterval> | null = null
 onUnmounted(() => {
   if (minuteurStatut) clearInterval(minuteurStatut)
   if (minuteurCouverture) clearInterval(minuteurCouverture)
+  if (minuteurMt5) clearInterval(minuteurMt5)
 })
 </script>
 

@@ -74,7 +74,7 @@ impl Database {
     /// selon `source`, `actif` et la présence du mapping.
     pub async fn lister_assets_worker(&self) -> Result<Vec<AssetWorker>> {
         let rows = sqlx::query(
-            "SELECT id, source, symbol_bybit, actif, datafeed_dukascopy FROM assets ORDER BY type, id",
+            "SELECT id, source, symbol_bybit, actif, datafeed_dukascopy, symbol_mt5 FROM assets ORDER BY type, id",
         )
         .fetch_all(&self.pool)
         .await
@@ -113,11 +113,13 @@ impl Database {
         source: &str,
         symbol_bybit: Option<&str>,
         datafeed_dukascopy: Option<&str>,
+        symbol_mt5: Option<&str>,
     ) -> Result<()> {
         let now = Utc::now().timestamp();
         // Tenter réactivation si existait (soft-deleted)
         let nb = sqlx::query(
-            "UPDATE assets SET actif = 1, nom = ?, type = ?, source = ?
+            "UPDATE assets SET actif = 1, nom = ?, type = ?, source = ?,
+                               symbol_bybit = ?, datafeed_dukascopy = ?, symbol_mt5 = ?
              WHERE id = ? AND actif = 0",
         )
         .bind(nom)
@@ -125,6 +127,7 @@ impl Database {
         .bind(source)
         .bind(symbol_bybit)
         .bind(datafeed_dukascopy)
+        .bind(symbol_mt5)
         .bind(id)
         .execute(&self.pool)
         .await
@@ -147,8 +150,8 @@ impl Database {
 
             sqlx::query(
                 "INSERT INTO assets (id, nom, type, source, actif, cree_le,
-                                     symbol_bybit, datafeed_dukascopy)
-                 VALUES (?, ?, ?, ?, 1, ?, ?, ?)",
+                                     symbol_bybit, datafeed_dukascopy, symbol_mt5)
+                 VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)",
             )
             .bind(id)
             .bind(nom)
@@ -157,6 +160,7 @@ impl Database {
             .bind(now)
             .bind(symbol_bybit)
             .bind(datafeed_dukascopy)
+            .bind(symbol_mt5)
             .execute(&self.pool)
             .await
             .map_err(|e| TradingError::Database(e.to_string()))?;

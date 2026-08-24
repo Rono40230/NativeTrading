@@ -60,6 +60,7 @@ mod signaux_handlers;
 mod straddle_agenda;
 mod rockets_verticale;
 mod rockets_ia;
+mod mt5_collecteur;
 mod setups_formation;
 mod registre_strategies;
 mod signaux_officiels;

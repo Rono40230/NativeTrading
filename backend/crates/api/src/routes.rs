@@ -66,6 +66,22 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::setups_formation::get_setups),
         )
         .route(
+            "/api/mt5/symboles",
+            web::get().to(crate::mt5_collecteur::get_symboles),
+        )
+        .route(
+            "/api/mt5/kline",
+            web::post().to(crate::mt5_collecteur::post_kline),
+        )
+        .route(
+            "/api/mt5/heartbeat",
+            web::post().to(crate::mt5_collecteur::post_heartbeat),
+        )
+        .route(
+            "/api/mt5/statut",
+            web::get().to(crate::mt5_collecteur::get_statut),
+        )
+        .route(
             "/api/signaux",
             web::get().to(crate::signaux_handlers::get_signaux),
         )

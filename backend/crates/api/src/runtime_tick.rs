@@ -26,6 +26,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use common::{Asset, Timeframe};
+use sqlx::Row;
 use db::Database;
 use engine::{EvenementPrix, Runtime};
 use tokio::sync::mpsc;
@@ -131,6 +132,8 @@ pub struct PoigneesRuntime {
     pub bus_signaux: engine::BusSignaux,
     pub bus_bougies: engine::BusBougies,
     pub bus_evenements: engine::BusEvenements,
+    /// Canal prix brut (EvenementPrix) — partagé avec le collecteur MT5.
+    pub tx_prix: tokio::sync::mpsc::UnboundedSender<engine::types::EvenementPrix>,
 }
 
 /// Démarre le runtime tick : construit le runtime, lance la boucle de
@@ -145,7 +148,10 @@ pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
             bus_signaux: runtime.bus().clone(),
             bus_bougies: runtime.bus_bougies().clone(),
             bus_evenements: runtime.bus_evenements().clone(),
+            tx_prix: tx.clone(),
         };
+        // Phase 5 — collecteur MT5 : l'EA pousse ses bougies par ce canal.
+        crate::mt5_collecteur::brancher_canal(tx.clone());
 
         // Le worker Bybit WS alimente le runtime (klines formation + confirm).
         data::bybit_ws::demarrer_worker_bybit(db.clone(), Some(tx));
@@ -178,6 +184,7 @@ pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
             bus_signaux: engine::BusSignaux::nouveau(),
             bus_bougies: engine::BusBougies::nouveau(),
             bus_evenements: engine::BusEvenements::nouveau(),
+            tx_prix: tokio::sync::mpsc::unbounded_channel().0,
         }
     }
 }
@@ -312,9 +319,17 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         return;
     }
 
+    let mt5_ids: HashSet<String> = assets_mt5(db).await;
     let cibles: HashSet<(Asset, Timeframe)> = assets
         .iter()
-        .flat_map(|a| timeframes.iter().map(move |tf| (a.clone(), *tf)))
+        .flat_map(|a| {
+            let tfs: Vec<Timeframe> = if mt5_ids.contains(a.as_str()) {
+                vec![common::Timeframe::M1]
+            } else {
+                timeframes.clone()
+            };
+            tfs.into_iter().map(move |tf| (a.clone(), tf))
+        })
         .collect();
 
     // Retraits (asset décoché ou timeframe retiré dans l'UI).
@@ -336,6 +351,46 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         if actuelles.contains(&(asset.clone(), *tf)) {
             continue;
         }
+        // Phase 5 — actifs MT5 : moteur STRADDLE seul sur M1 (périmètre
+        // acté : NAS100/SP500 sur annonces US, DAX sur ouverture européenne
+        // 9h Paris). Pas de v12 ni de replay Bybit — warm-up ATR ~15 min
+        // en live.
+        if mt5_ids.contains(asset.as_str()) {
+            let annonces: Vec<straddle::Annonce> = if asset.as_str() == "DAX" {
+                crate::mt5_collecteur::annonces_ouverture_europeenne()
+            } else {
+                annonces_tier1(db)
+                    .await
+                    .into_iter()
+                    .filter(|a| a.devise == "USD")
+                    .collect()
+            };
+            let p = db::strategies_params::lire_straddle_params(db.pool()).await;
+            let params = straddle::ParamsStraddle {
+                sl_atr: p.sl_mult,
+                trailing_r: p.trailing_r,
+                placement_avant_sec: p.placement_sec,
+                ..Default::default()
+            };
+            tracing::info!(
+                "Runtime tick: {} M1 moteur straddle armé (MT5 — {} annonce(s), R={:.2}×ATR)",
+                asset.as_str(),
+                annonces.len(),
+                params.sl_atr
+            );
+            runtime.enregistrer(
+                asset.clone(),
+                *tf,
+                vec![Box::new(
+                    straddle::StraddleEngine::nouveau(asset.clone(), *tf)
+                        .avec_params(params)
+                        .avec_annonces(annonces),
+                )],
+            );
+            ajouts += 1;
+            continue;
+        }
+
         // Shadow mode (2.6) : moteur v12 par couple — exigence de couverture
         // SMC M1→D1 (propriétaire). Les émissions live sont journalisées,
         // sans action.
@@ -473,12 +528,21 @@ async fn reconcilier_clotures(
     total
 }
 
+/// Ids des actifs source MT5 actifs (armement straddle M1 seul).
+async fn assets_mt5(db: &Arc<Database>) -> HashSet<String> {
+    sqlx::query("SELECT id FROM assets WHERE source = 'mt5' AND actif = 1")
+        .fetch_all(db.pool())
+        .await
+        .map(|rows| rows.iter().map(|r| r.get::<String, _>("id")).collect())
+        .unwrap_or_default()
+}
+
 /// Assets Bybit actifs depuis la config DB (même source que le worker WS).
 async fn assets_runtime(db: &Arc<Database>) -> Vec<Asset> {
     match db.lister_assets_worker().await {
         Ok(assets) => assets
             .into_iter()
-            .filter(|a| a.actif && a.source == "binance" && a.symbol_bybit.is_some())
+            .filter(|a| a.actif && (a.source == "binance" || a.source == "mt5"))
             .filter_map(|a| Asset::try_from(a.id.as_str()).ok())
             .collect(),
         Err(e) => {

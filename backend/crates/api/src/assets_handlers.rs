@@ -14,6 +14,8 @@ pub struct AjoutAssetBody {
     pub symbol_bybit: Option<String>,
     /// Instrument Dukascopy — requis si source = dukascopy.
     pub datafeed_dukascopy: Option<String>,
+    /// Symbole MT5 du broker (ex : dax40.fs) — requis si source = mt5.
+    pub symbol_mt5: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -74,10 +76,10 @@ pub async fn ajouter_asset(
     // 'binance' = temps réel Bybit WS (crypto + métaux) ;
     // 'dukascopy' = forex + indices (backfill historique via
     // datafeed.dukascopy.com — flux live prévu en phase 5).
-    let sources_valides = ["binance", "dukascopy"];
+    let sources_valides = ["binance", "dukascopy", "mt5"];
     if !sources_valides.contains(&body.source.as_str()) {
         return HttpResponse::BadRequest().json(serde_json::json!({
-            "error": "Source invalide. Valeurs : 'binance', 'dukascopy'."
+            "error": "Source invalide. Valeurs : 'binance', 'dukascopy', 'mt5'."
         }));
     }
 
@@ -121,6 +123,19 @@ pub async fn ajouter_asset(
             }
             (None, instrument)
         }
+        "mt5" => {
+            let symbole = body
+                .symbol_mt5
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty());
+            if symbole.is_none() {
+                return HttpResponse::BadRequest().json(serde_json::json!({
+                    "error": "Un asset MT5 exige son symbole broker (ex : DAX → dax40.fs)."
+                }));
+            }
+            (None, None)
+        }
         _ => (None, None),
     };
 
@@ -133,6 +148,7 @@ pub async fn ajouter_asset(
             &body.source,
             symbol_bybit.as_deref(),
             datafeed_dukascopy.as_deref(),
+            body.symbol_mt5.as_deref().map(str::trim).filter(|s| !s.is_empty()),
         )
         .await
     {

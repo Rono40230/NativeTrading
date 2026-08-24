@@ -77,8 +77,9 @@ export interface AssetInfo {
   id: string
   nom: string
   type: 'crypto' | 'metal' | 'forex' | 'indice'
-  source?: 'binance'
+  source?: 'binance' | 'dukascopy' | 'mt5'
   actif?: boolean
+  symbol_mt5?: string | null
 }
 
 export interface AnnonceCalendrier {
