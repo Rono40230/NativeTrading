@@ -70,12 +70,41 @@ Minervini — sans RS, le point Tendance ne s'applique pas.
 
 ---
 
-## GESTION DES TRADES — À COMPLÉTER
+## GESTION DES TRADES — reformulation extraite de l'appli « Journal de Trading » (PROPOSITION à valider)
 
-Entrées (stop-limit ?), invalidation, stop (références connues : sous la
-dernière contraction, ~8 % sous le pivot — O'Neil), sorties, trailing :
-**en attente de la source de l'application propriétaire** (décision étape 5,
-point 4). Ce document sera complété et re-figé à réception.
+Source : `/home/rono/Applis Nono/Journal de Trading/` (composants rocket/ —
+RocketEntryForm, RocketNeutralizationModal, useTradeEntryLogic, useLivePrices).
+
+### Le cycle de vie d'une rocket
+
+```
+DÉTECTION (scanner D1, classement /10)          [définition ci-dessus]
+   └─ ORDRE STOP-LIMIT au pivot (pending)
+        entry_stop = prix de déclenchement (pivot)
+        entry_limit = plafond accepté (garde le slippage d'une cassure violente)
+        invalidation = stop sous la dernière contraction / micro-base
+        trailing_stop démarre = invalidation
+        quantité = (capital × risque%) / |entrée − stop|, plafonnée à 5 % du capital
+   └─ ACTIVATION (open) : ordre exécuté → entry_executed (prix réel)
+   └─ R1 ATTEINT (entrée + 1R) → NEUTRALISATION :
+        ① vendre 50 % de la position (sécurisation)
+        ② trailing stop en pourcentage du prix (défaut 5 %, réglable)
+   └─ SORTIE : prix touche le trailing stop → clôture du solde
+        P&L = 50 % vendu à R1 + solde à la sortie trailing
+        (sortie anticipée possible : invalidation avant R1 = -1R)
+```
+
+### Profils de risque (money management de l'appli)
+
+| Profil | Action / Crypto | ETF |
+|---|---|---|
+| Peu Risqué | 0,5 % du capital | 2 % |
+| Neutre | 1 % | 3 % |
+| Risqué | 2 % | 4 % |
+
+Plafond de position : **5 % du capital** par rocket (montant, indépendant du
+risque). Mapping proposé avec le classement : ROCKET (7-8) → profil Neutre ;
+ROCKET ALPHA (9-10) → profil Risqué ; Peu Risqué = choix prudent libre.
 
 ## ENRICHISSEMENT IA — objectifs cadrés (onglet de la page Définition)
 
