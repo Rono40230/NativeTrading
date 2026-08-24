@@ -76,7 +76,7 @@ export function useSmcV12Overlay() {
   let signals: SignalDessin[] = []
   // Trades ouverts des AUTRES timeframes du même actif (multi-TF — dessin
   // atténué avec badge du TF d'origine, dédupliqués avec le TF affiché).
-  let tradesExternes: (SignalDessin & { tfOrigine: string })[] = []
+  let tradesExternes: (SignalDessin & { tfOrigine: string; enAttente?: boolean })[] = []
   let tendance: 'haussiere' | 'baissiere' | 'neutre' = 'neutre'
   // Indicateurs v12 étendus (13 types supplémentaires).
   let donneesExt: DonneesV12Etendues = donneesV12EtenduesVides()
@@ -218,7 +218,7 @@ export function useSmcV12Overlay() {
   /** Charge les données v12 depuis l'API et déclenche le redessin. */
   /// Définit les trades ouverts des autres TF (appelé par la vue à chaque
   /// rafraîchissement — source : table signaux, actif courant, Actifs).
-  function definirTradesExternes(trades: (SignalDessin & { tfOrigine: string })[]) {
+  function definirTradesExternes(trades: (SignalDessin & { tfOrigine: string; enAttente?: boolean })[]) {
     tradesExternes = trades
     planifierRedessiner()
   }

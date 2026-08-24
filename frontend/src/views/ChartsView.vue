@@ -161,6 +161,7 @@ async function chargerIndicateurs() {
   // zones avec TradingView — avant, l'analyse ne voyait que 500 bougies
   // (~5 jours M15) et perdait les OB plus anciens encore vivants.
   void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), tsSecV12)
+  void chargerTradesExternes()
   await chargerEtAppliquer(
     chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
     rsiContainer.value, macdContainer.value, atrContainer.value,
@@ -208,12 +209,17 @@ const SMC_NOMS = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA']
 async function chargerTradesExternes() {
   try {
     const signaux = await apiService.getSignaux(150)
-    const ouverts = (signaux as { asset: string; timeframe: string; direction: string; statut: string; strategie: string; prix_entree: number; stop_loss: number; take_profit: number[]; score: number; cle_moteur?: string; cree_le: number }[])
+    type RowSign = { asset: string; timeframe: string; direction: string; statut: string; strategie: string; prix_entree: number; stop_loss: number; take_profit: number[]; score: number; heure_entree: number | null; cree_le: number }
+    const ouverts = (signaux as RowSign[])
       .filter(x =>
         x.asset === selectedAsset.value
         && x.statut === 'Actif'
         && SMC_NOMS.includes(x.strategie)
-        && x.timeframe !== selectedTimeframe.value)
+        // Autres TF : tout trade ouvert. TF affiché : uniquement les
+        // ordres EN ATTENTE (jamais remplis — le moteur ne les dessine
+        // pas avant le fill, fidélité Pine ; les remplis du TF courant
+        // gardent leur affichage riche).
+        && (x.timeframe !== selectedTimeframe.value || x.heure_entree === null))
       .slice(0, 6)
       .map(x => ({
         ts: x.cree_le,
@@ -227,6 +233,7 @@ async function chargerTradesExternes() {
         be: false,
         label: [] as string[],
         tfOrigine: x.timeframe,
+        enAttente: x.heure_entree === null,
         tsFin: x.cree_le + 40 * (DUREE_BARRE[x.timeframe] ?? 900),
       }))
     v12Overlay.definirTradesExternes(ouverts)

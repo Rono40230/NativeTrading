@@ -499,7 +499,7 @@ export function dessinerTradesExternes(
   ctx: CanvasRenderingContext2D,
   serie: ISeriesApi<'Candlestick'>,
   ts: TimeScale,
-  liste: (SignalDessin & { tfOrigine: string })[],
+  liste: (SignalDessin & { tfOrigine: string; enAttente?: boolean })[],
   W: number,
   dernierTs: number | null,
 ): void {
@@ -521,6 +521,33 @@ export function dessinerTradesExternes(
     const ySl = serie.priceToCoordinate(s.sl)
     const yTp = serie.priceToCoordinate(s.tp2)
     if (yEntry === null) continue
+
+    // Ordre EN ATTENTE (jamais rempli) : contour pointillé neutre du
+    // rectangle entrée↔SL uniquement + badge ⏳ — l'ordre n'existe pas
+    // encore au marché, aucun remplissage coloré.
+    if (s.enAttente) {
+      if (ySl !== null && Math.abs(yEntry - ySl) >= 1) {
+        const yTop = Math.min(yEntry, ySl)
+        ctx.strokeStyle = 'rgba(148,163,184,0.55)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([3, 3])
+        ctx.strokeRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - ySl))
+        ctx.setLineDash([])
+      }
+      ctx.font = 'bold 9px sans-serif'
+      const badge = `⏳ ${s.tfOrigine}`
+      const largeur = ctx.measureText(badge).width + 8
+      const yBadge = yEntry - 14 < 2 ? yEntry + 4 : yEntry - 14
+      ctx.fillStyle = 'rgba(10,12,18,0.8)'
+      ctx.fillRect(xG, yBadge, largeur, 12)
+      ctx.strokeStyle = 'rgba(148,163,184,0.5)'
+      ctx.strokeRect(xG, yBadge, largeur, 12)
+      ctx.fillStyle = '#cbd5e1'
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'top'
+      ctx.fillText(badge, xG + 4, yBadge + 2)
+      continue
+    }
 
     // Zone SL (rouge) et zone TP (vert) très légères.
     if (ySl !== null && Math.abs(yEntry - ySl) >= 1) {
