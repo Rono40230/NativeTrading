@@ -143,14 +143,50 @@ async fn formater_message(
 
     // Lot = (capital × risque) / (stop en pips × valeur du pip).
     let stop_pips = pips(entree, sl);
+    let risque_euros = reg.capital * reg.risque_pct / 100.0;
     let lot = if stop_pips > 0 && valeur_pip > 0.0 {
-        (reg.capital * reg.risque_pct / 100.0) / (stop_pips as f64 * valeur_pip)
+        risque_euros / (stop_pips as f64 * valeur_pip)
     } else {
         0.0
     };
 
+    // Template STRADDLE (maquette provisoire actée étape 2 : annonce +
+    // setup + entrée horodatée + SL + trailing — enrichie du lot, 3 couches).
+    // La jambe survivante porte le signal : E, SL = E∓1R, TP1/TP2 canoniques.
+    if id_strategie == "straddle" {
+        let annonce = titre_annonce_straddle(db, &s.cle).await;
+        let heure = chrono::DateTime::from_timestamp(s.debut_barre, 0)
+            .map(|d| d.format("%H:%M:%S").to_string())
+            .unwrap_or_default();
+        let trailing = db::strategies_params::lire_straddle_params(db.pool())
+            .await
+            .trailing_r;
+        let mut msg = format!(
+            "{icone} {nom}\nPasse sur {asset} — {annonce}\nJambe {dir} remplie à {entree:.2}$ à {heure}\nLot = {lot:.4} ({risque_euros:.0}$ risqués)\n\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)\nTP1 : {tp1:.2}$ → BE à l'entrée\nTP2 : {tp2:.2}$ → BE à TP1 + trailing {trailing:.1}R\nTime-stop : 60 min",
+            icone = crate::registre_strategies::MANIFESTES
+                .iter()
+                .find(|m| m.id == id_strategie)
+                .map(|m| m.icone)
+                .unwrap_or("▪️"),
+            nom = id_strategie,
+            asset = asset,
+            annonce = annonce,
+            dir = dir,
+            entree = entree,
+            heure = heure,
+            lot = lot,
+            risque_euros = risque_euros,
+            sl = sl,
+            stop_pips = stop_pips,
+            tp1 = tps.first().copied().unwrap_or(entree),
+            tp2 = tps.get(1).copied().unwrap_or(entree),
+            trailing = trailing,
+        );
+        return Some(msg);
+    }
+
     let mut msg = format!(
-        "{icone} {nom}\nSetup {dir} en formation sur {asset} en {tf}\nForce {force}/10\nLot = {lot:.4} pour {risque:.0}% de risque\n\nEntrée : {entree:.2}$\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)",
+        "{icone} {nom}\nSetup {dir} en formation sur {asset} en {tf}\nForce {force}/10\nLot = {lot:.4} ({risque_euros:.0}$ risqués)\n\nEntrée : {entree:.2}$\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)",
         icone = crate::registre_strategies::MANIFESTES
             .iter()
             .find(|m| m.id == id_strategie)
@@ -162,7 +198,7 @@ async fn formater_message(
         tf = tf,
         force = s.score.clamp(1, 10),
         lot = lot,
-        risque = reg.risque_pct,
+        risque_euros = risque_euros,
         entree = entree,
         sl = sl,
         stop_pips = stop_pips,
@@ -180,6 +216,36 @@ async fn formater_message(
 
 /// Envoi Telegram direct — erreur = log simple, jamais bloquant.
 /// Retourne true si le message est parti (pour le drapeau en base).
+/// Retrouve le libellé de l'annonce d'une passe straddle depuis sa clé
+/// (« straddle-{ts}-L/S ») : correspondance dans le cache calendrier (High,
+/// ±2 min de tolérance). Repli : « annonce US ».
+async fn titre_annonce_straddle(db: &Database, cle: &str) -> String {
+    let Some(ts) = cle.split('-').nth(1).and_then(|t| t.parse::<i64>().ok()) else {
+        return "annonce US".into();
+    };
+    let Ok(rows) = db.lire_calendrier_cache(7 * 24 * 3600).await else {
+        return "annonce US".into();
+    };
+    for r in &rows {
+        if r.get("impact").and_then(|v| v.as_str()) != Some("High") {
+            continue;
+        }
+        let Some(dh) = r.get("date_heure").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        if let Ok(t) = chrono::DateTime::parse_from_rfc3339(dh) {
+            if (t.timestamp() - ts).abs() <= 120 {
+                return r
+                    .get("titre")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("annonce US")
+                    .to_string();
+            }
+        }
+    }
+    "annonce US".into()
+}
+
 async fn envoyer_telegram(db: &Database, texte: &str) -> bool {
     let (token, chat) = notifications::telegram::lire_tokens_pool(db.pool()).await;
     if token.is_empty() || chat.is_empty() {
