@@ -142,10 +142,14 @@ async fn formater_message(
     let pips = |a: f64, b: f64| ((a - b).abs() / taille_pip).round() as i64;
 
     // Lot = (capital × risque) / (stop en pips × valeur du pip).
-    let stop_pips = pips(entree, sl);
+    // Distance EXACTE pour le lot (jamais d'arrondi intermédiaire — un stop
+    // de 0,04 $ sur XAG ne doit pas s'arrondir à 0 pip → lot = 0) ; l'entier
+    // `stop_pips` ne sert qu'à l'affichage.
+    let stop_pips_exact = (entree - sl).abs() / taille_pip;
+    let stop_pips = stop_pips_exact.round() as i64;
     let risque_euros = reg.capital * reg.risque_pct / 100.0;
-    let lot = if stop_pips > 0 && valeur_pip > 0.0 {
-        risque_euros / (stop_pips as f64 * valeur_pip)
+    let lot = if stop_pips_exact > 0.0 && valeur_pip > 0.0 && taille_pip > 0.0 {
+        risque_euros / (stop_pips_exact * valeur_pip)
     } else {
         0.0
     };
@@ -162,7 +166,7 @@ async fn formater_message(
             .await
             .trailing_r;
         let mut msg = format!(
-            "{icone} {nom}\nPasse sur {asset} — {annonce}\nJambe {dir} remplie à {entree:.2}$ à {heure}\nLot = {lot:.4} ({risque_euros:.0}$ risqués)\n\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)\nTP1 : {tp1:.2}$ → BE à l'entrée\nTP2 : {tp2:.2}$ → BE à TP1 + trailing {trailing:.1}R\nTime-stop : 60 min",
+            "{icone} {nom}\nPasse sur {asset} — {annonce}\nJambe {dir} remplie à {entree:.2}$ à {heure}\nLot = {lot:.2} ({risque_euros:.0}$ risqués)\n\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)\nTP1 : {tp1:.2}$ → BE à l'entrée\nTP2 : {tp2:.2}$ → BE à TP1 + trailing {trailing:.1}R\nTime-stop : 60 min",
             icone = crate::registre_strategies::MANIFESTES
                 .iter()
                 .find(|m| m.id == id_strategie)
@@ -186,7 +190,7 @@ async fn formater_message(
     }
 
     let mut msg = format!(
-        "{icone} {nom}\nSetup {dir} en formation sur {asset} en {tf}\nForce {force}/10\nLot = {lot:.4} ({risque_euros:.0}$ risqués)\n\nEntrée : {entree:.2}$\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)",
+        "{icone} {nom}\nSetup {dir} en formation sur {asset} en {tf}\nForce {force}/10\nLot = {lot:.2} ({risque_euros:.0}$ risqués)\n\nEntrée : {entree:.2}$\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)",
         icone = crate::registre_strategies::MANIFESTES
             .iter()
             .find(|m| m.id == id_strategie)
