@@ -29,7 +29,9 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
         else {
             continue;
         };
-        // Table : seule une stratégie Officielle écrit l'historique officiel.
+        // Table : seule une stratégie Officielle ou Observation écrit
+        // l'historique (Observation = journalisé SANS Telegram — étape 4) ;
+        // Construction n'écrit rien.
         let etat = db
             .lire_strategie(m.id)
             .await
@@ -37,17 +39,20 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
             .flatten()
             .map(|r| r.etat)
             .unwrap_or_else(|| "Construction".into());
-        if etat != "Officielle" {
+        if etat == "Construction" {
             continue;
         }
+        let silencieuse = etat != "Officielle";
         // ANNONCE intrabar (setup qualifié, trade pas encore confirmé) :
         // message d'imminence seul — pas de ligne en base (elle viendra à
         // la clôture si le trade confirme, avec deja_annonce).
         if s.annonce {
-            let reg = db.lire_strategie(m.id).await.ok().flatten();
-            if reg.as_ref().is_some_and(|r| r.notifications) {
-                if let Some(msg) = formater_message(&db, m.id, &s).await {
-                    envoyer_telegram(&db, &msg).await;
+            if !silencieuse {
+                let reg = db.lire_strategie(m.id).await.ok().flatten();
+                if reg.as_ref().is_some_and(|r| r.notifications) {
+                    if let Some(msg) = formater_message(&db, m.id, &s).await {
+                        envoyer_telegram(&db, &msg).await;
+                    }
                 }
             }
             continue;
@@ -67,9 +72,9 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
             continue;
         }
         // Telegram : son activé ? L'annonce intrabar est déjà partie →
-        // on marque la ligne sans re-messager.
+        // on marque la ligne sans re-messager. Observation = silencieux.
         let reg = db.lire_strategie(m.id).await.ok().flatten();
-        let notifie = if reg.as_ref().is_some_and(|r| r.notifications) {
+        let notifie = if !silencieuse && reg.as_ref().is_some_and(|r| r.notifications) {
             if s.deja_annonce {
                 false
             } else if let Some(msg) = formater_message(&db, m.id, &s).await {

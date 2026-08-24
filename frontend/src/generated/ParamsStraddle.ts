@@ -8,4 +8,13 @@ horizon_bougies: number, trailing_atr: number,
 /**
  * true = Option 1 (vente ⅓ à chaque TP) ; false = Option 2 (SL progresse, pas de vente)
  */
-vente_partielle: boolean, pct_cloture_tp1: number, pct_cloture_tp2: number, };
+vente_partielle: boolean, pct_cloture_tp1: number, pct_cloture_tp2: number, 
+/**
+ * Placement ET armement des 2 jambes avant l'annonce (SECONDES) —
+ * définition étape 4 : défaut 10.
+ */
+placement_sec: number, 
+/**
+ * Distance du trailing stop en × R — dès TP2, au tick (étape 4).
+ */
+trailing_r: number, };

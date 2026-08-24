@@ -28,7 +28,7 @@ export function useHistoryStats(signaux: Ref<Signal[]>) {
   })
 
   const straddleStats = computed(() => {
-    const st = signaux.value.filter(s => s.strategie === 'Straddle')
+    const st = signaux.value.filter(s => s.strategie === 'straddle')
     const fermes = st.filter(s => s.statut === 'Fermé')
     const gagnes = fermes.filter(s => s.verdict && ['TP1', 'TP2', 'TP3'].includes(s.verdict))
     const winrate = fermes.length > 0 ? Math.round((gagnes.length / fermes.length) * 100) : 0

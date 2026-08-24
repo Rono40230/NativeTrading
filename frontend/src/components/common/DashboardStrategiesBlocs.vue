@@ -16,6 +16,25 @@
         >{{ b.etat }}</span>
       </div>
 
+      <!-- Section AGENDA (straddle uniquement — étape 4) : événements qui
+           arment la stratégie + passes en cours + actifs en attente MT5. -->
+      <div v-if="b.id === 'straddle' && agenda" class="flex flex-col gap-1.5 border-b border-white/5 pb-2">
+        <div v-if="agenda.annonces.length" class="flex flex-col gap-1">
+          <div v-for="a in agenda.annonces.slice(0, 3)" :key="a.ts"
+               class="flex items-center gap-2 text-xs">
+            <span class="text-amber-400">📅</span>
+            <span class="text-gray-300 font-medium truncate">{{ a.titre || 'Annonce US' }}</span>
+            <span class="text-gray-500">{{ heureLocale(a.ts) }}</span>
+            <span class="ml-auto text-amber-300/90 font-mono text-[11px]">{{ compteARebours(a.ts) }}</span>
+          </div>
+        </div>
+        <div v-else class="text-[11px] text-gray-600">Aucune annonce US forte à 7 jours</div>
+        <div v-if="agenda.passes.length" class="text-[11px] text-emerald-400/80">
+          {{ agenda.passes.length }} passe(s) en cours sur {{ [...new Set(agenda.passes.map(p => p.asset))].join(', ') }}
+        </div>
+        <div class="text-[10px] text-gray-600">NAS100 · SP500 · DAX armés au branchement MT5</div>
+      </div>
+
       <!-- Courbe des trades clôturés (R cumulé) -->
       <div class="relative h-20 -mx-1">
         <svg
@@ -115,6 +134,34 @@ const PERF_VIDE: PerfApi = {
   clotures: [], en_cours: [], total: 0, taux_reussite: 0, r_total: 0,
 }
 
+interface AgendaApi {
+  annonces: { ts: number; titre: string; devise: string; actifs: string[] }[]
+  passes: { asset: string; direction: string }[]
+}
+const agenda = ref<AgendaApi | null>(null)
+
+async function chargerAgenda() {
+  try {
+    const res = await http.get<AgendaApi>('/api/straddle/agenda')
+    agenda.value = res.data as AgendaApi
+  } catch { /* agenda indisponible */ }
+}
+
+function heureLocale(ts: number): string {
+  return new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(ts * 1000))
+}
+
+function compteARebours(ts: number): string {
+  const d = ts - Math.floor(Date.now() / 1000)
+  if (d <= 0) return 'en cours'
+  const j = Math.floor(d / 86400)
+  const h = Math.floor((d % 86400) / 3600)
+  const m = Math.floor((d % 3600) / 60)
+  if (j > 0) return `J-${j} ${h}h`
+  if (h > 0) return `${h}h${String(m).padStart(2, '0')}`
+  return `${m} min`
+}
+
 async function charger() {
   try {
     const res = await http.get<StrategieApi[]>('/api/strategies')
@@ -174,8 +221,13 @@ function ligneZero(b: Bloc): number | null {
 }
 
 onMounted(async () => {
-  await charger()
+  await Promise.allSettled([charger(), chargerAgenda()])
   minuteur = setInterval(charger, 60_000)
+  minuteurAgenda = setInterval(chargerAgenda, 60_000)
 })
-onUnmounted(() => { if (minuteur !== null) clearInterval(minuteur) })
+let minuteurAgenda: ReturnType<typeof setInterval> | null = null
+onUnmounted(() => {
+  if (minuteur !== null) clearInterval(minuteur)
+  if (minuteurAgenda !== null) clearInterval(minuteurAgenda)
+})
 </script>

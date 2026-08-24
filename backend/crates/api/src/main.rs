@@ -57,6 +57,7 @@ mod sentiment_filter;
 mod sentiment_handlers;
 mod signal_filtre;
 mod signaux_handlers;
+mod straddle_agenda;
 mod registre_strategies;
 mod signaux_officiels;
 mod smc_analyse_handler;

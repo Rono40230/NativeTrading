@@ -21,6 +21,12 @@ pub struct StraddleParams {
     pub vente_partielle: bool,
     pub pct_cloture_tp1: f64,
     pub pct_cloture_tp2: f64,
+    /// Placement ET armement des 2 jambes avant l'annonce (SECONDES) —
+    /// définition étape 4 : défaut 10.
+    #[ts(type = "number")]
+    pub placement_sec: i64,
+    /// Distance du trailing stop en × R — dès TP2, au tick (étape 4).
+    pub trailing_r: f64,
 }
 
 impl Default for StraddleParams {
@@ -37,6 +43,8 @@ impl Default for StraddleParams {
             vente_partielle: true,
             pct_cloture_tp1: 0.33,
             pct_cloture_tp2: 0.33,
+            placement_sec: 10,
+            trailing_r: 1.0,
         }
     }
 }
@@ -62,6 +70,8 @@ pub async fn lire_straddle_params(pool: &SqlitePool) -> StraddleParams {
             trailing_atr: r.get("trailing_atr"),
             vente_partielle: r.get::<i64, _>("vente_partielle") != 0,
             pct_cloture_tp1: r.get("pct_cloture_tp1"),
+            placement_sec: r.try_get("placement_sec").unwrap_or(10),
+            trailing_r: r.try_get("trailing_r").unwrap_or(1.0),
             pct_cloture_tp2: r.get("pct_cloture_tp2"),
         },
         _ => StraddleParams::default(),
@@ -72,8 +82,9 @@ pub async fn sauvegarder_straddle_params(pool: &SqlitePool, p: &StraddleParams) 
     sqlx::query(
         "INSERT INTO straddle_params
              (id, atr_periode, atr_seuil, tp_mult_1, tp_mult_2, tp_mult_3,
-              sl_mult, horizon_bougies, trailing_atr, vente_partielle, pct_cloture_tp1, pct_cloture_tp2, maj_le)
-         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+              sl_mult, horizon_bougies, trailing_atr, vente_partielle, pct_cloture_tp1, pct_cloture_tp2,
+              placement_sec, trailing_r, maj_le)
+         VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
          ON CONFLICT(id) DO UPDATE SET
              atr_periode      = excluded.atr_periode,
              atr_seuil        = excluded.atr_seuil,
@@ -86,6 +97,8 @@ pub async fn sauvegarder_straddle_params(pool: &SqlitePool, p: &StraddleParams) 
              vente_partielle  = excluded.vente_partielle,
              pct_cloture_tp1  = excluded.pct_cloture_tp1,
              pct_cloture_tp2  = excluded.pct_cloture_tp2,
+             placement_sec    = excluded.placement_sec,
+             trailing_r       = excluded.trailing_r,
              maj_le           = excluded.maj_le",
     )
     .bind(p.atr_periode)

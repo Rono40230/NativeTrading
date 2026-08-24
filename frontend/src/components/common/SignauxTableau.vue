@@ -85,7 +85,7 @@
             </td>
           </tr>
           <!-- Sous-ligne jambes Straddle : uniquement pour signaux actifs (sans verdict) -->
-          <tr v-if="strategie === 'Straddle' && s.direction === 'Both' && s.verdict === null"
+          <tr v-if="strategie === 'straddle' && s.direction === 'Both' && s.verdict === null"
               :key="`${s.id}-legs`"
               class="border-b border-white/5 bg-white/2">
             <td colspan="99" class="px-4 pb-2 pt-0">
@@ -132,7 +132,7 @@
     </div>
 
     <!-- Modales analyse -->
-    <StraddleAnalyseModal v-if="strategie === 'Straddle'" :open="analyseOuverte" :signaux="signaux" @close="analyseOuverte = false" />
+    <StraddleAnalyseModal v-if="strategie === 'straddle'" :open="analyseOuverte" :signaux="signaux" @close="analyseOuverte = false" />
     <SmcAnalyseModal v-if="strategie === 'SMC'" :open="analyseOuverte" :signaux="signaux" @close="analyseOuverte = false" />
     <RocketsAnalyseModal v-if="strategie === 'Rockets'" :open="analyseOuverte" :rockets="rocketsRaw" @close="analyseOuverte = false" />
 
@@ -201,7 +201,7 @@ import StraddleAnalyseModal from '@/components/common/StraddleAnalyseModal.vue'
 import SmcAnalyseModal from '@/components/common/SmcAnalyseModal.vue'
 import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
 
-const props = defineProps<{ strategie: 'SMC' | 'Straddle' | 'Rockets' }>()
+const props = defineProps<{ strategie: 'SMC' | 'straddle' | 'Rockets' }>()
 
 const {
   signaux, rocketsRaw, chargement, analyseOuverte,

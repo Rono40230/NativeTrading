@@ -37,6 +37,8 @@ const STRADDLE_PARAMS_DEFAUT: ParamsStraddle = {
   vente_partielle: true,
   pct_cloture_tp1: 0.33,
   pct_cloture_tp2: 0.33,
+  placement_sec: 10,
+  trailing_r: 1.0,
 }
 
 // Défauts mirroirs des migrations backend (rockets_config) — placeholder pré-chargement.

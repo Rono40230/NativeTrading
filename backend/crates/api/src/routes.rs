@@ -50,6 +50,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::registre_strategies::performance_strategie),
         )
         .route(
+            "/api/straddle/agenda",
+            web::get().to(crate::straddle_agenda::get_agenda),
+        )
+        .route(
             "/api/signaux",
             web::get().to(crate::signaux_handlers::get_signaux),
         )

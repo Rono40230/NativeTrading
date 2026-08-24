@@ -10,11 +10,10 @@ const router = createRouter({
     { path: '/rockets',                    component: () => import('../views/RocketsView.vue') },
     { path: '/rockets/definition',         component: () => import('../views/RocketsDefinitionView.vue') },
     { path: '/smc/definition',             component: () => import('../views/SmcDefinitionView.vue') },
-    { path: '/straddle/definition',        component: () => import('../views/VolatiliteDefinitionView.vue') },
+    { path: '/straddle/definition',        component: () => import('../views/StraddleDefinitionView.vue') },
     { path: '/smc',                 component: () => import('../views/SmcView.vue') },
     { path: '/smc/graphiques',      component: () => import('../views/ChartsView.vue') },
     { path: '/straddle',            component: () => import('../views/StraddleView.vue') },
-    { path: '/straddle/signaux',    component: () => import('../views/StraddleSignauxView.vue') },
 
 
     // Performance

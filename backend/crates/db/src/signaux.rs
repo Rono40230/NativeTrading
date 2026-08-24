@@ -412,14 +412,16 @@ impl Database {
         let mut gagnants = 0usize;
         for r in &rows {
             let verdict: String = r.get("verdict");
-            let point = verdict.starts_with("TP");
-            if point {
+            let r_val = r.try_get::<f64, _>("r_realise").ok().unwrap_or(0.0);
+            // Gagnant = R réalisé > 0 — englobe TP* (SMC) et TS/TimeStop
+            // positifs (straddle), indépendamment du vocabulaire de verdict.
+            if r_val > 0.0 {
                 gagnants += 1;
             }
-            cumul += r.try_get::<f64, _>("r_realise").ok().unwrap_or(0.0);
+            cumul += r_val;
             clotures.push(PointCloture {
                 ferme_le: r.try_get::<i64, _>("ferme_le").ok().unwrap_or(0),
-                r: r.try_get::<f64, _>("r_realise").ok().unwrap_or(0.0),
+                r: r_val,
                 r_cumule: cumul,
                 verdict,
                 asset: r.get("asset"),

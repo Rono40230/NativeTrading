@@ -77,7 +77,7 @@
           <p class="text-xs text-gray-200 leading-relaxed">{{ signal.llm_raison }}</p>
         </div>
         <div v-else class="text-xs text-gray-600 italic">
-          {{ signal.strategie === 'Straddle' ? 'Straddle : double position volatilité extrême' : 'Aucune justification LLM disponible' }}
+          {{ signal.strategie === 'straddle' ? 'Straddle : double position volatilité extrême' : 'Aucune justification LLM disponible' }}
         </div>
       </div>
 

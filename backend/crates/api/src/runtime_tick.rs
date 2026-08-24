@@ -347,28 +347,35 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         let mut moteurs: Vec<Box<dyn engine::Engine>> = vec![Box::new(
             engine_v12::MoteurV12::nouveau(asset.clone(), *tf).avec_amorce(amorce),
         )];
-        if matches!(tf, common::Timeframe::M1 | common::Timeframe::M5) {
-            let annonces = annonces_tier1(db).await;
+        // Étape 4 — verticale Straddle : périmètre acté = XAU + BTC sur
+        // annonces US fortes (Bybit alimente ces deux-là en temps réel).
+        // NAS100/SP500 (annonces US) et DAX (ouverture européenne 9h Paris)
+        // attendent le branchement MT5 (phase 5) — moteurs prêts, pas armés.
+        if matches!(tf, common::Timeframe::M1)
+            && matches!(asset.as_str(), "XAUUSD" | "BTC")
+        {
+            let annonces: Vec<straddle::Annonce> = annonces_tier1(db)
+                .await
+                .into_iter()
+                .filter(|a| a.devise == "USD")
+                .collect();
             // Audit étape 2 : le moteur lisait des constantes — désormais
             // branché sur la carte Paramètres › Straddle (table DB).
             let p = db::strategies_params::lire_straddle_params(db.pool()).await;
             let params = straddle::ParamsStraddle {
                 sl_atr: p.sl_mult,
-                tp1_atr: p.tp_mult_1,
-                tp2_atr: p.tp_mult_2,
-                tp3_atr: p.tp_mult_3,
-                expiration_min: p.horizon_bougies.saturating_mul(5),
+                trailing_r: p.trailing_r,
+                placement_avant_sec: p.placement_sec,
                 ..Default::default()
             };
             tracing::info!(
-                "Runtime tick: {} {} moteur straddle armé ({} annonce(s) à venir, SL {:.2}×ATR, TP {:.1}/{:.1}/{:.1}×ATR)",
+                "Runtime tick: {} {} moteur straddle armé ({} annonce(s) US à venir, R={:.2}×ATR, T-{:.0}s, trailing {:.1}R)",
                 asset.as_str(),
                 tf.as_str(),
                 annonces.len(),
                 params.sl_atr,
-                params.tp1_atr,
-                params.tp2_atr,
-                params.tp3_atr,
+                params.placement_avant_sec,
+                params.trailing_r,
             );
             moteurs.push(Box::new(
                 straddle::StraddleEngine::nouveau(asset.clone(), *tf)

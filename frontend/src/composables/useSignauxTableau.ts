@@ -7,7 +7,7 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { classeVerdictSignal, labelVerdictSignal } from '@/composables/useSignalFormat'
 import { rocketToSignal } from '@/composables/useRocketsHistory'
 
-export function useSignauxTableau(strategie: 'SMC' | 'Straddle' | 'Rockets') {
+export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
   const prixStore = usePrixStore()
   const assetParamsStore = useAssetParamsStore()
   const settingsStore = useSettingsStore()
@@ -139,7 +139,7 @@ export function useSignauxTableau(strategie: 'SMC' | 'Straddle' | 'Rockets') {
         signaux.value = data.filter(s =>
           strategie === 'SMC'
             ? SMC_NOMS.includes(s.strategie)
-            : s.strategie === strategie
+            : s.strategie.toLowerCase() === strategie.toLowerCase()
         )
       }
     } catch { /* silencieux */ } finally {
