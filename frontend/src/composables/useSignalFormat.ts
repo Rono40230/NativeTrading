@@ -35,7 +35,11 @@ export function labelVerdictSignal(verdict: string | null): string {
   return '⏳ En cours'
 }
 
-export function calculerR(signal: { direction: string; prix_entree: number; stop_loss: number; prix_verdict: number | null }): number | null {
+export function calculerR(signal: { direction: string; prix_entree: number; stop_loss: number; prix_verdict: number | null; r_realise?: number | null }): number | null {
+  // Vérité du moteur en priorité (TP2 encaissé puis sortie à BE = +2R alors
+  // que le prix de sortie vaut l'entrée) ; repli prix pour les lignes
+  // antérieures au 24/08.
+  if (signal.r_realise !== null && signal.r_realise !== undefined) return signal.r_realise;
   if (!signal.prix_verdict || !signal.prix_entree || !signal.stop_loss) return null;
   const diffPx = signal.prix_entree - signal.stop_loss;
   if (Math.abs(diffPx) < 0.000001) return null; // Évite la division par zéro

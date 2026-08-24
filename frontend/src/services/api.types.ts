@@ -56,6 +56,7 @@ export interface Signal {
   strategie: string
   statut: string          // 'Actif' | 'Fermé' | 'Annulé'
   verdict: string | null  // null | 'SL' | 'TP1' | 'TP2' | 'TP3' | 'expire'
+  r_realise?: number | null
   prix_verdict: number | null
   ferme_le: number | null
   cree_le: number

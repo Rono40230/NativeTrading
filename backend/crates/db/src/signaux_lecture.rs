@@ -12,7 +12,7 @@ impl Database {
         let rows = sqlx::query(
             "SELECT id, asset, timeframe, direction, score, prix_entree,
                     stop_loss, take_profit, strategie, statut,
-                    verdict, prix_verdict, cree_le, ferme_le,
+                    verdict, prix_verdict, r_realise, cree_le, ferme_le,
                     llm_conviction, llm_raison,
                     sl_short, take_profit_short,
                     sl_long_effectif, sl_short_effectif,
@@ -49,6 +49,7 @@ impl Database {
                     "statut":                row.get::<String, _>("statut"),
                     "verdict":               row.get::<Option<String>, _>("verdict"),
                     "prix_verdict":          row.get::<Option<f64>, _>("prix_verdict"),
+                    "r_realise":             row.get::<Option<f64>, _>("r_realise"),
                     "llm_conviction":        row.get::<Option<i64>, _>("llm_conviction"),
                     "llm_raison":            row.get::<Option<String>, _>("llm_raison"),
                     "cree_le":               row.get::<i64, _>("cree_le"),
