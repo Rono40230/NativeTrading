@@ -128,3 +128,12 @@ Il faut créer les tooltips des trades sur le même modèle que les étiquettes 
 
 --------------------------------------------------------------------------------------------------------------------------
 
+1 - lorsque l'on clique sur "Paramètres" dans le panel renomme la page "Configuration" en "Paramètres"
+2 - dans "paramètres des stratégies" : pourquoi j'ai 2 blocs straddle et 2 blocs rockets au lieu d'un seul avec tous les paramètres de la stratégie ?
+3 - pourquoi je n'ai qu'un bloc SMC
+
+
+Qu'est ce que doit faire le LLM par stratégie ?
+Qu'elle paramètre ou indicateur doit il observer pour son éventuel recalibrage ?
+Doit il observer le scoring qui générèles signaux pour eventuellement le recalibrer ?
+

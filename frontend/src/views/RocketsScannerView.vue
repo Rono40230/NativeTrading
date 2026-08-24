@@ -20,6 +20,7 @@
             <th class="px-3 py-2.5 text-right">Pivot</th>
             <th class="px-3 py-2.5 text-right">Invalidation</th>
             <th class="px-3 py-2.5 text-center">Cassure</th>
+            <th class="px-3 py-2.5 text-center">News (IA)</th>
             <th class="px-3 py-2.5 text-left">Critères</th>
           </tr>
         </thead>
@@ -36,6 +37,18 @@
             <td class="px-3 py-2.5 text-right font-mono text-white">{{ c.pivot.toFixed(4) }}</td>
             <td class="px-3 py-2.5 text-right font-mono text-red-400">{{ c.stop.toFixed(4) }}</td>
             <td class="px-3 py-2.5 text-center">{{ c.cassure ? '🚀' : '—' }}</td>
+            <td class="px-3 py-2.5 text-center" :title="c.news_justification || ''">
+              <span v-if="c.news_verdict === 'POUR'" class="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                POUR {{ c.news_conviction }}/100 +1pt
+              </span>
+              <span v-else-if="c.news_verdict === 'CONTRE'" class="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-red-500/10 text-red-400 border-red-500/30">
+                CONTRE {{ c.news_conviction }}/100
+              </span>
+              <span v-else-if="c.news_verdict === 'NEUTRE'" class="text-[10px] px-2 py-0.5 rounded-full border bg-white/5 text-gray-400 border-white/10">
+                Neutre {{ c.news_conviction }}/100
+              </span>
+              <span v-else class="text-[10px] text-gray-600">{{ c.news_verdict || 'à évaluer' }}</span>
+            </td>
             <td class="px-3 py-2.5">
               <div class="flex gap-1 flex-wrap">
                 <span v-for="(ok, critere) in c.detail" :key="critere" v-show="ok !== null"
@@ -60,6 +73,7 @@ interface Candidat {
   symbole: string; points: number; verdict: string
   pivot: number; stop: number; cassure: boolean
   detail: Record<string, boolean | null>
+  news_verdict?: string; news_conviction?: number; news_justification?: string
 }
 
 const LIBELLES: Record<string, string> = {
