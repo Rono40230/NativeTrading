@@ -90,6 +90,7 @@ import EcoCalTooltip from '@/components/common/EcoCalTooltip.vue'
 
 import { useChartOrchestration } from '@/composables/useChartOrchestration'
 import { useSignalStore } from '@/stores/signal.store'
+import { apiService } from '@/services/api.service'
 import ChartSidebarIA from '@/components/common/ChartSidebarIA.vue'
 import ChartAnalyseSmcModal from '@/components/common/ChartAnalyseSmcModal.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
@@ -193,6 +194,43 @@ function rafraichirOverlayV12() {
   const derniereB = bougies.value?.[bougies.value.length - 1]
   const tsSec = derniereB ? Math.floor(new Date(derniereB.timestamp).getTime() / 1000) : undefined
   void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), tsSec)
+  void chargerTradesExternes()
+}
+
+/// Trades MULTI-TF : les signaux ouverts du même actif sur les AUTRES
+/// timeframes, dessinés en atténué avec badge (un trade M1 reste visible
+/// sur les graphiques M5/M15/M30/H1 tant qu'il est ouvert).
+const DUREE_BARRE: Record<string, number> = {
+  M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800,
+}
+const SMC_NOMS = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA']
+
+async function chargerTradesExternes() {
+  try {
+    const signaux = await apiService.getSignaux(150)
+    const ouverts = (signaux as { asset: string; timeframe: string; direction: string; statut: string; strategie: string; prix_entree: number; stop_loss: number; take_profit: number[]; score: number; cle_moteur?: string; cree_le: number }[])
+      .filter(x =>
+        x.asset === selectedAsset.value
+        && x.statut === 'Actif'
+        && SMC_NOMS.includes(x.strategie)
+        && x.timeframe !== selectedTimeframe.value)
+      .slice(0, 6)
+      .map(x => ({
+        ts: x.cree_le,
+        entry: x.prix_entree,
+        sl: x.stop_loss,
+        tp1: x.take_profit?.[0] ?? x.prix_entree,
+        tp2: x.take_profit?.[1] ?? x.prix_entree,
+        tp3: x.take_profit?.[2] ?? x.prix_entree,
+        dir: x.direction === 'Long' ? 'Long' as const : 'Short' as const,
+        force: Math.max(1, Math.min(10, Math.round(x.score))),
+        be: false,
+        label: [] as string[],
+        tfOrigine: x.timeframe,
+        tsFin: x.cree_le + 40 * (DUREE_BARRE[x.timeframe] ?? 900),
+      }))
+    v12Overlay.definirTradesExternes(ouverts)
+  } catch { /* silencieux */ }
 }
 
 // Affichage VIVANT des trades (fidélité Pine : le label et les boxes évoluent

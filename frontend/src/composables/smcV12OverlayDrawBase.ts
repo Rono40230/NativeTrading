@@ -490,3 +490,75 @@ export function dessinerPivots(
     ctx.fill()
   }
 }
+
+/// Trades ouverts des AUTRES timeframes (multi-TF) — style atténué :
+/// bordures fines, badge du TF d'origine, sans label complet ni lignes TP
+/// (l'affichage riche reste celui du TF affiché). Le dropdown « Signaux ›
+/// SMC » les pilote comme tout le reste (décision 1a).
+export function dessinerTradesExternes(
+  ctx: CanvasRenderingContext2D,
+  serie: ISeriesApi<'Candlestick'>,
+  ts: TimeScale,
+  liste: (SignalDessin & { tfOrigine: string })[],
+  W: number,
+  dernierTs: number | null,
+): void {
+  const xD = xDroit(ts, W, dernierTs)
+  for (const s of liste) {
+    const xGRaw = ts.timeToCoordinate(s.ts as any)
+    if (xGRaw === null) continue
+    const xG = Math.max(0, xGRaw)
+    if (xD <= xG) continue
+    const tsFin = (s as { tsFin?: number }).tsFin
+    let xFin = xD
+    if (tsFin !== undefined) {
+      const direct = ts.timeToCoordinate(tsFin as any)
+      if (direct !== null) xFin = direct
+    }
+    if (xFin <= xG) continue
+    const xDTrade = Math.min(xD, xFin)
+    const yEntry = serie.priceToCoordinate(s.entry)
+    const ySl = serie.priceToCoordinate(s.sl)
+    const yTp = serie.priceToCoordinate(s.tp2)
+    if (yEntry === null) continue
+
+    // Zone SL (rouge) et zone TP (vert) très légères.
+    if (ySl !== null && Math.abs(yEntry - ySl) >= 1) {
+      const yTop = Math.min(yEntry, ySl)
+      ctx.fillStyle = hexVersRgba(COUL_SL, 0.05)
+      ctx.fillRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - ySl))
+      ctx.strokeStyle = hexVersRgba(COUL_SL, 0.35)
+      ctx.lineWidth = 1
+      ctx.setLineDash([4, 3])
+      ctx.strokeRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - ySl))
+    }
+    if (yTp !== null) {
+      const yTop = Math.min(yEntry, yTp)
+      ctx.fillStyle = hexVersRgba(COUL_TP, 0.04)
+      ctx.fillRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - yTp))
+      ctx.strokeStyle = hexVersRgba(COUL_TP, 0.28)
+      ctx.setLineDash([4, 3])
+      ctx.strokeRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - yTp))
+    }
+    // Ligne d'entrée pointillée.
+    ctx.strokeStyle = 'rgba(59,130,246,0.5)'
+    ctx.setLineDash([2, 4])
+    ctx.beginPath(); ctx.moveTo(xG, yEntry); ctx.lineTo(xDTrade, yEntry); ctx.stroke()
+    ctx.setLineDash([])
+
+    // Badge du TF d'origine — petit carré discret à gauche de l'entrée.
+    const badge = s.tfOrigine
+    ctx.font = 'bold 9px sans-serif'
+    const largeur = ctx.measureText(badge).width + 8
+    const yBadge = yEntry - 14 < 2 ? yEntry + 4 : yEntry - 14
+    ctx.fillStyle = 'rgba(10,12,18,0.8)'
+    ctx.fillRect(xG, yBadge, largeur, 12)
+    ctx.strokeStyle = s.dir === 'Long' ? hexVersRgba('#26a69a', 0.6) : hexVersRgba('#ef5350', 0.6)
+    ctx.lineWidth = 1
+    ctx.strokeRect(xG, yBadge, largeur, 12)
+    ctx.fillStyle = s.dir === 'Long' ? '#8fe3d0' : '#f3a8a0'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    ctx.fillText(badge, xG + 4, yBadge + 2)
+  }
+}

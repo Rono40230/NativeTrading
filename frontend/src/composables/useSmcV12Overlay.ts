@@ -35,6 +35,7 @@ import {
   dessinerLignes,
   dessinerSweeps,
   dessinerSignaux,
+  dessinerTradesExternes,
   dessinerPivots,
 } from './smcV12OverlayDrawBase'
 import type {
@@ -73,6 +74,9 @@ export function useSmcV12Overlay() {
   let obs: ObDessin[] = []
   let fvgs: FvgDessin[] = []
   let signals: SignalDessin[] = []
+  // Trades ouverts des AUTRES timeframes du même actif (multi-TF — dessin
+  // atténué avec badge du TF d'origine, dédupliqués avec le TF affiché).
+  let tradesExternes: (SignalDessin & { tfOrigine: string })[] = []
   let tendance: 'haussiere' | 'baissiere' | 'neutre' = 'neutre'
   // Indicateurs v12 étendus (13 types supplémentaires).
   let donneesExt: DonneesV12Etendues = donneesV12EtenduesVides()
@@ -174,6 +178,7 @@ export function useSmcV12Overlay() {
     if (flags.choch) dessinerLignes(ctx, serieRef, ts, chochs, W, dernierTsRef, 'choch')
     if (flags.sweeps) dessinerSweeps(ctx, serieRef, ts, sweeps, W)
     if (flags.signals) dessinerSignaux(ctx, serieRef, ts, signals, W, dernierTsRef)
+    if (flags.signals) dessinerTradesExternes(ctx, serieRef, ts, tradesExternes, W, dernierTsRef)
     if (flags.structure) dessinerPivots(ctx, serieRef, ts, pivots, W)
   }
 
@@ -211,6 +216,13 @@ export function useSmcV12Overlay() {
   }
 
   /** Charge les données v12 depuis l'API et déclenche le redessin. */
+  /// Définit les trades ouverts des autres TF (appelé par la vue à chaque
+  /// rafraîchissement — source : table signaux, actif courant, Actifs).
+  function definirTradesExternes(trades: (SignalDessin & { tfOrigine: string })[]) {
+    tradesExternes = trades
+    planifierRedessiner()
+  }
+
   async function charger(asset: string, timeframe: string, limit = 500, dernierTimestamp?: number) {
     dernierTsRef = dernierTimestamp ?? null
     let data: SmcV12Analyse | null = null
@@ -301,6 +313,7 @@ export function useSmcV12Overlay() {
     obs = []
     fvgs = []
     signals = []
+    tradesExternes = []
     tendance = 'neutre'
     donneesExt = donneesV12EtenduesVides()
     if (canvas) {
@@ -333,5 +346,5 @@ export function useSmcV12Overlay() {
     planifierRedessiner()
   }
 
-  return { initialiser, charger, effacer, detruire, setDernierTs, redessiner: planifierRedessiner }
+  return { initialiser, charger, definirTradesExternes, effacer, detruire, setDernierTs, redessiner: planifierRedessiner }
 }
