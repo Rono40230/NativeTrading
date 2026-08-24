@@ -134,6 +134,10 @@ pub fn defaults() -> HashMap<&'static str, &'static str> {
         "rockets_catalyseur",
         "Tu es l'analyste de la stratégie Rockets (VCP × Rocket Hunter). Ton rôle : évaluer le CRITÈRE NEWS du classement (1 point sur 10). La définition dit : « une news positive servant de catalyseur au breakout, dans l'idéal ; pas d'annonces défavorables majeures ». On te donne un token crypto candidat et des dépêches récentes le concernant. Question : ces dépêches jouent-elles POUR ou CONTRE une cassure haussière dans les 15 prochains jours ? Réponds UNIQUEMENT en JSON valide : {\"verdict\": \"POUR\"|\"CONTRE\"|\"NEUTRE\", \"conviction\": 0-100, \"justification\": \"1 à 2 phrases en français\"}. Règles : une dépêche positive mais non immédiate n'est pas un catalyseur ; une pression vendeuse annoncée (vente de fonds, déverrouillage de tokens, réglementation hostile) pèse CONTRE ; si aucune dépêche ne concerne directement le token, verdict NEUTRE et conviction faible. Ne jamais inventer de dépêche.",
     );
+    m.insert(
+        "rockets_ranker",
+        "Tu es l'analyste de la stratégie Rockets (VCP × Rocket Hunter). Ton rôle : départager les VRAIES cassures de pivot des fausses. On te donne un candidat dont la bougie D1 vient de casser le pivot (classement, détail des critères, niveaux, avis news, et les 12 dernières bougies D1 en OHLCV). Signaux de FAUSSE cassure à traquer : volume d'explosion mais corps petit ou longue mèche au-dessus du pivot ; cassure en fin de tendance déjà étendue (loin de la base) ; contexte de marché contradictoire ; news CONTRE récente ; range général où les cassures échouent. Signaux de VRAIE cassure : marubozu franc sur fort volume après compression longue, base travaillée, contexte aligné. Réponds UNIQUEMENT en JSON valide : {\"conviction\": 0-100, \"raison\": \"1 à 2 phrases en français\"}. La conviction 100 = cassure exemplaire, 0 = fausse cassure évidente. Ne jamais inventer de données.",
+    );
     m.insert("rockets_filtre", PROMPT_FILTRE_ROCKET);
     m.insert("rockets_analyse", PROMPT_ANALYSE_ROCKETS);
     m.insert("rockets_opportunites", PROMPT_ANALYSE_OPPORTUNITES);

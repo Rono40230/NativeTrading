@@ -36,6 +36,7 @@ pub async fn lister_prompts() -> impl Responder {
         "rockets": {
             "definition": p("rockets_definition", "Définition (dérivée)", "Ancre le LLM dans la logique VCP Minervini. Dérivé de la page Définition.", "Toute analyse rockets"),
             "catalyseur_news":    p("rockets_catalyseur", "Catalyseur news", "Évalue les dépêches d'un candidat : pour ou contre une cassure haussière à 15 jours ? POUR/CONTRE/NEUTRE + conviction.", "Après chaque scan quotidien"),
+            "ranker_pivots":      p("rockets_ranker", "Ranker de pivots", "Départage les vraies cassures des fausses : conviction 0–100 + raison, sur le dossier complet du candidat.", "Avant chaque signal (seuil réglable)"),
             "filtre_temps_reel":  p("rockets_filtre",  "Filtre temps réel", "Valide ou rejette chaque signal candidat avant sauvegarde. Retourne conviction 0–100 + raison.", "Avant chaque signal"),
             "analyse_strategique":p("rockets_analyse", "Analyse stratégique", "Analyse les signaux clôturés pour évaluer la performance et recommander des ajustements.", "Sur demande (≥ 5 trades clôturés)")
         },

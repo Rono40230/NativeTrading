@@ -37,7 +37,7 @@ pub fn demarrer(db: Arc<Database>, bus: BusSignaux) {
 // ── Paramètres (table rockets_params, carte Paramètres › Rockets) ───────────
 
 pub async fn lire_params(db: &Database) -> ParamsRockets {
-    let row = sqlx::query("SELECT profil, plafond_position_pct, trailing_pct, volume_pivot_mult, cassure_min_pct FROM rockets_params WHERE id = 1")
+    let row = sqlx::query("SELECT profil, plafond_position_pct, trailing_pct, volume_pivot_mult, cassure_min_pct, conviction_min FROM rockets_params WHERE id = 1")
         .fetch_optional(db.pool())
         .await
         .ok()
@@ -57,12 +57,13 @@ pub async fn lire_params(db: &Database) -> ParamsRockets {
         trailing_pct: row.as_ref().and_then(|r| r.try_get("trailing_pct").ok()).unwrap_or(5.0),
         volume_pivot_mult: row.as_ref().and_then(|r| r.try_get("volume_pivot_mult").ok()).unwrap_or(1.5),
         cassure_min_pct: row.as_ref().and_then(|r| r.try_get("cassure_min_pct").ok()).unwrap_or(3.0),
+        conviction_min: row.as_ref().and_then(|r| r.try_get("conviction_min").ok()).unwrap_or(40),
     }
 }
 
 // ── Accès Binance REST ──────────────────────────────────────────────────────
 
-async fn klines_d1(symbole: &str, limite: usize) -> Vec<BougieD1> {
+pub(crate) async fn klines_d1(symbole: &str, limite: usize) -> Vec<BougieD1> {
     let url = format!(
         "https://api.binance.com/api/v3/klines?symbol={}&interval=1d&limit={}",
         symbole, limite
@@ -239,10 +240,12 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
     // ── RÔLE CATALYSEUR NEWS (analyste qwen3:32b) ── pour chaque candidat,
     // lecture des dépêches des 15 derniers jours → verdict + conviction.
     // Le point News complète le classement /10 AVANT la décision de signal.
-    evaluer_news(db).await;
+    crate::rockets_ia::evaluer_news(db).await;
 
     // Décision de signal : cassure ET classement complet (chiffrables +
-    // news) ≥ 7.
+    // news) ≥ 7 ET — seconde opinion — conviction du ranker au-dessus du
+    // seuil (réglable, 0 = purement informatif).
+    let params = lire_params(db).await;
     for (symbole, pivot, stop, points_base, ts) in cassures {
         let points_total = points_base
             + sqlx::query_scalar::<_, i64>(
@@ -254,6 +257,30 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
             .unwrap_or(0) as u8;
         if points_total < 7 {
             continue;
+        }
+        match crate::rockets_ia::ranker_cassure(db, &symbole, points_total).await {
+            Some((conviction, raison)) => {
+                let _ = sqlx::query(
+                    "UPDATE rockets_candidats SET conviction_ia = ?, conviction_raison = ? WHERE symbole = ?",
+                )
+                .bind(conviction)
+                .bind(&raison)
+                .bind(&symbole)
+                .execute(db.pool())
+                .await;
+                if conviction < params.conviction_min {
+                    tracing::info!(
+                        "🚀 Rockets {} : écarté par l'analyste — conviction {}/100 (seuil {}) : {}",
+                        symbole, conviction, params.conviction_min, raison
+                    );
+                    continue;
+                }
+            }
+            None => {
+                // Analyste indisponible : la stratégie vit sans seconde
+                // opinion (jamais bloquée par l'IA absente).
+                tracing::warn!("🚀 Rockets {} : ranker indisponible — signal sans seconde opinion", symbole);
+            }
         }
         let cle = format!("rockets-{}-{}", symbole, ts);
         let deja = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM rockets_positions WHERE cle = ?")
@@ -396,6 +423,8 @@ pub async fn get_candidats(state: actix_web::web::Data<crate::state::AppState>) 
                 "news_verdict": r.try_get::<Option<String>, _>("news_verdict").ok().flatten(),
                 "news_conviction": r.try_get::<Option<i64>, _>("news_conviction").ok().flatten(),
                 "news_justification": r.try_get::<Option<String>, _>("news_justification").ok().flatten(),
+                "conviction_ia": r.try_get::<Option<i64>, _>("conviction_ia").ok().flatten(),
+                "conviction_raison": r.try_get::<Option<String>, _>("conviction_raison").ok().flatten(),
                 "detail": serde_json::from_str::<serde_json::Value>(
                     &r.get::<String, _>("detail")).unwrap_or(serde_json::json!({})),
                 "maj_le": r.get::<i64, _>("maj_le"),
@@ -414,6 +443,7 @@ pub struct BodyParamsRockets {
     pub trailing_pct: Option<f64>,
     pub volume_pivot_mult: Option<f64>,
     pub cassure_min_pct: Option<f64>,
+    pub conviction_min: Option<i64>,
 }
 
 /// PUT /api/rockets/params — profil de risque, plafond, trailing, seuils.
@@ -425,168 +455,18 @@ pub async fn maj_params(state: actix_web::web::Data<crate::state::AppState>, bod
             .json(serde_json::json!({ "error": "Profil invalide (PeuRisque | Neutre | Risque)" }));
     }
     let maj = sqlx::query(
-        "UPDATE rockets_params SET profil = ?, plafond_position_pct = ?, trailing_pct = ?, volume_pivot_mult = ?, cassure_min_pct = ? WHERE id = 1",
+        "UPDATE rockets_params SET profil = ?, plafond_position_pct = ?, trailing_pct = ?, volume_pivot_mult = ?, cassure_min_pct = ?, conviction_min = ? WHERE id = 1",
     )
     .bind(&profil)
     .bind(body.plafond_position_pct.unwrap_or(actuel.plafond_position_pct).clamp(1.0, 25.0))
     .bind(body.trailing_pct.unwrap_or(actuel.trailing_pct).clamp(1.0, 30.0))
     .bind(body.volume_pivot_mult.unwrap_or(actuel.volume_pivot_mult).clamp(1.0, 3.0))
     .bind(body.cassure_min_pct.unwrap_or(actuel.cassure_min_pct).clamp(1.0, 10.0))
+    .bind(body.conviction_min.unwrap_or(actuel.conviction_min).clamp(0, 100))
     .execute(state.db.pool())
     .await;
     match maj {
         Ok(_) => actix_web::HttpResponse::Ok().json(serde_json::json!({ "ok": true, "profil": profil })),
         Err(e) => actix_web::HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
-    }
-}
-
-// ── Rôle « catalyseur news » : l'analyste lit la presse du candidat ────────
-
-/// Une dépêche récente pour le contexte de l'analyste.
-struct Depesche {
-    titre: String,
-    resume: String,
-    date: String,
-}
-
-/// Récupère les dépêches des 15 derniers jours mentionnant la base du token
-/// (marquage assets_concernes ou texte dans titre/résumé), max 6.
-async fn depeches_pour(db: &Database, symbole: &str) -> Vec<Depesche> {
-    let base = symbole.trim_end_matches("USDT").to_lowercase();
-    if base.is_empty() {
-        return Vec::new();
-    }
-    let Ok(rows) = sqlx::query(
-        "SELECT titre, COALESCE(NULLIF(resume_fr, ''), titre) AS resume, publie_le
-         FROM presse_articles
-         WHERE publie_le >= datetime('now', '-15 days')
-         ORDER BY publie_le DESC LIMIT 400",
-    )
-    .fetch_all(db.pool())
-    .await
-    else {
-        return Vec::new();
-    };
-    rows.iter()
-        .filter_map(|r| {
-            let titre: String = r.get("titre");
-            let resume: String = r.get("resume");
-            let date: String = r.get("publie_le");
-            let concerne = titre.to_lowercase().contains(&base)
-                || resume.to_lowercase().contains(&base);
-            concerne.then(|| Depesche { titre, resume, date })
-        })
-        .take(6)
-        .collect()
-}
-
-/// Réponse structurée de l'analyste.
-struct VerdictNews {
-    verdict: String,
-    conviction: i64,
-    justification: String,
-}
-
-/// Extrait le premier objet JSON valide de la réponse (qwen3 peut
-/// l'entourer de texte ou de balises de réflexion).
-fn extraire_json(reponse: &str) -> Option<serde_json::Value> {
-    let debut = reponse.find('{')?;
-    let fin = reponse.rfind('}')?;
-    serde_json::from_str::<serde_json::Value>(&reponse[debut..=fin]).ok()
-}
-
-/// Interroge l'analyste pour UN candidat.
-async fn evaluer_un(db: &Database, symbole: &str, points_base: u8) -> Option<VerdictNews> {
-    let depeches = depeches_pour(db, symbole).await;
-    let texte_depeches = if depeches.is_empty() {
-        "(aucune dépêche spécifique trouvée dans la revue de presse)".to_string()
-    } else {
-        depeches
-            .iter()
-            .map(|d| format!("- [{}] {} — {}", d.date, d.titre, d.resume))
-            .collect::<Vec<_>>()
-            .join("\n")
-    };
-    // Prompt = override de la page Prompts IA, sinon défaut canonique.
-    let reglages = llm::charger_overrides();
-    let defauts = llm::defaults();
-    let role: String = reglages
-        .get("rockets_catalyseur")
-        .cloned()
-        .or_else(|| defauts.get("rockets_catalyseur").map(|d| d.to_string()))
-        .unwrap_or_default();
-    let prompt = format!(
-        "{}\n\nCANDIDAT : {} (classement chiffrable : {}/9)\nDÉPÊCHES DES 15 DERNIERS JOURS :\n{}\n\nÉvalue le catalyseur news et réponds en JSON.",
-        role, symbole, points_base, texte_depeches,
-    );
-    let reponse = llm::ollama::interroger_avec_modele_smc(&prompt).await.ok()?;
-    let json = extraire_json(&reponse)?;
-    Some(VerdictNews {
-        verdict: json.get("verdict").and_then(|v| v.as_str()).unwrap_or("NEUTRE").to_uppercase(),
-        conviction: json.get("conviction").and_then(|v| v.as_i64()).unwrap_or(0).clamp(0, 100),
-        justification: json
-            .get("justification")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-    })
-}
-
-/// Passe l'analyste sur tous les candidats du jour (max 8) et met à jour
-/// le point News + le classement total. Dégradation douce : Ollama absent
-/// → news « non évalué », le classement reste sur les chiffrables.
-async fn evaluer_news(db: &Arc<Database>) {
-    let Ok(candidats) = sqlx::query(
-        "SELECT symbole, points_base FROM rockets_candidats ORDER BY points_base DESC LIMIT 8",
-    )
-    .fetch_all(db.pool())
-    .await
-    else {
-        return;
-    };
-    for c in &candidats {
-        let symbole: String = c.get("symbole");
-        let points_base: Option<i64> = c.try_get("points_base").ok().flatten();
-        let points_base = points_base.unwrap_or(0).clamp(0, 9) as u8;
-        match evaluer_un(db, &symbole, points_base).await {
-            Some(v) => {
-                let news_points: i64 = if v.verdict == "POUR" && v.conviction >= 60 { 1 } else { 0 };
-                let total = (points_base as i64 + news_points).min(10);
-                let verdict = if total >= 9 {
-                    "Alpha"
-                } else if total >= 7 {
-                    "Rocket"
-                } else {
-                    "Elimine"
-                };
-                let _ = sqlx::query(
-                    "UPDATE rockets_candidats
-                     SET news_verdict = ?, news_conviction = ?, news_justification = ?,
-                         news_points = ?, points = ?, verdict = ?
-                     WHERE symbole = ?",
-                )
-                .bind(&v.verdict)
-                .bind(v.conviction)
-                .bind(&v.justification)
-                .bind(news_points)
-                .bind(total)
-                .bind(verdict)
-                .bind(&symbole)
-                .execute(db.pool())
-                .await;
-                tracing::info!(
-                    "🚀 Rockets news {} : {} ({}/100) — point {}",
-                    symbole, v.verdict, v.conviction, news_points
-                );
-            }
-            None => {
-                let _ = sqlx::query(
-                    "UPDATE rockets_candidats SET news_verdict = 'non évalué', news_points = 0 WHERE symbole = ?",
-                )
-                .bind(&symbole)
-                .execute(db.pool())
-                .await;
-            }
-        }
     }
 }

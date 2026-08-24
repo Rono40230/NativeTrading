@@ -42,6 +42,9 @@ pub struct ParamsRockets {
     pub volume_pivot_mult: f64,
     /// Cassure décisive minimale au-delà du pivot en % (canonique : 3).
     pub cassure_min_pct: f64,
+    /// Seuil de conviction du ranker — sous ce seuil, la cassure est
+    /// écartée (0 = avis purement informatif). Défaut 40.
+    pub conviction_min: i64,
 }
 
 impl Default for ParamsRockets {
@@ -52,6 +55,7 @@ impl Default for ParamsRockets {
             trailing_pct: 5.0,
             volume_pivot_mult: 1.5,
             cassure_min_pct: 3.0,
+            conviction_min: 40,
         }
     }
 }

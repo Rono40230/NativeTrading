@@ -37,6 +37,11 @@
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
         </div>
         <div class="flex items-center justify-between gap-4">
+          <span class="text-gray-300 text-xs">Conviction min. du ranker IA (0 = informatif)</span>
+          <input v-model.number="convictionMin" type="number" :step="5" :min="0" :max="100"
+            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
+        </div>
+        <div class="flex items-center justify-between gap-4">
           <span class="text-gray-300 text-xs">Cassure décisive min. (% au-delà du pivot)</span>
           <input v-model.number="cassureMin" type="number" :step="0.5" :min="1" :max="10"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
@@ -75,6 +80,7 @@ const plafond = ref(5)
 const trailing = ref(5)
 const volumeMult = ref(1.5)
 const cassureMin = ref(3)
+const convictionMin = ref(40)
 const saving = ref(false)
 const msg = ref<{ ok: boolean; text: string } | null>(null)
 
@@ -94,6 +100,7 @@ async function sauvegarder() {
       trailing_pct: trailing.value,
       volume_pivot_mult: volumeMult.value,
       cassure_min_pct: cassureMin.value,
+      conviction_min: convictionMin.value,
     })
     msg.value = { ok: true, text: 'Sauvegardé ✓' }
   } catch (e: any) {

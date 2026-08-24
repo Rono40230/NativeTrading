@@ -36,7 +36,15 @@
             </td>
             <td class="px-3 py-2.5 text-right font-mono text-white">{{ c.pivot.toFixed(4) }}</td>
             <td class="px-3 py-2.5 text-right font-mono text-red-400">{{ c.stop.toFixed(4) }}</td>
-            <td class="px-3 py-2.5 text-center">{{ c.cassure ? '🚀' : '—' }}</td>
+            <td class="px-3 py-2.5 text-center" :title="c.conviction_raison || ''">
+              <template v-if="c.cassure && c.conviction_ia != null">
+                <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
+                  :class="c.conviction_ia >= 60 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : c.conviction_ia >= 40 ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'">
+                  🚀 {{ c.conviction_ia }}/100
+                </span>
+              </template>
+              <template v-else>{{ c.cassure ? '🚀' : '—' }}</template>
+            </td>
             <td class="px-3 py-2.5 text-center" :title="c.news_justification || ''">
               <span v-if="c.news_verdict === 'POUR'" class="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
                 POUR {{ c.news_conviction }}/100 +1pt
@@ -74,6 +82,7 @@ interface Candidat {
   pivot: number; stop: number; cassure: boolean
   detail: Record<string, boolean | null>
   news_verdict?: string; news_conviction?: number; news_justification?: string
+  conviction_ia?: number; conviction_raison?: string
 }
 
 const LIBELLES: Record<string, string> = {
