@@ -1,6 +1,7 @@
 //! Infrastructure Telegram : envoi HTTP et lecture des tokens depuis la DB.
 //!
-//! La logique de formatage et d'envoi effective est dans `telegram_worker`.
+//! Le formatage des messages vit dans le writer des signaux officiels
+//! (`signaux_officiels.rs`, crate api) — seul émetteur autorisé.
 //! Ce module n'expose que les primitives partagées.
 
 /// Envoie un message texte brut via l'API Telegram (parse_mode HTML).

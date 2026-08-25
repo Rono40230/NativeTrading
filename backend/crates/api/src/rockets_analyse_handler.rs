@@ -1,6 +1,5 @@
 use actix_web::{web, HttpResponse, Responder};
 use serde::Deserialize;
-use std::time::Duration;
 
 use crate::state::AppState;
 use db::{rockets, rockets_config};
@@ -79,7 +78,6 @@ pub async fn analyser_opportunites(body: web::Json<Vec<SignalResume>>) -> impl R
 
 const MIN_TRADES_ANALYSE: i64 = 5;
 const LIMITE_TRADES: i64 = 30;
-const INTERVALLE_SEMAINES: u64 = 7 * 24 * 3600;
 
 // ── Handler HTTP ─────────────────────────────────────────────────────────────
 
@@ -145,22 +143,4 @@ async fn executer_analyse(pool: &sqlx::SqlitePool) -> anyhow::Result<db::rockets
     rockets::derniere_analyse(pool)
         .await?
         .ok_or_else(|| anyhow::anyhow!("Analyse introuvable après insertion"))
-}
-
-// ── Worker hebdomadaire ───────────────────────────────────────────────────────
-
-pub async fn demarrer_worker_analyse(pool: sqlx::SqlitePool) {
-    // Attendre 2 minutes au démarrage pour laisser le reste s'initialiser
-    tokio::time::sleep(Duration::from_secs(120)).await;
-
-    loop {
-        match executer_analyse(&pool).await {
-            Ok(a) => tracing::debug!(
-                "Worker analyse LLM rockets terminé ({} trades analysés)",
-                a.nb_trades
-            ),
-            Err(e) => tracing::warn!("Worker analyse LLM rockets: {}", e),
-        }
-        tokio::time::sleep(Duration::from_secs(INTERVALLE_SEMAINES)).await;
-    }
 }

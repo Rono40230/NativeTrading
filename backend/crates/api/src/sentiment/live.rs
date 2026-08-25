@@ -2,10 +2,7 @@
 //!
 //! Extraits de `sentiment_handlers` (limite 600 lignes du pré-audit).
 
-use serde::Deserialize;
-
 use crate::sentiment_handlers::EntiteSentiment;
-use crate::sentiment_handlers::{minuit_utc_ms, Database};
 
 /// Prix + variation de SÉANCE (live) depuis Yahoo (`regularMarketPrice` vs
 /// `chartPreviousClose`). Dégradation silencieuse par source.

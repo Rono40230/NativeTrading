@@ -5,7 +5,6 @@ pub mod rockets_analyse;
 pub mod rockets_contexte;
 pub mod rockets_filtre;
 pub mod smc_analyse;
-pub mod smc_confirm;
 pub mod smc_filtre;
 pub mod straddle_analyse;
 mod types;
@@ -35,7 +34,6 @@ pub static OLLAMA_HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
         .unwrap_or_else(|_| reqwest::Client::new())
 });
 
-pub use smc_confirm::enrichir_signal_avec_ollama;
 pub use types::tf_libelle;
 pub use vision::appeler_ollama;
 

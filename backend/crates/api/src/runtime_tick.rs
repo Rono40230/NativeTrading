@@ -38,7 +38,6 @@ use tokio::sync::mpsc;
 /// Annonces tier 1 (impact High) des prochaines 24 h — pour le straddle.
 /// Le moteur filtre par devise pertinente pour l'asset côté runtime.
 async fn annonces_tier1(db: &db::Database) -> Vec<straddle::Annonce> {
-    use chrono::TimeZone;
     let Ok(rows) = db.lire_calendrier_cache(6 * 3600).await else {
         return Vec::new();
     };

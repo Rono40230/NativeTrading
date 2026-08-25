@@ -5,7 +5,6 @@ use ml::PipelineML;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::scheduler::demarrer_scheduler;
 use smc::v12::sentiment::SentimentScore;
 
 pub struct AppState {
@@ -83,8 +82,7 @@ impl AppState {
         // effectuée (tables d'apprentissage vides, modèles archivés dans
         // data/backups/modeles_2026-08-15/). Réactivation après les gates 2-3,
         // réentraînement sur signaux validés uniquement.
-        // demarrer_scheduler(db.clone(), pipeline_ml.clone(), modele_deja_charge);
-        // crate::scheduler::demarrer_surveillance_ml(db.clone(), pipeline_ml.clone());
+        // (scheduler + surveillance ML supprimés — nettoyage code mort)
         tracing::warn!("🛑 ML SUSPENDU — modèles purgés (entraînés sur l'ancien système), aucun réentraînement avant les gates 2-3");
         let _ = (pipeline_ml.clone(), modele_deja_charge);
 
@@ -99,14 +97,9 @@ impl AppState {
         // Refresh calendrier économique en arrière-plan (toutes les 30 min)
         crate::calendar_handlers::demarrer_refresh_calendrier_job(db.clone());
 
-        // Suivi Straddle suspendu avec le générateur (plus aucun signal ouvert).
-        // crate::straddle_feedback_job::demarrer_job_feedback(db.clone());
-        // crate::straddle_moniteur_position::demarrer_moniteur_straddle(db.clone());
-
-        // Calibrations SUSPENDUES : elles apprenaient sur les feedbacks des
-        // anciens signaux — tables purgées, recalibration après gates 2-3.
-        // crate::straddle_calibration::demarrer_calibration(db.clone());
-        // crate::rockets_calibration::demarrer_calibration_rockets(db.clone());
+        // tables purgées, recalibration après gates 2-3.
+        // (jobs straddle_feedback_job / straddle_moniteur_position / calibrations
+        //  supprimés — nettoyage code mort, l'ancien système ne reviendra pas)
 
         // Boucle analyse SMC Directionnel (toutes les 15 min) — ÉTEINTE,
         // voir décision Gate 0 n°2 ci-dessus (remplacée par le runtime tick).
@@ -125,14 +118,8 @@ impl AppState {
         // code absents de la table (INSERT OR IGNORE, réglages DB préservés).
         crate::registre_strategies::amorcer_registre(&db).await;
 
-        // Workers relics SMC v1 ÉTEINTS (audit étape 2 : ils réglaient le
-        // moteur v1 tué — la v12 lit sa calibration Pine figée).
-        // crate::smc_feedback_job::demarrer_job_feedback_smc(db.clone());
-        // crate::smc_calibration_job::demarrer_calibration_smc(db.clone());
-
-        // Patterns d'échec SUSPENDUS : les leçons étaient injectées dans les
-        // prompts LLM depuis les vieux signaux — table purgée.
-        // crate::patterns_echec_job::demarrer_job_patterns_echec(db.clone());
+        // (workers relics smc_feedback_job / smc_calibration_job supprimés —
+        // le moteur v12 lit sa calibration Pine figée)
 
         // Job quotidien de rétention des données (piloté par la config utilisateur)
         crate::retention_job::demarrer_job_retention(db.clone());

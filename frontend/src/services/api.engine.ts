@@ -4,8 +4,7 @@
  */
 import { http } from './http.client'
 import type {
-  CouvertureDonnees, RequeteCollecte,
-  ResultatCollecte, HistoriqueML, ReponsePatternsVolatilite,
+  CouvertureDonnees, ReponsePatternsVolatilite,
 } from './api.types'
 
 export const engineApi = {
@@ -15,16 +14,6 @@ export const engineApi = {
     bougies_aujourd_hui?: number
   }> {
     const res = await http.get('/api/data/coverage')
-    return res.data
-  },
-
-  async collecterDonnees(params: RequeteCollecte): Promise<ResultatCollecte> {
-    const res = await http.post('/api/data/collect', params, { timeout: 300_000 })
-    return res.data
-  },
-
-  async obtenirHistoriqueML(limit = 30): Promise<HistoriqueML> {
-    const res = await http.get('/api/ml/history', { params: { limit } })
     return res.data
   },
 

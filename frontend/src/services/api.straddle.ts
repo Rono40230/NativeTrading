@@ -4,9 +4,8 @@
  */
 import { http } from './http.client'
 import type {
-  ReponseAnalyseStraddle, StraddleCreneau,
-  StraddleVolatiliteLive, StraddleMonitoringData, StraddleCalibrationRow, PrecisionHoraire,
-  StraddleDevSeedResponse, StraddleDevSignalResponse, StraddleSeuilsEffectifs,
+  ReponseAnalyseStraddle,
+  StraddleMonitoringData, StraddleCalibrationRow, PrecisionHoraire,
 } from './api.types'
 
 export const straddleApi = {
@@ -15,77 +14,7 @@ export const straddleApi = {
     return res.data
   },
 
-  async seedStraddleCreneauxDev(asset: string): Promise<StraddleDevSeedResponse> {
-    const res = await http.post('/api/straddle/dev/seed-creneaux', { asset })
-    return res.data
-  },
-
-  async creerSignalStraddleTestDev(asset: string, timeframe = 'M15'): Promise<StraddleDevSignalResponse> {
-    const res = await http.post('/api/straddle/dev/signal-test', { asset, timeframe })
-    return res.data
-  },
-
-  async cloturerFeedbackStraddleTest(signalId: string, verdict: 'tp1' | 'tp2' | 'tp3' | 'sl' | 'expire', prix_verdict: number): Promise<{ ok: boolean }> {
-    const res = await http.post(`/api/straddle/feedback/${signalId}/cloturer`, { verdict, prix_verdict })
-    return res.data
-  },
-
-  async getStraddleCreneaux(): Promise<StraddleCreneau[]> {
-    const res = await http.get('/api/straddle/creneaux')
-    return res.data
-  },
-
-  async patchStraddleCreneau(
-    id: number,
-    data: { statut?: string },
-  ): Promise<void> {
-    await http.patch(`/api/straddle/creneaux/${id}`, data)
-  },
-
-  async demanderAjustements(params: {
-    asset: string
-    roi_pct: number
-    win_rate: number
-    max_drawdown_pct: number
-    profit_factor: number
-    sharpe_ratio: number
-    tp_mult_1?: number
-    tp_mult_2?: number
-    tp_mult_3?: number
-    sl_mult?: number
-    seuil_atr?: number
-  }): Promise<{ tp_mult_1: number; tp_mult_2: number; tp_mult_3: number; sl_mult: number; seuil_atr: number; raison: string; modele: string }> {
-    const res = await http.post('/api/ia/ajustements', params, { timeout: 120000 })
-    return res.data
-  },
-
-  async analyserPrecisionCreneau(
-    id: number,
-    creneau: { asset: string; jour_semaine: number | null; heure_debut: string; heure_fin: string },
-  ): Promise<{
-    timing_optimal?: string
-    fenetre_entree?: string
-    whipsaw_minutes?: number
-    nb_occurrences?: number
-    atr_pic?: number
-    ok?: boolean
-    message?: string
-  }> {
-    const res = await http.post(`/api/straddle/creneaux/${id}/precision`, creneau, { timeout: 30000 })
-    return res.data
-  },
-
-  async getAbTest(): Promise<{ strategie: string; nb_total: number; nb_wins: number; nb_pertes: number; win_rate: number; conviction_moy: number; score_moy: number }[]> {
-    const res = await http.get('/api/ia/ab-test')
-    return res.data
-  },
-
   // ── ML Straddle adaptatif ──────────────────────────────────────────────────
-
-  async getStraddleVolatiliteLive(): Promise<StraddleVolatiliteLive> {
-    const res = await http.get('/api/straddle/volatilite-live', { timeout: 10000 })
-    return res.data
-  },
 
   async getStraddleMonitoringML(): Promise<StraddleMonitoringData> {
     const res = await http.get('/api/straddle/monitoring-ml', { timeout: 10000 })
@@ -107,19 +36,6 @@ export const straddleApi = {
       heure,
       jour_semaine: jourSemaine,
     }, { timeout: 30000 })
-    return res.data
-  },
-
-  async getStraddleEquity(capital = 10000, risk_pct = 0.015): Promise<{
-    capital_initial: number; risk_pct: number; nb_trades_saisis: number
-    points: { asset: string; verdict: string; pnl_r: number; equity_cumulee: number; ferme_le: number; duree_min: number }[]
-  }> {
-    const res = await http.get('/api/straddle/equity', { params: { capital, risk_pct } })
-    return res.data
-  },
-
-  async getStraddleSeuilsEffectifs(asset = 'BTCUSDT', categorie = 'AtrPur'): Promise<StraddleSeuilsEffectifs> {
-    const res = await http.get('/api/straddle/seuils-effectifs', { params: { asset, categorie } })
     return res.data
   },
 }

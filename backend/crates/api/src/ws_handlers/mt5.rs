@@ -5,7 +5,7 @@
 //! vide préserve les données du store.
 
 use actix_web::{web, HttpRequest, HttpResponse};
-use actix_ws::{Message, Session};
+use actix_ws::Message;
 use std::time::Duration;
 
 use crate::state::AppState;

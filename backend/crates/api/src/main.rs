@@ -27,35 +27,27 @@ mod ollama_chat_handler;
 mod ollama_handlers;
 mod ollama_signal_ia_handler;
 mod ollama_types;
-mod patterns_echec_job;
 mod pip_updater;
 mod prealerte_handlers;
 mod presse_handlers;
-mod prealerte_worker;
 mod prix_handlers;
 mod prix_stream;
 mod prix_utils;
 mod prompts_handler;
-mod rockets_analyse;
 mod rockets_analyse_handler;
-mod rockets_calibration;
 mod rockets_handlers;
-mod rockets_sauvegarder;
 mod rockets_scan;
 mod rockets_ml_handlers;
 mod rockets_prix;
-mod rockets_sauvegarder_feedbacks;
 mod rockets_suivi;
 mod rockets_suivi_worker;
 mod retention_job;
 mod runtime_handlers;
 mod runtime_tick;
-mod scheduler;
 mod scheduler_execution;
 mod sentiment_composite;
 mod sentiment_filter;
 mod sentiment_handlers;
-mod signal_filtre;
 mod signaux_handlers;
 mod straddle_agenda;
 mod rockets_verticale;
@@ -66,30 +58,18 @@ mod setups_formation;
 mod registre_strategies;
 mod signaux_officiels;
 mod smc_analyse_handler;
-mod smc_calibration_job;
-mod smc_categorisation;
-mod smc_feedback_db;
-mod smc_feedback_job;
 mod smc_handlers;
 mod smc_monitoring_handlers;
 mod smc_v12_collect;
 mod smc_v12_handlers;
 mod smc_v12_out;
 mod state;
-mod straddle_calibration;
 mod straddle_categorisation;
 mod straddle_dev_handlers;
-mod straddle_feedback_job;
 mod straddle_handlers;
-mod straddle_machine_etats;
-mod straddle_ml_gate;
 mod straddle_ml_handlers;
-mod straddle_moniteur_position;
 mod straddle_monitoring_handlers;
 mod straddle_precision_handler;
-mod straddle_prompt;
-mod straddle_score_regle;
-mod straddle_signal_feedback;
 mod straddle_signal_handler;
 mod straddle_types;
 mod straddle_utils;
@@ -148,8 +128,6 @@ async fn main() -> std::io::Result<()> {
     tracing::warn!("🛑 Worker Rockets scan SUSPENDU — retour prévu en phase 3 (plugin runtime)");
 
     // Analyse hebdo LLM Rockets suspendue (consommateur Ollama).
-    // tokio::spawn(rockets_analyse_handler::demarrer_worker_analyse(pool_analyse));
-    let _ = rockets_analyse_handler::demarrer_worker_analyse;
 
     // Suivi des signaux de l'ancien système : suspendu avec ses générateurs
     // (plus aucun signal ouvert à suivre).
@@ -180,14 +158,11 @@ async fn main() -> std::io::Result<()> {
     // Étape 5 — verticale Rockets : scanner D1 + gestion (bus signaux).
     rockets_verticale::demarrer(app_state.db.clone(), poignees_runtime.bus_signaux.clone());
 
-    // ── Pré-alertes SUSPENDUES (décision propriétaire 2026-08-15) ────────────
-    // Elles étaient générées par l'ANCIEN système (scorer SMC + ATR Straddle
-    // sur bougies clôturées, cycle 5 min) et envoyées par Telegram — 145 le
-    // 15/08 malgré les suspensions. Plus aucune pré-alerte jusqu'à la bascule
-    // 2.8 : les seules notifications à venir seront les signaux v12 VALIDÉS.
-    // prealerte_worker::demarrer_worker_prealerte(app_state.db.clone());
-    tracing::warn!("🛑 Worker pré-alertes SUSPENDU (ancien système — alimentait Telegram)");
-    let _ = prealerte_worker::demarrer_worker_prealerte;
+    // ── Pré-alertes SUPPRIMÉES (nettoyage code mort, décision 2026-08-15) ──────
+    // L'ancien worker (scorer SMC + ATR Straddle sur bougies clôturées) alimentait
+    // Telegram en double des signaux officiels. Les seules notifications sont les
+    // signaux v12 VALIDÉS. L'endpoint de lecture /api/pre_alertes reste servi.
+    tracing::warn!("🛑 Worker pré-alertes SUPPRIMÉ (ancien système — alimentait Telegram en double)");
 
     HttpServer::new(move || {
         // CORS limité au dev Tauri uniquement — en production l'app est native (fenêtre Tauri)

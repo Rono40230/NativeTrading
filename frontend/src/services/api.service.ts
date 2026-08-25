@@ -25,9 +25,9 @@ export type {
 import type {
   RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA,
   ImageAvecTF, StatutIA, PredictionML, ScoreSmc,
-  ReponseEntrainement, ReponseIndicators, IndicatorsParams,
+  ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
-  ModeCalculTendance, RequeteSignalIA, ReponseSignalIA,
+  ModeCalculTendance,
 } from './api.types'
 import type { StraddleParams as ParamsStraddle } from '@/generated/ParamsStraddle'
 import type { SmcParams as ParamsSmc } from '@/generated/ParamsSmc'
@@ -49,15 +49,6 @@ export const apiService = {
       timeout: 60000, // pagination Binance : jusqu'à 5 requêtes × ~3s chacune
     })
     return res.data
-  },
-
-  async getPrixActuel(ticker: string): Promise<number | null> {
-    try {
-      const res = await http.get('/api/prix-actuel', { params: { ticker }, timeout: 5000 })
-      return res.data?.prix ?? null
-    } catch {
-      return null
-    }
   },
 
   async getPrixAssets(assets: string[]): Promise<Record<string, number>> {
@@ -87,16 +78,6 @@ export const apiService = {
     return res.data
   },
 
-  async entrainerML(asset = 'BTC', timeframe = 'M15', limit = 1000): Promise<ReponseEntrainement> {
-    const res = await http.post('/api/ml/train', null, { params: { asset, timeframe, limit }, timeout: 180000 })
-    return res.data
-  },
-
-  async statutML(): Promise<{ modele_pret: boolean; lstm_pret: boolean }> {
-    const res = await http.get('/api/ml/status')
-    return res.data
-  },
-
   async statutIA(): Promise<StatutIA> {
     const res = await http.get('/api/ia/status')
     return res.data
@@ -104,11 +85,6 @@ export const apiService = {
 
   async analyserIA(requete: RequeteAnalyseIA): Promise<ReponseAnalyseIA> {
     const res = await http.post('/api/ia/analyse', requete, { timeout: 120000 })
-    return res.data
-  },
-
-  async genererSignalIA(requete: RequeteSignalIA): Promise<ReponseSignalIA> {
-    const res = await http.post('/api/ia/signal', requete, { timeout: 120000 })
     return res.data
   },
 
@@ -235,27 +211,6 @@ export const apiService = {
     await http.delete(`/api/prompts/${id}`)
   },
 
-  // ── Pré-alertes (widget tableau de bord) ───────────────────────────────────
-  async getPreAlertes(limit = 10): Promise<unknown[]> {
-    const res = await http.get('/api/pre_alertes', { params: { limit } })
-    return res.data
-  },
-
-  // ── Marché : klines Binance (sparklines CryptosAlert / VeilleRockets) ───────
-  async getMarcheKlines(symbol: string, interval: string, limit: number): Promise<unknown[][]> {
-    const res = await http.get('/api/marche/klines', { params: { symbol, interval, limit } })
-    return res.data
-  },
-
-  // ── IA : sauvegarde d'analyse (capture écran) ──────────────────────────────
-  async saveAnalyseIA(payload: {
-    image_base64: string
-    asset: string
-    timeframe: string
-  }): Promise<void> {
-    await http.post('/api/ia/save-analysis', payload)
-  },
-
   // ── ML : feature importance par stratégie ──────────────────────────────────
   async getMlFeatureImportance(strategie: string): Promise<{
     feature_idx: number
@@ -264,16 +219,6 @@ export const apiService = {
   }[]> {
     const res = await http.get(`/api/ml/feature-importance/${strategie}`)
     return res.data
-  },
-
-  // ── SMC : dernière analyse LLM (notification nouveau contenu) ───────────────
-  async getDerniereAnalyseLlmSmc(): Promise<{ cree_le?: string } | null> {
-    try {
-      const res = await http.get('/api/smc/analyse-llm', { timeout: 5000 })
-      return res.status === 204 ? null : res.data
-    } catch {
-      return null
-    }
   },
 
   ...engineApi,

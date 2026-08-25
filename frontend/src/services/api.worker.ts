@@ -43,38 +43,6 @@ export interface WorkerStatus {
   bybit: WorkerStatutItem
 }
 
-/** Asset avec colonnes de routing worker. */
-export interface WorkerAsset {
-  id: string
-  source: string
-  symbol_bybit: string | null
-  actif: boolean
-}
-
-/** Résultat d'un backfill Dukascopy d'un mois (POST /api/data/dukascopy-backfill). */
-export interface ResultatBackfillDukascopy {
-  asset: string
-  instrument: string
-  diviseur: number
-  timeframe: string
-  annee: number
-  mois: number
-  /** Jours réellement téléchargés avec données. */
-  jours_traites: number
-  /** Jours 404/fériés/week-ends sans requête. */
-  jours_sans_donnees: number
-  /** Bougies M1 téléchargées (avant agrégation). */
-  bougies: number
-  /** Bougies au timeframe demandé (après agrégation). */
-  bougies_cible: number
-  /** Bougies réellement insérées (INSERT OR IGNORE — doublons exclus). */
-  inserees: number
-  /** Signal non bloquant (ex: instrument 404 systématique). */
-  avertissement: string | null
-  /** Erreurs par jour (rate limit, réseau…). */
-  erreurs: string[]
-}
-
 // ── Méthodes ──────────────────────────────────────────────────────────────────
 
 export const workerApi = {
@@ -93,28 +61,6 @@ export const workerApi = {
   /** GET /api/worker/status — statut runtime (poll 30 s dans la vue Données). */
   async getWorkerStatus(): Promise<WorkerStatus> {
     const res = await http.get('/api/worker/status')
-    return res.data
-  },
-
-  /** GET /api/worker/assets — routing complet des assets. */
-  async getWorkerAssets(): Promise<WorkerAsset[]> {
-    const res = await http.get('/api/worker/assets')
-    return res.data.assets
-  },
-
-  /**
-   * POST /api/data/dukascopy-backfill — télécharge UN mois de candles M1
-   * depuis le datafeed public Dukascopy (rate-limité : ~4 s par fichier
-   * quotidien → un mois ouvré ≈ 1,5-3 min). Timeout long volontaire.
-   * L'instrument est résolu côté serveur (colonne assets.datafeed_dukascopy).
-   */
-  async backfillDukascopyMois(params: {
-    asset: string
-    timeframe: string
-    annee: number
-    mois: number
-  }): Promise<ResultatBackfillDukascopy> {
-    const res = await http.post('/api/data/dukascopy-backfill', params, { timeout: 600_000 })
     return res.data
   },
 }

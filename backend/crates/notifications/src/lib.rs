@@ -1,9 +1,8 @@
 //! Crate `notifications` — envoi de notifications (Telegram, et futur email).
 //! Extrait du monolithe `api` (phase 1.6a). Cluster fermé : aucune dépendance
-//! vers le métier ; consommé uniquement via `notifications::telegram_worker`.
+//! vers le métier ; consommé uniquement via `notifications::telegram`
+//! (l'émetteur unique est le writer des signaux officiels).
 pub mod telegram;
-pub mod telegram_formatage;
-pub mod telegram_worker;
 
 use std::sync::LazyLock;
 

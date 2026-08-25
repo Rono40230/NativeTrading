@@ -41,37 +41,6 @@ pub fn limite_bougies(mois: u32) -> usize {
 /// Plafond pour les providers réseau (Binance : max 1000 bougies par appel).
 pub const MAX_BOUGIES_RESEAU: usize = 1000;
 
-/// Retourne le groupe de corrélation de l'asset, ou `None` si isolé.
-/// Règle P5 : si un signal Straddle est actif pour un autre asset du même groupe → skip.
-pub fn groupe_correlation(asset: &str) -> Option<&'static [&'static str]> {
-    const CRYPTO: &[&str] = &["BTC", "ETH"];
-    const METAUX: &[&str] = &["XAUUSD", "XAGUSD"];
-    if CRYPTO.contains(&asset) { return Some(CRYPTO); }
-    if METAUX.contains(&asset) { return Some(METAUX); }
-    None
-}
-
-/// Retourne le délai whipsaw (minutes) du créneau actif pour `hm` (heure*60+minute).
-/// Retourne `None` si aucun créneau ne correspond ou si `whipsaw_minutes` = 0.
-pub fn whipsaw_pour_heure(creneaux: &[db::straddle::StraddleCreneau], hm: u32) -> Option<i64> {
-    fn parse_hm(s: &str) -> u32 {
-        let mut it = s.splitn(2, ':');
-        let h: u32 = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
-        let m: u32 = it.next().and_then(|v| v.parse().ok()).unwrap_or(0);
-        h * 60 + m
-    }
-    creneaux
-        .iter()
-        .filter(|c| c.statut == "valide" || c.statut == "a_tester")
-        .filter(|c| {
-            let d = parse_hm(&c.heure_debut);
-            let f = parse_hm(&c.heure_fin);
-            if d <= f { hm >= d && hm <= f } else { hm >= d || hm <= f }
-        })
-        .filter_map(|c| c.whipsaw_minutes)
-        .find(|&w| w > 0)
-}
-
 /// Formate le bloc annonces HIGH impact pour le contexte LLM Straddle.
 pub fn formater_annonces_contexte(annonces: &[serde_json::Value], maintenant: i64) -> String {
     if annonces.is_empty() {
