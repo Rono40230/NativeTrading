@@ -104,13 +104,21 @@ void rafraichir_abonnements()
       if(sep <= 0) continue;
       string symbole = StringSubstr(ligne, 0, sep);
       string asset   = StringSubstr(ligne, sep + 1);
+      // Résolution du VRAI nom broker (MT5 est sensible à la casse :
+      // « dax40.fs » ≠ « DAX40.fs » — on balaye et on fixe la graphie).
+      string reel = resoudre_symbole(symbole);
+      if(reel == "")
+      {
+         Print("EA_Collecteur: symbole introuvable chez le broker : ", symbole);
+         continue;
+      }
       int n = ArraySize(nouveaux_assets);
       ArrayResize(nouveaux_assets, n + 1);
       ArrayResize(nouvelles_symboles, n + 1);
       nouveaux_assets[n] = asset;
-      nouvelles_symboles[n] = symbole;
+      nouvelles_symboles[n] = reel;
       // Abonnement Market Watch (nécessaire pour iTime etc.).
-      SymbolSelect(symbole, true);
+      SymbolSelect(reel, true);
    }
 
    // Diff : log des ajouts/retraits.
@@ -124,6 +132,23 @@ void rafraichir_abonnements()
    ArrayInitialize(derniere_minute, 0);
    ArrayResize(dernier_prix, ArraySize(symboles));
    ArrayInitialize(dernier_prix, 0.0);
+}
+
+//+------------------------------------------------------------------+
+//| Résout le nom broker réel : exact, puis insensible à la casse.   |
+//+------------------------------------------------------------------+
+string resoudre_symbole(const string demande)
+{
+   if(SymbolSelect(demande, true) && SymbolInfoDouble(demande, SYMBOL_BID) != 0.0)
+      return demande; // marché ouvert et trouvé tel quel
+   int total = SymbolsTotal(false);
+   for(int i = 0; i < total; i++)
+   {
+      string candidat = SymbolName(i, false);
+      if(StringCompare(candidat, demande, false) == 0)
+         return candidat;
+   }
+   return "";
 }
 
 //+------------------------------------------------------------------+
