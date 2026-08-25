@@ -217,8 +217,10 @@ async fn boucle_reconnect(
     let mut backoff = BACKOFF_DEPART_SEC;
     loop {
         let debut_session = Instant::now();
-        let resultat = session_unique(&db, &flux_runtime, url, linear).await;
-        STATUT_BYBIT.marque_deconnecte();
+        let (resultat, session_ouverte) = session_unique(&db, &flux_runtime, url, linear).await;
+        if session_ouverte {
+            STATUT_BYBIT.marque_deconnecte();
+        }
 
         let duree = debut_session.elapsed();
         match resultat {
@@ -259,11 +261,11 @@ async fn session_unique(
     flux_runtime: &Option<mpsc::UnboundedSender<EvenementPrix>>,
     url: &str,
     linear: bool,
-) -> anyhow::Result<()> {
+) -> (anyhow::Result<()>, bool) {
     // Interrupteur UI : worker désactivé → pas de connexion, retry au backoff max.
     if !lire_actif(db, CLE_ACTIF_BYBIT).await {
         tracing::debug!("Bybit WS: worker désactivé (worker_actif_bybit=0) — session sautée");
-        return Ok(());
+        return (Ok(()), false);
     }
 
     // Actifs et timeframes relus à CHAQUE session : la config UI s'applique
@@ -280,7 +282,7 @@ async fn session_unique(
             "Bybit WS {}: aucun actif ou timeframe à suivre — session sautée",
             if linear { "linear" } else { "spot" }
         );
-        return Ok(());
+        return (Ok(()), false);
     }
     let topics = construire_topics(&assets, &timeframes);
     let mapping = construire_mapping(&assets);
@@ -295,7 +297,7 @@ async fn session_unique(
     let (ws, reponse) = match connect_async(url).await {
         Ok((ws, reponse)) => (ws, reponse),
         Err(e) => {
-            return Err(anyhow::anyhow!("connexion WS échouée: {}", e));
+            return (Err(anyhow::anyhow!("connexion WS échouée: {}", e)), false);
         }
     };
     tracing::info!("Bybit WS: connecté (HTTP {})", reponse.status());
@@ -308,10 +310,13 @@ async fn session_unique(
     for morceau in topics.chunks(NB_ARGS_MAX) {
         let souscription = serde_json::json!({ "op": "subscribe", "args": morceau });
         let payload = serde_json::to_string(&souscription).unwrap_or_default();
-        sortie
+        if sortie
             .send(Message::Text(payload))
             .await
-            .map_err(|e| anyhow::anyhow!("échec envoi souscription: {}", e))?;
+            .is_err()
+        {
+            return (Err(anyhow::anyhow!("échec envoi souscription")), true);
+        }
     }
     tracing::info!(
         "Bybit WS: souscription envoyée ({} topics en {} message(s))",
@@ -350,13 +355,13 @@ async fn session_unique(
                         assets.len(),
                         assets_maj.len()
                     );
-                    return Ok(());
+                    return (Ok(()), true);
                 }
                 continue;
             }
             peut_etre = entree.next() => match peut_etre {
                 Some(m) => m,
-                None => return Err(anyhow::anyhow!("flux WS fermé par le serveur")),
+                None => return (Err(anyhow::anyhow!("flux WS fermé par le serveur")), true),
             },
         };
         match message {
@@ -374,7 +379,7 @@ async fn session_unique(
                             }
                         };
                         if sortie.send(Message::Text(pong)).await.is_err() {
-                            return Err(anyhow::anyhow!("échec envoi pong"));
+                            return (Err(anyhow::anyhow!("échec envoi pong")), true);
                         }
                     }
                     ActionWs::Klines(klines) => {
@@ -429,11 +434,11 @@ async fn session_unique(
             Ok(Message::Pong(_) | Message::Binary(_)) => {}
             Ok(Message::Close(_)) => {
                 tracing::info!("Bybit WS: frame Close reçue du serveur");
-                return Ok(());
+                return (Ok(()), true);
             }
             Ok(Message::Frame(_)) => {}
             Err(e) => {
-                return Err(anyhow::anyhow!("erreur lecture WS: {}", e));
+                return (Err(anyhow::anyhow!("erreur lecture WS: {}", e)), true);
             }
         }
     }

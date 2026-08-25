@@ -3,6 +3,7 @@
 //! n'ont pas encore de provider de streaming.
 
 mod binance;
+mod mt5;
 mod types;
 
 use actix_web::{web, HttpRequest, HttpResponse};
@@ -14,6 +15,7 @@ pub async fn stream_market(
     req: HttpRequest,
     body: web::Payload,
     query: web::Query<std::collections::HashMap<String, String>>,
+    state: web::Data<crate::state::AppState>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let asset_str = query
         .get("asset")
@@ -27,6 +29,23 @@ pub async fn stream_market(
 
     let asset = parse_asset(&asset_str);
     let timeframe = parse_timeframe(&timeframe_str);
+
+    // Actifs MT5/Axi (source mt5 en base) → flux par l'état du collecteur
+    // (bougie en formation poussée par l'EA chaque seconde). AVANT le
+    // handle WS : rien à ouvrir pour le flux Binance.
+    if let Ok(source) = sqlx::query_scalar::<_, String>(
+        "SELECT source FROM assets WHERE id = ? AND actif = 1",
+    )
+    .bind(&asset_str)
+    .fetch_one(state.db.pool())
+    .await
+    {
+        if source == "mt5" {
+            let q = web::Query::<std::collections::HashMap<String, String>>::clone(&query);
+            return mt5::stream_mt5(req, body, q, state).await;
+        }
+    }
+
     let (response, session, client_stream) = actix_ws::handle(&req, body)?;
 
     let crypto = asset.as_ref().map(|a| a.est_cotable_bybit()).unwrap_or(false);

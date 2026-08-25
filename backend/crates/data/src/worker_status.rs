@@ -18,6 +18,9 @@ pub struct StatutWorker {
     pub derniere_connexion: AtomicI64,
     /// Timestamp Unix de la dernière bougie insérée (0 = aucune).
     pub derniere_bougie: AtomicI64,
+    /// Sessions vivantes (plusieurs workers partagent ce statut : spot +
+    /// linear — déconnecté seulement quand TOUTES sont mortes).
+    pub sessions: AtomicU64,
     /// Compteur cumulé de bougies insérées depuis le démarrage du process.
     pub bougies_inserees: AtomicU64,
 }
@@ -40,21 +43,27 @@ impl StatutWorker {
             nb_assets: AtomicU64::new(0),
             derniere_connexion: AtomicI64::new(0),
             derniere_bougie: AtomicI64::new(0),
+            sessions: AtomicU64::new(0),
             bougies_inserees: AtomicU64::new(0),
         }
     }
 
     /// Marque le worker connecté avec sa liste d'actifs courante.
     pub fn marque_connecte(&self, nb_assets: u64) {
+        self.sessions.fetch_add(1, Ordering::Relaxed);
         self.connecte.store(true, Ordering::Relaxed);
         self.nb_assets.store(nb_assets, Ordering::Relaxed);
         self.derniere_connexion
             .store(Utc::now().timestamp(), Ordering::Relaxed);
     }
 
-    /// Marque le worker déconnecté (fin de session, erreur réseau, cycle KO).
+    /// Marque la FIN d'une session — déconnecté seulement quand la dernière
+    /// meurt (un worker sans actifs — linear sans métaux — tourne à vide
+    /// sans écraser le statut de l'autre).
     pub fn marque_deconnecte(&self) {
-        self.connecte.store(false, Ordering::Relaxed);
+        if self.sessions.fetch_sub(1, Ordering::Relaxed) <= 1 {
+            self.connecte.store(false, Ordering::Relaxed);
+        }
     }
 
     /// Consigne l'insertion réussie d'une bougie (timestamp Unix secondes).

@@ -295,12 +295,17 @@ void pousser_historique(const int s)
 
          char donnees[];
          StringToCharArray(json, donnees, 0, StringLen(json));
-         char resultat[];
-         string en_tetes_reponse = "";
-         ResetLastError();
-         int statut = WebRequest("POST", ApiUrl + "/api/mt5/historique",
-                                 "Content-Type: application/json\r\n",
-                                 30000, donnees, resultat, en_tetes_reponse);
+         int statut = -1;
+         for(int essai = 0; essai < 3 && statut != 200; essai++)
+         {
+            char resultat[];
+            string en_tetes_reponse = "";
+            ResetLastError();
+            statut = WebRequest("POST", ApiUrl + "/api/mt5/historique",
+                                "Content-Type: application/json\r\n",
+                                30000, donnees, resultat, en_tetes_reponse);
+            if(statut != 200) Sleep(1000);
+         }
          if(statut != 200)
          {
             Print("EA_Collecteur: historique ", asset, " ", tf_noms[t],
@@ -329,12 +334,11 @@ void pousser_bougies()
    for(int s = 0; s < ArraySize(symboles); s++)
    {
       if(!historique_fait[s])
-      {
-         pousser_historique(s);
-         continue;
-      }
+         pousser_historique(s); // UN TF par tick — puis le live continue
       for(int t = 0; t < NB_TF; t++)
       {
+         if(!historique_fait[s] && etat_tf[idx(s, t)] != 1)
+            continue; // TF pas encore poussé : pas de bougie à envoyer
          string symbole = symboles[s];
          ENUM_TIMEFRAMES periode = tf_periodes[t];
          datetime t0 = vers_utc(iTime(symbole, periode, 0));

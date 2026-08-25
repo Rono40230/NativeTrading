@@ -21,6 +21,9 @@ struct EtatMt5 {
     dernier_contact: i64,
     /// Dernier prix poussé par actif : (epoch s, prix).
     derniers_prix: HashMap<String, (i64, f64)>,
+    /// Bougie EN FORMATION par (asset, tf) — l'EA la pousse chaque seconde ;
+    /// le flux du graphique la sert telle quelle (vrai OHLC).
+    formations: HashMap<(String, String), (i64, f64, f64, f64, f64, f64)>,
 }
 
 fn etat() -> &'static Mutex<EtatMt5> {
@@ -29,6 +32,7 @@ fn etat() -> &'static Mutex<EtatMt5> {
         Mutex::new(EtatMt5 {
             dernier_contact: 0,
             derniers_prix: HashMap::new(),
+            formations: HashMap::new(),
         })
     })
 }
@@ -49,6 +53,21 @@ pub fn prix_live(asset: &str) -> Option<f64> {
     } else {
         None
     }
+}
+
+/// Bougie en formation d'un couple (asset, tf) — servie au graphique.
+/// None si l'EA est muet depuis > 120 s (MT5 fermé) ou TF inconnu.
+pub fn bougie_en_formation(
+    asset: &str,
+    tf: &str,
+) -> Option<(i64, f64, f64, f64, f64, f64)> {
+    let e = etat().lock().unwrap_or_else(|e| e.into_inner());
+    if Utc::now().timestamp() - e.dernier_contact > 120 {
+        return None;
+    }
+    e.formations
+        .get(&(asset.to_string(), tf.to_string()))
+        .copied()
 }
 
 /// Branche le canal runtime (appelé une fois au boot).
@@ -188,6 +207,10 @@ pub async fn post_kline(state: web::Data<AppState>, body: web::Form<BodyKline>) 
         e.dernier_contact = Utc::now().timestamp();
         e.derniers_prix
             .insert(asset.as_str().to_string(), (Utc::now().timestamp(), k.c));
+        e.formations.insert(
+            (asset.as_str().to_string(), tf.as_str().to_string()),
+            (k.debut, k.o, k.h, k.l, k.c, k.v),
+        );
     }
     HttpResponse::Ok().json(serde_json::json!({ "runtime": envoye }))
 }
