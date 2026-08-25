@@ -267,6 +267,32 @@ void pousser_historique(const int s)
       if(etat_tf[idx(s, t)] == 1) continue;
 
       int prof = tf_profondeurs[t];
+
+      // ── Que manque-t-il déjà ? L'app connaît son historique : on lui
+      // demande count + min_ts. Base pleine → TF sauté instantanément ;
+      // sinon on ne pousse que les bougies PLUS ANCIENNES que son min.
+      long min_ts_db = 0;
+      int  count_db = 0;
+      if(etat_historique(asset, tf_noms[t], count_db, min_ts_db) && count_db > 0)
+      {
+         datetime limite_utc = (datetime)min_ts_db;
+         datetime limite_srv = vers_serveur(limite_utc);
+         if(count_db >= prof)
+         {
+            etat_tf[idx(s, t)] = 1;
+            dernier_debut[idx(s, t)] = 0;
+            return; // déjà complet — TF sauté
+         }
+         MqlRates probe[];
+         int np = CopyRates(symboles[s], tf_periodes[t], 0, 2, probe);
+         if(np > 0 && probe[np - 1].time >= limite_srv)
+         {
+            etat_tf[idx(s, t)] = 1;
+            dernier_debut[idx(s, t)] = 0;
+            return; // la base remonte aussi loin que le broker — rien à ajouter
+         }
+      }
+
       MqlRates barres[];
       // CopyRates est borné par « Max bars in chart » du terminal : on
       // demande le max voulu, MT5 rend ce qu'il a.
@@ -277,12 +303,27 @@ void pousser_historique(const int s)
                " indisponible (", n, ") — réessai au prochain cycle");
          return; // ce symbole réessayera
       }
-      int total = n - 1;                    // exclut la bougie en formation
       int TAILLE_MORCEAU = 2000;
       int envoyees = 0;
-      for(int fin = total; fin > 0; fin -= TAILLE_MORCEAU)
+      int debut_envoi = n - 1; // plus ancienne bougie à envoyer
+      if(count_db > 0)
       {
-         int debut_m = MathMax(0, fin - TAILLE_MORCEAU);
+         datetime limite_srv = vers_serveur((datetime)min_ts_db);
+         for(int i = 0; i < n; i++)
+         {
+            if(barres[i].time < limite_srv) { debut_envoi = i; break; }
+            debut_envoi = i + 1; // toutes plus récentes que le min → rien
+         }
+         if(debut_envoi >= n)
+         {
+            etat_tf[idx(s, t)] = 1;
+            dernier_debut[idx(s, t)] = 0;
+            return; // rien de plus ancien à ajouter
+         }
+      }
+      for(int fin = n - 1; fin > debut_envoi; fin -= TAILLE_MORCEAU)
+      {
+         int debut_m = MathMax(debut_envoi, fin - TAILLE_MORCEAU);
          string json = "{\"asset\":\"" + asset + "\",\"tf\":\"" + tf_noms[t] + "\",\"b\":[";
          for(int i = fin - 1; i >= debut_m; i--)
          {
@@ -310,8 +351,8 @@ void pousser_historique(const int s)
          {
             Print("EA_Collecteur: historique ", asset, " ", tf_noms[t],
                   " morceau → HTTP ", statut, " err ", GetLastError(),
-                  " (", envoyees, "/", total, " bougies) — reprise au prochain cycle");
-            return; // réessai : le prochain tick repart de zéro sur ce TF
+                  " — reprise au prochain cycle");
+            return;
          }
          envoyees += fin - debut_m;
          Sleep(120);
@@ -319,7 +360,7 @@ void pousser_historique(const int s)
       etat_tf[idx(s, t)] = 1;
       dernier_debut[idx(s, t)] = 0;
       Print("EA_Collecteur: historique ", asset, " ", tf_noms[t],
-            " poussé — ", total, " bougies");
+            pousser_note(count_db, envoyees));
       return; // UN TF par tick : le suivant dans une seconde
    }
    historique_fait[s] = true;
@@ -385,6 +426,49 @@ void envoyer_kline(const int s, const int t, const int shift, const bool confirm
 
    dernier_debut[idx(s, t)] = vers_utc(iTime(symbole, periode, 0));
    dernier_close[idx(s, t)] = iClose(symbole, periode, 0);
+}
+
+//+------------------------------------------------------------------+
+//| Demande à l'app ce qu'elle a déjà : GET /api/mt5/historique/etat |
+//| → { "count": N, "min_ts": T } (tiny JSON parsé à la main).       |
+//+------------------------------------------------------------------+
+bool etat_historique(const string asset, const string tf, int &count_db, long &min_ts_db)
+{
+   char vide[];
+   char resultat[];
+   string en_tetes_reponse = "";
+   string url = ApiUrl + "/api/mt5/historique/etat?asset=" + asset + "&tf=" + tf;
+   if(WebRequest("GET", url, "", 5000, vide, resultat, en_tetes_reponse) != 200)
+      return false;
+   string reponse = "";
+   for(int i = 0; i < ArraySize(resultat); i++)
+      reponse += CharToString(resultat[i]);
+   int pc = StringFind(reponse, "\"count\":");
+   int pm = StringFind(reponse, "\"min_ts\":");
+   if(pc < 0 || pm < 0) return false;
+   int fc = StringFind(reponse, ",", pc);
+   int fm = StringFind(reponse, "}", pm);
+   if(fc < 0 || fm < 0) return false;
+   count_db = (int)StringToInteger(StringSubstr(reponse, pc + 8, fc - pc - 8));
+   min_ts_db = StringToInteger(StringSubstr(reponse, pm + 9, fm - pm - 9));
+   return true;
+}
+
+/// Inverse de vers_utc (pour comparer au temps serveur de CopyRates).
+datetime vers_serveur(const datetime t_utc)
+{
+   int offset_heures = heure_ete_us(t_utc) ? 3 : 2;
+   int offset_vif = (int)(TimeTradeServer() - TimeGMT()) / 3600;
+   if(offset_vif == 2 || offset_vif == 3)
+      offset_heures = offset_vif;
+   return t_utc + offset_heures * 3600;
+}
+
+string pousser_note(const int count_db, const int envoyees)
+{
+   if(count_db > 0 && envoyees == 0) return " déjà complet — rien à ajouter";
+   if(count_db > 0) return " delta poussé — " + IntegerToString(envoyees) + " bougies ajoutées";
+   return " poussé — " + IntegerToString(envoyees) + " bougies";
 }
 
 //+------------------------------------------------------------------+

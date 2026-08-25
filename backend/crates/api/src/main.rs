@@ -61,6 +61,7 @@ mod straddle_agenda;
 mod rockets_verticale;
 mod rockets_ia;
 mod mt5_collecteur;
+mod mt5_etat_historique;
 mod setups_formation;
 mod registre_strategies;
 mod signaux_officiels;
