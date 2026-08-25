@@ -71,6 +71,35 @@ void OnTimer()
 }
 
 //+------------------------------------------------------------------+
+//| Conversion heure SERVEUR broker → UTC.                          |
+//| Axi : GMT+2 (heure US d'hiver) / GMT+3 (heure US d'été) — règle    |
+//| approximative aux semaines frontières près (±1 h), exacte         |
+//| aujourd'hui. Sans ça, toutes les bougies partent 2-3 h dans le    |
+//| futur et les annonces UTC (straddle) se désynchronisent.          |
+//+------------------------------------------------------------------+
+bool heure_ete_us(const datetime t_srv)
+{
+   MqlDateTime d;
+   TimeToStruct(t_srv, d);
+   int m = d.mon, j = d.day;
+   if(m > 3 && m < 11) return true;   // avril-octobre
+   if(m < 3 || m > 11) return false;  // novembre-février
+   if(m == 3) return j >= 8;          // ~2e dimanche de mars
+   return j <= 7;                     // ~1er dimanche de novembre
+}
+
+datetime vers_utc(const datetime t_srv)
+{
+   int offset_heures = heure_ete_us(t_srv) ? 3 : 2;
+   // Exact à l'instant présent si l'horloge courante est dans la même
+   // saison (elle l'est quasi toujours) :
+   int offset_vif = (int)(TimeTradeServer() - TimeGMT()) / 3600;
+   if(offset_vif == 2 || offset_vif == 3)
+      offset_heures = offset_vif;
+   return t_srv - offset_heures * 3600;
+}
+
+//+------------------------------------------------------------------+
 int idx(const int s, const int t) { return s * NB_TF + t; }
 
 //+------------------------------------------------------------------+
@@ -258,7 +287,7 @@ void pousser_historique(const int s)
          for(int i = fin - 1; i >= debut_m; i--)
          {
             json += StringFormat("[%I64d,%.10f,%.10f,%.10f,%.10f,%I64d]",
-                                 (long)barres[i].time, barres[i].open, barres[i].high,
+                                 (long)vers_utc(barres[i].time), barres[i].open, barres[i].high,
                                  barres[i].low, barres[i].close, (long)barres[i].tick_volume);
             if(i > debut_m) json += ",";
          }
@@ -308,7 +337,7 @@ void pousser_bougies()
       {
          string symbole = symboles[s];
          ENUM_TIMEFRAMES periode = tf_periodes[t];
-         datetime t0 = iTime(symbole, periode, 0);
+         datetime t0 = vers_utc(iTime(symbole, periode, 0));
          if(t0 <= 0) continue;
 
          if(dernier_debut[idx(s, t)] > 0 && t0 > dernier_debut[idx(s, t)])
@@ -328,7 +357,7 @@ void envoyer_kline(const int s, const int t, const int shift, const bool confirm
 {
    string symbole = symboles[s];
    ENUM_TIMEFRAMES periode = tf_periodes[t];
-   datetime debut = iTime(symbole, periode, shift);
+   datetime debut = vers_utc(iTime(symbole, periode, shift));
    if(debut <= 0) return;
 
    string corps = StringFormat(
@@ -350,7 +379,7 @@ void envoyer_kline(const int s, const int t, const int shift, const bool confirm
    if(statut == -1)
       return;
 
-   dernier_debut[idx(s, t)] = iTime(symbole, periode, 0);
+   dernier_debut[idx(s, t)] = vers_utc(iTime(symbole, periode, 0));
    dernier_close[idx(s, t)] = iClose(symbole, periode, 0);
 }
 
