@@ -148,6 +148,8 @@ void rafraichir_abonnements()
    ArrayInitialize(dernier_debut, 0);
    ArrayResize(dernier_close, ArraySize(symboles) * NB_TF);
    ArrayInitialize(dernier_close, 0.0);
+   ArrayResize(etat_tf, ArraySize(symboles) * NB_TF);
+   ArrayInitialize(etat_tf, 0);
 }
 
 //+------------------------------------------------------------------+
@@ -215,28 +217,33 @@ string resoudre_symbole(const string demande)
 }
 
 //+------------------------------------------------------------------+
-//| Historique d'un symbole : batch JSON par TF.                     |
+//| Historique d'un symbole : batch JSON par TF, MORCEAUX de 2 000    |
+//| bougies (~130 Ko par POST — les gros corps font planter WebRequest)|
+//| et UN SEUL TF par tick d'horloge (1 s) pour étaler la charge.     |
+//| État de progression dans etat_tf[] : 0 = à faire, 1 = fait.       |
 //+------------------------------------------------------------------+
+int etat_tf[]; // [symbole × tf] : historique poussé ?
+
 void pousser_historique(const int s)
 {
    string asset = assets[s];
    for(int t = 0; t < NB_TF; t++)
    {
+      if(etat_tf[idx(s, t)] == 1) continue;
+
       int prof = tf_profondeurs[t];
       MqlRates barres[];
+      // CopyRates est borné par « Max bars in chart » du terminal : on
+      // demande le max voulu, MT5 rend ce qu'il a.
       int n = CopyRates(symboles[s], tf_periodes[t], 0, prof + 1, barres);
       if(n <= 1)
       {
          Print("EA_Collecteur: historique ", symboles[s], " ", tf_noms[t],
                " indisponible (", n, ") — réessai au prochain cycle");
-         return;
+         return; // ce symbole réessayera
       }
-      // Poussée par MORCEAUX de 20 000 bougies (le M1 sur 24 mois ≈ 720 k
-      // barres — un seul JSON serait trop lourd). Les barres CopyRates
-      // sont antichronologiques : on envoie du plus ancien au plus récent,
-      // en excluant la bougie en formation (indice 0).
-      int total = n - 1;
-      int TAILLE_MORCEAU = 20000;
+      int total = n - 1;                    // exclut la bougie en formation
+      int TAILLE_MORCEAU = 2000;
       int envoyees = 0;
       for(int fin = total; fin > 0; fin -= TAILLE_MORCEAU)
       {
@@ -255,22 +262,28 @@ void pousser_historique(const int s)
          StringToCharArray(json, donnees, 0, StringLen(json));
          char resultat[];
          string en_tetes_reponse = "";
+         ResetLastError();
          int statut = WebRequest("POST", ApiUrl + "/api/mt5/historique",
                                  "Content-Type: application/json\r\n",
-                                 60000, donnees, resultat, en_tetes_reponse);
+                                 30000, donnees, resultat, en_tetes_reponse);
          if(statut != 200)
          {
             Print("EA_Collecteur: historique ", asset, " ", tf_noms[t],
-                  " morceau → HTTP ", statut, " (", envoyees, " bougies déjà envoyées)");
-            return;
+                  " morceau → HTTP ", statut, " err ", GetLastError(),
+                  " (", envoyees, "/", total, " bougies) — reprise au prochain cycle");
+            return; // réessai : le prochain tick repart de zéro sur ce TF
          }
          envoyees += fin - debut_m;
-         Sleep(150);
+         Sleep(120);
       }
+      etat_tf[idx(s, t)] = 1;
       dernier_debut[idx(s, t)] = 0;
+      Print("EA_Collecteur: historique ", asset, " ", tf_noms[t],
+            " poussé — ", total, " bougies");
+      return; // UN TF par tick : le suivant dans une seconde
    }
    historique_fait[s] = true;
-   Print("EA_Collecteur: historique Axi de ", asset, " poussé (", NB_TF, " TF)");
+   Print("EA_Collecteur: historique Axi de ", asset, " complet (", NB_TF, " TF)");
 }
 
 //+------------------------------------------------------------------+
