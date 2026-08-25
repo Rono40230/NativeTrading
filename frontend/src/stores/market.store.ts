@@ -49,6 +49,10 @@ export const useMarketStore = defineStore('market', () => {
 
   async function connecterStream(asset: string, timeframe = 'M5') {
     deconnecterStream()
+    // Vider le cache du couple au (re)connect : les données en mémoire
+    // peuvent être périmées (changement de source, correction UTC) et
+    // feraient rejeter les mises à jour live par lightweight-charts.
+    delete bougies.value[`${asset}_${timeframe}`]
 
     // WebSocket pour les assets crypto + métaux (Binance/Bybit)
     ws = new WebSocket(`${WS_URL}/api/stream?asset=${asset}&timeframe=${timeframe}`)

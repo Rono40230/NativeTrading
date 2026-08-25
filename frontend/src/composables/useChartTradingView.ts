@@ -92,13 +92,19 @@ export function useChartTradingView(
 
   function mettreAJourEnDirect(bougie: Candle) {
     if (!candleSeries) return
-    candleSeries.update({
-      time: (new Date(bougie.timestamp).getTime() / 1000) as unknown as Time,
-      open: bougie.open,
-      high: bougie.high,
-      low: bougie.low,
-      close: bougie.close,
-    })
+    try {
+      candleSeries.update({
+        time: (new Date(bougie.timestamp).getTime() / 1000) as unknown as Time,
+        open: bougie.open,
+        high: bougie.high,
+        low: bougie.low,
+        close: bougie.close,
+      })
+    } catch {
+      // lightweight-charts rejette les mises à jour plus anciennes que la
+      // dernière bougie (cache store avec vieux horodatages GMT+3 vs flux
+      // UTC) — ignorer silencieusement au lieu de crasher le composant.
+    }
   }
 
   function detruireChart() {
