@@ -87,8 +87,11 @@ void rafraichir_abonnements()
    // Reconstruction de la liste (symbole|asset par ligne).
    string nouvelles_symboles[];
    string nouveaux_assets[];
-   int nb = StringSplit(reponse, '\n', nouvelles_symboles);
-   for(int i = 0; i < nb; i++)
+   // Piège StringSplit : si la réponse finit par '\n', la valeur de retour
+   // compte une sous-chaîne vide finale ABSENTE du tableau — on borne la
+   // boucle par la taille réelle (ArraySize), jamais par le retour.
+   StringSplit(reponse, '\n', nouvelles_symboles);
+   for(int i = 0; i < ArraySize(nouvelles_symboles); i++)
    {
       string ligne = nouvelles_symboles[i];
       StringTrimLeft(ligne);
