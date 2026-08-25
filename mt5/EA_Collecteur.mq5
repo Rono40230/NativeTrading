@@ -139,17 +139,23 @@ void rafraichir_abonnements()
    if(!identique)
       Print("EA_Collecteur: ", ArraySize(nouvelles_symboles), " symbole(s) à collecter (avant : ", ancien, ")");
 
-   ArrayCopy(symboles, nouvelles_symboles);
-   ArrayCopy(assets, nouveaux_assets);
-   ArrayResize(historique_fait, ArraySize(symboles));
-   ArrayInitialize(historique_fait, false);
+   // Réinitialiser les suiveurs UNIQUEMENT si la liste a changé — sinon
+   // l'historique serait repoussé en boucle à chaque cycle de 30 s
+   // (vu en prod : complet à 12h36, repoussé à 12h38).
+   if(!identique || ArraySize(symboles) != ArraySize(nouvelles_symboles))
+   {
+      ArrayCopy(symboles, nouvelles_symboles);
+      ArrayCopy(assets, nouveaux_assets);
+      ArrayResize(historique_fait, ArraySize(symboles));
+      ArrayInitialize(historique_fait, false);
 
-   ArrayResize(dernier_debut, ArraySize(symboles) * NB_TF);
-   ArrayInitialize(dernier_debut, 0);
-   ArrayResize(dernier_close, ArraySize(symboles) * NB_TF);
-   ArrayInitialize(dernier_close, 0.0);
-   ArrayResize(etat_tf, ArraySize(symboles) * NB_TF);
-   ArrayInitialize(etat_tf, 0);
+      ArrayResize(dernier_debut, ArraySize(symboles) * NB_TF);
+      ArrayInitialize(dernier_debut, 0);
+      ArrayResize(dernier_close, ArraySize(symboles) * NB_TF);
+      ArrayInitialize(dernier_close, 0.0);
+      ArrayResize(etat_tf, ArraySize(symboles) * NB_TF);
+      ArrayInitialize(etat_tf, 0);
+   }
 }
 
 //+------------------------------------------------------------------+
