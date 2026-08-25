@@ -28,8 +28,8 @@
         <p v-else class="text-xs text-gray-600">Aucun actif MT5 actif</p>
       </div>
 
-      <!-- Interrupteurs + statut -->
-      <div class="grid gap-4 md:grid-cols-2">
+      <!-- Interrupteurs + statut — toujours côte à côte -->
+      <div class="grid gap-4 grid-cols-2">
         <div
           v-for="w in cartesWorkers"
           :key="w.nom"
