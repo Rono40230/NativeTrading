@@ -198,19 +198,24 @@ function labelSentiment(v: number): string {
   return 'Peur extrême'
 }
 
-/// Pastilles par SIGNE (décision propriétaire 2026-08-22) : toute variation
-/// ≥ 0 est verte, toute variation < 0 est rouge. Remplace l'échelle par
-/// classe (indices ±1 %, matières ±0,75 %, cryptos ±2 % — 2026-08-18).
+/// Pastilles par SEUIL (décision propriétaire 25/08) : verte si variation
+/// ≥ +0,51 %, rouge si ≤ -0,51 %, bleue (neutre) entre -0,50 % et +0,50 %.
+/// Une variation < 0,51 % dans un sens comme dans l'autre n'est pas un
+/// mouvement — c'est du bruit.
 function pct(v: number): string {
   return (v > 0 ? '+' : '') + v.toFixed(2) + '%'
 }
 
 function bille(v: number): string {
-  return v >= 0 ? '🟢' : '🔴'
+  if (v >= 0.51) return '🟢'
+  if (v <= -0.51) return '🔴'
+  return '🔵'
 }
 
 function couleur(v: number): string {
-  return v >= 0 ? 'text-emerald-400' : 'text-red-400'
+  if (v >= 0.51) return 'text-emerald-400'
+  if (v <= -0.51) return 'text-red-400'
+  return 'text-blue-400'
 }
 
 </script>
