@@ -8,7 +8,7 @@
 //|  1. Compiler ce fichier dans MetaEditor (F7).                    |
 //|  2. MT5 → Outils → Options → Conseillers Experts →               |
 //|     « Autoriser WebRequest pour les URL listées » → ajouter :    |
-//|     http://localhost:8080                                        |
+//|     http://127.0.0.1:8080  (localhost refusé par MT5 — bug connu)|
 //|  3. Attacher l'EA à N'IMPORTE QUEL graphique (il collecte tous   |
 //|     les symboles configurés dans l'application).                 |
 //|                                                                  |
