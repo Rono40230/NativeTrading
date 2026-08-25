@@ -35,7 +35,7 @@ pub async fn get_candles(
     };
 
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
-    let limit = query.limit.unwrap_or(200).min(5000) as usize;
+    let limit = query.limit.unwrap_or(200).min(50_000) as usize;
     let force = query.force.unwrap_or(false);
 
     // 1. Cache DB — toutes sources : c'est LA source du chart. Le backfill

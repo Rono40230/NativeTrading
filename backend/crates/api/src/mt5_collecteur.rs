@@ -39,6 +39,18 @@ fn canal_runtime() -> &'static Mutex<Option<UnboundedSender<EvenementPrix>>> {
     CANAL.get_or_init(|| Mutex::new(None))
 }
 
+/// Dernier prix LIVE d'un actif MT5 (bougie en formation poussée par l'EA,
+/// fraîche à la seconde) — None si absent ou muet depuis > 120 s.
+pub fn prix_live(asset: &str) -> Option<f64> {
+    let e = etat().lock().unwrap_or_else(|e| e.into_inner());
+    let (ts, prix) = e.derniers_prix.get(asset)?;
+    if chrono::Utc::now().timestamp() - ts < 120 {
+        Some(*prix)
+    } else {
+        None
+    }
+}
+
 /// Branche le canal runtime (appelé une fois au boot).
 pub fn brancher_canal(tx: UnboundedSender<EvenementPrix>) {
     *canal_runtime().lock().unwrap_or_else(|e| e.into_inner()) = Some(tx);

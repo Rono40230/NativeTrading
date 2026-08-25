@@ -48,7 +48,15 @@ pub async fn stream_prix(
                             let client = client.clone();
                             let asset = asset.clone();
                             async move {
-                                let prix = prix_utils::fetch_binance(&client, &asset).await;
+                                // MT5/Axi d'abord (bougie en formation, à la
+                                // seconde) ; Binance pour la crypto ; DB en
+                                // dernier recours (marché fermé).
+                                let prix = crate::mt5_collecteur::prix_live(&asset)
+                                    .or_else(|| None::<f64>);
+                                let prix = match prix {
+                                    Some(p) => Some(p),
+                                    None => prix_utils::fetch_binance(&client, &asset).await,
+                                };
                                 (asset, prix)
                             }
                         })
