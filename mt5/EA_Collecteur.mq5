@@ -231,32 +231,43 @@ void pousser_historique(const int s)
                " indisponible (", n, ") — réessai au prochain cycle");
          return;
       }
-      string json = "{\"asset\":\"" + asset + "\",\"tf\":\"" + tf_noms[t] + "\",\"b\":[";
-      for(int i = 0; i < n - 1; i++) // exclure la bougie en formation
+      // Poussée par MORCEAUX de 20 000 bougies (le M1 sur 24 mois ≈ 720 k
+      // barres — un seul JSON serait trop lourd). Les barres CopyRates
+      // sont antichronologiques : on envoie du plus ancien au plus récent,
+      // en excluant la bougie en formation (indice 0).
+      int total = n - 1;
+      int TAILLE_MORCEAU = 20000;
+      int envoyees = 0;
+      for(int fin = total; fin > 0; fin -= TAILLE_MORCEAU)
       {
-         if(i > 0) json += ",";
-         json += StringFormat("[%I64d,%.10f,%.10f,%.10f,%.10f,%I64d]",
-                              (long)barres[i].time, barres[i].open, barres[i].high,
-                              barres[i].low, barres[i].close, (long)barres[i].tick_volume);
-      }
-      json += "]}";
+         int debut_m = MathMax(0, fin - TAILLE_MORCEAU);
+         string json = "{\"asset\":\"" + asset + "\",\"tf\":\"" + tf_noms[t] + "\",\"b\":[";
+         for(int i = fin - 1; i >= debut_m; i--)
+         {
+            json += StringFormat("[%I64d,%.10f,%.10f,%.10f,%.10f,%I64d]",
+                                 (long)barres[i].time, barres[i].open, barres[i].high,
+                                 barres[i].low, barres[i].close, (long)barres[i].tick_volume);
+            if(i > debut_m) json += ",";
+         }
+         json += "]}";
 
-      char donnees[];
-      StringToCharArray(json, donnees, 0, StringLen(json));
-      char resultat[];
-      string en_tetes_reponse = "";
-      int statut = WebRequest("POST", ApiUrl + "/api/mt5/historique",
-                              "Content-Type: application/json\r\n",
-                              30000, donnees, resultat, en_tetes_reponse);
-      if(statut == 200)
-      {
-         dernier_debut[idx(s, t)] = 0;
+         char donnees[];
+         StringToCharArray(json, donnees, 0, StringLen(json));
+         char resultat[];
+         string en_tetes_reponse = "";
+         int statut = WebRequest("POST", ApiUrl + "/api/mt5/historique",
+                                 "Content-Type: application/json\r\n",
+                                 60000, donnees, resultat, en_tetes_reponse);
+         if(statut != 200)
+         {
+            Print("EA_Collecteur: historique ", asset, " ", tf_noms[t],
+                  " morceau → HTTP ", statut, " (", envoyees, " bougies déjà envoyées)");
+            return;
+         }
+         envoyees += fin - debut_m;
+         Sleep(150);
       }
-      else
-      {
-         Print("EA_Collecteur: historique ", asset, " ", tf_noms[t], " → HTTP ", statut);
-      }
-      Sleep(150);
+      dernier_debut[idx(s, t)] = 0;
    }
    historique_fait[s] = true;
    Print("EA_Collecteur: historique Axi de ", asset, " poussé (", NB_TF, " TF)");

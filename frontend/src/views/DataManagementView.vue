@@ -392,8 +392,18 @@ const lignesEnrichies = computed(() => {
       const pct = Math.min(100, Math.round((c.count / bougiesAttendues(c.timeframe, moisReference, c.asset)) * 100))
       const dateMin = c.min_ts ? new Date(c.min_ts * 1000).toLocaleDateString('fr-FR') : '—'
       const dateMax = c.max_ts ? new Date(c.max_ts * 1000).toLocaleDateString('fr-FR') : '—'
-      const ageDays = c.max_ts ? Math.floor((Date.now() / 1000 - c.max_ts) / 86400) : 999
-      const fraicheurLabel = ageDays === 0 ? "Aujourd'hui" : ageDays === 1 ? 'Hier' : `${ageDays}j`
+      // Fraîcheur = dernière CLÔTURE — une bougie D1 d'hier ou W1 de la
+      // semaine passée est FRAÎCHE (elle n'est pas due). Horloge serveur
+      // broker en avance → jamais d'étiquette négative.
+      const ageSec = c.max_ts ? Math.floor(Date.now() / 1000 - c.max_ts) : 999 * 86400
+      const ageDays = Math.floor(Math.max(0, ageSec) / 86400)
+      const ageH = Math.floor(Math.max(0, ageSec) / 3600)
+      const fraicheurLabel = ageSec < 0
+        ? 'à l’instant'
+        : ageH < 1 ? 'à l’instant'
+        : ageH < 24 ? `il y a ${ageH} h`
+        : ageDays === 1 ? 'hier'
+        : `${ageDays} j`
       return { ...c, pct, dateMin, dateMax, ageDays, fraicheurLabel }
     })
     .sort((a, b) => {

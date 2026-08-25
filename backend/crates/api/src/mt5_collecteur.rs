@@ -88,17 +88,19 @@ pub async fn get_symboles(state: web::Data<AppState>) -> impl Responder {
         .body(entete + &corps)
 }
 
-/// Profondeur d'historique demandée à l'EA par TF (moteurs : 7 jours ;
-/// amorce : D1 ~8 ans pour la mensuelle, W1 ~10 ans).
+/// Profondeur d'historique demandée à l'EA par TF — alignée sur la
+/// RÉTENTION (24 mois) pour que la couverture affiche la vérité ; les
+/// moteurs rejouent leurs 7 jours par-dessus. L'EA pousse par morceaux.
 fn profondeur_historique(tf: &str) -> i64 {
     match tf {
-        "M1" => 10_080,
-        "M5" => 2_016,
-        "M15" | "M30" => 672,
-        "H1" => 720,
-        "H4" => 400,
-        "D1" => 2_000,
-        "W1" => 520,
+        "M1" => 720_000,
+        "M5" => 144_000,
+        "M15" => 48_000,
+        "M30" => 24_000,
+        "H1" => 12_500,
+        "H4" => 3_100,
+        "D1" => 520,
+        "W1" => 110,
         _ => 500,
     }
 }
