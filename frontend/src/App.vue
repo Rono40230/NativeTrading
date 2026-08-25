@@ -36,50 +36,8 @@ watch(() => alarmeStore.total, (n, prev) => {
   if (n > prev) jouerSon()
 })
 
-// Connexion WebSocket UNIQUE au Signal Engine. App.vue (racine toujours montée)
-// est le seul propriétaire du flux temps réel : nourrit l'alarme modale, le store
-// signaux, le toast et la notification OS. (Auparavant doublonnait celle de
-// useSignalEngine → notifications dupliquées sur le Dashboard.)
-const WS_SIGNAUX = `${WS_BASE_URL}/api/signal-engine/stream`
-let ws: WebSocket | null = null
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-
-function connecterWs() {
-  if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return
-
-  ws = new WebSocket(WS_SIGNAUX)
-
-  ws.onmessage = (event) => {
-    try {
-      const signal = JSON.parse(event.data as string) as Signal & { confiance?: number }
-      alarmeStore.ajouterSignal(signal)
-      signalStore.ajouterSignalTempsReel(signal)
-      alerteStore.afficher(`🎯 Signal ${signal.asset}/${signal.timeframe} ${signal.direction}`, 'info')
-      signalerSignal(
-        signal.asset ?? 'Inconnu',
-        signal.timeframe ?? '—',
-        signal.direction ?? '—',
-        signal.confiance ?? 0,
-      )
-    } catch {
-      // message non-JSON ignoré
-    }
-  }
-
-  ws.onclose = () => {
-    ws = null
-    // Reconnexion automatique après 10s
-    reconnectTimer = setTimeout(connecterWs, 10_000)
-  }
-
-  ws.onerror = () => {
-    ws?.close()
-  }
-}
-
 onMounted(() => {
   assetsStore.chargerAssets()
-  connecterWs()
 
     // Exposition dev uniquement — test alarme + son depuis la console Tauri
   if (import.meta.env.DEV) {
@@ -118,10 +76,6 @@ onMounted(() => {
   }
 })
 
-onUnmounted(() => {
-  if (reconnectTimer) clearTimeout(reconnectTimer)
-  ws?.close()
-})
 </script>
 
 <style>
