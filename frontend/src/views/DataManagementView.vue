@@ -134,30 +134,6 @@
     <!-- Modale d'ajout (composant dédié) -->
     <ModaleAjoutAsset ref="modaleAjout" @cree="chargerTous" />
 
-    <!-- ══ SECTION 3 — Backfill Dukascopy (remplace l'import CSV) ═════════════ -->
-    <div class="glass-card p-4 space-y-2">
-      <div class="flex items-center justify-between gap-3 flex-wrap">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">
-          Backfill Dukascopy
-        </h2>
-        <span class="text-[11px] text-gray-500">
-          Bouton ⬇ dans la table de couverture — télécharge l'historique depuis le datafeed
-          public Dukascopy (rate-limité : ~2 min par mois, sans clé API).
-        </span>
-      </div>
-      <div v-if="progressionBackfill" class="text-sm text-blue-400 flex items-center gap-2">
-        <span class="inline-block w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-        {{ progressionBackfill }}
-      </div>
-      <div
-        v-if="resultatBackfill"
-        class="text-sm whitespace-pre-line"
-        :class="erreurBackfill ? 'text-red-400' : 'text-emerald-400'"
-      >
-        {{ resultatBackfill }}
-      </div>
-    </div>
-
     <!-- ══ SECTION 4 — Couverture DB ═════════════════════════════════════════ -->
     <div class="glass-card p-5">
       <div class="flex items-center justify-between mb-4">
@@ -181,7 +157,7 @@
       </div>
       <div v-if="chargement" class="text-gray-400 text-sm animate-pulse text-center py-8">Chargement…</div>
       <div v-else-if="couverture.length === 0" class="text-gray-500 text-sm text-center py-8">
-        Aucune donnée — activez les workers ou lancez un backfill Dukascopy (⬇) pour remplir la base.
+        Aucune donnée — activez les workers (l'historique arrive avec le flux).
       </div>
       <table v-else class="w-full text-sm">
         <thead>
@@ -192,7 +168,6 @@
             <th class="px-3 py-2 text-gray-400 text-right">Depuis</th>
             <th class="px-3 py-2 text-gray-400 text-right">Jusqu'à</th>
             <th class="px-3 py-2 text-gray-400 text-right">Statut</th>
-            <th class="px-3 py-2 text-gray-400 text-right" title="Télécharger l'historique depuis Dukascopy">⬇</th>
           </tr>
         </thead>
         <tbody>
@@ -219,18 +194,6 @@
                 <span class="text-xs whitespace-nowrap tabular-nums" :class="ligne.pct >= 80 ? 'text-emerald-400' : ligne.pct >= 40 ? 'text-yellow-400' : 'text-red-400'">{{ ligne.pct }}%</span>
                 <span class="text-xs whitespace-nowrap text-gray-500">{{ ligne.fraicheurLabel }}</span>
               </div>
-            </td>
-            <td class="px-3 py-2 text-right">
-              <button
-                :disabled="enBackfill"
-                class="text-blue-400 hover:text-blue-200 text-sm transition disabled:opacity-30"
-                :title="enBackfill
-                  ? 'Backfill en cours…'
-                  : `Télécharger ${MOIS_RETENTION} mois d'historique ${ligne.asset} ${ligne.timeframe} depuis Dukascopy`"
-                @click="backfillDukascopy(ligne.asset, ligne.timeframe)"
-              >
-                {{ enBackfill && cibleBackfill === `${ligne.asset}-${ligne.timeframe}` ? '⏳' : '⬇' }}
-              </button>
             </td>
           </tr>
         </tbody>
@@ -378,85 +341,6 @@ function badgeSource(source?: string): { label: string; classe: string } {
   }
 }
 
-
-// ── Section 3 : backfill Dukascopy (bouton ⬇ de la table de couverture) ──────
-const enBackfill = ref(false)
-const cibleBackfill = ref<string | null>(null)
-const progressionBackfill = ref<string | null>(null)
-const resultatBackfill = ref<string | null>(null)
-const erreurBackfill = ref(false)
-
-/**
- * Télécharge l'historique d'un asset × timeframe depuis le datafeed public
- * Dukascopy, mois par mois (chaque appel = ~22 fichiers quotidiens espacés
- * de 4 s à cause du rate limit). L'instrument Dukascopy est résolu côté
- * serveur via la colonne `assets.datafeed_dukascopy`.
- */
-async function backfillDukascopy(asset: string, timeframe: string) {
-  if (enBackfill.value) return
-  enBackfill.value = true
-  cibleBackfill.value = `${asset}-${timeframe}`
-  resultatBackfill.value = null
-  erreurBackfill.value = false
-  progressionBackfill.value = `Préparation du backfill ${asset} ${timeframe}…`
-
-  const nbMois = MOIS_RETENTION
-  const maintenant = new Date()
-  let totalBougies = 0
-  let totalInserees = 0
-  let totalErreurs = 0
-  const avertissements: string[] = []
-
-  try {
-    for (let i = 0; i < nbMois; i++) {
-      // Le mois courant est envoyé tel quel : le serveur s'arrête à hier.
-      const date = new Date(maintenant.getFullYear(), maintenant.getMonth() - i, 1)
-      const annee = date.getFullYear()
-      const mois = date.getMonth() + 1 // 1-indexé côté API
-      progressionBackfill.value =
-        `Téléchargement ${asset} ${timeframe} — mois ${i + 1}/${nbMois} ` +
-        `(${mois.toString().padStart(2, '0')}/${annee}) — ${totalInserees.toLocaleString()} bougies`
-
-      const res = await apiService.backfillDukascopyMois({ asset, timeframe, annee, mois })
-      totalBougies += res.bougies
-      totalInserees += res.inserees
-      totalErreurs += res.erreurs.length
-      if (res.avertissement && !avertissements.includes(res.avertissement)) {
-        avertissements.push(res.avertissement)
-      }
-    }
-
-    if (totalInserees > 0) {
-      erreurBackfill.value = false
-      resultatBackfill.value =
-        `✅ ${asset} ${timeframe} : ${totalInserees.toLocaleString()} bougies insérées ` +
-        `(${totalBougies.toLocaleString()} M1 téléchargées sur ${nbMois} mois)` +
-        (totalErreurs > 0 ? ` — ${totalErreurs} jour(s) en erreur (rate limit), relancer pour compléter` : '')
-    } else {
-      erreurBackfill.value = true
-      resultatBackfill.value =
-        `⚠️ ${asset} ${timeframe} : aucune bougie insérée sur ${nbMois} mois`
-    }
-    if (avertissements.length > 0) {
-      resultatBackfill.value += `\n${avertissements.join('\n')}`
-    }
-    await chargerCouverture()
-  } catch (err: unknown) {
-    erreurBackfill.value = true
-    const message = err instanceof Error ? err.message : 'Erreur inconnue'
-    const detail = /timeout/i.test(message)
-      ? ' (délai dépassé — le rate limit Dukascopy est peut-être actif, relancer dans quelques minutes)'
-      : ''
-    resultatBackfill.value =
-      `❌ Backfill ${asset} ${timeframe} interrompu après ${totalInserees.toLocaleString()} bougies : ${message}${detail}`
-    // On rafraîchit quand même : les mois déjà traités sont en base.
-    await chargerCouverture()
-  } finally {
-    enBackfill.value = false
-    cibleBackfill.value = null
-    progressionBackfill.value = null
-  }
-}
 
 // ── Import MT5 (bouton historique conservé) ───────────────────────────────────
 
