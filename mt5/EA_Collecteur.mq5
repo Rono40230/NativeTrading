@@ -1,7 +1,7 @@
 //+------------------------------------------------------------------+
 //| EA_Collecteur.mq5 — Native Trading AI                            |
 //|                                                                  |
-//| Collecteur MT5/Axi : pousse les bougies M1 du broker vers        |
+//| Collecteur MT5/Axi : pousse les bougies du broker vers           |
 //| l'application (même chemin que Bybit).                           |
 //|                                                                  |
 //| INSTALLATION :                                                   |
@@ -13,23 +13,34 @@
 //|     les symboles configurés dans l'application).                 |
 //|                                                                  |
 //| MÉCANIQUE :                                                      |
-//|  - Toutes les 30 s : demande à l'app la liste des symboles à     |
-//|    collecter ( cases cochées dans 📦 Données) + heartbeat.       |
-//|  - Chaque seconde : pour chaque symbole, envoie la bougie M1 en  |
-//|    formation ; au changement de minute, envoie la clôture        |
-//|    officielle (conf=1) écrite en base par l'app.                 |
+//|  - Toutes les 30 s : liste des symboles + TF à collecter +       |
+//|    heartbeat. En-tête « #TF M1:10080,... » = profondeurs.        |
+//|  - Nouveau symbole : pousser l'HISTORIQUE Axi de chaque TF      |
+//|    (batch JSON) — les moteurs SMC s'arment dessus ensuite.       |
+//|  - Chaque seconde : bougie en formation de chaque (symbole, TF) ;|
+//|    au changement de période : clôture officielle (conf=1).       |
 //+------------------------------------------------------------------+
 #property copyright "Native Trading AI"
-#property version   "1.00"
+#property version   "1.30"
 #property strict
 
 input string ApiUrl = "http://127.0.0.1:8080"; // URL de l'application (localhost refusé par MT5 — bug connu)
 
-// Abonnement : symbole broker ↔ nom actif dans l'app
-string   symboles[];      // ex: "dax40.fs"
-string   assets[];        // ex: "DAX"
-datetime derniere_minute[];  // dernier début de M1 vu par symbole
-double   dernier_prix[];     // dernier close envoyé (anti-spam)
+// Abonnements
+string   symboles[];       // nom broker réel (résolu, casse exacte)
+string   assets[];         // nom dans l'app
+bool     historique_fait[];// historique poussé pour ce symbole ?
+
+// Timeframes demandés par l'app
+string   tf_noms[];
+ENUM_TIMEFRAMES tf_periodes[];
+int      tf_profondeurs[];
+int      NB_TF = 0;
+
+// Suivi live par (symbole × tf) — tableaux aplatis
+datetime dernier_debut[];
+double   dernier_close[];
+
 int      ticks_timer = 0;
 
 //+------------------------------------------------------------------+
@@ -51,8 +62,7 @@ void OnDeinit(const int reason)
 void OnTimer()
 {
    ticks_timer++;
-   bool trentieme = (ticks_timer % 30 == 0);
-   if(trentieme)
+   if(ticks_timer % 30 == 0)
    {
       heartbeat();
       rafraichir_abonnements();
@@ -61,16 +71,17 @@ void OnTimer()
 }
 
 //+------------------------------------------------------------------+
+int idx(const int s, const int t) { return s * NB_TF + t; }
+
+//+------------------------------------------------------------------+
 //| Liste des symboles : GET /api/mt5/symboles                       |
-//| Réponse texte : « symbole|asset » par ligne.                     |
+//| En-tête « #TF M1:10080,M5:2016,... » puis « symbole|asset ».     |
 //+------------------------------------------------------------------+
 void rafraichir_abonnements()
 {
    char vide[];
    char resultat[];
-   string reponse = "";
    string en_tetes_reponse = "";
-
    ResetLastError();
    int statut = WebRequest("GET", ApiUrl + "/api/mt5/symboles", "", 5000,
                            vide, resultat, en_tetes_reponse);
@@ -81,18 +92,13 @@ void rafraichir_abonnements()
          Print("EA_Collecteur: ERREUR — URL non autorisée. Outils > Options > Conseillers Experts > ajouter ", ApiUrl);
       return;
    }
+   string reponse = "";
    for(int i = 0; i < ArraySize(resultat); i++)
       reponse += CharToString(resultat[i]);
 
-   // Reconstruction de la liste (symbole|asset par ligne). Les LIGNES reçues
-   // et la LISTE construite vivent dans des tableaux SÉPARÉS (sinon le
-   // ArrayResize de la construction écrase les lignes pas encore lues).
    string lignes[];
    string nouvelles_symboles[];
    string nouveaux_assets[];
-   // Piège StringSplit : si la réponse finit par '\n', la valeur de retour
-   // compte une sous-chaîne vide finale ABSENTE du tableau — on borne la
-   // boucle par la taille réelle (ArraySize), jamais par le retour.
    StringSplit(reponse, '\n', lignes);
    for(int i = 0; i < ArraySize(lignes); i++)
    {
@@ -100,12 +106,17 @@ void rafraichir_abonnements()
       StringTrimLeft(ligne);
       StringTrimRight(ligne);
       if(StringLen(ligne) == 0) continue;
+
+      if(StringFind(ligne, "#TF") == 0)
+      {
+         lire_tfs(StringSubstr(ligne, 4));
+         continue;
+      }
       int sep = StringFind(ligne, "|");
       if(sep <= 0) continue;
       string symbole = StringSubstr(ligne, 0, sep);
       string asset   = StringSubstr(ligne, sep + 1);
-      // Résolution du VRAI nom broker (MT5 est sensible à la casse :
-      // « dax40.fs » ≠ « DAX40.fs » — on balaye et on fixe la graphie).
+
       string reel = resoudre_symbole(symbole);
       if(reel == "")
       {
@@ -117,21 +128,73 @@ void rafraichir_abonnements()
       ArrayResize(nouvelles_symboles, n + 1);
       nouveaux_assets[n] = asset;
       nouvelles_symboles[n] = reel;
-      // Abonnement Market Watch (nécessaire pour iTime etc.).
       SymbolSelect(reel, true);
    }
 
-   // Diff : log des ajouts/retraits.
    int ancien = ArraySize(symboles);
-   if(ancien != ArraySize(nouvelles_symboles))
+   bool identique = (ancien == ArraySize(nouvelles_symboles));
+   if(identique)
+      for(int i = 0; i < ancien; i++)
+         if(symboles[i] != nouvelles_symboles[i]) { identique = false; break; }
+   if(!identique)
       Print("EA_Collecteur: ", ArraySize(nouvelles_symboles), " symbole(s) à collecter (avant : ", ancien, ")");
 
    ArrayCopy(symboles, nouvelles_symboles);
    ArrayCopy(assets, nouveaux_assets);
-   ArrayResize(derniere_minute, ArraySize(symboles));
-   ArrayInitialize(derniere_minute, 0);
-   ArrayResize(dernier_prix, ArraySize(symboles));
-   ArrayInitialize(dernier_prix, 0.0);
+   ArrayResize(historique_fait, ArraySize(symboles));
+   ArrayInitialize(historique_fait, false);
+
+   ArrayResize(dernier_debut, ArraySize(symboles) * NB_TF);
+   ArrayInitialize(dernier_debut, 0);
+   ArrayResize(dernier_close, ArraySize(symboles) * NB_TF);
+   ArrayInitialize(dernier_close, 0.0);
+}
+
+//+------------------------------------------------------------------+
+//| « M1:10080,M5:2016,D1:2000 » → tableaux TF + profondeurs.        |
+//+------------------------------------------------------------------+
+void lire_tfs(const string entete)
+{
+   string morceaux[];
+   StringSplit(entete, ',', morceaux);
+   string noms[];
+   ENUM_TIMEFRAMES periodes[];
+   int profondeurs[];
+   for(int i = 0; i < ArraySize(morceaux); i++)
+   {
+      string m = morceaux[i];
+      int sep = StringFind(m, ":");
+      if(sep <= 0) continue;
+      string nom = StringSubstr(m, 0, sep);
+      int prof = (int)StringToInteger(StringSubstr(m, sep + 1));
+      ENUM_TIMEFRAMES p = periode_depuis_nom(nom);
+      if(p == PERIOD_CURRENT) continue;
+      int n = ArraySize(noms);
+      ArrayResize(noms, n + 1);
+      ArrayResize(periodes, n + 1);
+      ArrayResize(profondeurs, n + 1);
+      noms[n] = nom;
+      periodes[n] = p;
+      profondeurs[n] = prof;
+   }
+   ArrayCopy(tf_noms, noms);
+   ArrayCopy(tf_periodes, periodes);
+   ArrayCopy(tf_profondeurs, profondeurs);
+   NB_TF = ArraySize(tf_noms);
+}
+
+//+------------------------------------------------------------------+
+ENUM_TIMEFRAMES periode_depuis_nom(const string nom)
+{
+   if(nom == "M1")  return PERIOD_M1;
+   if(nom == "M5")  return PERIOD_M5;
+   if(nom == "M15") return PERIOD_M15;
+   if(nom == "M30") return PERIOD_M30;
+   if(nom == "H1")  return PERIOD_H1;
+   if(nom == "H4")  return PERIOD_H4;
+   if(nom == "D1")  return PERIOD_D1;
+   if(nom == "W1")  return PERIOD_W1;
+   return PERIOD_CURRENT;
 }
 
 //+------------------------------------------------------------------+
@@ -140,7 +203,7 @@ void rafraichir_abonnements()
 string resoudre_symbole(const string demande)
 {
    if(SymbolSelect(demande, true) && SymbolInfoDouble(demande, SYMBOL_BID) != 0.0)
-      return demande; // marché ouvert et trouvé tel quel
+      return demande;
    int total = SymbolsTotal(false);
    for(int i = 0; i < total; i++)
    {
@@ -152,49 +215,98 @@ string resoudre_symbole(const string demande)
 }
 
 //+------------------------------------------------------------------+
-//| Bougies M1 : formation (conf=0) et clôture officielle (conf=1)   |
+//| Historique d'un symbole : batch JSON par TF.                     |
+//+------------------------------------------------------------------+
+void pousser_historique(const int s)
+{
+   string asset = assets[s];
+   for(int t = 0; t < NB_TF; t++)
+   {
+      int prof = tf_profondeurs[t];
+      MqlRates barres[];
+      int n = CopyRates(symboles[s], tf_periodes[t], 0, prof + 1, barres);
+      if(n <= 1)
+      {
+         Print("EA_Collecteur: historique ", symboles[s], " ", tf_noms[t],
+               " indisponible (", n, ") — réessai au prochain cycle");
+         return;
+      }
+      string json = "{\"asset\":\"" + asset + "\",\"tf\":\"" + tf_noms[t] + "\",\"b\":[";
+      for(int i = 0; i < n - 1; i++) // exclure la bougie en formation
+      {
+         if(i > 0) json += ",";
+         json += StringFormat("[%I64d,%.10f,%.10f,%.10f,%.10f,%I64d]",
+                              (long)barres[i].time, barres[i].open, barres[i].high,
+                              barres[i].low, barres[i].close, (long)barres[i].tick_volume);
+      }
+      json += "]}";
+
+      char donnees[];
+      StringToCharArray(json, donnees, 0, StringLen(json));
+      char resultat[];
+      string en_tetes_reponse = "";
+      int statut = WebRequest("POST", ApiUrl + "/api/mt5/historique",
+                              "Content-Type: application/json\r\n",
+                              30000, donnees, resultat, en_tetes_reponse);
+      if(statut == 200)
+      {
+         dernier_debut[idx(s, t)] = 0;
+      }
+      else
+      {
+         Print("EA_Collecteur: historique ", asset, " ", tf_noms[t], " → HTTP ", statut);
+      }
+      Sleep(150);
+   }
+   historique_fait[s] = true;
+   Print("EA_Collecteur: historique Axi de ", asset, " poussé (", NB_TF, " TF)");
+}
+
+//+------------------------------------------------------------------+
+//| Bougies en formation + clôtures officielles, chaque (s, tf).     |
 //+------------------------------------------------------------------+
 void pousser_bougies()
 {
-   for(int i = 0; i < ArraySize(symboles); i++)
+   for(int s = 0; s < ArraySize(symboles); s++)
    {
-      string symbole = symboles[i];
-      datetime t0 = iTime(symbole, PERIOD_M1, 0);
-      if(t0 <= 0) continue; // symbole sans données (marché fermé ?)
-
-      // Changement de minute → envoyer la clôture officielle de la M1
-      // précédente, puis le snapshot de la nouvelle.
-      if(derniere_minute[i] > 0 && t0 > derniere_minute[i])
+      if(!historique_fait[s])
       {
-         envoyer_kline(i, 1, true);
+         pousser_historique(s);
+         continue;
       }
-      double close_courant = iClose(symbole, PERIOD_M1, 0);
-      if(close_courant > 0 && (close_courant != dernier_prix[i] || t0 != derniere_minute[i]))
+      for(int t = 0; t < NB_TF; t++)
       {
-         envoyer_kline(i, 0, false);
+         string symbole = symboles[s];
+         ENUM_TIMEFRAMES periode = tf_periodes[t];
+         datetime t0 = iTime(symbole, periode, 0);
+         if(t0 <= 0) continue;
+
+         if(dernier_debut[idx(s, t)] > 0 && t0 > dernier_debut[idx(s, t)])
+            envoyer_kline(s, t, 1, true);
+
+         double c = iClose(symbole, periode, 0);
+         if(c > 0 && (c != dernier_close[idx(s, t)] || t0 != dernier_debut[idx(s, t)]))
+            envoyer_kline(s, t, 0, false);
       }
    }
 }
 
 //+------------------------------------------------------------------+
-//| Envoie la bougie M1 au shift donné.                              |
+//| Envoie la bougie au shift donné pour (symbole s, tf t).          |
 //+------------------------------------------------------------------+
-void envoyer_kline(const int indice, const int shift, const bool confirmee)
+void envoyer_kline(const int s, const int t, const int shift, const bool confirmee)
 {
-   string symbole = symboles[indice];
-   string asset   = assets[indice];
-   datetime debut = iTime(symbole, PERIOD_M1, shift);
+   string symbole = symboles[s];
+   ENUM_TIMEFRAMES periode = tf_periodes[t];
+   datetime debut = iTime(symbole, periode, shift);
    if(debut <= 0) return;
 
-   double o = iOpen(symbole, PERIOD_M1, shift);
-   double h = iHigh(symbole, PERIOD_M1, shift);
-   double b = iLow(symbole, PERIOD_M1, shift);
-   double c = iClose(symbole, PERIOD_M1, shift);
-   long   v = iTickVolume(symbole, PERIOD_M1, shift);
-
    string corps = StringFormat(
-      "asset=%s&debut=%I64d&o=%.10f&h=%.10f&l=%.10f&c=%.10f&v=%I64d&conf=%d",
-      asset, (long)debut, o, h, b, c, v, confirmee ? 1 : 0);
+      "asset=%s&tf=%s&debut=%I64d&o=%.10f&h=%.10f&l=%.10f&c=%.10f&v=%I64d&conf=%d",
+      assets[s], tf_noms[t], (long)debut,
+      iOpen(symbole, periode, shift), iHigh(symbole, periode, shift),
+      iLow(symbole, periode, shift), iClose(symbole, periode, shift),
+      (long)iVolume(symbole, periode, shift), confirmee ? 1 : 0);
 
    char donnees[];
    StringToCharArray(corps, donnees, 0, StringLen(corps));
@@ -206,16 +318,12 @@ void envoyer_kline(const int indice, const int shift, const bool confirmee)
                            "Content-Type: application/x-www-form-urlencoded\r\n",
                            5000, donnees, resultat, en_tetes_reponse);
    if(statut == -1)
-   {
-      return; // erreur réseau : la prochaine seconde réessaiera
-   }
+      return;
 
-   derniere_minute[indice] = iTime(symbole, PERIOD_M1, 0);
-   dernier_prix[indice] = iClose(symbole, PERIOD_M1, 0);
+   dernier_debut[idx(s, t)] = iTime(symbole, periode, 0);
+   dernier_close[idx(s, t)] = iClose(symbole, periode, 0);
 }
 
-//+------------------------------------------------------------------+
-//| Heartbeat : POST /api/mt5/heartbeat                              |
 //+------------------------------------------------------------------+
 void heartbeat()
 {

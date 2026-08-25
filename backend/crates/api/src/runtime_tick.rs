@@ -323,7 +323,9 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
     let cibles: HashSet<(Asset, Timeframe)> = assets
         .iter()
         .flat_map(|a| {
-            let tfs: Vec<Timeframe> = if mt5_ids.contains(a.as_str()) {
+            // MT5 v12 (XAU/XAG) : tous les TF configurés — comme Bybit.
+            // MT5 straddle-seul (NAS/SP/DAX) : M1 uniquement.
+            let tfs: Vec<Timeframe> = if mt5_ids.contains(a.as_str()) && !MT5_V12.contains(&a.as_str()) {
                 vec![common::Timeframe::M1]
             } else {
                 timeframes.clone()
@@ -351,10 +353,51 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         if actuelles.contains(&(asset.clone(), *tf)) {
             continue;
         }
-        // Phase 5 — actifs MT5 : moteur STRADDLE seul sur M1 (périmètre
+        // Phase 5.2 — actifs MT5 v12 (XAU/XAG) : moteurs SMC complets sur
+        // prix Axi, replays depuis l'historique poussé par l'EA (garde de
+        // profondeur : on attend l'historique, ~1 min après le boot de
+        // l'EA), amorce MTF incluse (W1/D1 Axi — des années de contexte).
+        // Le straddle XAU (annonces US, périmètre acté) s'ajoute en M1 ;
+        // XAG reste hors straddle (périmètre acté étape 4).
+        if mt5_ids.contains(asset.as_str()) && MT5_V12.contains(&asset.as_str()) {
+            if !crate::mt5_collecteur::historique_mt5_pret(db, asset.as_str(), *tf).await {
+                tracing::info!(
+                    "Runtime tick: {} {} MT5 en attente d'historique Axi (l'EA le pousse)",
+                    asset.as_str(),
+                    tf.as_str()
+                );
+                continue;
+            }
+            let amorce = charger_amorce_mtf_runtime(db, asset).await;
+            let mut moteurs: Vec<Box<dyn engine::Engine>> = vec![Box::new(
+                engine_v12::MoteurV12::nouveau(asset.clone(), *tf).avec_amorce(amorce),
+            )];
+            if *tf == common::Timeframe::M1 && asset.as_str() == "XAUUSD" {
+                let annonces: Vec<straddle::Annonce> = annonces_tier1(db)
+                    .await
+                    .into_iter()
+                    .filter(|a| a.devise == "USD")
+                    .collect();
+                let p = db::strategies_params::lire_straddle_params(db.pool()).await;
+                moteurs.push(Box::new(
+                    straddle::StraddleEngine::nouveau(asset.clone(), *tf)
+                        .avec_params(straddle::ParamsStraddle {
+                            sl_atr: p.sl_mult,
+                            trailing_r: p.trailing_r,
+                            placement_avant_sec: p.placement_sec,
+                            ..Default::default()
+                        })
+                        .avec_annonces(annonces),
+                ));
+            }
+            runtime.enregistrer(asset.clone(), *tf, moteurs);
+            ajouts += 1;
+            continue;
+        }
+
+        // Phase 5 — indices MT5 : moteur STRADDLE seul sur M1 (périmètre
         // acté : NAS100/SP500 sur annonces US, DAX sur ouverture européenne
-        // 9h Paris). Pas de v12 ni de replay Bybit — warm-up ATR ~15 min
-        // en live.
+        // 9h Paris). Warm-up ATR ~15 min en live.
         if mt5_ids.contains(asset.as_str()) {
             let annonces: Vec<straddle::Annonce> = if asset.as_str() == "DAX" {
                 crate::mt5_collecteur::annonces_ouverture_europeenne()
@@ -527,6 +570,10 @@ async fn reconcilier_clotures(
     }
     total
 }
+
+/// Actifs MT5 armés aussi en moteur v12 (calibration SMC dédiée). Les
+/// indices MT5 restent straddle-seul (périmètre acté phase 5).
+const MT5_V12: [&str; 2] = ["XAUUSD", "XAGUSD"];
 
 /// Ids des actifs source MT5 actifs (armement straddle M1 seul).
 async fn assets_mt5(db: &Arc<Database>) -> HashSet<String> {

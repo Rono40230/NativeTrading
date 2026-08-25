@@ -57,6 +57,22 @@ pub async fn get_symboles(state: web::Data<AppState>) -> impl Responder {
     else {
         return HttpResponse::Ok().content_type("text/plain").body("");
     };
+    // En-tête #TF : les timeframes moteurs configurés + D1/W1 pour l'amorce
+    // MTF des actifs v12 (l'EA pousse l'historique de chaque TF listé).
+    let tfs_configures = data::worker_config::lire_timeframes(&state.db).await;
+    let mut tfs: Vec<String> = tfs_configures.iter().map(|t| t.as_str().to_string()).collect();
+    for extra in ["D1", "W1"] {
+        if !tfs.contains(&extra.to_string()) {
+            tfs.push(extra.to_string());
+        }
+    }
+    let entete = format!(
+        "#TF {}\n",
+        tfs.iter()
+            .map(|t| format!("{}:{}", t, profondeur_historique(t)))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
     let corps: String = rows
         .iter()
         .map(|r| {
@@ -67,7 +83,24 @@ pub async fn get_symboles(state: web::Data<AppState>) -> impl Responder {
             )
         })
         .collect();
-    HttpResponse::Ok().content_type("text/plain").body(corps)
+    HttpResponse::Ok()
+        .content_type("text/plain")
+        .body(entete + &corps)
+}
+
+/// Profondeur d'historique demandée à l'EA par TF (moteurs : 7 jours ;
+/// amorce : D1 ~8 ans pour la mensuelle, W1 ~10 ans).
+fn profondeur_historique(tf: &str) -> i64 {
+    match tf {
+        "M1" => 10_080,
+        "M5" => 2_016,
+        "M15" | "M30" => 672,
+        "H1" => 720,
+        "H4" => 400,
+        "D1" => 2_000,
+        "W1" => 520,
+        _ => 500,
+    }
 }
 
 // ── POST /api/mt5/kline — une bougie M1 (formation ou confirmation) ────────
@@ -75,6 +108,8 @@ pub async fn get_symboles(state: web::Data<AppState>) -> impl Responder {
 #[derive(serde::Deserialize)]
 pub struct BodyKline {
     pub asset: String,
+    /// Timeframe de la bougie (M1 par défaut — rétrocompatible EA v1).
+    pub tf: Option<String>,
     pub debut: i64,
     pub o: f64,
     pub h: f64,
@@ -89,12 +124,16 @@ pub async fn post_kline(state: web::Data<AppState>, body: web::Form<BodyKline>) 
     let Some(asset) = Asset::try_from(body.asset.as_str()).ok() else {
         return HttpResponse::BadRequest().json(serde_json::json!({ "error": "asset inconnu" }));
     };
+    let tf_str = body.tf.clone().unwrap_or_else(|| "M1".into());
+    let Some(tf) = Timeframe::try_from(tf_str.as_str()).ok() else {
+        return HttpResponse::BadRequest().json(serde_json::json!({ "error": "timeframe inconnu" }));
+    };
     let k = body.into_inner();
 
     // 1. Runtime : même chemin que Bybit (snapshot de formation / clôture).
     let event = EvenementPrix {
         asset: asset.clone(),
-        tf: Timeframe::M1,
+        tf,
         debut_bougie: k.debut,
         event: PrixEvent::Kline {
             ouverture: k.o,
@@ -125,7 +164,7 @@ pub async fn post_kline(state: web::Data<AppState>, body: web::Form<BodyKline>) 
         };
         let _ = state
             .db
-            .inserer_bougies_avec_source(&asset, &Timeframe::M1, &[bougie], "mt5")
+            .inserer_bougies_avec_source(&asset, &tf, &[bougie], "mt5")
             .await;
     }
 
@@ -137,6 +176,55 @@ pub async fn post_kline(state: web::Data<AppState>, body: web::Form<BodyKline>) 
             .insert(asset.as_str().to_string(), (Utc::now().timestamp(), k.c));
     }
     HttpResponse::Ok().json(serde_json::json!({ "runtime": envoye }))
+}
+
+// ── POST /api/mt5/historique — batch initial d'un TF (JSON) ────────────────
+// L'EA pousse l'historique Axi d'un (asset, TF) en un seul appel : les
+// bougies sont insérées (source mt5) AVANT que le runtime n'arme les
+// moteurs v12 (garde de profondeur) — replays SMC complets, amorce MTF
+// comprise (W1/MN depuis D1).
+
+#[derive(serde::Deserialize)]
+pub struct BodyHistorique {
+    pub asset: String,
+    pub tf: String,
+    /// [[debut, o, h, l, c, v], ...] chronologique.
+    pub b: Vec<(i64, f64, f64, f64, f64, f64)>,
+}
+
+pub async fn post_historique(state: web::Data<AppState>, body: web::Json<BodyHistorique>) -> impl Responder {
+    let Some(asset) = Asset::try_from(body.asset.as_str()).ok() else {
+        return HttpResponse::BadRequest().json(serde_json::json!({ "error": "asset inconnu" }));
+    };
+    let Some(tf) = Timeframe::try_from(body.tf.as_str()).ok() else {
+        return HttpResponse::BadRequest().json(serde_json::json!({ "error": "timeframe inconnu" }));
+    };
+    let bougies: Vec<common::Candle> = body
+        .b
+        .iter()
+        .filter_map(|(debut, o, h, l, c, v)| {
+            Some(common::Candle {
+                timestamp: Utc.timestamp_opt(*debut, 0).single()?,
+                open: *o,
+                high: *h,
+                low: *l,
+                close: *c,
+                volume: *v,
+            })
+        })
+        .collect();
+    let n = bougies.len();
+    match state
+        .db
+        .inserer_bougies_avec_source(&asset, &tf, &bougies, "mt5")
+        .await
+    {
+        Ok(_) => {
+            tracing::info!("🖥️ MT5 historique {} {} : {} bougies Axi", asset.as_str(), tf.as_str(), n);
+            HttpResponse::Ok().json(serde_json::json!({ "inserees": n }))
+        }
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
+    }
 }
 
 // ── POST /api/mt5/heartbeat — l'EA signale sa présence (30 s) ──────────────
@@ -213,4 +301,23 @@ pub fn annonces_ouverture_europeenne() -> Vec<straddle::Annonce> {
         }
     }
     annonces
+}
+
+/// Profondeur de replay v12 par TF (7 jours bornés — même règle que le
+/// runtime Bybit).
+pub(crate) fn profondeur_replay(tf: common::Timeframe) -> i64 {
+    (7 * 1440 / tf.minutes() as i64).clamp(60, 10_080)
+}
+
+/// Assez d'historique Axi en base pour armer le replay v12 proprement ?
+/// (l'EA pousse l'historique au premier passage — on attend qu'il soit là).
+pub(crate) async fn historique_mt5_pret(db: &std::sync::Arc<db::Database>, asset: &str, tf: common::Timeframe) -> bool {
+    let besoin = (profondeur_replay(tf) as f64 * 0.6) as i64;
+    let Ok(a) = Asset::try_from(asset) else {
+        return false;
+    };
+    match db.compter_bougies(&a, &tf).await {
+        Ok(n) => n >= besoin.min(60),
+        Err(_) => false,
+    }
 }

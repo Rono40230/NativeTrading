@@ -82,6 +82,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::mt5_collecteur::get_statut),
         )
         .route(
+            "/api/mt5/historique",
+            web::post().to(crate::mt5_collecteur::post_historique),
+        )
+        .route(
             "/api/signaux",
             web::get().to(crate::signaux_handlers::get_signaux),
         )
