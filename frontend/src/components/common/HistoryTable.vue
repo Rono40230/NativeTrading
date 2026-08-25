@@ -27,7 +27,7 @@
         <td class="px-3 py-3 font-semibold text-white">{{ s.asset }}</td>
         <td class="px-3 py-3 text-gray-400">{{ s.timeframe }}</td>
         <td class="px-3 py-3">
-          <span class="badge" :class="s.direction === 'LONG' ? 'badge-green' : 'badge-red'">{{ s.direction }}</span>
+          <span class="badge" :class="s.direction?.toUpperCase() === 'LONG' ? 'badge-green' : 'badge-red'">{{ s.direction }}</span>
         </td>
         <td class="px-3 py-3 text-right font-mono text-gray-300">{{ s.score.toFixed(0) }}</td>
         <td class="px-3 py-3 text-right font-mono text-white">{{ formatNombre(s.prix_entree) }}</td>
