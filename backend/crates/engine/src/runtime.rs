@@ -188,15 +188,11 @@ impl Runtime {
 
         // Évaluation intrabar sur la formation mise à jour. Après une
         // clôture par confirmation, la formation est vide : pas de tick.
-        if etat.agg.en_formation().map(|f| f.debut) == Some(ev.debut_bougie) {
-            let f = etat
-                .agg
-                .en_formation()
-                .expect("formation vérifiée à l'instant");
+        if let Some(f) = etat.agg.en_formation().filter(|f| f.debut == ev.debut_bougie) {
             let ctx = ContexteTick {
                 asset: &ev.asset,
                 tf: ev.tf,
-                bougie: f,
+                bougie: &f,
             };
             for moteur in &mut etat.moteurs {
                 sortie.etend(moteur.on_tick(&ctx));
