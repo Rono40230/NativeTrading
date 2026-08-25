@@ -6,6 +6,9 @@
     <div class="glass-card p-5 space-y-4">
       <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Workers d'ingestion</h2>
 
+      <!-- Interrupteurs + statut — MT5 et workers dans la même rangée -->
+      <div class="grid gap-4 grid-cols-2">
+
       <!-- Collecteur MT5/Axi (statut de l'EA — pas d'interrupteur : MT5
            ouvert = collecte, MT5 fermé = silence) -->
       <div class="rounded-xl border p-4 space-y-3"
@@ -28,8 +31,6 @@
         <p v-else class="text-xs text-gray-600">Aucun actif MT5 actif</p>
       </div>
 
-      <!-- Interrupteurs + statut — toujours côte à côte -->
-      <div class="grid gap-4 grid-cols-2">
         <div
           v-for="w in cartesWorkers"
           :key="w.nom"
