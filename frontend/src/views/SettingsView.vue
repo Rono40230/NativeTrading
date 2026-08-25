@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-4">
-    <h1 class="text-3xl font-bold">⚙️ Configuration</h1>
+    <h1 class="text-3xl font-bold">⚙️ Paramètres</h1>
 
     <!-- Navigation onglets -->
     <div class="flex gap-1 border-b border-white/10">
