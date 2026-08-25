@@ -70,7 +70,7 @@
               <span v-else class="text-gray-700 text-xs">—</span>
             </td>
             <td class="px-3 py-3">
-              <span class="badge" :class="classeResultat(s)">{{ labelResultat(s) }}</span>
+              <span class="badge cursor-help" :class="classeResultat(s)" :title="titreResultat(s)">{{ labelResultat(s) }}</span>
             </td>
             <td class="px-3 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
             <td class="px-3 py-3 text-center">
@@ -207,7 +207,7 @@ const {
   signaux, rocketsRaw, chargement, analyseOuverte,
   filtreStatut, annulationEnCours, listeActive, signauxTries,
   charger, annuler, trierPar, icone, infosPips,
-  classeConviction, classePrix, labelResultat, classeResultat, lotPourSignal,
+  classeConviction, classePrix, labelResultat, classeResultat, titreResultat, lotPourSignal,
   prixStore, assetParamsStore, settingsStore,
 } = useSignauxTableau(props.strategie)
 

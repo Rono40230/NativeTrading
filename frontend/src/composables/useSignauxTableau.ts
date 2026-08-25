@@ -4,7 +4,7 @@ import { apiService } from '@/services/api.service'
 import { usePrixStore } from '@/stores/prix.store'
 import { useAssetParamsStore } from '@/stores/assetParams.store'
 import { useSettingsStore } from '@/stores/settings.store'
-import { classeVerdictSignal, labelVerdictSignal } from '@/composables/useSignalFormat'
+import { classeVerdictSignal, labelEtatSignal, classeEtatSignal, titreEtatSignal } from '@/composables/useSignalFormat'
 import { rocketToSignal } from '@/composables/useRocketsHistory'
 
 export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
@@ -91,7 +91,7 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
       if (s.verdict === 'TP1') return '🟡 TP1 ✓ · BE actif'
       return '⏳ En cours'
     }
-    return labelVerdictSignal(s.verdict)
+    return labelEtatSignal(s)
   }
 
   function classeResultat(s: Signal): string {
@@ -100,7 +100,14 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
       if (s.verdict === 'TP1') return 'badge-blue'
       return 'badge-yellow'
     }
-    return classeVerdictSignal(s.verdict)
+    return classeEtatSignal(s)
+  }
+
+  function titreResultat(s: Signal): string {
+    if (strategie === 'Rockets' && s.statut !== 'Fermé') {
+      return 'Position ouverte dès le signal — gestion par le moteur Rockets (invalidation -1R ou trailing après R1)'
+    }
+    return titreEtatSignal(s)
   }
 
   function lotPourSignal(s: Signal): string {
@@ -163,7 +170,7 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
     signaux, rocketsRaw, chargement, analyseOuverte, filtreStatut,
     annulationEnCours, listeActive, signauxTries,
     charger, annuler, trierPar, icone, infosPips,
-    classeConviction, classePrix, labelResultat, classeResultat, lotPourSignal,
+    classeConviction, classePrix, labelResultat, classeResultat, titreResultat, lotPourSignal,
     prixStore, assetParamsStore, settingsStore,
   }
 }

@@ -40,7 +40,7 @@
         <td class="px-3 py-3 text-center"><span v-if="s.llm_conviction !== null" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help" :class="classeConviction(s.llm_conviction)" :title="s.llm_raison ?? ''">{{ s.llm_conviction }}</span><span v-else class="text-gray-700 text-xs">—</span></td>
         <td class="px-3 py-3">
           <div class="flex items-center gap-2">
-            <span class="badge" :class="classeVerdictSignal(s.verdict)">{{ labelVerdictSignal(s.verdict) }}</span>
+            <span class="badge cursor-help" :class="classeEtatSignal(s)" :title="titreEtatSignal(s)">{{ labelEtatSignal(s) }}</span>
             <span v-if="calculerR(s) !== null" :class="classeR(calculerR(s))" class="text-xs">
               {{ formatR(calculerR(s)) }}
             </span>
@@ -58,7 +58,7 @@
 import { computed } from 'vue'
 import type { Signal } from '@/services/api.service'
 import { usePrixStore } from '@/stores/prix.store'
-import { formatDate, formatNombre, classeVerdictSignal, labelVerdictSignal, calculerR, formatR, classeR } from '@/composables/useSignalFormat'
+import { formatDate, formatNombre, classeEtatSignal, labelEtatSignal, titreEtatSignal, calculerR, formatR, classeR } from '@/composables/useSignalFormat'
 
 const props = defineProps<{
   signaux: Signal[]

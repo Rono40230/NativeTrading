@@ -37,6 +37,57 @@ export function labelVerdictSignal(verdict: string | null): string {
   return '⏳ En cours'
 }
 
+// ── État vivant d'un signal (non clôturé) ────────────────────────────────────
+// Distingue « En attente » (annoncé, entrée pas encore touchée/planifiée) de
+// « En cours » (trade ouvert). Sémantique de `heure_entree` par stratégie :
+// - SMC    : marqué par le moteur quand le prix revient toucher l'entrée
+//            (NULL = ordre en limite en attente de remplissage).
+// - Straddle : heure d'entrée PLANIFIÉE (annonce HIGH impact) — compte à rebours.
+// - Rockets  : position ouverte dès le signal (pas d'attente de remplissage).
+
+interface EtatSignal {
+  statut?: string | null
+  verdict: string | null
+  heure_entree?: number | null
+  strategie?: string | null
+}
+
+function estVivant(s: EtatSignal): boolean {
+  return (s.statut ?? '') !== 'Fermé' && s.verdict === null
+}
+
+export function labelEtatSignal(s: EtatSignal): string {
+  if (!estVivant(s)) return labelVerdictSignal(s.verdict)
+  const strat = (s.strategie ?? '').toLowerCase()
+  if (strat === 'straddle' && s.heure_entree) {
+    const reste = s.heure_entree - Math.floor(Date.now() / 1000)
+    return reste > 0 ? `⏳ Entrée dans ${Math.ceil(reste / 60)} min` : '🟢 En cours'
+  }
+  if (strat.includes('rocket')) return '⏳ En cours'
+  return s.heure_entree ? '🟢 En cours' : '⏳ En attente'
+}
+
+export function classeEtatSignal(s: EtatSignal): string {
+  if (!estVivant(s)) return classeVerdictSignal(s.verdict)
+  return labelEtatSignal(s) === '🟢 En cours' ? 'badge-green' : 'badge-yellow'
+}
+
+export function titreEtatSignal(s: EtatSignal): string {
+  if (!estVivant(s)) return ''
+  const strat = (s.strategie ?? '').toLowerCase()
+  if (strat === 'straddle') {
+    if (!s.heure_entree) return 'En attente de l\u2019heure d\u2019entrée (annonce HIGH impact)'
+    const reste = s.heure_entree - Math.floor(Date.now() / 1000)
+    return reste > 0
+      ? 'Entrée planifiée : les 2 jambes seront posées à l\u2019heure E (T-10 s)'
+      : 'Passes straddle actives : les 2 jambes sont en place'
+  }
+  if (strat.includes('rocket')) return 'Position ouverte dès le signal — gestion par le moteur Rockets'
+  return s.heure_entree
+    ? 'Entrée touchée : trade ouvert — ses boxes sont visibles sur TOUS les timeframes'
+    : 'Annoncé : ordre en limite — se remplit quand le prix revient toucher l\u2019entrée (pointillés sur le graphique de son TF)'
+}
+
 export function calculerR(signal: { direction: string; prix_entree: number; stop_loss: number; prix_verdict: number | null; r_realise?: number | null }): number | null {
   // Vérité du moteur en priorité (TP2 encaissé puis sortie à BE = +2R alors
   // que le prix de sortie vaut l'entrée) ; repli prix pour les lignes
