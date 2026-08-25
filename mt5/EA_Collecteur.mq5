@@ -23,7 +23,7 @@
 #property version   "1.00"
 #property strict
 
-input string ApiUrl = "http://localhost:8080"; // URL de l'application
+input string ApiUrl = "http://127.0.0.1:8080"; // URL de l'application (localhost refusé par MT5 — bug connu)
 
 // Abonnement : symbole broker ↔ nom actif dans l'app
 string   symboles[];      // ex: "dax40.fs"
