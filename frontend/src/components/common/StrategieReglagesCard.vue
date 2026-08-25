@@ -10,8 +10,10 @@
 
     <div class="p-4 space-y-3">
       <div class="flex items-center justify-between gap-3">
-        <span class="text-gray-400 text-xs">État</span>
-        <select v-model="etat" class="bg-black/30 border border-white/10 rounded-md px-2 py-1 text-xs text-white">
+        <span class="text-gray-400 text-xs cursor-help border-b border-dotted border-gray-600"
+              title="Officielle : signaux réels + notifiés sur Telegram. En observation : signaux journalisés en base mais silencieux (pas de message). En construction : moteur en cours de développement, aucun signal généré.">État</span>
+        <select v-model="etat" class="bg-black/30 border border-white/10 rounded-md px-2 py-1 text-xs text-white"
+                title="Officielle : signaux réels + Telegram. En observation : journalisé, silencieux. En construction : moteur non branché.">
           <option value="Officielle">Officielle</option>
           <option value="Observation">En observation</option>
           <option value="Construction">En construction</option>
