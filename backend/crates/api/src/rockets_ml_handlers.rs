@@ -8,33 +8,10 @@
 //!   GET  /api/rockets/equity             → courbe equity simulée
 
 use actix_web::{web, HttpResponse, Responder};
-use serde::Deserialize;
 use sqlx::Row;
 
 use crate::state::AppState;
 
-#[derive(Deserialize)]
-pub struct QueryFeedback {
-    pub ticker: Option<String>,
-    pub phase: Option<String>,
-    pub limit: Option<i64>,
-}
-
-#[derive(Deserialize)]
-pub struct QueryEquity {
-    pub capital: Option<f64>,
-    pub risk_pct: Option<f64>,
-}
-
-#[derive(Deserialize)]
-pub struct BodyFeedbackTrader {
-    pub signal_id: i64,
-    /// "tp1" | "tp2" | "tp3" | "sl" | "ignore"
-    pub verdict: String,
-    pub prix_entree_reel: Option<f64>,
-    pub prix_sortie_reel: Option<f64>,
-    pub notes: Option<String>,
-}
 
 
 // ── GET /api/rockets/monitoring-ml ───────────────────────────────────────────
@@ -124,107 +101,13 @@ pub async fn get_calibration(state: web::Data<AppState>) -> impl Responder {
 
 // ── GET /api/rockets/feedback ─────────────────────────────────────────────────
 
-pub async fn get_feedback(
-    state: web::Data<AppState>,
-    query: web::Query<QueryFeedback>,
-) -> impl Responder {
-    let limit = query.limit.unwrap_or(50).min(500);
-    let ticker = query.ticker.as_deref().unwrap_or("%");
-    let phase = query.phase.as_deref().unwrap_or("%");
-    let pool = state.db.pool();
-
-    match db::rockets_feedback::lister_recents_ticker_phase_like(pool, ticker, phase, limit).await {
-        Ok(rows) => HttpResponse::Ok().json(rows),
-        Err(e) => {
-            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
-        }
-    }
-}
 
 // ── POST /api/rockets/feedback/trader ────────────────────────────────────────
 
-pub async fn post_feedback_trader(
-    state: web::Data<AppState>,
-    body: web::Json<BodyFeedbackTrader>,
-) -> impl Responder {
-    let pool = state.db.pool();
-
-    let verdicts_valides = ["tp1", "tp2", "tp3", "sl", "ignore"];
-    if !verdicts_valides.contains(&body.verdict.as_str()) {
-        return HttpResponse::BadRequest()
-            .json(serde_json::json!({ "error": "verdict invalide (tp1|tp2|tp3|sl|ignore)" }));
-    }
-
-    match db::rockets_feedback_trader::saisir_verdict_trader(
-        pool,
-        body.signal_id,
-        &body.verdict,
-        body.prix_entree_reel.unwrap_or(0.0),
-        body.prix_sortie_reel,
-        body.notes.as_deref(),
-    )
-    .await
-    {
-        Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
-        Err(e) => {
-            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
-        }
-    }
-}
 
 // ── GET /api/rockets/equity ───────────────────────────────────────────────────
 
-pub async fn get_equity(
-    state: web::Data<AppState>,
-    query: web::Query<QueryEquity>,
-) -> impl Responder {
-    let capital = query.capital.unwrap_or(10_000.0);
-    let risk_pct = query.risk_pct.unwrap_or(0.015);
-    let risk_montant = capital * risk_pct;
-    let pool = state.db.pool();
-
-    match db::rockets_feedback_stats::courbe_equity(pool, capital, risk_montant).await {
-        Ok(points) => {
-            let nb_trades = points.len() as i64;
-            HttpResponse::Ok().json(serde_json::json!({
-                "capital_initial": capital,
-                "risk_pct": risk_pct,
-                "nb_trades_saisis": nb_trades,
-                "points": points,
-            }))
-        }
-        Err(e) => {
-            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
-        }
-    }
-}
 
 // ── GET /api/rockets/seuils-effectifs ────────────────────────────────────────
 
-#[derive(Deserialize)]
-pub struct QuerySeuilsRockets {
-    pub phase: Option<String>,
-    pub session: Option<String>,
-}
-
-/// Retourne les seuils effectifs calibrés pour un (phase, session).
-/// Fallback automatique sur valeurs par défaut si insuffisant.
-pub async fn get_seuils_effectifs(
-    state: web::Data<AppState>,
-    query: web::Query<QuerySeuilsRockets>,
-) -> impl Responder {
-    let pool = state.db.pool();
-    let phase = query.phase.as_deref().unwrap_or("breakout");
-    let session = query.session.as_deref().unwrap_or("London");
-
-    let seuils = db::rockets_calibration::charger_seuils(pool, phase, session).await;
-
-    HttpResponse::Ok().json(serde_json::json!({
-        "phase":          phase,
-        "session":        session,
-        "score_min":      seuils.score_min,
-        "conviction_min": seuils.conviction_min,
-        "invalide":       seuils.invalide,
-    }))
-}
 

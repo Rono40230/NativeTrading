@@ -86,31 +86,4 @@ pub struct ReponseChartAnalyse {
 
 // ─── /api/ia/signal ───────────────────────────────────────────────────────────
 
-#[derive(Deserialize)]
-pub struct RequeteSignalIA {
-    pub asset: String,
-    pub timeframe: String,
-    pub score_smc: f64,
-    pub prix_actuel: f64,
-    pub tendance: f64,
-    pub order_block: f64,
-    pub imbalance: f64,
-    pub ifvg: f64,
-    pub fibonacci: f64,
-    pub confiance_ml: f64,
-    pub atr: f64,
-    /// Si fourni, remplace le calcul serveur de la Kill Zone.
-    pub kill_zone_active: Option<bool>,
-    /// Indique si un sweep de liquidité a été détecté par le frontend.
-    pub sweep_detecte: Option<bool>,
-}
 
-#[derive(Serialize)]
-pub struct ReponseSignalIA {
-    pub signal: Option<common::Signal>,
-    pub score_confiance: f64,
-    pub niveau_invalidation: f64,
-    pub confluences: Vec<String>,
-    pub raisonnement: String,
-    pub modele: String,
-}

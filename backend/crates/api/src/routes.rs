@@ -28,15 +28,7 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/prix/stream",
             web::get().to(crate::prix_stream::stream_prix),
         )
-        .route(
-            "/api/marche/klines",
-            web::get().to(crate::prix_handlers::get_klines_crypto),
-        )
         .route("/api/candles", web::get().to(crate::handlers::get_candles))
-        .route(
-            "/api/prix-actuel",
-            web::get().to(crate::handlers::get_prix_actuel),
-        )
         .route(
             "/api/strategies",
             web::get().to(crate::registre_strategies::lister_strategies),
@@ -123,20 +115,8 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::ollama_handlers::analyser_chart),
         )
         .route(
-            "/api/ia/save-analysis",
-            web::post().to(crate::ollama_handlers::analyser_chart_sauvegarde),
-        )
-        .route(
             "/api/ia/status",
             web::get().to(crate::ollama_handlers::statut),
-        )
-        .route(
-            "/api/ia/signal",
-            web::post().to(crate::ollama_handlers::generer_signal),
-        )
-        .route(
-            "/api/ia/ajustements",
-            web::post().to(crate::ollama_ajustements_handler::ajustements),
         )
         .route(
             "/api/ia/signal/straddle",
@@ -145,18 +125,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/straddle/analyser",
             web::post().to(crate::straddle_handlers::analyser),
-        )
-        .route(
-            "/api/straddle/creneaux",
-            web::get().to(crate::straddle_handlers::lister_creneaux),
-        )
-        .route(
-            "/api/straddle/creneaux/{id}",
-            web::patch().to(crate::straddle_handlers::mettre_a_jour_creneau),
-        )
-        .route(
-            "/api/straddle/creneaux/{id}/precision",
-            web::post().to(crate::straddle_handlers::handler_analyser_precision),
         )
         .route(
             "/api/straddle/precision-horaire",
@@ -168,40 +136,12 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
                 .route(web::put().to(crate::strategies_params_handlers::put_straddle_params)),
         )
         .route(
-            "/api/straddle/volatilite-live",
-            web::get().to(crate::straddle_ml_handlers::volatilite_live),
-        )
-        .route(
             "/api/straddle/monitoring-ml",
             web::get().to(crate::straddle_ml_handlers::monitoring_ml),
         )
         .route(
             "/api/straddle/calibration",
             web::get().to(crate::straddle_ml_handlers::get_calibration),
-        )
-        .route(
-            "/api/straddle/pics",
-            web::get().to(crate::straddle_ml_handlers::get_pics),
-        )
-        .route(
-            "/api/straddle/feedback",
-            web::get().to(crate::straddle_ml_handlers::get_feedback),
-        )
-        .route(
-            "/api/straddle/feedback/{signal_id}/cloturer",
-            web::post().to(crate::straddle_ml_handlers::cloturer_feedback),
-        )
-        .route(
-            "/api/straddle/equity",
-            web::get().to(crate::straddle_ml_handlers::get_equity),
-        )
-        .route(
-            "/api/straddle/dev/seed-creneaux",
-            web::post().to(crate::straddle_ml_handlers::dev_seed_creneaux),
-        )
-        .route(
-            "/api/straddle/dev/signal-test",
-            web::post().to(crate::straddle_ml_handlers::dev_signal_test),
         )
         .service(
             web::resource("/api/smc/params")
@@ -215,26 +155,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/smc/calibration",
             web::get().to(crate::smc_monitoring_handlers::get_calibration),
-        )
-        .route(
-            "/api/smc/feedback",
-            web::get().to(crate::smc_monitoring_handlers::get_feedback),
-        )
-        .route(
-            "/api/smc/equity",
-            web::get().to(crate::smc_monitoring_handlers::get_equity),
-        )
-        .route(
-            "/api/smc/baremes",
-            web::get().to(crate::smc_monitoring_handlers::get_baremes),
-        )
-        .route(
-            "/api/straddle/seuils-effectifs",
-            web::get().to(crate::straddle_ml_handlers::get_seuils_effectifs),
-        )
-        .route(
-            "/api/rockets/seuils-effectifs",
-            web::get().to(crate::rockets_ml_handlers::get_seuils_effectifs),
         )
         .route(
             "/api/config",
@@ -261,28 +181,8 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::news_handlers::get_news_alertes),
         )
         .route(
-            "/api/news/contenu",
-            web::get().to(crate::news_handlers::get_contenu_article),
-        )
-        .route(
             "/api/news/traduire",
             web::get().to(crate::news_handlers::get_traduire),
-        )
-        .route(
-            "/api/news/fear-greed",
-            web::get().to(crate::news_fear_greed::get_fear_greed),
-        )
-        .route(
-            "/api/news/lu",
-            web::post().to(crate::news_lus_handlers::marquer_lu),
-        )
-        .route(
-            "/api/news/lus",
-            web::get().to(crate::news_lus_handlers::lire_lus),
-        )
-        .route(
-            "/api/news/contexte-marche",
-            web::get().to(crate::news_context_handler::get_contexte_marche),
         )
         .route(
             "/api/stream",
@@ -292,14 +192,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/data/coverage",
             web::get().to(crate::data_handlers::get_coverage),
         )
-        .route(
-            "/api/data/collect",
-            web::post().to(crate::data_handlers::post_collect),
-        )
-        .route(
-            "/api/data/dukascopy-backfill",
-            web::post().to(crate::dukascopy_handlers::post_dukascopy_backfill),
-        )
         .service(
             web::resource("/api/worker/config")
                 .route(web::get().to(crate::worker_handlers::get_worker_config))
@@ -308,10 +200,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/worker/status",
             web::get().to(crate::worker_handlers::get_worker_status),
-        )
-        .route(
-            "/api/worker/assets",
-            web::get().to(crate::worker_handlers::get_worker_assets),
         )
         // ── Runtime tick (Phase 1 ROADMAP — Gate 1 : concordance bougies) ──
         .route(
@@ -369,18 +257,9 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/presse/briefs/{id}",
             web::get().to(crate::presse_handlers::get_brief),
         )
-        .service(
-            web::resource("/api/smc/analyse-llm")
-                .route(web::get().to(crate::smc_analyse_handler::get_derniere_analyse))
-                .route(web::post().to(crate::smc_analyse_handler::lancer_analyse)),
-        )
         .route(
             "/api/volatility/patterns",
             web::get().to(crate::volatility_handlers::get_patterns),
-        )
-        .route(
-            "/api/ia/ab-test",
-            web::get().to(crate::ab_test_handlers::get_ab_test),
         )
         .route(
             "/api/prompts",
@@ -393,5 +272,4 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         );
     crate::routes_ml::configurer(cfg);
     crate::routes_rockets::configurer(cfg);
-    crate::routes_prealerte::configurer(cfg);
 }

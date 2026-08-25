@@ -1,6 +1,6 @@
 use actix_web::{web, HttpResponse, Responder};
 use serde::Deserialize;
-use smc::{scorer, sweep};
+use smc::scorer;
 
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};

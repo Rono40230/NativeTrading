@@ -1,34 +1,25 @@
 use actix_cors::Cors;
 use actix_web::{http::header, web, App, HttpServer};
 
-mod ab_test_handlers;
 mod asset_params_handlers;
 mod assets_handlers;
 mod calendar_handlers;
 mod config_handlers;
 mod data_handlers;
-mod dukascopy_handlers;
 mod handlers;
 mod http_client;
 mod indicators_handlers;
 mod indicators_types;
-mod ml_handlers;
 mod ml_insights_handlers;
 mod ml_retrain_fine_tuning;
 mod ml_retrain_handler;
 mod ml_retrain_job;
-mod news_context_handler;
-mod news_fear_greed;
 mod news_handlers;
-mod news_lus_handlers;
-mod ollama_ajustements_handler;
 mod ollama_chart_handler;
 mod ollama_chat_handler;
 mod ollama_handlers;
-mod ollama_signal_ia_handler;
 mod ollama_types;
 mod pip_updater;
-mod prealerte_handlers;
 mod presse_handlers;
 mod prix_handlers;
 mod prix_stream;
@@ -36,7 +27,6 @@ mod prix_utils;
 mod prompts_handler;
 mod rockets_analyse_handler;
 mod rockets_handlers;
-mod rockets_scan;
 mod rockets_ml_handlers;
 mod rockets_prix;
 mod rockets_suivi;
@@ -57,7 +47,6 @@ mod mt5_etat_historique;
 mod setups_formation;
 mod registre_strategies;
 mod signaux_officiels;
-mod smc_analyse_handler;
 mod smc_handlers;
 mod smc_monitoring_handlers;
 mod smc_v12_collect;
@@ -65,7 +54,6 @@ mod smc_v12_handlers;
 mod smc_v12_out;
 mod state;
 mod straddle_categorisation;
-mod straddle_dev_handlers;
 mod straddle_handlers;
 mod straddle_ml_handlers;
 mod straddle_monitoring_handlers;
@@ -81,7 +69,6 @@ mod worker_handlers;
 mod ws_handlers;
 
 mod routes;
-mod routes_prealerte;
 mod routes_ml;
 mod routes_rockets;
 
@@ -134,9 +121,6 @@ async fn main() -> std::io::Result<()> {
     // tokio::spawn(signaux_handlers::demarrer_worker_suivi_signaux(pool_signaux));
     let _ = signaux_handlers::demarrer_worker_suivi_signaux;
 
-    // Analyse hebdo LLM SMC suspendue (chemin B éteint — plus de matière).
-    // tokio::spawn(smc_analyse_handler::demarrer_worker_analyse_smc(app_state.db.clone()));
-    let _ = smc_analyse_handler::demarrer_worker_analyse_smc;
 
     // ── Boucles automatiques ─────────────────────────────────────────────────
     // Rappel : SMC + Straddle + surveillance ML sont DÉJÀ démarrés par

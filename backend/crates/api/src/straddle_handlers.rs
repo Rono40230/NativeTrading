@@ -4,7 +4,7 @@ use data::{providers::BinanceProvider, DataProvider};
 use llm::straddle_analyse;
 use crate::state::AppState;
 use crate::straddle_utils::{
-    limite_bougies, periode_en_mois, MaJCreneau, ReponseAnalyse, RequeteAnalyse, MAX_BOUGIES_RESEAU,
+    limite_bougies, periode_en_mois, ReponseAnalyse, RequeteAnalyse, MAX_BOUGIES_RESEAU,
 };
 use crate::utils::parse_asset;
 
@@ -177,98 +177,4 @@ pub async fn analyser(
     }
 }
 
-// ── POST /api/straddle/creneaux/{id}/precision ──────────────────────────────
-/// Analyse la précision M1 (timing optimal à la minute) pour un créneau existant.
-#[derive(serde::Deserialize)]
-pub struct RequetePrecision {
-    pub asset: String,
-    pub jour_semaine: Option<i64>,
-    pub heure_debut: String,
-    pub heure_fin: String,
-}
 
-pub async fn handler_analyser_precision(
-    state: web::Data<AppState>,
-    path: web::Path<i64>,
-    body: web::Json<RequetePrecision>,
-) -> impl Responder {
-    let id = path.into_inner();
-    let asset = match crate::utils::parse_asset(&body.asset) {
-        Some(a) => a,
-        None => {
-            return HttpResponse::BadRequest().json(serde_json::json!({ "error": "Asset inconnu" }))
-        }
-    };
-
-    let bougies = match state
-        .db
-        .obtenir_bougies_plage_horaire_m1(&asset, &body.heure_debut, &body.heure_fin)
-        .await
-    {
-        Ok(b) => b,
-        Err(e) => {
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": e.to_string() }))
-        }
-    };
-
-    let precision = strategies::straddle_precision::analyser_precision(
-        &bougies,
-        body.jour_semaine,
-        &body.heure_debut,
-        &body.heure_fin,
-    );
-
-    match precision {
-        None => HttpResponse::Ok()
-            .json(serde_json::json!({ "ok": false, "message": "Données insuffisantes" })),
-        Some(p) => {
-            if let Err(e) = db::straddle::mettre_a_jour_precision(state.db.pool(), id, &p).await {
-                return HttpResponse::InternalServerError()
-                    .json(serde_json::json!({ "error": e.to_string() }));
-            }
-            HttpResponse::Ok().json(serde_json::json!({
-                "ok": true,
-                "timing_optimal": p.timing_optimal,
-                "fenetre_entree": p.fenetre_entree,
-                "whipsaw_minutes": p.whipsaw_minutes,
-                "nb_occurrences": p.nb_occurrences,
-                "atr_pic": p.atr_pic,
-            }))
-        }
-    }
-}
-
-/// Liste tous les créneaux identifiés, triés par conviction LLM.
-pub async fn lister_creneaux(state: web::Data<AppState>) -> impl Responder {
-    match db::straddle::lister_creneaux(state.db.pool()).await {
-        Ok(creneaux) => HttpResponse::Ok().json(creneaux),
-        Err(e) => {
-            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
-        }
-    }
-}
-
-// ── PATCH /api/straddle/creneaux/{id} ────────────────────────────────────────
-/// Met à jour le statut et/ou les résultats backtest d'un créneau.
-pub async fn mettre_a_jour_creneau(
-    state: web::Data<AppState>,
-    path: web::Path<i64>,
-    body: web::Json<MaJCreneau>,
-) -> impl Responder {
-    let id = path.into_inner();
-    match db::straddle::mettre_a_jour_creneau(
-        state.db.pool(),
-        id,
-        body.statut.clone(),
-        body.backtest_winrate,
-        body.backtest_profit_factor,
-    )
-    .await
-    {
-        Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
-        Err(e) => {
-            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
-        }
-    }
-}

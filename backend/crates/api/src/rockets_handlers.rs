@@ -1,8 +1,7 @@
 use actix_web::{web, HttpResponse, Responder};
-use db::rockets::{self, NouveauRocket};
+use db::rockets;
 use serde::Deserialize;
 
-use crate::rockets_scan;
 use crate::state::AppState;
 
 // ── Config endpoints ─────────────────────────────────────────────────────────
@@ -28,21 +27,6 @@ pub async fn put_config(
 
 // ── DTOs ────────────────────────────────────────────────────────────────────
 
-#[derive(Deserialize)]
-pub struct RequeteSauvegarder {
-    pub ticker: String,
-    pub phase: String,
-    pub score: i64,
-    pub prix_entree: f64,
-    pub stop_loss: f64,
-    pub target: f64,
-    pub target2: Option<f64>,
-    pub target3: Option<f64>,
-    pub ratio_volume: f64,
-    pub atr_ratio: f64,
-    pub atr14: Option<f64>,
-    pub rsi: f64,
-}
 
 #[derive(Deserialize)]
 pub struct QueryHistorique {
@@ -51,94 +35,7 @@ pub struct QueryHistorique {
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
-/// POST /api/rockets/signal — enregistre un signal détecté côté frontend
-pub async fn sauvegarder_signal(
-    state: web::Data<AppState>,
-    body: web::Json<RequeteSauvegarder>,
-) -> impl Responder {
-    let pool = state.db.pool();
-    let nouveau = NouveauRocket {
-        ticker: body.ticker.clone(),
-        phase: body.phase.clone(),
-        score: body.score,
-        prix_entree: body.prix_entree,
-        stop_loss: body.stop_loss,
-        target: body.target,
-        target2: body.target2,
-        target3: body.target3,
-        ratio_volume: body.ratio_volume,
-        atr_ratio: body.atr_ratio,
-        atr14: body.atr14,
-        rsi: body.rsi,
-        llm_valide: None,
-        llm_conviction: None,
-        llm_raison: None,
-        llm_sl_suggere: None,
-        llm_tp1_suggere: None,
-        trailing_coeff: 2.5,
-        pct_tp1: 0.25,
-        pct_tp2: 0.25,
-        pct_trailing: 0.50,
-        entree_limite: None,
-        entree_stop: None,
-        niveau_invalidation: None,
-        type_entree_rec: None,
-    };
-    match rockets::sauvegarder(pool, &nouveau).await {
-        Ok(Some(id)) => {
-            let ticker_base = body
-                .ticker
-                .trim_end_matches("USDT")
-                .trim_end_matches("USD")
-                .trim_end_matches("BTC");
-            if let Some(asset) = crate::utils::parse_asset(ticker_base) {
-                use common::{Direction, Signal, Timeframe};
-                let tp1 = body.target;
-                let signal = Signal::nouveau(
-                    asset,
-                    Timeframe::M15,
-                    Direction::Long,
-                    body.score as f64,
-                    body.prix_entree,
-                    body.stop_loss,
-                    vec![tp1, body.target2.unwrap_or(tp1), body.target3.unwrap_or(tp1)],
-                    "Rockets",
-                );
-            }
-            HttpResponse::Ok().json(serde_json::json!({ "id": id, "nouveau": true }))
-        }
-        Ok(None) => HttpResponse::Ok().json(serde_json::json!({ "nouveau": false })),
-        Err(e) => {
-            tracing::error!("Sauvegarde rocket: {}", e);
-            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
-        }
-    }
-}
 
-/// GET /api/rockets/scan — résultats du dernier scan worker
-pub async fn get_scan(state: web::Data<AppState>) -> impl Responder {
-    use strategies::rockets_indicateurs::MAX_DISPLAY;
-    let results = rockets_scan::get_scan_results();
-    let total = rockets_scan::get_total_candidats();
-    let locked = results.read().await;
-    let nb_total = *total.read().await;
-
-    // Exclure les tickers qui ont déjà un trade actif (statut='ouvert')
-    let tickers_actifs: std::collections::HashSet<String> = match rockets::lister_ouverts(state.db.pool()).await {
-        Ok(ouverts) => ouverts.into_iter().map(|s| s.ticker).collect(),
-        Err(_) => std::collections::HashSet::new(),
-    };
-
-    let signaux: Vec<_> = locked
-        .iter()
-        .filter(|r| !tickers_actifs.contains(&r.ticker))
-        .take(MAX_DISPLAY)
-        .collect();
-    HttpResponse::Ok().json(serde_json::json!({
-        "signaux": signaux,
-        "total_candidats": nb_total,
-    }))
-}
 
 /// GET /api/rockets/historique?limite=50 — uniquement les trades clôturés (statut='ferme')
 pub async fn get_historique(

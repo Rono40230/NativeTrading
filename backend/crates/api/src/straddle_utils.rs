@@ -8,12 +8,6 @@ pub struct RequeteAnalyse {
     pub periode: Option<String>, // "3m" | "6m" | "1a" | "2a"
 }
 
-#[derive(Deserialize)]
-pub struct MaJCreneau {
-    pub statut: Option<String>,
-    pub backtest_winrate: Option<f64>,
-    pub backtest_profit_factor: Option<f64>,
-}
 
 #[derive(Serialize)]
 pub(crate) struct ReponseAnalyse {

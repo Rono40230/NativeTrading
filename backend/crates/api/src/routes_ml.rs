@@ -6,18 +6,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         "/api/ml/predict",
         web::get().to(crate::handlers::predict_ml),
     )
-    .route(
-        "/api/ml/train",
-        web::post().to(crate::ml_handlers::entrainer_ml),
-    )
-    .route(
-        "/api/ml/status",
-        web::get().to(crate::ml_handlers::statut_ml),
-    )
-    .route(
-        "/api/ml/history",
-        web::get().to(crate::ml_handlers::historique_ml),
-    )
     // ── Phase 8 : ML Feedback Loop ──────────────────────────────────────
     .route(
         "/api/ml/feedback/stats",

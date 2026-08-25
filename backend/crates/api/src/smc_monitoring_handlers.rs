@@ -7,17 +7,10 @@
 //!   GET  /api/smc/baremes        → constantes SCORE_MAX_* du moteur SMC
 
 use actix_web::{web, HttpResponse, Responder};
-use serde::Deserialize;
 use sqlx::Row;
 
 use crate::state::AppState;
 
-#[derive(Deserialize)]
-pub struct QuerySmcFeedback {
-    pub asset: Option<String>,
-    pub timeframe: Option<String>,
-    pub limit: Option<i64>,
-}
 
 // ── GET /api/smc/monitoring-ml ────────────────────────────────────────────────
 
@@ -106,66 +99,9 @@ pub async fn get_calibration(state: web::Data<AppState>) -> impl Responder {
 
 // ── GET /api/smc/feedback ─────────────────────────────────────────────────────
 
-pub async fn get_feedback(
-    state: web::Data<AppState>,
-    query: web::Query<QuerySmcFeedback>,
-) -> impl Responder {
-    let limit = query.limit.unwrap_or(50).min(500);
-    let asset = query.asset.as_deref().unwrap_or("%");
-    let timeframe = query.timeframe.as_deref().unwrap_or("%");
-    let pool = state.db.pool();
-
-    match db::smc_feedback::lister_feedbacks_like(pool, asset, timeframe, limit).await {
-        Ok(rows) => HttpResponse::Ok().json(rows),
-        Err(e) => {
-            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
-        }
-    }
-}
 
 // ── GET /api/smc/equity ─────────────────────────────────────────────────────
 
-#[derive(serde::Deserialize)]
-pub struct QueryEquity {
-    pub capital: Option<f64>,
-    pub risk_pct: Option<f64>,
-}
-
-pub async fn get_equity(
-    state: web::Data<AppState>,
-    query: web::Query<QueryEquity>,
-) -> impl Responder {
-    let capital = query.capital.unwrap_or(10_000.0);
-    let risk_pct = query.risk_pct.unwrap_or(0.015);
-    let risk_montant = capital * risk_pct;
-    let pool = state.db.pool();
-
-    match db::smc_feedback_stats::courbe_equity(pool, capital, risk_montant).await {
-        Ok(points) => {
-            let nb_trades = points.len() as i64;
-            HttpResponse::Ok().json(serde_json::json!({
-                "capital_initial": capital,
-                "risk_pct": risk_pct,
-                "nb_trades_saisis": nb_trades,
-                "points": points,
-            }))
-        }
-        Err(e) => {
-            HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))
-        }
-    }
-}
 
 // ── GET /api/smc/baremes ──────────────────────────────────────────────────────
 
-/// Retourne les constantes SCORE_MAX_* du moteur SMC (lecture seule, statique).
-pub async fn get_baremes(_state: web::Data<AppState>) -> impl Responder {
-    HttpResponse::Ok().json(serde_json::json!({
-        "tendance":    smc::SCORE_MAX_TENDANCE,
-        "order_block": smc::SCORE_MAX_ORDER_BLOCK,
-        "ifvg":        smc::SCORE_MAX_IFVG,
-        "imbalance":   smc::SCORE_MAX_IMBALANCE,
-        "fibonacci":   smc::SCORE_MAX_FIBONACCI,
-        "total_max":   smc::SCORE_TOTAL_MAX,
-    }))
-}

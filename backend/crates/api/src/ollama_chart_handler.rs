@@ -49,48 +49,4 @@ pub async fn analyser_chart(
     }
 }
 
-#[derive(serde::Deserialize)]
-pub struct SauvegardeAnalyseReq {
-    pub image_base64: String,
-    pub asset: String,
-    pub timeframe: String,
-}
 
-// ─── POST /api/ia/save-analysis ──────────────────────────────────────────────
-pub async fn analyser_chart_sauvegarde(body: web::Json<SauvegardeAnalyseReq>) -> impl Responder {
-    use chrono::{Datelike, Timelike};
-    // Heure de Paris (Europe/Paris) pour le nom du fichier — fini le Local::now()
-    // dépendant du fuseau du serveur.
-    let maintenant = common::time::paris_from_unix(chrono::Utc::now().timestamp());
-    
-    let mois_noms = ["", "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-    let nom_mois = mois_noms.get(maintenant.month() as usize).unwrap_or(&"");
-
-    let nom_fichier = format!(
-        "{} en {} le {} {} {} à {:02}h{:02}.png",
-        body.asset.replace('/', "_"),
-        body.timeframe.replace('/', "_"),
-        maintenant.day(),
-        nom_mois,
-        maintenant.year(),
-        maintenant.hour(),
-        maintenant.minute()
-    );
-    let chemin_nom = format!("/home/rono/Téléchargements/{}", nom_fichier);
-
-    let path = std::path::Path::new(&chemin_nom);
-    if let Some(parent) = path.parent() {
-        if let Err(e) = std::fs::create_dir_all(parent) {
-            return HttpResponse::InternalServerError().json(serde_json::json!({ "error": format!("Impossible de créer les dossiers: {}", e) }));
-        }
-    }
-
-    use base64::{engine::general_purpose, Engine as _};
-    match general_purpose::STANDARD.decode(body.image_base64.as_bytes()) {
-        Ok(bytes) => match std::fs::write(path, bytes) {
-            Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "path": chemin_nom, "status": "success" })),
-            Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": format!("Erreur d'écriture: {}", e) }))
-        },
-        Err(e) => HttpResponse::BadRequest().json(serde_json::json!({ "error": format!("Base64 invalide: {}", e) }))
-    }
-}

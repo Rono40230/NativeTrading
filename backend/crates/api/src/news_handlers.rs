@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 
 use news::news_rss::fetch_rss;
 use news::news_scoring::{classer_theme, dedupliquer, niveau, scorer, AlertesNews, ArticleNews};
-use news::news_scraper::{est_url_externe_sure, recuperer_contenu_article};
 use news::news_traduction::{
     hash_titre, lire_cache, lire_sentiment_cache, traduire_avec_cache, traduire_contenu,
 };
@@ -153,35 +152,7 @@ pub async fn get_news_alertes(state: web::Data<AppState>) -> impl Responder {
 
 // ── Contenu Article ──────────────────────────────────────────────────────────
 
-#[derive(Deserialize)]
-pub struct ContenuParams {
-    pub url: String,
-}
 
-#[derive(Serialize)]
-pub struct ContenuArticle {
-    pub texte: String,
-}
-
-/// GET /api/news/contenu?url=...
-/// Protection SSRF : HTTPS uniquement, adresses internes bloquées.
-pub async fn get_contenu_article(
-    _state: web::Data<AppState>,
-    params: web::Query<ContenuParams>,
-) -> impl Responder {
-    if !est_url_externe_sure(&params.url) {
-        return HttpResponse::BadRequest()
-            .json(serde_json::json!({ "error": "URL non autorisée" }));
-    }
-
-    let client = &*crate::http_client::HTTP_CLIENT;
-
-    match recuperer_contenu_article(client, &params.url).await {
-        Some(texte) => HttpResponse::Ok().json(ContenuArticle { texte }),
-        None => HttpResponse::UnprocessableEntity()
-            .json(serde_json::json!({ "error": "Contenu non extractible" })),
-    }
-}
 
 // ── Traduction à la demande ──────────────────────────────────────────────────
 

@@ -161,12 +161,3 @@ pub async fn get_worker_status(state: web::Data<AppState>) -> impl Responder {
 
 // ─── GET /api/worker/assets ───────────────────────────────────────────────────
 
-/// Liste des assets avec leurs colonnes de routing worker — alimente la
-/// section « Assets pipeline » de la vue Données.
-pub async fn get_worker_assets(state: web::Data<AppState>) -> impl Responder {
-    match state.db.lister_assets_worker().await {
-        Ok(assets) => HttpResponse::Ok().json(serde_json::json!({ "assets": assets })),
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "erreur": e.to_string() })),
-    }
-}
