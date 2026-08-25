@@ -68,7 +68,7 @@
         </span>
         <span class="text-gray-400">{{ b.perf.total }} trade{{ b.perf.total > 1 ? 's' : '' }} rempli{{ b.perf.total > 1 ? 's' : '' }}</span>
         <span v-if="b.perf.non_remplis > 0" class="text-gray-600" title="Ordres posés jamais touchés par le prix">· {{ b.perf.non_remplis }} jamais remplis</span>
-        <span v-if="b.perf.total > 0" class="text-gray-400">{{ (b.perf.taux_reussite * 100).toFixed(0) }} % réussite</span>
+        <span v-if="b.perf.total > 0" class="text-gray-400">WR {{ (b.perf.taux_reussite * 100).toFixed(0) }} %</span>
         <span class="ml-auto text-gray-500">{{ b.perf.en_cours.length }} en cours</span>
       </div>
 
