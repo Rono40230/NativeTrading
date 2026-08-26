@@ -26,10 +26,10 @@
         <div class="h-px w-full bg-white/5 my-2"></div>
 
         <!-- Risque -->
-        <h4 class="text-xs uppercase text-gray-500 font-semibold tracking-wider">Risque (R = SL × ATR14)</h4>
+        <h4 class="text-xs uppercase text-gray-500 font-semibold tracking-wider">Risque (R = SL × ATR H1)</h4>
         <div class="space-y-3">
           <div class="flex items-center justify-between gap-4">
-            <span class="text-gray-300 text-xs">SL (1R) × ATR</span>
+            <span class="text-gray-300 text-xs">SL (1R) × ATR H1</span>
             <input v-model.number="store.straddleRaw['sl_mult']" type="number" :step="0.1" :min="0.1"
               class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
           </div>
@@ -40,21 +40,11 @@
           </div>
         </div>
 
-        <div class="h-px w-full bg-white/5 my-2"></div>
-
-        <!-- Contexte moteur -->
-        <h4 class="text-xs uppercase text-gray-500 font-semibold tracking-wider">Indicateurs</h4>
-        <div class="space-y-3">
-          <div class="flex items-center justify-between gap-4">
-            <span class="text-gray-300 text-xs">Période ATR</span>
-            <input v-model.number="store.straddleRaw['atr_periode']" type="number" :step="1" :min="5"
-              class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
-          </div>
-        </div>
-
         <p class="text-[11px] text-gray-500 leading-relaxed">
-          TP1 = 1R (BE à l'entrée) et TP2 = 2R (BE à TP1 + trailing) sont canoniques —
-          ils ne se règlent pas. Time-stop 60 min, expiration 30 min après l'annonce.
+          R est mesuré sur l'ATR H1 (volatilité normale de l'actif) et non sur la
+          compression M1 pré-annonce — un R microscopique faisait égorger les jambes
+          par le spike initial (constat Gate 3 26/08). TP1 = 1R (BE à l'entrée) et
+          TP2 = 2R (BE à TP1 + trailing) sont canoniques. Time-stop 60 min.
         </p>
       </div>
 

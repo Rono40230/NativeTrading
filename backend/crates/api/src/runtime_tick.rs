@@ -313,8 +313,7 @@ async fn boucle_runtime(
     }
 }
 
-/// Resynchronise les couples (asset × TF) du runtime avec la config DB :
-/// enregistre + rejoue les nouveaux, retire les disparus.
+/// Resynchronise les couples (asset × TF) du runtime avec la config DB.
 async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
     let assets = assets_runtime(db).await;
     let timeframes = data::worker_config::lire_timeframes(db).await;
@@ -338,15 +337,11 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         })
         .collect();
 
-    // Retraits (asset décoché ou timeframe retiré dans l'UI).
+    // Retraits (asset décoché ou TF retiré dans l'UI).
     for cle in runtime.cles() {
         if !cibles.contains(&cle) {
             runtime.retirer(cle.0.clone(), cle.1);
-            tracing::info!(
-                "Runtime tick: {} {} retiré (config DB)",
-                cle.0.as_str(),
-                cle.1.as_str()
-            );
+            tracing::info!("Runtime tick: {} {} retiré (config DB)", cle.0.as_str(), cle.1.as_str());
         }
     }
 
@@ -388,6 +383,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                             placement_avant_sec: p.placement_sec,
                             ..Default::default()
                         })
+                        .avec_atr_h1(crate::straddle_atr::atr_h1(db, asset.as_str()).await)
                         .avec_annonces(annonces),
                 ));
             }
@@ -428,6 +424,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 vec![Box::new(
                     straddle::StraddleEngine::nouveau(asset.clone(), *tf)
                         .avec_params(params)
+                        .avec_atr_h1(crate::straddle_atr::atr_h1(db, asset.as_str()).await)
                         .avec_annonces(annonces),
                 )],
             );
@@ -477,6 +474,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
             moteurs.push(Box::new(
                 straddle::StraddleEngine::nouveau(asset.clone(), *tf)
                     .avec_params(params)
+                    .avec_atr_h1(crate::straddle_atr::atr_h1(db, asset.as_str()).await)
                     .avec_annonces(annonces),
             ));
         }

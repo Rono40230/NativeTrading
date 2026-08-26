@@ -57,7 +57,14 @@ function estVivant(s: EtatSignal): boolean {
 }
 
 export function labelEtatSignal(s: EtatSignal): string {
-  if (!estVivant(s)) return labelVerdictSignal(s.verdict)
+  if (!estVivant(s)) {
+    // Straddle « be » : jambe gagnante revenue à E après TP1 (+1R acquis)
+    // nettée contre le SL de la perdante (-1R) — PAS un BE forcé BOS.
+    if (s.verdict?.toLowerCase() === 'be' && (s.strategie ?? '').toLowerCase() === 'straddle') {
+      return '⚖️ TP1 gagnante − SL perdante (0R net)'
+    }
+    return labelVerdictSignal(s.verdict)
+  }
   const strat = (s.strategie ?? '').toLowerCase()
   if (strat === 'straddle' && s.heure_entree) {
     const reste = s.heure_entree - Math.floor(Date.now() / 1000)

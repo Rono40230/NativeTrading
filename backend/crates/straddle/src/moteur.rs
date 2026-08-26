@@ -14,6 +14,10 @@
 //! TimeStop. Le R réalisé d'une passe = SOMME NETTE des deux jambes (le SL
 //! de la jambe perdante = la TP1 de la gagnante : ±1R). Une annonce sans
 //! mouvement se ferme au TimeStop à E → passe journalisée à 0R.
+//!
+//! R = sl_atr × ATR14(**H1**) — la volatilité HORAIRE normale de l'asset,
+//! pas la compression M1 pré-annonce (qui rendait le R microscopique face
+//! aux spikes des annonces HIGH impact).
 
 use common::{Asset, Direction, Timeframe};
 use engine::types::{EvenementTrade, SignalBrut, SortieMoteur, TypeEvenementTrade};
@@ -126,7 +130,18 @@ pub struct StraddleEngine {
     /// Annonces à venir, triées par ts (injectées hors DB).
     annonces: Vec<Annonce>,
     phase: Phase,
+    /// ATR M1 interne (repli si aucun ATR H1 disponible).
     atr: Atr14,
+    /// Étalon du R : ATR14 **H1**. Injecté depuis la DB à l'armement
+    /// (disponible immédiatement), puis auto-rafraîchi en live par les
+    /// clôtures horaires reconstituées du flux M1 — la compression
+    /// pré-annonce rendait l'ATR M1 microscopique face aux spikes
+    /// (constat Gate 3 26/08 : R = 1,15 pt XAU vs spike 16 R).
+    atr_h1_injecte: Option<f64>,
+    /// RMA ATR sur barres H1 reconstituées du flux on_close.
+    atr_h1_live: Atr14,
+    /// Heure en cours d'agrégation : (ts_heure, high, low, close).
+    heure_courante: Option<(i64, f64, f64, f64)>,
 }
 
 impl StraddleEngine {
@@ -138,7 +153,25 @@ impl StraddleEngine {
             annonces: Vec::new(),
             phase: Phase::Idle,
             atr: Atr14::new(),
+            atr_h1_injecte: None,
+            atr_h1_live: Atr14::new(),
+            heure_courante: None,
         }
+    }
+
+    /// Injecte l'ATR14(H1) de l'asset (calculé par le runtime depuis la DB).
+    pub fn avec_atr_h1(mut self, atr: Option<f64>) -> Self {
+        self.atr_h1_injecte = atr.filter(|a| *a > 0.0);
+        self
+    }
+
+    /// Étalon courant du R : RMA H1 live dès qu'elle a assez d'échantillons,
+    /// sinon l'ATR H1 injectée, sinon l'ATR M1 (repli démarrage à froid).
+    fn atr_h1(&self) -> Option<f64> {
+        if self.atr_h1_live.n >= 3 && self.atr_h1_live.valeur > 0.0 {
+            return Some(self.atr_h1_live.valeur);
+        }
+        self.atr_h1_injecte
     }
 
     /// Avec paramètres custom (calibrage).
@@ -348,11 +381,12 @@ impl Engine for StraddleEngine {
             }
             Phase::Range { annonce_ts } => {
                 if ts >= annonce_ts - self.params.placement_avant_sec {
-                    let atr = self.atr.get();
+                    let atr = self.atr_h1().unwrap_or_else(|| self.atr.get());
                     if atr > 0.0 {
                         // OUVERTURE PAR LE TIMER au prix courant E, quelle
-                        // que soit sa valeur. R = sl_atr × ATR (risque
-                        // unitaire) ; les 2 jambes vivent en parallèle.
+                        // que soit sa valeur. R = sl_atr × ATR H1 (étalon de
+                        // volatilité normale — pas la compression pré-annonce) ;
+                        // repli ATR M1 si aucun étalon H1 disponible.
                         let r = self.params.sl_atr * atr;
                         if r > 0.0 {
                             let cle = format!("straddle-{annonce_ts}-B");
@@ -401,9 +435,26 @@ impl Engine for StraddleEngine {
         sortie
     }
 
-    /// Clôture : alimente l'ATR14 interne.
+    /// Clôture M1 : alimente l'ATR M1 (repli) et reconstitue les barres H1
+    /// (high/low/close de l'heure en cours) pour auto-raffraîchir l'étalon.
     fn on_close(&mut self, ctx: &ContexteCloture) -> SortieMoteur {
         self.atr.update(ctx.bougie.high, ctx.bougie.low, ctx.bougie.close);
+        let ts = ctx.bougie.timestamp.timestamp();
+        let heure = ts - ts % 3600;
+        match self.heure_courante {
+            Some((h, ph, pl, pc)) if h == heure => {
+                self.heure_courante = Some((h, ph.max(ctx.bougie.high), pl.min(ctx.bougie.low), ctx.bougie.close));
+            }
+            Some((h, ph, pl, pc)) => {
+                // Nouvelle heure : la précédente est complète → barre H1.
+                let _ = h;
+                self.atr_h1_live.update(ph, pl, pc);
+                self.heure_courante = Some((heure, ctx.bougie.high, ctx.bougie.low, ctx.bougie.close));
+            }
+            None => {
+                self.heure_courante = Some((heure, ctx.bougie.high, ctx.bougie.low, ctx.bougie.close));
+            }
+        }
         SortieMoteur::vide()
     }
 }

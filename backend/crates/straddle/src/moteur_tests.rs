@@ -167,3 +167,35 @@ fn sl_avant_tout_tp_net_moins_1r() {
     let (_verdict, r) = verdict_final(&s);
     assert!(r < 0.0, "net négatif (SL long −1R + short ≈ +0.8R) : {:.2}", r);
 }
+
+#[test]
+fn r_base_sur_l_atr_h1_injectee() {
+    let a_ts = 1_800_000_000;
+    // Chauffe M1 (ATR M1 ≈ 1) mais ATR H1 injectée = 6 → R = 0.5 × 6 = 3.
+    let mut m = moteur_pret(a_ts).avec_atr_h1(Some(6.0));
+    tick(&mut m, a_ts - 1800, 100.0);
+    let s = tick(&mut m, a_ts - 10, 100.0);
+    match m.phase_courante() {
+        Phase::Position { r, jambes, .. } => {
+            assert!((r - 3.0).abs() < 1e-9, "R = sl_atr × ATR H1 = 3.0 (got {r})");
+            assert!((jambes[0].sl - 97.0).abs() < 1e-9, "SL long = E - 3");
+            assert!((jambes[0].tp1 - 103.0).abs() < 1e-9, "TP1 = E + 3");
+            assert!((jambes[1].sl - 103.0).abs() < 1e-9, "SL short = E + 3");
+        }
+        other => panic!("phase inattendue : {:?}", other),
+    }
+    assert_eq!(s.signaux.len(), 1);
+}
+
+#[test]
+fn repli_atr_m1_sans_injection_h1() {
+    let a_ts = 1_800_000_000;
+    // Aucune injection H1 → repli sur l'ATR M1 (≈ 1) → R ≈ 0.5.
+    let mut m = moteur_pret(a_ts);
+    tick(&mut m, a_ts - 1800, 100.0);
+    tick(&mut m, a_ts - 10, 100.0);
+    match m.phase_courante() {
+        Phase::Position { r, .. } => assert!((r - 0.5).abs() < 0.05, "repli M1"),
+        other => panic!("phase inattendue : {:?}", other),
+    }
+}
