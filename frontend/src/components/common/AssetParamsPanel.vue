@@ -25,7 +25,11 @@
       </label>
       <label class="ref-field">
         Risque (%)
-        <input v-model.number="risqueRef" type="number" min="0.1" max="100" step="0.1" class="input-ref" />
+        <select v-model.number="risqueRef" class="input-ref">
+          <option :value="1">1</option>
+          <option :value="2">2</option>
+          <option :value="3">3</option>
+        </select>
       </label>
     </div>
 
@@ -119,7 +123,9 @@ const CLE_RISQUE_REF = 'trading_risque_reference'
 const capitalRef = ref<number>(
   Number(localStorage.getItem(CLE_CAPITAL_REF)) || settingsStore.capitalDepart || 2000,
 )
-const risqueRef = ref<number>(Number(localStorage.getItem(CLE_RISQUE_REF)) || 5)
+const risqueRef = ref<number>([1, 2, 3].includes(Number(localStorage.getItem(CLE_RISQUE_REF)))
+  ? Number(localStorage.getItem(CLE_RISQUE_REF))
+  : 2)
 watch([capitalRef, risqueRef], () => {
   localStorage.setItem(CLE_CAPITAL_REF, String(capitalRef.value))
   localStorage.setItem(CLE_RISQUE_REF, String(risqueRef.value))

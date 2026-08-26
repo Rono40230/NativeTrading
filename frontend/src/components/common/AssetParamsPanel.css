@@ -276,3 +276,8 @@
     font-weight: 600;
     color: #fbbf24;
 }
+
+.input-ref option {
+    background: #1e293b;
+    color: #e2e8f0;
+}
