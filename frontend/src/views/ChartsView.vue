@@ -120,7 +120,7 @@ const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
 const signalStore = useSignalStore()
 
-const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
+const timeframes = ['M1', 'M5', 'M10', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 const selectedAsset = ref(settingsStore.assetActif)
 const selectedTimeframe = ref(settingsStore.timeframeActif)
 const chartContainer = ref<HTMLElement | null>(null)
@@ -232,7 +232,7 @@ function rafraichirOverlayV12() {
 /// timeframes, dessinés en atténué avec badge (un trade M1 reste visible
 /// sur les graphiques M5/M15/M30/H1 tant qu'il est ouvert).
 const DUREE_BARRE: Record<string, number> = {
-  M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800,
+  M1: 60, M5: 300, M10: 600, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800,
 }
 const SMC_NOMS = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA']
 

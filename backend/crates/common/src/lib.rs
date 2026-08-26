@@ -64,6 +64,9 @@ impl Signal {
 pub enum Timeframe {
     M1,
     M5,
+    /// 10 minutes — VISUEL SEUL (confirmations manuelles) : aucun moteur
+    /// armé, aucun stockage — agrégé depuis les M1 à la volée.
+    M10,
     M15,
     M30,
     H1,
@@ -77,6 +80,7 @@ impl Timeframe {
         match self {
             Timeframe::M1 => "M1",
             Timeframe::M5 => "M5",
+            Timeframe::M10 => "M10",
             Timeframe::M15 => "M15",
             Timeframe::M30 => "M30",
             Timeframe::H1 => "H1",
@@ -92,6 +96,7 @@ impl Timeframe {
         match self {
             Timeframe::M1 => 1,
             Timeframe::M5 => 5,
+            Timeframe::M10 => 10,
             Timeframe::M15 => 15,
             Timeframe::M30 => 30,
             Timeframe::H1 => 60,
@@ -109,6 +114,7 @@ impl TryFrom<&str> for Timeframe {
         match s {
             "M1" => Ok(Timeframe::M1),
             "M5" => Ok(Timeframe::M5),
+            "M10" => Ok(Timeframe::M10),
             "M15" => Ok(Timeframe::M15),
             "M30" => Ok(Timeframe::M30),
             "H1" => Ok(Timeframe::H1),

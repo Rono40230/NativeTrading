@@ -116,7 +116,8 @@ impl BinanceProvider {
 
     fn interval(tf: &Timeframe) -> &'static str {
         match tf {
-            Timeframe::M1 => "1",
+            // M10 : pas d'interval natif — l'appelant passe M1 puis agrège.
+            Timeframe::M1 | Timeframe::M10 => "1",
             Timeframe::M5 => "5",
             Timeframe::M15 => "15",
             Timeframe::M30 => "30",

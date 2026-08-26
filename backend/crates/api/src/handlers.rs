@@ -38,6 +38,29 @@ pub async fn get_candles(
     let limit = query.limit.unwrap_or(200).min(50_000) as usize;
     let force = query.force.unwrap_or(false);
 
+    // M10 : VISUEL SEUL — pas de stockage propre, agrégé à la volée depuis
+    // les M1 (frontières alignées 10 min = agrégation sans perte). La
+    // dernière bucket incomplète est laissée au flux WS (bougie en formation).
+    if timeframe == common::Timeframe::M10 {
+        let besoin_m1 = (limit * 10).min(50_000) as i64;
+        let mut m1 = state
+            .db
+            .obtenir_bougies(&asset, &common::Timeframe::M1, besoin_m1)
+            .await
+            .unwrap_or_default();
+        if m1.is_empty() && asset.est_cotable_bybit() {
+            if let Ok(b) = BinanceProvider
+                .fetch_candles(asset.clone(), common::Timeframe::M1, besoin_m1 as usize)
+                .await
+            {
+                let _ = state.db.inserer_bougies(&asset, &common::Timeframe::M1, &b).await;
+                m1 = b;
+            }
+        }
+        let maintenant = chrono::Utc::now().timestamp();
+        return HttpResponse::Ok().json(agreger_bougies(m1, 600, maintenant));
+    }
+
     // 1. Cache DB — toutes sources : c'est LA source du chart. Le backfill
     //    profond y a déposé l'historique (BTC M15 : ~2 ans) et le WS la
     //    maintient à jour — le provider REST (plafonné 1000/requête) ne
@@ -74,6 +97,39 @@ pub async fn get_candles(
     // Pour les assets non-crypto sans cache : pas encore de provider REST.
 
     HttpResponse::Ok().json(Vec::<serde_json::Value>::new())
+}
+
+/// Agrège des bougies M1 en buckets de `duree_sec` (frontières alignées).
+/// Bougies triées par timestamp croissant (ordre DB). La dernière bucket
+/// incomplète (encore ouverte à `maintenant`) est ignorée : elle revient au
+/// flux WS en temps réel.
+fn agreger_bougies(bougies: Vec<common::Candle>, duree_sec: i64, maintenant: i64) -> Vec<common::Candle> {
+    use chrono::TimeZone;
+    let mut out: Vec<common::Candle> = Vec::new();
+    for b in bougies {
+        let ts = b.timestamp.timestamp();
+        let bucket = ts - ts % duree_sec;
+        if bucket + duree_sec > maintenant {
+            break; // bucket encore ouverte — WS
+        }
+        match out.last_mut() {
+            Some(prev) if prev.timestamp.timestamp() == bucket => {
+                prev.high = prev.high.max(b.high);
+                prev.low = prev.low.min(b.low);
+                prev.close = b.close;
+                prev.volume += b.volume;
+            }
+            _ => out.push(common::Candle {
+                timestamp: chrono::Utc.timestamp_opt(bucket, 0).single().unwrap_or(b.timestamp),
+                open: b.open,
+                high: b.high,
+                low: b.low,
+                close: b.close,
+                volume: b.volume,
+            }),
+        }
+    }
+    out
 }
 
 // ─── Prédiction ML ────────────────────────────────────────────────────────────
@@ -151,3 +207,43 @@ pub async fn predict_ml(
 
 
 
+
+#[cfg(test)]
+mod tests_m10 {
+    use super::agreger_bougies;
+    use chrono::TimeZone;
+
+    fn m1(ts: i64, o: f64, h: f64, l: f64, c: f64, v: f64) -> common::Candle {
+        common::Candle {
+            timestamp: chrono::Utc.timestamp_opt(ts, 0).single().unwrap(),
+            open: o, high: h, low: l, close: c, volume: v,
+        }
+    }
+
+    #[test]
+    fn dix_m1_fusionnees_en_une_bucket_m10() {
+        // Bucket 12:00 → 12:10 (ts 43200..43209 en minutes), maintenant = fin.
+        let bougies: Vec<_> = (0..10)
+            .map(|i| m1(43200 * 60 + i * 60, 100.0 + i as f64, 101.0 + i as f64, 99.0, 100.5 + i as f64, 10.0))
+            .collect();
+        let out = agreger_bougies(bougies, 600, (43200 * 60) + 600 + 1);
+        assert_eq!(out.len(), 1);
+        let b = &out[0];
+        assert_eq!(b.timestamp.timestamp(), 43200 * 60);
+        assert!((b.open - 100.0).abs() < 1e-9, "open = première M1");
+        assert!((b.high - 110.0).abs() < 1e-9, "high = max");
+        assert!((b.low - 99.0).abs() < 1e-9, "low = min");
+        assert!((b.close - 109.5).abs() < 1e-9, "close = dernière M1");
+        assert!((b.volume - 100.0).abs() < 1e-9, "volume sommé");
+    }
+
+    #[test]
+    fn bucket_ouverte_ignoree() {
+        // 3 M1 dans la bucket courante (non fermée à `maintenant`).
+        let bougies: Vec<_> = (0..3)
+            .map(|i| m1(50000 * 60 + i * 60, 10.0, 11.0, 9.0, 10.0, 1.0))
+            .collect();
+        let out = agreger_bougies(bougies, 600, 50000 * 60 + 180);
+        assert!(out.is_empty(), "bucket incomplète laissée au WS");
+    }
+}

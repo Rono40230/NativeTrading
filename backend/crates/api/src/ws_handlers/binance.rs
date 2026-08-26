@@ -57,7 +57,9 @@ pub(super) async fn stream_binance(
     let is_bybit = true;
     if is_bybit {
         let bybit_interval = match timeframe {
-            common::Timeframe::M1 => "1",
+            // M10 : Bybit n'a pas cet interval — on s'abonne au flux M1 et
+            // on agrège les buckets de 10 min localement (voir plus bas).
+            common::Timeframe::M1 | common::Timeframe::M10 => "1",
             common::Timeframe::M5 => "5",
             common::Timeframe::M15 => "15",
             common::Timeframe::M30 => "30",
@@ -81,6 +83,10 @@ pub(super) async fn stream_binance(
     }
 
     let (_, mut binance_rx) = ws_stream.split();
+
+    // Agrégateur M10 : bucket courante (debut, OHLCV cumulés).
+    let m10 = timeframe == common::Timeframe::M10;
+    let mut bucket: Option<(i64, f64, f64, f64, f64, f64)> = None;
     let ok =
         serde_json::json!({ "type": "connected", "asset": asset_str, "timeframe": timeframe_str });
     if let Ok(p) = serde_json::to_string(&ok) {
@@ -119,6 +125,43 @@ pub(super) async fn stream_binance(
                                                 Some(volume),
                                                 Some(confirm),
                                             ) = (start, open, high, low, close, volume, confirm) {
+                                                // M10 : fusion dans la bucket de 10 min puis
+                                                // émission (bar_update partielle ; candle quand
+                                                // la M1 de la 10e minute confirme).
+                                                if m10 {
+                                                    let debut_bucket = (start / 1000) as i64 / 600 * 600;
+                                                    let fermee = confirm && (start / 1000) as i64 % 600 == 540;
+                                                    let b = match bucket.take() {
+                                                        Some((d, o, h, l, c, v)) if d == debut_bucket => (
+                                                            d,
+                                                            o,
+                                                            h.max(high),
+                                                            l.min(low),
+                                                            close,
+                                                            v + volume,
+                                                        ),
+                                                        _ => (debut_bucket, open, high, low, close, volume),
+                                                    };
+                                                    let (d, o, h, l, c, v) = b;
+                                                    let event = CandleEvent {
+                                                        r#type: if fermee { "candle" } else { "bar_update" },
+                                                        asset: asset_str.clone(),
+                                                        timeframe: timeframe_str.clone(),
+                                                        data: CandleData {
+                                                            timestamp: d,
+                                                            open: o,
+                                                            high: h,
+                                                            low: l,
+                                                            close: c,
+                                                            volume: v,
+                                                        },
+                                                    };
+                                                    if !fermee { bucket = Some(b); }
+                                                    if let Ok(p) = serde_json::to_string(&event) {
+                                                        if session.text(p).await.is_err() { break; }
+                                                    }
+                                                    continue;
+                                                }
                                                 let event = CandleEvent {
                                                     r#type: if confirm { "candle" } else { "bar_update" },
                                                     asset: asset_str.clone(),

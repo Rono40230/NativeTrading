@@ -120,6 +120,9 @@ fn tf_vers_bybit_interval(tf: &Timeframe) -> Option<&'static str> {
     match tf {
         Timeframe::M1 => Some("1"),
         Timeframe::M5 => Some("5"),
+        // M10 : pas d'interval natif Bybit — visuel seul, agrégé depuis les
+        // M1 côté API/WS graphique (aucun topic dédié à collecter).
+        Timeframe::M10 => None,
         Timeframe::M15 => Some("15"),
         Timeframe::M30 => Some("30"),
         Timeframe::H1 => Some("60"),

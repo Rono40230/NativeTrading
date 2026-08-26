@@ -54,6 +54,7 @@ pub fn parse_timeframe(s: &str) -> Timeframe {
     match s {
         "M1" => Timeframe::M1,
         "M5" => Timeframe::M5,
+        "M10" => Timeframe::M10,
         "M15" => Timeframe::M15,
         "M30" => Timeframe::M30,
         "H1" => Timeframe::H1,

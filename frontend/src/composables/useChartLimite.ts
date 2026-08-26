@@ -23,6 +23,8 @@ export function limitPourTimeframe(tf: string): number {
     case 'M1':
     case 'M5':
       return LIMITE_TV_BASIC            // 5 000 (~3,5 j / ~17 j)
+    case 'M10':
+      return 20_000                     // ~2 ans Axi (~5 mois BTC 24/7)
     case 'M15':
       return 50_000                      // ~2 ans
     case 'M30':
