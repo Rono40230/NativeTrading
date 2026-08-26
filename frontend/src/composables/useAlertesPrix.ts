@@ -44,9 +44,11 @@ export function useAlertesPrix() {
       }
     }
     for (const a of alertesAsset.value) {
+      // Pas de prix dans le libellé : l'étiquette de l'axe l'affiche déjà
+      // (sinon doublon côte à côte).
       const titre = a.active
-        ? `🔔 ${a.prix.toFixed(2)} ${a.sens === 'au_dessus' ? '↑' : '↓'}`
-        : `✓ ${a.prix.toFixed(2)}`
+        ? `🔔 ${a.sens === 'au_dessus' ? '↑' : '↓'}`
+        : '✓'
       const options = {
         price: a.prix,
         color: a.active ? '#f59e0b' : '#64748b',
