@@ -185,6 +185,40 @@
             <p class="text-[10px] text-slate-500 mt-2">Défauts : EMA 9 (rapide) / EMA 21 (lente)</p>
           </template>
 
+          <!-- Fibonacci (retracement auto sur le dernier swing) -->
+          <template v-else-if="indicateur === 'fibonacci'">
+            <p class="text-[10px] text-slate-500 mb-2">Retracement calculé sur le dernier swing (hauteur 100 % → profondeur 0 %).</p>
+            <label class="block text-xs text-slate-400 mb-1">Niveaux affichés</label>
+            <div class="space-y-1.5">
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="checkbox" v-model="prefs.fibNiveau500" class="accent-slate-400 w-3.5 h-3.5" />
+                0.500
+              </label>
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="checkbox" v-model="prefs.fibNiveau618" class="accent-slate-400 w-3.5 h-3.5" />
+                0.618
+              </label>
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="checkbox" v-model="prefs.fibNiveau786" class="accent-slate-400 w-3.5 h-3.5" />
+                0.786
+              </label>
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="checkbox" v-model="prefs.fibSwings" class="accent-slate-400 w-3.5 h-3.5" />
+                Swings 0 % / 100 %
+              </label>
+            </div>
+            <label class="block text-xs text-slate-400 mb-1 mt-3">Couleur</label>
+            <div class="flex items-center gap-3">
+              <input
+                type="color"
+                v-model="prefs.fibCouleur"
+                class="w-10 h-8 rounded cursor-pointer border border-white/15 bg-transparent"
+              />
+              <span class="text-xs text-slate-400 font-mono">{{ prefs.fibCouleur }}</span>
+            </div>
+            <p class="text-[10px] text-slate-500 mt-2">La zone 0.618 → 0.786 correspond à l'OTE (cf. dropdown SMC).</p>
+          </template>
+
           <div class="flex justify-end gap-2 mt-5">
             <button
               @click="$emit('fermer')"
@@ -215,6 +249,7 @@ const TITRES: Record<string, string> = {
   macd: 'Paramètres MACD',
   atr: 'ATR — Average True Range',
   bollinger: 'Bollinger Bands',
+  fibonacci: 'Fibonacci — retracement auto',
   kasperTendance: 'Tendance Kasper Bootcamp',
 }
 
