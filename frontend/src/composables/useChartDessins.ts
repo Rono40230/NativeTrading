@@ -55,6 +55,8 @@ export function useChartDessins() {
   /** Tracé en cours (aperçu) — null si aucun. */
   let enCours: Dessin | null = null
   let pointeurActif = false
+  /** Index du dessin survolé en mode gomme (surlignage avant suppression). */
+  let survolGomme: number | null = null
 
   // ── Persistances ────────────────────────────────────────────────────────────
   function recharger() {
@@ -131,13 +133,20 @@ export function useChartDessins() {
   }
 
   // ── Rendu ───────────────────────────────────────────────────────────────────
-  function dessinerDessin(ctx: CanvasRenderingContext2D, d: Dessin, apercu: boolean, W: number) {
+  function dessinerDessin(ctx: CanvasRenderingContext2D, d: Dessin, apercu: boolean, W: number, surligne = false) {
     const x1 = versX(d.t1); const x2 = versX(d.t2)
     const y1 = versY(d.p1); const y2 = versY(d.p2)
     if (x1 === null || x2 === null || y1 === null || y2 === null) return
     ctx.save()
     ctx.globalAlpha = apercu ? 0.6 : 1
     ctx.lineWidth = 1.5
+    if (surligne) {
+      // Cible de la gomme : contour rouge + halo.
+      ctx.shadowColor = '#ef4444'
+      ctx.shadowBlur = 6
+      ctx.strokeStyle = '#ef4444'
+      ctx.fillStyle = 'rgba(239,68,68,0.10)'
+    }
 
     if (d.type === 'ligne') {
       ctx.strokeStyle = COULEUR
@@ -182,7 +191,7 @@ export function useChartDessins() {
     if (!ctx) return
     const W = canvas.offsetWidth
     ctx.clearRect(0, 0, W, canvas.offsetHeight)
-    for (const d of dessins) dessinerDessin(ctx, d, false, W)
+    dessins.forEach((d, i) => dessinerDessin(ctx, d, false, W, outil.value === 'gomme' && survolGomme === i))
     if (enCours) dessinerDessin(ctx, enCours, true, W)
   }
 
@@ -241,23 +250,31 @@ export function useChartDessins() {
     return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
   }
 
+  /** Dessin le plus proche du pointeur sous 8 px (cible gomme), sinon null. */
+  function dessinSousPointeur(e: PointerEvent): number | null {
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    let meilleur: number | null = null
+    let meilleureDist = 8
+    dessins.forEach((d, i) => {
+      const dist = distanceAuDessin(x, y, d)
+      if (dist < meilleureDist) { meilleureDist = dist; meilleur = i }
+    })
+    return meilleur
+  }
+
   function onPointerDown(e: PointerEvent) {
     if (outil.value === 'aucun') return
     const a = pointeurVersAncres(e)
     if (!a) return
     if (outil.value === 'gomme') {
-      if (!canvas) return
-      const rect = canvas.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-      let meilleur = -1; let meilleureDist = 8 // tolérance px
-      dessins.forEach((d, i) => {
-        const dist = distanceAuDessin(x, y, d)
-        if (dist < meilleureDist) { meilleureDist = dist; meilleur = i }
-      })
-      if (meilleur >= 0) {
-        dessins.splice(meilleur, 1)
+      const cible = dessinSousPointeur(e)
+      if (cible !== null && cible < dessins.length) {
+        dessins.splice(cible, 1)
         persister()
+        survolGomme = null
         planifierRedessin()
       }
       return
@@ -269,6 +286,11 @@ export function useChartDessins() {
   }
 
   function onPointerMove(e: PointerEvent) {
+    if (outil.value === 'gomme' && !pointeurActif) {
+      const cible = dessinSousPointeur(e)
+      if (cible !== survolGomme) { survolGomme = cible; planifierRedessin() }
+      return
+    }
     if (!pointeurActif || !enCours) return
     const a = pointeurVersAncres(e)
     if (!a) return
@@ -288,12 +310,17 @@ export function useChartDessins() {
       dessins.push(d)
       persister()
     }
+    // Le tracé fini rend la main : l'outil se désactive pour ne pas
+    // capturer le pointeur (pan/zoom du chart) indéfiniment.
+    outil.value = 'aucun'
+    majPointerEvents()
     planifierRedessin()
   }
 
   function choisirOutil(o: OutilDessin) {
     outil.value = outil.value === o ? 'aucun' : o
     enCours = null
+    survolGomme = null
     majPointerEvents()
     planifierRedessin()
   }
