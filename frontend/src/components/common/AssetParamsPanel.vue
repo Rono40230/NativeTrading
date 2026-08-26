@@ -15,6 +15,20 @@
       {{ feedback.msg }}
     </div>
 
+    <!-- Calculateur de RÉFÉRENCE — indépendant des lots des stratégies
+         (stockage local dédié, jamais lu par les signaux/moteurs/writer). -->
+    <div class="ref-bar">
+      <span class="ref-label">🧮 Référence — n'affecte pas les lots des stratégies</span>
+      <label class="ref-field">
+        Capital ($)
+        <input v-model.number="capitalRef" type="number" min="0" step="100" class="input-ref" />
+      </label>
+      <label class="ref-field">
+        Risque (%)
+        <input v-model.number="risqueRef" type="number" min="0.1" max="100" step="0.1" class="input-ref" />
+      </label>
+    </div>
+
     <!-- Tableau -->
     <div class="table-wrapper">
       <table class="params-table">
@@ -26,7 +40,8 @@
             <th title="Stop-Loss par défaut en pips">SL pips</th>
             <th title="Facteur de conversion pip → point MT5">pip→pt</th>
             <th class="col-computed" title="SL en points MT5 = SL pips × pip→pt">SL points</th>
-            <th class="col-computed" title="Capital × risque% / 100">Investi ($)</th>
+            <th class="col-computed" :title="`Capital référence (${capitalRef}$) × ${risqueRef}% / 100`">Investi ($)</th>
+            <th class="col-computed" title="Investi / (SL pips × valeur pip), borné [lot min, lot max]">Lot</th>
           </tr>
         </thead>
         <tbody>
@@ -75,6 +90,8 @@
               <td class="cell-computed">
                 {{ Math.round(row.sl_pips * row.pip_to_points) }}
               </td>
+              <td class="cell-computed">{{ investiRef.toFixed(0) }}</td>
+              <td class="cell-computed cell-lot">{{ lotReference(row) }}</td>
             </tr>
           </template>
         </tbody>
@@ -92,6 +109,31 @@ import type { AssetParams } from '@/services/api.types'
 const store = useAssetParamsStore()
 const settingsStore = useSettingsStore()
 const editable   = reactive<AssetParams[]>([])
+
+// ── Calculateur de référence (indépendant des stratégies) ──────────────
+// Clés locales DÉDIÉES : jamais lues par le calcul des signaux ni le
+// writer — le capital global et le risque/asset de l'app restent seuls
+// maîtres des lots des positions générées.
+const CLE_CAPITAL_REF = 'trading_capital_reference'
+const CLE_RISQUE_REF = 'trading_risque_reference'
+const capitalRef = ref<number>(
+  Number(localStorage.getItem(CLE_CAPITAL_REF)) || settingsStore.capitalDepart || 2000,
+)
+const risqueRef = ref<number>(Number(localStorage.getItem(CLE_RISQUE_REF)) || 5)
+watch([capitalRef, risqueRef], () => {
+  localStorage.setItem(CLE_CAPITAL_REF, String(capitalRef.value))
+  localStorage.setItem(CLE_RISQUE_REF, String(risqueRef.value))
+})
+const investiRef = computed(() => capitalRef.value * risqueRef.value / 100)
+
+/// Lot de référence : même formule que l'app, borné [lot_min, lot_max].
+function lotReference(row: AssetParams): string {
+  const denom = row.sl_pips * row.valeur_pips
+  if (!denom || denom <= 0) return '—'
+  const lot = investiRef.value / denom
+  const borne = Math.min(Math.max(lot, row.lot_min), row.lot_max)
+  return borne.toFixed(2)
+}
 
 interface Feedback { type: 'ok' | 'err'; msg: string }
 const feedback = ref<Feedback | null>(null)
