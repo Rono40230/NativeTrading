@@ -198,24 +198,22 @@ function labelSentiment(v: number): string {
   return 'Peur extrême'
 }
 
-/// Pastilles par SEUIL (décision propriétaire 25/08) : verte si variation
-/// ≥ +0,51 %, rouge si ≤ -0,51 %, bleue (neutre) entre -0,50 % et +0,50 %.
-/// Une variation < 0,51 % dans un sens comme dans l'autre n'est pas un
-/// mouvement — c'est du bruit.
+/// Pastilles (règle propriétaire 26/08) : verte dès que la variation est
+/// POSITIVE, bleue entre -0,50 % et 0 inclus, rouge sous -0,50 %.
 function pct(v: number): string {
   return (v > 0 ? '+' : '') + v.toFixed(2) + '%'
 }
 
 function bille(v: number): string {
-  if (v >= 0.51) return '🟢'
-  if (v <= -0.51) return '🔴'
-  return '🔵'
+  if (v > 0) return '🟢'
+  if (v >= -0.5) return '🔵'
+  return '🔴'
 }
 
 function couleur(v: number): string {
-  if (v >= 0.51) return 'text-emerald-400'
-  if (v <= -0.51) return 'text-red-400'
-  return 'text-blue-400'
+  if (v > 0) return 'text-emerald-400'
+  if (v >= -0.5) return 'text-blue-400'
+  return 'text-red-400'
 }
 
 </script>
