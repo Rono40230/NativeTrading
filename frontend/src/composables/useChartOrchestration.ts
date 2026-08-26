@@ -67,13 +67,15 @@ export function useChartOrchestration(o: Opts) {
   }
 
   function demarrerLiveFeed(asset: string, timeframe: string) {
-    marketStore.connecterStream(asset, timeframe)
+    // Multi-graphiques : abonnement RÉFÉRENCÉ de CE couple — les autres
+    // cellules du chart gardent leurs flux.
+    marketStore.abonner(asset, timeframe)
     if (intervalZones) clearInterval(intervalZones)
     intervalZones = setInterval(() => rafraichirZonesSmc(), 1_000)
   }
 
-  function arreterLiveFeed() {
-    marketStore.deconnecterStream()
+  function arreterLiveFeed(asset = o.selectedAsset.value, timeframe = o.selectedTimeframe.value) {
+    marketStore.desabonner(asset, timeframe)
     if (intervalZones) { clearInterval(intervalZones); intervalZones = null }
   }
 
@@ -91,17 +93,19 @@ export function useChartOrchestration(o: Opts) {
   }
 
   async function changerAsset(asset: string) {
+    const ancien = o.selectedAsset.value
     o.selectedAsset.value = asset
     settingsStore.definirAsset(asset)
-    arreterLiveFeed()
+    arreterLiveFeed(ancien, o.selectedTimeframe.value)
     await chargerEtReinitChart()
     demarrerLiveFeed(asset, o.selectedTimeframe.value)
   }
 
   async function changerTimeframe(tf: string) {
+    const ancienTf = o.selectedTimeframe.value
     o.selectedTimeframe.value = tf
     settingsStore.definirTimeframe(tf)
-    arreterLiveFeed()
+    arreterLiveFeed(o.selectedAsset.value, ancienTf)
     await chargerEtReinitChart()
     demarrerLiveFeed(o.selectedAsset.value, tf)
   }
@@ -135,7 +139,7 @@ export function useChartOrchestration(o: Opts) {
     o.detruireChart()
     o.arreterRedimensionnement()
     arreterLiveFeed()
-  })
+  }) // arreterLiveFeed sans args = le couple courant de CETTE orchestration
 
   return { assets, changerAsset, changerTimeframe, actualiser }
 }

@@ -5,14 +5,26 @@ import { WS_BASE_URL } from '@/services/http.client'
 
 const WS_URL = WS_BASE_URL
 
+interface Abonnement {
+  ws: WebSocket
+  asset: string
+  timeframe: string
+  refcount: number
+}
+
 export const useMarketStore = defineStore('market', () => {
   const bougies = ref<Record<string, Candle[]>>({})
   const chargement = ref(false)
   const erreur = ref<string | null>(null)
   const erreurWs = ref<string | null>(null)
   const wsMiseAJour = ref<{ asset: string; timeframe: string; bougie: Candle; estNouvelle: boolean } | null>(null)
+  /** Vrai quand TOUTES les sessions actives sont ouvertes (aucune → faux). */
   const wsConnecte = ref(false)
-  let ws: WebSocket | null = null
+
+  /// Abonnements actifs, clé `${asset}_${timeframe}` — multi-graphiques :
+  /// chaque cellule du chart abonne son couple (compteur de références).
+  const abonnements = new Map<string, Abonnement>()
+
   const dernierPrix = computed(() => {
     return (asset: string) => {
       const data = bougies.value[asset]
@@ -41,19 +53,36 @@ export const useMarketStore = defineStore('market', () => {
   /** Durée d'une bougie en ms selon le timeframe */
   function dureeMs(tf: string): number {
     const map: Record<string, number> = {
-      M1: 60_000, M5: 300_000, M15: 900_000, M30: 1_800_000,
+      M1: 60_000, M5: 300_000, M10: 600_000, M15: 900_000, M30: 1_800_000,
       H1: 3_600_000, H4: 14_400_000, D1: 86_400_000, W1: 604_800_000,
     }
     return map[tf] ?? 60_000
   }
 
-  async function connecterStream(asset: string, timeframe = 'M5') {
-    deconnecterStream()
+  function majWsConnecte() {
+    if (abonnements.size === 0) { wsConnecte.value = false; return }
+    for (const a of abonnements.values()) {
+      if (a.ws.readyState !== WebSocket.OPEN) { wsConnecte.value = false; return }
+    }
+    wsConnecte.value = true
+  }
 
-    // WebSocket pour les assets crypto + métaux (Binance/Bybit)
-    ws = new WebSocket(`${WS_URL}/api/stream?asset=${asset}&timeframe=${timeframe}`)
-    ws.onopen = () => { wsConnecte.value = true }
-    ws.onclose = () => { wsConnecte.value = false }
+  /** Ouvre (ou réutilise) le flux temps réel d'un couple asset × TF. */
+  function abonner(asset: string, timeframe = 'M5') {
+    const key = `${asset}_${timeframe}`
+    const existant = abonnements.get(key)
+    if (existant) {
+      existant.refcount += 1
+      return
+    }
+
+    // WebSocket par couple (crypto + métaux via Bybit ; MT5 via l'EA) —
+    // chaque flux écrit dans la map bougies sous SA clé.
+    const ws = new WebSocket(`${WS_URL}/api/stream?asset=${asset}&timeframe=${timeframe}`)
+    const abonnement: Abonnement = { ws, asset, timeframe, refcount: 1 }
+    abonnements.set(key, abonnement)
+    ws.onopen = () => majWsConnecte()
+    ws.onclose = () => majWsConnecte()
 
     // Buffer pour les bougies historiques reçues en batch avant les updates temps réel
     let historiqueBuffer: Candle[] = []
@@ -62,7 +91,6 @@ export const useMarketStore = defineStore('market', () => {
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data as string)
-        const key = `${asset}_${timeframe}`
 
         // Début du batch historique : basculer en mode buffer
         if (msg.type === 'historical_start') {
@@ -104,7 +132,6 @@ export const useMarketStore = defineStore('market', () => {
         const rawTs = msg.data.timestamp as string | number
         const rawMs = typeof rawTs === 'string' ? new Date(rawTs).getTime() : rawTs * 1000
         // Arrondir à l'ouverture de la barre (UTM = heure courante ≠ open time de la barre)
-        // Sans ça, chaque tick crée une nouvelle mini-barre au lieu de mettre à jour la barre courante
         const tf_ms = dureeMs(timeframe)
         const barOpenMs = Math.floor(rawMs / tf_ms) * tf_ms
         const timestamp = new Date(barOpenMs).toISOString()
@@ -119,7 +146,6 @@ export const useMarketStore = defineStore('market', () => {
         // Phase temps réel : mise à jour incrémentale
         const liste = bougies.value[key]
         if (!liste || liste.length === 0) {
-          // Aucune donnée historique — initialiser avec cette bougie
           bougies.value[key] = [nouvelleBougie]
           wsMiseAJour.value = { asset, timeframe, bougie: nouvelleBougie, estNouvelle: true }
           return
@@ -127,9 +153,7 @@ export const useMarketStore = defineStore('market', () => {
         const tsDerniere = new Date(liste[liste.length - 1].timestamp).getTime()
         const tsNouvelle = new Date(timestamp).getTime()
         const duree = dureeMs(timeframe)
-        // Si timestamp identique ou dans la même barre → mise à jour de la dernière bougie
         if (tsNouvelle <= tsDerniere || tsNouvelle - tsDerniere < duree) {
-          // Conserver les valeurs OHLC correctes : ne pas écraser si bougie live sans historique
           liste[liste.length - 1] = nouvelleBougie
           wsMiseAJour.value = { asset, timeframe, bougie: nouvelleBougie, estNouvelle: false }
         } else {
@@ -138,15 +162,37 @@ export const useMarketStore = defineStore('market', () => {
         }
       } catch { /* message invalide ignoré */ }
     }
-    ws.onerror = () => { erreurWs.value = 'WebSocket déconnecté'; wsConnecte.value = false }
+    ws.onerror = () => { erreurWs.value = 'WebSocket déconnecté'; majWsConnecte() }
   }
 
+  /** Libère un abonnement (ferme le flux au dernier détenteur). */
+  function desabonner(asset: string, timeframe = 'M5') {
+    const key = `${asset}_${timeframe}`
+    const abonnement = abonnements.get(key)
+    if (!abonnement) return
+    abonnement.refcount -= 1
+    if (abonnement.refcount <= 0) {
+      abonnements.delete(key)
+      try { abonnement.ws.close() } catch { /* déjà fermé */ }
+      majWsConnecte()
+    }
+  }
+
+  /** Compat : abonnement simple (l'ancien connecterStream). */
+  function connecterStream(asset: string, timeframe = 'M5') {
+    abonner(asset, timeframe)
+  }
+
+  /** Ferme TOUS les flux (démontage de la vue). */
   function deconnecterStream() {
-    if (ws) { ws.close(); ws = null }
+    for (const a of abonnements.values()) {
+      try { a.ws.close() } catch { /* déjà fermé */ }
+    }
+    abonnements.clear()
     wsConnecte.value = false
     erreurWs.value = null
   }
 
   // ─── fin du store ────────────────────────────────────────────────────────────
-  return { bougies, chargement, erreur, erreurWs, wsMiseAJour, wsConnecte, dernierPrix, chargerBougies, getBougies, connecterStream, deconnecterStream }
+  return { bougies, chargement, erreur, erreurWs, wsMiseAJour, wsConnecte, dernierPrix, chargerBougies, getBougies, abonner, desabonner, connecterStream, deconnecterStream }
 })

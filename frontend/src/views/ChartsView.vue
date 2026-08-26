@@ -1,98 +1,54 @@
 <template>
   <div class="relative h-full min-h-0">
 
-    <!-- ── Zone graphique (plein format) ────────────────────────────── -->
     <div class="flex flex-col gap-4 w-full h-full min-h-0">
-      <!-- Dernier prix + variation + metriques + sélecteurs -->
-      <ChartPrixStats :dernier-prix="dernierPrix" :variation="variation" :stats="stats" :selected-asset="selectedAsset"
-        :selected-timeframe="selectedTimeframe" :ws-connecte="marketStore.wsConnecte" :assets="assets"
-        :timeframes="timeframes" @changer-asset="changerAsset" @changer-timeframe="changerTimeframe" />
-
-      <!-- Canvas TradingView -->
-      <div class="glass-card flex-1 min-h-0" style="min-height: 350px; position: relative;">
-        <div v-if="marketStore.erreur"
-          class="absolute inset-0 z-10 flex items-center justify-center bg-black/60 text-red-400 text-sm rounded-xl">
-          ⚠ {{ marketStore.erreur }}
-        </div>
-        <div v-if="marketStore.erreurWs && !marketStore.wsConnecte"
-          class="absolute bottom-2 left-2 z-10 px-3 py-1 rounded bg-yellow-900/70 text-yellow-300 text-xs border border-yellow-700/40">
-          ⚠ {{ marketStore.erreurWs }}
-        </div>
-        <div v-if="marketStore.chargement"
-          class="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-gray-400 text-sm rounded-xl">
-          <span class="animate-pulse">Chargement des bougies...</span>
-        </div>
-        <div ref="chartContainer" class="w-full h-full" style="position: relative;" />
-        <!-- Barre d'outils de dessin (superposée au chart, à gauche) -->
-        <div style="right: 92px; bottom: 36px;" class="absolute z-20 flex flex-col gap-1 p-1 rounded-lg bg-slate-900/80 backdrop-blur border border-white/10 shadow-lg">
-          <button v-for="t in outilsDessin" :key="t.outil"
-            :title="t.titre + (dessins.outil.value === t.outil ? ' (actif — Échap pour désactiver)' : '')"
-            :class="[
-              'w-8 h-8 rounded-md text-sm flex items-center justify-center transition-colors',
-              dessins.outil.value === t.outil
-                ? 'bg-blue-600/40 text-blue-200 border border-blue-400/50'
-                : 'text-slate-400 hover:text-slate-100 hover:bg-white/10 border border-transparent',
-            ]"
-            @click="dessins.choisirOutil(t.outil)"
-          >{{ t.icone }}</button>
-          <!-- Alertes de prix : pose au clic + liste -->
-          <div class="relative">
-            <button
-              :title="alertesPrix.modePose.value ? 'Cliquer sur le chart pour poser une alerte' : 'Alerte de prix (pose au clic)'"
-              :class="[
-                'w-8 h-8 rounded-md text-sm flex items-center justify-center transition-colors',
-                alertesPrix.modePose.value || listeAlertesOuverte
-                  ? 'bg-amber-500/40 text-amber-200 border border-amber-400/50'
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-white/10 border border-transparent',
-              ]"
-              @click="alertesPrix.nbActives.value > 0 && !alertesPrix.modePose.value ? (listeAlertesOuverte = !listeAlertesOuverte) : alertesPrix.basculerModePose()"
-            >🔔<span v-if="alertesPrix.nbActives.value > 0" class="absolute -top-1 -right-1 min-w-[14px] px-0.5 rounded-full bg-amber-500 text-[9px] leading-[14px] text-amber-950 font-bold text-center">{{ alertesPrix.nbActives.value }}</span></button>
-            <div v-if="listeAlertesOuverte" class="fixed inset-0 z-40" @click="listeAlertesOuverte = false" />
-            <div v-if="listeAlertesOuverte" class="absolute bottom-[calc(100%+6px)] right-0 z-50 w-64 bg-slate-900/95 backdrop-blur border border-white/10 rounded-lg shadow-xl py-1.5">
-              <div class="flex items-center justify-between px-2.5 pb-1.5 border-b border-white/5">
-                <span class="text-[10px] uppercase tracking-wide text-slate-500">Alertes — {{ selectedAsset }}</span>
-                <button class="text-[10px] text-amber-400 hover:text-amber-300" @click="listeAlertesOuverte = false; alertesPrix.basculerModePose()">+ Poser au clic</button>
-              </div>
-              <div v-if="!alertesPrix.alertesAsset.value.length" class="px-2.5 py-3 text-[11px] text-slate-500 text-center">Aucune alerte sur cet asset</div>
-              <div v-for="a in alertesPrix.alertesAsset.value" :key="a.id"
-                   class="flex items-center gap-2 px-2.5 py-1.5 text-[11px] hover:bg-white/5">
-                <span class="font-mono tabular-nums" :class="a.active ? 'text-amber-300' : 'text-slate-500 line-through'">{{ a.prix.toFixed(2) }}</span>
-                <span class="text-slate-500">{{ a.sens === 'au_dessus' ? '↑' : '↓' }}</span>
-                <span class="flex-1 truncate text-slate-400">{{ a.note ?? '' }}</span>
-                <button v-if="!a.active" title="Réarmer" class="text-slate-400 hover:text-amber-300" @click="alertesPrix.rearmer(a.id)">🔄</button>
-                <button title="Supprimer" class="text-slate-500 hover:text-red-300" @click="alertesPrix.supprimer(a.id)">🗑</button>
-              </div>
-            </div>
+      <!-- Barre haute : layout + métriques/sélecteurs de la cellule ACTIVE -->
+      <div class="flex items-start gap-3 flex-wrap">
+        <!-- Dropdown layout multi-graphiques -->
+        <div class="relative">
+          <button
+            title="Disposition des graphiques"
+            class="h-10 px-2.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center"
+            @click="layoutOuvert = !layoutOuvert"
+          >
+            <span class="mini-grille" :data-layout="layout">
+              <span v-for="i in nbCellulesLayout[layout]" :key="i" />
+            </span>
+          </button>
+          <div v-if="layoutOuvert" class="fixed inset-0 z-40" @click="layoutOuvert = false" />
+          <div v-if="layoutOuvert" class="absolute left-0 top-[calc(100%+6px)] z-50 w-44 bg-slate-900/95 backdrop-blur border border-white/10 rounded-lg shadow-xl py-1.5">
+            <div class="px-2.5 pb-1.5 text-[10px] uppercase tracking-wide text-slate-500 border-b border-white/5">Graphiques</div>
+            <button v-for="l in LAYOUTS" :key="l.id"
+              class="w-full flex items-center gap-3 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-white/5"
+              :class="layout === l.id && 'text-cyan-300'"
+              @click="choisirLayout(l.id)"
+            >
+              <span class="mini-grille" :data-layout="l.id"><span v-for="i in l.nb" :key="i" /></span>
+              <span>{{ l.nb }} graphique{{ l.nb > 1 ? 's' : '' }}</span>
+              <span v-if="layout === l.id" class="ml-auto text-cyan-400">✓</span>
+            </button>
           </div>
-          <div class="h-px bg-white/10 mx-1" />
-          <button title="Effacer tous les dessins de cet asset"
-            class="w-8 h-8 rounded-md text-sm flex items-center justify-center text-slate-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
-            @click="dessins.toutEffacer()"
-          >🗑</button>
         </div>
-        <EcoCalTooltip :annonce="tooltipAnnonce" :x="tooltipX" :y="tooltipY" />
-        <TendanceMultiTF v-if="settingsStore.indicateurs.kasperTendance" :key="selectedAsset + '_' + selectedTimeframe"
-          :asset="selectedAsset" :timeframe="selectedTimeframe"
-          :periode-rapide="settingsStore.indicateurs.kasperPeriodeRapide"
-          :periode-lente="settingsStore.indicateurs.kasperPeriodeLente"
-          :mode-calcul="settingsStore.indicateurs.kasperModeCalcul" />
+
+        <!-- Métriques + dropdowns asset/TF (cellule active) -->
+        <div class="flex-1 min-w-[280px]">
+          <ChartPrixStats :dernier-prix="dernierPrixActif" :variation="variationActive" :stats="statsActives"
+            :selected-asset="slotActif.asset" :selected-timeframe="slotActif.timeframe"
+            :ws-connecte="marketStore.wsConnecte" :assets="assets" :timeframes="timeframes"
+            @changer-asset="changerAssetSlotActif" @changer-timeframe="changerTfSlotActif" />
+        </div>
       </div>
 
-      <!-- Sous-graphique RSI séparé -->
-      <div v-if="settingsStore.indicateurs.rsi" ref="rsiContainer" class="glass-card"
-        style="height: 140px; position: relative;" />
+      <!-- Grille des cellules (parts égales) -->
+      <div class="flex-1 min-h-0 grid gap-3" :style="styleGrille">
+        <CelluleChart v-for="(slot, i) in slots" :key="`cellule-${i}`"
+          :asset="slot.asset" :timeframe="slot.timeframe"
+          :active="i === celluleActive" :avec-sous-graphes="nbCellules <= 4" :cle-prefs="clePrefs"
+          @activer="celluleActive = i" />
+      </div>
 
-      <!-- Sous-graphique MACD séparé -->
-      <div v-if="settingsStore.indicateurs.macd" ref="macdContainer" class="glass-card"
-        style="height: 140px; position: relative;" />
-
-      <!-- Sous-graphique ATR séparé -->
-      <div v-if="settingsStore.indicateurs.atr" ref="atrContainer" class="glass-card"
-        style="height: 110px; position: relative;" />
-
-      <!-- Panneau indicateurs (techniques + SMC) -->
-      <IndicatorPanel v-model="settingsStore.indicateurs"
-        @appliquer="chargerIndicateurs">
+      <!-- Panneau indicateurs (techniques + SMC) — global, appliqué partout -->
+      <IndicatorPanel v-model="settingsStore.indicateurs" @appliquer="clePrefs++">
         <template #apres-smc>
           <button
             class="px-2.5 py-1 rounded-md border transition-colors bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40 text-xs font-medium"
@@ -102,15 +58,15 @@
 
     </div>
 
-    <!-- Sidebar IA (toggle + drawer) -->
-    <ChartSidebarIA :asset="selectedAsset" :timeframe="selectedTimeframe" :open="sidebarIA"
+    <!-- Sidebar IA (toggle + drawer) — cellule active -->
+    <ChartSidebarIA :asset="slotActif.asset" :timeframe="slotActif.timeframe" :open="sidebarIA"
       @toggle="sidebarIA = !sidebarIA" />
 
     <!-- Modales (hors flux) -->
     <ChartAnalyseSmcModal
       :open="analyseSmcOuverte"
-      :asset="selectedAsset"
-      :timeframe="selectedTimeframe"
+      :asset="slotActif.asset"
+      :timeframe="slotActif.timeframe"
       :score-smc="signalStore.scoreSmc"
       :prix-entree="prixEntreeSnapshot"
       :sl-analyse="signalStore.slAnalyse"
@@ -124,207 +80,149 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
-import { useChartStats } from '@/composables/useChartStats'
-import { useChartTradingView } from '@/composables/useChartTradingView'
+import { ref, computed, watch } from 'vue'
 import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
-import { useChartIndicators } from '@/composables/useChartIndicators'
-import { limitPourTimeframe } from '@/composables/useChartLimite'
-import { useSmcV12Overlay } from '@/composables/useSmcV12Overlay'
-import { useChartDessins } from '@/composables/useChartDessins'
-import { useAlertesPrix } from '@/composables/useAlertesPrix'
-import { useChartEcoCal } from '@/composables/useChartEcoCal'
-import EcoCalTooltip from '@/components/common/EcoCalTooltip.vue'
-
-import { useChartOrchestration } from '@/composables/useChartOrchestration'
+import { useAssetsStore } from '@/stores/assets.store'
+import { useChartStats } from '@/composables/useChartStats'
 import { useSignalStore } from '@/stores/signal.store'
-import { apiService } from '@/services/api.service'
+import CelluleChart from '@/components/chart/CelluleChart.vue'
 import ChartSidebarIA from '@/components/common/ChartSidebarIA.vue'
 import ChartAnalyseSmcModal from '@/components/common/ChartAnalyseSmcModal.vue'
 import IndicatorPanel from '@/components/common/IndicatorPanel.vue'
-import TendanceMultiTF from '@/components/common/TendanceMultiTF.vue'
 import ChartPrixStats from '@/components/common/ChartPrixStats.vue'
 
 const marketStore = useMarketStore()
 const settingsStore = useSettingsStore()
 const signalStore = useSignalStore()
+const assetsStore = useAssetsStore()
 
 const timeframes = ['M1', 'M5', 'M10', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
-const selectedAsset = ref(settingsStore.assetActif)
-const selectedTimeframe = ref(settingsStore.timeframeActif)
-const chartContainer = ref<HTMLElement | null>(null)
-const rsiContainer = ref<HTMLElement | null>(null)
-const macdContainer = ref<HTMLElement | null>(null)
-const atrContainer = ref<HTMLElement | null>(null)
 
-const bougies = computed(() =>
-  marketStore.getBougies(selectedAsset.value, selectedTimeframe.value)
-)
-
-const { dernierPrix, variation, stats } = useChartStats(bougies)
-const prixEntreeSnapshot = ref<number>(0)
-
-const {
-  initChart, mettreAJourSerie, mettreAJourEnDirect, detruireChart,
-  configurerRedimensionnement, arreterRedimensionnement, getChart, getCandlestickSeries,
-} = useChartTradingView(chartContainer, bougies)
-
-const { chargerEtAppliquer, reinitialiser } = useChartIndicators()
-const v12Overlay = useSmcV12Overlay()
-const dessins = useChartDessins()
-const alertesPrix = useAlertesPrix()
-const listeAlertesOuverte = ref(false)
-
-/// Outils de dessin superposés au chart (cliquer-glisser ; Échap désactive).
-const outilsDessin: { outil: 'ligne' | 'rectangle' | 'fibo' | 'gomme'; icone: string; titre: string }[] = [
-  { outil: 'ligne', icone: '╱', titre: 'Ligne de tendance' },
-  { outil: 'rectangle', icone: '▭', titre: 'Rectangle (zone)' },
-  { outil: 'fibo', icone: 'ƒ', titre: 'Retracement Fibonacci' },
-  { outil: 'gomme', icone: '⌫', titre: 'Gomme (clic sur un dessin)' },
+// ── Layout multi-graphiques (2/4/6/8, parts égales) ───────────────────────────
+type LayoutId = '1' | '2' | '4' | '6' | '8'
+const LAYOUTS: { id: LayoutId; nb: number; colonnes: number; lignes: number }[] = [
+  { id: '1', nb: 1, colonnes: 1, lignes: 1 },
+  { id: '2', nb: 2, colonnes: 2, lignes: 1 },
+  { id: '4', nb: 4, colonnes: 2, lignes: 2 },
+  { id: '6', nb: 6, colonnes: 3, lignes: 2 },
+  { id: '8', nb: 8, colonnes: 4, lignes: 2 },
 ]
-let minuteurOverlay: ReturnType<typeof setInterval> | null = null
-const { initialiser: ecoCalInit, chargerAnnonces, detruire: ecoCalDetruire,
-  tooltipAnnonce, tooltipX, tooltipY } = useChartEcoCal()
+const nbCellulesLayout: Record<LayoutId, number> = { '1': 1, '2': 2, '4': 4, '6': 6, '8': 8 }
+const CLE_LAYOUT = 'trading_layout'
+const CLE_SLOTS = 'trading_slots_graphiques'
 
+const layout = ref<LayoutId>((() => {
+  const v = localStorage.getItem(CLE_LAYOUT) as LayoutId | null
+  return v && nbCellulesLayout[v] ? v : '1'
+})())
+const layoutOuvert = ref(false)
 
-const timestampCurseur = ref<number | null>(null)
+interface Slot { asset: string; timeframe: string }
+/// Slots par emplacement — la cellule active reprend la sélection courante ;
+/// les autres cycle sur les assets SMC disponibles.
+const rotationDefaut = ['BTC', 'XAUUSD', 'DAX', 'XAGUSD', 'NAS100', 'SP500', 'ETH', 'BTC']
+const slots = ref<Slot[]>(chargerSlots())
+const celluleActive = ref(0)
+const clePrefs = ref(0)
+
+function chargerSlots(): Slot[] {
+  const nb = nbCellulesLayout[layout.value]
+  try {
+    const brut = JSON.parse(localStorage.getItem(CLE_SLOTS) ?? 'null') as Slot[] | null
+    if (Array.isArray(brut)) {
+      const base: Slot[] = brut.slice(0, nb).map(s => ({ asset: s.asset, timeframe: s.timeframe }))
+      while (base.length < nb) {
+        const i = base.length
+        base.push({ asset: rotationDefaut[i % rotationDefaut.length], timeframe: 'M15' })
+      }
+      return base
+    }
+  } catch { /* stockage illisible */ }
+  return Array.from({ length: nb }, (_, i) => ({
+    asset: i === 0 ? (settingsStore.assetActif || 'BTC') : rotationDefaut[i % rotationDefaut.length],
+    timeframe: i === 0 ? (settingsStore.timeframeActif || 'M15') : 'M15',
+  }))
+}
+
+function persisterSlots() {
+  localStorage.setItem(CLE_SLOTS, JSON.stringify(slots.value))
+}
+
+function choisirLayout(l: LayoutId) {
+  layout.value = l
+  localStorage.setItem(CLE_LAYOUT, l)
+  const nb = nbCellulesLayout[l]
+  slots.value = chargerSlots()
+  if (slots.value.length > nb) slots.value = slots.value.slice(0, nb)
+  celluleActive.value = Math.min(celluleActive.value, nb - 1)
+  persisterSlots()
+  layoutOuvert.value = false
+}
+
+const nbCellules = computed(() => nbCellulesLayout[layout.value])
+const layoutCourant = computed(() => LAYOUTS.find(l => l.id === layout.value) ?? LAYOUTS[0])
+const styleGrille = computed(() => ({
+  gridTemplateColumns: `repeat(${layoutCourant.value.colonnes}, minmax(0, 1fr))`,
+  gridTemplateRows: `repeat(${layoutCourant.value.lignes}, minmax(0, 1fr))`,
+}))
+
+// Le slot actif suit la cellule active.
+const slotActif = computed(() => slots.value[celluleActive.value] ?? slots.value[0])
+
+function changerAssetSlotActif(asset: string) {
+  slotActif.value.asset = asset
+  persisterSlots()
+}
+function changerTfSlotActif(tf: string) {
+  slotActif.value.timeframe = tf
+  persisterSlots()
+}
+
+// Assets proposés (comme avant : assets configurés, SMC only).
+const CRYPTO_SMC = ['BTC', 'ETH']
+const assets = computed(() => {
+  const liste = assetsStore.assets
+  if (liste.length === 0) return ['BTC', 'ETH', 'XAUUSD', 'XAGUSD']
+  return liste
+    .filter(a => a.type !== 'crypto' || CRYPTO_SMC.includes(a.id))
+    .map(a => a.id)
+})
+
+// Métriques de la barre haute = cellule ACTIVE.
+const bougiesActives = computed(() =>
+  marketStore.getBougies(slotActif.value.asset, slotActif.value.timeframe)
+)
+const { dernierPrix: dernierPrixActif, variation: variationActive, stats: statsActives } = useChartStats(bougiesActives)
+
+// Sidebar IA + Analyse SMC (cellule active).
 const sidebarIA = ref(false)
 const analyseSmcOuverte = ref(false)
-
-
+const prixEntreeSnapshot = ref<number>(0)
 async function lancerAnalyseSmc() {
   analyseSmcOuverte.value = true
-  prixEntreeSnapshot.value = dernierPrix.value ?? 0
+  prixEntreeSnapshot.value = dernierPrixActif.value ?? 0
   const confianceMl = signalStore.prediction?.confiance ?? 0
-  await signalStore.chargerAnalyseIA(selectedAsset.value, selectedTimeframe.value, prixEntreeSnapshot.value, confianceMl, 0)
+  await signalStore.chargerAnalyseIA(slotActif.value.asset, slotActif.value.timeframe, prixEntreeSnapshot.value, confianceMl, 0)
 }
-
-function configurerCrosshair() {
-  getChart()?.subscribeCrosshairMove((param) => {
-    timestampCurseur.value = param.time ? (param.time as number) : null
-  })
-}
-
-
-async function chargerIndicateurs() {
-  await nextTick()
-  const chart = getChart()
-  if (!chart) return
-  const serie = getCandlestickSeries()
-  if (chartContainer.value && serie) v12Overlay.initialiser(chart, serie, chartContainer.value)
-  if (chartContainer.value && serie) dessins.initialiser(chart, serie, chartContainer.value, selectedAsset.value)
-  if (serie) alertesPrix.initialiser(chart, serie, selectedAsset.value)
-  if (chartContainer.value) ecoCalInit(chart, chartContainer.value)
-  // Overlay SMC v12 : fetch du replay moteur (indépendant des indicateurs classiques).
-  const derniereB = bougies.value?.[bougies.value.length - 1]
-  const tsSecV12 = derniereB ? Math.floor(new Date(derniereB.timestamp).getTime() / 1000) : undefined
-  // Même fenêtre que le chart (5 000 = TV Basic) : parité de l'âge max des
-  // zones avec TradingView — avant, l'analyse ne voyait que 500 bougies
-  // (~5 jours M15) et perdait les OB plus anciens encore vivants.
-  void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), tsSecV12)
-  void chargerTradesExternes()
-  await chargerEtAppliquer(
-    chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
-    rsiContainer.value, macdContainer.value, atrContainer.value,
-    serie,
-    (data) => {
-      const derniereB2 = bougies.value?.[bougies.value.length - 1]
-      const tsMs = derniereB2 ? new Date(derniereB2.timestamp).getTime() : null
-      const tsSec = tsMs ? Math.floor(tsMs / 1000) : undefined
-      v12Overlay.setDernierTs(tsSec)
-    },
-  )
-}
-
-const { assets, changerAsset, changerTimeframe } = useChartOrchestration({
-  selectedAsset, selectedTimeframe, bougies,
-  indicateurs: ref(settingsStore.indicateurs),
-  getChart, getCandlestickSeries,
-  smcMettreAJourZones: (_data, _prefs, ts) => {
-    v12Overlay.setDernierTs(ts)
-    dessins.definirDernierBougie(ts ?? null)
-  },
-  chargerEtAppliquer,
-  mettreAJourSerie, mettreAJourEnDirect,
-  initChart, detruireChart, reinitialiser,
-  configurerCrosshair, chargerIndicateurs,
-  configurerRedimensionnement, arreterRedimensionnement,
-})
-
-/// Rafraîchit l'overlay v12 (trades vivants : fills, BE, TP, clôtures) sans
-/// recharger les bougies — le moteur rejoue côté backend et resert l'état.
-function rafraichirOverlayV12() {
-  const derniereB = bougies.value?.[bougies.value.length - 1]
-  const tsSec = derniereB ? Math.floor(new Date(derniereB.timestamp).getTime() / 1000) : undefined
-  void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), tsSec)
-  void chargerTradesExternes()
-}
-
-/// Trades MULTI-TF : les signaux ouverts du même actif sur les AUTRES
-/// timeframes, dessinés en atténué avec badge (un trade M1 reste visible
-/// sur les graphiques M5/M15/M30/H1 tant qu'il est ouvert).
-const DUREE_BARRE: Record<string, number> = {
-  M1: 60, M5: 300, M10: 600, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800,
-}
-const SMC_NOMS = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA']
-
-async function chargerTradesExternes() {
-  try {
-    const signaux = await apiService.getSignaux(150)
-    type RowSign = { asset: string; timeframe: string; direction: string; statut: string; strategie: string; prix_entree: number; stop_loss: number; take_profit: number[]; score: number; heure_entree: number | null; cree_le: number }
-    const ouverts = (signaux as RowSign[])
-      .filter(x =>
-        x.asset === selectedAsset.value
-        && x.statut === 'Actif'
-        && SMC_NOMS.includes(x.strategie)
-        // Autres TF : tout trade ouvert. TF affiché : uniquement les
-        // ordres EN ATTENTE (jamais remplis — le moteur ne les dessine
-        // pas avant le fill, fidélité Pine ; les remplis du TF courant
-        // gardent leur affichage riche).
-        && (x.timeframe !== selectedTimeframe.value || x.heure_entree === null))
-      .slice(0, 6)
-      .map(x => ({
-        ts: x.cree_le,
-        entry: x.prix_entree,
-        sl: x.stop_loss,
-        tp1: x.take_profit?.[0] ?? x.prix_entree,
-        tp2: x.take_profit?.[1] ?? x.prix_entree,
-        tp3: x.take_profit?.[2] ?? x.prix_entree,
-        dir: x.direction === 'Long' ? 'Long' as const : 'Short' as const,
-        force: Math.max(1, Math.min(10, Math.round(x.score))),
-        be: false,
-        label: [] as string[],
-        tfOrigine: x.timeframe,
-        enAttente: x.heure_entree === null,
-        tsFin: x.cree_le + 40 * (DUREE_BARRE[x.timeframe] ?? 900),
-      }))
-    v12Overlay.definirTradesExternes(ouverts)
-  } catch { /* silencieux */ }
-}
-
-// Affichage VIVANT des trades (fidélité Pine : le label et les boxes évoluent
-// barre après barre) — rafraîchissement léger toutes les 30 s.
-onMounted(() => {
-  minuteurOverlay = setInterval(rafraichirOverlayV12, 30_000)
-})
-
-// Changement d'asset : les dessins sont persistés PAR asset.
-watch(selectedAsset, (a) => { dessins.definirAsset(a); alertesPrix.definirAsset(a) })
-
-// Nettoyage overlay v12 au démontage de la vue
-onUnmounted(() => {
-  if (minuteurOverlay !== null) clearInterval(minuteurOverlay)
-  v12Overlay.detruire()
-  dessins.detruire()
-  alertesPrix.detruire()
-})
-
-chargerAnnonces()
 </script>
 
 <style scoped>
-.glass-card {
-  @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden;
+/* Mini-grille du dropdown layout — cases égales, reflet de la disposition. */
+.mini-grille {
+  display: grid;
+  gap: 2px;
+  width: 22px;
 }
+.mini-grille span {
+  height: 7px;
+  border-radius: 2px;
+  background: #64748b;
+}
+.mini-grille[data-layout="1"] { grid-template-columns: repeat(1, 1fr); }
+.mini-grille[data-layout="2"] { grid-template-columns: repeat(2, 1fr); }
+.mini-grille[data-layout="4"] { grid-template-columns: repeat(2, 1fr); }
+.mini-grille[data-layout="6"] { grid-template-columns: repeat(3, 1fr); }
+.mini-grille[data-layout="8"] { grid-template-columns: repeat(4, 1fr); }
+button:hover .mini-grille span { background: #94a3b8; }
 </style>
