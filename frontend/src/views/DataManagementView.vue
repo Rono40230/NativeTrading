@@ -321,12 +321,14 @@ async function chargerMt5() {
   } catch { mt5.value = { connecte: false, symboles: [] } }
 }
 
+// Colonnes par CLASSE d'actif (crypto/métaux/forex/indices) — le broker
+// (badge Bybit/MT5/Dukascopy) reste indiqué par asset : XAU/XAG en métaux,
+// NAS100/SP500/DAX en indices, même alimentés par MT5/Axi.
 const CATEGORIES = computed(() => [
   { type: 'crypto', label: '🪙 Crypto (Bybit)', couleur: 'text-yellow-400', assets: tous.value.filter(a => a.type === 'crypto') },
-  { type: 'metal', label: '🥇 Métaux (Bybit)', couleur: 'text-amber-400', assets: tous.value.filter(a => a.type === 'metal') },
+  { type: 'metal', label: '🥇 Métaux', couleur: 'text-amber-400', assets: tous.value.filter(a => a.type === 'metal') },
   { type: 'forex', label: '💱 Forex (Dukascopy)', couleur: 'text-blue-400', assets: tous.value.filter(a => a.type === 'forex') },
-  { type: 'mt5', label: '🖥️ Broker MT5 / Axi (temps réel)', couleur: 'text-violet-400', assets: tous.value.filter(a => a.source === 'mt5') },
-  { type: 'indice', label: '📈 Indices (Dukascopy)', couleur: 'text-purple-400', assets: tous.value.filter(a => a.type === 'indice' && a.source !== 'mt5') },
+  { type: 'indice', label: '📈 Indices', couleur: 'text-purple-400', assets: tous.value.filter(a => a.type === 'indice') },
 ])
 
 function badgeSource(source?: string): { label: string; classe: string } {
