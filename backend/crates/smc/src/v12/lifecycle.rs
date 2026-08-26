@@ -25,13 +25,37 @@ use super::types::{BarInput, SmcOutput};
 /// Force minimale — seuil de score degradation (Pine `i_forceMin` = 4).
 const FORCE_MIN: i32 = 4;
 
+/// Mode de gestion du BE forcé sur BOS opposé (étude comparatif 26/08 —
+/// « 95 % des trades fermés à BE »). Classique = production fidèle Pine v12 ;
+/// les autres modes servent au binaire `comparatif_be` pour trancher par
+/// les chiffres. La dégradation de score (scoreDeg) n'est PAS concernée :
+/// seule la cause BOS opposé varie entre modes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ModeBeForce {
+    /// SL → entrée au BOS opposé BRUT (Pine v12 — production).
+    #[default]
+    Classique,
+    /// Clôture immédiate au prix du tick du BOS opposé (R partiel réalisé,
+    /// positif ou négatif — pas de plancher 0R).
+    Marche,
+    /// Aucune action sur trade rempli : il vit jusqu'à SL/TP (l'annulation
+    /// des ordres EN ATTENTE reste active — règle distincte).
+    Supprime,
+    /// BE uniquement sur MSS opposé (cassure avec displacement) — un
+    /// micro-BOS ne suffit plus.
+    Qualifie,
+}
+
 /// Gestionnaire du cycle de vie — opère sur le carnet de trades du `SignalGenerator`.
 #[derive(Clone)]
+
 pub struct TradeLifecycle {
     /// `i_tradeMaxMins × 60` en secondes (Pine 2374-2375).
     trade_max_secs: i64,
     /// `i_tp3MaxMins × 60` en secondes (Pine 2372).
     tp3_max_secs: i64,
+    /// Mode du BE forcé (étude comparatif — défaut Classique = production).
+    mode_be_force: ModeBeForce,
 }
 
 impl TradeLifecycle {
@@ -39,7 +63,13 @@ impl TradeLifecycle {
         Self {
             trade_max_secs,
             tp3_max_secs,
+            mode_be_force: ModeBeForce::Classique,
         }
+    }
+
+    /// Sélectionne le mode du BE forcé (étude comparatif).
+    pub fn definir_mode_be_force(&mut self, mode: ModeBeForce) {
+        self.mode_be_force = mode;
     }
 
     /// Évalue tous les trades non clôturés sur la bar courante (Pine 3797-3952 / 3963-4118).
@@ -128,13 +158,16 @@ impl TradeLifecycle {
         // --- BOS opposé (beForce) + score degradation (scoreDeg) ---
         // beForce = !tp1_hit && BOS opposé BRUT (Pine `bosBaissier`/`bosHaussier`
         // lignes 457-458, jamais masqués par le filtre MSS — un BOS-MSS force
-        // aussi le BE).
-        let be_force = !tp1_hit
-            && if is_buy {
-                out.bos_raw.bearish
-            } else {
-                out.bos_raw.bullish
-            };
+        // aussi le BE). Variantes de l'étude comparatif :
+        // - Supprime : jamais (le trade vit jusqu'à SL/TP).
+        // - Qualifie : MSS opposé uniquement (displacement), pas un micro-BOS.
+        let bos_oppose = if is_buy { out.bos_raw.bearish } else { out.bos_raw.bullish };
+        let mss_oppose = if is_buy { out.mss.mss_baissier } else { out.mss.mss_haussier };
+        let be_force = match self.mode_be_force {
+            ModeBeForce::Supprime => false,
+            ModeBeForce::Qualifie => !tp1_hit && mss_oppose,
+            ModeBeForce::Classique | ModeBeForce::Marche => !tp1_hit && bos_oppose,
+        };
         // scoreDeg : OB lié (source OB uniquement) dont la force dégrade sous 4.
         let score_deg = match t.ob_key {
             Some(key) if !tp1_hit => {
@@ -174,6 +207,27 @@ impl TradeLifecycle {
 
         // --- 5. BE forcé — Pine 3908-3923 / 4074-4089 ---
         if filled && (be_force || score_deg) && !tp1_hit {
+            // Variante Marché : clôture immédiate au prix courant — le R
+            // partiel est réalisé tel quel (souvent négatif : le BOS opposé
+            // survient contre le trade).
+            if self.mode_be_force == ModeBeForce::Marche && be_force {
+                t.state = TradeState::Closed;
+                t.close_reason = Some(CloseReason::Be);
+                t.be_forced = true;
+                t.close_ts = Some(bar.timestamp);
+                t.close_bar = Some(bar_index);
+                let r_marche = if t.risk0 > 0.0 {
+                    if is_buy {
+                        (bar.close - t.entry) / t.risk0
+                    } else {
+                        (t.entry - bar.close) / t.risk0
+                    }
+                } else {
+                    0.0
+                };
+                t.close_r = Some(r_marche);
+                return;
+            }
             t.sl = entry; // SL → entry (BE).
             t.tp1_hit = true; // Neutralise (n'a plus besoin de TP1 gate).
             t.be_forced = true;

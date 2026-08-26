@@ -160,6 +160,13 @@ impl SmcV12Engine {
         }
     }
 
+    /// Mode du BE forcé sur BOS opposé (étude comparatif — défaut
+    /// Classique = production fidèle Pine v12).
+    pub fn avec_mode_be_force(mut self, mode: lifecycle::ModeBeForce) -> Self {
+        self.lifecycle.definir_mode_be_force(mode);
+        self
+    }
+
     /// Traite une nouvelle bar clôturée. Ordre strict = ordre Pine
     /// (ATR → pivots → structure → BOS → MSS/CHOCH → liquidités → sweep
     ///  → FVG → OB → Breaker → Propulsion → Imbalance).

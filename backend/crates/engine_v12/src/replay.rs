@@ -46,8 +46,23 @@ pub fn rejouer_bougies(
     simuler_ticks: bool,
     amorce: smc::v12::AmorceMtf,
 ) -> ResultatReplay {
+    rejouer_bougies_mode(asset, tf, bougies, simuler_ticks, amorce, smc::v12::lifecycle::ModeBeForce::Classique)
+}
+
+/// Variante paramétrée (étude comparatif du BE forcé) : rejoue l'historique
+/// avec un mode de gestion du BOS opposé donné.
+pub fn rejouer_bougies_mode(
+    asset: Asset,
+    tf: Timeframe,
+    bougies: &[Candle],
+    simuler_ticks: bool,
+    amorce: smc::v12::AmorceMtf,
+    mode: smc::v12::lifecycle::ModeBeForce,
+) -> ResultatReplay {
     let debut = std::time::Instant::now();
-    let mut plugin = MoteurV12::nouveau(asset.clone(), tf).avec_amorce(amorce.clone());
+    let mut plugin = MoteurV12::nouveau(asset.clone(), tf)
+        .avec_amorce(amorce.clone())
+        .avec_mode_be_force(mode);
     let mut journal = SortieMoteur::vide();
 
     for (i, b) in bougies.iter().enumerate() {

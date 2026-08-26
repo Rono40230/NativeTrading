@@ -124,6 +124,13 @@ impl MoteurV12 {
         self
     }
 
+    /// Mode du BE forcé sur BOS opposé (étude comparatif — défaut
+    /// Classique = production).
+    pub fn avec_mode_be_force(mut self, mode: smc::v12::lifecycle::ModeBeForce) -> Self {
+        self.moteur = self.moteur.avec_mode_be_force(mode);
+        self
+    }
+
     /// Applique l'amorce une seule fois, au premier bar vu (t0 = son ts).
     fn appliquer_amorce_si_premiere(&mut self, ts: i64) {
         if self.amorce_appliquee {

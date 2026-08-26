@@ -1,0 +1,16 @@
+════════════════════════════════════════════════════════════════════════════════════════════════
+COMPARATIF BE FORCÉ (BOS opposé) — R total / trades remplis par mode × TF
+════════════════════════════════════════════════════════════════════════════════════════════════
+Mode                       M15                M5                M1             TOTAL
+────────────────────────────────────────────────────────────────────────────────────────────────
+Classique        +58.4R / 1535     +31.6R / 1253     +77.6R / 1367         +0.0R / 0
+              R moyen +0.040 · verdicts : 1540×BE, 2429×Expire, 33×TP3, 83×SL, 70×TP2+BE
+Marché           +59.4R / 1600     +32.6R / 1317     +78.6R / 1430         +0.0R / 0
+              R moyen +0.039 · verdicts : 70×TP2+BE, 33×TP3, 80×SL, 2408×Expire, 1756×BE
+Supprimé         +60.4R / 1319      +48.9R / 840      +94.5R / 901         +0.0R / 0
+              R moyen +0.067 · verdicts : 1866×BE, 958×Expire, 107×SL, 42×TP3, 87×TP2+BE
+Qualifié         +58.4R / 1441     +35.6R / 1212     +77.6R / 1328         +0.0R / 0
+              R moyen +0.043 · verdicts : 2213×Expire, 73×TP2+BE, 1577×BE, 33×TP3, 85×SL
+────────────────────────────────────────────────────────────────────────────────────────────────
+Lecture : R total = somme des R réalisés · remplis = clôtures de trades
+ayant vu un Fill · Marché = R au prix du BOS (partiel, souvent négatif).
