@@ -2,10 +2,13 @@
   <!-- Cellule de graphique multi-layout — une instance par emplacement.
        Toute la mécanique chart (candles, overlays SMC, dessins, alertes,
        éco-cal, sous-graphiques, orchestration) vit ici, indépendamment. -->
-  <div class="flex flex-col gap-2 h-full min-h-0" :class="active ? 'cellule-active' : 'cellule-inactive'" @mousedown="$emit('activer')">
+  <div :class="[pleinEcran ? 'cellule-plein-ecran' : [active ? 'cellule-active' : 'cellule-inactive', 'h-full min-h-0'].join(' ')]"
+    class="flex flex-col gap-2 p-3" @mousedown="$emit('activer')">
 
     <!-- Mini-bandeau de la cellule : asset, TF, prix, variation, flux -->
-    <div class="flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-xs shrink-0">
+    <div class="flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-xs shrink-0 cursor-pointer select-none"
+      title="Double-clic : plein écran"
+      @dblclick="basculerPleinEcran">
       <span class="font-bold text-white">{{ asset }}</span>
       <span class="px-1.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-semibold">{{ timeframe }}</span>
       <span class="font-mono tabular-nums ml-1" :class="variation >= 0 ? 'text-emerald-400' : 'text-red-400'">
@@ -18,6 +21,9 @@
         <span class="w-1.5 h-1.5 rounded-full" :class="marketStore.wsConnecte ? 'bg-emerald-400' : 'bg-slate-500'" />
         {{ marketStore.wsConnecte ? 'flux' : 'silence' }}
       </span>
+      <button v-if="pleinEcran" title="Quitter le plein écran (Échap)"
+        class="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+        @click.stop="pleinEcran = false">✕</button>
     </div>
 
     <!-- Canvas TradingView -->
@@ -166,6 +172,15 @@ const { initialiser: ecoCalInit, chargerAnnonces, detruire: ecoCalDetruire,
 
 const timestampCurseur = ref<number | null>(null)
 
+/// Double-clic sur le bandeau : la cellule couvre toute la fenêtre (les
+/// autres graphiques et la barre haute passent dessous). Échap ou ✕ revient.
+const pleinEcran = ref(false)
+function basculerPleinEcran() { pleinEcran.value = !pleinEcran.value }
+function surEscape(e: KeyboardEvent) {
+  if (e.key === 'Escape' && pleinEcran.value) pleinEcran.value = false
+}
+window.addEventListener('keydown', surEscape)
+
 function configurerCrosshair() {
   getChart()?.subscribeCrosshairMove((param) => {
     timestampCurseur.value = param.time ? (param.time as number) : null
@@ -282,6 +297,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', surEscape)
   if (minuteurOverlay !== null) clearInterval(minuteurOverlay)
   v12Overlay.detruire()
   dessins.detruire()
@@ -291,6 +307,12 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.cellule-plein-ecran {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #0b1220;
+}
 .cellule-active { outline: 2px solid rgba(34, 211, 238, 0.5); outline-offset: 2px; border-radius: 12px; }
 .cellule-inactive { outline: 2px solid transparent; outline-offset: 2px; border-radius: 12px; }
 </style>
