@@ -23,6 +23,24 @@
           <span class="animate-pulse">Chargement des bougies...</span>
         </div>
         <div ref="chartContainer" class="w-full h-full" style="position: relative;" />
+        <!-- Barre d'outils de dessin (superposée au chart, à gauche) -->
+        <div class="absolute left-2 top-2 z-20 flex flex-col gap-1 p-1 rounded-lg bg-slate-900/80 backdrop-blur border border-white/10 shadow-lg">
+          <button v-for="t in outilsDessin" :key="t.outil"
+            :title="t.titre + (dessins.outil.value === t.outil ? ' (actif — Échap pour désactiver)' : '')"
+            :class="[
+              'w-8 h-8 rounded-md text-sm flex items-center justify-center transition-colors',
+              dessins.outil.value === t.outil
+                ? 'bg-blue-600/40 text-blue-200 border border-blue-400/50'
+                : 'text-slate-400 hover:text-slate-100 hover:bg-white/10 border border-transparent',
+            ]"
+            @click="dessins.choisirOutil(t.outil)"
+          >{{ t.icone }}</button>
+          <div class="h-px bg-white/10 mx-1" />
+          <button title="Effacer tous les dessins de cet asset"
+            class="w-8 h-8 rounded-md text-sm flex items-center justify-center text-slate-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+            @click="dessins.toutEffacer()"
+          >🗑</button>
+        </div>
         <EcoCalTooltip :annonce="tooltipAnnonce" :x="tooltipX" :y="tooltipY" />
         <TendanceMultiTF v-if="settingsStore.indicateurs.kasperTendance" :key="selectedAsset + '_' + selectedTimeframe"
           :asset="selectedAsset" :timeframe="selectedTimeframe"
@@ -77,7 +95,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useChartStats } from '@/composables/useChartStats'
 import { useChartTradingView } from '@/composables/useChartTradingView'
 import { useMarketStore } from '@/stores/market.store'
@@ -85,6 +103,7 @@ import { useSettingsStore } from '@/stores/settings.store'
 import { useChartIndicators } from '@/composables/useChartIndicators'
 import { limitPourTimeframe } from '@/composables/useChartLimite'
 import { useSmcV12Overlay } from '@/composables/useSmcV12Overlay'
+import { useChartDessins } from '@/composables/useChartDessins'
 import { useChartEcoCal } from '@/composables/useChartEcoCal'
 import EcoCalTooltip from '@/components/common/EcoCalTooltip.vue'
 
@@ -123,6 +142,15 @@ const {
 
 const { chargerEtAppliquer, reinitialiser } = useChartIndicators()
 const v12Overlay = useSmcV12Overlay()
+const dessins = useChartDessins()
+
+/// Outils de dessin superposés au chart (cliquer-glisser ; Échap désactive).
+const outilsDessin: { outil: 'ligne' | 'rectangle' | 'fibo' | 'gomme'; icone: string; titre: string }[] = [
+  { outil: 'ligne', icone: '╱', titre: 'Ligne de tendance' },
+  { outil: 'rectangle', icone: '▭', titre: 'Rectangle (zone)' },
+  { outil: 'fibo', icone: 'ƒ', titre: 'Retracement Fibonacci' },
+  { outil: 'gomme', icone: '⌫', titre: 'Gomme (clic sur un dessin)' },
+]
 let minuteurOverlay: ReturnType<typeof setInterval> | null = null
 const { initialiser: ecoCalInit, chargerAnnonces, detruire: ecoCalDetruire,
   tooltipAnnonce, tooltipX, tooltipY } = useChartEcoCal()
@@ -153,6 +181,7 @@ async function chargerIndicateurs() {
   if (!chart) return
   const serie = getCandlestickSeries()
   if (chartContainer.value && serie) v12Overlay.initialiser(chart, serie, chartContainer.value)
+  if (chartContainer.value && serie) dessins.initialiser(chart, serie, chartContainer.value, selectedAsset.value)
   if (chartContainer.value) ecoCalInit(chart, chartContainer.value)
   // Overlay SMC v12 : fetch du replay moteur (indépendant des indicateurs classiques).
   const derniereB = bougies.value?.[bougies.value.length - 1]
@@ -246,10 +275,14 @@ onMounted(() => {
   minuteurOverlay = setInterval(rafraichirOverlayV12, 30_000)
 })
 
+// Changement d'asset : les dessins sont persistés PAR asset.
+watch(selectedAsset, (a) => dessins.definirAsset(a))
+
 // Nettoyage overlay v12 au démontage de la vue
 onUnmounted(() => {
   if (minuteurOverlay !== null) clearInterval(minuteurOverlay)
   v12Overlay.detruire()
+  dessins.detruire()
 })
 
 chargerAnnonces()
