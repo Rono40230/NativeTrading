@@ -47,8 +47,8 @@
             <div>
               <label class="text-xs text-gray-400">Worker</label>
               <div class="mt-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm"
-                   :class="sourceWorker === 'binance' ? 'text-yellow-300' : sourceWorker === 'mt5' ? 'text-violet-300' : 'text-sky-300'">
-                {{ sourceWorker === 'binance' ? 'Bybit (temps réel)' : sourceWorker === 'mt5' ? 'MT5 / Axi (broker)' : 'Dukascopy (historique)' }}
+                   :class="sourceWorker === 'binance' ? 'text-yellow-300' : 'text-violet-300'">
+                {{ sourceWorker === 'binance' ? 'Bybit (temps réel)' : 'MT5 / Axi (broker)' }}
               </div>
             </div>
           </div>
@@ -62,14 +62,14 @@
             />
           </div>
           <div v-else>
-            <label class="text-xs text-gray-400">Instrument Dukascopy</label>
+            <label class="text-xs text-gray-400">Symbole MT5 (broker Axi)</label>
             <input
-              v-if="sourceWorker !== 'mt5'"
-              v-model="nouvelAsset.instrumentDukascopy"
-              placeholder="GBPAUD (forex) · USATECHIDXUSD (indices)"
+              v-model="nouvelAsset.symbolMt5"
+              placeholder="ex : UK100, dax40.fs, XAUUSD"
               class="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white focus:border-emerald-500/50 outline-none"
-              @input="nouvelAsset.instrumentDukascopy = nouvelAsset.instrumentDukascopy.toUpperCase()"
+              @input="nouvelAsset.symbolMt5 = nouvelAsset.symbolMt5.toUpperCase()"
             />
+            <p class="text-[11px] text-gray-500 mt-1">Résolu insensible à la casse dans le Market Watch de ton MT5 — l'EA collecte dès qu'il tourne.</p>
           </div>
         </div>
 
@@ -77,8 +77,8 @@
         <p v-if="succesModaleAsset" class="text-sm text-emerald-400">{{ succesModaleAsset }}</p>
 
         <p class="text-[11px] text-gray-500">
-          L'asset est ajouté <b>actif</b> : le worker le prend en charge en ≤ 60 s (souscription +
-          backfill de queue + moteur v12 armé pour Bybit ; disponible au backfill ⬇ pour Dukascopy).
+          L'asset est ajouté <b>actif</b> : Bybit le prend en charge en ≤ 60 s (souscription + moteur v12 armé) ;
+          MT5 dès que ton EA tourne ( Market Watch + push M1).
         </p>
 
         <div class="flex justify-end gap-2 pt-1">
@@ -120,34 +120,29 @@ const nouvelAsset = ref({
   classe: 'crypto' as 'crypto' | 'metal' | 'forex' | 'indice',
   symbolMt5: '',
   symbolBybit: '',
-  instrumentDukascopy: '',
 })
 
-/// Règle classe → worker (crypto/métal = Bybit temps réel ; forex/indice =
-/// Dukascopy historique) — la même que l'activation d'un asset existant.
+/// Règle famille → worker (actée 26/08) : crypto = Bybit temps réel ; métaux,
+/// forex et indices = MT5 / Axi (broker). Dukascopy n'est plus utilisé.
 const sourceWorker = computed(() =>
-  nouvelAsset.value.classe === 'crypto' || nouvelAsset.value.classe === 'metal'
-    ? 'binance'
-    : nouvelAsset.value.classe === 'indice'
-      ? 'mt5'
-      : 'dukascopy',
+  nouvelAsset.value.classe === 'crypto' ? 'binance' : 'mt5',
 )
 
 /// Auto-proposition des symboles quand la classe ou le ticker change :
-/// crypto → TICKERUSDT ; métal → contrats linéaires (XAUUSD → XAUUSDT) ;
-/// forex → ticker tel quel ; indice → à saisir (formes concaténées).
+/// crypto → TICKERUSDT (Bybit) ; autres familles → ticker tel quel (symbole
+/// MT5, résolu insensible à la casse par l'EA — formes .fs ajustables).
 function majWorkerEtSymboles() {
   const t = nouvelAsset.value.ticker.trim()
   if (sourceWorker.value === 'binance') {
     const base = t.endsWith('USD') && t.length > 3 ? t.slice(0, -3) : t
     nouvelAsset.value.symbolBybit = base ? `${base}USDT` : ''
-  } else if (nouvelAsset.value.classe === 'forex') {
-    nouvelAsset.value.instrumentDukascopy = t
+  } else {
+    nouvelAsset.value.symbolMt5 = t
   }
 }
 
 function ouvrirModaleAsset() {
-  nouvelAsset.value = { ticker: '', nom: '', classe: 'crypto', symbolBybit: '', instrumentDukascopy: '', symbolMt5: '' }
+  nouvelAsset.value = { ticker: '', nom: '', classe: 'crypto', symbolBybit: '', symbolMt5: '' }
   erreurModaleAsset.value = ''
   succesModaleAsset.value = ''
   modaleAsset.value = true
@@ -174,9 +169,9 @@ async function creerAsset() {
       a.ticker.trim(),
       a.nom.trim(),
       a.classe,
-      sourceWorker.value as 'binance' | 'dukascopy' | 'mt5',
+      sourceWorker.value as 'binance' | 'mt5',
       sourceWorker.value === 'binance' ? a.symbolBybit.trim() : undefined,
-      sourceWorker.value === 'dukascopy' ? a.instrumentDukascopy.trim() : undefined,
+      undefined,
       sourceWorker.value === 'mt5' ? a.symbolMt5.trim() : undefined,
     )
     succesModaleAsset.value = `✅ ${a.ticker} ajouté — prise en charge par le pipeline en ≤ 60 s.`

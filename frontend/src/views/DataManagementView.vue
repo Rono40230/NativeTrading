@@ -295,7 +295,8 @@ async function basculerAsset(a: AssetInfo) {
     if (a.actif) {
       await apiService.supprimerAsset(a.id)
     } else {
-      const source = a.source === 'mt5' ? 'mt5' : a.type === 'crypto' || a.type === 'metal' ? 'binance' : 'dukascopy'
+      // Règle famille → worker (actée 26/08) : crypto = Bybit, le reste = MT5.
+      const source = a.type === 'crypto' ? 'binance' : 'mt5'
       await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], source, undefined, undefined, a.symbol_mt5 || undefined)
     }
     a.actif = !a.actif
@@ -327,7 +328,7 @@ async function chargerMt5() {
 const CATEGORIES = computed(() => [
   { type: 'crypto', label: '🪙 Crypto (Bybit)', couleur: 'text-yellow-400', assets: tous.value.filter(a => a.type === 'crypto') },
   { type: 'metal', label: '🥇 Métaux', couleur: 'text-amber-400', assets: tous.value.filter(a => a.type === 'metal') },
-  { type: 'forex', label: '💱 Forex (Dukascopy)', couleur: 'text-blue-400', assets: tous.value.filter(a => a.type === 'forex') },
+  { type: 'forex', label: '💱 Forex', couleur: 'text-blue-400', assets: tous.value.filter(a => a.type === 'forex') },
   { type: 'indice', label: '📈 Indices', couleur: 'text-purple-400', assets: tous.value.filter(a => a.type === 'indice') },
 ])
 
