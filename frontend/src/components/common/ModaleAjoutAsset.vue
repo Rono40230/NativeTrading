@@ -171,7 +171,6 @@ async function creerAsset() {
       a.classe,
       sourceWorker.value as 'binance' | 'mt5',
       sourceWorker.value === 'binance' ? a.symbolBybit.trim() : undefined,
-      undefined,
       sourceWorker.value === 'mt5' ? a.symbolMt5.trim() : undefined,
     )
     succesModaleAsset.value = `✅ ${a.ticker} ajouté — prise en charge par le pipeline en ≤ 60 s.`

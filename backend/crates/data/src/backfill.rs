@@ -3,7 +3,7 @@
 //! Le runtime doit se comporter comme un graphique TradingView : à
 //! l'ouverture, l'historique est là. Avant le cold start (replay) de chaque
 //! couple (asset × TF), les bougies manquantes depuis la dernière connue
-//! sont récupérées via le provider REST Bybit (crypto + métaux) — les trous
+//! sont récupérées via le provider REST Bybit (crypto) — les trous
 //! dus aux arrêts de l'app (nuits, week-ends, pannes) se rebouchent seuls.
 //!
 //! Déclenchement : enregistrement d'un couple au runtime (démarrage de
@@ -13,8 +13,8 @@
 //!
 //! Limite v1 : un seul appel REST par couple (1 000 bougies max) — comble
 //! le trou récent, suffisant pour réarmer les moteurs (le v12 a besoin de
-//! ~7 jours ; 1 000 bougies M1 ≈ 17 h). La pagination complète viendra avec
-//! Dukascopy (phase 5).
+//! ~7 jours ; 1 000 bougies M1 ≈ 17 h). La pagination complète reste à
+//! venir (les assets MT5 se rebouchent par le push historique de l'EA).
 
 use std::sync::Arc;
 

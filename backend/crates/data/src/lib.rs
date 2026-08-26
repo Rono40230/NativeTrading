@@ -1,7 +1,6 @@
 use common::{Asset, Candle, Result, Timeframe};
 
 pub mod bybit_ws;
-pub mod dukascopy;
 pub mod prix_utils;
 pub mod providers;
 pub mod backfill;

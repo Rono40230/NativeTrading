@@ -297,7 +297,7 @@ async function basculerAsset(a: AssetInfo) {
     } else {
       // Règle famille → worker (actée 26/08) : crypto = Bybit, le reste = MT5.
       const source = a.type === 'crypto' ? 'binance' : 'mt5'
-      await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], source, undefined, undefined, a.symbol_mt5 || undefined)
+      await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], source, undefined, a.symbol_mt5 || undefined)
     }
     a.actif = !a.actif
     await chargerTous()
@@ -323,7 +323,7 @@ async function chargerMt5() {
 }
 
 // Colonnes par CLASSE d'actif (crypto/métaux/forex/indices) — le broker
-// (badge Bybit/MT5/Dukascopy) reste indiqué par asset : XAU/XAG en métaux,
+// (badge Bybit/MT5) reste indiqué par asset : XAU/XAG en métaux,
 // NAS100/SP500/DAX en indices, même alimentés par MT5/Axi.
 const CATEGORIES = computed(() => [
   { type: 'crypto', label: '🪙 Crypto (Bybit)', couleur: 'text-yellow-400', assets: tous.value.filter(a => a.type === 'crypto') },
@@ -336,8 +336,6 @@ function badgeSource(source?: string): { label: string; classe: string } {
   switch (source) {
     case 'binance':
       return { label: 'Bybit', classe: 'bg-yellow-500/15 text-yellow-300' }
-    case 'dukascopy':
-      return { label: 'Dukascopy', classe: 'bg-sky-500/15 text-sky-300' }
     case 'mt5':
       return { label: 'MT5 / Axi', classe: 'bg-violet-500/15 text-violet-300' }
     default:

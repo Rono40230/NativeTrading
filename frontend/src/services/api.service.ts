@@ -153,16 +153,14 @@ export const apiService = {
     id: string,
     nom: string,
     type: AssetInfo['type'],
-    source: 'binance' | 'dukascopy' | 'mt5',
+    source: 'binance' | 'mt5',
     symbolBybit?: string,
-    datafeedDukascopy?: string,
     symbolMt5?: string,
   ): Promise<void> {
     try {
       await http.post('/api/assets', {
         id, nom, type, source,
         symbol_bybit: symbolBybit || undefined,
-        datafeed_dukascopy: datafeedDukascopy || undefined,
         symbol_mt5: symbolMt5 || undefined,
       })
     } catch (err: any) {

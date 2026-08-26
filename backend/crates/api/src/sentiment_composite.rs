@@ -37,7 +37,7 @@ pub type SentimentSlot = Arc<RwLock<Option<SentimentScore>>>;
 
 /// Actifs principaux utilisés pour le sentiment technique D1.
 /// ETH retiré du pipeline le 2026-08-18 (décision propriétaire : BTC seul).
-/// Les assets Dukascopy figés sont filtrés par la garde d'ancienneté.
+/// Les assets figés (hors session) sont filtrés par la garde d'ancienneté.
 const ASSETS_PRINCIPAUX: &[&str] = &[
     "BTC", "EURUSD", "GBPJPY", "USDJPY", "XAUUSD", "XAGUSD", "DAX", "NAS100", "SP500",
 ];
@@ -188,7 +188,7 @@ async fn fetch_cnn_fg() -> Option<(f64, String)> {
 ///   6. Recalcul du global (moyenne des classes disponibles).
 pub async fn calculer_composite(db: &Database, fg_cache: &FgCache) -> SentimentScore {
     // 1. Fetch D1 bougies — garde d'ancienneté : un asset dont la dernière
-    //    bougie D1 date de plus de 4 jours (assets Dukascopy figés depuis
+    //    bougie D1 date de plus de 4 jours (assets figés depuis
     //    avril — collecteur en phase 5) est IGNORÉ : son RSI périmé
     //    fausserait les jauges. `combine_dispo` renormalise sans lui.
     let maintenant = Utc::now();
