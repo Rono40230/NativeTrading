@@ -24,7 +24,7 @@
         </div>
         <div ref="chartContainer" class="w-full h-full" style="position: relative;" />
         <!-- Barre d'outils de dessin (superposée au chart, à gauche) -->
-        <div class="absolute left-2 top-2 z-20 flex flex-col gap-1 p-1 rounded-lg bg-slate-900/80 backdrop-blur border border-white/10 shadow-lg">
+        <div class="absolute right-2 bottom-2 z-20 flex flex-col gap-1 p-1 rounded-lg bg-slate-900/80 backdrop-blur border border-white/10 shadow-lg">
           <button v-for="t in outilsDessin" :key="t.outil"
             :title="t.titre + (dessins.outil.value === t.outil ? ' (actif — Échap pour désactiver)' : '')"
             :class="[
