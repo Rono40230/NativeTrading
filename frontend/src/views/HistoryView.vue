@@ -31,10 +31,6 @@
         >{{ s.label }}</button>
       </div>
 
-      <div class="flex gap-1 ml-auto">
-        <span class="text-xs text-gray-400 self-center">✅ Trades clôturés</span>
-      </div>
-      <button class="btn-sm" @click="charger">🔄 Actualiser</button>
       <button v-if="filtreStrategie !== ''" class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse {{ labelStrategie }}</button>
     </div>
 
