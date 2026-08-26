@@ -158,13 +158,24 @@ const assetsConnus = computed(() =>
   [...new Set(signaux.value.map(s => s.asset))].sort()
 )
 
+// Le writer runtime écrit l'id du manifeste ('straddle' minuscule, 'SMC'),
+// l'ancien système v1 écrivait 'Straddle'/'SMC Directionnel' — comparaison
+// insensible à la casse + variantes historiques.
+const SMC_VARIANTES = ['smc', 'smcdirectional', 'smc directionnel', 'smc+ia']
+
 const signalsFiltres = computed(() =>
-  signaux.value.filter(s =>
-    (!filtreAsset.value || s.asset === filtreAsset.value) &&
-    (!filtreDirection.value || s.direction === filtreDirection.value) &&
-    (!filtreStrategie.value || s.strategie === filtreStrategie.value || (filtreStrategie.value === 'SMC' && s.strategie === 'SMC Directionnel')) &&
-    (filtreStatut.value === 'en_cours' ? s.statut !== 'Fermé' : s.statut === 'Fermé')
-  )
+  signaux.value.filter(s => {
+    if (filtreAsset.value && s.asset !== filtreAsset.value) return false
+    if (filtreDirection.value && s.direction !== filtreDirection.value) return false
+    if (filtreStrategie.value) {
+      const nom = s.strategie.toLowerCase().trim()
+      const ok = filtreStrategie.value === 'SMC'
+        ? SMC_VARIANTES.includes(nom)
+        : nom === filtreStrategie.value.toLowerCase()
+      if (!ok) return false
+    }
+    return filtreStatut.value === 'en_cours' ? s.statut !== 'Fermé' : s.statut === 'Fermé'
+  })
 )
 
 const listeActive = computed(() =>
