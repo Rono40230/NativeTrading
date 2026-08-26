@@ -108,12 +108,6 @@
       <!-- Slot actions SMC (ex. bouton Analyse SMC) — à droite des dropdowns -->
       <slot name="apres-smc" />
 
-      <!-- Actualiser -->
-      <button
-        class="ml-auto px-2.5 py-1 text-xs font-medium rounded-md bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-50"
-        :disabled="chargement"
-        @click="$emit('actualiser')"
-      >{{ chargement ? '⏳...' : '🔄 Actualiser' }}</button>
     </div>
 
     <IndicatorModal
@@ -131,9 +125,9 @@ import type { PrefsIndicateurs } from '@/stores/settings.store'
 import IndicatorModal from './IndicatorModal.vue'
 
 const prefs = defineModel<PrefsIndicateurs>({ required: true })
-const props = defineProps<{ chargement?: boolean }>()
+defineProps<{}>()
 
-const emit = defineEmits<{ appliquer: []; actualiser: [] }>()
+const emit = defineEmits<{ appliquer: [] }>()
 
 const modaleOuverte = ref<string | null>(null)
 /** Famille dont le menu déroulant est ouvert (null = tous fermés). */
@@ -173,7 +167,6 @@ const techniques = [
   { key: 'macd',      label: 'MACD',      params: true,  activeClass: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300', gearClass: 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/20' },
   { key: 'bollinger', label: 'Bollinger', params: true,  activeClass: 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300',   gearClass: 'bg-indigo-500/10 border-indigo-500/40 text-indigo-400 hover:bg-indigo-500/20' },
   { key: 'atr',       label: 'ATR',       params: true,  activeClass: 'bg-rose-500/20 border-rose-500/40 text-rose-300',         gearClass: 'bg-rose-500/10 border-rose-500/40 text-rose-400 hover:bg-rose-500/20' },
-  { key: 'fibonacci', label: 'Fibonacci', params: true,  activeClass: 'bg-slate-400/20 border-slate-400/40 text-slate-200',      gearClass: 'bg-slate-400/10 border-slate-400/40 text-slate-300 hover:bg-slate-400/20' },
 ]
 
 // ── SMC v12 : bascules ON/OFF par indicateur (overlay useSmcV12Overlay).

@@ -1,6 +1,5 @@
 import { ref } from 'vue'
 import type { IChartApi, ISeriesApi, SeriesType, LineSeriesOptions } from 'lightweight-charts'
-import { LineStyle } from 'lightweight-charts'
 import { apiService } from '@/services/api.service'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
 import type { ReponseIndicators } from '@/services/api.service'
@@ -69,14 +68,10 @@ export function useChartIndicators() {
     data: { time: number; value: number }[],
     couleur: string,
     largeur = 1,
-    style: LineStyle = LineStyle.Solid,
-    titre = '',
   ): ISeriesApi<'Line'> {
     const s = chart.addLineSeries({
       color: couleur,
       lineWidth: largeur as 1 | 2 | 3 | 4,
-      lineStyle: style,
-      title: titre,
       crosshairMarkerVisible: false,
       lastValueVisible: false,
       priceLineVisible: false,
@@ -158,27 +153,6 @@ export function useChartIndicators() {
       // Bollinger Bands (overlay principal)
       if (data.bollinger) {
         appliquerBollinger(chart, data.bollinger, prefs, ajouterLigne, (s) => seriesActives.push(s))
-      }
-
-      // Fibonacci — lignes SÉRIES ancrées à la bougie d'origine du swing
-      // (comme les autres indicateurs), étendues jusqu'à maintenant. Pas
-      // d'étiquette de prix : le libellé « Fib x » n'apparaît qu'au survol
-      // (crosshair). Retracement auto : 100 % = swing haut, 0 % = swing bas.
-      if (prefs.fibonacci && data.fibonacci) {
-        const f = data.fibonacci
-        const couleur = prefs.fibCouleur || '#94a3b8'
-        const depart = Math.min(f.timestamp_haut, f.timestamp_bas)
-        const fin = Math.floor(Date.now() / 1000)
-        const ajouterFib = (prix: number, titre: string, style: LineStyle) => {
-          ajouterLigne(chart, [{ time: depart, value: prix }, { time: fin, value: prix }], couleur, 1, style, titre)
-        }
-        if (prefs.fibSwings) {
-          ajouterFib(f.swing_haut, 'Fib 100 %', LineStyle.Solid)
-          ajouterFib(f.swing_bas, 'Fib 0 %', LineStyle.Solid)
-        }
-        if (prefs.fibNiveau500) ajouterFib(f.niveau_500, 'Fib 0.5', LineStyle.Dashed)
-        if (prefs.fibNiveau618) ajouterFib(f.niveau_618, 'Fib 0.618', LineStyle.Dashed)
-        if (prefs.fibNiveau786) ajouterFib(f.niveau_786, 'Fib 0.786', LineStyle.Dashed)
       }
 
       // Overlays SMC v12 — dessinés par canvas dédié (useSmcV12Overlay)

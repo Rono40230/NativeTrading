@@ -62,8 +62,8 @@
         style="height: 110px; position: relative;" />
 
       <!-- Panneau indicateurs (techniques + SMC) -->
-      <IndicatorPanel v-model="settingsStore.indicateurs" :chargement="marketStore.chargement"
-        @appliquer="chargerIndicateurs" @actualiser="actualiser">
+      <IndicatorPanel v-model="settingsStore.indicateurs"
+        @appliquer="chargerIndicateurs">
         <template #apres-smc>
           <button
             class="px-2.5 py-1 rounded-md border transition-colors bg-purple-600/20 border-purple-500/30 text-purple-300 hover:bg-purple-600/30 disabled:opacity-40 text-xs font-medium"
@@ -204,7 +204,7 @@ async function chargerIndicateurs() {
   )
 }
 
-const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestration({
+const { assets, changerAsset, changerTimeframe } = useChartOrchestration({
   selectedAsset, selectedTimeframe, bougies,
   indicateurs: ref(settingsStore.indicateurs),
   getChart, getCandlestickSeries,

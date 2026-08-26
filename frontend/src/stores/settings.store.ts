@@ -31,13 +31,6 @@ export interface PrefsIndicateurs {
   bollingerCouleurBasse: string
   atrPeriode: number
   atrCouleur: string
-  // Fibonacci (retracement auto sur le dernier swing — /api/indicators)
-  fibonacci: boolean
-  fibCouleur: string
-  fibNiveau500: boolean
-  fibNiveau618: boolean
-  fibNiveau786: boolean
-  fibSwings: boolean
   // SMC couleurs & opacités
   // Imbalance (FVG + OG)
   // Range session Asie
@@ -114,12 +107,6 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   bollingerCouleurBasse: '#6366f1',
   atrPeriode: 14,
   atrCouleur: '#f43f5e',
-  fibonacci: false,
-  fibCouleur: '#94a3b8',
-  fibNiveau500: true,
-  fibNiveau618: true,
-  fibNiveau786: true,
-  fibSwings: true,
   // SMC couleurs & opacités
   // Imbalance
   // Range session Asie
