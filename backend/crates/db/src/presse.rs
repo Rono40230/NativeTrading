@@ -2,6 +2,7 @@
 //! (Phase 4.1, spec 2026-08-15).
 
 use serde::Serialize;
+use sqlx::Row;
 
 use crate::Database;
 
@@ -246,6 +247,39 @@ impl Database {
     /// Machine à états de la traduction (porte d'entrée de la bibliothèque).
     /// Retourne true = 2 échecs atteints → l'appelant doit condamner
     /// (puis supprimer) l'article.
+    /// Candidats à la traduction de fond : les plus récents articles NON
+    /// traduits (statut « non_tente »), quel que soit le cycle qui les a
+    /// insérés — chaque slot du collecteur sert ainsi un article réellement
+    /// en attente, et la backlog se vide d'elle-même.
+    pub async fn articles_a_traduire(&self, limite: usize) -> anyhow::Result<Vec<ArticleEntrant>> {
+        let rows = sqlx::query(
+            "SELECT hash_titre, titre, url, source_nom, publie_le, score, theme,
+                    assets_concernes, impact, resume_source
+             FROM presse_articles
+             WHERE statut_traduction = 'non_tente'
+             ORDER BY ajoute_le DESC
+             LIMIT ?",
+        )
+        .bind(limite as i64)
+        .fetch_all(self.pool())
+        .await?;
+        Ok(rows
+            .into_iter()
+            .map(|r| ArticleEntrant {
+                hash_titre: r.get("hash_titre"),
+                titre: r.get("titre"),
+                url: r.get("url"),
+                source_nom: r.get("source_nom"),
+                publie_le: r.get("publie_le"),
+                score: r.get("score"),
+                theme: r.get("theme"),
+                assets_concernes: r.get("assets_concernes"),
+                impact: r.get("impact"),
+                resume_source: r.get("resume_source"),
+            })
+            .collect())
+    }
+
     pub async fn enregistrer_tentative_traduction(&self, hash: &str, reussie: bool) -> anyhow::Result<bool> {
         if reussie {
             sqlx::query("UPDATE presse_articles SET statut_traduction = 'ok' WHERE hash_titre = ?1")

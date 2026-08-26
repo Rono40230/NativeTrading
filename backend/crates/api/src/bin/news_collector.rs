@@ -67,9 +67,6 @@ async fn un_cycle(db: Arc<Database>, http: Arc<reqwest::Client>) -> anyhow::Resu
     let sources = db.lister_sources_presse(true).await?;
     let mut total_inserees = 0u64;
     let mut sources_en_echec: Vec<String> = Vec::new();
-    // Candidats à la traduction de fond : tous les entrants du cycle, dédupliqués
-    // par hash (le même titre sur deux flux = même hash = une seule traduction).
-    let mut entrants_cycle: Vec<db::presse::ArticleEntrant> = Vec::new();
     for source in &sources {
         let resultat: anyhow::Result<Option<(usize, u64, Vec<db::presse::ArticleEntrant>)>> = async {
             let items = news::news_rss::fetch_rss(&http, &source.url_rss).await;
@@ -84,9 +81,8 @@ async fn un_cycle(db: Arc<Database>, http: Arc<reqwest::Client>) -> anyhow::Resu
         }
         .await;
         match resultat {
-            Ok(Some((nb_items, inserees, entrants))) => {
+            Ok(Some((nb_items, inserees, _entrants))) => {
                 total_inserees += inserees;
-                entrants_cycle.extend(entrants);
                 tracing::info!(
                     "Collecteur : {} — {nb_items} items → {inserees} articles insérés",
                     source.nom
@@ -113,15 +109,13 @@ async fn un_cycle(db: Arc<Database>, http: Arc<reqwest::Client>) -> anyhow::Resu
         tracing::info!("{message}");
     }
 
-    // Traduction de fond des titres + résumés du cycle (max 5 pour ne pas
-    // surcharger Ollama — le reste sera traduit aux consultations suivantes,
-    // ou par un cycle ultérieur). Garde CJK : une traduction corrompue
-    // (caractères chinois) n'est jamais marquée « ok ».
-    // Les résumés traduits sont cachés dans news_traductions avec un hash
-    // préfixé « resume: » — le listing les relit (cache pur, zéro Ollama).
-    let mut vus: std::collections::HashSet<String> = std::collections::HashSet::new();
-    entrants_cycle.retain(|e| vus.insert(e.hash_titre.clone()));
-    for a in entrants_cycle.iter().take(5) {
+    // Traduction de fond (fix 26/08) : les 5 plus récents NON traduits en
+    // base — et non plus les 5 premiers items RSS, gaspillés sur des
+    // articles déjà connus. Chaque slot sert un article en attente : la
+    // backlog se vide (5/cycle ≈ 240/jour pour ~150 entrants). Garde CJK :
+    // une traduction corrompue n'est jamais marquée « ok ». Les résumés
+    // traduits sont cachés sous « resume:<hash> » (cache pur côté listing).
+    for a in db.articles_a_traduire(5).await?.iter() {
         if let Some(fr) = news::news_traduction::traduire_avec_cache_strict(db.pool(), &a.titre).await {
             if !news::news_traduction::contient_cjk(&fr) {
                 let _ = db.enregistrer_tentative_traduction(&a.hash_titre, true).await;
