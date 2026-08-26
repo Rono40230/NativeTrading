@@ -1,4 +1,6 @@
-//! Tests du moteur straddle — mécanique étape 4 (2 jambes à E commun).
+//! Tests du moteur straddle — mécanique corrigée 26/08 : le TIMER ouvre les
+//! 2 jambes à E à T-10 s (pas d'attente de franchissement), gestion parallèle,
+//! R net = somme des jambes.
 
 use super::*;
 use chrono::TimeZone;
@@ -45,8 +47,17 @@ fn moteur_pret(annonce_ts: i64) -> StraddleEngine {
     m
 }
 
+/// Le verdict net d'une Cloture finale (« verdict|R »).
+fn verdict_final(s: &SortieMoteur) -> (String, f64) {
+    let c = s.evenements.iter()
+        .find(|e| matches!(e.evenement, TypeEvenementTrade::Cloture))
+        .unwrap_or_else(|| panic!("clôture finale attendue"));
+    let mut it = c.detail.split('|');
+    (it.next().unwrap_or("").to_string(), it.next().and_then(|r| r.parse().ok()).unwrap_or(0.0))
+}
+
 #[test]
-fn ordres_poses_a_t_moins_10s_au_prix_courant() {
+fn le_timer_ouvre_les_deux_jambes_a_t_moins_10s() {
     let a_ts = 1_800_000_000;
     let mut m = moteur_pret(a_ts);
     // T-30 : fenêtre de préparation.
@@ -55,104 +66,104 @@ fn ordres_poses_a_t_moins_10s_au_prix_courant() {
     // T-11 s : encore en range.
     tick(&mut m, a_ts - 11, 100.2);
     assert!(matches!(m.phase_courante(), Phase::Range { .. }));
-    // T-10 s : les 2 jambes sont posées au prix courant E (ATR≈1, R=0.5).
-    tick(&mut m, a_ts - 10, 100.0);
+    // T-10 s : OUVERTURE PAR LE TIMER au prix courant, quel qu'il soit.
+    let s = tick(&mut m, a_ts - 10, 100.2);
     match m.phase_courante() {
-        Phase::Ordres { entree, r, .. } => {
-            assert!((entree - 100.0).abs() < 1e-9, "E = prix courant à T-10 s");
+        Phase::Position { entree, r, jambes, .. } => {
+            assert!((entree - 100.2).abs() < 1e-9, "E = prix courant à T-10 s");
             assert!((r - 0.5).abs() < 0.05, "R = sl_atr × ATR ≈ 0.5");
+            assert!(jambes.iter().all(|j| j.ouverte()), "les 2 jambes ouvertes");
+            assert!((jambes[0].sl - (100.2 - r)).abs() < 1e-9);
+            assert!((jambes[1].sl - (100.2 + r)).abs() < 1e-9);
         }
         other => panic!("phase inattendue : {:?}", other),
     }
+    assert_eq!(s.signaux.len(), 1, "un signal Both à l'ouverture");
+    assert!(matches!(s.signaux[0].direction, Direction::Both));
+    assert_eq!(s.signaux[0].prix_entree, 100.2);
 }
 
 #[test]
-fn premier_franchissement_remplit_la_jambe_oco() {
-    let a_ts = 1_800_000_000;
-    let mut m = moteur_pret(a_ts);
-    tick(&mut m, a_ts - 1800, 100.0);
-    tick(&mut m, a_ts - 10, 100.0); // pose
-    // Premier mouvement vers le haut → jambe LONG à E=100, OCO sell annulée.
-    let s = tick(&mut m, a_ts - 2, 100.3);
-    assert_eq!(s.signaux.len(), 1, "un seul signal : la jambe remplie");
-    assert_eq!(s.signaux[0].prix_entree, 100.0, "entrée au MÊME prix E");
-    assert!((s.signaux[0].stop_loss - 99.5).abs() < 0.05, "SL buy = E - 1R");
-    assert!((s.signaux[0].take_profits[0] - 100.5).abs() < 0.05, "TP1 = 1R");
-    assert!((s.signaux[0].take_profits[1] - 101.0).abs() < 0.05, "TP2 = 2R");
-    assert!(s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Fill)));
-    // La jambe courte se remplirait à l'inverse.
-    let mut m2 = moteur_pret(a_ts);
-    tick(&mut m2, a_ts - 1800, 100.0);
-    tick(&mut m2, a_ts - 10, 100.0);
-    let s2 = tick(&mut m2, a_ts - 2, 99.7);
-    assert_eq!(s2.signaux.len(), 1);
-    assert!((s2.signaux[0].stop_loss - 100.5).abs() < 0.05, "SL sell = E + 1R");
-}
-
-#[test]
-fn tp1_be_puis_tp2_declenche_le_trailing() {
+fn passe_sans_mouvement_timestop_referme_a_e() {
     let a_ts = 1_800_000_000;
     let mut m = moteur_pret(a_ts);
     tick(&mut m, a_ts - 1800, 100.0);
     tick(&mut m, a_ts - 10, 100.0);
-    tick(&mut m, a_ts - 2, 100.3); // fill LONG @100, SL 99.5
-    // TP1 (100.5) touché → BE à l'entrée.
-    let s = tick(&mut m, a_ts, 100.6);
+    // Le prix reste exactement à E pendant toute la passe…
+    let s = tick(&mut m, a_ts + 30 * 60, 100.0);
+    assert!(s.evenements.is_empty(), "aucune clôture avant le time-stop");
+    // 60 min après l'OUVERTURE → TimeStop : 2 jambes à E, net 0R, journalisée.
+    let s = tick(&mut m, a_ts - 10 + 61 * 60, 100.0);
+    let (verdict, r) = verdict_final(&s);
+    assert_eq!(verdict, "expire", "passe sans mouvement");
+    assert!(r.abs() < 1e-9, "net 0R");
+    assert!(matches!(m.phase_courante(), Phase::Idle), "annonce consommée");
+}
+
+#[test]
+fn montee_gagnante_tp2_trailing_perdante_sl_net_positif() {
+    let a_ts = 1_800_000_000;
+    let mut m = moteur_pret(a_ts);
+    tick(&mut m, a_ts - 1800, 100.0);
+    tick(&mut m, a_ts - 10, 100.0); // ouverture à E=100, R=0.5
+    // Montée à E+1R (100.5) : LONG TP1 → BE, SHORT SL (-1R, silencieuse).
+    let s = tick(&mut m, a_ts + 5, 100.5);
     assert!(s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Be)));
-    // TP2 (101.0) touché → SL à TP1 + trailing actif : prix 101.6 → SL ≈ 101.1.
-    let s = tick(&mut m, a_ts + 30, 101.6);
-    assert!(s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Tp2)));
-    // Nouveau plus haut 102.2 → trailing suit AU TICK : SL ≈ 101.7.
-    tick(&mut m, a_ts + 60, 102.2);
-    // Retrait sous le trailing (101.7) → sortie TS avec R > 1.
-    let s = tick(&mut m, a_ts + 90, 101.6);
-    let cloture = s.evenements.iter().find(|e| matches!(e.evenement, TypeEvenementTrade::Cloture));
-    let Some(c) = cloture else { panic!("clôture TS attendue") };
-    let (verdict, r) = c.detail.split_once('|').unwrap_or(("", "0"));
-    assert_eq!(verdict, "TS");
-    let r: f64 = r.parse().unwrap_or(0.0);
-    assert!(r > 1.0, "sortie trailing au-delà de TP1 : R = {:.2}", r);
+    assert!(s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Tp1)));
+    assert!(!s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Cloture)),
+        "pas de Cloture avant la fin des 2 jambes");
+    // TP2 (101.0) → SL à TP1 + trailing ; nouveau haut 101.6 → SL ≈ 101.1.
+    tick(&mut m, a_ts + 30, 101.0);
+    tick(&mut m, a_ts + 60, 101.6);
+    // Retrait sous le trailing (≈101.1) → clôture finale : TS (+2.2R) net -1R ⇒ tp2|+1.2R.
+    let s = tick(&mut m, a_ts + 90, 101.0);
+    let (verdict, r) = verdict_final(&s);
+    assert_eq!(verdict, "tp2");
+    assert!(r > 1.0, "R net = trailing gagnante − SL perdante = {:.2}", r);
 }
 
 #[test]
-fn sl_avant_tp1_sort_moins_1r() {
+fn montee_puis_retour_la_gagnante_be_net_zero() {
     let a_ts = 1_800_000_000;
     let mut m = moteur_pret(a_ts);
     tick(&mut m, a_ts - 1800, 100.0);
-    tick(&mut m, a_ts - 10, 100.0);
-    tick(&mut m, a_ts - 2, 100.3); // fill LONG
-    // Chute directe sous le SL (99.5) → SL |-1R.
-    let s = tick(&mut m, a_ts + 5, 99.4);
-    let c = s.evenements.iter().find(|e| matches!(e.evenement, TypeEvenementTrade::Cloture));
-    let Some(c) = c else { panic!("clôture SL attendue") };
-    assert_eq!(c.detail, "SL|-1.0000");
+    tick(&mut m, a_ts - 10, 100.0); // E=100, R=0.5
+    // Montée à TP1 (100.5) : LONG TP1+BE, SHORT SL.
+    tick(&mut m, a_ts + 5, 100.5);
+    // Retour à E (100.0) : LONG sort en BE (TP acquis +1R) → net = +1R −1R = 0.
+    let s = tick(&mut m, a_ts + 60, 100.0);
+    let (verdict, r) = verdict_final(&s);
+    assert_eq!(verdict, "be", "TP1+BE (1R) − SL perdante (1R) = 0R net");
+    assert!(r.abs() < 1e-9);
 }
 
 #[test]
-fn expiration_sans_fill_annule_les_deux_jambes() {
+fn baisse_directe_la_jambe_short_gagne() {
     let a_ts = 1_800_000_000;
     let mut m = moteur_pret(a_ts);
     tick(&mut m, a_ts - 1800, 100.0);
-    tick(&mut m, a_ts - 10, 100.0);
-    // Le prix reste exactement à E (aucun franchissement)…
-    tick(&mut m, a_ts + 60, 100.0);
-    assert!(matches!(m.phase_courante(), Phase::Ordres { .. }));
-    // …jusqu'à l'expiration (30 min après l'annonce) → retour Idle.
-    tick(&mut m, a_ts + 30 * 60 + 1, 100.0);
-    assert!(matches!(m.phase_courante(), Phase::Idle));
+    tick(&mut m, a_ts - 10, 100.0); // E=100, R=0.5
+    // Chute directe à E−2R (99.0) : SHORT TP2 + trailing, LONG SL.
+    tick(&mut m, a_ts + 10, 99.0);
+    tick(&mut m, a_ts + 20, 98.4); // nouveau bas → trailing SHORT suit
+    // Remontée au-dessus du trailing → clôture net > 0.
+    let s = tick(&mut m, a_ts + 60, 99.1);
+    let (verdict, r) = verdict_final(&s);
+    assert_eq!(verdict, "tp2", "jambe short gagnante au-delà de TP2");
+    assert!(r > 1.0);
 }
 
 #[test]
-fn time_stop_ferme_au_prix_courant() {
+fn sl_avant_tout_tp_net_moins_1r() {
     let a_ts = 1_800_000_000;
     let mut m = moteur_pret(a_ts);
     tick(&mut m, a_ts - 1800, 100.0);
-    tick(&mut m, a_ts - 10, 100.0);
-    tick(&mut m, a_ts - 2, 100.3); // fill LONG @ t0
-    tick(&mut m, a_ts + 30, 100.6); // TP1 → BE
-    // 60 min après le fill → TimeStop au prix courant.
-    let s = tick(&mut m, a_ts + 61 * 60, 100.4);
-    let c = s.evenements.iter().find(|e| matches!(e.evenement, TypeEvenementTrade::Cloture));
-    let Some(c) = c else { panic!("clôture TimeStop attendue") };
-    assert!(c.detail.starts_with("TimeStop|"));
+    tick(&mut m, a_ts - 10, 100.0); // E=100, R=0.5
+    // Petite montée puis chute directe sous le SL long (99.5) : LONG SL (-1R)…
+    tick(&mut m, a_ts + 5, 100.2);
+    let s = tick(&mut m, a_ts + 20, 99.4);
+    // …puis la SHORT court ; TimeStop 60 min la referme au prix courant.
+    let s = tick(&mut m, a_ts - 10 + 61 * 60, 99.6);
+    let (_verdict, r) = verdict_final(&s);
+    assert!(r < 0.0, "net négatif (SL long −1R + short ≈ +0.8R) : {:.2}", r);
 }

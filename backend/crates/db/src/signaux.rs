@@ -253,6 +253,7 @@ impl Database {
         sl_short: f64,
         take_profit_short: &[f64],
         heure_entree: Option<i64>,
+        cle_moteur: &str,
     ) -> Result<()> {
         let tp_long_json = serde_json::to_string(&signal.take_profit)
             .map_err(|e| TradingError::Database(e.to_string()))?;
@@ -263,8 +264,8 @@ impl Database {
             "INSERT OR IGNORE INTO signaux
              (id, asset, timeframe, direction, score, prix_entree,
               stop_loss, take_profit, strategie, cree_le,
-              sl_short, take_profit_short, heure_entree)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+              sl_short, take_profit_short, heure_entree, cle_moteur)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(signal.id.to_string())
         .bind(signal.asset.as_str())
@@ -279,6 +280,7 @@ impl Database {
         .bind(sl_short)
         .bind(tp_short_json)
         .bind(heure_entree)
+        .bind(cle_moteur)
         .execute(&self.pool)
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;

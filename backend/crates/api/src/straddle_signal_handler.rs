@@ -276,7 +276,7 @@ pub async fn generer_signal_straddle(
 
     let _ = state
         .db
-        .inserer_signal_straddle_complet(&signal, sl_short, &[tp1_short, tp2_short, tp3_short], heure_entree)
+        .inserer_signal_straddle_complet(&signal, sl_short, &[tp1_short, tp2_short, tp3_short], heure_entree, &format!("v1-{}", signal.id))
         .await;
 
     // Snapshot features ML

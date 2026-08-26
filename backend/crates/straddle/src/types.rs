@@ -1,10 +1,13 @@
 //! Types du straddle — annonces injectées + paramètres (définition étape 4).
 //!
-//! Mécanique propriétaire actée 24/08 : deux jambes au MÊME prix E (prix à
-//! T-10 s), armées dès la pose — premier franchissement remplit la jambe
-//! dans son sens, l'autre est annulée (OCO). SL = E ∓ 1R ; TP1 = 1R (BE à
-//! l'entrée) ; TP2 = 2R (BE à TP1 + déclenchement du trailing stop au tick,
-//! jamais vers l'arrière) ; TP3 supprimé. Time-stop + expiration.
+//! Mécanique propriétaire (correction 26/08) : le TIMER décide de l'entrée,
+//! pas le prix. À T-10 s, le straddle est OUVERT au prix courant E — les
+//! DEUX jambes (LONG et SHORT) vivent en parallèle au même prix, chacune
+//! avec ses niveaux symétriques. SL = E ∓ 1R ; TP1 = ±1R (BE à E) ; TP2 =
+//! ±2R (BE à TP1 + trailing stop au tick, jamais vers l'arrière) ; TP3
+//! supprimé. Le R réalisé d'une passe = SOMME NETTE des deux jambes (le SL
+//! de la perdante = la TP1 de la gagnante : ±1R). Time-stop 60 min ; une
+//! annonce sans mouvement referme les 2 jambes à E (passe journalisée 0R).
 
 /// Annonce économique tier 1 (injectée par le runtime depuis le calendrier).
 #[derive(Debug, Clone)]

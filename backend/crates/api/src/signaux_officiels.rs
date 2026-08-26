@@ -71,7 +71,22 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
             s.take_profits.clone(),
             m.id,
         );
-        if let Err(e) = db.inserer_signal_officiel(&signal, &s.cle).await {
+        // Straddle : le moteur ouvre les DEUX jambes au même prix E (timer
+        // T-10 s). Le signal porte la jambe LONG ; la jambe SHORT est
+        // symétrique autour de E — dérivée en miroir pour l'insertion
+        // complète (sl_short + TPs + heure d'entrée = ouverture).
+        if s.direction == Direction::Both {
+            let e = s.prix_entree;
+            let sl_short = 2.0 * e - s.stop_loss;
+            let tps_short: Vec<f64> = s.take_profits.iter().map(|tp| 2.0 * e - tp).collect();
+            if let Err(err) = db
+                .inserer_signal_straddle_complet(&signal, sl_short, &tps_short, Some(s.debut_barre), &s.cle)
+                .await
+            {
+                tracing::warn!("Signaux officiels (insert straddle Both): {}", err);
+                continue;
+            }
+        } else if let Err(e) = db.inserer_signal_officiel(&signal, &s.cle).await {
             tracing::warn!("Signaux officiels (insert): {}", e);
             continue;
         }
@@ -200,7 +215,8 @@ async fn formater_message(
 
     // Template STRADDLE (maquette provisoire actée étape 2 : annonce +
     // setup + entrée horodatée + SL + trailing — enrichie du lot, 3 couches).
-    // La jambe survivante porte le signal : E, SL = E∓1R, TP1/TP2 canoniques.
+    // RÈGLE 26/08 : le TIMER ouvre les 2 jambes au prix E à T-10 s — le
+    // message décrit l'ouverture straddle complète (niveaux miroir ±1R/±2R).
     if id_strategie == "straddle" {
         let annonce = titre_annonce_straddle(db, &s.cle).await;
         let heure = chrono::DateTime::from_timestamp(s.debut_barre, 0)
@@ -209,6 +225,33 @@ async fn formater_message(
         let trailing = db::strategies_params::lire_straddle_params(db.pool())
             .await
             .trailing_r;
+        if s.direction == Direction::Both {
+            let e = s.prix_entree;
+            let r = (e - sl).abs();
+            let msg = format!(
+                "{icone} {nom}\nPasse sur {asset} — {annonce}\n2 jambes ouvertes à {e:.2}$ à {heure} (timer T-10 s)\nLot = {lot:.2} par jambe ({risque_euros:.0}$ risqués)\n\nLONG  : SL {sl_long:.2}$ | TP1 {tp1l:.2} → BE | TP2 {tp2l:.2} → trailing {trailing:.1}R\nSHORT : SL {sl_short:.2} | TP1 {tp1s:.2} → BE | TP2 {tp2s:.2} → trailing {trailing:.1}R\nTime-stop : 60 min — R net = somme des 2 jambes",
+                icone = crate::registre_strategies::MANIFESTES
+                    .iter()
+                    .find(|m| m.id == id_strategie)
+                    .map(|m| m.icone)
+                    .unwrap_or("▪️"),
+                nom = id_strategie,
+                asset = asset,
+                annonce = annonce,
+                e = e,
+                heure = heure,
+                lot = lot,
+                risque_euros = risque_euros,
+                sl_long = e - r,
+                tp1l = e + r,
+                tp2l = e + 2.0 * r,
+                sl_short = e + r,
+                tp1s = e - r,
+                tp2s = e - 2.0 * r,
+                trailing = trailing,
+            );
+            return Some(msg);
+        }
         let mut msg = format!(
             "{icone} {nom}\nPasse sur {asset} — {annonce}\nJambe {dir} remplie à {entree:.2}$ à {heure}\nLot = {lot:.2} ({risque_euros:.0}$ risqués)\n\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)\nTP1 : {tp1:.2}$ → BE à l'entrée\nTP2 : {tp2:.2}$ → BE à TP1 + trailing {trailing:.1}R\nTime-stop : 60 min",
             icone = crate::registre_strategies::MANIFESTES
