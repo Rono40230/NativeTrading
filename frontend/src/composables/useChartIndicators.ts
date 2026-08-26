@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import type { IChartApi, ISeriesApi, SeriesType, LineSeriesOptions, IPriceLine } from 'lightweight-charts'
+import type { IChartApi, ISeriesApi, SeriesType, LineSeriesOptions } from 'lightweight-charts'
 import { LineStyle } from 'lightweight-charts'
 import { apiService } from '@/services/api.service'
 import type { PrefsIndicateurs } from '@/stores/settings.store'
@@ -21,19 +21,8 @@ export function useChartIndicators() {
   let syncMainToMacd: ((range: any) => void) | null = null
   let atrChart: IChartApi | null = null
   let syncMainToAtr: ((range: any) => void) | null = null
-  // Fibonacci : priceLines sur la série de chandeliers (retrait propre au reload)
-  let fibSerie: ISeriesApi<'Candlestick'> | null = null
-  let fibLines: IPriceLine[] = []
   // Compteur d'annulation : si un nouvel appel demarre, le precedent est ignore
   let appelEnCours = 0
-
-  function retirerFibonacci() {
-    if (fibSerie) {
-      for (const l of fibLines) { try { fibSerie.removePriceLine(l) } catch { /* série détruite */ } }
-    }
-    fibLines = []
-    fibSerie = null
-  }
 
   function supprimerOverlays(
     chart: IChartApi,
@@ -41,8 +30,6 @@ export function useChartIndicators() {
     macdCont: HTMLElement | null = null,
     atrCont: HTMLElement | null = null,
   ) {
-    // Fibonacci : priceLines retirées avant redessin
-    retirerFibonacci()
     candleSerieSmcRef = null
     // Désabonner et détruire uniquement les sous-graphiques qu'on va recréer
     // (container fourni = recréation prévue). Si container=null, le sous-graphique
@@ -82,10 +69,14 @@ export function useChartIndicators() {
     data: { time: number; value: number }[],
     couleur: string,
     largeur = 1,
+    style: LineStyle = LineStyle.Solid,
+    titre = '',
   ): ISeriesApi<'Line'> {
     const s = chart.addLineSeries({
       color: couleur,
       lineWidth: largeur as 1 | 2 | 3 | 4,
+      lineStyle: style,
+      title: titre,
       crosshairMarkerVisible: false,
       lastValueVisible: false,
       priceLineVisible: false,
@@ -169,25 +160,25 @@ export function useChartIndicators() {
         appliquerBollinger(chart, data.bollinger, prefs, ajouterLigne, (s) => seriesActives.push(s))
       }
 
-      // Fibonacci — priceLines horizontales sur la série (swing + niveaux).
-      // Retracement auto du dernier swing : 100 % = swing haut, 0 % = swing bas.
-      if (candleSerie && prefs.fibonacci && data.fibonacci) {
-        fibSerie = candleSerie
+      // Fibonacci — lignes SÉRIES ancrées à la bougie d'origine du swing
+      // (comme les autres indicateurs), étendues jusqu'à maintenant. Pas
+      // d'étiquette de prix : le libellé « Fib x » n'apparaît qu'au survol
+      // (crosshair). Retracement auto : 100 % = swing haut, 0 % = swing bas.
+      if (prefs.fibonacci && data.fibonacci) {
         const f = data.fibonacci
         const couleur = prefs.fibCouleur || '#94a3b8'
-        const ajouter = (prix: number, titre: string, style: LineStyle) => {
-          fibLines.push(candleSerie.createPriceLine({
-            price: prix, color: couleur, lineWidth: 1, lineStyle: style,
-            axisLabelVisible: true, title: titre,
-          }))
+        const depart = Math.min(f.timestamp_haut, f.timestamp_bas)
+        const fin = Math.floor(Date.now() / 1000)
+        const ajouterFib = (prix: number, titre: string, style: LineStyle) => {
+          ajouterLigne(chart, [{ time: depart, value: prix }, { time: fin, value: prix }], couleur, 1, style, titre)
         }
         if (prefs.fibSwings) {
-          ajouter(f.swing_haut, 'Fib 100 %', LineStyle.Solid)
-          ajouter(f.swing_bas, 'Fib 0 %', LineStyle.Solid)
+          ajouterFib(f.swing_haut, 'Fib 100 %', LineStyle.Solid)
+          ajouterFib(f.swing_bas, 'Fib 0 %', LineStyle.Solid)
         }
-        if (prefs.fibNiveau500) ajouter(f.niveau_500, 'Fib 0.5', LineStyle.Dashed)
-        if (prefs.fibNiveau618) ajouter(f.niveau_618, 'Fib 0.618', LineStyle.Dashed)
-        if (prefs.fibNiveau786) ajouter(f.niveau_786, 'Fib 0.786', LineStyle.Dashed)
+        if (prefs.fibNiveau500) ajouterFib(f.niveau_500, 'Fib 0.5', LineStyle.Dashed)
+        if (prefs.fibNiveau618) ajouterFib(f.niveau_618, 'Fib 0.618', LineStyle.Dashed)
+        if (prefs.fibNiveau786) ajouterFib(f.niveau_786, 'Fib 0.786', LineStyle.Dashed)
       }
 
       // Overlays SMC v12 — dessinés par canvas dédié (useSmcV12Overlay)
@@ -209,8 +200,6 @@ export function useChartIndicators() {
   function reinitialiser() {
     seriesActives = []
     appelEnCours++
-    fibSerie = null
-    fibLines = []
     candleSerieSmcRef = null
     syncMainToRsi = null
     syncMainToMacd = null
