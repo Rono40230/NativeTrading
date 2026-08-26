@@ -156,21 +156,14 @@ pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
         data::bybit_ws::demarrer_worker_bybit(db.clone(), Some(tx));
 
         tokio::spawn(boucle_runtime(db.clone(), runtime, rx));
-        // Phase 2.8 — signaux OFFICIELS : table signaux + Telegram (bus < 1 s).
+        // Signaux OFFICIELS : table signaux + Telegram (bus < 1 s).
         crate::signaux_officiels::demarrer(
             db.clone(),
             poignees.bus_signaux.clone(),
             poignees.bus_evenements.clone(),
         );
-        tokio::spawn(journal_observation(
-            db.clone(),
-            poignees.bus_bougies.clone(),
-        ));
-        tokio::spawn(journal_emissions(
-            db,
-            poignees.bus_signaux.clone(),
-            poignees.bus_evenements.clone(),
-        ));
+        tokio::spawn(journal_observation(db.clone(), poignees.bus_bougies.clone()));
+        tokio::spawn(journal_emissions(db, poignees.bus_signaux.clone(), poignees.bus_evenements.clone()));
 
         tracing::info!("⚡ Runtime tick démarré (shadow mode : moteurs v12 par couple, journalisation seule — aucune action)");
         poignees
@@ -366,7 +359,11 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
             }
             let amorce = charger_amorce_mtf_runtime(db, asset).await;
             let mut moteurs: Vec<Box<dyn engine::Engine>> = vec![Box::new(
-                engine_v12::MoteurV12::nouveau(asset.clone(), *tf).avec_amorce(amorce),
+                engine_v12::MoteurV12::nouveau(asset.clone(), *tf)
+                    .avec_amorce(amorce)
+                    // Décision 26/08 (étude comparatif_be) : BE forcé sur BOS
+                    // opposé supprimé (+36R, R/trade +67 % vs Pine Classique).
+                    .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime),
             )];
             if *tf == common::Timeframe::M1 && asset.as_str() == "XAUUSD" {
                 let annonces: Vec<straddle::Annonce> = annonces_tier1(db)
@@ -439,7 +436,9 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         // Phase 3.1 — plugin STRADDLE sur M1/M5 (news trading) : calendrier
         // tier 1 amorcé depuis le cache (jamais de DB dans le moteur, R4).
         let mut moteurs: Vec<Box<dyn engine::Engine>> = vec![Box::new(
-            engine_v12::MoteurV12::nouveau(asset.clone(), *tf).avec_amorce(amorce),
+            engine_v12::MoteurV12::nouveau(asset.clone(), *tf)
+                .avec_amorce(amorce)
+                .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime),
         )];
         // Étape 4 — verticale Straddle : périmètre acté = XAU + BTC sur
         // annonces US fortes (Bybit alimente ces deux-là en temps réel).
@@ -479,9 +478,8 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
             ));
         }
         runtime.enregistrer(asset.clone(), *tf, moteurs);
-        // Backfill automatique : comme un chart TradingView à l'ouverture,
-        // l'historique doit être là — on comble les trous (nuits, week-ends,
-        // pannes) via le REST Bybit avant le cold start.
+        // Backfill automatique : comble les trous (nuits, week-ends, pannes)
+        // via le REST Bybit avant le cold start — comme TradingView.
         match data::backfill::combler_historique(db, asset.clone(), *tf).await {
             Ok(n) if n > 0 => {
                 tracing::info!(

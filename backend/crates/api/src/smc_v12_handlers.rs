@@ -120,7 +120,9 @@ pub async fn analyse_v12(
     }
 
     // Replay bar-par-bar.
-    let mut engine = SmcV12Engine::new(asset_str, tf_str);
+    let mut engine = SmcV12Engine::new(asset_str, tf_str)
+        // Aligné sur le moteur de production (décision 26/08 — étude comparatif_be).
+        .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime);
     // Amorçage MTF (H1/H4/W1/MN de la DB) : sans lui, f_htf ne verrait que la
     // fenêtre LTF (~52 j en M15×5000) et les confluences W1 (+5) / MN (+6) du
     // scoring seraient structurellement froides (Pine/TV : années d'historique).

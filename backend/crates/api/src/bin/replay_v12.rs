@@ -112,7 +112,7 @@ async fn main() -> anyhow::Result<()> {
             mn: agreger_mensuel(&d1),
         }
     };
-    let resultat = engine_v12::replay::rejouer_bougies(asset, tf, &bougies, simuler_ticks, amorce);
+    let resultat = engine_v12::replay::rejouer_bougies_mode(asset, tf, &bougies, simuler_ticks, amorce, smc::v12::lifecycle::ModeBeForce::Supprime);
     println!("{}", engine_v12::replay::resume(&resultat));
 
     let journal = serde_json::json!({
