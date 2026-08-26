@@ -2,6 +2,7 @@ use actix_cors::Cors;
 use actix_web::{http::header, web, App, HttpServer};
 
 mod asset_params_handlers;
+mod alertes_prix;
 mod assets_handlers;
 mod calendar_handlers;
 mod config_handlers;

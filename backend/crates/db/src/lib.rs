@@ -1,5 +1,6 @@
 pub mod ab_test;
 pub mod asset_params;
+pub mod alertes_prix;
 pub mod assets;
 pub mod bougies;
 pub mod bougies_ext;

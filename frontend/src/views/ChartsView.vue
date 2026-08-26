@@ -35,6 +35,35 @@
             ]"
             @click="dessins.choisirOutil(t.outil)"
           >{{ t.icone }}</button>
+          <!-- Alertes de prix : pose au clic + liste -->
+          <div class="relative">
+            <button
+              :title="alertesPrix.modePose.value ? 'Cliquer sur le chart pour poser une alerte' : 'Alerte de prix (pose au clic)'"
+              :class="[
+                'w-8 h-8 rounded-md text-sm flex items-center justify-center transition-colors',
+                alertesPrix.modePose.value || listeAlertesOuverte
+                  ? 'bg-amber-500/40 text-amber-200 border border-amber-400/50'
+                  : 'text-slate-400 hover:text-slate-100 hover:bg-white/10 border border-transparent',
+              ]"
+              @click="alertesPrix.nbActives.value > 0 && !alertesPrix.modePose.value ? (listeAlertesOuverte = !listeAlertesOuverte) : alertesPrix.basculerModePose()"
+            >🔔<span v-if="alertesPrix.nbActives.value > 0" class="absolute -top-1 -right-1 min-w-[14px] px-0.5 rounded-full bg-amber-500 text-[9px] leading-[14px] text-amber-950 font-bold text-center">{{ alertesPrix.nbActives.value }}</span></button>
+            <div v-if="listeAlertesOuverte" class="fixed inset-0 z-40" @click="listeAlertesOuverte = false" />
+            <div v-if="listeAlertesOuverte" class="absolute bottom-[calc(100%+6px)] right-0 z-50 w-64 bg-slate-900/95 backdrop-blur border border-white/10 rounded-lg shadow-xl py-1.5">
+              <div class="flex items-center justify-between px-2.5 pb-1.5 border-b border-white/5">
+                <span class="text-[10px] uppercase tracking-wide text-slate-500">Alertes — {{ selectedAsset }}</span>
+                <button class="text-[10px] text-amber-400 hover:text-amber-300" @click="listeAlertesOuverte = false; alertesPrix.basculerModePose()">+ Poser au clic</button>
+              </div>
+              <div v-if="!alertesPrix.alertesAsset.value.length" class="px-2.5 py-3 text-[11px] text-slate-500 text-center">Aucune alerte sur cet asset</div>
+              <div v-for="a in alertesPrix.alertesAsset.value" :key="a.id"
+                   class="flex items-center gap-2 px-2.5 py-1.5 text-[11px] hover:bg-white/5">
+                <span class="font-mono tabular-nums" :class="a.active ? 'text-amber-300' : 'text-slate-500 line-through'">{{ a.prix.toFixed(2) }}</span>
+                <span class="text-slate-500">{{ a.sens === 'au_dessus' ? '↑' : '↓' }}</span>
+                <span class="flex-1 truncate text-slate-400">{{ a.note ?? '' }}</span>
+                <button v-if="!a.active" title="Réarmer" class="text-slate-400 hover:text-amber-300" @click="alertesPrix.rearmer(a.id)">🔄</button>
+                <button title="Supprimer" class="text-slate-500 hover:text-red-300" @click="alertesPrix.supprimer(a.id)">🗑</button>
+              </div>
+            </div>
+          </div>
           <div class="h-px bg-white/10 mx-1" />
           <button title="Effacer tous les dessins de cet asset"
             class="w-8 h-8 rounded-md text-sm flex items-center justify-center text-slate-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
@@ -104,6 +133,7 @@ import { useChartIndicators } from '@/composables/useChartIndicators'
 import { limitPourTimeframe } from '@/composables/useChartLimite'
 import { useSmcV12Overlay } from '@/composables/useSmcV12Overlay'
 import { useChartDessins } from '@/composables/useChartDessins'
+import { useAlertesPrix } from '@/composables/useAlertesPrix'
 import { useChartEcoCal } from '@/composables/useChartEcoCal'
 import EcoCalTooltip from '@/components/common/EcoCalTooltip.vue'
 
@@ -143,6 +173,8 @@ const {
 const { chargerEtAppliquer, reinitialiser } = useChartIndicators()
 const v12Overlay = useSmcV12Overlay()
 const dessins = useChartDessins()
+const alertesPrix = useAlertesPrix()
+const listeAlertesOuverte = ref(false)
 
 /// Outils de dessin superposés au chart (cliquer-glisser ; Échap désactive).
 const outilsDessin: { outil: 'ligne' | 'rectangle' | 'fibo' | 'gomme'; icone: string; titre: string }[] = [
@@ -182,6 +214,7 @@ async function chargerIndicateurs() {
   const serie = getCandlestickSeries()
   if (chartContainer.value && serie) v12Overlay.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value && serie) dessins.initialiser(chart, serie, chartContainer.value, selectedAsset.value)
+  if (serie) alertesPrix.initialiser(chart, serie, selectedAsset.value)
   if (chartContainer.value) ecoCalInit(chart, chartContainer.value)
   // Overlay SMC v12 : fetch du replay moteur (indépendant des indicateurs classiques).
   const derniereB = bougies.value?.[bougies.value.length - 1]
@@ -277,13 +310,14 @@ onMounted(() => {
 })
 
 // Changement d'asset : les dessins sont persistés PAR asset.
-watch(selectedAsset, (a) => dessins.definirAsset(a))
+watch(selectedAsset, (a) => { dessins.definirAsset(a); alertesPrix.definirAsset(a) })
 
 // Nettoyage overlay v12 au démontage de la vue
 onUnmounted(() => {
   if (minuteurOverlay !== null) clearInterval(minuteurOverlay)
   v12Overlay.detruire()
   dessins.detruire()
+  alertesPrix.detruire()
 })
 
 chargerAnnonces()

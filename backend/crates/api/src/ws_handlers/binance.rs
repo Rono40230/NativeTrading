@@ -132,7 +132,7 @@ pub(super) async fn stream_binance(
                                                     let debut_bucket = (start / 1000) as i64 / 600 * 600;
                                                     let fermee = confirm && (start / 1000) as i64 % 600 == 540;
                                                     let b = match bucket.take() {
-                                                        Some((d, o, h, l, c, v)) if d == debut_bucket => (
+                                                        Some((d, o, h, l, _c, v)) if d == debut_bucket => (
                                                             d,
                                                             o,
                                                             h.max(high),

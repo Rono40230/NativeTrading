@@ -258,6 +258,22 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::presse_handlers::get_brief),
         )
         .route(
+            "/api/alertes-prix",
+            web::get().to(crate::alertes_prix::lister),
+        )
+        .route(
+            "/api/alertes-prix",
+            web::post().to(crate::alertes_prix::creer),
+        )
+        .route(
+            "/api/alertes-prix/{id}",
+            web::delete().to(crate::alertes_prix::supprimer),
+        )
+        .route(
+            "/api/alertes-prix/{id}/rearm",
+            web::post().to(crate::alertes_prix::rearmee),
+        )
+        .route(
             "/api/volatility/patterns",
             web::get().to(crate::volatility_handlers::get_patterns),
         )

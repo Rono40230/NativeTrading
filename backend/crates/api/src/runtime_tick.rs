@@ -287,6 +287,9 @@ async fn boucle_runtime(
     mut runtime: Runtime,
     mut rx: mpsc::UnboundedReceiver<EvenementPrix>,
 ) {
+    // Watcher alertes prix (cache 60 s, vérifié à chaque prix live).
+    let mut cache_alertes = crate::alertes_prix::cache_vide();
+    cache_alertes.recharger(&db).await;
     // Cold start initial.
     synchroniser_config(&db, &mut runtime).await;
 
@@ -298,11 +301,13 @@ async fn boucle_runtime(
             biased; // les événements prix passent toujours en premier
             peut_etre = rx.recv() => {
                 if let Some(ev) = peut_etre {
+                    crate::alertes_prix::verifier(&db, &mut cache_alertes, &ev).await;
                     runtime.traiter_evenement(ev);
                 }
             }
             _ = tick_config.tick() => {
                 synchroniser_config(&db, &mut runtime).await;
+                cache_alertes.recharger(&db).await;
             }
         }
     }
@@ -352,12 +357,9 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         if actuelles.contains(&(asset.clone(), *tf)) {
             continue;
         }
-        // Phase 5.2 — actifs MT5 v12 (XAU/XAG) : moteurs SMC complets sur
-        // prix Axi, replays depuis l'historique poussé par l'EA (garde de
-        // profondeur : on attend l'historique, ~1 min après le boot de
-        // l'EA), amorce MTF incluse (W1/D1 Axi — des années de contexte).
-        // Le straddle XAU (annonces US, périmètre acté) s'ajoute en M1 ;
-        // XAG reste hors straddle (périmètre acté étape 4).
+        // Phase 5.2 — MT5 v12 (XAU/XAG) : moteurs SMC complets sur prix Axi,
+        // replays depuis l'historique EA (garde ~1 min après boot), amorce
+        // MTF incluse (W1/D1 Axi). Straddle XAU M1 (annonces US, acté).
         if mt5_ids.contains(asset.as_str()) && MT5_V12.contains(&asset.as_str()) {
             if !crate::mt5_collecteur::historique_mt5_pret(db, asset.as_str(), *tf).await {
                 tracing::info!(
@@ -433,11 +435,9 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
             continue;
         }
 
-        // Shadow mode (2.6) : moteur v12 par couple — exigence de couverture
-        // SMC M1→D1 (propriétaire). Les émissions live sont journalisées,
-        // sans action.
-        // Amorce MTF (H1/H4/W1 + MN agrégée de D1) : le Pine/TV calcule f_htf
-        // sur des ANNÉES — sans elle, confluences W1 (+5) / MN (+6) froides.
+        // Shadow mode (2.6) : moteur v12 par couple (couverture M1→D1,
+        // propriétaire) — émissions journalisées, sans action. Amorce MTF
+        // (H1/H4/W1 + MN) : sans elle, confluences W1 (+5) / MN (+6) froides.
         let amorce = charger_amorce_mtf_runtime(db, asset).await;
         // Phase 3.1 — plugin STRADDLE sur M1/M5 (news trading) : calendrier
         // tier 1 amorcé depuis le cache (jamais de DB dans le moteur, R4).
