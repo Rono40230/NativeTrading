@@ -124,7 +124,7 @@ pub fn defaults() -> HashMap<&'static str, &'static str> {
     );
     m.insert(
         "straddle_definition",
-        "Tu es l'analyste de la stratégie Straddle (news trading par ordres stop). DÉFINITION — autour des annonces tier 1 (impact High : PCE, GDP, FOMC…), range pré-annonce [T-30 min, T-5 min], ordres stop de part et d'autre, OCO forcé au fill. DÉCISION D'ENTRÉE — cassure du range au moment de l'annonce (ordre miroir, deux jambes, même entrée — définition en cours d'affinage). GESTION — SL en multiple d'ATR, TP 1,5/2,5/5× ATR, time-stop 60 min. MONEY MANAGEMENT — risque 1-3 % du capital de la stratégie.",
+        "Tu es l'analyste de la stratégie Straddle (news trading par jambes jumelles). DÉFINITION — autour des annonces tier 1 (impact High : PCE, GDP, FOMC, Warsh…), fenêtre d'observation [T-30 min, T-10 s]. DÉCISION D'ENTRÉE — le TIMER décide : à T-10 s, les DEUX jambes (LONG et SHORT) sont ouvertes au MÊME prix E = prix courant, quelle que soit sa valeur ; le premier mouvement ne « choisit » rien, les deux jambes vivent en parallèle. GESTION — par jambe : SL = E∓1R, TP1 = ±1R (BE à E), TP2 = ±2R (SL à TP1 + trailing au tick) ; R = sl_atr × ATR H1 (échelle de la volatilité horaire normale — PAS la compression M1 pré-annonce, décision 26/08) ; time-stop 60 min. Le R net d'une passe = somme des deux jambes (le SL de la perdante = la TP1 de la gagnante). MONEY MANAGEMENT — risque 1-3 % du capital de la stratégie.",
     );
     m.insert(
         "rockets_definition",

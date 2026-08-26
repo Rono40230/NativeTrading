@@ -78,6 +78,8 @@ L'app est une coquille d'orchestration + 3 verticales stratégiques complètes :
 
 ### 7. Maintenance & dette technique
 
+- [ ] **Revue complète des prompts IA** : purge des prompts morts (`smc_signal`, `smc_filtre`, `rockets_opportunites` — endpoints consommateurs supprimés, à confirmer), audit des actifs, alignement sur les mécaniques actées. Rappel constitution : toute évolution de stratégie se reflète immédiatement dans les prompts
+
 - [ ] Graphique XAU : vérifier l'affichage des zones SMC sur l'historique Axi profond (2 ans de contexte — si des artefacts apparaissent au changement de source, les tracer)
 - [ ] ETH : réactiver et re-backfiller si souhaité (purgé par le job de rétention 24 mois — il était inactif)
 - [ ] Config `worker_historique_mois` : 6 mois mais l'historique MT5 en couvre 24 — harmoniser la config avec la rétention
@@ -98,6 +100,7 @@ L'app est une coquille d'orchestration + 3 verticales stratégiques complètes :
 | **30 trades minimum** | Aucune proposition de recalibrage sous 30 trades remplis par tranche |
 | **Fichier ≤ 600 lignes** | Pré-commit bloquant. Extraire vers un module dédié |
 | **Pas de .unwrap()/.expect() hors tests** | Pré-commit bloquant |
+| **Stratégie changée = prompt changé** | Tout changement de logique, de calcul ou de mécanique dans une stratégie est porté IMMÉDIATEMENT dans les prompts IA de l'analyste (page Prompts IA — `llm/prompts.rs`). Un analyste nourri avec une définition périmée analyse avec de faux critères |
 
 ---
 
