@@ -176,7 +176,7 @@ const techniques = [
 ]
 
 // ── SMC v12 : bascules ON/OFF par indicateur (overlay useSmcV12Overlay).
-// `pending = true` → l'API ne retourne pas encore cette donnée : le bouton
+// `pending = true` → aucune donnée dessinée derrière la case (à implémenter)
 // bascule le flag mais rien n'est dessiné pour l'instant.
 const v12Groupes = [
   {
@@ -186,51 +186,51 @@ const v12Groupes = [
       { key: 'v12Bos',       label: 'Break of Structure', pending: false },
       { key: 'v12Mss',       label: 'Market Structure Shift', pending: false },
       { key: 'v12Choch',     label: 'CHange Of Character', pending: false },
-      { key: 'v12Sweeps',    label: 'Sweeps',    pending: false },
-      { key: 'v12EqhEql',    label: 'EQual High / EQual Low', pending: false },
       { key: 'v12Tendance',  label: 'Fond de tendance', pending: false },
+      { key: 'v12Impulsion', label: 'Fond impulsion', pending: false },
     ],
   },
   {
-    label: 'Zones',
+    label: 'Niveaux de liquidité',
     items: [
-      { key: 'v12Ob',        label: 'Order Blocks', pending: false },
-      { key: 'v12Fvg',       label: 'Fair Value Gap', pending: false },
-      { key: 'v12Breaker',   label: 'Breaker Blocks',  pending: true  },
-      { key: 'v12Propulsion', label: 'Propulsion Blocks', pending: false },
-      { key: 'v12Imbalance', label: 'Imbalance', pending: true  },
-      { key: 'v12ZoneCoeur', label: 'Zone cœur', pending: true  },
+      { key: 'v12NiveauxCles', label: 'Previous High/Low Day/Week', pending: false },
+      { key: 'v12EqhEql',      label: 'EQual High / EQual Low', pending: false },
+      { key: 'v12AsianHl',     label: 'Asian High / Asian Low', pending: false },
+      { key: 'v12Sweeps',      label: 'Sweeps (prise de liquidité)', pending: false },
+      { key: 'v12Ndog',        label: 'NDOG', pending: false },
+      { key: 'v12Nwog',        label: 'NWOG', pending: false },
     ],
   },
   {
-    label: 'Tech',
+    label: 'Zones de liquidité (POI)',
     items: [
-      { key: 'v12Volume',     label: 'Fond volume',     pending: true },
-      { key: 'v12Impulsion',  label: 'Fond impulsion',  pending: true },
+      { key: 'v12Ob',          label: 'Order Blocks', pending: false },
+      { key: 'v12Fvg',         label: 'Fair Value Gap', pending: false },
+      { key: 'v12Breaker',     label: 'Breaker Blocks', pending: false },
+      { key: 'v12Propulsion',  label: 'Propulsion Blocks', pending: false },
+      { key: 'v12Imbalance',   label: 'Imbalance', pending: false },
+      { key: 'v12ZoneCoeur',   label: 'Zone cœur', pending: false },
+      { key: 'v12Ote',         label: 'Optimal Trade Entry', pending: false },
+      { key: 'v12Premium',     label: 'Premium / Discount', pending: false },
+      { key: 'v12Equilibrium', label: 'Equilibrium', pending: false },
+      { key: 'v12Volume',      label: 'Fond volume', pending: false },
     ],
   },
   {
     label: 'Sessions',
     items: [
-      { key: 'v12SessionAsie',   label: 'Session Asiatique', pending: false },
-      { key: 'v12SessionLondres',label: 'Session Européenne', pending: false },
-      { key: 'v12SessionNy',     label: 'Session Américaine', pending: false },
-      { key: 'v12AsianHl',       label: 'Asian High / Asian Low', pending: false },
-      { key: 'v12NiveauxCles',   label: 'Previous High/Low Day/Week', pending: false },
-      { key: 'v12Ndog',          label: 'NDOG',         pending: true },
-      { key: 'v12Nwog',          label: 'NWOG',         pending: true },
+      { key: 'v12SessionAsie',    label: 'Session Asiatique', pending: false },
+      { key: 'v12SessionLondres', label: 'Session Européenne', pending: false },
+      { key: 'v12SessionNy',      label: 'Session Américaine', pending: false },
     ],
   },
   {
-    label: 'Multi-TF',
+    label: 'Confirmations MTF',
     items: [
-      { key: 'v12Premium',     label: 'Fonds Premium/Discount', pending: false },
-      { key: 'v12Equilibrium', label: 'Equilibrium',    pending: true },
-      { key: 'v12ObH1',        label: 'OB H1',          pending: true },
-      { key: 'v12ObH4',        label: 'OB H4',          pending: true },
-      { key: 'v12ObW1',        label: 'OB W1',          pending: true },
-      { key: 'v12ObMn',        label: 'OB MN',          pending: true },
-      { key: 'v12Ote',         label: 'Zones Optimal Trade Entry', pending: false },
+      { key: 'v12ObH1', label: 'OB H1', pending: false },
+      { key: 'v12ObH4', label: 'OB H4', pending: false },
+      { key: 'v12ObW1', label: 'OB W1', pending: false },
+      { key: 'v12ObMn', label: 'OB MN', pending: false },
     ],
   },
 ]
