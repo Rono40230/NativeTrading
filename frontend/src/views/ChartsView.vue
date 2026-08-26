@@ -210,6 +210,7 @@ const { assets, changerAsset, changerTimeframe, actualiser } = useChartOrchestra
   getChart, getCandlestickSeries,
   smcMettreAJourZones: (_data, _prefs, ts) => {
     v12Overlay.setDernierTs(ts)
+    dessins.definirDernierBougie(ts ?? null)
   },
   chargerEtAppliquer,
   mettreAJourSerie, mettreAJourEnDirect,

@@ -51,6 +51,8 @@ export function useChartDessins() {
 
   let assetCourant = ''
   let dessins: Dessin[] = []
+  /** Timestamp (s) de la dernière bougie vivante — borne droite des fibs. */
+  let dernierTs: number | null = null
   let prochainId = Date.now()
   /** Tracé en cours (aperçu) — null si aucun. */
   let enCours: Dessin | null = null
@@ -68,6 +70,12 @@ export function useChartDessins() {
     const stock = lireStock()
     stock[assetCourant] = dessins
     ecrireStock(stock)
+  }
+
+  /**borne droite des lignes fib = dernière bougie en cours (pas le bord du canvas). */
+  function definirDernierBougie(ts: number | null) {
+    dernierTs = ts
+    planifierRedessin()
   }
 
   function definirAsset(asset: string) {
@@ -159,14 +167,16 @@ export function useChartDessins() {
       ctx.fillRect(gx, gy, gw, gh)
       ctx.strokeRect(gx, gy, gw, gh)
     } else {
-      // Fibonacci : p1 = 0 %, p2 = 100 % — lignes de l'ancre gauche au bord
-      // droit, zone dorée (0.5 → 0.786) ombrée, libellés à droite.
+      // Fibonacci : p1 = 0 %, p2 = 100 % — lignes de l'ancre gauche JUSQU'À
+      // LA DERNIÈRE BOUGIE EN COURS (pas le bord du canvas), zone dorée
+      // (0.5 → 0.786) ombrée, libellés au bout des lignes.
       const xa = Math.min(x1, x2)
+      const xf = Math.max(xa, dernierTs !== null ? (versX(dernierTs) ?? W) : W)
       ctx.fillStyle = 'rgba(245,158,11,0.07)'
       const y05 = versY(d.p1 + (d.p2 - d.p1) * 0.5)
       const y0786 = versY(d.p1 + (d.p2 - d.p1) * 0.786)
       if (y05 !== null && y0786 !== null) {
-        ctx.fillRect(xa, Math.min(y05, y0786), W - xa, Math.abs(y0786 - y05))
+        ctx.fillRect(xa, Math.min(y05, y0786), xf - xa, Math.abs(y0786 - y05))
       }
       ctx.strokeStyle = COULEUR_FIB
       ctx.font = '10px sans-serif'
@@ -174,9 +184,9 @@ export function useChartDessins() {
       for (const n of NIVEAUX_FIB) {
         const y = versY(d.p1 + (d.p2 - d.p1) * n)
         if (y === null) continue
-        ctx.beginPath(); ctx.moveTo(xa, y); ctx.lineTo(W, y); ctx.stroke()
+        ctx.beginPath(); ctx.moveTo(xa, y); ctx.lineTo(xf, y); ctx.stroke()
         const label = n === 0 ? '0' : n === 1 ? '1' : `${n}`
-        ctx.fillText(label, W - 30, y - 3)
+        ctx.fillText(label, Math.min(xf + 4, W - 30), y - 3)
       }
       // Diagonale d'ancrage 0→1 (repère visuel du tracé).
       ctx.globalAlpha *= 0.5
@@ -390,5 +400,5 @@ export function useChartDessins() {
     enCours = null
   }
 
-  return { outil, initialiser, detruire, definirAsset, choisirOutil, toutEffacer }
+  return { outil, initialiser, detruire, definirAsset, definirDernierBougie, choisirOutil, toutEffacer }
 }
