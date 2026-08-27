@@ -258,37 +258,42 @@ export function dessinerBoxes(
     }
   }
 
-  // ── Boxes de sessions complètes (Pine MODULE 14) : rectangles du range
-  //    high/low de chaque session (heures Paris, 24h max), couleur par
-  //    session α90, bordure blanche fine, texte du nom.
+  /// Position x d'un instant : barre exacte si possible, sinon
+  /// interpolation sur la plage visible (les bords de session tombant
+  /// dans un vide de données — marché fermé — restent ainsi à leur
+  /// heure Paris réelle).
+  const xTemporel = (t: number): number | null => {
+    const direct = ts.timeToCoordinate(t as never)
+    if (direct !== null) return direct
+    const vr = ts.getVisibleRange()
+    const lr = ts.getVisibleLogicalRange()
+    if (!vr || !lr || (vr.to as number) <= (vr.from as number)) return null
+    const logique = (lr.from as number) + ((t - (vr.from as number)) / ((vr.to as number) - (vr.from as number))) * ((lr.to as number) - (lr.from as number))
+    return ts.logicalToCoordinate(Math.round(logique) as never) ?? null
+  }
+  // Sessions MODULE 14 : rectangles range high/low (α90, bordure fine).
   if (flags.sessionAsie || flags.sessionLondres || flags.sessionNy) {
-    const COUL_SESSION: Record<string, string> = {
-      asie: '#F9A825', londres: '#1565C0', ny: '#B71C1C',
-    }
+    const COUL_SESSION: Record<string, string> = { asie: '#F9A825', londres: '#1565C0', ny: '#B71C1C' }
     for (const s of d.session_boxes) {
       const visible = s.session === 'asie' ? flags.sessionAsie : s.session === 'londres' ? flags.sessionLondres : flags.sessionNy
       if (!visible) continue
       const yH = serie.priceToCoordinate(s.high)
       const yL = serie.priceToCoordinate(s.low)
-      if (yH === null || yL === null) continue
-      const x1 = ts.timeToCoordinate(s.start_ts as any)
-      const x2 = ts.timeToCoordinate(s.end_ts as any)
+      if (yH === null || yL === null) continue // prix hors échelle
+      const x1 = xTemporel(s.start_ts)
+      const x2 = xTemporel(s.end_ts)
       if (x1 === null && x2 === null) continue
       const gauche = x1 !== null ? Math.max(0, x1) : 0
-      const droite = x2 !== null ? x2 : xDroit(ts, W, dernierTs)
-      if (droite <= gauche) continue
+      const droite = x2 !== null ? Math.min(W, x2) : xDroit(ts, W, dernierTs)
+      if (droite <= gauche) continue // hors écran
       const coul = COUL_SESSION[s.session] ?? '#666666'
-      const yTop = Math.min(yH, yL)
-      const h = Math.abs(yH - yL)
+      const yTop = Math.min(yH, yL); const h = Math.abs(yH - yL)
       ctx.fillStyle = hexVersRgba(coul, 0.1) // α90 Pine
       ctx.fillRect(gauche, yTop, droite - gauche, h)
-      ctx.strokeStyle = 'rgba(255,255,255,0.15)' // bordure blanche α85
-      ctx.lineWidth = 1
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1 // α85
       ctx.strokeRect(gauche, yTop, droite - gauche, h)
       ctx.font = 'bold 9px sans-serif'
-      ctx.fillStyle = coul
-      ctx.textAlign = 'right'
-      ctx.textBaseline = 'top'
+      ctx.fillStyle = coul; ctx.textAlign = 'right'; ctx.textBaseline = 'top'
       const NOMS: Record<string, string> = { asie: 'Session Asiatique', londres: 'Session Européenne', ny: 'Session Américaine' }
       ctx.fillText(NOMS[s.session] ?? s.session, droite - 4, yTop + 2)
     }

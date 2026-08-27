@@ -499,3 +499,24 @@ mod tests {
         assert_eq!(ts_at(&[10, 20, 30], 1, 99), 20);
     }
 }
+
+/// Bornes FIXES d'une session (MODULE 14, heures Paris) pour le jour de
+/// la barre → (début, fin) epoch UTC. Fin future = session en cours (le
+/// dessin étend à droite).
+pub(crate) fn bornes_session_paris(label: &str, bar_paris: &chrono::DateTime<chrono_tz::Tz>) -> (i64, i64) {
+    use chrono::TimeZone as _;
+    let tz: chrono_tz::Tz = chrono_tz::Europe::Paris;
+    let jour = bar_paris.date_naive();
+    let (debut_min, fin_min): (i64, i64) = match label {
+        "asie" => (0, 390),        // 00:00 → 06:30
+        "londres" => (480, 990),   // 08:00 → 16:30
+        _ => (870, 1260),          // ny : 14:30 → 21:00
+    };
+    let minuit = tz
+        .from_local_datetime(&jour.and_hms_opt(0, 0, 0).unwrap_or_default())
+        .single()
+        .unwrap_or_else(|| *bar_paris);
+    let d = minuit + chrono::Duration::minutes(debut_min);
+    let f = minuit + chrono::Duration::minutes(fin_min);
+    (d.timestamp(), f.timestamp())
+}

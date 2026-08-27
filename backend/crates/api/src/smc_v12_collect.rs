@@ -68,16 +68,16 @@ pub(crate) struct BarCollectors {
     trend_raw: Vec<(i64, Option<&'static str>)>,
     /// Premium/discount par barre (Pine MODULE 4b bgcolor) : "prem"|"disc"|None.
     prem_raw: Vec<(i64, Option<&'static str>)>,
-    /// Boxes de sessions complètes Paris (Pine MODULE 14) : encours + 24h.
-    sess_cur: Option<(&'static str, i64, f64, f64)>, // (label, start, high, low)
+    /// Box en cours : (label, (début FIXE, fin FIXE), high, low).
+    sess_cur: Option<(&'static str, (i64, i64), f64, f64)>,
     sess_boxes: Vec<crate::smc_v12_out::SessionBox>,
     dernier_ts: i64,
     vol_raw: Vec<(i64, bool)>,
     imp_raw: Vec<(i64, Option<&'static str>)>,
     vol_buf: Vec<f64>,
     zone_coeur: Vec<ZoneCoeurOut>,
-    /// Timestamp de création de chaque box live (clé = (0=bull/1=bear, ob_bar)) —
-    /// Pine fige la box à sa création, on mémorise la 1re barre où elle est vue.
+    /// Création des boxes live (clé (0=bull/1=bear, ob_bar)) — Pine fige
+    /// la box à sa création : on mémorise la 1re barre où elle est vue.
     zc_crea: HashMap<(u8, usize), i64>,
     asian_day_key: Option<i64>,
     asian_h: f64,
@@ -113,28 +113,26 @@ impl BarCollectors {
         }
     }
 
-    /// Met à jour les collecteurs avec la sortie moteur d'une bar.
-    /// Finalise la box de session en cours (si présente) et la pousse dans
-    /// l'historique 24h (Pine MODULE 14 : garde-fou _24H_MS).
+    /// Finalise la box d'encours : bornes FIXES, rétention illimitée (27/08).
     fn finaliser_session(&mut self) {
-        if let Some((l, start, hi, lo)) = self.sess_cur.take() {
+        if let Some((l, (debut, fin), hi, lo)) = self.sess_cur.take() {
             self.sess_boxes.push(crate::smc_v12_out::SessionBox {
-                start_ts: start,
-                end_ts: self.dernier_ts,
+                start_ts: debut,
+                end_ts: fin,
                 session: l,
                 high: hi,
                 low: lo,
             });
-            // Garde 24h : ne conserve que les boxes terminées il y a < 24h.
-            let limite = self.dernier_ts - 24 * 3600;
-            self.sess_boxes.retain(|b| b.end_ts >= limite);
         }
     }
 
+    /// Fin d'analyse : pousse la box d'encours.
+    pub(crate) fn finaliser_session_pub(&mut self) {
+        self.finaliser_session();
+    }
+
     pub(crate) fn on_bar(&mut self, bar: &BarInput, out: &SmcOutput) {
-        // ── Sessions (Kill Zones) ──
-        // (sessions_raw supprimé : les sessions s'affichent uniquement via
-        //  les rectangles session_boxes du MODULE 14 Pine.)
+        // (Bande kill-zone supprimée — sessions via rectangles MODULE 14.)
         let _ = kz_label(out.kill_zone.zone);
 
         // ── Tendance par barre (Pine MODULE 1 : bullCount>=2 / bearCount>=2) ──
@@ -147,8 +145,7 @@ impl BarCollectors {
         };
         self.trend_raw.push((bar.timestamp, trend));
 
-        // ── Premium/Discount par barre (Pine MODULE 4b : bgcolor
-        //    inPremium/inDiscount, tolérance 0,5 % autour de l'equilibrium).
+        // ── Premium/Discount par barre (Pine MODULE 4b bgcolor).
         let prem = if out.premium_discount.in_premium {
             Some("prem")
         } else if out.premium_discount.in_discount {
@@ -175,16 +172,18 @@ impl BarCollectors {
             None
         };
         match (sess_label, &self.sess_cur) {
-            (Some(l), Some((cur, start, hi, lo))) if *cur == l => {
-                // étendre la box en cours
+            (Some(l), Some((cur, _start, hi, lo))) if *cur == l => {
+                // Étendre (bornes recalculées — bascule minuit pour l'Asie).
                 let hi = hi.max(bar.high);
                 let lo = lo.min(bar.low);
-                self.sess_cur = Some((l, *start, hi, lo));
+                let bornes = crate::smc_v12_out::bornes_session_paris(l, &paris);
+                self.sess_cur = Some((l, bornes, hi, lo));
             }
             (Some(l), _) => {
-                // finaliser la précédente puis ouvrir
                 self.finaliser_session();
-                self.sess_cur = Some((l, bar.timestamp, bar.high, bar.low));
+                // ANCRAGE TEMPOREL : heure Paris FIXE, pas la 1re barre.
+                let bornes = crate::smc_v12_out::bornes_session_paris(l, &paris);
+                self.sess_cur = Some((l, bornes, bar.high, bar.low));
             }
             (None, _) => self.finaliser_session(),
         }
@@ -202,9 +201,7 @@ impl BarCollectors {
         self.vol_raw
             .push((bar.timestamp, vol_ma > 0.0 && bar.volume > vol_ma));
 
-        // ── Impulsion (Pine MODULE 10) : RANGE high-low > i_atrSeuil × ATR14
-        //    (le corps était utilisé avant — et le mauvais seuil : atr_seuil
-        //    ≠ seuil_ib ; Pine _autoAtrSeuil BTC=2.5, XAU=2.0).
+        // ── Impulsion (Pine MODULE 10) : RANGE > i_atrSeuil × ATR14.
         let atr_ok = out.atr14 > 0.0 && (bar.high - bar.low) > self.atr_seuil * out.atr14;
         let imp = if atr_ok {
             if bar.close > bar.open {
@@ -277,6 +274,8 @@ pub(crate) fn collect_final_extended(
     ts_by_idx: &[i64],
     mut col: BarCollectors,
 ) -> ExtendedOutputs {
+    // Box d'encours en fin d'analyse : la pousser aussi.
+    col.finaliser_session_pub();
     // ── Liquidités PDH/PDL/PWH/PWL (état final) ──
     let liq = engine.liquidites.last_event();
     let liquidites = vec![
