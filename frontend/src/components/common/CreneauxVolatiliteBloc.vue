@@ -9,11 +9,16 @@
     <div v-else-if="!creneaux.length" class="text-center text-slate-500 text-xs py-3">Aucune donnée</div>
 
     <template v-else>
-      <!-- Heures -->
+      <!-- Heures : celle en cours en gros gras encadré -->
       <div class="flex items-center gap-1">
         <span class="w-14 shrink-0"></span>
         <div class="flex-1 flex gap-[2px]">
-          <span v-for="h in 24" :key="'lbl'+h" class="flex-1 text-center text-[7px] text-white font-mono">{{ String(h-1).padStart(2,'0') }}</span>
+          <span v-for="h in 24" :key="'lbl'+h"
+            class="flex-1 text-center font-mono"
+            :class="estHeureCourante(h-1)
+              ? 'text-[11px] font-extrabold text-white bg-white/20 rounded border border-white/50 py-0.5'
+              : 'text-[7px] text-white'"
+          >{{ String(h-1).padStart(2,'0') }}</span>
         </div>
       </div>
 
@@ -21,9 +26,10 @@
       <div v-for="c in creneaux" :key="c.asset" class="flex items-center gap-1">
         <span class="w-14 shrink-0 text-[10px] font-semibold text-white truncate">{{ c.asset }}</span>
         <div class="flex-1 flex gap-[2px] h-6">
-          <div v-for="h in 24" :key="c.asset+'-'+h" class="flex-1 relative rounded-[2px]">
-            <div class="absolute inset-0 rounded-[2px]" :style="{ backgroundColor: estHeureCourante(h-1) ? '#ffffff' : couleurCellule(c, h-1) }" />
-          </div>
+          <div v-for="h in 24" :key="c.asset+'-'+h"
+            class="flex-1 rounded-[2px]"
+            :style="{ backgroundColor: couleurCellule(c, h-1) }"
+          />
         </div>
       </div>
 
@@ -36,7 +42,6 @@
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(250,204,21,0.65)" /> actif</span>
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(249,115,22,0.75)" /> fort</span>
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(239,68,68,0.85)" /> bouillant</span>
-        <span class="ml-auto flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="border:2px solid #fff" /> heure en cours</span>
       </div>
     </template>
   </div>
