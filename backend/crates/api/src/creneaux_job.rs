@@ -111,6 +111,62 @@ async fn calculer_asset(db: &Database, asset: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Fusionne les heures consécutives en plages horaires continues.
+/// Retourne les 3 meilleures plages, triées par score (vol × fiabilité × durée).
+fn fusionner_plages(creneaux: &[serde_json::Value]) -> Vec<serde_json::Value> {
+    // Extraire et trier les heures.
+    let mut heures: Vec<(i64, f64, f64)> = creneaux
+        .iter()
+        .filter_map(|c| {
+            let h = c.get("heure")?.as_i64()?;
+            let v = c.get("vol_pct")?.as_f64()?;
+            let f = c.get("fiabilite")?.as_f64()?;
+            Some((h, v, f))
+        })
+        .collect();
+    heures.sort_by_key(|&(h, _, _)| h);
+
+    // Grouper les consécutives.
+    let mut plages: Vec<(i64, i64, f64, f64, usize)> = Vec::new(); // (debut, fin, vol, fiab, nb)
+    for &(h, v, f) in &heures {
+        match plages.last_mut() {
+            Some(p) if p.1 + 1 == h => {
+                p.1 = h;
+                p.2 += v;
+                p.3 += f;
+                p.4 += 1;
+            }
+            _ => plages.push((h, h, v, f, 1)),
+        }
+    }
+
+    // Score = vol moyenne × fiabilité moyenne × heures couvertes.
+    let mut triees: Vec<_> = plages
+        .into_iter()
+        .map(|(debut, fin, sv, sf, n)| {
+            let vol = sv / n as f64;
+            let fiab = sf / n as f64;
+            let score = vol * fiab * n as f64;
+            (debut, fin, vol, fiab, n, score)
+        })
+        .collect();
+    triees.sort_by(|a, b| b.5.partial_cmp(&a.5).unwrap_or(std::cmp::Ordering::Equal));
+
+    triees
+        .into_iter()
+        .take(3)
+        .map(|(debut, fin, vol, fiab, n, _)| {
+            serde_json::json!({
+                "debut": debut,
+                "fin": fin + 1, // exclusive : 15h→18h = heures 15,16,17
+                "vol_pct": vol,
+                "fiabilite": fiab,
+                "nb_heures": n,
+            })
+        })
+        .collect()
+}
+
 // ── Endpoint HTTP ─────────────────────────────────────────────────────────────
 
 /// GET /api/creneaux-volatilite — top 3 créneaux par asset actif, triés
@@ -138,10 +194,13 @@ pub async fn lister(state: actix_web::web::Data<crate::state::AppState>) -> impl
             "fiabilite": r.get::<f64, _>("fiabilite"),
         }));
     }
+    // Fusion des heures consécutives en PLAGES (15h+16h+17h → 15h→18h)
+    // puis top 3 plages par score combiné.
     let sortie: Vec<serde_json::Value> = par_asset
         .into_iter()
         .map(|(asset, creneaux)| {
-            serde_json::json!({ "asset": asset, "top": creneaux.into_iter().take(3).collect::<Vec<_>>() })
+            let plages = fusionner_plages(&creneaux);
+            serde_json::json!({ "asset": asset, "top": plages })
         })
         .collect();
     actix_web::HttpResponse::Ok().json(sortie)

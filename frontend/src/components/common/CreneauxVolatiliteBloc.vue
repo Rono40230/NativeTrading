@@ -1,38 +1,31 @@
 <template>
-  <!-- ⏰ Créneaux de volatilité — heures Paris les plus actives par asset
-       (stats 24 mois glissants, job backend quotidien). Créneau en cours
-       surligné, prochain avec compte à rebours. -->
-  <div class="glass-card p-3 flex flex-col gap-2 min-h-0">
+  <!-- ⏰ Créneaux de volatilité — fenêtres horaires Paris les plus actives
+       par asset (plages fusionnées : « 15h→18h » plutôt que 3 pastilles). -->
+  <div class="glass-card p-3 pt-2 flex flex-col gap-2 min-h-0 shrink-0">
     <div class="shrink-0">
       <p class="text-[11px] font-semibold text-white uppercase tracking-widest">⏰ Créneaux de volatilité</p>
-      <p class="text-[9px] text-slate-500">heures Paris · 24 mois</p>
+      <p class="text-[9px] text-slate-500">fenêtres actives · heures Paris · 24 mois</p>
     </div>
 
-    <div v-if="chargement" class="text-center text-slate-500 text-xs py-3">Calcul des créneaux…</div>
-    <div v-else-if="!creneaux.length" class="text-center text-slate-500 text-xs py-3">Aucun créneau calculé</div>
+    <div v-if="chargement" class="text-center text-slate-500 text-xs py-3">Calcul…</div>
+    <div v-else-if="!creneaux.length" class="text-center text-slate-500 text-xs py-3">Aucune fenêtre</div>
 
     <div v-else class="space-y-1.5 overflow-y-auto">
       <div v-for="c in creneaux" :key="c.asset" class="flex items-center gap-2">
-        <span class="w-16 shrink-0 font-semibold text-white text-xs">{{ c.asset }}</span>
-        <div class="flex gap-1.5 flex-wrap">
-          <span v-for="t in c.top" :key="t.heure"
-            :title="`${t.vol_pct.toFixed(3)} % / bougie M15 en moyenne`"
+        <span class="w-14 shrink-0 font-semibold text-white text-xs">{{ c.asset }}</span>
+        <div class="flex gap-1.5 flex-wrap flex-1 min-w-0">
+          <span v-for="t in c.top" :key="t.debut"
+            :title="`${t.vol_pct.toFixed(3)} % / bougie M15 · fiabilité ${Math.round(t.fiabilite * 100)}%`"
             :class="[
-              'px-1.5 py-0.5 rounded text-[10px] font-mono tabular-nums border transition-colors',
-              estEnCours(t.heure)
+              'px-2 py-0.5 rounded-md text-[10px] font-mono tabular-nums border transition-colors whitespace-nowrap',
+              estEnCours(t)
                 ? 'bg-cyan-500/25 border-cyan-400/60 text-cyan-100'
-                : estProchain(t, c)
-                  ? 'bg-amber-500/15 border-amber-400/40 text-amber-200'
-                  : 'bg-white/5 border-white/10 text-slate-300',
+                : 'bg-white/5 border-white/10 text-slate-300',
             ]"
-          >{{ label(t) }}</span>
+          >{{ plage(t) }}</span>
         </div>
       </div>
     </div>
-
-    <p v-if="prochainGlobal" class="text-[10px] text-slate-500 mt-auto">
-      Prochain : <span class="text-amber-300 font-semibold">{{ prochainGlobal.nom }}</span> dans {{ compteRebours }}
-    </p>
   </div>
 </template>
 
@@ -40,8 +33,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { http } from '@/services/http.client'
 
-interface Creneau { heure: number; vol_pct: number; fiabilite: number }
-interface ParAsset { asset: string; top: Creneau[] }
+interface Plage { debut: number; fin: number; vol_pct: number; fiabilite: number; nb_heures: number }
+interface ParAsset { asset: string; top: Plage[] }
 
 const creneaux = ref<ParAsset[]>([])
 const chargement = ref(true)
@@ -58,55 +51,22 @@ async function charger() {
   }
 }
 
-/// Heure Paris courante (0-23).
 const heureParis = computed(() =>
-  new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(maintenant.value)
+  Number(new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(maintenant.value))
 )
 
-function estEnCours(heure: number): boolean {
-  return Number(heureParis.value) === heure
+/// La plage couvre-t-elle l'heure courante ?
+function estEnCours(t: Plage): boolean {
+  const h = heureParis.value
+  return h >= t.debut && h < t.fin
 }
 
-/// Le premier créneau du top de l'asset qui viendra après l'heure courante
-/// (cyclique sur 24h) — celui dont le compte à rebours est le plus court.
-function estProchain(t: Creneau, c: ParAsset): boolean {
-  const h = Number(heureParis.value)
-  const candidats = c.top.filter(x => !estEnCours(x.heure))
-  if (!candidats.length) return false
-  const distances = candidats.map(x => ({ x, d: (x.heure - h + 24) % 24 }))
-  distances.sort((a, b) => a.d - b.d)
-  return distances[0].x.heure === t.heure
+/// Libellé : « 15h→18h » ou « 12h→13h » (1 heure) ou « 9h » (début=fin-1).
+function plage(t: Plage): string {
+  const d = String(t.debut).padStart(2, '0')
+  const f = String(t.fin).padStart(2, '0')
+  return t.nb_heures === 1 ? `${d}h` : `${d}h→${f}h`
 }
-
-function label(t: Creneau): string {
-  const h = t.heure
-  return `${String(h).padStart(2, '0')}h·${Math.round(t.fiabilite * 100)}%`
-}
-
-/// Prochain créneau toutes assets confondues + compte à rebours.
-const prochainGlobal = computed(() => {
-  const h = Number(heureParis.value)
-  let meilleur: { nom: string; minutes: number } | null = null
-  for (const c of creneaux.value) {
-    for (const t of c.top) {
-      const d = (t.heure - h + 24) % 24
-      if (d === 0) continue
-      const minutes = Math.max(0, d * 60 - maintenant.value.getMinutes())
-      if (!meilleur || minutes < meilleur.minutes) {
-        meilleur = { nom: `${c.asset} ${String(t.heure).padStart(2, '0')}h`, minutes }
-      }
-    }
-  }
-  return meilleur
-})
-
-const compteRebours = computed(() => {
-  const p = prochainGlobal.value
-  if (!p || !isFinite(p.minutes) || p.minutes < 0) return '—'
-  const h = Math.floor(p.minutes / 60)
-  const m = p.minutes % 60
-  return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m} min`
-})
 
 onMounted(() => {
   void charger()
