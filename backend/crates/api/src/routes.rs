@@ -274,6 +274,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::alertes_prix::rearmee),
         )
         .route(
+            "/api/creneaux-volatilite",
+            web::get().to(crate::creneaux_job::lister),
+        )
+        .route(
             "/api/volatility/patterns",
             web::get().to(crate::volatility_handlers::get_patterns),
         )

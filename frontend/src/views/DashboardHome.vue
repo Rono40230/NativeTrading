@@ -31,6 +31,7 @@
         <!-- Colonne gauche : Surveillance assets + Setups en formation -->
         <div class="w-56 shrink-0 flex flex-col gap-2 min-h-0">
           <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
+          <CreneauxVolatiliteBloc class="shrink-0" />
         </div>
 
         <!-- Centre : blocs par stratégie (étape 3 — architecture verticale).
@@ -72,6 +73,7 @@ import SentimentMarche from '@/components/common/SentimentMarche.vue'
 import AlerteBandeau from '@/components/common/AlerteBandeau.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
+import CreneauxVolatiliteBloc from '@/components/common/CreneauxVolatiliteBloc.vue'
 import DashboardStrategiesBlocs from '@/components/common/DashboardStrategiesBlocs.vue'
 
 type VariationsMultiTF = { h1: number | null; h4: number | null; d1: number | null; w1: number | null; m1: number | null }
