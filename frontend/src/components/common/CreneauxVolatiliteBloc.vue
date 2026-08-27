@@ -1,32 +1,31 @@
 <template>
-  <!-- ⏰ Créneaux de volatilité — heatmap 24h par asset (heures Paris).
-       Matin à gauche (00→12h), après-midi à droite (12→24h). L'intensité
-       de couleur = volatilité relative à l'asset lui-même. -->
   <div class="glass-card px-4 py-2 flex flex-col gap-1.5">
     <div class="flex items-center justify-between shrink-0">
       <p class="text-[11px] font-semibold text-white uppercase tracking-widest">⏰ Créneaux de volatilité</p>
-      <span class="text-[9px] text-white">heures Paris · fenêtres actives · 24 mois glissants</span>
+      <span class="text-[9px] text-white">heures Paris · 24 mois glissants</span>
     </div>
 
     <div v-if="chargement" class="text-center text-slate-500 text-xs py-3">Calcul…</div>
-    <div v-else-if="!creneaux.length" class="text-center text-slate-500 text-xs py-3">Aucune fenêtre</div>
+    <div v-else-if="!creneaux.length" class="text-center text-slate-500 text-xs py-3">Aucune donnée</div>
 
-    <div v-else class="flex flex-col gap-0.5">
-      <!-- Heures : 00..11 | 12..23 -->
-      <div class="flex items-center gap-[2px] text-[7px] text-white font-mono tabular-nums">
+    <template v-else>
+      <!-- Heures -->
+      <div class="flex items-center gap-1">
         <span class="w-14 shrink-0"></span>
         <div class="flex-1 flex gap-[2px]">
-          <span v-for="h in 12" :key="'m' + h" class="flex-1 text-center">{{ String(h - 1).padStart(2, '0') }}</span>
+          <span v-for="h in 24" :key="'lbl'+h" class="flex-1 text-center text-[7px] text-white font-mono">{{ String(h-1).padStart(2,'0') }}</span>
         </div>
-        <span class="w-px bg-white/10 self-stretch"></span>
-        <div class="flex-1 flex gap-[2px]">
-          <div v-for="h in 24" :key="h" class="flex-1 relative rounded-[2px]" style="min-height:100%">
-            <div class="absolute inset-0 rounded-[2px]" :style="{ backgroundColor: couleurCellule(c, h - 1) }" />
-            <div v-if="estHeureCourante(h - 1)" class="absolute inset-0 rounded-[2px] pointer-events-none"
-                 style="border:2px solid #fff; box-shadow:0 0 8px rgba(255,255,255,0.8); z-index:10" />
+      </div>
+
+      <!-- Une rangée par asset -->
+      <div v-for="c in creneaux" :key="c.asset" class="flex items-center gap-1">
+        <span class="w-14 shrink-0 text-[10px] font-semibold text-white truncate">{{ c.asset }}</span>
+        <div class="flex-1 flex gap-[2px] h-6">
+          <div v-for="h in 24" :key="c.asset+'-'+h" class="flex-1 relative rounded-[2px]">
+            <div class="absolute inset-0 rounded-[2px]" :style="{ backgroundColor: couleurCellule(c, h-1) }" />
+            <div v-if="estHeureCourante(h-1)" class="absolute rounded-[2px] pointer-events-none"
+                 style="top:0;left:0;right:0;bottom:0;border:2px solid #ffffff;box-shadow:0 0 8px rgba(255,255,255,0.8);z-index:10;" />
           </div>
-          <!-- Séparateur midi inséré après la 12e cellule via rendu conditionnel -->
-          <template v-if="false" />
         </div>
       </div>
 
@@ -39,9 +38,9 @@
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(250,204,21,0.65)" /> actif</span>
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(249,115,22,0.75)" /> fort</span>
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(239,68,68,0.85)" /> bouillant</span>
-        <span class="ml-auto flex items-center gap-1"><span class="w-3 h-2 rounded-[2px] ring-2 ring-white" /> heure en cours</span>
+        <span class="ml-auto flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="border:2px solid #fff" /> heure en cours</span>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
@@ -56,13 +55,6 @@ interface ParAsset { asset: string; top: Plage[]; heures?: Heure[] }
 const creneaux = ref<ParAsset[]>([])
 const chargement = ref(true)
 const maintenant = ref(new Date())
-
-/// Heures individuelles renvoyées par le backend (recalculées côté client
-/// à partir des plages pour la heatmap).
-interface HeureData { vol: number; fiab: number }
-const heuresParAsset = ref<Record<string, Record<number, HeuneData>>>({})
-
-interface HeuneData { vol: number; fiab: number }
 
 let poll: ReturnType<typeof setInterval> | null = null
 
@@ -83,9 +75,6 @@ function estHeureCourante(h: number): boolean {
   return heureParis.value === h
 }
 
-/// Couleur d'une cellule : PALIERS discrets — vert → jaune → orange → rouge
-/// (normalisé sur le max de vol de l'asset). Chaque palier est immédiatement
-/// distinguable, contrairement à un dégradé d'une seule teinte.
 function couleurCellule(c: ParAsset, h: number): string {
   const heure = c.heures?.find(x => x.heure === h)
   const vol = heure?.vol_pct ?? c.top.find(t => h >= t.debut && h < t.fin)?.vol_pct
@@ -101,15 +90,6 @@ function couleurCellule(c: ParAsset, h: number): string {
   if (ratio < 0.75) return 'rgba(250,204,21,0.65)'
   if (ratio < 0.88) return 'rgba(249,115,22,0.78)'
   return 'rgba(239,68,68,0.88)'
-}
-
-function titreCellule(c: ParAsset, h: number): string {
-  const heure = c.heures?.find(x => x.heure === h)
-  const libelle = `${c.asset} ${String(h).padStart(2, '0')}h`
-  if (heure) return `${libelle} — ${heure.vol_pct.toFixed(3)}% · fiabilité ${Math.round(heure.fiabilite * 100)}%`
-  const plage = c.top.find(t => h >= t.debut && h < t.fin)
-  if (plage) return `${libelle} — ${plage.vol_pct.toFixed(3)}%`
-  return `${libelle} — marché fermé`
 }
 
 onMounted(() => {
