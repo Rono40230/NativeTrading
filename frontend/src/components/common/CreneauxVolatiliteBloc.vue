@@ -30,7 +30,7 @@
         <div class="flex-1 flex gap-[2px] h-6">
           <div v-for="h in 24" :key="h"
             class="flex-1 rounded-[2px] transition-colors cursor-help"
-            :style="{ backgroundColor: couleurCellule(c, h - 1), outline: estHeureCourante(h - 1) ? '2px solid #fff' : 'none', outlineOffset: '-2px', zIndex: '10' }"
+            :style="{ backgroundColor: couleurCellule(c, h - 1), border: estHeureCourante(h - 1) ? '2px solid #fff' : '2px solid transparent' }"
 
           />
           <!-- Séparateur midi inséré après la 12e cellule via rendu conditionnel -->
