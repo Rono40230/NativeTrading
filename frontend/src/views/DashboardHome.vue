@@ -23,7 +23,6 @@
             :backend-ok="backendOk"
             :btc-prix="btcPrix"
             :ollama-ok="ollamaOk"
-            :ml-pret="mlPret"
             class="shrink-0"
           />
           <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
