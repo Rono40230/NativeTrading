@@ -50,10 +50,12 @@
       <!-- Légende -->
       <div class="flex items-center gap-2 text-[8px] text-slate-500 mt-0.5">
         <span class="w-14 shrink-0"></span>
-        <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(34,211,238,0.06)" /> calme</span>
-        <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(34,211,238,0.3)" /> modéré</span>
-        <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(34,211,238,0.6)" /> actif</span>
-        <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(34,211,238,0.95)" /> très actif</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(255,255,255,0.06)" /> fermé</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(34,197,94,0.35)" /> calme</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(34,197,94,0.65)" /> modéré</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(250,204,21,0.65)" /> actif</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(249,115,22,0.75)" /> fort</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(239,68,68,0.85)" /> bouillant</span>
         <span class="ml-auto flex items-center gap-1"><span class="w-3 h-2 rounded-[2px] ring-2 ring-red-500" /> heure en cours</span>
       </div>
     </div>
@@ -97,17 +99,19 @@ function estHeureCourante(h: number): boolean {
   return heureParis.value === h
 }
 
-/// Couleur d'une cellule : intensité cyan proportionnelle à la volatilité
-/// relative de l'heure (normalisée sur le max de l'asset).
+/// Couleur d'une cellule : PALIERS discrets — vert → jaune → orange → rouge
+/// (normalisé sur le max de vol de l'asset). Chaque palier est immédiatement
+/// distinguable, contrairement à un dégradé d'une seule teinte.
 function couleurCellule(c: ParAsset, h: number): string {
   const plage = c.top.find(t => h >= t.debut && h < t.fin)
   if (!plage) return 'rgba(255,255,255,0.04)'
-  // Normaliser sur le max de vol de l'asset (ses plages top).
   const volMax = Math.max(...c.top.map(t => t.vol_pct), 0.001)
-  const ratio = Math.min(1, plage.vol_pct / volMax)
-  // Gradient : faible → 0.08 alpha, fort → 0.9 alpha (cyan).
-  const alpha = 0.08 + ratio * 0.82
-  return `rgba(34,211,238,${alpha.toFixed(2)})`
+  const ratio = plage.vol_pct / volMax
+  if (ratio < 0.35) return 'rgba(34,197,94,0.35)'   // vert — calme
+  if (ratio < 0.55) return 'rgba(34,197,94,0.65)'   // vert fort — modéré
+  if (ratio < 0.75) return 'rgba(250,204,21,0.65)'  // jaune — actif
+  if (ratio < 0.90) return 'rgba(249,115,22,0.75)'  // orange — très actif
+  return 'rgba(239,68,68,0.85)'                      // rouge — bouillant
 }
 
 function titreCellule(c: ParAsset, h: number): string {
