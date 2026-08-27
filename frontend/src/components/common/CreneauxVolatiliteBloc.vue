@@ -31,7 +31,7 @@
     </div>
 
     <p v-if="prochainGlobal" class="text-[10px] text-slate-500 mt-auto">
-      Prochain : <span class="text-amber-300 font-semibold">{{ prochainGlobal }}</span> dans {{ compteRebours }}
+      Prochain : <span class="text-amber-300 font-semibold">{{ prochainGlobal.nom }}</span> dans {{ compteRebours }}
     </p>
   </div>
 </template>
@@ -91,7 +91,7 @@ const prochainGlobal = computed(() => {
     for (const t of c.top) {
       const d = (t.heure - h + 24) % 24
       if (d === 0) continue
-      const minutes = d * 60 - maintenant.value.getMinutes()
+      const minutes = Math.max(0, d * 60 - maintenant.value.getMinutes())
       if (!meilleur || minutes < meilleur.minutes) {
         meilleur = { nom: `${c.asset} ${String(t.heure).padStart(2, '0')}h`, minutes }
       }
@@ -102,7 +102,7 @@ const prochainGlobal = computed(() => {
 
 const compteRebours = computed(() => {
   const p = prochainGlobal.value
-  if (!p) return '—'
+  if (!p || !isFinite(p.minutes) || p.minutes < 0) return '—'
   const h = Math.floor(p.minutes / 60)
   const m = p.minutes % 60
   return h > 0 ? `${h}h${String(m).padStart(2, '0')}` : `${m} min`
