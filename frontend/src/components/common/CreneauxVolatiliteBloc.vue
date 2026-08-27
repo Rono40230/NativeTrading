@@ -3,9 +3,9 @@
        (stats 24 mois glissants, job backend quotidien). Créneau en cours
        surligné, prochain avec compte à rebours. -->
   <div class="glass-card p-3 flex flex-col gap-2 min-h-0">
-    <div class="flex items-center justify-between">
+    <div class="shrink-0">
       <p class="text-[11px] font-semibold text-white uppercase tracking-widest">⏰ Créneaux de volatilité</p>
-      <span class="text-[10px] text-slate-500">heures Paris · 24 mois</span>
+      <p class="text-[9px] text-slate-500">heures Paris · 24 mois</p>
     </div>
 
     <div v-if="chargement" class="text-center text-slate-500 text-xs py-3">Calcul des créneaux…</div>
