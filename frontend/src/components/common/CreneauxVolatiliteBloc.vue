@@ -20,19 +20,11 @@
         </div>
         <span class="w-px bg-white/10 self-stretch"></span>
         <div class="flex-1 flex gap-[2px]">
-          <span v-for="h in 24" :key="'a' + h" v-show="h >= 12" class="flex-1 text-center">{{ h }}</span>
-        </div>
-      </div>
-
-      <!-- Une rangée par asset -->
-      <div v-for="c in creneaux" :key="c.asset" class="flex items-center gap-1">
-        <span class="w-14 shrink-0 text-[10px] font-semibold text-white truncate" :title="c.asset">{{ c.asset }}</span>
-        <div class="flex-1 flex gap-[2px] h-6">
-          <div v-for="h in 24" :key="h"
-            class="flex-1 rounded-[2px] transition-colors cursor-help"
-            :style="{ backgroundColor: couleurCellule(c, h - 1), border: estHeureCourante(h - 1) ? '2px solid #fff' : '2px solid transparent' }"
-
-          />
+          <div v-for="h in 24" :key="h" class="flex-1 relative rounded-[2px]" style="min-height:100%">
+            <div class="absolute inset-0 rounded-[2px]" :style="{ backgroundColor: couleurCellule(c, h - 1) }" />
+            <div v-if="estHeureCourante(h - 1)" class="absolute inset-0 rounded-[2px] pointer-events-none"
+                 style="border:2px solid #fff; box-shadow:0 0 8px rgba(255,255,255,0.8); z-index:10" />
+          </div>
           <!-- Séparateur midi inséré après la 12e cellule via rendu conditionnel -->
           <template v-if="false" />
         </div>
