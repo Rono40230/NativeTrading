@@ -1,7 +1,7 @@
 <template>
   <div class="glass-card py-1.5 px-3 relative overflow-hidden shrink-0 flex items-center justify-center">
     <WorldMapBg />
-    <div class="grid grid-cols-2 gap-2 lg:grid-cols-5 relative w-full">
+    <div class="grid grid-cols-3 gap-2 lg:grid-cols-6 relative w-full mx-auto" style="max-width: 900px;">
       <div v-for="session in sessions" :key="session.nom" class="flex flex-col items-center gap-0">
 
         <!-- Nom de la place au-dessus -->
@@ -73,6 +73,7 @@ const SESSIONS: SessionDef[] = [
   { nom: 'Hong Kong', timezone: 'Asia/Hong_Kong',    ouvertureLocaleH: 9,  ouvertureLocaleM: 0,  fermetureLocaleH: 17, fermetureLocaleM: 0  },
   { nom: 'New York',  timezone: 'America/New_York',  ouvertureLocaleH: 9,  ouvertureLocaleM: 30, fermetureLocaleH: 16, fermetureLocaleM: 0  },
   { nom: 'Londres',   timezone: 'Europe/London',     ouvertureLocaleH: 8,  ouvertureLocaleM: 0,  fermetureLocaleH: 17, fermetureLocaleM: 0  },
+  { nom: 'Paris',    timezone: 'Europe/Paris',      ouvertureLocaleH: 9,  ouvertureLocaleM: 0,  fermetureLocaleH: 17, fermetureLocaleM: 30 },
   { nom: 'Sydney',    timezone: 'Australia/Sydney',  ouvertureLocaleH: 8,  ouvertureLocaleM: 0,  fermetureLocaleH: 16, fermetureLocaleM: 0  },
   { nom: 'Tokyo',     timezone: 'Asia/Tokyo',        ouvertureLocaleH: 9,  ouvertureLocaleM: 0,  fermetureLocaleH: 18, fermetureLocaleM: 0  },
 ]

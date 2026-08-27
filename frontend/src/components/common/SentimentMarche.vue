@@ -1,9 +1,9 @@
 <template>
-  <div class="glass-card p-4">
+  <div class="glass-card p-3 pt-2">
     <!-- En-tête -->
-    <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center justify-between mb-2 border-b border-white/10 pb-1">
       <div>
-        <p class="text-[11px] font-semibold text-white uppercase tracking-widest">Sentiment de Marché</p>
+        <p class="text-[11px] font-semibold text-white uppercase tracking-widest">🌡️ Sentiment de Marché</p>
         <p class="text-[10px] text-slate-400">Jauges : réf. veille · Marchés : aujourd'hui</p>
       </div>
       <div v-if="chargement" class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
