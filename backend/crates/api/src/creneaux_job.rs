@@ -112,10 +112,13 @@ async fn calculer_asset(db: &Database, asset: &str) -> anyhow::Result<()> {
 }
 
 /// Fusionne les heures consécutives en plages horaires continues.
-/// Retourne les 3 meilleures plages, triées par score (vol × fiabilité × durée).
+/// ÉTAPE 1 : ne garder que les heures SIGNIFICATIVES (vol ≥ 1,2× la médiane
+/// de l'asset — sinon les 24h se fusionnent en une plage 00h→24h).
+/// ÉTAPE 2 : fusionner les consécutives.
+/// Retourne les 3 meilleures plages par score (vol × fiabilité × durée).
 fn fusionner_plages(creneaux: &[serde_json::Value]) -> Vec<serde_json::Value> {
-    // Extraire et trier les heures.
-    let mut heures: Vec<(i64, f64, f64)> = creneaux
+    // Extraire et trier par vol descendante.
+    let mut toutes: Vec<(i64, f64, f64)> = creneaux
         .iter()
         .filter_map(|c| {
             let h = c.get("heure")?.as_i64()?;
@@ -123,6 +126,19 @@ fn fusionner_plages(creneaux: &[serde_json::Value]) -> Vec<serde_json::Value> {
             let f = c.get("fiabilite")?.as_f64()?;
             Some((h, v, f))
         })
+        .collect();
+    toutes.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    // Médiane des vols → seuil « significatif » = 1,2× médiane.
+    let mut vols: Vec<f64> = toutes.iter().map(|&(_, v, _)| v).collect();
+    vols.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let seuil = vols.get(vols.len() / 2).copied().unwrap_or(0.0) * 1.2;
+
+    // Garder les heures au-dessus du seuil (max 8 pour former des clusters).
+    let mut heures: Vec<(i64, f64, f64)> = toutes
+        .into_iter()
+        .filter(|&(_, v, _)| v >= seuil)
+        .take(8)
         .collect();
     heures.sort_by_key(|&(h, _, _)| h);
 
