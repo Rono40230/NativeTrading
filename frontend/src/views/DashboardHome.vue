@@ -21,13 +21,13 @@
             class="shrink-0"
           />
           <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
-          <CreneauxVolatiliteBloc class="shrink-0" />
         </div>
 
         <!-- Centre : horloges en TÊTE (même largeur que les blocs stratégies),
              puis blocs par stratégie (courbe R + stats + signaux en cours). -->
         <div class="flex-1 min-w-0 min-h-0 flex flex-col gap-2">
           <MarketClocks class="shrink-0 h-[130px]" />
+          <CreneauxVolatiliteBloc class="shrink-0" />
           <div class="flex-1 min-h-0">
             <DashboardStrategiesBlocs />
           </div>
