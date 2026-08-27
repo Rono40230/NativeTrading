@@ -22,9 +22,7 @@
         <span class="w-14 shrink-0 text-[10px] font-semibold text-white truncate">{{ c.asset }}</span>
         <div class="flex-1 flex gap-[2px] h-6">
           <div v-for="h in 24" :key="c.asset+'-'+h" class="flex-1 relative rounded-[2px]">
-            <div class="absolute inset-0 rounded-[2px]" :style="{ backgroundColor: couleurCellule(c, h-1) }" />
-            <div v-if="estHeureCourante(h-1)" class="absolute rounded-[2px] pointer-events-none"
-                 style="top:0;left:0;right:0;bottom:0;border:2px solid #ffffff;box-shadow:0 0 8px rgba(255,255,255,0.8);z-index:10;" />
+            <div class="absolute inset-0 rounded-[2px]" :style="{ backgroundColor: estHeureCourante(h-1) ? '#ffffff' : couleurCellule(c, h-1) }" />
           </div>
         </div>
       </div>
