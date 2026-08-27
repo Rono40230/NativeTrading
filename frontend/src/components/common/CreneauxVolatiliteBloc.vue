@@ -39,7 +39,7 @@
           <div v-for="h in 24" :key="h"
             class="flex-1 rounded-[2px] transition-colors cursor-help"
             :style="{ backgroundColor: couleurCellule(c, h - 1) }"
-            :class="{ 'ring-1 ring-cyan-300/70': estHeureCourante(h - 1) }"
+            :class="{ 'ring-2 ring-red-500 shadow-[0_0_6px_rgba(239,68,68,0.5)]': estHeureCourante(h - 1) }"
             :title="titreCellule(c, h - 1)"
           />
           <!-- Séparateur midi inséré après la 12e cellule via rendu conditionnel -->
@@ -54,7 +54,7 @@
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(34,211,238,0.3)" /> modéré</span>
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(34,211,238,0.6)" /> actif</span>
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(34,211,238,0.95)" /> très actif</span>
-        <span class="ml-auto flex items-center gap-1"><span class="w-3 h-2 rounded-[2px] ring-1 ring-cyan-300/70" /> heure en cours</span>
+        <span class="ml-auto flex items-center gap-1"><span class="w-3 h-2 rounded-[2px] ring-2 ring-red-500" /> heure en cours</span>
       </div>
     </div>
   </div>
