@@ -29,7 +29,7 @@
 
       <div class="flex gap-2 flex-1 min-h-0">
         <!-- Colonne gauche : Surveillance assets + Setups en formation -->
-        <div class="w-56 shrink-0 flex flex-col gap-2 min-h-0">
+        <div class="w-64 shrink-0 flex flex-col gap-2 min-h-0">
           <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
           <CreneauxVolatiliteBloc class="shrink-0" />
         </div>
