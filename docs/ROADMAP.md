@@ -100,6 +100,7 @@ L'app est une coquille d'orchestration + 3 verticales stratégiques complètes :
 | **30 trades minimum** | Aucune proposition de recalibrage sous 30 trades remplis par tranche |
 | **Fichier ≤ 600 lignes** | Pré-commit bloquant. Extraire vers un module dédié |
 | **Pas de .unwrap()/.expect() hors tests** | Pré-commit bloquant |
+| **Chirurgie uniquement** | Toute correction/amélioration est CHIRURGICALE : additive, sans modifier le comportement existant, vérifiée par tests + build avant commit. Zéro casse, zéro régression (règle propriétaire 27/08) |
 | **Stratégie changée = prompt changé** | Tout changement de logique, de calcul ou de mécanique dans une stratégie est porté IMMÉDIATEMENT dans les prompts IA de l'analyste (page Prompts IA — `llm/prompts.rs`). Un analyste nourri avec une définition périmée analyse avec de faux critères |
 
 ---

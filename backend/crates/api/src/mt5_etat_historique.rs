@@ -17,13 +17,17 @@ pub struct QueryEtat {
 }
 
 /// GET /api/mt5/historique/etat?asset=XAUUSD&tf=M1
-/// → { "count": 720000, "min_ts": 1724000000 } (count 0 si vide)
+/// → { "count": 720000, "min_ts": 1724000000, "max_ts": 1787814000 }
+/// (count 0 si vide). `max_ts` = dernière bougie — rattrapage des trous
+/// RÉCENTS par l'EA (nuit PC éteint : l'ancien delta min_ts ne voyait que
+/// l'historique ancien). Champ ADDITIF : l'EA v1.30 l'ignore sans erreur.
 pub async fn get_etat(
     state: web::Data<AppState>,
     query: web::Query<QueryEtat>,
 ) -> impl Responder {
     let Ok(row) = sqlx::query(
-        "SELECT COUNT(*) as n, COALESCE(MIN(timestamp), 0) as min_ts
+        "SELECT COUNT(*) as n, COALESCE(MIN(timestamp), 0) as min_ts,
+                COALESCE(MAX(timestamp), 0) as max_ts
          FROM bougies WHERE asset = ? AND timeframe = ?",
     )
     .bind(&query.asset)
@@ -31,10 +35,11 @@ pub async fn get_etat(
     .fetch_one(state.db.pool())
     .await
     else {
-        return HttpResponse::Ok().json(serde_json::json!({ "count": 0, "min_ts": 0 }));
+        return HttpResponse::Ok().json(serde_json::json!({ "count": 0, "min_ts": 0, "max_ts": 0 }));
     };
     HttpResponse::Ok().json(serde_json::json!({
         "count": row.get::<i64, _>("n"),
         "min_ts": row.get::<i64, _>("min_ts"),
+        "max_ts": row.get::<i64, _>("max_ts"),
     }))
 }

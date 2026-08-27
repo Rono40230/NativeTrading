@@ -21,7 +21,7 @@
 //|    au changement de période : clôture officielle (conf=1).       |
 //+------------------------------------------------------------------+
 #property copyright "Native Trading AI"
-#property version   "1.30"
+#property version   "1.31"
 #property strict
 
 input string ApiUrl = "http://127.0.0.1:8080"; // URL de l'application (localhost refusé par MT5 — bug connu)
@@ -30,6 +30,7 @@ input string ApiUrl = "http://127.0.0.1:8080"; // URL de l'application (localhos
 string   symboles[];       // nom broker réel (résolu, casse exacte)
 string   assets[];         // nom dans l'app
 bool     historique_fait[];// historique poussé pour ce symbole ?
+bool     rattrapage_fait[];// trous RÉCENTS rattrapés (v1.31 : nuit PC éteint)
 
 // Timeframes demandés par l'app
 string   tf_noms[];
@@ -101,6 +102,12 @@ datetime vers_utc(const datetime t_srv)
 
 //+------------------------------------------------------------------+
 int idx(const int s, const int t) { return s * NB_TF + t; }
+
+// Durée d'une bougie du TF t (secondes) — borne de recherche CopyRates.
+int tf_secs(const int t)
+{
+   return PeriodSeconds(tf_periodes[t]);
+}
 
 //+------------------------------------------------------------------+
 //| Liste des symboles : GET /api/mt5/symboles                       |
@@ -177,6 +184,8 @@ void rafraichir_abonnements()
       ArrayCopy(assets, nouveaux_assets);
       ArrayResize(historique_fait, ArraySize(symboles));
       ArrayInitialize(historique_fait, false);
+      ArrayResize(rattrapage_fait, ArraySize(symboles));
+      ArrayInitialize(rattrapage_fait, false);
 
       ArrayResize(dernier_debut, ArraySize(symboles) * NB_TF);
       ArrayInitialize(dernier_debut, 0);
@@ -184,6 +193,8 @@ void rafraichir_abonnements()
       ArrayInitialize(dernier_close, 0.0);
       ArrayResize(etat_tf, ArraySize(symboles) * NB_TF);
       ArrayInitialize(etat_tf, 0);
+      ArrayResize(etat_rattrapage, ArraySize(symboles) * NB_TF);
+      ArrayInitialize(etat_rattrapage, 0);
    }
 }
 
@@ -258,6 +269,7 @@ string resoudre_symbole(const string demande)
 //| État de progression dans etat_tf[] : 0 = à faire, 1 = fait.       |
 //+------------------------------------------------------------------+
 int etat_tf[]; // [symbole × tf] : historique poussé ?
+int etat_rattrapage[]; // [symbole × tf] : trou récent rattrapé (v1.31)
 
 void pousser_historique(const int s)
 {
@@ -368,6 +380,80 @@ void pousser_historique(const int s)
 }
 
 //+------------------------------------------------------------------+
+//| RATTRAPAGE DES TROUS RÉCENTS (v1.31).                            |
+//| Le delta min_ts ne voit que l'historique ANCIEN : une nuit PC     |
+//| éteint laissait un trou à vie (XAU 26/08 22:00 → 27/08 08:30).   |
+//| Ici : pour chaque TF, on pousse tout ce qui est PLUS RÉCENT que  |
+//| la dernière bougie en base (max_ts). Idempotent côté app         |
+//| (INSERT OR IGNORE) — recouvrements inoffensifs. UN TF par tick,  |
+//| même cadence que le push d'historique. Marché fermé → rien.      |
+//+------------------------------------------------------------------+
+void rattraper_trou(const int s)
+{
+   for(int t = 0; t < NB_TF; t++)
+   {
+      if(etat_rattrapage[idx(s, t)] == 1) continue;
+
+      string asset = assets[s];
+      int count_db = 0;
+      long min_ts_db = 0, max_ts_db = 0;
+      if(!etat_historique_ex(asset, tf_noms[t], count_db, min_ts_db, max_ts_db))
+         return; // app injoignable — réessai au prochain cycle
+
+      etat_rattrapage[idx(s, t)] = 1;
+      if(max_ts_db <= 0) continue; // base vide (première fois) — le push historique s'en charge
+
+      // Bougies serveur strictement postérieures à max_ts (UTC → serveur).
+      datetime debut_srv = vers_serveur((datetime)max_ts_db) + tf_secs(t);
+      MqlRates barres[];
+      int n = CopyRates(symboles[s], tf_periodes[t], debut_srv, TimeCurrent(), barres);
+      if(n <= 0) continue; // rien chez le broker (marché fermé / pas encore téléchargé)
+
+      int TAILLE_MORCEAU = 2000;
+      int envoyees = 0;
+      for(int fin = n; fin > 0; fin -= TAILLE_MORCEAU)
+      {
+         int debut_m = MathMax(0, fin - TAILLE_MORCEAU);
+         string json = "{\"asset\":\"" + asset + "\",\"tf\":\"" + tf_noms[t] + "\",\"b\":[";
+         for(int i = fin - 1; i >= debut_m; i--)
+         {
+            json += StringFormat("[%I64d,%.10f,%.10f,%.10f,%.10f,%I64d]",
+                                 (long)vers_utc(barres[i].time), barres[i].open, barres[i].high,
+                                 barres[i].low, barres[i].close, (long)barres[i].tick_volume);
+            if(i > debut_m) json += ",";
+         }
+         json += "]}";
+
+         char donnees[];
+         StringToCharArray(json, donnees, 0, StringLen(json));
+         int statut = -1;
+         for(int essai = 0; essai < 3 && statut != 200; essai++)
+         {
+            char resultat[];
+            string en_tetes_reponse = "";
+            ResetLastError();
+            statut = WebRequest("POST", ApiUrl + "/api/mt5/historique",
+                                "Content-Type: application/json", 10000,
+                                donnees, resultat, en_tetes_reponse);
+            if(statut == -1) Sleep(500);
+         }
+         if(statut != 200)
+         {
+            Print("EA_Collecteur: rattrapage ", asset, " ", tf_noms[t],
+                  " échec HTTP ", statut);
+            return;
+         }
+         envoyees += MathMin(fin, TAILLE_MORCEAU) - debut_m;
+      }
+      if(envoyees > 0)
+         Print("EA_Collecteur: rattrapage ", asset, " ", tf_noms[t],
+               " — ", envoyees, " bougies comblées");
+      return; // UN TF par tick
+   }
+   rattrapage_fait[s] = true; // tous les TF traités
+}
+
+//+------------------------------------------------------------------+
 //| Bougies en formation + clôtures officielles, chaque (s, tf).     |
 //+------------------------------------------------------------------+
 void pousser_bougies()
@@ -376,6 +462,8 @@ void pousser_bougies()
    {
       if(!historique_fait[s])
          pousser_historique(s); // UN TF par tick — puis le live continue
+      if(historique_fait[s] && !rattrapage_fait[s])
+         rattraper_trou(s); // v1.31 : combler les trous récents (une passe)
       for(int t = 0; t < NB_TF; t++)
       {
          if(!historique_fait[s] && etat_tf[idx(s, t)] != 1)
@@ -434,6 +522,15 @@ void envoyer_kline(const int s, const int t, const int shift, const bool confirm
 //+------------------------------------------------------------------+
 bool etat_historique(const string asset, const string tf, int &count_db, long &min_ts_db)
 {
+   long max_ignored = 0;
+   return etat_historique_ex(asset, tf, count_db, min_ts_db, max_ignored);
+}
+
+/// Variante v1.31 : expose AUSSI max_ts (dernière bougie en base) pour le
+/// rattrapage des trous récents. Champ absent (ancien backend) → max_ts = 0.
+bool etat_historique_ex(const string asset, const string tf,
+                        int &count_db, long &min_ts_db, long &max_ts_db)
+{
    char vide[];
    char resultat[];
    string en_tetes_reponse = "";
@@ -451,6 +548,14 @@ bool etat_historique(const string asset, const string tf, int &count_db, long &m
    if(fc < 0 || fm < 0) return false;
    count_db = (int)StringToInteger(StringSubstr(reponse, pc + 8, fc - pc - 8));
    min_ts_db = StringToInteger(StringSubstr(reponse, pm + 9, fm - pm - 9));
+   max_ts_db = 0;
+   int px = StringFind(reponse, "\"max_ts\":");
+   if(px >= 0)
+   {
+      int fx = StringFind(reponse, "}", px);
+      if(fx > px)
+         max_ts_db = StringToInteger(StringSubstr(reponse, px + 9, fx - px - 9));
+   }
    return true;
 }
 
