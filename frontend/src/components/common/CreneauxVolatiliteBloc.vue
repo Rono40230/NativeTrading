@@ -5,7 +5,7 @@
   <div class="glass-card px-4 py-2 flex flex-col gap-1.5">
     <div class="flex items-center justify-between shrink-0">
       <p class="text-[11px] font-semibold text-white uppercase tracking-widest">⏰ Créneaux de volatilité</p>
-      <span class="text-[9px] text-slate-500">heures Paris · fenêtres actives · 24 mois glissants</span>
+      <span class="text-[9px] text-white">heures Paris · fenêtres actives · 24 mois glissants</span>
     </div>
 
     <div v-if="chargement" class="text-center text-slate-500 text-xs py-3">Calcul…</div>
@@ -15,9 +15,9 @@
       <!-- En-têtes : MATIN | APRÈS-MIDI -->
       <div class="flex items-center gap-1 text-[8px] text-slate-500 font-semibold uppercase tracking-wide">
         <span class="w-14 shrink-0"></span>
-        <span class="flex-1 text-center">Matin (00h→12h)</span>
+        <span class="flex-1 text-center text-white">Matin (00h→12h)</span>
         <span class="w-px bg-white/10 self-stretch"></span>
-        <span class="flex-1 text-center">Après-midi (12h→24h)</span>
+        <span class="flex-1 text-center text-white">Après-midi (12h→24h)</span>
       </div>
 
       <!-- Heures : 00..11 | 12..23 -->
