@@ -38,8 +38,8 @@
         <div class="flex-1 flex gap-[2px] h-6">
           <div v-for="h in 24" :key="h"
             class="flex-1 rounded-[2px] transition-colors cursor-help"
-            :style="{ backgroundColor: couleurCellule(c, h - 1) }"
-            :class="{ 'ring-2 ring-white z-10': estHeureCourante(h - 1) }"
+            :style="{ backgroundColor: couleurCellule(c, h - 1), boxShadow: estHeureCourante(h - 1) ? '0 0 0 2px #fff' : 'none' }"
+
             :title="titreCellule(c, h - 1)"
           />
           <!-- Séparateur midi inséré après la 12e cellule via rendu conditionnel -->
