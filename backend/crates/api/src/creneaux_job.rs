@@ -212,11 +212,17 @@ pub async fn lister(state: actix_web::web::Data<crate::state::AppState>) -> impl
     }
     // Fusion des heures consécutives en PLAGES (15h+16h+17h → 15h→18h)
     // puis top 3 plages par score combiné.
+    // TOUTES les heures (0-23) par asset — le frontend colore la heatmap.
+    // On garde aussi les plages fusionnées pour afficher les fenêtres clés.
     let sortie: Vec<serde_json::Value> = par_asset
         .into_iter()
         .map(|(asset, creneaux)| {
             let plages = fusionner_plages(&creneaux);
-            serde_json::json!({ "asset": asset, "top": plages })
+            serde_json::json!({
+                "asset": asset,
+                "top": plages,
+                "heures": creneaux,
+            })
         })
         .collect();
     actix_web::HttpResponse::Ok().json(sortie)

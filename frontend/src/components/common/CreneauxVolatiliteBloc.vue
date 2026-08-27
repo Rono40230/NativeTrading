@@ -67,7 +67,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { http } from '@/services/http.client'
 
 interface Plage { debut: number; fin: number; vol_pct: number; fiabilite: number; nb_heures: number }
-interface ParAsset { asset: string; top: Plage[] }
+interface Heure { heure: number; vol_pct: number; fiabilite: number }
+interface ParAsset { asset: string; top: Plage[]; heures?: Heure[] }
 
 const creneaux = ref<ParAsset[]>([])
 const chargement = ref(true)
@@ -103,21 +104,29 @@ function estHeureCourante(h: number): boolean {
 /// (normalisé sur le max de vol de l'asset). Chaque palier est immédiatement
 /// distinguable, contrairement à un dégradé d'une seule teinte.
 function couleurCellule(c: ParAsset, h: number): string {
-  const plage = c.top.find(t => h >= t.debut && h < t.fin)
-  if (!plage) return 'rgba(255,255,255,0.04)'
-  const volMax = Math.max(...c.top.map(t => t.vol_pct), 0.001)
-  const ratio = plage.vol_pct / volMax
-  if (ratio < 0.35) return 'rgba(34,197,94,0.35)'   // vert — calme
-  if (ratio < 0.55) return 'rgba(34,197,94,0.65)'   // vert fort — modéré
-  if (ratio < 0.75) return 'rgba(250,204,21,0.65)'  // jaune — actif
-  if (ratio < 0.90) return 'rgba(249,115,22,0.75)'  // orange — très actif
-  return 'rgba(239,68,68,0.85)'                      // rouge — bouillant
+  const heure = c.heures?.find(x => x.heure === h)
+  const vol = heure?.vol_pct ?? c.top.find(t => h >= t.debut && h < t.fin)?.vol_pct
+  if (vol === undefined) return 'rgba(255,255,255,0.04)'
+  const toutes = c.heures ?? []
+  const volMax = toutes.length > 0
+    ? Math.max(...toutes.map(x => x.vol_pct), 0.001)
+    : Math.max(...c.top.map(t => t.vol_pct), 0.001)
+  const ratio = vol / volMax
+  if (ratio < 0.30) return 'rgba(34,197,94,0.20)'
+  if (ratio < 0.45) return 'rgba(34,197,94,0.45)'
+  if (ratio < 0.60) return 'rgba(34,197,94,0.70)'
+  if (ratio < 0.75) return 'rgba(250,204,21,0.65)'
+  if (ratio < 0.88) return 'rgba(249,115,22,0.78)'
+  return 'rgba(239,68,68,0.88)'
 }
 
 function titreCellule(c: ParAsset, h: number): string {
+  const heure = c.heures?.find(x => x.heure === h)
+  const libelle = `${c.asset} ${String(h).padStart(2, '0')}h`
+  if (heure) return `${libelle} — ${heure.vol_pct.toFixed(3)}% · fiabilité ${Math.round(heure.fiabilite * 100)}%`
   const plage = c.top.find(t => h >= t.debut && h < t.fin)
-  if (!plage) return `${c.asset} ${String(h).padStart(2, '0')}h — calme`
-  return `${c.asset} ${String(h).padStart(2, '0')}h — ${plage.vol_pct.toFixed(3)}% · fiabilité ${Math.round(plage.fiabilite * 100)}%`
+  if (plage) return `${libelle} — ${plage.vol_pct.toFixed(3)}%`
+  return `${libelle} — marché fermé`
 }
 
 onMounted(() => {
