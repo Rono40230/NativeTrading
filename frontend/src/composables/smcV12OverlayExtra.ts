@@ -283,8 +283,9 @@ export function dessinerBoxes(
       const x1 = xTemporel(s.start_ts)
       const x2 = xTemporel(s.end_ts)
       if (x1 === null && x2 === null) continue
+      const borneDroite = xDroit(ts, W, dernierTs)
       const gauche = x1 !== null ? Math.max(0, x1) : 0
-      const droite = x2 !== null ? Math.min(W, x2) : xDroit(ts, W, dernierTs)
+      const droite = Math.min(x2 !== null ? x2 : borneDroite, borneDroite)
       if (droite <= gauche) continue // hors écran
       const coul = COUL_SESSION[s.session] ?? '#666666'
       const yTop = Math.min(yH, yL); const h = Math.abs(yH - yL)
