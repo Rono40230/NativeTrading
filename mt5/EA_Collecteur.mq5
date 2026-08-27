@@ -21,7 +21,7 @@
 //|    au changement de période : clôture officielle (conf=1).       |
 //+------------------------------------------------------------------+
 #property copyright "Native Trading AI"
-#property version   "1.31"
+#property version   "1.32"
 #property strict
 
 input string ApiUrl = "http://127.0.0.1:8080"; // URL de l'application (localhost refusé par MT5 — bug connu)
@@ -380,13 +380,12 @@ void pousser_historique(const int s)
 }
 
 //+------------------------------------------------------------------+
-//| RATTRAPAGE DES TROUS RÉCENTS (v1.31).                            |
-//| Le delta min_ts ne voit que l'historique ANCIEN : une nuit PC     |
-//| éteint laissait un trou à vie (XAU 26/08 22:00 → 27/08 08:30).   |
-//| Ici : pour chaque TF, on pousse tout ce qui est PLUS RÉCENT que  |
-//| la dernière bougie en base (max_ts). Idempotent côté app         |
-//| (INSERT OR IGNORE) — recouvrements inoffensifs. UN TF par tick,  |
-//| même cadence que le push d'historique. Marché fermé → rien.      |
+//| RATTRAPAGE DES 48 DERNIÈRES HEURES (v1.32).                      |
+//| v1.31 remplissait depuis max_ts (la FIN) — aveugle aux trous AU   |
+//| MILIEU : ce matin-là, l'EA avait déjà collecté après le trou.     |
+//| v1.32 : re-push IDempotent des 48h (INSERT OR IGNORE côté app) —  |
+//| les trous guérissent quelle que soit leur position, marché fermé  |
+//| → rien à pousser, doublons ignorés. UN TF par tick, une passe.    |
 //+------------------------------------------------------------------+
 void rattraper_trou(const int s)
 {
@@ -395,16 +394,9 @@ void rattraper_trou(const int s)
       if(etat_rattrapage[idx(s, t)] == 1) continue;
 
       string asset = assets[s];
-      int count_db = 0;
-      long min_ts_db = 0, max_ts_db = 0;
-      if(!etat_historique_ex(asset, tf_noms[t], count_db, min_ts_db, max_ts_db))
-         return; // app injoignable — réessai au prochain cycle
-
       etat_rattrapage[idx(s, t)] = 1;
-      if(max_ts_db <= 0) continue; // base vide (première fois) — le push historique s'en charge
 
-      // Bougies serveur strictement postérieures à max_ts (UTC → serveur).
-      datetime debut_srv = vers_serveur((datetime)max_ts_db) + tf_secs(t);
+      datetime debut_srv = TimeCurrent() - 48 * 3600;
       MqlRates barres[];
       int n = CopyRates(symboles[s], tf_periodes[t], debut_srv, TimeCurrent(), barres);
       if(n <= 0) continue; // rien chez le broker (marché fermé / pas encore téléchargé)
