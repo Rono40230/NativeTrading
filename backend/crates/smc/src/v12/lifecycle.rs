@@ -22,9 +22,6 @@ use super::trade::{CloseReason, TradeState};
     use super::types::{ObState, ObZone};
 use super::types::{BarInput, SmcOutput};
 
-/// Force minimale — seuil de score degradation (Pine `i_forceMin` = 4).
-const FORCE_MIN: i32 = 4;
-
 /// Mode de gestion du BE forcé sur BOS opposé (étude comparatif 26/08 —
 /// « 95 % des trades fermés à BE »). Classique = production fidèle Pine v12 ;
 /// les autres modes servent au binaire `comparatif_be` pour trancher par
@@ -168,15 +165,6 @@ impl TradeLifecycle {
             ModeBeForce::Qualifie => !tp1_hit && mss_oppose,
             ModeBeForce::Classique | ModeBeForce::Marche => !tp1_hit && bos_oppose,
         };
-        // scoreDeg : OB lié (source OB uniquement) dont la force dégrade sous 4.
-        let score_deg = match t.ob_key {
-            Some(key) if !tp1_hit => {
-                let s = scoring.ob_score(is_buy, key);
-                ScoringV11::force(s, cal) < FORCE_MIN
-            }
-            _ => false,
-        };
-
         // --- 4. Sortie si condition — précédence stricte Pine ---
         let close_reason = if sl_hit {
             Some(CloseReason::Sl)
@@ -206,7 +194,7 @@ impl TradeLifecycle {
         }
 
         // --- 5. BE forcé — Pine 3908-3923 / 4074-4089 ---
-        if filled && (be_force || score_deg) && !tp1_hit {
+        if filled && be_force && !tp1_hit {
             // Variante Marché : clôture immédiate au prix courant — le R
             // partiel est réalisé tel quel (souvent négatif : le BOS opposé
             // survient contre le trade).
