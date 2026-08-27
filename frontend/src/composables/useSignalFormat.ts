@@ -30,7 +30,7 @@ export function labelVerdictSignal(verdict: string | null): string {
   if (v === 'tp1+be') return '✅ TP1+BE (+1R acquis)'
   if (v === 'tp2') return '✅ TP2 (SL→TP1)'
   if (v === 'tp1') return '✅ TP1 (SL→BE)'
-  if (v === 'be')  return '⚪ BE forcé (BOS opposé) — 0R'
+  if (v === 'be')  return '⚪ BE (dégradation zone) — 0R'
   if (v === 'sl')  return '❌ SL'
   if (v === 'invalide') return '↩️ Entrée non atteinte'
   if (v === 'expire') return '⏰ Expiré'
