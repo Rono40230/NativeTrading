@@ -1,11 +1,11 @@
 <template>
   <div class="glass-card flex flex-col p-2 min-h-0 shrink-0">
-    <div class="flex items-center justify-between shrink-0 mb-1 border-b border-white/10 pb-1">
-      <span class="text-xs uppercase font-bold text-white whitespace-nowrap truncate">⚙️ Data & IA Engine</span>
-      <span class="text-[9px] text-emerald-400 whitespace-nowrap">runtime v12 · signaux officiels</span>
+    <div class="shrink-0 mb-1 border-b border-white/10 pb-1">
+      <p class="text-xs uppercase font-bold text-white whitespace-nowrap truncate">⚙️ Data & IA Engine</p>
+      <p class="text-[9px] text-emerald-400 whitespace-nowrap">runtime v12 · signaux officiels</p>
     </div>
 
-    <div class="grid grid-cols-2 gap-x-2 gap-y-1.5 flex-1 overflow-y-auto">
+    <div class="flex flex-col gap-1.5 flex-1 overflow-y-auto">
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
         <span class="text-gray-500 text-[9px] uppercase">API Serveur</span>
         <span :class="backendOk ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold">
