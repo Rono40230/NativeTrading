@@ -12,24 +12,20 @@
 
       <!-- En-tête : Horloges + System Status -->
       <div class="flex gap-2 shrink-0 h-[140px] mb-1">
-        <!-- Clocks -->
+        <!-- Clocks (pleine largeur — le statut système vit dans la colonne gauche) -->
         <div class="flex-1 min-w-0"><MarketClocks class="h-full" /></div>
-
-        <!-- System Status -->
-        <div class="w-[360px] shrink-0">
-           <DashboardSystemStatus
-              :backend-ok="backendOk"
-              :btc-prix="btcPrix"
-              :ollama-ok="ollamaOk"
-              :ml-pret="mlPret"
-              class="h-full"
-           />
-        </div>
       </div>
 
       <div class="flex gap-2 flex-1 min-h-0">
         <!-- Colonne gauche : Surveillance assets + Setups en formation -->
         <div class="w-64 shrink-0 flex flex-col gap-2 min-h-0">
+          <DashboardSystemStatus
+            :backend-ok="backendOk"
+            :btc-prix="btcPrix"
+            :ollama-ok="ollamaOk"
+            :ml-pret="mlPret"
+            class="shrink-0"
+          />
           <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
           <CreneauxVolatiliteBloc class="shrink-0" />
         </div>

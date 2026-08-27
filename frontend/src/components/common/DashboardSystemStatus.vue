@@ -1,7 +1,7 @@
 <template>
   <div class="glass-card flex flex-col p-2 min-h-0 shrink-0">
     <div class="flex items-center justify-between shrink-0 mb-1 border-b border-white/10 pb-1">
-      <span class="text-[10px] font-bold text-white uppercase tracking-widest">⚙️ DATA & IA ENGINE</span>
+      <span class="text-xs uppercase font-bold text-white">⚙️ Data & IA Engine</span>
       <span class="text-[9px] text-emerald-400">runtime v12 · signaux officiels</span>
     </div>
     
