@@ -43,8 +43,8 @@
         <p class="text-[11px] text-gray-500 leading-relaxed">
           R est mesuré sur l'ATR H1 (volatilité normale de l'actif) et non sur la
           compression M1 pré-annonce — un R microscopique faisait égorger les jambes
-          par le spike initial (constat Gate 3 26/08). TP1 = 1R (BE à l'entrée) et
-          TP2 = 2R (BE à TP1 + trailing) sont canoniques. Time-stop 60 min.
+          par le spike initial (constat Gate 3 26/08). TP1 = 1R (SL resserré à E∓0,5R — tampon
+          anti-whipsaw 27/08) et TP2 = 2R (SL à TP1 + trailing) canoniques. Time-stop 60 min.
         </p>
       </div>
 

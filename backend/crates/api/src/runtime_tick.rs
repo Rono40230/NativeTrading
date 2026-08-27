@@ -556,7 +556,7 @@ async fn reconcilier_clotures(
             .and_then(|s| s.parse::<f64>().ok())
             .unwrap_or(0.0);
         match db
-            .fermer_signal_par_cle(&e.cle_trade, verdict, e.prix, r, e.emis_le.timestamp())
+            .fermer_signal_par_cle(&e.cle_trade, e.asset.as_str(), verdict, e.prix, r, e.emis_le.timestamp())
             .await
         {
             Ok(n) => total += n,

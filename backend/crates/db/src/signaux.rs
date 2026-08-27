@@ -192,12 +192,13 @@ impl Database {
     /// au bord de la zone a été touché : le trade existe au marché). Un
     /// signal jamais rempli puis expiré n'est pas un trade — les stats de
     /// réussite ne portent que sur les remplis.
-    pub async fn marquer_remplie_par_cle(&self, cle_moteur: &str, ts: i64) -> Result<u64> {
+    pub async fn marquer_remplie_par_cle(&self, cle_moteur: &str, asset: &str, ts: i64) -> Result<u64> {
         let res = sqlx::query(
-            "UPDATE signaux SET heure_entree = ? WHERE cle_moteur = ? AND statut = 'Actif' AND heure_entree IS NULL",
+            "UPDATE signaux SET heure_entree = ? WHERE cle_moteur = ? AND asset = ? AND statut = 'Actif' AND heure_entree IS NULL",
         )
         .bind(ts)
         .bind(cle_moteur)
+        .bind(asset)
         .execute(&self.pool)
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
@@ -221,20 +222,26 @@ impl Database {
     pub async fn fermer_signal_par_cle(
         &self,
         cle_moteur: &str,
+        asset: &str,
         verdict: &str,
         prix_verdict: f64,
         r_realise: f64,
         ferme_le: i64,
     ) -> Result<u64> {
+        // Filtre ASSET obligatoire : des stratégies (straddle notamment)
+        // partagent la même clé entre assets pour une même annonce — sans
+        // ce filtre, la première clôture fermait toutes les lignes (bug
+        // 27/08 : +31R de PCE écrasés par la clôture XAU).
         let res = sqlx::query(
             "UPDATE signaux SET statut = 'Fermé', verdict = ?, prix_verdict = ?, r_realise = ?, ferme_le = ?
-             WHERE cle_moteur = ? AND statut = 'Actif'",
+             WHERE cle_moteur = ? AND asset = ? AND statut = 'Actif'",
         )
         .bind(verdict)
         .bind(prix_verdict)
         .bind(r_realise)
         .bind(ferme_le)
         .bind(cle_moteur)
+        .bind(asset)
         .execute(&self.pool)
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;

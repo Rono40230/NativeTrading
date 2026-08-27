@@ -385,7 +385,7 @@ async fn gerer_positions(db: &Arc<Database>) {
                     .bind(&cle)
                     .execute(db.pool())
                     .await;
-                let _ = db.fermer_signal_par_cle(&cle, verdict_str, prix, r_realise, chrono::Utc::now().timestamp()).await;
+                let _ = db.fermer_signal_par_cle(&cle, &symbole, verdict_str, prix, r_realise, chrono::Utc::now().timestamp()).await;
                 tracing::info!("🚀 Rockets {} : {} ({:.2} R)", symbole, verdict_str, r_realise);
             }
         }

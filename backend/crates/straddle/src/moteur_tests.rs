@@ -106,10 +106,10 @@ fn montee_gagnante_tp2_trailing_perdante_sl_net_positif() {
     let mut m = moteur_pret(a_ts);
     tick(&mut m, a_ts - 1800, 100.0);
     tick(&mut m, a_ts - 10, 100.0); // ouverture à E=100, R=0.5
-    // Montée à E+1R (100.5) : LONG TP1 → BE, SHORT SL (-1R, silencieuse).
+    // Montée à E+1R (100.5) : LONG TP1 → tampon (99.75), SHORT SL (silencieuse).
     let s = tick(&mut m, a_ts + 5, 100.5);
-    assert!(s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Be)));
     assert!(s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Tp1)));
+    assert!(!s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Be)), "plus de BE à E");
     assert!(!s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Cloture)),
         "pas de Cloture avant la fin des 2 jambes");
     // TP2 (101.0) → SL à TP1 + trailing ; nouveau haut 101.6 → SL ≈ 101.1.
@@ -123,18 +123,25 @@ fn montee_gagnante_tp2_trailing_perdante_sl_net_positif() {
 }
 
 #[test]
-fn montee_puis_retour_la_gagnante_be_net_zero() {
+fn montee_puis_retour_a_e_la_gagnante_survit_tampon() {
     let a_ts = 1_800_000_000;
     let mut m = moteur_pret(a_ts);
     tick(&mut m, a_ts - 1800, 100.0);
     tick(&mut m, a_ts - 10, 100.0); // E=100, R=0.5
-    // Montée à TP1 (100.5) : LONG TP1+BE, SHORT SL.
+    // Montée à TP1 (100.5) : LONG TP1 → SL resserré au tampon 99.75 ;
+    // SHORT SL (100.5 = son SL) → −1R.
     tick(&mut m, a_ts + 5, 100.5);
-    // Retour à E (100.0) : LONG sort en BE (TP acquis +1R) → net = +1R −1R = 0.
+    // Retour à E (100.0) : le tampon (99.75) n'est PAS touché — la gagnante
+    // SURVIT au rebond (décision 27/08 : c'est le whipsaw qui tuait tout).
     let s = tick(&mut m, a_ts + 60, 100.0);
+    assert!(s.evenements.is_empty(), "aucune clôture au rebond à E");
+    assert!(matches!(m.phase_courante(), Phase::Position { .. }), "passe toujours ouverte");
+    // Retour au tampon 99.75 : sortie SL tampon → −0,5R. Net = −0,5 −1 = −1,5R
+    // tant que l'autre jambe est déjà morte → clôture finale.
+    let s = tick(&mut m, a_ts + 120, 99.7);
     let (verdict, r) = verdict_final(&s);
-    assert_eq!(verdict, "be", "TP1+BE (1R) − SL perdante (1R) = 0R net");
-    assert!(r.abs() < 1e-9);
+    assert_eq!(verdict, "sl");
+    assert!((r - (-1.5)).abs() < 1e-6, "tampon −0,5R + perdante −1R, got {r}");
 }
 
 #[test]

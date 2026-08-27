@@ -123,7 +123,7 @@ async fn fermer_signaux(db: Arc<Database>, bus: BusEvenements) {
     while let Ok(e) = rx.recv().await {
         use engine::TypeEvenementTrade as T;
         if matches!(e.evenement, T::Fill) {
-            let _ = db.marquer_remplie_par_cle(&e.cle_trade, e.debut_barre).await;
+            let _ = db.marquer_remplie_par_cle(&e.cle_trade, e.asset.as_str(), e.debut_barre).await;
             continue;
         }
         if !matches!(e.evenement, T::Cloture) {
@@ -132,7 +132,7 @@ async fn fermer_signaux(db: Arc<Database>, bus: BusEvenements) {
         let verdict = e.detail.split('|').next().unwrap_or("Expire");
         let r = e.detail.split('|').nth(1).and_then(|s| s.parse::<f64>().ok()).unwrap_or(0.0);
         if let Err(err) = db
-            .fermer_signal_par_cle(&e.cle_trade, verdict, e.prix, r, e.emis_le.timestamp())
+            .fermer_signal_par_cle(&e.cle_trade, e.asset.as_str(), verdict, e.prix, r, e.emis_le.timestamp())
             .await
         {
             tracing::warn!("Signaux officiels (clôture): {}", err);
@@ -229,7 +229,7 @@ async fn formater_message(
             let e = s.prix_entree;
             let r = (e - sl).abs();
             let msg = format!(
-                "{icone} {nom}\nPasse sur {asset} — {annonce}\n2 jambes ouvertes à {e:.2}$ à {heure} (timer T-10 s)\nLot = {lot:.2} par jambe ({risque_euros:.0}$ risqués)\n\nLONG  : SL {sl_long:.2}$ | TP1 {tp1l:.2} → BE | TP2 {tp2l:.2} → trailing {trailing:.1}R\nSHORT : SL {sl_short:.2} | TP1 {tp1s:.2} → BE | TP2 {tp2s:.2} → trailing {trailing:.1}R\nTime-stop : 60 min — R net = somme des 2 jambes",
+                "{icone} {nom}\nPasse sur {asset} — {annonce}\n2 jambes ouvertes à {e:.2}$ à {heure} (timer T-10 s)\nLot = {lot:.2} par jambe ({risque_euros:.0}$ risqués)\n\nLONG  : SL {sl_long:.2}$ | TP1 {tp1l:.2} → SL E−0,5R | TP2 {tp2l:.2} → trailing {trailing:.1}R\nSHORT : SL {sl_short:.2} | TP1 {tp1s:.2} → SL E+0,5R | TP2 {tp2s:.2} → trailing {trailing:.1}R\nTime-stop : 60 min — R net = somme des 2 jambes",
                 icone = crate::registre_strategies::MANIFESTES
                     .iter()
                     .find(|m| m.id == id_strategie)
@@ -311,7 +311,12 @@ async fn formater_message(
 /// (« straddle-{ts}-L/S ») : correspondance dans le cache calendrier (High,
 /// ±2 min de tolérance). Repli : « annonce US ».
 async fn titre_annonce_straddle(db: &Database, cle: &str) -> String {
-    let Some(ts) = cle.split('-').nth(1).and_then(|t| t.parse::<i64>().ok()) else {
+    // Formats : « straddle-{asset}-{ts}-B » (27/08+) ou « straddle-{ts}-L/S » (ancien).
+    let Some(ts) = cle
+        .split('-')
+        .filter_map(|m| m.parse::<i64>().ok())
+        .next()
+    else {
         return "annonce US".into();
     };
     let Ok(rows) = db.lire_calendrier_cache(7 * 24 * 3600).await else {

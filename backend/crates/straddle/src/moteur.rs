@@ -9,9 +9,10 @@
 //! E, quelle que soit sa valeur : les DEUX jambes (LONG et SHORT au même
 //! prix E) vivent en parallèle, chacune avec ses niveaux symétriques.
 //!
-//! Gestion par jambe : SL = E∓1R ; TP1 = ±1R → BE à E ; TP2 = ±2R → SL à
-//! TP1 + TRAILING au tick (jamais vers l'arrière) ; sorties SL / BE / TS /
-//! TimeStop. Le R réalisé d'une passe = SOMME NETTE des deux jambes (le SL
+//! Gestion par jambe : SL = E∓1R ; TP1 = ±1R → SL resserré à E∓0,5R
+//! (TAMPON anti-whipsaw, décision 27/08 : le rebond à E tuait la gagnante
+//! juste avant le vrai mouvement — DAX 9h, +4R manqués) ; TP2 = ±2R →
+//! SL à TP1 + TRAILING au tick ; sorties SL / TS / TimeStop. Le R réalisé d'une passe = SOMME NETTE des deux jambes (le SL
 //! de la jambe perdante = la TP1 de la gagnante : ±1R). Une annonce sans
 //! mouvement se ferme au TimeStop à E → passe journalisée à 0R.
 //!
@@ -27,6 +28,11 @@ use crate::types::{Annonce, ParamsStraddle};
 
 /// Nom du moteur (`SignalBrut.moteur`).
 pub const NOM: &str = "straddle";
+
+/// Tampon après TP1 : le SL passe de E∓1R à E∓0,5R (au lieu du BE à E).
+/// Un whipsaw rebondissant à E ne tue plus la jambe gagnante ; une inversion
+/// complète après TP1 coûte −0,5R (au lieu de 0R avec le BE).
+const TAMPON_R: f64 = 0.5;
 
 /// Nom d'une phase (diagnostic / affichage / tests).
 #[derive(Debug, Clone, PartialEq)]
@@ -258,42 +264,32 @@ impl StraddleEngine {
             return;
         }
 
-        // Sortie sur SL / BE / trailing stop — le verdict dépend du niveau.
+        // Sortie sur SL / trailing stop — verdict selon le niveau : TS
+        // (au-delà de TP1, trailing armé) · SL (initial −1R ou tampon −0,5R —
+        // le R réalisé fait la différence).
         if (jambe.long && prix <= jambe.sl) || (!jambe.long && prix >= jambe.sl) {
-            let verdict = if (jambe.sl - entree).abs() < 1e-12 {
-                "BE"
-            } else if (jambe.long && jambe.sl > jambe.tp1) || (!jambe.long && jambe.sl < jambe.tp1) {
+            let verdict = if (jambe.long && jambe.sl > jambe.tp1) || (!jambe.long && jambe.sl < jambe.tp1) {
                 "TS"
             } else {
                 "SL"
             };
-            // Comptabilité TP acquis : BE (jambe revenue à E après TP1) =
-            // +1R encaissé ; SL initial = −1R ; TS = distance réelle.
-            let rr = if verdict == "BE" {
-                1.0
-            } else {
-                jambe.r_a(entree, jambe.sl, r)
-            };
+            let rr = jambe.r_a(entree, jambe.sl, r);
             jambe.fermee = Some((verdict.to_string(), rr));
             return;
         }
 
-        // TP1 : BE à l'entrée.
+        // TP1 : SL resserré au TAMPON E∓0,5R (pas le BE à E — décision 27/08 :
+        // le rebond typique de l'ouverture/annonce touche E et tuait la
+        // gagnante avant le vrai mouvement ; à −0,5R elle survit).
         if (jambe.long && prix >= jambe.tp1) || (!jambe.long && prix <= jambe.tp1) {
-            if (jambe.long && jambe.sl < entree) || (!jambe.long && jambe.sl > entree) {
-                jambe.sl = entree;
+            let tampon = if jambe.long { entree - r * TAMPON_R } else { entree + r * TAMPON_R };
+            if (jambe.long && jambe.sl < tampon) || (!jambe.long && jambe.sl > tampon) {
+                jambe.sl = tampon;
                 sortie.evenements.push(self.evenement(
                     cle,
                     TypeEvenementTrade::Tp1,
-                    &format!("jambe {nom_jambe} TP1 — SL à l'entrée (BE)"),
+                    &format!("jambe {nom_jambe} TP1 — SL resserré à E∓{TAMPON_R}R (tampon)"),
                     jambe.tp1,
-                    ts,
-                ));
-                sortie.evenements.push(self.evenement(
-                    cle,
-                    TypeEvenementTrade::Be,
-                    &format!("jambe {nom_jambe} BE à l'entrée"),
-                    entree,
                     ts,
                 ));
             }
@@ -389,7 +385,7 @@ impl Engine for StraddleEngine {
                         // repli ATR M1 si aucun étalon H1 disponible.
                         let r = self.params.sl_atr * atr;
                         if r > 0.0 {
-                            let cle = format!("straddle-{annonce_ts}-B");
+                            let cle = format!("straddle-{}-{annonce_ts}-B", self.asset.as_str());
                             let jambes = [Jambe::nouvelle(true, prix, r), Jambe::nouvelle(false, prix, r)];
                             let s = self.signal_ouverture(prix, jambes[0].sl, r, &cle, ts);
                             sortie.signaux.push(s);
