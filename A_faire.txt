@@ -1,104 +1,4 @@
 
-
-Résumé d'état actuel.
-
-Je dispose d'une UI qui me fournit :
-
-Un dashboard avec :
-    - revue de presse (à améliorer)
-    - fuseaux horaires (à améliorer)
-    - calendrier des événements économiques
-    - veille de setup en formation
-    - surveillance de prix d'assets
-    - sentiment de marché ( améliorer)
-
-Une vue graphique avec :
-    - indicateurs techniques
-    - indicateurs SMC
-    - affichage des signaux
-    - métriques par asset et TF
-    - Analyse SMC par l'IA
-
-Une vue Rockets avec :
-    - un historique détaillé des signaux
-    - une analyse des signaux avec heatmap et métriques (à corriger car actuellement toute les valeurs sont à 0)
-
-Une vue SMC avec : 
-    - un historique détaillé des signaux (certainement à corriger car actuellement vide)
-    - une analyse des signaux avec heatmap et métriques
-    - un lexique SMC/ICT
-
-Une vue Straddle avec :
-    - un tableau de volatilité horaire censé fournir les meilleurs créneaux d'opportunité pour trader en Straddle
-    - une analyse par asset et période fournissant les meilleurs créneaux d'opportunité pour trader en Straddle
-    - un radar ATR temps réel avec calendrier historique et analyse IA pour déterminer les meilleurs créneaux d'opportunité pour trader en Straddle
-    - une DB pour télécharger les données par assets et alimenter les analyses
-Il manque à cette vue (comme pour les stratégies SMC et Rockets) :
-    - un historique détaillé des signaux
-    - une analyse des signaux avec heatmap et métriques
-
-Une vue Historique avec :
-    - un tableau listant tous les trades de toutes les stratégies avec système de triple
-
-Une vue Outils IA avec :
-    - un chart import pour l'analyse visuelle de graphique
-    - un coach IA pour des explications et analyse sur le trading
-
-Une vue Paramètres avec :
-    - choix des assets
-    - choix et paramétrages des fournisseurs de données
-    - Paramétrages des stratégies
-    - gestion du risque par asset
-
---------------------------------------------------------------------------------------------------------------------------
-
-Voici la liste éxaustive des indicateurs à vérifier sur l'app et TV.
-
-Sessions & niveaux clé :
-    - Session Asiatique = bloc 
-    - Session européenne = bloc 
-    - session américaine = bloc
-    - Asian high/Low = lignes
-    - PDH/PDL/PWH/PWL = lignes
-    - NDOG = bloc
-    - NWOG = bloc
-
-Structure & Price action :
-    - HH/HL/LH/LL = étiquette sur bougie
-    - Fond de tendance = lignes colorées verticales
-    - BOS = ligne de la bougie d'origine à la bougie de fin + étiquette
-    - MSS = ligne de la bougie d'origine à la bougie de fin + étiquette
-    - Choch = ligne de la bougie d'origine à la bougie de fin + étiquette
-    - Equal high / Equal Low = lignes
-    - Sweeps = étiquette sur bougie
-
-Technique avancé :
-    - Imbalance = bloc
-    - Fond de volume = lignes colorées verticales
-    - Fond d'impulsions fortes = lignes colorées verticales
-
-Order Blocks et FVG :
-    - FVG = bloc
-    - Ob = bloc
-    - Breaker blocks = bloc 
-
-Signaux et Zones :
-    - Zones d'achat/vente = bloc
-    - score minimum d'affichage bszones(/) = dropdown
-    - Score minimum trade (/10) = dropdown
-    - Displacement min bszones (corps=x/10 x ATR) = dropdown
-
-Multi TF & OTE :
-    - fond premium/discount = lignes colorées verticales
-    - equilibrium = ligne
-    - OB H1 = bloc
-    - OB h4 = bloc
-    - OB w1 = bloc
-    - OB MN = bloc
-    - zone OTE = bloc
-
---------------------------------------------------------------------------------------------------------------------------
-
 Il faut créer les tooltips des trades sur le même modèle que les étiquettes de trades dans pine :
 - Stratégie (SMC ou Straddle OU Rocket)
 - Risque engagé
@@ -109,31 +9,30 @@ Il faut créer les tooltips des trades sur le même modèle que les étiquettes 
 - TP2
 - TP3
 
+--------------------------------------------------------------------------------------------------------------------------
+
+Un trade BTC M5 vient de s'ouvrir :
+- il est dessiné sans la box rouge de la zone SL = il faut l'ajouter
+- il n'est visible QUE en M5 alors que je devrai le voir sur tous les TF
+
+--------------------------------------------------------------------------------------------------------------------------
+
+dans le dashboard à droite sous le bloc 📐 SURVEILLANCE ASSETS je veux un bloc "(icone) Crénaux de volatilité" (ou autre nom) qui me donne chaque jour les créneaux horaires (heure de paris) les plus volatiles par assets = les plus propices au trading.
+Comment ce bloc récupererait les données pour déterminer ces créneaux :
+- en analysant les 24 mois de données
+- en mettant à jours ces créneaux au fil du temps et des données récupérées.
+
+Comprends tu l'utilités de ce bloc ?
+Vois tu d'autres informations à y ajouter ?
+IMPORTANT : il faut que ce bloc soit branché pour afficher tout futur assets eventuels à ajouter dans la surveillance de l'app
+
+--------------------------------------------------------------------------------------------------------------------------
+
+L'affichage des sessions us, européenne et Asie a été cassé et ne représente plus la réalité des horaires (heure de paris)
 
 --------------------------------------------------------------------------------------------------------------------------
 
 
 
 --------------------------------------------------------------------------------------------------------------------------
-
-
-
---------------------------------------------------------------------------------------------------------------------------
-
-
-
---------------------------------------------------------------------------------------------------------------------------
-
-
-
---------------------------------------------------------------------------------------------------------------------------
-
-1 - lorsque l'on clique sur "Paramètres" dans le panel renomme la page "Configuration" en "Paramètres"
-2 - dans "paramètres des stratégies" : pourquoi j'ai 2 blocs straddle et 2 blocs rockets au lieu d'un seul avec tous les paramètres de la stratégie ?
-3 - pourquoi je n'ai qu'un bloc SMC
-
-
-Qu'est ce que doit faire le LLM par stratégie ?
-Qu'elle paramètre ou indicateur doit il observer pour son éventuel recalibrage ?
-Doit il observer le scoring qui générèles signaux pour eventuellement le recalibrer ?
 

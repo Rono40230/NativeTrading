@@ -225,8 +225,10 @@ pub async fn analyser_strategie(
     cfg: &RocketsConfig,
 ) -> Result<AnalyseReponse, TradingError> {
     let contexte = formater_contexte(signaux, cfg);
+    // La définition de la stratégie ancre l'analyste (constitution 26/08).
     let prompt = format!(
-        "{}\n\n{contexte}",
+        "{}\n\n{}\n\n{contexte}",
+        crate::prompt_effectif("rockets_definition"),
         crate::prompt_effectif("rockets_analyse")
     );
 

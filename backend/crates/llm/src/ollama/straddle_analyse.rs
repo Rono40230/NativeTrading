@@ -215,8 +215,10 @@ pub async fn analyser_creneaux(
         candles.len(),
         annonces_imminentes,
     );
+    // La définition de la stratégie ancre l'analyste (constitution 26/08).
     let prompt = format!(
-        "{}\n\n## DONNÉES\n{contexte}",
+        "{}\n\n{}\n\n## DONNÉES\n{contexte}",
+        crate::prompt_effectif("straddle_definition"),
         crate::prompt_effectif("straddle_analyse")
     );
 

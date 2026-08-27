@@ -12,12 +12,11 @@
 use std::collections::HashMap;
 use std::fs;
 
-use crate::ollama::prompts::PROMPT_ANALYSE_OPPORTUNITES;
 use crate::ollama::rockets_analyse::PROMPT_ANALYSE_ROCKETS;
 use crate::ollama::smc_analyse::PROMPT_ANALYSE_SMC;
 use crate::ollama::smc_filtre::PROMPT_FILTRE_SMC;
 use crate::ollama::straddle_analyse::PROMPT_ANALYSE_STRADDLE;
-use crate::ollama::{PROMPT_FILTRE_ROCKET, PROMPT_SIGNAL_SMC, SYSTEM_PROMPT_COACH};
+use crate::ollama::{PROMPT_FILTRE_ROCKET, SYSTEM_PROMPT_COACH};
 
 pub(crate) const OVERRIDES_PATH: &str = "data/prompts_overrides.json";
 
@@ -28,13 +27,12 @@ pub const PROMPT_SIGNAL_STRADDLE: &str = r#"Tu es un expert en news trading et v
 CONTEXTE MÉTIER — POURQUOI LE STRADDLE FONCTIONNE :
 Avant un événement économique majeur (NFP, FOMC, CPI, PIB, décision BCE/BoE), le marché se comprime : les teneurs de marché réduisent leur exposition, la volatilité implicite monte, les ranges se rétrécissent. À la publication, le prix explose dans une direction. La stratégie Straddle anticipe cette explosion en plaçant deux jambes AVANT le mouvement. Le gain d'une jambe dépasse largement la perte de l'autre si l'amplitude est suffisante (≥ 2× ATR). Le timing est critique : entrer trop tard (post-explosion) = prix déjà bougé. Entrer trop tôt = spreads normaux, rien à signaler.
 
-FENÊTRE D'ENTRÉE OPTIMALE : 5 à 30 minutes avant l'événement.
-À moins de 5 min du choc : spreads parfois élargis sur certains brokers, mais le signal reste valide.
-Ne jamais attendre après la publication pour le Straddle — c'est l'approche directionnelle, pas celle-ci.
+MÉCANIQUE ACTÉE (26/08) — le TIMER décide, pas le prix :
+À T-10 secondes avant l'événement, les DEUX jambes (LONG et SHORT) sont ouvertes au MÊME prix E = prix courant, quelle que soit sa valeur. Les deux vivent en parallèle.
 
-STOP-LOSS INTÉGRÉS (rappel) :
-SL Long = prix − 0.5×ATR | SL Short = prix + 0.5×ATR
-Si le mouvement est fort dans une direction, la jambe gagnante (TP1=+2×ATR) compense la jambe perdante (perte max 0.5×ATR). Net positif dès que le mouvement dépasse 1.5×ATR.
+NIVEAUX PAR JAMBE (R = sl_atr × ATR H1 — volatilité horaire normale, PAS la compression pré-annonce) :
+SL = E∓1R | TP1 = ±1R (BE à E) | TP2 = ±2R (BE à TP1 + trailing au tick) | time-stop 60 min.
+Le R net d'une passe = somme des deux jambes : le SL de la perdante égale la TP1 de la gagnante.
 
 TROIS SOURCES DE VOLATILITÉ À ÉVALUER :
 
@@ -140,9 +138,7 @@ pub fn defaults() -> HashMap<&'static str, &'static str> {
     );
     m.insert("rockets_filtre", PROMPT_FILTRE_ROCKET);
     m.insert("rockets_analyse", PROMPT_ANALYSE_ROCKETS);
-    m.insert("rockets_opportunites", PROMPT_ANALYSE_OPPORTUNITES);
     m.insert("smc_filtre", PROMPT_FILTRE_SMC);
-    m.insert("smc_signal", PROMPT_SIGNAL_SMC);
     m.insert("smc_analyse", PROMPT_ANALYSE_SMC);
     m.insert("straddle_signal", PROMPT_SIGNAL_STRADDLE);
     m.insert("straddle_analyse", PROMPT_ANALYSE_STRADDLE);

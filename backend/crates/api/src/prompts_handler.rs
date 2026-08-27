@@ -32,23 +32,22 @@ pub async fn lister_prompts() -> impl Responder {
     let p = |id, label, desc, usage| entree(id, label, desc, usage, &d, &o);
 
     HttpResponse::Ok().json(serde_json::json!({
-        "_note_definition": "Le prompt de Définition est DÉRIVÉ de la page Définition de la stratégie (source unique) — squelette étape 2, contenu complet à l'étape 3.",
+        "_note_definition": "Les prompts de Définition sont INJECTÉS en tête de chaque analyse stratégique (26/08) — la promesse 'ancre le LLM' est désormais réelle. Constitution : toute évolution de stratégie se reflète immédiatement ici.",
         "rockets": {
             "definition": p("rockets_definition", "Définition (dérivée)", "Ancre le LLM dans la logique VCP Minervini. Dérivé de la page Définition.", "Toute analyse rockets"),
             "catalyseur_news":    p("rockets_catalyseur", "Catalyseur news", "Évalue les dépêches d'un candidat : pour ou contre une cassure haussière à 15 jours ? POUR/CONTRE/NEUTRE + conviction.", "Après chaque scan quotidien"),
             "ranker_pivots":      p("rockets_ranker", "Ranker de pivots", "Départage les vraies cassures des fausses : conviction 0–100 + raison, sur le dossier complet du candidat.", "Avant chaque signal (seuil réglable)"),
-            "filtre_temps_reel":  p("rockets_filtre",  "Filtre temps réel", "Valide ou rejette chaque signal candidat avant sauvegarde. Retourne conviction 0–100 + raison.", "Avant chaque signal"),
+            "filtre_temps_reel":  p("rockets_filtre",  "Filtre temps réel", "Valide ou rejette un signal Rocket candidat (JSON conviction).", "DORMANT — remplacé par le ranker de pivots"),
             "analyse_strategique":p("rockets_analyse", "Analyse stratégique", "Analyse les signaux clôturés pour évaluer la performance et recommander des ajustements.", "Sur demande (≥ 5 trades clôturés)")
         },
         "smc": {
-            "definition": p("smc_definition", "Définition (dérivée)", "Ancre le LLM dans la logique SMC v12 (Pine figé). Dérivé de la page Définition.", "Toute analyse SMC"),
-            "filtre_temps_reel":  p("smc_filtre",  "Filtre temps réel", "Valide ou rejette chaque signal SMC Directionnel candidat.", "Avant chaque signal SMC"),
-            "signal_json":        p("smc_signal",  "Génération signal JSON", "Génère un signal structuré JSON complet avec direction, SL, TP, confluences.", "POST /api/ia/signal"),
-            "analyse_strategique":p("smc_analyse", "Analyse stratégique", "Analyse la performance globale des trades SMC clôturés.", "Sur demande")
+            "definition": p("smc_definition", "Définition", "Ancre l'analyste dans la logique SMC v12 — injectée en tête de chaque analyse.", "Toute analyse SMC (injectée automatiquement)"),
+            "filtre_temps_reel":  p("smc_filtre",  "Filtre temps réel", "Valide ou rejette un signal SMC candidat (JSON conviction).", "DORMANT — retour possible après accumulation (roadmap §5)"),
+            "analyse_strategique":p("smc_analyse", "Analyse stratégique", "Analyse la performance globale des trades SMC clôturés (moteur v12, verdicts TP/SL/Expire).", "Bouton 📊 Analyse (page Signaux SMC)")
         },
         "straddle": {
             "definition": p("straddle_definition", "Définition (dérivée)", "Ancre le LLM dans la logique news-trading. Dérivé de la page Définition.", "Toute analyse straddle"),
-            "signal_temps_reel":  p("straddle_signal",  "Génération signal temps réel", "Décide en temps réel d'entrer une position LONG + SHORT simultanée sur évènement de volatilité.", "Boucle de surveillance Straddle"),
+            "signal_temps_reel":  p("straddle_signal",  "Génération signal (héritage v1)", "Décide d'une passe sur évènement de volatilité. Mécanique actée intégrée (timer T-10 s, R × ATR H1).", "HÉRITAGE Gate 3 — le moteur v2 n'y passe plus"),
             "analyse_strategique":p("straddle_analyse", "Analyse stratégique", "Analyse les backtests Straddle et recommande des ajustements de créneaux/paramètres.", "Sur demande")
         },
         "outils_ia": {

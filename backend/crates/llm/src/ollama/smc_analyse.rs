@@ -41,23 +41,24 @@ pub struct SignalSMCClotl {
 
 pub const PROMPT_ANALYSE_SMC: &str = r#"Tu es un expert en trading algorithmique SMC/ICT quantitatif.
 
-## CONTEXTE DE LA STRATÉGIE SMC DIRECTIONNEL
-La stratégie SMC Directionnel génère des signaux directionnels basés sur la confluence de :
-- Structure de marché ICT (HH/HL, LH/LL)
-- Order Blocks non mitigés
-- IFVG (Imbalance / Fair Value Gap)
-- Niveaux Fibonacci (38.2–61.8%)
-- Kill Zone ICT active (London 07h-10h UTC, New York 13h30-16h30 UTC) — prérequis BLOQUANT
-- Liquidity Sweep confirmé — prérequis BLOQUANT
-- Score SMC ≥ 60 + ML ≥ 0.60 — prérequis BLOQUANT
-- Filtre LLM : conviction ≥ 65 avant sauvegarde
+## CONTEXTE DU SYSTÈME ACTUEL
+Le moteur v12 (clone fidèle du Pine, étalon figé) évalue chaque bougie en temps réel :
+- Signaux générés sur confluence structure (pivots, BOS/MSS/ChoCH) + zones (order blocks,
+  FVG, OTE, premium/discount) via un scoring 16 composantes — aucune intervention ML ni
+  filtre LLM (suspendus 15/08, décision propriétaire)
+- Entrée au retest de la zone qualifiée (ordre limite) — un signal annoncé peut ne jamais
+  se remplir (verdict « entrée non atteinte »)
+- Gestion : SL au-delà de la zone, TP1/2/3 sur liquidités, BE uniquement par dégradation
+  de score de l'OB (le BE forcé sur BOS opposé a été SUPPRIMÉ le 26/08 — étude chiffrée :
+  95 % des trades fermés à 0R sur M1/M5)
+- Verdicts possibles : TP3, TP2+BE, TP1+BE, SL, Expire, entrée non atteinte
 
 ## STRUCTURE DE RÉPONSE (JSON uniquement, sans texte autour)
 {
   "synthese": "résumé en 2-3 phrases de la performance globale",
   "recommandations": [
     {
-      "type": "seuil_score|filtre_kill_zone|filtre_sweep|filtre_ml|assets_privilégier|timeframes|filtre_llm|autre",
+      "type": "seuil_score|filtre_structure|assets_privilégier|timeframes|expiration|taille_sl|autre",
       "description": "recommandation concrète et actionnable",
       "impact_estime": "estimation chiffrée si possible ex: +12% winrate",
       "priorite": "haute|moyenne|faible"
@@ -69,9 +70,10 @@ La stratégie SMC Directionnel génère des signaux directionnels basés sur la 
 
 ## RÈGLES D'ANALYSE
 - Produis entre 3 et 6 recommandations classées par priorité
-- Analyse la performance par asset, timeframe, direction et niveau de conviction LLM
-- Identifie les patterns de SL récurrents (sur-optimisation des seuils ?)
-- Pour le filtre LLM : les trades avec conviction ≥ 80 ont-ils un meilleur winrate que ceux à 65-79 ?
+- Analyse la performance par asset, timeframe et direction
+- Identifie les patterns de SL récurrents et les timeframes où le moteur sous-performe
+- Compare les verdicts remplis vs expirés : le moteur génère-t-il trop de setups qui ne
+  se remplissent jamais ?
 - Base-toi uniquement sur les données fournies, pas sur des hypothèses générales
 
 ## PHILOSOPHIE
@@ -224,8 +226,11 @@ pub async fn analyser_strategie(
     }
     // /no_think : l'analyse de performances n'a pas besoin du reasoning chain-of-thought,
     // on gagne en vitesse avec le mode non-thinking de Qwen3.
+    // La définition de la stratégie ancre l'analyste (page Prompts IA —
+    // « Stratégie changée = prompt changé », constitution 26/08).
     let prompt = format!(
-        "{}\n\n{contexte}\n/no_think",
+        "{}\n\n{}\n\n{contexte}\n/no_think",
+        crate::prompt_effectif("smc_definition"),
         crate::prompt_effectif("smc_analyse")
     );
 
