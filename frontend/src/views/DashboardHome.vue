@@ -10,13 +10,9 @@
     <!-- Contenu principal -->
     <div class="flex-1 min-w-0 flex flex-col gap-2 h-[calc(100vh-3rem)] overflow-hidden pb-1">
 
-      <!-- En-tête : Horloges — alignées sur la colonne CENTRE des stratégies -->
-      <div class="flex gap-2 shrink-0 h-[140px] mb-1 ml-64">
-        <div class="flex-1 min-w-0"><MarketClocks class="h-full w-full" /></div>
-      </div>
-
       <div class="flex gap-2 flex-1 min-h-0">
-        <!-- Colonne gauche : Surveillance assets + Setups en formation -->
+        <!-- Colonne gauche (remonte en haut de page) : statut, surveillance,
+             créneaux -->
         <div class="w-64 shrink-0 flex flex-col gap-2 min-h-0">
           <DashboardSystemStatus
             :backend-ok="backendOk"
@@ -28,11 +24,13 @@
           <CreneauxVolatiliteBloc class="shrink-0" />
         </div>
 
-        <!-- Centre : blocs par stratégie (étape 3 — architecture verticale).
-             Chaque bloc : courbe des trades clôturés (R cumulé) + stats +
-             signaux en cours + badge d'état du registre. -->
-        <div class="flex-1 min-w-0 min-h-0">
-          <DashboardStrategiesBlocs />
+        <!-- Centre : horloges en TÊTE (même largeur que les blocs stratégies),
+             puis blocs par stratégie (courbe R + stats + signaux en cours). -->
+        <div class="flex-1 min-w-0 min-h-0 flex flex-col gap-2">
+          <MarketClocks class="shrink-0 h-[130px]" />
+          <div class="flex-1 min-h-0">
+            <DashboardStrategiesBlocs />
+          </div>
         </div>
       </div>
     </div>
