@@ -21,7 +21,7 @@
       </div>
 
       <!-- Heures : 00..11 | 12..23 -->
-      <div class="flex items-center gap-[2px] text-[7px] text-slate-600 font-mono tabular-nums">
+      <div class="flex items-center gap-[2px] text-[7px] text-white font-mono tabular-nums">
         <span class="w-14 shrink-0"></span>
         <div class="flex-1 flex gap-[2px]">
           <span v-for="h in 12" :key="'m' + h" class="flex-1 text-center">{{ String(h - 1).padStart(2, '0') }}</span>
