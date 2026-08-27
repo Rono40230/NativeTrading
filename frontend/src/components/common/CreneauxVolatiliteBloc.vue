@@ -12,14 +12,6 @@
     <div v-else-if="!creneaux.length" class="text-center text-slate-500 text-xs py-3">Aucune fenêtre</div>
 
     <div v-else class="flex flex-col gap-0.5">
-      <!-- En-têtes : MATIN | APRÈS-MIDI -->
-      <div class="flex items-center gap-1 text-[8px] text-slate-500 font-semibold uppercase tracking-wide">
-        <span class="w-14 shrink-0"></span>
-        <span class="flex-1 text-center text-white">Matin (00h→12h)</span>
-        <span class="w-px bg-white/10 self-stretch"></span>
-        <span class="flex-1 text-center text-white">Après-midi (12h→24h)</span>
-      </div>
-
       <!-- Heures : 00..11 | 12..23 -->
       <div class="flex items-center gap-[2px] text-[7px] text-white font-mono tabular-nums">
         <span class="w-14 shrink-0"></span>
@@ -38,9 +30,8 @@
         <div class="flex-1 flex gap-[2px] h-6">
           <div v-for="h in 24" :key="h"
             class="flex-1 rounded-[2px] transition-colors cursor-help"
-            :style="{ backgroundColor: couleurCellule(c, h - 1), boxShadow: estHeureCourante(h - 1) ? '0 0 0 2px #fff' : 'none' }"
+            :style="{ backgroundColor: couleurCellule(c, h - 1), outline: estHeureCourante(h - 1) ? '2px solid #fff' : 'none', outlineOffset: '-2px', zIndex: '10' }"
 
-            :title="titreCellule(c, h - 1)"
           />
           <!-- Séparateur midi inséré après la 12e cellule via rendu conditionnel -->
           <template v-if="false" />
