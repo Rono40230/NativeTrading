@@ -71,7 +71,7 @@ async function charger() {
 }
 
 const heureParis = computed(() =>
-  Number(new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', hourCycle: 'h23' }).format(maintenant.value))
+  Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(maintenant.value))
 )
 
 function estHeureCourante(h: number): boolean {
