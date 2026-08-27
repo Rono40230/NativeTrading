@@ -10,10 +10,9 @@
     <!-- Contenu principal -->
     <div class="flex-1 min-w-0 flex flex-col gap-2 h-[calc(100vh-3rem)] overflow-hidden pb-1">
 
-      <!-- En-tête : Horloges + System Status -->
-      <div class="flex gap-2 shrink-0 h-[140px] mb-1">
-        <!-- Clocks (pleine largeur — le statut système vit dans la colonne gauche) -->
-        <div class="flex-1 min-w-0"><MarketClocks class="h-full" /></div>
+      <!-- En-tête : Horloges — alignées sur la colonne CENTRE des stratégies -->
+      <div class="flex gap-2 shrink-0 h-[140px] mb-1 ml-64">
+        <div class="flex-1 min-w-0"><MarketClocks class="h-full w-full" /></div>
       </div>
 
       <div class="flex gap-2 flex-1 min-h-0">

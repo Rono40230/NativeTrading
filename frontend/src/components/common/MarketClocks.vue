@@ -1,7 +1,7 @@
 <template>
   <div class="glass-card py-1.5 px-3 relative overflow-hidden shrink-0 flex items-center justify-center">
     <WorldMapBg />
-    <div class="grid grid-cols-3 gap-2 lg:grid-cols-6 relative w-full mx-auto" style="max-width: 900px;">
+    <div class="grid grid-cols-3 gap-2 lg:grid-cols-6 relative w-full mx-auto" style="max-width: 100%;">
       <div v-for="session in sessions" :key="session.nom" class="flex flex-col items-center gap-0">
 
         <!-- Nom de la place au-dessus -->
