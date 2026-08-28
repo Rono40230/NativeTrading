@@ -212,8 +212,8 @@ function pct(v: number): string {
 /// Cours en direct : séparateur fin fr-FR, décimales adaptatives
 /// (entier ≥ 1 000 — ex. BTC « 87 432 », S&P « 5 864 » ; 2 décimales sinon).
 function prixFmt(v: number): string {
-  if (v >= 1000) return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(v)
-  return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)
+  if (v >= 1000) return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(v) + ' $'
+  return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' $'
 }
 
 function bille(v: number): string {
