@@ -138,7 +138,7 @@ const route = useRoute()
 const router = useRouter()
 const ouvert = ref<string | null>(null)
 const fenetre = ref<FenetreTauri | null>(null)
-const estTauri = computed(() => typeof window !== 'undefined' && '_TAURI_INTERNALS__' in window)
+const estTauri = computed(() => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)
 
 onMounted(async () => {
   if (estTauri.value) {
