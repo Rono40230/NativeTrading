@@ -1649,10 +1649,6 @@ f_block3() =>
             array.push(ndogTop, _gTop)
             array.push(ndogBot, _gBot)
             array.push(ndogMit, false)
-            // CE (Consequent Encroachment) = 50% du gap — niveau de réaction ICT (28/08).
-            float _ceN = (_gTop + _gBot) / 2.0
-            line _ceNLn = line.new(bar_index - 1, _ceN, bar_index + 50, _ceN,
-                 color=color.new(#26C6DA, 0), width=1, style=line.style_dashed)
             array.push(ndogBox, i_showNDOG ?
                  box.new(bar_index - 1, _gTop, bar_index + 50, _gBot,
                       bgcolor=i_ndogColor, border_color=color.new(#26C6DA, 10),
@@ -1752,22 +1748,32 @@ var line pdEqLine   = na
 var line pdRangeTop = na
 var line pdRangeBot = na
 
-f_pdLine(var line _ln, float _y, color _c) =>
-    if (i_showPD or i_showEqLn) and pdOk and not na(_y)
-        if na(_ln)
-            _ln := line.new(bar_index, _y, bar_index + 1, _y,
-                 color=_c, width=1, style=line.style_dashed,
-                 extend=extend.right)
-        else
-            line.set_y1(_ln, _y)
-            line.set_y2(_ln, _y)
+// Équilibrium (or)
+if (i_showPD or i_showEqLn) and pdOk and not na(pdEquilibrium)
+    if na(pdEqLine)
+        pdEqLine := line.new(bar_index, pdEquilibrium, bar_index + 1, pdEquilibrium,
+             color=color.new(#FFD700, 20), width=1, style=line.style_dashed, extend=extend.right)
+    else
+        line.set_y1(pdEqLine, pdEquilibrium)
+        line.set_y2(pdEqLine, pdEquilibrium)
 
-// Equilibrium (or) — visible si son toggle OU le toggle Premium/Discount
-f_pdLine(pdEqLine,   pdEquilibrium, color.new(#FFD700, 20))
 // Limite Premium = haut du dealing range (rouge)
-f_pdLine(pdRangeTop, _pdRangeH,     color.new(#F44336, 40))
+if i_showPD and pdOk and not na(_pdRangeH)
+    if na(pdRangeTop)
+        pdRangeTop := line.new(bar_index, _pdRangeH, bar_index + 1, _pdRangeH,
+             color=color.new(#F44336, 40), width=1, style=line.style_dashed, extend=extend.right)
+    else
+        line.set_y1(pdRangeTop, _pdRangeH)
+        line.set_y2(pdRangeTop, _pdRangeH)
+
 // Limite Discount = bas du dealing range (vert)
-f_pdLine(pdRangeBot, _pdRangeL,     color.new(#4CAF50, 40))
+if i_showPD and pdOk and not na(_pdRangeL)
+    if na(pdRangeBot)
+        pdRangeBot := line.new(bar_index, _pdRangeL, bar_index + 1, _pdRangeL,
+             color=color.new(#4CAF50, 40), width=1, style=line.style_dashed, extend=extend.right)
+    else
+        line.set_y1(pdRangeBot, _pdRangeL)
+        line.set_y2(pdRangeBot, _pdRangeL)
 
 // MODULE 12 — MULTI-TIMEFRAME (MTF)
 var string GRP_H  = "📈 Multi-Timeframe & OTE"
