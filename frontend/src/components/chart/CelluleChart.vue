@@ -245,7 +245,7 @@ function rafraichirOverlayV12() {
 const DUREE_BARRE: Record<string, number> = {
   M1: 60, M5: 300, M10: 600, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800,
 }
-const SMC_NOMS = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA']
+const NOMS_DESSINES = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA', 'straddle', 'Straddle']
 
 async function chargerTradesExternes() {
   try {
@@ -255,7 +255,7 @@ async function chargerTradesExternes() {
       .filter(x =>
         x.asset === selectedAsset.value
         && x.statut === 'Actif'
-        && SMC_NOMS.includes(x.strategie)
+        && NOMS_DESSINES.includes(x.strategie)
         // Autres TF : tout trade ouvert. TF affiché : uniquement les
         // ordres EN ATTENTE (jamais remplis — fidélité Pine).
         && (x.timeframe !== selectedTimeframe.value || x.heure_entree === null))
