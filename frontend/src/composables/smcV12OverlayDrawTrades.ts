@@ -218,27 +218,40 @@ export function dessinerTradesExternes(
       continue
     }
 
-    // Zone SL (rouge) et zone TP (vert) très légères.
-    if (ySl !== null && Math.abs(yEntry - ySl) >= 1) {
-      const yTop = Math.min(yEntry, ySl)
-      ctx.fillStyle = hexVersRgba(COUL_SL, 0.05)
-      ctx.fillRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - ySl))
-      ctx.strokeStyle = hexVersRgba(COUL_SL, 0.35)
-      ctx.lineWidth = 1
-      ctx.setLineDash([4, 3])
-      ctx.strokeRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - ySl))
-    }
+    // Rendu IDENTIQUE au TF d'origine (décision propriétaire 28/08) :
+    // boxes solides, lignes TP, ligne d'entrée — plus d'atténuation.
+    const yTp1x = serie.priceToCoordinate(s.tp1)
     if (yTp !== null) {
       const yTop = Math.min(yEntry, yTp)
-      ctx.fillStyle = hexVersRgba(COUL_TP, 0.04)
+      ctx.fillStyle = hexVersRgba(COUL_TP, (100 - 78) / 100)
       ctx.fillRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - yTp))
-      ctx.strokeStyle = hexVersRgba(COUL_TP, 0.28)
-      ctx.setLineDash([4, 3])
+      ctx.strokeStyle = hexVersRgba(COUL_TP, 0.6)
+      ctx.lineWidth = 1
       ctx.strokeRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - yTp))
     }
-    // Ligne d'entrée pointillée.
-    ctx.strokeStyle = 'rgba(59,130,246,0.5)'
-    ctx.setLineDash([2, 4])
+    if (ySl !== null && Math.abs(yEntry - ySl) >= 1) {
+      const yTop = Math.min(yEntry, ySl)
+      ctx.fillStyle = hexVersRgba(COUL_SL, (100 - 78) / 100)
+      ctx.fillRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - ySl))
+      ctx.strokeStyle = hexVersRgba(COUL_SL, 0.6)
+      ctx.lineWidth = 1
+      ctx.strokeRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - ySl))
+    }
+    // Lignes TP1 solides avec label.
+    ctx.lineWidth = 1
+    if (yTp1x !== null) {
+      ctx.strokeStyle = COUL_TP1_L
+      ctx.setLineDash([])
+      ctx.beginPath(); ctx.moveTo(xG, yTp1x); ctx.lineTo(xDTrade, yTp1x); ctx.stroke()
+      ctx.font = 'bold 9px sans-serif'
+      ctx.fillStyle = COUL_TP1_L
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'bottom'
+      ctx.fillText('TP1', xG + 3, yTp1x - 1)
+    }
+    // Ligne d'entrée (pointillée, comme le natif).
+    ctx.strokeStyle = COUL_ENTRY
+    ctx.setLineDash([2, 3])
     ctx.beginPath(); ctx.moveTo(xG, yEntry); ctx.lineTo(xDTrade, yEntry); ctx.stroke()
     ctx.setLineDash([])
 
