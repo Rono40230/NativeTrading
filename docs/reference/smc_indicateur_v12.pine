@@ -948,6 +948,153 @@ f_fvgBearCreate() =>
 
 f_fvgBearCreate()
 
+// MODULE 6b — BPR (Balanced Price Range) — Phase 3 AMELIORATIONS_SMC_V12 (28/08)
+// Références : ICT mentorship 2023 (chevauchement de 2 FVG opposés, spike news) ·
+// LuxAlgo BPR (fenêtre d'appariement 10 bars, intersection stricte, le gap le plus
+// RÉCENT fixe le rôle : FVG bull récent sur FVG bear = support ; miroir = résistance).
+// Entrée au bord proche (mentorship 2023), invalidation = clôture au-delà du bord lointain.
+// Détection placée AVANT les lifecycle FVG : le gap opposé est apparié même si sa
+// clôture de remplissage le retire du pool cette bar (« les deux gaps sont délivrés »).
+var string GRP_BPR = "🏦 Order Blocks & FVG"
+bool  i_showBPR    = input.bool(true, "BPR (Balanced Price Range)",            group=GRP_BPR)
+int   i_bprWindow  = 10    // Fenêtre d'appariement (bars entre les 2 gaps) — défaut LuxAlgo
+int   i_maxBPR     = 20    // Boxes BPR conservées (actives + figées) — « Show Last 20 » LuxAlgo
+int   i_bprMaxAge  = 15    // Âge max (bars) d'un BPR ACTIF — zones tactiques courte durée
+
+color C_BPR_BULL      = color.new(#FFB300, 88)   // ambre — BPR haussier (support)
+color C_BPR_BEAR      = color.new(#FF6D00, 88)   // orange — BPR baissier (résistance)
+color C_BPR_BULL_PART = color.new(#FFB300, 94)
+color C_BPR_BEAR_PART = color.new(#FF6D00, 94)
+color C_BPR_BORDER    = color.new(color.white, 80)
+
+var array<float> bprTop    = array.new<float>(0)
+var array<float> bprBot    = array.new<float>(0)
+var array<int>   bprState  = array.new<int>(0)   // 0 frais · 1 partiel (entré, CE intacte) · 2 profond (CE atteinte)
+var array<int>   bprBar    = array.new<int>(0)   // bar de naissance (bar du 2e gap)
+var array<bool>  bprIsBull = array.new<bool>(0)  // rôle du BPR = sens du gap le plus récent
+var array<bool>  bprDead   = array.new<bool>(0)  // figé (clôture au travers ou âge) — reste AFFICHÉ (LuxAlgo)
+var array<box>   bprBox    = array.new<box>(0)
+var array<line>  bprCeLine = array.new<line>(0)
+
+// Apparie un FVG naissant avec le FVG opposé LE PLUS RÉCENT de la fenêtre qui le
+// chevauche, puis pousse le BPR (intersection stricte). Anti-doublon ≥ 80% + FIFO.
+f_bprPair(bool _newIsBull, float _nT, float _nB, array<float> _oT, array<float> _oB, array<int> _oBar) =>
+    if array.size(_oT) > 0
+        int   _nBar = bar_index - 2
+        int   _hit  = -1
+        for _k = array.size(_oT) - 1 to 0                    // du plus récent au plus ancien
+            if _hit == -1
+                int _gBar = array.get(_oBar, _k)
+                if _nBar >= _gBar and _nBar - _gBar <= i_bprWindow
+                    float _iT = math.min(_nT, array.get(_oT, _k))
+                    float _iB = math.max(_nB, array.get(_oB, _k))
+                    if _iT > _iB
+                        _hit := _k
+        if _hit >= 0
+            float _t = math.min(_nT, array.get(_oT, _hit))
+            float _b = math.max(_nB, array.get(_oB, _hit))
+            bool  _dup = false
+            if array.size(bprTop) > 0                        // anti-doublon : recouvrement ≥ 80%
+                for _d = 0 to array.size(bprTop) - 1         // (BPR ACTIFS seulement — une zone
+                    if not _dup and not array.get(bprDead, _d)   // morte peut renaître au même endroit)
+                        float _dT = math.min(_t, array.get(bprTop, _d))
+                        float _dB = math.max(_b, array.get(bprBot, _d))
+                        float _minH = math.min(_t - _b, array.get(bprTop, _d) - array.get(bprBot, _d))
+                        if _minH > 0 and (_dT - _dB) / _minH >= 0.8
+                            _dup := true
+            if not _dup
+                if array.size(bprBox) >= i_maxBPR            // FIFO (actives + figées)
+                    box _bxO = array.shift(bprBox)
+                    if not na(_bxO)
+                        box.delete(_bxO)
+                    line _lnO = array.shift(bprCeLine)
+                    if not na(_lnO)
+                        line.delete(_lnO)
+                    array.shift(bprTop)
+                    array.shift(bprBot)
+                    array.shift(bprState)
+                    array.shift(bprBar)
+                    array.shift(bprIsBull)
+                    array.shift(bprDead)
+                float _ce = (_t + _b) / 2.0
+                array.push(bprTop,    _t)
+                array.push(bprBot,    _b)
+                array.push(bprState,  0)
+                array.push(bprBar,    bar_index)
+                array.push(bprIsBull, _newIsBull)
+                array.push(bprDead,   false)
+                // Bord droit = bougie courante dès la naissance (le lifecycle ne
+                // tourne que sur bar confirmée : un +50 déborderait pendant toute
+                // la formation de la bougie — retour propriétaire 28/08).
+                array.push(bprBox, i_showBPR ? box.new(bar_index[2], _t, bar_index, _b,
+                     bgcolor=_newIsBull ? C_BPR_BULL : C_BPR_BEAR, border_color=C_BPR_BORDER,
+                     border_width=1, text="BPR", text_color=C_BLOC_TXT_COLOR, text_size=C_BLOC_TXT_SIZE,
+                     text_halign=C_BLOC_TXT_HALIGN, text_valign=C_BLOC_TXT_VALIGN) : na)
+                array.push(bprCeLine, i_showBPR ? line.new(bar_index[2], _ce, bar_index, _ce,
+                     color=C_BPR_BORDER, style=line.style_dotted, width=1) : na)
+
+if i_moteurFVG
+    if isFVGBull
+        f_bprPair(true,  low,      high[2], fvgBearTop, fvgBearBot, fvgBearBar)
+    if isFVGBear
+        f_bprPair(false, low[2],   high,    fvgBullTop, fvgBullBot, fvgBullBar)
+
+// Lifecycle : âge max · invalidation = clôture au-delà du bord LOINTAIN (trigger Close,
+// défaut LuxAlgo) · états : partiel dès l'entrée dans la zone, profond à la CE.
+// Mort ≠ suppression : la box est FIGÉE et grisée, retirée du scoring, conservée à
+// l'affichage jusqu'à l'éviction FIFO (comportement LuxAlgo « violated zones kept »).
+f_bprLifecycle() =>
+    if array.size(bprTop) > 0 and barstate.isconfirmed
+        for i = 0 to array.size(bprTop) - 1
+            if not array.get(bprDead, i)
+                float _t   = array.get(bprTop, i)
+                float _b   = array.get(bprBot, i)
+                float _ce  = (_t + _b) / 2.0
+                bool  _isB = array.get(bprIsBull, i)
+                bool  _old = (bar_index - array.get(bprBar, i)) > i_bprMaxAge
+                bool  _dead = _old or (_isB ? close < _b : close > _t)
+                if _dead
+                    array.set(bprDead, i, true)
+                    box _bxD = array.get(bprBox, i)
+                    if not na(_bxD)
+                        box.set_bgcolor(_bxD, color.new(color.gray, 94))
+                        box.set_border_color(_bxD, color.new(color.gray, 72))
+                    line _lnD = array.get(bprCeLine, i)
+                    if not na(_lnD)
+                        line.set_color(_lnD, color.new(color.gray, 72))
+                else
+                    int _st = array.get(bprState, i)
+                    int _ns = _isB ? (low <= _ce ? 2 : low < _t ? math.max(_st, 1) : _st)
+                                  : (high >= _ce ? 2 : high > _b ? math.max(_st, 1) : _st)
+                    if _ns != _st
+                        array.set(bprState, i, _ns)
+                        box _bxC = array.get(bprBox, i)
+                        if not na(_bxC)
+                            box.set_bgcolor(_bxC, _isB ? C_BPR_BULL_PART : C_BPR_BEAR_PART)
+            // Extension jusqu'à la bougie EN COURS (pas au-delà — retour
+            // propriétaire 28/08) pour TOUTES les boxes, actives ET figées.
+            // HORS du garde « vivant » : sinon une box figée garde son bord
+            // droit d'origine et déborde à droite du graphique.
+            if barstate.islast
+                box _bxS = array.get(bprBox, i)
+                if not na(_bxS)
+                    box.set_right(_bxS, bar_index)
+                line _lnS = array.get(bprCeLine, i)
+                if not na(_lnS)
+                    line.set_x2(_lnS, bar_index)
+
+f_bprLifecycle()
+
+// ── Décision BPR 28/08 (étude comparatif_bpr, règle des 30 trades) ──────────
+// Le bonus de qualification f_bprBonus (+4 frais / +3 partiel / +1 profond,
+// greffé sur l'accumulation OB et le _dynS BSZones) a été mesuré contre le
+// contre-factuel « sans bonus » sur 6 assets × M1/M5/M15 (~2 800 clôtures) :
+// +1.0R total = bruit statistique (deltas par cellule -5R..+4R non corrélés,
+// 64 trades supplémentaires, R moyen légèrement inférieur).
+// VERDICT : affichage conservé, scoring RETIRÉ. La détection/lifecycle et le
+// rendu ci-dessus demeurent intacts ; seule la bonification de score est
+// supprimée (fonction f_bprBonus et ses 4 points de greffe).
+
 f_fvgBullLifecycle() =>
     if i_moteurFVG and array.size(fvgBullTop) > 0 and barstate.isconfirmed
         array<int> _bullDel = array.new<int>(0)

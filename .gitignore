@@ -62,3 +62,4 @@ backend/.cargo/
 
 # Modèles ML régénérés par les tests/entraînement (ne pas committer)
 backend/data/modele_*.json
+backend/.cargo-fake-libs/

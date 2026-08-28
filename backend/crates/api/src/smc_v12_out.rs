@@ -7,7 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 use smc::v12::trade::Verdict;
-use smc::v12::{FvgState, ObState};
+use smc::v12::{BprState, FvgState, ObState};
 
 // ── Limites FIFO d'affichage (Pine « max visible ») ──────────────────────────
 pub(crate) const MAX_BOS: usize = 6;
@@ -73,6 +73,20 @@ pub(crate) struct FvgOut {
     pub top: f64,
     pub bot: f64,
     pub state: &'static str,
+    pub bar_idx: usize,
+}
+
+/// BPR (MODULE 6b) — zones conservées (actives + figées, FIFO 20). Les figées
+/// (`dead=true`) se rendent grisées côté front (décision propriétaire 28/08).
+#[derive(Serialize)]
+pub(crate) struct BprOut {
+    pub ts: i64,
+    pub dir: &'static str,
+    pub top: f64,
+    pub bot: f64,
+    pub ce: f64,
+    pub state: &'static str,
+    pub dead: bool,
     pub bar_idx: usize,
 }
 
@@ -314,6 +328,7 @@ pub(crate) struct V12AnalyseResponse {
     pub sweeps: Vec<NiveauStructOut>,
     pub obs: Vec<ObOut>,
     pub fvgs: Vec<FvgOut>,
+    pub bprs: Vec<BprOut>,
     pub signals: Vec<SignalOut>,
     pub tendance: &'static str,
     pub atr14: f64,
@@ -425,6 +440,14 @@ pub(crate) fn fvg_state_str(s: FvgState) -> &'static str {
     match s {
         FvgState::Fresh => "vierge",
         FvgState::Partial => "partiel",
+    }
+}
+
+pub(crate) fn bpr_state_str(s: BprState) -> &'static str {
+    match s {
+        BprState::Fresh => "frais",
+        BprState::Partial => "partiel",
+        BprState::Deep => "profond",
     }
 }
 

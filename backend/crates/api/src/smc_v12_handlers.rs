@@ -112,6 +112,7 @@ pub async fn analyse_v12(
             sweeps: Vec::new(),
             obs: Vec::new(),
             fvgs: Vec::new(),
+            bprs: Vec::new(),
             signals: Vec::new(),
             tendance: "neutre",
             atr14: 0.0,
@@ -329,6 +330,23 @@ pub async fn analyse_v12(
         });
     }
 
+    // ── BPR (MODULE 6b) — zones conservées (actives + figées, FIFO 20) ──
+    // Ancrage gauche = bar_index[2] du gap récent (Pine box.new(bar_index[2], …))
+    // = bar de naissance − 2, comme les boxes FVG.
+    let mut bprs: Vec<BprOut> = Vec::new();
+    for z in engine.bpr.zones() {
+        bprs.push(BprOut {
+            ts: ts_at(&ts_by_idx, z.bar.saturating_sub(2), 0),
+            dir: if z.is_bull { "bull" } else { "bear" },
+            top: z.top,
+            bot: z.bot,
+            ce: (z.top + z.bot) / 2.0,
+            state: bpr_state_str(z.state),
+            dead: z.dead,
+            bar_idx: z.bar,
+        });
+    }
+
     // ── Trades ── tous, avec verdict dérivé du lifecycle + filtre sentiment.
     // Le sentiment courant (approximation : même score pour tous les trades du replay)
     // sert à qualifier l'alignement direction × sentiment de chaque signal.
@@ -431,6 +449,7 @@ pub async fn analyse_v12(
         sweeps,
         obs,
         fvgs,
+        bprs,
         signals,
         tendance: last_tendance,
         atr14: last_atr,

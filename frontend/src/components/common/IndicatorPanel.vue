@@ -203,6 +203,7 @@ const v12Groupes = [
       { key: 'v12Breaker',     label: 'Breaker Blocks', pending: false },
       { key: 'v12Propulsion',  label: 'Propulsion Blocks', pending: false },
       { key: 'v12Imbalance',   label: 'Imbalance', pending: false },
+      { key: 'v12Bpr',         label: 'Balanced Price Range', pending: false },
       { key: 'v12ZoneCoeur',   label: 'Zone cœur', pending: false },
       { key: 'v12Ote',         label: 'Optimal Trade Entry', pending: false },
       { key: 'v12Premium',     label: 'Premium / Discount', pending: false },

@@ -49,9 +49,9 @@ import type {
 import {
   dessinerFonds as dessinerFondsExt,
   dessinerBoxes as dessinerBoxesExt,
-  dessinerLignes as dessinerLignesExt,
   donneesV12EtenduesVides,
 } from './smcV12OverlayExtra'
+import { dessinerLignes as dessinerLignesExt } from './smcV12OverlayExtraLignes'
 import type { DonneesV12Etendues, FlagsV12Etendus } from './smcV12OverlayExtra'
 
 export function useSmcV12Overlay() {
@@ -137,6 +137,7 @@ export function useSmcV12Overlay() {
       breaker: p.v12Breaker,
       propulsion: p.v12Propulsion,
       imbalance: p.v12Imbalance,
+      bpr: p.v12Bpr,
       ote: p.v12Ote,
       premium: p.v12Premium,
       equilibrium: p.v12Equilibrium,
@@ -296,6 +297,7 @@ export function useSmcV12Overlay() {
       breakers: data.breakers ?? [],
       propulsions: data.propulsions ?? [],
       imbalances: data.imbalances ?? [],
+      bprs: data.bprs ?? [],
       otes: data.otes ?? [],
       mtf_obs: data.mtf_obs ?? [],
       zone_coeur: data.zone_coeur ?? [],

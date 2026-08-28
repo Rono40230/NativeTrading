@@ -45,6 +45,17 @@ export interface FvgV12 {
   state: 'vierge' | 'partiel'
   bar_idx: number
 }
+/** BPR (Balanced Price Range) — Module 6b. `dead` = figé (rendu grisé). */
+export interface BprV12 {
+  ts: number
+  dir: 'bull' | 'bear'
+  top: number
+  bot: number
+  ce: number
+  state: 'frais' | 'partiel' | 'profond'
+  dead: boolean
+  bar_idx: number
+}
 /** Trade généré par le moteur (v11 OB ou BSZones) avec verdict lifecycle. */
 export interface SignalV12 {
   ts: number
@@ -205,6 +216,7 @@ export interface SmcV12Analyse {
   session_boxes?: SessionBox[]
   obs: ObV12[]
   fvgs: FvgV12[]
+  bprs?: BprV12[]
   signals: SignalV12[]
   tendance: 'haussiere' | 'baissiere' | 'neutre'
   atr14: number

@@ -9,6 +9,7 @@
 pub mod asian_hl;
 pub mod atr;
 pub mod bos;
+pub mod bpr;
 pub mod breaker;
 pub mod bs_helpers;
 pub mod calibration;
@@ -41,6 +42,7 @@ pub mod zone_coeur;
 pub use asian_hl::AsianHlDetector;
 pub use atr::Atr14;
 pub use bos::BosDetector;
+pub use bpr::{bonus_bpr, BprDetector, BprEvent, BprState, BprZone};
 pub use breaker::BreakerDetector;
 pub use calibration::{tf_seconds, AssetCalibration};
 pub use fvg::FvgDetector;
@@ -86,6 +88,8 @@ pub struct SmcV12Engine {
     pub liquidites: LiquiditesDetector,
     pub sweep: SweepDetector,
     pub fvg: FvgDetector,
+    /// MODULE 6b — BPR (Balanced Price Range).
+    pub bpr: BprDetector,
     pub order_blocks: ObDetector,
     pub breaker: BreakerDetector,
     pub propulsion: PropulsionDetector,
@@ -102,6 +106,10 @@ pub struct SmcV12Engine {
     pub mtf: MtfDetector,
     /// Zone-cœur (intersection OB ∩ OTE ∩ FVG).
     pub zone_coeur: ZoneCoeurDetector,
+    /// Bonus de scoring BPR (MODULE 6b) — défaut INACTIF : étude comparatif_bpr
+    /// 28/08 = +1.0R / 2 834 clôtures (bruit) → « affichage conservé, scoring
+    /// retiré » (parité Pine). Le greffon reste ré-activable pour ré-étude.
+    bpr_scoring: bool,
     // --- Phase 2.5 : CERVEAU (scoring + signaux + lifecycle) ---
     /// MODULE 11 — Scoring v11 (OB).
     pub scoring_v11: ScoringV11,
@@ -146,6 +154,7 @@ impl SmcV12Engine {
             liquidites: LiquiditesDetector::new(),
             sweep: SweepDetector::new(tf_sec),
             fvg: FvgDetector::new(),
+            bpr: BprDetector::new(),
             order_blocks: ObDetector::new(),
             breaker: BreakerDetector::new(),
             propulsion: PropulsionDetector::new(),
@@ -156,6 +165,7 @@ impl SmcV12Engine {
             ndog: NdogDetector::new(tf_sec),
             mtf: MtfDetector::new(),
             zone_coeur: ZoneCoeurDetector::new(),
+            bpr_scoring: false,
             tf_sec,
         }
     }
@@ -170,6 +180,14 @@ impl SmcV12Engine {
     /// Mode TP3 (défaut DolCappe3R = production, décision DoL≤3R du 28/08).
     pub fn avec_mode_tp3(mut self, mode: signals::ModeTp3) -> Self {
         self.signals.definir_mode_tp3(mode);
+        self
+    }
+
+    /// Bonus de scoring BPR (MODULE 6b) — défaut actif (parité étalon Pine).
+    /// La détection/lifecycle BPR tourne toujours ; seul le greffon de score
+    /// (`+4/+3/+1` sur OB v11 et BSZones) est coupé par `false`.
+    pub fn avec_scoring_bpr(mut self, actif: bool) -> Self {
+        self.bpr_scoring = actif;
         self
     }
 
@@ -239,7 +257,17 @@ impl SmcV12Engine {
         self.liquidites.consommer_niveaux_atteints(bar);
 
         // 8. FVG (MODULE 6) — détection + lifecycle. Produit les bornes pour Propulsion.
+        // 8b. BPR (MODULE 6b) — le Pine apparie le gap naissant au pool opposé
+        //     AVANT f_fvg*BearLifecycle : un gap opposé dont la clôture de
+        //     remplissage le retire du pool cette bar reste appariantable
+        //     (« les deux gaps sont délivrés »). D'où le snapshot PRÉ-lifecycle
+        //     (fvg.update fait création + lifecycle d'un bloc).
+        let opp_bull_pre = self.fvg.bull_zones().to_vec();
+        let opp_bear_pre = self.fvg.bear_zones().to_vec();
         let fvg_event = self.fvg.update(bar, atr14);
+        let _bpr_event = self
+            .bpr
+            .update(bar, &fvg_event, &opp_bull_pre, &opp_bear_pre);
 
         // 9. Order Blocks (MODULE 7) — ROC + impulsion + lifecycle 3 états.
         //    Lit ibBull[1]/ibBear[1] (= imbalance de la bar précédente, car l'Imbalance
@@ -339,22 +367,35 @@ impl SmcV12Engine {
         let bar_index = self.bar_count;
         self.bar_count += 1;
 
-        // 19. Scoring v11 — f_accumScores sur les OB vivants (freshness + proximity).
+        // 19. Scoring v11 — f_accumScores sur les OB vivants (freshness + proximity
+        //     + bonus BPR Module 6b).
         {
             let ob_bull = self.order_blocks.bull_zones();
             let ob_bear = self.order_blocks.bear_zones();
+            let bpr_zones: &[bpr::BprZone] = if self.bpr_scoring {
+                self.bpr.zones()
+            } else {
+                &[]
+            };
             self.scoring_v11
-                .update(&out, bar, &self.calibration, ob_bull, ob_bear);
+                .update(&out, bar, &self.calibration, ob_bull, ob_bear, bpr_zones);
         }
-        // 20. Scoring BSZones — naissances (gate HTF) + lifecycle (mitigation).
+        // 20. Scoring BSZones — naissances (gate HTF) + lifecycle (mitigation)
+        //     + bonus BPR Module 6b.
         {
             let fvg_bull = self.fvg.bull_zones();
             let fvg_bear = self.fvg.bear_zones();
+            let bpr_zones: &[bpr::BprZone] = if self.bpr_scoring {
+                self.bpr.zones()
+            } else {
+                &[]
+            };
             self.scoring_bs.update(
                 &out,
                 bar,
                 fvg_bull,
                 fvg_bear,
+                bpr_zones,
                 &self.history,
                 bar_index,
                 self.tf_sec,

@@ -57,6 +57,7 @@ export interface PrefsIndicateurs {
   v12Breaker: boolean
   v12Propulsion: boolean     // bloc breaker
   v12Imbalance: boolean   // bloc imbalance
+  v12Bpr: boolean         // bloc BPR (Module 6b)
   // Signaux & zones
   v12ZoneCoeur: boolean   // bloc zone d'achat/vente
   v12Signals: boolean     // box trade SL/TP + label BUY/SELL
@@ -132,6 +133,7 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   v12Breaker: false,
   v12Propulsion: false,
   v12Imbalance: false,
+  v12Bpr: true,
   v12ZoneCoeur: false,
   v12Signals: true,
   v12Volume: false,

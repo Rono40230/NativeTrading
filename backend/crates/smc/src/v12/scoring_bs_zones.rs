@@ -12,6 +12,7 @@
 //!
 //! Les fonctions de scoring pures et les helpers d'historique sont dans `bs_helpers`.
 
+use super::bpr::{bonus_bpr, BprZone};
 use super::bs_helpers::*;
 use super::types::{BarInput, FvgZone, SmcOutput};
 
@@ -133,12 +134,14 @@ impl ScoringBsZones {
     /// - `history` : historique rolling (dernier élément = bar courante).
     /// - `tf_sec` : timeframe en secondes (Pine `timeframe.in_seconds()`).
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     pub fn update(
         &mut self,
         out: &SmcOutput,
         bar: &BarInput,
         fvg_bull: &[FvgZone],
         fvg_bear: &[FvgZone],
+        bpr_zones: &[BprZone],
         history: &[BarInput],
         bar_index: usize,
         tf_sec: i64,
@@ -189,6 +192,7 @@ impl ScoringBsZones {
                 out,
                 bar,
                 fvg_bull,
+                bpr_zones,
                 history,
                 bar_index,
                 atr,
@@ -203,6 +207,7 @@ impl ScoringBsZones {
                 out,
                 bar,
                 fvg_bear,
+                bpr_zones,
                 history,
                 bar_index,
                 atr,
@@ -212,8 +217,8 @@ impl ScoringBsZones {
         }
 
         // --- Lifecycle zones (Pine 3318-3408) ---
-        self.lifecycle(true, out, bar, fvg_bull, bar_index, atr, in_dead_zone);
-        self.lifecycle(false, out, bar, fvg_bear, bar_index, atr, in_dead_zone);
+        self.lifecycle(true, out, bar, fvg_bull, bpr_zones, bar_index, atr, in_dead_zone);
+        self.lifecycle(false, out, bar, fvg_bear, bpr_zones, bar_index, atr, in_dead_zone);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -223,6 +228,7 @@ impl ScoringBsZones {
         out: &SmcOutput,
         bar: &BarInput,
         fvg: &[FvgZone],
+        bpr_zones: &[BprZone],
         history: &[BarInput],
         bar_index: usize,
         atr: f64,
@@ -319,7 +325,7 @@ impl ScoringBsZones {
                 in_ote,
                 out,
                 in_dead_zone_safe(bar),
-            );
+            ) + bonus_bpr(bpr_zones, is_bull, ob_t, ob_b);
             let sc = to_force10(base_score + dyn_s);
             let z = BsZone {
                 top: ob_t,
@@ -356,12 +362,14 @@ impl ScoringBsZones {
 
     /// Lifecycle zones bull (is_bull=true) / bear (Pine 3318-3408).
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn lifecycle(
         &mut self,
         is_bull: bool,
         out: &SmcOutput,
         bar: &BarInput,
         fvg: &[FvgZone],
+        bpr_zones: &[BprZone],
         _bar_index: usize,
         atr: f64,
         in_dead_zone: bool,
@@ -425,7 +433,7 @@ impl ScoringBsZones {
                 in_ote,
                 out,
                 in_dead_zone,
-            );
+            ) + bonus_bpr(bpr_zones, is_bull, top, bot);
             let total = to_force10(new_base + dyn_s);
             {
                 let z = &mut zones[idx];

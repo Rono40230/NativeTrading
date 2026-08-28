@@ -62,6 +62,7 @@ pub fn rejouer_bougies_mode(
     rejouer_bougies_modes(
         asset, tf, bougies, simuler_ticks, amorce, mode,
         smc::v12::signals::ModeTp3::Dol,
+        false, // scoring BPR = défaut production (inactif — étude 28/08)
     )
 }
 
@@ -78,10 +79,29 @@ pub fn rejouer_bougies_tp3(
         asset, tf, bougies, simuler_ticks, amorce,
         smc::v12::lifecycle::ModeBeForce::Supprime,
         mode_tp3,
+        false, // scoring BPR = défaut production (inactif — étude 28/08)
     )
 }
 
-/// Chemin commun : BE forcé + TP3 paramétrables (études comparatives).
+/// Variante Module A (étude BPR) — BE = Supprimé + TP3 = DolCappe3R
+/// (production), seul le bonus de scoring BPR diffère.
+pub fn rejouer_bougies_bpr(
+    asset: Asset,
+    tf: Timeframe,
+    bougies: &[Candle],
+    simuler_ticks: bool,
+    amorce: smc::v12::AmorceMtf,
+    scoring_bpr: bool,
+) -> ResultatReplay {
+    rejouer_bougies_modes(
+        asset, tf, bougies, simuler_ticks, amorce,
+        smc::v12::lifecycle::ModeBeForce::Supprime,
+        smc::v12::signals::ModeTp3::DolCappe3R,
+        scoring_bpr,
+    )
+}
+
+/// Chemin commun : BE forcé + TP3 + scoring BPR paramétrables (études).
 #[allow(clippy::too_many_arguments)]
 fn rejouer_bougies_modes(
     asset: Asset,
@@ -91,12 +111,14 @@ fn rejouer_bougies_modes(
     amorce: smc::v12::AmorceMtf,
     mode: smc::v12::lifecycle::ModeBeForce,
     mode_tp3: smc::v12::signals::ModeTp3,
+    scoring_bpr: bool,
 ) -> ResultatReplay {
     let debut = std::time::Instant::now();
     let mut plugin = MoteurV12::nouveau(asset.clone(), tf)
         .avec_amorce(amorce.clone())
         .avec_mode_be_force(mode)
-        .avec_mode_tp3(mode_tp3);
+        .avec_mode_tp3(mode_tp3)
+        .avec_scoring_bpr(scoring_bpr);
     let mut journal = SortieMoteur::vide();
 
     for (i, b) in bougies.iter().enumerate() {
@@ -128,11 +150,13 @@ fn rejouer_bougies_modes(
     }
 
     // Référence : moteur nu, bar-replay pur (le mode TradingView) — même
-    // amorçage MTF et MÊMES MODES (BE forcé + TP3) que le plugin, sinon la
-    // comparaison conforme_reference compare deux stratégies différentes.
+    // amorçage MTF et MÊMES MODES (BE forcé + TP3 + scoring BPR) que le
+    // plugin, sinon la comparaison conforme_reference compare deux
+    // stratégies différentes.
     let mut reference = SmcV12Engine::new(asset.as_str(), tf.as_str())
         .avec_mode_be_force(mode)
-        .avec_mode_tp3(mode_tp3);
+        .avec_mode_tp3(mode_tp3)
+        .avec_scoring_bpr(scoring_bpr);
     if let Some(premiere) = bougies.first() {
         reference.primer_mtf_amorce(&amorce, premiere.timestamp.timestamp());
     }

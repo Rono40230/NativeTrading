@@ -1,7 +1,4 @@
-
-Un trade BTC M5 vient de s'ouvrir :
-- il est dessiné sans la box rouge de la zone SL = il faut l'ajouter
-- il n'est visible QUE en M5 alors que je devrai le voir sur tous les TF
+Il faut élargir la colonne de droite dans le dashboard (sentiment de marché & calendrier) pour ajouter une colonne "Cours" à côté de "Veille", "jour", qui affiche le cours de l'actifs en direct
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -16,13 +13,3 @@ Un trade BTC M5 vient de s'ouvrir :
 
 
 --------------------------------------------------------------------------------------------------------------------------
-
-J'ai demandé à une IA quelles améliorations nous pourrions apporter à V12.pine pour coller au plus proche de la logique SMC.
-Ces améliorations sont dans le nouveau fichier amelioration_v12.md
-
-Étape 2 : Analyser les propositions d’améliorations de amelioration_v12.pine
-Objectifs :
-1 – valider ou invalider chaque proposition d'amélioration
-2 - Rédiger la roadmap amelioration_v12.md
-
-Donne moi ton analyse et répond sans coder.

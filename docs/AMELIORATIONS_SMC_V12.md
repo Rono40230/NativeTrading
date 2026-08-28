@@ -117,15 +117,53 @@ assets produisent 69-371 trades par fenêtre. À investiguer en Phase 5
 
 ## Phase 3 — Module A : BPR (2 sessions)
 
-- [ ] **Pine étalon** :
-  - Détection : chevauchement FVG bull × FVG bear (intersection géométrique)
-  - Lifecycle : frais → partiel → profond → supprimé (comme OB/FVG)
-  - Scoring : bonus +4 si OB chevauche un BPR frais, +3 si partiel, +1 si profond
-  - Affichage : box dorée avec label « BPR »
-  - Anti-doublon + FIFO 10 max + âge max 15 bars
-- [ ] **Moteur Rust** : nouveau détecteur `bpr.rs` dans `smc/src/v12/`
-- [ ] **Frontend** : rendu des boxes BPR dans l'overlay
-- [ ] **Replay comparatif** : impact WR avec/sans BPR sur 24 mois
+### Session A — Pine étalon ✅ LIVRÉE (28/08) — validation visuelle en attente
+
+**Références** (recherche du 28/08) :
+- **ICT mentorship 2023** (épisodes Power of Three / market reviews) : BPR = zone de chevauchement de 2 FVG opposés, typiquement sur spike news ; entrée au bord proche dans le sens du biais
+- **LuxAlgo — concept BPR** : intersection STRICTE (pas l'union) ; le déplacement le plus RÉCENT fixe le rôle (gap bull récent sur gap bear = support, miroir = résistance) ; invalidation = clôture au-delà du bord lointain
+- **LuxAlgo — indicateur BPR** : fenêtre d'appariement 10 bars (défaut), « only the most recent overlapping gap is paired », midline pointillée, trigger de violation = Close
+
+**MODULE 6b livré dans le Pine étalon** :
+- Détection : à la naissance d'un FVG, appariement avec le FVG opposé **le plus récent** né dans les **10 bars** qui chevauche → BPR = intersection stricte. Placée AVANT les lifecycle FVG (le gap opposé est apparié même si sa clôture de remplissage le retire du pool : « les deux gaps sont délivrés »)
+- Rôle = sens du gap le plus récent (LuxAlgo/ICT)
+- Lifecycle : 0 frais → 1 partiel (prix entré, CE intacte) → 2 profond (CE atteinte) → **figée** (clôture au-delà du bord lointain, trigger Close) · âge max actif 15 bars
+- Affichage : box ambre `#FFB300` (haussier/support) / orange `#FF6D00` (baissier/résistance), label « BPR », **CE pointillée** (midline LuxAlgo), atténuée au state 1/2, **figée en gris** à sa mort (grisonnement + hors scoring — l'étendue continue jusqu'à la bougie en cours comme les autres blocs, décision propriétaire 28/08), FIFO 20 (« Show Last 20 » LuxAlgo), toggle ON par défaut
+- Scoring (la qualification, PAS le f_score de bar) : `f_bprBonus` +4 frais / +3 partiel / +1 profond si chevauchement avec BPR **active** de même sens — greffé aux 4 points : accumulation OB bull/bear + `_dynS` BSZones bull/bear. Dénominateur `_toForce10` (27) inchangé — recalibration en Phase 5.
+
+**Correctif invisibilité (28/08, retour propriétaire)** : première version supprimait les boxes à leur mort. Or le replay montre : ~1 BPR / 116 bars, durée de vie ≈ 9 bars, **toutes** mortes par clôture au travers → espérance de boxes vivantes à un instant donné ≈ 0,08 → graphique vide 92% du temps. Correctif conforme LuxAlgo : les zones mortes sont **figées (grisées), conservées à l'affichage** jusqu'à l'éviction FIFO 20, hors scoring. Sonde `probe_bpr` (Rust, DB réelle) : 4-8 boxes visibles par fenêtre de 500 bars.
+
+**À valider par le propriétaire dans TradingView** (charger `docs/reference/smc_indicateur_v12.pine`) :
+- [x] Boxes BPR aux bons endroits (validation croisée 4 UT : zone structurelle ~7720-7742 SP500 détectée sur plusieurs UT, UT courte sans gap bull = 0 BPR — cohérent règles)
+- [x] Rôle cohérent (capture UT haute : BPR posé sur FVG vert retesté par le prix — cas d'école ICT)
+- [x] Boxes s'arrêtant à la bougie en cours (correctif double du 28/08 : bord droit = `bar_index` dès la naissance + bloc d'extension sorti du garde « vivant » — les figées étaient jamais ramenées et débordaient)
+
+**Validation visuelle ✅ (28/08, retour propriétaire « c'est ok »).**
+
+### Session B — Rust + frontend + replay ✅ LIVRÉE (28/08)
+
+- [x] **Moteur Rust** : `smc/src/v12/bpr.rs` — détecteur fidèle (fenêtre 10, intersection stricte, plus récent d'abord, anti-doublon ≥80% sur ACTIFS, FIFO 20, âge 15, états sticky 0/1/2, figé=dead conservé). 12 tests unitaires. Point subtil de parité : l'appariement lit les pools FVG **pré-lifecycle** (snapshot pris par le moteur avant `fvg.update` — le Pine apparie avant `f_fvg*BearLifecycle`)
+- [x] **Scoring** : `bonus_bpr()` (+4/+3/+1) greffé aux 4 points paritaires — accumulation OB v11 bull/bear (`scoring_v11.rs`, Pine 2504/2520) + `_dynS` BSZones naissance/lifecycle (`scoring_bs_zones.rs`, Pine 3602/3648). Drapeau `avec_scoring_bpr(bool)` pour le contre-factuel
+- [x] **Frontend** : `BprV12` (api.smc.ts) + endpoint `bprs` (BprOut : top/bot/ce/state/dead) + rendu overlay ambre/orange, CE pointillée, figées grisées + toggle « BPR » (défaut ON, IndicatorPanel). Split `smcV12OverlayExtraLignes.ts` (règle < 600 lignes)
+- [x] **Replay comparatif** `comparatif_bpr` : BPR ON vs OFF, BE=Supprimé + TP3=DoL≤3R (production), 6 assets × M1/M5/M15, ticks simulés → `data/comparatif_bpr.txt`
+
+#### Résultats (28/08) — le bonus est un BRUIT, décision : scoring RETIRÉ
+
+| Branche | R total | Clôtures | R moyen | max DD |
+|---|---|---|---|---|
+| **BPR ON** (bonus actif) | +763.1R | 2 834 | +0.269 | 11.0R |
+| **BPR OFF** (contre-factuel) | +762.1R | 2 770 | +0.275 | 12.0R |
+
+Delta = **+1.0R sur ~2 800 trades** (0,03% du total) : bruit statistique. Deltas
+par cellule entre -5R (XAU M15) et +4R (BTC M5), non corrélés entre assets. Le
+bonus produit 64 trades supplémentaires (zones franchissant les seuils de
+qualification force ≥ 4 / score ≥ 7) au R moyen légèrement inférieur.
+
+**Décision appliquée (règle pré-validée)** :
+1. ✅ **Pine étalon** : `f_bprBonus` + ses 4 points de greffe retirés — la détection, le lifecycle et l'affichage (MODULE 6b) demeurent intacts, avec commentaire de décision à l'emplacement du bonus
+2. ✅ **Rust** : défaut `bpr_scoring = false` — les greffons restent en place, ré-activables par `avec_scoring_bpr(true)` pour une future ré-étude (le bonus reste hors production tant qu'une nouvelle étude ne le justifie pas)
+3. ✅ **Affichage conservé partout** : Pine + endpoint `bprs` + overlay frontend (zones ambre/orange actives, grises figées, CE pointillée) — valeur d'analyse visuelle intacte
+4. SP500 : muet dans les deux branches (8 vs 0 trades) — confirmé pour investigation Phase 5 ; DAX M1 sous le seuil 30 (24 trades, identique dans les deux branches)
 
 ## Phase 4 — Module F : Sessions H/L (1 session)
 
@@ -149,7 +187,7 @@ assets produisent 69-371 trades par fenêtre. À investiguer en Phase 5
 |---|---|---|---|
 | 1 | Audit préalable (C, D, H) | 1 session | ✅ Terminée |
 | 2 | G (DoL TP3) | 1 session | ✅ Terminée — DoL≤3R en production |
-| 3 | A (BPR) | 2 sessions | Prochaine |
+| 3 | A (BPR) | 2 sessions | 🔄 Session A livrée (Pine) — validation visuelle attendue |
 | 4 | F (sessions H/L) | 1 session | |
 | 5 | Validation globale + H + SP500 muet | 1 session | |
 

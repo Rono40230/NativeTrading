@@ -11,6 +11,7 @@
 //!
 //! Le scoring lit l'état de TOUS les détecteurs via `SmcOutput` + la bar courante.
 
+use super::bpr::{bonus_bpr, BprZone};
 use super::calibration::AssetCalibration;
 use super::types::{BarInput, ObState, ObZone, SmcOutput};
 
@@ -286,6 +287,7 @@ impl ScoringV11 {
         cal: &AssetCalibration,
         ob_bull: &[ObZone],
         ob_bear: &[ObZone],
+        bpr_zones: &[BprZone],
     ) {
         let atr = out.atr14;
         let (live_bull, flags_bull) = Self::live_score_detaille(true, out, bar, cal);
@@ -319,7 +321,10 @@ impl ScoringV11 {
             } else {
                 0
             };
-            let cand = live_bull + fresh + prox;
+            // Bonus BPR Module 6b (Pine 2504) : chevauchement BPR actif de
+            // même sens (+4 frais · +3 partiel · +1 profond).
+            let bpr_b = bonus_bpr(bpr_zones, true, z.top, z.bot);
+            let cand = live_bull + fresh + prox + bpr_b;
             let entry = self.ob_bull_score.entry(z.impulse_bar).or_insert(0);
             let nouveau_max = cand > *entry;
             *entry = if st == ObState::Profond {
@@ -373,7 +378,9 @@ impl ScoringV11 {
             } else {
                 0
             };
-            let cand = live_bear + fresh + prox;
+            // Bonus BPR Module 6b (Pine 2520).
+            let bpr_r = bonus_bpr(bpr_zones, false, z.top, z.bot);
+            let cand = live_bear + fresh + prox + bpr_r;
             let entry = self.ob_bear_score.entry(z.impulse_bar).or_insert(0);
             let nouveau_max = cand > *entry;
             *entry = if st == ObState::Profond {
