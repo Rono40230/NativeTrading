@@ -40,7 +40,7 @@ Détail complet, chiffres et décisions : `docs/AMELIORATIONS_SMC_V12.md`.
 - [x] **Phase 1 — Audit préalable (28/08)** : modules C (dead zone) et D (filtre régime) REJETÉS par replay 24 mois ; H (mega-orders) en attente de données volume-corrigées
 - [x] **Phase 2 — Module G : DoL≤3R (28/08)** : TP3 = liquidité la plus proche PLAFONNÉE à 3R, en production (Pine étalon + Rust + prompt IA synchronisés). Replay 2 776 trades : le DoL pur coûtait 67R (cibles inatteignables avant expire), DoL≤3R = +61.5R
 - [x] **Phase 3 — Module A : BPR** (28/08) : détection + affichage livrés (Pine MODULE 6b validé visuellement + Rust `bpr.rs` + overlay frontend). Étude replay (~2 800 trades) : le bonus de scoring +4/+3/+1 = bruit (+1.0R) → **scoring retiré, affichage conservé** (décision pré-validée appliquée au Pine étalon et au défaut Rust)
-- [ ] **Phase 4 — Module F : scoring sessions H/L** (1 session)
+- [x] **Phase 4 — Module F : sessions H/L** (28/08) : tracking London H/L livré (MODULE 14b Pine + Rust). Étude replay (~2 770 clôtures) : bonus +2 ON ≡ OFF **bit-à-bit** (zéro trade changé, sonde d'activation positive) → **bonus retiré, tracking/affichage conservés**
 - [ ] **Phase 5 — Validation globale** + Module H (mega-orders) + investigation **SP500 muet** (0 signal SMC sur 18 mois de replay, les 5 autres assets en produisent 69-371 — confirmé muet avec et sans BPR)
 
 ### 3. Agenda intelligent — Créneaux de volatilité récurrents (Straddle IA)

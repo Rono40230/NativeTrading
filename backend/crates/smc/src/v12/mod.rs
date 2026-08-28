@@ -39,7 +39,7 @@ pub mod trade;
 pub mod types;
 pub mod zone_coeur;
 
-pub use asian_hl::AsianHlDetector;
+pub use asian_hl::{AsianHlDetector, SessHlLevels};
 pub use atr::Atr14;
 pub use bos::BosDetector;
 pub use bpr::{bonus_bpr, BprDetector, BprEvent, BprState, BprZone};
@@ -115,6 +115,18 @@ pub struct SmcV12Engine {
     pub scoring_v11: ScoringV11,
     /// MODULE 14 — Asian High/Low (DoL znQual + TP3).
     pub asian_hl: AsianHlDetector,
+    /// MODULE 14b — London High/Low (Module F — mêmes bornes Paris que le Pine).
+    pub london_hl: AsianHlDetector,
+    /// Événements de session de la bar N-1 (parité Pine : f_score lit les
+    /// drawn AVANT la mise à jour MODULE 14/14b — état N-1).
+    asian_hl_prec: asian_hl::AsianHlEvent,
+    london_hl_prec: asian_hl::AsianHlEvent,
+    /// Bonus Module F (sessions H/L) — défaut INACTIF : étude comparatif_sessions
+    /// du 28/08 = ON ≡ OFF bit-à-bit (2 771 clôtures, zéro trade changé ; la
+    /// sonde probe_sessions prouve que le greffon s'activait — le +2 n'a
+    /// jamais franchi un seuil). Décision : bonus retiré (parité Pine),
+    /// tracking Londres + affichage conservés, greffon ré-activable en étude.
+    sess_hl_scoring: bool,
     /// MODULE BSZones — second moteur de scoring + zones.
     pub scoring_bs: ScoringBsZones,
     /// Générateur de signaux + carnet de trades.
@@ -140,6 +152,14 @@ impl SmcV12Engine {
         Self {
             scoring_v11: ScoringV11::new(&cal, tf_mins),
             asian_hl: AsianHlDetector::new(),
+            london_hl: AsianHlDetector::new()
+                .avec_fenetre(
+                    asian_hl::LONDON_DEBUT_MIN,
+                    asian_hl::LONDON_FIN_MIN,
+                ),
+            asian_hl_prec: asian_hl::AsianHlEvent::default(),
+            london_hl_prec: asian_hl::AsianHlEvent::default(),
+            sess_hl_scoring: false,
             scoring_bs: ScoringBsZones::new(),
             signals: SignalGenerator::new(),
             lifecycle: TradeLifecycle::new(trade_max_secs, tp3_max_secs),
@@ -188,6 +208,13 @@ impl SmcV12Engine {
     /// (`+4/+3/+1` sur OB v11 et BSZones) est coupé par `false`.
     pub fn avec_scoring_bpr(mut self, actif: bool) -> Self {
         self.bpr_scoring = actif;
+        self
+    }
+
+    /// Bonus Module F — sessions H/L Asie/Londres (+2 proximité). Défaut
+    /// inactif (étude 28/08 : ON ≡ OFF bit-à-bit) ; ré-activable en étude.
+    pub fn avec_scoring_sessions(mut self, actif: bool) -> Self {
+        self.sess_hl_scoring = actif;
         self
     }
 
@@ -317,6 +344,7 @@ impl SmcV12Engine {
         //     Lit les zones vivantes (bull_zones/bear_zones) + bornes OTE + sweep frais.
         // 18b. Asian High/Low (MODULE 14) — niveaux drawn pour znQual/TP3.
         let asian_ev = self.asian_hl.update(bar);
+        let london_ev = self.london_hl.update(bar);
 
         let zone_coeur_event = self.zone_coeur.update(
             self.order_blocks.bull_zones(),
@@ -351,6 +379,7 @@ impl SmcV12Engine {
             mtf: mtf_event,
             zone_coeur: zone_coeur_event,
             asian_hl: asian_ev,
+            london_hl: london_ev,
             sh1: self.pivots.sh1(),
             sl1: self.pivots.sl1(),
             // Tendance PRÉ-reset MSS (fidélité Pine : calculée ligne 381 avant reset 504).
@@ -377,8 +406,21 @@ impl SmcV12Engine {
             } else {
                 &[]
             };
-            self.scoring_v11
-                .update(&out, bar, &self.calibration, ob_bull, ob_bear, bpr_zones);
+            // Module F : niveaux de session à l'état N-1 (parité Pine f_score).
+            let sess_prec = asian_hl::SessHlLevels {
+                ah_high: self.asian_hl_prec.high,
+                ah_low: self.asian_hl_prec.low,
+                ld_high: self.london_hl_prec.high,
+                ld_low: self.london_hl_prec.low,
+            };
+            let sess_hl = if self.sess_hl_scoring {
+                Some(&sess_prec)
+            } else {
+                None
+            };
+            self.scoring_v11.update(
+                &out, bar, &self.calibration, ob_bull, ob_bear, bpr_zones, sess_hl,
+            );
         }
         // 20. Scoring BSZones — naissances (gate HTF) + lifecycle (mitigation)
         //     + bonus BPR Module 6b.
@@ -421,6 +463,11 @@ impl SmcV12Engine {
                 fvg_bear,
             );
         }
+        // 21b. Rotation des événements de session N-1 (après le scoring qui
+        //     les a consommés — la bar suivante verra ceux de cette bar).
+        self.asian_hl_prec = out.asian_hl;
+        self.london_hl_prec = out.london_hl;
+
         // 22. Lifecycle — évaluation intrabar (fill/SL/BE/TP/expire/BE-forcé).
         let (ob_bull_lc, ob_bear_lc) = {
             let b = self.order_blocks.bull_zones().to_vec();

@@ -189,6 +189,23 @@ int   i_prevLiqPtsProx  = 2
 int   i_prevLiqPtsSweep = 4
 bool  i_alertSweepPDHL  = true
 
+// ── MODULE F — SESSIONS H/L (Phase 4 AMELIORATIONS_SMC_V12, 28/08) ───────────
+// DÉCISION 28/08 (étude comparatif_sessions, règle des 30 trades) : le bonus
+// f_score +2 de proximité des H/L de session Asie/Londres a été mesuré contre
+// le contre-factuel sur 6 assets × M1/M5/M15 (~2 770 clôtures) : ON ≡ OFF
+// bit-à-bit (zéro trade changé). La sonde probe_sessions confirme que le
+// greffon s'ACTIVAIT (proximité vraie ~1-2% des bars, 4-11 trades/cellule
+// nés en fenêtre), mais le +2 n'a jamais fait franchir un seuil de
+// qualification. VERDICT : bonus RETIRÉ (graphe et flags supprimés) ;
+// le tracking Londres (MODULE 14b) et l'affichage i_showLondonHL demeurent.
+// Les déclarations drawn ci-dessous restent placées ici (sans lecteur avant
+// MODULE 14 désormais) — emplacement indifférent, zéro impact d'exécution.
+var float _ahHighDrawn = na
+var float _ahLowDrawn  = na
+var float _ldHighDrawn = na
+var float _ldLowDrawn  = na
+bool i_showLondonHL  = input.bool (false, "London High / London Low", group=GRP_SES)
+
 float pdh = request.security(syminfo.tickerid, "D", high[1], lookahead=barmerge.lookahead_off)
 float pdl = request.security(syminfo.tickerid, "D", low[1],  lookahead=barmerge.lookahead_off)
 float pwh = request.security(syminfo.tickerid, "W", high[1], lookahead=barmerge.lookahead_off)
@@ -2413,6 +2430,7 @@ bool nearBearPrevLiq = nearPDH or nearPWH
 bool sweepBullPrevLiq = (not na(pdlActive) and low < pdlActive and close > pdlActive) or (not na(pwlActive) and low < pwlActive and close > pwlActive)
 bool sweepBearPrevLiq = (not na(pdhActive) and high > pdhActive and close < pdhActive) or (not na(pwhActive) and high > pwhActive and close < pwhActive)
 
+
 f_score(bool isBull) =>
     int sc = 0
     // BOS directionnel : P1.1 + P5.2 — poids dynamique selon force du déplacement
@@ -2462,6 +2480,7 @@ f_score(bool isBull) =>
         sc += i_prevLiqPtsProx
     if i_prevLiqScore and ((isBull and sweepBullPrevLiq) or (not isBull and sweepBearPrevLiq))
         sc += i_prevLiqPtsSweep
+    // (Module F sessions H/L : bonus retiré 28/08 — étude ON ≡ OFF bit-à-bit)
     // Premium/Discount : P7 — présent 78%, WR < global → 2→1
     if (isBull and inDiscount) or (not isBull and inPremium)
         sc += 1
@@ -3065,8 +3084,7 @@ if not na(_ahHighLbl)
     label.set_x(_ahHighLbl, bar_index)
 if not na(_ahLowLbl)
     label.set_x(_ahLowLbl, bar_index)
-var float _ahHighDrawn = na
-var float _ahLowDrawn  = na
+// (_ahHighDrawn/_ahLowDrawn : déclarés avant f_score — Module F, voir inputs)
 
 bool _ahStart = _sAsStart
 bool _ahEnd   = not _s14Asian and _s14Asian[1]
@@ -3133,6 +3151,83 @@ if i_showAsianHL and barstate.isconfirmed
             label.delete(_ahLowLbl)
         _ahLowLine   := na
         _ahLowLbl    := na
+
+// MODULE 14b — LONDON High/Low (Module F, Phase 4, 28/08) — même mécanique que
+// l'Asie : range pendant la session (SES_PARIS_LONDON 08:00-16:30 Paris), puis
+// niveaux DRAWN à la fin, consommés à l'atteinte (« décisions trading » 23/08).
+// État dissocié de l'affichage (i_showLondonHL) — le scoring lit toujours les
+// drawn (_ldHighDrawn/_ldLowDrawn déclarés avant f_score avec l'Asie).
+var float _ldHigh      = na
+var float _ldLow       = na
+var int   _ldStartBar  = na
+var line  _ldHighLine  = na
+var line  _ldLowLine   = na
+var label _ldHighLbl   = na
+var label _ldLowLbl    = na
+if not na(_ldHighLine)
+    line.set_x2(_ldHighLine, bar_index)
+if not na(_ldLowLine)
+    line.set_x2(_ldLowLine, bar_index)
+if not na(_ldHighLbl)
+    label.set_x(_ldHighLbl, bar_index)
+if not na(_ldLowLbl)
+    label.set_x(_ldLowLbl, bar_index)
+
+bool _ldStart = _s14London and (bar_index == 0 or not _s14London[1])
+bool _ldEnd   = not _s14London and _s14London[1]
+
+if _ldStart
+    _ldHigh     := high
+    _ldLow      := low
+    _ldStartBar := bar_index
+if _s14London and not _ldStart
+    _ldHigh := math.max(_ldHigh, high)
+    _ldLow  := math.min(_ldLow,  low)
+if _ldEnd and not na(_ldHigh)
+    _ldHighDrawn := _ldHigh
+    _ldLowDrawn  := _ldLow
+if barstate.isconfirmed
+    if not na(_ldHighDrawn) and high >= _ldHighDrawn
+        _ldHighDrawn := na
+    if not na(_ldLowDrawn) and low <= _ldLowDrawn
+        _ldLowDrawn  := na
+
+if _ldEnd and i_showLondonHL and not na(_ldHigh)
+    if not na(_ldHighLine)
+        line.delete(_ldHighLine)
+    if not na(_ldLowLine)
+        line.delete(_ldLowLine)
+    if not na(_ldHighLbl)
+        label.delete(_ldHighLbl)
+    if not na(_ldLowLbl)
+        label.delete(_ldLowLbl)
+    _ldHighLine := line.new(_ldStartBar, _ldHigh, bar_index, _ldHigh,
+        xloc=xloc.bar_index, color=i_colAsianH,
+        width=1, style=line.style_dashed, extend=extend.none)
+    _ldLowLine  := line.new(_ldStartBar, _ldLow,  bar_index, _ldLow,
+        xloc=xloc.bar_index, color=i_colAsianL,
+        width=1, style=line.style_dashed, extend=extend.none)
+    _ldHighLbl := label.new(bar_index, _ldHigh, "London High",
+        xloc=xloc.bar_index,
+        color=color.new(i_colAsianH, 80), textcolor=i_colAsianH,
+        style=label.style_label_left, size=size.small)
+    _ldLowLbl  := label.new(bar_index, _ldLow,  "London Low",
+        xloc=xloc.bar_index,
+        color=color.new(i_colAsianL, 80), textcolor=i_colAsianL,
+        style=label.style_label_left, size=size.small)
+if i_showLondonHL and barstate.isconfirmed
+    if not na(_ldHighLine) and na(_ldHighDrawn)
+        line.delete(_ldHighLine)
+        if not na(_ldHighLbl)
+            label.delete(_ldHighLbl)
+        _ldHighLine := na
+        _ldHighLbl  := na
+    if not na(_ldLowLine) and na(_ldLowDrawn)
+        line.delete(_ldLowLine)
+        if not na(_ldLowLbl)
+            label.delete(_ldLowLbl)
+        _ldLowLine  := na
+        _ldLowLbl   := na
 
 // MODULE 15 — ALERTES
 

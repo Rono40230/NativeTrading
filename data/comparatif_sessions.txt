@@ -1,0 +1,36 @@
+════════════════════════════════════════════════════════════════════════════════════════════════════
+COMPARATIF SESSIONS H/L : bonus Module F ON vs OFF — BE=Supprimé · TP3=DoL≤3R · BPR off (production)
+R total / clôtures par asset × TF × branche
+════════════════════════════════════════════════════════════════════════════════════════════════════
+── BTC ──
+  M15              +12.0R / 130            +12.0R / 130
+  M5                +6.1R / 167             +6.1R / 167
+  M1               +57.9R / 155            +57.9R / 155
+── XAUUSD ──
+  M15              +67.9R / 270            +67.9R / 270
+  M5               +47.8R / 228            +47.8R / 228
+  M1               +63.5R / 200            +63.5R / 200
+── XAGUSD ──
+  M15              +58.1R / 289            +58.1R / 289
+  M5               +72.1R / 225            +72.1R / 225
+  M1              +161.8R / 349           +161.8R / 349
+── NAS100 ──
+  M15              +51.9R / 135            +51.9R / 135
+  M5               +37.3R / 107            +37.3R / 107
+  M1                +24.0R / 69             +24.0R / 69
+── SP500 ──
+  M15                 +0.0R / 0               +0.0R / 0  ⚠ <30 trades
+  M5                  +0.0R / 0               +0.0R / 0  ⚠ <30 trades
+  M1                  +0.0R / 0               +0.0R / 0  ⚠ <30 trades
+── DAX ──
+  M15              +77.7R / 371            +77.7R / 371
+  M5                +10.0R / 52             +10.0R / 52
+  M1                 +8.0R / 24              +8.0R / 24  ⚠ <30 trades
+────────────────────────────────────────────────────────────────────────────────────────────────────
+SessHL ON  TOTAL +756.1R · 2771 clôtures · R moyen +0.273 · max DD 12.0R
+           verdicts : 963×Expire, 195×TP3, 215×TP2+BE, 577×TP1+BE, 821×SL
+SessHL OFF TOTAL +756.1R · 2771 clôtures · R moyen +0.273 · max DD 12.0R
+           verdicts : 195×TP3, 963×Expire, 821×SL, 215×TP2+BE, 577×TP1+BE
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Lecture : le delta R total (ON − OFF) = apport réel du bonus Sessions H/L.
+Si ≤ 0 : le bonus est retiré du Pine étalon et du défaut Rust (règle replay).

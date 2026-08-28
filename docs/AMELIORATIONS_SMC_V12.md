@@ -165,10 +165,33 @@ qualification force ≥ 4 / score ≥ 7) au R moyen légèrement inférieur.
 3. ✅ **Affichage conservé partout** : Pine + endpoint `bprs` + overlay frontend (zones ambre/orange actives, grises figées, CE pointillée) — valeur d'analyse visuelle intacte
 4. SP500 : muet dans les deux branches (8 vs 0 trades) — confirmé pour investigation Phase 5 ; DAX M1 sous le seuil 30 (24 trades, identique dans les deux branches)
 
-## Phase 4 — Module F : Sessions H/L (1 session)
+## Phase 4 — Module F : Sessions H/L ✅ TERMINÉE (28/08) — bonus RETIRÉ
 
-- [ ] **Module F** : scoring sessions H/L — bonus +2 si prix proche du H/L de session asiatique ou londonne (données MODULE 14 déjà présentes)
-- [ ] Replay comparatif
+**Livré** :
+- **Pine étalon** : MODULE 14b — London High/Low (08:00-16:30 Paris, mêmes constantes `SES_PARIS_LONDON*` ; range pendant session → drawn à la fin → consommé à l'atteinte ; affichage `i_showLondonHL` défaut false). Greffon f_score +2 proximité (0.35×ATR, état N-1 — les drawn déclarés avant f_score car Pine exécute top-down) — **retiré après étude** (commentaire de décision en place)
+- **Rust** : `asian_hl.rs` généralisé (fenêtre paramétrable `avec_fenetre`) + instance Londres dans le moteur + `SessHlLevels` (état N-1, parité f_score Pine) + greffon `sess_hl_near` dans `live_score_detaille` derrière `avec_scoring_sessions(bool)` (défaut inactif). 4 tests Londres + 1 test greffon
+- **Études** : `comparatif_sessions` (ON vs OFF) + `probe_sessions` (sonde d'activation) → `data/comparatif_sessions.txt`
+
+#### Résultats (28/08) — ON ≡ OFF bit-à-bit, décision : bonus RETIRÉ
+
+| Branche | R total | Clôtures | R moyen | max DD |
+|---|---|---|---|---|
+| **SessHL ON** (bonus actif) | +756.1R | 2 771 | +0.273 | 12.0R |
+| **SessHL OFF** (contre-factuel) | +756.1R | 2 771 | +0.273 | 12.0R |
+
+**Zéro trade de différence** — mêmes carnets jusqu'aux verdicts. La sonde
+`probe_sessions` écarte l'hypothèse du greffon mort : proximité vraie sur
+~1-2% des bars (100-400 par 20 000) et 4-11 trades par cellule M15 nés en
+fenêtre de proximité — le +2 s'appliquait mais n'a **jamais fait franchir un
+seuil de qualification** (seuilTrade / force ≥ min). La garde anti-bruit
+(plafond 8 sur BOS seul) peut aussi l'absorber.
+
+**Décision appliquée (règle pré-validée, delta = 0 ≤ 0)** :
+1. ✅ Pine : greffon + flags `nearSess*` + inputs `i_sessHl*` retirés, commentaire de décision à l'emplacement
+2. ✅ Rust : défaut `sess_hl_scoring = false` — greffon conservé derrière le drapeau pour ré-étude
+3. ✅ Conservé : tracking Londres MODULE 14b (Pine + Rust), affichage `i_showLondonHL`
+4. ✅ Prompt IA inchangé — le comportement de production est identique d'avant/après Phase 4 (aucun trade changé)
+5. Note méthodo : les échantillons des études bougent légèrement entre runs (DB alimentée en continu par les collecteurs — ~1-2 trades/heure d'écart entre l'étude BPR 19h05 et l'étude sessions 20h11)
 
 ## Phase 5 — Validation finale (1 session)
 

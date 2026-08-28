@@ -90,7 +90,7 @@ fn accum_scores_sticky_max() {
         timestamp: 0,
         is_ib: false,
     };
-    s.update(&out, &bar, &c, &[ob], &[], &[]);
+    s.update(&out, &bar, &c, &[ob], &[], &[], None);
     let sc1 = s.ob_score(true, 5);
     assert!(
         sc1 >= 8,
@@ -101,7 +101,7 @@ fn accum_scores_sticky_max() {
     let mut out2 = SmcOutput::default();
     out2.atr14 = 2.0;
     let bar2 = BarInput::new(103.0, 104.0, 102.0, 103.0);
-    s.update(&out2, &bar2, &c, &[ob], &[], &[]);
+    s.update(&out2, &bar2, &c, &[ob], &[], &[], None);
     let sc2 = s.ob_score(true, 5);
     assert_eq!(
         sc2, sc1,
@@ -166,4 +166,26 @@ fn zn_qual_neutralise_pour_dax_m15() {
         s.zn_qual_bull(&ob, &out, &[]),
         "DAX M15 : zone toujours qualifiée"
     );
+}
+
+/// Module F — proximité H/L de session : bull près d'un LOW drawn (Asie ou
+/// Londres) ⇒ vrai ; bear ignore les lows ; hors rayon 0.35×ATR ⇒ faux.
+#[test]
+fn module_f_proximite_sessions_hl() {
+    use crate::v12::asian_hl::SessHlLevels;
+    use crate::v12::scoring_v11::sess_hl_near;
+    let lvl = SessHlLevels {
+        ah_high: Some(110.0),
+        ah_low: Some(100.0),
+        ld_high: Some(108.0),
+        ld_low: None,
+    };
+    let atr = 10.0; // rayon = 0.35 × 10 = 3.5
+    assert!(sess_hl_near(true, &lvl, 102.0, atr), "bull à 2.0 du low 100 ⇒ près");
+    assert!(sess_hl_near(true, &lvl, 103.4, atr), "bull à 3.4 ≤ 3.5 ⇒ limite");
+    assert!(!sess_hl_near(true, &lvl, 103.6, atr), "bull à 3.6 > 3.5 ⇒ hors");
+    assert!(sess_hl_near(false, &lvl, 108.2, atr), "bear à 0.2 du high Londres");
+    assert!(!sess_hl_near(false, &lvl, 103.0, atr), "bear loin des highs ⇒ faux");
+    // ld_low absent : ne compte pas pour bull.
+    assert!(!sess_hl_near(true, &lvl, 108.2, atr), "bull ignore les highs");
 }

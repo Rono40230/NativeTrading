@@ -63,6 +63,7 @@ pub fn rejouer_bougies_mode(
         asset, tf, bougies, simuler_ticks, amorce, mode,
         smc::v12::signals::ModeTp3::Dol,
         false, // scoring BPR = défaut production (inactif — étude 28/08)
+        false, // scoring sessions H/L = défaut production (inactif — étude 28/08)
     )
 }
 
@@ -80,6 +81,7 @@ pub fn rejouer_bougies_tp3(
         smc::v12::lifecycle::ModeBeForce::Supprime,
         mode_tp3,
         false, // scoring BPR = défaut production (inactif — étude 28/08)
+        false, // scoring sessions H/L = défaut production (inactif — étude 28/08)
     )
 }
 
@@ -98,6 +100,26 @@ pub fn rejouer_bougies_bpr(
         smc::v12::lifecycle::ModeBeForce::Supprime,
         smc::v12::signals::ModeTp3::DolCappe3R,
         scoring_bpr,
+        false, // sessions H/L = défaut production (inactif — étude 28/08)
+    )
+}
+
+/// Variante Module F (étude sessions H/L) — BE = Supprimé + TP3 = DoL≤3R
+/// (production), seul le bonus Sessions H/L diffère.
+pub fn rejouer_bougies_sessions(
+    asset: Asset,
+    tf: Timeframe,
+    bougies: &[Candle],
+    simuler_ticks: bool,
+    amorce: smc::v12::AmorceMtf,
+    scoring_sessions: bool,
+) -> ResultatReplay {
+    rejouer_bougies_modes(
+        asset, tf, bougies, simuler_ticks, amorce,
+        smc::v12::lifecycle::ModeBeForce::Supprime,
+        smc::v12::signals::ModeTp3::DolCappe3R,
+        false, // scoring BPR = défaut production
+        scoring_sessions,
     )
 }
 
@@ -112,13 +134,15 @@ fn rejouer_bougies_modes(
     mode: smc::v12::lifecycle::ModeBeForce,
     mode_tp3: smc::v12::signals::ModeTp3,
     scoring_bpr: bool,
+    scoring_sessions: bool,
 ) -> ResultatReplay {
     let debut = std::time::Instant::now();
     let mut plugin = MoteurV12::nouveau(asset.clone(), tf)
         .avec_amorce(amorce.clone())
         .avec_mode_be_force(mode)
         .avec_mode_tp3(mode_tp3)
-        .avec_scoring_bpr(scoring_bpr);
+        .avec_scoring_bpr(scoring_bpr)
+        .avec_scoring_sessions(scoring_sessions);
     let mut journal = SortieMoteur::vide();
 
     for (i, b) in bougies.iter().enumerate() {
@@ -150,13 +174,14 @@ fn rejouer_bougies_modes(
     }
 
     // Référence : moteur nu, bar-replay pur (le mode TradingView) — même
-    // amorçage MTF et MÊMES MODES (BE forcé + TP3 + scoring BPR) que le
-    // plugin, sinon la comparaison conforme_reference compare deux
-    // stratégies différentes.
+    // amorçage MTF et MÊMES MODES (BE forcé + TP3 + scoring BPR + sessions
+    // H/L) que le plugin, sinon la comparaison conforme_reference compare
+    // deux stratégies différentes.
     let mut reference = SmcV12Engine::new(asset.as_str(), tf.as_str())
         .avec_mode_be_force(mode)
         .avec_mode_tp3(mode_tp3)
-        .avec_scoring_bpr(scoring_bpr);
+        .avec_scoring_bpr(scoring_bpr)
+        .avec_scoring_sessions(scoring_sessions);
     if let Some(premiere) = bougies.first() {
         reference.primer_mtf_amorce(&amorce, premiere.timestamp.timestamp());
     }

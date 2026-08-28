@@ -24,12 +24,34 @@ pub struct AsianHlEvent {
     pub low: Option<f64>,
 }
 
+/// Niveaux drawn des sessions pour le scoring Module F — état **N-1** (le Pine
+/// lit `_ah/_ld*Drawn` dans `f_score` ~ligne 2430, AVANT leur mise à jour
+/// MODULE 14/14b ~3090 : sémantique « liquidité de la session précédente »).
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SessHlLevels {
+    /// `_ahHighDrawn` à la bar N-1.
+    pub ah_high: Option<f64>,
+    /// `_ahLowDrawn` à la bar N-1.
+    pub ah_low: Option<f64>,
+    /// `_ldHighDrawn` (MODULE 14b Londres) à la bar N-1.
+    pub ld_high: Option<f64>,
+    /// `_ldLowDrawn` à la bar N-1.
+    pub ld_low: Option<f64>,
+}
+
 /// Fin de session Asie en minutes Paris (Pine `SES_PARIS_ASIE_END` = 390).
 const SESSION_FIN_MIN: u32 = 390;
+/// `SES_PARIS_LONDON_START` = 480 (08:00 Paris, Pine ligne 172).
+pub const LONDON_DEBUT_MIN: u32 = 480;
+/// `SES_PARIS_LONDON_END` = 990 (16:30 Paris, Pine ligne 173).
+pub const LONDON_FIN_MIN: u32 = 990;
 
-/// Détecteur Asian High/Low (MODULE 14, partie trading).
+/// Détecteur de H/L de session (MODULE 14 Asie ; MODULE 14b Londres via
+/// [`AsianHlDetector::avec_fenetre`] — même mécanique, fenêtre paramétrée).
 #[derive(Clone)]
 pub struct AsianHlDetector {
+    debut_min: u32,
+    fin_min: u32,
     en_session: bool,
     high: f64,
     low: f64,
@@ -39,8 +61,11 @@ pub struct AsianHlDetector {
 }
 
 impl AsianHlDetector {
+    /// Session Asie (00:00-06:30 Paris) — comportement inchangé.
     pub fn new() -> Self {
         Self {
+            debut_min: 0,
+            fin_min: SESSION_FIN_MIN,
             en_session: false,
             high: 0.0,
             low: 0.0,
@@ -48,6 +73,14 @@ impl AsianHlDetector {
             drawn_low: None,
             last_event: AsianHlEvent::default(),
         }
+    }
+
+    /// Change la fenêtre de session (minutes Paris) — MODULE 14b Londres :
+    /// `avec_fenetre(LONDON_DEBUT_MIN, LONDON_FIN_MIN)`.
+    pub fn avec_fenetre(mut self, debut_min: u32, fin_min: u32) -> Self {
+        self.debut_min = debut_min;
+        self.fin_min = fin_min;
+        self
     }
 
     /// Traite une bar. Retourne les niveaux drawn après cette bar.
@@ -58,7 +91,7 @@ impl AsianHlDetector {
             Some(d) => {
                 let paris = d.with_timezone(&Paris);
                 let mins = paris.hour() * 60 + paris.minute();
-                (0..SESSION_FIN_MIN).contains(&mins)
+                (self.debut_min..self.fin_min).contains(&mins)
             }
             None => false,
         };
@@ -189,5 +222,64 @@ mod tests {
         let ev = det.update(&bar(paris_ts(2026, 6, 11, 7, 0), 104.0, 100.5, 101.0));
         assert_eq!(ev.high, Some(105.0), "Asian High de J2 remplace J1");
         assert_eq!(ev.low, Some(100.0), "Asian Low de J2");
+    }
+
+    // ── MODULE 14b — Londres (Module F, Phase 4) ──────────────────────────────
+
+    /// Londres : session 08:00-16:30 Paris (480-990 min). Bar à 07:00 Paris =
+    /// hors session ; 08:00 = début ; 16:45 = fin → drawn.
+    #[test]
+    fn london_range_puis_drawn_a_la_fin() {
+        let mut det = AsianHlDetector::new().avec_fenetre(LONDON_DEBUT_MIN, LONDON_FIN_MIN);
+        // 07:00 Paris : AVANT la session Londres (l'Asie serait déjà finie).
+        let avant = det.update(&bar(paris_ts(2026, 6, 10, 7, 0), 101.0, 99.0, 100.0));
+        assert!(avant.high.is_none(), "07:00 Paris = hors session Londres");
+        // 08:00 → début (reset du range).
+        det.update(&bar(paris_ts(2026, 6, 10, 8, 0), 104.0, 99.0, 100.0));
+        det.update(&bar(paris_ts(2026, 6, 10, 12, 0), 106.0, 98.0, 100.0)); // extension
+        // 16:45 Paris (après 16:30) → drawn [106, 98].
+        let fin = det.update(&bar(paris_ts(2026, 6, 10, 16, 45), 100.0, 99.0, 100.0));
+        assert_eq!(fin.high, Some(106.0), "London High drawn à la fin");
+        assert_eq!(fin.low, Some(98.0), "London Low drawn");
+    }
+
+    /// Londres : consommation à l'atteinte (high 106 touché → None).
+    #[test]
+    fn london_consomme_a_latteinte() {
+        let mut det = AsianHlDetector::new().avec_fenetre(LONDON_DEBUT_MIN, LONDON_FIN_MIN);
+        det.update(&bar(paris_ts(2026, 6, 10, 9, 0), 106.0, 98.0, 100.0));
+        let fin = det.update(&bar(paris_ts(2026, 6, 10, 16, 45), 100.0, 99.0, 100.0));
+        assert_eq!(fin.high, Some(106.0));
+        // Bar suivante : high 106.5 >= 106 ⇒ consommé.
+        let apres = det.update(&bar(paris_ts(2026, 6, 10, 17, 0), 106.5, 99.0, 105.0));
+        assert_eq!(apres.high, None, "London High consommé à l'atteinte");
+        assert_eq!(apres.low, Some(98.0), "London Low intact");
+    }
+
+    /// Les deux détecteurs coexistent : Asie drawn à 06:45, Londres à 16:45.
+    /// Ranges imbriqués SANS atteinte (les bars Londres ne touchent ni le
+    /// high ni le low Asie — sinon consommation légitime).
+    #[test]
+    fn asie_et_londres_independants() {
+        let mut asie = AsianHlDetector::new();
+        let mut londres =
+            AsianHlDetector::new().avec_fenetre(LONDON_DEBUT_MIN, LONDON_FIN_MIN);
+        // Asie [99..102] · Londres [100.5..101.5] — bar de fin neutre.
+        let bars = [
+            (paris_ts(2026, 6, 10, 1, 0), 102.0, 99.0, 100.0),   // Asie
+            (paris_ts(2026, 6, 10, 9, 0), 100.8, 100.2, 100.5),  // Londres
+            (paris_ts(2026, 6, 10, 10, 0), 101.5, 100.5, 101.0), // Londres
+            (paris_ts(2026, 6, 10, 16, 45), 101.3, 100.7, 101.0),// fin Londres
+        ];
+        let mut ev_a = AsianHlEvent::default();
+        let mut ev_l = AsianHlEvent::default();
+        for (ts, h, l, c) in bars {
+            ev_a = asie.update(&bar(ts, h, l, c));
+            ev_l = londres.update(&bar(ts, h, l, c));
+        }
+        assert_eq!(ev_a.high, Some(102.0), "Asian High [00:00-06:30]");
+        assert_eq!(ev_a.low, Some(99.0), "Asian Low");
+        assert_eq!(ev_l.high, Some(101.5), "London High [08:00-16:30]");
+        assert_eq!(ev_l.low, Some(100.2), "London Low — fixé par la 1re bougie (100.2 < 100.5)");
     }
 }

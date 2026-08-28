@@ -143,6 +143,12 @@ impl MoteurV12 {
         self
     }
 
+    /// Bonus Module F — sessions H/L (étude Phase 4).
+    pub fn avec_scoring_sessions(mut self, actif: bool) -> Self {
+        self.moteur = self.moteur.avec_scoring_sessions(actif);
+        self
+    }
+
     /// Applique l'amorce une seule fois, au premier bar vu (t0 = son ts).
     fn appliquer_amorce_si_premiere(&mut self, ts: i64) {
         if self.amorce_appliquee {

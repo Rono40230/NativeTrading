@@ -11,6 +11,7 @@
 //!
 //! Le scoring lit l'état de TOUS les détecteurs via `SmcOutput` + la bar courante.
 
+use super::asian_hl::SessHlLevels;
 use super::bpr::{bonus_bpr, BprZone};
 use super::calibration::AssetCalibration;
 use super::types::{BarInput, ObState, ObZone, SmcOutput};
@@ -22,6 +23,8 @@ const PREV_LIQ_SCORE: bool = true;
 const PREV_LIQ_ATR_PROX: f64 = 0.35;
 /// `i_prevLiqPtsProx` — points de bonus proximité prevLiq.
 const PREV_LIQ_PTS_PROX: i32 = 2;
+/// `i_sessHlPtsProx` (Module F, Pine) — bonus proximité H/L de session.
+const SESS_HL_PTS_PROX: i32 = 2;
 /// `i_prevLiqPtsSweep` — points de bonus sweep prevLiq.
 const PREV_LIQ_PTS_SWEEP: i32 = 4;
 
@@ -69,7 +72,7 @@ impl ScoringV11 {
         bar: &BarInput,
         cal: &AssetCalibration,
     ) -> i32 {
-        Self::live_score_detaille(is_bull, out, bar, cal).0
+        Self::live_score_detaille(is_bull, out, bar, cal, None).0
     }
 
     /// `live_score` + liste des composantes actives (diag MQL5 `diagFlags` :
@@ -80,6 +83,7 @@ impl ScoringV11 {
         out: &SmcOutput,
         bar: &BarInput,
         cal: &AssetCalibration,
+        sess_hl: Option<&SessHlLevels>,
     ) -> (i32, Vec<&'static str>) {
         let atr = out.atr14;
         let mut sc: i32 = 0;
@@ -210,6 +214,14 @@ impl ScoringV11 {
                 flags.push("swpLiq");
             }
         }
+        // 15b. Module F — proximité H/L de session (Asie + Londres, état N-1) :
+        //      bull près d'un LOW = SSL à cueillir ; bear près d'un HIGH = BSL.
+        if let Some(sess) = sess_hl {
+            if sess_hl_near(is_bull, sess, bar.close, atr) {
+                sc += SESS_HL_PTS_PROX;
+                flags.push("sessHL");
+            }
+        }
         // 16. Premium/Discount.
         if is_bull && out.premium_discount.in_discount
             || !is_bull && out.premium_discount.in_premium
@@ -288,10 +300,11 @@ impl ScoringV11 {
         ob_bull: &[ObZone],
         ob_bear: &[ObZone],
         bpr_zones: &[BprZone],
+        sess_hl: Option<&SessHlLevels>,
     ) {
         let atr = out.atr14;
-        let (live_bull, flags_bull) = Self::live_score_detaille(true, out, bar, cal);
-        let (live_bear, flags_bear) = Self::live_score_detaille(false, out, bar, cal);
+        let (live_bull, flags_bull) = Self::live_score_detaille(true, out, bar, cal, sess_hl);
+        let (live_bear, flags_bear) = Self::live_score_detaille(false, out, bar, cal, sess_hl);
 
         // Bull.
         let mut alive_bull: std::collections::HashSet<usize> = std::collections::HashSet::new();
@@ -505,6 +518,19 @@ impl ScoringV11 {
 /// `fvg.top > ob.bot && fvg.bot < ob.top`.
 fn zn_has_fvg(fvg_zones: &[super::types::FvgZone], ob_top: f64, ob_bot: f64) -> bool {
     fvg_zones.iter().any(|f| f.top > ob_bot && f.bot < ob_top)
+}
+
+/// Module F — proximité H/L de session (Pine `nearSessLow/nearSessHigh`) :
+/// `|close - drawn| <= 0.35×ATR` sur les drawn Asie + Londres (état N-1),
+/// bull → Lows, bear → Highs. `None` au niveau engine = module coupé.
+pub(crate) fn sess_hl_near(is_bull: bool, s: &SessHlLevels, close: f64, atr: f64) -> bool {
+    let prox = PREV_LIQ_ATR_PROX * atr;
+    let near = |n: Option<f64>| n.is_some_and(|v| (close - v).abs() <= prox);
+    if is_bull {
+        near(s.ah_low) || near(s.ld_low)
+    } else {
+        near(s.ah_high) || near(s.ld_high)
+    }
 }
 
 /// Calcule les flags prevLiq (near / swept) pour un sens donné (Pine lignes 2174-2182).
