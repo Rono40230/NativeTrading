@@ -1,34 +1,15 @@
 
-Il faut créer les tooltips des trades sur le même modèle que les étiquettes de trades dans pine :
-- Stratégie (SMC ou Straddle OU Rocket)
-- Risque engagé
-- taille du lot
-- Entrée
-- SL 
-- TP1
-- TP2
-- TP3
-
---------------------------------------------------------------------------------------------------------------------------
-
 Un trade BTC M5 vient de s'ouvrir :
 - il est dessiné sans la box rouge de la zone SL = il faut l'ajouter
 - il n'est visible QUE en M5 alors que je devrai le voir sur tous les TF
 
 --------------------------------------------------------------------------------------------------------------------------
 
-dans le dashboard à droite sous le bloc 📐 SURVEILLANCE ASSETS je veux un bloc "(icone) Crénaux de volatilité" (ou autre nom) qui me donne chaque jour les créneaux horaires (heure de paris) les plus volatiles par assets = les plus propices au trading.
-Comment ce bloc récupererait les données pour déterminer ces créneaux :
-- en analysant les 24 mois de données
-- en mettant à jours ces créneaux au fil du temps et des données récupérées.
 
-Comprends tu l'utilités de ce bloc ?
-Vois tu d'autres informations à y ajouter ?
-IMPORTANT : il faut que ce bloc soit branché pour afficher tout futur assets eventuels à ajouter dans la surveillance de l'app
 
 --------------------------------------------------------------------------------------------------------------------------
 
-L'affichage des sessions us, européenne et Asie a été cassé et ne représente plus la réalité des horaires (heure de paris)
+
 
 --------------------------------------------------------------------------------------------------------------------------
 
@@ -36,3 +17,12 @@ L'affichage des sessions us, européenne et Asie a été cassé et ne représent
 
 --------------------------------------------------------------------------------------------------------------------------
 
+J'ai demandé à une IA quelles améliorations nous pourrions apporter à V12.pine pour coller au plus proche de la logique SMC.
+Ces améliorations sont dans le nouveau fichier amelioration_v12.md
+
+Étape 2 : Analyser les propositions d’améliorations de amelioration_v12.pine
+Objectifs :
+1 – valider ou invalider chaque proposition d'amélioration
+2 - Rédiger la roadmap amelioration_v12.md
+
+Donne moi ton analyse et répond sans coder.
