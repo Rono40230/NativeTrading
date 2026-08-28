@@ -175,7 +175,7 @@ export function dessinerTradesExternes(
     const xDTrade = Math.min(xD, xFin)
     const yEntry = serie.priceToCoordinate(s.entry)
     const ySl = serie.priceToCoordinate(s.sl)
-    const yTp = serie.priceToCoordinate(s.tp2)
+    const yTp = serie.priceToCoordinate(s.tp3)
     if (yEntry === null) continue
 
     // Ordre EN ATTENTE (jamais rempli) : même géométrie qu'un trade —
@@ -237,17 +237,19 @@ export function dessinerTradesExternes(
       ctx.lineWidth = 1
       ctx.strokeRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - ySl))
     }
-    // Lignes TP1 solides avec label.
+    // Lignes TP1 / TP2 solides avec labels (comme le natif).
     ctx.lineWidth = 1
-    if (yTp1x !== null) {
-      ctx.strokeStyle = COUL_TP1_L
+    const yTp2x = serie.priceToCoordinate(s.tp2)
+    for (const [y, coul, lbl] of [[yTp1x, COUL_TP1_L, 'TP1'], [yTp2x, '#4ade80', 'TP2']] as const) {
+      if (y === null) continue
+      ctx.strokeStyle = coul
       ctx.setLineDash([])
-      ctx.beginPath(); ctx.moveTo(xG, yTp1x); ctx.lineTo(xDTrade, yTp1x); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(xG, y); ctx.lineTo(xDTrade, y); ctx.stroke()
       ctx.font = 'bold 9px sans-serif'
-      ctx.fillStyle = COUL_TP1_L
+      ctx.fillStyle = coul
       ctx.textAlign = 'left'
       ctx.textBaseline = 'bottom'
-      ctx.fillText('TP1', xG + 3, yTp1x - 1)
+      ctx.fillText(lbl, xG + 3, y - 1)
     }
     // Ligne d'entrée (pointillée, comme le natif).
     ctx.strokeStyle = COUL_ENTRY
