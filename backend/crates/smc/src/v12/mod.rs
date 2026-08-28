@@ -167,6 +167,12 @@ impl SmcV12Engine {
         self
     }
 
+    /// Mode TP3 (défaut DolCappe3R = production, décision DoL≤3R du 28/08).
+    pub fn avec_mode_tp3(mut self, mode: signals::ModeTp3) -> Self {
+        self.signals.definir_mode_tp3(mode);
+        self
+    }
+
     /// Traite une nouvelle bar clôturée. Ordre strict = ordre Pine
     /// (ATR → pivots → structure → BOS → MSS/CHOCH → liquidités → sweep
     ///  → FVG → OB → Breaker → Propulsion → Imbalance).

@@ -59,10 +59,44 @@ pub fn rejouer_bougies_mode(
     amorce: smc::v12::AmorceMtf,
     mode: smc::v12::lifecycle::ModeBeForce,
 ) -> ResultatReplay {
+    rejouer_bougies_modes(
+        asset, tf, bougies, simuler_ticks, amorce, mode,
+        smc::v12::signals::ModeTp3::Dol,
+    )
+}
+
+/// Variante Module G (étude TP3 DoL vs 3R fixe) — BE = production (Supprimé).
+pub fn rejouer_bougies_tp3(
+    asset: Asset,
+    tf: Timeframe,
+    bougies: &[Candle],
+    simuler_ticks: bool,
+    amorce: smc::v12::AmorceMtf,
+    mode_tp3: smc::v12::signals::ModeTp3,
+) -> ResultatReplay {
+    rejouer_bougies_modes(
+        asset, tf, bougies, simuler_ticks, amorce,
+        smc::v12::lifecycle::ModeBeForce::Supprime,
+        mode_tp3,
+    )
+}
+
+/// Chemin commun : BE forcé + TP3 paramétrables (études comparatives).
+#[allow(clippy::too_many_arguments)]
+fn rejouer_bougies_modes(
+    asset: Asset,
+    tf: Timeframe,
+    bougies: &[Candle],
+    simuler_ticks: bool,
+    amorce: smc::v12::AmorceMtf,
+    mode: smc::v12::lifecycle::ModeBeForce,
+    mode_tp3: smc::v12::signals::ModeTp3,
+) -> ResultatReplay {
     let debut = std::time::Instant::now();
     let mut plugin = MoteurV12::nouveau(asset.clone(), tf)
         .avec_amorce(amorce.clone())
-        .avec_mode_be_force(mode);
+        .avec_mode_be_force(mode)
+        .avec_mode_tp3(mode_tp3);
     let mut journal = SortieMoteur::vide();
 
     for (i, b) in bougies.iter().enumerate() {
@@ -94,8 +128,11 @@ pub fn rejouer_bougies_mode(
     }
 
     // Référence : moteur nu, bar-replay pur (le mode TradingView) — même
-    // amorçage MTF que le plugin (comparaison conforme_reference valide).
-    let mut reference = SmcV12Engine::new(asset.as_str(), tf.as_str());
+    // amorçage MTF et MÊMES MODES (BE forcé + TP3) que le plugin, sinon la
+    // comparaison conforme_reference compare deux stratégies différentes.
+    let mut reference = SmcV12Engine::new(asset.as_str(), tf.as_str())
+        .avec_mode_be_force(mode)
+        .avec_mode_tp3(mode_tp3);
     if let Some(premiere) = bougies.first() {
         reference.primer_mtf_amorce(&amorce, premiere.timestamp.timestamp());
     }

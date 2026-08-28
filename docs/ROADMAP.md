@@ -1,7 +1,7 @@
 # ROADMAP — Native Trading AI
 
-> État au 25 août 2026. Cette roadmap ne contient que **ce qu'il reste à faire**.
-> L'historique complet des phases livrées est archivé dans `docs/JOURNAL.md`.
+> État au 28 août 2026. Cette roadmap ne contient que **ce qu'il reste à faire**.
+> Le détail des phases livrées SMC v12 vit dans `docs/AMELIORATIONS_SMC_V12.md`.
 
 ---
 
@@ -33,7 +33,17 @@ L'app est une coquille d'orchestration + 3 verticales stratégiques complètes :
 - [ ] Décision propriétaire : passage Officielle ou ajustements
 - [ ] Si Officielle : activer le son Telegram (le template est prêt, dormant)
 
-### 2. Agenda intelligent — Créneaux de volatilité récurrents (Straddle IA)
+### 2. SMC v12 — Améliorations validées par replay (travail ACTIF)
+
+Détail complet, chiffres et décisions : `docs/AMELIORATIONS_SMC_V12.md`.
+
+- [x] **Phase 1 — Audit préalable (28/08)** : modules C (dead zone) et D (filtre régime) REJETÉS par replay 24 mois ; H (mega-orders) en attente de données volume-corrigées
+- [x] **Phase 2 — Module G : DoL≤3R (28/08)** : TP3 = liquidité la plus proche PLAFONNÉE à 3R, en production (Pine étalon + Rust + prompt IA synchronisés). Replay 2 776 trades : le DoL pur coûtait 67R (cibles inatteignables avant expire), DoL≤3R = +61.5R
+- [ ] **Phase 3 — Module A : BPR** (2 sessions) — détection, lifecycle, scoring, affichage
+- [ ] **Phase 4 — Module F : scoring sessions H/L** (1 session)
+- [ ] **Phase 5 — Validation globale** + Module H (mega-orders) + investigation **SP500 muet** (0 signal SMC sur 18 mois de replay, les 5 autres assets en produisent 69-371)
+
+### 3. Agenda intelligent — Créneaux de volatilité récurrents (Straddle IA)
 
 **Prérequis** : historique 24 mois en base ✅ (l'analyse peut tourner dès maintenant).
 
@@ -49,7 +59,7 @@ L'app est une coquille d'orchestration + 3 verticales stratégiques complètes :
 - [ ] **Dashboard** : le bloc Straddle affiche tous les créneaux armés (calendrier + découverts) avec badge distinctif
 - [ ] Les créneaux découverts démarrent en **Observation** (journalisés, silencieux) — passage Officielle sur preuve
 
-### 3. Test de vérité au centime
+### 4. Test de vérité au centime
 
 **Prérequis** : MT5/Axi alimente l'app en continu ✅ (même source, même horloge UTC).
 
@@ -58,25 +68,25 @@ L'app est une coquille d'orchestration + 3 verticales stratégiques complètes :
 - [ ] Si écarts : les tracer et les corriger
 - [ ] Documenter le verdict au journal
 
-### 4. Rôles IA Straddle (après gate 3)
+### 5. Rôles IA Straddle (après gate 3)
 
 - [ ] **Analyse des passes** : l'analyste lit les passes journalisées (annonce → range → fill → verdict R) et explique ce qui marche / coince
 - [ ] **Recommandation agenda + minutage** : sur les données accumulées, proposer quels événements valent le coup et à quelle minute entrer — propositions que le propriétaire valide dans les réglages
 
-### 5. Rôles IA SMC (après accumulation de trades propres)
+### 6. Rôles IA SMC (après accumulation de trades propres)
 
 - [ ] **Voile des setups** : l'analyste lit la donnée annonces vs confirmés vs dissipés (le panneau existe) et identifie les caractéristiques des setups qui tiennent
 - [ ] **Analyse rebranchée** : le bouton Analyse SMC reconnecté sur les données maintenant propres (remplis/jamais remplis/dissipés/verdicts)
 - [ ] **Décision sur preuve — filtre temps réel** : après ~2 semaines de données, regarder si les setups dissipés partagent des caractéristiques que l'IA saurait repérer → décider ensemble si un filtre vaut le coup
 - [ ] **Journalisation du détail scoring** (préalable si analyse par confluence) : stocker le détail point par point à l'émission du signal
 
-### 6. Rockets — Extensions
+### 7. Rockets — Extensions
 
 - [ ] **Véto unlocks** : chercher une source libre (API ou scraping d'un calendrier public de déverrouillages de tokens) → intégrer au scanner (éliminatoire si unlock majeur < 30 jours)
 - [ ] **Actions/ETF via MT5** : Axi les propose — l'ajout passe par la modale 📦 Données (source MT5, symbole broker) ; le classement ETF a ses profils 2/3/4 %
 - [ ] **Analyse par pilier** : l'analyste relie les critères du /10 aux verdicts des positions clôturées (le détail est déjà journalisé) → propositions de recalibrage chiffrées
 
-### 7. Maintenance & dette technique
+### 8. Maintenance & dette technique
 
 - [ ] **Revue complète des prompts IA** : purge des prompts morts (`smc_signal`, `smc_filtre`, `rockets_opportunites` — endpoints consommateurs supprimés, à confirmer), audit des actifs, alignement sur les mécaniques actées. Rappel constitution : toute évolution de stratégie se reflète immédiatement dans les prompts
 
@@ -128,4 +138,3 @@ L'app est une coquille d'orchestration + 3 verticales stratégiques complètes :
 9. **Migrations = embarquées à la compilation** — toucher `db/src/lib.rs` pour forcer la re-embed (récidive du 25/08 : migration 0087 non appliquée au premier déploiement).
 10. **MT5 WebRequest : gros corps POST = crash** (morceaux ≤ 2 000 bougies ≈ 130 Ko) — et StringSplit compte une sous-chaîne vide finale absente du tableau (borner par ArraySize, jamais par le retour).
 11. **Horloge serveur broker ≠ UTC** (Axi = GMT+2/+3 avec DST US) — convertir serveur→UTC à la source, sinon tout est décalé de 2-3 heures.
-| 2026-08-25 | Phase 5.2 | **GRAPHIQUE MT5 RÉPARÉ (définitif)** — le prix vivait mais l'historique disparaissait au connect du stream. Cause : le flush du cache (ajouté comme protection GMT+3) effaçait l'historique REST, puis le batch vide MT5 laissait une seule bougie. Fix : flush retiré (le try/catch sur series.update suffit), garde anti-crash conservée. Vérifié propriétaire : « tout est ok ». La Phase 5.2 est TERMINÉE — MT5/Axi alimente l'app en continu (prix + historique + moteurs), le graphique vit sur tous les actifs. Prochain rendez-vous : gate 3 demain 14h30 UTC (PCE/PIB) |

@@ -3564,7 +3564,9 @@ f_createBuySignals() =>
                         _m3 := na(_tPDH3) ? _m3 : math.min(_m3, _tPDH3)
                         _m3 := na(_tPWH3) ? _m3 : math.min(_m3, _tPWH3)
                         _m3 := na(_tAHH3) ? _m3 : math.min(_m3, _tAHH3)
-                        _tp3 := _m3
+                        // Décision DoL≤3R 28/08 (replay 24 mois : DoL pur -67R vs 3R fixe,
+                        // la liquidité est souvent > 3R et n'est jamais atteinte avant l'expire).
+                        _tp3 := math.min(_m3, _entry + 3.0 * _r)
                     else
                         _tp3 := _entry + 3.0 * _r
                     // Correctif 1.3 : garantir TP3 ≥ TP2 ≥ TP1 (la liquidité cible peut être trop proche).
@@ -3712,7 +3714,8 @@ f_createSellSignals() =>
                         _m3 := na(_tPDL3) ? _m3 : math.max(_m3, _tPDL3)
                         _m3 := na(_tPWL3) ? _m3 : math.max(_m3, _tPWL3)
                         _m3 := na(_tAHL3) ? _m3 : math.max(_m3, _tAHL3)
-                        _tp3 := _m3
+                        // Décision DoL≤3R 28/08 (cf. BUY — plafond symétrique côté SELL).
+                        _tp3 := math.max(_m3, _entry - 3.0 * _r)
                     else
                         _tp3 := _entry - 3.0 * _r
                     // Correctif 1.3 : garantir TP3 ≤ TP2 ≤ TP1 (la liquidité cible peut être trop proche).
@@ -3794,7 +3797,10 @@ f_createBSBuySignals() =>
                     float _tp1 = _entry + _r
                     float _tp2 = _entry + 2.0 * _r
                     // TP3 = liquidité la plus proche (réutilise _bsDolTarget déjà calculé pour le label).
+                    // Décision DoL≤3R 28/08 : plafonner à 3R (replay : liquidité souvent > 3R, inatteignable).
                     float _tp3 = _bsDolTarget(true, _entry)
+                    if not na(_tp3)
+                        _tp3 := math.min(_tp3, _entry + 3.0 * _r)
                     if na(_tp3) or _tp3 < _tp2
                         _tp3 := _entry + 3.0 * _r
                     int _br    = int(time)
@@ -3853,7 +3859,10 @@ f_createBSSellSignals() =>
                     _sl := _entry + _r
                     float _tp1 = _entry - _r
                     float _tp2 = _entry - 2.0 * _r
+                    // Décision DoL≤3R 28/08 : plafonner à 3R (symétrique du BUY).
                     float _tp3 = _bsDolTarget(false, _entry)
+                    if not na(_tp3)
+                        _tp3 := math.max(_tp3, _entry - 3.0 * _r)
                     if na(_tp3) or _tp3 > _tp2
                         _tp3 := _entry - 3.0 * _r
                     int _br    = int(time)

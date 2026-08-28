@@ -131,6 +131,12 @@ impl MoteurV12 {
         self
     }
 
+    /// Mode TP3 (étude Module G — défaut Dol = production).
+    pub fn avec_mode_tp3(mut self, mode: smc::v12::signals::ModeTp3) -> Self {
+        self.moteur = self.moteur.avec_mode_tp3(mode);
+        self
+    }
+
     /// Applique l'amorce une seule fois, au premier bar vu (t0 = son ts).
     fn appliquer_amorce_si_premiere(&mut self, ts: i64) {
         if self.amorce_appliquee {

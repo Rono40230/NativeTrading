@@ -13,7 +13,7 @@
 //! Modèle d'exécution figé "Retest (limite)" (gagnant A/B 15/15) : entrée TR forcée
 //! au bord de la zone, fill réel au retest (géré par le lifecycle). SL selon
 //! `_autoSlMode` clampé `[_slMin, _slMax]`. TP1=entry+R, TP2=entry+2R,
-//! TP3=liquidité la plus proche (fallback entry±3R).
+//! TP3=liquidité la plus proche PLAFONNÉE à 3R (décision DoL≤3R 28/08).
 
 use super::calibration::{AssetCalibration, SlMode};
 use super::scoring_bs_zones::ScoringBsZones;
@@ -30,12 +30,25 @@ const TRADE_MIN_SCORE: i32 = 7;
 /// Coefficient proche : `(close - rt) <= 8×ATR`.
 const PROXIMITY_ATR_MULT: f64 = 8.0;
 
+/// Mode de calcul du TP3 (étude Module G — DoL vs 3R fixe, décision 28/08).
+/// `DolCappe3R` = PRODUCTION (décision validée : liquidité si plus proche
+/// que 3R, sinon 3R — replay 24 mois : DoL pur -67R, plafonné +61.5R).
+/// `Dol` = ancienne production (liquidité la plus proche, fallback 3R).
+/// `Fixe3R` = contre-factuel d'étude (toujours entry ± 3R).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ModeTp3 {
+    Dol,
+    Fixe3R,
+    DolCappe3R,
+}
+
 /// Le carnet de trades + générateur de signaux (Pine `stBull*`/`stBear*` + fonctions).
 #[derive(Clone)]
 pub struct SignalGenerator {
     pub trades: Vec<Trade>,
     trade_pousse: bool,
     next_id: u64,
+    mode_tp3: ModeTp3,
 }
 
 impl SignalGenerator {
@@ -44,7 +57,14 @@ impl SignalGenerator {
             trades: Vec::new(),
             trade_pousse: false,
             next_id: 1,
+            // Décision DoL≤3R 28/08 (validated replay 24 mois) — production.
+            mode_tp3: ModeTp3::DolCappe3R,
         }
+    }
+
+    /// Mode TP3 (défaut DolCappe3R = production, décision 28/08).
+    pub fn definir_mode_tp3(&mut self, mode: ModeTp3) {
+        self.mode_tp3 = mode;
     }
 
     /// Reset du flag anti-double-trade (Pine 2358-2359) — à appeler en début de bar.
@@ -166,7 +186,7 @@ impl SignalGenerator {
                 continue;
             }
             let Some((entry, sl, tp1, tp2, tp3, risk0)) =
-                self.build_levels(is_bull, top, bot, atr, cal, out, sl_min, sl_max)
+                self.build_levels(is_bull, top, bot, atr, cal, out, sl_min, sl_max, true)
             else {
                 continue; // r > 2×slMax → skip ce OB (continue).
             };
@@ -248,7 +268,7 @@ impl SignalGenerator {
                 continue;
             }
             let Some((entry, sl, tp1, tp2, tp3, risk0)) =
-                self.build_levels(is_bull, top, bot, atr, cal, out, sl_min, sl_max)
+                self.build_levels(is_bull, top, bot, atr, cal, out, sl_min, sl_max, false)
             else {
                 continue;
             };
@@ -279,6 +299,8 @@ impl SignalGenerator {
     ///
     /// `is_bull` sens du trade. Entrée TR forcée au bord de la zone :
     /// `zone_top` (bull) / `zone_bot` (bear). SL base = bord opposé ± offset ATR.
+    /// `inclut_asian_hl` : TP3 v11 inclut _ahHighDrawn/_ahLowDrawn (Pine 3562),
+    /// TP3 BS NON (_bsDolTarget, Pine 3294 — EQH/PDH/PWH seuls).
     #[allow(clippy::too_many_arguments)]
     fn build_levels(
         &self,
@@ -290,6 +312,7 @@ impl SignalGenerator {
         out: &SmcOutput,
         sl_min: f64,
         sl_max: f64,
+        inclut_asian_hl: bool,
     ) -> Option<(f64, f64, f64, f64, f64, f64)> {
         // Entrée TR forcée (Pine 3446 / 3593 / 3686 / 3745).
         let entry = if is_bull { zone_top } else { zone_bot };
@@ -324,13 +347,16 @@ impl SignalGenerator {
             entry - 2.0 * r
         };
         // TP3 = liquidité la plus proche au-delà de l'entrée (EQH/PDH/PWH bull,
-        // EQL/PDL/PWL bear). _ahHighDrawn/_ahLowDrawn omis (Asian HL — voir rapport).
-        let tp3_raw = nearest_liq(out, entry, is_bull);
-        let fallback = if is_bull {
-            entry + 3.0 * r
-        } else {
-            entry - 3.0 * r
+        // EQL/PDL/PWL bear ; Asian HL pour v11 uniquement — Pine 3562 vs 3294).
+        let cap3r = if is_bull { entry + 3.0 * r } else { entry - 3.0 * r };
+        let tp3_raw = match self.mode_tp3 {
+            ModeTp3::Dol => nearest_liq(out, entry, is_bull, inclut_asian_hl),
+            ModeTp3::Fixe3R => None,
+            ModeTp3::DolCappe3R => nearest_liq(out, entry, is_bull, inclut_asian_hl).map(|v| {
+                if is_bull { v.min(cap3r) } else { v.max(cap3r) }
+            }),
         };
+        let fallback = cap3r;
         // Monotonie TP3 : bull tp3 >= tp2, bear tp3 <= tp2 (Pine 3475/3622/3699/3757).
         let tp3 = match tp3_raw {
             Some(v) => {
@@ -411,16 +437,21 @@ fn sl_min_max(cal: &AssetCalibration, atr: f64) -> (f64, f64) {
 
 /// Liquidité la plus proche au-delà de l'entrée (Pine 3460-3470 / 3607-3617).
 /// Bull : EQH/PDH/PWH > entry → min. Bear : EQL/PDL/PWL < entry → max.
-fn nearest_liq(out: &SmcOutput, entry: f64, is_bull: bool) -> Option<f64> {
+/// `inclut_asian_hl` : + _ahHighDrawn/_ahLowDrawn (v11 seulement, Pine `_tAHH3`).
+fn nearest_liq(out: &SmcOutput, entry: f64, is_bull: bool, inclut_asian_hl: bool) -> Option<f64> {
     let cands: Vec<f64> = if is_bull {
         [
             out.liquidite.dernier_eqh_level,
             out.liquidite.pdh_active,
             out.liquidite.pwh_active,
-            out.asian_hl.high, // _tAHH3 (Pine 3512)
         ]
         .into_iter()
         .flatten()
+        .chain(if inclut_asian_hl {
+            out.asian_hl.high
+        } else {
+            None
+        })
         .filter(|&v| v > entry)
         .collect()
     } else {
@@ -428,10 +459,14 @@ fn nearest_liq(out: &SmcOutput, entry: f64, is_bull: bool) -> Option<f64> {
             out.liquidite.dernier_eql_level,
             out.liquidite.pdl_active,
             out.liquidite.pwl_active,
-            out.asian_hl.low, // _tAHL3 (Pine)
         ]
         .into_iter()
         .flatten()
+        .chain(if inclut_asian_hl {
+            out.asian_hl.low
+        } else {
+            None
+        })
         .filter(|&v| v < entry)
         .collect()
     };
@@ -464,13 +499,26 @@ mod tests {
         out.liquidite.pdh_active = Some(110.0);
         out.liquidite.pwh_active = Some(120.0);
         // entry=100 → candidats 110, 120 → min = 110.
-        assert_eq!(nearest_liq(&out, 100.0, true), Some(110.0));
+        assert_eq!(nearest_liq(&out, 100.0, true, true), Some(110.0));
+        assert_eq!(nearest_liq(&out, 100.0, true, false), Some(110.0));
+    }
+
+    #[test]
+    fn nearest_liq_asian_hl_v11_seulement() {
+        // Pine : _tAHH3 candidat pour v11 (Pine 3562), PAS pour BS (_bsDolTarget 3294).
+        let mut out = SmcOutput::default();
+        out.asian_hl.high = Some(105.0);
+        out.asian_hl.low = Some(95.0);
+        assert_eq!(nearest_liq(&out, 100.0, true, true), Some(105.0));
+        assert_eq!(nearest_liq(&out, 100.0, true, false), None);
+        assert_eq!(nearest_liq(&out, 100.0, false, true), Some(95.0));
+        assert_eq!(nearest_liq(&out, 100.0, false, false), None);
     }
 
     #[test]
     fn nearest_liq_aucune() {
         let out = SmcOutput::default();
-        assert_eq!(nearest_liq(&out, 100.0, true), None);
+        assert_eq!(nearest_liq(&out, 100.0, true, true), None);
     }
 
     #[test]
@@ -481,7 +529,7 @@ mod tests {
         // OB bull top=100 bot=98 → entry=100, offset=ATR (XAU Atr1x). ATR=2.
         // raw_sl = 98-2 = 96, raw_r = 4. slMin=1, slMax=3 → clamp r=3. sl=97.
         let (entry, sl, tp1, tp2, _tp3, r) = gen
-            .build_levels(true, 100.0, 98.0, 2.0, &c, &out, 1.0, 3.0)
+            .build_levels(true, 100.0, 98.0, 2.0, &c, &out, 1.0, 3.0, true)
             .unwrap();
         assert!((entry - 100.0).abs() < 1e-9);
         assert!((r - 3.0).abs() < 1e-9, "r clampé à slMax=3");
@@ -497,7 +545,34 @@ mod tests {
         let out = SmcOutput::default();
         // top=100 bot=90 → entry=100, raw_sl=90-2=88, raw_r=12 > 2×slMax(=6) → None.
         assert!(gen
-            .build_levels(true, 100.0, 90.0, 2.0, &c, &out, 1.0, 3.0)
+            .build_levels(true, 100.0, 90.0, 2.0, &c, &out, 1.0, 3.0, true)
             .is_none());
+    }
+
+    #[test]
+    fn build_levels_tp3_dol_plafonne_3r_par_defaut() {
+        // Décision DoL≤3R 28/08 : production = min(DoL, 3R). OB bull top=100
+        // bot=99.2, ATR=2, XAU Atr1x → raw_sl=97.2, r=2.8 (non clampé).
+        // TP2=105.6, plafond 3R=108.4.
+        let c = AssetCalibration::detect("XAUUSD", "M15");
+        let gen = SignalGenerator::new();
+        let mut out = SmcOutput::default();
+        let args = |g: &SignalGenerator, o: &SmcOutput| {
+            g.build_levels(true, 100.0, 99.2, 2.0, &c, o, 1.0, 3.0, true)
+        };
+        // Liquidité (PDH=115) au-delà du plafond 108.4 → TP3 plafonné.
+        out.liquidite.pdh_active = Some(115.0);
+        let (entry, _sl, _tp1, tp2, tp3, r) = args(&gen, &out).unwrap();
+        assert!((entry - 100.0).abs() < 1e-9);
+        assert!((r - 2.8).abs() < 1e-9);
+        assert!((tp2 - 105.6).abs() < 1e-9);
+        assert!(
+            (tp3 - 108.4).abs() < 1e-9,
+            "TP3 = min(PDH=115, entry+3R=108.4) = 108.4 (plafonné)"
+        );
+        // Liquidité PROCHE entre TP2 et 3R (107) → conservée telle quelle.
+        out.liquidite.pdh_active = Some(107.0);
+        let (_, _, _, _, tp3_proche, _) = args(&gen, &out).unwrap();
+        assert!((tp3_proche - 107.0).abs() < 1e-9, "DoL proche conservé");
     }
 }

@@ -118,7 +118,7 @@ pub fn defaults() -> HashMap<&'static str, &'static str> {
     let mut m = HashMap::new();
     m.insert(
         "smc_definition",
-        "Tu es l'analyste de la stratégie SMC (clone fidèle du Pine v12). DÉFINITION — structure de marché (pivots HH/HL/LH/LL, BOS/MSS/CHoCH), zones institutionnelles (order blocks, FVG, liquidités EQH/EQL, OTE, premium/discount), scoring 16 composantes, lifecycle de trades avec BE-force. DÉCISION D'ENTRÉE — retour sur order block qualifié (force ≥ 4/10), entrée au bord de la zone. GESTION — SL au-delà de la zone, BE-force sur BOS opposé, TP1/2/3 sur liquidités, expiration 240 min. MONEY MANAGEMENT — risque 1-3 % du capital de la stratégie par trade, R clampé [slMin, slMax] par asset.",
+        "Tu es l'analyste de la stratégie SMC (clone fidèle du Pine v12). DÉFINITION — structure de marché (pivots HH/HL/LH/LL, BOS/MSS/CHoCH), zones institutionnelles (order blocks, FVG, liquidités EQH/EQL, OTE, premium/discount), scoring 16 composantes, lifecycle de trades sans BE forcé (décision 26/08 : BOS opposé et dégradation de zone ne ferment plus rien — le trade vit jusqu'à SL/TP/expire). DÉCISION D'ENTRÉE — retour sur order block qualifié (force ≥ 4/10), entrée au bord de la zone. GESTION — SL au-delà de la zone, TP1 = 1R, TP2 = 2R, TP3 = liquidité la plus proche plafonnée à 3R (EQH/PDH/PWH ou EQL/PDL/PWL si plus proche que 3R, sinon 3R — décision DoL≤3R du 28/08), expiration selon TF. MONEY MANAGEMENT — risque 1-3 % du capital de la stratégie par trade, R clampé [slMin, slMax] par asset.",
     );
     m.insert(
         "straddle_definition",
