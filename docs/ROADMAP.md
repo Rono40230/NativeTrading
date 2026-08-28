@@ -11,7 +11,7 @@ L'app est une coquille d'orchestration + 3 verticales stratégiques complètes :
 
 | Verticale | État | Moteur | Source données | IA |
 |---|---|---|---|---|
-| **SMC** | Officielle | v12 fidèle Pine (24 couples, replays + amorce MTF) | XAU/XAG : MT5/Axi · BTC : Bybit | Analyse (bouton) |
+| **SMC** | Officielle | v12 fidèle Pine (24 couples, replays + amorce MTF) — 6 assets (SP500 débloqué 28/08) | XAU/XAG/NAS/SP/DAX : MT5/Axi · BTC : Bybit | Analyse (bouton) |
 | **Straddle** | Observation | v2 redéfini (2 jambes à E, T-10s, trailing tick) | XAU/BTC/NAS/SP : MT5+Axi · annonces US | À construire (étape 2) |
 | **Rockets** | Observation | Scanner D1 /10 + gestion journal (R1→50 %+trailing) | Binance (crypto) | Catalyseur news + ranker ✅ |
 
@@ -33,15 +33,18 @@ L'app est une coquille d'orchestration + 3 verticales stratégiques complètes :
 - [ ] Décision propriétaire : passage Officielle ou ajustements
 - [ ] Si Officielle : activer le son Telegram (le template est prêt, dormant)
 
-### 2. SMC v12 — Améliorations validées par replay (travail ACTIF)
+### 2. SMC v12 — Surveillance production
 
+Le programme d'améliorations est **clos** (5 phases, 28/08) : +86.6R nets
+validés par replay (DoL≤3R +61.5, SP500 débloqué +15.8, mega-orders +21.3) ;
+BPR et London H/L livrés en affichage, leurs bonus retirés pour bruit mesuré.
 Détail complet, chiffres et décisions : `docs/AMELIORATIONS_SMC_V12.md`.
 
-- [x] **Phase 1 — Audit préalable (28/08)** : modules C (dead zone) et D (filtre régime) REJETÉS par replay 24 mois ; H (mega-orders) en attente de données volume-corrigées
-- [x] **Phase 2 — Module G : DoL≤3R (28/08)** : TP3 = liquidité la plus proche PLAFONNÉE à 3R, en production (Pine étalon + Rust + prompt IA synchronisés). Replay 2 776 trades : le DoL pur coûtait 67R (cibles inatteignables avant expire), DoL≤3R = +61.5R
-- [x] **Phase 3 — Module A : BPR** (28/08) : détection + affichage livrés (Pine MODULE 6b validé visuellement + Rust `bpr.rs` + overlay frontend). Étude replay (~2 800 trades) : le bonus de scoring +4/+3/+1 = bruit (+1.0R) → **scoring retiré, affichage conservé** (décision pré-validée appliquée au Pine étalon et au défaut Rust)
-- [x] **Phase 4 — Module F : sessions H/L** (28/08) : tracking London H/L livré (MODULE 14b Pine + Rust). Étude replay (~2 770 clôtures) : bonus +2 ON ≡ OFF **bit-à-bit** (zéro trade changé, sonde d'activation positive) → **bonus retiré, tracking/affichage conservés**
-- [x] **Phase 5 — Validation finale (28/08)** : **SP500 muet RÉSOLU** (profil absent de la calibration — miroir NAS, +15.8R/177 trades) · **Module H mega-orders CONSERVÉ** (+21.3R, volume[1] ≥ 2× SMA20) · recalibration refusée (anti-overfitting) · prompt IA conforme · **programme clos** : +86.6R nets documentés (DoL≤3R +61.5, SP500 +15.8, mega +21.3)
+Ce qui reste = **vérifier que la production confirme le replay** :
+
+- [ ] **SP500 live** : après ~2 semaines, comparer la production de signaux réelle au replay (fréquence M15/M5, verdicts — règle 30 trades). Divergence marquée → étude d'une calibration dédiée (le profil actuel est un miroir NAS100)
+- [ ] **Mega-orders live** : confirmer l'apport +21.3R en conditions réelles (le delta replay était concentré sur BTC M5 — réserve documentée)
+- [ ] Si un réglage doit bouger : recalibration uniquement sur preuve ≥ 30 trades remplis par tranche (refusée en Phase 5 — anti-overfitting)
 
 ### 3. Agenda intelligent — Créneaux de volatilité récurrents (Straddle IA)
 
