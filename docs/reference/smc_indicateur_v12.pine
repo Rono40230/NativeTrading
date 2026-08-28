@@ -39,16 +39,20 @@ bool _isXAG = str.contains(_tk, "XAG")
 bool _isNAS = str.contains(_tk, "NAS") or str.contains(_tk, "NDX") or str.contains(_tk, "US100")
 bool _isBTC = str.contains(_tk, "BTC")
 bool _isDAX = str.contains(_tk, "DAX") or str.contains(_tk, "GER40") or str.contains(_tk, "DE30")
+// SP500 — calibré 28/08 (Phase 5) : profil miroir NAS100 (indices US CFD,
+// sessions identiques). Origine du mutisme : absent de _assetReconnu depuis
+// l'origine (garde Phase 4.1 → scoring 0). Validation : replay 24 mois.
+bool _isSPX = str.contains(_tk, "SP500") or str.contains(_tk, "SPX") or str.contains(_tk, "US500")
 
 // Phase 4.1 : asset reconnu = au moins un profil dédié existe.
 // Sur un symbole non listé, signaux & scoring sont DÉSACTIVÉS (décision : un seul système par asset).
-bool _assetReconnu = _isXAU or _isXAG or _isNAS or _isBTC or _isDAX
+bool _assetReconnu = _isXAU or _isXAG or _isNAS or _isBTC or _isDAX or _isSPX
 
 // Valeur d'un pip — remontée ici car utilisée tôt (taille des FVG en pips, dashboard, signaux).
 float _pipValue = _isXAU ? 0.1  :
                   _isXAG ? 0.01 : 1.0
 float _pvLot    = _isXAU ? 10.0 : _isXAG ? 50.0 : _isNAS ? 20.0 :
-                  _isBTC ? 1.0  : _isDAX ? 25.0  : 10.0
+                  _isBTC ? 1.0  : _isDAX ? 25.0  : _isSPX ? 20.0 : 10.0
 
 bool _tfM15   = _tf <= 15
 bool _tfH1    = _tf <= 60
@@ -93,12 +97,13 @@ int _autoTp3Mins =
      _isXAG and _tfM15 ? 45  : _isXAG and _tfH1 ? 180 :
      _isNAS and _tfM15 ? 30  : _isNAS and _tfH1  ? 120 :
      _isBTC and _tfM15 ? 90  : _isBTC and _tfH1  ? 360 :
-     _isDAX and _tfM15 ? 30  : _isDAX and _tfH1  ? 120 : 60
+     _isDAX and _tfM15 ? 30  : _isDAX and _tfH1  ? 120 :
+     _isSPX and _tfM15 ? 30  : _isSPX and _tfH1  ? 120 : 60
 
 string _autoSlMode =
      _isBTC ? "2× ATR sous OB" :
      _isXAG ? "1.5× ATR sous OB" :
-     _isXAU or _isNAS or _isDAX ? "1× ATR sous OB" : "Bas OB"
+     _isXAU or _isNAS or _isDAX or _isSPX ? "1× ATR sous OB" : "Bas OB"
 
 // ⚙️  MODULES — Toujours actifs (hardcodés)
 bool i_moteurStructure = true
@@ -205,6 +210,15 @@ var float _ahLowDrawn  = na
 var float _ldHighDrawn = na
 var float _ldLowDrawn  = na
 bool i_showLondonHL  = input.bool (false, "London High / London Low", group=GRP_SES)
+
+// ── MODULE H — MEGA-ORDERS (Phase 5 AMELIORATIONS_SMC_V12, 28/08) ─────────────
+// Participation institutionnelle sur la bougie OB : volume[1] ≥ 2× SMA20[1]
+// (même sémantique que le _volScore BSZones — l'audit a retenu 2×, le 3× des
+// propositions d'origine étant trop strict). Greffé au f_score v11 derrière
+// flag : défaut ON = stratégie testée par l'étude comparatif_mega.
+bool  i_megaVolScore = true
+float i_megaVolMult  = 2.0
+int   i_megaVolPts   = 2
 
 float pdh = request.security(syminfo.tickerid, "D", high[1], lookahead=barmerge.lookahead_off)
 float pdl = request.security(syminfo.tickerid, "D", low[1],  lookahead=barmerge.lookahead_off)
@@ -1203,12 +1217,13 @@ f_fvgBearLifecycle()
 //   → classes Fort/Instit DÉSACTIVÉES (seuils inatteignables) : ces assets restent en « Moyen-only ».
 //     Le signal exploitable y est le seuil Moyen+ lui-même (WR ~58-62, R positif). Évite tout overfitting.
 bool _plafondMoyen = _isXAG or _isBTC
-int SEUIL_MOYEN  = _isDAX ? 11 : _isNAS ? 10 : _isBTC ? 8 : 7
-int SEUIL_FORT   = _plafondMoyen ? 99 : _isDAX ? 16 : _isNAS ? 15 : 10
-int SEUIL_INSTIT = _plafondMoyen ? 99 : _isDAX ? 19 : _isNAS ? 17 : 12
+// SP500 (Phase 5, 28/08) : miroir NAS 10/15/17 — validation par replay (règle 30 trades).
+int SEUIL_MOYEN  = _isDAX ? 11 : _isNAS or _isSPX ? 10 : _isBTC ? 8 : 7
+int SEUIL_FORT   = _plafondMoyen ? 99 : _isDAX ? 16 : _isNAS or _isSPX ? 15 : 10
+int SEUIL_INSTIT = _plafondMoyen ? 99 : _isDAX ? 19 : _isNAS or _isSPX ? 17 : 12
 
 // Phase 11 — score max observé par asset (dénominateur affiché dans le label de trade)
-int _scoreMax = _isXAU ? 13 : _isXAG ? 14 : _isNAS ? 19 : _isDAX ? 21 : _isBTC ? 15 : 0
+int _scoreMax = _isXAU ? 13 : _isXAG ? 14 : _isNAS or _isSPX ? 19 : _isDAX ? 21 : _isBTC ? 15 : 0
 
 int seuilTrade = 0  // tous les retours OB génèrent un trade ; le tri visuel se fait au score /10 (zones + labels)
 
@@ -2481,6 +2496,9 @@ f_score(bool isBull) =>
     if i_prevLiqScore and ((isBull and sweepBullPrevLiq) or (not isBull and sweepBearPrevLiq))
         sc += i_prevLiqPtsSweep
     // (Module F sessions H/L : bonus retiré 28/08 — étude ON ≡ OFF bit-à-bit)
+    // Module H — mega-order : volume[1] ≥ 2× SMA20[1] (volMa global ligne ~1581).
+    if i_megaVolScore and not na(volMa[1]) and volMa[1] > 0 and volume[1] >= i_megaVolMult * volMa[1]
+        sc += i_megaVolPts
     // Premium/Discount : P7 — présent 78%, WR < global → 2→1
     if (isBull and inDiscount) or (not isBull and inPremium)
         sc += 1
@@ -2673,16 +2691,16 @@ var array<int>   stBearSource    = array.new<int>(0)     // 0=OB, 1=BSZones
 // SellSignals retournent toujours un tuple pour compatibilité, mais les valeurs
 // ne sont plus accumulées.
 float _slMin = not na(atr14) ? (_isXAU ? 0.5 * atr14 : _isXAG ? 0.6 * atr14 :
-               _isNAS ? 0.5 * atr14 : _isBTC ? 0.8 * atr14 :
+               _isNAS or _isSPX ? 0.5 * atr14 : _isBTC ? 0.8 * atr14 :
                _isDAX ? 0.5 * atr14 : 0.0)
                : (_isXAU ? 50.0 * _pipValue : _isXAG ? 50.0 * _pipValue :
-               _isNAS ? 20.0 * _pipValue : _isBTC ? 100.0 * _pipValue :
+               _isNAS or _isSPX ? 20.0 * _pipValue : _isBTC ? 100.0 * _pipValue :
                _isDAX ? 20.0 * _pipValue : 0.0)
 float _slMax = not na(atr14) ? (_isXAU ? 1.5 * atr14 : _isXAG ? 1.8 * atr14 :
-               _isNAS ? 1.5 * atr14 : _isBTC ? 2.5 * atr14 :
+               _isNAS or _isSPX ? 1.5 * atr14 : _isBTC ? 2.5 * atr14 :
                _isDAX ? 1.5 * atr14 : 1e10)
                : (_isXAU ? 100.0 * _pipValue : _isXAG ? 100.0 * _pipValue :
-               _isNAS ? 50.0 * _pipValue : _isBTC ? 400.0 * _pipValue :
+               _isNAS or _isSPX ? 50.0 * _pipValue : _isBTC ? 400.0 * _pipValue :
                _isDAX ? 50.0 * _pipValue : 1e10)
 
 // Phase 11 — format d'affichage des prix selon la précision de l'asset

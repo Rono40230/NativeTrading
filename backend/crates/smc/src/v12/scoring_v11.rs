@@ -25,6 +25,10 @@ const PREV_LIQ_ATR_PROX: f64 = 0.35;
 const PREV_LIQ_PTS_PROX: i32 = 2;
 /// `i_sessHlPtsProx` (Module F, Pine) — bonus proximité H/L de session.
 const SESS_HL_PTS_PROX: i32 = 2;
+/// `i_megaVolPts` (Module H, Pine) — bonus volume[1] ≥ 2× SMA20[1].
+const MEGA_VOL_PTS: i32 = 2;
+/// `i_megaVolMult` (Module H, Pine).
+pub const MEGA_VOL_MULT: f64 = 2.0;
 /// `i_prevLiqPtsSweep` — points de bonus sweep prevLiq.
 const PREV_LIQ_PTS_SWEEP: i32 = 4;
 
@@ -72,7 +76,7 @@ impl ScoringV11 {
         bar: &BarInput,
         cal: &AssetCalibration,
     ) -> i32 {
-        Self::live_score_detaille(is_bull, out, bar, cal, None).0
+        Self::live_score_detaille(is_bull, out, bar, cal, None, None).0
     }
 
     /// `live_score` + liste des composantes actives (diag MQL5 `diagFlags` :
@@ -84,6 +88,7 @@ impl ScoringV11 {
         bar: &BarInput,
         cal: &AssetCalibration,
         sess_hl: Option<&SessHlLevels>,
+        mega_vol: Option<bool>,
     ) -> (i32, Vec<&'static str>) {
         let atr = out.atr14;
         let mut sc: i32 = 0;
@@ -222,6 +227,12 @@ impl ScoringV11 {
                 flags.push("sessHL");
             }
         }
+        // 15c. Module H — mega-order : volume[1] ≥ 2× SMA20[1] (sémantique
+        //      _volScore BSZones ; volMa[1] Pine).
+        if mega_vol == Some(true) {
+            sc += MEGA_VOL_PTS;
+            flags.push("megaVol");
+        }
         // 16. Premium/Discount.
         if is_bull && out.premium_discount.in_discount
             || !is_bull && out.premium_discount.in_premium
@@ -301,10 +312,13 @@ impl ScoringV11 {
         ob_bear: &[ObZone],
         bpr_zones: &[BprZone],
         sess_hl: Option<&SessHlLevels>,
+        mega_vol: Option<bool>,
     ) {
         let atr = out.atr14;
-        let (live_bull, flags_bull) = Self::live_score_detaille(true, out, bar, cal, sess_hl);
-        let (live_bear, flags_bear) = Self::live_score_detaille(false, out, bar, cal, sess_hl);
+        let (live_bull, flags_bull) =
+            Self::live_score_detaille(true, out, bar, cal, sess_hl, mega_vol);
+        let (live_bear, flags_bear) =
+            Self::live_score_detaille(false, out, bar, cal, sess_hl, mega_vol);
 
         // Bull.
         let mut alive_bull: std::collections::HashSet<usize> = std::collections::HashSet::new();

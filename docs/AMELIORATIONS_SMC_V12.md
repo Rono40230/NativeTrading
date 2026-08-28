@@ -193,33 +193,102 @@ seuil de qualification** (seuilTrade / force ≥ min). La garde anti-bruit
 4. ✅ Prompt IA inchangé — le comportement de production est identique d'avant/après Phase 4 (aucun trade changé)
 5. Note méthodo : les échantillons des études bougent légèrement entre runs (DB alimentée en continu par les collecteurs — ~1-2 trades/heure d'écart entre l'étude BPR 19h05 et l'étude sessions 20h11)
 
-## Phase 5 — Validation finale (1 session)
+## Phase 5 — Validation finale ✅ TERMINÉE (28/08)
 
-- [ ] **Replay comparatif intégral** : avant/après TOUTES améliorations sur 24 mois × 6 assets × 3 TF
-- [ ] **Module H** (mega-orders) : si des données volume-corrigées sont disponibles, calibrer et tester
-- [ ] Ajuster les pondérations si nécessaire (règle : 30 trades minimum)
-- [ ] **Synchroniser les prompts IA** (`smc_definition`) — constitution : stratégie changée = prompt changé
-- [ ] Documenter les paramètres recommandés par asset
-- [ ] Mettre à jour la ROADMAP.md principale
+### 1. SP500 muet → RÉSOLU (profil manquant)
 
----
+**Cause racine** : SP500 absent de `_assetReconnu` (Pine ligne 45) et
+`AssetCalibration` (Rust) depuis l'origine — le garde « asset non reconnu →
+scoring 0 » (Phase 4.1) tuait les deux moteurs. Les données étaient saines
+(49 454 bougies M15 / 24 mois, 0% volume zéro). Ce n'était NI une calibration
+spécifique à découvrir, NI un problème de zones : le profil n'existait pas.
 
-## Estimation totale : 4-5 sessions
+**Correctif** : profil miroir NAS100 (indices US CFD jumeaux) — Pine
+`_isSPX` (SP500/SPX/US500) + Rust `is_spx` : pvLot 20, SL mode 1×ATR, seuils
+force 10/15/17, scoreMax 19, SL clamp 0.5/1.5×ATR, TP3 max 30/120 min.
 
-| Phase | Modules | Durée | Statut |
+**Validation** (`validation_spx`, 24 mois × 3 TF) :
+
+| TF | R total | Clôtures | Règle 30 |
 |---|---|---|---|
-| 1 | Audit préalable (C, D, H) | 1 session | ✅ Terminée |
-| 2 | G (DoL TP3) | 1 session | ✅ Terminée — DoL≤3R en production |
-| 3 | A (BPR) | 2 sessions | 🔄 Session A livrée (Pine) — validation visuelle attendue |
-| 4 | F (sessions H/L) | 1 session | |
-| 5 | Validation globale + H + SP500 muet | 1 session | |
+| M15 | +7.0R | 109 | ✅ |
+| M5 | +2.8R | 59 | ✅ |
+| M1 | +6.0R | 9 | ⚠ (<30, informatif) |
+| **Total** | **+15.8R** | **177** | R moyen +0.089 · max DD 11R |
+
+Expectancy positive d'emblée sans calibration dédiée. Calibration spécifique
+SP500 possible en étude future si justifiée (règle 30 trades).
+
+### 2. Module H (mega-orders) → ✅ CONSERVÉ (+21.3R)
+
+L'audit recommandait 2× SMA20 (le 3× d'origine trop strict) — le `_volScore`
+BSZones l'appliquait déjà côté zones ; le Module H l'ajoute au f_score v11
+(+2 si volume[1] ≥ 2× SMA20[1], même sémantique). Volume propre sur les
+6 assets (0% de zéros).
+
+**Étude** (`comparatif_mega`, production : BE=Supp, TP3=DoL≤3R, BPR/sessions off) :
+
+| Branche | R total | Clôtures | R moyen | max DD |
+|---|---|---|---|---|
+| **Mega ON** (production) | **+791.2R** | 3 115 | +0.254 | **11.0R** |
+| Mega OFF (contre-factuel) | +769.9R | 2 951 | +0.261 | 12.0R |
+
+Delta = **+21.3R** (+2.8%) — 20× le bruit BPR (+1.0R), max DD amélioré.
+Le bonus qualifie 164 trades supplémentaires d'expectancy nette positive.
+Réserve documentée : concentration du delta (BTC M5 porte +10R à lui seul ;
+sans lui : +11.3R, toujours positif ; somme des cellules ≥30 trades :
++17.3R). **Décision : conservé en production** (défauts actifs Pine + Rust).
+
+### 3. Replay intégral — bilan du programme
+
+| Configuration | R total | Clôtures | Commentaire |
+|---|---|---|---|
+| Avant programme (DoL pur, 5 assets — SP500 muet) | +704.6R | 2 776 | étude comparatif_tp3 |
+| **Production actuelle** (DoL≤3R + SP500 + mega-orders, 6 assets) | **+791.2R** | 3 115 | branche Mega ON |
+
+**+86.6R d'apport net documenté** sur fenêtres équivalentes : DoL≤3R (+61.5R,
+Phase 2), SP500 débloqué (+15.8R), mega-orders (+21.3R), moins la
+redistribution des échantillons (DB alimentée en continu entre les runs).
+BPR et sessions H/L : affichage conservé, scoring neutre (retrait documenté).
+
+### 4. Recalibration des pondérations → ❌ NON JUSTIFIÉE
+
+Aucune étude de la campagne n'a montré de bande de force déréglée : les
+verdicts par bande restent cohérents par asset, et recalibrer sur les deltas
+cellulaires (BTC M5 +10R, NAS M15 -4R...) reviendrait à de l'overfitting sur
+des échantillons de 50-400 trades. Décision : statuquo — la règle des 30
+trades s'applique à toute future recalibration, idéalement ≥ 100 trades/bande.
+
+### 5. Conformité prompt IA → ✅ VÉRIFIÉE
+
+`smc_definition` décrit la stratégie génériquement (structure, zones, force
+≥ 4/10, TP3 DoL≤3R, lifecycle sans BE forcé) — aucune énumération d'assets ni
+de bonus de scoring : l'ajout de SP500 et du bonus mega-volume ne le
+contredit pas. BPR/sessions n'y figuraient pas non plus (affichage/scoring
+interne). **Aucun changement requis** (constitution respectée : le prompt
+décrivait déjà la production résultante).
+
+### 6. Paramètres recommandés par asset (documentés)
+
+| Asset | Swing M15/H1 | SL clamp (×ATR) | Seuils force | TP3 max M15/H1 | Notes |
+|---|---|---|---|---|---|
+| XAUUSD | 3/5 | 0.5–1.5 | 7/10/12 | 60/240 min | métaux : FVG +5 |
+| XAGUSD | 3/4 | 0.6–1.8 | 7/99/99 (Moyen-only) | 45/180 min | Fort/Instit désactivés |
+| NAS100 | 3/5 | 0.5–1.5 | 10/15/17 | 30/120 min | — |
+| **SP500** | 3/5 | 0.5–1.5 | 10/15/17 | 30/120 min | **miroir NAS (Phase 5)** |
+| DAX | 3/5 | 0.5–1.5 | 11/16/19 | 30/120 min | seuils les plus exigeants |
+| BTC | 3/5 | 0.8–2.5 | 8/99/99 (Moyen-only) | 90/360 min | SL 2×ATR |
+
+Modules transverses actifs : BPR affiché (scoring neutre), London H/L tracké,
+bonus f_score : prevLiq (+2/+4), premium/discount (+1), **mega-orders (+2)**.
 
 ---
 
-## Règles transverses (rappel constitution)
+## Bilan final du programme (28/08)
 
-- **Pine = étalon** : toute amélioration est portée d'abord dans le Pine, puis Rust
-- **Chirurgie uniquement** : additive, sans régression, tests + build avant commit
-- **30 trades minimum** avant tout recalibrage
-- **Stratégie changée = prompt changé** : les prompts IA sont synchronisés à chaque étape
-- **L'IA n'exécute jamais** : les modules bonifient le scoring, jamais de trade autonome
+**5 phases, 10 propositions auditées → 3 changements de production validés par
+replay** : DoL≤3R (+61.5R), SP500 débloqué (+15.8R), mega-orders (+21.3R).
+**2 modules livrés en affichage sans scoring** (BPR, London H/L) et 2 bonus
+retirés pour bruit mesuré (BPR +1.0R, sessions 0.0R). Recalibration refusée
+(anti-overfitting). Prompt IA conforme. Le programme d'améliorations SMC v12
+est **clos** — prochaine étape naturelle : surveillance production.

@@ -121,6 +121,9 @@ pub struct SmcV12Engine {
     /// drawn AVANT la mise à jour MODULE 14/14b — état N-1).
     asian_hl_prec: asian_hl::AsianHlEvent,
     london_hl_prec: asian_hl::AsianHlEvent,
+    /// Bonus Module H (mega-orders volume ≥ 2× SMA20) — défaut ACTIF (étalon
+    /// Pine pré-verdict ; l'étude comparatif_mega tranche).
+    mega_vol_scoring: bool,
     /// Bonus Module F (sessions H/L) — défaut INACTIF : étude comparatif_sessions
     /// du 28/08 = ON ≡ OFF bit-à-bit (2 771 clôtures, zéro trade changé ; la
     /// sonde probe_sessions prouve que le greffon s'activait — le +2 n'a
@@ -160,6 +163,7 @@ impl SmcV12Engine {
             asian_hl_prec: asian_hl::AsianHlEvent::default(),
             london_hl_prec: asian_hl::AsianHlEvent::default(),
             sess_hl_scoring: false,
+            mega_vol_scoring: true,
             scoring_bs: ScoringBsZones::new(),
             signals: SignalGenerator::new(),
             lifecycle: TradeLifecycle::new(trade_max_secs, tp3_max_secs),
@@ -215,6 +219,12 @@ impl SmcV12Engine {
     /// inactif (étude 28/08 : ON ≡ OFF bit-à-bit) ; ré-activable en étude.
     pub fn avec_scoring_sessions(mut self, actif: bool) -> Self {
         self.sess_hl_scoring = actif;
+        self
+    }
+
+    /// Bonus Module H — mega-orders (+2 si volume[1] ≥ 2× SMA20[1]).
+    pub fn avec_scoring_mega_volume(mut self, actif: bool) -> Self {
+        self.mega_vol_scoring = actif;
         self
     }
 
@@ -418,8 +428,17 @@ impl SmcV12Engine {
             } else {
                 None
             };
+            // Module H — mega-order : volume[1] ≥ 2× SMA20[1] (même fenêtre
+            // que le _volScore BSZones : bars [1..20], bougie courante exclue).
+            let mega_vol = if self.mega_vol_scoring {
+                let sma = bs_helpers::vol_sma_20(&self.history);
+                let vol_prec = bs_helpers::bar_volume_ago(&self.history, 1);
+                Some(sma > 0.0 && vol_prec >= scoring_v11::MEGA_VOL_MULT * sma)
+            } else {
+                None
+            };
             self.scoring_v11.update(
-                &out, bar, &self.calibration, ob_bull, ob_bear, bpr_zones, sess_hl,
+                &out, bar, &self.calibration, ob_bull, ob_bear, bpr_zones, sess_hl, mega_vol,
             );
         }
         // 20. Scoring BSZones — naissances (gate HTF) + lifecycle (mitigation)
@@ -529,7 +548,7 @@ fn tp3_max_mins(cal: &AssetCalibration, tf_mins: u32) -> i64 {
         } else {
             60
         }
-    } else if cal.is_nas {
+    } else if cal.is_nas || cal.is_spx {
         if m15 {
             30
         } else if h1 {

@@ -410,7 +410,7 @@ fn sl_min_max(cal: &AssetCalibration, atr: f64) -> (f64, f64) {
         0.5 * atr
     } else if cal.is_xag {
         0.6 * atr
-    } else if cal.is_nas {
+    } else if cal.is_nas || cal.is_spx {
         0.5 * atr
     } else if cal.is_btc {
         0.8 * atr
@@ -423,7 +423,7 @@ fn sl_min_max(cal: &AssetCalibration, atr: f64) -> (f64, f64) {
         1.5 * atr
     } else if cal.is_xag {
         1.8 * atr
-    } else if cal.is_nas {
+    } else if cal.is_nas || cal.is_spx {
         1.5 * atr
     } else if cal.is_btc {
         2.5 * atr

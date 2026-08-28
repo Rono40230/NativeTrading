@@ -1,0 +1,14 @@
+════════════════════════════════════════════════════════════════════════════════════════════════════
+VALIDATION SP500 (Phase 5) — profil miroir NAS · BE=Supprimé · TP3=DoL≤3R (production)
+R total / clôtures par asset × TF × branche
+════════════════════════════════════════════════════════════════════════════════════════════════════
+── SP500 ──
+  M15               +7.0R / 109
+  M5                 +2.8R / 59
+  M1                  +6.0R / 9  ⚠ <30 trades
+────────────────────────────────────────────────────────────────────────────────────────────────────
+SP500      TOTAL +15.8R · 177 clôtures · R moyen +0.089 · max DD 11.0R
+           verdicts : 9×TP2+BE, 77×Expire, 27×TP1+BE, 55×SL, 9×TP3
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Lecture : production de signaux SP500 avec le profil miroir NAS (règle 30 trades).
+R moyen positif attendu ; calibration dédiée possible en étude future si justifiée.

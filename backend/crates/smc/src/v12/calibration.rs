@@ -23,6 +23,8 @@ pub struct AssetCalibration {
     pub is_xau: bool,
     pub is_xag: bool,
     pub is_nas: bool,
+    /// SP500 (Phase 5, 28/08) — profil miroir NAS100 (indices US CFD).
+    pub is_spx: bool,
     pub is_btc: bool,
     pub is_dax: bool,
     /// Vrai si l'actif correspond à un profil connu (XAU/XAG/NAS/BTC/DAX).
@@ -82,7 +84,8 @@ impl AssetCalibration {
         let is_nas = a.contains("NAS") || a.contains("NDX") || a.contains("US100");
         let is_btc = a.contains("BTC");
         let is_dax = a.contains("DAX") || a.contains("GER40") || a.contains("DE30");
-        let asset_reconnu = is_xau || is_xag || is_nas || is_btc || is_dax;
+        let is_spx = a.contains("SP500") || a.contains("SPX") || a.contains("US500");
+        let asset_reconnu = is_xau || is_xag || is_nas || is_btc || is_dax || is_spx;
 
         // _autoSwing (Pine lignes 42-47) : TF ≤ M15 → 3, sinon 5 (spécifique asset inchangé).
         let tf_mins = tf_minutes(timeframe);
@@ -102,7 +105,7 @@ impl AssetCalibration {
             (0.1, 10.0)
         } else if is_xag {
             (0.01, 50.0)
-        } else if is_nas {
+        } else if is_nas || is_spx {
             (1.0, 20.0)
         } else if is_btc {
             (1.0, 1.0)
@@ -117,7 +120,7 @@ impl AssetCalibration {
             SlMode::Atr2x
         } else if is_xag {
             SlMode::Atr15x
-        } else if is_xau || is_nas || is_dax {
+        } else if is_xau || is_nas || is_spx || is_dax {
             SlMode::Atr1x
         } else {
             SlMode::BasOb
@@ -170,7 +173,7 @@ impl AssetCalibration {
             (7, 10, 12, 13)
         } else if is_xag {
             (7, 99, 99, 14)
-        } else if is_nas {
+        } else if is_nas || is_spx {
             (10, 15, 17, 19)
         } else if is_dax {
             (11, 16, 19, 21)
@@ -199,6 +202,7 @@ impl AssetCalibration {
             is_xau,
             is_xag,
             is_nas,
+            is_spx,
             is_btc,
             is_dax,
             asset_reconnu,
@@ -284,6 +288,15 @@ mod tests {
     #[test]
     fn nas_us100_reconnu() {
         assert!(AssetCalibration::detect("US100", "M15").is_nas);
+        // SP500 (Phase 5) : reconnu, profil miroir NAS.
+        let spx = AssetCalibration::detect("SP500", "M15");
+        assert!(spx.is_spx && spx.asset_reconnu, "SP500 reconnu (fin du mutisme)");
+        let nas = AssetCalibration::detect("NAS100", "M15");
+        assert_eq!(
+            (spx.seuil_moyen, spx.seuil_fort, spx.seuil_instit, spx.score_max),
+            (nas.seuil_moyen, nas.seuil_fort, nas.seuil_instit, nas.score_max),
+            "seuils SPX = miroir NAS (10/15/17/19)"
+        );
     }
 
     #[test]

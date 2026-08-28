@@ -63,7 +63,8 @@ pub fn rejouer_bougies_mode(
         asset, tf, bougies, simuler_ticks, amorce, mode,
         smc::v12::signals::ModeTp3::Dol,
         false, // scoring BPR = défaut production (inactif — étude 28/08)
-        false, // scoring sessions H/L = défaut production (inactif — étude 28/08)
+        false, // sessions H/L = défaut production (inactif — étude 28/08)
+        true,  // mega-orders = défaut production (actif — étude en cours)
     )
 }
 
@@ -81,7 +82,8 @@ pub fn rejouer_bougies_tp3(
         smc::v12::lifecycle::ModeBeForce::Supprime,
         mode_tp3,
         false, // scoring BPR = défaut production (inactif — étude 28/08)
-        false, // scoring sessions H/L = défaut production (inactif — étude 28/08)
+        false, // sessions H/L = défaut production (inactif — étude 28/08)
+        true,  // mega-orders = défaut production (actif — étude en cours)
     )
 }
 
@@ -101,6 +103,7 @@ pub fn rejouer_bougies_bpr(
         smc::v12::signals::ModeTp3::DolCappe3R,
         scoring_bpr,
         false, // sessions H/L = défaut production (inactif — étude 28/08)
+        true,  // mega-orders = défaut production (actif — étude en cours)
     )
 }
 
@@ -120,6 +123,27 @@ pub fn rejouer_bougies_sessions(
         smc::v12::signals::ModeTp3::DolCappe3R,
         false, // scoring BPR = défaut production
         scoring_sessions,
+        true,  // mega-orders = défaut production (actif — étude en cours)
+    )
+}
+
+/// Variante Module H (étude mega-orders) — production + seul le bonus
+/// volume ≥ 2× SMA20 diffère.
+pub fn rejouer_bougies_mega(
+    asset: Asset,
+    tf: Timeframe,
+    bougies: &[Candle],
+    simuler_ticks: bool,
+    amorce: smc::v12::AmorceMtf,
+    scoring_mega: bool,
+) -> ResultatReplay {
+    rejouer_bougies_modes(
+        asset, tf, bougies, simuler_ticks, amorce,
+        smc::v12::lifecycle::ModeBeForce::Supprime,
+        smc::v12::signals::ModeTp3::DolCappe3R,
+        false, // scoring BPR = défaut production
+        false, // sessions H/L = défaut production
+        scoring_mega,
     )
 }
 
@@ -135,6 +159,7 @@ fn rejouer_bougies_modes(
     mode_tp3: smc::v12::signals::ModeTp3,
     scoring_bpr: bool,
     scoring_sessions: bool,
+    scoring_mega: bool,
 ) -> ResultatReplay {
     let debut = std::time::Instant::now();
     let mut plugin = MoteurV12::nouveau(asset.clone(), tf)
@@ -142,7 +167,8 @@ fn rejouer_bougies_modes(
         .avec_mode_be_force(mode)
         .avec_mode_tp3(mode_tp3)
         .avec_scoring_bpr(scoring_bpr)
-        .avec_scoring_sessions(scoring_sessions);
+        .avec_scoring_sessions(scoring_sessions)
+        .avec_scoring_mega_volume(scoring_mega);
     let mut journal = SortieMoteur::vide();
 
     for (i, b) in bougies.iter().enumerate() {
@@ -181,7 +207,8 @@ fn rejouer_bougies_modes(
         .avec_mode_be_force(mode)
         .avec_mode_tp3(mode_tp3)
         .avec_scoring_bpr(scoring_bpr)
-        .avec_scoring_sessions(scoring_sessions);
+        .avec_scoring_sessions(scoring_sessions)
+        .avec_scoring_mega_volume(scoring_mega);
     if let Some(premiere) = bougies.first() {
         reference.primer_mtf_amorce(&amorce, premiere.timestamp.timestamp());
     }
