@@ -292,7 +292,7 @@ watch(() => props.clePrefs, (nouvelle) => {
 })
 
 onMounted(() => {
-  minuteurOverlay = setInterval(rafraichirOverlayV12, 10_000)
+  minuteurOverlay = setInterval(rafraichirOverlayV12, 30_000)
   chargerAnnonces()
 })
 
