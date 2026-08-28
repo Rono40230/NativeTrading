@@ -150,7 +150,18 @@ export function dessinerTradesExternes(
 ): void {
   const xD = xDroit(ts, W, dernierTs)
   for (const s of liste) {
-    const xGRaw = ts.timeToCoordinate(s.ts as any)
+    // Multi-TF : le timestamp du trade (ex: 09:55 en M5) n'existe pas
+    // forcément comme barre sur le TF affiché (M15 = :00/:15/:30/:45).
+    // → arrondir au bar la plus proche au lieu de sauter le trade.
+    let xGRaw = ts.timeToCoordinate(s.ts as any)
+    if (xGRaw === null) {
+      const vr = ts.getVisibleRange()
+      const lr = ts.getVisibleLogicalRange()
+      if (vr && lr && (vr.to as number) > (vr.from as number)) {
+        const lg = (lr.from as number) + ((s.ts - (vr.from as number)) / ((vr.to as number) - (vr.from as number))) * ((lr.to as number) - (lr.from as number))
+        xGRaw = ts.logicalToCoordinate(Math.round(lg) as never)
+      }
+    }
     if (xGRaw === null) continue
     const xG = Math.max(0, xGRaw)
     if (xD <= xG) continue
