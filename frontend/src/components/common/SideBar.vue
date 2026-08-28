@@ -90,7 +90,7 @@ const nav: NavItem[] = [
   },
 
   // ── Performance ──────────────────────────────────────────────────────────
-  { to: '/history', icone: '🔒', label: 'Positions clôturées' },
+  { to: '/history', icone: '📜', label: 'Historiques des trades' },
 
   // ── Outils IA ─────────────────────────────────────────────────────────────
   {

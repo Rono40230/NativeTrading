@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col" style="height: calc(100vh - 3rem);">
+  <div class="flex flex-col" style="height: calc(100vh - 5.5rem);">
     <div class="flex items-center justify-between mb-3 flex-shrink-0">
       <div>
         <h1 class="text-2xl font-bold">💬 Coach Trading IA</h1>
