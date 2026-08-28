@@ -1,16 +1,11 @@
 <template>
   <div id="app" class="flex flex-col h-screen bg-gray-900 text-white">
-    <!-- Barre de titre applicative = navigation principale (option 3, 28/08).
-         La SideBar reste en repli (bord gauche) le temps d'adopter la barre. -->
+    <!-- Barre de titre applicative = navigation unique (option 3, 28/08 —
+         ancien panneau latéral retiré le même jour, feu vert propriétaire). -->
     <TitleBar />
-    <div class="flex flex-1 min-h-0">
-      <!-- Zone de déclenchement invisible sur le bord gauche -->
-      <div class="sidebar-trigger fixed left-0 top-10 h-[calc(100%-2.5rem)] w-3 z-50" />
-      <SideBar />
-      <main class="flex-1 overflow-y-auto px-4 py-6 flex flex-col">
-        <RouterView />
-      </main>
-    </div>
+    <main class="flex-1 min-h-0 overflow-y-auto px-4 py-6 flex flex-col">
+      <RouterView />
+    </main>
     <ToastAlerte />
     <SignalAlarmeModal />
   </div>
@@ -19,7 +14,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue'
 import { RouterView } from 'vue-router'
-import SideBar from './components/common/SideBar.vue'
 import TitleBar from './components/common/TitleBar.vue'
 import ToastAlerte from './components/common/ToastAlerte.vue'
 import SignalAlarmeModal from './components/common/SignalAlarmeModal.vue'
@@ -83,12 +77,3 @@ onMounted(() => {
 })
 
 </script>
-
-<style>
-/* La sidebar est par défaut hors-écran, slide-in au survol de la zone trigger */
-.sidebar-trigger:hover ~ aside,
-aside:hover {
-  transform: translateX(0) !important;
-  opacity: 1 !important;
-}
-</style>
