@@ -58,7 +58,11 @@
           <p class="text-slate-500 mb-0.5">🇺🇸 USA</p>
           <div v-for="e in data.usa" :key="e.nom" class="flex items-center gap-2 py-0.5">
             <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
-            <span class="w-[64px] text-right tabular-nums text-[11px] text-slate-300" :title="`Cours ${e.nom}`">{{ prixFmt(e.prix) }}</span>
+            <span
+              class="w-[64px] text-right tabular-nums text-[11px] font-medium"
+              :class="couleurCours(e.variation_pct)"
+              :title="`Cours ${e.nom}`"
+            >{{ prixFmt(e.prix) }}</span>
             <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct) }}</span>
               <span :class="couleur(e.variation_veille ?? e.variation_pct)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
@@ -75,7 +79,11 @@
           <p class="text-slate-500 mb-0.5">🇪🇺 EUROPE</p>
           <div v-for="e in data.europe" :key="e.nom" class="flex items-center gap-2 py-0.5">
             <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
-            <span class="w-[64px] text-right tabular-nums text-[11px] text-slate-300" :title="`Cours ${e.nom}`">{{ prixFmt(e.prix) }}</span>
+            <span
+              class="w-[64px] text-right tabular-nums text-[11px] font-medium"
+              :class="couleurCours(e.variation_pct)"
+              :title="`Cours ${e.nom}`"
+            >{{ prixFmt(e.prix) }}</span>
             <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct) }}</span>
               <span :class="couleur(e.variation_veille ?? e.variation_pct)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
@@ -92,7 +100,11 @@
           <p class="text-slate-500 mb-0.5">⛏️ MATIÈRES PREMIÈRES</p>
           <div v-for="e in data.matieres_premieres" :key="e.nom" class="flex items-center gap-2 py-0.5">
             <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
-            <span class="w-[64px] text-right tabular-nums text-[11px] text-slate-300" :title="`Cours ${e.nom}`">{{ prixFmt(e.prix) }}</span>
+            <span
+              class="w-[64px] text-right tabular-nums text-[11px] font-medium"
+              :class="couleurCours(e.variation_pct)"
+              :title="`Cours ${e.nom}`"
+            >{{ prixFmt(e.prix) }}</span>
             <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct) }}</span>
               <span :class="couleur(e.variation_veille ?? e.variation_pct)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
@@ -109,7 +121,11 @@
           <p class="text-slate-500 mb-0.5">₿ CRYPTOS</p>
           <div v-for="e in data.cryptos" :key="e.nom" class="flex items-center gap-2 py-0.5">
             <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
-            <span class="w-[64px] text-right tabular-nums text-[11px] text-slate-300" :title="`Cours ${e.nom}`">{{ prixFmt(e.prix) }}</span>
+            <span
+              class="w-[64px] text-right tabular-nums text-[11px] font-medium"
+              :class="couleurCours(e.variation_pct)"
+              :title="`Cours ${e.nom}`"
+            >{{ prixFmt(e.prix) }}</span>
             <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct) }}</span>
               <span :class="couleur(e.variation_veille ?? e.variation_pct)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
@@ -211,6 +227,14 @@ function pct(v: number): string {
 
 /// Cours en direct : séparateur fin fr-FR, décimales adaptatives
 /// (entier ≥ 1 000 — ex. BTC « 87 432 », S&P « 5 864 » ; 2 décimales sinon).
+/// Cours coloré au mouvement du jour : vert en hausse, rouge en baisse,
+/// neutre si strictement stable.
+function couleurCours(v: number): string {
+  if (v > 0) return 'text-emerald-400'
+  if (v < 0) return 'text-red-400'
+  return 'text-slate-300'
+}
+
 function prixFmt(v: number): string {
   if (v >= 1000) return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(v) + ' $'
   return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' $'
