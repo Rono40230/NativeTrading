@@ -204,19 +204,6 @@ export function dessinerFonds(
     }
   }
 
-  // Premium / Discount — Pine MODULE 4b : BANDES VERTICALES pleine hauteur
-  //    (bgcolor par barre) sur chaque plage où le prix est en premium /
-  //    discount ; rien dans la zone de tolérance (±0,5 % equilibrium).
-  if (flags.premium && d.prem_ranges) {
-    for (const r of d.prem_ranges) {
-      const xG = coordX(ts, r.start_ts, 0)
-      const xD = coordX(ts, r.end_ts, W)
-      if (xD <= xG) continue
-      const hex = r.dir === 'prem' ? COUL_PREMIUM : COUL_DISCOUNT
-      ctx.fillStyle = hexVersRgba(hex, t(80)) // 20% opacité — le 5% du Pine était invisible sur fond sombre
-      ctx.fillRect(xG, 0, xD - xG, H)
-    }
-  }
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -301,7 +288,7 @@ export function dessinerBoxes(
   }
   const xD = xDroit(ts, W, dernierTs)
 
-  // NDOG / NWOG.
+  // NDOG / NWOG (+ ligne CE 50% — réaction ICT).
   for (const g of d.gaps) {
     if (g.gtype === 'ndog' && !flags.ndog) continue
     if (g.gtype === 'nwog' && !flags.nwog) continue
@@ -316,6 +303,17 @@ export function dessinerBoxes(
     tracerBordsBox(ctx, hexVersRgba(hex, 1), xG, xD, box.yTop, box.h)
     // Pine : texte « New Day/Week Opening Gap » (tiny, haut droite).
     labelBox(ctx, hexVersRgba(hex, 1), g.gtype === 'ndog' ? 'New Day Opening Gap' : 'New Week Opening Gap', xD, box.yTop)
+    // CE = 50% du gap.
+    const ce = (g as { ce?: number }).ce
+    if (ce !== undefined) {
+      const yCe = serie.priceToCoordinate(ce)
+      if (yCe !== null) {
+        ctx.strokeStyle = hexVersRgba(hex, 1); ctx.lineWidth = 1; ctx.setLineDash([4, 3])
+        ctx.beginPath(); ctx.moveTo(xG, yCe); ctx.lineTo(xD, yCe); ctx.stroke(); ctx.setLineDash([])
+        ctx.font = '8px sans-serif'; ctx.fillStyle = hexVersRgba(hex, 1); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'
+        ctx.fillText('CE', xD - 3, yCe - 1)
+      }
+    }
   }
 
   // MTF OB (H1/H4/W1/MN).
@@ -480,13 +478,19 @@ export function dessinerLignes(
     }
   }
 
-  // Equilibrium (Premium/Discount).
-  if (flags.equilibrium && d.premium_discount && d.premium_discount.equilibrium != null) {
-    const y = serie.priceToCoordinate(d.premium_discount.equilibrium)
-    if (y !== null) {
-      ligneHoriz(ctx, hexVersRgba(COUL_EQUILIBRIUM, t(20)), y, 0, xD, { dashed: true, width: 1 })
-      labelDroite(ctx, hexVersRgba(COUL_EQUILIBRIUM, 1), 'EQ', xD, W, y)
+  // Premium/Discount — 3 lignes horizontales (standard ICT).
+  const pdAffiche = flags.premium || flags.equilibrium
+  if (pdAffiche && d.premium_discount) {
+    const pd = d.premium_discount
+    const pdLigne = (prix: number | null | undefined, hex: string, lbl: string, tr: number) => {
+      if (prix == null) return
+      const y = serie.priceToCoordinate(prix)
+      if (y === null) return
+      ligneHoriz(ctx, hexVersRgba(hex, t(tr)), y, 0, W, { dashed: true, width: 1 })
+      labelDroite(ctx, hexVersRgba(hex, 1), lbl, W, W, y)
     }
+    pdLigne(pd.equilibrium, COUL_EQUILIBRIUM, 'EQ', 20)
+    if (flags.premium) { pdLigne(pd.pd_range_h, COUL_PREMIUM, 'PREMIUM', 40); pdLigne(pd.pd_range_l, COUL_DISCOUNT, 'DISCOUNT', 40) }
   }
 }
 
@@ -497,7 +501,6 @@ function coordX(ts: TimeScale, time: number, fallback: number): number {
   const raw = ts.timeToCoordinate(time as any)
   return raw !== null ? raw : fallback
 }
-
 /** Dernier close de la série (Pine `close` pour le tag « ◀ ici »). */
 function dernierClose(serie: ISeriesApi<'Candlestick'>): number | null {
   const data = serie.data()

@@ -244,6 +244,7 @@ impl SmcV12Engine {
             self.imbalance.last_ib_bull(),
             self.imbalance.last_ib_bear(),
             &mut self.breaker,
+            &sweep_event,
         );
 
         // 10. Breaker (MODULE 8b) — lifecycle de suppression (Pine f_bbLifecycle).

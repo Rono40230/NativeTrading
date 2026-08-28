@@ -1259,7 +1259,11 @@ f_obLifecycle() =>
                 // La zone reste identique à l'ancien OB, elle agit désormais comme résistance
                 // Correctif 1.1 : ne créer un Breaker que sur une vraie invalidation directionnelle
                 // (close < botB), pas sur le simple nettoyage d'un OB signalé (low <= topB).
-                if not expired and close < botB
+                // Correction 28/08 : un vrai Breaker ICT exige un SWEEP de
+                // liquidité récent (≤ 10 bars) avant l'invalidation. Sans
+                // sweep → simple suppression de l'OB, pas de conversion.
+                bool _sweepRecentB = not na(dernierSweepB_bar) and (bar_index - dernierSweepB_bar) <= 10
+                if not expired and close < botB and _sweepRecentB
                     if array.size(bbBearTop) >= i_maxBB
                         box _bxBB = array.shift(bbBearBox)
                         if not na(_bxBB)
@@ -1336,7 +1340,9 @@ f_obLifecycle() =>
                 // Breaker Block : Bear OB invalidé par close > haut — devient Bullish Breaker
                 // Correctif 1.1 : ne créer un Breaker que sur une vraie invalidation directionnelle
                 // (close > topBr), pas sur le simple nettoyage d'un OB signalé (high >= botBr).
-                if not expired and close > topBr
+                // Correction 28/08 : sweep récent obligatoire (≤ 10 bars).
+                bool _sweepRecentA = not na(dernierSweepH_bar) and (bar_index - dernierSweepH_bar) <= 10
+                if not expired and close > topBr and _sweepRecentA
                     if array.size(bbBullTop) >= i_maxBB
                         box _bxBB = array.shift(bbBullBox)
                         if not na(_bxBB)
@@ -1643,6 +1649,10 @@ f_block3() =>
             array.push(ndogTop, _gTop)
             array.push(ndogBot, _gBot)
             array.push(ndogMit, false)
+            // CE (Consequent Encroachment) = 50% du gap — niveau de réaction ICT (28/08).
+            float _ceN = (_gTop + _gBot) / 2.0
+            line _ceNLn = line.new(bar_index - 1, _ceN, bar_index + 50, _ceN,
+                 color=color.new(#26C6DA, 0), width=1, style=line.style_dashed)
             array.push(ndogBox, i_showNDOG ?
                  box.new(bar_index - 1, _gTop, bar_index + 50, _gBot,
                       bgcolor=i_ndogColor, border_color=color.new(#26C6DA, 10),
@@ -1735,21 +1745,29 @@ float pdTolAbs      = pdOk ? pdEquilibrium * (i_eqTol / 100.0) : na
 bool  inPremium     = pdOk and close > pdEquilibrium + pdTolAbs
 bool  inDiscount    = pdOk and close < pdEquilibrium - pdTolAbs
 
-// Ligne équilibre — créée une fois, mise à jour chaque barre
-// Correctif : ne dépend que de son propre toggle (i_showEqLn), plus de i_showPD (fond)
-var line pdEqLine = na
-if i_showEqLn and pdOk
-    if na(pdEqLine)
-        pdEqLine := line.new(bar_index, pdEquilibrium, bar_index + 1, pdEquilibrium,
-             color=color.new(#FFD700, 20), width=1, style=line.style_dashed,
-             extend=extend.right)
-    else
-        line.set_y1(pdEqLine, pdEquilibrium)
-        line.set_y2(pdEqLine, pdEquilibrium)
+// ── Affichage HORIZONTAL (correction 28/08 : le bgcolor vertical par barre
+//    était illisible — le standard ICT montre des lignes horizontales) ──
+// 3 lignes : haut du range (limite Premium), equilibrium (50%), bas (limite Discount).
+var line pdEqLine   = na
+var line pdRangeTop = na
+var line pdRangeBot = na
 
-// Fonds visuels Premium (rouge léger) / Discount (vert léger)
-bgcolor(i_showPD and inPremium  ? color.new(#F44336, 95) : na, title="Zone Premium")
-bgcolor(i_showPD and inDiscount ? color.new(#4CAF50, 95) : na, title="Zone Discount")
+f_pdLine(var line _ln, float _y, color _c) =>
+    if (i_showPD or i_showEqLn) and pdOk and not na(_y)
+        if na(_ln)
+            _ln := line.new(bar_index, _y, bar_index + 1, _y,
+                 color=_c, width=1, style=line.style_dashed,
+                 extend=extend.right)
+        else
+            line.set_y1(_ln, _y)
+            line.set_y2(_ln, _y)
+
+// Equilibrium (or) — visible si son toggle OU le toggle Premium/Discount
+f_pdLine(pdEqLine,   pdEquilibrium, color.new(#FFD700, 20))
+// Limite Premium = haut du dealing range (rouge)
+f_pdLine(pdRangeTop, _pdRangeH,     color.new(#F44336, 40))
+// Limite Discount = bas du dealing range (vert)
+f_pdLine(pdRangeBot, _pdRangeL,     color.new(#4CAF50, 40))
 
 // MODULE 12 — MULTI-TIMEFRAME (MTF)
 var string GRP_H  = "📈 Multi-Timeframe & OTE"

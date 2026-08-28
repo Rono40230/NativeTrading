@@ -64,6 +64,7 @@ impl ObDetector {
         prev_ib_bull: bool,
         prev_ib_bear: bool,
         breaker: &mut BreakerDetector,
+        sweep_event: &super::types::SweepEvent,
     ) -> ObEvent {
         let cur_idx = self.bar_count;
         self.bar_count += 1;
@@ -133,8 +134,11 @@ impl ObDetector {
         };
 
         // --- Lifecycle bull puis bear (f_obLifecycle, Pine lignes 1181-1334) ---
-        let invalidated_bull = lifecycle_ob_bull(&mut self.bull, bar, cur_idx, breaker);
-        let invalidated_bear = lifecycle_ob_bear(&mut self.bear, bar, cur_idx, breaker);
+        // Correction 28/08 : sweep récent (≤ 10 bars) pour valider un Breaker.
+        let sweep_h_recent = sweep_event.dernier_sweep_h_bar.is_some_and(|b| cur_idx.saturating_sub(b) <= 10);
+        let sweep_b_recent = sweep_event.dernier_sweep_b_bar.is_some_and(|b| cur_idx.saturating_sub(b) <= 10);
+        let invalidated_bull = lifecycle_ob_bull(&mut self.bull, bar, cur_idx, breaker, sweep_b_recent);
+        let invalidated_bear = lifecycle_ob_bear(&mut self.bear, bar, cur_idx, breaker, sweep_h_recent);
 
         self.prev_bar = Some(*bar);
 
@@ -171,6 +175,7 @@ fn lifecycle_ob_bull(
     bar: &BarInput,
     cur_idx: usize,
     breaker: &mut BreakerDetector,
+    sweep_b_bar_recent: bool,
 ) -> Vec<ObZone> {
     let mut del = Vec::new();
     let mut invalidated = Vec::new();
@@ -193,7 +198,8 @@ fn lifecycle_ob_bull(
         }
         // 2) PUIS invalidation/suppression (Pine _invalB = low <= top).
         if cur_idx > impulse_bar && bar.low <= top {
-            if bar.close < bot {
+            // Correction 28/08 : un vrai Breaker ICT exige un sweep récent.
+            if bar.close < bot && sweep_b_bar_recent {
                 breaker.push_bear(top, bot, cur_idx); // Bearish Breaker
             }
             invalidated.push(*z);
@@ -210,6 +216,7 @@ fn lifecycle_ob_bear(
     bar: &BarInput,
     cur_idx: usize,
     breaker: &mut BreakerDetector,
+    sweep_h_bar_recent: bool,
 ) -> Vec<ObZone> {
     let mut del = Vec::new();
     let mut invalidated = Vec::new();
@@ -229,7 +236,8 @@ fn lifecycle_ob_bear(
         }
         // 2) PUIS invalidation/suppression (Pine _invalBr = high >= bot).
         if cur_idx > impulse_bar && bar.high >= bot {
-            if bar.close > top {
+            // Correction 28/08 : un vrai Breaker ICT exige un sweep récent.
+            if bar.close > top && sweep_h_bar_recent {
                 breaker.push_bull(top, bot, cur_idx); // Bullish Breaker
             }
             invalidated.push(*z);
@@ -262,11 +270,11 @@ mod tests {
     fn ob_bull_cree_sur_impulsion_haussiere() {
         let mut det = ObDetector::new();
         let mut brk = BreakerDetector::new();
-        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
+        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         // bar1 baissière : close=98 < open=100. high=102 low=98.
-        det.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk);
+        det.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         // bar2 haussière impulsive : close=110 > open=99, ROC=(112-99)/99*10000≈1313 ≥ 5.
-        let ev = det.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk);
+        let ev = det.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         let z = ev.new_bull.expect("OB bull créé");
         assert_eq!(z.top, 102.0, "top = high[1]");
         assert_eq!(z.bot, 98.0, "bot = low[1]");
@@ -283,12 +291,12 @@ mod tests {
     fn mitigation_avant_suppression_sur_barre_touchante_posterieure() {
         let mut det = ObDetector::new();
         let mut brk = BreakerDetector::new();
-        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
-        det.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk);
-        det.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk);
+        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
+        det.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
+        det.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         // Bar 3 post-création : low 99 ≤ top 102 (toucher), close 99.5 ≤ mid 100
         // → mitigation Profond PUIS invalidation (cur 3 > impulse 2).
-        let ev = det.update(&bar(3, 101.0, 103.0, 99.0, 99.5), 5.0, false, false, &mut brk);
+        let ev = det.update(&bar(3, 101.0, 103.0, 99.0, 99.5), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         assert_eq!(ev.invalidated_bull.len(), 1, "zone tuée par toucher post-création");
         assert!(
             matches!(ev.invalidated_bull[0].state, ObState::Profond),
@@ -302,30 +310,44 @@ mod tests {
     #[test]
     fn pas_d_ob_si_roc_insuffisant() {        let mut det = ObDetector::new();
         let mut brk = BreakerDetector::new();
-        det.update(&bar(0, 100.0, 100.5, 99.5, 100.0), 5.0, false, false, &mut brk);
+        det.update(&bar(0, 100.0, 100.5, 99.5, 100.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         // bar1 baissière : close=99.6 < open=100.
-        det.update(&bar(1, 100.0, 100.5, 99.5, 99.6), 5.0, false, false, &mut brk);
+        det.update(&bar(1, 100.0, 100.5, 99.5, 99.6), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         // bar2 haussière (close>open) mais range minuscule : ROC≈1 bps < 5 ⇒ pas d'impulsion.
-        let ev = det.update(&bar(2, 99.6, 99.61, 99.6, 99.605), 5.0, false, false, &mut brk);
+        let ev = det.update(&bar(2, 99.6, 99.61, 99.6, 99.605), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         assert!(ev.new_bull.is_none() && ev.new_bear.is_none());
     }
 
+    /// Sweep baissier récent (≤ 10 bars) pour valider un Breaker.
+    fn sweep_b_recent(cur: usize) -> super::super::types::SweepEvent {
+        let mut ev = super::super::types::SweepEvent::default();
+        ev.dernier_sweep_b_bar = Some(cur);
+        ev
+    }
+
+    /// Sweep haussier récent pour valider un Breaker bull.
+    fn sweep_h_recent(cur: usize) -> super::super::types::SweepEvent {
+        let mut ev = super::super::types::SweepEvent::default();
+        ev.dernier_sweep_h_bar = Some(cur);
+        ev
+    }
+
     /// Invalidation d'un OB bull (low <= top après la bar de création) → supprimé,
-    /// et Breaker bear créé si close < bot.
+    /// et Breaker bear créé si close < bot + sweep récent.
     #[test]
     fn ob_bull_invalide_cree_breaker_bear() {
         let mut det = ObDetector::new();
         let mut brk = BreakerDetector::new();
-        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
-        det.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk);
-        det.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk);
+        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
+        det.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
+        det.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         // OB bull : top=102 bot=98 impulse_bar=2.
         // bar3 : low=100 <= top=102 (cur_idx=3 > impulse_bar=2) ET close=97 < bot=98
         //        ⇒ invalidation + Breaker bear.
-        let ev = det.update(&bar(3, 99.0, 101.0, 100.0, 97.0), 5.0, false, false, &mut brk);
+        let ev = det.update(&bar(3, 99.0, 101.0, 100.0, 97.0), 5.0, false, false, &mut brk, &sweep_b_recent(2));
         assert_eq!(det.bull_zones().len(), 0, "OB bull invalidé ⇒ supprimé");
         assert_eq!(ev.invalidated_bull.len(), 1);
-        assert_eq!(brk.bear_zones().len(), 1, "Breaker bear créé (close<bot)");
+        assert_eq!(brk.bear_zones().len(), 1, "Breaker bear créé (close<bot + sweep récent)");
         assert_eq!(brk.bear_zones()[0].top, 102.0);
         assert_eq!(brk.bear_zones()[0].bot, 98.0);
     }
@@ -335,11 +357,11 @@ mod tests {
     fn ob_bull_invalide_sans_breaker_si_close_dans_zone() {
         let mut det = ObDetector::new();
         let mut brk = BreakerDetector::new();
-        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
-        det.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk);
-        det.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk);
+        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
+        det.update(&bar(1, 100.0, 102.0, 98.0, 98.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
+        det.update(&bar(2, 99.0, 112.0, 99.0, 110.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         // bar3 : low=100 <= top=102 ET close=100 (> bot=98) ⇒ invalidé, PAS de Breaker.
-        det.update(&bar(3, 101.0, 103.0, 100.0, 100.0), 5.0, false, false, &mut brk);
+        det.update(&bar(3, 101.0, 103.0, 100.0, 100.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         assert_eq!(det.bull_zones().len(), 0, "invalidé (low<=top)");
         assert_eq!(brk.bear_zones().len(), 0, "close>=bot ⇒ pas de Breaker");
     }
@@ -350,12 +372,12 @@ mod tests {
     fn garde_anti_suppression_a_la_creation() {
         let mut det = ObDetector::new();
         let mut brk = BreakerDetector::new();
-        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
+        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         // bar1 baissière avec une grande mèche basse (low=95) : OB top=101 bot=95.
-        det.update(&bar(1, 100.0, 101.0, 95.0, 98.0), 5.0, false, false, &mut brk);
+        det.update(&bar(1, 100.0, 101.0, 95.0, 98.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         // bar2 impulsive : close=110, low=96 <= top=101 MAIS c'est la bar de création
         // (impulse_bar=2 == cur_idx=2) ⇒ pas d'invalidation, transition d'état possible.
-        det.update(&bar(2, 99.0, 112.0, 96.0, 110.0), 5.0, false, false, &mut brk);
+        det.update(&bar(2, 99.0, 112.0, 96.0, 110.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         assert_eq!(det.bull_zones().len(), 1, "garde anti-suppression ⇒ OB conservé");
         // mid = (101+95)/2 = 98. close=110 > mid ⇒ Partiel (state 0→1).
         assert_eq!(det.bull_zones()[0].state, ObState::Partiel);
@@ -367,10 +389,10 @@ mod tests {
         let mut det = ObDetector::new();
         let mut brk = BreakerDetector::new();
         // bar0 neutre, bar1 haussière (close>open), bar2 baissière impulsive.
-        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
-        det.update(&bar(1, 99.0, 103.0, 99.0, 102.0), 5.0, false, false, &mut brk); // close>open
+        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
+        det.update(&bar(1, 99.0, 103.0, 99.0, 102.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default()); // close>open
         // bar2 baissière : open=102 > close=88, prev close=102 > prev open=99, ROC grand.
-        let ev = det.update(&bar(2, 102.0, 103.0, 86.0, 88.0), 5.0, false, false, &mut brk);
+        let ev = det.update(&bar(2, 102.0, 103.0, 86.0, 88.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         let z = ev.new_bear.expect("OB bear créé");
         assert_eq!(z.top, 103.0, "top = high[1] de la bougie haussière");
         assert_eq!(z.bot, 99.0, "bot = low[1]");
@@ -384,15 +406,16 @@ mod tests {
         // Génère 45 impulsions haussières consécutives (pattern 2-barres répété).
         for k in 0..45usize {
             let base = k * 2;
-            det.update(&bar(base, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
+            det.update(&bar(base, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
             // bar baissière puis impulsion : ROC grand.
-            det.update(&bar(base + 1, 100.0, 101.0, 99.0, 99.0), 5.0, false, false, &mut brk);
+            det.update(&bar(base + 1, 100.0, 101.0, 99.0, 99.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
             det.update(
                 &bar(base + 2, 99.0, 120.0, 99.0, 115.0),
                 5.0,
                 false,
                 false,
                 &mut brk,
+                &super::super::types::SweepEvent::default(),
             );
         }
         assert!(
@@ -407,12 +430,12 @@ mod tests {
     fn ob_bear_invalide_cree_breaker_bull() {
         let mut det = ObDetector::new();
         let mut brk = BreakerDetector::new();
-        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk);
-        det.update(&bar(1, 99.0, 103.0, 99.0, 102.0), 5.0, false, false, &mut brk);
-        det.update(&bar(2, 102.0, 103.0, 86.0, 88.0), 5.0, false, false, &mut brk);
+        det.update(&bar(0, 100.0, 101.0, 99.0, 100.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
+        det.update(&bar(1, 99.0, 103.0, 99.0, 102.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
+        det.update(&bar(2, 102.0, 103.0, 86.0, 88.0), 5.0, false, false, &mut brk, &super::super::types::SweepEvent::default());
         // OB bear : top=103 bot=99 impulse_bar=2.
         // bar3 : high=104 >= bot=99 (cur_idx=3>2) ET close=104 > top=103 ⇒ Breaker bull.
-        det.update(&bar(3, 95.0, 104.0, 95.0, 104.0), 5.0, false, false, &mut brk);
+        det.update(&bar(3, 95.0, 104.0, 95.0, 104.0), 5.0, false, false, &mut brk, &sweep_h_recent(2));
         assert_eq!(det.bear_zones().len(), 0, "OB bear invalidé");
         assert_eq!(brk.bull_zones().len(), 1, "Breaker bull créé");
     }

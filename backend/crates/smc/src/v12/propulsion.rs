@@ -165,6 +165,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         obs.update(
             &bar(1, 100.0, 102.0, 98.0, 98.0),
@@ -172,6 +173,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         let _ = obs.update(
             &bar(2, 99.0, 112.0, 99.0, 110.0),
@@ -179,6 +181,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         assert!(!obs.bull_zones().is_empty());
 
@@ -215,6 +218,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         obs.update(
             &bar(1, 100.0, 102.0, 98.0, 98.0),
@@ -222,6 +226,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         let _ = obs.update(
             &bar(2, 99.0, 112.0, 99.0, 110.0),
@@ -229,6 +234,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         // FVG bull loin de l'OB : top=150 bot=140 (OB est à 98-102).
         let fvg = FvgEvent {
@@ -257,6 +263,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         obs.update(
             &bar(1, 100.0, 102.0, 98.0, 98.0),
@@ -264,6 +271,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         let _ = obs.update(
             &bar(2, 99.0, 112.0, 99.0, 110.0),
@@ -271,6 +279,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         let fvg = FvgEvent {
             is_fvg_bull: true,
@@ -303,6 +312,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         obs.update(
             &bar(1, 100.0, 102.0, 98.0, 98.0),
@@ -310,6 +320,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         let _ = obs.update(
             &bar(2, 99.0, 112.0, 99.0, 110.0),
@@ -317,6 +328,7 @@ mod tests {
             false,
             false,
             &mut brk,
+            &super::super::types::SweepEvent::default(),
         );
         let fvg = FvgEvent {
             is_fvg_bull: true,

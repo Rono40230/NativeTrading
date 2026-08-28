@@ -274,7 +274,6 @@ pub(crate) fn collect_final_extended(
     ts_by_idx: &[i64],
     mut col: BarCollectors,
 ) -> ExtendedOutputs {
-    // Box d'encours en fin d'analyse : la pousser aussi.
     col.finaliser_session_pub();
     // ── Liquidités PDH/PDL/PWH/PWL (état final) ──
     let liq = engine.liquidites.last_event();
@@ -432,6 +431,7 @@ pub(crate) fn collect_final_extended(
             gtype: "ndog",
             top: g.top,
             bot: g.bot,
+            ce: (g.top + g.bot) / 2.0,
             mitigated: g.mitigated,
             bar_idx: g.bar,
         });
@@ -442,12 +442,13 @@ pub(crate) fn collect_final_extended(
             gtype: "nwog",
             top: g.top,
             bot: g.bot,
+            ce: (g.top + g.bot) / 2.0,
             mitigated: g.mitigated,
             bar_idx: g.bar,
         });
     }
 
-    // Finaliser la dernière box de session avant collecte.
+    col.finaliser_session_pub();
     col.finaliser_session();
     let BarCollectors {
         seuil_ib: _,

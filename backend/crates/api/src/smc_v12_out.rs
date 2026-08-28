@@ -231,6 +231,8 @@ pub(crate) struct GapOut {
     pub gtype: &'static str, // "ndog" | "nwog"
     pub top: f64,
     pub bot: f64,
+    /// Consequent Encroachment = 50% du gap — niveau de réaction ICT.
+    pub ce: f64,
     pub mitigated: bool,
     pub bar_idx: usize,
 }
