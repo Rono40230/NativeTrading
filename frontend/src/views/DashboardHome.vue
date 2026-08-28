@@ -36,7 +36,7 @@
     </div>
 
       <!-- Colonne droite : Sentiment + Calendrier -->
-      <aside class="w-64 shrink-0 sticky top-0 h-[calc(100vh-3rem)] flex flex-col gap-3">
+      <aside class="w-80 shrink-0 sticky top-0 h-[calc(100vh-3rem)] flex flex-col gap-3">
         <SentimentMarche class="shrink-0" />
         <div class="flex-1 min-h-0">
           <EconomicCalendar class="h-full" />

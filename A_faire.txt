@@ -1,5 +1,3 @@
-Il faut élargir la colonne de droite dans le dashboard (sentiment de marché & calendrier) pour ajouter une colonne "Cours" à côté de "Veille", "jour", qui affiche le cours de l'actifs en direct
-
 --------------------------------------------------------------------------------------------------------------------------
 
 

@@ -49,19 +49,21 @@
         <!-- En-tête des deux colonnes de variation -->
         <div class="flex items-center gap-2 text-[9px] uppercase tracking-wider text-slate-500 border-b border-white/5 pb-0.5">
           <span class="flex-1" />
-          <span class="w-[70px] text-center">Veille</span>
-          <span class="w-[70px] text-center">Jour</span>
+          <span class="w-[64px] text-right">Cours</span>
+          <span class="w-[64px] text-center">Veille</span>
+          <span class="w-[64px] text-center">Jour</span>
         </div>
         <!-- USA -->
         <div>
           <p class="text-slate-500 mb-0.5">🇺🇸 USA</p>
           <div v-for="e in data.usa" :key="e.nom" class="flex items-center gap-2 py-0.5">
             <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
-            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+            <span class="w-[64px] text-right tabular-nums text-[11px] text-slate-300" :title="`Cours ${e.nom}`">{{ prixFmt(e.prix) }}</span>
+            <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct) }}</span>
               <span :class="couleur(e.variation_veille ?? e.variation_pct)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
             </span>
-            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+            <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_pct) }}</span>
               <span :class="couleur(e.variation_pct)">{{ pct(e.variation_pct) }}</span>
             </span>
@@ -73,11 +75,12 @@
           <p class="text-slate-500 mb-0.5">🇪🇺 EUROPE</p>
           <div v-for="e in data.europe" :key="e.nom" class="flex items-center gap-2 py-0.5">
             <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
-            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+            <span class="w-[64px] text-right tabular-nums text-[11px] text-slate-300" :title="`Cours ${e.nom}`">{{ prixFmt(e.prix) }}</span>
+            <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct) }}</span>
               <span :class="couleur(e.variation_veille ?? e.variation_pct)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
             </span>
-            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+            <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_pct) }}</span>
               <span :class="couleur(e.variation_pct)">{{ pct(e.variation_pct) }}</span>
             </span>
@@ -89,11 +92,12 @@
           <p class="text-slate-500 mb-0.5">⛏️ MATIÈRES PREMIÈRES</p>
           <div v-for="e in data.matieres_premieres" :key="e.nom" class="flex items-center gap-2 py-0.5">
             <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
-            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+            <span class="w-[64px] text-right tabular-nums text-[11px] text-slate-300" :title="`Cours ${e.nom}`">{{ prixFmt(e.prix) }}</span>
+            <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct) }}</span>
               <span :class="couleur(e.variation_veille ?? e.variation_pct)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
             </span>
-            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+            <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_pct) }}</span>
               <span :class="couleur(e.variation_pct)">{{ pct(e.variation_pct) }}</span>
             </span>
@@ -105,11 +109,12 @@
           <p class="text-slate-500 mb-0.5">₿ CRYPTOS</p>
           <div v-for="e in data.cryptos" :key="e.nom" class="flex items-center gap-2 py-0.5">
             <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
-            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+            <span class="w-[64px] text-right tabular-nums text-[11px] text-slate-300" :title="`Cours ${e.nom}`">{{ prixFmt(e.prix) }}</span>
+            <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_veille ?? e.variation_pct) }}</span>
               <span :class="couleur(e.variation_veille ?? e.variation_pct)">{{ pct(e.variation_veille ?? e.variation_pct) }}</span>
             </span>
-            <span class="w-[70px] flex items-center justify-end gap-1 tabular-nums">
+            <span class="w-[64px] flex items-center justify-end gap-1 tabular-nums">
               <span class="text-sm leading-none">{{ bille(e.variation_pct) }}</span>
               <span :class="couleur(e.variation_pct)">{{ pct(e.variation_pct) }}</span>
             </span>
@@ -202,6 +207,13 @@ function labelSentiment(v: number): string {
 /// POSITIVE, bleue entre -0,50 % et 0 inclus, rouge sous -0,50 %.
 function pct(v: number): string {
   return (v > 0 ? '+' : '') + v.toFixed(2) + '%'
+}
+
+/// Cours en direct : séparateur fin fr-FR, décimales adaptatives
+/// (entier ≥ 1 000 — ex. BTC « 87 432 », S&P « 5 864 » ; 2 décimales sinon).
+function prixFmt(v: number): string {
+  if (v >= 1000) return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(v)
+  return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)
 }
 
 function bille(v: number): string {
