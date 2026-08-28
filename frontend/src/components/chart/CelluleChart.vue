@@ -250,8 +250,8 @@ const NOMS_DESSINES = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA', 's
 async function chargerTradesExternes() {
   try {
     const signaux = await apiService.getSignaux(150)
-    type RowSign = { asset: string; timeframe: string; direction: string; statut: string; strategie: string; prix_entree: number; stop_loss: number; take_profit: number[]; score: number; heure_entree: number | null; cree_le: number }
-    const ouverts = (signaux as RowSign[])
+    type RowSign = { asset: string; timeframe: string; direction: string; statut: string; strategie: string; prix_entree: number; stop_loss: number; take_profit: number[]; score: number; heure_entree: number | null; cree_le: number; cle_moteur?: string }
+    const candidats = (signaux as RowSign[])
       .filter(x =>
         x.asset === selectedAsset.value
         && x.statut === 'Actif'
@@ -260,21 +260,41 @@ async function chargerTradesExternes() {
         // ordres EN ATTENTE (jamais remplis — fidélité Pine).
         && (x.timeframe !== selectedTimeframe.value || x.heure_entree === null))
       .slice(0, 6)
-      .map(x => ({
+
+    // Récupérer les niveaux du REPLAY du TF d'origine (pas de la base —
+    // le SL/TPs diffèrent entre création temps réel et replay, et le
+    // graphique du TF d'origine dessine depuis le replay).
+    const tfsOrigine = [...new Set(candidats.filter(x => x.heure_entree !== null).map(x => x.timeframe))]
+    const replays: Record<string, { signals: Array<{ ts: number; entry: number; sl: number; tp1: number; tp2: number; tp3: number; be?: boolean; ferme?: boolean }> | undefined }> = {}
+    for (const tf of tfsOrigine) {
+      if (tf === selectedTimeframe.value) continue
+      try {
+        const replay = await apiService.getSmcV12Analyse(selectedAsset.value, tf, 200)
+        replays[tf] = replay as any
+      } catch { /* replay indisponible — repli sur la base */ }
+    }
+
+    const ouverts = candidats.map(x => {
+      // Chercher le signal correspondant dans le replay du TF d'origine.
+      const replay = replays[x.timeframe]
+      const match = replay?.signals?.find(s => !s.ferme && Math.abs(s.entry - x.prix_entree) < 0.01)
+      const niveaux = match ?? { entry: x.prix_entree, sl: x.stop_loss, tp1: x.take_profit?.[0] ?? x.prix_entree, tp2: x.take_profit?.[1] ?? x.prix_entree, tp3: x.take_profit?.[2] ?? x.prix_entree, be: false }
+      return {
         ts: x.cree_le,
-        entry: x.prix_entree,
-        sl: x.stop_loss,
-        tp1: x.take_profit?.[0] ?? x.prix_entree,
-        tp2: x.take_profit?.[1] ?? x.prix_entree,
-        tp3: x.take_profit?.[2] ?? x.prix_entree,
+        entry: niveaux.entry,
+        sl: niveaux.sl,
+        tp1: niveaux.tp1,
+        tp2: niveaux.tp2,
+        tp3: niveaux.tp3,
         dir: x.direction === 'Long' ? 'Long' as const : 'Short' as const,
         force: Math.max(1, Math.min(10, Math.round(x.score))),
-        be: false,
+        be: (niveaux as { be?: boolean }).be ?? false,
         label: [] as string[],
         tfOrigine: x.timeframe,
         enAttente: x.heure_entree === null,
         tsFin: x.cree_le + 40 * (DUREE_BARRE[x.timeframe] ?? 900),
-      }))
+      }
+    })
     v12Overlay.definirTradesExternes(ouverts)
   } catch { /* silencieux */ }
 }
