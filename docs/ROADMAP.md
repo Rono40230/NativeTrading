@@ -1,109 +1,135 @@
 # ROADMAP — Native Trading AI
 
-> État au 28 août 2026. Cette roadmap ne contient que **ce qu'il reste à faire**.
-> Le détail des phases livrées SMC v12 vit dans `docs/AMELIORATIONS_SMC_V12.md`.
+> État au 29 août 2026. Cette roadmap ne contient que **ce qu'il reste à faire**.
+> Le détail des phases livrées SMC v12 vit dans `docs/AMELIORATIONS_SMC_V12.md`,
+> les études des étapes 3-4 dans `docs/ETAPE3_*.md` et `docs/ETAPE4_CALCUL_TRADES.md`.
 
 ---
 
-## Ce qui est en place (résumé — non exhaustif)
-
-L'app est une coquille d'orchestration + 3 verticales stratégiques complètes :
+## État des lieux (bref — pour situer le travail restant)
 
 | Verticale | État | Moteur | Source données | IA |
 |---|---|---|---|---|
-| **SMC** | Officielle | v12 fidèle Pine (24 couples, replays + amorce MTF) — 6 assets (SP500 débloqué 28/08) | XAU/XAG/NAS/SP/DAX : MT5/Axi · BTC : Bybit | Analyse (bouton) |
-| **Straddle** | Observation | v2 redéfini (2 jambes à E, T-10s, trailing tick) | XAU/BTC/NAS/SP : MT5+Axi · annonces US | À construire (étape 2) |
+| **SMC** | Officielle | v12 figé : étapes 3-4-5 closes (TP1=0.6R + SL×0.75 = +239R · miroir MQL5 livré) | XAU/XAG/NAS/SP/DAX : MT5/Axi · BTC : Bybit | Analyse (bouton) |
+| **Straddle** | Observation | v2 redéfini (2 jambes à E, T-10s, trailing tick) | XAU/BTC/NAS/SP : MT5+Axi · annonces US | À construire (après gate 3) |
 | **Rockets** | Observation | Scanner D1 /10 + gestion journal (R1→50 %+trailing) | Binance (crypto) | Catalyseur news + ranker ✅ |
 
-**Infrastructure** : runtime tick (bus signaux/événements/bougies) · EA MT5/Axi (temps réel + historique 24 mois en delta) · Bybit WS (BTC) · analyste IA qwen3:32b local · Telegram (annonces d'imminence seules) · presse traduite FR · vue Données (pipeline complet).
+**Miroir v12 terminé (29/08)** : Pine étalon (`docs/reference/`) = Rust (`smc` 226 tests ✓)
+= MQL5 indicateur + EA (`mt5/`, commité `12515b8`). Parité vérifiée : TP1=0.6R, SL×0.75,
+TP3 DoL cappé 3R, BPR, BSZones, London HL, Asian HL, mega-vol, prevLiq.
+Les 3 exemplaires MQL5 (source `Applis Nono`, dossier MT5, dépôt git) sont synchronisés.
 
-**Pages Définition** : SMC (6 onglets), Straddle (5), Rockets (6) — toutes avec Enrichissement IA documenté.
+**Infrastructure** : runtime tick (bus signaux/événements/bougies) · EA MT5/Axi (temps réel +
+historique 24 mois en delta) · Bybit WS (BTC) · analyste IA qwen3:32b local · Telegram
+(annonces d'imminence seules) · presse traduite FR · vue Données (pipeline complet).
+
+**Pages Définition** : SMC (6 onglets), Straddle (5), Rockets (6) — Enrichissement IA documenté.
 
 ---
 
 ## À faire — par ordre de priorité
 
-### 1. Gate 3 — Straddle en conditions réelles
+### 1. Étape 5 — Résiduel : validation numérique du miroir MQL5
 
-**Quand** : passes du 26-28/08 (PCE/PIB mercredi 14h30 UTC, Warsh/Payrolls vendredi 16h00 UTC).
+La parité est prouvée **par construction** (mêmes règles, constantes, ordre d'exécution).
+Reste à la prouver **par les nombres** :
 
-- [ ] Laisser les moteurs jouer les 4 annonces (XAU, BTC, NAS100, SP500 sur prix Axi)
-- [ ] Après chaque passe : vérifier la journalisation (table signaux, verdict SL/BE/TS/TimeStop + R)
-- [ ] Après les 4 passes : bilan gate 3 avec le propriétaire (verdicts, R cumulé, comportement trailing)
+- [ ] **EA dans le Strategy Tester** : backtest `smc_ea_v12.mq5` sur une paire/période de
+      référence (ex. XAU M15) et comparaison aux chiffres du replay Rust sur les mêmes bornes
+      (nombre de signaux, verdicts, R cumulé — écart attendu ≈ 0)
+- [ ] **Écart ≠ 0** : le tracer règle par règle jusqu'à la divergence (le miroir est la base
+      de l'automatisation future des ordres — il doit être exact)
+- [ ] **Pine dans TV** (action propriétaire) : coller le Pine de `docs/reference/`
+      dans TradingView sous « Scalp à Nono »
+
+### 2. Gate 3 — Straddle en conditions réelles
+
+Les passes des 26-28/08 (PCE/PIB mercredi, Warsh/Payrolls vendredi) ont été jouées.
+
+- [ ] Vérifier la journalisation des passes (table signaux, verdicts SL/BE/TS/TimeStop + R)
+- [ ] Bilan gate 3 : verdicts, R cumulé, comportement trailing sur les 4 annonces
 - [ ] Décision propriétaire : passage Officielle ou ajustements
-- [ ] Si Officielle : activer le son Telegram (le template est prêt, dormant)
+- [ ] Si Officielle : activer le son Telegram (template prêt, dormant)
 
-### 1bis. Étape 4 — Calcul des trades (29/08) : TP1=0.6R + SL×0.75 APPLIQUÉS
+### 3. SMC v12 — Surveillance production
 
-Étude grid 6 assets × 3 TF (`docs/ETAPE4_CALCUL_TRADES.md`) : **+239R (+30 %)**,
-R moyen +27 %, max DD 12→7.8R — TP1=0.6R + offset SL ×0.75 en production
-(Pine + Rust + prompt IA synchronisés). BE auto rejeté (−180R/−82R),
-TP2=2R confirmé. Correctif comptable `realized_r` embarqué (constantes en dur
-devenues distances réelles).
+Le programme d'améliorations est **clos**. Reste = **vérifier que la production confirme
+le replay** :
 
-### 2. SMC v12 — Surveillance production
+- [ ] **SP500 live** : après ~2 semaines, comparer la production réelle au replay (fréquence
+      M15/M5, verdicts — règle 30 trades). Divergence marquée → étude calibration dédiée
+      (profil actuel = miroir NAS100)
+- [ ] **Mega-orders live** : confirmer l'apport +21.3R en réel (delta replay concentré BTC M5 —
+      réserve documentée)
+- [ ] Tout réglage ne bouge que sur preuve ≥ 30 trades remplis par tranche (anti-overfitting)
 
-Le programme d'améliorations est **clos** (5 phases, 28/08) : +86.6R nets
-validés par replay (DoL≤3R +61.5, SP500 débloqué +15.8, mega-orders +21.3) ;
-BPR et London H/L livrés en affichage, leurs bonus retirés pour bruit mesuré.
-Détail complet, chiffres et décisions : `docs/AMELIORATIONS_SMC_V12.md`.
-
-Ce qui reste = **vérifier que la production confirme le replay** :
-
-- [ ] **SP500 live** : après ~2 semaines, comparer la production de signaux réelle au replay (fréquence M15/M5, verdicts — règle 30 trades). Divergence marquée → étude d'une calibration dédiée (le profil actuel est un miroir NAS100)
-- [ ] **Mega-orders live** : confirmer l'apport +21.3R en conditions réelles (le delta replay était concentré sur BTC M5 — réserve documentée)
-- [ ] Si un réglage doit bouger : recalibration uniquement sur preuve ≥ 30 trades remplis par tranche (refusée en Phase 5 — anti-overfitting)
-
-### 3. Agenda intelligent — Créneaux de volatilité récurrents (Straddle IA)
+### 4. Agenda intelligent — Créneaux de volatilité récurrents (Straddle IA)
 
 **Prérequis** : historique 24 mois en base ✅ (l'analyse peut tourner dès maintenant).
 
-**Ce que c'est** : l'analyste découvre les créneaux où la volatilité explose de façon récurrente (fixing Londres, ouvertures de session, données économiques sans badge « High », effets hebdomadaires) — au-delà du calendrier actuel.
+**Ce que c'est** : l'analyste découvre les créneaux où la volatilité explose de façon
+récurrente (fixing Londres, ouvertures de session, données sans badge « High », effets
+hebdomadaires) — au-delà du calendrier actuel.
 
 **Architecture** (constitution respectée : calcul → IA lit → propriétaire règle) :
 
-- [ ] **Backend** : calcul statistique des créneaux (volatilité par heure×jour sur 24 mois M1, détection de pics récurrents, corrélation avec le calendrier existant)
-- [ ] **Backend** : endpoint `GET /api/straddle/creneaux-detectes` (résultats du calcul)
-- [ ] **IA** : l'analyste lit les créneaux détectés + le calendrier, identifie les causes probables, propose armer/ignorer avec justification
-- [ ] **Front** : page « Straddle › Agenda intelligent » — liste des créneaux (nom, horaire, volatilité médiane ×N, mouvement typique, constat IA, recommandation) avec bouton armer/ignorer
-- [ ] **Moteurs** : les créneaux armés deviennent des annonces synthétiques (même structure que l'ouverture européenne DAX)
-- [ ] **Dashboard** : le bloc Straddle affiche tous les créneaux armés (calendrier + découverts) avec badge distinctif
-- [ ] Les créneaux découverts démarrent en **Observation** (journalisés, silencieux) — passage Officielle sur preuve
+- [ ] **Backend** : calcul statistique des créneaux (volatilité heure×jour sur 24 mois M1,
+      pics récurrents, corrélation calendrier existant)
+- [ ] **Backend** : endpoint `GET /api/straddle/creneaux-detectes`
+- [ ] **IA** : l'analyste lit créneaux + calendrier, propose armer/ignorer avec justification
+- [ ] **Front** : page « Straddle › Agenda intelligent » (nom, horaire, volatilité ×N,
+      mouvement typique, constat IA, bouton armer/ignorer)
+- [ ] **Moteurs** : créneaux armés = annonces synthétiques (même structure que l'ouverture
+      européenne DAX)
+- [ ] **Dashboard** : bloc Straddle affiche tous les créneaux armés avec badge distinctif
+- [ ] Les créneaux découverts démarrent en **Observation** (journalisés, silencieux)
 
-### 4. Test de vérité au centime
+### 5. Test de vérité au centime
 
 **Prérequis** : MT5/Axi alimente l'app en continu ✅ (même source, même horloge UTC).
 
-- [ ] Comparer bougie par bougie (OHLCV) nos bougies M1 Axi vs le graphique MT5 sur une session complète
+- [ ] Comparer bougie par bougie (OHLCV) nos M1 Axi vs le graphique MT5 sur une session complète
 - [ ] Comparer les signaux SMC sur XAU (même source → aucun écart attendu)
 - [ ] Si écarts : les tracer et les corriger
 - [ ] Documenter le verdict au journal
 
-### 5. Rôles IA Straddle (après gate 3)
+### 6. Rôles IA Straddle (après gate 3)
 
-- [ ] **Analyse des passes** : l'analyste lit les passes journalisées (annonce → range → fill → verdict R) et explique ce qui marche / coince
-- [ ] **Recommandation agenda + minutage** : sur les données accumulées, proposer quels événements valent le coup et à quelle minute entrer — propositions que le propriétaire valide dans les réglages
+- [ ] **Analyse des passes** : l'analyste lit les passes journalisées (annonce → range → fill →
+      verdict R) et explique ce qui marche / coince
+- [ ] **Recommandation agenda + minutage** : proposer quels événements valent le coup et à
+      quelle minute entrer — propositions validées par le propriétaire dans les réglages
 
-### 6. Rôles IA SMC (après accumulation de trades propres)
+### 7. Rôles IA SMC (après accumulation de trades propres)
 
-- [ ] **Voile des setups** : l'analyste lit la donnée annonces vs confirmés vs dissipés (le panneau existe) et identifie les caractéristiques des setups qui tiennent
-- [ ] **Analyse rebranchée** : le bouton Analyse SMC reconnecté sur les données maintenant propres (remplis/jamais remplis/dissipés/verdicts)
-- [ ] **Décision sur preuve — filtre temps réel** : après ~2 semaines de données, regarder si les setups dissipés partagent des caractéristiques que l'IA saurait repérer → décider ensemble si un filtre vaut le coup
-- [ ] **Journalisation du détail scoring** (préalable si analyse par confluence) : stocker le détail point par point à l'émission du signal
+- [ ] **Voile des setups** : l'analyste lit annonces vs confirmés vs dissipés (le panneau
+      existe) et identifie les caractéristiques des setups qui tiennent
+- [ ] **Analyse rebranchée** : bouton Analyse SMC reconnecté sur les données propres
+      (remplis/jamais remplis/dissipés/verdicts)
+- [ ] **Décision sur preuve — filtre temps réel** : après ~2 semaines, regarder si les setups
+      dissipés partagent des caractéristiques repérables → décider si un filtre vaut le coup
+- [ ] **Journalisation du détail scoring** (préalable si analyse par confluence) : stocker le
+      détail point par point à l'émission du signal
 
-### 7. Rockets — Extensions
+### 8. Rockets — Extensions
 
-- [ ] **Véto unlocks** : chercher une source libre (API ou scraping d'un calendrier public de déverrouillages de tokens) → intégrer au scanner (éliminatoire si unlock majeur < 30 jours)
-- [ ] **Actions/ETF via MT5** : Axi les propose — l'ajout passe par la modale 📦 Données (source MT5, symbole broker) ; le classement ETF a ses profils 2/3/4 %
-- [ ] **Analyse par pilier** : l'analyste relie les critères du /10 aux verdicts des positions clôturées (le détail est déjà journalisé) → propositions de recalibrage chiffrées
+- [ ] **Véto unlocks** : source libre (API/scraping d'un calendrier public de déverrouillages
+      de tokens) → intégrer au scanner (éliminatoire si unlock majeur < 30 jours)
+- [ ] **Actions/ETF via MT5** : Axi les propose — ajout via la modale 📦 Données (source MT5,
+      symbole broker) ; le classement ETF a ses profils 2/3/4 %
+- [ ] **Analyse par pilier** : l'analyste relie les critères du /10 aux verdicts des positions
+      clôturées (déjà journalisés) → propositions de recalibrage chiffrées
 
-### 8. Maintenance & dette technique
+### 9. Maintenance & dette technique
 
-- [ ] **Revue complète des prompts IA** : purge des prompts morts (`smc_signal`, `smc_filtre`, `rockets_opportunites` — endpoints consommateurs supprimés, à confirmer), audit des actifs, alignement sur les mécaniques actées. Rappel constitution : toute évolution de stratégie se reflète immédiatement dans les prompts
-
-- [ ] Graphique XAU : vérifier l'affichage des zones SMC sur l'historique Axi profond (2 ans de contexte — si des artefacts apparaissent au changement de source, les tracer)
-- [ ] ETH : réactiver et re-backfiller si souhaité (purgé par le job de rétention 24 mois — il était inactif)
-- [ ] Config `worker_historique_mois` : 6 mois mais l'historique MT5 en couvre 24 — harmoniser la config avec la rétention
+- [ ] **Revue complète des prompts IA** : purge des prompts morts (`smc_signal`, `smc_filtre`,
+      `rockets_opportunites` — endpoints consommateurs supprimés, à confirmer), audit des
+      actifs, alignement sur les mécaniques actées (étapes 3-4 déjà répercutées)
+- [ ] Graphique XAU : vérifier l'affichage des zones SMC sur l'historique Axi profond (2 ans —
+      artefacts au changement de source à tracer)
+- [ ] ETH : réactiver et re-backfiller si souhaité (purgé par le job de rétention 24 mois)
+- [ ] Config `worker_historique_mois` : 6 mois mais l'historique MT5 en couvre 24 — harmoniser
+      avec la rétention
 - [ ] Leçons L1-L11 : à relire avant toute intervention (archivées au journal)
 
 ---
@@ -112,7 +138,7 @@ Ce qui reste = **vérifier que la production confirme le replay** :
 
 | Règle | Détail |
 |---|---|
-| **Pine = étalon** | Le moteur v12 est figé sur le Pine (md5 vérifié). Toute déviation = bug Rust, jamais « amélioration » |
+| **Pine = étalon** | Le moteur v12 est figé sur le Pine (md5 vérifié). Toute déviation = bug Rust/MQL5, jamais « amélioration » |
 | **Discussion avant construction** | Chaque étape fait l'objet d'une discussion de définition avant le code |
 | **Vocabulaire français** | États : Officielle / Observation / Construction. Pas d'anglicismes dans l'app |
 | **Telegram = imminence seule** | Pas de clôture/fill/BE/TP. Le lot s'affiche avec le montant risqué |
@@ -122,7 +148,8 @@ Ce qui reste = **vérifier que la production confirme le replay** :
 | **Fichier ≤ 600 lignes** | Pré-commit bloquant. Extraire vers un module dédié |
 | **Pas de .unwrap()/.expect() hors tests** | Pré-commit bloquant |
 | **Chirurgie uniquement** | Toute correction/amélioration est CHIRURGICALE : additive, sans modifier le comportement existant, vérifiée par tests + build avant commit. Zéro casse, zéro régression (règle propriétaire 27/08) |
-| **Stratégie changée = prompt changé** | Tout changement de logique, de calcul ou de mécanique dans une stratégie est porté IMMÉDIATEMENT dans les prompts IA de l'analyste (page Prompts IA — `llm/prompts.rs`). Un analyste nourri avec une définition périmée analyse avec de faux critères |
+| **Stratégie changée = prompt changé** | Tout changement de logique, de calcul ou de mécanique dans une stratégie est porté IMMÉDIATEMENT dans les prompts IA de l'analyste (page Prompts IA — `llm/prompts.rs`) |
+| **MQL5 : 3 exemplaires synchrones** | Source `Applis Nono` = dossier MT5 `~/.mt5/.../Advisors/` = dépôt `mt5/` — toute modification est copiée partout avant compilation (leçon du 29/08 : MetaEditor compile le dossier MT5) |
 
 ---
 
@@ -130,7 +157,7 @@ Ce qui reste = **vérifier que la production confirme le replay** :
 
 | Gate | Preuve | Statut |
 |---|---|---|
-| **3 — Plugins fidèles** | Straddle : passes réelles 26-28/08 journalisées + verdicts R + bilan propriétaire. Rockets : premières cassures qualifiées vécues par le ranker | ⬜ en cours |
+| **3 — Plugins fidèles** | Straddle : passes réelles 26-28/08 journalisées + bilan propriétaire. Rockets : premières cassures qualifiées vécues par le ranker | ⬜ passes jouées, bilan à faire |
 | **4 — Extensions isolées** | Kill de l'EA MT5 sans impact backend + presse résiliente | ⬜ (prouvée en partie : kill api pendant les tests du jour) |
 | **5 — Sources additionnelles** | MT5/Axi : couverture 24 mois ✅ + bougies temps réel ✅. Test de vérité au centime = dernière preuve | ⬜ |
 
@@ -149,3 +176,4 @@ Ce qui reste = **vérifier que la production confirme le replay** :
 9. **Migrations = embarquées à la compilation** — toucher `db/src/lib.rs` pour forcer la re-embed (récidive du 25/08 : migration 0087 non appliquée au premier déploiement).
 10. **MT5 WebRequest : gros corps POST = crash** (morceaux ≤ 2 000 bougies ≈ 130 Ko) — et StringSplit compte une sous-chaîne vide finale absente du tableau (borner par ArraySize, jamais par le retour).
 11. **Horloge serveur broker ≠ UTC** (Axi = GMT+2/+3 avec DST US) — convertir serveur→UTC à la source, sinon tout est décalé de 2-3 heures.
+12. **MetaEditor compile son tampon, pas le disque** — après édition externe : fermer/rouvrir l'onglet. Et il ouvre le dossier MT5 (`~/.mt5`), pas le dossier source — toujours synchroniser les 3 exemplaires (voir règle transverse).
