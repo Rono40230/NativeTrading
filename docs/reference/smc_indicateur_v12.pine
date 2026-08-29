@@ -220,6 +220,18 @@ bool  i_megaVolScore = true
 float i_megaVolMult  = 2.0
 int   i_megaVolPts   = 2
 
+// ── R1 — SWEEP REQUIS : REJETÉ (étude étape 3, 29/08) ───────────────────────
+// La porte canonique « pas de sweep frais, pas de trade » (fenêtre
+// SWEEP_FRESH_BARS : 5 bars M15, 15 M5, 75 M1) a été mesurée par
+// comparatif_sweep (6 assets × M1/M5/M15, ~3 100 clôtures contre-factuelles) :
+// ON +213.8R / 719 trades vs OFF +791.1R / 3 111 → −577.3R. Le R moyen des
+// trades survivants monte (0.297 vs 0.254) MAIS les trades sans sweep frais
+// restent profitables en moyenne (+0.24R) et dominent en volume ; l'avantage
+// qualité n'est même pas consistant par cellule (BTC M1 dégradé par la porte).
+// VERDICT : porte retirée — le sweep reste une composante scorée (+1..4),
+// jamais un prérequis. Le drapeau Rust avec_sweep_requis est conservé
+// (défaut inactif) pour toute ré-étude à fenêtre élargie.
+
 float pdh = request.security(syminfo.tickerid, "D", high[1], lookahead=barmerge.lookahead_off)
 float pdl = request.security(syminfo.tickerid, "D", low[1],  lookahead=barmerge.lookahead_off)
 float pwh = request.security(syminfo.tickerid, "W", high[1], lookahead=barmerge.lookahead_off)

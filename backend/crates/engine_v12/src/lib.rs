@@ -155,6 +155,12 @@ impl MoteurV12 {
         self
     }
 
+    /// R1 — sweep requis en qualification v11 (étude étape 3).
+    pub fn avec_sweep_requis(mut self, actif: bool) -> Self {
+        self.moteur = self.moteur.avec_sweep_requis(actif);
+        self
+    }
+
     /// Applique l'amorce une seule fois, au premier bar vu (t0 = son ts).
     fn appliquer_amorce_si_premiere(&mut self, ts: i64) {
         if self.amorce_appliquee {

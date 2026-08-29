@@ -15,6 +15,7 @@ pub mod bs_helpers;
 pub mod calibration;
 pub mod fvg;
 pub mod imbalance;
+pub mod durees;
 pub mod kill_zones;
 pub mod lifecycle;
 pub mod liquidites;
@@ -40,6 +41,7 @@ pub mod types;
 pub mod zone_coeur;
 
 pub use asian_hl::{AsianHlDetector, SessHlLevels};
+use durees::{mask_bos_by_mss, tp3_max_mins, trade_max_mins};
 pub use atr::Atr14;
 pub use bos::BosDetector;
 pub use bpr::{bonus_bpr, BprDetector, BprEvent, BprState, BprZone};
@@ -225,6 +227,14 @@ impl SmcV12Engine {
     /// Bonus Module H — mega-orders (+2 si volume[1] ≥ 2× SMA20[1]).
     pub fn avec_scoring_mega_volume(mut self, actif: bool) -> Self {
         self.mega_vol_scoring = actif;
+        self
+    }
+
+    /// R1 (étude étape 3) : sweep directionnel frais requis en qualification
+    /// v11 — canon ICT (« prérequis, pas bonus »). Défaut inactif = production
+    /// pré-verdict ; l'étude comparatif_sweep tranche.
+    pub fn avec_sweep_requis(mut self, actif: bool) -> Self {
+        self.signals.definir_sweep_requis(actif);
         self
     }
 
@@ -515,83 +525,5 @@ impl SmcV12Engine {
     /// Nombre de bars traitées (= prochain `bar_index`).
     pub fn bar_index(&self) -> usize {
         self.bar_count
-    }
-}
-
-/// `_autoTradeMaxMins` (Pine 2374) — durée max trade en minutes selon le TF.
-fn trade_max_mins(tf_mins: u32) -> i64 {
-    match tf_mins {
-        60 => 480,    // H1
-        240 => 1920,  // H4
-        1440 => 5760, // D1
-        _ => 240,     // défaut (M1–M30)
-    }
-}
-
-/// `_autoTp3Mins` (Pine 71-76) — durée max TP3 en minutes selon asset × TF.
-fn tp3_max_mins(cal: &AssetCalibration, tf_mins: u32) -> i64 {
-    let m15 = tf_mins == 15;
-    let h1 = tf_mins == 60;
-    if cal.is_xau {
-        if m15 {
-            60
-        } else if h1 {
-            240
-        } else {
-            60
-        }
-    } else if cal.is_xag {
-        if m15 {
-            45
-        } else if h1 {
-            180
-        } else {
-            60
-        }
-    } else if cal.is_nas || cal.is_spx {
-        if m15 {
-            30
-        } else if h1 {
-            120
-        } else {
-            60
-        }
-    } else if cal.is_btc {
-        if m15 {
-            90
-        } else if h1 {
-            360
-        } else {
-            60
-        }
-    } else if cal.is_dax {
-        if m15 {
-            30
-        } else if h1 {
-            120
-        } else {
-            60
-        }
-    } else {
-        60
-    }
-}
-
-/// Masque le BOS selon `bosHaussier and not mssHaussier` (Pine lignes 524-527, 540).
-///
-/// Renvoie un `BosEvent` dont les flags directionnels sont annulés lorsqu'un MSS
-/// s'est produit sur la même bar. Le level/bar_index sont conservés si le flag reste.
-fn mask_bos_by_mss(bos: &BosEvent, mss: &MssEvent) -> BosEvent {
-    let bullish = bos.bullish && !mss.mss_haussier;
-    let bearish = bos.bearish && !mss.mss_baissier;
-    BosEvent {
-        bullish,
-        bearish,
-        level: if bullish || bearish { bos.level } else { None },
-        bar_index: if bullish || bearish {
-            bos.bar_index
-        } else {
-            None
-        },
     }
 }

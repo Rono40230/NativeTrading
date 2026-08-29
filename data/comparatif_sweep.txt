@@ -1,0 +1,36 @@
+════════════════════════════════════════════════════════════════════════════════════════════════════
+COMPARATIF R1 SWEEP REQUIS : porte ON vs OFF — production (BE=Supp, TP3=DoL≤3R, mega on)
+R total / clôtures par asset × TF × branche
+════════════════════════════════════════════════════════════════════════════════════════════════════
+── BTC ──
+  M15                 +2.0R / 9            +10.1R / 163  ⚠ <30 trades
+  M5                 +7.0R / 17            +14.1R / 185  ⚠ <30 trades
+  M1                 -7.0R / 55            +48.9R / 180
+── XAUUSD ──
+  M15                +8.0R / 24            +66.9R / 272  ⚠ <30 trades
+  M5                +13.8R / 37            +47.8R / 228
+  M1                +27.5R / 81            +64.5R / 199
+── XAGUSD ──
+  M15               +10.0R / 18            +60.1R / 292  ⚠ <30 trades
+  M5                +10.0R / 31            +73.3R / 229
+  M1               +57.9R / 132           +165.8R / 351
+── NAS100 ──
+  M15                +1.0R / 16            +47.9R / 139  ⚠ <30 trades
+  M5                +19.0R / 28            +42.3R / 108  ⚠ <30 trades
+  M1                +20.0R / 50             +25.0R / 71
+── SP500 ──
+  M15                 +0.0R / 7             +9.0R / 125  ⚠ <30 trades
+  M5                 +7.8R / 16              +7.8R / 74  ⚠ <30 trades
+  M1                  +1.0R / 6              +4.0R / 11  ⚠ <30 trades
+── DAX ──
+  M15              +25.1R / 169            +79.7R / 405
+  M5                 +5.7R / 14             +10.0R / 52  ⚠ <30 trades
+  M1                  +5.0R / 9             +14.0R / 27  ⚠ <30 trades
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Sweep ON TOTAL +213.8R · 719 clôtures · R moyen +0.297 · max DD 11.0R
+         verdicts : 229×Expire, 63×TP2+BE, 152×TP1+BE, 221×SL, 54×TP3
+Sweep OFF TOTAL +791.1R · 3111 clôtures · R moyen +0.254 · max DD 12.0R
+         verdicts : 235×TP2+BE, 631×TP1+BE, 211×TP3, 1108×Expire, 926×SL
+────────────────────────────────────────────────────────────────────────────────────────────────────
+Lecture : le delta R total (ON − OFF) = apport réel de la porte sweep requis.
+Si ≤ 0 : le bonus est retiré du Pine étalon et du défaut Rust (règle replay).

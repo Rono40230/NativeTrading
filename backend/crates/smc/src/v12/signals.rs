@@ -49,6 +49,11 @@ pub struct SignalGenerator {
     trade_pousse: bool,
     next_id: u64,
     mode_tp3: ModeTp3,
+    /// R1 (étude étape 3, 29/08) : sweep directionnel frais REQUIS pour la
+    /// qualification v11 (canon ICT : prérequis, pas bonus). BSZones non
+    /// concerné (zones nées de disp+sweep). Défaut inactif = production
+    /// pré-verdict ; l'étude comparatif_sweep tranche.
+    sweep_requis: bool,
 }
 
 impl SignalGenerator {
@@ -59,12 +64,18 @@ impl SignalGenerator {
             next_id: 1,
             // Décision DoL≤3R 28/08 (validated replay 24 mois) — production.
             mode_tp3: ModeTp3::DolCappe3R,
+            sweep_requis: false,
         }
     }
 
     /// Mode TP3 (défaut DolCappe3R = production, décision 28/08).
     pub fn definir_mode_tp3(&mut self, mode: ModeTp3) {
         self.mode_tp3 = mode;
+    }
+
+    /// Active/désactive la porte R1 (sweep requis en qualification v11).
+    pub fn definir_sweep_requis(&mut self, actif: bool) {
+        self.sweep_requis = actif;
     }
 
     /// Reset du flag anti-double-trade (Pine 2358-2359) — à appeler en début de bar.
@@ -181,7 +192,17 @@ impl SignalGenerator {
             } else {
                 scoring.zn_qual_bear(z, out, fvg)
             };
-            let qual = sc_r >= SEUIL_TRADE && ScoringV11::force(sc_r, cal) >= FORCE_MIN && zn_ok;
+            // R1 : sweep directionnel frais (fenêtre TF-adaptive) requis si actif.
+            let sweep_ok = !self.sweep_requis
+                || (if is_bull {
+                    out.sweep.sweep_bull_frais
+                } else {
+                    out.sweep.sweep_bear_frais
+                });
+            let qual = sc_r >= SEUIL_TRADE
+                && ScoringV11::force(sc_r, cal) >= FORCE_MIN
+                && zn_ok
+                && sweep_ok;
             if !qual {
                 continue;
             }
