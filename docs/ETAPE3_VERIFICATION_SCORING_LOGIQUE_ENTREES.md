@@ -88,11 +88,12 @@ confluences sans poids chiffrés.
 propres, règle des 30 trades respectée). Pistes d'emprunt : invalidateur
 fatal « inducement » et risque gradué par force (cf. §6).
 
-> **RECOMMANDATION d'analyse (29/08)** : ne pas toucher aux poids — la
-> pondération est calibrée sur nos replays et domine le canon public ; la
+> **DÉCISION PROPRIÉTAIRE (29/08)** : la pondération des 16 composantes est
+> **FIGÉE** — calibrée sur nos replays, elle domine le canon public ; la
 > structure additive est saturée (le levier est dans les portes, pas les
-> poids). Réviser uniquement sur preuve ≥ 100 trades par bande montrant un
-> composant au WR inversé. Statut : en attente de confirmation propriétaire.
+> poids). Les évolutions passeront exclusivement par des portes de
+> qualification (R1, R2, R6) ou de l'exécution (R7). Réouverture uniquement
+> sur preuve ≥ 100 trades par bande montrant un composant au WR inversé.
 
 ---
 
