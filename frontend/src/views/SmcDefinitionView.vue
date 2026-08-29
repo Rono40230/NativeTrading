@@ -114,8 +114,8 @@
       <div v-if="onglet === 'Gestion des trades ouverts'" class="flex flex-col gap-3">
         <carte titre="Construction des niveaux">
           <ul class="space-y-1.5">
-            <li><b class="text-white">Stop Loss</b> — bord opposé de la zone ± offset ATR (mode par actif), distance clampée entre slMin et slMax (multiplicateurs ×ATR calibrés par actif : BTC 0,8-2,5, or 0,5-1,5, NAS/DAX 0,5-1,5, argent 0,6-1,8).</li>
-            <li><b class="text-white">TP1 / TP2</b> — +1R / +2R (R = distance entrée-stop après clamp).</li>
+            <li><b class="text-white">Stop Loss</b> — bord opposé de la zone ± offset ATR réduit de 25 % (décision étape 4 du 29/08 : replay +239R), distance clampée entre slMin et slMax (multiplicateurs ×ATR calibrés par actif : BTC 0,8-2,5, or 0,5-1,5, NAS/DAX 0,5-1,5, argent 0,6-1,8).</li>
+            <li><b class="text-white">TP1 / TP2</b> — +0,6R / +2R (décision étape 4 du 29/08 : TP1 à 0,6R, replay +239R ; R = distance entrée-stop après clamp).</li>
             <li><b class="text-white">TP3</b> — la liquidité la plus proche au-delà de l'entrée (EQH/PDH/PWH/Asian High pour un achat) ; repli sur +3R si aucune cible ou monotonie brisée.</li>
           </ul>
         </carte>
@@ -169,7 +169,7 @@
 
         <carte titre="Le R, unité de compte">
           Tous les trades se mesurent en multiples du risque initial (R) : SL = -1R, BE = 0,
-          TP1 = +1R, TP2 = +2R, TP3 = sa distance réelle. La performance de la stratégie se lit en
+          TP1 = +0,6R, TP2 = +2R, TP3 = sa distance réelle (décision étape 4 du 29/08). La performance de la stratégie se lit en
           R cumulé — indépendante du capital et homogène entre actifs — et se convertit en
           évolution du capital via le risque par trade.
         </carte>
