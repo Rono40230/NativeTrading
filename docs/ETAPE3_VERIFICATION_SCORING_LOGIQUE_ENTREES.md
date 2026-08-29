@@ -86,7 +86,12 @@ confluences sans poids chiffrés.
 
 **Verdict** : pertinence du scoring **validée** (calibrée sur données
 propres, règle des 30 trades respectée). Pistes d'emprunt : invalidateur
-fatal « inducement » et risque gradué par force (cf. §5).
+fatal « inducement » et risque gradué par force (cf. §6).
+
+> **DÉCISION PROPRIÉTAIRE (29/08)** : la pondération des 16 composantes est
+> **FIGÉE** — rien à faire de ce côté. Les évolutions éventuelles passeront
+> exclusivement par des portes de qualification (R1, R2, R6) ou de
+> l'exécution (R7), jamais par une retouche des poids.
 
 ---
 
