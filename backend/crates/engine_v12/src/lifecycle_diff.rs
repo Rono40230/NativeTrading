@@ -304,6 +304,7 @@ mod tests {
             tp2_ts: 0,
             tp3_touched: false,
             be_forced: false,
+            mfe_armed: false,
             state: TradeState::Open,
             fill_ts: Some(ts),
             close_reason: Some(CloseReason::Sl),

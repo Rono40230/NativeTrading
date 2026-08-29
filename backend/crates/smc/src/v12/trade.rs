@@ -110,6 +110,8 @@ pub struct Trade {
     pub tp3_touched: bool,
     /// BE forcé par BOS opposé ou score degradation (SL→entry sans TP1 prix).
     pub be_forced: bool,
+    /// Étude étape 4 — BE auto : MFE ≥ seuil×r atteinte sans toucher TP1.
+    pub mfe_armed: bool,
 
     pub state: TradeState,
     pub fill_ts: Option<i64>,
@@ -166,10 +168,11 @@ impl Trade {
         };
         match self.verdict() {
             Verdict::Tp3 => dist(self.tp3) / self.risk0,
-            // TP2 acquis et comptabilisé.
-            Verdict::Tp2 => 2.0,
-            // TP1 acquis et comptabilisé.
-            Verdict::Tp1 => 1.0,
+            // TP acquis = distance RÉELLE du niveau (étude étape 4 : TP1/TP2
+            // devenus paramétrables — l'ancien 1.0/2.0 en dur supposait des
+            // niveaux fixes et gonflait artificiellement les variantes).
+            Verdict::Tp2 => dist(self.tp2) / self.risk0,
+            Verdict::Tp1 => dist(self.tp1) / self.risk0,
             // BE forcé (jamais de TP touché) ou expiration : rien d'acquis.
             Verdict::Be | Verdict::Expire => 0.0,
             Verdict::Sl => -1.0,
@@ -224,6 +227,7 @@ impl Trade {
             tp2_ts: 0,
             tp3_touched: false,
             be_forced: false,
+            mfe_armed: false,
             state: TradeState::Pending,
             fill_ts: None,
             close_reason: None,

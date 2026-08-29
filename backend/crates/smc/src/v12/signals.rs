@@ -61,6 +61,12 @@ pub struct SignalGenerator {
     /// (la zone de tolérance équilibre laisse passer). Défaut inactif =
     /// production pré-verdict ; l'étude comparatif_pd tranche.
     pd_requis: bool,
+    /// Étude étape 4 — multiplicateur de l'offset SL (1.0 = production).
+    sl_mult: f64,
+    /// Étude étape 4 — TP1 = entry ± tp1_mult × r (1.0 = production).
+    tp1_mult: f64,
+    /// Étude étape 4 — TP2 = entry ± tp2_mult × r (2.0 = production).
+    tp2_mult: f64,
 }
 
 impl SignalGenerator {
@@ -73,6 +79,11 @@ impl SignalGenerator {
             mode_tp3: ModeTp3::DolCappe3R,
             sweep_requis: false,
             pd_requis: false,
+            // Étape 4 (29/08, replay +239R/3 180 clôtures) : TP1 = 0.6R,
+            // offset SL × 0.75 (clamps [_slMin,_slMax] inchangés).
+            sl_mult: 0.75,
+            tp1_mult: 0.6,
+            tp2_mult: 2.0,
         }
     }
 
@@ -89,6 +100,13 @@ impl SignalGenerator {
     /// Active/désactive la porte R2 (P/D directionnel en qualification v11).
     pub fn definir_pd_requis(&mut self, actif: bool) {
         self.pd_requis = actif;
+    }
+
+    /// Étude étape 4 — multiplicateurs de niveaux (SL offset, TP1, TP2).
+    pub fn definir_multiplicateurs(&mut self, sl: f64, tp1: f64, tp2: f64) {
+        self.sl_mult = sl;
+        self.tp1_mult = tp1;
+        self.tp2_mult = tp2;
     }
 
     /// Reset du flag anti-double-trade (Pine 2358-2359) — à appeler en début de bar.
@@ -364,7 +382,7 @@ impl SignalGenerator {
             SlMode::Atr15x => 1.5 * atr,
             SlMode::Atr2x => 2.0 * atr,
             SlMode::BasOb => 0.0,
-        };
+        } * self.sl_mult;
         let raw_sl = if is_bull {
             zone_bot - offset
         } else {
@@ -382,11 +400,11 @@ impl SignalGenerator {
         // Clamp r ∈ [slMin, slMax], recalcul sl.
         let r = raw_r.max(sl_min).min(sl_max);
         let sl = if is_bull { entry - r } else { entry + r };
-        let tp1 = if is_bull { entry + r } else { entry - r };
+        let tp1 = if is_bull { entry + self.tp1_mult * r } else { entry - self.tp1_mult * r };
         let tp2 = if is_bull {
-            entry + 2.0 * r
+            entry + self.tp2_mult * r
         } else {
-            entry - 2.0 * r
+            entry - self.tp2_mult * r
         };
         // TP3 = liquidité la plus proche au-delà de l'entrée (EQH/PDH/PWH bull,
         // EQL/PDL/PWL bear ; Asian HL pour v11 uniquement — Pine 3562 vs 3294).
@@ -467,15 +485,16 @@ mod tests {
         let c = AssetCalibration::detect("XAUUSD", "M15");
         let gen = SignalGenerator::new();
         let out = SmcOutput::default();
-        // OB bull top=100 bot=98 → entry=100, offset=ATR (XAU Atr1x). ATR=2.
-        // raw_sl = 98-2 = 96, raw_r = 4. slMin=1, slMax=3 → clamp r=3. sl=97.
+        // OB bull top=100 bot=98 → entry=100, offset = ATR×0.75 (étape 4 29/08)
+        // = 1.5 (XAU Atr1x). raw_sl = 98-1.5 = 96.5, raw_r = 3.5.
+        // slMin=1, slMax=3 → clamp r=3. sl=97. TP1 = 0.6R (étape 4).
         let (entry, sl, tp1, tp2, _tp3, r) = gen
             .build_levels(true, 100.0, 98.0, 2.0, &c, &out, 1.0, 3.0, true)
             .unwrap();
         assert!((entry - 100.0).abs() < 1e-9);
         assert!((r - 3.0).abs() < 1e-9, "r clampé à slMax=3");
         assert!((sl - 97.0).abs() < 1e-9);
-        assert!((tp1 - 103.0).abs() < 1e-9);
+        assert!((tp1 - 101.8).abs() < 1e-9, "TP1 = entry + 0.6×r");
         assert!((tp2 - 106.0).abs() < 1e-9);
     }
 
@@ -493,8 +512,8 @@ mod tests {
     #[test]
     fn build_levels_tp3_dol_plafonne_3r_par_defaut() {
         // Décision DoL≤3R 28/08 : production = min(DoL, 3R). OB bull top=100
-        // bot=99.2, ATR=2, XAU Atr1x → raw_sl=97.2, r=2.8 (non clampé).
-        // TP2=105.6, plafond 3R=108.4.
+        // bot=99.2, ATR=2, XAU Atr1x → offset 0.75 (étape 4 29/08) : raw_sl=97.7,
+        // r=2.3 (non clampé). TP2=104.6, plafond 3R=106.9.
         let c = AssetCalibration::detect("XAUUSD", "M15");
         let gen = SignalGenerator::new();
         let mut out = SmcOutput::default();
@@ -505,15 +524,16 @@ mod tests {
         out.liquidite.pdh_active = Some(115.0);
         let (entry, _sl, _tp1, tp2, tp3, r) = args(&gen, &out).unwrap();
         assert!((entry - 100.0).abs() < 1e-9);
-        assert!((r - 2.8).abs() < 1e-9);
-        assert!((tp2 - 105.6).abs() < 1e-9);
+        assert!((r - 2.3).abs() < 1e-9);
+        assert!((tp2 - 104.6).abs() < 1e-9);
         assert!(
-            (tp3 - 108.4).abs() < 1e-9,
-            "TP3 = min(PDH=115, entry+3R=108.4) = 108.4 (plafonné)"
+            (tp3 - 106.9).abs() < 1e-9,
+            "TP3 = min(PDH=115, entry+3R=106.9) = 106.9 (plafonné)"
         );
-        // Liquidité PROCHE entre TP2 et 3R (107) → conservée telle quelle.
-        out.liquidite.pdh_active = Some(107.0);
+        // Liquidité PROCHE entre TP2 (104.6) et 3R (106.9) → conservée telle
+        // quelle (105.5 < plafond).
+        out.liquidite.pdh_active = Some(105.5);
         let (_, _, _, _, tp3_proche, _) = args(&gen, &out).unwrap();
-        assert!((tp3_proche - 107.0).abs() < 1e-9, "DoL proche conservé");
+        assert!((tp3_proche - 105.5).abs() < 1e-9, "DoL proche conservé");
     }
 }

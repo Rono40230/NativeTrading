@@ -264,6 +264,19 @@ impl SmcV12Engine {
         self
     }
 
+    /// Étude étape 4 — multiplicateurs de niveaux : SL (offset ATR),
+    /// TP1 (×r), TP2 (×r). Défauts = production (1.0 / 1.0 / 2.0).
+    pub fn avec_multiplicateurs(mut self, sl: f64, tp1: f64, tp2: f64) -> Self {
+        self.signals.definir_multiplicateurs(sl, tp1, tp2);
+        self
+    }
+
+    /// Étude étape 4 — BE automatique à seuil de MFE (None = production).
+    pub fn avec_be_auto(mut self, seuil: Option<f64>) -> Self {
+        self.lifecycle.definir_be_auto(seuil);
+        self
+    }
+
     /// Traite une nouvelle bar clôturée. Ordre strict = ordre Pine
     /// (ATR → pivots → structure → BOS → MSS/CHOCH → liquidités → sweep
     ///  → FVG → OB → Breaker → Propulsion → Imbalance).

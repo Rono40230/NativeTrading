@@ -61,6 +61,14 @@ pub struct ModesEtude {
     pub mtf_cloture: bool,
     /// Confluences MTF à containment directionnel (R5, étude en cours).
     pub mtf_directionnel: bool,
+    /// Étape 4 — multiplicateur de l'offset SL (1.0 = production).
+    pub sl_mult: f64,
+    /// Étape 4 — TP1 = entry ± tp1_mult × r (1.0 = production).
+    pub tp1_mult: f64,
+    /// Étape 4 — TP2 = entry ± tp2_mult × r (2.0 = production).
+    pub tp2_mult: f64,
+    /// Étape 4 — BE auto à seuil de MFE (None = production).
+    pub be_auto: Option<f64>,
 }
 
 impl Default for ModesEtude {
@@ -75,6 +83,10 @@ impl Default for ModesEtude {
             pd_requis: false,
             mtf_cloture: false,
             mtf_directionnel: false,
+            sl_mult: 0.75, // étape 4 29/08 : production
+            tp1_mult: 0.6,  // étape 4 29/08 : production
+            tp2_mult: 2.0,
+            be_auto: None,
         }
     }
 }
@@ -217,7 +229,7 @@ pub fn rejouer_bougies_pd(
 }
 
 /// Chemin commun : tous les leviers d'étude portés par [`ModesEtude`].
-fn rejouer_bougies_modes(
+pub fn rejouer_bougies_modes(
     asset: Asset,
     tf: Timeframe,
     bougies: &[Candle],
@@ -236,7 +248,9 @@ fn rejouer_bougies_modes(
         .avec_sweep_requis(modes.sweep_requis)
         .avec_pd_requis(modes.pd_requis)
         .avec_mtf_cloture(modes.mtf_cloture)
-        .avec_mtf_directionnel(modes.mtf_directionnel);
+        .avec_mtf_directionnel(modes.mtf_directionnel)
+        .avec_multiplicateurs(modes.sl_mult, modes.tp1_mult, modes.tp2_mult)
+        .avec_be_auto(modes.be_auto);
     let mut journal = SortieMoteur::vide();
 
     for (i, b) in bougies.iter().enumerate() {
@@ -280,7 +294,9 @@ fn rejouer_bougies_modes(
         .avec_sweep_requis(modes.sweep_requis)
         .avec_pd_requis(modes.pd_requis)
         .avec_mtf_cloture(modes.mtf_cloture)
-        .avec_mtf_directionnel(modes.mtf_directionnel);
+        .avec_mtf_directionnel(modes.mtf_directionnel)
+        .avec_multiplicateurs(modes.sl_mult, modes.tp1_mult, modes.tp2_mult)
+        .avec_be_auto(modes.be_auto);
     if let Some(premiere) = bougies.first() {
         reference.primer_mtf_amorce(&amorce, premiere.timestamp.timestamp());
     }

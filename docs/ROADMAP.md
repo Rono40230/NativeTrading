@@ -33,6 +33,14 @@ L'app est une coquille d'orchestration + 3 verticales stratégiques complètes :
 - [ ] Décision propriétaire : passage Officielle ou ajustements
 - [ ] Si Officielle : activer le son Telegram (le template est prêt, dormant)
 
+### 1bis. Étape 4 — Calcul des trades (29/08) : TP1=0.6R + SL×0.75 APPLIQUÉS
+
+Étude grid 6 assets × 3 TF (`docs/ETAPE4_CALCUL_TRADES.md`) : **+239R (+30 %)**,
+R moyen +27 %, max DD 12→7.8R — TP1=0.6R + offset SL ×0.75 en production
+(Pine + Rust + prompt IA synchronisés). BE auto rejeté (−180R/−82R),
+TP2=2R confirmé. Correctif comptable `realized_r` embarqué (constantes en dur
+devenues distances réelles).
+
 ### 2. SMC v12 — Surveillance production
 
 Le programme d'améliorations est **clos** (5 phases, 28/08) : +86.6R nets

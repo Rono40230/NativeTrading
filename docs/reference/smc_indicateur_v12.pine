@@ -3824,9 +3824,9 @@ f_createBuySignals() =>
                     // PF moyen 1.47 (vs 1.40 PR / 1.39 Mix), taux de fill 56 % (vs 47 %).
                     // _mid (PR) supprimé — logique _rst (Mix) supprimée.
                     float _entry = _rt
-                    float _sl    = i_slMode == "1.5× ATR sous OB" ? _rb - 1.5 * atr14 :
-                                   i_slMode == "1× ATR sous OB"   ? _rb - atr14        :
-                                   i_slMode == "2× ATR sous OB"   ? _rb - 2.0 * atr14  : _rb
+                    float _sl    = i_slMode == "1.5× ATR sous OB" ? _rb - 1.5 * 0.75 * atr14 :
+                                   i_slMode == "1× ATR sous OB"   ? _rb - 0.75 * atr14 :   // étape 4 29/08 : offset ×0.75
+                                   i_slMode == "2× ATR sous OB"   ? _rb - 2.0 * 0.75 * atr14 : _rb
                     float _r     = _entry - _sl
                     if _r > 2.0 * _slMax
                         continue
@@ -3835,7 +3835,7 @@ f_createBuySignals() =>
                         _r     := _entry - _sl
                     _r := math.max(_slMin, math.min(_slMax, _r))
                     _sl := _entry - _r
-                    float _tp1   = _entry + _r
+                    float _tp1   = _entry + 0.6 * _r  // étape 4 29/08 : TP1 à 0,6R (étude +239R)
                     float _tp2   = _entry + 2.0 * _r
                     float _tEQH3 = not na(dernierEQH_level) and dernierEQH_level > _entry ? dernierEQH_level : na
                     float _tPDH3 = not na(pdhActive) and pdhActive > _entry ? pdhActive : na
@@ -3974,9 +3974,9 @@ f_createSellSignals() =>
                 if _qualifA and not _oneBearSignal
                     // v11 : entrée TR forcé (touche-retest au bord de l'OB) — voir commentaire BUY.
                     float _entry = _rb
-                    float _sl    = i_slMode == "1.5× ATR sous OB" ? _rt + 1.5 * atr14 :
-                                   i_slMode == "1× ATR sous OB"   ? _rt + atr14        :
-                                   i_slMode == "2× ATR sous OB"   ? _rt + 2.0 * atr14  : _rt
+                    float _sl    = i_slMode == "1.5× ATR sous OB" ? _rt + 1.5 * 0.75 * atr14 :
+                                   i_slMode == "1× ATR sous OB"   ? _rt + 0.75 * atr14 :   // étape 4 29/08
+                                   i_slMode == "2× ATR sous OB"   ? _rt + 2.0 * 0.75 * atr14 : _rt
                     float _r     = _sl - _entry
                     if _r > 2.0 * _slMax
                         continue
@@ -3985,7 +3985,7 @@ f_createSellSignals() =>
                         _r     := _sl - _entry
                     _r := math.max(_slMin, math.min(_slMax, _r))
                     _sl := _entry + _r
-                    float _tp1   = _entry - _r
+                    float _tp1   = _entry - 0.6 * _r  // étape 4 29/08
                     float _tp2   = _entry - 2.0 * _r
                     float _tEQL3 = not na(dernierEQL_level) and dernierEQL_level < _entry ? dernierEQL_level : na
                     float _tPDL3 = not na(pdlActive) and pdlActive < _entry ? pdlActive : na
@@ -4069,15 +4069,15 @@ f_createBSBuySignals() =>
                 bool _qualif = _scR >= i_tradeMinScore
                 if _qualif and not _oneBullSignal
                     float _entry = _rt   // TR forcé (bord haut zone BSZones)
-                    float _sl    = i_slMode == "1.5× ATR sous OB" ? _rb - 1.5 * atr14 :
-                                   i_slMode == "1× ATR sous OB"   ? _rb - atr14        :
-                                   i_slMode == "2× ATR sous OB"   ? _rb - 2.0 * atr14  : _rb
+                    float _sl    = i_slMode == "1.5× ATR sous OB" ? _rb - 1.5 * 0.75 * atr14 :
+                                   i_slMode == "1× ATR sous OB"   ? _rb - 0.75 * atr14 :   // étape 4 29/08 : offset ×0.75
+                                   i_slMode == "2× ATR sous OB"   ? _rb - 2.0 * 0.75 * atr14 : _rb
                     float _r = _entry - _sl
                     if _r > 2.0 * _slMax
                         continue
                     _r := math.max(_slMin, math.min(_slMax, _r))
                     _sl := _entry - _r
-                    float _tp1 = _entry + _r
+                    float _tp1 = _entry + 0.6 * _r  // étape 4 29/08
                     float _tp2 = _entry + 2.0 * _r
                     // TP3 = liquidité la plus proche (réutilise _bsDolTarget déjà calculé pour le label).
                     // Décision DoL≤3R 28/08 : plafonner à 3R (replay : liquidité souvent > 3R, inatteignable).
@@ -4132,15 +4132,15 @@ f_createBSSellSignals() =>
                 bool _qualif = _scR >= i_tradeMinScore
                 if _qualif and not _oneBearSignal
                     float _entry = _rb   // TR forcé (bord bas zone BSZones)
-                    float _sl    = i_slMode == "1.5× ATR sous OB" ? _rt + 1.5 * atr14 :
-                                   i_slMode == "1× ATR sous OB"   ? _rt + atr14        :
-                                   i_slMode == "2× ATR sous OB"   ? _rt + 2.0 * atr14  : _rt
+                    float _sl    = i_slMode == "1.5× ATR sous OB" ? _rt + 1.5 * 0.75 * atr14 :
+                                   i_slMode == "1× ATR sous OB"   ? _rt + 0.75 * atr14 :   // étape 4 29/08
+                                   i_slMode == "2× ATR sous OB"   ? _rt + 2.0 * 0.75 * atr14 : _rt
                     float _r = _sl - _entry
                     if _r > 2.0 * _slMax
                         continue
                     _r := math.max(_slMin, math.min(_slMax, _r))
                     _sl := _entry + _r
-                    float _tp1 = _entry - _r
+                    float _tp1 = _entry - 0.6 * _r  // étape 4 29/08
                     float _tp2 = _entry - 2.0 * _r
                     // Décision DoL≤3R 28/08 : plafonner à 3R (symétrique du BUY).
                     float _tp3 = _bsDolTarget(false, _entry)
