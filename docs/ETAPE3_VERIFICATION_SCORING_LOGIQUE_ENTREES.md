@@ -191,7 +191,7 @@ complémentarité v11/BS observée dans les replays.
 | # | Piste | Type | Effort attendu | Justification |
 |---|---|---|---|---|
 | ~~R1~~ | ~~Sweep obligatoire (ou ≤ N bars) pour qualifier un trade~~ | ✅ ÉTUDE FAITE 29/08 → **REJETÉ** (−577.3R) | fait | Verdict ci-dessous |
-| **R2** | **P/D directionnel en znQual** (interdire long en premium / short en discount à la qualification) | porte + étude | ½ session | Canon : « jamais acheter en premium » ; nous : +1 symbolique |
+| ~~R2~~ | ~~P/D directionnel en znQual~~ | ✅ ÉTUDE FAITE 29/08 → **REJETÉ** (−47.9R) | fait | Verdict ci-dessous |
 | **R3** | **Entrée confirmation LTF** (ModeEntree : RetestLimite vs Confirmation-MSS-dans-la-zone) | étude A/B lifecycle | 1 session | Méthode 3 du canon, recommandée par les guides ; notre A/B 15/15 n'a comparé que des variantes de limite |
 | **R4** | **Confluence MTF sur HTF clôturé** (mesurer le coût du repaint : 2 branches) | étude | ½ session | Meilleure pratique anti-lookahead ; choix actuel assumé mais jamais mesuré |
 | R5 | Containment **directionnel** MTF (le prix dans un OB HTF du sens du trade, pas juste existence) | correctif scoring + étude | ½ session | Impureté logique identifiée §5 |
@@ -211,7 +211,13 @@ Rust derrière drapeau → `comparatif_*` 6 assets × M1/M5/M15 → règle des
 
 - **Scoring** : plus calibré que le canon public (poids empiriques par asset) ;
   structure additive saturée — le levier n'est plus dans les bonus marginaux
-  mais dans les **portes** (R1, R2, R6).
+  ni dans les **portes** (R1 sweep : −577.3R, R2 P/D : −47.9R — 4e et 5e
+  règles dures canoniques rejetées par nos données après dead-zone, BPR bonus
+  et sessions). Convergence des preuves : nos marchés récompensent la
+  permissivité — les filtres de qualité améliorent le R moyen mais détruisent
+  du volume d'espérance positive. R3 (entrée confirmation LTF) reste la seule
+  piste d'une autre nature : elle change le TIMING d'entrée, pas la
+  sélection des trades.
 - **Logique SMC** : fidèle sur l'ossature (OB/FVG/liquidités/DoT/KZ/PO3 via
   sessions) ; divergences assumées et documentées là où nos replays ont
   tranché (dead-zone, TP2 fixe) ; deux portes canoniques jamais testées.

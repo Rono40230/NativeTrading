@@ -37,6 +37,50 @@ pub struct ResultatReplay {
     pub duree_ms: u128,
 }
 
+/// Modes d'étude du replay — chaque champ = un levier A/B testé par une
+/// campagne (valeur par défaut = production au moment de la refonte 29/08).
+/// Un wrapper public par étude ne mute QUE son levier : plus de paramètres
+/// positionnels qui s'empilent (source d'erreurs de patch).
+#[derive(Clone)]
+pub struct ModesEtude {
+    /// BE forcé sur BOS opposé (Classique = fidèle Pine ; Supprime = décision 26/08 des études).
+    pub be: smc::v12::lifecycle::ModeBeForce,
+    /// TP3 (DolCappe3R = production, décision DoL≤3R 28/08).
+    pub tp3: smc::v12::signals::ModeTp3,
+    /// Bonus BPR (inactif — étude 28/08 : +1.0R = bruit).
+    pub scoring_bpr: bool,
+    /// Bonus sessions H/L (inactif — étude 28/08 : ON ≡ OFF bit-à-bit).
+    pub scoring_sessions: bool,
+    /// Bonus mega-orders volume ≥ 2× SMA20 (actif — étude 28/08 : +21.3R).
+    pub scoring_mega: bool,
+    /// Porte sweep frais requis (inactif — étude 29/08 : −577.3R).
+    pub sweep_requis: bool,
+    /// Porte P/D directionnel (R2, étude en cours).
+    pub pd_requis: bool,
+}
+
+impl Default for ModesEtude {
+    fn default() -> Self {
+        Self {
+            be: smc::v12::lifecycle::ModeBeForce::Classique,
+            tp3: smc::v12::signals::ModeTp3::DolCappe3R,
+            scoring_bpr: false,
+            scoring_sessions: false,
+            scoring_mega: true,
+            sweep_requis: false,
+            pd_requis: false,
+        }
+    }
+}
+
+/// Base des études « production » : BE Supprimé + TP3 DoL≤3R + défauts actuels.
+fn modes_production() -> ModesEtude {
+    ModesEtude {
+        be: smc::v12::lifecycle::ModeBeForce::Supprime,
+        ..Default::default()
+    }
+}
+
 /// Rejoue `bougies` (ordre chronologique) dans un `MoteurV12` neuf et
 /// compare l'état final à un moteur nu de référence.
 pub fn rejouer_bougies(
@@ -46,7 +90,7 @@ pub fn rejouer_bougies(
     simuler_ticks: bool,
     amorce: smc::v12::AmorceMtf,
 ) -> ResultatReplay {
-    rejouer_bougies_mode(asset, tf, bougies, simuler_ticks, amorce, smc::v12::lifecycle::ModeBeForce::Classique)
+    rejouer_bougies_modes(asset, tf, bougies, simuler_ticks, amorce, &ModesEtude::default())
 }
 
 /// Variante paramétrée (étude comparatif du BE forcé) : rejoue l'historique
@@ -59,14 +103,12 @@ pub fn rejouer_bougies_mode(
     amorce: smc::v12::AmorceMtf,
     mode: smc::v12::lifecycle::ModeBeForce,
 ) -> ResultatReplay {
-    rejouer_bougies_modes(
-        asset, tf, bougies, simuler_ticks, amorce, mode,
-        smc::v12::signals::ModeTp3::Dol,
-        false, // scoring BPR = défaut production (inactif — étude 28/08)
-        false, // sessions H/L = défaut production (inactif — étude 28/08)
-        true,  // mega-orders = défaut production (actif)
-        false, // sweep requis = défaut production (inactif — étude en cours)
-    )
+    let modes = ModesEtude {
+        be: mode,
+        tp3: smc::v12::signals::ModeTp3::Dol,
+        ..Default::default()
+    };
+    rejouer_bougies_modes(asset, tf, bougies, simuler_ticks, amorce, &modes)
 }
 
 /// Variante Module G (étude TP3 DoL vs 3R fixe) — BE = production (Supprimé).
@@ -78,15 +120,11 @@ pub fn rejouer_bougies_tp3(
     amorce: smc::v12::AmorceMtf,
     mode_tp3: smc::v12::signals::ModeTp3,
 ) -> ResultatReplay {
-    rejouer_bougies_modes(
-        asset, tf, bougies, simuler_ticks, amorce,
-        smc::v12::lifecycle::ModeBeForce::Supprime,
-        mode_tp3,
-        false, // scoring BPR = défaut production (inactif — étude 28/08)
-        false, // sessions H/L = défaut production (inactif — étude 28/08)
-        true,  // mega-orders = défaut production (actif)
-        false, // sweep requis = défaut production (inactif — étude en cours)
-    )
+    let modes = ModesEtude {
+        tp3: mode_tp3,
+        ..modes_production()
+    };
+    rejouer_bougies_modes(asset, tf, bougies, simuler_ticks, amorce, &modes)
 }
 
 /// Variante Module A (étude BPR) — BE = Supprimé + TP3 = DolCappe3R
@@ -99,15 +137,11 @@ pub fn rejouer_bougies_bpr(
     amorce: smc::v12::AmorceMtf,
     scoring_bpr: bool,
 ) -> ResultatReplay {
-    rejouer_bougies_modes(
-        asset, tf, bougies, simuler_ticks, amorce,
-        smc::v12::lifecycle::ModeBeForce::Supprime,
-        smc::v12::signals::ModeTp3::DolCappe3R,
+    let modes = ModesEtude {
         scoring_bpr,
-        false, // sessions H/L = défaut production (inactif — étude 28/08)
-        true,  // mega-orders = défaut production (actif)
-        false, // sweep requis = défaut production (inactif — étude en cours)
-    )
+        ..modes_production()
+    };
+    rejouer_bougies_modes(asset, tf, bougies, simuler_ticks, amorce, &modes)
 }
 
 /// Variante Module F (étude sessions H/L) — BE = Supprimé + TP3 = DoL≤3R
@@ -120,15 +154,11 @@ pub fn rejouer_bougies_sessions(
     amorce: smc::v12::AmorceMtf,
     scoring_sessions: bool,
 ) -> ResultatReplay {
-    rejouer_bougies_modes(
-        asset, tf, bougies, simuler_ticks, amorce,
-        smc::v12::lifecycle::ModeBeForce::Supprime,
-        smc::v12::signals::ModeTp3::DolCappe3R,
-        false, // scoring BPR = défaut production
+    let modes = ModesEtude {
         scoring_sessions,
-        true,  // mega-orders = défaut production (actif)
-        false, // sweep requis = défaut production (inactif — étude en cours)
-    )
+        ..modes_production()
+    };
+    rejouer_bougies_modes(asset, tf, bougies, simuler_ticks, amorce, &modes)
 }
 
 /// Variante Module H (étude mega-orders) — production + seul le bonus
@@ -141,15 +171,11 @@ pub fn rejouer_bougies_mega(
     amorce: smc::v12::AmorceMtf,
     scoring_mega: bool,
 ) -> ResultatReplay {
-    rejouer_bougies_modes(
-        asset, tf, bougies, simuler_ticks, amorce,
-        smc::v12::lifecycle::ModeBeForce::Supprime,
-        smc::v12::signals::ModeTp3::DolCappe3R,
-        false, // scoring BPR = défaut production
-        false, // sessions H/L = défaut production
+    let modes = ModesEtude {
         scoring_mega,
-        false, // sweep requis = défaut production (inactif — étude en cours)
-    )
+        ..modes_production()
+    };
+    rejouer_bougies_modes(asset, tf, bougies, simuler_ticks, amorce, &modes)
 }
 
 /// Variante R1 (étude sweep requis) — production + seule la porte sweep diffère.
@@ -161,41 +187,48 @@ pub fn rejouer_bougies_sweep(
     amorce: smc::v12::AmorceMtf,
     sweep_requis: bool,
 ) -> ResultatReplay {
-    rejouer_bougies_modes(
-        asset, tf, bougies, simuler_ticks, amorce,
-        smc::v12::lifecycle::ModeBeForce::Supprime,
-        smc::v12::signals::ModeTp3::DolCappe3R,
-        false, // scoring BPR = défaut production
-        false, // sessions H/L = défaut production
-        true,  // mega-orders = défaut production (actif)
+    let modes = ModesEtude {
         sweep_requis,
-    )
+        ..modes_production()
+    };
+    rejouer_bougies_modes(asset, tf, bougies, simuler_ticks, amorce, &modes)
 }
 
-/// Chemin commun : BE forcé + TP3 + scoring BPR paramétrables (études).
-#[allow(clippy::too_many_arguments)]
+/// Variante R2 (étude P/D directionnel) — production + seule la porte P/D diffère.
+pub fn rejouer_bougies_pd(
+    asset: Asset,
+    tf: Timeframe,
+    bougies: &[Candle],
+    simuler_ticks: bool,
+    amorce: smc::v12::AmorceMtf,
+    pd_requis: bool,
+) -> ResultatReplay {
+    let modes = ModesEtude {
+        pd_requis,
+        ..modes_production()
+    };
+    rejouer_bougies_modes(asset, tf, bougies, simuler_ticks, amorce, &modes)
+}
+
+/// Chemin commun : tous les leviers d'étude portés par [`ModesEtude`].
 fn rejouer_bougies_modes(
     asset: Asset,
     tf: Timeframe,
     bougies: &[Candle],
     simuler_ticks: bool,
     amorce: smc::v12::AmorceMtf,
-    mode: smc::v12::lifecycle::ModeBeForce,
-    mode_tp3: smc::v12::signals::ModeTp3,
-    scoring_bpr: bool,
-    scoring_sessions: bool,
-    scoring_mega: bool,
-    sweep_requis: bool,
+    modes: &ModesEtude,
 ) -> ResultatReplay {
     let debut = std::time::Instant::now();
     let mut plugin = MoteurV12::nouveau(asset.clone(), tf)
         .avec_amorce(amorce.clone())
-        .avec_mode_be_force(mode)
-        .avec_mode_tp3(mode_tp3)
-        .avec_scoring_bpr(scoring_bpr)
-        .avec_scoring_sessions(scoring_sessions)
-        .avec_scoring_mega_volume(scoring_mega)
-        .avec_sweep_requis(sweep_requis);
+        .avec_mode_be_force(modes.be)
+        .avec_mode_tp3(modes.tp3)
+        .avec_scoring_bpr(modes.scoring_bpr)
+        .avec_scoring_sessions(modes.scoring_sessions)
+        .avec_scoring_mega_volume(modes.scoring_mega)
+        .avec_sweep_requis(modes.sweep_requis)
+        .avec_pd_requis(modes.pd_requis);
     let mut journal = SortieMoteur::vide();
 
     for (i, b) in bougies.iter().enumerate() {
@@ -231,12 +264,13 @@ fn rejouer_bougies_modes(
     // H/L) que le plugin, sinon la comparaison conforme_reference compare
     // deux stratégies différentes.
     let mut reference = SmcV12Engine::new(asset.as_str(), tf.as_str())
-        .avec_mode_be_force(mode)
-        .avec_mode_tp3(mode_tp3)
-        .avec_scoring_bpr(scoring_bpr)
-        .avec_scoring_sessions(scoring_sessions)
-        .avec_scoring_mega_volume(scoring_mega)
-        .avec_sweep_requis(sweep_requis);
+        .avec_mode_be_force(modes.be)
+        .avec_mode_tp3(modes.tp3)
+        .avec_scoring_bpr(modes.scoring_bpr)
+        .avec_scoring_sessions(modes.scoring_sessions)
+        .avec_scoring_mega_volume(modes.scoring_mega)
+        .avec_sweep_requis(modes.sweep_requis)
+        .avec_pd_requis(modes.pd_requis);
     if let Some(premiere) = bougies.first() {
         reference.primer_mtf_amorce(&amorce, premiere.timestamp.timestamp());
     }

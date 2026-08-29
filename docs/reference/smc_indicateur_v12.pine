@@ -220,6 +220,17 @@ bool  i_megaVolScore = true
 float i_megaVolMult  = 2.0
 int   i_megaVolPts   = 2
 
+// ── R2 — P/D DIRECTIONNEL : REJETÉ (étude étape 3, 29/08) ───────────────────
+// La porte canonique « jamais acheter en premium / vendre en discount » a été
+// mesurée par comparatif_pd (6 assets × M1/M5/M15) : ON +743.2R / 2 834 vs
+// OFF +791.1R / 3 111 → −47.9R. Même motif que R1 (sweep) : R moyen légèrement
+// meilleur (0.262 vs 0.254) mais les 277 trades filtrés restaient rentables
+// (+0.17R en moyenne). Incohérent par asset : améliore BTC (+9R M15) et
+// NAS M5, dégrade XAU/XAG M15 (−15 à −17R) — une porte par asset serait de
+// l'overfitting. VERDICT : porte retirée — le P/D reste scoré (+1 v11,
+// _bsPdScore directionnel BSZones). Drapeau Rust avec_pd_requis conservé
+// (défaut inactif).
+
 // ── R1 — SWEEP REQUIS : REJETÉ (étude étape 3, 29/08) ───────────────────────
 // La porte canonique « pas de sweep frais, pas de trade » (fenêtre
 // SWEEP_FRESH_BARS : 5 bars M15, 15 M5, 75 M1) a été mesurée par

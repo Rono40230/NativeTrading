@@ -161,6 +161,12 @@ impl MoteurV12 {
         self
     }
 
+    /// R2 — porte P/D directionnel en qualification v11 (étude étape 3).
+    pub fn avec_pd_requis(mut self, actif: bool) -> Self {
+        self.moteur = self.moteur.avec_pd_requis(actif);
+        self
+    }
+
     /// Applique l'amorce une seule fois, au premier bar vu (t0 = son ts).
     fn appliquer_amorce_si_premiere(&mut self, ts: i64) {
         if self.amorce_appliquee {

@@ -18,7 +18,8 @@
 use super::calibration::{AssetCalibration, SlMode};
 use super::scoring_bs_zones::ScoringBsZones;
 use super::scoring_v11::ScoringV11;
-use super::trade::{Side, Trade, TradeSource, TradeState};
+use super::signals_levels::{make_trade, nearest_liq, sl_min_max};
+use super::trade::{Trade, TradeSource, TradeState};
 use super::types::{BarInput, FvgZone, ObState, ObZone, SmcOutput};
 
 /// Force minimale du signal (/10) — `i_forceMin` codé en dur v11 (Pine 2162).
@@ -54,6 +55,12 @@ pub struct SignalGenerator {
     /// concerné (zones nées de disp+sweep). Défaut inactif = production
     /// pré-verdict ; l'étude comparatif_sweep tranche.
     sweep_requis: bool,
+    /// R2 (étude étape 3, 29/08) : porte P/D directionnel — canon ICT
+    /// « jamais acheter en premium, vendre en discount ». Qualification v11 :
+    /// trade bull interdit si close en premium, bear interdit en discount
+    /// (la zone de tolérance équilibre laisse passer). Défaut inactif =
+    /// production pré-verdict ; l'étude comparatif_pd tranche.
+    pd_requis: bool,
 }
 
 impl SignalGenerator {
@@ -65,6 +72,7 @@ impl SignalGenerator {
             // Décision DoL≤3R 28/08 (validated replay 24 mois) — production.
             mode_tp3: ModeTp3::DolCappe3R,
             sweep_requis: false,
+            pd_requis: false,
         }
     }
 
@@ -76,6 +84,11 @@ impl SignalGenerator {
     /// Active/désactive la porte R1 (sweep requis en qualification v11).
     pub fn definir_sweep_requis(&mut self, actif: bool) {
         self.sweep_requis = actif;
+    }
+
+    /// Active/désactive la porte R2 (P/D directionnel en qualification v11).
+    pub fn definir_pd_requis(&mut self, actif: bool) {
+        self.pd_requis = actif;
     }
 
     /// Reset du flag anti-double-trade (Pine 2358-2359) — à appeler en début de bar.
@@ -199,10 +212,18 @@ impl SignalGenerator {
                 } else {
                     out.sweep.sweep_bear_frais
                 });
+            // R2 : jamais acheter en premium / vendre en discount (canon ICT).
+            let pd_ok = !self.pd_requis
+                || (if is_bull {
+                    !out.premium_discount.in_premium
+                } else {
+                    !out.premium_discount.in_discount
+                });
             let qual = sc_r >= SEUIL_TRADE
                 && ScoringV11::force(sc_r, cal) >= FORCE_MIN
                 && zn_ok
-                && sweep_ok;
+                && sweep_ok
+                && pd_ok;
             if !qual {
                 continue;
             }
@@ -398,107 +419,6 @@ impl Default for SignalGenerator {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Construit un `Trade` (factoring du dispatch buy/sell).
-#[allow(clippy::too_many_arguments)]
-fn make_trade(
-    id: u64,
-    source: TradeSource,
-    is_bull: bool,
-    entry: f64,
-    sl: f64,
-    tp1: f64,
-    tp2: f64,
-    tp3: f64,
-    score: i32,
-    risk0: f64,
-    bar: &BarInput,
-    bar_index: usize,
-    ob_key: Option<usize>,
-) -> Trade {
-    let side = if is_bull { Side::Buy } else { Side::Sell };
-    let mut t = Trade::new_buy(
-        id, source, entry, sl, tp1, tp2, tp3, score, risk0, bar, bar_index, ob_key,
-    );
-    t.side = side;
-    t
-}
-
-/// `_slMin` / `_slMax` (Pine 2424-2435) — en × ATR14 (atr toujours présent après warmup).
-fn sl_min_max(cal: &AssetCalibration, atr: f64) -> (f64, f64) {
-    let sl_min = if cal.is_xau {
-        0.5 * atr
-    } else if cal.is_xag {
-        0.6 * atr
-    } else if cal.is_nas || cal.is_spx {
-        0.5 * atr
-    } else if cal.is_btc {
-        0.8 * atr
-    } else if cal.is_dax {
-        0.5 * atr
-    } else {
-        0.0
-    };
-    let sl_max = if cal.is_xau {
-        1.5 * atr
-    } else if cal.is_xag {
-        1.8 * atr
-    } else if cal.is_nas || cal.is_spx {
-        1.5 * atr
-    } else if cal.is_btc {
-        2.5 * atr
-    } else if cal.is_dax {
-        1.5 * atr
-    } else {
-        1e10
-    };
-    (sl_min, sl_max)
-}
-
-/// Liquidité la plus proche au-delà de l'entrée (Pine 3460-3470 / 3607-3617).
-/// Bull : EQH/PDH/PWH > entry → min. Bear : EQL/PDL/PWL < entry → max.
-/// `inclut_asian_hl` : + _ahHighDrawn/_ahLowDrawn (v11 seulement, Pine `_tAHH3`).
-fn nearest_liq(out: &SmcOutput, entry: f64, is_bull: bool, inclut_asian_hl: bool) -> Option<f64> {
-    let cands: Vec<f64> = if is_bull {
-        [
-            out.liquidite.dernier_eqh_level,
-            out.liquidite.pdh_active,
-            out.liquidite.pwh_active,
-        ]
-        .into_iter()
-        .flatten()
-        .chain(if inclut_asian_hl {
-            out.asian_hl.high
-        } else {
-            None
-        })
-        .filter(|&v| v > entry)
-        .collect()
-    } else {
-        [
-            out.liquidite.dernier_eql_level,
-            out.liquidite.pdl_active,
-            out.liquidite.pwl_active,
-        ]
-        .into_iter()
-        .flatten()
-        .chain(if inclut_asian_hl {
-            out.asian_hl.low
-        } else {
-            None
-        })
-        .filter(|&v| v < entry)
-        .collect()
-    };
-    if cands.is_empty() {
-        return None;
-    }
-    Some(if is_bull {
-        cands.into_iter().fold(f64::INFINITY, f64::min)
-    } else {
-        cands.into_iter().fold(f64::NEG_INFINITY, f64::max)
-    })
 }
 
 #[cfg(test)]

@@ -32,6 +32,7 @@ pub mod scoring_bs_zones;
 pub mod scoring_v11;
 pub mod sentiment;
 pub mod signals;
+pub mod signals_levels;
 pub mod structure;
 pub mod sweep;
 #[cfg(test)]
@@ -235,6 +236,13 @@ impl SmcV12Engine {
     /// pré-verdict ; l'étude comparatif_sweep tranche.
     pub fn avec_sweep_requis(mut self, actif: bool) -> Self {
         self.signals.definir_sweep_requis(actif);
+        self
+    }
+
+    /// R2 (étude étape 3) : porte P/D directionnel (« jamais acheter en
+    /// premium, vendre en discount ») en qualification v11.
+    pub fn avec_pd_requis(mut self, actif: bool) -> Self {
+        self.signals.definir_pd_requis(actif);
         self
     }
 
