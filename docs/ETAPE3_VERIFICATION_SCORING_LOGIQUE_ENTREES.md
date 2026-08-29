@@ -193,11 +193,11 @@ complémentarité v11/BS observée dans les replays.
 | ~~R1~~ | ~~Sweep obligatoire (ou ≤ N bars) pour qualifier un trade~~ | ✅ ÉTUDE FAITE 29/08 → **REJETÉ** (−577.3R) | fait | Verdict ci-dessous |
 | ~~R2~~ | ~~P/D directionnel en znQual~~ | ✅ ÉTUDE FAITE 29/08 → **REJETÉ** (−47.9R) | fait | Verdict ci-dessous |
 | ~~R3~~ | ~~Entrée confirmation LTF~~ | ✅ SONDE 29/08 → **MORT-NÉ** (confirmation avant fill : 0-3% des remplis) | sonde | Verdict ci-dessous |
-| **R4** | **Confluence MTF sur HTF clôturé** (mesurer le coût du repaint : 2 branches) | étude | ½ session | Meilleure pratique anti-lookahead ; choix actuel assumé mais jamais mesuré |
-| R5 | Containment **directionnel** MTF (le prix dans un OB HTF du sens du trade, pas juste existence) | correctif scoring + étude | ½ session | Impureté logique identifiée §5 |
-| R6 | Invalideur fatal **inducement** (EQH/EQL non consommés sous l'entrée → pas de trade) | porte + étude | 1 session | Concept clé canon absent ; EQH/EQL déjà détectés (brique disponible) |
-| R7 | **Risque gradué par force** (F≥7 → risque plein, F4-6 → demi-risque) | exécution + étude | ½ session | Modèle fxnx (grades A/B) ; s'interface avec l'onglet gestion du risque |
-| R8 | **Biais D1 comme gate MTF supérieure** (skip jour si contradiction H4/D1) | porte + étude | ½ session | Étape 1 canon ; D1 déjà en base (amorce MN) |
+| ~~R4~~ | ~~Confluence MTF sur HTF clôturé~~ | ✅ ÉTUDE 29/08 → **NEUTRE** (−4.0R, négligeable) | fait | Verdict ci-dessous |
+| ~~R5~~ | ~~Containment directionnel MTF~~ | ✅ ÉTUDE 29/08 → **REJETÉ** (−17.9R) | fait | Verdict ci-dessous |
+| ~~R6~~ | ~~Invalideur fatal inducement~~ | ✅ POST-HOC 29/08 → **REJETÉ** (événement rare, trades AVEC inducement meilleurs) | fait | Verdict ci-dessous |
+| ~~R7~~ | ~~Risque gradué par force~~ | ✅ POST-HOC 29/08 → **REJETÉ** (bucket faible-force positif à tous les seuils) | fait | Verdict ci-dessous |
+| ~~R8~~ | ~~Biais D1 comme gate~~ | ✅ POST-HOC 29/08 → **REJETÉ** (trades contraires au biais légèrement MEILLEURS) | fait | Verdict ci-dessous |
 
 Toutes passent par la discipline établie : Pine étalon d'abord → portage
 Rust derrière drapeau → `comparatif_*` 6 assets × M1/M5/M15 → règle des

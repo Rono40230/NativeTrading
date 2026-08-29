@@ -55,8 +55,12 @@ pub struct ModesEtude {
     pub scoring_mega: bool,
     /// Porte sweep frais requis (inactif — étude 29/08 : −577.3R).
     pub sweep_requis: bool,
-    /// Porte P/D directionnel (R2, étude en cours).
+    /// Porte P/D directionnel (R2 — rejetée 29/08 : −47.9R).
     pub pd_requis: bool,
+    /// Confluences MTF sur HTF clôturé seul (R4, étude en cours).
+    pub mtf_cloture: bool,
+    /// Confluences MTF à containment directionnel (R5, étude en cours).
+    pub mtf_directionnel: bool,
 }
 
 impl Default for ModesEtude {
@@ -69,6 +73,8 @@ impl Default for ModesEtude {
             scoring_mega: true,
             sweep_requis: false,
             pd_requis: false,
+            mtf_cloture: false,
+            mtf_directionnel: false,
         }
     }
 }
@@ -228,7 +234,9 @@ fn rejouer_bougies_modes(
         .avec_scoring_sessions(modes.scoring_sessions)
         .avec_scoring_mega_volume(modes.scoring_mega)
         .avec_sweep_requis(modes.sweep_requis)
-        .avec_pd_requis(modes.pd_requis);
+        .avec_pd_requis(modes.pd_requis)
+        .avec_mtf_cloture(modes.mtf_cloture)
+        .avec_mtf_directionnel(modes.mtf_directionnel);
     let mut journal = SortieMoteur::vide();
 
     for (i, b) in bougies.iter().enumerate() {
@@ -270,7 +278,9 @@ fn rejouer_bougies_modes(
         .avec_scoring_sessions(modes.scoring_sessions)
         .avec_scoring_mega_volume(modes.scoring_mega)
         .avec_sweep_requis(modes.sweep_requis)
-        .avec_pd_requis(modes.pd_requis);
+        .avec_pd_requis(modes.pd_requis)
+        .avec_mtf_cloture(modes.mtf_cloture)
+        .avec_mtf_directionnel(modes.mtf_directionnel);
     if let Some(premiere) = bougies.first() {
         reference.primer_mtf_amorce(&amorce, premiere.timestamp.timestamp());
     }

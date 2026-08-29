@@ -167,6 +167,18 @@ impl MoteurV12 {
         self
     }
 
+    /// R4 — confluences MTF sur HTF clôturé seul (étude étape 3).
+    pub fn avec_mtf_cloture(mut self, actif: bool) -> Self {
+        self.moteur = self.moteur.avec_mtf_cloture(actif);
+        self
+    }
+
+    /// R5 — confluences MTF à containment directionnel (étude étape 3).
+    pub fn avec_mtf_directionnel(mut self, actif: bool) -> Self {
+        self.moteur = self.moteur.avec_mtf_directionnel(actif);
+        self
+    }
+
     /// Applique l'amorce une seule fois, au premier bar vu (t0 = son ts).
     fn appliquer_amorce_si_premiere(&mut self, ts: i64) {
         if self.amorce_appliquee {

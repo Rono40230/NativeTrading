@@ -162,6 +162,12 @@ impl HtfAggregator {
             out.push(c);
         }
     }
+
+    /// R4 : série sans la bougie HTF en formation (HTF clôturé seul).
+    fn series_cloturee(&self, out: &mut Vec<BarInput>) {
+        out.clear();
+        out.extend_from_slice(&self.closed);
+    }
 }
 
 /// Historique HTF (H1/H4/W1/MN) pour l'amorçage du détecteur MTF.
@@ -409,6 +415,19 @@ fn confluence(close: f64, state: &HtfState) -> bool {
     false
 }
 
+/// R5 (étude étape 3) : containment par sens — (close ∈ zone bull, close ∈ zone bear).
+fn confluence_dir(close: f64, state: &HtfState) -> (bool, bool) {
+    let bull = state
+        .bull_obs
+        .iter()
+        .any(|z| close >= z.bot && close <= z.top);
+    let bear = state
+        .bear_obs
+        .iter()
+        .any(|z| close >= z.bot && close <= z.top);
+    (bull, bear)
+}
+
 /// Détecteur MTF — agrège H1/H4/W1/MN et calcule les confluences OB HTF.
 #[derive(Clone)]
 pub struct MtfDetector {
@@ -418,6 +437,9 @@ pub struct MtfDetector {
     mn: HtfAggregator,
     sw_len: usize,
     last_event: MtfEvent,
+    /// R4 (étude étape 3) : n'évalue `f_htf` que sur les bougies HTF
+    /// CLÔTURÉES (exclut `cur`) — mesure du coût du repaint live.
+    cloture_seulement: bool,
 }
 
 impl MtfDetector {
@@ -429,7 +451,14 @@ impl MtfDetector {
             mn: HtfAggregator::new(Period::Month),
             sw_len: HTF_SWING,
             last_event: MtfEvent::default(),
+            cloture_seulement: false,
         }
+    }
+
+    /// R4 : évaluation sur HTF clôturé uniquement (défaut = live, parité Pine).
+    pub fn avec_cloture_seulement(mut self, actif: bool) -> Self {
+        self.cloture_seulement = actif;
+        self
     }
 
     /// Amorce les 4 agrégateurs avec l'historique HTF de la DB (avant replay LTF).
@@ -456,34 +485,62 @@ impl MtfDetector {
 
     /// Traite une bar LTF : agrège les 4 TF, rejoue `f_htf`, calcule les confluences.
     pub fn update(&mut self, bar: &BarInput) -> MtfEvent {
-        // Tampon réutilisé (série HTF = closed + cur).
+        // Tampon réutilisé (série HTF = closed + cur, sauf mode clôturé R4).
         let mut series: Vec<BarInput> = Vec::new();
 
         self.h1.add(bar);
-        self.h1.series(&mut series);
+        if self.cloture_seulement {
+            self.h1.series_cloturee(&mut series);
+        } else {
+            self.h1.series(&mut series);
+        }
         let h1_state = replay_htf(&series, self.sw_len);
         let confluence_h1 = confluence(bar.close, &h1_state);
+        let (confluence_h1_bull, confluence_h1_bear) = confluence_dir(bar.close, &h1_state);
 
         self.h4.add(bar);
-        self.h4.series(&mut series);
+        if self.cloture_seulement {
+            self.h4.series_cloturee(&mut series);
+        } else {
+            self.h4.series(&mut series);
+        }
         let h4_state = replay_htf(&series, self.sw_len);
         let confluence_h4 = confluence(bar.close, &h4_state);
+        let (confluence_h4_bull, confluence_h4_bear) = confluence_dir(bar.close, &h4_state);
 
         self.w1.add(bar);
-        self.w1.series(&mut series);
+        if self.cloture_seulement {
+            self.w1.series_cloturee(&mut series);
+        } else {
+            self.w1.series(&mut series);
+        }
         let w1_state = replay_htf(&series, self.sw_len);
         let confluence_w1 = confluence(bar.close, &w1_state);
+        let (confluence_w1_bull, confluence_w1_bear) = confluence_dir(bar.close, &w1_state);
 
         self.mn.add(bar);
-        self.mn.series(&mut series);
+        if self.cloture_seulement {
+            self.mn.series_cloturee(&mut series);
+        } else {
+            self.mn.series(&mut series);
+        }
         let mn_state = replay_htf(&series, self.sw_len);
         let confluence_mn = confluence(bar.close, &mn_state);
+        let (confluence_mn_bull, confluence_mn_bear) = confluence_dir(bar.close, &mn_state);
 
         let ev = MtfEvent {
             confluence_h1,
             confluence_h4,
             confluence_w1,
             confluence_mn,
+            confluence_h1_bull,
+            confluence_h1_bear,
+            confluence_h4_bull,
+            confluence_h4_bear,
+            confluence_w1_bull,
+            confluence_w1_bear,
+            confluence_mn_bull,
+            confluence_mn_bear,
             h1: h1_state,
             h4: h4_state,
             w1: w1_state,

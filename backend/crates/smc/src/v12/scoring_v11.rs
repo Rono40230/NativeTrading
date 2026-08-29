@@ -76,7 +76,7 @@ impl ScoringV11 {
         bar: &BarInput,
         cal: &AssetCalibration,
     ) -> i32 {
-        Self::live_score_detaille(is_bull, out, bar, cal, None, None).0
+        Self::live_score_detaille(is_bull, out, bar, cal, None, None, false).0
     }
 
     /// `live_score` + liste des composantes actives (diag MQL5 `diagFlags` :
@@ -89,6 +89,7 @@ impl ScoringV11 {
         cal: &AssetCalibration,
         sess_hl: Option<&SessHlLevels>,
         mega_vol: Option<bool>,
+        mtf_directionnel: bool,
     ) -> (i32, Vec<&'static str>) {
         let atr = out.atr14;
         let mut sc: i32 = 0;
@@ -160,35 +161,47 @@ impl ScoringV11 {
             sc += cal.w_atr;
             flags.push("ATR");
         }
-        // 7. Confluence H4 (+4) — `not na(h4BullTop)` = au moins 1 OB bull H4.
-        if out.mtf.confluence_h4
-            && (is_bull && !out.mtf.h4.bull_obs.is_empty()
-                || !is_bull && !out.mtf.h4.bear_obs.is_empty())
-        {
+        // 7-10. Confluences HTF — deux sémantiques :
+        //   - production (Pine, parité) : flag direction-agnostique + EXISTENCE
+        //     d'un OB du sens du trade (pas containment) ;
+        //   - R5 (étude étape 3) : containment DIRECTIONNEL — le close est
+        //     DANS une zone OB du sens du trade (correctif de l'impureté).
+        let (c_h4, c_h1, c_w1, c_mn) = if mtf_directionnel {
+            (
+                is_bull && out.mtf.confluence_h4_bull || !is_bull && out.mtf.confluence_h4_bear,
+                is_bull && out.mtf.confluence_h1_bull || !is_bull && out.mtf.confluence_h1_bear,
+                is_bull && out.mtf.confluence_w1_bull || !is_bull && out.mtf.confluence_w1_bear,
+                is_bull && out.mtf.confluence_mn_bull || !is_bull && out.mtf.confluence_mn_bear,
+            )
+        } else {
+            (
+                out.mtf.confluence_h4
+                    && (is_bull && !out.mtf.h4.bull_obs.is_empty()
+                        || !is_bull && !out.mtf.h4.bear_obs.is_empty()),
+                out.mtf.confluence_h1
+                    && (is_bull && !out.mtf.h1.bull_obs.is_empty()
+                        || !is_bull && !out.mtf.h1.bear_obs.is_empty()),
+                out.mtf.confluence_w1
+                    && (is_bull && !out.mtf.w1.bull_obs.is_empty()
+                        || !is_bull && !out.mtf.w1.bear_obs.is_empty()),
+                out.mtf.confluence_mn
+                    && (is_bull && !out.mtf.mn.bull_obs.is_empty()
+                        || !is_bull && !out.mtf.mn.bear_obs.is_empty()),
+            )
+        };
+        if c_h4 {
             sc += 4;
             flags.push("H4");
         }
-        // 8. Confluence H1 (+1).
-        if out.mtf.confluence_h1
-            && (is_bull && !out.mtf.h1.bull_obs.is_empty()
-                || !is_bull && !out.mtf.h1.bear_obs.is_empty())
-        {
+        if c_h1 {
             sc += 1;
             flags.push("H1");
         }
-        // 9. Confluence W1 (+5).
-        if out.mtf.confluence_w1
-            && (is_bull && !out.mtf.w1.bull_obs.is_empty()
-                || !is_bull && !out.mtf.w1.bear_obs.is_empty())
-        {
+        if c_w1 {
             sc += 5;
             flags.push("W1");
         }
-        // 10. Confluence MN (+6).
-        if out.mtf.confluence_mn
-            && (is_bull && !out.mtf.mn.bull_obs.is_empty()
-                || !is_bull && !out.mtf.mn.bear_obs.is_empty())
-        {
+        if c_mn {
             sc += 6;
             flags.push("MN");
         }
@@ -313,12 +326,13 @@ impl ScoringV11 {
         bpr_zones: &[BprZone],
         sess_hl: Option<&SessHlLevels>,
         mega_vol: Option<bool>,
+        mtf_directionnel: bool,
     ) {
         let atr = out.atr14;
         let (live_bull, flags_bull) =
-            Self::live_score_detaille(true, out, bar, cal, sess_hl, mega_vol);
+            Self::live_score_detaille(true, out, bar, cal, sess_hl, mega_vol, mtf_directionnel);
         let (live_bear, flags_bear) =
-            Self::live_score_detaille(false, out, bar, cal, sess_hl, mega_vol);
+            Self::live_score_detaille(false, out, bar, cal, sess_hl, mega_vol, mtf_directionnel);
 
         // Bull.
         let mut alive_bull: std::collections::HashSet<usize> = std::collections::HashSet::new();

@@ -496,6 +496,17 @@ pub struct MtfEvent {
     pub confluence_h4: bool,
     pub confluence_w1: bool,
     pub confluence_mn: bool,
+    /// R5 (étude étape 3) : containment DIRECTIONNEL — close ∈ une zone OB du
+    /// sens indiqué. Le flag historique reste direction-agnostique (parité
+    /// Pine) ; l'étude comparatif passe_finale mesure la correction.
+    pub confluence_h1_bull: bool,
+    pub confluence_h1_bear: bool,
+    pub confluence_h4_bull: bool,
+    pub confluence_h4_bear: bool,
+    pub confluence_w1_bull: bool,
+    pub confluence_w1_bear: bool,
+    pub confluence_mn_bull: bool,
+    pub confluence_mn_bear: bool,
     pub h1: HtfState,
     pub h4: HtfState,
     pub w1: HtfState,

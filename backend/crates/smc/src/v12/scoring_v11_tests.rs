@@ -90,7 +90,7 @@ fn accum_scores_sticky_max() {
         timestamp: 0,
         is_ib: false,
     };
-    s.update(&out, &bar, &c, &[ob], &[], &[], None, None);
+    s.update(&out, &bar, &c, &[ob], &[], &[], None, None, false);
     let sc1 = s.ob_score(true, 5);
     assert!(
         sc1 >= 8,
@@ -101,7 +101,7 @@ fn accum_scores_sticky_max() {
     let mut out2 = SmcOutput::default();
     out2.atr14 = 2.0;
     let bar2 = BarInput::new(103.0, 104.0, 102.0, 103.0);
-    s.update(&out2, &bar2, &c, &[ob], &[], &[], None, None);
+    s.update(&out2, &bar2, &c, &[ob], &[], &[], None, None, false);
     let sc2 = s.ob_score(true, 5);
     assert_eq!(
         sc2, sc1,

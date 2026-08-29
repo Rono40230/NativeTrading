@@ -127,6 +127,9 @@ pub struct SmcV12Engine {
     /// Bonus Module H (mega-orders volume ≥ 2× SMA20) — défaut ACTIF (étalon
     /// Pine pré-verdict ; l'étude comparatif_mega tranche).
     mega_vol_scoring: bool,
+    /// R5 (étude étape 3) : confluences MTF à containment directionnel
+    /// (défaut inactif = parité Pine).
+    mtf_directionnel: bool,
     /// Bonus Module F (sessions H/L) — défaut INACTIF : étude comparatif_sessions
     /// du 28/08 = ON ≡ OFF bit-à-bit (2 771 clôtures, zéro trade changé ; la
     /// sonde probe_sessions prouve que le greffon s'activait — le +2 n'a
@@ -167,6 +170,7 @@ impl SmcV12Engine {
             london_hl_prec: asian_hl::AsianHlEvent::default(),
             sess_hl_scoring: false,
             mega_vol_scoring: true,
+            mtf_directionnel: false,
             scoring_bs: ScoringBsZones::new(),
             signals: SignalGenerator::new(),
             lifecycle: TradeLifecycle::new(trade_max_secs, tp3_max_secs),
@@ -243,6 +247,20 @@ impl SmcV12Engine {
     /// premium, vendre en discount ») en qualification v11.
     pub fn avec_pd_requis(mut self, actif: bool) -> Self {
         self.signals.definir_pd_requis(actif);
+        self
+    }
+
+    /// R4 (étude étape 3) : confluences MTF évaluées sur HTF CLÔTURÉ seul
+    /// (défaut = live, parité Pine — mesure du coût du repaint).
+    pub fn avec_mtf_cloture(mut self, actif: bool) -> Self {
+        self.mtf = self.mtf.clone().avec_cloture_seulement(actif);
+        self
+    }
+
+    /// R5 (étude étape 3) : confluences MTF à containment DIRECTIONNEL
+    /// (close dans une zone du sens du trade, vs flag agnostique + existence).
+    pub fn avec_mtf_directionnel(mut self, actif: bool) -> Self {
+        self.mtf_directionnel = actif;
         self
     }
 
@@ -446,6 +464,7 @@ impl SmcV12Engine {
             } else {
                 None
             };
+            let mtf_dir = self.mtf_directionnel;
             // Module H — mega-order : volume[1] ≥ 2× SMA20[1] (même fenêtre
             // que le _volScore BSZones : bars [1..20], bougie courante exclue).
             let mega_vol = if self.mega_vol_scoring {
@@ -457,6 +476,7 @@ impl SmcV12Engine {
             };
             self.scoring_v11.update(
                 &out, bar, &self.calibration, ob_bull, ob_bear, bpr_zones, sess_hl, mega_vol,
+                mtf_dir,
             );
         }
         // 20. Scoring BSZones — naissances (gate HTF) + lifecycle (mitigation)
