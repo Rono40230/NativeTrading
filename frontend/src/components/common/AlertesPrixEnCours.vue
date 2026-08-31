@@ -49,17 +49,18 @@ interface AlertePrix {
   prix: number
   sens: string
   note: string | null
-  active: number
+  /** L'API sérialise en booléen (true/false), la table en 1/0 — les deux acceptés. */
+  active: boolean | number
   cree_le: number
   declenchee_le: number | null
 }
 
 const alertesToutes = ref<AlertePrix[]>([])
 
-const alertes = computed(() => alertesToutes.value.filter(a => a.active === 1))
+const alertes = computed(() => alertesToutes.value.filter(a => !!a.active))
 const declenchees = computed(() =>
   alertesToutes.value
-    .filter(a => a.active === 0 && a.declenchee_le && Date.now() / 1000 - a.declenchee_le < 86400)
+    .filter(a => !a.active && a.declenchee_le && Date.now() / 1000 - a.declenchee_le < 86400)
     .sort((a, b) => (b.declenchee_le ?? 0) - (a.declenchee_le ?? 0))
     .slice(0, 3),
 )
