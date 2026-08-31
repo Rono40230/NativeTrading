@@ -107,9 +107,9 @@ type Principal = { to: string; icone: string; label: string; sous?: SousPage[] }
 
 /// Définition des stratégies (bouton = page signaux, ▾ = sous-pages).
 const strategies: Principal[] = [
-  { to: '/smc', icone: '📐', label: 'SMC', sous: [{ to: '/smc/definition', icone: '📖', label: 'Définition' }] },
-  { to: '/straddle', icone: '⚡', label: 'Straddle', sous: [{ to: '/straddle/definition', icone: '📖', label: 'Définition' }] },
-  { to: '/rockets', icone: '🚀', label: 'Rockets', sous: [
+  { to: '/smc', icone: '📐', label: 'Trades SMC en cours', sous: [{ to: '/smc/definition', icone: '📖', label: 'Définition' }] },
+  { to: '/straddle', icone: '⚡', label: 'Trades Straddle en cours', sous: [{ to: '/straddle/definition', icone: '📖', label: 'Définition' }] },
+  { to: '/rockets', icone: '🚀', label: 'Trades Rockets en cours', sous: [
     { to: '/rockets/definition', icone: '📖', label: 'Définition' },
     { to: '/rockets/scanner', icone: '🔭', label: 'Scanner' },
   ] },
