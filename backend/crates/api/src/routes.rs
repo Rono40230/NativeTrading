@@ -86,6 +86,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::signaux_handlers::get_signaux),
         )
         .route(
+            "/api/signaux/mfe",
+            web::post().to(crate::signaux_handlers::post_mfe_signaux),
+        )
+        .route(
             "/api/smc/analyse",
             web::get().to(crate::smc_handlers::analyse_smc),
         )

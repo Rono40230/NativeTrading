@@ -58,6 +58,7 @@
         :filtre-statut="filtreStatut"
         :tri-colonne="triColonne"
         :tri-dir="triDir"
+        :mfe="mfeParId"
         @trier-par="trierPar"
       />
     </div>
@@ -103,6 +104,7 @@ import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
 import RocketsTableau from '@/components/common/RocketsTableau.vue'
 import HistoryTable from '@/components/common/HistoryTable.vue'
 import { useRocketsHistory, rocketToSignal } from '@/composables/useRocketsHistory'
+import { palierMax } from '@/composables/useSignalFormat'
 import SmcAnalyseModal from '@/components/common/SmcAnalyseModal.vue'
 import StraddleAnalyseModal from '@/components/common/StraddleAnalyseModal.vue'
 const alerteStore = useAlerteStore()
@@ -116,6 +118,8 @@ const filtreStrategie = ref('')
 const filtreStatut = ref<'en_cours' | 'cloturees' | ''>('cloturees')
 const triColonne = ref('')
 const triDir = ref<'asc' | 'desc'>('desc')
+/** MFE des trades SL : { [id]: { mfe_r, meilleur_prix } } */
+const mfeParId = ref<Record<string, { mfe_r: number | null; meilleur_prix: number | null }>>({})
 
 const rocketsMode = computed(() => filtreStrategie.value === 'Rockets')
 
@@ -187,6 +191,11 @@ const signauxTries = computed(() => {
     if (col === 'tp1') { va = a.take_profit[0] ?? 0; vb = b.take_profit[0] ?? 0 }
     else if (col === 'tp2') { va = a.take_profit[1] ?? 0; vb = b.take_profit[1] ?? 0 }
     else if (col === 'tp3') { va = a.take_profit[2] ?? 0; vb = b.take_profit[2] ?? 0 }
+    // Tri par R de référence (palier max → R) : −∞ pour les lignes sans palier
+    else if (col === 'r_reference') {
+      va = (a.statut === 'Fermé' ? palierMax(a).rReference : null) ?? Number.NEGATIVE_INFINITY
+      vb = (b.statut === 'Fermé' ? palierMax(b).rReference : null) ?? Number.NEGATIVE_INFINITY
+    }
     else { va = (a as unknown as Record<string, unknown>)[col] ?? ''; vb = (b as unknown as Record<string, unknown>)[col] ?? '' }
     if (typeof va === 'string') va = va.toLowerCase()
     if (typeof vb === 'string') vb = vb.toLowerCase()
@@ -214,12 +223,21 @@ async function charger() {
       ])
       const rocketsConverties = filtreStrategie.value === '' ? rockets.value.map(rocketToSignal) : []
       signaux.value = [...signauxData, ...rocketsConverties]
+      await chargerMfe()
     }
   } catch (e: unknown) {
     alerteStore.afficherErreur(`Erreur chargement: ${(e as Error).message}`)
   } finally {
     chargement.value = false
   }
+}
+
+/** MFE des trades clôturés sur SL — un seul appel batch pour la liste visible. */
+async function chargerMfe() {
+  const idsSl = signaux.value
+    .filter(s => s.statut === 'Fermé' && (s.verdict ?? '').toLowerCase().includes('sl'))
+    .map(s => s.id)
+  mfeParId.value = await apiService.getMfeSignaux(idsSl)
 }
 
 let _pollInterval: ReturnType<typeof setInterval> | null = null

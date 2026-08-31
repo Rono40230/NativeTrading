@@ -69,6 +69,17 @@ export const apiService = {
     return res.data
   },
 
+  /** MFE des trades SL : { [id]: { mfe_r, meilleur_prix } } (ids absents = pas de bougies). */
+  async getMfeSignaux(ids: string[]): Promise<Record<string, { mfe_r: number | null; meilleur_prix: number | null }>> {
+    if (!ids.length) return {}
+    try {
+      const res = await http.post('/api/signaux/mfe', { ids })
+      return res.data
+    } catch {
+      return {}
+    }
+  },
+
   async predictML(asset: string, timeframe = 'M15'): Promise<PredictionML> {
     const res = await http.get('/api/ml/predict', { params: { asset, timeframe } })
     return res.data

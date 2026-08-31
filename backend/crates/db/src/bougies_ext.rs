@@ -8,6 +8,39 @@ use sqlx::Row;
 use crate::Database;
 
 impl Database {
+    /// Extrêmes de prix (plus haut / plus bas) d'un asset sur une fenêtre
+    /// temporelle, sur le timeframe demandé. None si aucune bougie couverte.
+    /// Sert au calcul d'excursion favorable (MFE) des trades historiques.
+    pub async fn extremes_bougies(
+        &self,
+        asset: &str,
+        timeframe: &str,
+        t0: i64,
+        t1: i64,
+    ) -> Result<Option<(f64, f64)>> {
+        let row = sqlx::query(
+            "SELECT MAX(high) as maxi, MIN(low) as mini
+             FROM bougies
+             WHERE asset = ? AND timeframe = ? AND timestamp >= ? AND timestamp <= ?",
+        )
+        .bind(asset)
+        .bind(timeframe)
+        .bind(t0)
+        .bind(t1)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        Ok(row.and_then(|r| {
+            let maxi: Option<f64> = r.get("maxi");
+            let mini: Option<f64> = r.get("mini");
+            match (maxi, mini) {
+                (Some(h), Some(l)) => Some((h, l)),
+                _ => None,
+            }
+        }))
+    }
+
     /// Toutes les bougies d'un asset/timeframe sans plafond (ordre ASC)
     pub async fn obtenir_bougies_toutes(
         &self,

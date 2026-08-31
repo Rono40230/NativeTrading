@@ -5,6 +5,18 @@ use sqlx::Row;
 
 use crate::Database;
 
+/// Ligne `signaux` minimale pour le calcul MFE (excursion favorable avant SL).
+pub struct MfeSignalSql {
+    pub id: String,
+    pub asset: String,
+    pub timeframe: String,
+    pub direction: String,
+    pub prix_entree: f64,
+    pub stop_loss: f64,
+    pub cree_le: i64,
+    pub ferme_le: i64,
+}
+
 impl Database {
     /// Récupère les derniers signaux enregistrés (avec verdict si disponible).
     /// Pour les signaux Straddle (direction=Both), inclut sl_short et take_profit_short.
@@ -70,6 +82,49 @@ impl Database {
             .collect();
 
         Ok(signaux)
+    }
+
+    /// Retourne les données brutes nécessaires au calcul d'excursion favorable
+    /// (MFE) pour une liste d'ids : trades clôturés sur verdict SL uniquement.
+    /// (id, asset, timeframe, direction, prix_entree, stop_loss, cree_le, ferme_le)
+    pub async fn obtenir_signaux_sl_par_ids(
+        &self,
+        ids: &[String],
+    ) -> Result<Vec<MfeSignalSql>> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let bornes = ids
+            .iter()
+            .map(|id| format!("'{}'", id.replace('\'', "''")))
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT id, asset, timeframe, direction, prix_entree, stop_loss, cree_le, ferme_le
+             FROM signaux
+             WHERE statut = 'Fermé'
+               AND LOWER(verdict) IN ('sl', 'sl+be')
+               AND ferme_le IS NOT NULL
+               AND id IN ({bornes})"
+        );
+        let rows = sqlx::query(&sql)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        Ok(rows
+            .iter()
+            .map(|r| MfeSignalSql {
+                id: r.get("id"),
+                asset: r.get("asset"),
+                timeframe: r.get("timeframe"),
+                direction: r.get("direction"),
+                prix_entree: r.get("prix_entree"),
+                stop_loss: r.get("stop_loss"),
+                cree_le: r.get("cree_le"),
+                ferme_le: r.get::<Option<i64>, _>("ferme_le").unwrap_or(0),
+            })
+            .collect())
     }
 
     /// Retourne les N derniers signaux d'un asset pour injection dans les prompts LLM.

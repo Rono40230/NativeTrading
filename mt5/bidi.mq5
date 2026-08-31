@@ -1,0 +1,1 @@
+/home/rono/Applis Nono/EA MT5/BIDI/bidi.mq5

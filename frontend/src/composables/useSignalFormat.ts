@@ -120,8 +120,92 @@ export function formatR(r: number | null): string {
 }
 
 export function classeR(r: number | null): string {
-  if (r === null) return '';
-  if (r > 0) return 'text-emerald-400 font-bold';
-  if (r < 0) return 'text-red-400 font-bold';
-  return 'text-gray-400 font-bold';
+  if (r === null) return ''
+  if (r > 0) return 'text-emerald-400 font-bold'
+  if (r < 0) return 'text-red-400 font-bold'
+  return 'text-gray-400 font-bold'
+}
+
+// ── Palier max atteint & R de référence (spéc propriétaire 31/08) ────────────
+// La vérité qui juge l'entrée est l'EXTRÊME atteint (SL ou TP max touché),
+// pas la sortie. Le R de référence se déduit des niveaux stockés :
+//   SMC      : dist(tp_n)/risque (TP1 ≈ 0.6R post-étape 4, TP2 = 2R…)
+//   Straddle : idem MOINS 1R de la jambe perdante (TP2 touché = +1R net)
+
+interface SignalPalier {
+  strategie?: string | null
+  direction: string
+  prix_entree: number
+  stop_loss: number
+  take_profit: number[]
+  verdict?: string | null
+}
+
+export interface PalierMax {
+  palier: 'SL' | 'TP1' | 'TP2' | 'TP3' | 'BE' | 'Expiré' | 'Non rempli' | null
+  rReference: number | null
+}
+
+function rNiveau(niveau: number, entree: number, sl: number): number | null {
+  const risque = Math.abs(entree - sl)
+  if (risque < 1e-9) return null
+  return Math.abs(niveau - entree) / risque
+}
+
+export function palierMax(s: SignalPalier): PalierMax {
+  const v = s.verdict?.toLowerCase() ?? ''
+  const straddle = (s.strategie ?? '').toLowerCase() === 'straddle'
+  const penalite = straddle ? 1 : 0 // la jambe perdante a payé 1R
+  if (v === 'sl' || v === 'sl+be') return { palier: 'SL', rReference: -1 }
+  if (v === 'tp1' || v === 'tp1+be')
+    return { palier: 'TP1', rReference: (rNiveau(s.take_profit[0], s.prix_entree, s.stop_loss) ?? 0) - penalite }
+  if (v === 'tp2' || v === 'tp2+be')
+    return { palier: 'TP2', rReference: (rNiveau(s.take_profit[1] ?? s.take_profit[0], s.prix_entree, s.stop_loss) ?? 0) - penalite }
+  if (v === 'tp3')
+    return { palier: 'TP3', rReference: (rNiveau(s.take_profit[2] ?? s.take_profit[0], s.prix_entree, s.stop_loss) ?? 0) - penalite }
+  if (v === 'be') return { palier: 'BE', rReference: 0 }
+  if (v === 'expire') return { palier: 'Expiré', rReference: null }
+  if (v === 'invalide') return { palier: 'Non rempli', rReference: null }
+  return { palier: null, rReference: null }
+}
+
+export function labelPalierMax(p: PalierMax['palier']): string {
+  switch (p) {
+    case 'SL': return '❌ SL'
+    case 'TP1': return '🎯 TP1'
+    case 'TP2': return '✅ TP2'
+    case 'TP3': return '🏆 TP3'
+    case 'BE': return '⚪ BE'
+    case 'Expiré': return '⏰ Expiré'
+    case 'Non rempli': return '↩️ Non rempli'
+    default: return '—'
+  }
+}
+
+export function classePalierMax(p: PalierMax['palier']): string {
+  switch (p) {
+    case 'TP3': case 'TP2': return 'badge-green'
+    case 'TP1': return 'badge-blue'
+    case 'SL': return 'badge-red'
+    default: return 'badge-gray'
+  }
+}
+
+/** Palier atteint À CET INSTANT par le prix courant (trades ouverts). */
+export function palierActuel(prix: number | null, s: SignalPalier): PalierMax['palier'] {
+  if (prix === null) return null
+  const long = s.direction.toUpperCase() === 'LONG'
+  if (long ? prix <= s.stop_loss : prix >= s.stop_loss) return 'SL'
+  const [tp1, tp2, tp3] = s.take_profit
+  if (tp3 !== undefined && (long ? prix >= tp3 : prix <= tp3)) return 'TP3'
+  if (tp2 !== undefined && tp2 !== null && (long ? prix >= tp2 : prix <= tp2)) return 'TP2'
+  if (long ? prix >= tp1 : prix <= tp1) return 'TP1'
+  return null
+}
+
+/** Libellé MFE : excursion favorable avant le SL (« +0.85R avant SL »). */
+export function formatMfe(mfeR: number | null): string {
+  if (mfeR === null || mfeR === undefined) return ''
+  const sign = mfeR > 0 ? '+' : ''
+  return `${sign}${mfeR.toFixed(2)}R avant SL`
 }
