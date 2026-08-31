@@ -9,8 +9,6 @@
 //! Les prix D1 viennent de Tiingo (clé en table `configuration`).
 
 use actix_web::{web, HttpResponse, Responder};
-use serde::Deserialize;
-
 use crate::state::AppState;
 
 const URL_NASDAQ: &str = "https://www.nasdaqtrader.com/dynamic/SymDir/nasdaqlisted.txt";
@@ -134,32 +132,6 @@ pub async fn charger_univers(state: web::Data<AppState>) -> impl Responder {
 pub async fn lire_univers(state: web::Data<AppState>) -> impl Responder {
     match state.db.univers_actions_actives().await {
         Ok(l) => HttpResponse::Ok().json(serde_json::json!({ "total": l.len(), "tickers": l })),
-        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
-    }
-}
-
-/// PUT /api/rockets/actions/tiingo — enregistre la clé API (table
-/// `configuration`, jamais renvoyée en clair).
-#[derive(Deserialize)]
-pub struct BodyCleTiingo {
-    cle: String,
-}
-pub async fn maj_cle_tiingo(
-    state: web::Data<AppState>,
-    body: web::Json<BodyCleTiingo>,
-) -> impl Responder {
-    let cle = body.cle.trim().to_string();
-    if cle.len() < 10 {
-        return HttpResponse::BadRequest().json(serde_json::json!({ "error": "Clé invalide" }));
-    }
-    let maintenant = chrono::Utc::now().timestamp();
-    let sql = "INSERT INTO configuration (cle, valeur, maj_le) VALUES ('tiingo_api_key', ?, ?)
-               ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur, maj_le = excluded.maj_le";
-    match sqlx::query(sql).bind(&cle).bind(maintenant).execute(state.db.pool()).await {
-        Ok(_) => {
-            tracing::info!("🚀 Clé Tiingo enregistrée ({} caractères)", cle.len());
-            HttpResponse::Ok().json(serde_json::json!({ "ok": true }))
-        }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
     }
 }

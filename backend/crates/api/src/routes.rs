@@ -99,10 +99,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::rockets_actions::lire_univers),
         )
         .route(
-            "/api/rockets/actions/tiingo",
-            web::put().to(crate::rockets_actions::maj_cle_tiingo),
-        )
-        .route(
             "/api/smc/analyse",
             web::get().to(crate::smc_handlers::analyse_smc),
         )

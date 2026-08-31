@@ -62,6 +62,31 @@
       <p class="text-xs text-gray-500 mt-2">Étape 1 : créez un bot via @BotFather — Étape 2 : récupérez votre Chat ID via @getidsbot</p>
     </div>
 
+    <!-- Veille Actions — Tiingo (scanner Rockets actions US) -->
+    <div class="glass-card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-xs uppercase font-bold text-white">Veille Actions — Tiingo</h2>
+          <p class="text-xs text-gray-500 mt-0.5">Prix quotidiens des actions US (volume réel) pour le scanner Rockets — 1 000 requêtes/jour offertes</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded text-xs font-medium transition-colors" @click="sauvegarderTiingo">Enregistrer</button>
+          <span v-if="tiingoSauvegarde" class="text-emerald-400 text-xs">✓</span>
+          <span v-if="tiingoErreur" class="text-red-400 text-xs">⚠️ Erreur</span>
+        </div>
+      </div>
+      <div class="flex gap-3 items-center">
+        <input v-model="tiingoKey" :type="afficherTiingo ? 'text' : 'password'" placeholder="Clé Tiingo..."
+          autocomplete="off"
+          class="bg-gray-700 text-white rounded px-2 py-1.5 w-80 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+          @keyup.enter="sauvegarderTiingo" />
+        <button class="text-xs text-gray-400 hover:text-white transition-colors" @click="afficherTiingo = !afficherTiingo">
+          {{ afficherTiingo ? '🙈 Masquer' : '👁️ Afficher' }}
+        </button>
+        <span class="text-xs text-gray-500">Obtenir une clé gratuite : tiingo.com</span>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -81,19 +106,27 @@ const telegramSauvegarde = ref(false)
 const telegramErreur = ref(false)
 const afficherTelegram = ref(false)
 
+// ── Tiingo (veille actions Rockets) ─────────────────────────────────────────
+const tiingoKey = ref('')
+const tiingoSauvegarde = ref(false)
+const tiingoErreur = ref(false)
+const afficherTiingo = ref(false)
+
 const timers: ReturnType<typeof setTimeout>[] = []
 onUnmounted(() => timers.forEach(clearTimeout))
 
 onMounted(async () => {
   try {
-    const [key, tok, chatId] = await Promise.all([
+    const [key, tok, chatId, tiingo] = await Promise.all([
       apiService.obtenirConfig('anthropic_api_key'),
       apiService.obtenirConfig('telegram_bot_token'),
       apiService.obtenirConfig('telegram_chat_id'),
+      apiService.obtenirConfig('tiingo_api_key'),
     ])
     if (key?.valeur) anthropicKey.value = key.valeur
     if (tok?.valeur) telegramToken.value = tok.valeur
     if (chatId?.valeur) telegramChatId.value = chatId.valeur
+    if (tiingo?.valeur) tiingoKey.value = tiingo.valeur
   } catch {
     // Backend non disponible — valeurs par défaut
   }
@@ -129,6 +162,24 @@ async function sauvegarderTelegram() {
   } catch {
     telegramErreur.value = true
     timers.push(setTimeout(() => { telegramErreur.value = false }, 3000))
+  }
+}
+
+async function sauvegarderTiingo() {
+  const cle = tiingoKey.value.trim()
+  if (cle.length < 10 && cle !== '') {
+    tiingoErreur.value = true
+    timers.push(setTimeout(() => { tiingoErreur.value = false }, 3000))
+    return
+  }
+  try {
+    await apiService.sauvegarderConfig('tiingo_api_key', cle)
+    tiingoSauvegarde.value = true
+    tiingoErreur.value = false
+    timers.push(setTimeout(() => { tiingoSauvegarde.value = false }, 2000))
+  } catch {
+    tiingoErreur.value = true
+    timers.push(setTimeout(() => { tiingoErreur.value = false }, 3000))
   }
 }
 </script>
