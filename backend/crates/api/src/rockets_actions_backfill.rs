@@ -153,8 +153,16 @@ pub async fn backfill_lot(db: &Arc<Database>, taille: usize) -> serde_json::Valu
         }
     }
 
+    let mut echecs_consecutifs = 0u32;
     for ticker in &cibles {
         if budget == 0 {
+            break;
+        }
+        // Coupe-circuit quota glissant : la fenêtre roulante Tiingo peut
+        // encore être saturée alors que notre compteur (heure civile) dit
+        // le contraire — 3 refus d'affilée = on rend la main au prochain lot.
+        if echecs_consecutifs >= 3 {
+            tracing::warn!("🚀 Backfill actions : coupe-circuit après 3 refus (quota glissant Tiingo saturé) — reprise au prochain lot");
             break;
         }
         let deja_backfille = db
@@ -192,8 +200,13 @@ pub async fn backfill_lot(db: &Arc<Database>, taille: usize) -> serde_json::Valu
                 }
             }
             Ok(_) => {} // ticker sans données (delisting…) — pas une erreur
-            Err(_) => echecs += 1,
+            Err(_) => {
+                echecs += 1;
+                echecs_consecutifs += 1;
+                continue;
+            }
         }
+        echecs_consecutifs = 0;
         budget -= 1;
         // Respiration : ~4 req/s pour rester courtois avec l'API.
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
