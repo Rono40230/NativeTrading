@@ -239,10 +239,14 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
         // Ménage : purge des candidats disparus de l'univers.
         tokio::time::sleep(std::time::Duration::from_millis(120)).await;
     }
-    // Candidats non rafraîchis depuis 2 jours : sortis de l'univers actif.
-    let _ = sqlx::query("DELETE FROM rockets_candidats WHERE maj_le < strftime('%s','now') - 2*86400")
-        .execute(db.pool())
-        .await;
+    // Candidats crypto non rafraîchis depuis 2 jours : sortis (les actions
+    // ont leur propre purge — étape C, univers cloisonnés).
+    let _ = sqlx::query(
+        "DELETE FROM rockets_candidats
+         WHERE univers = 'crypto' AND maj_le < strftime('%s','now') - 2*86400",
+    )
+    .execute(db.pool())
+    .await;
 
     // ── RÔLE CATALYSEUR NEWS (analyste qwen3:32b) ── pour chaque candidat,
     // lecture des dépêches des 15 derniers jours → verdict + conviction.

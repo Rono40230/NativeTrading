@@ -103,6 +103,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::rockets_actions::lire_contexte),
         )
         .route(
+            "/api/rockets/actions/scan",
+            web::post().to(crate::rockets_actions_scanner::post_scan),
+        )
+        .route(
+            "/api/rockets/actions/prescreen",
+            web::get().to(crate::rockets_actions_scanner::get_prescreen),
+        )
+        .route(
             "/api/rockets/actions/backfill",
             web::post().to(crate::rockets_actions_backfill::post_backfill),
         )

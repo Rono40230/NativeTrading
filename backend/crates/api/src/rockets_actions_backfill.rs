@@ -137,6 +137,28 @@ pub async fn backfill_lot(db: &Arc<Database>, taille: usize) -> serde_json::Valu
     let mut budget = (taille as i64).min(restant_jour).min(restant_heure) as usize;
 
     let provider = data::providers::tiingo::TiingoProvider::nouveau(cle);
+
+    // Référence de marché (étapes B/C) : QQQ est un ETF, exclu de
+    // l'univers NASDAQ Trader — on l'alimente donc en priorité absolue,
+    // indépendamment de la liste. 1 requête tant qu'il manque.
+    if budget > 0
+        && db
+            .bougies_actions("QQQ")
+            .await
+            .map(|v| v.is_empty())
+            .unwrap_or(true)
+    {
+        if let Ok(bougies) = provider.eod("QQQ", &date_debut_400j()).await {
+            if !bougies.is_empty() {
+                let lignes: Vec<(i64, f64, f64, f64, f64, f64)> = bougies
+                    .iter()
+                    .map(|b| (b.ts, b.open, b.high, b.low, b.close, b.volume))
+                    .collect();
+                let _ = db.inserer_bougies_actions("QQQ", &lignes).await;
+                budget -= 1;
+            }
+        }
+    }
     let mut n_nouveaux = 0usize;
     let mut n_rafraichis = 0usize;
     let mut echecs = 0usize;

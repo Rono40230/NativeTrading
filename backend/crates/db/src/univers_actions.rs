@@ -220,4 +220,75 @@ impl Database {
         .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(rows.iter().map(|r| r.get::<String, _>("ticker")).collect())
     }
+    // ── Scanner actions (étape C) ───────────────────────────────────────────
+
+    /// Tickers de l'univers actif disposant d'assez de bougies pour le
+    /// pré-screen (≥ 261 séances = MM200+1 mois + fenêtre 52 semaines).
+    pub async fn tickers_evaluables(&self) -> Result<Vec<String>> {
+        let rows = sqlx::query(
+            "SELECT b.ticker FROM bougies_actions b
+             JOIN univers_actions u ON u.ticker = b.ticker AND u.etat = 'actif'
+             GROUP BY b.ticker HAVING COUNT(*) >= 261
+             ORDER BY b.ticker",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(rows.iter().map(|r| r.get::<String, _>("ticker")).collect())
+    }
+
+    /// Écrit une ligne de l'entonnoir pré-screen (upsert).
+    pub async fn maj_prescreen(
+        &self,
+        ticker: &str,
+        nom: &str,
+        conditions: i64,
+        points: i64,
+        perf_4s_pct: f64,
+    ) -> Result<()> {
+        let maintenant = chrono::Utc::now().timestamp();
+        sqlx::query(
+            "INSERT INTO prescreen_actions (ticker, nom, conditions, points, perf_4s_pct, maj_le)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(ticker) DO UPDATE SET
+                 nom = excluded.nom, conditions = excluded.conditions,
+                 points = excluded.points, perf_4s_pct = excluded.perf_4s_pct,
+                 maj_le = excluded.maj_le",
+        )
+        .bind(ticker)
+        .bind(nom)
+        .bind(conditions)
+        .bind(points)
+        .bind(perf_4s_pct)
+        .bind(maintenant)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Entonnoir pré-screen : conditions décroissantes.
+    pub async fn lire_prescreen(&self, limite: i64) -> Result<Vec<serde_json::Value>> {
+        let rows = sqlx::query(
+            "SELECT ticker, nom, conditions, points, perf_4s_pct, maj_le
+             FROM prescreen_actions ORDER BY conditions DESC, points DESC LIMIT ?",
+        )
+        .bind(limite)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(rows
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "ticker": r.get::<String, _>("ticker"),
+                    "nom": r.get::<String, _>("nom"),
+                    "conditions": r.get::<i64, _>("conditions"),
+                    "points": r.get::<i64, _>("points"),
+                    "perf_4s_pct": r.get::<f64, _>("perf_4s_pct"),
+                    "maj_le": r.get::<i64, _>("maj_le"),
+                })
+            })
+            .collect())
+    }
 }
