@@ -11,8 +11,8 @@
     <div class="flex-1 min-w-0 flex flex-col gap-2 h-[calc(100vh-5.5rem)] overflow-hidden pb-1">
 
       <div class="flex gap-2 flex-1 min-h-0">
-        <!-- Colonne gauche (remonte en haut de page) : statut, surveillance,
-             créneaux -->
+        <!-- Colonne gauche (remonte en haut de page) : statut, alertes prix,
+             surveillance, créneaux -->
         <div class="w-64 shrink-0 flex flex-col gap-2 min-h-0">
           <DashboardSystemStatus
             :backend-ok="backendOk"
@@ -20,6 +20,7 @@
             :ollama-ok="ollamaOk"
             class="shrink-0"
           />
+          <AlertesPrixEnCours class="shrink-0 max-h-44" />
           <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
         </div>
 
@@ -64,6 +65,7 @@ import EconomicCalendar from '@/components/common/EconomicCalendar.vue'
 import SentimentMarche from '@/components/common/SentimentMarche.vue'
 import AlerteBandeau from '@/components/common/AlerteBandeau.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
+import AlertesPrixEnCours from '@/components/common/AlertesPrixEnCours.vue'
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
 import CreneauxVolatiliteBloc from '@/components/common/CreneauxVolatiliteBloc.vue'
 import DashboardStrategiesBlocs from '@/components/common/DashboardStrategiesBlocs.vue'

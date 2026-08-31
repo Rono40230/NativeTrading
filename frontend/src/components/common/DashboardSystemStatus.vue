@@ -33,9 +33,10 @@
         </span>
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
-        <span class="text-gray-500 text-[9px] uppercase">Alertes Prix</span>
-        <span :class="nbAlertes > 0 ? 'text-amber-400' : 'text-gray-400'" class="text-[10px] font-semibold">
-          {{ nbAlertes > 0 ? `🔔 ${nbAlertes}` : '—' }}
+        <span class="text-gray-500 text-[9px] uppercase">Tiingo Actions</span>
+        <span v-if="tiingoOk === null" class="text-gray-500 text-[10px] font-semibold animate-pulse">⏳</span>
+        <span v-else :class="tiingoOk ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold cursor-help" :title="tiingoTitre">
+          {{ tiingoOk ? `🟢 ${tiingoAvancement}` : '🔴 Erreur' }}
         </span>
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
@@ -60,7 +61,10 @@ defineProps<{
 
 /// MT5 EA : heartbeat < 120 s (l'endpoint porte le seuil).
 const mt5Ok = ref<boolean | null>(null)
-const nbAlertes = ref(0)
+/// Tiingo (veille actions) : vert si l'endpoint répond, avec avancement.
+const tiingoOk = ref<boolean | null>(null)
+const tiingoAvancement = ref('')
+const tiingoTitre = ref('')
 const presseOk = ref(false)
 
 async function sonder() {
@@ -69,9 +73,15 @@ async function sonder() {
     mt5Ok.value = !!r.data?.connecte
   } catch { mt5Ok.value = false }
   try {
-    const r = await http.get('/api/alertes-prix')
-    nbAlertes.value = (r.data as { active?: boolean }[] | null)?.filter(a => a.active)?.length ?? 0
-  } catch { nbAlertes.value = 0 }
+    const r = await http.get('/api/rockets/actions/backfill/etat')
+    const d = r.data as { univers_avec_bougies?: number; univers_total?: number; progression_pct?: number }
+    tiingoOk.value = true
+    tiingoAvancement.value = `${d.univers_avec_bougies ?? 0}/${d.univers_total ?? 0}`
+    tiingoTitre.value = `Veille actions — backfill ${d.progression_pct ?? 0} % de l'univers (volume réel Tiingo)`
+  } catch {
+    tiingoOk.value = false
+    tiingoTitre.value = 'Endpoint veille actions injoignable'
+  }
   try {
     const r = await http.get('/api/presse/briefs')
     presseOk.value = Array.isArray(r.data) ? r.data.length > 0 : !!r.data
