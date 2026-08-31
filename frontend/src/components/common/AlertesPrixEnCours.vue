@@ -13,26 +13,22 @@
       <div
         v-for="a in alertes"
         :key="a.id"
-        class="bg-white/5 rounded px-1.5 py-1 shrink-0"
+        class="flex items-center gap-1 bg-white/5 rounded px-1.5 py-1 shrink-0"
         :title="a.note ? a.note : titreAlerte(a)"
       >
-        <div class="flex items-center gap-1.5">
-          <span class="text-[11px]">{{ a.sens === 'en_dessous' ? '🔻' : '🔺' }}</span>
-          <span class="text-[11px] font-semibold text-white truncate">{{ a.asset }}</span>
-          <span class="ml-auto text-[11px] font-mono text-amber-300 whitespace-nowrap">{{ formaterPrix(a.prix) }}</span>
-        </div>
-        <div class="flex items-center justify-end gap-1 mt-0.5">
-          <button
-            class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-gray-300 hover:text-white transition-colors"
-            title="Ouvrir le graphique de cet asset"
-            @click.stop="voirAlerte(a)"
-          >👁 Voir</button>
-          <button
-            class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-red-600/60 text-gray-300 hover:text-white transition-colors"
-            title="Supprimer l'alerte (bloc + graphique)"
-            @click.stop="supprimerAlerte(a)"
-          >✕ Supprimer</button>
-        </div>
+        <span class="text-[11px]">{{ a.sens === 'en_dessous' ? '🔻' : '🔺' }}</span>
+        <span class="text-[11px] font-semibold text-white truncate">{{ a.asset }}</span>
+        <span class="text-[11px] font-mono text-amber-300 whitespace-nowrap">{{ formaterPrix(a.prix) }}</span>
+        <button
+          class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-gray-300 hover:text-white transition-colors whitespace-nowrap"
+          title="Ouvrir le graphique de cet asset"
+          @click.stop="voirAlerte(a)"
+        >👁</button>
+        <button
+          class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-red-600/60 text-gray-300 hover:text-white transition-colors whitespace-nowrap"
+          title="Supprimer l'alerte (bloc + graphique)"
+          @click.stop="supprimerAlerte(a)"
+        >✕</button>
       </div>
     </div>
 
