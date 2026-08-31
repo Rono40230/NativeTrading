@@ -406,6 +406,9 @@ pub struct SignalEnCours {
 }
 
 /// Performance complète d'une stratégie : courbe R cumulé + stats + en-cours.
+/// Hiérarchie propriétaire 31/08 : le R de référence (palier max atteint —
+/// SL ou TP touché) est la métrique PRIMAIRE (courbe, r_total, WR) ; le R
+/// réalisé (sortie) reste disponible en secondaire (`r_total_realise`).
 #[derive(Debug, Serialize)]
 pub struct PerformanceStrategie {
     pub clotures: Vec<PointCloture>,
@@ -416,7 +419,10 @@ pub struct PerformanceStrategie {
     /// Clôturés sans jamais avoir rempli (ordres non touchés) — à part.
     pub non_remplis: usize,
     pub taux_reussite: f64,
+    /// R total de RÉFÉRENCE (paliers max atteints).
     pub r_total: f64,
+    /// R total RÉALISÉ (sorties réelles) — info secondaire.
+    pub r_total_realise: f64,
 }
 
 impl Database {
@@ -427,7 +433,8 @@ impl Database {
         // STATS = TRADES REMPLIS uniquement (heure_entree non null) : un
         // ordre jamais touché puis expiré n'a jamais engagé de capital.
         let rows = sqlx::query(
-            "SELECT ferme_le, verdict, r_realise, asset, timeframe, direction
+            "SELECT ferme_le, verdict, r_realise, asset, timeframe, direction,
+                    strategie, prix_entree, stop_loss, take_profit
              FROM signaux
              WHERE strategie = ? AND statut = 'Fermé' AND verdict IS NOT NULL
                AND heure_entree IS NOT NULL
@@ -439,20 +446,33 @@ impl Database {
         .map_err(|e| TradingError::Database(e.to_string()))?;
 
         let mut cumul = 0.0;
+        let mut cumul_realise = 0.0;
         let mut clotures = Vec::with_capacity(rows.len());
         let mut gagnants = 0usize;
         for r in &rows {
             let verdict: String = r.get("verdict");
-            let r_val = r.try_get::<f64, _>("r_realise").ok().unwrap_or(0.0);
-            // Gagnant = R réalisé > 0 — englobe TP* (SMC) et TS/TimeStop
-            // positifs (straddle), indépendamment du vocabulaire de verdict.
-            if r_val > 0.0 {
+            let r_realise = r.try_get::<f64, _>("r_realise").ok().unwrap_or(0.0);
+            let tps: Vec<f64> = serde_json::from_str(&r.get::<String, _>("take_profit"))
+                .unwrap_or_default();
+            // R de référence = palier max atteint (SL/TP touché) ; repli sur
+            // le R réalisé quand le verdict ne dit rien (expire, inconnu).
+            let r_ref = crate::signaux_palier::r_reference_palier(
+                &verdict,
+                &r.get::<String, _>("strategie"),
+                r.get::<f64, _>("prix_entree"),
+                r.get::<f64, _>("stop_loss"),
+                &tps,
+            )
+            .unwrap_or(r_realise);
+            // Gagnant = R de référence > 0 (le palier promettait du positif).
+            if r_ref > 0.0 {
                 gagnants += 1;
             }
-            cumul += r_val;
+            cumul += r_ref;
+            cumul_realise += r_realise;
             clotures.push(PointCloture {
                 ferme_le: r.try_get::<i64, _>("ferme_le").ok().unwrap_or(0),
-                r: r_val,
+                r: r_ref,
                 r_cumule: cumul,
                 verdict,
                 asset: r.get("asset"),
@@ -504,6 +524,7 @@ impl Database {
             gagnants,
             non_remplis,
             r_total: cumul,
+            r_total_realise: cumul_realise,
             clotures,
             en_cours,
         })

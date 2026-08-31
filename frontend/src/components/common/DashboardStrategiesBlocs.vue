@@ -61,11 +61,21 @@
         </div>
       </div>
 
-      <!-- Stats + en-cours -->
+      <!-- Stats + en-cours — R de référence (palier max atteint) en métrique
+           primaire, R réalisé (sorties) en info secondaire (spéc 31/08). -->
       <div class="flex items-center gap-4 text-xs">
-        <span class="font-mono font-bold" :class="b.perf.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'">
+        <span
+          class="font-mono font-bold cursor-help"
+          :class="b.perf.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'"
+          title="R de référence : palier max atteint par trade (SL ou TP max touché)"
+        >
           {{ b.perf.r_total >= 0 ? '+' : '' }}{{ b.perf.r_total.toFixed(1) }} R
         </span>
+        <span
+          v-if="b.perf.r_total_realise !== undefined"
+          class="font-mono text-gray-500 cursor-help"
+          title="R réalisé : sorties réelles (trailing, BE, time-stop)"
+        >réalisé {{ b.perf.r_total_realise >= 0 ? '+' : '' }}{{ b.perf.r_total_realise.toFixed(1) }} R</span>
         <span class="text-gray-400">{{ b.perf.total }} trade{{ b.perf.total > 1 ? 's' : '' }} rempli{{ b.perf.total > 1 ? 's' : '' }}</span>
         <span v-if="b.perf.non_remplis > 0" class="text-gray-600" title="Ordres posés jamais touchés par le prix">· {{ b.perf.non_remplis }} jamais remplis</span>
         <span v-if="b.perf.total > 0" class="text-gray-400">WR {{ (b.perf.taux_reussite * 100).toFixed(0) }} %</span>
@@ -118,7 +128,10 @@ interface PerfApi {
   total: number
   non_remplis: number
   taux_reussite: number
+  /** R total de référence (paliers max atteints) — métrique primaire. */
   r_total: number
+  /** R total réalisé (sorties réelles) — info secondaire. */
+  r_total_realise?: number
 }
 interface Bloc {
   id: string; nom: string; icone: string; etat: string; perf: PerfApi
