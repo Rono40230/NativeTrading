@@ -13,12 +13,26 @@
       <div
         v-for="a in alertes"
         :key="a.id"
-        class="flex items-center gap-1.5 bg-white/5 rounded px-1.5 py-1 shrink-0"
+        class="bg-white/5 rounded px-1.5 py-1 shrink-0"
         :title="a.note ? a.note : titreAlerte(a)"
       >
-        <span class="text-[11px]">{{ a.sens === 'en_dessous' ? '🔻' : '🔺' }}</span>
-        <span class="text-[11px] font-semibold text-white truncate">{{ a.asset }}</span>
-        <span class="ml-auto text-[11px] font-mono text-amber-300 whitespace-nowrap">{{ formaterPrix(a.prix) }}</span>
+        <div class="flex items-center gap-1.5">
+          <span class="text-[11px]">{{ a.sens === 'en_dessous' ? '🔻' : '🔺' }}</span>
+          <span class="text-[11px] font-semibold text-white truncate">{{ a.asset }}</span>
+          <span class="ml-auto text-[11px] font-mono text-amber-300 whitespace-nowrap">{{ formaterPrix(a.prix) }}</span>
+        </div>
+        <div class="flex items-center justify-end gap-1 mt-0.5">
+          <button
+            class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-gray-300 hover:text-white transition-colors"
+            title="Ouvrir le graphique de cet asset"
+            @click.stop="voirAlerte(a)"
+          >👁 Voir</button>
+          <button
+            class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-red-600/60 text-gray-300 hover:text-white transition-colors"
+            title="Supprimer l'alerte (bloc + graphique)"
+            @click.stop="supprimerAlerte(a)"
+          >✕ Supprimer</button>
+        </div>
       </div>
     </div>
 
@@ -41,7 +55,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { http } from '@/services/http.client'
+import { useRouter } from 'vue-router'
+import { useSettingsStore } from '@/stores/settings.store'
+import { alertesApi } from '@/services/api.alertes'
 
 interface AlertePrix {
   id: number
@@ -55,7 +71,25 @@ interface AlertePrix {
   declenchee_le: number | null
 }
 
+const router = useRouter()
+const settingsStore = useSettingsStore()
 const alertesToutes = ref<AlertePrix[]>([])
+
+/** Voir : le premier graphique de la page suit settingsStore.assetActif —
+ *  on y cible l'asset de l'alerte puis on ouvre la page Graphiques. */
+function voirAlerte(a: AlertePrix) {
+  settingsStore.assetActif = a.asset
+  router.push('/smc/graphiques')
+}
+
+/** Supprimer : l'API efface l'alerte ; les graphiques retirent leur ligne
+ *  à leur prochain poll (10 s) — le bloc se rafraîchit immédiatement. */
+async function supprimerAlerte(a: AlertePrix) {
+  try {
+    await alertesApi.supprimer(a.id)
+    await charger()
+  } catch { /* suppression impossible : le prochain poll réaffichera l'état réel */ }
+}
 
 const alertes = computed(() => alertesToutes.value.filter(a => !!a.active))
 const declenchees = computed(() =>
@@ -77,8 +111,7 @@ function titreAlerte(a: AlertePrix): string {
 
 async function charger() {
   try {
-    const r = await http.get('/api/alertes-prix')
-    alertesToutes.value = (r.data as AlertePrix[]) ?? []
+    alertesToutes.value = await alertesApi.lister()
   } catch {
     alertesToutes.value = []
   }
