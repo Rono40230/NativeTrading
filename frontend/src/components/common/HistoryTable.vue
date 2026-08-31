@@ -101,15 +101,20 @@ function icone(col: string): string {
 /** MFE des perdants : { [id]: { mfe_r, meilleur_prix } } — vide si non chargé. */
 const mfeMap = computed<Record<string, { mfe_r: number | null; meilleur_prix: number | null }>>(() => props.mfe ?? {})
 
-/** Palier max d'un trade clôturé (null si encore ouvert). */
+/** Palier max d'un trade clôturé (null si encore ouvert). Un ordre JAMAIS
+ *  REMPLI n'a pas de palier — le trade n'a pas existé (l'ancien worker v1
+ *  lui collait parfois un verdict au prix courant : on neutralise l'affichage
+ *  du R, la ligne reste pour la traçabilité). */
 function palierFerme(s: Signal): PalierMax['palier'] {
   if ((s.statut ?? '') !== 'Fermé') return null
+  if (s.heure_entree === null || s.heure_entree === undefined) return 'Non rempli'
   return palierMax(s).palier
 }
 
 /** R de référence : palier → R (colonnes dominantes de la lecture d'entrée). */
 function rReference(s: Signal): number | null {
   if ((s.statut ?? '') !== 'Fermé') return null
+  if (s.heure_entree === null || s.heure_entree === undefined) return null
   return palierMax(s).rReference
 }
 

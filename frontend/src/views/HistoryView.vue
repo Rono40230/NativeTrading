@@ -63,9 +63,15 @@
       />
     </div>
 
-    <!-- Compteur -->
-    <div class="text-sm text-gray-400">
-      {{ listeActive.length }} entrée{{ listeActive.length > 1 ? 's' : '' }}
+    <!-- Compteur + totaux (fini le comptage manuel : Σ palier = R de
+         référence, Σ réalisé = sorties réelles) -->
+    <div class="text-sm text-gray-400 flex flex-wrap items-center gap-x-3">
+      <span>{{ listeActive.length }} entrée{{ listeActive.length > 1 ? 's' : '' }}</span>
+      <template v-if="!rocketsMode && signalsFiltres.length">
+        <span v-if="totaux.ref !== null" :class="classeR(totaux.ref)" class="font-mono">Σ palier {{ formatR(totaux.ref) }}</span>
+        <span v-if="totaux.realise !== null" class="font-mono text-gray-500">Σ réalisé {{ formatR(totaux.realise) }}</span>
+        <span v-if="totaux.jamaisRemplis > 0" class="text-gray-600">· {{ totaux.jamaisRemplis }} jamais rempli{{ totaux.jamaisRemplis > 1 ? 's' : '' }}</span>
+      </template>
     </div>
 
     <!-- Modales -->
@@ -104,7 +110,7 @@ import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
 import RocketsTableau from '@/components/common/RocketsTableau.vue'
 import HistoryTable from '@/components/common/HistoryTable.vue'
 import { useRocketsHistory, rocketToSignal } from '@/composables/useRocketsHistory'
-import { palierMax } from '@/composables/useSignalFormat'
+import { palierMax, formatR, classeR } from '@/composables/useSignalFormat'
 import SmcAnalyseModal from '@/components/common/SmcAnalyseModal.vue'
 import StraddleAnalyseModal from '@/components/common/StraddleAnalyseModal.vue'
 const alerteStore = useAlerteStore()
@@ -181,6 +187,25 @@ const signalsFiltres = computed(() =>
 const listeActive = computed(() =>
   rocketsMode.value ? rocketsFiltrés.value : signalsFiltres.value
 )
+
+/// Totaux de la liste filtrée : Σ R de référence (paliers) + Σ R réalisé +
+/// jamais remplis — miroir exact des règles d'affichage du tableau.
+const totaux = computed(() => {
+  let ref: number | null = null
+  let realise: number | null = null
+  let jamaisRemplis = 0
+  for (const s of signalsFiltres.value) {
+    if ((s.statut ?? '') !== 'Fermé') continue
+    if (s.heure_entree === null || s.heure_entree === undefined) {
+      jamaisRemplis++
+      continue
+    }
+    const r = palierMax(s).rReference
+    if (r !== null) ref = (ref ?? 0) + r
+    if (s.r_realise !== null && s.r_realise !== undefined) realise = (realise ?? 0) + s.r_realise
+  }
+  return { ref, realise, jamaisRemplis }
+})
 
 const signauxTries = computed(() => {
   const col = triColonne.value
