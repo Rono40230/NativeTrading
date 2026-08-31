@@ -90,6 +90,13 @@ pub(crate) async fn klines_d1(symbole: &str, limite: usize) -> Vec<BougieD1> {
         .collect()
 }
 
+/// Taille de l'univers scanné : top N paires USDT par volume 24 h. 300 depuis
+/// le 31/08 (top 100 à la naissance) — couvre les candidats rotation au-delà
+/// du premier centile tout en restant au-dessus de la zone volumique bruitée
+/// (volume lavé, liquidité exécrente) du fond de liste Binance. Coût : scan
+/// ~2,5 min quotidien (linéaire), poids API ≈ 680/6000-min — négligeable.
+const UNIVERS_ROCKETS: usize = 300;
+
 /// Top N paires USDT par volume 24 h (noire : leviers UP/DOWN, stables).
 async fn univers_top(n: usize, db: &Database) -> Vec<String> {
     let rep = match crate::http_client::HTTP_CLIENT
@@ -179,7 +186,7 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
         .unwrap_or(0.0);
     let ctx = ContexteMarche { btc_haussier, perf_btc_4s };
 
-    let univers = univers_top(100, db).await;
+    let univers = univers_top(UNIVERS_ROCKETS, db).await;
     tracing::info!("🚀 Rockets scan : {} symboles, BTC haussier={}", univers.len(), btc_haussier);
 
     let mut nb_candidats = 0usize;

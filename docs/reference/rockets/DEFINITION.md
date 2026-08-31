@@ -5,7 +5,8 @@ Sources : « Rocket Hunter » (© Rocket Trading — Arnaud Biegun, PDF archivé
 (Minervini VCP/Trend Template, O'Neil CANSLIM/tasse-avec-anse, Darvas,
 Bollinger squeeze).
 
-**Périmètre** : crypto uniquement à la naissance (scan top 100+ volume,
+**Périmètre** : crypto uniquement à la naissance (scan top 300 volume —
+élargi du top 100 le 31/08 pour couvrir les candidats rotation,
 blacklist v1 conservée). Actions US prévues via MT5 (phase 5).
 **Timeframes** : détection D1 ; surveillance du pivot en temps réel.
 

@@ -44,7 +44,7 @@
           </carte>
         </div>
         <carte titre="Le périmètre">
-          Crypto uniquement à la naissance : scan quotidien du top 100 Binance en volume
+          Crypto uniquement à la naissance : scan quotidien du top 300 Binance en volume
           (blacklist des paires figées), détection sur bougies quotidiennes. Actions US et ETF
           prévus via MT5 (phase 5) — le classement ETF dispose de ses propres profils de risque.
         </carte>
@@ -112,7 +112,7 @@
       <!-- ═══ SCANNER (spécifique Rockets — remplace le lexique) ═══ -->
       <div v-if="onglet === 'Scanner'" class="flex flex-col gap-3">
         <carte titre="Le scanner">
-          Chaque jour après la clôture quotidienne (00h40 UTC), le top 100 Binance en volume
+          Chaque jour après la clôture quotidienne (00h40 UTC), le top 300 Binance en volume
           est classé. Les candidats ≥ 5 points vivent ici — en attente de leur pivot — et la
           page dédiée (menu Rockets › Scanner) détaille chaque critère du classement.
         </carte>
