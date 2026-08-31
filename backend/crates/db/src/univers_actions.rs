@@ -140,4 +140,84 @@ impl Database {
             })
             .collect())
     }
+
+    // ── Sélection backfill (étape A2) ──────────────────────────────────────
+
+    /// Avancement du backfill : (total univers actif, avec bougies).
+    pub async fn avancement_backfill(&self) -> Result<(usize, usize)> {
+        let total: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM univers_actions WHERE etat = 'actif'",
+        )
+        .fetch_one(&self.pool)
+        .await
+        .unwrap_or(0);
+        let avec: i64 = sqlx::query_scalar(
+            "SELECT COUNT(DISTINCT ticker) FROM bougies_actions",
+        )
+        .fetch_one(&self.pool)
+        .await
+        .unwrap_or(0);
+        Ok((total as usize, avec as usize))
+    }
+
+    /// Prochains tickers SANS bougies à backfiller : les prioritaires d'abord
+    /// (liste de liquidité fournie), puis le reste par ordre alphabétique.
+    pub async fn tickers_sans_bougies(
+        &self,
+        prioritaires: &[&str],
+        limite: usize,
+    ) -> Result<Vec<String>> {
+        let mut out = Vec::new();
+        // Prioritaires présents dans l'univers actif et sans bougies.
+        for t in prioritaires {
+            if out.len() >= limite {
+                break;
+            }
+            let n: i64 = sqlx::query_scalar(
+                "SELECT COUNT(*) FROM univers_actions u
+                 WHERE u.ticker = ? AND u.etat = 'actif'
+                   AND NOT EXISTS (SELECT 1 FROM bougies_actions b WHERE b.ticker = u.ticker)",
+            )
+            .bind(t)
+            .fetch_one(&self.pool)
+            .await
+            .unwrap_or(0);
+            if n > 0 {
+                out.push(t.to_string());
+            }
+        }
+        if out.len() < limite {
+            let bornes = out.iter().map(|t| format!("'{}'", t.replace('\'', "''"))).collect::<Vec<_>>().join(",");
+            let sql = format!(
+                "SELECT u.ticker FROM univers_actions u
+                 WHERE u.etat = 'actif'
+                   AND NOT EXISTS (SELECT 1 FROM bougies_actions b WHERE b.ticker = u.ticker)
+                   {} ORDER BY u.ticker LIMIT ?",
+                if out.is_empty() { String::new() } else { format!("AND u.ticker NOT IN ({bornes})") }
+            );
+            let rows = sqlx::query(&sql)
+                .bind((limite - out.len()) as i64)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(|e| TradingError::Database(e.to_string()))?;
+            for r in rows {
+                out.push(r.get::<String, _>("ticker"));
+            }
+        }
+        Ok(out)
+    }
+
+    /// Tickers DÉJÀ backfillés, les moins récemment rafraîchis d'abord
+    /// (MAX(ts) le plus ancien en tête) — tournante de rafraîchissement.
+    pub async fn tickers_a_rafraichir(&self, limite: usize) -> Result<Vec<String>> {
+        let rows = sqlx::query(
+            "SELECT ticker FROM bougies_actions GROUP BY ticker
+             ORDER BY MAX(ts) ASC LIMIT ?",
+        )
+        .bind(limite as i64)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(rows.iter().map(|r| r.get::<String, _>("ticker")).collect())
+    }
 }

@@ -99,6 +99,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::rockets_actions::lire_univers),
         )
         .route(
+            "/api/rockets/actions/backfill",
+            web::post().to(crate::rockets_actions_backfill::post_backfill),
+        )
+        .route(
+            "/api/rockets/actions/backfill/etat",
+            web::get().to(crate::rockets_actions_backfill::etat_backfill),
+        )
+        .route(
             "/api/smc/analyse",
             web::get().to(crate::smc_handlers::analyse_smc),
         )

@@ -8,6 +8,7 @@
 //!      invalidation, R1 → vendre 50 % + trailing %, sortie).
 
 pub mod classement;
+pub mod trend_template;
 pub mod gestion;
 pub mod types;
 

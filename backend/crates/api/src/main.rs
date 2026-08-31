@@ -44,6 +44,7 @@ mod signaux_handlers;
 mod straddle_agenda;
 mod straddle_atr;
 mod rockets_actions;
+mod rockets_actions_backfill;
 mod rockets_verticale;
 mod rockets_ia;
 mod mt5_collecteur;
@@ -145,6 +146,8 @@ async fn main() -> std::io::Result<()> {
     let poignees_runtime = runtime_tick::demarrer_runtime_tick(app_state.db.clone());
     // Étape 5 — verticale Rockets : scanner D1 + gestion (bus signaux).
     rockets_verticale::demarrer(app_state.db.clone(), poignees_runtime.bus_signaux.clone());
+    // Étape A2 : backfill hiérarchisé actions US (quota Tiingo 950/j).
+    tokio::spawn(rockets_actions_backfill::boucle_backfill(app_state.db.clone()));
 
     // ── Pré-alertes SUPPRIMÉES (nettoyage code mort, décision 2026-08-15) ──────
     // L'ancien worker (scorer SMC + ATR Straddle sur bougies clôturées) alimentait
