@@ -13,6 +13,7 @@ const CLES_AUTORISEES: &[&str] = &[
     "seuil_confiance_rockets",
     "seuil_confiance_straddle",
     "seuil_confiance_smc",
+    "tiingo_api_key",
 ];
 
 #[derive(Deserialize)]
