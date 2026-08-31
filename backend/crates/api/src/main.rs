@@ -43,6 +43,7 @@ mod sentiment_handlers;
 mod signaux_handlers;
 mod straddle_agenda;
 mod straddle_atr;
+mod rockets_actions;
 mod rockets_verticale;
 mod rockets_ia;
 mod mt5_collecteur;

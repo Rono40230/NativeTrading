@@ -89,6 +89,19 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/signaux/mfe",
             web::post().to(crate::signaux_handlers::post_mfe_signaux),
         )
+        // Étape A Rockets actions — univers NASDAQ Trader + clé Tiingo
+        .route(
+            "/api/rockets/actions/univers/charger",
+            web::post().to(crate::rockets_actions::charger_univers),
+        )
+        .route(
+            "/api/rockets/actions/univers",
+            web::get().to(crate::rockets_actions::lire_univers),
+        )
+        .route(
+            "/api/rockets/actions/tiingo",
+            web::put().to(crate::rockets_actions::maj_cle_tiingo),
+        )
         .route(
             "/api/smc/analyse",
             web::get().to(crate::smc_handlers::analyse_smc),

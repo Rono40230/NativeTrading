@@ -33,6 +33,7 @@ pub mod rockets_features;
 pub mod signaux;
 pub mod strategies;
 pub mod signaux_palier;
+pub mod univers_actions;
 pub mod signaux_lecture;
 pub mod smc_calibration;
 pub mod smc_feedback;
