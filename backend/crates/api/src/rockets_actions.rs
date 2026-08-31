@@ -136,6 +136,26 @@ pub async fn lire_univers(state: web::Data<AppState>) -> impl Responder {
     }
 }
 
+/// GET /api/rockets/actions/contexte — régime du marché de référence
+/// actions (QQQ, même source Tiingo que les actions — étape B). Même règle
+/// que la crypto : prix > MM50 > MM200, perf 4 semaines.
+pub async fn lire_contexte(state: web::Data<AppState>) -> impl Responder {
+    let bougies = state.db.bougies_actions("QQQ").await.unwrap_or_default();
+    let clotures: Vec<f64> = bougies.iter().map(|b| b.4).collect();
+    match rockets::classement::contexte_marche(&clotures) {
+        Some(ctx) => HttpResponse::Ok().json(serde_json::json!({
+            "reference": "QQQ",
+            "marche_haussier": ctx.marche_haussier,
+            "perf_marche_4s_pct": (ctx.perf_marche_4s * 100.0).round() / 100.0,
+            "seances": clotures.len(),
+        })),
+        None => HttpResponse::Ok().json(serde_json::json!({
+            "reference": "QQQ",
+            "erreur": "Historique QQQ insuffisant (< 221 séances) — en attente du backfill"
+        })),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

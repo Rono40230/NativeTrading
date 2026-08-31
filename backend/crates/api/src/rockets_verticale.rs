@@ -178,16 +178,16 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
         rockets::classement::mma(&clotures, 50),
         rockets::classement::mma(&clotures, 200),
     );
-    let btc_haussier = matches!((m50, m200), (Some(a), Some(b)) if btc.last().map(|d| d.close > a && a > b).unwrap_or(false));
-    let perf_btc_4s = btc
+    let marche_haussier = matches!((m50, m200), (Some(a), Some(b)) if btc.last().map(|d| d.close > a && a > b).unwrap_or(false));
+    let perf_marche_4s = btc
         .last()
         .zip(btc.len().checked_sub(29).map(|i| &btc[i]))
         .map(|(d, vieux)| d.close / vieux.close - 1.0)
         .unwrap_or(0.0);
-    let ctx = ContexteMarche { btc_haussier, perf_btc_4s };
+    let ctx = ContexteMarche { marche_haussier, perf_marche_4s };
 
     let univers = univers_top(UNIVERS_ROCKETS, db).await;
-    tracing::info!("🚀 Rockets scan : {} symboles, BTC haussier={}", univers.len(), btc_haussier);
+    tracing::info!("🚀 Rockets scan : {} symboles, BTC haussier={}", univers.len(), marche_haussier);
 
     let mut nb_candidats = 0usize;
     let mut nb_signaux = 0usize;

@@ -26,6 +26,7 @@ const LOT_DEFAUT: usize = 50;
 /// Noyau liquide prioritaire (proposition propriétaire du 31/08, curée) :
 /// backfillé en premier pour que le pré-screen parle dès le jour 1.
 const PRIORITAIRES: &[&str] = &[
+    "QQQ", // marché de référence actions (étape B) — toujours en tête
     "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AVGO", "ORCL", "ADBE", "CRM", "NOW",
     "AMD", "INTC", "MU", "QCOM", "TXN", "ADI", "MRVL", "ON", "AMAT", "LRCX", "KLAC", "ASML",
     "PLTR", "SNOW", "DDOG", "MDB", "ZS", "NET", "CRWD", "PANW", "TEAM", "WDAY", "SHOP", "UBER",

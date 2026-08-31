@@ -15,13 +15,33 @@ pub struct BougieD1 {
     pub volume: f64,
 }
 
-/// Contexte de marché injecté par le scanner (calculé sur BTC).
+/// Contexte de marché injecté par le scanner : BTC pour la crypto,
+/// QQQ (Tiingo) pour les actions — même règle des deux côtés.
 #[derive(Debug, Clone, Copy)]
 pub struct ContexteMarche {
-    /// BTC > MM50 > MM200 en D1 (régime haussier).
-    pub btc_haussier: bool,
-    /// Performance BTC sur 4 semaines (fraction, ex. 0.05 = +5 %).
-    pub perf_btc_4s: f64,
+    /// Marché de référence > MM50 > MM200 en D1 (régime haussier) — BTC pour la crypto, QQQ pour les actions.
+    pub marche_haussier: bool,
+    /// Performance du marché de référence sur 4 semaines (fraction, ex. 0.05 = +5 %).
+    pub perf_marche_4s: f64,
+}
+
+/// Construit le contexte depuis les clôtures D1 du marché de référence
+/// (étape B 31/08) : même règle que le scanner crypto (prix > MM50 > MM200,
+/// perf = 21 séances) — le miroir crypto/actions est exact.
+/// None si historique insuffisant (< 221 séances).
+pub fn contexte_marche(clotures: &[f64]) -> Option<ContexteMarche> {
+    if clotures.len() < 221 {
+        return None;
+    }
+    let prix = *clotures.last()?;
+    let m50 = mma(clotures, 50)?;
+    let m200 = mma(clotures, 200)?;
+    let vieux = clotures[clotures.len() - 22];
+    let perf = if vieux > 0.0 { prix / vieux - 1.0 } else { 0.0 };
+    Some(ContexteMarche {
+        marche_haussier: prix > m50 && m50 > m200,
+        perf_marche_4s: perf,
+    })
 }
 
 /// Détail point par point (affichage + audit).
@@ -125,7 +145,7 @@ pub fn classement_rocket(
     // Sentiment : BTC haussier ET surperformance 4 semaines (proxy secteur :
     // la force relative — le secteur sera affiné par l'IA, étape 6).
     let perf_4s = derniere.close / bougies[bougies.len() - 29].close - 1.0;
-    detail.sentiment = ctx.btc_haussier && perf_4s > ctx.perf_btc_4s;
+    detail.sentiment = ctx.marche_haussier && perf_4s > ctx.perf_marche_4s;
     // Contexte : base travaillée (pivot âgé ≥ 30 j) et prix proche (≥ 90 %).
     detail.contexte = age_pivot_jours >= 30 && derniere.close >= pivot * 0.90;
     // News : réservé à l'IA (étape 6) — None, pas de point attribué v1.
@@ -297,7 +317,7 @@ mod tests {
 
     #[test]
     fn rocket_parfaite_classee_alpha() {
-        let ctx = ContexteMarche { btc_haussier: true, perf_btc_4s: 0.02 };
+        let ctx = ContexteMarche { marche_haussier: true, perf_marche_4s: 0.02 };
         let r = classement_rocket("TESTUSDT", &serie_rocket(), &ctx);
         assert!(r.points >= 7, "points = {} ( {:?}", r.points, r.detail);
         assert_eq!(r.verdict, VerdictRockets::Alpha);
@@ -308,7 +328,7 @@ mod tests {
 
     #[test]
     fn marche_baissier_elimine() {
-        let ctx = ContexteMarche { btc_haussier: false, perf_btc_4s: 0.02 };
+        let ctx = ContexteMarche { marche_haussier: false, perf_marche_4s: 0.02 };
         let r = classement_rocket("TESTUSDT", &serie_rocket(), &ctx);
         // Sans sentiment : 2 points manquants (8/10 max) — reste rocket.
         assert!(r.points <= 8);
@@ -323,9 +343,31 @@ mod tests {
 
     #[test]
     fn serie_trop_courte_eliminee() {
-        let ctx = ContexteMarche { btc_haussier: true, perf_btc_4s: 0.0 };
+        let ctx = ContexteMarche { marche_haussier: true, perf_marche_4s: 0.0 };
         let r = classement_rocket("X", &vec![bougie(0, 1.0, 1.0, 1.0, 1.0, 1.0); 50], &ctx);
         assert_eq!(r.verdict, VerdictRockets::Elimine);
         assert_eq!(r.points, 0);
     }
+    #[test]
+    fn contexte_marche_uptrend_haussier() {
+        let serie: Vec<f64> = (0..300).map(|i| 100.0 + i as f64 * 0.35).collect();
+        let ctx = contexte_marche(&serie).unwrap();
+        assert!(ctx.marche_haussier);
+        // +0.35/j sur 21 séances ≈ +7.6 % attendu
+        assert!((ctx.perf_marche_4s - 0.0373).abs() < 0.001, "{}", ctx.perf_marche_4s);
+    }
+
+    #[test]
+    fn contexte_marche_downtrend_baissier() {
+        let serie: Vec<f64> = (0..300).map(|i| 200.0 - i as f64 * 0.35).collect();
+        let ctx = contexte_marche(&serie).unwrap();
+        assert!(!ctx.marche_haussier);
+    }
+
+    #[test]
+    fn contexte_marche_historique_insuffisant_none() {
+        let serie: Vec<f64> = (0..200).map(|i| 100.0 + i as f64).collect();
+        assert!(contexte_marche(&serie).is_none());
+    }
+
 }
