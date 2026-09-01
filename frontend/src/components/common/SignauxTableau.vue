@@ -12,7 +12,7 @@
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('asset')">Asset <span>{{ icone('asset') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('timeframe')">TF / Phase <span>{{ icone('timeframe') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('direction')">Direction <span>{{ icone('direction') }}</span></th>
-            <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('score')">Score <span>{{ icone('score') }}</span></th>
+            <th v-if="strategie !== 'straddle'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('score')">Score <span>{{ icone('score') }}</span></th>
             <th class="px-3 py-3 text-right">Lot</th>
             <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_entree')">Entrée <span>{{ icone('prix_entree') }}</span></th>
             <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('stop_loss')">SL <span>{{ icone('stop_loss') }}</span></th>
@@ -36,7 +36,7 @@
             <td class="px-3 py-3">
               <span class="badge" :class="s.direction === 'LONG' ? 'badge-green' : s.direction === 'SHORT' ? 'badge-red' : 'badge-blue'">{{ s.direction }}</span>
             </td>
-            <td class="px-3 py-3 text-right font-mono text-gray-300">{{ s.score.toFixed(0) }}</td>
+            <td v-if="strategie !== 'straddle'" class="px-3 py-3 text-right font-mono text-gray-300">{{ s.score.toFixed(0) }}</td>
             <td class="px-3 py-3 text-right leading-tight">
               <div v-if="lotPourSignal(s)" class="font-mono font-bold text-yellow-300">{{ lotPourSignal(s) }}</div>
               <div v-if="lotPourSignal(s)" class="text-[10px] text-gray-500">{{ montantRisque().toFixed(0) }} $</div>
