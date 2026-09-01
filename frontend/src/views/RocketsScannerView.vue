@@ -3,33 +3,40 @@
     <div class="flex items-center gap-3 shrink-0">
       <h1 class="text-2xl font-bold text-white">🔭 Scanner Rockets</h1>
       <span class="text-gray-500 text-base hidden sm:inline">candidats VCP en attente de pivot</span>
+      <div class="flex gap-1 ml-2">
+        <button
+          v-for="f in filtresUnivers" :key="f.val"
+          class="filtre-btn" :class="{ 'filtre-btn-actif': filtreUnivers === f.val }"
+          @click="filtreUnivers = f.val"
+        >{{ f.label }}</button>
+      </div>
       <button class="ml-auto btn-sm" @click="charger">🔄 Actualiser</button>
     </div>
 
     <div class="flex-1 min-h-0 overflow-y-auto glass-card">
       <div v-if="chargement && !candidats.length" class="text-center text-gray-500 py-10 text-sm">Chargement…</div>
-      <div v-else-if="!candidats.length" class="text-center text-gray-500 py-10 text-sm">
+      <div v-else-if="!candidatsAffiches.length" class="text-center text-gray-500 py-10 text-sm">
         Aucun candidat — le scanner quotidien n'a rien retenu (seuil 5/10)
       </div>
       <table v-else class="w-full text-sm">
         <thead>
           <tr class="text-gray-400 text-xs uppercase border-b border-white/10">
             <th class="px-3 py-2.5 text-left">#</th>
-            <th class="px-3 py-2.5 text-left">Symbole</th>
-            <th class="px-3 py-2.5 text-center">Type</th>
-            <th class="px-3 py-2.5 text-center">Classement</th>
-            <th class="px-3 py-2.5 text-center">Verdict</th>
-            <th class="px-3 py-2.5 text-right">Pivot</th>
-            <th class="px-3 py-2.5 text-right">Invalidation</th>
-            <th class="px-3 py-2.5 text-center">Cassure</th>
+            <th class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-white" @click="trierPar('symbole')">Symbole <span class="text-[9px]">{{ iconeTri('symbole') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('univers')">Type <span class="text-[9px]">{{ iconeTri('univers') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('points')">Classement <span class="text-[9px]">{{ iconeTri('points') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('verdict')">Verdict <span class="text-[9px]">{{ iconeTri('verdict') }}</span></th>
+            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('pivot')">Pivot <span class="text-[9px]">{{ iconeTri('pivot') }}</span></th>
+            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('stop')">Invalidation <span class="text-[9px]">{{ iconeTri('stop') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('cassure')">Cassure <span class="text-[9px]">{{ iconeTri('cassure') }}</span></th>
             <th class="px-3 py-2.5 text-center">News (IA)</th>
             <th class="px-3 py-2.5 text-left">Critères</th>
-            <th class="px-3 py-2.5 text-left">Détecté le</th>
-            <th class="px-3 py-2.5 text-left">Éliminé le</th>
+            <th class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-white" @click="trierPar('maj_le')">Détecté le <span class="text-[9px]">{{ iconeTri('maj_le') }}</span></th>
+            <th class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-white" @click="trierPar('elimine_le')">Éliminé le <span class="text-[9px]">{{ iconeTri('elimine_le') }}</span></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(c, i) in candidats" :key="c.symbole" class="border-b border-white/5 hover:bg-white/5" :class="c.elimine_le ? 'opacity-50' : ''">
+          <tr v-for="(c, i) in candidatsAffiches" :key="c.symbole" class="border-b border-white/5 hover:bg-white/5" :class="c.elimine_le ? 'opacity-50' : ''">
             <td class="px-3 py-2.5 text-gray-500">{{ i + 1 }}</td>
             <td class="px-3 py-2.5 font-semibold" :class="c.elimine_le ? 'text-gray-500' : 'text-white'">{{ c.symbole }}</td>
             <td class="px-3 py-2.5 text-center">
@@ -89,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 import { formatDate } from '@/composables/useSignalFormat'
 
@@ -113,6 +120,62 @@ const LIBELLES: Record<string, string> = {
 const candidats = ref<Candidat[]>([])
 const chargement = ref(true)
 
+// ── Filtres univers + tri par colonne ──
+const filtreUnivers = ref<'' | 'crypto' | 'action'>('')
+const filtresUnivers = [
+  { val: '' as const, label: 'Tous' },
+  { val: 'crypto' as const, label: 'Crypto' },
+  { val: 'action' as const, label: 'Actions US' },
+]
+const triColonne = ref('')
+const triDir = ref<'asc' | 'desc'>('desc')
+
+function trierPar(col: string) {
+  if (triColonne.value === col) {
+    triDir.value = triDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    triColonne.value = col
+    triDir.value = 'desc'
+  }
+}
+function iconeTri(col: string): string {
+  if (triColonne.value !== col) return '\u21c5'
+  return triDir.value === 'asc' ? '\u2191' : '\u2193'
+}
+
+/// Valeur de tri d'un candidat pour une colonne (éliminés toujours en fin
+/// de liste SAUF tri explicite sur « Éliminé le »).
+function valeurTri(c: Candidat, col: string): string | number | boolean {
+  switch (col) {
+    case 'symbole': return c.symbole.toLowerCase()
+    case 'univers': return c.univers ?? 'crypto'
+    case 'points': return c.points
+    case 'verdict': return c.verdict.toLowerCase()
+    case 'pivot': return c.pivot
+    case 'stop': return c.stop
+    case 'cassure': return c.cassure
+    case 'maj_le': return c.maj_le ?? 0
+    case 'elimine_le': return c.elimine_le ?? 0
+    default: return ''
+  }
+}
+
+const candidatsAffiches = computed(() => {
+  const liste = candidats.value.filter(c =>
+    !filtreUnivers.value || (c.univers ?? 'crypto') === filtreUnivers.value
+  )
+  const col = triColonne.value
+  const tries = col
+    ? [...liste].sort((a, b) => {
+        const va = valeurTri(a, col)
+        const vb = valeurTri(b, col)
+        const cmp = va < vb ? -1 : va > vb ? 1 : 0
+        return triDir.value === 'asc' ? cmp : -cmp
+      })
+    : liste // ordre serveur : actifs d'abord, points décroissants
+  return tries
+})
+
 async function charger() {
   chargement.value = true
   try {
@@ -123,3 +186,19 @@ async function charger() {
 }
 onMounted(charger)
 </script>
+
+<style scoped>
+.filtre-btn {
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  background: rgba(255, 255, 255, 0.05);
+  transition: all 0.15s ease;
+}
+.filtre-btn:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+.filtre-btn-actif {
+  color: #fff;
+  background: rgba(59, 130, 246, 0.25);
+}
+</style>
