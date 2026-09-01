@@ -43,10 +43,15 @@
             de 16 000 unlocks montre 90 % de pression vendeuse.</p>
           </carte>
         </div>
-        <carte titre="Le périmètre">
-          Crypto uniquement à la naissance : scan quotidien du top 300 Binance en volume
-          (blacklist des paires figées), détection sur bougies quotidiennes. Actions US et ETF
-          prévus via MT5 (phase 5) — le classement ETF dispose de ses propres profils de risque.
+        <carte titre="Le périmètre — deux univers, même classement /10">
+          <p><b class="text-amber-300">Crypto</b> : scan quotidien du top 300 Binance en volume
+          (blacklist des paires figées), détection sur bougies quotidiennes.</p>
+          <p class="mt-2"><b class="text-blue-300">Actions US</b> (extension du 01/09, en Observation
+          silencieuse — journalisation seule, aucun signal) : univers = répertoire officiel NASDAQ
+          Trader (~5 667 actions communes), prix D1 Tiingo en volume réel, marché de référence QQQ
+          (même source). Pré-screen trend template Minervini (8 conditions) pour entrer dans le
+          périmètre, puis le même classement /10. Dépêches Yahoo Finance par ticker pour le point
+          news, avertissement 📊 avant résultats (badge, pas de veto).</p>
         </carte>
       </div>
 
@@ -112,9 +117,12 @@
       <!-- ═══ SCANNER (spécifique Rockets — remplace le lexique) ═══ -->
       <div v-if="onglet === 'Scanner'" class="flex flex-col gap-3">
         <carte titre="Le scanner">
-          Chaque jour après la clôture quotidienne (00h40 UTC), le top 300 Binance en volume
-          est classé. Les candidats ≥ 5 points vivent ici — en attente de leur pivot — et la
-          page dédiée (menu Rockets › Scanner) détaille chaque critère du classement.
+          <p>Crypto : chaque jour après la clôture D1 (00h40 UTC), le top 300 Binance en volume
+          est classé. Actions US : chaque jour à 22h30 UTC (après la clôture de Wall Street),
+          pré-screen trend template puis classement des passants.</p>
+          <p class="mt-2">Les candidats ≥ 5 points des deux univers vivent ici — en attente de leur
+          pivot — avec leur type (Crypto / Action US), date de détection, date d'élimination et
+          badge 📊 avant résultats. Filtres Tous / Crypto / Actions US et tri par colonne.</p>
         </carte>
       </div>
 

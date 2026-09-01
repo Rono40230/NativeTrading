@@ -5,9 +5,18 @@ Sources : « Rocket Hunter » (© Rocket Trading — Arnaud Biegun, PDF archivé
 (Minervini VCP/Trend Template, O'Neil CANSLIM/tasse-avec-anse, Darvas,
 Bollinger squeeze).
 
-**Périmètre** : crypto uniquement à la naissance (scan top 300 volume —
-élargi du top 100 le 31/08 pour couvrir les candidats rotation,
-blacklist v1 conservée). Actions US prévues via MT5 (phase 5).
+**Périmètre** — deux univers, même classement /10 (extension actions du
+01/09) :
+- **Crypto** : scan top 300 Binance en volume (élargi du top 100 le 31/08
+  pour couvrir les candidats rotation, blacklist v1 conservée) ;
+- **Actions US** : univers = répertoire officiel NASDAQ Trader (~5 667
+  actions communes, ETF/preferreds/warrants exclus), prix D1 Tiingo
+  (volume réel), marché de référence QQQ même source. Pré-screen trend
+  template Minervini (8 conditions) pour ENTRER dans le périmètre scanné,
+  puis même classement /10. News : flux Yahoo Finance par ticker.
+  Avertissement earnings (badge 📊, pas de veto — décision 31/08).
+  **Observation silencieuse** : journalisation seule, aucun signal ni
+  position jusqu'à décision du propriétaire sur preuve.
 **Timeframes** : détection D1 ; surveillance du pivot en temps réel.
 
 ---
@@ -18,9 +27,9 @@ blacklist v1 conservée). Actions US prévues via MT5 (phase 5).
 
 | Critère (1 pt chacun) | Définition crypto |
 |---|---|
-| **Sentiment de marché** | BTC en tendance haussière D1 (BTC > MM50 > MM200, moyennes empilées MM50 > MM200) ET secteur du token en tendance (performance secteur > BTC sur 4 semaines ; dominance BTC baissière = rotation vers les alts) |
+| **Sentiment de marché** | Crypto : BTC haussier D1 (BTC > MM50 > MM200) ET secteur du token en tendance (perf secteur > BTC sur 4 s). Actions US : QQQ haussier D1 (même règle) ET action battant le QQQ sur 4 semaines (RS d'O'Neil) |
 | **Contexte** | Sortie de large base + prise de position sur la 1ère base (2ème maximum) — inchangé, indépendant de la classe d'actif |
-| **News catalyseur** | Catalyseur identifié : flux ETF nets positifs, annonce de listing, upgrade réseau, réglementation favorable (dans l'idéal) ET aucun déverrouillage de tokens dans les 15-30 prochains jours |
+| **News catalyseur** | Crypto : flux ETF nets positifs, listing, upgrade réseau, réglementation favorable ET aucun déverrouillage dans les 15-30 j. Actions US : dépêches Yahoo Finance (résultats, contrats, homologations, relèvements d'analystes) — et date de résultats extraite si mentionnée (badge, pas de veto) |
 
 ### VÉTO ÉLIMINATOIRE (quel que soit le classement)
 
