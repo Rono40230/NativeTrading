@@ -1,12 +1,14 @@
 <template>
   <!-- Hub de navigation (refonte 01/09) : 4 tuiles cliquables qui
-       remplacent les menus de la barre de titre. Chaque tuile ouvre sa
-       page et affiche un aperçu live de son contenu. -->
-  <div class="grid grid-cols-4 gap-2">
+       remplacent les menus de la barre de titre. Empilées dans la colonne
+       gauche du dashboard (sous la surveillance assets), scroll interne
+       si la fenêtre est basse. Chaque tuile ouvre sa page et affiche un
+       aperçu live de son contenu. -->
+  <div class="flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto pr-0.5">
     <div
       v-for="t in tuiles"
       :key="t.id"
-      class="glass-card p-2.5 flex flex-col gap-1.5 min-h-[118px] cursor-pointer transition-colors hover:bg-white/10 hover:border-white/20"
+      class="glass-card p-2.5 flex flex-col gap-1.5 shrink-0 cursor-pointer transition-colors hover:bg-white/10 hover:border-white/20"
       @click="router.push(t.route)"
     >
       <div class="flex items-center gap-1.5">

@@ -1,17 +1,14 @@
 <template>
   <!-- Layout 2 colonnes : contenu | sentiment+calendrier (la revue de presse
        vit désormais dans sa propre vue /presse avec liseuse intégrée) -->
-  <div class="flex flex-col gap-3 h-[calc(100vh-5.5rem)] overflow-hidden">
+  <div class="flex flex-col gap-3">
     <!-- Bandeau alerte critique (conditionnel) -->
     <AlerteBandeau />
 
-    <!-- Hub de navigation : presse, graphiques, IA, système (refonte 01/09) -->
-    <DashboardTuilesNavigation class="shrink-0" />
-
-    <div class="flex gap-3 flex-1 min-h-0">
+    <div class="flex gap-3">
 
     <!-- Contenu principal -->
-    <div class="flex-1 min-w-0 flex flex-col gap-2 min-h-0 overflow-hidden pb-1">
+    <div class="flex-1 min-w-0 flex flex-col gap-2 h-[calc(100vh-5.5rem)] overflow-hidden pb-1">
 
       <div class="flex gap-2 flex-1 min-h-0">
         <!-- Colonne gauche (remonte en haut de page) : statut, alertes prix,
@@ -25,6 +22,10 @@
           />
           <AlertesPrixEnCours class="shrink-0 max-h-44" />
           <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
+          <!-- Hub de navigation : presse, graphiques, IA, système (refonte
+               01/09) — tuiles empilées sous la surveillance, scroll interne
+               si la fenêtre est basse. -->
+          <DashboardTuilesNavigation />
         </div>
 
         <!-- Centre : horloges en TÊTE (même largeur que les blocs stratégies),
