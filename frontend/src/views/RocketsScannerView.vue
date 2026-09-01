@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-4 p-4 lg:p-6 h-full w-full overflow-hidden">
-    <div class="flex items-center gap-3 shrink-0">
+    <div v-if="!embarque" class="flex items-center gap-3 shrink-0">
       <h1 class="text-2xl font-bold text-white">🔭 Scanner Rockets</h1>
       <span class="text-gray-500 text-base hidden sm:inline">candidats VCP en attente de pivot</span>
       <div class="flex gap-1 ml-2">
@@ -120,6 +120,8 @@ const LIBELLES: Record<string, string> = {
   tendance: 'Tendance', volatilite: 'Volatilité', interet: 'Intérêt',
   figure: 'Figure', gaps: 'Gaps', breakout: 'Cassure', liquidite: 'Liquidité',
 }
+
+withDefaults(defineProps<{ embarque?: boolean }>(), { embarque: false })
 
 const candidats = ref<Candidat[]>([])
 const chargement = ref(true)

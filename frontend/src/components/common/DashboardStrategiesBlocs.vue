@@ -3,10 +3,11 @@
     <div
       v-for="b in blocs"
       :key="b.id"
-      class="rounded-xl border border-white/10 bg-white/5 hover:border-white/20 transition-colors cursor-pointer px-4 py-3 flex flex-col gap-2"
+      class="rounded-xl border border-white/10 bg-white/5 hover:border-white/25 transition-colors cursor-pointer px-4 py-3 flex flex-col gap-2"
+      :title="`Ouvrir la page ${b.nom}`"
       @click="ouvrir(b.id)"
     >
-      <!-- En-tête : identité + état -->
+      <!-- En-tête : identité + état (titre = bouton) -->
       <div class="flex items-center gap-2">
         <span class="text-lg leading-none">{{ b.icone }}</span>
         <span class="font-semibold text-white text-sm">{{ b.nom }}</span>
@@ -16,27 +17,8 @@
         >{{ b.etat }}</span>
       </div>
 
-      <!-- Section AGENDA (straddle uniquement — étape 4) : événements qui
-           arment la stratégie + passes en cours + actifs en attente MT5. -->
-      <div v-if="b.id === 'straddle' && agenda" class="flex flex-col gap-1.5 border-b border-white/5 pb-2">
-        <div v-if="agenda.annonces.length" class="flex flex-col gap-1">
-          <div v-for="a in agenda.annonces.slice(0, 3)" :key="a.ts"
-               class="flex items-center gap-2 text-xs">
-            <span class="text-amber-400">📅</span>
-            <span class="text-gray-300 font-medium truncate">{{ a.titre || 'Annonce US' }}</span>
-            <span class="text-gray-500">{{ heureLocale(a.ts) }}</span>
-            <span class="ml-auto text-amber-300/90 font-mono text-[11px]">{{ compteARebours(a.ts) }}</span>
-          </div>
-        </div>
-        <div v-else class="text-[11px] text-gray-600">Aucune annonce US forte à 7 jours</div>
-        <div v-if="agenda.passes.length" class="text-[11px] text-emerald-400/80">
-          {{ agenda.passes.length }} passe(s) en cours sur {{ [...new Set(agenda.passes.map(p => p.asset))].join(', ') }}
-        </div>
-        <div class="text-[10px] text-gray-600">NAS100 · SP500 · DAX armés au branchement MT5</div>
-      </div>
-
-      <!-- Courbe des trades clôturés (R cumulé) -->
-      <div class="relative h-20 -mx-1">
+      <!-- Courbe des trades clôturés (R cumulé de référence) -->
+      <div class="relative h-16 -mx-1">
         <svg
           v-if="b.perf.clotures.length > 1"
           :viewBox="`0 0 ${LARGEUR} ${HAUTEUR}`"
@@ -61,49 +43,14 @@
         </div>
       </div>
 
-      <!-- Stats + en-cours — R de référence (palier max atteint) en métrique
-           primaire, R réalisé (sorties) en info secondaire (spéc 31/08). -->
-      <div class="flex items-center gap-4 text-xs">
-        <span
-          class="font-mono font-bold cursor-help"
-          :class="b.perf.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'"
-          title="R de référence : palier max atteint par trade (SL ou TP max touché)"
-        >
-          {{ b.perf.r_total >= 0 ? '+' : '' }}{{ b.perf.r_total.toFixed(1) }} R
-        </span>
-        <span
-          v-if="b.perf.r_total_realise !== undefined"
-          class="font-mono text-gray-500 cursor-help"
-          title="R réalisé : sorties réelles (trailing, BE, time-stop)"
-        >réalisé {{ b.perf.r_total_realise >= 0 ? '+' : '' }}{{ b.perf.r_total_realise.toFixed(1) }} R</span>
-        <span class="text-gray-400">{{ b.perf.total }} trade{{ b.perf.total > 1 ? 's' : '' }} rempli{{ b.perf.total > 1 ? 's' : '' }}</span>
-        <span v-if="b.perf.non_remplis > 0" class="text-gray-600" title="Ordres posés jamais touchés par le prix">· {{ b.perf.non_remplis }} jamais remplis</span>
-        <span v-if="b.perf.total > 0" class="text-gray-400">WR {{ (b.perf.taux_reussite * 100).toFixed(0) }} %</span>
+      <!-- Badge line : les 5 métriques (R d'abord) -->
+      <div class="flex items-center gap-2 text-[11px] flex-wrap">
+        <span class="font-mono font-bold" :class="b.perf.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'"
+              title="R de référence : paliers max atteints">{{ b.perf.r_total >= 0 ? '+' : '' }}{{ b.perf.r_total.toFixed(1) }} R</span>
+        <span class="text-gray-400">{{ b.perf.total }} rempli{{ b.perf.total > 1 ? 's' : '' }}</span>
+        <span v-if="b.perf.non_remplis > 0" class="text-gray-600" title="Ordres posés jamais touchés">{{ b.perf.non_remplis }} non remplis</span>
+        <span class="text-gray-400" title="Taux de réussite (R de référence > 0)">WR {{ (b.perf.taux_reussite * 100).toFixed(0) }} %</span>
         <span class="ml-auto text-gray-500">{{ b.perf.en_cours.length }} en cours</span>
-      </div>
-
-      <!-- Setups en formation (annonces intrabar — la face app de Telegram) -->
-      <div v-if="b.id === 'SMC'" class="border-b border-white/5 pb-2">
-        <SetupsFormationPanel strategie="SMC" />
-      </div>
-
-      <!-- Signaux en cours (liste courte) -->
-      <div v-if="b.perf.en_cours.length" class="flex flex-col gap-1">
-        <div
-          v-for="s in b.perf.en_cours.slice(0, 4)"
-          :key="`${s.asset}-${s.timeframe}-${s.cree_le}`"
-          class="flex items-center gap-2 text-xs text-gray-300"
-        >
-          <span class="font-semibold text-white">{{ s.asset }}</span>
-          <span class="text-gray-500">{{ s.timeframe }}</span>
-          <span :class="s.direction === 'Long' ? 'text-emerald-400' : 'text-red-400'">
-            {{ s.direction === 'Long' ? '🟢' : '🔴' }} {{ s.direction === 'Long' ? 'Achat' : 'Vente' }}
-          </span>
-          <span class="ml-auto text-gray-500 font-mono">force {{ s.force }}/10</span>
-        </div>
-        <div v-if="b.perf.en_cours.length > 4" class="text-[10px] text-gray-600">
-          + {{ b.perf.en_cours.length - 4 }} autre{{ b.perf.en_cours.length - 4 > 1 ? 's' : '' }}
-        </div>
       </div>
     </div>
 
@@ -117,14 +64,13 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { http } from '@/services/http.client'
-import SetupsFormationPanel from '@/components/common/SetupsFormationPanel.vue'
 
 interface StrategieApi {
   id: string; nom: string; icone: string; etat: string
 }
 interface PerfApi {
   clotures: { ferme_le: number; r_cumule: number }[]
-  en_cours: { asset: string; timeframe: string; direction: string; force: number; cree_le: number }[]
+  en_cours: unknown[]
   total: number
   non_remplis: number
   taux_reussite: number
@@ -138,7 +84,7 @@ interface Bloc {
 }
 
 const LARGEUR = 100
-const HAUTEUR = 40
+const HAUTEUR = 32
 
 const router = useRouter()
 const blocs = ref<Bloc[]>([])
@@ -149,38 +95,6 @@ const ROUTES: Record<string, string> = {
   SMC: '/smc',
   straddle: '/straddle',
   rockets: '/rockets',
-}
-
-const PERF_VIDE: PerfApi = {
-  clotures: [], en_cours: [], total: 0, non_remplis: 0, taux_reussite: 0, r_total: 0,
-}
-
-interface AgendaApi {
-  annonces: { ts: number; titre: string; devise: string; actifs: string[] }[]
-  passes: { asset: string; direction: string }[]
-}
-const agenda = ref<AgendaApi | null>(null)
-
-async function chargerAgenda() {
-  try {
-    const res = await http.get<AgendaApi>('/api/straddle/agenda')
-    agenda.value = res.data as AgendaApi
-  } catch { /* agenda indisponible */ }
-}
-
-function heureLocale(ts: number): string {
-  return new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(ts * 1000))
-}
-
-function compteARebours(ts: number): string {
-  const d = ts - Math.floor(Date.now() / 1000)
-  if (d <= 0) return 'en cours'
-  const j = Math.floor(d / 86400)
-  const h = Math.floor((d % 86400) / 3600)
-  const m = Math.floor((d % 3600) / 60)
-  if (j > 0) return `J-${j} ${h}h`
-  if (h > 0) return `${h}h${String(m).padStart(2, '0')}`
-  return `${m} min`
 }
 
 async function charger() {
@@ -215,7 +129,7 @@ function badgeClasse(etat: string) {
   return 'bg-gray-500/10 text-gray-400 border-gray-500/30'
 }
 
-/// Points SVG de la courbe R cumulé (échelle relative, zero aligné quand possible).
+/// Points SVG de la courbe R cumulé.
 function points(b: Bloc): string {
   const vals = [...b.perf.clotures.map(c => c.r_cumule), 0]
   const min = Math.min(...vals)
@@ -241,14 +155,13 @@ function ligneZero(b: Bloc): number | null {
   return HAUTEUR - 2 - ((0 - min) / amplitude) * (HAUTEUR - 4)
 }
 
-onMounted(async () => {
-  await Promise.allSettled([charger(), chargerAgenda()])
+const PERF_VIDE: PerfApi = {
+  clotures: [], en_cours: [], total: 0, non_remplis: 0, taux_reussite: 0, r_total: 0,
+}
+
+onMounted(() => {
+  void charger()
   minuteur = setInterval(charger, 60_000)
-  minuteurAgenda = setInterval(chargerAgenda, 60_000)
 })
-let minuteurAgenda: ReturnType<typeof setInterval> | null = null
-onUnmounted(() => {
-  if (minuteur !== null) clearInterval(minuteur)
-  if (minuteurAgenda !== null) clearInterval(minuteurAgenda)
-})
+onUnmounted(() => { if (minuteur !== null) clearInterval(minuteur) })
 </script>

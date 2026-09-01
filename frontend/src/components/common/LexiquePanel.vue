@@ -16,7 +16,7 @@
           :class="catActive === key ? 'bg-white/20 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'"
           @click="catActive = key"
         >
-          {{ key === 'tous' ? `Tous (${TERMES.length})` : CAT_LABELS[key].label }}
+          {{ key === 'tous' ? `Tous (${source.termes.length})` : source.labels[key as string].label }}
         </button>
       </div>
     </div>
@@ -32,8 +32,8 @@
       >
         <div class="flex items-start justify-between gap-2">
           <code class="font-bold text-white text-sm leading-tight">{{ t.abrev }}</code>
-          <span class="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 leading-5" :class="CAT_LABELS[t.cat].couleur">
-            {{ CAT_LABELS[t.cat].label }}
+          <span class="text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 leading-5" :class="source.labels[t.cat].couleur">
+            {{ source.labels[t.cat].label }}
           </span>
         </div>
         <p class="text-xs text-gray-400 font-medium leading-snug">{{ t.nom }}</p>
@@ -66,17 +66,36 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { TERMES, CAT_LABELS, type Categorie, type TermeSMC } from '@/data/lexique'
+import { TERMES as TERMES_SMC, CAT_LABELS as CAT_SMC } from '@/data/lexique'
+import { TERMES as TERMES_STRADDLE, CAT_LABELS as CAT_STRADDLE } from '@/data/lexiqueStraddle'
+import { TERMES as TERMES_ROCKETS, CAT_LABELS as CAT_ROCKETS } from '@/data/lexiqueRockets'
 
+/// Terme générique : les trois lexiques partagent le format SMC (gabarit
+/// de référence — ses données restent intactes).
+interface Terme { abrev: string; nom: string; cat: string; def: string; svg?: string }
+interface SourceLexique {
+  termes: Terme[]
+  labels: Record<string, { label: string; couleur: string }>
+}
+
+const REGISTRE: Record<'smc' | 'straddle' | 'rockets', SourceLexique> = {
+  smc: { termes: TERMES_SMC as Terme[], labels: CAT_SMC as Record<string, { label: string; couleur: string }> },
+  straddle: { termes: TERMES_STRADDLE as Terme[], labels: CAT_STRADDLE as Record<string, { label: string; couleur: string }> },
+  rockets: { termes: TERMES_ROCKETS as Terme[], labels: CAT_ROCKETS as Record<string, { label: string; couleur: string }> },
+}
+
+const props = withDefaults(defineProps<{ source?: 'smc' | 'straddle' | 'rockets' }>(), { source: 'smc' })
+
+const source = computed(() => REGISTRE[props.source])
 const recherche = ref('')
-const catActive = ref<'tous' | Categorie>('tous')
-const selectionne = ref<TermeSMC | null>(null)
+const catActive = ref<string>('tous')
+const selectionne = ref<Terme | null>(null)
 
-const toutes = computed(() => ['tous', ...Object.keys(CAT_LABELS)] as ('tous' | Categorie)[])
+const toutes = computed(() => ['tous', ...Object.keys(source.value.labels)])
 
 const filtres = computed(() => {
   const q = recherche.value.toLowerCase().trim()
-  return TERMES.filter(t => {
+  return source.value.termes.filter(t => {
     const matchCat = catActive.value === 'tous' || t.cat === catActive.value
     const matchQ = !q
       || t.abrev.toLowerCase().includes(q)

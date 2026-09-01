@@ -105,21 +105,12 @@ import type { Window as FenetreTauri } from '@tauri-apps/api/window'
 type SousPage = { to: string; icone: string; label: string }
 type Principal = { to: string; icone: string; label: string; sous?: SousPage[] }
 
-/// Définition des stratégies (bouton = page signaux, ▾ = sous-pages).
-const strategies: Principal[] = [
-  { to: '/smc', icone: '📐', label: 'Trades SMC en cours', sous: [{ to: '/smc/definition', icone: '📖', label: 'Définition' }] },
-  { to: '/straddle', icone: '⚡', label: 'Trades Straddle en cours', sous: [{ to: '/straddle/definition', icone: '📖', label: 'Définition' }] },
-  { to: '/rockets', icone: '🚀', label: 'Trades Rockets en cours', sous: [
-    { to: '/rockets/definition', icone: '📖', label: 'Définition' },
-    { to: '/rockets/scanner', icone: '🔭', label: 'Scanner' },
-  ] },
-]
-
+/// Les accès stratégies vivent désormais dans le dashboard (cartes
+/// cliquables → pages stratégies) — refonte 01/09. La barre ne garde que
+/// les outils transverses.
 const principaux: Principal[] = [
   { to: '/', icone: '🏠', label: 'Dashboard' },
   { to: '/smc/graphiques', icone: '📈', label: 'Graphiques' },
-  ...strategies,
-  { to: '/history', icone: '📜', label: 'Historiques des trades' },
   { to: '/presse', icone: '📰', label: 'Presse' },
 ]
 
