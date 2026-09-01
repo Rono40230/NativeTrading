@@ -178,6 +178,8 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue'
 import { useSignauxTableau } from '@/composables/useSignauxTableau'
+import { ciblerPremierSlot } from '@/utils/graphiques'
+import { useRouter } from 'vue-router'
 import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
 import { formatDate, formatNombre } from '@/composables/useSignalFormat'
 import type { Signal } from '@/services/api.types'
@@ -224,8 +226,13 @@ async function confirmerAnnulation() {
   await annuler(s)
 }
 
+/// Voir : ouvre le graphique du signal (premier slot sur son asset et son
+/// timeframe — ses boxes/pointillés y sont affichés par le chart).
+const router = useRouter()
+
 function afficherSignal(s: Signal) {
-  useSignalAlarmeStore().ajouterSignal(s)
+  ciblerPremierSlot(s.asset, s.timeframe)
+  router.push('/smc/graphiques')
 }
 
 // ── Heure d'entrée Straddle ───────────────────────────────────────────────────

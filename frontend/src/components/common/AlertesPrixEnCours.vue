@@ -54,6 +54,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSettingsStore } from '@/stores/settings.store'
 import { alertesApi } from '@/services/api.alertes'
+import { ciblerPremierSlot } from '@/utils/graphiques'
 
 interface AlertePrix {
   id: number
@@ -71,20 +72,11 @@ const router = useRouter()
 const settingsStore = useSettingsStore()
 const alertesToutes = ref<AlertePrix[]>([])
 
-/** Voir : la page Graphiques restaure sa grille depuis localStorage
- *  (CLE_SLOTS) — cibler l'asset de l'alerte dans le PREMIER slot puis
- *  y naviguer. Le réglage global suit aussi (cohérence). */
-const CLE_SLOTS = 'trading_slots_graphiques'
-
+/** Voir : cible l'asset de l'alerte dans le premier slot de la grille
+ *  sauvegardée puis ouvre la page Graphiques (utilitaire partagé). */
 function voirAlerte(a: AlertePrix) {
   settingsStore.assetActif = a.asset
-  try {
-    const slots = JSON.parse(localStorage.getItem(CLE_SLOTS) ?? '[]') as { asset: string; timeframe: string }[]
-    if (Array.isArray(slots) && slots.length > 0) {
-      slots[0] = { ...slots[0], asset: a.asset }
-      localStorage.setItem(CLE_SLOTS, JSON.stringify(slots))
-    }
-  } catch { /* grille illisible : la page retombera sur assetActif */ }
+  ciblerPremierSlot(a.asset)
   router.push('/smc/graphiques')
 }
 
