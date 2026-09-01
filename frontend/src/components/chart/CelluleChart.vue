@@ -255,10 +255,7 @@ async function chargerTradesExternes() {
       .filter(x =>
         x.asset === selectedAsset.value
         && x.statut === 'Actif'
-        && NOMS_DESSINES.includes(x.strategie)
-        // Autres TF : tout trade ouvert. TF affiché : uniquement les
-        // ordres EN ATTENTE (jamais remplis — fidélité Pine).
-        && (x.timeframe !== selectedTimeframe.value || x.heure_entree === null))
+        && NOMS_DESSINES.includes(x.strategie))
       .slice(0, 6)
 
     // Récupérer les niveaux du REPLAY du TF d'origine (pas de la base —
