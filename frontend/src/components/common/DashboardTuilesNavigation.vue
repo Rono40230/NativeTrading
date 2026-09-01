@@ -27,17 +27,32 @@
         <span v-if="articles.length" class="mt-auto text-[9px] text-white">Collecte il y a {{ ageCourt(articles[0]) }}</span>
       </template>
 
-      <!-- 📈 Graphiques : slots de la grille + prix + variation -->
+      <!-- 📈 Graphiques : slots de la grille (cliquables) + alertes prix actives -->
       <template v-else-if="t.id === 'graphiques'">
         <div v-if="!slots.length" class="text-[10px] text-white leading-snug">Aucune grille sauvegardée — ouvrez la page Graphiques pour la composer</div>
-        <div v-for="s in slots" :key="s.asset + s.timeframe" class="flex items-center gap-1.5">
+        <div
+          v-for="s in slots"
+          :key="s.asset + s.timeframe"
+          class="flex items-center gap-1.5 rounded px-0.5 -mx-0.5 hover:bg-white/10 transition-colors"
+          title="Ouvrir ce graphique"
+          @click.stop="ouvrirGraphique(s.asset, s.timeframe)"
+        >
           <span class="text-[10px] font-semibold text-white w-16 shrink-0 truncate">{{ s.asset }}</span>
           <span class="text-[10px] font-mono text-white w-14 shrink-0 text-right">{{ formaterPrix(prixStore.getPrix(s.asset)) }}</span>
           <span class="text-[10px] font-mono shrink-0" :class="(variations[s.asset] ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
             {{ variations[s.asset] === null || variations[s.asset] === undefined ? '' : `${(variations[s.asset] ?? 0) >= 0 ? '▲' : '▼'} ${Math.abs(variations[s.asset] ?? 0).toFixed(2)} %` }}
           </span>
         </div>
-        <span class="mt-auto text-[9px] text-white">🔔 {{ nbAlertes }} alerte(s) active(s)</span>
+        <!-- Alertes prix actives (fusion de l'ancien bloc 🔔 dédié) -->
+        <div v-if="alertesActives.length" class="mt-auto pt-1.5 border-t border-white/10 flex flex-col gap-1">
+          <div v-for="a in alertesActives" :key="a.id" class="flex items-center gap-1.5" :title="titreAlerte(a)">
+            <span class="text-[10px]">{{ a.sens === 'en_dessous' ? '🔻' : '🔺' }}</span>
+            <span class="text-[10px] font-semibold text-white truncate">{{ a.asset }}</span>
+            <span class="text-[10px] font-mono text-amber-300">{{ formaterPrix(a.prix) }}</span>
+            <button class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-white transition-colors" title="Ouvrir le graphique de cet asset" @click.stop="ouvrirGraphique(a.asset)">👁</button>
+            <button class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-red-600/60 text-white transition-colors" title="Supprimer l'alerte (bloc + graphique)" @click.stop="supprimerAlerte(a)">✕</button>
+          </div>
+        </div>
       </template>
 
       <!-- 🧠 IA : modèle + dernière analyse + raccourcis -->
@@ -66,7 +81,8 @@ import { presseApi, type ArticlePresse } from '@/services/api.presse'
 import { alertesApi } from '@/services/api.alertes'
 import { apiService } from '@/services/api.service'
 import { usePrixStore } from '@/stores/prix.store'
-import { CLE_SLOTS } from '@/utils/graphiques'
+import { CLE_SLOTS, ciblerPremierSlot } from '@/utils/graphiques'
+import type { AlertePrix } from '@/services/api.alertes'
 
 const router = useRouter()
 const prixStore = usePrixStore()
@@ -116,7 +132,24 @@ function ageTs(ts: number): string {
 type Slot = { asset: string; timeframe: string }
 const slots = ref<Slot[]>([])
 const variations = ref<Record<string, number | null>>({})
-const nbAlertes = ref(0)
+const alertesActives = ref<AlertePrix[]>([])
+
+/// Ouvre la page Graphiques sur un asset précis (premier slot ciblé).
+function ouvrirGraphique(asset: string, timeframe?: string) {
+  ciblerPremierSlot(asset, timeframe)
+  router.push('/smc/graphiques')
+}
+
+function titreAlerte(a: AlertePrix): string {
+  return `${a.asset} — ${a.sens === 'en_dessous' ? 'descente sous' : 'montée au-dessus de'} ${formaterPrix(a.prix)}${a.note ? ` · ${a.note}` : ''}`
+}
+
+async function supprimerAlerte(a: AlertePrix) {
+  try {
+    await alertesApi.supprimer(a.id)
+    alertesActives.value = alertesActives.value.filter(x => x.id !== a.id)
+  } catch { /* le prochain poll réaffichera l'état réel */ }
+}
 
 function formaterPrix(p: number | null): string {
   if (p === null) return '—'
@@ -145,8 +178,8 @@ async function chargerTout() {
 
   try {
     const alertes = await alertesApi.lister()
-    nbAlertes.value = alertes.filter(a => a.active).length
-  } catch { nbAlertes.value = 0 }
+    alertesActives.value = alertes.filter(a => a.active)
+  } catch { alertesActives.value = [] }
 
   // Variation journalière (D1) de chaque asset de la grille.
   await Promise.allSettled(slots.value.map(async s => {

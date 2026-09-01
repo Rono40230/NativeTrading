@@ -20,7 +20,6 @@
             :ollama-ok="ollamaOk"
             class="shrink-0"
           />
-          <AlertesPrixEnCours class="shrink-0 max-h-44" />
           <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
           <!-- Hub de navigation : presse, graphiques, IA, système (refonte
                01/09) — tuiles empilées sous la surveillance, scroll interne
@@ -69,7 +68,6 @@ import EconomicCalendar from '@/components/common/EconomicCalendar.vue'
 import SentimentMarche from '@/components/common/SentimentMarche.vue'
 import AlerteBandeau from '@/components/common/AlerteBandeau.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
-import AlertesPrixEnCours from '@/components/common/AlertesPrixEnCours.vue'
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
 import CreneauxVolatiliteBloc from '@/components/common/CreneauxVolatiliteBloc.vue'
 import DashboardStrategiesBlocs from '@/components/common/DashboardStrategiesBlocs.vue'
