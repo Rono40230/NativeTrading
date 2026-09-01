@@ -192,15 +192,27 @@ import StraddleAnalyseModal from '@/components/common/StraddleAnalyseModal.vue'
 import SmcAnalyseModal from '@/components/common/SmcAnalyseModal.vue'
 import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
 
-const props = defineProps<{ strategie: 'SMC' | 'straddle' | 'Rockets' }>()
+const props = defineProps<{
+  strategie: 'SMC' | 'straddle' | 'Rockets'
+  /// Option A : ne montrer que les trades engagés (remplis) — les ordres
+  /// en attente vivent dans la section Setups des pages stratégies.
+  remplisSeuls?: boolean
+}>()
 
 const {
   signaux, rocketsRaw, chargement, analyseOuverte,
-  filtreStatut, annulationEnCours, listeActive, signauxTries,
+  filtreStatut, annulationEnCours, listeActive, signauxTries, remplisSeuls,
   charger, annuler, trierPar, icone, infosPips,
   classeConviction, classePrix, labelResultat, classeResultat, titreResultat, lotPourSignal,
   prixStore, assetParamsStore, settingsStore,
 } = useSignauxTableau(props.strategie)
+
+remplisSeuls.value = props.remplisSeuls ?? false
+const emitActifs = defineEmits<{ 'signaux-actifs': [liste: Signal[]] }>()
+watchEffect(() => {
+  remplisSeuls.value = props.remplisSeuls ?? false
+  emitActifs('signaux-actifs', signaux.value.filter(x => x.statut !== 'Fermé' && x.verdict === null) as unknown as Signal[])
+})
 
 // ── Modale confirmation annulation ───────────────────────────────────────────
 const signalAnnuler = ref<Signal | null>(null)

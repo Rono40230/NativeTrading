@@ -5,13 +5,16 @@
     etat="Officielle"
     route-definition="/smc/definition"
     lexique="smc"
-    :titre-encours="`${nbEncours} signal${nbEncours > 1 ? 's' : ''} en cours`"
+    :titre-encours="`${nbEncours} ${nbEncours > 1 ? 'signaux' : 'signal'} en cours`"
   >
     <template #setups>
       <SetupsFormationPanel strategie="SMC" />
+      <div class="mt-3">
+        <SignauxEnAttente :signaux="signauxActifs" strategie="SMC" />
+      </div>
     </template>
     <template #encours>
-      <SignauxTableau ref="tableauRef" strategie="SMC" @nb-signaux="nbEncours = $event" />
+      <SignauxTableau ref="tableauRef" strategie="SMC" remplis-seuls @nb-signaux="nbEncours = $event" @signaux-actifs="signauxActifs = $event" />
     </template>
     <template #historique-actions>
       <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="ouvrirAnalyse">📊 Analyse</button>
@@ -39,6 +42,7 @@
 import { ref, onMounted } from 'vue'
 import StrategyShell from '@/components/common/StrategyShell.vue'
 import SignauxTableau from '@/components/common/SignauxTableau.vue'
+import SignauxEnAttente from '@/components/common/SignauxEnAttente.vue'
 import SetupsFormationPanel from '@/components/common/SetupsFormationPanel.vue'
 import HistoryTable from '@/components/common/HistoryTable.vue'
 import { useHistoriqueStrategie } from '@/composables/useHistoriqueStrategie'
@@ -46,6 +50,7 @@ import { formatR } from '@/composables/useSignalFormat'
 
 const historique = useHistoriqueStrategie('smc')
 const nbEncours = ref(0)
+const signauxActifs = ref<InstanceType<typeof SignauxTableau> extends never ? never : import('@/services/api.service').Signal[]>([])
 const tableauRef = ref<InstanceType<typeof SignauxTableau> | null>(null)
 function ouvrirAnalyse() { tableauRef.value?.ouvrirAnalyse() }
 const triColonne = ref('')

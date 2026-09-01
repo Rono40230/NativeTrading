@@ -63,9 +63,23 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
     return (long ? prix >= s.take_profit[0] : prix <= s.take_profit[0]) ? 'text-emerald-400' : 'text-blue-300'
   }
 
+  /// Option A (01/09) : ne garder que les trades RÉELLEMENT engagés —
+  /// SMC : entrée touchée (heure_entree) · Straddle : heure E atteinte ·
+  /// Rockets : tout (position ouverte dès le signal). Les ordres en
+  /// attente vivent dans la section Setups (SignauxEnAttente).
+  const remplisSeuls = ref(false)
+
+  const estEngage = (s: typeof signaux.value[number]): boolean => {
+    if (s.statut === 'Fermé') return false
+    if (strategie === 'SMC') return s.heure_entree !== null && s.heure_entree !== undefined
+    if (strategie === 'straddle')
+      return (s.heure_entree ?? 0) <= Math.floor(Date.now() / 1000)
+    return true
+  }
+
   const listeActive = computed(() =>
     signaux.value.filter(s => {
-      if (filtreStatut.value === 'en_cours') return s.statut !== 'Fermé'
+      if (filtreStatut.value === 'en_cours') return remplisSeuls.value ? estEngage(s) : s.statut !== 'Fermé'
       if (filtreStatut.value === 'cloturees') return s.statut === 'Fermé'
       return true
     })
@@ -167,7 +181,7 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
   })
 
   return {
-    signaux, rocketsRaw, chargement, analyseOuverte, filtreStatut,
+    signaux, rocketsRaw, chargement, analyseOuverte, filtreStatut, remplisSeuls, estEngage,
     annulationEnCours, listeActive, signauxTries,
     charger, annuler, trierPar, icone, infosPips,
     classeConviction, classePrix, labelResultat, classeResultat, titreResultat, lotPourSignal,
