@@ -50,10 +50,8 @@
         </div>
       </template>
 
-      <!-- ⚙️ Système : MT5 + Tiingo + raccourcis -->
+      <!-- ⚙️ Système : raccourcis (l'état EA/Tiingo vit dans Data & IA Engine) -->
       <template v-else>
-        <span class="text-[10px] text-white truncate">{{ mt5Ok === null ? 'EA MT5 : vérification…' : mt5Ok ? '🟢 EA MT5 connecté' : '🔴 EA MT5 déconnecté' }}</span>
-        <span class="text-[10px] text-white truncate">{{ tiingo ? `Tiingo actions : ${tiingo}` : 'Tiingo actions : indisponible' }}</span>
         <div class="mt-auto flex gap-1">
           <button v-for="r in raccourcisSysteme" :key="r.to" class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-white transition-colors" @click.stop="router.push(r.to)">{{ r.label }}</button>
         </div>
@@ -68,7 +66,6 @@ import { useRouter } from 'vue-router'
 import { presseApi, type ArticlePresse } from '@/services/api.presse'
 import { alertesApi } from '@/services/api.alertes'
 import { apiService } from '@/services/api.service'
-import { http } from '@/services/http.client'
 import { usePrixStore } from '@/stores/prix.store'
 import { CLE_SLOTS } from '@/utils/graphiques'
 
@@ -134,10 +131,6 @@ const modele = ref('')
 const ollamaOk = ref<boolean | null>(null)
 const derniereAnalyse = ref<{ asset: string; tf: string; ts: number } | null>(null)
 
-// ── Système : EA MT5 + Tiingo ────────────────────────────────────────────────
-const mt5Ok = ref<boolean | null>(null)
-const tiingo = ref('')
-
 async function chargerTout() {
   try {
     const liste = await presseApi.articles({ page: 1 })
@@ -175,16 +168,6 @@ async function chargerTout() {
   try {
     derniereAnalyse.value = JSON.parse(localStorage.getItem('derniere_analyse_graphique') ?? 'null')
   } catch { derniereAnalyse.value = null }
-
-  try {
-    const r = await http.get('/api/mt5/statut')
-    mt5Ok.value = !!r.data?.connecte
-  } catch { mt5Ok.value = false }
-  try {
-    const r = await http.get('/api/rockets/actions/backfill/etat')
-    const d = r.data as { univers_avec_bougies?: number; univers_total?: number }
-    tiingo.value = `${d.univers_avec_bougies ?? 0}/${d.univers_total ?? 0}`
-  } catch { tiingo.value = '' }
 }
 
 let poll: ReturnType<typeof setInterval> | null = null
