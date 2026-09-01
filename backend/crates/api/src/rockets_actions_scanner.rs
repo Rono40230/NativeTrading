@@ -40,6 +40,7 @@ pub async fn scanner_actions(db: &Arc<Database>) -> serde_json::Value {
     let qqq = db.bougies_actions("QQQ").await.unwrap_or_default();
     let clotures_qqq: Vec<f64> = qqq.iter().map(|b| b.4).collect();
     let Some(ctx) = contexte_marche(&clotures_qqq) else {
+        tracing::warn!("🚀 Scanner actions différé : QQQ pas encore alimenté (course avec le backfill au boot — reprise au prochain passage)");
         return serde_json::json!({
             "erreur": "QQQ insuffisant pour le contexte — scanner différé au prochain passage"
         });

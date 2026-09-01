@@ -26,7 +26,10 @@
         </thead>
         <tbody>
           <tr v-for="c in candidats" :key="c.symbole" class="border-b border-white/5 hover:bg-white/5">
-            <td class="px-3 py-2.5 font-semibold text-white">{{ c.symbole }}</td>
+            <td class="px-3 py-2.5 font-semibold text-white">
+          {{ c.symbole }}
+          <span v-if="c.univers === 'action'" class="ml-1 text-[9px] px-1 py-0.5 rounded bg-blue-900/60 text-blue-300 align-middle" title="Action US — veille en Observation (source Tiingo, référence QQQ)">US</span>
+        </td>
             <td class="px-3 py-2.5 text-center font-mono" :class="c.points >= 9 ? 'text-emerald-400' : c.points >= 7 ? 'text-blue-300' : 'text-gray-400'">{{ c.points }}/10</td>
             <td class="px-3 py-2.5 text-center">
               <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
@@ -79,6 +82,7 @@ import { http } from '@/services/http.client'
 
 interface Candidat {
   symbole: string; points: number; verdict: string
+  univers?: string  // 'crypto' (défaut) | 'action'
   pivot: number; stop: number; cassure: boolean
   detail: Record<string, boolean | null>
   news_verdict?: string; news_conviction?: number; news_justification?: string
