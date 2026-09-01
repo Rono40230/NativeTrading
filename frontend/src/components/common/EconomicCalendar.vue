@@ -19,20 +19,19 @@
         <!-- Carte évenement -->
         <div
           class="rounded-md border px-2.5 py-2 select-none transition-colors flex flex-col gap-1"
-          :class="a.est_passe
+          :class="estPasse(a)
             ? 'border-white/5 bg-white/5 opacity-50'
             : a.impact === 'High'
               ? 'border-red-500/20 bg-red-500/5 hover:bg-red-500/10'
               : 'border-orange-500/20 bg-orange-500/5 hover:bg-orange-500/10'"
         >
-          <!-- Ligne 1 : badge + devise -->
+          <!-- Ligne 1 : pastille + devise + état unique à droite -->
           <div class="flex items-center gap-1.5">
             <span
               class="w-1.5 h-1.5 rounded-full shrink-0"
-              :class="a.est_passe ? 'bg-slate-600' : a.impact === 'High' ? 'bg-red-400' : 'bg-orange-400'"
+              :class="estPasse(a) ? 'bg-slate-600' : a.impact === 'High' ? 'bg-red-400' : 'bg-orange-400'"
             />
             <span class="text-[11px] font-mono font-bold text-white">{{ a.devise }}</span>
-            <span v-if="a.est_passe" class="text-[9px] text-white border border-slate-600/40 rounded-full px-1.5 py-0.5 leading-none">Terminé</span>
             <span class="ml-auto text-[10px] font-semibold shrink-0" :class="couleurCountdown(a.date_heure)">{{ countdown(a.date_heure) }}</span>
           </div>
           <!-- Ligne 2 : titre complet sur 2 lignes max -->
@@ -100,9 +99,18 @@ function formatUTC(iso: string): string {
   return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`
 }
 
+/// Horloge réactive : les transitions d'état (imminent → en cours → terminé)
+/// se font en direct, sans attendre un rechargement.
+const maintenant = ref(Date.now())
+
+/** Événement terminé : au-delà de la fenêtre de publication (1 min). */
+function estPasse(a: { date_heure: string }): boolean {
+  return maintenant.value - new Date(a.date_heure).getTime() > 60_000
+}
+
 function countdown(iso: string): string {
-  const diffMs = new Date(iso).getTime() - Date.now()
-  if (diffMs <= 0) return 'En cours'
+  const diffMs = new Date(iso).getTime() - maintenant.value
+  if (diffMs <= 0) return estPasse({ date_heure: iso }) ? 'Terminé' : 'En cours'
   const diffMin = Math.floor(diffMs / 60_000)
   if (diffMin < 60) return `dans ${diffMin}min`
   const h = Math.floor(diffMin / 60)
@@ -113,10 +121,11 @@ function countdown(iso: string): string {
 }
 
 function couleurCountdown(iso: string): string {
-  const diffMin = (new Date(iso).getTime() - Date.now()) / 60_000
-  if (diffMin > 0 && diffMin <= 15) return 'text-red-400 animate-pulse'
-  if (diffMin <= 60) return 'text-orange-400'
-  return 'text-white'
+  const diffMin = (new Date(iso).getTime() - maintenant.value) / 60_000
+  if (diffMin > 0 && diffMin <= 15) return 'text-red-400 animate-pulse' // imminent
+  if (diffMin <= 0 && diffMin >= -1) return 'text-red-400 animate-pulse' // publication
+  if (diffMin > 0 && diffMin <= 60) return 'text-orange-400'
+  return 'text-white' // lointain ou terminé
 }
 
 function verifierAlertes() {
@@ -139,7 +148,10 @@ function fermerSurvolee() { survolee.value = null }
 onMounted(async () => {
   await charger()
   verifierAlertes()
-  intervalle = setInterval(verifierAlertes, 60_000)
+  intervalle = setInterval(() => {
+    verifierAlertes()
+    maintenant.value = Date.now()
+  }, 15_000)
   document.addEventListener('click', fermerSurvolee)
 })
 
