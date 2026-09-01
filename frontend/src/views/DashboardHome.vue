@@ -5,10 +5,13 @@
     <!-- Bandeau alerte critique (conditionnel) -->
     <AlerteBandeau />
 
-    <div class="flex gap-3">
+    <!-- Hauteur définie sur la rangée : les colonnes ne dépassent JAMAIS la
+         page — seul le centre (cartes stratégies) scrolle en bloc, les
+         contenus des blocs scrollent en interne (calendrier, tuiles). -->
+    <div class="flex gap-3 h-[calc(100vh-5.5rem)]">
 
     <!-- Contenu principal -->
-    <div class="flex-1 min-w-0 flex flex-col gap-2 h-[calc(100vh-5.5rem)] overflow-hidden pb-1">
+    <div class="flex-1 min-w-0 flex flex-col gap-2 min-h-0 overflow-hidden pb-1">
 
       <div class="flex gap-2 flex-1 min-h-0">
         <!-- Colonne gauche (remonte en haut de page) : statut, alertes prix,
@@ -40,7 +43,7 @@
     </div>
 
       <!-- Colonne droite : Sentiment + Calendrier -->
-      <aside class="w-80 shrink-0 h-full min-h-0 flex flex-col gap-3">
+      <aside class="w-80 shrink-0 h-full min-h-0 flex flex-col gap-3 overflow-hidden">
         <SentimentMarche class="shrink-0" />
         <div class="flex-1 min-h-0">
           <EconomicCalendar class="h-full" />
