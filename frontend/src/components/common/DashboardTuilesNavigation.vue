@@ -179,6 +179,16 @@ async function chargerTout() {
   try {
     const alertes = await alertesApi.lister()
     alertesActives.value = alertes.filter(a => a.active)
+    // Rattrapage (hérité de l'ancien bloc 🔔) : une alerte déclenchée ne
+    // doit exister nulle part. Les graphs la suppriment en notifiant
+    // (son + OS, poll 10 s) ; on nettoie ici les déclenchées de plus de
+    // 2 minutes, fenêtre laissée aux charts pour la notification.
+    const vieilles = alertes.filter(
+      a => !a.active && a.declenchee_le && Date.now() / 1000 - a.declenchee_le > 120,
+    )
+    if (vieilles.length) {
+      await Promise.all(vieilles.map(a => alertesApi.supprimer(a.id).catch(() => null)))
+    }
   } catch { alertesActives.value = [] }
 
   // Variation journalière (D1) de chaque asset de la grille.
