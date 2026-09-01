@@ -1,12 +1,7 @@
 <template>
   <div class="flex-1 min-h-0 flex flex-col gap-3">
-    <!-- En-tête : retour + identité + définition + lexique -->
+    <!-- En-tête : identité + définition + lexique (retour = bouton Dashboard de la barre de titre) -->
     <div class="glass-card px-4 py-3 flex items-center gap-3 shrink-0">
-      <button
-        class="btn-sm shrink-0"
-        title="Retour au dashboard"
-        @click="router.push('/')"
-      >← Dashboard</button>
       <span class="text-xl leading-none">{{ icone }}</span>
       <h1 class="text-xl font-bold text-white truncate">{{ titre }}</h1>
       <span
