@@ -26,7 +26,7 @@
 
         <section class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-5">
           <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
-            🟢 Trades en cours <span class="text-gray-600 normal-case">— ce qui est engagé</span>
+            🟢 {{ titreEncours ?? 'Trades en cours' }}
           </h2>
           <slot name="encours" />
         </section>
