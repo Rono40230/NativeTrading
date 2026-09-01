@@ -5,12 +5,13 @@
     etat="Observation"
     route-definition="/rockets/definition"
     lexique="rockets"
+    :titre-encours="`${nbEncours} signal${nbEncours > 1 ? 's' : ''} en cours`"
   >
     <template #setups>
       <RocketsScannerView embarque />
     </template>
     <template #encours>
-      <SignauxTableau ref="tableauRef" strategie="Rockets" />
+      <SignauxTableau ref="tableauRef" strategie="Rockets" @nb-signaux="nbEncours = $event" />
     </template>
     <template #historique>
       <div class="flex justify-end mb-2">
@@ -38,6 +39,7 @@ import { useRocketsHistory } from '@/composables/useRocketsHistory'
 const filtreStatut = ref<'en_cours' | 'cloturees' | ''>('cloturees')
 const triColonne = ref('')
 const triDir = ref<'asc' | 'desc'>('desc')
+const nbEncours = ref(0)
 const tableauRef = ref<InstanceType<typeof SignauxTableau> | null>(null)
 function ouvrirAnalyse() { tableauRef.value?.ouvrirAnalyse() }
 

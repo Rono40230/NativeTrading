@@ -5,12 +5,13 @@
     etat="Officielle"
     route-definition="/smc/definition"
     lexique="smc"
+    :titre-encours="`${nbEncours} signal${nbEncours > 1 ? 's' : ''} en cours`"
   >
     <template #setups>
       <SetupsFormationPanel strategie="SMC" />
     </template>
     <template #encours>
-      <SignauxTableau ref="tableauRef" strategie="SMC" />
+      <SignauxTableau ref="tableauRef" strategie="SMC" @nb-signaux="nbEncours = $event" />
     </template>
     <template #historique>
       <div class="text-sm text-gray-400 flex flex-wrap items-center gap-x-3 mb-2">
@@ -44,6 +45,7 @@ import { useHistoriqueStrategie } from '@/composables/useHistoriqueStrategie'
 import { formatR } from '@/composables/useSignalFormat'
 
 const historique = useHistoriqueStrategie('smc')
+const nbEncours = ref(0)
 const tableauRef = ref<InstanceType<typeof SignauxTableau> | null>(null)
 function ouvrirAnalyse() { tableauRef.value?.ouvrirAnalyse() }
 const triColonne = ref('')

@@ -1,13 +1,7 @@
 <template>
   <div class="flex-1 min-h-0 flex flex-col gap-4">
 
-    <!-- Filtres -->
-    <div class="glass-card p-3 flex items-center gap-3 flex-wrap shrink-0">
-      <span class="text-xs text-gray-500">{{ listeActive.length }} signal{{ listeActive.length !== 1 ? 's' : '' }}</span>
-      <div class="flex gap-2 ml-auto" />
-    </div>
-
-    <!-- Tableau -->
+    <!-- Tableau (le compte de signaux vit dans le titre de la section) -->
     <div class="glass-card overflow-x-hidden overflow-y-auto flex-1 min-h-0">
       <div v-if="chargement && !listeActive.length" class="text-center text-gray-500 py-10">Chargement…</div>
       <div v-else-if="!listeActive.length" class="text-center text-gray-500 py-10">Aucun signal correspondant</div>
@@ -189,7 +183,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watchEffect } from 'vue'
 import { useSignauxTableau } from '@/composables/useSignauxTableau'
 import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
 import { formatDate, formatNombre } from '@/composables/useSignalFormat'
@@ -239,6 +233,10 @@ function labelHeureEntree(s: Signal): string | null {
 
 /// Le bouton 📊 Analyse vit dans la section Historique des pages
 /// stratégies — le parent déclenche l'ouverture par ref.
+/// Compte de signaux remonté au parent (titre de section des pages).
+const emitNb = defineEmits<{ 'nb-signaux': [n: number] }>()
+watchEffect(() => emitNb('nb-signaux', listeActive.value.length))
+
 defineExpose({ ouvrirAnalyse: () => { analyseOuverte.value = true } })
 </script>
 

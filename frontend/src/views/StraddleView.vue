@@ -5,13 +5,14 @@
     etat="Observation"
     route-definition="/straddle/definition"
     lexique="straddle"
+    :titre-encours="`${nbEncours} signal${nbEncours > 1 ? 's' : ''} en cours`"
   >
     <template #setups>
       <StraddleAgendaPanel />
       <div class="text-[10px] text-gray-600 mt-2">XAU · BTC · NAS100 · SP500 armés au branchement MT5</div>
     </template>
     <template #encours>
-      <SignauxTableau ref="tableauRef" strategie="straddle" />
+      <SignauxTableau ref="tableauRef" strategie="straddle" @nb-signaux="nbEncours = $event" />
     </template>
     <template #historique>
       <div class="text-sm text-gray-400 flex flex-wrap items-center gap-x-3 mb-2">
@@ -45,6 +46,7 @@ import { useHistoriqueStrategie } from '@/composables/useHistoriqueStrategie'
 import { formatR } from '@/composables/useSignalFormat'
 
 const historique = useHistoriqueStrategie('straddle')
+const nbEncours = ref(0)
 const tableauRef = ref<InstanceType<typeof SignauxTableau> | null>(null)
 function ouvrirAnalyse() { tableauRef.value?.ouvrirAnalyse() }
 const triColonne = ref('')

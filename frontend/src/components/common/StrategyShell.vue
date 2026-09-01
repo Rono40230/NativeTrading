@@ -68,6 +68,8 @@ const props = withDefaults(defineProps<{
   etat?: string
   routeDefinition: string
   lexique?: 'smc' | 'straddle' | 'rockets'
+  /// Titre de la section en cours (ex. « 3 signaux en cours »).
+  titreEncours?: string
 }>(), { etat: 'Observation', lexique: 'smc' })
 
 const router = useRouter()
