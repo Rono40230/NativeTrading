@@ -51,6 +51,7 @@
               <span v-if="palierFerme(s)" class="badge" :class="classePalierMax(palierFerme(s))">{{ labelPalierMax(palierFerme(s)) }}</span>
               <span v-else class="badge" :class="classeEtatSignal(s)" :title="titreEtatSignal(s)">{{ labelEtatSignal(s) }}</span>
               <span v-if="rReference(s) !== null" :class="classeR(rReference(s))" class="text-xs">{{ formatR(rReference(s)) }}</span>
+              <span v-if="pipsPalier(s)" class="text-[10px] font-mono" :class="classeR(rReference(s))" title="Gain/perte en pips (R de référence × risque en pips)">{{ pipsPalier(s) }}</span>
             </div>
             <!-- MFE des perdants : l'excursion favorable avant le SL juge le
                  placement des niveaux (frôler TP1 puis claquer = info clé). -->
@@ -68,9 +69,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import type { Signal } from '@/services/api.service'
 import { usePrixStore } from '@/stores/prix.store'
+import { useAssetParamsStore } from '@/stores/assetParams.store'
 import {
   formatDate, formatNombre, classeEtatSignal, labelEtatSignal, titreEtatSignal,
   calculerR, formatR, classeR,
@@ -90,6 +92,22 @@ const props = defineProps<{
 const emit = defineEmits<{
   'trier-par': [col: string]
 }>()
+
+const assetParams = useAssetParamsStore()
+onMounted(() => { if (!assetParams.liste.length) void assetParams.charger() })
+
+/** Gain/perte en pips du palier max : R de référence × risque en pips
+ *  (|entrée − SL| / taille du pip de l'asset). '' si params absents. */
+function pipsPalier(s: Signal): string {
+  const r = rReference(s)
+  if (r === null) return ''
+  const p = assetParams.liste.find(x => x.asset === s.asset)
+  if (!p || p.taille_pip <= 0) return ''
+  const risque = Math.abs(s.prix_entree - s.stop_loss)
+  if (risque <= 0) return ''
+  const pips = r * (risque / p.taille_pip)
+  return `${pips >= 0 ? '+' : '−'}${Math.abs(Math.round(pips))} pips`
+}
 
 const prixStore = usePrixStore()
 

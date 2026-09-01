@@ -52,6 +52,15 @@
         <span class="text-white" title="Taux de réussite (R de référence > 0)">WR {{ (b.perf.taux_reussite * 100).toFixed(0) }} %</span>
         <span class="ml-auto text-white">{{ b.perf.en_cours.length }} en cours</span>
       </div>
+
+      <!-- Pips par asset : chaque gain/perte exprimé dans l'unité de son
+           actif (les pips ne sont pas comparables entre assets). -->
+      <div v-if="b.pips.length" class="flex flex-wrap gap-x-2.5 gap-y-0.5 text-[10px] leading-tight">
+        <span v-for="p in b.pips" :key="p.asset" class="font-mono">
+          <span class="text-white">{{ p.asset }}</span>
+          <span :class="p.pips >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ p.pips >= 0 ? '+' : '−' }}{{ Math.abs(Math.round(p.pips)) }} pips</span>
+        </span>
+      </div>
     </div>
 
     <div v-if="!blocs.length && !chargement" class="flex-1 flex items-center justify-center text-sm text-white">
@@ -64,6 +73,8 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { http } from '@/services/http.client'
+import { useAssetParamsStore } from '@/stores/assetParams.store'
+import { palierMax } from '@/composables/useSignalFormat'
 
 interface StrategieApi {
   id: string; nom: string; icone: string; etat: string
@@ -81,12 +92,21 @@ interface PerfApi {
 }
 interface Bloc {
   id: string; nom: string; icone: string; etat: string; perf: PerfApi
+  /** Σ pips par asset des trades fermés remplis (unité propre à l'asset). */
+  pips: { asset: string; pips: number }[]
 }
 
 const LARGEUR = 100
 const HAUTEUR = 32
 
+interface SignalApi {
+  id: string; asset: string; strategie: string; statut: string
+  direction: string; prix_entree: number; stop_loss: number
+  take_profit: number[]; verdict: string | null; heure_entree: number | null
+}
+
 const router = useRouter()
+const assetParams = useAssetParamsStore()
 const blocs = ref<Bloc[]>([])
 const chargement = ref(true)
 let minuteur: ReturnType<typeof setInterval> | null = null
@@ -97,8 +117,36 @@ const ROUTES: Record<string, string> = {
   rockets: '/rockets',
 }
 
+/** Σ pips par asset des trades fermés remplis de la stratégie :
+ *  R de référence × risque en pips (|entrée − SL| / taille du pip). */
+function pipsParAsset(idStrategie: string): { asset: string; pips: number }[] {
+  const parAsset = new Map<string, number>()
+  for (const s of signaux.value) {
+    const strats = s.strategie.toLowerCase()
+    if (s.statut !== 'Fermé' || s.heure_entree === null) continue
+    if (idStrategie === 'SMC' ? !strats.startsWith('smc') : strats !== idStrategie) continue
+    const r = palierMax(s).rReference
+    if (r === null) continue
+    const p = assetParams.liste.find(x => x.asset === s.asset)
+    if (!p || p.taille_pip <= 0) continue
+    const risque = Math.abs(s.prix_entree - s.stop_loss)
+    if (risque <= 0) continue
+    parAsset.set(s.asset, (parAsset.get(s.asset) ?? 0) + r * (risque / p.taille_pip))
+  }
+  return [...parAsset.entries()]
+    .map(([asset, pips]) => ({ asset, pips }))
+    .sort((a, b) => b.pips - a.pips)
+}
+
+const signaux = ref<SignalApi[]>([])
+
 async function charger() {
   try {
+    if (!assetParams.liste.length) await assetParams.charger().catch(() => {})
+    try {
+      const sig = await http.get<SignalApi[]>('/api/signaux', { params: { limit: 150 } })
+      signaux.value = sig.data
+    } catch { signaux.value = [] }
     const res = await http.get<StrategieApi[]>('/api/strategies')
     const actives = (res.data as StrategieApi[]).filter(s => s.etat !== 'Construction')
     const complets = await Promise.allSettled(
@@ -108,7 +156,7 @@ async function charger() {
           const p = await http.get<PerfApi>(`/api/strategies/${s.id}/performance`)
           perf = p.data as PerfApi
         } catch { /* perf indisponible → bloc vide */ }
-        return { id: s.id, nom: s.nom, icone: s.icone, etat: s.etat, perf }
+        return { id: s.id, nom: s.nom, icone: s.icone, etat: s.etat, perf, pips: pipsParAsset(s.id) }
       }),
     )
     blocs.value = complets.flatMap(p => (p.status === 'fulfilled' ? [p.value] : []))
