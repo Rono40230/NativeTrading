@@ -4,9 +4,7 @@
     <!-- Filtres -->
     <div class="glass-card p-3 flex items-center gap-3 flex-wrap shrink-0">
       <span class="text-xs text-gray-500">{{ listeActive.length }} signal{{ listeActive.length !== 1 ? 's' : '' }}</span>
-      <div class="flex gap-2 ml-auto">
-        <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse</button>
-      </div>
+      <div class="flex gap-2 ml-auto" />
     </div>
 
     <!-- Tableau -->
@@ -238,6 +236,10 @@ function labelHeureEntree(s: Signal): string | null {
   }
   return 'Entrée active'
 }
+
+/// Le bouton 📊 Analyse vit dans la section Historique des pages
+/// stratégies — le parent déclenche l'ouverture par ref.
+defineExpose({ ouvrirAnalyse: () => { analyseOuverte.value = true } })
 </script>
 
 <style scoped>

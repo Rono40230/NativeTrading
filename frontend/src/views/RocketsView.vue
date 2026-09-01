@@ -10,9 +10,12 @@
       <RocketsScannerView embarque />
     </template>
     <template #encours>
-      <SignauxTableau strategie="Rockets" />
+      <SignauxTableau ref="tableauRef" strategie="Rockets" />
     </template>
     <template #historique>
+      <div class="flex justify-end mb-2">
+        <button class="btn-sm bg-purple-700 hover:bg-purple-600" title="Analyse de performance approfondie" @click="ouvrirAnalyse">📊 Analyse</button>
+      </div>
       <RocketsTableau
         :rockets="rocketsFiltrés"
         :prix-actuels="prixActuels"
@@ -35,6 +38,9 @@ import { useRocketsHistory } from '@/composables/useRocketsHistory'
 const filtreStatut = ref<'en_cours' | 'cloturees' | ''>('cloturees')
 const triColonne = ref('')
 const triDir = ref<'asc' | 'desc'>('desc')
+const tableauRef = ref<InstanceType<typeof SignauxTableau> | null>(null)
+function ouvrirAnalyse() { tableauRef.value?.ouvrirAnalyse() }
+
 const { rockets, prixActuels, chargerRockets, rocketsFiltrés } =
   useRocketsHistory(filtreStatut, triColonne, triDir)
 
