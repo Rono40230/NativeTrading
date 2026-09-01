@@ -14,9 +14,10 @@
       </div>
     </div>
 
-    <!-- Setups et trades en cours sur la même ligne ; historique dessous -->
-    <div class="flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto pr-0.5">
-      <div class="grid grid-cols-6 gap-3 min-h-0">
+    <!-- Moitié haute : setups + signaux ; moitié basse : historique.
+         Chaque section défile en interne (aucun scroll global). -->
+    <div class="flex-1 min-h-0 grid grid-rows-2 gap-3 pr-0.5">
+      <div class="grid grid-cols-6 gap-3 min-h-0 h-full">
         <section v-if="$slots.setups" class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-1">
           <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
             ⏳ Setups en attente
@@ -32,14 +33,16 @@
         </section>
       </div>
 
-      <section class="glass-card px-4 py-3 flex flex-col min-h-0">
+      <section class="glass-card px-4 py-3 flex flex-col min-h-0 h-full">
         <div class="flex items-center mb-2 shrink-0">
           <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider">
             📜 Historique des trades
           </h2>
           <div class="ml-auto"><slot name="historique-actions" /></div>
         </div>
-        <slot name="historique" />
+        <div class="flex-1 min-h-0 overflow-y-auto">
+          <slot name="historique" />
+        </div>
       </section>
     </div>
 
