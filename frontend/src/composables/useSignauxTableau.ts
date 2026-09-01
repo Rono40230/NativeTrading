@@ -1,6 +1,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import type { Signal, RocketSignalHistorique } from '@/services/api.types'
 import { apiService } from '@/services/api.service'
+import { http } from '@/services/http.client'
 import { usePrixStore } from '@/stores/prix.store'
 import { useAssetParamsStore } from '@/stores/assetParams.store'
 import { useSettingsStore } from '@/stores/settings.store'
@@ -124,15 +125,34 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
     return titreEtatSignal(s)
   }
 
+  /// Risque % de la verticale (registre stratégies) — la table asset_params
+  /// n'a jamais porté de risque_pct : l'ancien calcul produisait « Lot : NaN ».
+  const ID_REGISTRE: Record<'SMC' | 'straddle' | 'Rockets', string> = {
+    SMC: 'SMC', straddle: 'straddle', Rockets: 'rockets',
+  }
+  const risquePct = ref(0)
+
+  async function chargerRisque() {
+    try {
+      const res = await http.get<{ id: string; risque_pct?: number }[]>('/api/strategies')
+      risquePct.value = res.data.find(r => r.id === ID_REGISTRE[strategie])?.risque_pct ?? 0
+    } catch { risquePct.value = 0 }
+  }
+
   function lotPourSignal(s: Signal): string {
     const params = assetParamsStore.liste.find(p => p.asset === s.asset)
     if (!params) return ''
     const capital = settingsStore.capitalDepart
-    if (capital <= 0 || params.valeur_pips <= 0 || params.sl_pips <= 0) return ''
-    const investi = capital * (params.risque_pct / 100)
+    if (capital <= 0 || risquePct.value <= 0 || params.valeur_pips <= 0 || params.sl_pips <= 0) return ''
+    const investi = capital * (risquePct.value / 100)
     const lot = investi / (params.sl_pips * params.valeur_pips)
     const lotClampe = Math.min(Math.max(lot, params.lot_min), params.lot_max)
     return lotClampe.toFixed(2)
+  }
+
+  /// Montant risqué du trade en dollars (capital × risque % de la verticale).
+  function montantRisque(): number {
+    return settingsStore.capitalDepart * (risquePct.value / 100)
   }
 
 
@@ -148,6 +168,7 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
 
   async function charger() {
     if (!listeActive.value.length) chargement.value = true
+    void chargerRisque()
     try {
       if (strategie === 'Rockets') {
         rocketsRaw.value = await apiService.rocketsActifs()
@@ -181,7 +202,7 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
   })
 
   return {
-    signaux, rocketsRaw, chargement, analyseOuverte, filtreStatut, remplisSeuls, estEngage,
+    signaux, rocketsRaw, chargement, analyseOuverte, filtreStatut, remplisSeuls, estEngage, montantRisque,
     annulationEnCours, listeActive, signauxTries,
     charger, annuler, trierPar, icone, infosPips,
     classeConviction, classePrix, labelResultat, classeResultat, titreResultat, lotPourSignal,

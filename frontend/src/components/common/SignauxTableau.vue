@@ -113,7 +113,7 @@
               <div class="flex items-center gap-2 text-[11px]">
                 <span class="text-yellow-400/70">Lot : <span class="font-mono font-bold text-yellow-300">{{ lotPourSignal(s) }}</span></span>
                 <span class="text-white/15">—</span>
-                <span class="text-gray-600">{{ (settingsStore.capitalDepart * ((assetParamsStore.liste.find(p => p.asset === s.asset)?.risque_pct ?? 0) / 100)).toFixed(0) }} $ risqués</span>
+                <span class="text-gray-600">{{ montantRisque().toFixed(0) }} $ risqués</span>
               </div>
             </td>
           </tr>
@@ -201,7 +201,7 @@ const props = defineProps<{
 
 const {
   signaux, rocketsRaw, chargement, analyseOuverte,
-  filtreStatut, annulationEnCours, listeActive, signauxTries, remplisSeuls,
+  filtreStatut, annulationEnCours, listeActive, signauxTries, remplisSeuls, montantRisque,
   charger, annuler, trierPar, icone, infosPips,
   classeConviction, classePrix, labelResultat, classeResultat, titreResultat, lotPourSignal,
   prixStore, assetParamsStore, settingsStore,
