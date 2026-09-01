@@ -5,7 +5,6 @@
     <div class="glass-card p-3 flex items-center gap-3 flex-wrap shrink-0">
       <span class="text-xs text-gray-500">{{ listeActive.length }} signal{{ listeActive.length !== 1 ? 's' : '' }}</span>
       <div class="flex gap-2 ml-auto">
-        <button class="btn-sm" @click="charger">🔄 Actualiser</button>
         <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse</button>
       </div>
     </div>

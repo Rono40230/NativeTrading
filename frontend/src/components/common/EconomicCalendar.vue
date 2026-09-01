@@ -2,11 +2,6 @@
   <div class="glass-card p-4 flex flex-col h-full">
     <div class="flex items-center justify-between mb-3 shrink-0">
       <h3 class="text-sm font-semibold text-white">📅 Calendrier économique</h3>
-      <button
-        @click="charger"
-        class="text-xs text-slate-400 hover:text-white transition-colors px-2 py-0.5 rounded hover:bg-white/5"
-        title="Actualiser"
-      >↻</button>
     </div>
 
     <div v-if="chargement" class="text-slate-400 text-xs text-center py-3 shrink-0">Chargement…</div>

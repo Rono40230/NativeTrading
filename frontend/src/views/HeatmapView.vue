@@ -27,9 +27,6 @@
       </span>
       <div class="flex items-center gap-2 ml-auto">
         <span class="text-xs text-gray-500">MAJ 60s</span>
-        <button class="btn-sm" :disabled="chargement" @click="actualiser">
-          {{ chargement ? '⏳' : '🔄' }} Actualiser ATR
-        </button>
         <button class="btn-sm" :disabled="analyseStraddle.chargement" @click="lancerAnalyseStraddle">
           {{ analyseStraddle.chargement ? '⏳' : '⚡' }} Analyse Straddle
         </button>
