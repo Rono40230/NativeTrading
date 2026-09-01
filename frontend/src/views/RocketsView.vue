@@ -55,3 +55,7 @@ function trierPar(col: string) {
 
 onMounted(() => { void chargerRockets() })
 </script>
+
+<style scoped>
+.btn-sm { @apply bg-gray-700 hover:bg-gray-600 text-white text-sm px-3 py-1.5 rounded-lg transition-all; }
+</style>
