@@ -134,3 +134,17 @@ function classePrixActuelSignal(s: Signal, prix: number | null): string {
   return (long ? prix >= s.take_profit[0] : prix <= s.take_profit[0]) ? 'text-emerald-400' : 'text-blue-300'
 }
 </script>
+
+<style scoped>
+/* En-tête collant : la ligne de titres reste visible pendant le scroll
+   (le conteneur qui défile est la section Historique de StrategyShell).
+   Fond opaque = composite glass-card sur le bg-gray-900 de l'app ; filet
+   inférieur en box-shadow — fiable avec border-collapse. */
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #1d2332;
+  box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.1);
+}
+</style>

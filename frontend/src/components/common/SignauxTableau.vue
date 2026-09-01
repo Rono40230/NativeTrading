@@ -250,6 +250,18 @@ defineExpose({ ouvrirAnalyse: () => { analyseOuverte.value = true } })
 </script>
 
 <style scoped>
+/* En-tête collant : la ligne de titres reste visible pendant le scroll
+   (le conteneur qui défile est la glass-card ci-dessous). Fond opaque =
+   composite glass-card ×2 sur le bg-gray-900 de l'app ; filet inférieur
+   en box-shadow — fiable avec border-collapse, contrairement aux borders. */
+thead th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #272c3a;
+  box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
 .btn-sm { @apply bg-gray-700 hover:bg-gray-600 text-white text-sm px-3 py-1.5 rounded-lg transition-all; }
 .filtre-btn { @apply text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all; }
