@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | **SMC** | Officielle | v12 figé : étapes 3-4-5 closes (TP1=0.6R + SL×0.75 = +239R · miroir MQL5 livré) | XAU/XAG/NAS/SP/DAX : MT5/Axi · BTC : Bybit | Analyse (bouton) |
 | **Straddle** | Observation | v2 redéfini (2 jambes à E, T-10s, trailing tick) | XAU/BTC/NAS/SP : MT5+Axi · annonces US | À construire (après gate 3) |
-| **Rockets** | Observation | Scanner D1 /10 + gestion journal (R1→50 %+trailing) | Binance (crypto) | Catalyseur news + ranker ✅ |
+| **Rockets** | Observation | Scanner D1 /10 + gestion journal (R1→50 %+trailing) — 2 univers : crypto (Binance) + actions US Tiingo/QQQ (Observation silencieuse depuis 01/09) | Binance + Tiingo | Catalyseur news + ranker ✅ |
 
 **Miroir v12 terminé (29/08)** : Pine étalon (`docs/reference/`) = Rust (`smc` 226 tests ✓)
 = MQL5 indicateur + EA (`mt5/`, commité `12515b8`). Parité vérifiée : TP1=0.6R, SL×0.75,
@@ -115,8 +115,10 @@ hebdomadaires) — au-delà du calendrier actuel.
 
 - [ ] **Véto unlocks** : source libre (API/scraping d'un calendrier public de déverrouillages
       de tokens) → intégrer au scanner (éliminatoire si unlock majeur < 30 jours)
-- [ ] **Actions/ETF via MT5** : Axi les propose — ajout via la modale 📦 Données (source MT5,
-      symbole broker) ; le classement ETF a ses profils 2/3/4 %
+- [ ] **ETF via Tiingo** : le rail actions (livré 01/09 — Axi n'expose aucun
+      share CFD, source Tiingo retenue) se généralise aux ETF du répertoire
+      NASDAQ Trader (lever l'exclusion ETF + profils 2/3/4 % dédiés) — même
+      pipeline, après validation de l'Observation actions
 - [ ] **Analyse par pilier** : l'analyste relie les critères du /10 aux verdicts des positions
       clôturées (déjà journalisés) → propositions de recalibrage chiffrées
 
