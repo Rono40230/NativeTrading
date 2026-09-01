@@ -14,21 +14,23 @@
       </div>
     </div>
 
-    <!-- Trois sections dans l'ordre temporel du trade -->
+    <!-- Setups et trades en cours sur la même ligne ; historique dessous -->
     <div class="flex-1 min-h-0 flex flex-col gap-3 overflow-y-auto pr-0.5">
-      <section v-if="$slots.setups" class="glass-card px-4 py-3 flex flex-col min-h-0">
-        <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
-          ⏳ Setups en attente <span class="text-gray-600 normal-case">— ce qui peut arriver</span>
-        </h2>
-        <slot name="setups" />
-      </section>
+      <div class="grid grid-cols-2 gap-3 min-h-0">
+        <section v-if="$slots.setups" class="glass-card px-4 py-3 flex flex-col min-h-0">
+          <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
+            ⏳ Setups en attente <span class="text-gray-600 normal-case">— ce qui peut arriver</span>
+          </h2>
+          <slot name="setups" />
+        </section>
 
-      <section class="glass-card px-4 py-3 flex flex-col min-h-0">
-        <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
-          🟢 Trades en cours <span class="text-gray-600 normal-case">— ce qui est engagé</span>
-        </h2>
-        <slot name="encours" />
-      </section>
+        <section class="glass-card px-4 py-3 flex flex-col min-h-0">
+          <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
+            🟢 Trades en cours <span class="text-gray-600 normal-case">— ce qui est engagé</span>
+          </h2>
+          <slot name="encours" />
+        </section>
+      </div>
 
       <section class="glass-card px-4 py-3 flex flex-col min-h-0">
         <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
