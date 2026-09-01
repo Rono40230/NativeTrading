@@ -23,8 +23,9 @@
             ⏳ Setups en attente
           </h2>
           <!-- Même hauteur que le bloc des signaux en cours (grille) — le
-               contenu défile en interne. -->
-          <div class="flex-1 min-h-0 overflow-y-auto">
+               contenu défile en interne ; pr-2 réserve la gouttière de la
+               barre pour qu'elle ne chevauche pas les cartes. -->
+          <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-2">
             <slot name="setups" />
           </div>
         </section>

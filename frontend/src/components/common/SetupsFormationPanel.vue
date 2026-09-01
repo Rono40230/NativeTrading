@@ -3,7 +3,7 @@
     <div v-if="!affiches.length" class="text-[11px] text-white">Aucun setup en formation</div>
 
     <div v-for="s in affiches" :key="s.cle"
-      class="flex items-center gap-2 text-xs rounded-lg border px-2.5 py-1.5"
+      class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs rounded-lg border px-2.5 py-1.5"
       :class="classeCarte(s.statut)">
       <span class="text-[13px] leading-none">{{
         s.statut === 'EnFormation' ? '⏳' : s.statut === 'Confirme' ? '✓' : '✗'

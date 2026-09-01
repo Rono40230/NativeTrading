@@ -9,7 +9,7 @@
     <div
       v-for="s in enAttente"
       :key="s.id"
-      class="flex items-center gap-1.5 bg-white/5 rounded px-1.5 py-1 text-[11px]"
+      class="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 bg-white/5 rounded px-1.5 py-1 text-[11px]"
       :title="titreLigne(s)"
     >
       <span :class="s.direction?.toUpperCase() === 'LONG' ? 'text-emerald-400' : 'text-red-400'">
