@@ -124,15 +124,6 @@ pub async fn supprimer(state: web::Data<AppState>, chemin: web::Path<i64>) -> im
     }
 }
 
-/// POST /api/alertes-prix/{id}/rearm — réarme une alerte déclenchée.
-pub async fn rearmee(state: web::Data<AppState>, chemin: web::Path<i64>) -> impl Responder {
-    match state.db.rearmee_alerte_prix(chemin.into_inner()).await {
-        Ok(n) if n > 0 => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
-        Ok(_) => HttpResponse::NotFound().json(serde_json::json!({ "error": "Alerte introuvable ou déjà active" })),
-        Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
-    }
-}
-
 /// Helpers pour le runtime.
 pub fn cache_vide() -> CacheAlertes {
     CacheAlertes::default()

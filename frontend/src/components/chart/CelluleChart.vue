@@ -71,13 +71,12 @@
               <span class="text-[10px] uppercase tracking-wide text-slate-500">Alertes — {{ asset }}</span>
               <button class="text-[10px] text-amber-400 hover:text-amber-300" @click="listeAlertesOuverte = false; alertesPrix.basculerModePose()">+ Poser au clic</button>
             </div>
-            <div v-if="!alertesPrix.alertesAsset.value.length" class="px-2.5 py-3 text-[11px] text-slate-500 text-center">Aucune alerte sur cet asset</div>
-            <div v-for="a in alertesPrix.alertesAsset.value" :key="a.id"
+            <div v-if="!alertesPrix.alertesAsset.value.filter(a => a.active).length" class="px-2.5 py-3 text-[11px] text-slate-500 text-center">Aucune alerte sur cet asset</div>
+            <div v-for="a in alertesPrix.alertesAsset.value.filter(a => a.active)" :key="a.id"
                  class="flex items-center gap-2 px-2.5 py-1.5 text-[11px] hover:bg-white/5">
-              <span class="font-mono tabular-nums" :class="a.active ? 'text-amber-300' : 'text-slate-500 line-through'">{{ a.prix.toFixed(2) }}</span>
+              <span class="font-mono tabular-nums text-amber-300">{{ a.prix.toFixed(2) }}</span>
               <span class="text-slate-500">{{ a.sens === 'au_dessus' ? '↑' : '↓' }}</span>
               <span class="flex-1 truncate text-slate-400">{{ a.note ?? '' }}</span>
-              <button v-if="!a.active" title="Réarmer" class="text-slate-400 hover:text-amber-300" @click="alertesPrix.rearmer(a.id)">🔄</button>
               <button title="Supprimer" class="text-slate-500 hover:text-red-300" @click="alertesPrix.supprimer(a.id)">🗑</button>
             </div>
           </div>

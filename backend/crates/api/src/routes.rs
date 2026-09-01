@@ -307,10 +307,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::delete().to(crate::alertes_prix::supprimer),
         )
         .route(
-            "/api/alertes-prix/{id}/rearm",
-            web::post().to(crate::alertes_prix::rearmee),
-        )
-        .route(
             "/api/creneaux-volatilite",
             web::get().to(crate::creneaux_job::lister),
         )

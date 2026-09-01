@@ -28,8 +28,4 @@ export const alertesApi = {
   async supprimer(id: number): Promise<void> {
     await http.delete(`/api/alertes-prix/${id}`)
   },
-
-  async rearmer(id: number): Promise<void> {
-    await http.post(`/api/alertes-prix/${id}/rearm`)
-  },
 }

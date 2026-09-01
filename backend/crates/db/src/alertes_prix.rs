@@ -88,17 +88,6 @@ impl Database {
         .await?;
         Ok(row.map(depuis_ligne))
     }
-
-    /// Réarme une alerte déclenchée.
-    pub async fn rearmee_alerte_prix(&self, id: i64) -> anyhow::Result<u64> {
-        let res = sqlx::query(
-            "UPDATE alertes_prix SET active = 1, declenchee_le = NULL WHERE id = ? AND active = 0",
-        )
-        .bind(id)
-        .execute(self.pool())
-        .await?;
-        Ok(res.rows_affected())
-    }
 }
 
 fn depuis_ligne(r: sqlx::sqlite::SqliteRow) -> AlertePrix {

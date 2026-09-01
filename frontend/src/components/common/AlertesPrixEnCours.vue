@@ -31,21 +31,6 @@
         >✕</button>
       </div>
     </div>
-
-    <!-- Déclenchées récemment : rappel gris, les 3 dernières -->
-    <div v-if="declenchees.length" class="shrink-0 mt-1 pt-1 border-t border-white/10">
-      <p class="text-[8px] uppercase text-gray-600 mb-0.5">Déclenchées (24 h)</p>
-      <div
-        v-for="a in declenchees"
-        :key="a.id"
-        class="flex items-center gap-1.5 px-1.5 py-0.5"
-        :title="titreAlerte(a)"
-      >
-        <span class="text-[10px] text-gray-500">{{ a.sens === 'en_dessous' ? '🔻' : '🔺' }}</span>
-        <span class="text-[10px] text-gray-500 truncate">{{ a.asset }}</span>
-        <span class="ml-auto text-[10px] text-gray-600 font-mono">{{ formaterPrix(a.prix) }}</span>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -90,12 +75,6 @@ async function supprimerAlerte(a: AlertePrix) {
 }
 
 const alertes = computed(() => alertesToutes.value.filter(a => !!a.active))
-const declenchees = computed(() =>
-  alertesToutes.value
-    .filter(a => !a.active && a.declenchee_le && Date.now() / 1000 - a.declenchee_le < 86400)
-    .sort((a, b) => (b.declenchee_le ?? 0) - (a.declenchee_le ?? 0))
-    .slice(0, 3),
-)
 
 function formaterPrix(p: number): string {
   if (p >= 1000) return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(p)
@@ -109,7 +88,20 @@ function titreAlerte(a: AlertePrix): string {
 
 async function charger() {
   try {
-    alertesToutes.value = await alertesApi.lister()
+    const toutes = await alertesApi.lister()
+    // Rattrapage : une alerte déclenchée ne doit exister nulle part. Les
+    // graphiques la suppriment en notifiant (son + OS, poll 10 s) ; s'il
+    // n'y avait aucun chart ouvert, on nettoie ici les déclenchées de plus
+    // de 2 minutes (on laisse aux charts la fenêtre de notification).
+    const vieilles = toutes.filter(
+      a => !a.active && a.declenchee_le && Date.now() / 1000 - a.declenchee_le > 120,
+    )
+    if (vieilles.length) {
+      await Promise.all(vieilles.map(a => alertesApi.supprimer(a.id).catch(() => null)))
+      alertesToutes.value = toutes.filter(a => a.active)
+      return
+    }
+    alertesToutes.value = toutes
   } catch {
     alertesToutes.value = []
   }

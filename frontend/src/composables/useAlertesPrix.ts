@@ -1,12 +1,12 @@
 /**
  * useAlertesPrix — alertes de prix sur le graphique.
  *
- * - Lignes horizontales (priceLines) sur la série pour chaque alerte de
- *   l'asset courant : ambre en pointillés + 🔔 et le prix sur l'échelle,
- *   grisée une fois déclenchée.
+ * - Lignes horizontales (priceLines) sur la série pour chaque alerte ACTIVE
+ *   de l'asset courant : ambre en pointillés + 🔔 et le prix sur l'échelle.
  * - Mode pose : activé, le prochain CLIC sur le chart crée l'alerte au prix
  *   du curseur (sens auto : au-dessus si le clic est au-dessus du prix live).
- * - Poll 10 s : détection des déclenchées → notification OS + son.
+ * - Poll 10 s : détection des déclenchées → notification OS + son, puis
+ *   SUPPRESSION — une alerte atteinte n'apparaît plus nulle part.
  */
 import type { IChartApi, ISeriesApi, IPriceLine } from 'lightweight-charts'
 import { LineStyle } from 'lightweight-charts'
@@ -35,27 +35,26 @@ export function useAlertesPrix() {
   // ── Lignes sur le chart ─────────────────────────────────────────────────────
   function synchroniserLignes() {
     if (!serie) return
-    // Retirer les lignes disparues / modifier les existantes.
-    const ids = new Set(alertesAsset.value.map(a => a.id))
+    // Seules les ACTIVES sont dessinées — une alerte déclenchée n'apparaît
+    // plus nulle part (décision propriétaire) : pas de ligne grise.
+    const actives = alertesAsset.value.filter(a => a.active)
+    const ids = new Set(actives.map(a => a.id))
     for (const [id, ligne] of lignes) {
       if (!ids.has(id)) {
         try { serie.removePriceLine(ligne) } catch { /* série détruite */ }
         lignes.delete(id)
       }
     }
-    for (const a of alertesAsset.value) {
+    for (const a of actives) {
       // Pas de prix dans le libellé : l'étiquette de l'axe l'affiche déjà
       // (sinon doublon côte à côte).
-      const titre = a.active
-        ? `🔔 ${a.sens === 'au_dessus' ? '↑' : '↓'}`
-        : '✓'
       const options = {
         price: a.prix,
-        color: a.active ? '#f59e0b' : '#64748b',
+        color: '#f59e0b',
         lineWidth: 1 as 1 | 2 | 3 | 4,
         lineStyle: LineStyle.Dashed,
         axisLabelVisible: true,
-        title: titre,
+        title: `🔔 ${a.sens === 'au_dessus' ? '↑' : '↓'}`,
       }
       const existante = lignes.get(a.id)
       if (existante) {
@@ -68,20 +67,29 @@ export function useAlertesPrix() {
 
   // ── Poll + notifications ────────────────────────────────────────────────────
   async function recharger() {
+    let liste: AlertePrix[]
     try {
-      alertes.value = await alertesApi.lister()
+      liste = await alertesApi.lister()
     } catch { return }
-    // Nouvelles déclenchées → notification + son.
-    for (const a of alertes.value) {
+    alertes.value = liste
+    // Déclenchée détectée → notification (son + OS, si fraîche et sur l'asset
+    // du chart) PUIS SUPPRESSION : une alerte atteinte disparaît de partout
+    // (graphique, bloc dashboard, base). Fraîche < 60 s : pas de son en
+    // retard à l'ouverture d'un chart sur une vieille alerte.
+    const aSupprimer: number[] = []
+    for (const a of liste) {
       if (!a.active && a.declenchee_le && !dejaNotifiees.has(a.id)) {
         dejaNotifiees.add(a.id)
-        if (a.asset === asset) {
+        aSupprimer.push(a.id)
+        if (a.asset === asset && Date.now() / 1000 - a.declenchee_le < 60) {
           const sens = a.sens === 'au_dessus' ? 'est monté à' : 'est descendu à'
           void notifier(`🔔 Alerte prix — ${a.asset}`, `${a.asset} ${sens} ${a.prix.toFixed(2)}`, { son: true, urgence: 'normal' })
         }
-      } else if (a.active) {
-        dejaNotifiees.delete(a.id) // réarmée → re-notifiable
       }
+    }
+    if (aSupprimer.length) {
+      await Promise.all(aSupprimer.map(id => alertesApi.supprimer(id).catch(() => null)))
+      alertes.value = alertes.value.filter(a => !aSupprimer.includes(a.id))
     }
     synchroniserLignes()
   }
@@ -105,11 +113,6 @@ export function useAlertesPrix() {
 
   async function supprimer(id: number) {
     await alertesApi.supprimer(id)
-    await recharger()
-  }
-
-  async function rearmer(id: number) {
-    await alertesApi.rearmer(id)
     await recharger()
   }
 
@@ -146,6 +149,6 @@ export function useAlertesPrix() {
 
   return {
     alertes, alertesAsset, nbActives, modePose,
-    initialiser, definirAsset, detruire, basculerModePose, supprimer, rearmer, recharger,
+    initialiser, definirAsset, detruire, basculerModePose, supprimer, recharger,
   }
 }
