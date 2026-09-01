@@ -20,11 +20,10 @@
       <template v-if="t.id === 'presse'">
         <div v-if="!articles.length" class="text-[10px] text-white leading-snug">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min)</div>
         <div v-for="a in articles" :key="a.hash_titre" class="flex items-center gap-1.5 min-w-0">
-          <span class="text-[9px] text-white font-mono shrink-0">{{ ageCourt(a) }}</span>
-          <span class="text-[10px] text-white truncate">{{ a.titre_fr || a.titre }}</span>
+          <span class="text-[9px] text-blue-400 font-mono shrink-0">{{ ageCourt(a) }}</span>
+          <span class="text-[10px] text-white truncate cursor-help" :title="a.resume_source || a.titre">{{ a.titre_fr || a.titre }}</span>
           <span v-if="badgeAsset(a)" class="text-[9px] font-mono font-bold text-amber-300 shrink-0">{{ badgeAsset(a) }}</span>
         </div>
-        <span v-if="articles.length" class="mt-auto text-[9px] text-white">Collecte il y a {{ ageCourt(articles[0]) }}</span>
       </template>
 
       <!-- 📈 Graphiques : slots de la grille (cliquables) + alertes prix actives -->
@@ -123,7 +122,7 @@ function ageCourt(a: ArticlePresse): string {
 
 function ageTs(ts: number): string {
   const s = Math.max(0, Date.now() / 1000 - ts)
-  if (s < 3600) return `${Math.max(1, Math.floor(s / 60))}min`
+  if (s < 3600) return `${Math.max(1, Math.floor(s / 60))}mn`
   if (s < 86400) return `${Math.floor(s / 3600)}h`
   return `${Math.floor(s / 86400)}j`
 }
