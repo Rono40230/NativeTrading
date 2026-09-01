@@ -110,10 +110,11 @@ pub async fn scanner_actions(db: &Arc<Database>) -> serde_json::Value {
         }
     }
 
-    // Purge : candidats actions non rafraîchis depuis 2 jours.
+    // Candidats actions non rafraîchis depuis 2 jours : MARQUÉS éliminés.
     let _ = sqlx::query(
-        "DELETE FROM rockets_candidats
-         WHERE univers = 'action' AND maj_le < strftime('%s','now') - 2*86400",
+        "UPDATE rockets_candidats SET elimine_le = strftime('%s','now')
+         WHERE univers = 'action' AND elimine_le IS NULL
+           AND maj_le < strftime('%s','now') - 2*86400",
     )
     .execute(db.pool())
     .await;

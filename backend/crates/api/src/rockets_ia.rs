@@ -104,7 +104,7 @@ async fn evaluer_un(db: &db::Database, symbole: &str, points_base: u8) -> Option
 /// → news « non évalué », le classement reste sur les chiffrables.
 pub(crate) async fn evaluer_news(db: &std::sync::Arc<db::Database>) {
     let Ok(candidats) = sqlx::query(
-        "SELECT symbole, points_base FROM rockets_candidats ORDER BY points_base DESC LIMIT 8",
+        "SELECT symbole, points_base FROM rockets_candidats WHERE elimine_le IS NULL ORDER BY points_base DESC LIMIT 8",
     )
     .fetch_all(db.pool())
     .await

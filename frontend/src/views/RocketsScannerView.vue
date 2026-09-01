@@ -14,7 +14,9 @@
       <table v-else class="w-full text-sm">
         <thead>
           <tr class="text-gray-400 text-xs uppercase border-b border-white/10">
+            <th class="px-3 py-2.5 text-left">#</th>
             <th class="px-3 py-2.5 text-left">Symbole</th>
+            <th class="px-3 py-2.5 text-center">Type</th>
             <th class="px-3 py-2.5 text-center">Classement</th>
             <th class="px-3 py-2.5 text-center">Verdict</th>
             <th class="px-3 py-2.5 text-right">Pivot</th>
@@ -22,14 +24,20 @@
             <th class="px-3 py-2.5 text-center">Cassure</th>
             <th class="px-3 py-2.5 text-center">News (IA)</th>
             <th class="px-3 py-2.5 text-left">Critères</th>
+            <th class="px-3 py-2.5 text-left">Détecté le</th>
+            <th class="px-3 py-2.5 text-left">Éliminé le</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="c in candidats" :key="c.symbole" class="border-b border-white/5 hover:bg-white/5">
-            <td class="px-3 py-2.5 font-semibold text-white">
-          {{ c.symbole }}
-          <span v-if="c.univers === 'action'" class="ml-1 text-[9px] px-1 py-0.5 rounded bg-blue-900/60 text-blue-300 align-middle" title="Action US — veille en Observation (source Tiingo, référence QQQ)">US</span>
-        </td>
+          <tr v-for="(c, i) in candidats" :key="c.symbole" class="border-b border-white/5 hover:bg-white/5" :class="c.elimine_le ? 'opacity-50' : ''">
+            <td class="px-3 py-2.5 text-gray-500">{{ i + 1 }}</td>
+            <td class="px-3 py-2.5 font-semibold" :class="c.elimine_le ? 'text-gray-500' : 'text-white'">{{ c.symbole }}</td>
+            <td class="px-3 py-2.5 text-center">
+              <span v-if="c.univers === 'action'" class="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-blue-500/10 text-blue-300 border-blue-500/30"
+                    title="Action US — veille en Observation (source Tiingo, référence QQQ)">Action US</span>
+              <span v-else class="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-300 border-amber-500/30"
+                    title="Crypto — scanner Binance quotidien">Crypto</span>
+            </td>
             <td class="px-3 py-2.5 text-center font-mono" :class="c.points >= 9 ? 'text-emerald-400' : c.points >= 7 ? 'text-blue-300' : 'text-gray-400'">{{ c.points }}/10</td>
             <td class="px-3 py-2.5 text-center">
               <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
@@ -69,6 +77,10 @@
                 </span>
               </div>
             </td>
+            <td class="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">{{ c.maj_le ? formatDate(c.maj_le) : '—' }}</td>
+            <td class="px-3 py-2.5 text-xs whitespace-nowrap" :class="c.elimine_le ? 'text-red-400' : 'text-gray-600'">
+              {{ c.elimine_le ? formatDate(c.elimine_le) : '—' }}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -79,10 +91,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { http } from '@/services/http.client'
+import { formatDate } from '@/composables/useSignalFormat'
 
 interface Candidat {
   symbole: string; points: number; verdict: string
-  univers?: string  // 'crypto' (défaut) | 'action'
+  univers?: string   // 'crypto' (défaut) | 'action'
+  maj_le?: number    // détection du setup (dernier passage l'ayant retenu)
+  elimine_le?: number | null  // sortie du suivi (null = actif)
   pivot: number; stop: number; cassure: boolean
   detail: Record<string, boolean | null>
   news_verdict?: string; news_conviction?: number; news_justification?: string

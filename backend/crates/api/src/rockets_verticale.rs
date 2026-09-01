@@ -239,11 +239,12 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
         // Ménage : purge des candidats disparus de l'univers.
         tokio::time::sleep(std::time::Duration::from_millis(120)).await;
     }
-    // Candidats crypto non rafraîchis depuis 2 jours : sortis (les actions
-    // ont leur propre purge — étape C, univers cloisonnés).
+    // Candidats crypto non rafraîchis depuis 2 jours : MARQUÉS éliminés
+    // (plus de suppression — historique visible dans le Scanner).
     let _ = sqlx::query(
-        "DELETE FROM rockets_candidats
-         WHERE univers = 'crypto' AND maj_le < strftime('%s','now') - 2*86400",
+        "UPDATE rockets_candidats SET elimine_le = strftime('%s','now')
+         WHERE univers = 'crypto' AND elimine_le IS NULL
+           AND maj_le < strftime('%s','now') - 2*86400",
     )
     .execute(db.pool())
     .await;
@@ -409,8 +410,9 @@ async fn gerer_positions(db: &Arc<Database>) {
 /// noté au moins bien noté, avec pivot/stop/cassure et détail JSON.
 pub async fn get_candidats(state: actix_web::web::Data<crate::state::AppState>) -> impl actix_web::Responder {
     let rows = match sqlx::query(
-        "SELECT symbole, points, verdict, pivot, stop, cassure, detail, maj_le, univers
-         FROM rockets_candidats ORDER BY points DESC, maj_le DESC LIMIT 60",
+        "SELECT symbole, points, verdict, pivot, stop, cassure, detail, maj_le, univers, elimine_le
+         FROM rockets_candidats
+         ORDER BY (elimine_le IS NULL) DESC, points DESC, maj_le DESC LIMIT 60",
     )
     .fetch_all(state.db.pool())
     .await
@@ -427,6 +429,8 @@ pub async fn get_candidats(state: actix_web::web::Data<crate::state::AppState>) 
             serde_json::json!({
                 "symbole": r.get::<String, _>("symbole"),
                 "univers": r.get::<String, _>("univers"),
+                "maj_le": r.get::<i64, _>("maj_le"),
+                "elimine_le": r.get::<Option<i64>, _>("elimine_le"),
                 "points": r.get::<i64, _>("points"),
                 "verdict": r.get::<String, _>("verdict"),
                 "pivot": r.get::<f64, _>("pivot"),
