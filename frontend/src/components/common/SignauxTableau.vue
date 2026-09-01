@@ -208,10 +208,13 @@ const {
 } = useSignauxTableau(props.strategie)
 
 remplisSeuls.value = props.remplisSeuls ?? false
-const emitActifs = defineEmits<{ 'signaux-actifs': [liste: Signal[]] }>()
+const emits = defineEmits<{
+  'nb-signaux': [n: number]
+  'signaux-actifs': [liste: Signal[]]
+}>()
 watchEffect(() => {
   remplisSeuls.value = props.remplisSeuls ?? false
-  emitActifs('signaux-actifs', signaux.value.filter(x => x.statut !== 'Fermé' && x.verdict === null) as unknown as Signal[])
+  emits('signaux-actifs', signaux.value.filter(x => x.statut !== 'Fermé' && x.verdict === null) as unknown as Signal[])
 })
 
 // ── Modale confirmation annulation ───────────────────────────────────────────
@@ -245,9 +248,7 @@ function labelHeureEntree(s: Signal): string | null {
 
 /// Le bouton 📊 Analyse vit dans la section Historique des pages
 /// stratégies — le parent déclenche l'ouverture par ref.
-/// Compte de signaux remonté au parent (titre de section des pages).
-const emitNb = defineEmits<{ 'nb-signaux': [n: number] }>()
-watchEffect(() => emitNb('nb-signaux', listeActive.value.length))
+watchEffect(() => emits('nb-signaux', listeActive.value.length))
 
 defineExpose({ ouvrirAnalyse: () => { analyseOuverte.value = true } })
 </script>
