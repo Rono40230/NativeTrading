@@ -22,7 +22,6 @@
         <div v-for="a in articles" :key="a.hash_titre" class="flex items-center gap-1.5 min-w-0">
           <span class="text-[9px] text-blue-400 font-mono shrink-0">{{ ageCourt(a) }}</span>
           <span class="text-[10px] text-white truncate cursor-help" :title="a.resume_source || a.titre">{{ a.titre_fr || a.titre }}</span>
-          <span v-if="badgeAsset(a)" class="text-[9px] font-mono font-bold text-amber-300 shrink-0">{{ badgeAsset(a) }}</span>
         </div>
       </template>
 
@@ -106,13 +105,6 @@ const raccourcisSysteme = [
 
 // ── Presse : 3 derniers articles ─────────────────────────────────────────────
 const articles = ref<ArticlePresse[]>([])
-
-function badgeAsset(a: ArticlePresse): string {
-  try {
-    const assets = JSON.parse(a.assets_concernes || '[]') as string[]
-    return Array.isArray(assets) && assets.length ? assets[0] : ''
-  } catch { return '' }
-}
 
 /// Âge court d'un article : « 4min », « 2h », « 3j ».
 function ageCourt(a: ArticlePresse): string {
