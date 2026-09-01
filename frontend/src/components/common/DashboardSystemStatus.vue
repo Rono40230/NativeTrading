@@ -2,7 +2,6 @@
   <div class="glass-card flex flex-col p-2 min-h-0 shrink-0">
     <div class="shrink-0 mb-1 border-b border-white/10 pb-1">
       <p class="text-xs uppercase font-bold text-white whitespace-nowrap truncate">⚙️ Data & IA Engine</p>
-      <p class="text-[9px] text-emerald-400 whitespace-nowrap">runtime v12 · signaux officiels</p>
     </div>
 
     <div class="flex flex-col gap-1.5 flex-1 overflow-y-auto">

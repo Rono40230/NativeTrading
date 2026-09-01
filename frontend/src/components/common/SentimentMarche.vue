@@ -4,7 +4,6 @@
     <div class="flex items-center justify-between mb-2 border-b border-white/10 pb-1">
       <div>
         <p class="text-[11px] font-semibold text-white uppercase tracking-widest">🌡️ Sentiment de Marché</p>
-        <p class="text-[10px] text-white">Jauges : réf. veille · Marchés : aujourd'hui</p>
       </div>
       <div v-if="chargement" class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
     </div>
