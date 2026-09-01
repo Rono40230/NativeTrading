@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-xs uppercase font-bold text-white flex items-center gap-2">
         🤖 Paramètres Straddle
-        <span class="text-gray-600 font-normal text-xs normal-case">(éditables — relancer avec ↺)</span>
+        <span class="text-white font-normal text-xs normal-case">(éditables — relancer avec ↺)</span>
       </h2>
       <div class="flex gap-2">
         <button
@@ -29,7 +29,7 @@
 
     <div class="grid grid-cols-8 gap-3 flex-1 content-end">
       <div v-for="p in config" :key="p.key" class="flex flex-col gap-1">
-        <label class="text-xs text-gray-400">{{ p.label }}</label>
+        <label class="text-xs text-white">{{ p.label }}</label>
         <input
           type="number"
           :min="p.min"
@@ -39,11 +39,11 @@
           class="bg-[#0a0e27] border border-white/20 text-white text-sm rounded px-2 py-1 w-full"
           @input="onInput(p.key, ($event.target as HTMLInputElement).valueAsNumber)"
         />
-        <span class="text-xs text-gray-600">{{ p.min }}–{{ p.max }}</span>
+        <span class="text-xs text-white">{{ p.min }}–{{ p.max }}</span>
       </div>
       <!-- Toggle vente partielle -->
       <div class="flex flex-col gap-1 justify-center">
-        <label class="text-xs text-gray-400">Vente partielle</label>
+        <label class="text-xs text-white">Vente partielle</label>
         <button
           :class="modelValue.vente_partielle
             ? 'bg-green-600 hover:bg-green-700'
@@ -56,7 +56,7 @@
       </div>
 
       <div class="flex flex-col gap-1" v-if="modelValue.vente_partielle">
-        <label class="text-xs text-gray-400">% Vente TP1</label>
+        <label class="text-xs text-white">% Vente TP1</label>
         <input
           type="number"
           :min="0" :max="1" :step="0.05"
@@ -64,11 +64,11 @@
           class="bg-[#0a0e27] border border-white/20 text-white text-sm rounded px-2 py-1 w-full"
           @input="onInput('pct_cloture_tp1', ($event.target as HTMLInputElement).valueAsNumber)"
         />
-        <span class="text-xs text-gray-600">ex: 0.33</span>
+        <span class="text-xs text-white">ex: 0.33</span>
       </div>
 
       <div class="flex flex-col gap-1" v-if="modelValue.vente_partielle">
-        <label class="text-xs text-gray-400">% Vente TP2</label>
+        <label class="text-xs text-white">% Vente TP2</label>
         <input
           type="number"
           :min="0" :max="1" :step="0.05"
@@ -76,7 +76,7 @@
           class="bg-[#0a0e27] border border-white/20 text-white text-sm rounded px-2 py-1 w-full"
           @input="onInput('pct_cloture_tp2', ($event.target as HTMLInputElement).valueAsNumber)"
         />
-        <span class="text-xs text-gray-600">ex: 0.33</span>
+        <span class="text-xs text-white">ex: 0.33</span>
       </div>
     </div>
     <StraddleParamsModal v-if="showParams" @close="showParams = false" @saved="onParamsSaved" />

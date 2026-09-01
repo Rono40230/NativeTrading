@@ -8,14 +8,14 @@
     <div class="glass-card p-5 w-80">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-xs uppercase font-bold text-white">🎯 SMC — Paramètres</h2>
-        <button class="text-gray-500 hover:text-white text-lg leading-none" @click="$emit('close')">✕</button>
+        <button class="text-white hover:text-white text-lg leading-none" @click="$emit('close')">✕</button>
       </div>
 
-      <div v-if="loading" class="text-gray-400 text-xs">Chargement…</div>
+      <div v-if="loading" class="text-white text-xs">Chargement…</div>
 
       <div v-else class="space-y-1.5">
         <div v-for="field in fields" :key="field.key" class="flex items-center justify-between gap-2">
-          <label class="text-[11px] text-gray-400 whitespace-nowrap">{{ field.label }}</label>
+          <label class="text-[11px] text-white whitespace-nowrap">{{ field.label }}</label>
           <input
             v-model.number="params[field.key]"
             type="number"

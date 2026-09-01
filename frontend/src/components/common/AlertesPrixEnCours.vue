@@ -5,7 +5,7 @@
       <span v-if="alertes.length" class="text-amber-400 text-[10px] font-semibold">{{ alertes.length }}</span>
     </div>
 
-    <div v-if="!alertes.length" class="text-[10px] text-gray-600 leading-snug">
+    <div v-if="!alertes.length" class="text-[10px] text-white leading-snug">
       Aucune alerte active — posez-les sur les graphiques (clic droit sur le prix)
     </div>
 
@@ -20,12 +20,12 @@
         <span class="text-[11px] font-semibold text-white truncate">{{ a.asset }}</span>
         <span class="text-[11px] font-mono text-amber-300 whitespace-nowrap">{{ formaterPrix(a.prix) }}</span>
         <button
-          class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-gray-300 hover:text-white transition-colors whitespace-nowrap"
+          class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-white hover:text-white transition-colors whitespace-nowrap"
           title="Ouvrir le graphique de cet asset"
           @click.stop="voirAlerte(a)"
         >👁</button>
         <button
-          class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-red-600/60 text-gray-300 hover:text-white transition-colors whitespace-nowrap"
+          class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-red-600/60 text-white hover:text-white transition-colors whitespace-nowrap"
           title="Supprimer l'alerte (bloc + graphique)"
           @click.stop="supprimerAlerte(a)"
         >✕</button>

@@ -14,10 +14,10 @@
       <!-- Content -->
       <div class="p-5 flex-1 space-y-4">
         <!-- Minutage -->
-        <h4 class="text-xs uppercase text-gray-500 font-semibold tracking-wider">Minutage</h4>
+        <h4 class="text-xs uppercase text-white font-semibold tracking-wider">Minutage</h4>
         <div class="space-y-3">
           <div class="flex items-center justify-between gap-4">
-            <span class="text-gray-300 text-xs">Placement des 2 jambes (secondes avant l'annonce)</span>
+            <span class="text-white text-xs">Placement des 2 jambes (secondes avant l'annonce)</span>
             <input v-model.number="store.straddleRaw['placement_sec']" type="number" :step="1" :min="1"
               class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
           </div>
@@ -26,21 +26,21 @@
         <div class="h-px w-full bg-white/5 my-2"></div>
 
         <!-- Risque -->
-        <h4 class="text-xs uppercase text-gray-500 font-semibold tracking-wider">Risque (R = SL × ATR H1)</h4>
+        <h4 class="text-xs uppercase text-white font-semibold tracking-wider">Risque (R = SL × ATR H1)</h4>
         <div class="space-y-3">
           <div class="flex items-center justify-between gap-4">
-            <span class="text-gray-300 text-xs">SL (1R) × ATR H1</span>
+            <span class="text-white text-xs">SL (1R) × ATR H1</span>
             <input v-model.number="store.straddleRaw['sl_mult']" type="number" :step="0.1" :min="0.1"
               class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
           </div>
           <div class="flex items-center justify-between gap-4">
-            <span class="text-gray-300 text-xs">Trailing (× R, dès TP2)</span>
+            <span class="text-white text-xs">Trailing (× R, dès TP2)</span>
             <input v-model.number="store.straddleRaw['trailing_r']" type="number" :step="0.1" :min="0.1"
               class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
           </div>
         </div>
 
-        <p class="text-[11px] text-gray-500 leading-relaxed">
+        <p class="text-[11px] text-white leading-relaxed">
           R est mesuré sur l'ATR H1 (volatilité normale de l'actif) et non sur la
           compression M1 pré-annonce — un R microscopique faisait égorger les jambes
           par le spike initial (constat Gate 3 26/08). TP1 = 1R (SL resserré à E∓0,5R — tampon

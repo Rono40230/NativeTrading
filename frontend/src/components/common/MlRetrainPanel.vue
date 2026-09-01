@@ -2,8 +2,8 @@
   <div class="space-y-4 flex flex-col h-full">
     <!-- Barre de progression (uniquement pendant l'entraînement) -->
     <div v-if="store.retrainState?.en_cours" class="space-y-2">
-      <div class="flex justify-between text-xs text-gray-500">
-        <span class="font-medium text-gray-300">
+      <div class="flex justify-between text-xs text-white">
+        <span class="font-medium text-white">
           {{ store.retrainState.nb_combinaisons_total > 0
             ? `${store.retrainState.nb_combinaisons_done} / ${store.retrainState.nb_combinaisons_total} combinaisons`
             : 'Initialisation…' }}
@@ -22,7 +22,7 @@
             ⚙ {{ store.retrainState.combinaison_en_cours }}
           </template>
         </span>
-        <span class="text-gray-400 font-semibold tabular-nums">{{ progres }}%</span>
+        <span class="text-white font-semibold tabular-nums">{{ progres }}%</span>
       </div>
     </div>
 
@@ -33,12 +33,12 @@
       <div v-if="store.retrainState && store.retrainState.accuracy_avant > 0" 
            class="flex items-center bg-black/20 border border-white/10 rounded-lg p-4 justify-around mb-6">
         <div class="text-center">
-          <p class="text-[10px] text-gray-500 mb-1 uppercase tracking-wide">Précision Avant</p>
-          <p class="text-base font-bold text-gray-200 tabular-nums">{{ (store.retrainState.accuracy_avant * 100).toFixed(1) }}%</p>
+          <p class="text-[10px] text-white mb-1 uppercase tracking-wide">Précision Avant</p>
+          <p class="text-base font-bold text-white tabular-nums">{{ (store.retrainState.accuracy_avant * 100).toFixed(1) }}%</p>
         </div>
-        <span class="text-gray-600 text-lg mx-2">→</span>
+        <span class="text-white text-lg mx-2">→</span>
         <div class="text-center">
-          <p class="text-[10px] text-gray-500 mb-1 uppercase tracking-wide">Précision Après</p>
+          <p class="text-[10px] text-white mb-1 uppercase tracking-wide">Précision Après</p>
           <p class="text-base font-bold tabular-nums"
             :class="(store.retrainState.accuracy_apres ?? 0) >= store.retrainState.accuracy_avant ? 'text-emerald-400' : 'text-red-400'">
             {{ ((store.retrainState.accuracy_apres ?? 0) * 100).toFixed(1) }}%
@@ -46,14 +46,14 @@
         </div>
         <div class="w-px h-10 bg-white/10 mx-4"></div>
         <div class="text-center flex flex-col items-center">
-          <p class="text-xs text-gray-500 mb-1 uppercase tracking-wide">État du Pipeline</p>
+          <p class="text-xs text-white mb-1 uppercase tracking-wide">État du Pipeline</p>
           <div class="flex items-center gap-2">
             <div class="w-2.5 h-2.5 rounded-full" :class="store.retrainState.overfitting || store.retrainState.rolled_back ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'"></div>
             <p class="text-sm font-bold" :class="store.retrainState.overfitting || store.retrainState.rolled_back ? 'text-red-400' : 'text-emerald-400'">
               {{ store.retrainState.rolled_back ? 'ROLLBACK / OVERFIT' : 'STABLE & SAIN' }}
             </p>
           </div>
-          <p v-if="store.retrainState.gap_train_wf !== null" class="text-[10px] text-gray-500 mt-1">
+          <p v-if="store.retrainState.gap_train_wf !== null" class="text-[10px] text-white mt-1">
             Gap Validation: {{ (store.retrainState.gap_train_wf * 100).toFixed(1) }}%
           </p>
         </div>
@@ -66,7 +66,7 @@
           <div class="flex items-center justify-between border-b border-white/10 pb-1 mb-2">
             <div class="flex items-center gap-2">
               <span class="text-lg">{{ strat.icon }}</span>
-              <h4 class="font-bold text-sm text-gray-200">{{ strat.label }}</h4>
+              <h4 class="font-bold text-sm text-white">{{ strat.label }}</h4>
             </div>
             <!-- Pastille de présence du modèle -->
             <div class="flex items-center gap-1.5" :title="strat.features.length > 0 ? 'Modèle entraîné en base' : 'Modèle vierge/par défaut'">
@@ -76,7 +76,7 @@
 
           <!-- Top Variables -->
           <div class="space-y-1">
-            <h5 class="text-[9px] uppercase font-bold text-gray-500 flex justify-between">
+            <h5 class="text-[9px] uppercase font-bold text-white flex justify-between">
               <span>Top 3 Prédictif</span>
               <span>Poids</span>
             </h5>
@@ -84,8 +84,8 @@
             <template v-if="strat.features.length > 0">
               <div v-for="(f, idx) in strat.features.slice(0, 3)" :key="f.feature_idx" class="space-y-0.5">
                 <div class="flex justify-between items-center text-[10px]">
-                  <span class="text-gray-300 font-medium truncate">{{ traduireFeature(f.feature_nom) }}</span>
-                  <span class="text-gray-400 tabular-nums">{{ (f.importance * 100).toFixed(1) }}%</span>
+                  <span class="text-white font-medium truncate">{{ traduireFeature(f.feature_nom) }}</span>
+                  <span class="text-white tabular-nums">{{ (f.importance * 100).toFixed(1) }}%</span>
                 </div>
                 <div class="h-1 w-full bg-white/5 rounded-full overflow-hidden">
                   <div class="h-full bg-blue-500/80 rounded-full transition-all"
@@ -93,7 +93,7 @@
                 </div>
               </div>
             </template>
-            <div v-else class="text-center text-xs text-gray-500 py-6">
+            <div v-else class="text-center text-xs text-white py-6">
               Pas de données ML.<br>En attente du premier entraînement.
             </div>
           </div>

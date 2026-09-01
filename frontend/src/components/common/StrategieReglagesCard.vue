@@ -10,7 +10,7 @@
 
     <div class="p-4 space-y-3">
       <div class="flex items-center justify-between gap-3">
-        <span class="text-gray-400 text-xs cursor-help border-b border-dotted border-gray-600"
+        <span class="text-white text-xs cursor-help border-b border-dotted border-gray-600"
               title="Officielle : signaux réels + notifiés sur Telegram. En observation : signaux journalisés en base mais silencieux (pas de message). En construction : moteur en cours de développement, aucun signal généré.">État</span>
         <select v-model="etat" class="bg-black/30 border border-white/10 rounded-md px-2 py-1 text-xs text-white"
                 title="Officielle : signaux réels + Telegram. En observation : journalisé, silencieux. En construction : moteur non branché.">
@@ -21,7 +21,7 @@
       </div>
 
       <div class="flex items-center justify-between gap-3">
-        <span class="text-gray-400 text-xs">Son Telegram</span>
+        <span class="text-white text-xs">Son Telegram</span>
         <button @click="notifications = !notifications"
           :class="notifications ? 'bg-emerald-500' : 'bg-gray-600'"
           class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors">
@@ -31,13 +31,13 @@
       </div>
 
       <div class="flex items-center justify-between gap-3">
-        <span class="text-gray-400 text-xs">Capital alloué ($)</span>
+        <span class="text-white text-xs">Capital alloué ($)</span>
         <input v-model.number="capital" type="number" min="0" step="100"
           class="w-24 bg-black/30 border border-white/10 rounded-md px-2 py-1 text-right text-xs text-white" />
       </div>
 
       <div class="flex items-center justify-between gap-3">
-        <span class="text-gray-400 text-xs">Risque par trade</span>
+        <span class="text-white text-xs">Risque par trade</span>
         <select v-model.number="risquePct" class="bg-black/30 border border-white/10 rounded-md px-2 py-1 text-xs text-white">
           <option :value="1">1 %</option>
           <option :value="2">2 %</option>
@@ -47,7 +47,7 @@
 
       <div class="pt-1 flex items-center justify-between">
         <span v-if="message" :class="message.ok ? 'text-emerald-400' : 'text-red-400'" class="text-[11px]">{{ message.texte }}</span>
-        <span v-else class="text-[11px] text-gray-600">{{ s.description }}</span>
+        <span v-else class="text-[11px] text-white">{{ s.description }}</span>
         <button @click="sauvegarder" :disabled="enCours"
           class="px-3 py-1 rounded-md text-xs font-medium bg-cyan-500/20 border border-cyan-500/40 text-cyan-200 hover:bg-cyan-500/30 disabled:opacity-50">
           {{ enCours ? '…' : '💾' }}
@@ -73,8 +73,8 @@ const message = ref<{ ok: boolean; texte: string } | null>(null)
 const badgeEtat = computed(() => ({
   'Officielle': 'bg-emerald-500/20 text-emerald-300',
   'Observation': 'bg-yellow-500/20 text-yellow-300',
-  'Construction': 'bg-gray-500/20 text-gray-400',
-}[etat.value] ?? 'bg-gray-500/20 text-gray-400'))
+  'Construction': 'bg-gray-500/20 text-white',
+}[etat.value] ?? 'bg-gray-500/20 text-white'))
 
 async function sauvegarder() {
   enCours.value = true

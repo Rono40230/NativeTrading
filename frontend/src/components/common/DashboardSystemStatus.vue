@@ -7,40 +7,40 @@
 
     <div class="flex flex-col gap-1.5 flex-1 overflow-y-auto">
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
-        <span class="text-gray-500 text-[9px] uppercase">API Serveur</span>
+        <span class="text-white text-[9px] uppercase">API Serveur</span>
         <span :class="backendOk ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold">
           {{ backendOk ? '🟢 Actif' : '🔴 Erreur' }}
         </span>
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
-        <span class="text-gray-500 text-[9px] uppercase">MT5 / Axi EA</span>
-        <span v-if="mt5Ok === null" class="text-gray-500 text-[10px] font-semibold animate-pulse">⏳</span>
+        <span class="text-white text-[9px] uppercase">MT5 / Axi EA</span>
+        <span v-if="mt5Ok === null" class="text-white text-[10px] font-semibold animate-pulse">⏳</span>
         <span v-else :class="mt5Ok ? 'text-emerald-400' : 'text-yellow-400'" class="text-[10px] font-semibold">
           {{ mt5Ok ? '🟢 Connecté' : '🟡 Silence' }}
         </span>
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
-        <span class="text-gray-500 text-[9px] uppercase">Bybit WS</span>
+        <span class="text-white text-[9px] uppercase">Bybit WS</span>
         <span :class="btcPrix ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold">
           {{ btcPrix ? '🟢 Connecté' : '🔴 Erreur' }}
         </span>
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
-        <span class="text-gray-500 text-[9px] uppercase">LLM (Ollama)</span>
-        <span v-if="ollamaOk === null" class="text-gray-500 text-[10px] font-semibold animate-pulse">⏳ Vérif</span>
+        <span class="text-white text-[9px] uppercase">LLM (Ollama)</span>
+        <span v-if="ollamaOk === null" class="text-white text-[10px] font-semibold animate-pulse">⏳ Vérif</span>
         <span v-else :class="ollamaOk ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold">
           {{ ollamaOk ? '🟢 Local' : '🔴 Hors ligne' }}
         </span>
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
-        <span class="text-gray-500 text-[9px] uppercase">Tiingo Actions</span>
-        <span v-if="tiingoOk === null" class="text-gray-500 text-[10px] font-semibold animate-pulse">⏳</span>
+        <span class="text-white text-[9px] uppercase">Tiingo Actions</span>
+        <span v-if="tiingoOk === null" class="text-white text-[10px] font-semibold animate-pulse">⏳</span>
         <span v-else :class="tiingoOk ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold cursor-help" :title="tiingoTitre">
           {{ tiingoOk ? `🟢 ${tiingoAvancement}` : '🔴 Erreur' }}
         </span>
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
-        <span class="text-gray-500 text-[9px] uppercase">Presse FR</span>
+        <span class="text-white text-[9px] uppercase">Presse FR</span>
         <span :class="presseOk ? 'text-emerald-400' : 'text-yellow-400'" class="text-[10px] font-semibold">
           {{ presseOk ? '🟢 Collecteur' : '🟡 Arrêt' }}
         </span>

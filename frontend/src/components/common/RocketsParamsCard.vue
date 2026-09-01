@@ -8,47 +8,47 @@
       </h3>
     </div>
     <div class="p-5 flex-1 space-y-4">
-      <h4 class="text-xs uppercase text-gray-500 font-semibold tracking-wider">Profil de risque (choix propriétaire)</h4>
+      <h4 class="text-xs uppercase text-white font-semibold tracking-wider">Profil de risque (choix propriétaire)</h4>
       <div class="flex gap-2">
         <button v-for="p in PROFILS" :key="p.valeur" @click="profil = p.valeur"
           class="flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors"
-          :class="profil === p.valeur ? 'bg-blue-600/30 border-blue-400/50 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10'">
+          :class="profil === p.valeur ? 'bg-blue-600/30 border-blue-400/50 text-white' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'">
           {{ p.libelle }}<br /><span class="text-[10px] opacity-70">{{ p.pct }}</span>
         </button>
       </div>
 
       <div class="h-px w-full bg-white/5 my-2"></div>
 
-      <h4 class="text-xs uppercase text-gray-500 font-semibold tracking-wider">Gestion & détection</h4>
+      <h4 class="text-xs uppercase text-white font-semibold tracking-wider">Gestion & détection</h4>
       <div class="space-y-3">
         <div class="flex items-center justify-between gap-4">
-          <span class="text-gray-300 text-xs">Plafond position (% du capital)</span>
+          <span class="text-white text-xs">Plafond position (% du capital)</span>
           <input v-model.number="plafond" type="number" :step="0.5" :min="1" :max="25"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
         </div>
         <div class="flex items-center justify-between gap-4">
-          <span class="text-gray-300 text-xs">Trailing stop (% du prix, dès R1)</span>
+          <span class="text-white text-xs">Trailing stop (% du prix, dès R1)</span>
           <input v-model.number="trailing" type="number" :step="0.5" :min="1" :max="30"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
         </div>
         <div class="flex items-center justify-between gap-4">
-          <span class="text-gray-300 text-xs">Volume au pivot (× MM50)</span>
+          <span class="text-white text-xs">Volume au pivot (× MM50)</span>
           <input v-model.number="volumeMult" type="number" :step="0.1" :min="1" :max="3"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
         </div>
         <div class="flex items-center justify-between gap-4">
-          <span class="text-gray-300 text-xs">Conviction min. du ranker IA (0 = informatif)</span>
+          <span class="text-white text-xs">Conviction min. du ranker IA (0 = informatif)</span>
           <input v-model.number="convictionMin" type="number" :step="5" :min="0" :max="100"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
         </div>
         <div class="flex items-center justify-between gap-4">
-          <span class="text-gray-300 text-xs">Cassure décisive min. (% au-delà du pivot)</span>
+          <span class="text-white text-xs">Cassure décisive min. (% au-delà du pivot)</span>
           <input v-model.number="cassureMin" type="number" :step="0.5" :min="1" :max="10"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
         </div>
       </div>
 
-      <p class="text-[11px] text-gray-500 leading-relaxed">
+      <p class="text-[11px] text-white leading-relaxed">
         Vente fixe de 50 % à R1. News (1/10) et véto unlocks : enrichissement IA (étape 6).
       </p>
     </div>

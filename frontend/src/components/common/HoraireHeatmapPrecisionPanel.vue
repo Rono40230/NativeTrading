@@ -7,16 +7,16 @@
           Précision à la minute —
           <span class="text-blue-400 font-mono">{{ jourLabel }} {{ heureParis }}h Paris</span>
         </p>
-        <button class="text-gray-500 hover:text-white text-lg leading-none" @click="emit('fermer')">✕</button>
+        <button class="text-white hover:text-white text-lg leading-none" @click="emit('fermer')">✕</button>
       </div>
 
       <!-- Chargement -->
-      <div v-if="chargement" class="flex items-center gap-2 text-gray-400 text-sm">
+      <div v-if="chargement" class="flex items-center gap-2 text-white text-sm">
         <span class="animate-spin">⏳</span> Analyse en cours…
       </div>
 
       <!-- Données insuffisantes -->
-      <div v-else-if="donnees && !donnees.ok" class="text-sm text-gray-500 italic">
+      <div v-else-if="donnees && !donnees.ok" class="text-sm text-white italic">
         Données insuffisantes pour ce créneau.
       </div>
 
@@ -24,28 +24,28 @@
       <div v-else-if="donnees?.ok" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <!-- Timing optimal -->
         <div class="flex flex-col gap-1">
-          <p class="text-[10px] text-gray-400 uppercase tracking-wider">Pic de volatilité</p>
+          <p class="text-[10px] text-white uppercase tracking-wider">Pic de volatilité</p>
           <p class="text-2xl font-bold font-mono text-emerald-400">{{ utcToParis(donnees.timing_optimal!) }}</p>
-          <p class="text-[10px] text-gray-500">Heure Paris médiane</p>
+          <p class="text-[10px] text-white">Heure Paris médiane</p>
         </div>
 
         <!-- Fenêtre d'entrée -->
         <div class="flex flex-col gap-1">
-          <p class="text-[10px] text-gray-400 uppercase tracking-wider">Fenêtre d'entrée</p>
+          <p class="text-[10px] text-white uppercase tracking-wider">Fenêtre d'entrée</p>
           <p class="text-sm font-mono text-white">{{ convertirFenetre(donnees.fenetre_entree!) }}</p>
-          <p class="text-[10px] text-gray-500">±5 min autour du pic</p>
+          <p class="text-[10px] text-white">±5 min autour du pic</p>
         </div>
 
         <!-- ATR au pic -->
         <div class="flex flex-col gap-1">
-          <p class="text-[10px] text-gray-400 uppercase tracking-wider">ATR au pic</p>
+          <p class="text-[10px] text-white uppercase tracking-wider">ATR au pic</p>
           <p class="text-lg font-bold font-mono text-amber-400">{{ donnees.atr_pic?.toFixed(2) }}</p>
-          <p class="text-[10px] text-gray-500">Moyenne au moment du pic</p>
+          <p class="text-[10px] text-white">Moyenne au moment du pic</p>
         </div>
 
         <!-- Occurrences + whipsaw -->
         <div class="flex flex-col gap-1">
-          <p class="text-[10px] text-gray-400 uppercase tracking-wider">Statistiques</p>
+          <p class="text-[10px] text-white uppercase tracking-wider">Statistiques</p>
           <p class="text-sm text-white">
             <span class="font-semibold text-blue-400">{{ donnees.nb_occurrences }}</span> occurrences
           </p>
@@ -58,11 +58,11 @@
       <!-- Session + raison -->
       <div class="flex flex-wrap items-start gap-3 pt-1">
         <span v-if="donnees?.session" class="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs font-medium">{{ donnees?.session }}</span>
-        <span v-if="donnees?.raison" class="text-xs text-gray-400 italic">{{ donnees?.raison }}</span>
+        <span v-if="donnees?.raison" class="text-xs text-white italic">{{ donnees?.raison }}</span>
       </div>
 
       <!-- Légende -->
-      <p class="text-[10px] text-gray-600">
+      <p class="text-[10px] text-white">
         Basé sur l'historique M1 de l'asset sélectionné. Pas une garantie de performance future.
       </p>
     </div>

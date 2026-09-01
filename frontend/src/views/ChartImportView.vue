@@ -4,16 +4,16 @@
     <div class="flex items-center justify-between mb-3 flex-shrink-0">
       <div>
         <h1 class="text-2xl font-bold">🖼️ Chart Import</h1>
-        <p class="text-xs text-gray-500 mt-0.5">Glissez un screenshot → analyse vision SMC — {{ anthropicActifChart ? 'Claude Haiku 3.5 (Anthropic)' : 'qwen2.5vl:7b (local)' }}</p>
+        <p class="text-xs text-white mt-0.5">Glissez un screenshot → analyse vision SMC — {{ anthropicActifChart ? 'Claude Haiku 3.5 (Anthropic)' : 'qwen2.5vl:7b (local)' }}</p>
       </div>
       <div class="flex gap-2 items-center">
         <button
           class="text-xs px-2 py-1 rounded-full font-semibold transition-all cursor-pointer select-none"
           :class="{
             'bg-emerald-900/50 text-emerald-300 hover:bg-emerald-800/60': anthropicStatut === 'ok' && anthropicActifChart,
-            'bg-gray-700/50 text-gray-400 hover:bg-gray-600/50 line-through': anthropicStatut === 'ok' && !anthropicActifChart,
+            'bg-gray-700/50 text-white hover:bg-gray-600/50 line-through': anthropicStatut === 'ok' && !anthropicActifChart,
             'bg-red-900/50 text-red-300': anthropicStatut === 'credits-insuffisants',
-            'bg-gray-800 text-gray-500': anthropicStatut === 'non-configure',
+            'bg-gray-800 text-white': anthropicStatut === 'non-configure',
           }"
           :title="anthropicStatut === 'ok' ? (anthropicActifChart ? 'Cliquer pour désactiver Anthropic' : 'Cliquer pour activer Anthropic') : ''"
           :disabled="anthropicStatut !== 'ok'"

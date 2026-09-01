@@ -3,13 +3,13 @@
 
     <div class="flex items-center gap-3 shrink-0">
       <h1 class="text-2xl font-bold text-white">🚀 Rockets</h1>
-      <span class="text-gray-500 text-base hidden sm:inline">Momentum breakout — VCP × Rocket Hunter</span>
+      <span class="text-white text-base hidden sm:inline">Momentum breakout — VCP × Rocket Hunter</span>
       <span v-if="reglages" class="ml-auto text-[11px] font-semibold px-2.5 py-1 rounded-full border" :class="badgeClasse">{{ reglages.etat }}</span>
     </div>
 
     <div class="flex gap-1 border-b border-white/10 shrink-0 overflow-x-auto">
       <button v-for="t in onglets" :key="t" class="px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px"
-        :class="onglet === t ? 'text-white border-blue-400' : 'text-gray-400 border-transparent hover:text-white/70'"
+        :class="onglet === t ? 'text-white border-blue-400' : 'text-white border-transparent hover:text-white/70'"
         @click="onglet = t">{{ t }}</button>
     </div>
 
@@ -164,7 +164,7 @@ const Carte = defineComponent({
   setup(props, { slots }) {
     return () => h('div', { class: 'rounded-xl border border-white/10 bg-white/5 px-5 py-4' }, [
       h('div', { class: 'text-xs font-semibold text-blue-400 uppercase tracking-widest mb-2.5', innerHTML: props.titre }),
-      h('div', { class: 'text-gray-300 text-sm leading-relaxed [&_b]:text-white [&_ol]:list-decimal [&_ol]:ml-5 [&_ul]:space-y-1 [&_p]:mb-2 [&_p:last-child]:mb-0' }, slots.default?.()),
+      h('div', { class: 'text-white text-sm leading-relaxed [&_b]:text-white [&_ol]:list-decimal [&_ol]:ml-5 [&_ul]:space-y-1 [&_p]:mb-2 [&_p:last-child]:mb-0' }, slots.default?.()),
     ])
   },
 })
@@ -173,7 +173,7 @@ const Valeur = defineComponent({
   props: { etiquette: { type: String, required: true }, valeur: { type: String, required: true } },
   setup: (p: { etiquette: string; valeur: string }) => () =>
     h('div', { class: 'rounded-xl border border-white/10 bg-white/5 px-4 py-3' }, [
-      h('div', { class: 'text-[10px] text-gray-500 uppercase tracking-widest' }, p.etiquette),
+      h('div', { class: 'text-[10px] text-white uppercase tracking-widest' }, p.etiquette),
       h('div', { class: 'text-lg font-bold text-white mt-1 font-mono' }, p.valeur),
     ]),
 })

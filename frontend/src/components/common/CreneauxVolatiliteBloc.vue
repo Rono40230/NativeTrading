@@ -5,8 +5,8 @@
       <span class="text-[9px] text-white">heures Paris · 24 mois glissants</span>
     </div>
 
-    <div v-if="chargement" class="text-center text-slate-500 text-xs py-3">Calcul…</div>
-    <div v-else-if="!creneaux.length" class="text-center text-slate-500 text-xs py-3">Aucune donnée</div>
+    <div v-if="chargement" class="text-center text-white text-xs py-3">Calcul…</div>
+    <div v-else-if="!creneaux.length" class="text-center text-white text-xs py-3">Aucune donnée</div>
 
     <template v-else>
       <!-- Heures : celle en cours en gros gras encadré -->
@@ -34,7 +34,7 @@
       </div>
 
       <!-- Légende -->
-      <div class="flex items-center gap-2 text-[8px] text-slate-500 mt-0.5">
+      <div class="flex items-center gap-2 text-[8px] text-white mt-0.5">
         <span class="w-14 shrink-0"></span>
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(255,255,255,0.06)" /> fermé</span>
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:rgba(34,197,94,0.35)" /> calme</span>

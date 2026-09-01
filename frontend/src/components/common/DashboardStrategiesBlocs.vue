@@ -38,7 +38,7 @@
             stroke-linejoin="round" stroke-linecap="round"
           />
         </svg>
-        <div v-else class="w-full h-full flex items-center justify-center text-[11px] text-gray-600">
+        <div v-else class="w-full h-full flex items-center justify-center text-[11px] text-white">
           Courbe des trades — dès les premières clôtures
         </div>
       </div>
@@ -47,14 +47,14 @@
       <div class="flex items-center gap-2 text-[11px] flex-wrap">
         <span class="font-mono font-bold" :class="b.perf.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'"
               title="R de référence : paliers max atteints">{{ b.perf.r_total >= 0 ? '+' : '' }}{{ b.perf.r_total.toFixed(1) }} R</span>
-        <span class="text-gray-400">{{ b.perf.total }} rempli{{ b.perf.total > 1 ? 's' : '' }}</span>
-        <span v-if="b.perf.non_remplis > 0" class="text-gray-600" title="Ordres posés jamais touchés">{{ b.perf.non_remplis }} non remplis</span>
-        <span class="text-gray-400" title="Taux de réussite (R de référence > 0)">WR {{ (b.perf.taux_reussite * 100).toFixed(0) }} %</span>
-        <span class="ml-auto text-gray-500">{{ b.perf.en_cours.length }} en cours</span>
+        <span class="text-white">{{ b.perf.total }} rempli{{ b.perf.total > 1 ? 's' : '' }}</span>
+        <span v-if="b.perf.non_remplis > 0" class="text-white" title="Ordres posés jamais touchés">{{ b.perf.non_remplis }} non remplis</span>
+        <span class="text-white" title="Taux de réussite (R de référence > 0)">WR {{ (b.perf.taux_reussite * 100).toFixed(0) }} %</span>
+        <span class="ml-auto text-white">{{ b.perf.en_cours.length }} en cours</span>
       </div>
     </div>
 
-    <div v-if="!blocs.length && !chargement" class="flex-1 flex items-center justify-center text-sm text-gray-600">
+    <div v-if="!blocs.length && !chargement" class="flex-1 flex items-center justify-center text-sm text-white">
       Aucune stratégie active (hors construction)
     </div>
   </div>
@@ -126,7 +126,7 @@ function ouvrir(id: string) {
 function badgeClasse(etat: string) {
   if (etat === 'Officielle') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
   if (etat === 'Observation') return 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-  return 'bg-gray-500/10 text-gray-400 border-gray-500/30'
+  return 'bg-gray-500/10 text-white border-gray-500/30'
 }
 
 /// Points SVG de la courbe R cumulé.

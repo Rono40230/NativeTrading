@@ -86,7 +86,7 @@ onMounted(chargerPrompts)
     <!-- En-tête -->
     <div class="shrink-0">
       <h1 class="text-xl font-bold text-white">Configuration & Métriques IA</h1>
-      <p class="text-sm text-gray-400 mt-1">
+      <p class="text-sm text-white mt-1">
         Gérez vos prompts centraux et analysez l'état du réseau ML.
       </p>
     </div>
@@ -99,7 +99,7 @@ onMounted(chargerPrompts)
         @click="ongletActif = o.id"
         :class="ongletActif === o.id
           ? 'border-b-2 border-blue-500 text-white bg-white/5'
-          : 'text-gray-400 hover:text-white hover:bg-white/5'"
+          : 'text-white hover:text-white hover:bg-white/5'"
         class="px-4 py-2 text-sm font-medium rounded-t transition-colors"
       >
         {{ o.label }}
@@ -113,7 +113,7 @@ onMounted(chargerPrompts)
 
     <!-- CONTENU PROMPTS -->
     <div v-if="ongletActif === 'prompts'" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2">
-      <div v-if="chargement" class="text-gray-400 text-sm animate-pulse">Chargement des prompts…</div>
+      <div v-if="chargement" class="text-white text-sm animate-pulse">Chargement des prompts…</div>
       
       <div v-else-if="prompts" class="grid grid-cols-1 xl:grid-cols-2 gap-4 h-full">
         <!-- 4 Blocs de catégories -->
@@ -139,7 +139,7 @@ onMounted(chargerPrompts)
                   @click="basculer(prompt.id)"
                 >
                   <div class="flex items-center gap-2 min-w-0 flex-wrap">
-                    <span class="text-gray-200 text-sm font-medium">{{ prompt.label }}</span>
+                    <span class="text-white text-sm font-medium">{{ prompt.label }}</span>
                     <span class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300 border border-blue-500/20">
                       {{ prompt.usage }}
                     </span>
@@ -147,13 +147,13 @@ onMounted(chargerPrompts)
                       ✏ modifié
                     </span>
                   </div>
-                  <span class="text-gray-500 text-xs ml-2 shrink-0">
+                  <span class="text-white text-xs ml-2 shrink-0">
                     {{ expansions[prompt.id] ? '▲' : '▼' }}
                   </span>
                 </div>
 
                 <!-- Description -->
-                <p class="px-3 pb-2 text-[11px] text-gray-400">
+                <p class="px-3 pb-2 text-[11px] text-white">
                   {{ prompt.description }}
                 </p>
 
@@ -161,7 +161,7 @@ onMounted(chargerPrompts)
                 <div v-if="expansions[prompt.id]" class="border-t border-white/10">
                   <textarea
                     v-model="editValues[prompt.id]"
-                    class="w-full text-[11px] text-gray-300 font-mono p-3 resize-y outline-none border-0 bg-black/60"
+                    class="w-full text-[11px] text-white font-mono p-3 resize-y outline-none border-0 bg-black/60"
                     style="line-height: 1.6; min-height: 150px;"
                     spellcheck="false"
                   />
@@ -185,7 +185,7 @@ onMounted(chargerPrompts)
                 </div>
               </div>
             </template>
-            <div v-else class="text-xs text-gray-500 italic p-2">Aucun prompt trouvé.</div>
+            <div v-else class="text-xs text-white italic p-2">Aucun prompt trouvé.</div>
           </div>
 
         </div>

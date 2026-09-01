@@ -12,17 +12,17 @@
           <span class="text-xs font-bold uppercase tracking-wider"
             :class="dirClass">{{ signal.direction }}</span>
           <span class="text-sm font-bold text-white">{{ signal.asset }}</span>
-          <span class="text-xs text-gray-400">{{ signal.timeframe }}</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{{ signal.strategie }}</span>
+          <span class="text-xs text-white">{{ signal.timeframe }}</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-white">{{ signal.strategie }}</span>
         </div>
         <div class="flex items-center gap-2">
           <!-- Navigation N/N -->
-          <span v-if="store.total > 1" class="text-xs text-gray-400 select-none">
+          <span v-if="store.total > 1" class="text-xs text-white select-none">
             <button class="px-1 hover:text-white disabled:opacity-30" :disabled="store.index === 0" @click.stop="store.precedent()">‹</button>
             {{ store.index + 1 }}/{{ store.total }}
             <button class="px-1 hover:text-white disabled:opacity-30" :disabled="store.index === store.total - 1" @click.stop="store.suivant()">›</button>
           </span>
-          <button class="text-gray-500 hover:text-white text-lg leading-none" @click.stop="fermer">✕</button>
+          <button class="text-white hover:text-white text-lg leading-none" @click.stop="fermer">✕</button>
         </div>
       </div>
 
@@ -37,7 +37,7 @@
           <div class="prix-bloc">
             <span class="prix-label">Stop-Loss</span>
             <span class="prix-val text-red-400">{{ fmt(signal.stop_loss) }}</span>
-            <span class="text-[9px] text-gray-400 mt-0.5 whitespace-nowrap">{{ infosPips(signal.stop_loss, signal.prix_entree) }}</span>
+            <span class="text-[9px] text-white mt-0.5 whitespace-nowrap">{{ infosPips(signal.stop_loss, signal.prix_entree) }}</span>
           </div>
           <div class="prix-bloc">
             <span class="prix-label">Score</span>
@@ -50,7 +50,7 @@
           <div v-for="(tp, i) in (signal.take_profit ?? []).slice(0, 3)" :key="i" class="prix-bloc">
             <span class="prix-label">TP{{ i + 1 }}</span>
             <span class="prix-val text-emerald-400">{{ fmt(tp) }}</span>
-            <span class="text-[9px] text-gray-400 mt-0.5 whitespace-nowrap">{{ infosPips(tp, signal.prix_entree) }}</span>
+            <span class="text-[9px] text-white mt-0.5 whitespace-nowrap">{{ infosPips(tp, signal.prix_entree) }}</span>
           </div>
         </div>
 
@@ -60,7 +60,7 @@
           class="flex items-center gap-2 mb-3 cursor-help"
           :title="signal.llm_raison ? `Justification IA : ${signal.llm_raison}` : 'Aucune justification disponible'"
         >
-          <span class="text-xs text-gray-400">Conviction IA</span>
+          <span class="text-xs text-white">Conviction IA</span>
           <div class="flex-1 bg-gray-700 rounded-full h-1.5 overflow-hidden">
             <div class="h-full rounded-full transition-all"
               :style="{ width: signal.llm_conviction + '%' }"
@@ -73,20 +73,20 @@
 
         <!-- Justification LLM -->
         <div v-if="signal.llm_raison" class="raison-bloc">
-          <span class="text-[10px] text-gray-500 uppercase tracking-wider block mb-1">Justification IA</span>
-          <p class="text-xs text-gray-200 leading-relaxed">{{ signal.llm_raison }}</p>
+          <span class="text-[10px] text-white uppercase tracking-wider block mb-1">Justification IA</span>
+          <p class="text-xs text-white leading-relaxed">{{ signal.llm_raison }}</p>
         </div>
-        <div v-else class="text-xs text-gray-600 italic">
+        <div v-else class="text-xs text-white italic">
           {{ signal.strategie === 'straddle' ? 'Straddle : double position volatilité extrême' : 'Aucune justification LLM disponible' }}
         </div>
       </div>
 
       <!-- Pied -->
       <div class="alarme-footer">
-        <span class="text-[10px] text-gray-600">{{ formatDate(signal.cree_le) }}</span>
+        <span class="text-[10px] text-white">{{ formatDate(signal.cree_le) }}</span>
         <div class="flex gap-2">
           <button
-            class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors"
+            class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors"
             @click.stop="fermer"
           >Ignorer ✕</button>
         </div>

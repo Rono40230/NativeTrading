@@ -2,13 +2,13 @@
   <div class="flex flex-col gap-4">
     <!-- Actions -->
     <div class="flex items-center justify-between flex-shrink-0">
-      <div class="text-xs text-gray-500">
-        <span v-if="analyse">Dernière analyse : <span class="text-gray-300">{{ dateAnalyse }}</span> sur <span class="text-white font-bold">{{ analyse.nb_trades }}</span> trades</span>
+      <div class="text-xs text-white">
+        <span v-if="analyse">Dernière analyse : <span class="text-white">{{ dateAnalyse }}</span> sur <span class="text-white font-bold">{{ analyse.nb_trades }}</span> trades</span>
         <span v-else class="italic">Aucune analyse disponible</span>
       </div>
       <button
         class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-        :class="chargement ? 'bg-white/10 text-gray-400 cursor-not-allowed' : 'bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 border border-blue-500/30'"
+        :class="chargement ? 'bg-white/10 text-white cursor-not-allowed' : 'bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 border border-blue-500/30'"
         :disabled="chargement"
         @click="relancerAnalyse"
       >
@@ -23,33 +23,33 @@
     </div>
 
     <!-- Pas de données -->
-    <div v-else-if="!analyse" class="rounded-lg bg-white/5 border border-white/10 px-4 py-6 text-center text-xs text-gray-500 italic">
+    <div v-else-if="!analyse" class="rounded-lg bg-white/5 border border-white/10 px-4 py-6 text-center text-xs text-white italic">
       Aucune analyse LLM disponible. Cliquez sur "Relancer l'analyse" pour générer une première analyse.<br>
-      <span class="text-gray-600 mt-1 block">Minimum {{ MIN_TRADES }} trades clôturés requis.</span>
+      <span class="text-white mt-1 block">Minimum {{ MIN_TRADES }} trades clôturés requis.</span>
     </div>
 
     <template v-else>
       <!-- Synthèse -->
       <div class="rounded-lg border border-blue-500/20 bg-blue-950/30 px-4 py-3">
         <div class="text-[10px] text-blue-400 font-semibold uppercase tracking-widest mb-1.5">Synthèse</div>
-        <p class="text-xs text-gray-200 leading-relaxed">{{ analyse.synthese }}</p>
+        <p class="text-xs text-white leading-relaxed">{{ analyse.synthese }}</p>
       </div>
 
       <!-- Meilleur / Pire setup -->
       <div v-if="analyse.meilleur_setup || analyse.pire_setup" class="grid grid-cols-2 gap-3">
         <div v-if="analyse.meilleur_setup" class="rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-3 py-2.5">
           <div class="text-[9px] text-emerald-400 font-semibold uppercase tracking-widest mb-1">✅ Meilleur setup</div>
-          <p class="text-xs text-gray-300 leading-relaxed">{{ analyse.meilleur_setup }}</p>
+          <p class="text-xs text-white leading-relaxed">{{ analyse.meilleur_setup }}</p>
         </div>
         <div v-if="analyse.pire_setup" class="rounded-lg border border-red-500/20 bg-red-950/20 px-3 py-2.5">
           <div class="text-[9px] text-red-400 font-semibold uppercase tracking-widest mb-1">❌ À éviter</div>
-          <p class="text-xs text-gray-300 leading-relaxed">{{ analyse.pire_setup }}</p>
+          <p class="text-xs text-white leading-relaxed">{{ analyse.pire_setup }}</p>
         </div>
       </div>
 
       <!-- Recommandations -->
       <div>
-        <h3 class="text-[10px] text-gray-500 font-semibold uppercase tracking-widest mb-2">
+        <h3 class="text-[10px] text-white font-semibold uppercase tracking-widest mb-2">
           Recommandations ({{ recommandations.length }})
         </h3>
         <div class="flex flex-col gap-2">
@@ -65,10 +65,10 @@
                 <span class="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full" :class="classePriorite(r.priorite)">
                   {{ r.priorite }}
                 </span>
-                <span class="text-[9px] text-gray-500">{{ labelType(r.type) }}</span>
+                <span class="text-[9px] text-white">{{ labelType(r.type) }}</span>
               </div>
-              <p class="text-xs text-gray-200 leading-relaxed">{{ r.description }}</p>
-              <p v-if="r.impact_estime" class="text-[10px] text-gray-400 mt-1 italic">Impact estimé : {{ r.impact_estime }}</p>
+              <p class="text-xs text-white leading-relaxed">{{ r.description }}</p>
+              <p v-if="r.impact_estime" class="text-[10px] text-white mt-1 italic">Impact estimé : {{ r.impact_estime }}</p>
             </div>
           </div>
         </div>
@@ -138,7 +138,7 @@ function classeReco(priorite: string) {
 function classePriorite(priorite: string) {
   if (priorite === 'haute') return 'bg-red-900/60 text-red-300'
   if (priorite === 'moyenne') return 'bg-yellow-900/60 text-yellow-300'
-  return 'bg-white/10 text-gray-400'
+  return 'bg-white/10 text-white'
 }
 
 function iconeType(type: string) {

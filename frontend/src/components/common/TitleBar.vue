@@ -16,7 +16,7 @@
       >
         <button
           class="flex items-center gap-1.5 px-2.5 text-xs transition-colors"
-          :class="actif(item.to) ? 'text-white bg-white/10' : 'text-gray-400 hover:text-white hover:bg-white/5'"
+          :class="actif(item.to) ? 'text-white bg-white/10' : 'text-white hover:text-white hover:bg-white/5'"
           @click="aller(item.to)"
         >
           <span class="text-sm leading-none">{{ item.icone }}</span>
@@ -26,7 +26,7 @@
         <button
           v-if="item.sous"
           class="flex items-center pr-1.5 text-[8px] transition-colors"
-          :class="ouvert === item.to || sousPageActive(item) ? 'text-white' : 'text-gray-600 hover:text-white'"
+          :class="ouvert === item.to || sousPageActive(item) ? 'text-white' : 'text-white hover:text-white'"
           :title="`Sous-pages ${item.label}`"
           @click.stop="basculer(item.to)"
         >▼</button>
@@ -56,7 +56,7 @@
     <div class="relative flex items-stretch">
       <button
         class="flex items-center gap-1 px-2.5 text-xs transition-colors"
-        :class="sectionActive('/ia', '/config/prompts') || ouvert === 'ia' ? 'text-white bg-white/10' : 'text-gray-400 hover:text-white hover:bg-white/5'"
+        :class="sectionActive('/ia', '/config/prompts') || ouvert === 'ia' ? 'text-white bg-white/10' : 'text-white hover:text-white hover:bg-white/5'"
         title="Outils IA"
         @click="basculer('ia')"
       >
@@ -74,7 +74,7 @@
     <div class="relative flex items-stretch">
       <button
         class="flex items-center gap-1 px-2.5 text-xs transition-colors"
-        :class="actif('/settings') || actif('/data') || ouvert === 'systeme' ? 'text-white bg-white/10' : 'text-gray-400 hover:text-white hover:bg-white/5'"
+        :class="actif('/settings') || actif('/data') || ouvert === 'systeme' ? 'text-white bg-white/10' : 'text-white hover:text-white hover:bg-white/5'"
         title="Paramètres & Données"
         @click="basculer('systeme')"
       >
@@ -190,10 +190,10 @@ function surEchap(e: KeyboardEvent) {
   right: auto;
 }
 .item-menu {
-  @apply flex items-center gap-2.5 px-3 py-1.5 text-xs text-gray-300 hover:text-white hover:bg-white/10 transition-colors;
+  @apply flex items-center gap-2.5 px-3 py-1.5 text-xs text-white hover:text-white hover:bg-white/10 transition-colors;
 }
 .controle-fenetre {
-  @apply w-11 flex items-center justify-center text-sm text-gray-400 hover:text-white hover:bg-white/10 transition-colors;
+  @apply w-11 flex items-center justify-center text-sm text-white hover:text-white hover:bg-white/10 transition-colors;
 }
 .controle-fermer {
   @apply hover:bg-red-600 hover:text-white;

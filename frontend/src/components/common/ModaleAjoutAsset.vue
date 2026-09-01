@@ -9,12 +9,12 @@
       <div class="w-full max-w-md p-6 space-y-4 rounded-2xl border border-white/10 bg-[#16181d] shadow-2xl">
         <div class="flex items-center justify-between">
           <h3 class="font-bold text-lg">Ajouter un asset</h3>
-          <button class="text-gray-400 hover:text-white transition" @click="fermerModaleAsset()">✕</button>
+          <button class="text-white hover:text-white transition" @click="fermerModaleAsset()">✕</button>
         </div>
 
         <div class="space-y-3">
           <div>
-            <label class="text-xs text-gray-400">Ticker</label>
+            <label class="text-xs text-white">Ticker</label>
             <input
               v-model="nouvelAsset.ticker"
               placeholder="ex : TON, GBPAUD, HK50"
@@ -23,7 +23,7 @@
             />
           </div>
           <div>
-            <label class="text-xs text-gray-400">Nom</label>
+            <label class="text-xs text-white">Nom</label>
             <input
               v-model="nouvelAsset.nom"
               placeholder="ex : Toncoin"
@@ -32,7 +32,7 @@
           </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="text-xs text-gray-400">Classe</label>
+              <label class="text-xs text-white">Classe</label>
               <select
                 v-model="nouvelAsset.classe"
                 class="w-full mt-1 bg-white border border-white/20 rounded-lg px-3 py-2 text-sm text-black"
@@ -45,7 +45,7 @@
               </select>
             </div>
             <div>
-              <label class="text-xs text-gray-400">Worker</label>
+              <label class="text-xs text-white">Worker</label>
               <div class="mt-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm"
                    :class="sourceWorker === 'binance' ? 'text-yellow-300' : 'text-violet-300'">
                 {{ sourceWorker === 'binance' ? 'Bybit (temps réel)' : 'MT5 / Axi (broker)' }}
@@ -53,7 +53,7 @@
             </div>
           </div>
           <div v-if="sourceWorker === 'binance'">
-            <label class="text-xs text-gray-400">Symbole Bybit</label>
+            <label class="text-xs text-white">Symbole Bybit</label>
             <input
               v-model="nouvelAsset.symbolBybit"
               placeholder="TONUSDT"
@@ -62,28 +62,28 @@
             />
           </div>
           <div v-else>
-            <label class="text-xs text-gray-400">Symbole MT5 (broker Axi)</label>
+            <label class="text-xs text-white">Symbole MT5 (broker Axi)</label>
             <input
               v-model="nouvelAsset.symbolMt5"
               placeholder="ex : UK100, dax40.fs, XAUUSD"
               class="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm font-mono text-white focus:border-emerald-500/50 outline-none"
               @input="nouvelAsset.symbolMt5 = nouvelAsset.symbolMt5.toUpperCase()"
             />
-            <p class="text-[11px] text-gray-500 mt-1">Résolu insensible à la casse dans le Market Watch de ton MT5 — l'EA collecte dès qu'il tourne.</p>
+            <p class="text-[11px] text-white mt-1">Résolu insensible à la casse dans le Market Watch de ton MT5 — l'EA collecte dès qu'il tourne.</p>
           </div>
         </div>
 
         <p v-if="erreurModaleAsset" class="text-sm text-red-400">{{ erreurModaleAsset }}</p>
         <p v-if="succesModaleAsset" class="text-sm text-emerald-400">{{ succesModaleAsset }}</p>
 
-        <p class="text-[11px] text-gray-500">
+        <p class="text-[11px] text-white">
           L'asset est ajouté <b>actif</b> : Bybit le prend en charge en ≤ 60 s (souscription + moteur v12 armé) ;
           MT5 dès que ton EA tourne ( Market Watch + push M1).
         </p>
 
         <div class="flex justify-end gap-2 pt-1">
           <button
-            class="px-4 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition"
+            class="px-4 py-2 rounded-lg bg-white/5 text-white text-sm hover:bg-white/10 transition"
             @click="fermerModaleAsset()"
           >
             Annuler

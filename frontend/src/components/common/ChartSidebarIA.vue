@@ -3,7 +3,7 @@
   <button
     class="absolute top-1/2 -translate-y-1/2 w-7 h-16 z-40
            rounded-l-lg bg-[#0a0e27]/95 border border-r-0 border-white/10
-           flex items-center justify-center text-gray-400 hover:text-white
+           flex items-center justify-center text-white hover:text-white
            transition-all duration-200"
     :style="{ right: open ? '512px' : '0px' }"
     :title="open ? 'Masquer la sidebar IA' : 'Afficher la sidebar IA'"

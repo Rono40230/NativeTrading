@@ -4,8 +4,8 @@
       <h3 class="text-sm font-semibold text-white">📅 Calendrier économique</h3>
     </div>
 
-    <div v-if="chargement" class="text-slate-400 text-xs text-center py-3 shrink-0">Chargement…</div>
-    <div v-else-if="annonces.length === 0" class="text-slate-500 text-xs text-center py-3 shrink-0">
+    <div v-if="chargement" class="text-white text-xs text-center py-3 shrink-0">Chargement…</div>
+    <div v-else-if="annonces.length === 0" class="text-white text-xs text-center py-3 shrink-0">
       Aucune annonce à venir (7j)
     </div>
 
@@ -31,8 +31,8 @@
               class="w-1.5 h-1.5 rounded-full shrink-0"
               :class="a.est_passe ? 'bg-slate-600' : a.impact === 'High' ? 'bg-red-400' : 'bg-orange-400'"
             />
-            <span class="text-[11px] font-mono font-bold text-slate-300">{{ a.devise }}</span>
-            <span v-if="a.est_passe" class="text-[9px] text-slate-500 border border-slate-600/40 rounded-full px-1.5 py-0.5 leading-none">Terminé</span>
+            <span class="text-[11px] font-mono font-bold text-white">{{ a.devise }}</span>
+            <span v-if="a.est_passe" class="text-[9px] text-white border border-slate-600/40 rounded-full px-1.5 py-0.5 leading-none">Terminé</span>
             <span class="ml-auto text-[10px] font-semibold shrink-0" :class="couleurCountdown(a.date_heure)">{{ countdown(a.date_heure) }}</span>
           </div>
           <!-- Ligne 2 : titre complet sur 2 lignes max -->
@@ -47,12 +47,12 @@
             @click.stop
           >
             <p class="text-[10px] font-semibold text-white mb-1.5 leading-snug">{{ a.titre }}</p>
-            <div class="flex items-center gap-3 text-[10px] text-slate-400 mb-1">
+            <div class="flex items-center gap-3 text-[10px] text-white mb-1">
               <span>🕐 {{ formatHeureLocale(a.date_heure) }}</span>
-              <span class="text-slate-600">·</span>
+              <span class="text-white">·</span>
               <span>{{ formatUTC(a.date_heure) }} UTC</span>
             </div>
-            <div class="flex gap-3 text-[10px] text-slate-400 mb-1.5">
+            <div class="flex gap-3 text-[10px] text-white mb-1.5">
               <span>Préc: <span class="text-white">{{ a.precedent ?? '—' }}</span></span>
               <span>Prévis: <span class="text-white">{{ a.prevision ?? '—' }}</span></span>
             </div>
@@ -116,7 +116,7 @@ function couleurCountdown(iso: string): string {
   const diffMin = (new Date(iso).getTime() - Date.now()) / 60_000
   if (diffMin > 0 && diffMin <= 15) return 'text-red-400 animate-pulse'
   if (diffMin <= 60) return 'text-orange-400'
-  return 'text-slate-400'
+  return 'text-white'
 }
 
 function verifierAlertes() {

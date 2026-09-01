@@ -30,7 +30,7 @@
     align-items: center;
     gap: 0.5rem;
     font-size: 0.85rem;
-    color: #94a3b8;
+    color: #ffffff;
 }
 
 .input-field {
@@ -107,7 +107,7 @@
 .params-table th {
     padding: 0.6rem 0.75rem;
     text-align: left;
-    color: #94a3b8;
+    color: #ffffff;
     font-weight: 500;
     white-space: nowrap;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -220,7 +220,7 @@
 }
 
 .col-computed {
-    color: #64748b;
+    color: #ffffff;
     font-size: 0.8rem;
 }
 
@@ -253,7 +253,7 @@
     align-items: center;
     gap: 0.45rem;
     font-size: 0.8rem;
-    color: #94a3b8;
+    color: #ffffff;
 }
 
 .input-ref {

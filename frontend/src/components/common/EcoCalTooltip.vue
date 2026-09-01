@@ -21,14 +21,14 @@
       <p class="text-[11px] text-white leading-snug mb-2">{{ annonce.titre }}</p>
 
       <!-- Heure -->
-      <div class="flex items-center gap-2 text-[10px] text-slate-400 mb-1.5">
+      <div class="flex items-center gap-2 text-[10px] text-white mb-1.5">
         <span>🕐 {{ heureLocale }}</span>
-        <span class="text-slate-600">·</span>
+        <span class="text-white">·</span>
         <span>{{ heureUTC }} UTC</span>
       </div>
 
       <!-- Précédent / Prévision -->
-      <div class="flex gap-4 text-[10px] text-slate-400">
+      <div class="flex gap-4 text-[10px] text-white">
         <span>Préc: <span class="text-white">{{ annonce.precedent ?? '—' }}</span></span>
         <span>Prévis: <span class="text-white">{{ annonce.prevision ?? '—' }}</span></span>
       </div>

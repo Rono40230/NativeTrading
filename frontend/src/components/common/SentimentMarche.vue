@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between mb-2 border-b border-white/10 pb-1">
       <div>
         <p class="text-[11px] font-semibold text-white uppercase tracking-widest">🌡️ Sentiment de Marché</p>
-        <p class="text-[10px] text-slate-400">Jauges : réf. veille · Marchés : aujourd'hui</p>
+        <p class="text-[10px] text-white">Jauges : réf. veille · Marchés : aujourd'hui</p>
       </div>
       <div v-if="chargement" class="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
     </div>
@@ -22,7 +22,7 @@
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold" :class="couleurScore(globalScore)">{{ labelSentiment(globalScore) }}</p>
-          <p class="text-[10px] text-slate-400 leading-tight mt-0.5">
+          <p class="text-[10px] text-white leading-tight mt-0.5">
             <span v-if="composite.cnn_fg != null">CNN {{ Math.round(composite.cnn_fg) }} · </span>
             <span v-if="composite.fear_greed != null">F&amp;G {{ Math.round(composite.fear_greed) }} · </span>
             <span v-if="composite.vix_brut != null">VIX {{ composite.vix_brut.toFixed(1) }}</span>
@@ -36,7 +36,7 @@
           <div class="mini-jauge mb-1">
             <div class="mini-jauge-fill" :style="{ width: c.score + '%', background: fondScore(c.score) }" />
           </div>
-          <p class="text-[9px] uppercase tracking-wide text-slate-500">{{ c.label }}</p>
+          <p class="text-[9px] uppercase tracking-wide text-white">{{ c.label }}</p>
           <p class="text-xs font-semibold tabular-nums" :class="couleurScore(c.score)">{{ Math.round(c.score) }}</p>
         </div>
       </div>
@@ -47,7 +47,7 @@
     <template v-if="data">
       <div class="space-y-2.5 text-xs">
         <!-- En-tête des deux colonnes de variation -->
-        <div class="flex items-center gap-2 text-[9px] uppercase tracking-wider text-slate-500 border-b border-white/5 pb-0.5">
+        <div class="flex items-center gap-2 text-[9px] uppercase tracking-wider text-white border-b border-white/5 pb-0.5">
           <span class="flex-1" />
           <span class="w-[64px] text-right">Cours</span>
           <span class="w-[64px] text-center">Veille</span>
@@ -55,9 +55,9 @@
         </div>
         <!-- USA -->
         <div>
-          <p class="text-slate-500 mb-0.5">🇺🇸 USA</p>
+          <p class="text-white mb-0.5">🇺🇸 USA</p>
           <div v-for="e in data.usa" :key="e.nom" class="flex items-center gap-2 py-0.5">
-            <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
+            <span class="flex-1 min-w-0 truncate text-white">{{ e.nom }}</span>
             <span
               class="w-[64px] text-right tabular-nums text-[11px] font-medium"
               :class="couleurCours(e.variation_pct)"
@@ -76,9 +76,9 @@
 
         <!-- EUROPE -->
         <div>
-          <p class="text-slate-500 mb-0.5">🇪🇺 EUROPE</p>
+          <p class="text-white mb-0.5">🇪🇺 EUROPE</p>
           <div v-for="e in data.europe" :key="e.nom" class="flex items-center gap-2 py-0.5">
-            <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
+            <span class="flex-1 min-w-0 truncate text-white">{{ e.nom }}</span>
             <span
               class="w-[64px] text-right tabular-nums text-[11px] font-medium"
               :class="couleurCours(e.variation_pct)"
@@ -97,9 +97,9 @@
 
         <!-- MATIÈRES PREMIÈRES -->
         <div>
-          <p class="text-slate-500 mb-0.5">⛏️ MATIÈRES PREMIÈRES</p>
+          <p class="text-white mb-0.5">⛏️ MATIÈRES PREMIÈRES</p>
           <div v-for="e in data.matieres_premieres" :key="e.nom" class="flex items-center gap-2 py-0.5">
-            <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
+            <span class="flex-1 min-w-0 truncate text-white">{{ e.nom }}</span>
             <span
               class="w-[64px] text-right tabular-nums text-[11px] font-medium"
               :class="couleurCours(e.variation_pct)"
@@ -118,9 +118,9 @@
 
         <!-- CRYPTOS -->
         <div>
-          <p class="text-slate-500 mb-0.5">₿ CRYPTOS</p>
+          <p class="text-white mb-0.5">₿ CRYPTOS</p>
           <div v-for="e in data.cryptos" :key="e.nom" class="flex items-center gap-2 py-0.5">
-            <span class="flex-1 min-w-0 truncate text-slate-200">{{ e.nom }}</span>
+            <span class="flex-1 min-w-0 truncate text-white">{{ e.nom }}</span>
             <span
               class="w-[64px] text-right tabular-nums text-[11px] font-medium"
               :class="couleurCours(e.variation_pct)"
@@ -139,7 +139,7 @@
 
         <!-- VIX -->
         <div v-if="data.vix != null" class="pt-2 border-t border-white/10 flex items-center gap-2">
-          <span class="text-slate-400">VIX {{ data.vix.toFixed(1) }} <span class="text-[9px] text-slate-500">(veille)</span></span>
+          <span class="text-white">VIX {{ data.vix.toFixed(1) }} <span class="text-[9px] text-white">(veille)</span></span>
           <span
             class="font-semibold"
             :class="data.vix >= 30 ? 'text-red-400' : data.vix >= 20 ? 'text-orange-400' : 'text-emerald-400'"
@@ -232,7 +232,7 @@ function pct(v: number): string {
 function couleurCours(v: number): string {
   if (v > 0) return 'text-emerald-400'
   if (v < 0) return 'text-red-400'
-  return 'text-slate-300'
+  return 'text-white'
 }
 
 function prixFmt(v: number): string {

@@ -20,11 +20,11 @@
       <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="ouvrirAnalyse">📊 Analyse</button>
     </template>
     <template #historique>
-      <div class="text-sm text-gray-400 flex flex-wrap items-center gap-x-3 mb-2">
+      <div class="text-sm text-white flex flex-wrap items-center gap-x-3 mb-2">
         <span>{{ historique.signauxFiltres.value.length }} trade{{ historique.signauxFiltres.value.length > 1 ? 's' : '' }}</span>
         <span v-if="historique.totaux.value.ref !== null" class="font-mono text-emerald-400">Σ palier {{ formatR(historique.totaux.value.ref) }}</span>
-        <span v-if="historique.totaux.value.realise !== null" class="font-mono text-gray-500">Σ réalisé {{ formatR(historique.totaux.value.realise) }}</span>
-        <span v-if="historique.totaux.value.jamaisRemplis > 0" class="text-gray-600">· {{ historique.totaux.value.jamaisRemplis }} jamais remplis</span>
+        <span v-if="historique.totaux.value.realise !== null" class="font-mono text-white">Σ réalisé {{ formatR(historique.totaux.value.realise) }}</span>
+        <span v-if="historique.totaux.value.jamaisRemplis > 0" class="text-white">· {{ historique.totaux.value.jamaisRemplis }} jamais remplis</span>
       </div>
       <HistoryTable
         :signaux="historique.signauxFiltres.value"

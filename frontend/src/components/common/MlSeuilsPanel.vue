@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-3 flex flex-col h-full">
-    <div v-if="chargement" class="p-4 text-center text-gray-400 text-xs h-full flex items-center justify-center">
+    <div v-if="chargement" class="p-4 text-center text-white text-xs h-full flex items-center justify-center">
       Chargement…
     </div>
     <div v-else class="space-y-2 flex-1 flex flex-col justify-between">
@@ -19,7 +19,7 @@
           @change="enregistrer"
           class="w-full accent-emerald-500 h-1 cursor-pointer"
         />
-        <div class="flex justify-between text-[9px] text-gray-500">
+        <div class="flex justify-between text-[9px] text-white">
           <span>30% permissif</span>
           <span>90% strict</span>
         </div>
@@ -39,7 +39,7 @@
           @change="enregistrer"
           class="w-full accent-blue-500 h-1 cursor-pointer"
         />
-        <div class="flex justify-between text-[9px] text-gray-500">
+        <div class="flex justify-between text-[9px] text-white">
           <span>50% sélectif</span>
           <span>95% permissif</span>
         </div>
@@ -59,7 +59,7 @@
           @change="enregistrer"
           class="w-full accent-violet-500 h-1 cursor-pointer"
         />
-        <div class="flex justify-between text-[9px] text-gray-500">
+        <div class="flex justify-between text-[9px] text-white">
           <span>30% permissif</span>
           <span>90% strict</span>
         </div>

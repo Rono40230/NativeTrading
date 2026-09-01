@@ -17,9 +17,9 @@
           </button>
           <div v-if="layoutOuvert" class="fixed inset-0 z-40" @click="layoutOuvert = false" />
           <div v-if="layoutOuvert" class="absolute left-0 top-[calc(100%+6px)] z-50 w-44 bg-slate-900/95 backdrop-blur border border-white/10 rounded-lg shadow-xl py-1.5">
-            <div class="px-2.5 pb-1.5 text-[10px] uppercase tracking-wide text-slate-500 border-b border-white/5">Graphiques</div>
+            <div class="px-2.5 pb-1.5 text-[10px] uppercase tracking-wide text-white border-b border-white/5">Graphiques</div>
             <button v-for="l in LAYOUTS" :key="l.id"
-              class="w-full flex items-center gap-3 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-white/5"
+              class="w-full flex items-center gap-3 px-2.5 py-1.5 text-xs text-white hover:bg-white/5"
               :class="layout === l.id && 'text-cyan-300'"
               @click="choisirLayout(l.id)"
             >

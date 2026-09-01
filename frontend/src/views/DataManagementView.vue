@@ -4,7 +4,7 @@
 
     <!-- ══ SECTION 1 — Contrôle des workers ══════════════════════════════════ -->
     <div class="glass-card p-5 space-y-4">
-      <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Workers d'ingestion</h2>
+      <h2 class="text-sm font-semibold text-white uppercase tracking-wider">Workers d'ingestion</h2>
 
       <!-- Interrupteurs + statut — MT5 et workers dans la même rangée -->
       <div class="grid gap-4 grid-cols-2">
@@ -16,19 +16,19 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="font-bold text-white">🖥️ Collecteur MT5 / Axi</p>
-            <p class="text-xs text-gray-500">Bougies M1 de ton broker — l'EA attaché dans MT5</p>
+            <p class="text-xs text-white">Bougies M1 de ton broker — l'EA attaché dans MT5</p>
           </div>
           <span v-if="mt5.connecte" class="text-emerald-400 text-sm">● Connecté</span>
-          <span v-else class="text-gray-400 text-sm">○ Silencieux (MT5 fermé ?)</span>
+          <span v-else class="text-white text-sm">○ Silencieux (MT5 fermé ?)</span>
         </div>
         <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs" v-if="mt5.symboles?.length">
-          <span v-for="s in mt5.symboles" :key="s.asset" class="text-gray-400">
+          <span v-for="s in mt5.symboles" :key="s.asset" class="text-white">
             {{ s.asset }} :
             <span v-if="s.age_s >= 0 && s.age_s < 120" class="text-emerald-400">prix il y a {{ s.age_s }}s</span>
-            <span v-else class="text-gray-600">sans prix (marché fermé ?)</span>
+            <span v-else class="text-white">sans prix (marché fermé ?)</span>
           </span>
         </div>
-        <p v-else class="text-xs text-gray-600">Aucun actif MT5 actif</p>
+        <p v-else class="text-xs text-white">Aucun actif MT5 actif</p>
       </div>
 
         <div
@@ -40,7 +40,7 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="font-bold text-white">{{ w.nom }}</p>
-              <p class="text-xs text-gray-500">{{ w.description }}</p>
+              <p class="text-xs text-white">{{ w.description }}</p>
             </div>
             <button
               class="px-4 py-1.5 rounded-lg text-sm font-semibold transition disabled:opacity-50"
@@ -54,14 +54,14 @@
             </button>
           </div>
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-            <span v-if="!w.config.actif" class="text-gray-400">⏸ Désactivé</span>
+            <span v-if="!w.config.actif" class="text-white">⏸ Désactivé</span>
             <span v-else-if="w.statut?.connecte" class="text-emerald-400">● Connecté</span>
             <span v-else class="text-red-400">○ Déconnecté</span>
-            <span class="text-gray-400">
+            <span class="text-white">
               {{ w.statut?.nb_assets ?? 0 }} asset(s) suivis
             </span>
-            <span class="text-gray-400">Dernière bougie : {{ fraicheur(w.statut?.derniere_bougie ?? null) }}</span>
-            <span class="text-gray-500">{{ (w.statut?.bougies_inserees ?? 0).toLocaleString() }} bougies insérées</span>
+            <span class="text-white">Dernière bougie : {{ fraicheur(w.statut?.derniere_bougie ?? null) }}</span>
+            <span class="text-white">{{ (w.statut?.bougies_inserees ?? 0).toLocaleString() }} bougies insérées</span>
           </div>
         </div>
       </div>
@@ -74,7 +74,7 @@
     <!-- ══ SECTION 2 — Assets du pipeline ════════════════════════════════════ -->
     <div class="glass-card p-5">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Assets du pipeline</h2>
+        <h2 class="text-sm font-semibold text-white uppercase tracking-wider">Assets du pipeline</h2>
         <div class="flex items-center gap-3">
           <button
             class="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition"
@@ -82,7 +82,7 @@
           >
             + Ajouter un asset
           </button>
-          <span class="text-xs text-gray-500">{{ nbAssetsActifs }} / {{ tous.length }} activés</span>
+          <span class="text-xs text-white">{{ nbAssetsActifs }} / {{ tous.length }} activés</span>
         </div>
       </div>
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -121,13 +121,13 @@
               >
                 {{ badgeSource(a.source).label }}
               </span>
-              <span v-if="enCoursAsset === a.id" class="text-[10px] text-gray-500">…</span>
+              <span v-if="enCoursAsset === a.id" class="text-[10px] text-white">…</span>
             </label>
           </div>
         </div>
       </div>
       <p v-if="erreurAssets" class="text-red-400 text-xs mt-2">{{ erreurAssets }}</p>
-      <p class="text-gray-500 text-[11px] mt-2">
+      <p class="text-white text-[11px] mt-2">
         Décocher un asset l'exclut des workers à leur prochaine session/cycle (≤ 60 s) — les données sont conservées.
       </p>
     </div>
@@ -138,7 +138,7 @@
     <!-- ══ SECTION 4 — Couverture DB ═════════════════════════════════════════ -->
     <div class="glass-card p-5">
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider">Couverture par asset × timeframe</h2>
+        <h2 class="text-sm font-semibold text-white uppercase tracking-wider">Couverture par asset × timeframe</h2>
         <div class="flex items-center gap-2">
           <span
             v-if="bougiesAujourdHui !== null"
@@ -149,26 +149,26 @@
           </span>
           <span
             v-if="tailleDbGo"
-            class="text-xs text-gray-400 px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 tabular-nums"
+            class="text-xs text-white px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 tabular-nums"
             :title="`Taille de la base de données (${tailleDbOctets?.toLocaleString('fr-FR')} octets)`"
           >
             💾 DB : {{ tailleDbGo }}
           </span>
         </div>
       </div>
-      <div v-if="chargement" class="text-gray-400 text-sm animate-pulse text-center py-8">Chargement…</div>
-      <div v-else-if="couverture.length === 0" class="text-gray-500 text-sm text-center py-8">
+      <div v-if="chargement" class="text-white text-sm animate-pulse text-center py-8">Chargement…</div>
+      <div v-else-if="couverture.length === 0" class="text-white text-sm text-center py-8">
         Aucune donnée — activez les workers (l'historique arrive avec le flux).
       </div>
       <table v-else class="w-full text-sm">
         <thead>
           <tr>
-            <th class="text-left px-3 py-2 text-gray-400">Asset</th>
-            <th class="px-3 py-2 text-gray-400">TF</th>
-            <th class="px-3 py-2 text-gray-400 text-right">Bougies</th>
-            <th class="px-3 py-2 text-gray-400 text-right">Depuis</th>
-            <th class="px-3 py-2 text-gray-400 text-right">Jusqu'à</th>
-            <th class="px-3 py-2 text-gray-400 text-right">Statut</th>
+            <th class="text-left px-3 py-2 text-white">Asset</th>
+            <th class="px-3 py-2 text-white">TF</th>
+            <th class="px-3 py-2 text-white text-right">Bougies</th>
+            <th class="px-3 py-2 text-white text-right">Depuis</th>
+            <th class="px-3 py-2 text-white text-right">Jusqu'à</th>
+            <th class="px-3 py-2 text-white text-right">Statut</th>
           </tr>
         </thead>
         <tbody>
@@ -179,10 +179,10 @@
             :class="ligne.groupIndex % 2 === 1 ? 'bg-white/[0.04]' : ''"
           >
             <td class="px-3 py-2 font-bold text-white">{{ ligne.asset }}</td>
-            <td class="px-3 py-2 text-gray-300 text-center">{{ ligne.timeframe }}</td>
+            <td class="px-3 py-2 text-white text-center">{{ ligne.timeframe }}</td>
             <td class="px-3 py-2 text-right text-white font-mono">{{ ligne.count.toLocaleString() }}</td>
-            <td class="px-3 py-2 text-right text-gray-300 text-xs">{{ ligne.dateMin }}</td>
-            <td class="px-3 py-2 text-right text-gray-300 text-xs">{{ ligne.dateMax }}</td>
+            <td class="px-3 py-2 text-right text-white text-xs">{{ ligne.dateMin }}</td>
+            <td class="px-3 py-2 text-right text-white text-xs">{{ ligne.dateMax }}</td>
             <td class="px-3 py-2 text-right">
               <div class="flex items-center justify-end gap-2">
                 <div class="w-20 h-1.5 rounded-full bg-white/10 overflow-hidden shrink-0">
@@ -193,7 +193,7 @@
                   />
                 </div>
                 <span class="text-xs whitespace-nowrap tabular-nums" :class="ligne.pct >= 80 ? 'text-emerald-400' : ligne.pct >= 40 ? 'text-yellow-400' : 'text-red-400'">{{ ligne.pct }}%</span>
-                <span class="text-xs whitespace-nowrap text-gray-500">{{ ligne.fraicheurLabel }}</span>
+                <span class="text-xs whitespace-nowrap text-white">{{ ligne.fraicheurLabel }}</span>
               </div>
             </td>
           </tr>
@@ -339,7 +339,7 @@ function badgeSource(source?: string): { label: string; classe: string } {
     case 'mt5':
       return { label: 'MT5 / Axi', classe: 'bg-violet-500/15 text-violet-300' }
     default:
-      return { label: '—', classe: 'bg-white/10 text-gray-400' }
+      return { label: '—', classe: 'bg-white/10 text-white' }
   }
 }
 

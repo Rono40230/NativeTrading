@@ -5,7 +5,7 @@
       <span class="text-sm" :class="variation >= 0 ? 'text-emerald-400' : 'text-red-400'">
         {{ variation >= 0 ? '+' : '' }}{{ variation.toFixed(2) }}%
       </span>
-      <span class="text-xs text-gray-500">
+      <span class="text-xs text-white">
         {{ selectedAsset.includes('USD') ? selectedAsset : `${selectedAsset}/USDT` }} · {{ selectedTimeframe }}
       </span>
       <span v-if="wsConnecte" class="flex items-center gap-1 text-xs ml-2 text-emerald-400">
@@ -40,7 +40,7 @@
           @mouseenter="(e) => ouvrirTip(e, b)"
           @mouseleave="fermerTip"
         >
-          <span class="text-xs text-slate-400 leading-none">{{ b.label }}</span>
+          <span class="text-xs text-white leading-none">{{ b.label }}</span>
           <span class="text-sm font-semibold mt-1" :class="b.color">{{ b.valeur }}</span>
         </div>
       </template>
@@ -192,7 +192,7 @@ const badges = computed<Badge[]>(() => {
     {
       label: 'Vol. rel.',
       valeur: `×${s.volRelatif.toFixed(1)}`,
-      color: s.volRelatif >= 2 ? 'text-amber-400' : s.volRelatif >= 1.2 ? 'text-emerald-400' : 'text-slate-300',
+      color: s.volRelatif >= 2 ? 'text-amber-400' : s.volRelatif >= 1.2 ? 'text-emerald-400' : 'text-white',
       tip: {
         def: 'Volume de la dernière bougie rapporté au volume moyen. ×1 = activité normale.',
         niveaux: [
@@ -260,7 +260,7 @@ function formatVolume(v: number): string {
 .cpx-echelle { display: flex; flex-direction: column; gap: 3px; }
 .cpx-niveau {
   display: flex; align-items: center; gap: 6px;
-  font-size: 0.67rem; color: #64748b;
+  font-size: 0.67rem; color: #ffffff;
   padding: 3px 7px; border-radius: 5px;
   border: 1px solid transparent;
 }

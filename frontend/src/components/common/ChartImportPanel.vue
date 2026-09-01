@@ -18,8 +18,8 @@
         <!-- État vide -->
         <div v-if="images.length === 0" class="flex flex-col items-center justify-center gap-3 h-full pointer-events-none">
           <span class="text-5xl">📊</span>
-          <p class="text-sm text-gray-400">Glissez votre screenshot ici</p>
-          <p class="text-xs text-gray-600">Un seul graphique — cliquez ou déposez</p>
+          <p class="text-sm text-white">Glissez votre screenshot ici</p>
+          <p class="text-xs text-white">Un seul graphique — cliquez ou déposez</p>
         </div>
 
         <!-- Image chargée -->
@@ -28,7 +28,7 @@
           <div class="flex-shrink-0 bg-black/90 px-3 py-2 flex items-center justify-between gap-2 border-t border-white/10">
             <div class="flex items-center gap-3">
               <div class="flex items-center gap-1.5">
-                <span class="text-xs text-gray-500">TF :</span>
+                <span class="text-xs text-white">TF :</span>
                 <select
                   :value="images[0].timeframe"
                   class="bg-white text-black text-xs font-semibold border-0 outline-none cursor-pointer rounded px-2 py-1"
@@ -39,7 +39,7 @@
                 </select>
               </div>
               <div class="flex items-center gap-1.5">
-                <span class="text-xs text-gray-500">Asset :</span>
+                <span class="text-xs text-white">Asset :</span>
                 <select v-model="asset" class="bg-white text-black text-xs font-semibold border-0 outline-none cursor-pointer rounded px-2 py-1" @click.stop>
                   <option v-for="a in ASSETS" :key="a" :value="a" class="bg-white text-black">{{ a }}</option>
                 </select>
@@ -58,14 +58,14 @@
         v-model="notes"
         rows="2"
         placeholder="Notes contextuelles — contexte macro, niveaux clés, biais HTF…"
-        class="flex-shrink-0 w-full bg-gray-800 border border-gray-600 text-white text-sm rounded-lg px-3 py-2 resize-none placeholder:text-gray-600 focus:outline-none focus:border-blue-500"
+        class="flex-shrink-0 w-full bg-gray-800 border border-gray-600 text-white text-sm rounded-lg px-3 py-2 resize-none placeholder:text-white focus:outline-none focus:border-blue-500"
       />
 
       <!-- Bouton analyse -->
       <div class="flex-shrink-0">
         <button
           class="w-full py-2.5 px-4 rounded-lg text-sm font-semibold transition-all"
-          :class="analyseEnCours || analyseLocalEnCours || images.length === 0 ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:brightness-110 text-white'"
+          :class="analyseEnCours || analyseLocalEnCours || images.length === 0 ? 'bg-gray-700 text-white cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:brightness-110 text-white'"
           :disabled="analyseEnCours || analyseLocalEnCours || images.length === 0"
           @click="analyserImage(asset)"
         >
@@ -81,7 +81,7 @@
       <!-- Placeholder vide -->
       <div
         v-if="activeSections.length === 0 && !analyseEnCours && !analyseLocalEnCours"
-        class="flex flex-col items-center justify-center h-full text-gray-700 select-none"
+        class="flex flex-col items-center justify-center h-full text-white select-none"
       >
         <span class="text-5xl mb-4">🧠</span>
         <p class="text-sm">L’analyse apparaîtra ici</p>
@@ -91,7 +91,7 @@
       <!-- Loader -->
       <div
         v-else-if="(analyseEnCours || analyseLocalEnCours) && activeSections.length === 0"
-        class="flex flex-col items-center justify-center h-full gap-4 text-gray-500"
+        class="flex flex-col items-center justify-center h-full gap-4 text-white"
       >
         <div class="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
         <p class="text-sm">Analyse en cours…</p>
@@ -225,7 +225,7 @@ function buildSrcdoc(html: string): string {
 
 .section-icon  { @apply text-base leading-none; }
 .section-title { @apply text-sm font-bold text-white/90 tracking-wide; }
-.section-body  { @apply px-4 py-3 text-sm text-gray-200 leading-6; }
+.section-body  { @apply px-4 py-3 text-sm text-white leading-6; }
 
 .table-card { @apply rounded-xl border border-white/10 bg-white/5 overflow-hidden px-4 py-3; }
 </style>

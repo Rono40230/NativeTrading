@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-1.5">
-    <div v-if="!affiches.length" class="text-[11px] text-gray-600">Aucun setup en formation</div>
+    <div v-if="!affiches.length" class="text-[11px] text-white">Aucun setup en formation</div>
 
     <div v-for="s in affiches" :key="s.cle"
       class="flex items-center gap-2 text-xs rounded-lg border px-2.5 py-1.5"
@@ -9,19 +9,19 @@
         s.statut === 'EnFormation' ? '⏳' : s.statut === 'Confirme' ? '✓' : '✗'
       }}</span>
       <span class="font-semibold text-white">{{ s.asset }}</span>
-      <span class="text-gray-500">{{ s.tf }}</span>
+      <span class="text-white">{{ s.tf }}</span>
       <span :class="s.direction === 'Long' ? 'text-emerald-400' : 'text-red-400'">
         {{ s.direction === 'Long' ? '🟢 Achat' : '🔴 Vente' }}
       </span>
-      <span class="text-gray-500 font-mono">force {{ s.force }}/10</span>
+      <span class="text-white font-mono">force {{ s.force }}/10</span>
       <span v-if="s.statut === 'EnFormation'" class="ml-auto text-amber-300/90 font-mono text-[11px]">
         se confirme dans {{ compteARebours(s.cloture_barre) }}
       </span>
       <span v-else-if="s.statut === 'Confirme'" class="ml-auto text-emerald-400 text-[11px]">confirmé → signaux actifs</span>
-      <span v-else class="ml-auto text-gray-500 text-[11px]">dissipé à la clôture</span>
+      <span v-else class="ml-auto text-white text-[11px]">dissipé à la clôture</span>
     </div>
 
-    <div v-if="dissipes > 3" class="text-[10px] text-gray-600">
+    <div v-if="dissipes > 3" class="text-[10px] text-white">
       + {{ dissipes - 3 }} dissipé(s) plus ancien(s) ces 2 dernières heures
     </div>
   </div>

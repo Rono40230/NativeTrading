@@ -47,7 +47,7 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
   }
 
   function classeConviction(c: number | null): string {
-    if (c === null) return 'bg-gray-700 text-gray-400'
+    if (c === null) return 'bg-gray-700 text-white'
     return c >= 70 ? 'bg-emerald-900 text-emerald-300 border border-emerald-600'
       : c >= 50 ? 'bg-yellow-900 text-yellow-300 border border-yellow-600'
       : 'bg-red-900 text-red-300 border border-red-600'
@@ -55,7 +55,7 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
 
   function classePrix(s: Signal): string {
     const prix = prixStore.getPrix(s.asset)
-    if (!prix || s.direction === 'Both') return 'text-gray-400'
+    if (!prix || s.direction === 'Both') return 'text-white'
     const long = s.direction === 'LONG'
     if (long ? prix <= s.stop_loss : prix >= s.stop_loss) return 'text-red-400'
     if (s.take_profit[2] && (long ? prix >= s.take_profit[2] : prix <= s.take_profit[2])) return 'text-emerald-200'

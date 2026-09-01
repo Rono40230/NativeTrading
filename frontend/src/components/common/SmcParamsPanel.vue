@@ -12,10 +12,10 @@
     </div>
 
     <div class="px-5 pb-4">
-      <div v-if="loading" class="text-xs text-gray-500 py-2">Chargement…</div>
+      <div v-if="loading" class="text-xs text-white py-2">Chargement…</div>
       <div v-else class="grid grid-cols-6 gap-3">
       <div v-for="p in config" :key="p.key" class="flex flex-col gap-1">
-        <label class="text-xs text-gray-400">{{ p.label }}</label>
+        <label class="text-xs text-white">{{ p.label }}</label>
         <input
           type="number"
           :min="p.min"
@@ -25,7 +25,7 @@
           class="bg-[#0a0e27] border border-white/20 text-white text-sm rounded px-2 py-1 w-full"
           @input="onInput(p.key, ($event.target as HTMLInputElement).valueAsNumber)"
         />
-        <span class="text-xs text-gray-600">{{ p.min }}–{{ p.max }}</span>
+        <span class="text-xs text-white">{{ p.min }}–{{ p.max }}</span>
       </div>
     </div>
     </div>

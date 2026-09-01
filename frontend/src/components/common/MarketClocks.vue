@@ -4,11 +4,12 @@
     <div class="grid grid-cols-3 gap-2 lg:grid-cols-6 relative w-full mx-auto" style="max-width: 100%;">
       <div v-for="session in sessions" :key="session.nom" class="flex flex-col items-center gap-0">
 
-        <!-- Nom de la place au-dessus -->
-        <span class="text-[11px] font-extrabold uppercase tracking-wider mb-1" :class="session.labelCouleur">{{ session.nom }}</span>
+        <!-- Nom de la place + heure locale au niveau du titre -->
+        <span class="text-[11px] font-extrabold uppercase tracking-wider" :class="session.labelCouleur">{{ session.nom }}</span>
+        <span class="text-[11px] font-extrabold uppercase tracking-wider mb-1.5" :class="session.labelCouleur">{{ session.heureTitre }} à {{ session.nom }}</span>
 
         <!-- Cadran analogique SVG -->
-        <svg viewBox="0 0 100 100" class="w-14 h-14 drop-shadow-xl mb-1">
+        <svg viewBox="0 0 100 100" class="w-16 h-16 drop-shadow-xl mb-1">
           <!-- Fond -->
           <circle cx="50" cy="50" r="45" :fill="session.bgFill" />
           <!-- Anneau statut -->
@@ -37,17 +38,10 @@
           <circle cx="50" cy="50" r="1.5" fill="#0b0f28" />
         </svg>
 
-        <!-- Infos sous le cadran -->
-        <div class="flex flex-col items-center gap-0 text-center w-full">
-          <div class="flex items-center justify-center gap-1 flex-wrap">
-            <span class="text-[8px] font-bold" :class="session.badgeCouleur">{{ session.statutCourt }}</span>
-            <span v-if="session.countdown" class="text-[8px] font-semibold" :class="session.countdownCouleur">{{ session.countdown }}</span>
-          </div>
-          <span class="text-sm font-mono font-bold tabular-nums leading-none" :class="session.heureCouleur">{{ session.heureLocale }}</span>
-          <div class="text-[8px] leading-tight flex items-center justify-center gap-1 flex-wrap">
-            <span class="text-gray-600">{{ session.plageLocale }}</span>
-            <span class="text-blue-300/60">🇫🇷 {{ session.plageParis }}</span>
-          </div>
+        <!-- Statut sous le cadran -->
+        <div class="flex items-center justify-center gap-1 flex-wrap">
+          <span class="text-[8px] font-bold" :class="session.badgeCouleur">{{ session.statutCourt }}</span>
+          <span v-if="session.countdown" class="text-[8px] font-semibold" :class="session.countdownCouleur">{{ session.countdown }}</span>
         </div>
 
       </div>
@@ -106,16 +100,7 @@ function handXY(angleDeg: number, len: number) {
   return { x: 50 + len * Math.sin(r), y: 50 - len * Math.cos(r) }
 }
 
-function heureLocaleFormatee(tz: string, date: Date) {
-  return new Intl.DateTimeFormat('fr-FR', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date)
-}
-
-function abrevTz(tz: string, date: Date) {
-  return new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' })
-    .formatToParts(date).find(p => p.type === 'timeZoneName')?.value ?? ''
-}
-
-/** Secondes écoulées dans la journée locale de la timezone `tz`. */
+/// Secondes écoulées dans la journée locale de la timezone `tz`.
 function secLocale(tz: string, date: Date) {
   const { h, m, s } = getTimeParts(tz, date)
   return h * 3600 + m * 60 + s
@@ -130,19 +115,6 @@ function jourSemaineTz(tz: string, date: Date): number {
   return map[wd] ?? 0
 }
 function estWeekEndTz(tz: string, date: Date) { const j = jourSemaineTz(tz, date); return j === 0 || j === 6 }
-
-/**
- * Convertit une heure locale (HH:MM) de `tzSource` vers l'heure de `tzCible`,
- * à la date `ref`. L'instant cible est obtenu en décalant `ref` du delta entre
- * l'heure locale voulue et l'heure locale courante — le DST du jour est ainsi
- * pris en compte via les parts Intl.
- */
-function convertirLocaleVersTz(locH: number, locM: number, tzSource: string, tzCible: string, ref: Date) {
-  const src = getTimeParts(tzSource, ref)
-  const deltaMin = (locH * 60 + locM) - (src.h * 60 + src.m)
-  const instant = new Date(ref.getTime() + deltaMin * 60000)
-  return new Intl.DateTimeFormat('fr-FR', { timeZone: tzCible, hourCycle: 'h23', hour: '2-digit', minute: '2-digit' }).format(instant)
-}
 
 function formatDuree(sec: number) {
   if (sec <= 0) return ''
@@ -177,7 +149,9 @@ const sessions = computed(() => {
   return SESSIONS.map(s => {
     const etat = etatSession(s, now)
     const { h, m: mm, s: ss } = getTimeParts(s.timezone, now)
-    const heureLocale = heureLocaleFormatee(s.timezone, now)
+
+    // Heure au format du titre : « 17h : 05mn : 36s ».
+    const heureTitre = `${pad(h)}h : ${pad(mm)}mn : ${pad(ss)}s`
 
     const hrAngle  = ((h % 12) / 12 + mm / 720) * 360
     const minAngle = (mm / 60 + ss / 3600) * 360
@@ -188,54 +162,45 @@ const sessions = computed(() => {
     const sec = handXY(secAngle, 38)
     const secTail = handXY(secAngle + 180, 9)
 
-    // Horaires locaux de la place (wall-clock, fixes) + équivalent Paris.
-    const ouvLocal = `${pad(s.ouvertureLocaleH)}:${pad(s.ouvertureLocaleM)}`
-    const ferLocal = `${pad(s.fermetureLocaleH)}:${pad(s.fermetureLocaleM)}`
-    const plageLocale = `${ouvLocal} – ${ferLocal} ${abrevTz(s.timezone, now)}`
-
-    const ouvParis = convertirLocaleVersTz(s.ouvertureLocaleH, s.ouvertureLocaleM, s.timezone, 'Europe/Paris', now)
-    const ferParis = convertirLocaleVersTz(s.fermetureLocaleH, s.fermetureLocaleM, s.timezone, 'Europe/Paris', now)
-    const plageParis = `${ouvParis} – ${ferParis} Paris`
-
     let ringColor: string, bgFill: string, handColor: string, secColor: string
     let tickColor: string, ringAnim: string
-    let labelCouleur: string, badgeCouleur: string, heureCouleur: string
+    let labelCouleur: string, badgeCouleur: string
     let countdownCouleur: string, countdown: string, statutCourt: string
 
     if (etat === 'active') {
       ringColor = '#10b981'; bgFill = 'rgba(16,185,129,0.08)'
       handColor = '#ffffff'; secColor = '#10b981'; tickColor = 'rgba(255,255,255,0.3)'
       ringAnim = 'ring-live'; labelCouleur = 'text-emerald-300'
-      badgeCouleur = 'text-emerald-400'; heureCouleur = 'text-white'
+      badgeCouleur = 'text-emerald-400'
       countdownCouleur = 'text-emerald-500'; statutCourt = '● LIVE'
       countdown = `ferme ${formatDuree(secAvantFer(s, now))}`
     } else if (etat === 'bientot') {
       ringColor = '#f59e0b'; bgFill = 'rgba(245,158,11,0.08)'
       handColor = '#fcd34d'; secColor = '#f59e0b'; tickColor = 'rgba(255,255,255,0.2)'
       ringAnim = 'ring-soon'; labelCouleur = 'text-amber-300'
-      badgeCouleur = 'text-amber-400'; heureCouleur = 'text-amber-200'
+      badgeCouleur = 'text-amber-400'
       countdownCouleur = 'text-amber-400'; statutCourt = '◐ BIENTÔT'
       countdown = formatDuree(secAvantOuv(s, now))
     } else if (etat === 'weekend') {
       ringColor = 'rgba(255,255,255,0.06)'; bgFill = 'rgba(255,255,255,0.02)'
       handColor = '#374151'; secColor = '#374151'; tickColor = 'rgba(255,255,255,0.07)'
-      ringAnim = ''; labelCouleur = 'text-gray-600'
-      badgeCouleur = 'text-gray-700'; heureCouleur = 'text-gray-600'
-      countdownCouleur = 'text-gray-700'; statutCourt = '○ W-E'
+      ringAnim = ''; labelCouleur = 'text-white'
+      badgeCouleur = 'text-white'
+      countdownCouleur = 'text-white'; statutCourt = '○ W-E'
       countdown = ''
     } else {
       ringColor = 'rgba(255,255,255,0.14)'; bgFill = 'rgba(255,255,255,0.03)'
       handColor = '#6b7280'; secColor = '#4b5563'; tickColor = 'rgba(255,255,255,0.15)'
-      ringAnim = ''; labelCouleur = 'text-gray-500'
-      badgeCouleur = 'text-gray-600'; heureCouleur = 'text-gray-400'
-      countdownCouleur = 'text-gray-600'; statutCourt = '○ FERMÉ'
+      ringAnim = ''; labelCouleur = 'text-white'
+      badgeCouleur = 'text-white'
+      countdownCouleur = 'text-white'; statutCourt = '○ FERMÉ'
       const duree = formatDuree(secAvantOuv(s, now))
       countdown = duree ? `ouvre ${duree}` : ''
     }
 
     return {
-      nom: s.nom, heureLocale, plageLocale, plageParis, statutCourt, countdown,
-      labelCouleur, badgeCouleur, heureCouleur, countdownCouleur,
+      nom: s.nom, heureTitre, statutCourt, countdown,
+      labelCouleur, badgeCouleur, countdownCouleur,
       hrX: hr.x, hrY: hr.y, minX: min.x, minY: min.y,
       secX: sec.x, secY: sec.y, secTailX: secTail.x, secTailY: secTail.y,
       ringColor, bgFill, handColor, secColor, tickColor, ringAnim,

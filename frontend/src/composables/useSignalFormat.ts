@@ -123,7 +123,7 @@ export function classeR(r: number | null): string {
   if (r === null) return ''
   if (r > 0) return 'text-emerald-400 font-bold'
   if (r < 0) return 'text-red-400 font-bold'
-  return 'text-gray-400 font-bold'
+  return 'text-white font-bold'
 }
 
 // ── Palier max atteint & R de référence (spéc propriétaire 31/08) ────────────

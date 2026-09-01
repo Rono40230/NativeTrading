@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between shrink-0 mb-4">
       <h1 class="text-2xl font-bold">📰 Revue de presse</h1>
       <button
-        class="px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition"
+        class="px-3 py-1.5 rounded-lg bg-white/5 text-white text-sm hover:bg-white/10 transition"
         @click="modaleSources = true"
       >📡 Sources RSS</button>
     </div>
@@ -19,9 +19,9 @@
         <!-- Brief repliable (bas de colonne) -->
         <details open class="glass-card p-4 shrink-0">
           <summary class="flex items-center justify-between cursor-pointer list-none gap-3 [&::-webkit-details-marker]:hidden">
-            <span class="text-sm font-semibold text-gray-300">
+            <span class="text-sm font-semibold text-white">
               📝 Brief 24 h
-              <span v-if="briefParse" class="text-xs text-gray-500 font-normal">· {{ briefParse.articles.length }} articles</span>
+              <span v-if="briefParse" class="text-xs text-white font-normal">· {{ briefParse.articles.length }} articles</span>
             </span>
             <button
               class="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 disabled:opacity-40"
@@ -34,7 +34,7 @@
               <!-- Contexte marché — bandeau d'intro -->
               <div class="rounded-xl border border-blue-500/20 bg-blue-500/5 px-4 py-3">
                 <p class="text-[10px] font-semibold uppercase tracking-wider text-blue-300 mb-1">🌍 Contexte marché</p>
-                <p class="text-sm text-gray-200 leading-relaxed">{{ briefParse.contexte }}</p>
+                <p class="text-sm text-white leading-relaxed">{{ briefParse.contexte }}</p>
               </div>
 
               <!-- Articles du brief — cartes autonomes -->
@@ -48,25 +48,25 @@
                   <div class="absolute top-0 left-0 right-0 h-1" :class="art.score >= 60 ? 'bg-red-400/70' : art.score >= 40 ? 'bg-yellow-400/70' : 'bg-gray-500/50'"></div>
 
                   <div class="flex items-start justify-between gap-2">
-                    <span class="text-[10px] font-bold text-gray-500 bg-white/5 rounded-md px-1.5 py-0.5 shrink-0">#{{ art.numero }}</span>
+                    <span class="text-[10px] font-bold text-white bg-white/5 rounded-md px-1.5 py-0.5 shrink-0">#{{ art.numero }}</span>
                     <span class="text-lg font-bold tabular-nums shrink-0" :class="classeScore(art.score)">{{ art.score }}</span>
                   </div>
 
                   <h3 class="text-sm font-semibold text-white leading-snug line-clamp-3">{{ art.titre }}</h3>
-                  <p class="text-xs text-gray-400 leading-relaxed line-clamp-4">{{ art.resume }}</p>
+                  <p class="text-xs text-white leading-relaxed line-clamp-4">{{ art.resume }}</p>
 
                   <div class="mt-auto flex flex-wrap items-center gap-1.5 text-[10px]">
-                    <span class="px-1.5 py-0.5 rounded" :class="art.score >= 60 ? 'bg-red-500/15 text-red-300' : art.score >= 40 ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-gray-400'">{{ art.score >= 60 ? 'fort' : art.score >= 40 ? 'moyen' : 'faible' }}</span>
+                    <span class="px-1.5 py-0.5 rounded" :class="art.score >= 60 ? 'bg-red-500/15 text-red-300' : art.score >= 40 ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-white'">{{ art.score >= 60 ? 'fort' : art.score >= 40 ? 'moyen' : 'faible' }}</span>
                     <span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{{ art.theme }}</span>
-                    <span class="px-1.5 py-0.5 rounded bg-white/10 text-gray-400 truncate max-w-[10rem]">{{ art.source }}</span>
+                    <span class="px-1.5 py-0.5 rounded bg-white/10 text-white truncate max-w-[10rem]">{{ art.source }}</span>
                   </div>
                 </button>
               </div>
 
-              <p class="text-[10px] text-gray-500 text-right">Brief du {{ new Date(dernierBrief?.genere_le ? dernierBrief.genere_le * 1000 : Date.now()).toLocaleString('fr-FR') }} · {{ briefParse.articles.length }} articles</p>
+              <p class="text-[10px] text-white text-right">Brief du {{ new Date(dernierBrief?.genere_le ? dernierBrief.genere_le * 1000 : Date.now()).toLocaleString('fr-FR') }} · {{ briefParse.articles.length }} articles</p>
             </template>
 
-            <p v-else class="text-sm text-gray-500">Aucun brief — clique « Générer » (Ollama, ~1 min).</p>
+            <p v-else class="text-sm text-white">Aucun brief — clique « Générer » (Ollama, ~1 min).</p>
             <p v-if="erreurBrief" class="text-sm text-red-400">{{ erreurBrief }}</p>
           </div>
         </details>
@@ -87,7 +87,7 @@
             <option value="">Lu + non lus</option><option value="true">Lis</option><option value="false">Non lus</option>
           </select>
           <!-- articles.length = total chargé (toutes pages « Charger plus » confondues) -->
-          <span class="text-xs text-gray-500">{{ articles.length }} articles</span>
+          <span class="text-xs text-white">{{ articles.length }} articles</span>
         </div>
 
         <!-- Bibliothèque — cartes enrichies (résumé FR intégré, design brief) -->
@@ -112,21 +112,21 @@
               <span class="ml-auto text-lg font-bold tabular-nums shrink-0" :class="classeScore(a.score)">{{ a.score }}</span>
             </div>
 
-            <h3 class="text-sm font-semibold leading-snug line-clamp-2" :class="a.lu ? 'text-gray-500' : 'text-white'">{{ a.titre_fr ?? a.titre }}</h3>
-            <p v-if="resumeAffiche(a)" class="text-xs text-gray-400 leading-relaxed line-clamp-4">{{ resumeAffiche(a) }}</p>
+            <h3 class="text-sm font-semibold leading-snug line-clamp-2" :class="a.lu ? 'text-white' : 'text-white'">{{ a.titre_fr ?? a.titre }}</h3>
+            <p v-if="resumeAffiche(a)" class="text-xs text-white leading-relaxed line-clamp-4">{{ resumeAffiche(a) }}</p>
 
             <div class="mt-auto flex flex-wrap items-center gap-1.5 text-[10px]">
-              <span class="px-1.5 py-0.5 rounded" :class="a.impact === 'fort' ? 'bg-red-500/15 text-red-300' : a.impact === 'moyen' ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-gray-400'">{{ a.impact }}</span>
+              <span class="px-1.5 py-0.5 rounded" :class="a.impact === 'fort' ? 'bg-red-500/15 text-red-300' : a.impact === 'moyen' ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-white'">{{ a.impact }}</span>
               <span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{{ a.theme }}</span>
-              <span class="px-1.5 py-0.5 rounded bg-white/10 text-gray-400 truncate max-w-[8rem]">{{ a.source_nom }}</span>
+              <span class="px-1.5 py-0.5 rounded bg-white/10 text-white truncate max-w-[8rem]">{{ a.source_nom }}</span>
             </div>
           </article>
         </div>
-        <p v-if="articles.length === 0" class="text-sm text-gray-500 p-4">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min).</p>
+        <p v-if="articles.length === 0" class="text-sm text-white p-4">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min).</p>
         <!-- Pagination : le backend sert 50 articles/page, on empile les pages suivantes -->
         <div v-if="!aToutCharge && articles.length > 0" class="flex justify-center shrink-0">
           <button
-            class="px-4 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition"
+            class="px-4 py-2 rounded-lg bg-white/5 text-white text-sm hover:bg-white/10 transition"
             @click="charger(false)"
           >Charger plus</button>
         </div>
@@ -137,11 +137,11 @@
       <div class="w-full max-w-lg p-6 space-y-4 rounded-2xl border border-white/10 bg-[#16181d] shadow-2xl">
         <div class="flex items-center justify-between">
           <h3 class="font-bold text-white">📡 Sources RSS</h3>
-          <button class="text-gray-400 hover:text-white transition" @click="modaleSources = false">✕</button>
+          <button class="text-white hover:text-white transition" @click="modaleSources = false">✕</button>
         </div>
         <div class="space-y-2 max-h-72 overflow-y-auto">
           <div v-for="s in sources" :key="s.id" class="flex items-center justify-between text-sm">
-            <span :class="s.actif ? 'text-gray-300' : 'text-gray-600 line-through'">{{ s.nom }} <span class="text-xs text-gray-500">(poids {{ s.poids_score }})</span></span>
+            <span :class="s.actif ? 'text-white' : 'text-white line-through'">{{ s.nom }} <span class="text-xs text-white">(poids {{ s.poids_score }})</span></span>
             <button class="text-red-400 hover:text-red-300 text-xs" @click="retirerSource(s.id)">Retirer</button>
           </div>
         </div>
@@ -151,7 +151,7 @@
         </div>
         <div class="flex gap-3 pt-1">
           <button class="flex-1 px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 transition" @click="ajouterSource()">+ Ajouter</button>
-          <button class="flex-1 px-4 py-2 rounded-lg bg-white/5 text-gray-300 text-sm hover:bg-white/10 transition" @click="modaleSources = false">Fermer</button>
+          <button class="flex-1 px-4 py-2 rounded-lg bg-white/5 text-white text-sm hover:bg-white/10 transition" @click="modaleSources = false">Fermer</button>
         </div>
         <p v-if="messageSource" class="text-xs leading-relaxed" :class="messageSource.ok ? 'text-emerald-400' : 'text-amber-400'">
           {{ messageSource.texte }}
@@ -207,7 +207,7 @@ const themes = ['macro', 'crypto', 'metaux', 'autre']
 const assets = ['BTC', 'ETH', 'XAUUSD', 'XAGUSD', 'EURUSD', 'USDJPY', 'DAX', 'NAS100', 'SP500']
 
 function classeScore(score: number): string {
-  return score >= 60 ? 'text-red-300' : score >= 40 ? 'text-yellow-300' : 'text-gray-400'
+  return score >= 60 ? 'text-red-300' : score >= 40 ? 'text-yellow-300' : 'text-white'
 }
 
 function formaterDate(epochSec: number): string {

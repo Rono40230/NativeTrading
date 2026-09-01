@@ -3,11 +3,11 @@
 
     <!-- Tableau (le compte de signaux vit dans le titre de la section) -->
     <div class="glass-card overflow-x-hidden overflow-y-auto flex-1 min-h-0">
-      <div v-if="chargement && !listeActive.length" class="text-center text-gray-500 py-10">Chargement…</div>
-      <div v-else-if="!listeActive.length" class="text-center text-gray-500 py-10">Aucun signal correspondant</div>
+      <div v-if="chargement && !listeActive.length" class="text-center text-white py-10">Chargement…</div>
+      <div v-else-if="!listeActive.length" class="text-center text-white py-10">Aucun signal correspondant</div>
       <table v-else class="w-full text-sm">
         <thead>
-          <tr class="text-gray-400 text-xs uppercase border-b border-white/10">
+          <tr class="text-white text-xs uppercase border-b border-white/10">
             <th class="px-3 py-3 text-left">#</th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('asset')">Asset <span>{{ icone('asset') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('timeframe')">TF / Phase <span>{{ icone('timeframe') }}</span></th>
@@ -30,42 +30,42 @@
         <tbody>
           <template v-for="(s, i) in signauxTries" :key="s.id">
           <tr class="border-b border-white/5 hover:bg-white/5 transition-colors">
-            <td class="px-3 py-3 text-gray-500">{{ i + 1 }}</td>
+            <td class="px-3 py-3 text-white">{{ i + 1 }}</td>
             <td class="px-3 py-3 font-semibold text-white">{{ s.asset }}</td>
-            <td class="px-3 py-3 text-gray-400">{{ s.timeframe }}</td>
+            <td class="px-3 py-3 text-white">{{ s.timeframe }}</td>
             <td class="px-3 py-3">
               <span class="badge" :class="s.direction === 'LONG' ? 'badge-green' : s.direction === 'SHORT' ? 'badge-red' : 'badge-blue'">{{ s.direction }}</span>
             </td>
-            <td v-if="strategie !== 'straddle'" class="px-3 py-3 text-right font-mono text-gray-300">{{ s.score.toFixed(0) }}</td>
+            <td v-if="strategie !== 'straddle'" class="px-3 py-3 text-right font-mono text-white">{{ s.score.toFixed(0) }}</td>
             <td class="px-3 py-3 text-right leading-tight">
               <div v-if="lotPourSignal(s)" class="font-mono font-bold text-yellow-300">{{ lotPourSignal(s) }}</div>
-              <div v-if="lotPourSignal(s)" class="text-[10px] text-gray-500">{{ montantRisque().toFixed(0) }} $</div>
-              <span v-else class="text-gray-700 text-xs">—</span>
+              <div v-if="lotPourSignal(s)" class="text-[10px] text-white">{{ montantRisque().toFixed(0) }} $</div>
+              <span v-else class="text-white text-xs">—</span>
             </td>
             <td class="px-3 py-3 text-right font-mono text-white">{{ formatNombre(s.prix_entree) }}</td>
             <td class="px-3 py-3 text-right font-mono text-red-400">
               <div>{{ formatNombre(s.stop_loss) }}</div>
-              <div class="text-[10px] text-gray-500 font-sans tracking-tight">{{ infosPips(s.stop_loss, s.prix_entree, s.asset) }}</div>
+              <div class="text-[10px] text-white font-sans tracking-tight">{{ infosPips(s.stop_loss, s.prix_entree, s.asset) }}</div>
             </td>
             <td class="px-3 py-3 text-right font-mono text-emerald-400">
               <div>{{ formatNombre(s.take_profit[0]) }}</div>
-              <div class="text-[10px] text-gray-500 font-sans tracking-tight">{{ infosPips(s.take_profit[0], s.prix_entree, s.asset) }}</div>
+              <div class="text-[10px] text-white font-sans tracking-tight">{{ infosPips(s.take_profit[0], s.prix_entree, s.asset) }}</div>
             </td>
             <td class="px-3 py-3 text-right font-mono text-emerald-300">
               <div>{{ s.take_profit[1] ? formatNombre(s.take_profit[1]) : '—' }}</div>
-              <div v-if="s.take_profit[1]" class="text-[10px] text-gray-500 font-sans tracking-tight">{{ infosPips(s.take_profit[1], s.prix_entree, s.asset) }}</div>
+              <div v-if="s.take_profit[1]" class="text-[10px] text-white font-sans tracking-tight">{{ infosPips(s.take_profit[1], s.prix_entree, s.asset) }}</div>
             </td>
             <td class="px-3 py-3 text-right font-mono text-emerald-200">
               <div>{{ s.take_profit[2] ? formatNombre(s.take_profit[2]) : '—' }}</div>
-              <div v-if="s.take_profit[2]" class="text-[10px] text-gray-500 font-sans tracking-tight">{{ infosPips(s.take_profit[2], s.prix_entree, s.asset) }}</div>
+              <div v-if="s.take_profit[2]" class="text-[10px] text-white font-sans tracking-tight">{{ infosPips(s.take_profit[2], s.prix_entree, s.asset) }}</div>
             </td>
             <td v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right font-mono" :class="classePrix(s)">{{ prixStore.getPrix(s.asset) !== null ? formatNombre(prixStore.getPrix(s.asset)!) : '—' }}</td>
             <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right font-mono text-white">{{ s.prix_verdict ? formatNombre(s.prix_verdict) : '—' }}</td>
             <td class="px-3 py-3 text-center">
               <span v-if="s.llm_conviction !== null" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help" :class="classeConviction(s.llm_conviction)" :title="s.llm_raison ?? ''">{{ s.llm_conviction }}</span>
-              <span v-else class="text-gray-700 text-xs">—</span>
+              <span v-else class="text-white text-xs">—</span>
             </td>
-            <td class="px-3 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
+            <td class="px-3 py-3 text-white text-xs">{{ formatDate(s.cree_le) }}</td>
             <td class="px-3 py-3 text-center">
               <button class="badge bg-blue-900/30 text-blue-400 border border-blue-700/50 hover:bg-blue-800/50 hover:text-blue-300 transition-colors" @click="afficherSignal(s)">👁️ Voir</button>
             </td>
@@ -84,20 +84,20 @@
             <td colspan="99" class="px-4 pb-2 pt-0">
               <div class="flex items-center gap-3 text-[11px]">
                 <span class="text-emerald-500 font-bold tracking-wide">LONG</span>
-                <span class="text-gray-500">SL</span>
+                <span class="text-white">SL</span>
                 <span class="font-mono text-red-300">{{ formatNombre(s.sl_long_effectif ?? s.stop_loss) }}</span>
                 <span v-for="tp in ['tp1','tp2','tp3']" :key="`long-${tp}`"
                       class="font-mono"
-                      :class="(s.tps_long_atteints ?? []).includes(tp) ? 'text-emerald-400' : 'text-gray-700'">
+                      :class="(s.tps_long_atteints ?? []).includes(tp) ? 'text-emerald-400' : 'text-white'">
                   {{ tp.toUpperCase() }}{{ (s.tps_long_atteints ?? []).includes(tp) ? ' ✓' : '' }}
                 </span>
                 <span class="text-white/15 mx-1">┃</span>
                 <span class="text-red-400 font-bold tracking-wide">SHORT</span>
-                <span class="text-gray-500">SL</span>
+                <span class="text-white">SL</span>
                 <span class="font-mono text-red-300">{{ formatNombre(s.sl_short_effectif ?? (s.sl_short ?? 0)) }}</span>
                 <span v-for="tp in ['tp1','tp2','tp3']" :key="`short-${tp}`"
                       class="font-mono"
-                      :class="(s.tps_short_atteints ?? []).includes(tp) ? 'text-emerald-400' : 'text-gray-700'">
+                      :class="(s.tps_short_atteints ?? []).includes(tp) ? 'text-emerald-400' : 'text-white'">
                   {{ tp.toUpperCase() }}{{ (s.tps_short_atteints ?? []).includes(tp) ? ' ✓' : '' }}
                 </span>
                 <template v-if="labelHeureEntree(s)">
@@ -128,27 +128,27 @@
               <span class="text-red-400 text-lg">⚠️</span>
               <span class="text-xs uppercase font-bold text-white">Confirmer l'annulation</span>
             </div>
-            <div class="text-xs text-gray-400 space-y-1">
+            <div class="text-xs text-white space-y-1">
               <p>Tu vas annuler le trade suivant :</p>
               <div class="bg-white/5 rounded-lg px-3 py-2 space-y-1 border border-white/10">
                 <div class="flex justify-between">
-                  <span class="text-gray-500">Asset</span>
+                  <span class="text-white">Asset</span>
                   <span class="text-white font-bold font-mono">{{ signalAnnuler.asset }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-gray-500">Direction</span>
+                  <span class="text-white">Direction</span>
                   <span class="font-bold" :class="signalAnnuler.direction === 'LONG' ? 'text-emerald-400' : 'text-red-400'">{{ signalAnnuler.direction }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-gray-500">Entrée</span>
+                  <span class="text-white">Entrée</span>
                   <span class="text-white font-mono">{{ formatNombre(signalAnnuler.prix_entree) }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-gray-500">SL</span>
+                  <span class="text-white">SL</span>
                   <span class="text-red-300 font-mono">{{ formatNombre(signalAnnuler.stop_loss) }}</span>
                 </div>
                 <div class="flex justify-between">
-                  <span class="text-gray-500">TP1</span>
+                  <span class="text-white">TP1</span>
                   <span class="text-emerald-300 font-mono">{{ formatNombre(signalAnnuler.take_profit[0]) }}</span>
                 </div>
               </div>
@@ -156,7 +156,7 @@
             </div>
             <div class="flex gap-2 justify-end">
               <button
-                class="text-xs px-3 py-1.5 rounded border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                class="text-xs px-3 py-1.5 rounded border border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white transition-all"
                 @click="signalAnnuler = null"
               >Garder</button>
               <button
@@ -264,13 +264,13 @@ thead th {
 
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
 .btn-sm { @apply bg-gray-700 hover:bg-gray-600 text-white text-sm px-3 py-1.5 rounded-lg transition-all; }
-.filtre-btn { @apply text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all; }
+.filtre-btn { @apply text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white transition-all; }
 .filtre-btn-actif { @apply bg-blue-600/30 border-blue-500/50 text-blue-300; }
 .badge { @apply text-xs font-bold px-2 py-0.5 rounded-full; }
 .badge-green  { @apply bg-emerald-900/60 text-emerald-300; }
 .badge-red    { @apply bg-red-900/60 text-red-300; }
 .badge-blue   { @apply bg-blue-900/60 text-blue-300; }
-.badge-gray   { @apply bg-gray-700/60 text-gray-400; }
+.badge-gray   { @apply bg-gray-700/60 text-white; }
 .badge-orange { @apply bg-orange-900/60 text-orange-400; }
 .badge-yellow { @apply bg-yellow-900/60 text-yellow-300; }
 

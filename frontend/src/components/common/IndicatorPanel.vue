@@ -9,7 +9,7 @@
           @click="toggle(ind.key)"
           :class="[
             'px-2.5 py-1 rounded-l-md text-xs font-medium border-y border-l transition-all',
-            (prefs as any)[ind.key] ? ind.activeClass : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200',
+            (prefs as any)[ind.key] ? ind.activeClass : 'bg-white/5 border-white/10 text-white hover:text-white',
             ind.params ? '' : 'rounded-r-md border-r'
           ]"
         >{{ ind.label }}</button>
@@ -18,7 +18,7 @@
           @click="modaleOuverte = ind.key"
           :class="[
             'px-1.5 py-1 rounded-r-md text-[11px] border-y border-r transition-all',
-            (prefs as any)[ind.key] ? ind.gearClass : 'bg-white/5 border-white/10 text-slate-500 hover:text-slate-300'
+            (prefs as any)[ind.key] ? ind.gearClass : 'bg-white/5 border-white/10 text-white hover:text-white'
           ]"
           title="Paramètres"
         >⚙</button>
@@ -32,7 +32,7 @@
             'px-2.5 py-1 rounded-l-md text-xs font-medium border-y border-l transition-all',
             prefs.kasperTendance
               ? 'bg-sky-500/20 border-sky-500/40 text-sky-300'
-              : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+              : 'bg-white/5 border-white/10 text-white hover:text-white'
           ]"
         >Tendance MTF</button>
         <button
@@ -41,7 +41,7 @@
             'px-1.5 py-1 rounded-r-md text-[11px] border-y border-r transition-all',
             prefs.kasperTendance
               ? 'bg-sky-500/10 border-sky-500/40 text-sky-400 hover:bg-sky-500/20'
-              : 'bg-white/5 border-white/10 text-slate-500 hover:text-slate-300'
+              : 'bg-white/5 border-white/10 text-white hover:text-white'
           ]"
           title="Paramètres Tendance Kasper"
         >⚙</button>
@@ -61,7 +61,7 @@
             'flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border transition-all',
             nbActifs(groupe) > 0
               ? 'bg-cyan-500/20 border-cyan-500/40 text-cyan-200'
-              : 'bg-white/5 border-white/10 text-slate-400 hover:text-slate-200'
+              : 'bg-white/5 border-white/10 text-white hover:text-white'
           ]"
         >
           {{ groupe.label }}
@@ -79,10 +79,10 @@
           class="absolute left-0 bottom-[calc(100%+4px)] z-50 w-60 bg-slate-900/95 backdrop-blur border border-white/10 rounded-lg shadow-xl py-1"
         >
           <div class="flex items-center justify-between px-2.5 py-1 border-b border-white/5">
-            <span class="text-[10px] uppercase tracking-wide text-slate-500">{{ groupe.label }}</span>
+            <span class="text-[10px] uppercase tracking-wide text-white">{{ groupe.label }}</span>
             <span class="flex gap-2 text-[10px]">
               <button class="text-cyan-400 hover:text-cyan-300" @click="toutOuRien(groupe, true)">Tout</button>
-              <button class="text-slate-500 hover:text-slate-300" @click="toutOuRien(groupe, false)">Aucun</button>
+              <button class="text-white hover:text-white" @click="toutOuRien(groupe, false)">Aucun</button>
             </span>
           </div>
           <label
@@ -90,7 +90,7 @@
             :key="ind.key"
             :title="ind.pending ? 'Donnée non encore exposée par /api/smc/v12/analyse' : 'Afficher / Masquer'"
             :class="[
-              'flex items-center gap-2 px-2.5 py-1.5 text-[11px] cursor-pointer hover:bg-white/5 text-slate-300'
+              'flex items-center gap-2 px-2.5 py-1.5 text-[11px] cursor-pointer hover:bg-white/5 text-white'
             ]"
           >
             <input

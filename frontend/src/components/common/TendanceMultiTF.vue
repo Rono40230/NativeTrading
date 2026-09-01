@@ -3,15 +3,15 @@
     <div class="bg-[#0a0e27]/90 border border-white/10 rounded-xl overflow-hidden shadow-2xl backdrop-blur-sm">
       <!-- Entête -->
       <div class="flex items-center justify-between px-3 py-1.5 border-b border-white/10">
-        <span class="text-[10px] font-semibold text-slate-300 uppercase tracking-wide">Periode</span>
+        <span class="text-[10px] font-semibold text-white uppercase tracking-wide">Periode</span>
         <div class="flex items-center gap-1.5">
-          <span class="text-[9px] text-slate-500">EMA({{ props.periodeRapide }}/{{ props.periodeLente }})</span>
+          <span class="text-[9px] text-white">EMA({{ props.periodeRapide }}/{{ props.periodeLente }})</span>
         </div>
       </div>
       <!-- Chargement -->
       <div v-if="chargement" class="px-3 py-3 flex items-center gap-2">
         <span class="w-3 h-3 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-        <span class="text-[10px] text-slate-500">Calcul…</span>
+        <span class="text-[10px] text-white">Calcul…</span>
       </div>
       <div v-else-if="erreur" class="px-3 py-2 text-[10px] text-red-400">
         ⚠ {{ erreur }}
@@ -26,7 +26,7 @@
           <!-- Colonne TF -->
           <span
             class="text-[11px] font-mono w-8 shrink-0"
-            :class="ligne.tf === tfActifTable ? 'text-blue-300 font-bold' : 'text-slate-400'"
+            :class="ligne.tf === tfActifTable ? 'text-blue-300 font-bold' : 'text-white'"
           >{{ ligne.tf }}</span>
           <!-- Colonne direction -->
           <div v-if="ligne.tendance === 'haussier'" class="flex items-center gap-1">
@@ -37,7 +37,7 @@
             <span class="text-[10px] font-semibold text-red-400">Baissier</span>
             <span class="text-red-400 text-[11px]">▼</span>
           </div>
-          <span v-else class="text-[10px] text-slate-600">—</span>
+          <span v-else class="text-[10px] text-white">—</span>
         </div>
       </div>
     </div>

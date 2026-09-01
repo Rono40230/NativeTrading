@@ -6,14 +6,14 @@
         v-model="recherche"
         type="text"
         placeholder="Rechercher un terme ou abréviation…"
-        class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-white/30"
+        class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white focus:outline-none focus:border-white/30"
       />
       <div class="flex gap-1.5 flex-wrap">
         <button
           v-for="key in toutes"
           :key="key"
           class="px-2.5 py-1 rounded-full text-xs font-medium transition-colors"
-          :class="catActive === key ? 'bg-white/20 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'"
+          :class="catActive === key ? 'bg-white/20 text-white' : 'bg-white/5 text-white hover:bg-white/10'"
           @click="catActive = key"
         >
           {{ key === 'tous' ? `Tous (${source.termes.length})` : source.labels[key as string].label }}
@@ -36,20 +36,20 @@
             {{ source.labels[t.cat].label }}
           </span>
         </div>
-        <p class="text-xs text-gray-400 font-medium leading-snug">{{ t.nom }}</p>
+        <p class="text-xs text-white font-medium leading-snug">{{ t.nom }}</p>
 
         <div v-if="selectionne?.abrev === t.abrev" class="expand-body mt-1 flex flex-col gap-3">
-          <p class="text-xs text-gray-300 leading-relaxed">{{ t.def }}</p>
+          <p class="text-xs text-white leading-relaxed">{{ t.def }}</p>
           <div
             v-if="t.svg"
             class="rounded-lg bg-black/30 border border-white/8 p-3 flex items-center justify-center"
             v-html="t.svg"
           />
-          <p v-if="t.svg" class="text-[10px] text-gray-500 text-center -mt-1">Schéma illustratif</p>
+          <p v-if="t.svg" class="text-[10px] text-white text-center -mt-1">Schéma illustratif</p>
         </div>
 
         <div class="flex justify-end mt-auto pt-1">
-          <span class="text-[10px] select-none" :class="t.svg ? 'text-blue-500/70' : 'text-gray-600'">
+          <span class="text-[10px] select-none" :class="t.svg ? 'text-blue-500/70' : 'text-white'">
             <template v-if="selectionne?.abrev === t.abrev">▲ Réduire</template>
             <template v-else-if="t.svg">▼ Détail avec graphique</template>
             <template v-else>▼ Détail</template>
@@ -58,7 +58,7 @@
       </div>
     </div>
 
-    <div v-else class="text-center text-gray-500 py-10 text-sm">
+    <div v-else class="text-center text-white py-10 text-sm">
       Aucun terme trouvé pour « {{ recherche }} »
     </div>
   </div>

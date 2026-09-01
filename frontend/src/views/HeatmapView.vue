@@ -8,25 +8,25 @@
       <div class="flex rounded-lg overflow-hidden border border-white/10">
         <button
           class="px-4 py-2 text-sm font-medium transition-colors"
-          :class="onglet === 'atr' ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'"
+          :class="onglet === 'atr' ? 'bg-blue-600 text-white' : 'bg-white/5 text-white hover:bg-white/10'"
           @click="onglet = 'atr'"
         >⚡ Radar ATR Temps Réel</button>
         <button
           class="px-4 py-2 text-sm font-medium transition-colors"
-          :class="onglet === 'horaire' ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'"
+          :class="onglet === 'horaire' ? 'bg-blue-600 text-white' : 'bg-white/5 text-white hover:bg-white/10'"
           @click="onglet = 'horaire'"
         >📅 Calendrier Historique</button>
       </div>
     </div>
     <template v-if="onglet === 'atr'">
     <div class="glass-card p-3 flex items-center gap-4 flex-wrap">
-      <span class="text-xs text-gray-400 font-semibold">Volatilité ATR :</span>
-      <span v-for="n in legendes" :key="n.label" class="flex items-center gap-1 text-xs text-gray-300">
+      <span class="text-xs text-white font-semibold">Volatilité ATR :</span>
+      <span v-for="n in legendes" :key="n.label" class="flex items-center gap-1 text-xs text-white">
         <span class="w-4 h-4 rounded-sm" :style="{ background: n.couleur }" />
         {{ n.label }}
       </span>
       <div class="flex items-center gap-2 ml-auto">
-        <span class="text-xs text-gray-500">MAJ 60s</span>
+        <span class="text-xs text-white">MAJ 60s</span>
         <button class="btn-sm" :disabled="analyseStraddle.chargement" @click="lancerAnalyseStraddle">
           {{ analyseStraddle.chargement ? '⏳' : '⚡' }} Analyse Straddle
         </button>
@@ -36,7 +36,7 @@
     <div v-if="analyseStraddle.message" class="glass-card px-4 py-3 text-xs"
       :class="analyseStraddle.ok ? 'border-emerald-500/40 text-emerald-300' : 'border-red-500/40 text-red-300'">
       {{ analyseStraddle.message }}
-      <span v-if="analyseStraddle.cause" class="ml-2 text-gray-400">(cause: {{ analyseStraddle.cause }})</span>
+      <span v-if="analyseStraddle.cause" class="ml-2 text-white">(cause: {{ analyseStraddle.cause }})</span>
     </div>
     <transition name="slide-down">
       <div v-if="confluences.length" class="rounded-xl border border-orange-500/40 bg-orange-500/10 px-4 py-3 flex items-start gap-3">
@@ -50,7 +50,7 @@
               class="flex items-center gap-1.5 bg-orange-500/15 border border-orange-500/30 rounded-lg px-2.5 py-1 text-xs"
             >
               <span class="font-bold text-white">{{ c.asset }}</span>
-              <span class="text-[10px] bg-white/10 text-gray-300 px-1 py-0.5 rounded font-mono">{{ c.tf }}</span>
+              <span class="text-[10px] bg-white/10 text-white px-1 py-0.5 rounded font-mono">{{ c.tf }}</span>
               <span class="text-orange-300 font-mono">{{ c.atrRatio.toFixed(0) }}%</span>
               <span class="text-orange-400 font-semibold">· {{ c.cluster }}</span>
             </span>
@@ -63,8 +63,8 @@
       <table class="w-full">
         <thead>
           <tr>
-            <th class="text-left px-3 py-2 text-gray-400 text-sm">Asset \ TF</th>
-            <th v-for="tf in timeframes" :key="tf" class="px-3 py-2 text-center text-sm text-gray-400 font-semibold">
+            <th class="text-left px-3 py-2 text-white text-sm">Asset \ TF</th>
+            <th v-for="tf in timeframes" :key="tf" class="px-3 py-2 text-center text-sm text-white font-semibold">
               {{ tf }}
             </th>
           </tr>

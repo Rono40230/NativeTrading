@@ -4,12 +4,12 @@
       <div v-for="a in annonces.slice(0, 6)" :key="a.ts"
            class="flex items-center gap-2 text-xs">
         <span class="text-amber-400">📅</span>
-        <span class="text-gray-300 font-medium truncate">{{ a.titre || 'Annonce US' }}</span>
-        <span class="text-gray-500">{{ heureLocale(a.ts) }}</span>
+        <span class="text-white font-medium truncate">{{ a.titre || 'Annonce US' }}</span>
+        <span class="text-white">{{ heureLocale(a.ts) }}</span>
         <span class="ml-auto text-amber-300/90 font-mono text-[11px]">{{ compteARebours(a.ts) }}</span>
       </div>
     </div>
-    <div v-else class="text-[11px] text-gray-600">Aucune annonce US forte à 7 jours</div>
+    <div v-else class="text-[11px] text-white">Aucune annonce US forte à 7 jours</div>
     <div v-if="passes.length" class="text-[11px] text-emerald-400/80">
       {{ passes.length }} passe(s) en cours sur {{ [...new Set(passes.map(p => p.asset))].join(', ') }}
     </div>

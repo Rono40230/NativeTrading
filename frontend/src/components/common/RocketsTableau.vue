@@ -1,7 +1,7 @@
 <template>
   <table class="w-full text-sm">
     <thead>
-      <tr class="text-gray-400 text-xs uppercase border-b border-white/10">
+      <tr class="text-white text-xs uppercase border-b border-white/10">
         <th class="px-4 py-3 text-left">#</th>
         <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'ticker')">Ticker <span>{{ icone('ticker') }}</span></th>
         <th class="px-4 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trierPar', 'phase')">Phase <span>{{ icone('phase') }}</span></th>
@@ -24,7 +24,7 @@
     </thead>
     <tbody>
       <tr v-for="(r, i) in rockets" :key="r.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
-        <td class="px-4 py-3 text-gray-500">{{ i + 1 }}</td>
+        <td class="px-4 py-3 text-white">{{ i + 1 }}</td>
         <td class="px-4 py-3 font-semibold text-white">{{ r.ticker }}</td>
         <td class="px-4 py-3">
           <span class="badge" :class="classePhase(r.phase)">{{ r.phase }}</span>
@@ -40,7 +40,7 @@
         </td>
         <td v-if="showPrixActuel" class="px-4 py-3 text-right font-mono">
           <span v-if="prixActuels[r.ticker]" :class="classePrixActuel(r)">{{ fmt(prixActuels[r.ticker]) }}</span>
-          <span v-else class="text-gray-600">—</span>
+          <span v-else class="text-white">—</span>
         </td>
         <td v-if="showSortie" class="px-4 py-3 text-right font-mono text-white">{{ r.prix_verdict ? fmt(r.prix_verdict) : '—' }}</td>
         <td v-if="showSortie" class="px-4 py-3 text-right font-mono font-semibold" :class="classePnlR(r.pnl_r)">{{ fmtPnlR(r.pnl_r) }}</td>
@@ -57,10 +57,10 @@
             :class="classeConvictionLlm(r.llm_conviction)"
             :title="r.llm_raison ?? ''"
           >{{ r.llm_conviction }}</span>
-          <span v-else class="text-gray-700 text-xs">—</span>
+          <span v-else class="text-white text-xs">—</span>
         </td>
-        <td class="px-4 py-3 text-gray-500 text-xs">{{ new Date(r.cree_le.replace(' ', 'T') + 'Z').toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) }}</td>
-        <td v-if="showFermeLe" class="px-4 py-3 text-gray-500 text-xs">{{ r.maj_le ? new Date(r.maj_le.replace(' ', 'T') + 'Z').toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '—' }}</td>
+        <td class="px-4 py-3 text-white text-xs">{{ new Date(r.cree_le.replace(' ', 'T') + 'Z').toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) }}</td>
+        <td v-if="showFermeLe" class="px-4 py-3 text-white text-xs">{{ r.maj_le ? new Date(r.maj_le.replace(' ', 'T') + 'Z').toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '—' }}</td>
       </tr>
     </tbody>
   </table>
@@ -107,7 +107,7 @@ function classePhase(phase: string): string {
 
 function classePrixActuel(r: RocketSignalHistorique): string {
   const prix = props.prixActuels[r.ticker]
-  if (!prix) return 'text-gray-400'
+  if (!prix) return 'text-white'
   if (prix <= r.stop_loss) return 'text-red-400'
   if (r.target3 && prix >= r.target3) return 'text-emerald-200'
   if (r.target2 && prix >= r.target2) return 'text-emerald-300'
@@ -116,7 +116,7 @@ function classePrixActuel(r: RocketSignalHistorique): string {
 }
 
 function classeConvictionLlm(conviction: number | null): string {
-  if (conviction === null || conviction === undefined) return 'bg-gray-700 text-gray-400'
+  if (conviction === null || conviction === undefined) return 'bg-gray-700 text-white'
   if (conviction >= 70) return 'bg-emerald-900 text-emerald-300 border border-emerald-600'
   if (conviction >= 50) return 'bg-yellow-900 text-yellow-300 border border-yellow-600'
   return 'bg-red-900 text-red-300 border border-red-600'
@@ -186,7 +186,7 @@ function classePhasePosition(r: RocketSignalHistorique): string {
   if (p === 'TRAILING') return 'bg-emerald-900/60 text-emerald-300'
   if (p === 'POST_TP2') return 'bg-blue-900/60 text-blue-300'
   if (p === 'POST_TP1') return 'bg-blue-900/40 text-blue-400'
-  return 'bg-gray-800 text-gray-500'
+  return 'bg-gray-800 text-white'
 }
 
 // ── PnL R ─────────────────────────────────────────────────────────────────────
@@ -197,7 +197,7 @@ function fmtPnlR(v: number | null | undefined): string {
 }
 
 function classePnlR(v: number | null | undefined): string {
-  if (v === null || v === undefined) return 'text-gray-500'
+  if (v === null || v === undefined) return 'text-white'
   return v >= 0 ? 'text-emerald-400' : 'text-red-400'
 }
 
@@ -226,11 +226,11 @@ function labelLlmVerifTitle(r: RocketSignalHistorique): string {
 }
 
 function classeLlmVerif(r: RocketSignalHistorique): string {
-  if (r.gagnant === null || r.gagnant === undefined) return 'text-gray-600 text-xs'
+  if (r.gagnant === null || r.gagnant === undefined) return 'text-white text-xs'
   const conv = r.llm_conviction ?? 0
   if (conv >= 70 && r.gagnant === 1) return 'text-emerald-400 text-base'
   if (conv >= 70 && r.gagnant === 0) return 'text-red-400 text-base'
   if (conv < 70 && r.gagnant === 1) return 'text-orange-400 text-base'
-  return 'text-gray-600 text-xs'
+  return 'text-white text-xs'
 }
 </script>

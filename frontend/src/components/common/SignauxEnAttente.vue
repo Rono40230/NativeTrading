@@ -1,9 +1,9 @@
 <template>
   <div class="flex flex-col gap-1">
-    <div class="text-[10px] uppercase text-gray-500 font-semibold tracking-wider mb-0.5">
+    <div class="text-[10px] uppercase text-white font-semibold tracking-wider mb-0.5">
       Ordres posés ({{ enAttente.length }})
     </div>
-    <div v-if="!enAttente.length" class="text-[11px] text-gray-600">
+    <div v-if="!enAttente.length" class="text-[11px] text-white">
       Aucun ordre en attente de remplissage
     </div>
     <div
@@ -16,9 +16,9 @@
         {{ s.direction?.toUpperCase() === 'LONG' ? '📈' : '📉' }}
       </span>
       <span class="font-semibold text-white truncate">{{ s.asset }}</span>
-      <span class="text-gray-500">{{ s.timeframe }}</span>
+      <span class="text-white">{{ s.timeframe }}</span>
       <span class="ml-auto font-mono text-amber-300 whitespace-nowrap">{{ formatNombre(s.prix_entree) }}</span>
-      <span v-if="compteARebours(s) !== null" class="text-gray-500 font-mono text-[10px] whitespace-nowrap">
+      <span v-if="compteARebours(s) !== null" class="text-white font-mono text-[10px] whitespace-nowrap">
         {{ compteARebours(s) }}
       </span>
     </div>

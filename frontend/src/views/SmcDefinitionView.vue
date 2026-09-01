@@ -4,7 +4,7 @@
     <!-- En-tête : identité + état du registre -->
     <div class="flex items-center gap-3 shrink-0">
       <h1 class="text-2xl font-bold text-white">📐 SMC</h1>
-      <span class="text-gray-500 text-base hidden sm:inline">Smart Money Concepts — indicateur v12</span>
+      <span class="text-white text-base hidden sm:inline">Smart Money Concepts — indicateur v12</span>
       <span
         v-if="reglages"
         class="ml-auto text-[11px] font-semibold px-2.5 py-1 rounded-full border"
@@ -19,7 +19,7 @@
         v-for="t in onglets"
         :key="t"
         class="px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px"
-        :class="onglet === t ? 'text-white border-blue-400' : 'text-gray-400 border-transparent hover:text-white/70'"
+        :class="onglet === t ? 'text-white border-blue-400' : 'text-white border-transparent hover:text-white/70'"
         @click="onglet = t"
       >{{ t }}</button>
     </div>
@@ -71,7 +71,7 @@
             jamais (règle de l'un-signal : le premier OB signalé du carnet est écarté).</p>
             <p><b class="text-white">Moteur BSZones</b> — parcours Sweep → Dispersion → OB : zones
             reconstituées après la chasse de liquidité, score propre, seuil dédié.</p>
-            <p class="text-gray-400">Un seul trade est créé par barre confirmée, tous moteurs confondus.</p>
+            <p class="text-white">Un seul trade est créé par barre confirmée, tous moteurs confondus.</p>
           </div>
         </carte>
       </div>
@@ -232,7 +232,7 @@ const Carte = defineComponent({
         innerHTML: props.titre,
       }),
       h('div', {
-        class: 'text-gray-300 text-sm leading-relaxed [&_b]:text-white [&_ol]:list-decimal [&_ol]:ml-5 [&_ul]:space-y-1 [&_p]:mb-2 [&_p:last-child]:mb-0',
+        class: 'text-white text-sm leading-relaxed [&_b]:text-white [&_ol]:list-decimal [&_ol]:ml-5 [&_ul]:space-y-1 [&_p]:mb-2 [&_p:last-child]:mb-0',
       }, slots.default?.()),
     ])
   },
@@ -246,7 +246,7 @@ const Valeur = defineComponent({
   },
   setup: (p: { etiquette: string; valeur: string }) => () =>
     h('div', { class: 'rounded-xl border border-white/10 bg-white/5 px-4 py-3' }, [
-      h('div', { class: 'text-[10px] text-gray-500 uppercase tracking-widest' }, p.etiquette),
+      h('div', { class: 'text-[10px] text-white uppercase tracking-widest' }, p.etiquette),
       h('div', { class: 'text-lg font-bold text-white mt-1 font-mono' }, p.valeur),
     ]),
 })

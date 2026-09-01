@@ -19,14 +19,14 @@
     <div class="flex-1 min-h-0 grid grid-rows-2 gap-3 pr-0.5">
       <div class="grid grid-cols-6 gap-3 min-h-0 h-full">
         <section v-if="$slots.setups" class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-1">
-          <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
+          <h2 class="text-xs uppercase text-white font-semibold tracking-wider mb-2 shrink-0">
             ⏳ Setups en attente
           </h2>
           <slot name="setups" />
         </section>
 
         <section class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-5">
-          <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
+          <h2 class="text-xs uppercase text-white font-semibold tracking-wider mb-2 shrink-0">
             🟢 {{ titreEncours ?? 'Trades en cours' }}
           </h2>
           <slot name="encours" />
@@ -35,7 +35,7 @@
 
       <section class="glass-card px-4 py-3 flex flex-col min-h-0 h-full">
         <div class="flex items-center mb-2 shrink-0">
-          <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider">
+          <h2 class="text-xs uppercase text-white font-semibold tracking-wider">
             📜 Historique des trades
           </h2>
           <div class="ml-auto"><slot name="historique-actions" /></div>

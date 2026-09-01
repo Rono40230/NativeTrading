@@ -36,8 +36,8 @@
 
     <!-- Tableau -->
     <div class="glass-card overflow-hidden" style="max-height: calc(100vh - 240px); overflow-y: auto;">
-      <div v-if="chargement && !listeActive.length" class="text-center text-gray-500 py-10">Chargement...</div>
-      <div v-else-if="!listeActive.length" class="text-center text-gray-500 py-10">
+      <div v-if="chargement && !listeActive.length" class="text-center text-white py-10">Chargement...</div>
+      <div v-else-if="!listeActive.length" class="text-center text-white py-10">
         Aucun signal correspondant aux filtres
       </div>
 
@@ -65,12 +65,12 @@
 
     <!-- Compteur + totaux (fini le comptage manuel : Σ palier = R de
          référence, Σ réalisé = sorties réelles) -->
-    <div class="text-sm text-gray-400 flex flex-wrap items-center gap-x-3">
+    <div class="text-sm text-white flex flex-wrap items-center gap-x-3">
       <span>{{ listeActive.length }} entrée{{ listeActive.length > 1 ? 's' : '' }}</span>
       <template v-if="!rocketsMode && signalsFiltres.length">
         <span v-if="totaux.ref !== null" :class="classeR(totaux.ref)" class="font-mono">Σ palier {{ formatR(totaux.ref) }}</span>
-        <span v-if="totaux.realise !== null" class="font-mono text-gray-500">Σ réalisé {{ formatR(totaux.realise) }}</span>
-        <span v-if="totaux.jamaisRemplis > 0" class="text-gray-600">· {{ totaux.jamaisRemplis }} jamais rempli{{ totaux.jamaisRemplis > 1 ? 's' : '' }}</span>
+        <span v-if="totaux.realise !== null" class="font-mono text-white">Σ réalisé {{ formatR(totaux.realise) }}</span>
+        <span v-if="totaux.jamaisRemplis > 0" class="text-white">· {{ totaux.jamaisRemplis }} jamais rempli{{ totaux.jamaisRemplis > 1 ? 's' : '' }}</span>
       </template>
     </div>
 

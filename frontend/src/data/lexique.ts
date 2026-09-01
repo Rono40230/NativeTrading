@@ -8,7 +8,7 @@ export const CAT_LABELS: Record<Categorie, { label: string; couleur: string }> =
   blocs:      { label: 'Blocs & Zones',          couleur: 'text-yellow-400 bg-yellow-500/15' },
   gaps:       { label: 'Gaps & Inefficiences',   couleur: 'text-orange-400 bg-orange-500/15' },
   liquidite:  { label: 'Liquidité',              couleur: 'text-cyan-400 bg-cyan-500/15' },
-  timeframes: { label: 'Timeframes & Sessions',  couleur: 'text-slate-400 bg-slate-500/15' },
+  timeframes: { label: 'Timeframes & Sessions',  couleur: 'text-white bg-slate-500/15' },
   entrees:    { label: 'Entrées & Gestion',      couleur: 'text-emerald-400 bg-emerald-500/15' },
   avance:     { label: 'Modèles avancés',        couleur: 'text-red-400 bg-red-500/15' },
 }

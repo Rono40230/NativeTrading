@@ -11,23 +11,23 @@
       <button class="btn-sm" :disabled="chargement" @click="charger">
         {{ chargement ? '⏳' : '🔄' }} Charger
       </button>
-      <span v-if="reponse" class="text-xs text-gray-400 ml-auto">
+      <span v-if="reponse" class="text-xs text-white ml-auto">
         {{ reponse.nb_points_total.toLocaleString('fr-FR') }} bougies analysées
       </span>
     </div>
 
     <div v-if="reponse" class="glass-card p-4 flex flex-wrap items-center gap-4">
       <div>
-        <p class="text-xs text-gray-400 mb-0.5">Seuil Straddle calibré (P85)</p>
+        <p class="text-xs text-white mb-0.5">Seuil Straddle calibré (P85)</p>
         <p class="text-lg font-bold text-yellow-400">{{ reponse.seuil_straddle_calibre.toFixed(1) }}</p>
       </div>
-      <p class="text-xs text-gray-500 max-w-sm">
+      <p class="text-xs text-white max-w-sm">
         ATR moyen au 85ème percentile sur l'historique. Le Straddle se déclenche quand l'ATR courant dépasse ce seuil.
       </p>
     </div>
 
     <div class="flex items-center gap-4 flex-wrap">
-      <span v-for="c in clusters" :key="c.label" class="flex items-center gap-1.5 text-xs text-gray-300">
+      <span v-for="c in clusters" :key="c.label" class="flex items-center gap-1.5 text-xs text-white">
         <span class="w-3.5 h-3.5 rounded-sm" :style="{ background: c.couleur }" />
         {{ c.label }}
       </span>
@@ -37,17 +37,17 @@
       <table class="w-full table-fixed text-xs border-separate border-spacing-0.5">
         <thead>
           <tr>
-            <th class="text-gray-500 text-left px-1 pb-1 whitespace-nowrap w-10">UTC</th>
+            <th class="text-white text-left px-1 pb-1 whitespace-nowrap w-10">UTC</th>
             <th
               v-for="h in heures"
               :key="h"
-              class="text-gray-400 pb-1 text-center font-mono"
+              class="text-white pb-1 text-center font-mono"
             >{{ h }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="j in jours" :key="j.index">
-            <td class="text-gray-400 pr-3 py-0.5 whitespace-nowrap font-medium">{{ j.label }}</td>
+            <td class="text-white pr-3 py-0.5 whitespace-nowrap font-medium">{{ j.label }}</td>
             <td v-for="h in heures" :key="h" class="p-0">
               <div
                 class="w-full h-8 rounded flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
@@ -66,7 +66,7 @@
       </table>
     </div>
 
-    <div v-else-if="!chargement" class="glass-card p-8 text-center text-gray-500 text-sm">
+    <div v-else-if="!chargement" class="glass-card p-8 text-center text-white text-sm">
       Sélectionnez un asset et cliquez sur Charger.
     </div>
 
@@ -78,7 +78,7 @@
           <span class="text-sm text-white font-mono">{{ f.heureDebut }}h – {{ f.heureFin }}h Paris</span>
           <span :class="COULEUR_CLUSTER_TEXTE[f.cluster]" class="text-xs font-medium">{{ NOM_CLUSTER[f.cluster] }}</span>
         </div>
-        <p class="text-[10px] text-gray-500 pt-1">Cluster dominant sur l'ensemble de la semaine</p>
+        <p class="text-[10px] text-white pt-1">Cluster dominant sur l'ensemble de la semaine</p>
       </div>
 
       <div class="glass-card p-4 space-y-3">
@@ -87,40 +87,40 @@
           <span class="text-sm text-white font-mono">{{ f.heureDebut }}h – {{ f.heureFin }}h Paris</span>
           <span :class="COULEUR_CLUSTER_TEXTE[f.cluster]" class="text-xs font-medium">{{ NOM_CLUSTER[f.cluster] }}</span>
         </div>
-        <p class="text-[10px] text-gray-500 pt-1">Faible volatilité — spread défavorable</p>
+        <p class="text-[10px] text-white pt-1">Faible volatilité — spread défavorable</p>
       </div>
 
       <!-- Bloc jours de la semaine -->
       <div class="glass-card p-4 space-y-3">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Jours de la semaine</p>
+        <p class="text-xs font-semibold text-white uppercase tracking-wider">Jours de la semaine</p>
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span class="text-sm text-gray-300">{{ analyse.meilleurJour.label }} — jour le plus actif</span>
+          <span class="text-sm text-white">{{ analyse.meilleurJour.label }} — jour le plus actif</span>
         </div>
         <div class="flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-red-400"></span>
-          <span class="text-sm text-gray-300">{{ analyse.pireJour.label }} — jour le plus calme</span>
+          <span class="text-sm text-white">{{ analyse.pireJour.label }} — jour le plus calme</span>
         </div>
       </div>
 
       <!-- Bloc maintenant -->
       <div class="glass-card p-4 space-y-3">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Maintenant — {{ analyse.hParisActuelle }}h Paris</p>
+        <p class="text-xs font-semibold text-white uppercase tracking-wider">Maintenant — {{ analyse.hParisActuelle }}h Paris</p>
         <template v-if="analyse.patternActuel">
           <p :class="COULEUR_CLUSTER_TEXTE[analyse.patternActuel.cluster]" class="text-sm font-semibold">
             {{ NOM_CLUSTER[analyse.patternActuel.cluster] }} — ATR moyen {{ analyse.patternActuel.atr_moyen.toFixed(1) }}
           </p>
-          <p class="text-xs text-gray-500">{{ analyse.patternActuel.cluster >= 2 ? 'Fenêtre favorable au trading actif.' : 'Attendre une fenêtre plus volatile.' }}</p>
+          <p class="text-xs text-white">{{ analyse.patternActuel.cluster >= 2 ? 'Fenêtre favorable au trading actif.' : 'Attendre une fenêtre plus volatile.' }}</p>
         </template>
-        <p v-else class="text-xs text-gray-500">Pas de données pour ce créneau.</p>
-        <p class="text-[10px] text-gray-600">Basé sur l'historique — pas une garantie.</p>
+        <p v-else class="text-xs text-white">Pas de données pour ce créneau.</p>
+        <p class="text-[10px] text-white">Basé sur l'historique — pas une garantie.</p>
       </div>
     </div>
 
     <!-- Tooltip cellule heatmap -->
     <Teleport v-if="tooltipVisible" to="body">
       <div
-        class="fixed z-[9999] px-3 py-2 text-xs text-gray-200 bg-gray-950 border border-white/10 rounded-lg shadow-2xl pointer-events-none whitespace-nowrap"
+        class="fixed z-[9999] px-3 py-2 text-xs text-white bg-gray-950 border border-white/10 rounded-lg shadow-2xl pointer-events-none whitespace-nowrap"
         :style="{ top: `${tooltipPos.top}px`, left: `${tooltipPos.left}px`, transform: 'translate(-50%, calc(-100% - 8px))' }"
       >{{ tooltipTexte }}</div>
     </Teleport>

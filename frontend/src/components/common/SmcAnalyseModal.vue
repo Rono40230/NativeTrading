@@ -9,7 +9,7 @@
       <!-- Header -->
       <div class="flex items-center justify-between flex-shrink-0">
         <h2 class="text-lg font-bold">🧠 Analyse SMC Directionnel</h2>
-        <button class="text-gray-400 hover:text-white text-xl leading-none" @click="$emit('close')">×</button>
+        <button class="text-white hover:text-white text-xl leading-none" @click="$emit('close')">×</button>
       </div>
 
       <!-- Onglets -->
@@ -19,7 +19,7 @@
           class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all border"
           :class="onglet === tab.id
             ? 'bg-white/10 border-white/20 text-white'
-            : 'border-transparent text-gray-500 hover:text-gray-300'"
+            : 'border-transparent text-white hover:text-white'"
           @click="onglet = tab.id as OngletSmc"
         >{{ tab.label }}</button>
       </div>
@@ -41,7 +41,7 @@
               <h3 class="section-title">Par tranche de score</h3>
               <table class="w-full text-xs">
                 <thead>
-                  <tr class="text-gray-500 border-b border-white/10">
+                  <tr class="text-white border-b border-white/10">
                     <th class="py-1 text-left">Score</th>
                     <th class="py-1 text-right">Nb</th>
                     <th class="py-1 text-right text-emerald-400">TP1</th>
@@ -55,7 +55,7 @@
                 <tbody>
                   <tr v-for="t in smcStats.tranches.value" :key="t.label" class="border-b border-white/5">
                     <td class="py-1 font-mono text-white">{{ t.label }}</td>
-                    <td class="py-1 text-right text-gray-400">{{ t.total }}</td>
+                    <td class="py-1 text-right text-white">{{ t.total }}</td>
                     <td class="py-1 text-right text-emerald-400">{{ t.tp1 }}</td>
                     <td class="py-1 text-right text-emerald-300">{{ t.tp2 }}</td>
                     <td class="py-1 text-right text-emerald-200">{{ t.tp3 }}</td>
@@ -74,7 +74,7 @@
                 <div v-for="tf in smcStats.parTimeframe.value" :key="tf.tf" class="kpi-card">
                   <div class="flex justify-between mb-1">
                     <span class="text-xs font-bold px-1.5 py-0.5 rounded-full bg-blue-900/60 text-blue-300">{{ tf.tf }}</span>
-                    <span class="text-gray-500 text-xs">{{ tf.total }}</span>
+                    <span class="text-white text-xs">{{ tf.total }}</span>
                   </div>
                   <div class="text-xs">Win : <span class="font-bold" :class="tf.winPct >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ tf.winPct }}%</span></div>
                   <div class="text-xs">R : <span class="font-bold" :class="tf.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ tf.rMoyen }}</span></div>
@@ -92,28 +92,28 @@
           <div class="grid grid-cols-3 gap-3">
             <div class="kpi-card text-center">
               <p class="text-xl font-bold text-purple-400">{{ smcStats.stats.value.convictionMoyenne }}</p>
-              <p class="text-xs text-gray-400 mt-1">Conviction LLM moy.</p>
+              <p class="text-xs text-white mt-1">Conviction LLM moy.</p>
             </div>
             <div class="kpi-card text-center">
               <p class="text-xl font-bold text-blue-400">{{ smcStats.stats.value.tauxFiltrage }}%</p>
-              <p class="text-xs text-gray-400 mt-1">Filtrés par LLM</p>
+              <p class="text-xs text-white mt-1">Filtrés par LLM</p>
             </div>
             <div class="kpi-card">
               <div class="flex gap-3 h-full items-center justify-center">
                 <div class="text-center">
                   <p class="text-lg font-bold text-emerald-400">{{ smcStats.stats.value.longs }}</p>
-                  <p class="text-xs text-gray-400">📈 LONG</p>
+                  <p class="text-xs text-white">📈 LONG</p>
                 </div>
                 <div class="text-center">
                   <p class="text-lg font-bold text-red-400">{{ smcStats.stats.value.shorts }}</p>
-                  <p class="text-xs text-gray-400">📉 SHORT</p>
+                  <p class="text-xs text-white">📉 SHORT</p>
                 </div>
               </div>
             </div>
           </div>
           <!-- Derniers filtrages -->
           <div v-if="smcStats.stats.value.derniersLlm.length > 0" class="space-y-2">
-            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Derniers filtrages LLM</p>
+            <p class="text-xs font-semibold text-white uppercase tracking-wider">Derniers filtrages LLM</p>
             <div
               v-for="s in smcStats.stats.value.derniersLlm"
               :key="s.id"
@@ -124,10 +124,10 @@
               <span class="shrink-0" :class="s.llm_valide === 1 ? 'text-emerald-400' : 'text-red-400'">
                 {{ s.llm_valide === 1 ? '✅' : '🚫' }} {{ s.llm_conviction ?? '—' }}/100
               </span>
-              <span class="text-gray-400 truncate">{{ s.llm_raison ?? '—' }}</span>
+              <span class="text-white truncate">{{ s.llm_raison ?? '—' }}</span>
             </div>
           </div>
-          <p v-else class="text-center text-gray-500 text-sm py-4">Aucun signal SMC avec données LLM</p>
+          <p v-else class="text-center text-white text-sm py-4">Aucun signal SMC avec données LLM</p>
         </div>
       </div>
 
@@ -183,5 +183,5 @@ const smcParams = ref<SmcParams>({
 
 <style scoped>
 .kpi-card     { @apply bg-white/5 rounded-lg p-3 border border-white/10; }
-.section-title { @apply text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wide; }
+.section-title { @apply text-xs font-semibold text-white mb-2 uppercase tracking-wide; }
 </style>

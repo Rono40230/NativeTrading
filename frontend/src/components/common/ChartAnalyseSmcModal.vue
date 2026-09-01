@@ -11,60 +11,60 @@
       <!-- Header -->
       <div class="flex items-center justify-between flex-shrink-0">
         <h2 class="text-base font-bold">🧠 Analyse SMC — {{ asset }} {{ timeframe }}</h2>
-        <button class="text-gray-400 hover:text-white text-xl leading-none" @click="$emit('close')">×</button>
+        <button class="text-white hover:text-white text-xl leading-none" @click="$emit('close')">×</button>
       </div>
 
       <!-- Score SMC + composants -->
       <div v-if="scoreSmc" class="glass-card p-4 flex-shrink-0">
         <div class="flex items-center gap-6 mb-4">
           <div>
-            <div class="text-xs text-gray-500 uppercase mb-1">Direction</div>
+            <div class="text-xs text-white uppercase mb-1">Direction</div>
             <span class="text-xl font-bold" :class="dirCls">{{ scoreSmc.direction.toUpperCase() }}</span>
           </div>
           <div>
-            <div class="text-xs text-gray-500 uppercase mb-1">Score SMC</div>
+            <div class="text-xs text-white uppercase mb-1">Score SMC</div>
             <span class="text-xl font-bold" :class="scoreCls">{{ Math.round(scoreSmc.total) }}/100</span>
           </div>
           <div v-if="prixEntree">
-            <div class="text-xs text-gray-500 uppercase mb-1">Prix entrée</div>
+            <div class="text-xs text-white uppercase mb-1">Prix entrée</div>
             <span class="text-base font-mono text-white">{{ fmt(prixEntree) }}</span>
           </div>
           <div class="flex gap-3 ml-auto text-xs">
-            <span :class="scoreSmc.kill_zone_active ? 'text-emerald-400' : 'text-gray-600'">{{ scoreSmc.kill_zone_active ? '✓' : '✗' }} Kill Zone</span>
-            <span :class="scoreSmc.sweep_detecte ? 'text-emerald-400' : 'text-gray-600'">{{ scoreSmc.sweep_detecte ? '✓' : '✗' }} Sweep</span>
-            <span :class="scoreSmc.bos ? 'text-emerald-400' : 'text-gray-600'">{{ scoreSmc.bos ? '✓' : '✗' }} BOS</span>
-            <span :class="scoreSmc.choch ? 'text-yellow-400' : 'text-gray-600'">{{ scoreSmc.choch ? '✓' : '✗' }} CHoCH</span>
+            <span :class="scoreSmc.kill_zone_active ? 'text-emerald-400' : 'text-white'">{{ scoreSmc.kill_zone_active ? '✓' : '✗' }} Kill Zone</span>
+            <span :class="scoreSmc.sweep_detecte ? 'text-emerald-400' : 'text-white'">{{ scoreSmc.sweep_detecte ? '✓' : '✗' }} Sweep</span>
+            <span :class="scoreSmc.bos ? 'text-emerald-400' : 'text-white'">{{ scoreSmc.bos ? '✓' : '✗' }} BOS</span>
+            <span :class="scoreSmc.choch ? 'text-yellow-400' : 'text-white'">{{ scoreSmc.choch ? '✓' : '✗' }} CHoCH</span>
           </div>
         </div>
         <div class="grid grid-cols-5 gap-3">
           <div v-for="c in composants" :key="c.label" class="text-center">
-            <div class="text-xs text-gray-400 mb-1">{{ c.label }}</div>
+            <div class="text-xs text-white mb-1">{{ c.label }}</div>
             <div class="w-full bg-gray-800 rounded-full h-1.5 mb-1">
               <div class="h-1.5 rounded-full" :class="c.pts / c.max >= 0.6 ? 'bg-emerald-500' : c.pts / c.max >= 0.3 ? 'bg-yellow-500' : 'bg-red-600'" :style="{ width: `${(c.pts / c.max) * 100}%` }" />
             </div>
-            <div class="text-xs font-bold text-white">{{ c.pts.toFixed(0) }}<span class="text-gray-600 font-normal">/{{ c.max }}</span></div>
+            <div class="text-xs font-bold text-white">{{ c.pts.toFixed(0) }}<span class="text-white font-normal">/{{ c.max }}</span></div>
           </div>
         </div>
       </div>
 
       <!-- Table position SL/TP -->
       <div v-if="slAnalyse && tp1Analyse" class="glass-card p-4 flex-shrink-0">
-        <div class="text-xs text-gray-500 uppercase font-semibold tracking-wide mb-3">Position calculée (ATR ×2)</div>
+        <div class="text-xs text-white uppercase font-semibold tracking-wide mb-3">Position calculée (ATR ×2)</div>
         <div class="grid grid-cols-4 gap-3 text-center">
           <div>
-            <div class="text-xs text-gray-500 mb-1">Stop Loss</div>
+            <div class="text-xs text-white mb-1">Stop Loss</div>
             <span class="font-mono font-bold text-red-400">{{ fmt(slAnalyse) }}</span>
           </div>
           <div>
-            <div class="text-xs text-gray-500 mb-1">TP1</div>
+            <div class="text-xs text-white mb-1">TP1</div>
             <span class="font-mono font-bold text-emerald-400">{{ fmt(tp1Analyse) }}</span>
           </div>
           <div v-if="tp2Analyse">
-            <div class="text-xs text-gray-500 mb-1">TP2</div>
+            <div class="text-xs text-white mb-1">TP2</div>
             <span class="font-mono font-bold text-emerald-300">{{ fmt(tp2Analyse) }}</span>
           </div>
           <div>
-            <div class="text-xs text-gray-500 mb-1">R:R (TP1)</div>
+            <div class="text-xs text-white mb-1">R:R (TP1)</div>
             <span class="font-bold" :class="rrVal >= 1.5 ? 'text-emerald-400' : 'text-yellow-400'">1:{{ rrVal.toFixed(2) }}</span>
           </div>
         </div>
@@ -81,7 +81,7 @@
           <div
             v-for="(bloc, i) in blocsAnalyse"
             :key="i"
-            class="text-sm text-gray-300 leading-relaxed border-l-2 pl-3"
+            class="text-sm text-white leading-relaxed border-l-2 pl-3"
             :class="bloc.cls"
             v-html="bloc.html"
           />

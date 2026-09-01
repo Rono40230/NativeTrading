@@ -6,7 +6,7 @@
       <div class="flex items-center justify-between mb-3">
         <div>
           <h2 class="text-xs uppercase font-bold text-white">IA Vision — Anthropic</h2>
-          <p class="text-xs text-gray-500 mt-0.5">Utilisée pour l'analyse de charts (Chart Import)</p>
+          <p class="text-xs text-white mt-0.5">Utilisée pour l'analyse de charts (Chart Import)</p>
         </div>
         <div class="flex items-center gap-2">
           <button class="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 rounded text-xs font-medium transition-colors" @click="sauvegarderAnthropic">Enregistrer</button>
@@ -19,10 +19,10 @@
           autocomplete="off"
           class="bg-gray-700 text-white rounded px-2 py-1.5 w-80 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
           @keyup.enter="sauvegarderAnthropic" />
-        <button class="text-xs text-gray-400 hover:text-white transition-colors" @click="afficherAnthropic = !afficherAnthropic">
+        <button class="text-xs text-white hover:text-white transition-colors" @click="afficherAnthropic = !afficherAnthropic">
           {{ afficherAnthropic ? '🙈 Masquer' : '👁️ Afficher' }}
         </button>
-        <span class="text-xs text-gray-500">Obtenir une clé : console.anthropic.com</span>
+        <span class="text-xs text-white">Obtenir une clé : console.anthropic.com</span>
       </div>
     </div>
 
@@ -31,7 +31,7 @@
       <div class="flex items-center justify-between mb-3">
         <div>
           <h2 class="text-xs uppercase font-bold text-white">Notifications — Telegram</h2>
-          <p class="text-xs text-gray-500 mt-0.5">Envoi d'un message à chaque nouveau signal validé</p>
+          <p class="text-xs text-white mt-0.5">Envoi d'un message à chaque nouveau signal validé</p>
         </div>
         <div class="flex items-center gap-2">
           <button class="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 rounded text-xs font-medium transition-colors" @click="sauvegarderTelegram">Enregistrer</button>
@@ -41,25 +41,25 @@
       </div>
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block mb-1 text-xs text-gray-400">Bot Token</label>
+          <label class="block mb-1 text-xs text-white">Bot Token</label>
           <div class="flex gap-2 items-center">
             <input v-model="telegramToken" :type="afficherTelegram ? 'text' : 'password'"
               placeholder="123456:ABCDEF..."
               autocomplete="off"
               class="bg-gray-700 text-white rounded px-2 py-1.5 w-64 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500" />
-            <button class="text-xs text-gray-400 hover:text-white transition-colors" @click="afficherTelegram = !afficherTelegram">
+            <button class="text-xs text-white hover:text-white transition-colors" @click="afficherTelegram = !afficherTelegram">
               {{ afficherTelegram ? '🙈 Masquer' : '👁️ Afficher' }}
             </button>
           </div>
         </div>
         <div>
-          <label class="block mb-1 text-xs text-gray-400">Chat ID</label>
+          <label class="block mb-1 text-xs text-white">Chat ID</label>
           <input v-model="telegramChatId" type="text" placeholder="-100123456789"
             class="bg-gray-700 text-white rounded px-2 py-1.5 w-48 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-500"
             @keyup.enter="sauvegarderTelegram" />
         </div>
       </div>
-      <p class="text-xs text-gray-500 mt-2">Étape 1 : créez un bot via @BotFather — Étape 2 : récupérez votre Chat ID via @getidsbot</p>
+      <p class="text-xs text-white mt-2">Étape 1 : créez un bot via @BotFather — Étape 2 : récupérez votre Chat ID via @getidsbot</p>
     </div>
 
     <!-- Veille Actions — Tiingo (scanner Rockets actions US) -->
@@ -67,7 +67,7 @@
       <div class="flex items-center justify-between mb-3">
         <div>
           <h2 class="text-xs uppercase font-bold text-white">Veille Actions — Tiingo</h2>
-          <p class="text-xs text-gray-500 mt-0.5">Prix quotidiens des actions US (volume réel) pour le scanner Rockets — 1 000 requêtes/jour offertes</p>
+          <p class="text-xs text-white mt-0.5">Prix quotidiens des actions US (volume réel) pour le scanner Rockets — 1 000 requêtes/jour offertes</p>
         </div>
         <div class="flex items-center gap-2">
           <button class="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded text-xs font-medium transition-colors" @click="sauvegarderTiingo">Enregistrer</button>
@@ -80,10 +80,10 @@
           autocomplete="off"
           class="bg-gray-700 text-white rounded px-2 py-1.5 w-80 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
           @keyup.enter="sauvegarderTiingo" />
-        <button class="text-xs text-gray-400 hover:text-white transition-colors" @click="afficherTiingo = !afficherTiingo">
+        <button class="text-xs text-white hover:text-white transition-colors" @click="afficherTiingo = !afficherTiingo">
           {{ afficherTiingo ? '🙈 Masquer' : '👁️ Afficher' }}
         </button>
-        <span class="text-xs text-gray-500">Obtenir une clé gratuite : tiingo.com</span>
+        <span class="text-xs text-white">Obtenir une clé gratuite : tiingo.com</span>
       </div>
     </div>
 

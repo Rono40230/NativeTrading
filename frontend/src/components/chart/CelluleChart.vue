@@ -17,12 +17,12 @@
       <span class="font-mono tabular-nums text-[10px]" :class="variation >= 0 ? 'text-emerald-500' : 'text-red-500'">
         {{ variation >= 0 ? '+' : '' }}{{ variation.toFixed(2) }}%
       </span>
-      <span class="ml-auto flex items-center gap-1 text-[10px]" :class="marketStore.wsConnecte ? 'text-emerald-400' : 'text-slate-500'">
+      <span class="ml-auto flex items-center gap-1 text-[10px]" :class="marketStore.wsConnecte ? 'text-emerald-400' : 'text-white'">
         <span class="w-1.5 h-1.5 rounded-full" :class="marketStore.wsConnecte ? 'bg-emerald-400' : 'bg-slate-500'" />
         {{ marketStore.wsConnecte ? 'flux' : 'silence' }}
       </span>
       <button v-if="pleinEcran" title="Quitter le plein écran (Échap)"
-        class="w-6 h-6 rounded-md flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+        class="w-6 h-6 rounded-md flex items-center justify-center text-white hover:text-white hover:bg-white/10 transition-colors"
         @click.stop="pleinEcran = false">✕</button>
     </div>
 
@@ -37,7 +37,7 @@
         ⚠ {{ marketStore.erreurWs }}
       </div>
       <div v-if="marketStore.chargement"
-        class="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-gray-400 text-sm rounded-xl">
+        class="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-white text-sm rounded-xl">
         <span class="animate-pulse">Chargement des bougies...</span>
       </div>
       <div ref="chartContainer" class="w-full h-full" style="position: relative;" />
@@ -49,7 +49,7 @@
             'w-8 h-8 rounded-md text-sm flex items-center justify-center transition-colors',
             dessins.outil.value === t.outil
               ? 'bg-blue-600/40 text-blue-200 border border-blue-400/50'
-              : 'text-slate-400 hover:text-slate-100 hover:bg-white/10 border border-transparent',
+              : 'text-white hover:text-white hover:bg-white/10 border border-transparent',
           ]"
           @click="dessins.choisirOutil(t.outil)"
         >{{ t.icone }}</button>
@@ -61,29 +61,29 @@
               'w-8 h-8 rounded-md text-sm flex items-center justify-center transition-colors',
               alertesPrix.modePose.value || listeAlertesOuverte
                 ? 'bg-amber-500/40 text-amber-200 border border-amber-400/50'
-                : 'text-slate-400 hover:text-slate-100 hover:bg-white/10 border border-transparent',
+                : 'text-white hover:text-white hover:bg-white/10 border border-transparent',
             ]"
             @click="alertesPrix.nbActives.value > 0 && !alertesPrix.modePose.value ? (listeAlertesOuverte = !listeAlertesOuverte) : alertesPrix.basculerModePose()"
           >🔔<span v-if="alertesPrix.nbActives.value > 0" class="absolute -top-1 -right-1 min-w-[14px] px-0.5 rounded-full bg-amber-500 text-[9px] leading-[14px] text-amber-950 font-bold text-center">{{ alertesPrix.nbActives.value }}</span></button>
           <div v-if="listeAlertesOuverte" class="fixed inset-0 z-40" @click="listeAlertesOuverte = false" />
           <div v-if="listeAlertesOuverte" class="absolute bottom-[calc(100%+6px)] right-0 z-50 w-64 bg-slate-900/95 backdrop-blur border border-white/10 rounded-lg shadow-xl py-1.5">
             <div class="flex items-center justify-between px-2.5 pb-1.5 border-b border-white/5">
-              <span class="text-[10px] uppercase tracking-wide text-slate-500">Alertes — {{ asset }}</span>
+              <span class="text-[10px] uppercase tracking-wide text-white">Alertes — {{ asset }}</span>
               <button class="text-[10px] text-amber-400 hover:text-amber-300" @click="listeAlertesOuverte = false; alertesPrix.basculerModePose()">+ Poser au clic</button>
             </div>
-            <div v-if="!alertesPrix.alertesAsset.value.filter(a => a.active).length" class="px-2.5 py-3 text-[11px] text-slate-500 text-center">Aucune alerte sur cet asset</div>
+            <div v-if="!alertesPrix.alertesAsset.value.filter(a => a.active).length" class="px-2.5 py-3 text-[11px] text-white text-center">Aucune alerte sur cet asset</div>
             <div v-for="a in alertesPrix.alertesAsset.value.filter(a => a.active)" :key="a.id"
                  class="flex items-center gap-2 px-2.5 py-1.5 text-[11px] hover:bg-white/5">
               <span class="font-mono tabular-nums text-amber-300">{{ a.prix.toFixed(2) }}</span>
-              <span class="text-slate-500">{{ a.sens === 'au_dessus' ? '↑' : '↓' }}</span>
-              <span class="flex-1 truncate text-slate-400">{{ a.note ?? '' }}</span>
-              <button title="Supprimer" class="text-slate-500 hover:text-red-300" @click="alertesPrix.supprimer(a.id)">🗑</button>
+              <span class="text-white">{{ a.sens === 'au_dessus' ? '↑' : '↓' }}</span>
+              <span class="flex-1 truncate text-white">{{ a.note ?? '' }}</span>
+              <button title="Supprimer" class="text-white hover:text-red-300" @click="alertesPrix.supprimer(a.id)">🗑</button>
             </div>
           </div>
         </div>
         <div class="h-px bg-white/10 mx-1" />
         <button title="Effacer tous les dessins de cet asset"
-          class="w-8 h-8 rounded-md text-sm flex items-center justify-center text-slate-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+          class="w-8 h-8 rounded-md text-sm flex items-center justify-center text-white hover:text-red-300 hover:bg-red-500/10 transition-colors"
           @click="dessins.toutEffacer()"
         >🗑</button>
       </div>

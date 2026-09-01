@@ -196,6 +196,6 @@ onUnmounted(() => {
 
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
-.label { @apply text-xs text-gray-400 font-medium; }
+.label { @apply text-xs text-white font-medium; }
 .kpi-value { @apply text-2xl font-bold text-white mt-1; }
 </style>
