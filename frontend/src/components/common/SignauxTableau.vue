@@ -13,6 +13,7 @@
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('timeframe')">TF / Phase <span>{{ icone('timeframe') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('direction')">Direction <span>{{ icone('direction') }}</span></th>
             <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('score')">Score <span>{{ icone('score') }}</span></th>
+            <th class="px-3 py-3 text-right">Lot</th>
             <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_entree')">Entrée <span>{{ icone('prix_entree') }}</span></th>
             <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('stop_loss')">SL <span>{{ icone('stop_loss') }}</span></th>
             <th class="px-3 py-3 text-right">TP1</th>
@@ -37,6 +38,11 @@
               <span class="badge" :class="s.direction === 'LONG' ? 'badge-green' : s.direction === 'SHORT' ? 'badge-red' : 'badge-blue'">{{ s.direction }}</span>
             </td>
             <td class="px-3 py-3 text-right font-mono text-gray-300">{{ s.score.toFixed(0) }}</td>
+            <td class="px-3 py-3 text-right leading-tight">
+              <div v-if="lotPourSignal(s)" class="font-mono font-bold text-yellow-300">{{ lotPourSignal(s) }}</div>
+              <div v-if="lotPourSignal(s)" class="text-[10px] text-gray-500">{{ montantRisque().toFixed(0) }} $</div>
+              <span v-else class="text-gray-700 text-xs">—</span>
+            </td>
             <td class="px-3 py-3 text-right font-mono text-white">{{ formatNombre(s.prix_entree) }}</td>
             <td class="px-3 py-3 text-right font-mono text-red-400">
               <div>{{ formatNombre(s.stop_loss) }}</div>
@@ -98,23 +104,10 @@
                       :class="(s.tps_short_atteints ?? []).includes(tp) ? 'text-emerald-400' : 'text-gray-700'">
                   {{ tp.toUpperCase() }}{{ (s.tps_short_atteints ?? []).includes(tp) ? ' ✓' : '' }}
                 </span>
-                <span v-if="lotPourSignal(s)" class="text-white/15 mx-1">┃</span>
-                <span v-if="lotPourSignal(s)" class="text-yellow-400/70">Lot : <span class="font-mono font-bold text-yellow-300">{{ lotPourSignal(s) }}</span></span>                <template v-if="labelHeureEntree(s)">
+                <template v-if="labelHeureEntree(s)">
                   <span class="text-white/15 mx-1">┃</span>
                   <span class="badge badge-yellow text-[10px]">{{ labelHeureEntree(s) }}</span>
                 </template>              </div>
-            </td>
-          </tr>
-          <!-- Sous-ligne lot SMC : uniquement pour signaux actifs -->
-          <tr v-else-if="strategie === 'SMC' && s.verdict === null && lotPourSignal(s)"
-              :key="`${s.id}-lot`"
-              class="border-b border-white/5 bg-white/2">
-            <td colspan="99" class="px-4 pb-2 pt-0">
-              <div class="flex items-center gap-2 text-[11px]">
-                <span class="text-yellow-400/70">Lot : <span class="font-mono font-bold text-yellow-300">{{ lotPourSignal(s) }}</span></span>
-                <span class="text-white/15">—</span>
-                <span class="text-gray-600">{{ montantRisque().toFixed(0) }} $ risqués</span>
-              </div>
             </td>
           </tr>
           </template>
