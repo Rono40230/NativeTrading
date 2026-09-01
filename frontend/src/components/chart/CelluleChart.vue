@@ -289,7 +289,9 @@ async function chargerTradesExternes() {
         label: [] as string[],
         tfOrigine: x.timeframe,
         enAttente: x.heure_entree === null,
-        tsFin: x.cree_le + 40 * (DUREE_BARRE[x.timeframe] ?? 900),
+        // Trade ACTIF (statut Actif dans la base) : sa box vit jusqu'à la
+        // barre courante — un trade de plusieurs jours doit rester visible.
+        tsFin: Math.floor(Date.now() / 1000),
       }
     })
     v12Overlay.definirTradesExternes(ouverts)
