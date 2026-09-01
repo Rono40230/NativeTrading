@@ -176,7 +176,6 @@
       </div>
 
       <!-- ═══ ONGLET LEXIQUE ═══ -->
-      <LexiquePanel v-if="onglet === 'Lexique'" />
 
       <!-- ═══ ONGLET ENRICHISSEMENT IA ═══ -->
       <div v-if="onglet === 'Enrichissement IA'" class="flex flex-col gap-3">
@@ -218,7 +217,6 @@
 <script setup lang="ts">
 import { ref, computed, defineComponent, h, onMounted } from 'vue'
 import { http } from '@/services/http.client'
-import LexiquePanel from '@/components/common/LexiquePanel.vue'
 
 interface ReglagesStrategie {
   etat: string; capital: number; risque_pct: number
@@ -255,7 +253,7 @@ const Valeur = defineComponent({
 const valeur = Valeur
 
 // ── Onglets (décision étape 3 : Définition première page + Lexique en onglet)
-const onglets = ['Définition', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Lexique', 'Enrichissement IA'] as const
+const onglets = ['Définition', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Enrichissement IA'] as const
 const onglet = ref<(typeof onglets)[number]>('Définition')
 
 // ── Réglages live de la stratégie (registre) ─────────────────────────────────
