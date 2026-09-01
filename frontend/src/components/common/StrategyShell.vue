@@ -44,7 +44,7 @@
       class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-6"
       @click.self="lexiqueOuvert = false"
     >
-      <div class="glass-card w-full max-w-5xl max-h-[85vh] overflow-y-auto p-6">
+      <div class="w-full max-w-5xl max-h-[85vh] overflow-y-auto p-6 rounded-xl border border-white/15 bg-slate-900 shadow-2xl">
         <div class="flex items-center justify-between mb-4 sticky top-0">
           <h2 class="text-lg font-bold text-white">📚 Lexique {{ titre }}</h2>
           <button class="btn-sm" @click="lexiqueOuvert = false">✕ Fermer</button>
