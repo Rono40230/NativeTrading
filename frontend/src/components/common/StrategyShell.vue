@@ -18,11 +18,15 @@
          Chaque section défile en interne (aucun scroll global). -->
     <div class="flex-1 min-h-0 grid grid-rows-2 gap-3 pr-0.5">
       <div class="grid grid-cols-6 gap-3 min-h-0 h-full">
-        <section v-if="$slots.setups" class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-1">
+        <section v-if="$slots.setups" class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-1 overflow-hidden">
           <h2 class="text-xs uppercase text-white font-semibold tracking-wider mb-2 shrink-0">
             ⏳ Setups en attente
           </h2>
-          <slot name="setups" />
+          <!-- Même hauteur que le bloc des signaux en cours (grille) — le
+               contenu défile en interne. -->
+          <div class="flex-1 min-h-0 overflow-y-auto">
+            <slot name="setups" />
+          </div>
         </section>
 
         <section class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-5">
