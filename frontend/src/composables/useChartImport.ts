@@ -102,6 +102,12 @@ export function useChartImport() {
       modeleUtilise.value = res.modele
       anthropicStatutChart.value = 'ok'
       partsResultat.value = parseContent(res.analyse)
+      // Trace pour la tuile IA du dashboard (« dernière analyse »).
+      try {
+        localStorage.setItem('derniere_analyse_graphique', JSON.stringify({
+          asset, tf: images.value[0]?.timeframe ?? '', ts: Date.now(),
+        }))
+      } catch { /* quota localStorage — la tuile affichera l'ancienne trace */ }
     } catch (e: unknown) {
       const axiosErr = e as any
       const detail: string = axiosErr?.response?.data?.error ?? (e as Error).message

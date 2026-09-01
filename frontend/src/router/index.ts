@@ -21,18 +21,21 @@ const router = createRouter({
     { path: '/history',  component: () => import('../views/HistoryView.vue') },
     { path: '/heatmap',  component: () => import('../views/HeatmapView.vue') },
 
-    // Outils IA
-    { path: '/ia/chart',    component: () => import('../views/ChartImportView.vue') },
-    { path: '/ia/coach',    component: () => import('../views/SMCCoachView.vue') },
+    // Outils IA — regroupés en une page à onglets (refonte navigation 01/09) ;
+    // les anciens chemins redirigent vers l'onglet correspondant.
+    { path: '/ia',            component: () => import('../views/IaView.vue') },
+    { path: '/ia/chart',      redirect: { path: '/ia', query: { tab: 'chart' } } },
+    { path: '/ia/coach',      redirect: { path: '/ia', query: { tab: 'coach' } } },
+    { path: '/config/prompts', redirect: { path: '/ia', query: { tab: 'prompts' } } },
     { path: '/ml-insights', component: () => import('../views/MlInsightsView.vue') },
 
     // Presse
     { path: '/presse', component: () => import('../views/PresseView.vue') },
 
-    // Système
-    { path: '/data',            component: () => import('../views/DataManagementView.vue') },
-    { path: '/settings',        component: () => import('../views/SettingsView.vue') },
-    { path: '/config/prompts',  component: () => import('../views/PromptsIAView.vue') },
+    // Système — onglets Paramètres + Données, anciens chemins redirigés.
+    { path: '/systeme',  component: () => import('../views/SystemeView.vue') },
+    { path: '/settings', redirect: { path: '/systeme', query: { tab: 'settings' } } },
+    { path: '/data',     redirect: { path: '/systeme', query: { tab: 'data' } } },
   ]
 })
 

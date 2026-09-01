@@ -52,42 +52,6 @@
 
     <div class="flex-1" data-tauri-drag-region />
 
-    <!-- Outils IA -->
-    <div class="relative flex items-stretch">
-      <button
-        class="flex items-center gap-1 px-2.5 text-xs transition-colors"
-        :class="sectionActive('/ia', '/config/prompts') || ouvert === 'ia' ? 'text-white bg-white/10' : 'text-white hover:text-white hover:bg-white/5'"
-        title="Outils IA"
-        @click="basculer('ia')"
-      >
-        <span class="text-sm leading-none">🧠</span>
-        <span class="text-[8px] transition-transform" :class="ouvert === 'ia' ? 'rotate-180' : ''">▼</span>
-      </button>
-      <div v-if="ouvert === 'ia'" class="menu-deroulant" @click="fermer">
-        <router-link v-for="s in outilsIa" :key="s.to" :to="s.to" class="item-menu" :class="{ 'text-white bg-white/10': actif(s.to) }">
-          <span>{{ s.icone }}</span><span>{{ s.label }}</span>
-        </router-link>
-      </div>
-    </div>
-
-    <!-- Système : Paramètres + Données -->
-    <div class="relative flex items-stretch">
-      <button
-        class="flex items-center gap-1 px-2.5 text-xs transition-colors"
-        :class="actif('/settings') || actif('/data') || ouvert === 'systeme' ? 'text-white bg-white/10' : 'text-white hover:text-white hover:bg-white/5'"
-        title="Paramètres & Données"
-        @click="basculer('systeme')"
-      >
-        <span class="text-sm leading-none">⚙️</span>
-        <span class="text-[8px] transition-transform" :class="ouvert === 'systeme' ? 'rotate-180' : ''">▼</span>
-      </button>
-      <div v-if="ouvert === 'systeme'" class="menu-deroulant" @click="fermer">
-        <router-link v-for="s in systeme" :key="s.to" :to="s.to" class="item-menu" :class="{ 'text-white bg-white/10': actif(s.to) }">
-          <span>{{ s.icone }}</span><span>{{ s.label }}</span>
-        </router-link>
-      </div>
-    </div>
-
     <!-- Contrôles fenêtre (masqués hors Tauri — ex. navigateur de dev) -->
     <div v-if="estTauri" class="flex items-stretch ml-1 border-l border-white/10">
       <button class="controle-fenetre" title="Réduire" @click="fenetre?.minimize()">─</button>
@@ -105,24 +69,11 @@ import type { Window as FenetreTauri } from '@tauri-apps/api/window'
 type SousPage = { to: string; icone: string; label: string }
 type Principal = { to: string; icone: string; label: string; sous?: SousPage[] }
 
-/// Les accès stratégies vivent désormais dans le dashboard (cartes
-/// cliquables → pages stratégies) — refonte 01/09. La barre ne garde que
-/// les outils transverses.
+
+/// Le dashboard est le hub unique (refonte 01/09) : stratégies, presse,
+/// graphiques, IA et système s'y ouvrent par leurs cartes et tuiles.
 const principaux: Principal[] = [
   { to: '/', icone: '🏠', label: 'Dashboard' },
-  { to: '/smc/graphiques', icone: '📈', label: 'Graphiques' },
-  { to: '/presse', icone: '📰', label: 'Presse' },
-]
-
-const outilsIa: SousPage[] = [
-  { to: '/ia/chart', icone: '🖼️', label: 'Analyse graphique' },
-  { to: '/ia/coach', icone: '💬', label: 'Coach IA' },
-  { to: '/config/prompts', icone: '✏️', label: 'Prompts IA' },
-]
-
-const systeme: SousPage[] = [
-  { to: '/settings', icone: '⚙️', label: 'Paramètres' },
-  { to: '/data', icone: '📦', label: 'Données' },
 ]
 
 const route = useRoute()
@@ -150,9 +101,6 @@ onUnmounted(() => {
 
 function actif(to: string): boolean {
   return to === '/' ? route.path === '/' : route.path.startsWith(to)
-}
-function sectionActive(...prefixes: string[]): boolean {
-  return prefixes.some((p) => route.path.startsWith(p))
 }
 function sousPageActive(item: Principal): boolean {
   return item.sous?.some((s) => actif(s.to)) ?? false
