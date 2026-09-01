@@ -19,7 +19,7 @@
       <div class="grid grid-cols-6 gap-3 min-h-0">
         <section v-if="$slots.setups" class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-1">
           <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
-            ⏳ Setups en attente <span class="text-gray-600 normal-case">— ce qui peut arriver</span>
+            ⏳ Setups en attente
           </h2>
           <slot name="setups" />
         </section>
@@ -34,7 +34,7 @@
 
       <section class="glass-card px-4 py-3 flex flex-col min-h-0">
         <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
-          📜 Historique des trades <span class="text-gray-600 normal-case">— ce qui est passé</span>
+          📜 Historique des trades
         </h2>
         <slot name="historique" />
       </section>
