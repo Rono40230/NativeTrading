@@ -22,7 +22,6 @@
             <th v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right">Prix actuel</th>
             <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_verdict')">Sortie <span>{{ icone('prix_verdict') }}</span></th>
             <th class="px-3 py-3 text-center">IA</th>
-            <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('verdict')">Résultat <span>{{ icone('verdict') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Ouvert le <span>{{ icone('cree_le') }}</span></th>
             <th class="px-3 py-3 text-center w-24">Signal</th>
             <th v-if="strategie === 'Rockets' && filtreStatut === 'en_cours'" class="px-3 py-3 text-center w-20">Annuler</th>
@@ -65,9 +64,6 @@
             <td class="px-3 py-3 text-center">
               <span v-if="s.llm_conviction !== null" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help" :class="classeConviction(s.llm_conviction)" :title="s.llm_raison ?? ''">{{ s.llm_conviction }}</span>
               <span v-else class="text-gray-700 text-xs">—</span>
-            </td>
-            <td class="px-3 py-3">
-              <span class="badge cursor-help" :class="classeResultat(s)" :title="titreResultat(s)">{{ labelResultat(s) }}</span>
             </td>
             <td class="px-3 py-3 text-gray-500 text-xs">{{ formatDate(s.cree_le) }}</td>
             <td class="px-3 py-3 text-center">
@@ -198,7 +194,7 @@ const {
   signaux, rocketsRaw, chargement, analyseOuverte,
   filtreStatut, annulationEnCours, listeActive, signauxTries, remplisSeuls, montantRisque,
   charger, annuler, trierPar, icone, infosPips,
-  classeConviction, classePrix, labelResultat, classeResultat, titreResultat, lotPourSignal,
+  classeConviction, classePrix, lotPourSignal,
   prixStore, assetParamsStore, settingsStore,
 } = useSignauxTableau(props.strategie)
 

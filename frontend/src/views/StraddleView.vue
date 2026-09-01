@@ -1,6 +1,6 @@
 <template>
   <StrategyShell
-    titre="Trades Straddle en cours"
+    titre="Stratégie Straddle"
     icone="⚡"
     etat="Observation"
     route-definition="/straddle/definition"

@@ -5,7 +5,6 @@ import { http } from '@/services/http.client'
 import { usePrixStore } from '@/stores/prix.store'
 import { useAssetParamsStore } from '@/stores/assetParams.store'
 import { useSettingsStore } from '@/stores/settings.store'
-import { classeVerdictSignal, labelEtatSignal, classeEtatSignal, titreEtatSignal } from '@/composables/useSignalFormat'
 import { rocketToSignal } from '@/composables/useRocketsHistory'
 
 export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
@@ -100,31 +99,6 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
     })
   })
 
-  function labelResultat(s: Signal): string {
-    if (strategie === 'Rockets' && s.statut !== 'Fermé') {
-      if (s.verdict === 'TP2') return '🔵 TP1+2 ✓ · Trail'
-      if (s.verdict === 'TP1') return '🟡 TP1 ✓ · BE actif'
-      return '⏳ En cours'
-    }
-    return labelEtatSignal(s)
-  }
-
-  function classeResultat(s: Signal): string {
-    if (strategie === 'Rockets' && s.statut !== 'Fermé') {
-      if (s.verdict === 'TP2') return 'badge-green'
-      if (s.verdict === 'TP1') return 'badge-blue'
-      return 'badge-yellow'
-    }
-    return classeEtatSignal(s)
-  }
-
-  function titreResultat(s: Signal): string {
-    if (strategie === 'Rockets' && s.statut !== 'Fermé') {
-      return 'Position ouverte dès le signal — gestion par le moteur Rockets (invalidation -1R ou trailing après R1)'
-    }
-    return titreEtatSignal(s)
-  }
-
   /// Risque % de la verticale (registre stratégies) — la table asset_params
   /// n'a jamais porté de risque_pct : l'ancien calcul produisait « Lot : NaN ».
   const ID_REGISTRE: Record<'SMC' | 'straddle' | 'Rockets', string> = {
@@ -205,7 +179,7 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
     signaux, rocketsRaw, chargement, analyseOuverte, filtreStatut, remplisSeuls, estEngage, montantRisque,
     annulationEnCours, listeActive, signauxTries,
     charger, annuler, trierPar, icone, infosPips,
-    classeConviction, classePrix, labelResultat, classeResultat, titreResultat, lotPourSignal,
+    classeConviction, classePrix, lotPourSignal,
     prixStore, assetParamsStore, settingsStore,
   }
 }

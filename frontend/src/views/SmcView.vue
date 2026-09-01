@@ -1,6 +1,6 @@
 <template>
   <StrategyShell
-    titre="Trades SMC en cours"
+    titre="Stratégie SMC"
     icone="📐"
     etat="Officielle"
     route-definition="/smc/definition"

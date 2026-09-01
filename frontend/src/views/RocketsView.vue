@@ -1,6 +1,6 @@
 <template>
   <StrategyShell
-    titre="Trades Rockets en cours"
+    titre="Stratégie Rockets"
     icone="🚀"
     etat="Observation"
     route-definition="/rockets/definition"
