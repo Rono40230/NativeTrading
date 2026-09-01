@@ -4,8 +4,7 @@
     <div class="grid grid-cols-3 gap-2 lg:grid-cols-6 relative w-full mx-auto" style="max-width: 100%;">
       <div v-for="session in sessions" :key="session.nom" class="flex flex-col items-center gap-0">
 
-        <!-- Nom de la place + heure locale au niveau du titre -->
-        <span class="text-[11px] font-extrabold uppercase tracking-wider" :class="session.labelCouleur">{{ session.nom }}</span>
+        <!-- Heure locale au niveau du titre : « 14:52:36 à PARIS » -->
         <span class="text-[11px] font-extrabold uppercase tracking-wider mb-1.5" :class="session.labelCouleur">{{ session.heureTitre }} à {{ session.nom }}</span>
 
         <!-- Cadran analogique SVG -->
@@ -150,8 +149,8 @@ const sessions = computed(() => {
     const etat = etatSession(s, now)
     const { h, m: mm, s: ss } = getTimeParts(s.timezone, now)
 
-    // Heure au format du titre : « 17h : 05mn : 36s ».
-    const heureTitre = `${pad(h)}h : ${pad(mm)}mn : ${pad(ss)}s`
+    // Heure au format du titre : « 14:52:36 ».
+    const heureTitre = `${pad(h)}:${pad(mm)}:${pad(ss)}`
 
     const hrAngle  = ((h % 12) / 12 + mm / 720) * 360
     const minAngle = (mm / 60 + ss / 3600) * 360
