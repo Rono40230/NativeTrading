@@ -4,8 +4,8 @@
     <div class="grid grid-cols-3 gap-2 lg:grid-cols-6 relative w-full mx-auto" style="max-width: 100%;">
       <div v-for="session in sessions" :key="session.nom" class="flex flex-col items-center gap-0">
 
-        <!-- Heure locale au niveau du titre : « 14:52:36 à PARIS » -->
-        <span class="text-[11px] font-extrabold uppercase tracking-wider mb-1.5" :class="session.labelCouleur">{{ session.heureTitre }} à {{ session.nom }}</span>
+        <!-- Heure locale au niveau du titre : « 14:52:36 à PARIS » (à minuscule) -->
+        <span class="text-[11px] font-extrabold tracking-wider mb-1.5" :class="session.labelCouleur">{{ session.heureTitre }} à {{ session.nom.toUpperCase() }}</span>
 
         <!-- Cadran analogique SVG -->
         <svg viewBox="0 0 100 100" class="w-16 h-16 drop-shadow-xl mb-1">
