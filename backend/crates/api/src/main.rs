@@ -35,6 +35,7 @@ mod rockets_suivi;
 mod rockets_suivi_worker;
 mod retention_job;
 mod runtime_handlers;
+mod runtime_replay;
 mod runtime_tick;
 mod scheduler_execution;
 mod sentiment_composite;

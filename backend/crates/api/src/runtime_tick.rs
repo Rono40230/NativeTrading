@@ -112,10 +112,6 @@ async fn charger_amorce_mtf_runtime(db: &db::Database, asset: &Asset) -> smc::v1
     }
 }
 
-fn barres_replay_v12(tf: Timeframe) -> i64 {
-    (7 * 1440 / tf.minutes() as i64).clamp(60, 10_080)
-}
-
 /// Période de relecture de la config workers (assets × timeframes).
 const RELECTURE_CONFIG_SEC: u64 = 60;
 
@@ -386,6 +382,21 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
             }
             runtime.enregistrer(asset.clone(), *tf, moteurs);
             ajouts += 1;
+            // Replay + réconciliation identiques aux couples Bybit : l'historique
+            // vient de la base (poussé par l'EA — pas de backfill REST), et les
+            // clôtures survenues pendant l'arrêt referment leurs lignes en base.
+            if let Some(r) =
+                crate::runtime_replay::rejouer_et_reconcilier(db, runtime, asset, *tf).await
+            {
+                tracing::info!(
+                    "Runtime tick: {} {} MT5 moteurs armés (replay {} bougies, {} signaux historiques, {} réconciliation(s))",
+                    asset.as_str(),
+                    tf.as_str(),
+                    r.bougies,
+                    r.signaux,
+                    r.ecritures_db
+                );
+            }
             continue;
         }
 
@@ -426,6 +437,18 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 )],
             );
             ajouts += 1;
+            // Replay M1 + réconciliation (cf. MT5 v12 ci-dessus) : rattrape
+            // les clôtures straddle survenues pendant l'arrêt.
+            if let Some(r) =
+                crate::runtime_replay::rejouer_et_reconcilier(db, runtime, asset, *tf).await
+            {
+                tracing::info!(
+                    "Runtime tick: {} MT5 straddle armé (replay {} bougies, {} réconciliation(s))",
+                    asset.as_str(),
+                    r.bougies,
+                    r.ecritures_db
+                );
+            }
             continue;
         }
 
@@ -499,29 +522,27 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 )
             }
         }
-        let profondeur = barres_replay_v12(*tf);
-        if let Ok(bougies) = db.obtenir_bougies(asset, tf, profondeur).await {
-            let debut = std::time::Instant::now();
-            let historique = runtime.rejouer(asset.clone(), *tf, &bougies);
+        let debut = std::time::Instant::now();
+        if let Some(r) = crate::runtime_replay::rejouer_et_reconcilier(db, runtime, asset, *tf).await
+        {
             // Réconciliation : les clôtures survenues PENDANT la fenêtre de
             // replay referment leurs lignes en base (trade ouvert avant un
             // arrêt, clôturé pendant). Pas de nouveaux signaux, pas de
             // Telegram — la clé stable (open_ts) fait la correspondance.
-            let nb_reconciliees = reconcilier_clotures(db, &historique.evenements).await;
-            if nb_reconciliees > 0 {
+            if r.ecritures_db > 0 {
                 tracing::info!(
                     "Runtime tick: {} {} réconciliation replay : {} clôture(s) appliquée(s)",
                     asset.as_str(),
                     tf.as_str(),
-                    nb_reconciliees
+                    r.ecritures_db
                 );
             }
             tracing::info!(
                 "Runtime tick: {} {} moteur v12 armé (replay {} bougies, {} signaux historiques, {:?})",
                 asset.as_str(),
                 tf.as_str(),
-                bougies.len(),
-                historique.signaux.len(),
+                r.bougies,
+                r.signaux,
                 debut.elapsed()
             );
         }
@@ -534,36 +555,6 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
             runtime.cles().len()
         );
     }
-}
-
-/// Réconciliation du replay : applique en base les clôtures survenues pendant
-/// la fenêtre rejouée (trades ouverts avant un arrêt). Silencieux — pas de
-/// Telegram, pas de nouveaux signaux. Retourne le nombre de lignes fermées.
-async fn reconcilier_clotures(
-    db: &Arc<Database>,
-    evenements: &[engine::EvenementTrade],
-) -> u64 {
-    let mut total = 0u64;
-    for e in evenements {
-        if !matches!(e.evenement, engine::TypeEvenementTrade::Cloture) {
-            continue;
-        }
-        let verdict = e.detail.split('|').next().unwrap_or("Expire");
-        let r = e
-            .detail
-            .split('|')
-            .nth(1)
-            .and_then(|s| s.parse::<f64>().ok())
-            .unwrap_or(0.0);
-        match db
-            .fermer_signal_par_cle(&e.cle_trade, e.asset.as_str(), verdict, e.prix, r, e.emis_le.timestamp())
-            .await
-        {
-            Ok(n) => total += n,
-            Err(err) => tracing::warn!("Réconciliation replay ({}): {}", e.cle_trade, err),
-        }
-    }
-    total
 }
 
 /// Actifs MT5 armés aussi en moteur v12 (calibration SMC dédiée). Les

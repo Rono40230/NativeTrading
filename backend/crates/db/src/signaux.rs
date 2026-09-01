@@ -17,6 +17,55 @@ pub struct SignalActif {
     pub cree_le: i64,
 }
 
+/// Signal actif avec sa clé moteur — pour la réconciliation replay par
+/// proximité (clé exacte défaillante quand la genèse dérive entre le live
+/// et un replay fraîchement réchauffé).
+#[derive(Debug, Serialize)]
+pub struct SignalActifCle {
+    pub id: String,
+    pub asset: String,
+    pub timeframe: String,
+    pub strategie: String,
+    pub direction: String,
+    pub prix_entree: f64,
+    pub stop_loss: f64,
+    pub take_profit: Vec<f64>,
+    pub cle_moteur: String,
+    pub heure_entree: Option<i64>,
+    pub cree_le: i64,
+}
+
+/// Liste les signaux Actifs avec clé moteur et timeframe.
+pub async fn lister_actifs_avec_cle(pool: &SqlitePool) -> Result<Vec<SignalActifCle>> {
+    let rows = sqlx::query(
+        "SELECT id, asset, timeframe, strategie, direction, prix_entree, stop_loss,
+                take_profit, cle_moteur, heure_entree, cree_le
+         FROM signaux WHERE statut = 'Actif' AND cle_moteur IS NOT NULL
+         ORDER BY cree_le DESC",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+
+    Ok(rows
+        .iter()
+        .map(|row| SignalActifCle {
+            id: row.get("id"),
+            asset: row.get("asset"),
+            timeframe: row.get("timeframe"),
+            strategie: row.get("strategie"),
+            direction: row.get("direction"),
+            prix_entree: row.get("prix_entree"),
+            stop_loss: row.get("stop_loss"),
+            take_profit: serde_json::from_str(&row.get::<String, _>("take_profit"))
+                .unwrap_or_default(),
+            cle_moteur: row.get("cle_moteur"),
+            heure_entree: row.get("heure_entree"),
+            cree_le: row.get("cree_le"),
+        })
+        .collect())
+}
+
 // ── Fonctions libres sur SqlitePool (utilisées par le worker) ────────────────
 
 pub async fn lister_actifs(pool: &SqlitePool) -> Result<Vec<SignalActif>> {
