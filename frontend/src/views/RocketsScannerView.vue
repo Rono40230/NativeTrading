@@ -37,7 +37,11 @@
         <tbody>
           <tr v-for="(c, i) in candidatsAffiches" :key="c.symbole" class="border-b border-white/5 hover:bg-white/5" :class="c.elimine_le ? 'opacity-50' : ''">
             <td class="px-3 py-2.5 text-gray-500">{{ i + 1 }}</td>
-            <td class="px-3 py-2.5 font-semibold" :class="c.elimine_le ? 'text-gray-500' : 'text-white'">{{ c.symbole }}</td>
+            <td class="px-3 py-2.5 font-semibold whitespace-nowrap" :class="c.elimine_le ? 'text-gray-500' : 'text-white'">
+              {{ c.symbole }}
+              <span v-if="c.earnings_le" class="ml-1 text-[9px] px-1 py-0.5 rounded bg-orange-900/60 text-orange-300 align-middle"
+                    :title="`Résultats trimestriels attendus le ${c.earnings_le} — risque de gap (avertissement, pas de veto)`">📊 {{ c.earnings_le.slice(5) }}</span>
+            </td>
             <td class="px-3 py-2.5 text-center">
               <span v-if="c.univers === 'action'" class="text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-blue-500/10 text-blue-300 border-blue-500/30"
                     title="Action US — veille en Observation (source Tiingo, référence QQQ)">Action US</span>
@@ -104,6 +108,7 @@ interface Candidat {
   univers?: string   // 'crypto' (défaut) | 'action'
   maj_le?: number    // détection du setup (dernier passage l'ayant retenu)
   elimine_le?: number | null  // sortie du suivi (null = actif)
+  earnings_le?: string | null // date de résultats (action US) si annoncée
   pivot: number; stop: number; cassure: boolean
   detail: Record<string, boolean | null>
   news_verdict?: string; news_conviction?: number; news_justification?: string

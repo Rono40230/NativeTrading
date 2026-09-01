@@ -45,6 +45,7 @@ mod straddle_agenda;
 mod straddle_atr;
 mod rockets_actions;
 mod rockets_actions_backfill;
+mod rockets_actions_news;
 mod rockets_actions_scanner;
 mod rockets_verticale;
 mod rockets_ia;

@@ -410,7 +410,7 @@ async fn gerer_positions(db: &Arc<Database>) {
 /// noté au moins bien noté, avec pivot/stop/cassure et détail JSON.
 pub async fn get_candidats(state: actix_web::web::Data<crate::state::AppState>) -> impl actix_web::Responder {
     let rows = match sqlx::query(
-        "SELECT symbole, points, verdict, pivot, stop, cassure, detail, maj_le, univers, elimine_le
+        "SELECT symbole, points, verdict, pivot, stop, cassure, detail, maj_le, univers, elimine_le, earnings_le
          FROM rockets_candidats
          ORDER BY (elimine_le IS NULL) DESC, points DESC, maj_le DESC LIMIT 60",
     )
@@ -431,6 +431,7 @@ pub async fn get_candidats(state: actix_web::web::Data<crate::state::AppState>) 
                 "univers": r.get::<String, _>("univers"),
                 "maj_le": r.get::<i64, _>("maj_le"),
                 "elimine_le": r.get::<Option<i64>, _>("elimine_le"),
+                "earnings_le": r.get::<Option<String>, _>("earnings_le"),
                 "points": r.get::<i64, _>("points"),
                 "verdict": r.get::<String, _>("verdict"),
                 "pivot": r.get::<f64, _>("pivot"),

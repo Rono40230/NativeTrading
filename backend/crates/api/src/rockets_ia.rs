@@ -52,6 +52,8 @@ struct VerdictNews {
     verdict: String,
     conviction: i64,
     justification: String,
+    /// Date de résultats (actions US) si une dépêche la mentionne — validée.
+    earnings_le: Option<String>,
 }
 
 /// Extrait le premier objet JSON valide de la réponse (qwen3 peut
@@ -96,6 +98,10 @@ async fn evaluer_un(db: &db::Database, symbole: &str, points_base: u8) -> Option
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
+        earnings_le: json
+            .get("earnings_date")
+            .and_then(|v| v.as_str())
+            .and_then(crate::rockets_actions_news::valider_date_earnings),
     })
 }
 
@@ -129,7 +135,8 @@ pub(crate) async fn evaluer_news(db: &std::sync::Arc<db::Database>) {
                 let _ = sqlx::query(
                     "UPDATE rockets_candidats
                      SET news_verdict = ?, news_conviction = ?, news_justification = ?,
-                         news_points = ?, points = ?, verdict = ?
+                         news_points = ?, points = ?, verdict = ?,
+                         earnings_le = COALESCE(?, earnings_le)
                      WHERE symbole = ?",
                 )
                 .bind(&v.verdict)
@@ -138,6 +145,7 @@ pub(crate) async fn evaluer_news(db: &std::sync::Arc<db::Database>) {
                 .bind(news_points)
                 .bind(total)
                 .bind(verdict)
+                .bind(&v.earnings_le)
                 .bind(&symbole)
                 .execute(db.pool())
                 .await;

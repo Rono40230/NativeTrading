@@ -119,6 +119,12 @@ pub async fn scanner_actions(db: &Arc<Database>) -> serde_json::Value {
     .execute(db.pool())
     .await;
 
+    // Étape D : collecte des dépêches Yahoo des candidats (l'analyste
+    // rockets_catalyseur les lira via evaluer_news du flux crypto/actions).
+    if candidats > 0 {
+        crate::rockets_actions_news::collecter(db).await;
+    }
+
     tracing::info!(
         "🚀 Scanner actions : {evalues} évalués, {passants} passants template, {candidats} candidats ≥5, {cassures} cassure(s) — marché QQQ haussier={}",
         ctx.marche_haussier
