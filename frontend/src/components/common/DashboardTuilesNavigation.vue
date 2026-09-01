@@ -44,7 +44,6 @@
       <template v-else-if="t.id === 'ia'">
         <span class="text-[10px] text-white truncate">{{ modele ? `Modèle : ${modele}` : 'Statut IA indisponible' }} {{ ollamaOk === false ? '· Ollama ⚠️' : '' }}</span>
         <span v-if="derniereAnalyse" class="text-[10px] text-white truncate">🖼️ {{ derniereAnalyse.asset }} {{ derniereAnalyse.tf }} · il y a {{ ageTs(derniereAnalyse.ts) }}</span>
-        <span v-else class="text-[10px] text-white">Aucune analyse graphique encore</span>
         <div class="mt-auto flex gap-1">
           <button v-for="r in raccourcisIa" :key="r.to" class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-white transition-colors" @click.stop="router.push(r.to)">{{ r.label }}</button>
         </div>
