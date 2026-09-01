@@ -10,7 +10,6 @@
           @click="filtreUnivers = f.val"
         >{{ f.label }}</button>
       </div>
-      <button class="ml-auto btn-sm" @click="charger">🔄 Actualiser</button>
     </div>
 
     <div class="flex-1 min-h-0 overflow-y-auto glass-card">
