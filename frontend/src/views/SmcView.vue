@@ -18,7 +18,9 @@
         <span v-if="historique.totaux.value.ref !== null" class="font-mono text-emerald-400">Σ palier {{ formatR(historique.totaux.value.ref) }}</span>
         <span v-if="historique.totaux.value.realise !== null" class="font-mono text-gray-500">Σ réalisé {{ formatR(historique.totaux.value.realise) }}</span>
         <span v-if="historique.totaux.value.jamaisRemplis > 0" class="text-gray-600">· {{ historique.totaux.value.jamaisRemplis }} jamais remplis</span>
-        <button class="ml-auto btn-sm bg-purple-700 hover:bg-purple-600" title="Analyse de performance approfondie" @click="ouvrirAnalyse">📊 Analyse</button>
+      </div>
+      <div class="flex justify-end mb-2">
+        <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="ouvrirAnalyse">📊 Analyse</button>
       </div>
       <HistoryTable
         :signaux="historique.signauxFiltres.value"
