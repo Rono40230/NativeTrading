@@ -13,10 +13,10 @@
     <template #encours>
       <SignauxTableau ref="tableauRef" strategie="Rockets" @nb-signaux="nbEncours = $event" />
     </template>
+    <template #historique-actions>
+      <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="ouvrirAnalyse">📊 Analyse</button>
+    </template>
     <template #historique>
-      <div class="flex justify-end mb-2">
-        <button class="btn-sm bg-purple-700 hover:bg-purple-600" title="Analyse de performance approfondie" @click="ouvrirAnalyse">📊 Analyse</button>
-      </div>
       <RocketsTableau
         :rockets="rocketsFiltrés"
         :prix-actuels="prixActuels"

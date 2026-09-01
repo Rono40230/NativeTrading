@@ -33,9 +33,12 @@
       </div>
 
       <section class="glass-card px-4 py-3 flex flex-col min-h-0">
-        <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider mb-2 shrink-0">
-          📜 Historique des trades
-        </h2>
+        <div class="flex items-center mb-2 shrink-0">
+          <h2 class="text-xs uppercase text-gray-500 font-semibold tracking-wider">
+            📜 Historique des trades
+          </h2>
+          <div class="ml-auto"><slot name="historique-actions" /></div>
+        </div>
         <slot name="historique" />
       </section>
     </div>
