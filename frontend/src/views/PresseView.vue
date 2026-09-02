@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col min-h-full">
+  <div class="flex flex-col min-h-full bg-sky-500/5 rounded-xl px-3 py-2 -mx-1">
     <!-- Bandeau -->
     <div class="flex items-center justify-between shrink-0 mb-4">
       <h1 class="text-2xl font-bold">📰 Revue de presse</h1>
@@ -84,7 +84,7 @@
           </select>
           <select v-model="filtre.lu" class="bg-white text-black rounded-lg px-2 py-1.5 text-sm" @change="charger()">
             <!-- lu=true → articles LUS, lu=false → NON LUS (interprétation backend) -->
-            <option value="">Lu + non lus</option><option value="true">Lis</option><option value="false">Non lus</option>
+            <option value="">Lu + non lus</option><option value="true">Lus</option><option value="false">Non lus</option>
           </select>
           <!-- articles.length = total chargé (toutes pages « Charger plus » confondues) -->
           <span class="text-xs text-white">{{ articles.length }} articles</span>

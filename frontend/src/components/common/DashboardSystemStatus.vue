@@ -1,5 +1,5 @@
 <template>
-  <div class="glass-card flex flex-col p-2 min-h-0 shrink-0">
+  <div class="rounded-xl border border-cyan-500/25 bg-cyan-500/10 backdrop-blur-sm flex flex-col p-2 min-h-0 shrink-0">
     <div class="shrink-0 mb-1 border-b border-white/10 pb-1">
       <p class="text-xs uppercase font-bold text-white whitespace-nowrap truncate">⚙️ Data & IA Engine</p>
     </div>

@@ -5,6 +5,10 @@
     etat="Officielle"
     route-definition="/smc/definition"
     lexique="smc"
+    teinte="bg-blue-500/5"
+    libelle-definition="📖 Caractéristiques de la SMC"
+    :afficher-lexique="false"
+    :ordre-poses="nbOrdresPoses(signauxActifs, 'SMC')"
     :titre-encours="`${nbEncours} ${nbEncours > 1 ? 'signaux' : 'signal'} en cours`"
   >
     <template #setups>
@@ -41,6 +45,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import StrategyShell from '@/components/common/StrategyShell.vue'
+import { nbOrdresPoses } from '@/composables/useSignalFormat'
 import SignauxTableau from '@/components/common/SignauxTableau.vue'
 import SignauxEnAttente from '@/components/common/SignauxEnAttente.vue'
 import SetupsFormationPanel from '@/components/common/SetupsFormationPanel.vue'

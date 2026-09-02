@@ -1,5 +1,5 @@
 <template>
-  <div class="flex-1 min-h-0 flex flex-col gap-3">
+  <div class="flex-1 min-h-0 flex flex-col gap-3 rounded-xl" :class="teinte">
     <!-- En-tête : identité + définition + lexique (retour = bouton Dashboard de la barre de titre) -->
     <div class="glass-card px-4 py-3 flex items-center gap-3 shrink-0">
       <span class="text-xl leading-none">{{ icone }}</span>
@@ -9,8 +9,8 @@
         :class="badgeClasse"
       >{{ etat }}</span>
       <div class="ml-auto flex gap-2 shrink-0">
-        <button class="btn-sm" @click="router.push(routeDefinition)">📖 Définition</button>
-        <button class="btn-sm" @click="lexiqueOuvert = true">📚 Lexique</button>
+        <button class="btn-sm" @click="router.push(routeDefinition)">{{ libelleDefinition }}</button>
+        <button v-if="afficherLexique" class="btn-sm" @click="lexiqueOuvert = true">📚 Lexique</button>
       </div>
     </div>
 
@@ -20,12 +20,12 @@
       <div class="grid grid-cols-6 gap-3 min-h-0 h-full">
         <section v-if="$slots.setups" class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-1 overflow-hidden">
           <h2 class="text-xs uppercase text-white font-semibold tracking-wider mb-2 shrink-0">
-            ⏳ Setups en attente
+            ⏳ Setups en attente<span v-if="ordrePoses" class="text-amber-300"> · {{ ordrePoses }} ordre{{ ordrePoses > 1 ? 's' : '' }} posé{{ ordrePoses > 1 ? 's' : '' }}</span>
           </h2>
           <!-- Même hauteur que le bloc des signaux en cours (grille) — le
                contenu défile en interne ; pr-2 réserve la gouttière de la
                barre pour qu'elle ne chevauche pas les cartes. -->
-          <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-2">
+          <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-3">
             <slot name="setups" />
           </div>
         </section>
@@ -75,13 +75,22 @@ import LexiquePanel from '@/components/common/LexiquePanel.vue'
 
 const props = withDefaults(defineProps<{
   titre: string
+  /** Compteur d'ordres posés (jamais remplis) affiché dans le titre setups. */
+  ordrePoses?: number
+  /** Fond teinté de la page — la couleur de sa carte du dashboard. */
+  teinte?: string
+  /** Libellé du bouton d'accès aux caractéristiques (défaut « 📖 Définition »). */
+  libelleDefinition?: string
+  /** Bouton 📚 Lexique masqué quand le lexique vit en onglet de la page
+   *  caractéristiques (vrai par défaut). */
+  afficherLexique?: boolean
   icone: string
   etat?: string
   routeDefinition: string
   lexique?: 'smc' | 'straddle' | 'rockets'
   /// Titre de la section en cours (ex. « 3 signaux en cours »).
   titreEncours?: string
-}>(), { etat: 'Observation', lexique: 'smc' })
+}>(), { etat: 'Observation', lexique: 'smc', libelleDefinition: '📖 Définition', afficherLexique: true })
 
 const router = useRouter()
 const lexiqueOuvert = ref(false)

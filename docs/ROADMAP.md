@@ -1,6 +1,6 @@
 # ROADMAP — Native Trading AI
 
-> État au 29 août 2026. Cette roadmap ne contient que **ce qu'il reste à faire**.
+> État au 2 septembre 2026. Cette roadmap ne contient que **ce qu'il reste à faire**.
 > Le détail des phases livrées SMC v12 vit dans `docs/AMELIORATIONS_SMC_V12.md`,
 > les études des étapes 3-4 dans `docs/ETAPE3_*.md` et `docs/ETAPE4_CALCUL_TRADES.md`.
 
@@ -111,6 +111,30 @@ hebdomadaires) — au-delà du calendrier actuel.
 - [ ] **Journalisation du détail scoring** (préalable si analyse par confluence) : stocker le
       détail point par point à l'émission du signal
 
+**Conviction IA à l'émission — colonne « IA » des tableaux (SMC + Straddle)**
+
+La colonne « IA » des tableaux (trades en cours + historique) est **réservée** : elle doit
+afficher la conviction (0-100, pastille verte ≥ 70 / jaune ≥ 50 / rouge) que l'analyste IA
+donne à chaque signal au moment de son émission, avec sa justification écrite en infobulle.
+Elle est aujourd'hui vide partout (`signaux.llm_conviction` / `llm_raison` = NULL — reliquat
+du système v1 suspendu ; l'analyste Rockets actuel écrit dans les tables du scanner, pas ici).
+
+Ce que le chantier doit faire :
+
+- [ ] **Prompt dédié** (`llm/prompts.rs`) : l'analyste reçoit le signal complet (asset, TF,
+      direction, niveaux, force/confluences, contexte marché) et répond en JSON
+      `{conviction 0-100, raison 1-2 phrases}` — même format que l'analyste Rockets
+      (règle transverse : stratégie changée = prompt changé, dès la v1)
+- [ ] **Déclencheur à l'émission** : chaque signal officiel SMC/straddle part à l'analyste
+      en asynchrone — jamais dans le chemin du signal (R4), jamais bloquant
+- [ ] **Écriture** : `UPDATE signaux SET llm_conviction, llm_raison` — l'affichage existe
+      déjà (pastille + infobulle dans les deux tableaux)
+- [ ] **Observation d'abord** : l'IA lit et note, elle ne filtre RIEN (constitution :
+      l'IA n'exécute jamais)
+- [ ] **Corrélation sur preuve** : après ≥ 30 trades remplis avec conviction, croiser
+      conviction × verdict (les pastilles vertes gagnent-elles plus ?) → décision
+      propriétaire sur un éventuel filtre — pas avant
+
 ### 8. Rockets — Extensions
 
 - [ ] **Véto unlocks** : source libre (API/scraping d'un calendrier public de déverrouillages
@@ -133,6 +157,30 @@ hebdomadaires) — au-delà du calendrier actuel.
 - [ ] Config `worker_historique_mois` : 6 mois mais l'historique MT5 en couvre 24 — harmoniser
       avec la rétention
 - [ ] Leçons L1-L11 : à relire avant toute intervention (archivées au journal)
+
+### 10. Boucle ML — réveiller le feedback, la calibration et les suggestions LLM
+
+Les onglets « 📉 Métriques ML » et « 🤖 Dashboard LLM » (page IA › Prompts) sont branchés sur
+des endpoints sains mais servis vides : les tables `smc_feedback` / `straddle_feedback` /
+`rockets_feedback` sont à 0 ligne — la boucle de feedback n'a jamais tourné depuis le pivot
+vers les moteurs déterministes (le crochet du pipeline ML est commenté dans `main.rs` ;
+trainers XGBoost/LSTM, walk-forward et fichiers modèles restent en place dans la crate `ml`).
+
+Ce que le chantier doit faire :
+
+- [ ] **Alimenter le feedback à la clôture** : chaque trade clôturé (SMC, straddle, rockets)
+      écrit sa ligne — features à l'émission + verdict en R — dans la table de sa stratégie ;
+      rejouer l'existant clôturé pour amorcer la pompe (~96 SMC + 13 straddle déjà en base)
+- [ ] **Remettre les vues en données** : les tableaux de calibration (Métriques ML) passent
+      alors de valeurs nulles à des valeurs réelles — afficher la fraîcheur (date du dernier
+      feedback) pour distinguer « vide » et « à jour »
+- [ ] **Réveiller le Dashboard LLM** : stats de feedback + suggestions de paramètres générées
+      par l'analyste, application manuelle du propriétaire uniquement (constitution : l'IA ne
+      touche jamais aux réglages d'elle-même)
+- [ ] **Réentraînement sur preuve** : `POST /api/ml/retrain` ne se lance que sur décision du
+      propriétaire, sur un stock de feedback suffisant (le walk-forward est déjà implémenté)
+- [ ] **Seuils d'activation par étage** : définir le nombre minimal de trades clôturés par
+      stratégie avant d'activer calibration, puis suggestions, puis réentraînement
 
 ---
 

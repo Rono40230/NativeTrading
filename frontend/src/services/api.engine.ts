@@ -25,4 +25,12 @@ export const engineApi = {
     const res = await http.get('/api/volatility/patterns', { params: { asset, timeframe, mois } })
     return res.data
   },
+
+  /** Patterns horaires (clusters quartiles + seuil P85) de tous les assets
+   * actifs, 24 mois au M1 — matière première du bloc Créneaux du dashboard
+   * (jour courant par asset + analyses). Cache serveur d'une heure. */
+  async obtenirPatternsJourTousActifs(): Promise<ReponsePatternsVolatilite[]> {
+    const res = await http.get('/api/volatility/patterns-jour')
+    return res.data.assets
+  },
 }

@@ -3,8 +3,7 @@
 
     <!-- En-tête : identité + état du registre -->
     <div class="flex items-center gap-3 shrink-0">
-      <h1 class="text-2xl font-bold text-white">⚡ Straddle</h1>
-      <span class="text-white text-base hidden sm:inline">Volatilité événementielle — ordre miroir deux jambes</span>
+      <h1 class="text-2xl font-bold text-white">📐 Les caractéristiques de la stratégie Straddle</h1>
       <span
         v-if="reglages"
         class="ml-auto text-[11px] font-semibold px-2.5 py-1 rounded-full border"
@@ -12,7 +11,7 @@
       >{{ reglages.etat }}</span>
     </div>
 
-    <!-- Onglets (gabarit vertical : 4 sections, pas de lexique) -->
+    <!-- Barre d'onglets -->
     <div class="flex gap-1 border-b border-white/10 shrink-0">
       <button
         v-for="t in onglets"
@@ -25,128 +24,366 @@
 
     <div class="flex-1 min-h-0 overflow-y-auto pr-1">
 
-      <!-- ═══ DÉFINITION ═══ -->
+      <!-- ═══ ONGLET DÉFINITION ═══ -->
       <div v-if="onglet === 'Définition'" class="flex flex-col gap-3">
         <carte titre="Concept">
-          Le straddle capture les mouvements de volatilité VIOLENTS ET BREFS déclenchés par les
+          <svg viewBox="0 0 440 110" class="w-full aspect-[440/110] mb-2">
+            <!-- Prix de référence E -->
+            <line x1="20" y1="55" x2="420" y2="55" stroke="#ffffff" stroke-width="0.8" stroke-dasharray="4 3" />
+            <text x="22" y="50" fill="#ffffff" font-size="7" font-weight="700">E</text>
+            <!-- L'annonce -->
+            <line x1="200" y1="15" x2="200" y2="100" stroke="#fbbf24" stroke-width="1" stroke-dasharray="3 3" />
+            <text x="150" y="12" fill="#fbbf24" font-size="7" font-weight="700">annonce</text>
+            <!-- Range avant l'annonce -->
+            <polyline points="20,58 50,50 80,60 110,52 140,58 170,53 200,55" fill="none" stroke="#e5e7eb" stroke-width="1.2" stroke-linejoin="round" />
+            <!-- La cassure remplit la jambe du bon côté -->
+            <line x1="200" y1="55" x2="285" y2="18" stroke="#34d399" stroke-width="2" />
+            <polygon points="285,18 277,21 282,27" fill="#34d399" />
+            <circle cx="250" cy="42" r="2.8" fill="#ffffff" />
+            <text x="295" y="30" fill="#34d399" font-size="7" font-weight="700">jambe remplie</text>
+            <!-- La jambe opposée est annulée -->
+            <line x1="230" y1="60" x2="230" y2="88" stroke="#f87171" stroke-width="1.2" stroke-dasharray="3 3" />
+            <polygon points="230,92 226,84 234,84" fill="#f87171" />
+            <line x1="226" y1="66" x2="234" y2="74" stroke="#f87171" stroke-width="1.4" />
+            <line x1="234" y1="66" x2="226" y2="74" stroke="#f87171" stroke-width="1.4" />
+            <text x="244" y="86" fill="#f87171" font-size="7" font-weight="700">annulée (OCO)</text>
+          </svg>
+          Le straddle capture les mouvements de volatilité violents et brefs déclenchés par les
           événements de marché : autour d'une annonce forte, deux ordres miroir attendent la
-          cassure — la jambe du bon côté entre, quelle que soit la direction.
-          L'autre est annulée. Pas d'anticipation directionnelle : la stratégie achète la
-          volatilité elle-même.
+          cassure — la jambe du bon côté entre, quelle que soit la direction, l'autre est
+          annulée. Pas d'anticipation directionnelle : la stratégie achète la volatilité
+          elle-même.
         </carte>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <carte titre="Le déclencheur">
-            Périmètre acté : XAU, BTC, NAS100 et SP500 sur les <b>annonces US fortes</b>
-            (impact High du calendrier économique) ; DAX sur <b>l'ouverture européenne</b>
-            (9h00 Paris). XAU et BTC sont armés en temps réel ; NAS100, SP500 et DAX
-            attendent le branchement MT5 (phase 5).
+            Périmètre acté : <b class="text-white">XAU, BTC, NAS100, SP500 et DAX</b>. Les annonces
+            US fortes (impact High du calendrier économique) arment XAU, BTC, NAS100 et SP500 ;
+            le DAX joue <b class="text-white">l'ouverture européenne</b> (9h00 Paris). XAU et BTC
+            en ticks temps réel, NAS100, SP500 et DAX en M1 via MT5.
           </carte>
           <carte titre="La fenêtre">
-            À T-30 minutes, le moteur entre en préparation : observation du range et
-            chauffage de l'ATR14. À T-10 secondes (réglable), les deux jambes sont posées
-            au prix courant E et armées immédiatement — le premier franchissement de E,
-            même avant l'annonce, remplit la jambe dans son sens.
+            À T-30 minutes, le moteur entre en préparation : observation du range et chauffage de
+            l'ATR14. À T-10 secondes (réglable), les deux jambes sont posées au prix courant E
+            et armées immédiatement — le premier franchissement de E, même avant l'annonce,
+            remplit la jambe dans son sens.
           </carte>
         </div>
       </div>
 
-      <!-- ═══ DÉCISION D'ENTRÉE ═══ -->
+      <!-- ═══ ONGLET LEXIQUE ═══ -->
+      <div v-if="onglet === 'Lexique'" class="flex flex-col gap-3">
+        <LexiquePanel source="straddle" />
+      </div>
+
+      <!-- ═══ ONGLET DÉCISION D'ENTRÉE ═══ -->
       <div v-if="onglet === 'Décision d\u2019entrée'" class="flex flex-col gap-3">
         <carte titre="L'ordre miroir">
-          <ul class="space-y-1.5">
-            <li>Les deux jambes entrent au <b>même prix E</b> : prix courant à T-10 secondes.</li>
-            <li>Buy-stop à E : se remplit si le prix passe au-dessus.</li>
-            <li>Sell-stop à E : se remplit si le prix passe en dessous.</li>
-            <li><b>OCO</b> : la première jambe remplie annule l'autre instantanément.</li>
-          </ul>
-        </carte>
-        <carte titre="Le risque R">
-          R, l'unité de risque, vaut la distance du stop : <b>R = facteur SL × ATR14</b>
-          (réglable dans la carte paramètres — le lot en découle : 1R = capital × risque).
-          Tous les niveaux de la stratégie s'expriment en R : SL à ±1R, TP1 à 1R, TP2 à 2R.
-        </carte>
-        <carte titre="Expiration">
-          Si aucun francissement ne survient, les deux jambes expirent 30 minutes après
-          l'annonce — la volatilité attendue n'est pas venue, on repart sans position.
-        </carte>
-      </div>
-
-      <!-- ═══ GESTION DES TRADES OUVERTS ═══ -->
-      <div v-if="onglet === 'Gestion des trades ouverts'" class="flex flex-col gap-3">
-        <carte titre="Le cycle de la jambe survivante">
-          <ol class="list-decimal ml-5 space-y-1.5">
-            <li><b>Remplissage</b> — la jambe est entrée à E, stop à E ∓ 1R.</li>
-            <li><b>TP1 = 1R touché</b> — le stop remonte à l'entrée : break-even garanti.</li>
-            <li><b>TP2 = 2R touché</b> — le stop remonte à TP1 et le <b>trailing stop démarre</b>.</li>
-            <li><b>Trailing</b> — le stop suit le prix <b>au tick</b>, à distance réglable
-            (en ×R), jamais vers l'arrière : il verrouille le mouvement violent pendant
-            qu'il dure.</li>
-            <li><b>Sortie</b> — sur le trailing touché (TS), sur retour au stop (BE/SL),
-            ou au time-stop de 60 minutes après le remplissage (TimeStop, au prix courant).</li>
-          </ol>
-        </carte>
-        <carte titre="Verdicts">
-          Chaque passe clôturée reçoit son verdict et son R réel : SL (-1R), BE (0R),
-          TS (trailing, R variable &gt; 1R), TimeStop (R au prix de sortie). Ils alimentent
-          la courbe de trades du bloc Straddle. En Observation : journalisé, silencieux
-          sur Telegram.
-        </carte>
-      </div>
-
-      <!-- ═══ MONEY MANAGEMENT ═══ -->
-      <div v-if="onglet === 'Money management'" class="flex flex-col gap-3">
-        <carte titre="Les trois couches (communes aux stratégies)">
-          <div class="flex flex-col gap-2">
-            <p><b class="text-white">1. Conventions par actif</b> (onglet gestion du risque) — taille et valeur du pip, lot min/max.</p>
-            <p><b class="text-white">2. Allocation par stratégie</b> — capital dédié et risque 1 à 3 % par passe, dans Paramètres › stratégies › Straddle.</p>
-            <p><b class="text-white">3. Calcul au signal</b> — lot = (capital × risque) ÷ (stop en pips × valeur du pip), stop = 1R = facteur SL × ATR14.</p>
+          <svg viewBox="0 0 440 110" class="w-full aspect-[440/110] mb-2">
+            <!-- Prix E : les deux ordres au même niveau -->
+            <line x1="20" y1="55" x2="420" y2="55" stroke="#ffffff" stroke-width="0.8" stroke-dasharray="4 3" />
+            <text x="24" y="50" fill="#ffffff" font-size="7" font-weight="700">E · prix à T-10 s</text>
+            <!-- Buy-stop au-dessus de E -->
+            <line x1="220" y1="50" x2="220" y2="20" stroke="#34d399" stroke-width="1.6" />
+            <polygon points="220,14 215,22 225,22" fill="#34d399" />
+            <text x="232" y="26" fill="#34d399" font-size="7" font-weight="700">buy-stop</text>
+            <!-- Sell-stop en dessous de E -->
+            <line x1="220" y1="60" x2="220" y2="90" stroke="#f87171" stroke-width="1.6" />
+            <polygon points="220,96 215,88 225,88" fill="#f87171" />
+            <text x="232" y="80" fill="#f87171" font-size="7" font-weight="700">sell-stop</text>
+            <!-- Le lien OCO -->
+            <text x="220" y="107" text-anchor="middle" fill="#fbbf24" font-size="7" font-weight="700">OCO — la première remplie annule l'autre</text>
+          </svg>
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">① Même prix</div>
+              <p>Les deux jambes entrent au même prix E : le prix courant à T-10 secondes.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">② Buy-stop</div>
+              <p>À E : se remplit si le prix passe au-dessus.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">③ Sell-stop</div>
+              <p>À E : se remplit si le prix passe en dessous.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">④ OCO</div>
+              <p>La première jambe remplie annule l'autre instantanément.</p>
+            </div>
           </div>
         </carte>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <carte titre="Le risque R — l'échelle en R">
+            <svg viewBox="0 0 440 110" class="w-full aspect-[440/110] mb-2">
+              <!-- Échelle des niveaux, proportionnelle en R -->
+              <line x1="68" y1="22" x2="290" y2="22" stroke="#34d399" stroke-width="0.9" stroke-dasharray="4 3" />
+              <text x="298" y="25" fill="#34d399" font-size="7.5" font-weight="700">TP2 · +2R</text>
+              <line x1="68" y1="46" x2="290" y2="46" stroke="#60a5fa" stroke-width="0.9" stroke-dasharray="4 3" />
+              <text x="298" y="49" fill="#60a5fa" font-size="7.5" font-weight="700">TP1 · +1R</text>
+              <line x1="68" y1="70" x2="290" y2="70" stroke="#ffffff" stroke-width="0.9" stroke-dasharray="4 3" />
+              <text x="298" y="73" fill="#ffffff" font-size="7.5" font-weight="700">E · 0R</text>
+              <line x1="68" y1="94" x2="290" y2="94" stroke="#f87171" stroke-width="0.9" stroke-dasharray="4 3" />
+              <text x="298" y="97" fill="#f87171" font-size="7.5" font-weight="700">SL · −1R</text>
+              <!-- Remplissage, TP1 (BE), TP2 (trailing) -->
+              <polyline points="30,70 55,82 85,76 150,46 175,60 220,22 255,14" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round" />
+              <circle cx="150" cy="46" r="2.6" fill="#ffffff" />
+              <circle cx="220" cy="22" r="2.6" fill="#ffffff" />
+              <text x="232" y="48" fill="#fbbf24" font-size="7" font-weight="700">trailing</text>
+            </svg>
+            <p>R, l'unité de risque, vaut la distance du stop : <b class="text-white">R = facteur
+            SL × ATR14</b> (réglable dans la carte paramètres — le lot en découle : 1R =
+            capital × risque). Tous les niveaux s'expriment en R : SL à ±1R, TP1 à 1R, TP2 à 2R.</p>
+          </carte>
+          <carte titre="L'expiration">
+            Si aucun franchissement ne survient, les deux jambes expirent 30 minutes après
+            l'annonce — la volatilité attendue n'est pas venue, on repart sans position.
+          </carte>
+        </div>
+      </div>
+
+      <!-- ═══ ONGLET GESTION DES TRADES OUVERTS ═══ -->
+      <div v-if="onglet === 'Gestion des trades ouverts'" class="flex flex-col gap-3">
+        <carte titre="Le cycle de la jambe survivante">
+          <svg viewBox="0 0 560 70" class="w-full aspect-[560/70] mb-3">
+            <rect x="26" y="22" width="88" height="24" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" stroke-width="1" />
+            <text x="70" y="37.5" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="700">Remplissage</text>
+            <text x="70" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">jambe à E · stop ∓1R</text>
+            <rect x="166" y="22" width="88" height="24" rx="4" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
+            <text x="210" y="37.5" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">TP1 · 1R</text>
+            <text x="210" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">stop → BE</text>
+            <rect x="306" y="22" width="88" height="24" rx="4" fill="rgba(96,165,250,0.08)" stroke="#60a5fa" stroke-width="1" />
+            <text x="350" y="37.5" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="700">TP2 · 2R</text>
+            <text x="350" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">trailing démarre</text>
+            <rect x="446" y="22" width="88" height="24" rx="4" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1" />
+            <text x="490" y="37.5" text-anchor="middle" fill="#fbbf24" font-size="8" font-weight="700">Trailing</text>
+            <text x="490" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">au tick · distance ×R</text>
+            <line x1="118" y1="34" x2="158" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="162,34 156,31.5 156,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="258" y1="34" x2="298" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="302,34 296,31.5 296,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="398" y1="34" x2="438" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="442,34 436,31.5 436,36.5" fill="rgba(255,255,255,0.4)" />
+          </svg>
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">① Remplissage</div>
+              <p>La jambe est entrée à E, stop à E ∓ 1R — l'autre est annulée.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">② TP1 = 1R touché</div>
+              <p>Le stop remonte à l'entrée : break-even garanti.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">③ TP2 = 2R touché</div>
+              <p>Le stop remonte à TP1 et le trailing démarre.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">④ Trailing</div>
+              <p>Le stop suit le prix au tick, à distance réglable en ×R, jamais vers
+              l'arrière : il verrouille le mouvement violent pendant qu'il dure.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">⑤ Sortie</div>
+              <p>Trailing touché (TS), retour au stop (BE/SL) ou time-stop 60 minutes après
+              le remplissage, au prix courant.</p>
+            </div>
+          </div>
+        </carte>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <carte titre="Les verdicts">
+            <div class="flex flex-wrap gap-2 mb-2">
+              <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-red-400 border-red-400/40 bg-red-400/10">SL · −1R</span>
+              <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-white border-white/40 bg-white/10">BE · 0</span>
+              <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-emerald-400 border-emerald-400/40 bg-emerald-400/10">TS · R &gt; 1</span>
+              <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-amber-400 border-amber-400/40 bg-amber-400/10">TimeStop</span>
+            </div>
+            <p>Chaque passe clôturée reçoit son verdict et son R réel — ils alimentent la courbe
+            de trades du bloc Straddle. En Observation : journalisé, silencieux sur Telegram.</p>
+          </carte>
+          <carte titre="Le time-stop">
+            <div class="grid grid-cols-2 gap-2 mb-3">
+              <valeur etiquette="Après remplissage" valeur="60 min" />
+              <valeur etiquette="Sortie" valeur="au prix courant" />
+            </div>
+            <p>Au-delà, la jambe est clos au prix courant (verdict TimeStop) : elle ne survit
+            pas à sa fenêtre d'événement.</p>
+          </carte>
+        </div>
+      </div>
+
+      <!-- ═══ ONGLET MONEY MANAGEMENT ═══ -->
+      <div v-if="onglet === 'Money management'" class="flex flex-col gap-3">
+        <carte titre="Les trois couches">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">① Conventions par actif</div>
+              <p>Taille et valeur du pip, lot min/max — réglées dans l'onglet gestion du
+              risque.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">② Allocation par stratégie</div>
+              <p>Capital dédié et risque de 1 à 3 % par passe, réglés dans Paramètres ›
+              stratégies › Straddle.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">③ Calcul au signal</div>
+              <p>Le lot sort de la formule ci-dessous ; stop = 1R = facteur SL × ATR14.</p>
+            </div>
+          </div>
+        </carte>
+
+        <carte titre="La formule du lot">
+          <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 font-mono text-xl py-3">
+            <span class="text-violet-400 font-bold">lot</span>
+            <span class="text-white">=</span>
+            <span class="text-white">(</span>
+            <span class="font-bold">capital</span>
+            <span class="text-white">×</span>
+            <span class="text-blue-400 font-bold">risque %</span>
+            <span class="text-white">) ÷ (</span>
+            <span class="text-amber-400 font-bold">stop</span>
+            <span class="text-white">×</span>
+            <span class="text-emerald-400 font-bold">valeur du pip</span>
+            <span class="text-white">)</span>
+          </div>
+          <p class="text-center">Le risque en euros est figé au signal : seul le lot s'adapte à
+          la distance du stop, dérivée de l'ATR14.</p>
+        </carte>
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
           <valeur etiquette="Capital alloué" :valeur="reglageStr('capital')" />
           <valeur etiquette="Risque par passe" :valeur="reglageStr('risque')" />
           <valeur etiquette="1R représente" :valeur="reglageStr('unR')" />
         </div>
-        <carte titre="Une passe à la fois">
-          Le moteur ne gère qu'une position par annonce et par actif — jamais de
-          cumul : la volatilité événementielle se joue un événement à la fois.
+
+        <carte titre="Le R, unité de compte — une passe à la fois">
+          <svg viewBox="0 0 560 80" class="w-full aspect-[560/80] mb-2">
+            <!-- Échelle des verdicts, en multiples du risque -->
+            <rect x="20" y="46" width="160" height="6" fill="rgba(248,113,113,0.25)" />
+            <rect x="180" y="46" width="360" height="6" fill="rgba(52,211,153,0.25)" />
+            <line x1="20" y1="40" x2="540" y2="40" stroke="rgba(255,255,255,0.4)" stroke-width="1" />
+            <line x1="80" y1="28" x2="80" y2="52" stroke="#f87171" stroke-width="1.6" />
+            <text x="80" y="70" text-anchor="middle" fill="#f87171" font-size="8" font-weight="700">SL −1R</text>
+            <line x1="180" y1="28" x2="180" y2="52" stroke="#ffffff" stroke-width="1.6" />
+            <text x="180" y="70" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="700">BE 0</text>
+            <line x1="280" y1="28" x2="280" y2="52" stroke="#60a5fa" stroke-width="1.6" />
+            <text x="280" y="70" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="700">TP1 +1R</text>
+            <line x1="480" y1="28" x2="480" y2="52" stroke="#34d399" stroke-width="1.6" />
+            <text x="480" y="70" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">TP2 +2R</text>
+            <text x="280" y="18" text-anchor="middle" fill="#e5e7eb" font-size="7" font-weight="700">1R = facteur SL × ATR14</text>
+          </svg>
+          <p>Tous les trades se mesurent en multiples du risque initial : la performance se lit
+          en R cumulé et se convertit en évolution du capital via le risque par passe. Le moteur
+          ne gère qu'une position par annonce et par actif — jamais de cumul : la volatilité
+          événementielle se joue un événement à la fois.</p>
         </carte>
       </div>
 
-      <!-- ═══ ENRICHISSEMENT IA ═══ -->
+      <!-- ═══ ONGLET ENRICHISSEMENT IA ═══ -->
       <div v-if="onglet === 'Enrichissement IA'" class="flex flex-col gap-3">
-        <carte titre="Rôle de l'IA dans la stratégie">
-          <div class="flex flex-col gap-2">
-            <p><b class="text-white">1. Repérer les événements qui font bouger chaque actif</b> —
-            au-delà du simple calendrier « impact fort » : mesurer quelles annonces déplacent
-            réellement XAU, BTC, NAS100, SP500, et construire l'agenda pertinent par actif.</p>
-            <p><b class="text-white">2. Affiner l'heure d'entrée</b> — le T-10 s par défaut est
-            réglable : l'IA proposera un minutage par type d'événement et par actif, sur
-            preuve historique.</p>
-            <p><b class="text-white">3. Ouvert</b> — d'autres usages seront définis par le
-            propriétaire au fil des observations.</p>
+        <carte titre="Le rôle de l'IA dans la stratégie">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="font-semibold">La matière première</div>
+                <span class="px-2 py-0.5 rounded-full border text-[10px] font-semibold text-emerald-400 border-emerald-400/40 bg-emerald-400/10">ACTIVE</span>
+              </div>
+              <p>L'Observation journalise chaque passe dès maintenant — annonce, range,
+              remplissage, verdict en R. C'est en accumulant ces passes que l'IA apprendra
+              quels événements valent le coup.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="font-semibold">Agenda &amp; minutage par actif</div>
+                <span class="px-2 py-0.5 rounded-full border text-[10px] font-semibold text-amber-400 border-amber-400/40 bg-amber-400/10">À CADRER · ÉTAPE 6</span>
+              </div>
+              <p>Repérer les événements qui déplacent réellement chaque actif (au-delà du
+              libellé « High ») et proposer un minutage d'entrée par type d'événement, sur
+              preuve historique. D'autres usages seront définis par le propriétaire.</p>
+            </div>
           </div>
         </carte>
-        <carte titre="Fonctionnement">
-          L'IA tourne <b>en local</b> (Ollama), hors du temps réel. Sa matière première :
-          les <b>passes journalisées</b> — chaque annonce, son range, son remplissage, son
-          verdict en R (l'Observation les enregistre dès maintenant). C'est en accumulant
-          ces passes que l'IA apprendra quels événements valent le coup. Les textes des
-          prompts se règlent dans Outils IA › Prompts IA.
+
+        <carte titre="Le fonctionnement">
+          <svg viewBox="0 0 560 70" class="w-full aspect-[560/70] mb-3">
+            <rect x="26" y="22" width="88" height="24" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" stroke-width="1" />
+            <text x="70" y="37.5" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="700">Définition</text>
+            <text x="70" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">cette page · l'étalon</text>
+            <rect x="166" y="22" width="88" height="24" rx="4" fill="rgba(96,165,250,0.08)" stroke="#60a5fa" stroke-width="1" />
+            <text x="210" y="37.5" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="700">Passes journalisées</text>
+            <text x="210" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">annonces · verdicts R</text>
+            <rect x="306" y="22" width="88" height="24" rx="4" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1" />
+            <text x="350" y="37.5" text-anchor="middle" fill="#a78bfa" font-size="8" font-weight="700">Ollama local</text>
+            <text x="350" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">hors temps réel</text>
+            <rect x="446" y="22" width="88" height="24" rx="4" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
+            <text x="490" y="37.5" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">Propositions</text>
+            <text x="490" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">agenda · minutage</text>
+            <line x1="118" y1="34" x2="158" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="162,34 156,31.5 156,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="258" y1="34" x2="298" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="302,34 296,31.5 296,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="398" y1="34" x2="438" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="442,34 436,31.5 436,36.5" fill="rgba(255,255,255,0.4)" />
+          </svg>
+          <p class="text-center whitespace-nowrap">L'IA tourne en local (Ollama), hors du temps réel — ses propositions ne prennent effet qu'après validation du propriétaire. Prompts : Outils IA › Prompts IA.</p>
         </carte>
-        <carte titre="Objectifs">
-          <ul class="space-y-1.5">
-            <li>Un agenda par actif pondéré par l'impact réel mesuré — pas seulement le libellé « High » du calendrier.</li>
-            <li>Un minutage d'entrée recommandé par événement et par actif.</li>
-            <li>Étape 6 : benchmark du meilleur modèle local utilisable pour ce travail.</li>
-          </ul>
+
+        <carte titre="Les objectifs">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">① Un agenda par actif</div>
+              <p>Pondéré par l'impact réel mesuré — pas seulement le libellé « High » du
+              calendrier.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">② Un minutage d'entrée</div>
+              <p>Recommandé par événement et par actif, sur preuve historique.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">③ Benchmark local</div>
+              <p>Le meilleur modèle Ollama pour ce travail — décision de l'étape 6.</p>
+            </div>
+          </div>
         </carte>
-        <carte titre="Garde-fous">
-          <b>L'IA n'ouvre jamais de trade.</b> Le moteur applique la définition figée de
-          cette page : deux jambes à E, OCO, trailing. Les propositions de l'IA (agenda,
-          minutage) ne prennent effet qu'après validation du propriétaire dans les
-          réglages. Aucune autonomie sur l'exécution.
+
+        <carte titre="Les garde-fous">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+            <svg viewBox="0 0 440 110" class="w-full aspect-[440/110]">
+              <!-- La chaîne d'exécution : moteur → trade -->
+              <rect x="30" y="22" width="64" height="16" rx="3" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
+              <text x="62" y="33.5" text-anchor="middle" fill="#34d399" font-size="6.5" font-weight="700">moteur Straddle</text>
+              <line x1="98" y1="30" x2="228" y2="30" stroke="#34d399" stroke-width="1.6" />
+              <polygon points="234,30 226,27 226,33" fill="#34d399" />
+              <rect x="238" y="22" width="72" height="16" rx="3" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
+              <text x="274" y="33.5" text-anchor="middle" fill="#34d399" font-size="7" font-weight="700">exécution</text>
+              <!-- L'IA : sous la chaîne, elle observe -->
+              <line x1="140" y1="66" x2="140" y2="40" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3 3" />
+              <polygon points="140,36 137,42 143,42" fill="#a78bfa" />
+              <text x="150" y="54" fill="#a78bfa" font-size="7" font-weight="700">observe</text>
+              <circle cx="140" cy="76" r="10" fill="rgba(167,139,250,0.10)" stroke="#a78bfa" stroke-width="1.4" />
+              <text x="140" y="79.5" text-anchor="middle" fill="#a78bfa" font-size="7" font-weight="700">IA</text>
+              <text x="140" y="102" text-anchor="middle" fill="#a78bfa" font-size="7" font-weight="700">Ollama local</text>
+              <!-- Le chemin interdit : vers l'exécution -->
+              <line x1="158" y1="68" x2="255" y2="44" stroke="#f87171" stroke-width="1" stroke-dasharray="3 3" />
+              <line x1="200" y1="49" x2="210" y2="59" stroke="#f87171" stroke-width="1.6" />
+              <line x1="210" y1="49" x2="200" y2="59" stroke="#f87171" stroke-width="1.6" />
+              <text x="232" y="64" fill="#f87171" font-size="7" font-weight="700">jamais dans la boucle</text>
+            </svg>
+            <div class="flex flex-col gap-2">
+              <div class="flex flex-wrap gap-2">
+                <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-red-400 border-red-400/40 bg-red-400/10">N'ouvre jamais de trade</span>
+                <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-red-400 border-red-400/40 bg-red-400/10">Aucune autonomie sur l'exécution</span>
+                <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-violet-400 border-violet-400/40 bg-violet-400/10">Conseille, propose</span>
+                <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-white border-white/40 bg-white/10">Réglages : acte du propriétaire</span>
+              </div>
+              <p>Le moteur applique la définition figée de cette page : deux jambes à E, OCO,
+              trailing. Les propositions de l'IA (agenda, minutage) ne prennent effet qu'après
+              validation du propriétaire dans les réglages.</p>
+            </div>
+          </div>
         </carte>
       </div>
     </div>
@@ -154,6 +391,7 @@
 </template>
 
 <script setup lang="ts">
+import LexiquePanel from '@/components/common/LexiquePanel.vue'
 import { ref, computed, defineComponent, h, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 
@@ -191,7 +429,8 @@ const Valeur = defineComponent({
 })
 const valeur = Valeur
 
-const onglets = ['Définition', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Enrichissement IA'] as const
+// ── Onglets (Lexique en onglet, gabarit SMC) ─────────────────────────────────
+const onglets = ['Définition', 'Lexique', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Enrichissement IA'] as const
 const onglet = ref<(typeof onglets)[number]>('Définition')
 
 const reglages = ref<ReglagesStrategie | null>(null)

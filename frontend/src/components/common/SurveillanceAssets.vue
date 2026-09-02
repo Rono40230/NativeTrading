@@ -1,6 +1,6 @@
 <template>
   <!-- Bloc Surveillance Assets — liste compacte 1 asset/ligne -->
-  <div class="glass-card p-4 flex flex-col gap-3 overflow-hidden">
+  <div class="rounded-xl border border-indigo-500/25 bg-indigo-500/10 backdrop-blur-sm p-4 flex flex-col gap-3 overflow-hidden">
     <!-- Titre -->
     <div class="flex items-center justify-between shrink-0">
       <span class="text-xs uppercase font-bold text-white">&#128208; Surveillance Assets</span>

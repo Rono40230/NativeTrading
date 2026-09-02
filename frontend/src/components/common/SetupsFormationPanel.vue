@@ -17,7 +17,7 @@
       <span v-if="s.statut === 'EnFormation'" class="ml-auto text-amber-300/90 font-mono text-[11px]">
         se confirme dans {{ compteARebours(s.cloture_barre) }}
       </span>
-      <span v-else-if="s.statut === 'Confirme'" class="ml-auto text-emerald-400 text-[11px]">confirmé → signaux actifs</span>
+      <span v-else-if="s.statut === 'Confirme'" class="ml-auto text-emerald-400 text-[11px]">confirmé → ordre posé</span>
       <span v-else class="ml-auto text-white text-[11px]">dissipé à la clôture</span>
     </div>
 

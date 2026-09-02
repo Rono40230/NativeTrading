@@ -209,3 +209,17 @@ export function formatMfe(mfeR: number | null): string {
   const sign = mfeR > 0 ? '+' : ''
   return `${sign}${mfeR.toFixed(2)}R avant SL`
 }
+
+/** Ordres posés jamais remplis : SMC = entrée non touchée (heure_entree
+ *  vide) ; Straddle = annonce pas encore arrivée (heure E future).
+ *  Rockets = aucun (position ouverte dès le signal). */
+export function nbOrdresPoses(
+  signaux: { statut: string; verdict: string | null; heure_entree: number | null | undefined }[],
+  strategie: 'SMC' | 'straddle',
+): number {
+  return signaux.filter(s => {
+    if (s.statut === 'Fermé' || s.verdict !== null) return false
+    if (strategie === 'SMC') return s.heure_entree === null || s.heure_entree === undefined
+    return (s.heure_entree ?? 0) > Math.floor(Date.now() / 1000)
+  }).length
+}

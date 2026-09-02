@@ -212,7 +212,7 @@ interface StrategyData {
 
 const strategiesData = ref<StrategyData[]>([
   { id: 'rockets', label: 'Rockets', icon: '🚀', features: [], max: 1 },
-  { id: 'smc', label: 'SMC Directionnel', icon: '📊', features: [], max: 1 },
+  { id: 'smc', label: 'SMC', icon: '📊', features: [], max: 1 },
   { id: 'straddle', label: 'Straddle', icon: '⚡', features: [], max: 1 },
 ])
 

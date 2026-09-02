@@ -2,7 +2,7 @@
   <!-- Page « Système » — onglets Paramètres + Données (refonte navigation
        01/09 : accès par la tuile du dashboard, la barre ne garde que
        le Dashboard). -->
-  <div class="flex flex-col gap-3 h-[calc(100vh-5.5rem)] overflow-hidden">
+  <div class="flex flex-col gap-3 h-[calc(100vh-5.5rem)] overflow-hidden bg-rose-500/5 rounded-xl px-3 py-2">
     <div class="flex gap-1 border-b border-white/10 shrink-0">
       <button
         v-for="t in onglets"

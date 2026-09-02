@@ -18,7 +18,6 @@ const router = createRouter({
 
 
     // Performance
-    { path: '/history',  component: () => import('../views/HistoryView.vue') },
     { path: '/heatmap',  component: () => import('../views/HeatmapView.vue') },
 
     // Outils IA — regroupés en une page à onglets (refonte navigation 01/09) ;
@@ -27,7 +26,7 @@ const router = createRouter({
     { path: '/ia/chart',      redirect: { path: '/ia', query: { tab: 'chart' } } },
     { path: '/ia/coach',      redirect: { path: '/ia', query: { tab: 'coach' } } },
     { path: '/config/prompts', redirect: { path: '/ia', query: { tab: 'prompts' } } },
-    { path: '/ml-insights', component: () => import('../views/MlInsightsView.vue') },
+    { path: '/ml-insights', redirect: { path: '/ia', query: { tab: 'prompts' } } },
 
     // Presse
     { path: '/presse', component: () => import('../views/PresseView.vue') },
@@ -36,6 +35,10 @@ const router = createRouter({
     { path: '/systeme',  component: () => import('../views/SystemeView.vue') },
     { path: '/settings', redirect: { path: '/systeme', query: { tab: 'settings' } } },
     { path: '/data',     redirect: { path: '/systeme', query: { tab: 'data' } } },
+
+    // Historique global retiré (redondant avec les historiques par stratégie) —
+    // l'ancien chemin renvoie au dashboard.
+    { path: '/history',  redirect: { path: '/' } },
   ]
 })
 

@@ -139,6 +139,7 @@ import { apiService } from '@/services/api.service'
 import type { ReponsePatternsVolatilite, AssetInfo } from '@/services/api.service'
 import { useAlerteStore } from '@/stores/alerte.store'
 import HoraireHeatmapPrecisionPanel from './HoraireHeatmapPrecisionPanel.vue'
+import { calculerAnalyse } from '@/composables/useVolatiliteAnalyse'
 
 const props = defineProps<{ assetsHeatmap?: string[] }>()
 
@@ -228,43 +229,8 @@ function celluleTitre(heure: number, jour: number): string {
 const NOM_CLUSTER = ['Calme', 'Modéré', 'Élevé', 'Extrême'] as const
 const COULEUR_CLUSTER_TEXTE = ['text-emerald-400', 'text-amber-400', 'text-orange-400', 'text-red-400'] as const
 
-const analyse = computed(() => {
-  const patterns = reponse.value?.patterns
-  if (!patterns?.length) return null
-
-  const parHeure = heures.map(h => {
-    const pts = patterns.filter(p => p.heure === h && p.nb_points > 0)
-    if (!pts.length) return null
-    const atrMoyen = pts.reduce((s, p) => s + p.atr_moyen, 0) / pts.length
-    const clusterMoyen = Math.round(pts.reduce((s, p) => s + p.cluster, 0) / pts.length)
-    return { heureUtc: h, heureParis: heureParis(h), cluster: clusterMoyen, atrMoyen }
-  }).filter(Boolean) as { heureUtc: number; heureParis: number; cluster: number; atrMoyen: number }[]
-
-  type Slot = { heureDebut: number; heureFin: number; cluster: number }
-  const fusionner = (h: typeof parHeure): Slot[] => [...h].sort((a, b) => a.heureParis - b.heureParis).reduce<Slot[]>((r, x) => { const l = r.at(-1); l && x.heureParis === l.heureFin ? (l.heureFin++, l.cluster = Math.max(l.cluster, x.cluster)) : r.push({ heureDebut: x.heureParis, heureFin: x.heureParis + 1, cluster: x.cluster }); return r }, []).slice(0, 3)
-  const top3 = fusionner([...parHeure].sort((a, b) => b.cluster - a.cluster || b.atrMoyen - a.atrMoyen).slice(0, 6))
-  const pires3 = fusionner([...parHeure].sort((a, b) => a.cluster - b.cluster || a.atrMoyen - b.atrMoyen).slice(0, 6))
-
-  const parJour = jours.map(j => {
-    const pts = patterns.filter(p => p.jour_semaine === j.index && p.nb_points > 0)
-    if (!pts.length) return null
-    return { ...j, atrMoyen: pts.reduce((s, p) => s + p.atr_moyen, 0) / pts.length }
-  }).filter(Boolean) as { index: number; label: string; atrMoyen: number }[]
-
-  const meilleurJour = parJour.reduce((a, b) => a.atrMoyen > b.atrMoyen ? a : b)
-  const pireJour = parJour.reduce((a, b) => a.atrMoyen < b.atrMoyen ? a : b)
-
-  // Recherche directe dans la convention des données (heure UTC, jour 0=Dim) :
-  // on lit l'heure/jour UTC courants pour matcher le bucket exact, et l'heure
-  // Paris uniquement pour le label du panneau.
-  const maintenant = new Date()
-  const hParisActuelle = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', hour: 'numeric', hour12: false }).format(maintenant))
-  const heureUtcActuelle = maintenant.getUTCHours()
-  const jourActuel = maintenant.getUTCDay()
-  const patternActuel = patterns.find(p => p.heure === heureUtcActuelle && p.jour_semaine === jourActuel) ?? null
-
-  return { top3, pires3, meilleurJour, pireJour, patternActuel, hParisActuelle }
-})
+const analyse = computed(() =>
+  reponse.value?.patterns?.length ? calculerAnalyse(reponse.value.patterns) : null)
 
 async function charger() {
   chargement.value = true

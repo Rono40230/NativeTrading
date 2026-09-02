@@ -2,10 +2,27 @@
 
 
 
+--------------------------------------------------------------------------------------------------------------------------
 
-
-
+Terminer la relecture et les corrections sur toutes les pages de l'app
 
 --------------------------------------------------------------------------------------------------------------------------
+
+
+ATTENTION AVERTISSEMNT : les prochaines questions touchent aux moteurs de génération et gestion des signaux.
+Tu ne commit/push rien tant que je ne te le dis pas.
+On analyse. On corrige. On vérifie. Avant de commit/push.
+Les corrections doivent être absolument chirurgicales et ne rien casser ou ne pas générer de régression ou dette technique. 
+
+
+Analyse la manière dont sont confirmés/expirés les signaux SMC.
+Analyse la manière dont sont gérés les trades en cours.
+
+J'ai l'impression qu'ils ne se mettent à jour que à la cloture de la bougie = cela ne doit pas fonctionner ainsi.
+La mise à jour du trade en cours doit se faire au tick sans attendre la cloture de la bougie.
+
+
+
+
 
 

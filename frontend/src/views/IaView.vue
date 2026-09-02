@@ -2,7 +2,7 @@
   <!-- Page « Fonctionnalités IA » — 3 onglets regroupant les outils IA
        (refonte navigation 01/09 : la barre de titre ne garde que le
        Dashboard, l'accès se fait par la tuile du même nom). -->
-  <div class="flex flex-col gap-3 h-[calc(100vh-5.5rem)] overflow-hidden">
+  <div class="flex flex-col gap-3 h-[calc(100vh-5.5rem)] overflow-hidden bg-violet-500/5 rounded-xl px-3 py-2">
     <div class="flex gap-1 border-b border-white/10 shrink-0">
       <button
         v-for="t in onglets"

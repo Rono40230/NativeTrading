@@ -26,7 +26,7 @@ const onglets = [
 
 const catConfig: Record<string, any> = {
   straddle: { label: 'Straddle', icon: '⚡', border: 'border-purple-500/30', text: 'text-purple-400' },
-  smc: { label: 'SMC Directionnel', icon: '📊', border: 'border-blue-500/30', text: 'text-blue-400' },
+  smc: { label: 'SMC', icon: '📊', border: 'border-blue-500/30', text: 'text-blue-400' },
   rockets: { label: 'Rockets', icon: '🚀', border: 'border-orange-500/30', text: 'text-orange-400' },
   outils_ia: { label: 'Outils IA', icon: '🧠', border: 'border-emerald-500/30', text: 'text-emerald-400' }
 }
@@ -208,7 +208,7 @@ onMounted(chargerPrompts)
         <!-- SMC -->
         <div class="glass-card flex flex-col rounded-xl border border-blue-500/30 bg-white/5 overflow-hidden">
           <div class="p-4 border-b border-white/10 shrink-0">
-             <h2 class="font-bold flex items-center gap-2 text-base text-blue-400"><span>📊</span> SMC Directionnel</h2>
+             <h2 class="font-bold flex items-center gap-2 text-base text-blue-400"><span>📊</span> SMC</h2>
           </div>
           <div class="flex-1 min-h-0 overflow-y-auto p-4 custom-scrollbar relative">
              <SmcMonitoringML compact />

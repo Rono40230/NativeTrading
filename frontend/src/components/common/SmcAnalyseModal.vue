@@ -8,7 +8,7 @@
 
       <!-- Header -->
       <div class="flex items-center justify-between flex-shrink-0">
-        <h2 class="text-lg font-bold">🧠 Analyse SMC Directionnel</h2>
+        <h2 class="text-lg font-bold">🧠 Analyse SMC</h2>
         <button class="text-white hover:text-white text-xl leading-none" @click="$emit('close')">×</button>
       </div>
 

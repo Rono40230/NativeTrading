@@ -1,5 +1,5 @@
 <template>
-  <div class="relative h-full min-h-0">
+  <div class="relative h-full min-h-0 bg-emerald-500/5 rounded-xl">
 
     <div class="flex flex-col gap-4 w-full h-full min-h-0">
       <!-- Barre haute : layout + métriques/sélecteurs de la cellule ACTIVE -->
@@ -120,7 +120,7 @@ const layoutOuvert = ref(false)
 
 interface Slot { asset: string; timeframe: string }
 /// Slots par emplacement — la cellule active reprend la sélection courante ;
-/// les autres cycle sur les assets SMC disponibles.
+/// les autres cyclent sur la rotation par défaut.
 const rotationDefaut = ['BTC', 'XAUUSD', 'DAX', 'XAGUSD', 'NAS100', 'SP500', 'ETH', 'BTC']
 const slots = ref<Slot[]>(chargerSlots())
 const celluleActive = ref(0)
@@ -179,13 +179,14 @@ function changerTfSlotActif(tf: string) {
   persisterSlots()
 }
 
-// Assets proposés (comme avant : assets configurés, SMC only).
-const CRYPTO_SMC = ['BTC', 'ETH']
+// Assets proposés dans le sélecteur : tous les actifs configurés ; en crypto,
+// BTC et ETH uniquement (les seules cryptos suivies par l'app).
+const CRYPTO_SUIVIES = ['BTC', 'ETH']
 const assets = computed(() => {
   const liste = assetsStore.assets
   if (liste.length === 0) return ['BTC', 'ETH', 'XAUUSD', 'XAGUSD']
   return liste
-    .filter(a => a.type !== 'crypto' || CRYPTO_SMC.includes(a.id))
+    .filter(a => a.type !== 'crypto' || CRYPTO_SUIVIES.includes(a.id))
     .map(a => a.id)
 })
 

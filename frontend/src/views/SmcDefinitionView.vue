@@ -3,8 +3,7 @@
 
     <!-- En-tête : identité + état du registre -->
     <div class="flex items-center gap-3 shrink-0">
-      <h1 class="text-2xl font-bold text-white">📐 SMC</h1>
-      <span class="text-white text-base hidden sm:inline">Smart Money Concepts — indicateur v12</span>
+      <h1 class="text-2xl font-bold text-white">📐 Les caractéristiques de la stratégie SMC</h1>
       <span
         v-if="reglages"
         class="ml-auto text-[11px] font-semibold px-2.5 py-1 rounded-full border"
@@ -26,139 +25,339 @@
 
     <div class="flex-1 min-h-0 overflow-y-auto pr-1">
 
-      <!-- ═══ ONGLET DÉFINITION ═══ -->
-      <div v-if="onglet === 'Définition'" class="flex flex-col gap-3">
-        <carte titre="Concept">
-          SMC trade les mouvements de l'argent institutionnel : la structure de marché révèle
-          l'intention (accumulation → manipulation → distribution), les zones où les ordres
-          institutionnels sont posés (Order Blocks) servent de points d'entrée au retest, et les
-          liquidités (sommets/creux apparents, niveaux de la veille et de la semaine) sont chassées
-          avant les impulsions. La stratégie v12 clone l'indicateur Pine éponyme, barre confirmée
-          après barre confirmée, avec évaluation intrabar pour les annonces.
-        </carte>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <carte titre="La structure de marché">
-            Les pivots (swing length calibré par actif) dessinent la succession sommets/creux :
-            HH+HL = tendance haussière, LH+LL = baissière. Le BOS (break of structure) confirme la
-            continuation ; le MSS/CHOCH (changement de caractère) annonce le retournement. Le sens
-            de la structure cadre toute décision — tendance indécise = aucun signal.
-          </carte>
-          <carte titre="Les liquidités et la chasse">
-            PDH/PDL (plus haut/bas de la veille), PWH/PWL (semaine), EQH/EQL (épaules égales) sont
-            les cibles visibles. Le sweep — mèche qui perce un niveau puis referme — signale la
-            manipulation : c'est le carburant des entrées en contre-attaque. Tout niveau touché sur
-            barre confirmée (sweep ou cassure) est consommé et disparaît.
-          </carte>
-          <carte titre="Les zones d'entrée">
-            Order Blocks (dernière bougie avant l'impulsion, lifecycle en 3 états), FVG/imbalance
-            (gap de prix non distribué), IFVG (imbalance inversée par BOS), Breaker (OB cassé
-            devenant résistance/support). La zone cœur croise OB ∩ OTE ∩ FVG — la zone
-            institutionnelle la plus dense.
-          </carte>
-          <carte titre="Le contexte">
-            Premium/Discount (moitié haute/basse du range), OTE (retrace 62-79 % de l'impulsion,
-            zone d'entrée optimale), Kill Zones de Londres (7h-10h UTC) et New York (13h-16h UTC),
-            Asian High/Low (session de Paris), NDOG/NWOG (gaps d'ouverture journalière/hebdo) et
-            confluences multi-timeframe (H1/H4/W1/MN amorcées sur l'historique, comme TradingView).
-          </carte>
-        </div>
-
-        <carte titre="Les deux moteurs de signaux">
-          <div class="flex flex-col gap-2">
-            <p><b class="text-white">Moteur v11-OB</b> — Order Blocks : score enrichi (fraîcheur +
-            proximité) par zone, barème calibré par actif et timeframe. Un OB signalé ne re-signalera
-            jamais (règle de l'un-signal : le premier OB signalé du carnet est écarté).</p>
-            <p><b class="text-white">Moteur BSZones</b> — parcours Sweep → Dispersion → OB : zones
-            reconstituées après la chasse de liquidité, score propre, seuil dédié.</p>
-            <p class="text-white">Un seul trade est créé par barre confirmée, tous moteurs confondus.</p>
-          </div>
-        </carte>
-      </div>
+      <!-- ═══ ONGLET DÉFINITION (composant dédié — schémas SVG) ═══ -->
+      <SmcOngletDefinition v-if="onglet === 'Définition'" />
 
       <!-- ═══ ONGLET DÉCISION D'ENTREE ═══ -->
       <div v-if="onglet === 'Décision d\u2019entrée'" class="flex flex-col gap-3">
         <carte titre="Le parcours d'un signal">
-          <ol class="list-decimal ml-5 space-y-1.5">
-            <li>Le prix revient au-dessus d'un Order Block haussier (ou sous un OB baissier), zone non signalée, état non profond, à moins de 8×ATR.</li>
-            <li>Le score de la zone atteint le seuil de trade et la force minimale (4/10, i_forceMin v11).</li>
-            <li>La qualité de zone est validée (zone cœur / confluences MTF / Fibonacci OTE selon barème).</li>
-            <li>La porte de trade unique est ouverte — sinon, rien (voir règle ci-dessous).</li>
-            <li>Annonce d'imminence immédiate sur Telegram (intrabar, dès la qualification), confirmation du trade à la clôture de la barre (barstate.isconfirmed).</li>
-          </ol>
+          <svg viewBox="0 0 560 70" class="w-full aspect-[560/70] mb-3">
+            <!-- Les 5 stations du parcours, dans l'ordre -->
+            <rect x="6" y="22" width="88" height="24" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" stroke-width="1" />
+            <text x="50" y="37.5" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="700">Retour à la zone</text>
+            <text x="50" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">OB sain · &lt; 8×ATR</text>
+            <rect x="122" y="22" width="88" height="24" rx="4" fill="rgba(96,165,250,0.08)" stroke="#60a5fa" stroke-width="1" />
+            <text x="166" y="37.5" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="700">Score + force</text>
+            <text x="166" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">seuil · force ≥ 4</text>
+            <rect x="238" y="22" width="88" height="24" rx="4" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1" />
+            <text x="282" y="37.5" text-anchor="middle" fill="#fbbf24" font-size="8" font-weight="700">Qualité de zone</text>
+            <text x="282" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">cœur · MTF · OTE</text>
+            <rect x="354" y="22" width="88" height="24" rx="4" fill="rgba(248,113,113,0.08)" stroke="#f87171" stroke-width="1" />
+            <text x="398" y="37.5" text-anchor="middle" fill="#f87171" font-size="8" font-weight="700">Porte de trade</text>
+            <text x="398" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">sinon veto</text>
+            <rect x="470" y="22" width="88" height="24" rx="4" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
+            <text x="514" y="37.5" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">Signal émis</text>
+            <text x="514" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">Telegram · clôture</text>
+            <!-- Enchaînement -->
+            <line x1="98" y1="34" x2="114" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="118,34 112,31.5 112,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="214" y1="34" x2="230" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="234,34 228,31.5 228,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="330" y1="34" x2="346" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="350,34 344,31.5 344,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="446" y1="34" x2="462" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="466,34 460,31.5 460,36.5" fill="rgba(255,255,255,0.4)" />
+          </svg>
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">① Le retour à la zone</div>
+              <p>Le prix revient au bord d'un Order Block haussier ou baissier : zone vierge (jamais
+              signalée), état non profond, à moins de 8×ATR.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">② Le score de zone</div>
+              <p>Le score enrichi atteint le seuil de trade et la force minimale (≥ 4/10) ; pour une
+              BSZone, score ≥ 7/10.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">③ La qualité de zone</div>
+              <p>Zone cœur (OB ∩ OTE ∩ FVG), confluences multi-timeframe ou Fibonacci OTE : le barème
+              par actif décide.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">④ La porte de trade</div>
+              <p>Aucun trade rempli non neutralisé (TP1 non atteint), aucun signal déjà poussé sur la
+              barre — sinon veto, rien ne part.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">⑤ L'émission</div>
+              <p>Imminence Telegram immédiate, intrabar dès la qualification ; le trade est confirmé à
+              la clôture de la barre.</p>
+            </div>
+          </div>
         </carte>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <carte titre="La porte de trade unique (f_tradeBloquant)">
-            Interdiction d'ouvrir un nouveau trade tant qu'un trade existant est rempli et n'a pas
-            atteint TP1 (ou son break-even). Complétée par : un seul trade poussé par barre confirmée,
-            et la règle de l'un-signal sur les zones. Un ordre en attente (non rempli) ne bloque pas —
-            comme sur le graphique TradingView.
+          <carte titre="La porte de trade unique">
+            <svg viewBox="0 0 440 110" class="w-full aspect-[440/110] mb-2">
+              <!-- Axe temporel -->
+              <line x1="20" y1="66" x2="414" y2="66" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
+              <polygon points="420,66 413,63.5 413,68.5" fill="rgba(255,255,255,0.3)" />
+              <!-- La barrière : tant que TP1 n'est pas atteint -->
+              <rect x="298.5" y="36" width="3" height="60" rx="1.5" fill="#f87171" />
+              <circle cx="300" cy="33" r="3" fill="#f87171" />
+              <!-- Nouveau setup : stoppé net -->
+              <circle cx="230" cy="66" r="4.5" fill="#34d399" />
+              <line x1="226" y1="62" x2="234" y2="70" stroke="#f87171" stroke-width="1.6" />
+              <line x1="234" y1="62" x2="226" y2="70" stroke="#f87171" stroke-width="1.6" />
+              <text x="230" y="50" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="700">nouveau setup</text>
+              <text x="230" y="86" text-anchor="middle" fill="#e5e7eb" font-size="7">bloqué</text>
+              <!-- Trade ouvert : la porte reste fermée -->
+              <circle cx="370" cy="66" r="4.5" fill="#ffffff" />
+              <text x="370" y="50" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="700">trade rempli</text>
+              <text x="370" y="86" text-anchor="middle" fill="#f87171" font-size="7">TP1 non atteint</text>
+            </svg>
+            <p>Interdiction d'ouvrir un nouveau trade tant qu'un trade existant est rempli sans avoir
+            atteint TP1 (ou son break-even). Un ordre en attente — non rempli — ne bloque pas, et une
+            seule émission est possible par barre confirmée, tous moteurs confondus. Avec la règle de
+            l'un-signal : une zone ne signale qu'une fois.</p>
           </carte>
           <carte titre="Les niveaux consommés">
-            Tout niveau de liquidité touché sur barre confirmée — par sweep (mèche qui perce et
+            <svg viewBox="0 0 440 110" class="w-full aspect-[440/110] mb-2">
+              <!-- Avant : niveau de liquidité vivant -->
+              <line x1="20" y1="44" x2="190" y2="44" stroke="#fbbf24" stroke-width="1.2" stroke-dasharray="5 3" />
+              <text x="24" y="37" fill="#fbbf24" font-size="8" font-weight="700">PDH</text>
+              <polyline points="20,92 60,62 85,74 130,36 150,70 185,56" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round" />
+              <circle cx="130" cy="36" r="4.5" fill="none" stroke="#f87171" stroke-width="1.4" />
+              <text x="106" y="25" fill="#f87171" font-size="8" font-weight="700">sweep</text>
+              <!-- Transition -->
+              <line x1="198" y1="44" x2="214" y2="44" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+              <polygon points="218,44 212,41.5 212,46.5" fill="rgba(255,255,255,0.4)" />
+              <!-- Après : niveau rayé, hors carnet -->
+              <line x1="224" y1="44" x2="420" y2="44" stroke="rgba(255,255,255,0.22)" stroke-width="1.2" stroke-dasharray="5 3" />
+              <line x1="314" y1="38" x2="326" y2="50" stroke="#f87171" stroke-width="1.6" />
+              <line x1="326" y1="38" x2="314" y2="50" stroke="#f87171" stroke-width="1.6" />
+              <text x="288" y="27" fill="#e5e7eb" font-size="8" font-weight="700">consommé</text>
+              <text x="338" y="60" fill="#e5e7eb" font-size="7">disparaît du carnet</text>
+            </svg>
+            <p>Tout niveau de liquidité touché sur barre confirmée — par sweep (mèche qui perce puis
             referme) ou par cassure franche — est consommé : il disparaît du carnet et ne peut plus
-            servir de cible ni de confluence. Décision de la passe « décisions trading ».
+            servir de cible ni de confluence.</p>
           </carte>
         </div>
 
-        <carte titre="Exécution — retest limite">
-          L'entrée est placée au bord de la zone (order block haut pour un achat, bas pour une vente),
-          en ordre limite : le trade n'est REMPLI que si le prix revient toucher l'entrée. Ce modèle
-          « Retest (limite) » a gagné l'A/B 15/15 contre l'entrée au marché à la cassure — il est
-          figé dans la v12.
+        <carte titre="Exécution — le retest limite">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+            <svg viewBox="0 0 440 110" class="w-full aspect-[440/110]">
+              <!-- Zone : Order Block -->
+              <rect x="30" y="58" width="70" height="22" fill="rgba(52,211,153,0.15)" stroke="#34d399" stroke-width="1" />
+              <text x="78" y="78" fill="#34d399" font-size="8" font-weight="700">OB</text>
+              <!-- Prix : impulsion, retour au bord, remplissage, suite -->
+              <polyline points="30,74 110,62 180,20 260,54 320,58 350,38 404,24" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round" />
+              <polygon points="410,22 400,25 406,31" fill="#34d399" />
+              <!-- Ordre limite posé au bord de la zone -->
+              <line x1="200" y1="58" x2="420" y2="58" stroke="#ffffff" stroke-width="0.9" stroke-dasharray="4 3" />
+              <text x="150" y="52" fill="#e5e7eb" font-size="8" font-weight="700">en attente</text>
+              <circle cx="320" cy="58" r="3" fill="#ffffff" />
+              <text x="292" y="76" fill="#ffffff" font-size="8" font-weight="700">rempli au retest</text>
+              <text x="330" y="30" fill="#34d399" font-size="8" font-weight="700">impulsion</text>
+            </svg>
+            <div class="flex flex-col gap-2">
+              <p><b class="text-white">L'ordre est posé, pas le trade.</b> L'entrée est placée en
+              limite au bord de la zone — haut de l'OB pour un achat, bas pour une vente. Le trade
+              n'est <b class="text-white">rempli</b> que si le prix revient toucher l'entrée.</p>
+              <p>Ce modèle « retest limite » a gagné l'A/B <b class="text-white">15/15</b> contre
+              l'entrée au marché à la cassure — il est figé dans la stratégie. Pas de retour du prix, pas
+              de trade.</p>
+            </div>
+          </div>
         </carte>
       </div>
 
       <!-- ═══ ONGLET GESTION DES TRADES OUVERTS ═══ -->
       <div v-if="onglet === 'Gestion des trades ouverts'" class="flex flex-col gap-3">
-        <carte titre="Construction des niveaux">
-          <ul class="space-y-1.5">
-            <li><b class="text-white">Stop Loss</b> — bord opposé de la zone ± offset ATR réduit de 25 % (décision étape 4 du 29/08 : replay +239R), distance clampée entre slMin et slMax (multiplicateurs ×ATR calibrés par actif : BTC 0,8-2,5, or 0,5-1,5, NAS/DAX 0,5-1,5, argent 0,6-1,8).</li>
-            <li><b class="text-white">TP1 / TP2</b> — +0,6R / +2R (décision étape 4 du 29/08 : TP1 à 0,6R, replay +239R ; R = distance entrée-stop après clamp).</li>
-            <li><b class="text-white">TP3</b> — la liquidité la plus proche au-delà de l'entrée (EQH/PDH/PWH/Asian High pour un achat) ; repli sur +3R si aucune cible ou monotonie brisée.</li>
-          </ul>
+        <carte titre="La construction des niveaux">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+            <svg viewBox="0 0 440 110" class="w-full aspect-[440/110]">
+              <!-- Échelle des niveaux, proportionnelle en R -->
+              <line x1="68" y1="10" x2="290" y2="10" stroke="#34d399" stroke-width="0.9" stroke-dasharray="4 3" />
+              <text x="298" y="13" fill="#34d399" font-size="7.5" font-weight="700">TP3 · +3R / liquidité</text>
+              <line x1="68" y1="32" x2="290" y2="32" stroke="#60a5fa" stroke-width="0.9" stroke-dasharray="4 3" />
+              <text x="298" y="35" fill="#60a5fa" font-size="7.5" font-weight="700">TP2 · +2R</text>
+              <line x1="68" y1="63" x2="290" y2="63" stroke="#60a5fa" stroke-width="0.9" stroke-dasharray="4 3" />
+              <text x="298" y="66" fill="#60a5fa" font-size="7.5" font-weight="700">TP1 · +0,6R</text>
+              <line x1="68" y1="76" x2="290" y2="76" stroke="#ffffff" stroke-width="0.9" stroke-dasharray="4 3" />
+              <text x="298" y="79" fill="#ffffff" font-size="7.5" font-weight="700">entrée · 0R</text>
+              <line x1="68" y1="98" x2="290" y2="98" stroke="#f87171" stroke-width="0.9" stroke-dasharray="4 3" />
+              <text x="298" y="101" fill="#f87171" font-size="7.5" font-weight="700">SL · −1R</text>
+              <!-- Zone d'origine -->
+              <rect x="25" y="68" width="40" height="16" fill="rgba(52,211,153,0.15)" stroke="#34d399" stroke-width="1" />
+              <text x="50" y="74" fill="#34d399" font-size="7.5" font-weight="700">OB</text>
+              <!-- Trajectoire : retest, TP1 (stop → BE), repli, TP2, TP3 -->
+              <polyline points="25,76 45,88 65,82 95,63 115,68 150,76 185,48 220,32 255,20 285,10" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round" />
+              <circle cx="95" cy="63" r="2.6" fill="#ffffff" />
+              <circle cx="220" cy="32" r="2.6" fill="#ffffff" />
+              <circle cx="285" cy="10" r="2.6" fill="#ffffff" />
+              <text x="120" y="52" fill="#e5e7eb" font-size="7" font-weight="700">stop → BE</text>
+            </svg>
+            <div class="flex flex-col gap-2">
+              <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+                <div class="font-semibold mb-1">Stop Loss</div>
+                <p>Bord opposé de la zone ± offset ATR (réduit de 25 %), distance clampée entre
+                slMin et slMax : multiplicateurs ×ATR calibrés par actif — BTC 0,8-2,5, or
+                0,5-1,5, NAS/DAX 0,5-1,5, argent 0,6-1,8.</p>
+              </div>
+              <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+                <div class="font-semibold mb-1">TP1 / TP2</div>
+                <p>+0,6R et +2R — R = distance entrée-stop après clamp. Choix validés par replay :
+                +239R.</p>
+              </div>
+              <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+                <div class="font-semibold mb-1">TP3</div>
+                <p>La liquidité la plus proche au-delà de l'entrée (EQH, PDH, PWH, Asian High pour
+                un achat) ; repli sur +3R si aucune cible ou monotonie brisée.</p>
+              </div>
+            </div>
+          </div>
+        </carte>
+
+        <carte titre="Le cycle de vie d'un trade">
+          <svg viewBox="0 0 560 70" class="w-full aspect-[560/70] mb-3">
+            <rect x="6" y="22" width="88" height="24" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" stroke-width="1" />
+            <text x="50" y="37.5" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="700">En attente</text>
+            <text x="50" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">ordre limite au bord</text>
+            <rect x="122" y="22" width="88" height="24" rx="4" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
+            <text x="166" y="37.5" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">Rempli</text>
+            <text x="166" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">le prix touche l'entrée</text>
+            <rect x="238" y="22" width="88" height="24" rx="4" fill="rgba(96,165,250,0.08)" stroke="#60a5fa" stroke-width="1" />
+            <text x="282" y="37.5" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="700">TP1 touché</text>
+            <text x="282" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">stop → entrée (BE)</text>
+            <rect x="354" y="22" width="88" height="24" rx="4" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1" />
+            <text x="398" y="37.5" text-anchor="middle" fill="#fbbf24" font-size="8" font-weight="700">TP2 encaissé</text>
+            <text x="398" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">retour sous TP1 = BE</text>
+            <rect x="470" y="22" width="88" height="24" rx="4" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1" />
+            <text x="514" y="37.5" text-anchor="middle" fill="#a78bfa" font-size="8" font-weight="700">TP3 touché</text>
+            <text x="514" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">clôture complète</text>
+            <line x1="98" y1="34" x2="114" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="118,34 112,31.5 112,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="214" y1="34" x2="230" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="234,34 228,31.5 228,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="330" y1="34" x2="346" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="350,34 344,31.5 344,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="446" y1="34" x2="462" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="466,34 460,31.5 460,36.5" fill="rgba(255,255,255,0.4)" />
+          </svg>
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">① En attente</div>
+              <p>L'ordre limite est posé au bord de la zone : le trade n'existe pas encore.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">② Rempli</div>
+              <p>Le prix est revenu toucher l'entrée : SL et TP sont actifs.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">③ TP1 touché</div>
+              <p>Le stop remonte à l'entrée : le trade est neutralisé, le break-even est garanti.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">④ TP2 encaissé</div>
+              <p>+2R sont sécurisés ; si le prix repasse ensuite sous TP1, sortie à break-even.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">⑤ TP3 touché</div>
+              <p>La cible finale est atteinte : clôture complète du trade.</p>
+            </div>
+          </div>
         </carte>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          <carte titre="Le cycle de vie">
-            <ol class="list-decimal ml-5 space-y-1.5">
-              <li><b>En attente</b> — ordre limite au bord de la zone, pas encore touché.</li>
-              <li><b>Rempli</b> — le prix est revenu toucher l'entrée (fill réel au retest).</li>
-              <li><b>TP1 touché</b> — le stop remonte à l'entrée : le trade est neutralisé (break-even garanti).</li>
-              <li><b>TP2 armé</b> — si le prix repasse sous TP1, sortie à break-even (le TP2 est encaissé).</li>
-              <li><b>TP3 touché</b> — clôture complète.</li>
-            </ol>
+          <carte titre="Les sorties anticipées">
+            <svg viewBox="0 0 440 110" class="w-full aspect-[440/110] mb-2">
+              <!-- BOS opposé : le stop saute à l'entrée -->
+              <line x1="20" y1="64" x2="300" y2="64" stroke="#ffffff" stroke-width="0.8" stroke-dasharray="4 3" />
+              <text x="86" y="72" fill="#e5e7eb" font-size="7" font-weight="700">entrée</text>
+              <line x1="248" y1="30" x2="248" y2="78" stroke="#f87171" stroke-width="1" stroke-dasharray="3 3" />
+              <text x="180" y="28" fill="#f87171" font-size="7" font-weight="700">BOS opposé</text>
+              <polyline points="20,64 70,48 110,54 150,38 190,56 230,50 265,60 320,64" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round" />
+              <polyline points="320,64 360,82" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.2" stroke-dasharray="3 3" />
+              <line x1="252" y1="64" x2="340" y2="64" stroke="#60a5fa" stroke-width="2" />
+              <text x="262" y="86" fill="#60a5fa" font-size="7" font-weight="700">stop → BE</text>
+              <circle cx="320" cy="64" r="3" fill="#ffffff" />
+              <text x="334" y="58" fill="#ffffff" font-size="7" font-weight="700">sortie à 0</text>
+            </svg>
+            <div class="flex flex-col gap-2">
+              <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+                <div class="font-semibold mb-1">SL touché</div>
+                <p>Le stop est atteint avant TP1 : sortie à −1R, sans exception.</p>
+              </div>
+              <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+                <div class="font-semibold mb-1">BE forcé</div>
+                <p>Un BOS opposé pendant le trade ramène le stop à l'entrée, même sans TP1 :
+                sortie à 0.</p>
+              </div>
+              <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+                <div class="font-semibold mb-1">Annulation</div>
+                <p>Ordre en attente + BOS opposé : l'ordre est retiré, le trade n'existera jamais.</p>
+              </div>
+            </div>
           </carte>
-          <carte titre="Sorties anticipées et expiration">
-            <ul class="space-y-1.5">
-              <li><b class="text-white">SL</b> — stop touché avant TP1 : -1R.</li>
-              <li><b class="text-white">BE forcé</b> — BOS opposé pendant le trade : stop ramené à l'entrée, même sans TP1.</li>
-              <li><b class="text-white">Annulation</b> — ordre en attente + BOS opposé : l'ordre est retiré.</li>
-              <li><b class="text-white">Expiration</b> — âge du trade > 4h en intraday (8h en H1, 32h en H4, 4 jours en D1), ou TP3 non atteint dans le délai après TP2.</li>
-            </ul>
+          <carte titre="L'expiration">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+              <valeur etiquette="Intraday" valeur="4 h" />
+              <valeur etiquette="H1" valeur="8 h" />
+              <valeur etiquette="H4" valeur="32 h" />
+              <valeur etiquette="D1" valeur="4 j" />
+            </div>
+            <p>Au-delà de ce délai, le trade est clos au marché (verdict « Expire »). Après TP2,
+            TP3 doit être atteint dans le délai restant. Un trade qui dort ne mérite pas de
+            capitale.</p>
           </carte>
         </div>
 
-        <carte titre="Verdicts">
-          Chaque trade clôturé reçoit son verdict — TP1, TP2, TP3, SL, BE (break-even) ou Expire —
-          écrit en base avec le prix de sortie et le R réel. C'est cette historisation qui alimente
-          la courbe de trades du dashboard. Aucun message de clôture sur Telegram : seule
-          l'imminence parle.
+        <carte titre="Les verdicts">
+          <div class="flex flex-wrap gap-2 mb-2">
+            <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-emerald-400 border-emerald-400/40 bg-emerald-400/10">TP3</span>
+            <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-emerald-400 border-emerald-400/40 bg-emerald-400/10">TP2</span>
+            <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-blue-400 border-blue-400/40 bg-blue-400/10">TP1</span>
+            <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-white border-white/40 bg-white/10">BE</span>
+            <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-red-400 border-red-400/40 bg-red-400/10">SL</span>
+            <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-amber-400 border-amber-400/40 bg-amber-400/10">Expire</span>
+          </div>
+          <p>Chaque trade clôturé reçoit son verdict, écrit en base avec le prix de sortie et le R
+          réel — c'est cette historisation qui alimente la courbe de trades du dashboard. Aucun
+          message de clôture sur Telegram : seule l'imminence parle.</p>
         </carte>
       </div>
 
       <!-- ═══ ONGLET MONEY MANAGEMENT ═══ -->
       <div v-if="onglet === 'Money management'" class="flex flex-col gap-3">
-        <carte titre="Les trois couches (décision étape 2)">
-          <div class="flex flex-col gap-2">
-            <p><b class="text-white">1. Conventions par actif</b> (onglet gestion du risque) — taille
-            du pip, valeur du pip, lot min/max : la grammaire commune de tous les calculs.</p>
-            <p><b class="text-white">2. Allocation par stratégie</b> — capital dédié et risque de 1
-            à 3 % par trade, réglés dans Paramètres › stratégies › SMC.</p>
-            <p><b class="text-white">3. Calcul à l'émission</b> — lot = (capital × risque) ÷ (stop
-            en pips × valeur du pip). Calculé au moment du signal, jamais avant.</p>
+        <carte titre="Les trois couches">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">① Conventions par actif</div>
+              <p>Taille du pip, valeur du pip, lot min/max : la grammaire commune de tous les
+              calculs — réglée dans l'onglet gestion du risque.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">② Allocation par stratégie</div>
+              <p>Capital dédié et risque de 1 à 3 % par trade, réglés dans Paramètres ›
+              stratégies › SMC.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">③ Calcul à l'émission</div>
+              <p>Le lot sort de la formule ci-dessous, appliquée au moment du signal — jamais
+              avant.</p>
+            </div>
           </div>
+        </carte>
+
+        <carte titre="La formule du lot">
+          <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 font-mono text-xl py-3">
+            <span class="text-violet-400 font-bold">lot</span>
+            <span class="text-white">=</span>
+            <span class="text-white">(</span>
+            <span class="font-bold">capital</span>
+            <span class="text-white">×</span>
+            <span class="text-blue-400 font-bold">risque %</span>
+            <span class="text-white">) ÷ (</span>
+            <span class="text-amber-400 font-bold">stop</span>
+            <span class="text-white">×</span>
+            <span class="text-emerald-400 font-bold">valeur du pip</span>
+            <span class="text-white">)</span>
+          </div>
+          <p class="text-center">Le risque en euros est figé à l'émission : seul le lot s'adapte à
+          la distance du stop de la zone.</p>
         </carte>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -168,46 +367,140 @@
         </div>
 
         <carte titre="Le R, unité de compte">
-          Tous les trades se mesurent en multiples du risque initial (R) : SL = -1R, BE = 0,
-          TP1 = +0,6R, TP2 = +2R, TP3 = sa distance réelle (décision étape 4 du 29/08). La performance de la stratégie se lit en
-          R cumulé — indépendante du capital et homogène entre actifs — et se convertit en
-          évolution du capital via le risque par trade.
+          <svg viewBox="0 0 560 80" class="w-full aspect-[560/80] mb-2">
+            <!-- Échelle des verdicts, en multiples du risque -->
+            <rect x="20" y="46" width="160" height="6" fill="rgba(248,113,113,0.25)" />
+            <rect x="180" y="46" width="360" height="6" fill="rgba(52,211,153,0.25)" />
+            <line x1="20" y1="40" x2="540" y2="40" stroke="rgba(255,255,255,0.4)" stroke-width="1" />
+            <line x1="80" y1="28" x2="80" y2="52" stroke="#f87171" stroke-width="1.6" />
+            <text x="80" y="70" text-anchor="middle" fill="#f87171" font-size="8" font-weight="700">SL −1R</text>
+            <line x1="180" y1="28" x2="180" y2="52" stroke="#ffffff" stroke-width="1.6" />
+            <text x="180" y="70" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="700">BE 0</text>
+            <line x1="240" y1="28" x2="240" y2="52" stroke="#60a5fa" stroke-width="1.6" />
+            <text x="240" y="70" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="700">TP1 +0,6R</text>
+            <line x1="380" y1="28" x2="380" y2="52" stroke="#34d399" stroke-width="1.6" />
+            <text x="380" y="70" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">TP2 +2R</text>
+            <line x1="480" y1="28" x2="480" y2="52" stroke="#34d399" stroke-width="1.6" />
+            <text x="480" y="70" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">TP3</text>
+            <text x="280" y="18" text-anchor="middle" fill="#e5e7eb" font-size="7" font-weight="700">1R = le risque initial du trade</text>
+          </svg>
+          <p>Tous les trades se mesurent en multiples du risque initial : la performance se lit en
+          R cumulé — indépendante du capital, homogène entre actifs — et se convertit en évolution
+          du capital via le risque par trade. TP3 garde sa distance réelle : celle de la liquidité
+          visée.</p>
         </carte>
       </div>
 
-      <!-- ═══ ONGLET LEXIQUE ═══ -->
+      <!-- ═══ ONGLET LEXIQUE (le panneau du lexique SMC, en page) ═══ -->
+      <div v-if="onglet === 'Lexique'" class="flex flex-col gap-3">
+        <LexiquePanel source="smc" />
+      </div>
 
       <!-- ═══ ONGLET ENRICHISSEMENT IA ═══ -->
       <div v-if="onglet === 'Enrichissement IA'" class="flex flex-col gap-3">
-        <carte titre="Rôle de l'IA dans la stratégie">
-          <div class="flex flex-col gap-2">
-            <p><b class="text-white">Analyse stratégique</b> (active aujourd'hui — bouton
-            « Analyse SMC » du graphique) : lit les signaux clôturés, évalue la performance
-            par type de confluence et par contexte, et produit des recommandations lisibles.</p>
-            <p><b class="text-white">Rôles à cadrer à l'étape 6</b> : filtre temps réel et
-            monitoring par stratégie — le cahier des charges sera discuté et acté avant tout
-            branchement.</p>
+        <carte titre="Le rôle de l'IA dans la stratégie">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="font-semibold">Analyse stratégique</div>
+                <span class="px-2 py-0.5 rounded-full border text-[10px] font-semibold text-emerald-400 border-emerald-400/40 bg-emerald-400/10">ACTIVE</span>
+              </div>
+              <p>Lit les signaux clôturés (bouton « Analyse SMC » du graphique), évalue la
+              performance par type de confluence et par contexte, produit des recommandations
+              lisibles.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="flex items-center gap-2 mb-1">
+                <div class="font-semibold">Filtre temps réel &amp; monitoring</div>
+                <span class="px-2 py-0.5 rounded-full border text-[10px] font-semibold text-amber-400 border-amber-400/40 bg-amber-400/10">À CADRER · ÉTAPE 6</span>
+              </div>
+              <p>Cahier des charges discuté et acté avant tout branchement. Premier chantier
+              tracé en roadmap : la conviction IA à l'émission, en observation seule.</p>
+            </div>
           </div>
         </carte>
-        <carte titre="Fonctionnement">
-          L'IA tourne <b>en local</b> (Ollama). Elle reçoit la définition canonique de la
-          stratégie — dérivée de cette page, source unique — et l'historique des trades
-          clôturés. Elle intervient <b>hors du temps réel</b> : sur demande pour l'analyse,
-          jamais dans la boucle de décision d'un signal. Les textes des prompts se règlent
-          dans Outils IA › Prompts IA.
+
+        <carte titre="Le fonctionnement">
+          <div class="flex flex-col items-center gap-3">
+            <svg viewBox="0 0 560 70" class="w-full aspect-[560/70]">
+            <rect x="26" y="22" width="88" height="24" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" stroke-width="1" />
+            <text x="70" y="37.5" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="700">Définition</text>
+            <text x="70" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">cette page · l'étalon</text>
+            <rect x="166" y="22" width="88" height="24" rx="4" fill="rgba(96,165,250,0.08)" stroke="#60a5fa" stroke-width="1" />
+            <text x="210" y="37.5" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="700">Trades clôturés</text>
+            <text x="210" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">historique complet</text>
+            <rect x="306" y="22" width="88" height="24" rx="4" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1" />
+            <text x="350" y="37.5" text-anchor="middle" fill="#a78bfa" font-size="8" font-weight="700">Ollama local</text>
+            <text x="350" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">hors temps réel</text>
+            <rect x="446" y="22" width="88" height="24" rx="4" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
+            <text x="490" y="37.5" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">Analyse</text>
+            <text x="490" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">recommandations</text>
+            <line x1="118" y1="34" x2="158" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="162,34 156,31.5 156,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="258" y1="34" x2="298" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="302,34 296,31.5 296,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="398" y1="34" x2="438" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="442,34 436,31.5 436,36.5" fill="rgba(255,255,255,0.4)" />
+          </svg>
+            <p class="text-center whitespace-nowrap">L'IA tourne en local (Ollama) et intervient hors du temps réel : sur demande, jamais dans la boucle de décision d'un signal. Les textes des prompts se règlent dans Outils IA › Prompts IA.</p>
+          </div>
         </carte>
-        <carte titre="Objectifs">
-          <ul class="space-y-1.5">
-            <li>Expliquer la performance : quelles confluences gagnent, sur quels actifs, quelles plages horaires.</li>
-            <li>Détecter les dérives du moteur par rapport à sa définition (signaux hors définition, contextes perdants récurrents).</li>
-            <li>À l'étape 6 : évaluer la pertinence d'un filtre temps réel — seulement si la preuve le justifie.</li>
-          </ul>
+
+        <carte titre="Les objectifs">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">① Expliquer la performance</div>
+              <p>Quelles confluences gagnent, sur quels actifs, sur quelles plages horaires —
+              et pourquoi.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">② Détecter les dérives</div>
+              <p>Signaux hors définition, contextes perdants récurrents : le moteur doit rester
+              fidèle à sa définition.</p>
+            </div>
+            <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
+              <div class="font-semibold mb-1">③ Évaluer avant d'étendre</div>
+              <p>Un filtre temps réel ne se branchera que si la preuve le justifie — décision
+              de l'étape 6.</p>
+            </div>
+          </div>
         </carte>
-        <carte titre="Garde-fous">
-          <b>L'IA n'ouvre jamais de trade.</b> Le moteur v12 applique la définition figée —
-          l'étalon est le Pine. L'IA conseille et explique ; toute modification de réglage
-          est un acte du propriétaire dans les Paramètres. Aucune autonomie sur les seuils,
-          les signaux ou l'exécution.
+
+        <carte titre="Les garde-fous">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-center">
+            <svg viewBox="0 0 440 110" class="w-full aspect-[440/110]">
+              <!-- La chaîne d'exécution : moteur → trade -->
+              <rect x="30" y="22" width="64" height="16" rx="3" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
+              <text x="62" y="33.5" text-anchor="middle" fill="#34d399" font-size="7" font-weight="700">moteur SMC</text>
+              <line x1="98" y1="30" x2="228" y2="30" stroke="#34d399" stroke-width="1.6" />
+              <polygon points="234,30 226,27 226,33" fill="#34d399" />
+              <rect x="238" y="22" width="72" height="16" rx="3" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
+              <text x="274" y="33.5" text-anchor="middle" fill="#34d399" font-size="7" font-weight="700">exécution</text>
+              <!-- L'IA : sous la chaîne, elle observe -->
+              <line x1="140" y1="66" x2="140" y2="40" stroke="#a78bfa" stroke-width="1" stroke-dasharray="3 3" />
+              <polygon points="140,36 137,42 143,42" fill="#a78bfa" />
+              <text x="150" y="54" fill="#a78bfa" font-size="7" font-weight="700">observe</text>
+              <circle cx="140" cy="76" r="10" fill="rgba(167,139,250,0.10)" stroke="#a78bfa" stroke-width="1.4" />
+              <text x="140" y="79.5" text-anchor="middle" fill="#a78bfa" font-size="7" font-weight="700">IA</text>
+              <text x="140" y="102" text-anchor="middle" fill="#a78bfa" font-size="7" font-weight="700">Ollama local</text>
+              <!-- Le chemin interdit : vers l'exécution -->
+              <line x1="158" y1="68" x2="255" y2="44" stroke="#f87171" stroke-width="1" stroke-dasharray="3 3" />
+              <line x1="200" y1="49" x2="210" y2="59" stroke="#f87171" stroke-width="1.6" />
+              <line x1="210" y1="49" x2="200" y2="59" stroke="#f87171" stroke-width="1.6" />
+              <text x="232" y="64" fill="#f87171" font-size="7" font-weight="700">jamais dans la boucle</text>
+            </svg>
+            <div class="flex flex-col gap-2">
+              <div class="flex flex-wrap gap-2">
+                <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-red-400 border-red-400/40 bg-red-400/10">N'ouvre jamais de trade</span>
+                <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-red-400 border-red-400/40 bg-red-400/10">Aucune autonomie sur les seuils</span>
+                <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-violet-400 border-violet-400/40 bg-violet-400/10">Conseille, explique</span>
+                <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-white border-white/40 bg-white/10">Réglages : acte du propriétaire</span>
+              </div>
+              <p>Le moteur SMC applique la définition figée — l'étalon est le Pine. L'IA conseille
+              et explique ; toute modification de réglage est un acte du propriétaire dans les
+              Paramètres.</p>
+            </div>
+          </div>
         </carte>
       </div>
     </div>
@@ -215,45 +508,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineComponent, h, onMounted } from 'vue'
+import LexiquePanel from '@/components/common/LexiquePanel.vue'
+import SmcOngletDefinition from '@/components/smc/SmcOngletDefinition.vue'
+import { Carte as carte, Valeur as valeur } from '@/components/common/carteTitree'
+import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 
 interface ReglagesStrategie {
   etat: string; capital: number; risque_pct: number
 }
 
-// ── Mini-composants locaux (carte titrée + vignette de valeur) ───────────────
-const Carte = defineComponent({
-  props: { titre: { type: String, required: true } },
-  setup(props, { slots }) {
-    return () => h('div', { class: 'rounded-xl border border-white/10 bg-white/5 px-5 py-4' }, [
-      h('div', {
-        class: 'text-xs font-semibold text-blue-400 uppercase tracking-widest mb-2.5',
-        innerHTML: props.titre,
-      }),
-      h('div', {
-        class: 'text-white text-sm leading-relaxed [&_b]:text-white [&_ol]:list-decimal [&_ol]:ml-5 [&_ul]:space-y-1 [&_p]:mb-2 [&_p:last-child]:mb-0',
-      }, slots.default?.()),
-    ])
-  },
-})
-const carte = Carte
 
-const Valeur = defineComponent({
-  props: {
-    etiquette: { type: String, required: true },
-    valeur: { type: String, required: true },
-  },
-  setup: (p: { etiquette: string; valeur: string }) => () =>
-    h('div', { class: 'rounded-xl border border-white/10 bg-white/5 px-4 py-3' }, [
-      h('div', { class: 'text-[10px] text-white uppercase tracking-widest' }, p.etiquette),
-      h('div', { class: 'text-lg font-bold text-white mt-1 font-mono' }, p.valeur),
-    ]),
-})
-const valeur = Valeur
 
 // ── Onglets (décision étape 3 : Définition première page + Lexique en onglet)
-const onglets = ['Définition', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Enrichissement IA'] as const
+const onglets = ['Définition', 'Lexique', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Enrichissement IA'] as const
 const onglet = ref<(typeof onglets)[number]>('Définition')
 
 // ── Réglages live de la stratégie (registre) ─────────────────────────────────

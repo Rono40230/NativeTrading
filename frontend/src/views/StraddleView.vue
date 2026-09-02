@@ -5,6 +5,10 @@
     etat="Observation"
     route-definition="/straddle/definition"
     lexique="straddle"
+    libelle-definition="📖 Caractéristiques du Straddle"
+    :afficher-lexique="false"
+    teinte="bg-amber-500/5"
+    :ordre-poses="nbOrdresPoses(signauxActifs, 'straddle')"
     :titre-encours="`${nbEncours} ${nbEncours > 1 ? 'signaux' : 'signal'} en cours`"
   >
     <template #setups>
@@ -42,6 +46,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import StrategyShell from '@/components/common/StrategyShell.vue'
+import { nbOrdresPoses } from '@/composables/useSignalFormat'
 import SignauxTableau from '@/components/common/SignauxTableau.vue'
 import SignauxEnAttente from '@/components/common/SignauxEnAttente.vue'
 import StraddleAgendaPanel from '@/components/common/StraddleAgendaPanel.vue'

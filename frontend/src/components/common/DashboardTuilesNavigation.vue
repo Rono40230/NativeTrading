@@ -8,7 +8,8 @@
     <div
       v-for="t in tuiles"
       :key="t.id"
-      class="glass-card p-2.5 flex flex-col gap-1.5 shrink-0 cursor-pointer transition-colors hover:bg-white/10 hover:border-white/20"
+      class="rounded-xl border backdrop-blur-sm p-2.5 flex flex-col gap-1.5 shrink-0 cursor-pointer transition-colors"
+      :class="TEINTES[t.id]"
       @click="router.push(t.route)"
     >
       <div class="flex items-center gap-1.5">
@@ -84,6 +85,14 @@ import type { AlertePrix } from '@/services/api.alertes'
 
 const router = useRouter()
 const prixStore = usePrixStore()
+
+/// Teinte de chaque tuile — la couleur voyage jusqu'à la page ouverte.
+const TEINTES: Record<string, string> = {
+  presse: 'bg-sky-500/10 border-sky-500/25 hover:border-sky-400/50',
+  graphiques: 'bg-emerald-500/10 border-emerald-500/25 hover:border-emerald-400/50',
+  ia: 'bg-violet-500/10 border-violet-500/25 hover:border-violet-400/50',
+  systeme: 'bg-rose-500/10 border-rose-500/25 hover:border-rose-400/50',
+}
 
 const tuiles = [
   { id: 'presse', icone: '📰', label: 'Revue de presse', route: '/presse' },

@@ -315,6 +315,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::volatility_handlers::get_patterns),
         )
         .route(
+            "/api/volatility/patterns-jour",
+            web::get().to(crate::volatility_handlers::get_patterns_jour),
+        )
+        .route(
             "/api/prompts",
             web::get().to(crate::prompts_handler::lister_prompts),
         )

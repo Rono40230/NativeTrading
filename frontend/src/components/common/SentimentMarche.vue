@@ -228,10 +228,11 @@ function pct(v: number): string {
 /// (entier ≥ 1 000 — ex. BTC « 87 432 », S&P « 5 864 » ; 2 décimales sinon).
 /// Cours coloré au mouvement du jour : vert en hausse, rouge en baisse,
 /// neutre si strictement stable.
+/// Échelle propriétaire : ≥ −1 % vert · −3 % à −1 % bleu · < −3 % rouge.
 function couleurCours(v: number): string {
-  if (v > 0) return 'text-emerald-400'
-  if (v < 0) return 'text-red-400'
-  return 'text-white'
+  if (v >= -1) return 'text-emerald-400'
+  if (v >= -3) return 'text-blue-400'
+  return 'text-red-400'
 }
 
 function prixFmt(v: number): string {
@@ -239,15 +240,17 @@ function prixFmt(v: number): string {
   return new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v) + ' $'
 }
 
+/// Échelle propriétaire : ≥ −1 % vert · −3 % à −1 % bleu · < −3 % rouge.
 function bille(v: number): string {
-  if (v > 0) return '🟢'
-  if (v >= -0.5) return '🔵'
+  if (v >= -1) return '🟢'
+  if (v >= -3) return '🔵'
   return '🔴'
 }
 
+/// Échelle propriétaire : ≥ −1 % vert · −3 % à −1 % bleu · < −3 % rouge.
 function couleur(v: number): string {
-  if (v > 0) return 'text-emerald-400'
-  if (v >= -0.5) return 'text-blue-400'
+  if (v >= -1) return 'text-emerald-400'
+  if (v >= -3) return 'text-blue-400'
   return 'text-red-400'
 }
 
