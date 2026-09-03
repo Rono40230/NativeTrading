@@ -14,6 +14,7 @@ const CLES_AUTORISEES: &[&str] = &[
     "seuil_confiance_straddle",
     "seuil_confiance_smc",
     "tiingo_api_key",
+    "smc_tp1_mult",
 ];
 
 #[derive(Deserialize)]
@@ -62,6 +63,11 @@ pub async fn post_config(
     match state.db.ecrire_config(&body.cle, &body.valeur).await {
         Ok(()) => {
             tracing::info!("Config mise à jour: {}", body.cle);
+            // TP1 SMC changé → les métriques (WR, R, capital) se re-dérivent
+            // du nouveau réglage en tâche de fond (re-jeu paramétrique).
+            if body.cle == "smc_tp1_mult" {
+                crate::smc_rejeu::lancer_si_necessaire(state.db.clone()).await;
+            }
 
             HttpResponse::Ok().json(serde_json::json!({ "ok": true }))
         }

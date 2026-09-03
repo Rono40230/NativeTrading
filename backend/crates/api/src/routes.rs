@@ -46,6 +46,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::capital_simule::capital_strategie),
         )
         .route(
+            "/api/smc/rejeu",
+            web::get().to(crate::smc_rejeu::get_rejeu),
+        )
+        .route(
             "/api/straddle/agenda",
             web::get().to(crate::straddle_agenda::get_agenda),
         )

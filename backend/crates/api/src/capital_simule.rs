@@ -49,6 +49,33 @@ pub async fn capital_strategie(
         return HttpResponse::NotFound()
             .json(serde_json::json!({ "error": "Stratégie inconnue" }));
     }
+    // SMC : capital re-dérivé du re-jeu TP1 (même base que la performance).
+    if id == "SMC" {
+        if let Some(r) = crate::smc_rejeu::lire_cache().await {
+            let mut precedent = r.capital_depart;
+            let points: Vec<serde_json::Value> = r
+                .clotures
+                .iter()
+                .map(|c| {
+                    let profit = c.capital_apres - precedent;
+                    precedent = c.capital_apres;
+                    serde_json::json!({
+                        "id": format!("{}-{}", c.asset, c.tf),
+                        "ferme_le": c.ferme_le,
+                        "r": c.r,
+                        "profit": profit,
+                        "capital_apres": c.capital_apres,
+                    })
+                })
+                .collect();
+            return HttpResponse::Ok().json(serde_json::json!({
+                "capital_depart": r.capital_depart,
+                "fraction_risque": r.fraction_risque,
+                "capital_actuel": r.capital_actuel,
+                "points": points,
+            }));
+        }
+    }
     match simuler(&state.db, &id).await {
         Ok(s) => HttpResponse::Ok().json(s),
         Err(e) => HttpResponse::InternalServerError()

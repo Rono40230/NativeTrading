@@ -5,6 +5,7 @@
     etat="Observation"
     route-definition="/straddle/definition"
     lexique="straddle"
+    route-parametres="/parametres?strategie=straddle"
     libelle-definition="📖 Caractéristiques du Straddle"
     :afficher-lexique="false"
     teinte="bg-amber-500/5"

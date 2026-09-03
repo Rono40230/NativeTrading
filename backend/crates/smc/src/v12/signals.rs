@@ -109,6 +109,12 @@ impl SignalGenerator {
         self.tp2_mult = tp2;
     }
 
+    /// TP1 réglable par le propriétaire (Paramètres › stratégies › SMC,
+    /// défaut production 0.6 — décision étape 4). SL et TP2 inchangés.
+    pub fn definir_tp1(&mut self, tp1: f64) {
+        self.tp1_mult = tp1;
+    }
+
     /// Reset du flag anti-double-trade (Pine 2358-2359) — à appeler en début de bar.
     pub fn reset_bar(&mut self) {
         self.trade_pousse = false;

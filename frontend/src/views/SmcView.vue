@@ -6,6 +6,7 @@
     route-definition="/smc/definition"
     lexique="smc"
     teinte="bg-blue-500/5"
+    route-parametres="/parametres?strategie=SMC"
     libelle-definition="📖 Caractéristiques de la SMC"
     :afficher-lexique="false"
     :ordre-poses="nbOrdresPoses(signauxActifs, 'SMC')"

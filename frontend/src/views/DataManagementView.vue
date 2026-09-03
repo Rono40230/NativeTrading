@@ -7,7 +7,7 @@
       <h2 class="text-sm font-semibold text-white uppercase tracking-wider">Workers d'ingestion</h2>
 
       <!-- Interrupteurs + statut — MT5 et workers dans la même rangée -->
-      <div class="grid gap-4 grid-cols-2">
+      <div class="grid gap-4 grid-cols-1 md:grid-cols-3">
 
       <!-- Collecteur MT5/Axi (statut de l'EA — pas d'interrupteur : MT5
            ouvert = collecte, MT5 fermé = silence) -->
@@ -24,7 +24,7 @@
         <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs" v-if="mt5.symboles?.length">
           <span v-for="s in mt5.symboles" :key="s.asset" class="text-white">
             {{ s.asset }} :
-            <span v-if="s.age_s >= 0 && s.age_s < 120" class="text-emerald-400">prix il y a {{ s.age_s }}s</span>
+            <span v-if="s.age_s >= 0 && s.age_s < 120" class="text-emerald-400">il y a {{ s.age_s }}s</span>
             <span v-else class="text-white">sans prix (marché fermé ?)</span>
           </span>
         </div>
@@ -42,21 +42,11 @@
               <p class="font-bold text-white">{{ w.nom }}</p>
               <p class="text-xs text-white">{{ w.description }}</p>
             </div>
-            <button
-              class="px-4 py-1.5 rounded-lg text-sm font-semibold transition disabled:opacity-50"
-              :class="w.config.actif
-                ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
-                : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'"
-              :disabled="enEcritureConfig"
-              @click="basculerWorker(w.cle)"
-            >
-              {{ w.config.actif ? '⏸ Pause' : '▶ Démarrer' }}
-            </button>
+            <span v-if="!w.config.actif" class="text-amber-400 text-sm">⏸ En pause</span>
+            <span v-else-if="w.statut?.connecte" class="text-emerald-400 text-sm">● Connecté</span>
+            <span v-else class="text-red-400 text-sm">○ Déconnecté</span>
           </div>
           <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-            <span v-if="!w.config.actif" class="text-white">⏸ Désactivé</span>
-            <span v-else-if="w.statut?.connecte" class="text-emerald-400">● Connecté</span>
-            <span v-else class="text-red-400">○ Déconnecté</span>
             <span class="text-white">
               {{ w.statut?.nb_assets ?? 0 }} asset(s) suivis
             </span>
@@ -64,11 +54,28 @@
             <span class="text-white">{{ (w.statut?.bougies_inserees ?? 0).toLocaleString() }} bougies insérées</span>
           </div>
         </div>
+      <!-- Tiingo Actions : veille quotidienne (statut seul, non pilotable) -->
+      <div
+        class="rounded-xl border p-4 space-y-3 transition"
+        :class="tiingo ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 bg-white/[0.02]'"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="font-bold text-white">Tiingo Actions</p>
+            <p class="text-xs text-white">Prix D1 volume réel — univers NASDAQ Trader</p>
+          </div>
+          <span v-if="tiingo" class="text-emerald-400 text-sm">● À jour</span>
+          <span v-else class="text-red-400 text-sm">○ Erreur</span>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+          <span class="text-white">{{ tiingo?.univers_avec_bougies ?? 0 }}/{{ tiingo?.univers_total ?? 0 }} actions couvertes</span>
+          <span class="text-white">backfill {{ tiingo?.progression_pct ?? 0 }} %</span>
+          <span class="text-white">Collecte quotidienne 22h30 UTC (clôture Wall Street)</span>
+        </div>
       </div>
 
-      <p v-if="messageConfig" class="text-sm" :class="erreurConfig ? 'text-red-400' : 'text-emerald-400'">
-        {{ messageConfig }}
-      </p>
+      </div>
+
     </div>
 
     <!-- ══ SECTION 2 — Assets du pipeline ════════════════════════════════════ -->
@@ -219,9 +226,8 @@ const TOUS_TF = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 // ── Section 1 : workers ───────────────────────────────────────────────────────
 const configWorker = ref<WorkerConfig | null>(null)
 const statutWorkers = ref<WorkerStatus | null>(null)
-const enEcritureConfig = ref(false)
-const messageConfig = ref<string | null>(null)
-const erreurConfig = ref(false)
+/// Veille actions Tiingo (statut seul — collecte quotidienne non pilotable).
+const tiingo = ref<{ univers_avec_bougies: number; univers_total: number; progression_pct: number } | null>(null)
 /// Politique fixe (décisions propriétaire 2026-08-15) : rétention/stockage 2 ans.
 const MOIS_RETENTION = 24
 
@@ -260,23 +266,11 @@ async function chargerStatutWorkers() {
   } catch {
     statutWorkers.value = null
   }
-}
-
-async function basculerWorker(cle: 'actif_bybit') {
-  const c = configWorker.value
-  if (!c || enEcritureConfig.value) return
-  enEcritureConfig.value = true
-  messageConfig.value = null
   try {
-    configWorker.value = await apiService.putWorkerConfig({ [cle]: !c[cle] })
-    messageConfig.value = `Worker Bybit ${configWorker.value[cle] ? 'activé' : 'mis en pause'} — effet sous 60 s max`
-    erreurConfig.value = false
-    await chargerStatutWorkers()
-  } catch (err: unknown) {
-    erreurConfig.value = true
-    messageConfig.value = `❌ Erreur : ${err instanceof Error ? err.message : 'inconnue'}`
-  } finally {
-    enEcritureConfig.value = false
+    const r = await http.get('/api/rockets/actions/backfill/etat')
+    tiingo.value = r.data
+  } catch {
+    tiingo.value = null
   }
 }
 

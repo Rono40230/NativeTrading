@@ -98,7 +98,7 @@ const tuiles = [
   { id: 'presse', icone: '📰', label: 'Revue de presse', route: '/presse' },
   { id: 'graphiques', icone: '📈', label: 'Graphiques', route: '/smc/graphiques' },
   { id: 'ia', icone: '🧠', label: 'Fonctionnalités IA', route: '/ia' },
-  { id: 'systeme', icone: '⚙️', label: 'Système', route: '/systeme' },
+  { id: 'systeme', icone: '📦', label: 'Données', route: '/donnees' },
 ] as const
 
 const raccourcisIa = [
@@ -108,8 +108,8 @@ const raccourcisIa = [
 ]
 
 const raccourcisSysteme = [
-  { to: '/systeme?tab=settings', label: '⚙️ Paramètres' },
-  { to: '/systeme?tab=data', label: '📦 Données' },
+  { to: '/donnees?tab=risque', label: '📊 Risque' },
+  { to: '/donnees?tab=connexions', label: '🔌 Connexions' },
 ]
 
 // ── Presse : 3 derniers articles ─────────────────────────────────────────────

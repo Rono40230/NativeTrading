@@ -10,6 +10,7 @@
       >{{ etat }}</span>
       <div class="ml-auto flex gap-2 shrink-0">
         <button class="btn-sm" @click="router.push(routeDefinition)">{{ libelleDefinition }}</button>
+        <button v-if="routeParametres" class="btn-sm" @click="router.push(routeParametres)">⚙️ Paramètres</button>
         <button v-if="afficherLexique" class="btn-sm" @click="lexiqueOuvert = true">📚 Lexique</button>
       </div>
     </div>
@@ -81,6 +82,9 @@ const props = withDefaults(defineProps<{
   teinte?: string
   /** Libellé du bouton d'accès aux caractéristiques (défaut « 📖 Définition »). */
   libelleDefinition?: string
+  /** Route du bouton ⚙️ Paramètres (ex. /parametres?strategie=SMC) —
+   *  absente = bouton masqué. */
+  routeParametres?: string
   /** Bouton 📚 Lexique masqué quand le lexique vit en onglet de la page
    *  caractéristiques (vrai par défaut). */
   afficherLexique?: boolean

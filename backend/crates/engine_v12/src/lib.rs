@@ -137,6 +137,13 @@ impl MoteurV12 {
         self
     }
 
+    /// TP1 réglable (Paramètres › stratégies › SMC, défaut 0.6) — passe au
+    /// moteur : les nouveaux signaux partent avec ce niveau.
+    pub fn avec_tp1(mut self, tp1: f64) -> Self {
+        self.moteur = self.moteur.avec_tp1(tp1);
+        self
+    }
+
     /// Bonus de scoring BPR (étude Module A — défaut actif = étalon Pine).
     pub fn avec_scoring_bpr(mut self, actif: bool) -> Self {
         self.moteur = self.moteur.avec_scoring_bpr(actif);

@@ -14,6 +14,19 @@ pub struct ClotureCapital {
 }
 
 impl Database {
+    /// Epoch (sec) de la première émission d'une stratégie — borne la fenêtre
+    /// de re-jeu paramétrique à la période réellement vécue par l'app.
+    pub async fn debut_historique_epoch(&self, strategie: &str) -> Option<i64> {
+        sqlx::query_scalar::<_, i64>(
+            "SELECT MIN(cree_le) FROM signaux WHERE strategie = ? AND cree_le IS NOT NULL",
+        )
+        .bind(strategie)
+        .fetch_optional(&self.pool)
+        .await
+        .ok()
+        .flatten()
+    }
+
     /// Clôtures REMPLIES d'une stratégie — matière première de la simulation
     /// de capital composée. Un ordre jamais touché n'engage pas de capital
     /// (heure_entree IS NOT NULL), les expirés/BE participent avec leur R réel.

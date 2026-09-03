@@ -156,6 +156,11 @@ Ce que le chantier doit faire :
 - [ ] ETH : réactiver et re-backfiller si souhaité (purgé par le job de rétention 24 mois)
 - [ ] Config `worker_historique_mois` : 6 mois mais l'historique MT5 en couvre 24 — harmoniser
       avec la rétention
+- [ ] **Purge des paramètres v1 morts** : `strategies_params` (SmcParams/StraddleParams —
+      `atr_tp1/2/3`, `score_min`, `tp_mult_1..3`, `atr_periode`…) servis par d'anciens
+      endpoints mais jamais lus par les moteurs actuels (v12 = calibration propre + réglage
+      TP1 config ; verticale = rockets_params). Seul consommateur : suggestions ML.
+      À purger avec la refonte du chantier ML (section 10).
 - [ ] Leçons L1-L11 : à relire avant toute intervention (archivées au journal)
 
 ### 10. Boucle ML — réveiller le feedback, la calibration et les suggestions LLM

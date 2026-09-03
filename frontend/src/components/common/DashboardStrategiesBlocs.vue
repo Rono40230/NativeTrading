@@ -16,14 +16,20 @@
           class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
           :class="badgeClasse(b.etat)"
         >{{ b.etat }}</span>
+        <span v-if="b.perf.source === 'rejeu' && b.perf.clotures.length"
+          class="text-[9px] text-white"
+          title="Métriques re-dérivées du TP1 réglé (re-jeu paramétrique — tous les couples armés)"
+        >depuis {{ dateCourte(b.perf.clotures[0].ferme_le) }}</span>
         <div class="ml-auto flex items-center gap-1.5 text-[10px] font-semibold whitespace-nowrap">
           <span class="px-1.5 py-0.5 rounded bg-white/10 font-mono font-bold"
-                :class="b.perf.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'"
-                title="R de référence : paliers max atteints">{{ b.perf.r_total >= 0 ? '+' : '' }}{{ b.perf.r_total.toFixed(1) }} R</span>
+                :class="rArrondi(b.perf.r_total) > 0 ? 'text-emerald-400' : rArrondi(b.perf.r_total) < 0 ? 'text-red-400' : 'text-white'"
+                title="R de référence : paliers max atteints">{{ rFormate(b.perf.r_total) }}</span>
           <span v-if="b.capital" class="px-1.5 py-0.5 rounded bg-white/10 font-mono font-bold"
-                :class="b.capital.capital_actuel >= b.capital.capital_depart ? 'text-emerald-400' : 'text-red-400'"
+                :class="b.capital.capital_actuel < 0 ? 'text-red-400' : b.capital.capital_actuel >= b.capital.capital_depart ? 'text-emerald-400' : 'text-white'"
                 :title="`Capital simulé — départ ${fmtDollars(b.capital.capital_depart)}, compose à chaque clôture (risque ${(b.capital.fraction_risque * 100).toFixed(b.capital.fraction_risque < 0.01 ? 1 : 0)} %/trade). Le lot de chaque trade se calcule sur ce capital.`">{{ fmtDollars(b.capital.capital_actuel) }}</span>
           <span class="px-1.5 py-0.5 rounded bg-white/10 text-white" title="Taux de réussite (R de référence > 0)">WR {{ (b.perf.taux_reussite * 100).toFixed(0) }} %</span>
+          <span v-if="b.perf.recalcul" class="px-1.5 py-0.5 rounded bg-white/10 text-white animate-pulse"
+                title="Re-jeu paramétrique en cours (~35 s) — les métriques vont se mettre à jour">⏳ recalcul</span>
         </div>
       </div>
 
@@ -165,12 +171,12 @@
               :stroke-dashoffset="25 - decallage(b.topTf.filter(x => x.part > 0), i)"
             />
             <text x="21" y="22" text-anchor="middle" dominant-baseline="middle"
-              class="fill-emerald-400" style="font-size: 8px; font-weight: 700">+{{ Math.round(b.topTf.reduce((n, s) => n + Math.max(0, s.pips), 0)) }}</text>
+              :class="b.pipsNet >= 0 ? 'fill-emerald-400' : 'fill-red-400'" style="font-size: 8px; font-weight: 700">{{ b.pipsNet >= 0 ? '+' : '−' }}{{ Math.abs(Math.round(b.pipsNet)) }}</text>
           </svg>
           <p class="text-[8px] uppercase text-white tracking-wide">Classement TF</p>
           <p class="text-[8px] leading-tight text-white text-center">
-            <span v-for="s in b.topTf.slice(0, 4)" :key="'ttfl' + s.label" class="whitespace-nowrap">
-              <span :style="{ color: couleurTf(s.label) }">■</span> {{ s.label }} <span :class="s.pips >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ s.pips >= 0 ? '+' : '−' }}{{ Math.abs(Math.round(s.pips)) }}</span>{{ ' ' }}
+            <span v-for="s in lignesClassement(b.topTf)" :key="'ttfl' + s.label" class="whitespace-nowrap">
+              <span :style="{ color: s.autres ? 'rgba(255,255,255,0.35)' : couleurTf(s.label) }">■</span> {{ s.label }} <span :class="s.pips >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ s.pips >= 0 ? '+' : '−' }}{{ Math.abs(s.pips) }}</span>{{ ' ' }}
             </span>
           </p>
         </div>
@@ -193,12 +199,12 @@
               :stroke-dashoffset="25 - decallage(b.topAsset.filter(x => x.part > 0), i)"
             />
             <text x="21" y="22" text-anchor="middle" dominant-baseline="middle"
-              class="fill-emerald-400" style="font-size: 8px; font-weight: 700">+{{ Math.round(b.topAsset.reduce((n, s) => n + Math.max(0, s.pips), 0)) }}</text>
+              :class="b.pipsNet >= 0 ? 'fill-emerald-400' : 'fill-red-400'" style="font-size: 8px; font-weight: 700">{{ b.pipsNet >= 0 ? '+' : '−' }}{{ Math.abs(Math.round(b.pipsNet)) }}</text>
           </svg>
           <p class="text-[8px] uppercase text-white tracking-wide">Classement asset</p>
           <p class="text-[8px] leading-tight text-white text-center">
-            <span v-for="s in b.topAsset.slice(0, 4)" :key="'tasl' + s.label" class="whitespace-nowrap">
-              <span :style="{ color: couleurAsset(s.label) }">■</span> {{ s.label }} <span :class="s.pips >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ s.pips >= 0 ? '+' : '−' }}{{ Math.abs(Math.round(s.pips)) }}</span>{{ ' ' }}
+            <span v-for="s in lignesClassement(b.topAsset)" :key="'tasl' + s.label" class="whitespace-nowrap">
+              <span :style="{ color: s.autres ? 'rgba(255,255,255,0.35)' : couleurAsset(s.label) }">■</span> {{ s.label }} <span :class="s.pips >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ s.pips >= 0 ? '+' : '−' }}{{ Math.abs(s.pips) }}</span>{{ ' ' }}
             </span>
           </p>
         </div>
@@ -218,6 +224,11 @@ import { useRouter } from 'vue-router'
 import { http } from '@/services/http.client'
 import { useAssetParamsStore } from '@/stores/assetParams.store'
 import { palierMax, labelPalierMax } from '@/composables/useSignalFormat'
+import {
+  PALETTE as _PALETTE, repartition, classement, couleurTf, couleurAsset,
+  decallage, totalParts, lignesClassement,
+} from '@/composables/useCamemberts'
+import type { PartCamembert, PartClassement } from '@/composables/useCamemberts'
 
 interface StrategieApi {
   id: string; nom: string; icone: string; etat: string
@@ -230,6 +241,11 @@ interface PerfApi {
   taux_reussite: number
   /** R total de référence (paliers max atteints) — métrique primaire. */
   r_total: number
+  /** Présents quand la performance vient du re-jeu paramétrique (SMC).
+   *  recalcul = un re-jeu est en vol après un changement de TP1. */
+  source?: string
+  tp1?: number
+  recalcul?: boolean
 }
 /// Simulation composée du capital en $ (backend capital_simule) — le capital
 /// de départ évolue à chaque clôture : capital += R_réalisé × capital × risque.
@@ -247,25 +263,15 @@ interface JourHistogramme {
   pips: number
   trades: TradeJour[]
 }
-interface PartCamembert {
-  label: string
-  n: number
-  /** Part en % (sur 100 = circonférence du donut). */
-  part: number
-}
-interface PartClassement {
-  label: string
-  /** Pips signés de la catégorie (les négatifs n'ont pas de tranche). */
-  pips: number
-  /** Part en % des pips POSITIFS totaux. */
-  part: number
-}
 interface Bloc {
   id: string; nom: string; icone: string; etat: string; perf: PerfApi
   /** Capital simulé en $ (composé à chaque clôture) — null si indisponible. */
   capital: CapitalApi | null
   /** Histogramme journalier : Σ pips par jour + trades du jour (tooltip). */
   jours: JourHistogramme[]
+  /** Σ pips nets de TOUS les fermés remplis — indépendant du regroupement
+   *  (centre identique des deux camemberts pips). */
+  pipsNet: number
   /** Répartitions (nombre de trades) et classements (pips) des fermés remplis. */
   parTf: PartCamembert[]
   parAsset: PartCamembert[]
@@ -366,58 +372,8 @@ function joursHistogramme(idStrategie: string): JourHistogramme[] {
   return [...parJour.values()]
 }
 
-/// Répartition par catégorie (TF ou asset) en parts de 100.
-function repartition(trades: (TradeJour & { fermeLe: number })[], cle: (t: TradeJour & { fermeLe: number }) => string): PartCamembert[] {
-  const n = new Map<string, number>()
-  for (const t of trades) n.set(cle(t), (n.get(cle(t)) ?? 0) + 1)
-  const total = trades.length || 1
-  return [...n.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([label, nb]) => ({ label, n: nb, part: (nb / total) * 100 }))
-}
-
-/// Classement : Σ pips signés par catégorie — les positifs portent des
-/// tranches proportionnelles à leur part des gains totaux.
-function classement(
-  trades: (TradeJour & { fermeLe: number })[],
-  cle: (t: TradeJour & { fermeLe: number }) => string,
-): PartClassement[] {
-  const par = new Map<string, number>()
-  for (const t of trades) par.set(cle(t), (par.get(cle(t)) ?? 0) + t.pips)
-  const totalGains = [...par.values()].filter(v => v > 0).reduce((a, b) => a + b, 0)
-  return [...par.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([label, pips]) => ({
-      label,
-      pips,
-      part: totalGains > 0 && pips > 0 ? (pips / totalGains) * 100 : 0,
-    }))
-}
-
-const PALETTE = ['#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6', '#38bdf8', '#fb923c', '#4ade80', '#e879f9']
-
-function couleurTf(tf: string): string {
-  const ordre = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
-  return PALETTE[(ordre.indexOf(tf) + PALETTE.length) % PALETTE.length]
-}
-
-function couleurAsset(asset: string): string {
-  let h = 0
-  for (const c of asset) h = (h * 31 + c.charCodeAt(0)) % 997
-  return PALETTE[h % PALETTE.length]
-}
-
-/// Décalage cumulé des segments du donut (stroke-dashoffset).
-function decallage(parts: { part: number }[], index: number): number {
-  return parts.slice(0, index).reduce((somme, p) => somme + p.part, 0)
-}
-
-/// Total des trades d'une répartition (centre du donut).
-function totalParts(parts: PartCamembert[]): number {
-  return parts.reduce((n, p) => n + p.n, 0)
-}
-
-/// Y du zéro de l'histogramme (pips positifs au-dessus, négatifs au-dessous).
+/// R arrondi au dixième — sert AUSSI à la couleur (fini le « -0.0 R » rouge).
+/// Y du zéro de l'histogramme (pips positifs au-dessus, négatifs en dessous).
 const yZeroHistogramme = HIST_H / 2
 
 function yHistogramme(b: Bloc, pips: number): number {
@@ -435,43 +391,10 @@ function libelleJour(date: string): string {
   return `${j}/${m}`
 }
 
-async function charger() {
-  try {
-    if (!assetParams.liste.length) await assetParams.charger().catch(() => {})
-    try {
-      const sig = await http.get<SignalApi[]>('/api/signaux', { params: { limit: 150 } })
-      signaux.value = sig.data
-    } catch { signaux.value = [] }
-    const res = await http.get<StrategieApi[]>('/api/strategies')
-    const actives = (res.data as StrategieApi[]).filter(s => s.etat !== 'Construction')
-    const complets = await Promise.allSettled(
-      actives.map(async s => {
-        let perf = PERF_VIDE
-        try {
-          const p = await http.get<PerfApi>(`/api/strategies/${s.id}/performance`)
-          perf = p.data as PerfApi
-        } catch { /* perf indisponible → bloc vide */ }
-        let capital: CapitalApi | null = null
-        try {
-          const c = await http.get<CapitalApi>(`/api/strategies/${s.id}/capital`)
-          capital = c.data as CapitalApi
-        } catch { /* simulation indisponible → pas de badge ni courbe */ }
-        const trades = tradesFerme(s.id)
-        return {
-          id: s.id, nom: s.nom, icone: s.icone, etat: s.etat, perf, capital,
-          jours: joursHistogramme(s.id),
-          parTf: repartition(trades, t => t.tf),
-          parAsset: repartition(trades, t => t.asset),
-          topTf: classement(trades, t => t.tf),
-          topAsset: classement(trades, t => t.asset),
-        }
-      }),
-    )
-    blocs.value = complets.flatMap(p => (p.status === 'fulfilled' ? [p.value] : []))
-  } catch {
-    blocs.value = []
-  }
-  chargement.value = false
+/// R formaté : +2.1 R / −1.5 R / 0.0 R (jamais de « -0.0 »).
+function rFormate(v: number): string {
+  const r = rArrondi(v)
+  return `${r > 0 ? '+' : r < 0 ? '−' : ''}${Math.abs(r).toFixed(1)} R`
 }
 
 function ouvrir(id: string) {
@@ -480,7 +403,7 @@ function ouvrir(id: string) {
 }
 
 /// Teinte de fond par stratégie — reprise par la page qu'elle ouvre
-/// (blobs = boutons : la couleur voyage jusqu'à la page).
+/// (la couleur voyage jusqu'à la page).
 const TEINTES: Record<string, string> = {
   SMC: 'bg-blue-500/10 border-blue-500/25 hover:border-blue-400/50',
   straddle: 'bg-amber-500/10 border-amber-500/25 hover:border-amber-400/50',
@@ -497,9 +420,19 @@ function badgeClasse(etat: string) {
   return 'bg-gray-500/10 text-white border-gray-500/30'
 }
 
-/// Format $ : 12 345 $.
+function rArrondi(v: number): number {
+  return Math.round(v * 10) / 10
+}
+
+/// Date courte JJ/MM depuis un epoch secondes.
+function dateCourte(ts: number): string {
+  return new Date(ts * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+}
+
+/// Format $ : 12 345 $ — signe − typographique devant la somme négative.
 function fmtDollars(v: number): string {
-  return `${Math.round(v).toLocaleString('fr-FR')} $`
+  const n = Math.round(Math.abs(v)).toLocaleString('fr-FR')
+  return `${v < 0 ? '−' : ''}${n} $`
 }
 
 /// Points SVG de la courbe R cumulé.
@@ -544,6 +477,46 @@ function ligneZero(b: Bloc): number | null {
   const max = Math.max(...vals)
   const amplitude = max - min || 1
   return HAUTEUR - 2 - ((0 - min) / amplitude) * (HAUTEUR - 4)
+}
+
+async function charger() {
+  try {
+    if (!assetParams.liste.length) await assetParams.charger().catch(() => {})
+    try {
+      const sig = await http.get<SignalApi[]>('/api/signaux', { params: { limit: 150 } })
+      signaux.value = sig.data
+    } catch { signaux.value = [] }
+    const res = await http.get<StrategieApi[]>('/api/strategies')
+    const actives = (res.data as StrategieApi[]).filter(s => s.etat !== 'Construction')
+    const complets = await Promise.allSettled(
+      actives.map(async s => {
+        let perf = PERF_VIDE
+        try {
+          const p = await http.get<PerfApi>(`/api/strategies/${s.id}/performance`)
+          perf = p.data as PerfApi
+        } catch { /* perf indisponible → bloc vide */ }
+        let capital: CapitalApi | null = null
+        try {
+          const c = await http.get<CapitalApi>(`/api/strategies/${s.id}/capital`)
+          capital = c.data as CapitalApi
+        } catch { /* simulation indisponible → pas de badge ni courbe */ }
+        const trades = tradesFerme(s.id)
+        return {
+          id: s.id, nom: s.nom, icone: s.icone, etat: s.etat, perf, capital,
+          pipsNet: trades.reduce((n, t) => n + t.pips, 0),
+          jours: joursHistogramme(s.id),
+          parTf: repartition(trades, t => t.tf),
+          parAsset: repartition(trades, t => t.asset),
+          topTf: classement(trades, t => t.tf),
+          topAsset: classement(trades, t => t.asset),
+        }
+      }),
+    )
+    blocs.value = complets.flatMap(p => (p.status === 'fulfilled' ? [p.value] : []))
+  } catch {
+    blocs.value = []
+  }
+  chargement.value = false
 }
 
 const PERF_VIDE: PerfApi = {

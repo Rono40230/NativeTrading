@@ -5,6 +5,7 @@
     etat="Observation"
     route-definition="/rockets/definition"
     lexique="rockets"
+    route-parametres="/parametres?strategie=rockets"
     libelle-definition="📖 Caractéristiques des Rockets"
     :afficher-lexique="false"
     :titre-encours="`${nbEncours} ${nbEncours > 1 ? 'signaux' : 'signal'} en cours`"

@@ -1,5 +1,5 @@
 <template>
-  <!-- ROCKETS : registre + profil/gestion, un seul bouton -->
+  <!-- SMC : registre + niveaux de prise de profit, un seul bouton -->
   <div class="border border-white/10 bg-white/5 backdrop-blur-md rounded-xl flex flex-col overflow-hidden shadow-lg relative">
     <div class="absolute top-0 left-0 w-full h-1" :style="{ background: `linear-gradient(90deg, ${s.couleur}66, transparent)` }"></div>
 
@@ -8,7 +8,7 @@
       <h3 class="font-bold text-base flex items-center gap-2">
         <span class="w-8 h-8 rounded-full flex items-center justify-center"
           :style="{ background: `${s.couleur}1A`, color: s.couleur }">{{ s.icone }}</span>
-        STRATÉGIE ROCKETS
+        STRATÉGIE SMC
       </h3>
       <span class="text-[10px] px-2 py-0.5 rounded-full font-semibold" :class="badgeEtat">{{ etat }}</span>
     </div>
@@ -43,7 +43,7 @@
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
         </div>
         <div class="flex items-center justify-between gap-4">
-          <span class="text-white text-xs">Risque par rocket</span>
+          <span class="text-white text-xs">Risque par trade</span>
           <select v-model.number="risquePct" class="bg-black/30 border border-white/10 rounded-md px-2 py-1.5 text-xs text-white">
             <option :value="1">1 %</option>
             <option :value="2">2 %</option>
@@ -54,48 +54,20 @@
 
       <div class="h-px w-full bg-white/5 my-2"></div>
 
-      <!-- Profil de risque -->
-      <h4 class="text-xs uppercase text-white font-semibold tracking-wider">Profil de risque (choix propriétaire)</h4>
-      <div class="flex gap-2">
-        <button v-for="p in PROFILS" :key="p.valeur" @click="profil = p.valeur"
-          class="flex-1 px-3 py-2 rounded-lg text-xs font-medium border transition-colors"
-          :class="profil === p.valeur ? 'bg-blue-600/30 border-blue-400/50 text-white' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'">
-          {{ p.libelle }}<br /><span class="text-[10px] opacity-70">{{ p.pct }}</span>
-        </button>
-      </div>
-
-      <!-- Gestion & détection -->
-      <h4 class="text-xs uppercase text-white font-semibold tracking-wider">Gestion &amp; détection</h4>
+      <!-- Paramètres moteur -->
+      <h4 class="text-xs uppercase text-white font-semibold tracking-wider">Niveaux de prise de profit</h4>
       <div class="space-y-3">
         <div class="flex items-center justify-between gap-4">
-          <span class="text-white text-xs">Plafond position (% du capital)</span>
-          <input v-model.number="plafond" type="number" :step="0.5" :min="1" :max="25"
-            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
-        </div>
-        <div class="flex items-center justify-between gap-4">
-          <span class="text-white text-xs">Trailing stop (% du prix, dès R1)</span>
-          <input v-model.number="trailing" type="number" :step="0.5" :min="1" :max="30"
-            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
-        </div>
-        <div class="flex items-center justify-between gap-4">
-          <span class="text-white text-xs">Volume au pivot (× MM50)</span>
-          <input v-model.number="volumeMult" type="number" :step="0.1" :min="1" :max="3"
-            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
-        </div>
-        <div class="flex items-center justify-between gap-4">
-          <span class="text-white text-xs">Conviction min. du ranker IA (0 = informatif)</span>
-          <input v-model.number="convictionMin" type="number" :step="5" :min="0" :max="100"
-            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
-        </div>
-        <div class="flex items-center justify-between gap-4">
-          <span class="text-white text-xs">Cassure décisive min. (% au-delà du pivot)</span>
-          <input v-model.number="cassureMin" type="number" :step="0.5" :min="1" :max="10"
-            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
+          <span class="text-white text-xs">TP1 (× R)</span>
+          <input v-model.number="tp1" type="number" :step="0.05" :min="0.2" :max="1.5"
+            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
         </div>
       </div>
 
       <p class="text-[11px] text-white leading-relaxed">
-        Vente fixe de 50 % à R1. News (1/10) et véto unlocks : enrichissement IA (étape 6).
+        TP1 par défaut 0,6 (décision étape 4 — replay +239R), borné 0,2 – 1,5. TP2 = +2R et
+        TP3 = liquidité restent fixes. S'applique aux nouveaux signaux au prochain armement
+        des moteurs (redémarrage de l'app).
       </p>
     </div>
 
@@ -116,27 +88,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 
 const props = defineProps<{ s: { id: string; nom: string; description: string; icone: string; couleur: string; etat: string; notifications: boolean; capital: number; risque_pct: number } }>()
-
-const PROFILS = [
-  { valeur: 'PeuRisque', libelle: 'Peu Risqué', pct: '0,5 %' },
-  { valeur: 'Neutre', libelle: 'Neutre', pct: '1 %' },
-  { valeur: 'Risque', libelle: 'Risqué', pct: '2 %' },
-]
 
 const etat = ref(props.s.etat)
 const notifications = ref(props.s.notifications)
 const capital = ref(props.s.capital)
 const risquePct = ref(props.s.risque_pct)
-const profil = ref('Neutre')
-const plafond = ref(5)
-const trailing = ref(5)
-const volumeMult = ref(1.5)
-const cassureMin = ref(3)
-const convictionMin = ref(40)
+const tp1 = ref(0.6)
 const saving = ref(false)
 const msg = ref<{ ok: boolean; text: string } | null>(null)
 
@@ -146,7 +107,19 @@ const badgeEtat = computed(() => ({
   'Construction': 'bg-gray-500/20 text-white',
 }[etat.value] ?? 'bg-gray-500/20 text-white'))
 
-/// Un seul bouton : sauve le registre PUIS les paramètres moteur, avec un
+onMounted(async () => {
+  try {
+    const res = await http.get<{ cle: string; valeur: string | null }>('/api/config', {
+      params: { cle: 'smc_tp1_mult' },
+    })
+    if (res.data.valeur !== null) {
+      const v = Number.parseFloat(res.data.valeur)
+      if (!Number.isNaN(v)) tp1.value = v
+    }
+  } catch { /* valeur par défaut 0.6 */ }
+})
+
+/// Un seul bouton : sauve le registre PUIS le paramètre moteur, avec un
 /// message honnête si l'un des deux échoue.
 async function enregistrer() {
   saving.value = true; msg.value = null
@@ -160,16 +133,13 @@ async function enregistrer() {
     })
   } catch (e: any) { erreurs.push(`registre : ${e.message}`) }
 
-  try {
-    await http.put('/api/rockets/params', {
-      profil: profil.value,
-      plafond_position_pct: plafond.value,
-      trailing_pct: trailing.value,
-      volume_pivot_mult: volumeMult.value,
-      cassure_min_pct: cassureMin.value,
-      conviction_min: convictionMin.value,
-    })
-  } catch (e: any) { erreurs.push(`paramètres moteur : ${e.message}`) }
+  if (Number.isNaN(tp1.value) || tp1.value < 0.2 || tp1.value > 1.5) {
+    erreurs.push('TP1 doit être entre 0,2 et 1,5 (non sauvegardé)')
+  } else {
+    try {
+      await http.post('/api/config', { cle: 'smc_tp1_mult', valeur: String(tp1.value) })
+    } catch (e: any) { erreurs.push(`TP1 : ${e.message}`) }
+  }
 
   msg.value = erreurs.length
     ? { ok: false, text: 'Échec — ' + erreurs.join(' · ') }

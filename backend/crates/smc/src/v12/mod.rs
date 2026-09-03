@@ -271,6 +271,12 @@ impl SmcV12Engine {
         self
     }
 
+    /// TP1 réglable (Paramètres › SMC) — SL et TP2 inchangés.
+    pub fn avec_tp1(mut self, tp1: f64) -> Self {
+        self.signals.definir_tp1(tp1);
+        self
+    }
+
     /// Étude étape 4 — BE automatique à seuil de MFE (None = production).
     pub fn avec_be_auto(mut self, seuil: Option<f64>) -> Self {
         self.lifecycle.definir_be_auto(seuil);

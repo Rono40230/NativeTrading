@@ -177,6 +177,36 @@ pub async fn performance_strategie(
         return HttpResponse::NotFound()
             .json(serde_json::json!({ "error": "Stratégie inconnue" }));
     }
+    // SMC : métriques re-dérivées du TP1 réglé (re-jeu paramétrique — choix
+    // propriétaire). Cache chaud → servies ; sinon repli sur la base vécue
+    // et lancement du calcul en tâche de fond.
+    if id == "SMC" {
+        if let Some(r) = crate::smc_rejeu::lire_cache().await {
+            let mut cumul = 0.0;
+            let clotures: Vec<serde_json::Value> = r
+                .clotures
+                .iter()
+                .map(|c| {
+                    cumul += c.r_ref;
+                    serde_json::json!({ "ferme_le": c.ferme_le, "r_cumule": cumul })
+                })
+                .collect();
+            return HttpResponse::Ok().json(serde_json::json!({
+                "clotures": clotures,
+                "en_cours": [],
+                "total": r.total,
+                "gagnants": r.gagnants,
+                "non_remplis": 0,
+                "taux_reussite": r.taux_reussite,
+                "r_total": r.r_total,
+                "r_total_realise": r.r_total_realise,
+                "source": "rejeu",
+                "tp1": r.tp1,
+                "recalcul": crate::smc_rejeu::recalcul_en_cours(),
+            }));
+        }
+        crate::smc_rejeu::lancer_si_necessaire(state.db.clone()).await;
+    }
     match state.db.performance_strategie(&id).await {
         Ok(p) => HttpResponse::Ok().json(p),
         Err(e) => HttpResponse::InternalServerError()

@@ -31,10 +31,14 @@ const router = createRouter({
     // Presse
     { path: '/presse', component: () => import('../views/PresseView.vue') },
 
-    // Système — onglets Paramètres + Données, anciens chemins redirigés.
-    { path: '/systeme',  component: () => import('../views/SystemeView.vue') },
-    { path: '/settings', redirect: { path: '/systeme', query: { tab: 'settings' } } },
-    { path: '/data',     redirect: { path: '/systeme', query: { tab: 'data' } } },
+    // Données — pilotage du pipeline, risque par actif, connexions.
+    // Paramètres — réglages des stratégies (bouton ⚙️ de chaque page
+    // stratégie ; ?strategie=SMC n'en montre qu'une).
+    { path: '/donnees',    component: () => import('../views/DonneesView.vue') },
+    { path: '/parametres', component: () => import('../views/ParametresView.vue') },
+    { path: '/systeme',  redirect: { path: '/donnees' } },
+    { path: '/settings', redirect: { path: '/parametres' } },
+    { path: '/data',     redirect: { path: '/donnees' } },
 
     // Historique global retiré (redondant avec les historiques par stratégie) —
     // l'ancien chemin renvoie au dashboard.

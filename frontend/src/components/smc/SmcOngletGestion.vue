@@ -33,8 +33,9 @@
           </div>
           <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
             <div class="font-semibold mb-1">TP1 / TP2</div>
-            <p>+0,6R et +2R — R = distance entrée-stop après clamp. Choix validés par replay :
-            +239R.</p>
+            <p>TP1 <b class="text-white">réglable</b> (défaut 0,6 — décision étape 4, replay
+            +239R ; page Stratégie SMC › ⚙️ Paramètres, borné 0,2-1,5, effet au prochain
+            armement) et TP2 = +2R fixe. R = distance entrée-stop après clamp.</p>
           </div>
           <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
             <div class="font-semibold mb-1">TP3</div>
@@ -70,7 +71,7 @@
         <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
           <div class="font-semibold mb-1">① Remplissage</div>
           <p>Le trade entre au retest : le lot est coupé en trois lots partiels, aux fractions
-          réglées dans Paramètres › stratégies › SMC.</p>
+          réglées dans Paramètres › stratégies › SMC (à venir).</p>
         </div>
         <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
           <div class="font-semibold mb-1">② TP1 touché</div>
@@ -173,11 +174,12 @@
           </table>
         </div>
       </div>
-      <p class="mt-3">Les fractions sont réglables dans <b class="text-white">Paramètres › stratégies ›
-      SMC</b> (Σ = 100 %, défaut 50/30/20) : la simulation se recalcule depuis l'historique à
-      chaque changement. Le R pondéré alimente <b class="text-white">uniquement la simulation de
-      capital</b> (badge $ et courbe bleue du dashboard) — la courbe R de référence et les
-      Σ R du moteur restent l'étalon, intouchés.</p>
+      <p class="mt-3">Tableau au TP1 par défaut 0,6. Les fractions seront réglables dans
+      <b class="text-white">Paramètres › stratégies › SMC</b> (Σ = 100 %, défaut 50/30/20) :
+      la simulation se recalcule depuis l'historique à chaque changement. Le R pondéré
+      alimentera <b class="text-white">uniquement la simulation de capital</b> (badge $ et
+      courbe bleue du dashboard) — la courbe R de référence et les Σ R du moteur restent
+      l'étalon, intouchés. <b class="text-white">Système documenté — livraison à venir.</b></p>
     </carte>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -234,10 +236,12 @@
         <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-amber-400 border-amber-400/40 bg-amber-400/10">Expire</span>
       </div>
       <p>Chaque trade clôturé reçoit son verdict, écrit en base avec le prix de sortie et le R
-      réel — c'est cette historisation qui alimente la courbe de trades du dashboard. Le
-      capital simulé ($ du dashboard) compte le R <b class="text-white">pondéré</b> après
-      ventes partielles ; les Σ R restent ceux du moteur. Aucun message de clôture sur
-      Telegram : seule l'imminence parle.</p>
+      réel — la base reste l'étalon de ce qui s'est réellement passé. Les métriques du
+      dashboard (Σ R, WR, capital $ — période « depuis l'armement universel ») sont
+      re-dérivées du <b class="text-white">TP1 réglé</b> par le re-jeu paramétrique : elles se
+      recalculent automatiquement au changement de réglage. Le capital comptera le R
+      <b class="text-white">pondéré</b> quand les ventes partielles seront livrées. Aucun
+      message de clôture sur Telegram : seule l'imminence parle.</p>
     </carte>
   </div>
 </template>

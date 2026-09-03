@@ -1,30 +1,33 @@
 <template>
   <div class="space-y-4">
-    <!-- Réglages par stratégie (registre : état, son TG, capital, risque) -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <StrategieReglagesCard v-for="s in strategies" :key="s.id" :s="s" />
+    <!-- Une carte par stratégie : registre + paramètres moteur, un seul
+         bouton. filtre = n'en montrer qu'une (bouton ⚙️ de sa page). -->
+    <div class="grid grid-cols-1 gap-4" :class="{ 'md:grid-cols-3': !filtre }">
+      <SmcParamsCard v-if="parId('SMC') && (!filtre || filtre === 'SMC')" :s="parId('SMC')!" />
+      <StraddleParamsCard v-if="parId('straddle') && (!filtre || filtre === 'straddle')" :s="parId('straddle')!" />
+      <RocketsParamsCard v-if="parId('rockets') && (!filtre || filtre === 'rockets')" :s="parId('rockets')!" />
     </div>
-
-    <!-- Paramètres numériques propres au Straddle (moteur branché dessus) -->
-    <StraddleParamsCard />
-
-    <!-- Paramètres numériques propres à Rockets (étape 5) -->
-    <RocketsParamsCard />
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { http } from '@/services/http.client'
-import StrategieReglagesCard from './common/StrategieReglagesCard.vue'
+import SmcParamsCard from './common/SmcParamsCard.vue'
 import StraddleParamsCard from './common/StraddleParamsCard.vue'
 import RocketsParamsCard from './common/RocketsParamsCard.vue'
+
+const props = defineProps<{ filtre?: string | null }>()
 
 interface StrategieApi {
   id: string; nom: string; description: string; icone: string; couleur: string
   etat: string; notifications: boolean; capital: number; risque_pct: number
 }
 const strategies = ref<StrategieApi[]>([])
+
+function parId(id: string): StrategieApi | undefined {
+  return strategies.value.find(s => s.id === id)
+}
 
 onMounted(async () => {
   try {

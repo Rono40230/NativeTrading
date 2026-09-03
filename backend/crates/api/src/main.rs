@@ -54,6 +54,7 @@ mod mt5_collecteur;
 mod mt5_etat_historique;
 mod setups_formation;
 mod capital_simule;
+mod smc_rejeu;
 mod registre_strategies;
 mod signaux_officiels;
 mod smc_handlers;

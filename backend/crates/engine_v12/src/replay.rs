@@ -228,6 +228,22 @@ pub fn rejouer_bougies_pd(
     rejouer_bougies_modes(asset, tf, bougies, simuler_ticks, amorce, &modes)
 }
 
+/// Variante TP1 réglable (Paramètres › stratégies › SMC) — production, seul
+/// TP1 diffère. Clôtures seules (bar-replay), comme les études A-B.
+pub fn rejouer_bougies_tp1(
+    asset: Asset,
+    tf: Timeframe,
+    bougies: &[Candle],
+    amorce: smc::v12::AmorceMtf,
+    tp1: f64,
+) -> ResultatReplay {
+    let modes = ModesEtude {
+        tp1_mult: tp1,
+        ..modes_production()
+    };
+    rejouer_bougies_modes(asset, tf, bougies, false, amorce, &modes)
+}
+
 /// Chemin commun : tous les leviers d'étude portés par [`ModesEtude`].
 pub fn rejouer_bougies_modes(
     asset: Asset,

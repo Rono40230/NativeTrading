@@ -37,6 +37,19 @@ use tokio::sync::mpsc;
 /// max par TF, échec DB → amorce vide : replay dégradé, jamais de panic).
 /// Annonces tier 1 (impact High) des prochaines 24 h — pour le straddle.
 /// Le moteur filtre par devise pertinente pour l'asset côté runtime.
+/// TP1 réglable SMC (Paramètres › stratégies › SMC, clé config smc_tp1_mult).
+/// Défaut 0.6 = production (décision étape 4) ; borné 0.2–1.5 pour éviter
+/// les valeurs absurdes. Lu à l'armement : s'applique aux nouveaux signaux.
+async fn lire_tp1_reglage(db: &db::Database) -> f64 {
+    db.lire_config("smc_tp1_mult")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.trim().parse::<f64>().ok())
+        .map(|v| v.clamp(0.2, 1.5))
+        .unwrap_or(0.6)
+}
+
 async fn annonces_tier1(db: &db::Database) -> Vec<straddle::Annonce> {
     let Ok(rows) = db.lire_calendrier_cache(6 * 3600).await else {
         return Vec::new();
@@ -71,7 +84,7 @@ async fn annonces_tier1(db: &db::Database) -> Vec<straddle::Annonce> {
         .collect()
 }
 
-async fn charger_amorce_mtf_runtime(db: &db::Database, asset: &Asset) -> smc::v12::AmorceMtf {
+pub(crate) async fn charger_amorce_mtf_runtime(db: &db::Database, asset: &Asset) -> smc::v12::AmorceMtf {
     use common::Timeframe;
     use smc::v12::{agreger_mensuel, AmorceMtf, BarInput};
     const MAX_BARS: i64 = 600;
@@ -136,6 +149,9 @@ pub struct PoigneesRuntime {
 /// l'alimente, et le journal d'observation (Gate 1). Non bloquant,
 /// idempotent.
 pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
+    // Préchauffage du re-jeu paramétrique SMC (métriques dashboard) : la
+    // carte sert le re-jeu dès la première consultation après le boot.
+    tokio::spawn(crate::smc_rejeu::lancer_si_necessaire(db.clone()));
     if !RUNTIME_DEMARRE.swap(true, Ordering::SeqCst) {
         let (tx, rx) = mpsc::unbounded_channel::<EvenementPrix>();
         let runtime = Runtime::nouveau();
@@ -356,12 +372,14 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 continue;
             }
             let amorce = charger_amorce_mtf_runtime(db, asset).await;
+            let tp1_reglage = lire_tp1_reglage(db).await;
             let mut moteurs: Vec<Box<dyn engine::Engine>> = vec![Box::new(
                 engine_v12::MoteurV12::nouveau(asset.clone(), *tf)
                     .avec_amorce(amorce)
                     // Décision 26/08 (étude comparatif_be) : BE forcé sur BOS
                     // opposé supprimé (+36R, R/trade +67 % vs Pine Classique).
-                    .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime),
+                    .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime)
+                    .avec_tp1(tp1_reglage),
             )];
             if *tf == common::Timeframe::M1 {
                 let annonces: Vec<straddle::Annonce> = if asset.as_str() == "DAX" {
@@ -395,9 +413,10 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 crate::runtime_replay::rejouer_et_reconcilier(db, runtime, asset, *tf).await
             {
                 tracing::info!(
-                    "Runtime tick: {} {} MT5 moteurs armés (replay {} bougies, {} signaux historiques, {} réconciliation(s))",
+                    "Runtime tick: {} {} MT5 moteurs armés, TP1={:.2}R (replay {} bougies, {} signaux historiques, {} réconciliation(s))",
                     asset.as_str(),
                     tf.as_str(),
+                    tp1_reglage,
                     r.bougies,
                     r.signaux,
                     r.ecritures_db
@@ -412,10 +431,12 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         let amorce = charger_amorce_mtf_runtime(db, asset).await;
         // Phase 3.1 — plugin STRADDLE sur M1/M5 (news trading) : calendrier
         // tier 1 amorcé depuis le cache (jamais de DB dans le moteur, R4).
+        let tp1_reglage = lire_tp1_reglage(db).await;
         let mut moteurs: Vec<Box<dyn engine::Engine>> = vec![Box::new(
             engine_v12::MoteurV12::nouveau(asset.clone(), *tf)
                 .avec_amorce(amorce)
-                .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime),
+                .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime)
+                .avec_tp1(tp1_reglage),
         )];
         // Étape 4 — verticale Straddle : périmètre acté = XAU + BTC sur
         // annonces US fortes (Bybit alimente ces deux-là en temps réel).
@@ -492,9 +513,10 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 );
             }
             tracing::info!(
-                "Runtime tick: {} {} moteur v12 armé (replay {} bougies, {} signaux historiques, {:?})",
+                "Runtime tick: {} {} moteur v12 armé, TP1={:.2}R (replay {} bougies, {} signaux historiques, {:?})",
                 asset.as_str(),
                 tf.as_str(),
+                tp1_reglage,
                 r.bougies,
                 r.signaux,
                 debut.elapsed()
@@ -521,7 +543,7 @@ async fn assets_mt5(db: &Arc<Database>) -> HashSet<String> {
 }
 
 /// Assets Bybit actifs depuis la config DB (même source que le worker WS).
-async fn assets_runtime(db: &Arc<Database>) -> Vec<Asset> {
+pub(crate) async fn assets_runtime(db: &Arc<Database>) -> Vec<Asset> {
     match db.lister_assets_worker().await {
         Ok(assets) => assets
             .into_iter()
