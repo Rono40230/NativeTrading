@@ -33,8 +33,11 @@ pub struct ClotureRejeu {
     pub tf: String,
     pub ferme_le: i64,
     pub verdict: String,
-    /// R réalisé (sortie) du trade re-joué.
+    /// R réalisé (sortie) du trade re-joué — moteur unitaire.
     pub r: f64,
+    /// R pondéré après ventes partielles (f1 à TP1, f2 à TP2, solde) —
+    /// c'est LUI qui compose le capital.
+    pub r_pondere: f64,
     /// R de référence (palier max atteint) — métrique primaire du dashboard.
     pub r_ref: f64,
     /// Capital simulé après cette clôture (composé, risque du registre SMC).
@@ -52,6 +55,8 @@ pub struct RejeuSmc {
     pub tp3_rfixe: f64,
     /// Trailing stop après TP2 : None = inactif ; Some(k) = k×R de l'extrême.
     pub trailing_r: Option<f64>,
+    /// Fractions des ventes partielles (défaut 50/30/20).
+    pub fractions: crate::smc_pondere::Fractions,
     pub calcule_le: i64,
     pub nb_couples: usize,
     pub nb_bougies: usize,
@@ -63,8 +68,10 @@ pub struct RejeuSmc {
     pub taux_reussite: f64,
     /// Σ R de référence.
     pub r_total: f64,
-    /// Σ R réalisé.
+    /// Σ R réalisé (moteur unitaire).
     pub r_total_realise: f64,
+    /// Σ R pondéré (ventes partielles) — ce que le capital a réellement composé.
+    pub r_total_pondere: f64,
     pub capital_depart: f64,
     pub fraction_risque: f64,
     pub capital_actuel: f64,
@@ -153,12 +160,14 @@ pub async fn lancer_si_necessaire(pool: Arc<db::Database>) {
     let tp3_lointaine = lire_tp3_lointaine(&pool).await;
     let tp3_rfixe = lire_tp3_rfixe(&pool).await;
     let trailing = lire_trailing(&pool).await;
+    let fractions = crate::reglages_smc::lire_fractions(&pool).await;
     let pareil = |c: &RejeuSmc| {
         (c.tp1 - tp1).abs() < 1e-9
             && (c.tp2 - tp2).abs() < 1e-9
             && c.tp3_lointaine == tp3_lointaine
             && (c.tp3_rfixe - tp3_rfixe).abs() < 1e-9
             && c.trailing_r == trailing
+            && c.fractions == fractions
     };
     if let Some(c) = cache().read().await.clone() {
         let frais = chrono::Utc::now().timestamp() - c.calcule_le < REFRESH_SEC;
@@ -171,7 +180,7 @@ pub async fn lancer_si_necessaire(pool: Arc<db::Database>) {
     }
     tokio::spawn(async move {
         let debut = Instant::now();
-        match calculer(&pool, tp1, tp2, tp3_lointaine, tp3_rfixe, trailing).await {
+        match calculer(&pool, tp1, tp2, tp3_lointaine, tp3_rfixe, trailing, fractions).await {
             Ok(rejeu) => {
                 tracing::info!(
                     "Rejeu SMC: TP1={:.2}R·TP2={:.1}R·TP3={}{} — {} couple(s), {} clôture(s), WR {:.0} %, R réf {:+.1}, capital {:.2} → {:.2} ({:?})",
@@ -218,6 +227,7 @@ async fn calculer(
     tp3_lointaine: bool,
     tp3_rfixe: f64,
     trailing: Option<f64>,
+    fractions: crate::smc_pondere::Fractions,
 ) -> anyhow::Result<RejeuSmc> {
     use engine::TypeEvenementTrade as T;
 
@@ -285,12 +295,31 @@ async fn calculer(
                         )
                     })
                     .unwrap_or(r);
+                // Distances réelles des paliers en R (TP1/TP2 réglables) —
+                // base du R pondéré (ventes partielles).
+                let (r_tp1, r_tp2) = signaux
+                    .get(e.cle_trade.as_str())
+                    .map(|s| {
+                        let risque = (s.prix_entree - s.stop_loss).abs();
+                        if risque > 0.0 {
+                            (
+                                (s.take_profits.first().copied().unwrap_or(s.prix_entree) - s.prix_entree).abs() / risque,
+                                (s.take_profits.get(1).copied().unwrap_or(s.prix_entree) - s.prix_entree).abs() / risque,
+                            )
+                        } else {
+                            (0.0, 0.0)
+                        }
+                    })
+                    .unwrap_or((0.0, 0.0));
+                let pondere =
+                    crate::smc_pondere::r_pondere(&verdict, r, r_tp1, r_tp2, fractions);
                 clotures.push(ClotureRejeu {
                     asset: e.asset.as_str().to_string(),
                     tf: e.tf.as_str().to_string(),
                     ferme_le: e.debut_barre,
                     verdict,
                     r,
+                    r_pondere: pondere,
                     r_ref,
                     capital_apres: 0.0,
                 });
@@ -303,7 +332,7 @@ async fn calculer(
     // le désordre — on rejoue la composition sur la série triée).
     let mut capital2 = reg.capital;
     for c in &mut clotures {
-        capital2 += c.r * capital2 * fraction;
+        capital2 += c.r_pondere * capital2 * fraction;
         c.capital_apres = capital2;
     }
 
@@ -311,6 +340,7 @@ async fn calculer(
     let gagnants = clotures.iter().filter(|c| c.r_ref > 0.0).count();
     let r_total = clotures.iter().map(|c| c.r_ref).sum();
     let r_total_realise = clotures.iter().map(|c| c.r).sum();
+    let r_total_pondere = clotures.iter().map(|c| c.r_pondere).sum();
 
     Ok(RejeuSmc {
         tp1,
@@ -327,6 +357,8 @@ async fn calculer(
         taux_reussite: if total > 0 { gagnants as f64 / total as f64 } else { 0.0 },
         r_total,
         r_total_realise,
+        r_total_pondere,
+        fractions,
         capital_depart: reg.capital,
         fraction_risque: fraction,
         capital_actuel: capital2,

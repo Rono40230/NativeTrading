@@ -33,38 +33,47 @@
         </div>
       </div>
 
-      <!-- Courbe des trades clôturés (R cumulé de référence) — pleine largeur -->
-      <div class="relative h-16 -mx-1">
+      <!-- Courbe du capital simulé ($) — pleine largeur, survol = valeur -->
+      <div class="relative h-16 -mx-1" @mouseleave="survolCapital = null">
         <svg
-          v-if="b.perf.clotures.length > 1"
+          v-if="b.capital && b.capital.points.length > 0"
           :viewBox="`0 0 ${LARGEUR} ${HAUTEUR}`"
           preserveAspectRatio="none"
           class="w-full h-full"
         >
-          <line
-            v-if="ligneZero(b) !== null"
-            :x1="0" :x2="LARGEUR" :y1="ligneZero(b)!" :y2="ligneZero(b)!"
-            stroke="rgba(255,255,255,0.15)" stroke-width="0.5" stroke-dasharray="2 2"
-          />
           <polyline
-            :points="points(b)"
-            fill="none"
-            :stroke="b.perf.r_total >= 0 ? '#34d399' : '#f87171'"
-            stroke-width="1.5" vector-effect="non-scaling-stroke"
-            stroke-linejoin="round" stroke-linecap="round"
-          />
-          <!-- Capital simulé en $ (bleu) — échelle propre, aligné sur les clôtures -->
-          <polyline
-            v-if="b.capital && b.capital.points.length > 0"
             :points="pointsCapital(b)"
             fill="none"
             stroke="#60a5fa"
-            stroke-width="1.25" vector-effect="non-scaling-stroke"
-            stroke-linejoin="round" stroke-linecap="round" opacity="0.9"
+            stroke-width="1.5" vector-effect="non-scaling-stroke"
+            stroke-linejoin="round" stroke-linecap="round"
           />
         </svg>
+        <!-- Zones de survol : une par clôture, ancrées sur la courbe -->
+        <div v-if="b.capital && b.capital.points.length > 0" class="absolute inset-0">
+          <div
+            v-for="(z, i) in zonesCapital(b)"
+            :key="b.id + '-zcap' + i"
+            class="absolute w-3 h-4 -translate-x-1/2 -translate-y-1/2"
+            :style="{ left: z.gauche, top: z.haut }"
+            @mouseenter="survolPointCapital($event, b.id, z)"
+          />
+        </div>
         <div v-else class="w-full h-full flex items-center justify-center text-[11px] text-white">
-          Courbe des trades — dès les premières clôtures
+          Courbe du capital — dès les premières clôtures
+        </div>
+        <!-- Tooltip : ancré en fixed pour n'être jamais rogné -->
+        <div
+          v-if="survolCapital && survolCapital.bloc === b.id"
+          class="fixed z-50 pointer-events-none bg-slate-900/95 border border-blue-400/30 rounded-lg px-2.5 py-1.5 shadow-xl whitespace-nowrap"
+          :style="styleTooltipCapital"
+        >
+          <p class="text-[10px] font-bold text-white">
+            {{ libelleDateCapital(survolCapital.point.ferme_le) }} · capital {{ fmtDollars(survolCapital.point.capital_apres) }}
+          </p>
+          <p class="text-[9px]" :class="survolCapital.point.profit >= 0 ? 'text-emerald-400' : 'text-red-400'">
+            trade {{ survolCapital.point.profit >= 0 ? '+' : '−' }}{{ fmtDollars(Math.abs(survolCapital.point.profit)).replace(' $', ' $') }}
+          </p>
         </div>
       </div>
 
@@ -299,6 +308,51 @@ const signaux = ref<SignalApi[]>([])
 /** Jour survolé dans l'histogramme (tooltip, ancré en viewport). */
 const survolJour = ref<{ bloc: string; jour: JourHistogramme; x: number; y: number } | null>(null)
 
+/// Survol d'un point de la courbe capital (tooltip, ancré en viewport).
+const survolCapital = ref<{ bloc: string; point: CapitalApi['points'][number]; x: number; y: number } | null>(null)
+
+function survolPointCapital(e: MouseEvent, bloc: string, z: { point: CapitalApi['points'][number] }) {
+  const r = (e.target as Element).getBoundingClientRect()
+  survolCapital.value = { bloc, point: z.point, x: r.left + r.width / 2, y: r.top }
+}
+
+/// Zones de survol de la courbe capital : une par clôture, positionnées en %
+/// du conteneur (même géométrie que pointsCapital — SVG étiré « none »).
+function zonesCapital(b: Bloc): { gauche: string; haut: string; point: CapitalApi['points'][number] }[] {
+  if (!b.capital) return []
+  const serie = [b.capital.capital_depart, ...b.capital.points.map(p => p.capital_apres)]
+  const min = Math.min(...serie)
+  const max = Math.max(...serie)
+  const amplitude = max - min || 1
+  const n = serie.length
+  return b.capital.points.map((p, i) => {
+    const x = n > 1 ? ((i + 1) / (n - 1)) * LARGEUR : 0
+    const y = HAUTEUR - 2 - ((p.capital_apres - min) / amplitude) * (HAUTEUR - 4)
+    return { gauche: `${(x / LARGEUR) * 100}%`, haut: `${(y / HAUTEUR) * 100}%`, point: p }
+  })
+}
+
+/// Ancrage fixed du tooltip capital : centré, au-dessus (retourné dessous si
+/// près du haut), borné aux bords.
+const styleTooltipCapital = computed(() => {
+  const s = survolCapital.value
+  if (!s) return {}
+  const demi = 95
+  const x = Math.min(Math.max(s.x, demi + 8), window.innerWidth - demi - 8)
+  const auDessus = s.y > 220
+  return {
+    top: `${auDessus ? s.y - 8 : s.y + 14}px`,
+    left: `${x}px`,
+    transform: `translate(-50%, ${auDessus ? '-100%' : '0'})`,
+  }
+})
+
+function libelleDateCapital(ts: number): string {
+  return new Date(ts * 1000).toLocaleString('fr-FR', {
+    day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+  })
+}
+
 /// Capture le jour survolé + les coordonnées ÉCRAN de la barre : le
 /// tooltip s'ancre en position fixed, hors de tout clipping.
 function survolBarre(e: MouseEvent, bloc: string, jour: JourHistogramme) {
@@ -435,22 +489,6 @@ function fmtDollars(v: number): string {
   return `${v < 0 ? '−' : ''}${n} $`
 }
 
-/// Points SVG de la courbe R cumulé.
-function points(b: Bloc): string {
-  const vals = [...b.perf.clotures.map(c => c.r_cumule), 0]
-  const min = Math.min(...vals)
-  const max = Math.max(...vals)
-  const amplitude = max - min || 1
-  const n = b.perf.clotures.length
-  return b.perf.clotures
-    .map((c, i) => {
-      const x = n > 1 ? (i / (n - 1)) * LARGEUR : 0
-      const y = HAUTEUR - 2 - ((c.r_cumule - min) / amplitude) * (HAUTEUR - 4)
-      return `${x.toFixed(2)},${y.toFixed(2)}`
-    })
-    .join(' ')
-}
-
 /// Points SVG de la courbe capital (bleue) : départ + une valeur par clôture,
 /// échelle $ propre (min→max de la série), x aligné sur la courbe R.
 function pointsCapital(b: Bloc): string {
@@ -467,16 +505,6 @@ function pointsCapital(b: Bloc): string {
       return `${x.toFixed(2)},${y.toFixed(2)}`
     })
     .join(' ')
-}
-
-/// Position Y du zéro (référence de la courbe) — null si hors cadre.
-function ligneZero(b: Bloc): number | null {
-  if (b.perf.clotures.length < 2) return null
-  const vals = [...b.perf.clotures.map(c => c.r_cumule), 0]
-  const min = Math.min(...vals)
-  const max = Math.max(...vals)
-  const amplitude = max - min || 1
-  return HAUTEUR - 2 - ((0 - min) / amplitude) * (HAUTEUR - 4)
 }
 
 async function charger() {

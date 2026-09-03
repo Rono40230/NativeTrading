@@ -5,11 +5,11 @@
         <svg viewBox="0 0 440 110" class="w-full aspect-[440/110]">
           <!-- Échelle des niveaux, proportionnelle en R -->
           <line x1="68" y1="10" x2="290" y2="10" stroke="#34d399" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="298" y="13" fill="#34d399" font-size="7.5" font-weight="700">TP3 · +3R / liquidité</text>
+          <text x="298" y="13" fill="#34d399" font-size="7.5" font-weight="700">TP3 · liquidité lointaine / R fixe</text>
           <line x1="68" y1="32" x2="290" y2="32" stroke="#60a5fa" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="298" y="35" fill="#60a5fa" font-size="7.5" font-weight="700">TP2 · +2R</text>
+          <text x="298" y="35" fill="#60a5fa" font-size="7.5" font-weight="700">TP2 · +2R (défaut)</text>
           <line x1="68" y1="63" x2="290" y2="63" stroke="#60a5fa" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="298" y="66" fill="#60a5fa" font-size="7.5" font-weight="700">TP1 · +0,6R</text>
+          <text x="298" y="66" fill="#60a5fa" font-size="7.5" font-weight="700">TP1 · +0,6R (défaut)</text>
           <line x1="68" y1="76" x2="290" y2="76" stroke="#ffffff" stroke-width="0.9" stroke-dasharray="4 3" />
           <text x="298" y="79" fill="#ffffff" font-size="7.5" font-weight="700">entrée · 0R</text>
           <line x1="68" y1="98" x2="290" y2="98" stroke="#f87171" stroke-width="0.9" stroke-dasharray="4 3" />
@@ -75,7 +75,7 @@
         <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
           <div class="font-semibold mb-1">① Remplissage</div>
           <p>Le trade entre au retest : le lot est coupé en trois lots partiels, aux fractions
-          réglées dans Paramètres › stratégies › SMC (à venir).</p>
+          réglées dans Paramètres › stratégies › SMC.</p>
         </div>
         <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
           <div class="font-semibold mb-1">② TP1 touché</div>
@@ -105,7 +105,7 @@
         <svg viewBox="0 0 440 110" class="w-full aspect-[440/110]">
           <!-- Échelle + part du lot vendue à chaque palier -->
           <line x1="68" y1="10" x2="250" y2="10" stroke="#34d399" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="258" y="13" fill="#34d399" font-size="7.5" font-weight="700">TP3 · +3R</text>
+          <text x="258" y="13" fill="#34d399" font-size="7.5" font-weight="700">TP3 · cible</text>
           <text x="322" y="13" fill="#34d399" font-size="6.5" font-weight="700">solde 20 %</text>
           <line x1="68" y1="32" x2="250" y2="32" stroke="#60a5fa" stroke-width="0.9" stroke-dasharray="4 3" />
           <text x="258" y="35" fill="#60a5fa" font-size="7.5" font-weight="700">TP2 · +2R</text>
@@ -121,6 +121,11 @@
           <text x="322" y="101" fill="#f87171" font-size="6.5" font-weight="700">tout le lot</text>
           <!-- Trajectoire : trois sorties partielles -->
           <polyline points="25,76 45,88 65,82 95,63 115,68 150,76 185,48 220,32 240,20 250,11" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round" />
+          <!-- Trailing stop après TP2 (réglable, inactif par défaut) : le stop
+               suit l'extrême post-TP2 à k×R — sortie avant la cible possible -->
+          <polyline points="220,32 240,20 250,11" fill="none" stroke="#22d3ee" stroke-width="1" stroke-dasharray="3 2" />
+          <text x="380" y="13" fill="#22d3ee" font-size="6" font-weight="700">trailing k×R</text>
+          <line x1="255" y1="10" x2="376" y2="10" stroke="#22d3ee" stroke-width="0.8" stroke-dasharray="2 2" />
           <circle cx="95" cy="63" r="2.6" fill="#ffffff" />
           <circle cx="220" cy="32" r="2.6" fill="#ffffff" />
           <circle cx="250" cy="11" r="2.6" fill="#ffffff" />
@@ -146,8 +151,8 @@
             <tbody class="text-white">
               <tr class="border-b border-white/5">
                 <td class="py-1 pr-2 font-semibold text-emerald-400">TP3</td>
-                <td class="py-1 pr-2">50 % à +0,6R</td><td class="py-1 pr-2">30 % à +2R</td><td class="py-1 pr-2">20 % à +3R</td>
-                <td class="py-1 text-right font-mono font-bold text-emerald-400">+1,80R</td>
+                <td class="py-1 pr-2">50 % à +0,6R</td><td class="py-1 pr-2">30 % à +2R</td><td class="py-1 pr-2">20 % à la cible</td>
+                <td class="py-1 text-right font-mono font-bold text-emerald-400">+1,50R</td>
               </tr>
               <tr class="border-b border-white/5">
                 <td class="py-1 pr-2 font-semibold">TP2 + BE</td>
@@ -178,12 +183,12 @@
           </table>
         </div>
       </div>
-      <p class="mt-3">Tableau aux défauts TP1 = 0,6 et TP2 = 2. Les fractions seront réglables dans
+      <p class="mt-3">Tableau aux défauts TP1 = 0,6, TP2 = 2 et repli TP3 = 3R. Fractions réglables dans
       <b class="text-white">Paramètres › stratégies › SMC</b> (Σ = 100 %, défaut 50/30/20) :
       la simulation se recalcule depuis l'historique à chaque changement. Le R pondéré
-      alimentera <b class="text-white">uniquement la simulation de capital</b> (badge $ et
+      alimente <b class="text-white">uniquement la simulation de capital</b> (badge $ et
       courbe bleue du dashboard) — la courbe R de référence et les Σ R du moteur restent
-      l'étalon, intouchés. <b class="text-white">Système documenté — livraison à venir.</b></p>
+      l'étalon, intouchés.</p>
     </carte>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -248,7 +253,9 @@
       <b class="text-white">pondéré</b> quand les ventes partielles seront livrées.
       <b class="text-white">TS</b> = sortie sur trailing stop après TP2 (stop suivi à
       k×R de l'extrême post-TP2 — réglable, inactif par défaut) : palier TP2, R réel
-      de la sortie. Aucun message de clôture sur Telegram : seule l'imminence parle.</p>
+      de la sortie. Le capital simulé compose le R <b class="text-white">pondéré</b>
+      après ventes partielles ; les Σ R restent ceux du moteur. Aucun message de
+      clôture sur Telegram : seule l'imminence parle.</p>
     </carte>
   </div>
 </template>

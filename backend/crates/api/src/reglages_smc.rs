@@ -69,3 +69,35 @@ pub async fn lire_tp1_reglage(db: &db::Database) -> f64 {
         .unwrap_or(0.6)
 }
 
+
+/// Fractions des ventes partielles (config smc_frac_tp1/tp2/tp3, défauts
+/// 50/30/20). Robustesse : valeurs invalides ou Σ ≠ 100 % → défauts (la
+/// validation stricte vit côté carte SMC).
+pub async fn lire_fractions(db: &db::Database) -> crate::smc_pondere::Fractions {
+    let f1 = db
+        .lire_config("smc_frac_tp1")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.trim().parse::<f64>().ok())
+        .unwrap_or(0.5);
+    let f2 = db
+        .lire_config("smc_frac_tp2")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.trim().parse::<f64>().ok())
+        .unwrap_or(0.3);
+    let f3 = db
+        .lire_config("smc_frac_tp3")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.trim().parse::<f64>().ok())
+        .unwrap_or(0.2);
+    let somme = f1 + f2 + f3;
+    if (somme - 1.0).abs() > 1e-6 || f1 < 0.0 || f2 < 0.0 || f3 < 0.0 {
+        return crate::smc_pondere::Fractions::default();
+    }
+    crate::smc_pondere::Fractions { tp1: f1, tp2: f2, tp3: f3 }
+}

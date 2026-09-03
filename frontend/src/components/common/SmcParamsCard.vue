@@ -94,6 +94,22 @@
           <input v-model.number="trailingR" type="number" :step="0.05" :min="0.1" :max="1"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
         </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-white text-xs cursor-help border-b border-dotted border-gray-600"
+                title="Ventes partielles : part du lot vendue à chaque palier (unipanel). Le solde sort à la cible, au trailing ou à BE selon le verdict. Σ = 100 %.">Vente à TP1 (%)</span>
+          <input v-model.number="fracTp1" type="number" :step="5" :min="0" :max="100"
+            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-white text-xs">Vente à TP2 (%)</span>
+          <input v-model.number="fracTp2" type="number" :step="5" :min="0" :max="100"
+            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-white text-xs">Solde à TP3 (%)</span>
+          <input v-model.number="fracTp3" type="number" :step="5" :min="0" :max="100"
+            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
+        </div>
       </div>
 
       <p class="text-[11px] text-white leading-relaxed">
@@ -101,7 +117,9 @@
         (EQH/PDH/PWH la plus lointaine) ou R fixe 3-10, avec repli croisé — toujours
         TP1 &lt; TP2 &lt; R fixe. Trailing stop après TP2 : stop = extrême post-TP2 − k×R
         (k 0,1-1, défaut 0,5), sortie au premier de trailing / TP3 / expiration —
-        inactif par défaut, à mesurer par le re-jeu. Effet au prochain armement.
+        inactif par défaut, à mesurer par le re-jeu. Ventes partielles 50/30/20
+        (Σ = 100 %) : le capital simulé compose le R pondéré. Effet au prochain
+        armement.
       </p>
     </div>
 
@@ -137,6 +155,9 @@ const tp3Mode = ref<'lointaine' | 'rfixe'>('lointaine')
 const tp3Rfixe = ref(3.0)
 const trailingOn = ref(false)
 const trailingR = ref(0.5)
+const fracTp1 = ref(50)
+const fracTp2 = ref(30)
+const fracTp3 = ref(20)
 const saving = ref(false)
 const msg = ref<{ ok: boolean; text: string } | null>(null)
 
@@ -163,6 +184,9 @@ onMounted(async () => {
       ['smc_tp2_mult', (v: number) => (tp2.value = v)],
       ['smc_tp3_rfixe', (v: number) => (tp3Rfixe.value = v)],
       ['smc_tp3_trailing_r', (v: number) => (trailingR.value = v)],
+      ['smc_frac_tp1', (v: number) => (fracTp1.value = Math.round(v * 100))],
+      ['smc_frac_tp2', (v: number) => (fracTp2.value = Math.round(v * 100))],
+      ['smc_frac_tp3', (v: number) => (fracTp3.value = Math.round(v * 100))],
     ] as const) {
       const brut = await lire(cle)
       if (brut !== null) {
@@ -228,6 +252,17 @@ async function enregistrer() {
         await http.post('/api/config', { cle: 'smc_tp3_trailing_r', valeur: String(trailingR.value) })
       }
     } catch (e: any) { erreurs.push(`trailing : ${e.message}`) }
+  }
+
+  const somme = fracTp1.value + fracTp2.value + fracTp3.value
+  if (somme !== 100) {
+    erreurs.push(`Fractions : Σ = ${somme} % — doit faire 100 % (non sauvegardé)`)
+  } else {
+    try {
+      await http.post('/api/config', { cle: 'smc_frac_tp1', valeur: String(fracTp1.value / 100) })
+      await http.post('/api/config', { cle: 'smc_frac_tp2', valeur: String(fracTp2.value / 100) })
+      await http.post('/api/config', { cle: 'smc_frac_tp3', valeur: String(fracTp3.value / 100) })
+    } catch (e: any) { erreurs.push(`fractions : ${e.message}`) }
   }
 
   msg.value = erreurs.length
