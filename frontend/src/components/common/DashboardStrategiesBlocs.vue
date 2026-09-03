@@ -20,6 +20,9 @@
           <span class="px-1.5 py-0.5 rounded bg-white/10 font-mono font-bold"
                 :class="b.perf.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'"
                 title="R de référence : paliers max atteints">{{ b.perf.r_total >= 0 ? '+' : '' }}{{ b.perf.r_total.toFixed(1) }} R</span>
+          <span v-if="b.capital" class="px-1.5 py-0.5 rounded bg-white/10 font-mono font-bold"
+                :class="b.capital.capital_actuel >= b.capital.capital_depart ? 'text-emerald-400' : 'text-red-400'"
+                :title="`Capital simulé — départ ${fmtDollars(b.capital.capital_depart)}, compose à chaque clôture (risque ${(b.capital.fraction_risque * 100).toFixed(b.capital.fraction_risque < 0.01 ? 1 : 0)} %/trade). Le lot de chaque trade se calcule sur ce capital.`">{{ fmtDollars(b.capital.capital_actuel) }}</span>
           <span class="px-1.5 py-0.5 rounded bg-white/10 text-white" title="Taux de réussite (R de référence > 0)">WR {{ (b.perf.taux_reussite * 100).toFixed(0) }} %</span>
         </div>
       </div>
@@ -43,6 +46,15 @@
             :stroke="b.perf.r_total >= 0 ? '#34d399' : '#f87171'"
             stroke-width="1.5" vector-effect="non-scaling-stroke"
             stroke-linejoin="round" stroke-linecap="round"
+          />
+          <!-- Capital simulé en $ (bleu) — échelle propre, aligné sur les clôtures -->
+          <polyline
+            v-if="b.capital && b.capital.points.length > 0"
+            :points="pointsCapital(b)"
+            fill="none"
+            stroke="#60a5fa"
+            stroke-width="1.25" vector-effect="non-scaling-stroke"
+            stroke-linejoin="round" stroke-linecap="round" opacity="0.9"
           />
         </svg>
         <div v-else class="w-full h-full flex items-center justify-center text-[11px] text-white">
@@ -219,6 +231,14 @@ interface PerfApi {
   /** R total de référence (paliers max atteints) — métrique primaire. */
   r_total: number
 }
+/// Simulation composée du capital en $ (backend capital_simule) — le capital
+/// de départ évolue à chaque clôture : capital += R_réalisé × capital × risque.
+interface CapitalApi {
+  capital_depart: number
+  fraction_risque: number
+  capital_actuel: number
+  points: { id: string; ferme_le: number; r: number; profit: number; capital_apres: number }[]
+}
 interface TradeJour {
   id: string; asset: string; tf: string; palier: string; pips: number
 }
@@ -242,6 +262,8 @@ interface PartClassement {
 }
 interface Bloc {
   id: string; nom: string; icone: string; etat: string; perf: PerfApi
+  /** Capital simulé en $ (composé à chaque clôture) — null si indisponible. */
+  capital: CapitalApi | null
   /** Histogramme journalier : Σ pips par jour + trades du jour (tooltip). */
   jours: JourHistogramme[]
   /** Répartitions (nombre de trades) et classements (pips) des fermés remplis. */
@@ -429,9 +451,14 @@ async function charger() {
           const p = await http.get<PerfApi>(`/api/strategies/${s.id}/performance`)
           perf = p.data as PerfApi
         } catch { /* perf indisponible → bloc vide */ }
+        let capital: CapitalApi | null = null
+        try {
+          const c = await http.get<CapitalApi>(`/api/strategies/${s.id}/capital`)
+          capital = c.data as CapitalApi
+        } catch { /* simulation indisponible → pas de badge ni courbe */ }
         const trades = tradesFerme(s.id)
         return {
-          id: s.id, nom: s.nom, icone: s.icone, etat: s.etat, perf,
+          id: s.id, nom: s.nom, icone: s.icone, etat: s.etat, perf, capital,
           jours: joursHistogramme(s.id),
           parTf: repartition(trades, t => t.tf),
           parAsset: repartition(trades, t => t.asset),
@@ -470,6 +497,11 @@ function badgeClasse(etat: string) {
   return 'bg-gray-500/10 text-white border-gray-500/30'
 }
 
+/// Format $ : 12 345 $.
+function fmtDollars(v: number): string {
+  return `${Math.round(v).toLocaleString('fr-FR')} $`
+}
+
 /// Points SVG de la courbe R cumulé.
 function points(b: Bloc): string {
   const vals = [...b.perf.clotures.map(c => c.r_cumule), 0]
@@ -481,6 +513,24 @@ function points(b: Bloc): string {
     .map((c, i) => {
       const x = n > 1 ? (i / (n - 1)) * LARGEUR : 0
       const y = HAUTEUR - 2 - ((c.r_cumule - min) / amplitude) * (HAUTEUR - 4)
+      return `${x.toFixed(2)},${y.toFixed(2)}`
+    })
+    .join(' ')
+}
+
+/// Points SVG de la courbe capital (bleue) : départ + une valeur par clôture,
+/// échelle $ propre (min→max de la série), x aligné sur la courbe R.
+function pointsCapital(b: Bloc): string {
+  if (!b.capital) return ''
+  const serie = [b.capital.capital_depart, ...b.capital.points.map(p => p.capital_apres)]
+  const min = Math.min(...serie)
+  const max = Math.max(...serie)
+  const amplitude = max - min || 1
+  const n = serie.length
+  return serie
+    .map((v, j) => {
+      const x = n > 1 ? (j / (n - 1)) * LARGEUR : 0
+      const y = HAUTEUR - 2 - ((v - min) / amplitude) * (HAUTEUR - 4)
       return `${x.toFixed(2)},${y.toFixed(2)}`
     })
     .join(' ')

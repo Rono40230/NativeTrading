@@ -147,6 +147,11 @@ async fn formater_message(
     s: &engine::types::SignalBrut,
 ) -> Option<String> {
     let reg = db.lire_strategie(id_strategie).await.ok()??;
+    // Capital SIMULÉ courant de la stratégie (composé à chaque clôture) —
+    // le lot mise sur le capital mis à jour par les trades précédents.
+    let capital_lot = crate::capital_simule::capital_actuel(db, id_strategie)
+        .await
+        .unwrap_or(reg.capital);
     let dir = match s.direction {
         Direction::Long => "🟢 ACHAT",
         Direction::Short => "🔴 VENTE",
@@ -173,7 +178,7 @@ async fn formater_message(
     // `stop_pips` ne sert qu'à l'affichage.
     let stop_pips_exact = (entree - sl).abs() / taille_pip;
     let stop_pips = stop_pips_exact.round() as i64;
-    let risque_euros = reg.capital * reg.risque_pct / 100.0;
+    let risque_euros = capital_lot * reg.risque_pct / 100.0;
     let lot = if stop_pips_exact > 0.0 && valeur_pip > 0.0 && taille_pip > 0.0 {
         risque_euros / (stop_pips_exact * valeur_pip)
     } else {
@@ -185,10 +190,10 @@ async fn formater_message(
     // stratégie × profil de risque, plafonné à 5 % du capital en montant.
     if id_strategie == "rockets" {
         let params = crate::rockets_verticale::lire_params(db).await;
-        let risque_euros = reg.capital * params.profil.fraction();
+        let risque_euros = capital_lot * params.profil.fraction();
         let dist = (entree - sl).abs();
         let mut qty = if dist > 0.0 { risque_euros / dist } else { 0.0 };
-        let plafond = reg.capital * params.plafond_position_pct / 100.0;
+        let plafond = capital_lot * params.plafond_position_pct / 100.0;
         if entree > 0.0 {
             qty = qty.min(plafond / entree);
         }

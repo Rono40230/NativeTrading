@@ -355,10 +355,15 @@ pub async fn analyse_v12(
     // valeur_pip) — capital/risque de la stratégie SMC (registre), conventions
     // pips de l'actif (onglet gestion du risque). Mêmes sources que Telegram.
     let reg_smc = state.db.lire_strategie("SMC").await.ok().flatten();
-    let (capital, risque_pct) = reg_smc
+    let (mut capital, risque_pct) = reg_smc
         .as_ref()
         .map(|r| (r.capital, r.risque_pct))
         .unwrap_or((0.0, 1.0));
+    // Capital SIMULÉ courant (composé à chaque clôture) — le label du trade
+    // reflète le lot tel qu'il serait calculé maintenant, comme Telegram.
+    if let Some(c) = crate::capital_simule::capital_actuel(&state.db, "SMC").await {
+        capital = c;
+    }
     let (taille_pip, valeur_pip) = db::asset_params::lire_un(state.db.pool(), asset_str)
         .await
         .ok()
