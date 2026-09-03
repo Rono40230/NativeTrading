@@ -396,6 +396,8 @@ fn engine_genere_signaux_et_lifecycle_700_bars() {
                 Verdict::Sl => n_sl += 1,
                 Verdict::Be => n_be += 1,
                 Verdict::Expire => n_expire += 1,
+                Verdict::Ts => n_expire += 1, // TS compté côté expire pour les stats
+                _ => {}
             },
         }
     }

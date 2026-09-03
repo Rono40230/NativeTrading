@@ -18,7 +18,7 @@
 use super::calibration::{AssetCalibration, SlMode};
 use super::scoring_bs_zones::ScoringBsZones;
 use super::scoring_v11::ScoringV11;
-use super::signals_levels::{make_trade, nearest_liq, sl_min_max};
+use super::signals_levels::{farthest_liq, make_trade, nearest_liq, sl_min_max};
 use super::trade::{Trade, TradeSource, TradeState};
 use super::types::{BarInput, FvgZone, ObState, ObZone, SmcOutput};
 
@@ -41,6 +41,18 @@ pub enum ModeTp3 {
     Dol,
     Fixe3R,
     DolCappe3R,
+}
+
+/// TP3 réglable propriétaire : mode « liquidité lointaine » (la plus LOINTAINE
+/// des EQH/PDH/PWH — repli sur R fixe si absente ou sous TP2) ou « R fixe ».
+/// Prend précédence sur les ModeTp3 d'étude quand défini (production).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Tp3Reglage {
+    /// true = liquidité lointaine (fallback rfixe) ; false = R fixe.
+    pub lointaine: bool,
+    /// Cible en R du mode fixe ET repli du mode liquidités (défaut 3.0,
+    /// borné 3-10 côté réglage ; toujours > TP2 — validation en cascade).
+    pub rfixe: f64,
 }
 
 /// Le carnet de trades + générateur de signaux (Pine `stBull*`/`stBear*` + fonctions).
@@ -67,6 +79,8 @@ pub struct SignalGenerator {
     tp1_mult: f64,
     /// Étude étape 4 — TP2 = entry ± tp2_mult × r (2.0 = production).
     tp2_mult: f64,
+    /// TP3 réglable propriétaire (production) — None = ModeTp3 d'étude.
+    tp3_reglage: Option<Tp3Reglage>,
 }
 
 impl SignalGenerator {
@@ -84,6 +98,7 @@ impl SignalGenerator {
             sl_mult: 0.75,
             tp1_mult: 0.6,
             tp2_mult: 2.0,
+            tp3_reglage: None,
         }
     }
 
@@ -113,6 +128,17 @@ impl SignalGenerator {
     /// défaut production 0.6 — décision étape 4). SL et TP2 inchangés.
     pub fn definir_tp1(&mut self, tp1: f64) {
         self.tp1_mult = tp1;
+    }
+
+    /// TP2 réglable par le propriétaire (défaut production 2.0). Doit rester
+    /// au-dessus de TP1 — la validation croisée vit côté réglage (carte SMC).
+    pub fn definir_tp2(&mut self, tp2: f64) {
+        self.tp2_mult = tp2;
+    }
+
+    /// TP3 réglable propriétaire (mode liquidité lointaine / R fixe + repli).
+    pub fn definir_tp3_reglage(&mut self, reglage: Tp3Reglage) {
+        self.tp3_reglage = Some(reglage);
     }
 
     /// Reset du flag anti-double-trade (Pine 2358-2359) — à appeler en début de bar.
@@ -415,6 +441,21 @@ impl SignalGenerator {
         // TP3 = liquidité la plus proche au-delà de l'entrée (EQH/PDH/PWH bull,
         // EQL/PDL/PWL bear ; Asian HL pour v11 uniquement — Pine 3562 vs 3294).
         let cap3r = if is_bull { entry + 3.0 * r } else { entry - 3.0 * r };
+        // Réglage propriétaire : liquidité LOINTAINE (repli R fixe) ou R fixe —
+        // précédence sur les modes d'étude.
+        if let Some(reg) = self.tp3_reglage {
+            let cible = if reg.lointaine {
+                farthest_liq(out, entry, is_bull, inclut_asian_hl)
+                    .filter(|&v| if is_bull { v > tp2 } else { v < tp2 })
+                    .unwrap_or(if is_bull { entry + reg.rfixe * r } else { entry - reg.rfixe * r })
+            } else if is_bull {
+                entry + reg.rfixe * r
+            } else {
+                entry - reg.rfixe * r
+            };
+            let _ = cap3r;
+            return Some((entry, sl, tp1, tp2, cible, r));
+        }
         let tp3_raw = match self.mode_tp3 {
             ModeTp3::Dol => nearest_liq(out, entry, is_bull, inclut_asian_hl),
             ModeTp3::Fixe3R => None,

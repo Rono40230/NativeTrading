@@ -69,6 +69,10 @@ pub struct ModesEtude {
     pub tp2_mult: f64,
     /// Étape 4 — BE auto à seuil de MFE (None = production).
     pub be_auto: Option<f64>,
+    /// TP3 réglable propriétaire (None = ModeTp3 ci-dessus ; Some = réglage).
+    pub tp3_reglage: Option<smc::v12::signals::Tp3Reglage>,
+    /// Trailing stop après TP2 (None = inactif ; Some(k) = k×R de l'extrême).
+    pub trailing_tp2: Option<f64>,
 }
 
 impl Default for ModesEtude {
@@ -87,6 +91,8 @@ impl Default for ModesEtude {
             tp1_mult: 0.6,  // étape 4 29/08 : production
             tp2_mult: 2.0,
             be_auto: None,
+            tp3_reglage: None,
+            trailing_tp2: None,
         }
     }
 }
@@ -244,6 +250,28 @@ pub fn rejouer_bougies_tp1(
     rejouer_bougies_modes(asset, tf, bougies, false, amorce, &modes)
 }
 
+/// Variantes TP1/TP2/TP3 + trailing réglables (Paramètres › SMC) — le re-jeu
+/// paramétrique des métriques utilise ce chemin complet.
+pub fn rejouer_bougies_niveaux(
+    asset: Asset,
+    tf: Timeframe,
+    bougies: &[Candle],
+    amorce: smc::v12::AmorceMtf,
+    tp1: f64,
+    tp2: f64,
+    tp3: smc::v12::signals::Tp3Reglage,
+    trailing: Option<f64>,
+) -> ResultatReplay {
+    let modes = ModesEtude {
+        tp1_mult: tp1,
+        tp2_mult: tp2,
+        tp3_reglage: Some(tp3),
+        trailing_tp2: trailing,
+        ..modes_production()
+    };
+    rejouer_bougies_modes(asset, tf, bougies, false, amorce, &modes)
+}
+
 /// Chemin commun : tous les leviers d'étude portés par [`ModesEtude`].
 pub fn rejouer_bougies_modes(
     asset: Asset,
@@ -267,6 +295,12 @@ pub fn rejouer_bougies_modes(
         .avec_mtf_directionnel(modes.mtf_directionnel)
         .avec_multiplicateurs(modes.sl_mult, modes.tp1_mult, modes.tp2_mult)
         .avec_be_auto(modes.be_auto);
+    if let Some(reg) = modes.tp3_reglage {
+        plugin = plugin.avec_tp3_reglage(reg);
+    }
+    if let Some(k) = modes.trailing_tp2 {
+        plugin = plugin.avec_trailing_tp2(Some(k));
+    }
     let mut journal = SortieMoteur::vide();
 
     for (i, b) in bougies.iter().enumerate() {

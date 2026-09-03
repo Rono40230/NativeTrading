@@ -144,6 +144,24 @@ impl MoteurV12 {
         self
     }
 
+    /// TP2 réglable (Paramètres › stratégies › SMC, défaut 2.0).
+    pub fn avec_tp2(mut self, tp2: f64) -> Self {
+        self.moteur = self.moteur.avec_tp2(tp2);
+        self
+    }
+
+    /// TP3 réglable propriétaire (liquidité lointaine / R fixe + repli).
+    pub fn avec_tp3_reglage(mut self, reglage: smc::v12::signals::Tp3Reglage) -> Self {
+        self.moteur = self.moteur.avec_tp3_reglage(reglage);
+        self
+    }
+
+    /// Trailing stop après TP2 (Paramètres › SMC, inactif par défaut).
+    pub fn avec_trailing_tp2(mut self, k: Option<f64>) -> Self {
+        self.moteur = self.moteur.avec_trailing_tp2(k);
+        self
+    }
+
     /// Bonus de scoring BPR (étude Module A — défaut actif = étalon Pine).
     pub fn avec_scoring_bpr(mut self, actif: bool) -> Self {
         self.moteur = self.moteur.avec_scoring_bpr(actif);

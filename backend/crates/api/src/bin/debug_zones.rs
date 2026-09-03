@@ -210,6 +210,7 @@ fn main() -> anyhow::Result<()> {
                 Some(CloseReason::Tp3) => "TP3",
                 Some(CloseReason::Expire) => "Expire",
                 Some(CloseReason::Cancel) => "Cancel",
+                Some(CloseReason::Ts) => "TS",
                 None => match t.state {
                     TradeState::Closed => "?",
                     _ => "OUVERT",

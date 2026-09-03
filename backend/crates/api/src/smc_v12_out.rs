@@ -454,6 +454,7 @@ pub(crate) fn bpr_state_str(s: BprState) -> &'static str {
 pub(crate) fn verdict_str(v: Verdict) -> &'static str {
     match v {
         Verdict::Tp3 => "TP3",
+        Verdict::Ts => "TS",
         Verdict::Tp2 => "TP2",
         Verdict::Tp1 => "TP1",
         Verdict::Sl => "SL",

@@ -314,6 +314,8 @@ async fn reconstruire_cycles_vie(db: &Arc<Database>, asset: &str, tf: Timeframe)
             tp1_hit: false,
             tp1_price_touched: false,
             tp2_ts: 0,
+            tp2_extremum: None,
+            ts_px: None,
             tp3_touched: false,
             be_forced: false,
             mfe_armed: false,
@@ -350,6 +352,7 @@ async fn reconstruire_cycles_vie(db: &Arc<Database>, asset: &str, tf: Timeframe)
         // Chaînes canoniques de lifecycle_diff::verdict_texte (engine_v12).
         let verdict = match t.verdict() {
             Verdict::Tp3 => "TP3",
+            Verdict::Ts => "TS",
             Verdict::Tp2 => "TP2+BE",
             Verdict::Tp1 => "TP1+BE",
             Verdict::Sl => "SL",
@@ -362,6 +365,7 @@ async fn reconstruire_cycles_vie(db: &Arc<Database>, asset: &str, tf: Timeframe)
             Some(CloseReason::Be) => t.entry,
             Some(CloseReason::Tp2Sl) => t.tp1,
             Some(CloseReason::Tp3) => t.tp3,
+            Some(CloseReason::Ts) => t.ts_px.unwrap_or(t.tp2),
             _ => dernier_close,
         };
         // Remplissage AVANT clôture (marquer_remplie exige statut='Actif').

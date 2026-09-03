@@ -39,6 +39,7 @@ pub(crate) fn raison_discriminant(r: CloseReason) -> u8 {
         CloseReason::Tp3 => 4,
         CloseReason::Expire => 5,
         CloseReason::Cancel => 6,
+        CloseReason::Ts => 7,
     }
 }
 
@@ -72,6 +73,7 @@ pub(crate) fn cle_vers_string(cle: &CleTrade) -> String {
 fn verdict_texte(v: smc::v12::trade::Verdict) -> &'static str {
     match v {
         smc::v12::trade::Verdict::Tp3 => "TP3",
+        smc::v12::trade::Verdict::Ts => "TS",
         smc::v12::trade::Verdict::Tp2 => "TP2+BE",
         smc::v12::trade::Verdict::Tp1 => "TP1+BE",
         smc::v12::trade::Verdict::Sl => "SL",
@@ -259,6 +261,8 @@ pub(crate) fn diff_lifecycle(
                     format!("{}|{:.4}", verdict_texte(t.verdict()), t.realized_r()),
                     match r {
                         CloseReason::Sl => t.sl,
+                        // Sortie au stop suivi : prix réel du trailing.
+                        CloseReason::Ts => t.ts_px.unwrap_or(t.tp2),
                         // Après TP2 le stop est remonté à TP1 : sortie à TP1.
                         CloseReason::Tp2Sl => t.tp1,
                         CloseReason::Be => t.entry,

@@ -62,12 +62,46 @@
           <input v-model.number="tp1" type="number" :step="0.05" :min="0.2" :max="1.5"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
         </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-white text-xs">TP2 (× R)</span>
+          <input v-model.number="tp2" type="number" :step="0.1" :min="1" :max="4"
+            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-white text-xs">TP3 — mode</span>
+          <select v-model="tp3Mode" class="bg-black/30 border border-white/10 rounded-md px-2 py-1.5 text-xs text-white">
+            <option value="lointaine">Liquidité lointaine</option>
+            <option value="rfixe">R fixe</option>
+          </select>
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-white text-xs cursor-help border-b border-dotted border-gray-600"
+                title="Mode R fixe : cible directe. Mode liquidité lointaine : repli si aucune liquidité au-delà de TP2 (ou sous TP2).">R fixe / repli (× R)</span>
+          <input v-model.number="tp3Rfixe" type="number" :step="0.5" :min="3" :max="10"
+            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
+        </div>
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-white text-xs">Trailing stop après TP2</span>
+          <button @click="trailingOn = !trailingOn"
+            :class="trailingOn ? 'bg-emerald-500' : 'bg-gray-600'"
+            class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors">
+            <span :class="trailingOn ? 'translate-x-5' : 'translate-x-1'"
+              class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform" />
+          </button>
+        </div>
+        <div v-if="trailingOn" class="flex items-center justify-between gap-4">
+          <span class="text-white text-xs">Distance du trailing (× R)</span>
+          <input v-model.number="trailingR" type="number" :step="0.05" :min="0.1" :max="1"
+            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
+        </div>
       </div>
 
       <p class="text-[11px] text-white leading-relaxed">
-        TP1 par défaut 0,6 (décision étape 4 — replay +239R), borné 0,2 – 1,5. TP2 = +2R et
-        TP3 = liquidité restent fixes. S'applique aux nouveaux signaux au prochain armement
-        des moteurs (redémarrage de l'app).
+        TP1 défaut 0,6 (borné 0,2-1,5) · TP2 défaut 2 (1,0-4,0) · TP3 liquidité lointaine
+        (EQH/PDH/PWH la plus lointaine) ou R fixe 3-10, avec repli croisé — toujours
+        TP1 &lt; TP2 &lt; R fixe. Trailing stop après TP2 : stop = extrême post-TP2 − k×R
+        (k 0,1-1, défaut 0,5), sortie au premier de trailing / TP3 / expiration —
+        inactif par défaut, à mesurer par le re-jeu. Effet au prochain armement.
       </p>
     </div>
 
@@ -98,6 +132,11 @@ const notifications = ref(props.s.notifications)
 const capital = ref(props.s.capital)
 const risquePct = ref(props.s.risque_pct)
 const tp1 = ref(0.6)
+const tp2 = ref(2.0)
+const tp3Mode = ref<'lointaine' | 'rfixe'>('lointaine')
+const tp3Rfixe = ref(3.0)
+const trailingOn = ref(false)
+const trailingR = ref(0.5)
 const saving = ref(false)
 const msg = ref<{ ok: boolean; text: string } | null>(null)
 
@@ -116,7 +155,25 @@ onMounted(async () => {
       const v = Number.parseFloat(res.data.valeur)
       if (!Number.isNaN(v)) tp1.value = v
     }
-  } catch { /* valeur par défaut 0.6 */ }
+    const lire = async (cle: string): Promise<string | null> => {
+      const r = await http.get<{ cle: string; valeur: string | null }>('/api/config', { params: { cle } })
+      return r.data.valeur
+    }
+    for (const [cle, ref_] of [
+      ['smc_tp2_mult', (v: number) => (tp2.value = v)],
+      ['smc_tp3_rfixe', (v: number) => (tp3Rfixe.value = v)],
+      ['smc_tp3_trailing_r', (v: number) => (trailingR.value = v)],
+    ] as const) {
+      const brut = await lire(cle)
+      if (brut !== null) {
+        const v = Number.parseFloat(brut)
+        if (!Number.isNaN(v)) ref_(v)
+      }
+    }
+    const mode = await lire('smc_tp3_mode')
+    if (mode === 'rfixe' || mode === 'lointaine') tp3Mode.value = mode
+    trailingOn.value = (await lire('smc_tp3_trailing')) === '1'
+  } catch { /* valeurs par défaut */ }
 })
 
 /// Un seul bouton : sauve le registre PUIS le paramètre moteur, avec un
@@ -139,6 +196,38 @@ async function enregistrer() {
     try {
       await http.post('/api/config', { cle: 'smc_tp1_mult', valeur: String(tp1.value) })
     } catch (e: any) { erreurs.push(`TP1 : ${e.message}`) }
+  }
+
+  if (Number.isNaN(tp2.value) || tp2.value < 1.0 || tp2.value > 4.0) {
+    erreurs.push('TP2 doit être entre 1,0 et 4,0 (non sauvegardé)')
+  } else if (!Number.isNaN(tp1.value) && tp2.value <= tp1.value) {
+    erreurs.push('TP2 doit être supérieur à TP1 (non sauvegardé)')
+  } else {
+    try {
+      await http.post('/api/config', { cle: 'smc_tp2_mult', valeur: String(tp2.value) })
+    } catch (e: any) { erreurs.push(`TP2 : ${e.message}`) }
+  }
+
+  if (Number.isNaN(tp3Rfixe.value) || tp3Rfixe.value < 3.0 || tp3Rfixe.value > 10.0) {
+    erreurs.push('R fixe TP3 doit être entre 3 et 10 (non sauvegardé)')
+  } else if (!Number.isNaN(tp2.value) && tp3Rfixe.value <= tp2.value) {
+    erreurs.push('R fixe TP3 doit être supérieur à TP2 (non sauvegardé)')
+  } else {
+    try {
+      await http.post('/api/config', { cle: 'smc_tp3_rfixe', valeur: String(tp3Rfixe.value) })
+      await http.post('/api/config', { cle: 'smc_tp3_mode', valeur: tp3Mode.value })
+    } catch (e: any) { erreurs.push(`TP3 : ${e.message}`) }
+  }
+
+  if (trailingOn.value && (Number.isNaN(trailingR.value) || trailingR.value < 0.1 || trailingR.value > 1.0)) {
+    erreurs.push('Distance du trailing entre 0,1 et 1R (non sauvegardé)')
+  } else {
+    try {
+      await http.post('/api/config', { cle: 'smc_tp3_trailing', valeur: trailingOn.value ? '1' : '0' })
+      if (trailingOn.value) {
+        await http.post('/api/config', { cle: 'smc_tp3_trailing_r', valeur: String(trailingR.value) })
+      }
+    } catch (e: any) { erreurs.push(`trailing : ${e.message}`) }
   }
 
   msg.value = erreurs.length

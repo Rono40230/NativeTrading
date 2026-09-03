@@ -43,6 +43,9 @@ pub fn r_reference_palier(
         "sl" | "sl+be" => Some(-1.0),
         "tp1" | "tp1+be" => r_niveau(tps.first()),
         "tp2" | "tp2+be" => r_niveau(tps.get(1).or_else(|| tps.first())),
+        // Trailing stop après TP2 : palier = TP2 (dernier niveau confirmé —
+        // le R réel de la sortie est compté côté réalisé).
+        "ts" => r_niveau(tps.get(1).or_else(|| tps.first())),
         "tp3" => r_niveau(tps.get(2).or_else(|| tps.first())),
         "be" => Some(0.0),
         _ => None,

@@ -33,9 +33,13 @@
           </div>
           <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
             <div class="font-semibold mb-1">TP1 / TP2</div>
-            <p>TP1 <b class="text-white">réglable</b> (défaut 0,6 — décision étape 4, replay
-            +239R ; page Stratégie SMC › ⚙️ Paramètres, borné 0,2-1,5, effet au prochain
-            armement) et TP2 = +2R fixe. R = distance entrée-stop après clamp.</p>
+            <p>TP1 <b class="text-white">réglable</b> (défaut 0,6, borné 0,2-1,5), TP2
+            <b class="text-white">réglable</b> (défaut 2, borné 1,0-4,0) et TP3
+            <b class="text-white">réglable</b> : <b class="text-white">liquidité lointaine</b>
+            (la plus lointaine des EQH/PDH/PWH, repli R fixe si absente ou sous TP2) ou
+            <b class="text-white">R fixe</b> (3-10R) — cascade TP1 &lt; TP2 &lt; R fixe.
+            Page Stratégie SMC › ⚙️ Paramètres, effet au prochain armement. R = distance
+            entrée-stop après clamp.</p>
           </div>
           <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
             <div class="font-semibold mb-1">TP3</div>
@@ -59,7 +63,7 @@
         <text x="350" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">solde sous BE</text>
         <rect x="446" y="22" width="88" height="24" rx="4" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
         <text x="490" y="37.5" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">TP3 · solde</text>
-        <text x="490" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">clôture complète</text>
+        <text x="490" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">cible ou trailing</text>
         <line x1="118" y1="34" x2="158" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
         <polygon points="162,34 156,31.5 156,36.5" fill="rgba(255,255,255,0.4)" />
         <line x1="258" y1="34" x2="298" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
@@ -174,7 +178,7 @@
           </table>
         </div>
       </div>
-      <p class="mt-3">Tableau au TP1 par défaut 0,6. Les fractions seront réglables dans
+      <p class="mt-3">Tableau aux défauts TP1 = 0,6 et TP2 = 2. Les fractions seront réglables dans
       <b class="text-white">Paramètres › stratégies › SMC</b> (Σ = 100 %, défaut 50/30/20) :
       la simulation se recalcule depuis l'historique à chaque changement. Le R pondéré
       alimentera <b class="text-white">uniquement la simulation de capital</b> (badge $ et
@@ -233,6 +237,7 @@
         <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-blue-400 border-blue-400/40 bg-blue-400/10">TP1</span>
         <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-white border-white/40 bg-white/10">BE</span>
         <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-red-400 border-red-400/40 bg-red-400/10">SL</span>
+        <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-cyan-400 border-cyan-400/40 bg-cyan-400/10">TS</span>
         <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-amber-400 border-amber-400/40 bg-amber-400/10">Expire</span>
       </div>
       <p>Chaque trade clôturé reçoit son verdict, écrit en base avec le prix de sortie et le R
@@ -240,8 +245,10 @@
       dashboard (Σ R, WR, capital $ — période « depuis l'armement universel ») sont
       re-dérivées du <b class="text-white">TP1 réglé</b> par le re-jeu paramétrique : elles se
       recalculent automatiquement au changement de réglage. Le capital comptera le R
-      <b class="text-white">pondéré</b> quand les ventes partielles seront livrées. Aucun
-      message de clôture sur Telegram : seule l'imminence parle.</p>
+      <b class="text-white">pondéré</b> quand les ventes partielles seront livrées.
+      <b class="text-white">TS</b> = sortie sur trailing stop après TP2 (stop suivi à
+      k×R de l'extrême post-TP2 — réglable, inactif par défaut) : palier TP2, R réel
+      de la sortie. Aucun message de clôture sur Telegram : seule l'imminence parle.</p>
     </carte>
   </div>
 </template>

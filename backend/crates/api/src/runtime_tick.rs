@@ -40,16 +40,6 @@ use tokio::sync::mpsc;
 /// TP1 réglable SMC (Paramètres › stratégies › SMC, clé config smc_tp1_mult).
 /// Défaut 0.6 = production (décision étape 4) ; borné 0.2–1.5 pour éviter
 /// les valeurs absurdes. Lu à l'armement : s'applique aux nouveaux signaux.
-async fn lire_tp1_reglage(db: &db::Database) -> f64 {
-    db.lire_config("smc_tp1_mult")
-        .await
-        .ok()
-        .flatten()
-        .and_then(|v| v.trim().parse::<f64>().ok())
-        .map(|v| v.clamp(0.2, 1.5))
-        .unwrap_or(0.6)
-}
-
 async fn annonces_tier1(db: &db::Database) -> Vec<straddle::Annonce> {
     let Ok(rows) = db.lire_calendrier_cache(6 * 3600).await else {
         return Vec::new();
@@ -372,14 +362,20 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 continue;
             }
             let amorce = charger_amorce_mtf_runtime(db, asset).await;
-            let tp1_reglage = lire_tp1_reglage(db).await;
+            let tp1_reglage = crate::reglages_smc::lire_tp1_reglage(db).await;
+            let tp2_reglage = crate::reglages_smc::lire_tp2_reglage(db).await;
+            let tp3_reglage = crate::reglages_smc::lire_tp3_reglage(db).await;
+            let trailing_reglage = crate::reglages_smc::lire_trailing_reglage(db).await;
             let mut moteurs: Vec<Box<dyn engine::Engine>> = vec![Box::new(
                 engine_v12::MoteurV12::nouveau(asset.clone(), *tf)
                     .avec_amorce(amorce)
                     // Décision 26/08 (étude comparatif_be) : BE forcé sur BOS
                     // opposé supprimé (+36R, R/trade +67 % vs Pine Classique).
                     .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime)
-                    .avec_tp1(tp1_reglage),
+                    .avec_tp1(tp1_reglage)
+                    .avec_tp2(tp2_reglage)
+                    .avec_tp3_reglage(tp3_reglage)
+                    .avec_trailing_tp2(trailing_reglage),
             )];
             if *tf == common::Timeframe::M1 {
                 let annonces: Vec<straddle::Annonce> = if asset.as_str() == "DAX" {
@@ -413,10 +409,14 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 crate::runtime_replay::rejouer_et_reconcilier(db, runtime, asset, *tf).await
             {
                 tracing::info!(
-                    "Runtime tick: {} {} MT5 moteurs armés, TP1={:.2}R (replay {} bougies, {} signaux historiques, {} réconciliation(s))",
+                    "Runtime tick: {} {} MT5 moteurs armés, TP1={:.2}R·TP2={:.1}R·TP3={}-{}R{} (replay {} bougies, {} signaux historiques, {} réconciliation(s))",
                     asset.as_str(),
                     tf.as_str(),
                     tp1_reglage,
+                    tp2_reglage,
+                    if tp3_reglage.lointaine { "liq" } else { "fixe" },
+                    tp3_reglage.rfixe,
+                    trailing_reglage.map(|k| format!("·trail {:.1}R", k)).unwrap_or_default(),
                     r.bougies,
                     r.signaux,
                     r.ecritures_db
@@ -431,12 +431,18 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         let amorce = charger_amorce_mtf_runtime(db, asset).await;
         // Phase 3.1 — plugin STRADDLE sur M1/M5 (news trading) : calendrier
         // tier 1 amorcé depuis le cache (jamais de DB dans le moteur, R4).
-        let tp1_reglage = lire_tp1_reglage(db).await;
+        let tp1_reglage = crate::reglages_smc::lire_tp1_reglage(db).await;
+        let tp2_reglage = crate::reglages_smc::lire_tp2_reglage(db).await;
+        let tp3_reglage = crate::reglages_smc::lire_tp3_reglage(db).await;
+        let trailing_reglage = crate::reglages_smc::lire_trailing_reglage(db).await;
         let mut moteurs: Vec<Box<dyn engine::Engine>> = vec![Box::new(
             engine_v12::MoteurV12::nouveau(asset.clone(), *tf)
                 .avec_amorce(amorce)
                 .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime)
-                .avec_tp1(tp1_reglage),
+                .avec_tp1(tp1_reglage)
+                .avec_tp2(tp2_reglage)
+                .avec_tp3_reglage(tp3_reglage)
+                .avec_trailing_tp2(trailing_reglage),
         )];
         // Étape 4 — verticale Straddle : périmètre acté = XAU + BTC sur
         // annonces US fortes (Bybit alimente ces deux-là en temps réel).
@@ -513,10 +519,14 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 );
             }
             tracing::info!(
-                "Runtime tick: {} {} moteur v12 armé, TP1={:.2}R (replay {} bougies, {} signaux historiques, {:?})",
+                "Runtime tick: {} {} moteur v12 armé, TP1={:.2}R·TP2={:.1}R·TP3={}-{}R{} (replay {} bougies, {} signaux historiques, {:?})",
                 asset.as_str(),
                 tf.as_str(),
                 tp1_reglage,
+                tp2_reglage,
+                if tp3_reglage.lointaine { "liq" } else { "fixe" },
+                tp3_reglage.rfixe,
+                trailing_reglage.map(|k| format!("·trail {:.1}R", k)).unwrap_or_default(),
                 r.bougies,
                 r.signaux,
                 debut.elapsed()

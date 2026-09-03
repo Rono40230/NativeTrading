@@ -277,6 +277,24 @@ impl SmcV12Engine {
         self
     }
 
+    /// TP2 réglable (Paramètres › SMC, défaut 2.0) — SL et TP1 inchangés.
+    pub fn avec_tp2(mut self, tp2: f64) -> Self {
+        self.signals.definir_tp2(tp2);
+        self
+    }
+
+    /// TP3 réglable propriétaire (liquidité lointaine / R fixe + repli).
+    pub fn avec_tp3_reglage(mut self, reglage: signals::Tp3Reglage) -> Self {
+        self.signals.definir_tp3_reglage(reglage);
+        self
+    }
+
+    /// Trailing stop après TP2 : Some(k) = actif à k×R de l'extrême post-TP2.
+    pub fn avec_trailing_tp2(mut self, k: Option<f64>) -> Self {
+        self.lifecycle.definir_trailing_tp2(k);
+        self
+    }
+
     /// Étude étape 4 — BE automatique à seuil de MFE (None = production).
     pub fn avec_be_auto(mut self, seuil: Option<f64>) -> Self {
         self.lifecycle.definir_be_auto(seuil);

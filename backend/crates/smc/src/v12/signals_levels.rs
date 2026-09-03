@@ -65,6 +65,42 @@ pub(crate) fn sl_min_max(cal: &AssetCalibration, atr: f64) -> (f64, f64) {
 /// Liquidité la plus proche au-delà de l'entrée (Pine 3460-3470 / 3607-3617).
 /// Bull : EQH/PDH/PWH > entry → min. Bear : EQL/PDL/PWL < entry → max.
 /// `inclut_asian_hl` : + _ahHighDrawn/_ahLowDrawn (v11 seulement, Pine `_tAHH3`).
+/// Liquidité la plus LOINTAINE au-delà de l'entrée (réglage propriétaire TP3
+/// « Liquidités ») — miroir de `nearest_liq` côté max au lieu de min.
+pub(crate) fn farthest_liq(out: &SmcOutput, entry: f64, is_bull: bool, inclut_asian_hl: bool) -> Option<f64> {
+    let cands: Vec<f64> = if is_bull {
+        [
+            out.liquidite.dernier_eqh_level,
+            out.liquidite.pdh_active,
+            out.liquidite.pwh_active,
+        ]
+        .into_iter()
+        .flatten()
+        .chain(if inclut_asian_hl { out.asian_hl.high } else { None })
+        .filter(|&v| v > entry)
+        .collect()
+    } else {
+        [
+            out.liquidite.dernier_eql_level,
+            out.liquidite.pdl_active,
+            out.liquidite.pwl_active,
+        ]
+        .into_iter()
+        .flatten()
+        .chain(if inclut_asian_hl { out.asian_hl.low } else { None })
+        .filter(|&v| v < entry)
+        .collect()
+    };
+    if cands.is_empty() {
+        return None;
+    }
+    Some(if is_bull {
+        cands.into_iter().fold(f64::NEG_INFINITY, f64::max)
+    } else {
+        cands.into_iter().fold(f64::INFINITY, f64::min)
+    })
+}
+
 pub(crate) fn nearest_liq(out: &SmcOutput, entry: f64, is_bull: bool, inclut_asian_hl: bool) -> Option<f64> {
     let cands: Vec<f64> = if is_bull {
         [

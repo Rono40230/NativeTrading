@@ -56,6 +56,10 @@ pub struct TradeLifecycle {
     /// Étude étape 4 — BE automatique : Some(seuil) arme le BE quand la MFE
     /// atteint seuil×r sans toucher TP1 ; retour à l'entrée → SL→entry.
     be_auto_seuil: Option<f64>,
+    /// Trailing stop après TP2 (réglage propriétaire, inactif par défaut) :
+    /// Some(k) → stop = extrême post-TP2 ∓ k×risk0, évalué par bar (l'extrême
+    /// de la bar en cours ne compte pas pour son propre stop — conservateur).
+    trailing_tp2_r: Option<f64>,
 }
 
 impl TradeLifecycle {
@@ -65,6 +69,7 @@ impl TradeLifecycle {
             tp3_max_secs,
             mode_be_force: ModeBeForce::Classique,
             be_auto_seuil: None,
+            trailing_tp2_r: None,
         }
     }
 
@@ -76,6 +81,11 @@ impl TradeLifecycle {
     /// Sélectionne le mode du BE forcé (étude comparatif).
     pub fn definir_mode_be_force(&mut self, mode: ModeBeForce) {
         self.mode_be_force = mode;
+    }
+
+    /// Trailing stop après TP2 : Some(k) = actif à k×R de l'extrême post-TP2.
+    pub fn definir_trailing_tp2(&mut self, k: Option<f64>) {
+        self.trailing_tp2_r = k;
     }
 
     /// Évalue tous les trades non clôturés sur la bar courante (Pine 3797-3952 / 3963-4118).
@@ -120,6 +130,7 @@ impl TradeLifecycle {
         let tp3 = t.tp3;
         let tp1_hit = t.tp1_hit;
         let tp2_ts = t.tp2_ts;
+        let tp2_extremum = t.tp2_extremum;
         let open_ts = t.open_ts;
         let filled = t.filled;
 
@@ -143,6 +154,23 @@ impl TradeLifecycle {
         // --- 2. Expiration — Pine 3851-3852 / 4017-4018 ---
         let age_expire = (bar.timestamp - open_ts) > self.trade_max_secs;
         let expire = (tp2_ts > 0 && (bar.timestamp - tp2_ts) > self.tp3_max_secs) || age_expire;
+
+        // Stop suivi (réglage propriétaire, inactif par défaut) : après TP2,
+        // stop = extrême post-TP2 ∓ k×risk0. L'extrème de la bar EN COURS ne
+        // protège pas cette même bar (ordre intrabar inconnu — conservateur).
+        let trail_stop = self.trailing_tp2_r.filter(|_| tp2_ts > 0).map(|k| {
+            match (is_buy, tp2_extremum) {
+                (true, Some(haut)) => haut - k * t.risk0,
+                (false, Some(bas)) => bas + k * t.risk0,
+                _ => f64::NAN,
+            }
+        });
+        let trail_hit = match trail_stop {
+            Some(stop) if stop.is_finite() => {
+                if is_buy { filled && bar.low <= stop } else { filled && bar.high >= stop }
+            }
+            _ => false,
+        };
 
         // --- 3. Sorties (avec l'état de début de bar) — Pine 3853-3856 / 4019-4022 ---
         let (sl_hit, be_hit, tp2_sl_hit, tp3_hit) = if is_buy {
@@ -179,6 +207,10 @@ impl TradeLifecycle {
             Some(CloseReason::Sl)
         } else if be_hit {
             Some(CloseReason::Be)
+        } else if trail_hit {
+            // Sortie au stop suivi — meilleur que le retour sous TP1 (BE).
+            t.ts_px = trail_stop;
+            Some(CloseReason::Ts)
         } else if tp2_sl_hit {
             Some(CloseReason::Tp2Sl)
         } else if tp3_hit {
@@ -274,7 +306,7 @@ impl TradeLifecycle {
                     t.sl = entry;
                 }
             }
-            // TP2 touché → arme TP3 (timestamp).
+            // TP2 touché → arme TP3 (timestamp) + amorce l'extrême suivi.
             if t.tp1_hit && t.tp2_ts == 0 {
                 let touch_tp2 = if is_buy {
                     bar.high >= tp2
@@ -283,7 +315,17 @@ impl TradeLifecycle {
                 };
                 if touch_tp2 {
                     t.tp2_ts = bar.timestamp;
+                    t.tp2_extremum = Some(if is_buy { bar.high } else { bar.low });
                 }
+            }
+            // Extrême post-TP2 : alimente le trailing stop des barres suivantes.
+            if t.tp2_ts > 0 && self.trailing_tp2_r.is_some() {
+                let extremum = t.tp2_extremum.unwrap_or(if is_buy { bar.high } else { bar.low });
+                t.tp2_extremum = Some(if is_buy {
+                    extremum.max(bar.high)
+                } else {
+                    extremum.min(bar.low)
+                });
             }
             // tp3 milestone (cas où tp3 touché sans déclencher tp3_hit car !filled
             // au début — rempli cette bar ; on l'enregistre pour stats).

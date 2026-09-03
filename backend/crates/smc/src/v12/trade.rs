@@ -38,6 +38,9 @@ pub enum CloseReason {
     Tp2Sl,
     /// `tp3Hit` — TP3 atteint.
     Tp3,
+    /// `trailHit` — après TP2, trailing stop touché (réglage propriétaire) :
+    /// sortie au stop suivi, au-dessus du BE.
+    Ts,
     /// `_expire` — expiration temporelle (age ou TP3-expire après TP2).
     Expire,
     /// `not _filled and _beForce` — ordre en attente annulé par BOS opposé.
@@ -51,6 +54,9 @@ pub enum CloseReason {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Verdict {
     Tp3,
+    /// Trailing stop après TP2 (réglage propriétaire) : R = distance réelle
+    /// du stop suivi (≥ TP2 si l'extrême a dépassé TP2 + k×R).
+    Ts,
     Tp2,
     Tp1,
     Sl,
@@ -106,6 +112,11 @@ pub struct Trade {
     pub tp1_price_touched: bool,
     /// `stBullTP2HitTs` Pine — 0 = non touché, sinon timestamp (s) du TP2.
     pub tp2_ts: i64,
+    /// Extrême atteint depuis TP2 (plus haut achat / plus bas vente) — base
+    /// du trailing stop (réglage propriétaire, inactif par défaut).
+    pub tp2_extremum: Option<f64>,
+    /// Prix de sortie du trailing stop (verdict TS).
+    pub ts_px: Option<f64>,
     /// Vrai si le prix a touché TP3 (high>=tp3 buy / low<=tp3 sell).
     pub tp3_touched: bool,
     /// BE forcé par BOS opposé ou score degradation (SL→entry sans TP1 prix).
@@ -142,6 +153,9 @@ impl Trade {
     /// Sinon : SL si `Sl`, BE si `Be`, Expire sinon (y compris `Cancel`/`Expire`
     /// sans TP — un ordre jamais rempli ou expiré sans confluence haussière).
     pub fn verdict(&self) -> Verdict {
+        if self.close_reason == Some(CloseReason::Ts) {
+            return Verdict::Ts;
+        }
         match self.best_milestone() {
             3 => Verdict::Tp3,
             2 => Verdict::Tp2,
@@ -167,6 +181,7 @@ impl Trade {
             Side::Sell => self.entry - prix,
         };
         match self.verdict() {
+            Verdict::Ts => dist(self.ts_px.unwrap_or(self.tp2)) / self.risk0,
             Verdict::Tp3 => dist(self.tp3) / self.risk0,
             // TP acquis = distance RÉELLE du niveau (étude étape 4 : TP1/TP2
             // devenus paramétrables — l'ancien 1.0/2.0 en dur supposait des
@@ -225,6 +240,8 @@ impl Trade {
             tp1_hit: false,
             tp1_price_touched: false,
             tp2_ts: 0,
+            tp2_extremum: None,
+            ts_px: None,
             tp3_touched: false,
             be_forced: false,
             mfe_armed: false,
