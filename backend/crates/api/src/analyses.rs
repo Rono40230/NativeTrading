@@ -345,7 +345,7 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
         (0, 0)
     };
 
-    AnalyseStrategie {
+    let a = AnalyseStrategie {
         strategie: id.to_string(),
         etat,
         source,
@@ -365,7 +365,25 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
         assets: categories(&clotures, |c| c.asset.as_str()),
         tfs: categories(&clotures, |c| c.tf.as_str()),
         par_asset_tf: croise_asset_tf(&clotures),
-    }
+    };
+    // §14 : snapshot quotidien persisté (INSERT OR REPLACE — le jour reflète
+    // le dernier calcul ; l'avis IA éventuel est préservé par le UPDATE).
+    let maintenant = chrono::Utc::now().timestamp();
+    let jour = db::analyses_snapshots::cle_du_jour(maintenant);
+    let _ = db
+        .enregistrer_analyse_snapshot(
+            id,
+            &jour,
+            a.capital_depart,
+            a.capital_actuel,
+            a.r_total,
+            a.taux_reussite,
+            a.nb_trades as i64,
+            a.hier.as_ref().map(|h| h.dollars),
+            maintenant,
+        )
+        .await;
+    a
 }
 
 /// Croisé asset × TF : chaque asset avec la contribution de ses TF,
@@ -414,6 +432,24 @@ pub async fn get_analyses(state: web::Data<AppState>) -> impl actix_web::Respond
         }));
     }
     HttpResponse::Ok().json(serde_json::json!({ "strategies": liste }))
+}
+
+/// GET /api/analyses/{strategie}/historique — snapshots quotidiens persistés
+/// (§14 : évolution des métriques et des avis IA jour après jour).
+pub async fn get_historique_analyses(
+    state: web::Data<AppState>,
+    path: web::Path<String>,
+) -> impl actix_web::Responder {
+    let id = path.into_inner();
+    if !crate::registre_strategies::MANIFESTES.iter().any(|m| m.id == id) {
+        return HttpResponse::NotFound()
+            .json(serde_json::json!({ "error": "Stratégie inconnue" }));
+    }
+    match state.db.lister_analyses_snapshots(&id, 60).await {
+        Ok(snapshots) => HttpResponse::Ok().json(serde_json::json!({ "snapshots": snapshots })),
+        Err(e) => HttpResponse::InternalServerError()
+            .json(serde_json::json!({ "error": e.to_string() })),
+    }
 }
 
 /// GET /api/analyses/{strategie} — analyse complète d'une stratégie.

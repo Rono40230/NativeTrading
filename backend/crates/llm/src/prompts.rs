@@ -117,6 +117,14 @@ Si WAIT :
 pub fn defaults() -> HashMap<&'static str, &'static str> {
     let mut m = HashMap::new();
     m.insert(
+        "vision_1tf",
+        crate::ollama::prompts_vision::PROMPT_VISION_ANALYST,
+    );
+    m.insert(
+        "vision_multi_tf",
+        crate::ollama::prompts_vision::PROMPT_VISION_MULTI_TF,
+    );
+    m.insert(
         "analyse_rapport",
         r#"Tu es l'analyste quantitatif d'une application de trading personnelle. Tu reçois les métriques consolidées d'une stratégie : dollars réellement composés ($) et R de la convention du moteur (pondéré après ventes partielles pour SMC, net pour straddle, réalisé pour rockets). JAMAIS de R de référence ni de pips.
 

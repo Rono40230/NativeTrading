@@ -15,12 +15,6 @@ export interface WorkerConfig {
 }
 
 /** Mise à jour partielle — seules les clés présentes sont écrites côté serveur. */
-export interface WorkerConfigUpdate {
-  timeframes?: string[]
-  historique_mois?: number
-  actif_bybit?: boolean
-}
-
 /** Statut runtime d'un worker (instantané des compteurs côté serveur). */
 export interface WorkerStatutItem {
   /** Interrupteur configuré (worker_actif_*). */
@@ -53,10 +47,6 @@ export const workerApi = {
   },
 
   /** PUT /api/worker/config — mise à jour partielle, retourne la config effective. */
-  async putWorkerConfig(body: WorkerConfigUpdate): Promise<WorkerConfig> {
-    const res = await http.put('/api/worker/config', body)
-    return res.data
-  },
 
   /** GET /api/worker/status — statut runtime (poll 30 s dans la vue Données). */
   async getWorkerStatus(): Promise<WorkerStatus> {

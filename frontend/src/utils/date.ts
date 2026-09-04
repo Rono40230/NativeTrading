@@ -30,12 +30,6 @@ export function dateHeureParis(ts: number): string {
  * Jour de la semaine en heure de Paris, convention lundi-based :
  * 0=Lundi ... 6=Dimanche (convention applicative creneaux/signaux).
  */
-export function jourSemaineParis(ts: number): number {
-  const d = new Date(ts * 1000)
-  const parisDay = new Intl.DateTimeFormat('en-US', { timeZone: TZ_PARIS, weekday: 'short' }).format(d)
-  const map: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 }
-  return map[parisDay] ?? 0
-}
 
 /**
  * Décalage UTC→Paris actuel en heures entières : 1 (CET/hiver) ou 2 (CEST/été).

@@ -143,11 +143,7 @@ pub async fn analyse_v12(
     let mut last_tendance = "neutre";
     // Collecteurs des indicateurs étendus par barre (sessions/volume/impulsion/
     // zone-cœur/Asian HL). Le seuil d'impulsion est lu sur la calibration.
-    let mut col = BarCollectors::new(
-        bougies.len(),
-        engine.calibration.seuil_ib,
-        engine.calibration.atr_seuil_affichage(),
-    );
+    let mut col = BarCollectors::new(bougies.len(), engine.calibration.atr_seuil_affichage());
 
     for b in &bougies {
         let bar = BarInput {

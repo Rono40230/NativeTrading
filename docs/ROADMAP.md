@@ -36,52 +36,56 @@ un bug prompts vision, zéro test frontend.
 
 ## À faire — par ordre de priorité
 
-### 1. Corrections immédiates (bugs découverts par l'audit)
+### 1. Corrections immédiates (bugs découverts par l'audit) — ✅ FAIT le 04/09
 
-- [ ] **Prompts vision — analyse graphique dégradée** : `vision_1tf`/`vision_multi_tf`
-      sont listés dans l'UI Prompts mais absents du registre `defaults()` →
-      `prompt_effectif` retourne `""` (system prompt vide pour l'analyse Claude) et le
-      PUT renvoie 404. Brancher les constantes existantes de `ollama/prompts_vision.rs`
-      dans `defaults()` — puis relecture qualité des deux prompts (cf. §9).
-- [ ] **`ferme_le` de réconciliation** : la réconciliation runtime_replay écrit le ts du
-      moment où elle rejoue au lieu du ts réel de clôture → la MFE des passes orphelines
-      avale l'après-passe (cas BTC 01/09 : +3,54R affiché pour une excursion réelle de
-      +1,59R). Écrire le ts de la barre de clôture réelle de la dernière jambe.
-- [ ] **Commentaires mensongers** : `main.rs:167` (endpoint `/api/pre_alertes` inexistant),
-      `data_handlers.rs:43` (`POST /api/data/collect` supprimé), `worker_handlers.rs:162`
-      (`GET /api/worker/assets` supprimé), TODO `http.client.ts:3` — corriger ou supprimer.
+- [x] **Prompts vision — analyse graphique dégradée** : module `prompts_vision.rs`
+      déclaré (il n'était même pas compilé), constantes branchées dans `defaults()`
+      → system prompt restauré, PUT/DELETE `/api/prompts/vision_1tf|vision_multi_tf`
+      fonctionnels. Relecture qualité à faire dans la revue prompts (§9).
+- [x] **`ferme_le` de réconciliation** : `reconcilier_evenements` et
+      `reconcilier_proximite` écrivaient l'horloge murale du replay (`emis_le`) au
+      lieu de l'axe historique (`debut_barre`) → MFE des clôtures réconciliées
+      gonflée par l'après-passe (cas BTC 01/09). Corrigé — les clôtures déjà écrites
+      restent telles quelles (pas de rétro-correction), les prochaines sont exactes.
+- [x] **Commentaires mensongers** : `main.rs` (endpoint `/api/pre_alertes` inexistant),
+      commentaires d'endpoints fantômes `POST /api/data/collect` et
+      `GET /api/worker/assets` supprimés, TODO `http.client.ts` retiré.
 
-### 2. Grand nettoyage — vers 0 dette, 0 code mort (audit 04/09)
+### 2. Grand nettoyage — vers 0 dette, 0 code mort (audit 04/09) — ✅ FAIT le 04/09
 
-**Backend :**
-- [ ] Supprimer les 13 binaires d'étude jetables (`comparatif_be|bpr|mega|sessions|pd|sweep|tp3`,
-      `etape4_comparatif`, `passe_finale`, `probe_bpr|confirmation|sessions`, `validation_spx`) —
-      décisions toutes actées et figées dans les prompts. **Garder** : `news_collector`,
-      `backfill_profond`, `replay_v12`, `debug_zones` (vivants).
-- [ ] Supprimer `ollama_signal_ia_handler.rs` (module v1 non routé) + sa déclaration `main.rs`.
-- [ ] Supprimer les workers v1 maintenus compilés artificiellement (`rockets_suivi`,
-      `demarrer_worker_suivi_signaux` + leurs `let _`) et retirer `#![allow(dead_code)]`
-      de `state.rs` une fois le chantier ML (§11) tranché.
-- [ ] Tables DB mortes : `DROP smc_analyses_llm`, `temp_metrics`, `positions` (0 lignes, 0 accès).
-      ⚠️ `signaux_archive` est l'archive de la purge du 02/09 — **conserver**, documenter.
-- [ ] Dépendances : retirer `polars`, `statrs`, `aes-gcm`, `config`, `actix-rt`, `ta`
-      (workspace, jamais déclarées) et `uuid` (api).
-- [ ] Fichiers racine étrangers : `test_tch.rs`, `output.csv`, `patch_ml_retrain.sh`, `patch_smc.sh`.
-- [ ] Fonctions prompts orphelines : `rockets_filtre::filtrer_signal`, `smc_filtre::filtrer_signal_smc`
-      (statut DORMANT documenté dans l'UI — supprimer le code, garder la mention).
+**Backend** (cargo check --workspace : 0 erreur, 0 warning — 478 tests verts) :
+- [x] 13 binaires d'étude jetables supprimés (`comparatif_*` ×7, `etape4_comparatif`,
+      `passe_finale`, `probe_*` ×3, `validation_spx`). **Gardés** : `news_collector`,
+      `backfill_profond`, `replay_v12`, `debug_zones`.
+- [x] `ollama_signal_ia_handler.rs` (module v1 non routé, jamais compilé) supprimé.
+- [x] Workers v1 supprimés : `rockets_suivi_worker.rs`, `demarrer_worker_suivi`,
+      `demarrer_worker_suivi_signaux`, `calculer_verdict`, `sync_feedback_historique`,
+      `reconcilier_orphelins`, `reconcilier_feedback` + tous les `let _` et imports morts.
+- [x] Tables DB mortes : migration `0097` (DROP `smc_analyses_llm`, `temp_metrics`,
+      `positions`). `signaux_archive` conservée (archive de purge, documentée).
+- [x] Dépendances retirées : `polars`, `statrs`, `aes-gcm`, `config`, `actix-rt`, `ta`
+      (workspace + `indicators`), `uuid` (api).
+- [x] Fichiers racine étrangers supprimés : `test_tch.rs`, `output.csv`, `patch_*.sh`.
+- [x] Prompts orphelines purgées : `rockets_filtre.rs` et `rockets_contexte.rs` supprimés
+      (la const vit dans `ollama/prompts.rs`), `smc_filtre.rs` réduit à sa constante
+      (DORMANT documenté). Champs morts : `ResultatCategorisation.evenement_*`,
+      `BarCollectors.seuil_ib/sessions_raw`, `LigneVeille.groupe`, alias `CacheAlertesPartage`.
+- [x] 5 gardes `Asset::try_from` irréfutables → `Asset::from` ; imports/mut inutiles purgés
+      (dont les warnings préexistants d'`asian_hl.rs`).
 
-**Frontend :**
-- [ ] Dépendances : `jspdf`, `jspdf-autotable`, `topojson-client`, `world-atlas` (0 import) ;
-      `vitest`, `@vue/test-utils`, `jsdom` — soit supprimées, soit réutilisées (§12 tests).
-- [ ] Méthodes API mortes : `putWorkerConfig` (+ type `WorkerConfigUpdate`), `traduire`.
-- [ ] Fonctions mortes : `jourSemaineParis`, `classeVerdictSignal`, `labelVerdictSignal`, `palierActuel`.
-- [ ] ~23 types TS morts + 16 réexports inutiles (`api.service.ts`, `api.types.*`) ;
-      8 redirects router défensifs (app Tauri sans deep-links) ; 3 classes CSS mortes
-      (`AssetParamsPanel.css`) ; commentaire obsolète `vite.config.ts`.
+**Frontend** (npm run build : 0 erreur) :
+- [x] Dépendances retirées : `jspdf`, `jspdf-autotable`, `topojson-client`, `world-atlas`,
+      `vitest`, `@vue/test-utils`, `jsdom` + script `test` (seront réinstallés au §12).
+- [x] Méthodes API mortes : `putWorkerConfig` (+ type), `traduire` (+ `TraductionReponse`).
+- [x] Fonctions mortes : `jourSemaineParis`, `palierActuel` ; `classeVerdictSignal`/
+      `labelVerdictSignal` dé-exportées (utilisées en interne — l'audit s'était trompé).
+- [x] Types morts (`RocketSignalSave`, `StraddleSeuilsEffectifs`, `SmcBaremes`…) et
+      ~20 réexports inutiles retirés ; 8 redirects router défensifs supprimés ;
+      3 classes CSS mortes ; commentaire obsolète `vite.config.ts`.
 
-**Critère de fin de section** : `cargo check --workspace` sans warning `dead_code`/`unused`,
-`npm run build` propre, `npm run test` (une fois les tests écrits) vert, aucune table,
-fichier ni dépendance sans consommateur.
+**Résiduel du critère de fin** : `#![allow(dead_code)]` de `state.rs` reste jusqu'au
+tranchage ML (§11) ; les types composant `ReponseIndicators` ont été conservés
+(contrat API vivant — correction du diagnostic d'audit).
 
 ### 3. Étape 5 — Résiduel : validation numérique du miroir MQL5
 
@@ -203,14 +207,19 @@ vides (tables de feedback à 0 ligne depuis le pivot vers les moteurs détermini
 
 ### 12. Robustesse
 
-- [ ] **Tests frontend** : vitest est installé, 0 test existe — couvrir la logique pure
-      (tri d'historique, formateurs R/$/pips, camemberts/lignesClassement, palierMax)
-- [ ] **Sauvegarde automatique de la base** : 24 mois d'historique MT5 + tout le vécu dans un
-      seul fichier SQLite — backup quotidien horodaté (rétention 30 j) au démarrage du run.sh
+- [x] **Tests frontend** (04/09) : vitest@2 (node, sans DOM — jsdom/test-utils inutiles) +
+      21 tests verts sur la logique pure : répartition/classement/lignesClassement
+      (plus grand reste, ligne « autres »), palierMax (verdicts, R réels des TP,
+      pénalité jambe morte straddle), formateurs R/$ (anti « −0.0 », séparateur fr).
+      `npm test` → vitest run.
+- [x] **Sauvegarde automatique de la base** (04/09) : `run.sh` copie la base à chaque
+      démarrage (sqlite3 .backup si dispo — copie cohérente base ouverte —, sinon cp),
+      horodatée dans `data/backups/`, rétention 30 sauvegardes.
 - [ ] Vérifier l'affichage des zones SMC sur l'historique Axi profond (2 ans — artefacts au
       changement de source à tracer)
-- [ ] ETH : réactiver et re-backfiller si souhaité (purgé par la rétention 24 mois)
+- [ ] ETH : réactiver et re-backfiller si souhaité (décision propriétaire)
 - [ ] `worker_historique_mois` (6) vs historique MT5 (24) : harmoniser avec la rétention
+      (réglage utilisateur via la config)
 
 ### 13. Unités & métriques — résiduels
 
@@ -229,8 +238,13 @@ dollars réels, badge straddle/rockets = R réalisé, MFE/Lot/tri des historique
 (cache du jour, règle des 30 trades ancrée), croisé asset × TF, prompt `analyse_rapport`
 éditable (Configuration & Métriques IA).
 
-- [ ] **Historisation des rapports** : snapshot quotidien persisté (table dédiée) pour
-      suivre l'évolution des métriques ET des avis IA jour après jour
+- [x] **Historisation des rapports** (04/09) : table `analyses_snapshots`
+      (migration 0098) — un snapshot par stratégie/jour écrit paresseusement au
+      premier calcul (`INSERT OR REPLACE`, avis IA préservé), l'avis IA du jour
+      rattaché au snapshot (survit aux redémarrages — le cache mémoire, lui, non).
+      Endpoint `GET /api/analyses/{id}/historique` + carte « 📈 Évolution jour
+      après jour » dans l'onglet (courbe du capital, 14 derniers jours :
+      capital · hier $ · ΣR · confiance de l'avis en infobulle)
 - [ ] **Heatmap heure×jour** : contribution $ par créneau horaire (parcours naturel du
       straddle) — réutilise le calcul des créneaux de volatilité
 

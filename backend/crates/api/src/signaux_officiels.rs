@@ -257,7 +257,7 @@ async fn formater_message(
             );
             return Some(msg);
         }
-        let mut msg = format!(
+        let msg = format!(
             "{icone} {nom}\nPasse sur {asset} — {annonce}\nJambe {dir} remplie à {entree:.2}$ à {heure}\nLot = {lot:.2} ({risque_euros:.0}$ risqués)\n\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)\nTP1 : {tp1:.2}$ → BE à l'entrée\nTP2 : {tp2:.2}$ → BE à TP1 + trailing {trailing:.1}R\nTime-stop : 60 min",
             icone = crate::registre_strategies::MANIFESTES
                 .iter()

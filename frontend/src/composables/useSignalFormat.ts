@@ -1,3 +1,28 @@
+function classeVerdictSignal(verdict: string | null): string {
+  const v = verdict?.toLowerCase() ?? ''
+  if (v === 'tp3' || v === 'tp2') return 'badge-green'
+  if (v === 'tp1') return 'badge-blue'
+  if (v === 'be') return 'badge-gray'
+  if (v === 'sl') return 'badge-red'
+  if (v === 'invalide') return 'badge-orange'
+  if (v === 'expire') return 'badge-gray'
+  return 'badge-yellow'
+}
+
+function labelVerdictSignal(verdict: string | null): string {
+  const v = verdict?.toLowerCase() ?? ''
+  if (v === 'tp3') return '✅ TP3'
+  if (v === 'tp2+be') return '✅ TP2+BE (+2R acquis)'
+  if (v === 'tp1+be') return '✅ TP1+BE (+1R acquis)'
+  if (v === 'tp2') return '✅ TP2 (SL→TP1)'
+  if (v === 'tp1') return '✅ TP1 (SL→BE)'
+  if (v === 'be')  return '⚪ BE (dégradation zone) — 0R'
+  if (v === 'sl')  return '❌ SL'
+  if (v === 'invalide') return '↩️ Entrée non atteinte'
+  if (v === 'expire') return '⏰ Expiré'
+  return '⏳ En cours'
+}
+
 import { dateHeureParis } from '@/utils/date'
 
 export function formatDate(ts: number): string {
@@ -12,30 +37,7 @@ export function formatNombre(v: number | undefined): string {
   return v.toFixed(6)
 }
 
-export function classeVerdictSignal(verdict: string | null): string {
-  const v = verdict?.toLowerCase() ?? ''
-  if (v === 'tp3' || v === 'tp2') return 'badge-green'
-  if (v === 'tp1') return 'badge-blue'
-  if (v === 'be') return 'badge-gray'
-  if (v === 'sl') return 'badge-red'
-  if (v === 'invalide') return 'badge-orange'
-  if (v === 'expire') return 'badge-gray'
-  return 'badge-yellow'
-}
 
-export function labelVerdictSignal(verdict: string | null): string {
-  const v = verdict?.toLowerCase() ?? ''
-  if (v === 'tp3') return '✅ TP3'
-  if (v === 'tp2+be') return '✅ TP2+BE (+2R acquis)'
-  if (v === 'tp1+be') return '✅ TP1+BE (+1R acquis)'
-  if (v === 'tp2') return '✅ TP2 (SL→TP1)'
-  if (v === 'tp1') return '✅ TP1 (SL→BE)'
-  if (v === 'be')  return '⚪ BE (dégradation zone) — 0R'
-  if (v === 'sl')  return '❌ SL'
-  if (v === 'invalide') return '↩️ Entrée non atteinte'
-  if (v === 'expire') return '⏰ Expiré'
-  return '⏳ En cours'
-}
 
 // ── État vivant d'un signal (non clôturé) ────────────────────────────────────
 // Distingue « En attente » (annoncé, entrée pas encore touchée/planifiée) de
@@ -192,16 +194,6 @@ export function classePalierMax(p: PalierMax['palier']): string {
 }
 
 /** Palier atteint À CET INSTANT par le prix courant (trades ouverts). */
-export function palierActuel(prix: number | null, s: SignalPalier): PalierMax['palier'] {
-  if (prix === null) return null
-  const long = s.direction.toUpperCase() === 'LONG'
-  if (long ? prix <= s.stop_loss : prix >= s.stop_loss) return 'SL'
-  const [tp1, tp2, tp3] = s.take_profit
-  if (tp3 !== undefined && (long ? prix >= tp3 : prix <= tp3)) return 'TP3'
-  if (tp2 !== undefined && tp2 !== null && (long ? prix >= tp2 : prix <= tp2)) return 'TP2'
-  if (long ? prix >= tp1 : prix <= tp1) return 'TP1'
-  return null
-}
 
 /** Libellé MFE : excursion favorable avant le SL (« +0.85R avant SL »). */
 export function formatMfe(mfeR: number | null): string {

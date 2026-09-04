@@ -93,12 +93,24 @@ pub async fn post_analyse_ia(
     match llm::ollama::interroger(&prompt).await {
         Ok(texte) => {
             let analyse = parser(texte, a.nb_trades);
+            persister_avis(&state.db, &id, &analyse).await;
             let arc = Arc::new(analyse);
             cache().write().await.insert(cle, arc.clone());
             HttpResponse::Ok().json(serde_json::json!({ "en_cache": false, "analyse": *arc }))
         }
         Err(e) => HttpResponse::ServiceUnavailable()
             .json(serde_json::json!({ "error": format!("Analyste indisponible : {e}") })),
+    }
+}
+
+/// §14 : rattache l'avis du jour à son snapshot quotidien (l'historique des
+/// avis survit aux redémarrages — le cache mémoire, lui, ne survit pas).
+async fn persister_avis(db: &std::sync::Arc<db::Database>, id: &str, avis: &AnalyseIa) {
+    if let Ok(json) = serde_json::to_string(avis) {
+        let jour = db::analyses_snapshots::cle_du_jour(chrono::Utc::now().timestamp());
+        let _ = db
+            .enregistrer_avis_snapshot(id, &jour, &json, avis.generee_le)
+            .await;
     }
 }
 

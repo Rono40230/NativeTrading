@@ -159,5 +159,4 @@ pub async fn get_worker_status(state: web::Data<AppState>) -> impl Responder {
     }))
 }
 
-// ─── GET /api/worker/assets ───────────────────────────────────────────────────
 

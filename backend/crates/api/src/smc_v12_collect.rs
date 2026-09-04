@@ -60,10 +60,8 @@ fn collect_htf(tf: &'static str, st: &HtfState, out: &mut Vec<HtfObOut>) {
 /// Collecteurs des indicateurs « par barre » accumulés pendant le replay :
 /// sessions, volume fort, impulsion, zone-cœur (dédoublonnée), Asian High/Low.
 pub(crate) struct BarCollectors {
-    seuil_ib: f64,
     /// `i_atrSeuil` par asset (Pine MODULE 10 : RANGE > seuil × ATR).
     atr_seuil: f64,
-    sessions_raw: Vec<(i64, Option<&'static str>)>,
     /// Tendance par barre ("bull"|"bear"|None) — bgcolor Pine MODULE 1.
     trend_raw: Vec<(i64, Option<&'static str>)>,
     /// Premium/discount par barre (Pine MODULE 4b bgcolor) : "prem"|"disc"|None.
@@ -89,11 +87,9 @@ pub(crate) struct BarCollectors {
 }
 
 impl BarCollectors {
-    pub(crate) fn new(cap: usize, seuil_ib: f64, atr_seuil: f64) -> Self {
+    pub(crate) fn new(cap: usize, atr_seuil: f64) -> Self {
         Self {
-            seuil_ib,
             atr_seuil,
-            sessions_raw: Vec::with_capacity(cap),
             trend_raw: Vec::with_capacity(cap),
             prem_raw: Vec::with_capacity(cap),
             sess_cur: None,
@@ -451,9 +447,7 @@ pub(crate) fn collect_final_extended(
     col.finaliser_session_pub();
     col.finaliser_session();
     let BarCollectors {
-        seuil_ib: _,
         atr_seuil: _,
-        sessions_raw: _,
         trend_raw,
         prem_raw,
         sess_cur: _,

@@ -8,8 +8,7 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, 'src'),
     },
-    // Priorité .ts/.vue sur .js pour éviter que les doublons .js obsolètes soient chargés en premier
-    extensions: ['.mjs', '.mts', '.ts', '.tsx', '.vue', '.js', '.jsx', '.json'],
+        extensions: ['.mjs', '.mts', '.ts', '.tsx', '.vue', '.js', '.jsx', '.json'],
   },
   // Port 1420 = port standard Tauri dev (pas de navigateur externe)
   server: {

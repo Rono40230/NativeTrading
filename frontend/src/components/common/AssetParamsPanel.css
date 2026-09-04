@@ -25,31 +25,9 @@
     gap: 1rem;
 }
 
-.capital-input-group {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    color: #ffffff;
-}
 
-.input-field {
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 6px;
-    color: #e2e8f0;
-    padding: 0.35rem 0.6rem;
-    font-size: 0.875rem;
-    outline: none;
-}
 
-.capital-input {
-    width: 110px;
-}
 
-.input-field:focus {
-    border-color: #3b82f6;
-}
 
 .btn-save {
     background: #3b82f6;

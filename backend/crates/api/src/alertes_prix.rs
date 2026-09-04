@@ -7,8 +7,6 @@
 //! message Telegram. L'app notifie côté poste (son + notification OS) via
 //! son polling de la liste.
 
-use std::sync::Arc;
-
 use actix_web::{web, HttpResponse, Responder};
 use db::Database;
 use engine::types::EvenementPrix;
@@ -129,4 +127,3 @@ pub fn cache_vide() -> CacheAlertes {
     CacheAlertes::default()
 }
 
-pub type CacheAlertesPartage = Arc<tokio::sync::Mutex<CacheAlertes>>;

@@ -34,7 +34,6 @@ mod rockets_handlers;
 mod rockets_ml_handlers;
 mod rockets_prix;
 mod rockets_suivi;
-mod rockets_suivi_worker;
 mod retention_job;
 mod runtime_handlers;
 mod runtime_replay;
@@ -116,8 +115,6 @@ async fn main() -> std::io::Result<()> {
 
     // Suivi Rockets : suspendu avec le générateur (aucun signal ouvert).
     // let pool_rockets = app_state.db.pool().clone();
-    // tokio::spawn(rockets_suivi::demarrer_worker_suivi(pool_rockets));
-    let _ = rockets_suivi::demarrer_worker_suivi;
 
     // ── ROCKETS SUSPENDU (décision propriétaire 2026-08-15) ──────────────────
     // Générateur de l'ancien système + consommateur des modèles ML purgés.
@@ -133,8 +130,6 @@ async fn main() -> std::io::Result<()> {
 
     // Suivi des signaux de l'ancien système : suspendu avec ses générateurs
     // (plus aucun signal ouvert à suivre).
-    // tokio::spawn(signaux_handlers::demarrer_worker_suivi_signaux(pool_signaux));
-    let _ = signaux_handlers::demarrer_worker_suivi_signaux;
 
 
     // ── Boucles automatiques ─────────────────────────────────────────────────
@@ -164,7 +159,7 @@ async fn main() -> std::io::Result<()> {
     // ── Pré-alertes SUPPRIMÉES (nettoyage code mort, décision 2026-08-15) ──────
     // L'ancien worker (scorer SMC + ATR Straddle sur bougies clôturées) alimentait
     // Telegram en double des signaux officiels. Les seules notifications sont les
-    // signaux v12 VALIDÉS. L'endpoint de lecture /api/pre_alertes reste servi.
+    // signaux v12 VALIDÉS (aucun endpoint de lecture ne subsiste).
     tracing::warn!("🛑 Worker pré-alertes SUPPRIMÉ (ancien système — alimentait Telegram en double)");
 
     HttpServer::new(move || {

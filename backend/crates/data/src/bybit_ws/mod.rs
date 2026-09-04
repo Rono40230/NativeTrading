@@ -335,7 +335,7 @@ async fn session_unique(
     // Toutes les 30 s, l'empreinte assets × timeframes est relue en DB : un
     // ajout/retrait d'asset (modale UI) force une reconnexion propre — le
     // nouvel asset est souscrit en ≤ 30 s + backoff, sans redémarrage.
-    let mut dernier_hash = empreinte_session(&assets, &timeframes);
+    let dernier_hash = empreinte_session(&assets, &timeframes);
     let mut tick_config = tokio::time::interval(std::time::Duration::from_secs(30));
     tick_config.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     loop {

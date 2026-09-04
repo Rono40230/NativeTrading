@@ -6,6 +6,23 @@ LOG_DIR="$ROOT_DIR/data/logs"
 mkdir -p "$LOG_DIR"
 mkdir -p "$ROOT_DIR/data"
 
+# ── Sauvegarde de la base (24 mois d'historique irremplaçable) ────────────────
+# Copie horodatée à chaque démarrage, rétention 30 jours. Utilise sqlite3
+# .backup si disponible (copie cohérente même base ouverte), repli cp.
+if [ -f "$ROOT_DIR/data/trading.db" ]; then
+   BACKUP_DIR="$ROOT_DIR/data/backups"
+   mkdir -p "$BACKUP_DIR"
+   STAMP=$(date +%Y%m%d-%H%M%S)
+   if command -v sqlite3 &>/dev/null; then
+      sqlite3 "$ROOT_DIR/data/trading.db" ".backup '$BACKUP_DIR/trading-$STAMP.db'"
+   else
+      cp "$ROOT_DIR/data/trading.db" "$BACKUP_DIR/trading-$STAMP.db"
+   fi
+   # Rétention : 30 sauvegardes les plus récentes
+   ls -1t "$BACKUP_DIR"/trading-*.db 2>/dev/null | tail -n +31 | xargs -r rm -f
+   echo "💾 Base sauvegardée : data/backups/trading-$STAMP.db"
+fi
+
 # ─── Initialisation nvm (npm/node non disponibles hors shell interactif) ──────
 export NVM_DIR="/home/rono/.nvm/.nvm"
 # shellcheck source=/dev/null

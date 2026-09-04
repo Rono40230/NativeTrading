@@ -246,6 +246,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/analyses/{strategie}/ia",
             web::post().to(crate::analyses_ia::post_analyse_ia),
         )
+        .route(
+            "/api/analyses/{strategie}/historique",
+            web::get().to(crate::analyses::get_historique_analyses),
+        )
         // ── Armement SMC par couple (outil Paramètres › SMC — 04/09) ─────────
         .route(
             "/api/smc/couples",

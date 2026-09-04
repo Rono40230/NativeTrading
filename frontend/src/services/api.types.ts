@@ -88,9 +88,9 @@ export interface StatutSignalEngine {
 
 export type { ScoreSmc } from '../generated/ScoreSmc'
 
-export type { PointSerie, ZoneOb, ZoneImbalance, ZoneFvgBpr, ZoneBpr, ZoneIfvg, NiveauxFibonacci, ResultatTendance, NiveauLiquidite, DeviationAsie, RangeAsie, NiveauForceSignal, DirectionSignal, ReponseIndicators, IndicatorsParams } from './api.types.indicators'
-export type { PatternHoraire, ReponsePatternsVolatilite, RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA, ImageAvecTF, LigneTendanceKasper, ModeCalculTendance, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier, FearGreedData, EntiteSentiment, SentimentMarche, SentimentComposite, TraductionReponse } from './api.types.marche'
-export type { CouvertureDonnees, RequeteCollecte, ResultatCollecteItem, ResultatCollecte, RocketSignalSave, RocketSignalHistorique, RocketRecommandation, RocketAnalyseLlm, RocketsConfig, StraddleCreneau, ReponseAnalyseStraddle, StraddlePicLive, AnnonceImminente, StraddleVolatiliteLive, StraddleDevSeedResponse, StraddleDevSignalResponse, StraddleStatCategorie, StraddleMonitoringData, StraddleCalibrationRow, RocketsStatPhase, RocketsMonitoringData, RocketsCalibrationRow, StraddleSeuilsEffectifs, RocketsSeuilsEffectifs } from './api.types.rockets'
+export type { DeviationAsie, RangeAsie, ReponseIndicators, IndicatorsParams } from './api.types.indicators'
+export type { PatternHoraire, ReponsePatternsVolatilite, RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA, ImageAvecTF, LigneTendanceKasper, ModeCalculTendance, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier, FearGreedData, EntiteSentiment, SentimentMarche, SentimentComposite } from './api.types.marche'
+export type { CouvertureDonnees, ResultatCollecteItem, RocketSignalHistorique, RocketRecommandation, RocketAnalyseLlm, RocketsConfig, StraddleCreneau, ReponseAnalyseStraddle, StraddlePicLive, StraddleStatCategorie, StraddleMonitoringData, StraddleCalibrationRow, RocketsStatPhase, RocketsMonitoringData, RocketsCalibrationRow } from './api.types.rockets'
 
 // ── Signal IA (POST /api/ia/signal) ──────────────────────────────────────────
 export interface RequeteSignalIA {
@@ -183,11 +183,3 @@ export interface PrecisionHoraire {
 
 // ── Barèmes & seuils effectifs pour les pages Définition ─────────────────────
 
-export interface SmcBaremes {
-  tendance: number
-  order_block: number
-  ifvg: number
-  imbalance: number
-  fibonacci: number
-  total_max: number
-}

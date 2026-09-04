@@ -172,6 +172,50 @@
       <p v-else class="text-xs text-white py-4 text-center">Aucune clôture</p>
     </div>
 
+    <!-- Évolution jour après jour : snapshots quotidiens + avis IA archivés -->
+    <div class="glass-card p-3">
+      <p class="text-xs font-semibold text-white mb-2" title="Un snapshot par jour, écrit au premier calcul du rapport — l'avis IA du jour est archivé avec lui (survit aux redémarrages)">📈 Évolution jour après jour</p>
+      <div v-if="historique.length" class="flex flex-col gap-2">
+        <div class="relative h-16">
+          <svg :viewBox="`0 0 100 32`" preserveAspectRatio="none" class="w-full h-full">
+            <polyline
+              :points="pointsHistorique"
+              fill="none" stroke="#60a5fa" stroke-width="1.5"
+              vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"
+            />
+          </svg>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-[10px]">
+            <thead>
+              <tr class="text-white/60 uppercase tracking-wider">
+                <th class="text-left pb-1 pr-2 font-semibold">Jour</th>
+                <th class="text-right pb-1 pr-2 font-semibold">Capital</th>
+                <th class="text-right pb-1 pr-2 font-semibold">Hier</th>
+                <th class="text-right pb-1 pr-2 font-semibold">Σ R</th>
+                <th class="text-right pb-1 font-semibold">Avis IA</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="snap in historique.slice(0, 14)" :key="snap.jour" class="border-t border-white/5">
+                <td class="py-1 pr-2 text-white font-mono">{{ snap.jour.slice(5) }}</td>
+                <td class="py-1 pr-2 text-right font-mono text-white">{{ fmtDollars(snap.capital_actuel) }}</td>
+                <td class="py-1 pr-2 text-right font-mono" :class="(snap.hier_dollars ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ snap.hier_dollars === null ? '—' : fmtDollars(snap.hier_dollars) }}</td>
+                <td class="py-1 pr-2 text-right font-mono text-white">{{ fmtR(snap.r_total) }}</td>
+                <td class="py-1 text-right">
+                  <span v-if="avisDuSnapshot(snap)" class="font-mono cursor-help"
+                        :class="(avisDuSnapshot(snap)!.confiance ?? 0) >= 70 ? 'text-emerald-400' : (avisDuSnapshot(snap)!.confiance ?? 0) >= 40 ? 'text-amber-300' : 'text-white/60'"
+                        :title="avisDuSnapshot(snap)!.etat">{{ avisDuSnapshot(snap)!.confiance }}/100</span>
+                  <span v-else class="text-white/40">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p v-else class="text-xs text-white py-3 text-center">Premier snapshot aujourd'hui — l'historique se remplit au fil des jours.</p>
+    </div>
+
     <!-- Analyse IA : avis de l'analyste local (à la demande, cache du jour) -->
     <div class="glass-card p-3">
       <div class="flex items-center gap-2 mb-2 flex-wrap">
@@ -232,8 +276,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import {
-  chargerAnalyse, fmtDollars, fmtR, couleurVerdict, genererAnalyseIa,
+  chargerAnalyse, chargerHistoriqueAnalyses, fmtDollars, fmtR, couleurVerdict, genererAnalyseIa,
   type AnalyseStrategie, type PeriodeAnalyse, type CategorieAnalyse, type AnalyseIa,
+  type SnapshotAnalyse,
 } from '@/composables/useAnalyses'
 
 const props = defineProps<{ id: string }>()
@@ -320,9 +365,40 @@ watch(() => props.id, () => {
   iaErreur.value = ''
 })
 
+// ── Historique quotidien (§14) ────────────────────────────────────────────────
+const historique = ref<SnapshotAnalyse[]>([])
+
+/// Avis IA désérialisé d'un snapshot (null si absent/corrompu).
+function avisDuSnapshot(snap: SnapshotAnalyse): AnalyseIa | null {
+  if (!snap.avis_ia) return null
+  try {
+    return JSON.parse(snap.avis_ia) as AnalyseIa
+  } catch {
+    return null
+  }
+}
+
+/// Courbe du capital par jour (chrono croissant pour la polyline).
+const pointsHistorique = computed(() => {
+  const serie = [...historique.value].reverse()
+  if (serie.length < 2) return ''
+  const valeurs = serie.map(s => s.capital_actuel)
+  const min = Math.min(...valeurs)
+  const max = Math.max(...valeurs)
+  const amplitude = max - min || 1
+  return serie
+    .map((s, i) => `${((i / (serie.length - 1)) * 100).toFixed(2)},${(30 - ((s.capital_actuel - min) / amplitude) * 28).toFixed(2)}`)
+    .join(' ')
+})
+
 async function charger() {
   chargement.value = true
-  a.value = await chargerAnalyse(props.id)
+  const [analyse, histo] = await Promise.all([
+    chargerAnalyse(props.id),
+    chargerHistoriqueAnalyses(props.id),
+  ])
+  a.value = analyse
+  historique.value = histo
   chargement.value = false
 }
 

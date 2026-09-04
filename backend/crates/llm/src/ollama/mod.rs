@@ -2,12 +2,11 @@ mod contexte;
 pub mod diagram_templates;
 pub mod prompts;
 pub mod rockets_analyse;
-pub mod rockets_contexte;
-pub mod rockets_filtre;
 pub mod smc_analyse;
 pub mod smc_filtre;
 pub mod straddle_analyse;
 mod types;
+pub mod prompts_vision;
 mod vision;
 
 use common::TradingError;

@@ -95,6 +95,31 @@ export function fmtDollars(v: number): string {
   return `${v < 0 ? '−' : ''}${n} $`
 }
 
+/// Snapshot quotidien persisté (§14 — évolution jour après jour).
+export interface SnapshotAnalyse {
+  strategie: string
+  jour: string
+  capital_depart: number
+  capital_actuel: number
+  r_total: number
+  taux_reussite: number
+  nb_trades: number
+  hier_dollars: number | null
+  calcule_le: number
+  avis_ia: string | null
+  avis_le: number | null
+}
+
+/// Historique des snapshots d'une stratégie (du plus récent au plus ancien).
+export async function chargerHistoriqueAnalyses(id: string): Promise<SnapshotAnalyse[]> {
+  try {
+    const res = await http.get<{ snapshots: SnapshotAnalyse[] }>(`/api/analyses/${id}/historique`)
+    return res.data.snapshots ?? []
+  } catch {
+    return []
+  }
+}
+
 /// Avis structuré de l'analyste IA (POST /api/analyses/{id}/ia).
 export interface AnalyseIa {
   etat: string

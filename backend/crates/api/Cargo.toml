@@ -31,7 +31,6 @@ anyhow.workspace = true
 dotenvy.workspace = true
 chrono.workspace = true
 ts-rs.workspace = true
-uuid = { workspace = true, features = ["v4", "serde"] }
 reqwest = { workspace = true }
 sqlx = { workspace = true }
 tokio-tungstenite = { workspace = true, features = ["native-tls"] }

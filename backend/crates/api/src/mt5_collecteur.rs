@@ -350,9 +350,7 @@ pub(crate) fn profondeur_replay(tf: common::Timeframe) -> i64 {
 /// (l'EA pousse l'historique au premier passage — on attend qu'il soit là).
 pub(crate) async fn historique_mt5_pret(db: &std::sync::Arc<db::Database>, asset: &str, tf: common::Timeframe) -> bool {
     let besoin = (profondeur_replay(tf) as f64 * 0.6) as i64;
-    let Ok(a) = Asset::try_from(asset) else {
-        return false;
-    };
+    let a = Asset::from(asset);
     match db.compter_bougies(&a, &tf).await {
         Ok(n) => n >= besoin.min(60),
         Err(_) => false,

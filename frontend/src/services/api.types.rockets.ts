@@ -29,12 +29,6 @@ export interface ResultatCollecte {
   resultats: ResultatCollecteItem[]
 }
 
-export interface RocketSignalSave {
-  ticker: string; phase: string; score: number
-  prix_entree: number; stop_loss: number; target: number
-  ratio_volume: number; atr_ratio: number; rsi: number
-}
-
 export interface RocketSignalHistorique {
   id: number; ticker: string; phase: string; score: number
   prix_entree: number; stop_loss: number
@@ -127,41 +121,6 @@ export interface StraddlePicLive {
   signal_id: number | null
 }
 
-export interface AnnonceImminente {
-  nom: string | null
-  devise: string | null
-  impact: string
-  dans_min: number
-}
-
-export interface StraddleVolatiliteLive {
-  pics: StraddlePicLive[]
-  resume: {
-    pics_2h: number
-    assets_actifs: string[]
-    annonces_prochaines_90min: AnnonceImminente[]
-    calendar_cache_count?: number
-    next_high_in_min?: number | null
-  }
-}
-
-export interface StraddleDevSeedResponse {
-  ok: boolean
-  asset: string
-  inserted: number
-}
-
-export interface StraddleDevSignalResponse {
-  ok: boolean
-  signal_id: string
-  asset: string
-  timeframe: string
-  prix_entree: number
-  stop_loss_long: number
-  stop_loss_short: number
-  tp_long: number[]
-  tp_short: number[]
-}
 
 export interface StraddleStatCategorie {
   categorie: string
@@ -228,22 +187,3 @@ export interface RocketsCalibrationRow {
   invalide: boolean
 }
 
-export interface StraddleSeuilsEffectifs {
-  asset: string
-  categorie: string
-  score_llm: number
-  ratio_atr: number
-  sl_ratio: number
-  tp1_ratio: number
-  tp2_ratio: number
-  trailing_coeff: number
-  invalide: boolean
-}
-
-export interface RocketsSeuilsEffectifs {
-  phase: string
-  session: string
-  score_min: number
-  conviction_min: number
-  invalide: boolean
-}

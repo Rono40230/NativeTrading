@@ -5,7 +5,6 @@
 import { http } from './http.client'
 import type {
   AnnonceCalendrier, SentimentMarche, SentimentComposite,
-  TraductionReponse,
 } from './api.types'
 
 export const newsApi = {
@@ -32,8 +31,4 @@ export const newsApi = {
     }
   },
 
-  async traduire(texte: string, long = false): Promise<TraductionReponse> {
-    const res = await http.get('/api/news/traduire', { params: { texte, long }, timeout: 60_000 })
-    return res.data
-  },
 }

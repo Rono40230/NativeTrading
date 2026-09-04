@@ -239,9 +239,7 @@ async fn calculer(pool: &Arc<db::Database>) -> anyhow::Result<RejeuStraddle> {
     let plus_vieille = passe_sources.iter().map(|(_, ts, _, _)| *ts).min().unwrap_or(0);
     let jours_requis = ((chrono::Utc::now().timestamp() - plus_vieille) / 86_400 + 1).max(1) as u32;
     for (asset, annonce_ts, entree, r) in &passe_sources {
-        let Ok(actif) = common::Asset::try_from(asset.as_str()) else {
-            continue;
-        };
+        let actif = common::Asset::from(asset.as_str());
         let tf = common::Timeframe::M1;
         // Bougies M1 autour de la passe : T-30 → T+75 min.
         let bougies = pool

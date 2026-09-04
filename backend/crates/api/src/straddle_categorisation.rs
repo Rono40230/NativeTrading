@@ -39,11 +39,6 @@ impl CategoriePic {
 
 pub struct ResultatCategorisation {
     pub categorie: CategoriePic,
-    pub evenement_nom: Option<String>,
-    pub evenement_devise: Option<String>,
-    pub evenement_impact: Option<String>,
-    pub minutes_avant_evt: Option<i64>,
-    pub session_active: String,
 }
 
 // ── Fonction principale ───────────────────────────────────────────────────────
@@ -58,7 +53,6 @@ pub fn categoriser(
     creneaux_valides: &[StraddleCreneau],
     asset: &str,
 ) -> ResultatCategorisation {
-    let session = session_active(maintenant);
     let ts_now = maintenant.timestamp();
 
     // 1. Annonce HIGH impact dans les ±90 min
@@ -70,11 +64,6 @@ pub fn categoriser(
             if (-15..=90).contains(&minutes) {
                 return ResultatCategorisation {
                     categorie: CategoriePic::AnnonceHigh,
-                    evenement_nom: ann["titre"].as_str().map(str::to_string),
-                    evenement_devise: ann["devise"].as_str().map(str::to_string),
-                    evenement_impact: Some("High".into()),
-                    minutes_avant_evt: Some(minutes),
-                    session_active: session,
                 };
             }
         }
@@ -89,11 +78,6 @@ pub fn categoriser(
             if (-10..=60).contains(&minutes) {
                 return ResultatCategorisation {
                     categorie: CategoriePic::AnnonceMedium,
-                    evenement_nom: ann["titre"].as_str().map(str::to_string),
-                    evenement_devise: ann["devise"].as_str().map(str::to_string),
-                    evenement_impact: Some("Medium".into()),
-                    minutes_avant_evt: Some(minutes),
-                    session_active: session,
                 };
             }
         }
@@ -108,11 +92,6 @@ pub fn categoriser(
     if (13 * 60..=16 * 60).contains(&hm) {
         return ResultatCategorisation {
             categorie: CategoriePic::OverlapLndNy,
-            evenement_nom: Some("Overlap London/NY".into()),
-            evenement_devise: None,
-            evenement_impact: None,
-            minutes_avant_evt: None,
-            session_active: session,
         };
     }
 
@@ -120,11 +99,6 @@ pub fn categoriser(
     if (13 * 60 + 15..=14 * 60 + 30).contains(&hm) {
         return ResultatCategorisation {
             categorie: CategoriePic::NyOpen,
-            evenement_nom: Some("NY Open".into()),
-            evenement_devise: None,
-            evenement_impact: None,
-            minutes_avant_evt: None,
-            session_active: session.clone(),
         };
     }
 
@@ -132,11 +106,6 @@ pub fn categoriser(
     if (7 * 60..=8 * 60 + 30).contains(&hm) {
         return ResultatCategorisation {
             categorie: CategoriePic::LondonOpen,
-            evenement_nom: Some("London Open".into()),
-            evenement_devise: None,
-            evenement_impact: None,
-            minutes_avant_evt: None,
-            session_active: session.clone(),
         };
     }
 
@@ -144,11 +113,6 @@ pub fn categoriser(
     if hm >= 23 * 60 + 30 || hm <= 60 {
         return ResultatCategorisation {
             categorie: CategoriePic::TokyoOpen,
-            evenement_nom: Some("Tokyo Open".into()),
-            evenement_devise: None,
-            evenement_impact: None,
-            minutes_avant_evt: None,
-            session_active: session.clone(),
         };
     }
 
@@ -166,11 +130,6 @@ pub fn categoriser(
         if heure_dans_creneau(hm, &c.heure_debut, &c.heure_fin) {
             return ResultatCategorisation {
                 categorie: CategoriePic::CreneauRecurrent,
-                evenement_nom: Some(format!("Créneau {}–{}", c.heure_debut, c.heure_fin)),
-                evenement_devise: None,
-                evenement_impact: None,
-                minutes_avant_evt: None,
-                session_active: session,
             };
         }
     }
@@ -178,31 +137,12 @@ pub fn categoriser(
     // 8. Choc isolé — aucune cause identifiée
     ResultatCategorisation {
         categorie: CategoriePic::ChocIsole,
-        evenement_nom: None,
-        evenement_devise: None,
-        evenement_impact: None,
-        minutes_avant_evt: None,
-        session_active: session,
     }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /// Session de marché active à un instant UTC donné.
-pub fn session_active(dt: DateTime<Utc>) -> String {
-    let hm = dt.hour() * 60 + dt.minute();
-    if (13 * 60..=16 * 60).contains(&hm) {
-        "Overlap".into()
-    } else if (13 * 60 + 15..=21 * 60).contains(&hm) {
-        "NewYork".into()
-    } else if (7 * 60..=16 * 60).contains(&hm) {
-        "London".into()
-    } else if hm >= 23 * 60 + 30 || hm <= 8 * 60 {
-        "Tokyo".into()
-    } else {
-        "Off".into()
-    }
-}
 
 /// Distance en minutes entre maintenant et un événement calendrier.
 /// Retourne None si le champ `date_heure` est absent ou non parsable.

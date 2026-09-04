@@ -93,7 +93,9 @@ async fn reconcilier_evenements(
                         verdict,
                         e.prix,
                         r,
-                        e.emis_le.timestamp(),
+                        // Axe historique (début de la barre porteuse) — en
+                        // replay, emis_le est l'horloge murale du calcul.
+                        e.debut_barre,
                     )
                     .await
                 {
@@ -200,7 +202,8 @@ async fn reconcilier_proximite(
                             verdict,
                             e.prix,
                             r,
-                            e.emis_le.timestamp(),
+                            // Axe historique — emis_le est l'horloge murale en replay.
+                            e.debut_barre,
                         )
                         .await
                     {
@@ -436,9 +439,7 @@ async fn reconstruire_straddles(db: &Arc<Database>, asset: &str, tf: Timeframe) 
     let maintenant = chrono::Utc::now().timestamp();
     let plus_vieux = actifs.iter().map(|a| a.heure_entree.unwrap_or(a.cree_le)).min().unwrap_or(maintenant);
     let limite = ((maintenant - plus_vieux) / 60 + 64).max(10);
-    let Ok(actif) = Asset::try_from(asset) else {
-        return 0;
-    };
+    let actif = Asset::from(asset);
     let bougies = match db.obtenir_bougies(&actif, &tf, limite).await {
         Ok(b) => b,
         Err(_) => return 0,

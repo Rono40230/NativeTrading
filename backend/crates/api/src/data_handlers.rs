@@ -40,6 +40,4 @@ pub async fn get_coverage(state: web::Data<AppState>) -> impl Responder {
     }
 }
 
-// ─── POST /api/data/collect ───────────────────────────────────────────────────
-
 

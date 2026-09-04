@@ -11,16 +11,14 @@ import { alertesApi } from './api.alertes'
 export type {
   Candle, PredictionML, ReponseEntrainement,
   RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA,
-  ImageAvecTF, StatutIA, Signal, ScoreSmc, PointSerie,
-  ZoneOb, ZoneIfvg, NiveauxFibonacci, ResultatTendance,
-  NiveauLiquidite, ReponseIndicators, IndicatorsParams,
+  ImageAvecTF, StatutIA, Signal, ScoreSmc,
+  ReponseIndicators, IndicatorsParams,
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
-  SentimentMarche, EntiteSentiment, TraductionReponse,
-  StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, ResultatCollecteItem,
-  HistoriqueEntrainement, HistoriqueML, PatternHoraire, ReponsePatternsVolatilite,
-  StraddleCreneau, ReponseAnalyseStraddle, FearGreedData,
+  SentimentMarche, EntiteSentiment,
+  CouvertureDonnees, ResultatCollecteItem,
+  PatternHoraire, ReponsePatternsVolatilite,
+  StraddleCreneau, ReponseAnalyseStraddle,
   SentimentComposite,
-  RequeteSignalIA, ReponseSignalIA,
 } from './api.types'
 
 import type {

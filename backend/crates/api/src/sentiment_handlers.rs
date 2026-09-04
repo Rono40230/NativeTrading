@@ -63,7 +63,6 @@ struct ClotureVeille {
 struct LigneVeille {
     date: String,
     entite: String,
-    groupe: String,
     prix: f64,
     variation_pct: f64,
 }
@@ -303,10 +302,9 @@ async fn lire_veille(db: &Database) -> Option<(String, Vec<LigneVeille>)> {
     }
     let lignes: Vec<LigneVeille> = lignes
         .into_iter()
-        .map(|(date, entite, groupe, prix, variation_pct)| LigneVeille {
+        .map(|(date, entite, _groupe, prix, variation_pct)| LigneVeille {
             date,
             entite,
-            groupe,
             prix,
             variation_pct,
         })
@@ -552,7 +550,6 @@ mod tests {
         LigneVeille {
             entite: entite.to_string(),
             date: date.to_string(),
-            groupe: "usa".into(),
             prix: 100.0,
             variation_pct: 1.0,
         }

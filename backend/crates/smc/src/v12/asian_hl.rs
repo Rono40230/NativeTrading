@@ -12,7 +12,7 @@
 //! d'affichage, défaut false) — un niveau de trading gated par un flag
 //! d'affichage. Le port le calcule TOUJOURS (décision fidélité-trading).
 
-use chrono::{Datelike, TimeZone, Timelike};
+use chrono::Timelike;
 use chrono_tz::Europe::Paris;
 
 /// Événement Asian H/L pour une bar.

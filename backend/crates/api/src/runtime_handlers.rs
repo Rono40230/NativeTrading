@@ -52,9 +52,7 @@ pub struct CorpsReplay {
 
 /// Exécute un replay v12 sur l'historique DB et archive le journal.
 pub async fn post_replay(state: web::Data<AppState>, corps: web::Json<CorpsReplay>) -> HttpResponse {
-    let Ok(asset) = common::Asset::try_from(corps.asset.as_str()) else {
-        return HttpResponse::BadRequest().body(format!("asset inconnu: {}", corps.asset));
-    };
+    let asset = common::Asset::from(corps.asset.as_str());
     let Ok(tf) = common::Timeframe::try_from(corps.timeframe.as_str()) else {
         return HttpResponse::BadRequest()
             .body(format!("timeframe inconnu: {}", corps.timeframe));
