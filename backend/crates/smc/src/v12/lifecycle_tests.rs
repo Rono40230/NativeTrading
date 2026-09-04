@@ -59,8 +59,12 @@ use super::*;
         t.ob_key = Some(20);
         t.filled = true;
         let lc = lc();
-        let mut out = SmcOutput::default();
-        out.bos_raw.bearish = true; // BOS opposé ⇒ beForce
+        struct HookSmc<'a> { sc: &'a mut ScoringV11, zones: &'a [ObZone] }
+        impl HookStructure for HookSmc<'_> {
+            fn bos_oppose(&self, _is_buy: bool) -> bool { true }
+            fn mss_oppose(&self, _is_buy: bool) -> bool { false }
+            fn sur_be_force(&mut self, is_buy: bool) { self.sc.unmark_premier_signale(is_buy, self.zones) }
+        }
         let mut c = cal();
         let _ = &mut c;
         let mut sc = scoring();
@@ -70,30 +74,28 @@ use super::*;
             ObZone { top: 105.0, bot: 100.0, state: ObState::Vierge, impulse_bar: 10, ob_bar: 9, timestamp: 0, is_ib: false },
             ObZone { top: 110.0, bot: 106.0, state: ObState::Vierge, impulse_bar: 20, ob_bar: 19, timestamp: 0, is_ib: false },
         ];
-        lc.update_trade(&mut t, true, &out, &bar(900, 100.0, 101.0, 99.5, 100.0), 1, &c, &mut sc, &zones, &[]);
+        let mut hook = HookSmc { sc: &mut sc, zones: &zones };
+        lc.update_trade(&mut t, true, &bar(900, 100.0, 101.0, 99.5, 100.0), 1, &mut hook);
         assert!(t.be_forced, "BE forcé appliqué");
         assert!(!sc.is_signaled(true, 10), "premier OB (A) un-signalé");
+        let _ = &mut c;
         assert!(sc.is_signaled(true, 20), "OB du trade (B) RESTE signalé — pas de re-trade");
+    }
+
+e");
     }
 
     #[test]
     fn fill_au_retest_bar_suivante() {
         let mut t = buy_trade(100.0, 97.0, 103.0, 106.0, 109.0);
         let lc = lc();
-        let out = SmcOutput::default();
-        let c = cal();
-        let mut sc = scoring();
         // Bar 1 (ts=900>0), low=99.5 <= entry 100 → fill.
         lc.update_trade(
             &mut t,
             true,
-            &out,
             &bar(900, 101.0, 102.0, 99.5, 101.0),
             1,
-            &c,
-            &mut sc,
-            &[],
-            &[],
+            &mut crate::v12::lifecycle::HookVide,
         );
         assert!(t.filled);
         assert_eq!(t.fill_ts, Some(900));
@@ -104,20 +106,13 @@ use super::*;
         let mut t = buy_trade(100.0, 97.0, 103.0, 106.0, 109.0);
         t.filled = true;
         let lc = lc();
-        let out = SmcOutput::default();
-        let c = cal();
-        let mut sc = scoring();
         // low=96 < sl=97, !tp1_hit → slHit.
         lc.update_trade(
             &mut t,
             true,
-            &out,
             &bar(900, 99.0, 100.0, 96.0, 97.0),
             1,
-            &c,
-            &mut sc,
-            &[],
-            &[],
+            &mut crate::v12::lifecycle::HookVide,
         );
         assert_eq!(t.state, TradeState::Closed);
         assert_eq!(t.close_reason, Some(CloseReason::Sl));
@@ -129,20 +124,13 @@ use super::*;
         let mut t = buy_trade(100.0, 97.0, 103.0, 106.0, 109.0);
         t.filled = true;
         let lc = lc();
-        let out = SmcOutput::default();
-        let c = cal();
-        let mut sc = scoring();
         // Bar A : high=104 >= tp1=103 → tp1_hit, sl→entry(100), tp1_price_touched.
         lc.update_trade(
             &mut t,
             true,
-            &out,
             &bar(900, 100.0, 104.0, 100.0, 103.0),
             1,
-            &c,
-            &mut sc,
-            &[],
-            &[],
+            &mut crate::v12::lifecycle::HookVide,
         );
         assert!(t.tp1_hit);
         assert!(t.tp1_price_touched);
@@ -151,13 +139,9 @@ use super::*;
         lc.update_trade(
             &mut t,
             true,
-            &out,
             &bar(1800, 100.0, 101.0, 99.0, 100.0),
             2,
-            &c,
-            &mut sc,
-            &[],
-            &[],
+            &mut crate::v12::lifecycle::HookVide,
         );
         assert_eq!(t.state, TradeState::Closed);
         assert_eq!(t.close_reason, Some(CloseReason::Be));
@@ -170,20 +154,13 @@ use super::*;
         let mut t = buy_trade(100.0, 97.0, 103.0, 106.0, 112.0);
         t.filled = true;
         let lc = lc();
-        let out = SmcOutput::default();
-        let c = cal();
-        let mut sc = scoring();
         // high=112 >= tp3=112 → tp3Hit.
         lc.update_trade(
             &mut t,
             true,
-            &out,
             &bar(900, 105.0, 112.0, 104.0, 111.0),
             1,
-            &c,
-            &mut sc,
-            &[],
-            &[],
+            &mut crate::v12::lifecycle::HookVide,
         );
         assert_eq!(t.close_reason, Some(CloseReason::Tp3));
         assert_eq!(t.verdict(), Verdict::Tp3);
@@ -196,21 +173,19 @@ use super::*;
         let mut t = buy_trade(100.0, 97.0, 103.0, 106.0, 109.0);
         t.filled = true;
         let lc = lc();
-        let mut out = SmcOutput::default();
-        out.bos_raw.bearish = true; // BOS baissier BRUT (opposé d'un BUY).
-        let c = cal();
-        let mut sc = scoring();
+        struct HookBos;
+        impl crate::v12::lifecycle::HookStructure for HookBos {
+            fn bos_oppose(&self, _is_buy: bool) -> bool { true }
+            fn mss_oppose(&self, _is_buy: bool) -> bool { false }
+        }
         // !tp1_hit && beForce → BE forcé : sl→entry, tp1_hit=true, be_forced.
+        let mut hook = HookBos;
         lc.update_trade(
             &mut t,
             true,
-            &out,
             &bar(900, 100.0, 101.0, 99.5, 100.0),
             1,
-            &c,
-            &mut sc,
-            &[],
-            &[],
+            &mut hook,
         );
         assert!(
             !matches!(t.state, TradeState::Closed),
@@ -221,17 +196,13 @@ use super::*;
         assert!(t.tp1_hit);
         assert!(!t.tp1_price_touched, "BE forcé ≠ TP1 prix touché");
         // Bar suivante : low=99 < entry=100, tp1_hit, tp2_ts==0 → beHit → verdict BE (0R).
-        let out2 = SmcOutput::default();
+        let mut hook2 = crate::v12::lifecycle::HookVide;
         lc.update_trade(
             &mut t,
             true,
-            &out2,
             &bar(1800, 100.0, 100.5, 99.0, 100.0),
             2,
-            &c,
-            &mut sc,
-            &[],
-            &[],
+            &mut hook2,
         );
         assert_eq!(t.verdict(), Verdict::Be);
         assert!((t.realized_r() - 0.0).abs() < 1e-9);
@@ -242,20 +213,13 @@ use super::*;
         let mut t = buy_trade(100.0, 97.0, 103.0, 106.0, 109.0);
         t.filled = true;
         let lc = lc();
-        let out = SmcOutput::default();
-        let c = cal();
-        let mut sc = scoring();
         // age = 15000s > 14400 → expire.
         lc.update_trade(
             &mut t,
             true,
-            &out,
             &bar(15000, 100.0, 101.0, 99.5, 100.0),
             1,
-            &c,
-            &mut sc,
-            &[],
-            &[],
+            &mut crate::v12::lifecycle::HookVide,
         );
         assert_eq!(t.close_reason, Some(CloseReason::Expire));
         assert_eq!(t.verdict(), Verdict::Expire);
@@ -279,9 +243,6 @@ use super::*;
         );
         t.filled = true;
         let lc = lc();
-        let out = SmcOutput::default();
-        let c = cal();
-        let mut sc = scoring();
         // SELL : sl_hit = high > sl=103, !tp1_hit.
         lc.update_trade(
             &mut t,

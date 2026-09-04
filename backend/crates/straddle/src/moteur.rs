@@ -6,28 +6,36 @@
 //!
 //! RÈGLE PROPRIÉTAIRE (correction 26/08) : c'est le TIMER qui décide de
 //! l'entrée, pas le prix. À T-10 s, le straddle est OUVERT au prix courant
-//! E, quelle que soit sa valeur : les DEUX jambes (LONG et SHORT au même
-//! prix E) vivent en parallèle, chacune avec ses niveaux symétriques.
+//! E, quelle qu'il soit : les DEUX jambes (LONG et SHORT au même prix E)
+//! vivent en parallèle.
 //!
-//! Gestion par jambe : SL = E∓1R ; TP1 = ±1R → SL resserré à E∓0,5R
-//! (TAMPON anti-whipsaw, décision 27/08 : le rebond à E tuait la gagnante
-//! juste avant le vrai mouvement — DAX 9h, +4R manqués) ; TP2 = ±2R →
-//! SL à TP1 + TRAILING au tick ; sorties SL / TS / TimeStop. Le R réalisé d'une passe = SOMME NETTE des deux jambes (le SL
-//! de la jambe perdante = la TP1 de la gagnante : ±1R). Une annonce sans
-//! mouvement se ferme au TimeStop à E → passe journalisée à 0R.
+//! GESTION UNIFIÉE (refonte) : dès l'ouverture, chaque jambe devient un
+//! `Trade` du lifecycle commun (`gestion_trades`) — EXACTEMENT le même
+//! moteur que la SMC : TP1 → SL au tampon E∓0,5R (be_offset, décision
+//! 27/08 anti-whipsaw) ; TP2 → SL à TP1 + trailing au tick ; TP3 = +3R ;
+//! expiration 60 min. Les deux jambes sont nourries au tick (barres
+//! synthétiques une-tick). Le R net d'une passe = somme des R des jambes
+//! (le SL de la perdante ≈ la TP1 de la gagnante : ±1R).
 //!
 //! R = sl_atr × ATR14(**H1**) — la volatilité HORAIRE normale de l'asset,
-//! pas la compression M1 pré-annonce (qui rendait le R microscopique face
-//! aux spikes des annonces HIGH impact).
+//! pas la compression M1 pré-annonce.
 
 use common::{Asset, Direction, Timeframe};
 use engine::types::{EvenementTrade, SignalBrut, SortieMoteur, TypeEvenementTrade};
 use engine::{ContexteCloture, ContexteTick, Engine};
+use gestion_trades::trade::{Side, Trade, TradeSource};
+use gestion_trades::{BarInput, HookVide, TradeLifecycle};
 
 use crate::types::{Annonce, ParamsStraddle};
 
 /// Nom du moteur (`SignalBrut.moteur`).
 pub const NOM: &str = "straddle";
+
+/// Multiplicateurs des TP de la jambe (définition étape 4 — figés ici,
+/// réglables à venir sur le rail commun).
+const TP1_R: f64 = 1.0;
+const TP2_R: f64 = 2.0;
+const TP3_R: f64 = 3.0;
 
 /// Tampon après TP1 : le SL passe de E∓1R à E∓0,5R (au lieu du BE à E).
 /// Un whipsaw rebondissant à E ne tue plus la jambe gagnante ; une inversion
@@ -35,67 +43,25 @@ pub const NOM: &str = "straddle";
 const TAMPON_R: f64 = 0.5;
 
 /// Nom d'une phase (diagnostic / affichage / tests).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum Phase {
     Idle,
     /// Fenêtre de préparation [T-30, T-10s] — ATR observé.
     Range { annonce_ts: i64 },
     /// Straddle OUVERT à T-10 s (timer) : 2 jambes au même prix E, chacune
-    /// gérée indépendamment jusqu'à sa clôture.
+    /// gérée par le lifecycle commun jusqu'à sa clôture.
     Position {
         annonce_ts: i64,
         /// Prix d'ouverture commun (prix courant à T-10 s).
         entree: f64,
         /// Risque unitaire figé à l'ouverture (distance SL initiale).
         r: f64,
-        jambes: [Jambe; 2],
+        /// Les 2 jambes (LONG, SHORT) — trades du lifecycle commun, remplis
+        /// d'emblée (le timer décide, pas le prix).
+        jambes: [Trade; 2],
         ouverture_ts: i64,
         cle: String,
     },
-}
-
-/// Une jambe du straddle (LONG ou SHORT), ouverte à E à T-10 s.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Jambe {
-    /// Vrai = jambe LONG, faux = jambe SHORT.
-    pub long: bool,
-    /// SL courant (BE à E après TP1, à TP1 après TP2, puis trailing).
-    pub sl: f64,
-    pub tp1: f64,
-    pub tp2: f64,
-    /// Meilleur prix atteint depuis TP2 — base du trailing au tick.
-    pub meilleur_depuis_tp2: Option<f64>,
-    /// Clôture de la jambe : (verdict, R réalisé de CETTE jambe).
-    pub fermee: Option<(String, f64)>,
-}
-
-impl Jambe {
-    fn nouvelle(long: bool, entree: f64, r: f64) -> Self {
-        Self {
-            long,
-            sl: if long { entree - r } else { entree + r },
-            tp1: if long { entree + r } else { entree - r },
-            tp2: if long { entree + 2.0 * r } else { entree - 2.0 * r },
-            meilleur_depuis_tp2: None,
-            fermee: None,
-        }
-    }
-
-    fn ouverte(&self) -> bool {
-        self.fermee.is_none()
-    }
-
-    /// R réalisé de la jambe au prix donné (baseline = r).
-    fn r_a(&self, entree: f64, prix: f64, r: f64) -> f64 {
-        if r <= 0.0 {
-            return 0.0;
-        }
-        if self.long {
-            (prix - entree) / r
-        } else {
-            (entree - prix) / r
-        }
-    }
 }
 
 /// ATR14 interne (RMA des true ranges, warm-up sur on_close).
@@ -136,13 +102,16 @@ pub struct StraddleEngine {
     /// Annonces à venir, triées par ts (injectées hors DB).
     annonces: Vec<Annonce>,
     phase: Phase,
+    /// Machine de gestion commune (gestion_trades) — reconfigurée à chaque
+    /// ouverture : tampon BE, trailing ×R dès TP2, expiration 60 min.
+    lifecycle: TradeLifecycle,
+    /// Compteur de ticks (bar_index du lifecycle).
+    tick_index: usize,
     /// ATR M1 interne (repli si aucun ATR H1 disponible).
     atr: Atr14,
     /// Étalon du R : ATR14 **H1**. Injecté depuis la DB à l'armement
     /// (disponible immédiatement), puis auto-rafraîchi en live par les
-    /// clôtures horaires reconstituées du flux M1 — la compression
-    /// pré-annonce rendait l'ATR M1 microscopique face aux spikes
-    /// (constat Gate 3 26/08 : R = 1,15 pt XAU vs spike 16 R).
+    /// clôtures horaires reconstituées du flux M1.
     atr_h1_injecte: Option<f64>,
     /// RMA ATR sur barres H1 reconstituées du flux on_close.
     atr_h1_live: Atr14,
@@ -158,11 +127,24 @@ impl StraddleEngine {
             params: ParamsStraddle::default(),
             annonces: Vec::new(),
             phase: Phase::Idle,
+            lifecycle: Self::lifecycle_defaut(&ParamsStraddle::default()),
+            tick_index: 0,
             atr: Atr14::new(),
             atr_h1_injecte: None,
             atr_h1_live: Atr14::new(),
             heure_courante: None,
         }
+    }
+
+    /// Lifecycle configuré pour le straddle : même moteur que la SMC, avec
+    /// le tampon BE (E∓0,5R après TP1), le trailing ×R dès TP2 (nourri au
+    /// tick), l'expiration = time-stop.
+    fn lifecycle_defaut(params: &ParamsStraddle) -> TradeLifecycle {
+        let exp = params.time_stop_min * 60;
+        let mut lc = TradeLifecycle::new(exp, exp);
+        lc.definir_be_offset_r(TAMPON_R);
+        lc.definir_trailing_tp2(Some(params.trailing_r));
+        lc
     }
 
     /// Injecte l'ATR14(H1) de l'asset (calculé par le runtime depuis la DB).
@@ -182,6 +164,7 @@ impl StraddleEngine {
 
     /// Avec paramètres custom (calibrage).
     pub fn avec_params(mut self, params: ParamsStraddle) -> Self {
+        self.lifecycle = Self::lifecycle_defaut(&params);
         self.params = params;
         self
     }
@@ -197,6 +180,42 @@ impl StraddleEngine {
     /// Phase courante (diagnostic / tests / affichage).
     pub fn phase_courante(&self) -> &Phase {
         &self.phase
+    }
+
+    /// Barre synthétique une-tick : chaque tick est une « bar » — le
+    /// lifecycle évalue SL/TP/trailing à la granularité du tick.
+    fn bar_tick(ts: i64, prix: f64) -> BarInput {
+        BarInput {
+            timestamp: ts,
+            open: prix,
+            high: prix,
+            low: prix,
+            close: prix,
+            volume: 0.0,
+        }
+    }
+
+    /// Construit la paire de jambes ouverte à E : LONG et SHORT remplis
+    /// d'emblée (timer), SL = E∓1R, TP1/2/3 = ±1/2/3R, risque = r.
+    fn jambes_nouvelles(entree: f64, r: f64, ts: i64, bar_index: usize) -> [Trade; 2] {
+        let bar = Self::bar_tick(ts, entree);
+        let mut long = Trade::new_buy(
+            1, TradeSource::Ob, entree, entree - r,
+            entree + TP1_R * r, entree + TP2_R * r, entree + TP3_R * r,
+            78, r, &bar, bar_index, None,
+        );
+        long.filled = true;
+        long.state = gestion_trades::trade::TradeState::Open;
+        long.fill_ts = Some(ts);
+        let mut short = Trade::new_sell(
+            2, TradeSource::Ob, entree, entree + r,
+            entree - TP1_R * r, entree - TP2_R * r, entree - TP3_R * r,
+            78, r, &bar, bar_index, None,
+        );
+        short.filled = true;
+        short.state = gestion_trades::trade::TradeState::Open;
+        short.fill_ts = Some(ts);
+        [long, short]
     }
 
     /// Signal d'ouverture du straddle : direction Both, niveaux de la jambe
@@ -217,7 +236,7 @@ impl StraddleEngine {
             Direction::Both,
             entree,
             sl_long,
-            vec![entree + r, entree + 2.0 * r, entree + 2.0 * r],
+            vec![entree + TP1_R * r, entree + TP2_R * r, entree + TP3_R * r],
             78,
             format!("straddle ouvert @ {:.5} R={:.5} (2 jambes, timer T-{}s)", entree, r, self.params.placement_avant_sec),
             ts,
@@ -239,111 +258,20 @@ impl StraddleEngine {
         }
     }
 
-    /// Gère UNE jambe sur un tick : SL/BE/TS, TP1, TP2 + trailing.
-    /// Retourne les événements émis pour cette jambe.
-    fn gerer_jambe(
-        &self,
-        jambe: &mut Jambe,
-        entree: f64,
-        r: f64,
-        prix: f64,
-        ts: i64,
-        ouverture_ts: i64,
-        cle: &str,
-        sortie: &mut SortieMoteur,
-    ) {
-        let distance_trail = self.params.trailing_r * r;
-        let nom_jambe = if jambe.long { "LONG" } else { "SHORT" };
-
-        // Time-stop : sortie à l'heure, au prix courant. (Clôture de jambe
-        // SILENCIEUSE — seule la Cloture finale de la passe ferme la ligne :
-        // le writer signaux ferme au premier événement Cloture de la clé.)
-        if ts - ouverture_ts >= self.params.time_stop_min * 60 {
-            let rr = jambe.r_a(entree, prix, r);
-            jambe.fermee = Some(("TimeStop".into(), rr));
-            return;
-        }
-
-        // Sortie sur SL / trailing stop — verdict selon le niveau : TS
-        // (au-delà de TP1, trailing armé) · SL (initial −1R ou tampon −0,5R —
-        // le R réalisé fait la différence).
-        if (jambe.long && prix <= jambe.sl) || (!jambe.long && prix >= jambe.sl) {
-            let verdict = if (jambe.long && jambe.sl > jambe.tp1) || (!jambe.long && jambe.sl < jambe.tp1) {
-                "TS"
-            } else {
-                "SL"
-            };
-            let rr = jambe.r_a(entree, jambe.sl, r);
-            jambe.fermee = Some((verdict.to_string(), rr));
-            return;
-        }
-
-        // TP1 : SL resserré au TAMPON E∓0,5R (pas le BE à E — décision 27/08 :
-        // le rebond typique de l'ouverture/annonce touche E et tuait la
-        // gagnante avant le vrai mouvement ; à −0,5R elle survit).
-        if (jambe.long && prix >= jambe.tp1) || (!jambe.long && prix <= jambe.tp1) {
-            let tampon = if jambe.long { entree - r * TAMPON_R } else { entree + r * TAMPON_R };
-            if (jambe.long && jambe.sl < tampon) || (!jambe.long && jambe.sl > tampon) {
-                jambe.sl = tampon;
-                sortie.evenements.push(self.evenement(
-                    cle,
-                    TypeEvenementTrade::Tp1,
-                    &format!("jambe {nom_jambe} TP1 — SL resserré à E∓{TAMPON_R}R (tampon)"),
-                    jambe.tp1,
-                    ts,
-                ));
-            }
-        }
-        // TP2 : BE à TP1 + DÉMARRAGE du trailing.
-        if (jambe.long && prix >= jambe.tp2) || (!jambe.long && prix <= jambe.tp2) {
-            if (jambe.long && jambe.sl < jambe.tp1) || (!jambe.long && jambe.sl > jambe.tp1) {
-                jambe.sl = jambe.tp1;
-                sortie.evenements.push(self.evenement(
-                    cle,
-                    TypeEvenementTrade::Tp2,
-                    &format!("jambe {nom_jambe} TP2 — SL à TP1 + trailing actif"),
-                    jambe.tp2,
-                    ts,
-                ));
-            }
-            // Trailing AU TICK : le SL suit le meilleur prix à distance
-            // `trailing_r × R`, jamais vers l'arrière.
-            let meilleur_courant = match jambe.meilleur_depuis_tp2 {
-                Some(m) if jambe.long => m.max(prix),
-                Some(m) => m.min(prix),
-                None => prix,
-            };
-            jambe.meilleur_depuis_tp2 = Some(meilleur_courant);
-            let cible = if jambe.long {
-                meilleur_courant - distance_trail
-            } else {
-                meilleur_courant + distance_trail
-            };
-            let nouvelle = if jambe.long { jambe.sl.max(cible) } else { jambe.sl.min(cible) };
-            if (jambe.long && nouvelle > jambe.sl) || (!jambe.long && nouvelle < jambe.sl) {
-                jambe.sl = nouvelle;
-            }
-        }
-    }
-
-    /// Verdict net de la passe une fois les 2 jambes fermées.
-    fn verdict_net(entree: f64, jambes: &[Jambe; 2]) -> (String, f64) {
+    /// Verdict net de la passe une fois les 2 jambes fermées — R = somme
+    /// des R réalisés des jambes (comptabilité TP acquis du moteur commun).
+    fn verdict_net(jambes: &[Trade; 2]) -> (String, f64) {
         let net: f64 = jambes
             .iter()
-            .map(|j| j.fermee.as_ref().map(|(_, r)| *r).unwrap_or(0.0))
+            .map(|t| t.close_r.unwrap_or(0.0))
             .sum();
-        let _ = entree;
-        let un_tp1 = jambes.iter().any(|j| j.meilleur_depuis_tp2.is_some() || {
-            // TP1 touché si le SL a quitté sa position initiale vers E (BE)
-            // ou si la jambe s'est fermée en TS/BE après TP1.
-            matches!(j.fermee.as_ref().map(|(v, _)| v.as_str()), Some("TS") | Some("BE"))
-        });
+        let un_tp1 = jambes.iter().any(|t| t.tp1_hit);
         if net > 1e-9 {
             ("tp2".into(), net)
         } else if net < -1e-9 {
             ("sl".into(), net)
         } else if un_tp1 {
-            // TP1+BE (1R) moins SL perdante (-1R) = 0R net.
+            // TP1+BE acquis compensé par le SL de la perdante : ±1R net 0.
             ("be".into(), 0.0)
         } else {
             // Passe sans mouvement : 2 jambes refermées à E.
@@ -358,12 +286,13 @@ impl Engine for StraddleEngine {
     }
 
     /// Intrabar : range, OUVERTURE à T-10 s par le timer (2 jambes à E),
-    /// gestion SL/BE/TP/trailing AU TICK de chaque jambe, R net à la fin.
+    /// gestion UNIFIÉE au tick via le lifecycle commun, R net à la fin.
     fn on_tick(&mut self, ctx: &ContexteTick) -> SortieMoteur {
         let mut sortie = SortieMoteur::vide();
         let prix = ctx.bougie.prix();
         let ts = ctx.bougie.debut;
         let prochaine = self.annonces.first().cloned();
+        self.tick_index += 1;
 
         match std::mem::replace(&mut self.phase, Phase::Idle) {
             Phase::Idle => {
@@ -379,14 +308,10 @@ impl Engine for StraddleEngine {
                 if ts >= annonce_ts - self.params.placement_avant_sec {
                     let atr = self.atr_h1().unwrap_or_else(|| self.atr.get());
                     if atr > 0.0 {
-                        // OUVERTURE PAR LE TIMER au prix courant E, quelle
-                        // que soit sa valeur. R = sl_atr × ATR H1 (étalon de
-                        // volatilité normale — pas la compression pré-annonce) ;
-                        // repli ATR M1 si aucun étalon H1 disponible.
                         let r = self.params.sl_atr * atr;
                         if r > 0.0 {
                             let cle = format!("straddle-{}-{annonce_ts}-B", self.asset.as_str());
-                            let jambes = [Jambe::nouvelle(true, prix, r), Jambe::nouvelle(false, prix, r)];
+                            let jambes = Self::jambes_nouvelles(prix, r, ts, self.tick_index);
                             let s = self.signal_ouverture(prix, jambes[0].sl, r, &cle, ts);
                             sortie.signaux.push(s);
                             self.phase = Phase::Position {
@@ -406,14 +331,47 @@ impl Engine for StraddleEngine {
                 }
             }
             Phase::Position { annonce_ts, entree, r, mut jambes, ouverture_ts, cle } => {
-                for jambe in jambes.iter_mut() {
-                    if jambe.ouverte() {
-                        self.gerer_jambe(jambe, entree, r, prix, ts, ouverture_ts, &cle, &mut sortie);
+                // Snapshot pré-update pour les transitions d'événements.
+                let avant: Vec<(bool, i64, f64)> = jambes
+                    .iter()
+                    .map(|t| (t.tp1_hit, t.tp2_ts, t.sl))
+                    .collect();
+
+                // UNE évaluation du lifecycle commun par tick — les deux
+                // jambes vivent dans le même carnet, nourries au tick.
+                let bar = Self::bar_tick(ts, prix);
+                self.lifecycle.update(&mut jambes, &bar, self.tick_index, &mut HookVide);
+
+                // Événements de progression (diagnostic intrabar) : TP1
+                // (tampon) et TP2 (SL à TP1 + trailing).
+                for (i, t) in jambes.iter().enumerate() {
+                    let (av_tp1, av_tp2, av_sl) = avant[i];
+                    let nom_jambe = if matches!(t.side, Side::Buy) { "LONG" } else { "SHORT" };
+                    if !av_tp1 && t.tp1_hit {
+                        sortie.evenements.push(self.evenement(
+                            &cle,
+                            TypeEvenementTrade::Tp1,
+                            &format!("jambe {nom_jambe} TP1 — SL au tampon E∓{TAMPON_R}R"),
+                            t.tp1,
+                            ts,
+                        ));
                     }
+                    if av_tp2 == 0 && t.tp2_ts > 0 {
+                        sortie.evenements.push(self.evenement(
+                            &cle,
+                            TypeEvenementTrade::Tp2,
+                            &format!("jambe {nom_jambe} TP2 — SL à TP1 + trailing actif"),
+                            t.tp2,
+                            ts,
+                        ));
+                    }
+                    let _ = av_sl;
                 }
-                if jambes.iter().all(|j| !j.ouverte()) {
+
+                let toutes_fermees = jambes.iter().all(|t| t.close_reason.is_some());
+                if toutes_fermees {
                     // Les 2 jambes sont fermées : verdict net de la passe.
-                    let (verdict, net) = Self::verdict_net(entree, &jambes);
+                    let (verdict, net) = Self::verdict_net(&jambes);
                     sortie.evenements.push(self.evenement(
                         &cle,
                         TypeEvenementTrade::Cloture,
@@ -438,12 +396,11 @@ impl Engine for StraddleEngine {
         let ts = ctx.bougie.timestamp.timestamp();
         let heure = ts - ts % 3600;
         match self.heure_courante {
-            Some((h, ph, pl, pc)) if h == heure => {
+            Some((h, ph, pl, _pc)) if h == heure => {
                 self.heure_courante = Some((h, ph.max(ctx.bougie.high), pl.min(ctx.bougie.low), ctx.bougie.close));
             }
-            Some((h, ph, pl, pc)) => {
+            Some((_h, ph, pl, pc)) => {
                 // Nouvelle heure : la précédente est complète → barre H1.
-                let _ = h;
                 self.atr_h1_live.update(ph, pl, pc);
                 self.heure_courante = Some((heure, ctx.bougie.high, ctx.bougie.low, ctx.bougie.close));
             }

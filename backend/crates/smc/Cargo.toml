@@ -5,6 +5,7 @@ edition.workspace = true
 
 [dependencies]
 common = { path = "../common" }
+gestion_trades = { path = "../gestion_trades" }
 indicators = { path = "../indicators" }
 serde.workspace = true
 tracing.workspace = true

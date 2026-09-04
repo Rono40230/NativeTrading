@@ -1,6 +1,8 @@
 use actix_cors::Cors;
 use actix_web::{http::header, web, App, HttpServer};
 
+mod analyses;
+mod analyses_ia;
 mod asset_params_handlers;
 mod alertes_prix;
 mod creneaux_job;
@@ -57,6 +59,7 @@ mod capital_simule;
 mod reglages_smc;
 mod smc_pondere;
 mod smc_rejeu;
+mod straddle_rejeu;
 mod registre_strategies;
 mod signaux_officiels;
 mod smc_handlers;

@@ -306,6 +306,8 @@ mod tests {
             tp1_hit: false,
             tp1_price_touched: false,
             tp2_ts: 0,
+            tp2_extremum: None,
+            ts_px: None,
             tp3_touched: false,
             be_forced: false,
             mfe_armed: false,

@@ -1,30 +1,6 @@
-//! Scoring, classification et déduplication des articles de presse.
+//! Scoring et classification des articles de presse (collecteur /presse).
 //! Séparé de news_handlers.rs pour respecter la limite de 300 lignes.
 use chrono::Utc;
-use serde::Serialize;
-
-// ── Types de sortie ──────────────────────────────────────────────────────────
-
-#[derive(Serialize)]
-pub struct ArticleNews {
-    pub id: String,
-    pub titre: String,
-    pub titre_fr: Option<String>,
-    pub source: String,
-    pub url: String,
-    pub date: String,
-    pub score: u8,
-    pub niveau: &'static str,
-    pub theme: &'static str,       // "macro" | "crypto" | "metaux" | "autre"
-    pub sentiment: Option<String>, // "haussier" | "neutre" | "baissier" | None
-}
-
-#[derive(Serialize)]
-pub struct AlertesNews {
-    pub articles: Vec<ArticleNews>,
-    pub score_max: u8,
-    pub mis_a_jour: String,
-}
 
 // ── Mots-clés avec leur poids ────────────────────────────────────────────────
 
@@ -269,28 +245,5 @@ pub fn jaccard_bigrammes(a: &str, b: &str) -> f32 {
         1.0
     } else {
         inter / union
-    }
-}
-
-/// Retire les doublons quasi-identiques (Jaccard > 0.6).
-pub fn dedupliquer(articles: Vec<ArticleNews>) -> Vec<ArticleNews> {
-    let mut gardes: Vec<ArticleNews> = Vec::with_capacity(articles.len());
-    for article in articles {
-        let est_doublon = gardes
-            .iter()
-            .any(|g| jaccard_bigrammes(&g.titre, &article.titre) > 0.6);
-        if !est_doublon {
-            gardes.push(article);
-        }
-    }
-    gardes
-}
-
-pub fn niveau(score: u8) -> &'static str {
-    match score {
-        80..=100 => "critique",
-        60..=79 => "important",
-        40..=59 => "modere",
-        _ => "veille",
     }
 }

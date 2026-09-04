@@ -89,7 +89,7 @@ export interface StatutSignalEngine {
 export type { ScoreSmc } from '../generated/ScoreSmc'
 
 export type { PointSerie, ZoneOb, ZoneImbalance, ZoneFvgBpr, ZoneBpr, ZoneIfvg, NiveauxFibonacci, ResultatTendance, NiveauLiquidite, DeviationAsie, RangeAsie, NiveauForceSignal, DirectionSignal, ReponseIndicators, IndicatorsParams } from './api.types.indicators'
-export type { PatternHoraire, ReponsePatternsVolatilite, RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA, ImageAvecTF, LigneTendanceKasper, ModeCalculTendance, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier, FearGreedData, EntiteSentiment, SentimentMarche, SentimentComposite, NiveauAlerte, ArticleNews, AlertesNews, ContenuArticle, TraductionReponse } from './api.types.marche'
+export type { PatternHoraire, ReponsePatternsVolatilite, RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA, ImageAvecTF, LigneTendanceKasper, ModeCalculTendance, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier, FearGreedData, EntiteSentiment, SentimentMarche, SentimentComposite, TraductionReponse } from './api.types.marche'
 export type { CouvertureDonnees, RequeteCollecte, ResultatCollecteItem, ResultatCollecte, RocketSignalSave, RocketSignalHistorique, RocketRecommandation, RocketAnalyseLlm, RocketsConfig, StraddleCreneau, ReponseAnalyseStraddle, StraddlePicLive, AnnonceImminente, StraddleVolatiliteLive, StraddleDevSeedResponse, StraddleDevSignalResponse, StraddleStatCategorie, StraddleMonitoringData, StraddleCalibrationRow, RocketsStatPhase, RocketsMonitoringData, RocketsCalibrationRow, StraddleSeuilsEffectifs, RocketsSeuilsEffectifs } from './api.types.rockets'
 
 // ── Signal IA (POST /api/ia/signal) ──────────────────────────────────────────

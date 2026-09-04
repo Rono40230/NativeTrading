@@ -23,7 +23,7 @@
         <div class="ml-auto flex items-center gap-1.5 text-[10px] font-semibold whitespace-nowrap">
           <span class="px-1.5 py-0.5 rounded bg-white/10 font-mono font-bold"
                 :class="rArrondi(b.perf.r_total) > 0 ? 'text-emerald-400' : rArrondi(b.perf.r_total) < 0 ? 'text-red-400' : 'text-white'"
-                title="R de référence : paliers max atteints">{{ rFormate(b.perf.r_total) }}</span>
+                :title="titleR(b.perf)">{{ rFormate(b.perf.r_total) }}</span>
           <span v-if="b.capital" class="px-1.5 py-0.5 rounded bg-white/10 font-mono font-bold"
                 :class="b.capital.capital_actuel < 0 ? 'text-red-400' : b.capital.capital_actuel >= b.capital.capital_depart ? 'text-emerald-400' : 'text-white'"
                 :title="`Capital simulé — départ ${fmtDollars(b.capital.capital_depart)}, compose à chaque clôture (risque ${(b.capital.fraction_risque * 100).toFixed(b.capital.fraction_risque < 0.01 ? 1 : 0)} %/trade). Le lot de chaque trade se calcule sur ce capital.`">{{ fmtDollars(b.capital.capital_actuel) }}</span>
@@ -77,7 +77,7 @@
         </div>
       </div>
 
-      <!-- Histogramme jour par jour : Σ pips (tooltip = trades du jour) -->
+      <!-- Histogramme jour par jour : Σ $ (tooltip = clôtures du jour) -->
       <div v-if="b.jours.length" class="relative h-10 -mx-1" @mouseleave="survolJour = null">
         <svg :viewBox="`0 0 100 ${HIST_H}`" preserveAspectRatio="none" class="w-full h-full">
           <line :x1="0" :x2="100" :y1="yZeroHistogramme" :y2="yZeroHistogramme"
@@ -86,32 +86,32 @@
             v-for="(j, i) in b.jours"
             :key="j.date"
             :x="i * (100 / b.jours.length) + 0.6"
-            :y="j.pips >= 0 ? yHistogramme(b, j.pips) : yZeroHistogramme"
+            :y="j.dollars >= 0 ? yHistogramme(b, j.dollars) : yZeroHistogramme"
             :width="100 / b.jours.length - 1.2"
-            :height="hauteurBarre(b, j.pips)"
-            :fill="j.pips >= 0 ? '#34d399' : '#f87171'"
+            :height="hauteurBarre(b, j.dollars)"
+            :fill="j.dollars >= 0 ? '#34d399' : '#f87171'"
             opacity="0.85"
             @mouseenter="survolBarre($event, b.id, j)"
           />
         </svg>
-        <!-- Tooltip : liste des trades du jour — en fixed pour ne jamais
+        <!-- Tooltip : liste des clôtures du jour — en fixed pour ne jamais
              être rogné par le conteneur à défilement de la carte. -->
         <div
           v-if="survolJour && survolJour.bloc === b.id"
           class="fixed z-50 pointer-events-none bg-slate-900/95 border border-white/15 rounded-lg px-2.5 py-1.5 shadow-xl whitespace-nowrap"
           :style="styleTooltip"
         >
-          <p class="text-[10px] font-bold text-white mb-0.5">{{ libelleJour(survolJour.jour.date) }} — {{ survolJour.jour.pips >= 0 ? '+' : '−' }}{{ Math.abs(Math.round(survolJour.jour.pips)) }} pips</p>
+          <p class="text-[10px] font-bold text-white mb-0.5">{{ libelleJour(survolJour.jour.date) }} — {{ fmtDollars(survolJour.jour.dollars) }}</p>
           <p v-for="t in survolJour.jour.trades" :key="t.id" class="text-[9px] text-white leading-snug">
-            {{ t.asset }} {{ t.tf }} · {{ t.palier }} <span :class="t.pips >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ t.pips >= 0 ? '+' : '−' }}{{ Math.abs(Math.round(t.pips)) }} pips</span>
+            {{ t.asset }} {{ t.tf }} · {{ t.verdict || '—' }} <span :class="t.profit >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollars(t.profit) }}</span>
           </p>
         </div>
       </div>
 
       <!-- Les 4 camemberts sur une ligne : deux groupes (« Nombre de
-           trades » et « Nombre de PIPS »), titre à flèches au centre de
+           trades » et « Dollars réels »), titre à flèches au centre de
            chaque paire, filet entre les groupes. -->
-      <div v-if="b.parTf.length || b.parAsset.length || b.topTf.length || b.topAsset.length" class="flex gap-2 items-stretch">
+      <div v-if="b.parTf.length || b.parAsset.length || b.topTf.length || b.topAsset.length" class="flex gap-2 items-stretch" title="Nombre de trades : base vécue, expirés exclus · Dollars : toutes les clôtures composées (centre = évolution du capital)">
         <div v-if="b.parTf.length || b.parAsset.length" class="flex gap-1 min-w-0 flex-1">
         <!-- Répartition par timeframe -->
         <div v-if="b.parTf.length" class="flex flex-col items-center gap-0.5 min-w-0 flex-1">
@@ -167,7 +167,7 @@
         </div>
         <div v-if="(b.parTf.length || b.parAsset.length) && (b.topTf.length || b.topAsset.length)" class="w-px bg-white/10 shrink-0" />
         <div v-if="b.topTf.length || b.topAsset.length" class="flex gap-1 min-w-0 flex-1">
-        <!-- Classement TF : contribution aux gains (pips positifs) -->
+        <!-- Classement TF : contribution réelle au capital ($) -->
         <div v-if="b.topTf.length" class="flex flex-col items-center gap-0.5 min-w-0 flex-1">
           <svg viewBox="0 0 42 42" class="w-full max-w-[64px]">
             <circle cx="21" cy="21" r="15.915" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5" />
@@ -180,22 +180,22 @@
               :stroke-dashoffset="25 - decallage(b.topTf.filter(x => x.part > 0), i)"
             />
             <text x="21" y="22" text-anchor="middle" dominant-baseline="middle"
-              :class="b.pipsNet >= 0 ? 'fill-emerald-400' : 'fill-red-400'" style="font-size: 8px; font-weight: 700">{{ b.pipsNet >= 0 ? '+' : '−' }}{{ Math.abs(Math.round(b.pipsNet)) }}</text>
+              :class="b.dollarsNet >= 0 ? 'fill-emerald-400' : 'fill-red-400'" style="font-size: 7px; font-weight: 700">{{ fmtDollarsCourt(b.dollarsNet) }}</text>
           </svg>
           <p class="text-[8px] uppercase text-white tracking-wide">Classement TF</p>
           <p class="text-[8px] leading-tight text-white text-center">
             <span v-for="s in lignesClassement(b.topTf)" :key="'ttfl' + s.label" class="whitespace-nowrap">
-              <span :style="{ color: s.autres ? 'rgba(255,255,255,0.35)' : couleurTf(s.label) }">■</span> {{ s.label }} <span :class="s.pips >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ s.pips >= 0 ? '+' : '−' }}{{ Math.abs(s.pips) }}</span>{{ ' ' }}
+              <span :style="{ color: s.autres ? 'rgba(255,255,255,0.35)' : couleurTf(s.label) }">■</span> {{ s.label }} <span :class="s.valeur >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollarsCourt(s.valeur) }}</span>{{ ' ' }}
             </span>
           </p>
         </div>
 
           <div class="flex items-center justify-center shrink-0 gap-1 px-0.5">
             <span class="text-white text-[10px] leading-none">◄</span>
-            <span class="text-[8px] uppercase text-white font-bold tracking-wide whitespace-nowrap">Nombre de PIPS</span>
+            <span class="text-[8px] uppercase text-white font-bold tracking-wide whitespace-nowrap">Dollars réels</span>
             <span class="text-white text-[10px] leading-none">►</span>
           </div>
-        <!-- Classement asset : contribution aux gains (pips positifs) -->
+        <!-- Classement asset : contribution réelle au capital ($) -->
         <div v-if="b.topAsset.length" class="flex flex-col items-center gap-0.5 min-w-0 flex-1">
           <svg viewBox="0 0 42 42" class="w-full max-w-[64px]">
             <circle cx="21" cy="21" r="15.915" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5" />
@@ -208,12 +208,12 @@
               :stroke-dashoffset="25 - decallage(b.topAsset.filter(x => x.part > 0), i)"
             />
             <text x="21" y="22" text-anchor="middle" dominant-baseline="middle"
-              :class="b.pipsNet >= 0 ? 'fill-emerald-400' : 'fill-red-400'" style="font-size: 8px; font-weight: 700">{{ b.pipsNet >= 0 ? '+' : '−' }}{{ Math.abs(Math.round(b.pipsNet)) }}</text>
+              :class="b.dollarsNet >= 0 ? 'fill-emerald-400' : 'fill-red-400'" style="font-size: 7px; font-weight: 700">{{ fmtDollarsCourt(b.dollarsNet) }}</text>
           </svg>
           <p class="text-[8px] uppercase text-white tracking-wide">Classement asset</p>
           <p class="text-[8px] leading-tight text-white text-center">
             <span v-for="s in lignesClassement(b.topAsset)" :key="'tasl' + s.label" class="whitespace-nowrap">
-              <span :style="{ color: s.autres ? 'rgba(255,255,255,0.35)' : couleurAsset(s.label) }">■</span> {{ s.label }} <span :class="s.pips >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ s.pips >= 0 ? '+' : '−' }}{{ Math.abs(s.pips) }}</span>{{ ' ' }}
+              <span :style="{ color: s.autres ? 'rgba(255,255,255,0.35)' : couleurAsset(s.label) }">■</span> {{ s.label }} <span :class="s.valeur >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollarsCourt(s.valeur) }}</span>{{ ' ' }}
             </span>
           </p>
         </div>
@@ -231,8 +231,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { http } from '@/services/http.client'
-import { useAssetParamsStore } from '@/stores/assetParams.store'
-import { palierMax, labelPalierMax } from '@/composables/useSignalFormat'
 import {
   PALETTE as _PALETTE, repartition, classement, couleurTf, couleurAsset,
   decallage, totalParts, lignesClassement,
@@ -248,8 +246,11 @@ interface PerfApi {
   total: number
   non_remplis: number
   taux_reussite: number
-  /** R total de référence (paliers max atteints) — métrique primaire. */
+  /** R total affiché : pondéré ventes partielles (SMC rejeu — même base que
+   *  le capital) ou R vécu de la base pour les autres stratégies. */
   r_total: number
+  /** R de référence (paliers max) — servi par le re-jeu SMC pour l'info-bulle. */
+  r_total_reference?: number
   /** Présents quand la performance vient du re-jeu paramétrique (SMC).
    *  recalcul = un re-jeu est en vol après un changement de TP1. */
   source?: string
@@ -262,26 +263,34 @@ interface CapitalApi {
   capital_depart: number
   fraction_risque: number
   capital_actuel: number
-  points: { id: string; ferme_le: number; r: number; profit: number; capital_apres: number }[]
+  points: { id: string; ferme_le: number; r: number; profit: number; capital_apres: number; asset?: string; tf?: string; verdict?: string }[]
 }
-interface TradeJour {
-  id: string; asset: string; tf: string; palier: string; pips: number
+/** Trade fermé rempli (base vécue, expirés exclus) — camemberts NOMBRES. */
+interface TradeNombre {
+  id: string; asset: string; tf: string
+}
+/** Clôture en $ (simulation capital) — camemberts $ et histogramme. */
+interface TradeDollar {
+  id: string; asset: string; tf: string; verdict: string
+  profit: number
+  fermeLe: number
 }
 interface JourHistogramme {
   date: string
-  pips: number
-  trades: TradeJour[]
+  dollars: number
+  trades: TradeDollar[]
 }
 interface Bloc {
   id: string; nom: string; icone: string; etat: string; perf: PerfApi
   /** Capital simulé en $ (composé à chaque clôture) — null si indisponible. */
   capital: CapitalApi | null
-  /** Histogramme journalier : Σ pips par jour + trades du jour (tooltip). */
+  /** Histogramme journalier : Σ $ par jour + clôtures du jour (tooltip). */
   jours: JourHistogramme[]
-  /** Σ pips nets de TOUS les fermés remplis — indépendant du regroupement
-   *  (centre identique des deux camemberts pips). */
-  pipsNet: number
-  /** Répartitions (nombre de trades) et classements (pips) des fermés remplis. */
+  /** Σ $ nets de TOUTES les clôtures composées (= capital_actuel − départ) —
+   *  centre des camemberts $, indépendant du regroupement. */
+  dollarsNet: number
+  /** Répartitions (nombre de trades, base vécue) et classements ($) des
+   *  clôtures composées. */
   parTf: PartCamembert[]
   parAsset: PartCamembert[]
   topTf: PartClassement[]
@@ -301,7 +310,6 @@ const HIST_H = 30
 const NB_JOURS = 14
 
 const router = useRouter()
-const assetParams = useAssetParamsStore()
 const blocs = ref<Bloc[]>([])
 const chargement = ref(true)
 const signaux = ref<SignalApi[]>([])
@@ -383,61 +391,65 @@ const ROUTES: Record<string, string> = {
   rockets: '/rockets',
 }
 
-/// Trades fermés remplis avec pips et date de clôture, pour la stratégie.
-/// Expiré = R de référence nul : le trade EXISTE (rempli puis expiré) —
-/// il compte dans les répartitions, à 0 pip.
-function tradesFerme(idStrategie: string): (TradeJour & { fermeLe: number })[] {
-  const res: (TradeJour & { fermeLe: number })[] = []
+/// Trades fermés remplis de la base vécue — camemberts NOMBRES uniquement.
+/// Les trades EXPIRÉS sont exclus (décision 03/09 : un trade qui finit au
+/// time-stop sans avoir touché ni SL ni TP n'est pas un trade comptable).
+function tradesFerme(idStrategie: string): TradeNombre[] {
+  const res: TradeNombre[] = []
   for (const s of signaux.value) {
     const strats = s.strategie.toLowerCase()
     if (s.statut !== 'Fermé' || s.heure_entree === null || s.ferme_le === null) continue
+    if ((s.verdict ?? '').toLowerCase() === 'expire') continue
     if (idStrategie === 'SMC' ? !strats.startsWith('smc') : strats !== idStrategie) continue
-    const palier = palierMax(s)
-    const p = assetParams.liste.find(x => x.asset === s.asset)
-    const risque = Math.abs(s.prix_entree - s.stop_loss)
-    if (!p || p.taille_pip <= 0 || risque <= 0) continue
-    res.push({
-      id: s.id, asset: s.asset, tf: s.timeframe,
-      palier: labelPalierMax(palier.palier) ?? '',
-      pips: (palier.rReference ?? 0) * (risque / p.taille_pip),
-      fermeLe: s.ferme_le,
-    })
+    res.push({ id: s.id, asset: s.asset, tf: s.timeframe })
   }
-  return res.sort((a, b) => a.fermeLe - b.fermeLe)
+  return res
 }
 
-/// Histogramme : Σ pips par jour local (14 derniers jours).
-function joursHistogramme(idStrategie: string): JourHistogramme[] {
-  const trades = tradesFerme(idStrategie)
+/// Clôtures en $ de la simulation capital (TOUTES clôtures composées,
+/// expirés compris — leur R réel a engagé le capital) — camemberts $ et
+/// histogramme journalier. Le total SOMME au capital affiché au centime.
+function tradesDollars(capital: CapitalApi | null): TradeDollar[] {
+  if (!capital) return []
+  return capital.points
+    .filter(p => p.asset && p.tf)
+    .map(p => ({
+      id: p.id, asset: p.asset ?? '?', tf: p.tf ?? '?',
+      verdict: p.verdict ?? '', profit: p.profit, fermeLe: p.ferme_le,
+    }))
+}
+
+/// Histogramme : Σ $ par jour local (14 derniers jours), tooltip = clôtures
+/// du jour (asset, TF, verdict, $).
+function joursHistogramme(trades: TradeDollar[]): JourHistogramme[] {
   if (!trades.length) return []
   const cleJour = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   const parJour = new Map<string, JourHistogramme>()
   for (let i = NB_JOURS - 1; i >= 0; i--) {
     const cle = cleJour(new Date(Date.now() - i * 86400_000))
-    parJour.set(cle, { date: cle, pips: 0, trades: [] })
+    parJour.set(cle, { date: cle, dollars: 0, trades: [] })
   }
   for (const t of trades) {
     const jour = parJour.get(cleJour(new Date(t.fermeLe * 1000)))
-    if (!jour) continue // trade plus vieux que la fenêtre
-    jour.pips += t.pips
+    if (!jour) continue // clôture plus vieille que la fenêtre
+    jour.dollars += t.profit
     jour.trades.push(t)
   }
   return [...parJour.values()]
 }
 
-/// R arrondi au dixième — sert AUSSI à la couleur (fini le « -0.0 R » rouge).
-/// Y du zéro de l'histogramme (pips positifs au-dessus, négatifs en dessous).
+/// Y du zéro de l'histogramme ($ positifs au-dessus, négatifs en dessous).
 const yZeroHistogramme = HIST_H / 2
 
-function yHistogramme(b: Bloc, pips: number): number {
-  const maxAbs = Math.max(...b.jours.map(j => Math.abs(j.pips)), 1)
-  return HIST_H / 2 - (pips / maxAbs) * (HIST_H / 2 - 2)
+function yHistogramme(b: Bloc, dollars: number): number {
+  const maxAbs = Math.max(...b.jours.map(j => Math.abs(j.dollars)), 1)
+  return HIST_H / 2 - (dollars / maxAbs) * (HIST_H / 2 - 2)
 }
 
-function hauteurBarre(b: Bloc, pips: number): number {
-  const maxAbs = Math.max(...b.jours.map(j => Math.abs(j.pips)), 1)
-  return Math.max(0.5, (Math.abs(pips) / maxAbs) * (HIST_H / 2 - 2))
+function hauteurBarre(b: Bloc, dollars: number): number {
+  const maxAbs = Math.max(...b.jours.map(j => Math.abs(j.dollars)), 1)
+  return Math.max(0.5, (Math.abs(dollars) / maxAbs) * (HIST_H / 2 - 2))
 }
 
 function libelleJour(date: string): string {
@@ -449,6 +461,14 @@ function libelleJour(date: string): string {
 function rFormate(v: number): string {
   const r = rArrondi(v)
   return `${r > 0 ? '+' : r < 0 ? '−' : ''}${Math.abs(r).toFixed(1)} R`
+}
+
+/// Info-bulle du badge R : SMC (re-jeu) affiche le R pondéré qui compose le
+/// capital, avec le R de référence en seconde ligne ; sans re-jeu (repli base
+/// ou autres stratégies) le R affiché suit la convention de référence.
+function titleR(p: PerfApi): string {
+  if (p.r_total_reference === undefined) return 'R de référence : paliers max atteints'
+  return `R pondéré (ventes partielles) : ${rFormate(p.r_total)}\nR de référence (paliers max) : ${rFormate(p.r_total_reference)}`
 }
 
 function ouvrir(id: string) {
@@ -489,6 +509,13 @@ function fmtDollars(v: number): string {
   return `${v < 0 ? '−' : ''}${n} $`
 }
 
+/// Format $ compact pour les centres/légendes de camemberts : +93 $ / −1.2k $.
+function fmtDollarsCourt(v: number): string {
+  const a = Math.abs(v)
+  const corps = a >= 1000 ? `${(a / 1000).toFixed(a >= 10_000 ? 0 : 1).replace('.', ',')}k` : `${Math.round(a)}`
+  return `${v > 0 ? '+' : v < 0 ? '−' : ''}${corps} $`
+}
+
 /// Points SVG de la courbe capital (bleue) : départ + une valeur par clôture,
 /// échelle $ propre (min→max de la série), x aligné sur la courbe R.
 function pointsCapital(b: Bloc): string {
@@ -509,7 +536,6 @@ function pointsCapital(b: Bloc): string {
 
 async function charger() {
   try {
-    if (!assetParams.liste.length) await assetParams.charger().catch(() => {})
     try {
       const sig = await http.get<SignalApi[]>('/api/signaux', { params: { limit: 150 } })
       signaux.value = sig.data
@@ -528,15 +554,16 @@ async function charger() {
           const c = await http.get<CapitalApi>(`/api/strategies/${s.id}/capital`)
           capital = c.data as CapitalApi
         } catch { /* simulation indisponible → pas de badge ni courbe */ }
-        const trades = tradesFerme(s.id)
+        const nombres = tradesFerme(s.id)
+        const dollars = tradesDollars(capital)
         return {
           id: s.id, nom: s.nom, icone: s.icone, etat: s.etat, perf, capital,
-          pipsNet: trades.reduce((n, t) => n + t.pips, 0),
-          jours: joursHistogramme(s.id),
-          parTf: repartition(trades, t => t.tf),
-          parAsset: repartition(trades, t => t.asset),
-          topTf: classement(trades, t => t.tf),
-          topAsset: classement(trades, t => t.asset),
+          dollarsNet: dollars.reduce((n, t) => n + t.profit, 0),
+          jours: joursHistogramme(dollars),
+          parTf: repartition(nombres, t => t.tf),
+          parAsset: repartition(nombres, t => t.asset),
+          topTf: classement(dollars, t => t.tf, t => t.profit),
+          topAsset: classement(dollars, t => t.asset, t => t.profit),
         }
       }),
     )

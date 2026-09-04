@@ -181,6 +181,101 @@ mod tests_mfe {
     }
 }
 
+// ── Lot : taille de position au moment de l'émission (recalculée) ──────────
+// Même formule que l'émission (signaux_officiels::formater_message) :
+// lot = (capital composé de la stratégie à l'émission × risque %) /
+//       (stop en pips × valeur du pip). Le capital d'époque est reconstitué
+// depuis la simulation composée (dernière clôture avant l'émission).
+
+#[derive(Deserialize)]
+pub struct RequeteLots {
+    pub ids: Vec<String>,
+}
+
+/// POST /api/signaux/lots — corps { ids } → { id: lot }.
+/// Ids introuvables ou conventions manquantes : absents de la réponse
+/// (le front affiche « — »). SMC (bases smc*) et straddle.
+pub async fn post_lots_signaux(
+    state: web::Data<AppState>,
+    body: web::Json<RequeteLots>,
+) -> impl Responder {
+    use std::collections::HashMap;
+    const MAX_IDS: usize = 500;
+    let ids: Vec<String> = body.ids.iter().take(MAX_IDS).cloned().collect();
+    let lignes = match state.db.obtenir_signaux_lot_par_ids(&ids).await {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::error!("Lots lecture signaux: {}", e);
+            return HttpResponse::InternalServerError()
+                .json(serde_json::json!({ "error": e.to_string() }));
+        }
+    };
+
+    // Capital composé + risque par stratégie (une lecture par requête).
+    let mut capitaux: HashMap<String, (f64, Vec<(i64, f64)>)> = HashMap::new();
+    for l in &lignes {
+        let strategie = if l.strategie.to_lowercase().starts_with("smc") {
+            "SMC".to_string()
+        } else {
+            l.strategie.clone()
+        };
+        if capitaux.contains_key(&strategie) {
+            continue;
+        }
+        let reg = state.db.lire_strategie(&strategie).await.ok().flatten();
+        let points = crate::capital_simule::simuler(&state.db, &strategie)
+            .await
+            .map(|s| s.points.iter().map(|p| (p.ferme_le, p.capital_apres)).collect())
+            .unwrap_or_default();
+        let risque = reg.as_ref().map(|r| r.risque_pct).unwrap_or(1.0);
+        capitaux.insert(strategie, (risque, points));
+    }
+
+    // Conventions par asset (cache requête).
+    let mut conventions: HashMap<String, (f64, f64)> = HashMap::new();
+
+    let mut reponse = serde_json::Map::new();
+    for l in &lignes {
+        let Some((risque_pct, points)) = capitaux.get(&l.strategie) else {
+            continue;
+        };
+        let (taille_pip, valeur_pip) = match conventions.get(&l.asset) {
+            Some(c) => *c,
+            None => {
+                let c = db::asset_params::lire_un(state.db.pool(), l.asset.as_str())
+                    .await
+                    .ok()
+                    .flatten()
+                    .map(|p| (p.taille_pip, p.valeur_pips))
+                    .unwrap_or((0.0, 0.0));
+                conventions.insert(l.asset.clone(), c);
+                c
+            }
+        };
+        if taille_pip <= 0.0 || valeur_pip <= 0.0 {
+            continue;
+        }
+        let stop_pips = (l.prix_entree - l.stop_loss).abs() / taille_pip;
+        if stop_pips <= 0.0 {
+            continue;
+        }
+        // Capital composé au moment de l'émission : dernière clôture avant.
+        let capital = points
+            .iter()
+            .filter(|(ferme, _)| *ferme <= l.cree_le)
+            .next_back()
+            .map(|(_, cap)| *cap)
+            .unwrap_or(0.0);
+        if capital <= 0.0 {
+            continue;
+        }
+        let lot = capital * risque_pct / 100.0 / (stop_pips * valeur_pip);
+        reponse.insert(l.id.clone(), serde_json::json!(lot));
+    }
+
+    HttpResponse::Ok().json(serde_json::Value::Object(reponse))
+}
+
 /// Worker lancé au démarrage : toutes les 5min, vérifie TP/SL des signaux SMC/Straddle.
 pub async fn demarrer_worker_suivi_signaux(pool: sqlx::SqlitePool) {
     let client = &*crate::http_client::HTTP_CLIENT;

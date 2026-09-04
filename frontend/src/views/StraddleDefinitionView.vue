@@ -145,49 +145,58 @@
 
       <!-- ═══ ONGLET GESTION DES TRADES OUVERTS ═══ -->
       <div v-if="onglet === 'Gestion des trades ouverts'" class="flex flex-col gap-3">
-        <carte titre="Le cycle de la jambe survivante">
+        <carte titre="Le cycle de la jambe survivante — moteur unifié">
+          <p class="text-[11px] text-white leading-relaxed mb-3">
+            La jambe survivante vit dans le <b class="text-white">même moteur de gestion que la
+            SMC</b> (crate <b class="text-white">gestion_trades</b>) : mêmes règles de SL/BE/TP/
+            trailing/expiration, nourries au tick. La genèse reste straddle : 2 jambes miroir à E
+            (timer T-10 s), OCO, R = facteur SL × ATR H1.
+          </p>
           <svg viewBox="0 0 560 70" class="w-full aspect-[560/70] mb-3">
-            <rect x="26" y="22" width="88" height="24" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" stroke-width="1" />
-            <text x="70" y="37.5" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="700">Remplissage</text>
-            <text x="70" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">jambe à E · stop ∓1R</text>
-            <rect x="166" y="22" width="88" height="24" rx="4" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
-            <text x="210" y="37.5" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">TP1 · 1R</text>
-            <text x="210" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">stop → BE</text>
-            <rect x="306" y="22" width="88" height="24" rx="4" fill="rgba(96,165,250,0.08)" stroke="#60a5fa" stroke-width="1" />
-            <text x="350" y="37.5" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="700">TP2 · 2R</text>
-            <text x="350" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">trailing démarre</text>
-            <rect x="446" y="22" width="88" height="24" rx="4" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1" />
-            <text x="490" y="37.5" text-anchor="middle" fill="#fbbf24" font-size="8" font-weight="700">Trailing</text>
-            <text x="490" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">au tick · distance ×R</text>
-            <line x1="118" y1="34" x2="158" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
-            <polygon points="162,34 156,31.5 156,36.5" fill="rgba(255,255,255,0.4)" />
-            <line x1="258" y1="34" x2="298" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
-            <polygon points="302,34 296,31.5 296,36.5" fill="rgba(255,255,255,0.4)" />
-            <line x1="398" y1="34" x2="438" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
-            <polygon points="442,34 436,31.5 436,36.5" fill="rgba(255,255,255,0.4)" />
+            <rect x="6" y="22" width="76" height="24" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" stroke-width="1" />
+            <text x="44" y="37.5" text-anchor="middle" fill="#ffffff" font-size="7.5" font-weight="700">2 jambes à E</text>
+            <text x="44" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6">OCO · SL E∓1R</text>
+            <rect x="146" y="22" width="88" height="24" rx="4" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
+            <text x="190" y="37.5" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">TP1 · 1R</text>
+            <text x="190" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">SL au tampon E∓0,5R</text>
+            <rect x="286" y="22" width="88" height="24" rx="4" fill="rgba(96,165,250,0.08)" stroke="#60a5fa" stroke-width="1" />
+            <text x="330" y="37.5" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="700">TP2 · 2R</text>
+            <text x="330" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">SL à TP1 · trailing</text>
+            <rect x="426" y="22" width="88" height="24" rx="4" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
+            <text x="470" y="37.5" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">TP3 · 3R</text>
+            <text x="470" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">cible de la passe</text>
+            <line x1="86" y1="34" x2="138" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="142,34 136,31.5 136,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="238" y1="34" x2="278" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="282,34 276,31.5 276,36.5" fill="rgba(255,255,255,0.4)" />
+            <line x1="378" y1="34" x2="418" y2="34" stroke="rgba(255,255,255,0.4)" stroke-width="1.2" />
+            <polygon points="422,34 416,31.5 416,36.5" fill="rgba(255,255,255,0.4)" />
           </svg>
           <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
             <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
-              <div class="font-semibold mb-1">① Remplissage</div>
-              <p>La jambe est entrée à E, stop à E ∓ 1R — l'autre est annulée.</p>
+              <div class="font-semibold mb-1">① Ouverture</div>
+              <p>À T-10 s, le timer ouvre les 2 jambes au prix courant E — R = facteur SL ×
+              ATR H1, SL = E∓1R, TP1/2/3 = ±1/2/3R.</p>
             </div>
             <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
-              <div class="font-semibold mb-1">② TP1 = 1R touché</div>
-              <p>Le stop remonte à l'entrée : break-even garanti.</p>
+              <div class="font-semibold mb-1">② TP1 touché</div>
+              <p>Le stop passe au <b class="text-white">tampon E∓0,5R</b> (décision 27/08
+              anti-whipsaw — le rebond à E ne tue plus la gagnante).</p>
             </div>
             <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
-              <div class="font-semibold mb-1">③ TP2 = 2R touché</div>
-              <p>Le stop remonte à TP1 et le trailing démarre.</p>
+              <div class="font-semibold mb-1">③ TP2 touché</div>
+              <p>Le stop monte à TP1 et le trailing démarre — au tick, distance ×R
+              réglable, jamais vers l'arrière.</p>
             </div>
             <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
-              <div class="font-semibold mb-1">④ Trailing</div>
-              <p>Le stop suit le prix au tick, à distance réglable en ×R, jamais vers
-              l'arrière : il verrouille le mouvement violent pendant qu'il dure.</p>
+              <div class="font-semibold mb-1">④ TP3 · 3R</div>
+              <p>La cible de la passe : le mouvement complet est capturé si le spike
+              atteint +3R.</p>
             </div>
             <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
               <div class="font-semibold mb-1">⑤ Sortie</div>
-              <p>Trailing touché (TS), retour au stop (BE/SL) ou time-stop 60 minutes après
-              le remplissage, au prix courant.</p>
+              <p>TP3, trailing touché (TS), retour au stop ou expiration 60 min — au
+              premier des quatre.</p>
             </div>
           </div>
         </carte>
@@ -197,19 +206,24 @@
             <div class="flex flex-wrap gap-2 mb-2">
               <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-red-400 border-red-400/40 bg-red-400/10">SL · −1R</span>
               <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-white border-white/40 bg-white/10">BE · 0</span>
-              <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-emerald-400 border-emerald-400/40 bg-emerald-400/10">TS · R &gt; 1</span>
-              <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-amber-400 border-amber-400/40 bg-amber-400/10">TimeStop</span>
+              <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-emerald-400 border-emerald-400/40 bg-emerald-400/10">TS</span>
+              <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-emerald-400 border-emerald-400/40 bg-emerald-400/10">TP3 · 2R net</span>
+              <span class="px-2.5 py-1 rounded-full border text-xs font-semibold text-amber-400 border-amber-400/40 bg-amber-400/10">Expire</span>
             </div>
-            <p>Chaque passe clôturée reçoit son verdict et son R réel — ils alimentent la courbe
-            de trades du bloc Straddle. En Observation : journalisé, silencieux sur Telegram.</p>
+            <p>Chaque passe clôturée reçoit son verdict et son <b class="text-white">R net</b>
+            (survivante + jambe morte — le SL de la perdante est déduit). Avec la comptabilité
+            « TP acquis » du moteur unifié, une jambe qui touche TP1 puis expire vaut +1R :
+            une passe où la survivante touche TP1 ne peut plus être nette négative. En
+            Observation : journalisé, silencieux sur Telegram.</p>
           </carte>
-          <carte titre="Le time-stop">
+          <carte titre="L'expiration">
             <div class="grid grid-cols-2 gap-2 mb-3">
-              <valeur etiquette="Après remplissage" valeur="60 min" />
-              <valeur etiquette="Sortie" valeur="au prix courant" />
+              <valeur etiquette="Après l'ouverture" valeur="60 min" />
+              <valeur etiquette="Verdict" valeur="Expire" />
             </div>
-            <p>Au-delà, la jambe est clos au prix courant (verdict TimeStop) : elle ne survit
-            pas à sa fenêtre d'événement.</p>
+            <p>Au-delà de 60 minutes, la jambe expire — avec la comptabilité « TP acquis » :
+            TP1 touché = +1R (le palier est acquis), sinon 0. La passe ne survit pas à sa
+            fenêtre d'événement.</p>
           </carte>
         </div>
       </div>

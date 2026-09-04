@@ -17,6 +17,17 @@ pub struct MfeSignalSql {
     pub ferme_le: i64,
 }
 
+/// Données brutes du calcul de lot (tous statuts/verdicts — colonne Lot de
+/// l'historique SMC/straddle).
+pub struct LotSignalSql {
+    pub id: String,
+    pub strategie: String,
+    pub asset: String,
+    pub prix_entree: f64,
+    pub stop_loss: f64,
+    pub cree_le: i64,
+}
+
 impl Database {
     /// Récupère les derniers signaux enregistrés (avec verdict si disponible).
     /// Pour les signaux Straddle (direction=Both), inclut sl_short et take_profit_short.
@@ -123,6 +134,40 @@ impl Database {
                 stop_loss: r.get("stop_loss"),
                 cree_le: r.get("cree_le"),
                 ferme_le: r.get::<Option<i64>, _>("ferme_le").unwrap_or(0),
+            })
+            .collect())
+    }
+
+    /// Données brutes du calcul de lot pour une liste d'ids (tous statuts).
+    pub async fn obtenir_signaux_lot_par_ids(
+        &self,
+        ids: &[String],
+    ) -> Result<Vec<LotSignalSql>> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let bornes = ids
+            .iter()
+            .map(|id| format!("'{}'", id.replace('\'', "''")))
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT id, strategie, asset, prix_entree, stop_loss, cree_le
+             FROM signaux WHERE id IN ({bornes})"
+        );
+        let rows = sqlx::query(&sql)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok(rows
+            .iter()
+            .map(|r| LotSignalSql {
+                id: r.get("id"),
+                strategie: r.get("strategie"),
+                asset: r.get("asset"),
+                prix_entree: r.get("prix_entree"),
+                stop_loss: r.get("stop_loss"),
+                cree_le: r.get("cree_le"),
             })
             .collect())
     }

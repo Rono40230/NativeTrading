@@ -57,6 +57,9 @@ pub struct RejeuSmc {
     pub trailing_r: Option<f64>,
     /// Fractions des ventes partielles (défaut 50/30/20).
     pub fractions: crate::smc_pondere::Fractions,
+    /// Empreinte de l'armement SMC par couple (outil Paramètres › SMC) —
+    /// le périmètre des métriques suit les couples armés.
+    pub empreinte_couples: String,
     pub calcule_le: i64,
     pub nb_couples: usize,
     pub nb_bougies: usize,
@@ -161,6 +164,9 @@ pub async fn lancer_si_necessaire(pool: Arc<db::Database>) {
     let tp3_rfixe = lire_tp3_rfixe(&pool).await;
     let trailing = lire_trailing(&pool).await;
     let fractions = crate::reglages_smc::lire_fractions(&pool).await;
+    let empreinte = crate::reglages_smc::empreinte_couples(
+        &crate::reglages_smc::lire_couples_armes(&pool).await,
+    );
     let pareil = |c: &RejeuSmc| {
         (c.tp1 - tp1).abs() < 1e-9
             && (c.tp2 - tp2).abs() < 1e-9
@@ -168,6 +174,7 @@ pub async fn lancer_si_necessaire(pool: Arc<db::Database>) {
             && (c.tp3_rfixe - tp3_rfixe).abs() < 1e-9
             && c.trailing_r == trailing
             && c.fractions == fractions
+            && c.empreinte_couples == empreinte
     };
     if let Some(c) = cache().read().await.clone() {
         let frais = chrono::Utc::now().timestamp() - c.calcule_le < REFRESH_SEC;
@@ -180,7 +187,7 @@ pub async fn lancer_si_necessaire(pool: Arc<db::Database>) {
     }
     tokio::spawn(async move {
         let debut = Instant::now();
-        match calculer(&pool, tp1, tp2, tp3_lointaine, tp3_rfixe, trailing, fractions).await {
+        match calculer(&pool, tp1, tp2, tp3_lointaine, tp3_rfixe, trailing, fractions, empreinte).await {
             Ok(rejeu) => {
                 tracing::info!(
                     "Rejeu SMC: TP1={:.2}R·TP2={:.1}R·TP3={}{} — {} couple(s), {} clôture(s), WR {:.0} %, R réf {:+.1}, capital {:.2} → {:.2} ({:?})",
@@ -228,11 +235,14 @@ async fn calculer(
     tp3_rfixe: f64,
     trailing: Option<f64>,
     fractions: crate::smc_pondere::Fractions,
+    empreinte_couples: String,
 ) -> anyhow::Result<RejeuSmc> {
     use engine::TypeEvenementTrade as T;
 
     let assets = crate::runtime_tick::assets_runtime(pool).await;
     let timeframes = data::worker_config::lire_timeframes(pool).await;
+    // Périmètre = couples ARMÉS (outil Paramètres › SMC — H1 jamais générateur).
+    let armes = crate::reglages_smc::lire_couples_armes(pool).await;
 
     // Fenêtre = période réelle de l'historique SMC en base (première
     // émission → maintenant), élargie de la chauffe. Les métriques portent
@@ -253,6 +263,9 @@ async fn calculer(
     for asset in &assets {
         let amorce = crate::runtime_tick::charger_amorce_mtf_runtime(pool, asset).await;
         for tf in &timeframes {
+            if !crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) {
+                continue; // couple désarmé (ou H1) — hors métriques
+            }
             let bougies = pool
                 .obtenir_bougies_depuis_jours(asset, tf, jours)
                 .await
@@ -359,6 +372,7 @@ async fn calculer(
         r_total_realise,
         r_total_pondere,
         fractions,
+        empreinte_couples,
         capital_depart: reg.capital,
         fraction_risque: fraction,
         capital_actuel: capital2,

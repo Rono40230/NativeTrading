@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 engine = { path = "../engine" }
 common = { path = "../common" }
+gestion_trades = { path = "../gestion_trades" }
 chrono.workspace = true

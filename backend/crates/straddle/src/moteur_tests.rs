@@ -72,7 +72,7 @@ fn le_timer_ouvre_les_deux_jambes_a_t_moins_10s() {
         Phase::Position { entree, r, jambes, .. } => {
             assert!((entree - 100.2).abs() < 1e-9, "E = prix courant à T-10 s");
             assert!((r - 0.5).abs() < 0.05, "R = sl_atr × ATR ≈ 0.5");
-            assert!(jambes.iter().all(|j| j.ouverte()), "les 2 jambes ouvertes");
+            assert!(jambes.iter().all(|j| j.close_reason.is_none()), "les 2 jambes ouvertes");
             assert!((jambes[0].sl - (100.2 - r)).abs() < 1e-9);
             assert!((jambes[1].sl - (100.2 + r)).abs() < 1e-9);
         }
@@ -103,19 +103,21 @@ fn passe_sans_mouvement_timestop_referme_a_e() {
 #[test]
 fn montee_gagnante_tp2_trailing_perdante_sl_net_positif() {
     let a_ts = 1_800_000_000;
-    let mut m = moteur_pret(a_ts);
+    let mut m = moteur_pret(a_ts)
+        .avec_params(crate::types::ParamsStraddle { trailing_r: 0.5, ..Default::default() });
     tick(&mut m, a_ts - 1800, 100.0);
     tick(&mut m, a_ts - 10, 100.0); // ouverture à E=100, R=0.5
-    // Montée à E+1R (100.5) : LONG TP1 → tampon (99.75), SHORT SL (silencieuse).
-    let s = tick(&mut m, a_ts + 5, 100.5);
+    // Montée à E+1R (100.51) : LONG TP1 → tampon (99.75), SHORT SL (strict >).
+    let s = tick(&mut m, a_ts + 5, 100.51);
     assert!(s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Tp1)));
     assert!(!s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Be)), "plus de BE à E");
     assert!(!s.evenements.iter().any(|e| matches!(e.evenement, TypeEvenementTrade::Cloture)),
         "pas de Cloture avant la fin des 2 jambes");
-    // TP2 (101.0) → SL à TP1 + trailing ; nouveau haut 101.6 → SL ≈ 101.1.
+    // TP2 (101.0) → SL à TP1 + trailing 0.5R ; haut 101.4 (sous TP3 101.5)
+    // → stop suivi = 101.4 − 0.25 = 101.15.
     tick(&mut m, a_ts + 30, 101.0);
-    tick(&mut m, a_ts + 60, 101.6);
-    // Retrait sous le trailing (≈101.1) → clôture finale : TS (+2.2R) net -1R ⇒ tp2|+1.2R.
+    tick(&mut m, a_ts + 60, 101.4);
+    // Retrait sous le trailing → clôture finale : TS (+2.3R) net −1R ⇒ tp2|+1.3R.
     let s = tick(&mut m, a_ts + 90, 101.0);
     let (verdict, r) = verdict_final(&s);
     assert_eq!(verdict, "tp2");
@@ -128,9 +130,9 @@ fn montee_puis_retour_a_e_la_gagnante_survit_tampon() {
     let mut m = moteur_pret(a_ts);
     tick(&mut m, a_ts - 1800, 100.0);
     tick(&mut m, a_ts - 10, 100.0); // E=100, R=0.5
-    // Montée à TP1 (100.5) : LONG TP1 → SL resserré au tampon 99.75 ;
-    // SHORT SL (100.5 = son SL) → −1R.
-    tick(&mut m, a_ts + 5, 100.5);
+    // Montée au-dessus de TP1 (100.6) : LONG TP1 → SL au tampon 99.75 ;
+    // SHORT SL (100.6 > 100.5, strict) → −1R.
+    tick(&mut m, a_ts + 5, 100.6);
     // Retour à E (100.0) : le tampon (99.75) n'est PAS touché — la gagnante
     // SURVIT au rebond (décision 27/08 : c'est le whipsaw qui tuait tout).
     let s = tick(&mut m, a_ts + 60, 100.0);
@@ -147,13 +149,14 @@ fn montee_puis_retour_a_e_la_gagnante_survit_tampon() {
 #[test]
 fn baisse_directe_la_jambe_short_gagne() {
     let a_ts = 1_800_000_000;
-    let mut m = moteur_pret(a_ts);
+    let mut m = moteur_pret(a_ts)
+        .avec_params(crate::types::ParamsStraddle { trailing_r: 0.5, ..Default::default() });
     tick(&mut m, a_ts - 1800, 100.0);
     tick(&mut m, a_ts - 10, 100.0); // E=100, R=0.5
     // Chute directe à E−2R (99.0) : SHORT TP2 + trailing, LONG SL.
     tick(&mut m, a_ts + 10, 99.0);
-    tick(&mut m, a_ts + 20, 98.4); // nouveau bas → trailing SHORT suit
-    // Remontée au-dessus du trailing → clôture net > 0.
+    tick(&mut m, a_ts + 20, 98.6); // creux > TP3 (98.5) → trailing suit
+    // Remontée au-dessus du trailing (98.85) → clôture net > 0.
     let s = tick(&mut m, a_ts + 60, 99.1);
     let (verdict, r) = verdict_final(&s);
     assert_eq!(verdict, "tp2", "jambe short gagnante au-delà de TP2");
@@ -166,13 +169,17 @@ fn sl_avant_tout_tp_net_moins_1r() {
     let mut m = moteur_pret(a_ts);
     tick(&mut m, a_ts - 1800, 100.0);
     tick(&mut m, a_ts - 10, 100.0); // E=100, R=0.5
-    // Petite montée puis chute directe sous le SL long (99.5) : LONG SL (-1R)…
+    // Chute directe sous le SL long (99.5) : LONG SL (−1R) ; SHORT TP1
+    // simultané (même niveau, comptabilité TP acquis du moteur commun).
+    // Time-stop 60 min : la SHORT expire au verdict TP1 (+1R acquis).
+    // Net = −1 + 1 = 0 → « be » — sous le moteur unifié, une passe où la
+    // survivante touche TP1 ne peut plus être nette négative.
     tick(&mut m, a_ts + 5, 100.2);
-    let s = tick(&mut m, a_ts + 20, 99.4);
-    // …puis la SHORT court ; TimeStop 60 min la referme au prix courant.
+    tick(&mut m, a_ts + 20, 99.4);
     let s = tick(&mut m, a_ts - 10 + 61 * 60, 99.6);
-    let (_verdict, r) = verdict_final(&s);
-    assert!(r < 0.0, "net négatif (SL long −1R + short ≈ +0.8R) : {:.2}", r);
+    let (verdict, r) = verdict_final(&s);
+    assert_eq!(verdict, "be", "TP1 acquis compense le SL de la perdante");
+    assert!(r.abs() < 1e-9, "net 0R (got {r})");
 }
 
 #[test]

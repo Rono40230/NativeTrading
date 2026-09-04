@@ -82,7 +82,7 @@ function classeCarte(statut: string): string {
 
 onMounted(() => {
   void charger()
-  minuteur = setInterval(charger, 15_000)
+  minuteur = setInterval(charger, 5_000)
   horloge = setInterval(() => { tic.value++ }, 1000)
 })
 onUnmounted(() => {

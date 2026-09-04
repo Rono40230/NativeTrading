@@ -20,6 +20,10 @@ const router = createRouter({
     // Performance
     { path: '/heatmap',  component: () => import('../views/HeatmapView.vue') },
 
+    // Rapport d'activité — centre d'analyse des stratégies (04/09).
+    // ?strategie=SMC|straddle|rockets cible l'onglet (bloc dashboard).
+    { path: '/analyses', component: () => import('../views/AnalysesView.vue') },
+
     // Outils IA — regroupés en une page à onglets (refonte navigation 01/09) ;
     // les anciens chemins redirigent vers l'onglet correspondant.
     { path: '/ia',            component: () => import('../views/IaView.vue') },

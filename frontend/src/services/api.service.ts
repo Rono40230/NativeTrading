@@ -15,7 +15,7 @@ export type {
   ZoneOb, ZoneIfvg, NiveauxFibonacci, ResultatTendance,
   NiveauLiquidite, ReponseIndicators, IndicatorsParams,
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
-  SentimentMarche, EntiteSentiment, ArticleNews, AlertesNews, NiveauAlerte, ContenuArticle, TraductionReponse,
+  SentimentMarche, EntiteSentiment, TraductionReponse,
   StatutSignalEngine, CouvertureDonnees, RequeteCollecte, ResultatCollecte, ResultatCollecteItem,
   HistoriqueEntrainement, HistoriqueML, PatternHoraire, ReponsePatternsVolatilite,
   StraddleCreneau, ReponseAnalyseStraddle, FearGreedData,
@@ -74,6 +74,18 @@ export const apiService = {
     if (!ids.length) return {}
     try {
       const res = await http.post('/api/signaux/mfe', { ids })
+      return res.data
+    } catch {
+      return {}
+    }
+  },
+
+  /** Lot recalculé de chaque trade : capital composé au moment de l'émission
+   *  × risque % / (stop en pips × valeur du pip) — colonne Lot (SMC/straddle). */
+  async getLotsSignaux(ids: string[]): Promise<Record<string, number>> {
+    if (!ids.length) return {}
+    try {
+      const res = await http.post('/api/signaux/lots', { ids })
       return res.data
     } catch {
       return {}

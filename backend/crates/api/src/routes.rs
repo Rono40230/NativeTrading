@@ -50,6 +50,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::smc_rejeu::get_rejeu),
         )
         .route(
+            "/api/straddle/rejeu",
+            web::get().to(crate::straddle_rejeu::get_rejeu),
+        )
+        .route(
             "/api/straddle/agenda",
             web::get().to(crate::straddle_agenda::get_agenda),
         )
@@ -96,6 +100,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/signaux/mfe",
             web::post().to(crate::signaux_handlers::post_mfe_signaux),
+        )
+        .route(
+            "/api/signaux/lots",
+            web::post().to(crate::signaux_handlers::post_lots_signaux),
         )
         // Étape A Rockets actions — univers NASDAQ Trader + clé Tiingo
         .route(
@@ -222,12 +230,30 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::sentiment_composite::get_sentiment_composite),
         )
         .route(
-            "/api/news/alertes",
-            web::get().to(crate::news_handlers::get_news_alertes),
-        )
-        .route(
             "/api/news/traduire",
             web::get().to(crate::news_handlers::get_traduire),
+        )
+        // ── Centre d'analyse « Rapport d'activité » (phases 1-3, 04/09) ────
+        .route(
+            "/api/analyses",
+            web::get().to(crate::analyses::get_analyses),
+        )
+        .route(
+            "/api/analyses/{strategie}",
+            web::get().to(crate::analyses::get_analyse),
+        )
+        .route(
+            "/api/analyses/{strategie}/ia",
+            web::post().to(crate::analyses_ia::post_analyse_ia),
+        )
+        // ── Armement SMC par couple (outil Paramètres › SMC — 04/09) ─────────
+        .route(
+            "/api/smc/couples",
+            web::get().to(crate::reglages_smc::get_couples),
+        )
+        .route(
+            "/api/smc/couples",
+            web::put().to(crate::reglages_smc::put_couples),
         )
         .route(
             "/api/stream",

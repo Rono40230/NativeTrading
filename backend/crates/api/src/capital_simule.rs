@@ -26,6 +26,10 @@ pub struct PointCapital {
     pub profit: f64,
     /// Capital simulé après la clôture.
     pub capital_apres: f64,
+    /// Asset / timeframe / verdict — camemberts $ et centre d'analyse.
+    pub asset: String,
+    pub tf: String,
+    pub verdict: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -65,6 +69,9 @@ pub async fn capital_strategie(
                         "r": c.r,
                         "profit": profit,
                         "capital_apres": c.capital_apres,
+                        "asset": c.asset,
+                        "tf": c.tf,
+                        "verdict": c.verdict,
                     })
                 })
                 .collect();
@@ -127,6 +134,9 @@ pub async fn simuler(db: &db::Database, id: &str) -> anyhow::Result<SimulationCa
             r: t.r,
             profit,
             capital_apres: capital,
+            asset: t.asset,
+            tf: t.tf,
+            verdict: t.verdict,
         });
     }
     Ok(SimulationCapital {

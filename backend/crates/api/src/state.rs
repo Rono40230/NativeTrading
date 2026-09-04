@@ -13,8 +13,7 @@ pub struct AppState {
     /// État du job de réentraînement incrémental (Phase 8.4)
     pub retrain_state: Arc<tokio::sync::RwLock<crate::ml_retrain_handler::RetainState>>,
     /// Moteur de génération automatique de signaux SMC
-    /// Score news / F&G (ex-SignalEngine — phase 2.8 : atomiques nus).
-    pub score_news: std::sync::atomic::AtomicU64,
+    /// F&G (ex-SignalEngine — phase 2.8 : atomiques nus).
     pub fg_valeur: std::sync::atomic::AtomicU64,
     /// Cache Fear & Greed Index (TTL 1h) — (Instant du fetch, données JSON)
     pub fear_greed_cache: Arc<tokio::sync::RwLock<Option<(std::time::Instant, serde_json::Value)>>>,
@@ -61,7 +60,6 @@ impl AppState {
         let pipeline_ml = Arc::new(RwLock::new(pipeline_ml));
         // Le SignalEngine reste instancié : c'est le canal broadcast que
         // Straddle/Rockets utilisent pour publier vers le WS frontend.
-        let score_news = std::sync::atomic::AtomicU64::new(0);
         let fg_valeur = std::sync::atomic::AtomicU64::new(0);
         // Cache Fear & Greed (TTL 1h) — partagé entre l'endpoint et le worker sentiment.
         let fear_greed_cache: Arc<
@@ -136,7 +134,6 @@ impl AppState {
             retrain_state: Arc::new(tokio::sync::RwLock::new(
                 crate::ml_retrain_handler::RetainState::default(),
             )),
-            score_news,
             fg_valeur,
             fear_greed_cache,
             sentiment: sentiment_slot,

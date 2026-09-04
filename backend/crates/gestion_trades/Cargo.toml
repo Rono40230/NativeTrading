@@ -1,0 +1,7 @@
+[package]
+name = "gestion_trades"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true

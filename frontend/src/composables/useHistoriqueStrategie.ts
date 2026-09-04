@@ -17,6 +17,32 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
   const signaux = ref<Signal[]>([])
   const chargement = ref(false)
   const mfeParId = ref<Record<string, { mfe_r: number | null; meilleur_prix: number | null }>>({})
+  /** Lot recalculé par trade (capital composé d'époque) — colonne Lot. */
+  const lotParId = ref<Record<string, number>>({})
+
+  // ── Tri par colonne (HistoryTable émet « trier-par ») ────────────────────
+  const triColonne = ref('')
+  const triDir = ref<'asc' | 'desc'>('desc')
+
+  function trierPar(col: string) {
+    if (triColonne.value === col) {
+      triDir.value = triDir.value === 'asc' ? 'desc' : 'asc'
+    } else {
+      triColonne.value = col
+      triDir.value = 'desc'
+    }
+  }
+
+  /// Valeur de tri d'un signal pour la colonne : nombres, chaînes ou null
+  /// (les nulls restent en queue quel que soit le sens).
+  function valeurTri(s: Signal, col: string): number | string | null {
+    if (col === 'tp1' || col === 'tp2' || col === 'tp3') {
+      return s.take_profit[col === 'tp1' ? 0 : col === 'tp2' ? 1 : 2] ?? null
+    }
+    if (col === 'r_reference') return palierMax(s).rReference
+    const v = (s as unknown as Record<string, unknown>)[col]
+    return typeof v === 'number' || typeof v === 'string' ? v : null
+  }
 
   const signauxFiltres = computed(() =>
     signaux.value.filter(s => {
@@ -26,6 +52,28 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
         : nom === 'straddle'
     }).filter(s => s.statut === 'Fermé' && s.verdict !== null),
   )
+
+  /// Liste filtrée PUIS triée par la colonne active (défaut : plus récents).
+  const signauxTriés = computed(() => {
+    const liste = [...signauxFiltres.value]
+    if (!triColonne.value) {
+      return liste.sort((a, b) => b.cree_le - a.cree_le)
+    }
+    const col = triColonne.value
+    const sens = triDir.value === 'asc' ? 1 : -1
+    return liste.sort((a, b) => {
+      const va = valeurTri(a, col)
+      const vb = valeurTri(b, col)
+      if (va === null && vb === null) return b.cree_le - a.cree_le
+      if (va === null) return 1
+      if (vb === null) return -1
+      if (typeof va === 'number' && typeof vb === 'number') {
+        return va === vb ? b.cree_le - a.cree_le : (va - vb) * sens
+      }
+      const c = String(va).localeCompare(String(vb))
+      return c === 0 ? b.cree_le - a.cree_le : c * sens
+    })
+  })
 
   const totaux = computed(() => {
     let ref: number | null = null
@@ -52,7 +100,13 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
       const idsSl = signauxFiltres.value
         .filter(s => (s.verdict ?? '').toLowerCase().includes('sl'))
         .map(s => s.id)
-      mfeParId.value = await apiService.getMfeSignaux(idsSl)
+      const idsTous = signauxFiltres.value.map(s => s.id)
+      const [mfe, lots] = await Promise.all([
+        apiService.getMfeSignaux(idsSl),
+        apiService.getLotsSignaux(idsTous),
+      ])
+      mfeParId.value = mfe
+      lotParId.value = lots
     } catch {
       signaux.value = []
     } finally {
@@ -60,5 +114,5 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
     }
   }
 
-  return { signauxFiltres, totaux, mfeParId, chargement, charger }
+  return { signauxFiltres, signauxTriés, totaux, mfeParId, lotParId, triColonne, triDir, trierPar, chargement, charger }
 }

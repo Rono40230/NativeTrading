@@ -14,6 +14,7 @@ pub mod breaker;
 pub mod bs_helpers;
 pub mod calibration;
 pub mod fvg;
+pub mod hook_smc;
 pub mod imbalance;
 pub mod durees;
 pub mod kill_zones;
@@ -568,15 +569,19 @@ impl SmcV12Engine {
             let r = self.order_blocks.bear_zones().to_vec();
             (b, r)
         };
+        // Adaptateur SMC du hook structurel (hook_smc.rs) : BOS/MSS opposé
+        // lus sur la sortie courante, un-signal via le scoring.
+        let mut hook = crate::v12::hook_smc::HookSmc {
+            out: &out,
+            scoring: &mut self.scoring_v11,
+            ob_bull: &ob_bull_lc,
+            ob_bear: &ob_bear_lc,
+        };
         self.lifecycle.update(
             &mut self.signals.trades,
-            &out,
             bar,
             bar_index,
-            &self.calibration,
-            &mut self.scoring_v11,
-            &ob_bull_lc,
-            &ob_bear_lc,
+            &mut hook,
         );
 
         out

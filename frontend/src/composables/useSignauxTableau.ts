@@ -168,7 +168,9 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
   onMounted(() => {
     charger()
     if (!assetParamsStore.liste.length) assetParamsStore.charger()
-    _poll = setInterval(() => charger(), 30_000)
+    // 5 s : la gestion vit au tick (~1 s côté backend — mesures 04/09) ;
+    // l'écran suit les fills/clôtures quasi en direct.
+    _poll = setInterval(() => charger(), 5_000)
   })
 
   onUnmounted(() => {

@@ -316,6 +316,9 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         tracing::debug!("Runtime tick: aucun asset/timeframe configuré — synchronisation vide");
         return;
     }
+    // Armement SMC par couple (outil Paramètres › SMC). Straddle indépendant :
+    // il vit sur son rail M1 (annonces) quelle que soit cette liste.
+    let armes = crate::reglages_smc::lire_couples_armes(db).await;
 
     let mt5_ids: HashSet<String> = assets_mt5(db).await;
     let cibles: HashSet<(Asset, Timeframe)> = assets
@@ -331,13 +334,21 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         })
         .collect();
 
-    // Retraits (asset décoché ou TF retiré dans l'UI).
+    // Retraits (asset décoché, TF retiré dans l'UI, ou SMC désarmé hors M1).
     for cle in runtime.cles() {
-        if !cibles.contains(&cle) {
+        let smc_vif = crate::reglages_smc::est_arme(&armes, cle.0.as_str(), cle.1.as_str());
+        let straddle_vif = matches!(cle.1, common::Timeframe::M1)
+            && (mt5_ids.contains(cle.0.as_str()) || matches!(cle.0.as_str(), "XAUUSD" | "BTC"));
+        if !cibles.contains(&cle) || (!smc_vif && !straddle_vif) {
             runtime.retirer(cle.0.clone(), cle.1);
             tracing::info!("Runtime tick: {} {} retiré (config DB)", cle.0.as_str(), cle.1.as_str());
         }
     }
+
+    // Changement d'armement SMC sur un couple VIVANT (ex : SMC M1 désarmé,
+    // straddle M1 reste) : on retire le couple — la boucle d'ajouts le
+    // réinscrit immédiatement avec les moteurs voulus.
+    crate::reglages_smc::retirer_changements_armement(runtime, &cibles, &armes);
 
     // Ajouts avec cold start (replay).
     let actuelles: HashSet<(Asset, Timeframe)> = runtime.cles().into_iter().collect();
@@ -366,17 +377,21 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
             let tp2_reglage = crate::reglages_smc::lire_tp2_reglage(db).await;
             let tp3_reglage = crate::reglages_smc::lire_tp3_reglage(db).await;
             let trailing_reglage = crate::reglages_smc::lire_trailing_reglage(db).await;
-            let mut moteurs: Vec<Box<dyn engine::Engine>> = vec![Box::new(
-                engine_v12::MoteurV12::nouveau(asset.clone(), *tf)
-                    .avec_amorce(amorce)
-                    // Décision 26/08 (étude comparatif_be) : BE forcé sur BOS
-                    // opposé supprimé (+36R, R/trade +67 % vs Pine Classique).
-                    .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime)
-                    .avec_tp1(tp1_reglage)
-                    .avec_tp2(tp2_reglage)
-                    .avec_tp3_reglage(tp3_reglage)
-                    .avec_trailing_tp2(trailing_reglage),
-            )];
+            // Armement : v12 si le couple génère SMC, straddle M1 toujours.
+            let mut moteurs: Vec<Box<dyn engine::Engine>> = Vec::new();
+            if crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) {
+                moteurs.push(Box::new(
+                    engine_v12::MoteurV12::nouveau(asset.clone(), *tf)
+                        .avec_amorce(amorce)
+                        // Décision 26/08 (étude comparatif_be) : BE forcé sur BOS
+                        // opposé supprimé (+36R, R/trade +67 % vs Pine Classique).
+                        .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime)
+                        .avec_tp1(tp1_reglage)
+                        .avec_tp2(tp2_reglage)
+                        .avec_tp3_reglage(tp3_reglage)
+                        .avec_trailing_tp2(trailing_reglage),
+                ));
+            }
             if *tf == common::Timeframe::M1 {
                 let annonces: Vec<straddle::Annonce> = if asset.as_str() == "DAX" {
                     crate::mt5_collecteur::annonces_ouverture_europeenne()
@@ -400,6 +415,9 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                         .avec_annonces(annonces),
                 ));
             }
+            if moteurs.is_empty() {
+                continue; // SMC désarmé et pas de straddle M1 → rien à armer
+            }
             runtime.enregistrer(asset.clone(), *tf, moteurs);
             ajouts += 1;
             // Replay + réconciliation identiques aux couples Bybit : l'historique
@@ -409,9 +427,10 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 crate::runtime_replay::rejouer_et_reconcilier(db, runtime, asset, *tf).await
             {
                 tracing::info!(
-                    "Runtime tick: {} {} MT5 moteurs armés, TP1={:.2}R·TP2={:.1}R·TP3={}-{}R{} (replay {} bougies, {} signaux historiques, {} réconciliation(s))",
+                    "Runtime tick: {} {} MT5 moteurs armés (SMC {}), TP1={:.2}R·TP2={:.1}R·TP3={}-{}R{} (replay {} bougies, {} signaux historiques, {} réconciliation(s))",
                     asset.as_str(),
                     tf.as_str(),
+                    if crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) { "armé" } else { "désarmé" },
                     tp1_reglage,
                     tp2_reglage,
                     if tp3_reglage.lointaine { "liq" } else { "fixe" },
@@ -435,15 +454,19 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         let tp2_reglage = crate::reglages_smc::lire_tp2_reglage(db).await;
         let tp3_reglage = crate::reglages_smc::lire_tp3_reglage(db).await;
         let trailing_reglage = crate::reglages_smc::lire_trailing_reglage(db).await;
-        let mut moteurs: Vec<Box<dyn engine::Engine>> = vec![Box::new(
-            engine_v12::MoteurV12::nouveau(asset.clone(), *tf)
-                .avec_amorce(amorce)
-                .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime)
-                .avec_tp1(tp1_reglage)
-                .avec_tp2(tp2_reglage)
-                .avec_tp3_reglage(tp3_reglage)
-                .avec_trailing_tp2(trailing_reglage),
-        )];
+        // Armement : v12 si le couple génère SMC, straddle M1 toujours.
+        let mut moteurs: Vec<Box<dyn engine::Engine>> = Vec::new();
+        if crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) {
+            moteurs.push(Box::new(
+                engine_v12::MoteurV12::nouveau(asset.clone(), *tf)
+                    .avec_amorce(amorce)
+                    .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime)
+                    .avec_tp1(tp1_reglage)
+                    .avec_tp2(tp2_reglage)
+                    .avec_tp3_reglage(tp3_reglage)
+                    .avec_trailing_tp2(trailing_reglage),
+            ));
+        }
         // Étape 4 — verticale Straddle : périmètre acté = XAU + BTC sur
         // annonces US fortes (Bybit alimente ces deux-là en temps réel).
         // NAS100/SP500 (annonces US) et DAX (ouverture européenne 9h Paris)
@@ -480,6 +503,9 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                     .avec_atr_h1(crate::straddle_atr::atr_h1(db, asset.as_str()).await)
                     .avec_annonces(annonces),
             ));
+        }
+        if moteurs.is_empty() {
+            continue; // SMC désarmé et pas de straddle M1 → rien à armer
         }
         runtime.enregistrer(asset.clone(), *tf, moteurs);
         // Backfill automatique : comble les trous (nuits, week-ends, pannes)
@@ -519,9 +545,10 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 );
             }
             tracing::info!(
-                "Runtime tick: {} {} moteur v12 armé, TP1={:.2}R·TP2={:.1}R·TP3={}-{}R{} (replay {} bougies, {} signaux historiques, {:?})",
+                "Runtime tick: {} {} moteur(s) armé(s) (SMC {}), TP1={:.2}R·TP2={:.1}R·TP3={}-{}R{} (replay {} bougies, {} signaux historiques, {:?})",
                 asset.as_str(),
                 tf.as_str(),
+                if crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) { "armé" } else { "désarmé" },
                 tp1_reglage,
                 tp2_reglage,
                 if tp3_reglage.lointaine { "liq" } else { "fixe" },

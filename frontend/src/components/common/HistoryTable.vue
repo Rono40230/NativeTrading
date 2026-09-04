@@ -7,6 +7,7 @@
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'timeframe')">TF / Phase <span class="tri-icone">{{ icone('timeframe') }}</span></th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'direction')">Direction <span class="tri-icone">{{ icone('direction') }}</span></th>
         <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'score')">Score <span class="tri-icone">{{ icone('score') }}</span></th>
+        <th class="px-3 py-3 text-right" title="Taille de position au moment de l'émission — recalculée : capital composé de la stratégie × risque % / (stop en pips × valeur du pip)">Lot</th>
         <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'prix_entree')">Entrée <span class="tri-icone">{{ icone('prix_entree') }}</span></th>
         <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'stop_loss')">SL <span class="tri-icone">{{ icone('stop_loss') }}</span></th>
         <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'tp1')">TP1 <span class="tri-icone">{{ icone('tp1') }}</span></th>
@@ -30,6 +31,7 @@
           <span class="badge" :class="s.direction?.toUpperCase() === 'LONG' ? 'badge-green' : 'badge-red'">{{ s.direction }}</span>
         </td>
         <td class="px-3 py-3 text-right font-mono text-white">{{ s.score.toFixed(0) }}</td>
+        <td class="px-3 py-3 text-right font-mono text-white" title="Lot recalculé (capital composé de la stratégie au moment de l'émission)">{{ formatLot(lotMap[s.id]) }}</td>
         <td class="px-3 py-3 text-right font-mono text-white">{{ formatNombre(s.prix_entree) }}</td>
         <td class="px-3 py-3 text-right font-mono text-red-400">{{ formatNombre(s.stop_loss) }}</td>
         <td class="px-3 py-3 text-right font-mono text-emerald-400">{{ formatNombre(s.take_profit[0]) }}</td>
@@ -87,6 +89,8 @@ const props = defineProps<{
   triDir: 'asc' | 'desc'
   /** MFE des trades SL : { [id]: { mfe_r, meilleur_prix } } */
   mfe?: Record<string, { mfe_r: number | null; meilleur_prix: number | null }>
+  /** Lot recalculé par trade : { [id]: lot } — vide si non chargé. */
+  lots?: Record<string, number>
 }>()
 
 const emit = defineEmits<{
@@ -118,6 +122,15 @@ function icone(col: string): string {
 
 /** MFE des perdants : { [id]: { mfe_r, meilleur_prix } } — vide si non chargé. */
 const mfeMap = computed<Record<string, { mfe_r: number | null; meilleur_prix: number | null }>>(() => props.mfe ?? {})
+
+/** Lots recalculés : { [id]: lot } — vide si non chargé. */
+const lotMap = computed<Record<string, number>>(() => props.lots ?? {})
+
+/// Lot formaté : 2 décimales (4 pour les micro-lots < 0.1).
+function formatLot(v: number | undefined): string {
+  if (v === undefined || v <= 0) return '—'
+  return v < 0.1 ? v.toFixed(4) : v.toFixed(2)
+}
 
 /** Palier max d'un trade clôturé (null si encore ouvert). Un ordre JAMAIS
  *  REMPLI n'a pas de palier — le trade n'a pas existé (l'ancien worker v1

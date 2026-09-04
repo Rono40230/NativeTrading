@@ -17,6 +17,7 @@ strategies = { path = "../strategies" }
 straddle = { path = "../straddle" }
 rockets = { path = "../rockets" }
 smc = { path = "../smc" }
+gestion_trades = { path = "../gestion_trades" }
 indicators = { path = "../indicators" }
 actix-web.workspace = true
 actix-cors.workspace = true

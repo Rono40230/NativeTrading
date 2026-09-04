@@ -137,33 +137,6 @@ export interface SentimentComposite {
   cnn_fg: number | null
 }
 
-export type NiveauAlerte = 'critique' | 'important' | 'modere' | 'veille'
-
-export interface ArticleNews {
-  id: string
-  titre: string
-  titre_fr?: string
-  source: string
-  url: string
-  date: string
-  score: number
-  niveau: NiveauAlerte
-  theme: 'macro' | 'crypto' | 'metaux' | 'autre'
-  sentiment?: 'haussier' | 'neutre' | 'baissier'
-  /** Résumé RSS (revue de presse) — affiché immédiatement, avant le scrape. */
-  resume_source?: string
-}
-
-export interface AlertesNews {
-  articles: ArticleNews[]
-  score_max: number
-  mis_a_jour: string
-}
-
-export interface ContenuArticle {
-  texte: string
-}
-
 export interface TraductionReponse {
   texte_fr: string
 }

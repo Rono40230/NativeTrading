@@ -1,10 +1,7 @@
 <template>
   <!-- Layout 2 colonnes : contenu | sentiment+calendrier (la revue de presse
-       vit désormais dans sa propre vue /presse avec liseuse intégrée) -->
+       vit dans sa propre vue /presse) -->
   <div class="flex flex-col gap-3">
-    <!-- Bandeau alerte critique (conditionnel) -->
-    <AlerteBandeau />
-
     <!-- Hauteur définie sur la rangée : les colonnes ne dépassent JAMAIS la
          page — seul le centre (cartes stratégies) scrolle en bloc, les
          contenus des blocs scrollent en interne (calendrier, tuiles). -->
@@ -24,6 +21,9 @@
             class="shrink-0"
           />
           <SurveillanceAssets class="shrink-0" :assets="assetsDisplay.slice(0, 5)" :chargement="assetsAvecPrix.length === 0" />
+          <!-- Rapport d'activité : 3 boutons par stratégie, clic sur le bloc =
+               vue d'ensemble (toutes les analyses). -->
+          <DashboardRapportActivite class="shrink-0" />
           <!-- Hub de navigation : presse, graphiques, IA, système (refonte
                01/09) — tuiles empilées sous la surveillance, scroll interne
                si la fenêtre est basse. -->
@@ -61,7 +61,6 @@ import { storeToRefs } from 'pinia'
 import { useSignalStore } from '@/stores/signal.store'
 import { useSettingsStore } from '@/stores/settings.store'
 import { usePrixStore } from '@/stores/prix.store'
-import { useNewsStore } from '@/stores/news.store'
 import { useSentimentStore } from '@/stores/sentiment.store'
 import { apiService } from '@/services/api.service'
 import type { Candle } from '@/services/api.service'
@@ -69,9 +68,9 @@ import { useAssetsStore } from '@/stores/assets.store'
 import MarketClocks from '@/components/common/MarketClocks.vue'
 import EconomicCalendar from '@/components/common/EconomicCalendar.vue'
 import SentimentMarche from '@/components/common/SentimentMarche.vue'
-import AlerteBandeau from '@/components/common/AlerteBandeau.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
 import SurveillanceAssets from '@/components/common/SurveillanceAssets.vue'
+import DashboardRapportActivite from '@/components/common/DashboardRapportActivite.vue'
 import CreneauxVolatiliteBloc from '@/components/common/CreneauxVolatiliteBloc.vue'
 import DashboardStrategiesBlocs from '@/components/common/DashboardStrategiesBlocs.vue'
 import DashboardTuilesNavigation from '@/components/common/DashboardTuilesNavigation.vue'
@@ -83,7 +82,6 @@ const signalStore = useSignalStore()
 const settingsStore = useSettingsStore()
 const prixStore = usePrixStore()
 const { variationLive } = storeToRefs(prixStore)
-const newsStore = useNewsStore()
 const sentimentStore = useSentimentStore()
 const assetsStore = useAssetsStore()
 
@@ -185,7 +183,6 @@ onMounted(async () => {
   ])
   const tousLesAssets = assetsAvecPrix.value.map(a => a.id)
   if (tousLesAssets.length > 0) prixStore.demarrer(tousLesAssets)
-  newsStore.demarrerPolling()
   sentimentStore.demarrer()
   intervalPrix = setInterval(chargerPrixActifs, 60000)
   intervalStatuts = setInterval(rafraichirStatuts, 30000)
@@ -195,7 +192,6 @@ onUnmounted(() => {
   if (intervalPrix !== null) clearInterval(intervalPrix)
   if (intervalStatuts !== null) clearInterval(intervalStatuts)
   // prixStore reste actif pour les autres vues (Rockets, etc.)
-  newsStore.arreterPolling()
   sentimentStore.arreter()
 })
 </script>

@@ -2,34 +2,13 @@
 //!
 //! Reproduit les structures de données implicites du Pine `smc_indicateur_v12.pine`.
 
+pub use gestion_trades::barre::BarInput;
+
 /// Une bar OHLCV clôturée (équivalent Pine `barstate.isconfirmed`).
 ///
 /// En replay/backtest, on ne traite QUE des bars clôturées : pas de logique intrabar,
 /// pas de repaint.
-#[derive(Debug, Clone, Copy)]
-pub struct BarInput {
-    /// Unix secondes (ouverture de la bar).
-    pub timestamp: i64,
-    pub open: f64,
-    pub high: f64,
-    pub low: f64,
-    pub close: f64,
-    pub volume: f64,
-}
 
-impl BarInput {
-    /// Construit une bar à partir de ses prix bruts (timestamp=0, volume=0).
-    pub fn new(open: f64, high: f64, low: f64, close: f64) -> Self {
-        Self {
-            timestamp: 0,
-            open,
-            high,
-            low,
-            close,
-            volume: 0.0,
-        }
-    }
-}
 
 /// Événement pivot détecté à la bar courante (high et/ou low).
 #[derive(Debug, Clone, Default)]

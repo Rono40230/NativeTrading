@@ -53,7 +53,8 @@ pub async fn lister_prompts() -> impl Responder {
         "outils_ia": {
             "coach":         p("coach",         "Coach SMC", "System prompt du Coach IA — définit la personnalité, les règles de réponse et la génération de diagrammes HTML.", "Outils IA → Coach IA (toutes les conversations)"),
             "vision_1tf":    p("vision_1tf",    "Analyse graphique — 1 TF", "Analyse ICT/SMC d'un graphique unique en 5 étapes (biais, liquidité, POI, scoring, signal).", "Outils IA → Analyse graphique (1 screenshot)"),
-            "vision_multi_tf":p("vision_multi_tf","Analyse graphique — Multi-TF", "Analyse top-down HTF→ITF→LTF sur plusieurs screenshots du même actif.", "Outils IA → Analyse graphique (2+ screenshots)")
+            "vision_multi_tf":p("vision_multi_tf","Analyse graphique — Multi-TF", "Analyse top-down HTF→ITF→LTF sur plusieurs screenshots du même actif.", "Outils IA → Analyse graphique (2+ screenshots)"),
+            "analyse_rapport":p("analyse_rapport","Analyse des rapports d'activité", "Consigne de l'analyste du Rapport d'activité : lit les métriques $/R consolidées et répond en JSON structuré (état, points forts/faibles, pistes, confiance). L'effectif vs règle des 30 trades est injecté dynamiquement dans le contexte, pas ici.", "📊 Rapport d'activité → bouton Générer (cache du jour)")
         }
     }))
 }

@@ -32,19 +32,20 @@
         <span v-if="historique.totaux.value.jamaisRemplis > 0" class="text-white">· {{ historique.totaux.value.jamaisRemplis }} jamais remplis</span>
       </div>
       <HistoryTable
-        :signaux="historique.signauxFiltres.value"
+        :signaux="historique.signauxTriés.value"
         filtre-statut="cloturees"
-        :tri-colonne="triColonne"
-        :tri-dir="triDir"
+        :tri-colonne="historique.triColonne.value"
+        :tri-dir="historique.triDir.value"
         :mfe="historique.mfeParId.value"
-        @trier-par="trierPar"
+        :lots="historique.lotParId.value"
+        @trier-par="historique.trierPar"
       />
     </template>
   </StrategyShell>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import StrategyShell from '@/components/common/StrategyShell.vue'
 import { nbOrdresPoses } from '@/composables/useSignalFormat'
 import SignauxTableau from '@/components/common/SignauxTableau.vue'
@@ -59,19 +60,15 @@ const nbEncours = ref(0)
 const signauxActifs = ref<InstanceType<typeof SignauxTableau> extends never ? never : import('@/services/api.service').Signal[]>([])
 const tableauRef = ref<InstanceType<typeof SignauxTableau> | null>(null)
 function ouvrirAnalyse() { tableauRef.value?.ouvrirAnalyse() }
-const triColonne = ref('')
-const triDir = ref<'asc' | 'desc'>('desc')
 
-function trierPar(col: string) {
-  if (triColonne.value === col) {
-    triDir.value = triDir.value === 'asc' ? 'desc' : 'asc'
-  } else {
-    triColonne.value = col
-    triDir.value = 'desc'
-  }
-}
-
-onMounted(() => { void historique.charger() })
+// Historique rafraîchi en continu (5 s) : une clôture détectée au tick par
+// le backend apparaît à l'écran quasi en direct, plus seulement au montage.
+let minuteur: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  void historique.charger()
+  minuteur = setInterval(() => { void historique.charger() }, 5_000)
+})
+onUnmounted(() => { if (minuteur !== null) clearInterval(minuteur) })
 </script>
 
 <style scoped>

@@ -237,9 +237,8 @@ async fn reconstruire_cycles_vie(db: &Arc<Database>, asset: &str, tf: Timeframe)
     use smc::v12::calibration::AssetCalibration;
     use smc::v12::durees::{tp3_max_mins, trade_max_mins};
     use smc::v12::lifecycle::{ModeBeForce, TradeLifecycle};
-    use smc::v12::scoring_v11::ScoringV11;
     use smc::v12::trade::{CloseReason, Side, Trade, TradeSource, TradeState, Verdict};
-    use smc::v12::types::{BarInput, SmcOutput};
+    use smc::v12::types::BarInput;
 
     let actifs: Vec<db::signaux::SignalActifCle> =
         match db::signaux::lister_actifs_avec_cle(db.pool()).await {
@@ -263,8 +262,6 @@ async fn reconstruire_cycles_vie(db: &Arc<Database>, asset: &str, tf: Timeframe)
     );
     // Production (runtime_tick) : BE forcé sur BOS opposé supprimé.
     lifecycle.definir_mode_be_force(ModeBeForce::Supprime);
-    let mut scoring = ScoringV11::new(&cal, tf_mins);
-    let out_vide = SmcOutput::default();
 
     let maintenant = chrono::Utc::now().timestamp();
     let plus_vieux = actifs
@@ -340,7 +337,7 @@ async fn reconstruire_cycles_vie(db: &Arc<Database>, asset: &str, tf: Timeframe)
                 volume: b.volume,
             };
             dernier_close = bar.close;
-            lifecycle.update(&mut carnet, &out_vide, &bar, i, &cal, &mut scoring, &[], &[]);
+            lifecycle.update(&mut carnet, &bar, i, &mut gestion_trades::HookVide);
             if carnet[0].state == TradeState::Closed {
                 break;
             }
@@ -411,13 +408,12 @@ const STRADDLE_TIME_STOP_MIN: i64 = 60;
 ///
 /// Le moteur straddle vit uniquement dans `on_tick` : le replay de
 /// redémarrage (on_close) ne régénère JAMAIS une passe — ouverte avant un
-/// arrêt, elle devient orpheline (personne n'évalue ses jambes, la ligne
-/// reste « Actif » à vie). On rejoue ici la mécanique exacte des 2 jambes
-/// du moteur (time-stop 60 min → SL/trailing → TP1 tampon 0,5R → TP2 +
-/// trailing 1R) sur les bougies M1 stockées, barre par barre : sortie au
-/// SL de la barre précédente, puis resserrements sur les extrêmes de la
-/// barre courante — et le verdict NET du moteur (« tp2 »/« sl »/« be »/
-/// « expire » + R net des 2 jambes). Les passes straddle vivent sur M1.
+/// arrêt, elle devient orpheline. On rejoue ici les 2 jambes sur les
+/// bougies M1 stockées via le LIFECYCLE COMMUN (gestion_trades) — le même
+/// code que le moteur live et que la SMC : tampon E∓0,5R après TP1,
+/// trailing ×R dès TP2, TP3 3R, expiration 60 min, verdict NET de la passe
+/// (« tp2 »/« sl »/« be »/« expire » + R net des 2 jambes, comptabilité
+/// TP acquis). Zéro dérive possible : c'est littéralement le moteur.
 async fn reconstruire_straddles(db: &Arc<Database>, asset: &str, tf: Timeframe) -> u64 {
     if !matches!(tf, common::Timeframe::M1) {
         return 0;
@@ -448,16 +444,6 @@ async fn reconstruire_straddles(db: &Arc<Database>, asset: &str, tf: Timeframe) 
         Err(_) => return 0,
     };
 
-    /// Une jambe du straddle (LONG ou SHORT).
-    struct Jambe {
-        long: bool,
-        sl: f64,
-        tp1: f64,
-        tp2: f64,
-        meilleur_depuis_tp2: Option<f64>,
-        fermee: Option<(String, f64)>,
-    }
-
     let mut total = 0u64;
     for a in &actifs {
         let Some(ouverture) = a.heure_entree else { continue };
@@ -466,100 +452,70 @@ async fn reconstruire_straddles(db: &Arc<Database>, asset: &str, tf: Timeframe) 
         if r <= 0.0 {
             continue;
         }
-        let distance_trail = params.trailing_r * r;
-        let mut jambes = [
-            Jambe {
-                long: true,
-                sl: a.stop_loss,
-                tp1: entree + r,
-                tp2: entree + 2.0 * r,
-                meilleur_depuis_tp2: None,
-                fermee: None,
-            },
-            Jambe {
-                long: false,
-                sl: entree + r,
-                tp1: entree - r,
-                tp2: entree - 2.0 * r,
-                meilleur_depuis_tp2: None,
-                fermee: None,
-            },
-        ];
-        let r_a = |long: bool, prix: f64| -> f64 {
-            if long { (prix - entree) / r } else { (entree - prix) / r }
+
+        // Jambes = trades du lifecycle commun, remplis d'emblée (le timer
+        // décide — cf. StraddleEngine::jambes_nouvelles). TP1/2/3 = 1/2/3R.
+        let bar0 = gestion_trades::BarInput {
+            timestamp: ouverture,
+            open: entree, high: entree, low: entree, close: entree,
+            volume: 0.0,
         };
+        let mut jambe_long = gestion_trades::Trade::new_buy(
+            1, gestion_trades::TradeSource::Ob, entree, entree - r,
+            entree + r, entree + 2.0 * r, entree + 3.0 * r,
+            78, r, &bar0, 0, None,
+        );
+        jambe_long.filled = true;
+        jambe_long.fill_ts = Some(ouverture);
+        let mut jambe_short = gestion_trades::Trade::new_sell(
+            2, gestion_trades::TradeSource::Ob, entree, entree + r,
+            entree - r, entree - 2.0 * r, entree - 3.0 * r,
+            78, r, &bar0, 0, None,
+        );
+        jambe_short.filled = true;
+        jambe_short.fill_ts = Some(ouverture);
+        let mut jambes = [jambe_long, jambe_short];
+
+        // Lifecycle straddle : tampon BE 0,5R + trailing ×R + expiration
+        // 60 min (time-stop) — configuré comme le moteur live.
+        let exp = STRADDLE_TIME_STOP_MIN * 60;
+        let mut lifecycle = gestion_trades::TradeLifecycle::new(exp, exp);
+        lifecycle.definir_be_offset_r(STRADDLE_TAMPON_R);
+        lifecycle.definir_trailing_tp2(Some(params.trailing_r));
 
         let mut prix_cloture = entree;
         let mut ts_cloture = ouverture;
+        let mut bar_index = 1usize;
         'barres: for b in &bougies {
             let ts = b.timestamp.timestamp();
             if ts < ouverture {
                 continue;
             }
+            let bar = gestion_trades::BarInput {
+                timestamp: ts,
+                open: b.open, high: b.high, low: b.low, close: b.close,
+                volume: 0.0,
+            };
+            lifecycle.update(&mut jambes, &bar, bar_index, &mut gestion_trades::HookVide);
+            bar_index += 1;
             prix_cloture = b.close;
             ts_cloture = ts;
-            for j in jambes.iter_mut() {
-                if j.fermee.is_some() {
-                    continue;
-                }
-                // 1. Time-stop : sortie à l'heure, au prix de clôture.
-                if ts - ouverture >= STRADDLE_TIME_STOP_MIN * 60 {
-                    j.fermee = Some(("TimeStop".into(), r_a(j.long, b.close)));
-                    continue;
-                }
-                // 2. SL / trailing stop (niveau de la barre précédente) —
-                //    TS au-delà de TP1 (trailing armé), SL sinon.
-                if (j.long && b.low <= j.sl) || (!j.long && b.high >= j.sl) {
-                    let verdict = if (j.long && j.sl > j.tp1) || (!j.long && j.sl < j.tp1) {
-                        "TS"
-                    } else {
-                        "SL"
-                    };
-                    j.fermee = Some((verdict.to_string(), r_a(j.long, j.sl)));
-                    continue;
-                }
-                // 3. TP1 : SL resserré au tampon E∓0,5R.
-                if (j.long && b.high >= j.tp1) || (!j.long && b.low <= j.tp1) {
-                    let tampon = if j.long { entree - r * STRADDLE_TAMPON_R } else { entree + r * STRADDLE_TAMPON_R };
-                    if (j.long && j.sl < tampon) || (!j.long && j.sl > tampon) {
-                        j.sl = tampon;
-                    }
-                }
-                // 4. TP2 : SL à TP1 + trailing sur le meilleur extrême.
-                if (j.long && b.high >= j.tp2) || (!j.long && b.low <= j.tp2) {
-                    if (j.long && j.sl < j.tp1) || (!j.long && j.sl > j.tp1) {
-                        j.sl = j.tp1;
-                    }
-                    let meilleur = match j.meilleur_depuis_tp2 {
-                        Some(m) if j.long => m.max(b.high),
-                        Some(m) => m.min(b.low),
-                        None if j.long => b.high,
-                        None => b.low,
-                    };
-                    j.meilleur_depuis_tp2 = Some(meilleur);
-                    let cible = if j.long { meilleur - distance_trail } else { meilleur + distance_trail };
-                    if (j.long && cible > j.sl) || (!j.long && cible < j.sl) {
-                        j.sl = cible;
-                    }
-                }
-            }
-            if jambes.iter().all(|j| j.fermee.is_some()) {
+            if jambes.iter().all(|t| t.close_reason.is_some()) {
                 break 'barres;
             }
         }
 
-        if jambes.iter().any(|j| j.fermee.is_none()) {
+        if jambes.iter().any(|t| t.close_reason.is_none()) {
             continue; // au moins une jambe vivante → passe légitimement ouverte
         }
-        // Verdict net du moteur (verdict_net, à l'identique).
+        // Verdict net (même logique que StraddleEngine::verdict_net) : R =
+        // somme des close_r des jambes (la perdante coûte son SL — le net
+        // EST déjà « survivante − jambe morte »), comptabilité TP acquis.
         let net: f64 = jambes
             .iter()
-            .map(|j| j.fermee.as_ref().map(|(_, rr)| *rr).unwrap_or(0.0))
+            .map(|t| t.close_r.unwrap_or(0.0))
             .sum();
-        let un_tp1 = jambes.iter().any(|j| {
-            j.meilleur_depuis_tp2.is_some()
-                || matches!(j.fermee.as_ref().map(|(v, _)| v.as_str()), Some("TS") | Some("BE"))
-        });
+        let un_tp1 = jambes.iter().any(|t| t.tp1_hit);
         let verdict = if net > 1e-9 {
             "tp2"
         } else if net < -1e-9 {
@@ -575,7 +531,7 @@ async fn reconstruire_straddles(db: &Arc<Database>, asset: &str, tf: Timeframe) 
         {
             Ok(n) if n > 0 => {
                 tracing::info!(
-                    "Réconciliation straddle : {} fermé « {} » ({:.2}R net)",
+                    "Réconciliation straddle : {} fermé « {} » ({:.2}R net, lifecycle commun)",
                     asset,
                     verdict,
                     net

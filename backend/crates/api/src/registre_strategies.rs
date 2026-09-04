@@ -198,8 +198,8 @@ pub async fn performance_strategie(
                 "gagnants": r.gagnants,
                 "non_remplis": 0,
                 "taux_reussite": r.taux_reussite,
-                "r_total": r.r_total,
-                "r_total_realise": r.r_total_realise,
+                "r_total": r.r_total_pondere,
+                "r_total_reference": r.r_total,
                 "source": "rejeu",
                 "tp1": r.tp1,
                 "recalcul": crate::smc_rejeu::recalcul_en_cours(),
@@ -208,7 +208,22 @@ pub async fn performance_strategie(
         crate::smc_rejeu::lancer_si_necessaire(state.db.clone()).await;
     }
     match state.db.performance_strategie(&id).await {
-        Ok(p) => HttpResponse::Ok().json(p),
+        Ok(p) => {
+            // Straddle/rockets : le badge doit montrer le R RÉALISÉ (celui que
+            // le capital compose — décision 03/09, même harmonisation que SMC)
+            // avec la référence en info-bulle via r_total_reference.
+            let mut v = serde_json::to_value(&p).unwrap_or_default();
+            if v.is_object() {
+                let reference = v.get("r_total").cloned();
+                if let Some(realise) = v.get("r_total_realise").cloned() {
+                    v["r_total"] = realise;
+                }
+                if let Some(reference) = reference {
+                    v["r_total_reference"] = reference;
+                }
+            }
+            HttpResponse::Ok().json(v)
+        }
         Err(e) => HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": e.to_string() })),
     }

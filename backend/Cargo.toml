@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/engine_v12",
+    "crates/gestion_trades",
     "crates/api",
     "crates/engine",
     "crates/data",

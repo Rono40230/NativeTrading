@@ -17,8 +17,8 @@
     <div class="p-5 flex-1 space-y-4">
       <!-- Registre -->
       <h4 class="text-xs uppercase text-white font-semibold tracking-wider">Registre</h4>
-      <div class="space-y-3">
-        <div class="flex items-center justify-between gap-4">
+      <div class="divide-y divide-white/5">
+        <div class="flex items-center justify-between gap-4 py-2 first:pt-0.5 last:pb-0">
           <span class="text-white text-xs cursor-help border-b border-dotted border-gray-600"
                 title="Officielle : signaux réels + notifiés sur Telegram. En observation : signaux journalisés en base mais silencieux (pas de message). En construction : moteur en cours de développement, aucun signal généré.">État</span>
           <select v-model="etat" class="bg-black/30 border border-white/10 rounded-md px-2 py-1 text-xs text-white"
@@ -28,7 +28,7 @@
             <option value="Construction">En construction</option>
           </select>
         </div>
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 py-2 last:pb-0">
           <span class="text-white text-xs">Son Telegram</span>
           <button @click="notifications = !notifications"
             :class="notifications ? 'bg-emerald-500' : 'bg-gray-600'"
@@ -37,12 +37,12 @@
               class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform" />
           </button>
         </div>
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 py-2">
           <span class="text-white text-xs">Capital alloué ($)</span>
           <input v-model.number="capital" type="number" min="0" step="100"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
         </div>
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 py-2 last:pb-0">
           <span class="text-white text-xs">Risque par trade</span>
           <select v-model.number="risquePct" class="bg-black/30 border border-white/10 rounded-md px-2 py-1.5 text-xs text-white">
             <option :value="1">1 %</option>
@@ -56,31 +56,31 @@
 
       <!-- Paramètres moteur -->
       <h4 class="text-xs uppercase text-white font-semibold tracking-wider">Niveaux de prise de profit</h4>
-      <div class="space-y-3">
-        <div class="flex items-center justify-between gap-4">
+      <div class="divide-y divide-white/5">
+        <div class="flex items-center justify-between gap-4 py-2 first:pt-0.5">
           <span class="text-white text-xs">TP1 (× R)</span>
           <input v-model.number="tp1" type="number" :step="0.05" :min="0.2" :max="1.5"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
         </div>
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 py-2">
           <span class="text-white text-xs">TP2 (× R)</span>
           <input v-model.number="tp2" type="number" :step="0.1" :min="1" :max="4"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
         </div>
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 py-2">
           <span class="text-white text-xs">TP3 — mode</span>
           <select v-model="tp3Mode" class="bg-black/30 border border-white/10 rounded-md px-2 py-1.5 text-xs text-white">
             <option value="lointaine">Liquidité lointaine</option>
             <option value="rfixe">R fixe</option>
           </select>
         </div>
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 py-2">
           <span class="text-white text-xs cursor-help border-b border-dotted border-gray-600"
                 title="Mode R fixe : cible directe. Mode liquidité lointaine : repli si aucune liquidité au-delà de TP2 (ou sous TP2).">R fixe / repli (× R)</span>
           <input v-model.number="tp3Rfixe" type="number" :step="0.5" :min="3" :max="10"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
         </div>
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 py-2">
           <span class="text-white text-xs">Trailing stop après TP2</span>
           <button @click="trailingOn = !trailingOn"
             :class="trailingOn ? 'bg-emerald-500' : 'bg-gray-600'"
@@ -89,38 +89,28 @@
               class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform" />
           </button>
         </div>
-        <div v-if="trailingOn" class="flex items-center justify-between gap-4">
+        <div v-if="trailingOn" class="flex items-center justify-between gap-4 py-2">
           <span class="text-white text-xs">Distance du trailing (× R)</span>
           <input v-model.number="trailingR" type="number" :step="0.05" :min="0.1" :max="1"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
         </div>
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 py-2">
           <span class="text-white text-xs cursor-help border-b border-dotted border-gray-600"
                 title="Ventes partielles : part du lot vendue à chaque palier (unipanel). Le solde sort à la cible, au trailing ou à BE selon le verdict. Σ = 100 %.">Vente à TP1 (%)</span>
           <input v-model.number="fracTp1" type="number" :step="5" :min="0" :max="100"
-            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
+            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
         </div>
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 py-2">
           <span class="text-white text-xs">Vente à TP2 (%)</span>
           <input v-model.number="fracTp2" type="number" :step="5" :min="0" :max="100"
-            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
+            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
         </div>
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-4 py-2 last:pb-0">
           <span class="text-white text-xs">Solde à TP3 (%)</span>
           <input v-model.number="fracTp3" type="number" :step="5" :min="0" :max="100"
-            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 transition-all appearance-none" />
+            class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
         </div>
       </div>
-
-      <p class="text-[11px] text-white leading-relaxed">
-        TP1 défaut 0,6 (borné 0,2-1,5) · TP2 défaut 2 (1,0-4,0) · TP3 liquidité lointaine
-        (EQH/PDH/PWH la plus lointaine) ou R fixe 3-10, avec repli croisé — toujours
-        TP1 &lt; TP2 &lt; R fixe. Trailing stop après TP2 : stop = extrême post-TP2 − k×R
-        (k 0,1-1, défaut 0,5), sortie au premier de trailing / TP3 / expiration —
-        inactif par défaut, à mesurer par le re-jeu. Ventes partielles 50/30/20
-        (Σ = 100 %) : le capital simulé compose le R pondéré. Effet au prochain
-        armement.
-      </p>
     </div>
 
     <!-- Action unique : registre + paramètres moteur -->

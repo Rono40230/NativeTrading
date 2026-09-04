@@ -1,13 +1,8 @@
 /**
  * Fonctions pures des camemberts des cartes stratégies du dashboard —
- * répartitions (nombre de trades), classements (pips) et rendu des légendes.
+ * répartitions (nombre de trades), classements ($) et rendu des légendes.
  * Extraites de DashboardStrategiesBlocs.vue (limite 600 lignes, pre-commit).
  */
-/** Trade fermé rempli tel que calculé par les cartes (voir DashboardStrategiesBlocs). */
-export interface TradeJour {
-  id: string; asset: string; tf: string; palier: string; pips: number
-}
-
 export interface PartCamembert {
   label: string
   n: number
@@ -17,9 +12,9 @@ export interface PartCamembert {
 
 export interface PartClassement {
   label: string
-  /** Pips signés de la catégorie (les négatifs n'ont pas de tranche). */
-  pips: number
-  /** Part en % des pips POSITIFS totaux. */
+  /** Valeur signée ($) de la catégorie (les négatifs n'ont pas de tranche). */
+  valeur: number
+  /** Part en % des valeurs POSITIVES totales. */
   part: number
 }
 
@@ -37,9 +32,9 @@ export function couleurAsset(asset: string): string {
 }
 
 /// Répartition : nombre de trades par catégorie, parts égales à la circonférence.
-export function repartition(
-  trades: (TradeJour & { fermeLe: number })[],
-  cle: (t: TradeJour & { fermeLe: number }) => string,
+export function repartition<T>(
+  trades: T[],
+  cle: (t: T) => string,
 ): PartCamembert[] {
   const par = new Map<string, number>()
   for (const t of trades) par.set(cle(t), (par.get(cle(t)) ?? 0) + 1)
@@ -49,21 +44,22 @@ export function repartition(
     .sort((a, b) => b.n - a.n)
 }
 
-/// Classement : Σ pips signés par catégorie — les positifs portent des
+/// Classement : Σ valeur signée ($) par catégorie — les positifs portent des
 /// tranches proportionnelles à leur part des gains totaux.
-export function classement(
-  trades: (TradeJour & { fermeLe: number })[],
-  cle: (t: TradeJour & { fermeLe: number }) => string,
+export function classement<T>(
+  trades: T[],
+  cle: (t: T) => string,
+  valeur: (t: T) => number,
 ): PartClassement[] {
   const par = new Map<string, number>()
-  for (const t of trades) par.set(cle(t), (par.get(cle(t)) ?? 0) + t.pips)
+  for (const t of trades) par.set(cle(t), (par.get(cle(t)) ?? 0) + valeur(t))
   const totalGains = [...par.values()].filter(v => v > 0).reduce((a, b) => a + b, 0)
   return [...par.entries()]
     .sort((a, b) => b[1] - a[1])
-    .map(([label, pips]) => ({
+    .map(([label, val]) => ({
       label,
-      pips,
-      part: totalGains > 0 && pips > 0 ? (pips / totalGains) * 100 : 0,
+      valeur: val,
+      part: totalGains > 0 && val > 0 ? (val / totalGains) * 100 : 0,
     }))
 }
 
@@ -77,15 +73,15 @@ export function totalParts(parts: PartCamembert[]): number {
   return parts.reduce((n, p) => n + p.n, 0)
 }
 
-/// Lignes de légende d'un classement pips. Deux garanties :
+/// Lignes de légende d'un classement ($). Deux garanties :
 /// 1. au-delà de 4 catégories, une ligne « autres » absorbe les cachées —
 ///    les lignes somment donc TOUJOURS au total (centre du donut) ;
 /// 2. arrondi par plus grand reste — jamais d'écart ±1 par arrondi.
-export function lignesClassement(parts: PartClassement[], n = 4): { label: string; pips: number; autres: boolean }[] {
+export function lignesClassement(parts: PartClassement[], n = 4): { label: string; valeur: number; autres: boolean }[] {
   const affiches = parts.slice(0, n)
-  const caches = parts.slice(n).reduce((s, p) => s + p.pips, 0)
+  const caches = parts.slice(n).reduce((s, p) => s + p.valeur, 0)
   const entrees: { label: string; exact: number; autres: boolean }[] = [
-    ...affiches.map(p => ({ label: p.label, exact: p.pips, autres: false })),
+    ...affiches.map(p => ({ label: p.label, exact: p.valeur, autres: false })),
   ]
   if (parts.length > n) entrees.push({ label: 'autres', exact: caches, autres: true })
   const arrondis = entrees.map(e => Math.round(e.exact))
@@ -102,6 +98,6 @@ export function lignesClassement(parts: PartClassement[], n = 4): { label: strin
     }
   }
   return entrees
-    .map((e, i) => ({ label: e.label, pips: arrondis[i], autres: e.autres }))
-    .filter(l => !l.autres || l.pips !== 0)
+    .map((e, i) => ({ label: e.label, valeur: arrondis[i], autres: e.autres }))
+    .filter(l => !l.autres || l.valeur !== 0)
 }
