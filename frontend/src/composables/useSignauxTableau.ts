@@ -137,7 +137,7 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
     const distanceAbs = Math.abs(cible - base)
     const pips = (distanceAbs / param.taille_pip).toFixed(1)
     const pts = (distanceAbs / (param.taille_pip / param.pip_to_points)).toFixed(0)
-    return `(${pips} pips | ${pts} pts)`
+    return `(${pts} pts · ${pips} pips)`
   }
 
   async function charger() {

@@ -33,26 +33,19 @@
         </div>
       </div>
 
-      <!-- Courbe du capital simulé ($) — pleine largeur, survol = valeur -->
+      <!-- Courbe du capital simulé ($) — pleine largeur, survol = valeur.
+           Bicolore au capital de départ (CourbeCapital) : verte au-dessus
+           de la ligne pointillée, rouge en dessous. -->
       <div class="relative h-16 -mx-1" @mouseleave="survolCapital = null">
-        <svg
+        <CourbeCapital
           v-if="b.capital && b.capital.points.length > 0"
-          :viewBox="`0 0 ${LARGEUR} ${HAUTEUR}`"
-          preserveAspectRatio="none"
-          class="w-full h-full"
-        >
-          <polyline
-            :points="pointsCapital(b)"
-            fill="none"
-            stroke="#60a5fa"
-            stroke-width="1.5" vector-effect="non-scaling-stroke"
-            stroke-linejoin="round" stroke-linecap="round"
-          />
-        </svg>
+          :capital="b.capital"
+          :id-bloc="b.id"
+        />
         <!-- Zones de survol : une par clôture, ancrées sur la courbe -->
         <div v-if="b.capital && b.capital.points.length > 0" class="absolute inset-0">
           <div
-            v-for="(z, i) in zonesCapital(b)"
+            v-for="(z, i) in zonesCapital(b.capital)"
             :key="b.id + '-zcap' + i"
             class="absolute w-3 h-4 -translate-x-1/2 -translate-y-1/2"
             :style="{ left: z.gauche, top: z.haut }"
@@ -231,6 +224,8 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { http } from '@/services/http.client'
+import CourbeCapital from './CourbeCapital.vue'
+import { zonesCapital, type PointCapital } from '@/composables/useCourbeCapital'
 import {
   PALETTE as _PALETTE, repartition, classement, couleurTf, couleurAsset,
   decallage, totalParts, lignesClassement,
@@ -304,8 +299,6 @@ interface SignalApi {
   ferme_le: number | null
 }
 
-const LARGEUR = 100
-const HAUTEUR = 32
 const HIST_H = 30
 const NB_JOURS = 14
 
@@ -317,27 +310,11 @@ const signaux = ref<SignalApi[]>([])
 const survolJour = ref<{ bloc: string; jour: JourHistogramme; x: number; y: number } | null>(null)
 
 /// Survol d'un point de la courbe capital (tooltip, ancré en viewport).
-const survolCapital = ref<{ bloc: string; point: CapitalApi['points'][number]; x: number; y: number } | null>(null)
+const survolCapital = ref<{ bloc: string; point: PointCapital; x: number; y: number } | null>(null)
 
-function survolPointCapital(e: MouseEvent, bloc: string, z: { point: CapitalApi['points'][number] }) {
+function survolPointCapital(e: MouseEvent, bloc: string, z: { point: PointCapital }) {
   const r = (e.target as Element).getBoundingClientRect()
   survolCapital.value = { bloc, point: z.point, x: r.left + r.width / 2, y: r.top }
-}
-
-/// Zones de survol de la courbe capital : une par clôture, positionnées en %
-/// du conteneur (même géométrie que pointsCapital — SVG étiré « none »).
-function zonesCapital(b: Bloc): { gauche: string; haut: string; point: CapitalApi['points'][number] }[] {
-  if (!b.capital) return []
-  const serie = [b.capital.capital_depart, ...b.capital.points.map(p => p.capital_apres)]
-  const min = Math.min(...serie)
-  const max = Math.max(...serie)
-  const amplitude = max - min || 1
-  const n = serie.length
-  return b.capital.points.map((p, i) => {
-    const x = n > 1 ? ((i + 1) / (n - 1)) * LARGEUR : 0
-    const y = HAUTEUR - 2 - ((p.capital_apres - min) / amplitude) * (HAUTEUR - 4)
-    return { gauche: `${(x / LARGEUR) * 100}%`, haut: `${(y / HAUTEUR) * 100}%`, point: p }
-  })
 }
 
 /// Ancrage fixed du tooltip capital : centré, au-dessus (retourné dessous si
@@ -514,24 +491,6 @@ function fmtDollarsCourt(v: number): string {
   const a = Math.abs(v)
   const corps = a >= 1000 ? `${(a / 1000).toFixed(a >= 10_000 ? 0 : 1).replace('.', ',')}k` : `${Math.round(a)}`
   return `${v > 0 ? '+' : v < 0 ? '−' : ''}${corps} $`
-}
-
-/// Points SVG de la courbe capital (bleue) : départ + une valeur par clôture,
-/// échelle $ propre (min→max de la série), x aligné sur la courbe R.
-function pointsCapital(b: Bloc): string {
-  if (!b.capital) return ''
-  const serie = [b.capital.capital_depart, ...b.capital.points.map(p => p.capital_apres)]
-  const min = Math.min(...serie)
-  const max = Math.max(...serie)
-  const amplitude = max - min || 1
-  const n = serie.length
-  return serie
-    .map((v, j) => {
-      const x = n > 1 ? (j / (n - 1)) * LARGEUR : 0
-      const y = HAUTEUR - 2 - ((v - min) / amplitude) * (HAUTEUR - 4)
-      return `${x.toFixed(2)},${y.toFixed(2)}`
-    })
-    .join(' ')
 }
 
 async function charger() {

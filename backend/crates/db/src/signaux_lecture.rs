@@ -13,7 +13,11 @@ pub struct MfeSignalSql {
     pub direction: String,
     pub prix_entree: f64,
     pub stop_loss: f64,
-    pub cree_le: i64,
+    /// Début de la VIE du trade (remplissage) — jamais l'émission : pendant
+    /// l'attente du retest, le prix court sans qu'aucun trade soit ouvert
+    /// (bug MFE gonflée découvert le 04/09 — BTC : +5,4R affichés pour
+    /// +1,5R réels après 169 min d'attente).
+    pub debut_vie: i64,
     pub ferme_le: i64,
 }
 
@@ -111,10 +115,12 @@ impl Database {
             .collect::<Vec<_>>()
             .join(",");
         let sql = format!(
-            "SELECT id, asset, timeframe, direction, prix_entree, stop_loss, cree_le, ferme_le
+            "SELECT id, asset, timeframe, direction, prix_entree, stop_loss,
+                    heure_entree AS debut_vie, ferme_le
              FROM signaux
              WHERE statut = 'Fermé'
                AND LOWER(verdict) IN ('sl', 'sl+be')
+               AND heure_entree IS NOT NULL
                AND ferme_le IS NOT NULL
                AND id IN ({bornes})"
         );
@@ -132,7 +138,7 @@ impl Database {
                 direction: r.get("direction"),
                 prix_entree: r.get("prix_entree"),
                 stop_loss: r.get("stop_loss"),
-                cree_le: r.get("cree_le"),
+                debut_vie: r.get("debut_vie"),
                 ferme_le: r.get::<Option<i64>, _>("ferme_le").unwrap_or(0),
             })
             .collect())

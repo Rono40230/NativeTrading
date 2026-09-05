@@ -32,6 +32,7 @@ pub mod rockets_feedback_trader;
 pub mod rockets_features;
 pub mod signaux;
 pub mod analyses_snapshots;
+pub mod journal_bord;
 pub mod signaux_capital;
 pub mod strategies;
 pub mod signaux_palier;

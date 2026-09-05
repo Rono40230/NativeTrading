@@ -172,6 +172,34 @@
       <p v-else class="text-xs text-white py-4 text-center">Aucune clôture</p>
     </div>
 
+    <!-- Heatmap heure × jour : où le $ se gagne par créneau horaire -->
+    <div class="glass-card p-3">
+      <p class="text-xs font-semibold text-white mb-2" title="Contribution $ des clôtures par créneau horaire (heure locale) — vert = gains, rouge = pertes, intensité ∝ |$| de la case. Survol = détail.">🗓️ Heatmap heure × jour</p>
+      <div v-if="a.heatmap.length" class="overflow-x-auto">
+        <table class="text-[9px] font-mono border-separate" style="border-spacing: 1px">
+          <thead>
+            <tr class="text-white/50">
+              <th></th>
+              <th v-for="h in 24" :key="h" class="w-6 text-center font-normal">{{ h - 1 }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(nom, j) in JOURS" :key="nom">
+              <td class="text-white/60 pr-1 whitespace-nowrap">{{ nom }}</td>
+              <td v-for="h in 24" :key="h" class="p-0">
+                <div
+                  class="h-4 rounded-sm"
+                  :style="styleCase(a.heatmap.find(c => c.jour === j && c.heure === h - 1))"
+                  :title="titreCase(a.heatmap.find(c => c.jour === j && c.heure === h - 1), j, h - 1)"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p v-else class="text-xs text-white py-3 text-center">Aucune clôture encore</p>
+    </div>
+
     <!-- Évolution jour après jour : snapshots quotidiens + avis IA archivés -->
     <div class="glass-card p-3">
       <p class="text-xs font-semibold text-white mb-2" title="Un snapshot par jour, écrit au premier calcul du rapport — l'avis IA du jour est archivé avec lui (survit aux redémarrages)">📈 Évolution jour après jour</p>
@@ -278,7 +306,7 @@ import { computed, ref, watch } from 'vue'
 import {
   chargerAnalyse, chargerHistoriqueAnalyses, fmtDollars, fmtR, couleurVerdict, genererAnalyseIa,
   type AnalyseStrategie, type PeriodeAnalyse, type CategorieAnalyse, type AnalyseIa,
-  type SnapshotAnalyse,
+  type SnapshotAnalyse, type CaseHeatmap,
 } from '@/composables/useAnalyses'
 
 const props = defineProps<{ id: string }>()
@@ -364,6 +392,23 @@ watch(() => props.id, () => {
   ia.value = null
   iaErreur.value = ''
 })
+
+// ── Heatmap heure × jour (§14) ───────────────────────────────────────────────
+const JOURS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const MAX_CASE = computed(() => Math.max(...(a.value?.heatmap ?? []).map(c => Math.abs(c.dollars)), 1))
+
+/// Couleur d'une case : intensité ∝ |$| relatif au max, teinte par signe.
+function styleCase(c: CaseHeatmap | undefined): Record<string, string> {
+  if (!c || c.trades === 0) return { background: 'rgba(255,255,255,0.04)' }
+  const intensite = Math.min(1, Math.abs(c.dollars) / MAX_CASE.value)
+  const alpha = 0.15 + intensite * 0.7
+  return { background: c.dollars >= 0 ? `rgba(52,211,153,${alpha})` : `rgba(248,113,113,${alpha})` }
+}
+
+function titreCase(c: CaseHeatmap | undefined, jour: number, heure: number): string {
+  if (!c) return `${JOURS[jour]} ${heure}h — aucune clôture`
+  return `${JOURS[jour]} ${heure}h — ${fmtDollars(c.dollars)} · ${c.trades} clôture(s)`
+}
 
 // ── Historique quotidien (§14) ────────────────────────────────────────────────
 const historique = ref<SnapshotAnalyse[]>([])

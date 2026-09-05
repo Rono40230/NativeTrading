@@ -1,14 +1,20 @@
-//! Backfill hiérarchisé des actions US (étape A2, 31/08).
+//! Backfill hiérarchisé des actions US (étape A2, 31/08 — revu 05/09).
 //!
-//! Quota Tiingo gratuit — MESURÉ le 31/08 : ~65 requêtes/HEURE (le cap
-//! horaire mord avant le journalier) + garde journalière à 900. Rythme :
-//! lots de 50 toutes les 65 min → univers complet en ~5-6 jours, puis
-//! tournante de rafraîchissement. Priorité :
-//! 1. les tickers PRIORITAIRES sans bougies (noyau liquide — résultats de
-//!    trend template exploitables dès le premier jour),
-//! 2. le reste de l'univers sans bougies (marché couvert en ~6 jours),
-//! 3. en tournante, le rafraîchissement des tickers déjà backfillés
-//!    (les moins récents d'abord).
+//! Quota Tiingo gratuit — limite DÉCISIVE mesurée le 05/09 : 500 SYMBOLES
+//! UNIQUES par mois calendaire (redemander le même ticker dans le mois ne
+//! re-consomme pas) ; garde-fous de requêtes : ~65/h (marge 55), 900/j.
+//! Conséquence : l'univers actif est plafonné (défaut 450, recalcul
+//! `recalculer_univers`) pour que rafraîchissement quotidien + entrants
+//! narratifs tiennent dans les 500. Priorité de la file :
+//! 1. les tickers PRIORITAIRES sans bougies (noyau liquide),
+//! 2. les pionniers NARRATIFS sans bougies (table `narratifs` — le quota
+//!    va d'abord aux zones à décollages, décision 05/09),
+//! 3. le reste sans bougies par ordre alphabétique,
+//! 4. en tournante, le rafraîchissement des déjà backfillés (les moins
+//!    récents d'abord — auto-répare la fraîcheur après une saturation).
+//! Un ticker dont Tiingo répond VIDE est marqué 'sans_donnees' et n'est
+//! plus jamais retenté (delistings — sinon ils empoisonnent la tête de
+//! file et brûlent le budget pour rien).
 //! Historique initial : 400 jours (MM200 + 1 mois + fenêtre 52 semaines).
 
 use actix_web::{web, HttpResponse, Responder};
@@ -161,6 +167,7 @@ pub async fn backfill_lot(db: &Arc<Database>, taille: usize) -> serde_json::Valu
     }
     let mut n_nouveaux = 0usize;
     let mut n_rafraichis = 0usize;
+    let mut n_sans_donnees = 0usize;
     let mut echecs = 0usize;
     let debut_400j = date_debut_400j();
 
@@ -213,6 +220,9 @@ pub async fn backfill_lot(db: &Arc<Database>, taille: usize) -> serde_json::Valu
                     .map(|b| (b.ts, b.open, b.high, b.low, b.close, b.volume))
                     .collect();
                 if db.inserer_bougies_actions(ticker, &lignes).await.is_ok() {
+                    // Un 'sans_donnees' qui finit par répondre (symbole
+                    // réattribué, IPO qui prend de l'âge) redevient actif.
+                    let _ = db.maj_etat_ticker(ticker, "actif").await;
                     if deja_backfille {
                         n_rafraichis += 1;
                     } else {
@@ -222,7 +232,13 @@ pub async fn backfill_lot(db: &Arc<Database>, taille: usize) -> serde_json::Valu
                     echecs += 1;
                 }
             }
-            Ok(_) => {} // ticker sans données (delisting…) — pas une erreur
+            Ok(_) => {
+                // Réponse 200 vide : Tiingo n'a RIEN pour ce ticker
+                // (delisting, symbole mort). Marqué pour ne plus jamais
+                // consommer de budget — sinon il revient en tête de file.
+                let _ = db.maj_etat_ticker(ticker, "sans_donnees").await;
+                n_sans_donnees += 1;
+            }
             Err(_) => {
                 echecs += 1;
                 echecs_consecutifs += 1;
@@ -241,11 +257,12 @@ pub async fn backfill_lot(db: &Arc<Database>, taille: usize) -> serde_json::Valu
     let (total, avec) = db.avancement_backfill().await.unwrap_or((0, 0));
 
     tracing::info!(
-        "🚀 Backfill actions : {n_nouveaux} nouveaux, {n_rafraichis} rafraîchis, {echecs} échecs — univers {avec}/{total}"
+        "🚀 Backfill actions : {n_nouveaux} nouveaux, {n_rafraichis} rafraîchis, {n_sans_donnees} sans données (marqués), {echecs} échecs — univers {avec}/{total}"
     );
     serde_json::json!({
         "nouveaux": n_nouveaux,
         "rafraichis": n_rafraichis,
+        "sans_donnees": n_sans_donnees,
         "echecs": echecs,
         "requetes": utilisees,
         "quota_restant_jour": restant_jour - utilisees,
@@ -255,13 +272,66 @@ pub async fn backfill_lot(db: &Arc<Database>, taille: usize) -> serde_json::Valu
 }
 
 /// Boucle de fond : un lot au boot, puis un lot de 50 toutes les 65 min
-/// (cap horaire Tiingo ~65 req/h — plein régime = ~1 100/j borné à 900).
+/// (cap horaire ~65 req/h — plein régime = ~1 100/j borné à 900).
 pub async fn boucle_backfill(db: Arc<Database>) {
     tracing::info!("🚀 Backfill actions armé (boot + lot de {LOT_DEFAUT} toutes les 65 min)");
     backfill_lot(&db, LOT_DEFAUT).await;
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(65 * 60)).await;
         backfill_lot(&db, LOT_DEFAUT).await;
+    }
+}
+
+/// Bornes de l'univers depuis la table `configuration` (réglables par le
+/// propriétaire sans recompiler) — défauts calibrés le 05/09.
+async fn lire_bornes_univers(db: &Database) -> db::univers_actions::BornesUnivers {
+    let defaut = db::univers_actions::BornesUnivers::default();
+    db::univers_actions::BornesUnivers {
+        taille_max: db
+            .lire_config("univers_taille_max").await.ok().flatten()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(defaut.taille_max),
+        dv_min: db
+            .lire_config("univers_dv_min").await.ok().flatten()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(defaut.dv_min),
+        prix_min: db
+            .lire_config("univers_prix_min").await.ok().flatten()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(defaut.prix_min),
+        seances_min: db
+            .lire_config("univers_seances_min").await.ok().flatten()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(defaut.seances_min),
+    }
+}
+
+/// Recalcule le périmètre actif de l'univers avec les bornes courantes.
+pub async fn recalculer_univers(db: &Arc<Database>) -> (usize, usize) {
+    let bornes = lire_bornes_univers(db).await;
+    match db.recalculer_univers(PRIORITAIRES, &bornes).await {
+        Ok((actifs, ecartes)) => {
+            tracing::info!(
+                "🚀 Univers actions recalculé : {actifs} actifs (plafond {}), {ecartes} écartés — bornes dv≥{}/j, px≥{}, séances≥{}",
+                bornes.taille_max, bornes.dv_min as i64, bornes.prix_min, bornes.seances_min
+            );
+            (actifs, ecartes)
+        }
+        Err(e) => {
+            tracing::error!("🚀 Recalcul univers échoué : {e}");
+            (0, 0)
+        }
+    }
+}
+
+/// Boucle de fond : recalcul au boot puis toutes les 24 h — les bougies
+/// rafraîchées pendant la nuit requalifient le périmètre du lendemain.
+pub async fn boucle_recalcul_univers(db: Arc<Database>) {
+    tracing::info!("🚀 Recalcul univers actions armé (boot + toutes les 24 h)");
+    recalculer_univers(&db).await;
+    loop {
+        tokio::time::sleep(std::time::Duration::from_secs(24 * 3600)).await;
+        recalculer_univers(&db).await;
     }
 }
 

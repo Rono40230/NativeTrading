@@ -202,6 +202,26 @@ export function formatMfe(mfeR: number | null): string {
   return `${sign}${mfeR.toFixed(2)}R avant SL`
 }
 
+/** Durée de VIE de la position : du remplissage de l'ordre à la fermeture
+ *  (« 31 s », « 2 mn 5 s », « 2 h 13 mn », « 1 j 3 h »). L'attente de
+ *  remplissage (émission → entrée touchée) n'est pas de la vie en position.
+ *  Straddle : de l'heure E (pose des jambes) à la clôture de la passe. */
+export function formatDuree(debut: number | null | undefined, fin: number | null | undefined): string {
+  if (debut === null || debut === undefined || !fin) return '—'
+  const d = Math.max(0, Math.floor(fin - debut))
+  if (d < 60) return `${d} s`
+  if (d < 3600) {
+    const s = d % 60
+    return s ? `${Math.floor(d / 60)} mn ${s} s` : `${Math.floor(d / 60)} mn`
+  }
+  if (d < 86400) {
+    const mn = Math.floor((d % 3600) / 60)
+    return mn ? `${Math.floor(d / 3600)} h ${mn} mn` : `${Math.floor(d / 3600)} h`
+  }
+  const h = Math.floor((d % 86400) / 3600)
+  return h ? `${Math.floor(d / 86400)} j ${h} h` : `${Math.floor(d / 86400)} j`
+}
+
 /** Ordres posés jamais remplis : SMC = entrée non touchée (heure_entree
  *  vide) ; Straddle = annonce pas encore arrivée (heure E future).
  *  Rockets = aucun (position ouverte dès le signal). */

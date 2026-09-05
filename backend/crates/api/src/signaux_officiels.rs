@@ -199,7 +199,7 @@ async fn formater_message(
         }
         let alpha = s.score >= 9;
         let msg = format!(
-            "{icone} {nom}\n{symbole} — classement {points}/10{alpha}\nLot = {qty:.4} ({risque_euros:.0}$ risqués — {profil})\n\nOrdre stop-limit : achat au-delà de {entree:.4}$ (plafond {limite:.4}$)\nInvalidation : {sl:.4}$ (−{pct_stop:.1} %)\nAu R1 ({r1:.4}$) : vendre 50 % + trailing {trail:.0} %",
+            "{icone} {nom}\n{symbole} — classement {points}/10{alpha}\nLot = {qty:.2} ({risque_euros:.0}$ risqués — {profil})\n\nOrdre stop-limit : achat au-delà de {entree:.4}$ (plafond {limite:.4}$)\nInvalidation : {sl:.4}$ (−{pct_stop:.1} %)\nAu R1 ({r1:.4}$) : vendre 50 % + trailing {trail:.0} %",
             icone = crate::registre_strategies::MANIFESTES.iter().find(|m| m.id == id_strategie).map(|m| m.icone).unwrap_or("▪️"),
             nom = id_strategie,
             symbole = asset,

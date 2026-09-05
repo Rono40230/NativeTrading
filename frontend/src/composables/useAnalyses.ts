@@ -29,6 +29,15 @@ export interface ResumeJour {
   trades: number
 }
 
+/// Case de la heatmap heure × jour (contribution $ par créneau).
+export interface CaseHeatmap {
+  /** 0=lundi … 6=dimanche */
+  jour: number
+  heure: number
+  dollars: number
+  trades: number
+}
+
 /// Croisé asset × TF (bloc Timeframes du rapport).
 export interface ParAssetTf {
   asset: string
@@ -57,6 +66,7 @@ export interface AnalyseStrategie {
   assets: CategorieAnalyse[]
   tfs: CategorieAnalyse[]
   par_asset_tf: ParAssetTf[]
+  heatmap: CaseHeatmap[]
 }
 
 export interface ResumeStrategie {

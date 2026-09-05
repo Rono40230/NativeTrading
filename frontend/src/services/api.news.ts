@@ -4,7 +4,7 @@
  */
 import { http } from './http.client'
 import type {
-  AnnonceCalendrier, SentimentMarche, SentimentComposite,
+  AnnonceCalendrier, SentimentMarche,
 } from './api.types'
 
 export const newsApi = {
@@ -21,14 +21,4 @@ export const newsApi = {
     const res = await http.get('/api/sentiment/marche')
     return res.data
   },
-
-  async obtenirSentimentComposite(): Promise<SentimentComposite | null> {
-    try {
-      const res = await http.get('/api/sentiment/composite', { timeout: 8000 })
-      return res.data
-    } catch {
-      return null
-    }
-  },
-
 }

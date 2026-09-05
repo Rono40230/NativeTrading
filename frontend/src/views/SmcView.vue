@@ -38,7 +38,9 @@
         :tri-dir="historique.triDir.value"
         :mfe="historique.mfeParId.value"
         :lots="historique.lotParId.value"
+        :journal-comptes="historique.journalComptes.value"
         @trier-par="historique.trierPar"
+        @journal-maj="historique.charger()"
       />
     </template>
   </StrategyShell>

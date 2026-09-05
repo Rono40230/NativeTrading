@@ -18,7 +18,6 @@ export type {
   CouvertureDonnees, ResultatCollecteItem,
   PatternHoraire, ReponsePatternsVolatilite,
   StraddleCreneau, ReponseAnalyseStraddle,
-  SentimentComposite,
 } from './api.types'
 
 import type {

@@ -93,12 +93,6 @@ export interface AnnonceCalendrier {
   est_passe?: boolean
 }
 
-export interface FearGreedData {
-  valeur: number
-  label: string
-  categorie: 'extreme_fear' | 'fear' | 'neutral' | 'greed' | 'extreme_greed'
-}
-
 export interface EntiteSentiment {
   nom: string
   prix: number
@@ -119,23 +113,10 @@ export interface SentimentMarche {
   vix: number | null
 }
 
-/// Sentiment composite 0-100 par classe d'actifs (GET /api/sentiment/composite).
-export interface SentimentComposite {
-  global: number | null
-  crypto: number | null
-  forex: number | null
-  metaux: number | null
-  indices: number | null
-  rsi_btc: number | null
-  rsi_eth: number | null
-  rsi_xau: number | null
-  breadth_pct: number | null
-  fear_greed: number | null
-  vix_score: number | null
-  vix_brut: number | null
-  /// CNN Fear & Greed (référence actions US) — jauge globale.
-  cnn_fg: number | null
-}
+/// Sentiment composite 0-100 par classe — retiré de l'UI le 05/09 (décision
+/// propriétaire : jauge fear & greed + mini-jauges crypto/forex/métaux/indices
+/// sans intérêt). Le composite reste calculé côté backend : il alimente le
+/// filtre de sentiment des signaux SMC (/api/sentiment/composite = inspection).
 
 export interface TraductionReponse {
   texte_fr: string

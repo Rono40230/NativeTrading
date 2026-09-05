@@ -50,6 +50,11 @@ un bug prompts vision, zéro test frontend.
 - [x] **Commentaires mensongers** : `main.rs` (endpoint `/api/pre_alertes` inexistant),
       commentaires d'endpoints fantômes `POST /api/data/collect` et
       `GET /api/worker/assets` supprimés, TODO `http.client.ts` retiré.
+- [x] **MFE calculée depuis l'émission au lieu du remplissage** (04/09, trouvé par le
+      propriétaire : « un SL ne peut pas suivre une excursion de +5,38R ») : pendant
+      l'attente du retest le prix court sans position ouverte — BTC M1 : +5,4R affichés
+      pour +1,5R réels après 169 min d'attente ; XAUUSD : +10,8R pour +0,4R. Fenêtre
+      corrigée = [heure_entree, ferme_le] (la vie du trade, rien d'autre).
 
 ### 2. Grand nettoyage — vers 0 dette, 0 code mort (audit 04/09) — ✅ FAIT le 04/09
 
@@ -89,8 +94,13 @@ tranchage ML (§11) ; les types composant `ReponseIndicators` ont été conserv�
 
 ### 3. Étape 5 — Résiduel : validation numérique du miroir MQL5
 
-- [ ] **EA dans le Strategy Tester** : backtest `smc_ea_v12.mq5` sur une paire/période de
-      référence (ex. XAU M15) et comparaison aux chiffres du replay Rust sur les mêmes bornes
+**Mode d'emploi livré** (04/09) : `docs/VALIDATION_MQL5.md` — procédure Strategy
+Tester (XAU M15, 2 mois, modélisation à noter), extraction de la référence Rust
+(`jq` sur `/api/smc/rejeu` ou binaire `replay_v12`), tolérances par métrique et
+méthode de traçage des divergences (arbitrage intrabar ≠ bug de miroir).
+
+- [ ] **EA dans le Strategy Tester** (action propriétaire) : backtest `smc_ea_v12.mq5`
+      selon le guide, comparaison aux chiffres du replay Rust sur les mêmes bornes
       (nombre de signaux, verdicts, R cumulé — écart attendu ≈ 0)
 - [ ] **Écart ≠ 0** : le tracer règle par règle jusqu'à la divergence (le miroir est la base
       de l'automatisation future des ordres — il doit être exact)
@@ -101,8 +111,12 @@ tranchage ML (§11) ; les types composant `ReponseIndicators` ont été conserv�
 
 ### 4. Gate 3 — Straddle en conditions réelles
 
-- [ ] Vérifier la journalisation des passes (table signaux, verdicts SL/BE/TS/TimeStop + R)
-- [ ] Bilan gate 3 : verdicts, R cumulé, comportement trailing sur les annonces
+- [x] **Journalisation vérifiée** (04/09) : 19 passes remplies complètes (verdict +
+      R net + prix de sortie + Telegram), 0 active orpheline.
+- [x] **Bilan gate 3 chiffré** (04/09) : 11 tp2 / 7 sl / 1 be — **R net +3,93R**,
+      58 % de passes gagnantes ; les 7 SL à −1,50R (jambe −1R + tampon, assumé) ;
+      trailing opérationnel (29 jambes ont armé TP2, verdicts tp2 verrouillant
+      jusqu'à +2,5R net). Fenêtre 27/08 → 04/09, annonces US + ouvertures DAX.
 - [ ] Décision propriétaire : passage Officielle ou ajustements
 - [ ] Si Officielle : activer le son Telegram (template prêt, dormant)
 - [ ] Rappel money management (décision 04/09) : une passe peut coûter jusqu'à −1,5R
@@ -110,6 +124,14 @@ tranchage ML (§11) ; les types composant `ReponseIndicators` ont été conserv�
 
 ### 5. SMC v12 — Surveillance production
 
+- [x] **Premier point de surveillance prod ↔ re-jeu** (04/09, 71 clôtures prod vs
+      135 re-jeu sur 02-04/09) : comptage aligné sur les remplis ; constat clé —
+      divergences de VERDICT sur M1 (XAGUSD M1 : prod +4,2R vs re-jeu −2,4R ;
+      XAUUSD M1 : prod ~0 vs re-jeu +3,3R) : la prod évalue la gestion au TICK,
+      le re-jeu rejoue des BARRES M1 (précédence conservatrice SL-d'abord dans
+      la minute) — limite structurelle connue du replay barre-vs-tick, à
+      documenter dans les métriques (pas un bug). SP500 M1 : −1R des deux côtés ✓.
+      Prochain point à ~2 semaines (règle 30 trades par couple).
 - [ ] **SP500 live** : après ~2 semaines, comparer la production réelle au replay (fréquence
       M15/M5, verdicts — règle 30 trades). Divergence marquée → étude calibration dédiée
       (profil actuel = miroir NAS100)
@@ -128,6 +150,30 @@ tranchage ML (§11) ; les types composant `ReponseIndicators` ont été conserv�
 
 ### 7. Décisions propriétaires en attente (à trancher, puis exécuter)
 
+- [x] **Jauges de sentiment retirées de l'UI** (05/09) : jauge Fear & Greed principale
+      + mini-jauges crypto/forex/métaux/indices supprimées (aucun intérêt propriétaire).
+      Chaîne front retirée proprement (store, service, types `SentimentComposite`/
+      `FearGreedData`). **Backend conservé** : le composite alimente le filtre de
+      sentiment des signaux SMC (alignement direction × sentiment, marquage
+      « Extreme » — `sentiment_filter`) ; `/api/sentiment/composite` reste en
+      inspection. Les listes de cours USA/Europe/MP/Cryptos + VIX restent affichées.
+- [x] **Rockets — sentiment sans veto macro (tranché 05/09)** : le point sentiment n'exige plus
+      `BTC prix > MM50 > MM200` (golden cross retardé qui privait TOUT l'univers crypto du point
+      en début de reprise — BTC +27 %/3 s. mais MM50 encore 0,9 % sous MM200 = 0/24 candidats).
+      Le sentiment = force relative pure (battre la référence sur 4 semaines). Le régime
+      individuel reste exigé par le critère « tendance » ; le risque pump reste couvert par
+      VCP/liquidité/stop −1R/trailing. Test live : 2 rockets ce soir-là (BNB, CAKE).
+- [x] **Univers actions par narratif + liquidité (tranché 05/09)** : le quota Tiingo
+      gratuit réel est **500 symboles uniques/mois** (mesuré — septembre épuisé, reprise
+      le 1ᵉʳ octobre). Décision : périmètre actif plafonné à **450** par liquidité
+      (dollar-volume ≥ 2 M$/j sur 63 séances, prix ≥ 5 $, ≥ 40 séances — réglables en
+      table `configuration` : `univers_taille_max`, `univers_dv_min`, `univers_prix_min`,
+      `univers_seances_min`) ; file de backfill = prioritaires → pionniers **narratifs**
+      (table `narratifs`, seed T1 électricité-IA/infra-IA/défense/space + T2 cycles +
+      T3 hypes — maintenue par le propriétaire, l'IA propose) → reste alphabétique ;
+      réponse Tiingo vide → état `sans_donnees` (jamais retenté — fin de la file
+      empoisonnée par les delistings). Recalcul quotidien (boot + 24 h). Compteur UI =
+      couverts/actifs (449/498 à froid, tend vers 450/450 en croisière).
 - [ ] **WR SMC et expirés** : les Expire comptent au dénominateur du WR du re-jeu (59 % avec,
       74 % sans) — même logique que les camemberts (expirés exclus) ?
 - [ ] **Routes diagnostics sans consommateur front** : `/api/smc/rejeu`, `/api/straddle/rejeu`,
@@ -179,8 +225,12 @@ chaque signal à l'émission (`signaux.llm_conviction/llm_raison` = NULL, reliqu
       replis de parse), ancrage sur les conventions actuelles ($ réels composés, R pondéré/net —
       jamais R de référence ni pips), et vérification que chaque prompt éditable reste
       synchrone avec les mécaniques du moteur qu'il décrit
-- [ ] Les définitions injectées (`smc_definition`, `straddle_definition`, `rockets_definition`)
-      doivent refléter l'armement actuel (H1 désarmé, TP réglables, tampon straddle)
+- [x] Les définitions injectées reflètent l'armement actuel (04/09) : `smc_definition`
+      actualisée (TP1/TP2 réglables, TP3 lointaine/R fixe + repli croisé, trailing
+      optionnel, ventes partielles 50/30/20, H1 désarmé, périmètre par couple) ;
+      `straddle_definition` actualisée (moteur unifié : TP3 ±3R, verdicts TP3/TS/TP2+BE/
+      TP1+BE/SL/BE/Expire, comptabilité TP acquis, passe ≤ −1,5R assumée).
+      `rockets_definition` vérifiée — inchangée (mécaniques courantes).
 
 ### 10. Rockets — Extensions
 
@@ -226,9 +276,32 @@ vides (tables de feedback à 0 ligne depuis le pivot vers les moteurs détermini
 **Livré le 04/09** : badge R pondéré (référence en infobulle), camemberts/histogramme en
 dollars réels, badge straddle/rockets = R réalisé, MFE/Lot/tri des historiques.
 
-- [ ] **Trades individuels → points MT5** : aligner tooltips/historiques sur `_Point`
-      (digits du symbole, lu depuis la connexion MT5 sinon convention par asset) —
-      l'unité commune de l'étape 5 (§3)
+**Livré le 05/09** :
+- [x] **Historique — colonnes Ouvert le / Durée** : « Ouvert le » affiche le REMPLISSAGE
+      (l'ouverture réelle de la position) au lieu de l'émission — l'attente du retest
+      n'est pas de la vie en position (cas BTC 04/09 : émis 21:04, rempli 23:52:30,
+      mort 31 s plus tard) ; l'émission part en infobulle. Nouvelle colonne « Durée »
+      (vie de la position : remplissage → fermeture ; straddle : heure E → clôture de
+      la passe), triable, format 31 s / 2 mn 30 s / 2 h 13 mn / 1 j 3 h. Tri par défaut
+      et égalités alignés sur le remplissage (`formatDuree` testée, SMC+straddle via
+      table partagée).
+- [x] **Lot toujours en 2 décimales** (colonne Lot et partout), colonne Sortie réduite
+      au prix (±R redondant avec Palier max).
+- [x] **Courbe du capital bicolore** (cartes stratégies dashboard) : ligne pointillée
+      au capital de départ, courbe verte au-dessus / rouge en dessous (découpe SVG par
+      clip calé sur la ligne — géométrie partagée extraite dans `useCourbeCapital.ts`
+      + `CourbeCapital.vue`, parent repassé sous la limite 600 lignes du pré-audit).
+- [x] Libellés de la définition rockets alignés sur le code (surperformance = point
+      Sentiment, pas Tendance — erreur préexistante).
+
+- [x] **Trades individuels → points MT5** (04/09) : la convention par asset existait
+      déjà (`asset_params.pip_to_points`, peuplée : 100 métaux/BTC, 10 indices/forex —
+      déjà utilisée par le panneau risque et les alertes). Aligné : historique — la
+      mention du palier affiche désormais des **points MT5** (unité broker) au lieu
+      des pips ; tooltip des trades en cours = « pts d'abord, pips ensuite ». Les
+      messages Telegram restent aux niveaux en prix + lot (règle transverse) —
+      lecture MT5 des digits réels non nécessaire tant que les conventions
+      suivent le broker (à revoir seulement si un asset change de digits).
 - [ ] **Vigilance sizing** : `taille_pip`/`valeur_pip` alimentent le calcul des lots —
       tout chantier d'unités ne touche QUE l'affichage
 
@@ -245,8 +318,10 @@ dollars réels, badge straddle/rockets = R réalisé, MFE/Lot/tri des historique
       Endpoint `GET /api/analyses/{id}/historique` + carte « 📈 Évolution jour
       après jour » dans l'onglet (courbe du capital, 14 derniers jours :
       capital · hier $ · ΣR · confiance de l'avis en infobulle)
-- [ ] **Heatmap heure×jour** : contribution $ par créneau horaire (parcours naturel du
-      straddle) — réutilise le calcul des créneaux de volatilité
+- [x] **Heatmap heure×jour** (05/09) : contribution $ par créneau heure×jour dans
+      l'onglet Stratégie du rapport (cases lun→dim × heures, intensité = dollars,
+      infobulle trades + $) — `heatmap_hj` côté backend, réutilise le parcours des
+      clôtures.
 
 ### 15. Exécution réelle — la prochaine frontière
 
@@ -264,8 +339,12 @@ c'est le saut qualitatif.
 
 - [ ] **Export du rapport d'activité** (PDF/Markdown) — vraisemblablement l'intention
       initiale de `jspdf` (cf. nettoyage §2 : dépendance à retirer tant que non décidé)
-- [ ] **Journal de bord du propriétaire** : notes attachées aux trades (contexte, ressenti,
-      décision) — matière première pour l'analyse IA future
+- [x] **Journal de bord du propriétaire** (04/09) : table `journal_bord` (migration 0099 —
+      fil append-only horodaté par trade, suppression d'entrée possible), endpoints
+      `GET/POST /api/journal/{signal_id}` + `DELETE /api/journal/entree/{id}` +
+      `GET /api/journal/comptes`. UI : modale 📝 dans l'historique (colonne dédiée,
+      badge du nombre de notes, entrée par ⏎) — SMC et straddle. Matière première
+      posée pour l'analyse IA (§8 : l'analyste lira ces notes en contexte).
 - [ ] Agenda intelligent — créneaux de volatilité récurrents (Straddle IA) : calcul
       statistique heure×jour sur 24 mois M1 → endpoint → l'analyste propose armer/ignorer →
       créneaux armés = annonces synthétiques (démarrage en Observation)

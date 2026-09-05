@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { palierMax, labelPalierMax, formatR, classePalierMax } from '@/composables/useSignalFormat'
+import { palierMax, labelPalierMax, formatR, classePalierMax, formatDuree } from '@/composables/useSignalFormat'
 import { fmtDollars, fmtR } from '@/composables/useAnalyses'
 
 const base = {
@@ -64,5 +64,29 @@ describe('formateurs — jamais de « -0.0 » ni de « 0.0R » signé faux', () 
   it('fmtDollars : groupage français (espace fine U+202F sous Node) et − typographique', () => {
     expect(fmtDollars(2093)).toBe('2\u202f093 $')
     expect(fmtDollars(-93)).toBe('−93 $')
+  })
+})
+
+describe('formatDuree — vie de la position (remplissage → fermeture)', () => {
+  const T = 1_788_558_780 // 04/09 23:52:30 — remplissage du BTC du 04/09
+  it('31 secondes (le BTC mort au SL une minute après son remplissage)', () => {
+    expect(formatDuree(T, T + 31)).toBe('31 s')
+  })
+  it('minutes + secondes, puis minutes pleines', () => {
+    expect(formatDuree(T, T + 150)).toBe('2 mn 30 s')
+    expect(formatDuree(T, T + 120)).toBe('2 mn')
+  })
+  it('heures + minutes, puis heures pleines ; jours + heures', () => {
+    expect(formatDuree(T, T + 2 * 3600 + 13 * 60)).toBe('2 h 13 mn')
+    expect(formatDuree(T, T + 2 * 3600)).toBe('2 h')
+    expect(formatDuree(T, T + 27 * 3600)).toBe('1 j 3 h')
+  })
+  it('non rempli (null/undefined) ou non fermé → tiret', () => {
+    expect(formatDuree(null, T + 31)).toBe('—')
+    expect(formatDuree(undefined, T + 31)).toBe('—')
+    expect(formatDuree(T, null)).toBe('—')
+  })
+  it('fin avant début (horloge bosselée) → 0 s, jamais négatif', () => {
+    expect(formatDuree(T, T - 5)).toBe('0 s')
   })
 })

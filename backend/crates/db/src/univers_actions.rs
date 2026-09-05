@@ -26,6 +26,24 @@ pub struct TickerFiltre {
     pub exchange: String,
 }
 
+/// Bornes de sélection de l'univers liquide. Réglables par le propriétaire
+/// (table `configuration`) — défauts calibrés le 05/09 : plafond 450 =
+/// 500 symboles uniques/mois (quota Tiingo gratuit) moins QQQ, les
+/// entrants narratifs du mois et la marge d'aléa.
+#[derive(Debug, Clone, Copy)]
+pub struct BornesUnivers {
+    pub taille_max: usize,
+    pub dv_min: f64,
+    pub prix_min: f64,
+    pub seances_min: i64,
+}
+
+impl Default for BornesUnivers {
+    fn default() -> Self {
+        Self { taille_max: 450, dv_min: 2_000_000.0, prix_min: 5.0, seances_min: 40 }
+    }
+}
+
 impl Database {
     /// Insère/met à jour l'énumération. Les lignes marquées 'exclu' par le
     /// propriétaire ne sont jamais réactivées (le cure prime).
@@ -143,7 +161,9 @@ impl Database {
 
     // ── Sélection backfill (étape A2) ──────────────────────────────────────
 
-    /// Avancement du backfill : (total univers actif, avec bougies).
+    /// Avancement du backfill : (total univers actif, actifs avec bougies).
+    /// Ne compte que le périmètre actif — les 'ecarte'/'sans_donnees' sont
+    /// hors budget (décisions 05/09) et ne doivent pas polluer le compteur.
     pub async fn avancement_backfill(&self) -> Result<(usize, usize)> {
         let total: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM univers_actions WHERE etat = 'actif'",
@@ -152,7 +172,9 @@ impl Database {
         .await
         .unwrap_or(0);
         let avec: i64 = sqlx::query_scalar(
-            "SELECT COUNT(DISTINCT ticker) FROM bougies_actions",
+            "SELECT COUNT(*) FROM univers_actions u
+             WHERE u.etat = 'actif'
+               AND EXISTS (SELECT 1 FROM bougies_actions b WHERE b.ticker = u.ticker)",
         )
         .fetch_one(&self.pool)
         .await
@@ -161,7 +183,9 @@ impl Database {
     }
 
     /// Prochains tickers SANS bougies à backfiller : les prioritaires d'abord
-    /// (liste de liquidité fournie), puis le reste par ordre alphabétique.
+    /// (liste de liquidité fournie), puis les pionniers NARRATIFS (table
+    /// `narratifs` — le quota mensuel Tiingo va d'abord aux zones à
+    /// décollages, décision 05/09), puis le reste par ordre alphabétique.
     pub async fn tickers_sans_bougies(
         &self,
         prioritaires: &[&str],
@@ -192,7 +216,7 @@ impl Database {
                 "SELECT u.ticker FROM univers_actions u
                  WHERE u.etat = 'actif'
                    AND NOT EXISTS (SELECT 1 FROM bougies_actions b WHERE b.ticker = u.ticker)
-                   {} ORDER BY u.ticker LIMIT ?",
+                   {} ORDER BY EXISTS (SELECT 1 FROM narratifs n WHERE n.ticker = u.ticker) DESC, u.ticker LIMIT ?",
                 if out.is_empty() { String::new() } else { format!("AND u.ticker NOT IN ({bornes})") }
             );
             let rows = sqlx::query(&sql)
@@ -207,18 +231,139 @@ impl Database {
         Ok(out)
     }
 
-    /// Tickers DÉJÀ backfillés, les moins récemment rafraîchis d'abord
-    /// (MAX(ts) le plus ancien en tête) — tournante de rafraîchissement.
+    /// Tickers DÉJÀ backfillés du périmètre ACTIF, les moins récemment
+    /// rafraîchis d'abord (MAX(ts) le plus ancien en tête) — tournante de
+    /// rafraîchissement. Les 'ecarte' ne consomment plus de quota.
     pub async fn tickers_a_rafraichir(&self, limite: usize) -> Result<Vec<String>> {
         let rows = sqlx::query(
-            "SELECT ticker FROM bougies_actions GROUP BY ticker
-             ORDER BY MAX(ts) ASC LIMIT ?",
+            "SELECT b.ticker FROM bougies_actions b
+             JOIN univers_actions u ON u.ticker = b.ticker AND u.etat = 'actif'
+             GROUP BY b.ticker
+             ORDER BY MAX(b.ts) ASC LIMIT ?",
         )
         .bind(limite as i64)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(rows.iter().map(|r| r.get::<String, _>("ticker")).collect())
+    }
+
+    // ── Recalcul du périmètre actif (décisions 05/09) ────────────────────────
+
+    /// Recalcule le périmètre 'actif' de l'univers :
+    /// 1. parmi les COUVERTS, classement par dollar-volume moyen (63
+    ///    dernières séances) ; les `taille_max` meilleurs passant les bornes
+    ///    de liquidité deviennent 'actif', les autres couverts 'ecarte' ;
+    /// 2. parmi les NON couverts, restent 'actif' les prioritaires et les
+    ///    pionniers narratifs (la file de backfill) — le reste passe
+    ///    'ecarte' : fin de la couverture alphabétique du marché entier,
+    ///    le quota mensuel va d'abord aux zones à décollages ;
+    /// 3. les 'sans_donnees' ne sont jamais touchés (delistings — plus
+    ///    jamais retentés).
+    /// Retour : (actifs, écartés) après recalcul.
+    pub async fn recalculer_univers(
+        &self,
+        prioritaires: &[&str],
+        bornes: &BornesUnivers,
+    ) -> Result<(usize, usize)> {
+        // 1. Métriques de liquidité des couverts (fenêtre 63 séances).
+        let rows = sqlx::query(
+            "WITH recent AS (
+                 SELECT ticker, close, volume,
+                        ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY ts DESC) AS rn
+                 FROM bougies_actions
+             ),
+             dv AS (
+                 SELECT ticker, AVG(close * volume) AS dv, AVG(close) AS px, COUNT(*) AS n
+                 FROM recent WHERE rn <= 63 GROUP BY ticker
+             )
+             SELECT ticker, dv, px, n FROM dv",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        struct Candidat {
+            ticker: String,
+            dv: f64,
+            px: f64,
+            n: i64,
+        }
+        let mut eligibles: Vec<Candidat> = rows
+            .iter()
+            .filter_map(|r| {
+                let c = Candidat {
+                    ticker: r.get::<String, _>("ticker"),
+                    dv: r.get::<f64, _>("dv"),
+                    px: r.get::<f64, _>("px"),
+                    n: r.get::<i64, _>("n"),
+                };
+                (c.n >= bornes.seances_min
+                    && c.px >= bornes.prix_min
+                    && c.dv >= bornes.dv_min)
+                .then_some(c)
+            })
+            .collect();
+        eligibles.sort_by(|a, b| b.dv.total_cmp(&a.dv));
+        eligibles.truncate(bornes.taille_max);
+
+        // 2. File : non couverts prioritaires ou narratifs (le IN des
+        //    prioritaires est échappé — même patron que tickers_sans_bougies).
+        let bornes_prio = prioritaires
+            .iter()
+            .map(|t| format!("'{}'", t.replace('\'', "''")))
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql_file = format!(
+            "SELECT u.ticker FROM univers_actions u
+             WHERE NOT EXISTS (SELECT 1 FROM bougies_actions b WHERE b.ticker = u.ticker)
+               AND (EXISTS (SELECT 1 FROM narratifs n WHERE n.ticker = u.ticker)
+                    OR u.ticker IN ({bornes_prio}))"
+        );
+        let file_rows = sqlx::query(&sql_file)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+        let file: Vec<String> = file_rows.iter().map(|r| r.get::<String, _>("ticker")).collect();
+
+        // 3. Reset massif puis réactivation (jamais les 'sans_donnees').
+        sqlx::query("UPDATE univers_actions SET etat = 'ecarte' WHERE etat != 'sans_donnees'")
+            .execute(&self.pool)
+            .await
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        let mut actifs: Vec<String> = eligibles.iter().map(|c| c.ticker.clone()).collect();
+        actifs.extend(file);
+        self.maj_etat_tickers(&actifs, "actif").await?;
+
+        let (n_actifs, n_ecartes) = sqlx::query("SELECT
+                SUM(CASE WHEN etat = 'actif' THEN 1 ELSE 0 END),
+                SUM(CASE WHEN etat = 'ecarte' THEN 1 ELSE 0 END)
+             FROM univers_actions")
+            .fetch_one(&self.pool)
+            .await
+            .map(|r| (r.get::<i64, _>(0) as usize, r.get::<i64, _>(1) as usize))
+            .map_err(|e| TradingError::Database(e.to_string()))?;
+        Ok((n_actifs, n_ecartes))
+    }
+
+    /// Change l'état d'un lot de tickers (par tranches — borné aux limites
+    /// de paramètres SQL quel que soit le SQLite).
+    pub async fn maj_etat_tickers(&self, tickers: &[String], etat: &str) -> Result<()> {
+        for tranche in tickers.chunks(100) {
+            let bornes = tranche
+                .iter()
+                .map(|t| format!("'{}'", t.replace('\'', "''")))
+                .collect::<Vec<_>>()
+                .join(",");
+            let sql = format!("UPDATE univers_actions SET etat = ? WHERE ticker IN ({bornes})");
+            sqlx::query(&sql)
+                .bind(etat)
+                .execute(&self.pool)
+                .await
+                .map_err(|e| TradingError::Database(e.to_string()))?;
+        }
+        Ok(())
     }
     // ── Scanner actions (étape C) ───────────────────────────────────────────
 

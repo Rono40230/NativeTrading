@@ -2,6 +2,7 @@ use actix_cors::Cors;
 use actix_web::{http::header, web, App, HttpServer};
 
 mod analyses;
+mod journal_bord;
 mod analyses_ia;
 mod asset_params_handlers;
 mod alertes_prix;
@@ -151,8 +152,12 @@ async fn main() -> std::io::Result<()> {
     let poignees_runtime = runtime_tick::demarrer_runtime_tick(app_state.db.clone());
     // Étape 5 — verticale Rockets : scanner D1 + gestion (bus signaux).
     rockets_verticale::demarrer(app_state.db.clone(), poignees_runtime.bus_signaux.clone());
-    // Étape A2 : backfill hiérarchisé actions US (quota Tiingo 950/j).
+    // Étape A2 : backfill hiérarchisé actions US (quota Tiingo : 500
+    // symboles uniques/mois, file = prioritaires → narratifs → reste).
     tokio::spawn(rockets_actions_backfill::boucle_backfill(app_state.db.clone()));
+    // Périmètre actif plafonné (450) par liquidité + narratif — recalcul
+    // quotidien : les bougies de la nuit requalifient l'univers.
+    tokio::spawn(rockets_actions_backfill::boucle_recalcul_univers(app_state.db.clone()));
     // Étape C : scanner actions quotidien — Observation silencieuse.
     tokio::spawn(rockets_actions_scanner::boucle_scanner_actions(app_state.db.clone()));
 

@@ -44,8 +44,8 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
                 <div class="font-semibold mb-1">Fondamental · 3 pts</div>
-                <p>Sentiment de marché (BTC haussier + secteur en tendance), contexte (sortie
-                de large base, 1ère base), news catalyseur.</p>
+                <p>Sentiment (force relative : battre BTC sur 4 semaines — sans veto macro,
+                décision 05/09), contexte (sortie de large base, 1ère base), news catalyseur.</p>
               </div>
               <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
                 <div class="font-semibold mb-1">Technique · 3 pts</div>
@@ -162,9 +162,11 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
           <carte titre="La force relative">
-            Sans surperformance, pas de point Tendance : l'actif doit battre BTC sur 4 semaines
+            Sans surperformance, pas de point Sentiment : l'actif doit battre BTC sur 4 semaines
             (proxy actuel du « secteur en tendance » — le vrai découpage par écosystème viendra
-            avec l'IA, étape 6). C'est le critère commun d'O'Neil (RS ≥ 80) et Minervini.
+            avec l'IA, étape 6). C'est le critère commun d'O'Neil (RS ≥ 80) et Minervini. Depuis
+            le 05/09, c'est le SEUL critère du point — le régime haussier du BTC (golden cross)
+            ne met plus de veto : la tendance individuelle de l'actif est déjà exigée ailleurs.
           </carte>
           <carte titre="Ce qui manque encore (honnête)">
             Le point « News » (1/10) et le véto unlocks demandent des sources externes et de la

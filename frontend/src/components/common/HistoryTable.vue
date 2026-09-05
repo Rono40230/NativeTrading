@@ -3,6 +3,7 @@
     <thead>
       <tr class="text-white text-xs uppercase border-b border-white/10">
         <th class="px-3 py-3 text-left">#</th>
+        <th class="px-1 py-3 text-center" title="Journal de bord du trade (notes du propriétaire)">📝</th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'asset')">Asset <span class="tri-icone">{{ icone('asset') }}</span></th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'timeframe')">TF / Phase <span class="tri-icone">{{ icone('timeframe') }}</span></th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'direction')">Direction <span class="tri-icone">{{ icone('direction') }}</span></th>
@@ -20,11 +21,22 @@
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'strategie')">Stratégie <span class="tri-icone">{{ icone('strategie') }}</span></th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'cree_le')">Ouvert le <span class="tri-icone">{{ icone('cree_le') }}</span></th>
         <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'ferme_le')">Fermé le <span class="tri-icone">{{ icone('ferme_le') }}</span></th>
+        <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" title="Vie de la position : du remplissage de l'ordre à la fermeture (l'attente de l'ordre en attente n'est pas comptée)" @click="$emit('trier-par', 'duree')">Durée <span class="tri-icone">{{ icone('duree') }}</span></th>
       </tr>
     </thead>
     <tbody>
       <tr v-for="(s, i) in signaux" :key="s.id" class="border-b border-white/5 hover:bg-white/5 transition-colors">
         <td class="px-3 py-3 text-white">{{ i + 1 }}</td>
+        <td class="px-1 py-3 text-center">
+          <button
+            class="text-[11px] font-mono rounded px-1 transition-colors"
+            :class="journalComptes?.[s.id] ? 'bg-teal-500/20 text-teal-300 hover:bg-teal-500/30' : 'text-white/30 hover:text-white'"
+            :title="journalComptes?.[s.id]
+              ? `${journalComptes[s.id]} note(s) — ouvrir le journal`
+              : 'Ouvrir le journal de bord du trade'"
+            @click="journalSignal = s"
+          >{{ journalComptes?.[s.id] ?? '+' }}</button>
+        </td>
         <td class="px-3 py-3 font-semibold text-white">{{ s.asset }}</td>
         <td class="px-3 py-3 text-white">{{ s.timeframe }}</td>
         <td class="px-3 py-3">
@@ -41,10 +53,7 @@
         <!-- Sortie = information secondaire (gestion d'exécution), le R de
              référence vit dans la colonne Palier max. -->
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right">
-          <div class="flex flex-col items-end leading-tight">
-            <span v-if="calculerR(s) !== null" :class="classeR(calculerR(s))" class="text-xs">{{ formatR(calculerR(s)) }}</span>
-            <span class="font-mono text-white text-xs">{{ s.prix_verdict ? formatNombre(s.prix_verdict) : '—' }}</span>
-          </div>
+          <span class="font-mono text-white text-xs">{{ s.prix_verdict ? formatNombre(s.prix_verdict) : '—' }}</span>
         </td>
         <td class="px-3 py-3 text-center"><span v-if="s.llm_conviction !== null" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help" :class="classeConviction(s.llm_conviction)" :title="s.llm_raison ?? ''">{{ s.llm_conviction }}</span><span v-else class="text-white text-xs">—</span></td>
         <td class="px-3 py-3">
@@ -53,7 +62,7 @@
               <span v-if="palierFerme(s)" class="badge" :class="classePalierMax(palierFerme(s))">{{ labelPalierMax(palierFerme(s)) }}</span>
               <span v-else class="badge" :class="classeEtatSignal(s)" :title="titreEtatSignal(s)">{{ labelEtatSignal(s) }}</span>
               <span v-if="rReference(s) !== null" :class="classeR(rReference(s))" class="text-xs">{{ formatR(rReference(s)) }}</span>
-              <span v-if="pipsPalier(s)" class="text-[10px] font-mono" :class="classeR(rReference(s))" title="Gain/perte en pips (R de référence × risque en pips)">{{ pipsPalier(s) }}</span>
+              <span v-if="pointsPalier(s)" class="text-[10px] font-mono" :class="classeR(rReference(s))" title="Gain/perte en points MT5 (R de référence × risque en points — unité du broker)">{{ pointsPalier(s) }}</span>
             </div>
             <!-- MFE des perdants : l'excursion favorable avant le SL juge le
                  placement des niveaux (frôler TP1 puis claquer = info clé). -->
@@ -63,21 +72,32 @@
           </div>
         </td>
         <td class="px-3 py-3 text-white text-xs">{{ s.strategie === 'SMC Directionnel' ? 'SMC' : s.strategie }}</td>
-        <td class="px-3 py-3 text-white text-xs">{{ formatDate(s.cree_le) }}</td>
+        <td class="px-3 py-3 text-white text-xs cursor-help" :title="titreOuverture(s)">{{ formatDate(s.heure_entree ?? s.cree_le) }}</td>
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-white text-xs">{{ s.ferme_le ? formatDate(s.ferme_le) : '—' }}</td>
+        <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 font-mono text-white text-xs">{{ formatDuree(s.heure_entree, s.ferme_le) }}</td>
       </tr>
     </tbody>
   </table>
+
+  <JournalBordModal
+    :ouvert="journalSignal !== null"
+    :signal-id="journalSignal?.id ?? ''"
+    :titre="journalSignal ? `${journalSignal.asset} · ${journalSignal.timeframe} · ${journalSignal.direction} — fermé le ${formatDate(journalSignal.ferme_le ?? journalSignal.cree_le)}` : ''"
+    @fermer="journalSignal = null"
+    @note="emit('journal-maj')"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import type { Signal } from '@/services/api.service'
 import { usePrixStore } from '@/stores/prix.store'
+import { ref } from 'vue'
+import JournalBordModal from './JournalBordModal.vue'
 import { useAssetParamsStore } from '@/stores/assetParams.store'
 import {
   formatDate, formatNombre, classeEtatSignal, labelEtatSignal, titreEtatSignal,
-  calculerR, formatR, classeR,
+  formatR, classeR, formatDuree,
   palierMax, labelPalierMax, classePalierMax, formatMfe,
   type PalierMax,
 } from '@/composables/useSignalFormat'
@@ -91,26 +111,34 @@ const props = defineProps<{
   mfe?: Record<string, { mfe_r: number | null; meilleur_prix: number | null }>
   /** Lot recalculé par trade : { [id]: lot } — vide si non chargé. */
   lots?: Record<string, number>
+  /** Nombre de notes du journal par trade : { [id]: n }. */
+  journalComptes?: Record<string, number>
 }>()
 
 const emit = defineEmits<{
   'trier-par': [col: string]
+  'journal-maj': []
 }>()
+
+/** Trade dont le journal est ouvert (null = fermé). */
+const journalSignal = ref<Signal | null>(null)
 
 const assetParams = useAssetParamsStore()
 onMounted(() => { if (!assetParams.liste.length) void assetParams.charger() })
 
 /** Gain/perte en pips du palier max : R de référence × risque en pips
  *  (|entrée − SL| / taille du pip de l'asset). '' si params absents. */
-function pipsPalier(s: Signal): string {
+/// Gain/perte du palier en POINTS MT5 (unité du broker : taille du point =
+/// taille_pip / pip_to_points — décision 04/09 : MT5 raisonne en points).
+function pointsPalier(s: Signal): string {
   const r = rReference(s)
   if (r === null) return ''
   const p = assetParams.liste.find(x => x.asset === s.asset)
-  if (!p || p.taille_pip <= 0) return ''
+  if (!p || p.taille_pip <= 0 || !p.pip_to_points || p.pip_to_points <= 0) return ''
   const risque = Math.abs(s.prix_entree - s.stop_loss)
   if (risque <= 0) return ''
-  const pips = r * (risque / p.taille_pip)
-  return `${pips >= 0 ? '+' : '−'}${Math.abs(Math.round(pips))} pips`
+  const pts = r * (risque / (p.taille_pip / p.pip_to_points))
+  return `${pts >= 0 ? '+' : '−'}${Math.abs(Math.round(pts))} pts`
 }
 
 const prixStore = usePrixStore()
@@ -126,10 +154,10 @@ const mfeMap = computed<Record<string, { mfe_r: number | null; meilleur_prix: nu
 /** Lots recalculés : { [id]: lot } — vide si non chargé. */
 const lotMap = computed<Record<string, number>>(() => props.lots ?? {})
 
-/// Lot formaté : 2 décimales (4 pour les micro-lots < 0.1).
+/// Lot formaté : toujours 2 décimales maximum (règle 04/09).
 function formatLot(v: number | undefined): string {
   if (v === undefined || v <= 0) return '—'
-  return v < 0.1 ? v.toFixed(4) : v.toFixed(2)
+  return v.toFixed(2)
 }
 
 /** Palier max d'un trade clôturé (null si encore ouvert). Un ordre JAMAIS
@@ -147,6 +175,18 @@ function rReference(s: Signal): number | null {
   if ((s.statut ?? '') !== 'Fermé') return null
   if (s.heure_entree === null || s.heure_entree === undefined) return null
   return palierMax(s).rReference
+}
+
+/** « Ouvert le » = REMPLISSAGE de l'ordre — la position n'existe qu'à partir
+ *  de là (un signal émis à 21:04 et rempli à 23:52 est « ouvert » à 23:52,
+ *  l'attente du retest n'est pas de la vie en position). L'émission part en
+ *  info-bulle ; un ordre jamais rempli garde l'émission comme seule date. */
+function titreOuverture(s: Signal): string {
+  if (s.heure_entree === null || s.heure_entree === undefined) {
+    return `Signal émis le ${formatDate(s.cree_le)} — ordre jamais rempli`
+  }
+  if (s.heure_entree === s.cree_le) return ''
+  return `Émis le ${formatDate(s.cree_le)} · position ouverte le ${formatDate(s.heure_entree)}`
 }
 
 function classeConviction(c: number | null): string {

@@ -250,6 +250,23 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/analyses/{strategie}/historique",
             web::get().to(crate::analyses::get_historique_analyses),
         )
+        // ── Journal de bord du propriétaire (§16 — notes par trade) ──────────
+        .route(
+            "/api/journal/comptes",
+            web::get().to(crate::journal_bord::get_comptes),
+        )
+        .route(
+            "/api/journal/{signal_id}",
+            web::get().to(crate::journal_bord::get_journal),
+        )
+        .route(
+            "/api/journal/{signal_id}",
+            web::post().to(crate::journal_bord::post_note),
+        )
+        .route(
+            "/api/journal/entree/{id}",
+            web::delete().to(crate::journal_bord::supprimer_note),
+        )
         // ── Armement SMC par couple (outil Paramètres › SMC — 04/09) ─────────
         .route(
             "/api/smc/couples",

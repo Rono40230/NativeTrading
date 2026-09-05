@@ -142,10 +142,14 @@ pub fn classement_rocket(
     let stop = recent.iter().map(|b| b.low).fold(f64::MAX, f64::min);
 
     // ── FONDAMENTAL (3) ──
-    // Sentiment : BTC haussier ET surperformance 4 semaines (proxy secteur :
-    // la force relative — le secteur sera affiné par l'IA, étape 6).
+    // Sentiment : surperformance 4 semaines vs la référence (BTC/QQQ) —
+    // force relative PURE. Décision propriétaire 05/09 : plus de veto macro
+    // (le golden cross de la référence est un signal retardé qui privait
+    // TOUT l'univers du point en début de reprise ; le régime individuel
+    // est déjà exigé par « tendance », le risque pump reste couvert par
+    // VCP/liquidité/stop −1R/trailing).
     let perf_4s = derniere.close / bougies[bougies.len() - 29].close - 1.0;
-    detail.sentiment = ctx.marche_haussier && perf_4s > ctx.perf_marche_4s;
+    detail.sentiment = perf_4s > ctx.perf_marche_4s;
     // Contexte : base travaillée (pivot âgé ≥ 30 j) et prix proche (≥ 90 %).
     detail.contexte = age_pivot_jours >= 30 && derniere.close >= pivot * 0.90;
     // News : réservé à l'IA (étape 6) — None, pas de point attribué v1.
@@ -327,18 +331,28 @@ mod tests {
     }
 
     #[test]
-    fn marche_baissier_elimine() {
-        let ctx = ContexteMarche { marche_haussier: false, perf_marche_4s: 0.02 };
-        let r = classement_rocket("TESTUSDT", &serie_rocket(), &ctx);
-        // Sans sentiment : 2 points manquants (8/10 max) — reste rocket.
-        assert!(r.points <= 8);
-        // Série sans volume d'explosion : éliminé.
+    fn sentiment_force_relative_sans_veto() {
+        // Décision 05/09 : plus de veto macro. Le golden cross retardé de la
+        // référence privait tout l'univers du point en début de reprise.
+        let baissier = ContexteMarche { marche_haussier: false, perf_marche_4s: 0.02 };
+        let r = classement_rocket("TESTUSDT", &serie_rocket(), &baissier);
+        assert!(r.detail.sentiment, "surperformance > réf → point même en marché baissier");
+        // Symbole qui sous-performe la référence : pas de point, régime ou pas.
+        let exigeante = ContexteMarche { marche_haussier: true, perf_marche_4s: 99.0 };
+        let r2 = classement_rocket("TESTUSDT", &serie_rocket(), &exigeante);
+        assert!(!r2.detail.sentiment);
+    }
+
+    #[test]
+    fn sans_volume_explosion_interet_perdu() {
+        let ctx = ContexteMarche { marche_haussier: true, perf_marche_4s: 0.02 };
+        let base = classement_rocket("TESTUSDT", &serie_rocket(), &ctx);
         let mut b = serie_rocket();
         let n = b.len() - 1;
         b[n].volume = 500.0; // pas d'explosion
         let r2 = classement_rocket("TESTUSDT", &b, &ctx);
-        assert!(r2.points < r.points, "le volume d'explosion doit compter");
-        assert!(!r2.cassure || r2.detail.interet == false);
+        assert!(!r2.detail.interet, "sans explosion de volume, pas de point interet");
+        assert!(r2.points < base.points, "le volume d'explosion doit compter");
     }
 
     #[test]

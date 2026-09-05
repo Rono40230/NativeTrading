@@ -73,9 +73,11 @@ pub async fn post_mfe_signaux(
     let mut reponse = serde_json::Map::new();
     for l in &lignes {
         // M1 d'abord (précision maximale), sinon repli sur le TF du signal.
+        // Fenêtre = VIE du trade uniquement [remplissage, clôture] : pendant
+        // l'attente du retest le prix court sans position ouverte.
         let extremes_m1 = state
             .db
-            .extremes_bougies(&l.asset, "M1", l.cree_le, l.ferme_le)
+            .extremes_bougies(&l.asset, "M1", l.debut_vie, l.ferme_le)
             .await
             .ok()
             .flatten();
@@ -83,7 +85,7 @@ pub async fn post_mfe_signaux(
             Some(e) => Some(e),
             None => state
                 .db
-                .extremes_bougies(&l.asset, &l.timeframe, l.cree_le, l.ferme_le)
+                .extremes_bougies(&l.asset, &l.timeframe, l.debut_vie, l.ferme_le)
                 .await
                 .ok()
                 .flatten(),

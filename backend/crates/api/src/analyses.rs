@@ -12,7 +12,7 @@
 
 use crate::state::AppState;
 use actix_web::{web, HttpResponse};
-use chrono::{Datelike, TimeZone};
+use chrono::{Datelike, TimeZone, Timelike};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -61,6 +61,18 @@ pub struct ResumeJour {
     pub trades: usize,
 }
 
+/// Case de la heatmap heure × jour (contribution $ des clôtures par
+/// créneau horaire — parcours naturel du straddle, §14).
+#[derive(Serialize)]
+pub struct CaseHeatmap {
+    /// 0=lundi … 6=dimanche (chrono).
+    pub jour: u8,
+    /// Heure locale 0-23.
+    pub heure: u8,
+    pub dollars: f64,
+    pub trades: usize,
+}
+
 /// Croisé asset × TF (bloc « Timeframes » du rapport) : contribution de
 /// chaque TF d'un asset, l'asset totalisé en tête.
 #[derive(Serialize)]
@@ -97,6 +109,8 @@ pub struct AnalyseStrategie {
     pub tfs: Vec<CategorieAnalyse>,
     /// Croisé asset × TF, trié par contribution $ décroissante.
     pub par_asset_tf: Vec<ParAssetTf>,
+    /// Heatmap heure × jour (cases non vides, tri jour puis heure).
+    pub heatmap: Vec<CaseHeatmap>,
 }
 
 /// Récupère les clôtures + métadonnées capital d'une stratégie.
@@ -365,6 +379,7 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
         assets: categories(&clotures, |c| c.asset.as_str()),
         tfs: categories(&clotures, |c| c.tf.as_str()),
         par_asset_tf: croise_asset_tf(&clotures),
+        heatmap: heatmap_hj(&clotures),
     };
     // §14 : snapshot quotidien persisté (INSERT OR REPLACE — le jour reflète
     // le dernier calcul ; l'avis IA éventuel est préservé par le UPDATE).
@@ -384,6 +399,24 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
         )
         .await;
     a
+}
+
+/// Agrégat heure × jour des clôtures ($, effectif) — heure LOCALE.
+fn heatmap_hj(clotures: &[ClotureAnalyse]) -> Vec<CaseHeatmap> {
+    let mut cases: BTreeMap<(u8, u8), (f64, usize)> = BTreeMap::new();
+    for c in clotures {
+        let Some(d) = chrono::Local.timestamp_opt(c.ferme_le, 0).single() else {
+            continue;
+        };
+        let k = (d.weekday().num_days_from_monday() as u8, d.hour() as u8);
+        let e = cases.entry(k).or_insert((0.0, 0));
+        e.0 += c.dollars;
+        e.1 += 1;
+    }
+    cases
+        .into_iter()
+        .map(|((jour, heure), (dollars, trades))| CaseHeatmap { jour, heure, dollars, trades })
+        .collect()
 }
 
 /// Croisé asset × TF : chaque asset avec la contribution de ses TF,
