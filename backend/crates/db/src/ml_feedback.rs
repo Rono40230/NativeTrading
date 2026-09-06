@@ -64,10 +64,12 @@ pub struct NouvelleSuggestionLog<'a> {
 pub async fn stats_globales_smc(pool: &SqlitePool) -> Result<FeedbackGlobal> {
     let r = sqlx::query(
         "SELECT COUNT(*) as nb_trades,
-                COALESCE(SUM(CASE WHEN gagnant = 1 THEN 1 ELSE 0 END), 0) as nb_gagnants,
-                COALESCE(AVG(CASE WHEN gagnant = 1 THEN 100.0 ELSE 0.0 END), 0.0) as win_rate,
-                COALESCE(AVG(pnl_r), 0.0) as pnl_r_moyen
-         FROM smc_feedback WHERE verdict IS NOT NULL",
+                COALESCE(SUM(CASE WHEN rr_realise > 0 THEN 1 ELSE 0 END), 0) as nb_gagnants,
+                COALESCE(AVG(CASE WHEN rr_realise > 0 THEN 100.0 ELSE 0.0 END), 0.0) as win_rate,
+                COALESCE(AVG(rr_realise), 0.0) as pnl_r_moyen
+         FROM ml_training_samples
+         WHERE LOWER(strategie) LIKE '%smc%' AND rr_realise IS NOT NULL
+           AND LOWER(outcome) NOT IN ('expire','invalide')",
     )
     .fetch_one(pool)
     .await
@@ -87,7 +89,9 @@ pub async fn stats_globales_rockets(pool: &SqlitePool) -> Result<FeedbackGlobal>
                 COALESCE(SUM(CASE WHEN gagnant = 1 THEN 1 ELSE 0 END), 0) as nb_gagnants,
                 COALESCE(AVG(CASE WHEN gagnant = 1 THEN 100.0 ELSE 0.0 END), 0.0) as win_rate,
                 COALESCE(AVG(pnl_r), 0.0) as pnl_r_moyen
-         FROM rockets_feedback WHERE verdict IS NOT NULL AND verdict NOT IN ('invalide','expire')",
+         FROM ml_training_samples
+         WHERE LOWER(strategie) LIKE '%rocket%' AND rr_realise IS NOT NULL
+           AND LOWER(outcome) NOT IN ('expire','invalide')",
     )
     .fetch_one(pool)
     .await
@@ -107,7 +111,9 @@ pub async fn stats_globales_straddle(pool: &SqlitePool) -> Result<FeedbackGlobal
                 COALESCE(SUM(CASE WHEN gagnant = 1 THEN 1 ELSE 0 END), 0) as nb_gagnants,
                 COALESCE(AVG(CASE WHEN gagnant = 1 THEN 100.0 ELSE 0.0 END), 0.0) as win_rate,
                 COALESCE(AVG(pnl_r), 0.0) as pnl_r_moyen
-         FROM straddle_feedback WHERE verdict IS NOT NULL",
+         FROM ml_training_samples
+         WHERE LOWER(strategie) LIKE '%straddle%' AND rr_realise IS NOT NULL
+           AND LOWER(outcome) NOT IN ('expire','invalide')",
     )
     .fetch_one(pool)
     .await

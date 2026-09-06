@@ -406,11 +406,25 @@ l'analyse des 35 SL SMC (leçon du re-jeu du 06/09 — le levier est dans la sé
       est rebranché sur ml_training_samples (WR 63 % sur 57 clôtures, par verdict,
       dérive) et sert les VRAIES importances + le dernier entraînement
       (`features_importances`, `dernier_entrainement`).
-- [ ] **4. Alléger le build** : vérifier l'usage réel de libtorch/CUDA (module LSTM) —
-      si la v2 se limite à xgboost, retirer libtorch (variables d'env, fausses libs
-      GCC 15 : le côté le plus fragile du build part)
-- [ ] **5. Suggestions** : calibration chiffrée (tables `smc_calibration`…) — consultées
-      par le propriétaire seul, jamais appliquées automatiquement
+- [x] **4. Alléger le build — FAIT le 06/09** : audit — le GPU n'accélérait que
+      le LSTM (repli CPU déjà prévu partout, panic OOM → fallback), et c'est
+      xgboost qui fait le vrai travail v2 (importances, OOS). Feature `cuda`
+      retirée de la dépendance ml → **libtorch/CUDA hors du build**, variables
+      LIBTORCH/LIBCLANG/BINDGEN retirées du run.sh. Le workspace compile et
+      461 tests passent SANS libtorch. Restent : libs hôte (WebKit/GTK) et le
+      workaround GCC 15 (xgboost_lib-sys).
+- [x] **5. Suggestions — rebranchées le 06/09** : le suggester
+      (`params_suggester` → GET /api/ml/suggestions, lu par le Dashboard LLM)
+      buvait les tables feedback mortes — ses stats globales SMC/rockets/
+      straddle sont maintenant sur ml_training_samples. Garde-fous conservés
+      (≥ 50 samples et seuils de confiance ; rockets/straddle silencieux
+      jusqu'à accumulation). Consultatives : jamais appliquées automatiquement.
+
+**§11 TERMINÉE le 06/09** — boucle v2 complète : collecte continue + 107
+samples, XGB SMC OOS 66,7 %, importances réelles dans le prompt
+`analyse_rapport` et le monitoring, suggester réalimenté, build sans
+libtorch. La suite de l'enrichissement passe par §8 (journalisation du
+scoring à l'émission — elle remplira les 7 features SMC aujourd'hui à 0).
 
 ### 12. Robustesse
 

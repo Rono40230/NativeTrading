@@ -63,13 +63,12 @@ else
   echo "   ✅ Ollama déjà en cours"
 fi
 
-# ─── Compilation backend si nécessaire ───────────────────────────────────────
-echo "🔨 Vérification backend GPU (CUDA)..."
-export LIBTORCH=/mnt/IA/libtorch
-export XGBOOST_LIB_DIR=/home/rono/.local/lib/python3.14/site-packages/xgboost/lib
-export LIBCLANG_PATH=/run/host/usr/lib64
-export BINDGEN_EXTRA_CLANG_ARGS="-I/run/host/usr/lib/clang/21/include -I/run/host/usr/include"
-export LD_LIBRARY_PATH=$LIBTORCH/lib:$XGBOOST_LIB_DIR:/run/host/usr/lib64:$LD_LIBRARY_PATH
+# ─── Compilation backend ─────────────────────────────────────────────────────
+# §11-4 (06/09) : libtorch/CUDA RETIRÉ du build (feature ml cuda off) —
+# LIBTORCH/LIBCLANG/BINDGEN partent avec lui. Restent les libs runtime de
+# l'hôte et le workaround GCC 15 (xgboost_lib-sys).
+echo "🔨 Vérification backend..."
+export LD_LIBRARY_PATH=/run/host/usr/lib64:$LD_LIBRARY_PATH
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 

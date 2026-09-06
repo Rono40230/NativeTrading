@@ -24,6 +24,8 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.70"
 
+# §11-4 (06/09) : les crates qui SONT des membres du workspace définissent
+# ml dans [workspace.dependencies] — voir ci-dessous.
 [workspace.dependencies]
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.20"

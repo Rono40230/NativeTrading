@@ -12,7 +12,11 @@ engine_v12 = { path = "../engine_v12" }
 notifications = { path = "../notifications" }
 llm = { path = "../llm" }
 news = { path = "../news" }
-ml = { path = "../ml", features = ["cuda"] }
+# §11-4 (06/09) : feature cuda retirée — libtorch/CUDA part du build (le
+# GPU n’accélérait que le LSTM, repli CPU déjà prévu partout ; xgboost
+# fait le vrai travail de la boucle ML v2). Le chemin .pt GPU reste lu au
+# chargement si présent (cfg cuda off = ignoré).
+ml = { path = "../ml", default-features = false }
 strategies = { path = "../strategies" }
 straddle = { path = "../straddle" }
 rockets = { path = "../rockets" }
