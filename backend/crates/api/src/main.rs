@@ -15,6 +15,7 @@ mod handlers;
 mod http_client;
 mod indicators_handlers;
 mod indicators_types;
+mod ml_collecte;
 mod ml_insights_handlers;
 mod ml_retrain_fine_tuning;
 mod ml_retrain_handler;
@@ -154,6 +155,9 @@ async fn main() -> std::io::Result<()> {
     // Périmètre actif plafonné (450) par liquidité + narratif — recalcul
     // quotidien : les bougies de la nuit requalifient l'univers.
     tokio::spawn(rockets_actions_backfill::boucle_recalcul_univers(app_state.db.clone()));
+    // §11 étape 1 : boucle ML v2 — rattrapage des clôtures passées en
+    // samples (la collecte continue vit dans fermer_signal_par_cle).
+    tokio::spawn(ml_collecte::boucle_rattrapage(app_state.db.clone()));
     // Étape C : scanner actions quotidien — Observation silencieuse.
     tokio::spawn(rockets_actions_scanner::boucle_scanner_actions(app_state.db.clone(), poignees_runtime.bus_signaux.clone()));
 

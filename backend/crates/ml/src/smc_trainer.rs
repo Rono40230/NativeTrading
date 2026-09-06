@@ -30,6 +30,8 @@ pub struct ResultatFineTuningSmc {
     pub accuracy_oos: f64,
     pub nb_samples: usize,
     pub sauvegarde: bool,
+    /// Importance par permutation (OOS) — normalisée Σ=1.
+    pub importances: Vec<crate::rockets_trainer::ImportanceFeature>,
 }
 
 /// Modèle XGBoost fine-tuné sur les trades SMC clôturés.
@@ -140,6 +142,11 @@ pub fn entrainer_sur_trades_clotures(
         nb, split, oos.len(), accuracy_oos * 100.0, debut.elapsed()
     );
 
+    // Importance par permutation sur OOS (réutilise la machinery rockets).
+    let importances = crate::rockets_trainer::calculer_importances(
+        &modele, &features_oos, &labels_oos, accuracy_oos,
+    );
+
     let sauvegarde = if accuracy_oos >= 0.52 {
         let json = serde_json::to_string(&modele)
             .map_err(|e| TradingError::ML(format!("Sérialisation XGB SMC: {}", e)))?;
@@ -155,5 +162,5 @@ pub fn entrainer_sur_trades_clotures(
         false
     };
 
-    Ok(Some(ResultatFineTuningSmc { accuracy_oos, nb_samples: nb, sauvegarde }))
+    Ok(Some(ResultatFineTuningSmc { accuracy_oos, nb_samples: nb, sauvegarde, importances }))
 }

@@ -79,7 +79,22 @@ pub(crate) async fn executer_fine_tuning_smc(
                 "Fine-tuning SMC: {} samples | OOS={:.1}% | sauvegardé={}",
                 r.nb_samples, r.accuracy_oos * 100.0, r.sauvegarde
             );
-            inserer_importances_defaut(db.pool(), "smc", &["smc_tendance", "smc_order_block", "smc_ifvg", "smc_fibonacci", "smc_imbalance", "smc_kill_zone", "smc_sweep", "rendement_1", "volume_rel", "rsi14"]).await;
+            // §11-2 (06/09) : les VRAIES importances par permutation OOS
+            // (les défauts à 0.0 ne remplissaient rien d'utile).
+            let fis: Vec<db::ml_feature_importance::FeatureImportance> = r
+                .importances
+                .iter()
+                .map(|f| db::ml_feature_importance::FeatureImportance {
+                    feature_idx: f.feature_idx as i64,
+                    feature_nom: f.feature_nom.to_string(),
+                    importance: f.importance,
+                })
+                .collect();
+            if fis.is_empty() {
+                inserer_importances_defaut(db.pool(), "smc", &["smc_tendance", "smc_order_block", "smc_ifvg", "smc_fibonacci", "smc_imbalance", "smc_kill_zone", "smc_sweep", "rendement_1", "volume_rel", "rsi14"]).await;
+            } else {
+                let _ = db::ml_feature_importance::inserer_importances(db.pool(), "smc", &fis).await;
+            }
             if r.sauvegarde {
                 let mut pipeline = pipeline_ml.write().await;
                 pipeline.xgb_smc = ml::XgbSmc::charger_depuis_disque();

@@ -261,6 +261,7 @@ impl Database {
         Ok(res.rows_affected())
     }
 
+
     /// Étape 2 — marque le signal comme notifié sur Telegram (le writer
     /// officiel envoie directement ; ce drapeau trace l'envoi en base).
     pub async fn marquer_telegram_envoye(&self, id: &str) -> Result<()> {
@@ -301,6 +302,10 @@ impl Database {
         .execute(&self.pool)
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        if res.rows_affected() > 0 {
+            crate::ml_samples::collecter_a_la_cloture(&self.pool, cle_moteur, asset, verdict, prix_verdict, r_realise).await;
+        }
         Ok(res.rows_affected())
     }
 

@@ -381,14 +381,31 @@ puis déconnexion — les collecteurs buvaient le v1 mort, les vraies sources (r
 ne manquait pas d'intérêt : elle était **débranchée**. Première mission naturelle :
 l'analyse des 35 SL SMC (leçon du re-jeu du 06/09 — le levier est dans la sélection).
 
-- [ ] **1. Rebrancher les collecteurs** : alimenter `ml_training_samples` à la clôture
-      depuis les vraies sources — features du setup stockées à l'émission (prérequis §8 :
-      journalisation du détail scoring), verdict + R par stratégie ; rejouer l'existant
-      (166 clôtures SMC du re-jeu, passes straddle, clôtures rockets)
-- [ ] **2. Réentraîner** (xgboost — le bon outil tabulaire) sur décision propriétaire
-      (`POST /api/ml/retrain`) ; règle des 30 trades par tranche (anti-overfitting)
-- [ ] **3. Nourrir l'IA** : exposer l'importance des features au prompt `analyse_rapport`
-      et au Dashboard LLM — l'analyste apporte des corrélations, pas seulement le passé
+- [x] **1. Rebrancher les collecteurs — FAIT le 06/09** : collecte continue
+      branchée à `fermer_signal_par_cle` (LE point de passage des clôtures SMC,
+      straddle ET rockets) ; rattrapage idempotent au boot (migration 0104 :
+      `signal_id` + index unique) — vérifié en production : **107 samples**
+      (SMC 87 dont 30 Expire, straddle 19, rockets 1). Convention : la base
+      vécue = vérité terrain (le re-jeu reste un outil d'étude de réglages) ;
+      les expirés inclus (classe prédictible). NB : les features détaillées du
+      setup à l'émission (59 features) attendent la journalisation du scoring
+      (§8) — les samples portent aujourd'hui identité + niveaux + verdict + R.
+- [x] **2. Réentraîner — FAIT et VÉRIFIÉ le 06/09** : backfill des features
+      (106 snapshots reconstitués depuis les bougies historiques — 52 OHLCV,
+      7 contextuelles à 0 en attente de la journalisation §8), labels branchés
+      sur ml_training_samples (binaire R>0, expirés exclus), `calculer_importances`
+      publicisée et branchée (fini les défauts à 0.0). **Premier entraînement
+      réel : XGB SMC 57 samples, OOS 66,7 %, sauvegardé** — importances par
+      permutation : vol_5 (9,3 %), range_rel, open_rel, momentum_20. Les
+      cartes Métriques ML et le Dashboard LLM ont de la matière. Straddle (19)
+      et rockets (1) < 50 — silencieux jusqu'à accumulation (prévu).
+- [x] **3. Nourrir l'IA — FAIT le 06/09** : le contexte du prompt `analyse_rapport`
+      embarque le TOP 8 des features par permutation (« ML — features qui distinguent
+      les gagnants : vol_5 (9,3 %), range_rel… ») — l'analyste lit les corrélations,
+      pas seulement le passé. Le monitoring ML (cartes Métriques ML / Dashboard LLM)
+      est rebranché sur ml_training_samples (WR 63 % sur 57 clôtures, par verdict,
+      dérive) et sert les VRAIES importances + le dernier entraînement
+      (`features_importances`, `dernier_entrainement`).
 - [ ] **4. Alléger le build** : vérifier l'usage réel de libtorch/CUDA (module LSTM) —
       si la v2 se limite à xgboost, retirer libtorch (variables d'env, fausses libs
       GCC 15 : le côté le plus fragile du build part)

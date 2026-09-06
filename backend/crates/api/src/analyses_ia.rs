@@ -89,7 +89,7 @@ pub async fn post_analyse_ia(
         }));
     }
 
-    let prompt = format!("{}\n\n{}", consigne(), contexte(&a));
+    let prompt = format!("{}\n\n{}", consigne(), contexte(&state.db, &a).await);
     match llm::ollama::interroger(&prompt).await {
         Ok(texte) => {
             let analyse = parser(texte, a.nb_trades);
@@ -124,7 +124,7 @@ fn consigne() -> String {
 }
 
 /// Contexte chiffré compact servi à l'analyste (pas de trades bruts).
-fn contexte(a: &AnalyseStrategie) -> String {
+async fn contexte(db: &db::Database, a: &AnalyseStrategie) -> String {
     let mut l = Vec::new();
     l.push(format!(
         "STRATÉGIE {} — état {} — source : {}",
@@ -171,7 +171,27 @@ fn contexte(a: &AnalyseStrategie) -> String {
     l.push(format!("Journalier : {}", lignes_periodes(derniers(&a.journalier, 14))));
     l.push(format!("Hebdomadaire : {}", lignes_periodes(&a.hebdomadaire)));
     l.push(format!("Mensuel : {}", lignes_periodes(&a.mensuel)));
+    // §11-3 (06/09) : la boucle ML nourrit l'analyste — le TOP des features
+    // par permutation OOS (ce qui distingue les trades gagnants), lu à chaud
+    // depuis ml_feature_importance. Absent si jamais entraîné.
+    if let Ok(top) = db::ml_feature_importance::lire_top_importances(db.pool(), &cle_strategie(a), 8).await {
+        if !top.is_empty() && top.iter().any(|f| f.importance > 0.0) {
+            let parts: Vec<String> = top
+                .iter()
+                .map(|f| format!("{} ({:.1} %)", f.feature_nom, f.importance * 100.0))
+                .collect();
+            l.push(format!(
+                "ML — features qui distinguent les gagnants (importance par permutation) : {}",
+                parts.join(", ")
+            ));
+        }
+    }
     l.join("\n")
+}
+
+/// Clé ML de la stratégie analysée (« SMC » → « smc », etc.).
+fn cle_strategie(a: &AnalyseStrategie) -> String {
+    a.strategie.to_lowercase()
 }
 
 fn derniers(v: &[PeriodeAnalyse], n: usize) -> &[PeriodeAnalyse] {

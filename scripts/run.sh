@@ -95,7 +95,10 @@ touch "$ROOT_DIR/backend/crates/db/src/lib.rs"
 # Le build doit RÉUSSIR — un échec silencieux ferait tourner un binaire
 # PÉRIMÉ (incident du 15/08 : générateurs censés être suspendus toujours
 # actifs, signaux Telegram non sollicités).
-if ! cargo build -p api --release 2>&1 | grep -E "Compiling|Finished|error"; then
+# --bin api --bin news_collector : SEULS binaux de production (les bins
+# d'étude comme replay_v12 font segv le compilateur en release/LTO sous
+# pression mémoire — incident 06/09 ; compilation manuelle si besoin).
+if ! cargo build -p api --release --bin api --bin news_collector 2>&1 | grep -E "Compiling|Finished|error"; then
   echo "❌ ÉCHEC du build backend — arrêt (ne pas lancer un binaire périmé)."
   exit 1
 fi

@@ -184,7 +184,7 @@ pub fn entrainer_sur_trades_clotures(
 /// Calcule l'importance de chaque feature par permutation sur le jeu OOS.
 /// Pour chaque feature i : on permute sa colonne, on mesure la chute d'accuracy.
 /// Chute importante = feature très prédictive.
-fn calculer_importances(
+pub fn calculer_importances(
     modele: &XGRegressor<f64, f64, DenseMatrix<f64>, Vec<f64>>,
     features_oos: &[Vec<f64>],
     _labels_oos: &[f64],

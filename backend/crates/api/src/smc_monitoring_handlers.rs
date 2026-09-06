@@ -17,8 +17,35 @@ use crate::state::AppState;
 pub async fn monitoring_ml(state: web::Data<AppState>) -> impl Responder {
     let pool = state.db.pool();
 
-    let globales = match db::smc_feedback::stats_globales(pool).await {
-        Ok(g) => g,
+    // §11-3 (06/09) : la source de vérité est ml_training_samples (boucle v2
+    // réalimentée) — smc_feedback est morte depuis le 15/08.
+    let globales = match sqlx::query(
+        "SELECT COUNT(*) AS nb,
+                SUM(CASE WHEN rr_realise > 0 THEN 1 ELSE 0 END) AS gagnants,
+                AVG(rr_realise) AS pnl_moyen
+         FROM ml_training_samples
+         WHERE LOWER(strategie) LIKE '%smc%'
+           AND rr_realise IS NOT NULL
+           AND LOWER(outcome) NOT IN ('expire','invalide')",
+    )
+    .fetch_one(pool)
+    .await
+    {
+        Ok(r) => {
+            use sqlx::Row as _;
+            let nb: i64 = r.get("nb");
+            let wins: i64 = r.get::<Option<i64>, _>("gagnants").unwrap_or(0);
+            serde_json::json!({
+                "nb_signals_total":      nb,
+                "nb_feedbacks_clotures": nb,
+                "nb_gagnants":           wins,
+                "nb_perdants":           nb - wins,
+                "nb_invalides":          0,
+                "win_rate_global":       if nb > 0 { wins as f64 / nb as f64 } else { 0.0 },
+                "pnl_moyen_r":           r.get::<Option<f64>, _>("pnl_moyen"),
+                "derniere_maj":          chrono::Utc::now().timestamp(),
+            })
+        }
         Err(e) => {
             return HttpResponse::InternalServerError()
                 .json(serde_json::json!({ "error": e.to_string() }))
@@ -26,16 +53,17 @@ pub async fn monitoring_ml(state: web::Data<AppState>) -> impl Responder {
     };
 
     // Stats par catégorie SMC
+    // Par verdict (v2 : les catégories vivaient dans smc_feedback morte).
     let rows = sqlx::query(
-        "SELECT categorie,
+        "SELECT outcome AS categorie,
                 COUNT(*) AS nb_trades,
-                SUM(gagnant) AS nb_gagnants,
-                AVG(CASE WHEN gagnant = 1 THEN conviction_llm END) AS conv_win,
-                AVG(CASE WHEN gagnant = 0 THEN conviction_llm END) AS conv_lose,
-                AVG(pnl_r) AS pnl_r_moyen
-         FROM smc_feedback
-         WHERE verdict IS NOT NULL
-         GROUP BY categorie
+                SUM(CASE WHEN rr_realise > 0 THEN 1 ELSE 0 END) AS nb_gagnants,
+                AVG(rr_realise) AS pnl_r_moyen
+         FROM ml_training_samples
+         WHERE LOWER(strategie) LIKE '%smc%'
+           AND rr_realise IS NOT NULL
+           AND LOWER(outcome) NOT IN ('expire','invalide')
+         GROUP BY outcome
          ORDER BY nb_trades DESC",
     )
     .fetch_all(pool)
@@ -52,8 +80,6 @@ pub async fn monitoring_ml(state: web::Data<AppState>) -> impl Responder {
                 "categorie":   r.get::<String, _>("categorie"),
                 "nb_trades":   nb,
                 "win_rate":    wr,
-                "conv_win":    r.get::<Option<f64>, _>("conv_win"),
-                "conv_lose":   r.get::<Option<f64>, _>("conv_lose"),
                 "pnl_r_moyen": r.get::<Option<f64>, _>("pnl_r_moyen"),
             })
         })
@@ -61,8 +87,12 @@ pub async fn monitoring_ml(state: web::Data<AppState>) -> impl Responder {
 
     // Détection de dérive : win rate des 20 derniers trades < 45 %
     let recents = sqlx::query(
-        "SELECT gagnant FROM smc_feedback
-         WHERE verdict IS NOT NULL ORDER BY ferme_le DESC LIMIT 20",
+        "SELECT CASE WHEN rr_realise > 0 THEN 1 ELSE 0 END AS gagnant
+         FROM ml_training_samples
+         WHERE LOWER(strategie) LIKE '%smc%'
+           AND rr_realise IS NOT NULL
+           AND LOWER(outcome) NOT IN ('expire','invalide')
+         ORDER BY cree_le DESC LIMIT 20",
     )
     .fetch_all(pool)
     .await
@@ -82,6 +112,34 @@ pub async fn monitoring_ml(state: web::Data<AppState>) -> impl Responder {
     let mut reponse = globales;
     reponse["par_categorie"] = serde_json::Value::Array(par_categorie);
     reponse["derive_detectee"] = serde_json::Value::Bool(derive_detectee);
+    // §11-3 (06/09) : le TOP des features (permutation OOS) et le dernier
+    // entraînement — la matière que le Dashboard LLM et l'analyste lisent.
+    if let Ok(top) = db::ml_feature_importance::lire_top_importances(pool, "smc", 8).await {
+        let arr: Vec<serde_json::Value> = top
+            .iter()
+            .map(|f| serde_json::json!({
+                "feature_nom": f.feature_nom,
+                "importance":  f.importance,
+            }))
+            .collect();
+        reponse["features_importances"] = serde_json::Value::Array(arr);
+    }
+    if let Ok(Some(ent)) = sqlx::query(
+        "SELECT asset, timeframe, nb_samples, accuracy_val, cree_le AS date
+         FROM historique_entrainements ORDER BY id DESC LIMIT 1",
+    )
+    .fetch_optional(pool)
+    .await
+    {
+        use sqlx::Row as _;
+        reponse["dernier_entrainement"] = serde_json::json!({
+            "asset": ent.get::<String, _>("asset"),
+            "timeframe": ent.get::<String, _>("timeframe"),
+            "nb_samples": ent.get::<i64, _>("nb_samples"),
+            "accuracy": ent.get::<f64, _>("accuracy_val"),
+            "date": ent.get::<i64, _>("date"),
+        });
+    }
 
     HttpResponse::Ok().json(reponse)
 }
