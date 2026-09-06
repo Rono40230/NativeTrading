@@ -20,7 +20,6 @@ mod ml_retrain_fine_tuning;
 mod ml_retrain_handler;
 mod ml_retrain_job;
 mod news_handlers;
-mod ollama_chart_handler;
 mod ollama_chat_handler;
 mod ollama_handlers;
 mod ollama_types;
@@ -156,7 +155,7 @@ async fn main() -> std::io::Result<()> {
     // quotidien : les bougies de la nuit requalifient l'univers.
     tokio::spawn(rockets_actions_backfill::boucle_recalcul_univers(app_state.db.clone()));
     // Étape C : scanner actions quotidien — Observation silencieuse.
-    tokio::spawn(rockets_actions_scanner::boucle_scanner_actions(app_state.db.clone()));
+    tokio::spawn(rockets_actions_scanner::boucle_scanner_actions(app_state.db.clone(), poignees_runtime.bus_signaux.clone()));
 
     // ── Pré-alertes SUPPRIMÉES (nettoyage code mort, décision 2026-08-15) ──────
     // L'ancien worker (scorer SMC + ATR Straddle sur bougies clôturées) alimentait
@@ -189,3 +188,4 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
+mod yahoo_quotes;

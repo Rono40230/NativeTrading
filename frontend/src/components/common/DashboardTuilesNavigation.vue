@@ -54,10 +54,10 @@
         </div>
       </template>
 
-      <!-- 🧠 IA : modèle + dernière analyse + raccourcis -->
+      <!-- 🧠 IA : modèle + raccourci prompts (analyse graphique et coach
+           retirés le 06/09 — décision propriétaire). -->
       <template v-else-if="t.id === 'ia'">
         <span class="text-[10px] text-white truncate">{{ modele ? `Modèle : ${modele}` : 'Statut IA indisponible' }} {{ ollamaOk === false ? '· Ollama ⚠️' : '' }}</span>
-        <span v-if="derniereAnalyse" class="text-[10px] text-white truncate">🖼️ {{ derniereAnalyse.asset }} {{ derniereAnalyse.tf }} · il y a {{ ageTs(derniereAnalyse.ts) }}</span>
         <div class="mt-auto flex gap-1">
           <button v-for="r in raccourcisIa" :key="r.to" class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-white transition-colors" @click.stop="router.push(r.to)">{{ r.label }}</button>
         </div>
@@ -102,9 +102,9 @@ const tuiles = [
 ] as const
 
 const raccourcisIa = [
-  { to: '/ia?tab=chart', label: '🖼️ Analyse' },
-  { to: '/ia?tab=coach', label: '💬 Coach' },
-  { to: '/ia?tab=prompts', label: '✏️ Prompts' },
+  { to: '/ia', label: '✏️ Prompts' },
+  { to: '/ia/ml', label: '📉 Métriques ML' },
+  { to: '/ia/llm', label: '🤖 Dashboard LLM' },
 ]
 
 const raccourcisSysteme = [
@@ -158,10 +158,9 @@ function formaterPrix(p: number | null): string {
   return p.toFixed(4)
 }
 
-// ── IA : modèle actif + dernière analyse (persistée par useChartImport) ──────
+// ── IA : modèle actif (statut Ollama) ────────────────────────────────────────
 const modele = ref('')
 const ollamaOk = ref<boolean | null>(null)
-const derniereAnalyse = ref<{ asset: string; tf: string; ts: number } | null>(null)
 
 async function chargerTout() {
   try {
@@ -207,9 +206,6 @@ async function chargerTout() {
     ollamaOk.value = ia.ollama_disponible
   } catch { modele.value = ''; ollamaOk.value = false }
 
-  try {
-    derniereAnalyse.value = JSON.parse(localStorage.getItem('derniere_analyse_graphique') ?? 'null')
-  } catch { derniereAnalyse.value = null }
 }
 
 let poll: ReturnType<typeof setInterval> | null = null

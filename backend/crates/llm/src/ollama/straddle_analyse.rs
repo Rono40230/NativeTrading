@@ -231,6 +231,7 @@ pub async fn analyser_creneaux(
         "options": { "temperature": 0.3, "num_predict": 1024, "num_gpu": 99, "num_ctx": 8192 }
     });
 
+    super::compter_appel();
     let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
     let client = &*super::OLLAMA_HTTP_CLIENT;
 

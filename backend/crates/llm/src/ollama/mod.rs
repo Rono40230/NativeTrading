@@ -1,24 +1,42 @@
-mod contexte;
-pub mod diagram_templates;
+mod client;
+pub use client::appeler_ollama;
 pub mod prompts;
 pub mod rockets_analyse;
 pub mod smc_analyse;
 pub mod straddle_analyse;
 mod types;
-pub mod prompts_vision;
-mod vision;
 
 use common::TradingError;
+use std::sync::atomic::{AtomicI64, Ordering};
 use std::sync::LazyLock;
-pub use contexte::formater_contexte_historique;
 use prompts::SYSTEM_PROMPT;
-pub use prompts::{
-    SYSTEM_PROMPT_COACH, SYSTEM_PROMPT_COACH_DIAGRAM,
-    SYSTEM_PROMPT_COACH_OLLAMA,
-};
 pub use types::ReponseOllama;
 use types::{MODELE_DEFAUT, OLLAMA_URL};
 pub use types::MODELE_SMC;
+
+// Compteur d'appels LLM du jour (UTC) — jauge de vie du bloc Data & IA
+// Engine (« N appels aujourd'hui » : ranker, news, analyses). Reset au
+// changement de jour ; purement informatif, aucun effet sur les appels.
+static APPELS_JOUR: AtomicI64 = AtomicI64::new(0);
+static JOUR_COMPTE: AtomicI64 = AtomicI64::new(0);
+
+/// À incrémenter à CHAQUE POST vers Ollama (les 5 sites d'appel).
+pub fn compter_appel() {
+    let jour = chrono::Utc::now().timestamp() / 86_400;
+    if JOUR_COMPTE.swap(jour, Ordering::SeqCst) != jour {
+        APPELS_JOUR.store(0, Ordering::SeqCst);
+    }
+    APPELS_JOUR.fetch_add(1, Ordering::SeqCst);
+}
+
+/// Appels LLM passés aujourd'hui (0 si le jour a tourné sans appel).
+pub fn appels_du_jour() -> i64 {
+    let jour = chrono::Utc::now().timestamp() / 86_400;
+    if JOUR_COMPTE.load(Ordering::SeqCst) != jour {
+        return 0;
+    }
+    APPELS_JOUR.load(Ordering::SeqCst)
+}
 
 /// Sémaphore global Ollama : max 2 appels LLM concurrents (évite la saturation VRAM/swap modèle).
 pub static OLLAMA_SEMAPHORE: LazyLock<tokio::sync::Semaphore> =
@@ -33,7 +51,6 @@ pub static OLLAMA_HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
 });
 
 pub use types::tf_libelle;
-pub use vision::appeler_ollama;
 
 pub const MODELE_COACH: &str = "qwen3:32b";
 pub const MODELE_COACH_DIAGRAM: &str = "qwen2.5-coder:14b";
@@ -62,6 +79,7 @@ pub async fn interroger_avec_modele_smc(prompt: &str) -> Result<String, TradingE
         "options": { "temperature": 0.6, "num_predict": 800, "num_gpu": 99, "num_ctx": 8192 }
     });
 
+    compter_appel();
     let _permit = OLLAMA_SEMAPHORE.acquire().await.ok();
     let reponse = OLLAMA_HTTP_CLIENT
         .post(&url)
@@ -134,6 +152,7 @@ async fn interroger_avec_systeme(prompt: &str, system: &str) -> Result<String, T
         "options": { "temperature": 0.7, "num_gpu": 99, "num_ctx": 8192 }
     });
 
+    compter_appel();
     let _permit = OLLAMA_SEMAPHORE.acquire().await.ok();
     let reponse = OLLAMA_HTTP_CLIENT
         .post(&url)

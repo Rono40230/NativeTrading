@@ -10,6 +10,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         "/api/rockets/calibration",
         web::get().to(crate::rockets_ml_handlers::get_calibration),
     )
+    .route(
+        "/api/rockets/positions",
+        web::get().to(crate::rockets_handlers::get_positions),
+    )
+    .route(
+        "/api/rockets/historique",
+        web::get().to(crate::rockets_handlers::get_historique),
+    )
     .service(
         web::resource("/api/rockets/config")
             .route(web::get().to(crate::rockets_handlers::get_config))

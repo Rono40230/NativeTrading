@@ -53,7 +53,11 @@ pub async fn get_articles(
                 }
                 articles_avec_fr.push(v);
             }
-            HttpResponse::Ok().json(serde_json::json!({ "articles": articles_avec_fr, "page": page }))
+            let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM presse_articles")
+                .fetch_one(state.db.pool())
+                .await
+                .unwrap_or(0);
+            HttpResponse::Ok().json(serde_json::json!({ "articles": articles_avec_fr, "page": page, "total": total }))
         }
         Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
     }

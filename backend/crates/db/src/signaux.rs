@@ -207,6 +207,10 @@ impl Database {
 
     /// Phase 2.8 — insère un signal OFFICIEL du runtime v12 (avec `cle_moteur`
     /// pour fermer la ligne à l'événement de clôture correspondant).
+    /// Rockets : la position est ouverte DÈS l'émission (pas d'ordre en
+    /// attente) — heure_entree écrite immédiatement, sinon la performance
+    /// et le capital de la carte classaient le trade « non rempli » et
+    /// l'excluaient des métriques (bug 06/09 : RAY +1,11R invisible).
     pub async fn inserer_signal_officiel(
         &self,
         signal: &Signal,
@@ -214,11 +218,13 @@ impl Database {
     ) -> Result<()> {
         let tp_json = serde_json::to_string(&signal.take_profit)
             .map_err(|e| TradingError::Database(e.to_string()))?;
+        let ouverte_des_l_emission =
+            signal.strategie.to_lowercase().contains("rocket");
         sqlx::query(
             "INSERT OR IGNORE INTO signaux
              (id, asset, timeframe, direction, score, prix_entree,
-              stop_loss, take_profit, strategie, statut, cree_le, cle_moteur)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Actif', ?, ?)",
+              stop_loss, take_profit, strategie, statut, cree_le, cle_moteur, heure_entree)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Actif', ?, ?, ?)",
         )
         .bind(signal.id.to_string())
         .bind(signal.asset.as_str())
@@ -231,6 +237,7 @@ impl Database {
         .bind(&signal.strategie)
         .bind(signal.cree_le.timestamp())
         .bind(cle_moteur)
+        .bind(ouverte_des_l_emission.then(|| signal.cree_le.timestamp()))
         .execute(&self.pool)
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;

@@ -6,9 +6,8 @@ use smc::{
 
 use llm::ollama;
 use crate::ollama_types::{
-    ReponseAnalyse, ReponseChat, RequeteAnalyse, RequeteChat, RequeteDiagram, StatutIA,
+    ReponseAnalyse, RequeteAnalyse, StatutIA,
 };
-use crate::state::AppState;
 
 // ─── POST /api/ia/analyse ─────────────────────────────────────────────────────
 pub async fn analyser(body: web::Json<RequeteAnalyse>) -> impl Responder {
@@ -78,103 +77,7 @@ pub async fn analyser(body: web::Json<RequeteAnalyse>) -> impl Responder {
 }
 
 // ─── POST /api/ia/chat ────────────────────────────────────────────────────────
-pub async fn chat(state: web::Data<AppState>, body: web::Json<RequeteChat>) -> impl Responder {
-    if body.messages.is_empty() {
-        return HttpResponse::BadRequest()
-            .json(serde_json::json!({ "error": "messages ne peut pas être vide" }));
-    }
-    if body.messages.len() > 40 {
-        return HttpResponse::BadRequest()
-            .json(serde_json::json!({ "error": "Historique trop long (max 40 messages)" }));
-    }
-
-    let historique: Vec<(String, String)> = body
-        .messages
-        .iter()
-        .map(|m| (m.role.clone(), m.contenu.clone()))
-        .collect();
-
-    let api_key = state
-        .db
-        .lire_config("anthropic_api_key")
-        .await
-        .ok()
-        .flatten();
-    let forcer_ollama = body.forcer_ollama.unwrap_or(false);
-    if !forcer_ollama {
-        if let Some(key) = api_key.filter(|k| !k.is_empty()) {
-            let coach_prompt = llm::prompt_effectif("coach");
-            match llm::anthropic::chat_claude(&historique, &coach_prompt, &key).await {
-                Ok(reponse) => {
-                    return HttpResponse::Ok().json(ReponseChat {
-                        reponse,
-                        modele: llm::anthropic::MODELE_CLAUDE.to_string(),
-                    })
-                }
-                Err(e) => {
-                    tracing::warn!("Anthropic indisponible, bascule sur Ollama: {}", e);
-                    // fall-through → Ollama
-                }
-            }
-        }
-    }
-
-    let _coach_prompt = llm::prompt_effectif("coach");
-
-    match ollama::interroger_chat_modele_avec_systeme(
-        &historique,
-        ollama::MODELE_COACH,
-        ollama::SYSTEM_PROMPT_COACH_OLLAMA,
-    )
-    .await
-    {
-        Ok(reponse) => HttpResponse::Ok().json(ReponseChat {
-            reponse,
-            modele: ollama::MODELE_COACH.to_string(),
-        }),
-        Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
-            "error": format!("{}", e),
-            "aide": "Clé Anthropic non configurée et Ollama injoignable. Configurez la clé dans Paramètres ou lancez: ollama serve"
-        })),
-    }
-}
-
 // ─── POST /api/ia/diagram ─────────────────────────────────────────────────────
-pub async fn generer_diagram(body: web::Json<RequeteDiagram>) -> impl Responder {
-    if body.sujet.trim().is_empty() {
-        return HttpResponse::BadRequest()
-            .json(serde_json::json!({ "error": "sujet ne peut pas être vide" }));
-    }
-    // Templates pré-construits : résultat garanti, zéro latence GPU
-    if let Some(svg) = ollama::diagram_templates::trouver_template(&body.sujet) {
-        return HttpResponse::Ok().json(ReponseChat {
-            reponse: format!("<htmldiagram>{}</htmldiagram>", svg),
-            modele: "smc-templates".to_string(),
-        });
-    }
-    let prompt_utilisateur = format!(
-        "Génère un diagramme SVG de trading SMC illustrant : {}",
-        body.sujet.trim()
-    );
-    let historique = vec![("user".to_string(), prompt_utilisateur)];
-    match ollama::interroger_chat_modele_avec_systeme(
-        &historique,
-        ollama::MODELE_COACH_DIAGRAM,
-        ollama::SYSTEM_PROMPT_COACH_DIAGRAM,
-    )
-    .await
-    {
-        Ok(reponse) => HttpResponse::Ok().json(ReponseChat {
-            reponse,
-            modele: ollama::MODELE_COACH_DIAGRAM.to_string(),
-        }),
-        Err(e) => HttpResponse::ServiceUnavailable().json(serde_json::json!({
-            "error": format!("{}", e),
-            "aide": "qwen2.5-coder:14b requis : ollama pull qwen2.5-coder:14b"
-        })),
-    }
-}
-
 // ─── GET /api/ia/status ───────────────────────────────────────────────────────
 pub async fn statut() -> impl Responder {
     let modele = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen3:32b".to_string());
@@ -193,5 +96,6 @@ pub async fn statut() -> impl Responder {
         ollama_disponible: disponible,
         modele,
         url,
+        appels_jour: llm::ollama::appels_du_jour(),
     })
 }

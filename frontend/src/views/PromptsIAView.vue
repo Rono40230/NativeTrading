@@ -1,28 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { apiService } from '@/services/api.service'
-import StraddleMonitoringML from '@/components/common/StraddleMonitoringML.vue'
-import RocketsMonitoringML from '@/components/common/RocketsMonitoringML.vue'
-import SmcMonitoringML from '@/components/common/SmcMonitoringML.vue'
-import MlInsightsView from '@/views/MlInsightsView.vue'
 
 type PromptsGroupe = Record<string, Record<string, any>>
 type StrMap = Record<string, string>
 type BoolMap = Record<string, boolean>
 
-const ongletActif = ref('prompts')
 const prompts = ref<PromptsGroupe | null>(null)
 const chargement = ref(false)
 const erreur = ref('')
 const expansions = ref<BoolMap>({})
 const editValues = ref<StrMap>({})
 const enCours = ref<BoolMap>({})
-
-const onglets = [
-  { id: 'prompts',      label: '📝 Prompts IA' },
-  { id: 'metriques',    label: '📉 Métriques ML' },
-  { id: 'ml_insights',  label: '🤖 Dashboard LLM' },
-]
 
 const catConfig: Record<string, any> = {
   straddle: { label: 'Straddle', icon: '⚡', border: 'border-purple-500/30', text: 'text-purple-400' },
@@ -85,25 +74,10 @@ onMounted(chargerPrompts)
 
     <!-- En-tête -->
     <div class="shrink-0">
-      <h1 class="text-xl font-bold text-white">Configuration & Métriques IA</h1>
+      <h1 class="text-xl font-bold text-white">✏️ Prompts IA</h1>
       <p class="text-sm text-white mt-1">
-        Gérez vos prompts centraux et analysez l'état du réseau ML.
+        Les consignes des analystes — éditables, restaurables au défaut.
       </p>
-    </div>
-
-    <!-- Onglets principaux -->
-    <div class="flex gap-1 border-b border-white/10 shrink-0 flex-wrap">
-      <button
-        v-for="o in onglets"
-        :key="o.id"
-        @click="ongletActif = o.id"
-        :class="ongletActif === o.id
-          ? 'border-b-2 border-blue-500 text-white bg-white/5'
-          : 'text-white hover:text-white hover:bg-white/5'"
-        class="px-4 py-2 text-sm font-medium rounded-t transition-colors"
-      >
-        {{ o.label }}
-      </button>
     </div>
 
     <!-- Erreur globale -->
@@ -112,7 +86,7 @@ onMounted(chargerPrompts)
     </div>
 
     <!-- CONTENU PROMPTS -->
-    <div v-if="ongletActif === 'prompts'" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2">
+    <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-2">
       <div v-if="chargement" class="text-white text-sm animate-pulse">Chargement des prompts…</div>
       
       <div v-else-if="prompts" class="grid grid-cols-1 xl:grid-cols-2 gap-4 h-full">
@@ -192,51 +166,5 @@ onMounted(chargerPrompts)
       </div>
     </div>
 
-    <!-- CONTENUS METRIQUES & INSIGHTS -->
-    <div v-if="ongletActif === 'metriques'" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-      <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 h-full">
-        <!-- Straddle -->
-        <div class="glass-card flex flex-col rounded-xl border border-purple-500/30 bg-white/5 overflow-hidden">
-          <div class="p-4 border-b border-white/10 shrink-0">
-             <h2 class="font-bold flex items-center gap-2 text-base text-purple-400"><span>⚡</span> Straddle</h2>
-          </div>
-          <div class="flex-1 min-h-0 overflow-y-auto p-4 custom-scrollbar relative">
-             <StraddleMonitoringML compact />
-          </div>
-        </div>
-
-        <!-- SMC -->
-        <div class="glass-card flex flex-col rounded-xl border border-blue-500/30 bg-white/5 overflow-hidden">
-          <div class="p-4 border-b border-white/10 shrink-0">
-             <h2 class="font-bold flex items-center gap-2 text-base text-blue-400"><span>📊</span> SMC</h2>
-          </div>
-          <div class="flex-1 min-h-0 overflow-y-auto p-4 custom-scrollbar relative">
-             <SmcMonitoringML compact />
-          </div>
-        </div>
-
-        <!-- Rockets -->
-        <div class="glass-card flex flex-col rounded-xl border border-orange-500/30 bg-white/5 overflow-hidden">
-          <div class="p-4 border-b border-white/10 shrink-0">
-             <h2 class="font-bold flex items-center gap-2 text-base text-orange-400"><span>🚀</span> Rockets</h2>
-          </div>
-          <div class="flex-1 min-h-0 overflow-y-auto p-4 custom-scrollbar relative">
-             <RocketsMonitoringML compact />
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div v-else-if="ongletActif === 'ml_insights'" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-1">
-      <MlInsightsView />
-    </div>
-
   </div>
 </template>
-
-<style scoped>
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
-</style>

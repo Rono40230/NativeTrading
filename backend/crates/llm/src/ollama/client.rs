@@ -3,6 +3,7 @@ use common::TradingError;
 use super::types::ReponseOllama;
 
 pub async fn appeler_ollama(url: &str, corps: &serde_json::Value) -> Result<String, TradingError> {
+    super::compter_appel();
     let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
     let client = &*super::OLLAMA_HTTP_CLIENT;
     let reponse = client

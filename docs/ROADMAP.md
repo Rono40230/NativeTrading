@@ -286,6 +286,82 @@ le plus urgent — § ci-dessous — pour que l'IA ne décrive pas des moteurs m
       (feedback/features/blacklist…) la lisent encore — DROP différé au
       tranchage §11 (qui décidera aussi du sort de ces modules).
 
+- [x] **Poste d'observation des positions ouvertes (06/09, miroir du Journal de
+      Trading)** : la section « en cours » devient deux sections — À risque /
+      Neutralisées — avec les colonnes de pilotage : Risque %, Invalidation,
+      Entrée, Cours live (Binance cryptos / D1 Tiingo actions), Tendance, Qté
+      (lot officiel enregistré à l'ouverture — migration 0102), Montant, P/L
+      latent, R latent, R1, Vente R1 ; neutralisées : R1 encaissé, Trailing,
+      Qté restante, P/L complet, Évolution R. **Lecture seule** — le moteur
+      décide ; lignes qui pulsent verte à R1, rouge à l'invalidation/trailing.
+      Endpoint GET /api/rockets/positions enrichi.
+- [x] **Recadrage moteur : gestion en continu (décision propriétaire 06/09)** — « ne pas
+      attendre la clôture D1 : dès que R1 est atteint = neutralisation et
+      déclenchement du TS ». Boucle à 30 s sur la bougie D1 EN COURS (live).
+      Aucune règle de `pas_gestion` changée (précédence stop-avant-R1
+      conservée). Premier cycle réel : RAY neutralisée puis sortie TS +1,11 R
+      en 30 secondes.
+- [x] **Historique des trades dans la logique rocket (06/09)** :
+      `RocketsHistoriqueTable` — Classement /10 (joint au signal), Ouvert
+      le/Durée/Fermé le, Entrée, Invalidation, Qté, Montant, R1 encaissé,
+      Trailing final, Sommet (migration 0103, suivi à chaque cycle), Sortie,
+      Verdict TS/SL, R réalisé, P/L $. Synthèse : N · WR · ΣR · Σ$. Endpoint
+      GET /api/rockets/historique.
+- [x] **Harmonisation du layout de la page Rockets (06/09)** : colonne Setups
+      sur TOUTE la hauteur à gauche ; à droite, trois blocs au design identique
+      (carte + barre de couleur latérale : rouge = à risque, ambre =
+      neutralisées, violet = historique), même largeur, empilés — l'historique
+      occupe le reste de la hauteur. Composable `usePositionsRockets` partagé,
+      sections `PositionsARisqueTable`/`PositionsNeutraliseesTable` ; la page
+      quitte `StrategyShell` (SMC/straddle inchangées).
+- [x] **Actions US en gestion + cours live Yahoo (décision propriétaire 06/09 —
+      Finnhub écarté après soucis, Yahoo approuvé par le Journal de Trading)** :
+      module `yahoo_quotes` (pattern éprouvé du journal : UA navigateur +
+      cookie fc.yahoo.com + crumb caché 30 min + v7/quote) ; le scanner actions
+      OUVRE les cassures (même chemin que la crypto : news ≥ 7 + ranker + lot
+      officiel — fn `ouvrir_position` extraite et partagée) ; la gestion 30 s
+      évalue les positions actions sur la séance du jour Yahoo (haut/bas/dernier =
+      bougie en cours) ; l'endpoint positions sert le live Yahoo (tendance via
+      veille dérivée). Hors session US : dernière valeur connue.
+- [x] **Carte rockets connectée aux trades réels (06/09)** : le canal était
+      débranché à la SOURCE — `inserer_signal_officiel` n'écrivait jamais
+      `heure_entree` (mécanique d'ordre en attente SMC, sans objet en rockets
+      où la position s'ouvre à l'émission) → les trades étaient classés « non
+      remplis » et exclus de la performance/capital (RAY +1,11R invisible,
+      courbe vide). Fix : heure_entree écrite à l'émission pour rockets +
+      reprise rétroactive de RAY/BNB. Vérifié : capital 10 000 → 10 111,34 $
+      (point RAY), perf total=1 gagnant=1 ΣR=+1,11, non_remplis=0. Sur la
+      carte : camembert **Verdicts** (TS/SL) à la place du TF muet (D1
+      unique), **Classement univers** (Crypto/Actions) à la place du
+      classement TF ; badge **« N en cours 🚀 »** avec P/L latent des
+      positions ouvertes en infobulle (composable partagé du poste
+      d'observation).
+- [x] **Suppression de l'analyse graphique et du Coach IA (décision propriétaire
+      06/09 — « je ne m'en servirai jamais »)** : page Fonctionnalités IA réduite
+      aux prompts seuls ; tuile dashboard IA = modèle + raccourci Prompts ;
+      purge complète — front (vues, composants, composables, types
+      ReponseChatIA/ReponseChartIA/ImageAvecTF, services chat/diagram/chart),
+      routes /api/ia/chat|diagram|chart, handlers coach/chart, couches llm
+      (anthropic.rs, vision, diagram_templates, prompts_vision, contexte,
+      prompts coach — le client Ollama générique restitué en client.rs),
+      entrées UI des prompts. L'analyse SMC texte (/api/ia/analyse, bouton
+      🔍 des graphiques) est CONSERVÉE (vivante).
+- [x] **Métriques ML et Dashboard LLM en accès direct (06/09)** : les deux
+      ex-onglets de la page prompts deviennent des vues routées (`/ia/ml`,
+      `/ia/llm`) ouvertes par les boutons de la tuile Fonctionnalité IA
+      (✏️ Prompts · 📉 Métriques ML · 🤖 Dashboard LLM). La page prompts ne
+      garde que les prompts.
+- [x] **Compteurs de vie dans le bloc Data & IA Engine (06/09)** : MT5 `X/Y
+      frais` (symboles avec bougie < 120 s), Bybit `+N bougies/j` (flux du
+      jour), Presse `N articles` (total exposé par GET /api/presse/articles),
+      LLM `N appels` (compteur du jour incrémenté aux 5 sites de POST Ollama,
+      exposé par GET /api/ia/status — reset UTC). API Serveur laissé tel quel.
+- [x] **Bloc 📐 Surveillance Assets supprimé (06/09 — « je ne le regarde
+      jamais »)** : composant + sa plomberie privée dans DashboardHome
+      (chargerPrixActifs : 5 fetchs de bougies par asset toutes les 60 s,
+      assetsAvecPrix, assetsDisplay). Le prix temps réel passe uniquement par
+      le store WebSocket (btcPrix du bloc Engine inclus). SentimentMarche et
+      le calendrier (colonne droite) inchangés.
 - [ ] **Véto unlocks** : source libre (calendrier public de déverrouillages de tokens)
       → intégrer au scanner (éliminatoire si unlock majeur < 30 jours)
 - [ ] **ETF via Tiingo** : lever l'exclusion ETF + profils 2/3/4 % dédiés (répertoire

@@ -15,7 +15,6 @@ use std::fs;
 use crate::ollama::rockets_analyse::PROMPT_ANALYSE_ROCKETS;
 use crate::ollama::smc_analyse::PROMPT_ANALYSE_SMC;
 use crate::ollama::straddle_analyse::PROMPT_ANALYSE_STRADDLE;
-use crate::ollama::SYSTEM_PROMPT_COACH;
 
 pub(crate) const OVERRIDES_PATH: &str = "data/prompts_overrides.json";
 
@@ -26,14 +25,6 @@ pub(crate) const OVERRIDES_PATH: &str = "data/prompts_overrides.json";
 /// (llm) ET par les endpoints CRUD de `api::prompts_handler` (via `llm::defaults`).
 pub fn defaults() -> HashMap<&'static str, &'static str> {
     let mut m = HashMap::new();
-    m.insert(
-        "vision_1tf",
-        crate::ollama::prompts_vision::PROMPT_VISION_ANALYST,
-    );
-    m.insert(
-        "vision_multi_tf",
-        crate::ollama::prompts_vision::PROMPT_VISION_MULTI_TF,
-    );
     m.insert(
         "analyse_rapport",
         r#"Tu es l'analyste quantitatif d'une application de trading personnelle. Tu reçois les métriques consolidées d'une stratégie : dollars réellement composés ($) et R de la convention du moteur (pondéré après ventes partielles pour SMC, net pour straddle, réalisé pour rockets). JAMAIS de R de référence ni de pips.
@@ -58,7 +49,7 @@ La confiance est un ENTIER entre 0 et 100 (jamais un décimal comme 0.75)."#,
     );
     m.insert(
         "rockets_definition",
-        "Tu es l'analyste de la stratégie Rockets (VCP × Rocket Hunter, classement /10). DÉFINITION — quatre piliers : Fondamental (3 pts) : sentiment = FORCE RELATIVE PURE (battre la référence — BTC pour crypto, QQQ pour actions — sur 4 semaines, sans veto macro depuis le 05/09), contexte (pivot âgé ≥ 30 j et prix ≥ 90 % du pivot), news catalyseur (réservé IA). Technique (3 pts) : tendance (prix > MM50 > MM200, ≥ 75 % du haut 52 semaines), volatilité (squeeze Bollinger 30 j puis expansion), intérêt (volumes asséchés puis explosion). Chartisme (2 pts) : VCP (≥ 2 contractions décroissantes d'environ 40 %), pas de gros gaps. Pilotage (2 pts) : cassure du pivot 60 j, liquidité (mèche haute ≤ 25 % de l'étendue). VERDICTS — Alpha ≥ 9/9, Rocket ≥ 7/9 ; candidats ≥ 5 journalisés et suivis en attente de pivot (les éliminés restent en base pour la chasse aux faux négatifs). UNIVERS — crypto : top 300 Binance USDT en volume (scan 00h40 UTC) ; actions US : périmètre liquide plafonné 450 (dollar-volume ≥ 2 M$/j, prix ≥ 5 $, pionniers narratifs prioritaires — décisions 05/09, scan 22h30 UTC). DÉCISION D'ENTRÉE — cassure du pivot (buy-stop au-delà), un ranker IA départage les vraies cassures des fausses. GESTION — stop sous le bas de la dernière contraction (invalidation −1R) ; R1 touché → vendre 50 % puis trailing % (défaut 5 %) ; gestion sur bougies D1 confirmées. MONEY MANAGEMENT — risque 1-3 % du capital de la stratégie (profils PeuRisque/Neutre/Risque), plafond de position 5 %.",
+        "Tu es l'analyste de la stratégie Rockets (VCP × Rocket Hunter, classement /10). DÉFINITION — quatre piliers : Fondamental (3 pts) : sentiment = FORCE RELATIVE PURE (battre la référence — BTC pour crypto, QQQ pour actions — sur 4 semaines, sans veto macro depuis le 05/09), contexte (pivot âgé ≥ 30 j et prix ≥ 90 % du pivot), news catalyseur (réservé IA). Technique (3 pts) : tendance (prix > MM50 > MM200, ≥ 75 % du haut 52 semaines), volatilité (squeeze Bollinger 30 j puis expansion), intérêt (volumes asséchés puis explosion). Chartisme (2 pts) : VCP (≥ 2 contractions décroissantes d'environ 40 %), pas de gros gaps. Pilotage (2 pts) : cassure du pivot 60 j, liquidité (mèche haute ≤ 25 % de l'étendue). VERDICTS — Alpha ≥ 9/9, Rocket ≥ 7/9 ; candidats ≥ 5 journalisés et suivis en attente de pivot (les éliminés restent en base pour la chasse aux faux négatifs). UNIVERS — crypto : top 300 Binance USDT en volume (scan 00h40 UTC) ; actions US : périmètre liquide plafonné 450 (dollar-volume ≥ 2 M$/j, prix ≥ 5 $, pionniers narratifs prioritaires — décisions 05/09, scan 22h30 UTC, EN GESTION depuis le 06/09 avec cours live Yahoo). DÉCISION D'ENTRÉE — cassure du pivot (buy-stop au-delà), un ranker IA départage les vraies cassures des fausses. GESTION — stop sous le bas de la dernière contraction (invalidation −1R) ; R1 touché → vendre 50 % puis trailing % (défaut 5 %) ; gestion sur bougies D1 confirmées. MONEY MANAGEMENT — risque 1-3 % du capital de la stratégie (profils PeuRisque/Neutre/Risque), plafond de position 5 %.",
     );
     m.insert(
         "rockets_catalyseur",
@@ -71,7 +62,6 @@ La confiance est un ENTIER entre 0 et 100 (jamais un décimal comme 0.75)."#,
     m.insert("rockets_analyse", PROMPT_ANALYSE_ROCKETS);
     m.insert("smc_analyse", PROMPT_ANALYSE_SMC);
     m.insert("straddle_analyse", PROMPT_ANALYSE_STRADDLE);
-    m.insert("coach", SYSTEM_PROMPT_COACH);
     m
 }
 

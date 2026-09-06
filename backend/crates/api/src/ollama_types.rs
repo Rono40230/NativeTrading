@@ -30,30 +30,7 @@ pub struct ReponseAnalyse {
 
 // ─── /api/ia/chat ─────────────────────────────────────────────────────────────
 
-#[derive(Deserialize)]
-pub struct MessageChat {
-    pub role: String,
-    pub contenu: String,
-}
-
-#[derive(Deserialize)]
-pub struct RequeteChat {
-    pub messages: Vec<MessageChat>,
-    pub forcer_ollama: Option<bool>,
-}
-
-#[derive(Serialize)]
-pub struct ReponseChat {
-    pub reponse: String,
-    pub modele: String,
-}
-
 // ─── /api/ia/diagram ─────────────────────────────────────────────────────────
-#[derive(Deserialize)]
-pub struct RequeteDiagram {
-    pub sujet: String,
-}
-
 // ─── /api/ia/status ───────────────────────────────────────────────────────────
 
 #[derive(Serialize)]
@@ -61,28 +38,11 @@ pub struct StatutIA {
     pub ollama_disponible: bool,
     pub modele: String,
     pub url: String,
+    /// Appels LLM passés aujourd'hui (jauge de vie du bloc Data & IA Engine).
+    pub appels_jour: i64,
 }
 
 // ─── /api/ia/chart ────────────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct ImageAvecTF {
-    pub base64: String,
-    pub timeframe: String,
-}
-
-#[derive(Deserialize)]
-pub struct RequeteChartAnalyse {
-    pub asset: String,
-    pub images: Vec<ImageAvecTF>,
-    pub notes: Option<String>,
-}
-
-#[derive(Serialize)]
-pub struct ReponseChartAnalyse {
-    pub analyse: String,
-    pub modele: String,
-}
 
 // ─── /api/ia/signal ───────────────────────────────────────────────────────────
 

@@ -30,6 +30,9 @@
           <span class="px-1.5 py-0.5 rounded bg-white/10 text-white" title="Taux de réussite (R de référence > 0)">WR {{ (b.perf.taux_reussite * 100).toFixed(0) }} %</span>
           <span v-if="b.perf.recalcul" class="px-1.5 py-0.5 rounded bg-white/10 text-white animate-pulse"
                 title="Re-jeu paramétrique en cours (~35 s) — les métriques vont se mettre à jour">⏳ recalcul</span>
+        <span v-if="b.id === 'rockets' && nbPositionsRocket > 0"
+              class="px-1.5 py-0.5 rounded bg-purple-700/40 text-purple-200 font-mono font-bold cursor-help"
+              :title="titrePositionsRocket">{{ nbPositionsRocket }} en cours 🚀</span>
         </div>
       </div>
 
@@ -121,7 +124,7 @@
             <text x="21" y="22" text-anchor="middle" dominant-baseline="middle"
               class="fill-white" style="font-size: 8px; font-weight: 700">{{ totalParts(b.parTf) }}</text>
           </svg>
-          <p class="text-[8px] uppercase text-white tracking-wide">TF</p>
+          <p class="text-[8px] uppercase text-white tracking-wide">{{ b.id === 'rockets' ? 'Verdicts' : 'TF' }}</p>
           <p class="text-[8px] leading-tight text-white text-center">
             <span v-for="s in b.parTf.slice(0, 4)" :key="'tfl' + s.label" class="whitespace-nowrap">
               <span :style="{ color: couleurTf(s.label) }">■</span> {{ s.label }} {{ s.n }}{{ ' ' }}
@@ -175,7 +178,7 @@
             <text x="21" y="22" text-anchor="middle" dominant-baseline="middle"
               :class="b.dollarsNet >= 0 ? 'fill-emerald-400' : 'fill-red-400'" style="font-size: 7px; font-weight: 700">{{ fmtDollarsCourt(b.dollarsNet) }}</text>
           </svg>
-          <p class="text-[8px] uppercase text-white tracking-wide">Classement TF</p>
+          <p class="text-[8px] uppercase text-white tracking-wide">{{ b.id === 'rockets' ? 'Classement univers' : 'Classement TF' }}</p>
           <p class="text-[8px] leading-tight text-white text-center">
             <span v-for="s in lignesClassement(b.topTf)" :key="'ttfl' + s.label" class="whitespace-nowrap">
               <span :style="{ color: s.autres ? 'rgba(255,255,255,0.35)' : couleurTf(s.label) }">■</span> {{ s.label }} <span :class="s.valeur >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollarsCourt(s.valeur) }}</span>{{ ' ' }}
@@ -225,6 +228,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { http } from '@/services/http.client'
 import CourbeCapital from './CourbeCapital.vue'
+import { usePositionsRockets, plLatent, plNeutralisee } from '@/composables/usePositionsRockets' 
 import { zonesCapital, type PointCapital } from '@/composables/useCourbeCapital'
 import {
   PALETTE as _PALETTE, repartition, classement, couleurTf, couleurAsset,
@@ -262,7 +266,7 @@ interface CapitalApi {
 }
 /** Trade fermé rempli (base vécue, expirés exclus) — camemberts NOMBRES. */
 interface TradeNombre {
-  id: string; asset: string; tf: string
+  id: string; asset: string; tf: string; verdict: string | null
 }
 /** Clôture en $ (simulation capital) — camemberts $ et histogramme. */
 interface TradeDollar {
@@ -303,6 +307,23 @@ const HIST_H = 30
 const NB_JOURS = 14
 
 const router = useRouter()
+
+// Positions rockets ouvertes : badge vivant de la carte (poste
+// d'observation — P/L latent en infobulle).
+const { risque: risqueRocket, neutralisees: neutraliseesRocket, live: liveRocket } = usePositionsRockets()
+const nbPositionsRocket = computed(() => risqueRocket.value.length + neutraliseesRocket.value.length)
+const titrePositionsRocket = computed(() => {
+  const lignes: string[] = ['Positions ouvertes — pilotage automatique (30 s)']
+  for (const p of risqueRocket.value) {
+    const pl = plLatent(liveRocket.value, p)
+    lignes.push(`${p.symbole} : ${p.r1 >= 0 ? '' : ''}R1 ${p.r1.toFixed(2)} · P/L latent ${pl === null ? '—' : (pl >= 0 ? '+' : '−') + Math.abs(pl).toFixed(2) + ' $'}`)
+  }
+  for (const p of neutraliseesRocket.value) {
+    const pl = plNeutralisee(liveRocket.value, p)
+    lignes.push(`${p.symbole} : neutralisée · trailing ${p.trailing?.toFixed(2) ?? '—'} · P/L ${pl === null ? '—' : (pl >= 0 ? '+' : '−') + Math.abs(pl).toFixed(2) + ' $'}`)
+  }
+  return lignes.join('\n')
+})
 const blocs = ref<Bloc[]>([])
 const chargement = ref(true)
 const signaux = ref<SignalApi[]>([])
@@ -378,7 +399,7 @@ function tradesFerme(idStrategie: string): TradeNombre[] {
     if (s.statut !== 'Fermé' || s.heure_entree === null || s.ferme_le === null) continue
     if ((s.verdict ?? '').toLowerCase() === 'expire') continue
     if (idStrategie === 'SMC' ? !strats.startsWith('smc') : strats !== idStrategie) continue
-    res.push({ id: s.id, asset: s.asset, tf: s.timeframe })
+    res.push({ id: s.id, asset: s.asset, tf: s.timeframe, verdict: s.verdict })
   }
   return res
 }
@@ -518,13 +539,22 @@ async function charger() {
         } catch { /* simulation indisponible → pas de badge ni courbe */ }
         const nombres = tradesFerme(s.id)
         const dollars = tradesDollars(capital)
+        // Rockets (06/09) : le TF ne dit rien (D1 unique) — le camembert
+        // montre les VERDICTS (TS/SL) et le classement les UNIVERS
+        // (crypto vs actions), les deux lectures qui comptent.
+        const estRocket = s.id === 'rockets'
+        const univers = (a: string) => (a.endsWith('USDT') ? 'Crypto' : 'Action')
         return {
           id: s.id, nom: s.nom, icone: s.icone, etat: s.etat, perf, capital,
           dollarsNet: dollars.reduce((n, t) => n + t.profit, 0),
           jours: joursHistogramme(dollars),
-          parTf: repartition(nombres, t => t.tf),
+          parTf: estRocket
+            ? repartition(nombres, t => (t.verdict ?? '—'))
+            : repartition(nombres, t => t.tf),
           parAsset: repartition(nombres, t => t.asset),
-          topTf: classement(dollars, t => t.tf, t => t.profit),
+          topTf: estRocket
+            ? classement(dollars, t => univers(t.asset), t => t.profit)
+            : classement(dollars, t => t.tf, t => t.profit),
           topAsset: classement(dollars, t => t.asset, t => t.profit),
         }
       }),

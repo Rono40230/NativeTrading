@@ -10,8 +10,7 @@ import { alertesApi } from './api.alertes'
 
 export type {
   Candle, PredictionML, ReponseEntrainement,
-  RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA,
-  ImageAvecTF, StatutIA, Signal, ScoreSmc,
+  RequeteAnalyseIA, ReponseAnalyseIA, StatutIA, Signal, ScoreSmc,
   ReponseIndicators, IndicatorsParams,
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
   SentimentMarche, EntiteSentiment,
@@ -21,8 +20,7 @@ export type {
 } from './api.types'
 
 import type {
-  RequeteAnalyseIA, ReponseAnalyseIA, ReponseChatIA, ReponseChartIA,
-  ImageAvecTF, StatutIA, PredictionML, ScoreSmc,
+  RequeteAnalyseIA, ReponseAnalyseIA, StatutIA, PredictionML, ScoreSmc,
   ReponseIndicators, IndicatorsParams,
   ReponseTendanceMultiTf, AssetInfo, Signal, Candle,
   ModeCalculTendance,
@@ -106,32 +104,6 @@ export const apiService = {
 
   async analyserIA(requete: RequeteAnalyseIA): Promise<ReponseAnalyseIA> {
     const res = await http.post('/api/ia/analyse', requete, { timeout: 120000 })
-    return res.data
-  },
-
-  async chatIA(
-    messages: { role: string; contenu: string }[],
-    forcerOllama = false
-  ): Promise<ReponseChatIA> {
-    const res = await http.post('/api/ia/chat', { messages, forcer_ollama: forcerOllama }, { timeout: 300000 })
-    return res.data
-  },
-
-  async genererDiagramme(sujet: string): Promise<ReponseChatIA> {
-    const res = await http.post('/api/ia/diagram', { sujet }, { timeout: 300000 })
-    return res.data
-  },
-
-  async analyserChart(
-    asset: string,
-    images: ImageAvecTF[],
-    notes?: string,
-  ): Promise<ReponseChartIA> {
-    const res = await http.post(
-      '/api/ia/chart',
-      { asset, images, ...(notes ? { notes } : {}) },
-      { timeout: 180000 },
-    )
     return res.data
   },
 

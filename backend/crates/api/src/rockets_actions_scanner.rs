@@ -13,6 +13,7 @@
 use std::sync::Arc;
 
 use db::Database;
+
 use rockets::classement::{classement_rocket, contexte_marche, BougieD1};
 use rockets::trend_template::trend_template;
 
@@ -33,7 +34,7 @@ fn vers_bougies_d1(lignes: &[(i64, f64, f64, f64, f64, f64)]) -> Vec<BougieD1> {
 
 /// Un passage du scanner. Retour le compte-rendu (évalués, passants,
 /// candidats ≥5, cassures journalisées).
-pub async fn scanner_actions(db: &Arc<Database>) -> serde_json::Value {
+pub async fn scanner_actions(db: &Arc<Database>, bus: &engine::BusSignaux) -> serde_json::Value {
     // 1. Contexte de marché : QQQ (même source que les actions).
     let qqq = db.bougies_actions("QQQ").await.unwrap_or_default();
     let clotures_qqq: Vec<f64> = qqq.iter().map(|b| b.4).collect();
@@ -50,6 +51,9 @@ pub async fn scanner_actions(db: &Arc<Database>) -> serde_json::Value {
     let mut passants = 0usize;
     let mut candidats = 0usize;
     let mut cassures = 0usize;
+    // Cassures du jour à ouvrir en gestion (décision 06/09 — mêmes règles
+    // que la crypto : points ≥ 7 avec news, ranker, lot officiel).
+    let mut a_ouvrir: Vec<(String, f64, f64, u8, i64)> = Vec::new();
 
     for ticker in &tickers {
         let lignes = db.bougies_actions(ticker).await.unwrap_or_default();
@@ -88,8 +92,16 @@ pub async fn scanner_actions(db: &Arc<Database>) -> serde_json::Value {
             .await;
             if r.cassure {
                 cassures += 1;
+                let ts_derniere = lignes.last().map(|b| b.0).unwrap_or(0);
+                a_ouvrir.push((
+                    ticker.clone(),
+                    r.pivot.unwrap_or(0.0),
+                    r.stop.unwrap_or(0.0),
+                    r.points,
+                    ts_derniere,
+                ));
                 tracing::info!(
-                    "🚀 [Observation] Actions {} : CASSURE au pivot {:.2} — {}/10 (journalisée, rien d'exécuté)",
+                    "🚀 Actions {} : CASSURE au pivot {:.2} — {}/10 → ouverture en gestion",
                     ticker, r.pivot.unwrap_or(0.0), r.points
                 );
             }
@@ -109,10 +121,31 @@ pub async fn scanner_actions(db: &Arc<Database>) -> serde_json::Value {
     // rockets_catalyseur les lira via evaluer_news du flux crypto/actions).
     if candidats > 0 {
         crate::rockets_actions_news::collecter(db).await;
+        // Catalyseur news AVANT la décision (même séquence que la crypto).
+        crate::rockets_ia::evaluer_news(db).await;
+    }
+
+    // ── Ouverture en gestion (décision 06/09) : même chemin que la crypto ──
+    let mut ouvertes = 0usize;
+    for (symbole, pivot, stop, points_base, ts) in a_ouvrir {
+        let points_total = points_base
+            + sqlx::query_scalar::<_, i64>(
+                "SELECT COALESCE(news_points, 0) FROM rockets_candidats WHERE symbole = ?",
+            )
+            .bind(&symbole)
+            .fetch_one(db.pool())
+            .await
+            .unwrap_or(0) as u8;
+        if points_total < 7 {
+            continue;
+        }
+        if crate::rockets_verticale::ouvrir_position(db, bus, &symbole, pivot, stop, points_total, ts).await {
+            ouvertes += 1;
+        }
     }
 
     tracing::info!(
-        "🚀 Scanner actions : {evalues} évalués, {passants} passants template, {candidats} candidats ≥5, {cassures} cassure(s) — marché QQQ haussier={}",
+        "🚀 Scanner actions : {evalues} évalués, {passants} passants, {candidats} candidats ≥5, {cassures} cassure(s), {ouvertes} position(s) ouverte(s) — QQQ haussier={}",
         ctx.marche_haussier
     );
     serde_json::json!({
@@ -127,9 +160,9 @@ pub async fn scanner_actions(db: &Arc<Database>) -> serde_json::Value {
 
 /// Boucle de fond : un passage au boot, puis quotidien à 22h30 UTC —
 /// après la clôture US (21h00 UTC) et la publication EOD Tiingo.
-pub async fn boucle_scanner_actions(db: Arc<Database>) {
-    tracing::info!("🚀 Scanner actions armé (boot + 22h30 UTC quotidien — Observation)");
-    scanner_actions(&db).await;
+pub async fn boucle_scanner_actions(db: Arc<Database>, bus: engine::BusSignaux) {
+    tracing::info!("🚀 Scanner actions armé (boot + 22h30 UTC quotidien — gestion 06/09)");
+    scanner_actions(&db, &bus).await;
     loop {
         let maintenant = chrono::Utc::now();
         let prochain = maintenant
@@ -146,7 +179,7 @@ pub async fn boucle_scanner_actions(db: Arc<Database>) {
             (prochain - maintenant).num_seconds().max(60) as u64,
         ))
         .await;
-        scanner_actions(&db).await;
+        scanner_actions(&db, &bus).await;
     }
 }
 

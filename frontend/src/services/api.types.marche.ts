@@ -41,21 +41,6 @@ export interface ReponseAnalyseIA {
   modele: string
 }
 
-export interface ReponseChatIA {
-  reponse: string
-  modele: string
-}
-
-export interface ReponseChartIA {
-  analyse: string
-  modele: string
-}
-
-export interface ImageAvecTF {
-  base64: string
-  timeframe: string
-}
-
 export interface LigneTendanceKasper {
   tf: string
   tendance: 'haussier' | 'baissier' | null

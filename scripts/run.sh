@@ -86,6 +86,12 @@ export CC=clang
 export CXX=clang++
 
 cd "$ROOT_DIR/backend"
+# sqlx::migrate! embarque la liste des migrations À LA COMPILATION, mais
+# cargo ne recompile PAS la crate db quand seul un .sql est ajouté (incident
+# 06/09 : binaire neuf sans la migration 0102 → endpoint en erreur « no such
+# column »). On force la recompilation de db à chaque démarrage — quelques
+# secondes, et les migrations embarquées sont toujours à jour.
+touch "$ROOT_DIR/backend/crates/db/src/lib.rs"
 # Le build doit RÉUSSIR — un échec silencieux ferait tourner un binaire
 # PÉRIMÉ (incident du 15/08 : générateurs censés être suspendus toujours
 # actifs, signaux Telegram non sollicités).

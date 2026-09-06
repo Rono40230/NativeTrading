@@ -183,6 +183,9 @@
       <!-- ═══ ONGLET GESTION ═══ -->
       <div v-if="onglet === 'Gestion des trades ouverts'" class="flex flex-col gap-3">
         <carte titre="Le cycle de vie (logique du Journal de Trading)">
+          <p class="text-xs text-white/80 mb-2">Pilotage <b class="text-white">automatique en continu</b> (cycle 30 s — neutralisation dès que R1 est touché, décision du 06/09) — le tableau des
+          positions ouvertes est un <b class="text-white">poste d'observation en lecture seule</b> : le moteur décide seul
+          (neutralisation, trailing, sorties — décision propriétaire du 05/09).</p>
           <svg viewBox="0 0 560 70" class="w-full aspect-[560/70] mb-3">
             <rect x="26" y="22" width="88" height="24" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" stroke-width="1" />
             <text x="70" y="37.5" text-anchor="middle" fill="#ffffff" font-size="8" font-weight="700">Entrée</text>
@@ -192,7 +195,7 @@
             <text x="210" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">vendre 50 % · trailing</text>
             <rect x="306" y="22" width="88" height="24" rx="4" fill="rgba(251,191,36,0.08)" stroke="#fbbf24" stroke-width="1" />
             <text x="350" y="37.5" text-anchor="middle" fill="#fbbf24" font-size="8" font-weight="700">Trailing</text>
-            <text x="350" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">à la clôture D1</text>
+            <text x="350" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">continu · 30 s</text>
             <rect x="446" y="22" width="88" height="24" rx="4" fill="rgba(167,139,250,0.08)" stroke="#a78bfa" stroke-width="1" />
             <text x="490" y="37.5" text-anchor="middle" fill="#a78bfa" font-size="8" font-weight="700">Sortie</text>
             <text x="490" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6.5">solde vendu</text>
@@ -215,7 +218,8 @@
             </div>
             <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
               <div class="font-semibold mb-1">③ Trailing</div>
-              <p>Suit le prix à la clôture de chaque bougie, jamais vers l'arrière.</p>
+              <p>Déclenché dès la neutralisation ; suit le cours en continu (cycle 30 s),
+              jamais vers l'arrière.</p>
             </div>
             <div class="rounded-lg border border-white/10 bg-black/20 px-3.5 py-3">
               <div class="font-semibold mb-1">④ Sortie</div>

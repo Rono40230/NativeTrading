@@ -254,10 +254,9 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
     // Le point News complète le classement /10 AVANT la décision de signal.
     crate::rockets_ia::evaluer_news(db).await;
 
-    // Décision de signal : cassure ET classement complet (chiffrables +
-    // news) ≥ 7 ET — seconde opinion — conviction du ranker au-dessus du
-    // seuil (réglable, 0 = purement informatif).
-    let params = lire_params(db).await;
+    // Décision de signal : cassure ET classement ≥ 7 → ouverture commune
+    // (ranker + position + signal officiel — mise en gestion des actions
+    // 06/09 : le même chemin pour les deux univers).
     for (symbole, pivot, stop, points_base, ts) in cassures {
         let points_total = points_base
             + sqlx::query_scalar::<_, i64>(
@@ -270,14 +269,38 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
         if points_total < 7 {
             continue;
         }
-        match crate::rockets_ia::ranker_cassure(db, &symbole, points_total).await {
+        if ouvrir_position(db, bus, &symbole, pivot, stop, points_total, ts).await {
+            nb_signaux += 1;
+        }
+    }
+    tracing::info!("🚀 Rockets scan terminé : {} candidats, {} signal(s)", nb_candidats, nb_signaux);
+}
+
+/// Ouvre une position rocket après cassure confirmée : seconde opinion du
+/// ranker (jamais bloquante — l'IA absente ne paralyse pas la stratégie),
+/// garde d'unicité par clé, position au lot officiel (capital composé
+/// d'époque), signal officiel sur le bus. Commune aux deux univers
+/// (crypto Binance / actions Tiingo — mise en gestion 06/09).
+/// Retourne true si une position a été ouverte.
+pub async fn ouvrir_position(
+    db: &Arc<Database>,
+    bus: &engine::BusSignaux,
+    symbole: &str,
+    pivot: f64,
+    stop: f64,
+    points_total: u8,
+    ts: i64,
+) -> bool {
+    let params = lire_params(db).await;
+    {
+        match crate::rockets_ia::ranker_cassure(db, symbole, points_total).await {
             Some((conviction, raison)) => {
                 let _ = sqlx::query(
                     "UPDATE rockets_candidats SET conviction_ia = ?, conviction_raison = ? WHERE symbole = ?",
                 )
                 .bind(conviction)
                 .bind(&raison)
-                .bind(&symbole)
+                .bind(symbole)
                 .execute(db.pool())
                 .await;
                 if conviction < params.conviction_min {
@@ -285,7 +308,7 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
                         "🚀 Rockets {} : écarté par l'analyste — conviction {}/100 (seuil {}) : {}",
                         symbole, conviction, params.conviction_min, raison
                     );
-                    continue;
+                    return false;
                 }
             }
             None => {
@@ -301,21 +324,40 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
             .await
             .unwrap_or(0);
         if deja == 0 && stop > 0.0 {
+            // Métadonnées d'affichage (poste d'observation — décision 05/09) :
+            // qty au lot OFFICIEL du signal (même formule que le message :
+            // risque $ / distance, plafonné) sur le capital composé d'époque.
+            let params_lot = lire_params(db).await;
+            let capital = crate::capital_simule::capital_actuel(db, "rockets").await
+                .unwrap_or(2000.0);
+            let dist = pivot - stop;
+            let mut qty = if dist > 0.0 {
+                capital * params_lot.profil.fraction() / dist
+            } else {
+                0.0
+            };
+            let plafond = capital * params_lot.plafond_position_pct / 100.0;
+            if pivot > 0.0 {
+                qty = qty.min(plafond / pivot);
+            }
             let _ = sqlx::query(
-                "INSERT OR IGNORE INTO rockets_positions (cle, symbole, entree, stop, r1, neutralise, trailing, ts_entree, fermee)
-                 VALUES (?, ?, ?, ?, ?, 0, NULL, ?, 0)",
+                "INSERT OR IGNORE INTO rockets_positions
+                    (cle, symbole, entree, stop, r1, neutralise, trailing, ts_entree, fermee, qty, capital_epoque)
+                 VALUES (?, ?, ?, ?, ?, 0, NULL, ?, 0, ?, ?)",
             )
             .bind(&cle)
-            .bind(&symbole)
+            .bind(symbole)
             .bind(pivot)
             .bind(stop)
             .bind(pivot + (pivot - stop))
             .bind(ts)
+            .bind(qty)
+            .bind(capital)
             .execute(db.pool())
             .await;
             bus.publier(SignalBrut::avec_cle(
                 MOTEUR,
-                common::Asset::nouveau(&symbole),
+                common::Asset::nouveau(symbole),
                 common::Timeframe::try_from("D1").unwrap_or(common::Timeframe::D1),
                 Direction::Long,
                 pivot,
@@ -326,18 +368,30 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
                 ts,
                 cle.clone(),
             ));
-            nb_signaux += 1;
+            return true;
         }
     }
-    tracing::info!("🚀 Rockets scan terminé : {} candidats, {} signal(s)", nb_candidats, nb_signaux);
+    false
 }
 
 // ── Gestion des positions ouvertes ─────────────────────────────────────────
 
+/// Bougie « en cours » évaluée par la gestion : high/low/dernier, quelle que
+/// soit la source (bougie D1 Binance en formation, ou séance du jour Yahoo).
+struct BougieBoulee {
+    high: f64,
+    low: f64,
+    close: f64,
+}
+
 async fn boucle_gestion(db: Arc<Database>) {
-    tracing::info!("🚀 Rockets gestion armée (30 min)");
+    // Recadrage propriétaire 06/09 : la gestion vit en CONTINU (cycle 30 s)
+    // — ne pas attendre la clôture D1, sinon une redescente après R1
+    // transformerait l'occasion en perte. Neutralisation dès que R1 est
+    // touché, trailing déclenché alors, sorties au niveau touché.
+    tracing::info!("🚀 Rockets gestion armée (30 s — live, décision 06/09)");
     loop {
-        tokio::time::sleep(std::time::Duration::from_secs(30 * 60)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
         gerer_positions(&db).await;
     }
 }
@@ -345,7 +399,7 @@ async fn boucle_gestion(db: Arc<Database>) {
 async fn gerer_positions(db: &Arc<Database>) {
     let params = lire_params(db).await;
     let lignes = match sqlx::query(
-        "SELECT cle, symbole, entree, stop, r1, neutralise, trailing FROM rockets_positions WHERE fermee = 0",
+        "SELECT cle, symbole, entree, stop, r1, neutralise, trailing, sommet FROM rockets_positions WHERE fermee = 0",
     )
     .fetch_all(db.pool())
     .await
@@ -353,6 +407,18 @@ async fn gerer_positions(db: &Arc<Database>) {
         Ok(l) => l,
         Err(_) => return,
     };
+    // Cours live des positions ACTIONS via Yahoo (décision 06/09 — même
+    // source que le Journal de Trading) : la « bougie du jour » (haut/bas/
+    // dernier) joue le rôle de la bougie D1 en cours des cryptos.
+    let tickers_actions: Vec<String> = lignes
+        .iter()
+        .filter_map(|l| {
+            let s: String = l.get("symbole");
+            (!s.ends_with("USDT")).then_some(s)
+        })
+        .collect();
+    let quotes_yahoo = crate::yahoo_quotes::quotes(&tickers_actions).await;
+
     for l in lignes {
         let cle: String = l.get("cle");
         let symbole: String = l.get("symbole");
@@ -364,9 +430,35 @@ async fn gerer_positions(db: &Arc<Database>) {
             neutralise: l.get::<i64, _>("neutralise") != 0,
             trailing: l.try_get::<Option<f64>, _>("trailing").ok().flatten(),
         };
-        // Bougie D1 CONFIRMÉE = l'avant-dernière (la dernière se forme).
-        let bougies = klines_d1(&symbole, 3).await;
-        let Some(b) = bougies.get(bougies.len().saturating_sub(2)) else { continue };
+        // Bougie évaluée = le LIVE (décision 06/09 : « dès que R1 atteint =
+        // neutralisation et TS », ne pas attendre la clôture). Crypto →
+        // bougie D1 en cours Binance ; action → la séance du jour Yahoo
+        // (haut/bas du jour, dernier prix). Hors session US, le « dernier »
+        // est la clôture (ou le post-market) : la gestion reprend au
+        // prochain cours. Précédence conservatrice inchangée (stop avant
+        // R1, comme la SMC/Pine).
+        let (high, low, close) = if symbole.ends_with("USDT") {
+            let bougies = klines_d1(&symbole, 2).await;
+            let Some(b) = bougies.last() else { continue };
+            (b.high, b.low, b.close)
+        } else {
+            let Some(q) = quotes_yahoo.get(&symbole) else {
+                tracing::warn!("🚀 Rockets {} : cours Yahoo indisponible — position non évaluée ce cycle", symbole);
+                continue;
+            };
+            (q.haut_jour, q.bas_jour, q.prix)
+        };
+        let b = BougieBoulee { high, low, close };
+        // Sommet de vie du trade (affichage de l'historique — aucune règle
+        // ne le consomme) : le high de la bougie en cours, jamais vers le bas.
+        let _ = sqlx::query(
+            "UPDATE rockets_positions SET sommet = MAX(COALESCE(sommet, ?), ?) WHERE cle = ?",
+        )
+        .bind(b.high)
+        .bind(b.high)
+        .bind(&cle)
+        .execute(db.pool())
+        .await;
         match pas_gestion(&mut p, b.high, b.low, b.close, &params) {
             rockets::gestion::ActionRocket::Rien => {
                 let _ = sqlx::query("UPDATE rockets_positions SET neutralise = ?, trailing = ? WHERE cle = ?")

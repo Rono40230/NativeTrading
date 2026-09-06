@@ -135,15 +135,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/ia/analyse",
             web::post().to(crate::ollama_handlers::analyser),
         )
-        .route("/api/ia/chat", web::post().to(crate::ollama_handlers::chat))
-        .route(
-            "/api/ia/diagram",
-            web::post().to(crate::ollama_handlers::generer_diagram),
-        )
-        .route(
-            "/api/ia/chart",
-            web::post().to(crate::ollama_handlers::analyser_chart),
-        )
         .route(
             "/api/ia/status",
             web::get().to(crate::ollama_handlers::statut),

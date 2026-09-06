@@ -21,6 +21,12 @@ export interface PartClassement {
 export const PALETTE = ['#60a5fa', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#f472b6', '#38bdf8', '#fb923c', '#4ade80', '#e879f9']
 
 export function couleurTf(tf: string): string {
+  // Catégories rockets (carte du dashboard) : verdicts et univers aux
+  // couleurs de leurs badges.
+  if (tf === 'TS') return '#34d399'
+  if (tf === 'SL') return '#f87171'
+  if (tf === 'Crypto') return '#fbbf24'
+  if (tf === 'Action') return '#60a5fa'
   const ordre = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
   return PALETTE[(ordre.indexOf(tf) + PALETTE.length) % PALETTE.length]
 }

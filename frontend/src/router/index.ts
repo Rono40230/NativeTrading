@@ -24,8 +24,11 @@ const router = createRouter({
     // ?strategie=SMC|straddle|rockets cible l'onglet (bloc dashboard).
     { path: '/analyses', component: () => import('../views/AnalysesView.vue') },
 
-    // Outils IA — regroupés en une page à onglets (refonte navigation 01/09).
+    // Outils IA — prompts + les deux tableaux (boutons de la tuile IA,
+    // ex-onglets de la page prompts, 06/09).
     { path: '/ia',            component: () => import('../views/IaView.vue') },
+    { path: '/ia/ml',         component: () => import('../views/MetriquesMLView.vue') },
+    { path: '/ia/llm',        component: () => import('../views/DashboardLlmView.vue') },
 
     // Presse
     { path: '/presse', component: () => import('../views/PresseView.vue') },

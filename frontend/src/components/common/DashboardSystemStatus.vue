@@ -14,21 +14,24 @@
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
         <span class="text-white text-[9px] uppercase">MT5 / Axi EA</span>
         <span v-if="mt5Ok === null" class="text-white text-[10px] font-semibold animate-pulse">⏳</span>
-        <span v-else :class="mt5Ok ? 'text-emerald-400' : 'text-yellow-400'" class="text-[10px] font-semibold">
-          {{ mt5Ok ? '🟢 Connecté' : '🟡 Silence' }}
+        <span v-else :class="mt5Ok ? 'text-emerald-400' : 'text-yellow-400'" class="text-[10px] font-semibold cursor-help"
+              :title="`Flux M1 de l'EA — X/Y = symboles avec bougie récente (< 120 s) sur symboles suivis`">
+          {{ mt5Ok ? `🟢 ${mt5Compteur} frais` : '🟡 Silence' }}
         </span>
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
         <span class="text-white text-[9px] uppercase">Bybit WS</span>
-        <span :class="btcPrix ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold">
-          {{ btcPrix ? '🟢 Connecté' : '🔴 Erreur' }}
+        <span :class="btcPrix ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold cursor-help"
+              :title="`Flux temps réel crypto/métaux — bougies insérées depuis minuit (Paris)`">
+          {{ btcPrix ? `🟢 ${bybitFlux}` : '🔴 Erreur' }}
         </span>
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
         <span class="text-white text-[9px] uppercase">LLM (Ollama)</span>
         <span v-if="ollamaOk === null" class="text-white text-[10px] font-semibold animate-pulse">⏳ Vérif</span>
-        <span v-else :class="ollamaOk ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold">
-          {{ ollamaOk ? '🟢 Local' : '🔴 Hors ligne' }}
+        <span v-else :class="ollamaOk ? 'text-emerald-400' : 'text-red-400'" class="text-[10px] font-semibold cursor-help"
+              :title="`Appels LLM passés aujourd'hui — ranker rockets, catalyseur news, analyses`">
+          {{ ollamaOk ? `🟢 ${llmAppels} appel${llmAppels > 1 ? 's' : ''}` : '🔴 Hors ligne' }}
         </span>
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
@@ -40,8 +43,9 @@
       </div>
       <div class="flex items-center justify-between bg-white/5 rounded px-1.5 py-0.5 shrink-0">
         <span class="text-white text-[9px] uppercase">Presse FR</span>
-        <span :class="presseOk ? 'text-emerald-400' : 'text-yellow-400'" class="text-[10px] font-semibold">
-          {{ presseOk ? '🟢 Collecteur' : '🟡 Arrêt' }}
+        <span :class="presseOk ? 'text-emerald-400' : 'text-yellow-400'" class="text-[10px] font-semibold cursor-help"
+              :title="`Bibliothèque d'articles collectés (cycle 30 min)`">
+          {{ presseOk ? `🟢 ${presseTotal} articles` : '🟡 Arrêt' }}
         </span>
       </div>
     </div>
@@ -60,16 +64,23 @@ defineProps<{
 
 /// MT5 EA : heartbeat < 120 s (l'endpoint porte le seuil).
 const mt5Ok = ref<boolean | null>(null)
+const mt5Compteur = ref('0/0')
 /// Tiingo (veille actions) : vert si l'endpoint répond, avec avancement.
 const tiingoOk = ref<boolean | null>(null)
 const tiingoAvancement = ref('')
 const tiingoTitre = ref('')
 const presseOk = ref(false)
+const presseTotal = ref(0)
+const bybitFlux = ref('…')
+const llmAppels = ref(0)
 
 async function sonder() {
   try {
     const r = await http.get('/api/mt5/statut')
     mt5Ok.value = !!r.data?.connecte
+    const syms: { age_s: number }[] = r.data?.symboles ?? []
+    const frais = syms.filter(x => x.age_s >= 0 && x.age_s < 120).length
+    mt5Compteur.value = `${frais}/${syms.length}`
   } catch { mt5Ok.value = false }
   try {
     const r = await http.get('/api/rockets/actions/backfill/etat')
@@ -85,6 +96,18 @@ async function sonder() {
     const r = await http.get('/api/presse/briefs')
     presseOk.value = Array.isArray(r.data) ? r.data.length > 0 : !!r.data
   } catch { presseOk.value = false }
+  try {
+    const r = await http.get('/api/presse/articles', { params: { page: 1 } })
+    presseTotal.value = r.data?.total ?? 0
+  } catch { presseTotal.value = 0 }
+  try {
+    const r = await http.get('/api/data/coverage')
+    bybitFlux.value = `+${(r.data?.bougies_aujourd_hui ?? 0).toLocaleString('fr-FR')} bougies/j`
+  } catch { bybitFlux.value = '—' }
+  try {
+    const r = await http.get('/api/ia/status')
+    llmAppels.value = r.data?.appels_jour ?? 0
+  } catch { llmAppels.value = 0 }
 }
 
 let poll: ReturnType<typeof setInterval> | null = null
