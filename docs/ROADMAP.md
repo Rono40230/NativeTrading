@@ -369,19 +369,31 @@ le plus urgent — § ci-dessous — pour que l'IA ne décrive pas des moteurs m
 - [ ] **Analyse par pilier** : l'analyste relie les critères du /10 aux verdicts →
       propositions de recalibrage chiffrées
 
-### 11. Boucle ML — réveiller ou enterrer (décision d'ouverture)
+### 11. Boucle ML v2 — réalimentée par les vraies sources (réveillée le 06/09)
 
-Les onglets « Métriques ML »/« Dashboard LLM » sont branchés sur des endpoints sains mais
-vides (tables de feedback à 0 ligne depuis le pivot vers les moteurs déterministes).
+**Décision propriétaire 06/09 : RÉVEILLER** — le rôle de la boucle n'est pas de prédire
+(interdit par la constitution) mais de **produire des observations statistiques pour
+l'IA et le propriétaire** : importance des features (« qu'est-ce que les trades gagnants
+partagent ? ») → suggestions → lues par le Dashboard LLM et l'analyste. L'état factuel
+au 06/09 : 37 entraînements jusqu'au 15/08 (dernière accuracy 0,513 — pile ou face),
+puis déconnexion — les collecteurs buvaient le v1 mort, les vraies sources (re-jeu SMC
+166 clôtures, passes straddle, positions rockets) ne les alimentaient plus. La boucle
+ne manquait pas d'intérêt : elle était **débranchée**. Première mission naturelle :
+l'analyse des 35 SL SMC (leçon du re-jeu du 06/09 — le levier est dans la sélection).
 
-- [ ] **Décision préalable** : réveiller la boucle OU supprimer l'UI + tables + code
-      (`ml_samples.rs`, `ml_feedback.rs`, `ml_training_samples`, `ml_suggestions_log`,
-      `smc_features_snapshot`) — l'état « suspendu » à durée indéterminée est la pire option
-- [ ] Si réveil : **alimenter le feedback à la clôture** (features à l'émission + verdict en R
-      par stratégie ; rejouer l'existant ~96 SMC + 19 straddle), remettre les vues en données
-      (fraîcheur affichée), réveiller le Dashboard LLM (suggestions appliquées manuellement
-      uniquement), réentraînement sur décision propriétaire (`POST /api/ml/retrain`),
-      seuils d'activation par étage
+- [ ] **1. Rebrancher les collecteurs** : alimenter `ml_training_samples` à la clôture
+      depuis les vraies sources — features du setup stockées à l'émission (prérequis §8 :
+      journalisation du détail scoring), verdict + R par stratégie ; rejouer l'existant
+      (166 clôtures SMC du re-jeu, passes straddle, clôtures rockets)
+- [ ] **2. Réentraîner** (xgboost — le bon outil tabulaire) sur décision propriétaire
+      (`POST /api/ml/retrain`) ; règle des 30 trades par tranche (anti-overfitting)
+- [ ] **3. Nourrir l'IA** : exposer l'importance des features au prompt `analyse_rapport`
+      et au Dashboard LLM — l'analyste apporte des corrélations, pas seulement le passé
+- [ ] **4. Alléger le build** : vérifier l'usage réel de libtorch/CUDA (module LSTM) —
+      si la v2 se limite à xgboost, retirer libtorch (variables d'env, fausses libs
+      GCC 15 : le côté le plus fragile du build part)
+- [ ] **5. Suggestions** : calibration chiffrée (tables `smc_calibration`…) — consultées
+      par le propriétaire seul, jamais appliquées automatiquement
 
 ### 12. Robustesse
 
