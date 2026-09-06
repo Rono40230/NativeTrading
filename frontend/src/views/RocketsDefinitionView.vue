@@ -2,6 +2,10 @@
   <div class="flex flex-col gap-4 p-4 lg:p-6 h-full w-full overflow-hidden">
 
     <div class="flex items-center gap-3 shrink-0">
+      <RouterLink to="/rockets"
+        class="text-[11px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors whitespace-nowrap"
+        title="Retour à la stratégie Rockets"
+      >← Rockets</RouterLink>
       <h1 class="text-2xl font-bold text-white">📐 Les caractéristiques de la stratégie Rockets</h1>
       <span v-if="reglages" class="ml-auto text-[11px] font-semibold px-2.5 py-1 rounded-full border" :class="badgeClasse">{{ reglages.etat }}</span>
     </div>
@@ -270,22 +274,6 @@
         </div>
       </div>
 
-      <!-- ═══ ONGLET SCANNER (spécifique Rockets) ═══ -->
-      <div v-if="onglet === 'Scanner'" class="flex flex-col gap-3">
-        <carte titre="Le scanner">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-            <valeur etiquette="Scan crypto" valeur="00h40 UTC" />
-            <valeur etiquette="Scan actions US" valeur="22h30 UTC" />
-          </div>
-          <p>Crypto : chaque jour après la clôture D1 (00h40 UTC), le top 300 Binance en volume
-          est classé. Actions US : chaque jour à 22h30 UTC (après la clôture de Wall Street),
-          pré-screen trend template puis classement des passants.</p>
-          <p>Les candidats ≥ 5 points des deux univers vivent ici — en attente de leur pivot —
-          avec leur type (Crypto / Action US), date de détection, date d'élimination et badge 📊
-          avant résultats. Filtres Tous / Crypto / Actions US et tri par colonne.</p>
-        </carte>
-      </div>
-
       <!-- ═══ ONGLET ENRICHISSEMENT IA ═══ -->
       <div v-if="onglet === 'Enrichissement IA'" class="flex flex-col gap-3">
         <carte titre="Le rôle de l'IA dans la stratégie">
@@ -423,7 +411,7 @@ const Valeur = defineComponent({
 const valeur = Valeur
 
 // ── Onglets (Lexique en onglet, gabarit SMC) ─────────────────────────────────
-const onglets = ['Définition', 'Lexique', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Scanner', 'Enrichissement IA'] as const
+const onglets = ['Définition', 'Lexique', 'Décision d\u2019entrée', 'Gestion des trades ouverts', 'Money management', 'Enrichissement IA'] as const
 const onglet = ref<(typeof onglets)[number]>('Définition')
 
 const reglages = ref<ReglagesStrategie | null>(null)

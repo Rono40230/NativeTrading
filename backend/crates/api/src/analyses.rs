@@ -97,6 +97,12 @@ pub struct AnalyseStrategie {
     pub capital_actuel: f64,
     pub fraction_risque: f64,
     pub r_total: f64,
+    /// Vrai quand SMC/straddle servent le REPLI base vécue parce que le
+    /// re-jeu paramétrique n'est pas encore prêt (boot : ~35 s de calcul,
+    /// ou relance après un changement de réglage). Sans cette marque, la
+    /// carte affichait le R vécu puis SAUTAIT vers le R du re-jeu une
+    /// minute plus tard, sans explication (bug rapporté 05/09).
+    pub recalcul: bool,
     /// Part des clôtures gagnantes ($ > 0) — 0-1.
     pub taux_reussite: f64,
     /// Journée d'hier (données de la veille — vide si aucun trade).
@@ -370,6 +376,7 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
         capital_actuel,
         fraction_risque: fraction,
         r_total,
+        recalcul: (id == "SMC" || id == "straddle") && source == "base",
         taux_reussite: if nb > 0 { gagnants as f64 / nb as f64 } else { 0.0 },
         hier,
         journalier: periodes(&clotures, cle_jour),
@@ -385,19 +392,23 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
     // le dernier calcul ; l'avis IA éventuel est préservé par le UPDATE).
     let maintenant = chrono::Utc::now().timestamp();
     let jour = db::analyses_snapshots::cle_du_jour(maintenant);
-    let _ = db
-        .enregistrer_analyse_snapshot(
-            id,
-            &jour,
-            a.capital_depart,
-            a.capital_actuel,
-            a.r_total,
-            a.taux_reussite,
-            a.nb_trades as i64,
-            a.hier.as_ref().map(|h| h.dollars),
-            maintenant,
-        )
-        .await;
+    // Pas de snapshot sur le repli transitoire (rejeu en vol au boot) : la
+    // valeur du jour doit être celle du re-jeu, pas un R vécu de passage.
+    if !a.recalcul {
+        let _ = db
+            .enregistrer_analyse_snapshot(
+                id,
+                &jour,
+                a.capital_depart,
+                a.capital_actuel,
+                a.r_total,
+                a.taux_reussite,
+                a.nb_trades as i64,
+                a.hier.as_ref().map(|h| h.dollars),
+                maintenant,
+            )
+            .await;
+    }
     a
 }
 
@@ -460,6 +471,7 @@ pub async fn get_analyses(state: web::Data<AppState>) -> impl actix_web::Respond
             "capital_depart": a.capital_depart,
             "capital_actuel": a.capital_actuel,
             "r_total": a.r_total,
+            "recalcul": a.recalcul,
             "taux_reussite": a.taux_reussite,
             "hier": a.hier,
         }));

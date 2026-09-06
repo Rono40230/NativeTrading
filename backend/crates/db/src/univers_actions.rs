@@ -1,30 +1,13 @@
 //! Univers actions US de la veille Rockets (étape A, 31/08).
-//! Alimenté par le répertoire officiel NASDAQ Trader puis noté par le
-//! pré-screen trend template. Le cure propriétaire vit dans `etat`
-//! ('exclu' survit aux ré-énumérations).
+//! Importé depuis le répertoire officiel NASDAQ Trader (31/08) puis géré par
+//! états : 'actif' (périmètre backfill/scan), 'ecarte' (hors budget Tiingo),
+//! 'sans_donnees' (delisting — jamais retenté). Le recalcul quotidien
+//! (`recalculer_univers`) fait vivre le périmètre.
 
 use common::{Result, TradingError};
 use sqlx::Row;
 
 use crate::Database;
-
-/// Ligne d'univers renvoyée aux endpoints/scan.
-#[derive(Debug, serde::Serialize)]
-pub struct LigneUniversAction {
-    pub ticker: String,
-    pub nom: String,
-    pub exchange: String,
-    pub etat: String,
-    pub maj_le: i64,
-}
-
-/// Une ligne brute du répertoire NASDAQ Trader, après filtrage.
-#[derive(Debug, Clone)]
-pub struct TickerFiltre {
-    pub ticker: String,
-    pub nom: String,
-    pub exchange: String,
-}
 
 /// Bornes de sélection de l'univers liquide. Réglables par le propriétaire
 /// (table `configuration`) — défauts calibrés le 05/09 : plafond 450 =
@@ -45,51 +28,6 @@ impl Default for BornesUnivers {
 }
 
 impl Database {
-    /// Insère/met à jour l'énumération. Les lignes marquées 'exclu' par le
-    /// propriétaire ne sont jamais réactivées (le cure prime).
-    pub async fn maj_univers_actions(&self, lignes: &[TickerFiltre]) -> Result<usize> {
-        let maintenant = chrono::Utc::now().timestamp();
-        for l in lignes {
-            let sql = "INSERT INTO univers_actions (ticker, nom, exchange, maj_le, cree_le)
-                       VALUES (?, ?, ?, ?, ?)
-                       ON CONFLICT(ticker) DO UPDATE SET
-                           nom = excluded.nom,
-                           exchange = excluded.exchange,
-                           maj_le = excluded.maj_le";
-            sqlx::query(sql)
-                .bind(&l.ticker)
-                .bind(&l.nom)
-                .bind(&l.exchange)
-                .bind(maintenant)
-                .bind(maintenant)
-                .execute(&self.pool)
-                .await
-                .map_err(|e| TradingError::Database(e.to_string()))?;
-        }
-        Ok(lignes.len())
-    }
-
-    /// Tickers actifs de l'univers (périmètre de scan).
-    pub async fn univers_actions_actives(&self) -> Result<Vec<LigneUniversAction>> {
-        let rows = sqlx::query(
-            "SELECT ticker, nom, exchange, etat, maj_le FROM univers_actions
-             WHERE etat = 'actif' ORDER BY ticker",
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| TradingError::Database(e.to_string()))?;
-
-        Ok(rows
-            .iter()
-            .map(|r| LigneUniversAction {
-                ticker: r.get("ticker"),
-                nom: r.get("nom"),
-                exchange: r.get("exchange"),
-                etat: r.get("etat"),
-                maj_le: r.get("maj_le"),
-            })
-            .collect())
-    }
 
     /// Exclure/réactiver un ticker (cure propriétaire).
     pub async fn maj_etat_ticker(&self, ticker: &str, etat: &str) -> Result<()> {
@@ -382,58 +320,7 @@ impl Database {
         Ok(rows.iter().map(|r| r.get::<String, _>("ticker")).collect())
     }
 
-    /// Écrit une ligne de l'entonnoir pré-screen (upsert).
-    pub async fn maj_prescreen(
-        &self,
-        ticker: &str,
-        nom: &str,
-        conditions: i64,
-        points: i64,
-        perf_4s_pct: f64,
-    ) -> Result<()> {
-        let maintenant = chrono::Utc::now().timestamp();
-        sqlx::query(
-            "INSERT INTO prescreen_actions (ticker, nom, conditions, points, perf_4s_pct, maj_le)
-             VALUES (?, ?, ?, ?, ?, ?)
-             ON CONFLICT(ticker) DO UPDATE SET
-                 nom = excluded.nom, conditions = excluded.conditions,
-                 points = excluded.points, perf_4s_pct = excluded.perf_4s_pct,
-                 maj_le = excluded.maj_le",
-        )
-        .bind(ticker)
-        .bind(nom)
-        .bind(conditions)
-        .bind(points)
-        .bind(perf_4s_pct)
-        .bind(maintenant)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| TradingError::Database(e.to_string()))?;
-        Ok(())
-    }
-
-    /// Entonnoir pré-screen : conditions décroissantes.
-    pub async fn lire_prescreen(&self, limite: i64) -> Result<Vec<serde_json::Value>> {
-        let rows = sqlx::query(
-            "SELECT ticker, nom, conditions, points, perf_4s_pct, maj_le
-             FROM prescreen_actions ORDER BY conditions DESC, points DESC LIMIT ?",
-        )
-        .bind(limite)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(|e| TradingError::Database(e.to_string()))?;
-        Ok(rows
-            .iter()
-            .map(|r| {
-                serde_json::json!({
-                    "ticker": r.get::<String, _>("ticker"),
-                    "nom": r.get::<String, _>("nom"),
-                    "conditions": r.get::<i64, _>("conditions"),
-                    "points": r.get::<i64, _>("points"),
-                    "perf_4s_pct": r.get::<f64, _>("perf_4s_pct"),
-                    "maj_le": r.get::<i64, _>("maj_le"),
-                })
-            })
-            .collect())
-    }
+    // (Ex-entonnoir prescreen_actions supprimé le 05/09 — §7-3a : journal
+    // write-only sans lecteur depuis la suppression de GET prescreen ;
+    // table DROP par la migration 0101.)
 }

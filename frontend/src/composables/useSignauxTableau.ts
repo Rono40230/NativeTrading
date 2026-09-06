@@ -1,11 +1,10 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import type { Signal, RocketSignalHistorique } from '@/services/api.types'
+import type { Signal } from '@/services/api.types'
 import { apiService } from '@/services/api.service'
 import { http } from '@/services/http.client'
 import { usePrixStore } from '@/stores/prix.store'
 import { useAssetParamsStore } from '@/stores/assetParams.store'
 import { useSettingsStore } from '@/stores/settings.store'
-import { rocketToSignal } from '@/composables/useRocketsHistory'
 
 export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
   const prixStore = usePrixStore()
@@ -13,28 +12,12 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
   const settingsStore = useSettingsStore()
 
   const signaux = ref<Signal[]>([])
-  const rocketsRaw = ref<RocketSignalHistorique[]>([])
   const chargement = ref(true)
   const analyseOuverte = ref(false)
   const filtreStatut = ref<'en_cours' | 'cloturees' | ''>('en_cours')
   const triColonne = ref('')
   const triDir = ref<'asc' | 'desc'>('desc')
   const annulationEnCours = ref(new Set<string | number>())
-
-  async function annuler(s: Signal) {
-    const rkt = rocketsRaw.value.find(r => r.ticker === s.asset)
-    if (!rkt) return
-    annulationEnCours.value = new Set(annulationEnCours.value).add(s.id)
-    try {
-      await apiService.annulerRocket(rkt.id)
-      rocketsRaw.value = rocketsRaw.value.filter(r => r.id !== rkt.id)
-      signaux.value = rocketsRaw.value.map(rocketToSignal)
-    } catch { /* silencieux */ } finally {
-      const s2 = new Set(annulationEnCours.value)
-      s2.delete(s.id)
-      annulationEnCours.value = s2
-    }
-  }
 
   function trierPar(col: string) {
     if (triColonne.value === col) triDir.value = triDir.value === 'asc' ? 'desc' : 'asc'
@@ -144,20 +127,13 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
     if (!listeActive.value.length) chargement.value = true
     void chargerRisque()
     try {
-      if (strategie === 'Rockets') {
-        rocketsRaw.value = await apiService.rocketsActifs()
-        signaux.value = rocketsRaw.value.map(rocketToSignal)
-        const openTickers = rocketsRaw.value.map(r => r.ticker)
-        if (openTickers.length > 0) prixStore.abonner(openTickers)
-      } else {
-        const data = await apiService.getSignaux(500)
-        const SMC_NOMS = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA']
-        signaux.value = data.filter(s =>
-          strategie === 'SMC'
-            ? SMC_NOMS.includes(s.strategie)
-            : s.strategie.toLowerCase() === strategie.toLowerCase()
-        )
-      }
+      const data = await apiService.getSignaux(500)
+      const SMC_NOMS = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA']
+      signaux.value = data.filter(s =>
+        strategie === 'SMC'
+          ? SMC_NOMS.includes(s.strategie)
+          : s.strategie.toLowerCase() === strategie.toLowerCase()
+      )
     } catch { /* silencieux */ } finally {
       chargement.value = false
     }
@@ -178,9 +154,9 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
   })
 
   return {
-    signaux, rocketsRaw, chargement, analyseOuverte, filtreStatut, remplisSeuls, estEngage, montantRisque,
-    annulationEnCours, listeActive, signauxTries,
-    charger, annuler, trierPar, icone, infosPips,
+    signaux, chargement, analyseOuverte, filtreStatut, remplisSeuls, estEngage, montantRisque,
+    listeActive, signauxTries,
+    charger, trierPar, icone, infosPips,
     classeConviction, classePrix, lotPourSignal,
     prixStore, assetParamsStore, settingsStore,
   }

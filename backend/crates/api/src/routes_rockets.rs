@@ -10,22 +10,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         "/api/rockets/calibration",
         web::get().to(crate::rockets_ml_handlers::get_calibration),
     )
-    .route(
-        "/api/rockets/historique",
-        web::get().to(crate::rockets_handlers::get_historique),
-    )
-    .route(
-        "/api/rockets/actifs",
-        web::get().to(crate::rockets_handlers::get_actifs),
-    )
-    .route(
-        "/api/rockets/signal/{id}",
-        web::delete().to(crate::rockets_handlers::supprimer_signal),
-    )
-    .route(
-        "/api/rockets/sync",
-        web::post().to(crate::rockets_suivi::sync_verdicts),
-    )
     .service(
         web::resource("/api/rockets/config")
             .route(web::get().to(crate::rockets_handlers::get_config))

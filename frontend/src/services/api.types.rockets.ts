@@ -29,20 +29,6 @@ export interface ResultatCollecte {
   resultats: ResultatCollecteItem[]
 }
 
-export interface RocketSignalHistorique {
-  id: number; ticker: string; phase: string; score: number
-  prix_entree: number; stop_loss: number
-  target: number; target2: number | null; target3: number | null
-  statut: string
-  verdict: string | null; prix_verdict: number | null
-  prix_peak: number | null; atr14: number | null; rsi: number
-  ratio_volume: number; atr_ratio: number
-  llm_valide: number | null; llm_conviction: number | null; llm_raison: string | null
-  trailing_coeff: number | null; pct_tp1: number; pct_tp2: number; pct_trailing: number
-  cree_le: string; maj_le: string | null
-  pnl_r: number | null; gagnant: number | null
-}
-
 export interface RocketRecommandation {
   type: string
   description: string

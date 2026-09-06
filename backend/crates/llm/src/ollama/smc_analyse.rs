@@ -48,7 +48,9 @@ Le moteur v12 (clone fidèle du Pine, étalon figé) évalue chaque bougie en te
   filtre LLM (suspendus 15/08, décision propriétaire)
 - Entrée au retest de la zone qualifiée (ordre limite) — un signal annoncé peut ne jamais
   se remplir (verdict « entrée non atteinte »)
-- Gestion : SL au-delà de la zone, TP1/2/3 sur liquidités, BE uniquement par dégradation
+- Gestion : SL au-delà de la zone, TP RÉGLABLES (défauts TP1 = 0.6R, TP2 = 2R ; TP3 =
+  liquidité la plus lointaine OU R fixe), VENTES PARTIELLES par palier (50/30/20 — le R
+  pondéré compose le capital), trailing optionnel après TP2 ; BE uniquement par dégradation
   de score de l'OB (le BE forcé sur BOS opposé a été SUPPRIMÉ le 26/08 — étude chiffrée :
   95 % des trades fermés à 0R sur M1/M5)
 - Verdicts possibles : TP3, TP2+BE, TP1+BE, SL, Expire, entrée non atteinte

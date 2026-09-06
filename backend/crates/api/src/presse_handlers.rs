@@ -280,13 +280,3 @@ pub async fn get_briefs(state: web::Data<AppState>) -> HttpResponse {
     }
 }
 
-/// Un brief par identifiant (récupération large puis filtre : volume faible).
-pub async fn get_brief(state: web::Data<AppState>, chemin: web::Path<i64>) -> HttpResponse {
-    match state.db.lister_briefs(1000).await {
-        Ok(briefs) => match briefs.into_iter().find(|b| b.id == *chemin) {
-            Some(b) => HttpResponse::Ok().json(b),
-            None => HttpResponse::NotFound().body("brief inconnu"),
-        },
-        Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
-    }
-}

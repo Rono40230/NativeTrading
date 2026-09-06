@@ -10,6 +10,7 @@
       >{{ etat }}</span>
       <div class="ml-auto flex gap-2 shrink-0">
         <button class="btn-sm" @click="router.push(routeDefinition)">{{ libelleDefinition }}</button>
+        <button v-if="routeScanner" class="btn-sm" @click="router.push(routeScanner)">{{ libelleScanner ?? '🔭 Scanner' }}</button>
         <button v-if="routeParametres" class="btn-sm" @click="router.push(routeParametres)">⚙️ Paramètres</button>
         <button v-if="afficherLexique" class="btn-sm" @click="lexiqueOuvert = true">📚 Lexique</button>
       </div>
@@ -85,6 +86,11 @@ const props = withDefaults(defineProps<{
   /** Route du bouton ⚙️ Paramètres (ex. /parametres?strategie=SMC) —
    *  absente = bouton masqué. */
   routeParametres?: string
+  /** Route du bouton 🔭 Scanner (page dédiée) — absent = bouton masqué.
+   *  Rockets : le scanner candidats vit en page propre, pas embarqué. */
+  routeScanner?: string
+  /** Libellé du bouton scanner (défaut « 🔭 Scanner »). */
+  libelleScanner?: string
   /** Bouton 📚 Lexique masqué quand le lexique vit en onglet de la page
    *  caractéristiques (vrai par défaut). */
   afficherLexique?: boolean

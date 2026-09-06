@@ -444,8 +444,11 @@ function rFormate(v: number): string {
 /// capital, avec le R de référence en seconde ligne ; sans re-jeu (repli base
 /// ou autres stratégies) le R affiché suit la convention de référence.
 function titleR(p: PerfApi): string {
-  if (p.r_total_reference === undefined) return 'R de référence : paliers max atteints'
-  return `R pondéré (ventes partielles) : ${rFormate(p.r_total)}\nR de référence (paliers max) : ${rFormate(p.r_total_reference)}`
+  const transitoire = p.recalcul
+    ? '\n⏳ Valeur VÉCUE transitoire — le re-jeu paramétrique recalcule (~1 min), le R va se mettre à jour\n'
+    : '\n'
+  if (p.r_total_reference === undefined) return `R de référence : paliers max atteints${transitoire}`
+  return `R pondéré (ventes partielles) : ${rFormate(p.r_total)}\nR de référence (paliers max) : ${rFormate(p.r_total_reference)}${transitoire}`
 }
 
 function ouvrir(id: string) {

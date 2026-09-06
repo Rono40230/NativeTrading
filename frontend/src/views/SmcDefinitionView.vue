@@ -3,6 +3,10 @@
 
     <!-- En-tête : identité + état du registre -->
     <div class="flex items-center gap-3 shrink-0">
+      <RouterLink to="/smc"
+        class="text-[11px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors whitespace-nowrap"
+        title="Retour à la stratégie SMC"
+      >← SMC</RouterLink>
       <h1 class="text-2xl font-bold text-white">📐 Les caractéristiques de la stratégie SMC</h1>
       <span
         v-if="reglages"

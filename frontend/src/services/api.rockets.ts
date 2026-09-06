@@ -4,30 +4,11 @@
  */
 import { http } from './http.client'
 import type {
-  RocketSignalHistorique, RocketAnalyseLlm, RocketsConfig,
+  RocketAnalyseLlm, RocketsConfig,
   RocketsMonitoringData, RocketsCalibrationRow,
 } from './api.types'
 
 export const rocketsApi = {
-  async historiqueRockets(limite = 50): Promise<RocketSignalHistorique[]> {
-    const res = await http.get('/api/rockets/historique', { params: { limite } })
-    return res.data
-  },
-
-  async rocketsActifs(): Promise<RocketSignalHistorique[]> {
-    const res = await http.get('/api/rockets/actifs')
-    return res.data
-  },
-
-  async syncRockets(): Promise<{ fermes: number; ouverts_nouveaux: number }> {
-    const res = await http.post('/api/rockets/sync', null, { timeout: 60000 })
-    return res.data
-  },
-
-  async annulerRocket(id: number): Promise<void> {
-    await http.delete(`/api/rockets/signal/${id}`)
-  },
-
   async lancerAnalyseLlmRockets(): Promise<RocketAnalyseLlm> {
     const res = await http.post('/api/rockets/analyse-llm', null, { timeout: 120000 })
     return res.data

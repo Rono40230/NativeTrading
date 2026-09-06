@@ -13,9 +13,7 @@ pub mod prompts;
 // `llm::filtrer_think`, `llm::ReponseOllama`, `llm::smc_filtre::SignalSMCCandidat`, etc.
 // L'item explicite `pub mod prompts` (root) prime sur le glob `ollama::prompts`.
 pub use ollama::*;
-pub use prompts::{
-    charger_overrides, defaults, prompt_effectif, sauvegarder_overrides, PROMPT_SIGNAL_STRADDLE,
-};
+pub use prompts::{charger_overrides, defaults, prompt_effectif, sauvegarder_overrides};
 
 use std::sync::LazyLock;
 

@@ -1,8 +1,20 @@
 <template>
+  <!-- Page unique du scanner (/rockets/scanner) — accessible depuis le
+       bouton 🔭 Scanner de la page stratégie Rockets. Fusion du 05/09 :
+       plus de version embarquée en cartes (la duplication embarqué/autonome
+       divergeait — chaque correction devait être faite deux fois). -->
   <div class="flex flex-col gap-4 p-4 lg:p-6 h-full w-full overflow-hidden">
-    <div v-if="!embarque" class="flex items-center gap-3 shrink-0">
+    <div class="flex items-center gap-3 shrink-0">
+      <RouterLink
+        to="/rockets"
+        class="text-[11px] px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors whitespace-nowrap"
+        title="Retour à la stratégie Rockets"
+      >← Rockets</RouterLink>
       <h1 class="text-2xl font-bold text-white">🔭 Scanner Rockets</h1>
       <span class="text-white text-base hidden sm:inline">candidats VCP en attente de pivot</span>
+      <span class="text-[10px] text-white/60 whitespace-nowrap"
+        :title="`${nbElimines} candidats sortis du suivi, conservés en base (chasse aux faux négatifs)`"
+      >{{ nbSuivis }} suivi{{ nbSuivis > 1 ? 's' : '' }} · {{ nbElimines }} éliminé{{ nbElimines > 1 ? 's' : '' }}</span>
       <div class="flex gap-1 ml-2">
         <button
           v-for="f in filtresUnivers" :key="f.val"
@@ -10,7 +22,23 @@
           @click="filtreUnivers = f.val"
         >{{ f.label }}</button>
       </div>
+      <div class="flex gap-1 ml-auto">
+        <button
+          v-for="f in filtresEtat" :key="f.val"
+          class="filtre-btn" :class="{ 'filtre-btn-actif': filtreEtat === f.val }"
+          :title="f.val === 'elimines' ? 'Candidats sortis du suivi — la chasse aux faux négatifs (un éliminé qui décolle = seuils à revoir)' : ''"
+          @click="filtreEtat = f.val"
+        >{{ f.label }}</button>
+      </div>
     </div>
+
+    <!-- Rythme des scans (fusion de l'ex-onglet Scanner des caractéristiques) -->
+    <p class="text-[11px] text-white/70 -mt-2 shrink-0">
+      Crypto : top 300 Binance en volume, classé chaque jour à <span class="text-white font-semibold">00h40 UTC</span>
+      après la clôture D1 · Actions US : pré-screen trend template puis classement à
+      <span class="text-white font-semibold">22h30 UTC</span> après Wall Street.
+      Candidats ≥ 5 points suivis en attente de leur pivot.
+    </p>
 
     <div class="flex-1 min-h-0 overflow-y-auto glass-card">
       <div v-if="chargement && !candidats.length" class="text-center text-white py-10 text-sm">Chargement…</div>
@@ -52,7 +80,7 @@
             <td class="px-3 py-2.5 text-center">
               <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
                 :class="c.verdict === 'Alpha' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : c.verdict === 'Rocket' ? 'bg-blue-500/10 text-blue-300 border-blue-500/30' : 'bg-gray-500/10 text-white border-gray-500/30'">
-                {{ c.verdict === 'Alpha' ? 'ROCKET ALPHA' : c.verdict === 'Rocket' ? 'ROCKET' : 'éliminé' }}
+                {{ c.verdict === 'Alpha' ? 'ROCKET ALPHA' : c.verdict === 'Rocket' ? 'ROCKET' : c.elimine_le ? 'éliminé' : 'en observation' }}
               </span>
             </td>
             <td class="px-3 py-2.5 text-right font-mono text-white">{{ c.pivot.toFixed(4) }}</td>
@@ -121,18 +149,27 @@ const LIBELLES: Record<string, string> = {
   figure: 'Figure', gaps: 'Gaps', breakout: 'Cassure', liquidite: 'Liquidité',
 }
 
-withDefaults(defineProps<{ embarque?: boolean }>(), { embarque: false })
-
 const candidats = ref<Candidat[]>([])
 const chargement = ref(true)
 
-// ── Filtres univers + tri par colonne ──
+// ── Filtres univers + état + tri par colonne ──
 const filtreUnivers = ref<'' | 'crypto' | 'action'>('')
 const filtresUnivers = [
   { val: '' as const, label: 'Tous' },
   { val: 'crypto' as const, label: 'Crypto' },
   { val: 'action' as const, label: 'Actions US' },
 ]
+/// État du setup : la vue quotidienne (embarquée) ne montre que les ACTIFS —
+/// les éliminés restent consultables dans le scanner complet (faux négatifs)
+/// et stockés en base (analyse future). Décision propriétaire 05/09.
+const filtreEtat = ref<'actifs' | 'elimines' | 'tous'>('actifs')
+const filtresEtat = [
+  { val: 'actifs' as const, label: 'Suivis' },
+  { val: 'elimines' as const, label: 'Éliminés' },
+  { val: 'tous' as const, label: 'Tous' },
+]
+const nbSuivis = computed(() => candidats.value.filter(c => !c.elimine_le).length)
+const nbElimines = computed(() => candidats.value.length - nbSuivis.value)
 const triColonne = ref('')
 const triDir = ref<'asc' | 'desc'>('desc')
 
@@ -168,7 +205,8 @@ function valeurTri(c: Candidat, col: string): string | number | boolean {
 
 const candidatsAffiches = computed(() => {
   const liste = candidats.value.filter(c =>
-    !filtreUnivers.value || (c.univers ?? 'crypto') === filtreUnivers.value
+    (!filtreUnivers.value || (c.univers ?? 'crypto') === filtreUnivers.value)
+    && (filtreEtat.value === 'tous' || (filtreEtat.value === 'actifs') === !c.elimine_le)
   )
   const col = triColonne.value
   const tries = col

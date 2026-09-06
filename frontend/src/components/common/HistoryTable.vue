@@ -170,11 +170,14 @@ function palierFerme(s: Signal): PalierMax['palier'] {
   return palierMax(s).palier
 }
 
-/** R de référence : palier → R (colonnes dominantes de la lecture d'entrée). */
+/** R de référence : palier → R (colonnes dominantes de la lecture d'entrée).
+ *  Sortie trailing rockets : le R est variable — la vérité du moteur. */
 function rReference(s: Signal): number | null {
   if ((s.statut ?? '') !== 'Fermé') return null
   if (s.heure_entree === null || s.heure_entree === undefined) return null
-  return palierMax(s).rReference
+  const p = palierMax(s)
+  if (p.palier === 'Trailing') return s.r_realise ?? null
+  return p.rReference
 }
 
 /** « Ouvert le » = REMPLISSAGE de l'ordre — la position n'existe qu'à partir

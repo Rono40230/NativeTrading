@@ -351,6 +351,11 @@ async fn calculer(
 
     let total = clotures.len();
     let gagnants = clotures.iter().filter(|c| c.r_ref > 0.0).count();
+    // WR : les Expire ne comptent pas au dénominateur (décision 05/09) —
+    // même logique que les camemberts : un ordre jamais rempli ou une
+    // attente morte n'est pas un trade pris. Ils restent dans `clotures`
+    // (capital inchangé : R pondéré d'un Expire = 0).
+    let total_wr = clotures.iter().filter(|c| c.verdict != "Expire").count();
     let r_total = clotures.iter().map(|c| c.r_ref).sum();
     let r_total_realise = clotures.iter().map(|c| c.r).sum();
     let r_total_pondere = clotures.iter().map(|c| c.r_pondere).sum();
@@ -367,7 +372,7 @@ async fn calculer(
         clotures,
         total,
         gagnants,
-        taux_reussite: if total > 0 { gagnants as f64 / total as f64 } else { 0.0 },
+        taux_reussite: if total_wr > 0 { gagnants as f64 / total_wr as f64 } else { 0.0 },
         r_total,
         r_total_realise,
         r_total_pondere,

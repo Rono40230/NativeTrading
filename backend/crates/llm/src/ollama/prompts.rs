@@ -24,27 +24,3 @@ Chaque SVG doit être autonome, lisible en dark mode (fond #0a0e27, texte blanc)
 avec des couleurs : haussier #10b981, baissier #ef4444, neutre/zones #3b82f6. \
 Réponds UNIQUEMENT avec le SVG encadré dans <htmldiagram>...</htmldiagram>.";
 
-pub const PROMPT_FILTRE_ROCKET: &str = r#"Tu es un analyste SMC/ICT expert spécialisé dans la stratégie Rockets.
-Ton rôle : valider ou rejeter un signal Rocket candidat avec rigueur institutionnelle.
-
-## CRITÈRES DE VALIDATION ROCKETS
-1. ratio_volume >= 1.3 — volume d'accumulation institutionnel confirmé
-2. atr_ratio >= 1.0 — momentum suffisant pour le déplacement
-3. score >= 60 — confluence SMC minimale
-4. Phase correcte : BUY_SETUP (bullish structure) ou SELL_SETUP (bearish structure)
-5. Contexte macro favorable : pas de news majeures imminentes, pas de range choppy
-
-## CONDITIONS DE REJET IMMÉDIAT
-- ratio_volume < 1.1 → retail move non institutionnel
-- score < 50 → structure SMC insuffisante
-- RSI extrême (>85 long, <15 short) → surachat/survente
-
-## FORMAT JSON STRICT
-{
-  "valide": true | false,
-  "conviction": 1-10,
-  "raison": "explication en 2-3 phrases",
-  "sl_suggere": 0.0,
-  "tp1_suggere": 0.0
-}"#;
-

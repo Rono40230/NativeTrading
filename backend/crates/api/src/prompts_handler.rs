@@ -37,17 +37,14 @@ pub async fn lister_prompts() -> impl Responder {
             "definition": p("rockets_definition", "Définition (dérivée)", "Ancre le LLM dans la logique VCP Minervini. Dérivé de la page Définition.", "Toute analyse rockets"),
             "catalyseur_news":    p("rockets_catalyseur", "Catalyseur news", "Évalue les dépêches d'un candidat : pour ou contre une cassure haussière à 15 jours ? POUR/CONTRE/NEUTRE + conviction.", "Après chaque scan quotidien"),
             "ranker_pivots":      p("rockets_ranker", "Ranker de pivots", "Départage les vraies cassures des fausses : conviction 0–100 + raison, sur le dossier complet du candidat.", "Avant chaque signal (seuil réglable)"),
-            "filtre_temps_reel":  p("rockets_filtre",  "Filtre temps réel", "Valide ou rejette un signal Rocket candidat (JSON conviction).", "DORMANT — remplacé par le ranker de pivots"),
             "analyse_strategique":p("rockets_analyse", "Analyse stratégique", "Analyse les signaux clôturés pour évaluer la performance et recommander des ajustements.", "Sur demande (≥ 5 trades clôturés)")
         },
         "smc": {
             "definition": p("smc_definition", "Définition", "Ancre l'analyste dans la logique SMC v12 — injectée en tête de chaque analyse.", "Toute analyse SMC (injectée automatiquement)"),
-            "filtre_temps_reel":  p("smc_filtre",  "Filtre temps réel", "Valide ou rejette un signal SMC candidat (JSON conviction).", "DORMANT — retour possible après accumulation (roadmap §5)"),
             "analyse_strategique":p("smc_analyse", "Analyse stratégique", "Analyse la performance globale des trades SMC clôturés (moteur v12, verdicts TP/SL/Expire).", "Bouton 📊 Analyse (page Signaux SMC)")
         },
         "straddle": {
             "definition": p("straddle_definition", "Définition (dérivée)", "Ancre le LLM dans la logique news-trading. Dérivé de la page Définition.", "Toute analyse straddle"),
-            "signal_temps_reel":  p("straddle_signal",  "Génération signal (héritage v1)", "Décide d'une passe sur évènement de volatilité. Mécanique actée intégrée (timer T-10 s, R × ATR H1).", "HÉRITAGE Gate 3 — le moteur v2 n'y passe plus"),
             "analyse_strategique":p("straddle_analyse", "Analyse stratégique", "Analyse les backtests Straddle et recommande des ajustements de créneaux/paramètres.", "Sur demande")
         },
         "outils_ia": {

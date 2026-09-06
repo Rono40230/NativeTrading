@@ -27,6 +27,7 @@
       <div v-if="onglet === 'reglages'" class="flex-1 overflow-auto">
         <RocketsReglages />
       </div>
+
       <!-- KPIs (onglet performance) -->
       <div v-if="onglet === 'perf'" class="grid grid-cols-5 gap-3 flex-shrink-0">
         <div class="kpi-card text-center">
@@ -43,11 +44,11 @@
         </div>
         <div class="kpi-card text-center">
           <div class="text-base font-bold">
-            <span class="text-emerald-400">{{ stats.gain }}</span>
+            <span class="text-emerald-400">{{ stats.gagnants }}</span>
             <span class="text-white mx-1">/</span>
-            <span class="text-red-400">{{ stats.sl }}</span>
+            <span class="text-red-400">{{ stats.perdants }}</span>
           </div>
-          <div class="text-xs text-white mt-0.5">Ratio trades</div>
+          <div class="text-xs text-white mt-0.5">Gagnants / perdants</div>
         </div>
         <div class="kpi-card text-center">
           <div class="text-xl font-bold text-red-400">{{ stats.tauxSL }}%</div>
@@ -58,51 +59,32 @@
       <!-- Contenu : 2 colonnes (onglet performance) -->
       <div v-if="onglet === 'perf'" class="grid grid-cols-[1fr_1.8fr] gap-4 flex-1 min-h-0">
 
-        <!-- Gauche : tranches + phases -->
+        <!-- Gauche : par univers + verdicts -->
         <div class="flex flex-col gap-4 min-h-0 overflow-auto pr-1">
           <div>
-            <h3 class="section-title">Par tranche de score</h3>
-            <table class="w-full text-xs">
-              <thead>
-                <tr class="text-white border-b border-white/10">
-                  <th class="py-1 text-left">Score</th>
-                  <th class="py-1 text-right">Nb</th>
-                  <th class="py-1 text-right text-emerald-400">TP1</th>
-                  <th class="py-1 text-right text-emerald-300">TP2</th>
-                  <th class="py-1 text-right text-emerald-200">TP3</th>
-                  <th class="py-1 text-right text-red-400">SL</th>
-                  <th class="py-1 text-right text-white">Exp</th>
-                  <th class="py-1 text-right">Win%</th>
-                  <th class="py-1 text-right">R</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="t in tranches" :key="t.label" class="border-b border-white/5">
-                  <td class="py-1 font-mono text-white">{{ t.label }}</td>
-                  <td class="py-1 text-right text-white">{{ t.total }}</td>
-                  <td class="py-1 text-right text-emerald-400">{{ t.tp1 }}</td>
-                  <td class="py-1 text-right text-emerald-300">{{ t.tp2 }}</td>
-                  <td class="py-1 text-right text-emerald-200">{{ t.tp3 }}</td>
-                  <td class="py-1 text-right text-red-400">{{ t.sl }}</td>
-                  <td class="py-1 text-right text-white">{{ t.expire }}</td>
-                  <td class="py-1 text-right font-bold" :class="t.winPct >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ t.winPct }}%</td>
-                  <td class="py-1 text-right font-bold" :class="t.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ t.rMoyen }}</td>
-                </tr>
-              </tbody>
-            </table>
+            <h3 class="section-title">Par univers</h3>
+            <div class="grid grid-cols-2 gap-2">
+              <div v-for="u in parUnivers" :key="u.label" class="kpi-card">
+                <div class="flex justify-between mb-1">
+                  <span class="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                    :class="u.label === 'crypto' ? 'bg-amber-900/60 text-amber-300' : 'bg-blue-900/60 text-blue-300'"
+                  >{{ u.label === 'crypto' ? 'Crypto' : 'Actions US' }}</span>
+                  <span class="text-white text-xs">{{ u.total }}</span>
+                </div>
+                <div class="text-xs">Win : <span class="font-bold" :class="u.winPct >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ u.winPct }}%</span></div>
+                <div class="text-xs">ΣR : <span class="font-bold" :class="u.rSomme >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ u.rSomme }}</span></div>
+              </div>
+            </div>
           </div>
 
           <div>
-            <h3 class="section-title">Par phase</h3>
-            <div class="grid grid-cols-2 gap-2">
-              <div v-for="p in phases" :key="p.phase" class="kpi-card">
-                <div class="flex justify-between mb-1">
-                  <span class="text-xs font-bold px-1.5 py-0.5 rounded-full" :class="classePhase(p.phase)">{{ p.phase }}</span>
-                  <span class="text-white text-xs">{{ p.total }}</span>
-                </div>
-                <div class="text-xs">Win : <span class="font-bold" :class="p.winPct >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ p.winPct }}%</span></div>
-                <div class="text-xs">R : <span class="font-bold" :class="p.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ p.rMoyen }}</span></div>
-              </div>
+            <h3 class="section-title">Verdicts</h3>
+            <div class="flex flex-wrap gap-2">
+              <span v-for="(n, v) in stats.verdicts" :key="v"
+                class="text-xs font-semibold px-2 py-1 rounded-full border"
+                :class="v === 'SL' ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'"
+              >{{ v }} × {{ n }}</span>
+              <span v-if="!stats.total" class="text-xs text-white">Aucun trade clôturé — la verticale est jeune.</span>
             </div>
           </div>
 
@@ -120,7 +102,7 @@
                 la probabilité de subir au moins
                 <span class="font-bold" :class="analyseProba.kCritique50 <= 3 ? 'text-red-400' : 'text-yellow-400'">{{ analyseProba.kCritique50 }} SL consécutifs</span>
                 dépasse <span class="font-bold">50%</span>
-                — soit un scénario <span :class="analyseProba.kCritique50 <= 3 ? 'text-red-400 font-bold' : 'text-yellow-300 font-bold'">
+                — soit un scénario <span :class="analyseProba.kCritique50 <= 2 ? 'text-red-400 font-bold' : 'text-yellow-300 font-bold'">
                   {{ analyseProba.kCritique50 <= 2 ? 'très probable' : analyseProba.kCritique50 <= 4 ? 'probable' : 'possible' }}
                 </span>.
               </p>
@@ -195,7 +177,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { apiService } from '@/services/api.service'
-import type { RocketSignalHistorique } from '@/services/api.types'
+import type { Signal } from '@/services/api.service'
 import RocketsAnalyseLlm from '@/components/common/RocketsAnalyseLlm.vue'
 import RocketsReglages from '@/components/common/RocketsReglages.vue'
 import { useRocketsStats } from '@/composables/useRocketsStats'
@@ -207,28 +189,30 @@ const TABS = [
 ]
 const onglet = ref<'perf' | 'ia' | 'reglages'>('perf')
 
-const props = defineProps<{ open: boolean; rockets: RocketSignalHistorique[] }>()
+const props = defineProps<{ open: boolean }>()
 defineEmits(['close'])
 
-// L'historique clôturé (avec verdicts) est chargé à l'ouverture de la modale.
-// props.rockets ne contient que les signaux ACTIFS (sans verdict) → stats à 0.
-// On fetch donc l'historique complet pour alimenter useRocketsStats.
-const historique = ref<RocketSignalHistorique[]>([])
-
+// V2 (05/09) : trades officiels depuis la table partagée — plus de
+// props.rockets v1 (table vide) ni d'historiqueRockets.
+const cloutes = ref<Signal[]>([])
 watch(() => props.open, async (ouvert) => {
   if (!ouvert) return
   try {
-    historique.value = await apiService.historiqueRockets(500)
+    const data = await apiService.getSignaux(500)
+    cloutes.value = data.filter(s =>
+      s.strategie.toLowerCase() === 'rockets'
+      && s.statut === 'Fermé' && s.verdict !== null,
+    )
   } catch {
-    historique.value = []
+    cloutes.value = []
   }
 })
 
 const {
-  stats, tranches, phases, classePhase,
-  kValues, lossRates, sampleSize, lossRateReel,
+  stats, parUnivers,
+  kValues, sampleSize, lossRateReel,
   tableauPertes, analyseProba, couleurProba,
-} = useRocketsStats(computed(() => historique.value))
+} = useRocketsStats(computed(() => cloutes.value))
 </script>
 
 <style scoped>

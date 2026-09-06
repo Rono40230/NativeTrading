@@ -3,7 +3,6 @@ pub mod diagram_templates;
 pub mod prompts;
 pub mod rockets_analyse;
 pub mod smc_analyse;
-pub mod smc_filtre;
 pub mod straddle_analyse;
 mod types;
 pub mod prompts_vision;
@@ -14,7 +13,7 @@ use std::sync::LazyLock;
 pub use contexte::formater_contexte_historique;
 use prompts::SYSTEM_PROMPT;
 pub use prompts::{
-    PROMPT_FILTRE_ROCKET, SYSTEM_PROMPT_COACH, SYSTEM_PROMPT_COACH_DIAGRAM,
+    SYSTEM_PROMPT_COACH, SYSTEM_PROMPT_COACH_DIAGRAM,
     SYSTEM_PROMPT_COACH_OLLAMA,
 };
 pub use types::ReponseOllama;

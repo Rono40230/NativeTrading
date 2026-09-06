@@ -24,7 +24,6 @@
             <th class="px-3 py-3 text-center">IA</th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Ouvert le <span>{{ icone('cree_le') }}</span></th>
             <th class="px-3 py-3 text-center w-24">Signal</th>
-            <th v-if="strategie === 'Rockets' && filtreStatut === 'en_cours'" class="px-3 py-3 text-center w-20">Annuler</th>
           </tr>
         </thead>
         <tbody>
@@ -69,13 +68,6 @@
             <td class="px-3 py-3 text-center">
               <button class="badge bg-blue-900/30 text-blue-400 border border-blue-700/50 hover:bg-blue-800/50 hover:text-blue-300 transition-colors" @click="afficherSignal(s)">👁️ Voir</button>
             </td>
-            <td v-if="strategie === 'Rockets' && filtreStatut === 'en_cours' && s.statut !== 'Fermé'" class="px-3 py-3 text-center">
-              <button
-                class="text-xs px-2 py-1 rounded border border-red-700/50 bg-red-900/20 text-red-400 hover:bg-red-900/50 hover:text-red-300 transition-all disabled:opacity-30"
-                :disabled="annulationEnCours.has(s.id)"
-                @click="demanderAnnulation(s)"
-              >{{ annulationEnCours.has(s.id) ? '…' : 'Annuler' }}</button>
-            </td>
           </tr>
           <!-- Sous-ligne jambes Straddle : uniquement pour signaux actifs (sans verdict) -->
           <tr v-if="strategie === 'straddle' && s.direction === 'Both' && s.verdict === null"
@@ -114,60 +106,9 @@
     <!-- Modales analyse -->
     <StraddleAnalyseModal v-if="strategie === 'straddle'" :open="analyseOuverte" :signaux="signaux" @close="analyseOuverte = false" />
     <SmcAnalyseModal v-if="strategie === 'SMC'" :open="analyseOuverte" :signaux="signaux" @close="analyseOuverte = false" />
-    <RocketsAnalyseModal v-if="strategie === 'Rockets'" :open="analyseOuverte" :rockets="rocketsRaw" @close="analyseOuverte = false" />
+    <RocketsAnalyseModal v-if="strategie === 'Rockets'" :open="analyseOuverte" @close="analyseOuverte = false" />
 
     <!-- Modale de confirmation annulation Rocket -->
-    <Teleport to="body">
-      <Transition name="modal-fade">
-        <div v-if="signalAnnuler" class="fixed inset-0 z-50 flex items-center justify-center">
-          <!-- Backdrop -->
-          <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="signalAnnuler = null" />
-          <!-- Fenêtre -->
-          <div class="relative z-10 w-80 rounded-xl border border-red-700/40 bg-[#0f1629] shadow-2xl p-5 flex flex-col gap-4">
-            <div class="flex items-center gap-2">
-              <span class="text-red-400 text-lg">⚠️</span>
-              <span class="text-xs uppercase font-bold text-white">Confirmer l'annulation</span>
-            </div>
-            <div class="text-xs text-white space-y-1">
-              <p>Tu vas annuler le trade suivant :</p>
-              <div class="bg-white/5 rounded-lg px-3 py-2 space-y-1 border border-white/10">
-                <div class="flex justify-between">
-                  <span class="text-white">Asset</span>
-                  <span class="text-white font-bold font-mono">{{ signalAnnuler.asset }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-white">Direction</span>
-                  <span class="font-bold" :class="signalAnnuler.direction === 'LONG' ? 'text-emerald-400' : 'text-red-400'">{{ signalAnnuler.direction }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-white">Entrée</span>
-                  <span class="text-white font-mono">{{ formatNombre(signalAnnuler.prix_entree) }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-white">SL</span>
-                  <span class="text-red-300 font-mono">{{ formatNombre(signalAnnuler.stop_loss) }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-white">TP1</span>
-                  <span class="text-emerald-300 font-mono">{{ formatNombre(signalAnnuler.take_profit[0]) }}</span>
-                </div>
-              </div>
-              <p class="text-yellow-400/80 pt-1">Cette action est irréversible.</p>
-            </div>
-            <div class="flex gap-2 justify-end">
-              <button
-                class="text-xs px-3 py-1.5 rounded border border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white transition-all"
-                @click="signalAnnuler = null"
-              >Garder</button>
-              <button
-                class="text-xs px-3 py-1.5 rounded border border-red-700/50 bg-red-900/30 text-red-400 hover:bg-red-900/60 hover:text-red-300 transition-all"
-                @click="confirmerAnnulation"
-              >Confirmer l'annulation</button>
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
   </div>
 </template>
 
@@ -191,9 +132,9 @@ const props = defineProps<{
 }>()
 
 const {
-  signaux, rocketsRaw, chargement, analyseOuverte,
-  filtreStatut, annulationEnCours, listeActive, signauxTries, remplisSeuls, montantRisque,
-  charger, annuler, trierPar, icone, infosPips,
+  signaux, chargement, analyseOuverte,
+  filtreStatut, listeActive, signauxTries, remplisSeuls, montantRisque,
+  charger, trierPar, icone, infosPips,
   classeConviction, classePrix, lotPourSignal,
   prixStore, assetParamsStore, settingsStore,
 } = useSignauxTableau(props.strategie)
@@ -207,20 +148,6 @@ watchEffect(() => {
   remplisSeuls.value = props.remplisSeuls ?? false
   emits('signaux-actifs', signaux.value.filter(x => x.statut !== 'Fermé' && x.verdict === null) as unknown as Signal[])
 })
-
-// ── Modale confirmation annulation ───────────────────────────────────────────
-const signalAnnuler = ref<Signal | null>(null)
-
-function demanderAnnulation(s: Signal) {
-  signalAnnuler.value = s
-}
-
-async function confirmerAnnulation() {
-  if (!signalAnnuler.value) return
-  const s = signalAnnuler.value
-  signalAnnuler.value = null
-  await annuler(s)
-}
 
 /// Voir : ouvre le graphique du signal (premier slot sur son asset et son
 /// timeframe — ses boxes/pointillés y sont affichés par le chart).

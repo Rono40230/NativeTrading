@@ -8,11 +8,9 @@
 //! L'analyste `rockets_catalyseur` fait le reste : verdict + point news,
 //! et date de résultats (earnings) si une dépêche la mentionne.
 
-use actix_web::{web, HttpResponse, Responder};
 use sqlx::Row;
 use std::sync::Arc;
 
-use crate::state::AppState;
 use db::Database;
 
 /// Convertit une date RSS RFC 2822 (« Mon, 01 Sep 2026 14:30:00 +0000 »)
@@ -90,12 +88,6 @@ pub async fn collecter(db: &Arc<Database>) -> (usize, usize) {
         tracing::info!("🚀 News actions : {inserees} dépêches Yahoo rangées ({} tickers)", tickers.len());
     }
     (tickers.len(), inserees)
-}
-
-/// POST /api/rockets/actions/news/collecter — collecte manuelle.
-pub async fn post_collecter(state: web::Data<AppState>) -> impl Responder {
-    let (tickers, inserees) = collecter(&state.db).await;
-    HttpResponse::Ok().json(serde_json::json!({ "tickers": tickers, "depeches": inserees }))
 }
 
 #[cfg(test)]

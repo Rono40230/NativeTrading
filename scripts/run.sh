@@ -111,18 +111,9 @@ if pgrep -f "target/(debug|release)/api" > /dev/null 2>&1; then
   done
 fi
 
-# ─── Arrêt des instances résiduelles Vite/Tauri (sessions précédentes) ──────
-# Un Vite fantôme sur le port 1420 ferait échouer le nouveau démarrage — et
-# le watchdog (voir bas de script) arrêterait alors toute l'app immédiatement.
-VITE_STALE_PID=$(ss -tlnp 2>/dev/null | grep ':1420' | grep -oP 'pid=\K[0-9]+' | head -1)
-if [ -n "$VITE_STALE_PID" ]; then
-  echo "🔄 Arrêt Vite résiduel (pid $VITE_STALE_PID, port 1420)..."
-  kill "$VITE_STALE_PID" 2>/dev/null || true
-  for i in $(seq 1 10); do
-    ss -tln 2>/dev/null | grep -q ':1420' || break
-    sleep 0.3
-  done
-fi
+# ─── Arrêt des instances résiduelles Tauri (sessions précédentes) ────────────
+# (Plus de dev server Vite depuis le 05/09 : la fenêtre sert le dist/ du
+# disque, rebuild au démarrage — cf. section frontend plus bas.)
 # Tauri résiduel : par nom EXACT de process uniquement. JAMAIS par motif de
 # chemin (pkill -f) — un chemin matcherait le présent script si on l'invoque
 # en absolu, tuant le terminal de l'appelant (bug corrigé 2026-08-15).
@@ -175,10 +166,39 @@ if [ -f "$TAURI_BIN_REL" ]; then
 fi
 
 if [ -f "$TAURI_BIN" ]; then
-  # Lancer Vite (dev server) + binaire pré-compilé directement (évite recompilation avec libs manquantes)
-  npx vite --port 1420 > "$LOG_DIR/vite.log" 2>&1 &
+  # ── Garde-fou : un serveur fantôme sur 1420 ferait échouer --strictPort
+  # et le watchdog arrêterait toute l'app immédiatement (incident 05/09).
+  SERVEUR_STALE_PID=$(ss -tlnp 2>/dev/null | grep ':1420' | grep -oP 'pid=\K[0-9]+' | head -1)
+  if [ -n "$SERVEUR_STALE_PID" ]; then
+    echo "🔄 Arrêt serveur front résiduel (pid $SERVEUR_STALE_PID, port 1420)..."
+    kill "$SERVEUR_STALE_PID" 2>/dev/null || true
+    for i in $(seq 1 10); do
+      ss -tln 2>/dev/null | grep -q ':1420' || break
+      sleep 0.3
+    done
+  fi
+
+  # La fenêtre Tauri charge http://localhost:1420 (devUrl, résolu en IPv4
+  # 127.0.0.1 par WebKit). Deux incidents le 05/09 : (1) le dev server Vite
+  # ne bindait que [::1] dans ce sandbox → la fenêtre vivait sur son cache,
+  # une semaine de changements front invisible ; (2) le retirer totalement
+  # a donné « Connection refused ». Solution : build du dist à chaque
+  # démarrage (même logique que le cargo build backend) + serveur `vite
+  # preview` sur 127.0.0.1 EXPLICITE — déterministe, sert exactement le
+  # dist construit.
+  echo "🏗️  Build du frontend (dist/)..."
+  if ! npm run build > "$LOG_DIR/frontend-build.log" 2>&1; then
+    echo "❌ ÉCHEC du build frontend — arrêt (ne pas lancer un front périmé)."
+    exit 1
+  fi
+  echo "📡 Serveur front (vite preview) → 127.0.0.1:1420"
+  npx vite preview --port 1420 --host 127.0.0.1 --strictPort > "$LOG_DIR/vite.log" 2>&1 &
   VITE_PID=$!
-  sleep 2  # attendre que Vite soit prêt
+  # Attendre que le serveur réponde (max 10s)
+  for i in $(seq 1 20); do
+    curl -sf http://127.0.0.1:1420/ > /dev/null 2>&1 && break
+    sleep 0.5
+  done
   GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 \
     "$TAURI_BIN" > "$LOG_DIR/tauri.log" 2>&1 &
   TAURI_PID=$!
@@ -207,7 +227,7 @@ cleanup() {
   [ "$NETTOYE_FAIT" -eq 1 ] && return
   NETTOYE_FAIT=1
   echo ""
-  echo "🛑 Arrêt de l'application (backend + UI + Vite)..."
+  echo "🛑 Arrêt de l'application (backend + UI + serveur front)..."
   kill $BACKEND_PID $TAURI_PID ${VITE_PID:-} $TAIL_PID 2>/dev/null
   wait 2>/dev/null
   echo "✅ Arrêt propre — tout est clos."
@@ -215,10 +235,10 @@ cleanup() {
 trap cleanup INT TERM
 
 # ── Fermeture de la fenêtre (X) = arrêt COMPLET ──────────────────────────────
-# Le process Tauri meurt quand on ferme la fenêtre ; le backend ou Vite peuvent
-# aussi tomber seuls. On surveille les trois : la fin de L'UN QUELCONQUE
-# déclenche l'arrêt propre de tous les autres (compat bash sans wait -n).
-while kill -0 "$BACKEND_PID" 2>/dev/null    && { [ -z "${TAURI_PID:-}" ] || kill -0 "$TAURI_PID" 2>/dev/null; }    && { [ -z "${VITE_PID:-}" ] || kill -0 "$VITE_PID" 2>/dev/null; }; do
+# Le process Tauri meurt quand on ferme la fenêtre ; le backend ou le serveur
+# front peuvent aussi tomber seuls. On surveille les trois : la fin de L'UN
+# QUELCONQUE déclenche l'arrêt propre des autres (compat bash sans wait -n).
+while kill -0 "$BACKEND_PID" 2>/dev/null && { [ -z "${TAURI_PID:-}" ] || kill -0 "$TAURI_PID" 2>/dev/null; } && { [ -z "${VITE_PID:-}" ] || kill -0 "$VITE_PID" 2>/dev/null; }; do
   sleep 1
 done
 cleanup

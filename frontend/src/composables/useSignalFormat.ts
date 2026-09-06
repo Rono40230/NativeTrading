@@ -144,7 +144,7 @@ interface SignalPalier {
 }
 
 export interface PalierMax {
-  palier: 'SL' | 'TP1' | 'TP2' | 'TP3' | 'BE' | 'Expiré' | 'Non rempli' | null
+  palier: 'SL' | 'TP1' | 'TP2' | 'TP3' | 'BE' | 'Trailing' | 'Expiré' | 'Non rempli' | null
   rReference: number | null
 }
 
@@ -166,6 +166,7 @@ export function palierMax(s: SignalPalier): PalierMax {
   if (v === 'tp3')
     return { palier: 'TP3', rReference: (rNiveau(s.take_profit[2] ?? s.take_profit[0], s.prix_entree, s.stop_loss) ?? 0) - penalite }
   if (v === 'be') return { palier: 'BE', rReference: 0 }
+  if (v === 'ts') return { palier: 'Trailing', rReference: null }
   if (v === 'expire') return { palier: 'Expiré', rReference: null }
   if (v === 'invalide') return { palier: 'Non rempli', rReference: null }
   return { palier: null, rReference: null }
@@ -178,6 +179,7 @@ export function labelPalierMax(p: PalierMax['palier']): string {
     case 'TP2': return '✅ TP2'
     case 'TP3': return '🏆 TP3'
     case 'BE': return '⚪ BE'
+    case 'Trailing': return '🏁 TS'
     case 'Expiré': return '⏰ Expiré'
     case 'Non rempli': return '↩️ Non rempli'
     default: return '—'
@@ -186,7 +188,7 @@ export function labelPalierMax(p: PalierMax['palier']): string {
 
 export function classePalierMax(p: PalierMax['palier']): string {
   switch (p) {
-    case 'TP3': case 'TP2': return 'badge-green'
+    case 'TP3': case 'TP2': case 'Trailing': return 'badge-green'
     case 'TP1': return 'badge-blue'
     case 'SL': return 'badge-red'
     default: return 'badge-gray'

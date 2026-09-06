@@ -19,10 +19,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/assets/{id}",
             web::delete().to(crate::assets_handlers::supprimer_asset),
         )
-        .route(
-            "/api/assets/{id}/ml",
-            web::patch().to(crate::assets_handlers::set_ml_actif),
-        )
         .route("/api/prix", web::get().to(crate::prix_handlers::get_prix))
         .route(
             "/api/prix/stream",
@@ -105,31 +101,12 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/signaux/lots",
             web::post().to(crate::signaux_handlers::post_lots_signaux),
         )
-        // Étape A Rockets actions — univers NASDAQ Trader + clé Tiingo
-        .route(
-            "/api/rockets/actions/univers/charger",
-            web::post().to(crate::rockets_actions::charger_univers),
-        )
-        .route(
-            "/api/rockets/actions/univers",
-            web::get().to(crate::rockets_actions::lire_univers),
-        )
-        .route(
-            "/api/rockets/actions/contexte",
-            web::get().to(crate::rockets_actions::lire_contexte),
-        )
-        .route(
-            "/api/rockets/actions/scan",
-            web::post().to(crate::rockets_actions_scanner::post_scan),
-        )
-        .route(
-            "/api/rockets/actions/prescreen",
-            web::get().to(crate::rockets_actions_scanner::get_prescreen),
-        )
-        .route(
-            "/api/rockets/actions/news/collecter",
-            web::post().to(crate::rockets_actions_news::post_collecter),
-        )
+        // Étape A2 Rockets actions — backfill Tiingo (lot manuel « Rattraper
+        // maintenant » + état du compteur univers). Les ex-endpoints
+        // d'import/scan/prescreen/contexte/news ont été supprimés le 05/09
+        // (décision §7-3a : les boucles backend font déjà le travail ;
+        // l'import NASDAQ Trader repose sur l'univers en base — réimport à
+        // recâbler depuis git si besoin un jour).
         .route(
             "/api/rockets/actions/backfill",
             web::post().to(crate::rockets_actions_backfill::post_backfill),
@@ -344,10 +321,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/presse/briefs",
             web::get().to(crate::presse_handlers::get_briefs),
-        )
-        .route(
-            "/api/presse/briefs/{id}",
-            web::get().to(crate::presse_handlers::get_brief),
         )
         .route(
             "/api/alertes-prix",

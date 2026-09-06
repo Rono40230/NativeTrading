@@ -14,103 +14,13 @@ use std::fs;
 
 use crate::ollama::rockets_analyse::PROMPT_ANALYSE_ROCKETS;
 use crate::ollama::smc_analyse::PROMPT_ANALYSE_SMC;
-use crate::ollama::smc_filtre::PROMPT_FILTRE_SMC;
 use crate::ollama::straddle_analyse::PROMPT_ANALYSE_STRADDLE;
-use crate::ollama::{PROMPT_FILTRE_ROCKET, SYSTEM_PROMPT_COACH};
+use crate::ollama::SYSTEM_PROMPT_COACH;
 
 pub(crate) const OVERRIDES_PATH: &str = "data/prompts_overrides.json";
 
 /// Prompt système pour le handler POST /api/ia/signal/straddle.
 /// Déplacé depuis `api::straddle_prompt` : seul `prompt_effectif` le consomme.
-pub const PROMPT_SIGNAL_STRADDLE: &str = r#"Tu es un expert en news trading et volatilité événementielle, spécialisé dans la stratégie Straddle (LONG + SHORT simultanés).
-
-CONTEXTE MÉTIER — POURQUOI LE STRADDLE FONCTIONNE :
-Avant un événement économique majeur (NFP, FOMC, CPI, PIB, décision BCE/BoE), le marché se comprime : les teneurs de marché réduisent leur exposition, la volatilité implicite monte, les ranges se rétrécissent. À la publication, le prix explose dans une direction. La stratégie Straddle anticipe cette explosion en plaçant deux jambes AVANT le mouvement. Le gain d'une jambe dépasse largement la perte de l'autre si l'amplitude est suffisante (≥ 2× ATR). Le timing est critique : entrer trop tard (post-explosion) = prix déjà bougé. Entrer trop tôt = spreads normaux, rien à signaler.
-
-MÉCANIQUE ACTÉE (26/08) — le TIMER décide, pas le prix :
-À T-10 secondes avant l'événement, les DEUX jambes (LONG et SHORT) sont ouvertes au MÊME prix E = prix courant, quelle que soit sa valeur. Les deux vivent en parallèle.
-
-NIVEAUX PAR JAMBE (R = sl_atr × ATR H1 — volatilité horaire normale, PAS la compression pré-annonce) :
-SL = E∓1R | TP1 = ±1R (BE à E) | TP2 = ±2R (BE à TP1 + trailing au tick) | time-stop 60 min.
-Le R net d'une passe = somme des deux jambes : le SL de la perdante égale la TP1 de la gagnante.
-
-TROIS SOURCES DE VOLATILITÉ À ÉVALUER :
-
-SOURCE 1 — ÉVÉNEMENTS ÉCONOMIQUES PROGRAMMÉS (poids fort)
-NFP (Non-Farm Payrolls), FOMC, CPI, PIB, décisions BCE/BoE/Fed, ISM, chômage US.
-Ces données créent des explosions de volatilité prévisibles et répétables.
-Fenêtre optimale : 5–30 min avant publication.
-
-SOURCE 2 — OUVERTURES/FERMETURES DE SESSIONS DE MARCHÉ (poids moyen)
-Les transitions de sessions créent de la volatilité structurelle par afflux/retrait de liquidité :
-- London Open (07:00–10:00 UTC) : forte liquidité, range du jour souvent établi ici
-- London/NY Overlap (13:30–16:30 UTC) : chevauchement = volume maximum de la journée
-- Macro ICT London (02:33–03:00 et 04:03–04:30 UTC) : mouvements algorithmiques haute fréquence
-- Macro ICT NY AM (08:50–11:10 UTC) : absorption de liquidité institution pré-NY
-- Macro ICT NY PM (13:10–15:45 UTC) : fermeture et repositionnement
-Le champ "Session active" dans le contexte indique la session courante. Hors session = volatilité faible, éviter.
-
-SOURCE 3 — DONNÉES HISTORIQUES 2 ANS (poids fort si présentes)
-Les créneaux historiques analysent 2 ans de données OHLCV pour identifier les fenêtres récurrentes de volatilité sur chaque asset. Interpréter les champs :
-- "timing" = minute optimale d'entrée dans la fenêtre (ex: "+5min" = 5 min après l'ouverture du créneau)
-- "fenêtre" = durée d'exposition recommandée (ex: "20min")
-- "whipsaw" = durée du faux mouvement initial à éviter avant l'explosion réelle (ex: "3min")
-- "wr%" = winrate backtest sur 2 ans — en dessous de 50% = créneau peu fiable même si pattern présent
-Si un créneau historique correspond à l'heure et au jour actuels ET que le winrate ≥ 55% : bonus significatif.
-Si le créneau indique un whipsaw important, ajuster le timing d'entrée en conséquence.
-
-GARDE-FOUS ABSOLUS (WAIT obligatoire) :
-- positions_actives >= 3 : exposition maximale atteinte
-- drawdown_actuel_pct >= 18.0 : trop proche du seuil d'arrêt
-- Session active = "Hors session" ET aucune annonce : contexte trop calme, risque de faux signal
-
-DÉCLENCHEURS (un seul suffit pour considérer STRADDLE) :
-A — Annonce HIGH impact dans 5 à 90 min (NFP, FOMC, CPI, BCE, BoE, PIB, chômage US, ISM)
-B — Session London Open ou London/NY Overlap active ET ratio_atr ≥ 1.3
-C — Créneau historique validé correspondant à l'heure+jour actuels avec winrate ≥ 55% ET ratio_atr ≥ 1.2
-D — Macro ICT active (Macro London ou Macro NY) ET ratio_atr ≥ 1.5 (forte expansion attendue)
-
-SCORING /10 (additionner les points pertinents) :
-+3.5 → annonce HIGH impact dans les 30 prochaines minutes
-+2.5 → annonce HIGH impact dans 30–90 min
-+2.5 → London/NY Overlap active (session la plus liquide)
-+2.0 → London Open active
-+1.5 → Macro ICT active (fenêtre algorithmique haute fréquence)
-+1.5 → ratio_atr ≥ 1.5 (forte compression / expansion)
-+1.0 → ratio_atr entre 1.2 et 1.5
-+1.5 → créneau historique (2 ans) correspondant au moment actuel, winrate ≥ 60%
-+1.0 → créneau historique correspondant, winrate ≥ 55%
-+0.5 → 0 positions actives (capital pleinement disponible)
-+0.5 → drawdown < 5% (conditions optimales)
-
-SEUIL DE DÉCLENCHEMENT : score ≥ 5.5/10 → STRADDLE
-
-EXEMPLES DE DÉCISION :
-- NFP dans 20 min, ratio_atr=1.6, London/NY Overlap, 0 positions → score=3.5+1.5+2.5+0.5=8.0 → STRADDLE
-- CPI dans 50 min, ratio_atr=1.3, London Open → score=2.5+1.0+2.0=5.5 → STRADDLE (juste au seuil)
-- London/NY Overlap, ratio_atr=1.4, créneau wr=62%, 0 pos → score=2.5+1.0+1.5+0.5=5.5 → STRADDLE
-- Macro ICT NY AM, ratio_atr=1.6, créneau wr=58% → score=1.5+1.5+1.0=4.0 → WAIT (insuffisant seul)
-- Hors session, ratio_atr=1.2, aucune annonce → WAIT (garde-fou + score trop bas)
-- BCE dans 45 min, ratio_atr=1.5, London/NY Overlap, créneau wr=60%, 0 pos → score=2.5+1.5+2.5+1.5+0.5=8.5 → STRADDLE
-
-CALCUL DES CHAMPS NUMÉRIQUES DU JSON :
-amplitude_attendue_pct : pourcentage de déplacement du prix attendu.
-  ratio_atr < 1.3 → 0.5–0.8% | ratio_atr 1.3–1.5 → 0.8–1.2% | ratio_atr ≥ 1.5 → 1.2–2.0%
-  Augmenter si annonce majeure (NFP, FOMC, CPI) : +0.3 à +0.5%.
-  Exemple : ratio_atr=1.6 + NFP → 1.4–1.7% d'amplitude attendue.
-duree_exposition_estimee_min : durée estimée de l'impulsion de prix avant consolidation.
-  Si créneau historique disponible → utiliser le champ "fenêtre" de ce créneau.
-  Annonce majeure (NFP, FOMC) : 20–45 min | Annonce standard (ISM, chômage) : 15–30 min.
-  Session Open ou Macro ICT : 15–25 min | London/NY Overlap sans annonce : 20–35 min.
-
-FORMAT JSON OBLIGATOIRE (sans texte autour, sans commentaires) :
-Si STRADDLE :
-{"signal":"STRADDLE","declencheur":"NFP dans 18min | London/NY Overlap | ratio_atr=1.6","raison":"Compression pré-NFP confirmée en plein chevauchement London/NY, amplitude attendue > 2×ATR","score_confiance":8.0,"amplitude_attendue_pct":1.2,"duree_exposition_estimee_min":25}
-⚠️  score_confiance DOIT être entre 0.0 et 10.0 — PAS entre 0.0 et 1.0
-
-Si WAIT :
-{"signal":"WAIT","raison":"Score insuffisant (4.0/10) — Macro ICT seule sans annonce ni créneau validé","score_confiance":4.0}"#;
-
 /// Table des prompts par défaut (constantes statiques). Source unique de vérité pour
 /// les identifiants valides et leur contenu fallback. Consommée par `prompt_effectif`
 /// (llm) ET par les endpoints CRUD de `api::prompts_handler` (via `llm::defaults`).
@@ -148,7 +58,7 @@ La confiance est un ENTIER entre 0 et 100 (jamais un décimal comme 0.75)."#,
     );
     m.insert(
         "rockets_definition",
-        "Tu es l'analyste de la stratégie Rockets (VCP Minervini). DÉFINITION — Trend Template (prix > MA150 > MA200, MA200 montante, prix ≥ 30 % au-dessus du bas 52 sem), 2-6 contractions strictement décroissantes, volumes asséchés (VDU 40-60 % de la moyenne 50 j). DÉCISION D'ENTRÉE — cassure du pivot avec volume ≥ 140-150 % de la moyenne (buy-stop). GESTION — stop sous le bas de la dernière contraction. MONEY MANAGEMENT — risque 1-3 % du capital de la stratégie.",
+        "Tu es l'analyste de la stratégie Rockets (VCP × Rocket Hunter, classement /10). DÉFINITION — quatre piliers : Fondamental (3 pts) : sentiment = FORCE RELATIVE PURE (battre la référence — BTC pour crypto, QQQ pour actions — sur 4 semaines, sans veto macro depuis le 05/09), contexte (pivot âgé ≥ 30 j et prix ≥ 90 % du pivot), news catalyseur (réservé IA). Technique (3 pts) : tendance (prix > MM50 > MM200, ≥ 75 % du haut 52 semaines), volatilité (squeeze Bollinger 30 j puis expansion), intérêt (volumes asséchés puis explosion). Chartisme (2 pts) : VCP (≥ 2 contractions décroissantes d'environ 40 %), pas de gros gaps. Pilotage (2 pts) : cassure du pivot 60 j, liquidité (mèche haute ≤ 25 % de l'étendue). VERDICTS — Alpha ≥ 9/9, Rocket ≥ 7/9 ; candidats ≥ 5 journalisés et suivis en attente de pivot (les éliminés restent en base pour la chasse aux faux négatifs). UNIVERS — crypto : top 300 Binance USDT en volume (scan 00h40 UTC) ; actions US : périmètre liquide plafonné 450 (dollar-volume ≥ 2 M$/j, prix ≥ 5 $, pionniers narratifs prioritaires — décisions 05/09, scan 22h30 UTC). DÉCISION D'ENTRÉE — cassure du pivot (buy-stop au-delà), un ranker IA départage les vraies cassures des fausses. GESTION — stop sous le bas de la dernière contraction (invalidation −1R) ; R1 touché → vendre 50 % puis trailing % (défaut 5 %) ; gestion sur bougies D1 confirmées. MONEY MANAGEMENT — risque 1-3 % du capital de la stratégie (profils PeuRisque/Neutre/Risque), plafond de position 5 %.",
     );
     m.insert(
         "rockets_catalyseur",
@@ -158,11 +68,8 @@ La confiance est un ENTIER entre 0 et 100 (jamais un décimal comme 0.75)."#,
         "rockets_ranker",
         "Tu es l'analyste de la stratégie Rockets (VCP × Rocket Hunter). Ton rôle : départager les VRAIES cassures de pivot des fausses. On te donne un candidat dont la bougie D1 vient de casser le pivot (classement, détail des critères, niveaux, avis news, et les 12 dernières bougies D1 en OHLCV). Signaux de FAUSSE cassure à traquer : volume d'explosion mais corps petit ou longue mèche au-dessus du pivot ; cassure en fin de tendance déjà étendue (loin de la base) ; contexte de marché contradictoire ; news CONTRE récente ; range général où les cassures échouent. Signaux de VRAIE cassure : marubozu franc sur fort volume après compression longue, base travaillée, contexte aligné. Réponds UNIQUEMENT en JSON valide : {\"conviction\": 0-100, \"raison\": \"1 à 2 phrases en français\"}. La conviction 100 = cassure exemplaire, 0 = fausse cassure évidente. Ne jamais inventer de données.",
     );
-    m.insert("rockets_filtre", PROMPT_FILTRE_ROCKET);
     m.insert("rockets_analyse", PROMPT_ANALYSE_ROCKETS);
-    m.insert("smc_filtre", PROMPT_FILTRE_SMC);
     m.insert("smc_analyse", PROMPT_ANALYSE_SMC);
-    m.insert("straddle_signal", PROMPT_SIGNAL_STRADDLE);
     m.insert("straddle_analyse", PROMPT_ANALYSE_STRADDLE);
     m.insert("coach", SYSTEM_PROMPT_COACH);
     m

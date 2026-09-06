@@ -148,7 +148,7 @@ méthode de traçage des divergences (arbitrage intrabar ≠ bug de miroir).
 - [ ] Si écarts : les tracer et les corriger
 - [ ] Documenter le verdict au journal
 
-### 7. Décisions propriétaires en attente (à trancher, puis exécuter)
+### 7. Décisions propriétaires — ✅ VIDÉE le 05/09 (toutes tranchées)
 
 - [x] **Jauges de sentiment retirées de l'UI** (05/09) : jauge Fear & Greed principale
       + mini-jauges crypto/forex/métaux/indices supprimées (aucun intérêt propriétaire).
@@ -174,20 +174,28 @@ méthode de traçage des divergences (arbitrage intrabar ≠ bug de miroir).
       réponse Tiingo vide → état `sans_donnees` (jamais retenté — fin de la file
       empoisonnée par les delistings). Recalcul quotidien (boot + 24 h). Compteur UI =
       couverts/actifs (449/498 à froid, tend vers 450/450 en croisière).
-- [ ] **WR SMC et expirés** : les Expire comptent au dénominateur du WR du re-jeu (59 % avec,
-      74 % sans) — même logique que les camemberts (expirés exclus) ?
-- [ ] **Routes diagnostics sans consommateur front** : `/api/smc/rejeu`, `/api/straddle/rejeu`,
-      `/api/runtime/concordance|replay|emissions` — garder comme outils d'inspection (curl)
-      ou les câbler dans la vue Données ?
-- [ ] **Endpoints rockets actions non câblés** (`scan`, `prescreen`, `univers`, `contexte`,
-      `news/collecter`, `backfill` POST) : câbler dans l'UI Données (déclenchement manuel)
-      ou supprimer (les boucles backend tournent déjà seules) ?
-- [ ] **`PATCH /api/assets/{id}/ml`** : route morte — supprimer.
-- [ ] **`GET /api/presse/briefs/{id}`** : servi jamais appelé — supprimer ou brancher.
-- [ ] **Ancien système `rockets_signaux`** (table 0 ligne, 10 fichiers) : purge dans le
-      chantier rockets (§10) ou nettoyage immédiat.
-- [ ] **Prompts dormants** (`smc_filtre`, `straddle_signal`, `rockets_filtre`) : garder la
-      mention DORMANT dans l'UI (retours possibles documentés) après suppression du code mort.
+**Tranchées et exécutées le 05/09 (1a-2a-3a-4a-5a-6c-7a)** :
+
+- [x] **WR SMC sans expirés (1a)** : les Expire ne comptent plus au dénominateur du WR du
+      re-jeu — même logique que les camemberts (un ordre jamais rempli n'est pas un trade
+      pris). Ils restent dans les clôtures (capital inchangé, R pondéré = 0).
+- [x] **Routes diagnostics gardées en curl (2a)** : `/api/smc/rejeu`, `/api/straddle/rejeu`,
+      `/api/runtime/*` — outils d'exploitation prouvés (audits, surveillance §5), zéro
+      maintenance, volontairement non câblées.
+- [x] **Endpoints rockets actions (3a)** : `univers/charger`, `univers`, `contexte`, `scan`,
+      `prescreen`, `news/collecter` supprimés (routes + handlers + `rockets_actions.rs`
+      entier + fns db mortes + DROP table `prescreen_actions` — migration 0101, journal
+      write-only). Conservés : `backfill` POST câblé en bouton **« ⚡ Rattraper maintenant »**
+      (page Données — un lot immédiat après l'ajout de pionniers narratifs) et
+      `backfill/etat` (le compteur). NB : le réimport NASDAQ Trader n'a plus d'endpoint —
+      l'univers vit en base ; à recâbler depuis git si un jour nécessaire.
+- [x] **`PATCH /api/assets/{id}/ml` supprimé (4a)** : route + handler + `db::assets::
+      set_ml_actif`. La colonne `ml_actif` reste (lecture du tranchage §11).
+- [x] **`GET /api/presse/briefs/{id}` supprimé (5a)** : servi jamais appelé.
+- [x] **Ancien système `rockets_signaux` : NE RIEN TOUCHER (6c)** — purge et recâblage
+      du bouton 📊 Analyse (branché dessus, table 0 ligne) au chantier §10.
+- [x] **Prompts dormants purgés (7a)** : `smc_filtre`, `straddle_signal`, `rockets_filtre`
+      supprimés du code, des defaults() et de l'UI (git garde l'historique).
 
 ### 8. Rôles IA (après gate 3 / accumulation)
 
@@ -216,14 +224,34 @@ chaque signal à l'émission (`signaux.llm_conviction/llm_raison` = NULL, reliqu
 - [ ] **Corrélation sur preuve** : ≥ 30 trades avec conviction → croiser conviction × verdict
       → décision propriétaire sur un éventuel filtre — pas avant
 
-### 9. Revue complète des prompts IA
+### 9. Revue complète des prompts IA — relecture finale REPORTÉE à la fin du développement
 
-- [ ] Purge des prompts morts (`smc_signal`, `smc_filtre`, `rockets_opportunites` — cf. §7),
-      audit des actifs, alignement sur les mécaniques actées (étapes 3-4 répercutées)
-- [ ] **Relecture/correction/amélioration de TOUS les prompts actifs** : cohérence avec la
-      constitution (l'IA propose, ne règle jamais), formats JSON robustes (confiance entière,
-      replis de parse), ancrage sur les conventions actuelles ($ réels composés, R pondéré/net —
-      jamais R de référence ni pips), et vérification que chaque prompt éditable reste
+*(Décision propriétaire 05/09 : la relecture de fond reviendra en toute fin de
+développement, quand les mécaniques seront figées. Une première passe a déjà corrigé
+le plus urgent — § ci-dessous — pour que l'IA ne décrive pas des moteurs morts.)*
+
+- [ ] **Relecture finale** (fin de développement) : re-passée complète des 15 prompts
+      contre les mécaniques figées, purge des prompts morts (`smc_signal`, `smc_filtre`,
+      `rockets_opportunites` — cf. §7), harmonisation du ton et des formats JSON.
+- [x] *(05/09, première passe)* `rockets_definition` réécrite fidèle au moteur réel
+      (classement /10 à 4 piliers, sentiment = force relative SANS veto macro, verdicts
+      Alpha ≥ 9/Rocket ≥ 7/suivi ≥ 5, univers top 300 Binance + 450 actions narratives,
+      gestion −1R puis R1 → 50 % + trailing %, MM profils) ; `rockets_analyse` (prompt
+      v1 ATR/phases/RSI remplacé par la stratégie VCP réelle) ; `smc_analyse` (gestion
+      complétée : TP réglables, ventes partielles 50/30/20, trailing optionnel).
+      Conformes vérifiés : `analyse_rapport`, `smc_definition`, `straddle_definition`,
+      `rockets_catalyseur`, `rockets_ranker`, `straddle_analyse`, `vision_1tf`,
+      `vision_multi_tf`, `coach`. Aucun override actif.
+- ⚠️ **Découvert — pipeline `rockets_analyse` branché sur l'ancienne table**
+      (`db::rockets::signaux_pour_analyse` = `rockets_signaux`, 0 ligne — le bouton
+      📊 Analyse répond toujours « pas assez de trades »). Le prompt est prêt pour le
+      vrai moteur ; recâbler sur `rockets_positions`/`rockets_candidats` au §10.
+- [ ] **Relecture finale** (fin de développement) : re-passée complète des 15 prompts
+      contre les mécaniques figées ; purge des prompts morts (`smc_signal`, `smc_filtre`,
+      `rockets_opportunites` — cf. §7) ; cohérence avec la constitution (l'IA propose,
+      ne règle jamais) ; formats JSON robustes (confiance entière, replis de parse) ;
+      ancrage sur les conventions actuelles ($ réels composés, R pondéré/net — jamais
+      R de référence ni pips), et vérification que chaque prompt éditable reste
       synchrone avec les mécaniques du moteur qu'il décrit
 - [x] Les définitions injectées reflètent l'armement actuel (04/09) : `smc_definition`
       actualisée (TP1/TP2 réglables, TP3 lointaine/R fixe + repli croisé, trailing
@@ -231,8 +259,32 @@ chaque signal à l'émission (`signaux.llm_conviction/llm_raison` = NULL, reliqu
       `straddle_definition` actualisée (moteur unifié : TP3 ±3R, verdicts TP3/TS/TP2+BE/
       TP1+BE/SL/BE/Expire, comptabilité TP acquis, passe ≤ −1,5R assumée).
       `rockets_definition` vérifiée — inchangée (mécaniques courantes).
+- Dormants v1 confirmés (`rockets_filtre`, `smc_filtre`, `straddle_signal`) : purge
+      liée à la décision §7 (mention DORMANT).
 
 ### 10. Rockets — Extensions
+
+**Noyau v1 purgé et recâblé le 05/09** (façade branchée sur la table vide
+`rockets_signaux` — 0 ligne) :
+- [x] **Historique unifié** : la page Rockets utilise la table partagée
+      (`HistoryTable` + `useHistoriqueStrategie('rockets')`) — mêmes colonnes,
+      tri, MFE, lot, journal que SMC/straddle. Verdict TS (sortie trailing) :
+      badge 🏁 TS avec le R réel du moteur. `RocketsTableau`,
+      `useRocketsHistory`, `historiqueRockets/syncRockets/annulerRocket` et
+      l'annulation de trade supprimés.
+- [x] **Analyse 📊 recâblée** : lecture des signaux officiels clôturés
+      (`signaux` : verdicts SL/TS, R réalisés) + vivier du scanner (paliers ×
+      univers, suivis/éliminés) + réglages — contexte construit côté api, la
+      crate llm ne fait que l'analyse. Modale Performance réécrite (KPIs v2,
+      par univers, verdicts ; heatmap probabilités conservée). Garde : 5 trades
+      clôturés minimum (la verticale est jeune — c'est la vérité).
+- [x] Purge backend v1 : `rockets_suivi*` (worker + route sync),
+      `rockets_listing`, `rockets_niveaux` (strategies), `rockets_prix`,
+      fns v1 de `db::rockets` (le module ne garde que la persistance des
+      analyses), routes historique/actifs/signal DELETE.
+- ⚠️ Table physique `rockets_signaux` NON droppée : les modules ML
+      (feedback/features/blacklist…) la lisent encore — DROP différé au
+      tranchage §11 (qui décidera aussi du sort de ces modules).
 
 - [ ] **Véto unlocks** : source libre (calendrier public de déverrouillages de tokens)
       → intégrer au scanner (éliminatoire si unlock majeur < 30 jours)
@@ -293,6 +345,13 @@ dollars réels, badge straddle/rockets = R réalisé, MFE/Lot/tri des historique
       + `CourbeCapital.vue`, parent repassé sous la limite 600 lignes du pré-audit).
 - [x] Libellés de la définition rockets alignés sur le code (surperformance = point
       Sentiment, pas Tendance — erreur préexistante).
+- [x] **Harmonisation straddle carte ↔ re-jeu (05/09, dette signalée par le propriétaire)** :
+      la carte du dashboard vivait en base vécue (R + capital + camemberts) pendant que
+      le rapport d'activité servait le re-jeu — deux conventions pour la même stratégie.
+      `performance_strategie` et `capital_strategie` servent désormais le re-jeu straddle
+      (comme SMC : R net en badge, référence en infobulle), repli base marqué
+      « ⏳ recalcul » pendant le calcul au boot, snapshots §14 protégés du transitoire.
+      Rockets reste en base vécue (pas de re-jeu — par design).
 
 - [x] **Trades individuels → points MT5** (04/09) : la convention par asset existait
       déjà (`asset_params.pip_to_points`, peuplée : 100 métaux/BTC, 10 indices/forex —

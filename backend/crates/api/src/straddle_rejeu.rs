@@ -63,6 +63,11 @@ fn cache() -> &'static RwLock<Option<Arc<RejeuStraddle>>> {
 }
 
 /// Cache chaud du re-jeu straddle (None si jamais calculé ou params changés).
+/// Un recalcul est-il en vol (marque « ⏳ recalcul » de la carte) ?
+pub fn recalcul_en_cours() -> bool {
+    EN_COURS.load(std::sync::atomic::Ordering::SeqCst)
+}
+
 pub async fn lire_cache() -> Option<Arc<RejeuStraddle>> {
     cache().read().await.clone()
 }

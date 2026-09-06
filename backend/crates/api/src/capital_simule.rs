@@ -83,6 +83,38 @@ pub async fn capital_strategie(
             }));
         }
     }
+    // Straddle : idem SMC — capital re-dérivé du re-jeu (harmonisation 05/09 :
+    // même base que la performance et le rapport d'activité).
+    if id == "straddle" {
+        if let Some(r) = crate::straddle_rejeu::lire_cache().await {
+            let fraction = fraction_risque(&state.db, &id).await;
+            let mut precedent = r.capital_depart;
+            let points: Vec<serde_json::Value> = r
+                .clotures
+                .iter()
+                .map(|c| {
+                    let profit = c.capital_apres - precedent;
+                    precedent = c.capital_apres;
+                    serde_json::json!({
+                        "id": format!("{}-M1", c.asset),
+                        "ferme_le": c.ferme_le,
+                        "r": c.r_net,
+                        "profit": profit,
+                        "capital_apres": c.capital_apres,
+                        "asset": c.asset,
+                        "tf": "M1",
+                        "verdict": c.verdict,
+                    })
+                })
+                .collect();
+            return HttpResponse::Ok().json(serde_json::json!({
+                "capital_depart": r.capital_depart,
+                "fraction_risque": fraction,
+                "capital_actuel": r.capital_actuel,
+                "points": points,
+            }));
+        }
+    }
     match simuler(&state.db, &id).await {
         Ok(s) => HttpResponse::Ok().json(s),
         Err(e) => HttpResponse::InternalServerError()

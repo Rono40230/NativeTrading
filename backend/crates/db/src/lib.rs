@@ -21,8 +21,6 @@ pub mod runtime_emissions;
 pub mod runtime_replay;
 pub mod rockets;
 pub mod rockets_blacklist;
-pub mod rockets_listing;
-pub mod rockets_analyses;
 pub mod rockets_calibration;
 pub mod rockets_config;
 pub mod rockets_feedback;
@@ -114,13 +112,6 @@ impl Database {
         &self.pool
     }
 
-    /// Retourne les N derniers signaux Rockets clôturés, toutes phases confondues.
-    pub async fn lister_rockets_historique(
-        &self,
-        limit: i64,
-    ) -> Result<Vec<rockets::RocketSignal>> {
-        rockets::historique(&self.pool, limit).await
-    }
 }
 
 #[cfg(test)]

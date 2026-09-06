@@ -10,7 +10,7 @@ import { http } from '@/services/http.client'
 import type { Signal } from '@/services/api.service'
 import { palierMax } from '@/composables/useSignalFormat'
 
-export type CleStrategie = 'smc' | 'straddle'
+export type CleStrategie = 'smc' | 'straddle' | 'rockets'
 
 const SMC_VARIANTES = ['smc', 'smcdirectional', 'smc directionnel', 'smc+ia']
 
@@ -61,7 +61,7 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
       const nom = s.strategie.toLowerCase().trim()
       return cle === 'smc'
         ? SMC_VARIANTES.includes(nom)
-        : nom === 'straddle'
+        : nom === cle
     }).filter(s => s.statut === 'Fermé' && s.verdict !== null),
   )
 
@@ -94,7 +94,7 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
     let enCours = 0
     for (const s of signaux.value) {
       const nom = s.strategie.toLowerCase().trim()
-      const ok = cle === 'smc' ? SMC_VARIANTES.includes(nom) : nom === 'straddle'
+      const ok = cle === 'smc' ? SMC_VARIANTES.includes(nom) : nom === cle
       if (!ok) continue
       if (s.statut !== 'Fermé') { enCours++; continue }
       if (s.heure_entree === null || s.heure_entree === undefined) { jamaisRemplis++; continue }

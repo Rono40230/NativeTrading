@@ -54,7 +54,9 @@
             <span class="text-white">{{ (w.statut?.bougies_inserees ?? 0).toLocaleString() }} bougies insérées</span>
           </div>
         </div>
-      <!-- Tiingo Actions : veille quotidienne (statut seul, non pilotable) -->
+      <!-- Tiingo Actions : veille quotidienne + rattrapage manuel (§7-3a :
+           seul endpoint d'action conservé — déclencher un lot sans attendre
+           le cycle de 65 min, précieux après l'ajout de pionniers narratifs) -->
       <div
         class="rounded-xl border p-4 space-y-3 transition"
         :class="tiingo ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 bg-white/[0.02]'"
@@ -62,15 +64,24 @@
         <div class="flex items-center justify-between">
           <div>
             <p class="font-bold text-white">Tiingo Actions</p>
-            <p class="text-xs text-white">Prix D1 volume réel — univers NASDAQ Trader</p>
+            <p class="text-xs text-white">Prix D1 volume réel — univers narratif + liquidité</p>
           </div>
           <span v-if="tiingo" class="text-emerald-400 text-sm">● À jour</span>
           <span v-else class="text-red-400 text-sm">○ Erreur</span>
         </div>
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span class="text-white">{{ tiingo?.univers_avec_bougies ?? 0 }}/{{ tiingo?.univers_total ?? 0 }} actions couvertes</span>
+          <span class="text-white">{{ tiingo?.univers_avec_bougies ?? 0 }}/{{ tiingo?.univers_total ?? 0 }} couverts (périmètre actif)</span>
           <span class="text-white">backfill {{ tiingo?.progression_pct ?? 0 }} %</span>
-          <span class="text-white">Collecte quotidienne 22h30 UTC (clôture Wall Street)</span>
+          <span class="text-white">Rafraîchissement quotidien + tournante 65 min</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <button
+            class="text-xs px-3 py-1.5 rounded-lg bg-white/10 hover:bg-blue-600/50 text-white transition-colors disabled:opacity-50"
+            :disabled="rattrapageEnCours"
+            title="Exécute immédiatement un lot de backfill (50 tickers max, borné par le quota Tiingo) — utile après l'ajout de pionniers narratifs"
+            @click="rattraperBackfill"
+          >{{ rattrapageEnCours ? '⏳ Lot en cours…' : '⚡ Rattraper maintenant' }}</button>
+          <span v-if="rattrapageResultat" class="text-xs" :class="rattrapageResultat.erreur ? 'text-red-400' : 'text-emerald-300'">{{ libelleRattrapage }}</span>
         </div>
       </div>
 
@@ -228,6 +239,28 @@ const configWorker = ref<WorkerConfig | null>(null)
 const statutWorkers = ref<WorkerStatus | null>(null)
 /// Veille actions Tiingo (statut seul — collecte quotidienne non pilotable).
 const tiingo = ref<{ univers_avec_bougies: number; univers_total: number; progression_pct: number } | null>(null)
+
+/// Rattrapage manuel du backfill Tiingo (POST /api/rockets/actions/backfill).
+const rattrapageEnCours = ref(false)
+const rattrapageResultat = ref<Record<string, unknown> | null>(null)
+const libelleRattrapage = computed(() => {
+  const r = rattrapageResultat.value ?? {}
+  if (r.erreur) return String(r.erreur)
+  return `+${r.nouveaux ?? 0} nouveaux · ${r.rafraichis ?? 0} rafraîchis · ${r.sans_donnees ?? 0} sans données`
+})
+async function rattraperBackfill() {
+  rattrapageEnCours.value = true
+  rattrapageResultat.value = null
+  try {
+    const res = await http.post('/api/rockets/actions/backfill', null, { timeout: 120000 })
+    rattrapageResultat.value = res.data
+    await chargerTiingo()
+  } catch (e) {
+    rattrapageResultat.value = { erreur: 'Lot échoué (voir quota/connexion)' }
+  } finally {
+    rattrapageEnCours.value = false
+  }
+}
 /// Politique fixe (décisions propriétaire 2026-08-15) : rétention/stockage 2 ans.
 const MOIS_RETENTION = 24
 
@@ -266,6 +299,10 @@ async function chargerStatutWorkers() {
   } catch {
     statutWorkers.value = null
   }
+  await chargerTiingo()
+}
+
+async function chargerTiingo() {
   try {
     const r = await http.get('/api/rockets/actions/backfill/etat')
     tiingo.value = r.data

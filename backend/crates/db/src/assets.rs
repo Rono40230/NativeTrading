@@ -168,17 +168,9 @@ impl Database {
         Ok(())
     }
 
-    /// Active ou désactive l'inclusion d'un asset dans le réentraînement ML.
-    /// Indépendant du soft-delete `actif` : un asset peut être affiché mais exclu du ML.
-    pub async fn set_ml_actif(&self, id: &str, valeur: bool) -> Result<()> {
-        sqlx::query("UPDATE assets SET ml_actif = ? WHERE id = ?")
-            .bind(if valeur { 1i64 } else { 0i64 })
-            .bind(id)
-            .execute(&self.pool)
-            .await
-            .map_err(|e| TradingError::Database(e.to_string()))?;
-        Ok(())
-    }
+    // (Ex-set_ml_actif supprimé le 05/09 — §7-4a : route PATCH /api/assets/
+    // {id}/ml morte, aucun consommateur front. La colonne assets.ml_actif
+    // reste lue par le tranchage ML §11.)
 }
 
 #[cfg(test)]

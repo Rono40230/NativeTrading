@@ -207,6 +207,35 @@ pub async fn performance_strategie(
         }
         crate::smc_rejeu::lancer_si_necessaire(state.db.clone()).await;
     }
+    // Straddle : idem SMC — métriques re-dérivées du re-jeu (harmonisation
+    // 05/09 : la carte vivait en base vécue pendant que le rapport d'activité
+    // servait le re-jeu — deux conventions pour la même stratégie).
+    if id == "straddle" {
+        if let Some(r) = crate::straddle_rejeu::lire_cache().await {
+            let mut cumul = 0.0;
+            let clotures: Vec<serde_json::Value> = r
+                .clotures
+                .iter()
+                .map(|c| {
+                    cumul += c.r_net;
+                    serde_json::json!({ "ferme_le": c.ferme_le, "r_cumule": cumul })
+                })
+                .collect();
+            return HttpResponse::Ok().json(serde_json::json!({
+                "clotures": clotures,
+                "en_cours": [],
+                "total": r.total,
+                "gagnants": r.gagnants,
+                "non_remplis": 0,
+                "taux_reussite": r.taux_reussite,
+                "r_total": r.r_total_net,
+                "r_total_reference": r.r_total,
+                "source": "rejeu",
+                "recalcul": crate::straddle_rejeu::recalcul_en_cours(),
+            }));
+        }
+        crate::straddle_rejeu::lancer_si_necessaire(state.db.clone()).await;
+    }
     match state.db.performance_strategie(&id).await {
         Ok(p) => {
             // Straddle/rockets : le badge doit montrer le R RÉALISÉ (celui que
@@ -220,6 +249,14 @@ pub async fn performance_strategie(
                 }
                 if let Some(reference) = reference {
                     v["r_total_reference"] = reference;
+                }
+                // SMC/straddle sur ce repli = re-jeu pas encore prêt (boot :
+                // ~35 s, ou relance après un changement de réglage) : marquer
+                // la valeur comme TRANSITOIRE, sinon la carte saute du R vécu
+                // au R du re-jeu une minute plus tard sans explication (bug
+                // rapporté 05/09). Rockets n'a pas de re-jeu : pas de marque.
+                if id == "SMC" || id == "straddle" {
+                    v["recalcul"] = serde_json::json!(true);
                 }
             }
             HttpResponse::Ok().json(v)

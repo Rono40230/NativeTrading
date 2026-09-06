@@ -10,10 +10,8 @@
 //! aucune position, aucun ranker — les cassures sont journalisées avec
 //! leur score pour observer la qualité des détections avant d'armer.
 
-use actix_web::{web, HttpResponse, Responder};
 use std::sync::Arc;
 
-use crate::state::AppState;
 use db::Database;
 use rockets::classement::{classement_rocket, contexte_marche, BougieD1};
 use rockets::trend_template::trend_template;
@@ -63,18 +61,6 @@ pub async fn scanner_actions(db: &Arc<Database>) -> serde_json::Value {
         let Some(tt) = trend_template(&clotures, ctx.perf_marche_4s) else {
             continue;
         };
-
-        // Entonnoir : passants (8) + approchants (≥ 6) — photo quotidienne.
-        if tt.conditions >= 6 {
-            let nom: String = sqlx::query_scalar("SELECT nom FROM univers_actions WHERE ticker = ?")
-                .bind(ticker)
-                .fetch_one(db.pool())
-                .await
-                .unwrap_or_default();
-            let _ = db
-                .maj_prescreen(ticker, &nom, tt.conditions as i64, 0, tt.perf_4s * 100.0)
-                .await;
-        }
         if !tt.reussi {
             continue;
         }
@@ -164,27 +150,9 @@ pub async fn boucle_scanner_actions(db: Arc<Database>) {
     }
 }
 
-// ── Endpoints ────────────────────────────────────────────────────────────────
-
-/// POST /api/rockets/actions/scan — un passage immédiat (Observation :
-/// journalisation seule).
-pub async fn post_scan(state: web::Data<AppState>) -> impl Responder {
-    HttpResponse::Ok().json(scanner_actions(&state.db).await)
-}
-
-/// GET /api/rockets/actions/prescreen?limite=N — entonnoir du pré-screen.
-pub async fn get_prescreen(state: web::Data<AppState>, q: web::Query<Limiter>) -> impl Responder {
-    let limite = q.limite.unwrap_or(50).clamp(1, 500);
-    match state.db.lire_prescreen(limite).await {
-        Ok(lignes) => HttpResponse::Ok().json(lignes),
-        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
-    }
-}
-
-#[derive(serde::Deserialize)]
-pub struct Limiter {
-    pub limite: Option<i64>,
-}
+// (Ex-endpoints POST scan / GET prescreen supprimés le 05/09 — §7-3a : la
+// boucle quotidienne fait le travail, aucun consommateur front. Le journal
+// prescreen_actions, devenu sans lecteur, a été retiré avec sa table.)
 
 #[cfg(test)]
 mod tests {
