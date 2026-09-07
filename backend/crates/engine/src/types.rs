@@ -94,6 +94,11 @@ pub struct SignalBrut {
     /// Vrai = signal CONFIRMÉ dont l'annonce intrabar est déjà partie
     /// (le writer ne re-message pas, mais insère la ligne).
     pub deja_annonce: bool,
+    /// Détail du scoring à la qualification (JSON, §8 — composantes actives,
+    /// qualité zone, sweep, premium/discount). Transporté jusqu'au writer
+    /// pour `smc_scoring_detail` — la matière première de l'analyse des
+    /// setups qui meurent. None pour les moteurs sans scoring détaillé.
+    pub detail: Option<String>,
 }
 
 impl SignalBrut {
@@ -156,6 +161,7 @@ impl SignalBrut {
             cle,
             annonce: false,
             deja_annonce: false,
+            detail: None,
         }
     }
 }

@@ -90,7 +90,33 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
             tracing::warn!("Signaux officiels (insert): {}", e);
             continue;
         }
+        // §8 (07/09) : journaliser l'instantané de qualification SMC —
+        // lecture seule, idempotent, jamais dans le chemin de la décision.
+        if let Some(detail) = &s.detail {
+            let _ = db::smc_features::inserer_detail_qualification(
+                db.pool(),
+                &signal.id.to_string(),
+                detail,
+            )
+            .await;
+        }
         crate::setups_formation::marquer_confirme(m.id, &s.cle);
+        // §8-2 (07/09) : conviction IA à l'émission — ARRIÈRE-PLAN, jamais
+        // dans le chemin du signal. L'analyste note (0-100 + raison), la
+        // colonne « IA » des tableaux se remplit. Observation d'abord :
+        // rien n'est filtré, la corrélation conviction × verdict ne viendra
+        // qu'après ≥ 30 trades notés.
+        if llm_conviction_deja_present(&db, &signal.id.to_string()).await {
+            // déjà noté (re-émission du même signal) — on ne double pas
+        } else {
+            let db_c = db.clone();
+            let signal_id_c = signal.id.to_string();
+            let conviction_ctx = contexte_conviction(&s, m.id);
+            tokio::spawn(async move {
+                noter_conviction(db_c, signal_id_c, conviction_ctx).await;
+            });
+        }
+
         // Telegram : son activé ? L'annonce intrabar est déjà partie →
         // on marque la ligne sans re-messager. Observation = silencieux.
         let reg = db.lire_strategie(m.id).await.ok().flatten();
@@ -359,4 +385,78 @@ async fn envoyer_telegram(db: &Database, texte: &str) -> bool {
             false
         }
     }
+}
+
+// ── §8-2 : conviction IA à l'émission (07/09) ────────────────────────────────
+// L'analyste note chaque signal officiel en arrière-plan (0-100 + raison,
+// JSON) — la colonne « IA » des tableaux. OBSERVATION D'ABORD : jamais de
+// filtrage, la corrélation conviction × verdict attendra ≥ 30 trades notés
+// (§8, décision sur preuve).
+
+/// Le signal est-il déjà noté ? (re-émissions : on ne double pas la note)
+async fn llm_conviction_deja_present(db: &Arc<Database>, signal_id: &str) -> bool {
+    sqlx::query_scalar::<_, Option<i64>>(
+        "SELECT llm_conviction FROM signaux WHERE id = ?",
+    )
+    .bind(signal_id)
+    .fetch_one(db.pool())
+    .await
+    .ok()
+    .flatten()
+    .is_some()
+}
+
+/// Contexte compact de conviction : identité + niveaux + le DÉTAIL de
+/// qualification quand il existe (les deux chantiers §8 se nourrissent).
+fn contexte_conviction(s: &engine::SignalBrut, strategie: &str) -> String {
+    let mut l = vec![
+        format!("Stratégie : {} (moteur {})", strategie, s.moteur),
+        format!("Signal : {} {} {}", s.asset.as_str(), s.tf.as_str(),
+                if matches!(s.direction, common::Direction::Long) { "LONG" } else { "SHORT" }),
+        format!("Entrée {:.4} · SL {:.4} · TP1 {:.4} · score {}/10", s.prix_entree, s.stop_loss,
+                s.take_profits.first().copied().unwrap_or(s.prix_entree), s.score.clamp(1, 10)),
+        format!("Raison moteur : {}", s.raison),
+    ];
+    if let Some(d) = &s.detail {
+        l.push(format!("Qualification : {}", d));
+    }
+    l.join("\n")
+}
+
+/// Interroge l'analyste puis écrit la note. Silencieux sur échec (l'IA
+/// absente ne paralyse rien — l'émission est déjà faite).
+async fn noter_conviction(db: Arc<Database>, signal_id: String, contexte: String) {
+    let prompt = format!("{}\n\n{contexte}", llm::prompt_effectif("conviction_signal"));
+    let Ok(texte) = llm::ollama::interroger(&prompt).await else {
+        tracing::info!("🧠 Conviction IA : analyste indisponible — signal non noté");
+        return;
+    };
+    // Parse JSON {conviction, raison} (repli : premier entier du texte).
+    let (conviction, raison) = parser_conviction(&texte);
+    if conviction < 0 {
+        return; // pas parsable — on ne note pas n'importe quoi
+    }
+    let _ = sqlx::query(
+        "UPDATE signaux SET llm_conviction = ?, llm_raison = ? WHERE id = ? AND llm_conviction IS NULL",
+    )
+    .bind(conviction)
+    .bind(&raison)
+    .bind(&signal_id)
+    .execute(db.pool())
+    .await;
+    tracing::info!("🧠 Conviction IA notée : signal {} → {}/100", signal_id, conviction);
+}
+
+/// Extrait (conviction, raison) d'une réponse LLM.
+fn parser_conviction(texte: &str) -> (i32, String) {
+    let debut = texte.find('{').unwrap_or(0);
+    let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&texte[debut..fin]) {
+        let c = v.get("conviction").and_then(|x| x.as_i64()).unwrap_or(-1) as i32;
+        let r = v.get("raison").and_then(|x| x.as_str()).unwrap_or("").to_string();
+        if (0..=100).contains(&c) {
+            return (c, r);
+        }
+    }
+    (-1, String::new())
 }

@@ -91,3 +91,64 @@ pub async fn lire_snapshots_avec_labels(
     }
     Ok(samples)
 }
+
+
+// ── §8 : détail de qualification (07/09) ─────────────────────────────────────
+
+/// Journalise l'instantané de qualification d'un signal SMC (idempotent).
+pub async fn inserer_detail_qualification(
+    pool: &SqlitePool,
+    signal_id: &str,
+    detail_json: &str,
+) -> anyhow::Result<()> {
+    sqlx::query(
+        "INSERT OR IGNORE INTO smc_scoring_detail (signal_id, detail_json, cree_le)
+         VALUES (?, ?, strftime('%s','now'))",
+    )
+    .bind(signal_id)
+    .bind(detail_json)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Détails de qualification joints aux verdicts — la matière de l'analyse
+/// §8 (« pourquoi les setups meurent »). Retourne (signal_id, asset, tf,
+/// direction, verdict, r_realise, detail_json).
+pub async fn details_avec_verdicts(
+    pool: &SqlitePool,
+) -> anyhow::Result<Vec<DetailAvecVerdict>> {
+    let rows = sqlx::query(
+        "SELECT d.signal_id, s.asset, s.timeframe, s.direction, s.verdict,
+                s.r_realise, d.detail_json
+         FROM smc_scoring_detail d
+         JOIN signaux s ON s.id = d.signal_id
+         WHERE s.statut = 'Fermé' AND s.verdict IS NOT NULL
+         ORDER BY s.ferme_le DESC",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .iter()
+        .map(|r| DetailAvecVerdict {
+            signal_id: r.get("signal_id"),
+            asset: r.get("asset"),
+            timeframe: r.get("timeframe"),
+            direction: r.get("direction"),
+            verdict: r.get("verdict"),
+            r_realise: r.get("r_realise"),
+            detail_json: r.get("detail_json"),
+        })
+        .collect())
+}
+
+/// Ligne de l'analyse §8 : le setup tel que qualifié + son verdict.
+pub struct DetailAvecVerdict {
+    pub signal_id: String,
+    pub asset: String,
+    pub timeframe: String,
+    pub direction: String,
+    pub verdict: String,
+    pub r_realise: Option<f64>,
+    pub detail_json: String,
+}

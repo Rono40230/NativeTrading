@@ -48,6 +48,7 @@ pub async fn lister_prompts() -> impl Responder {
             "analyse_strategique":p("straddle_analyse", "Analyse stratégique", "Analyse les backtests Straddle et recommande des ajustements de créneaux/paramètres.", "Sur demande")
         },
         "outils_ia": {
+            "conviction_signal":p("conviction_signal","Conviction à l'émission","Note chaque signal officiel a priori (0-100 + raison) — remplit la colonne IA des tableaux. Observation d'abord : aucun filtrage, corrélation sur preuve après ≥ 30 trades notés.","À chaque signal émis (arrière-plan)"),
             "analyse_rapport":p("analyse_rapport","Analyse des rapports d'activité", "Consigne de l'analyste du Rapport d'activité : lit les métriques $/R consolidées et répond en JSON structuré (état, points forts/faibles, pistes, confiance). L'effectif vs règle des 30 trades est injecté dynamiquement dans le contexte, pas ici.", "📊 Rapport d'activité → bouton Générer (cache du jour)")
         }
     }))

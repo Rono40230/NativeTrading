@@ -30,6 +30,7 @@ pub mod pivots;
 pub mod premium_discount;
 pub mod propulsion;
 pub mod scoring_bs_zones;
+pub mod scoring_detail;
 pub mod scoring_v11;
 pub mod sentiment;
 pub mod signals;

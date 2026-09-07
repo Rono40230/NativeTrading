@@ -93,7 +93,7 @@ fn signal_depuis_trade(t: &Trade, asset: Asset, tf: Timeframe, debut_barre: i64)
         TradeSource::BsZones => "BSZones",
     };
     let cle = cle_vers_string(&cle_du_trade(t));
-    SignalBrut::avec_cle(
+    let mut signal = SignalBrut::avec_cle(
         NOM,
         asset,
         tf,
@@ -115,7 +115,9 @@ fn signal_depuis_trade(t: &Trade, asset: Asset, tf: Timeframe, debut_barre: i64)
         ),
         debut_barre,
         cle,
-    )
+    );
+    signal.detail = t.detail.clone();
+    signal
 }
 
 /// Extrait les trades jamais émis d'un carnet, les convertit en signaux et
@@ -302,6 +304,7 @@ mod tests {
             open_ts: ts,
             bar_created: 42,
             ob_key: None,
+            detail: None,
             filled: true,
             tp1_hit: false,
             tp1_price_touched: false,

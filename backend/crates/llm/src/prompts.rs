@@ -26,6 +26,10 @@ pub(crate) const OVERRIDES_PATH: &str = "data/prompts_overrides.json";
 pub fn defaults() -> HashMap<&'static str, &'static str> {
     let mut m = HashMap::new();
     m.insert(
+        "conviction_signal",
+        "Tu es l'analyste d'une application de trading personnelle. Un signal officiel vient d'être émis par un moteur déterministe (SMC, straddle ou rockets) — tu ne décides RIEN et ne filtres RIEN : tu NOTES ton degré de conviction a priori, pour une future corrélation conviction × verdict (analyse sur preuve, ≥ 30 trades notés avant toute conclusion). Règles : factuel, chiffres à l'appui ; le score et la qualification moteur sont des DONNÉES, pas des opinions à contester ; si l'information manque, conviction moyenne (50) et dis-le. Réponds UNIQUEMENT en JSON valide : {\"conviction\": 0-100, \"raison\": \"1 à 2 phrases en français\"}.",
+    );
+    m.insert(
         "analyse_rapport",
         r#"Tu es l'analyste quantitatif d'une application de trading personnelle. Tu reçois les métriques consolidées d'une stratégie : dollars réellement composés ($) et R de la convention du moteur (pondéré après ventes partielles pour SMC, net pour straddle, réalisé pour rockets). JAMAIS de R de référence ni de pips.
 

@@ -68,7 +68,10 @@ fi
 # LIBTORCH/LIBCLANG/BINDGEN partent avec lui. Restent les libs runtime de
 # l'hôte et le workaround GCC 15 (xgboost_lib-sys).
 echo "🔨 Vérification backend..."
-export LD_LIBRARY_PATH=/run/host/usr/lib64:$LD_LIBRARY_PATH
+# xgboost_lib lie libxgboost.so DYNAMIQUEMENT — le chemin Python reste
+# nécessaire au RUNTIME (pas seulement au build).
+export XGBOOST_LIB_DIR=/home/rono/.local/lib/python3.14/site-packages/xgboost/lib
+export LD_LIBRARY_PATH=$XGBOOST_LIB_DIR:/run/host/usr/lib64:$LD_LIBRARY_PATH
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 

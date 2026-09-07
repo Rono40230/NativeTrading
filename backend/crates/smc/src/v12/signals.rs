@@ -282,7 +282,7 @@ impl SignalGenerator {
             else {
                 continue; // r > 2×slMax → skip ce OB (continue).
             };
-            let trade = make_trade(
+            let mut trade = make_trade(
                 self.next_id,
                 TradeSource::Ob,
                 is_bull,
@@ -297,6 +297,10 @@ impl SignalGenerator {
                 bar_index,
                 Some(impulse_bar),
             );
+            // §8 : journaliser l'instantané de qualification (lecture seule).
+            trade.detail = Some(super::scoring_detail::detail_qualification(
+                "OB", sc_r, zn_ok, sweep_ok, pd_ok, is_bull, out, bar, cal,
+            ));
             self.trades.push(trade);
             self.next_id += 1;
             scoring.mark_signaled(is_bull, impulse_bar);
@@ -364,7 +368,7 @@ impl SignalGenerator {
             else {
                 continue;
             };
-            let trade = make_trade(
+            let mut trade = make_trade(
                 self.next_id,
                 TradeSource::BsZones,
                 is_bull,
@@ -379,6 +383,10 @@ impl SignalGenerator {
                 bar_index,
                 None,
             );
+            // §8 : journaliser l'instantané de qualification (lecture seule).
+            trade.detail = Some(super::scoring_detail::detail_qualification(
+                "BSZones", z.score, true, false, false, is_bull, out, bar, cal,
+            ));
             self.trades.push(trade);
             self.next_id += 1;
             bs.mark_signaled(is_bull, idx);

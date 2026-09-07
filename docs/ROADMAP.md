@@ -209,17 +209,28 @@ méthode de traçage des divergences (arbitrage intrabar ≠ bug de miroir).
       (remplis/jamais remplis/dissipés/verdicts)
 - [ ] **Décision sur preuve — filtre temps réel** : les setups dissipés partagent-ils des
       caractéristiques repérables ? → décision sur un éventuel filtre, pas avant
-- [ ] **Journalisation du détail scoring** (préalable à l'analyse par confluence) :
-      stocker le détail point par point à l'émission du signal
+- [x] **Journalisation du détail scoring — FAIT le 07/09** : instantané JSON
+      de qualification capturé aux DEUX points (OB + BSZones) — source, score
+      zone, force, qualité, sweep frais, premium/discount, score live et ses
+      composantes (miroir du diagFlags MQL5). Chemin : Trade.detail →
+      SignalBrut.detail → table `smc_scoring_detail` (migration 0105,
+      idempotent). Lecture seule — rien ne le consomme dans la décision.
+      Lecteur `details_avec_verdicts` prêt pour l'analyste (setup qualifié ×
+      verdict = la matière des « pourquoi 35 SL »).
 
 **Conviction IA à l'émission — colonne « IA » des tableaux (SMC + Straddle)** : la colonne
 est réservée à la conviction (0-100 + justification en infobulle) donnée par l'analyste à
 chaque signal à l'émission (`signaux.llm_conviction/llm_raison` = NULL, reliquat v1).
 
-- [ ] **Prompt dédié** : le signal complet (asset, TF, direction, niveaux, force, contexte)
-      → JSON `{conviction 0-100, raison 1-2 phrases}` (même format que le ranker Rockets)
-- [ ] **Déclencheur à l'émission** : asynchrone, jamais dans le chemin du signal (R4)
-- [ ] **Écriture** : `UPDATE signaux SET llm_conviction, llm_raison` — l'affichage existe
+- [x] **Conviction IA à l'émission — FAIT le 07/09** : prompt
+      `conviction_signal` (éditable, visible dans l'UI des prompts) — le
+      signal complet + le détail de qualification (les deux chantiers §8 se
+      nourrissent) → JSON `{conviction, raison}`. Déclencheur asynchrone à
+      l'insertion officielle (tokio::spawn, jamais dans le chemin du signal —
+      re-émissions non doublées), parse robuste (JSON puis repli), UPDATE
+      `llm_conviction/llm_raison` — la colonne « IA » des tableaux vit.
+      Observation d'abord : aucun filtrage, corrélation sur preuve après
+      ≥ 30 trades notés.
 - [ ] **Observation d'abord** : l'IA note, elle ne filtre rien (constitution)
 - [ ] **Corrélation sur preuve** : ≥ 30 trades avec conviction → croiser conviction × verdict
       → décision propriétaire sur un éventuel filtre — pas avant

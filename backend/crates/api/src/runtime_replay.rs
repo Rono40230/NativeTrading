@@ -310,6 +310,7 @@ async fn reconstruire_cycles_vie(db: &Arc<Database>, asset: &str, tf: Timeframe)
             open_ts,
             bar_created: 0,
             ob_key: None,
+            detail: None,
             filled: false,
             tp1_hit: false,
             tp1_price_touched: false,

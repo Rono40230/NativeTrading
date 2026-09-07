@@ -102,6 +102,10 @@ pub struct Trade {
     pub bar_created: usize,
     /// `impulse_bar` de l'OB lié (source Ob uniquement) — pour scoreDeg.
     pub ob_key: Option<usize>,
+    /// Détail de qualification (JSON §8 — composantes du scoring, sweep,
+    /// premium/discount…). Posé à la création par le moteur SMC, transporté
+    /// jusqu'au SignalBrut. None = moteur sans scoring détaillé.
+    pub detail: Option<String>,
 
     // --- État lifecycle (mutable bar après bar) ---
     pub filled: bool,
@@ -236,6 +240,7 @@ impl Trade {
             open_ts: bar.timestamp,
             bar_created: bar_index,
             ob_key,
+            detail: None,
             filled: false,
             tp1_hit: false,
             tp1_price_touched: false,
