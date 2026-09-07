@@ -447,10 +447,18 @@ scoring à l'émission — elle remplira les 7 features SMC aujourd'hui à 0).
 - [x] **Sauvegarde automatique de la base** (04/09) : `run.sh` copie la base à chaque
       démarrage (sqlite3 .backup si dispo — copie cohérente base ouverte —, sinon cp),
       horodatée dans `data/backups/`, rétention 30 sauvegardes.
-- [ ] Vérifier l'affichage des zones SMC sur l'historique Axi profond (2 ans — artefacts au
-      changement de source à tracer)
-- [ ] ETH : réactiver et re-backfiller si souhaité (décision propriétaire)
-- [ ] `worker_historique_mois` (6) vs historique MT5 (24) : harmoniser avec la rétention
+- [x] **Zones SMC sur l'historique Axi profond — vérifié PROPRE le 07/09** :
+      2 ans de M1 audités — zéro doublon (aucun (asset, tf, ts) répété), et
+      les 13 seuls gaps > 1 h hors weekend sont TOUS des fermetures réelles :
+      Noël et Jour de l'An (24 h chacun, 2 occurrences), Thanksgiving et
+      Juneteenth (107 min), et la pause de maintenance quotidienne du flux
+      (62 min, 20:58→22:00). Aucun artefact de changement de source — les
+      zones SMC construites dessus reposent sur des données saines.
+- [ ] ETH : réactiver et re-backfiller si souhaité (décision propriétaire —
+      hors périmètre autonome)
+- [x] **`worker_historique_mois` 6→24 — FAIT le 07/09** : valeur en base ET
+      défaut du code alignés sur 24 (harmonisés avec la rétention et la
+      profondeur MT5 ; les 6 assets principaux couvrent déjà 24 mois de M1).
       (réglage utilisateur via la config)
 
 ### 13. Unités & métriques — résiduels

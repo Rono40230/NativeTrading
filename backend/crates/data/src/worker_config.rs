@@ -20,8 +20,10 @@ pub const CLE_HISTORIQUE_MOIS: &str = "worker_historique_mois";
 /// Clé de configuration : worker Bybit activé ("0" = désactivé).
 pub const CLE_ACTIF_BYBIT: &str = "worker_actif_bybit";
 
-/// Profondeur d'historique par défaut (mois).
-pub const HISTORIQUE_MOIS_DEFAUT: i64 = 6;
+/// Profondeur d'historique par défaut (mois) — alignée sur la rétention
+/// 24 mois de la base (§12, 07/09 : harmonisé avec la valeur en base, la
+/// MT5 fournit 24 mois et le comparatif créneaux veut la profondeur max).
+pub const HISTORIQUE_MOIS_DEFAUT: i64 = 24;
 
 /// Ordre canonique des timeframes — garantit des topics/planifications stables
 /// quel que soit l'ordre sérialisé dans la configuration.
