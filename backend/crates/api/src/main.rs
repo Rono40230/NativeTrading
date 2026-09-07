@@ -6,6 +6,7 @@ mod journal_bord;
 mod analyses_ia;
 mod asset_params_handlers;
 mod alertes_prix;
+mod creneaux_ia;
 mod creneaux_job;
 mod assets_handlers;
 mod calendar_handlers;
@@ -158,6 +159,8 @@ async fn main() -> std::io::Result<()> {
     // §11 étape 1 : boucle ML v2 — rattrapage des clôtures passées en
     // samples (la collecte continue vit dans fermer_signal_par_cle).
     tokio::spawn(ml_collecte::boucle_rattrapage(app_state.db.clone()));
+    // §16 : agenda intelligent straddle — propositions IA fraîches au matin.
+    tokio::spawn(creneaux_ia::boucle(app_state.db.clone()));
     // Étape C : scanner actions quotidien — Observation silencieuse.
     tokio::spawn(rockets_actions_scanner::boucle_scanner_actions(app_state.db.clone(), poignees_runtime.bus_signaux.clone()));
 

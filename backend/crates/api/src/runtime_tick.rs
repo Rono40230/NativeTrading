@@ -393,7 +393,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 ));
             }
             if *tf == common::Timeframe::M1 {
-                let annonces: Vec<straddle::Annonce> = if asset.as_str() == "DAX" {
+                let mut annonces: Vec<straddle::Annonce> = if asset.as_str() == "DAX" {
                     crate::mt5_collecteur::annonces_ouverture_europeenne()
                 } else {
                     annonces_tier1(db)
@@ -402,6 +402,8 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                         .filter(|a| a.devise == "USD")
                         .collect()
                 };
+                // §16 : créneaux IA armés = annonces synthétiques (même rail).
+                annonces.extend(crate::creneaux_ia::annonces_armees(db, asset.as_str()).await);
                 let p = db::strategies_params::lire_straddle_params(db.pool()).await;
                 moteurs.push(Box::new(
                     straddle::StraddleEngine::nouveau(asset.clone(), *tf)
@@ -474,11 +476,13 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         if matches!(tf, common::Timeframe::M1)
             && matches!(asset.as_str(), "XAUUSD" | "BTC")
         {
-            let annonces: Vec<straddle::Annonce> = annonces_tier1(db)
+            let mut annonces: Vec<straddle::Annonce> = annonces_tier1(db)
                 .await
                 .into_iter()
                 .filter(|a| a.devise == "USD")
                 .collect();
+            // §16 : créneaux IA armés = annonces synthétiques (même rail).
+            annonces.extend(crate::creneaux_ia::annonces_armees(db, asset.as_str()).await);
             // Audit étape 2 : le moteur lisait des constantes — désormais
             // branché sur la carte Paramètres › Straddle (table DB).
             let p = db::strategies_params::lire_straddle_params(db.pool()).await;

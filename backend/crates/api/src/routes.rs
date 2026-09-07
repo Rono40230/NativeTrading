@@ -116,6 +116,22 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::rockets_actions_backfill::etat_backfill),
         )
         .route(
+            "/api/straddle/creneaux-ia",
+            web::get().to(crate::creneaux_ia::lister),
+        )
+        .route(
+            "/api/straddle/creneaux-ia/calculer",
+            web::post().to(crate::creneaux_ia::calculer_et_evaluer),
+        )
+        .route(
+            "/api/straddle/creneaux-ia/armer",
+            web::post().to(crate::creneaux_ia::armer),
+        )
+        .route(
+            "/api/straddle/creneaux-ia/ignorer",
+            web::post().to(crate::creneaux_ia::ignorer),
+        )
+        .route(
             "/api/smc/analyse",
             web::get().to(crate::smc_handlers::analyse_smc),
         )

@@ -542,9 +542,20 @@ c'est le saut qualitatif.
       `GET /api/journal/comptes`. UI : modale 📝 dans l'historique (colonne dédiée,
       badge du nombre de notes, entrée par ⏎) — SMC et straddle. Matière première
       posée pour l'analyse IA (§8 : l'analyste lira ces notes en contexte).
-- [ ] Agenda intelligent — créneaux de volatilité récurrents (Straddle IA) : calcul
-      statistique heure×jour sur 24 mois M1 → endpoint → l'analyste propose armer/ignorer →
-      créneaux armés = annonces synthétiques (démarrage en Observation)
+- [x] **Agenda intelligent straddle — FAIT le 07/09** (cadre validé par le
+      propriétaire) : calcul statistique heure×jour sur 24 mois de M15
+      (migration 0106 : table `creneaux_ia` — vol %, ratio vs moyenne,
+      fiabilité inter-semaines, seuils anti-bruit) ; analyste IA note chaque
+      case (prompt éditable `creneaux_proposition` : ARMER/IGNORER + conviction
+      + justification — verdicts stockés, quotidian 4h + bouton Recalculer) ;
+      **armement propriétaire SEUL** (cartes Armer/Désarmer dans la page
+      Straddle, plafond 3 simultanés, 404/plafond protégés). Un créneau armé
+      = annonce synthétique 🤖 au format du rail M1 (prochaine occurrence
+      hebdomadaire, devise filtrée comme les tier 1) : timer T-10 s, 2 jambes,
+      moteur unifié, Observation — **zéro modification du moteur**. Premier
+      calcul réel : 75 cases éligibles (XAU 17h-18h ×2,2, BTC 15h-16h…),
+      75 notées par l'analyste. Garde-fous : anti-double (l'analyste signale
+      les recouvrements annonces tier 1), désarmement à tout moment.
 
 ---
 
