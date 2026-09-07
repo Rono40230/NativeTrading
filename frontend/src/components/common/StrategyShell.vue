@@ -19,20 +19,21 @@
     <!-- Moitié haute : setups + signaux ; moitié basse : historique.
          Chaque section défile en interne (aucun scroll global). -->
     <div class="flex-1 min-h-0 grid grid-rows-2 gap-3 pr-0.5">
-      <div class="grid grid-cols-6 gap-3 min-h-0 h-full">
+      <div class="grid gap-3 min-h-0 h-full" :class="setupsLarge ? 'grid-cols-5' : 'grid-cols-6'">
         <section v-if="$slots.setups" class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-1 overflow-hidden">
           <h2 class="text-xs uppercase text-white font-semibold tracking-wider mb-2 shrink-0">
             ⏳ Setups en attente<span v-if="ordrePoses" class="text-amber-300"> · {{ ordrePoses }} ordre{{ ordrePoses > 1 ? 's' : '' }} posé{{ ordrePoses > 1 ? 's' : '' }}</span>
           </h2>
           <!-- Même hauteur que le bloc des signaux en cours (grille) — le
-               contenu défile en interne ; pr-2 réserve la gouttière de la
-               barre pour qu'elle ne chevauche pas les cartes. -->
-          <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-3">
+               contenu défile en interne ; pr-4 réserve la gouttière et la
+               barre custom (6 px) s'y dessine SANS jamais chevaucher les
+               cartes (WebKitGTK = barres en surimpression). -->
+          <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-4 custom-scrollbar">
             <slot name="setups" />
           </div>
         </section>
 
-        <section class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-5">
+        <section class="glass-card px-4 py-3 flex flex-col min-h-0" :class="setupsLarge ? 'col-span-4' : 'col-span-5'">
           <h2 class="text-xs uppercase text-white font-semibold tracking-wider mb-2 shrink-0">
             🟢 {{ titreEncours ?? 'Trades en cours' }}
           </h2>
@@ -79,6 +80,9 @@ const props = withDefaults(defineProps<{
   titre: string
   /** Compteur d'ordres posés (jamais remplis) affiché dans le titre setups. */
   ordrePoses?: number
+  /** Colonne Setups élargie (1/5 au lieu de 1/6 de la largeur) — Straddle,
+   *  dont la colonne porte agenda + créneaux IA. Défaut = inchangé (SMC). */
+  setupsLarge?: boolean
   /** Fond teinté de la page — la couleur de sa carte du dashboard. */
   teinte?: string
   /** Libellé du bouton d'accès aux caractéristiques (défaut « 📖 Définition »). */
@@ -114,4 +118,11 @@ const badgeClasse = computed(() =>
 
 <style scoped>
 .btn-sm { @apply bg-gray-700 hover:bg-gray-600 text-white text-sm px-3 py-1.5 rounded-lg transition-all; }
+
+/* Barre fine dessinée dans la gouttière (pr-4) — même motif que PromptsIAView :
+   sans ce style, WebKitGTK superpose la barre système sur les cartes. */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 10px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
 </style>

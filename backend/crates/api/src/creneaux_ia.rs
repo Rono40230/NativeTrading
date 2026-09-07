@@ -8,11 +8,19 @@
 //!    contexte (sessions, recouvrement annonces tier 1) → ARMER/IGNORER +
 //!    conviction + justification. Stocké, jamais exécuté.
 //! 3. **Armement propriétaire** : `arme` ne bouge QUE par les endpoints
-//!    armer/ignorer — l'IA n'y touche jamais.
+//!    armer/ignorer — l'IA n'y touche jamais. (Exception §16-b : la boucle
+//!    désarme un créneau RÉFUTÉ — règle moteur aux seuils du propriétaire.)
 //!
 //! Un créneau armé devient une annonce synthétique (`annonces_armees`) :
 //! prochaine occurrence hebdomadaire au format `straddle::Annonce` — le
 //! moteur M1 existant pose les 2 jambes au timer T-10 s, Observation.
+//!
+//! §16-b (07/09) — boucle de validation fermée : chaque créneau armé tire
+//! chaque semaine, ses passes sont agrégées (`statuer`, quotidien) et au
+//! bout de N tirages la boucle statue — VALIDÉ (ΣR > 0, pilier armé),
+//! RÉFUTÉ (ΣR ≤ plancher ou 0 gagnant, désarmé), INCERTAIN (prolongé
+//! 2 tirages puis tranché). L'UI ne montre plus un catalogue de 75 cartes
+//! mais les slots en test + une file dédoublonnée (1 par actif).
 
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -35,6 +43,10 @@ const MIN_RATIO: f64 = 1.40;
 const MAX_PROPOSITIONS: usize = 15;
 /// Plafond de créneaux armés simultanés (réglage propriétaire).
 const PLAFOND_ARMES: usize = 3;
+
+/// Jours ISO 1-7 → libellé (partagé avec la boucle de validation).
+pub(crate) const JOURS: [&str; 7] = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+
 
 // ── 1. Calcul statistique ────────────────────────────────────────────────────
 
@@ -159,7 +171,6 @@ pub async fn evaluer(db: &Database, forcer: bool) -> usize {
         return 0;
     }
 
-    const JOURS: [&str; 7] = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
     let lignes: Vec<String> = a_evaluer
         .iter()
         .enumerate()
@@ -245,9 +256,16 @@ pub async fn annonces_armees(db: &Database, asset: &str) -> Vec<straddle::Annonc
         let heure = r.get::<i64, _>("heure").clamp(0, 23) as u32;
         // Les 2 prochaines occurrences hebdomadaires (heure Paris).
         for delta_jours in 0..=14u64 {
-            let candidat = maintenant + chrono::Duration::days(delta_jours as i64);
+            use chrono::Timelike;
+            // Candidat à l'heure PILE du créneau (maintenant + N jours garde
+            // sinon les minutes courantes — l'heure pile ne matche jamais).
+            let jour_glisse = maintenant + chrono::Duration::days(delta_jours as i64);
+            let Some(candidat) = jour_glisse
+                .with_hour(heure)
+                .and_then(|d| d.with_minute(0))
+                .and_then(|d| d.with_second(0))
+            else { continue };
             if candidat.weekday().number_from_monday() != jour_cible
-                || (candidat.hour(), candidat.minute()) != (heure, 0)
                 || candidat <= maintenant
             {
                 continue;
@@ -265,18 +283,23 @@ pub async fn annonces_armees(db: &Database, asset: &str) -> Vec<straddle::Annonc
 
 // ── Endpoints ────────────────────────────────────────────────────────────────
 
-/// GET /api/straddle/creneaux-ia — propositions + armés + plafond.
+/// GET /api/straddle/creneaux-ia — vue « file d'attente » (§16-b) :
+/// `slots` (armés, avec stats de test), `file` (meilleure non testée par
+/// actif, verdict IA ARMER uniquement — le dédoublonnage par phénomène),
+/// `reserve_liste` (tout le reste, dépliable), `verdicts` (conclus ces 7
+/// derniers jours, pour la bannière) et les `seuils` de la boucle.
 pub async fn lister(state: web::Data<AppState>) -> impl Responder {
     let rows = sqlx::query(
         "SELECT asset, jour, heure, vol_pct, ratio, fiabilite, nb_semaines,
-                verdict_ia, conviction, justification, arme
-         FROM creneaux_ia ORDER BY arme DESC, vol_pct * ratio * fiabilite DESC",
+                verdict_ia, conviction, justification, arme,
+                occurrences, somme_r, verdict_test, conclut_le
+         FROM creneaux_ia ORDER BY vol_pct * ratio * fiabilite DESC",
     )
     .fetch_all(state.db.pool())
     .await
     .unwrap_or_default();
-    let armes: usize = rows.iter().filter(|r| r.get::<i64, _>("arme") == 1).count();
-    let liste: Vec<serde_json::Value> = rows
+
+    let toutes: Vec<serde_json::Value> = rows
         .iter()
         .map(|r| serde_json::json!({
             "asset": r.get::<String, _>("asset"),
@@ -290,9 +313,72 @@ pub async fn lister(state: web::Data<AppState>) -> impl Responder {
             "conviction": r.try_get::<Option<i64>, _>("conviction").ok().flatten(),
             "justification": r.try_get::<Option<String>, _>("justification").ok().flatten(),
             "arme": r.get::<i64, _>("arme") == 1,
+            "occurrences": r.get::<i64, _>("occurrences"),
+            "somme_r": r.get::<f64, _>("somme_r"),
+            "verdict_test": r.try_get::<Option<String>, _>("verdict_test").ok().flatten(),
+            "conclut_le": r.try_get::<Option<i64>, _>("conclut_le").ok().flatten(),
         }))
         .collect();
-    HttpResponse::Ok().json(serde_json::json!({ "creneaux": liste, "armes": armes, "plafond": PLAFOND_ARMES }))
+
+    let cle_case = |v: &serde_json::Value| {
+        (
+            v["asset"].as_str().unwrap_or("").to_string(),
+            v["jour"].as_i64().unwrap_or(0),
+            v["heure"].as_i64().unwrap_or(0),
+        )
+    };
+    let est_arme = |v: &serde_json::Value| v["arme"].as_bool().unwrap_or(false);
+
+    // Slots armés (dans l'ordre du score) puis file : meilleure non testée
+    // par ACTIF — BTC 16h lundi→vendredi ne propose qu'une carte.
+    let mut prises: HashSet<(String, i64, i64)> = HashSet::new();
+    let mut slots: Vec<serde_json::Value> = Vec::new();
+    let mut file: Vec<serde_json::Value> = Vec::new();
+    let mut actifs_vus: HashSet<String> = HashSet::new();
+    for v in &toutes {
+        if est_arme(v) {
+            prises.insert(cle_case(v));
+            slots.push(v.clone());
+        }
+    }
+    for v in &toutes {
+        if est_arme(v) || v["verdict_test"].is_string() || v["verdict_ia"].as_str() != Some("ARMER") {
+            continue;
+        }
+        if let Some(asset) = v["asset"].as_str() {
+            if actifs_vus.insert(asset.to_string()) {
+                prises.insert(cle_case(v));
+                file.push(v.clone());
+            }
+        }
+    }
+
+    let reserve_liste: Vec<serde_json::Value> = toutes
+        .iter()
+        .filter(|v| !prises.contains(&cle_case(v)))
+        .cloned()
+        .collect();
+    let il_y_a_7j = Utc::now().timestamp() - 7 * 86_400;
+    let verdicts: Vec<serde_json::Value> = toutes
+        .iter()
+        .filter(|v| {
+            v["verdict_test"].as_str().is_some_and(|s| s != "incertain")
+                && v["conclut_le"].as_i64().unwrap_or(0) > il_y_a_7j
+        })
+        .cloned()
+        .collect();
+
+    let (seuil_min, plancher_r) = crate::creneaux_test::lire_seuils(&state.db).await;
+    HttpResponse::Ok().json(serde_json::json!({
+        "slots": slots,
+        "file": file,
+        "reserve": reserve_liste.len(),
+        "reserve_liste": reserve_liste,
+        "verdicts": verdicts,
+        "armes": slots.len(),
+        "plafond": PLAFOND_ARMES,
+        "seuils": { "min": seuil_min, "plancher_r": plancher_r },
+    }))
 }
 
 /// POST /api/straddle/creneaux-ia/calculer — recalcul + évaluation IA
@@ -319,7 +405,10 @@ pub async fn armer(state: web::Data<AppState>, body: web::Json<BodyCase>) -> imp
         }));
     }
     let res = sqlx::query(
-        "UPDATE creneaux_ia SET arme = 1, arme_le = strftime('%s','now') WHERE asset = ? AND jour = ? AND heure = ?",
+        // Armement = nouveau test : les compteurs repartent de zéro.
+        "UPDATE creneaux_ia SET arme = 1, arme_le = strftime('%s','now'),
+                occurrences = 0, somme_r = 0, verdict_test = NULL, conclut_le = NULL
+         WHERE asset = ? AND jour = ? AND heure = ?",
     )
     .bind(&body.asset)
     .bind(body.jour)
@@ -330,6 +419,69 @@ pub async fn armer(state: web::Data<AppState>, body: web::Json<BodyCase>) -> imp
         Ok(r) if r.rows_affected() > 0 => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
         _ => HttpResponse::NotFound().json(serde_json::json!({ "error": "Créneau inconnu" })),
     }
+}
+
+/// POST /api/straddle/creneaux-ia/armer-file — armement propriétaire EN LOT
+/// (§16-b) : remplit les slots libres avec les têtes de la file (ARMER,
+/// non testées, 1 par actif, ordre du score) en privilégiant les actifs
+/// non déjà armés — trois slots = trois contextes indépendants. Le clic
+/// reste au propriétaire : l'IA n'arme jamais seule.
+pub async fn armer_file(state: web::Data<AppState>) -> impl Responder {
+    let armes: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM creneaux_ia WHERE arme = 1")
+        .fetch_one(state.db.pool())
+        .await
+        .unwrap_or(0);
+    let libres = PLAFOND_ARMES.saturating_sub(armes as usize);
+    if libres == 0 {
+        return HttpResponse::Conflict().json(serde_json::json!({
+            "error": format!("Aucun slot libre — plafond de {} créneaux armés atteint", PLAFOND_ARMES)
+        }));
+    }
+
+    let rows = sqlx::query(
+        "SELECT asset, jour, heure FROM creneaux_ia
+         WHERE arme = 0 AND verdict_test IS NULL AND verdict_ia = 'ARMER'
+         ORDER BY vol_pct * ratio * fiabilite DESC",
+    )
+    .fetch_all(state.db.pool())
+    .await
+    .unwrap_or_default();
+    let assets_deja_armes: HashSet<String> = sqlx::query(
+        "SELECT DISTINCT asset FROM creneaux_ia WHERE arme = 1",
+    )
+    .fetch_all(state.db.pool())
+    .await
+    .unwrap_or_default()
+    .iter()
+    .map(|r| r.get::<String, _>("asset"))
+    .collect();
+
+    let mut vus: HashSet<String> = HashSet::new();
+    let mut armees: Vec<serde_json::Value> = Vec::new();
+    for r in &rows {
+        if armees.len() >= libres {
+            break;
+        }
+        let asset: String = r.get("asset");
+        if assets_deja_armes.contains(&asset) || !vus.insert(asset.clone()) {
+            continue;
+        }
+        let jour = r.get::<i64, _>("jour");
+        let heure = r.get::<i64, _>("heure");
+        // Armement = nouveau test : compteurs repartis de zéro.
+        let _ = sqlx::query(
+            "UPDATE creneaux_ia SET arme = 1, arme_le = strftime('%s','now'),
+                    occurrences = 0, somme_r = 0, verdict_test = NULL, conclut_le = NULL
+             WHERE asset = ? AND jour = ? AND heure = ?",
+        )
+        .bind(&asset)
+        .bind(jour)
+        .bind(heure)
+        .execute(state.db.pool())
+        .await;
+        armees.push(serde_json::json!({ "asset": asset, "jour": jour, "heure": heure }));
+    }
+    HttpResponse::Ok().json(serde_json::json!({ "armees": armees }))
 }
 
 /// POST /api/straddle/creneaux-ia/ignorer — désarmement propriétaire.
@@ -355,12 +507,39 @@ pub struct BodyCase {
     pub heure: i64,
 }
 
-/// Boucle de fond : recalcul + évaluation quotidiens (4h du matin Paris,
-/// loin des sessions) — les propositions sont fraîches au matin.
+#[derive(serde::Deserialize)]
+pub struct BodySeuils {
+    pub min: i64,
+    pub plancher_r: f64,
+}
+
+/// PUT /api/straddle/creneaux-ia/seuils — réglages propriétaires de la
+/// boucle de validation (N tirages minimum, plancher ΣR de réfutation).
+pub async fn mettre_seuils(state: web::Data<AppState>, body: web::Json<BodySeuils>) -> impl Responder {
+    if !(1..=52).contains(&body.min) || !(-10.0..0.0).contains(&body.plancher_r) {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": "Seuils hors bornes (min 1-52, plancher −10 à 0 exclus)"
+        }));
+    }
+    let res = state
+        .db
+        .ecrire_config("creneaux_test_min", &body.min.to_string())
+        .await
+        .and(state.db.ecrire_config("creneaux_test_plancher_r", &body.plancher_r.to_string()).await);
+    match res {
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+/// Boucle de fond : recalcul + évaluation + verdicts quotidiens (4h du
+/// matin Paris, loin des sessions) — les propositions sont fraîches au
+/// matin et les verdicts rendus avant l'ouverture.
 pub async fn boucle(db: Arc<Database>) {
     tracing::info!("🤖 Créneaux IA armés (quotidien 4h Paris + boot)");
     recalculer(&db).await;
     evaluer(&db, false).await;
+    crate::creneaux_test::statuer(&db).await;
     loop {
         let maintenant = Utc::now().with_timezone(&chrono_tz::Europe::Paris);
         let prochain = (maintenant + chrono::Duration::days(1))
@@ -373,5 +552,6 @@ pub async fn boucle(db: Arc<Database>) {
         .await;
         recalculer(&db).await;
         evaluer(&db, false).await;
+        crate::creneaux_test::statuer(&db).await;
     }
 }

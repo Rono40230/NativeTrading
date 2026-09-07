@@ -7,6 +7,7 @@ mod analyses_ia;
 mod asset_params_handlers;
 mod alertes_prix;
 mod creneaux_ia;
+mod creneaux_test;
 mod creneaux_job;
 mod assets_handlers;
 mod calendar_handlers;

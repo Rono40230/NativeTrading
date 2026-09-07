@@ -13,7 +13,7 @@ struct AnnonceAgenda {
     titre: String,
     devise: String,
     /// Assets dont le moteur straddle s'arme sur cet événement.
-    actifs: Vec<&'static str>,
+    actifs: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -36,7 +36,7 @@ struct AgendaStraddle {
 /// GET /api/straddle/agenda — prochains événements + passes en cours.
 pub async fn get_agenda(state: web::Data<AppState>) -> impl Responder {
     // Annonces US High des 7 prochains jours (même source que le moteur).
-    let annonces = match state.db.lire_calendrier_cache(6 * 3600).await {
+    let mut annonces = match state.db.lire_calendrier_cache(6 * 3600).await {
         Ok(rows) => rows
             .iter()
             .filter_map(|r| {
@@ -66,13 +66,55 @@ pub async fn get_agenda(state: web::Data<AppState>) -> impl Responder {
                     ts,
                     titre: r.get("titre").and_then(|v| v.as_str()).unwrap_or("").to_string(),
                     devise: "USD".into(),
-                    actifs: vec!["XAUUSD", "BTC"],
+                    actifs: vec!["XAUUSD".into(), "BTC".into()],
                 })
             })
             .take(6)
             .collect(),
         Err(_) => Vec::new(),
     };
+
+    // §16 (07/09) : créneaux IA armés — même liste, badge 🤖 (la prochaine
+    // occurrence hebdomadaire, celle que le moteur recevra).
+    {
+        const JOURS: [&str; 7] = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+        let rows = sqlx::query("SELECT asset, jour, heure FROM creneaux_ia WHERE arme = 1")
+            .fetch_all(state.db.pool())
+            .await
+            .unwrap_or_default();
+        use sqlx::Row as _;
+        let maintenant = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Paris);
+        for r in &rows {
+            let asset: String = r.get("asset");
+            let jour = r.get::<i64, _>("jour").clamp(1, 7) as u32;
+            let heure = r.get::<i64, _>("heure").clamp(0, 23) as u32;
+            use chrono::{Datelike, Timelike};
+            for delta in 0..=14i64 {
+                // Candidat à l'heure PILE du créneau (maintenant + N jours
+                // garde sinon les minutes courantes — jamais 00).
+                let jour_glisse = maintenant + chrono::Duration::days(delta);
+                let Some(candidat) = jour_glisse
+                    .with_hour(heure)
+                    .and_then(|d| d.with_minute(0))
+                    .and_then(|d| d.with_second(0))
+                else { continue };
+                if candidat.weekday().number_from_monday() != jour
+                    || candidat <= maintenant
+                {
+                    continue;
+                }
+                annonces.push(AnnonceAgenda {
+                    ts: candidat.timestamp(),
+                    titre: format!("🤖 Créneau IA {} {}", asset, JOURS[(jour - 1) as usize]),
+                    devise: if asset == "DAX" { "EUR".into() } else { "USD".into() },
+                    actifs: vec![asset.clone()],
+                });
+                break;
+            }
+        }
+        annonces.sort_by_key(|a| a.ts);
+        annonces.truncate(8);
+    }
 
     // Passes en cours : signaux straddle actifs (jambe survivante).
     let passes = match state.db.obtenir_signaux(50).await {

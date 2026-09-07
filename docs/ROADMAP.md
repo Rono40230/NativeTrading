@@ -556,6 +556,32 @@ c'est le saut qualitatif.
       calcul réel : 75 cases éligibles (XAU 17h-18h ×2,2, BTC 15h-16h…),
       75 notées par l'analyste. Garde-fous : anti-double (l'analyste signale
       les recouvrements annonces tier 1), désarmement à tout moment.
+      *(Fix 07/09 soir : candidat reconstruit à l'heure PILE —
+      `maintenant + N jours` gardait les minutes courantes, le créneau armé
+      ne matchait jamais ni l'agenda ni le moteur ; corrigé dans
+      `straddle_agenda.rs` et `creneaux_ia.rs`.)*
+- [x] **Boucle de validation des créneaux — §16-b, FAIT le 07/09** (cadre
+      validé) : chaque créneau armé tire chaque semaine ; la boucle quotidienne
+      (4h Paris, module `creneaux_test.rs`) agrège ses passes closes
+      (rapprochement par le ts de `signaux.cle_moteur` → jour+heure Paris,
+      migration 0107 : `occurrences`/`somme_r`/`verdict_test`/`conclut_le`)
+      et statue au bout de N tirages (kv `creneaux_test_min`, défaut 4) :
+      ΣR > 0 → **VALIDÉ** (pilier, reste armé) ; ΣR ≤ plancher (kv
+      `creneaux_test_plancher_r`, défaut −1,5) ou 0 gagnant → **RÉFUTÉ,
+      désarmé** (règle moteur aux seuils du propriétaire — l'armement reste
+      à l'humain) ; entre les deux → **INCERTAIN** prolongé 2 tirages puis
+      tranché. L'UI quitte le catalogue de 75 cartes : slots en test avec
+      stats live, file dédoublonnée (meilleure ARMER non testée PAR ACTIF —
+      le dédoublonnage par phénomène), réserve dépliable, bannière des
+      verdicts (7 j), seuils éditables en ligne (PUT
+      `/api/straddle/creneaux-ia/seuils`). Armement en lot propriétaire :
+      « 🚀 Armer (N) » en tête de file (remplit les slots libres en sautant
+      les actifs déjà armés — diversification) et « ↻ Remplacer par la
+      prochaine carte » dans la bannière de verdict. Réarmer = nouveau test
+      à zéro. NB découvert au déploiement : le recalcul quotidien fait
+      tourner les cases aux marges du top-15 (fenêtre glissante) et
+      l'analyste re-note les entrantes — la file peut évoluer d'un jour à
+      l'autre (comportement voulu).
 
 ---
 

@@ -8,6 +8,7 @@
     route-parametres="/parametres?strategie=straddle"
     libelle-definition="📖 Caractéristiques du Straddle"
     :afficher-lexique="false"
+    setups-large
     teinte="bg-amber-500/5"
     :ordre-poses="nbOrdresPoses(signauxActifs, 'straddle')"
     :titre-encours="`${nbEncours} ${nbEncours > 1 ? 'signaux' : 'signal'} en cours`"

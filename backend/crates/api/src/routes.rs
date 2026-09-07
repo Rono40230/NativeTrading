@@ -128,8 +128,16 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::creneaux_ia::armer),
         )
         .route(
+            "/api/straddle/creneaux-ia/armer-file",
+            web::post().to(crate::creneaux_ia::armer_file),
+        )
+        .route(
             "/api/straddle/creneaux-ia/ignorer",
             web::post().to(crate::creneaux_ia::ignorer),
+        )
+        .route(
+            "/api/straddle/creneaux-ia/seuils",
+            web::put().to(crate::creneaux_ia::mettre_seuils),
         )
         .route(
             "/api/smc/analyse",
