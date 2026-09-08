@@ -92,22 +92,28 @@ un bug prompts vision, zéro test frontend.
 tranchage ML (§11) ; les types composant `ReponseIndicators` ont été conservés
 (contrat API vivant — correction du diagnostic d'audit).
 
-### 3. Étape 5 — Résiduel : validation numérique du miroir MQL5
+### 3. Étape 5 — Validation numérique du miroir MQL5 — ✅ MIROIR VALIDÉ le 08/09
 
-**Mode d'emploi livré** (04/09) : `docs/VALIDATION_MQL5.md` — procédure Strategy
-Tester (XAU M15, 2 mois, modélisation à noter), extraction de la référence Rust
-(`jq` sur `/api/smc/rejeu` ou binaire `replay_v12`), tolérances par métrique et
-méthode de traçage des divergences (arbitrage intrabar ≠ bug de miroir).
+Mode d'emploi + verdict final détaillés dans `docs/VALIDATION_MQL5.md`. Résumé :
+backtest MT5 (XAU M15 01/07→31/08, real ticks) diffé contre le replay Rust —
+**zones, niveaux et lifecycle identiques au centime** partout où les deux
+moteurs voient les mêmes barres (17 paires appariées, verdicts identiques) ;
+divergences restantes toutes tracées = intrabar tick-vs-barre (documenté §5)
+ou provenance des barres (le tester régénère depuis la base de ticks démo ≠
+feed collecté : l'heure 21h00-21h45 UTC manque — écart structurel de l'OUTIL
+de test, pas du miroir). Le passage à l'écart ≈ 0 exigera que l'EA exécutant
+(§15) consomme le même feed que les moteurs (collecteur).
 
-- [ ] **EA dans le Strategy Tester** (action propriétaire) : backtest `smc_ea_v12.mq5`
-      selon le guide, comparaison aux chiffres du replay Rust sur les mêmes bornes
-      (nombre de signaux, verdicts, R cumulé — écart attendu ≈ 0)
-- [ ] **Écart ≠ 0** : le tracer règle par règle jusqu'à la divergence (le miroir est la base
-      de l'automatisation future des ordres — il doit être exact)
+Ajouts à l'EA (08/09) : diagnostic `[SMC diag VERDICTS]` + `[SMC diag C]`
+(fenêtre filtrée, fin de test) et **garde absolue §15** — `f_executeOrders`
+refuse tout ordre hors Strategy Tester (`MQL_TESTER`), quel que soit le bouton
+Algorithmique ou le compte connecté.
+
+- [x] EA dans le Strategy Tester (08/09, propriétaire) — 3 modélisations comparées
+- [x] Écarts tracés règle par règle (intrabar + provenance — pas de bug moteur)
 - [ ] **Pine dans TV** (action propriétaire) : coller le Pine de `docs/reference/`
-      dans TradingView sous « Scalp à Nono »
-- [ ] **Unité commune points** : le rapport du Strategy Tester s'exprime en points —
-      l'unité de validation sera le point (cf. §13 trades individuels)
+      dans TradingView sous « Scalp à Nono » — vérification visuelle
+- [x] Unité commune points (conventions documentées — cf. §13)
 
 ### 4. Gate 3 — Straddle en conditions réelles
 
@@ -117,7 +123,18 @@ méthode de traçage des divergences (arbitrage intrabar ≠ bug de miroir).
       58 % de passes gagnantes ; les 7 SL à −1,50R (jambe −1R + tampon, assumé) ;
       trailing opérationnel (29 jambes ont armé TP2, verdicts tp2 verrouillant
       jusqu'à +2,5R net). Fenêtre 27/08 → 04/09, annonces US + ouvertures DAX.
-- [ ] Décision propriétaire : passage Officielle ou ajustements
+- [x] **Décision du 07/09 : prolonger l'Observation jusqu'à ≥ 30 passes closes** —
+      le bilan à 20 passes (+4,92R net, 60 % WR, 12 tp2/7 sl/1 be) est dominé
+      par un seul événement : le NFP du 04/09 (5 passes simultanées,
+      +4,84R net) ; les 15 autres passes ≈ +0,08R — la stratégie est à
+      l'équilibre hors événement exceptionnel. La règle transverse « mesure
+      avant décision : ≥ 30 trades » s'applique. La diversification des
+      sources est en route (créneaux IA §16-b : BTC vendredi 16h tire
+      chaque semaine, premier verdict de la boucle dans 4 vendredis).
+      Point de décision naturel : ~fin septembre, dossier rafraîchi sur
+      ≥ 30 passes issues d'événements différents (annonces tier 1 +
+      créneaux statistiques + ouvertures DAX).
+- [ ] Décision finale : passage Officielle ou ajustements (au point ≥ 30 passes)
 - [ ] Si Officielle : activer le son Telegram (template prêt, dormant)
 - [ ] Rappel money management (décision 04/09) : une passe peut coûter jusqu'à −1,5R
       nominal (jambe −1R + tampon/time-stop de la survivante) — assumé, lot inchangé
@@ -141,12 +158,27 @@ méthode de traçage des divergences (arbitrage intrabar ≠ bug de miroir).
 - [ ] Ré-armer des couples coupés via l'outil Timeframes par asset (décision 04/09) et
       mesurer l'effet (le comparatif 24 mois reste la référence : M15 +0,051 R/trade)
 
-### 6. Test de vérité au centime
+### 6. Test de vérité au centime — ✅ FAIT le 08/09 (et il a payé cash)
 
-- [ ] Comparer bougie par bougie (OHLCV) nos M1 Axi vs le graphique MT5 sur une session complète
-- [ ] Comparer les signaux SMC sur XAU (même source → aucun écart attendu)
-- [ ] Si écarts : les tracer et les corriger
-- [ ] Documenter le verdict au journal
+- [x] **Bougie par bougie** : export CSV du terminal MT5 (compte réel) différé
+      contre la base — XAUUSD M15 juillet-août : **99,2 % identiques au centime,
+      carte jour par jour à l'alignement UTC correct, médiane 0,000 $**.
+- [x] **Découverte majeure** : tout l'historique `source='mt5'` antérieur au
+      26/08 était estampillé en **heure serveur Axi (UTC+3 été / +2 hiver)** —
+      la re-poussée d'historique du fix `016c6a9` (25/08) n'avait jamais eu
+      lieu, avec doublons et barres tierces à la couture 24-25/08.
+      **Réparation** (08/09, script vérifié, sauvegarde
+      `data/backups/pre-reparation-0108.db`) : décalage DST de **4,48 M
+      barres** (tous actifs/TF mt5), zone 24-25/08, purge de 1 169 doublons
+      et barres tierces en collision ; crypto (binance/bybit) hors périmètre
+      — jamais concernée (les créneaux BTC n'ont pas bougé d'un centime de
+      heure : contre-vérification naturelle).
+- [x] **Recalculs engendrés** : créneaux IA recalculés sur vraies heures
+      (actifs Axi décalés de −2/−3 h : XAU vendredi **15h** = fenêtre NFP,
+      NAS/SP vendredi 16h, DAX lundi 9h — BTC vendredi 16h inchangé) ;
+      rejeu SMC et zones reconstruits au redémarrage.
+- [x] **Signaux SMC** : comparés via §3 (zones identiques au centime là où
+      les barres coïncident — cf. `VALIDATION_MQL5.md`, verdict final).
 
 ### 7. Décisions propriétaires — ✅ VIDÉE le 05/09 (toutes tranchées)
 

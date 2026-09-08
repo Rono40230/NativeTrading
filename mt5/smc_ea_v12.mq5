@@ -2765,6 +2765,10 @@ bool f_tradeBloquant() {
 
 SignalT g_signals[];    // historique des signaux générés (ArrayResize par signal, peu nombreux)
 int     g_nSignals = 0;
+// §3 (08/09) — borne de la fenêtre d'évaluation des verdicts : premier
+// instant vu par l'EA (tester = début du test, live = attachement). Les
+// clôtures antérieures relèvent du replay de chauffe (hors comparaison).
+datetime g_evalDebut = 0;
 
 // Pine lignes 2263-2274 : _slMin/_slMax par asset, ATR-dépendants + fallback pips.
 // En MQL5 on les calcule dynamiquement par fonction (et non en #define statique) car atr14
@@ -5246,6 +5250,45 @@ int OnInit() {
 void OnDeinit(const int reason) {
     // EA backtest (Phase 1) : plus d'objets graphiques à nettoyer (affichage retiré).
     ObjectsDeleteAll(0, SMC_PREFIX);
+    // §3 (08/09) — validation du miroir : répartition des clôtures de la
+    // FENÊTRE d'évaluation uniquement (les clôtures antérieures à
+    // g_evalDebut relèvent du replay de chauffe au premier tick, hors
+    // périmètre de comparaison). Cible Rust XAUUSD M15 01/07→31/08 :
+    // SL=7 TP1+BE=20 TP2SL=3 TP3=2 EXPIRE=13 BOS=0. Le ΣcloseR interne
+    // suit la convention EA (BE=+1, TP2SL=+1) — comparer aux VERDICTS.
+    int nSL=0, nBE=0, nTP2=0, nTP3=0, nEXP=0, nBOS=0; double sumR=0.0;
+    for(int k=0; k<g_nSignals; k++) {
+        if(!g_signals[k].closed) continue;
+        if(g_signals[k].closeT < g_evalDebut) continue;   // chauffe : hors fenêtre
+        string rs = g_signals[k].closeRsn;
+        sumR += g_signals[k].closeR;
+        if(rs=="SL") nSL++;
+        else if(rs=="BE") nBE++;
+        else if(rs=="TP2SL") nTP2++;
+        else if(rs=="TP3") nTP3++;
+        else if(rs=="EXPIRE") nEXP++;
+        else nBOS++;
+    }
+    Print("[SMC diag VERDICTS] fenetre=", TimeToString(g_evalDebut, TIME_DATE|TIME_MINUTES),
+          " SL=", nSL, " TP1+BE=", nBE, " TP2SL=", nTP2,
+          " TP3=", nTP3, " EXPIRE=", nEXP, " BOS(nonRempli)=", nBOS,
+          " | SommeCloseR(EA)=", DoubleToString(sumR, 2));
+    // §3 — détail horodaté pour le traçage règle par règle avec le journal
+    // Rust (heure serveur = UTC+3 ; entry = bord OB, slInitial = entry ∓ R0).
+    for(int k=0; k<g_nSignals; k++) {
+        if(!g_signals[k].closed) continue;
+        if(g_signals[k].closeT < g_evalDebut) continue;
+        double sl0 = g_signals[k].bull
+                     ? g_signals[k].entry - g_signals[k].R0
+                     : g_signals[k].entry + g_signals[k].R0;
+        Print("[SMC diag C] ", TimeToString(g_signals[k].closeT, TIME_DATE|TIME_MINUTES),
+              " ", g_signals[k].closeRsn,
+              " entry=", DoubleToString(g_signals[k].entry, _Digits),
+              " sl0=", DoubleToString(sl0, _Digits),
+              " bull=", g_signals[k].bull ? 1 : 0,
+              " R0=", DoubleToString(g_signals[k].R0, 2),
+              " R=", DoubleToString(g_signals[k].closeR, 2));
+    }
 }
 
 // === RedrawForToggle : déclenche un rejeu complet (ChartSetSymbolPeriod) ===
@@ -5305,6 +5348,10 @@ double NormalizeSl(bool isBull, double entry, double sl) {
 // Ouvre (ticket==0) ou ferme (closed==true) les positions MT5 selon l'état du lifecycle interne.
 // Appelée APRÈS f_updateTradeState à chaque bar de la boucle OnTick.
 void f_executeOrders(const datetime &time[]) {
+    // §15 NON TRANCHÉ (08/09) : l'EA n'exécute JAMAIS en live. Ordres
+    // uniquement dans le Strategy Tester (simulation locale). Garde
+    // absolue, indépendante du bouton Algorithmique et du compte connecté.
+    if(!MQLInfoInteger(MQL_TESTER)) return;
     if(g_nSignals == 0) return;
     g_trade.SetExpertMagicNumber(InpMagic);
     g_trade.SetTypeFillingBySymbol(_Symbol);
@@ -5354,6 +5401,7 @@ void OnTick() {
     static int g_prevCalc = 0;
     static int g_prevRatesTotal = 0;
     if(!newBar && g_prevRatesTotal > 0) return;
+    if(g_evalDebut == 0) g_evalDebut = TimeCurrent();   // §3 : début de la fenêtre évaluée
 
     // Récupération des séries temporelles (chronologique = index 0 = plus ancien).
     int rates_total = Bars(_Symbol, _Period);
