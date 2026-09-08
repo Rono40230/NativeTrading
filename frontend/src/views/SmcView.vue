@@ -19,10 +19,10 @@
       </div>
     </template>
     <template #encours>
-      <SignauxTableau ref="tableauRef" strategie="SMC" remplis-seuls @nb-signaux="nbEncours = $event" @signaux-actifs="signauxActifs = $event" />
+      <SignauxTableau strategie="SMC" remplis-seuls @nb-signaux="nbEncours = $event" @signaux-actifs="signauxActifs = $event" />
     </template>
     <template #historique-actions>
-      <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="ouvrirAnalyse">📊 Analyse</button>
+      <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="router.push('/smc/analyse')">📊 Analyse</button>
     </template>
     <template #historique>
       <div class="text-sm text-white flex flex-wrap items-center gap-x-3 mb-2">
@@ -48,6 +48,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import StrategyShell from '@/components/common/StrategyShell.vue'
 import { nbOrdresPoses } from '@/composables/useSignalFormat'
 import SignauxTableau from '@/components/common/SignauxTableau.vue'
@@ -57,11 +58,11 @@ import HistoryTable from '@/components/common/HistoryTable.vue'
 import { useHistoriqueStrategie } from '@/composables/useHistoriqueStrategie'
 import { formatR } from '@/composables/useSignalFormat'
 
+const router = useRouter()
 const historique = useHistoriqueStrategie('smc')
 const nbEncours = ref(0)
 const signauxActifs = ref<InstanceType<typeof SignauxTableau> extends never ? never : import('@/services/api.service').Signal[]>([])
-const tableauRef = ref<InstanceType<typeof SignauxTableau> | null>(null)
-function ouvrirAnalyse() { tableauRef.value?.ouvrirAnalyse() }
+
 
 // Historique rafraîchi en continu (5 s) : une clôture détectée au tick par
 // le backend apparaît à l'écran quasi en direct, plus seulement au montage.

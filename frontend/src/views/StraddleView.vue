@@ -21,10 +21,10 @@
       <div class="text-[10px] text-white mt-2">XAU · BTC · NAS100 · SP500 armés au branchement MT5</div>
     </template>
     <template #encours>
-      <SignauxTableau ref="tableauRef" strategie="straddle" remplis-seuls @nb-signaux="nbEncours = $event" @signaux-actifs="signauxActifs = $event" />
+      <SignauxTableau strategie="straddle" remplis-seuls @nb-signaux="nbEncours = $event" @signaux-actifs="signauxActifs = $event" />
     </template>
     <template #historique-actions>
-      <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="ouvrirAnalyse">📊 Analyse</button>
+      <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="router.push('/straddle/analyse')">📊 Analyse</button>
     </template>
     <template #historique>
       <div class="text-sm text-white flex flex-wrap items-center gap-x-3 mb-2">
@@ -50,6 +50,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import StrategyShell from '@/components/common/StrategyShell.vue'
 import { nbOrdresPoses } from '@/composables/useSignalFormat'
 import SignauxTableau from '@/components/common/SignauxTableau.vue'
@@ -59,11 +60,10 @@ import HistoryTable from '@/components/common/HistoryTable.vue'
 import { useHistoriqueStrategie } from '@/composables/useHistoriqueStrategie'
 import { formatR } from '@/composables/useSignalFormat'
 
+const router = useRouter()
 const historique = useHistoriqueStrategie('straddle')
 const nbEncours = ref(0)
 const signauxActifs = ref<InstanceType<typeof SignauxTableau> extends never ? never : import('@/services/api.service').Signal[]>([])
-const tableauRef = ref<InstanceType<typeof SignauxTableau> | null>(null)
-function ouvrirAnalyse() { tableauRef.value?.ouvrirAnalyse() }
 
 onMounted(() => { void historique.charger() })
 </script>

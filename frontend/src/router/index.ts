@@ -23,6 +23,9 @@ const router = createRouter({
     // Rapport d'activité — centre d'analyse des stratégies (04/09).
     // ?strategie=SMC|straddle|rockets cible l'onglet (bloc dashboard).
     { path: '/analyses', component: () => import('../views/AnalysesView.vue') },
+    { path: '/straddle/analyse', component: () => import('../views/analyse/AnalyseStraddleView.vue') },
+    { path: '/smc/analyse',      component: () => import('../views/analyse/AnalyseSmcView.vue') },
+    { path: '/rockets/analyse',  component: () => import('../views/analyse/AnalyseRocketsView.vue') },
 
     // Outils IA — prompts + les deux tableaux (boutons de la tuile IA,
     // ex-onglets de la page prompts, 06/09).

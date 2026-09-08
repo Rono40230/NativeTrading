@@ -103,11 +103,6 @@
       </table>
     </div>
 
-    <!-- Modales analyse -->
-    <StraddleAnalyseModal v-if="strategie === 'straddle'" :open="analyseOuverte" :signaux="signaux" @close="analyseOuverte = false" />
-    <SmcAnalyseModal v-if="strategie === 'SMC'" :open="analyseOuverte" :signaux="signaux" @close="analyseOuverte = false" />
-    <RocketsAnalyseModal v-if="strategie === 'Rockets'" :open="analyseOuverte" @close="analyseOuverte = false" />
-
     <!-- Modale de confirmation annulation Rocket -->
   </div>
 </template>
@@ -120,9 +115,6 @@ import { useRouter } from 'vue-router'
 import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
 import { formatDate, formatNombre } from '@/composables/useSignalFormat'
 import type { Signal } from '@/services/api.types'
-import StraddleAnalyseModal from '@/components/common/StraddleAnalyseModal.vue'
-import SmcAnalyseModal from '@/components/common/SmcAnalyseModal.vue'
-import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
 
 const props = defineProps<{
   strategie: 'SMC' | 'straddle' | 'Rockets'
@@ -132,7 +124,7 @@ const props = defineProps<{
 }>()
 
 const {
-  signaux, chargement, analyseOuverte,
+  signaux, chargement,
   filtreStatut, listeActive, signauxTries, remplisSeuls, montantRisque,
   charger, trierPar, icone, infosPips,
   classeConviction, classePrix, lotPourSignal,
@@ -169,11 +161,8 @@ function labelHeureEntree(s: Signal): string | null {
   return 'Entrée active'
 }
 
-/// Le bouton 📊 Analyse vit dans la section Historique des pages
-/// stratégies — le parent déclenche l'ouverture par ref.
 watchEffect(() => emits('nb-signaux', listeActive.value.length))
 
-defineExpose({ ouvrirAnalyse: () => { analyseOuverte.value = true } })
 </script>
 
 <style scoped>

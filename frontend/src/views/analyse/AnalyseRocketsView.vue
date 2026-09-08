@@ -1,35 +1,14 @@
 <template>
-  <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="$emit('close')">
-    <div class="rounded-xl border border-white/10 p-5 w-[96vw] h-[92vh] flex flex-col gap-3" style="background: #0d1117;">
-
-      <!-- Header -->
-      <div class="flex items-center justify-between flex-shrink-0">
-        <h2 class="text-lg font-bold">📊 Analyse Rockets</h2>
-        <button class="text-white hover:text-white text-xl leading-none" @click="$emit('close')">×</button>
-      </div>
-
-      <!-- Onglets -->
-      <div class="flex gap-1 flex-shrink-0">
-        <button
-          v-for="tab in TABS" :key="tab.id"
-          class="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all border"
-          :class="onglet === tab.id ? 'bg-white/10 border-white/20 text-white' : 'border-transparent text-white hover:text-white'"
-          @click="onglet = tab.id as 'perf' | 'ia' | 'reglages'"
-        >{{ tab.label }}</button>
-      </div>
-
-      <!-- Onglet Recommandations IA -->
-      <div v-if="onglet === 'ia'" class="flex-1 overflow-auto">
-        <RocketsAnalyseLlm />
-      </div>
-
-      <!-- Onglet Réglages -->
-      <div v-if="onglet === 'reglages'" class="flex-1 overflow-auto">
-        <RocketsReglages />
-      </div>
-
-      <!-- KPIs (onglet performance) -->
-      <div v-if="onglet === 'perf'" class="grid grid-cols-5 gap-3 flex-shrink-0">
+  <AnalysePageShell
+    titre="🚀 Analyse Rockets"
+    retour-label="Rockets"
+    retour-route="/rockets"
+    :synthese="bandeau"
+  >
+    <!-- ═══ 1. Performance ═══ -->
+    <section class="flex flex-col gap-4">
+      <h2 class="section-h">📊 Performance</h2>
+      <div class="grid grid-cols-5 gap-3">
         <div class="kpi-card text-center">
           <div class="text-xl font-bold text-white">{{ stats.total }}</div>
           <div class="text-xs text-white mt-0.5">Total clôturés</div>
@@ -56,18 +35,16 @@
         </div>
       </div>
 
-      <!-- Contenu : 2 colonnes (onglet performance) -->
-      <div v-if="onglet === 'perf'" class="grid grid-cols-[1fr_1.8fr] gap-4 flex-1 min-h-0">
-
-        <!-- Gauche : par univers + verdicts -->
-        <div class="flex flex-col gap-4 min-h-0 overflow-auto pr-1">
+      <div class="grid grid-cols-[1fr_1.8fr] gap-4">
+        <!-- Gauche : univers + verdicts + interprétation -->
+        <div class="flex flex-col gap-4">
           <div>
             <h3 class="section-title">Par univers</h3>
             <div class="grid grid-cols-2 gap-2">
               <div v-for="u in parUnivers" :key="u.label" class="kpi-card">
                 <div class="flex justify-between mb-1">
                   <span class="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                    :class="u.label === 'crypto' ? 'bg-amber-900/60 text-amber-300' : 'bg-blue-900/60 text-blue-300'"
+                        :class="u.label === 'crypto' ? 'bg-amber-900/60 text-amber-300' : 'bg-blue-900/60 text-blue-300'"
                   >{{ u.label === 'crypto' ? 'Crypto' : 'Actions US' }}</span>
                   <span class="text-white text-xs">{{ u.total }}</span>
                 </div>
@@ -76,19 +53,16 @@
               </div>
             </div>
           </div>
-
           <div>
             <h3 class="section-title">Verdicts</h3>
             <div class="flex flex-wrap gap-2">
               <span v-for="(n, v) in stats.verdicts" :key="v"
-                class="text-xs font-semibold px-2 py-1 rounded-full border"
-                :class="v === 'SL' ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'"
+                    class="text-xs font-semibold px-2 py-1 rounded-full border"
+                    :class="v === 'SL' ? 'bg-red-500/10 text-red-400 border-red-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'"
               >{{ v }} × {{ n }}</span>
               <span v-if="!stats.total" class="text-xs text-white">Aucun trade clôturé — la verticale est jeune.</span>
             </div>
           </div>
-
-          <!-- Analyse du tableau de probabilités -->
           <div class="kpi-card space-y-2">
             <h3 class="section-title">🔍 Interprétation</h3>
             <div v-if="lossRateReel === 0" class="text-xs text-white italic">
@@ -118,7 +92,7 @@
                 <span class="font-bold text-emerald-400">✅ Zone sûreté</span> :
                 une série de
                 <span class="font-bold text-emerald-400">{{ analyseProba.kSurete }}+ SL consécutifs</span>
-                reste statistiquement très rare (&lt;5%) — ce n'est qu'alors qu'un remise en question de la stratégie est justifiée.
+                reste statistiquement très rare (&lt;5%) — ce n'est qu'alors qu'une remise en question de la stratégie est justifiée.
               </p>
               <div class="mt-2 pt-2 border-t border-white/10 text-xs flex gap-4">
                 <div>
@@ -136,15 +110,15 @@
 
         <!-- Droite : tableau probabilités -->
         <div class="flex flex-col min-h-0">
-          <div class="flex items-baseline gap-3 mb-1 flex-shrink-0">
+          <div class="flex items-baseline gap-3 mb-1">
             <h3 class="section-title">Probabilité de séries de SL consécutifs</h3>
             <span class="text-xs text-white">sur {{ sampleSize }} trades clôturés</span>
           </div>
-          <p class="text-xs text-white mb-2 flex-shrink-0">
+          <p class="text-xs text-white mb-2">
             Ligne <span class="text-blue-400 font-bold">surlignée</span> = votre loss rate réel ({{ lossRateReel }}%).
             Colonnes = nombre de SL consécutifs. Vert = très probable, rouge = rare.
           </p>
-          <div class="overflow-auto flex-1 rounded-lg">
+          <div class="overflow-auto max-h-[420px] rounded-lg">
             <table class="text-xs border-collapse w-full">
               <thead class="sticky top-0" style="background: #0d1117">
                 <tr>
@@ -169,53 +143,59 @@
           </div>
         </div>
       </div>
+    </section>
 
-    </div>
-  </div>
+    <!-- ═══ 2. Recommandations IA ═══ -->
+    <section class="flex flex-col gap-2">
+      <h2 class="section-h">🤖 Recommandations IA</h2>
+      <RocketsAnalyseLlm />
+    </section>
+
+    <!-- ═══ 3. Réglages scan ═══ -->
+    <section class="flex flex-col gap-2">
+      <h2 class="section-h">⚙️ Réglages scan</h2>
+      <RocketsReglages />
+    </section>
+  </AnalysePageShell>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { Signal } from '@/services/api.service'
+import { useRocketsStats } from '@/composables/useRocketsStats'
+import AnalysePageShell from '@/components/common/AnalysePageShell.vue'
 import RocketsAnalyseLlm from '@/components/common/RocketsAnalyseLlm.vue'
 import RocketsReglages from '@/components/common/RocketsReglages.vue'
-import { useRocketsStats } from '@/composables/useRocketsStats'
 
-const TABS = [
-  { id: 'perf',     label: '📊 Performance' },
-  { id: 'ia',       label: '🤖 Recommandations IA' },
-  { id: 'reglages', label: '⚙️ Réglages scan' },
-]
-const onglet = ref<'perf' | 'ia' | 'reglages'>('perf')
-
-const props = defineProps<{ open: boolean }>()
-defineEmits(['close'])
-
-// V2 (05/09) : trades officiels depuis la table partagée — plus de
-// props.rockets v1 (table vide) ni d'historiqueRockets.
-const cloutes = ref<Signal[]>([])
-watch(() => props.open, async (ouvert) => {
-  if (!ouvert) return
+// V2 (05/09) : trades officiels depuis la table partagée.
+const clotes = ref<Signal[]>([])
+onMounted(async () => {
   try {
     const data = await apiService.getSignaux(500)
-    cloutes.value = data.filter(s =>
+    clotes.value = data.filter(s =>
       s.strategie.toLowerCase() === 'rockets'
       && s.statut === 'Fermé' && s.verdict !== null,
     )
-  } catch {
-    cloutes.value = []
-  }
+  } catch { clotes.value = [] }
 })
 
 const {
   stats, parUnivers,
   kValues, sampleSize, lossRateReel,
   tableauPertes, analyseProba, couleurProba,
-} = useRocketsStats(computed(() => cloutes.value))
+} = useRocketsStats(computed(() => clotes.value))
+
+const bandeau = computed(() => [
+  { label: 'clôturés', valeur: stats.value.total },
+  { label: 'win rate', valeur: `${stats.value.tauxGagnants}%`, classe: stats.value.tauxGagnants >= 50 ? 'text-emerald-400' : 'text-red-400' },
+  { label: 'R moyen', valeur: `${stats.value.rMoyen}R`, classe: stats.value.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400' },
+  { label: 'loss rate', valeur: `${stats.value.tauxSL}%`, classe: 'text-red-400' },
+])
 </script>
 
 <style scoped>
 .kpi-card    { @apply bg-white/5 rounded-lg p-3 border border-white/10; }
 .section-title { @apply text-xs font-semibold text-white mb-2 uppercase tracking-wide; }
+.section-h   { @apply text-sm font-bold text-white uppercase tracking-wider border-b border-white/10 pb-1.5; }
 </style>

@@ -23,8 +23,9 @@ const TRANCHES_DEF = [
  */
 function straddleR(s: Signal): number | null {
   if (!s.prix_verdict || !s.verdict) return null
-  if (s.verdict === 'expire') return null
-  if (s.verdict === 'SL') return -1
+  const v = s.verdict.toLowerCase()
+  if (v === 'expire') return null
+  if (v === 'sl') return -1
   const risk = Math.abs(s.prix_entree - s.stop_loss)
   if (risk <= 0) return null
   // Pour un straddle, le prix_verdict correspond à la jambe qui a gagné
@@ -33,24 +34,27 @@ function straddleR(s: Signal): number | null {
 }
 
 function calcStatsStraddle(liste: Signal[]) {
-  const clos   = liste.filter(s => s.verdict && s.verdict !== 'expire')
+  // Verdicts servis en minuscule par /api/signaux (tp1/tp2/tp3/sl/be/ts/expire).
+  const maj = (v: string | null | undefined) => (v ?? '').toLowerCase()
+  const clos   = liste.filter(s => s.verdict && maj(s.verdict) !== 'expire')
   const total  = clos.length
-  const tp1    = clos.filter(s => s.verdict === 'TP1').length
-  const tp2    = clos.filter(s => s.verdict === 'TP2').length
-  const tp3    = clos.filter(s => s.verdict === 'TP3').length
-  const sl     = clos.filter(s => s.verdict === 'SL').length
-  const expire = liste.filter(s => s.verdict === 'expire').length
-  const gain   = tp1 + tp2 + tp3
+  const tp1    = clos.filter(s => maj(s.verdict) === 'tp1').length
+  const tp2    = clos.filter(s => maj(s.verdict) === 'tp2').length
+  const tp3    = clos.filter(s => maj(s.verdict) === 'tp3').length
+  const sl     = clos.filter(s => maj(s.verdict) === 'sl').length
+  const ts     = clos.filter(s => maj(s.verdict) === 'ts').length
+  const expire = liste.filter(s => s.verdict && maj(s.verdict) === 'expire').length
+  const gain   = tp1 + tp2 + tp3 + ts
   const winPct = total > 0 ? Math.round(gain / total * 100) : 0
   const tauxSL = total > 0 ? Math.round(sl / total * 100) : 0
   const rs     = clos.map(s => straddleR(s)).filter((v): v is number => v !== null)
   const rMoyen = rs.length > 0 ? parseFloat((rs.reduce((a, b) => a + b, 0) / rs.length).toFixed(2)) : 0
-  return { total, tp1, tp2, tp3, sl, expire, gain, winPct, tauxSL, rMoyen }
+  return { total, tp1, tp2, tp3, sl, ts, expire, gain, winPct, tauxSL, rMoyen }
 }
 
 export function useStraddleStats(signauxRef: Ref<Signal[]> | ComputedRef<Signal[]>) {
   const signaux = computed(() =>
-    signauxRef.value.filter(s => s.strategie === 'Straddle')
+    signauxRef.value.filter(s => s.strategie?.toLowerCase() === 'straddle')
   )
 
   const stats = computed(() => calcStatsStraddle(signaux.value))

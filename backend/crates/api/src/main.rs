@@ -45,6 +45,7 @@ mod sentiment_filter;
 mod sentiment_handlers;
 mod signaux_handlers;
 mod straddle_agenda;
+mod straddle_analyste;
 mod straddle_atr;
 mod rockets_actions_backfill;
 mod rockets_actions_news;
@@ -162,6 +163,7 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(ml_collecte::boucle_rattrapage(app_state.db.clone()));
     // §16 : agenda intelligent straddle — propositions IA fraîches au matin.
     tokio::spawn(creneaux_ia::boucle(app_state.db.clone()));
+    tokio::spawn(straddle_analyste::assurer_cache(app_state.db.clone()));
     // Étape C : scanner actions quotidien — Observation silencieuse.
     tokio::spawn(rockets_actions_scanner::boucle_scanner_actions(app_state.db.clone(), poignees_runtime.bus_signaux.clone()));
 

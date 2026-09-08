@@ -29,8 +29,8 @@
     </div>
   </div>
 
-  <!-- Tranches + répartition -->
-  <div class="grid grid-cols-[1fr_1.8fr] gap-4 flex-1 min-h-0 mt-3">
+  <!-- Tranches + répartition (colonne heatmap masquable : sansHeatmap) -->
+  <div class="grid gap-4 flex-1 min-h-0 mt-3" :class="sansHeatmap ? 'grid-cols-1' : 'grid-cols-[1fr_1.8fr]'">
     <!-- Gauche -->
     <div class="flex flex-col gap-4 min-h-0 overflow-auto pr-1">
       <slot name="gauche" />
@@ -85,12 +85,16 @@
       </div>
     </div>
 
-    <!-- Droite : heatmap -->
-    <div class="flex flex-col min-h-0">
-      <div class="flex items-baseline gap-3 mb-1 flex-shrink-0">
-        <h3 class="section-title">Probabilité de séries de SL consécutifs</h3>
+    <!-- Droite : heatmap (repliable — détail secondaire, masquable) -->
+    <div v-if="!sansHeatmap" class="flex flex-col min-h-0">
+      <button
+        class="flex items-baseline gap-3 mb-1 flex-shrink-0 text-left"
+        @click="probaOuvertes = !probaOuvertes"
+      >
+        <h3 class="section-title">{{ probaOuvertes ? '▾' : '▸' }} Probabilité de séries de SL consécutifs</h3>
         <span class="text-xs text-white">sur {{ sampleSize }} trades clôturés</span>
-      </div>
+      </button>
+      <template v-if="probaOuvertes">
       <p class="text-xs text-white mb-2 flex-shrink-0">
         Ligne <span class="text-blue-400 font-bold">surlignée</span> = votre loss rate réel ({{ lossRateReel }}%).
         Colonnes = nombre de SL consécutifs.
@@ -118,14 +122,16 @@
           </tbody>
         </table>
       </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { couleurProba } from '@/composables/useProbaHeatmap'
 
-defineProps<{
+const props = defineProps<{
   stats: {
     total: number; winPct: number; rMoyen: number
     gain: number; sl: number; tauxSL: number
@@ -133,6 +139,10 @@ defineProps<{
   tranches: unknown[]
   lossRateReel: number
   sampleSize: number
+  /// Heatmap repliée au départ (page Straddle — détail secondaire).
+  probaRepliees?: boolean
+  /// Heatmap entièrement masquée — seule l'interprétation reste (Straddle).
+  sansHeatmap?: boolean
   kValues: number[]
   tableauPertes: { lossRate: number; isActual: boolean; probs: number[] }[]
   analyseProba: {
@@ -140,6 +150,8 @@ defineProps<{
     kSurete: number; esperance: number
   }
 }>()
+
+const probaOuvertes = ref(!props.probaRepliees)
 </script>
 
 <style scoped>

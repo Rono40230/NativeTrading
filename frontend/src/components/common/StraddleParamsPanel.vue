@@ -27,8 +27,8 @@
       💡 {{ suggestion }}
     </div>
 
-    <div class="grid grid-cols-8 gap-3 flex-1 content-end">
-      <div v-for="p in config" :key="p.key" class="flex flex-col gap-1">
+    <div class="flex flex-wrap gap-3 items-end flex-1 content-end">
+      <div v-for="p in config" :key="p.key" class="flex flex-col gap-1 w-28">
         <label class="text-xs text-white">{{ p.label }}</label>
         <input
           type="number"
@@ -42,7 +42,7 @@
         <span class="text-xs text-white">{{ p.min }}–{{ p.max }}</span>
       </div>
       <!-- Toggle vente partielle -->
-      <div class="flex flex-col gap-1 justify-center">
+      <div class="flex flex-col gap-1 justify-center w-32">
         <label class="text-xs text-white">Vente partielle</label>
         <button
           :class="modelValue.vente_partielle
@@ -55,7 +55,7 @@
         </button>
       </div>
 
-      <div class="flex flex-col gap-1" v-if="modelValue.vente_partielle">
+      <div class="flex flex-col gap-1 w-28" v-if="modelValue.vente_partielle">
         <label class="text-xs text-white">% Vente TP1</label>
         <input
           type="number"
@@ -67,7 +67,7 @@
         <span class="text-xs text-white">ex: 0.33</span>
       </div>
 
-      <div class="flex flex-col gap-1" v-if="modelValue.vente_partielle">
+      <div class="flex flex-col gap-1 w-28" v-if="modelValue.vente_partielle">
         <label class="text-xs text-white">% Vente TP2</label>
         <input
           type="number"

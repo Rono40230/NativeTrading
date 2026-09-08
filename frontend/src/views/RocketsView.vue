@@ -14,7 +14,7 @@
         <button class="btn-sm" @click="router.push('/rockets/definition')">📖 Caractéristiques des Rockets</button>
         <button class="btn-sm" @click="router.push('/rockets/scanner')">🔭 Scanner</button>
         <button class="btn-sm" @click="router.push('/parametres?strategie=rockets')">⚙️ Paramètres</button>
-        <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="analyseOuverte = true">📊 Analyse</button>
+        <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="router.push('/rockets/analyse')">📊 Analyse</button>
       </div>
     </div>
 
@@ -49,7 +49,6 @@
     </div>
   </div>
 
-  <RocketsAnalyseModal :open="analyseOuverte" @close="analyseOuverte = false" />
 </template>
 
 <script setup lang="ts">
@@ -59,11 +58,9 @@ import RocketsSetupsApercu from '@/components/common/RocketsSetupsApercu.vue'
 import PositionsARisqueTable from '@/components/common/PositionsARisqueTable.vue'
 import PositionsNeutraliseesTable from '@/components/common/PositionsNeutraliseesTable.vue'
 import RocketsHistoriqueTable from '@/components/common/RocketsHistoriqueTable.vue'
-import RocketsAnalyseModal from '@/components/RocketsAnalyseModal.vue'
 import { usePositionsRockets } from '@/composables/usePositionsRockets'
 
 const router = useRouter()
-const analyseOuverte = ref(false)
 
 const { risque, neutralisees, live } = usePositionsRockets()
 </script>

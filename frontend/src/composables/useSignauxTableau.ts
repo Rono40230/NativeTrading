@@ -13,7 +13,6 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
 
   const signaux = ref<Signal[]>([])
   const chargement = ref(true)
-  const analyseOuverte = ref(false)
   const filtreStatut = ref<'en_cours' | 'cloturees' | ''>('en_cours')
   const triColonne = ref('')
   const triDir = ref<'asc' | 'desc'>('desc')
@@ -154,7 +153,7 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
   })
 
   return {
-    signaux, chargement, analyseOuverte, filtreStatut, remplisSeuls, estEngage, montantRisque,
+    signaux, chargement, filtreStatut, remplisSeuls, estEngage, montantRisque,
     listeActive, signauxTries,
     charger, trierPar, icone, infosPips,
     classeConviction, classePrix, lotPourSignal,
