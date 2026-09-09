@@ -4,6 +4,39 @@ use sqlx::Row;
 
 use crate::Database;
 
+/// Décode une ligne `bougies` en `Candle` — RÉSILIENT (incident 09/09 : un
+/// `r.get("high")` sur une valeur au type inattendu — BLOB transitoire —
+/// paniquait et tuait l'api entière, watchdog avec). Une ligne malformée est
+/// IGNORÉE avec un journal bruyant (timestamp de la ligne) pour identifier
+/// l'écrivain fautif à la prochaine occurrence. Jamais de panic sur une
+/// donnée.
+pub(crate) fn decode_candle(r: &sqlx::sqlite::SqliteRow) -> Option<Candle> {
+    macro_rules! col {
+        ($nom:literal) => {
+            match r.try_get::<f64, _>($nom) {
+                Ok(v) => v,
+                Err(e) => {
+                    let ts: i64 = r.try_get("timestamp").unwrap_or(0);
+                    tracing::warn!("🧯 bougie malformée ignorée (ts={ts}, colonne {:?}) : {e}", $nom);
+                    return None;
+                }
+            }
+        };
+    }
+    let ts: i64 = match r.try_get("timestamp") {
+        Ok(v) => v,
+        Err(_) => return None,
+    };
+    Some(Candle {
+        timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or_default(),
+        open: col!("open"),
+        high: col!("high"),
+        low: col!("low"),
+        close: col!("close"),
+        volume: col!("volume"),
+    })
+}
+
 impl Database {
     /// Insère un lot de bougies avec une source explicite.
     /// `source` : 'binance' | 'bybit_ws' | 'mt5' | 'csv'
@@ -107,20 +140,7 @@ impl Database {
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
 
-        let bougies = rows
-            .iter()
-            .map(|r| {
-                let ts: i64 = r.get("timestamp");
-                Candle {
-                    timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or(Utc::now()),
-                    open: r.get("open"),
-                    high: r.get("high"),
-                    low: r.get("low"),
-                    close: r.get("close"),
-                    volume: r.get("volume"),
-                }
-            })
-            .collect();
+        let bougies = rows.iter().filter_map(decode_candle).collect();
 
         Ok(bougies)
     }
@@ -146,20 +166,7 @@ impl Database {
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
 
-        let mut bougies: Vec<Candle> = rows
-            .iter()
-            .map(|r| {
-                let ts: i64 = r.get("timestamp");
-                Candle {
-                    timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or(Utc::now()),
-                    open: r.get("open"),
-                    high: r.get("high"),
-                    low: r.get("low"),
-                    close: r.get("close"),
-                    volume: r.get("volume"),
-                }
-            })
-            .collect();
+        let mut bougies: Vec<Candle> = rows.iter().filter_map(decode_candle).collect();
 
         bougies.reverse(); // DESC → ASC
         Ok(bougies)
@@ -187,20 +194,7 @@ impl Database {
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
 
-        let mut bougies: Vec<Candle> = rows
-            .iter()
-            .map(|r| {
-                let ts: i64 = r.get("timestamp");
-                Candle {
-                    timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or(Utc::now()),
-                    open: r.get("open"),
-                    high: r.get("high"),
-                    low: r.get("low"),
-                    close: r.get("close"),
-                    volume: r.get("volume"),
-                }
-            })
-            .collect();
+        let mut bougies: Vec<Candle> = rows.iter().filter_map(decode_candle).collect();
 
         bougies.reverse();
         Ok(bougies)
@@ -261,20 +255,7 @@ impl Database {
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
 
-        let bougies = rows
-            .iter()
-            .map(|r| {
-                let ts: i64 = r.get("timestamp");
-                Candle {
-                    timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or(Utc::now()),
-                    open: r.get("open"),
-                    high: r.get("high"),
-                    low: r.get("low"),
-                    close: r.get("close"),
-                    volume: r.get("volume"),
-                }
-            })
-            .collect();
+        let bougies = rows.iter().filter_map(decode_candle).collect();
 
         Ok(bougies)
     }

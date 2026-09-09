@@ -125,10 +125,17 @@ fi
 # ─── Arrêt des instances résiduelles Tauri (sessions précédentes) ────────────
 # (Plus de dev server Vite depuis le 05/09 : la fenêtre sert le dist/ du
 # disque, rebuild au démarrage — cf. section frontend plus bas.)
-# Tauri résiduel : par nom EXACT de process uniquement. JAMAIS par motif de
-# chemin (pkill -f) — un chemin matcherait le présent script si on l'invoque
-# en absolu, tuant le terminal de l'appelant (bug corrigé 2026-08-15).
-pkill -x native-trading-ai 2>/dev/null || true
+# FIX 08/09 : `pkill -x native-trading-ai` ne matchait JAMAIS — le noyau
+# tronque les noms de process à 15 caractères ("native-trading-"), donc une
+# fenêtre résiduelle survivait, la nouvelle instance mourait aussitôt
+# (unicité GTK) et le watchdog emportait tout (« l'app ne reste pas ouverte »).
+# On tue par : (1) nom tronqué exact, (2) chemin du binaire — motif sûr car
+# le cmdline du présent script est "bash …/scripts/run.sh", il ne contient
+# jamais "src-tauri/target" (la règle du 15/08 visait des motifs pouvant
+# matcher le chemin DU SCRIPT lui-même).
+pkill -x "native-trading-" 2>/dev/null || true
+pkill -f "src-tauri/target/(debug|release)/native-trading-ai" 2>/dev/null || true
+sleep 0.5
 
 # ─── Démarrage backend ────────────────────────────────────────────────────────
 echo "🔌 Backend API → port 8080"

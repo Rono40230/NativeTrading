@@ -55,4 +55,8 @@ ts-rs = { version = "12", features = ["chrono-impl", "uuid-impl"] }
 opt-level = 3
 lto = "thin"
 codegen-units = 16
-strip = true
+# 09/09 : segfaults heap au boot — build diagnostic avec symboles (le
+# binaire de prod reste target/release/api.release-prod ; revenir à
+# strip = true après résolution).
+strip = false
+debug = 1

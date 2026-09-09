@@ -1,7 +1,6 @@
 //! Méthodes DB bougies — requêtes analytiques et utilitaires.
 //! Complément de bougies.rs (méthodes critiques insert/fetch).
 
-use chrono::{TimeZone, Utc};
 use common::{Asset, Candle, Result, Timeframe, TradingError};
 use sqlx::Row;
 
@@ -32,8 +31,8 @@ impl Database {
         .map_err(|e| TradingError::Database(e.to_string()))?;
 
         Ok(row.and_then(|r| {
-            let maxi: Option<f64> = r.get("maxi");
-            let mini: Option<f64> = r.get("mini");
+            let maxi: Option<f64> = r.try_get("maxi").ok().flatten();
+            let mini: Option<f64> = r.try_get("mini").ok().flatten();
             match (maxi, mini) {
                 (Some(h), Some(l)) => Some((h, l)),
                 _ => None,
@@ -59,20 +58,7 @@ impl Database {
         .await
         .map_err(|e| TradingError::Database(e.to_string()))?;
 
-        Ok(rows
-            .iter()
-            .map(|r| {
-                let ts: i64 = r.get("timestamp");
-                Candle {
-                    timestamp: Utc.timestamp_opt(ts, 0).single().unwrap_or(Utc::now()),
-                    open: r.get("open"),
-                    high: r.get("high"),
-                    low: r.get("low"),
-                    close: r.get("close"),
-                    volume: r.get("volume"),
-                }
-            })
-            .collect())
+        Ok(rows.iter().filter_map(crate::bougies::decode_candle).collect())
     }
 
     /// Retourne toutes les combinaisons (asset_str, timeframe_str) ayant ≥ min_bougies en DB,
