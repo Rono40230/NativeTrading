@@ -36,29 +36,6 @@ pub struct MlCorrelationStats {
     pub win_rate: f64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SuggestionLogEntry {
-    pub id: i64,
-    pub strategie: String,
-    pub param_name: String,
-    pub valeur_avant: f64,
-    pub valeur_apres: f64,
-    pub gain_winrate_estime: f64,
-    pub confiance: f64,
-    pub nb_samples_base: i64,
-    pub appliquee_le: String,
-}
-
-pub struct NouvelleSuggestionLog<'a> {
-    pub strategie: &'a str,
-    pub param_name: &'a str,
-    pub valeur_avant: f64,
-    pub valeur_apres: f64,
-    pub gain_winrate_estime: f64,
-    pub confiance: f64,
-    pub nb_samples_base: i64,
-}
-
 // ── Stats globales ────────────────────────────────────────────────────────────
 
 pub async fn stats_globales_smc(pool: &SqlitePool) -> Result<FeedbackGlobal> {
@@ -206,60 +183,6 @@ pub async fn stats_smc_ml_correlation(pool: &SqlitePool) -> Result<Vec<MlCorrela
             tranche: r.get("tranche"),
             nb_trades: r.get("nb_trades"),
             win_rate: r.get("win_rate"),
-        })
-        .collect())
-}
-
-// ── Historique suggestions ────────────────────────────────────────────────────
-
-pub async fn sauvegarder_suggestion(
-    pool: &SqlitePool,
-    s: &NouvelleSuggestionLog<'_>,
-) -> Result<()> {
-    sqlx::query(
-        "INSERT INTO ml_suggestions_log
-         (strategie, param_name, valeur_avant, valeur_apres,
-          gain_winrate_estime, confiance, nb_samples_base)
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
-    )
-    .bind(s.strategie)
-    .bind(s.param_name)
-    .bind(s.valeur_avant)
-    .bind(s.valeur_apres)
-    .bind(s.gain_winrate_estime)
-    .bind(s.confiance)
-    .bind(s.nb_samples_base)
-    .execute(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
-    Ok(())
-}
-
-pub async fn lister_suggestions(pool: &SqlitePool, limite: i64) -> Result<Vec<SuggestionLogEntry>> {
-    let rows = sqlx::query(
-        "SELECT id, strategie, param_name, valeur_avant, valeur_apres,
-                gain_winrate_estime, confiance, nb_samples_base, appliquee_le
-         FROM ml_suggestions_log
-         ORDER BY appliquee_le DESC
-         LIMIT ?",
-    )
-    .bind(limite)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
-
-    Ok(rows
-        .iter()
-        .map(|r| SuggestionLogEntry {
-            id: r.get("id"),
-            strategie: r.get("strategie"),
-            param_name: r.get("param_name"),
-            valeur_avant: r.get("valeur_avant"),
-            valeur_apres: r.get("valeur_apres"),
-            gain_winrate_estime: r.get("gain_winrate_estime"),
-            confiance: r.get("confiance"),
-            nb_samples_base: r.get("nb_samples_base"),
-            appliquee_le: r.get("appliquee_le"),
         })
         .collect())
 }

@@ -46,23 +46,6 @@ export interface RocketAnalyseLlm {
   cree_le: string
 }
 
-export interface RocketsConfig {
-  score_min: number
-  phases_actives: string[]
-  rsi_max: number
-  rsi_min: number
-  ratio_volume_min: number
-  vol_marche_min: number
-  vente_partielle?: boolean
-  pct_cloture_tp1?: number
-  pct_cloture_tp2?: number
-  sl_mult: number
-  trailing_coeff_min: number
-  trailing_coeff_max: number
-  seuil_score_faible: number
-  seuil_score_fort: number
-}
-
 // ── Straddle ──────────────────────────────────────────────────────────────────
 
 export interface StraddleCreneau {

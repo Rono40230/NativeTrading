@@ -1,17 +1,17 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { mlInsightsApi } from '@/services/api.ml_insights'
-import type { AnalyseGlobale, SuggestionParams, SuggestionsResponse, RetainJobState } from '@/services/api.ml_insights'
+import type { AnalyseGlobale, RetainJobState } from '@/services/api.ml_insights'
 import { useAlerteStore } from '@/stores/alerte.store'
 
 export const useMlInsightsStore = defineStore('mlInsights', () => {
   const analyse       = ref<AnalyseGlobale | null>(null)
-  const suggestions   = ref<SuggestionParams[]>([])
-  const historique    = ref<SuggestionsResponse['historique']>([])
   const chargement    = ref(false)
-  const application   = ref(false)
   const retrainState  = ref<RetainJobState | null>(null)
   let   retrainPollId: ReturnType<typeof setInterval> | null = null
+
+  // (Les « suggestions de paramètres » ont été purgées le 09/09 : elles
+  // écrivaient dans des tables qu'aucun moteur ne lisait — ROADMAP §6.)
 
   async function chargerStats() {
     chargement.value = true
@@ -21,34 +21,6 @@ export const useMlInsightsStore = defineStore('mlInsights', () => {
       useAlerteStore().afficherErreur('Impossible de charger les stats ML')
     } finally {
       chargement.value = false
-    }
-  }
-
-  async function chargerSuggestions() {
-    chargement.value = true
-    try {
-      const res        = await mlInsightsApi.getSuggestions()
-      suggestions.value = res.suggestions
-      historique.value  = res.historique
-    } catch {
-      useAlerteStore().afficherErreur('Impossible de charger les suggestions ML')
-    } finally {
-      chargement.value = false
-    }
-  }
-
-  async function appliquer(s: SuggestionParams): Promise<boolean> {
-    application.value = true
-    try {
-      await mlInsightsApi.appliquerSuggestion(s)
-      useAlerteStore().afficherSucces(`✅ ${s.strategie} ${s.param_name} → ${s.valeur_suggeree}`)
-      await chargerSuggestions()
-      return true
-    } catch {
-      useAlerteStore().afficherErreur('Erreur lors de l\'application de la suggestion')
-      return false
-    } finally {
-      application.value = false
     }
   }
 
@@ -94,7 +66,7 @@ export const useMlInsightsStore = defineStore('mlInsights', () => {
   }
 
   return {
-    analyse, suggestions, historique, chargement, application, retrainState,
-    chargerStats, chargerSuggestions, appliquer, chargerDernierRetrain, declencherRetrain,
+    analyse, chargement, retrainState,
+    chargerStats, chargerDernierRetrain, declencherRetrain,
   }
 })

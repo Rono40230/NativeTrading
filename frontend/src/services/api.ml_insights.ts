@@ -41,34 +41,6 @@ export interface AnalyseGlobale {
   straddle?: StraddleAnalyse
 }
 
-export interface SuggestionParams {
-  strategie:           string
-  param_name:          string
-  valeur_actuelle:     number
-  valeur_suggeree:     number
-  gain_winrate_estime: number
-  confiance:           number
-  justification:       string
-  nb_samples_base:     number
-}
-
-export interface SuggestionLogEntry {
-  id:                  number
-  strategie:           string
-  param_name:          string
-  valeur_avant:        number
-  valeur_apres:        number
-  gain_winrate_estime: number
-  confiance:           number
-  nb_samples_base:     number
-  appliquee_le:        string
-}
-
-export interface SuggestionsResponse {
-  suggestions: SuggestionParams[]
-  historique:  SuggestionLogEntry[]
-}
-
 export interface RetainJobState {
   job_id:        string | null
   en_cours:      boolean
@@ -90,23 +62,6 @@ export const mlInsightsApi = {
   async getStats(): Promise<AnalyseGlobale> {
     const res = await http.get('/api/ml/feedback/stats')
     return res.data
-  },
-
-  async getSuggestions(): Promise<SuggestionsResponse> {
-    const res = await http.get('/api/ml/suggestions')
-    return res.data
-  },
-
-  async appliquerSuggestion(s: SuggestionParams): Promise<void> {
-    await http.post('/api/ml/suggestions/appliquer', {
-      strategie:           s.strategie,
-      param_name:          s.param_name,
-      valeur_actuelle:     s.valeur_actuelle,
-      valeur_suggeree:     s.valeur_suggeree,
-      gain_winrate_estime: s.gain_winrate_estime,
-      confiance:           s.confiance,
-      nb_samples_base:     s.nb_samples_base,
-    })
   },
 
   async postRetrain(): Promise<{ job_id: string; status: string }> {

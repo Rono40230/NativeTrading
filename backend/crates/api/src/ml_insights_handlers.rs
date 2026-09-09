@@ -1,25 +1,13 @@
 //! Handlers HTTP Phase 8 — ML Feedback Loop.
-//! GET  /api/ml/feedback/stats       → statistiques de performance par stratégie
-//! GET  /api/ml/suggestions          → suggestions de paramètres + historique
-//! POST /api/ml/suggestions/appliquer → applique une suggestion validée par l'utilisateur
+//! GET  /api/ml/feedback/stats → statistiques de performance par stratégie
+//! (alimentées par les vraies clôtures : `ml_training_samples`, `smc_feedback`).
+//! Les « suggestions de paramètres » ont été purgées le 09/09 : elles
+//! écrivaient dans les tables fantômes `smc_params`/`rockets_config` qu'aucun
+//! moteur ne lisait — voir ROADMAP §6.
 use actix_web::{web, HttpResponse};
-use serde::Deserialize;
 use sqlx::SqlitePool;
 
 use crate::state::AppState;
-
-// ── Types requête ─────────────────────────────────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct AppliquerRequest {
-    pub strategie: String,
-    pub param_name: String,
-    pub valeur_actuelle: f64,
-    pub valeur_suggeree: f64,
-    pub gain_winrate_estime: f64,
-    pub confiance: f64,
-    pub nb_samples_base: i64,
-}
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
@@ -29,137 +17,7 @@ pub async fn stats_feedback(state: web::Data<AppState>) -> HttpResponse {
     HttpResponse::Ok().json(analyse)
 }
 
-/// GET /api/ml/suggestions
-pub async fn suggestions(state: web::Data<AppState>) -> HttpResponse {
-    let pool = state.db.pool();
-    let analyse = charger_analyse(pool).await;
-    let params_smc = db::strategies_params::lire_smc_params(pool).await;
-
-    let suggestions = ml::params_suggester::generer_suggestions(
-        &analyse,
-        params_smc.score_min,
-        params_smc.kill_zone_filtre,
-        params_smc.atr_sl,
-    );
-    let historique = db::ml_feedback::lister_suggestions(pool, 10)
-        .await
-        .unwrap_or_default();
-
-    HttpResponse::Ok().json(serde_json::json!({
-        "suggestions": suggestions,
-        "historique":  historique,
-    }))
-}
-
-/// POST /api/ml/suggestions/appliquer
-pub async fn appliquer_suggestion(
-    state: web::Data<AppState>,
-    body: web::Json<AppliquerRequest>,
-) -> HttpResponse {
-    let pool = state.db.pool();
-    let req = &body.0;
-
-    // Validation basique
-    if req.confiance < 0.0 || req.confiance > 1.0 {
-        return HttpResponse::BadRequest()
-            .json(serde_json::json!({ "error": "confiance doit être entre 0.0 et 1.0" }));
-    }
-
-    // Appliquer le changement de paramètre sur la table correspondante
-    let result = appliquer_param(pool, req).await;
-    if let Err(e) = result {
-        tracing::error!(
-            "Erreur application suggestion ML {}/{}: {}",
-            req.strategie,
-            req.param_name,
-            e
-        );
-        return HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": e.to_string() }));
-    }
-
-    // Logger la suggestion appliquée (non-bloquant sur erreur)
-    let log = db::ml_feedback::NouvelleSuggestionLog {
-        strategie: &req.strategie,
-        param_name: &req.param_name,
-        valeur_avant: req.valeur_actuelle,
-        valeur_apres: req.valeur_suggeree,
-        gain_winrate_estime: req.gain_winrate_estime,
-        confiance: req.confiance,
-        nb_samples_base: req.nb_samples_base,
-    };
-    if let Err(e) = db::ml_feedback::sauvegarder_suggestion(pool, &log).await {
-        tracing::warn!(
-            "Log suggestion ML échoué (suggestion quand même appliquée): {}",
-            e
-        );
-    }
-
-    tracing::info!(
-        "✅ Suggestion ML appliquée : {} {} {} → {}",
-        req.strategie,
-        req.param_name,
-        req.valeur_actuelle,
-        req.valeur_suggeree
-    );
-    HttpResponse::Ok().json(serde_json::json!({
-        "ok":          true,
-        "strategie":   req.strategie,
-        "param_name":  req.param_name,
-        "valeur_apres": req.valeur_suggeree,
-    }))
-}
-
 // ── Helpers privés ────────────────────────────────────────────────────────────
-
-/// Applique la modification de paramètre sur la table DB correspondante.
-async fn appliquer_param(pool: &SqlitePool, req: &AppliquerRequest) -> common::Result<()> {
-    match (req.strategie.as_str(), req.param_name.as_str()) {
-        ("SMC", "score_min") => {
-            let mut p = db::strategies_params::lire_smc_params(pool).await;
-            p.score_min = req.valeur_suggeree as i64;
-            db::strategies_params::sauvegarder_smc_params(pool, &p).await
-        }
-        ("SMC", "kill_zone_filtre") => {
-            let mut p = db::strategies_params::lire_smc_params(pool).await;
-            p.kill_zone_filtre = req.valeur_suggeree != 0.0;
-            db::strategies_params::sauvegarder_smc_params(pool, &p).await
-        }
-        ("SMC", "atr_sl") => {
-            let mut p = db::strategies_params::lire_smc_params(pool).await;
-            p.atr_sl = req.valeur_suggeree;
-            db::strategies_params::sauvegarder_smc_params(pool, &p).await
-        }
-        ("ROCKETS", "score_min") => {
-            let mut p = db::rockets_config::lire_config(pool).await;
-            p.score_min = req.valeur_suggeree as i64;
-            db::rockets_config::sauvegarder_config(pool, &p).await
-        }
-        ("ROCKETS", "tp_multiplier") => {
-            let mut p = db::rockets_config::lire_config(pool).await;
-            p.sl_mult = req.valeur_suggeree - 0.5;
-            db::rockets_config::sauvegarder_config(pool, &p).await
-        }
-        ("ROCKETS", "conviction_llm_min") => {
-            tracing::info!("Application logique de conviction_llm_min bypassée techniquement (géré par phase/session via auto-ml)");
-            Ok(())
-        }
-        ("STRADDLE", "atr_seuil") => {
-            let mut p = db::strategies_params::lire_straddle_params(pool).await;
-            p.atr_seuil = req.valeur_suggeree;
-            db::strategies_params::sauvegarder_straddle_params(pool, &p).await
-        }
-        ("STRADDLE", "tp_mult_1") => {
-            let mut p = db::strategies_params::lire_straddle_params(pool).await;
-            p.tp_mult_1 = req.valeur_suggeree;
-            db::strategies_params::sauvegarder_straddle_params(pool, &p).await
-        }
-        _ => Err(common::TradingError::Data(format!(
-            "Paramètre {}/{} non supporté",
-            req.strategie, req.param_name
-        ))),
-    }
-}
 
 /// Construit l'`AnalyseGlobale` en parallèle depuis les tables feedback.
 async fn charger_analyse(pool: &SqlitePool) -> ml::feedback_analyser::AnalyseGlobale {

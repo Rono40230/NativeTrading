@@ -4,7 +4,7 @@
  */
 import { http } from './http.client'
 import type {
-  RocketAnalyseLlm, RocketsConfig,
+  RocketAnalyseLlm,
   RocketsMonitoringData, RocketsCalibrationRow,
 } from './api.types'
 
@@ -21,15 +21,6 @@ export const rocketsApi = {
     } catch {
       return null
     }
-  },
-
-  async getRocketsConfig(): Promise<RocketsConfig> {
-    const res = await http.get('/api/rockets/config')
-    return res.data
-  },
-
-  async putRocketsConfig(cfg: RocketsConfig): Promise<void> {
-    await http.put('/api/rockets/config', cfg)
   },
 
   // ── ML Rockets adaptatif ──────────────────────────────────────────────────

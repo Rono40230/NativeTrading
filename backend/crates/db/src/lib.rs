@@ -22,7 +22,6 @@ pub mod runtime_replay;
 pub mod rockets;
 pub mod rockets_blacklist;
 pub mod rockets_calibration;
-pub mod rockets_config;
 pub mod rockets_feedback;
 pub mod rockets_feedback_reclassify;
 pub mod rockets_feedback_stats;

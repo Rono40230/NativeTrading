@@ -72,17 +72,8 @@
       </section>
     </div>
 
-    <!-- ═══ RÉGLAGES (pleine largeur — heatmap séries SL retirée le 09/09 :
-         ~5 trades clôturés = loss rate non significatif, même verdict que
-         le straddle ; elle reviendra via le composant repliable le jour où
-         l'effectif le justifiera) ═══ -->
-    <section class="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-3">
-      <div class="flex items-center gap-3">
-        <span class="text-sm font-bold text-white uppercase tracking-wider">⚙️ Réglages scan</span>
-        <span class="ml-auto text-xs text-white">paramètres du scanner</span>
-      </div>
-      <RocketsReglages />
-    </section>
+    <!-- (Les réglages fantômes « scan » ont été purgés le 09/09 : les réglages
+         réels vivent sur la page Rockets via RocketsParamsCard — rockets_params.) -->
   </AnalysePageShell>
 </template>
 
@@ -93,7 +84,6 @@ import type { Signal } from '@/services/api.service'
 import { useRocketsStats } from '@/composables/useRocketsStats'
 import AnalysePageShell from '@/components/common/AnalysePageShell.vue'
 import RocketsAnalyseLlm from '@/components/common/RocketsAnalyseLlm.vue'
-import RocketsReglages from '@/components/common/RocketsReglages.vue'
 
 const clotes = ref<Signal[]>([])
 onMounted(async () => {

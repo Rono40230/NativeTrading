@@ -92,66 +92,58 @@
       </section>
     </div>
 
-    <!-- ═══ RANGÉE 2 : détails | paramètres ═══ -->
-    <div class="grid grid-cols-2 gap-4">
-      <section class="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-4">
-        <div class="flex items-center gap-3 flex-wrap">
-          <span class="text-sm font-bold text-white uppercase tracking-wider">📋 Détails de performance</span>
-          <span class="ml-auto text-xs text-white">{{ stats.total }} trades · {{ stats.gain }} TP · {{ stats.sl }} SL</span>
-        </div>
-        <div>
-          <h3 class="section-title">Par tranche de score</h3>
-          <table class="w-full text-xs">
-            <thead>
-              <tr class="text-white border-b border-white/10">
-                <th class="py-1 text-left">Score</th>
-                <th class="py-1 text-right">Nb</th>
-                <th class="py-1 text-right text-emerald-400">TP1</th>
-                <th class="py-1 text-right text-emerald-300">TP2</th>
-                <th class="py-1 text-right text-emerald-200">TP3</th>
-                <th class="py-1 text-right text-red-400">SL</th>
-                <th class="py-1 text-right">Win%</th>
-                <th class="py-1 text-right">R</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="t in smcStats.tranches.value" :key="t.label" class="border-b border-white/5">
-                <td class="py-1 font-mono text-white">{{ t.label }}</td>
-                <td class="py-1 text-right text-white">{{ t.total }}</td>
-                <td class="py-1 text-right text-emerald-400">{{ t.tp1 }}</td>
-                <td class="py-1 text-right text-emerald-300">{{ t.tp2 }}</td>
-                <td class="py-1 text-right text-emerald-200">{{ t.tp3 }}</td>
-                <td class="py-1 text-right text-red-400">{{ t.sl }}</td>
-                <td class="py-1 text-right font-bold" :class="t.winPct >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ t.winPct }}%</td>
-                <td class="py-1 text-right font-bold" :class="t.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR(t.rMoyen) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div>
-          <AnalysePerfBloc
-            :stats="statsPerf"
-            :tranches="smcStats.tranches.value"
-            :loss-rate-reel="smcStats.lossRateReel.value"
-            :sample-size="smcStats.sampleSize.value"
-            :k-values="smcStats.kValues"
-            :tableau-pertes="smcStats.tableauPertes.value"
-            :analyse-proba="smcStats.analyseProba.value"
-            sans-kpis
-          >
-            <template #gauche><span /></template>
-          </AnalysePerfBloc>
-        </div>
-      </section>
-
-      <section class="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-3">
-        <div class="flex items-center gap-3">
-          <span class="text-sm font-bold text-white uppercase tracking-wider">⚙️ Paramètres</span>
-          <span class="ml-auto text-xs text-white">réglages du moteur SMC</span>
-        </div>
-        <SmcParamsPanel v-model="smcParams" @params-saved="() => {}" />
-      </section>
-    </div>
+    <!-- ═══ RANGÉE 2 : détails de performance ═══ (les réglages réels vivent
+         sur la page SMC via SmcParamsCard — le panneau fantôme smc_params a
+         été purgé le 09/09) -->
+    <section class="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-4">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="text-sm font-bold text-white uppercase tracking-wider">📋 Détails de performance</span>
+        <span class="ml-auto text-xs text-white">{{ stats.total }} trades · {{ stats.gain }} TP · {{ stats.sl }} SL</span>
+      </div>
+      <div>
+        <h3 class="section-title">Par tranche de score</h3>
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-white border-b border-white/10">
+              <th class="py-1 text-left">Score</th>
+              <th class="py-1 text-right">Nb</th>
+              <th class="py-1 text-right text-emerald-400">TP1</th>
+              <th class="py-1 text-right text-emerald-300">TP2</th>
+              <th class="py-1 text-right text-emerald-200">TP3</th>
+              <th class="py-1 text-right text-red-400">SL</th>
+              <th class="py-1 text-right">Win%</th>
+              <th class="py-1 text-right">R</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="t in smcStats.tranches.value" :key="t.label" class="border-b border-white/5">
+              <td class="py-1 font-mono text-white">{{ t.label }}</td>
+              <td class="py-1 text-right text-white">{{ t.total }}</td>
+              <td class="py-1 text-right text-emerald-400">{{ t.tp1 }}</td>
+              <td class="py-1 text-right text-emerald-300">{{ t.tp2 }}</td>
+              <td class="py-1 text-right text-emerald-200">{{ t.tp3 }}</td>
+              <td class="py-1 text-right text-red-400">{{ t.sl }}</td>
+              <td class="py-1 text-right font-bold" :class="t.winPct >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ t.winPct }}%</td>
+              <td class="py-1 text-right font-bold" :class="t.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR(t.rMoyen) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <AnalysePerfBloc
+          :stats="statsPerf"
+          :tranches="smcStats.tranches.value"
+          :loss-rate-reel="smcStats.lossRateReel.value"
+          :sample-size="smcStats.sampleSize.value"
+          :k-values="smcStats.kValues"
+          :tableau-pertes="smcStats.tableauPertes.value"
+          :analyse-proba="smcStats.analyseProba.value"
+          sans-kpis
+        >
+          <template #gauche><span /></template>
+        </AnalysePerfBloc>
+      </div>
+    </section>
   </AnalysePageShell>
 </template>
 
@@ -163,8 +155,6 @@ import type { Signal } from '@/services/api.service'
 import { useSmcStats } from '@/composables/useSmcStats'
 import AnalysePageShell from '@/components/common/AnalysePageShell.vue'
 import AnalysePerfBloc from '@/components/common/AnalysePerfBloc.vue'
-import SmcParamsPanel from '@/components/common/SmcParamsPanel.vue'
-import type { SmcParams } from '@/components/common/SmcParamsPanel.vue'
 
 const signaux = ref<Signal[]>([])
 onMounted(async () => {
@@ -192,11 +182,6 @@ function classeConviction(c: number | null): string {
   if (c >= 40) return 'text-amber-400'
   return 'text-red-400'
 }
-
-const smcParams = ref<SmcParams>({
-  atr_periode: 14, score_min: 70,
-  atr_tp1: 1.5, atr_tp2: 2.5, atr_tp3: 4.0, atr_sl: 0.8,
-})
 </script>
 
 <style scoped>

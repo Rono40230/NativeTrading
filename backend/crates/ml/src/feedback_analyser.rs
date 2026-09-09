@@ -1,6 +1,6 @@
 //! Structures d'analyse des performances ML par stratégie.
 //! Ce module ne fait aucun accès DB — il reçoit les données de la couche API
-//! et les structure pour le générateur de suggestions (`params_suggester`).
+//! (le générateur de suggestions `params_suggester` a été purgé le 09/09).
 use serde::{Deserialize, Serialize};
 
 // ── Structures de données ─────────────────────────────────────────────────────
@@ -46,7 +46,7 @@ pub struct StraddleAnalyse {
     pub score_llm: Vec<TrancheStat>,       // tranches score LLM vs résultat
 }
 
-/// Vue consolidée de toutes les stratégies — input du `params_suggester`
+/// Vue consolidée de toutes les stratégies — input des handlers stats ML
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnalyseGlobale {
     pub smc: Option<SmcAnalyse>,

@@ -90,7 +90,7 @@ export type { ScoreSmc } from '../generated/ScoreSmc'
 
 export type { DeviationAsie, RangeAsie, ReponseIndicators, IndicatorsParams } from './api.types.indicators'
 export type { PatternHoraire, ReponsePatternsVolatilite, RequeteAnalyseIA, ReponseAnalyseIA, LigneTendanceKasper, ModeCalculTendance, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier, EntiteSentiment, SentimentMarche } from './api.types.marche'
-export type { CouvertureDonnees, ResultatCollecteItem, RocketRecommandation, RocketAnalyseLlm, RocketsConfig, StraddleCreneau, ReponseAnalyseStraddle, StraddlePicLive, StraddleStatCategorie, StraddleMonitoringData, StraddleCalibrationRow, RocketsStatPhase, RocketsMonitoringData, RocketsCalibrationRow } from './api.types.rockets'
+export type { CouvertureDonnees, ResultatCollecteItem, RocketRecommandation, RocketAnalyseLlm, StraddleCreneau, ReponseAnalyseStraddle, StraddlePicLive, StraddleStatCategorie, StraddleMonitoringData, StraddleCalibrationRow, RocketsStatPhase, RocketsMonitoringData, RocketsCalibrationRow } from './api.types.rockets'
 
 // ── Signal IA (POST /api/ia/signal) ──────────────────────────────────────────
 export interface RequeteSignalIA {

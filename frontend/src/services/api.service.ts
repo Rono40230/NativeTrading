@@ -26,7 +26,6 @@ import type {
   ModeCalculTendance,
 } from './api.types'
 import type { StraddleParams as ParamsStraddle } from '@/generated/ParamsStraddle'
-import type { SmcParams as ParamsSmc } from '@/generated/ParamsSmc'
 
 export const apiService = {
   async healthCheck(): Promise<{ status: string }> {
@@ -176,15 +175,6 @@ export const apiService = {
 
   async putStraddleParams(params: ParamsStraddle): Promise<void> {
     await http.put('/api/straddle/params', params)
-  },
-
-  async getSmcParams(): Promise<ParamsSmc> {
-    const res = await http.get('/api/smc/params')
-    return res.data
-  },
-
-  async putSmcParams(params: ParamsSmc): Promise<void> {
-    await http.put('/api/smc/params', params)
   },
 
   // ── Prompts IA (CRUD) ──────────────────────────────────────────────────────

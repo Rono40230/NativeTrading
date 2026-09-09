@@ -4,7 +4,6 @@ pub mod features_precalc;
 pub mod feedback_analyser;
 pub mod labels_strategies;
 pub mod lstm;
-pub mod params_suggester;
 pub mod rockets_trainer;
 pub mod smc_trainer;
 pub mod straddle_trainer;

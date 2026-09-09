@@ -212,11 +212,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/straddle/calibration",
             web::get().to(crate::straddle_ml_handlers::get_calibration),
         )
-        .service(
-            web::resource("/api/smc/params")
-                .route(web::get().to(crate::strategies_params_handlers::get_smc_params))
-                .route(web::put().to(crate::strategies_params_handlers::put_smc_params)),
-        )
         .route(
             "/api/smc/monitoring-ml",
             web::get().to(crate::smc_monitoring_handlers::monitoring_ml),

@@ -1,10 +1,8 @@
 //! Persistance Rockets. Historiquement le v1 (table `rockets_signaux`,
 //! purge différée au tranchage ML §11 — des modules feedback/features la
 //! lisent encore) ; depuis le recâblage du 05/09 (§10), il ne reste ici
-//! que la persistance des analyses LLM stratégiques (`rockets_analyses_llm`)
-//! et la réexportation de la config.
+//! que la persistance des analyses LLM stratégiques (`rockets_analyses_llm`).
 
-pub use crate::rockets_config::{lire_config, sauvegarder_config, RocketsConfig};
 use common::{Result, TradingError};
 use sqlx::{Row, SqlitePool};
 

@@ -89,8 +89,16 @@ le bilan à 20 passes (+4,92 R nets) était dominé par le seul NFP du 04/09
 
 ### 4. Rockets — Extensions
 
-- [ ] **Véto unlocks** : source libre (calendrier public de déverrouillages
-      de tokens) → intégrer au scanner (éliminatoire si unlock majeur < 30 j)
+- [x] **Véto unlocks** — FAIT le 09/09 : table `unlocks_prochains` (PK
+      symbole+date, migration 0109), analyste IA quotidien (prompt
+      `unlock_detection`, dépêches traduites — unlocks DATÉS uniquement),
+      saisie/Retrait propriétaire (`/api/rockets/unlocks`), éliminatoire
+      < 30 j avant `ouvrir_position` (verdict `Elimine`, raison
+      « 🚫 Veto unlock »).
+- [x] **Clôture manuelle des positions** — FAIT le 09/09 : bouton ✕ dans
+      le tableau des positions à risque, modale design (récap entrée/cours/
+      R latent), clôture au prix marché (Binance/Yahoo) via
+      `fermer_signal_par_cle`, verdict « 👤 Manuel » alimentant l'historique.
 - [ ] **ETF via Tiingo** : lever l'exclusion ETF + profils 2/3/4 % dédiés —
       après validation de l'Observation actions US
 - [ ] **Analyse par pilier** : l'analyste relie les critères du /10 aux
@@ -145,9 +153,19 @@ est validé ; c'est le saut qualitatif.
       même dénominateur que le loss rate ; formats R uniformisés (+0,23 R)
       ; KPI doublons et bandeau synthèse retirés (Rockets/SMC affichent
       déjà leurs chiffres en XL — Straddle garde son bandeau collant).
-- [ ] **Réglage fantôme « Score min (/ 100) »** (panneau ⚙️ SMC) : non
-      consommé par le moteur et échelle incohérente avec le score réel
-      (6-19) → à retirer ou à brancher (décision propriétaire)
+- [x] **Purge des réglages fantômes** — FAIT le 09/09 (décision
+      propriétaire) : deux panneaux écrivaient des réglages qu'aucun moteur
+      ne lisait. Retirés : `SmcParamsPanel` + `SmcParamsModal` (⚙️ page
+      Analyse SMC → table `smc_params`) et `RocketsReglages` (⚙️ page
+      Analyse Rockets → table `rockets_config`) ; sections « Prescriptions
+      LLM » du Dashboard LLM et toute la chaîne ML suggestions
+      (`params_suggester`, handlers, routes, journal `ml_suggestions_log`)
+      — ses ajustements n'avaient aucun effet moteur. Code mort emporté :
+      `rockets_indicateurs.rs`, `rockets_position.rs`, `rockets_filtres.rs`
+      (crate strategies, zéro appelant). Migration 0110 : DROP des trois
+      tables. Les réglages réels restent `SmcParamsCard` (kv
+      `smc_tp*_mult`…) et `RocketsParamsCard` (`rockets_params`) — une
+      seule source de vérité par moteur.
 - [ ] **Relecture finale des prompts IA** : re-passée complète contre les
       mécaniques figées ; purge des prompts morts (`smc_signal`,
       `rockets_opportunites`) ; cohérence constitution ; formats JSON
