@@ -110,6 +110,19 @@ est validé ; c'est le saut qualitatif.
       sauts `lot<=0`, pas de partielles) est à reprendre — la garde absolue
       `MQL_TESTER` la neutralise en attendant
 
+### 0. Machine — memtest86+ (avant tout le reste, au prochain redémarrage)
+
+- [ ] **Lancer memtest86+ au prochain redémarrage** (décision propriétaire,
+      notée le 09/09) — au moins une passe complète. Motif : le 09/09,
+      rustc a segfaulté 5× dans libLLVM, zstd aussi, les workers SQLite de
+      l'api 4× — des processus sans lien, cœurs différents, tous dans
+      l'allocateur ; plus une valeur SQLite REAL devenue BLOB toute seule
+      (bit flippé dans l'octet d'en-tête). Thèse : **barrette RAM
+      instable, non-ECC donc indétectable par le noyau**. En attendant :
+      l'api tourne sur le binaire debug (stable) ; si le memtest confirme,
+      identifier/remplacer la barrette fautive puis revenir au binaire
+      release (voir `api.release-crashant`).
+
 ### 6. Finitions (fin de développement)
 
 - [ ] **Transposer l'architecture des pages d'analyse** (dossier de
