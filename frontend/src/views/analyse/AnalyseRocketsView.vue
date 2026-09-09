@@ -3,7 +3,6 @@
     titre="🚀 Analyse Rockets"
     retour-label="Rockets"
     retour-route="/rockets"
-    :synthese="bandeau"
   >
     <!-- ═══ RANGÉE 1 : dossier de décision | IA ═══ -->
     <div class="grid grid-cols-2 gap-4">
@@ -108,13 +107,6 @@ onMounted(async () => {
 })
 
 const { stats, parUnivers } = useRocketsStats(computed(() => clotes.value))
-
-const bandeau = computed(() => [
-  { label: 'clôturés', valeur: stats.value.total },
-  { label: 'win rate', valeur: `${stats.value.tauxGagnants}%`, classe: stats.value.tauxGagnants >= 50 ? 'text-emerald-400' : 'text-red-400' },
-  { label: 'R moyen', valeur: `${stats.value.rMoyen}R`, classe: stats.value.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400' },
-  { label: 'loss rate', valeur: `${stats.value.tauxSL}%`, classe: 'text-red-400' },
-])
 </script>
 
 <style scoped>

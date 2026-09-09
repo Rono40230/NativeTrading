@@ -1,6 +1,6 @@
 # ROADMAP — Native Trading AI
 
-> État au 8 septembre 2026. Cette roadmap ne contient que **ce qu'il reste à
+> État au 9 septembre 2026. Cette roadmap ne contient que **ce qu'il reste à
 > faire**. Tout l'historique livré vit dans git et dans `docs/`
 > (`AMELIORATIONS_SMC_V12.md`, `ETAPE3_*.md`, `ETAPE4_CALCUL_TRADES.md`,
 > `VALIDATION_MQL5.md` — verdict du miroir et réparation des données du 08/09).
@@ -58,9 +58,13 @@ le bilan à 20 passes (+4,92 R nets) était dominé par le seul NFP du 04/09
 ### 3. Rôles IA — accumulation puis analyse (après gate 3)
 
 - [ ] **Corrélation conviction × verdict** : ≥ 30 trades notés par la
-      conviction à l'émission (accumulation en cours, asynchrone) → décision
-      propriétaire sur un éventuel filtre — pas avant. L'IA note, elle ne
-      filtre jamais (constitution).
+      conviction à l'émission → décision propriétaire sur un éventuel
+      filtre. **Seuil franchi le 09/09 : 89 clôturés notés** (64 TP / 25 SL ;
+      aucun noté < 40). Premier aperçu : conviction moyenne 79,8 (gagnants)
+      vs 75,4 (SL) — écart réel mais modeste ; bande ≥ 70 : 49/65 gagnants
+      (75 %, +0,42 R) vs bande 40-69 : 15/24 (63 %, +0,29 R). L'étude
+      complète (significativité, par timeframe/asset) peut être lancée.
+      L'IA note, elle ne filtre jamais (constitution).
 - [x] **Analyse des passes straddle — FAIT le 08/09** : page d'analyse
       PLEIN ÉCRAN `/straddle/analyse` (les 3 modales d'analyse supprimées,
       plus d'onglets — architecture standard des analyses). Hiérarchie de
@@ -130,6 +134,20 @@ est validé ; c'est le saut qualitatif.
       en XL — par timeframe pour SMC, par univers pour Rockets — + avis IA
       en vis-à-vis + damier détails/réglages). Export PDF du rapport
       SUPPRIMÉ de la roadmap (décision 09/09 : aucun besoin).
+- [x] **Chiffres véridiques — page Analyse SMC** — FAIT le 09/09 (capture
+      auditée) : le composable cherchait des verdicts inexistants
+      (`TP1`/`TP2` majuscules vs `TP1+BE`/`TP2+BE` réels, `Expire` compté
+      clôturé) → vrais chiffres : **186 clôturés, 65 % win rate, +0,23 R**
+      (et non 247 / 1 % / −0,15 R), R via `r_realise` (vérité moteur) ;
+      tranches de score sur l'échelle réelle 6-19 (bande 9-11 la
+      meilleure : 71 % / +0,30 R) ; avis LLM sur le rail conviction
+      (`llm_valide` n'est plus alimenté depuis le 07/09) ; heatmap sur le
+      même dénominateur que le loss rate ; formats R uniformisés (+0,23 R)
+      ; KPI doublons et bandeau synthèse retirés (Rockets/SMC affichent
+      déjà leurs chiffres en XL — Straddle garde son bandeau collant).
+- [ ] **Réglage fantôme « Score min (/ 100) »** (panneau ⚙️ SMC) : non
+      consommé par le moteur et échelle incohérente avec le score réel
+      (6-19) → à retirer ou à brancher (décision propriétaire)
 - [ ] **Relecture finale des prompts IA** : re-passée complète contre les
       mécaniques figées ; purge des prompts morts (`smc_signal`,
       `rockets_opportunites`) ; cohérence constitution ; formats JSON

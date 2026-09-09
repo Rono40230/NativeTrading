@@ -1,6 +1,6 @@
 <template>
-  <!-- KPIs -->
-  <div class="grid grid-cols-5 gap-3 flex-shrink-0">
+  <!-- KPIs (masquables quand la page hôte les affiche déjà en XL) -->
+  <div v-if="!sansKpis" class="grid grid-cols-5 gap-3 flex-shrink-0">
     <div class="kpi-card text-center">
       <div class="text-xl font-bold text-white">{{ stats.total }}</div>
       <div class="text-xs text-white mt-0.5">Total clôturés</div>
@@ -11,7 +11,7 @@
     </div>
     <div class="kpi-card text-center">
       <div class="text-xl font-bold" :class="stats.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">
-        {{ stats.rMoyen }}R
+        {{ fmtR(stats.rMoyen) }}
       </div>
       <div class="text-xs text-white mt-0.5">R moyen</div>
     </div>
@@ -30,7 +30,7 @@
   </div>
 
   <!-- Tranches + répartition (colonne heatmap masquable : sansHeatmap) -->
-  <div class="grid gap-4 flex-1 min-h-0 mt-3" :class="sansHeatmap ? 'grid-cols-1' : 'grid-cols-[1fr_1.8fr]'">
+  <div class="grid gap-4 flex-1 min-h-0" :class="[sansHeatmap ? 'grid-cols-1' : 'grid-cols-[1fr_1.8fr]', sansKpis ? 'mt-0' : 'mt-3']">
     <!-- Gauche -->
     <div class="flex flex-col gap-4 min-h-0 overflow-auto pr-1">
       <slot name="gauche" />
@@ -143,6 +143,8 @@ const props = defineProps<{
   probaRepliees?: boolean
   /// Heatmap entièrement masquée — seule l'interprétation reste (Straddle).
   sansHeatmap?: boolean
+  /// KPIs masqués — la page hôte les affiche déjà en XL (SMC).
+  sansKpis?: boolean
   kValues: number[]
   tableauPertes: { lossRate: number; isActual: boolean; probs: number[] }[]
   analyseProba: {
@@ -152,6 +154,10 @@ const props = defineProps<{
 }>()
 
 const probaOuvertes = ref(!props.probaRepliees)
+
+function fmtR(v: number): string {
+  return `${v >= 0 ? '+' : ''}${v.toFixed(2)}R`
+}
 </script>
 
 <style scoped>

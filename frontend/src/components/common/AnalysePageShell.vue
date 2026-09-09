@@ -9,9 +9,11 @@
         @click="router.push(retourRoute)"
       >← {{ retourLabel }}</button>
       <h1 class="text-lg font-bold text-white shrink-0">{{ titre }}</h1>
-      <!-- Bandeau synthèse : l'essentiel reste visible pendant tout le scroll -->
+      <!-- Bandeau synthèse (optionnel — Straddle uniquement) : l'essentiel
+           reste visible pendant tout le scroll ; Rockets/SMC affichent déjà
+           leurs chiffres en XL dans le dossier de décision. -->
       <div class="ml-auto flex items-center gap-4 flex-wrap">
-        <div v-for="s in synthese" :key="s.label" class="text-center">
+        <div v-for="s in synthese ?? []" :key="s.label" class="text-center">
           <div class="text-base font-bold leading-tight" :class="s.classe ?? 'text-white'">{{ s.valeur }}</div>
           <div class="text-[9px] uppercase tracking-wide text-white">{{ s.label }}</div>
         </div>
@@ -33,7 +35,7 @@ defineProps<{
   retourLabel: string
   retourRoute: string
   /// Bandeau collant : [{label, valeur, classe?}] — l'essentiel, toujours visible.
-  synthese: { label: string; valeur: string | number; classe?: string }[]
+  synthese?: { label: string; valeur: string | number; classe?: string }[]
 }>()
 
 const router = useRouter()

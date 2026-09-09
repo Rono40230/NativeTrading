@@ -55,7 +55,7 @@ export interface Signal {
   take_profit: number[]   // [tp1, tp2, tp3]
   strategie: string
   statut: string          // 'Actif' | 'Fermé' | 'Annulé'
-  verdict: string | null  // null | 'SL' | 'TP1' | 'TP2' | 'TP3' | 'expire'
+  verdict: string | null  // null | 'SL' | 'TP1+BE' | 'TP2+BE' | 'TP3' | 'Expire'
   r_realise?: number | null
   prix_verdict: number | null
   ferme_le: number | null
