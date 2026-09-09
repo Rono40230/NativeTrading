@@ -269,6 +269,24 @@ async fn scanner(db: &Arc<Database>, bus: &BusSignaux) {
         if points_total < 7 {
             continue;
         }
+        // §4 (09/09) — véto unlocks : éliminatoire si déverrouillage daté
+        // < N jours (l'offre libérée casse la cassure). Éliminé journalisé
+        // avec raison (chasse aux faux négatifs comme les autres).
+        if let Some((date_u, source_u)) = crate::rockets_unlocks::est_veto(db, &symbole).await {
+            let quand = chrono::DateTime::from_timestamp(date_u, 0)
+                .map(|d| d.format("%d/%m/%Y").to_string())
+                .unwrap_or_else(|| "?".into());
+            tracing::info!("🚫 Veto unlock : {symbole} — déverrouillage le {quand} ({source_u})");
+            let _ = sqlx::query(
+                "UPDATE rockets_candidats SET verdict = 'Elimine', elimine_le = strftime('%s','now'),
+                        conviction_raison = ? WHERE symbole = ?",
+            )
+            .bind(format!("🚫 Veto unlock : déverrouillage le {quand} — {source_u}"))
+            .bind(&symbole)
+            .execute(db.pool())
+            .await;
+            continue;
+        }
         if ouvrir_position(db, bus, &symbole, pivot, stop, points_total, ts).await {
             nb_signaux += 1;
         }

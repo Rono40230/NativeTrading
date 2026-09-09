@@ -24,10 +24,14 @@ pub(crate) async fn depeches_pour(db: &db::Database, symbole: &str) -> Vec<Depes
         return Vec::new();
     }
     let Ok(rows) = sqlx::query(
-        "SELECT titre, COALESCE(NULLIF(resume_fr, ''), titre) AS resume, publie_le
-         FROM presse_articles
-         WHERE publie_le >= datetime('now', '-15 days')
-         ORDER BY publie_le DESC LIMIT 400",
+        // 09/09 : `resume_fr` n'existe PAS (erreur SQL avalée silencieusement
+        // → dépêches toujours vides, points news jamais attribués). La
+        // traduction vit dans news_traductions (titre_fr).
+        "SELECT a.titre AS titre, COALESCE(NULLIF(t.titre_fr, ''), a.titre) AS resume, a.publie_le AS publie_le
+         FROM presse_articles a
+         LEFT JOIN news_traductions t ON t.hash_titre = a.hash_titre
+         WHERE a.publie_le >= datetime('now', '-15 days')
+         ORDER BY a.publie_le DESC LIMIT 400",
     )
     .fetch_all(db.pool())
     .await

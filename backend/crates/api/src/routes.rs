@@ -58,6 +58,18 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::rockets_verticale::get_candidats),
         )
         .route(
+            "/api/rockets/unlocks",
+            web::get().to(crate::rockets_unlocks::lister),
+        )
+        .route(
+            "/api/rockets/unlocks",
+            web::post().to(crate::rockets_unlocks::ajouter),
+        )
+        .route(
+            "/api/rockets/unlocks/{symbole}/{date}",
+            web::delete().to(crate::rockets_unlocks::retirer),
+        )
+        .route(
             "/api/rockets/params",
             web::put().to(crate::rockets_verticale::maj_params),
         )

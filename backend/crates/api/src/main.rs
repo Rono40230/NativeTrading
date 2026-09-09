@@ -52,6 +52,7 @@ mod rockets_actions_news;
 mod rockets_actions_scanner;
 mod rockets_verticale;
 mod rockets_ia;
+mod rockets_unlocks;
 mod mt5_collecteur;
 mod mt5_etat_historique;
 mod setups_formation;
@@ -163,6 +164,7 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(ml_collecte::boucle_rattrapage(app_state.db.clone()));
     // §16 : agenda intelligent straddle — propositions IA fraîches au matin.
     tokio::spawn(creneaux_ia::boucle(app_state.db.clone()));
+    tokio::spawn(rockets_unlocks::boucle(app_state.db.clone()));
     tokio::spawn(straddle_analyste::assurer_cache(app_state.db.clone()));
     // Étape C : scanner actions quotidien — Observation silencieuse.
     tokio::spawn(rockets_actions_scanner::boucle_scanner_actions(app_state.db.clone(), poignees_runtime.bus_signaux.clone()));
