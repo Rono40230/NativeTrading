@@ -33,7 +33,7 @@
 
         <!-- 🔴 À risque -->
         <section class="bloc bloc-rouge shrink-0">
-          <PositionsARisqueTable :positions="risque" :live="live" />
+          <PositionsARisqueTable :positions="risque" :live="live" @cloturee="rechargerPositions()" />
         </section>
 
         <!-- 🟡 Neutralisées -->
@@ -62,7 +62,7 @@ import { usePositionsRockets } from '@/composables/usePositionsRockets'
 
 const router = useRouter()
 
-const { risque, neutralisees, live } = usePositionsRockets()
+const { risque, neutralisees, live, charger: rechargerPositions } = usePositionsRockets()
 </script>
 
 <style scoped>

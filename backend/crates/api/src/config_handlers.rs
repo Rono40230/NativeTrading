@@ -7,7 +7,6 @@ use crate::state::AppState;
 const CLES_AUTORISEES: &[&str] = &[
     "capital_depart",
     "risque_trade",
-    "anthropic_api_key",
     "telegram_bot_token",
     "telegram_chat_id",
     "seuil_confiance_rockets",

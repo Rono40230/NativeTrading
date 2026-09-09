@@ -1,31 +1,6 @@
 <template>
   <div class="space-y-4">
 
-    <!-- IA Vision (Anthropic) -->
-    <div class="glass-card p-4">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h2 class="text-xs uppercase font-bold text-white">IA Vision — Anthropic</h2>
-          <p class="text-xs text-white mt-0.5">Utilisée pour l'analyse de charts (Chart Import)</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <button class="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 rounded text-xs font-medium transition-colors" @click="sauvegarderAnthropic">Enregistrer</button>
-          <span v-if="anthropicSauvegarde" class="text-emerald-400 text-xs">✓</span>
-          <span v-if="anthropicErreur" class="text-red-400 text-xs">⚠️ Clé invalide</span>
-        </div>
-      </div>
-      <div class="flex gap-3 items-center">
-        <input v-model="anthropicKey" :type="afficherAnthropic ? 'text' : 'password'" placeholder="sk-ant-..."
-          autocomplete="off"
-          class="bg-gray-700 text-white rounded px-2 py-1.5 w-80 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500"
-          @keyup.enter="sauvegarderAnthropic" />
-        <button class="text-xs text-white hover:text-white transition-colors" @click="afficherAnthropic = !afficherAnthropic">
-          {{ afficherAnthropic ? '🙈 Masquer' : '👁️ Afficher' }}
-        </button>
-        <span class="text-xs text-white">Obtenir une clé : console.anthropic.com</span>
-      </div>
-    </div>
-
     <!-- Telegram -->
     <div class="glass-card p-4">
       <div class="flex items-center justify-between mb-3">
@@ -94,12 +69,6 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
 
-// ── Anthropic ─────────────────────────────────────────────────────────────────
-const anthropicKey = ref('')
-const anthropicSauvegarde = ref(false)
-const anthropicErreur = ref(false)
-const afficherAnthropic = ref(false)
-
 const telegramToken = ref('')
 const telegramChatId = ref('')
 const telegramSauvegarde = ref(false)
@@ -117,13 +86,11 @@ onUnmounted(() => timers.forEach(clearTimeout))
 
 onMounted(async () => {
   try {
-    const [key, tok, chatId, tiingo] = await Promise.all([
-      apiService.obtenirConfig('anthropic_api_key'),
+    const [tok, chatId, tiingo] = await Promise.all([
       apiService.obtenirConfig('telegram_bot_token'),
       apiService.obtenirConfig('telegram_chat_id'),
       apiService.obtenirConfig('tiingo_api_key'),
     ])
-    if (key?.valeur) anthropicKey.value = key.valeur
     if (tok?.valeur) telegramToken.value = tok.valeur
     if (chatId?.valeur) telegramChatId.value = chatId.valeur
     if (tiingo?.valeur) tiingoKey.value = tiingo.valeur
@@ -131,24 +98,6 @@ onMounted(async () => {
     // Backend non disponible — valeurs par défaut
   }
 })
-
-async function sauvegarderAnthropic() {
-  const cle = anthropicKey.value.trim()
-  if (!cle.startsWith('sk-ant-') && cle !== '') {
-    anthropicErreur.value = true
-    timers.push(setTimeout(() => { anthropicErreur.value = false }, 3000))
-    return
-  }
-  try {
-    await apiService.sauvegarderConfig('anthropic_api_key', cle)
-    anthropicSauvegarde.value = true
-    anthropicErreur.value = false
-    timers.push(setTimeout(() => { anthropicSauvegarde.value = false }, 2000))
-  } catch {
-    anthropicErreur.value = true
-    timers.push(setTimeout(() => { anthropicErreur.value = false }, 3000))
-  }
-}
 
 async function sauvegarderTelegram() {
   try {

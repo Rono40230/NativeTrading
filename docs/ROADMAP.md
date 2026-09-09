@@ -125,15 +125,15 @@ est validé ; c'est le saut qualitatif.
 
 ### 6. Finitions (fin de développement)
 
-- [ ] **Transposer l'architecture des pages d'analyse** (dossier de
-      décision + avis + damier, cf. `/straddle/analyse`) aux pages
-      `/smc/analyse` et `/rockets/analyse` — décidé le 08/09, « on verra
-      plus tard »
+- [x] **Transposer l'architecture des pages d'analyse** — FAIT le 09/09 :
+      SMC et Rockets adoptent la hiérarchie Straddle (dossier de décision
+      en XL — par timeframe pour SMC, par univers pour Rockets — + avis IA
+      en vis-à-vis + damier détails/réglages). Export PDF du rapport
+      SUPPRIMÉ de la roadmap (décision 09/09 : aucun besoin).
 - [ ] **Relecture finale des prompts IA** : re-passée complète contre les
       mécaniques figées ; purge des prompts morts (`smc_signal`,
       `rockets_opportunites`) ; cohérence constitution ; formats JSON
       robustes ; ancrage conventions ($ réels composés, R pondéré/net)
-- [ ] **Export du rapport d'activité** (PDF/Markdown)
 - [ ] **ETH** : réactiver et re-backfiller si souhaité (décision propriétaire)
 - [ ] **Pine dans TradingView** (action propriétaire) : coller le Pine de
       `docs/reference/` sous « Scalp à Nono » — vérification visuelle des

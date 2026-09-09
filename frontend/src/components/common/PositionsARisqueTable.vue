@@ -22,6 +22,7 @@
           <th class="px-2 py-1.5 text-right">R latent</th>
           <th class="px-2 py-1.5 text-right">R1</th>
           <th class="px-2 py-1.5 text-right">Vente R1</th>
+          <th class="px-2 py-1.5 text-center">⋯</th>
         </tr>
       </thead>
       <tbody>
@@ -55,16 +56,70 @@
           </td>
           <td class="px-2 py-2 text-right font-mono text-emerald-300">{{ fmt(p.r1) }}</td>
           <td class="px-2 py-2 text-right font-mono text-white/80">{{ (p.qty / 2).toFixed(2) }}</td>
+          <td class="px-2 py-2 text-center">
+            <button
+              class="px-2 py-0.5 rounded bg-red-900/40 text-red-300 hover:bg-red-800/60 border border-red-500/30 text-[9px] font-semibold transition-colors disabled:opacity-40"
+              :disabled="clotureEnCours === p.cle"
+              title="Clôturer la position au prix de marché — alimente l'historique (verdict Manuel)"
+              @click="cloturer(p)"
+            >{{ clotureEnCours === p.cle ? '…' : '✕ Clôturer' }}</button>
+          </td>
         </tr>
       </tbody>
     </table>
   </div>
+  <!-- Modale de clôture (remplace le confirm() natif — design de l'app) -->
+  <div v-if="aCloturer" class="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" @click.self="aCloturer = null">
+    <div class="rounded-xl border border-red-500/30 p-5 w-[26rem] flex flex-col gap-4" style="background:#0d1117;">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider">Clôturer la position</h3>
+        <button class="text-white hover:text-white text-lg leading-none" @click="aCloturer = null">×</button>
+      </div>
+
+      <div class="rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 flex flex-col gap-1.5 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-white text-sm">{{ aCloturer.symbole }}</span>
+          <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border"
+                :class="aCloturer.univers === 'action' ? 'bg-blue-500/10 text-blue-300 border-blue-500/30' : 'bg-amber-500/10 text-amber-300 border-amber-500/30'"
+          >{{ aCloturer.univers === 'action' ? 'Action' : 'Crypto' }}</span>
+          <span class="ml-auto text-white/60">ouverte le {{ dateCourte(aCloturer.ouvert_le) }}</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2 pt-1">
+          <div><span class="text-white/50">Entrée</span><br><span class="font-mono text-white">{{ fmt(aCloturer.entree) }}</span></div>
+          <div><span class="text-white/50">Cours ⚡</span><br><span class="font-mono text-white font-bold">{{ coursDe(live, aCloturer) ?? '—' }}</span></div>
+          <div><span class="text-white/50">R latent</span><br>
+            <span class="font-mono font-bold" :class="(rLatent(live, aCloturer) ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
+              {{ rLatent(live, aCloturer) === null ? '—' : `${(rLatent(live, aCloturer) ?? 0) >= 0 ? '+' : ''}${(rLatent(live, aCloturer) ?? 0).toFixed(2)}R` }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-white/80 leading-relaxed">
+        Sortie de <span class="text-white font-semibold">toute la position restante</span> au prix de marché.
+        Verdict <span class="text-blue-300 font-semibold">👤 Manuel</span> dans l'historique — le capital et les métriques s'ajustent.
+        <span v-if="aCloturer.trailing != null" class="block mt-1 text-white/60">Position neutralisée : les 50 % vendus à R1 restent acquis, seul le solde sort.</span>
+      </p>
+
+      <div class="flex gap-2 justify-end">
+        <button class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white transition-colors" @click="aCloturer = null">Annuler</button>
+        <button
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600/80 hover:bg-red-500 text-white transition-colors disabled:opacity-40"
+          :disabled="clotureEnCours === aCloturer.cle"
+          @click="confirmerCloture"
+        >{{ clotureEnCours === aCloturer.cle ? '⏳ Clôture…' : '✕ Clôturer au marché' }}</button>
+      </div>
+    </div>
+  </div>
+
   <p class="text-[9px] text-white/50 mt-1.5">
-    Lecture seule — le moteur neutralise dès que R1 est touché (cycle 30 s) puis le solde roule au trailing ; invalidation = sortie sèche −1R.
+    Le moteur neutralise dès que R1 est touché (cycle 30 s) puis le solde roule au trailing ; invalidation = sortie sèche −1R. « Clôturer » = sortie manuelle au prix de marché (verdict Manuel dans l'historique).
   </p>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+import { http } from '@/services/http.client'
 import {
   coursDe, tendanceDe, plLatent, rLatent, classeLigne,
   type Position,
@@ -74,6 +129,26 @@ const props = defineProps<{
   positions: Position[]
   live: Record<string, { prix: number; open: number }>
 }>()
+
+const emit = defineEmits<{ cloturee: [] }>()
+const clotureEnCours = ref('')
+const aCloturer = ref<Position | null>(null)
+
+function cloturer(p: Position) {
+  aCloturer.value = p
+}
+
+async function confirmerCloture() {
+  const p = aCloturer.value
+  if (!p) return
+  clotureEnCours.value = p.cle
+  try {
+    await http.post('/api/rockets/positions/cloturer', { cle: p.cle })
+    aCloturer.value = null
+    emit('cloturee')
+  } catch { /* position déjà fermée ou cours indisponible — le refresh dit la vérité */ }
+  clotureEnCours.value = ''
+}
 
 function titre(p: Position): string {
   const c = coursDe(props.live, p)

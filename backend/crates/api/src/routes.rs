@@ -58,6 +58,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::rockets_verticale::get_candidats),
         )
         .route(
+            "/api/rockets/positions/cloturer",
+            web::post().to(crate::rockets_cloture::cloturer_manuel),
+        )
+        .route(
             "/api/rockets/unlocks",
             web::get().to(crate::rockets_unlocks::lister),
         )
