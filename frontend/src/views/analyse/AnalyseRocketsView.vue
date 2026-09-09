@@ -73,63 +73,17 @@
       </section>
     </div>
 
-    <!-- ═══ RANGÉE 2 : détails (heatmap + interprétation) | réglages ═══ -->
-    <div class="grid grid-cols-2 gap-4">
-      <section class="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-3">
-        <div class="flex items-center gap-3 flex-wrap">
-          <span class="text-sm font-bold text-white uppercase tracking-wider">📋 Probabilités de séries de SL</span>
-          <span class="ml-auto text-xs text-white">{{ sampleSize }} trades · loss rate {{ lossRateReel }}%</span>
-        </div>
-        <div v-if="lossRateReel === 0" class="text-xs text-white italic">
-          Aucune perte enregistrée — impossible de calculer un loss rate réel.
-        </div>
-        <template v-else>
-          <div class="kpi-card space-y-2">
-            <p class="text-xs leading-relaxed">
-              Avec un loss rate de <span class="font-bold text-blue-400">{{ lossRateReel }}%</span>,
-              la probabilité de subir au moins
-              <span class="font-bold" :class="analyseProba.kCritique50 <= 3 ? 'text-red-400' : 'text-yellow-400'">{{ analyseProba.kCritique50 }} SL consécutifs</span>
-              dépasse <span class="font-bold">50%</span>.
-              ⚠️ Zone danger : série de <span class="font-bold text-red-400">{{ analyseProba.kDanger }}+ SL</span>
-              (probabilité <span class="font-bold text-red-400">{{ analyseProba.probAuKDanger }}%</span>).
-              Espérance : <span class="font-bold" :class="analyseProba.esperance >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ analyseProba.esperance }}R/trade</span>
-              — drawdown max estimé <span class="font-bold text-orange-400">−{{ analyseProba.kDanger }}R</span>.
-            </p>
-          </div>
-          <div class="overflow-auto max-h-[380px] rounded-lg">
-            <table class="text-xs border-collapse w-full">
-              <thead class="sticky top-0" style="background: #0d1117">
-                <tr>
-                  <th class="px-3 py-1.5 text-left text-white font-medium">Loss %</th>
-                  <th v-for="k in kValues" :key="k" class="px-3 py-1.5 text-center text-white font-medium">{{ k }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in tableauPertes" :key="row.lossRate">
-                  <td class="px-3 py-1 font-mono font-bold sticky left-0"
-                      :style="row.isActual ? 'background:#1e3a5f; color:#93c5fd' : 'background:#0d1117; color:#ffffff'">
-                    {{ row.lossRate }}%
-                  </td>
-                  <td v-for="(pct, ki) in row.probs" :key="ki"
-                      class="px-3 py-1 text-center font-bold"
-                      :style="{ background: couleurProba(pct), color: pct > 15 ? '#fff' : '#6b7280' }">
-                    {{ pct }}%
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </template>
-      </section>
-
-      <section class="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-3">
-        <div class="flex items-center gap-3">
-          <span class="text-sm font-bold text-white uppercase tracking-wider">⚙️ Réglages scan</span>
-          <span class="ml-auto text-xs text-white">paramètres du scanner</span>
-        </div>
-        <RocketsReglages />
-      </section>
-    </div>
+    <!-- ═══ RÉGLAGES (pleine largeur — heatmap séries SL retirée le 09/09 :
+         ~5 trades clôturés = loss rate non significatif, même verdict que
+         le straddle ; elle reviendra via le composant repliable le jour où
+         l'effectif le justifiera) ═══ -->
+    <section class="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-3">
+      <div class="flex items-center gap-3">
+        <span class="text-sm font-bold text-white uppercase tracking-wider">⚙️ Réglages scan</span>
+        <span class="ml-auto text-xs text-white">paramètres du scanner</span>
+      </div>
+      <RocketsReglages />
+    </section>
   </AnalysePageShell>
 </template>
 
@@ -153,11 +107,7 @@ onMounted(async () => {
   } catch { clotes.value = [] }
 })
 
-const {
-  stats, parUnivers,
-  kValues, sampleSize, lossRateReel,
-  tableauPertes, analyseProba, couleurProba,
-} = useRocketsStats(computed(() => clotes.value))
+const { stats, parUnivers } = useRocketsStats(computed(() => clotes.value))
 
 const bandeau = computed(() => [
   { label: 'clôturés', valeur: stats.value.total },
