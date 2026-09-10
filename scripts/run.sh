@@ -98,12 +98,12 @@ touch "$ROOT_DIR/backend/crates/db/src/lib.rs"
 # PÉRIMÉ (incident du 15/08 : générateurs censés être suspendus toujours
 # actifs, signaux Telegram non sollicités).
 # ── Profil de l'api ──────────────────────────────────────────────────────────
-# DEBUG par défaut : le binaire RELEASE corrompt le tas en production
-# (malloc_printerr → abort — coredumps 09/09 12:13, 10/09 09:52/12:08/
-# 14:38/14:40, survie 2 min à 2 h), le DEBUG est stable depuis le 09/09.
-# Revenir à release seulement après verdict memtest86+ (§0 roadmap/cockpit)
-# ET investigation du crash : API_PROFIL=release bash scripts/run.sh
-API_PROFIL="${API_PROFIL:-debug}"
+# RELEASE depuis le 10/09 soir : la cause des crashes était double — le
+# rattrapage ML intégral (corrigé : filtre snapshots manquants) ET la
+# barrette DIMM1 fautive (memtest86+ échoué le 10/09, barrette retirée,
+# 48 → 32 Go, integrity_check ok). Le passage DEBUG du 10/09 était une
+# mitigation intérimaire. En cas de doute : API_PROFIL=debug bash scripts/run.sh
+API_PROFIL="${API_PROFIL:-release}"
 
 # --bin api --bin news_collector : SEULS binaux de production (les bins
 # d'étude comme replay_v12 font segv le compilateur en release/LTO sous

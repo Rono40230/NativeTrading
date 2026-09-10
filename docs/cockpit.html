@@ -71,8 +71,8 @@
   <script type="application/json" id="etat-projet">
   {
   "synchro": {
-    "date": "2026-09-10 (soir)",
-    "commit": "7714575+ (working tree : run.sh debug — commit à l ordre)",
+    "date": "2026-09-10 (soir, post-DIMM)",
+    "commit": "acd5169+ (working tree : run.sh release + cockpit — commit à l ordre)",
     "note": "Chiffres figés à la synchro — l'app reste la seule source live. Le hook pre-commit (pré-audit) et l'audit de push restent les garants mécaniques des garde-fous."
   },
   "verticales": [
@@ -174,20 +174,6 @@
     }
   ],
   "feuille_de_route": [
-    {
-      "id": "0.1",
-      "prio": 0,
-      "titre": "memtest86+ au prochain redémarrage (+ dire si lancé le 10/09)",
-      "detail": "Thèse RAM instable (rustc segfault ×5, zstd, workers SQLite, REAL→BLOB). REBUT le 10/09 ~11h45 : la machine a redémarré et les crashes release ont PERSISTÉ (09:52, 12:08, 14:38, 14:40 — corruption de tas). Si le memtest a tourné et passe, la RAM n'est pas seule en cause → action 0.2.",
-      "echeance": "au prochain redémarrage"
-    },
-    {
-      "id": "0.2",
-      "prio": 2,
-      "titre": "Surveillance stabilité api (+ coredumps symbolisés si récidive)",
-      "detail": "Le déclencheur (rattrapage intégral) est corrigé le 10/09 — 18 min de stabilité vérifiées. Si un crash revient : coredumpctl info <pid> (le debug est symbolisé) et la pile désigne le coupable. memtest86+ reste P0 pour la thèse RAM annexe.",
-      "echeance": "après memtest"
-    },
     {
       "id": "3.1",
       "prio": 1,
@@ -295,6 +281,16 @@
     }
   ],
   "decisions": [
+    {
+      "date": "10/09 soir",
+      "titre": "« L'app s'éteint encore » — le fantôme du soir était le lanceur de l'agent",
+      "detail": "Arrêts GRÂCÉS sans coredump après CHAQUE relance par l'agent : ses tâches de fond sont récoltées par l'environnement → TERM au groupe → cleanup de run.sh. Correctif : lancement détaché (setsid). Les vrais crashs du matin (rattrapage ML + DIMM1) restaient bien corrigés."
+    },
+    {
+      "date": "10/09",
+      "titre": "RAM fautive (DIMM1) — retirée, machine certifiée saine côté logiciel",
+      "detail": "memtest86+ en échec le 10/09 → barrette DIMM1 retirée (48 → 32 Go). Checklist post-retrait exécutée le soir : ① PRAGMA integrity_check sur trading.db → ok (aucune corruption résiduelle) ; ② retour au binaire release (API_PROFIL=release), app 3/3 stable ; ③ build release 36 s, rustc sans segfault. Recommandation : une passe complète de memtest au prochain redémarrage pour certifier les 32 Go restants (le test du matin s'est arrêté à la première erreur)."
+    },
     {
       "date": "10/09",
       "titre": "App qui se fermait toute seule — cause racine : rattrapage ML",
@@ -427,8 +423,13 @@
       "garant": "convention"
     },
     {
-      "titre": "Api en profil DEBUG jusqu'au verdict memtest",
-      "detail": "run.sh lance target/debug/api (API_PROFIL=debug). Symboles = coredumps exploitables. Retour release après stabilité constatée + memtest (API_PROFIL=release).",
+      "titre": "run.sh : profil release par défaut, debug pour investigation",
+      "detail": "API_PROFIL=release (défaut depuis le 10/09 soir, RAM saine). En cas de crash inexpliqué : API_PROFIL=debug → coredumps symbolisés → coredumpctl info <pid>.",
+      "garant": "convention"
+    },
+    {
+      "titre": "Relances de l'app par l'agent : TOUJOURS détachées",
+      "detail": "setsid nohup bash scripts/run.sh … — un run.sh attaché à une tâche de fond de l'agent reçoit le TERM de sa récolte et ferme TOUTE l'app (graceful shutdown, aucun coredump — incidents du 10/09 soir). Les relances du propriétaire (terminal) ne sont pas concernées.",
       "garant": "convention"
     }
   ]
