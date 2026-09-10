@@ -71,7 +71,7 @@
   <script type="application/json" id="etat-projet">
   {
   "synchro": {
-    "date": "2026-09-10 (clôture de session)",
+    "date": "2026-09-10 (nuit, étude conviction soldée)",
     "commit": "a1b4288",
     "note": "Chiffres figés à la synchro — l'app reste la seule source live. Le hash peut avoir un commit de retard (le sien). Hook pre-commit + audit push = garants mécaniques. Lecture agent : scripts/cockpit.sh [section]."
   },
@@ -176,10 +176,10 @@
   "feuille_de_route": [
     {
       "id": "3.1",
-      "prio": 1,
-      "titre": "Étude conviction × verdict (SMC)",
-      "detail": "PRÊTE À LANCER : 89 clôturés notés (64 TP / 25 SL). Aperçu : conviction moy. 79,8 vs 75,4 ; bande ≥70 : 75 % WR (+0,42 R) vs bande 40-69 : 63 % (+0,29 R). Étude complète (significativité, par TF/asset) puis décision propriétaire. L'IA note, elle ne filtre jamais.",
-      "echeance": "immédiate"
+      "prio": 2,
+      "titre": "Re-test conviction × verdict à ~200 notés (étude du 10/09 : pas de filtre)",
+      "detail": "Étude soldée le 10/09 (96 notés : 70 TP/26 SL) : écart +3,8 pts mais p=0,38, AUC 0,56, bandes non monotones, BTC inversé → DÉCISION PROPRIÉTAIRE : aucun filtre. Re-test quand ~200 notés (ou 2-3 semaines) : fonder un filtre seulement si AUC ≥ 0,65 ET p < 0,05 ET bandes monotones. Baseline : bande 80+ WR 79 % (+6,9 R pond.) ; ΣR pondéré notés +4,6.",
+      "echeance": "~200 trades notés"
     },
     {
       "id": "1.1",
@@ -282,6 +282,11 @@
   ],
   "decisions": [
     {
+      "date": "10/09",
+      "titre": "Conviction × verdict : PAS de filtre — l'évidence ne le justifie pas",
+      "detail": "Étude complète §3.1 : corrélation non significative (p=0,38, AUC 0,56), seuils non robustes (le « meilleur » seuil 65 est un artefact), hétérogénéité par asset (BTC inversé). La conviction reste informative et continue de s'accumuler. Constitution respectée : l'IA a proposé, le propriétaire a décidé."
+    },
+    {
       "date": "10/09 soir",
       "titre": "« L'app s'éteint encore » — le fantôme du soir était le lanceur de l'agent",
       "detail": "Arrêts GRÂCÉS sans coredump après CHAQUE relance par l'agent : ses tâches de fond sont récoltées par l'environnement → TERM au groupe → cleanup de run.sh. Correctif : lancement détaché (setsid). Les vrais crashs du matin (rattrapage ML + DIMM1) restaient bien corrigés."
@@ -289,7 +294,7 @@
     {
       "date": "10/09",
       "titre": "RAM fautive (DIMM1) — retirée, machine certifiée saine côté logiciel",
-      "detail": "memtest86+ en échec le 10/09 → barrette DIMM1 retirée (48 → 32 Go). Checklist post-retrait exécutée le soir : ① PRAGMA integrity_check sur trading.db → ok (aucune corruption résiduelle) ; ② retour au binaire release (API_PROFIL=release), app 3/3 stable ; ③ build release 36 s, rustc sans segfault. Recommandation : une passe complète de memtest au prochain redémarrage pour certifier les 32 Go restants (le test du matin s'est arrêté à la première erreur)."
+      "detail": "memtest86+ en échec le 10/09 → barrette DIMM1 retirée (48 → 32 Go). Checklist post-retrait exécutée le soir : ① PRAGMA integrity_check sur trading.db → ok (aucune corruption résiduelle) ; ② retour au binaire release (API_PROFIL=release), app 3/3 stable ; ③ build release 36 s, rustc sans segfault. Recommandation : une passe complète de memtest au prochain redémarrage pour certifier les 32 Go restants (le test du matin s'est arrêté à la première erreur). Memtest de certification passé le 10/09 au soir : les 32 Go restants sont sains — chapitre RAM CLOS."
     },
     {
       "date": "10/09",
