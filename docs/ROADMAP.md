@@ -3,10 +3,13 @@
 > État au 9 septembre 2026. Cette roadmap ne contient que **ce qu'il reste à
 > faire**. Tout l'historique livré vit dans git et dans `docs/`
 > (`AMELIORATIONS_SMC_V12.md`, `ETAPE3_*.md`, `ETAPE4_CALCUL_TRADES.md`,
-> `VALIDATION_MQL5.md` — verdict du miroir et réparation des données du 08/09).
+> `VALIDATION_MQL5.md`).
 >
 > **État visé en fin de feuille de route : 0 dette technique, 0 code mort,
 > 0 fichier inutile.** Chaque chantier se termine par son propre rangement.
+>
+> **Prochaine étape identifiée (09/09)** : lancer l'étude §3 conviction ×
+> verdict — le seuil des 30 trades notés est franchi (89 clôturés notés).
 
 ---
 
@@ -14,14 +17,14 @@
 
 | Verticale | État | Moteur | IA |
 |---|---|---|---|
-| **SMC** | Officielle | v12 figé (miroir Pine/Rust/MQL5 **validé au centime le 08/09**) | Conviction à l'émission (accumulation) + analyse rapport |
-| **Straddle** | Observation prolongée (≥ 30 passes, point ~fin sept) | v2 unifié + agenda intelligent §16 + boucle de validation des créneaux | Analyste créneaux (ARMER/IGNORER) + boucle verdicts |
-| **Rockets** | Observation | Scanner D1 /10 + gestion 30 s (crypto Binance + actions Tiingo/Yahoo) | Catalyseur news + ranker + ML |
+| **SMC** | Officielle | v12 figé (miroir Pine/Rust/MQL5 validé au centime le 08/09) | Conviction à l'émission (accumulation) + analyse rapport |
+| **Straddle** | Observation prolongée (≥ 30 passes, point ~fin sept) | v2 unifié + agenda intelligent + boucle de validation des créneaux | Analyste créneaux (ARMER/IGNORER) + boucle verdicts |
+| **Rockets** | Observation | Scanner D1 /10 + gestion 30 s (crypto Binance + actions Tiingo/Yahoo) — univers figé : crypto + actions US, pas d'ETF (décision 09/09) | Catalyseur news + ranker + ML |
 
-Infrastructure saine : collecteur MT5/Axi **réparé et vérifié au centime**
-(08/09), rejeu paramétrique couplé aux réglages, capital simulé composé,
-analyste IA local (prompts éditables), Telegram (imminence seule), boucle ML v2
-alimentée par les vraies clôtures (107+ samples, XGB OOS 66,7 %).
+Infrastructure saine : collecteur MT5/Axi réparé et vérifié au centime,
+rejeu paramétrique couplé aux réglages, capital simulé composé, analyste IA
+local (prompts éditables), Telegram (imminence seule), boucle ML v2 alimentée
+par les vraies clôtures (107+ samples, XGB OOS 66,7 %).
 
 ---
 
@@ -36,8 +39,8 @@ le bilan à 20 passes (+4,92 R nets) était dominé par le seul NFP du 04/09
 - [ ] **Point de décision au seuil de 30 passes** : dossier rafraîchi,
       décomposé par source (annonces tier 1 · créneaux IA · ouvertures DAX).
       La diversification est en route : créneaux IA armés (BTC vendredi 16h ;
-      candidats vraies heures : XAU vendredi 15h = fenêtre NFP, NAS/SP
-      vendredi 16h, DAX lundi 9h — recalculés sur données réparées).
+      XAU vendredi 15h = fenêtre NFP, NAS/SP vendredi 16h, DAX lundi 9h),
+      premier tirage vendredi 11/09.
 - [ ] Si Officielle : activer le son Telegram (template prêt, dormant)
 - [ ] Rappel money management (décision 04/09) : une passe peut coûter
       −1,5 R nominal — assumé, lot inchangé
@@ -55,54 +58,28 @@ le bilan à 20 passes (+4,92 R nets) était dominé par le seul NFP du 04/09
 - [ ] Tout réglage ne bouge que sur preuve ≥ 30 trades remplis par tranche
       (anti-overfitting)
 
-### 3. Rôles IA — accumulation puis analyse (après gate 3)
+### 3. Rôles IA — accumulation puis analyse
 
-- [ ] **Corrélation conviction × verdict** : ≥ 30 trades notés par la
-      conviction à l'émission → décision propriétaire sur un éventuel
-      filtre. **Seuil franchi le 09/09 : 89 clôturés notés** (64 TP / 25 SL ;
+- [ ] **Corrélation conviction × verdict** — **PRÊTE À LANCER** : seuil des
+      30 trades notés franchi le 09/09 (89 clôturés notés : 64 TP / 25 SL ;
       aucun noté < 40). Premier aperçu : conviction moyenne 79,8 (gagnants)
       vs 75,4 (SL) — écart réel mais modeste ; bande ≥ 70 : 49/65 gagnants
       (75 %, +0,42 R) vs bande 40-69 : 15/24 (63 %, +0,29 R). L'étude
-      complète (significativité, par timeframe/asset) peut être lancée.
-      L'IA note, elle ne filtre jamais (constitution).
-- [x] **Analyse des passes straddle — FAIT le 08/09** : page d'analyse
-      PLEIN ÉCRAN `/straddle/analyse` (les 3 modales d'analyse supprimées,
-      plus d'onglets — architecture standard des analyses). Hiérarchie de
-      lecture : 🎯 dossier de décision (ΣR · n/30 · WR · passes restantes en
-      XL + tableau par source — annonces 14h30 +4,84 R sur 5 vs ouvertures
-      DAX −1,36 R sur 7 — + phrase de l'analyste), 🤖 avis complet
-      (forts/faibles/propositions priorisées/confiance), damier détails +
-      créneaux armés, paramètres. **Fraîcheur 2 vitesses** : chiffres
-      calculés EN DIRECT à chaque consultation (une passe clôturée apparaît
-      aussitôt), texte LLM en cache du jour (boot + premier accès + ↻ ;
-      table `analyse_cache`, migration 0108). Prompt éditable
-      `straddle_analyste`. Bug legacy corrigé au passage (`useStraddleStats`
-      comparait stratégie/verdicts en majuscules — l'ancienne modale
-      affichait des zéros depuis toujours ; verdict ts désormais compté
-      gagnant).
+      complète (significativité, par timeframe/asset) puis décision
+      propriétaire sur un éventuel filtre. L'IA note, elle ne filtre
+      jamais (constitution).
 - [ ] **Voile des setups SMC** : l'analyste lit annonces vs confirmés vs
       dissipés (avec `smc_scoring_detail`, journalisé depuis le 07/09) et
       identifie les caractéristiques des setups qui tiennent → décision sur
       preuve d'un éventuel filtre temps réel
-- [x] *Recommandation agenda + minutage* — couvert par l'agenda intelligent
-      §16 (créneaux statistiques notés par l'analyste, armement propriétaire)
 
 ### 4. Rockets — Extensions
 
-- [x] **Véto unlocks** — FAIT le 09/09 : table `unlocks_prochains` (PK
-      symbole+date, migration 0109), analyste IA quotidien (prompt
-      `unlock_detection`, dépêches traduites — unlocks DATÉS uniquement),
-      saisie/Retrait propriétaire (`/api/rockets/unlocks`), éliminatoire
-      < 30 j avant `ouvrir_position` (verdict `Elimine`, raison
-      « 🚫 Veto unlock »).
-- [x] **Clôture manuelle des positions** — FAIT le 09/09 : bouton ✕ dans
-      le tableau des positions à risque, modale design (récap entrée/cours/
-      R latent), clôture au prix marché (Binance/Yahoo) via
-      `fermer_signal_par_cle`, verdict « 👤 Manuel » alimentant l'historique.
-- [ ] **ETF via Tiingo** : lever l'exclusion ETF + profils 2/3/4 % dédiés —
-      après validation de l'Observation actions US
-- [ ] **Analyse par pilier** : l'analyste relie les critères du /10 aux
-      verdicts → propositions de recalibrage chiffrées
+- [ ] **Analyse par pilier** : l'analyste relie les critères du /10
+      (Fondamental 3 · Technique 3 · Chartisme 2 · Chandeliers 2, seuil
+      ≥ 7) aux verdicts → propositions de recalibrage chiffrées. Attend un
+      effectif suffisant de trades clôturés (2 à ce jour) — laisser le
+      scanner quotidien accumuler.
 
 ### 5. Exécution réelle — la prochaine frontière (§15)
 
@@ -130,42 +107,11 @@ est validé ; c'est le saut qualitatif.
       l'api 4× — des processus sans lien, cœurs différents, tous dans
       l'allocateur ; plus une valeur SQLite REAL devenue BLOB toute seule
       (bit flippé dans l'octet d'en-tête). Thèse : **barrette RAM
-      instable, non-ECC donc indétectable par le noyau**. En attendant :
-      l'api tourne sur le binaire debug (stable) ; si le memtest confirme,
-      identifier/remplacer la barrette fautive puis revenir au binaire
-      release (voir `api.release-crashant`).
+      instable, non-ECC donc indétectable par le noyau**. Si le memtest
+      confirme : identifier/remplacer la barrette fautive.
 
 ### 6. Finitions (fin de développement)
 
-- [x] **Transposer l'architecture des pages d'analyse** — FAIT le 09/09 :
-      SMC et Rockets adoptent la hiérarchie Straddle (dossier de décision
-      en XL — par timeframe pour SMC, par univers pour Rockets — + avis IA
-      en vis-à-vis + damier détails/réglages). Export PDF du rapport
-      SUPPRIMÉ de la roadmap (décision 09/09 : aucun besoin).
-- [x] **Chiffres véridiques — page Analyse SMC** — FAIT le 09/09 (capture
-      auditée) : le composable cherchait des verdicts inexistants
-      (`TP1`/`TP2` majuscules vs `TP1+BE`/`TP2+BE` réels, `Expire` compté
-      clôturé) → vrais chiffres : **186 clôturés, 65 % win rate, +0,23 R**
-      (et non 247 / 1 % / −0,15 R), R via `r_realise` (vérité moteur) ;
-      tranches de score sur l'échelle réelle 6-19 (bande 9-11 la
-      meilleure : 71 % / +0,30 R) ; avis LLM sur le rail conviction
-      (`llm_valide` n'est plus alimenté depuis le 07/09) ; heatmap sur le
-      même dénominateur que le loss rate ; formats R uniformisés (+0,23 R)
-      ; KPI doublons et bandeau synthèse retirés (Rockets/SMC affichent
-      déjà leurs chiffres en XL — Straddle garde son bandeau collant).
-- [x] **Purge des réglages fantômes** — FAIT le 09/09 (décision
-      propriétaire) : deux panneaux écrivaient des réglages qu'aucun moteur
-      ne lisait. Retirés : `SmcParamsPanel` + `SmcParamsModal` (⚙️ page
-      Analyse SMC → table `smc_params`) et `RocketsReglages` (⚙️ page
-      Analyse Rockets → table `rockets_config`) ; sections « Prescriptions
-      LLM » du Dashboard LLM et toute la chaîne ML suggestions
-      (`params_suggester`, handlers, routes, journal `ml_suggestions_log`)
-      — ses ajustements n'avaient aucun effet moteur. Code mort emporté :
-      `rockets_indicateurs.rs`, `rockets_position.rs`, `rockets_filtres.rs`
-      (crate strategies, zéro appelant). Migration 0110 : DROP des trois
-      tables. Les réglages réels restent `SmcParamsCard` (kv
-      `smc_tp*_mult`…) et `RocketsParamsCard` (`rockets_params`) — une
-      seule source de vérité par moteur.
 - [ ] **Relecture finale des prompts IA** : re-passée complète contre les
       mécaniques figées ; purge des prompts morts (`smc_signal`,
       `rockets_opportunites`) ; cohérence constitution ; formats JSON
