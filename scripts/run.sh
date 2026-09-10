@@ -97,15 +97,30 @@ touch "$ROOT_DIR/backend/crates/db/src/lib.rs"
 # Le build doit RÉUSSIR — un échec silencieux ferait tourner un binaire
 # PÉRIMÉ (incident du 15/08 : générateurs censés être suspendus toujours
 # actifs, signaux Telegram non sollicités).
+# ── Profil de l'api ──────────────────────────────────────────────────────────
+# DEBUG par défaut : le binaire RELEASE corrompt le tas en production
+# (malloc_printerr → abort — coredumps 09/09 12:13, 10/09 09:52/12:08/
+# 14:38/14:40, survie 2 min à 2 h), le DEBUG est stable depuis le 09/09.
+# Revenir à release seulement après verdict memtest86+ (§0 roadmap/cockpit)
+# ET investigation du crash : API_PROFIL=release bash scripts/run.sh
+API_PROFIL="${API_PROFIL:-debug}"
+
 # --bin api --bin news_collector : SEULS binaux de production (les bins
 # d'étude comme replay_v12 font segv le compilateur en release/LTO sous
 # pression mémoire — incident 06/09 ; compilation manuelle si besoin).
-if ! cargo build -p api --release --bin api --bin news_collector 2>&1 | grep -E "Compiling|Finished|error"; then
+# NB : cargo n'a PAS de flag --debug (profil défaut = debug, --release pour
+# release) — incident 10/09 : `--debug` faisait échouer cargo SANS être
+# détecté (grep sur « error » = succès), lançait le binaire périmé.
+CARGO_DRAPEAU="--release"
+[ "$API_PROFIL" = "debug" ] && CARGO_DRAPEAU=""
+if ! cargo build -p api $CARGO_DRAPEAU --bin api --bin news_collector > "$LOG_DIR/build-backend.log" 2>&1; then
   echo "❌ ÉCHEC du build backend — arrêt (ne pas lancer un binaire périmé)."
+  tail -5 "$LOG_DIR/build-backend.log"
   exit 1
 fi
-if [ ! -f "$ROOT_DIR/backend/target/release/api" ]; then
-  echo "❌ Binaire release introuvable après build — arrêt."
+grep -E "Compiling|Finished" "$LOG_DIR/build-backend.log" | tail -3
+if [ ! -f "$ROOT_DIR/backend/target/$API_PROFIL/api" ]; then
+  echo "❌ Binaire $API_PROFIL introuvable après build — arrêt."
   exit 1
 fi
 
@@ -140,7 +155,7 @@ sleep 0.5
 # ─── Démarrage backend ────────────────────────────────────────────────────────
 echo "🔌 Backend API → port 8080"
 DATABASE_PATH="$ROOT_DIR/data/trading.db" \
-  "$ROOT_DIR/backend/target/release/api" \
+  "$ROOT_DIR/backend/target/$API_PROFIL/api" \
   > "$LOG_DIR/backend.log" 2>&1 &
 BACKEND_PID=$!
 
@@ -163,7 +178,7 @@ done
 echo "📰 Collecteur de presse"
 pkill -x news_collector 2>/dev/null || true
 DATABASE_PATH="$ROOT_DIR/data/trading.db" \
-  "$ROOT_DIR/backend/target/release/news_collector" \
+  "$ROOT_DIR/backend/target/$API_PROFIL/news_collector" \
   > "$LOG_DIR/news_collector.log" 2>&1 &
 COLLECTOR_PID=$!
 
@@ -247,7 +262,9 @@ cleanup() {
   echo ""
   echo "🛑 Arrêt de l'application (backend + UI + serveur front)..."
   kill $BACKEND_PID $TAURI_PID ${VITE_PID:-} $TAIL_PID 2>/dev/null
-  wait 2>/dev/null
+  # wait ciblé : le bare `wait` attendait AUSSI news_collector (vivante
+  # par conception) → run.sh coincé à vie après un crash backend (10/09).
+  wait $BACKEND_PID $TAURI_PID ${VITE_PID:-} $TAIL_PID 2>/dev/null
   echo "✅ Arrêt propre — tout est clos."
 }
 trap cleanup INT TERM

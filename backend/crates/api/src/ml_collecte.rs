@@ -83,7 +83,9 @@ pub async fn boucle_rattrapage(db: Arc<Database>) {
 /// autours de l'émission (52 OHLCV via `ml::extraire_features`). Les 7
 /// contextuelles SMC ne sont pas reconstituables rétroactivement (journali-
 /// sation du scoring = §8) — elles sont posées à 0 et DOCUMENTÉES dans la
-/// doc du module. Idempotent (INSERT OR IGNORE).
+/// doc du module. Idempotent : ne sélectionne QUE les signaux sans
+/// snapshot (crash du 10/09 : le re-traitement intégral à chaque boot
+/// broyait ~576k lignes × 315 samples pendant 10 min → corruption du tas).
 pub async fn rattraper_features(db: &Arc<Database>) -> usize {
     use sqlx::Row as _;
 
@@ -91,7 +93,15 @@ pub async fn rattraper_features(db: &Arc<Database>) -> usize {
         "SELECT s.id, s.strategie, s.asset, s.timeframe, s.cree_le
          FROM signaux s
          JOIN ml_training_samples m ON m.signal_id = s.id
-         WHERE s.statut = 'Fermé' AND s.heure_entree IS NOT NULL",
+         WHERE s.statut = 'Fermé' AND s.heure_entree IS NOT NULL
+           AND (
+             (LOWER(s.strategie) LIKE '%smc%'
+              AND NOT EXISTS (SELECT 1 FROM smc_features_snapshot f WHERE f.signal_id = s.id))
+             OR (LOWER(s.strategie) LIKE '%straddle%'
+              AND NOT EXISTS (SELECT 1 FROM straddle_features_snapshot f WHERE f.signal_id = s.id))
+             OR (LOWER(s.strategie) NOT LIKE '%smc%' AND LOWER(s.strategie) NOT LIKE '%straddle%'
+              AND NOT EXISTS (SELECT 1 FROM rockets_features_snapshot f WHERE f.signal_id = s.id))
+           )",
     )
     .fetch_all(db.pool())
     .await
@@ -103,6 +113,7 @@ pub async fn rattraper_features(db: &Arc<Database>) -> usize {
         }
     };
 
+    let maintenant = chrono::Utc::now().timestamp();
     let mut écrits = 0usize;
     for r in &rows {
         let id: String = r.get("id");
@@ -112,10 +123,13 @@ pub async fn rattraper_features(db: &Arc<Database>) -> usize {
         let cree_le: i64 = r.get("cree_le");
 
         // Bougies du TF autours de l'émission (extraire_features en veut ≥60).
+        // Borné à l'âge du signal : un signal de 3 jours n'a pas besoin de
+        // 400 jours d'historique (~576k lignes en M1 pour rien).
+        let jours = (((maintenant - cree_le) / 86_400) + 3).clamp(3, 400) as u32;
         let asset_parsé = common::Asset::from(asset.as_str());
         let Ok(tf_parsé) = common::Timeframe::try_from(tf.as_str()) else { continue };
         let Ok(bougies) = db
-            .obtenir_bougies_depuis_jours(&asset_parsé, &tf_parsé, 400)
+            .obtenir_bougies_depuis_jours(&asset_parsé, &tf_parsé, jours)
             .await
         else { continue };
         // Bornes : bougies closes AVANT l'émission (le contexte du setup).
