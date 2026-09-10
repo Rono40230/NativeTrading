@@ -71,8 +71,8 @@
   <script type="application/json" id="etat-projet">
   {
   "synchro": {
-    "date": "2026-09-10 (soir, post-DIMM)",
-    "commit": "acd5169+ (working tree : run.sh release + cockpit — commit à l ordre)",
+    "date": "2026-09-10 (nuit)",
+    "commit": "3a45800+ (protocole tokens : cockpit.sh + garde-fou)",
     "note": "Chiffres figés à la synchro — l'app reste la seule source live. Le hook pre-commit (pré-audit) et l'audit de push restent les garants mécaniques des garde-fous."
   },
   "verticales": [
@@ -430,6 +430,11 @@
     {
       "titre": "Relances de l'app par l'agent : TOUJOURS détachées",
       "detail": "setsid nohup bash scripts/run.sh … — un run.sh attaché à une tâche de fond de l'agent reçoit le TERM de sa récolte et ferme TOUTE l'app (graceful shutdown, aucun coredump — incidents du 10/09 soir). Les relances du propriétaire (terminal) ne sont pas concernées.",
+      "garant": "convention"
+    },
+    {
+      "titre": "Économie de tokens — protocole de collaboration",
+      "detail": "① Le cockpit se lit EXCLUSIVEMENT via scripts/cockpit.sh [section] (extraction JSON compacte ~2-3k tokens — jamais le fichier HTML complet, ~8-10k). ② Session fraîche par jalon : le propriétaire clôt la session après chaque commit poussé + cockpit synchronisé (la conversation est le coût dominant). ③ Les calculs bruts restent hors contexte : agrégations SQL/Python, seul le résultat s'affiche ; logs filtrés avant affichage. ④ Fouilles multi-fichiers → sous-agents (le contenu reste chez eux, seul le condensé revient). ⑤ Rapports : pas de rappel de ce que le propriétaire sait déjà. ⑥ Ne jamais compacter au point de perdre une contrainte — l'état critique vit ICI.",
       "garant": "convention"
     }
   ]
