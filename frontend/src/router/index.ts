@@ -40,7 +40,6 @@ const router = createRouter({
     // Paramètres — réglages des stratégies (bouton ⚙️ de chaque page
     // stratégie ; ?strategie=SMC n'en montre qu'une).
     { path: '/donnees',    component: () => import('../views/DonneesView.vue') },
-    { path: '/parametres', component: () => import('../views/ParametresView.vue') },
   ]
 })
 

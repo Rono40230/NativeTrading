@@ -93,8 +93,8 @@
     </div>
 
     <!-- ═══ RANGÉE 2 : détails de performance ═══ (les réglages réels vivent
-         sur la page SMC via SmcParamsCard — le panneau fantôme smc_params a
-         été purgé le 09/09) -->
+         dans les modales de la carte SMC du dashboard — le panneau fantôme
+         smc_params a été purgé le 09/09) -->
     <section class="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-4">
       <div class="flex items-center gap-3 flex-wrap">
         <span class="text-sm font-bold text-white uppercase tracking-wider">📋 Détails de performance</span>

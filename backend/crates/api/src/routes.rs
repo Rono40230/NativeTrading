@@ -73,9 +73,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/rockets/unlocks/{symbole}/{date}",
             web::delete().to(crate::rockets_unlocks::retirer),
         )
-        .route(
-            "/api/rockets/params",
-            web::put().to(crate::rockets_verticale::maj_params),
+        .service(
+            web::resource("/api/rockets/params")
+                .route(web::get().to(crate::rockets_handlers::get_params))
+                .route(web::put().to(crate::rockets_verticale::maj_params)),
         )
         .route(
             "/api/setups-formation",

@@ -5,7 +5,29 @@
 //! vivent dans `rockets_params` (`/api/rockets/params`, RocketsParamsCard).
 
 use actix_web::{web, HttpResponse, Responder};
+use rockets::ProfilRisque;
+
 use crate::state::AppState;
+
+/// GET /api/rockets/params — paramètres réels du scanner (table
+/// `rockets_params`, lus par `lire_params`). Ajouté le 09/09 : la carte
+/// historique ne chargeait pas les valeurs en base (défauts affichés).
+pub async fn get_params(state: web::Data<AppState>) -> impl Responder {
+    let p = crate::rockets_verticale::lire_params(&state.db).await;
+    let profil = match p.profil {
+        ProfilRisque::PeuRisque => "PeuRisque",
+        ProfilRisque::Neutre => "Neutre",
+        ProfilRisque::Risque => "Risque",
+    };
+    HttpResponse::Ok().json(serde_json::json!({
+        "profil":             profil,
+        "plafond_position_pct": p.plafond_position_pct,
+        "trailing_pct":        p.trailing_pct,
+        "volume_pivot_mult":   p.volume_pivot_mult,
+        "cassure_min_pct":     p.cassure_min_pct,
+        "conviction_min":      p.conviction_min,
+    }))
+}
 
 /// GET /api/rockets/positions — poste d'observation des positions ouvertes
 /// (décision 05/09 : LECTURE SEULE, le moteur décide à la clôture D1).

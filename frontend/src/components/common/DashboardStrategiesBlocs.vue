@@ -20,6 +20,9 @@
           class="text-[9px] text-white"
           title="Métriques re-dérivées du TP1 réglé (re-jeu paramétrique — tous les couples armés)"
         >depuis {{ dateCourte(b.perf.clotures[0].ferme_le) }}</span>
+        <!-- Accès directs (workflow 09/09) : caractéristiques + réglages
+             en modale, par stratégie (composant dédié). -->
+        <ReglagesCarteBoutons :id="b.id" />
         <div class="ml-auto flex items-center gap-1.5 text-[10px] font-semibold whitespace-nowrap">
           <span class="px-1.5 py-0.5 rounded bg-white/10 font-mono font-bold"
                 :class="rArrondi(b.perf.r_total) > 0 ? 'text-emerald-400' : rArrondi(b.perf.r_total) < 0 ? 'text-red-400' : 'text-white'"
@@ -220,6 +223,7 @@
     <div v-if="!blocs.length && !chargement" class="flex-1 flex items-center justify-center text-sm text-white">
       Aucune stratégie active (hors construction)
     </div>
+
   </div>
 </template>
 
@@ -228,7 +232,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { http } from '@/services/http.client'
 import CourbeCapital from './CourbeCapital.vue'
-import { usePositionsRockets, plLatent, plNeutralisee } from '@/composables/usePositionsRockets' 
+import ReglagesCarteBoutons from './ReglagesCarteBoutons.vue'
+import { usePositionsRockets, plLatent, plNeutralisee } from '@/composables/usePositionsRockets'
 import { zonesCapital, type PointCapital } from '@/composables/useCourbeCapital'
 import {
   PALETTE as _PALETTE, repartition, classement, couleurTf, couleurAsset,

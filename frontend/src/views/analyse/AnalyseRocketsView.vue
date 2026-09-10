@@ -73,7 +73,8 @@
     </div>
 
     <!-- (Les réglages fantômes « scan » ont été purgés le 09/09 : les réglages
-         réels vivent sur la page Rockets via RocketsParamsCard — rockets_params.) -->
+         réels vivent dans la modale « Paramètres moteur » de la carte Rockets
+         du dashboard — table rockets_params.) -->
   </AnalysePageShell>
 </template>
 

@@ -9,9 +9,7 @@
         :class="badgeClasse"
       >{{ etat }}</span>
       <div class="ml-auto flex gap-2 shrink-0">
-        <button class="btn-sm" @click="router.push(routeDefinition)">{{ libelleDefinition }}</button>
         <button v-if="routeScanner" class="btn-sm" @click="router.push(routeScanner)">{{ libelleScanner ?? '🔭 Scanner' }}</button>
-        <button v-if="routeParametres" class="btn-sm" @click="router.push(routeParametres)">⚙️ Paramètres</button>
         <button v-if="afficherLexique" class="btn-sm" @click="lexiqueOuvert = true">📚 Lexique</button>
       </div>
     </div>
@@ -85,11 +83,6 @@ const props = withDefaults(defineProps<{
   setupsLarge?: boolean
   /** Fond teinté de la page — la couleur de sa carte du dashboard. */
   teinte?: string
-  /** Libellé du bouton d'accès aux caractéristiques (défaut « 📖 Définition »). */
-  libelleDefinition?: string
-  /** Route du bouton ⚙️ Paramètres (ex. /parametres?strategie=SMC) —
-   *  absente = bouton masqué. */
-  routeParametres?: string
   /** Route du bouton 🔭 Scanner (page dédiée) — absent = bouton masqué.
    *  Rockets : le scanner candidats vit en page propre, pas embarqué. */
   routeScanner?: string
@@ -100,11 +93,10 @@ const props = withDefaults(defineProps<{
   afficherLexique?: boolean
   icone: string
   etat?: string
-  routeDefinition: string
   lexique?: 'smc' | 'straddle' | 'rockets'
   /// Titre de la section en cours (ex. « 3 signaux en cours »).
   titreEncours?: string
-}>(), { etat: 'Observation', lexique: 'smc', libelleDefinition: '📖 Définition', afficherLexique: true })
+}>(), { etat: 'Observation', lexique: 'smc', afficherLexique: true })
 
 const router = useRouter()
 const lexiqueOuvert = ref(false)

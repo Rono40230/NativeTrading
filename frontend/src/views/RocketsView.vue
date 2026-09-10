@@ -11,9 +11,7 @@
       <h1 class="text-xl font-bold text-white truncate">Stratégie Rockets</h1>
       <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 bg-amber-500/10 text-amber-300 border-amber-500/40">Observation</span>
       <div class="ml-auto flex gap-2 shrink-0">
-        <button class="btn-sm" @click="router.push('/rockets/definition')">📖 Caractéristiques des Rockets</button>
         <button class="btn-sm" @click="router.push('/rockets/scanner')">🔭 Scanner</button>
-        <button class="btn-sm" @click="router.push('/parametres?strategie=rockets')">⚙️ Paramètres</button>
         <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="router.push('/rockets/analyse')">📊 Analyse</button>
       </div>
     </div>
