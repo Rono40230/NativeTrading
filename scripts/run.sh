@@ -105,6 +105,11 @@ touch "$ROOT_DIR/backend/crates/db/src/lib.rs"
 # mitigation intérimaire. En cas de doute : API_PROFIL=debug bash scripts/run.sh
 API_PROFIL="${API_PROFIL:-release}"
 
+# rustc segfaulte INTERMITTEMMENT en release/LTO sur cette machine (09/09,
+# 11/09 12:41 — SIGSEGV signal 11 ; le memtest 32 Go est pourtant OK). Hint
+# officiel de rustc dans le message de crash : augmenter la pile du compilateur.
+export RUST_MIN_STACK=16777216
+
 # --bin api --bin news_collector : SEULS binaux de production (les bins
 # d'étude comme replay_v12 font segv le compilateur en release/LTO sous
 # pression mémoire — incident 06/09 ; compilation manuelle si besoin).
