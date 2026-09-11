@@ -39,12 +39,13 @@ const ROUTES_DEFINITION: Record<string, string> = {
   straddle: '/straddle/definition',
   rockets: '/rockets/definition',
 }
-const ROUTES_SCANNER: Record<string, string> = { rockets: '/rockets/scanner' }
+const ROUTES_SCANNER: Record<string, string> = { SMC: '/smc/scanner', rockets: '/rockets/scanner' }
 
 interface ActionCarte { cle: string; label: string; titre: string }
 const ACTIONS: Record<string, ActionCarte[]> = {
   SMC: [
     { cle: 'definition', label: '📐 Caractéristiques', titre: 'Les caractéristiques de la stratégie SMC' },
+    { cle: 'scanner', label: '🔭 Scanner', titre: 'Setups en formation, confirmation H1/H4, journal' },
     { cle: 'parametres', label: '⚙️ Paramètres', titre: 'État, son Telegram, capital, risque' },
     { cle: 'niveaux', label: '💰 Niveaux de profits', titre: 'TP1/TP2/TP3, trailing, ventes partielles' },
     { cle: 'timeframes', label: '🕐 Choix des Timeframe/Asset', titre: 'Armement des couples générateurs de signaux' },

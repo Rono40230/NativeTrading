@@ -57,6 +57,7 @@ mod rockets_unlocks;
 mod mt5_collecteur;
 mod mt5_etat_historique;
 mod setups_formation;
+mod smc_scanner;
 mod capital_simule;
 mod reglages_smc;
 mod smc_pondere;

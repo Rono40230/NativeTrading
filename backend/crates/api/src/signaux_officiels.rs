@@ -48,9 +48,30 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
         // message d'imminence sur Telegram (selon l'état) — pas de ligne en
         // base (elle viendra à la clôture si le trade confirme).
         if s.annonce {
-            crate::setups_formation::enregistrer_annonce(
-                crate::setups_formation::depuis_annonce(m.id, &s),
-            );
+            let sf = crate::setups_formation::depuis_annonce(m.id, &s);
+            crate::setups_formation::enregistrer_annonce(sf.clone());
+            // Scanner SMC (11/09) — trace durable : le vivier mémoire est
+            // purgé à 2 h ; le journal alimente les dissipés + l'étude §3.2.
+            let _ = db::smc_setups_journal::upsert_annonce(
+                db.pool(),
+                &db::smc_setups_journal::SetupJournal {
+                    cle: sf.cle.clone(),
+                    strategie: sf.strategie.clone(),
+                    asset: sf.asset.clone(),
+                    tf: sf.tf.clone(),
+                    direction: sf.direction.clone(),
+                    force_max: sf.force as i64,
+                    entree: sf.entree,
+                    sl: sf.sl,
+                    tps: serde_json::to_string(&sf.tps).unwrap_or_default(),
+                    debut: sf.debut_barre,
+                    annonce_le: sf.ts_annonce,
+                    fin: None,
+                    issue: None,
+                    signal_id: None,
+                },
+            )
+            .await;
             if !silencieuse {
                 let reg = db.lire_strategie(m.id).await.ok().flatten();
                 if reg.as_ref().is_some_and(|r| r.notifications) {
@@ -101,6 +122,15 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
             .await;
         }
         crate::setups_formation::marquer_confirme(m.id, &s.cle);
+        // Scanner SMC (11/09) — clôture du cycle de vie : devenu signal.
+        let _ = db::smc_setups_journal::clôturer(
+            db.pool(),
+            &s.cle,
+            "signal",
+            chrono::Utc::now().timestamp(),
+            Some(&signal.id.to_string()),
+        )
+        .await;
         // §8-2 (07/09) : conviction IA à l'émission — ARRIÈRE-PLAN, jamais
         // dans le chemin du signal. L'analyste note (0-100 + raison), la
         // colonne « IA » des tableaux se remplit. Observation d'abord :

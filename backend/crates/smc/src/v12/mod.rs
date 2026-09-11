@@ -56,7 +56,7 @@ pub use kill_zones::KillZoneDetector;
 pub use lifecycle::TradeLifecycle;
 pub use liquidites::LiquiditesDetector;
 pub use mss::MssDetector;
-pub use mtf::{agreger_mensuel, AmorceMtf, MtfDetector};
+pub use mtf::{agreger_mensuel, tendance_htf, AmorceMtf, MtfDetector};
 pub use ndog::NdogDetector;
 pub use order_blocks::ObDetector;
 pub use ote::OteDetector;

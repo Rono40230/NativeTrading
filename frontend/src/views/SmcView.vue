@@ -9,13 +9,10 @@
     :ordre-poses="nbOrdresPoses(signauxActifs, 'SMC')"
     :titre-encours="`${nbEncours} ${nbEncours > 1 ? 'signaux' : 'signal'} en cours`"
   >
-    <template #setups>
-      <SetupsFormationPanel strategie="SMC" />
-      <div class="mt-3">
+    <template #encours>
+      <div class="mb-3">
         <SignauxEnAttente :signaux="signauxActifs" strategie="SMC" />
       </div>
-    </template>
-    <template #encours>
       <SignauxTableau strategie="SMC" remplis-seuls @nb-signaux="nbEncours = $event" @signaux-actifs="signauxActifs = $event" />
     </template>
     <template #historique-actions>
@@ -50,7 +47,6 @@ import StrategyShell from '@/components/common/StrategyShell.vue'
 import { nbOrdresPoses } from '@/composables/useSignalFormat'
 import SignauxTableau from '@/components/common/SignauxTableau.vue'
 import SignauxEnAttente from '@/components/common/SignauxEnAttente.vue'
-import SetupsFormationPanel from '@/components/common/SetupsFormationPanel.vue'
 import HistoryTable from '@/components/common/HistoryTable.vue'
 import { useHistoriqueStrategie } from '@/composables/useHistoriqueStrategie'
 import { formatR } from '@/composables/useSignalFormat'

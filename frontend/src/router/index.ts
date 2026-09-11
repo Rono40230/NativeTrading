@@ -13,6 +13,7 @@ const router = createRouter({
     { path: '/smc/definition',             component: () => import('../views/SmcDefinitionView.vue') },
     { path: '/straddle/definition',        component: () => import('../views/StraddleDefinitionView.vue') },
     { path: '/smc',                 component: () => import('../views/SmcView.vue') },
+    { path: '/smc/scanner',         component: () => import('../views/SmcScannerView.vue') },
     { path: '/smc/graphiques',      component: () => import('../views/ChartsView.vue') },
     { path: '/straddle',            component: () => import('../views/StraddleView.vue') },
 

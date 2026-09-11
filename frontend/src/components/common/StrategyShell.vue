@@ -31,7 +31,7 @@
           </div>
         </section>
 
-        <section class="glass-card px-4 py-3 flex flex-col min-h-0" :class="setupsLarge ? 'col-span-4' : 'col-span-5'">
+        <section class="glass-card px-4 py-3 flex flex-col min-h-0" :class="$slots.setups ? (setupsLarge ? 'col-span-4' : 'col-span-5') : ''">
           <h2 class="text-xs uppercase text-white font-semibold tracking-wider mb-2 shrink-0">
             🟢 {{ titreEncours ?? 'Trades en cours' }}
           </h2>

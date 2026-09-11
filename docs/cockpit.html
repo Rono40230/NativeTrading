@@ -233,9 +233,9 @@
     {
       "id": "3.2",
       "prio": 2,
-      "titre": "Voile des setups SMC",
-      "detail": "L'analyste lit annonces vs confirmés vs dissipés (smc_scoring_detail journalisé depuis le 07/09) → décision sur preuve d'un éventuel filtre temps réel.",
-      "echeance": "après accumulation"
+      "titre": "Voile des setups SMC — journal en place, étude après accumulation",
+      "detail": "Le socle est posé le 11/09 : table smc_setups_journal (migration 0111) — chaque setup annoncé laisse sa trace (apparition, force max, issue signal/dissipe). Le scanner SMC affiche les dissipés (faux négatifs) et les tendances H1/H4. L'étude démarre quand le journal a accumulé suffisamment de cycles (quelques semaines).",
+      "echeance": "après ~2-3 semaines de journal"
     },
     {
       "id": "4.1",

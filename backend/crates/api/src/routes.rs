@@ -285,6 +285,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::reglages_smc::get_couples),
         )
         .route(
+            "/api/smc/mtf",
+            web::get().to(crate::smc_scanner::get_mtf),
+        )
+        .route(
+            "/api/smc/setups-journal",
+            web::get().to(crate::smc_scanner::get_journal),
+        )
+        .route(
             "/api/smc/couples",
             web::put().to(crate::reglages_smc::put_couples),
         )

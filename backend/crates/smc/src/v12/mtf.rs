@@ -35,6 +35,25 @@ use super::types::{BarInput, HtfObZone, HtfState, MtfEvent};
 
 /// `i_htfSwing` (Pine ligne 1695) = 3.
 pub const HTF_SWING: usize = 3;
+
+/// Tendance HTF (f_htf Pine) calculée À LA DEMANDE sur des bougies
+/// clôturées — exposition pour le scanner SMC (11/09) : +1 bosUp, -1
+/// bosDown, 0 neutre. Même code que le MtfDetector (parité Pine),
+/// dernière bougie fermée uniquement.
+pub fn tendance_htf(candles: &[common::Candle]) -> i32 {
+    let bars: Vec<BarInput> = candles
+        .iter()
+        .map(|c| BarInput {
+            timestamp: c.timestamp.timestamp(),
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+            volume: c.volume,
+        })
+        .collect();
+    replay_htf(&bars, HTF_SWING).trend
+}
 /// Durées en secondes des TF agrégés.
 pub const H1_SEC: i64 = 3_600;
 pub const H4_SEC: i64 = 14_400;

@@ -93,9 +93,20 @@ fn resoudre(liste: &mut Vec<SetupFormation>) {
 /// d'abord : en formation d'abord, puis confirmés/dissipés de la dernière
 /// heure (traçabilité des annonces).
 pub async fn get_setups(state: web::Data<AppState>) -> impl Responder {
-    let _ = &state; // homogénéité des signatures ; l'état est en mémoire.
     let mut liste = etat().lock().unwrap_or_else(|e| e.into_inner());
     resoudre(&mut liste);
+    // Scanner SMC (11/09) — trace durable des dissolutions (idempotent :
+    // ne clôture que les lignes encore ouvertes). Avant la purge mémoire.
+    for s in liste.iter().filter(|s| s.statut == "Dissipe") {
+        let _ = db::smc_setups_journal::clôturer(
+            state.db.pool(),
+            &s.cle,
+            "dissipe",
+            s.cloture_barre + 30,
+            None,
+        )
+        .await;
+    }
     // Purge : entrées de plus de 2 h (le panneau n'a pas vocation à archiver).
     let maintenant = chrono::Utc::now().timestamp();
     liste.retain(|s| maintenant - s.ts_annonce < 2 * 3600);
