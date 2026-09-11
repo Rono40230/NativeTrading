@@ -17,7 +17,7 @@
     <!-- Moitié haute : setups + signaux ; moitié basse : historique.
          Chaque section défile en interne (aucun scroll global). -->
     <div class="flex-1 min-h-0 grid grid-rows-2 gap-3 pr-0.5">
-      <div class="grid gap-3 min-h-0 h-full" :class="setupsLarge ? 'grid-cols-5' : 'grid-cols-6'">
+      <div class="grid gap-3 min-h-0 h-full" :class="$slots.setups ? (setupsLarge ? 'grid-cols-5' : 'grid-cols-6') : 'grid-cols-1'">
         <section v-if="$slots.setups" class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-1 overflow-hidden">
           <h2 class="text-xs uppercase text-white font-semibold tracking-wider mb-2 shrink-0">
             ⏳ Setups en attente<span v-if="ordrePoses" class="text-amber-300"> · {{ ordrePoses }} ordre{{ ordrePoses > 1 ? 's' : '' }} posé{{ ordrePoses > 1 ? 's' : '' }}</span>

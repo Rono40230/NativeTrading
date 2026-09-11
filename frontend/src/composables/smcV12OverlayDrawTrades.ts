@@ -144,7 +144,7 @@ export function dessinerTradesExternes(
   ctx: CanvasRenderingContext2D,
   serie: ISeriesApi<'Candlestick'>,
   ts: TimeScale,
-  liste: (SignalDessin & { tfOrigine: string; enAttente?: boolean })[],
+  liste: (SignalDessin & { tfOrigine: string })[],
   W: number,
   dernierTs: number | null,
 ): void {
@@ -178,46 +178,6 @@ export function dessinerTradesExternes(
     const yTp = serie.priceToCoordinate(s.tp3)
     if (yEntry === null) continue
 
-    // Ordre EN ATTENTE (jamais rempli) : même géométrie qu'un trade —
-    // box SL rouge et box TP verte allégées, bordures pointillées (rien
-    // n'existe encore au marché) + badge ⏳.
-    if (s.enAttente) {
-      if (ySl !== null && Math.abs(yEntry - ySl) >= 1) {
-        const yTop = Math.min(yEntry, ySl)
-        const h = Math.abs(yEntry - ySl)
-        ctx.fillStyle = hexVersRgba(COUL_SL, 0.10)
-        ctx.fillRect(xG, yTop, xDTrade - xG, h)
-        ctx.strokeStyle = hexVersRgba(COUL_SL, 0.45)
-        ctx.lineWidth = 1
-        ctx.setLineDash([4, 3])
-        ctx.strokeRect(xG, yTop, xDTrade - xG, h)
-        ctx.setLineDash([])
-      }
-      if (yTp !== null) {
-        const yTop = Math.min(yEntry, yTp)
-        const h = Math.abs(yEntry - yTp)
-        ctx.fillStyle = hexVersRgba(COUL_TP, 0.07)
-        ctx.fillRect(xG, yTop, xDTrade - xG, h)
-        ctx.strokeStyle = hexVersRgba(COUL_TP, 0.35)
-        ctx.setLineDash([4, 3])
-        ctx.strokeRect(xG, yTop, xDTrade - xG, h)
-        ctx.setLineDash([])
-      }
-      ctx.font = 'bold 9px sans-serif'
-      const badge = `⏳ ${s.tfOrigine}`
-      const largeur = ctx.measureText(badge).width + 8
-      const yBadge = yEntry - 14 < 2 ? yEntry + 4 : yEntry - 14
-      ctx.fillStyle = 'rgba(10,12,18,0.8)'
-      ctx.fillRect(xG, yBadge, largeur, 12)
-      ctx.strokeStyle = 'rgba(148,163,184,0.5)'
-      ctx.strokeRect(xG, yBadge, largeur, 12)
-      ctx.fillStyle = '#cbd5e1'
-      ctx.textAlign = 'left'
-      ctx.textBaseline = 'top'
-      ctx.fillText(badge, xG + 4, yBadge + 2)
-      continue
-    }
-
     // Rendu IDENTIQUE au TF d'origine (décision propriétaire 28/08) :
     // boxes solides, lignes TP, ligne d'entrée — plus d'atténuation.
     const yTp1x = serie.priceToCoordinate(s.tp1)
@@ -229,7 +189,9 @@ export function dessinerTradesExternes(
       ctx.lineWidth = 1
       ctx.strokeRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - yTp))
     }
-    if (ySl !== null && Math.abs(yEntry - ySl) >= 1) {
+    // SL : effacé dès que TP1 est touché (be = tp1_hit côté replay) — même
+    // règle que le rendu du TF d'origine (le SL réel est parti à BE).
+    if (!s.be && ySl !== null && Math.abs(yEntry - ySl) >= 1) {
       const yTop = Math.min(yEntry, ySl)
       ctx.fillStyle = hexVersRgba(COUL_SL, (100 - 78) / 100)
       ctx.fillRect(xG, yTop, xDTrade - xG, Math.abs(yEntry - ySl))

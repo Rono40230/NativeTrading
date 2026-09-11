@@ -250,11 +250,21 @@ async function chargerTradesExternes() {
   try {
     const signaux = await apiService.getSignaux(150)
     type RowSign = { asset: string; timeframe: string; direction: string; statut: string; strategie: string; prix_entree: number; stop_loss: number; take_profit: number[]; score: number; heure_entree: number | null; cree_le: number; cle_moteur?: string }
+    // Décision 11/09 : seuls les ordres EN COURS (remplis) sont dessinés —
+    // les ordres POSÉS non remplis sont exclus (même sémantique que le
+    // compteur « ordres posés » : SMC = heure d'entrée absente ; straddle
+    // = heure d'entrée future).
+    const maintenant = Math.floor(Date.now() / 1000)
+    const rempli = (x: RowSign) =>
+      x.strategie.toLowerCase() === 'straddle'
+        ? (x.heure_entree ?? 0) <= maintenant
+        : x.heure_entree !== null && x.heure_entree !== undefined
     const candidats = (signaux as RowSign[])
       .filter(x =>
         x.asset === selectedAsset.value
         && x.statut === 'Actif'
-        && NOMS_DESSINES.includes(x.strategie))
+        && NOMS_DESSINES.includes(x.strategie)
+        && rempli(x))
       .slice(0, 6)
 
     // Récupérer les niveaux du REPLAY du TF d'origine (pas de la base —
@@ -287,7 +297,6 @@ async function chargerTradesExternes() {
         be: (niveaux as { be?: boolean }).be ?? false,
         label: [] as string[],
         tfOrigine: x.timeframe,
-        enAttente: x.heure_entree === null,
         // Trade ACTIF (statut Actif dans la base) : sa box vit jusqu'à la
         // barre courante — un trade de plusieurs jours doit rester visible.
         tsFin: Math.floor(Date.now() / 1000),
