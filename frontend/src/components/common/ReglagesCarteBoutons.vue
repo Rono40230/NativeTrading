@@ -39,6 +39,7 @@ const ROUTES_DEFINITION: Record<string, string> = {
   straddle: '/straddle/definition',
   rockets: '/rockets/definition',
 }
+const ROUTES_SCANNER: Record<string, string> = { rockets: '/rockets/scanner' }
 
 interface ActionCarte { cle: string; label: string; titre: string }
 const ACTIONS: Record<string, ActionCarte[]> = {
@@ -55,6 +56,7 @@ const ACTIONS: Record<string, ActionCarte[]> = {
   ],
   rockets: [
     { cle: 'definition', label: '📐 Caractéristiques', titre: 'Les caractéristiques de la stratégie Rockets' },
+    { cle: 'scanner', label: '🔭 Scanner', titre: 'Le scanner des candidats rockets' },
     { cle: 'parametres', label: '⚙️ Paramètres', titre: 'État, son Telegram, capital, risque' },
     { cle: 'moteur', label: '🛠️ Paramètres moteur', titre: 'Profil de risque, gestion et détection' },
   ],
@@ -73,6 +75,11 @@ const classeAction = computed(() => CLASSES_ACTIONS[props.id] ?? 'bg-white/10 ho
 function surAction(cle: string) {
   if (cle === 'definition') {
     const cible = ROUTES_DEFINITION[props.id]
+    if (cible) router.push(cible)
+    return
+  }
+  if (cle === 'scanner') {
+    const cible = ROUTES_SCANNER[props.id]
     if (cible) router.push(cible)
     return
   }

@@ -1,9 +1,9 @@
 <template>
-  <!-- Page Rockets (refonte layout 06/09) : colonne Setups sur TOUTE la
-       hauteur à gauche ; à droite, trois blocs au design identique (carte +
-       barre de couleur latérale), même largeur, empilés — À risque,
-       Neutralisées, Historique. Le poste d'observation est en lecture seule :
-       le moteur décide au cycle de 30 s. -->
+  <!-- Page Rockets = POSTE DE PILOTAGE (11/09) : l'état des positions (à
+       risque, neutralisées) et l'historique des trades, pleine largeur.
+       Le vivier de candidats vit au Scanner (bouton 🔭 de la carte Rockets
+       du dashboard) — l'aperçu Setups a été retiré sans perte (le Scanner
+       est un sur-ensemble). Lecture seule : le moteur décide au cycle 30 s. -->
   <div class="flex-1 min-h-0 flex flex-col gap-3 rounded-xl bg-purple-500/5 px-4 py-3">
     <!-- En-tête : identité + navigation (même design que le shell) -->
     <div class="glass-card px-4 py-3 flex items-center gap-3 shrink-0">
@@ -11,23 +11,12 @@
       <h1 class="text-xl font-bold text-white truncate">Stratégie Rockets</h1>
       <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 bg-amber-500/10 text-amber-300 border-amber-500/40">Observation</span>
       <div class="ml-auto flex gap-2 shrink-0">
-        <button class="btn-sm" @click="router.push('/rockets/scanner')">🔭 Scanner</button>
         <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="router.push('/rockets/analyse')">📊 Analyse</button>
       </div>
     </div>
 
-    <!-- Corps : setups pleine hauteur | 3 blocs empilés -->
-    <div class="flex-1 min-h-0 grid grid-cols-6 gap-3">
-      <!-- Colonne Setups — toute la hauteur -->
-      <aside class="col-span-1 min-h-0 glass-card px-4 py-3 flex flex-col">
-        <h2 class="text-xs uppercase text-white font-semibold tracking-wider mb-2 shrink-0">⏳ Setups en attente</h2>
-        <div class="flex-1 min-h-0 overflow-y-auto pr-2">
-          <RocketsSetupsApercu />
-        </div>
-      </aside>
-
-      <!-- Les trois blocs : même design, même largeur, empilés -->
-      <div class="col-span-5 min-h-0 flex flex-col gap-3">
+    <!-- Corps : les trois blocs, pleine largeur -->
+    <div class="flex-1 min-h-0 flex flex-col gap-3">
 
         <!-- 🔴 À risque -->
         <section class="bloc bloc-rouge shrink-0">
@@ -43,7 +32,6 @@
         <section class="bloc bloc-violet flex-1 min-h-0 flex flex-col overflow-hidden">
           <RocketsHistoriqueTable />
         </section>
-      </div>
     </div>
   </div>
 
@@ -52,7 +40,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import RocketsSetupsApercu from '@/components/common/RocketsSetupsApercu.vue'
 import PositionsARisqueTable from '@/components/common/PositionsARisqueTable.vue'
 import PositionsNeutraliseesTable from '@/components/common/PositionsNeutraliseesTable.vue'
 import RocketsHistoriqueTable from '@/components/common/RocketsHistoriqueTable.vue'
