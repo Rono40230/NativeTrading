@@ -1,7 +1,7 @@
 <template>
-  <!-- Métriques ML par stratégie (extraite des anciens onglets de la page
-       prompts — accès par le bouton de la tuile IA, 06/09). -->
-  <div class="flex flex-col gap-3 h-[calc(100vh-5.5rem)] overflow-hidden bg-violet-500/5 rounded-xl px-3 py-2">
+  <!-- Métriques ML par stratégie — onglet de la page Fonctionnalités IA
+       (14/09, ex-route /ia/ml) : hauteur portée par le parent. -->
+  <div class="flex flex-col gap-3 h-full">
     <div class="shrink-0 px-1">
       <h1 class="text-xl font-bold text-white">📉 Métriques ML</h1>
       <p class="text-sm text-white/80">État des réseaux par stratégie.</p>

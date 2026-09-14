@@ -16,17 +16,17 @@
 <style>
   :root { color-scheme: dark; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; padding: 24px; line-height: 1.5; }
-  .max { max-width: 1200px; margin: 0 auto; }
+  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #0d1117; color: #e6edf3; padding: 32px 40px; line-height: 1.55; }
+  .max { max-width: none; }
   h1 { font-size: 1.6rem; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: .08em; color: #93c5fd; margin: 28px 0 12px; display: flex; align-items: center; gap: 8px; }
-  .carte { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 16px; }
+  .carte { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 20px; }
   .synchro { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; background: rgba(63,133,255,.08); border: 1px solid rgba(63,133,255,.25); border-radius: 10px; padding: 10px 16px; margin: 14px 0; font-size: .85rem; }
   .synchro .hash { font-family: ui-monospace, monospace; color: #93c5fd; }
   .synchro .ecart { color: #f87171; font-weight: 700; display: none; }
-  .grille { display: grid; gap: 14px; }
-  .grille-3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
-  .grille-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+  .grille { display: grid; gap: 18px; }
+  .grille-3 { grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); }
+  .grille-2 { grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)); }
   .verticale { display: flex; flex-direction: column; gap: 10px; }
   .verticale .tete { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .verticale .nom { font-weight: 700; font-size: 1.05rem; }
@@ -68,12 +68,11 @@
   <div id="contenu"></div>
 
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
-  <script type="application/json" id="etat-projet">
-  {
+  <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "2026-09-10 (nuit, étude conviction soldée)",
-    "commit": "a1b4288",
-    "note": "Chiffres figés à la synchro — l'app reste la seule source live. Le hash peut avoir un commit de retard (le sien). Hook pre-commit + audit push = garants mécaniques. Lecture agent : scripts/cockpit.sh [section]."
+    "date": "14/09 nuit (commit de la session : KDJ 7.0→7.F, collecte C, calibration B, dashboard/workflow)",
+    "commit": "33b2fbb",
+    "note": "Session du 14/09 commitée. Le hash peut avoir un commit de retard (le sien). Hook pre-commit + audit push = garants mécaniques. Lecture agent : scripts/cockpit.sh [section]."
   },
   "verticales": [
     {
@@ -82,7 +81,7 @@
       "icone": "📐",
       "couleur": "#60a5fa",
       "etat": "Officielle",
-      "moteur": "v12 figé — miroir Pine/Rust/MQL5 validé au centime (08/09)",
+      "moteur": "v12 figé — miroir Pine/Rust/MQL5 validé au centime (08/09) ; univers 27 actifs (M1 désarmé partout, décision propriétaire 14/09) ; déviation Pine votée : alt-cryptos = profil BTC (doc reference/ecarts_pine_assumes.md)",
       "ia": "Conviction à l'émission (accumulation) + analyse rapport",
       "kpis": [
         {
@@ -106,7 +105,7 @@
           "classe": "neutre"
         }
       ],
-      "prochaine": "Étude conviction × verdict — PRÊTE (18/09 : comparatif SP500)"
+      "prochaine": "Étude conviction × verdict — PRÊTE (18/09 : comparatif SP500) ; calibration forex/métaux nouveaux après historique EA (même protocole de mesure)"
     },
     {
       "id": "straddle",
@@ -171,9 +170,53 @@
         }
       ],
       "prochaine": "Analyse par pilier — attend un effectif (laisser le scanner accumuler)"
+    },
+    {
+      "id": "kdj_halftrend",
+      "nom": "KDJ/Halftrend Intraday",
+      "icone": "📈",
+      "couleur": "#22d3ee",
+      "etat": "Observation (à armer par le propriétaire)",
+      "moteur": "live (7.E livré le 14/09) — KdjEngine runtime H1 tous actifs (parité rejeur par test), registre/carte/modales/page/analyse/définition à onglets (gabarit projet)/scanner TABLEAU gabarit Rockets (14/09, décision propriétaire : filtres type/état, 11 colonnes triables, pill Prêt LONG/SHORT — séries mini-charts retirées), table kdj_params (migration 0112), API /api/kdj/{params,scanner} ; état Construction par défaut = zéro écriture jusqu'à l'armement",
+      "ia": "aucune — moteur déterministe pur",
+      "kpis": [
+        {
+          "label": "phase",
+          "valeur": "A ✓ B ✓ D ✓ E ✓ — VERTICALE COMPLÈTE",
+          "classe": "positif"
+        },
+        {
+          "label": "moteur live",
+          "valeur": "armé H1 × 6 actifs au boot ✓ (SMC désarmé H1 : les couples vivent par KDJ) ; état Construction → signaux silencieux jusqu'à l'armement propriétaire",
+          "classe": "neutre"
+        },
+        {
+          "label": "rejeu 24 mois H1 (MT5, frais inclus)",
+          "valeur": "XAUUSD +0,12→0,38 %/trade · XAGUSD +0,19→0,66 · DAX −0,3 · BTC ±0 · SP500 −0,1",
+          "classe": "positif"
+        },
+        {
+          "label": "scanner tendance (ADX 14)",
+          "valeur": "univers 27 actifs en cours (16 vifs + 11 forex/métaux en attente historique EA) · ADX = sélecteur, pas filtre global",
+          "classe": "positif"
+        },
+        {
+          "label": "validation 3 voies",
+          "valeur": "Pine↔Rust↔MQ5 : 6/6 trades 0 divergence + parité live↔rejeur par test",
+          "classe": "positif"
+        }
+      ],
+      "prochaine": "Armement propriétaire (Observation) + mesure 30 trades H1 ; 7.F élargissement univers actions US"
     }
   ],
   "feuille_de_route": [
+    {
+      "id": "7.F",
+      "prio": 3,
+      "titre": "Mesure 30 trades sur l'univers KDJ élargi (26 actifs — TON retiré)",
+      "detail": "Univers : 16 actifs vifs (6 historiques + 10 cryptos Bybit, TON retiré le 14/09 : Bybit ne le cote pas) + 11 forex/métaux Axi en attente historique EA (MT5 ouvert requis). Collecte MTF complète le 14/09 : H4/W1/D1 backfillées (24 mois-5 ans) + WS vivant (fix args>10). Scanner = tableau gabarit Rockets. 30 trades par couple avant tout verdict.",
+      "echeance": "mesure 30 trades/couple"
+    },
     {
       "id": "3.1",
       "prio": 2,
@@ -282,6 +325,36 @@
   ],
   "decisions": [
     {
+      "date": "14/09",
+      "titre": "Workflow épuré — les cartes de navigation deviennent des boutons (décision propriétaire)",
+      "detail": "Cartes du dashboard épurées : Rapport d'activité sans ses 3 raccourcis (les analyses vivent en onglets, + onglet KDJ/Halftrend dans la page Rapport d'activité — API générique déjà prête, kdj 0/30 affiché) ; tuile Graphiques sans la liste des graphiques ouverts (alertes prix conservées) ; tuile IA sans ligne Modèle ni raccourcis — la page Fonctionnalités IA devient à 3 onglets (Prompts / Métriques ML / Dashboard LLM, anciennes routes redirigées, DashboardLlmView supprimé) ; tuile Données sans raccourcis Risque/Connexions. Rangées : [Rapport | IA] et [Graphiques | Données] côte à côte."
+    },
+    {
+      "date": "14/09",
+      "titre": "Dashboard : colonne latérale unique — tous les blocs à droite (décision propriétaire)",
+      "detail": "L'ancienne colonne gauche (Data&IA, Rapport d'activité, tuiles) est fusionnée dans la droite, ordre du propriétaire : Data&IA Engine · Sentiment · Calendrier · Revue de presse · Rapport d'activité · Graphiques · Fonctionnalités IA · Données. Le centre (horloges, créneaux, cartes stratégies) s'élargit. Colonne scrollable en interne ; calendrier borné à ~3 annonces visibles (max-h 200px + scroll) ; tuiles de navigation éclatées en 2 groupes (props ids + chargement conditionnel — une instance ne requête que ses tuiles)."
+    },
+    {
+      "date": "14/09",
+      "titre": "Alt-cryptos = profil BTC — déviation Pine Phase 4.1 votée (chantier B)",
+      "detail": "Cause racine du mutisme OB des nouveaux actifs : le Pine coupe le scoring à 0 pour tout actif hors XAU/XAG/NAS/BTC/DAX/SPX (_assetReconnu). Décision : les 10 alt-cryptos (ETH SOL ADA AVAX BNB DOGE DOT LINK LTC XRP) partagent le profil BTC intégral. Validé par rejeu 24 mois M15 : distributions superposables à BTC (p50 3 · p95 7-8 · force≥5 : 7-10 % vs gamme 3-14 % des 6 anciens). Forex/métaux nouveaux restent non reconnus jusqu'à calibrage mesuré. Doc : reference/ecarts_pine_assumes.md. Outil : etude_calibration_smc --cal BTC."
+    },
+    {
+      "date": "14/09",
+      "titre": "Collecte crypto ressuscitée — 3 bugs racines trouvés et corrigés (chantier C)",
+      "detail": "① WS muet depuis 7.F : 88 topics envoyés en messages de 48 args, Bybit v5 limite à 10 (args size >10) → souscription par lots de 10. ② Pagination backfill cassée : garde anti-boucle évaluée avant mise à jour du curseur → 1 000 bougies max par couple ; réparée (SOL H4 : 3 996). ③ Bougies en formation figées : backfill page 1 et combleur inséraient la bougie courante (close partiel à jamais, INSERT OR IGNORE) → filtre + purge 471 bougies + réécriture vérifiée au centime (ETH M15 15:45 = 2508.66 = Bybit)."
+    },
+    {
+      "date": "14/09",
+      "titre": "SMC : M1 désarmé sur les 28 actifs (geste propriétaire)",
+      "detail": "Cohérence avec la décision du 10/09 : le propriétaire a décoché M1 dans la modale Timeframe/Asset — les 28 actifs sont désormais explicites en config (M5/M15/M30), plus aucun défaut armé. La collecte continue sur tous les TF, seuls les moteurs de signaux se taisent en M1."
+    },
+    {
+      "date": "14/09",
+      "titre": "TON retiré de l'univers",
+      "detail": "Bybit répond 0 kline à TONUSDT (symbole non coté) : asset muet depuis l'ajout. Retiré (assets, asset_params, armement SMC). Univers : 27 actifs."
+    },
+    {
       "date": "11/09",
       "titre": "Scanner SMC v2 — la salle de marché (auto-TF, règle A)",
       "detail": "Mini-graphique par asset (OB + zones achat/vente + niveaux des setups vivants, prix temps réel). Sélecteur AUTO par défaut : chaque carte montre le TF de son meilleur setup annoncé — force d'abord, alignement H1/H4 départage (règle A, décision propriétaire), repli M15. Cartes cliquables → grand graphique ; interrupteur « alignés HTF » (lecture seule)."
@@ -355,7 +428,7 @@
   "regles_transverses": [
     {
       "titre": "Pine = étalon",
-      "detail": "Moteur v12 figé sur le Pine (md5 vérifié). Toute déviation = bug Rust/MQL5, jamais « amélioration »."
+      "detail": "Moteur v12 figé sur le Pine (md5 vérifié). Toute déviation = bug Rust/MQL5, jamais « amélioration » — SAUF écarts votés par le propriétaire, listés dans reference/ecarts_pine_assumes.md (14/09 : alt-cryptos = profil BTC)."
     },
     {
       "titre": "Discussion avant construction",
@@ -384,7 +457,8 @@
     {
       "titre": "Zéro dette en sortie de chantier",
       "detail": "Pas de code mort, pas de fichier orphelin, pas de dette laissée derrière."
-    }
+    },
+    "Un asset ajouté = sa ligne asset_params créée (sizing du lot au signal) — automatisé dans ajouter_asset le 14/09, défauts par type calqués sur les références (crypto=ETH, JPY=crosses, forex=EURUSD, métal=XAU, indice=DAX)"
   ],
   "garde_fous_codage": [
     {
@@ -453,8 +527,7 @@
       "garant": "convention"
     }
   ]
-}
-  </script>
+}</script>
 
   <script>
   // ── Rendu : projection du JSON ci-dessus — ne pas éditer le DOM à la main ──

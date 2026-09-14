@@ -1,12 +1,15 @@
 <template>
   <!-- Hub de navigation (refonte 01/09) : 4 tuiles cliquables qui
-       remplacent les menus de la barre de titre. Empilées dans la colonne
-       gauche du dashboard (sous la surveillance assets), scroll interne
-       si la fenêtre est basse. Chaque tuile ouvre sa page et affiche un
-       aperçu live de son contenu. -->
-  <div class="flex flex-col gap-2 flex-1 min-h-0 overflow-y-auto pr-0.5">
+       remplacent les menus de la barre de titre. Depuis le 14/09 elles
+       vivent dans la colonne latérale unique du dashboard, en deux
+       groupes (l'ordre est celui du propriétaire : presse entre le
+       calendrier et le rapport d'activité, puis graphiques/IA/données).
+       Chaque tuile ouvre sa page et affiche un aperçu live de son
+       contenu ; `ids` sélectionne les tuiles rendues (et donc les
+       données chargées — pas de requête pour une tuile absente). -->
+  <div class="flex flex-col gap-2 shrink-0">
     <div
-      v-for="t in tuiles"
+      v-for="t in tuilesAffichees"
       :key="t.id"
       class="rounded-xl border backdrop-blur-sm p-2.5 flex flex-col gap-1.5 shrink-0 cursor-pointer transition-colors"
       :class="TEINTES[t.id]"
@@ -26,24 +29,11 @@
         </div>
       </template>
 
-      <!-- 📈 Graphiques : slots de la grille (cliquables) + alertes prix actives -->
+      <!-- 📈 Graphiques : alertes prix actives (fusion de l'ancien bloc 🔔).
+           La liste des graphiques ouverts est retirée (14/09) — la page
+           Graphiques montre la grille. -->
       <template v-else-if="t.id === 'graphiques'">
-        <div v-if="!slots.length" class="text-[10px] text-white leading-snug">Aucune grille sauvegardée — ouvrez la page Graphiques pour la composer</div>
-        <div
-          v-for="s in slots"
-          :key="s.asset + s.timeframe"
-          class="flex items-center gap-1.5 rounded px-0.5 -mx-0.5 hover:bg-white/10 transition-colors"
-          title="Ouvrir ce graphique"
-          @click.stop="ouvrirGraphique(s.asset, s.timeframe)"
-        >
-          <span class="text-[10px] font-semibold text-white w-16 shrink-0 truncate">{{ s.asset }}</span>
-          <span class="text-[10px] font-mono text-white w-14 shrink-0 text-right">{{ formaterPrix(prixStore.getPrix(s.asset)) }}</span>
-          <span class="text-[10px] font-mono shrink-0" :class="(variations[s.asset] ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
-            {{ variations[s.asset] === null || variations[s.asset] === undefined ? '' : `${(variations[s.asset] ?? 0) >= 0 ? '▲' : '▼'} ${Math.abs(variations[s.asset] ?? 0).toFixed(2)} %` }}
-          </span>
-        </div>
-        <!-- Alertes prix actives (fusion de l'ancien bloc 🔔 dédié) -->
-        <div v-if="alertesActives.length" class="mt-auto pt-1.5 border-t border-white/10 flex flex-col gap-1">
+        <div v-if="alertesActives.length" class="flex flex-col gap-1">
           <div v-for="a in alertesActives" :key="a.id" class="flex items-center gap-1.5" :title="titreAlerte(a)">
             <span class="text-[10px]">{{ a.sens === 'en_dessous' ? '🔻' : '🔺' }}</span>
             <span class="text-[10px] font-semibold text-white truncate">{{ a.asset }}</span>
@@ -54,37 +44,30 @@
         </div>
       </template>
 
-      <!-- 🧠 IA : modèle + raccourci prompts (analyse graphique et coach
-           retirés le 06/09 — décision propriétaire). -->
-      <template v-else-if="t.id === 'ia'">
-        <span class="text-[10px] text-white truncate">{{ modele ? `Modèle : ${modele}` : 'Statut IA indisponible' }} {{ ollamaOk === false ? '· Ollama ⚠️' : '' }}</span>
-        <div class="mt-auto flex gap-1">
-          <button v-for="r in raccourcisIa" :key="r.to" class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-white transition-colors" @click.stop="router.push(r.to)">{{ r.label }}</button>
-        </div>
-      </template>
-
-      <!-- ⚙️ Système : raccourcis (l'état EA/Tiingo vit dans Data & IA Engine) -->
-      <template v-else>
-        <div class="mt-auto flex gap-1">
-          <button v-for="r in raccourcisSysteme" :key="r.to" class="text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-white transition-colors" @click.stop="router.push(r.to)">{{ r.label }}</button>
-        </div>
-      </template>
+      <!-- 🧠 IA et 📦 Données : boutons simples (14/09) — les raccourcis
+           vivent en onglets dans la page Fonctionnalités IA ; l'état
+           EA/Tiingo vit dans Data & IA Engine. -->
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { presseApi, type ArticlePresse } from '@/services/api.presse'
 import { alertesApi } from '@/services/api.alertes'
-import { apiService } from '@/services/api.service'
-import { usePrixStore } from '@/stores/prix.store'
-import { CLE_SLOTS, ciblerPremierSlot } from '@/utils/graphiques'
+import { ciblerPremierSlot } from '@/utils/graphiques'
 import type { AlertePrix } from '@/services/api.alertes'
 
+/// Tuiles rendues par cette instance — le dashboard les place en deux
+/// groupes depuis le 14/09 (presse entre calendrier et rapport, puis
+/// graphiques/IA/données). Défaut : les quatre (comportement d'origine).
+const props = withDefaults(defineProps<{ ids?: string[] }>(), {
+  ids: () => ['presse', 'graphiques', 'ia', 'systeme'],
+})
+const affiche = (id: string) => props.ids.includes(id)
+
 const router = useRouter()
-const prixStore = usePrixStore()
 
 /// Teinte de chaque tuile — la couleur voyage jusqu'à la page ouverte.
 const TEINTES: Record<string, string> = {
@@ -101,16 +84,7 @@ const tuiles = [
   { id: 'systeme', icone: '📦', label: 'Données', route: '/donnees' },
 ] as const
 
-const raccourcisIa = [
-  { to: '/ia', label: '✏️ Prompts' },
-  { to: '/ia/ml', label: '📉 Métriques ML' },
-  { to: '/ia/llm', label: '🤖 Dashboard LLM' },
-]
-
-const raccourcisSysteme = [
-  { to: '/donnees?tab=risque', label: '📊 Risque' },
-  { to: '/donnees?tab=connexions', label: '🔌 Connexions' },
-]
+const tuilesAffichees = computed(() => tuiles.filter(t => affiche(t.id)))
 
 // ── Presse : 3 derniers articles ─────────────────────────────────────────────
 const articles = ref<ArticlePresse[]>([])
@@ -128,10 +102,8 @@ function ageTs(ts: number): string {
   return `${Math.floor(s / 86400)}j`
 }
 
-// ── Graphiques : slots sauvegardés + prix + variations D1 ────────────────────
-type Slot = { asset: string; timeframe: string }
-const slots = ref<Slot[]>([])
-const variations = ref<Record<string, number | null>>({})
+// ── Graphiques : alertes prix actives (l'ancienne liste des slots de la
+//    grille est retirée le 14/09 — décision propriétaire) ────────────────────
 const alertesActives = ref<AlertePrix[]>([])
 
 /// Ouvre la page Graphiques sur un asset précis (premier slot ciblé).
@@ -158,54 +130,36 @@ function formaterPrix(p: number | null): string {
   return p.toFixed(4)
 }
 
-// ── IA : modèle actif (statut Ollama) ────────────────────────────────────────
-const modele = ref('')
-const ollamaOk = ref<boolean | null>(null)
+// ── IA : plus d'aperçu (14/09) — la ligne « Modèle » est retirée, les
+//    raccourcis vivent en onglets dans la page Fonctionnalités IA ────────────
 
 async function chargerTout() {
-  try {
-    const liste = await presseApi.articles({ page: 1 })
-    articles.value = [...liste]
-      .sort((a, b) => Date.parse(b.publie_le) - Date.parse(a.publie_le))
-      .slice(0, 3)
-  } catch { articles.value = [] }
-
-  try {
-    const slotsLus = JSON.parse(localStorage.getItem(CLE_SLOTS) ?? '[]') as Slot[]
-    slots.value = Array.isArray(slotsLus) ? slotsLus.slice(0, 6) : []
-  } catch { slots.value = [] }
-
-  try {
-    const alertes = await alertesApi.lister()
-    alertesActives.value = alertes.filter(a => a.active)
-    // Rattrapage (hérité de l'ancien bloc 🔔) : une alerte déclenchée ne
-    // doit exister nulle part. Les graphs la suppriment en notifiant
-    // (son + OS, poll 10 s) ; on nettoie ici les déclenchées de plus de
-    // 2 minutes, fenêtre laissée aux charts pour la notification.
-    const vieilles = alertes.filter(
-      a => !a.active && a.declenchee_le && Date.now() / 1000 - a.declenchee_le > 120,
-    )
-    if (vieilles.length) {
-      await Promise.all(vieilles.map(a => alertesApi.supprimer(a.id).catch(() => null)))
-    }
-  } catch { alertesActives.value = [] }
-
-  // Variation journalière (D1) de chaque asset de la grille.
-  await Promise.allSettled(slots.value.map(async s => {
+  // Chaque instance ne charge que les données des tuiles qu'elle rend.
+  if (affiche('presse')) {
     try {
-      const bougies = await apiService.getCandles(s.asset, 'D1', 2)
-      const a = bougies.at(-1)?.close
-      const b = bougies.at(-2)?.close
-      variations.value[s.asset] = a != null && b != null && b !== 0 ? ((a - b) / b) * 100 : null
-    } catch { variations.value[s.asset] = null }
-  }))
+      const liste = await presseApi.articles({ page: 1 })
+      articles.value = [...liste]
+        .sort((a, b) => Date.parse(b.publie_le) - Date.parse(a.publie_le))
+        .slice(0, 3)
+    } catch { articles.value = [] }
+  }
 
-  try {
-    const ia = await apiService.statutIA()
-    modele.value = ia.modele ?? ''
-    ollamaOk.value = ia.ollama_disponible
-  } catch { modele.value = ''; ollamaOk.value = false }
-
+  if (affiche('graphiques')) {
+    try {
+      const alertes = await alertesApi.lister()
+      alertesActives.value = alertes.filter(a => a.active)
+      // Rattrapage (hérité de l'ancien bloc 🔔) : une alerte déclenchée ne
+      // doit exister nulle part. Les graphs la suppriment en notifiant
+      // (son + OS, poll 10 s) ; on nettoie ici les déclenchées de plus de
+      // 2 minutes, fenêtre laissée aux charts pour la notification.
+      const vieilles = alertes.filter(
+        a => !a.active && a.declenchee_le && Date.now() / 1000 - a.declenchee_le > 120,
+      )
+      if (vieilles.length) {
+        await Promise.all(vieilles.map(a => alertesApi.supprimer(a.id).catch(() => null)))
+      }
+    } catch { alertesActives.value = [] }
+  }
 }
 
 let poll: ReturnType<typeof setInterval> | null = null

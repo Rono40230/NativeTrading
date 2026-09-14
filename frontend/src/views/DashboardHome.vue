@@ -1,57 +1,49 @@
 <template>
-  <!-- Layout 2 colonnes : contenu | sentiment+calendrier (la revue de presse
-       vit dans sa propre vue /presse) -->
+  <!-- Layout 2 zones : contenu élargi | colonne latérale unique (décision
+       14/09 : l'ancienne colonne gauche est fusionnée dans la droite, dans
+       l'ordre du propriétaire — Data&IA, Sentiment, Calendrier, Presse,
+       Rapport d'activité, Graphiques, IA, Données). -->
   <div class="flex flex-col gap-3">
-    <!-- Hauteur définie sur la rangée : les colonnes ne dépassent JAMAIS la
-         page — seul le centre (cartes stratégies) scrolle en bloc, les
-         contenus des blocs scrollent en interne (calendrier, tuiles). -->
+    <!-- Hauteur définie sur la rangée : les zones ne dépassent JAMAIS la
+         page — le centre (cartes stratégies) scrolle en bloc, la colonne
+         latérale scrolle en interne (8 blocs empilés). -->
     <div class="flex gap-3 h-[calc(100vh-5.5rem)]">
 
-    <!-- Contenu principal -->
-    <div class="flex-1 min-w-0 flex flex-col gap-2 min-h-0 overflow-hidden pb-1">
-
-      <div class="flex gap-2 flex-1 min-h-0">
-        <!-- Colonne gauche (remonte en haut de page) : statut, alertes prix,
-             surveillance, créneaux -->
-        <div class="w-64 shrink-0 flex flex-col gap-2 min-h-0">
-          <DashboardSystemStatus
-            :backend-ok="backendOk"
-            :btc-prix="btcPrix"
-            :ollama-ok="ollamaOk"
-            class="shrink-0"
-          />
-          <!-- Rapport d'activité : 3 boutons par stratégie, clic sur le bloc =
-               vue d'ensemble (toutes les analyses). -->
-          <DashboardRapportActivite class="shrink-0" />
-          <!-- Hub de navigation : presse, graphiques, IA, système (refonte
-               01/09) — tuiles empilées sous la surveillance, scroll interne
-               si la fenêtre est basse. -->
-          <DashboardTuilesNavigation />
-        </div>
-
-        <!-- Centre : horloges en TÊTE (même largeur que les blocs stratégies),
-             puis blocs par stratégie (courbe R + stats + signaux en cours). -->
-        <div class="flex-1 min-w-0 min-h-0 flex flex-col gap-2">
-          <MarketClocks class="shrink-0 h-[130px]" />
-          <CreneauxVolatiliteBloc class="shrink-0" />
-          <div class="flex-1 min-h-0">
-            <DashboardStrategiesBlocs />
-          </div>
+      <!-- Contenu principal : horloges en TÊTE, créneaux, puis blocs par
+           stratégie (courbe R + stats + signaux en cours). -->
+      <div class="flex-1 min-w-0 flex flex-col gap-2 min-h-0 overflow-hidden pb-1">
+        <MarketClocks class="shrink-0 h-[130px]" />
+        <CreneauxVolatiliteBloc class="shrink-0" />
+        <div class="flex-1 min-h-0">
+          <DashboardStrategiesBlocs />
         </div>
       </div>
-    </div>
 
-      <!-- Colonne droite : Sentiment + Calendrier -->
-      <aside class="w-80 shrink-0 h-full min-h-0 flex flex-col gap-3 overflow-hidden">
+      <!-- Colonne latérale : TOUS les blocs de suivi, scroll interne -->
+      <aside class="w-96 shrink-0 h-full min-h-0 flex flex-col gap-3 overflow-y-auto pr-0.5">
+        <DashboardSystemStatus
+          :backend-ok="backendOk"
+          :btc-prix="btcPrix"
+          :ollama-ok="ollamaOk"
+          class="shrink-0"
+        />
         <SentimentMarche class="shrink-0" />
-        <div class="flex-1 min-h-0">
-          <EconomicCalendar class="h-full" />
+        <EconomicCalendar class="shrink-0" />
+        <DashboardTuilesNavigation :ids="['presse']" class="shrink-0" />
+        <!-- Rangées de boutons (14/09) : rapport + IA, puis graphiques +
+             données — mêmes hauteurs, cartes épurées cliquables. -->
+        <div class="grid grid-cols-2 gap-2 shrink-0">
+          <DashboardRapportActivite />
+          <DashboardTuilesNavigation :ids="['ia']" />
+        </div>
+        <div class="grid grid-cols-2 gap-2 shrink-0 items-start">
+          <DashboardTuilesNavigation :ids="['graphiques']" />
+          <DashboardTuilesNavigation :ids="['systeme']" />
         </div>
       </aside>
 
     </div>
   </div>
-
 </template>
 
 <script setup lang="ts">
@@ -72,8 +64,6 @@ import CreneauxVolatiliteBloc from '@/components/common/CreneauxVolatiliteBloc.v
 import DashboardStrategiesBlocs from '@/components/common/DashboardStrategiesBlocs.vue'
 import DashboardTuilesNavigation from '@/components/common/DashboardTuilesNavigation.vue'
 
-type VariationsMultiTF = { h1: number | null; h4: number | null; d1: number | null; w1: number | null; m1: number | null }
-
 const signalStore = useSignalStore()
 const settingsStore = useSettingsStore()
 const prixStore = usePrixStore()
@@ -84,7 +74,7 @@ const assetsStore = useAssetsStore()
 const mlPret = computed(() => signalStore.prediction?.modele_pret ?? false)
 const backendOk = ref(false)
 const ollamaOk = ref<boolean | null>(null)
-  
+
 
 const btcPrix = computed(() => prixStore.getPrix('BTC'))
 

@@ -1,15 +1,17 @@
 <template>
-  <div class="glass-card p-4 flex flex-col h-full">
+  <div class="glass-card p-4 flex flex-col shrink-0">
     <div class="flex items-center justify-between mb-3 shrink-0">
       <h3 class="text-sm font-semibold text-white">📅 Calendrier économique</h3>
     </div>
 
     <div v-if="chargement" class="text-white text-xs text-center py-3 shrink-0">Chargement…</div>
     <div v-else-if="annonces.length === 0" class="text-white text-xs text-center py-3 shrink-0">
-      Aucune annonce à venir (7j)
+      Aucune annonce à fort impact à venir (7j)
     </div>
 
-    <div v-else class="flex flex-col gap-1.5 overflow-y-auto scroll-zone flex-1 pr-0.5">
+    <!-- Fenêtre d'environ 3 annonces (décision 14/09) : le reste défile
+         dans le bloc — le calendrier ne mange plus la colonne. -->
+    <div v-else class="flex flex-col gap-1.5 overflow-y-auto scroll-zone max-h-[200px] pr-0.5">
       <div
         v-for="a in annonces"
         :key="a.id"
@@ -82,7 +84,10 @@ const annoncesAlertees = new Set<string>()
 async function charger() {
   chargement.value = true
   try {
-    annonces.value = await apiService.obtenirCalendrier(7)
+    // Décision 14/09 : le dashboard ne montre que les événements à FORT
+    // impact (rouge) — les impacts moyens/orange polluaient la colonne.
+    annonces.value = (await apiService.obtenirCalendrier(7))
+      .filter((a: AnnonceCalendrier) => a.impact === 'High')
   } catch {
     // Dégradation silencieuse — liste vide
   } finally {

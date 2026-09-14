@@ -1,8 +1,16 @@
 <template>
   <div class="glass-card px-4 py-2 flex flex-col gap-1.5">
-    <div class="flex items-center justify-between shrink-0 gap-2">
-      <p class="text-[11px] font-semibold text-white uppercase tracking-widest">⏰ Créneaux de volatilité</p>
-      <div class="flex items-center gap-1.5 min-w-0">
+    <!-- En-tête cliquable : le bloc est repliable (défaut replié) —
+         l'univers élargi (27 actifs) rendait la grille envahissante. -->
+    <div class="flex items-center justify-between shrink-0 gap-2 cursor-pointer select-none" @click="ouvert = !ouvert">
+      <p class="text-[11px] font-semibold text-white uppercase tracking-widest">
+        <span class="inline-block transition-transform" :class="ouvert ? 'rotate-90' : ''">▸</span>
+        ⏰ Créneaux de volatilité
+        <span v-if="!ouvert && cartes.length" class="text-white font-normal normal-case tracking-normal">
+          · {{ cartes.length }} actifs
+        </span>
+      </p>
+      <div class="flex items-center gap-1.5 min-w-0" @click.stop>
         <span class="text-[9px] text-white truncate">{{ jourLabel }} · heures Paris · 24 mois d'historique</span>
         <button
           class="h-5 w-5 shrink-0 flex items-center justify-center rounded bg-white/5 border border-white/10 hover:bg-white/10 text-[10px] text-white transition-colors"
@@ -12,12 +20,13 @@
       </div>
     </div>
 
-    <div v-if="chargement" class="text-center text-white text-xs py-3">Calcul…</div>
-    <div v-else-if="!cartes.length" class="text-center text-white text-xs py-3">Aucune donnée</div>
+    <div v-if="ouvert && chargement" class="text-center text-white text-xs py-3">Calcul…</div>
+    <div v-else-if="ouvert && !cartes.length" class="text-center text-white text-xs py-3">Aucune donnée</div>
 
-    <template v-else>
-      <!-- Cartes 2×3 : titre au format complet (repli naturel) + mini-barre -->
-      <div class="grid grid-cols-2 gap-1.5">
+    <template v-if="ouvert && cartes.length">
+      <!-- Cartes 2×3 : titre au format complet (repli naturel) + mini-barre.
+           Hauteur plafonnée + scroll interne : jamais envahissant. -->
+      <div class="grid grid-cols-2 gap-1.5 max-h-[38vh] overflow-y-auto pr-0.5">
         <div v-for="c in cartes" :key="c.asset"
           class="rounded-lg border border-white/10 bg-black/20 p-2 flex flex-col gap-1">
           <div class="text-[9px] leading-snug text-white" :title="titreLigne(c)">
@@ -80,6 +89,9 @@ const donnees = ref<ReponsePatternsVolatilite[]>([])
 const chargement = ref(true)
 const maintenant = ref(new Date())
 const router = useRouter()
+/// Bloc repliable — replié par défaut (14/09) : l'univers élargi rendait la
+/// grille de cartes envahissante sur le dashboard.
+const ouvert = ref(false)
 
 let horloge: ReturnType<typeof setInterval> | null = null
 

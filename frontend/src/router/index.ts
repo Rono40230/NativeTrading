@@ -16,6 +16,9 @@ const router = createRouter({
     { path: '/smc/scanner',         component: () => import('../views/SmcScannerView.vue') },
     { path: '/smc/graphiques',      component: () => import('../views/ChartsView.vue') },
     { path: '/straddle',            component: () => import('../views/StraddleView.vue') },
+    { path: '/kdj',                component: () => import('../views/KdjView.vue') },
+    { path: '/kdj/definition',     component: () => import('../views/KdjDefinitionView.vue') },
+    { path: '/kdj/scanner',        component: () => import('../views/KdjScannerView.vue') },
 
 
     // Performance
@@ -27,12 +30,13 @@ const router = createRouter({
     { path: '/straddle/analyse', component: () => import('../views/analyse/AnalyseStraddleView.vue') },
     { path: '/smc/analyse',      component: () => import('../views/analyse/AnalyseSmcView.vue') },
     { path: '/rockets/analyse',  component: () => import('../views/analyse/AnalyseRocketsView.vue') },
+    { path: '/kdj/analyse',      component: () => import('../views/analyse/AnalyseKdjView.vue') },
 
-    // Outils IA — prompts + les deux tableaux (boutons de la tuile IA,
-    // ex-onglets de la page prompts, 06/09).
-    { path: '/ia',            component: () => import('../views/IaView.vue') },
-    { path: '/ia/ml',         component: () => import('../views/MetriquesMLView.vue') },
-    { path: '/ia/llm',        component: () => import('../views/DashboardLlmView.vue') },
+    // Fonctionnalités IA — page à 3 onglets (14/09) : les anciennes routes
+    // /ia/ml et /ia/llm redirigent vers l'onglet correspondant.
+    { path: '/ia', component: () => import('../views/IaView.vue') },
+    { path: '/ia/ml',  redirect: { path: '/ia', query: { onglet: 'ml' } } },
+    { path: '/ia/llm', redirect: { path: '/ia', query: { onglet: 'llm' } } },
 
     // Presse
     { path: '/presse', component: () => import('../views/PresseView.vue') },

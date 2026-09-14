@@ -315,6 +315,7 @@ const NOMS: Record<string, { nom: string; icone: string }> = {
   SMC: { nom: 'Stratégie SMC', icone: '📐' },
   straddle: { nom: 'Stratégie Straddle', icone: '⚡' },
   rockets: { nom: 'Stratégie Rockets', icone: '🚀' },
+  kdj_halftrend: { nom: 'Stratégie KDJ/Halftrend', icone: '📈' },
 }
 
 const a = ref<AnalyseStrategie | null>(null)

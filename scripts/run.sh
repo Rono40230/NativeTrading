@@ -224,6 +224,11 @@ if [ -f "$TAURI_BIN" ]; then
   # démarrage (même logique que le cargo build backend) + serveur `vite
   # preview` sur 127.0.0.1 EXPLICITE — déterministe, sert exactement le
   # dist construit.
+  # Cockpit servi par l'app (favori navigateur DURABLE — http://localhost:1420/
+  # cockpit.html ; l'ouverture file:// via portail Flatpak est éphémère :
+  # incident favori mort du 11/09). Copié avant chaque build → toujours à jour.
+  cp -f "$ROOT_DIR/docs/cockpit.html" "$ROOT_DIR/frontend/public/cockpit.html" 2>/dev/null || true
+
   echo "🏗️  Build du frontend (dist/)..."
   if ! npm run build > "$LOG_DIR/frontend-build.log" 2>&1; then
     echo "❌ ÉCHEC du build frontend — arrêt (ne pas lancer un front périmé)."

@@ -32,13 +32,14 @@ import { useRoute, useRouter } from 'vue-router'
 import AnalysesVueEnsemble from '@/components/analyses/AnalysesVueEnsemble.vue'
 import AnalysesOngletStrategie from '@/components/analyses/AnalysesOngletStrategie.vue'
 
-type Onglet = 'tout' | 'SMC' | 'straddle' | 'rockets'
+type Onglet = 'tout' | 'SMC' | 'straddle' | 'rockets' | 'kdj_halftrend'
 
 const ONGLETS: { id: Onglet; label: string }[] = [
   { id: 'tout', label: '🧭 Vue d\u2019ensemble' },
   { id: 'SMC', label: '📐 SMC' },
   { id: 'straddle', label: '⚡ Straddle' },
   { id: 'rockets', label: '🚀 Rockets' },
+  { id: 'kdj_halftrend', label: '📈 KDJ/Halftrend' },
 ]
 
 const VALIDES = new Set(ONGLETS.map(o => o.id))
