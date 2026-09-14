@@ -78,13 +78,26 @@ interface SourceLexique {
   labels: Record<string, { label: string; couleur: string }>
 }
 
-const REGISTRE: Record<'smc' | 'straddle' | 'rockets', SourceLexique> = {
+const TERMES_KDJ: Terme[] = [
+  { abrev: 'KDJ', nom: 'KDJ (20, 7)', cat: 'ind', def: "RSV fenêtré high/low + double lissage seedé 0 ; J = 3K − 2D. Condition : J au-dessus (long) ou en dessous (short) de D au moment de la flèche." },
+  { abrev: 'HT', nom: 'HalfTrend (2)', cat: 'ind', def: "Machine à états (maxLowPrice/minHighPrice) qui suit la tendance ; la flèche n'existe qu'à la barre de retournement — détection à la clôture seule, zéro repaint." },
+  { abrev: 'EMA200', nom: 'EMA200 / SMA100', cat: 'ind', def: "Filtre de tendance : long si SMA100 > EMA200 et close > EMA200 (miroir strict pour le short). L'EMA200 de la barre d'entrée est aussi le niveau de SL." },
+  { abrev: 'RR', nom: 'RatioRisk', cat: 'ges', def: "TP = entrée ± RatioRisk × distance (entrée→EMA200) — un seuil de DÉTECTION (sortie à l'open suivant), pas un ordre serveur." },
+  { abrev: 'ADX', nom: 'ADX (14)', cat: 'ges', def: "Force de tendance (Wilder) indépendante du sens — le critère du scanner : ≥ 25 franche, 20-25 modérée, < 20 range." },
+]
+const CAT_KDJ = {
+  ind: { label: 'Indicateurs', couleur: 'bg-cyan-500/20 text-cyan-300' },
+  ges: { label: 'Gestion', couleur: 'bg-amber-500/20 text-amber-300' },
+}
+
+const REGISTRE: Record<'smc' | 'straddle' | 'rockets' | 'kdj', SourceLexique> = {
   smc: { termes: TERMES_SMC as Terme[], labels: CAT_SMC as Record<string, { label: string; couleur: string }> },
   straddle: { termes: TERMES_STRADDLE as Terme[], labels: CAT_STRADDLE as Record<string, { label: string; couleur: string }> },
   rockets: { termes: TERMES_ROCKETS as Terme[], labels: CAT_ROCKETS as Record<string, { label: string; couleur: string }> },
+  kdj: { termes: TERMES_KDJ, labels: CAT_KDJ as Record<string, { label: string; couleur: string }> },
 }
 
-const props = withDefaults(defineProps<{ source?: 'smc' | 'straddle' | 'rockets' }>(), { source: 'smc' })
+const props = withDefaults(defineProps<{ source?: 'smc' | 'straddle' | 'rockets' | 'kdj' }>(), { source: 'smc' })
 
 const source = computed(() => REGISTRE[props.source])
 const recherche = ref('')

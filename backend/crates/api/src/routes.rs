@@ -398,6 +398,7 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
                 .route(web::put().to(crate::prompts_handler::modifier_prompt))
                 .route(web::delete().to(crate::prompts_handler::restaurer_prompt)),
         );
+    crate::routes_kdj::configurer(cfg);
     crate::routes_ml::configurer(cfg);
     crate::routes_rockets::configurer(cfg);
 }

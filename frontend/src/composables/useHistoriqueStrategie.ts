@@ -10,7 +10,7 @@ import { http } from '@/services/http.client'
 import type { Signal } from '@/services/api.service'
 import { palierMax } from '@/composables/useSignalFormat'
 
-export type CleStrategie = 'smc' | 'straddle' | 'rockets'
+export type CleStrategie = 'smc' | 'straddle' | 'rockets' | 'kdj_halftrend'
 
 const SMC_VARIANTES = ['smc', 'smcdirectional', 'smc directionnel', 'smc+ia']
 

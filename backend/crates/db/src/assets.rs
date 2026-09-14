@@ -147,6 +147,32 @@ impl Database {
             .await
             .map_err(|e| TradingError::Database(e.to_string()))?;
         }
+
+        // Sizing par défaut (leçon 14/09) : un asset sans ligne asset_params
+        // casse le calcul du lot au signal — la ligne est créée au moment de
+        // l'ajout, calquée sur les références du tableau « gestion du
+        // risque » (ajustable ensuite dans l'UI).
+        let (valeur_pips, sl_pips, pip_to_points, taille_pip) = match (type_asset, id.ends_with("JPY")) {
+            ("crypto", _) => (1.0, 200.0, 100.0, 1.0),
+            ("forex", true) => (6.6667, 20.0, 10.0, 0.01),
+            ("forex", false) => (10.0, 15.0, 10.0, 0.0001),
+            ("metal", _) => (10.0, 50.0, 100.0, 0.1),
+            ("indice", _) => (10.0, 50.0, 10.0, 1.0),
+            _ => (10.0, 20.0, 10.0, 0.0001),
+        };
+        sqlx::query(
+            "INSERT OR IGNORE INTO asset_params
+                 (asset, valeur_pips, sl_pips, pip_to_points, lot_min, lot_max, taille_pip)
+             VALUES (?, ?, ?, ?, 0.01, 10.0, ?)",
+        )
+        .bind(id)
+        .bind(valeur_pips)
+        .bind(sl_pips)
+        .bind(pip_to_points)
+        .bind(taille_pip)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
         Ok(())
     }
 

@@ -392,6 +392,7 @@ const ROUTES: Record<string, string> = {
   SMC: '/smc',
   straddle: '/straddle',
   rockets: '/rockets',
+  kdj_halftrend: '/kdj',
 }
 
 /// Trades fermés remplis de la base vécue — camemberts NOMBRES uniquement.
@@ -488,6 +489,7 @@ const TEINTES: Record<string, string> = {
   SMC: 'bg-blue-500/10 border-blue-500/25 hover:border-blue-400/50',
   straddle: 'bg-amber-500/10 border-amber-500/25 hover:border-amber-400/50',
   rockets: 'bg-orange-500/10 border-orange-500/25 hover:border-orange-400/50',
+  kdj_halftrend: 'bg-cyan-500/10 border-cyan-500/25 hover:border-cyan-400/50',
 }
 
 function teinteCarte(id: string): string {

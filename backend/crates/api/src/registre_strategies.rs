@@ -23,7 +23,7 @@ pub struct Manifeste {
     pub prompts: &'static [&'static str],
 }
 
-/// Les trois verticales actuelles. L'ajout d'une stratégie = un crate + une
+/// Les verticales actuelles. L'ajout d'une stratégie = un crate + une
 /// entrée ici + l'enregistrement runtime.
 pub const MANIFESTES: &[Manifeste] = &[
     Manifeste {
@@ -54,6 +54,16 @@ pub const MANIFESTES: &[Manifeste] = &[
         couleur: "#2196F3",
         moteur: "rockets",
         canonique: "roadmap Phase 3 (fiche VCP)",
+        prompts: &["definition", "analyse", "filtre_temps_reel"],
+    },
+    Manifeste {
+        id: "kdj_halftrend",
+        nom: "KDJ/Halftrend",
+        description: "Suiveur de tendance H1 : KDJ(20,7) + HalfTrend, TP/SL par RatioRisk × distance EMA200.",
+        icone: "📈",
+        couleur: "#22d3ee",
+        moteur: "kdj_halftrend",
+        canonique: "docs/reference/strategie_550_pourcent_v4.pine",
         prompts: &["definition", "analyse", "filtre_temps_reel"],
     },
 ];

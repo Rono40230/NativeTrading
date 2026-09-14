@@ -1,0 +1,249 @@
+//@version=4
+//KDJ
+
+strategy("Strategy 550%", shorttitle="550%", overlay=true, max_boxes_count=500)
+ilong = input(20, title="period")
+isig = input(7, title="signal")
+
+m = 1
+c = close
+h = highest(high, ilong)
+l = lowest(low, ilong)
+RSV = 100 * ((c - l) / (h - l))
+pK = 0.0
+pD = 0.0
+pK := (m * RSV + (isig - m) * nz(pK[1])) / isig
+pD := (m * pK + (isig - m) * nz(pD[1])) / isig
+pJ = 3 * pK - 2 * pD
+
+plot(pK, color=color.orange)
+plot(pD, color=color.lime)
+plot(pJ, color=color.fuchsia)
+
+//HALFTREND
+
+amplitude = input(title="Amplitude", defval=2)
+channelDeviation = 2
+showArrows = false
+showChannels = false
+
+var int trend = 0
+var int nextTrend = 0
+var float maxLowPrice = nz(low[1], low)
+var float minHighPrice = nz(high[1], high)
+
+var float up = 0.0
+var float down = 0.0
+float atrHigh = 0.0
+float atrLow = 0.0
+float arrowUp = na
+float arrowDown = na
+
+atr2 = atr(100) / 2
+dev = channelDeviation * atr2
+
+highPrice = high[abs(highestbars(amplitude))]
+lowPrice = low[abs(lowestbars(amplitude))]
+highma = sma(high, amplitude)
+lowma = sma(low, amplitude)
+
+if nextTrend == 1
+    maxLowPrice := max(lowPrice, maxLowPrice)
+
+    if highma < maxLowPrice and close < nz(low[1], low)
+        trend := 1
+        nextTrend := 0
+        minHighPrice := highPrice
+else
+    minHighPrice := min(highPrice, minHighPrice)
+
+    if lowma > minHighPrice and close > nz(high[1], high)
+        trend := 0
+        nextTrend := 1
+        maxLowPrice := lowPrice
+
+if trend == 0
+    if not na(trend[1]) and trend[1] != 0
+        up := na(down[1]) ? down : down[1]
+        arrowUp := up - atr2
+    else
+        up := na(up[1]) ? maxLowPrice : max(maxLowPrice, up[1])
+    atrHigh := up + dev
+    atrLow := up - dev
+else
+    if not na(trend[1]) and trend[1] != 1
+        down := na(up[1]) ? up : up[1]
+        arrowDown := down + atr2
+    else
+        down := na(down[1]) ? minHighPrice : min(minHighPrice, down[1])
+    atrHigh := down + dev
+    atrLow := down - dev
+
+ht = trend == 0 ? up : down
+
+var color buyColor = color.blue
+var color sellColor = color.red
+
+htColor = trend == 0 ? buyColor : sellColor
+htPlot = plot(ht, title="HalfTrend", linewidth=2, color=htColor)
+
+atrHighPlot = plot(showChannels ? atrHigh : na, title="ATR High", style=plot.style_circles, color=sellColor)
+atrLowPlot = plot(showChannels ? atrLow : na, title="ATR Low", style=plot.style_circles, color=buyColor)
+
+fill(htPlot, atrHighPlot, title="ATR High Ribbon", color=sellColor)
+fill(htPlot, atrLowPlot, title="ATR Low Ribbon", color=buyColor)
+
+buySignal = not na(arrowUp) and (trend == 0 and trend[1] == 1)
+sellSignal = not na(arrowDown) and (trend == 1 and trend[1] == 0)
+
+plotshape(showArrows and buySignal ? atrLow : na, title="Arrow Up", style=shape.triangleup, location=location.absolute, size=size.tiny, color=buyColor)
+plotshape(showArrows and sellSignal ? atrHigh : na, title="Arrow Down", style=shape.triangledown, location=location.absolute, size=size.tiny, color=sellColor)
+
+alertcondition(buySignal, title="Alert: HalfTrend Buy", message="HalfTrend Buy")
+alertcondition(sellSignal, title="Alert: HalfTrend Sell", message="HalfTrend Sell")
+
+EMA1 = 50
+EMA2 = 100
+EMA3 = 200
+
+plot(ema(close, EMA1), color=color.red, linewidth=2)
+plot(ema(close, EMA2), color=color.yellow, linewidth=2)
+plot(ema(close, EMA3), color=color.purple, linewidth=2)
+
+basePeriods = 26
+donchian(len) =>
+    avg(lowest(len), highest(len))
+baseLine = donchian(basePeriods)
+plot(baseLine, color=#991515, title="Kijun-Sen")
+
+//MA
+SMA100 = sma(close, 100)
+plot(SMA100, "SMA100")
+
+//EMA
+EMA200 = ema(close, 200)
+plot(EMA200, "EMA200")
+
+// Signe de la position (0 a plat, 1 long, -1 short) — detection robuste
+// des entrees/sorties, retournements compris.
+posSign = strategy.position_size > 0 ? 1 : strategy.position_size < 0 ? -1 : 0
+
+// CONDITIONS LONG
+EMALONGok = SMA100 > EMA200
+KDJLONGok = pJ > pD
+CLOSEABOVE = close > EMA200
+
+LongConditionsok = KDJLONGok and EMALONGok and CLOSEABOVE
+
+TriggerLong = buySignal
+
+Longsignal = LongConditionsok and TriggerLong
+
+// CONDITIONS SHORT (miroir strict du LONG)
+EMASHORTok = SMA100 < EMA200
+KDJSHORTok = pJ < pD
+CLOSEBELOW = close < EMA200
+
+ShortConditionsok = KDJSHORTok and EMASHORTok and CLOSEBELOW
+
+TriggerShort = sellSignal
+
+Shortsignal = ShortConditionsok and TriggerShort
+
+// Entrees (v4 : true = long, false = short)
+strategy.entry("enterlong", true, when=Longsignal)
+strategy.entry("entershort", false, when=Shortsignal)
+
+// Bar d'entree = le signe DEVIENT la position (a plat ou retournement inclus)
+EnteredLong = posSign == 1 and posSign[1] != 1
+EnteredShort = posSign == -1 and posSign[1] != -1
+Enteredlongvalue = valuewhen(EnteredLong, open, 0)
+EnteredlongEMA200Value = valuewhen(EnteredLong, EMA200, 0)
+Enteredshortvalue = valuewhen(EnteredShort, open, 0)
+EnteredshortEMA200Value = valuewhen(EnteredShort, EMA200, 0)
+
+//StopLoss Long : le prix perd l'EMA200 par le bas
+StopLong = crossunder(low, EnteredlongEMA200Value)
+
+//TP Long : gain = RatioRisk x la distance entree->EMA200
+Longrisk = ((Enteredlongvalue - EnteredlongEMA200Value) / Enteredlongvalue) * 100
+RatioRisk = input(2, title="RatioRisk")
+ValueRisk = Longrisk * RatioRisk
+TPLongvalue = Enteredlongvalue + ((Enteredlongvalue * ValueRisk) / 100)
+TPlong = crossover(high, TPLongvalue)
+
+//Strategy Long exit
+strategy.close("enterlong", when=TPlong or StopLong)
+
+//StopLoss Short (miroir) : le prix reprend l'EMA200 par le haut
+StopShort = crossover(high, EnteredshortEMA200Value)
+
+//TP Short (miroir) : cible SOUS l'entree, meme ratio sur la distance EMA200->entree
+Shortrisk = ((EnteredshortEMA200Value - Enteredshortvalue) / Enteredshortvalue) * 100
+ValueRiskShort = Shortrisk * RatioRisk
+TPShortvalue = Enteredshortvalue - ((Enteredshortvalue * ValueRiskShort) / 100)
+TPshort = crossunder(low, TPShortvalue)
+
+//Strategy Short exit
+strategy.close("entershort", when=TPshort or StopShort)
+
+// ============================================================
+// AFFICHAGE DES TRADES EN BLOCS (BOX) — comme TradingView :
+// bloc VERT de l'entree au TP, bloc ROUGE de l'entree au SL.
+// L'entree est la frontiere nette entre les deux couleurs.
+// ============================================================
+showBoxes = true
+showLiveBox = true
+
+var int tradeSide = 0
+var int entryBar = na
+var float entryPrice = na
+var float entrySL = na
+var float entryTP = na
+var box liveBoxTP = na
+var box liveBoxSL = na
+
+// Entree = le signe change (a plat ou retournement) ; sortie = retour a plat
+isNewEntry = posSign != 0 and posSign != posSign[1]
+isExit = posSign == 0 and posSign[1] != 0
+
+if isNewEntry
+    // Figer l'eventuel bloc d'un trade retourné, sinon nettoyer le residu
+    if not na(liveBoxTP)
+        box.set_right(liveBoxTP, bar_index)
+        box.set_right(liveBoxSL, bar_index)
+        liveBoxTP := na
+        liveBoxSL := na
+    tradeSide := posSign
+    entryBar := bar_index
+    entryPrice := strategy.position_avg_price
+    if posSign == 1
+        entrySL := EnteredlongEMA200Value
+        entryTP := TPLongvalue
+    else
+        entrySL := EnteredshortEMA200Value
+        entryTP := TPShortvalue
+
+// Blocs provisoires pendant que la position est ouverte.
+// NB v4 : if/else est une EXPRESSION (series[box] vs void incompatibles) —
+// deux if successifs, jamais de couple if/else ici.
+if showBoxes and showLiveBox and strategy.position_size != 0 and not na(entryBar)
+    if na(liveBoxTP)
+        liveBoxTP := box.new(left=entryBar, top=max(entryPrice, entryTP), right=bar_index, bottom=min(entryPrice, entryTP), border_color=color.new(color.green, 0), bgcolor=color.new(color.green, 78))
+        liveBoxSL := box.new(left=entryBar, top=max(entryPrice, entrySL), right=bar_index, bottom=min(entryPrice, entrySL), border_color=color.new(color.red, 0), bgcolor=color.new(color.red, 78))
+    if not na(liveBoxTP)
+        box.set_right(liveBoxTP, bar_index)
+        box.set_right(liveBoxSL, bar_index)
+
+// Sortie : on FIGE les deux blocs a la barre de sortie — trace du trade.
+if isExit and showBoxes and not na(entryBar)
+    if not na(liveBoxTP)
+        box.set_right(liveBoxTP, bar_index)
+        box.set_right(liveBoxSL, bar_index)
+        liveBoxTP := na
+        liveBoxSL := na
+    entryBar := na
+    entryPrice := na
+    entrySL := na
+    entryTP := na
+    tradeSide := 0

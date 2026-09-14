@@ -244,7 +244,7 @@ function rafraichirOverlayV12() {
 const DUREE_BARRE: Record<string, number> = {
   M1: 60, M5: 300, M10: 600, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400, W1: 604800,
 }
-const NOMS_DESSINES = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA', 'straddle', 'Straddle']
+const NOMS_DESSINES = ['SMC', 'SmcDirectional', 'SMC Directionnel', 'SMC+IA', 'straddle', 'Straddle', 'kdj_halftrend']
 
 async function chargerTradesExternes() {
   try {
@@ -270,7 +270,7 @@ async function chargerTradesExternes() {
     // Récupérer les niveaux du REPLAY du TF d'origine (pas de la base —
     // le SL/TPs diffèrent entre création temps réel et replay, et le
     // graphique du TF d'origine dessine depuis le replay).
-    const tfsOrigine = [...new Set(candidats.filter(x => x.heure_entree !== null).map(x => x.timeframe))]
+    const tfsOrigine = [...new Set(candidats.filter(x => x.heure_entree !== null && x.strategie !== 'kdj_halftrend').map(x => x.timeframe))]
     const replays: Record<string, { signals: Array<{ ts: number; entry: number; sl: number; tp1: number; tp2: number; tp3: number; be?: boolean; ferme?: boolean }> | undefined }> = {}
     for (const tf of tfsOrigine) {
       if (tf === selectedTimeframe.value) continue
@@ -281,6 +281,25 @@ async function chargerTradesExternes() {
     }
 
     const ouverts = candidats.map(x => {
+      // KDJ/Halftrend : niveaux FIGÉS en base (SL = EMA200 de la barre
+      // d'entrée, un seul TP) — pas de replay SMC : on duplique le TP pour
+      // la box et on ancre sur la barre d'entrée (le Fill, 1 barre après
+      // le signal).
+      if (x.strategie === 'kdj_halftrend') {
+        const tp = x.take_profit?.[0] ?? x.prix_entree
+        return {
+          ts: x.heure_entree ?? x.cree_le,
+          entry: x.prix_entree,
+          sl: x.stop_loss,
+          tp1: tp, tp2: tp, tp3: tp,
+          dir: x.direction === 'Long' ? 'Long' as const : 'Short' as const,
+          force: Math.max(1, Math.min(10, Math.round(x.score))),
+          be: false,
+          label: [] as string[],
+          tfOrigine: 'KDJ',
+          tsFin: Math.floor(Date.now() / 1000),
+        }
+      }
       // Chercher le signal correspondant dans le replay du TF d'origine.
       const replay = replays[x.timeframe]
       const match = replay?.signals?.find(s => !s.ferme && Math.abs(s.entry - x.prix_entree) < 0.01)

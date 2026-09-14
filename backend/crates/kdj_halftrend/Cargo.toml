@@ -1,0 +1,12 @@
+[package]
+name = "kdj_halftrend"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+common = { path = "../common" }
+engine = { path = "../engine" }
+indicators = { path = "../indicators" }
+chrono.workspace = true
+
+[dev-dependencies]

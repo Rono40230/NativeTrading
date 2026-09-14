@@ -319,6 +319,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
     // Armement SMC par couple (outil Paramètres › SMC). Straddle indépendant :
     // il vit sur son rail M1 (annonces) quelle que soit cette liste.
     let armes = crate::reglages_smc::lire_couples_armes(db).await;
+    let kdj_reglages = db::kdj_params::lire_kdj_params(db.pool()).await;
 
     let mt5_ids: HashSet<String> = assets_mt5(db).await;
     let cibles: HashSet<(Asset, Timeframe)> = assets
@@ -339,15 +340,15 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         let smc_vif = crate::reglages_smc::est_arme(&armes, cle.0.as_str(), cle.1.as_str());
         let straddle_vif = matches!(cle.1, common::Timeframe::M1)
             && (mt5_ids.contains(cle.0.as_str()) || matches!(cle.0.as_str(), "XAUUSD" | "BTC"));
-        if !cibles.contains(&cle) || (!smc_vif && !straddle_vif) {
+        if !cibles.contains(&cle)
+            || (!smc_vif && !straddle_vif && !matches!(cle.1, common::Timeframe::H1)) {
             runtime.retirer(cle.0.clone(), cle.1);
             tracing::info!("Runtime tick: {} {} retiré (config DB)", cle.0.as_str(), cle.1.as_str());
         }
     }
 
-    // Changement d'armement SMC sur un couple VIVANT (ex : SMC M1 désarmé,
-    // straddle M1 reste) : on retire le couple — la boucle d'ajouts le
-    // réinscrit immédiatement avec les moteurs voulus.
+    // Changement d'armement SMC sur un couple VIVANT : on retire le couple —
+    // la boucle d'ajouts le réinscrit immédiatement avec les moteurs voulus.
     crate::reglages_smc::retirer_changements_armement(runtime, &cibles, &armes);
 
     // Ajouts avec cold start (replay).
@@ -357,12 +358,10 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         if actuelles.contains(&(asset.clone(), *tf)) {
             continue;
         }
-        // Actifs MT5 (prix Axi) — décision 01/09 : moteur SMC v12 SUR TOUS
-        // les actifs (plus de périmètre straddle-seul : NAS100/SP500/DAX
-        // et tout futur asset MT5 génèrent des signaux SMC automatiquement).
-        // Replays depuis l'historique EA (garde ~1 min après boot), amorce
-        // MTF incluse. Plugin straddle M1 : DAX sur ouverture européenne
-        // 9h Paris, les autres sur annonces US tier 1.
+        // Actifs MT5 (prix Axi) — décision 01/09 : SMC v12 sur TOUS les actifs
+        // (tout futur asset MT5 signale automatiquement). Replays depuis
+        // l'historique EA, amorce MTF incluse. Straddle M1 : DAX ouverture
+        // européenne 9h Paris, les autres annonces US tier 1.
         if mt5_ids.contains(asset.as_str()) {
             if !crate::mt5_collecteur::historique_mt5_pret(db, asset.as_str(), *tf).await {
                 tracing::info!(
@@ -417,8 +416,9 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                         .avec_annonces(annonces),
                 ));
             }
+            if *tf == common::Timeframe::H1 { moteurs.push(Box::new(crate::kdj_handlers::moteur_kdj(&kdj_reglages, asset, *tf))) }
             if moteurs.is_empty() {
-                continue; // SMC désarmé et pas de straddle M1 → rien à armer
+                continue; // SMC désarmé et pas de straddle M1/KDJ H1 → rien à armer
             }
             runtime.enregistrer(asset.clone(), *tf, moteurs);
             ajouts += 1;
@@ -508,8 +508,9 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                     .avec_annonces(annonces),
             ));
         }
+        if *tf == common::Timeframe::H1 { moteurs.push(Box::new(crate::kdj_handlers::moteur_kdj(&kdj_reglages, asset, *tf))) }
         if moteurs.is_empty() {
-            continue; // SMC désarmé et pas de straddle M1 → rien à armer
+            continue; // SMC désarmé et pas de straddle M1/KDJ H1 → rien à armer
         }
         runtime.enregistrer(asset.clone(), *tf, moteurs);
         // Backfill automatique : comble les trous (nuits, week-ends, pannes)

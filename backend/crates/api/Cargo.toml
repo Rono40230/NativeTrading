@@ -23,6 +23,7 @@ rockets = { path = "../rockets" }
 smc = { path = "../smc" }
 gestion_trades = { path = "../gestion_trades" }
 indicators = { path = "../indicators" }
+kdj_halftrend = { path = "../kdj_halftrend" }
 actix-web.workspace = true
 actix-cors.workspace = true
 actix-ws.workspace = true

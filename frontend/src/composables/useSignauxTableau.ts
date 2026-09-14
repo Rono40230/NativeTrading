@@ -6,7 +6,7 @@ import { usePrixStore } from '@/stores/prix.store'
 import { useAssetParamsStore } from '@/stores/assetParams.store'
 import { useSettingsStore } from '@/stores/settings.store'
 
-export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
+export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets' | 'kdj_halftrend') {
   const prixStore = usePrixStore()
   const assetParamsStore = useAssetParamsStore()
   const settingsStore = useSettingsStore()
@@ -53,7 +53,8 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
 
   const estEngage = (s: typeof signaux.value[number]): boolean => {
     if (s.statut === 'Fermé') return false
-    if (strategie === 'SMC') return s.heure_entree !== null && s.heure_entree !== undefined
+    if (strategie === 'SMC' || strategie === 'kdj_halftrend')
+      return s.heure_entree !== null && s.heure_entree !== undefined
     if (strategie === 'straddle')
       return (s.heure_entree ?? 0) <= Math.floor(Date.now() / 1000)
     return true
@@ -83,8 +84,8 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets') {
 
   /// Risque % de la verticale (registre stratégies) — la table asset_params
   /// n'a jamais porté de risque_pct : l'ancien calcul produisait « Lot : NaN ».
-  const ID_REGISTRE: Record<'SMC' | 'straddle' | 'Rockets', string> = {
-    SMC: 'SMC', straddle: 'straddle', Rockets: 'rockets',
+  const ID_REGISTRE: Record<'SMC' | 'straddle' | 'Rockets' | 'kdj_halftrend', string> = {
+    SMC: 'SMC', straddle: 'straddle', Rockets: 'rockets', kdj_halftrend: 'kdj_halftrend',
   }
   const risquePct = ref(0)
 

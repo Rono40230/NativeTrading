@@ -117,7 +117,7 @@ import { formatDate, formatNombre } from '@/composables/useSignalFormat'
 import type { Signal } from '@/services/api.types'
 
 const props = defineProps<{
-  strategie: 'SMC' | 'straddle' | 'Rockets'
+  strategie: 'SMC' | 'straddle' | 'Rockets' | 'kdj_halftrend'
   /// Option A : ne montrer que les trades engagés (remplis) — les ordres
   /// en attente vivent dans la section Setups des pages stratégies.
   remplisSeuls?: boolean

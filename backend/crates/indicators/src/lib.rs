@@ -1,11 +1,17 @@
+mod adx;
 mod atr;
 mod bollinger;
+mod halftrend;
+mod kdj;
 mod macd;
 mod rsi;
 mod sma_ema;
 
+pub use adx::calculer_adx;
 pub use atr::calculer_atr;
 pub use bollinger::{calculer_bollinger, calculer_bollinger_avance, Bollinger};
+pub use halftrend::{calculer_halftrend, Halftrend};
+pub use kdj::{calculer_kdj, Kdj};
 pub use macd::{calculer_macd, Macd};
 pub use rsi::calculer_rsi;
 pub use sma_ema::{calculer_ema, calculer_sma};

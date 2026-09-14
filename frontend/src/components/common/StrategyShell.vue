@@ -93,7 +93,7 @@ const props = withDefaults(defineProps<{
   afficherLexique?: boolean
   icone: string
   etat?: string
-  lexique?: 'smc' | 'straddle' | 'rockets'
+  lexique?: 'smc' | 'straddle' | 'rockets' | 'kdj'
   /// Titre de la section en cours (ex. « 3 signaux en cours »).
   titreEncours?: string
 }>(), { etat: 'Observation', lexique: 'smc', afficherLexique: true })
