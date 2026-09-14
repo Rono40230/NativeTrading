@@ -87,8 +87,16 @@ impl BinanceProvider {
         let plus_ancienne_brute_ms: Option<i64> = data.result.list.iter()
             .filter_map(|row| row.first().and_then(|t| t.parse::<i64>().ok()))
             .min();
+        // La page 1 (end=now) inclut la bougie EN COURS de formation : ne
+        // jamais l'écrire — son close partiel figerait à jamais (INSERT OR
+        // IGNORE, la clôture WS ne pourrait plus corriger). Correctif 14/09.
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        let tf_ms = timeframe.minutes() as i64 * 60_000;
         let mut bougies: Vec<Candle> = data.result.list.into_iter().filter_map(|row| {
             let ts_ms: i64 = row.first()?.parse().ok()?;
+            if ts_ms + tf_ms > now_ms {
+                return None;
+            }
             let timestamp = DateTime::from_timestamp(ts_ms / 1000, 0)?;
             if matches!(asset.as_str(), "XAUUSD" | "XAGUSD" | "XPTUSD" | "XPDUSD") {
                 let w = timestamp.weekday();

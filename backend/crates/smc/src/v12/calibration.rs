@@ -25,10 +25,17 @@ pub struct AssetCalibration {
     pub is_nas: bool,
     /// SP500 (Phase 5, 28/08) — profil miroir NAS100 (indices US CFD).
     pub is_spx: bool,
+    /// Profil CRYPTO calibré sur BTC — vrai pour BTC ET les alt-cryptos
+    /// suivies (décision B du 14/09 : « une crypto se cote comme BTC »,
+    /// validée par rejeu 24 mois M15 — distributions des scores OB
+    /// superposables à BTC : p50 3 · p95 7-8 · taux force≥5 7-10 %).
+    /// Porte poids BOS, SL min/max ×ATR, durées et seuils (8/99/99/15).
     pub is_btc: bool,
     pub is_dax: bool,
-    /// Vrai si l'actif correspond à un profil connu (XAU/XAG/NAS/BTC/DAX).
-    /// Si faux → le scoring v12 doit retourner 0 (Pine `_assetReconnu`).
+    /// Vrai si l'actif correspond à un profil connu (XAU/XAG/NAS/BTC/DAX,
+    /// + alt-cryptos 14/09). Si faux → le scoring v12 doit retourner 0
+    /// (Pine `_assetReconnu`). Forex/métaux nouveaux : en attente de
+    /// mesure (règle : mesure avant décision).
     pub asset_reconnu: bool,
 
     /// `_autoSwing` (Pine lignes 42-47) : longueur des pivots ta.pivothigh/low.
@@ -66,6 +73,15 @@ pub struct AssetCalibration {
     pub w_kz: i32,
 }
 
+/// Alt-cryptos suivies (7.F) — partagent le profil crypto BTC intégral
+/// (scoring Phase 4.1 incluse : sans lui, `asset non reconnu → sc = 0`
+/// plafonne la force à ~2 et n'affiche jamais d'OB). Déviation du Pine
+/// étalon ASSUMÉE et documentée (décision propriétaire 14/09) ; les
+/// forex/métaux ajoutés restent non reconnus jusqu'à calibrage par rejeu.
+pub const ALT_CRYPTOS: &[&str] = &[
+    "ETH", "SOL", "ADA", "AVAX", "BNB", "DOGE", "DOT", "LINK", "LTC", "XRP",
+];
+
 impl AssetCalibration {
     pub fn atr_seuil_affichage(&self) -> f64 {
         self.atr_seuil_affichage
@@ -82,7 +98,8 @@ impl AssetCalibration {
         let is_xau = a.contains("XAU");
         let is_xag = a.contains("XAG");
         let is_nas = a.contains("NAS") || a.contains("NDX") || a.contains("US100");
-        let is_btc = a.contains("BTC");
+        // Profil crypto : BTC + alt-cryptos (décision B 14/09, cf. ALT_CRYPTOS).
+        let is_btc = a.contains("BTC") || ALT_CRYPTOS.contains(&a.as_str());
         let is_dax = a.contains("DAX") || a.contains("GER40") || a.contains("DE30");
         let is_spx = a.contains("SP500") || a.contains("SPX") || a.contains("US500");
         let asset_reconnu = is_xau || is_xag || is_nas || is_btc || is_dax || is_spx;
@@ -304,5 +321,22 @@ mod tests {
         let c = AssetCalibration::detect("EURUSD", "M15");
         assert!(!c.asset_reconnu);
         assert_eq!(c.sl_mode, SlMode::BasOb);
+    }
+
+    /// Décision B du 14/09 : les alt-cryptos suivies partagent le profil
+    /// crypto BTC intégral (scoring Phase 4.1 incluse) — validé par rejeu
+    /// 24 mois M15 (distributions superposables à BTC).
+    #[test]
+    fn alt_cryptos_profil_btc() {
+        for a in ALT_CRYPTOS {
+            let c = AssetCalibration::detect(a, "M15");
+            assert!(c.is_btc && c.asset_reconnu, "{} doit être reconnu en profil crypto", a);
+            assert_eq!((c.seuil_moyen, c.seuil_fort, c.seuil_instit, c.score_max), (8, 99, 99, 15));
+            assert_eq!(c.sl_mode, SlMode::Atr2x);
+            assert_eq!((c.w_fvg, c.w_sweep, c.w_atr, c.w_ote, c.w_kz), (3, 1, 2, 2, 2));
+        }
+        // Les autres cryptos non suivies restent non reconnues.
+        let ton = AssetCalibration::detect("SUI", "M15");
+        assert!(!ton.asset_reconnu, "crypto hors liste = non reconnue");
     }
 }

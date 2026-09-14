@@ -75,6 +75,17 @@ pub async fn combler_historique(
     if bougies.is_empty() {
         return Ok(0);
     }
+    // fetch_candles ramène aussi la bougie EN COURS : ne jamais l'écrire
+    // (close partiel figé à jamais — INSERT OR IGNORE, la clôture WS ne
+    // pourrait plus corriger). Correctif 14/09.
+    let tf_sec = tf.minutes() as i64 * 60;
+    let bougies: Vec<_> = bougies
+        .into_iter()
+        .filter(|b| b.timestamp.timestamp() + tf_sec <= maintenant)
+        .collect();
+    if bougies.is_empty() {
+        return Ok(0);
+    }
     let inserees = db
         .inserer_bougies_avec_source(&asset, &tf, &bougies, "binance")
         .await?;

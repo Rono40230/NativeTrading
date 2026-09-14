@@ -181,27 +181,30 @@ async fn backfill_couple(
         if cursor_ms / 1000 <= cible_ts {
             break; // cible atteinte
         }
-        let tf_ms = tf.minutes() as i64 * 60_000;
         let cursor_avant = cursor_ms;
         let (bougies, plus_ancienne_brute_ms) = provider
             .fetch_page_avant_brute(&asset, tf, cursor_ms)
             .await?;
-        // Anti-boucle (pages 2+) : Bybit doit servir une fenêtre
-        // STRICTEMENT plus ancienne (au moins une période sous le curseur
-        // précédent). La page 1 déborde au-dessus du curseur DB par
-        // construction — elle est exemptée. Une page ultérieure qui ne
-        // descend pas = données chevauchantes déjà connues → fin.
-        if _page > 0 && cursor_ms > cursor_avant - tf_ms {
-            break;
-        }
-        // Toujours avancer le curseur sur la plus ancienne bougie BRUTE
-        // (avant filtrage week-end) — sinon une zone de week-end entier
-        // laisse le curseur immobile et la boucle tourne à vide.
+        // Avancer le curseur sur la plus ancienne bougie BRUTE (avant
+        // filtrage week-end) — sinon une zone de week-end entier laisse le
+        // curseur immobile et la boucle tourne à vide.
+        let mut descendu = false;
         if let Some(brute) = plus_ancienne_brute_ms {
-            if brute < cursor_ms {
+            if brute < cursor_avant {
                 cursor_ms = brute;
                 plus_ancienne_atteinte = Some(brute / 1000);
+                descendu = true;
             }
+        }
+        // Anti-boucle (pages 2+) : chaque page doit descendre STRICTEMENT
+        // sous le curseur précédent. La page 1 déborde au-dessus du curseur
+        // DB par construction — elle est exemptée. Une page ultérieure qui
+        // ne descend pas = données chevauchantes déjà connues → fin.
+        // (Correctif 14/09 : la garde s'évaluait AVANT la mise à jour du
+        // curseur — cursor_ms == cursor_avant à la page 2 → break à chaque
+        // backfill après la première page, plafonné à 1000 bougies.)
+        if _page > 0 && !descendu {
+            break;
         }
         if bougies.is_empty() {
             break; // historique Bybit épuisé pour ce couple

@@ -65,8 +65,13 @@ const BACKOFF_MAX_SEC: u64 = 60;
 /// Durée minimale d'une session pour la considérer « stable » et réinitialiser
 /// le backoff (secondes).
 const SESSION_STABLE_SEC: u64 = 30;
-/// Nombre maximal d'args (topics) par message `subscribe` (limite Bybit = 100).
-const NB_ARGS_MAX: usize = 60;
+/// Nombre maximal d'args (topics) par message `subscribe` — la limite v5 de
+/// Bybit est de 10 args par requête (erreur serveur « args size >10 » au-delà,
+/// constaté le 14/09 dès 96 topics).
+const NB_ARGS_MAX: usize = 10;
+/// Délai entre deux messages `subscribe` : Bybit plafonne aussi les op WS à
+/// ~10/s — avec 88 topics (11 actifs × 8 TF) on reste sous la limite.
+const DELAI_ENTRE_LOTS: Duration = Duration::from_millis(150);
 
 /// Garde anti-double-start. Le worker doit n'être spawné qu'une fois.
 /// Pattern identique à `SMC_DEMARREE` dans `api::smc_boucle`.
@@ -308,9 +313,12 @@ async fn session_unique(
 
     let (mut sortie, mut entree) = ws.split();
 
-    // Souscription aux topics, par morceaux si NB_ARGS_MAX < nb topics.
+    // Souscription aux topics, par morceaux de NB_ARGS_MAX (limite Bybit).
     let nb_morceaux = topics.len().div_ceil(NB_ARGS_MAX).max(1);
-    for morceau in topics.chunks(NB_ARGS_MAX) {
+    for (i, morceau) in topics.chunks(NB_ARGS_MAX).enumerate() {
+        if i > 0 {
+            tokio::time::sleep(DELAI_ENTRE_LOTS).await;
+        }
         let souscription = serde_json::json!({ "op": "subscribe", "args": morceau });
         let payload = serde_json::to_string(&souscription).unwrap_or_default();
         if sortie
