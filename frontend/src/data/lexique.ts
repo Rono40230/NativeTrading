@@ -25,6 +25,12 @@ const S: Record<string, string> = {
 }
 
 export const TERMES: TermeSMC[] = [
+  {
+    abrev: 'R',
+    nom: 'R (distance)',
+    cat: 'general',
+    def: "Convention unique de l'app (décision 15/09) : R = la distance du prix à l'entrée, en multiples du risque initial. Pour un trade fermé : le MEILLEUR PALIER atteint (TP2 touché → 2 R, SL → −1 R). Pour un trade en cours : la distance du prix actuel. Le R décrit la qualité des signaux ; l'évolution du CAPITAL ($) décrit le portefeuille (ventes partielles composées) — les deux ne tombent pas au même chiffre, c'est voulu.",
+  },
   // CONCEPTS GENERAUX
   { abrev: 'SMC', nom: 'Smart Money Concept', cat: 'general',
     def: "Strategie qui consiste a suivre les mouvements des institutions (banques, hedge funds). Repose sur l'identification des zones ou les gros acteurs entrent et sortent du marche." },

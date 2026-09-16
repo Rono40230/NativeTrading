@@ -28,6 +28,10 @@ pub struct ClotureRejeuStraddle {
     pub verdict: String,
     /// R net de la passe (survivante + jambe morte — comptabilité TP acquis).
     pub r_net: f64,
+    /// R-DISTANCE (meilleur palier atteint, net de la jambe morte : les TPs
+    /// straddle sont à 1/2/3× le risque → tp1:0 · tp2:1 · tp3:2 · sl:−1) —
+    /// convention d'affichage de l'app (refonte 15/09).
+    pub r_ref: f64,
     /// Capital simulé après cette passe.
     pub capital_apres: f64,
 }
@@ -198,12 +202,22 @@ fn palier_reference(verdict: &str) -> f64 {
     }
 }
 
+/// Re-jeu avec les réglages RÉELS (cache officiel de lancer_si_necessaire).
 async fn calculer(pool: &Arc<db::Database>) -> anyhow::Result<RejeuStraddle> {
-    // Params moteur : trailing lu de la carte straddle (DB), SL via le R
-    // historique de chaque passe (rejoué tel quel), time-stop canonique 60.
     let params_db = db::strategies_params::lire_straddle_params(pool.pool()).await;
-    let trailing_r = params_db.trailing_atr;
-    let time_stop_min: i64 = 60;
+    calculer_avec(pool, params_db.trailing_atr, 60).await
+}
+
+/// Re-jeu paramétrable — laboratoire de simulation (15/09 nuit) : trailing
+/// et time-stop virtuels, SANS toucher au cache officiel. Les autres params
+/// moteur (ATR, TP mults) fixent les NIVEAUX à l'émission des passes — les
+/// rejouer exige de recalculer les niveaux historiques (chantier backtesteur).
+pub(crate) async fn calculer_avec(
+    pool: &Arc<db::Database>,
+    trailing_r: f64,
+    time_stop_min: i64,
+) -> anyhow::Result<RejeuStraddle> {
+    let params_db = db::strategies_params::lire_straddle_params(pool.pool()).await;
 
     // Source des passes : les signaux straddle (clés avec annonce_ts).
     let actifs: Vec<db::signaux::SignalActifCle> =
@@ -265,7 +279,7 @@ async fn calculer(pool: &Arc<db::Database>) -> anyhow::Result<RejeuStraddle> {
         if let Some((verdict, net, ferme_le)) =
             rejouer_passe(*entree, *r, ouverture, &fenetre, trailing_r, time_stop_min)
         {
-            let _ = palier_reference(&verdict);
+            let r_ref = palier_reference(&verdict);
             capital += net * capital * fraction;
             clotures.push(ClotureRejeuStraddle {
                 asset: asset.clone(),
@@ -273,6 +287,7 @@ async fn calculer(pool: &Arc<db::Database>) -> anyhow::Result<RejeuStraddle> {
                 ferme_le,
                 verdict,
                 r_net: net,
+                r_ref,
                 capital_apres: capital,
             });
         }

@@ -170,14 +170,14 @@ function palierFerme(s: Signal): PalierMax['palier'] {
   return palierMax(s).palier
 }
 
-/** R de référence : palier → R (colonnes dominantes de la lecture d'entrée).
- *  Sortie trailing rockets : le R est variable — la vérité du moteur. */
+/** R-distance officiel : servi par le backend (/api/signaux → r_distance) —
+ *  IDENTIQUE aux points capital et aux agrégats du dashboard/rapport par
+ *  construction (harmonisation 15/09 : plus aucun recalcul front, qui
+ *  divergeait sur TS et Expire). Null hors clôtures remplies. */
 function rReference(s: Signal): number | null {
   if ((s.statut ?? '') !== 'Fermé') return null
   if (s.heure_entree === null || s.heure_entree === undefined) return null
-  const p = palierMax(s)
-  if (p.palier === 'Trailing') return s.r_realise ?? null
-  return p.rReference
+  return s.r_distance ?? null
 }
 
 /** « Ouvert le » = REMPLISSAGE de l'ordre — la position n'existe qu'à partir

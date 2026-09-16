@@ -17,18 +17,23 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+pub use crate::analyses_smc::{BlocIa, TrancheScore};
+use crate::analyses_smc::enrichissements_smc;
+
 /// Une clôture normalisée — l'unité d'analyse (un trade qui a engagé du
 /// capital, expirés compris : leur R réel a composé le capital).
 #[derive(Clone)]
-struct ClotureAnalyse {
-    ferme_le: i64,
-    asset: String,
-    tf: String,
-    verdict: String,
+pub(crate) struct ClotureAnalyse {
+    /// Id du signal — rapprochement score/avis LLM (enrichissements SMC).
+    pub(crate) id: String,
+    pub(crate) ferme_le: i64,
+    pub(crate) asset: String,
+    pub(crate) tf: String,
+    pub(crate) verdict: String,
     /// R qui compose le capital (pondéré SMC, net straddle, réalisé base).
-    r: f64,
+    pub(crate) r: f64,
     /// Profit/perte $ composé (variation du capital simulé à cette clôture).
-    dollars: f64,
+    pub(crate) dollars: f64,
 }
 
 #[derive(Serialize)]
@@ -97,6 +102,11 @@ pub struct AnalyseStrategie {
     pub capital_actuel: f64,
     pub fraction_risque: f64,
     pub r_total: f64,
+    /// R-distance moyen par clôture (r_total / nb_trades).
+    pub r_moyen: f64,
+    /// Part des clôtures perdantes ($ < 0) — 0-1 (complément inexact du WR :
+    /// les sorties ~0 $ ne sont ni gagnantes ni perdantes).
+    pub taux_perte: f64,
     /// Vrai quand SMC/straddle servent le REPLI base vécue parce que le
     /// re-jeu paramétrique n'est pas encore prêt (boot : ~35 s de calcul,
     /// ou relance après un changement de réglage). Sans cette marque, la
@@ -117,6 +127,10 @@ pub struct AnalyseStrategie {
     pub par_asset_tf: Vec<ParAssetTf>,
     /// Heatmap heure × jour (cases non vides, tri jour puis heure).
     pub heatmap: Vec<CaseHeatmap>,
+    /// Tranches de score SMC (bandes métier) — vide pour les autres.
+    pub par_score: Vec<TrancheScore>,
+    /// Bloc IA (rail conviction LLM + directions) — vide pour les autres.
+    pub ia: BlocIa,
 }
 
 /// Récupère les clôtures + métadonnées capital d'une stratégie.
@@ -125,77 +139,21 @@ async fn collecter(
     db: &Arc<db::Database>,
     id: &str,
 ) -> (Vec<ClotureAnalyse>, f64, f64, f64, &'static str) {
-    if id == "SMC" {
-        if let Some(r) = crate::smc_rejeu::lire_cache().await {
-            let mut precedent = r.capital_depart;
-            let clotures = r
-                .clotures
-                .iter()
-                .map(|c| {
-                    let dollars = c.capital_apres - precedent;
-                    precedent = c.capital_apres;
-                    ClotureAnalyse {
-                        ferme_le: c.ferme_le,
-                        asset: c.asset.clone(),
-                        tf: c.tf.clone(),
-                        verdict: normaliser_verdict(&c.verdict),
-                        r: c.r_pondere,
-                        dollars,
-                    }
-                })
-                .collect();
-            return (
-                clotures,
-                r.capital_depart,
-                r.capital_actuel,
-                r.fraction_risque,
-                "rejeu",
-            );
-        }
-        crate::smc_rejeu::lancer_si_necessaire(db.clone()).await;
-    }
-    if id == "straddle" {
-        if let Some(r) = crate::straddle_rejeu::lire_cache().await {
-            let mut precedent = r.capital_depart;
-            let fraction = db
-                .lire_strategie(id)
-                .await
-                .ok()
-                .flatten()
-                .map(|reg| reg.risque_pct / 100.0)
-                .unwrap_or(0.01);
-            let clotures = r
-                .clotures
-                .iter()
-                .map(|c| {
-                    let dollars = c.capital_apres - precedent;
-                    precedent = c.capital_apres;
-                    ClotureAnalyse {
-                        ferme_le: c.ferme_le,
-                        asset: c.asset.clone(),
-                        tf: "M1".into(),
-                        verdict: normaliser_verdict(&c.verdict),
-                        r: c.r_net,
-                        dollars,
-                    }
-                })
-                .collect();
-            return (clotures, r.capital_depart, r.capital_actuel, fraction, "rejeu");
-        }
-        crate::straddle_rejeu::lancer_si_necessaire(db.clone()).await;
-    }
-    // Repli/rails général : simulation capital sur la base vécue.
+    // Source officielle (décision 15/09 soir) : la BASE VÉCUE pour toutes
+    // les stratégies — les rejeus paramétriques ne sont plus servis ici
+    // (ils restent calculés pour l'étude live↔replay, tâche 2.1).
     match crate::capital_simule::simuler(db, id).await {
         Ok(s) => {
             let clotures = s
                 .points
                 .iter()
                 .map(|p| ClotureAnalyse {
+                    id: p.id.clone(),
                     ferme_le: p.ferme_le,
                     asset: p.asset.clone(),
                     tf: p.tf.clone(),
                     verdict: normaliser_verdict(&p.verdict),
-                    r: p.r,
+                    r: p.r_distance,
                     dollars: p.profit,
                 })
                 .collect();
@@ -337,6 +295,16 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
     let nb = clotures.len();
     let r_total = clotures.iter().map(|c| c.r).sum();
     let gagnants = clotures.iter().filter(|c| c.dollars > 0.0).count();
+    let perdants = clotures.iter().filter(|c| c.dollars < 0.0).count();
+    let r_moyen = if nb > 0 { r_total / nb as f64 } else { 0.0 };
+
+    // Enrichissements SMC (tranches de score + bloc IA) — mêmes lignes que
+    // les clôtures, jamais une fenêtre front.
+    let (par_score, ia) = if id == "SMC" {
+        enrichissements_smc(db, &clotures).await
+    } else {
+        (Vec::new(), BlocIa::vide())
+    };
 
     // Hier (jour local de la veille) — les données de la veille.
     let cle_hier = {
@@ -376,7 +344,9 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
         capital_actuel,
         fraction_risque: fraction,
         r_total,
-        recalcul: (id == "SMC" || id == "straddle") && source == "base",
+        r_moyen,
+        taux_perte: if nb > 0 { perdants as f64 / nb as f64 } else { 0.0 },
+        recalcul: false,
         taux_reussite: if nb > 0 { gagnants as f64 / nb as f64 } else { 0.0 },
         hier,
         journalier: periodes(&clotures, cle_jour),
@@ -387,14 +357,14 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
         tfs: categories(&clotures, |c| c.tf.as_str()),
         par_asset_tf: croise_asset_tf(&clotures),
         heatmap: heatmap_hj(&clotures),
+        par_score,
+        ia,
     };
     // §14 : snapshot quotidien persisté (INSERT OR REPLACE — le jour reflète
     // le dernier calcul ; l'avis IA éventuel est préservé par le UPDATE).
     let maintenant = chrono::Utc::now().timestamp();
     let jour = db::analyses_snapshots::cle_du_jour(maintenant);
-    // Pas de snapshot sur le repli transitoire (rejeu en vol au boot) : la
-    // valeur du jour doit être celle du re-jeu, pas un R vécu de passage.
-    if !a.recalcul {
+    {
         let _ = db
             .enregistrer_analyse_snapshot(
                 id,
@@ -505,4 +475,110 @@ pub async fn get_analyse(state: web::Data<AppState>, path: web::Path<String>) ->
             .json(serde_json::json!({ "error": "Stratégie inconnue" }));
     }
     HttpResponse::Ok().json(analyser(&state.db, &id).await)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Base mémoire + migrations + une stratégie SMC dotée d'un capital.
+    async fn base_test() -> Arc<db::Database> {
+        let db = db::Database::new(":memory:").await.expect("DB mémoire");
+        db.run_migrations().await.expect("migrations OK");
+        sqlx::query("UPDATE strategies SET etat = 'Officielle', capital = 1000.0, risque_pct = 1.0 WHERE id = 'SMC'")
+            .execute(db.pool())
+            .await
+            .expect("stratégie SMC");
+        Arc::new(db)
+    }
+
+    /// Insère une clôture SMC remplie (entrée 2000, SL 1990 → risque 10).
+    async fn cloture(db: &Arc<db::Database>, id: &str, verdict: &str, score: f64, direction: &str, r_realise: f64) {
+        sqlx::query(
+            "INSERT INTO signaux (id, asset, timeframe, direction, score, prix_entree, stop_loss,
+                                  take_profit, strategie, statut, verdict, r_realise, cree_le,
+                                  heure_entree, ferme_le)
+             VALUES (?, 'BTC', 'M5', ?, ?, 2000.0, 1990.0, '[2006, 2020, 2030]',
+                     'SMC', 'Fermé', ?, ?, 1700000000, 1700000600, 1700001200)",
+        )
+        .bind(id)
+        .bind(direction)
+        .bind(score)
+        .bind(verdict)
+        .bind(r_realise)
+        .execute(db.pool())
+        .await
+        .expect("insertion clôture");
+    }
+
+    /// HARMONISATION (15/09 soir) : l'analyse, la simulation capital et les
+    /// catégories doivent compter EXACTEMENT les mêmes clôtures avec
+    /// EXACTEMENT les mêmes R — c'est le verrou qui interdit à un écran de
+    /// diverger d'un autre (bug « 257 vs 348 vs camemberts »).
+    #[actix_web::test]
+    async fn analyser_coherent_avec_simuler_et_categories() {
+        let db = base_test().await;
+        cloture(&db, "t1", "TP1+BE", 7.0, "Long", 0.3).await;   // r_distance 0.6
+        cloture(&db, "t2", "TP2+BE", 10.0, "Short", 1.2).await; // r_distance 2.0
+        cloture(&db, "t3", "SL", 15.0, "Long", -1.0).await;     // r_distance −1.0
+        cloture(&db, "t4", "Expire", 8.0, "Short", 0.0).await;  // repli r_realise 0.0
+
+        let a = analyser(&db, "SMC").await;
+        let sim = crate::capital_simule::simuler(&db, "SMC").await.expect("simulation");
+
+        // Même effectif partout : points capital, catégories, périodes, heatmap.
+        assert_eq!(a.nb_trades, 4);
+        assert_eq!(sim.points.len(), 4, "points capital ≠ nb_trades");
+        assert_eq!(a.tfs.iter().map(|c| c.n).sum::<usize>(), 4, "Σ tfs.n");
+        assert_eq!(a.assets.iter().map(|c| c.n).sum::<usize>(), 4, "Σ assets.n");
+        assert_eq!(a.verdicts.iter().map(|c| c.n).sum::<usize>(), 4, "Σ verdicts.n");
+        assert_eq!(a.journalier.iter().map(|p| p.trades).sum::<usize>(), 4, "Σ journalier");
+        assert_eq!(a.heatmap.iter().map(|c| c.trades).sum::<usize>(), 4, "Σ heatmap");
+
+        // Même R partout : r_total == Σ r_distance des points == Σ par verdict.
+        let somme_points: f64 = sim.points.iter().map(|p| p.r_distance).sum();
+        assert!((a.r_total - somme_points).abs() < 1e-9, "r_total {} ≠ Σ points {}", a.r_total, somme_points);
+        assert!((a.r_total - 1.6).abs() < 1e-9, "ΣR distance attendu 1.6, obtenu {}", a.r_total);
+        let somme_verdicts: f64 = a.verdicts.iter().map(|c| c.r).sum();
+        assert!((a.r_total - somme_verdicts).abs() < 1e-9, "Σ verdicts.r ≠ r_total");
+        assert!((a.r_moyen - 0.4).abs() < 1e-9, "r_moyen {}", a.r_moyen);
+
+        // WR ($ > 0) + taux de perte ($ < 0) : complémentaires au pire des ~0 $.
+        assert!(a.taux_reussite + a.taux_perte <= 1.0 + 1e-9);
+        assert!(a.taux_reussite >= 0.0 && a.taux_reussite <= 1.0);
+
+        // Tranches de score : mêmes lignes, aucun trade perdu.
+        assert_eq!(a.par_score.iter().map(|t| t.n).sum::<usize>(), 4, "Σ par_score.n");
+        assert_eq!(a.par_score[0].n, 2, "tranche 6–8 : scores 7 et 8");
+
+        // Capital : départ persisté, actuel = départ + Σ profits.
+        assert!((a.capital_depart - 1000.0).abs() < 1e-9);
+        let somme_profits: f64 = sim.points.iter().map(|p| p.profit).sum();
+        assert!((a.capital_actuel - (a.capital_depart + somme_profits)).abs() < 1e-6);
+    }
+
+    /// Le r_distance servi par /api/signaux est le même que celui des points
+    /// capital (miroir signaux_lecture ↔ capital_simule).
+    #[actix_web::test]
+    async fn r_distance_signaux_egale_points_capital() {
+        let db = base_test().await;
+        cloture(&db, "u1", "TP2+BE", 10.0, "Long", 1.2).await;
+        cloture(&db, "u2", "SL", 10.0, "Short", -1.0).await;
+
+        let sim = crate::capital_simule::simuler(&db, "SMC").await.expect("simulation");
+        let signaux = db.obtenir_signaux(100).await.expect("signaux");
+        let par_id: std::collections::HashMap<String, f64> = signaux
+            .iter()
+            .filter_map(|s| {
+                let r = s.get("r_distance")?.as_f64()?;
+                let id = s.get("id")?.as_str()?.to_string();
+                Some((id, r))
+            })
+            .collect();
+        assert_eq!(par_id.len(), 2, "r_distance servi sur chaque clôture remplie");
+        for p in &sim.points {
+            let r_signal = par_id.get(&p.id).unwrap_or_else(|| panic!("signal {} absent", p.id));
+            assert!((r_signal - p.r_distance).abs() < 1e-9, "signal {} : {} ≠ {}", p.id, r_signal, p.r_distance);
+        }
+    }
 }

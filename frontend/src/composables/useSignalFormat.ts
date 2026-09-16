@@ -145,31 +145,23 @@ interface SignalPalier {
 
 export interface PalierMax {
   palier: 'SL' | 'TP1' | 'TP2' | 'TP3' | 'BE' | 'Trailing' | 'Expiré' | 'Non rempli' | null
-  rReference: number | null
 }
 
-function rNiveau(niveau: number, entree: number, sl: number): number | null {
-  const risque = Math.abs(entree - sl)
-  if (risque < 1e-9) return null
-  return Math.abs(niveau - entree) / risque
-}
-
+/// Libellé du palier max d'un verdict. HARMONISATION 15/09 : le R-distance
+/// (la valeur numérique) est servi par le backend dans Signal.r_distance —
+/// identique aux points capital et aux agrégats du dashboard par
+/// construction ; ce composable ne fournit plus que le LIBELLÉ.
 export function palierMax(s: SignalPalier): PalierMax {
   const v = s.verdict?.toLowerCase() ?? ''
-  const straddle = (s.strategie ?? '').toLowerCase() === 'straddle'
-  const penalite = straddle ? 1 : 0 // la jambe perdante a payé 1R
-  if (v === 'sl' || v === 'sl+be') return { palier: 'SL', rReference: -1 }
-  if (v === 'tp1' || v === 'tp1+be')
-    return { palier: 'TP1', rReference: (rNiveau(s.take_profit[0], s.prix_entree, s.stop_loss) ?? 0) - penalite }
-  if (v === 'tp2' || v === 'tp2+be')
-    return { palier: 'TP2', rReference: (rNiveau(s.take_profit[1] ?? s.take_profit[0], s.prix_entree, s.stop_loss) ?? 0) - penalite }
-  if (v === 'tp3')
-    return { palier: 'TP3', rReference: (rNiveau(s.take_profit[2] ?? s.take_profit[0], s.prix_entree, s.stop_loss) ?? 0) - penalite }
-  if (v === 'be') return { palier: 'BE', rReference: 0 }
-  if (v === 'ts') return { palier: 'Trailing', rReference: null }
-  if (v === 'expire') return { palier: 'Expiré', rReference: null }
-  if (v === 'invalide') return { palier: 'Non rempli', rReference: null }
-  return { palier: null, rReference: null }
+  if (v === 'sl' || v === 'sl+be') return { palier: 'SL' }
+  if (v === 'tp1' || v === 'tp1+be') return { palier: 'TP1' }
+  if (v === 'tp2' || v === 'tp2+be') return { palier: 'TP2' }
+  if (v === 'tp3') return { palier: 'TP3' }
+  if (v === 'be') return { palier: 'BE' }
+  if (v === 'ts') return { palier: 'Trailing' }
+  if (v === 'expire') return { palier: 'Expiré' }
+  if (v === 'invalide') return { palier: 'Non rempli' }
+  return { palier: null }
 }
 
 export function labelPalierMax(p: PalierMax['palier']): string {

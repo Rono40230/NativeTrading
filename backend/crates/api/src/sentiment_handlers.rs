@@ -45,6 +45,9 @@ pub struct SentimentMarche {
     pub matieres_premieres: Vec<EntiteSentiment>,
     pub cryptos: Vec<EntiteSentiment>,
     pub vix: Option<f64>,
+    /// Bandeau sentiment (15/09) : F&G crypto, positioning, breadth, presse.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bandeau: Option<crate::sentiment_bandeau::BandeauSentiment>,
 }
 
 /// Clôture figée : une entité, un jour de clôture (le vendredi pour les
@@ -373,6 +376,10 @@ pub async fn get_sentiment_marche(state: web::Data<AppState>) -> impl Responder 
 
     // Repli dégradé : moins de 5 sources live → servir la veille figée
     // (datée) plutôt qu'un bloc à moitié vide.
+    // Bandeau sentiment (F&G, positioning, breadth, presse) — collecté ici
+    // (async) et servi même en repli veille.
+    let bandeau = crate::sentiment_bandeau::collecter(&state.db).await;
+
     if entites.len() < 5 {
         tracing::warn!(
             "sentiment_marche : live partiel ({}/11) — repli sur la veille figée",
@@ -385,11 +392,12 @@ pub async fn get_sentiment_marche(state: web::Data<AppState>) -> impl Responder 
             &entites_repli(&lignes),
             date_ref.clone(),
             &Some((date_ref, lignes)),
+            bandeau,
         );
     }
 
     let veille = lire_veille(&state.db).await;
-    construire_reponse(&entites, Utc::now().format("%Y-%m-%d").to_string(), &veille)
+    construire_reponse(&entites, Utc::now().format("%Y-%m-%d").to_string(), &veille, bandeau)
 }
 
 /// Transforme les lignes figées en entités (repli).
@@ -410,6 +418,7 @@ fn construire_reponse(
     entites: &[EntiteSentiment],
     date: String,
     veille: &Option<(String, Vec<LigneVeille>)>,
+    bandeau: crate::sentiment_bandeau::BandeauSentiment,
 ) -> HttpResponse {
     // Fusion colonne « Veille » : attache à chaque entité live sa variation
     // figée (J-1 vs J-2) depuis la table de référence.
@@ -459,6 +468,7 @@ fn construire_reponse(
         matieres_premieres: groupes[2].clone(),
         cryptos: groupes[3].clone(),
         vix: vix_figé,
+        bandeau: Some(bandeau),
     })
 }
 

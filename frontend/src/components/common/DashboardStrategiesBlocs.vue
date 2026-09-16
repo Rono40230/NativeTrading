@@ -16,26 +16,44 @@
           class="text-[10px] font-semibold px-2 py-0.5 rounded-full border"
           :class="badgeClasse(b.etat)"
         >{{ b.etat }}</span>
-        <span v-if="b.perf.source === 'rejeu' && b.perf.clotures.length"
-          class="text-[9px] text-white"
-          title="Métriques re-dérivées du TP1 réglé (re-jeu paramétrique — tous les couples armés)"
-        >depuis {{ dateCourte(b.perf.clotures[0].ferme_le) }}</span>
+        <span v-if="b.analyse && b.analyse.nb_trades"
+              class="text-[9px] text-white"
+              :title="`Base vécue complète : ${b.analyse.nb_trades} clôtures, ${dateCourte(b.analyse.fenetre_debut)} → ${dateCourte(b.analyse.fenetre_fin)}`"
+        >{{ b.analyse.nb_trades }} clôtures</span>
         <!-- Accès directs (workflow 09/09) : caractéristiques + réglages
              en modale, par stratégie (composant dédié). -->
         <ReglagesCarteBoutons :id="b.id" />
+        <!-- Laboratoire : re-jeu paramétrique à la demande, sans jamais
+             toucher aux chiffres officiels (décision 15/09 nuit). -->
+        <button
+          class="text-[10px] font-semibold px-2 py-0.5 rounded-md border border-teal-500/30 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 transition-colors whitespace-nowrap"
+          title="Laboratoire de simulation — tester des réglages sans toucher aux chiffres officiels"
+          @click.stop="router.push(`/simulation?strategie=${b.id}`)"
+        >🧪 Simulation</button>
         <div class="ml-auto flex items-center gap-1.5 text-[10px] font-semibold whitespace-nowrap">
+          <!-- Son Telegram : bascule directe du réglage de la stratégie
+               (PUT partiel — effet immédiat, l'envoi lit le drapeau à
+               chaque signal). Ne déclenche pas l'ouverture de la carte. -->
+          <button
+            class="px-1.5 py-0.5 rounded bg-white/10 font-semibold transition-colors hover:bg-white/20 disabled:opacity-40"
+            :class="b.notifications ? 'text-emerald-300' : 'text-white/60'"
+            :title="titreTelegram(b)"
+            :disabled="basculeTelegram === b.id"
+            @click.stop="basculerTelegram(b)"
+          >{{ b.notifications ? '🔔' : '🔕' }}</button>
           <span class="px-1.5 py-0.5 rounded bg-white/10 font-mono font-bold"
-                :class="rArrondi(b.perf.r_total) > 0 ? 'text-emerald-400' : rArrondi(b.perf.r_total) < 0 ? 'text-red-400' : 'text-white'"
-                :title="titleR(b.perf)">{{ rFormate(b.perf.r_total) }}</span>
+                :class="rArrondi(b.analyse?.r_total ?? 0) > 0 ? 'text-emerald-400' : rArrondi(b.analyse?.r_total ?? 0) < 0 ? 'text-red-400' : 'text-white'"
+                :title="titleR">{{ rFormate(b.analyse?.r_total ?? 0) }}</span>
           <span v-if="b.capital" class="px-1.5 py-0.5 rounded bg-white/10 font-mono font-bold"
                 :class="b.capital.capital_actuel < 0 ? 'text-red-400' : b.capital.capital_actuel >= b.capital.capital_depart ? 'text-emerald-400' : 'text-white'"
                 :title="`Capital simulé — départ ${fmtDollars(b.capital.capital_depart)}, compose à chaque clôture (risque ${(b.capital.fraction_risque * 100).toFixed(b.capital.fraction_risque < 0.01 ? 1 : 0)} %/trade). Le lot de chaque trade se calcule sur ce capital.`">{{ fmtDollars(b.capital.capital_actuel) }}</span>
-          <span class="px-1.5 py-0.5 rounded bg-white/10 text-white" title="Taux de réussite (R de référence > 0)">WR {{ (b.perf.taux_reussite * 100).toFixed(0) }} %</span>
-          <span v-if="b.perf.recalcul" class="px-1.5 py-0.5 rounded bg-white/10 text-white animate-pulse"
-                title="Re-jeu paramétrique en cours (~35 s) — les métriques vont se mettre à jour">⏳ recalcul</span>
+          <span class="px-1.5 py-0.5 rounded bg-white/10 text-white" title="WR — part des clôtures gagnantes ($ > 0), base vécue complète">WR {{ ((b.analyse?.taux_reussite ?? 0) * 100).toFixed(0) }} %</span>
         <span v-if="b.id === 'rockets' && nbPositionsRocket > 0"
               class="px-1.5 py-0.5 rounded bg-purple-700/40 text-purple-200 font-mono font-bold cursor-help"
               :title="titrePositionsRocket">{{ nbPositionsRocket }} en cours 🚀</span>
+        <span v-else-if="(enCoursBloc[b.id] || []).length > 0"
+              class="px-1.5 py-0.5 rounded bg-blue-500/30 text-blue-200 font-mono font-bold cursor-help"
+              :title="titreEnCours(b.id)">{{ (enCoursBloc[b.id] || []).length }} en cours</span>
         </div>
       </div>
 
@@ -76,8 +94,8 @@
         </div>
       </div>
 
-      <!-- Histogramme jour par jour : Σ $ (tooltip = clôtures du jour) -->
-      <div v-if="b.jours.length" class="relative h-10 -mx-1" @mouseleave="survolJour = null">
+      <!-- Histogramme jour par jour : Σ $ (sans survol — décision 15/09) -->
+      <div v-if="b.jours.length" class="relative h-10 -mx-1">
         <svg :viewBox="`0 0 100 ${HIST_H}`" preserveAspectRatio="none" class="w-full h-full">
           <line :x1="0" :x2="100" :y1="yZeroHistogramme" :y2="yZeroHistogramme"
             stroke="rgba(255,255,255,0.15)" stroke-width="0.4" />
@@ -90,31 +108,18 @@
             :height="hauteurBarre(b, j.dollars)"
             :fill="j.dollars >= 0 ? '#34d399' : '#f87171'"
             opacity="0.85"
-            @mouseenter="survolBarre($event, b.id, j)"
           />
         </svg>
-        <!-- Tooltip : liste des clôtures du jour — en fixed pour ne jamais
-             être rogné par le conteneur à défilement de la carte. -->
-        <div
-          v-if="survolJour && survolJour.bloc === b.id"
-          class="fixed z-50 pointer-events-none bg-slate-900/95 border border-white/15 rounded-lg px-2.5 py-1.5 shadow-xl whitespace-nowrap"
-          :style="styleTooltip"
-        >
-          <p class="text-[10px] font-bold text-white mb-0.5">{{ libelleJour(survolJour.jour.date) }} — {{ fmtDollars(survolJour.jour.dollars) }}</p>
-          <p v-for="t in survolJour.jour.trades" :key="t.id" class="text-[9px] text-white leading-snug">
-            {{ t.asset }} {{ t.tf }} · {{ t.verdict || '—' }} <span :class="t.profit >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollars(t.profit) }}</span>
-          </p>
-        </div>
       </div>
 
       <!-- Les 4 camemberts sur une ligne : deux groupes (« Nombre de
            trades » et « Dollars réels »), titre à flèches au centre de
            chaque paire, filet entre les groupes. -->
-      <div v-if="b.parTf.length || b.parAsset.length || b.topTf.length || b.topAsset.length" class="flex gap-2 items-stretch" title="Nombre de trades : base vécue, expirés exclus · Dollars : toutes les clôtures composées (centre = évolution du capital)">
+      <div v-if="b.parTf.length || b.parAsset.length || b.topTf.length || b.topAsset.length" class="flex gap-2 items-stretch" title="Base vécue complète (expirés compris) — mêmes clôtures que le badge R, le WR et la courbe de capital. Dollars : contribution composée au capital.">
         <div v-if="b.parTf.length || b.parAsset.length" class="flex gap-1 min-w-0 flex-1">
         <!-- Répartition par timeframe -->
         <div v-if="b.parTf.length" class="flex flex-col items-center gap-0.5 min-w-0 flex-1">
-          <svg viewBox="0 0 42 42" class="w-full max-w-[64px]">
+          <svg viewBox="0 0 42 42" class="w-full max-w-[84px]">
             <circle cx="21" cy="21" r="15.915" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5" />
             <circle
               v-for="(s, i) in b.parTf" :key="'tf' + s.label"
@@ -142,7 +147,7 @@
           </div>
         <!-- Répartition par asset -->
         <div v-if="b.parAsset.length" class="flex flex-col items-center gap-0.5 min-w-0 flex-1">
-          <svg viewBox="0 0 42 42" class="w-full max-w-[64px]">
+          <svg viewBox="0 0 42 42" class="w-full max-w-[84px]">
             <circle cx="21" cy="21" r="15.915" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5" />
             <circle
               v-for="(s, i) in b.parAsset" :key="'as' + s.label"
@@ -168,7 +173,7 @@
         <div v-if="b.topTf.length || b.topAsset.length" class="flex gap-1 min-w-0 flex-1">
         <!-- Classement TF : contribution réelle au capital ($) -->
         <div v-if="b.topTf.length" class="flex flex-col items-center gap-0.5 min-w-0 flex-1">
-          <svg viewBox="0 0 42 42" class="w-full max-w-[64px]">
+          <svg viewBox="0 0 42 42" class="w-full max-w-[84px]">
             <circle cx="21" cy="21" r="15.915" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5" />
             <circle
               v-for="(s, i) in b.topTf.filter(x => x.part > 0)" :key="'ttf' + s.label"
@@ -196,7 +201,7 @@
           </div>
         <!-- Classement asset : contribution réelle au capital ($) -->
         <div v-if="b.topAsset.length" class="flex flex-col items-center gap-0.5 min-w-0 flex-1">
-          <svg viewBox="0 0 42 42" class="w-full max-w-[64px]">
+          <svg viewBox="0 0 42 42" class="w-full max-w-[84px]">
             <circle cx="21" cy="21" r="15.915" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5" />
             <circle
               v-for="(s, i) in b.topAsset.filter(x => x.part > 0)" :key="'tas' + s.label"
@@ -234,67 +239,49 @@ import { http } from '@/services/http.client'
 import CourbeCapital from './CourbeCapital.vue'
 import ReglagesCarteBoutons from './ReglagesCarteBoutons.vue'
 import { usePositionsRockets, plLatent, plNeutralisee } from '@/composables/usePositionsRockets'
+import { useEnCoursStrategies } from '@/composables/useEnCoursStrategies'
 import { zonesCapital, type PointCapital } from '@/composables/useCourbeCapital'
+import { chargerAnalyse, type AnalyseStrategie, type CategorieAnalyse } from '@/composables/useAnalyses'
 import {
-  PALETTE as _PALETTE, repartition, classement, couleurTf, couleurAsset,
+  classement, couleurTf, couleurAsset,
   decallage, totalParts, lignesClassement,
+  type PartCamembert, type PartClassement,
 } from '@/composables/useCamemberts'
-import type { PartCamembert, PartClassement } from '@/composables/useCamemberts'
 
 interface StrategieApi {
-  id: string; nom: string; icone: string; etat: string
-}
-interface PerfApi {
-  clotures: { ferme_le: number; r_cumule: number }[]
-  en_cours: unknown[]
-  total: number
-  non_remplis: number
-  taux_reussite: number
-  /** R total affiché : pondéré ventes partielles (SMC rejeu — même base que
-   *  le capital) ou R vécu de la base pour les autres stratégies. */
-  r_total: number
-  /** R de référence (paliers max) — servi par le re-jeu SMC pour l'info-bulle. */
-  r_total_reference?: number
-  /** Présents quand la performance vient du re-jeu paramétrique (SMC).
-   *  recalcul = un re-jeu est en vol après un changement de TP1. */
-  source?: string
-  tp1?: number
-  recalcul?: boolean
+  id: string; nom: string; icone: string; etat: string; notifications: boolean
 }
 /// Simulation composée du capital en $ (backend capital_simule) — le capital
 /// de départ évolue à chaque clôture : capital += R_réalisé × capital × risque.
+/// SERVÉ UNIQUEMENT POUR LA COURBE (points) : tous les agrégats affichés
+/// (R, WR, camemberts, histogramme) viennent de l'analyse — même source que
+/// le rapport d'activité, harmonisation 15/09 soir.
 interface CapitalApi {
   capital_depart: number
   fraction_risque: number
   capital_actuel: number
   points: { id: string; ferme_le: number; r: number; profit: number; capital_apres: number; asset?: string; tf?: string; verdict?: string }[]
 }
-/** Trade fermé rempli (base vécue, expirés exclus) — camemberts NOMBRES. */
-interface TradeNombre {
-  id: string; asset: string; tf: string; verdict: string | null
-}
-/** Clôture en $ (simulation capital) — camemberts $ et histogramme. */
-interface TradeDollar {
-  id: string; asset: string; tf: string; verdict: string
-  profit: number
-  fermeLe: number
-}
 interface JourHistogramme {
   date: string
   dollars: number
-  trades: TradeDollar[]
 }
 interface Bloc {
-  id: string; nom: string; icone: string; etat: string; perf: PerfApi
-  /** Capital simulé en $ (composé à chaque clôture) — null si indisponible. */
+  id: string; nom: string; icone: string; etat: string
+  /** Son Telegram de la stratégie (drapeau registre) — bascule directe. */
+  notifications: boolean
+  /** L'analyse officielle (backend analyses.rs) — LA source de tous les
+   *  chiffres affichés : R-distance, WR $, effectifs, catégories. */
+  analyse: AnalyseStrategie | null
+  /** Capital simulé en $ — courbe uniquement (points composés). */
   capital: CapitalApi | null
-  /** Histogramme journalier : Σ $ par jour + clôtures du jour (tooltip). */
+  /** Histogramme journalier : Σ $ par jour (14 derniers jours, analyser). */
   jours: JourHistogramme[]
   /** Σ $ nets de TOUTES les clôtures composées (= capital_actuel − départ) —
    *  centre des camemberts $, indépendant du regroupement. */
   dollarsNet: number
-  /** Répartitions (nombre de trades, base vécue) et classements ($) des
-   *  clôtures composées. */
+  /** Répartitions (nombre de clôtures vécues) et classements ($) —
+   *  catégories de l'analyse, effectif = nb_trades garanti. */
   parTf: PartCamembert[]
   parAsset: PartCamembert[]
   topTf: PartClassement[]
@@ -312,6 +299,35 @@ const HIST_H = 30
 const NB_JOURS = 14
 
 const router = useRouter()
+
+// ── Son Telegram : bascule directe sur la carte ─────────────────────────────
+// PUT partiel du registre ({ notifications }) — l'envoi relit le drapeau à
+// CHAQUE signal (signaux_officiels) : effet immédiat, sans relance.
+const basculeTelegram = ref('')
+
+async function basculerTelegram(b: Bloc) {
+  basculeTelegram.value = b.id
+  try {
+    const res = await http.put<{ notifications: boolean }>(`/api/strategies/${b.id}`, {
+      notifications: !b.notifications,
+    })
+    b.notifications = res.data.notifications
+  } catch { /* échec silencieux : l'icône reflète l'état inchangé */ }
+  basculeTelegram.value = ''
+}
+
+/// Info-bulle du bouton : la règle d'envoi complète — le drapeau ET l'état
+/// (Observation = silencieux, décision 15/09 ; le bouton pré-règle le drapeau).
+function titreTelegram(b: Bloc): string {
+  const lignes = [
+    `Telegram — messages d'imminence : ${b.notifications ? 'ACTIVÉS' : 'COUPÉS'} (clic pour ${b.notifications ? 'couper' : 'activer'}).`,
+    "Condition complète d'envoi : réglage activé ET stratégie Officielle.",
+  ]
+  if (b.etat !== 'Officielle') {
+    lignes.push(`Ici état ${b.etat} → silencieux tant que la stratégie ne repasse pas Officielle.`)
+  }
+  return lignes.join('\n')
+}
 
 // Positions rockets ouvertes : badge vivant de la carte (poste
 // d'observation — P/L latent en infobulle).
@@ -332,9 +348,8 @@ const titrePositionsRocket = computed(() => {
 const blocs = ref<Bloc[]>([])
 const chargement = ref(true)
 const signaux = ref<SignalApi[]>([])
-/** Jour survolé dans l'histogramme (tooltip, ancré en viewport). */
-const survolJour = ref<{ bloc: string; jour: JourHistogramme; x: number; y: number } | null>(null)
-
+// Badge « N en cours » des autres cartes (15/09) : signaux Actifs remplis.
+const { parBloc: enCoursBloc, titre: titreEnCours } = useEnCoursStrategies(signaux)
 /// Survol d'un point de la courbe capital (tooltip, ancré en viewport).
 const survolCapital = ref<{ bloc: string; point: PointCapital; x: number; y: number } | null>(null)
 
@@ -364,28 +379,6 @@ function libelleDateCapital(ts: number): string {
   })
 }
 
-/// Capture le jour survolé + les coordonnées ÉCRAN de la barre : le
-/// tooltip s'ancre en position fixed, hors de tout clipping.
-function survolBarre(e: MouseEvent, bloc: string, jour: JourHistogramme) {
-  if (!jour.trades.length) { survolJour.value = null; return }
-  const r = (e.target as Element).getBoundingClientRect()
-  survolJour.value = { bloc, jour, x: r.left + r.width / 2, y: r.top }
-}
-
-/// Ancrage fixed : centré sur la barre, au-dessus (retourné sous la barre
-/// si près du haut de la fenêtre), borné aux bords de la fenêtre.
-const styleTooltip = computed(() => {
-  const s = survolJour.value
-  if (!s) return {}
-  const demi = 130 // demi-largeur estimée du tooltip (nowrap)
-  const x = Math.min(Math.max(s.x, demi + 8), window.innerWidth - demi - 8)
-  const auDessus = s.y > 220
-  return {
-    left: `${Math.round(x)}px`,
-    top: `${Math.round(auDessus ? s.y - 6 : s.y + 14)}px`,
-    transform: auDessus ? 'translate(-50%, -100%)' : 'translateX(-50%)',
-  }
-})
 let minuteur: ReturnType<typeof setInterval> | null = null
 
 const ROUTES: Record<string, string> = {
@@ -395,52 +388,20 @@ const ROUTES: Record<string, string> = {
   kdj_halftrend: '/kdj',
 }
 
-/// Trades fermés remplis de la base vécue — camemberts NOMBRES uniquement.
-/// Les trades EXPIRÉS sont exclus (décision 03/09 : un trade qui finit au
-/// time-stop sans avoir touché ni SL ni TP n'est pas un trade comptable).
-function tradesFerme(idStrategie: string): TradeNombre[] {
-  const res: TradeNombre[] = []
-  for (const s of signaux.value) {
-    const strats = s.strategie.toLowerCase()
-    if (s.statut !== 'Fermé' || s.heure_entree === null || s.ferme_le === null) continue
-    if ((s.verdict ?? '').toLowerCase() === 'expire') continue
-    if (idStrategie === 'SMC' ? !strats.startsWith('smc') : strats !== idStrategie) continue
-    res.push({ id: s.id, asset: s.asset, tf: s.timeframe, verdict: s.verdict })
-  }
-  return res
+/// Parts « nombre de clôtures » d'une catégorie de l'analyse (TF, asset,
+/// verdict) — effectif TOUJOURS égal au nb_trades du badge (harmonisation
+/// 15/09 : plus aucun recalcul front, plus de fenêtre 150 ni d'expirés exclus).
+function partsDesCategories(cats: CategorieAnalyse[]): PartCamembert[] {
+  const total = cats.reduce((n, c) => n + c.n, 0) || 1
+  return cats
+    .map(c => ({ label: c.label, n: c.n, part: (c.n / total) * 100 }))
+    .sort((a, b) => b.n - a.n)
 }
 
-/// Clôtures en $ de la simulation capital (TOUTES clôtures composées,
-/// expirés compris — leur R réel a engagé le capital) — camemberts $ et
-/// histogramme journalier. Le total SOMME au capital affiché au centime.
-function tradesDollars(capital: CapitalApi | null): TradeDollar[] {
-  if (!capital) return []
-  return capital.points
-    .filter(p => p.asset && p.tf)
-    .map(p => ({
-      id: p.id, asset: p.asset ?? '?', tf: p.tf ?? '?',
-      verdict: p.verdict ?? '', profit: p.profit, fermeLe: p.ferme_le,
-    }))
-}
-
-/// Histogramme : Σ $ par jour local (14 derniers jours), tooltip = clôtures
-/// du jour (asset, TF, verdict, $).
-function joursHistogramme(trades: TradeDollar[]): JourHistogramme[] {
-  if (!trades.length) return []
-  const cleJour = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  const parJour = new Map<string, JourHistogramme>()
-  for (let i = NB_JOURS - 1; i >= 0; i--) {
-    const cle = cleJour(new Date(Date.now() - i * 86400_000))
-    parJour.set(cle, { date: cle, dollars: 0, trades: [] })
-  }
-  for (const t of trades) {
-    const jour = parJour.get(cleJour(new Date(t.fermeLe * 1000)))
-    if (!jour) continue // clôture plus vieille que la fenêtre
-    jour.dollars += t.profit
-    jour.trades.push(t)
-  }
-  return [...parJour.values()]
+/// Histogramme : Σ $ par jour local — derniers jours du journalier servi par
+/// l'analyse (mêmes clôtures que le reste de la carte).
+function joursHistogramme(journalier: { cle: string; dollars: number }[]): JourHistogramme[] {
+  return journalier.slice(-NB_JOURS).map(p => ({ date: p.cle, dollars: p.dollars }))
 }
 
 /// Y du zéro de l'histogramme ($ positifs au-dessus, négatifs en dessous).
@@ -456,27 +417,15 @@ function hauteurBarre(b: Bloc, dollars: number): number {
   return Math.max(0.5, (Math.abs(dollars) / maxAbs) * (HIST_H / 2 - 2))
 }
 
-function libelleJour(date: string): string {
-  const [, m, j] = date.split('-')
-  return `${j}/${m}`
-}
-
 /// R formaté : +2.1 R / −1.5 R / 0.0 R (jamais de « -0.0 »).
 function rFormate(v: number): string {
   const r = rArrondi(v)
   return `${r > 0 ? '+' : r < 0 ? '−' : ''}${Math.abs(r).toFixed(1)} R`
 }
 
-/// Info-bulle du badge R : SMC (re-jeu) affiche le R pondéré qui compose le
-/// capital, avec le R de référence en seconde ligne ; sans re-jeu (repli base
-/// ou autres stratégies) le R affiché suit la convention de référence.
-function titleR(p: PerfApi): string {
-  const transitoire = p.recalcul
-    ? '\n⏳ Valeur VÉCUE transitoire — le re-jeu paramétrique recalcule (~1 min), le R va se mettre à jour\n'
-    : '\n'
-  if (p.r_total_reference === undefined) return `R de référence : paliers max atteints${transitoire}`
-  return `R pondéré (ventes partielles) : ${rFormate(p.r_total)}\nR de référence (paliers max) : ${rFormate(p.r_total_reference)}${transitoire}`
-}
+/// Info-bulle du badge R : la convention officielle (distance = meilleur
+/// palier atteint) — la même que le rapport d'activité et l'historique.
+const titleR = 'R (distance) : meilleur palier atteint par trade — la qualité des zones.\nLe capital ($) compose les ventes partielles : ΣR × risque ≠ variation du capital.'
 
 function ouvrir(id: string) {
   const cible = ROUTES[id]
@@ -534,35 +483,34 @@ async function charger() {
     const actives = (res.data as StrategieApi[]).filter(s => s.etat !== 'Construction')
     const complets = await Promise.allSettled(
       actives.map(async s => {
-        let perf = PERF_VIDE
-        try {
-          const p = await http.get<PerfApi>(`/api/strategies/${s.id}/performance`)
-          perf = p.data as PerfApi
-        } catch { /* perf indisponible → bloc vide */ }
+        // L'ANALYSE est la source unique des chiffres (harmonisation 15/09) :
+        // badge R, WR, camemberts, histogramme — exactement les mêmes nombres
+        // que le rapport d'activité. Le /capital ne sert plus que la courbe.
+        const analyse = await chargerAnalyse(s.id)
         let capital: CapitalApi | null = null
         try {
           const c = await http.get<CapitalApi>(`/api/strategies/${s.id}/capital`)
           capital = c.data as CapitalApi
-        } catch { /* simulation indisponible → pas de badge ni courbe */ }
-        const nombres = tradesFerme(s.id)
-        const dollars = tradesDollars(capital)
-        // Rockets (06/09) : le TF ne dit rien (D1 unique) — le camembert
-        // montre les VERDICTS (TS/SL) et le classement les UNIVERS
-        // (crypto vs actions), les deux lectures qui comptent.
+        } catch { /* simulation indisponible → pas de courbe */ }
+        const cats = analyse?.tfs ?? []
+        const catsAsset = analyse?.assets ?? []
+        // Rockets : le TF ne dit rien (D1 unique) — le camembert montre les
+        // VERDICTS (TS/SL) et le classement les UNIVERS (crypto vs actions).
         const estRocket = s.id === 'rockets'
         const univers = (a: string) => (a.endsWith('USDT') ? 'Crypto' : 'Action')
         return {
-          id: s.id, nom: s.nom, icone: s.icone, etat: s.etat, perf, capital,
-          dollarsNet: dollars.reduce((n, t) => n + t.profit, 0),
-          jours: joursHistogramme(dollars),
+          id: s.id, nom: s.nom, icone: s.icone, etat: s.etat,
+          notifications: s.notifications, analyse, capital,
+          dollarsNet: (analyse?.capital_actuel ?? 0) - (analyse?.capital_depart ?? 0),
+          jours: joursHistogramme(analyse?.journalier ?? []),
           parTf: estRocket
-            ? repartition(nombres, t => (t.verdict ?? '—'))
-            : repartition(nombres, t => t.tf),
-          parAsset: repartition(nombres, t => t.asset),
+            ? partsDesCategories(analyse?.verdicts ?? [])
+            : partsDesCategories(cats),
+          parAsset: partsDesCategories(catsAsset),
           topTf: estRocket
-            ? classement(dollars, t => univers(t.asset), t => t.profit)
-            : classement(dollars, t => t.tf, t => t.profit),
-          topAsset: classement(dollars, t => t.asset, t => t.profit),
+            ? classement(catsAsset, c => univers(c.label), c => c.dollars)
+            : classement(cats, c => c.label, c => c.dollars),
+          topAsset: classement(catsAsset, c => c.label, c => c.dollars),
         }
       }),
     )
@@ -571,10 +519,6 @@ async function charger() {
     blocs.value = []
   }
   chargement.value = false
-}
-
-const PERF_VIDE: PerfApi = {
-  clotures: [], en_cours: [], total: 0, non_remplis: 0, taux_reussite: 0, r_total: 0,
 }
 
 onMounted(() => {

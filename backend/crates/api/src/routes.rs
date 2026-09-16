@@ -38,8 +38,24 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::registre_strategies::performance_strategie),
         )
         .route(
-            "/api/strategies/{id}/capital",
-            web::get().to(crate::capital_simule::capital_strategie),
+            "/api/strategies/{id}/simulation",
+            web::post().to(crate::simulation::post_simulation),
+        )
+        .service(
+            web::resource("/api/strategies/{id}/simulation/balayage")
+            .route(web::post().to(crate::simulation::post_balayage)),
+        )
+        .service(
+            web::resource("/api/strategies/{id}/simulation/essais")
+            .route(web::get().to(crate::simulation::get_essais)),
+        )
+        .service(
+            web::resource("/api/strategies/{id}/simulation/essais/{essai}")
+            .route(web::delete().to(crate::simulation::delete_essai)),
+        )
+        .service(
+            web::resource("/api/strategies/{id}/capital")
+                .route(web::get().to(crate::capital_simule::capital_strategie)),
         )
         .route(
             "/api/smc/rejeu",
@@ -159,6 +175,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/smc/analyse",
             web::get().to(crate::smc_handlers::analyse_smc),
+        )
+        .route(
+            "/api/signaux/latents",
+            web::get().to(crate::latents::latents),
         )
         .route(
             "/api/smc/v12/analyse",

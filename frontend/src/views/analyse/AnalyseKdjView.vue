@@ -6,7 +6,7 @@
     :synthese="[
       { label: 'Trades clôturés', valeur: kpi.nb },
       { label: 'Gagnants', valeur: kpi.wr, classe: kpi.wr !== '—' && parseFloat(kpi.wr) >= 50 ? 'text-emerald-400' : 'text-white' },
-      { label: 'Σ R réalisé', valeur: kpi.sommeR, classe: kpi.classeR },
+      { label: 'Σ R (distance)', valeur: kpi.sommeR, classe: kpi.classeR },
       { label: 'R moyen', valeur: kpi.rMoyen, classe: kpi.classeR },
     ]"
   >
@@ -70,70 +70,56 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import AnalysePageShell from '@/components/common/AnalysePageShell.vue'
-import { apiService } from '@/services/api.service'
-import type { Signal } from '@/services/api.types'
+import { chargerAnalyse, type AnalyseStrategie } from '@/composables/useAnalyses'
 
-const signaux = ref<Signal[]>([])
+// HARMONISATION 15/09 : mêmes chiffres que la carte et le rapport
+// (/api/analyses/kdj_halftrend — base vécue, R-distance, WR $).
+const analyse = ref<AnalyseStrategie | null>(null)
 
 onMounted(async () => {
-  try {
-    const tous = await apiService.getSignaux(500)
-    signaux.value = tous.filter((s) => s.strategie.toLowerCase() === 'kdj_halftrend')
-  } catch { /* vide */ }
+  analyse.value = await chargerAnalyse('kdj_halftrend')
 })
-
-const clotures = computed(() => signaux.value.filter((s) => s.statut === 'Fermé' && s.r_realise !== null && s.r_realise !== undefined))
 
 const fmt = (r: number) => `${r >= 0 ? '+' : ''}${r.toFixed(2)}R`
 const classe = (r: number) => (r >= 0 ? 'text-emerald-400' : 'text-red-400')
 
 const kpi = computed(() => {
-  const rs = clotures.value.map((s) => s.r_realise ?? 0)
-  const nb = rs.length
-  if (!nb) return { nb: 0, wr: '—', sommeR: '—', rMoyen: '—', classeR: 'text-white' }
-  const somme = rs.reduce((a, b) => a + b, 0)
+  const a = analyse.value
+  if (!a || !a.nb_trades) return { nb: 0, wr: '—', sommeR: '—', rMoyen: '—', classeR: 'text-white' }
   return {
-    nb,
-    wr: `${Math.round((rs.filter((r) => r > 0).length / nb) * 100)} %`,
-    sommeR: fmt(somme),
-    rMoyen: fmt(somme / nb),
-    classeR: classe(somme),
+    nb: a.nb_trades,
+    wr: `${Math.round(a.taux_reussite * 100)} %`,
+    sommeR: fmt(a.r_total),
+    rMoyen: fmt(a.r_moyen),
+    classeR: classe(a.r_total),
   }
 })
 
 const verdicts = computed(() => {
   const familles = ['TP', 'SL', 'Retournement']
   return familles.map((f) => {
-    const trades = clotures.value.filter((s) => (s.verdict ?? '').startsWith(f))
-    const somme = trades.reduce((a, s) => a + (s.r_realise ?? 0), 0)
+    const membres = (analyse.value?.verdicts ?? []).filter((v) => v.label.startsWith(f))
+    const n = membres.reduce((s, v) => s + v.n, 0)
+    const somme = membres.reduce((s, v) => s + v.r, 0)
     return {
       label: f,
-      nb: trades.length,
-      r: trades.length ? fmt(somme) : '—',
+      nb: n,
+      r: n ? fmt(somme) : '—',
       classe: f === 'SL' ? 'text-red-400' : f === 'TP' ? 'text-emerald-400' : 'text-amber-400',
     }
   })
 })
 
-const parAsset = computed(() => {
-  const groupes = new Map<string, number[]>()
-  for (const s of clotures.value) {
-    const liste = groupes.get(s.asset) ?? []
-    liste.push(s.r_realise ?? 0)
-    groupes.set(s.asset, liste)
-  }
-  return [...groupes.entries()]
-    .map(([asset, rs]) => {
-      const somme = rs.reduce((a, b) => a + b, 0)
-      return {
-        asset,
-        nb: rs.length,
-        wr: `${Math.round((rs.filter((r) => r > 0).length / rs.length) * 100)} %`,
-        sommeR: fmt(somme),
-        rMoyen: fmt(somme / rs.length),
-        classeR: classe(somme),
-      }
-    })
-    .sort((a, b) => b.nb - a.nb)
-})
+const parAsset = computed(() =>
+  (analyse.value?.assets ?? [])
+    .map((c) => ({
+      asset: c.label,
+      nb: c.n,
+      wr: `${Math.round(c.wr * 100)} %`,
+      sommeR: fmt(c.r),
+      rMoyen: fmt(c.r / c.n),
+      classeR: classe(c.r),
+    }))
+    .sort((a, b) => b.nb - a.nb),
+)
 </script>

@@ -227,7 +227,7 @@ pub fn recalcul_en_cours() -> bool {
     EN_COURS.load(Ordering::SeqCst)
 }
 
-async fn calculer(
+pub(crate) async fn calculer(
     pool: &Arc<db::Database>,
     tp1: f64,
     tp2: f64,
@@ -324,8 +324,10 @@ async fn calculer(
                         }
                     })
                     .unwrap_or((0.0, 0.0));
+                // Rejeu paramétrique : pas de prix de sortie du solde en
+                // base → repli mécanique (stop suiveur post-TP2 = TP1).
                 let pondere =
-                    crate::smc_pondere::r_pondere(&verdict, r, r_tp1, r_tp2, fractions);
+                    crate::smc_pondere::r_pondere(&verdict, r, r_tp1, r_tp2, fractions, None);
                 clotures.push(ClotureRejeu {
                     asset: e.asset.as_str().to_string(),
                     tf: e.tf.as_str().to_string(),

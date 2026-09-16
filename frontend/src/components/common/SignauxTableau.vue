@@ -20,6 +20,8 @@
             <th class="px-3 py-3 text-right">TP2</th>
             <th class="px-3 py-3 text-right">TP3</th>
             <th v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right">Prix actuel</th>
+            <th v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right cursor-help" title="R Latent = DISTANCE du prix à l'entrée, en multiples du risque (convention unique de l'app) — le palier atteint par le mouvement, pas la répartition des ventes partielles (elle vit dans le capital $)">R Latent</th>
+            <th v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right cursor-help" title="P/L latent en $ réels = R latent × montant risqué (capital × risque % de la stratégie)">P/L Latent</th>
             <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_verdict')">Sortie <span>{{ icone('prix_verdict') }}</span></th>
             <th class="px-3 py-3 text-center">IA</th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('cree_le')">Ouvert le <span>{{ icone('cree_le') }}</span></th>
@@ -59,6 +61,12 @@
               <div v-if="s.take_profit[2]" class="text-[10px] text-white font-sans tracking-tight">{{ infosPips(s.take_profit[2], s.prix_entree, s.asset) }}</div>
             </td>
             <td v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right font-mono" :class="classePrix(s)">{{ prixStore.getPrix(s.asset) !== null ? formatNombre(prixStore.getPrix(s.asset)!) : '—' }}</td>
+            <td v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right font-mono font-semibold" :class="classeRLatent(s)">
+              {{ rDistanceSignal(s) === null ? '—' : (rDistanceSignal(s)! >= 0 ? '+' : '−') + Math.abs(rDistanceSignal(s)!).toFixed(2) + ' R' }}
+            </td>
+            <td v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right font-mono font-semibold" :class="classeRLatent(s)">
+              {{ rLatentSignal(s) === null ? '—' : (rLatentSignal(s)! >= 0 ? '+' : '−') + Math.abs(rLatentSignal(s)! * montantRisque()).toFixed(0) + ' $' }}
+            </td>
             <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right font-mono text-white">{{ s.prix_verdict ? formatNombre(s.prix_verdict) : '—' }}</td>
             <td class="px-3 py-3 text-center">
               <span v-if="s.llm_conviction !== null" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help" :class="classeConviction(s.llm_conviction)" :title="s.llm_raison ?? ''">{{ s.llm_conviction }}</span>
@@ -110,6 +118,7 @@
 <script setup lang="ts">
 import { ref, watchEffect } from 'vue'
 import { useSignauxTableau } from '@/composables/useSignauxTableau'
+import { useLatentsSignaux } from '@/composables/useLatentsSignaux'
 import { ciblerPremierSlot } from '@/utils/graphiques'
 import { useRouter } from 'vue-router'
 import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
@@ -140,6 +149,36 @@ watchEffect(() => {
   remplisSeuls.value = props.remplisSeuls ?? false
   emits('signaux-actifs', signaux.value.filter(x => x.statut !== 'Fermé' && x.verdict === null) as unknown as Signal[])
 })
+
+// Colonnes latentes (15/09, convention 15/09 soir) : R Latent = DISTANCE
+// pure du prix à l'entrée (dir×(prix−E)/risque — le mouvement, pas les
+// ventes partielles) ; P/L $ = latent pondéré du capital (composable).
+const { rLatent: rLatentPondere } = useLatentsSignaux()
+
+/// Direction : champ Long/Short ; straddle « Both » → côté du TP.
+function dirSignal(s: Signal): number {
+  if (s.direction === 'Long') return 1
+  if (s.direction === 'Short') return -1
+  return (s.take_profit?.[0] ?? s.prix_entree) > s.prix_entree ? 1 : -1
+}
+
+function rDistanceSignal(s: Signal): number | null {
+  const prix = prixStore.getPrix(s.asset)
+  if (prix === null) return null
+  const risque = Math.abs(s.prix_entree - s.stop_loss)
+  if (risque === 0) return null
+  return (dirSignal(s) * (prix - s.prix_entree)) / risque
+}
+
+function rLatentSignal(s: Signal): number | null {
+  return rLatentPondere(s.id, s.asset)
+}
+
+function classeRLatent(s: Signal): string {
+  const r = rDistanceSignal(s)
+  if (r === null) return 'text-white/40'
+  return r > 0 ? 'text-emerald-400' : r < 0 ? 'text-red-400' : 'text-white'
+}
 
 /// Voir : ouvre le graphique du signal (premier slot sur son asset et son
 /// timeframe — ses boxes/pointillés y sont affichés par le chart).

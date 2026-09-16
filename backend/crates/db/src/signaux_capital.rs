@@ -16,6 +16,13 @@ pub struct ClotureCapital {
     pub asset: String,
     pub tf: String,
     pub verdict: String,
+    /// Niveaux du signal (conversion R-distance, refonte 15/09).
+    pub prix_entree: f64,
+    pub stop_loss: f64,
+    pub take_profit: String,
+    /// Prix de sortie réel — R du SOLDE des TP2+BE (correctif 15/09 nuit :
+    /// le stop suiveur post-TP2 est à TP1, le solde s'y encaisse, pas à 0).
+    pub prix_verdict: Option<f64>,
 }
 
 impl Database {
@@ -38,7 +45,8 @@ impl Database {
     pub async fn clotures_pour_capital(&self, id: &str) -> crate::Result<Vec<ClotureCapital>> {
         let rows = sqlx::query(
             "SELECT id, ferme_le, r_realise, asset, timeframe,
-                    COALESCE(verdict, '') AS verdict
+                    COALESCE(verdict, '') AS verdict,
+                    prix_entree, stop_loss, take_profit, prix_verdict
              FROM signaux
              WHERE strategie = ? AND statut = 'Fermé' AND verdict IS NOT NULL
                AND heure_entree IS NOT NULL AND ferme_le IS NOT NULL
@@ -56,7 +64,11 @@ impl Database {
                 r: r.try_get::<f64, _>("r_realise").ok().unwrap_or(0.0),
                 asset: r.get("asset"),
                 tf: r.get("timeframe"),
+                prix_entree: r.try_get::<f64, _>("prix_entree").ok().unwrap_or(0.0),
+                stop_loss: r.try_get::<f64, _>("stop_loss").ok().unwrap_or(0.0),
+                take_profit: r.try_get::<String, _>("take_profit").ok().unwrap_or_default(),
                 verdict: r.get("verdict"),
+                prix_verdict: r.try_get::<f64, _>("prix_verdict").ok(),
             })
             .collect())
     }

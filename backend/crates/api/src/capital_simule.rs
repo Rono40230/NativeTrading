@@ -30,6 +30,9 @@ pub struct PointCapital {
     pub asset: String,
     pub tf: String,
     pub verdict: String,
+    /// R-DISTANCE (meilleur palier atteint) — LA convention d'affichage de
+    /// l'app (refonte 15/09) ; le $ reste composé sur le R réalisé `r`.
+    pub r_distance: f64,
 }
 
 #[derive(Debug, Serialize)]
@@ -53,68 +56,9 @@ pub async fn capital_strategie(
         return HttpResponse::NotFound()
             .json(serde_json::json!({ "error": "Stratégie inconnue" }));
     }
-    // SMC : capital re-dérivé du re-jeu TP1 (même base que la performance).
-    if id == "SMC" {
-        if let Some(r) = crate::smc_rejeu::lire_cache().await {
-            let mut precedent = r.capital_depart;
-            let points: Vec<serde_json::Value> = r
-                .clotures
-                .iter()
-                .map(|c| {
-                    let profit = c.capital_apres - precedent;
-                    precedent = c.capital_apres;
-                    serde_json::json!({
-                        "id": format!("{}-{}", c.asset, c.tf),
-                        "ferme_le": c.ferme_le,
-                        "r": c.r,
-                        "profit": profit,
-                        "capital_apres": c.capital_apres,
-                        "asset": c.asset,
-                        "tf": c.tf,
-                        "verdict": c.verdict,
-                    })
-                })
-                .collect();
-            return HttpResponse::Ok().json(serde_json::json!({
-                "capital_depart": r.capital_depart,
-                "fraction_risque": r.fraction_risque,
-                "capital_actuel": r.capital_actuel,
-                "points": points,
-            }));
-        }
-    }
-    // Straddle : idem SMC — capital re-dérivé du re-jeu (harmonisation 05/09 :
-    // même base que la performance et le rapport d'activité).
-    if id == "straddle" {
-        if let Some(r) = crate::straddle_rejeu::lire_cache().await {
-            let fraction = fraction_risque(&state.db, &id).await;
-            let mut precedent = r.capital_depart;
-            let points: Vec<serde_json::Value> = r
-                .clotures
-                .iter()
-                .map(|c| {
-                    let profit = c.capital_apres - precedent;
-                    precedent = c.capital_apres;
-                    serde_json::json!({
-                        "id": format!("{}-M1", c.asset),
-                        "ferme_le": c.ferme_le,
-                        "r": c.r_net,
-                        "profit": profit,
-                        "capital_apres": c.capital_apres,
-                        "asset": c.asset,
-                        "tf": "M1",
-                        "verdict": c.verdict,
-                    })
-                })
-                .collect();
-            return HttpResponse::Ok().json(serde_json::json!({
-                "capital_depart": r.capital_depart,
-                "fraction_risque": fraction,
-                "capital_actuel": r.capital_actuel,
-                "points": points,
-            }));
-        }
-    }
+    // 15/09 soir : le VÉCU est l'unique source (décision propriétaire) —
+    // simuler() porte déjà les conventions officielles ($ pondéré SMC,
+    // r_distance). Les rejeus ne sont plus servis.
     match simuler(&state.db, &id).await {
         Ok(s) => HttpResponse::Ok().json(s),
         Err(e) => HttpResponse::InternalServerError()
@@ -144,22 +88,57 @@ pub async fn capital_actuel(db: &db::Database, id: &str) -> Option<f64> {
 }
 
 /// Rejoue les clôtures remplies dans l'ordre et compose le capital.
-pub async fn simuler(db: &db::Database, id: &str) -> anyhow::Result<SimulationCapital> {
+pub async fn simuler(db: &db::Database, id_strategie: &str) -> anyhow::Result<SimulationCapital> {
     let capital_depart = db
-        .lire_strategie(id)
+        .lire_strategie(id_strategie)
         .await?
         .map(|r| r.capital)
         .unwrap_or(0.0);
-    let fraction = fraction_risque(db, id).await;
-    let clotures = db.clotures_pour_capital(id).await?;
+    let fraction = fraction_risque(db, id_strategie).await;
+    let clotures = db.clotures_pour_capital(id_strategie).await?;
 
     let mut capital = capital_depart;
     let mut points = Vec::with_capacity(clotures.len());
     for t in clotures {
         // Le risque en $ se calcule sur le capital au moment du trade —
         // c'est la définition même de la composition.
-        let profit = t.r * capital * fraction;
+        // SMC : le vécu stocke le PALIER (distance) — le capital doit
+        // composer le R PONDÉRÉ (ventes partielles 0,5/0,3/0,2), la
+        // convention $ réels du projet. Les autres stratégies n'ont pas de
+        // ventes partielles : leur r réalisé compose tel quel.
+        let tps: Vec<f64> = serde_json::from_str(&t.take_profit).unwrap_or_default();
+        let r_capital = if id_strategie == "SMC" {
+            let risque = (t.prix_entree - t.stop_loss).abs();
+            let (r_tp1, r_tp2) = if risque > 0.0 {
+                (
+                    (tps.first().copied().unwrap_or(t.prix_entree) - t.prix_entree).abs() / risque,
+                    (tps.get(1).copied().unwrap_or(t.prix_entree) - t.prix_entree).abs() / risque,
+                )
+            } else {
+                (0.0, 0.0)
+            };
+            // Correctif 15/09 nuit : le solde d'un TP2+BE sort au prix VÉCU
+            // (stop suiveur post-TP2 à TP1 — la base montre aussi des sorties
+            // à l'entrée), pas à 0.
+            let r_solde_tp2 = if t.verdict.to_lowercase().starts_with("tp2") && risque > 0.0 {
+                t.prix_verdict.map(|pv| (pv - t.prix_entree).abs() / risque)
+            } else {
+                None
+            };
+            crate::smc_pondere::r_pondere(
+                &t.verdict, t.r, r_tp1, r_tp2,
+                crate::smc_pondere::Fractions::default(),
+                r_solde_tp2,
+            )
+        } else {
+            t.r
+        };
+        let profit = r_capital * capital * fraction;
         capital += profit;
+        let r_distance = db::signaux_palier::r_reference_palier(
+            &t.verdict, &id_strategie, t.prix_entree, t.stop_loss, &tps,
+        )
+        .unwrap_or(t.r);
         points.push(PointCapital {
             id: t.id,
             ferme_le: t.ferme_le,
@@ -169,6 +148,7 @@ pub async fn simuler(db: &db::Database, id: &str) -> anyhow::Result<SimulationCa
             asset: t.asset,
             tf: t.tf,
             verdict: t.verdict,
+            r_distance,
         });
     }
     Ok(SimulationCapital {

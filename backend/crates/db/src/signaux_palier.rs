@@ -3,8 +3,12 @@
 //! La vérité qui juge une entrée est l'EXTRÊME atteint — SL ou TP max touché —
 //! pas la sortie (trailing, BE, time-stop). Ce module dérive ce R de référence
 //! depuis les champs déjà stockés (`verdict`, niveaux), pour la courbe R cumulé
-//! et les stats des blocs stratégies du dashboard. Miroir exact de la logique
-//! front `useSignalFormat.palierMax` — toute évolution se fait des deux côtés.
+//! et les stats des blocs stratégies du dashboard.
+//!
+//! HARMONISATION 15/09 soir : cette table vit UNIQUEMENT ici (backend). Elle
+//! est servie telle quelle dans /api/signaux (`r_distance`) et compose les
+//! points capital (`r_distance`) — le front n'a plus de copie (l'ancien
+//! miroir useSignalFormat.palierMax divergeait sur TS et Expire).
 //!
 //! Chirurgie : `r_realise` reste la trace factuelle en base ; le R de
 //! référence est un calcul dérivé, jamais réécrit (leçon migrations 0082/0083).

@@ -57,6 +57,10 @@ export interface Signal {
   statut: string          // 'Actif' | 'Fermé' | 'Annulé'
   verdict: string | null  // null | 'SL' | 'TP1+BE' | 'TP2+BE' | 'TP3' | 'Expire'
   r_realise?: number | null
+  /** R-distance officiel (meilleur palier atteint) — calculé backend,
+   *  identique aux points capital par construction. Clôtures remplies
+   *  uniquement (null sinon). */
+  r_distance?: number | null
   prix_verdict: number | null
   ferme_le: number | null
   cree_le: number

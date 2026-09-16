@@ -42,7 +42,10 @@ const MIN_RATIO: f64 = 1.40;
 /// Nombre max de propositions soumises à l'analyste.
 const MAX_PROPOSITIONS: usize = 15;
 /// Plafond de créneaux armés simultanés (réglage propriétaire).
-const PLAFOND_ARMES: usize = 3;
+/// Plafond de créneaux IA armés simultanément (décision propriétaire 15/09 :
+/// 3 → 8 pour accélérer la mesure — 30 passes par source ; la file ARMER
+/// est profonde et la boucle de verdict par créneau reste le juge).
+const PLAFOND_ARMES: usize = 8;
 
 /// Jours ISO 1-7 → libellé (partagé avec la boucle de validation).
 pub(crate) const JOURS: [&str; 7] = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];

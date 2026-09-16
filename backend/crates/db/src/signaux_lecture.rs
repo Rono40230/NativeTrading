@@ -60,8 +60,33 @@ impl Database {
 
                 let tp_short_arr: Vec<f64> = row
                     .get::<Option<String>, _>("take_profit_short")
-                    .and_then(|s| serde_json::from_str(&s).ok())
+                    .and_then(|s| serde_json::from_str::<Vec<f64>>(&s).ok())
                     .unwrap_or_default();
+
+                // R-DISTANCE officiel (refonte 15/09 puis harmonisation du
+                // 15/09 soir) : calculé au backend — miroir EXACT du
+                // r_distance des points capital (capital_simule::simuler),
+                // jamais recalculé côté front. Clôtures remplies uniquement.
+                let statut: String = row.get("statut");
+                let r_realise = row.get::<Option<f64>, _>("r_realise");
+                let r_distance: Option<f64> = if statut == "Fermé"
+                    && row.get::<Option<i64>, _>("heure_entree").is_some()
+                {
+                    row.get::<Option<String>, _>("verdict")
+                        .as_deref()
+                        .and_then(|v| {
+                            crate::signaux_palier::r_reference_palier(
+                                v,
+                                &row.get::<String, _>("strategie"),
+                                row.get::<f64, _>("prix_entree"),
+                                row.get::<f64, _>("stop_loss"),
+                                &tp_arr,
+                            )
+                        })
+                        .or(r_realise)
+                } else {
+                    None
+                };
 
                 serde_json::json!({
                     "id":                    row.get::<String, _>("id"),
@@ -76,7 +101,8 @@ impl Database {
                     "statut":                row.get::<String, _>("statut"),
                     "verdict":               row.get::<Option<String>, _>("verdict"),
                     "prix_verdict":          row.get::<Option<f64>, _>("prix_verdict"),
-                    "r_realise":             row.get::<Option<f64>, _>("r_realise"),
+                    "r_realise":             r_realise,
+                    "r_distance":            r_distance,
                     "llm_conviction":        row.get::<Option<i64>, _>("llm_conviction"),
                     "llm_raison":            row.get::<Option<String>, _>("llm_raison"),
                     "cree_le":               row.get::<i64, _>("cree_le"),

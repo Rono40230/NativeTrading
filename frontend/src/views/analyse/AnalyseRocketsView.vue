@@ -55,10 +55,10 @@
 
         <!-- Verdicts -->
         <div class="flex flex-wrap gap-2">
-          <span v-for="(n, v) in stats.verdicts" :key="v"
+          <span v-for="v in verdictsChips" :key="v.label"
                 class="text-xs font-semibold px-2 py-1 rounded-full border"
-                :class="v === 'SL' ? 'bg-red-500/10 text-red-400 border-red-500/30' : v === 'Manuel' ? 'bg-blue-500/10 text-blue-300 border-blue-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'"
-          >{{ v === 'TS' ? '🏁' : v === 'Manuel' ? '👤' : '❌' }} {{ v }} × {{ n }}</span>
+                :class="v.label === 'SL' ? 'bg-red-500/10 text-red-400 border-red-500/30' : v.label === 'Manuel' ? 'bg-blue-500/10 text-blue-300 border-blue-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'"
+          >{{ v.label === 'TS' ? '🏁' : v.label === 'Manuel' ? '👤' : v.label === 'Expire' ? '⌛' : '❌' }} {{ v.label }} × {{ v.n }}</span>
           <span v-if="!stats.total" class="text-xs text-white">Aucun trade clôturé — la verticale est jeune.</span>
         </div>
       </section>
@@ -80,24 +80,49 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { apiService } from '@/services/api.service'
-import type { Signal } from '@/services/api.service'
-import { useRocketsStats } from '@/composables/useRocketsStats'
+import { chargerAnalyse, type AnalyseStrategie } from '@/composables/useAnalyses'
 import AnalysePageShell from '@/components/common/AnalysePageShell.vue'
 import RocketsAnalyseLlm from '@/components/common/RocketsAnalyseLlm.vue'
 
-const clotes = ref<Signal[]>([])
+// HARMONISATION 15/09 : mêmes chiffres que la carte et le rapport d'activité
+// (/api/analyses/rockets — base vécue, R-distance, WR $).
+const analyse = ref<AnalyseStrategie | null>(null)
 onMounted(async () => {
-  try {
-    const data = await apiService.getSignaux(500)
-    clotes.value = data.filter(s =>
-      s.strategie?.toLowerCase() === 'rockets'
-      && s.statut === 'Fermé' && s.verdict !== null,
-    )
-  } catch { clotes.value = [] }
+  analyse.value = await chargerAnalyse('rockets')
 })
 
-const { stats, parUnivers } = useRocketsStats(computed(() => clotes.value))
+const stats = computed(() => ({
+  total: analyse.value?.nb_trades ?? 0,
+  tauxGagnants: Math.round((analyse.value?.taux_reussite ?? 0) * 100),
+  rMoyen: Math.round((analyse.value?.r_moyen ?? 0) * 100) / 100,
+  tauxSL: Math.round((analyse.value?.taux_perte ?? 0) * 100),
+}))
+
+/// Par univers (crypto USDT vs actions US) — regroupement des assets de
+/// l'analyse (n, ΣR distance, WR $ pondéré).
+const parUnivers = computed(() => {
+  const groupes = new Map<string, { n: number; r: number; gagnants: number }>()
+  for (const c of analyse.value?.assets ?? []) {
+    const u = c.label.endsWith('USDT') ? 'crypto' : 'action'
+    const e = groupes.get(u) ?? { n: 0, r: 0, gagnants: 0 }
+    e.n += c.n
+    e.r += c.r
+    e.gagnants += c.wr * c.n
+    groupes.set(u, e)
+  }
+  return [...groupes.entries()]
+    .map(([label, e]) => ({
+      label,
+      total: e.n,
+      rSomme: parseFloat(e.r.toFixed(2)),
+      winPct: e.n > 0 ? Math.round((e.gagnants / e.n) * 100) : 0,
+    }))
+    .sort((a, b) => b.rSomme - a.rSomme)
+})
+
+const verdictsChips = computed(() =>
+  (analyse.value?.verdicts ?? []).map(v => ({ label: v.label, n: v.n })),
+)
 </script>
 
 <style scoped>

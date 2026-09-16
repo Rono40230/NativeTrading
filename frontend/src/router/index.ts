@@ -24,6 +24,10 @@ const router = createRouter({
     // Performance
     { path: '/heatmap',  component: () => import('../views/HeatmapView.vue') },
 
+    // Laboratoire de simulation — re-jeu paramétrique à la demande (15/09).
+    // ?strategie=SMC|straddle|... cible l'onglet.
+    { path: '/simulation', component: () => import('../views/SimulationView.vue') },
+
     // Rapport d'activité — centre d'analyse des stratégies (04/09).
     // ?strategie=SMC|straddle|rockets cible l'onglet (bloc dashboard).
     { path: '/analyses', component: () => import('../views/AnalysesView.vue') },

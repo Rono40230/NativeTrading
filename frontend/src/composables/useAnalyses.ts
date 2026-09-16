@@ -57,6 +57,10 @@ export interface AnalyseStrategie {
   capital_actuel: number
   fraction_risque: number
   r_total: number
+  /** R-distance moyen par clôture (r_total / nb_trades). */
+  r_moyen: number
+  /** Part des clôtures perdantes ($ < 0) — 0-1. */
+  taux_perte: number
   taux_reussite: number
   hier: ResumeJour | null
   journalier: PeriodeAnalyse[]
@@ -67,6 +71,41 @@ export interface AnalyseStrategie {
   tfs: CategorieAnalyse[]
   par_asset_tf: ParAssetTf[]
   heatmap: CaseHeatmap[]
+  /** Tranches de score SMC — vide pour les autres stratégies. */
+  par_score: TrancheScore[]
+  /** Bloc IA (rail conviction LLM + directions) — vide pour les autres. */
+  ia: BlocIa
+}
+
+/// Tranche de score SMC (bandes métier 6–8 / 9–11 / 12–19).
+export interface TrancheScore {
+  label: string
+  n: number
+  tp1: number
+  tp2: number
+  tp3: number
+  sl: number
+  expire: number
+  wr: number
+  r_moyen: number
+}
+
+/// Un avis LLM (rail conviction) — les plus récents.
+export interface AvisLlm {
+  id: string
+  asset: string
+  tf: string
+  conviction: number
+  raison: string | null
+}
+
+/// Bloc IA des pages d'analyse (SMC).
+export interface BlocIa {
+  conviction_moyenne: number
+  taux_notes: number
+  longs: number
+  shorts: number
+  derniers_avis: AvisLlm[]
 }
 
 export interface ResumeStrategie {

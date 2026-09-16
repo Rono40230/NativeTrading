@@ -187,91 +187,39 @@ pub async fn performance_strategie(
         return HttpResponse::NotFound()
             .json(serde_json::json!({ "error": "Stratégie inconnue" }));
     }
-    // SMC : métriques re-dérivées du TP1 réglé (re-jeu paramétrique — choix
-    // propriétaire). Cache chaud → servies ; sinon repli sur la base vécue
-    // et lancement du calcul en tâche de fond.
-    if id == "SMC" {
-        if let Some(r) = crate::smc_rejeu::lire_cache().await {
+    // 15/09 soir (décision propriétaire) : le VÉCU est l'unique source de
+    // toutes les métriques — mêmes conventions que le rapport d'activité
+    // (r_distance + capital $ pondéré). Les rejeus restent des outils de
+    // simulation (étude 2.1), jamais servis ici : plus de bascule au boot.
+    match crate::capital_simule::simuler(&state.db, &id).await {
+        Ok(s) => {
             let mut cumul = 0.0;
-            let clotures: Vec<serde_json::Value> = r
-                .clotures
+            let clotures: Vec<serde_json::Value> = s
+                .points
                 .iter()
-                .map(|c| {
-                    cumul += c.r_ref;
-                    serde_json::json!({ "ferme_le": c.ferme_le, "r_cumule": cumul })
+                .map(|p| {
+                    cumul += p.r_distance;
+                    serde_json::json!({ "ferme_le": p.ferme_le, "r_cumule": cumul })
                 })
                 .collect();
-            return HttpResponse::Ok().json(serde_json::json!({
+            let total = s.points.len();
+            let gagnants = s.points.iter().filter(|p| p.profit > 0.0).count();
+            HttpResponse::Ok().json(serde_json::json!({
                 "clotures": clotures,
                 "en_cours": [],
-                "total": r.total,
-                "gagnants": r.gagnants,
+                "total": total,
+                "gagnants": gagnants,
                 "non_remplis": 0,
-                "taux_reussite": r.taux_reussite,
-                "r_total": r.r_total_pondere,
-                "r_total_reference": r.r_total,
-                "source": "rejeu",
-                "tp1": r.tp1,
-                "recalcul": crate::smc_rejeu::recalcul_en_cours(),
-            }));
+                "taux_reussite": if total > 0 { gagnants as f64 / total as f64 } else { 0.0 },
+                "r_total": s.points.iter().map(|p| p.r_distance).sum::<f64>(),
+                "source": "base",
+            }))
         }
-        crate::smc_rejeu::lancer_si_necessaire(state.db.clone()).await;
-    }
-    // Straddle : idem SMC — métriques re-dérivées du re-jeu (harmonisation
-    // 05/09 : la carte vivait en base vécue pendant que le rapport d'activité
-    // servait le re-jeu — deux conventions pour la même stratégie).
-    if id == "straddle" {
-        if let Some(r) = crate::straddle_rejeu::lire_cache().await {
-            let mut cumul = 0.0;
-            let clotures: Vec<serde_json::Value> = r
-                .clotures
-                .iter()
-                .map(|c| {
-                    cumul += c.r_net;
-                    serde_json::json!({ "ferme_le": c.ferme_le, "r_cumule": cumul })
-                })
-                .collect();
-            return HttpResponse::Ok().json(serde_json::json!({
-                "clotures": clotures,
-                "en_cours": [],
-                "total": r.total,
-                "gagnants": r.gagnants,
-                "non_remplis": 0,
-                "taux_reussite": r.taux_reussite,
-                "r_total": r.r_total_net,
-                "r_total_reference": r.r_total,
-                "source": "rejeu",
-                "recalcul": crate::straddle_rejeu::recalcul_en_cours(),
-            }));
-        }
-        crate::straddle_rejeu::lancer_si_necessaire(state.db.clone()).await;
-    }
-    match state.db.performance_strategie(&id).await {
-        Ok(p) => {
-            // Straddle/rockets : le badge doit montrer le R RÉALISÉ (celui que
-            // le capital compose — décision 03/09, même harmonisation que SMC)
-            // avec la référence en info-bulle via r_total_reference.
-            let mut v = serde_json::to_value(&p).unwrap_or_default();
-            if v.is_object() {
-                let reference = v.get("r_total").cloned();
-                if let Some(realise) = v.get("r_total_realise").cloned() {
-                    v["r_total"] = realise;
-                }
-                if let Some(reference) = reference {
-                    v["r_total_reference"] = reference;
-                }
-                // SMC/straddle sur ce repli = re-jeu pas encore prêt (boot :
-                // ~35 s, ou relance après un changement de réglage) : marquer
-                // la valeur comme TRANSITOIRE, sinon la carte saute du R vécu
-                // au R du re-jeu une minute plus tard sans explication (bug
-                // rapporté 05/09). Rockets n'a pas de re-jeu : pas de marque.
-                if id == "SMC" || id == "straddle" {
-                    v["recalcul"] = serde_json::json!(true);
-                }
-            }
-            HttpResponse::Ok().json(v)
-        }
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": e.to_string() })),
+        Err(_) => HttpResponse::Ok().json(serde_json::json!({
+            "clotures": [], "en_cours": [], "total": 0, "gagnants": 0,
+            "non_remplis": 0, "taux_reussite": 0.0, "r_total": 0.0, "source": "base",
+        })),
     }
 }
+
+

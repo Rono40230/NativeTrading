@@ -30,7 +30,7 @@
         </div>
 
         <!-- LA dimension de la surveillance §2 : par timeframe -->
-        <table v-if="smcStats.parTimeframe.value.length" class="w-full text-sm border-collapse">
+        <table v-if="parTimeframe.length" class="w-full text-sm border-collapse">
           <thead>
             <tr class="text-white border-b border-white/15">
               <th class="py-2 text-left text-xs uppercase tracking-wide">Timeframe</th>
@@ -40,7 +40,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="tf in smcStats.parTimeframe.value" :key="tf.tf" class="border-b border-white/5">
+            <tr v-for="tf in parTimeframe" :key="tf.tf" class="border-b border-white/5">
               <td class="py-2 text-white font-semibold">{{ tf.tf }}</td>
               <td class="py-2 text-right text-white">{{ tf.total }}</td>
               <td class="py-2 text-right text-lg font-bold" :class="tf.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR(tf.rMoyen) }}</td>
@@ -75,17 +75,17 @@
             </div>
           </div>
         </div>
-        <div v-if="stats.derniersLlm.length" class="flex flex-col gap-2 overflow-y-auto max-h-64 pr-1">
+        <div v-if="derniersAvis.length" class="flex flex-col gap-2 overflow-y-auto max-h-64 pr-1">
           <p class="text-xs font-semibold text-white uppercase tracking-wider">Derniers avis LLM</p>
           <div
-            v-for="s in stats.derniersLlm" :key="s.id"
+            v-for="s in derniersAvis" :key="s.id"
             class="flex items-start gap-3 rounded-lg px-3 py-2 text-xs bg-white/5 border border-white/10"
           >
-            <span class="shrink-0 font-bold text-white">{{ s.asset }} {{ s.timeframe }}</span>
-            <span class="shrink-0 font-bold" :class="classeConviction(s.llm_conviction)">
-              🎯 {{ s.llm_conviction }}/100
+            <span class="shrink-0 font-bold text-white">{{ s.asset }} {{ s.tf }}</span>
+            <span class="shrink-0 font-bold" :class="classeConviction(s.conviction)">
+              🎯 {{ s.conviction }}/100
             </span>
-            <span class="text-white truncate" :title="s.llm_raison ?? ''">{{ s.llm_raison ?? '—' }}</span>
+            <span class="text-white truncate" :title="s.raison ?? ''">{{ s.raison ?? '—' }}</span>
           </div>
         </div>
         <p v-else class="text-center text-white text-xs py-2">Aucun avis LLM encore — le rail conviction alimentera cette liste.</p>
@@ -116,15 +116,15 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="t in smcStats.tranches.value" :key="t.label" class="border-b border-white/5">
+            <tr v-for="t in tranches" :key="t.label" class="border-b border-white/5">
               <td class="py-1 font-mono text-white">{{ t.label }}</td>
-              <td class="py-1 text-right text-white">{{ t.total }}</td>
+              <td class="py-1 text-right text-white">{{ t.n }}</td>
               <td class="py-1 text-right text-emerald-400">{{ t.tp1 }}</td>
               <td class="py-1 text-right text-emerald-300">{{ t.tp2 }}</td>
               <td class="py-1 text-right text-emerald-200">{{ t.tp3 }}</td>
               <td class="py-1 text-right text-red-400">{{ t.sl }}</td>
-              <td class="py-1 text-right font-bold" :class="t.winPct >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ t.winPct }}%</td>
-              <td class="py-1 text-right font-bold" :class="t.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR(t.rMoyen) }}</td>
+              <td class="py-1 text-right font-bold" :class="t.wr >= 0.5 ? 'text-emerald-400' : 'text-red-400'">{{ Math.round(t.wr * 100) }}%</td>
+              <td class="py-1 text-right font-bold" :class="t.r_moyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR(t.r_moyen) }}</td>
             </tr>
           </tbody>
         </table>
@@ -132,12 +132,12 @@
       <div>
         <AnalysePerfBloc
           :stats="statsPerf"
-          :tranches="smcStats.tranches.value"
-          :loss-rate-reel="smcStats.lossRateReel.value"
-          :sample-size="smcStats.sampleSize.value"
-          :k-values="smcStats.kValues"
-          :tableau-pertes="smcStats.tableauPertes.value"
-          :analyse-proba="smcStats.analyseProba.value"
+          :tranches="tranchesPourBloc"
+          :loss-rate-reel="lossRateReel"
+          :sample-size="sampleSize"
+          :k-values="kValues"
+          :tableau-pertes="tableauPertes"
+          :analyse-proba="analyseProba"
           sans-kpis
         >
           <template #gauche><span /></template>
@@ -149,27 +149,72 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import type { Ref } from 'vue'
-import { apiService } from '@/services/api.service'
-import type { Signal } from '@/services/api.service'
-import { useSmcStats } from '@/composables/useSmcStats'
+import { chargerAnalyse, type AnalyseStrategie, type TrancheScore } from '@/composables/useAnalyses'
+import { useProbaHeatmap, K_VALUES as kValues } from '@/composables/useProbaHeatmap'
 import AnalysePageShell from '@/components/common/AnalysePageShell.vue'
 import AnalysePerfBloc from '@/components/common/AnalysePerfBloc.vue'
 
-const signaux = ref<Signal[]>([])
+// HARMONISATION 15/09 : TOUS les chiffres de cette page viennent de
+// /api/analyses/SMC — la même source que la carte du dashboard et le rapport
+// d'activité. Base vécue complète (expirés compris), R-distance, WR en $.
+// Fin des recalculs front sur les 500 derniers signaux (bug « 257 ≠ 348 »).
+const analyse = ref<AnalyseStrategie | null>(null)
 onMounted(async () => {
-  try {
-    const data = await apiService.getSignaux(500)
-    signaux.value = data.filter(s => s.strategie?.toLowerCase().startsWith('smc'))
-  } catch { signaux.value = [] }
+  analyse.value = await chargerAnalyse('SMC')
 })
 
-const smcStats = useSmcStats(computed(() => signaux.value) as Ref<Signal[]>)
-const stats = computed(() => smcStats.stats.value)
+const stats = computed(() => {
+  const a = analyse.value
+  const nb = a?.nb_trades ?? 0
+  return {
+    total: nb,
+    winPct: Math.round((a?.taux_reussite ?? 0) * 100),
+    rMoyen: a?.r_moyen ?? 0,
+    tauxSL: Math.round((a?.taux_perte ?? 0) * 100),
+    convictionMoyenne: Math.round(a?.ia.conviction_moyenne ?? 0),
+    tauxFiltrage: Math.round((a?.ia.taux_notes ?? 0) * 100),
+    longs: a?.ia.longs ?? 0,
+    shorts: a?.ia.shorts ?? 0,
+    gain: (a?.verdicts ?? []).filter(v => v.label.startsWith('TP')).reduce((n, v) => n + v.n, 0),
+    sl: (a?.verdicts ?? []).find(v => v.label === 'SL')?.n ?? 0,
+  }
+})
 const statsPerf = computed(() => ({
   total: stats.value.total, winPct: stats.value.winPct, rMoyen: stats.value.rMoyen,
   gain: stats.value.gain, sl: stats.value.sl, tauxSL: stats.value.tauxSL,
 }))
+
+/// Par timeframe : n, R moyen (ΣR/n), WR $ — catégories de l'analyse.
+const parTimeframe = computed(() =>
+  (analyse.value?.tfs ?? []).map(c => ({
+    tf: c.label, total: c.n,
+    rMoyen: c.n > 0 ? parseFloat((c.r / c.n).toFixed(2)) : 0,
+    winPct: Math.round(c.wr * 100),
+  })),
+)
+
+const tranches = computed<TrancheScore[]>(() => analyse.value?.par_score ?? [])
+
+/// Tranches au format de l'AnalysePerfBloc (libellés de l'ancien composant).
+const tranchesPourBloc = computed(() =>
+  tranches.value.map(t => ({
+    label: t.label, total: t.n, tp1: t.tp1, tp2: t.tp2, tp3: t.tp3,
+    sl: t.sl, expire: t.expire, gain: t.tp1 + t.tp2 + t.tp3,
+    winPct: Math.round(t.wr * 100), rMoyen: parseFloat(t.r_moyen.toFixed(2)),
+  })),
+)
+
+const derniersAvis = computed(() => analyse.value?.ia.derniers_avis ?? [])
+
+// Même base que le loss rate officiel (clôtures vécues, $ < 0).
+const sampleSize = computed(() => Math.max(stats.value.total, 10))
+const lossRateReel = computed(() => stats.value.tauxSL)
+const { tableauPertes, analyseProba } = useProbaHeatmap(
+  lossRateReel,
+  sampleSize,
+  computed(() => stats.value.rMoyen),
+  computed(() => stats.value.winPct),
+)
 
 function fmtR(v: number): string {
   return `${v >= 0 ? '+' : ''}${v.toFixed(2)}R`

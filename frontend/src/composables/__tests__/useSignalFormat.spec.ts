@@ -10,30 +10,20 @@ const base = {
   take_profit: [100.6, 102, 103],
 }
 
-describe('palierMax — verdicts et R de référence', () => {
-  it('SL → −1R', () => {
-    expect(palierMax({ ...base, verdict: 'sl' })).toMatchObject({ palier: 'SL', rReference: -1 })
+describe('palierMax — libellé du palier (le R officiel est servi backend)', () => {
+  // Harmonisation 15/09 : la conversion verdict → R-distance vit UNIQUEMENT
+  // côté backend (r_reference_palier, testé dans crates/db) et arrive dans
+  // Signal.r_distance. palierMax ne fournit plus que le LIBELLÉ du palier.
+  it('SL / TP1 / TP2 / TP3 / BE / Expire', () => {
+    expect(palierMax({ ...base, verdict: 'sl' }).palier).toBe('SL')
+    expect(palierMax({ ...base, verdict: 'tp1+be' }).palier).toBe('TP1')
+    expect(palierMax({ ...base, verdict: 'tp2+be' }).palier).toBe('TP2')
+    expect(palierMax({ ...base, verdict: 'tp3' }).palier).toBe('TP3')
+    expect(palierMax({ ...base, verdict: 'be' }).palier).toBe('BE')
+    expect(palierMax({ ...base, verdict: 'expire' }).palier).toBe('Expiré')
   })
-  it('TP1+BE → R réel du TP1 (0,6R), pas 1R en dur', () => {
-    const p = palierMax({ ...base, verdict: 'tp1+be' })
-    expect(p.palier).toBe('TP1')
-    expect(p.rReference).toBeCloseTo(0.6)
-  })
-  it('TP2+BE → 2R ; TP3 → 3R ; BE → 0 ; Expire → null', () => {
-    expect(palierMax({ ...base, verdict: 'tp2+be' }).rReference).toBeCloseTo(2)
-    expect(palierMax({ ...base, verdict: 'tp3' }).rReference).toBeCloseTo(3)
-    expect(palierMax({ ...base, verdict: 'be' }).rReference).toBe(0)
-    expect(palierMax({ ...base, verdict: 'expire' }).rReference).toBeNull()
-  })
-  it('pénalité straddle : les paliers TP coûtent la jambe morte (−1R)', () => {
-    const s = { ...base, strategie: 'straddle', verdict: 'tp1+be' }
-    expect(palierMax(s).rReference).toBeCloseTo(-0.4) // 0.6 − 1
-    const s2 = { ...base, strategie: 'straddle', verdict: 'tp2+be' }
-    expect(palierMax(s2).rReference).toBeCloseTo(1) // 2 − 1
-  })
-  it('SL straddle : pénalité NON appliquée (déjà −1R)', () => {
-    const s = { ...base, strategie: 'straddle', verdict: 'sl' }
-    expect(palierMax(s).rReference).toBe(-1)
+  it('verdict inconnu → null', () => {
+    expect(palierMax({ ...base, verdict: null }).palier).toBeNull()
   })
 })
 

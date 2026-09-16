@@ -118,6 +118,10 @@ pub(crate) async fn charger_amorce_mtf_runtime(db: &db::Database, asset: &Asset)
 /// Période de relecture de la config workers (assets × timeframes).
 const RELECTURE_CONFIG_SEC: u64 = 60;
 
+/// Périmètre STRADDLE (décision 15/09) : BTC seule crypto, forex = 3 majeures
+/// sur annonces US, métaux/indices actuels. Hors périmètre : collecte seule.
+const PERIMETRE_STRADDLE: &[&str] = &["BTC", "XAUUSD", "XAGUSD", "SP500", "NAS100", "DAX", "EURUSD", "GBPUSD", "USDJPY"];
+
 /// Garde anti-double-start (pattern identique aux autres workers).
 static RUNTIME_DEMARRE: AtomicBool = AtomicBool::new(false);
 
@@ -339,7 +343,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
     for cle in runtime.cles() {
         let smc_vif = crate::reglages_smc::est_arme(&armes, cle.0.as_str(), cle.1.as_str());
         let straddle_vif = matches!(cle.1, common::Timeframe::M1)
-            && (mt5_ids.contains(cle.0.as_str()) || matches!(cle.0.as_str(), "XAUUSD" | "BTC"));
+            && PERIMETRE_STRADDLE.contains(&cle.0.as_str());
         if !cibles.contains(&cle)
             || (!smc_vif && !straddle_vif && !matches!(cle.1, common::Timeframe::H1)) {
             runtime.retirer(cle.0.clone(), cle.1);
@@ -391,7 +395,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                         .avec_trailing_tp2(trailing_reglage),
                 ));
             }
-            if *tf == common::Timeframe::M1 {
+            if *tf == common::Timeframe::M1 && PERIMETRE_STRADDLE.contains(&asset.as_str()) {
                 let mut annonces: Vec<straddle::Annonce> = if asset.as_str() == "DAX" {
                     crate::mt5_collecteur::annonces_ouverture_europeenne()
                 } else {
@@ -469,13 +473,8 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                     .avec_trailing_tp2(trailing_reglage),
             ));
         }
-        // Étape 4 — verticale Straddle : périmètre acté = XAU + BTC sur
-        // annonces US fortes (Bybit alimente ces deux-là en temps réel).
-        // NAS100/SP500 (annonces US) et DAX (ouverture européenne 9h Paris)
-        // attendent le branchement MT5 (phase 5) — moteurs prêts, pas armés.
-        if matches!(tf, common::Timeframe::M1)
-            && matches!(asset.as_str(), "XAUUSD" | "BTC")
-        {
+        // Étape 4 — verticale Straddle, rail Bybit : seule BTC (cf. PERIMETRE).
+        if matches!(tf, common::Timeframe::M1) && PERIMETRE_STRADDLE.contains(&asset.as_str()) {
             let mut annonces: Vec<straddle::Annonce> = annonces_tier1(db)
                 .await
                 .into_iter()

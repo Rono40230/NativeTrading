@@ -25,7 +25,7 @@
           {{ fmtDollars(a.capital_actuel) }} <span class="text-[10px] text-white">/ {{ fmtDollars(a.capital_depart) }}</span>
         </p>
       </div>
-      <div class="glass-card px-3 py-2" title="Σ R de la convention du moteur (pondéré ventes partielles SMC, net straddle, réalisé base)">
+      <div class="glass-card px-3 py-2" title="Σ R (distance) : meilleur palier atteint par clôture — la qualité des signaux. Le capital ($) compose les ventes partielles : ΣR × risque ≠ variation du capital.">
         <p class="text-[9px] uppercase tracking-wider text-white">Σ R</p>
         <p class="text-sm font-bold font-mono" :class="a.r_total > 0 ? 'text-emerald-400' : a.r_total < 0 ? 'text-red-400' : 'text-white'">{{ fmtR(a.r_total) }}</p>
       </div>

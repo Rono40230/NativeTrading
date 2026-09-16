@@ -32,8 +32,8 @@
           <div class="text-[10px] uppercase tracking-wide text-white mt-1">passes closes</div>
         </div>
         <div class="text-center">
-          <div class="text-3xl font-bold" :class="(stats.winPct ?? 0) >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ stats.winPct || '—' }}%</div>
-          <div class="text-[10px] uppercase tracking-wide text-white mt-1">win rate</div>
+          <div class="text-3xl font-bold" :class="(winRatePasses ?? 0) >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ winRatePasses ?? '—' }}%</div>
+          <div class="text-[10px] uppercase tracking-wide text-white mt-1">win rate passes</div>
         </div>
         <div class="text-center">
           <div class="text-3xl font-bold text-amber-300">{{ Math.max(30 - (rapport?.n_passes ?? 30), 0) }}</div>
@@ -125,27 +125,24 @@
     <section class="rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col gap-4">
       <div class="flex items-center gap-3 flex-wrap">
         <span class="text-sm font-bold text-white uppercase tracking-wider">📋 Détails de performance</span>
-        <span class="ml-auto text-xs text-white">{{ stats.total }} passes · R moyen {{ stats.rMoyen }}R · loss rate {{ stats.tauxSL }}%</span>
+        <span class="ml-auto text-xs text-white">{{ stats.total }} clôtures vécues · R moyen {{ stats.rMoyen >= 0 ? '+' : '' }}{{ stats.rMoyen.toFixed(2) }}R · loss rate {{ stats.tauxSL }}%</span>
       </div>
-      <!-- Cartes 1 ligne par asset + verdicts en chips -->
+      <!-- Cartes 1 ligne par asset + verdicts en chips (analyse officielle) -->
       <div class="flex flex-col gap-3">
         <div class="grid grid-cols-3 gap-2">
-          <div v-for="a in straddleStats.parAsset.value" :key="a.asset"
+          <div v-for="a in parAsset" :key="a.asset"
                class="kpi-card flex items-center gap-2 px-2.5 py-1.5 text-xs whitespace-nowrap">
             <span class="font-bold text-yellow-300">{{ a.asset }}</span>
-            <span class="text-white">{{ a.total }}p</span>
+            <span class="text-white">{{ a.n }}p</span>
             <span :class="a.winPct >= 50 ? 'text-emerald-400' : 'text-red-400'">{{ a.winPct }}%</span>
-            <span class="font-bold" :class="a.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ a.rMoyen >= 0 ? '+' : '' }}{{ a.rMoyen }}R</span>
+            <span class="font-bold" :class="a.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ a.rMoyen >= 0 ? '+' : '' }}{{ a.rMoyen.toFixed(2) }}R</span>
           </div>
         </div>
         <div class="flex flex-wrap gap-2">
-          <span class="text-xs font-semibold px-2 py-1 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">tp2 × {{ stats.tp2 }}</span>
-          <span v-if="stats.tp1" class="text-xs font-semibold px-2 py-1 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">tp1 × {{ stats.tp1 }}</span>
-          <span v-if="stats.tp3" class="text-xs font-semibold px-2 py-1 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">tp3 × {{ stats.tp3 }}</span>
-          <span v-if="stats.ts" class="text-xs font-semibold px-2 py-1 rounded-full border bg-emerald-500/10 text-emerald-400 border-emerald-500/30">ts × {{ stats.ts }}</span>
-          <span v-if="nbBe" class="text-xs font-semibold px-2 py-1 rounded-full border bg-white/5 text-white border-white/20">be × {{ nbBe }}</span>
-          <span class="text-xs font-semibold px-2 py-1 rounded-full border bg-red-500/10 text-red-400 border-red-500/30">sl × {{ stats.sl }}</span>
-          <span v-if="stats.expire" class="text-xs font-semibold px-2 py-1 rounded-full border bg-white/5 text-white border-white/20">expire × {{ stats.expire }}</span>
+          <span v-for="v in verdictsChips" :key="v.label"
+                class="text-xs font-semibold px-2 py-1 rounded-full border"
+                :class="v.label === 'SL' ? 'bg-red-500/10 text-red-400 border-red-500/30' : v.label === 'Expire' ? 'bg-white/5 text-white border-white/20' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'"
+          >{{ v.label.toLowerCase() }} × {{ v.n }}</span>
         </div>
       </div>
     </section>
@@ -203,28 +200,38 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import type { Ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { http } from '@/services/http.client'
-import { apiService } from '@/services/api.service'
-import type { Signal } from '@/services/api.service'
-import { useStraddleStats } from '@/composables/useStraddleStats'
+import { chargerAnalyse, type AnalyseStrategie } from '@/composables/useAnalyses'
 import AnalysePageShell from '@/components/common/AnalysePageShell.vue'
 import StraddleParamsPanel from '@/components/common/StraddleParamsPanel.vue'
 import type { StraddleParams } from '@/components/common/StraddleParamsPanel.vue'
 
-// ── Signaux (stats du tiroir détail) ──
-const signaux = ref<Signal[]>([])
+// ── Analyse officielle (harmonisation 15/09) : les mêmes chiffres que la
+// carte du dashboard et le rapport d'activité — base vécue, R-distance, WR $. ──
+const analyse = ref<AnalyseStrategie | null>(null)
 onMounted(async () => {
-  try {
-    const data = await apiService.getSignaux(500)
-    signaux.value = data.filter(s => s.strategie?.toLowerCase() === 'straddle')
-  } catch { signaux.value = [] }
+  analyse.value = await chargerAnalyse('straddle')
 })
 
-const straddleStats = useStraddleStats(computed(() => signaux.value) as Ref<Signal[]>)
-const stats = computed(() => straddleStats.stats.value)
-const nbBe = computed(() => Math.max(stats.value.total - stats.value.tp1 - stats.value.tp2 - stats.value.tp3 - stats.value.ts - stats.value.sl - stats.value.expire, 0))
+const stats = computed(() => ({
+  total: analyse.value?.nb_trades ?? 0,
+  rMoyen: analyse.value?.r_moyen ?? 0,
+  tauxSL: Math.round((analyse.value?.taux_perte ?? 0) * 100),
+}))
+
+const parAsset = computed(() =>
+  (analyse.value?.assets ?? []).map((c) => ({
+    asset: c.label,
+    n: c.n,
+    winPct: Math.round(c.wr * 100),
+    rMoyen: c.n > 0 ? c.r / c.n : 0,
+  })),
+)
+
+const verdictsChips = computed(() =>
+  (analyse.value?.verdicts ?? []).map((v) => ({ label: v.label, n: v.n })),
+)
 
 // ── Analyste des passes (cache du jour — instantané) ──
 interface RecoAnalyste { priorite: string; description: string; impact_estime?: string }
@@ -236,6 +243,12 @@ const rapport = ref<ReponseAnalyste | null>(null)
 const rafraichissement = ref(false)
 
 const analyseLlm = computed(() => rapport.value?.analyse ?? null)
+// Win rate du DOSSIER (passes du moteur analyste — même source que ΣR nets
+// et par source ; les chiffres vécus officiels vivent dans « Détails »).
+const winRatePasses = computed(() => {
+  const r = rapport.value
+  return r?.n_passes ? Math.round(((r.gagnantes ?? 0) / r.n_passes) * 100) : null
+})
 const pointsForts = computed(() => analyseLlm.value?.points_forts ?? [])
 const pointsFaibles = computed(() => analyseLlm.value?.points_faibles ?? [])
 const recommandations = computed(() => analyseLlm.value?.recommandations ?? [])

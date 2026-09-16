@@ -87,6 +87,44 @@ export interface EntiteSentiment {
   variation_veille?: number
 }
 
+/** Bandeau sentiment (15/09) — les vraies jauges au-dessus du tableau. */
+export interface Fng {
+  valeur: number
+  classe: string
+  /** Variation vs la veille (points d'indice). */
+  delta_veille: number
+}
+
+export interface Positioning {
+  asset: string
+  ratio_long: number
+  ratio_short: number
+  /** ratio_long / ratio_short (1,0 = équilibre). */
+  ls: number
+  /** Funding courant en % (négatif = shorts paient). */
+  funding_pct: number
+}
+
+export interface Breadth {
+  univers: string
+  au_dessus: number
+  total: number
+}
+
+export interface PresseBias {
+  haussier: number
+  neutre: number
+  baissier: number
+}
+
+export interface BandeauSentiment {
+  fng?: Fng
+  positioning: Positioning[]
+  breadth: Breadth[]
+  presse?: PresseBias
+  maj_le: number
+}
+
 export interface SentimentMarche {
   date: string
   /** Date de la référence figée (colonne « Veille »). */
@@ -96,6 +134,7 @@ export interface SentimentMarche {
   matieres_premieres: EntiteSentiment[]
   cryptos: EntiteSentiment[]
   vix: number | null
+  bandeau?: BandeauSentiment
 }
 
 /// Sentiment composite 0-100 par classe — retiré de l'UI le 05/09 (décision

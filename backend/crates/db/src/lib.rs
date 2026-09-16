@@ -48,6 +48,7 @@ pub mod straddle_features;
 pub mod straddle_pics;
 pub mod straddle_suivi_position;
 pub mod kdj_params;
+pub mod simulation_essais;
 pub mod strategies_params;
 pub mod volatilite;
 
