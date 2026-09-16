@@ -27,9 +27,9 @@ const S: Record<string, string> = {
 export const TERMES: TermeSMC[] = [
   {
     abrev: 'R',
-    nom: 'R (distance)',
+    nom: 'R encaissé',
     cat: 'general',
-    def: "Convention unique de l'app (décision 15/09) : R = la distance du prix à l'entrée, en multiples du risque initial. Pour un trade fermé : le MEILLEUR PALIER atteint (TP2 touché → 2 R, SL → −1 R). Pour un trade en cours : la distance du prix actuel. Le R décrit la qualité des signaux ; l'évolution du CAPITAL ($) décrit le portefeuille (ventes partielles composées) — les deux ne tombent pas au même chiffre, c'est voulu.",
+    def: "Convention unique de l'app (décision 16/09, remplace la distance du 15/09) : R = ce que le trade a mis dans la caisse, gagnants − perdants. SMC : pondéré des ventes partielles (TP1+BE → +0,3 R, TP2+BE → +1,02 R, SL → −1 R plein). Autres stratégies : R net réalisé. Le badge R et le capital $ racontent la même histoire en unités différentes. La DISTANCE (meilleur palier atteint) reste une donnée d'étude — laboratoire de simulation, analyse des zones.",
   },
   // CONCEPTS GENERAUX
   { abrev: 'SMC', nom: 'Smart Money Concept', cat: 'general',

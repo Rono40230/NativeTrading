@@ -16,7 +16,7 @@
           <div class="kpi"><p class="kpi-label">Capital</p>
             <p class="kpi-valeur" :class="rendementVecu >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollars(vecu.capital_actuel) }}</p>
             <p class="kpi-sous">{{ fmtPct(rendementVecu) }}</p></div>
-          <div class="kpi"><p class="kpi-label">Σ R distance</p>
+          <div class="kpi"><p class="kpi-label">Σ R encaissé</p>
             <p class="kpi-valeur" :class="vecu.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR2(vecu.r_total) }}</p>
             <p class="kpi-sous">{{ vecu.nb_trades }} clôtures</p></div>
           <div class="kpi"><p class="kpi-label">WR ($ &gt; 0)</p>
@@ -45,12 +45,15 @@
             <input v-model.number="params.tp3_trailing_r" type="number" step="0.1" min="0.1" max="1" class="champ" :disabled="!params.tp3_trailing" /></label>
           <label class="flex items-center gap-2 col-span-2 text-white">
             <input v-model="params.tp3_trailing" type="checkbox" class="accent-teal-400" /> Activer le trailing</label>
-          <label class="flex flex-col gap-1">f1 vendue à TP1
-            <input v-model.number="params.frac_tp1" type="number" step="0.05" min="0" max="1" class="champ" /></label>
-          <label class="flex flex-col gap-1">f2 vendue à TP2
-            <input v-model.number="params.frac_tp2" type="number" step="0.05" min="0" max="1" class="champ" /></label>
-          <label class="flex flex-col gap-1 col-span-2">f3 = solde <span class="text-white/50 text-[10px]">normalisé : la somme des fractions est ramenée à 1</span>
-            <input v-model.number="params.frac_tp3" type="number" step="0.05" min="0" max="1" class="champ" /></label>
+          <p class="col-span-2 text-white/50 text-[10px] -mt-1">Fractions du lot : la somme est normalisée à 100 % à l'envoi.</p>
+          <div class="col-span-2 grid grid-cols-3 gap-2">
+            <label class="flex flex-col gap-1">f1 vendue à TP1 (%)
+              <input v-model.number="pct1" type="number" step="5" min="0" max="100" class="champ" /></label>
+            <label class="flex flex-col gap-1">f2 vendue à TP2 (%)
+              <input v-model.number="pct2" type="number" step="5" min="0" max="100" class="champ" /></label>
+            <label class="flex flex-col gap-1">f3 = solde (%)
+              <input v-model.number="pct3" type="number" step="5" min="0" max="100" class="champ" /></label>
+          </div>
         </div>
         <div class="flex gap-2 flex-wrap">
           <button class="btn-action bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 disabled:opacity-40"
@@ -117,9 +120,9 @@
           <thead>
             <tr class="text-white/60 uppercase tracking-wider border-b border-white/10">
               <th class="text-right py-1.5 pr-2">#</th>
-              <th class="text-right py-1.5 px-2">f1 (TP1)</th>
-              <th class="text-right py-1.5 px-2">f2 (TP2)</th>
-              <th class="text-right py-1.5 px-2">f3 (solde)</th>
+              <th class="text-right py-1.5 px-2">f1 · TP1</th>
+              <th class="text-right py-1.5 px-2">f2 · TP2</th>
+              <th class="text-right py-1.5 px-2">f3 · solde</th>
               <th class="text-right py-1.5 px-2">Capital</th>
               <th class="text-right py-1.5 px-2">Rendement</th>
               <th class="text-right py-1.5 px-2">Pire creux</th>
@@ -130,9 +133,9 @@
             <tr v-for="(l, i) in balayage.configurations.slice(0, 12)" :key="`${l.f1}-${l.f2}`"
                 class="border-b border-white/5" :class="l.actuel ? 'bg-teal-500/10' : ''">
               <td class="py-1.5 pr-2 text-right text-white/50">{{ i + 1 }}</td>
-              <td class="py-1.5 px-2 text-right font-mono text-white">{{ l.f1.toFixed(2) }}</td>
-              <td class="py-1.5 px-2 text-right font-mono text-white">{{ l.f2.toFixed(2) }}</td>
-              <td class="py-1.5 px-2 text-right font-mono text-white">{{ l.f3.toFixed(2) }}</td>
+              <td class="py-1.5 px-2 text-right font-mono text-white">{{ Math.round(l.f1 * 100) }} %</td>
+              <td class="py-1.5 px-2 text-right font-mono text-white">{{ Math.round(l.f2 * 100) }} %</td>
+              <td class="py-1.5 px-2 text-right font-mono text-white">{{ Math.round(l.f3 * 100) }} %</td>
               <td class="py-1.5 px-2 text-right font-mono font-bold" :class="l.capital >= balayage.capital_depart ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollars(l.capital) }}</td>
               <td class="py-1.5 px-2 text-right font-mono" :class="l.rendement >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtPct(l.rendement) }}</td>
               <td class="py-1.5 px-2 text-right font-mono text-white/70">{{ fmtDollars(l.capital_minimum) }}</td>
@@ -206,6 +209,20 @@ const essais = ref<Essai[]>([])
 const enCours = ref(false)
 const enCoursBalayage = ref(false)
 const messageApplique = ref('')
+
+/// Saisie des fractions en % — stockage 0-1 inchangé (backend, essais).
+const pct1 = computed({
+  get: () => Math.round(params.value.frac_tp1 * 100),
+  set: (v: number) => { params.value.frac_tp1 = (Number.isFinite(v) ? v : 0) / 100 },
+})
+const pct2 = computed({
+  get: () => Math.round(params.value.frac_tp2 * 100),
+  set: (v: number) => { params.value.frac_tp2 = (Number.isFinite(v) ? v : 0) / 100 },
+})
+const pct3 = computed({
+  get: () => Math.round(params.value.frac_tp3 * 100),
+  set: (v: number) => { params.value.frac_tp3 = (Number.isFinite(v) ? v : 0) / 100 },
+})
 
 const rendementVecu = computed(() =>
   vecu.value && vecu.value.capital_depart > 0
@@ -342,8 +359,8 @@ const comparatif = computed(() => {
       ecart: `${((s.taux_reussite - v.taux_reussite) * 100).toFixed(0)} pts`, classe: s.taux_reussite >= v.taux_reussite ? 'text-emerald-400' : 'text-red-400',
     },
     {
-      label: 'Σ R distance (qualité zones)', vecu: fmtR2(v.r_total), sim: fmtR2(s.r_total),
-      ecart: fmtR2(s.r_total - v.r_total), classe: s.r_total >= v.r_total ? 'text-emerald-400' : 'text-red-400',
+      label: 'Σ R encaissé', vecu: fmtR2(v.r_total), sim: fmtR2(s.r_total_pondere),
+      ecart: fmtR2(s.r_total_pondere - v.r_total), classe: s.r_total_pondere >= v.r_total ? 'text-emerald-400' : 'text-red-400',
     },
     {
       label: 'Σ R pondéré (composé)', vecu: '—', sim: fmtR2(s.r_total_pondere),
@@ -363,7 +380,7 @@ function fmtR2(v: number): string {
   return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(2)} R`
 }
 function fmtFrac(p: ParamsSmc): string {
-  return `${p.frac_tp1}/${p.frac_tp2}/${p.frac_tp3}`
+  return `${Math.round(p.frac_tp1 * 100)}/${Math.round(p.frac_tp2 * 100)}/${Math.round(p.frac_tp3 * 100)} %`
 }
 function dateCourte(ts: number): string {
   return new Date(ts * 1000).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })

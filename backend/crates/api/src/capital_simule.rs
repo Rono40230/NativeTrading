@@ -30,9 +30,13 @@ pub struct PointCapital {
     pub asset: String,
     pub tf: String,
     pub verdict: String,
-    /// R-DISTANCE (meilleur palier atteint) — LA convention d'affichage de
-    /// l'app (refonte 15/09) ; le $ reste composé sur le R réalisé `r`.
+    /// R-DISTANCE (meilleur palier atteint) — donnée d'étude (laboratoire,
+    /// analyse des zones).
     pub r_distance: f64,
+    /// R ENCAISSÉ du trade (gagnants − perdants) : SMC = pondéré ventes
+    /// partielles (LE R qui compose le profit $), autres = R net réalisé.
+    /// Convention d'affichage officielle (décision propriétaire 16/09).
+    pub r_pondere: f64,
 }
 
 #[derive(Debug, Serialize)]
@@ -120,8 +124,12 @@ pub async fn simuler(db: &db::Database, id_strategie: &str) -> anyhow::Result<Si
             // Correctif 15/09 nuit : le solde d'un TP2+BE sort au prix VÉCU
             // (stop suiveur post-TP2 à TP1 — la base montre aussi des sorties
             // à l'entrée), pas à 0.
+            // Garde : un prix ≤ 0 n'est pas un prix (NULL/défaut mal lu) —
+            // repli sur la mécanique (stop suiveur post-TP2 = TP1).
             let r_solde_tp2 = if t.verdict.to_lowercase().starts_with("tp2") && risque > 0.0 {
-                t.prix_verdict.map(|pv| (pv - t.prix_entree).abs() / risque)
+                t.prix_verdict
+                    .filter(|pv| *pv > 0.0)
+                    .map(|pv| (pv - t.prix_entree).abs() / risque)
             } else {
                 None
             };
@@ -144,6 +152,7 @@ pub async fn simuler(db: &db::Database, id_strategie: &str) -> anyhow::Result<Si
             ferme_le: t.ferme_le,
             r: t.r,
             profit,
+            r_pondere: r_capital,
             capital_apres: capital,
             asset: t.asset,
             tf: t.tf,

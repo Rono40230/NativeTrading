@@ -21,7 +21,7 @@
 //|    au changement de période : clôture officielle (conf=1).       |
 //+------------------------------------------------------------------+
 #property copyright "Native Trading AI"
-#property version   "1.32"
+#property version   "1.34"
 #property strict
 
 input string ApiUrl = "http://127.0.0.1:8080"; // URL de l'application (localhost refusé par MT5 — bug connu)
@@ -49,7 +49,7 @@ int OnInit()
 {
    EventSetTimer(1);
    rafraichir_abonnements();
-   Print("EA_Collecteur: démarré — cible ", ApiUrl);
+   Print("EA_Collecteur: démarré v1.34 — cible ", ApiUrl);
    return(INIT_SUCCEEDED);
 }
 
@@ -291,17 +291,30 @@ void pousser_historique(const int s)
          datetime limite_srv = vers_serveur(limite_utc);
          if(count_db >= prof)
          {
+            Print("EA_Collecteur: sonde ", asset, " ", tf_noms[t],
+                  " — base complète (", count_db, " >= ", prof, ")");
             etat_tf[idx(s, t)] = 1;
             dernier_debut[idx(s, t)] = 0;
             return; // déjà complet — TF sauté
          }
+         // v1.33 — FIX : sonder la plus ANCIENNE barre du terminal sur la
+         // profondeur voulue (CopyRates force au passage MT5 à télécharger
+         // l'historique manquant). L'ancienne sonde (2 barres, extrait
+         // probe[np-1] = barre courante) était TOUJOURS vraie et skippait
+         // tout TF ayant une seule bougie en base — cause du « les données
+         // ne rentrent pas » (16/09).
          MqlRates probe[];
-         int np = CopyRates(symboles[s], tf_periodes[t], 0, 2, probe);
-         if(np > 0 && probe[np - 1].time >= limite_srv)
+         int np = CopyRates(symboles[s], tf_periodes[t], 0, prof, probe);
+         if(np > 0 && probe[0].time >= limite_srv)
          {
+            Print("EA_Collecteur: sonde ", asset, " ", tf_noms[t],
+                  " — terminal ", np, " barres, première ",
+                  TimeToString(probe[0].time, TIME_DATE|TIME_MINUTES),
+                  " ; base commence ", TimeToString(limite_srv, TIME_DATE|TIME_MINUTES),
+                  " → rien de plus ancien côté Axi");
             etat_tf[idx(s, t)] = 1;
             dernier_debut[idx(s, t)] = 0;
-            return; // la base remonte aussi loin que le broker — rien à ajouter
+            return; // le terminal n'a rien de plus ancien que la base — rien à ajouter
          }
       }
 

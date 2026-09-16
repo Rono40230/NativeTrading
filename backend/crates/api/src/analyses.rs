@@ -101,8 +101,10 @@ pub struct AnalyseStrategie {
     pub capital_depart: f64,
     pub capital_actuel: f64,
     pub fraction_risque: f64,
+    /// Σ R ENCAISSÉ (gagnants − perdants, fractions comprises) — le R qui
+    /// compose le capital (décision propriétaire 16/09).
     pub r_total: f64,
-    /// R-distance moyen par clôture (r_total / nb_trades).
+    /// R encaissé moyen par clôture (r_total / nb_trades).
     pub r_moyen: f64,
     /// Part des clôtures perdantes ($ < 0) — 0-1 (complément inexact du WR :
     /// les sorties ~0 $ ne sont ni gagnantes ni perdantes).
@@ -153,7 +155,11 @@ async fn collecter(
                     asset: p.asset.clone(),
                     tf: p.tf.clone(),
                     verdict: normaliser_verdict(&p.verdict),
-                    r: p.r_distance,
+                    // R ENCAISSÉ (décision propriétaire 16/09) : gagnants −
+                    // perdants, ventes partielles comprises — le R qui
+                    // compose le capital. La distance (meilleur palier)
+                    // reste une donnée d'étude (laboratoire, r_distance).
+                    r: p.r_pondere,
                     dollars: p.profit,
                 })
                 .collect();
@@ -535,13 +541,14 @@ mod tests {
         assert_eq!(a.journalier.iter().map(|p| p.trades).sum::<usize>(), 4, "Σ journalier");
         assert_eq!(a.heatmap.iter().map(|c| c.trades).sum::<usize>(), 4, "Σ heatmap");
 
-        // Même R partout : r_total == Σ r_distance des points == Σ par verdict.
-        let somme_points: f64 = sim.points.iter().map(|p| p.r_distance).sum();
+        // Même R partout : r_total == Σ r_pondere (encaissé) == Σ par verdict.
+        let somme_points: f64 = sim.points.iter().map(|p| p.r_pondere).sum();
         assert!((a.r_total - somme_points).abs() < 1e-9, "r_total {} ≠ Σ points {}", a.r_total, somme_points);
-        assert!((a.r_total - 1.6).abs() < 1e-9, "ΣR distance attendu 1.6, obtenu {}", a.r_total);
+        // Encaissé : TP1+BE 0,3 + TP2+BE 1,02 (solde repli TP1) + SL −1 + Expire 0.
+        assert!((a.r_total - 0.32).abs() < 1e-9, "ΣR encaissé attendu 0.32, obtenu {}", a.r_total);
         let somme_verdicts: f64 = a.verdicts.iter().map(|c| c.r).sum();
         assert!((a.r_total - somme_verdicts).abs() < 1e-9, "Σ verdicts.r ≠ r_total");
-        assert!((a.r_moyen - 0.4).abs() < 1e-9, "r_moyen {}", a.r_moyen);
+        assert!((a.r_moyen - 0.08).abs() < 1e-9, "r_moyen {}", a.r_moyen);
 
         // WR ($ > 0) + taux de perte ($ < 0) : complémentaires au pire des ~0 $.
         assert!(a.taux_reussite + a.taux_perte <= 1.0 + 1e-9);

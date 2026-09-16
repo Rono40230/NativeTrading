@@ -21,7 +21,7 @@
     <template #historique>
       <div class="text-sm text-white flex flex-wrap items-center gap-x-3 mb-2">
         <span>{{ historique.signauxFiltres.value.length }} trade{{ historique.signauxFiltres.value.length > 1 ? 's' : '' }}</span>
-        <span v-if="historique.totaux.value.sommeR !== null" class="font-mono text-emerald-400" title="Σ R-distance des clôtures — la même valeur que le badge de la carte et le rapport d'activité">Σ R {{ formatR(historique.totaux.value.sommeR) }}</span>
+        <span v-if="historique.totaux.value.sommeR !== null" class="font-mono" :class="historique.totaux.value.sommeR >= 0 ? 'text-emerald-400' : 'text-red-400'" title="Σ R encaissés des clôtures — la même valeur que le badge de la carte et le rapport d'activité">Σ R {{ formatR(historique.totaux.value.sommeR) }}</span>
         <span v-if="historique.totaux.value.jamaisRemplis > 0" class="text-white">· {{ historique.totaux.value.jamaisRemplis }} jamais remplis</span>
       </div>
       <HistoryTable

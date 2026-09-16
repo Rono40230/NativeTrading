@@ -57,7 +57,7 @@ export interface AnalyseStrategie {
   capital_actuel: number
   fraction_risque: number
   r_total: number
-  /** R-distance moyen par clôture (r_total / nb_trades). */
+  /** R encaissé moyen par clôture (r_total / nb_trades). */
   r_moyen: number
   /** Part des clôtures perdantes ($ < 0) — 0-1. */
   taux_perte: number

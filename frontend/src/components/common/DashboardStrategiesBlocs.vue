@@ -423,9 +423,9 @@ function rFormate(v: number): string {
   return `${r > 0 ? '+' : r < 0 ? '−' : ''}${Math.abs(r).toFixed(1)} R`
 }
 
-/// Info-bulle du badge R : la convention officielle (distance = meilleur
-/// palier atteint) — la même que le rapport d'activité et l'historique.
-const titleR = 'R (distance) : meilleur palier atteint par trade — la qualité des zones.\nLe capital ($) compose les ventes partielles : ΣR × risque ≠ variation du capital.'
+/// Info-bulle du badge R : la convention officielle (encaissé = gagnants −
+/// perdants, décision 16/09) — la même que le rapport et l'historique.
+const titleR = 'R encaissés : gagnants − perdants, ventes partielles comprises (décision 16/09).\nLe badge $ compose exactement ces R — même histoire, unités différentes.\nLa distance (meilleur palier atteint) reste visible au laboratoire de simulation.'
 
 function ouvrir(id: string) {
   const cible = ROUTES[id]

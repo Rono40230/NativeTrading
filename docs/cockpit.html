@@ -70,9 +70,9 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "16/09 (laboratoire 🧪 complet : SMC + straddle)",
-    "commit": "a7f0db7",
-    "note": "Session du 16/09 commitée (harmonisation métriques + laboratoire 🧪). Hook pre-commit + audit push = garants mécaniques. Lecture agent : scripts/cockpit.sh [section]."
+    "date": "16/09 soir (R = encaissé partout · XPDUSD retiré · bug EA résolu : historique Axi en cours)",
+    "commit": "7fbe694",
+    "note": "Session du 16/09 soir commitée (R encaissé + correctifs collecte). Hook pre-commit + audit push = garants mécaniques. Lecture agent : scripts/cockpit.sh [section]."
   },
   "verticales": [
     {
@@ -221,7 +221,7 @@
       "id": "7.F",
       "prio": 3,
       "titre": "Mesure 30 trades sur l'univers KDJ élargi (26 actifs — TON retiré)",
-      "detail": "Univers : 16 actifs vifs (6 historiques + 10 cryptos Bybit, TON retiré le 14/09 : Bybit ne le cote pas) + 11 forex/métaux Axi en attente historique EA (MT5 ouvert requis). Collecte MTF complète le 14/09 : H4/W1/D1 backfillées (24 mois-5 ans) + WS vivant (fix args>10). Scanner = tableau gabarit Rockets. 30 trades par couple avant tout verdict.",
+      "detail": "Univers : 16 actifs vifs + 10 forex/métaux Axi (XPDUSD retiré le 16/09 — inexistant chez Axi). HISTORIQUE AXI EN COURS D'ARRIVÉE (16/09 soir, bug EA résolu) : M1 720k/symbole, TF supérieurs suivent. Dès complète : la mesure 30 trades/couple KDJ peut démarrer et l'armement propriétaire devient possible. Collecte MTF complète le 14/09 côté crypto ; WS vivant.",
       "echeance": "mesure 30 trades/couple"
     },
     {
@@ -331,6 +331,21 @@
     }
   ],
   "decisions": [
+    {
+      "date": "16/09",
+      "titre": "BUG EA_Collecteur corrigé et RÉSOLU (v1.33→1.34) — l'historique Axi coule (16/09)",
+      "detail": "Symptôme propriétaire : « les données ne rentrent pas pour XPTUSD et le forex » après la procédure MT5 complète. Diagnostic par les logs EA : chaque symbole marqué « historique complet (8 TF) » en ~200 ms SANS AUCUN envoi (aucune ligne « N bougies poussées », les anciens skippant légitimement par count_db >= prof). CAUSE : la sonde pré-push CopvRates(symbole, tf, 0, 2 bars) + test probe[np-1].time >= limite_srv regardait la barre COURANTE — condition toujours vraie dès count_db > 0 → tout TF ayant une bougie en base était marqué « rien à ajouter ». FIX v1.33 : sonder CopyRates(..., prof) et tester probe[0] (la plus ANCIENNE barre du terminal) — en prime CopyRates sur la profondeur force MT5 à télécharger l'historique manquant. ACTION PROPRIÉTAIRE : recompiler EA_Collecteur.mq5 dans MetaEditor (F7), retirer puis ré-attacher l'EA (max bars illimité conservé). RÉSOLUTION 16/09 ~16h45 : après recompil v1.33 + max bars illimité + REDÉMARRAGE MT5 (l'augmentation du plafond ne s'applique qu'au reboot) + Home sur les graphiques M1, l'EA pousse 720 000 bougies M1 par symbole (~2 min chacun, retour à octobre 2024). v1.34 ajoutée : logs de sonde datés (chaque skip explique ses raisons — plus de diagnostic à l'aveugle). Base MT5 : 4,6 → 7,6 M bougies ; les TF supérieurs des 10 nouveaux suivent (~30 min). Conséquences à venir : seuils historique_mt5_pret passent → moteurs SMC armés sur les 10 nouveaux + calibration mesurable + passes straddle forex armées pour le FOMC."
+    },
+    {
+      "date": "16/09",
+      "titre": "XPDUSD retiré de l'univers — symbole inexistant chez Axi (constat propriétaire)",
+      "detail": "Le diagnostic collecte (« pourquoi toutes les données ne sont-elles pas téléchargées ? ») a montré 3 populations : alt-cryptos SERVIES (~174k bougies chacune après le backfill profond), 11 forex/métaux Axi en attente de l'EA MT5 (collecte live seule, ~2,7 j de profondeur — action propriétaire : ouvrir MT5 et lancer l'EA d'historique), et XPDUSD totalement muet. CONSTAT PROPRIÉTAIRE : « il n'y a pas de XPDUSD dans Axi, c'est XPTUSD » — symbole parasite ajouté par erreur. PURGE : assets + asset_params + armement SMC (smc_couples_armes, 27→26 couples) + 3 références code mortes (sentiment_bandeau métaux, filtres binance, classification métaux smc). Zéro bougie/signal/alerte à purger. Univers : 26 actifs. Même geste que TON le 14/09 (symbole non coté). App 3/3 vérifiée, XPDUSD absent de l'API."
+    },
+    {
+      "date": "16/09",
+      "titre": "CONVENTION R AFFICHÉ = R ENCAISSÉ (gagnants − perdants) — le propriétaire renverse sa décision du 15/09",
+      "detail": "Question propriétaire : « ne serait-il pas plus logique que le badge R affiche le nb exact de R réalisés, gagnants − perdants ? » — après analyse (avis agent : garder la distance pour séparer qualité-zones/conversion, 3 options proposées), DÉCISION : remplacement complet. Le R affiché PARTOUT (badge cartes, rapport, pages d'analyse, colonne R + Σ historique, r_moyen, catégories/périodes) = le R ENCAISSÉ : SMC = pondéré ventes partielles (TP1+BE +0,3 · TP2+BE +1,02 · SL −1 plein), autres = R net réalisé. Implémentation : PointCapital sert r_pondere ; analyser() compose p.r_pondere (UN point de bascule) ; /api/signaux sert r_encaisse par clôture (SMC pondéré via fractions réelles — calcul côté API, garde prix_verdict > 0) ; front : colonne/Σ/libellés/titleR/lexique. La DISTANCE (meilleur palier atteint) devient DONNÉE D'ÉTUDE (laboratoire, r_distance des points). Conséquence visible : badge SMC −5,53 R = même histoire que le capital −6,1 % (cohérence prouvée au centime sur analyse/points/signaux) ; straddle +14,25 R. AU PASSAGE — bug neutralisé : prix_verdict peut sortir 0.0 (défaut/zéro mal lu) et explosait le r_solde_tp2 (200 R fantômes en test) → garde sémantique prix ≤ 0 = pas un prix, repli TP1 (capital_simule + balayage + signaux). 61 tests api verts (verrous mis à jour : r_total == Σ r_pondere), 23 front, app 3/1. NB sémantique : les snapshots §14 historiques portaient la distance — rupture de série assumée (la colonne r_total change de sens à cette date)."
+    },
     {
       "date": "15/09 nuit",
       "titre": "LABORATOIRE DE SIMULATION — page 🧪 livrée : SMC (complet) + straddle (pilotage de sortie) (décision propriétaire)",

@@ -19,7 +19,7 @@ use db::Database;
 /// « ≥ 50 bougies D1 » exclut d'elle-même les actifs sans historique.
 const UNIVERS_BREADTH: &[(&str, &[&str])] = &[
     ("Crypto", &["BTC", "ETH", "SOL", "ADA", "AVAX", "BNB", "DOGE", "DOT", "LINK", "LTC", "XRP"]),
-    ("Métaux", &["XAUUSD", "XAGUSD", "XPTUSD", "XPDUSD"]),
+    ("Métaux", &["XAUUSD", "XAGUSD", "XPTUSD"]),
     ("Indices", &["DAX", "NAS100", "SP500"]),
     ("Forex", &["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "EURJPY", "GBPJPY", "NZDJPY"]),
 ];

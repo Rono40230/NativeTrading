@@ -61,6 +61,9 @@ export interface Signal {
    *  identique aux points capital par construction. Clôtures remplies
    *  uniquement (null sinon). */
   r_distance?: number | null
+  /** R ENCAISSÉ (gagnants − perdants, décision 16/09) : SMC = pondéré
+   *  ventes partielles, autres = R net réalisé. Null hors clôtures. */
+  r_encaisse?: number | null
   prix_verdict: number | null
   ferme_le: number | null
   cree_le: number

@@ -15,7 +15,7 @@
           <div class="kpi"><p class="kpi-label">Capital</p>
             <p class="kpi-valeur" :class="rendement >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollars(vecu.capital_actuel) }}</p>
             <p class="kpi-sous">{{ fmtPct(rendement) }}</p></div>
-          <div class="kpi"><p class="kpi-label">Σ R distance</p>
+          <div class="kpi"><p class="kpi-label">Σ R encaissé</p>
             <p class="kpi-valeur" :class="vecu.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR2(vecu.r_total) }}</p>
             <p class="kpi-sous">{{ vecu.nb_trades }} passes</p></div>
           <div class="kpi"><p class="kpi-label">WR ($ &gt; 0)</p>

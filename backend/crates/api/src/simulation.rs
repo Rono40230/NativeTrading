@@ -378,8 +378,11 @@ fn composer(
         } else {
             (0.0, 0.0)
         };
+        // Garde : prix ≤ 0 = pas un prix (défaut) — repli mécanique TP1.
         let r_solde_tp2 = if t.verdict.to_lowercase().starts_with("tp2") && risque_trade > 0.0 {
-            t.prix_verdict.map(|pv| (pv - t.prix_entree).abs() / risque_trade)
+            t.prix_verdict
+                .filter(|pv| *pv > 0.0)
+                .map(|pv| (pv - t.prix_entree).abs() / risque_trade)
         } else {
             None
         };

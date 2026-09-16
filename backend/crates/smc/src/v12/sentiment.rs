@@ -90,7 +90,7 @@ pub fn classe_actif(asset: &str) -> &'static str {
         "BTC" | "ETH" | "SOL" | "BNB" | "XRP" | "ADA" | "DOGE" | "AVAX" | "LINK" | "DOT" => {
             "crypto"
         }
-        "XAUUSD" | "XAGUSD" | "XPTUSD" | "XPDUSD" | "XAU" | "XAG" => "metaux",
+        "XAUUSD" | "XAGUSD" | "XPTUSD" | "XAU" | "XAG" => "metaux",
         "DAX" | "NAS100" | "SP500" | "US30" | "FTSE100" | "CAC40" | "JP225" => "indices",
         _ => "forex", // Paires 6 lettres (EURUSD…) et défaut → forex
     }

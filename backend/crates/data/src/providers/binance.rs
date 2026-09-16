@@ -98,7 +98,7 @@ impl BinanceProvider {
                 return None;
             }
             let timestamp = DateTime::from_timestamp(ts_ms / 1000, 0)?;
-            if matches!(asset.as_str(), "XAUUSD" | "XAGUSD" | "XPTUSD" | "XPDUSD") {
+            if matches!(asset.as_str(), "XAUUSD" | "XAGUSD" | "XPTUSD") {
                 let w = timestamp.weekday();
                 let h = timestamp.hour();
                 let is_weekend = match w {
@@ -220,7 +220,7 @@ impl DataProvider for BinanceProvider {
 
                 // Si c'est un métal (XAU/XAG), on filtre strictement le week-end
                 // Vendredi 22h00 UTC au Dimanche 22h00 UTC (horaires classiques).
-                if matches!(asset.as_str(), "XAUUSD" | "XAGUSD" | "XPTUSD" | "XPDUSD") {
+                if matches!(asset.as_str(), "XAUUSD" | "XAGUSD" | "XPTUSD") {
                     let w = timestamp.weekday();
                     let h = timestamp.hour();
                     let is_weekend = match w {

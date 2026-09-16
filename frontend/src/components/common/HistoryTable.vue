@@ -170,14 +170,14 @@ function palierFerme(s: Signal): PalierMax['palier'] {
   return palierMax(s).palier
 }
 
-/** R-distance officiel : servi par le backend (/api/signaux → r_distance) —
- *  IDENTIQUE aux points capital et aux agrégats du dashboard/rapport par
- *  construction (harmonisation 15/09 : plus aucun recalcul front, qui
- *  divergeait sur TS et Expire). Null hors clôtures remplies. */
+/** R ENCAISSÉ du trade (gagnants − perdants, décision 16/09) : servi par le
+ *  backend (/api/signaux → r_encaisse), identique aux agrégats du dashboard
+ *  par construction — SMC = pondéré ventes partielles, autres = R net.
+ *  Repli r_distance si absent. Null hors clôtures remplies. */
 function rReference(s: Signal): number | null {
   if ((s.statut ?? '') !== 'Fermé') return null
   if (s.heure_entree === null || s.heure_entree === undefined) return null
-  return s.r_distance ?? null
+  return s.r_encaisse ?? s.r_distance ?? null
 }
 
 /** « Ouvert le » = REMPLISSAGE de l'ordre — la position n'existe qu'à partir

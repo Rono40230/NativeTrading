@@ -178,45 +178,39 @@
       <div v-else-if="couverture.length === 0" class="text-white text-sm text-center py-8">
         Aucune donnée — activez les workers (l'historique arrive avec le flux).
       </div>
-      <table v-else class="w-full text-sm">
-        <thead>
-          <tr>
-            <th class="text-left px-3 py-2 text-white">Asset</th>
-            <th class="px-3 py-2 text-white">TF</th>
-            <th class="px-3 py-2 text-white text-right">Bougies</th>
-            <th class="px-3 py-2 text-white text-right">Depuis</th>
-            <th class="px-3 py-2 text-white text-right">Jusqu'à</th>
-            <th class="px-3 py-2 text-white text-right">Statut</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="ligne in lignesEnrichies"
-            :key="ligne.asset + ligne.timeframe"
-            class="border-t border-white/5 hover:bg-white/10 transition"
-            :class="ligne.groupIndex % 2 === 1 ? 'bg-white/[0.04]' : ''"
-          >
-            <td class="px-3 py-2 font-bold text-white">{{ ligne.asset }}</td>
-            <td class="px-3 py-2 text-white text-center">{{ ligne.timeframe }}</td>
-            <td class="px-3 py-2 text-right text-white font-mono">{{ ligne.count.toLocaleString() }}</td>
-            <td class="px-3 py-2 text-right text-white text-xs">{{ ligne.dateMin }}</td>
-            <td class="px-3 py-2 text-right text-white text-xs">{{ ligne.dateMax }}</td>
-            <td class="px-3 py-2 text-right">
-              <div class="flex items-center justify-end gap-2">
-                <div class="w-20 h-1.5 rounded-full bg-white/10 overflow-hidden shrink-0">
-                  <div
-                    class="h-full rounded-full transition-all"
-                    :class="ligne.pct >= 80 ? 'bg-emerald-400' : ligne.pct >= 40 ? 'bg-yellow-400' : 'bg-red-400'"
-                    :style="{ width: ligne.pct + '%' }"
-                  />
-                </div>
-                <span class="text-xs whitespace-nowrap tabular-nums" :class="ligne.pct >= 80 ? 'text-emerald-400' : ligne.pct >= 40 ? 'text-yellow-400' : 'text-red-400'">{{ ligne.pct }}%</span>
-                <span class="text-xs whitespace-nowrap text-white">{{ ligne.fraicheurLabel }}</span>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <!-- 4 colonnes (gabarit « Assets du pipeline ») : ~200 lignes asset × TF
+           tiennent sur un écran ; dates et fraîcheur passent en infobulle. -->
+      <div v-else class="grid gap-x-4 gap-y-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <div v-for="colonne in colonnesCouverture" :key="colonne.type">
+        <p class="text-[11px] font-semibold uppercase tracking-wider mb-1" :class="colonne.couleur">{{ colonne.label }}</p>
+        <table class="w-full text-xs">
+          <thead>
+            <tr>
+              <th class="text-left px-2 py-1.5 text-white">Asset</th>
+              <th class="px-1 py-1.5 text-white">TF</th>
+              <th class="px-2 py-1.5 text-white text-right">Bougies</th>
+              <th class="px-2 py-1.5 text-white text-right">Couv.</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="ligne in colonne.lignes"
+              :key="ligne.asset + ligne.timeframe"
+              class="border-t border-white/5 hover:bg-white/10 transition"
+              :class="ligne.groupIndex % 2 === 1 ? 'bg-white/[0.04]' : ''"
+              :title="`${ligne.asset} ${ligne.timeframe} — ${ligne.count.toLocaleString('fr-FR')} bougies\ndu ${ligne.dateMin} au ${ligne.dateMax}\n${ligne.fraicheurLabel}`"
+            >
+              <td class="px-2 py-1.5 font-bold text-white whitespace-nowrap">{{ ligne.asset }}</td>
+              <td class="px-1 py-1.5 text-white text-center">{{ ligne.timeframe }}</td>
+              <td class="px-2 py-1.5 text-right text-white font-mono tabular-nums">{{ ligne.count.toLocaleString('fr-FR') }}</td>
+              <td class="px-2 py-1.5 text-right">
+                <span class="tabular-nums font-semibold" :class="ligne.pct >= 80 ? 'text-emerald-400' : ligne.pct >= 40 ? 'text-yellow-400' : 'text-red-400'">{{ ligne.pct }}%</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -376,6 +370,22 @@ function badgeSource(source?: string): { label: string; classe: string } {
 
 
 // ── Import MT5 (bouton historique conservé) ───────────────────────────────────
+
+/// Couverture en 4 colonnes PAR CATÉGORIE — même tri que le bloc « Assets
+/// du pipeline » : Cryptos · Métaux · Forex · Indices (type de chaque asset).
+const colonnesCouverture = computed(() => {
+  const typeParAsset = new Map(tous.value.map(a => [a.id, a.type]))
+  const parType: Record<string, typeof lignesEnrichies.value> = {
+    crypto: [], metal: [], forex: [], indice: [],
+  }
+  for (const ligne of lignesEnrichies.value) {
+    const type = typeParAsset.get(ligne.asset) ?? 'indice'
+    parType[type]?.push(ligne)
+  }
+  return CATEGORIES.value
+    .map(cat => ({ ...cat, lignes: parType[cat.type] ?? [] }))
+    .filter(c => c.lignes.length > 0)
+})
 
 // ── Section 4 : couverture DB (auto-refresh 60 s) ─────────────────────────────
 const couverture = ref<CouvertureDonnees[]>([])

@@ -2,7 +2,7 @@
  * useHistoriqueStrategie — historique filtré d'une verticale pour les pages
  * stratégies (gabarit étape 01/09). Réutilise les règles de la page
  * Historique : variantes de nommage SMC (writer v1 vs runtime), totaux
- * Σ R-distance (r_distance servi par le backend — même valeur que les
+ * Σ R encaissé (r_encaisse servi par le backend — même valeur que les
  * points capital et le badge du dashboard, harmonisation 15/09) / jamais
  * remplis, MFE des perdants.
  */
@@ -88,9 +88,9 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
     })
   })
 
-  /// Σ R-distance : la colonne R du tableau, servie par le backend —
-  /// strictement la même valeur que le badge R du dashboard et le rapport
-  /// (harmonisation 15/09 : le front ne recalcule plus rien).
+  /// Σ R ENCAISSÉ (décision 16/09) : la colonne R du tableau, servie par le
+  /// backend — strictement la même valeur que le badge R du dashboard et le
+  /// rapport (le front ne recalcule plus rien).
   const totaux = computed(() => {
     let sommeR: number | null = null
     let jamaisRemplis = 0
@@ -101,7 +101,8 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
       if (!ok) continue
       if (s.statut !== 'Fermé') { enCours++; continue }
       if (s.heure_entree === null || s.heure_entree === undefined) { jamaisRemplis++; continue }
-      if (s.r_distance !== null && s.r_distance !== undefined) sommeR = (sommeR ?? 0) + s.r_distance
+      const r = s.r_encaisse ?? s.r_distance
+      if (r !== null && r !== undefined) sommeR = (sommeR ?? 0) + r
     }
     return { sommeR, jamaisRemplis, enCours }
   })

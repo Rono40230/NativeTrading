@@ -8,14 +8,61 @@ pub struct QuerySignaux {
     pub limit: Option<i64>,
 }
 
-/// GET /api/signaux?limit=N — historique avec verdict inclus
+/// GET /api/signaux?limit=N — historique avec verdict inclus.
+/// Chaque clôture remplie porte `r_encaisse` : le R gagnants − perdants
+/// (décision propriétaire 16/09) — SMC = pondéré ventes partielles (fractions
+/// réelles), autres stratégies = R net réalisé. Null hors clôtures.
 pub async fn get_signaux(
     state: web::Data<AppState>,
     query: web::Query<QuerySignaux>,
 ) -> impl Responder {
     let limit = query.limit.unwrap_or(500);
     match state.db.obtenir_signaux(limit).await {
-        Ok(liste) => HttpResponse::Ok().json(liste),
+        Ok(mut liste) => {
+            let fractions = crate::reglages_smc::lire_fractions(&state.db).await;
+            for s in liste.iter_mut() {
+                let Some(obj) = s.as_object_mut() else { continue };
+                let statut = obj.get("statut").and_then(|v| v.as_str()).unwrap_or("");
+                let strategie = obj.get("strategie").and_then(|v| v.as_str()).unwrap_or("");
+                let rempli = obj.get("heure_entree").and_then(|v| v.as_i64()).is_some();
+                if statut != "Fermé" || !rempli {
+                    obj.insert("r_encaisse".into(), serde_json::Value::Null);
+                    continue;
+                }
+                if !strategie.to_lowercase().starts_with("smc") {
+                    let r = obj.get("r_realise").cloned().unwrap_or(serde_json::Value::Null);
+                    obj.insert("r_encaisse".into(), r);
+                    continue;
+                }
+                let entree = obj.get("prix_entree").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let sl = obj.get("stop_loss").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let tps: Vec<f64> = obj
+                    .get("take_profit")
+                    .and_then(|v| v.as_array())
+                    .map(|a| a.iter().filter_map(|x| x.as_f64()).collect())
+                    .unwrap_or_default();
+                let verdict = obj.get("verdict").and_then(|v| v.as_str()).unwrap_or("");
+                let r_realise = obj.get("r_realise").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let risque = (entree - sl).abs();
+                let r = if risque > 0.0 {
+                    let r_tp1 = tps.first().map(|tp| (tp - entree).abs() / risque).unwrap_or(0.0);
+                    let r_tp2 = tps.get(1).map(|tp| (tp - entree).abs() / risque).unwrap_or(r_tp1);
+                    // Garde : prix ≤ 0 = défaut, pas un prix → repli TP1.
+                    let r_solde = obj
+                        .get("prix_verdict")
+                        .and_then(|v| v.as_f64())
+                        .filter(|pv| *pv > 0.0)
+                        .map(|pv| (pv - entree).abs() / risque);
+                    crate::smc_pondere::r_pondere(
+                        verdict, r_realise, r_tp1, r_tp2, fractions, r_solde,
+                    )
+                } else {
+                    0.0
+                };
+                obj.insert("r_encaisse".into(), serde_json::json!(r));
+            }
+            HttpResponse::Ok().json(liste)
+        }
         Err(e) => {
             tracing::error!("Historique signaux: {}", e);
             HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() }))

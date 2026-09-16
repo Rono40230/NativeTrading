@@ -25,7 +25,7 @@
           {{ fmtDollars(a.capital_actuel) }} <span class="text-[10px] text-white">/ {{ fmtDollars(a.capital_depart) }}</span>
         </p>
       </div>
-      <div class="glass-card px-3 py-2" title="Σ R (distance) : meilleur palier atteint par clôture — la qualité des signaux. Le capital ($) compose les ventes partielles : ΣR × risque ≠ variation du capital.">
+      <div class="glass-card px-3 py-2" title="Σ R encaissés : gagnants − perdants, ventes partielles comprises (décision 16/09). Le badge capital compose exactement ces R.">
         <p class="text-[9px] uppercase tracking-wider text-white">Σ R</p>
         <p class="text-sm font-bold font-mono" :class="a.r_total > 0 ? 'text-emerald-400' : a.r_total < 0 ? 'text-red-400' : 'text-white'">{{ fmtR(a.r_total) }}</p>
       </div>
