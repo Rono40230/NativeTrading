@@ -21,8 +21,10 @@
 //! en moins d'une minute, sans redémarrage.
 
 use std::collections::HashSet;
+use crate::runtime_perimetre::lire_perimetre_straddle;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+
 use std::time::Duration;
 
 use common::{Asset, Timeframe};
@@ -117,10 +119,6 @@ pub(crate) async fn charger_amorce_mtf_runtime(db: &db::Database, asset: &Asset)
 
 /// Période de relecture de la config workers (assets × timeframes).
 const RELECTURE_CONFIG_SEC: u64 = 60;
-
-/// Périmètre STRADDLE (décision 15/09) : BTC seule crypto, forex = 3 majeures
-/// sur annonces US, métaux/indices actuels. Hors périmètre : collecte seule.
-const PERIMETRE_STRADDLE: &[&str] = &["BTC", "XAUUSD", "XAGUSD", "SP500", "NAS100", "DAX", "EURUSD", "GBPUSD", "USDJPY"];
 
 /// Garde anti-double-start (pattern identique aux autres workers).
 static RUNTIME_DEMARRE: AtomicBool = AtomicBool::new(false);
@@ -306,6 +304,8 @@ async fn boucle_runtime(
             }
             _ = tick_config.tick() => {
                 synchroniser_config(&db, &mut runtime).await;
+                // 18/09 — rattrapage des positions SMC orphelines (redémarrages)
+                crate::rattrapage_smc::rattraper(&db).await;
                 cache_alertes.recharger(&db).await;
             }
         }
@@ -316,6 +316,7 @@ async fn boucle_runtime(
 async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
     let assets = assets_runtime(db).await;
     let timeframes = data::worker_config::lire_timeframes(db).await;
+    let perimetre_straddle = lire_perimetre_straddle(db).await;
     if assets.is_empty() || timeframes.is_empty() {
         tracing::debug!("Runtime tick: aucun asset/timeframe configuré — synchronisation vide");
         return;
@@ -343,7 +344,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
     for cle in runtime.cles() {
         let smc_vif = crate::reglages_smc::est_arme(&armes, cle.0.as_str(), cle.1.as_str());
         let straddle_vif = matches!(cle.1, common::Timeframe::M1)
-            && PERIMETRE_STRADDLE.contains(&cle.0.as_str());
+            && perimetre_straddle.iter().any(|a| a == &cle.0.as_str());
         if !cibles.contains(&cle)
             || (!smc_vif && !straddle_vif && !matches!(cle.1, common::Timeframe::H1)) {
             runtime.retirer(cle.0.clone(), cle.1);
@@ -395,7 +396,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                         .avec_trailing_tp2(trailing_reglage),
                 ));
             }
-            if *tf == common::Timeframe::M1 && PERIMETRE_STRADDLE.contains(&asset.as_str()) {
+            if *tf == common::Timeframe::M1 && perimetre_straddle.iter().any(|a| a == &asset.as_str()) {
                 let mut annonces: Vec<straddle::Annonce> = if asset.as_str() == "DAX" {
                     crate::mt5_collecteur::annonces_ouverture_europeenne()
                 } else {
@@ -474,7 +475,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
             ));
         }
         // Étape 4 — verticale Straddle, rail Bybit : seule BTC (cf. PERIMETRE).
-        if matches!(tf, common::Timeframe::M1) && PERIMETRE_STRADDLE.contains(&asset.as_str()) {
+        if matches!(tf, common::Timeframe::M1) && perimetre_straddle.iter().any(|a| a == &asset.as_str()) {
             let mut annonces: Vec<straddle::Annonce> = annonces_tier1(db)
                 .await
                 .into_iter()

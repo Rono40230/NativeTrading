@@ -7,7 +7,7 @@
 
     <!-- Mini-bandeau de la cellule : asset, TF, prix, variation, flux -->
     <div class="flex items-center gap-2 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-xs shrink-0 cursor-pointer select-none"
-      title="Double-clic : plein écran"
+      title="Double-clic (n'importe où sur la cellule) : plein écran"
       @dblclick="basculerPleinEcran">
       <span class="font-bold text-white">{{ asset }}</span>
       <span class="px-1.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-semibold">{{ timeframe }}</span>
@@ -21,6 +21,9 @@
         <span class="w-1.5 h-1.5 rounded-full" :class="marketStore.wsConnecte ? 'bg-emerald-400' : 'bg-slate-500'" />
         {{ marketStore.wsConnecte ? 'flux' : 'silence' }}
       </span>
+      <button v-if="!pleinEcran" title="Plein écran (ou double-clic sur la cellule)"
+        class="w-6 h-6 rounded-md flex items-center justify-center text-white hover:text-white hover:bg-white/10 transition-colors"
+        @click.stop="basculerPleinEcran">⛶</button>
       <button v-if="pleinEcran" title="Quitter le plein écran (Échap)"
         class="w-6 h-6 rounded-md flex items-center justify-center text-white hover:text-white hover:bg-white/10 transition-colors"
         @click.stop="pleinEcran = false">✕</button>
@@ -40,9 +43,10 @@
         class="absolute inset-0 z-10 flex items-center justify-center bg-black/40 text-white text-sm rounded-xl">
         <span class="animate-pulse">Chargement des bougies...</span>
       </div>
-      <div ref="chartContainer" class="w-full h-full" style="position: relative;" />
-      <!-- Barre d'outils de dessin + alertes (superposée au chart) -->
-      <div style="right: 92px; bottom: 36px;" class="absolute z-20 flex flex-col gap-1 p-1 rounded-lg bg-slate-900/80 backdrop-blur border border-white/10 shadow-lg">
+      <div ref="chartContainer" class="w-full h-full" style="position: relative;" @dblclick="basculerPleinEcran" />
+      <!-- Barre d'outils de dessin + alertes — HORIZONTALE, bas-centre
+           (18/09 : la version verticale superposée cachait le graphique) -->
+      <div style="left: 50%; transform: translateX(-50%); bottom: 8px;" class="absolute z-20 flex flex-row items-center gap-1 px-1.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur border border-white/10 shadow-lg">
         <button v-for="t in outilsDessin" :key="t.outil"
           :title="t.titre"
           :class="[
@@ -81,7 +85,7 @@
             </div>
           </div>
         </div>
-        <div class="h-px bg-white/10 mx-1" />
+        <div class="w-px self-stretch bg-white/10 mx-0.5" />
         <button title="Effacer tous les dessins de cet asset"
           class="w-8 h-8 rounded-md text-sm flex items-center justify-center text-white hover:text-red-300 hover:bg-red-500/10 transition-colors"
           @click="dessins.toutEffacer()"

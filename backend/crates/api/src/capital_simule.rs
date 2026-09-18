@@ -37,6 +37,8 @@ pub struct PointCapital {
     /// partielles (LE R qui compose le profit $), autres = R net réalisé.
     /// Convention d'affichage officielle (décision propriétaire 16/09).
     pub r_pondere: f64,
+    /// Clé moteur (straddle) — catégorie « par événement » de l'analyse.
+    pub cle_moteur: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -158,6 +160,7 @@ pub async fn simuler(db: &db::Database, id_strategie: &str) -> anyhow::Result<Si
             tf: t.tf,
             verdict: t.verdict,
             r_distance,
+            cle_moteur: t.cle_moteur.clone(),
         });
     }
     Ok(SimulationCapital {

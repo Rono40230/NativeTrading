@@ -43,15 +43,15 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         )
         .service(
             web::resource("/api/strategies/{id}/simulation/balayage")
-            .route(web::post().to(crate::simulation::post_balayage)),
+            .route(web::post().to(crate::simulation_balayages::post_balayage_dispatch)),
         )
         .service(
             web::resource("/api/strategies/{id}/simulation/essais")
-            .route(web::get().to(crate::simulation::get_essais)),
+            .route(web::get().to(crate::simulation_balayages::get_essais)),
         )
         .service(
             web::resource("/api/strategies/{id}/simulation/essais/{essai}")
-            .route(web::delete().to(crate::simulation::delete_essai)),
+            .route(web::delete().to(crate::simulation_balayages::delete_essai)),
         )
         .service(
             web::resource("/api/strategies/{id}/capital")
@@ -147,6 +147,11 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/rockets/actions/backfill/etat",
             web::get().to(crate::rockets_actions_backfill::etat_backfill),
+        )
+        .service(
+            web::resource("/api/straddle/perimetre")
+                .route(web::get().to(crate::creneaux_perimetre::get_perimetre))
+                .route(web::put().to(crate::creneaux_perimetre::put_perimetre)),
         )
         .route(
             "/api/straddle/creneaux-ia",

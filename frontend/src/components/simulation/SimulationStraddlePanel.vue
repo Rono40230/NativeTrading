@@ -28,15 +28,39 @@
       <section class="glass-card p-4 flex flex-col gap-3">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">2 · Paramètres (virtuels)</h2>
         <div class="grid grid-cols-2 gap-2 text-xs">
-          <label class="flex flex-col gap-1">Trailing après TP1 (× ATR)
+          <label class="flex flex-col gap-1 col-span-2">Mode de trailing stop
+            <select v-model="params.trailing_mode" class="champ">
+              <option value="statique">Statique — moteur actuel (k × R, après TP2)</option>
+              <option value="roulant">ATR roulant — k × ATR M1 (fenêtre), après TP2</option>
+              <option value="roulant_tp1">ATR roulant, activé dès TP1</option>
+              <option value="decay">ATR roulant dès TP1 + k décroissant (10 min)</option>
+            </select></label>
+          <label class="flex flex-col gap-1">k du trailing (× ATR ou × R si statique)
             <input v-model.number="params.trailing_atr" type="number" step="0.1" min="0.1" max="5" class="champ" /></label>
           <label class="flex flex-col gap-1">Time-stop (minutes)
             <input v-model.number="params.time_stop_min" type="number" step="5" min="5" max="240" class="champ" /></label>
+          <label class="flex flex-col gap-1">Fenêtre ATR roulant (barres M1)
+            <input v-model.number="params.atr_fenetre" type="number" step="1" min="3" max="60" class="champ" :disabled="params.trailing_mode === 'statique'" /></label>
+          <label class="flex flex-col gap-1">Décroissance du k (/10 min)
+            <input v-model.number="params.k_decay" type="number" step="0.05" min="0" max="0.8" class="champ" :disabled="params.trailing_mode !== 'decay'" /></label>
+        </div>
+        <!-- Paires simulées (virtuel — ne touche ni au périmètre ni aux créneaux) -->
+        <div class="flex flex-col gap-1">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-white/60">Paires simulées <span class="font-normal normal-case text-white/40">— vide = toutes les passes</span></p>
+          <div class="flex flex-wrap gap-1">
+            <button v-for="a in pairesDispo" :key="'spa' + a"
+                    class="text-[10px] px-1.5 py-0.5 rounded border font-mono transition-colors"
+                    :class="filtreAssets.includes(a) ? 'border-teal-400/50 bg-teal-500/20 text-white' : 'border-white/10 bg-white/[0.03] text-white/50 hover:border-white/25'"
+                    @click="basculer(a)">{{ a }}</button>
+          </div>
         </div>
         <div class="flex gap-2 flex-wrap">
           <button class="btn-action bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 disabled:opacity-40"
                   :disabled="enCours" @click="lancer">
             {{ enCours ? '⏳ Re-jeu en cours…' : '▶ Lancer la simulation' }}</button>
+          <button class="btn-action bg-white/10 text-white hover:bg-white/20 disabled:opacity-40"
+                  :disabled="enCoursBalayage" @click="balayer">
+            {{ enCoursBalayage ? '⏳ Balayage… (~20 s)' : '📊 Balayer le k de ce mode' }}</button>
           <button class="btn-action bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-40"
                   :disabled="!modifie" :title="modifie ? 'Écrit le trailing dans les réglages moteur réels (futurs signaux)' : 'Aucune modification'"
                   @click="appliquer">✅ Appliquer ces réglages</button>
@@ -84,6 +108,42 @@
       </div>
     </section>
 
+    <!-- ═══ Balayage du k pour le mode choisi ═══ -->
+    <section v-if="balayage" class="glass-card p-4 flex flex-col gap-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">Balayage du k — mode {{ balayage.mode }}</h2>
+        <span class="text-[10px] text-white/60">passes vécues, seule la distance du trailing varie</span>
+      </div>
+      <div v-if="balayage.moteur_actuel" class="text-xs text-white/70 mb-1">
+        Moteur actuel (statique, k = {{ balayage.moteur_actuel.k }}) : <span class="font-mono" :class="balayage.moteur_actuel.rendement >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtPct(balayage.moteur_actuel.rendement) }}</span> · creux {{ fmtDollars(balayage.moteur_actuel.capital_minimum) }}
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-white/60 uppercase tracking-wider border-b border-white/10">
+              <th class="text-right py-1.5 pr-2">#</th>
+              <th class="text-right py-1.5 px-2">k</th>
+              <th class="text-right py-1.5 px-2">Capital</th>
+              <th class="text-right py-1.5 px-2">Rendement</th>
+              <th class="text-right py-1.5 px-2">Pire creux</th>
+              <th class="text-right py-1.5 pl-2">ΣR net</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(l, i) in balayage.configurations.slice(0, 12)" :key="l.k" class="border-b border-white/5">
+              <td class="py-1.5 pr-2 text-right text-white/50">{{ i + 1 }}</td>
+              <td class="py-1.5 px-2 text-right font-mono text-white">{{ l.k.toFixed(1) }}</td>
+              <td class="py-1.5 px-2 text-right font-mono font-bold" :class="l.capital >= balayage.capital_depart ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollars(l.capital) }}</td>
+              <td class="py-1.5 px-2 text-right font-mono" :class="l.rendement >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtPct(l.rendement) }}</td>
+              <td class="py-1.5 px-2 text-right font-mono text-white/70">{{ fmtDollars(l.capital_minimum) }}</td>
+              <td class="py-1.5 pl-2 text-right font-mono" :class="l.r_total_net >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR2(l.r_total_net) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-[10px] text-white/50">Réserve règle des 30 : {{ balayage.configurations[0]?.passes ?? 0 }} passes seulement — lecture indicatrice.</p>
+    </section>
+
     <!-- ═══ 4 — Bibliothèque ═══ -->
     <section class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2">
@@ -95,7 +155,7 @@
              class="flex items-center gap-3 text-xs rounded-lg px-3 py-2 bg-white/5 border border-white/10 hover:border-teal-400/40 cursor-pointer"
              @click="rechargerParams(e.params)">
           <span class="text-white/60 font-mono shrink-0">{{ dateCourte(e.cree_le) }}</span>
-          <span class="text-white truncate">trailing {{ e.params.trailing_atr }} × ATR · time-stop {{ e.params.time_stop_min }} min</span>
+          <span class="text-white truncate">{{ e.params.trailing_mode }} · k {{ e.params.trailing_atr }} · TS {{ e.params.time_stop_min }} min</span>
           <span class="ml-auto font-mono shrink-0" :class="(e.resultat?.capital_actuel ?? 0) >= (e.resultat?.capital_depart ?? 1) ? 'text-emerald-400' : 'text-red-400'">
             {{ fmtDollars(e.resultat?.capital_actuel ?? 0) }} · {{ fmtR2(e.resultat?.r_total_pondere ?? 0) }}
           </span>
@@ -113,7 +173,8 @@ import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 import { chargerAnalyse, type AnalyseStrategie } from '@/composables/useAnalyses'
 
-interface ParamsStraddle { trailing_atr: number; time_stop_min: number }
+interface ParamsStraddle { trailing_mode: string; trailing_atr: number; time_stop_min: number; atr_fenetre: number; k_decay: number }
+interface LigneBalayageStraddle { k: number; capital: number; rendement: number; capital_minimum: number; r_total_net: number; passes: number }
 interface VerdictSim { label: string; n: number; r: number }
 interface ResultatSim {
   nb_trades: number; taux_reussite: number; r_total: number; r_total_pondere: number
@@ -124,9 +185,19 @@ interface Essai { id: string; params: ParamsStraddle; resultat: ResultatSim; cre
 
 const vecu = ref<AnalyseStrategie | null>(null)
 const creuxVecu = ref(0)
-const params = ref<ParamsStraddle>({ trailing_atr: 1.5, time_stop_min: 60 })
-const paramsActuels = ref<ParamsStraddle>({ trailing_atr: 1.5, time_stop_min: 60 })
+const params = ref<ParamsStraddle>({ trailing_mode: 'statique', trailing_atr: 1.5, time_stop_min: 60, atr_fenetre: 10, k_decay: 0.1 })
+const paramsActuels = ref<ParamsStraddle>({ trailing_mode: 'statique', trailing_atr: 1.5, time_stop_min: 60, atr_fenetre: 10, k_decay: 0.1 })
 const sim = ref<ResultatSim | null>(null)
+const balayage = ref<{ mode: string; capital_depart: number; configurations: LigneBalayageStraddle[]; moteur_actuel: LigneBalayageStraddle | null } | null>(null)
+const enCoursBalayage = ref(false)
+const filtreAssets = ref<string[]>([])
+const pairesDispo = ref<string[]>([])
+
+function basculer(a: string) {
+  const i = filtreAssets.value.indexOf(a)
+  if (i >= 0) filtreAssets.value.splice(i, 1)
+  else filtreAssets.value.push(a)
+}
 const essais = ref<Essai[]>([])
 const enCours = ref(false)
 const messageApplique = ref('')
@@ -152,16 +223,29 @@ async function chargerReglages() {
   try {
     const p = await http.get<StraddleParams>('/api/straddle/params')
     const tr = Number(p.data?.trailing_atr ?? 0.9)
-    params.value = { trailing_atr: tr, time_stop_min: 60 }
+    params.value = { trailing_mode: 'statique', trailing_atr: tr, time_stop_min: 60, atr_fenetre: 10, k_decay: 0.1 }
     paramsActuels.value = { ...params.value }
   } catch { /* défauts conservés */ }
+}
+
+async function balayer() {
+  enCoursBalayage.value = true
+  try {
+    const r = await http.post<{ mode: string; capital_depart: number; configurations: LigneBalayageStraddle[]; moteur_actuel: LigneBalayageStraddle | null }>(
+      '/api/strategies/straddle/simulation/balayage',
+      { mode: params.value.trailing_mode, fenetre: params.value.atr_fenetre, decay: params.value.k_decay, time_stop_min: params.value.time_stop_min, assets: filtreAssets.value },
+      { timeout: 120_000 })
+    balayage.value = r.data
+  } catch { balayage.value = null }
+  enCoursBalayage.value = false
 }
 
 async function lancer() {
   enCours.value = true
   messageApplique.value = ''
   try {
-    const r = await http.post<{ resultat: ResultatSim }>('/api/strategies/straddle/simulation', params.value, { timeout: 150_000 })
+    const r = await http.post<{ resultat: ResultatSim }>('/api/strategies/straddle/simulation',
+      { ...params.value, assets: filtreAssets.value }, { timeout: 150_000 })
     sim.value = r.data.resultat
     await chargerEssais()
   } catch { sim.value = null }
@@ -246,8 +330,16 @@ function dateCourte(ts: number): string {
 }
 
 onMounted(async () => {
-  await Promise.all([chargerVecu(), chargerReglages(), chargerEssais()])
+  await Promise.all([chargerVecu(), chargerReglages(), chargerEssais(), chargerPaires()])
 })
+
+/// Paires disponibles = assets du périmètre straddle.
+async function chargerPaires() {
+  try {
+    const r = await http.get<{ assets: string[] }>('/api/straddle/perimetre')
+    pairesDispo.value = r.data.assets ?? []
+  } catch { pairesDispo.value = [] }
+}
 </script>
 
 <style scoped>

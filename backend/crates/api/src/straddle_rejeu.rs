@@ -193,6 +193,144 @@ fn rejouer_passe(
     Some((verdict.to_string(), net, ferme_le))
 }
 
+/// Passe re-jouée avec un TRAILING ÉTUDIÉ (laboratoire, 16/09) — le moteur
+/// live et le mode "statique" restent la référence exacte. Variantes :
+/// - roulant      : stop = peak − k × ATR M1 ROULANT (fenêtre N), après TP2 ;
+/// - roulant_tp1  : idem, activé dès TP1 ;
+/// - decay        : roulant_tp1 + k réduit de `decay` par tranche de 10 min
+///   depuis l'ouverture (floor à 20 % du k de base).
+/// L'ATR roulant s'élargit pendant le spike (moins de sorties prématurées)
+/// et se resserre dans la décroissance (sécrétion du gain).
+fn rejouer_passe_variante(
+    entree: f64,
+    r: f64,
+    ouverture: i64,
+    bougies: &[common::Candle],
+    cfg: &ParamsTrailing,
+) -> Option<(String, f64, i64)> {
+    let bar0 = gestion_trades::BarInput {
+        timestamp: ouverture,
+        open: entree, high: entree, low: entree, close: entree,
+        volume: 0.0,
+    };
+    let mut long = gestion_trades::Trade::new_buy(
+        1, gestion_trades::TradeSource::Ob, entree, entree - r,
+        entree + r, entree + 2.0 * r, entree + 3.0 * r,
+        78, r, &bar0, 0, None,
+    );
+    long.filled = true;
+    long.fill_ts = Some(ouverture);
+    let mut short = gestion_trades::Trade::new_sell(
+        2, gestion_trades::TradeSource::Ob, entree, entree + r,
+        entree - r, entree - 2.0 * r, entree - 3.0 * r,
+        78, r, &bar0, 0, None,
+    );
+    short.filled = true;
+    short.fill_ts = Some(ouverture);
+    let mut jambes = [long, short];
+
+    let exp = cfg.time_stop_min * 60;
+    let mut lifecycle = gestion_trades::TradeLifecycle::new(exp, exp);
+    lifecycle.definir_be_offset_r(0.5); // tampon 27/08
+    lifecycle.definir_trailing_tp2(None); // trailing étude géré ci-dessous
+
+    let depuis_tp1 = cfg.mode == "roulant_tp1" || cfg.mode == "decay";
+    let fenetre = cfg.fenetre.max(3);
+    let mut trs: Vec<f64> = Vec::with_capacity(fenetre + 1);
+    let mut prev_close = entree;
+    let mut peak = [f64::MIN, f64::MAX]; // [buy, sell]
+    let mut ferme_le = ouverture;
+
+    for (i, b) in bougies.iter().enumerate() {
+        let ts = b.timestamp.timestamp();
+        if ts < ouverture {
+            continue;
+        }
+        let bar = gestion_trades::BarInput {
+            timestamp: ts,
+            open: b.open, high: b.high, low: b.low, close: b.close,
+            volume: 0.0,
+        };
+        lifecycle.update(&mut jambes, &bar, i + 1, &mut gestion_trades::HookVide);
+        ferme_le = ts;
+
+        // TR glissant (true range sur M1) puis ATR roulant.
+        let tr = (b.high - b.low)
+            .max((b.high - prev_close).abs())
+            .max((b.low - prev_close).abs());
+        prev_close = b.close;
+        trs.push(tr);
+        if trs.len() > fenetre {
+            trs.remove(0);
+        }
+        let atr = if trs.is_empty() { 0.0 } else { trs.iter().sum::<f64>() / trs.len() as f64 };
+        if atr <= 0.0 {
+            continue;
+        }
+        // Décroissance temporelle du k (mode decay) : −decay par 10 min.
+        let minutes = (ts - ouverture) as f64 / 60.0;
+        let k_eff = if cfg.mode == "decay" {
+            (cfg.k * (1.0 - cfg.decay * (minutes / 10.0))).max(cfg.k * 0.2)
+        } else {
+            cfg.k
+        };
+        let distance = k_eff * atr;
+
+        for j in 0..2 {
+            let t = &mut jambes[j];
+            if t.close_reason.is_some() {
+                continue;
+            }
+            let actif = if depuis_tp1 { t.tp1_hit } else { t.tp2_ts > 0 };
+            if !actif {
+                continue;
+            }
+            // Peak favorable depuis l'activation.
+            if j == 0 {
+                peak[0] = peak[0].max(b.high);
+                let stop = peak[0] - distance;
+                if b.low <= stop {
+                    t.state = gestion_trades::TradeState::Closed;
+                    t.close_reason = Some(gestion_trades::CloseReason::Ts);
+                    t.ts_px = Some(stop);
+                    t.close_ts = Some(ts);
+                    t.close_bar = Some(i + 1);
+                    t.close_r = Some((stop - t.entry) / t.risk0);
+                }
+            } else {
+                peak[1] = peak[1].min(b.low);
+                let stop = peak[1] + distance;
+                if b.high >= stop {
+                    t.state = gestion_trades::TradeState::Closed;
+                    t.close_reason = Some(gestion_trades::CloseReason::Ts);
+                    t.ts_px = Some(stop);
+                    t.close_ts = Some(ts);
+                    t.close_bar = Some(i + 1);
+                    t.close_r = Some((t.entry - stop) / t.risk0);
+                }
+            }
+        }
+        if jambes.iter().all(|t| t.close_reason.is_some()) {
+            break;
+        }
+    }
+    if jambes.iter().any(|t| t.close_reason.is_none()) {
+        return None;
+    }
+    let net: f64 = jambes.iter().map(|t| t.close_r.unwrap_or(0.0)).sum();
+    let un_tp1 = jambes.iter().any(|t| t.tp1_hit);
+    let verdict = if net > 1e-9 {
+        "tp2"
+    } else if net < -1e-9 {
+        "sl"
+    } else if un_tp1 {
+        "be"
+    } else {
+        "expire"
+    };
+    Some((verdict.to_string(), net, ferme_le))
+}
+
 /// Palier de référence (pénalité −1R, comme la base).
 fn palier_reference(verdict: &str) -> f64 {
     match verdict {
@@ -205,19 +343,52 @@ fn palier_reference(verdict: &str) -> f64 {
 /// Re-jeu avec les réglages RÉELS (cache officiel de lancer_si_necessaire).
 async fn calculer(pool: &Arc<db::Database>) -> anyhow::Result<RejeuStraddle> {
     let params_db = db::strategies_params::lire_straddle_params(pool.pool()).await;
-    calculer_avec(pool, params_db.trailing_atr, 60).await
+    let p = ParamsTrailing {
+        mode: "statique".into(),
+        k: params_db.trailing_atr,
+        fenetre: 10,
+        decay: 0.0,
+        time_stop_min: 60,
+    };
+    calculer_avec(pool, &p).await
 }
 
-/// Re-jeu paramétrable — laboratoire de simulation (15/09 nuit) : trailing
-/// et time-stop virtuels, SANS toucher au cache officiel. Les autres params
-/// moteur (ATR, TP mults) fixent les NIVEAUX à l'émission des passes — les
-/// rejouer exige de recalculer les niveaux historiques (chantier backtesteur).
+/// Paramètres du trailing stop pour le laboratoire (16/09, étude volatilité).
+/// mode "statique" = moteur actuel (k × R du trade, après TP2) — référence
+/// exacte de production. Les autres modes simulent sans toucher au moteur.
+#[derive(Debug, Clone)]
+pub struct ParamsTrailing {
+    /// statique | roulant | roulant_tp1 | decay
+    pub mode: String,
+    /// Multiplicateur de base (× ATR roulant pour les modes dynamiques).
+    pub k: f64,
+    /// Fenêtre de l'ATR roulant (barres M1).
+    pub fenetre: usize,
+    /// Réduction du k par tranche de 10 min (mode decay, 0-0.8).
+    pub decay: f64,
+    pub time_stop_min: i64,
+}
+
+/// Re-jeu paramétrable — laboratoire de simulation : trailing et time-stop
+/// virtuels, SANS toucher au cache officiel ni au moteur live. Les autres
+/// params moteur (ATR, TP mults) fixent les NIVEAUX à l'émission des passes.
 pub(crate) async fn calculer_avec(
     pool: &Arc<db::Database>,
-    trailing_r: f64,
-    time_stop_min: i64,
+    trailing: &ParamsTrailing,
+) -> anyhow::Result<RejeuStraddle> {
+    calculer_avec_filtres(pool, trailing, &[]).await
+}
+
+/// Re-jeu avec périmètre d'étude optionnel (17/09) : ne rejouer que les
+/// passes des assets choisis (laboratoire — vide = toutes).
+pub(crate) async fn calculer_avec_filtres(
+    pool: &Arc<db::Database>,
+    trailing: &ParamsTrailing,
+    filtre_assets: &[String],
 ) -> anyhow::Result<RejeuStraddle> {
     let params_db = db::strategies_params::lire_straddle_params(pool.pool()).await;
+    let trailing_r = params_db.trailing_atr;
+    let time_stop_min = trailing.time_stop_min;
 
     // Source des passes : les signaux straddle (clés avec annonce_ts).
     let actifs: Vec<db::signaux::SignalActifCle> =
@@ -258,6 +429,9 @@ pub(crate) async fn calculer_avec(
     let plus_vieille = passe_sources.iter().map(|(_, ts, _, _)| *ts).min().unwrap_or(0);
     let jours_requis = ((chrono::Utc::now().timestamp() - plus_vieille) / 86_400 + 1).max(1) as u32;
     for (asset, annonce_ts, entree, r) in &passe_sources {
+        if !filtre_assets.is_empty() && !filtre_assets.iter().any(|a| a == asset) {
+            continue; // périmètre d'étude (laboratoire)
+        }
         let actif = common::Asset::from(asset.as_str());
         let tf = common::Timeframe::M1;
         // Bougies M1 autour de la passe : T-30 → T+75 min.
@@ -276,9 +450,12 @@ pub(crate) async fn calculer_avec(
             continue;
         }
         let ouverture = annonce_ts - 10; // T-10 s (placement par le timer)
-        if let Some((verdict, net, ferme_le)) =
-            rejouer_passe(*entree, *r, ouverture, &fenetre, trailing_r, time_stop_min)
-        {
+        let resultat_passe = if trailing.mode == "statique" {
+            rejouer_passe(*entree, *r, ouverture, &fenetre, trailing.k.max(0.0), time_stop_min)
+        } else {
+            rejouer_passe_variante(*entree, *r, ouverture, &fenetre, trailing)
+        };
+        if let Some((verdict, net, ferme_le)) = resultat_passe {
             let r_ref = palier_reference(&verdict);
             capital += net * capital * fraction;
             clotures.push(ClotureRejeuStraddle {

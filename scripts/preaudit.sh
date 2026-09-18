@@ -13,6 +13,10 @@ for f in $RUST_FILES; do
   [ -f "$f" ] || continue
   # Exclure src-tauri (init Tauri = expect autorisé par convention)
   [[ "$f" == *"src-tauri"* ]] && continue
+  # Fichiers de tests externes (sous-module *_tests) : tout est test
+  if echo "$f" | grep -q '_tests\.rs$'; then
+    continue
+  fi
   # On supprime les blocs de tests puis on cherche unwrap/expect
   HORS_TESTS=$(grep -v '^\s*//' "$f" | awk '
     /^\s*#\[.*test\]/ { in_test=1 }

@@ -8,19 +8,37 @@ mkdir -p "$ROOT_DIR/data"
 
 # ── Sauvegarde de la base (24 mois d'historique irremplaçable) ────────────────
 # Copie horodatée à chaque démarrage, rétention 30 jours. Utilise sqlite3
-# .backup si disponible (copie cohérente même base ouverte), repli cp.
+# 8.1 (17/09) : snapshot transactionnel sqlite3 .backup (WAL inclus, ~1 s),
+# SUCCÈS VÉRIFIÉ — repli copie brute des 3 fichiers (db+wal+shm) si échec —
+# puis contrôle de santé de la sauvegarde (quick_check ~3 s). Leçon de
+# l'incident du 17/09 : un .backup silencieusement raté = fausse sécurité.
 if [ -f "$ROOT_DIR/data/trading.db" ]; then
    BACKUP_DIR="$ROOT_DIR/data/backups"
    mkdir -p "$BACKUP_DIR"
    STAMP=$(date +%Y%m%d-%H%M%S)
+   BACKUP="$BACKUP_DIR/trading-$STAMP.db"
+   ok=1
    if command -v sqlite3 &>/dev/null; then
-      sqlite3 "$ROOT_DIR/data/trading.db" ".backup '$BACKUP_DIR/trading-$STAMP.db'"
+      sqlite3 "$ROOT_DIR/data/trading.db" ".backup '$BACKUP'" || ok=0
    else
-      cp "$ROOT_DIR/data/trading.db" "$BACKUP_DIR/trading-$STAMP.db"
+      ok=0
    fi
-   # Rétention : 30 sauvegardes les plus récentes
+   if [ "$ok" != "1" ] || [ ! -s "$BACKUP" ]; then
+      echo "⚠️  .backup échoué — repli copie brute db+wal+shm (à restaurer ENSEMBLE)"
+      cp "$ROOT_DIR/data/trading.db" "$BACKUP"
+      [ -f "$ROOT_DIR/data/trading.db-wal" ] && cp "$ROOT_DIR/data/trading.db-wal" "$BACKUP-wal"
+      [ -f "$ROOT_DIR/data/trading.db-shm" ] && cp "$ROOT_DIR/data/trading.db-shm" "$BACKUP-shm"
+   fi
+   SANTE=$(sqlite3 "$BACKUP" "PRAGMA quick_check;" 2>/dev/null | head -1)
+   if [ "$SANTE" = "ok" ]; then
+      echo "💾 Base sauvegardée : data/backups/trading-$STAMP.db (quick_check ok)"
+   else
+      echo "⚠️  Sauvegarde $STAMP créée mais quick_check : ${SANTE:-fichier injoignable} — À INSPECTER"
+   fi
+   # Rétention : 30 sauvegardes les plus récentes (+ replis -wal/-shm)
    ls -1t "$BACKUP_DIR"/trading-*.db 2>/dev/null | tail -n +31 | xargs -r rm -f
-   echo "💾 Base sauvegardée : data/backups/trading-$STAMP.db"
+   ls -1t "$BACKUP_DIR"/trading-*.db-wal 2>/dev/null | tail -n +31 | xargs -r rm -f
+   ls -1t "$BACKUP_DIR"/trading-*.db-shm 2>/dev/null | tail -n +31 | xargs -r rm -f
 fi
 
 # ─── Initialisation nvm (npm/node non disponibles hors shell interactif) ──────

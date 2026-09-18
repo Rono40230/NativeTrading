@@ -227,6 +227,70 @@ pub fn recalcul_en_cours() -> bool {
     EN_COURS.load(Ordering::SeqCst)
 }
 
+/// Cache d'études du laboratoire (16/09) : re-jeux paramétrés, clé =
+/// empreinte complète des paramètres, fraîcheur 30 min, capacité 8 (LRU).
+/// Évite de recalculer un re-jeu déjà demandé (simulation puis balayage).
+static CACHE_ETUDES: OnceLock<std::sync::Mutex<std::collections::HashMap<String, (i64, Arc<RejeuSmc>)>>> =
+    OnceLock::new();
+
+fn cache_etudes()
+    -> &'static std::sync::Mutex<std::collections::HashMap<String, (i64, Arc<RejeuSmc>)>> {
+    CACHE_ETUDES.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Re-jeu paramétré avec cache — laboratoire (extension SMC 17/09).
+/// Même moteur exact que calculer() ; le trailing (Option<k×R>) est le
+/// levier d'étude du jour.
+pub async fn calculer_etude(
+    pool: &Arc<db::Database>,
+    tp1: f64,
+    tp2: f64,
+    tp3_lointaine: bool,
+    tp3_rfixe: f64,
+    trailing: Option<f64>,
+    fractions: crate::smc_pondere::Fractions,
+    filtre_assets: &[String],
+    filtre_tfs: &[String],
+) -> anyhow::Result<Arc<RejeuSmc>> {
+    let empreinte_couples = crate::reglages_smc::empreinte_couples(
+        &crate::reglages_smc::lire_couples_armes(pool).await,
+    );
+    let cle = format!(
+        "{tp1}|{tp2}|{tp3_lointaine}|{tp3_rfixe}|{trailing:?}|{:?}|{empreinte_couples}|{:?}|{:?}",
+        fractions, filtre_assets, filtre_tfs
+    );
+    let maintenant = chrono::Utc::now().timestamp();
+    if let Ok(garde) = cache_etudes().lock() {
+        if let Some((calcule_le, rejeu)) = garde.get(&cle) {
+            if maintenant - calcule_le < REFRESH_SEC {
+                return Ok(rejeu.clone());
+            }
+        }
+    }
+    let rejeu = Arc::new(
+        calculer_avec_filtres(
+            pool, tp1, tp2, tp3_lointaine, tp3_rfixe, trailing, fractions, &empreinte_couples,
+            filtre_assets, filtre_tfs,
+        )
+        .await?,
+    );
+    if let Ok(mut garde) = cache_etudes().lock() {
+        if garde.len() >= 8 {
+            // LRU : évicter l'entrée la plus ancienne.
+            if let Some(plus_vieille) = garde
+                .iter()
+                .max_by_key(|(_, (calcule_le, _))| -*calcule_le)
+                .map(|(k, _)| k.clone())
+            {
+                garde.remove(&plus_vieille);
+            }
+        }
+        garde.insert(cle, (maintenant, rejeu.clone()));
+    }
+    Ok(rejeu)
+}
+
+
 pub(crate) async fn calculer(
     pool: &Arc<db::Database>,
     tp1: f64,
@@ -236,6 +300,28 @@ pub(crate) async fn calculer(
     trailing: Option<f64>,
     fractions: crate::smc_pondere::Fractions,
     empreinte_couples: String,
+) -> anyhow::Result<RejeuSmc> {
+    calculer_avec_filtres(
+        pool, tp1, tp2, tp3_lointaine, tp3_rfixe, trailing, fractions, &empreinte_couples, &[], &[],
+    )
+    .await
+}
+
+/// Re-jeu complet avec périmètre d'ÉTUDE optionnel (17/09) : filtres assets/TF
+/// en plus de l'armement — le laboratoire simule un sous-ensemble sans jamais
+/// toucher à l'armement réel.
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn calculer_avec_filtres(
+    pool: &Arc<db::Database>,
+    tp1: f64,
+    tp2: f64,
+    tp3_lointaine: bool,
+    tp3_rfixe: f64,
+    trailing: Option<f64>,
+    fractions: crate::smc_pondere::Fractions,
+    empreinte_couples: &str,
+    filtre_assets: &[String],
+    filtre_tfs: &[String],
 ) -> anyhow::Result<RejeuSmc> {
     use engine::TypeEvenementTrade as T;
 
@@ -265,6 +351,12 @@ pub(crate) async fn calculer(
         for tf in &timeframes {
             if !crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) {
                 continue; // couple désarmé (ou H1) — hors métriques
+            }
+            if !filtre_assets.is_empty() && !filtre_assets.iter().any(|a| a == asset.as_str()) {
+                continue; // périmètre d'étude (laboratoire)
+            }
+            if !filtre_tfs.is_empty() && !filtre_tfs.iter().any(|f| f == tf.as_str()) {
+                continue; // périmètre d'étude (laboratoire)
             }
             let bougies = pool
                 .obtenir_bougies_depuis_jours(asset, tf, jours)
@@ -379,10 +471,20 @@ pub(crate) async fn calculer(
         r_total_realise,
         r_total_pondere,
         fractions,
-        empreinte_couples,
+        empreinte_couples: empreinte_couples.to_string(),
         capital_depart: reg.capital,
         fraction_risque: fraction,
         capital_actuel: capital2,
         duree_ms: 0,
     })
+}
+
+
+/// Lecteurs publics pour le laboratoire (balayage trailing).
+pub async fn lire_tp3_lointaine_pub(db: &db::Database) -> bool {
+    lire_tp3_lointaine(db).await
+}
+
+pub async fn lire_tp3_rfixe_pub(db: &db::Database) -> f64 {
+    lire_tp3_rfixe(db).await
 }

@@ -23,6 +23,9 @@ pub struct ClotureCapital {
     /// Prix de sortie réel — R du SOLDE des TP2+BE (correctif 15/09 nuit :
     /// le stop suiveur post-TP2 est à TP1, le solde s'y encaisse, pas à 0).
     pub prix_verdict: Option<f64>,
+    /// Clé moteur du signal (straddle : straddle-{asset}-{annonce_ts}-B) —
+    /// catégorisation « par événement » de l'analyse vécue (17/09).
+    pub cle_moteur: Option<String>,
 }
 
 impl Database {
@@ -46,7 +49,7 @@ impl Database {
         let rows = sqlx::query(
             "SELECT id, ferme_le, r_realise, asset, timeframe,
                     COALESCE(verdict, '') AS verdict,
-                    prix_entree, stop_loss, take_profit, prix_verdict
+                    prix_entree, stop_loss, take_profit, prix_verdict, cle_moteur
              FROM signaux
              WHERE strategie = ? AND statut = 'Fermé' AND verdict IS NOT NULL
                AND heure_entree IS NOT NULL AND ferme_le IS NOT NULL
@@ -69,6 +72,7 @@ impl Database {
                 take_profit: r.try_get::<String, _>("take_profit").ok().unwrap_or_default(),
                 verdict: r.get("verdict"),
                 prix_verdict: r.try_get::<f64, _>("prix_verdict").ok(),
+                cle_moteur: r.try_get::<Option<String>, _>("cle_moteur").ok().flatten(),
             })
             .collect())
     }

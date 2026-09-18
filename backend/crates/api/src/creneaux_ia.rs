@@ -292,6 +292,7 @@ pub async fn annonces_armees(db: &Database, asset: &str) -> Vec<straddle::Annonc
 /// `reserve_liste` (tout le reste, dépliable), `verdicts` (conclus ces 7
 /// derniers jours, pour la bannière) et les `seuils` de la boucle.
 pub async fn lister(state: web::Data<AppState>) -> impl Responder {
+    let perimetre = crate::runtime_perimetre::lire_perimetre_straddle(&state.db).await;
     let rows = sqlx::query(
         "SELECT asset, jour, heure, vol_pct, ratio, fiabilite, nb_semaines,
                 verdict_ia, conviction, justification, arme,
@@ -320,6 +321,7 @@ pub async fn lister(state: web::Data<AppState>) -> impl Responder {
             "somme_r": r.get::<f64, _>("somme_r"),
             "verdict_test": r.try_get::<Option<String>, _>("verdict_test").ok().flatten(),
             "conclut_le": r.try_get::<Option<i64>, _>("conclut_le").ok().flatten(),
+            "hors_perimetre": !perimetre.iter().any(|p| p == r.get::<String, _>("asset").as_str()),
         }))
         .collect();
 
@@ -398,6 +400,12 @@ pub async fn calculer_et_evaluer(state: web::Data<AppState>, body: Option<web::J
 
 /// POST /api/straddle/creneaux-ia/armer — armement propriétaire (plafonné).
 pub async fn armer(state: web::Data<AppState>, body: web::Json<BodyCase>) -> impl Responder {
+    let perimetre = crate::runtime_perimetre::lire_perimetre_straddle(&state.db).await;
+    if !perimetre.iter().any(|a| a == body.asset.as_str()) {
+        return HttpResponse::Conflict().json(serde_json::json!({
+            "error": format!("{} n'est pas dans le périmètre straddle — ajoute-le dans « Choix des Assets & créneaux »", body.asset)
+        }));
+    }
     let armes: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM creneaux_ia WHERE arme = 1")
         .fetch_one(state.db.pool())
         .await
@@ -459,6 +467,9 @@ pub async fn armer_file(state: web::Data<AppState>) -> impl Responder {
     .map(|r| r.get::<String, _>("asset"))
     .collect();
 
+    // 17/09 : la file ne propose que les assets du périmètre (sinon les
+    // créneaux consommeraient le plafond sans jamais tirer).
+    let perimetre = crate::runtime_perimetre::lire_perimetre_straddle(&state.db).await;
     let mut vus: HashSet<String> = HashSet::new();
     let mut armees: Vec<serde_json::Value> = Vec::new();
     for r in &rows {
@@ -467,6 +478,9 @@ pub async fn armer_file(state: web::Data<AppState>) -> impl Responder {
         }
         let asset: String = r.get("asset");
         if assets_deja_armes.contains(&asset) || !vus.insert(asset.clone()) {
+            continue;
+        }
+        if !perimetre.iter().any(|p| *p == asset) {
             continue;
         }
         let jour = r.get::<i64, _>("jour");
@@ -558,3 +572,5 @@ pub async fn boucle(db: Arc<Database>) {
         crate::creneaux_test::statuer(&db).await;
     }
 }
+
+

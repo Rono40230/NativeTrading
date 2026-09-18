@@ -55,6 +55,23 @@
               <input v-model.number="pct3" type="number" step="5" min="0" max="100" class="champ" /></label>
           </div>
         </div>
+        <!-- Périmètre de simulation (virtuel — ne touche pas à l'armement) -->
+        <div class="flex flex-col gap-1.5">
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-white/60">Paires simulées <span class="font-normal normal-case text-white/40">— vide = toutes les armées</span></p>
+          <div class="flex flex-wrap gap-1">
+            <button v-for="a in assetsDispo" :key="'pa' + a"
+                    class="text-[10px] px-1.5 py-0.5 rounded border font-mono transition-colors"
+                    :class="filtreAssets.includes(a) ? 'border-teal-400/50 bg-teal-500/20 text-white' : 'border-white/10 bg-white/[0.03] text-white/50 hover:border-white/25'"
+                    @click="basculer(filtreAssets, a)">{{ a }}</button>
+          </div>
+          <p class="text-[10px] font-semibold uppercase tracking-wider text-white/60 mt-1">Timeframes simulés</p>
+          <div class="flex flex-wrap gap-1">
+            <button v-for="tf in ['M1','M5','M15','M30']" :key="'pt' + tf"
+                    class="text-[10px] px-1.5 py-0.5 rounded border font-mono transition-colors"
+                    :class="filtreTfs.includes(tf) ? 'border-teal-400/50 bg-teal-500/20 text-white' : 'border-white/10 bg-white/[0.03] text-white/50 hover:border-white/25'"
+                    @click="basculer(filtreTfs, tf)">{{ tf }}</button>
+          </div>
+        </div>
         <div class="flex gap-2 flex-wrap">
           <button class="btn-action bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 disabled:opacity-40"
                   :disabled="enCours" @click="lancer">
@@ -62,6 +79,10 @@
           <button class="btn-action bg-white/10 text-white hover:bg-white/20 disabled:opacity-40"
                   :disabled="enCoursBalayage" @click="balayer">
             {{ enCoursBalayage ? '⏳ Balayage…' : '📊 Balayer les fractions' }}</button>
+          <button class="btn-action bg-white/10 text-white hover:bg-white/20 disabled:opacity-40"
+                  :disabled="enCoursTrailing" :title="'Active le trailing (après TP2) et balaye son k × R — re-jeu exact du moteur, ~100 s. Un trailing ATR roulant SMC serait une déviation de l\'étalon Pine : à voter séparément.'"
+                  @click="balayerTrailing">
+            {{ enCoursTrailing ? '⏳ Balayage trailing… (~100 s)' : '📊 Balayer le k du trailing' }}</button>
           <button class="btn-action bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-40"
                   :disabled="!modifie" :title="modifie ? 'Écrit ces réglages dans la config réelle (futurs signaux) — le re-jeu officiel relance en fond' : 'Aucune modification par rapport aux réglages actuels'"
                   @click="appliquer">✅ Appliquer ces réglages</button>
@@ -147,6 +168,44 @@
       <p class="text-[10px] text-white/50">Classement sur les 231 configurations (pas 0,05) ; ligne verte = réglage actuel.</p>
     </section>
 
+    <!-- ═══ 4-bis — Balayage du k de trailing (re-jeu exact) ═══ -->
+    <section v-if="balayageTrailingRes" class="glass-card p-4 flex flex-col gap-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">4-bis · Balayage du k de trailing (×R, après TP2)</h2>
+        <span class="text-[10px] text-white/60">re-jeu exact du moteur — le trailing est INACTIF en production aujourd'hui</span>
+      </div>
+      <div v-if="balayageTrailingRes.moteur_actuel" class="text-xs text-white/70 mb-1">
+        Moteur actuel (sans trailing) : <span class="font-mono" :class="balayageTrailingRes.moteur_actuel.rendement >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtPct(balayageTrailingRes.moteur_actuel.rendement) }}</span> · {{ balayageTrailingRes.moteur_actuel.clotures }} clôtures
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-white/60 uppercase tracking-wider border-b border-white/10">
+              <th class="text-right py-1.5 pr-2">#</th>
+              <th class="text-right py-1.5 px-2">k (×R)</th>
+              <th class="text-right py-1.5 px-2">Clôtures</th>
+              <th class="text-right py-1.5 px-2">Capital</th>
+              <th class="text-right py-1.5 px-2">Rendement</th>
+              <th class="text-right py-1.5 px-2">Pire creux</th>
+              <th class="text-right py-1.5 pl-2">ΣR pondéré</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(l, i) in balayageTrailingRes.configurations" :key="l.k" class="border-b border-white/5">
+              <td class="py-1.5 pr-2 text-right text-white/50">{{ i + 1 }}</td>
+              <td class="py-1.5 px-2 text-right font-mono text-white">{{ l.k.toFixed(1) }}</td>
+              <td class="py-1.5 px-2 text-right font-mono text-white/70">{{ l.clotures }}</td>
+              <td class="py-1.5 px-2 text-right font-mono font-bold" :class="l.capital >= balayageTrailingRes.capital_depart ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollars(l.capital) }}</td>
+              <td class="py-1.5 px-2 text-right font-mono" :class="l.rendement >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtPct(l.rendement) }}</td>
+              <td class="py-1.5 px-2 text-right font-mono text-white/70">{{ fmtDollars(l.capital_minimum) }}</td>
+              <td class="py-1.5 pl-2 text-right font-mono" :class="l.r_total_pondere >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ l.r_total_pondere >= 0 ? '+' : '−' }}{{ Math.abs(l.r_total_pondere).toFixed(2) }} R</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-[10px] text-white/50">Chaque k = re-jeu complet du moteur (cache 30 min). Un trailing ATR-roulant SMC exigerait de dévier de l'étalon Pine — non inclus.</p>
+    </section>
+
     <!-- ═══ 5 — Bibliothèque des essais ═══ -->
     <section class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2">
@@ -205,7 +264,19 @@ const params = ref<ParamsSmc>({ ...DEFAUTS })
 const paramsActuels = ref<ParamsSmc>({ ...DEFAUTS })
 const sim = ref<ResultatSim | null>(null)
 const balayage = ref<{ capital_depart: number; nb_clotures: number; configurations: LigneBalayage[] } | null>(null)
+interface LigneTrailing { k: number; capital: number; rendement: number; capital_minimum: number; r_total_pondere: number; clotures: number }
+const balayageTrailingRes = ref<{ capital_depart: number; configurations: LigneTrailing[]; moteur_actuel: LigneTrailing | null } | null>(null)
+const enCoursTrailing = ref(false)
 const essais = ref<Essai[]>([])
+const filtreAssets = ref<string[]>([])
+const filtreTfs = ref<string[]>([])
+const assetsDispo = ref<string[]>([])
+
+function basculer(liste: string[], v: string) {
+  const i = liste.indexOf(v)
+  if (i >= 0) liste.splice(i, 1)
+  else liste.push(v)
+}
 const enCours = ref(false)
 const enCoursBalayage = ref(false)
 const messageApplique = ref('')
@@ -281,7 +352,8 @@ async function lancer() {
   enCours.value = true
   messageApplique.value = ''
   try {
-    const r = await http.post<{ resultat: ResultatSim }>('/api/strategies/SMC/simulation', params.value, { timeout: 150_000 })
+    const r = await http.post<{ resultat: ResultatSim }>('/api/strategies/SMC/simulation',
+      { ...params.value, assets: filtreAssets.value, tfs: filtreTfs.value }, { timeout: 150_000 })
     sim.value = r.data.resultat
     await chargerEssais()
   } catch { sim.value = null }
@@ -292,10 +364,20 @@ async function balayer() {
   enCoursBalayage.value = true
   try {
     const r = await http.post<{ capital_depart: number; nb_clotures: number; configurations: LigneBalayage[] }>(
-      '/api/strategies/SMC/simulation/balayage', null, { timeout: 60_000 })
+      '/api/strategies/SMC/simulation/balayage', { assets: filtreAssets.value, tfs: filtreTfs.value }, { timeout: 60_000 })
     balayage.value = r.data
   } catch { balayage.value = null }
   enCoursBalayage.value = false
+}
+
+async function balayerTrailing() {
+  enCoursTrailing.value = true
+  try {
+    const r = await http.post<{ capital_depart: number; configurations: LigneTrailing[]; moteur_actuel: LigneTrailing | null }>(
+      '/api/strategies/SMC/simulation/balayage', { cible: 'trailing', assets: filtreAssets.value, tfs: filtreTfs.value }, { timeout: 300_000 })
+    balayageTrailingRes.value = r.data
+  } catch { balayageTrailingRes.value = null }
+  enCoursTrailing.value = false
 }
 
 async function chargerEssais() {
@@ -387,8 +469,16 @@ function dateCourte(ts: number): string {
 }
 
 onMounted(async () => {
-  await Promise.all([chargerVecu(), chargerReglages(), chargerEssais()])
+  await Promise.all([chargerVecu(), chargerReglages(), chargerEssais(), chargerAssetsArmes()])
 })
+
+/// Paires disponibles = assets armés SMC (source : couples armés).
+async function chargerAssetsArmes() {
+  try {
+    const r = await http.get<Record<string, string[]>>('/api/smc/couples')
+    assetsDispo.value = Object.keys(r.data ?? {}).sort()
+  } catch { assetsDispo.value = [] }
+}
 </script>
 
 <style scoped>

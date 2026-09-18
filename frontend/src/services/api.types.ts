@@ -174,6 +174,8 @@ export interface AssetParams {
   // champs calculés côté frontend (présentation uniquement)
   investi?: number
   lot?: number
+  /** Type officiel (assets.type) : crypto/metal/forex/indice */
+  type_asset?: string | null
 }
 
 export interface PrecisionHoraire {

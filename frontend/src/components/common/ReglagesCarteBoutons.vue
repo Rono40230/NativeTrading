@@ -52,10 +52,11 @@ const ACTIONS: Record<string, ActionCarte[]> = {
     { cle: 'scanner', label: '🔭 Scanner', titre: 'Setups en formation, confirmation H1/H4, journal' },
     { cle: 'parametres', label: '⚙️ Paramètres', titre: 'État, son Telegram, capital, risque' },
     { cle: 'niveaux', label: '💰 Niveaux de profits', titre: 'TP1/TP2/TP3, trailing, ventes partielles' },
-    { cle: 'timeframes', label: '🕐 Choix des Timeframe/Asset', titre: 'Armement des couples générateurs de signaux' },
+    { cle: 'timeframes', label: '🕐 Choix des Assets & TimeFrame', titre: 'Armement des couples générateurs de signaux' },
   ],
   straddle: [
     { cle: 'definition', label: '📐 Caractéristiques', titre: 'Les caractéristiques de la stratégie Straddle' },
+    { cle: 'perimetre', label: '🎯 Choix des Assets & créneaux', titre: 'Périmètre de surveillance (moteurs M1, annonces) et créneaux armés' },
     { cle: 'parametres', label: '⚙️ Paramètres', titre: 'État, son Telegram, capital, risque' },
     { cle: 'moteur', label: '🛠️ Paramètres moteur', titre: 'Minutage et risque (SL × ATR H1, trailing)' },
   ],

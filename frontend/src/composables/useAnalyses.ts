@@ -70,6 +70,8 @@ export interface AnalyseStrategie {
   assets: CategorieAnalyse[]
   tfs: CategorieAnalyse[]
   par_asset_tf: ParAssetTf[]
+  /** Straddle : clôtures par événement source (annonce US 14h30…) */
+  evenements: CategorieAnalyse[]
   heatmap: CaseHeatmap[]
   /** Tranches de score SMC — vide pour les autres stratégies. */
   par_score: TrancheScore[]

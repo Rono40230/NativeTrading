@@ -42,6 +42,15 @@
       </div>
     </div>
 
+    <!-- Classements décisionnels : « les plus intéressants » (17/09) -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <ClassementCategoriesBloc
+        :titre="a.strategie === 'straddle' ? 'Classement des événements' : 'Classement des timeframes'"
+        :categories="a.strategie === 'straddle' ? a.evenements : a.tfs"
+        :seuil="30" />
+      <ClassementCategoriesBloc titre="Classement des assets" :categories="a.assets" :seuil="30" />
+    </div>
+
     <!-- Performance par période : jour / semaine / mois -->
     <div class="glass-card p-3">
       <div class="flex items-center gap-2 mb-2">

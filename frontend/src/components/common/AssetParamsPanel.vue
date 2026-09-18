@@ -145,19 +145,14 @@ interface Feedback { type: 'ok' | 'err'; msg: string }
 const feedback = ref<Feedback | null>(null)
 
 // Catégorie de chaque asset
-const ASSET_CATEGORY: Record<string, string> = {
-  XAUUSD: 'metaux', XAGUSD: 'metaux',
-  EURUSD: 'forex',  GBPUSD: 'forex',  USDCAD: 'forex',  AUDUSD: 'forex',
-  EURGBP: 'forex',  GBPJPY: 'forex',  EURJPY: 'forex',  USDJPY: 'forex',
-  CADJPY: 'forex',  NZDJPY: 'forex',  CHFJPY: 'forex',
-  DAX:    'indices', SP500: 'indices',
-  BTC:    'crypto',  ETH: 'crypto',
-}
-
+// Catégorisation : le TYPE officiel servi par /api/assets/params (jointure
+// assets) — l'ancienne map locale datait de l'univers à 6 actifs et
+// envoyait tous les nouveaux (indices, alt-cryptos…) dans Forex par défaut.
 const SECTION_META = [
-  { id: 'metaux',  label: 'Métaux',  icon: '🪙' },
+  { id: 'metal',  label: 'Métaux',  icon: '🥇' },
   { id: 'forex',   label: 'Forex',   icon: '💱' },
-  { id: 'indices', label: 'Indices', icon: '📈' },
+  { id: 'indice', label: 'Indices', icon: '📈' },
+  { id: 'crypto',  label: 'Crypto',  icon: '🪙' },
   { id: 'crypto',  label: 'Crypto',  icon: '🔷' },
 ]
 
@@ -165,7 +160,7 @@ const sections = computed(() =>
   SECTION_META
     .map(meta => ({
       ...meta,
-      rows: editable.filter(r => (ASSET_CATEGORY[r.asset] ?? 'forex') === meta.id),
+      rows: editable.filter(r => (r.type_asset ?? 'forex') === meta.id),
     }))
     .filter(s => s.rows.length > 0)
 )

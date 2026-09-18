@@ -13,6 +13,7 @@
 use crate::state::AppState;
 use actix_web::{web, HttpResponse};
 use serde::Deserialize;
+
 use std::sync::Arc;
 
 /// Paramètres virtuels d'une simulation SMC — absents = réglages actuels.
@@ -32,6 +33,16 @@ pub struct ParamsSimulationSmc {
     pub trailing_atr: Option<f64>,
     /// Straddle : time-stop en minutes (défaut canonique 60).
     pub time_stop_min: Option<i64>,
+    /// Straddle : mode de trailing étudié (statique | roulant | roulant_tp1 | decay).
+    pub trailing_mode: Option<String>,
+    /// Laboratoire : périmètre d'étude — assets simulés (vide/absent = tous).
+    pub assets: Option<Vec<String>>,
+    /// Laboratoire : périmètre d'étude — TF simulés (vide/absent = tous).
+    pub tfs: Option<Vec<String>>,
+    /// Straddle : fenêtre de l'ATR roulant (barres M1, modes dynamiques).
+    pub atr_fenetre: Option<usize>,
+    /// Straddle : réduction du k par 10 min (mode decay).
+    pub k_decay: Option<f64>,
 }
 
 /// Résultat agrégé d'une simulation (et forme stockée dans la bibliothèque).
@@ -59,7 +70,7 @@ struct VerdictSim {
     r: f64,
 }
 
-fn valider_id(id: &str) -> bool {
+pub(crate) fn valider_id(id: &str) -> bool {
     crate::registre_strategies::MANIFESTES.iter().any(|m| m.id == id)
 }
 
@@ -128,12 +139,14 @@ pub async fn post_simulation(
         crate::smc_pondere::Fractions::default()
     };
 
-    let empreinte = crate::reglages_smc::empreinte_couples(
-        &crate::reglages_smc::lire_couples_armes(&db).await,
-    );
     let debut = std::time::Instant::now();
-    let rejeu = match crate::smc_rejeu::calculer(
-        &db, tp1, tp2, tp3_lointaine, tp3_rfixe, trailing_r, fractions, empreinte,
+    // calculer_etude : même moteur exact, avec le cache LRU du laboratoire
+    // (simulation puis balayage partagent leurs re-jeus).
+    let filtre_assets = b.assets.clone().unwrap_or_default();
+    let filtre_tfs = b.tfs.clone().unwrap_or_default();
+    let rejeu = match crate::smc_rejeu::calculer_etude(
+        &db, tp1, tp2, tp3_lointaine, tp3_rfixe, trailing_r, fractions,
+        &filtre_assets, &filtre_tfs,
     )
     .await
     {
@@ -144,6 +157,7 @@ pub async fn post_simulation(
         }
     };
     let duree_ms = debut.elapsed().as_millis();
+    let rejeu = (*rejeu).clone();
 
     let mut par_verdict: std::collections::BTreeMap<String, (usize, f64)> =
         std::collections::BTreeMap::new();
@@ -224,11 +238,22 @@ async fn simulation_straddle(
 ) -> HttpResponse {
     let db = state.db.clone();
     let params_db = db::strategies_params::lire_straddle_params(db.pool()).await;
-    let trailing = b.trailing_atr.unwrap_or(params_db.trailing_atr).clamp(0.1, 5.0);
-    let time_stop = b.time_stop_min.unwrap_or(60).clamp(5, 240);
+    let mode = b.trailing_mode.unwrap_or_else(|| "statique".into());
+    let mode = match mode.as_str() {
+        "roulant" | "roulant_tp1" | "decay" => mode,
+        _ => "statique".to_string(),
+    };
+    let filtre_assets = b.assets.clone().unwrap_or_default();
+    let cfg = crate::straddle_rejeu::ParamsTrailing {
+        mode: mode.clone(),
+        k: b.trailing_atr.unwrap_or(params_db.trailing_atr).clamp(0.1, 5.0),
+        fenetre: b.atr_fenetre.unwrap_or(10).clamp(3, 60),
+        decay: b.k_decay.unwrap_or(0.0).clamp(0.0, 0.8),
+        time_stop_min: b.time_stop_min.unwrap_or(60).clamp(5, 240),
+    };
 
     let debut = std::time::Instant::now();
-    let rejeu = match crate::straddle_rejeu::calculer_avec(&db, trailing, time_stop).await {
+    let rejeu = match crate::straddle_rejeu::calculer_avec_filtres(&db, &cfg, &filtre_assets).await {
         Ok(r) => r,
         Err(e) => {
             return HttpResponse::InternalServerError()
@@ -264,7 +289,9 @@ async fn simulation_straddle(
         duree_ms,
     };
     let params = serde_json::json!({
-        "trailing_atr": trailing, "time_stop_min": time_stop,
+        "trailing_mode": mode,
+        "trailing_atr": cfg.k, "time_stop_min": cfg.time_stop_min,
+        "atr_fenetre": cfg.fenetre, "k_decay": cfg.decay,
     });
     let id_essai = format!("essai-{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));
     let _ = db
@@ -283,167 +310,20 @@ async fn simulation_straddle(
     }))
 }
 
-/// Une configuration de fractions du balayage.
-#[derive(serde::Serialize)]
-struct LigneBalayage {
-    f1: f64,
-    f2: f64,
-    f3: f64,
-    capital: f64,
-    rendement: f64,
-    capital_minimum: f64,
-    r_total_pondere: f64,
-    actuel: bool,
-}
-
-/// POST /api/strategies/{id}/simulation/balayage — grille des fractions
-/// (pas 0,05, f1+f2+f3=1) sur les CLÔTURES VÉCUES : les verdicts ne changent
-/// pas, seule la découpe du lot varie. Instantané. Le pondéré utilise le
-/// prix vécu du solde TP2+BE (correctif 15/09 nuit) — miroir de
-/// capital_simule, garanti au centime par test.
-pub async fn post_balayage(
-    state: web::Data<AppState>,
-    path: web::Path<String>,
-) -> impl actix_web::Responder {
-    let id = path.into_inner();
-    if !valider_id(&id) {
-        return HttpResponse::NotFound().json(serde_json::json!({ "error": "Stratégie inconnue" }));
-    }
-    if id != "SMC" {
-        return HttpResponse::NotImplemented().json(serde_json::json!({
-            "error": "Balayage pas encore branché pour cette stratégie (phases 2-3)"
-        }));
-    }
-    let db = state.db.clone();
-    let Ok(clotures) = db.clotures_pour_capital("SMC").await else {
-        return HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": "Clôtures illisibles" }));
-    };
-    let reg = db.lire_strategie("SMC").await.ok().flatten().unwrap_or_default();
-    let cap0 = reg.capital;
-    let risque = reg.risque_pct / 100.0;
-    let actuelles = crate::reglages_smc::lire_fractions(&db).await;
-
-    let mut lignes: Vec<LigneBalayage> = Vec::new();
-    let mut f1 = 0.0_f64;
-    while f1 <= 1.0001 {
-        let mut f2 = 0.0_f64;
-        while f1 + f2 <= 1.0001 {
-            let f3 = 1.0 - f1 - f2;
-            let fr = crate::smc_pondere::Fractions { tp1: f1, tp2: f2, tp3: f3 };
-            let (capital, mini, somme) = composer(&clotures, cap0, risque, fr);
-            lignes.push(LigneBalayage {
-                f1: (f1 * 100.0).round() / 100.0,
-                f2: (f2 * 100.0).round() / 100.0,
-                f3: (f3 * 100.0).round() / 100.0,
-                capital,
-                rendement: if cap0 > 0.0 { capital / cap0 - 1.0 } else { 0.0 },
-                capital_minimum: mini,
-                r_total_pondere: somme,
-                actuel: (f1 - actuelles.tp1).abs() < 1e-9
-                    && (f2 - actuelles.tp2).abs() < 1e-9
-                    && (f3 - actuelles.tp3).abs() < 1e-9,
-            });
-            f2 = (f2 * 100.0).round() / 100.0 + 0.05;
-        }
-        f1 = (f1 * 100.0).round() / 100.0 + 0.05;
-    }
-    lignes.sort_by(|a, b| b.capital.total_cmp(&a.capital));
-    HttpResponse::Ok().json(serde_json::json!({
-        "capital_depart": cap0,
-        "nb_clotures": clotures.len(),
-        "configurations": lignes,
-    }))
-}
-
-/// Compose le capital des clôtures vécues avec des fractions données —
-/// EXACTEMENT la formule de capital_simule (r_solde_tp2 vécu inclus).
-fn composer(
-    clotures: &[db::signaux_capital::ClotureCapital],
-    cap0: f64,
-    risque: f64,
-    fr: crate::smc_pondere::Fractions,
-) -> (f64, f64, f64) {
-    let mut capital = cap0;
-    let mut mini = cap0;
-    let mut somme = 0.0_f64;
-    for t in clotures {
-        let tps: Vec<f64> = serde_json::from_str(&t.take_profit).unwrap_or_default();
-        let risque_trade = (t.prix_entree - t.stop_loss).abs();
-        let (r_tp1, r_tp2) = if risque_trade > 0.0 {
-            (
-                (tps.first().copied().unwrap_or(t.prix_entree) - t.prix_entree).abs() / risque_trade,
-                (tps.get(1).copied().unwrap_or(t.prix_entree) - t.prix_entree).abs() / risque_trade,
-            )
-        } else {
-            (0.0, 0.0)
-        };
-        // Garde : prix ≤ 0 = pas un prix (défaut) — repli mécanique TP1.
-        let r_solde_tp2 = if t.verdict.to_lowercase().starts_with("tp2") && risque_trade > 0.0 {
-            t.prix_verdict
-                .filter(|pv| *pv > 0.0)
-                .map(|pv| (pv - t.prix_entree).abs() / risque_trade)
-        } else {
-            None
-        };
-        let rp = crate::smc_pondere::r_pondere(
-            &t.verdict, t.r, r_tp1, r_tp2, fr, r_solde_tp2,
-        );
-        capital += rp * capital * risque;
-        mini = mini.min(capital);
-        somme += rp;
-    }
-    (capital, mini, somme)
-}
-
-/// GET /api/strategies/{id}/simulation/essais — bibliothèque (30 derniers).
-pub async fn get_essais(
-    state: web::Data<AppState>,
-    path: web::Path<String>,
-) -> impl actix_web::Responder {
-    let id = path.into_inner();
-    if !valider_id(&id) {
-        return HttpResponse::NotFound().json(serde_json::json!({ "error": "Stratégie inconnue" }));
-    }
-    match state.db.lister_essais_simulation(&id, 30).await {
-        Ok(essais) => {
-            let liste: Vec<serde_json::Value> = essais
-                .into_iter()
-                .filter_map(|e| {
-                    Some(serde_json::json!({
-                        "id": e.id,
-                        "params": serde_json::from_str::<serde_json::Value>(&e.params_json).ok()?,
-                        "resultat": serde_json::from_str::<serde_json::Value>(&e.resultats_json).ok()?,
-                        "cree_le": e.cree_le,
-                    }))
-                })
-                .collect();
-            HttpResponse::Ok().json(serde_json::json!({ "essais": liste }))
-        }
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": e.to_string() })),
-    }
-}
-
-/// DELETE /api/strategies/{id}/simulation/essais/{essai}.
-pub async fn delete_essai(
-    state: web::Data<AppState>,
-    path: web::Path<(String, String)>,
-) -> impl actix_web::Responder {
-    let (id, essai) = path.into_inner();
-    if !valider_id(&id) {
-        return HttpResponse::NotFound().json(serde_json::json!({ "error": "Stratégie inconnue" }));
-    }
-    match state.db.supprimer_essai_simulation(&essai).await {
-        Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "supprime": essai })),
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": e.to_string() })),
-    }
+/// Cible du balayage SMC : fractions (par défaut) ou k du trailing.
+#[derive(Deserialize)]
+pub struct RequeteBalayageSmc {
+    /// "fractions" (défaut) | "trailing"
+    pub cible: Option<String>,
+    /// Périmètre d'étude (laboratoire).
+    pub assets: Option<Vec<String>>,
+    pub tfs: Option<Vec<String>>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::simulation_balayages::composer;
 
     /// LE verrou du laboratoire : le balayage, sur les fractions ACTUELLES,
     /// doit redonner le capital officiel du vécu (même formule que

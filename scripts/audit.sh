@@ -13,6 +13,8 @@ while IFS= read -r -d '' f; do
   [[ "$f" == *"src-tauri"* ]] && continue
   [[ "$f" == */bin/* ]] && continue
   [[ "$f" == */tests/* ]] && continue
+  # Fichiers de tests externes (sous-module *_tests.rs) : tout est test
+  [[ "$(basename "$f")" == *_tests.rs ]] && continue
   HORS_TESTS=$(grep -v '^\s*//' "$f" | awk '
     /^\s*#\[.*test\]/ { in_test=1 }
     /^\s*#\[cfg\(test\)\]/ { in_test=1 }
