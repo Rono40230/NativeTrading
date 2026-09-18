@@ -406,7 +406,10 @@ async function appliquer() {
   for (const cle of clesModifiees) {
     try {
       await http.post('/api/config', { cle, valeur: String(CLES[cle](params.value)) })
-    } catch { return }
+    } catch {
+        messageApplique.value = '❌ Échec d\'écriture d\'un réglage — vérifiez le backend'
+        return
+      }
   }
   paramsActuels.value = { ...params.value }
   messageApplique.value = `✓ ${clesModifiees.length} réglage(s) appliqué(s) — effet sur les futurs signaux, le vécu reste immuable.`

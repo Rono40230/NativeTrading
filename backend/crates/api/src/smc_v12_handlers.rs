@@ -89,7 +89,7 @@ pub async fn analyse_v12(
         }
     };
     let timeframe = parse_timeframe(query.timeframe.as_deref().unwrap_or("M15"));
-    let limit = query.limit.unwrap_or(500).max(50) as i64;
+    let limit = query.limit.unwrap_or(500).clamp(50, 10_000) as i64;
     let asset_str = asset.as_str();
     let tf_str = timeframe.as_str();
 

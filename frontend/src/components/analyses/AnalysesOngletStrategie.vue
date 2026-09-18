@@ -312,6 +312,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import ClassementCategoriesBloc from './ClassementCategoriesBloc.vue'
 import {
   chargerAnalyse, chargerHistoriqueAnalyses, fmtDollars, fmtR, couleurVerdict, genererAnalyseIa,
   type AnalyseStrategie, type PeriodeAnalyse, type CategorieAnalyse, type AnalyseIa,

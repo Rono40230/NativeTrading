@@ -20,7 +20,7 @@
 
         <!-- 🔴 À risque -->
         <section class="bloc bloc-rouge shrink-0">
-          <PositionsARisqueTable :positions="risque" :live="live" @cloturee="rechargerPositions()" />
+          <PositionsARisqueTable :positions="risque" :live="live" @cloturee="rechargerPositions(); refreshHistorique++" />
         </section>
 
         <!-- 🟡 Neutralisées -->
@@ -30,7 +30,7 @@
 
         <!-- 📜 Historique — occupe le reste de la hauteur -->
         <section class="bloc bloc-violet flex-1 min-h-0 flex flex-col overflow-hidden">
-          <RocketsHistoriqueTable />
+          <RocketsHistoriqueTable :refresh-trigger="refreshHistorique" />
         </section>
     </div>
   </div>
@@ -48,6 +48,7 @@ import { usePositionsRockets } from '@/composables/usePositionsRockets'
 const router = useRouter()
 
 const { risque, neutralisees, live, charger: rechargerPositions } = usePositionsRockets()
+const refreshHistorique = ref(0)
 </script>
 
 <style scoped>

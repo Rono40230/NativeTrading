@@ -16,7 +16,6 @@
         >{{ o.label }}</button>
       </div>
       <span class="ml-auto text-[10px] text-white" title="$ réels composés et R de la convention de chaque moteur — jamais de R de référence ni de pips (décision 04/09)">
-        $ réels (ventes partielles composées) · R = encaissé (gagnants − perdants)
       </span>
     </div>
 

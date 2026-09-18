@@ -12,7 +12,6 @@
       <SignauxTableau strategie="kdj_halftrend" remplis-seuls @nb-signaux="nbEncours = $event" />
     </template>
     <template #historique-actions>
-      <button class="btn-sm bg-cyan-700 hover:bg-cyan-600" @click="router.push('/kdj/scanner')">🔭 Scanner tendance</button>
       <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="router.push('/kdj/analyse')">📊 Analyse</button>
     </template>
     <template #historique>

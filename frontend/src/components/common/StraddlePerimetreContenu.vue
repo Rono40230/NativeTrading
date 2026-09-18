@@ -140,7 +140,7 @@ async function enregistrer() {
 async function armerFile() {
   armet.value = true
   try {
-    await http.post('/api/straddle/creneaux-ia/armer-file')
+    await http.post('/api/straddle/creneaux-ia/armer-file', null, { timeout: 120_000 })
     await charger()
   } catch { /* message dans l'agenda */ }
   armet.value = false

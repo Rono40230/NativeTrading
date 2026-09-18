@@ -92,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, watch, onMounted, onUnmounted, ref } from 'vue'
 import { http } from '@/services/http.client'
 import JournalBordModal from '@/components/common/JournalBordModal.vue'
 
@@ -200,6 +200,9 @@ function dateHeure(ts: number): string {
 }
 
 let minuteur: ReturnType<typeof setInterval> | null = null
+const props = defineProps<{ refreshTrigger?: number }>()
+watch(() => props.refreshTrigger, () => { if (props.refreshTrigger) void charger() })
+
 onMounted(() => {
   void charger()
   minuteur = setInterval(charger, 30_000)

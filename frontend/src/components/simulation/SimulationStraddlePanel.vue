@@ -28,7 +28,7 @@
       <section class="glass-card p-4 flex flex-col gap-3">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">2 · Paramètres (virtuels)</h2>
         <div class="grid grid-cols-2 gap-2 text-xs">
-          <label class="flex flex-col gap-1 col-span-2">Mode de trailing stop
+          <label class="flex flex-col gap-1 col-span-2">Mode de trailing stop <span class="text-amber-300/70 text-[9px] font-normal normal-case">simulation uniquement — non persistable</span>
             <select v-model="params.trailing_mode" class="champ">
               <option value="statique">Statique — moteur actuel (k × R, après TP2)</option>
               <option value="roulant">ATR roulant — k × ATR M1 (fenêtre), après TP2</option>
@@ -205,6 +205,8 @@ const messageApplique = ref('')
 const rendement = computed(() =>
   vecu.value && vecu.value.capital_depart > 0 ? vecu.value.capital_actuel / vecu.value.capital_depart - 1 : 0)
 
+// Seuls le k (trailing_atr) et le time-stop sont persistables côté moteur.
+// Le MODE (statique/roulant/decay) est un paramètre de SIMULATION uniquement.
 const modifie = computed(() =>
   params.value.trailing_atr !== paramsActuels.value.trailing_atr
   || params.value.time_stop_min !== paramsActuels.value.time_stop_min)
@@ -277,9 +279,12 @@ async function appliquer() {
     // remplace que le trailing.
     const actuels = await http.get<StraddleParams>('/api/straddle/params')
     await http.put('/api/straddle/params', { ...actuels.data, trailing_atr: params.value.trailing_atr })
-    paramsActuels.value = { ...params.value }
-    messageApplique.value = '✓ Trailing appliqué aux réglages moteur — effet sur les futures passes.'
-  } catch { /* inchangé */ }
+    // Recharger depuis l'API = preuve que la valeur est bien persistée
+    await chargerReglages()
+    messageApplique.value = `✓ Trailing ${params.value.trailing_atr} appliqué et vérifié en base — effet sur les futures passes.`
+  } catch (e) {
+    messageApplique.value = `❌ Échec d'application : ${(e as Error).message}`
+  }
 }
 
 const comparatif = computed(() => {

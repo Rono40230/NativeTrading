@@ -63,7 +63,8 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
       return cle === 'smc'
         ? SMC_VARIANTES.includes(nom)
         : nom === cle
-    }).filter(s => s.statut === 'Fermé' && s.verdict !== null),
+    }).filter(s => s.statut === 'Fermé' && s.verdict !== null
+      && s.heure_entree !== null && s.heure_entree !== undefined),
   )
 
   /// Liste filtrée PUIS triée par la colonne active (défaut : plus récents).

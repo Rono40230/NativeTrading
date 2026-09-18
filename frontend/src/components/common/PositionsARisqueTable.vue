@@ -124,6 +124,9 @@ import {
   coursDe, tendanceDe, plLatent, rLatent, classeLigne,
   type Position,
 } from '@/composables/usePositionsRockets'
+import { useAlerteStore } from '@/stores/alerte.store'
+
+const alerteStore = useAlerteStore()
 
 const props = defineProps<{
   positions: Position[]
@@ -146,7 +149,9 @@ async function confirmerCloture() {
     await http.post('/api/rockets/positions/cloturer', { cle: p.cle })
     aCloturer.value = null
     emit('cloturee')
-  } catch { /* position déjà fermée ou cours indisponible — le refresh dit la vérité */ }
+  } catch (e) {
+    alerteStore.afficherErreur(`Clôture ${p?.symbole ?? ''} échouée : ${(e as Error).message}`)
+  }
   clotureEnCours.value = ''
 }
 

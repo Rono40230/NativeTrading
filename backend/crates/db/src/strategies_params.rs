@@ -112,6 +112,8 @@ pub async fn sauvegarder_straddle_params(pool: &SqlitePool, p: &StraddleParams) 
     .bind(if p.vente_partielle { 1i64 } else { 0i64 })
     .bind(p.pct_cloture_tp1)
     .bind(p.pct_cloture_tp2)
+    .bind(p.placement_sec)
+    .bind(p.trailing_r)
     .execute(pool)
     .await
     .map_err(|e| TradingError::Database(e.to_string()))?;

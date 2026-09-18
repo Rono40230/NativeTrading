@@ -297,7 +297,14 @@ async function charger(reset = true) {
 async function lire(a: ArticlePresse) {
   try {
     const res = await presseApi.ouvrir(a.hash_titre)
-    articles.value = articles.value.map(x => (x.hash_titre === a.hash_titre ? res.article : x))
+    // Le backend renvoie titre_fr/resume_fr en champs SÉPARÉS de l'objet
+    // article — il faut les fusionner pour ne pas perdre la traduction
+    // au remplacement (bug : la carte repassait en VO au clic).
+    articles.value = articles.value.map(x =>
+      x.hash_titre === a.hash_titre
+        ? { ...x, ...res.article, lu: true, titre_fr: (res as any).titre_fr ?? x.titre_fr, resume_fr: (x as any).resume_fr }
+        : x
+    )
     if (filtre.lu === 'false') {
       articles.value = articles.value.filter(x => x.hash_titre !== a.hash_titre)
     }
