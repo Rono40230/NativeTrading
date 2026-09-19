@@ -142,8 +142,7 @@ pub struct PoigneesRuntime {
 /// idempotent.
 pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
     // Préchauffage du re-jeu paramétrique SMC (métriques dashboard) : la
-    // carte sert le re-jeu dès la première consultation après le boot.
-    tokio::spawn(crate::smc_rejeu::lancer_si_necessaire(db.clone()));
+    // carte sert le re-jeu dès la première consultation après le boot.);
     if !RUNTIME_DEMARRE.swap(true, Ordering::SeqCst) {
         let (tx, rx) = mpsc::unbounded_channel::<EvenementPrix>();
         let runtime = Runtime::nouveau();

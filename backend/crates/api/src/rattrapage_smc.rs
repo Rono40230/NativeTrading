@@ -12,8 +12,7 @@
 //! persisté. Idempotent : une position déjà Fermée n'est jamais retouchée,
 //! et le moteur vivant clôturant le premier rend l'écriture de l'autre no-op.
 
-use crate::state::AppState;
-use actix_web::{web, HttpResponse};
+
 use std::sync::Arc;
 
 /// Verdict canonique en base — miroir de engine_v12::lifecycle_diff.

@@ -165,8 +165,8 @@ async fn balayage_trailing_smc(
     let tp1 = crate::reglages_smc::lire_tp1_reglage(&db).await;
     let tp2_reg = crate::reglages_smc::lire_tp2_reglage(&db).await;
     let fractions = crate::reglages_smc::lire_fractions(&db).await;
-    let tp3_l = crate::smc_rejeu::lire_tp3_lointaine_pub(&db).await;
-    let tp3_r = crate::smc_rejeu::lire_tp3_rfixe_pub(&db).await;
+    let tp3_l = crate::smc_rejeu::lire_tp3_lointaine(&db).await;
+    let tp3_r = crate::smc_rejeu::lire_tp3_rfixe(&db).await;
 
     let mut lignes: Vec<serde_json::Value> = Vec::new();
     let mut k = 0.2_f64;

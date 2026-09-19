@@ -9,19 +9,8 @@
 //! le réglage change (ou à froid). Les verdicts RÉELS en base ne sont jamais
 //! réécrits — ils restent l'étalon (l'étape 3 servira ce cache aux endpoints).
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
-use std::time::Instant;
-
-use actix_web::{web, HttpResponse};
 use serde::Serialize;
-use tokio::sync::RwLock;
-
-use crate::state::AppState;
-
-/// Rafraîchissement du cache au repos : sans changement de réglage, les
-/// nouvelles clôtures live doivent quand même rejoindre les métriques.
-const REFRESH_SEC: i64 = 1_800;
 
 /// Chauffe du moteur avant la période mesurée (indicateurs, structure,
 /// liquidités) — les clôtures de la chauffe ne comptent pas dans les métriques.
@@ -79,132 +68,6 @@ pub struct RejeuSmc {
     pub fraction_risque: f64,
     pub capital_actuel: f64,
 }
-static CACHE: OnceLock<RwLock<Option<Arc<RejeuSmc>>>> = OnceLock::new();
-static EN_COURS: AtomicBool = AtomicBool::new(false);
-
-fn cache() -> &'static RwLock<Option<Arc<RejeuSmc>>> {
-    CACHE.get_or_init(|| RwLock::new(None))
-}
-
-/// TP1 réglé (config smc_tp1_mult, défaut 0.6, borné comme à l'armement).
-async fn lire_tp1(db: &db::Database) -> f64 {
-    db.lire_config("smc_tp1_mult")
-        .await
-        .ok()
-        .flatten()
-        .and_then(|v| v.trim().parse::<f64>().ok())
-        .map(|v| v.clamp(0.2, 1.5))
-        .unwrap_or(0.6)
-}
-
-/// TP2 réglé (config smc_tp2_mult, défaut 2.0, borné 1.0-4.0).
-async fn lire_tp2(db: &db::Database) -> f64 {
-    db.lire_config("smc_tp2_mult")
-        .await
-        .ok()
-        .flatten()
-        .and_then(|v| v.trim().parse::<f64>().ok())
-        .map(|v| v.clamp(1.0, 4.0))
-        .unwrap_or(2.0)
-}
-
-/// Mode TP3 (config smc_tp3_mode : "lointaine" | "rfixe" ; défaut lointaine).
-async fn lire_tp3_lointaine(db: &db::Database) -> bool {
-    db.lire_config("smc_tp3_mode")
-        .await
-        .ok()
-        .flatten()
-        .map(|v| !v.trim().eq_ignore_ascii_case("rfixe"))
-        .unwrap_or(true)
-}
-
-/// R fixe TP3 (config smc_tp3_rfixe, défaut 3.0, borné 3.0-10.0).
-async fn lire_tp3_rfixe(db: &db::Database) -> f64 {
-    db.lire_config("smc_tp3_rfixe")
-        .await
-        .ok()
-        .flatten()
-        .and_then(|v| v.trim().parse::<f64>().ok())
-        .map(|v| v.clamp(3.0, 10.0))
-        .unwrap_or(3.0)
-}
-
-/// Trailing TP2 (config smc_tp3_trailing : "0"/"1" ; défaut inactif) et sa
-/// distance (config smc_tp3_trailing_r, défaut 0.5, borné 0.1-1.0).
-async fn lire_trailing(db: &db::Database) -> Option<f64> {
-    let actif = db
-        .lire_config("smc_tp3_trailing")
-        .await
-        .ok()
-        .flatten()
-        .map(|v| v.trim() == "1")
-        .unwrap_or(false);
-    if !actif {
-        return None;
-    }
-    Some(
-        db.lire_config("smc_tp3_trailing_r")
-            .await
-            .ok()
-            .flatten()
-            .and_then(|v| v.trim().parse::<f64>().ok())
-            .map(|v| v.clamp(0.1, 1.0))
-            .unwrap_or(0.5),
-    )
-}
-
-/// Lance le re-jeu si nécessaire : pas de cache, ou TP1 réglé ≠ TP1 du cache.
-/// Idempotent (flag EN_COURS) — le déclencheur config et le lecteur GET
-/// peuvent appeler en concurrence sans doubler le calcul.
-pub async fn lancer_si_necessaire(pool: Arc<db::Database>) {
-    let tp1 = lire_tp1(&pool).await;
-    let tp2 = lire_tp2(&pool).await;
-    let tp3_lointaine = lire_tp3_lointaine(&pool).await;
-    let tp3_rfixe = lire_tp3_rfixe(&pool).await;
-    let trailing = lire_trailing(&pool).await;
-    let fractions = crate::reglages_smc::lire_fractions(&pool).await;
-    let empreinte = crate::reglages_smc::empreinte_couples(
-        &crate::reglages_smc::lire_couples_armes(&pool).await,
-    );
-    let pareil = |c: &RejeuSmc| {
-        (c.tp1 - tp1).abs() < 1e-9
-            && (c.tp2 - tp2).abs() < 1e-9
-            && c.tp3_lointaine == tp3_lointaine
-            && (c.tp3_rfixe - tp3_rfixe).abs() < 1e-9
-            && c.trailing_r == trailing
-            && c.fractions == fractions
-            && c.empreinte_couples == empreinte
-    };
-    if let Some(c) = cache().read().await.clone() {
-        let frais = chrono::Utc::now().timestamp() - c.calcule_le < REFRESH_SEC;
-        if pareil(&c) && frais {
-            return;
-        }
-    }
-    if EN_COURS.swap(true, Ordering::SeqCst) {
-        return; // un calcul est déjà en vol
-    }
-    tokio::spawn(async move {
-        let debut = Instant::now();
-        match calculer(&pool, tp1, tp2, tp3_lointaine, tp3_rfixe, trailing, fractions, empreinte).await {
-            Ok(rejeu) => {
-                tracing::info!(
-                    "Rejeu SMC: TP1={:.2}R·TP2={:.1}R·TP3={}{} — {} couple(s), {} clôture(s), WR {:.0} %, R réf {:+.1}, capital {:.2} → {:.2} ({:?})",
-                    tp1, tp2,
-                    if tp3_lointaine { format!("liq-lointaine (repli {:.1}R)", tp3_rfixe) } else { format!("{:.1}R fixe", tp3_rfixe) },
-                    trailing.map(|k| format!("·trailing {:.1}R", k)).unwrap_or_default(),
-                    rejeu.nb_couples, rejeu.total, rejeu.taux_reussite * 100.0,
-                    rejeu.r_total, rejeu.capital_depart, rejeu.capital_actuel, debut.elapsed()
-                );
-                *cache().write().await = Some(Arc::new(rejeu));
-            }
-            Err(e) => {
-                tracing::warn!("Rejeu SMC: échec — {e}");
-            }
-        }
-        EN_COURS.store(false, Ordering::SeqCst);
-    });
-}
 
 /// GET /api/smc/rejeu — métriques SMC re-dérivées du TP1 réglé.
 /// Déclenche le calcul à la demande s'il n'est pas déjà en cache.
@@ -227,6 +90,8 @@ fn cache_etudes()
 /// Re-jeu paramétré avec cache — laboratoire (extension SMC 17/09).
 /// Même moteur exact que calculer() ; le trailing (Option<k×R>) est le
 /// levier d'étude du jour.
+const REFRESH_SEC: i64 = 1_800;
+
 pub async fn calculer_etude(
     pool: &Arc<db::Database>,
     tp1: f64,
@@ -276,26 +141,31 @@ pub async fn calculer_etude(
     Ok(rejeu)
 }
 
-pub(crate) async fn calculer(
-    pool: &Arc<db::Database>,
-    tp1: f64,
-    tp2: f64,
-    tp3_lointaine: bool,
-    tp3_rfixe: f64,
-    trailing: Option<f64>,
-    fractions: crate::smc_pondere::Fractions,
-    empreinte_couples: String,
-) -> anyhow::Result<RejeuSmc> {
-    calculer_avec_filtres(
-        pool, tp1, tp2, tp3_lointaine, tp3_rfixe, trailing, fractions, &empreinte_couples, &[], &[],
-    )
-    .await
-}
-
 /// Re-jeu complet avec périmètre d'ÉTUDE optionnel (17/09) : filtres assets/TF
 /// en plus de l'armement — le laboratoire simule un sous-ensemble sans jamais
 /// toucher à l'armement réel.
 #[allow(clippy::too_many_arguments)]
+/// Mode TP3 (config smc_tp3_mode : "lointaine" | "rfixe" ; défaut lointaine).
+pub async fn lire_tp3_lointaine(db: &db::Database) -> bool {
+    db.lire_config("smc_tp3_mode")
+        .await
+        .ok()
+        .flatten()
+        .map(|v| !v.trim().eq_ignore_ascii_case("rfixe"))
+        .unwrap_or(true)
+}
+
+/// R fixe TP3 (config smc_tp3_rfixe, défaut 3.0, borné 3.0-10.0).
+pub async fn lire_tp3_rfixe(db: &db::Database) -> f64 {
+    db.lire_config("smc_tp3_rfixe")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.trim().parse::<f64>().ok())
+        .map(|v| v.clamp(3.0, 10.0))
+        .unwrap_or(3.0)
+}
+
 pub(crate) async fn calculer_avec_filtres(
     pool: &Arc<db::Database>,
     tp1: f64,
@@ -464,11 +334,3 @@ pub(crate) async fn calculer_avec_filtres(
     })
 }
 
-/// Lecteurs publics pour le laboratoire (balayage trailing).
-pub async fn lire_tp3_lointaine_pub(db: &db::Database) -> bool {
-    lire_tp3_lointaine(db).await
-}
-
-pub async fn lire_tp3_rfixe_pub(db: &db::Database) -> f64 {
-    lire_tp3_rfixe(db).await
-}

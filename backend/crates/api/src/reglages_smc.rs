@@ -255,7 +255,6 @@ pub async fn put_couples(
         return HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": e.to_string() }));
     }
-    crate::smc_rejeu::lancer_si_necessaire(state.db.clone()).await;
     tracing::info!(
         "Armement SMC enregistré ({} asset(s)) — rejeu relancé, resynchro runtime ≤ 60 s",
         body.len()

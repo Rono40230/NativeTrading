@@ -5,15 +5,8 @@
 //! COMMUN avec les params actuels (trailing ×R, tampon 0,5R, TP3 3R,
 //! expiration 60 min). Cache mémoire invalidé par changement de params.
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, OnceLock};
-use std::time::Instant;
-
-use actix_web::{web, HttpResponse};
+use std::sync::Arc;
 use serde::Serialize;
-use tokio::sync::RwLock;
-
-use crate::state::AppState;
 
 /// Fenêtre de re-jeu par passe : T-30 (préparation) → T+75 min
 /// (time-stop 60 min + marge).
@@ -57,55 +50,8 @@ pub struct RejeuStraddle {
     pub capital_actuel: f64,
 }
 
-static CACHE: OnceLock<RwLock<Option<Arc<RejeuStraddle>>>> = OnceLock::new();
-static EN_COURS: AtomicBool = AtomicBool::new(false);
-
-const REFRESH_SEC: i64 = 1_800;
-
-fn cache() -> &'static RwLock<Option<Arc<RejeuStraddle>>> {
-    CACHE.get_or_init(|| RwLock::new(None))
-}
-
 /// Cache chaud du re-jeu straddle (None si jamais calculé ou params changés).
 /// Un recalcul est-il en vol (marque « ⏳ recalcul » de la carte) ?
-
-/// Signature des paramètres qui invalident le cache (trailing + SL de la
-/// carte straddle — les autres réglages moteur sont constants).
-async fn signature_params(pool: &db::Database) -> (f64, f64) {
-    let p = db::strategies_params::lire_straddle_params(pool.pool()).await;
-    (p.trailing_atr, p.sl_mult)
-}
-
-/// Lance le re-jeu si nécessaire : pas de cache, params changés, ou périmé.
-pub async fn lancer_si_necessaire(pool: Arc<db::Database>) {
-    let sig = signature_params(&pool).await;
-    if let Some(c) = cache().read().await.clone() {
-        let frais = chrono::Utc::now().timestamp() - c.calcule_le < REFRESH_SEC;
-        let pareil = (c.trailing_r - sig.0).abs() < 1e-9
-            && (c.sl_atr - sig.1).abs() < 1e-9;
-        if pareil && frais {
-            return;
-        }
-    }
-    if EN_COURS.swap(true, Ordering::SeqCst) {
-        return;
-    }
-    tokio::spawn(async move {
-        let debut = Instant::now();
-        match calculer(&pool).await {
-            Ok(rejeu) => {
-                tracing::info!(
-                    "Rejeu straddle : {} passe(s), WR {:.0} %, R réf {:+.1}, R net {:+.1}, capital {:.2} → {:.2} ({:?})",
-                    rejeu.total, rejeu.taux_reussite * 100.0, rejeu.r_total, rejeu.r_total_net,
-                    rejeu.capital_depart, rejeu.capital_actuel, debut.elapsed()
-                );
-                *cache().write().await = Some(Arc::new(rejeu));
-            }
-            Err(e) => tracing::warn!("Rejeu straddle : échec — {e}"),
-        }
-        EN_COURS.store(false, Ordering::SeqCst);
-    });
-}
 
 /// GET /api/straddle/rejeu — passes straddle re-dérivées des params courants.
 
@@ -326,19 +272,6 @@ fn palier_reference(verdict: &str) -> f64 {
     }
 }
 
-/// Re-jeu avec les réglages RÉELS (cache officiel de lancer_si_necessaire).
-async fn calculer(pool: &Arc<db::Database>) -> anyhow::Result<RejeuStraddle> {
-    let params_db = db::strategies_params::lire_straddle_params(pool.pool()).await;
-    let p = ParamsTrailing {
-        mode: "statique".into(),
-        k: params_db.trailing_atr,
-        fenetre: 10,
-        decay: 0.0,
-        time_stop_min: 60,
-    };
-    calculer_avec(pool, &p).await
-}
-
 /// Paramètres du trailing stop pour le laboratoire (16/09, étude volatilité).
 /// mode "statique" = moteur actuel (k × R du trade, après TP2) — référence
 /// exacte de production. Les autres modes simulent sans toucher au moteur.
@@ -353,16 +286,6 @@ pub struct ParamsTrailing {
     /// Réduction du k par tranche de 10 min (mode decay, 0-0.8).
     pub decay: f64,
     pub time_stop_min: i64,
-}
-
-/// Re-jeu paramétrable — laboratoire de simulation : trailing et time-stop
-/// virtuels, SANS toucher au cache officiel ni au moteur live. Les autres
-/// params moteur (ATR, TP mults) fixent les NIVEAUX à l'émission des passes.
-pub(crate) async fn calculer_avec(
-    pool: &Arc<db::Database>,
-    trailing: &ParamsTrailing,
-) -> anyhow::Result<RejeuStraddle> {
-    calculer_avec_filtres(pool, trailing, &[]).await
 }
 
 /// Re-jeu avec périmètre d'étude optionnel (17/09) : ne rejouer que les

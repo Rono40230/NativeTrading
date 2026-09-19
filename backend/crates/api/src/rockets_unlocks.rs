@@ -165,38 +165,6 @@ pub async fn boucle(db: Arc<Database>) {
 
 // ── Endpoints ────────────────────────────────────────────────────────────────
 
-/// GET /api/rockets/unlocks — calendrier complet + réglages.
-pub async fn lister(state: web::Data<AppState>) -> impl Responder {
-    let jours = lire_jours(&state.db).await;
-    let rows = sqlx::query(
-        "SELECT symbole, date_unlock, usd_estime, source FROM unlocks_prochains
-         WHERE date_unlock >= ? ORDER BY date_unlock ASC LIMIT 200",
-    )
-    .bind(chrono::Utc::now().timestamp() - 86_400)
-    .fetch_all(state.db.pool())
-    .await
-    .unwrap_or_default();
-    let horizon = chrono::Utc::now().timestamp() + jours * 86_400;
-    let liste: Vec<serde_json::Value> = rows
-        .iter()
-        .map(|r| {
-            let d = r.get::<i64, _>("date_unlock");
-            serde_json::json!({
-                "symbole": r.get::<String, _>("symbole"),
-                "date_unlock": d,
-                "usd_estime": r.try_get::<Option<f64>, _>("usd_estime").ok().flatten(),
-                "source": r.get::<String, _>("source"),
-                "veto_actif": d <= horizon,
-            })
-        })
-        .collect();
-    HttpResponse::Ok().json(serde_json::json!({
-        "jours": jours,
-        "actif": veto_actif(&state.db).await,
-        "unlocks": liste,
-    }))
-}
-
 #[derive(serde::Deserialize)]
 pub struct BodyUnlock {
     pub symbole: String,

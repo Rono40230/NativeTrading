@@ -18,7 +18,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use actix_web::{web, HttpResponse, Responder};
 use chrono::Utc;
 use common::{Asset, Candle, Timeframe};
 use db::Database;
@@ -27,7 +26,6 @@ use smc::v12::sentiment::{agreg_par_classe, calculer_sentiment_technique, Sentim
 use tokio::sync::RwLock;
 use tokio::time::{interval, sleep};
 
-use crate::state::AppState;
 
 /// Type du cache Fear & Greed partagé avec `AppState`.
 pub type FgCache = Arc<RwLock<Option<(std::time::Instant, Value)>>>;
@@ -369,81 +367,6 @@ pub fn demarrer_worker_sentiment(db: Arc<Database>, sentiment: SentimentSlot, fg
 
 /// GET /api/sentiment/composite
 ///
-/// Retourne le `SentimentScore` courant (refresh 30 min par le worker).
-/// Si pas encore calculé → score neutre (50 partout).
-/// Moyenne de la VEILLE par classe depuis sentiment_historique — la
-/// référence du jour J, figée avant l'ouverture (décision propriétaire :
-/// prior stable, pas de flip-flop intraday). Fallback : le live si la
-/// veille n'a aucun snapshot (premier jour de fonctionnement).
-pub async fn get_sentiment_composite(state: web::Data<AppState>) -> impl Responder {
-    let hier = (Utc::now() - chrono::Duration::days(1))
-        .format("%Y-%m-%d")
-        .to_string();
-
-    let lignes = sqlx::query_as::<_, (String, f64, Option<String>)>(
-        "SELECT classe, score, composantes FROM sentiment_historique WHERE date = ?",
-    )
-    .bind(&hier)
-    .fetch_all(state.db.pool())
-    .await
-    .unwrap_or_default();
-
-    if !lignes.is_empty() {
-        // Agrégation par classe : moyenne des scores + moyenne des
-        // composantes numériques du JSON (rsi, fg, vix…).
-        use std::collections::HashMap;
-        let mut scores: HashMap<String, Vec<f64>> = HashMap::new();
-        let mut composantes: Vec<serde_json::Value> = Vec::new();
-        for (classe, score, comp) in &lignes {
-            scores.entry(classe.clone()).or_default().push(*score);
-            if let Some(c) = comp {
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(c) {
-                    composantes.push(v);
-                }
-            }
-        }
-        let moyenne = |cle: &str| -> Option<f64> {
-            let vals: Vec<f64> = composantes
-                .iter()
-                .filter_map(|c| c.get(cle).and_then(|x| x.as_f64()))
-                .collect();
-            if vals.is_empty() { None } else { Some(vals.iter().sum::<f64>() / vals.len() as f64) }
-        };
-        let moy_classe = |cle: &str| -> Option<f64> {
-            scores.get(cle).map(|v| v.iter().sum::<f64>() / v.len() as f64)
-        };
-        return HttpResponse::Ok().json(SentimentScore {
-            global: moy_classe("global"),
-            crypto: moy_classe("crypto"),
-            forex: moy_classe("forex"),
-            metaux: moy_classe("metaux"),
-            indices: moy_classe("indices"),
-            rsi_btc: moyenne("rsi_btc"),
-            rsi_eth: moyenne("rsi_eth"),
-            rsi_xau: moyenne("rsi_xau"),
-            breadth_pct: moyenne("breadth_pct"),
-            fear_greed: moyenne("fear_greed"),
-            cnn_fg: moyenne("cnn_fg"),
-            cnn_rating: None,
-            vix_score: moyenne("vix_score"),
-            vix_brut: moyenne("vix_brut"),
-        });
-    }
-
-    // Fallback : composite live (veille sans données — premier jour).
-    let snap = state.sentiment.read().await.clone();
-    match snap {
-        Some(sc) => HttpResponse::Ok().json(sc),
-        None => HttpResponse::Ok().json(SentimentScore {
-            global: Some(50.0),
-            crypto: Some(50.0),
-            forex: Some(50.0),
-            metaux: Some(50.0),
-            indices: Some(50.0),
-            ..Default::default()
-        }),
-    }
-}
 
 #[cfg(test)]
 mod tests {

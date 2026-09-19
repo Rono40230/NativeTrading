@@ -78,7 +78,6 @@ pub async fn post_config(
                     | "smc_tp3_trailing" | "smc_tp3_trailing_r" | "smc_frac_tp1"
                     | "smc_frac_tp2" | "smc_frac_tp3"
             ) {
-                crate::smc_rejeu::lancer_si_necessaire(state.db.clone()).await;
             }
 
             HttpResponse::Ok().json(serde_json::json!({ "ok": true }))
