@@ -68,13 +68,6 @@ fn cache() -> &'static RwLock<Option<Arc<RejeuStraddle>>> {
 
 /// Cache chaud du re-jeu straddle (None si jamais calculé ou params changés).
 /// Un recalcul est-il en vol (marque « ⏳ recalcul » de la carte) ?
-pub fn recalcul_en_cours() -> bool {
-    EN_COURS.load(std::sync::atomic::Ordering::SeqCst)
-}
-
-pub async fn lire_cache() -> Option<Arc<RejeuStraddle>> {
-    cache().read().await.clone()
-}
 
 /// Signature des paramètres qui invalident le cache (trailing + SL de la
 /// carte straddle — les autres réglages moteur sont constants).
@@ -115,13 +108,6 @@ pub async fn lancer_si_necessaire(pool: Arc<db::Database>) {
 }
 
 /// GET /api/straddle/rejeu — passes straddle re-dérivées des params courants.
-pub async fn get_rejeu(state: web::Data<AppState>) -> impl actix_web::Responder {
-    lancer_si_necessaire(state.db.clone()).await;
-    if let Some(c) = cache().read().await.clone() {
-        return HttpResponse::Ok().json(serde_json::json!({ "en_cours": false, "rejeu": *c }));
-    }
-    HttpResponse::Ok().json(serde_json::json!({ "en_cours": true, "rejeu": null }))
-}
 
 /// Rejoue UNE passe : 2 jambes au lifecycle commun sur les M1 stockées.
 /// Retourne (verdict, r_net, ferme_le) ou None si encore vivante.

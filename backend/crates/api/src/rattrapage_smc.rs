@@ -224,17 +224,4 @@ async fn rattraper_un(db: &Arc<db::Database>, o: &Orphelin) -> anyhow::Result<()
     Ok(())
 }
 
-/// État du rattrapage pour l'UI (endpoint de contrôle).
-pub async fn get_etat(state: web::Data<AppState>) -> impl actix_web::Responder {
-    let orphelins: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM signaux
-         WHERE strategie='SMC' AND statut='Actif' AND heure_entree IS NOT NULL",
-    )
-    .fetch_one(state.db.pool())
-    .await
-    .unwrap_or(0);
-    HttpResponse::Ok().json(serde_json::json!({
-        "positions_actives_smc": orphelins,
-        "poste": "rattrapage au tick (lifecycle moteur, idempotent)",
-    }))
-}
+

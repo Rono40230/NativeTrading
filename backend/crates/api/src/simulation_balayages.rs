@@ -162,7 +162,6 @@ async fn balayage_trailing_smc(
     let db = state.db.clone();
     let reg = db.lire_strategie("SMC").await.ok().flatten().unwrap_or_default();
     let cap0 = reg.capital;
-    let risque = reg.risque_pct / 100.0;
     let tp1 = crate::reglages_smc::lire_tp1_reglage(&db).await;
     let tp2_reg = crate::reglages_smc::lire_tp2_reglage(&db).await;
     let fractions = crate::reglages_smc::lire_fractions(&db).await;
@@ -223,7 +222,6 @@ async fn balayage_straddle(
     };
     let reg = db.lire_strategie("straddle").await.ok().flatten().unwrap_or_default();
     let cap0 = reg.capital;
-    let risque = reg.risque_pct / 100.0;
     let params_db = db::strategies_params::lire_straddle_params(db.pool()).await;
 
     let mut lignes: Vec<serde_json::Value> = Vec::new();

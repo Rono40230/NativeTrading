@@ -79,7 +79,6 @@ pub struct RejeuSmc {
     pub fraction_risque: f64,
     pub capital_actuel: f64,
 }
-
 static CACHE: OnceLock<RwLock<Option<Arc<RejeuSmc>>>> = OnceLock::new();
 static EN_COURS: AtomicBool = AtomicBool::new(false);
 
@@ -209,23 +208,10 @@ pub async fn lancer_si_necessaire(pool: Arc<db::Database>) {
 
 /// GET /api/smc/rejeu — métriques SMC re-dérivées du TP1 réglé.
 /// Déclenche le calcul à la demande s'il n'est pas déjà en cache.
-pub async fn get_rejeu(state: web::Data<AppState>) -> impl actix_web::Responder {
-    lancer_si_necessaire(state.db.clone()).await;
-    if let Some(c) = cache().read().await.clone() {
-        return HttpResponse::Ok().json(serde_json::json!({ "en_cours": false, "rejeu": *c }));
-    }
-    HttpResponse::Ok().json(serde_json::json!({ "en_cours": true, "rejeu": null }))
-}
 
 /// Snapshot du cache (None = pas encore calculé).
-pub async fn lire_cache() -> Option<Arc<RejeuSmc>> {
-    cache().read().await.clone()
-}
 
 /// Un recalcul est-il en vol (badge ⏳ côté dashboard).
-pub fn recalcul_en_cours() -> bool {
-    EN_COURS.load(Ordering::SeqCst)
-}
 
 /// Cache d'études du laboratoire (16/09) : re-jeux paramétrés, clé =
 /// empreinte complète des paramètres, fraîcheur 30 min, capacité 8 (LRU).
@@ -289,7 +275,6 @@ pub async fn calculer_etude(
     }
     Ok(rejeu)
 }
-
 
 pub(crate) async fn calculer(
     pool: &Arc<db::Database>,
@@ -478,7 +463,6 @@ pub(crate) async fn calculer_avec_filtres(
         duree_ms: 0,
     })
 }
-
 
 /// Lecteurs publics pour le laboratoire (balayage trailing).
 pub async fn lire_tp3_lointaine_pub(db: &db::Database) -> bool {

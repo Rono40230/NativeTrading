@@ -34,10 +34,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::put().to(crate::registre_strategies::maj_strategie),
         )
         .route(
-            "/api/strategies/{id}/performance",
-            web::get().to(crate::registre_strategies::performance_strategie),
-        )
-        .route(
             "/api/strategies/{id}/simulation",
             web::post().to(crate::simulation::post_simulation),
         )
@@ -58,14 +54,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
                 .route(web::get().to(crate::capital_simule::capital_strategie)),
         )
         .route(
-            "/api/smc/rejeu",
-            web::get().to(crate::smc_rejeu::get_rejeu),
-        )
-        .route(
-            "/api/straddle/rejeu",
-            web::get().to(crate::straddle_rejeu::get_rejeu),
-        )
-        .route(
             "/api/straddle/agenda",
             web::get().to(crate::straddle_agenda::get_agenda),
         )
@@ -76,10 +64,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/rockets/positions/cloturer",
             web::post().to(crate::rockets_cloture::cloturer_manuel),
-        )
-        .route(
-            "/api/rockets/unlocks",
-            web::get().to(crate::rockets_unlocks::lister),
         )
         .route(
             "/api/rockets/unlocks",
@@ -206,10 +190,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::ollama_handlers::statut),
         )
         .route(
-            "/api/ia/signal/straddle",
-            web::post().to(crate::straddle_signal_handler::generer_signal_straddle),
-        )
-        .route(
             "/api/straddle/analyser",
             web::post().to(crate::straddle_handlers::analyser),
         )
@@ -261,14 +241,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/sentiment/marche",
             web::get().to(crate::sentiment_handlers::get_sentiment_marche),
-        )
-        .route(
-            "/api/sentiment/composite",
-            web::get().to(crate::sentiment_composite::get_sentiment_composite),
-        )
-        .route(
-            "/api/news/traduire",
-            web::get().to(crate::news_handlers::get_traduire),
         )
         // ── Centre d'analyse « Rapport d'activité » (phases 1-3, 04/09) ────
         .route(

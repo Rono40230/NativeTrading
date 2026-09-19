@@ -226,7 +226,7 @@ async fn breadth(db: &Arc<Database>) -> Vec<Breadth> {
         let mut au_dessus = 0i32;
         let mut total = 0i32;
         for id in *assets {
-            let Ok(asset) = common::Asset::try_from(*id) else { continue };
+            let asset = common::Asset::from(*id);
             let Ok(bougies) = db.obtenir_bougies(&asset, &common::Timeframe::D1, 50).await else {
                 continue;
             };
