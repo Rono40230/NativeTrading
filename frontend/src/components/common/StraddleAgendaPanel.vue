@@ -179,10 +179,11 @@ const aRemplacer = computed(() => verdicts.value.some(v => v.verdict_test === 'r
 const armageEnCours = ref(false)
 
 /// Armement en lot : remplit les slots libres (un clic propriétaire).
+/// Timeout dédié : le traitement par lots dépasse le 15 s global d'axios.
 async function armerFile() {
   armageEnCours.value = true
   try {
-    await http.post('/api/straddle/creneaux-ia/armer-file', null)
+    await http.post('/api/straddle/creneaux-ia/armer-file', null, { timeout: 120_000 })
   } catch (e) {
     alerteStore.afficherErreur(`Armement file : ${(e as Error).message}`)
   }

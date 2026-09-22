@@ -245,7 +245,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 import ModaleConfirmation from '@/components/common/ModaleConfirmation.vue'
+import { useAlerteStore } from '@/stores/alerte.store'
 import { chargerAnalyse, type AnalyseStrategie } from '@/composables/useAnalyses'
+
+const alerteStore = useAlerteStore()
 
 interface ParamsSmc {
   tp1_mult: number; tp2_mult: number; tp3_mode: string; tp3_rfixe: number
@@ -369,7 +372,10 @@ async function lancer() {
       { ...params.value, assets: filtreAssets.value, tfs: filtreTfs.value }, { timeout: 150_000 })
     sim.value = r.data.resultat
     await chargerEssais()
-  } catch { sim.value = null }
+  } catch (e) {
+    sim.value = null
+    alerteStore.afficherErreur(`Simulation : ${(e as Error).message}`)
+  }
   enCours.value = false
 }
 
@@ -379,7 +385,10 @@ async function balayer() {
     const r = await http.post<{ capital_depart: number; nb_clotures: number; configurations: LigneBalayage[] }>(
       '/api/strategies/SMC/simulation/balayage', { assets: filtreAssets.value, tfs: filtreTfs.value }, { timeout: 60_000 })
     balayage.value = r.data
-  } catch { balayage.value = null }
+  } catch (e) {
+    balayage.value = null
+    alerteStore.afficherErreur(`Balayage : ${(e as Error).message}`)
+  }
   enCoursBalayage.value = false
 }
 
@@ -389,7 +398,10 @@ async function balayerTrailing() {
     const r = await http.post<{ capital_depart: number; configurations: LigneTrailing[]; moteur_actuel: LigneTrailing | null }>(
       '/api/strategies/SMC/simulation/balayage', { cible: 'trailing', assets: filtreAssets.value, tfs: filtreTfs.value }, { timeout: 300_000 })
     balayageTrailingRes.value = r.data
-  } catch { balayageTrailingRes.value = null }
+  } catch (e) {
+    balayageTrailingRes.value = null
+    alerteStore.afficherErreur(`Balayage trailing : ${(e as Error).message}`)
+  }
   enCoursTrailing.value = false
 }
 

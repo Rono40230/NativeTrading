@@ -183,7 +183,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 import ModaleConfirmation from '@/components/common/ModaleConfirmation.vue'
+import { useAlerteStore } from '@/stores/alerte.store'
 import { chargerAnalyse, type AnalyseStrategie } from '@/composables/useAnalyses'
+
+const alerteStore = useAlerteStore()
 
 interface ParamsStraddle { trailing_mode: string; trailing_atr: number; time_stop_min: number; atr_fenetre: number; k_decay: number }
 interface LigneBalayageStraddle { k: number; capital: number; rendement: number; capital_minimum: number; r_total_net: number; passes: number }
@@ -251,7 +254,10 @@ async function balayer() {
       { mode: params.value.trailing_mode, fenetre: params.value.atr_fenetre, decay: params.value.k_decay, time_stop_min: params.value.time_stop_min, assets: filtreAssets.value },
       { timeout: 120_000 })
     balayage.value = r.data
-  } catch { balayage.value = null }
+  } catch (e) {
+    balayage.value = null
+    alerteStore.afficherErreur(`Balayage : ${(e as Error).message}`)
+  }
   enCoursBalayage.value = false
 }
 
@@ -263,7 +269,10 @@ async function lancer() {
       { ...params.value, assets: filtreAssets.value }, { timeout: 150_000 })
     sim.value = r.data.resultat
     await chargerEssais()
-  } catch { sim.value = null }
+  } catch (e) {
+    sim.value = null
+    alerteStore.afficherErreur(`Simulation : ${(e as Error).message}`)
+  }
   enCours.value = false
 }
 

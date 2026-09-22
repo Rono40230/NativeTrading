@@ -56,6 +56,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { presseApi, type ArticlePresse } from '@/services/api.presse'
 import { alertesApi } from '@/services/api.alertes'
+import { useAlerteStore } from '@/stores/alerte.store'
 import { ciblerPremierSlot } from '@/utils/graphiques'
 import type { AlertePrix } from '@/services/api.alertes'
 
@@ -68,6 +69,7 @@ const props = withDefaults(defineProps<{ ids?: string[] }>(), {
 const affiche = (id: string) => props.ids.includes(id)
 
 const router = useRouter()
+const alerteStore = useAlerteStore()
 
 /// Teinte de chaque tuile — la couleur voyage jusqu'à la page ouverte.
 const TEINTES: Record<string, string> = {
@@ -120,7 +122,9 @@ async function supprimerAlerte(a: AlertePrix) {
   try {
     await alertesApi.supprimer(a.id)
     alertesActives.value = alertesActives.value.filter(x => x.id !== a.id)
-  } catch { /* le prochain poll réaffichera l'état réel */ }
+  } catch (e) {
+    alerteStore.afficherErreur(`Suppression alerte : ${(e as Error).message}`)
+  }
 }
 
 function formaterPrix(p: number | null): string {
