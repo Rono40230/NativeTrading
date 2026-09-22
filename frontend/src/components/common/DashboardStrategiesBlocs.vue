@@ -240,6 +240,7 @@ import CourbeCapital from './CourbeCapital.vue'
 import ReglagesCarteBoutons from './ReglagesCarteBoutons.vue'
 import { usePositionsRockets, plLatent, plNeutralisee } from '@/composables/usePositionsRockets'
 import { useEnCoursStrategies } from '@/composables/useEnCoursStrategies'
+import { useAlerteStore } from '@/stores/alerte.store'
 import { zonesCapital, type PointCapital } from '@/composables/useCourbeCapital'
 import { chargerAnalyse, type AnalyseStrategie, type CategorieAnalyse } from '@/composables/useAnalyses'
 import {
@@ -298,6 +299,7 @@ interface SignalApi {
 const HIST_H = 30
 const NB_JOURS = 14
 
+const alerteStore = useAlerteStore()
 const router = useRouter()
 
 // ── Son Telegram : bascule directe sur la carte ─────────────────────────────
@@ -312,7 +314,9 @@ async function basculerTelegram(b: Bloc) {
       notifications: !b.notifications,
     })
     b.notifications = res.data.notifications
-  } catch { /* échec silencieux : l'icône reflète l'état inchangé */ }
+  } catch (e) {
+    alerteStore.afficherErreur(`Telegram ${b.id} : bascule échouée — ${(e as Error).message}`)
+  }
   basculeTelegram.value = ''
 }
 

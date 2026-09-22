@@ -70,8 +70,8 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "18/09 nuit (audit P2 : 7 endpoints morts + handlers + warnings)",
-    "commit": "2622200",
+    "date": "19/09 (audit P1-P3 : catch silencieux + modales designees + armement auto 70 creneaux + 0 warnings)",
+    "commit": "fb066a3",
     "note": "Session du 18/09 commitée (audit + correctifs). Hook pre-commit + audit push = garants mécaniques."
   },
   "verticales": [
@@ -608,6 +608,11 @@
     {
       "titre": "AUDIT : protocol de correction — comprendre → prouver → vérifier → corriger → tester",
       "detail": "Toute correction pendant l'audit suit ce protocol : (1) décrire le rôle de la fonction en langue naturelle, (2) identifier TOUS les appelants et dépendances, (3) décrire la correction envisagée pour validation, (4) corriger chirurgicalement, (5) tests + app 3/3 + vérification croisée que rien d'autre n'a changé. Code mort trouvé = supprimé, jamais laissé.",
+      "garant": "convention"
+    },
+    {
+      "titre": "LEÇON GRAVE : push sans vérification ni ordre propriétaire",
+      "detail": "Le 19/09, l'agent a poussé 3 commits (P2 code mort) sans que le propriétaire n'ait vérifié les corrections dans l'app ET sans ordre explicite de push. Violation directe de la règle fondamentale du projet. RÈGLE RENFORCÉE : aucun commit ni push sans vérification propriétaire dans l'app ET ordre explicite. L'agent doit proposer, le propriétaire teste et tranche.",
       "garant": "convention"
     }
   ],

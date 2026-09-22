@@ -52,6 +52,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { http } from '@/services/http.client'
+import { useAlerteStore } from '@/stores/alerte.store'
+
+const alerteStore = useAlerteStore()
 
 const props = defineProps<{
   ouvert: boolean
@@ -73,8 +76,8 @@ async function charger() {
   try {
     const res = await http.get<{ entrees: Entree[] }>(`/api/journal/${props.signalId}`)
     entrees.value = res.data.entrees ?? []
-  } catch {
-    entrees.value = []
+  } catch (e) {
+    alerteStore.afficherErreur(`Journal : ${(e as Error).message}`)
   }
 }
 
@@ -89,7 +92,9 @@ async function ajouter() {
     texte.value = ''
     await charger()
     emit('note')
-  } catch { /* silencieux : le fil réaffiche l'état réel */ } finally {
+  } catch (e) {
+    alerteStore.afficherErreur(`Journal : ${(e as Error).message}`)
+  } finally {
     enCours.value = false
   }
 }
@@ -99,6 +104,8 @@ async function supprimer(id: number) {
     await http.delete(`/api/journal/entree/${id}`)
     await charger()
     emit('note')
-  } catch { /* silencieux */ }
+  } catch (e) {
+    alerteStore.afficherErreur(`Journal : ${(e as Error).message}`)
+  }
 }
 </script>

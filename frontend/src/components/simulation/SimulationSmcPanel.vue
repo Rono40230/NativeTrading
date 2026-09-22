@@ -228,11 +228,23 @@
       <p v-else class="text-xs text-white/60 py-2 text-center">Aucun essai encore — lance une simulation, elle sera conservée ici.</p>
     </section>
   </div>
+
+    <ModaleConfirmation
+      :ouverte="confirmationOuverte"
+      titre="⚙️ Appliquer ces réglages ?"
+      sous-titre="Écriture dans la config RÉELLE — effet sur les futurs signaux uniquement."
+      :lignes="lignesConfirmation"
+      avertissement="Le vécu ne change jamais. Le re-jeu officiel relance en fond."
+      label-confirmer="✅ Appliquer"
+      @confirmer="executerApplication(); confirmationOuverte = false"
+      @annuler="confirmationOuverte = false"
+    />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
+import ModaleConfirmation from '@/components/common/ModaleConfirmation.vue'
 import { chargerAnalyse, type AnalyseStrategie } from '@/composables/useAnalyses'
 
 interface ParamsSmc {
@@ -279,6 +291,7 @@ function basculer(liste: string[], v: string) {
 }
 const enCours = ref(false)
 const enCoursBalayage = ref(false)
+const confirmationOuverte = ref(false)
 const messageApplique = ref('')
 
 /// Saisie des fractions en % — stockage 0-1 inchangé (backend, essais).
@@ -397,12 +410,30 @@ function rechargerParams(p: ParamsSmc) {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-async function appliquer() {
+const lignesConfirmation = computed(() => {
+  if (!modifie.value) return []
+  const l: string[] = []
+  for (const cle of Object.keys(CLES)) {
+    const ancien = CLES[cle](paramsActuels.value)
+    const nouveau = CLES[cle](params.value)
+    if (String(ancien) !== String(nouveau)) {
+      l.push(`  ${cle} : ${ancien} → ${nouveau}`)
+    }
+  }
+  return l
+})
+
+function appliquer() {
+  confirmationOuverte.value = true
+}
+
+async function executerApplication() {
   const clesModifiees = (Object.keys(CLES) as string[])
     .filter(k => String(CLES[k](params.value)) !== String(CLES[k](paramsActuels.value)))
   if (!clesModifiees.length) return
   const lignes = clesModifiees.map(k => `  ${k} : ${CLES[k](paramsActuels.value)} → ${CLES[k](params.value)}`).join('\n')
-  if (!window.confirm(`Écrire ces réglages dans la config RÉELLE ?\n\n${lignes}\n\nEffet sur les FUTURS signaux (le vécu ne change jamais). Le re-jeu officiel relance en fond.`)) return
+  confirmationOuverte.value = true
+  return
   for (const cle of clesModifiees) {
     try {
       await http.post('/api/config', { cle, valeur: String(CLES[cle](params.value)) })

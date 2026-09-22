@@ -130,6 +130,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useAlerteStore } from '@/stores/alerte.store'
 import { http } from '@/services/http.client'
 
 interface AgendaApi {
@@ -153,6 +154,7 @@ type Item =
   | { kind: 'hdr'; label: string; cle: string; action?: 'armer-file' }
   | { kind: 'carte'; c: CreneauIa; role: 'slot' | 'file' | 'reserve'; cle: string }
 
+const alerteStore = useAlerteStore()
 const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
 
 const agenda = ref<AgendaApi | null>(null)
@@ -181,7 +183,9 @@ async function armerFile() {
   armageEnCours.value = true
   try {
     await http.post('/api/straddle/creneaux-ia/armer-file', null)
-  } catch { /* plafond atteint ou file vide — le rechargement réaffiche la vérité */ }
+  } catch (e) {
+    alerteStore.afficherErreur(`Armement file : ${(e as Error).message}`)
+  }
   await chargerCreneaux()
   armageEnCours.value = false
 }
@@ -256,7 +260,9 @@ async function sauverSeuils() {
       min: Math.round(seuilsMin.value),
       plancher_r: seuilsPlancher.value,
     })
-  } catch { /* hors bornes : le rechargement suivant réaffiche la vérité */ }
+  } catch (e) {
+    alerteStore.afficherErreur(`Seuils : ${(e as Error).message}`)
+  }
   await chargerCreneaux()
 }
 
@@ -265,7 +271,9 @@ async function recalculer() {
   try {
     await http.post('/api/straddle/creneaux-ia/calculer', null, { timeout: 180_000 })
     await chargerCreneaux()
-  } catch { /* silencieux */ }
+  } catch (e) {
+    alerteStore.afficherErreur(`Calcul créneaux : ${(e as Error).message}`)
+  }
   recalculEnCours.value = false
 }
 
@@ -274,7 +282,9 @@ async function basculer(c: CreneauIa) {
     await http.post(`/api/straddle/creneaux-ia/${c.arme ? 'ignorer' : 'armer'}`, {
       asset: c.asset, jour: c.jour, heure: c.heure,
     })
-  } catch { /* plafond atteint ou créneau disparu */ }
+  } catch (e) {
+    alerteStore.afficherErreur(`Armement créneau : ${(e as Error).message}`)
+  }
   // Dans tous les cas : recharger réaffiche slots/file/réserve à la vérité.
   await chargerCreneaux()
 }
@@ -285,7 +295,9 @@ async function charger() {
     const d = res.data as AgendaApi
     annonces.value = d.annonces ?? []
     passes.value = d.passes ?? []
-  } catch { /* agenda indisponible */ }
+  } catch (e) {
+    alerteStore.afficherErreur(`Agenda : ${(e as Error).message}`)
+  }
 }
 
 let minuteur: ReturnType<typeof setInterval> | null = null

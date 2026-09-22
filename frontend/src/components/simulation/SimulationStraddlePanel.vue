@@ -166,11 +166,23 @@
       <p v-else class="text-xs text-white/60 py-2 text-center">Aucun essai encore — lance une simulation, elle sera conservée ici.</p>
     </section>
   </div>
+
+    <ModaleConfirmation
+      :ouverte="confirmationOuverte"
+      titre="⚙️ Appliquer le trailing ?"
+      sous-titre="Écriture dans les réglages moteur RÉELS — effet sur les futures passes."
+      :lignes="[`  trailing ATR : ${paramsActuels.trailing_atr} → ${params.trailing_atr}`]"
+      avertissement="Le time-stop canonique 60 n'est pas réglable ici. Le vécu ne change jamais."
+      label-confirmer="✅ Appliquer"
+      @confirmer="executerApplication(); confirmationOuverte = false"
+      @annuler="confirmationOuverte = false"
+    />
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
+import ModaleConfirmation from '@/components/common/ModaleConfirmation.vue'
 import { chargerAnalyse, type AnalyseStrategie } from '@/composables/useAnalyses'
 
 interface ParamsStraddle { trailing_mode: string; trailing_atr: number; time_stop_min: number; atr_fenetre: number; k_decay: number }
@@ -190,6 +202,7 @@ const paramsActuels = ref<ParamsStraddle>({ trailing_mode: 'statique', trailing_
 const sim = ref<ResultatSim | null>(null)
 const balayage = ref<{ mode: string; capital_depart: number; configurations: LigneBalayageStraddle[]; moteur_actuel: LigneBalayageStraddle | null } | null>(null)
 const enCoursBalayage = ref(false)
+const confirmationOuverte = ref(false)
 const filtreAssets = ref<string[]>([])
 const pairesDispo = ref<string[]>([])
 
@@ -271,9 +284,14 @@ function rechargerParams(p: ParamsStraddle) {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-async function appliquer() {
+function appliquer() {
+  confirmationOuverte.value = true
+}
+
+async function executerApplication() {
   const lignes = [`  trailing ATR : ${paramsActuels.value.trailing_atr} → ${params.value.trailing_atr}`]
-  if (!window.confirm(`Écrire le trailing dans les réglages moteur RÉELS ?\n\n${lignes.join('\n')}\n\nEffet sur les FUTURES passes (le time-stop canonique 60 n'est pas réglable ici).`)) return
+  confirmationOuverte.value = true
+  return
   try {
     // PUT complet exigé par l'API : on lit les réglages réels et ne
     // remplace que le trailing.

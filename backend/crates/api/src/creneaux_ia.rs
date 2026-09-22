@@ -45,7 +45,10 @@ const MAX_PROPOSITIONS: usize = 15;
 /// Plafond de créneaux IA armés simultanément (décision propriétaire 15/09 :
 /// 3 → 8 pour accélérer la mesure — 30 passes par source ; la file ARMER
 /// est profonde et la boucle de verdict par créneau reste le juge).
-const PLAFOND_ARMES: usize = 8;
+/// Plafond d'armement. Pendant la phase de backtest/paper trading (décision
+/// propriétaire 18/09), tous les créneaux du périmètre sont armés — le plafond
+/// redeviendra pertinent au passage en réel.
+const PLAFOND_ARMES: usize = 500;
 
 /// Jours ISO 1-7 → libellé (partagé avec la boucle de validation).
 pub(crate) const JOURS: [&str; 7] = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
@@ -553,6 +556,21 @@ pub async fn mettre_seuils(state: web::Data<AppState>, body: web::Json<BodySeuil
 /// matin Paris, loin des sessions) — les propositions sont fraîches au
 /// matin et les verdicts rendus avant l'ouverture.
 pub async fn boucle(db: Arc<Database>) {
+    // Armement automatique pendant le paper trading (décision 18/09) :
+    // tous les créneaux ARMER du périmètre sont armés au démarrage.
+    // Armement automatique pendant le paper trading (décision 18/09)
+    let _ = sqlx::query(
+        "UPDATE creneaux_ia SET arme = 1, arme_le = strftime('%s','now'),
+                occurrences = CASE WHEN arme = 0 THEN 0 ELSE occurrences END,
+                somme_r = CASE WHEN arme = 0 THEN 0 ELSE somme_r END,
+                verdict_test = CASE WHEN arme = 0 THEN NULL ELSE verdict_test END,
+                conclut_le = CASE WHEN arme = 0 THEN NULL ELSE conclut_le END
+         WHERE verdict_ia = 'ARMER' AND arme = 0"
+    ).execute(db.pool()).await;
+    let n = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM creneaux_ia WHERE arme = 1")
+        .fetch_one(db.pool()).await.unwrap_or(0);
+    tracing::info!("⚡ Armement auto straddle : {} créneau(x) armé(s)", n);
+
     tracing::info!("🤖 Créneaux IA armés (quotidien 4h Paris + boot)");
     recalculer(&db).await;
     evaluer(&db, false).await;
