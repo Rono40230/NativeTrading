@@ -1,7 +1,5 @@
 use sqlx::SqlitePool;
 
-use llm::ollama;
-
 // ── Hash DJB2 ────────────────────────────────────────────────────────────────
 
 pub fn hash_titre(titre: &str) -> String {
@@ -41,13 +39,30 @@ pub async fn ecrire_cache(pool: &SqlitePool, hash: &str, titre_fr: &str) {
     }
 }
 
-// ── Traduction Ollama ─────────────────────────────────────────────────────────
+// ── Traduction : DeepL (voie principale) + Ollama (repli) ─────────────────────
 
-const MODELE_TRADUCTION: &str = "maternion/hy-mt2:7b"; // modèle dédié traduction — bien meilleur que qwen2.5:3b
+const MODELE_TRADUCTION: &str = "maternion/hy-mt2:7b"; // repli local si DeepL indisponible/sans clé
 
-/// Traduit un texte anglais en français via Ollama (modèle léger 3B).
-/// Retourne le texte original en cas d'échec (dégradation silencieuse).
-pub async fn traduire(texte: &str) -> String {
+/// Clé DeepL configurée (onglet clés API) — vide/absente = voie locale seule.
+async fn lire_cle_deepl(pool: &SqlitePool) -> Option<String> {
+    sqlx::query_scalar::<_, String>("SELECT valeur FROM configuration WHERE cle = 'deepl_api_key'")
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+        .filter(|c| !c.trim().is_empty())
+}
+
+/// Traduit un texte anglais en français. Voie principale : DeepL (décision
+/// 22/09 — noms propres préservés). Repli : Ollama local hy-mt2.
+/// Retourne le texte original en cas d'échec total (dégradation silencieuse).
+pub async fn traduire(pool: &SqlitePool, texte: &str) -> String {
+    if let Some(cle) = lire_cle_deepl(pool).await {
+        if let Some(t) = llm::deepl::traduire(&cle, texte).await {
+            return t;
+        }
+    }
+
     let prompt = format!(
         "Traduis ce titre financier en français naturel. \
         Réponds uniquement avec la traduction, sans guillemets ni explication.\n\n\
@@ -81,7 +96,7 @@ pub async fn traduire(texte: &str) -> String {
 
 // ── Point d'entrée principal ─────────────────────────────────────────────────
 
-/// Traduit un titre en utilisant le cache SQLite. Appelle Ollama uniquement
+/// Traduit un titre en utilisant le cache SQLite. Appelle DeepL/Ollama uniquement
 /// si le titre n'est pas encore connu. Dégradation silencieuse.
 pub async fn traduire_avec_cache(pool: &SqlitePool, titre: &str) -> String {
     let hash = hash_titre(titre);
@@ -90,7 +105,7 @@ pub async fn traduire_avec_cache(pool: &SqlitePool, titre: &str) -> String {
         return cached;
     }
 
-    let traduit = traduire(titre).await;
+    let traduit = traduire(pool, titre).await;
     ecrire_cache(pool, &hash, &traduit).await;
     traduit
 }
@@ -188,26 +203,6 @@ async fn analyser_sentiment(titre: &str) -> String {
     }
 }
 
-/// Traduit un texte long (corps d'article) — sans cache (trop volumineux).
-pub async fn traduire_contenu(texte: &str) -> String {
-    // Tronquer à 3000 caractères pour éviter les timeouts
-    let extrait = if texte.len() > 3000 {
-        &texte[..3000]
-    } else {
-        texte
-    };
-
-    let prompt = format!(
-        "Traduis ce texte financier en français naturel et fluide. \
-        Réponds uniquement avec la traduction.\n\n{extrait}"
-    );
-
-    match ollama::interroger_chat_modele(&[("user".to_string(), prompt)], MODELE_TRADUCTION).await {
-        Ok(t) => t,
-        Err(_) => texte.to_string(),
-    }
-}
-
 // ── Traduction stricte + brief LLM (revue de presse) ──────────────────────────
 
 /// Une traduction est réussie si elle diffère de l'original (contrat :
@@ -232,7 +227,7 @@ pub async fn traduire_texte_avec_cle(pool: &SqlitePool, cle: &str, texte: &str) 
     if let Some(cached) = lire_cache(pool, &hash).await {
         return cached;
     }
-    let traduit = traduire(texte).await;
+    let traduit = traduire(pool, texte).await;
     ecrire_cache(pool, &hash, &traduit).await;
     traduit
 }
@@ -254,7 +249,7 @@ pub async fn traduire_avec_cache_strict(pool: &SqlitePool, titre: &str) -> Optio
     // Cache absent ou empoisonné par la voie tolérante (échec caché tel
     // quel) : on retente la traduction réelle ci-dessous — un succès
     // écrasera le poison (ecrire_cache fait INSERT OR REPLACE).
-    let traduit = traduire(titre).await;
+    let traduit = traduire(pool, titre).await;
     if traduction_reussie(titre, &traduit) {
         ecrire_cache(pool, &hash, &traduit).await;
         Some(traduit)

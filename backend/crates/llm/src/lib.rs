@@ -4,6 +4,7 @@
 //! `prompt_effectif` (lecture fichier pure sur `data/prompts_overrides.json`) a été
 //! déplacée ici depuis `api::prompts_handler` pour découpler le cycle
 //! (intra-llm), et `api::prompts_handler` consomme `llm::prompt_effectif`.
+pub mod deepl;
 pub mod ollama;
 pub mod prompts;
 

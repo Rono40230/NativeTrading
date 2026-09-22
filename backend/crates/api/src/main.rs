@@ -30,6 +30,7 @@ mod ollama_handlers;
 mod ollama_types;
 mod pip_updater;
 mod presse_handlers;
+mod presse_notation;
 mod prix_handlers;
 mod prix_stream;
 mod prix_utils;
@@ -176,6 +177,10 @@ async fn main() -> std::io::Result<()> {
     tokio::spawn(creneaux_ia::boucle(app_state.db.clone()));
     tokio::spawn(rockets_unlocks::boucle(app_state.db.clone()));
     tokio::spawn(straddle_analyste::assurer_cache(app_state.db.clone()));
+    // Tâche 6.4 audit : notation LLM des articles restés à 0 (backlog au
+    // boot puis balayage toutes les 6 h) — scores bornés à 1 pour ne jamais
+    // re-boucler sur un article déjà noté.
+    tokio::spawn(presse_notation::boucle(app_state.db.clone()));
     // Étape C : scanner actions quotidien — Observation silencieuse.
     tokio::spawn(rockets_actions_scanner::boucle_scanner_actions(app_state.db.clone(), poignees_runtime.bus_signaux.clone()));
 

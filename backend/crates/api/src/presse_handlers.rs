@@ -20,6 +20,8 @@ pub async fn get_articles(
         source: q.get("source").cloned().filter(|s| !s.is_empty()),
         q: q.get("q").cloned().filter(|s| !s.is_empty()),
         lu: q.get("lu").map(|l| l == "1" || l == "true"),
+        impact_min: q.get("impact_min").cloned().filter(|s| !s.is_empty()),
+        tri: q.get("tri").cloned().filter(|s| !s.is_empty()),
         limite: 50,
         offset: (page - 1) * 50,
     };
@@ -75,7 +77,7 @@ pub async fn ouvrir_article(state: web::Data<AppState>, chemin: web::Path<String
         return HttpResponse::NotFound().json(serde_json::json!({"erreur": "article inconnu"}));
     };
 
-    // Traduction : cache → Ollama strict → machine à états (2 échecs = suppression).
+    // Traduction : cache → DeepL/Ollama strict → machine à états (2 échecs = suppression).
     let mut echec_traduction = false;
     let mut titre_fr = if article.statut_traduction == "ok" {
         // Déjà traduit une fois : le cache suffit (pas de nouvelle tentative).

@@ -63,6 +63,10 @@ pub struct FiltreArticles {
     pub source: Option<String>,
     pub q: Option<String>,
     pub lu: Option<bool>,
+    /// "moyen" → masque les impact faibles ; "fort" → forts seulement.
+    pub impact_min: Option<String>,
+    /// "score" → tri pertinence décroissante ; défaut = plus récents.
+    pub tri: Option<String>,
     pub limite: i64,
     pub offset: i64,
 }
@@ -203,7 +207,16 @@ impl Database {
         if f.source.is_some() { sql.push_str(" AND source_nom = ?"); }
         if f.q.is_some() { sql.push_str(" AND LOWER(titre) LIKE ?"); }
         if let Some(lu) = f.lu { sql.push_str(if lu { " AND lu = 1" } else { " AND lu = 0" }); }
-        sql.push_str(" ORDER BY ajoute_le DESC LIMIT ? OFFSET ?");
+        if f.impact_min.as_deref() == Some("moyen") {
+            sql.push_str(" AND impact IN ('moyen', 'fort')");
+        } else if f.impact_min.as_deref() == Some("fort") {
+            sql.push_str(" AND impact = 'fort'");
+        }
+        if f.tri.as_deref() == Some("score") {
+            sql.push_str(" ORDER BY score DESC, ajoute_le DESC LIMIT ? OFFSET ?");
+        } else {
+            sql.push_str(" ORDER BY ajoute_le DESC LIMIT ? OFFSET ?");
+        }
 
         // Phase 2 : requête figée, puis binds dans le même ordre (le borrow
         // checker impose de ne muter `sql` qu'avant la création de la requête).
@@ -222,8 +235,38 @@ impl Database {
         }).collect())
     }
 
-    pub async fn lire_article_presse(&self, hash: &str) -> anyhow::Result<Option<PresseArticle>> {
-        // Pas de filtre hash dans FiltreArticles : requête dédiée.
+    /// Titres des articles sans score (notation LLM), plus récents d'abord.
+    pub async fn articles_presse_sans_score(&self, n: i64) -> anyhow::Result<Vec<(String, String)>> {
+        let rows = sqlx::query_as::<_, (String, String)>(
+            "SELECT hash_titre, titre FROM presse_articles
+             WHERE score = 0 ORDER BY ajoute_le DESC LIMIT ?",
+        )
+        .bind(n)
+        .fetch_all(self.pool())
+        .await?;
+        Ok(rows)
+    }
+
+    /// Applique un score (notation LLM) et recalcule l'impact dérivé avec
+    /// les seuils du classifieur (fort ≥ 60 · moyen ≥ 35 · faible).
+    pub async fn noter_article_presse(&self, hash: &str, score: u8) -> anyhow::Result<()> {
+        let impact = if score >= 60 {
+            "fort"
+        } else if score >= 35 {
+            "moyen"
+        } else {
+            "faible"
+        };
+        sqlx::query("UPDATE presse_articles SET score = ?, impact = ? WHERE hash_titre = ?")
+            .bind(score)
+            .bind(impact)
+            .bind(hash)
+            .execute(self.pool())
+            .await?;
+        Ok(())
+    }
+
+    pub async fn lire_article_presse(&self, hash: &str) -> anyhow::Result<Option<PresseArticle>> {        // Pas de filtre hash dans FiltreArticles : requête dédiée.
         let sql = "SELECT hash_titre, titre, url, source_nom, publie_le, score, theme,
                           assets_concernes, impact, statut_traduction, tentatives_traduction, lu, ajoute_le,
                           resume_source
@@ -422,7 +465,8 @@ mod tests {
 
         let filtre = FiltreArticles {
             theme: Some("crypto".into()), asset: Some("BTC".into()),
-            source: None, q: None, lu: None, limite: 50, offset: 0,
+            source: None, q: None, lu: None, impact_min: None, tri: None,
+            limite: 50, offset: 0,
         };
         let res = db.lister_articles_presse(&filtre).await.unwrap();
         assert_eq!(res.len(), 1);
@@ -431,7 +475,8 @@ mod tests {
         // Recherche texte
         let filtre_q = FiltreArticles {
             theme: None, asset: None, source: None,
-            q: Some("titre h2".into()), lu: None, limite: 50, offset: 0,
+            q: Some("titre h2".into()), lu: None, impact_min: None, tri: None,
+            limite: 50, offset: 0,
         };
         assert_eq!(db.lister_articles_presse(&filtre_q).await.unwrap().len(), 1);
     }

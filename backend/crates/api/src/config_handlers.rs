@@ -13,6 +13,7 @@ const CLES_AUTORISEES: &[&str] = &[
     "seuil_confiance_straddle",
     "seuil_confiance_smc",
     "tiingo_api_key",
+    "deepl_api_key",
     "smc_tp1_mult",
     "smc_tp2_mult",
     "smc_tp3_mode",

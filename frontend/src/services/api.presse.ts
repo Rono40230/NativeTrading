@@ -20,7 +20,7 @@ export interface BriefPresse {
 }
 
 export const presseApi = {
-  async articles(filtres: Partial<{ theme: string; asset: string; source: string; q: string; lu: string; page: number }> = {}): Promise<ArticlePresse[]> {
+  async articles(filtres: Partial<{ theme: string; asset: string; source: string; q: string; lu: string; page: number; tri: string; impact_min: string }> = {}): Promise<ArticlePresse[]> {
     const res = await http.get('/api/presse/articles', { params: filtres })
     return res.data.articles
   },

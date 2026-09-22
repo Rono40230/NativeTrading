@@ -86,6 +86,14 @@
             <!-- lu=true → articles LUS, lu=false → NON LUS (interprétation backend) -->
             <option value="">Lu + non lus</option><option value="true">Lus</option><option value="false">Non lus</option>
           </select>
+          <select v-model="filtre.tri" class="bg-white text-black rounded-lg px-2 py-1.5 text-sm" @change="charger()">
+            <option value="score">Tri : pertinence</option>
+            <option value="recent">Tri : récents</option>
+          </select>
+          <label class="flex items-center gap-1.5 text-sm text-white cursor-pointer select-none">
+            <input type="checkbox" v-model="filtre.impactMin" class="accent-amber-400" @change="charger()" />
+            Masquer les faibles
+          </label>
           <!-- articles.length = total chargé (toutes pages « Charger plus » confondues) -->
           <span class="text-xs text-white">{{ articles.length }} articles</span>
         </div>
@@ -118,7 +126,14 @@
             <div class="mt-auto flex flex-wrap items-center gap-1.5 text-[10px]">
               <span class="px-1.5 py-0.5 rounded" :class="a.impact === 'fort' ? 'bg-red-500/15 text-red-300' : a.impact === 'moyen' ? 'bg-yellow-500/15 text-yellow-300' : 'bg-white/10 text-white'">{{ a.impact }}</span>
               <span class="px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300">{{ a.theme }}</span>
+              <span class="px-1.5 py-0.5 rounded bg-white/5 text-white/70 tabular-nums" :title="'Publié le ' + a.publie_le">{{ dateArticle(a) }}</span>
               <span class="px-1.5 py-0.5 rounded bg-white/10 text-white truncate max-w-[8rem]">{{ a.source_nom }}</span>
+              <!-- Lien source : ouvre l'article d'origine (stop = ne déclenche pas la lecture) -->
+              <button
+                class="ml-auto px-1.5 py-0.5 rounded bg-white/10 text-white hover:bg-white/25 transition shrink-0"
+                title="Ouvrir la source d'origine"
+                @click.stop="ouvrirExterne(a.url)"
+              >🔗</button>
             </div>
           </article>
         </div>
@@ -199,7 +214,7 @@ const dernierBrief = ref<Awaited<ReturnType<typeof presseApi.briefs>>[number] | 
 function estNouveau(epochSec: number): boolean {
   return Date.now() / 1000 - epochSec < 1800
 }
-const filtre = reactive({ q: '', theme: '', asset: '', lu: '' })
+const filtre = reactive({ q: '', theme: '', asset: '', lu: '', tri: 'score', impactMin: false })
 const modaleSources = ref(false)
 const nouvelleSource = reactive({ nom: '', url: '' })
 // Valeurs réellement produites par classer_theme (backend)
@@ -214,6 +229,15 @@ function formaterDate(epochSec: number): string {
   return new Date(epochSec * 1000).toLocaleString('fr-FR', {
     day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
   })
+}
+
+/** Date affichée sur la carte : publication RSS, repli sur la collecte. */
+function dateArticle(a: ArticlePresse): string {
+  const d = new Date(a.publie_le)
+  if (!Number.isNaN(d.getTime())) {
+    return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  }
+  return formaterDate(a.ajoute_le)
 }
 
 /** Dépouille une éventuelle clôture markdown ```...``` du contenu du brief avant affichage. */
@@ -277,6 +301,8 @@ async function charger(reset = true) {
   const res = await presseApi.articles({
     q: filtre.q || undefined, theme: filtre.theme || undefined,
     asset: filtre.asset || undefined, lu: filtre.lu || undefined,
+    tri: filtre.tri || undefined,
+    impact_min: filtre.impactMin ? 'moyen' : undefined,
     page: page.value,
   })
   if (reset) articles.value = res

@@ -62,6 +62,31 @@
       </div>
     </div>
 
+    <!-- Presse — DeepL (traduction des titres) -->
+    <div class="glass-card p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-xs uppercase font-bold text-white">Presse — DeepL</h2>
+          <p class="text-xs text-white mt-0.5">Traduction des titres d'articles EN→FR — 500 000 caractères/mois offerts. Sans clé : traduction locale (repli automatique)</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded text-xs font-medium transition-colors" @click="sauvegarderDeepl">Enregistrer</button>
+          <span v-if="deeplSauvegarde" class="text-emerald-400 text-xs">✓</span>
+          <span v-if="deeplErreur" class="text-red-400 text-xs">⚠️ Erreur</span>
+        </div>
+      </div>
+      <div class="flex gap-3 items-center">
+        <input v-model="deeplKey" :type="afficherDeepl ? 'text' : 'password'" placeholder="Clé DeepL (xxx...:fx)"
+          autocomplete="off"
+          class="bg-gray-700 text-white rounded px-2 py-1.5 w-80 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          @keyup.enter="sauvegarderDeepl" />
+        <button class="text-xs text-white hover:text-white transition-colors" @click="afficherDeepl = !afficherDeepl">
+          {{ afficherDeepl ? '🙈 Masquer' : '👁️ Afficher' }}
+        </button>
+        <span class="text-xs text-white">Clé gratuite : deepl.com/pro-api (formule DeepL API Free)</span>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -81,19 +106,27 @@ const tiingoSauvegarde = ref(false)
 const tiingoErreur = ref(false)
 const afficherTiingo = ref(false)
 
+// ── DeepL (traduction titres presse) ────────────────────────────────────────
+const deeplKey = ref('')
+const deeplSauvegarde = ref(false)
+const deeplErreur = ref(false)
+const afficherDeepl = ref(false)
+
 const timers: ReturnType<typeof setTimeout>[] = []
 onUnmounted(() => timers.forEach(clearTimeout))
 
 onMounted(async () => {
   try {
-    const [tok, chatId, tiingo] = await Promise.all([
+    const [tok, chatId, tiingo, deepl] = await Promise.all([
       apiService.obtenirConfig('telegram_bot_token'),
       apiService.obtenirConfig('telegram_chat_id'),
       apiService.obtenirConfig('tiingo_api_key'),
+      apiService.obtenirConfig('deepl_api_key'),
     ])
     if (tok?.valeur) telegramToken.value = tok.valeur
     if (chatId?.valeur) telegramChatId.value = chatId.valeur
     if (tiingo?.valeur) tiingoKey.value = tiingo.valeur
+    if (deepl?.valeur) deeplKey.value = deepl.valeur
   } catch {
     // Backend non disponible — valeurs par défaut
   }
@@ -129,6 +162,24 @@ async function sauvegarderTiingo() {
   } catch {
     tiingoErreur.value = true
     timers.push(setTimeout(() => { tiingoErreur.value = false }, 3000))
+  }
+}
+
+async function sauvegarderDeepl() {
+  const cle = deeplKey.value.trim()
+  if (cle.length < 10 && cle !== '') {
+    deeplErreur.value = true
+    timers.push(setTimeout(() => { deeplErreur.value = false }, 3000))
+    return
+  }
+  try {
+    await apiService.sauvegarderConfig('deepl_api_key', cle)
+    deeplSauvegarde.value = true
+    deeplErreur.value = false
+    timers.push(setTimeout(() => { deeplSauvegarde.value = false }, 2000))
+  } catch {
+    deeplErreur.value = true
+    timers.push(setTimeout(() => { deeplErreur.value = false }, 3000))
   }
 }
 </script>
