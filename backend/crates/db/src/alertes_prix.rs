@@ -72,20 +72,22 @@ impl Database {
         Ok(res.rows_affected())
     }
 
-    /// Marque déclenchée (désarmée) — retourne l'alerte pour la notification.
+    /// Déclenche : lit les données (message Telegram) puis SUPPRIME l'alerte
+    /// — elle disparaît de la base et du bloc Graphique (décision 19/09).
     pub async fn declencher_alerte_prix(&self, id: i64) -> anyhow::Result<Option<AlertePrix>> {
-        sqlx::query("UPDATE alertes_prix SET active = 0, declenchee_le = ? WHERE id = ? AND active = 1")
-            .bind(chrono::Utc::now().timestamp())
-            .bind(id)
-            .execute(self.pool())
-            .await?;
         let row = sqlx::query(
             "SELECT id, asset, prix, sens, note, active, cree_le, declenchee_le
-             FROM alertes_prix WHERE id = ?",
+             FROM alertes_prix WHERE id = ? AND active = 1",
         )
         .bind(id)
         .fetch_optional(self.pool())
         .await?;
+        if row.is_some() {
+            sqlx::query("DELETE FROM alertes_prix WHERE id = ?")
+                .bind(id)
+                .execute(self.pool())
+                .await?;
+        }
         Ok(row.map(depuis_ligne))
     }
 }

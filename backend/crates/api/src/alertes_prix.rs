@@ -56,15 +56,11 @@ pub async fn verifier(db: &Database, cache: &mut CacheAlertes, ev: &EvenementPri
             continue;
         };
         let sens_txt = if a.sens == "au_dessus" { "monté à" } else { "descendu à" };
-        let note = a.note.as_deref().map(|n| format!("\n📝 {n}")).unwrap_or_default();
         let msg = format!(
-            "🔔 Alerte prix\n{} a {} {:.2}\nSeuil : {:.2} ({}){}",
+            "🔔 Alerte prix\n{} a {} {:.2}",
             a.asset,
             sens_txt,
             prix,
-            a.prix,
-            if a.sens == "au_dessus" { "au-dessus" } else { "en-dessous" },
-            note,
         );
         let (token, chat) = notifications::telegram::lire_tokens_pool(db.pool()).await;
         if !token.is_empty() && !chat.is_empty() {

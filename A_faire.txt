@@ -1,38 +1,41 @@
 
+Je crois que nous commencons à disposer d'une app utiles et complète pour le trading.
+Fais une analyse approfondie de toute l'app :
+- toutes ces fonctionnalités,
+- toutes ces logiques,
+- tous ces moteurs,
+- la correspondances backen/frontend
+
+Quel est ton avis objectif sur la qualité de cette app ?
+J'attends de toi un avis critique et constructif, non condescandant.
+Qu'envisagerais-tu comme correction/améliorations supplémentaires par fonctionnalités ou des fonctionnalités supplémentaires ?
+
+Profites en pour me dire si il y a du nettoyage à prévoir : code mort, code inutile, fichiers inutiles, etc ...
+
+Liste moi tes conclusions avant d'établir un plan d'action.
+
+--------------------------------------------------------------------------------------------------------------------------
 
 
 
 --------------------------------------------------------------------------------------------------------------------------
 
+Brancher plus de paires sur SMC
+
+--------------------------------------------------------------------------------------------------------------------------
+
+Pourquoi dans ⏳ SETUPS EN ATTENTE · xx ORDRES POSÉS j'ai par exemple : 
+⏳ SP500 M15 🔴 Vente
+force 10/10
+Se confirme dans 3mn 20s
+
+La question est la suivante : si le setup se confirme avant la fin du chronomètre et que donc "l'entrée snipper" est confirmée, est ce que le trade est exécuté ?
+On revient sur mes préoccupation précédentes à savoir : ratons-nous des trades ?
+
+--------------------------------------------------------------------------------------------------------------------------
 
 
 --------------------------------------------------------------------------------------------------------------------------
 
-ATTENTION AVERTISSEMNT : les prochaines questions touchent aux moteurs de génération et gestion des signaux.
-Tu ne commit/push rien tant que je ne te le dis pas.
-On analyse. On corrige. On vérifie. Avant de commit/push.
-Les corrections doivent être absolument chirurgicales et ne rien casser ou ne pas générer de régression ou dette technique. 
-
-
-Analyse la manière dont sont confirmés/expirés les signaux SMC.
-Analyse la manière dont sont gérés les trades en cours.
-
-J'ai l'impression qu'ils ne se mettent à jour que à la cloture de la bougie = cela ne doit pas fonctionner ainsi.
-La mise à jour du trade en cours doit se faire au tick sans attendre la cloture de la bougie.
-
 --------------------------------------------------------------------------------------------------------------------------
 
-Confirme moi que dans l'onglet "Paramètres des stratégies" de la page "paramètres" tous les dropdowns de modification des paramètres de chaque stratégie sont bien branchés au moteur = changement de paramètre = modification des calculs des moteurs.
-
---------------------------------------------------------------------------------------------------------------------------
-
-Que penses tu de supprimer le bouton "Paramètres" du bloc "systeme" dans le dashboard.  Et de créer un bouton paramètres dans chaque page de stratégie à côté du bouton "Caracteristiques de la stratégie" ?
-Ensuite on pourrait renommer le bloc ⚙️SYSTÈME en "Données" = que pourrions nous y afficher ?
---------------------------------------------------------------------------------------------------------------------------
-
-dans la page 📦 Données — Pilotage du pipeline à quoi sert le bouton "Pause" dans la carte Bybit ? 
-Ne peut on pas simplement le remplacer par ● Connecté comme dans la carte 🖥️ Collecteur MT5 / Axi ?
-D'autre part, il ne manquerait pas la carte Tiingo ?
-
-
---------------------------------------------------------------------------------------------------------------------------

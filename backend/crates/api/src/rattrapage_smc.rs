@@ -1,4 +1,4 @@
-//! Rattrapage des positions SMC orphelines (incident 18/09).
+//! Rattrapage des positions SMC et KDJ orphelines (incident 18/09).
 //!
 //! Le suivi des trades SMC vit dans l'état mémoire du moteur runtime : un
 //! redémarrage de l'app orphelinise toute position encore ouverte (le
@@ -67,7 +67,7 @@ pub async fn rattraper(db: &Arc<db::Database>) {
         "SELECT id, cle_moteur, asset, timeframe, direction, prix_entree, stop_loss,
                 take_profit, heure_entree, sl_effectif, tps_atteints
          FROM signaux
-         WHERE strategie = 'SMC' AND statut = 'Actif' AND heure_entree IS NOT NULL
+         WHERE strategie IN ('SMC', 'kdj_halftrend') AND statut = 'Actif' AND heure_entree IS NOT NULL
            AND cle_moteur IS NOT NULL",
     )
     .fetch_all(db.pool())

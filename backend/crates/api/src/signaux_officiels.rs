@@ -48,6 +48,7 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
         // message d'imminence sur Telegram (selon l'état) — pas de ligne en
         // base (elle viendra à la clôture si le trade confirme).
         if s.annonce {
+            if m.id != "SMC" {
             let sf = crate::setups_formation::depuis_annonce(m.id, &s);
             crate::setups_formation::enregistrer_annonce(sf.clone());
             // Scanner SMC (11/09) — trace durable : le vivier mémoire est
@@ -79,6 +80,7 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
                         envoyer_telegram(&db, &msg).await;
                     }
                 }
+            }
             }
             continue;
         }
@@ -253,23 +255,18 @@ async fn formater_message(
         if entree > 0.0 {
             qty = qty.min(plafond / entree);
         }
-        let alpha = s.score >= 9;
         let msg = format!(
-            "{icone} {nom}\n{symbole} — classement {points}/10{alpha}\nLot = {qty:.2} ({risque_euros:.0}$ risqués — {profil})\n\nOrdre stop-limit : achat au-delà de {entree:.4}$ (plafond {limite:.4}$)\nInvalidation : {sl:.4}$ (−{pct_stop:.1} %)\nAu R1 ({r1:.4}$) : vendre 50 % + trailing {trail:.0} %",
+            "{icone} {nom} {symbole} - Force {points}/10\nLot = {qty:.2} ({risque_euros:.0}$ risqués — {profil})\n\nAchat Stop-limit :\nStop : {entree:.4}$\nLimite : {limite:.4}$\nInvalidation : {sl:.4}$",
             icone = crate::registre_strategies::MANIFESTES.iter().find(|m| m.id == id_strategie).map(|m| m.icone).unwrap_or("▪️"),
             nom = id_strategie,
             symbole = asset,
             points = s.score.clamp(1, 10),
-            alpha = if alpha { " — ROCKET ALPHA" } else { "" },
             qty = qty,
             risque_euros = risque_euros,
             profil = params.profil.libelle(),
             entree = entree,
             limite = entree * (1.0 + params.cassure_min_pct / 100.0),
             sl = sl,
-            pct_stop = if entree > 0.0 { (entree - sl).abs() / entree * 100.0 } else { 0.0 },
-            r1 = tps.first().copied().unwrap_or(entree),
-            trail = params.trailing_pct,
         );
         return Some(msg);
     }
@@ -290,7 +287,7 @@ async fn formater_message(
             let e = s.prix_entree;
             let r = (e - sl).abs();
             let msg = format!(
-                "{icone} {nom}\nPasse sur {asset} — {annonce}\n2 jambes ouvertes à {e:.2}$ à {heure} (timer T-10 s)\nLot = {lot:.2} par jambe ({risque_euros:.0}$ risqués)\n\nLONG  : SL {sl_long:.2}$ | TP1 {tp1l:.2} → SL E−0,5R | TP2 {tp2l:.2} → trailing {trailing:.1}R\nSHORT : SL {sl_short:.2} | TP1 {tp1s:.2} → SL E+0,5R | TP2 {tp2s:.2} → trailing {trailing:.1}R\nTime-stop : 60 min — R net = somme des 2 jambes",
+                "{icone} {nom} - {asset} — {annonce}\n2 jambes ouvertes à {e:.2}$ à {heure} (timer T-10 s)\nLot = {lot:.2} par jambe ({risque_euros:.0}$ risqués)\n\nLONG  : SL {sl_long:.2}$ | TP1 {tp1l:.2} → SL E−0,5R | TP2 {tp2l:.2} → trailing {trailing:.1}R\nSHORT : SL {sl_short:.2} | TP1 {tp1s:.2} → SL E+0,5R | TP2 {tp2s:.2} → trailing {trailing:.1}R",
                 icone = crate::registre_strategies::MANIFESTES
                     .iter()
                     .find(|m| m.id == id_strategie)
@@ -314,7 +311,7 @@ async fn formater_message(
             return Some(msg);
         }
         let msg = format!(
-            "{icone} {nom}\nPasse sur {asset} — {annonce}\nJambe {dir} remplie à {entree:.2}$ à {heure}\nLot = {lot:.2} ({risque_euros:.0}$ risqués)\n\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)\nTP1 : {tp1:.2}$ → BE à l'entrée\nTP2 : {tp2:.2}$ → BE à TP1 + trailing {trailing:.1}R\nTime-stop : 60 min",
+            "{icone} {nom} - {asset} — {annonce}\nJambe {dir} remplie à {entree:.2}$ à {heure}\nLot = {lot:.2} ({risque_euros:.0}$ risqués)\n\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)\nTP1 : {tp1:.2}$ → BE à l'entrée\nTP2 : {tp2:.2}$ → BE à TP1 + trailing {trailing:.1}R",
             icone = crate::registre_strategies::MANIFESTES
                 .iter()
                 .find(|m| m.id == id_strategie)
@@ -337,18 +334,38 @@ async fn formater_message(
         return Some(msg);
     }
 
+    // Template KDJ (19/09) : minimal — l'essentiel sans mécanique.
+    if id_strategie == "kdj_halftrend" {
+        let msg = format!(
+            "{icone} {nom} sur {asset}\nLot = {lot:.2} ({risque_euros:.0}$ risqués)\n\nEntrée : {entree:.2}$\nStop Loss : {sl:.2}$\nTP : {tp:.2}$",
+            icone = crate::registre_strategies::MANIFESTES
+                .iter()
+                .find(|m| m.id == id_strategie)
+                .map(|m| m.icone)
+                .unwrap_or("▪️"),
+            nom = "KDJ/Halftrend",
+            asset = asset,
+            lot = lot,
+            risque_euros = risque_euros,
+            entree = entree,
+            sl = sl,
+            tp = tps.first().copied().unwrap_or(entree),
+        );
+        return Some(msg);
+    }
+
     let mut msg = format!(
-        "{icone} {nom}\nSetup {dir} en formation sur {asset} en {tf}\nForce {force}/10\nLot = {lot:.2} ({risque_euros:.0}$ risqués)\n\nEntrée : {entree:.2}$\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)",
+        "{icone} {nom} - Force {force}/10\n{dir} confirmé sur {asset} en {tf}\nLot = {lot:.2} ({risque_euros:.0}$ risqués)\n\nEntrée : {entree:.2}$\nStop Loss : {sl:.2}$ (soit -{stop_pips} pips)",
         icone = crate::registre_strategies::MANIFESTES
             .iter()
             .find(|m| m.id == id_strategie)
             .map(|m| m.icone)
             .unwrap_or("▪️"),
         nom = id_strategie,
+        force = s.score.clamp(1, 10),
         dir = dir,
         asset = asset,
         tf = tf,
-        force = s.score.clamp(1, 10),
         lot = lot,
         risque_euros = risque_euros,
         entree = entree,
