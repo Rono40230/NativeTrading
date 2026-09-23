@@ -17,30 +17,9 @@
       >⚠️ {{ a.nb_trades }}/30 — non significatif</span>
     </div>
 
-    <!-- Chips de tête : capital, R, WR, hier -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-      <div class="glass-card px-3 py-2" title="Capital simulé (composé à chaque clôture — départ → actuel)">
-        <p class="text-[9px] uppercase tracking-wider text-white">Capital</p>
-        <p class="text-sm font-bold font-mono" :class="a.capital_actuel >= a.capital_depart ? 'text-emerald-400' : 'text-red-400'">
-          {{ fmtDollars(a.capital_actuel) }} <span class="text-[10px] text-white">/ {{ fmtDollars(a.capital_depart) }}</span>
-        </p>
-      </div>
-      <div class="glass-card px-3 py-2" title="Σ R encaissés : gagnants − perdants, ventes partielles comprises (décision 16/09). Le badge capital compose exactement ces R.">
-        <p class="text-[9px] uppercase tracking-wider text-white">Σ R</p>
-        <p class="text-sm font-bold font-mono" :class="a.r_total > 0 ? 'text-emerald-400' : a.r_total < 0 ? 'text-red-400' : 'text-white'">{{ fmtR(a.r_total) }}</p>
-      </div>
-      <div class="glass-card px-3 py-2" title="WR — part des clôtures gagnantes ($ > 0)">
-        <p class="text-[9px] uppercase tracking-wider text-white">WR</p>
-        <p class="text-sm font-bold font-mono text-white">{{ (a.taux_reussite * 100).toFixed(0) }} %</p>
-      </div>
-      <div class="glass-card px-3 py-2" title="Journée d&#39;hier (heure locale) — les données de la veille">
-        <p class="text-[9px] uppercase tracking-wider text-white">Hier</p>
-        <p v-if="a.hier" class="text-sm font-bold font-mono" :class="a.hier.dollars >= 0 ? 'text-emerald-400' : 'text-red-400'">
-          {{ fmtDollars(a.hier.dollars) }} <span class="text-[10px] text-white">· {{ a.hier.trades }} trade(s)</span>
-        </p>
-        <p v-else class="text-sm text-white">—</p>
-      </div>
-    </div>
+    <!-- ① VERDICT — la réponse en 5 secondes (P3-1, maquette 23/09). Les
+         KPI de tête (capital, ΣR, WR, hier) vivent maintenant ici. -->
+    <AnalyseVerdictBloc :a="a" />
 
     <!-- Classements décisionnels : « les plus intéressants » (17/09) -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -52,7 +31,9 @@
     </div>
 
     <!-- Performance par période : jour / semaine / mois -->
-    <div class="glass-card p-3">
+    <details class="glass-card p-3">
+      <summary class="entete-detail">💵 Performance par période — jour / semaine / mois</summary>
+      <div class="mt-2">
       <div class="flex items-center gap-2 mb-2">
         <span class="text-xs font-semibold text-white">💵 Performance par période</span>
         <div class="ml-auto flex gap-1">
@@ -85,8 +66,12 @@
         </div>
       </div>
       <p v-else class="text-xs text-white py-4 text-center">Aucune clôture sur cette granularité</p>
-    </div>
+      </div>
+    </details>
 
+    <details class="glass-card p-3">
+      <summary class="entete-detail">⚖️ Où vit l'edge — verdicts &amp; assets</summary>
+      <div class="mt-2">
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <!-- Verdicts : où vit l'edge -->
       <div class="glass-card p-3">
@@ -150,9 +135,13 @@
         <p v-else class="text-xs text-white py-4 text-center">Aucune clôture</p>
       </div>
     </div>
+      </div>
+    </details>
 
     <!-- Timeframes : contribution au capital, par asset — grille 2 colonnes -->
-    <div class="glass-card p-3">
+    <details class="glass-card p-3">
+      <summary class="entete-detail">⏱️ Timeframes — contribution au capital par asset</summary>
+      <div class="mt-2">
       <p class="text-xs font-semibold text-white mb-2" title="Contribution de chaque TF de chaque asset au capital ($ réels composés)">⏱️ Timeframes — contribution au capital par asset</p>
       <div v-if="a.par_asset_tf.length" class="grid grid-cols-1 md:grid-cols-2 gap-2">
         <div
@@ -179,10 +168,48 @@
         </div>
       </div>
       <p v-else class="text-xs text-white py-4 text-center">Aucune clôture</p>
-    </div>
+      </div>
+    </details>
+
+    <!-- Tranches de score (fusion 23/09 : venait de la vue dédiée SMC) -->
+    <details v-if="a.par_score?.length" class="glass-card p-3">
+      <summary class="entete-detail">🎯 Performance par tranche de score</summary>
+      <div class="mt-2 overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-white border-b border-white/10">
+              <th class="py-1 text-left">Score</th>
+              <th class="py-1 text-right">Nb</th>
+              <th class="py-1 text-right text-emerald-300">TP1</th>
+              <th class="py-1 text-right text-emerald-300">TP2</th>
+              <th class="py-1 text-right text-emerald-200">TP3</th>
+              <th class="py-1 text-right text-red-400">SL</th>
+              <th class="py-1 text-right">Expire</th>
+              <th class="py-1 text-right">WR</th>
+              <th class="py-1 text-right">R moyen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="t in a.par_score" :key="t.label" class="border-b border-white/5">
+              <td class="py-1 font-mono text-white">{{ t.label }}</td>
+              <td class="py-1 text-right text-white">{{ t.n }}</td>
+              <td class="py-1 text-right text-emerald-300">{{ t.tp1 }}</td>
+              <td class="py-1 text-right text-emerald-300">{{ t.tp2 }}</td>
+              <td class="py-1 text-right text-emerald-200">{{ t.tp3 }}</td>
+              <td class="py-1 text-right text-red-400">{{ t.sl }}</td>
+              <td class="py-1 text-right text-white/60">{{ t.expire }}</td>
+              <td class="py-1 text-right font-bold" :class="t.wr >= 0.5 ? 'text-emerald-400' : 'text-red-400'">{{ Math.round(t.wr * 100) }} %</td>
+              <td class="py-1 text-right font-bold" :class="(t.r_moyen ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ t.r_moyen != null ? fmtR(t.r_moyen) : '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
 
     <!-- Heatmap heure × jour : où le $ se gagne par créneau horaire -->
-    <div class="glass-card p-3">
+    <details class="glass-card p-3">
+      <summary class="entete-detail">🗓️ Heatmap heure × jour</summary>
+      <div class="mt-2">
       <p class="text-xs font-semibold text-white mb-2" title="Contribution $ des clôtures par créneau horaire (heure locale) — vert = gains, rouge = pertes, intensité ∝ |$| de la case. Survol = détail.">🗓️ Heatmap heure × jour</p>
       <div v-if="a.heatmap.length" class="overflow-x-auto">
         <table class="text-[9px] font-mono border-separate" style="border-spacing: 1px">
@@ -207,10 +234,13 @@
         </table>
       </div>
       <p v-else class="text-xs text-white py-3 text-center">Aucune clôture encore</p>
-    </div>
+      </div>
+    </details>
 
     <!-- Évolution jour après jour : snapshots quotidiens + avis IA archivés -->
-    <div class="glass-card p-3">
+    <details class="glass-card p-3">
+      <summary class="entete-detail">📈 Évolution jour après jour — snapshots</summary>
+      <div class="mt-2">
       <p class="text-xs font-semibold text-white mb-2" title="Un snapshot par jour, écrit au premier calcul du rapport — l'avis IA du jour est archivé avec lui (survit aux redémarrages)">📈 Évolution jour après jour</p>
       <div v-if="historique.length" class="flex flex-col gap-2">
         <div class="relative h-16">
@@ -251,10 +281,13 @@
         </div>
       </div>
       <p v-else class="text-xs text-white py-3 text-center">Premier snapshot aujourd'hui — l'historique se remplit au fil des jours.</p>
-    </div>
+      </div>
+    </details>
 
     <!-- Analyse IA : avis de l'analyste local (à la demande, cache du jour) -->
-    <div class="glass-card p-3">
+    <details class="glass-card p-3" open>
+      <summary class="entete-detail">🤖 Analyse IA — l'avis de l'analyste</summary>
+      <div class="mt-2">
       <div class="flex items-center gap-2 mb-2 flex-wrap">
         <p class="text-xs font-semibold text-white">🤖 Analyse IA</p>
         <span
@@ -302,7 +335,8 @@
       </div>
       <p v-else-if="iaErreur" class="text-xs text-red-300">{{ iaErreur }}</p>
       <p v-else class="text-xs text-white">L'analyste local (Ollama) lit les métriques ci-dessus et donne son avis — état, points forts/faibles, pistes concrètes. Généré à la demande, conservé pour la journée.</p>
-    </div>
+      </div>
+    </details>
   </div>
 
   <div v-else class="glass-card p-6 text-center text-sm text-white">
@@ -313,6 +347,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ClassementCategoriesBloc from './ClassementCategoriesBloc.vue'
+import AnalyseVerdictBloc from './AnalyseVerdictBloc.vue'
 import {
   chargerAnalyse, chargerHistoriqueAnalyses, fmtDollars, fmtR, couleurVerdict, genererAnalyseIa,
   type AnalyseStrategie, type PeriodeAnalyse, type CategorieAnalyse, type AnalyseIa,
@@ -462,5 +497,9 @@ watch(() => props.id, () => { void charger() }, { immediate: true })
 </script>
 
 <style scoped>
+.entete-detail { font-size: .75rem; font-weight: 600; color: #fff; user-select: none; list-style: none; cursor: pointer; }
+.entete-detail::-webkit-details-marker { display: none; }
+.entete-detail::before { content: '▸ '; color: rgba(255,255,255,.5); display: inline-block; transition: transform .15s; }
+details[open] > .entete-detail::before { transform: rotate(90deg); }
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
 </style>

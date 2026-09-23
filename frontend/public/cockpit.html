@@ -359,6 +359,11 @@
   "decisions": [
     {
       "date": "23/09",
+      "titre": "Étape 4 : pages Analyse refondues (P3-1) + fusion rapport unique (P3-2)",
+      "detail": "Maquette validée propriétaire : « verdict 5 s → classements → détail repliable ». Onglet stratégie du Rapport d'activité réorganisé : ① VERDICT (nouveau composant AnalyseVerdictBloc — feu tricolore PAR RÈGLES sur les chiffres encaissés : ⚪ <30 clôtures / 🟢 ΣR>0 / 🟡 r_moyen ≥ −0,05 / 🔴 RÉVISER, + KPIs intégrés + conseil actionnable meilleur/pire élément significatif des classements) ; ② classements TF/événements + assets (existant) ; ③ détails REPLIABLES (périodes, verdicts & assets, TF par asset, tranches de score — rapatriées de la vue dédiée SMC —, heatmap, snapshots, IA ouverte par défaut). FUSION : les 4 vues dédiées /x/analyse supprimées (redirect vers /analyses?strategie=X), boutons 📊 Analyse retargetés, AnalysePageShell/AnalysePerfBloc supprimés. DONNÉES vérifiées AVANT refonte (exigence propriétaire) : analyses = signaux Fermé+rempli via capital_simule (R encaissé r_pondere) — 467=467 comptés au même instant, écart structurel 0 : même DB de référence que le miroir ML."
+    },
+    {
+      "date": "23/09",
       "titre": "Cartes ML = MIROIR de l'historique des trades clôturés (DB de référence)",
       "detail": "Décision propriétaire après constat : seule Rockets collait à son historique. CAUSE (prouvée) : la carte SMC lisait ml_training_samples.rr_realise = R DISTANCE du 15/09 (Σ +86 R) au lieu du R encaissé officiel (Σ −18,7 R) ; Straddle avait des filtres divergents (67 samples vs 68 clôtures). CORRECTION : les 4 cartes (SMC/Straddle/Rockets/KDJ) lisent désormais signaux Fermé+rempli — filtres IDENTIQUES à l'historique affiché — avec le MÊME R encaissé que get_signaux (SMC = smc_pondere::r_pondere ventes partielles avec fractions réelles ; autres = r_realise qui est déjà l'encaissé : rockets pondère à R1 à la clôture, straddle stocke le R net de la passe). MIROIR VÉRIFIÉ live : SMC 466 tr · 46,1 % · Σ −18,72 R ; straddle 68 · 60,3 % · +18,83 R (= référence SQL exacte) ; rockets 5 · 100 % ; kdj 0. NOTE : ml_training_samples reste la table d'ENTRAÎNEMENT (labels rr_realise distance pour SMC) — divergence labels/target à traiter dans la tâche ML filtre (6.5) : le vrai target est l'encaissé."
     },

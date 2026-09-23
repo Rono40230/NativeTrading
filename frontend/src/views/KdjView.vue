@@ -12,7 +12,7 @@
       <SignauxTableau strategie="kdj_halftrend" remplis-seuls @nb-signaux="nbEncours = $event" />
     </template>
     <template #historique-actions>
-      <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="router.push('/kdj/analyse')">📊 Analyse</button>
+      <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="router.push('/analyses?strategie=kdj_halftrend')">📊 Analyse</button>
     </template>
     <template #historique>
       <div class="text-sm text-white flex flex-wrap items-center gap-x-3 mb-2">

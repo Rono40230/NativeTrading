@@ -30,10 +30,10 @@ const router = createRouter({
     // Rapport d'activité — centre d'analyse des stratégies (04/09).
     // ?strategie=SMC|straddle|rockets cible l'onglet (bloc dashboard).
     { path: '/analyses', component: () => import('../views/AnalysesView.vue') },
-    { path: '/straddle/analyse', component: () => import('../views/analyse/AnalyseStraddleView.vue') },
-    { path: '/smc/analyse',      component: () => import('../views/analyse/AnalyseSmcView.vue') },
-    { path: '/rockets/analyse',  component: () => import('../views/analyse/AnalyseRocketsView.vue') },
-    { path: '/kdj/analyse',      component: () => import('../views/analyse/AnalyseKdjView.vue') },
+    { path: '/straddle/analyse', redirect: '/analyses?strategie=straddle' }, // fusion 23/09 : le rapport d'activité est LA page d'analyse
+    { path: '/smc/analyse', redirect: '/analyses?strategie=SMC' }, // fusion 23/09 : le rapport d'activité est LA page d'analyse
+    { path: '/rockets/analyse', redirect: '/analyses?strategie=rockets' }, // fusion 23/09 : le rapport d'activité est LA page d'analyse
+    { path: '/kdj/analyse', redirect: '/analyses?strategie=kdj_halftrend' }, // fusion 23/09 : le rapport d'activité est LA page d'analyse
 
     // Fonctionnalités IA — page à 3 onglets (14/09) : les anciennes routes
     // /ia/ml et /ia/llm redirigent vers l'onglet correspondant.
