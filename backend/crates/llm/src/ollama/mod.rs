@@ -3,7 +3,6 @@ pub use client::appeler_ollama;
 pub mod prompts;
 pub mod rockets_analyse;
 pub mod smc_analyse;
-pub mod straddle_analyse;
 mod types;
 
 use common::TradingError;
@@ -79,28 +78,8 @@ pub async fn interroger_avec_modele_smc(prompt: &str) -> Result<String, TradingE
         "options": { "temperature": 0.6, "num_predict": 800, "num_gpu": 99, "num_ctx": 8192 }
     });
 
-    compter_appel();
-    let _permit = OLLAMA_SEMAPHORE.acquire().await.ok();
-    let reponse = OLLAMA_HTTP_CLIENT
-        .post(&url)
-        .json(&corps)
-        .send()
-        .await
-        .map_err(|e| TradingError::Api(format!("Ollama SMC injoignable: {}", e)))?;
-
-    if !reponse.status().is_success() {
-        return Err(TradingError::Api(format!(
-            "Ollama SMC HTTP {}: vérifier que le serveur est démarré (`ollama serve`)",
-            reponse.status()
-        )));
-    }
-
-    let data: ReponseOllama = reponse
-        .json()
-        .await
-        .map_err(|e| TradingError::Api(format!("Réponse Ollama SMC invalide: {}", e)))?;
-
-    Ok(filtrer_think(data.message.content))
+    let texte = appeler_ollama(&url, &corps).await?;
+    Ok(filtrer_think(texte))
 }
 
 /// Envoie un prompt avec historique en spécifiant explicitement le modèle.
@@ -152,28 +131,8 @@ async fn interroger_avec_systeme(prompt: &str, system: &str) -> Result<String, T
         "options": { "temperature": 0.7, "num_gpu": 99, "num_ctx": 8192 }
     });
 
-    compter_appel();
-    let _permit = OLLAMA_SEMAPHORE.acquire().await.ok();
-    let reponse = OLLAMA_HTTP_CLIENT
-        .post(&url)
-        .json(&corps)
-        .send()
-        .await
-        .map_err(|e| TradingError::Api(format!("Ollama injoignable: {}", e)))?;
-
-    if !reponse.status().is_success() {
-        return Err(TradingError::Api(format!(
-            "Ollama HTTP {}: vérifier que le serveur est démarré (`ollama serve`)",
-            reponse.status()
-        )));
-    }
-
-    let data: ReponseOllama = reponse
-        .json()
-        .await
-        .map_err(|e| TradingError::Api(format!("Réponse Ollama invalide: {}", e)))?;
-
-    Ok(filtrer_think(data.message.content))
+    let texte = appeler_ollama(&url, &corps).await?;
+    Ok(filtrer_think(texte))
 }
 
 /// Supprime les balises `<think>...</think>` (raisonnement interne Qwen3 / DeepSeek-R1).

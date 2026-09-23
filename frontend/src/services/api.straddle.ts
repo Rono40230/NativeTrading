@@ -4,16 +4,10 @@
  */
 import { http } from './http.client'
 import type {
-  ReponseAnalyseStraddle,
   StraddleMonitoringData, StraddleCalibrationRow, PrecisionHoraire,
 } from './api.types'
 
 export const straddleApi = {
-  async analyserStraddle(asset: string, periode: string): Promise<ReponseAnalyseStraddle & { message?: string }> {
-    const res = await http.post('/api/straddle/analyser', { asset, periode }, { timeout: 150000 })
-    return res.data
-  },
-
   // ── ML Straddle adaptatif ──────────────────────────────────────────────────
 
   async getStraddleMonitoringML(): Promise<StraddleMonitoringData> {

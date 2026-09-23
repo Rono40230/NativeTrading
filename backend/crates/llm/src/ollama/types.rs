@@ -5,6 +5,11 @@ pub const OLLAMA_URL: &str = "http://localhost:11434/api/chat";
 pub const MODELE_DEFAUT: &str = "qwen3:32b";
 /// Modèle dédié aux analyses SMC — même modèle, mode thinking activé (/think).
 pub const MODELE_SMC: &str = "qwen3:32b";
+/// Repli automatique quand le modèle demandé ne charge pas (machine 24/7 :
+/// VRAM/RAM souvent insuffisantes pour le 32B — « requires more system
+/// memory » → HTTP 500). Le 3B (1,9 Go) charge toujours. Décision 23/09 :
+/// conviction IA et analyses straddle/rockets tombaient en échec silencieux.
+pub const MODELE_REPLI: &str = "qwen2.5:3b";
 
 #[derive(Deserialize)]
 pub struct ReponseOllama {

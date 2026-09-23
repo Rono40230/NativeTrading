@@ -70,7 +70,7 @@
             </div>
             <!-- Pastille de présence du modèle -->
             <div class="flex items-center gap-1.5" :title="strat.features.length > 0 ? 'Modèle entraîné en base' : 'Modèle vierge/par défaut'">
-              <div class="w-2 h-2 rounded-full" :class="strat.features.length > 0 ? 'bg-blue-400' : 'bg-gray-600'"></div>
+              <div class="w-2 h-2 rounded-full" :class="aVraiesImportances(strat) ? 'bg-blue-400' : 'bg-gray-600'"></div>
             </div>
           </div>
 
@@ -81,7 +81,7 @@
               <span>Poids</span>
             </h5>
             
-            <template v-if="strat.features.length > 0">
+            <template v-if="aVraiesImportances(strat)">
               <div v-for="(f, idx) in strat.features.slice(0, 3)" :key="f.feature_idx" class="space-y-0.5">
                 <div class="flex justify-between items-center text-[10px]">
                   <span class="text-white font-medium truncate">{{ traduireFeature(f.feature_nom) }}</span>
@@ -93,6 +93,15 @@
                 </div>
               </div>
             </template>
+            <!-- Lignes présentes mais toutes à 0 : liste par défaut inscrite
+                 par le fine-tuning quand les données manquent — pas de vraies
+                 importances calculées (23/09 : ne plus afficher des barres
+                 vides qui ressemblent à un bug). -->
+            <div v-else-if="strat.features.length > 0" class="text-center text-xs text-white py-6 leading-relaxed">
+              Importances non calculées.<br>
+              <span class="text-white/60">Données insuffisantes — le prochain
+              entraînement automatique réessaiera.</span>
+            </div>
             <div v-else class="text-center text-xs text-white py-6">
               Pas de données ML.<br>En attente du premier entraînement.
             </div>
@@ -195,6 +204,13 @@ const dictionnaireFeatures: Record<string, string> = {
   // LLM
   "score_llm": "Conviction IA",
   "score_min": "Constante de Filtre"
+}
+
+/** De vraies importances = au moins une strictement positive. Le
+ * fine-tuning en défaut insère des listes à 0,0 (structure sans calcul) —
+ * ça n'est PAS un modèle entraîné, on ne l'affiche pas comme tel. */
+function aVraiesImportances(strat: StrategyData): boolean {
+  return strat.features.some(f => f.importance > 0)
 }
 
 function traduireFeature(nom: string): string {

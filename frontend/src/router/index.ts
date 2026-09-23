@@ -22,7 +22,6 @@ const router = createRouter({
 
 
     // Performance
-    { path: '/heatmap',  component: () => import('../views/HeatmapView.vue') },
 
     // Laboratoire de simulation — re-jeu paramétrique à la demande (15/09).
     // ?strategie=SMC|straddle|... cible l'onglet.
@@ -40,7 +39,7 @@ const router = createRouter({
     // /ia/ml et /ia/llm redirigent vers l'onglet correspondant.
     { path: '/ia', component: () => import('../views/IaView.vue') },
     { path: '/ia/ml',  redirect: { path: '/ia', query: { onglet: 'ml' } } },
-    { path: '/ia/llm', redirect: { path: '/ia', query: { onglet: 'llm' } } },
+    { path: '/ia/llm', redirect: { path: '/ia', query: { onglet: 'ml' } } }, // fusion 23/09
 
     // Presse
     { path: '/presse', component: () => import('../views/PresseView.vue') },

@@ -1,8 +1,9 @@
 /**
- * Analyse des patterns de volatilité horaire — logique partagée entre la page
- * /heatmap (calendrier historique) et le bloc ⏰ Créneaux de volatilité du
- * dashboard : meilleures/pires fenêtres, jours de la semaine, créneau courant.
- * Extraite à l'identique de HoraireHeatmap.vue — une seule source de vérité.
+ * Analyse des patterns de volatilité horaire — utilisée par le bloc ⏰
+ * Créneaux de volatilité du dashboard : meilleures/pires fenêtres, jours de
+ * la semaine, créneau courant. (La page /heatmap et son composant
+ * HoraireHeatmap ont été supprimés le 22/09 — le Radar vit dans
+ * RadarAtrBloc, le détail horaire dans ce bloc.)
  */
 import type { PatternHoraire } from '@/services/api.types.marche'
 import { offsetParisHeures } from '@/utils/date'

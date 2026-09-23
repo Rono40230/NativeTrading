@@ -1,6 +1,6 @@
 <template>
   <!-- Page « Fonctionnalités IA » — 3 onglets (14/09) : les anciens boutons
-       de la tuile dashboard (Prompts / Métriques ML / Dashboard LLM) vivent
+       de la tuile dashboard (Prompts / Métriques ML / ML : état & seuils) vivent
        ici ; ?onglet= cible l'onglet (les anciennes routes /ia/ml et /ia/llm
        redirigent). -->
   <div class="flex flex-col gap-3 h-[calc(100vh-5.5rem)] overflow-hidden bg-violet-500/5 rounded-xl px-3 py-2">
@@ -19,8 +19,7 @@
 
     <div class="flex-1 min-h-0 overflow-y-auto">
       <PromptsIAView v-if="onglet === 'prompts'" />
-      <MetriquesMLView v-else-if="onglet === 'ml'" />
-      <MlInsightsView v-else />
+      <MetriquesMLView v-else />
     </div>
   </div>
 </template>
@@ -30,14 +29,14 @@ import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PromptsIAView from '@/views/PromptsIAView.vue'
 import MetriquesMLView from '@/views/MetriquesMLView.vue'
-import MlInsightsView from '@/views/MlInsightsView.vue'
 
-type Onglet = 'prompts' | 'ml' | 'llm'
+type Onglet = 'prompts' | 'ml'
 
+// Fusion 23/09 : « Métriques ML » et « ML : état & seuils » n'en font
+// qu'un (l'ancien onglet llm redirige vers ml — voir routes).
 const ONGLETS: { id: Onglet; label: string }[] = [
   { id: 'prompts', label: '✏️ Prompts' },
-  { id: 'ml', label: '📉 Métriques ML' },
-  { id: 'llm', label: '🤖 Dashboard LLM' },
+  { id: 'ml', label: '🤖 ML' },
 ]
 
 const VALIDES = new Set(ONGLETS.map(o => o.id))

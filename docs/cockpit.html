@@ -342,9 +342,36 @@
       "titre": "SMC — étude scoring : score réévalué au retest vs score archivé (A/B par levier replay)",
       "detail": "Issue d'une analyse externe critique du Pine (17/09, vérifiée contre le code) : le score OB est un cliquet (math.max — choix documenté : le BOS n'existe qu'une barre) → le score qualifiant le signal au retest est la MEILLEURE version passée du setup, pas la confluence au moment de l'entrée. Conséquences possibles : fiabilité affichée optimiste + les analyses par tranches (2.3, tranches 6-8/9-11/12-19) trient sur le score À LA CRÉATION. MÉTHODE (mesure avant décision — jamais de retouche Pine directe) : ajouter au harnais d'étude du replay (ModesEtudés — déjà BE forcé/TP1 réglé) un mode « score réévalué au retest (confluence live : freshness + proximité + composantes re-testées) » ; A/B sur 24 mois × univers calibré, règle des 30 par tranche ; comparaison WR/ΣR distance/encaissé par tranche de score. PROLONGEMENT (volet 2 de l'analyse externe) : validation OUT-OF-SAMPLE des pondérations par actif (2 ans d'historique Axi/Bybit disponibles) pour trancher le risque de surapprentissage. SI un jour voté : retouche Pine = déviation étalon (doc ecarts_pine_assumes.md) + re-validation miroir Rust/MQL5 au centime + rupture de série des métriques vécues assumée. CONTEXTE : l'étude 3.3 a montré que le goulot mesuré actuel est la CONVERSION (fractions/SL), pas la qualité des zones — cette tâche ne précède donc pas 2.1/2.2.",
       "echeance": "après 2.1 (18/09) — décision d'ouverture propriétaire"
+    },
+    {
+      "id": "6.5",
+      "prio": 3,
+      "titre": "ML — filtre candidat en Observation (QUAND les données le permettront)",
+      "detail": "Arbitrage propriétaire 22/09 (rôle du ML) — niveau 2 du plan, CONDITIONNEL : ne démarrer que quand le volume d'historique le justifie (milliers de clôtures, pas des centaines — règle des 30 par sous-ensemble : stratégie × TF × asset). CONTENU : le pipeline ML score les NOUVEAUX signaux à l'émission (confiance prédite) ; la métrique « WR avec filtre vs sans filtre » est mesurée en Observation (paper) pendant une période définie ; JAMAIS de branchement direct en Officielle sans période de mesure. PRÉREQUIS : niveau 1 en place (feature importance alimente les pages Analyse — converge avec P3-1). INTERDIT (décision 22/09) : prédiction de prix (LSTM directionnel), filtre ML actif sur signaux officiels sans mesure préalable."
+    },
+    {
+      "id": "6.6",
+      "prio": 3,
+      "titre": "Radar ATR : baseline saisonnière (heure × asset sur 24 mois)",
+      "detail": "Constat propriétaire 23/09 : le ratio actuel (ATR 6 dernières bougies ÷ ATR 60 dernières) compare le temps réel à une moyenne A-SAISONNIÈRE — il mesure en partie l'heure de la session (ouverture NY gonfle le ratio par construction, session Asie l'écrase), pas uniquement l'anomalie. CORRECTION : baseline = volatilité habituelle de CET asset à CETTE heure (données déjà disponibles dans les patterns horaires 24 mois qui alimentent les Créneaux). Fenêtre courte 6 bougies → élargir/lisser. Les confluences (ATR élevé × pattern favorable) font déjà moitié chemin — la baseline saisonnière généraliserait leur logique."
     }
   ],
   "decisions": [
+    {
+      "date": "23/09",
+      "titre": "Cartes ML = MIROIR de l'historique des trades clôturés (DB de référence)",
+      "detail": "Décision propriétaire après constat : seule Rockets collait à son historique. CAUSE (prouvée) : la carte SMC lisait ml_training_samples.rr_realise = R DISTANCE du 15/09 (Σ +86 R) au lieu du R encaissé officiel (Σ −18,7 R) ; Straddle avait des filtres divergents (67 samples vs 68 clôtures). CORRECTION : les 4 cartes (SMC/Straddle/Rockets/KDJ) lisent désormais signaux Fermé+rempli — filtres IDENTIQUES à l'historique affiché — avec le MÊME R encaissé que get_signaux (SMC = smc_pondere::r_pondere ventes partielles avec fractions réelles ; autres = r_realise qui est déjà l'encaissé : rockets pondère à R1 à la clôture, straddle stocke le R net de la passe). MIROIR VÉRIFIÉ live : SMC 466 tr · 46,1 % · Σ −18,72 R ; straddle 68 · 60,3 % · +18,83 R (= référence SQL exacte) ; rockets 5 · 100 % ; kdj 0. NOTE : ml_training_samples reste la table d'ENTRAÎNEMENT (labels rr_realise distance pour SMC) — divergence labels/target à traiter dans la tâche ML filtre (6.5) : le vrai target est l'encaissé."
+    },
+    {
+      "date": "23/09",
+      "titre": "ML : entraînement automatique + monitoring réparé + conventions clarifiées",
+      "detail": "Cinq arbitrages propriétaire après analyse de la page ML : ① Bouton Entraînement SUPPRIMÉ — boucle automatique (vérif horaire, entraînement si dernier > 7 jours, spawn au boot) ; POST /api/ml/retrain retiré. ② Carte KDJ/Halftrend ajoutée (4e colonne) — 0 échantillon tant que KDJ n'a pas de clôtures (armée 22/09) ; la collecte ML l'attrape déjà par sa branche générique ; entraîneur KDJ = à créer quand les données existent (lié 6.5). ③④ Cartes Straddle/Rockets réparées : elles lisaient des tables *_feedback MORTES (0 ligne, jamais migrées le 06/09 comme SMC) — nouveau module générique ml_monitoring sur ml_training_samples : Straddle 67 tr/61,2 %, Rockets 5 tr/100 %. ⑤ Conventions clarifiées par note sur la page : les cartes mesurent r_realise PAR SIGNAL (Σ SMC +85,7 R) — différent du R encaissé officiel du dashboard (−15,62 R, ventes partielles composées, convention 16/09). Les deux sont vraies, elles ne mesurent pas la même chose — l'écart entre elles EST l'effet ventes partielles vs SL pleins (étude 3.3)."
+    },
+    {
+      "date": "22/09",
+      "titre": "Rôle du ML arbitré : usine à filtres, pas oracle",
+      "detail": "Inventaire étape 3 (vérifié dans le code) : la pile ML (XGBoost/LSTM/walk-forward) n'influence AUCUN signal — /api/ml/predict appelé par zéro composant, seuils de confiance lus par personne ; l'entraînement n'existe QUE via bouton manuel (aucun retrain automatique — la collecte de samples reste, elle est légère et idempotente). DÉCISION : niveau 1 « usine à insights » — le ML analyse les clôtures passées et alimente les pages Analyse (feature importance → règles lisibles → le propriétaire arbitre celles qui deviennent du code déterministe). Onglet « Dashboard LLM » renommé honnêtement (« ML : état & seuils »). Heatmap : la page /heatmap, sa tuile et le bouton ⚡ ont été SUPPRIMÉS (23/09, décision propriétaire) — le Radar ATR temps réel vit désormais dans un bloc déroulant du dashboard (RadarAtrBloc, même motif que Créneaux de volatilité, chargement à l'ouverture seulement), le détail horaire reste dans le bloc Créneaux. HeatmapView + HoraireHeatmap supprimés (orphelins). Prompts IA gardés (agissent réellement : analyses_ia, rockets_unlocks, creneaux_ia). SUPPRESSION complémentaire 23/09 (validation propriétaire) : bouton « ⚡ Analyse Straddle » du Radar supprimé (son analyse LLM éphémère dupliquait le pipeline créneaux IA matinal, persistant celui-là) — avec lui : endpoint /api/straddle/analyser, handler, module LLM straddle_analyse, prompt associé, fonctions db créneaux mortes, types front. Le Radar reste un affichage pur (classement ATR + confluences)."
+    },
     {
       "date": "18/09",
       "titre": "BUG STRUCTUREL corrigé — positions SMC orphelines aux redémarrages + 5 réparées (signalement propriétaire)",

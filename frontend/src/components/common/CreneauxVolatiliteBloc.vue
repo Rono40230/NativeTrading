@@ -5,18 +5,13 @@
     <div class="flex items-center justify-between shrink-0 gap-2 cursor-pointer select-none" @click="ouvert = !ouvert">
       <p class="text-[11px] font-semibold text-white uppercase tracking-widest">
         <span class="inline-block transition-transform" :class="ouvert ? 'rotate-90' : ''">▸</span>
-        ⏰ Créneaux de volatilité
+        ⏰ Créneaux de volatilité moyen sur 24 mois
         <span v-if="!ouvert && cartes.length" class="text-white font-normal normal-case tracking-normal">
           · {{ cartes.length }} actifs
         </span>
       </p>
       <div class="flex items-center gap-1.5 min-w-0" @click.stop>
         <span class="text-[9px] text-white truncate">{{ jourLabel }} · heures Paris · 24 mois d'historique</span>
-        <button
-          class="h-5 w-5 shrink-0 flex items-center justify-center rounded bg-white/5 border border-white/10 hover:bg-white/10 text-[10px] text-white transition-colors"
-          title="⚡ Radar ATR temps réel — volatilité actuelle par unité de temps"
-          @click="ouvrirRadar"
-        >⚡</button>
       </div>
     </div>
 
@@ -63,7 +58,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { apiService } from '@/services/api.service'
 import type { ReponsePatternsVolatilite } from '@/services/api.types'
 import type { PatternHoraire } from '@/services/api.types.marche'
@@ -88,17 +82,11 @@ interface CarteAsset {
 const donnees = ref<ReponsePatternsVolatilite[]>([])
 const chargement = ref(true)
 const maintenant = ref(new Date())
-const router = useRouter()
 /// Bloc repliable — replié par défaut (14/09) : l'univers élargi rendait la
 /// grille de cartes envahissante sur le dashboard.
 const ouvert = ref(false)
 
 let horloge: ReturnType<typeof setInterval> | null = null
-
-/** Ouvre la page Radar ATR (volatilité live par unité de temps). */
-function ouvrirRadar() {
-  router.push('/heatmap')
-}
 
 async function charger() {
   try {

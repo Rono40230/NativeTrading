@@ -37,16 +37,9 @@ export const useMlInsightsStore = defineStore('mlInsights', () => {
     }
   }
 
-  async function declencherRetrain() {
-    try {
-      const res = await mlInsightsApi.postRetrain()
-      useAlerteStore().afficherSucces('🔁 Réentraînement lancé')
-      _demarrerPoll(res.job_id)
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
-      useAlerteStore().afficherErreur(msg ?? 'Impossible de lancer le réentraînement')
-    }
-  }
+  // (Le déclenchement manuel a été retiré le 23/09 : l'entraînement est
+  // automatique et hebdomadaire côté backend — le polling ci-dessus affiche
+  // la progression quand un job auto est en cours.)
 
   function _demarrerPoll(jobId: string) {
     if (retrainPollId !== null) clearInterval(retrainPollId)
@@ -67,6 +60,6 @@ export const useMlInsightsStore = defineStore('mlInsights', () => {
 
   return {
     analyse, chargement, retrainState,
-    chargerStats, chargerDernierRetrain, declencherRetrain,
+    chargerStats, chargerDernierRetrain,
   }
 })

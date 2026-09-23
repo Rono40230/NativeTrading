@@ -1,8 +1,9 @@
 //! Phase 8.4 — Réentraînement incrémental à la demande.
 //!
-//! Fournit deux endpoints :
-//! - POST /api/ml/retrain     → Lance un job de réentraînement en arrière-plan
-//! - GET  /api/ml/retrain/status/{job_id} → Statut du dernier job
+//! Le déclenchement manuel (POST /api/ml/retrain + bouton) a été retiré le
+//! 23/09 : `boucle_automatique` relance un entraînement chaque fois que le
+//! dernier date de plus de 7 jours. Reste en endpoint :
+//! - GET /api/ml/retrain/status/{job_id} → statut du job en cours
 //!
 //! Logique rollback : les fichiers modèle sont sauvegardés avant le
 //! réentraînement ; si l'accuracy finale est inférieure de plus de 2 pts
@@ -44,17 +45,44 @@ pub struct RetainState {
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
-/// POST /api/ml/retrain
-/// Lance un réentraînement en background. Retourne 409 si un job est déjà en cours.
-pub async fn declencher_retrain(state: web::Data<AppState>) -> HttpResponse {
+/// Entraînement AUTOMATIQUE (23/09, remplace le bouton manuel — décision
+/// propriétaire) : vérification horaire ; si le dernier entraînement date
+/// de plus de 7 jours (et qu'aucun job ne tourne), un job est lancé. Les
+/// samples croissent au fil des clôtures (~quelques trades/jour) — un
+/// rythme hebdomadaire laisse à la donnée le temps de changer.
+const VERIF_SEC: u64 = 3600;
+const STALE_SEC: i64 = 7 * 86400;
+
+pub async fn boucle_automatique(state: web::Data<AppState>) {
+    tokio::time::sleep(std::time::Duration::from_secs(180)).await;
+    loop {
+        if !state.retrain_state.read().await.en_cours {
+            let dernier: Option<i64> = sqlx::query_scalar(
+                "SELECT MAX(cree_le) FROM historique_entrainements",
+            )
+            .fetch_optional(state.db.pool())
+            .await
+            .ok()
+            .flatten();
+            let maintenant = chrono::Utc::now().timestamp();
+            let obsolete = dernier.map_or(true, |d| maintenant - d > STALE_SEC);
+            if obsolete {
+                tracing::info!("🔁 ML : entraînement automatique (dernier > 7 j)");
+                lancer_si_libre(&state).await;
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(VERIF_SEC)).await;
+    }
+}
+
+/// Lance un réentraînement en arrière-plan si aucun job n'est en cours.
+/// Retourne false (et ne fait rien) si un job tourne déjà.
+async fn lancer_si_libre(state: &web::Data<AppState>) -> bool {
     // Vérification : un seul job à la fois
     {
         let s = state.retrain_state.read().await;
         if s.en_cours {
-            return HttpResponse::Conflict().json(serde_json::json!({
-                "error": "Un réentraînement est déjà en cours",
-                "job_id": s.job_id
-            }));
+            return false;
         }
     }
 
@@ -96,9 +124,7 @@ pub async fn declencher_retrain(state: web::Data<AppState>) -> HttpResponse {
         let mut s = state.retrain_state.write().await;
         s.en_cours = false;
         s.message = format!("Impossible de sauvegarder les modèles avant entraînement: {e}");
-        return HttpResponse::InternalServerError().json(serde_json::json!({
-            "error": s.message.clone()
-        }));
+        return false;
     }
 
     // Lancer le job en background
@@ -111,10 +137,7 @@ pub async fn declencher_retrain(state: web::Data<AppState>) -> HttpResponse {
         executer_retrain_job(db, pipeline_ml, retrain_state, accuracy_avant, jid).await;
     });
 
-    HttpResponse::Accepted().json(serde_json::json!({
-        "job_id": job_id,
-        "status": "started"
-    }))
+    true
 }
 
 /// GET /api/ml/retrain/status/{job_id}

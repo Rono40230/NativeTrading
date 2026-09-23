@@ -247,30 +247,10 @@ pub async fn analyser_strategie(
         "options": { "temperature": 0.7, "num_predict": 1024, "num_gpu": 99, "num_ctx": 8192 }
     });
 
-    let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
-    let client = &*super::OLLAMA_HTTP_CLIENT;
-
-    let reponse = client
-        .post(&url)
-        .json(&corps)
-        .send()
-        .await
-        .map_err(|e| TradingError::Api(format!("Ollama injoignable (smc_analyse): {}", e)))?;
-
-    if !reponse.status().is_success() {
-        return Err(TradingError::Api(format!(
-            "Ollama HTTP {} (smc_analyse)",
-            reponse.status()
-        )));
-    }
-
-    let data: super::ReponseOllama = reponse
-        .json()
-        .await
-        .map_err(|e| TradingError::Api(format!("Réponse Ollama invalide: {}", e)))?;
+    let brut = super::appeler_ollama(&url, &corps).await?;
 
     // Filtrer les balises <think>...</think> (Qwen3 peut les produire même avec /no_think)
-    let texte = super::filtrer_think(data.message.content);
+    let texte = super::filtrer_think(brut);
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
     serde_json::from_str::<AnalyseSMCReponse>(&texte[debut..fin]).map_err(|e| {

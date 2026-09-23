@@ -14,7 +14,6 @@ use std::fs;
 
 use crate::ollama::rockets_analyse::PROMPT_ANALYSE_ROCKETS;
 use crate::ollama::smc_analyse::PROMPT_ANALYSE_SMC;
-use crate::ollama::straddle_analyse::PROMPT_ANALYSE_STRADDLE;
 
 pub(crate) const OVERRIDES_PATH: &str = "data/prompts_overrides.json";
 
@@ -77,7 +76,6 @@ La confiance est un ENTIER entre 0 et 100 (jamais un décimal comme 0.75)."#,
     );
     m.insert("rockets_analyse", PROMPT_ANALYSE_ROCKETS);
     m.insert("smc_analyse", PROMPT_ANALYSE_SMC);
-    m.insert("straddle_analyse", PROMPT_ANALYSE_STRADDLE);
     m
 }
 

@@ -47,33 +47,9 @@ export interface RocketAnalyseLlm {
 }
 
 // ── Straddle ──────────────────────────────────────────────────────────────────
-
-export interface StraddleCreneau {
-  id: number
-  asset: string
-  jour_semaine: number | null
-  heure_debut: string
-  heure_fin: string
-  atr_moyen: number | null
-  frequence: number | null
-  llm_raison: string | null
-  llm_conviction: number | null
-  statut: 'a_tester' | 'valide' | 'invalide'
-  cree_le: string
-  // Précision M5
-  timing_optimal: string | null
-  fenetre_entree: string | null
-  whipsaw_minutes: number | null
-  precision_nb_occurrences: number | null
-  precision_atr_pic: number | null
-}
-
-export interface ReponseAnalyseStraddle {
-  creneaux: StraddleCreneau[]
-  nb_analyses: number
-  nb_retenus: number
-  message?: string
-}
+// (Les types StraddleCreneau/ReponseAnalyseStraddle ont été supprimés le
+//  23/09 avec l'endpoint /api/straddle/analyser — le pipeline créneaux IA
+//  matinal produit la même information, persistée celle-là.)
 
 // ── Monitoring adaptatif Straddle ─────────────────────────────────────────────
 

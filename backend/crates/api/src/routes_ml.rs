@@ -11,11 +11,7 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         "/api/ml/feedback/stats",
         web::get().to(crate::ml_insights_handlers::stats_feedback),
     )
-    // ── Phase 8.4 : Réentraînement incrémental ─────────────────────────
-    .route(
-        "/api/ml/retrain",
-        web::post().to(crate::ml_retrain_handler::declencher_retrain),
-    )
+    // ── Réentraînement automatique (23/09) : plus de POST manuel ──────
     .route(
         "/api/ml/retrain/last",
         web::get().to(crate::ml_retrain_handler::dernier_statut_retrain),

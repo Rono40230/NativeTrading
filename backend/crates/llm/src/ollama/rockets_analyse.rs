@@ -84,30 +84,7 @@ pub async fn analyser_strategie(contexte: &str) -> Result<AnalyseReponse, Tradin
         "options": { "temperature": 0.3, "num_predict": 1024, "num_gpu": 99, "num_ctx": 8192 }
     });
 
-    super::compter_appel();
-    let _permit = super::OLLAMA_SEMAPHORE.acquire().await.ok();
-    let client = &*super::OLLAMA_HTTP_CLIENT;
-
-    let reponse = client
-        .post(&url)
-        .json(&corps)
-        .send()
-        .await
-        .map_err(|e| TradingError::Api(format!("Ollama injoignable: {}", e)))?;
-
-    if !reponse.status().is_success() {
-        return Err(TradingError::Api(format!(
-            "Ollama HTTP {}",
-            reponse.status()
-        )));
-    }
-
-    let data: super::ReponseOllama = reponse
-        .json()
-        .await
-        .map_err(|e| TradingError::Api(format!("Réponse Ollama invalide: {}", e)))?;
-
-    let texte = data.message.content;
+    let texte = super::appeler_ollama(&url, &corps).await?;
     let debut = texte.find('{').unwrap_or(0);
     let fin = texte.rfind('}').map(|i| i + 1).unwrap_or(texte.len());
     serde_json::from_str::<AnalyseReponse>(&texte[debut..fin]).map_err(|e| {

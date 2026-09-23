@@ -45,7 +45,6 @@ pub async fn lister_prompts() -> impl Responder {
         },
         "straddle": {
             "definition": p("straddle_definition", "Définition (dérivée)", "Ancre le LLM dans la logique news-trading. Dérivé de la page Définition.", "Toute analyse straddle"),
-            "analyse_strategique":p("straddle_analyse", "Analyse stratégique", "Analyse les backtests Straddle et recommande des ajustements de créneaux/paramètres.", "Sur demande"),
             "analyste_passes":p("straddle_analyste", "Analyste des passes", "Lit les passes closes journalisées (source, asset, verdict, R net, durée) et explique ce qui marche / coince — propositions chiffrées pour la décision de passage Officielle.", "Modale Analyse → onglet 🤖 Analyste (à la demande)")
         },
         "outils_ia": {

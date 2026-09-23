@@ -14,6 +14,7 @@
       <div class="flex-1 min-w-0 flex flex-col gap-2 min-h-0 overflow-hidden pb-1">
         <MarketClocks class="shrink-0 h-[130px]" />
         <CreneauxVolatiliteBloc class="shrink-0" />
+        <RadarAtrBloc class="shrink-0" />
         <div class="flex-1 min-h-0">
           <DashboardStrategiesBlocs />
         </div>
@@ -61,6 +62,7 @@ import SentimentMarche from '@/components/common/SentimentMarche.vue'
 import DashboardSystemStatus from '@/components/common/DashboardSystemStatus.vue'
 import DashboardRapportActivite from '@/components/common/DashboardRapportActivite.vue'
 import CreneauxVolatiliteBloc from '@/components/common/CreneauxVolatiliteBloc.vue'
+import RadarAtrBloc from '@/components/common/RadarAtrBloc.vue'
 import DashboardStrategiesBlocs from '@/components/common/DashboardStrategiesBlocs.vue'
 import DashboardTuilesNavigation from '@/components/common/DashboardTuilesNavigation.vue'
 

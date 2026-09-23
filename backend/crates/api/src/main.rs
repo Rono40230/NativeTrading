@@ -21,6 +21,7 @@ mod indicators_handlers;
 mod indicators_types;
 mod ml_collecte;
 mod ml_insights_handlers;
+mod ml_monitoring;
 mod ml_retrain_fine_tuning;
 mod ml_retrain_handler;
 mod ml_retrain_job;
@@ -82,12 +83,9 @@ mod smc_v12_collect;
 mod smc_v12_handlers;
 mod smc_v12_out;
 mod state;
-mod straddle_handlers;
 mod straddle_ml_handlers;
-mod straddle_monitoring_handlers;
 mod straddle_precision_handler;
 mod straddle_types;
-mod straddle_utils;
 mod strategies_params_handlers;
 mod tendance_handlers;
 mod utils;
@@ -181,6 +179,9 @@ async fn main() -> std::io::Result<()> {
     // boot puis balayage toutes les 6 h) — scores bornés à 1 pour ne jamais
     // re-boucler sur un article déjà noté.
     tokio::spawn(presse_notation::boucle(app_state.db.clone()));
+    // Entraînement ML automatique : hebdomadaire (dernier > 7 j) — le
+    // bouton manuel a été retiré le 23/09 (décision propriétaire).
+    tokio::spawn(ml_retrain_handler::boucle_automatique(app_state.clone()));
     // Étape C : scanner actions quotidien — Observation silencieuse.
     tokio::spawn(rockets_actions_scanner::boucle_scanner_actions(app_state.db.clone(), poignees_runtime.bus_signaux.clone()));
 

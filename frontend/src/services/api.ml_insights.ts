@@ -64,11 +64,6 @@ export const mlInsightsApi = {
     return res.data
   },
 
-  async postRetrain(): Promise<{ job_id: string; status: string }> {
-    const res = await http.post('/api/ml/retrain')
-    return res.data
-  },
-
   async getRetrainStatus(jobId: string): Promise<RetainJobState> {
     const res = await http.get(`/api/ml/retrain/status/${jobId}`)
     return res.data

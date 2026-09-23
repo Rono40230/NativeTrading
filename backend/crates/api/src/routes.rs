@@ -190,10 +190,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::ollama_handlers::statut),
         )
         .route(
-            "/api/straddle/analyser",
-            web::post().to(crate::straddle_handlers::analyser),
-        )
-        .route(
             "/api/straddle/analyste",
             web::get().to(crate::straddle_analyste::consulter),
         )
@@ -212,7 +208,7 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         )
         .route(
             "/api/straddle/monitoring-ml",
-            web::get().to(crate::straddle_ml_handlers::monitoring_ml),
+            web::get().to(crate::ml_monitoring::straddle),
         )
         .route(
             "/api/straddle/calibration",

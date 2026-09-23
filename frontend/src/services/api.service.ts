@@ -16,7 +16,6 @@ export type {
   SentimentMarche, EntiteSentiment,
   CouvertureDonnees, ResultatCollecteItem,
   PatternHoraire, ReponsePatternsVolatilite,
-  StraddleCreneau, ReponseAnalyseStraddle,
 } from './api.types'
 
 import type {
