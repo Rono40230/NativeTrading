@@ -42,8 +42,8 @@
             @click.stop="basculerTelegram(b)"
           >{{ b.notifications ? '🔔' : '🔕' }}</button>
           <span class="px-1.5 py-0.5 rounded bg-white/10 font-mono font-bold"
-                :class="rArrondi(b.analyse?.r_total ?? 0) > 0 ? 'text-emerald-400' : rArrondi(b.analyse?.r_total ?? 0) < 0 ? 'text-red-400' : 'text-white'"
-                :title="titleR">{{ rFormate(b.analyse?.r_total ?? 0) }}</span>
+                :class="rArrondi(b.analyse?.r_distance_total ?? 0) > 0 ? 'text-emerald-400' : rArrondi(b.analyse?.r_distance_total ?? 0) < 0 ? 'text-red-400' : 'text-white'"
+                :title="titleR">{{ rFormate(b.analyse?.r_distance_total ?? 0) }}</span>
           <span v-if="b.capital" class="px-1.5 py-0.5 rounded bg-white/10 font-mono font-bold"
                 :class="b.capital.capital_actuel < 0 ? 'text-red-400' : b.capital.capital_actuel >= b.capital.capital_depart ? 'text-emerald-400' : 'text-white'"
                 :title="`Capital simulé — départ ${fmtDollars(b.capital.capital_depart)}, compose à chaque clôture (risque ${(b.capital.fraction_risque * 100).toFixed(b.capital.fraction_risque < 0.01 ? 1 : 0)} %/trade). Le lot de chaque trade se calcule sur ce capital.`">{{ fmtDollars(b.capital.capital_actuel) }}</span>
@@ -427,9 +427,10 @@ function rFormate(v: number): string {
   return `${r > 0 ? '+' : r < 0 ? '−' : ''}${Math.abs(r).toFixed(1)} R`
 }
 
-/// Info-bulle du badge R : la convention officielle (encaissé = gagnants −
-/// perdants, décision 16/09) — la même que le rapport et l'historique.
-const titleR = 'R encaissés : gagnants − perdants, ventes partielles comprises (décision 16/09).\nLe badge $ compose exactement ces R — même histoire, unités différentes.\nLa distance (meilleur palier atteint) reste visible au laboratoire de simulation.'
+/// Info-bulle du badge R (23/09) : R DISTANCE cumulée — le niveau le plus
+/// lointain atteint par les trades. Juge la stratégie (entrées + TP) ; le
+/// badge $ du capital juge le résultat réel, réglages de sortie compris.
+const titleR = 'R distance cumulé : niveaux les plus lointains atteints (juge la stratégie — entrées et TP).\nLe badge capital $ dit ce que ça a rapporté, réglages de sortie compris.'
 
 function ouvrir(id: string) {
   const cible = ROUTES[id]

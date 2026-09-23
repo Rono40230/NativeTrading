@@ -186,7 +186,7 @@
               <th class="py-1 text-right text-red-400">SL</th>
               <th class="py-1 text-right">Expire</th>
               <th class="py-1 text-right">WR</th>
-              <th class="py-1 text-right">R moyen</th>
+              <th class="py-1 text-right">Σ R</th>
             </tr>
           </thead>
           <tbody>
@@ -199,7 +199,7 @@
               <td class="py-1 text-right text-red-400">{{ t.sl }}</td>
               <td class="py-1 text-right text-white/60">{{ t.expire }}</td>
               <td class="py-1 text-right font-bold" :class="t.wr >= 0.5 ? 'text-emerald-400' : 'text-red-400'">{{ Math.round(t.wr * 100) }} %</td>
-              <td class="py-1 text-right font-bold" :class="(t.r_moyen ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ t.r_moyen != null ? fmtR(t.r_moyen) : '—' }}</td>
+              <td class="py-1 text-right font-bold" :class="(t.r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ t.r != null ? fmtR(t.r) : '—' }}</td>
             </tr>
           </tbody>
         </table>

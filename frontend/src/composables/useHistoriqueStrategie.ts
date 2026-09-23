@@ -1,14 +1,14 @@
 /**
  * useHistoriqueStrategie — historique filtré d'une verticale pour les pages
- * stratégies (gabarit étape 01/09). Réutilise les règles de la page
- * Historique : variantes de nommage SMC (writer v1 vs runtime), totaux
- * Σ R encaissé (r_encaisse servi par le backend — même valeur que les
- * points capital et le badge du dashboard, harmonisation 15/09) / jamais
- * remplis, MFE des perdants.
+ * stratégies. Deux voix distinctes (décision 23/09) : le R DISTANCE
+ * (niveau le plus lointain atteint — juge entrée + TP) et le $ réel du
+ * trade (profit du re-jeu capital, rapproché par id). Variantes de nommage
+ * SMC, jamais remplis, MFE des perdants.
  */
 import { ref, computed } from 'vue'
 import { apiService } from '@/services/api.service'
 import { http } from '@/services/http.client'
+import { chargerAnalyse } from '@/composables/useAnalyses'
 import type { Signal } from '@/services/api.service'
 
 export type CleStrategie = 'smc' | 'straddle' | 'rockets' | 'kdj_halftrend'
@@ -23,6 +23,8 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
   const lotParId = ref<Record<string, number>>({})
   /** Nombre de notes du journal par trade — badge 📝. */
   const journalComptes = ref<Record<string, number>>({})
+  /** $ réel encaissé par trade (re-jeu capital — rapprochement par id). */
+  const profitParId = ref<Record<string, number>>({})
 
   // ── Tri par colonne (HistoryTable émet « trier-par ») ────────────────────
   const triColonne = ref('')
@@ -102,7 +104,9 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
       if (!ok) continue
       if (s.statut !== 'Fermé') { enCours++; continue }
       if (s.heure_entree === null || s.heure_entree === undefined) { jamaisRemplis++; continue }
-      const r = s.r_encaisse ?? s.r_distance
+      // R DISTANCE — LE R affiché (23/09) : juge la stratégie, indépendant
+      // des réglages de sortie. Le $ vit dans profitParId.
+      const r = s.r_distance
       if (r !== null && r !== undefined) sommeR = (sommeR ?? 0) + r
     }
     return { sommeR, jamaisRemplis, enCours }
@@ -124,6 +128,13 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
       mfeParId.value = mfe
       lotParId.value = lots
       journalComptes.value = comptes
+      // $ par trade (voix « résultat ») — les clôtures exposées du re-jeu.
+      try {
+        const analyse = await chargerAnalyse(cle === 'smc' ? 'SMC' : cle)
+        const carte: Record<string, number> = {}
+        for (const c of analyse?.clotures ?? []) carte[c.id] = c.dollars
+        profitParId.value = carte
+      } catch { profitParId.value = {} }
     } catch {
       signaux.value = []
     } finally {
@@ -131,5 +142,5 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
     }
   }
 
-  return { signauxFiltres, signauxTriés, totaux, mfeParId, lotParId, journalComptes, triColonne, triDir, trierPar, chargement, charger }
+  return { signauxFiltres, signauxTriés, totaux, mfeParId, lotParId, journalComptes, profitParId, triColonne, triDir, trierPar, chargement, charger }
 }

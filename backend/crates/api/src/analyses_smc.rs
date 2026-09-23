@@ -19,7 +19,10 @@ pub struct TrancheScore {
     pub expire: usize,
     /// Part des clôtures gagnantes ($ > 0) — 0-1.
     pub wr: f64,
-    /// R-distance moyen de la tranche.
+    /// Σ R-distance de la tranche (23/09 : plus aucun R moyen affiché —
+    /// des R réels : par trade ou en somme).
+    pub r: f64,
+    /// (Champ historique conservé pour compat — plus affiché.)
     pub r_moyen: f64,
 }
 
@@ -98,7 +101,10 @@ pub(crate) async fn enrichissements_smc(
             .filter(|c| score_par_id.get(&c.id).map(|s| *s >= min && *s <= max).unwrap_or(false))
             .collect();
         let n = membres.len();
-        let somme_r: f64 = membres.iter().map(|c| c.r).sum();
+        // R DISTANCE (correctif 23/09 soir, signalé propriétaire : ce champ
+        // sommait c.r = ENCAISSÉ — Σ tranches = −14,9 au lieu de +100,5.
+        // Les tranches jugent la stratégie → distance).
+        let somme_r: f64 = membres.iter().map(|c| c.r_distance).sum();
         tranches.push(TrancheScore {
             label: label.to_string(),
             n,
@@ -113,6 +119,7 @@ pub(crate) async fn enrichissements_smc(
                 0.0
             },
             r_moyen: if n > 0 { somme_r / n as f64 } else { 0.0 },
+            r: somme_r,
         });
     }
 

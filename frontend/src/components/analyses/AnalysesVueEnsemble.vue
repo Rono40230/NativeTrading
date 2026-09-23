@@ -32,7 +32,7 @@
               </td>
               <td class="py-1.5 pr-2 text-right text-white">{{ s.nb_trades }}</td>
               <td class="py-1.5 pr-2 text-right text-white">{{ (s.taux_reussite * 100).toFixed(0) }} %</td>
-              <td class="py-1.5 pr-2 text-right font-mono" :class="s.r_total > 0 ? 'text-emerald-400' : s.r_total < 0 ? 'text-red-400' : 'text-white'">{{ fmtR(s.r_total) }}</td>
+              <td class="py-1.5 pr-2 text-right font-mono" :class="s.r_distance_total > 0 ? 'text-emerald-400' : s.r_total < 0 ? 'text-red-400' : 'text-white'">{{ fmtR(s.r_distance_total) }}</td>
               <td class="py-1.5 pr-2 text-right font-mono" :class="s.capital_actuel >= s.capital_depart ? 'text-emerald-400' : 'text-red-400'">
                 {{ fmtDollars(s.capital_actuel) }}
                 <span class="text-white/60 text-[10px]">/ {{ fmtDollars(s.capital_depart) }}</span>

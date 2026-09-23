@@ -31,10 +31,10 @@
                 pct(monitoring.win_rate_global) }}</span>
           </div>
           <div class="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex flex-col gap-0.5">
-            <span class="text-[9px] text-white uppercase tracking-wider">P&L moy (R)</span>
+            <span class="text-[9px] text-white uppercase tracking-wider">Σ R distance</span>
             <span class="text-base font-bold"
-              :class="(monitoring.pnl_moyen_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{
-                monitoring.pnl_moyen_r != null ? monitoring.pnl_moyen_r.toFixed(2) + 'R' : '—' }}</span>
+              :class="(monitoring.somme_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{
+                monitoring.somme_r != null ? monitoring.somme_r.toFixed(2) + 'R' : '—' }}</span>
           </div>
         </div>
       </div>
@@ -68,10 +68,10 @@
           </span>
         </div>
         <div class="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 flex flex-col gap-0.5 col-span-2">
-          <span class="text-[10px] text-white uppercase tracking-wider">P&L moyen (R)</span>
+          <span class="text-[10px] text-white uppercase tracking-wider">Σ R distance</span>
           <span class="text-xl font-bold"
-            :class="(monitoring.pnl_moyen_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
-            {{ monitoring.pnl_moyen_r != null ? monitoring.pnl_moyen_r.toFixed(2) + 'R' : '—' }}
+            :class="(monitoring.somme_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
+            {{ monitoring.somme_r != null ? monitoring.somme_r.toFixed(2) + 'R' : '—' }}
           </span>
         </div>
       </div>

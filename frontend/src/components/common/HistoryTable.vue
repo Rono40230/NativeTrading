@@ -61,7 +61,8 @@
             <div class="flex items-center gap-2">
               <span v-if="palierFerme(s)" class="badge" :class="classePalierMax(palierFerme(s))">{{ labelPalierMax(palierFerme(s)) }}</span>
               <span v-else class="badge" :class="classeEtatSignal(s)" :title="titreEtatSignal(s)">{{ labelEtatSignal(s) }}</span>
-              <span v-if="rReference(s) !== null" :class="classeR(rReference(s))" class="text-xs">{{ formatR(rReference(s)) }}</span>
+              <span v-if="rReference(s) !== null" :class="classeR(rReference(s))" class="text-xs" title="R distance : niveau le plus lointain atteint (juge l'entrée et les TP)">{{ formatR(rReference(s)) }}</span>
+              <span v-if="profitMap[s.id] !== undefined" class="text-[10px] font-mono shrink-0" :class="profitMap[s.id] >= 0 ? 'text-emerald-300/80' : 'text-red-300/80'" title="$ réellement encaissé (ventes partielles comprises)">{{ formatDollarsTrade(s.id) }}</span>
               <span v-if="pointsPalier(s)" class="text-[10px] font-mono" :class="classeR(rReference(s))" title="Gain/perte en points MT5 (R de référence × risque en points — unité du broker)">{{ pointsPalier(s) }}</span>
             </div>
             <!-- MFE des perdants : l'excursion favorable avant le SL juge le
@@ -113,6 +114,8 @@ const props = defineProps<{
   lots?: Record<string, number>
   /** Nombre de notes du journal par trade : { [id]: n }. */
   journalComptes?: Record<string, number>
+  /** $ réel par trade (re-jeu capital) : { [id]: dollars }. */
+  profits?: Record<string, number>
 }>()
 
 const emit = defineEmits<{
@@ -150,6 +153,14 @@ function icone(col: string): string {
 
 /** MFE des perdants : { [id]: { mfe_r, meilleur_prix } } — vide si non chargé. */
 const mfeMap = computed<Record<string, { mfe_r: number | null; meilleur_prix: number | null }>>(() => props.mfe ?? {})
+const profitMap = computed<Record<string, number>>(() => props.profits ?? {})
+
+/** $ réel du trade (re-jeu capital) — la voix « résultat », à côté du R. */
+function formatDollarsTrade(id: string): string {
+  const d = profitMap.value[id]
+  if (d === undefined) return ''
+  return `${d >= 0 ? '+' : '−'}${Math.abs(d).toFixed(2)} $`
+}
 
 /** Lots recalculés : { [id]: lot } — vide si non chargé. */
 const lotMap = computed<Record<string, number>>(() => props.lots ?? {})
@@ -170,14 +181,14 @@ function palierFerme(s: Signal): PalierMax['palier'] {
   return palierMax(s).palier
 }
 
-/** R ENCAISSÉ du trade (gagnants − perdants, décision 16/09) : servi par le
- *  backend (/api/signaux → r_encaisse), identique aux agrégats du dashboard
- *  par construction — SMC = pondéré ventes partielles, autres = R net.
- *  Repli r_distance si absent. Null hors clôtures remplies. */
+/** R DISTANCE du trade (niveau le plus lointain atteint — décision 23/09) :
+ *  LE R affiché, il juge l'entrée et le placement des TP, indépendant de
+ *  tout réglage de sortie. Le $ réel du trade vit juste à côté (profitMap).
+ *  Null hors clôtures remplies. */
 function rReference(s: Signal): number | null {
   if ((s.statut ?? '') !== 'Fermé') return null
   if (s.heure_entree === null || s.heure_entree === undefined) return null
-  return s.r_encaisse ?? s.r_distance ?? null
+  return s.r_distance ?? null
 }
 
 /** « Ouvert le » = REMPLISSAGE de l'ordre — la position n'existe qu'à partir

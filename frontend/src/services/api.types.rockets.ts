@@ -73,7 +73,7 @@ export interface StraddleStatCategorie {
   win_rate: number
   score_llm_win: number | null
   score_llm_lose: number | null
-  pnl_r_moyen: number | null
+  r_somme: number
 }
 
 export interface StraddleMonitoringData {
@@ -83,7 +83,9 @@ export interface StraddleMonitoringData {
   nb_perdants: number
   nb_invalides: number
   win_rate_global: number
-  pnl_moyen_r: number | null
+  /** Σ R distance (23/09 — jamais de moyenne affichée). */
+  somme_r: number
+  pnl_moyen_r?: number | null
   derive_detectee: boolean
   par_categorie: StraddleStatCategorie[]
 }
@@ -116,7 +118,9 @@ export interface RocketsMonitoringData {
   nb_perdants: number
   nb_invalides: number
   win_rate_global: number
-  pnl_moyen_r: number | null
+  /** Σ R distance (23/09 — jamais de moyenne affichée). */
+  somme_r: number
+  pnl_moyen_r?: number | null
   derive_detectee: boolean
   par_phase: RocketsStatPhase[]
 }

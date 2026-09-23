@@ -1,11 +1,11 @@
 <template>
   <!-- Classement décisionnel d'une dimension (TF, asset, événement) : le
-       verdict « les plus intéressants » — tri par R moyen encaissé/trade,
-       garde-fous effectif (règle des 30) et WR. -->
+       verdict « les plus intéressants » — tri par Σ R distance (23/09 :
+       des R réels en somme, jamais de moyenne ; garde-fous effectif (règle des 30) et WR. -->
   <div class="glass-card p-3">
     <div class="flex items-center gap-2 mb-2 flex-wrap">
       <p class="text-xs font-semibold text-white">🏆 {{ titre }}</p>
-      <span class="text-[10px] text-white/50" title="Tri : R moyen encaissé par clôture — la contribution par trade, pas le volume">tri : R moyen encaissé/trade</span>
+      <span class="text-[10px] text-white/50" title="Tri : Σ R distance de la catégorie — la contribution réelle, volume compris">tri : Σ R distance</span>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
       <div v-for="sens in sections" :key="sens.key">
@@ -18,7 +18,7 @@
             <span class="font-mono font-bold truncate shrink-0" :class="l.n < seuil ? 'text-white/50' : 'text-white'">{{ l.label }}</span>
             <span v-if="l.n < seuil" class="text-[9px] px-1 py-0.5 rounded-full border border-white/10 text-white/40 shrink-0"
                   :title="`${l.n} clôtures — règle des 30 non atteinte`">{{ l.n }}</span>
-            <span class="ml-auto font-mono tabular-nums shrink-0" :class="l.rMoyen >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR(l.rMoyen) }}</span>
+            <span class="ml-auto font-mono tabular-nums shrink-0" :class="l.rSomme >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR(l.rSomme) }}</span>
             <span class="font-mono text-white/50 tabular-nums w-10 text-right shrink-0" title="Win rate ($ > 0)">{{ Math.round(l.wr * 100) }} %</span>
             <span class="font-mono text-white/60 tabular-nums w-16 text-right shrink-0" title="Contribution $ totale">{{ fmtDollars(l.dollars) }}</span>
           </div>
@@ -26,7 +26,7 @@
         </div>
       </div>
     </div>
-    <p class="text-[9px] text-white/40 mt-2">Colonnes : R moyen encaissé/trade · WR ($&gt;0) · Σ $. Gris = effectif &lt; {{ seuil }} (non significatif).</p>
+    <p class="text-[9px] text-white/40 mt-2">Colonnes : Σ R distance · WR ($&gt;0) · Σ $. Gris = effectif &lt; {{ seuil }} (non significatif).</p>
   </div>
 </template>
 
@@ -38,13 +38,14 @@ const props = defineProps<{ titre: string; categories: CategorieAnalyse[]; seuil
 
 const seuil = computed(() => props.seuil ?? 30)
 
-interface Ligne { label: string; n: number; rMoyen: number; wr: number; dollars: number }
+interface Ligne { label: string; n: number; rSomme: number; wr: number; dollars: number }
 
+// Σ R distance — le R réel de la catégorie (23/09 : jamais de moyenne).
 const classees = computed<Ligne[]>(() =>
   props.categories
     .filter(c => c.n > 0)
-    .map(c => ({ label: c.label, n: c.n, rMoyen: c.r / c.n, wr: c.wr, dollars: c.dollars }))
-    .sort((a, b) => b.rMoyen - a.rMoyen),
+    .map(c => ({ label: c.label, n: c.n, rSomme: c.r, wr: c.wr, dollars: c.dollars }))
+    .sort((a, b) => b.rSomme - a.rSomme),
 )
 
 const sections = computed(() => [

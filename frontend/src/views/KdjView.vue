@@ -17,7 +17,7 @@
     <template #historique>
       <div class="text-sm text-white flex flex-wrap items-center gap-x-3 mb-2">
         <span>{{ historique.signauxFiltres.value.length }} trade{{ historique.signauxFiltres.value.length > 1 ? 's' : '' }}</span>
-        <span v-if="historique.totaux.value.sommeR !== null" :class="historique.totaux.value.sommeR >= 0 ? 'text-emerald-400' : 'text-red-400'" class="font-mono" title="Σ R encaissés des clôtures — la même valeur que le badge de la carte et le rapport d'activité">Σ R {{ formatR(historique.totaux.value.sommeR) }}</span>
+        <span v-if="historique.totaux.value.sommeR !== null" :class="historique.totaux.value.sommeR >= 0 ? 'text-emerald-400' : 'text-red-400'" class="font-mono" title="Σ R distance des clôtures — le niveau le plus lointain atteint, cumulé (juge la stratégie)">Σ R {{ formatR(historique.totaux.value.sommeR) }}</span>
         <span class="text-white">· moteur H1, miroir vérifié du Pine étalon</span>
       </div>
       <HistoryTable
@@ -27,6 +27,7 @@
         :tri-dir="historique.triDir.value"
         :mfe="historique.mfeParId.value"
         :lots="historique.lotParId.value"
+        :profits="historique.profitParId.value"
         :journal-comptes="historique.journalComptes.value"
         @trier-par="historique.trierPar"
         @journal-maj="historique.charger()"

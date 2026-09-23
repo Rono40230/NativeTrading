@@ -36,7 +36,6 @@
             </div>
             <div class="flex items-center gap-2">
               <span class="text-sm font-bold" :class="(store.analyse.smc?.global.win_rate ?? 0) >= 55 ? 'text-emerald-400' : 'text-red-400'">{{ store.analyse.smc?.global.win_rate?.toFixed(0) || 0 }}%</span>
-              <span class="text-xs font-bold text-white">{{ store.analyse.smc?.global.pnl_r_moyen?.toFixed(2) || 0 }}R</span>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-1 text-[9px] bg-white/5 p-1 rounded">
@@ -56,7 +55,6 @@
             </div>
             <div class="flex items-center gap-2">
               <span class="text-sm font-bold" :class="(store.analyse.rockets?.global.win_rate ?? 0) >= 55 ? 'text-emerald-400' : 'text-red-400'">{{ store.analyse.rockets?.global.win_rate?.toFixed(0) || 0 }}%</span>
-              <span class="text-xs font-bold text-white">{{ store.analyse.rockets?.global.pnl_r_moyen?.toFixed(2) || 0 }}R</span>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-1 text-[9px] bg-white/5 p-1 rounded">
@@ -76,7 +74,6 @@
             </div>
             <div class="flex items-center gap-2">
               <span class="text-sm font-bold" :class="(store.analyse.straddle?.global.win_rate ?? 0) >= 55 ? 'text-emerald-400' : 'text-red-400'">{{ store.analyse.straddle?.global.win_rate?.toFixed(0) || 0 }}%</span>
-              <span class="text-xs font-bold text-white">{{ store.analyse.straddle?.global.pnl_r_moyen?.toFixed(2) || 0 }}R</span>
             </div>
           </div>
           <div class="grid grid-cols-2 gap-1 text-[9px] bg-white/5 p-1 rounded">
@@ -93,8 +90,8 @@
          (décision propriétaire 23/09) — mêmes filtres, même R encaissé
          (SMC = pondéré ventes partielles) que les tables d'historique. -->
     <p class="text-[10px] text-white shrink-0 px-1">
-      Miroir de l'historique des trades clôturés — même R encaissé que les tables
-      d'historique et les cartes du dashboard.
+      Miroir de l'historique des trades clôturés — R distance (niveau le plus
+      lointain atteint), la même valeur que les tables d'historique.
     </p>
     <div class="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-4 gap-3 shrink-0">
       <!-- Straddle -->

@@ -20,6 +20,16 @@ use std::sync::Arc;
 pub use crate::analyses_smc::{BlocIa, TrancheScore};
 use crate::analyses_smc::enrichissements_smc;
 
+/// Clôture exposée au front : l'essentiel par trade pour l'historique
+/// (rapprochement par id du signal) — R DISTANCE et $ réel.
+#[derive(Clone, serde::Serialize)]
+pub struct ClotureExpose {
+    pub id: String,
+    pub verdict: String,
+    pub r_distance: f64,
+    pub dollars: f64,
+}
+
 /// Une clôture normalisée — l'unité d'analyse (un trade qui a engagé du
 /// capital, expirés compris : leur R réel a composé le capital).
 #[derive(Clone)]
@@ -32,6 +42,10 @@ pub(crate) struct ClotureAnalyse {
     pub(crate) verdict: String,
     /// R qui compose le capital (pondéré SMC, net straddle, réalisé base).
     pub(crate) r: f64,
+    /// R DISTANCE (niveau le plus lointain atteint) — juge l'entrée et les
+    /// TP, indépendant de tout réglage de sortie (décision 23/09 : LE R
+    /// affiché ; le pondéré reste interne au moteur de capital).
+    pub(crate) r_distance: f64,
     /// Profit/perte $ composé (variation du capital simulé à cette clôture).
     pub(crate) dollars: f64,
     /// Clé moteur (straddle) — catégorisation par événement.
@@ -104,8 +118,16 @@ pub struct AnalyseStrategie {
     pub capital_actuel: f64,
     pub fraction_risque: f64,
     /// Σ R ENCAISSÉ (gagnants − perdants, fractions comprises) — le R qui
-    /// compose le capital (décision propriétaire 16/09).
+    /// compose le capital (décision propriétaire 16/09). Interne au calcul
+    /// du capital ; l'affichage parle en R DISTANCE et en $ (23/09).
     pub r_total: f64,
+    /// Σ R DISTANCE (niveaux les plus lointains atteints) — LE R affiché :
+    /// juge la stratégie (entrées + placement des TP), indépendant des
+    /// réglages de sortie (décision propriétaire 23/09).
+    pub r_distance_total: f64,
+    /// Clôtures individuelles (r_distance + $ par trade) — rapprochement
+    /// côté front avec l'historique des trades (id du signal).
+    pub clotures: Vec<ClotureExpose>,
     /// R encaissé moyen par clôture (r_total / nb_trades).
     pub r_moyen: f64,
     /// Part des clôtures perdantes ($ < 0) — 0-1 (complément inexact du WR :
@@ -165,6 +187,7 @@ async fn collecter(
                     // compose le capital. La distance (meilleur palier)
                     // reste une donnée d'étude (laboratoire, r_distance).
                     r: p.r_pondere,
+                    r_distance: p.r_distance,
                     dollars: p.profit,
                     cle_moteur: p.cle_moteur.clone(),
                 })
@@ -250,7 +273,8 @@ fn periodes(clotures: &[ClotureAnalyse], cle: fn(i64) -> (String, String)) -> Ve
         let (k, label) = cle(c.ferme_le);
         let e = par.entry(k).or_insert((label, 0.0, 0.0, 0, 0));
         e.1 += c.dollars;
-        e.2 += c.r;
+        // R DISTANCE (23/09) — le $ reste la voix du résultat.
+        e.2 += c.r_distance;
         e.3 += 1;
         if c.dollars > 0.0 {
             e.4 += 1;
@@ -275,7 +299,8 @@ fn categories(clotures: &[ClotureAnalyse], cle: fn(&ClotureAnalyse) -> &str) -> 
         let e = par.entry(cle(c).to_string()).or_insert((0, 0.0, 0.0, 0));
         e.0 += 1;
         e.1 += c.dollars;
-        e.2 += c.r;
+        // R DISTANCE (23/09) : les catégories jugent la stratégie.
+        e.2 += c.r_distance;
         if c.dollars > 0.0 {
             e.3 += 1;
         }
@@ -326,6 +351,7 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
 
     let nb = clotures.len();
     let r_total = clotures.iter().map(|c| c.r).sum();
+    let r_distance_total = clotures.iter().map(|c| c.r_distance).sum();
     let gagnants = clotures.iter().filter(|c| c.dollars > 0.0).count();
     let perdants = clotures.iter().filter(|c| c.dollars < 0.0).count();
     let r_moyen = if nb > 0 { r_total / nb as f64 } else { 0.0 };
@@ -387,7 +413,7 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
             let e = par.entry(source).or_insert((0, 0.0, 0.0, 0));
             e.0 += 1;
             e.1 += c.dollars;
-            e.2 += c.r;
+            e.2 += c.r_distance;
             if c.dollars > 0.0 {
                 e.3 += 1;
             }
@@ -416,6 +442,16 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
         capital_actuel,
         fraction_risque: fraction,
         r_total,
+        r_distance_total,
+        clotures: clotures
+            .iter()
+            .map(|c| ClotureExpose {
+                id: c.id.clone(),
+                verdict: c.verdict.clone(),
+                r_distance: c.r_distance,
+                dollars: c.dollars,
+            })
+            .collect(),
         r_moyen,
         taux_perte: if nb > 0 { perdants as f64 / nb as f64 } else { 0.0 },
         recalcul: false,
@@ -514,6 +550,7 @@ pub async fn get_analyses(state: web::Data<AppState>) -> impl actix_web::Respond
             "capital_depart": a.capital_depart,
             "capital_actuel": a.capital_actuel,
             "r_total": a.r_total,
+            "r_distance_total": a.r_distance_total,
             "recalcul": a.recalcul,
             "taux_reussite": a.taux_reussite,
             "hier": a.hier,

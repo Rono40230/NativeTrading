@@ -146,19 +146,34 @@ async fn contexte(db: &db::Database, a: &AnalyseStrategie) -> String {
             a.nb_trades
         )
     });
+    // Deux voix distinctes (décision 23/09) : R DISTANCE (la stratégie —
+    // entrées et TP) et $ (le résultat réel, réglages compris). L'écart
+    // entre les deux = la conversion (mécanique de sortie). Le R encaissé
+    // brut n'est plus servi à l'analyste — il racontait la moitié de
+    // l'histoire en la faisant passer pour la whole.
+    let perf_pct = if a.capital_depart > 0.0 {
+        (a.capital_actuel / a.capital_depart - 1.0) * 100.0
+    } else {
+        0.0
+    };
     l.push(format!(
-        "{} clôtures · risque {:.1} %/trade · capital {:.0} $ → {:.0} $ ({:+.0} $) · ΣR {:+.1} · réussite {:.0} %",
+        "{} clôtures · risque {:.1} %/trade · Σ R DISTANCE {:+.1} (le niveau le plus lointain atteint — juge entrées et TP) · capital {:.0} $ → {:.0} $ ({:+.0} $, {:+.1} %) · réussite {:.0} %",
         a.nb_trades,
         a.fraction_risque * 100.0,
+        a.r_distance_total,
         a.capital_depart,
         a.capital_actuel,
         a.capital_actuel - a.capital_depart,
-        a.r_total,
+        perf_pct,
         a.taux_reussite * 100.0
+    ));
+    l.push(format!(
+        "CONVERSION : {:+.1} R de distance parcourus → {:+.1} % de capital. L'écart vient de la mécanique de sortie (ventes partielles, break-even, trailing) — ce n'est PAS un défaut de sélection des trades.",
+        a.r_distance_total, perf_pct
     ));
     if let Some(h) = &a.hier {
         l.push(format!(
-            "Hier ({}): {:+.1} $ · {:+.1}R · {} clôture(s)",
+            "Hier ({}): {:+.1} $ · Σ R distance {:+.1} · {} clôture(s)",
             h.date, h.dollars, h.r, h.trades
         ));
     } else {
@@ -200,7 +215,7 @@ fn derniers(v: &[PeriodeAnalyse], n: usize) -> &[PeriodeAnalyse] {
 
 fn lignes_categories(cats: &[CategorieAnalyse]) -> String {
     cats.iter()
-        .map(|c| format!("{} ×{} ({:+.0} $, {:+.1}R, {:.0} % ok)", c.label, c.n, c.dollars, c.r, c.wr * 100.0))
+        .map(|c| format!("{} ×{} ({:+.0} $, Σ R distance {:+.1}, {:.0} % ok)", c.label, c.n, c.dollars, c.r, c.wr * 100.0))
         .collect::<Vec<_>>()
         .join(" ; ")
 }

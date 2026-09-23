@@ -135,7 +135,7 @@ export interface SmcStatCategorie {
   win_rate: number
   conv_win: number | null
   conv_lose: number | null
-  pnl_r_moyen: number | null
+  r_somme: number
 }
 
 export interface SmcMonitoringData {
@@ -145,7 +145,9 @@ export interface SmcMonitoringData {
   nb_perdants: number
   nb_invalides: number
   win_rate_global: number
-  pnl_moyen_r: number | null
+  /** Σ R distance (23/09 — jamais de moyenne affichée). */
+  somme_r: number
+  pnl_moyen_r?: number | null
   derive_detectee: boolean
   par_categorie: SmcStatCategorie[]
 }

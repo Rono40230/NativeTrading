@@ -55,14 +55,24 @@ use super::*;
         assert_eq!(a.journalier.iter().map(|p| p.trades).sum::<usize>(), 4, "Σ journalier");
         assert_eq!(a.heatmap.iter().map(|c| c.trades).sum::<usize>(), 4, "Σ heatmap");
 
-        // Même R partout : r_total == Σ r_pondere (encaissé) == Σ par verdict.
+        // Deux voix distinctes (23/09) : r_total = Σ encaissé (compose le
+        // capital, interne) ; les catégories/périodes portent la DISTANCE
+        // (le R affiché). Vérifiées séparément.
         let somme_points: f64 = sim.points.iter().map(|p| p.r_pondere).sum();
         assert!((a.r_total - somme_points).abs() < 1e-9, "r_total {} ≠ Σ points {}", a.r_total, somme_points);
         // Encaissé : TP1+BE 0,3 + TP2+BE 1,02 (solde repli TP1) + SL −1 + Expire 0.
         assert!((a.r_total - 0.32).abs() < 1e-9, "ΣR encaissé attendu 0.32, obtenu {}", a.r_total);
+        // Distance : 0.6 + 2.0 + (−1.0) + 0.0 = 1.6 — Σ affichée.
+        assert!((a.r_distance_total - 1.6).abs() < 1e-9, "ΣR distance attendue 1.6, obtenu {}", a.r_distance_total);
+        let somme_points_distance: f64 = sim.points.iter().map(|p| p.r_distance).sum();
+        assert!((a.r_distance_total - somme_points_distance).abs() < 1e-9, "r_distance_total ≠ Σ points.r_distance");
         let somme_verdicts: f64 = a.verdicts.iter().map(|c| c.r).sum();
-        assert!((a.r_total - somme_verdicts).abs() < 1e-9, "Σ verdicts.r ≠ r_total");
+        assert!((a.r_distance_total - somme_verdicts).abs() < 1e-9, "Σ verdicts.r (distance) ≠ r_distance_total");
         assert!((a.r_moyen - 0.08).abs() < 1e-9, "r_moyen {}", a.r_moyen);
+        // Clôtures exposées : même effectif, mêmes voix.
+        assert_eq!(a.clotures.len(), 4, "clotures exposées");
+        let somme_exposee: f64 = a.clotures.iter().map(|c| c.r_distance).sum();
+        assert!((somme_exposee - a.r_distance_total).abs() < 1e-9, "Σ clotures.r_distance ≠ r_distance_total");
 
         // WR ($ > 0) + taux de perte ($ < 0) : complémentaires au pire des ~0 $.
         assert!(a.taux_reussite + a.taux_perte <= 1.0 + 1e-9);

@@ -15,7 +15,7 @@
           <div class="kpi"><p class="kpi-label">Capital</p>
             <p class="kpi-valeur" :class="rendement >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollars(vecu.capital_actuel) }}</p>
             <p class="kpi-sous">{{ fmtPct(rendement) }}</p></div>
-          <div class="kpi"><p class="kpi-label">Σ R encaissé</p>
+          <div class="kpi"><p class="kpi-label">Σ R encaissé (simulé)</p>
             <p class="kpi-valeur" :class="vecu.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR2(vecu.r_total) }}</p>
             <p class="kpi-sous">{{ vecu.nb_trades }} passes</p></div>
           <div class="kpi"><p class="kpi-label">WR ($ &gt; 0)</p>
@@ -341,7 +341,7 @@ const comparatif = computed(() => {
       ecart: `${((s.taux_reussite - v.taux_reussite) * 100).toFixed(0)} pts`, classe: s.taux_reussite >= v.taux_reussite ? 'text-emerald-400' : 'text-red-400',
     },
     {
-      label: 'Σ R net (composé)', vecu: fmtR2(v.r_total), sim: fmtR2(s.r_total_pondere),
+      label: 'Σ R encaissé (conversion — réglages)', vecu: fmtR2(v.r_total), sim: fmtR2(s.r_total_pondere),
       ecart: '', classe: s.r_total_pondere >= 0 ? 'text-emerald-400' : 'text-red-400',
     },
   ]

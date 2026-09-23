@@ -22,10 +22,10 @@
                 pct(monitoring.win_rate_global) }}</span>
           </div>
           <div class="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex flex-col gap-0.5">
-            <span class="text-[9px] text-white uppercase tracking-wider">R moyen/signal</span>
+            <span class="text-[9px] text-white uppercase tracking-wider">Σ R distance</span>
             <span class="text-base font-bold"
-              :class="(monitoring.pnl_moyen_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{
-                monitoring.pnl_moyen_r != null ? monitoring.pnl_moyen_r.toFixed(2) + 'R' : '—' }}</span>
+              :class="(monitoring.somme_r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{
+                monitoring.somme_r != null ? monitoring.somme_r.toFixed(2) + 'R' : '—' }}</span>
           </div>
         </div>
       </div>
@@ -59,8 +59,8 @@
                 :class="c.win_rate >= 0.55 ? 'text-emerald-400' : c.win_rate >= 0.45 ? 'text-yellow-400' : 'text-red-400'">
                 {{ pct(c.win_rate) }}
               </td>
-              <td class="py-1.5 text-right" :class="(c.pnl_r_moyen ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
-                {{ c.pnl_r_moyen != null ? c.pnl_r_moyen.toFixed(2) + 'R' : '—' }}
+              <td class="py-1.5 text-right" :class="(c.r_somme ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">
+                {{ c.r_somme != null ? c.r_somme.toFixed(2) + 'R' : '—' }}
               </td>
             </tr>
           </tbody>

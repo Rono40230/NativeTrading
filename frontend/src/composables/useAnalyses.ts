@@ -57,6 +57,10 @@ export interface AnalyseStrategie {
   capital_actuel: number
   fraction_risque: number
   r_total: number
+  /** Σ R DISTANCE (23/09) — LE R affiché : juge la stratégie. */
+  r_distance_total: number
+  /** Clôtures individuelles (R distance + $ par trade). */
+  clotures: { id: string; verdict: string; r_distance: number; dollars: number }[]
   /** R encaissé moyen par clôture (r_total / nb_trades). */
   r_moyen: number
   /** Part des clôtures perdantes ($ < 0) — 0-1. */
@@ -89,6 +93,8 @@ export interface TrancheScore {
   sl: number
   expire: number
   wr: number
+  /** Σ R-distance de la tranche (23/09 — des R réels, jamais de moyenne). */
+  r: number
   r_moyen: number
 }
 
@@ -118,6 +124,8 @@ export interface ResumeStrategie {
   capital_depart: number
   capital_actuel: number
   r_total: number
+  /** Σ R distance (23/09) — LE R du résumé. */
+  r_distance_total: number
   taux_reussite: number
   hier: ResumeJour | null
 }
