@@ -70,9 +70,9 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "23/09 soir (conventions deux voix : R distance + $, zéro R moyen — correctifs tranches + analyste inclus)",
-    "commit": "c264f8a",
-    "note": "L'app parle en R distance (stratégie) et en $ (résultat). Le R pondéré est interne au moteur de capital."
+    "date": "23/09 nuit (trailing SMC appliqué en production k=0,2 — balayage k étendu 0,05-1,0, référence moteur = réglage réel)",
+    "commit": "41ba668",
+    "note": "L'app parle en R distance (stratégie) et en $ (résultat). Le R pondéré est interne au moteur de capital. Le trailing SMC est ACTIF (k=0,2) — il s'applique aux nouvelles positions."
   },
   "verticales": [
     {
@@ -354,9 +354,20 @@
       "prio": 3,
       "titre": "Radar ATR : baseline saisonnière (heure × asset sur 24 mois)",
       "detail": "Constat propriétaire 23/09 : le ratio actuel (ATR 6 dernières bougies ÷ ATR 60 dernières) compare le temps réel à une moyenne A-SAISONNIÈRE — il mesure en partie l'heure de la session (ouverture NY gonfle le ratio par construction, session Asie l'écrase), pas uniquement l'anomalie. CORRECTION : baseline = volatilité habituelle de CET asset à CETTE heure (données déjà disponibles dans les patterns horaires 24 mois qui alimentent les Créneaux). Fenêtre courte 6 bougies → élargir/lisser. Les confluences (ATR élevé × pattern favorable) font déjà moitié chemin — la baseline saisonnière généraliserait leur logique."
+    },
+    {
+      "id": "6.7",
+      "prio": 2,
+      "titre": "Vécu SMC : figer les fractions par trade à la clôture (+ nettoyage du if vide)",
+      "detail": "Constat 23/09 nuit (question propriétaire « pourquoi la courbe de capital ne bouge-t-elle pas quand je change les réglages ? ») : ① RÉPONSE ACQUISE — la courbe $ du dashboard est le VÉCU : chaque clôture porte ses niveaux réels (TPs stockés à l'émission, verdict/prix vécus) ; changer TP1/TP2/trailing aujourd'hui ne réécrit pas l'histoire, le labo mesure les contre-factuels. NORMAL ET VOULU (convention deux voix). ② DÉFAUT RÉEL DÉCOUVERT : capital_simule.rs recalcule le R pondéré du vécu avec Fractions::default() (0,5/0,3/0,2 CODÉS EN DUR) — la courbe $ ignore la config de découpe du lot (invisible aujourd'hui : la config vaut exactement le défaut ; deviendrait mensonger si le propriétaire change les fractions). CORRECTION PROPOSÉE : figer les fractions en vigueur SUR CHAQUE TRADE à sa clôture (historique immuable, comme les TP) et composer le vécu sur les fractions figées. ③ CODE MORT ASSOCIÉ : config_handlers.rs — un bloc if VIDE dont le commentaire promet « les métriques se re-dérivent du nouveau réglage en tâche de fond » (promesse non tenue et qui ne DOIT pas l'être pour le vécu) : à supprimer avec la correction. À VOTER par le propriétaire."
     }
   ],
   "decisions": [
+    {
+      "date": "23/09 nuit",
+      "titre": "Trailing SMC APPLIQUÉ en production (k 0,5 → 0,2) — le balayage du k tranché",
+      "detail": "Chronologie propriétaire 23/09 : 15:05 application du trailing k=0,5 via le labo (les 9 clés SMC écrites), le soir passage à k=0,2 après lecture du balayage étendu. BALAYAGE (757 clôtures re-jeu 24 mois, vérifié 2× par 2 endpoints) : off +3,3 % · k0,5 +28,2 % · k0,2 +29,9 % · plateau PLAT 0,05-0,20 (max +31,2 % à 0,05, 1,3 pt d'écart total — du bruit de tri) · k≥0,4 décroît monotone · pire creux 993 $ CONSTANT (le trailing améliore le rendement sans toucher au risque). MÉCANISME : les 66 clôtures TS portent +90,7 R pondéré — sans trailing le solde visait un TP3 « lointaine » atteint 1 fois sur 757 et retombait à BE/SL (la fuite de conversion démontrée). CHOIX k=0,2 : dans le plateau, 4× moins serré que 0,05 (moins sensible au bruit) — l'écart au max (~1 pt) est in-sample. LEVIER QUANTIFIÉ : trailing off→on = +25 pts de capital ; fine-tuning dans le plateau = ≤1,3 pt. LIVRÉ AVEC : référence « Moteur actuel » du balayage = réglage réel lu en base (plus jamais codée « sans trailing ») ; bornes k 0,05-1,0 alignées partout (moteur réel, simulation, réglages Niveaux de profit, labo)."
+    },
     {
       "date": "23/09",
       "titre": "L'app parle en DEUX VOIX : R distance + $ — et PLUS AUCUN R moyen affiché",
