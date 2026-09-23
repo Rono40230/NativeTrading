@@ -38,7 +38,7 @@
     </div>
     <div v-if="trailingOn" class="flex items-center justify-between gap-4 py-2">
       <span class="text-white text-xs">Distance du trailing (× R)</span>
-      <input v-model.number="trailingR" type="number" :step="0.05" :min="0.1" :max="1"
+      <input v-model.number="trailingR" type="number" :step="0.05" :min="0.05" :max="1"
         class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50" />
     </div>
     <div class="flex items-center justify-between gap-4 py-2">
@@ -149,8 +149,8 @@ async function enregistrer() {
     await ecrire('smc_tp3_mode', tp3Mode.value, 'TP3 mode')
   }
 
-  if (trailingOn.value && (Number.isNaN(trailingR.value) || trailingR.value < 0.1 || trailingR.value > 1.0)) {
-    erreurs.push('Distance du trailing entre 0,1 et 1R (non sauvegardé)')
+  if (trailingOn.value && (Number.isNaN(trailingR.value) || trailingR.value < 0.05 || trailingR.value > 1.0)) {
+    erreurs.push('Distance du trailing entre 0,05 et 1R (non sauvegardé)')
   } else {
     await ecrire('smc_tp3_trailing', trailingOn.value ? '1' : '0', 'trailing')
     if (trailingOn.value) {

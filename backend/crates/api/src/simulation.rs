@@ -124,7 +124,7 @@ pub async fn post_simulation(
             .unwrap_or(false),
     };
     let trailing_r = if trailing_actif {
-        Some(b.tp3_trailing_r.unwrap_or(smc_rejeu_config(&db, "smc_tp3_trailing_r", 0.5, 0.1, 1.0).await))
+        Some(b.tp3_trailing_r.unwrap_or(smc_rejeu_config(&db, "smc_tp3_trailing_r", 0.5, 0.05, 1.0).await))
     } else {
         None
     };

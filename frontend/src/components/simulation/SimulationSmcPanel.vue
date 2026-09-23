@@ -42,7 +42,7 @@
           <label class="flex flex-col gap-1">TP3 R fixe
             <input v-model.number="params.tp3_rfixe" type="number" step="0.5" min="3" max="10" class="champ" /></label>
           <label class="flex flex-col gap-1">Trailing après TP2 (× R)
-            <input v-model.number="params.tp3_trailing_r" type="number" step="0.1" min="0.1" max="1" class="champ" :disabled="!params.tp3_trailing" /></label>
+            <input v-model.number="params.tp3_trailing_r" type="number" step="0.05" min="0.05" max="1" class="champ" :disabled="!params.tp3_trailing" /></label>
           <label class="flex items-center gap-2 col-span-2 text-white">
             <input v-model="params.tp3_trailing" type="checkbox" class="accent-teal-400" /> Activer le trailing</label>
           <p class="col-span-2 text-white/50 text-[10px] -mt-1">Fractions du lot : la somme est normalisée à 100 % à l'envoi.</p>
@@ -80,9 +80,9 @@
                   :disabled="enCoursBalayage" @click="balayer">
             {{ enCoursBalayage ? '⏳ Balayage…' : '📊 Balayer les fractions' }}</button>
           <button class="btn-action bg-white/10 text-white hover:bg-white/20 disabled:opacity-40"
-                  :disabled="enCoursTrailing" :title="'Active le trailing (après TP2) et balaye son k × R — re-jeu exact du moteur, ~100 s. Un trailing ATR roulant SMC serait une déviation de l\'étalon Pine : à voter séparément.'"
+                  :disabled="enCoursTrailing" :title="'Active le trailing (après TP2) et balaye son k × R (pas fin 0,05 sous 0,2) — re-jeu exact du moteur, ~3 min. Un trailing ATR roulant SMC serait une déviation de l\'étalon Pine : à voter séparément.'"
                   @click="balayerTrailing">
-            {{ enCoursTrailing ? '⏳ Balayage trailing… (~100 s)' : '📊 Balayer le k du trailing' }}</button>
+            {{ enCoursTrailing ? '⏳ Balayage trailing… (~3 min)' : '📊 Balayer le k du trailing' }}</button>
           <button class="btn-action bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 disabled:opacity-40"
                   :disabled="!modifie" :title="modifie ? 'Écrit ces réglages dans la config réelle (futurs signaux) — le re-jeu officiel relance en fond' : 'Aucune modification par rapport aux réglages actuels'"
                   @click="appliquer">✅ Appliquer ces réglages</button>
@@ -172,10 +172,10 @@
     <section v-if="balayageTrailingRes" class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 flex-wrap">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">4-bis · Balayage du k de trailing (×R, après TP2)</h2>
-        <span class="text-[10px] text-white/60">re-jeu exact du moteur — le trailing est INACTIF en production aujourd'hui</span>
+        <span class="text-[10px] text-white/60">re-jeu exact du moteur — la ligne « Moteur actuel » suit le réglage réel (trailing actif ou non)</span>
       </div>
       <div v-if="balayageTrailingRes.moteur_actuel" class="text-xs text-white/70 mb-1">
-        Moteur actuel (sans trailing) : <span class="font-mono" :class="balayageTrailingRes.moteur_actuel.rendement >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtPct(balayageTrailingRes.moteur_actuel.rendement) }}</span> · {{ balayageTrailingRes.moteur_actuel.clotures }} clôtures
+        Moteur actuel{{ balayageTrailingRes.moteur_actuel.k > 0 ? ` (trailing k=${balayageTrailingRes.moteur_actuel.k.toFixed(2)})` : ' (sans trailing)' }} : <span class="font-mono" :class="balayageTrailingRes.moteur_actuel.rendement >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtPct(balayageTrailingRes.moteur_actuel.rendement) }}</span> · {{ balayageTrailingRes.moteur_actuel.clotures }} clôtures
       </div>
       <div class="overflow-x-auto">
         <table class="w-full text-xs">
@@ -193,7 +193,7 @@
           <tbody>
             <tr v-for="(l, i) in balayageTrailingRes.configurations" :key="l.k" class="border-b border-white/5">
               <td class="py-1.5 pr-2 text-right text-white/50">{{ i + 1 }}</td>
-              <td class="py-1.5 px-2 text-right font-mono text-white">{{ l.k.toFixed(1) }}</td>
+              <td class="py-1.5 px-2 text-right font-mono text-white">{{ l.k.toFixed(2) }}</td>
               <td class="py-1.5 px-2 text-right font-mono text-white/70">{{ l.clotures }}</td>
               <td class="py-1.5 px-2 text-right font-mono font-bold" :class="l.capital >= balayageTrailingRes.capital_depart ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollars(l.capital) }}</td>
               <td class="py-1.5 px-2 text-right font-mono" :class="l.rendement >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtPct(l.rendement) }}</td>

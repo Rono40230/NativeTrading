@@ -149,8 +149,10 @@ pub struct RequeteBalayageStraddle {
 
 /// Balayage du k de TRAILING SMC (17/09, extension laboratoire) : le levier
 /// exact du moteur (k×R après TP2, réglage smc_tp3_trailing). Chaque k = un
-/// re-jeu complet (~20 s, cache LRU) — 5 configurations ≈ 100 s. Référence :
-/// moteur actuel (trailing du réglage réel, inactif en production).
+/// re-jeu complet (~20 s, cache LRU) — 8 configurations ≈ 3 min. Plaque
+/// fine (pas 0,05) sous 0,2 depuis le 23/09 : le premier balayage plaçait
+/// son optimum à la borne basse. Référence : moteur actuel (trailing du
+/// réglage réel, inactif en production).
 /// NB : un trailing ATR-roulant SMC = déviation de l'étalon Pine — hors
 /// périmètre ici, à voter séparément le cas échéant.
 #[allow(clippy::too_many_arguments)]
@@ -168,14 +170,17 @@ async fn balayage_trailing_smc(
     let tp3_l = crate::smc_rejeu::lire_tp3_lointaine(&db).await;
     let tp3_r = crate::smc_rejeu::lire_tp3_rfixe(&db).await;
 
+    // Pas fin (0,05) sous 0,2 — l'optimum du premier balayage (23/09 :
+    // +29,9 % à k=0,2) était à la borne basse de la plage 0,2-1,0 — puis
+    // pas 0,2 au-dessus, déjà couvert.
+    const CIBLES_K: [f64; 8] = [0.05, 0.1, 0.15, 0.2, 0.4, 0.6, 0.8, 1.0];
     let mut lignes: Vec<serde_json::Value> = Vec::new();
-    let mut k = 0.2_f64;
-    while k <= 1.0001 {
+    for k in CIBLES_K {
         match crate::smc_rejeu::calculer_etude(&db, tp1, tp2_reg, tp3_l, tp3_r, Some(k), fractions, &filtre_assets, &filtre_tfs).await {
             Ok(r) => {
                 let mini = r.clotures.iter().map(|c| c.capital_apres).fold(r.capital_depart, f64::min);
                 lignes.push(serde_json::json!({
-                    "k": (k * 10.0).round() / 10.0,
+                    "k": (k * 100.0).round() / 100.0,
                     "capital": r.capital_actuel,
                     "rendement": if cap0 > 0.0 { r.capital_actuel / cap0 - 1.0 } else { 0.0 },
                     "capital_minimum": mini,
@@ -185,14 +190,16 @@ async fn balayage_trailing_smc(
             }
             Err(_) => {}
         }
-        k = (k * 10.0).round() / 10.0 + 0.2;
     }
     lignes.sort_by(|a, b| b["capital"].as_f64().unwrap_or(0.0).total_cmp(&a["capital"].as_f64().unwrap_or(0.0)));
-    // Référence : réglage réel actuel (trailing inactif en production).
+    // Référence : réglage RÉEL — trailing du moteur s'il est actif (k du
+    // réglage), sans trailing sinon. Jamais codé en dur : le 23/09 le
+    // trailing est passé actif en production, la référence doit suivre.
+    let trailing_reel = crate::reglages_smc::lire_trailing_reglage(&db).await;
     let mut moteur = None;
-    if let Ok(r) = crate::smc_rejeu::calculer_etude(&db, tp1, tp2_reg, tp3_l, tp3_r, None, fractions, &filtre_assets, &filtre_tfs).await {
+    if let Ok(r) = crate::smc_rejeu::calculer_etude(&db, tp1, tp2_reg, tp3_l, tp3_r, trailing_reel, fractions, &filtre_assets, &filtre_tfs).await {
         moteur = Some(serde_json::json!({
-            "k": 0.0,
+            "k": trailing_reel.unwrap_or(0.0),
             "capital": r.capital_actuel,
             "rendement": if cap0 > 0.0 { r.capital_actuel / cap0 - 1.0 } else { 0.0 },
             "capital_minimum": r.clotures.iter().map(|c| c.capital_apres).fold(r.capital_depart, f64::min),

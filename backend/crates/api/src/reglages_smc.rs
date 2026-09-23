@@ -24,7 +24,9 @@ pub async fn lire_tp3_reglage(db: &db::Database) -> smc::v12::signals::Tp3Reglag
 }
 
 /// Trailing stop après TP2 (défaut inactif — mesuré par le re-jeu avant
-/// d'en faire éventuellement un défaut).
+/// d'en faire éventuellement un défaut). Borne basse 0,05 depuis le
+/// 23/09 : alignée sur le balayage du labo (l'optimum mesuré est dans
+/// le plateau 0,05-0,20).
 pub async fn lire_trailing_reglage(db: &db::Database) -> Option<f64> {
     let actif = db
         .lire_config("smc_tp3_trailing")
@@ -42,7 +44,7 @@ pub async fn lire_trailing_reglage(db: &db::Database) -> Option<f64> {
             .ok()
             .flatten()
             .and_then(|v| v.trim().parse::<f64>().ok())
-            .map(|v| v.clamp(0.1, 1.0))
+            .map(|v| v.clamp(0.05, 1.0))
             .unwrap_or(0.5),
     )
 }
