@@ -70,9 +70,9 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "23/09 nuit (trailing SMC appliqué en production k=0,2 — balayage k étendu 0,05-1,0, référence moteur = réglage réel)",
-    "commit": "41ba668",
-    "note": "L'app parle en R distance (stratégie) et en $ (résultat). Le R pondéré est interne au moteur de capital. Le trailing SMC est ACTIF (k=0,2) — il s'applique aux nouvelles positions."
+    "date": "24/09 matin (6.7 gel des fractions à la clôture + 6.6 radar saisonnier jour×heure — vécu immuable)",
+    "commit": "eabc390",
+    "note": "L'app parle en R distance (stratégie) et en $ (résultat). Le R pondéré est interne au moteur de capital. Trailing SMC ACTIF (k=0,2). Le vécu ne se recalcule jamais : niveaux figés à l'émission, fractions figées à la clôture."
   },
   "verticales": [
     {
@@ -220,9 +220,9 @@
     {
       "id": "6.4",
       "prio": 3,
-      "titre": "Réactiver la notation presse LLM (morte depuis le 03/09)",
-      "detail": "La notation sentiment des articles (news_sentiment, 9 495 entrées) se fait À LA DEMANDE à l'ouverture dans la liseuse — plus aucune ouverture depuis le 03/09 alors que 704 articles récents attendent. Le bandeau presse du bloc sentiment reste masqué tant qu'il n'y a pas de notations fraîches. Proposition : job de fond par lot (10-20 titres/cycle via Ollama, branché sur le collecteur 30 min).",
-      "echeance": "décision propriétaire"
+      "titre": "✅ FERMÉE 24/09 — OBSOLÈTE : la notation presse LLM a été livrée par l'étape 2 de l'audit",
+      "detail": "Vérifié le 24/09 matin : 10 727/10 727 articles notés (score 0-100), dernier noté le matin même — le pipeline livré à l'étape 2 de l'audit (presse_notation : lots de 10 via qwen2.5:3b, branché sur le collecteur) tourne. La tâche décrivait l'état d'avant-audit (notation à la demande dans la liseuse, morte depuis le 03/09) — caduque. Historique : job par lot proposé, effectivement livré.",
+      "echeance": "fermée"
     },
     {
       "id": "7.F",
@@ -332,9 +332,9 @@
     {
       "id": "3.3",
       "prio": 2,
-      "titre": "SMC — étude ventes partielles vs SL pleins : LIVRÉE v2 (correctif pondéré inclus)",
-      "detail": "RÉPONSE À LA DIVERGENCE (360 clôtures, réplique validée au centime : 937,25 $ officiels) : ΣR distance +86,94 mais ΣR pondéré −5,73 → amputation ~93 R par les ventes partielles face aux SL PLEINS. Encaissé corrigé par verdict : TP1+BE 139 → +41,70 R (distance 0,6, encaissé 0,3) ; TP2+BE 35 → +35,01 R (0,3+0,6+solde au prix vécu) ; TP3 5 → +7,56 R ; SL 90 × −1 R PLEIN ; Expire 91 × 0. Il faut ~3,3 TP1+BE pour payer 1 SL — il n'y en a que 1,54. BALAYAGE v2 (231 fractions) : CONFIRMÉ — tout-TP1 (1/0/0) → +18,1 %, creux max −38 $ (le plus plat) ; actuel 0,5/0,3/0,2 rang 65/231 à −6,3 % ; tout-TP2 −10,6 % ; tout-TP3 −44 % ; tiers −15,6 %. RÉSERVES (règle 2.4) : TP3 = 5 trades (f3 non significatif) ; le profil 39 % TP1+BE est celui de la période. PROPOSITION INCHANGÉE : monter f1 fortement (1/0/0 ou 0,8/0,2/0). PRÉALABLE TECHNIQUE : brancher capital_simule sur lire_fractions() (modale écrit smc_frac_*, la simulation compose encore les défauts codés). DÉCISION : propriétaire.",
-      "echeance": "décision propriétaire (réglage modale + chantier simulation-fractions)"
+      "titre": "✅ FERMÉE 24/09 — étude ventes partielles vs SL pleins LIVRÉE v2 ; la décision est passée par le trailing",
+      "detail": "RÉPONSE À LA DIVERGENCE (360 clôtures, réplique validée au centime : 937,25 $ officiels) : ΣR distance +86,94 mais ΣR pondéré −5,73 → amputation ~93 R par les ventes partielles face aux SL PLEINS. Encaissé corrigé par verdict : TP1+BE 139 → +41,70 R (distance 0,6, encaissé 0,3) ; TP2+BE 35 → +35,01 R (0,3+0,6+solde au prix vécu) ; TP3 5 → +7,56 R ; SL 90 × −1 R PLEIN ; Expire 91 × 0. Il faut ~3,3 TP1+BE pour payer 1 SL — il n'y en a que 1,54. BALAYAGE v2 (231 fractions) : tout-TP1 (1/0/0) → +18,1 %, creux max −38 $ (le plus plat) ; actuel 0,5/0,3/0,2 rang 65/231 à −6,3 %. FERMÉE car : ① l'étude est livrée et a servi de socle à la DÉCISION du 23/09 — le levier retenu pour la conversion est le TRAILING (k=0,2 en prod : les clôtures TS captent ce que les ventes partielles laissaient fuir) ; ② le PRÉALABLE TECHNIQUE (capital_simule sur les fractions) est résolu par la 6.7 — mieux que prévu : fractions FIGÉES à la clôture. REOUVERTURE POSSIBLE : les chiffres du balayage fractions datent d'avant le trailing — si le propriétaire veut rejuger la découpe, relancer le balayage du labo (les TS changent la donne pour le solde).",
+      "echeance": "fermée (réouverture possible via labo)"
     },
     {
       "id": "2.5",
@@ -350,19 +350,24 @@
       "detail": "Arbitrage propriétaire 22/09 (rôle du ML) — niveau 2 du plan, CONDITIONNEL : ne démarrer que quand le volume d'historique le justifie (milliers de clôtures, pas des centaines — règle des 30 par sous-ensemble : stratégie × TF × asset). CONTENU : le pipeline ML score les NOUVEAUX signaux à l'émission (confiance prédite) ; la métrique « WR avec filtre vs sans filtre » est mesurée en Observation (paper) pendant une période définie ; JAMAIS de branchement direct en Officielle sans période de mesure. PRÉREQUIS : niveau 1 en place (feature importance alimente les pages Analyse — converge avec P3-1). INTERDIT (décision 22/09) : prédiction de prix (LSTM directionnel), filtre ML actif sur signaux officiels sans mesure préalable."
     },
     {
-      "id": "6.6",
-      "prio": 3,
-      "titre": "Radar ATR : baseline saisonnière (heure × asset sur 24 mois)",
-      "detail": "Constat propriétaire 23/09 : le ratio actuel (ATR 6 dernières bougies ÷ ATR 60 dernières) compare le temps réel à une moyenne A-SAISONNIÈRE — il mesure en partie l'heure de la session (ouverture NY gonfle le ratio par construction, session Asie l'écrase), pas uniquement l'anomalie. CORRECTION : baseline = volatilité habituelle de CET asset à CETTE heure (données déjà disponibles dans les patterns horaires 24 mois qui alimentent les Créneaux). Fenêtre courte 6 bougies → élargir/lisser. Les confluences (ATR élevé × pattern favorable) font déjà moitié chemin — la baseline saisonnière généraliserait leur logique."
-    },
-    {
       "id": "6.7",
       "prio": 2,
-      "titre": "Vécu SMC : figer les fractions par trade à la clôture (+ nettoyage du if vide)",
-      "detail": "Constat 23/09 nuit (question propriétaire « pourquoi la courbe de capital ne bouge-t-elle pas quand je change les réglages ? ») : ① RÉPONSE ACQUISE — la courbe $ du dashboard est le VÉCU : chaque clôture porte ses niveaux réels (TPs stockés à l'émission, verdict/prix vécus) ; changer TP1/TP2/trailing aujourd'hui ne réécrit pas l'histoire, le labo mesure les contre-factuels. NORMAL ET VOULU (convention deux voix). ② DÉFAUT RÉEL DÉCOUVERT : capital_simule.rs recalcule le R pondéré du vécu avec Fractions::default() (0,5/0,3/0,2 CODÉS EN DUR) — la courbe $ ignore la config de découpe du lot (invisible aujourd'hui : la config vaut exactement le défaut ; deviendrait mensonger si le propriétaire change les fractions). CORRECTION PROPOSÉE : figer les fractions en vigueur SUR CHAQUE TRADE à sa clôture (historique immuable, comme les TP) et composer le vécu sur les fractions figées. ③ CODE MORT ASSOCIÉ : config_handlers.rs — un bloc if VIDE dont le commentaire promet « les métriques se re-dérivent du nouveau réglage en tâche de fond » (promesse non tenue et qui ne DOIT pas l'être pour le vécu) : à supprimer avec la correction. À VOTER par le propriétaire."
+      "titre": "✅ LIVRÉE 24/09 (b0ce2f5) — Vécu SMC : fractions figées par trade à la clôture",
+      "detail": "Votée et livrée le 24/09. La courbe $ du vécu composait les fractions du jour de lecture (Fractions::default() en dur) — désormais chaque clôture SMC FIGE ses fractions en vigueur (colonne fractions_json, migration 0114, funnel unique fermer_signal_par_cle) et capital_simule compose les fractions figées. Clôtures historiques (NULL) → repli défaut 0,5/0,3/0,2 : courbe inchangée au centime (vérifié : 849,39 → 851,94 $ = exactement le trade AVAX +2,55 $). Le if vide mensonger de config_handlers remplacé par la vérité (aucun recalcul rétroactif du vécu). Preuve en prod : première clôture gelée (SP500 TP1+BE 24/09). Test dédié, 64/64 verts."
+    },
+    {
+      "id": "6.6",
+      "prio": 3,
+      "titre": "✅ LIVRÉE 24/09 (eabc390) — Radar ATR : baseline saisonnière jour × heure",
+      "detail": "Constat propriétaire 23/09 (le ratio ATR 6/60 mesurait en partie l'heure de session). LIVRÉE : ratio intraday (M1..H1) divisé par le facteur saisonnier de l'asset — ATR habituel de CET instant jour × heure, patterns M1 24 mois (même source que les Créneaux). 100 % = conforme à l'habitude ; H4/D1/W1 restent au brut (l'heure y est sans objet, note explicite). Bloc « Anomalies » = calcul pur des intraday ≥ 120 % (remplace l'ancienne confluence qui tirait sur les ouvertures ; composable useHeatmapConfluence supprimé). Effet mesuré au déploiement jeudi 8 h UTC : facteurs 0,41-0,62 sur les alts — un brut de 130 % y est une anomalie réelle de 216-314 %."
     }
   ],
   "decisions": [
+    {
+      "date": "24/09",
+      "titre": "Journée 24/09 : 6.7 (gel des fractions) + 6.6 (radar saisonnier) livrées — le vécu devient immuable",
+      "detail": "Matin : arbitrage propriétaire « 6.7 maintenant ». ① 6.7 LIVRÉE : chaque clôture SMC gèle ses fractions en vigueur (funnel unique — tout chemin de clôture futur gèlera correctement) ; la courbe $ compose les fractions FIGÉES ; clôtures historiques → repli défaut (courbe inchangée au centime, vérifié AVANT/APRÈS relance) ; le if vide de config_handlers (promesse de re-dérivation jamais tenue — et qui ne devait PAS l'être) remplacé par la vérité. VÉCU = immuable : niveaux figés à l'émission (déjà), fractions figées à la clôture (nouveau) ; les contre-factuels vivent UNIQUEMENT au labo. ② 6.6 LIVRÉE : radar ATR corrigé de la saisonnalité jour × heure (24 mois M1) — 100 % = habitude de l'instant ; anomalies = intraday ≥ 120 % corrigés (l'ancienne confluence tirait sur les ouvertures de session) ; effet mesuré : facteurs 0,41-0,62 sur les alts à 8 h UTC. ③ NETTOYAGE COCKPIT : 6.4 fermée (OBSOLÈTE — l'étape 2 de l'audit a livré la notation presse : 10 727 articles notés à 100 %, pipeline vivant vérifié) ; 3.3 fermée (LIVRÉE v2, socle des décisions trailing). ④ RELEVÉS DU JOUR : première clôture TS en prod (BNB M15 +2,31 R le 23/09 14h15) ; nuit calme (1 TP1+BE, 1 SL, 3 Expire) ; cohorte matinale 7 signaux sous trailing k=0,2 ; seuils de données : 3.1 conviction GO (305 notées ≥ ~200), 2.1 SP500 limite (35 clôtures)."
+    },
     {
       "date": "23/09 nuit",
       "titre": "Trailing SMC APPLIQUÉ en production (k 0,5 → 0,2) — le balayage du k tranché",
