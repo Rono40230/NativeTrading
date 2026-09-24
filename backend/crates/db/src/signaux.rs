@@ -273,41 +273,9 @@ impl Database {
         Ok(())
     }
 
-    /// Phase 2.8 — ferme le signal officiel correspondant à une clé moteur.
-    /// Ferme le signal officiel correspondant à une clé moteur, avec son
-    /// verdict (TP1/TP2/TP3/SL/BE/Expire), son prix de sortie et son R réel.
-    pub async fn fermer_signal_par_cle(
-        &self,
-        cle_moteur: &str,
-        asset: &str,
-        verdict: &str,
-        prix_verdict: f64,
-        r_realise: f64,
-        ferme_le: i64,
-    ) -> Result<u64> {
-        // Filtre ASSET obligatoire : des stratégies (straddle notamment)
-        // partagent la même clé entre assets pour une même annonce — sans
-        // ce filtre, la première clôture fermait toutes les lignes (bug
-        // 27/08 : +31R de PCE écrasés par la clôture XAU).
-        let res = sqlx::query(
-            "UPDATE signaux SET statut = 'Fermé', verdict = ?, prix_verdict = ?, r_realise = ?, ferme_le = ?
-             WHERE cle_moteur = ? AND asset = ? AND statut = 'Actif'",
-        )
-        .bind(verdict)
-        .bind(prix_verdict)
-        .bind(r_realise)
-        .bind(ferme_le)
-        .bind(cle_moteur)
-        .bind(asset)
-        .execute(&self.pool)
-        .await
-        .map_err(|e| TradingError::Database(e.to_string()))?;
-
-        if res.rows_affected() > 0 {
-            crate::ml_samples::collecter_a_la_cloture(&self.pool, cle_moteur, asset, verdict, prix_verdict, r_realise).await;
-        }
-        Ok(res.rows_affected())
-    }
+    /// Phase 2.8 — ferme le signal officiel correspondant à une clé moteur :
+    /// voir signaux_capital.rs (extrait ici pour la limite 600 lignes ; le
+    /// funnel y gèle aussi les fractions SMC — 6.7, 24/09).
 
     /// Enregistre un signal Straddle (Direction::Both) avec les niveaux des deux jambes.
     /// - `stop_loss`         = SL jambe LONG  (< prix_entree)

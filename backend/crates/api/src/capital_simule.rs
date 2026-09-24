@@ -135,9 +135,17 @@ pub async fn simuler(db: &db::Database, id_strategie: &str) -> anyhow::Result<Si
             } else {
                 None
             };
+            // 6.7 (24/09) : le vécu compose les fractions FIGÉES à la
+            // clôture du trade — jamais celles du jour de la lecture.
+            // NULL (clôtures historiques, autres stratégies) → défaut.
+            let fractions_trade = t
+                .fractions_json
+                .as_deref()
+                .and_then(|j| serde_json::from_str::<crate::smc_pondere::Fractions>(j).ok())
+                .unwrap_or_default();
             crate::smc_pondere::r_pondere(
                 &t.verdict, t.r, r_tp1, r_tp2,
-                crate::smc_pondere::Fractions::default(),
+                fractions_trade,
                 r_solde_tp2,
             )
         } else {

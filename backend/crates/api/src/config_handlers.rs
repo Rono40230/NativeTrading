@@ -71,16 +71,9 @@ pub async fn post_config(
     match state.db.ecrire_config(&body.cle, &body.valeur).await {
         Ok(()) => {
             tracing::info!("Config mise à jour: {}", body.cle);
-            // TP1/TP2 SMC changés → les métriques (WR, R, capital) se
-            // re-dérivent du nouveau réglage en tâche de fond.
-            if matches!(
-                body.cle.as_str(),
-                "smc_tp1_mult" | "smc_tp2_mult" | "smc_tp3_mode" | "smc_tp3_rfixe"
-                    | "smc_tp3_trailing" | "smc_tp3_trailing_r" | "smc_frac_tp1"
-                    | "smc_frac_tp2" | "smc_frac_tp3"
-            ) {
-            }
-
+            // NB : aucun recalcul rétroactif du vécu — les clôtures passées
+            // portent leurs niveaux et fractions FIGÉS (convention deux
+            // voix, 6.7) ; les contre-factuels se mesurent au laboratoire.
             HttpResponse::Ok().json(serde_json::json!({ "ok": true }))
         }
         Err(e) => HttpResponse::InternalServerError()

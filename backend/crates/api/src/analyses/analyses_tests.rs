@@ -88,6 +88,57 @@ use super::*;
         assert!((a.capital_actuel - (a.capital_depart + somme_profits)).abs() < 1e-6);
     }
 
+    /// 6.7 (24/09) — la clôture SMC FIGE les fractions en vigueur, et le
+    /// vécu compose les fractions FIGÉES (jamais celles du jour de lecture).
+    /// Une clôture non-SMC ne gèle rien ; une clôture historique (NULL)
+    /// retombe sur le défaut 0,5/0,3/0,2.
+    #[actix_web::test]
+    async fn vecu_compose_les_fractions_figees() {
+        let db = base_test().await;
+
+        // Fractions non standard en config (1,0 à TP1) — le gel doit les
+        // capturer telles quelles.
+        for (cle, v) in [("smc_frac_tp1", "1.0"), ("smc_frac_tp2", "0.0"), ("smc_frac_tp3", "0.0")] {
+            db.ecrire_config(cle, v).await.expect("config fractions");
+        }
+
+        // Signal SMC actif avec clé moteur → clôture par le funnel officiel.
+        sqlx::query(
+            "INSERT INTO signaux (id, asset, timeframe, direction, score, prix_entree, stop_loss,
+                                  take_profit, strategie, statut, cle_moteur, cree_le, heure_entree)
+             VALUES ('g1', 'BTC', 'M5', 'Long', 8, 2000.0, 1990.0, '[2006, 2020, 2030]',
+                     'SMC', 'Actif', 'cle-6-7', 1700000000, 1700000600)",
+        )
+        .execute(db.pool())
+        .await
+        .expect("signal actif");
+        let n = db
+            .fermer_signal_par_cle("cle-6-7", "BTC", "TP1+BE", 2006.0, 0.6, 1700001200)
+            .await
+            .expect("clôture");
+        assert_eq!(n, 1, "une ligne fermée");
+
+        // Le gel porte exactement les fractions de la config au moment de la clôture.
+        let figees: Option<String> = sqlx::query_scalar(
+            "SELECT fractions_json FROM signaux WHERE id = 'g1'",
+        )
+        .fetch_one(db.pool())
+        .await
+        .expect("fractions lues");
+        let f: crate::smc_pondere::Fractions =
+            serde_json::from_str(figees.as_deref().expect("fractions non NULL")).expect("JSON gélé");
+        assert!((f.tp1 - 1.0).abs() < 1e-9 && f.tp2.abs() < 1e-9 && f.tp3.abs() < 1e-9);
+
+        // Clôture SMC historique (gel NULL) + clôture non-SMC (jamais de gel).
+        cloture(&db, "h1", "TP1+BE", 7.0, "Long", 0.6).await; // NULL → défaut
+        let sim = crate::capital_simule::simuler(&db, "SMC").await.expect("simulation");
+        // g1 : 1,0 × 0,6R = 0,60 · h1 (historique) : 0,5 × 0,6R = 0,30.
+        let g1 = sim.points.iter().find(|p| p.id == "g1").expect("point g1");
+        let h1 = sim.points.iter().find(|p| p.id == "h1").expect("point h1");
+        assert!((g1.r_pondere - 0.60).abs() < 1e-9, "gelé : {}", g1.r_pondere);
+        assert!((h1.r_pondere - 0.30).abs() < 1e-9, "historique : {}", h1.r_pondere);
+    }
+
     /// Le r_distance servi par /api/signaux est le même que celui des points
     /// capital (miroir signaux_lecture ↔ capital_simule).
     #[actix_web::test]

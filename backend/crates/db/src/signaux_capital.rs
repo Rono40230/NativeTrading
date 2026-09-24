@@ -1,6 +1,8 @@
-//! Clôtures pour la simulation de capital (api::capital_simule).
-//! Extrait de signaux.rs — limite de 600 lignes par fichier (pre-commit).
+//! Clôtures pour la simulation de capital (api::capital_simule) + le funnel
+//! de clôture officiel (fermer_signal_par_cle, extrait de signaux.rs —
+//! limite 600 lignes par fichier, pre-commit).
 
+use common::Result;
 use crate::{Database, TradingError};
 use sqlx::Row;
 
@@ -26,9 +28,92 @@ pub struct ClotureCapital {
     /// Clé moteur du signal (straddle : straddle-{asset}-{annonce_ts}-B) —
     /// catégorisation « par événement » de l'analyse vécue (17/09).
     pub cle_moteur: Option<String>,
+    /// Fractions SMC figées À LA CLÔTURE (6.7, 24/09) — JSON
+    /// {"tp1":..,"tp2":..,"tp3":..}. NULL = clôture historique → repli
+    /// défaut 0,5/0,3/0,2 à la lecture ; autres stratégies : NULL.
+    pub fractions_json: Option<String>,
 }
 
 impl Database {
+    /// Phase 2.8 — ferme le signal officiel correspondant à une clé moteur,
+    /// avec son verdict (TP1/TP2/TP3/SL/BE/Expire), son prix de sortie et
+    /// son R réel. 6.7 (24/09) : une clôture SMC FIGE les fractions en
+    /// vigueur (fractions_json) — la courbe $ du vécu compose les fractions
+    /// du trade, jamais celles du jour de la lecture. Les autres stratégies
+    /// n'ont pas de ventes partielles (NULL).
+    pub async fn fermer_signal_par_cle(
+        &self,
+        cle_moteur: &str,
+        asset: &str,
+        verdict: &str,
+        prix_verdict: f64,
+        r_realise: f64,
+        ferme_le: i64,
+    ) -> Result<u64> {
+        // Filtre ASSET obligatoire : des stratégies (straddle notamment)
+        // partagent la même clé entre assets pour une même annonce — sans
+        // ce filtre, la première clôture fermait toutes les lignes (bug
+        // 27/08 : +31R de PCE écrasés par la clôture XAU).
+        let strategie: Option<String> = sqlx::query(
+            "SELECT strategie FROM signaux
+             WHERE cle_moteur = ? AND asset = ? AND statut = 'Actif' LIMIT 1",
+        )
+        .bind(cle_moteur)
+        .bind(asset)
+        .fetch_optional(&self.pool)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|r| r.try_get::<String, _>("strategie").ok());
+
+        let fractions_json = if strategie.as_deref() == Some("SMC") {
+            Some(self.fractions_smc_json().await)
+        } else {
+            None
+        };
+
+        let res = sqlx::query(
+            "UPDATE signaux SET statut = 'Fermé', verdict = ?, prix_verdict = ?, r_realise = ?, ferme_le = ?,
+                fractions_json = ?
+             WHERE cle_moteur = ? AND asset = ? AND statut = 'Actif'",
+        )
+        .bind(verdict)
+        .bind(prix_verdict)
+        .bind(r_realise)
+        .bind(ferme_le)
+        .bind(&fractions_json)
+        .bind(cle_moteur)
+        .bind(asset)
+        .execute(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        if res.rows_affected() > 0 {
+            crate::ml_samples::collecter_a_la_cloture(&self.pool, cle_moteur, asset, verdict, prix_verdict, r_realise).await;
+        }
+        Ok(res.rows_affected())
+    }
+
+    /// Fractions SMC lues de la config (smc_frac_tp*, défauts 0,5/0,3/0,2),
+    /// sérialisées pour le gel à la clôture. Mêmes clés/défauts que
+    /// api::reglages_smc::lire_fractions — la db ne dépend pas de l'api.
+    async fn fractions_smc_json(&self) -> String {
+        async fn fraction_config(db: &Database, cle: &str, defaut: f64) -> f64 {
+            db.lire_config(cle)
+                .await
+                .ok()
+                .flatten()
+                .and_then(|v| v.trim().parse::<f64>().ok())
+                .unwrap_or(defaut)
+        }
+        serde_json::json!({
+            "tp1": fraction_config(self, "smc_frac_tp1", 0.5).await,
+            "tp2": fraction_config(self, "smc_frac_tp2", 0.3).await,
+            "tp3": fraction_config(self, "smc_frac_tp3", 0.2).await,
+        })
+        .to_string()
+    }
+
     /// Epoch (sec) de la première émission d'une stratégie — borne la fenêtre
     /// de re-jeu paramétrique à la période réellement vécue par l'app.
     pub async fn debut_historique_epoch(&self, strategie: &str) -> Option<i64> {
@@ -49,7 +134,7 @@ impl Database {
         let rows = sqlx::query(
             "SELECT id, ferme_le, r_realise, asset, timeframe,
                     COALESCE(verdict, '') AS verdict,
-                    prix_entree, stop_loss, take_profit, prix_verdict, cle_moteur
+                    prix_entree, stop_loss, take_profit, prix_verdict, cle_moteur, fractions_json
              FROM signaux
              WHERE strategie = ? AND statut = 'Fermé' AND verdict IS NOT NULL
                AND heure_entree IS NOT NULL AND ferme_le IS NOT NULL
@@ -73,6 +158,7 @@ impl Database {
                 verdict: r.get("verdict"),
                 prix_verdict: r.try_get::<f64, _>("prix_verdict").ok(),
                 cle_moteur: r.try_get::<Option<String>, _>("cle_moteur").ok().flatten(),
+                fractions_json: r.try_get::<Option<String>, _>("fractions_json").ok().flatten(),
             })
             .collect())
     }

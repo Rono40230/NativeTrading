@@ -6,8 +6,9 @@
 //! le pondéré alimente UNIQUEMENT la simulation de capital — Σ R de
 //! référence, WR et historique restent au moteur.
 
-/// Fractions du lot vendues à chaque palier (0..=1, Σ = 1).
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
+/// Fractions du lot vendues à chaque palier (0..=1, Σ = 1). Sérialisées à
+/// la clôture (gel 6.7) : la db écrit ce JSON dans signaux.fractions_json.
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Fractions {
     pub tp1: f64,
     pub tp2: f64,
