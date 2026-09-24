@@ -4,11 +4,11 @@
        Ne rend rien si la stratégie n'a pas d'actions. Les modales vivent
        ici aussi — ModaleCadre stoppe la propagation pour ne jamais
        déclencher le clic carte. -->
-  <div v-if="actions" class="flex items-center gap-1 flex-wrap">
+  <div v-if="actions" class="flex items-center gap-1 flex-wrap" :class="vertical ? 'flex-col !flex-nowrap items-stretch gap-1 flex-1 justify-evenly' : ''">
     <PopoverInfo v-for="a in actions" :key="a.cle" :titre="a.titre">
       <button
-        class="text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors whitespace-nowrap"
-        :class="classeAction"
+        class="text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors text-left leading-tight"
+        :class="[vertical ? 'whitespace-normal' : 'whitespace-nowrap', classeAction]"
         @click.stop="surAction(a.cle)"
       >{{ a.label }}</button>
     </PopoverInfo>
@@ -30,7 +30,7 @@ import StraddleReglagesModales, { type ModaleStraddle } from './StraddleReglages
 import RocketsReglagesModales, { type ModaleRockets } from './RocketsReglagesModales.vue'
 import KdjReglagesModales, { type ModaleKdj } from './KdjReglagesModales.vue'
 
-const props = defineProps<{ id: string }>()
+const props = defineProps<{ id: string; vertical?: boolean }>()
 
 const router = useRouter()
 const modaleSmc = ref<ModaleSmc | null>(null)
@@ -53,11 +53,11 @@ const ACTIONS: Record<string, ActionCarte[]> = {
     { cle: 'scanner', label: '🔭 Scanner', titre: 'Setups en formation, confirmation H1/H4, journal' },
     { cle: 'parametres', label: '⚙️ Paramètres', titre: 'État, son Telegram, capital, risque' },
     { cle: 'niveaux', label: '💰 Niveaux de profits', titre: 'TP1/TP2/TP3, trailing, ventes partielles' },
-    { cle: 'timeframes', label: '🕐 Choix des Assets & TimeFrame', titre: 'Armement des couples générateurs de signaux' },
+    { cle: 'timeframes', label: '🕐 Assets & TimeFrame', titre: 'Armement des couples générateurs de signaux' },
   ],
   straddle: [
     { cle: 'definition', label: '📐 Caractéristiques', titre: 'Les caractéristiques de la stratégie Straddle' },
-    { cle: 'perimetre', label: '🎯 Choix des Assets & créneaux', titre: 'Périmètre de surveillance (moteurs M1, annonces) et créneaux armés' },
+    { cle: 'perimetre', label: '🎯 Assets & créneaux', titre: 'Périmètre de surveillance (moteurs M1, annonces) et créneaux armés' },
     { cle: 'parametres', label: '⚙️ Paramètres', titre: 'État, son Telegram, capital, risque' },
     { cle: 'moteur', label: '🛠️ Paramètres moteur', titre: 'Minutage et risque (SL × ATR H1, trailing)' },
   ],
@@ -72,7 +72,7 @@ const ACTIONS: Record<string, ActionCarte[]> = {
     { cle: 'scanner', label: '🔭 Scanner', titre: 'Tendances franches vs ranges (ADX)' },
     { cle: 'parametres', label: '⚙️ Paramètres', titre: 'État, son Telegram, capital, risque' },
     { cle: 'moteur', label: '🛠️ Paramètres moteur', titre: 'KDJ, HalfTrend, RatioRisk, filtre ADX' },
-    { cle: 'assets', label: '🕐 Choix des Assets', titre: 'Actifs armés pour le moteur KDJ H1 (sans redémarrage)' },
+    { cle: 'assets', label: '🕐 Assets', titre: 'Actifs armés pour le moteur KDJ H1 (sans redémarrage)' },
   ],
 }
 

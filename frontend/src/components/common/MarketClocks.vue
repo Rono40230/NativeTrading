@@ -1,46 +1,49 @@
 <template>
-  <div class="glass-card py-1.5 px-3 relative overflow-hidden shrink-0 flex items-center justify-center">
+  <!-- RANGÉE DE GARDE (cockpit 24/09, prop 1 owner) : les six places du
+       monde sur une ligne pleine largeur, carte en filigrane. Chaque place :
+       montre analogique (anneau de statut animé, trotteuse) + le bloc
+       d'infos — heure digitale à la seconde, badge LIVE/BIENTÔT/FERMÉ/W-E,
+       compte à rebours d'ouverture/fermeture. Logique temporelle
+       inchangée : bornes en heure LOCALE de la place, DST géré via
+       Intl.DateTimeFormat. -->
+  <div class="relative shrink-0 rounded-xl border border-white/10 bg-white/[0.03] p-2 pt-5 overflow-hidden">
+
+    <span class="onglet">SESSIONS MONDIALES</span>
     <WorldMapBg />
-    <div class="grid grid-cols-3 gap-2 lg:grid-cols-6 relative w-full mx-auto" style="max-width: 100%;">
-      <div v-for="session in sessions" :key="session.nom" class="flex flex-col items-center gap-0">
 
-        <!-- Heure locale au niveau du titre : « 14:52:36 à PARIS » (à minuscule) -->
-        <span class="text-[11px] font-extrabold tracking-wider mb-1.5" :class="session.labelCouleur">{{ session.heureTitre }} à {{ session.nom.toUpperCase() }}</span>
+    <div class="relative grid grid-cols-3 md:grid-cols-6 gap-x-2 gap-y-1.5">
+      <div v-for="session in sessions" :key="session.nom" class="flex items-center gap-2.5 min-w-0">
 
-        <!-- Cadran analogique SVG -->
-        <svg viewBox="0 0 100 100" class="w-16 h-16 drop-shadow-xl mb-1">
-          <!-- Fond -->
+        <!-- La montre -->
+        <svg viewBox="0 0 100 100" class="w-[56px] h-[56px] shrink-0 drop-shadow-xl">
           <circle cx="50" cy="50" r="45" :fill="session.bgFill" />
-          <!-- Anneau statut -->
           <circle cx="50" cy="50" r="45" fill="none" :stroke="session.ringColor"
             stroke-width="3" :class="session.ringAnim" />
-          <!-- Ticks minutes -->
           <line v-for="t in TICKS_MIN" :key="`m${t.i}`"
             :x1="t.x1" :y1="t.y1" :x2="t.x2" :y2="t.y2"
             :stroke="session.tickColor" stroke-width="0.6" />
-          <!-- Ticks heures (plus épais) -->
           <line v-for="t in TICKS_HR" :key="`h${t.i}`"
             :x1="t.x1" :y1="t.y1" :x2="t.x2" :y2="t.y2"
             :stroke="session.tickColor" stroke-width="2" stroke-linecap="round" />
-          <!-- Aiguille heures -->
           <line x1="50" y1="50" :x2="session.hrX" :y2="session.hrY"
             :stroke="session.handColor" stroke-width="4.5" stroke-linecap="round" />
-          <!-- Aiguille minutes -->
           <line x1="50" y1="50" :x2="session.minX" :y2="session.minY"
             :stroke="session.handColor" stroke-width="3" stroke-linecap="round" />
-          <!-- Aiguille secondes (avec queue) -->
           <line :x1="session.secTailX" :y1="session.secTailY"
             :x2="session.secX" :y2="session.secY"
             :stroke="session.secColor" stroke-width="1.5" stroke-linecap="round" />
-          <!-- Centre -->
           <circle cx="50" cy="50" r="3.5" :fill="session.secColor" />
           <circle cx="50" cy="50" r="1.5" fill="#0b0f28" />
         </svg>
 
-        <!-- Statut sous le cadran -->
-        <div class="flex items-center justify-center gap-1 flex-wrap">
-          <span class="text-[8px] font-bold" :class="session.badgeCouleur">{{ session.statutCourt }}</span>
-          <span v-if="session.countdown" class="text-[8px] font-semibold" :class="session.countdownCouleur">{{ session.countdown }}</span>
+        <!-- Le bloc d'infos -->
+        <div class="flex flex-col min-w-0">
+          <span class="text-[12px] font-extrabold tabular-nums leading-none" :class="session.labelCouleur">{{ session.heureTitre }}</span>
+          <span class="text-[9px] font-bold uppercase tracking-widest text-white/65 leading-none mt-1 truncate">{{ session.nom }}</span>
+          <div class="flex items-center gap-1.5 flex-wrap mt-1">
+            <span class="text-[8px] font-bold" :class="session.badgeCouleur">{{ session.statutCourt }}</span>
+            <span v-if="session.countdown" class="text-[8px] font-semibold tabular-nums" :class="session.countdownCouleur">{{ session.countdown }}</span>
+          </div>
         </div>
 
       </div>
@@ -66,7 +69,7 @@ const SESSIONS: SessionDef[] = [
   { nom: 'Hong Kong', timezone: 'Asia/Hong_Kong',    ouvertureLocaleH: 9,  ouvertureLocaleM: 0,  fermetureLocaleH: 17, fermetureLocaleM: 0  },
   { nom: 'New York',  timezone: 'America/New_York',  ouvertureLocaleH: 9,  ouvertureLocaleM: 30, fermetureLocaleH: 16, fermetureLocaleM: 0  },
   { nom: 'Londres',   timezone: 'Europe/London',     ouvertureLocaleH: 8,  ouvertureLocaleM: 0,  fermetureLocaleH: 17, fermetureLocaleM: 0  },
-  { nom: 'Paris',    timezone: 'Europe/Paris',      ouvertureLocaleH: 9,  ouvertureLocaleM: 0,  fermetureLocaleH: 17, fermetureLocaleM: 30 },
+  { nom: 'Paris',     timezone: 'Europe/Paris',      ouvertureLocaleH: 9,  ouvertureLocaleM: 0,  fermetureLocaleH: 17, fermetureLocaleM: 30 },
   { nom: 'Sydney',    timezone: 'Australia/Sydney',  ouvertureLocaleH: 8,  ouvertureLocaleM: 0,  fermetureLocaleH: 16, fermetureLocaleM: 0  },
   { nom: 'Tokyo',     timezone: 'Asia/Tokyo',        ouvertureLocaleH: 9,  ouvertureLocaleM: 0,  fermetureLocaleH: 18, fermetureLocaleM: 0  },
 ]
@@ -149,7 +152,6 @@ const sessions = computed(() => {
     const etat = etatSession(s, now)
     const { h, m: mm, s: ss } = getTimeParts(s.timezone, now)
 
-    // Heure au format du titre : « 14:52:36 ».
     const heureTitre = `${pad(h)}:${pad(mm)}:${pad(ss)}`
 
     const hrAngle  = ((h % 12) / 12 + mm / 720) * 360
@@ -212,6 +214,22 @@ onUnmounted(() => { if (timer !== null) clearInterval(timer) })
 </script>
 
 <style scoped>
+/* À l'intérieur du panneau : overflow-hidden (carte monde) clipperait un
+   onglet à cheval sur la bordure. */
+.onglet {
+  position: absolute;
+  top: 4px;
+  left: 10px;
+  padding: 0 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  color: rgba(255, 255, 255, 0.6);
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  z-index: 1;
+}
 .ring-live  { animation: ring-pulse 2s ease-in-out infinite; }
 .ring-soon  { animation: ring-pulse 1.2s ease-in-out infinite; }
 @keyframes ring-pulse {

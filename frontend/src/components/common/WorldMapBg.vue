@@ -1,4 +1,5 @@
 <template>
+  <!-- Carte du monde en filigrane (fond de la rangée des horloges). -->
   <div
     class="absolute inset-0 w-full h-full pointer-events-none select-none"
     style="

@@ -76,6 +76,18 @@ export function labelEtatSignal(s: EtatSignal): string {
   return s.heure_entree ? '🟢 En cours' : '⏳ En attente'
 }
 
+/// Trade réellement OUVERT (pas un ordre posé en attente) — miroir strict de
+/// labelEtatSignal ci-dessus : SMC/KDJ = entrée touchée (heure_entree
+/// renseignée), straddle = passes actives (heure d'entrée passée), rockets =
+/// ouvert dès le signal. La lampe « EN COURS » des jauges compte ça.
+export function estTradeOuvert(s: EtatSignal): boolean {
+  if (!estVivant(s)) return false
+  const strat = (s.strategie ?? '').toLowerCase()
+  if (strat === 'straddle') return !!s.heure_entree && s.heure_entree <= Math.floor(Date.now() / 1000)
+  if (strat.includes('rocket')) return true
+  return !!s.heure_entree
+}
+
 export function classeEtatSignal(s: EtatSignal): string {
   if (!estVivant(s)) return classeVerdictSignal(s.verdict)
   return labelEtatSignal(s) === '🟢 En cours' ? 'badge-green' : 'badge-yellow'
