@@ -182,32 +182,27 @@
       "icone": "📈",
       "couleur": "#22d3ee",
       "etat": "Officielle — ARMÉ volontairement par le propriétaire (~22-23/09, confirmé 24/09) ; 0 signal à ce jour",
-      "moteur": "live (7.E livré le 14/09) — KdjEngine runtime H1 tous actifs (parité rejeur par test), registre/carte/modales/page/analyse/définition à onglets (gabarit projet)/scanner TABLEAU gabarit Rockets (14/09 : filtres type/état, 11 colonnes triables, pill Prêt LONG/SHORT), table kdj_params (migration 0112), API /api/kdj/{params,scanner} ; VÉRIFIÉ 24/09 : moteur monté H1 sur tous les actifs au boot, la porte d'écriture = strategies.etat ≠ Construction, Telegram actif (template KDJ du 19/09 prêt) — le premier signal écrira ET notifie",
+      "moteur": "live (7.E, 14/09) — KdjEngine H1 tous actifs (parité rejeur par test), scanner TABLEAU (11 colonnes, filtres), kdj_params (migration 0112), API /api/kdj/{params,scanner} ; ARMÉ 22-23/09 (confirmé 24/09) : porte d'écriture = strategies.etat ≠ Construction, Telegram actif (template 19/09) ; rejeu 24 mois H1 (MT5, frais inclus) : XAUUSD +0,38 %/tr · XAGUSD +0,66 · DAX −0,3 · BTC ±0 · SP500 −0,1 ; scanner ADX14 = sélecteur, pas filtre",
       "ia": "aucune — moteur déterministe pur",
       "kpis": [
         {
           "label": "phase",
-          "valeur": "A ✓ B ✓ D ✓ E ✓ — VERTICALE COMPLÈTE",
+          "valeur": "complète ✓",
           "classe": "positif"
         },
         {
           "label": "signaux",
-          "valeur": "0 à ce jour (H1 : rythme lent par construction — patience)",
+          "valeur": "0 (H1 lent)",
           "classe": "neutre"
         },
         {
-          "label": "rejeu 24 mois H1 (MT5, frais inclus)",
-          "valeur": "XAUUSD +0,12→0,38 %/trade · XAGUSD +0,19→0,66 · DAX −0,3 · BTC ±0 · SP500 −0,1",
-          "classe": "positif"
-        },
-        {
-          "label": "scanner tendance (ADX 14)",
-          "valeur": "univers 27 actifs en cours (16 vifs + 11 forex/métaux en attente historique EA) · ADX = sélecteur, pas filtre global",
+          "label": "rejeu XAU/XAG (%/tr)",
+          "valeur": "+0,38 / +0,66",
           "classe": "positif"
         },
         {
           "label": "validation 3 voies",
-          "valeur": "Pine↔Rust↔MQ5 : 6/6 trades 0 divergence + parité live↔rejeur par test",
+          "valeur": "6/6 · 0 div.",
           "classe": "positif"
         }
       ],
