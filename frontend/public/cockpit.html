@@ -70,7 +70,7 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "24/09 matin (6.7 gel des fractions à la clôture + 6.6 radar saisonnier jour×heure — vécu immuable)",
+    "date": "24/09 midi (étude 3.1 : conviction prédit les SL, AUC 0,572 → pas de filtre ; 6.7 + 6.6 livrées le matin)",
     "commit": "eabc390",
     "note": "L'app parle en R distance (stratégie) et en $ (résultat). Le R pondéré est interne au moteur de capital. Trailing SMC ACTIF (k=0,2). Le vécu ne se recalcule jamais : niveaux figés à l'émission, fractions figées à la clôture."
   },
@@ -234,9 +234,9 @@
     {
       "id": "3.1",
       "prio": 2,
-      "titre": "Re-test conviction × verdict à ~200 notés (étude du 10/09 : pas de filtre)",
-      "detail": "Étude soldée le 10/09 (96 notés : 70 TP/26 SL) : écart +3,8 pts mais p=0,38, AUC 0,56, bandes non monotones, BTC inversé → DÉCISION PROPRIÉTAIRE : aucun filtre. Re-test quand ~200 notés (ou 2-3 semaines) : fonder un filtre seulement si AUC ≥ 0,65 ET p < 0,05 ET bandes monotones. Baseline : bande 80+ WR 79 % (+6,9 R pond.) ; ΣR pondéré notés +4,6.",
-      "echeance": "~200 trades notés"
+      "titre": "✅ FERMÉE 24/09 — re-test conviction × verdict livré (308 notés) : signal SL réel, protocole dit ENCORE pas de filtre",
+      "detail": "PROTOCOLE du 10/09 (fonder un filtre seulement si AUC ≥ 0,65 ET p < 0,05 ET bandes monotones) — RÉSULTAT 24/09 sur 308 clôtures notées (63 % des remplies, pas de biais : non-notés même profil) : ① %SL : conviction <70 → 35 % de SL contre 21 % à ≥70 (z = −2,62, p ≈ 0,009), gradient par tranches de 10 (35 → 24 → 16 %), STABLE sur les deux moitiés de période (33 vs 18, 36 vs 23) — le LLM prédit les STOP-OUTS, c'était invisible à 96 notés. ② MAIS AUC conviction→SL = 0,572 < 0,65 : le critère protocolaire ÉCHOUE (2/3) → DÉCISION : pas de filtre, protocole respecté. ③ Le $ ne départage pas (WR z = 0,76 ns) : la période est quasi toute pré-trailing — la fuite de conversion masquait la sélection ; à re-mesurer sur du vécu trailing-on. ④ DÉFAUTS DU NOTATEUR : échelle comprimée (jamais <50, médiane 80 — la moitié basse inutilisée) et le haut dégrade (90-99 : 24 % SL, pire que le sweet spot 80-89 à 16 % — le LLM « très sûr » n'encaisse pas plus). PISTE OUVERTE (rejoint 6.5) : recalibrer le prompt conviction (investir la moitié basse, modérer le haut) puis re-tester à ~500 notés ou après 2-3 semaines de vécu trailing — si l'AUC passe 0,65, le filtre ≥70 redevient candidat.",
+      "echeance": "fermée (ré-ouverture : re-test post-recalibrage ou ~500 notés)"
     },
     {
       "id": "1.1",
@@ -346,8 +346,8 @@
     {
       "id": "6.5",
       "prio": 3,
-      "titre": "ML — filtre candidat en Observation (QUAND les données le permettront)",
-      "detail": "Arbitrage propriétaire 22/09 (rôle du ML) — niveau 2 du plan, CONDITIONNEL : ne démarrer que quand le volume d'historique le justifie (milliers de clôtures, pas des centaines — règle des 30 par sous-ensemble : stratégie × TF × asset). CONTENU : le pipeline ML score les NOUVEAUX signaux à l'émission (confiance prédite) ; la métrique « WR avec filtre vs sans filtre » est mesurée en Observation (paper) pendant une période définie ; JAMAIS de branchement direct en Officielle sans période de mesure. PRÉREQUIS : niveau 1 en place (feature importance alimente les pages Analyse — converge avec P3-1). INTERDIT (décision 22/09) : prédiction de prix (LSTM directionnel), filtre ML actif sur signaux officiels sans mesure préalable."
+      "titre": "ML — filtre candidat en Observation (CONDITIONNEL — enrichi par l'étude 3.1 du 24/09)",
+      "detail": "Arbitrage propriétaire 22/09 (rôle du ML) — niveau 2 du plan, CONDITIONNEL : ne démarrer que quand le volume d'historique le justifie (milliers de clôtures, pas des centaines — règle des 30 par sous-ensemble : stratégie × TF × asset). CONTENU : le pipeline ML score les NOUVEAUX signaux à l'émission (confiance prédite) ; la métrique « WR avec filtre vs sans filtre » est mesurée en Observation (paper) pendant une période définie ; JAMAIS de branchement direct en Officielle sans période de mesure. PRÉREQUIS : niveau 1 en place (feature importance alimente les pages Analyse — converge avec P3-1). INTERDIT (décision 22/09) : prédiction de prix (LSTM directionnel), filtre ML actif sur signaux officiels sans mesure préalable. ENRICHI 24/09 (étude 3.1, 308 notés) : le candidat le plus proche du seuil est la conviction LLM ≥70 — prédiction des stop-outs PROUVÉE (<70 → 35 % SL vs 21 % ≥70, z = −2,62, stable) mais AUC 0,572 < 0,65 protocolaire. CHEMIN : recalibrer le prompt conviction (échelle comprimée 50-95, haut 90+ qui dégrade) → re-tester à ~500 notés sur vécu trailing-on → si AUC ≥ 0,65, mesurer le filtre en Observation."
     },
     {
       "id": "6.7",
@@ -363,6 +363,12 @@
     }
   ],
   "decisions": [
+    {
+      "date": "24/09 midi",
+      "titre": "Étude 3.1 : la conviction LLM prédit les stop-outs — mais le protocole dit encore pas de filtre",
+      "detail": "Re-test protocolaire du 10/09 sur 308 clôtures SMC notées (sur 486 remplies, sans biais de sélection — les non-notés ont le même profil). RÉSULTATS : ① conviction <70 → 35 % de SL contre 21 % à ≥70 (z = −2,62, p ≈ 0,009), gradient par tranches de 10, stable sur les deux moitiés de la période — signal RÉEL, invisible à 96 notés en septembre. ② AUC conviction→SL = 0,572 < 0,65 : le critère protocolaire du 10/09 ÉCHOUE (p ✓, monotonie ✓- sauf le haut, AUC ✗) → pas de filtre, décision respectée. ③ Le $ ne départage pas (WR z = 0,76 ns) — la période est pré-trailing, la fuite de conversion masquait la qualité de sélection. ④ DÉFAUTS DU NOTATEUR identifiés : échelle comprimée (jamais <50, médiane 80) et haut qui dégrade (90-99 : 24 % SL vs 16 % pour 80-89 — le « très sûr » n'encaisse pas plus). CONSÉQUENCE : la 6.5 (filtre en Observation) a son candidat et son chemin — recalibrer le prompt conviction, re-tester à ~500 notés sur vécu trailing-on, filtrer seulement si AUC ≥ 0,65. Sweet spot à surveiller : bande 80-89 (16 % SL, +26 $).",
+      "statut": "étude consignée — recalibrage prompt à voter"
+    },
     {
       "date": "24/09",
       "titre": "Journée 24/09 : 6.7 (gel des fractions) + 6.6 (radar saisonnier) livrées — le vécu devient immuable",
