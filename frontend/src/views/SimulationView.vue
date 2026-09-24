@@ -22,9 +22,10 @@
     <!-- Panneau de la stratégie -->
     <SimulationSmcPanel v-if="onglet === 'SMC'" />
     <SimulationStraddlePanel v-else-if="onglet === 'straddle'" />
+    <SimulationKdjPanel v-else-if="onglet === 'kdj_halftrend'" />
     <div v-else class="glass-card p-8 text-center text-sm text-white flex flex-col gap-2">
       <p>🔬 Simulation {{ nomStrategie(onglet) }} — en attente de matière.</p>
-      <p class="text-white/60 text-xs">Effectif clôturé insuffisant pour toute conclusion (règle des 30 trades) et simulateur dédié à reconstruire (le backtesteur historique a été démantelé lors des purges de septembre). La page s'activera avec le chantier backtesteur.</p>
+      <p class="text-white/60 text-xs">Effectif clôturé insuffisant pour toute conclusion (règle des 30 trades) et simulateur dédié à reconstruire (le backtesteur historique a été démantelé lors des purges de septembre). Labo refusé le 24/09 — réexamen après accumulation (carte 4.1 du cockpit).</p>
     </div>
   </div>
 </template>
@@ -34,6 +35,7 @@ import { ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SimulationSmcPanel from '@/components/simulation/SimulationSmcPanel.vue'
 import SimulationStraddlePanel from '@/components/simulation/SimulationStraddlePanel.vue'
+import SimulationKdjPanel from '@/components/simulation/SimulationKdjPanel.vue'
 
 const route = useRoute()
 const router = useRouter()

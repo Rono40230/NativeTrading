@@ -7,7 +7,7 @@
     @click.stop
   >
     <div
-      class="w-full max-h-[85vh] overflow-y-auto p-5 rounded-xl border border-white/15 bg-slate-900 shadow-2xl"
+      class="w-full max-h-[85vh] overflow-y-auto p-5 rounded-xl border border-white/15 bg-slate-900 shadow-2xl break-words"
       :class="large ? 'max-w-3xl' : 'max-w-lg'"
     >
       <div class="flex items-center justify-between mb-3 sticky top-0">

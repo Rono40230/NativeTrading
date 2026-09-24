@@ -23,6 +23,7 @@ const CLES_AUTORISEES: &[&str] = &[
     "smc_frac_tp1",
     "smc_frac_tp2",
     "smc_frac_tp3",
+    "kdj_assets_armes",
 ];
 
 #[derive(Deserialize)]

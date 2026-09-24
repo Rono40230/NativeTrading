@@ -202,7 +202,7 @@ pub(crate) async fn calculer_avec_filtres(
     let mut nb_bougies = 0usize;
 
     for asset in &assets {
-        let amorce = crate::runtime_tick::charger_amorce_mtf_runtime(pool, asset).await;
+        let amorce = crate::runtime_amorces::charger_amorce_mtf_runtime(pool, asset).await;
         for tf in &timeframes {
             if !crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) {
                 continue; // couple désarmé (ou H1) — hors métriques

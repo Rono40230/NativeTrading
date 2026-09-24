@@ -42,6 +42,21 @@ pub async fn put_params(state: web::Data<AppState>, corps: web::Json<ParamsCorps
     }
 }
 
+/// Actifs armés pour le moteur KDJ H1 (config `kdj_assets_armes`, JSON
+/// tableau d'ids). Absent/illisible = TOUS armés (compatibilité) ;
+/// tableau vide = aucun (KDJ silencieux). Choix propriétaire 24/09 — le
+/// balayage 7.G montre que l'écart entre actifs dépasse celui des
+/// paramètres. Lu à chaque tick runtime (60 s) : la modale s'applique
+/// sans redémarrage.
+pub async fn assets_armes_kdj(db: &db::Database) -> Option<std::collections::HashSet<String>> {
+    db.lire_config("kdj_assets_armes")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_str::<Vec<String>>(&v).ok())
+        .map(|v| v.into_iter().collect())
+}
+
 /// Moteur KDJ/Halftrend (7.E) construit depuis la table `kdj_params` —
 /// H1 uniquement (screening + rejeu) ; appelé par l'armement runtime.
 pub(crate) fn moteur_kdj(

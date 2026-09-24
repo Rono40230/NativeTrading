@@ -22,6 +22,7 @@
 
 use std::collections::HashSet;
 use crate::runtime_perimetre::lire_perimetre_straddle;
+use crate::runtime_amorces::{annonces_tier1, charger_amorce_mtf_runtime};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -42,81 +43,6 @@ use tokio::sync::mpsc;
 /// TP1 réglable SMC (Paramètres › stratégies › SMC, clé config smc_tp1_mult).
 /// Défaut 0.6 = production (décision étape 4) ; borné 0.2–1.5 pour éviter
 /// les valeurs absurdes. Lu à l'armement : s'applique aux nouveaux signaux.
-async fn annonces_tier1(db: &db::Database) -> Vec<straddle::Annonce> {
-    let Ok(rows) = db.lire_calendrier_cache(6 * 3600).await else {
-        return Vec::new();
-    };
-    let maintenant = chrono::Utc::now().timestamp();
-    rows.iter()
-        .filter_map(|r| {
-            let impact = r.get("impact").and_then(|v| v.as_str()).unwrap_or("");
-            if impact != "High" {
-                return None;
-            }
-            let dh = r.get("date_heure").and_then(|v| v.as_str())?;
-            let ts = chrono::DateTime::parse_from_rfc3339(dh)
-                .or_else(|_| {
-                    chrono::DateTime::parse_from_rfc3339(&format!(
-                        "{}:{}",
-                        dh[..dh.len() - 2].to_string(),
-                        &dh[dh.len() - 2..]
-                    ))
-                })
-                .ok()?
-                .timestamp();
-            if ts <= maintenant || ts > maintenant + 7 * 24 * 3600 {
-                return None;
-            }
-            Some(straddle::Annonce {
-                ts,
-                devise: r.get("devise").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                titre: r.get("titre").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            })
-        })
-        .collect()
-}
-
-pub(crate) async fn charger_amorce_mtf_runtime(db: &db::Database, asset: &Asset) -> smc::v12::AmorceMtf {
-    use common::Timeframe;
-    use smc::v12::{agreger_mensuel, AmorceMtf, BarInput};
-    const MAX_BARS: i64 = 600;
-
-    let vers_bars = |bougies: Vec<common::Candle>| -> Vec<BarInput> {
-        bougies
-            .into_iter()
-            .map(|b| BarInput {
-                timestamp: b.timestamp.timestamp(),
-                open: b.open,
-                high: b.high,
-                low: b.low,
-                close: b.close,
-                volume: b.volume,
-            })
-            .collect()
-    };
-    let charger = |tf: Timeframe| async move {
-        vers_bars(
-            db.obtenir_bougies(asset, &tf, MAX_BARS)
-                .await
-                .unwrap_or_default(),
-        )
-    };
-    let (h1, h4) = tokio::join!(charger(Timeframe::H1), charger(Timeframe::H4));
-    // D1 profond (2000) : agrégée en MN pour la confluence +6.
-    let d1 = vers_bars(
-        db.obtenir_bougies(asset, &Timeframe::D1, 2000)
-            .await
-            .unwrap_or_default(),
-    );
-    let w1 = charger(Timeframe::W1).await;
-    AmorceMtf {
-        h1,
-        h4,
-        w1,
-        mn: agreger_mensuel(&d1),
-    }
-}
-
 /// Période de relecture de la config workers (assets × timeframes).
 const RELECTURE_CONFIG_SEC: u64 = 60;
 
@@ -324,6 +250,11 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
     // il vit sur son rail M1 (annonces) quelle que soit cette liste.
     let armes = crate::reglages_smc::lire_couples_armes(db).await;
     let kdj_reglages = db::kdj_params::lire_kdj_params(db.pool()).await;
+    // Choix des assets KDJ (24/09) : None = TOUS armés (compatibilité),
+    // Some(vide) = aucun. Lu à chaque tick (60 s) — la modale s'applique
+    // sans redémarrage.
+    let kdj_assets = crate::kdj_handlers::assets_armes_kdj(db).await;
+    let kdj_autorise = |a: &Asset| kdj_assets.as_ref().map_or(true, |s| s.contains(a.as_str()));
 
     let mt5_ids: HashSet<String> = assets_mt5(db).await;
     let cibles: HashSet<(Asset, Timeframe)> = assets
@@ -340,12 +271,16 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         .collect();
 
     // Retraits (asset décoché, TF retiré dans l'UI, ou SMC désarmé hors M1).
+    // H1 : couple retiré si le moteur KDJ y est filtré (choix des assets
+    // 24/09) — c'est CE retrait qui désarme vraiment : la boucle d'ajouts
+    // saute les couples déjà enregistrés.
     for cle in runtime.cles() {
         let smc_vif = crate::reglages_smc::est_arme(&armes, cle.0.as_str(), cle.1.as_str());
         let straddle_vif = matches!(cle.1, common::Timeframe::M1)
             && perimetre_straddle.iter().any(|a| a == &cle.0.as_str());
         if !cibles.contains(&cle)
-            || (!smc_vif && !straddle_vif && !matches!(cle.1, common::Timeframe::H1)) {
+            || (!smc_vif && !straddle_vif && !matches!(cle.1, common::Timeframe::H1))
+            || (matches!(cle.1, common::Timeframe::H1) && !kdj_autorise(&cle.0)) {
             runtime.retirer(cle.0.clone(), cle.1);
             tracing::info!("Runtime tick: {} {} retiré (config DB)", cle.0.as_str(), cle.1.as_str());
         }
@@ -420,9 +355,11 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                         .avec_annonces(annonces),
                 ));
             }
-            if *tf == common::Timeframe::H1 { moteurs.push(Box::new(crate::kdj_handlers::moteur_kdj(&kdj_reglages, asset, *tf))) }
+            if *tf == common::Timeframe::H1 && kdj_autorise(asset) {
+                moteurs.push(Box::new(crate::kdj_handlers::moteur_kdj(&kdj_reglages, asset, *tf)));
+            }
             if moteurs.is_empty() {
-                continue; // SMC désarmé et pas de straddle M1/KDJ H1 → rien à armer
+                continue; // SMC désarmé et pas de straddle M1/KDJ H1 filtré → rien à armer
             }
             runtime.enregistrer(asset.clone(), *tf, moteurs);
             ajouts += 1;
@@ -507,9 +444,11 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                     .avec_annonces(annonces),
             ));
         }
-        if *tf == common::Timeframe::H1 { moteurs.push(Box::new(crate::kdj_handlers::moteur_kdj(&kdj_reglages, asset, *tf))) }
+        if *tf == common::Timeframe::H1 && kdj_autorise(asset) {
+            moteurs.push(Box::new(crate::kdj_handlers::moteur_kdj(&kdj_reglages, asset, *tf)));
+        }
         if moteurs.is_empty() {
-            continue; // SMC désarmé et pas de straddle M1/KDJ H1 → rien à armer
+            continue; // SMC désarmé et pas de straddle M1/KDJ H1 filtré → rien à armer
         }
         runtime.enregistrer(asset.clone(), *tf, moteurs);
         // Backfill automatique : comble les trous (nuits, week-ends, pannes)

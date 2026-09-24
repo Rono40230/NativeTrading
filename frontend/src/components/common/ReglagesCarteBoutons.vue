@@ -5,13 +5,13 @@
        ici aussi — ModaleCadre stoppe la propagation pour ne jamais
        déclencher le clic carte. -->
   <div v-if="actions" class="flex items-center gap-1 flex-wrap">
-    <button
-      v-for="a in actions" :key="a.cle"
-      class="text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors whitespace-nowrap"
-      :class="classeAction"
-      :title="a.titre"
-      @click.stop="surAction(a.cle)"
-    >{{ a.label }}</button>
+    <PopoverInfo v-for="a in actions" :key="a.cle" :titre="a.titre">
+      <button
+        class="text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors whitespace-nowrap"
+        :class="classeAction"
+        @click.stop="surAction(a.cle)"
+      >{{ a.label }}</button>
+    </PopoverInfo>
 
     <!-- Réglages en modale -->
     <SmcReglagesModales :ouverte="id === 'SMC' ? modaleSmc : null" @fermer="modaleSmc = null" />
@@ -24,6 +24,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import PopoverInfo from './PopoverInfo.vue'
 import SmcReglagesModales, { type ModaleSmc } from './SmcReglagesModales.vue'
 import StraddleReglagesModales, { type ModaleStraddle } from './StraddleReglagesModales.vue'
 import RocketsReglagesModales, { type ModaleRockets } from './RocketsReglagesModales.vue'
@@ -71,6 +72,7 @@ const ACTIONS: Record<string, ActionCarte[]> = {
     { cle: 'scanner', label: '🔭 Scanner', titre: 'Tendances franches vs ranges (ADX)' },
     { cle: 'parametres', label: '⚙️ Paramètres', titre: 'État, son Telegram, capital, risque' },
     { cle: 'moteur', label: '🛠️ Paramètres moteur', titre: 'KDJ, HalfTrend, RatioRisk, filtre ADX' },
+    { cle: 'assets', label: '🕐 Choix des Assets', titre: 'Actifs armés pour le moteur KDJ H1 (sans redémarrage)' },
   ],
 }
 

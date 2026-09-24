@@ -41,6 +41,13 @@ pub async fn post_balayage_dispatch(
             };
         return balayage_straddle(state, web::Json(requete)).await;
     }
+    if id == "kdj_halftrend" {
+        // 7.G (24/09) : balayage de calibration sur le rejeu 24 mois H1
+        // validé — un paramètre à la fois autour du réglage actuel.
+        let requete = serde_json::from_value::<RequeteBalayageSmc>(body.into_inner())
+            .unwrap_or(RequeteBalayageSmc { cible: None, assets: None, tfs: None });
+        return crate::simulation_kdj::balayage(state, web::Json(requete)).await;
+    }
     if id != "SMC" {
         return HttpResponse::NotImplemented().json(serde_json::json!({
             "error": "Balayage pas encore branché pour cette stratégie (phases 2-3)"
