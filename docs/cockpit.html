@@ -70,8 +70,8 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "24/09 soir 2 (CHECKPOINT avant refonte cockpit : labo KDJ 7.G + choix des assets + cartes épurées P1-P4 + info-bulles stylées)",
-    "commit": "à venir (ce commit)",
+    "date": "24/09 soir 3 (REFONTE COCKPIT LIVRÉE 104e2b7 : 9 tours — le dashboard est un panneau d'instruments)",
+    "commit": "104e2b7",
     "note": "L'app parle en R distance (stratégie) et en $ (résultat). Trailing SMC ACTIF (k=0,2). Vécu immuable (fractions figées à la clôture). KDJ armé, assets choisissables en modale. Hiérarchie zones SMC : M5 > M15 > M30. Straddle +18,1 % sur 70 passes."
   },
   "verticales": [
@@ -220,9 +220,9 @@
     {
       "id": "7.G",
       "prio": 2,
-      "titre": "KDJ — balayage de calibration des paramètres sur le rejeu 24 mois (VALIDÉ propriétaire 24/09)",
-      "detail": "Arbitrage 24/09 : le labo KDJ est VALIDÉ — le moteur de rejeu existe et est validé (parité live↔rejeur par test, 3 voies 6/6), les frais sont modélisés (0,05 %/ordre), et le timing est idéal : KDJ armé avec les paramètres PAR DÉFAUT (20/7/2/2,0, ADX off) — calibrer AVANT la mesure 30 trades (7.F) plutôt que brûler des semaines à mesurer des défauts sous-optimaux. PÉRIMÈTRE (leçon labo SMC) : balayage backend + tableau simple dans le labo, PAS le labo complet — le comparatif vécu viendra quand il y aura du vécu. Grille un-paramètre-à-la-fois autour des défauts : period [9,14,20,28] · signal [3,5,7,10] · amplitude [2,3,4,6] · ratio_risk [1,5-3,0] · adx_min [off,20,25,30]. Métriques : n clôturés, WR, PF, Σ R net (frais inclus) et R net/trade — par actif H1 et global. Référence publiée (verticale) : XAU +0,38 · XAG +0,66 · DAX −0,3 · BTC ±0 · SP500 −0,1 %/tr.",
-      "echeance": "livraison puis décision de réglage avant/pendant 7.F"
+      "titre": "KDJ — balayage de calibration des paramètres sur le rejeu 24 mois — LIVRÉE (c77c5b7)",
+      "detail": "LIVRÉE 24/09 (c77c5b7) : balayage un-paramètre-à-la-fois (period [9,14,20,28] · signal [3,5,7,10] · amplitude [2,3,4,6] · ratio_risk [1,5-3,0] · adx_min [off,20,25,30]), frais 0,05 %/ordre, métriques n/WR/PF/ΣR net/R net par trade — global et PAR ACTIF H1 (tableau), chips Paires étudiées. DÉCOUVERTE MAJEURE : écart ~40× entre actifs — XRP +1,35 R/tr en tête, TOUT le forex fond de classement (AUDUSD −5,09 R/tr) ; unités R exagèrent les frais forex (risque serré) → la comparaison inter-actifs est valable, le %/trade MT5 n'est pas comparable. Le choix des assets KDJ (modale, config kdj_assets_armes lue à chaque tick 60 s) permet d'agir dessus sans recharger. PROCHAINE ÉTAPE : décision de réglage avant/pendant 7.F (mesure 30 trades).",
+      "echeance": "décision de réglage avant/pendant 7.F"
     },
     {
       "id": "1.1",
@@ -316,6 +316,12 @@
     }
   ],
   "decisions": [
+    {
+      "date": "24/09 soir",
+      "titre": "Refonte cockpit du dashboard : 9 tours livrés — le dashboard devient un panneau d'instruments (104e2b7)",
+      "detail": "Propriétaire : « un dashboard pensé comme un cockpit d'avion ». Premier essai REJETÉ (réagencement sans recherche) → recherche faite (six-pack, Korry, glass cockpit, dark cockpit) puis dessin GUIDÉ par le propriétaire, tour par tour : ① 4 colonnes-instruments pleine largeur (sa proposition : marge de boutons à gauche pleine hauteur AÉRÉE, jauge ronde, écran courbe dessous, carte cliquable → page stratégie) dans un bloc STRATÉGIES gravé (sa idée) ; ② MÉTÉO DU MARCHÉ au-dessus : jauges LINÉAIRES validées (échelles bornées Peur↔Appêt ≠ valeurs signées ; les rondes restent au pilotage) — 5 instruments (F&G, VIX, Positioning, Breadth, Presse IA) + ticker marchés pleine largeur à tuiles PASTELLES directionnelles, format « Dax à 25 675 / Hier / Aujourd'hui », séparateurs de catégories ; ③ SESSIONS MONDIALES (prop 1 : montres analogiques + infos côte à côte sur une ligne, carte du monde en filigree) — les mini-horloges du bandeau et le BTC supprimés (redondants) ; ④ bandeau = annunciateur Korry (P1 choisie) : 6 lampes gravées SERVEUR/EA MT5/BYBIT/IA LOCALE/ACTIONS US/PRESSE, dark cockpit (éteint = normal, ambre = dégradé, rouge = panne), unités dans les fenêtres, master caution ALERTES. Lampe EN COURS corrigée : estTradeOuvert() (source unique useSignalFormat) — un ordre posé n'est pas « en cours ». SentimentMarche/DashboardStrategiesBlocs/DashboardSystemStatus supprimés sans perte d'information. Vérifications : captures navigateur + mesures DOM à chaque tour (leçons : la vision se trompe sur les captures denses — le DOM fait foi ; onglets gravés clippés par overflow → mesurer la géométrie, pas la présence).",
+      "statut": "livrée et vérifiée"
+    },
     {
       "date": "24/09 midi",
       "titre": "Étude 3.1 : la conviction LLM prédit les stop-outs — mais le protocole dit encore pas de filtre",
