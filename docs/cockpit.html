@@ -81,81 +81,86 @@
       "icone": "📐",
       "couleur": "#60a5fa",
       "etat": "Officielle",
-      "moteur": "v12 figé — miroir Pine/Rust/MQL5 validé au centime (08/09) ; univers 27 actifs (M1 désarmé partout, décision propriétaire 14/09) ; déviation Pine votée : alt-cryptos = profil BTC (doc reference/ecarts_pine_assumes.md)",
-      "ia": "Conviction à l'émission (accumulation) + analyse rapport",
+      "moteur": "v12 figé — miroir Pine/Rust/MQL5 validé au centime (08/09) ; 26 actifs × {M5, M15, M30} (M1 désarmé partout 14/09, H1 non générateur 04/09) ; déviation Pine votée : alt-cryptos = profil BTC ; TRAILING ACTIF k=0,2 depuis le 23/09 (balayage re-jeu : off +3,3 % → k0,2 +29,9 % — les clôtures TS portent +90,7 R pondéré) ; ventes partielles 50/30/20 FIGÉES sur chaque clôture (6.7, 24/09)",
+      "ia": "Conviction à l'émission — prompt RECALIBRÉ 24/09 (échelle complète 0-100, distribution cible) ; 308 notés : prédiction des SL PROUVÉE (<70 → 35 % SL vs 21 %, z=−2,62) mais AUC 0,572 < 0,65 → PAS de filtre (protocole 10/09 respecté) ; analyste IA nourri en deux voix (R distance + $)",
       "kpis": [
         {
           "label": "clôturés",
-          "valeur": "354",
+          "valeur": "486",
           "classe": "neutre"
         },
         {
-          "label": "win rate ($>0, expirés compris)",
-          "valeur": "50 %",
+          "label": "WR ($>0, expirés compris)",
+          "valeur": "46 %",
           "classe": "neutre"
         },
         {
-          "label": "R moyen (distance)",
-          "valeur": "+0,26",
+          "label": "Σ R distance",
+          "valeur": "+95,5",
           "classe": "positif"
         },
         {
+          "label": "capital",
+          "valeur": "1000 → 799 $ (−20,1 %)",
+          "classe": "negatif"
+        },
+        {
           "label": "notés LLM",
-          "valeur": "51 %",
+          "valeur": "63 % (308/486)",
           "classe": "neutre"
         }
       ],
-      "prochaine": "Étude conviction × verdict — PRÊTE (18/09 : comparatif SP500) ; calibration forex/métaux nouveaux après historique EA (même protocole de mesure)"
+      "prochaine": "M30 volet 2.3 (~fin sept.) · re-test conviction à ~500 notés en cohortes avant/après recalibrage (6.5) · 2.1 SP500 live↔replay · 2.2 mega-orders ; première journée trailing (24/09) : 7 SL vs 3 TP1+BE — le trailing juge les sorties post-TP2, pas les SL (observation continue, cohortes TS à suivre)"
     },
     {
       "id": "straddle",
       "nom": "Straddle",
       "icone": "🎯",
       "couleur": "#fbbf24",
-      "etat": "Observation",
+      "etat": "Officielle (base 24/09 — son Telegram activé par le propriétaire)",
       "moteur": "v2 unifié + agenda intelligent + boucle de validation des créneaux ; périmètre 15/09 : BTC seule crypto, +EURUSD/GBPUSD/USDJPY sur annonces US (majeures), XAU/XAG/SP/NAS/DAX inchangés ; plafond créneaux armés 3→8",
       "ia": "Analyste créneaux (ARMER/IGNORER) + boucle verdicts",
       "kpis": [
         {
           "label": "passes closes",
-          "valeur": "34",
+          "valeur": "70",
           "classe": "neutre"
         },
         {
-          "label": "ΣR (distance)",
-          "valeur": "+11,00",
+          "label": "Σ R distance",
+          "valeur": "+19,0",
           "classe": "positif"
         },
         {
-          "label": "objectif passes",
-          "valeur": "≥ 30",
-          "classe": "neutre"
+          "label": "capital",
+          "valeur": "1000 → 1181 $ (+18,1 %)",
+          "classe": "positif"
         },
         {
-          "label": "créneaux armés",
-          "valeur": "8",
-          "classe": "neutre"
+          "label": "WR ($>0)",
+          "valeur": "60 %",
+          "classe": "positif"
         }
       ],
-      "prochaine": "FOMC 16/09 18h UTC = premier tirage des 3 paires forex ; 8/8 créneaux armés (BTC×3, DAX lundi 9h, NAS×2, SP500 ven 16h, XAU ven 15h — injections vérifiées au runtime) ; réconciliation live/replay à mutualiser avec 2.1. Limite connue : l'armement d'un créneau nécessite une relance pour entrer dans les moteurs vivants (amélioration future)."
+      "prochaine": "1.1 — aucune source à 30 passes (max créneau 16h ×21) : première source jugeable ~30/09-02/10 ; réconciliation live/replay (2.1). Lecture indicative : tier 1 US portent (14h30 : 80 % WR, +103 $ · 20h : +120 $), DAX traîne (−41 $) — règle des 30 : aucune conclusion par source"
     },
     {
       "id": "rockets",
       "nom": "Rockets",
       "icone": "🚀",
       "couleur": "#fb923c",
-      "etat": "Observation",
+      "etat": "Officielle (base 24/09)",
       "moteur": "Scanner D1 /10 + gestion 30 s — crypto + actions US (pas d'ETF, décision 09/09)",
       "ia": "Catalyseur news + ranker + ML",
       "kpis": [
         {
           "label": "clôturés",
-          "valeur": "2",
+          "valeur": "5",
           "classe": "neutre"
         },
         {
           "label": "en cours",
-          "valeur": "0",
+          "valeur": "4",
           "classe": "neutre"
         },
         {
@@ -169,15 +174,15 @@
           "classe": "positif"
         }
       ],
-      "prochaine": "Analyse par pilier — attend un effectif (laisser le scanner accumuler)"
+      "prochaine": "Analyse par pilier (4.1) — l'effectif monte (2 → 5 clôturés, 4 en cours) ; laisser le scanner accumuler"
     },
     {
       "id": "kdj_halftrend",
       "nom": "KDJ/Halftrend Intraday",
       "icone": "📈",
       "couleur": "#22d3ee",
-      "etat": "Observation (à armer par le propriétaire)",
-      "moteur": "live (7.E livré le 14/09) — KdjEngine runtime H1 tous actifs (parité rejeur par test), registre/carte/modales/page/analyse/définition à onglets (gabarit projet)/scanner TABLEAU gabarit Rockets (14/09, décision propriétaire : filtres type/état, 11 colonnes triables, pill Prêt LONG/SHORT — séries mini-charts retirées), table kdj_params (migration 0112), API /api/kdj/{params,scanner} ; état Construction par défaut = zéro écriture jusqu'à l'armement",
+      "etat": "Officielle (base 24/09) — 0 signal émis à ce jour",
+      "moteur": "live (7.E livré le 14/09) — KdjEngine runtime H1 tous actifs (parité rejeur par test), registre/carte/modales/page/analyse/définition à onglets (gabarit projet)/scanner TABLEAU gabarit Rockets (14/09 : filtres type/état, 11 colonnes triables, pill Prêt LONG/SHORT), table kdj_params (migration 0112), API /api/kdj/{params,scanner} ; notification Telegram ON (base 24/09) — premier signal à venir",
       "ia": "aucune — moteur déterministe pur",
       "kpis": [
         {
@@ -186,8 +191,8 @@
           "classe": "positif"
         },
         {
-          "label": "moteur live",
-          "valeur": "armé H1 × 6 actifs au boot ✓ (SMC désarmé H1 : les couples vivent par KDJ) ; état Construction → signaux silencieux jusqu'à l'armement propriétaire",
+          "label": "signaux",
+          "valeur": "0 à ce jour (H1 : rythme lent par construction — patience)",
           "classe": "neutre"
         },
         {
@@ -206,7 +211,7 @@
           "classe": "positif"
         }
       ],
-      "prochaine": "Armement propriétaire (Observation) + mesure 30 trades H1 ; 7.F élargissement univers actions US"
+      "prochaine": "Premier signal (moteur armé en base, notifications ON) puis mesure 30 trades H1 ; 7.F élargissement univers actions US"
     }
   ],
   "feuille_de_route": [
