@@ -70,9 +70,9 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "24/09 après-midi (prompt conviction recalibré + AUDIT fermé — règles migrées en transverses + dossier 2.3 volet M15)",
-    "commit": "daff4fe",
-    "note": "L'app parle en R distance (stratégie) et en $ (résultat). Trailing SMC ACTIF (k=0,2). Le vécu ne se recalcule jamais : niveaux figés à l'émission, fractions figées à la clôture. Hiérarchie zones : M5 > M15 > M30."
+    "date": "24/09 soir (nettoyage cockpit : 8 cartes retirées, 14 actives ; 1.1 point de contrôle — Observation straddle prolongée, aucun critère de sortie atteint)",
+    "commit": "3ec099c",
+    "note": "L'app parle en R distance (stratégie) et en $ (résultat). Trailing SMC ACTIF (k=0,2). Le vécu ne se recalcule jamais : niveaux figés à l'émission, fractions figées à la clôture. Hiérarchie zones : M5 > M15 > M30. Straddle : +18,1 % sur 70 passes, toujours en Observation."
   },
   "verticales": [
     {
@@ -211,20 +211,6 @@
   ],
   "feuille_de_route": [
     {
-      "id": "AUDIT",
-      "prio": 1,
-      "titre": "✅ FERMÉ 24/09 — AUDIT COMPLET de l'app TERMINÉ (P0→P3, 18-23/09)",
-      "detail": "CLÔTURE : audit complet livré, vérifié et poussé par étapes (P0 sécurité → P1 pages → P2 presse/ML → P3 analyses, commits 9f7f1f3→27c65e2, doc docs/audit-app-2026-09.md). Suivi direct : conventions deux voix + trailing SMC + gel des fractions + radar saisonnier (23-24/09). Les RÈGLES DU PROPRIÉTAIRE qui encadraient l'audit sont PERMANENTES — migrées en tête des règles transverses (description avant correction, plan de vérification, checkpoint obligatoire, aucun push sans ordre). HISTORIQUE de l'audit : ═══ ÉTAPE 0 — GEL & RÉFÉrences [FAITE ✓ 18/09] ═══ 0.1 commit+push de sauvegarde. 0.2 références de départ mesurées : SMC 427 clôtures · −10,02 R · 896,50 $ ; straddle 54 · +23,50 R · 1 257,50 $ ; rockets 2 · +1,25 R · 1 012,54 $ ; KDJ 0 · 0 R · 1 000 $ ; 495 signaux ; 17 546 282 bougies. DB 2,15 Go ; tests 61 api + 35 db + 23 front verts. CHECKPOINT ✓ : commit poussé + références consignées. ═══ ÉTAPE 1 — INVENTAIRE FRONT [FAITE ✓ 18/09 — 22 pages validées, 15+ constats, docs/audit-app-2026-09.md] ═══ 1.1 liste close des routes depuis router/index.ts ; 1.2 par vue : sections, composants, modales, boutons, appels HTTP (fichier par fichier) ; 1.3 table page×élément×action×endpoint×attendu dans docs/audit-app-2026-09.md. CHECKPOINT : toute route couverte, aucune vue sans inventaire, table relue. ═══ ÉTAPE 2 — INVENTAIRE BACKEND + CROISEMENT [FAITE ✓ 18/09 — 124 routes croisées, 0 bug 404, 21 endpoints morts, ~50 catch silencieux, 3 recalculs front] ═══ 2.1 liste close des endpoints (routes.rs + routes_*) ; 2.2 par handler : rôle, tables, tests ; 2.3 croisement : endpoints jamais appelés / appels sans endpoint / TOUS les catch{} vides du front (chaque panne silencieuse potentielle listée). CHECKPOINT : matrice complète + liste catch vides. ═══ ÉTAPE 3 — DETTE STATIQUE [À FAIRE] ═══ 3.1 warnings cargo + fonctions pub jamais appelées + composants/composables orphelins ; 3.2 règles des hooks (console.log, unwrap, tailles) ; 3.3 fenêtres et limites (limit=500 signaux, caches, fraîcheurs). CHECKPOINT : liste dette classée P0-P3. ═══ ÉTAPE 4 — FUMÉE BACKEND [À FAIRE] ═══ 4.1 script curl systématique par endpoint (statut, forme, cohérence SQL directe) ; 4.2 verrous de cohérence badge=rapport=historique=signaux généralisés aux 4 stratégies (tests auto). CHECKPOINT : script vert sur tous les endpoints vivants, verrous en CI (cargo test). ═══ ÉTAPE 5 — TOURNÉE RUNTIME UI [À FAIRE] ═══ 5.1 navigateur piloté : chaque page rendue, chaque bouton cliqué, chaque modale ouverte (données chargées — le bug « modale vide ») ; 5.2 aller-retours de persistance (sauvegarder → recharger → relire) ; 5.3 checklists humaines remises au propriétaire (MT5/EA, Telegram réel, exécutions broker). CHECKPOINT : table état coché par élément + anomalies listées. ═══ ÉTAPE 6 — INVARIANTS TRANSVERSES [À FAIRE] ═══ 6.1 redémarrages : positions ouvertes de CHAQUE stratégie traversent-elles un restart (classe orphelins) ; 6.2 réglages chauds vs froids : liste explicite par modale (+ uniformisation « chaud » en P3) ; 6.3 reliquats conventions R/libellés. CHECKPOINT : chaque invariant vérifié ou divergence tracée. ═══ ÉTAPE 7 — CORRECTIONS PAR VAGUES [À FAIRE] ═══ P0 cassants → P1 incohérences/UX → P2 dette → P3 améliorations (dont catch{} → erreurs visibles). Chaque vague : corriger → tests → app 3/3 → cockpit → COMMIT SÉPARÉ. CHECKPOINT : chaque vague commitée individuellement, zéro mélange. ═══ ÉTAPE 8 — LIVRABLE DURABLE & CLÔTURE [À FAIRE] ═══ 8.1 docs/audit-app-2026-09.md final (table vivante à maintenir) ; 8.2 tâche clôturée + décision synthèse. CHECKPOINT : document complet relu par le propriétaire, commit final poussé.",
-      "echeance": "fermée (18-23/09 — règles migrées en transverses)"
-    },
-    {
-      "id": "6.4",
-      "prio": 3,
-      "titre": "✅ FERMÉE 24/09 — OBSOLÈTE : la notation presse LLM a été livrée par l'étape 2 de l'audit",
-      "detail": "Vérifié le 24/09 matin : 10 727/10 727 articles notés (score 0-100), dernier noté le matin même — le pipeline livré à l'étape 2 de l'audit (presse_notation : lots de 10 via qwen2.5:3b, branché sur le collecteur) tourne. La tâche décrivait l'état d'avant-audit (notation à la demande dans la liseuse, morte depuis le 03/09) — caduque. Historique : job par lot proposé, effectivement livré.",
-      "echeance": "fermée"
-    },
-    {
       "id": "7.F",
       "prio": 3,
       "titre": "Mesure 30 trades sur l'univers KDJ élargi (26 actifs — TON retiré)",
@@ -232,25 +218,11 @@
       "echeance": "mesure 30 trades/couple"
     },
     {
-      "id": "3.1",
-      "prio": 2,
-      "titre": "✅ FERMÉE 24/09 — re-test conviction × verdict livré (308 notés) : signal SL réel, protocole dit ENCORE pas de filtre",
-      "detail": "PROTOCOLE du 10/09 (fonder un filtre seulement si AUC ≥ 0,65 ET p < 0,05 ET bandes monotones) — RÉSULTAT 24/09 sur 308 clôtures notées (63 % des remplies, pas de biais : non-notés même profil) : ① %SL : conviction <70 → 35 % de SL contre 21 % à ≥70 (z = −2,62, p ≈ 0,009), gradient par tranches de 10 (35 → 24 → 16 %), STABLE sur les deux moitiés de période (33 vs 18, 36 vs 23) — le LLM prédit les STOP-OUTS, c'était invisible à 96 notés. ② MAIS AUC conviction→SL = 0,572 < 0,65 : le critère protocolaire ÉCHOUE (2/3) → DÉCISION : pas de filtre, protocole respecté. ③ Le $ ne départage pas (WR z = 0,76 ns) : la période est quasi toute pré-trailing — la fuite de conversion masquait la sélection ; à re-mesurer sur du vécu trailing-on. ④ DÉFAUTS DU NOTATEUR : échelle comprimée (jamais <50, médiane 80 — la moitié basse inutilisée) et le haut dégrade (90-99 : 24 % SL, pire que le sweet spot 80-89 à 16 % — le LLM « très sûr » n'encaisse pas plus). PISTE OUVERTE (rejoint 6.5) : recalibrer le prompt conviction (investir la moitié basse, modérer le haut) puis re-tester à ~500 notés ou après 2-3 semaines de vécu trailing — si l'AUC passe 0,65, le filtre ≥70 redevient candidat.",
-      "echeance": "fermée (ré-ouverture : re-test post-recalibrage ou ~500 notés)"
-    },
-    {
       "id": "1.1",
       "prio": 2,
-      "titre": "Straddle — Observation prolongée (décision propriétaire 15/09)",
-      "detail": "Dossier 15/09 : vécu +11,27 R (88 % sur les 2 tier 1 : NFP + CPI) vs rejeu −5,33 R (tier 1 négatives à passes identiques → divergence de niveaux/fills). DÉCISION : prolonger l'Observation (option A) ; état réaligné Officielle→Observation en base (le son Telegram se tait — signaux écrits silencieux). Prochain point : ~30 passes PAR SOURCE, ou après réconciliation live/replay (mutualisée avec 2.1).",
-      "echeance": "~30 passes/source ou post-2.1"
-    },
-    {
-      "id": "1.2",
-      "prio": 3,
-      "titre": "Straddle — si Officielle : activer le son Telegram",
-      "detail": "Template prêt, dormant.",
-      "echeance": "après 1.1"
+      "titre": "Straddle — Observation PROLONGÉE (point de contrôle 24/09 : aucun critère de sortie atteint)",
+      "detail": "POINT DE CONTRÔLE 24/09 (l'ordre du jour du propriétaire) : 70 passes · capital 1000 → 1181 $ (+18,1 %) · Σ R distance +19,0 · WR $ 60 %. PAR SOURCE : annonce US 14h30 ×10 (WR 80 %, +103 $) · créneau 15h ×7 (29 %, −35 $) · créneau 16h ×21 (67 %, +52 $) · créneau 17h ×3 (0 %, −18 $) · créneau 20h ×13 (77 %, +120 $) · ouverture DAX ×16 (50 %, −41 $). AUCUNE source n'atteint le seuil de 30 passes (max 21) → l'Observation continue, décision inchangée. RYTHME : ~1,6 passe/jour → le créneau 16h (le plus fourni) atteindra 30 vers fin sept./début oct. — premier jugeable ; à ce stade aucun sous-ensemble ne permet de conclusion (règle des 30), les signaux par source restent indicatifs (DAX et créneau 15h/17h traînent, tier 1 US portent — conforme au dossier 15/09). PROCHAIN POINT : créneau 16h à ~30 passes (~30/09-02/10), ou réconciliation live/replay (2.1). HISTORIQUE : dossier 15/09 — vécu +11,27 R (88 % sur les 2 tier 1 : NFP + CPI) vs rejeu −5,33 R (divergence niveaux/fills) → prolongation décidée, état réaligné Officielle→Observation (signaux écrits silencieux).",
+      "echeance": "créneau 16h ~30 passes (~30/09-02/10) · ou post-2.1"
     },
     {
       "id": "1.3",
@@ -323,20 +295,6 @@
       "echeance": "fin de développement"
     },
     {
-      "id": "6.3",
-      "prio": 3,
-      "titre": "Pine dans TradingView",
-      "detail": "Coller le Pine de docs/reference/ sous « Scalp à Nono » — vérification visuelle des zones (action propriétaire).",
-      "echeance": "quand tu veux"
-    },
-    {
-      "id": "3.3",
-      "prio": 2,
-      "titre": "✅ FERMÉE 24/09 — étude ventes partielles vs SL pleins LIVRÉE v2 ; la décision est passée par le trailing",
-      "detail": "RÉPONSE À LA DIVERGENCE (360 clôtures, réplique validée au centime : 937,25 $ officiels) : ΣR distance +86,94 mais ΣR pondéré −5,73 → amputation ~93 R par les ventes partielles face aux SL PLEINS. Encaissé corrigé par verdict : TP1+BE 139 → +41,70 R (distance 0,6, encaissé 0,3) ; TP2+BE 35 → +35,01 R (0,3+0,6+solde au prix vécu) ; TP3 5 → +7,56 R ; SL 90 × −1 R PLEIN ; Expire 91 × 0. Il faut ~3,3 TP1+BE pour payer 1 SL — il n'y en a que 1,54. BALAYAGE v2 (231 fractions) : tout-TP1 (1/0/0) → +18,1 %, creux max −38 $ (le plus plat) ; actuel 0,5/0,3/0,2 rang 65/231 à −6,3 %. FERMÉE car : ① l'étude est livrée et a servi de socle à la DÉCISION du 23/09 — le levier retenu pour la conversion est le TRAILING (k=0,2 en prod : les clôtures TS captent ce que les ventes partielles laissaient fuir) ; ② le PRÉALABLE TECHNIQUE (capital_simule sur les fractions) est résolu par la 6.7 — mieux que prévu : fractions FIGÉES à la clôture. REOUVERTURE POSSIBLE : les chiffres du balayage fractions datent d'avant le trailing — si le propriétaire veut rejuger la découpe, relancer le balayage du labo (les TS changent la donne pour le solde).",
-      "echeance": "fermée (réouverture possible via labo)"
-    },
-    {
       "id": "2.5",
       "prio": 3,
       "titre": "SMC — étude scoring : score réévalué au retest vs score archivé (A/B par levier replay)",
@@ -348,18 +306,6 @@
       "prio": 3,
       "titre": "ML — filtre candidat en Observation (CONDITIONNEL — enrichi par l'étude 3.1 du 24/09)",
       "detail": "Arbitrage propriétaire 22/09 (rôle du ML) — niveau 2 du plan, CONDITIONNEL : ne démarrer que quand le volume d'historique le justifie (milliers de clôtures, pas des centaines — règle des 30 par sous-ensemble : stratégie × TF × asset). CONTENU : le pipeline ML score les NOUVEAUX signaux à l'émission (confiance prédite) ; la métrique « WR avec filtre vs sans filtre » est mesurée en Observation (paper) pendant une période définie ; JAMAIS de branchement direct en Officielle sans période de mesure. PRÉREQUIS : niveau 1 en place (feature importance alimente les pages Analyse — converge avec P3-1). INTERDIT (décision 22/09) : prédiction de prix (LSTM directionnel), filtre ML actif sur signaux officiels sans mesure préalable. ENRICHI 24/09 (étude 3.1, 308 notés) : le candidat le plus proche du seuil est la conviction LLM ≥70 — prédiction des stop-outs PROUVÉE (<70 → 35 % SL vs 21 % ≥70, z = −2,62, stable) mais AUC 0,572 < 0,65 protocolaire. CHEMIN : recalibrer le prompt conviction (échelle comprimée 50-95, haut 90+ qui dégrade) → re-tester à ~500 notés sur vécu trailing-on → si AUC ≥ 0,65, mesurer le filtre en Observation."
-    },
-    {
-      "id": "6.7",
-      "prio": 2,
-      "titre": "✅ LIVRÉE 24/09 (b0ce2f5) — Vécu SMC : fractions figées par trade à la clôture",
-      "detail": "Votée et livrée le 24/09. La courbe $ du vécu composait les fractions du jour de lecture (Fractions::default() en dur) — désormais chaque clôture SMC FIGE ses fractions en vigueur (colonne fractions_json, migration 0114, funnel unique fermer_signal_par_cle) et capital_simule compose les fractions figées. Clôtures historiques (NULL) → repli défaut 0,5/0,3/0,2 : courbe inchangée au centime (vérifié : 849,39 → 851,94 $ = exactement le trade AVAX +2,55 $). Le if vide mensonger de config_handlers remplacé par la vérité (aucun recalcul rétroactif du vécu). Preuve en prod : première clôture gelée (SP500 TP1+BE 24/09). Test dédié, 64/64 verts."
-    },
-    {
-      "id": "6.6",
-      "prio": 3,
-      "titre": "✅ LIVRÉE 24/09 (eabc390) — Radar ATR : baseline saisonnière jour × heure",
-      "detail": "Constat propriétaire 23/09 (le ratio ATR 6/60 mesurait en partie l'heure de session). LIVRÉE : ratio intraday (M1..H1) divisé par le facteur saisonnier de l'asset — ATR habituel de CET instant jour × heure, patterns M1 24 mois (même source que les Créneaux). 100 % = conforme à l'habitude ; H4/D1/W1 restent au brut (l'heure y est sans objet, note explicite). Bloc « Anomalies » = calcul pur des intraday ≥ 120 % (remplace l'ancienne confluence qui tirait sur les ouvertures ; composable useHeatmapConfluence supprimé). Effet mesuré au déploiement jeudi 8 h UTC : facteurs 0,41-0,62 sur les alts — un brut de 130 % y est une anomalie réelle de 216-314 %."
     }
   ],
   "decisions": [
