@@ -28,11 +28,28 @@ pub async fn get_coverage(state: web::Data<AppState>) -> impl Responder {
     .fetch_one(state.db.pool())
     .await
     .unwrap_or(0);
+    // Ventilation du flux du jour PAR SOURCE (décision owner 25/09 : le
+    // bloc Données du pedestal affiche bougies/jour et symboles suivis
+    // par source — le total global mélange tout et ment par étiquette).
+    let par_source: Vec<(String, i64, i64)> = sqlx::query_as::<_, (String, i64, i64)>(
+        "SELECT source, COUNT(*), COUNT(DISTINCT asset) FROM bougies WHERE timestamp >= ?1 GROUP BY source",
+    )
+    .bind(minuit_paris)
+    .fetch_all(state.db.pool())
+    .await
+    .unwrap_or_default();
+    let bougies_par_source: Vec<serde_json::Value> = par_source
+        .into_iter()
+        .map(|(source, bougies, assets)| {
+            serde_json::json!({ "source": source, "bougies": bougies, "symboles": assets })
+        })
+        .collect();
     match state.db.obtenir_couverture_donnees().await {
         Ok(data) => HttpResponse::Ok().json(serde_json::json!({
             "couverture": data,
             "taille_db_octets": taille_db,
             "bougies_aujourd_hui": bougies_auj,
+            "bougies_par_source": bougies_par_source,
         })),
         Err(e) => {
             HttpResponse::InternalServerError().json(serde_json::json!({ "erreur": e.to_string() }))

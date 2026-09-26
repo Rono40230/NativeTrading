@@ -4,7 +4,8 @@
        et rouge (−50 % → 0), aiguille blanche à contre-poids, fenêtre
        digitale du capital (style altimètre), Σ R en contre-affichage,
        plaque gravée + lampe d'état + vis d'angle. Auto-alimentée (analyse
-       + capital, 60 s). La navigation est portée par la carte-colonne. -->
+       + capital + signaux, 60 s). La navigation et la pastille Telegram
+       sont portées par la carte-colonne. -->
   <div class="flex flex-col items-center gap-1 select-none">
     <!-- ══ L'instrument ══ -->
     <div class="relative">

@@ -235,6 +235,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::calendar_handlers::get_calendar),
         )
         .route(
+            "/api/calendar/etat",
+            web::get().to(crate::calendar_handlers::get_calendar_etat),
+        )
+        .route(
             "/api/sentiment/marche",
             web::get().to(crate::sentiment_handlers::get_sentiment_marche),
         )

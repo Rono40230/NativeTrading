@@ -1,44 +1,45 @@
 <template>
-  <!-- COLONNE-INSTRUMENT (cockpit 24/09, dessin propriétaire) : une
-       stratégie = un instrument autonome. Toute la hauteur à gauche : les
-       commandes de l'ancienne carte étalées (aérées, justify-evenly),
-       Simulation + Telegram en bas de marge ; à droite la jauge puis
-       l'écran courbe. Les chiffres vivent dans la jauge (fenêtre $, ΣR,
-       état, en cours) — l'écran ne raconte que l'histoire. Clic sur la
-       carte = page de la stratégie (les boutons stoppent la propagation). -->
+  <!-- COLONNE-INSTRUMENT (cockpit 24/09, dessin propriétaire 25/09) : une
+       stratégie = un instrument autonome. La jauge CENTRÉE, ses tuiles
+       icônes de commande équilibrées de part et d'autre, l'étiquette sous
+       la jauge (dans la jauge), l'écran courbe dessous sur toute la
+       largeur. Pastille Telegram sur le coin de la carte (vert = activé,
+       rouge = coupé). Clic sur la carte = page de la stratégie (les tuiles
+       et la pastille stoppent la propagation). -->
   <div
-    class="flex gap-2 min-w-0 rounded-xl border p-2 cursor-pointer transition-all hover:brightness-110 hover:shadow-[0_0_18px_rgba(255,255,255,0.06)]"
+    class="relative flex flex-col gap-1.5 min-w-0 rounded-xl border p-2 cursor-pointer transition-all hover:brightness-110 hover:shadow-[0_0_18px_rgba(255,255,255,0.06)]"
     :class="teinte"
     :title="`Ouvrir la page ${nom}`"
     @click="router.push(route)"
   >
 
-    <!-- Marge de commandes : pleine hauteur, boutons étalés -->
-    <div class="flex flex-col gap-2 w-[132px] shrink-0">
-      <ReglagesCarteBoutons :id="id" vertical />
-      <div class="flex flex-col gap-1">
-        <PopoverInfo texte="Laboratoire de simulation — tester des réglages sans jamais toucher aux chiffres officiels.">
-          <button
-            class="text-[9px] font-semibold px-1.5 py-0.5 rounded-md border border-teal-500/30 bg-teal-500/10 text-teal-300 hover:bg-teal-500/20 transition-colors text-left"
-            @click.stop="router.push(`/simulation?strategie=${id}`)"
-          >🧪 Simulation</button>
-        </PopoverInfo>
-        <PopoverInfo :texte="titreTelegram">
-          <button
-            class="text-[9px] font-semibold px-1.5 py-0.5 rounded-md border transition-colors text-left disabled:opacity-40"
-            :class="notifications ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300' : 'border-white/15 bg-white/5 text-white/60'"
-            :disabled="bascule === id"
-            @click.stop="basculerTelegram"
-          >{{ notifications ? '🔔 Telegram ON' : '🔕 Telegram OFF' }}</button>
-        </PopoverInfo>
-      </div>
+    <!-- Pastille Telegram : commande du canal, posée sur le coin de la
+         carte (décision owner 25/09). -->
+    <PopoverInfo titre="Telegram — messages d'imminence" :texte="titreTelegram">
+      <button
+        class="absolute -top-2 -right-2 z-10 w-[28px] h-[28px] rounded-full flex items-center justify-center border-2 shadow-lg transition-all hover:scale-110 disabled:opacity-50"
+        :class="notifications
+          ? 'bg-emerald-500 border-emerald-200/50 shadow-emerald-500/40'
+          : 'bg-red-500 border-red-200/50 shadow-red-500/40'"
+        :disabled="bascule"
+        :aria-label="notifications ? 'Telegram activé — cliquer pour couper' : 'Telegram coupé — cliquer pour activer'"
+        @click.stop="basculerTelegram"
+      >
+        <svg viewBox="0 0 24 24" class="w-[16px] h-[16px]" aria-hidden="true">
+          <path fill="#fff" d="M9.04 15.51l-.38 5.36c.54 0 .78-.23 1.06-.5l2.55-2.44 5.28 3.87c.97.53 1.66.25 1.92-.9L23.9 4.6c.31-1.42-.5-1.98-1.45-1.63L2.7 10.3c-1.39.54-1.37 1.32-.24 1.67l5.05 1.57L19.5 6.2c.55-.36 1.05-.16.64.2z" />
+        </svg>
+      </button>
+    </PopoverInfo>
+
+    <!-- Rang instrument : tuiles équilibrées | jauge | tuiles -->
+    <div class="flex items-center justify-center gap-2 min-w-0">
+      <ReglagesCarteBoutons :id="id" bords="gauche" />
+      <JaugeStrategie :id="id" :nom="nom" :icone="icone" class="min-w-0" />
+      <ReglagesCarteBoutons :id="id" bords="droite" />
     </div>
 
-    <!-- La colonne instrument : jauge puis écran -->
-    <div class="flex-1 flex flex-col gap-1.5 min-w-0">
-      <JaugeStrategie :id="id" :nom="nom" :icone="icone" class="min-w-0" />
-      <EcranCourbe :id="id" />
-    </div>
+    <!-- L'écran : l'histoire en $, toute la largeur -->
+    <EcranCourbe :id="id" />
 
   </div>
 </template>
@@ -64,20 +65,23 @@ const props = defineProps<{
 const router = useRouter()
 const alerteStore = useAlerteStore()
 
+// ── Pastille Telegram (drapeau du registre, PUT partiel) ───────────────────
 const etat = ref('—')
 const notifications = ref(false)
-const bascule = ref('')
+const bascule = ref(false)
 
+/// Info-bulle de la pastille : la règle d'envoi complète — le drapeau ET
+/// l'état (Observation = silencieux, décision 15/09 ; le clic pré-règle
+/// le drapeau).
 const titreTelegram = computed(() => [
-  `Telegram — messages d'imminence : ${notifications.value ? 'ACTIVÉS' : 'COUPÉS'} (clic pour ${notifications.value ? 'couper' : 'activer'}).`,
+  `État : ${notifications.value ? 'ACTIVÉS' : 'COUPÉS'} (clic pour ${notifications.value ? 'couper' : 'activer'}).`,
   "Condition complète d'envoi : réglage activé ET stratégie Officielle.",
   ...(etat.value !== 'Officielle' ? [`Ici état ${etat.value} → silencieux tant que la stratégie ne repasse pas Officielle.`] : []),
 ].join('\n'))
 
-// PUT partiel du registre — l'envoi relit le drapeau à CHAQUE signal :
-// effet immédiat, sans relance.
+// L'envoi relit le drapeau à CHAQUE signal : effet immédiat, sans relance.
 async function basculerTelegram() {
-  bascule.value = props.id
+  bascule.value = true
   try {
     const res = await http.put<{ notifications: boolean }>(`/api/strategies/${props.id}`, {
       notifications: !notifications.value,
@@ -86,7 +90,7 @@ async function basculerTelegram() {
   } catch (e) {
     alerteStore.afficherErreur(`Telegram ${props.nom} : bascule échouée — ${(e as Error).message}`)
   }
-  bascule.value = ''
+  bascule.value = false
 }
 
 async function chargerRegistre() {

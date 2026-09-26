@@ -1,23 +1,29 @@
 <template>
-  <!-- Boutons d'accès direct d'une carte stratégie du dashboard (09/09,
-       workflow) : caractéristiques (page définition) + réglages en modale.
-       Ne rend rien si la stratégie n'a pas d'actions. Les modales vivent
-       ici aussi — ModaleCadre stoppe la propagation pour ne jamais
+  <!-- Commandes en tuiles-icônes d'une colonne-instrument (dessin
+       propriétaire 25/09) : chaque bouton devient une icône cliquable qui
+       évoque son thème, posée en flanc de jauge. bords="gauche"/"droite"
+       rend la moitié correspondante de la liste (équilibrage automatique) ;
+       l'étiquette complète vit dans le popover au survol, le détail dans
+       son corps. Les modales ne vivent que dans l'instance gauche (pas de
+       doublon). ModaleCadre stoppe la propagation pour ne jamais
        déclencher le clic carte. -->
-  <div v-if="actions" class="flex items-center gap-1 flex-wrap" :class="vertical ? 'flex-col !flex-nowrap items-stretch gap-1 flex-1 justify-evenly' : ''">
-    <PopoverInfo v-for="a in actions" :key="a.cle" :titre="a.titre">
+  <div v-if="moitie" class="flex flex-col justify-center gap-2 shrink-0">
+    <PopoverInfo v-for="a in moitie" :key="a.cle" :titre="a.label" :texte="a.titre">
       <button
-        class="text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-colors text-left leading-tight"
-        :class="[vertical ? 'whitespace-normal' : 'whitespace-nowrap', classeAction]"
+        class="w-11 h-11 rounded-lg border text-[21px] leading-none flex items-center justify-center transition-all hover:scale-110 cursor-pointer"
+        :class="classeAction"
+        :aria-label="a.label"
         @click.stop="surAction(a.cle)"
-      >{{ a.label }}</button>
+      >{{ a.label.split(' ')[0] }}</button>
     </PopoverInfo>
 
-    <!-- Réglages en modale -->
-    <SmcReglagesModales :ouverte="id === 'SMC' ? modaleSmc : null" @fermer="modaleSmc = null" />
-    <StraddleReglagesModales :ouverte="id === 'straddle' ? modaleStraddle : null" @fermer="modaleStraddle = null" />
-    <RocketsReglagesModales :ouverte="id === 'rockets' ? modaleRockets : null" @fermer="modaleRockets = null" />
-    <KdjReglagesModales :ouverte="id === 'kdj_halftrend' ? modaleKdj : null" @fermer="modaleKdj = null" />
+    <!-- Réglages en modale (instance gauche uniquement) -->
+    <template v-if="bords !== 'droite'">
+      <SmcReglagesModales :ouverte="id === 'SMC' ? modaleSmc : null" @fermer="modaleSmc = null" />
+      <StraddleReglagesModales :ouverte="id === 'straddle' ? modaleStraddle : null" @fermer="modaleStraddle = null" />
+      <RocketsReglagesModales :ouverte="id === 'rockets' ? modaleRockets : null" @fermer="modaleRockets = null" />
+      <KdjReglagesModales :ouverte="id === 'kdj_halftrend' ? modaleKdj : null" @fermer="modaleKdj = null" />
+    </template>
   </div>
 </template>
 
@@ -30,7 +36,7 @@ import StraddleReglagesModales, { type ModaleStraddle } from './StraddleReglages
 import RocketsReglagesModales, { type ModaleRockets } from './RocketsReglagesModales.vue'
 import KdjReglagesModales, { type ModaleKdj } from './KdjReglagesModales.vue'
 
-const props = defineProps<{ id: string; vertical?: boolean }>()
+const props = defineProps<{ id: string; bords: 'gauche' | 'droite' }>()
 
 const router = useRouter()
 const modaleSmc = ref<ModaleSmc | null>(null)
@@ -76,18 +82,41 @@ const ACTIONS: Record<string, ActionCarte[]> = {
   ],
 }
 
-const actions = computed(() => ACTIONS[props.id] ?? null)
+/// Liste complète d'une stratégie : ses accès + le labo de simulation
+/// (dernier de la pile — l'équilibrage le place en bas à droite).
+const liste = computed(() => {
+  const base = ACTIONS[props.id]
+  if (!base) return null
+  return [...base, {
+    cle: 'simulation',
+    label: '🧪 Simulation',
+    titre: 'Laboratoire de simulation — tester des réglages sans jamais toucher aux chiffres officiels.',
+  }]
+})
 
-/// Teinte des boutons = celle de la carte.
+/// La moitié demandée : ceil(n/2) à gauche, le reste à droite — cartes
+/// équilibrées de part et d'autre de la jauge.
+const moitie = computed(() => {
+  const l = liste.value
+  if (!l) return null
+  const coupe = Math.ceil(l.length / 2)
+  return props.bords === 'gauche' ? l.slice(0, coupe) : l.slice(coupe)
+})
+
+/// Teinte des tuiles = celle de la carte.
 const CLASSES_ACTIONS: Record<string, string> = {
-  SMC: 'bg-blue-500/15 hover:bg-blue-500/30 text-blue-100 border-blue-400/25',
-  straddle: 'bg-amber-500/15 hover:bg-amber-500/30 text-amber-100 border-amber-400/25',
-  rockets: 'bg-orange-500/15 hover:bg-orange-500/30 text-orange-100 border-orange-400/25',
-  kdj_halftrend: 'bg-cyan-500/15 hover:bg-cyan-500/30 text-cyan-100 border-cyan-400/25',
+  SMC: 'bg-blue-500/15 hover:bg-blue-500/30 border-blue-400/25',
+  straddle: 'bg-amber-500/15 hover:bg-amber-500/30 border-amber-400/25',
+  rockets: 'bg-orange-500/15 hover:bg-orange-500/30 border-orange-400/25',
+  kdj_halftrend: 'bg-cyan-500/15 hover:bg-cyan-500/30 border-cyan-400/25',
 }
-const classeAction = computed(() => CLASSES_ACTIONS[props.id] ?? 'bg-white/10 hover:bg-white/20 text-white border-white/20')
+const classeAction = computed(() => CLASSES_ACTIONS[props.id] ?? 'bg-white/10 hover:bg-white/20 border-white/20')
 
 function surAction(cle: string) {
+  if (cle === 'simulation') {
+    router.push(`/simulation?strategie=${props.id}`)
+    return
+  }
   if (cle === 'definition') {
     const cible = ROUTES_DEFINITION[props.id]
     if (cible) router.push(cible)

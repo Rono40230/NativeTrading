@@ -15,55 +15,61 @@
 
     <template v-else>
 
-      <!-- ══ Rang 1 : les cinq instruments linéaires ══ -->
+      <!-- ══ Rang 1 : les instruments linéaires ══ -->
       <div class="flex flex-wrap gap-x-4 gap-y-2">
 
-        <!-- ── Crypto — Peur & Appêt ── -->
-        <div v-if="fng" class="flex-1 min-w-[170px]">
-          <PopoverInfo titre="Crypto — Peur & Appêt" :texte="texteFng">
-            <div class="flex items-baseline justify-between gap-2 cursor-help">
-              <span class="grave">CRYPTO — PEUR &amp; APPÊT <span class="text-white/40">ⓘ</span></span>
-              <span class="digital tabular-nums" :class="classeFng(fng.valeur)">
-                {{ fng.valeur }} · {{ traduireFng(fng.classe) }}
-                <span class="text-[9px] font-normal text-white/60">{{ flecheDelta(fng.delta_veille) }}</span>
-              </span>
-            </div>
-          </PopoverInfo>
-          <div class="relative mt-1">
-            <div class="h-2.5 rounded-full overflow-hidden flex ring-1 ring-black/40">
-              <div class="h-full" style="width:25%;background:#ef4444" />
-              <div class="h-full" style="width:20%;background:#f97316" />
-              <div class="h-full" style="width:10%;background:#eab308" />
-              <div class="h-full" style="width:20%;background:#84cc16" />
-              <div class="h-full" style="width:25%;background:#22c55e" />
-            </div>
-            <span class="aiguille" :style="{ left: fng.valeur + '%' }" />
-            <div class="flex justify-between mt-0.5">
-              <span v-for="t in [0, 25, 50, 75, 100]" :key="t" class="tick" />
-            </div>
-          </div>
-        </div>
+        <!-- Colonne humeur : F&G au-dessus, VIX en dessous (décision
+             owner 25/09 — les deux baromètres d'humeur se lisent en pile) -->
+        <div class="flex-1 min-w-[190px] flex flex-col gap-2">
 
-        <!-- ── Actions US — VIX (jauge inversée) ── -->
-        <div v-if="vix !== null" class="flex-1 min-w-[150px]">
-          <PopoverInfo titre="Actions US — VIX" :texte="texteVix">
-            <div class="flex items-baseline justify-between gap-2 cursor-help">
-              <span class="grave">ACTIONS US — VIX <span class="text-white/40">ⓘ</span></span>
-              <span class="digital tabular-nums" :class="classeVix(vix)">{{ vix.toFixed(1) }} · {{ verdictVix(vix) }}</span>
-            </div>
-          </PopoverInfo>
-          <div class="relative mt-1">
-            <div class="h-2.5 rounded-full overflow-hidden flex ring-1 ring-black/40">
-              <div class="h-full" style="width:37.5%;background:#22c55e" />
-              <div class="h-full" style="width:12.5%;background:#eab308" />
-              <div class="h-full" style="width:25%;background:#f97316" />
-              <div class="h-full" style="width:25%;background:#ef4444" />
-            </div>
-            <span class="aiguille" :style="{ left: Math.min(100, (vix / 40) * 100) + '%' }" />
-            <div class="flex justify-between mt-0.5">
-              <span v-for="t in [0, 25, 50, 75, 100]" :key="t" class="tick" />
+          <!-- ── Crypto — Peur & Appêt ── -->
+          <div v-if="fng">
+            <PopoverInfo titre="Crypto — Peur & Appêt" :texte="texteFng">
+              <div class="flex items-baseline justify-between gap-2 cursor-help">
+                <span class="grave">CRYPTO — PEUR &amp; APPÊT <span class="text-white/40">ⓘ</span></span>
+                <span class="digital tabular-nums" :class="classeFng(fng.valeur)">
+                  {{ fng.valeur }} · {{ traduireFng(fng.classe) }}
+                  <span class="text-[9px] font-normal text-white/60">{{ flecheDelta(fng.delta_veille) }}</span>
+                </span>
+              </div>
+            </PopoverInfo>
+            <div class="relative mt-1">
+              <div class="h-2.5 rounded-full overflow-hidden flex ring-1 ring-black/40">
+                <div class="h-full" style="width:25%;background:#ef4444" />
+                <div class="h-full" style="width:20%;background:#f97316" />
+                <div class="h-full" style="width:10%;background:#eab308" />
+                <div class="h-full" style="width:20%;background:#84cc16" />
+                <div class="h-full" style="width:25%;background:#22c55e" />
+              </div>
+              <span class="aiguille" :style="{ left: fng.valeur + '%' }" />
+              <div class="flex justify-between mt-0.5">
+                <span v-for="t in [0, 25, 50, 75, 100]" :key="t" class="tick" />
+              </div>
             </div>
           </div>
+
+          <!-- ── Actions US — VIX (jauge inversée) ── -->
+          <div v-if="vix !== null">
+            <PopoverInfo titre="Actions US — VIX" :texte="texteVix">
+              <div class="flex items-baseline justify-between gap-2 cursor-help">
+                <span class="grave">ACTIONS US — VIX <span class="text-white/40">ⓘ</span></span>
+                <span class="digital tabular-nums" :class="classeVix(vix)">{{ vix.toFixed(1) }} · {{ verdictVix(vix) }}</span>
+              </div>
+            </PopoverInfo>
+            <div class="relative mt-1">
+              <div class="h-2.5 rounded-full overflow-hidden flex ring-1 ring-black/40">
+                <div class="h-full" style="width:37.5%;background:#22c55e" />
+                <div class="h-full" style="width:12.5%;background:#eab308" />
+                <div class="h-full" style="width:25%;background:#f97316" />
+                <div class="h-full" style="width:25%;background:#ef4444" />
+              </div>
+              <span class="aiguille" :style="{ left: Math.min(100, (vix / 40) * 100) + '%' }" />
+              <div class="flex justify-between mt-0.5">
+                <span v-for="t in [0, 25, 50, 75, 100]" :key="t" class="tick" />
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- ── Positioning futures (balances L↔S par actif) ── -->

@@ -9,6 +9,8 @@ function classeVerdictSignal(verdict: string | null): string {
   return 'badge-yellow'
 }
 
+/// Libellé complet d'un verdict (interne — labelEtatSignal l'utilise).
+/// TP* = gagnant encaissé, BE = retour à l'entrée, SL = perte.
 function labelVerdictSignal(verdict: string | null): string {
   const v = verdict?.toLowerCase() ?? ''
   if (v === 'tp3') return '✅ TP3'

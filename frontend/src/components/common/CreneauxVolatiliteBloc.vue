@@ -63,7 +63,9 @@ import type { ReponsePatternsVolatilite } from '@/services/api.types'
 import type { PatternHoraire } from '@/services/api.types.marche'
 import { offsetParisHeures } from '@/utils/date'
 import { JOURS, COULEURS_CLUSTER, COULEURS_CLUSTER_PLEIN } from './heatmapConstants'
-import { calculerAnalyse, NOM_CLUSTER, COULEUR_CLUSTER_TEXTE } from '@/composables/useVolatiliteAnalyse'
+import { calculerAnalyse, fenetreDuJour, NOM_CLUSTER, COULEUR_CLUSTER_TEXTE } from '@/composables/useVolatiliteAnalyse'
+
+const props = withDefaults(defineProps<{ ouvertDefaut?: boolean }>(), { ouvertDefaut: false })
 
 /// Source : patterns horaires (clusters quartiles) de tous les assets actifs —
 /// 24 mois au M1, cache serveur d'une heure. Une CARTE par asset : statut
@@ -84,7 +86,7 @@ const chargement = ref(true)
 const maintenant = ref(new Date())
 /// Bloc repliable — replié par défaut (14/09) : l'univers élargi rendait la
 /// grille de cartes envahissante sur le dashboard.
-const ouvert = ref(false)
+const ouvert = ref(props.ouvertDefaut)
 
 let horloge: ReturnType<typeof setInterval> | null = null
 
@@ -106,32 +108,6 @@ const heureParis = computed(() =>
 
 function uniteAsset(asset: string): string {
   return ['BTC', 'ETH'].includes(asset) ? '$' : 'pts'
-}
-
-/** Meilleure fenêtre contiguë du jour courant : fusion des heures adjacentes
- * du MÊME cluster (pas de propagation max — sinon tout le jour fusionne),
- * puis classement par cluster, durée, ATR. */
-function fenetreDuJour(patterns: PatternHoraire[], jour: number) {
-  const offset = offsetParisHeures()
-  const cellules = patterns
-    .filter(p => p.jour_semaine === jour && p.nb_points > 0)
-    .map(p => ({ heureParis: (p.heure + offset) % 24, cluster: p.cluster, atr: p.atr_moyen }))
-    .sort((a, b) => a.heureParis - b.heureParis)
-  if (!cellules.length) return null
-  const fenetres: { heureDebut: number; heureFin: number; cluster: number; atr: number }[] = []
-  for (const c of cellules) {
-    const l = fenetres.at(-1)
-    if (l && c.heureParis === l.heureFin && c.cluster === l.cluster) {
-      l.heureFin++
-      l.atr = Math.max(l.atr, c.atr)
-    } else {
-      fenetres.push({ heureDebut: c.heureParis, heureFin: c.heureParis + 1, cluster: c.cluster, atr: c.atr })
-    }
-  }
-  return fenetres.sort((a, b) =>
-    b.cluster - a.cluster ||
-    (b.heureFin - b.heureDebut) - (a.heureFin - a.heureDebut) ||
-    b.atr - a.atr)[0]
 }
 
 const cartes = computed<CarteAsset[]>(() => {

@@ -6,7 +6,7 @@
 
     <div v-if="chargement" class="text-white text-xs text-center py-3 shrink-0">Chargement…</div>
     <div v-else-if="annonces.length === 0" class="text-white text-xs text-center py-3 shrink-0">
-      Aucune annonce à fort impact à venir (7j)
+      Aucune annonce à fort impact à venir ({{ jours }}j)
     </div>
 
     <!-- Fenêtre d'environ 3 annonces (décision 14/09) : le reste défile
@@ -73,20 +73,21 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { apiService } from '@/services/api.service'
 import { formatParis } from '@/utils/date'
 import type { AnnonceCalendrier } from '@/services/api.types'
-import { useAlerteStore } from '@/stores/alerte.store'
 
-const alerteStore = useAlerteStore()
 const annonces = ref<AnnonceCalendrier[]>([])
 const chargement = ref(false)
 const survolee = ref<string | null>(null)
-const annoncesAlertees = new Set<string>()
+
+/// Fenêtre du calendrier en jours (défaut 7 — le badge du bandeau demande
+/// les 10 prochains jours, owner 26/09).
+const props = withDefaults(defineProps<{ jours?: number }>(), { jours: 7 })
 
 async function charger() {
   chargement.value = true
   try {
     // Décision 14/09 : le dashboard ne montre que les événements à FORT
     // impact (rouge) — les impacts moyens/orange polluaient la colonne.
-    annonces.value = (await apiService.obtenirCalendrier(7))
+    annonces.value = (await apiService.obtenirCalendrier(props.jours))
       .filter((a: AnnonceCalendrier) => a.impact === 'High')
   } catch {
     // Dégradation silencieuse — liste vide
@@ -133,28 +134,15 @@ function couleurCountdown(iso: string): string {
   return 'text-white' // lointain ou terminé
 }
 
-function verifierAlertes() {
-  for (const a of annonces.value) {
-    if (a.impact !== 'High') continue
-    const diffMin = (new Date(a.date_heure).getTime() - Date.now()) / 60_000
-    if (diffMin > 0 && diffMin <= 15 && !annoncesAlertees.has(a.id)) {
-      annoncesAlertees.add(a.id)
-      alerteStore.afficherAvertissement(
-        `⚠️ ${a.titre} (${a.devise}) dans ${Math.round(diffMin)}min — Fort impact`
-      )
-    }
-  }
-}
-
 let intervalle: ReturnType<typeof setInterval> | null = null
 
 function fermerSurvolee() { survolee.value = null }
 
 onMounted(async () => {
   await charger()
-  verifierAlertes()
+  // Horloge réactive seule : les compte à rebours vivent, les toasts ont
+  // cédé la place au badge clignotant du bandeau (owner 26/09).
   intervalle = setInterval(() => {
-    verifierAlertes()
     maintenant.value = Date.now()
   }, 15_000)
   document.addEventListener('click', fermerSurvolee)

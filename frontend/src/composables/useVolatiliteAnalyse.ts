@@ -12,7 +12,7 @@ import { JOURS } from '@/components/common/heatmapConstants'
 export const NOM_CLUSTER = ['Calme', 'Modéré', 'Élevé', 'Extrême'] as const
 export const COULEUR_CLUSTER_TEXTE = ['text-emerald-400', 'text-amber-400', 'text-orange-400', 'text-red-400'] as const
 
-export interface FenetreVolatilite { heureDebut: number; heureFin: number; cluster: number }
+export interface FenetreVolatilite { heureDebut: number; heureFin: number; cluster: number; atr?: number }
 export interface JourVolatilite { index: number; label: string; atrMoyen: number }
 
 export interface AnalyseVolatilite {
@@ -69,4 +69,31 @@ export function calculerAnalyse(patterns: PatternHoraire[]): AnalyseVolatilite |
   const patternActuel = patterns.find(p => p.heure === heureUtcActuelle && p.jour_semaine === jourActuel) ?? null
 
   return { top3, pires3, meilleurJour, pireJour, patternActuel, hParisActuelle }
+}
+
+/** Meilleure fenêtre contiguë d'un JOUR donné : fusion des heures adjacentes
+ * du MÊME cluster (pas de propagation max — sinon tout le jour fusionne),
+ * puis classement par cluster, durée, ATR. Source unique (bloc Créneaux +
+ * badge bandeau, 26/09). */
+export function fenetreDuJour(patterns: PatternHoraire[], jour: number): FenetreVolatilite | null {
+  const offset = offsetParisHeures()
+  const cellules = patterns
+    .filter(p => p.jour_semaine === jour && p.nb_points > 0)
+    .map(p => ({ heureParis: (p.heure + offset) % 24, cluster: p.cluster, atr: p.atr_moyen }))
+    .sort((a, b) => a.heureParis - b.heureParis)
+  if (!cellules.length) return null
+  const fenetres: (FenetreVolatilite & { atr: number })[] = []
+  for (const c of cellules) {
+    const l = fenetres.at(-1)
+    if (l && c.heureParis === l.heureFin && c.cluster === l.cluster) {
+      l.heureFin++
+      l.atr = Math.max(l.atr, c.atr)
+    } else {
+      fenetres.push({ heureDebut: c.heureParis, heureFin: c.heureParis + 1, cluster: c.cluster, atr: c.atr })
+    }
+  }
+  return fenetres.sort((a, b) =>
+    b.cluster - a.cluster ||
+    (b.heureFin - b.heureDebut) - (a.heureFin - a.heureDebut) ||
+    b.atr - a.atr)[0]
 }

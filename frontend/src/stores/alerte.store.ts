@@ -28,13 +28,9 @@ export const useAlerteStore = defineStore('alertes', () => {
     afficher(message, 'error')
   }
 
-  function afficherAvertissement(message: string) {
-    afficher(message, 'warning')
-  }
-
   function supprimer(id: number) {
     alertes.value = alertes.value.filter((a) => a.id !== id)
   }
 
-  return { alertes, afficher, afficherSucces, afficherErreur, afficherAvertissement, supprimer }
+  return { alertes, afficher, afficherSucces, afficherErreur, supprimer }
 })

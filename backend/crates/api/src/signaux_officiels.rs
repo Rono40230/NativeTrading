@@ -48,7 +48,6 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
         // message d'imminence sur Telegram (selon l'état) — pas de ligne en
         // base (elle viendra à la clôture si le trade confirme).
         if s.annonce {
-            if m.id != "SMC" {
             let sf = crate::setups_formation::depuis_annonce(m.id, &s);
             crate::setups_formation::enregistrer_annonce(sf.clone());
             // Scanner SMC (11/09) — trace durable : le vivier mémoire est
@@ -73,7 +72,10 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
                 },
             )
             .await;
-            if !silencieuse {
+            // Message d'imminence : PAS pour SMC (décision owner 22/09 —
+            // ~80 % de bruit en moins ; le scanner/journal reste alimenté).
+            // La confirmation SMC, elle, partira toujours (voir plus bas).
+            if m.id != "SMC" && !silencieuse {
                 let reg = db.lire_strategie(m.id).await.ok().flatten();
                 if reg.as_ref().is_some_and(|r| r.notifications) {
                     if let Some(msg) = formater_message(&db, m.id, &s).await {
@@ -81,7 +83,18 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
                     }
                 }
             }
-            }
+            continue;
+        }
+        // FENÊTRE MACRO (owner 26/09) : aucun NOUVEAU signal à ±30 min d'une
+        // annonce High — sauf straddle, qui vit DES annonces (ses rails se
+        // posent sur elles). Sémantique : les setups détectés pendant la
+        // fenêtre ne sont pas re-émis après (clé verrouillée côté moteur) —
+        // une entrée née dans la fenêtre serait périmée de toute façon.
+        if m.id != "straddle" && db.fenetre_macro_active(30).await.unwrap_or(false) {
+            tracing::info!(
+                "⏸️ Fenêtre macro : signal {} {} {} non émis (annonce High à ±30 min)",
+                m.id, s.asset, s.tf.as_str()
+            );
             continue;
         }
         let signal = Signal::nouveau(
@@ -151,9 +164,11 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
 
         // Telegram : son activé ? L'annonce intrabar est déjà partie →
         // on marque la ligne sans re-messager. Observation = silencieux.
+        // EXCEPTION SMC : son annonce intrabar ne part JAMAIS (décision
+        // owner 22/09) — ignorer deja_annonce, sinon plus aucun message.
         let reg = db.lire_strategie(m.id).await.ok().flatten();
         let notifie = if !silencieuse && reg.as_ref().is_some_and(|r| r.notifications) {
-            if s.deja_annonce {
+            if s.deja_annonce && m.id != "SMC" {
                 false
             } else if let Some(msg) = formater_message(&db, m.id, &s).await {
                 envoyer_telegram(&db, &msg).await
