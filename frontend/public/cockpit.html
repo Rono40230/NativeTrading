@@ -70,8 +70,8 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "24/09 soir 3 (REFONTE COCKPIT LIVRÉE 104e2b7 : 9 tours — le dashboard est un panneau d'instruments)",
-    "commit": "104e2b7",
+    "date": "26/09 soir (COCKPIT vagues 9-12 POUSSÉES bc9eabb : pedestal COMMUNICATIONS & NAVIGATION vivant, bandeau à 3 badges à modales, calendrier lundi/jeudi, fenêtre macro ±30 min)",
+    "commit": "bc9eabb",
     "note": "L'app parle en R distance (stratégie) et en $ (résultat). Trailing SMC ACTIF (k=0,2). Vécu immuable (fractions figées à la clôture). KDJ armé, assets choisissables en modale. Hiérarchie zones SMC : M5 > M15 > M30. Straddle +18,1 % sur 70 passes."
   },
   "verticales": [
@@ -316,6 +316,12 @@
     }
   ],
   "decisions": [
+    {
+      "date": "26/09",
+      "titre": "Cockpit vagues 9-12 (bc9eabb) : pedestal vivant, bandeau à badges, fenêtre macro ±30 min, calendrier dépollué",
+      "detail": "① PEDESTAL COMMUNICATIONS & NAVIGATION : 5 interrupteurs gravés (168 px) à fenêtres vivantes sur toiles de fond thématisées — presse 4 titres, rapport 24 h avec Σ R PAR stratégie, productions IA, alertes (date - asset - prix - boutons), soute données avec bougies/jour PAR SOURCE (champ bougies_par_source : le total global mentait par étiquette). ② BANDEAU : lampes système et ALERTES supprimés (données au pedestal) ; 3 badges pleine largeur à modales (calendrier 10 j, créneaux moyens + top-4 actifs triés ATR, radar ATR top-5 horaire — composable useRadarAtr en source unique) ; ASIDE supprimé, 4 cartes pleine largeur. ③ CALENDRIER : modale vide = ban 429 ForexFactory (fetch à chaque relance + cycle 30 min) → job lundi/jeudi 01:00 UTC, horodatage en base (redémarrage = zéro appel, PROUVÉ), reprise 3 h, API sans fetch en ligne + état honnête /api/calendar/etat. ④ ALERTES ANNONCES : badge clignote ROUGE ≤15 min avant une annonce High (unique alerte — toasts calendrier supprimés) ; pas de Telegram annonces. ⑤ FENÊTRE MACRO : aucun nouveau signal SMC/Rockets/KDJ à ±30 min d'une annonce High, STRADDLE EXEMPT (il vit des annonces) — les 2 helpers DB morts remplacés par fenetre_macro_active(). ⑥ Correctif Telegram SMC (régression du 22/09 : les confirmations étaient tuées par deja_annonce). Anomalies ouvertes : ban 429 en cours (se lèvera seul), binance ~1,8k bougies/jour par le backfill.",
+      "statut": "livrée et vérifiée"
+    },
     {
       "date": "24/09 soir",
       "titre": "Refonte cockpit du dashboard : 9 tours livrés — le dashboard devient un panneau d'instruments (104e2b7)",
