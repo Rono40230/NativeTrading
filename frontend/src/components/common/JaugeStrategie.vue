@@ -141,7 +141,7 @@ async function sonder() {
     if (s) etat.value = s.etat
   } catch { /* silencieux */ }
   try {
-    const r = await http.get('/api/signaux', { params: { limit: 150 } })
+    const r = await http.get('/api/signaux', { params: { strategie: props.id, limit: 200 } })
     // La lampe ne compte que les trades OUVERTS — un ordre posé en attente
     // (entrée non touchée) n'est pas « en cours » (même sémantique que le
     // tableau de la page stratégie).

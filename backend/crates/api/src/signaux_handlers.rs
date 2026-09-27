@@ -6,6 +6,10 @@ use crate::state::AppState;
 #[derive(Deserialize)]
 pub struct QuerySignaux {
     pub limit: Option<i64>,
+    /// Filtre par stratégie (ex : ?strategie=rockets) — évite de balayer
+    /// tout l'historique quand on ne veut qu'une stratégie (le limit=150
+    /// coupait les signaux anciens des stratégies à faible volume).
+    pub strategie: Option<String>,
 }
 
 /// GET /api/signaux?limit=N — historique avec verdict inclus.
@@ -17,8 +21,22 @@ pub async fn get_signaux(
     query: web::Query<QuerySignaux>,
 ) -> impl Responder {
     let limit = query.limit.unwrap_or(500);
-    match state.db.obtenir_signaux(limit).await {
+    // Filtre optionnel par stratégie : on sur-échantillonne puis filtre
+    // (obtenir_signaux n'a pas de paramètre strategie — le filtre côté
+    // handler est trivial et le sur-coût est négligeable à cette échelle).
+    let filtre = query.strategie.as_deref().map(|s| s.to_lowercase());
+    match state.db.obtenir_signaux(if filtre.is_some() { limit.max(1000) } else { limit }).await {
         Ok(mut liste) => {
+            // Filtre par stratégie AVANT l'enrichissement (retain — pas un
+            // continue dans la boucle qui n'exclurait pas de la réponse).
+            if let Some(f) = &filtre {
+                liste.retain(|s| {
+                    s.get("strategie")
+                        .and_then(|v| v.as_str())
+                        .map(|strat| strat.to_lowercase().contains(f.as_str()))
+                        .unwrap_or(false)
+                });
+            }
             let fractions = crate::reglages_smc::lire_fractions(&state.db).await;
             for s in liste.iter_mut() {
                 let Some(obj) = s.as_object_mut() else { continue };

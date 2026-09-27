@@ -70,6 +70,7 @@
                 <span class="font-mono font-bold text-white">{{ s.tf }}</span>
                 <span :class="s.direction === 'Long' ? 'text-emerald-400' : 'text-red-400'">{{ s.direction === 'Long' ? '▲' : '▼' }} {{ s.direction }}</span>
                 <span class="font-mono font-bold text-white">{{ s.force }}/10</span>
+                <span v-if="s.force >= 8" class="text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30" title="Force ≥ 8 : 41 % de chance de confirmation (étude 3.2)">F8+</span>
                 <span
                   class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border"
                   :class="s.statut === 'EnFormation' ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
@@ -171,7 +172,7 @@ function meilleurTf(nom: string, setups: SetupVivant[]): string {
 const cartes = computed<Carte[]>(() => {
   const noms = new Set<string>([...Object.keys(mtf.value), ...vivants.value.map(s => s.asset)])
   return [...noms].sort().map(nom => {
-    const vivs = vivants.value
+    const vivs = [...vivants.value].sort((a, b) => b.force - a.force)
       .filter(s => s.asset === nom && s.statut !== 'Dissipe')
       .filter(s => !alignesSeuls.value || alignementSetup(s, mtf.value[nom]) === 'aligne')
     const tfAuto = meilleurTf(nom, vivants.value.filter(s => s.asset === nom && s.statut !== 'Dissipe'))

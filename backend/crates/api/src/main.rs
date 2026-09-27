@@ -32,6 +32,7 @@ mod ollama_types;
 mod pip_updater;
 mod presse_handlers;
 mod presse_notation;
+mod tests_flux_critiques;
 mod prix_handlers;
 mod prix_stream;
 mod prix_utils;
