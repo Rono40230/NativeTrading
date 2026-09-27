@@ -70,8 +70,8 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "26/09 nuit (REDESIGN CARTES + MÉTÉO MINI-JAUGES POUSSÉ ec45767 : pedestal COMMUNICATIONS & NAVIGATION vivant, bandeau à 3 badges à modales, calendrier lundi/jeudi, fenêtre macro ±30 min)",
-    "commit": "ec45767",
+    "date": "27/09 soir (WHALE WATCHING 2.2 + études + témoins + diagnostic — POUSSÉ 0de9b0c : pedestal COMMUNICATIONS & NAVIGATION vivant, bandeau à 3 badges à modales, calendrier lundi/jeudi, fenêtre macro ±30 min)",
+    "commit": "0de9b0c",
     "note": "L'app parle en R distance (stratégie) et en $ (résultat). Trailing SMC ACTIF (k=0,2). Vécu immuable (fractions figées à la clôture). KDJ armé, assets choisissables en modale. Hiérarchie zones SMC : M5 > M15 > M30. Straddle +18,1 % sur 70 passes."
   },
   "verticales": [
@@ -248,9 +248,9 @@
     {
       "id": "2.2",
       "prio": 2,
-      "titre": "SMC — Mega-orders : étude 27/09 VALIDÉE sur tout l'univers (crypto + forex)",
-      "detail": "ÉTUDE 27/09 : volume disponible sur TOUT l'univers (Bybit crypto + MT5 forex tick_volume 100 %). Corrélation volume→prix PROUVÉE : BTC M5 spikes 2σ = amplitude 4× (38 % > 0,3 % vs 1 % normal) · XAUUSD M5 spikes 2σ = amplitude 3× (50 % > 0,1 % vs 10 % normal). FAISABLE : calculer un z-score volume par asset/TF dans le runtime tick, enrichir le score moteur SMC. Alts plus violents : AVAX 19× ratio pic/moyenne vs BTC 3,5×.",
-      "echeance": "avec 2.1"
+      "titre": "FERMÉE — 2.2 Whale watching LIVRÉ : badge 🐋 Scanner + enrichissement score moteur",
+      "detail": "LIVRÉE 27/09 (0de9b0c) : ① Backend whale_watching.rs — z-score volume par asset×TF (60 bougies, moyenne+σ, 20 couples crypto+forex). ② Badge 🐋 bleu sur les setups du Scanner quand z>2σ (poll 60 s). ③ ENRICHISSEMENT score moteur : +1 si z>2σ, +2 si z>3σ (plafonné 10) — traverse tout le pipeline (Telegram, DB, jauge). Ne filtre JAMAIS. ④ /api/whale : z-scores en direct. ⑤ Boucle refresh 60 s partagée via Arc<RwLock>. Labo comparatif DIFFÉRÉ (règle des 30 — accumulation nécessaire 2-3 sem). Étude : corrélation volume→prix prouvée sur BTC (4×) et XAUUSD (3×), volume disponible sur TOUT l'univers.",
+      "echeance": "fermée — labo comparatif dans 2-3 semaines (règle des 30)"
     },
     {
       "id": "2.3",
@@ -316,6 +316,12 @@
     }
   ],
   "decisions": [
+    {
+      "date": "27/09 soir",
+      "titre": "2.2 Whale watching livré (0de9b0c) — volume enrichit le score SMC sans filtrer",
+      "detail": "Décision owner 27/09 : implémenter le whale watching (détection de volume anormal comme proxy de l'activité institutionnelle). ① Étude : volume disponible sur TOUT l'univers (MT5 tick_volume 100 % — correction de l'erreur initiale « forex exclu »), corrélation volume→prix prouvée (BTC spikes 2σ = amplitude 4×, XAUUSD 3×). ② Implémentation : z-score par asset×TF (60 bougies), badge 🐋 dans le Scanner, enrichissement du score /10 (+1 si >2σ, +2 si >3σ, plafonné 10). Aucun signal bloqué — le volume bonifie, ne filtre pas. ③ Différé : labo comparatif avec/sans (règle des 30). ④ Également livré ce jour : témoins vivants du pedestal (pastille ambre qui pulse), script diagnostic santé (17 vérifications), +8 tests automatisés (77 total), correctif bug Rockets (filtre ?strategie=X dans /api/signaux — la jauge voyait 1/3 positions).",
+      "statut": "livrée et vérifiée"
+    },
     {
       "date": "26/09 nuit",
       "titre": "Redesign cartes stratégie + météo mini-jauges (ec45767) — phases 0-5",
