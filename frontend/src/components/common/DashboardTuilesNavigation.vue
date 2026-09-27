@@ -10,10 +10,12 @@
     <div
       v-for="t in tuilesAffichees"
       :key="t.id"
-      class="rounded-lg border p-2 flex flex-col gap-1.5 min-h-[168px] flex-1 shrink-0 cursor-pointer transition-all bg-white/[0.03] border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_0_12px_rgba(255,255,255,0.08)]"
-      :class="TEINTES[t.id]"
+      class="rounded-lg border p-2 flex flex-col gap-1.5 min-h-[168px] flex-1 shrink-0 cursor-pointer transition-all bg-white/[0.03] border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_0_12px_rgba(255,255,255,0.08)] relative"
+      :class="[TEINTES[t.id], aDuNeuf(t.id) ? 'border-amber-400/40 bg-amber-500/[0.04]' : '']"
       @click="router.push(t.route)"
     >
+      <!-- Témoin vivant : pastille ambre qui pulse quand il y a du neuf -->
+      <span v-if="aDuNeuf(t.id)" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse z-10" />
       <div class="flex items-center gap-1.5">
         <span class="text-[15px] leading-none">{{ t.icone }}</span>
         <span class="text-[11px] font-extrabold uppercase tracking-[0.15em] text-white/75 truncate">{{ t.label }}</span>
@@ -114,6 +116,23 @@ const props = withDefaults(defineProps<{ ids?: string[] }>(), {
   ids: () => ['presse', 'graphiques', 'ia', 'systeme'],
 })
 const affiche = (id: string) => props.ids.includes(id)
+
+/// Témoin vivant : y a-t-il du neuf sur cette tuile ? (27/09)
+/// - presse : au moins un article de moins de 15 min
+/// - graphiques : au moins une alerte armée
+/// - ia : au moins une notation dans les 10 dernières minutes
+/// - systeme : une source a un problème (bougies à 0)
+function aDuNeuf(id: string): boolean {
+  if (id === 'presse') return articles.value.some(a => {
+    const ts = Date.parse(a.publie_le) / 1000
+    return Date.now() / 1000 - ts < 900 // < 15 min
+  })
+  if (id === 'graphiques') return alertesActives.value.length > 0
+  if (id === 'ia') return convictionJour.value.n > 0 && dernierFetchIA.value !== null && Date.now() / 1000 - dernierFetchIA.value < 600
+  if (id === 'systeme') return donnees.value.bybit === '—' || donnees.value.ea === '—'
+  return false
+}
+const dernierFetchIA = ref<number | null>(null)
 
 const router = useRouter()
 const alerteStore = useAlerteStore()

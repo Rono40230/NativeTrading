@@ -5,10 +5,12 @@
        par la carte. Rétro-éclairage teinté de la stratégie au survol. -->
   <button
     type="button"
-    class="bloc flex-1 min-h-0 flex flex-col rounded-lg border transition-all text-left cursor-pointer"
-    :class="teinte"
+    class="bloc flex-1 min-h-0 flex flex-col rounded-lg border transition-all text-left cursor-pointer relative"
+    :class="[teinte, alerte ? 'bloc-alerte' : '']"
     @click.stop="$emit('clic')"
   >
+    <!-- Témoin vivant : pastille qui pulse quand il y a du neuf (27/09) -->
+    <span v-if="alerte" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse z-10" />
     <span class="bloc-titre shrink-0">{{ titre }} <span class="opacity-30">ⓘ</span></span>
     <span class="bloc-fenetre flex-1 min-h-0 flex flex-col justify-center px-1.5 py-0.5">
       <slot />
@@ -17,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ titre: string; teinte: string }>()
+defineProps<{ titre: string; teinte: string; alerte?: boolean }>()
 defineEmits<{ (e: 'clic'): void }>()
 </script>
 
@@ -45,5 +47,13 @@ defineEmits<{ (e: 'clic'): void }>()
   background: #020409;
   border-radius: 3px;
   overflow: hidden;
+}
+</style>
+
+<style scoped>
+/* Témoin vivant : le bloc s'allume légèrement quand il y a du neuf. */
+.bloc-alerte {
+  background: rgba(251, 191, 36, 0.06);
+  border-color: rgba(251, 191, 36, 0.3);
 }
 </style>
