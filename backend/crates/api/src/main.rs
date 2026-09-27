@@ -163,7 +163,7 @@ async fn main() -> std::io::Result<()> {
     // agrégation bougie par bougie, évaluation intrabar des moteurs (à partir
     // de la phase 2), publication des clôtures. Zéro moteur en phase 1.
     // Démarre lui-même le worker Bybit WS qui l'alimente.
-    let poignees_runtime = runtime_tick::demarrer_runtime_tick(app_state.db.clone());
+    let poignees_runtime = runtime_tick::demarrer_runtime_tick(app_state.db.clone(), app_state.whale.clone());
     // Étape 5 — verticale Rockets : scanner D1 + gestion (bus signaux).
     rockets_verticale::demarrer(app_state.db.clone(), poignees_runtime.bus_signaux.clone());
     // Étape A2 : backfill hiérarchisé actions US (quota Tiingo : 500
@@ -207,8 +207,7 @@ async fn main() -> std::io::Result<()> {
         // Whale watching (2.2) : partage l'Arc<RwLock> du state entre
         // la boucle de refresh et l'endpoint /api/whale.
         let whale_db = app_state.db.clone();
-        let whale_arc = app_state.whale.clone();
-        whale_watching::demarrer_boucle_whale(whale_db, whale_arc, couples);
+        whale_watching::demarrer_boucle_whale(whale_db, app_state.whale.clone(), couples);
     }
     // Entraînement ML automatique : hebdomadaire (dernier > 7 j) — le
     // bouton manuel a été retiré le 23/09 (décision propriétaire).

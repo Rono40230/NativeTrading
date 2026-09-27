@@ -13,15 +13,15 @@ use db::Database;
 use engine::{BusEvenements, BusSignaux};
 
 /// Démarre le writer (spawn).
-pub fn demarrer(db: Arc<Database>, bus_signaux: BusSignaux, bus_evenements: BusEvenements) {
-    tokio::spawn(ecrire_signaux(db.clone(), bus_signaux));
+pub fn demarrer(db: Arc<Database>, bus_signaux: BusSignaux, bus_evenements: BusEvenements, whale: std::sync::Arc<tokio::sync::RwLock<crate::whale_watching::WhaleWatching>>) {
+    tokio::spawn(ecrire_signaux(db.clone(), bus_signaux, whale));
     tokio::spawn(fermer_signaux(db, bus_evenements));
 }
 
-async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
+async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux, whale: std::sync::Arc<tokio::sync::RwLock<crate::whale_watching::WhaleWatching>>) {
     let mut rx = bus.abonner();
     tracing::info!("📢 Signaux OFFICIELS actifs (table signaux + Telegram)");
-    while let Ok(s) = rx.recv().await {
+    while let Ok(mut s) = rx.recv().await {
         // Manifeste connu ? (moteur → stratégie)
         let Some(m) = crate::registre_strategies::MANIFESTES
             .iter()
@@ -42,6 +42,26 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux) {
         if etat == "Construction" {
             continue;
         }
+
+        // ── WHALE WATCHING (2.2) : enrichissement du score par volume ────
+        // Un spike de volume > 2σ ajoute +1, > 3σ ajoute +2 — enrichit,
+        // ne filtre jamais. Plafonné à 10.
+        {
+            let ww = whale.read().await;
+            let bougies: Vec<common::Candle> = db.obtenir_bougies(&s.asset, &s.tf, 1).await.unwrap_or_default();
+            if let Some(z) = ww.zscore_derniere_bougie(&bougies, s.asset.as_str(), s.tf.as_str()) {
+                let bonus = ww.bonus_score(Some(z));
+                if bonus > 0 {
+                    let original = s.score;
+                    s.score = (s.score + bonus as i32).min(10);
+                    tracing::info!(
+                        "🐋 Whale watching : {} {} score {} → {} (+{} pour z={:.1}σ)",
+                        s.asset.as_str(), s.tf.as_str(), original, s.score, bonus, z
+                    );
+                }
+            }
+        }
+
         let silencieuse = etat != "Officielle";
         // ANNONCE intrabar (setup qualifié, trade pas encore confirmé) :
         // enregistré pour le panneau « Setups en formation » de l'app,

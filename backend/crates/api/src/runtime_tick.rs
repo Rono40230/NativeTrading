@@ -60,13 +60,16 @@ pub struct PoigneesRuntime {
     pub bus_evenements: engine::BusEvenements,
     /// Canal prix brut (EvenementPrix) — partagé avec le collecteur MT5.
     pub tx_prix: tokio::sync::mpsc::UnboundedSender<engine::types::EvenementPrix>,
+    /// Whale watching (2.2) : partagé entre la boucle de refresh,
+    /// le writer de signaux (enrichissement score) et l'endpoint.
+    pub whale: std::sync::Arc<tokio::sync::RwLock<crate::whale_watching::WhaleWatching>>,
 }
 
 /// Démarre le runtime tick : construit le runtime, lance la boucle de
 /// consommation des événements prix, démarre le worker Bybit WS qui
 /// l'alimente, et le journal d'observation (Gate 1). Non bloquant,
 /// idempotent.
-pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
+pub fn demarrer_runtime_tick(db: Arc<Database>, whale: std::sync::Arc<tokio::sync::RwLock<crate::whale_watching::WhaleWatching>>) -> PoigneesRuntime {
     // Préchauffage du re-jeu paramétrique SMC (métriques dashboard) : la
     // carte sert le re-jeu dès la première consultation après le boot.);
     if !RUNTIME_DEMARRE.swap(true, Ordering::SeqCst) {
@@ -77,6 +80,7 @@ pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
             bus_bougies: runtime.bus_bougies().clone(),
             bus_evenements: runtime.bus_evenements().clone(),
             tx_prix: tx.clone(),
+            whale,
         };
         // Phase 5 — collecteur MT5 : l'EA pousse ses bougies par ce canal.
         crate::mt5_collecteur::brancher_canal(tx.clone());
@@ -90,6 +94,7 @@ pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
             db.clone(),
             poignees.bus_signaux.clone(),
             poignees.bus_evenements.clone(),
+            poignees.whale.clone(),
         );
         tokio::spawn(journal_observation(db.clone(), poignees.bus_bougies.clone()));
         tokio::spawn(journal_emissions(db, poignees.bus_signaux.clone(), poignees.bus_evenements.clone()));
@@ -106,6 +111,7 @@ pub fn demarrer_runtime_tick(db: Arc<Database>) -> PoigneesRuntime {
             bus_bougies: engine::BusBougies::nouveau(),
             bus_evenements: engine::BusEvenements::nouveau(),
             tx_prix: tokio::sync::mpsc::unbounded_channel().0,
+            whale: std::sync::Arc::new(tokio::sync::RwLock::new(crate::whale_watching::WhaleWatching::new())),
         }
     }
 }
