@@ -70,8 +70,8 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "26/09 soir (COCKPIT vagues 9-12 POUSSÉES bc9eabb : pedestal COMMUNICATIONS & NAVIGATION vivant, bandeau à 3 badges à modales, calendrier lundi/jeudi, fenêtre macro ±30 min)",
-    "commit": "bc9eabb",
+    "date": "26/09 nuit (REDESIGN CARTES + MÉTÉO MINI-JAUGES POUSSÉ ec45767 : pedestal COMMUNICATIONS & NAVIGATION vivant, bandeau à 3 badges à modales, calendrier lundi/jeudi, fenêtre macro ±30 min)",
+    "commit": "ec45767",
     "note": "L'app parle en R distance (stratégie) et en $ (résultat). Trailing SMC ACTIF (k=0,2). Vécu immuable (fractions figées à la clôture). KDJ armé, assets choisissables en modale. Hiérarchie zones SMC : M5 > M15 > M30. Straddle +18,1 % sur 70 passes."
   },
   "verticales": [
@@ -316,6 +316,12 @@
     }
   ],
   "decisions": [
+    {
+      "date": "26/09 nuit",
+      "titre": "Redesign cartes stratégie + météo mini-jauges (ec45767) — phases 0-5",
+      "detail": "① CARTES : jauge à gauche + radar rond animé (balayage 3 s, blips, Straddle → calendrier) + plaque-nom → définition | droite : blocs gravés (Paramètres capital/risque, Labo Σ R/WR verrouillé, Assets spécifique) | courbe bas. Modales fusionnées (registre+moteur/niveaux, Son Telegram supprimé). Pastille Telegram au coin. ② MÉTÉO : 9 mini-cadrans façon instruments (bezel, arcs 180°, aiguille, graduations, digitale, libellé→interp une ligne) — univers en VARIATION RÉELLE ±3 % (violence du mouvement), Or/Argent séparés, ETH positioning supprimé. ③ CORRECTIFS : régression modales bc9eabb (tuiles droites mortes), Presse IA auto-noté (boucle 30 min + poison-cache éliminé + toujours rendu), calendrier lundi/jeudi (zéro fetch au restart, état honnête), ticker sans CAC40 avec $, bougies par source. ④ AUDIT phase 5 : CSS mort + fonction morte supprimés, 64/64 tests, interactions vérifiées.",
+      "statut": "livrée et vérifiée"
+    },
     {
       "date": "26/09",
       "titre": "Cockpit vagues 9-12 (bc9eabb) : pedestal vivant, bandeau à badges, fenêtre macro ±30 min, calendrier dépollué",
