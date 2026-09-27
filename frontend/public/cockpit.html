@@ -110,7 +110,7 @@
           "classe": "neutre"
         }
       ],
-      "prochaine": "M30 volet 2.3 (~fin sept.) · re-test conviction à ~500 notés en cohortes avant/après recalibrage (6.5) · 2.1 SP500 live↔replay · 2.2 mega-orders ; première journée trailing (24/09) : 7 SL vs 3 TP1+BE — le trailing juge les sorties post-TP2, pas les SL (observation continue, cohortes TS à suivre)"
+      "prochaine": "M30 volet 2.3 (~fin sept.) · re-test conviction À 383/500 notés : AUC 0,517 < 0,65 → toujours PAS de filtre (27/09) · 2.1 SP500 live↔replay · 2.2 mega-orders ; première journée trailing (24/09) : 7 SL vs 3 TP1+BE — le trailing juge les sorties post-TP2, pas les SL (observation continue, cohortes TS à suivre)"
     },
     {
       "id": "straddle",
@@ -213,9 +213,9 @@
     {
       "id": "7.F",
       "prio": 3,
-      "titre": "Mesure 30 trades sur l'univers KDJ élargi (26 actifs — TON retiré)",
-      "detail": "Univers : 16 actifs vifs + 10 forex/métaux Axi (XPDUSD retiré le 16/09 — inexistant chez Axi). HISTORIQUE AXI EN COURS D'ARRIVÉE (16/09 soir, bug EA résolu) : M1 720k/symbole, TF supérieurs suivent. Dès complète : la mesure 30 trades/couple KDJ peut démarrer et l'armement propriétaire devient possible. Collecte MTF complète le 14/09 côté crypto ; WS vivant.",
-      "echeance": "mesure 30 trades/couple"
+      "titre": "KDJ — 0 signaux en 5 jours (moteur armé, H1 lent) — étude 27/09",
+      "detail": "ÉTUDE 27/09 : moteur Officielle et fonctionnel (logs confirment BNB/XRP/XAGUSD/XPTUSD H1 armés, replay 168 bougies/min), mais 0 signaux générés en 5 jours — les conditions KDJ (cross + Halftrend) ne sont pas réunies sur H1 pour ces 4 actifs. RYTHME ATTENDU : ~1 signal/semaine/actif × 4 actifs = ~4 sem/30 trades → mesure prête ~mi-novembre. PISTE D'ACCÉLÉRATION : ajouter des actifs via la modale Assets (labo 7.G a montré XRP +1,35 R/tr et LINK en tête).",
+      "echeance": "~mi-novembre (ou + si actifs ajoutés)"
     },
     {
       "id": "7.G",
@@ -228,7 +228,7 @@
       "id": "1.1",
       "prio": 2,
       "titre": "Straddle — Observation PROLONGÉE (point de contrôle 24/09 : aucun critère de sortie atteint)",
-      "detail": "POINT DE CONTRÔLE 24/09 (l'ordre du jour du propriétaire) : 70 passes · capital 1000 → 1181 $ (+18,1 %) · Σ R distance +19,0 · WR $ 60 %. PAR SOURCE : annonce US 14h30 ×10 (WR 80 %, +103 $) · créneau 15h ×7 (29 %, −35 $) · créneau 16h ×21 (67 %, +52 $) · créneau 17h ×3 (0 %, −18 $) · créneau 20h ×13 (77 %, +120 $) · ouverture DAX ×16 (50 %, −41 $). AUCUNE source n'atteint le seuil de 30 passes (max 21) → l'Observation continue, décision inchangée. RYTHME : ~1,6 passe/jour → le créneau 16h (le plus fourni) atteindra 30 vers fin sept./début oct. — premier jugeable ; à ce stade aucun sous-ensemble ne permet de conclusion (règle des 30), les signaux par source restent indicatifs (DAX et créneau 15h/17h traînent, tier 1 US portent — conforme au dossier 15/09). PROCHAIN POINT : créneau 16h à ~30 passes (~30/09-02/10), ou réconciliation live/replay (2.1). HISTORIQUE : dossier 15/09 — vécu +11,27 R (88 % sur les 2 tier 1 : NFP + CPI) vs rejeu −5,33 R (divergence niveaux/fills) → prolongation décidée, état réaligné Officielle→Observation (signaux écrits silencieux).",
+      "detail": "POINT DE CONTRÔLE 24/09 (l'ordre du jour du propriétaire) : 70 passes · capital 1000 → 1181 $ (+18,1 %) · Σ R distance +19,0 · WR $ 60 %. PAR SOURCE : annonce US 14h30 ×10 (WR 80 %, +103 $) · créneau 15h ×7 (29 %, −35 $) · créneau 16h ×21 (67 %, +52 $) · créneau 17h ×3 (0 %, −18 $) · créneau 20h ×13 (77 %, +120 $) · ouverture DAX ×16 (50 %, −41 $). AUCUNE source n'atteint le seuil de 30 passes (max 21) → l'Observation continue, décision inchangée. RYTHME : ~1,6 passe/jour → le créneau 16h (le plus fourni) atteindra 30 vers fin sept./début oct. — premier jugeable ; à ce stade aucun sous-ensemble ne permet de conclusion (règle des 30), les signaux par source restent indicatifs (DAX et créneau 15h/17h traînent, tier 1 US portent — conforme au dossier 15/09). PROCHAIN POINT : créneau 16h à ~30 passes (~30/09-02/10), ou réconciliation live/replay (2.1). ÉTUDE 27/09 : DAX approche le seuil (21 passes, −4,4 R, WR 48 %) — si la tendance se maintient à 30 passes, envisager de le retirer du périmètre. HISTORIQUE : dossier 15/09 — vécu +11,27 R (88 % sur les 2 tier 1 : NFP + CPI) vs rejeu −5,33 R (divergence niveaux/fills) → prolongation décidée, état réaligné Officielle→Observation (signaux écrits silencieux).",
       "echeance": "créneau 16h ~30 passes (~30/09-02/10) · ou post-2.1"
     },
     {
@@ -241,9 +241,9 @@
     {
       "id": "2.1",
       "prio": 2,
-      "titre": "SMC — SP500 live vs replay",
-      "detail": "Comparer production et replay (fréquence M15/M5, verdicts) après ~2 semaines de recul. Divergence marquée → étude calibration dédiée.",
-      "echeance": "~18/09"
+      "titre": "Straddle SP500 — 14 passes flat (+0,4 R, WR 57 %) — étude 27/09",
+      "detail": "ÉTUDE 27/09 : 14 passes clôturées (pas 35 — le cockpit précédent surestimait). 7 TP2 (+1,34 R moy) vs 6 SL (−1,50) vs 1 BE = +0,4 R total, R moyen 0,027. Le SP500 est NEUTRE : les TP2 compensent les SL sans dégager de marge. SEUIL : 30 passes → ~16 passes de plus (~3 sem). CONTEXTE GLOBAL straddle (94 passes, 8 actifs) : stars NAS100 +8,9 R (71 %) et XAUUSD +11,7 R (73 %) · fardier DAX −4,4 R (48 %, 21 passes — premier à approcher 30) · SP500 +0,4 R (50 %).",
+      "echeance": "DAX ~30 passes (~2 sem) · SP500 ~30 passes (~3 sem)"
     },
     {
       "id": "2.2",
@@ -268,10 +268,10 @@
     },
     {
       "id": "3.2",
-      "prio": 2,
-      "titre": "Voile des setups SMC — journal en place, étude après accumulation",
-      "detail": "Socle EN SERVICE depuis le 11/09 : smc_setups_journal tourne (dissipations et signaux déjà enregistrés) et le scanner v2 les affiche. L'étude démarre après ~2-3 semaines d'accumulation.",
-      "echeance": "après ~2-3 semaines de journal"
+      "prio": 1,
+      "titre": "Voile des setups SMC — 599 setups, 186 confirmés (31 %) — LIVRÉE (étude 27/09)",
+      "detail": "ÉTUDE 27/09 (599 setups, 11/09→27/09) : 186 confirmés (31 %), 17 dissipés (3 %, durée moy 11 min). PAR FORCE : F8 = 41 % (meilleur), F7 = 24 %, F6 = 9 %. PAR ASSET : LINK 43 % · BTC 39 % · DAX 39 % en tête ; ETH 19 % · XRP 20 % en fond. DÉCOUVERTE CONTRE-INTUITIVE : les signaux ANNONCÉS performent MOINS bien (WR 34 %, R moy 0,153) que les NON-ANNONCÉS (WR 46 %, R moy 0,173) — le retest intrabar ne sélectionne pas de meilleurs trades. RECOMMANDATION : le journal fait son travail documentaire (Scanner + étude), mais NE PAS filtrer sur lui. La force ≥ 8 est utile pour prioriser l'affichage dans le Scanner.",
+      "echeance": "fermée — prochain point si le volume double"
     },
     {
       "id": "4.1",
@@ -339,6 +339,12 @@
       "titre": "Étude 3.1 : la conviction LLM prédit les stop-outs — mais le protocole dit encore pas de filtre",
       "detail": "Re-test protocolaire du 10/09 sur 308 clôtures SMC notées (sur 486 remplies, sans biais de sélection — les non-notés ont le même profil). RÉSULTATS : ① conviction <70 → 35 % de SL contre 21 % à ≥70 (z = −2,62, p ≈ 0,009), gradient par tranches de 10, stable sur les deux moitiés de la période — signal RÉEL, invisible à 96 notés en septembre. ② AUC conviction→SL = 0,572 < 0,65 : le critère protocolaire du 10/09 ÉCHOUE (p ✓, monotonie ✓- sauf le haut, AUC ✗) → pas de filtre, décision respectée. ③ Le $ ne départage pas (WR z = 0,76 ns) — la période est pré-trailing, la fuite de conversion masquait la qualité de sélection. ④ DÉFAUTS DU NOTATEUR identifiés : échelle comprimée (jamais <50, médiane 80) et haut qui dégrade (90-99 : 24 % SL vs 16 % pour 80-89 — le « très sûr » n'encaisse pas plus). CONSÉQUENCE : la 6.5 (filtre en Observation) a son candidat et son chemin — recalibrer le prompt conviction, re-tester à ~500 notés sur vécu trailing-on, filtrer seulement si AUC ≥ 0,65. Sweet spot à surveiller : bande 80-89 (16 % SL, +26 $).",
       "statut": "étude consignée — recalibrage prompt à voter"
+    },
+    {
+      "date": "27/09",
+      "titre": "Re-test conviction 27/09 : AUC 0,517 après recalibrage — la conviction ne filtre toujours pas",
+      "detail": "Re-test sur 383 clôtures notées (objectif 500 — atteignable ~1 sem). RÉSULTATS : ① AUC conviction→SL = 0,517 (précédent 0,572) — le recalibrage du prompt a étalé la distribution (14/86/73/127/83 vs 50-95 compressé) mais la puissance prédictive a CHUTÉ. ② Gradient 60→89 existe (33,7% SL → 18,9% SL) mais se casse aux deux extrêmes : <60 a le MEILLEUR R moyen (+0,608) et 90-100 remonte à 22,9% SL. ③ Le sweet spot 80-89 se confirme (18,9% SL, R moyen +0,218). VERDICT : AUC 0,517 ≈ aléatoire, très loin du seuil 0,65. Le protocole reste respecté : PAS de filtre. À 500 notés le re-test final — mais la trajectoire n'est pas encourageante. CONSÉQUENCE PRATIQUE : la 6.5 (filtre ML) n'a plus de candidat viable proche — la conviction LLM n'est pas un filtre, elle est une OPINION indicative.",
+      "statut": "consigné — re-test final à ~500 notés"
     },
     {
       "date": "24/09",
