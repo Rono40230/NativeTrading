@@ -33,6 +33,7 @@ mod pip_updater;
 mod presse_handlers;
 mod presse_notation;
 mod tests_flux_critiques;
+mod whale_watching;
 mod prix_handlers;
 mod prix_stream;
 mod prix_utils;
@@ -185,6 +186,30 @@ async fn main() -> std::io::Result<()> {
     // Sentiment haussier/neutre/baissier automatique (26/09) — le Presse IA
     // du bandeau ne dépend plus des ouvertures d'articles.
     tokio::spawn(presse_notation::boucle_sentiment(app_state.db.clone()));
+
+    // Whale watching (2.2) : rafraîchit les z-scores volume des couples SMC.
+    {
+        let couples: Vec<(common::Asset, common::Timeframe)> = vec![
+            ("BTC", "M5"), ("ETH", "M5"), ("SOL", "M5"), ("XRP", "M5"),
+            ("DOGE", "M5"), ("BNB", "M5"), ("ADA", "M5"), ("AVAX", "M5"),
+            ("LINK", "M5"), ("LTC", "M5"), ("DOT", "M5"),
+            ("XAUUSD", "M5"), ("XAGUSD", "M5"), ("DAX", "M5"),
+            ("NAS100", "M5"), ("SP500", "M5"),
+            ("BTC", "M15"), ("ETH", "M15"), ("XAUUSD", "M15"), ("DAX", "M15"),
+        ]
+        .into_iter()
+        .filter_map(|(a, t)| {
+            let asset = common::Asset::nouveau(a);
+            let tf = common::Timeframe::try_from(t).ok()?;
+            Some((asset, tf))
+        })
+        .collect();
+        // Whale watching (2.2) : partage l'Arc<RwLock> du state entre
+        // la boucle de refresh et l'endpoint /api/whale.
+        let whale_db = app_state.db.clone();
+        let whale_arc = app_state.whale.clone();
+        whale_watching::demarrer_boucle_whale(whale_db, whale_arc, couples);
+    }
     // Entraînement ML automatique : hebdomadaire (dernier > 7 j) — le
     // bouton manuel a été retiré le 23/09 (décision propriétaire).
     tokio::spawn(ml_retrain_handler::boucle_automatique(app_state.clone()));

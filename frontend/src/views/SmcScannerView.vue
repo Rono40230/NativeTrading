@@ -70,6 +70,10 @@
                 <span class="font-mono font-bold text-white">{{ s.tf }}</span>
                 <span :class="s.direction === 'Long' ? 'text-emerald-400' : 'text-red-400'">{{ s.direction === 'Long' ? '▲' : '▼' }} {{ s.direction }}</span>
                 <span class="font-mono font-bold text-white">{{ s.force }}/10</span>
+                <span v-if="whaleScores[`${s.asset}_${s.tf}`]"
+                  class="text-[8px] font-bold px-1 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30"
+                  :title="`Volume anormal : z-score ${whaleScores[`${s.asset}_${s.tf}`].toFixed(1)}σ — activité institutionnelle probable`"
+                >🐋 {{ whaleScores[`${s.asset}_${s.tf}`].toFixed(1) }}σ</span>
                 <span v-if="s.force >= 8" class="text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30" title="Force ≥ 8 : 41 % de chance de confirmation (étude 3.2)">F8+</span>
                 <span
                   class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border"
@@ -131,6 +135,20 @@ const router = useRouter()
 const settingsStore = useSettingsStore()
 
 const vivants = ref<SetupVivant[]>([])
+
+// Whale watching (2.2) : z-scores volume par asset × TF — badge 🐋
+const whaleScores = ref<Record<string, number>>({})
+async function chargerWhale() {
+  try {
+    const res = await fetch('/api/whale')
+    const data = await res.json()
+    const map: Record<string, number> = {}
+    for (const w of data) {
+      if (w.zscore > 2) map[`${w.asset}_${w.tf}`] = w.zscore
+    }
+    whaleScores.value = map
+  } catch { /* silencieux */ }
+}
 const journal = ref<LigneJournal[]>([])
 const mtf = ref<Trends>({})
 const mode = ref<'auto' | 'M5' | 'M15' | 'M30'>('auto')
@@ -242,6 +260,7 @@ function heure(ts: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+onMounted(() => { void chargerWhale(); setInterval(chargerWhale, 60_000) })
 onMounted(() => {
   void charger()
   minuteur = setInterval(() => void charger(), 45_000)

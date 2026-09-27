@@ -8,6 +8,8 @@ use tokio::sync::RwLock;
 use smc::v12::sentiment::SentimentScore;
 
 pub struct AppState {
+    /// Whale watching (2.2) : z-scores volume par asset × TF.
+    pub whale: std::sync::Arc<tokio::sync::RwLock<crate::whale_watching::WhaleWatching>>,
     pub db: Arc<Database>,
     pub pipeline_ml: Arc<RwLock<PipelineML>>,
     /// État du job de réentraînement incrémental (Phase 8.4)
@@ -137,6 +139,7 @@ impl AppState {
             fg_valeur,
             fear_greed_cache,
             sentiment: sentiment_slot,
+            whale: std::sync::Arc::new(tokio::sync::RwLock::new(crate::whale_watching::WhaleWatching::new())),
         })
     }
 }
