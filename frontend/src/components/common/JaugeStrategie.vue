@@ -76,8 +76,14 @@
       </svg>
     </div>
 
-    <!-- ══ La plaque gravée sous l'instrument ══ -->
-    <div class="plaque relative flex flex-col items-center gap-0.5 px-3 pt-1 pb-1.5 rounded-md">
+    <!-- ══ La plaque gravée sous l'instrument — BOUTON vers la page
+         définition (redesign 26/09 : elle remplace la tuile Équerre) ══ -->
+    <button
+      type="button"
+      class="plaque relative flex flex-col items-center gap-0.5 px-3 pt-1 pb-1.5 rounded-md cursor-pointer transition-all hover:brightness-125"
+      title="Les caractéristiques de la stratégie"
+      @click.stop="$emit('definition')"
+    >
       <!-- Vis d'angle -->
       <span class="vis gauche" /><span class="vis droite" />
       <p class="text-[10px] font-bold tracking-[0.2em] uppercase text-white/75">{{ icone }} {{ nom }}</p>
@@ -92,7 +98,7 @@
           </span>
         </PopoverInfo>
       </div>
-    </div>
+    </button>
   </div>
 </template>
 
@@ -108,6 +114,8 @@ const props = defineProps<{
   nom: string
   icone: string
 }>()
+
+defineEmits<{ (e: 'definition'): void }>()
 
 interface AnalyseApi { r_distance_total?: number; nb_trades?: number; taux_reussite?: number }
 const rTotal = ref(0)

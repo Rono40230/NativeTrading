@@ -8,8 +8,9 @@
       <span class="ml-auto text-[10px] text-white/70">Les réglages modifiés ici sont virtuels tant qu'on n'applique pas</span>
     </div>
 
-    <!-- Onglets par stratégie -->
-    <div class="flex gap-1 flex-wrap">
+    <!-- Onglets par stratégie (masqués en mode verrouillé — le bloc Labo
+         d'une carte ouvre le labo de SA stratégie uniquement, owner 26/09) -->
+    <div v-if="!verrouille" class="flex gap-1 flex-wrap">
       <button
         v-for="s in STRATEGIES"
         :key="s.id"
@@ -31,7 +32,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SimulationSmcPanel from '@/components/simulation/SimulationSmcPanel.vue'
 import SimulationStraddlePanel from '@/components/simulation/SimulationStraddlePanel.vue'
@@ -48,6 +49,9 @@ const STRATEGIES = [
 ]
 
 const onglet = ref<string>(typeof route.query.strategie === 'string' ? route.query.strategie : 'SMC')
+/// Mode verrouillé (owner 26/09) : le bloc Labo d'une carte ouvre le labo
+/// de SA stratégie uniquement — pas d'onglets pour sauter vers les autres.
+const verrouille = computed(() => route.query.verrouille === '1')
 
 function nomStrategie(id: string): string {
   return STRATEGIES.find(s => s.id === id)?.nom ?? id

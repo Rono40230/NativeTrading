@@ -86,6 +86,7 @@
           <div class="relative flex flex-col gap-1 text-[13px] leading-snug">
             <p class="text-white">Bybit : <span class="font-bold text-rose-200">{{ donnees.bybitSymboles }} symboles suivis.</span> <span class="font-bold text-rose-200">{{ donnees.bybit }}</span> aujourd'hui</p>
             <p class="text-white">EA Axi : <span class="font-bold text-rose-200">{{ donnees.eaSymboles }} symboles suivis.</span> <span class="font-bold text-rose-200">{{ donnees.ea }}</span> aujourd'hui</p>
+            <p class="text-white/85" title="Bougies de comblement (nuits, week-ends, pannes) récupérées sur l'API REST Binance — source distincte du flux temps réel Bybit.">Comblement (Binance) : <span class="font-bold text-rose-200/90">{{ donnees.comblement }}</span></p>
             <p class="text-white">Actions US : <span class="font-bold text-rose-200">{{ donnees.actionsTotal }} actions suivies.</span> <span class="font-bold text-rose-200">{{ donnees.actionsAJour }}</span> à jour</p>
             <p class="text-white">Presse : <span class="font-bold text-rose-200">{{ donnees.presseTotal }}</span> articles notés en base. <span class="font-bold text-rose-200">{{ donnees.presse24h }}</span> ces dernières 24h</p>
           </div>
@@ -194,9 +195,10 @@ const ollamaOk = ref<boolean | null>(null)
 const donnees = ref<{
   bybitSymboles: number; bybit: string
   eaSymboles: number; ea: string
+  comblement: string
   actionsTotal: number; actionsAJour: number
   presseTotal: string; presse24h: number
-}>({ bybitSymboles: 0, bybit: '…', eaSymboles: 0, ea: '…', actionsTotal: 0, actionsAJour: 0, presseTotal: '…', presse24h: 0 })
+}>({ bybitSymboles: 0, bybit: '…', eaSymboles: 0, ea: '…', comblement: '—', actionsTotal: 0, actionsAJour: 0, presseTotal: '…', presse24h: 0 })
 
 /// « +8,6k bougies » façon compteur du jour.
 function compactJour(n: number): string {
@@ -266,9 +268,12 @@ async function chargerTout() {
       const parSource: LigneSource[] = r.data?.bougies_par_source ?? []
       const bybit = parSource.find(s => s.source === 'bybit_ws')
       const mt5 = parSource.find(s => s.source === 'mt5')
+      const binance = parSource.find(s => s.source === 'binance')
       donnees.value.bybitSymboles = bybit?.symboles ?? 0
       donnees.value.bybit = compactJour(bybit?.bougies ?? 0)
       donnees.value.ea = compactJour(mt5?.bougies ?? 0)
+      donnees.value.comblement = binance && binance.bougies > 0 ? compactJour(binance.bougies) : 'néant'
+
     } catch { donnees.value.bybit = '—'; donnees.value.ea = '—' }
     try {
       const r = await http.get('/api/mt5/statut')

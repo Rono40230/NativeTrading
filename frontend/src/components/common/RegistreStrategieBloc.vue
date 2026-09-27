@@ -14,15 +14,6 @@
       </select>
     </div>
     <div class="flex items-center justify-between gap-4 py-2">
-      <span class="text-white text-xs">Son Telegram</span>
-      <button @click="notifications = !notifications"
-        :class="notifications ? 'bg-emerald-500' : 'bg-gray-600'"
-        class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors">
-        <span :class="notifications ? 'translate-x-5' : 'translate-x-1'"
-          class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform" />
-      </button>
-    </div>
-    <div class="flex items-center justify-between gap-4 py-2">
       <span class="text-white text-xs">Capital alloué ($)</span>
       <input v-model.number="capital" type="number" min="0" step="100"
         class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />
@@ -63,7 +54,6 @@ interface StrategieApi {
 }
 
 const etat = ref('Observation')
-const notifications = ref(false)
 const capital = ref(2000)
 const risquePct = ref(1)
 const saving = ref(false)
@@ -75,7 +65,6 @@ onMounted(async () => {
     const s = res.data.find(x => x.id === props.id)
     if (s) {
       etat.value = s.etat
-      notifications.value = s.notifications
       capital.value = s.capital
       risquePct.value = s.risque_pct
     }
@@ -88,7 +77,6 @@ async function enregistrer() {
   try {
     await http.put(`/api/strategies/${props.id}`, {
       etat: etat.value,
-      notifications: notifications.value,
       capital: capital.value,
       risque_pct: risquePct.value,
     })

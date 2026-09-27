@@ -148,9 +148,11 @@ pub async fn ecrire_sentiment_cache(pool: &SqlitePool, hash: &str, sentiment: &s
     }
 }
 
-/// Analyse le sentiment d'un titre financier via Ollama.
+/// Analyse le sentiment d'un titre financier via Ollama (avec cache).
 /// Retourne `"haussier"`, `"neutre"` ou `"baissier"`.
-/// Dégradation silencieuse → `"neutre"` si Ollama indisponible.
+/// Dégradation silencieuse → `"neutre"` si Ollama indisponible — SANS
+/// polluer le cache : un échec LLM ne fige plus un « neutre » à vie
+/// (correctif 26/09 — la notation automatique rendait le poison coûteux).
 pub async fn analyser_sentiment_avec_cache(pool: &SqlitePool, titre: &str) -> String {
     let hash = hash_titre(titre);
 
@@ -158,12 +160,17 @@ pub async fn analyser_sentiment_avec_cache(pool: &SqlitePool, titre: &str) -> St
         return cached;
     }
 
-    let sentiment = analyser_sentiment(titre).await;
-    ecrire_sentiment_cache(pool, &hash, &sentiment).await;
-    sentiment
+    match analyser_sentiment(titre).await {
+        Some(sentiment) => {
+            ecrire_sentiment_cache(pool, &hash, &sentiment).await;
+            sentiment
+        }
+        None => "neutre".to_string(),
+    }
 }
 
-async fn analyser_sentiment(titre: &str) -> String {
+/// Vraie réponse du LLM, ou None si Ollama/le parse a échoué.
+async fn analyser_sentiment(titre: &str) -> Option<String> {
     let prompt = format!(
         "En un seul mot parmi [haussier, neutre, baissier], quel est l'impact probable de ce titre \
         financier sur les prix des actifs (BTC, or, forex) ? Réponds uniquement avec un des trois mots.\n\n\
@@ -191,15 +198,18 @@ async fn analyser_sentiment(titre: &str) -> String {
                 .map(|r| r.message.content.trim().to_lowercase())
                 .unwrap_or_default()
         }
-        _ => return "neutre".to_string(),
+        _ => return None,
     };
+    if texte.is_empty() {
+        return None;
+    }
 
     if texte.contains("haussier") {
-        "haussier".to_string()
+        Some("haussier".to_string())
     } else if texte.contains("baissier") {
-        "baissier".to_string()
+        Some("baissier".to_string())
     } else {
-        "neutre".to_string()
+        Some("neutre".to_string())
     }
 }
 

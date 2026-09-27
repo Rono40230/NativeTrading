@@ -11,11 +11,11 @@
     <PopoverInfo titre="Calendrier économique" :texte="texteCalendrier" class="flex-1 min-w-[280px]">
       <button
         class="korry w-full cursor-pointer"
-        :class="annonceImminente ? 'lit-rouge' : annoncesJour.length || !etatCalendrier.source_prete ? 'lit-ambre' : ''"
+        :class="annonceImminente ? 'lit-rouge' : annoncesJour.length ? 'lit-ambre' : ''"
         @click.stop="ouverte = 'calendrier'"
       >
         <span class="k-label">CALENDRIER <span class="k-info">ⓘ</span></span>
-        <span class="k-fenetre" :class="etatCalendrier.source_prete && !annonceImminente ? '' : 'ko'">{{ resumeCalendrier }}</span>
+        <span class="k-fenetre" :class="etatCalendrier.source_prete || synchroFrais || annonceImminente ? '' : 'ko'">{{ resumeCalendrier }}</span>
       </button>
     </PopoverInfo>
 
@@ -47,9 +47,16 @@
     <!-- ── Modales : le composant complet de l'ancienne colonne latérale,
          monté uniquement à l'ouverture (pas de polling fantôme). ──────── -->
     <ModaleCadre v-if="ouverte === 'calendrier'" titre="📅 Calendrier économique — 10 prochains jours" large @fermer="ouverte = null">
-      <p v-if="!etatCalendrier.source_prete" class="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-2.5 py-1.5 mb-2">
-        Source ForexFactory injoignable{{ etatCalendrier.dernier_fetch ? ` — dernière synchro : ${synchroCourt}` : '' }}.
-        Relecture automatique toutes les 3 h jusqu'au retour (puis lundi/jeudi).
+      <p v-if="!etatCalendrier.source_prete" class="text-[11px] rounded-lg px-2.5 py-1.5 mb-2 border"
+         :class="synchroFrais ? 'text-white/70 bg-white/5 border-white/15' : 'text-amber-300 bg-amber-500/10 border-amber-500/30'">
+        <template v-if="synchroFrais">
+          Semaine écoulée — le flux ForexFactory ne publie que la semaine en cours (le fichier « semaine prochaine » n'existe plus).
+          La nouvelle semaine entre automatiquement d'ici lundi 01:00 (dernière synchro : {{ synchroCourt }}).
+        </template>
+        <template v-else>
+          Source ForexFactory injoignable{{ etatCalendrier.dernier_fetch ? ` — dernière synchro : ${synchroCourt}` : '' }}.
+          Relecture automatique toutes les 3 h jusqu'au retour (puis lundi/jeudi).
+        </template>
       </p>
       <EconomicCalendar :jours="10" />
     </ModaleCadre>
@@ -109,8 +116,20 @@ const resumeCalendrier = computed(() => {
     const min = Math.max(1, Math.round((annonceImminente.value.ts - Date.now()) / 60_000))
     return `⚠ ${annonceImminente.value.devise} dans ${min} min`
   }
-  if (!etatCalendrier.value.source_prete && !annoncesJour.value.length) return 'source injoignable'
+  if (!etatCalendrier.value.source_prete) {
+    // Source joignable mais rien à l'horizon : le flux gratuit ne publie
+    // que la semaine EN COURS (le fichier « semaine prochaine » 404) —
+    // samedi soir, elle est épuisée ; bascule dimanche/lundi 01:00.
+    return synchroFrais.value ? 'semaine écoulée · bascule dim.' : 'source injoignable'
+  }
   return annoncesJour.value.length ? `${annoncesJour.value.length} annonce${annoncesJour.value.length > 1 ? 's' : ''} aujourd'hui` : 'aucune aujourd\'hui'
+})
+
+/// La dernière synchro date de < 24 h : la source RÉPOND (l'état « vide »
+/// vient du roulement hebdo, pas d'une panne).
+const synchroFrais = computed(() => {
+  const iso = etatCalendrier.value.dernier_fetch
+  return !!iso && Date.now() - new Date(iso).getTime() < 86_400_000
 })
 
 /// Annonce High imminente (≤ 15 min) — le badge clignote en rouge (owner

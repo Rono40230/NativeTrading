@@ -5,6 +5,12 @@
 //! noté ne retourne jamais à 0 et ne repasse pas dans le backlog. L'impact
 //! dérivé est recalculé avec les seuils du classifieur (fort ≥ 60 · moyen
 //! ≥ 35 · faible).
+//!
+//! SECONDE boucle (26/09, décision owner) : SENTIMENT haussier/neutre/
+//! baissier automatique des articles récents — avant, une notation ne
+//! naissait qu'à l'OUVERTURE d'un article, et le Presse IA du bandeau
+//! mourait 48 h après la dernière lecture. Les deux notations sont
+//! distinctes : pertinence (score 1-100) vs sentiment (news_sentiment).
 
 use std::sync::Arc;
 
@@ -25,6 +31,32 @@ const MODELE_NOTATION: &str = "qwen2.5:3b";
 struct NoteLlm {
     i: usize,
     score: i64,
+}
+
+/// Boucle sentiment : cycle 30 min, lot ≤ 30, articles des 48 dernières
+/// heures sans notation (les plus récents d'abord — la fenêtre du Presse IA
+/// compte les notations créées sur 48 h, une note ≈ heure de publication).
+/// Rattrapage progressif : jamais de rafale LLM, le sémaphore Ollama (2)
+/// est partagé avec conviction/ranker ; un échec n'est PAS mis en cache.
+pub async fn boucle_sentiment(db: Arc<Database>) {
+    tokio::time::sleep(std::time::Duration::from_secs(180)).await;
+    loop {
+        let articles = db
+            .articles_presse_sans_sentiment(48, 30)
+            .await
+            .unwrap_or_default();
+        if articles.is_empty() {
+            tracing::debug!("Sentiment presse : rien à noter");
+        } else {
+            // Chaque titre est TRAITÉ ; un échec LLM n'écrit rien (pas de
+            // cache poison) et l'article sera repris au cycle suivant.
+            for (_, titre) in &articles {
+                news::news_traduction::analyser_sentiment_avec_cache(db.pool(), titre).await;
+            }
+            tracing::info!("📰 Sentiment presse : lot de {} article(s) traité", articles.len());
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(30 * 60)).await;
+    }
 }
 
 /// Boucle de fond : balayage du backlog au boot (après pose), puis toutes

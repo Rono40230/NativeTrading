@@ -1,9 +1,10 @@
 <template>
-  <!-- Modales de réglages Rockets, ouvertes depuis la carte du dashboard
-       (09/09, workflow) : Paramètres (registre) et Paramètres moteur. -->
-  <ModaleCadre v-if="ouverte" :titre="TITRES[ouverte]" @fermer="$emit('fermer')">
-    <RegistreStrategieBloc v-if="ouverte === 'parametres'" id="rockets" libelle-risque="Risque par rocket" />
-    <RocketsMoteurBloc v-else />
+  <!-- Modale de réglages Rockets (fusion 26/09 : registre + moteur empilés
+       en une seule). -->
+  <ModaleCadre v-if="ouverte" titre="⚙️ Paramètres — Rockets (registre + moteur)" @fermer="$emit('fermer')">
+    <RegistreStrategieBloc id="rockets" libelle-risque="Risque par rocket" />
+    <div class="border-t border-white/10 my-3" />
+    <RocketsMoteurBloc />
   </ModaleCadre>
 </template>
 
@@ -12,13 +13,8 @@ import ModaleCadre from './ModaleCadre.vue'
 import RegistreStrategieBloc from './RegistreStrategieBloc.vue'
 import RocketsMoteurBloc from './RocketsMoteurBloc.vue'
 
-export type ModaleRockets = 'parametres' | 'moteur'
+export type ModaleRockets = 'parametres'
 
 defineProps<{ ouverte: ModaleRockets | null }>()
 defineEmits<{ (e: 'fermer'): void }>()
-
-const TITRES: Record<ModaleRockets, string> = {
-  parametres: '⚙️ Paramètres — registre Rockets',
-  moteur: '🛠️ Paramètres moteur — Rockets',
-}
 </script>

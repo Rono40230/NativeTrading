@@ -3,7 +3,9 @@
 //! Le runtime doit se comporter comme un graphique TradingView : à
 //! l'ouverture, l'historique est là. Avant le cold start (replay) de chaque
 //! couple (asset × TF), les bougies manquantes depuis la dernière connue
-//! sont récupérées via le provider REST Bybit (crypto) — les trous
+//! sont récupérées via l'API publique REST Binance (crypto, sans clé —
+//! bougies étiquetées source 'binance' en base, à ne pas confondre avec
+//! le flux temps réel bybit_ws) — les trous
 //! dus aux arrêts de l'app (nuits, week-ends, pannes) se rebouchent seuls.
 //!
 //! Déclenchement : enregistrement d'un couple au runtime (démarrage de

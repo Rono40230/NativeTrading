@@ -33,7 +33,13 @@ pub async fn rafraichir_calendrier(db: &db::Database) -> Vec<serde_json::Value> 
     let seuil_inclusion = maintenant - Duration::hours(12);
     let mut toutes: Vec<serde_json::Value> = Vec::new();
 
-    for url in &urls {
+    // Le CDN ForexFactory tient un budget par IP minuscule : deux requêtes
+    // d'affilée re-déclenchent le 429. On espace les fichiers de 20 s et
+    // on rend chaque refus VISIBLE (warn, pas debug).
+    for (i, url) in urls.iter().enumerate() {
+        if i > 0 {
+            tokio::time::sleep(std::time::Duration::from_secs(20)).await;
+        }
         let resp = match client
             .get(*url)
             .header(reqwest::header::USER_AGENT, "NativeTrading/1.0")
@@ -42,7 +48,7 @@ pub async fn rafraichir_calendrier(db: &db::Database) -> Vec<serde_json::Value> 
         {
             Ok(r) if r.status().is_success() => r,
             Ok(r) => {
-                tracing::debug!("ForexFactory {} → HTTP {}", url, r.status());
+                tracing::warn!("ForexFactory {} → HTTP {}", url, r.status());
                 continue;
             }
             Err(e) => {

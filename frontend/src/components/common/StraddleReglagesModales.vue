@@ -1,10 +1,13 @@
 <template>
-  <!-- Modales de réglages Straddle, ouvertes depuis la carte du dashboard
-       (09/09, workflow) : Paramètres (registre) et Paramètres moteur. -->
+  <!-- Modales de réglages Straddle (fusion 26/09 : Paramètres = registre +
+       moteur empilés). La modale périmètre reste indépendante (bloc Assets). -->
   <ModaleCadre v-if="ouverte" :titre="TITRES[ouverte]" @fermer="$emit('fermer')">
-    <RegistreStrategieBloc v-if="ouverte === 'parametres'" id="straddle" libelle-risque="Risque par passe" />
-    <StraddlePerimetreContenu v-else-if="ouverte === 'perimetre'" />
-    <StraddleMoteurBloc v-else />
+    <template v-if="ouverte === 'parametres'">
+      <RegistreStrategieBloc id="straddle" libelle-risque="Risque par passe" />
+      <div class="border-t border-white/10 my-3" />
+      <StraddleMoteurBloc />
+    </template>
+    <StraddlePerimetreContenu v-else />
   </ModaleCadre>
 </template>
 
@@ -14,14 +17,13 @@ import RegistreStrategieBloc from './RegistreStrategieBloc.vue'
 import StraddleMoteurBloc from './StraddleMoteurBloc.vue'
 import StraddlePerimetreContenu from './StraddlePerimetreContenu.vue'
 
-export type ModaleStraddle = 'parametres' | 'perimetre' | 'moteur'
+export type ModaleStraddle = 'parametres' | 'perimetre'
 
 defineProps<{ ouverte: ModaleStraddle | null }>()
 defineEmits<{ (e: 'fermer'): void }>()
 
 const TITRES: Record<ModaleStraddle, string> = {
-  parametres: '⚙️ Paramètres — registre Straddle',
+  parametres: '⚙️ Paramètres — Straddle (registre + moteur)',
   perimetre: '🎯 Choix des Assets & créneaux — Straddle',
-  moteur: '🛠️ Paramètres moteur — Straddle',
 }
 </script>

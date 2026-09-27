@@ -452,7 +452,8 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         }
         runtime.enregistrer(asset.clone(), *tf, moteurs);
         // Backfill automatique : comble les trous (nuits, week-ends, pannes)
-        // via le REST Bybit avant le cold start — comme TradingView.
+        // via l'API REST Binance avant le cold start — comme TradingView
+        // (source 'binance' — voir data/backfill.rs).
         match data::backfill::combler_historique(db, asset.clone(), *tf).await {
             Ok(n) if n > 0 => {
                 tracing::info!(

@@ -236,6 +236,32 @@ impl Database {
     }
 
     /// Titres des articles sans score (notation LLM), plus récents d'abord.
+    /// Articles des dernières `heures` heures SANS sentiment LLM (table
+    /// news_sentiment) — le lot de la boucle de notation automatique
+    /// (26/09 : le Presse IA du bandeau ne doit plus dépendre des
+    /// ouvertures d'articles). Clé = hash_titre, partagée avec le cache
+    /// sentiment.
+    pub async fn articles_presse_sans_sentiment(
+        &self,
+        heures: i64,
+        limite: i64,
+    ) -> anyhow::Result<Vec<(String, String)>> {
+        let lignes = sqlx::query_as(
+            "SELECT p.hash_titre, p.titre
+             FROM presse_articles p
+             LEFT JOIN news_sentiment n ON n.hash_titre = p.hash_titre
+             WHERE n.hash_titre IS NULL
+               AND p.ajoute_le >= strftime('%s','now') - ? * 3600
+             ORDER BY p.ajoute_le DESC
+             LIMIT ?",
+        )
+        .bind(heures)
+        .bind(limite)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(lignes)
+    }
+
     pub async fn articles_presse_sans_score(&self, n: i64) -> anyhow::Result<Vec<(String, String)>> {
         let rows = sqlx::query_as::<_, (String, String)>(
             "SELECT hash_titre, titre FROM presse_articles

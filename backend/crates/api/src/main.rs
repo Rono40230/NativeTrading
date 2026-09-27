@@ -181,6 +181,9 @@ async fn main() -> std::io::Result<()> {
     // boot puis balayage toutes les 6 h) — scores bornés à 1 pour ne jamais
     // re-boucler sur un article déjà noté.
     tokio::spawn(presse_notation::boucle(app_state.db.clone()));
+    // Sentiment haussier/neutre/baissier automatique (26/09) — le Presse IA
+    // du bandeau ne dépend plus des ouvertures d'articles.
+    tokio::spawn(presse_notation::boucle_sentiment(app_state.db.clone()));
     // Entraînement ML automatique : hebdomadaire (dernier > 7 j) — le
     // bouton manuel a été retiré le 23/09 (décision propriétaire).
     tokio::spawn(ml_retrain_handler::boucle_automatique(app_state.clone()));
