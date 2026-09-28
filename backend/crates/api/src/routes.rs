@@ -231,6 +231,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::config_handlers::post_config),
         )
         .route(
+            "/api/analyses/whale-labo",
+            web::get().to(crate::whale_labo::get_whale_labo),
+        )
+        .route(
             "/api/whale",
             web::get().to(crate::whale_watching::get_whale_scores),
         )

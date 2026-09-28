@@ -130,7 +130,50 @@
       </div>
     </section>
 
-    <!-- ═══ 4 — Balayage des fractions ═══ -->
+    <!-- ═══ 4 — Labo whale watching (2.2) ═══ -->
+    <section v-if="whaleLabo" class="glass-card p-4 flex flex-col gap-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">4 · Whale watching 🐋</h2>
+        <span class="text-[10px] text-white/60">
+          Signaux SMC avec volume anormal (z > {{ whaleLabo.seuil_sigma }}σ) vs volume normal
+        </span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-white/60 uppercase tracking-wider border-b border-white/10">
+              <th class="text-left py-1 pr-3">Cohorte</th>
+              <th class="text-right px-3">Signaux</th>
+              <th class="text-right px-3">WR</th>
+              <th class="text-right px-3">Σ R</th>
+              <th class="text-right px-3">R moyen</th>
+              <th class="text-right pl-3">% SL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="c in [whaleLabo.avec_whale, whaleLabo.sans_whale]" :key="c.label"
+                class="border-b border-white/5" :class="c.label.includes('🐋') ? 'bg-sky-500/5' : ''">
+              <td class="py-1.5 pr-3 text-white font-semibold">{{ c.label }}</td>
+              <td class="text-right px-3 tabular-nums text-white">{{ c.n }}</td>
+              <td class="text-right px-3 tabular-nums font-bold"
+                  :class="c.wr_pct >= 50 ? 'text-emerald-400' : 'text-amber-400'">{{ c.wr_pct.toFixed(0) }} %</td>
+              <td class="text-right px-3 tabular-nums font-bold"
+                  :class="c.r_total >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ (c.r_total >= 0 ? '+' : '') + c.r_total.toFixed(1) }} R</td>
+              <td class="text-right px-3 tabular-nums text-white">{{ c.r_moyen.toFixed(3) }}</td>
+              <td class="text-right pl-3 tabular-nums"
+                  :class="c.sl_pct < 25 ? 'text-emerald-400' : c.sl_pct > 35 ? 'text-red-400' : 'text-amber-400'">{{ c.sl_pct.toFixed(0) }} %</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-[10px] text-white/50 leading-relaxed">
+        <b>🐋 Whale = z-score volume > {{ whaleLabo.seuil_sigma }}σ</b> à l'émission (60 bougies de référence, rétrospectif — fonctionne sur tout l'historique).
+        Si la cohorte 🐋 a un meilleur WR et R moyen → le bonus volume (+1/+2 au score) est justifié.
+        Sinon → le badge reste informatif sans impact sur le scoring.
+      </p>
+    </section>
+
+    <!-- ═══ 5 — Balayage des fractions ═══ -->
     <section v-if="balayage" class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 flex-wrap">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">4 · Balayage des fractions</h2>
@@ -278,6 +321,18 @@ const creuxVecu = ref(0)
 const params = ref<ParamsSmc>({ ...DEFAUTS })
 const paramsActuels = ref<ParamsSmc>({ ...DEFAUTS })
 const sim = ref<ResultatSim | null>(null)
+// ── Labo whale watching (2.2) : comparatif avec/sans volume anormal ──
+interface CohorteWhale { label: string; n: number; wr_pct: number; r_total: number; r_moyen: number; sl_pct: number }
+interface LaboWhale { avec_whale: CohorteWhale; sans_whale: CohorteWhale; seuil_sigma: number }
+const whaleLabo = ref<LaboWhale | null>(null)
+
+async function chargerWhaleLabo() {
+  try {
+    const res = await http.get('/api/analyses/whale-labo')
+    whaleLabo.value = res.data
+  } catch { /* silencieux */ }
+}
+
 const balayage = ref<{ capital_depart: number; nb_clotures: number; configurations: LigneBalayage[] } | null>(null)
 interface LigneTrailing { k: number; capital: number; rendement: number; capital_minimum: number; r_total_pondere: number; clotures: number }
 const balayageTrailingRes = ref<{ capital_depart: number; configurations: LigneTrailing[]; moteur_actuel: LigneTrailing | null } | null>(null)
@@ -514,6 +569,7 @@ function dateCourte(ts: number): string {
   return new Date(ts * 1000).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
+onMounted(() => { void chargerWhaleLabo() })
 onMounted(async () => {
   await Promise.all([chargerVecu(), chargerReglages(), chargerEssais(), chargerAssetsArmes()])
 })

@@ -34,6 +34,7 @@ mod presse_handlers;
 mod presse_notation;
 mod tests_flux_critiques;
 mod whale_watching;
+mod whale_labo;
 mod prix_handlers;
 mod prix_stream;
 mod prix_utils;
