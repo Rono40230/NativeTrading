@@ -1,16 +1,17 @@
 //! Labo whale watching (2.2) : comparatif avec/sans volume anormal.
 //!
 //! Pour chaque signal SMC clôturé, recalcule le z-score volume de la
-//! bougie au moment de l'émission (rétrospectif — pas besoin d'un champ
-//! en base). Compare les deux cohortes : z > 2σ (whale) vs z ≤ 2σ (normal).
-//! Sert à décider si le bonus volume améliore réellement la sélection.
+//! bougie au moment de l'émission (rétrospectif). Compare les deux
+//! cohortes : z > seuil (whale) vs z ≤ seuil (normal). Le calcul se fait
+//! en Rust (SQLite n'a pas SQRT natif) — on fetch les volumes puis on
+//! groupe.
 
 use actix_web::{web, HttpResponse};
 use sqlx::Row;
 
 use crate::state::AppState;
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Clone)]
 pub struct CohorteWhale {
     pub label: String,
     pub n: usize,
@@ -27,84 +28,36 @@ pub struct LaboWhale {
     pub seuil_sigma: f64,
 }
 
+#[derive(serde::Deserialize)]
+pub struct WhaleLaboQuery {
+    pub seuil: Option<f64>,
+}
+
 /// GET /api/analyses/whale-labo?seuil=2.0
-/// Compare les signaux SMC clôturés avec/sans volume anormal (>seuil σ).
 pub async fn get_whale_labo(
     state: web::Data<AppState>,
     query: web::Query<WhaleLaboQuery>,
 ) -> HttpResponse {
-    let seuil = query.seuil.unwrap_or(2.0);
+    let seuil = query.seuil.unwrap_or(2.0).max(0.5);
 
-    // Récupérer tous les signaux SMC clôturés avec leur z-score volume
-    // calculé rétrospectivement.
-    let rows = match sqlx::query(
-        r#"
-        WITH signaux_fermes AS (
-            SELECT id, asset, timeframe, verdict, r_realise, cree_le
-            FROM signaux
-            WHERE strategie = 'SMC' AND verdict IS NOT NULL
-              AND verdict != 'Expire'
-        ),
-        avec_zscore AS (
-            SELECT
-                sf.id, sf.asset, sf.timeframe, sf.verdict, sf.r_realise,
-                sf.verdict LIKE 'TP%' as est_gagnant,
-                sf.verdict = 'SL' as est_sl,
-                (
-                    SELECT b.volume
-                    FROM bougies b
-                    WHERE b.asset = sf.asset AND b.timeframe = sf.timeframe
-                      AND b.timestamp <= sf.cree_le
-                    ORDER BY b.timestamp DESC LIMIT 1
-                ) as vol_signal,
-                (
-                    SELECT AVG(b2.volume)
-                    FROM (
-                        SELECT b3.volume FROM bougies b3
-                        WHERE b3.asset = sf.asset AND b3.timeframe = sf.timeframe
-                          AND b3.timestamp <= sf.cree_le
-                        ORDER BY b3.timestamp DESC LIMIT 60 OFFSET 1
-                    ) b2
-                ) as vol_moyen,
-                (
-                    SELECT SQRT(MAX(AVG(b2.volume * b2.volume) - AVG(b2.volume) * AVG(b2.volume), 0))
-                    FROM (
-                        SELECT b3.volume FROM bougies b3
-                        WHERE b3.asset = sf.asset AND b3.timeframe = sf.timeframe
-                          AND b3.timestamp <= sf.cree_le
-                        ORDER BY b3.timestamp DESC LIMIT 60 OFFSET 1
-                    ) b2
-                ) as vol_sigma
-            FROM signaux_fermes sf
-        )
-        SELECT
-            CASE
-                WHEN vol_sigma > 0 AND vol_signal IS NOT NULL
-                     AND (vol_signal - vol_moyen) / vol_sigma > $1
-                THEN 'whale'
-                ELSE 'normal'
-            END as groupe,
-            COUNT(*) as n,
-            AVG(CASE WHEN est_gagnant THEN 1.0 ELSE 0.0 END) * 100 as wr_pct,
-            COALESCE(SUM(r_realise), 0) as r_total,
-            COALESCE(AVG(r_realise), 0) as r_moyen,
-            AVG(CASE WHEN est_sl THEN 1.0 ELSE 0.0 END) * 100 as sl_pct
-        FROM avec_zscore
-        WHERE vol_signal IS NOT NULL AND vol_moyen IS NOT NULL
-        GROUP BY 1
-        "#,
+    // 1. Récupérer les signaux SMC clôturés (non expirés)
+    let signaux = match sqlx::query(
+        "SELECT id, asset, timeframe, verdict, r_realise, cree_le
+         FROM signaux
+         WHERE strategie = 'SMC' AND verdict IS NOT NULL AND verdict != 'Expire'",
     )
-    .bind(seuil)
     .fetch_all(state.db.pool())
     .await
     {
-        Ok(r) => r,
+        Ok(rows) => rows,
         Err(e) => {
             return HttpResponse::InternalServerError()
                 .json(serde_json::json!({"erreur": e.to_string()}));
         }
     };
 
+    // 2. Pour chaque signal, fetch les 60 dernières bougies avant l'émission
+    //    et calculer le z-score en Rust.
     let mut whale = CohorteWhale {
         label: "Avec 🐋 (z > seuil)".into(),
         n: 0, wr_pct: 0.0, r_total: 0.0, r_moyen: 0.0, sl_pct: 0.0,
@@ -114,14 +67,86 @@ pub async fn get_whale_labo(
         n: 0, wr_pct: 0.0, r_total: 0.0, r_moyen: 0.0, sl_pct: 0.0,
     };
 
-    for row in rows {
-        let groupe: String = row.try_get("groupe").unwrap_or("normal".into());
-        let target = if groupe == "whale" { &mut whale } else { &mut normal };
-        target.n = row.try_get::<i64, _>("n").unwrap_or(0) as usize;
-        target.wr_pct = row.try_get("wr_pct").unwrap_or(0.0);
-        target.r_total = row.try_get("r_total").unwrap_or(0.0);
-        target.r_moyen = row.try_get("r_moyen").unwrap_or(0.0);
-        target.sl_pct = row.try_get("sl_pct").unwrap_or(0.0);
+    // Simple compteurs
+    let mut w_gagnants = 0i64; let mut w_sl = 0i64; let mut w_r = 0.0;
+    let mut n_gagnants = 0i64; let mut n_sl = 0i64; let mut n_r = 0.0;
+
+    for sig in &signaux {
+        let asset: String = sig.try_get("asset").unwrap_or_default();
+        let tf: String = sig.try_get("timeframe").unwrap_or_default();
+        let verdict: String = sig.try_get("verdict").unwrap_or_default();
+        let r_realise: f64 = sig.try_get("r_realise").unwrap_or(0.0);
+        let cree_le: i64 = sig.try_get("cree_le").unwrap_or(0);
+
+        // Fetch les 61 dernières bougies (60 de référence + 1 = le signal)
+        let bougies = match sqlx::query(
+            "SELECT volume FROM bougies
+             WHERE asset = ? AND timeframe = ? AND timestamp <= ?
+             ORDER BY timestamp DESC LIMIT 61",
+        )
+        .bind(&asset)
+        .bind(&tf)
+        .bind(cree_le)
+        .fetch_all(state.db.pool())
+        .await
+        {
+            Ok(b) if b.len() >= 20 => b,
+            _ => continue, // pas assez de données
+        };
+
+        let volumes: Vec<f64> = bougies
+            .iter()
+            .filter_map(|r| r.try_get::<f64, _>("volume").ok())
+            .filter(|v| *v > 0.0)
+            .collect();
+        if volumes.len() < 20 {
+            continue;
+        }
+
+        // La 1ère bougie (DESC) est celle du signal, les 60 suivantes = référence
+        let vol_signal = volumes[0];
+        let refs = &volumes[1..];
+        let n = refs.len() as f64;
+        let moy = refs.iter().sum::<f64>() / n;
+        let var = refs.iter().map(|v| (v - moy) * (v - moy)).sum::<f64>() / n;
+
+        if moy <= 0.0 || var <= 0.0 {
+            continue;
+        }
+
+        // z-score sans SQRT : comparer les carrés
+        // z > seuil ⟺ (vol - moy)² > seuil² × var (pour z > 0)
+        let ecart = vol_signal - moy;
+        let est_whale = ecart > 0.0 && ecart * ecart > seuil * seuil * var;
+
+        let est_gagnant = verdict.starts_with("TP");
+        let est_sl = verdict == "SL";
+
+        if est_whale {
+            whale.n += 1;
+            if est_gagnant { w_gagnants += 1; }
+            if est_sl { w_sl += 1; }
+            w_r += r_realise;
+        } else {
+            normal.n += 1;
+            if est_gagnant { n_gagnants += 1; }
+            if est_sl { n_sl += 1; }
+            n_r += r_realise;
+        }
+    }
+
+    // Finaliser les pourcentages
+    if whale.n > 0 {
+        whale.wr_pct = w_gagnants as f64 / whale.n as f64 * 100.0;
+        whale.sl_pct = w_sl as f64 / whale.n as f64 * 100.0;
+        whale.r_total = w_r;
+        whale.r_moyen = w_r / whale.n as f64;
+    }
+    if normal.n > 0 {
+        normal.wr_pct = n_gagnants as f64 / normal.n as f64 * 100.0;
+        normal.sl_pct = n_sl as f64 / normal.n as f64 * 100.0;
+        normal.r_total = n_r;
+        normal.r_moyen = n_r / normal.n as f64;
     }
 
     HttpResponse::Ok().json(LaboWhale {
@@ -129,9 +154,4 @@ pub async fn get_whale_labo(
         sans_whale: normal,
         seuil_sigma: seuil,
     })
-}
-
-#[derive(serde::Deserialize)]
-pub struct WhaleLaboQuery {
-    pub seuil: Option<f64>,
 }
