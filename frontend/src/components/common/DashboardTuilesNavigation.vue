@@ -52,9 +52,9 @@
             </div>
             <div v-if="!alertesActives.length" class="text-[14px] text-white/70 leading-snug">
               Aucune alerte armée.<br>
-              Allez sur la page Graphiques<br>
-              → clic droit sur un prix<br>
-              → pour poser une alarme
+              → page « Graphiques »<br>
+              → Clic sur la clochette<br>
+              → clic sur un prix pour poser une alarme
             </div>
           </div>
         </div>
@@ -66,7 +66,7 @@
         <div class="relative rounded bg-black/30 px-1.5 py-1 min-h-0 flex-1 overflow-hidden">
           <FondTheme theme="ia" />
           <div class="relative flex flex-col gap-1 text-[14px] leading-snug">
-            <p class="text-white">Conviction du jour : <span class="font-bold text-violet-200">{{ convictionJour.n }} signal{{ convictionJour.n > 1 ? 'aux' : '' }} noté{{ convictionJour.n > 1 ? 's' : '' }}</span></p>
+            <p class="text-white">Conviction du jour : <span class="font-bold text-violet-200">{{ convictionJour.n }} Signal{{ convictionJour.n > 1 ? 'aux' : '' }} noté{{ convictionJour.n > 1 ? 's' : '' }}</span></p>
             <p v-if="convictionJour.mediane !== null" class="text-white/85">
               Conviction /100 : <span class="font-bold text-violet-200">médiane {{ convictionJour.mediane }}</span>
               <span class="text-white/50"> · de {{ convictionJour.min }} à {{ convictionJour.max }}</span>
