@@ -104,7 +104,14 @@ fn derniere_adx(bougies: &[common::Candle]) -> f64 {
 /// SÉLECTEUR d'actifs, pas filtre global). Tri : le plus franc d'abord.
 pub async fn get_scanner(state: web::Data<AppState>) -> impl Responder {
     let db = Arc::clone(&state.db);
-    let assets = crate::runtime_tick::assets_runtime(&db).await;
+    // Filtrer par assets armés (fix 27/09) : le scanner KDJ ne montre que
+    // les actifs sélectionnés dans la modale « Assets » — pas toute la DB.
+    let kdj_armes = assets_armes_kdj(&db).await;
+    let tous = crate::runtime_tick::assets_runtime(&db).await;
+    let assets: Vec<_> = match &kdj_armes {
+        Some(set) => tous.into_iter().filter(|a| set.contains(a.as_str())).collect(),
+        None => tous, // None = TOUS armés (compatibilité, cas par défaut)
+    };
     // Type par actif (filtres du scanner) — lecture directe, légère.
     let types_assets: std::collections::HashMap<String, String> =
         sqlx::query_as::<_, (String, String)>("SELECT id, type FROM assets")
