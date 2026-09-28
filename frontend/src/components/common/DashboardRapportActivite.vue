@@ -17,15 +17,28 @@
 
     <div class="relative rounded bg-black/30 px-1.5 py-1 min-h-0 flex-1 overflow-hidden">
       <FondTheme theme="rapport" />
-      <div class="relative flex flex-col gap-1 text-[14px] leading-snug">
-        <p class="text-white">Dernières 24h - <span class="font-bold text-teal-200">{{ journal.emis }} émis</span> · <span class="font-bold text-teal-200">{{ journal.clotures }} clôturés</span></p>
-        <p v-for="s in journal.parStrategie" :key="s.id" class="flex items-baseline gap-1.5">
-          <span class="w-4 text-center">{{ s.icone }}</span>
-          <span class="text-white/85 flex-1">{{ s.nom }}</span>
-          <span class="font-bold tabular-nums" :class="s.r >= 0 ? 'text-teal-200' : 'text-red-300'">
-            {{ s.n === 0 ? '—' : (s.r >= 0 ? '+' : '−') + Math.abs(s.r).toFixed(1).replace('.', ',') + ' R' }}
-          </span>
-        </p>
+      <div class="relative flex flex-col h-full">
+        <p class="text-[9px] font-bold uppercase tracking-wider text-white/60 text-center mb-0.5">Activité des dernières 24h</p>
+        <table class="w-full text-[10px] leading-snug">
+          <thead>
+            <tr class="text-white/50 uppercase tracking-wider border-b border-white/10">
+              <th class="text-left font-bold">Stratégie</th>
+              <th class="text-right font-bold px-1">Émis</th>
+              <th class="text-right font-bold px-1">Clôturés</th>
+              <th class="text-right font-bold">±R</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="s in journal.parStrategie" :key="s.id" class="border-b border-white/5">
+              <td class="py-0.5 text-white font-semibold">{{ s.icone }} {{ s.nom }}</td>
+              <td class="text-right px-1 text-white tabular-nums">{{ journal.emisPar(s.id) }}</td>
+              <td class="text-right px-1 text-white tabular-nums">{{ s.n }}</td>
+              <td class="text-right font-bold tabular-nums" :class="s.r >= 0 ? 'text-emerald-300' : 'text-red-300'">
+                {{ s.n === 0 ? '—' : (s.r >= 0 ? '+' : '−') + Math.abs(s.r).toFixed(1).replace('.', ',') }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -72,7 +85,7 @@ const journal = computed(() => {
     return { id, nom, icone, n: cl.length, r: cl.reduce((acc, s) => acc + (s.r_distance ?? 0), 0) }
   })
 
-  return { emis: emis.length, clotures: clots.length, parStrategie }
+  return { emis: emis.length, clotures: clots.length, parStrategie, emisPar: (id: string) => emis.filter(s => s.strategie === id).length }
 })
 
 async function charger() {

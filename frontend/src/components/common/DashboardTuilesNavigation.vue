@@ -66,7 +66,7 @@
         <div class="relative rounded bg-black/30 px-1.5 py-1 min-h-0 flex-1 overflow-hidden">
           <FondTheme theme="ia" />
           <div class="relative flex flex-col gap-1 text-[14px] leading-snug">
-            <p class="text-white">Conviction du jour : <span class="font-bold text-violet-200">{{ convictionJour.n }} Signal{{ convictionJour.n > 1 ? 'aux' : '' }} noté{{ convictionJour.n > 1 ? 's' : '' }}</span></p>
+            <p class="text-white">Conviction du jour : <span class="font-bold text-violet-200">{{ convictionJour.n }} {{ convictionJour.n > 1 ? 'Signaux' : 'Signal' }} noté{{ convictionJour.n > 1 ? 's' : '' }}</span></p>
             <p v-if="convictionJour.mediane !== null" class="text-white/85">
               Conviction /100 : <span class="font-bold text-violet-200">médiane {{ convictionJour.mediane }}</span>
               <span class="text-white/50"> · de {{ convictionJour.min }} à {{ convictionJour.max }}</span>

@@ -78,7 +78,7 @@
         <BlocCommande titre="Paramètres" :teinte="teinteBloc" @clic="surAction('parametres')">
           <div class="flex items-center justify-center gap-1.5 text-[10px] leading-snug">
             <span class="font-bold text-white/70">Capital</span>
-            <span class="font-bold tabular-nums" :class="capital >= capitalDepart ? 'text-emerald-300' : 'text-red-300'">{{ capital.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) }} $</span>
+            <span class="font-bold tabular-nums" :class="capital >= capitalDepart ? 'text-emerald-300' : 'text-red-300'">{{ capital < capitalDepart ? '−' : '' }}{{ capital.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) }} $</span>
           </div>
           <div class="flex items-center justify-center gap-1.5 text-[10px] leading-snug">
             <span class="font-bold text-white/70">Risque</span>
