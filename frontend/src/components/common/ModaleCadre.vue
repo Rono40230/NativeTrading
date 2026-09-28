@@ -11,7 +11,7 @@
     >
       <div
         class="w-full max-h-[85vh] overflow-y-auto p-5 rounded-xl border border-white/15 bg-slate-900 shadow-2xl break-words"
-        :class="large ? 'max-w-3xl' : 'max-w-lg'"
+        :class="tresLarge ? 'max-w-6xl' : large ? 'max-w-3xl' : 'max-w-lg'"
       >
         <div class="flex items-center justify-between mb-3 sticky top-0">
           <h2 class="text-sm font-bold text-white uppercase tracking-wider">{{ titre }}</h2>
@@ -27,6 +27,6 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{ titre: string; large?: boolean }>()
+defineProps<{ titre: string; large?: boolean; tresLarge?: boolean }>()
 defineEmits<{ (e: 'fermer'): void }>()
 </script>

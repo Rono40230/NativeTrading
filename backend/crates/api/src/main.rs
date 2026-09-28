@@ -11,6 +11,7 @@ mod creneaux_ia;
 mod creneaux_perimetre;
 mod creneaux_test;
 mod creneaux_job;
+mod evenements;
 mod assets_handlers;
 mod calendar_handlers;
 mod config_handlers;

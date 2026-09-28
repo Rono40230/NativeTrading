@@ -16,6 +16,7 @@ export type {
   SentimentMarche, EntiteSentiment,
   CouvertureDonnees, ResultatCollecteItem,
   PatternHoraire, ReponsePatternsVolatilite,
+  EvenementReactif, EvenementPrevisible, ReponseEvenements,
 } from './api.types'
 
 import type {

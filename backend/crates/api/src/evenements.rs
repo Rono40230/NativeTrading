@@ -1,0 +1,504 @@
+//! §Straddle événements (28/09) — taxonomie + matrice de réactivité.
+//!
+//! Question propriétaire : « quels événements PRÉVISIBLES génèrent le plus de
+//! liquidité, et quels assets y réagissent le mieux ? » Les créneaux
+//! statistiques (`creneaux_ia`) savent QUANDIL y a de la volatilité, pas
+//! POURQUOI. Ici, chaque événement à l'horloge (ouvertures, fixes LBMA,
+//! réouverture CME, slots d'annonces US) est défini dans SON fuseau d'origine
+//! : la conversion en heure de Paris suit automatiquement les bascules
+//! d'heure d'été — y compris les 2 fenêtres de l'année où l'Europe et les
+//! États-Unis ne sont plus alignés (annonces 8:30 NY = 13:30 Paris, pas
+//! 14:30, pendant ~3 semaines).
+//!
+//! La matrice mesure, sur 120 jours de M1, l'ATR des 3 premières minutes de
+//! chaque occurrence rapporté à l'habitude de l'asset (×N). Elle ne décide
+//! RIEN : c'est la matière première de l'armement événement par événement
+//! (phase 3, décision propriétaire).
+
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
+use actix_web::{web, HttpResponse, Responder};
+use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
+use chrono_tz::Tz;
+use sqlx::Row;
+use tokio::sync::RwLock;
+
+use crate::state::AppState;
+
+// ── Taxonomie : événements prévisibles à l'horloge ───────────────────────────
+
+/// Un événement récurrent, défini dans son fuseau d'origine. Les jours sont
+/// ISO lundi=1..dimanche=7 **dans le fuseau de l'événement**.
+struct EvenementModele {
+    ident: &'static str,
+    nom: &'static str,
+    detail: &'static str,
+    tz: Tz,
+    heure: u32,
+    minute: u32,
+    jours: &'static [u32],
+}
+
+/// Fixe le monde : Londres et Paris basculent ensemble (dernier dimanche de
+/// mars/octobre), New York bascule aux siennes (2e dimanche de mars,
+/// 1er de novembre) — l'écart New York↔Paris est de 6 h sauf pendant ces
+/// deux fenêtres d'entre-bascules où il passe à 5 h.
+const EVENEMENTS: &[EvenementModele] = &[
+    EvenementModele {
+        ident: "eu_ouverture",
+        nom: "Ouverture Francfort + Londres",
+        detail: "Xetra ouvre à 09:00 Paris et la session forex de Londres à 08:00 UK — la même minute. Le DAX y prend son plus gros range de la matinée européenne.",
+        tz: chrono_tz::Europe::Paris,
+        heure: 9,
+        minute: 0,
+        jours: &[1, 2, 3, 4, 5],
+    },
+    EvenementModele {
+        ident: "lbma_am",
+        nom: "Fix LBMA matin (or)",
+        detail: "Enchère de fixing de l'or de Londres (10:30 UK) : les banques concentrent leurs ordres, l'or et l'argent bougent à la minute.",
+        tz: chrono_tz::Europe::London,
+        heure: 10,
+        minute: 30,
+        jours: &[1, 2, 3, 4, 5],
+    },
+    EvenementModele {
+        ident: "annonces_us_0830",
+        nom: "Annonces US 8:30 New York",
+        detail: "Le créneau horloge des gros chiffres US (emploi, CPI, ventes…) — 14:30 Paris presque toute l'année, 13:30 pendant les entre-bascules d'heure d'été. Quelle annonce exacte : voir Calendrier.",
+        tz: chrono_tz::America::New_York,
+        heure: 8,
+        minute: 30,
+        jours: &[1, 2, 3, 4, 5],
+    },
+    EvenementModele {
+        ident: "nyse_ouverture",
+        nom: "Ouverture NYSE",
+        detail: "Ouverture de la séance actions américaine (9:30 New York) : les indices et tout ce qui s'y réfère cherchent leur prix d'équilibre.",
+        tz: chrono_tz::America::New_York,
+        heure: 9,
+        minute: 30,
+        jours: &[1, 2, 3, 4, 5],
+    },
+    EvenementModele {
+        ident: "annonces_us_1000",
+        nom: "Annonces US 10:00 + fix or PM",
+        detail: "Les chiffres de 10:00 New York (ISM, confiance…) tombent à la même minute que le fix LBMA de l'après-midi (15:00 Londres) — deux sources de volatilité cumulées.",
+        tz: chrono_tz::America::New_York,
+        heure: 10,
+        minute: 0,
+        jours: &[1, 2, 3, 4, 5],
+    },
+    EvenementModele {
+        ident: "nyse_cloture",
+        nom: "Clôture NYSE",
+        detail: "Sonnerie de clôture (16:00 New York) : derniers équilibres du jour sur les indices US.",
+        tz: chrono_tz::America::New_York,
+        heure: 16,
+        minute: 0,
+        jours: &[1, 2, 3, 4, 5],
+    },
+    EvenementModele {
+        ident: "londres_cloture",
+        nom: "Clôture Londres (forex)",
+        detail: "Fin de la session européenne à 17:00 UK : la liquidité forex se raréfie d'un coup avant le relais américain de l'après-midi.",
+        tz: chrono_tz::Europe::London,
+        heure: 17,
+        minute: 0,
+        jours: &[1, 2, 3, 4, 5],
+    },
+    EvenementModele {
+        ident: "cme_reouverture",
+        nom: "Réouverture CME (or, indices)",
+        detail: "Fin de la pause quotidienne 17:00-18:00 New York : les futures métaux et indices reprennent — première minute la plus nerveuse de la journée pour l'or et l'argent.",
+        tz: chrono_tz::America::New_York,
+        heure: 18,
+        minute: 0,
+        jours: &[1, 2, 3, 4, 5],
+    },
+    EvenementModele {
+        ident: "marche_reouverture_hebdo",
+        nom: "Réouverture week-end (forex, CFD)",
+        detail: "Dimanche 17:00 New York : après ~47 h de fermeture, les cotations MT5 reprennent — le gap de week-end se prix immédiatement.",
+        tz: chrono_tz::America::New_York,
+        heure: 17,
+        minute: 0,
+        jours: &[7],
+    },
+];
+
+/// Fenêtre mesurée après le début de l'événement (3 premières minutes M1).
+const FENETRE_MINUTES: i64 = 3;
+/// Historique mesuré pour la matrice (jours) — couvre plusieurs bascules DST.
+const PERIODE_JOURS: i64 = 120;
+/// Minimum de minutes d'événement observées pour publier un ratio.
+const MIN_MINUTES: i64 = 20;
+/// Minimum de bougies M1 pour qu'un asset ait une habitude digne de ce nom.
+const MIN_BOUGIES: usize = 20_000;
+
+// ── Conversion DST ───────────────────────────────────────────────────────────
+
+/// Instants (timestamps M1) couverts par un événement entre deux bornes UTC :
+/// pour chaque jour du fuseau d'origine qui matche, l'heure locale est
+/// convertie en absolu — chrono-tz applique la bonne bascule d'été selon la
+/// DATE, pas selon la saison courante.
+fn fenetres_evenement(ev: &EvenementModele, debut: i64, fin: i64) -> Vec<i64> {
+    let mut out = Vec::new();
+    let Some(debut_utc) = DateTime::from_timestamp(debut, 0) else {
+        return out;
+    };
+    let Some(fin_utc) = DateTime::from_timestamp(fin, 0) else {
+        return out;
+    };
+    // Bornes en dates du fuseau événement : la veille du début (un événement
+    // déjà commencé à `debut` compte quand même) jusqu'à dépasser `fin`.
+    let premier_jour = debut_utc.with_timezone(&ev.tz).date_naive() - Duration::days(1);
+    let dernier_jour = fin_utc.with_timezone(&ev.tz).date_naive() + Duration::days(1);
+    let mut jour = premier_jour;
+    while jour <= dernier_jour {
+        let naive = jour.and_hms_opt(ev.heure, ev.minute, 0);
+        // Heure inexistante (bascule de printemps) → single() = None : ignorée.
+        if let Some(ts) = naive
+            .and_then(|n| ev.tz.from_local_datetime(&n).single())
+            .map(|a| a.timestamp())
+        {
+            if ev.jours.contains(&jour.weekday().number_from_monday())
+                && ts + FENETRE_MINUTES * 60 >= debut
+                && ts <= fin
+            {
+                for k in 0..FENETRE_MINUTES {
+                    out.push(ts + k * 60);
+                }
+            }
+        }
+        jour += Duration::days(1);
+    }
+    out
+}
+
+/// Prochaine occurrence strictement future, en absolu UTC.
+fn prochaine_occurrence(ev: &EvenementModele, maintenant: DateTime<Utc>) -> Option<DateTime<Utc>> {
+    let local = maintenant.with_timezone(&ev.tz);
+    for delta in 0..=8i64 {
+        let jour = (local + Duration::days(delta)).date_naive();
+        if !ev.jours.contains(&jour.weekday().number_from_monday()) {
+            continue;
+        }
+        let naive = jour.and_hms_opt(ev.heure, ev.minute, 0)?;
+        if let Some(absolu) = ev.tz.from_local_datetime(&naive).single() {
+            if absolu > local {
+                return Some(absolu.with_timezone(&Utc));
+            }
+        }
+    }
+    None
+}
+
+// ── Matrice de réactivité ────────────────────────────────────────────────────
+
+/// Une ligne (événement × asset) : l'ATR des 3 premières minutes de
+/// l'événement rapporté à l'habitude M1 de l'asset sur la période.
+fn ligne_reactivite(asset: &str, somme: f64, minutes: i64, habitude: f64) -> serde_json::Value {
+    let atr = somme / minutes as f64;
+    serde_json::json!({
+        "asset": asset,
+        "ratio": (atr / habitude * 100.0).round() / 100.0,
+        "atr": (atr * 10_000.0).round() / 10_000.0,
+        "habitude": (habitude * 10_000.0).round() / 10_000.0,
+        "minutes": minutes,
+    })
+}
+
+/// Corps du calcul (séparé du handler pour être testable sans DB) :
+/// `bougies` = (timestamp, high, low) M1 dédoublonnées d'un asset.
+fn matrice_asset(
+    asset: &str,
+    bougies: &[(i64, f64, f64)],
+    masques: &HashMap<i64, u16>,
+    nb_evenements: usize,
+) -> Vec<(usize, serde_json::Value)> {
+    if bougies.len() < MIN_BOUGIES {
+        return Vec::new();
+    }
+    let habitude = bougies.iter().map(|b| b.1 - b.2).sum::<f64>() / bougies.len() as f64;
+    if habitude <= 0.0 {
+        return Vec::new();
+    }
+    let mut sommes = vec![0.0f64; nb_evenements];
+    let mut minutes = vec![0i64; nb_evenements];
+    for &(ts, high, low) in bougies {
+        if let Some(masque) = masques.get(&ts) {
+            for i in 0..nb_evenements {
+                if masque & (1 << i) != 0 {
+                    sommes[i] += high - low;
+                    minutes[i] += 1;
+                }
+            }
+        }
+    }
+    (0..nb_evenements)
+        .filter(|&i| minutes[i] >= MIN_MINUTES)
+        .map(|i| (i, ligne_reactivite(asset, sommes[i], minutes[i], habitude)))
+        .collect()
+}
+
+/// GET /api/evenements/matrice — taxonomie + réactivité par asset.
+/// Le scan parcourt l'historique M1 de chaque asset actif : réponse mise en
+/// cache 1 h (même politique que les patterns horaires).
+pub async fn get_matrice(state: web::Data<AppState>) -> impl Responder {
+    static CACHE: OnceLock<RwLock<Option<(std::time::Instant, serde_json::Value)>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| RwLock::new(None));
+
+    if let Some((calcule_le, valeur)) = cache.read().await.clone() {
+        if calcule_le.elapsed() < std::time::Duration::from_secs(3600) {
+            return HttpResponse::Ok().json(valeur);
+        }
+    }
+
+    let maintenant = Utc::now().timestamp();
+    let debut = maintenant - PERIODE_JOURS * 86_400;
+
+    // Masque timestamp → événements (plusieurs événements peuvent coïncider,
+    // ex. annonces US 10:00 et fix PM Londres en heure Paris d'été).
+    let mut masques: HashMap<i64, u16> = HashMap::new();
+    for (i, ev) in EVENEMENTS.iter().enumerate() {
+        for ts in fenetres_evenement(ev, debut, maintenant) {
+            *masques.entry(ts).or_insert(0) |= 1 << i;
+        }
+    }
+
+    // Lignes de réactivité par événement, assemblées par asset.
+    let mut par_evenement: Vec<Vec<serde_json::Value>> = EVENEMENTS
+        .iter()
+        .map(|_| Vec::new())
+        .collect();
+    if let Ok(workers) = state.db.lister_assets_worker().await {
+        for w in workers.into_iter().filter(|w| w.actif) {
+            // Priorité à la source vivante du pipeline ; dédoublonnage par
+            // timestamp (binance et bybit se recouvrent sur le BTC).
+            let rows = sqlx::query(
+                "SELECT timestamp, high, low FROM bougies
+                 WHERE asset = ? AND timeframe = 'M1' AND timestamp >= ?
+                 ORDER BY timestamp ASC,
+                     CASE source WHEN 'bybit_ws' THEN 0 WHEN 'mt5' THEN 1 ELSE 2 END",
+            )
+            .bind(&w.id)
+            .bind(debut)
+            .fetch_all(state.db.pool())
+            .await
+            .unwrap_or_default();
+            let mut bougies: Vec<(i64, f64, f64)> = Vec::with_capacity(rows.len());
+            let mut dernier_ts = 0i64;
+            for r in &rows {
+                let ts: i64 = r.try_get("timestamp").unwrap_or(0);
+                let high: f64 = r.try_get("high").unwrap_or(0.0);
+                let low: f64 = r.try_get("low").unwrap_or(0.0);
+                if ts > dernier_ts && high >= low {
+                    bougies.push((ts, high, low));
+                    dernier_ts = ts;
+                }
+            }
+            for (i, ligne) in matrice_asset(&w.id, &bougies, &masques, EVENEMENTS.len()) {
+                par_evenement[i].push(ligne);
+            }
+        }
+    }
+
+    // Assemblage final : chaque événement avec sa prochaine occurrence,
+    // convertie en heure de Paris (la bascule DST du jour s'applique).
+    let maintenant_utc = Utc::now();
+    let mut evenements: Vec<serde_json::Value> = EVENEMENTS
+        .iter()
+        .enumerate()
+        .map(|(i, ev)| {
+            let mut reactivite = std::mem::take(&mut par_evenement[i]);
+            reactivite.sort_by(|a, b| {
+                b["ratio"].as_f64().unwrap_or(0.0).partial_cmp(&a["ratio"].as_f64().unwrap_or(0.0)).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            let max_ratio = reactivite
+                .first()
+                .and_then(|l| l["ratio"].as_f64())
+                .unwrap_or(0.0);
+            let prochaine = prochaine_occurrence(ev, maintenant_utc);
+            let paris = prochaine.map(|p| p.with_timezone(&chrono_tz::Europe::Paris));
+            serde_json::json!({
+                "ident": ev.ident,
+                "nom": ev.nom,
+                "detail": ev.detail,
+                "fuseau": ev.tz.name(),
+                "heure_locale": format!("{:02}:{:02}", ev.heure, ev.minute),
+                "jours": ev.jours,
+                "prochaine_ts": prochaine.map(|p| p.timestamp()),
+                "prochaine_heure_paris": paris.map(|p| format!("{:02}:{:02}", p.hour(), p.minute())),
+                "max_ratio": (max_ratio * 100.0).round() / 100.0,
+                "reactivite": reactivite,
+            })
+        })
+        .collect();
+    evenements.sort_by(|a, b| {
+        b["max_ratio"].as_f64().unwrap_or(0.0).partial_cmp(&a["max_ratio"].as_f64().unwrap_or(0.0)).unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let reponse = serde_json::json!({
+        "calcule_le": maintenant,
+        "periode_jours": PERIODE_JOURS,
+        "fenetre_minutes": FENETRE_MINUTES,
+        "evenements": evenements,
+    });
+    *cache.write().await = Some((std::time::Instant::now(), reponse.clone()));
+    HttpResponse::Ok().json(reponse)
+}
+
+// ── Tests : conversion DST et fenêtres ───────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono_tz::America::New_York;
+
+    fn ev(ident: &str) -> &'static EvenementModele {
+        EVENEMENTS.iter().find(|e| e.ident == ident).expect("événement inconnu")
+    }
+
+    fn paris_hhmm(ident: &str, utc: DateTime<Utc>) -> String {
+        let p = prochaine_occurrence(ev(ident), utc - Duration::hours(12))
+            .expect("occurrence")
+            .with_timezone(&chrono_tz::Europe::Paris);
+        format!("{:02}:{:02}", p.hour(), p.minute())
+    }
+
+    /// 8:30 New York = 14:30 Paris toute l'année hors entre-bascules :
+    /// l'écart New York↔Paris est structurellement de 6 h.
+    #[test]
+    fn annonces_us_830_stables_entre_ete_et_hiver() {
+        // Plein été (EDT / CEST) et plein hiver (EST / CET).
+        let ete = Utc.with_ymd_and_hms(2026, 7, 15, 0, 0, 0).unwrap();
+        let hiver = Utc.with_ymd_and_hms(2026, 1, 15, 0, 0, 0).unwrap();
+        assert_eq!(paris_hhmm("annonces_us_0830", ete), "14:30");
+        assert_eq!(paris_hhmm("annonces_us_0830", hiver), "14:30");
+    }
+
+    /// LA fenêtre piège : l'Europe bascule le dernier dimanche d'octobre,
+    /// les États-Unis le 1er novembre — entre les deux, l'écart passe à 5 h
+    /// et les annonces tombent à 13:30 Paris.
+    #[test]
+    fn entre_bascules_octobre_annonces_a_1330_paris() {
+        let lundi_oct = Utc.with_ymd_and_hms(2026, 10, 26, 0, 0, 0).unwrap();
+        assert_eq!(paris_hhmm("annonces_us_0830", lundi_oct), "13:30");
+        // Idem au printemps : les US avancent le 2e dimanche de mars, l'Europe
+        // le dernier — trois semaines de décalage.
+        let mi_mars = Utc.with_ymd_and_hms(2026, 3, 15, 0, 0, 0).unwrap();
+        assert_eq!(paris_hhmm("annonces_us_0830", mi_mars), "13:30");
+    }
+
+    /// La réouverture CME 18:00 New York tombe toujours à 00:00 Paris —
+    /// c'est la réconciliation or mesurée le 28/09.
+    #[test]
+    fn reouverture_cme_toujours_minuit_paris() {
+        let ete = Utc.with_ymd_and_hms(2026, 7, 15, 0, 0, 0).unwrap();
+        let hiver = Utc.with_ymd_and_hms(2026, 1, 15, 0, 0, 0).unwrap();
+        assert_eq!(paris_hhmm("cme_reouverture", ete), "00:00");
+        assert_eq!(paris_hhmm("cme_reouverture", hiver), "00:00");
+    }
+
+    /// Londres et Paris basculent ensemble : le fix du matin reste à 11:30.
+    #[test]
+    fn fix_lbma_am_stable() {
+        let ete = Utc.with_ymd_and_hms(2026, 7, 15, 0, 0, 0).unwrap();
+        let hiver = Utc.with_ymd_and_hms(2026, 1, 15, 0, 0, 0).unwrap();
+        assert_eq!(paris_hhmm("lbma_am", ete), "11:30");
+        assert_eq!(paris_hhmm("lbma_am", hiver), "11:30");
+    }
+
+    /// La réouverture hebdo est un événement du DIMANCHE uniquement.
+    #[test]
+    fn reouverture_hebdo_le_dimanche() {
+        // Un vendredi : la prochaine occurrence doit retomber dimanche.
+        let vendredi = Utc.with_ymd_and_hms(2026, 9, 25, 0, 0, 0).unwrap();
+        let p = prochaine_occurrence(ev("marche_reouverture_hebdo"), vendredi)
+            .expect("occurrence")
+            .with_timezone(&chrono_tz::Europe::Paris);
+        assert_eq!(p.weekday().number_from_monday(), 7);
+        assert_eq!(format!("{:02}:{:02}", p.hour(), p.minute()), "23:00");
+    }
+
+    /// Les événements de semaine ne matchent jamais un samedi new-yorkais :
+    /// la fenêtre du samedi 18:00 ET (marché fermé) doit être vide.
+    #[test]
+    fn fenetres_ignorent_le_samedi() {
+        // Samedi 12 septembre 2026, 22:00 UTC : 18:00 à New York.
+        let samedi = Utc.with_ymd_and_hms(2026, 9, 12, 22, 0, 0).unwrap();
+        let t = fenetres_evenement(ev("cme_reouverture"), samedi.timestamp(), samedi.timestamp());
+        assert!(t.is_empty(), "aucune fenêtre attendue le samedi");
+        // Le lundi suivant en revanche : 3 minutes de fenêtre.
+        let lundi = Utc.with_ymd_and_hms(2026, 9, 14, 22, 0, 0).unwrap();
+        let t = fenetres_evenement(ev("cme_reouverture"), lundi.timestamp() - 86_400, lundi.timestamp());
+        assert_eq!(t.len(), 3);
+    }
+
+    /// « Annonces US 10:00 + fix or PM » : les deux phénomènes coïncident
+    /// à la même minute Paris toute l'année (10:00 New York = 15:00 Londres
+    /// = 16:00 Paris) — un seul bucket de la matrice, nommé des deux.
+    #[test]
+    fn annonces_1000_et_fix_pm_coincident_a_16h_paris() {
+        let jour = Utc.with_ymd_and_hms(2026, 9, 15, 0, 0, 0).unwrap();
+        let debut = (jour - Duration::days(1)).timestamp();
+        let fin = jour.timestamp();
+        let mut masques: HashMap<i64, u16> = HashMap::new();
+        for (i, e) in EVENEMENTS.iter().enumerate() {
+            for ts in fenetres_evenement(e, debut, fin) {
+                *masques.entry(ts).or_insert(0) |= 1 << i;
+            }
+        }
+        let idx_1000 = EVENEMENTS.iter().position(|e| e.ident == "annonces_us_1000").unwrap();
+        let ts_1600_paris = chrono_tz::Europe::Paris
+            .with_ymd_and_hms(2026, 9, 14, 16, 0, 0)
+            .unwrap()
+            .timestamp();
+        let masque = masques.get(&ts_1600_paris).copied().unwrap_or(0);
+        assert_ne!(masque & (1 << idx_1000), 0, "annonces 10:00 NY attendues à 16:00 Paris");
+        // Et l'événement merge porte bien les deux noms.
+        let ev = &EVENEMENTS[idx_1000];
+        assert!(ev.nom.contains("fix"), "le nom doit citer le fix PM : {}", ev.nom);
+        let _ = New_York; // référence du fuseau utilisé dans la taxonomie
+    }
+
+    /// La matrice mesure bien le ratio : 30 minutes d'événement au double
+    /// de l'habitude ressortent autour de ×2 ; en dessous de 20 minutes
+    /// observées, la ligne n'est pas publiée (garde-fou anti-bruit).
+    #[test]
+    fn matrice_mesure_le_ratio_et_filtre_le_bruit() {
+        let evenement_ts = chrono_tz::Europe::Paris
+            .with_ymd_and_hms(2026, 9, 14, 16, 0, 0)
+            .unwrap()
+            .timestamp();
+        let mut masques = HashMap::new();
+        for k in 0..30 {
+            masques.insert(evenement_ts + k * 60, 1u16);
+        }
+        // Habitude : 20 000 bougies de range 1.0, 30 bougies d'événement de
+        // range 2.0 (contamination de l'habitude négligeable : ~×1.99).
+        let mut bougies: Vec<(i64, f64, f64)> = (0..20_000)
+            .map(|i| (1_700_000_000 + i * 60, 1.0, 0.0))
+            .collect();
+        for k in 0..30 {
+            bougies.push((evenement_ts + k * 60, 2.0, 0.0));
+        }
+        let lignes = matrice_asset("TEST", &bougies, &masques, 1);
+        let (_, premiere) = &lignes[0];
+        let ratio = premiere["ratio"].as_f64().expect("ratio");
+        assert!((1.9..2.05).contains(&ratio), "ratio attendu ~2, obtenu {ratio}");
+        assert_eq!(premiere["minutes"].as_i64(), Some(30));
+
+        // Même scénario avec 3 minutes d'événement seulement : sous le
+        // seuil MIN_MINUTES, la ligne n'est pas publiée.
+        let mut maigres: Vec<(i64, f64, f64)> = (0..20_000)
+            .map(|i| (1_700_000_000 + i * 60, 1.0, 0.0))
+            .collect();
+        for k in 0..3 {
+            maigres.push((evenement_ts + k * 60, 2.0, 0.0));
+        }
+        assert!(matrice_asset("TEST", &maigres, &masques, 1).is_empty());
+    }
+}

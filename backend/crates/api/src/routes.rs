@@ -239,6 +239,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::whale_watching::get_whale_scores),
         )
         .route(
+            "/api/evenements/matrice",
+            web::get().to(crate::evenements::get_matrice),
+        )
+        .route(
             "/api/calendar",
             web::get().to(crate::calendar_handlers::get_calendar),
         )

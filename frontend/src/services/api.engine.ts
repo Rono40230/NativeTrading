@@ -4,7 +4,7 @@
  */
 import { http } from './http.client'
 import type {
-  CouvertureDonnees, ReponsePatternsVolatilite,
+  CouvertureDonnees, ReponsePatternsVolatilite, ReponseEvenements,
 } from './api.types'
 
 export const engineApi = {
@@ -32,5 +32,15 @@ export const engineApi = {
   async obtenirPatternsJourTousActifs(): Promise<ReponsePatternsVolatilite[]> {
     const res = await http.get('/api/volatility/patterns-jour')
     return res.data.assets
+  },
+
+  /** Matrice événements prévisibles × réactivité des assets (28/09) :
+   *  taxonomie à l'horloge (ouvertures, fixes LBMA, réouverture CME, slots
+   *  d'annonces US) convertie en heure de Paris — bascules été/hiver
+   *  incluses — et ATR des 3 premières minutes vs habitude par asset.
+   *  Cache serveur d'une heure. */
+  async obtenirMatriceEvenements(): Promise<ReponseEvenements> {
+    const res = await http.get('/api/evenements/matrice')
+    return res.data
   },
 }

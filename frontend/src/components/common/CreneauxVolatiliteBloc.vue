@@ -64,6 +64,7 @@ import type { PatternHoraire } from '@/services/api.types.marche'
 import { offsetParisHeures } from '@/utils/date'
 import { JOURS, COULEURS_CLUSTER, COULEURS_CLUSTER_PLEIN } from './heatmapConstants'
 import { calculerAnalyse, fenetreDuJour, NOM_CLUSTER, COULEUR_CLUSTER_TEXTE } from '@/composables/useVolatiliteAnalyse'
+import { lirePerimetreStraddle } from '@/composables/usePerimetreStraddle'
 
 const props = withDefaults(defineProps<{ ouvertDefaut?: boolean }>(), { ouvertDefaut: false })
 
@@ -82,6 +83,9 @@ interface CarteAsset {
 }
 
 const donnees = ref<ReponsePatternsVolatilite[]>([])
+/// Assets du périmètre straddle (modale 🎯) : leurs cartes passent en tête
+/// de grille (owner 28/09 — la modale suit la sélection propriétaire).
+const perimetre = ref<string[]>([])
 const chargement = ref(true)
 const maintenant = ref(new Date())
 /// Bloc repliable — replié par défaut (14/09) : l'univers élargi rendait la
@@ -131,6 +135,8 @@ const cartes = computed<CarteAsset[]>(() => {
       meilleurJour: analyse?.meilleurJour.label ?? null,
     }
   })
+    // Tri stable : cartes du périmètre en tête, ordre pipeline conservé sinon.
+    .sort((a, b) => Number(perimetre.value.includes(b.asset)) - Number(perimetre.value.includes(a.asset)))
 })
 
 function libelleMaintenant(c: CarteAsset): string {
@@ -159,6 +165,7 @@ function styleBarre(c: CarteAsset, hParis: number): Record<string, string> {
 
 onMounted(() => {
   void charger()
+  void lirePerimetreStraddle().then(p => { perimetre.value = p })
   // Tick horloge : heure courante + bascule du jour à minuit Paris.
   horloge = setInterval(() => { maintenant.value = new Date() }, 30_000)
 })

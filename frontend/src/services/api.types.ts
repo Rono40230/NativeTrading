@@ -96,7 +96,7 @@ export interface StatutSignalEngine {
 export type { ScoreSmc } from '../generated/ScoreSmc'
 
 export type { DeviationAsie, RangeAsie, ReponseIndicators, IndicatorsParams } from './api.types.indicators'
-export type { PatternHoraire, ReponsePatternsVolatilite, RequeteAnalyseIA, ReponseAnalyseIA, LigneTendanceKasper, ModeCalculTendance, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier, EntiteSentiment, SentimentMarche } from './api.types.marche'
+export type { PatternHoraire, ReponsePatternsVolatilite, RequeteAnalyseIA, ReponseAnalyseIA, LigneTendanceKasper, ModeCalculTendance, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier, EntiteSentiment, SentimentMarche, EvenementReactif, EvenementPrevisible, ReponseEvenements } from './api.types.marche'
 export type { CouvertureDonnees, ResultatCollecteItem, RocketRecommandation, RocketAnalyseLlm, StraddlePicLive, StraddleStatCategorie, StraddleMonitoringData, StraddleCalibrationRow, RocketsStatPhase, RocketsMonitoringData, RocketsCalibrationRow } from './api.types.rockets'
 
 // ── Signal IA (POST /api/ia/signal) ──────────────────────────────────────────

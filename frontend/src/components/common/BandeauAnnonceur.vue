@@ -60,8 +60,15 @@
       </p>
       <EconomicCalendar :jours="10" />
     </ModaleCadre>
-    <ModaleCadre v-if="ouverte === 'creneaux'" titre="⏰ Créneaux de volatilité moyen sur 24 mois" large @fermer="ouverte = null">
-      <CreneauxVolatiliteBloc ouvert-defaut />
+    <!-- Owner 28/09 : très grand format — les deux blocs côte à côte
+         (événements × réactivité à gauche, créneaux moyens à droite),
+         chacun garde son scroll interne, la modale elle-même ne défile
+         plus qu'en cas de fenêtre étroite. -->
+    <ModaleCadre v-if="ouverte === 'creneaux'" titre="⏰ Volatilité — événements prévisibles & créneaux moyens" tres-large @fermer="ouverte = null">
+      <div class="grid grid-cols-2 gap-3 items-start">
+        <EvenementsReactiviteBloc ouvert-defaut />
+        <CreneauxVolatiliteBloc ouvert-defaut />
+      </div>
     </ModaleCadre>
     <ModaleCadre v-if="ouverte === 'radar'" titre="🌡️ Radar ATR temps réel" large @fermer="ouverte = null">
       <RadarAtrBloc ouvert-defaut />
@@ -82,6 +89,7 @@ import { useRadarAtr } from '@/composables/useRadarAtr'
 import PopoverInfo from './PopoverInfo.vue'
 import ModaleCadre from './ModaleCadre.vue'
 import EconomicCalendar from './EconomicCalendar.vue'
+import EvenementsReactiviteBloc from './EvenementsReactiviteBloc.vue'
 import CreneauxVolatiliteBloc from './CreneauxVolatiliteBloc.vue'
 import RadarAtrBloc from './RadarAtrBloc.vue'
 
@@ -208,7 +216,7 @@ const detailCreneaux = computed(() => {
 })
 
 const texteCreneaux = computed(() =>
-  `Fenêtre la plus volatile du jour (heure Paris), d'après les patterns moyens des 24 derniers mois — les 4 actifs les plus intenses sont affichés, l'ordre complet est ici :\n${detailCreneaux.value}\n\nClic : tous les créneaux moyens par actif.`)
+  `Fenêtre la plus volatile du jour (heure Paris), d'après les patterns moyens des 24 derniers mois — les 4 actifs les plus intenses sont affichés, l'ordre complet est ici :\n${detailCreneaux.value}\n\nClic : les événements prévisibles (annonces US, réouverture CME, fixes or…) × la réactivité de chaque asset, puis les créneaux moyens.`)
 
 async function chargerCreneaux() {
   try {

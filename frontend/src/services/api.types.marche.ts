@@ -145,3 +145,38 @@ export interface SentimentMarche {
 export interface TraductionReponse {
   texte_fr: string
 }
+
+// ── Événements prévisibles × réactivité (28/09) ─────────────────────────────
+
+/** Ligne événement × asset : ATR des 3 premières minutes de l'événement
+ *  rapporté à l'habitude M1 de l'asset sur la période (×2 = deux fois le
+ *  range d'une minute normale). */
+export interface EvenementReactif {
+  asset: string
+  ratio: number
+  atr: number
+  habitude: number
+  minutes: number
+}
+
+/** Un événement récurrent défini dans son fuseau d'origine (New York,
+ *  Londres…), converti en heure de Paris avec les bascules été/hiver. */
+export interface EvenementPrevisible {
+  ident: string
+  nom: string
+  detail: string
+  fuseau: string
+  heure_locale: string
+  jours: number[]
+  prochaine_ts: number | null
+  prochaine_heure_paris: string | null
+  max_ratio: number
+  reactivite: EvenementReactif[]
+}
+
+export interface ReponseEvenements {
+  calcule_le: number
+  periode_jours: number
+  fenetre_minutes: number
+  evenements: EvenementPrevisible[]
+}
