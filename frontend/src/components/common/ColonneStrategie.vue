@@ -278,9 +278,11 @@ async function chargerAssets() {
       // Couples asset × TF : « 26 assets · 78 couples »
       const r = await http.get('/api/smc/couples')
       const d = r.data as { armes: Record<string, string[]> }
-      const assets = Object.keys(d.armes ?? {})
-      const couples = assets.reduce((n, a) => n + (d.armes[a]?.length ?? 0), 0)
-      resumeAssets.value = assets.length ? `${assets.length} assets · ${couples} couples` : 'aucun'
+      // Ne compter que les couples réellement ARMÉS (TF non vide) — un
+      // asset au tableau vide est désarmé, pas « armé à 0 couples ».
+      const armes = Object.entries(d.armes ?? {}).filter(([, tfs]) => tfs.length > 0)
+      const couples = armes.reduce((n, [, tfs]) => n + tfs.length, 0)
+      resumeAssets.value = armes.length ? `${armes.length} assets · ${couples} couples` : 'aucun'
     } else if (props.id === 'straddle') {
       // Périmètre M1 : « 9 assets »
       const r = await http.get('/api/straddle/perimetre')
