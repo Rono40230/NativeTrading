@@ -233,6 +233,18 @@ strategie='straddle' AND cree_le < pivot` = 0, et total = passes post-pivot.
 **Vérification** : **[TEST]** vue-tsc + vitest + vite build verts · grep
 zéro référence aux symboles supprimés.
 
+> **État 05/10 — FAITE et VÉRIFIÉE [TEST].** Supprimé : 2 composants, 1
+> composable, répertoire vide reglages/, 3 méthodes API + leurs types
+> (PrecisionHoraire, RocketAnalyseLlm), 2 routes + 2 handlers, le module
+> strategies::straddle_precision (203 l.), la chaîne LLM rockets_analyse
+> (module llm + prompt catalogue + persistance db + module db::rockets
+> vidé puis supprimé). La table rockets_analyses_llm rejoint la purge de
+> l'étape 8. Découverte en passant : le module LLM smc_analyse n'a PLUS
+> de déclencheur vivant (aucune route / page ne l'appelle) — décision
+> propriétaire à l'étape 7 (retirer ou recâbler un bouton Analyse SMC).
+> 39 suites, release 0 warning, front 12/12 + build verts, grep 0
+> référence orpheline.
+
 ### Étape 7 — Routes backend sans consommateur (9)
 
 **Actions** — décision par route, avec le propriétaire :

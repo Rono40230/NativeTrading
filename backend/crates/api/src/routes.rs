@@ -173,10 +173,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/straddle/analyste/rafraichir",
             web::post().to(crate::straddle_analyste::rafraichir),
         )
-        .route(
-            "/api/straddle/precision-horaire",
-            web::post().to(crate::straddle_precision_handler::handler_precision_horaire),
-        )
         .service(
             web::resource("/api/straddle/params")
                 .route(web::get().to(crate::strategies_params_handlers::get_straddle_params))

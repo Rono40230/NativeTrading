@@ -19,7 +19,6 @@ pub mod runtime_observation;
 pub mod presse;
 pub mod runtime_emissions;
 pub mod runtime_replay;
-pub mod rockets;
 pub mod rockets_blacklist;
 pub mod rockets_calibration;
 pub mod rockets_feedback;

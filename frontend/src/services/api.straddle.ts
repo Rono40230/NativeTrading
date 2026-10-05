@@ -4,7 +4,7 @@
  */
 import { http } from './http.client'
 import type {
-  StraddleMonitoringData, StraddleCalibrationRow, PrecisionHoraire,
+  StraddleMonitoringData, StraddleCalibrationRow,
 } from './api.types'
 
 export const straddleApi = {
@@ -20,16 +20,4 @@ export const straddleApi = {
     return res.data
   },
 
-  async analyserPrecisionHoraire(
-    asset: string,
-    heure: number,
-    jourSemaine: number | null,
-  ): Promise<PrecisionHoraire> {
-    const res = await http.post('/api/straddle/precision-horaire', {
-      asset,
-      heure,
-      jour_semaine: jourSemaine,
-    }, { timeout: 30000 })
-    return res.data
-  },
 }

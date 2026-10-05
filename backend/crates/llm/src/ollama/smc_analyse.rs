@@ -1,6 +1,7 @@
 //! Analyse LLM périodique des performances SMC Directionnel.
 //!
-//! Calqué sur `rockets_analyse.rs` — déclenché sur demande via `/api/smc/analyse-llm`.
+//! Analyse LLM stratégique SMC — NOTE 05/10 : plus AUCUN déclencheur vivant
+//! (la route a disparu, voir roadmap étape 7 : retirer ou recâbler).
 //! Analyse les signaux SMC clôturés et produit des recommandations d'optimisation.
 use crate::ollama::types::{MODELE_SMC, OLLAMA_URL};
 use common::TradingError;

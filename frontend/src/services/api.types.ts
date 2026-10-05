@@ -97,7 +97,7 @@ export type { ScoreSmc } from '../generated/ScoreSmc'
 
 export type { DeviationAsie, RangeAsie, ReponseIndicators, IndicatorsParams } from './api.types.indicators'
 export type { PatternHoraire, ReponsePatternsVolatilite, RequeteAnalyseIA, ReponseAnalyseIA, LigneTendanceKasper, ModeCalculTendance, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier, EntiteSentiment, SentimentMarche, EvenementReactif, EvenementPrevisible, ReponseEvenements } from './api.types.marche'
-export type { CouvertureDonnees, ResultatCollecteItem, RocketRecommandation, RocketAnalyseLlm, StraddlePicLive, StraddleStatCategorie, StraddleMonitoringData, StraddleCalibrationRow, RocketsStatPhase, RocketsMonitoringData, RocketsCalibrationRow } from './api.types.rockets'
+export type { CouvertureDonnees, ResultatCollecteItem, RocketRecommandation, StraddlePicLive, StraddleStatCategorie, StraddleMonitoringData, StraddleCalibrationRow, RocketsStatPhase, RocketsMonitoringData, RocketsCalibrationRow } from './api.types.rockets'
 
 // ── Signal IA (POST /api/ia/signal) ──────────────────────────────────────────
 export interface RequeteSignalIA {
@@ -180,17 +180,6 @@ export interface AssetParams {
   type_asset?: string | null
 }
 
-export interface PrecisionHoraire {
-  ok: boolean
-  timing_optimal?: string
-  fenetre_entree?: string
-  whipsaw_minutes?: number
-  nb_occurrences?: number
-  atr_pic?: number
-  session?: string
-  raison?: string
-  message?: string
-}
 
 // ── Barèmes & seuils effectifs pour les pages Définition ─────────────────────
 

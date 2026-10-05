@@ -23,10 +23,5 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
     .route(
         "/api/rockets/historique",
         web::get().to(crate::rockets_handlers::get_historique),
-    )
-    .service(
-        web::resource("/api/rockets/analyse-llm")
-            .route(web::get().to(crate::rockets_analyse_handler::get_derniere_analyse))
-            .route(web::post().to(crate::rockets_analyse_handler::lancer_analyse)),
     );
 }

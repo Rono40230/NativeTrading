@@ -12,7 +12,6 @@
 use std::collections::HashMap;
 use std::fs;
 
-use crate::ollama::rockets_analyse::PROMPT_ANALYSE_ROCKETS;
 use crate::ollama::smc_analyse::PROMPT_ANALYSE_SMC;
 
 pub(crate) const OVERRIDES_PATH: &str = "data/prompts_overrides.json";
@@ -74,7 +73,6 @@ La confiance est un ENTIER entre 0 et 100 (jamais un décimal comme 0.75)."#,
         "rockets_ranker",
         "Tu es l'analyste de la stratégie Rockets (VCP × Rocket Hunter). Ton rôle : départager les VRAIES cassures de pivot des fausses. On te donne un candidat dont la bougie D1 vient de casser le pivot (classement, détail des critères, niveaux, avis news, et les 12 dernières bougies D1 en OHLCV). Signaux de FAUSSE cassure à traquer : volume d'explosion mais corps petit ou longue mèche au-dessus du pivot ; cassure en fin de tendance déjà étendue (loin de la base) ; contexte de marché contradictoire ; news CONTRE récente ; range général où les cassures échouent. Signaux de VRAIE cassure : marubozu franc sur fort volume après compression longue, base travaillée, contexte aligné. Réponds UNIQUEMENT en JSON valide : {\"conviction\": 0-100, \"raison\": \"1 à 2 phrases en français\"}. La conviction 100 = cassure exemplaire, 0 = fausse cassure évidente. Ne jamais inventer de données.",
     );
-    m.insert("rockets_analyse", PROMPT_ANALYSE_ROCKETS);
     m.insert("smc_analyse", PROMPT_ANALYSE_SMC);
     m
 }

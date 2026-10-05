@@ -7,7 +7,7 @@
 // reste en base, simplement plus alimentée.)
 
 /// Résultat d'une analyse de précision M5 d'un créneau horaire — calculé par
-/// `strategies::straddle_precision`, servi par /api/straddle/precision-horaire.
+/// (le service de précision horaire a été retiré le 05/10 avec son unique consommateur mort).
 pub struct PrecisionM5 {
     pub timing_optimal: String,
     pub fenetre_entree: String,

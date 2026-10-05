@@ -36,15 +36,6 @@ export interface RocketRecommandation {
   priorite: 'haute' | 'moyenne' | 'faible'
 }
 
-export interface RocketAnalyseLlm {
-  id: number
-  nb_trades: number
-  synthese: string
-  meilleur_setup: string | null
-  pire_setup: string | null
-  recommandations: string // JSON brut
-  cree_le: string
-}
 
 // ── Straddle ──────────────────────────────────────────────────────────────────
 // (Les types StraddleCreneau/ReponseAnalyseStraddle ont été supprimés le

@@ -1,7 +1,6 @@
 mod client;
 pub use client::appeler_ollama;
 pub mod prompts;
-pub mod rockets_analyse;
 pub mod smc_analyse;
 mod types;
 
