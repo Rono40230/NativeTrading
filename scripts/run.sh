@@ -35,10 +35,13 @@ if [ -f "$ROOT_DIR/data/trading.db" ]; then
    else
       echo "⚠️  Sauvegarde $STAMP créée mais quick_check : ${SANTE:-fichier injoignable} — À INSPECTER"
    fi
-   # Rétention : 30 sauvegardes les plus récentes (+ replis -wal/-shm)
-   ls -1t "$BACKUP_DIR"/trading-*.db 2>/dev/null | tail -n +31 | xargs -r rm -f
-   ls -1t "$BACKUP_DIR"/trading-*.db-wal 2>/dev/null | tail -n +31 | xargs -r rm -f
-   ls -1t "$BACKUP_DIR"/trading-*.db-shm 2>/dev/null | tail -n +31 | xargs -r rm -f
+   # Rétention (05/10, décision owner) : 5 sauvegardes de démarrage les plus
+   # récentes + pièces historiques (corruption, secours, avant_reset) —
+   # ~2,2 Go chacune : 30 snapshots + anciens noms soulignés accumulaient
+   # 71 Go. Les trading_2026* (ancien nommage) sont purgés comme les tirets.
+   ls -1t "$BACKUP_DIR"/trading-*.db "$BACKUP_DIR"/trading_2026*.db 2>/dev/null \
+      | grep -vE "corruption|secours|avant_reset" | tail -n +6 | xargs -r rm -f
+   ls -1t "$BACKUP_DIR"/trading-*.db-wal "$BACKUP_DIR"/trading-*.db-shm 2>/dev/null | tail -n +6 | xargs -r rm -f
 fi
 
 # ─── Initialisation nvm (npm/node non disponibles hors shell interactif) ──────

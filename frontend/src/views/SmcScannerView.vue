@@ -140,8 +140,7 @@ const vivants = ref<SetupVivant[]>([])
 const whaleScores = ref<Record<string, number>>({})
 async function chargerWhale() {
   try {
-    const res = await fetch('/api/whale')
-    const data = await res.json()
+    const data = await http.get('/api/whale').then(r => r.data)
     const map: Record<string, number> = {}
     for (const w of data) {
       if (w.zscore > 2) map[`${w.asset}_${w.tf}`] = w.zscore

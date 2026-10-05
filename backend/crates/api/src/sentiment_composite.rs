@@ -274,64 +274,11 @@ pub async fn calculer_composite(db: &Database, fg_cache: &FgCache) -> SentimentS
     score
 }
 
-// ── Persistance snapshot quotidien ───────────────────────────────────────────
-
-/// Insère un snapshot PAR CYCLE 30 min (5 classes + global) — matière première
-/// de la « moyenne de la veille » : le composite servi au jour J est la
-/// moyenne de tous les snapshots du J-1 (décision propriétaire 2026-08-17 :
-/// référence veille, pas flux tendu).
-async fn persister_snapshot_quotidien(db: &Database, score: &SentimentScore) {
-    let today = Utc::now().format("%Y-%m-%d").to_string();
-
-    let composantes = serde_json::json!({
-        "rsi_btc": score.rsi_btc,
-        "rsi_eth": score.rsi_eth,
-        "rsi_xau": score.rsi_xau,
-        "breadth_pct": score.breadth_pct,
-        "fear_greed": score.fear_greed,
-        "cnn_fg": score.cnn_fg,
-        "vix_score": score.vix_score,
-        "vix_brut": score.vix_brut,
-    })
-    .to_string();
-
-    let insert = |classe: &str, val: Option<f64>| {
-        let db_pool = db.pool();
-        let classe = classe.to_string();
-        let composantes = composantes.clone();
-        let date = today.clone();
-        async move {
-            if let Some(v) = val {
-                if let Err(e) = sqlx::query(
-                    "INSERT INTO sentiment_historique (date, classe, score, composantes)
-                     VALUES (?, ?, ?, ?)",
-                )
-                .bind(&date)
-                .bind(&classe)
-                .bind(v)
-                .bind(&composantes)
-                .execute(db_pool)
-                .await
-                {
-                    tracing::warn!("snapshot sentiment {classe}: {e}");
-                }
-            }
-        }
-    };
-
-    insert("global", score.global).await;
-    insert("crypto", score.crypto).await;
-    insert("forex", score.forex).await;
-    insert("metaux", score.metaux).await;
-    insert("indices", score.indices).await;
-}
-
 // ── Worker 30 min ────────────────────────────────────────────────────────────
 
 /// Démarre le worker de sentiment composite en arrière-plan (cycle 30 min).
 ///
-/// Calcule `calculer_composite`, stocke dans `AppState.sentiment`, et persiste
-/// un snapshot quotidien dans `sentiment_historique`. Ne bloque pas.
+/// Calcule `calculer_composite`, stocke dans `AppState.sentiment`. Ne bloque pas.
 pub fn demarrer_worker_sentiment(db: Arc<Database>, sentiment: SentimentSlot, fg_cache: FgCache) {
     tokio::spawn(async move {
         // Délai initial : laisse les sources externes et la DB se stabiliser.
@@ -340,7 +287,6 @@ pub fn demarrer_worker_sentiment(db: Arc<Database>, sentiment: SentimentSlot, fg
         loop {
             tick.tick().await;
             let sc = calculer_composite(&db, &fg_cache).await;
-            persister_snapshot_quotidien(&db, &sc).await;
 
             // Référence veille des listes du bloc (décision 2026-08-18) :
             // clôtures J-1 figées, idempotent — aucun flux tendu servi au front.

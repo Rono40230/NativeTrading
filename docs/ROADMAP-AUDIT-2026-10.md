@@ -281,6 +281,12 @@ l'UI ; grep final routes ↔ appels sans orphelin des deux côtés.
 **Vérification** : **[DB]** migration appliquée, tables absentes ·
 **[APP]** badge 🐋 toujours vivant dans le scanner SMC.
 
+> **État 05/10 — FAITE et VÉRIFIÉE [TEST+DB].** Migration 0120 (DROP
+> straddle_creneaux + sentiment_historique — vérifié : zéro lecteur, la
+> « veille » servie vient de figer_veille_marche, décision 18/08) ;
+> l'écriture sentiment_historique retirée avec la table ; fetch whale →
+> axios partagé. 39 suites, release 0 warning, front vert.
+
 ### Étape 9 — Fichiers et artefacts
 
 **Actions** : purger `data/` (comparatif\*.txt, etape4\*.txt, dev.db,
@@ -290,6 +296,17 @@ WAL-checkpointé limité si besoin) ; archiver
 `backup_straddle_suppression_2026-09-28.sql.gz`.
 
 **Vérification** : `run.sh` complet vert après purge ; `git status` propre.
+
+> **État 05/10 — FAITE.** Études d'août (comparatif/etape4/passe_finale/
+> validation_spx), dev.db, CSV référence 24 Mo, A_faire.txt,
+> scripts/test.sh + backup.sh (mars) supprimés ; artefacts 15/08 dans
+> backups/ purgés ; sauvegarde straddle 28/09 ARCHIVÉE dans backups/.
+> Zéro référence dans les scripts. **Découverte : run.sh sauvegarde la
+> base à CHAQUE démarrage — 34 sauvegardes de ~2,2 Go = 71 Go
+> d'accumulation** (rétention à 30, jamais appliquée aux anciens noms
+> soulignés). Décision owner 05/10 : rétention 5 + pièces historiques
+> (corruption, secours, avant_reset) dans run.sh + purge immédiate →
+> **71 Go → 17 Go** (54 Go récupérés).
 
 ### Étape 10 — Fraîcheur des sources de prix
 
