@@ -212,6 +212,12 @@ UTC ; vérification du compte restant (les ~189 passes post-pivot).
 **Vérification** : **[DB]** `SELECT COUNT(*) FROM ml_training_samples WHERE
 strategie='straddle' AND cree_le < pivot` = 0, et total = passes post-pivot.
 
+> **État 05/10 — FAITE et VÉRIFIÉE [DB].** 101 échantillons avant-pivot
+> purgés (migration 0118, frontière 17:30 UTC — trou net de 6 h entre les
+> deux règnes). Après purge : 216 échantillons straddle = EXACTEMENT les
+> 216 signaux fermés post-pivot — collecte complète et mono-régime.
+> 39 suites, release 0 warning.
+
 ---
 
 ## PHASE 1 — HYGIÈNE ET COHÉRENCE
