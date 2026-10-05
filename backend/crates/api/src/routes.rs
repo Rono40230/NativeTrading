@@ -165,14 +165,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/ia/status",
             web::get().to(crate::ollama_handlers::statut),
         )
-        .route(
-            "/api/straddle/analyste",
-            web::get().to(crate::straddle_analyste::consulter),
-        )
-        .route(
-            "/api/straddle/analyste/rafraichir",
-            web::post().to(crate::straddle_analyste::rafraichir),
-        )
         .service(
             web::resource("/api/straddle/params")
                 .route(web::get().to(crate::strategies_params_handlers::get_straddle_params))
@@ -307,8 +299,7 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         )
         .service(
             web::resource("/api/worker/config")
-                .route(web::get().to(crate::worker_handlers::get_worker_config))
-                .route(web::put().to(crate::worker_handlers::put_worker_config)),
+                .route(web::get().to(crate::worker_handlers::get_worker_config)),
         )
         .route(
             "/api/worker/status",
@@ -377,10 +368,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/alertes-prix/{id}",
             web::delete().to(crate::alertes_prix::supprimer),
-        )
-        .route(
-            "/api/creneaux-volatilite",
-            web::get().to(crate::creneaux_job::lister),
         )
         .route(
             "/api/volatility/patterns",

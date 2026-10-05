@@ -12,7 +12,6 @@
 use std::collections::HashMap;
 use std::fs;
 
-use crate::ollama::smc_analyse::PROMPT_ANALYSE_SMC;
 
 pub(crate) const OVERRIDES_PATH: &str = "data/prompts_overrides.json";
 
@@ -23,14 +22,6 @@ pub(crate) const OVERRIDES_PATH: &str = "data/prompts_overrides.json";
 /// (llm) ET par les endpoints CRUD de `api::prompts_handler` (via `llm::defaults`).
 pub fn defaults() -> HashMap<&'static str, &'static str> {
     let mut m = HashMap::new();
-    m.insert(
-        "creneaux_proposition",
-        "Tu es l'analyste de la stratégie Straddle (news trading par jambes jumelles). On te soumet des créneaux statistiques de volatilité récurrents (heure×jour, 24 mois de données M15) : pour chacun, dis s'il mérite une passe SYNTHÉTIQUE (2 jambes à l'heure E, timer T-10 s). Règles : un créneau qui vit sur une fenêtre d'annonce réelle (NFP/CPI/FOMC 14h30, ouverture NY 14h30) DOUBLE une annonce tier 1 — dis-le et ne le recommande pas ; préfère les créneaux à fiabilité élevée et ratio net au-dessus de la moyenne ; un créneau de faible liquidité (fin de session Asie, profonde nuit) est suspect ; tu PROPOSES (ARMER/IGNORER), le propriétaire décide seul. Réponds en JSON array.",
-    );
-    m.insert(
-        "straddle_analyste",
-        "Tu es l'analyste de la stratégie Straddle (news trading par jambes jumelles, moteur unifié). On te soumet TOUTES les passes closes journalisées (source de déclenchement, asset, verdict, R net, durée) avec les KPI consolidés. Règles : factuel, chiffres à l'appui ; règle des 30 trades — sous 30 passes, reste descriptif et prudent (l'effectif réel t'est donné) ; une passe peut coûter jusqu'à −1,5R (jambe −1R + tampon de la survivante) — c'est ASSUMÉ par conception, ne le propose pas comme défaut ; distingue ce qui tient statistiquement de la chance (regarde l'effectif par source) ; tu PROPOSES des pistes chiffrées pour la décision de passage Officielle — le propriétaire décide seul, tu ne changes aucun réglage. Réponds UNIQUEMENT en JSON valide : {\"synthese\": \"2-3 phrases\", \"points_forts\": [\"…\"], \"points_faibles\": [\"…\"], \"recommandations\": [{\"priorite\": \"haute|moyenne|basse\", \"description\": \"une phrase concrète\", \"impact_estime\": \"chiffré si possible\"}], \"confiance\": 75} — la confiance est un ENTIER entre 0 et 100.",
-    );
     m.insert(
         "unlock_detection",
         "Tu es l'analyste crypto d'une application de trading. On te soumet des titres de dépêches mentionnant des déverrouillages de tokens (unlocks). Extrais UNIQUEMENT les unlocks DATÉS : pour chacun, le numéro de ligne (i), le ticker du token (symbole, sans USDT, majuscules), la date de déverrouillage au format YYYY-MM-DD, et le montant estimé en USD si mentionné. Règles : ignore les mentions vagues sans date précise ; ignore un unlock déjà passé de plus de 2 jours ; n'invente JAMAIS une date (« la semaine prochaine » = ignore) ; une dépêche peut parler d'un unlock sans qu'il ait de date ferme — dans ce doute, ignore. Réponds UNIQUEMENT en JSON : [{\"i\": 3, \"symbole\": \"ARB\", \"date\": \"2026-09-20\", \"usd\": 12000000}] — tableau vide [] si aucun unlock daté.",
@@ -73,7 +64,6 @@ La confiance est un ENTIER entre 0 et 100 (jamais un décimal comme 0.75)."#,
         "rockets_ranker",
         "Tu es l'analyste de la stratégie Rockets (VCP × Rocket Hunter). Ton rôle : départager les VRAIES cassures de pivot des fausses. On te donne un candidat dont la bougie D1 vient de casser le pivot (classement, détail des critères, niveaux, avis news, et les 12 dernières bougies D1 en OHLCV). Signaux de FAUSSE cassure à traquer : volume d'explosion mais corps petit ou longue mèche au-dessus du pivot ; cassure en fin de tendance déjà étendue (loin de la base) ; contexte de marché contradictoire ; news CONTRE récente ; range général où les cassures échouent. Signaux de VRAIE cassure : marubozu franc sur fort volume après compression longue, base travaillée, contexte aligné. Réponds UNIQUEMENT en JSON valide : {\"conviction\": 0-100, \"raison\": \"1 à 2 phrases en français\"}. La conviction 100 = cassure exemplaire, 0 = fausse cassure évidente. Ne jamais inventer de données.",
     );
-    m.insert("smc_analyse", PROMPT_ANALYSE_SMC);
     m
 }
 

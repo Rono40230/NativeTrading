@@ -6,26 +6,15 @@
 //! redémarrage n'est nécessaire.
 
 use actix_web::{web, HttpResponse, Responder};
-use common::Timeframe;
 use data::worker_config;
 use data::worker_status;
-use serde::Deserialize;
-
 use crate::state::AppState;
 
-/// Corps accepté par `PUT /api/worker/config` — tous les champs sont
-/// optionnels : seules les clés présentes sont mises à jour.
-#[derive(Deserialize)]
-pub struct MiseAJourWorkerConfig {
-    /// Timeframes communs aux workers (ex: ["M5","H1"]).
-    pub timeframes: Option<Vec<String>>,
-    /// Profondeur d'historique en mois (bornée 1..=24).
-    pub historique_mois: Option<i64>,
-    /// Interrupteur du worker Bybit WS.
-    pub actif_bybit: Option<bool>,
-}
+// ─── GET /api/worker/config ───────────────────────────────────────────────────
 
-/// Snapshot JSON de la config worker courante.
+/// Snapshot JSON de la config worker courante (lecture seule — le PUT a été
+/// retiré le 05/10, étape 7 : la config de collecte est stable et se gère
+/// en base).
 async fn config_courante(db: &std::sync::Arc<db::Database>) -> serde_json::Value {
     let timeframes = worker_config::lire_timeframes(db).await;
     serde_json::json!({
@@ -35,86 +24,10 @@ async fn config_courante(db: &std::sync::Arc<db::Database>) -> serde_json::Value
     })
 }
 
-// ─── GET /api/worker/config ───────────────────────────────────────────────────
-
 pub async fn get_worker_config(state: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(config_courante(&state.db).await)
 }
 
-// ─── PUT /api/worker/config ───────────────────────────────────────────────────
-
-pub async fn put_worker_config(
-    state: web::Data<AppState>,
-    body: web::Json<MiseAJourWorkerConfig>,
-) -> impl Responder {
-    // Timeframes : validation stricte — une valeur inconnue est rejetée en
-    // bloc (400) plutôt que silencieusement ignorée.
-    if let Some(tfs_bruts) = &body.timeframes {
-        let mut tfs = Vec::with_capacity(tfs_bruts.len());
-        for tf_str in tfs_bruts {
-            match Timeframe::try_from(tf_str.as_str()) {
-                Ok(tf) => tfs.push(tf),
-                Err(_) => {
-                    return HttpResponse::BadRequest().json(serde_json::json!({
-                        "erreur": format!("Timeframe inconnu: {}", tf_str)
-                    }));
-                }
-            }
-        }
-        if tfs.is_empty() {
-            return HttpResponse::BadRequest()
-                .json(serde_json::json!({ "erreur": "Au moins un timeframe est requis" }));
-        }
-        if let Err(e) = state
-            .db
-            .ecrire_config(
-                worker_config::CLE_TIMEFRAMES,
-                &worker_config::serialise_timeframes(&tfs),
-            )
-            .await
-        {
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "erreur": e.to_string() }));
-        }
-        tracing::info!("Config worker mise à jour: timeframes = {:?}", tfs_bruts);
-    }
-
-    // Historique : borné 1..=24 mois (quota providers + taille des requêtes).
-    if let Some(mois) = body.historique_mois {
-        let borne = mois.clamp(1, 24);
-        if let Err(e) = state
-            .db
-            .ecrire_config(worker_config::CLE_HISTORIQUE_MOIS, &borne.to_string())
-            .await
-        {
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "erreur": e.to_string() }));
-        }
-        tracing::info!("Config worker mise à jour: historique_mois = {}", borne);
-    }
-
-    // Interrupteur Bybit ("1"/"0" en DB).
-    for (flag, cle, label) in [(
-        body.actif_bybit,
-        worker_config::CLE_ACTIF_BYBIT,
-        "bybit",
-    )] {
-        if let Some(valeur) = flag {
-            if let Err(e) = state
-                .db
-                .ecrire_config(cle, if valeur { "1" } else { "0" })
-                .await
-            {
-                return HttpResponse::InternalServerError()
-                    .json(serde_json::json!({ "erreur": e.to_string() }));
-            }
-            tracing::info!("Config worker mise à jour: actif_{} = {}", label, valeur);
-        }
-    }
-
-    // Réponse = config effective après écriture (les bornes sont visibles).
-    HttpResponse::Ok().json(config_courante(&state.db).await)
-}
 
 // ─── GET /api/worker/status ───────────────────────────────────────────────────
 

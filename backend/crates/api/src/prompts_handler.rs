@@ -40,16 +40,13 @@ pub async fn lister_prompts() -> impl Responder {
         },
         "smc": {
             "definition": p("smc_definition", "Définition", "Ancre l'analyste dans la logique SMC v12 — injectée en tête de chaque analyse.", "Toute analyse SMC (injectée automatiquement)"),
-            "analyse_strategique":p("smc_analyse", "Analyse stratégique", "Analyse la performance globale des trades SMC clôturés (moteur v12, verdicts TP/SL/Expire).", "Bouton 📊 Analyse (page Signaux SMC)")
         },
         "straddle": {
             "definition": p("straddle_definition", "Définition (dérivée)", "Ancre le LLM dans la logique news-trading. Dérivé de la page Définition.", "Toute analyse straddle"),
-            "analyste_passes":p("straddle_analyste", "Analyste des passes", "Lit les passes closes journalisées (source, asset, verdict, R net, durée) et explique ce qui marche / coince — propositions chiffrées pour la décision de passage Officielle.", "Modale Analyse → onglet 🤖 Analyste (à la demande)")
         },
         "outils_ia": {
             "conviction_signal":p("conviction_signal","Conviction à l'émission","Note chaque signal officiel a priori (0-100 + raison) — remplit la colonne IA des tableaux. Observation d'abord : aucun filtrage, corrélation sur preuve après ≥ 30 trades notés.","À chaque signal émis (arrière-plan)"),
             "unlock_detection":p("unlock_detection","Détection unlocks (véto rockets)","Extrait des dépêches les déverrouillages de tokens DATÉS (symbole, date, USD) — alimente le véto éliminatoire du scanner (< N jours).","Quotidien (arrière-plan)"),
-            "creneaux_proposition":p("creneaux_proposition","Créneaux straddle (agenda IA)","Note les créneaux statistiques récurrents : ARMER/IGNORER + conviction — le propriétaire arme seul.","Quotidien 4h (arrière-plan) + bouton Recalculer"),
             "analyse_rapport":p("analyse_rapport","Analyse des rapports d'activité", "Consigne de l'analyste du Rapport d'activité : lit les métriques $/R consolidées et répond en JSON structuré (état, points forts/faibles, pistes, confiance). L'effectif vs règle des 30 trades est injecté dynamiquement dans le contexte, pas ici.", "📊 Rapport d'activité → bouton Générer (cache du jour)")
         }
     }))

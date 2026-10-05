@@ -8,7 +8,6 @@ mod analyses_smc;
 mod asset_params_handlers;
 mod alertes_prix;
 mod creneaux_perimetre;
-mod creneaux_job;
 mod evenements;
 mod sante_moteurs;
 mod evenements_matrice;
@@ -60,7 +59,6 @@ mod sentiment_filter;
 mod sentiment_handlers;
 mod signaux_handlers;
 mod straddle_agenda;
-mod straddle_analyste;
 mod straddle_atr;
 mod rockets_actions_backfill;
 mod rockets_actions_news;
@@ -205,7 +203,6 @@ async fn main() -> std::io::Result<()> {
         });
     }
     tokio::spawn(rockets_unlocks::boucle(app_state.db.clone()));
-    tokio::spawn(straddle_analyste::assurer_cache(app_state.db.clone()));
     // Tâche 6.4 audit : notation LLM des articles restés à 0 (backlog au
     // boot puis balayage toutes les 6 h) — scores bornés à 1 pour ne jamais
     // re-boucler sur un article déjà noté.

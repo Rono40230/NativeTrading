@@ -128,7 +128,6 @@ impl AppState {
         crate::pip_updater::demarrer_pip_updater(db.clone());
 
         // Créneaux de volatilité par asset (boot + cycle 24h — dashboard)
-        crate::creneaux_job::demarrer(db.clone());
 
         Ok(Self {
             db,

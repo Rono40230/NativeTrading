@@ -1,7 +1,6 @@
 mod client;
 pub use client::appeler_ollama;
 pub mod prompts;
-pub mod smc_analyse;
 mod types;
 
 use common::TradingError;

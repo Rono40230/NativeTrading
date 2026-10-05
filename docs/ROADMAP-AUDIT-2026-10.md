@@ -259,6 +259,19 @@ zéro référence aux symboles supprimés.
 **Vérification** : **[APP]** chaque route restante est appelable depuis
 l'UI ; grep final routes ↔ appels sans orphelin des deux côtés.
 
+> **État 05/10 — FAITE et VÉRIFIÉE [TEST].** Décisions propriétaire :
+> runtime ×5 gardé ; PUT worker/config supprimé (5a, lecture seule) ;
+> smc_analyse supprimé (doublon pré-fusion du générique /api/analyses/
+> {strategie}/ia — le bouton « Analyse » des graphiques appelle
+> /api/smc/v12/analyse, technique, indépendant) ; analyste straddle
+> dédié supprimé (décision déléguée : doublon stratégique sans
+> consommateur, git le conserve) ; chaîne creneaux-volatilite complète
+> supprimée (endpoint + job + module + spawn + table, migration 0119) +
+> prompt creneaux_proposition orphelin depuis la phase 3. Découverte :
+> l'analyse IA par stratégie EXISTE déjà (Rapport d'activité, onglet par
+> stratégie, testée en direct sur les 4). 39 suites, release 0 warning,
+> grep 0 orphelin.
+
 ### Étape 8 — Tables mortes + incohérence fetch
 
 **Actions** : migration 0116 — `DROP TABLE straddle_creneaux`,
