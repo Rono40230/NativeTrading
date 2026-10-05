@@ -190,6 +190,16 @@ redémarrage.
 **Vérification** : **[APP]** la carte affiche KDJ en rouge le jour même
 (preuve immédiate que la détection fonctionne), SMC/straddle en vert.
 
+> **État 05/10 — POSÉE, en attente de vérification owner.** Endpoint
+> `/api/sante/moteurs` (armée, jours de silence, signaux 7 j, seuil,
+> alerte — une stratégie armée muette au-delà de son seuil, ou depuis
+> toujours, passe en rouge) + ligne « Moteurs » dans la fenêtre Données
+> du pedestal (rafraîchie au chargement). Seuils : SMC 3 j, straddle 2 j,
+> rockets 15 j, KDJ 30 j. Test dédié sur base mémoire (silence, seuils,
+> jamais-alerte si désarmée). 39 suites, release 0 warning, front vert.
+> L'état fin des boucles (dernier passage scanner/collecte) est différé
+> à la page santé complète (P2).
+
 ### Étape 5 — ML straddle : purger l'avant-pivot
 
 **Constat** : `ml_training_samples` contient 290 échantillons straddle dont

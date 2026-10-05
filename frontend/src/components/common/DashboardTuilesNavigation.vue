@@ -91,6 +91,13 @@
             <p class="text-white/85" title="Bougies de comblement (nuits, week-ends, pannes) récupérées sur l'API REST Binance — source distincte du flux temps réel Bybit.">Comblement (Binance) : <span class="font-bold text-rose-200/90">{{ donnees.comblement }}</span></p>
             <p class="text-white">Actions US : <span class="font-bold text-rose-200">{{ donnees.actionsTotal }} actions suivies.</span> <span class="font-bold text-rose-200">{{ donnees.actionsAJour }}</span> à jour</p>
             <p class="text-white">Presse : <span class="font-bold text-rose-200">{{ donnees.presseTotal }}</span> articles notés en base. <span class="font-bold text-rose-200">{{ donnees.presse24h }}</span> ces dernières 24h</p>
+            <p class="text-white" title="Jours depuis le dernier signal émis par chaque moteur armé — la leçon KDJ : une stratégie muette doit se VOIR (étape 4 roadmap audit).">
+              Moteurs :
+              <span v-for="(m, i) in moteursSante" :key="m.strategie">
+                <span class="font-bold" :class="m.alerte ? 'text-red-300' : 'text-rose-200'">{{ nomCourt(m.strategie) }} {{ m.jours_silence === null ? 'jamais' : `${m.jours_silence} j` }}{{ m.alerte ? ' 🔴' : '' }}</span>
+                <span v-if="i < moteursSante.length - 1" class="text-white/40"> · </span>
+              </span>
+            </p>
           </div>
         </div>
       </template>
@@ -211,6 +218,29 @@ const appelsIA = ref<number | null>(null)
 const ollamaOk = ref<boolean | null>(null)
 
 // ── Données : volumétrie des collections (la soute) ─────────────────────────
+interface MoteurSante {
+  strategie: string
+  armee: boolean
+  detail_armement: string
+  jours_silence: number | null
+  signaux_7j: number
+  seuil_alerte_jours: number
+  alerte: boolean
+}
+const moteursSante = ref<MoteurSante[]>([])
+
+function nomCourt(strategie: string): string {
+  if (strategie === 'kdj_halftrend') return 'KDJ'
+  return strategie.charAt(0).toUpperCase() + strategie.slice(1)
+}
+
+async function chargerSanteMoteurs() {
+  try {
+    const r = await http.get<{ moteurs: MoteurSante[] }>('/api/sante/moteurs')
+    moteursSante.value = r.data.moteurs ?? []
+  } catch { moteursSante.value = [] }
+}
+
 const donnees = ref<{
   bybitSymboles: number; bybit: string
   eaSymboles: number; ea: string
@@ -319,6 +349,7 @@ async function chargerTout() {
 let poll: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
   void chargerTout()
+  void chargerSanteMoteurs()
   poll = setInterval(chargerTout, 60_000)
 })
 onUnmounted(() => { if (poll !== null) clearInterval(poll) })
