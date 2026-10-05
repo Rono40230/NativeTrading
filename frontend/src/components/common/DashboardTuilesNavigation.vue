@@ -86,6 +86,14 @@
         <div class="relative rounded bg-black/30 px-1.5 py-1 min-h-0 flex-1 overflow-hidden">
           <FondTheme theme="donnees" />
           <div class="relative flex flex-col gap-1 text-[13px] leading-snug">
+            <p class="text-white" title="Fraîcheur des sources de prix : minutes depuis la dernière bougie M1 — un flux continu de plus de 5 min passe en rouge. Le comblement Binance n'écrit que lors d'un trou (nuits, pannes) : son âge = temps depuis le dernier trou comblé, informatif.">
+              Sources :
+              <span v-for="(src, i) in sourcesPrix" :key="src.source">
+                <span v-if="src.episodique" class="text-white/60">Binance · comblement (dernier trou il y a {{ fmtAge(src.age_min) }})</span>
+                <span v-else class="font-bold" :class="src.vivante ? 'text-rose-200' : 'text-red-300'">{{ nomSource(src.source) }} {{ src.vivante ? '✓' : `${src.age_min} min 🔴` }}</span>
+                <span v-if="i < sourcesPrix.length - 1" class="text-white/40"> · </span>
+              </span>
+            </p>
             <p class="text-white">Bybit : <span class="font-bold text-rose-200">{{ donnees.bybitSymboles }} symboles suivis.</span> <span class="font-bold text-rose-200">{{ donnees.bybit }}</span> aujourd'hui</p>
             <p class="text-white">EA Axi : <span class="font-bold text-rose-200">{{ donnees.eaSymboles }} symboles suivis.</span> <span class="font-bold text-rose-200">{{ donnees.ea }}</span> aujourd'hui</p>
             <p class="text-white/85" title="Bougies de comblement (nuits, week-ends, pannes) récupérées sur l'API REST Binance — source distincte du flux temps réel Bybit.">Comblement (Binance) : <span class="font-bold text-rose-200/90">{{ donnees.comblement }}</span></p>
@@ -218,6 +226,34 @@ const appelsIA = ref<number | null>(null)
 const ollamaOk = ref<boolean | null>(null)
 
 // ── Données : volumétrie des collections (la soute) ─────────────────────────
+interface SourcePrix {
+  source: string
+  actifs: number
+  age_min: number
+  episodique: boolean
+  vivante: boolean
+}
+
+function fmtAge(min: number): string {
+  if (min < 60) return `${min} min`
+  if (min < 1440) return `${Math.round(min / 60)} h`
+  return `${Math.round(min / 1440)} j`
+}
+const sourcesPrix = ref<SourcePrix[]>([])
+
+function nomSource(source: string): string {
+  if (source === 'bybit_ws') return 'Bybit'
+  if (source === 'mt5') return 'MT5'
+  return source.charAt(0).toUpperCase() + source.slice(1)
+}
+
+async function chargerSanteSources() {
+  try {
+    const r = await http.get<{ sources: SourcePrix[] }>('/api/sante/sources')
+    sourcesPrix.value = r.data.sources ?? []
+  } catch { sourcesPrix.value = [] }
+}
+
 interface MoteurSante {
   strategie: string
   armee: boolean
@@ -350,6 +386,7 @@ let poll: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
   void chargerTout()
   void chargerSanteMoteurs()
+  void chargerSanteSources()
   poll = setInterval(chargerTout, 60_000)
 })
 onUnmounted(() => { if (poll !== null) clearInterval(poll) })

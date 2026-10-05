@@ -318,6 +318,18 @@ Binance → Bybit (les 11 actifs binance en retard de ~20 min).
 **Vérification** : **[APP]** la carte reflète le retard Binance en direct ;
 après unification, plus qu'une source crypto, fraîche.
 
+> **État 05/10 — POSÉE, en attente de vérification owner.** GET
+> /api/sante/sources (fraîcheur M1 par source vivante, seuil 5 min) +
+> ligne « Sources » dans la fenêtre Données. Mesure du jour : MT5 ✓ 2 min,
+> Bybit ✓ 2 min, **Binance morte depuis 11 h** — et vérifié : ses 11
+> actifs sont TOUS couverts par Bybit — puis CORRECTION après vérification
+> owner : binance n'est PAS un flux mais le COMBLEMENT de trous (décision
+> 15/08, n'écrit qu'au montage d'un couple quand un trou existe). Son âge
+> = temps depuis le dernier trou comblé, pas une santé : la carte le
+> montre en informatif (« comblement, dernier trou il y a X h »), seuls
+> les flux continus (MT5, Bybit) alertent en rouge à 5 min. NE PAS
+> supprimer — fonction vivante.
+
 ### Étape 11 — Stats ML branchées sur les vraies données
 
 **Actions** : les statistiques feedback (`/api/ml/feedback/stats`,
@@ -327,6 +339,15 @@ feedback depuis les clôtures (une des deux, pas les deux).
 
 **Vérification** : **[APP]** monitoring-ML affiche des chiffres non nuls
 cohérents avec les signaux fermés.
+
+> **État 05/10 — CORRIGÉE, en attente de vérification owner.** Constat
+> affiné : les globales SMC lisaient DÉJÀ ml_training_samples (438
+> trades réels) ; rockets/straddle renvoyaient null — SQL cassé
+> silencieux depuis septembre (colonnes gagnant/pnl_r inexistantes).
+> Alignées sur le patron SMC (rr_realise) + test de régression dédié
+> (exclusion expire/invalide, WR, R moyen). Les ventilations par score/
+> kill zone restent vides (tables sans écrivain — vides honnêtes, pas
+> de fiction).
 
 ---
 
