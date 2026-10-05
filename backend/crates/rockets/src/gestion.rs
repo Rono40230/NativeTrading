@@ -48,6 +48,9 @@ pub enum VerdictRocket {
     Ts,
     /// Sortie sur trailing SANS neutralisation préalable (cas bord).
     TsSec,
+    /// Stagnation : N jours sans R1 — clôture au prix courant (étape 3
+    /// roadmap audit 05/10 : une rocket qui ne décolle pas rend le capital).
+    Stagnation,
 }
 
 /// Action produite par un pas de gestion sur une bougie D1 close.
@@ -61,8 +64,10 @@ pub enum ActionRocket {
 }
 
 /// Un pas de gestion sur bougie D1 confirmée (high/low/close du jour).
-/// Ordre journal : invalidation d'abord, puis R1, puis trailing.
-pub fn pas_gestion(p: &mut PositionRocket, high: f64, low: f64, close: f64, params: &ParamsRockets) -> ActionRocket {
+/// Ordre journal : invalidation d'abord, puis R1, puis trailing, puis
+/// stagnation (une position neutralisée vit son trailing, jamais coupée
+/// pour stagnation).
+pub fn pas_gestion(p: &mut PositionRocket, high: f64, low: f64, close: f64, age_jours: i64, params: &ParamsRockets) -> ActionRocket {
     let risque = p.risque();
 
     // 1. Invalidation (le stop initial tant qu'on n'est pas neutralisé).
@@ -98,6 +103,13 @@ pub fn pas_gestion(p: &mut PositionRocket, high: f64, low: f64, close: f64, para
         }
     }
 
+    // 4. Stagnation : pas décollée depuis N jours — clôture au prix
+    // courant, R latent capté tel quel (owner 05/10, étape 3).
+    if !p.neutralise && age_jours > params.stagnation_max_jours {
+        let r = (close - p.entree) / risque;
+        return ActionRocket::Cloturer { prix: close, verdict: VerdictRocket::Stagnation, r_realise: r };
+    }
+
     ActionRocket::Rien
 }
 
@@ -118,7 +130,7 @@ mod tests {
     #[test]
     fn invalidation_avant_r1_moins_1r() {
         let mut p = position();
-        let a = pas_gestion(&mut p, 99.0, 91.5, 93.0, &params());
+        let a = pas_gestion(&mut p, 99.0, 91.5, 93.0, 0, &params());
         match a {
             ActionRocket::Cloturer { verdict, r_realise, prix } => {
                 assert_eq!(verdict, VerdictRocket::Sl);
@@ -133,7 +145,7 @@ mod tests {
     fn r1_neutralise_puis_trailing_sort() {
         let mut p = position();
         // Jour 1 : R1 touché (high 110), close 108 → trailing = 108×0,95.
-        let a = pas_gestion(&mut p, 110.0, 105.0, 108.0, &params());
+        let a = pas_gestion(&mut p, 110.0, 105.0, 108.0, 0, &params());
         match &a {
             ActionRocket::Neutraliser { prix, trailing } => {
                 assert!((prix - 108.0).abs() < 1e-9);
@@ -143,11 +155,11 @@ mod tests {
         }
         assert!(p.neutralise);
         // Jour 2 : nouveau plus haut 115, close 114 → trailing remonte.
-        pas_gestion(&mut p, 115.0, 110.0, 114.0, &params());
+        pas_gestion(&mut p, 115.0, 110.0, 114.0, 0, &params());
         assert!((p.trailing.unwrap_or(0.0) - 114.0 * 0.95).abs() < 1e-9, "jamais vers l'arrière");
         // Jour 3 : chute sous le trailing (108,3) → sortie mixte.
         let t = p.trailing.unwrap_or(0.0);
-        let a = pas_gestion(&mut p, 112.0, t - 1.0, 110.0, &params());
+        let a = pas_gestion(&mut p, 112.0, t - 1.0, 110.0, 0, &params());
         match a {
             ActionRocket::Cloturer { verdict: VerdictRocket::Ts, r_realise, .. } => {
                 let attendu = 0.5 + 0.5 * (t - 100.0) / 8.0;
@@ -160,9 +172,44 @@ mod tests {
     #[test]
     fn trailing_ne_descend_jamais() {
         let mut p = position();
-        pas_gestion(&mut p, 110.0, 105.0, 108.0, &params()); // neutralise, T=102,6
+        pas_gestion(&mut p, 110.0, 105.0, 108.0, 0, &params()); // neutralise, T=102,6
         let t_avant = p.trailing.unwrap_or(0.0);
-        pas_gestion(&mut p, 107.0, 103.0, 104.0, &params()); // baisse
+        pas_gestion(&mut p, 107.0, 103.0, 104.0, 0, &params()); // baisse
         assert!(p.trailing.unwrap_or(0.0) >= t_avant, "le trailing ne recule pas");
     }
+
+/// Étape 3 (roadmap audit 05/10) : une position qui n'atteint jamais R1 ne
+/// sortait QUE sur invalidation −1R — positions dormantes de 13 jours. Au-delà
+/// de N jours sans décoller : clôture au prix courant, verdict STAG, R latent
+/// capté. Une position neutralisée (R1 touché) vit son trailing : jamais
+/// coupée pour stagnation.
+#[test]
+fn stagnation_referme_la_position_sans_r1_apres_n_jours() {
+    let params = ParamsRockets { stagnation_max_jours: 10, ..params() };
+    let mut p = PositionRocket::nouvelle("TEST", 100.0, 90.0);
+
+    // 10 jours, pas décollé : toujours vivante (strictement > max).
+    match pas_gestion(&mut p, 105.0, 99.0, 103.0, 10, &params) {
+        ActionRocket::Rien => {}
+        _ => panic!("à 10 jours pile, la position vit encore"),
+    }
+
+    // 11 jours : clôture au close, R latent capté.
+    match pas_gestion(&mut p, 105.0, 99.0, 103.0, 11, &params) {
+        ActionRocket::Cloturer { prix, verdict, r_realise } => {
+            assert_eq!(verdict, VerdictRocket::Stagnation);
+            assert!((prix - 103.0).abs() < 1e-9, "sortie au prix courant");
+            assert!((r_realise - 0.3).abs() < 1e-9, "R latent +0.3 (103 vs entrée 100, risque 10)");
+        }
+        _ => panic!("stagnation attendue à 11 jours"),
+    }
+
+    // Neutralisée (R1 touché) : jamais coupée pour stagnation, même vieille.
+    let mut vielle = PositionRocket::nouvelle("TEST2", 100.0, 90.0);
+    let _ = pas_gestion(&mut vielle, 111.0, 99.0, 108.0, 0, &params); // R1 → neutralise
+    match pas_gestion(&mut vielle, 107.0, 103.0, 105.0, 40, &params) {
+        ActionRocket::Rien => {} // trailing remonte, pas de clôture
+        other => panic!("position neutralisée coupée à tort : {other:?}"),
+    }
+}
 }

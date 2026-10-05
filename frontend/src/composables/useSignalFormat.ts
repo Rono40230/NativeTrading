@@ -4,7 +4,7 @@ function classeVerdictSignal(verdict: string | null): string {
   if (v === 'tp1') return 'badge-blue'
   if (v === 'be') return 'badge-gray'
   if (v === 'sl') return 'badge-red'
-  if (v === 'invalide') return 'badge-orange'
+  if (v === 'stag' || v === 'invalide') return 'badge-orange'
   if (v === 'expire') return 'badge-gray'
   return 'badge-yellow'
 }
@@ -20,6 +20,7 @@ function labelVerdictSignal(verdict: string | null): string {
   if (v === 'tp1') return '✅ TP1 (SL→BE)'
   if (v === 'be')  return '⚪ BE (dégradation zone) — 0R'
   if (v === 'sl')  return '❌ SL'
+  if (v === 'stag') return '⏹ Stagnation — clôturée au prix courant'
   if (v === 'invalide') return '↩️ Entrée non atteinte'
   if (v === 'expire') return '⏰ Expiré'
   return '⏳ En cours'

@@ -21,7 +21,6 @@ use db::Database;
 use common::Direction;
 use engine::types::SignalBrut;
 use engine::BusSignaux;
-use rockets::gestion::{pas_gestion, PositionRocket};
 use rockets::types::{ParamsRockets, ProfilRisque};
 use rockets::{classement_rocket, BougieD1, ContexteMarche};
 use sqlx::Row;
@@ -31,13 +30,13 @@ const MOTEUR: &str = "rockets";
 
 pub fn demarrer(db: Arc<Database>, bus: BusSignaux) {
     tokio::spawn(boucle_scan(db.clone(), bus));
-    tokio::spawn(boucle_gestion(db));
+    tokio::spawn(crate::rockets_gestion::boucle_gestion(db));
 }
 
 // ── Paramètres (table rockets_params, carte Paramètres › Rockets) ───────────
 
 pub async fn lire_params(db: &Database) -> ParamsRockets {
-    let row = sqlx::query("SELECT profil, plafond_position_pct, trailing_pct, volume_pivot_mult, cassure_min_pct, conviction_min FROM rockets_params WHERE id = 1")
+    let row = sqlx::query("SELECT profil, plafond_position_pct, trailing_pct, volume_pivot_mult, cassure_min_pct, conviction_min, stagnation_max_jours FROM rockets_params WHERE id = 1")
         .fetch_optional(db.pool())
         .await
         .ok()
@@ -58,6 +57,7 @@ pub async fn lire_params(db: &Database) -> ParamsRockets {
         volume_pivot_mult: row.as_ref().and_then(|r| r.try_get("volume_pivot_mult").ok()).unwrap_or(1.5),
         cassure_min_pct: row.as_ref().and_then(|r| r.try_get("cassure_min_pct").ok()).unwrap_or(3.0),
         conviction_min: row.as_ref().and_then(|r| r.try_get("conviction_min").ok()).unwrap_or(40),
+            stagnation_max_jours: row.as_ref().and_then(|r| r.try_get::<i64, _>("stagnation_max_jours").ok()).unwrap_or(10),
     }
 }
 
@@ -392,128 +392,6 @@ pub async fn ouvrir_position(
     false
 }
 
-// ── Gestion des positions ouvertes ─────────────────────────────────────────
-
-/// Bougie « en cours » évaluée par la gestion : high/low/dernier, quelle que
-/// soit la source (bougie D1 Binance en formation, ou séance du jour Yahoo).
-struct BougieBoulee {
-    high: f64,
-    low: f64,
-    close: f64,
-}
-
-async fn boucle_gestion(db: Arc<Database>) {
-    // Recadrage propriétaire 06/09 : la gestion vit en CONTINU (cycle 30 s)
-    // — ne pas attendre la clôture D1, sinon une redescente après R1
-    // transformerait l'occasion en perte. Neutralisation dès que R1 est
-    // touché, trailing déclenché alors, sorties au niveau touché.
-    tracing::info!("🚀 Rockets gestion armée (30 s — live, décision 06/09)");
-    loop {
-        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-        gerer_positions(&db).await;
-    }
-}
-
-async fn gerer_positions(db: &Arc<Database>) {
-    let params = lire_params(db).await;
-    let lignes = match sqlx::query(
-        "SELECT cle, symbole, entree, stop, r1, neutralise, trailing, sommet FROM rockets_positions WHERE fermee = 0",
-    )
-    .fetch_all(db.pool())
-    .await
-    {
-        Ok(l) => l,
-        Err(_) => return,
-    };
-    // Cours live des positions ACTIONS via Yahoo (décision 06/09 — même
-    // source que le Journal de Trading) : la « bougie du jour » (haut/bas/
-    // dernier) joue le rôle de la bougie D1 en cours des cryptos.
-    let tickers_actions: Vec<String> = lignes
-        .iter()
-        .filter_map(|l| {
-            let s: String = l.get("symbole");
-            (!s.ends_with("USDT")).then_some(s)
-        })
-        .collect();
-    let quotes_yahoo = crate::yahoo_quotes::quotes(&tickers_actions).await;
-
-    for l in lignes {
-        let cle: String = l.get("cle");
-        let symbole: String = l.get("symbole");
-        let mut p = PositionRocket {
-            symbole: symbole.clone(),
-            entree: l.get("entree"),
-            stop: l.get("stop"),
-            r1: l.get("r1"),
-            neutralise: l.get::<i64, _>("neutralise") != 0,
-            trailing: l.try_get::<Option<f64>, _>("trailing").ok().flatten(),
-        };
-        // Bougie évaluée = le LIVE (décision 06/09 : « dès que R1 atteint =
-        // neutralisation et TS », ne pas attendre la clôture). Crypto →
-        // bougie D1 en cours Binance ; action → la séance du jour Yahoo
-        // (haut/bas du jour, dernier prix). Hors session US, le « dernier »
-        // est la clôture (ou le post-market) : la gestion reprend au
-        // prochain cours. Précédence conservatrice inchangée (stop avant
-        // R1, comme la SMC/Pine).
-        let (high, low, close) = if symbole.ends_with("USDT") {
-            let bougies = klines_d1(&symbole, 2).await;
-            let Some(b) = bougies.last() else { continue };
-            (b.high, b.low, b.close)
-        } else {
-            let Some(q) = quotes_yahoo.get(&symbole) else {
-                tracing::warn!("🚀 Rockets {} : cours Yahoo indisponible — position non évaluée ce cycle", symbole);
-                continue;
-            };
-            (q.haut_jour, q.bas_jour, q.prix)
-        };
-        let b = BougieBoulee { high, low, close };
-        // Sommet de vie du trade (affichage de l'historique — aucune règle
-        // ne le consomme) : le high de la bougie en cours, jamais vers le bas.
-        let _ = sqlx::query(
-            "UPDATE rockets_positions SET sommet = MAX(COALESCE(sommet, ?), ?) WHERE cle = ?",
-        )
-        .bind(b.high)
-        .bind(b.high)
-        .bind(&cle)
-        .execute(db.pool())
-        .await;
-        match pas_gestion(&mut p, b.high, b.low, b.close, &params) {
-            rockets::gestion::ActionRocket::Rien => {
-                let _ = sqlx::query("UPDATE rockets_positions SET neutralise = ?, trailing = ? WHERE cle = ?")
-                    .bind(p.neutralise as i64)
-                    .bind(p.trailing)
-                    .bind(&cle)
-                    .execute(db.pool())
-                    .await;
-            }
-            rockets::gestion::ActionRocket::Neutraliser { prix, trailing } => {
-                let _ = sqlx::query("UPDATE rockets_positions SET neutralise = 1, trailing = ?, prix_r1 = ? WHERE cle = ?")
-                    .bind(trailing)
-                    .bind(prix)
-                    .bind(&cle)
-                    .execute(db.pool())
-                    .await;
-                tracing::info!("🚀 Rockets {} : R1 atteint — 50 % vendus, trailing {:.4}", symbole, trailing);
-            }
-            rockets::gestion::ActionRocket::Cloturer { prix, verdict, r_realise } => {
-                let verdict_str = match verdict {
-                    rockets::gestion::VerdictRocket::Sl => "SL",
-                    _ => "TS",
-                };
-                let _ = sqlx::query("UPDATE rockets_positions SET fermee = 1, verdict = ?, r_realise = ?, prix_sortie = ? WHERE cle = ?")
-                    .bind(verdict_str)
-                    .bind(r_realise)
-                    .bind(prix)
-                    .bind(&cle)
-                    .execute(db.pool())
-                    .await;
-                let _ = db.fermer_signal_par_cle(&cle, &symbole, verdict_str, prix, r_realise, chrono::Utc::now().timestamp()).await;
-                tracing::info!("🚀 Rockets {} : {} ({:.2} R)", symbole, verdict_str, r_realise);
-            }
-        }
-    }
-}
-
 // ── API : candidats du scanner (page Scanner + vérification) ────────────────
 
 /// GET /api/rockets/candidats — candidats classés (≥ 5 points), du mieux
@@ -571,6 +449,7 @@ pub struct BodyParamsRockets {
     pub volume_pivot_mult: Option<f64>,
     pub cassure_min_pct: Option<f64>,
     pub conviction_min: Option<i64>,
+    pub stagnation_max_jours: Option<i64>,
 }
 
 /// PUT /api/rockets/params — profil de risque, plafond, trailing, seuils.
@@ -582,7 +461,7 @@ pub async fn maj_params(state: actix_web::web::Data<crate::state::AppState>, bod
             .json(serde_json::json!({ "error": "Profil invalide (PeuRisque | Neutre | Risque)" }));
     }
     let maj = sqlx::query(
-        "UPDATE rockets_params SET profil = ?, plafond_position_pct = ?, trailing_pct = ?, volume_pivot_mult = ?, cassure_min_pct = ?, conviction_min = ? WHERE id = 1",
+        "UPDATE rockets_params SET profil = ?, plafond_position_pct = ?, trailing_pct = ?, volume_pivot_mult = ?, cassure_min_pct = ?, conviction_min = ?, stagnation_max_jours = ? WHERE id = 1",
     )
     .bind(&profil)
     .bind(body.plafond_position_pct.unwrap_or(actuel.plafond_position_pct).clamp(1.0, 25.0))
@@ -590,6 +469,7 @@ pub async fn maj_params(state: actix_web::web::Data<crate::state::AppState>, bod
     .bind(body.volume_pivot_mult.unwrap_or(actuel.volume_pivot_mult).clamp(1.0, 3.0))
     .bind(body.cassure_min_pct.unwrap_or(actuel.cassure_min_pct).clamp(1.0, 10.0))
     .bind(body.conviction_min.unwrap_or(actuel.conviction_min).clamp(0, 100))
+    .bind(body.stagnation_max_jours.unwrap_or(actuel.stagnation_max_jours).clamp(2, 60))
     .execute(state.db.pool())
     .await;
     match maj {

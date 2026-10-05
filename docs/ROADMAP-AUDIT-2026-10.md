@@ -155,6 +155,26 @@ mort dans l'UI — grep des clés de config exposées vs lues.
 avec le bon verdict/R) · **[APP]** les 3 positions dormantes fermées ·
 **[DB]** `SELECT COUNT(*) FROM signaux WHERE strategie='rockets' AND statut='Actif'` = 0.
 
+**Complément 05/10 soir (retour owner)** : AMD close **STAG +0,34R** au
+premier cycle ✓, mais l'historique l'affichait « ❌ SL » (ternaire en dur
+ne connaissant pas STAG) et WBTC/WIF restaient ouvertes : leur `ts_entree`
+était en **millisecondes** (bug d'émission crypto d'avant octobre) → âge
+négatif → stagnation jamais déclenchée. Correctifs : normalisation
+d'unité à la lecture + badge/libellé STAG (historique + formatage des
+signaux) + warn visible si klines indisponibles (plus de saut silencieux).
+Vérification attendue : WBTC/WIF closes STAG au premier cycle après
+redémarrage.
+
+> **État 05/10 — POSÉE, en attente de vérification owner.** Diagnostic du
+> silence : le scanner EST vivant (73 candidats scannés le 05/10 à 10:22,
+> IA news notée, « 0 signal(s) ») — rareté normale de la stratégie
+> (cassure ≥ 3 % + conviction ≥ 40), pas une panne. Sortie de stagnation :
+> `stagnation_max_jours` (défaut 10, carte Paramètres › Rockets), règle
+> dans `pas_gestion` (ordre journal : invalidation → R1 → trailing →
+> stagnation ; jamais une position neutralisée), verdict STAG, R latent
+> capté au prix courant. Migration 0117. 39 suites + 16/16 rockets,
+> release 0 warning, vue-tsc/vitest/build verts.
+
 ### Étape 4 — Télémétrie de silence des moteurs
 
 **Constat** : une stratégie peut être muette des semaines sans alerte.

@@ -66,6 +66,7 @@ mod rockets_actions_backfill;
 mod rockets_actions_news;
 mod rockets_actions_scanner;
 mod rockets_verticale;
+mod rockets_gestion;
 mod rockets_cloture;
 mod rockets_ia;
 mod rockets_unlocks;

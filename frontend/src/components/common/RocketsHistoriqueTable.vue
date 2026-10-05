@@ -72,7 +72,7 @@
             <td class="px-2 py-2 text-right font-mono text-white/80">{{ t.sommet ? fmt(t.sommet) : '—' }}</td>
             <td class="px-2 py-2 text-right font-mono text-white">{{ t.prix_sortie ? fmt(t.prix_sortie) : '—' }}</td>
             <td class="px-2 py-2 text-center">
-              <span class="badge" :class="t.verdict === 'TS' ? 'badge-green' : t.verdict === 'Manuel' ? 'badge-blue' : 'badge-red'">{{ t.verdict === 'TS' ? '🏁 TS' : t.verdict === 'Manuel' ? '👤 Manuel' : '❌ SL' }}</span>
+              <span class="badge" :class="t.verdict === 'TS' ? 'badge-green' : t.verdict === 'STAG' ? 'badge-orange' : t.verdict === 'Manuel' ? 'badge-blue' : 'badge-red'">{{ t.verdict === 'TS' ? '🏁 TS' : t.verdict === 'STAG' ? '⏹ STAG' : t.verdict === 'Manuel' ? '👤 Manuel' : '❌ SL' }}</span>
             </td>
             <td class="px-2 py-2 text-right font-mono font-bold" :class="classe(t.r_realise)">{{ t.r_realise === null ? '—' : rFmt(t.r_realise) }}</td>
             <td class="px-2 py-2 text-right font-mono font-bold" :class="classe(t.pl_dollars)">{{ dollars(t.pl_dollars) }}</td>
@@ -126,7 +126,8 @@ const sommeR = computed(() => {
 const sommeDollars = computed(() => trades.value.reduce((a, t) => a + t.pl_dollars, 0))
 
 function valeurTri(t: TradeFerme, col: string): number | string | null {
-  if (col === 'duree') return t.ferme_le ? t.ferme_le - t.ouvert_le / 1000 : null
+  // ouvert_le est normalisé en secondes par l'API : différence directe
+  if (col === 'duree') return t.ferme_le ? t.ferme_le - t.ouvert_le : null
   if (col === 'classement') return t.classement
   const v = (t as unknown as Record<string, unknown>)[col]
   return typeof v === 'number' || typeof v === 'string' ? v : null
@@ -167,7 +168,7 @@ async function charger() {
 
 function duree(t: TradeFerme): string {
   if (!t.ferme_le) return '—'
-  const s = Math.max(0, Math.floor((t.ferme_le - t.ouvert_le / 1000)))
+  const s = Math.max(0, Math.floor(t.ferme_le - t.ouvert_le))
   if (s < 60) return `${s} s`
   if (s < 3600) return `${Math.floor(s / 60)} mn`
   if (s < 86400) return `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} mn`

@@ -26,6 +26,7 @@ pub async fn get_params(state: web::Data<AppState>) -> impl Responder {
         "volume_pivot_mult":   p.volume_pivot_mult,
         "cassure_min_pct":     p.cassure_min_pct,
         "conviction_min":      p.conviction_min,
+        "stagnation_max_jours": p.stagnation_max_jours,
     }))
 }
 
@@ -130,7 +131,11 @@ pub async fn get_positions(state: web::Data<AppState>) -> impl Responder {
             "cle": r.get::<String, _>("cle"),
             "symbole": symbole,
             "univers": if symbole.ends_with("USDT") { "crypto" } else { "action" },
-            "ouvert_le": r.get::<i64, _>("ts_entree"),
+            // ts_entree : unité mixte en base (ms pour les émissions crypto d'avant
+            // octobre, s pour les actions) — normalisée en SECONDES à la source
+            // pour tous les consommateurs (05/10 : la durée AMD affichait
+            // 20 710 jours).
+            "ouvert_le": r.get::<i64, _>("ts_entree") / if r.get::<i64, _>("ts_entree") > 10_000_000_000 { 1_000 } else { 1 },
             "entree": entree,
             "stop": stop,
             "r1": r1,
@@ -252,7 +257,11 @@ pub async fn get_historique(state: web::Data<AppState>) -> impl Responder {
                 "symbole": symbole,
                 "univers": if symbole.ends_with("USDT") { "crypto" } else { "action" },
                 "classement": r.try_get::<Option<f64>, _>("score").ok().flatten(),
-                "ouvert_le": r.get::<i64, _>("ts_entree"),
+                // ts_entree : unité mixte en base (ms pour les émissions crypto d'avant
+            // octobre, s pour les actions) — normalisée en SECONDES à la source
+            // pour tous les consommateurs (05/10 : la durée AMD affichait
+            // 20 710 jours).
+            "ouvert_le": r.get::<i64, _>("ts_entree") / if r.get::<i64, _>("ts_entree") > 10_000_000_000 { 1_000 } else { 1 },
                 "ferme_le": r.try_get::<Option<i64>, _>("ferme_signal").ok().flatten(),
                 "entree": entree,
                 "stop": stop,
