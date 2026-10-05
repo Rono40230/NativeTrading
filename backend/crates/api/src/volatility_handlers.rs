@@ -48,9 +48,31 @@ pub async fn get_patterns(
 /// asset + analyses repliées). Le calcul scanne l'historique complet par
 /// asset : la réponse est mise en cache une heure (les patterns M1
 /// n'évoluent qu'à la bougie suivante).
+/// Cache des patterns-jour (1 h) — au niveau module pour que le préchauffage
+/// de démarrage (étape 1-bis, incident 05/10) remplisse le MÊME cache que
+/// l'endpoint.
+static CACHE_PATTERNS_JOUR: OnceLock<RwLock<Option<(Instant, serde_json::Value)>>> = OnceLock::new();
+
+/// Préchauffe les patterns-jour en tâche de fond au boot (étape 1-bis) : le
+/// calcul à froid scannait ~24 mois de M1 par asset PENDANT que le dashboard
+/// chargeait — tous les fetchs patientaient derrière (incident 05/10 « tout
+/// à 0 »). Retourne la valeur calculée (et remplit le cache).
+pub async fn prechauffer_patterns_jour(db: &std::sync::Arc<db::Database>) -> serde_json::Value {
+    let cache = CACHE_PATTERNS_JOUR.get_or_init(|| RwLock::new(None));
+    let valeur = calculer_patterns_jour(db).await;
+    *cache.write().await = Some((Instant::now(), valeur.clone()));
+    valeur
+}
+
+/// GET /api/volatility/patterns-jour
+/// Patterns horaires (heure UTC × jour de semaine, clusters quartiles + seuil
+/// P85) de TOUS les assets actifs du pipeline sur 24 mois au M1 — la matière
+/// première du bloc Créneaux de volatilité du dashboard (jour courant par
+/// asset + analyses repliées). Le calcul scanne l'historique complet par
+/// asset : la réponse est mise en cache une heure (les patterns M1
+/// n'évoluent qu'à la bougie suivante).
 pub async fn get_patterns_jour(state: web::Data<AppState>) -> impl actix_web::Responder {
-    static CACHE: OnceLock<RwLock<Option<(Instant, serde_json::Value)>>> = OnceLock::new();
-    let cache = CACHE.get_or_init(|| RwLock::new(None));
+    let cache = CACHE_PATTERNS_JOUR.get_or_init(|| RwLock::new(None));
 
     if let Some((calcule_le, valeur)) = cache.read().await.clone() {
         if calcule_le.elapsed() < Duration::from_secs(3600) {
@@ -58,12 +80,15 @@ pub async fn get_patterns_jour(state: web::Data<AppState>) -> impl actix_web::Re
         }
     }
 
-    let workers = match state.db.lister_assets_worker().await {
+    let valeur = calculer_patterns_jour(&state.db).await;
+    *cache.write().await = Some((Instant::now(), valeur.clone()));
+    HttpResponse::Ok().json(valeur)
+}
+
+async fn calculer_patterns_jour(db: &std::sync::Arc<db::Database>) -> serde_json::Value {
+    let workers = match db.lister_assets_worker().await {
         Ok(w) => w,
-        Err(e) => {
-            return HttpResponse::InternalServerError()
-                .json(serde_json::json!({ "error": e.to_string() }))
-        }
+        Err(_) => return serde_json::json!({ "assets": [], "timeframe": "M1", "mois": 24 }),
     };
     let timeframe = utils::parse_timeframe("M1");
 
@@ -71,7 +96,7 @@ pub async fn get_patterns_jour(state: web::Data<AppState>) -> impl actix_web::Re
     for w in workers.into_iter().filter(|w| w.actif) {
         let Some(asset) = utils::parse_asset(&w.id) else { continue };
         // Un asset sans historique suffisant est simplement absent de la réponse.
-        if let Ok(rep) = state.db.obtenir_patterns_horaires(&asset, &timeframe, 24).await {
+        if let Ok(rep) = db.obtenir_patterns_horaires(&asset, &timeframe, 24).await {
             if let Ok(mut v) = serde_json::to_value(&rep) {
                 v["asset"] = serde_json::Value::String(w.id.clone());
                 assets.push(v);
@@ -79,7 +104,5 @@ pub async fn get_patterns_jour(state: web::Data<AppState>) -> impl actix_web::Re
         }
     }
 
-    let reponse = serde_json::json!({ "assets": assets, "timeframe": "M1", "mois": 24 });
-    *cache.write().await = Some((Instant::now(), reponse.clone()));
-    HttpResponse::Ok().json(reponse)
+    serde_json::json!({ "assets": assets, "timeframe": "M1", "mois": 24 })
 }

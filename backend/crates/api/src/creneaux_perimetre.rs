@@ -69,6 +69,9 @@ pub async fn put_perimetre(
         return HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": e.to_string() }));
     }
+    // Un asset qui entre au périmètre reçoit tous ses créneaux événements
+    // armés (balayage large owner 28/09) — semis idempotent.
+    crate::evenements_armement::semer(&state.db).await;
     // Créneaux armés désormais hors périmètre (information, pas de purge).
     let hors: Vec<String> = sqlx::query_scalar::<_, String>(
         "SELECT DISTINCT asset FROM creneaux_ia WHERE arme = 1",

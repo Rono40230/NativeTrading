@@ -91,6 +91,22 @@ impl KdjEngine {
         self
     }
 
+    /// Préchauffe l'historique depuis la base (étape 1 roadmap 05/10) : le
+    /// replay runtime n'apporte que 7 jours de barres H1 (168) alors que
+    /// le warm-up exige 260 — sans chauffe, le moteur restait muet ~4 jours
+    /// après CHAQUE redémarrage, et les setups (3-4/mois) n'étaient jamais
+    /// vus. Aucune évaluation ici : on ne fait que remplir la fenêtre — la
+    /// parité rejeur/live est préservée (les indicateurs recalculent sur la
+    /// même fenêtre glissante à la première clôture vivante).
+    pub fn avec_chauffe(mut self, bougies: &[Candle]) -> Self {
+        self.historique = bougies.to_vec();
+        if self.historique.len() > FENETRE {
+            let excedent = self.historique.len() - FENETRE;
+            self.historique.drain(..excedent);
+        }
+        self
+    }
+
     /// Exécution des différés au `open` de la bougie clôturée courante
     /// (= l'open de la barre qui suivait la décision).
     fn executer_differes(&mut self, bougie: &Candle, sortie: &mut SortieMoteur) {
@@ -183,6 +199,17 @@ impl Engine for KdjEngine {
     fn on_close(&mut self, ctx: &ContexteCloture) -> SortieMoteur {
         let mut sortie = SortieMoteur::vide();
         let bougie = ctx.bougie.clone();
+
+        // 0) Garde anti-doublon/rétrograde : une barre déjà connue (chevauch
+        // chauffe ↔ replay, doublon multi-sources) est ignorée — la fenêtre
+        // reste une série temporelle strictement croissante.
+        if self
+            .historique
+            .last()
+            .is_some_and(|derniere| derniere.timestamp >= bougie.timestamp)
+        {
+            return sortie;
+        }
 
         // 1) Exécutions différées au open de cette barre.
         self.executer_differes(&bougie, &mut sortie);
@@ -324,6 +351,52 @@ mod tests {
         (0..nb)
             .map(|k| bougie_ts(ts_debut + k as i64, depart + pas * k as f64))
             .collect()
+    }
+
+    /// Régression étape 1 (roadmap audit 05/10) : le moteur exige 260 barres
+    /// de warm-up mais le replay runtime n'en apporte que 168 (7 jours H1) —
+    /// il restait muet ~4 jours après CHAQUE redémarrage, et les setups
+    /// (3-4/mois) n'étaient jamais vus : zéro signal depuis toujours. La
+    /// chauffe depuis la base franchit le warm-up dès le montage, et la
+    /// garde anti-doublon neutralise le chevauch chauffe ↔ replay.
+    #[test]
+    fn chauffe_franchit_le_warmup_et_les_doublons_sont_ignores() {
+        // Scénario « V violent » du test de parité — référence : 1 trade.
+        let mut b = rampe(100.0, 1.0, 300, 0);
+        b.extend(rampe(400.0, -2.0, 60, 300));
+        b.extend(rampe(280.0, 2.0, 150, 360));
+        b.extend(rampe(578.0, -2.0, 40, 510));
+        b.extend(rampe(500.0, 40.0, 12, 550));
+        assert_eq!(crate::rejouer(&b, &ParamsKdj::default()).len(), 1);
+
+        let asset = Asset::try_from("XAUUSD").expect("asset connu");
+        // Préchauffé sur les 300 premières barres (warm-up franchi), nourri
+        // du reste : le signal arrive dans la fenêtre vivante SANS attendre
+        // 260 nouvelles clôtures.
+        let mut moteur = KdjEngine::nouveau(asset.clone(), Timeframe::H1)
+            .avec_params(ParamsKdj::default())
+            .avec_chauffe(&b[..300]);
+        let mut signaux = Vec::new();
+        for (k, bougie) in b[300..].iter().enumerate() {
+            let ctx = ContexteCloture { asset: &asset, tf: Timeframe::H1, bougie, index_barre: 300 + k };
+            let s = moteur.on_close(&ctx);
+            signaux.extend(s.signaux);
+        }
+        assert_eq!(signaux.len(), 1, "signal émis dès la fenêtre vivante");
+
+        // Sans chauffe, la même fenêtre vivante (b[300..] = 262 barres)
+        // n'aurait évalué que sur la fin — le test de parité couvre ce cas.
+        // Garde anti-doublon : re-nourrir la dernière barre ne change rien.
+        let avant = moteur.historique.len();
+        let ctx = ContexteCloture {
+            asset: &asset,
+            tf: Timeframe::H1,
+            bougie: b.last().expect("non vide"),
+            index_barre: 0,
+        };
+        let s = moteur.on_close(&ctx);
+        assert_eq!(moteur.historique.len(), avant, "barre déjà connue ignorée");
+        assert!(s.signaux.is_empty(), "aucun effet de bord");
     }
 
     /// PARITÉ live ↔ rejeur : le scénario « V violent » du rejeur, piloté

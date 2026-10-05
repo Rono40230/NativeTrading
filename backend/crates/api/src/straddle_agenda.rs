@@ -74,43 +74,37 @@ pub async fn get_agenda(state: web::Data<AppState>) -> impl Responder {
         Err(_) => Vec::new(),
     };
 
-    // §16 (07/09) : créneaux IA armés — même liste, badge 🤖 (la prochaine
-    // occurrence hebdomadaire, celle que le moteur recevra).
+    // 28/09 : créneaux ÉVÉNEMENT armés — même liste, badge 📯. L'heure
+    // vient de la taxonomie (fuseau d'origine, DST suivie automatiquement).
     {
-        const JOURS: [&str; 7] = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
-        let rows = sqlx::query("SELECT asset, jour, heure FROM creneaux_ia WHERE arme = 1")
-            .fetch_all(state.db.pool())
-            .await
-            .unwrap_or_default();
+        let rows = sqlx::query(
+            "SELECT asset, evenement FROM creneaux_evenements WHERE arme = 1",
+        )
+        .fetch_all(state.db.pool())
+        .await
+        .unwrap_or_default();
         use sqlx::Row as _;
-        let maintenant = chrono::Utc::now().with_timezone(&chrono_tz::Europe::Paris);
+        let maintenant = chrono::Utc::now();
+        // Une ligne d'agenda par événement armé : prochaine occurrence, tous
+        // les assets armés dessus listés.
+        use std::collections::BTreeMap;
+        let mut par_evenement: BTreeMap<String, Vec<String>> = BTreeMap::new();
         for r in &rows {
+            let ident: String = r.get("evenement");
             let asset: String = r.get("asset");
-            let jour = r.get::<i64, _>("jour").clamp(1, 7) as u32;
-            let heure = r.get::<i64, _>("heure").clamp(0, 23) as u32;
-            use chrono::{Datelike, Timelike};
-            for delta in 0..=14i64 {
-                // Candidat à l'heure PILE du créneau (maintenant + N jours
-                // garde sinon les minutes courantes — jamais 00).
-                let jour_glisse = maintenant + chrono::Duration::days(delta);
-                let Some(candidat) = jour_glisse
-                    .with_hour(heure)
-                    .and_then(|d| d.with_minute(0))
-                    .and_then(|d| d.with_second(0))
-                else { continue };
-                if candidat.weekday().number_from_monday() != jour
-                    || candidat <= maintenant
-                {
-                    continue;
-                }
-                annonces.push(AnnonceAgenda {
-                    ts: candidat.timestamp(),
-                    titre: format!("🤖 Créneau IA {} {}", asset, JOURS[(jour - 1) as usize]),
-                    devise: if asset == "DAX" { "EUR".into() } else { "USD".into() },
-                    actifs: vec![asset.clone()],
-                });
-                break;
-            }
+            par_evenement.entry(ident).or_default().push(asset);
+        }
+        for (ident, assets) in par_evenement {
+            let Some(ev) = crate::evenements::catalogue()
+                .iter()
+                .find(|e| e.ident == ident) else { continue };
+            let Some(ts) = crate::evenements::prochaine_occurrence(ev, maintenant) else { continue };
+            annonces.push(AnnonceAgenda {
+                ts: ts.timestamp(),
+                titre: format!("📯 {}", ev.nom),
+                devise: if assets.iter().any(|a| a != "DAX") { "USD".into() } else { "EUR".into() },
+                actifs: assets,
+            });
         }
         annonces.sort_by_key(|a| a.ts);
         annonces.truncate(8);

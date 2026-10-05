@@ -115,6 +115,14 @@ impl TradeLifecycle {
         self.be_offset_r = offset;
     }
 
+    /// Expiration effective de la passe courante (owner 29/09 — priorité
+    /// au créneau suivant) : le straddle raccourcit le time-stop pour
+    /// libérer le moteur AVANT l'ouverture du créneau suivant.
+    pub fn definir_expiration(&mut self, secs: i64) {
+        self.trade_max_secs = secs;
+        self.tp3_max_secs = secs;
+    }
+
     /// Évalue tous les trades non clôturés sur la bar courante (Pine 3797-3952 / 3963-4118).
     pub fn update(
         &self,

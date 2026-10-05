@@ -346,8 +346,8 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                         .filter(|a| a.devise == "USD")
                         .collect()
                 };
-                // §16 : créneaux IA armés = annonces synthétiques (même rail).
-                annonces.extend(crate::creneaux_ia::annonces_armees(db, asset.as_str()).await);
+                // §16→28/09 : créneaux ÉVÉNEMENT armés = annonces synthétiques (même rail).
+                annonces.extend(crate::evenements_armement::annonces_evenements(db, asset.as_str()).await);
                 let p = db::strategies_params::lire_straddle_params(db.pool()).await;
                 moteurs.push(Box::new(
                     straddle::StraddleEngine::nouveau(asset.clone(), *tf)
@@ -362,7 +362,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 ));
             }
             if *tf == common::Timeframe::H1 && kdj_autorise(asset) {
-                moteurs.push(Box::new(crate::kdj_handlers::moteur_kdj(&kdj_reglages, asset, *tf)));
+                moteurs.push(Box::new(crate::kdj_handlers::moteur_kdj(db, &kdj_reglages, asset, *tf).await));
             }
             if moteurs.is_empty() {
                 continue; // SMC désarmé et pas de straddle M1/KDJ H1 filtré → rien à armer
@@ -423,8 +423,8 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 .into_iter()
                 .filter(|a| a.devise == "USD")
                 .collect();
-            // §16 : créneaux IA armés = annonces synthétiques (même rail).
-            annonces.extend(crate::creneaux_ia::annonces_armees(db, asset.as_str()).await);
+            // §16→28/09 : créneaux ÉVÉNEMENT armés = annonces synthétiques (même rail).
+            annonces.extend(crate::evenements_armement::annonces_evenements(db, asset.as_str()).await);
             // Audit étape 2 : le moteur lisait des constantes — désormais
             // branché sur la carte Paramètres › Straddle (table DB).
             let p = db::strategies_params::lire_straddle_params(db.pool()).await;
@@ -451,7 +451,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
             ));
         }
         if *tf == common::Timeframe::H1 && kdj_autorise(asset) {
-            moteurs.push(Box::new(crate::kdj_handlers::moteur_kdj(&kdj_reglages, asset, *tf)));
+            moteurs.push(Box::new(crate::kdj_handlers::moteur_kdj(db, &kdj_reglages, asset, *tf).await));
         }
         if moteurs.is_empty() {
             continue; // SMC désarmé et pas de straddle M1/KDJ H1 filtré → rien à armer

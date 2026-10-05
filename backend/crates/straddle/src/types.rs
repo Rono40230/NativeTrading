@@ -26,8 +26,10 @@ pub struct ParamsStraddle {
     /// Début de la fenêtre de préparation AVANT l'annonce (minutes) — le
     /// range sert d'observation (ATR, journal) ; les ordres n'en dépendent plus.
     pub range_avant_min: i64,
-    /// Placement ET armement des 2 jambes AVANT l'annonce (SECONDES).
-    /// Défaut 10 (décision propriétaire 24/08 — réglable dans la carte).
+    /// Placement ET armement des 2 jambes AVANT l'annonce (SECONDES),
+    /// évalué sur l'instant d'arrivée des prix (à la seconde — pas sur le
+    /// début de bougie, aligné minute). Défaut 10 (décision propriétaire
+    /// 24/08 — réglable dans la carte).
     pub placement_avant_sec: i64,
     /// R, risque unitaire = distance du SL, en × ATR14 (défaut 0,5).
     pub sl_atr: f64,

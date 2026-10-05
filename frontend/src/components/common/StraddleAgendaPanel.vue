@@ -1,33 +1,36 @@
 <template>
   <div class="flex flex-col gap-1.5">
     <div v-if="annonces.length" class="flex flex-col gap-1">
-      <div v-for="a in annonces.slice(0, 6)" :key="a.ts"
+      <div v-for="a in annonces.slice(0, 6)" :key="a.ts + a.titre"
            class="flex items-center gap-2 text-xs">
-        <span class="text-amber-400">📅</span>
+        <span :class="a.titre.startsWith('📯') ? 'text-emerald-400' : 'text-amber-400'">{{
+          a.titre.startsWith('📯') ? '📯' : '📅' }}</span>
         <span class="text-white font-medium truncate">{{ a.titre || 'Annonce US' }}</span>
+        <span class="text-white/70 text-[10px] truncate">{{ a.actifs.join(' ') }}</span>
         <span class="text-white">{{ heureLocale(a.ts) }}</span>
         <span class="ml-auto text-amber-300/90 font-mono text-[11px]">{{ compteARebours(a.ts) }}</span>
       </div>
     </div>
-    <div v-else class="text-[11px] text-white">Aucune annonce US forte à 7 jours</div>
+    <div v-else class="text-[11px] text-white">Aucune annonce ni événement armé à 7 jours</div>
     <div v-if="passes.length" class="text-[11px] text-emerald-400/80">
       {{ passes.length }} passe(s) en cours sur {{ [...new Set(passes.map(p => p.asset))].join(', ') }}
     </div>
 
-    <!-- §16-b (07/09) — Créneaux IA en « file d'attente » : slots en test
-         (stats live), propositions dédoublonnées (1 par actif), réserve
-         dépliable. La boucle statue au bout de N tirages : VALIDÉ reste
-         armé, RÉFUTÉ est désarmé — l'armement reste au propriétaire SEUL. -->
+    <!-- 28/09 (phase 3) — Créneaux ÉVÉNEMENT : chaque événement de la
+         taxonomie × chaque asset du périmètre est une case armable. La
+         boucle statue au fil des tirages : ΣR > 0 → valide (pilier),
+         ΣR ≤ plancher ou 0 gagnant → réfuté (désarmé), sinon incertain
+         prolongé. L'armement reste au propriétaire SEUL. -->
     <div class="mt-1 pt-1 border-t border-white/10 flex flex-col gap-1">
-      <div class="flex items-center gap-2">
-        <span class="text-[10px] font-bold uppercase tracking-wider text-white">🤖 Créneaux IA</span>
-        <span class="text-[10px] text-white/70">{{ armes }}/{{ plafond }} armé(s)</span>
-        <button
-          class="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/50 text-white transition-colors disabled:opacity-40"
-          :disabled="recalculEnCours"
-          title="Recalcule les créneaux statistiques (24 mois) et re-note les non évalués par l'analyste"
-          @click="recalculer"
-        >{{ recalculEnCours ? '⏳' : '↻ Recalculer' }}</button>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-white">📯 Créneaux événements</span>
+        <span class="text-[10px] text-white/70">{{ armes }}/{{ total }} armé(s)</span>
+        <div class="ml-auto flex items-center gap-1.5">
+          <button class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-900/40 text-emerald-300 hover:bg-emerald-800/60 border border-emerald-500/30 transition-colors disabled:opacity-40"
+                  :disabled="arm.enCours.value" @click="arm.toutArmer(true)">⚡ Tout armer</button>
+          <button class="text-[9px] px-1.5 py-0.5 rounded bg-red-900/40 text-red-300 hover:bg-red-800/60 border border-red-500/30 transition-colors disabled:opacity-40"
+                  :disabled="total === 0 || arm.enCours.value" @click="arm.toutArmer(false)">Tout désarmer</button>
+        </div>
       </div>
 
       <!-- Seuils propriétaires de la boucle de validation (kv) -->
@@ -41,89 +44,69 @@
       </div>
 
       <!-- Bannière : verdicts rendus par la boucle ces 7 derniers jours -->
-      <div v-if="verdicts.length"
+      <div v-if="verdictsRecents.length"
            class="rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2 py-1.5 text-[10px] text-white/85 flex flex-col gap-0.5">
         <span class="uppercase font-semibold tracking-wide text-indigo-300">Verdict de la boucle (7 j)</span>
-        <span v-for="v in verdicts" :key="`v-${v.asset}-${v.jour}-${v.heure}`">
-          {{ libelle(v) }} :
+        <span v-for="v in verdictsRecents" :key="`v-${v.ident}-${v.asset}`">
+          {{ v.asset }} × {{ v.nom }} :
           <span :class="v.verdict_test === 'valide' ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'">
             {{ v.verdict_test === 'valide' ? '✅ validé' : '❌ réfuté — désarmé' }}
           </span>
           ({{ v.occurrences }} tirages, Σ {{ fmtR(v.somme_r) }}R)
         </span>
-        <!-- Slot libéré par une réfutation → remplacement en un clic
-             (l'initiative reste le clic du propriétaire). -->
-        <button v-if="aRemplacer && armes < plafond"
-                class="mt-0.5 self-start text-[9px] px-1.5 py-0.5 rounded transition-colors disabled:opacity-40
-                       bg-emerald-900/40 text-emerald-300 hover:bg-emerald-800/60 border border-emerald-500/30"
-                :disabled="armageEnCours"
-                @click="armerFile">↻ Remplacer par la prochaine carte</button>
       </div>
 
-      <div v-if="!slots.length && !file.length" class="text-[10px] text-white/70">
-        {{ chargementCreneaux ? 'Chargement…' : 'Aucune proposition — le calcul quotidien (4h) ou le bouton Recalculer les produit' }}
-      </div>
+      <div v-if="arm.chargement.value" class="text-[10px] text-white/70">Chargement…</div>
+      <div v-else-if="!arm.evenements.value.length"
+           class="text-[10px] text-white/70">Aucune case — le semis se fait au démarrage du backend.</div>
 
-      <template v-for="it in items" :key="it.cle">
-        <div v-if="it.kind === 'hdr'" class="flex items-center gap-1.5">
-          <span class="text-[9px] uppercase tracking-wider text-white/50 mt-0.5">{{ it.label }}</span>
-          <!-- Armement en lot : remplit les slots libres avec les têtes de
-               file (actifs non déjà armés) — un clic au lieu de N. -->
-          <button v-if="it.action === 'armer-file' && armes < plafond"
-                  class="ml-auto text-[9px] px-1.5 py-0.5 rounded transition-colors disabled:opacity-40
-                         bg-emerald-900/40 text-emerald-300 hover:bg-emerald-800/60 border border-emerald-500/30"
-                  :disabled="armageEnCours"
-                  :title="'Remplit les slots libres avec les meilleures propositions d actifs non déjà armés (plafond ' + plafond + ')'"
-                  @click="armerFile">
-            {{ armageEnCours ? '⏳' : `🚀 Armer (${Math.min(file.length, plafond - armes)})` }}
-          </button>
-        </div>
-        <div v-else
-             class="rounded-lg border px-2 py-1.5 flex flex-col gap-1 cursor-help"
-             :class="it.role === 'slot'
-               ? (it.c.verdict_test === 'valide' ? 'bg-emerald-500/15 border-emerald-500/50' : 'bg-emerald-500/10 border-emerald-500/40')
-               : it.role === 'file' ? 'bg-white/5 border-white/15' : 'bg-white/5 border-white/10 opacity-70'"
-             :title="it.c.justification || 'Pas encore noté par l analyste'">
+      <template v-else>
+        <div v-for="ev in arm.evenements.value" :key="ev.ident"
+             class="rounded-lg border px-2 py-1.5 flex flex-col gap-1"
+             :class="evArmees(ev) ? 'bg-emerald-500/10 border-emerald-500/40' : 'bg-white/5 border-white/10 opacity-70'">
           <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-[11px] font-semibold text-white">{{ it.c.asset }}</span>
-            <span class="text-[11px] text-white">{{ JOURS[it.c.jour - 1] }} {{ it.c.heure }}h–{{ it.c.heure + 1 }}h</span>
-            <span class="text-[10px] font-mono text-white/80">vol ×{{ it.c.ratio.toFixed(2) }}</span>
-            <span class="text-[10px] font-mono text-white/60">fiab. {{ Math.round(it.c.fiabilite * 100) }}%</span>
-            <template v-if="it.role === 'slot'">
-              <span class="text-[10px] font-mono" :class="it.c.somme_r >= 0 ? 'text-emerald-300' : 'text-red-300'">
-                {{ it.c.occurrences }}/{{ cible(it.c) }} tirages · Σ {{ fmtR(it.c.somme_r) }}R
-              </span>
-              <span v-if="it.c.verdict_test === 'valide'"
-                    class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-300 border-emerald-500/40">✅ VALIDÉ — pilier</span>
-              <span v-else-if="it.c.verdict_test === 'incertain'"
-                    class="text-[9px] px-1.5 py-0.5 rounded-full border bg-amber-500/10 text-amber-300 border-amber-500/30">⏳ prolongé</span>
-            </template>
-            <span v-else-if="it.c.verdict_ia" class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border"
-                  :class="it.c.verdict_ia === 'ARMER' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-white/5 text-white/50 border-white/10'"
-            >IA : {{ it.c.verdict_ia }} {{ it.c.conviction ?? '—' }}/100</span>
-            <button
-              class="ml-auto text-[9px] px-1.5 py-0.5 rounded transition-colors shrink-0"
-              :class="it.c.arme
-                ? 'bg-red-900/40 text-red-300 hover:bg-red-800/60 border border-red-500/30'
-                : 'bg-emerald-900/40 text-emerald-300 hover:bg-emerald-800/60 border border-emerald-500/30'"
-              :title="it.c.arme ? 'Désarmer ce créneau' : 'Armer — devient une annonce synthétique (2 jambes à l heure E, timer T-10 s, Observation). Toi seul armes.'"
-              @click="basculer(it.c)"
-            >{{ it.c.arme ? 'Désarmer' : 'Armer' }}</button>
+            <span class="text-[11px] font-semibold text-white">{{ ev.nom }}</span>
+            <span class="text-[10px] font-mono text-white/70">{{ ev.prochaine_heure_paris ?? '—' }} Paris</span>
+            <span class="text-[10px] font-mono" :class="sommeEv(ev) >= 0 ? 'text-emerald-300' : 'text-red-300'">
+              {{ tiragesEv(ev) }} tirage(s) · Σ {{ fmtR(sommeEv(ev)) }}R
+            </span>
+            <span class="ml-auto text-[9px] text-white/60">{{ evArmees(ev) }}/{{ ev.lignes.length }} armé(s)</span>
           </div>
-          <p v-if="it.c.justification && it.role !== 'reserve'" class="text-[9px] leading-snug text-white/70">{{ it.c.justification }}</p>
+          <div class="flex flex-wrap items-center gap-1">
+            <button v-for="l in ev.lignes" :key="ev.ident + l.asset"
+                    class="text-[9px] font-mono font-bold rounded px-1.5 py-[1px] border transition-colors"
+                    :class="classeLigne(l)"
+                    :title="titreLigne(ev, l)"
+                    :disabled="arm.enCours.value"
+                    @click="arm.basculer(l.asset, ev.ident)">
+              {{ l.asset }}<template v-if="l.ratio"> ×{{ l.ratio.toFixed(1) }}</template>
+              <span v-if="l.occurrences > 0" class="font-normal"> {{ l.occurrences }}t·{{ fmtR(l.somme_r) }}R</span>
+              <span v-if="l.verdict_test === 'valide'"> ✅</span>
+              <span v-else-if="l.verdict_test === 'refute'"> ❌</span>
+              <span v-else-if="l.verdict_test === 'incertain'"> ⏳</span>
+              <span v-if="l.hors_perimetre"> ⚠</span>
+            </button>
+          </div>
         </div>
       </template>
 
-      <button v-if="reserve > 0 && !reserveOuverte"
-              class="text-left text-[9px] text-white/50 hover:text-white/80 transition-colors"
-              @click="reserveOuverte = true">
-        📦 Réserve ({{ reserve }} autres cartes) ▸
+      <!-- Archive : créneaux statistiques remplacés le 28/09 — lignes et
+           verdicts conservés, plus jamais armés. -->
+      <button class="text-left text-[9px] text-white/50 hover:text-white/80 transition-colors"
+              @click="archiveOuverte = !archiveOuverte">
+        📦 Créneaux statistiques — remplacés le 28/09 · {{ arm.archive.value.total }} lignes archivées
+        {{ archiveOuverte ? '▾' : '▸' }}
       </button>
-      <button v-else-if="reserveOuverte"
-              class="text-left text-[9px] text-white/50 hover:text-white/80 transition-colors"
-              @click="reserveOuverte = false">
-        📦 Replier la réserve ▾
-      </button>
+      <div v-if="archiveOuverte && arm.archive.value.verdicts.length"
+           class="flex flex-col gap-0.5 text-[9px] text-white/60 pl-3 border-l border-white/10">
+        <span v-for="(v, i) in arm.archive.value.verdicts" :key="`a-${i}`">
+          {{ v.asset }} {{ JOURS[v.jour - 1] }} {{ v.heure }}h :
+          <span :class="v.verdict_test === 'valide' ? 'text-emerald-400' : 'text-red-400'">
+            {{ v.verdict_test === 'valide' ? '✅ validé' : '❌ réfuté' }}
+          </span>
+          ({{ v.occurrences }} tirages, Σ {{ fmtR(v.somme_r) }}R)
+        </span>
+      </div>
     </div>
   </div>
 </template>
@@ -132,27 +115,13 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { http } from '@/services/http.client'
+import { useEvenementsArmement } from '@/composables/useEvenementsArmement'
+import type { EvenementArmement, LigneArmement } from '@/composables/useEvenementsArmement'
 
 interface AgendaApi {
   annonces: { ts: number; titre: string; devise: string; actifs: string[] }[]
   passes: { asset: string; direction: string }[]
 }
-interface CreneauIa {
-  asset: string; jour: number; heure: number
-  vol_pct: number; ratio: number; fiabilite: number; nb_semaines: number
-  verdict_ia: string | null; conviction: number | null; justification: string | null
-  arme: boolean
-  occurrences: number; somme_r: number; verdict_test: string | null; conclut_le: number | null
-}
-interface RepCreneaux {
-  slots: CreneauIa[]; file: CreneauIa[]; reserve: number; reserve_liste: CreneauIa[]
-  verdicts: CreneauIa[]; armes: number; plafond: number
-  seuils: { min: number; plancher_r: number }
-}
-/// Une entrée de rendu : titre de groupe ou carte (slot / file / réserve).
-type Item =
-  | { kind: 'hdr'; label: string; cle: string; action?: 'armer-file' }
-  | { kind: 'carte'; c: CreneauIa; role: 'slot' | 'file' | 'reserve'; cle: string }
 
 const alerteStore = useAlerteStore()
 const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
@@ -160,62 +129,49 @@ const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dim
 const agenda = ref<AgendaApi | null>(null)
 const annonces = ref<AgendaApi['annonces']>([])
 const passes = ref<AgendaApi['passes']>([])
-const slots = ref<CreneauIa[]>([])
-const file = ref<CreneauIa[]>([])
-const reserve = ref(0)
-const reserveListe = ref<CreneauIa[]>([])
-const reserveOuverte = ref(false)
-const verdicts = ref<CreneauIa[]>([])
-const plafond = ref(3)
+const archiveOuverte = ref(false)
 const seuilsMin = ref(4)
 const seuilsPlancher = ref(-1.5)
-const chargementCreneaux = ref(true)
-const recalculEnCours = ref(false)
 
-const armes = computed(() => slots.value.length)
+/// État d'armement événementiel partagé (composable).
+const arm = useEvenementsArmement()
 
-/// Un réfuté a libéré un slot ces 7 derniers jours → proposer le remplacement.
-const aRemplacer = computed(() => verdicts.value.some(v => v.verdict_test === 'refute'))
-const armageEnCours = ref(false)
+const total = computed(() => arm.evenements.value.reduce((n, ev) => n + ev.lignes.length, 0))
+const armes = computed(() => arm.evenements.value.reduce(
+  (n, ev) => n + ev.lignes.filter(l => l.arme).length, 0))
 
-/// Armement en lot : remplit les slots libres (un clic propriétaire).
-/// Timeout dédié : le traitement par lots dépasse le 15 s global d'axios.
-async function armerFile() {
-  armageEnCours.value = true
-  try {
-    await http.post('/api/straddle/creneaux-ia/armer-file', null, { timeout: 120_000 })
-  } catch (e) {
-    alerteStore.afficherErreur(`Armement file : ${(e as Error).message}`)
-  }
-  await chargerCreneaux()
-  armageEnCours.value = false
+/// Verdicts conclus ces 7 derniers jours (bannière).
+const ilYA7j = Math.floor(Date.now() / 1000) - 7 * 86_400
+const verdictsRecents = computed(() =>
+  arm.evenements.value.flatMap(ev =>
+    ev.lignes
+      .filter(l => l.verdict_test && l.verdict_test !== 'incertain' && (l.conclut_le ?? 0) > ilYA7j)
+      .map(l => ({ ...l, ident: ev.ident, nom: ev.nom }))))
+
+function evArmees(ev: EvenementArmement): number {
+  return ev.lignes.filter(l => l.arme).length
+}
+function tiragesEv(ev: EvenementArmement): number {
+  return ev.lignes.reduce((n, l) => n + l.occurrences, 0)
+}
+function sommeEv(ev: EvenementArmement): number {
+  return ev.lignes.reduce((s, l) => s + l.somme_r, 0)
 }
 
-/// Liste plate rendue : en-têtes de groupe + cartes (ordre slots → file → réserve).
-const items = computed<Item[]>(() => {
-  const out: Item[] = []
-  if (slots.value.length) {
-    out.push({ kind: 'hdr', label: '🎯 Slots en test', cle: 'h-slots' })
-    for (const c of slots.value) out.push({ kind: 'carte', c, role: 'slot', cle: `s-${c.asset}-${c.jour}-${c.heure}` })
-  }
-  if (file.value.length) {
-    out.push({ kind: 'hdr', label: '🃏 Prochaines cartes — 1 par actif', cle: 'h-file', action: 'armer-file' })
-    for (const c of file.value) out.push({ kind: 'carte', c, role: 'file', cle: `f-${c.asset}-${c.jour}-${c.heure}` })
-  }
-  if (reserveOuverte.value && reserveListe.value.length) {
-    out.push({ kind: 'hdr', label: `📦 Réserve (${reserve.value})`, cle: 'h-res' })
-    for (const c of reserveListe.value) out.push({ kind: 'carte', c, role: 'reserve', cle: `r-${c.asset}-${c.jour}-${c.heure}` })
-  }
-  return out
-})
-
-/// Cible de tirages du créneau (les incertains sont prolongés de 2).
-function cible(c: CreneauIa): number {
-  return c.verdict_test === 'incertain' ? seuilsMin.value + 2 : seuilsMin.value
+function classeLigne(l: LigneArmement): string {
+  if (l.verdict_test === 'valide') return 'text-emerald-300 bg-emerald-500/15 border-emerald-400/50'
+  if (l.verdict_test === 'refute') return 'text-red-300 bg-red-500/10 border-red-400/40 opacity-80'
+  if (!l.arme) return 'text-white/50 bg-white/[0.03] border-white/10 hover:bg-white/10'
+  return 'text-emerald-200 bg-emerald-500/10 border-emerald-400/30'
 }
 
-function libelle(c: CreneauIa): string {
-  return `${c.asset} ${JOURS[c.jour - 1]} ${c.heure}h–${c.heure + 1}h`
+function titreLigne(ev: EvenementArmement, l: LigneArmement): string {
+  const ratio = l.ratio ? ` · réactivité ×${l.ratio.toFixed(2)}` : ''
+  const verdict = l.verdict_test
+    ? ` · ${l.verdict_test === 'valide' ? 'VALIDÉ' : l.verdict_test === 'refute' ? 'RÉFUTÉ (désarmé)' : 'incertain (prolongé)'}`
+    : ''
+  const hors = l.hors_perimetre ? ' · HORS PÉRIMÈTRE : ignoré par le moteur' : ''
+  return `${l.asset} × ${ev.nom}${ratio} · ${l.occurrences} tirage(s) · Σ${l.somme_r >= 0 ? '+' : ''}${l.somme_r.toFixed(2)}R${verdict}${hors}`
 }
 
 function fmtR(r: number): string {
@@ -237,57 +193,18 @@ function compteARebours(ts: number): string {
   return `${m} min`
 }
 
-async function chargerCreneaux() {
-  try {
-    const res = await http.get<RepCreneaux>('/api/straddle/creneaux-ia')
-    slots.value = res.data.slots ?? []
-    file.value = res.data.file ?? []
-    reserve.value = res.data.reserve ?? 0
-    reserveListe.value = res.data.reserve_liste ?? []
-    verdicts.value = res.data.verdicts ?? []
-    plafond.value = res.data.plafond ?? 3
-    seuilsMin.value = res.data.seuils?.min ?? 4
-    seuilsPlancher.value = res.data.seuils?.plancher_r ?? -1.5
-  } catch {
-    slots.value = []
-    file.value = []
-  }
-  chargementCreneaux.value = false
+async function chargerArmement() {
+  await arm.charger()
+  seuilsMin.value = arm.seuils.value.min
+  seuilsPlancher.value = arm.seuils.value.plancher_r
 }
 
 async function sauverSeuils() {
   try {
-    await http.put('/api/straddle/creneaux-ia/seuils', {
-      min: Math.round(seuilsMin.value),
-      plancher_r: seuilsPlancher.value,
-    })
+    await arm.sauverSeuils(seuilsMin.value, seuilsPlancher.value)
   } catch (e) {
     alerteStore.afficherErreur(`Seuils : ${(e as Error).message}`)
   }
-  await chargerCreneaux()
-}
-
-async function recalculer() {
-  recalculEnCours.value = true
-  try {
-    await http.post('/api/straddle/creneaux-ia/calculer', null, { timeout: 180_000 })
-    await chargerCreneaux()
-  } catch (e) {
-    alerteStore.afficherErreur(`Calcul créneaux : ${(e as Error).message}`)
-  }
-  recalculEnCours.value = false
-}
-
-async function basculer(c: CreneauIa) {
-  try {
-    await http.post(`/api/straddle/creneaux-ia/${c.arme ? 'ignorer' : 'armer'}`, {
-      asset: c.asset, jour: c.jour, heure: c.heure,
-    })
-  } catch (e) {
-    alerteStore.afficherErreur(`Armement créneau : ${(e as Error).message}`)
-  }
-  // Dans tous les cas : recharger réaffiche slots/file/réserve à la vérité.
-  await chargerCreneaux()
 }
 
 async function charger() {
@@ -304,7 +221,7 @@ async function charger() {
 let minuteur: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
   void charger()
-  void chargerCreneaux()
+  void chargerArmement()
   minuteur = setInterval(charger, 60_000)
 })
 onUnmounted(() => { if (minuteur !== null) clearInterval(minuteur) })

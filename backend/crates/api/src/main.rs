@@ -7,11 +7,14 @@ mod analyses_ia;
 mod analyses_smc;
 mod asset_params_handlers;
 mod alertes_prix;
-mod creneaux_ia;
 mod creneaux_perimetre;
-mod creneaux_test;
 mod creneaux_job;
 mod evenements;
+mod evenements_matrice;
+mod evenements_armement;
+mod evenements_armement_http;
+#[cfg(test)]
+mod kdj_diagnostic;
 mod assets_handlers;
 mod calendar_handlers;
 mod config_handlers;
@@ -33,6 +36,7 @@ mod ollama_types;
 mod pip_updater;
 mod presse_handlers;
 mod presse_notation;
+#[cfg(test)]
 mod tests_flux_critiques;
 mod whale_watching;
 mod whale_labo;
@@ -178,7 +182,28 @@ async fn main() -> std::io::Result<()> {
     // samples (la collecte continue vit dans fermer_signal_par_cle).
     tokio::spawn(ml_collecte::boucle_rattrapage(app_state.db.clone()));
     // §16 : agenda intelligent straddle — propositions IA fraîches au matin.
-    tokio::spawn(creneaux_ia::boucle(app_state.db.clone()));
+    tokio::spawn(evenements_armement::boucle_validation(app_state.db.clone()));
+    // Étape 1-bis (incident 05/10 « tout à 0 ») : préchauffage des caches
+    // froids en tâche de fond DÈS le boot — les deux gros calculs (patterns
+    // 24 mois, matrice événements) scannaient des dizaines de millions de
+    // bougies pendant que le dashboard chargeait : tous les fetchs
+    // patientaient derrière. À l'ouverture de la fenêtre : cache chaud.
+    {
+        let db = app_state.db.clone();
+        tokio::spawn(async move {
+            let debut = std::time::Instant::now();
+            let n = evenements_matrice::prechauffer_matrice(&db).await["evenements"].as_array().map(|a| a.len()).unwrap_or(0);
+            tracing::info!("🔥 Préchauffage matrice événements : {n} événements en {:?}", debut.elapsed());
+        });
+    }
+    {
+        let db = app_state.db.clone();
+        tokio::spawn(async move {
+            let debut = std::time::Instant::now();
+            let n = volatility_handlers::prechauffer_patterns_jour(&db).await["assets"].as_array().map(|a| a.len()).unwrap_or(0);
+            tracing::info!("🔥 Préchauffage patterns-jour : {n} asset(s) en {:?}", debut.elapsed());
+        });
+    }
     tokio::spawn(rockets_unlocks::boucle(app_state.db.clone()));
     tokio::spawn(straddle_analyste::assurer_cache(app_state.db.clone()));
     // Tâche 6.4 audit : notation LLM des articles restés à 0 (backlog au

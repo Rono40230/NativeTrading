@@ -68,10 +68,6 @@ impl WhaleWatching {
         }
     }
 
-    /// Test : les stats sont-elles prêtes pour ce couple ?
-    pub fn est_pret(&self, asset: &str, tf: &str) -> bool {
-        self.stats.contains_key(&(asset.to_string(), tf.to_string()))
-    }
 }
 
 impl Default for WhaleWatching {
@@ -112,7 +108,7 @@ mod tests {
     #[test]
     fn pas_de_stats_au_demarrage() {
         let ww = WhaleWatching::new();
-        assert!(!ww.est_pret("BTC", "M5"));
+        assert!(ww.stats.is_empty(), "aucune stats avant le premier cycle");
     }
 }
 

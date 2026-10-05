@@ -305,21 +305,47 @@ impl Engine for StraddleEngine {
                 }
             }
             Phase::Range { annonce_ts } => {
-                if ts >= annonce_ts - self.params.placement_avant_sec {
+                // Instant d'ARRIVÉE du dernier prix (seconde exacte) — pas
+                // le début de bougie, aligné à la minute : un ts aligné
+                // minute ne peut jamais tomber dans la fenêtre
+                // [annonce−N s, annonce[, et le paramètre « placement N s
+                // avant » restait lettre morte (ouverture à l'heure pile).
+                // Repli sur le début de bougie si l'arrivée manque (tests).
+                let instant = ctx.bougie.dernier_event.map(|d| d.timestamp()).unwrap_or(ts);
+                if instant >= annonce_ts - self.params.placement_avant_sec {
                     let atr = self.atr_h1().unwrap_or_else(|| self.atr.get());
                     if atr > 0.0 {
                         let r = self.params.sl_atr * atr;
                         if r > 0.0 {
                             let cle = format!("straddle-{}-{annonce_ts}-B", self.asset.as_str());
-                            let jambes = Self::jambes_nouvelles(prix, r, ts, self.tick_index);
-                            let s = self.signal_ouverture(prix, jambes[0].sl, r, &cle, ts);
+                            let jambes = Self::jambes_nouvelles(prix, r, instant, self.tick_index);
+                            let s = self.signal_ouverture(prix, jambes[0].sl, r, &cle, instant);
                             sortie.signaux.push(s);
+                            // Priorité au créneau suivant (owner 29/09) :
+                            // si le prochain événement/annonce arrive avant
+                            // le time-stop canonique, la passe expire
+                            // d'elle-même à son T-N s — le moteur est libre
+                            // pour l'ouverture suivante, jamais de file
+                            // d'attente (le créneau 14:30 ne mange plus le
+                            // 15:30). Plancher 30 s : jamais de passe
+                            // avortée instantanément.
+                            let canonique = self.params.time_stop_min * 60;
+                            let echeance = self
+                                .annonces
+                                .get(1)
+                                .map(|suivant| {
+                                    (suivant.ts - self.params.placement_avant_sec - instant)
+                                        .min(canonique)
+                                })
+                                .filter(|e| *e >= 30)
+                                .unwrap_or(canonique);
+                            self.lifecycle.definir_expiration(echeance);
                             self.phase = Phase::Position {
                                 annonce_ts,
                                 entree: prix,
                                 r,
                                 jambes,
-                                ouverture_ts: ts,
+                                ouverture_ts: instant,
                                 cle,
                             };
                             return sortie;
@@ -339,7 +365,11 @@ impl Engine for StraddleEngine {
 
                 // UNE évaluation du lifecycle commun par tick — les deux
                 // jambes vivent dans le même carnet, nourries au tick.
-                let bar = Self::bar_tick(ts, prix);
+                // La barre porte l'instant d'ARRIVÉE (seconde exacte) :
+                // l'expiration — canonique ou raccourcie pour libérer le
+                // moteur avant le créneau suivant — tombe à la seconde.
+                let instant = ctx.bougie.dernier_event.map(|d| d.timestamp()).unwrap_or(ts);
+                let bar = Self::bar_tick(instant, prix);
                 self.lifecycle.update(&mut jambes, &bar, self.tick_index, &mut HookVide);
 
                 // Événements de progression (diagnostic intrabar) : TP1

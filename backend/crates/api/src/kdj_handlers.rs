@@ -59,18 +59,30 @@ pub async fn assets_armes_kdj(db: &db::Database) -> Option<std::collections::Has
 
 /// Moteur KDJ/Halftrend (7.E) construit depuis la table `kdj_params` —
 /// H1 uniquement (screening + rejeu) ; appelé par l'armement runtime.
-pub(crate) fn moteur_kdj(
+/// Préchauffé depuis la base (étape 1 roadmap 05/10) : 600 barres H1 ≈ 25
+/// jours — le warm-up (260 barres) est franchi dès le montage, le moteur
+/// évalue à la PREMIÈRE clôture vivante au lieu de rester muet ~4 jours
+/// après chaque redémarrage. Sans historique suffisant : comportement
+/// inchangé (montée en température progressive d'avant).
+pub(crate) async fn moteur_kdj(
+    db: &db::Database,
     p: &db::kdj_params::KdjParams,
     asset: &common::Asset,
     tf: common::Timeframe,
 ) -> kdj_halftrend::KdjEngine {
-    kdj_halftrend::KdjEngine::nouveau(asset.clone(), tf).avec_params(kdj_halftrend::ParamsKdj {
-        period: p.period.max(2) as usize,
-        signal: p.signal.max(2) as usize,
-        amplitude: p.amplitude.max(1) as usize,
-        ratio_risk: p.ratio_risk.clamp(0.1, 10.0),
-        adx_min: if p.adx_min >= 0.0 { Some(p.adx_min) } else { None },
-    })
+    let chauffe = db
+        .obtenir_bougies(asset, &tf, 600)
+        .await
+        .unwrap_or_default();
+    kdj_halftrend::KdjEngine::nouveau(asset.clone(), tf)
+        .avec_params(kdj_halftrend::ParamsKdj {
+            period: p.period.max(2) as usize,
+            signal: p.signal.max(2) as usize,
+            amplitude: p.amplitude.max(1) as usize,
+            ratio_risk: p.ratio_risk.clamp(0.1, 10.0),
+            adx_min: if p.adx_min >= 0.0 { Some(p.adx_min) } else { None },
+        })
+        .avec_chauffe(&chauffe)
 }
 
 #[derive(Debug, Serialize)]

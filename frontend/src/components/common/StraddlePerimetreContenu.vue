@@ -7,7 +7,7 @@
           <span class="text-[10px] text-white/50 ml-auto">{{ selection.length }} sélectionné(s)</span>
         </div>
         <p class="text-[10px] text-amber-300/80 border-l-2 border-amber-400/40 pl-2">
-          Rappel des décisions du 15/09 : BTC est la seule crypto du straddle ; tier 1 = annonces US sur les majeures.
+          Un asset ajouté reçoit automatiquement tous ses créneaux événements armés (balayage large 28/09).
         </p>
         <div v-for="cat in categories" :key="cat.type" class="flex flex-col gap-1">
           <p class="text-[11px] font-semibold uppercase tracking-wide" :class="cat.couleur">{{ cat.label }}</p>
@@ -19,7 +19,7 @@
                 ? 'border-emerald-500/40 bg-emerald-500/10 text-white'
                 : 'border-white/10 bg-white/[0.02] text-white/60 hover:bg-white/[0.06] hover:border-white/20'"
             >
-              <input type="checkbox" class="hidden" :checked="selection.includes(a)" @change="basculer(a)" />
+              <input type="checkbox" class="hidden" :checked="selection.includes(a)" @change="basculerAsset(a)" />
               {{ a }}
             </label>
           </div>
@@ -34,27 +34,62 @@
         </div>
       </div>
 
-      <!-- Volet droit : créneaux armés + raccourcis -->
-      <div class="flex flex-col gap-3">
-        <div class="flex items-center gap-2">
-          <p class="text-xs font-bold text-white uppercase tracking-wider">Créneaux armés ({{ creneauxArmes.length }}/{{ plafond }})</p>
-          <button class="ml-auto text-[10px] px-2 py-1 rounded-lg bg-yellow-500/20 text-yellow-400 font-semibold hover:bg-yellow-500/30 transition"
-                  title="Remplit les slots libres avec les têtes de la file ARMER (assets du périmètre uniquement)"
-                  @click="armerFile">{{ armet ? '⏳…' : '⚡ Armer la file' }}</button>
-        </div>
-        <div v-if="creneauxArmes.length" class="flex flex-col gap-1.5 overflow-y-auto max-h-72 pr-1">
-          <div v-for="c in creneauxArmes" :key="c.asset + c.jour + c.heure"
-               class="rounded-lg border px-3 py-2 text-xs flex items-center gap-2 flex-wrap"
-               :class="c.hors_perimetre
-                 ? 'border-amber-500/40 bg-amber-500/10'
-                 : 'border-emerald-500/30 bg-emerald-500/10'">
-            <span class="font-bold text-white">{{ c.asset }} · {{ JOURS[c.jour - 1] }} {{ c.heure }}h</span>
-            <span v-if="c.hors_perimetre" class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                  title="Cet asset n'est plus dans le périmètre — le créneau restera armé mais ne tirera pas">⚠ HORS PÉRIMÈTRE — ignoré</span>
-            <span class="ml-auto text-white/70">{{ c.occurrences }} tirage(s) · Σ{{ c.somme_r >= 0 ? '+' : '' }}{{ c.somme_r.toFixed(2) }}R</span>
+      <!-- Volet droit : poste de commandement ÉVÉNEMENTS (28/09, phase 3).
+           Chaque ligne = un événement de la taxonomie (heure DST-aware) ;
+           les chips = une case armable (asset × événement) avec sa
+           réactivité mesurée (×N) et l'état de son test. -->
+      <div class="flex flex-col gap-2 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <p class="text-xs font-bold text-white uppercase tracking-wider">📯 Créneaux événements</p>
+          <span class="text-[10px] text-white/60">{{ armes }}/{{ total }} armé(s)</span>
+          <div class="ml-auto flex items-center gap-1.5">
+            <button class="text-[10px] px-2 py-1 rounded-lg bg-emerald-600/20 text-emerald-300 font-semibold hover:bg-emerald-600/30 transition disabled:opacity-40"
+                    :disabled="armEnCours" @click="arm.toutArmer(true)">
+              ⚡ Tout armer
+            </button>
+            <button class="text-[10px] px-2 py-1 rounded-lg bg-red-900/30 text-red-300 font-semibold hover:bg-red-900/50 transition disabled:opacity-40"
+                    :disabled="total === 0 || armEnCours" @click="arm.toutArmer(false)">
+              Tout désarmer
+            </button>
           </div>
         </div>
-        <p v-else class="text-xs text-white/60 py-2 text-center">Aucun créneau armé — la file attend ton clic.</p>
+
+        <div v-if="armChargement" class="text-[11px] text-white/70 py-2 text-center">Chargement…</div>
+        <div v-else-if="!evenementsArmement.length" class="text-[11px] text-white/60 py-2 text-center">
+          Aucun créneau — le semis se fait au démarrage du backend.
+        </div>
+
+        <div v-else class="flex flex-col gap-1.5 overflow-y-auto max-h-[52vh] pr-1">
+          <div v-for="ev in evenementsArmement" :key="ev.ident"
+               class="rounded-lg border border-white/10 bg-black/20 px-2.5 py-1.5 flex flex-col gap-1">
+            <div class="flex items-baseline justify-between gap-2 flex-wrap">
+              <p class="text-[11px] font-bold text-white leading-snug">{{ ev.nom }}</p>
+              <span class="text-[9px] font-mono text-white shrink-0">
+                <span class="font-bold">{{ ev.prochaine_heure_paris ?? '—' }}</span> Paris
+                <span class="text-white/50">· {{ ev.heure_locale }} {{ nomFuseau(ev.fuseau) }}</span>
+              </span>
+            </div>
+            <div class="flex flex-wrap items-center gap-1">
+              <button v-for="l in ev.lignes" :key="ev.ident + l.asset"
+                      class="text-[9px] font-mono font-bold rounded px-1.5 py-[1px] border transition-colors"
+                      :class="classeLigne(l)"
+                      :title="titreLigne(ev, l)"
+                      :disabled="armEnCours"
+                      @click="arm.basculer(l.asset, ev.ident)">
+                {{ l.asset }}<template v-if="l.ratio"> ×{{ l.ratio.toFixed(1) }}</template>
+                <span v-if="l.verdict_test === 'valide'"> ✅</span>
+                <span v-else-if="l.verdict_test === 'refute'"> ❌</span>
+                <span v-else-if="l.verdict_test === 'incertain'"> ⏳</span>
+                <span v-if="l.hors_perimetre"> ⚠</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <p class="text-[8px] text-white/70 leading-snug">
+          Clic sur une chip : armer/désarmer la case (asset × événement). ×N = réactivité mesurée (ATR des 3 premières minutes vs habitude).
+          ✅ validé · ❌ réfuté (désarmé par la boucle) · ⏳ prolongé · ⚠ hors périmètre (armé mais ignoré par le moteur).
+          Heures Paris avec bascules été/hiver.
+        </p>
         <RouterLink to="/straddle"
           class="self-start text-[10px] px-2.5 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 font-semibold hover:bg-yellow-500/30 transition"
           @click="$emit('fermer')">→ Agenda complet sur la page Straddle</RouterLink>
@@ -66,22 +101,25 @@
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { http } from '@/services/http.client'
+import { useEvenementsArmement } from '@/composables/useEvenementsArmement'
+import type { EvenementArmement, LigneArmement } from '@/composables/useEvenementsArmement'
 
 interface AssetApi { id: string; type: 'crypto' | 'metal' | 'forex' | 'indice'; actif?: boolean }
-interface CreneauArme { asset: string; jour: number; heure: number; occurrences: number; somme_r: number; hors_perimetre: boolean }
 
-
-const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
-const plafond = 8
+defineEmits<{ (e: 'fermer'): void }>()
 
 const assets = ref<AssetApi[]>([])
 const selection = ref<string[]>([])
 const selectionInitiale = ref<string[]>([])
-const creneauxArmes = ref<CreneauArme[]>([])
 const enCours = ref(false)
-const armet = ref(false)
 const message = ref('')
 const erreur = ref(false)
+
+/// État d'armement événementiel partagé (composable).
+const arm = useEvenementsArmement()
+const evenementsArmement = arm.evenements
+const armChargement = arm.chargement
+const armEnCours = arm.enCours
 
 const categories = computed(() => [
   { type: 'crypto', label: '🪙 Cryptos', couleur: 'text-yellow-400', assets: assets.value.filter(a => a.type === 'crypto').map(a => a.id) },
@@ -93,23 +131,49 @@ const categories = computed(() => [
 const modifie = computed(() =>
   JSON.stringify([...selection.value].sort()) !== JSON.stringify([...selectionInitiale.value].sort()))
 
+/// Totaux d'armement toutes cases confondues.
+const total = computed(() => evenementsArmement.value.reduce((n, ev) => n + ev.lignes.length, 0))
+const armes = computed(() => evenementsArmement.value.reduce(
+  (n, ev) => n + ev.lignes.filter(l => l.arme).length, 0))
+
+function nomFuseau(fuseau: string): string {
+  if (fuseau === 'America/New_York') return 'NY'
+  if (fuseau === 'Europe/London') return 'Londres'
+  return ''
+}
+
+/// Style d'une chip : validée = émeraude forte, réfutée = rouge, armée =
+/// émeraude douce, désarmée = atténuée.
+function classeLigne(l: LigneArmement): string {
+  if (l.verdict_test === 'valide') return 'text-emerald-300 bg-emerald-500/15 border-emerald-400/50'
+  if (l.verdict_test === 'refute') return 'text-red-300 bg-red-500/10 border-red-400/40 opacity-80'
+  if (!l.arme) return 'text-white/50 bg-white/[0.03] border-white/10 hover:bg-white/10'
+  return 'text-emerald-200 bg-emerald-500/10 border-emerald-400/30'
+}
+
+function titreLigne(ev: EvenementArmement, l: LigneArmement): string {
+  const ratio = l.ratio ? ` · réactivité ×${l.ratio.toFixed(2)}` : ''
+  const verdict = l.verdict_test
+    ? ` · ${l.verdict_test === 'valide' ? 'VALIDÉ' : l.verdict_test === 'refute' ? 'RÉFUTÉ (désarmé)' : 'incertain (prolongé)'}`
+    : ''
+  const hors = l.hors_perimetre ? ' · HORS PÉRIMÈTRE : ignoré par le moteur' : ''
+  return `${l.asset} × ${ev.nom}${ratio} · ${l.occurrences} tirage(s) · Σ${l.somme_r >= 0 ? '+' : ''}${l.somme_r.toFixed(2)}R${verdict}${hors}`
+}
+
 async function charger() {
   message.value = ''
   try {
-    const [resA, resP, resC] = await Promise.all([
+    const [resA, resP] = await Promise.all([
       http.get<AssetApi[]>('/api/assets'),
       http.get<{ assets: string[] }>('/api/straddle/perimetre'),
-      http.get<{ slots: CreneauArme[] }>('/api/straddle/creneaux-ia'),
     ])
     assets.value = (resA.data ?? []).filter(a => a.actif !== false)
     selection.value = [...resP.data.assets]
     selectionInitiale.value = [...resP.data.assets]
-    creneauxArmes.value = (resC.data.slots ?? []).filter(s => (s as unknown as { arme?: boolean }).arme)
-      .map(s => ({ ...s, hors_perimetre: s.hors_perimetre ?? false }))
   } catch { /* modale vide */ }
 }
 
-function basculer(a: string) {
+function basculerAsset(a: string) {
   const i = selection.value.indexOf(a)
   if (i >= 0) selection.value.splice(i, 1)
   else selection.value.push(a)
@@ -119,32 +183,20 @@ async function enregistrer() {
   enCours.value = true
   message.value = ''
   try {
-    const r = await http.put<{ creneaux_armes_hors_perimetre: string[] }>('/api/straddle/perimetre', { assets: selection.value })
+    await http.put('/api/straddle/perimetre', { assets: selection.value })
     selectionInitiale.value = [...selection.value]
-    const hors = r.data?.creneaux_armes_hors_perimetre ?? []
-    message.value = hors.length
-      ? `✓ Appliqué au prochain tick (≤ 60 s) — ${hors.length} créneau(x) armé(s) hors périmètre : ${hors.join(', ')}`
-      : '✓ Périmètre enregistré — appliqué au prochain tick (≤ 60 s)'
+    message.value = '✓ Périmètre enregistré — créneaux événements semés pour les nouveaux assets (appliqué ≤ 60 s)'
     erreur.value = false
-    await charger()
-    message.value = hors.length
-      ? `✓ Appliqué ≤ 60 s — créneaux armés hors périmètre : ${hors.join(', ')}`
-      : '✓ Périmètre enregistré — appliqué au prochain tick (≤ 60 s)'
+    await arm.charger()
   } catch (e) {
     erreur.value = true
-    message.value = "❌ Échec de l'enregistrement"
+    message.value = `❌ ${(e as Error).message}`
   }
   enCours.value = false
 }
 
-async function armerFile() {
-  armet.value = true
-  try {
-    await http.post('/api/straddle/creneaux-ia/armer-file', null, { timeout: 120_000 })
-    await charger()
-  } catch { /* message dans l'agenda */ }
-  armet.value = false
-}
-
-onMounted(charger)
+onMounted(() => {
+  void charger()
+  void arm.charger()
+})
 </script>

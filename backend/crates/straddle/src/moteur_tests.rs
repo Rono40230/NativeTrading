@@ -213,3 +213,83 @@ fn repli_atr_m1_sans_injection_h1() {
         other => panic!("phase inattendue : {:?}", other),
     }
 }
+
+/// Tick avec instant d'ARRIVÉE distinct du début de bougie — la situation
+/// de production : la bougie en formation est alignée à la minute, le prix
+/// arrive à la seconde près.
+fn tick_arrivee(m: &mut StraddleEngine, debut: i64, recu_le: i64, prix: f64) -> SortieMoteur {
+    let mut b = engine::agregateur::BougieEnFormation {
+        debut, open: prix, high: prix, low: prix, close: prix,
+        volume: 0.0, nb_events: 1, dernier_event: None,
+    };
+    b.dernier_event = chrono::Utc.timestamp_opt(recu_le, 0).single();
+    let a = Asset::from("XAUUSD");
+    let t = Timeframe::try_from("M1").unwrap_or(Timeframe::M1);
+    let ctx = ContexteTick { asset: &a, tf: t, bougie: &b };
+    m.on_tick(&ctx)
+}
+
+/// Production : le début de bougie est aligné minute — sans l'instant
+/// d'arrivée, le timer T-3 s ne peut JAMAIS ouvrir avant l'événement
+/// (la bougie précédente débute à annonce−60 s, la suivante à l'annonce).
+/// Le moteur doit s'armer sur l'ARRIVÉE (annonce−3 s), pas sur le début.
+#[test]
+fn le_timer_s_arme_sur_linstant_darrivee_pas_le_debut_de_bougie() {
+    let a_ts = 1_800_000_000;
+    let mut m = moteur_pret(a_ts)
+        .avec_params(crate::types::ParamsStraddle { placement_avant_sec: 3, ..Default::default() });
+    tick(&mut m, a_ts - 1800, 100.0);
+    // Prix arrivé à annonce−4 s (bougie de la minute annonce−60) : trop tôt.
+    let s1 = tick_arrivee(&mut m, a_ts - 60, a_ts - 4, 100.1);
+    assert!(s1.signaux.is_empty());
+    assert!(matches!(m.phase_courante(), Phase::Range { .. }), "T-4 s : encore en range");
+    // Prix arrivé à annonce−3 s, même bougie en formation : OUVERTURE.
+    let s2 = tick_arrivee(&mut m, a_ts - 60, a_ts - 3, 100.2);
+    assert_eq!(s2.signaux.len(), 1, "T-3 s : jambes posées AVANT l'événement");
+    match m.phase_courante() {
+        Phase::Position { entree, ouverture_ts, .. } => {
+            assert!((entree - 100.2).abs() < 1e-9, "E = prix courant à T-3 s");
+            assert_eq!(*ouverture_ts, a_ts - 3, "ouverture horodatée à l'instant d'arrivée");
+        }
+        other => panic!("phase inattendue : {:?}", other),
+    }
+}
+
+/// Priorité au créneau suivant (owner 29/09) : une passe dont le time-stop
+/// canonique dépasserait l'événement SUIVANT est expirée à son T-N s — le
+/// moteur est libre, jamais de file d'attente (14:30 ne mange plus 15:30).
+#[test]
+fn priorite_au_creneau_suivant_libere_le_moteur() {
+    let a_ts = 1_800_000_000;
+    let b_ts = a_ts + 1800; // créneau suivant 30 min plus tard
+    let mut m = StraddleEngine::nouveau(Asset::from("XAUUSD"), Timeframe::try_from("M1").unwrap_or(Timeframe::M1))
+        .avec_annonces(vec![
+            Annonce { ts: a_ts, devise: "USD".into(), titre: "A".into() },
+            Annonce { ts: b_ts, devise: "USD".into(), titre: "B".into() },
+        ]);
+    for i in 0..60 {
+        close(&mut m, a_ts - 3600 + i * 60, 100.0, 100.5, 99.5, 100.0);
+    }
+    tick(&mut m, a_ts - 1800, 100.0);
+    tick(&mut m, a_ts - 3, 100.0); // passe A ouverte à E = 100
+    // La passe vit, prix immobile — bien avant l'échéance raccourcie.
+    let _ = tick(&mut m, a_ts + 60, 100.0);
+    assert!(matches!(m.phase_courante(), Phase::Position { .. }), "passe A en cours");
+    // Premier tick APRÈS le T-3 s du créneau B : A expire (time-stop
+    // raccourci à B-3 s), verdict rendu au prix courant.
+    let s = tick(&mut m, b_ts - 2, 100.0);
+    let (verdict, r) = verdict_final(&s);
+    assert_eq!(verdict, "expire", "passe immobile refermée pour libérer le moteur");
+    assert!(r.abs() < 1e-9);
+    // Deux ticks plus tard, la passe B est ouverte (un tick pour la
+    // fenêtre Range, un pour l'ouverture — machine à états, une phase
+    // par tick) : SANS la priorité, B aurait attendu la fin du time-stop
+    // canonique de A (60 min).
+    let _ = tick(&mut m, b_ts - 1, 100.0);
+    let s2 = tick(&mut m, b_ts, 100.0);
+    assert_eq!(s2.signaux.len(), 1, "passe B ouverte sans attendre");
+    match m.phase_courante() {
+        Phase::Position { annonce_ts, .. } => assert_eq!(*annonce_ts, b_ts),
+        other => panic!("phase inattendue : {:?}", other),
+    }
+}

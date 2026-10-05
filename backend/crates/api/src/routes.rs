@@ -138,30 +138,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
                 .route(web::put().to(crate::creneaux_perimetre::put_perimetre)),
         )
         .route(
-            "/api/straddle/creneaux-ia",
-            web::get().to(crate::creneaux_ia::lister),
-        )
-        .route(
-            "/api/straddle/creneaux-ia/calculer",
-            web::post().to(crate::creneaux_ia::calculer_et_evaluer),
-        )
-        .route(
-            "/api/straddle/creneaux-ia/armer",
-            web::post().to(crate::creneaux_ia::armer),
-        )
-        .route(
-            "/api/straddle/creneaux-ia/armer-file",
-            web::post().to(crate::creneaux_ia::armer_file),
-        )
-        .route(
-            "/api/straddle/creneaux-ia/ignorer",
-            web::post().to(crate::creneaux_ia::ignorer),
-        )
-        .route(
-            "/api/straddle/creneaux-ia/seuils",
-            web::put().to(crate::creneaux_ia::mettre_seuils),
-        )
-        .route(
             "/api/smc/analyse",
             web::get().to(crate::smc_handlers::analyse_smc),
         )
@@ -240,7 +216,23 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         )
         .route(
             "/api/evenements/matrice",
-            web::get().to(crate::evenements::get_matrice),
+            web::get().to(crate::evenements_matrice::get_matrice),
+        )
+        .route(
+            "/api/evenements/armement",
+            web::get().to(crate::evenements_armement_http::get_armement),
+        )
+        .route(
+            "/api/evenements/armement/basculer",
+            web::post().to(crate::evenements_armement_http::basculer),
+        )
+        .route(
+            "/api/evenements/armement/tout",
+            web::post().to(crate::evenements_armement_http::tout_armer),
+        )
+        .route(
+            "/api/evenements/seuils",
+            web::put().to(crate::evenements_armement_http::mettre_seuils),
         )
         .route(
             "/api/calendar",

@@ -52,7 +52,8 @@ impl Default for StraddleParams {
 pub async fn lire_straddle_params(pool: &SqlitePool) -> StraddleParams {
     let row = sqlx::query(
         "SELECT atr_periode, atr_seuil, tp_mult_1, tp_mult_2, tp_mult_3,
-                sl_mult, horizon_bougies, trailing_atr, vente_partielle, pct_cloture_tp1, pct_cloture_tp2
+                sl_mult, horizon_bougies, trailing_atr, vente_partielle, pct_cloture_tp1, pct_cloture_tp2,
+                placement_sec, trailing_r
          FROM straddle_params WHERE id = 1",
     )
     .fetch_optional(pool)
@@ -118,4 +119,28 @@ pub async fn sauvegarder_straddle_params(pool: &SqlitePool, p: &StraddleParams) 
     .await
     .map_err(|e| TradingError::Database(e.to_string()))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Régression 29/09 : le SELECT de lecture oubliait placement_sec et
+    /// trailing_r — écrits par le PUT, jamais relus (unwrap_or masquait
+    /// le silence : l'UI et le MOTEUR tournaient à 10 s quel que soit le
+    /// réglage sauvegardé). L'aller-retour doit tout ramener.
+    #[tokio::test]
+    async fn aller_retour_placement_et_trailing() {
+        let db = crate::Database::new(":memory:").await.expect("DB mémoire");
+        db.run_migrations().await.expect("migrations");
+        let params = StraddleParams {
+            placement_sec: 3,
+            trailing_r: 0.7,
+            ..StraddleParams::default()
+        };
+        sauvegarder_straddle_params(db.pool(), &params).await.expect("sauvegarde");
+        let relues = lire_straddle_params(db.pool()).await;
+        assert_eq!(relues.placement_sec, 3, "placement_sec relu tel que sauvegardé");
+        assert!((relues.trailing_r - 0.7).abs() < 1e-9, "trailing_r relu tel que sauvegardé");
+    }
 }
