@@ -129,6 +129,13 @@ lus par aucun code (lecteurs disparus avec la purge ML du 09/09).
 n'apparaissent plus dans la modale config (option B). Plus aucun réglage
 mort dans l'UI — grep des clés de config exposées vs lues.
 
+> **État 05/10 — OPTION B POSÉE, en attente de vérification owner.**
+> Cartographie : 3 lignes whitelist backend, ZÉRO référence frontend
+> (l'UI ne les affichait même pas), 3 lignes en base. Retrait : whitelist
+> + migration 0116 (DELETE). 39 suites vertes, release 0 warning, grep
+> zéro référence orpheline. Le vrai filtre de confiance reviendra avec
+> l'étape 12 (advisory sur données réelles).
+
 ### Étape 3 — Rockets : silence et positions dormantes
 
 **Constat** : aucun signal depuis le 22/09 (vérifier si rareté normale —
