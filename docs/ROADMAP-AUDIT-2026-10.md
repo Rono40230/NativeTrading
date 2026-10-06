@@ -374,7 +374,12 @@ d'aller-retour existe déjà).
 > les réglages PUIS RELIT ET VÉRIFIE (leçon placement_sec). Bloc 🎯
 > Recommandation en tête des panneaux Simulation — bouton ⚡ actif
 > directement (décision owner) quand ΔR > 0. 39 suites, release 0
-> warning, front vert.
+> warning, front vert. **VÉRIFIÉE 06/10 [APP]** : activation réelle de
+> l'essai SMC tout-TP1 (+154 R / 959 trades) par le propriétaire —
+> écriture + relecture vérifiée ✓ (deux correctifs au passage : null ≠
+> zéro légitime, bouton sans essai témoin). La production SMC tourne
+> désormais en fractions 1,0/0/0 + trailing 0,1 — l'option que l'étude
+> d'octobre préconisait.
 
 ### Étape 13 — Rockets : détection intrajournalière
 
