@@ -1,5 +1,6 @@
 <template>
   <div class="flex flex-col gap-3">
+  <RecommandationBloc strategie="kdj_halftrend" />
     <!-- ═══ 7.G — Balayage de calibration (rejeu 24 mois H1) ═══ -->
     <section class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 flex-wrap">
@@ -103,6 +104,7 @@
 </template>
 
 <script setup lang="ts">
+import RecommandationBloc from './RecommandationBloc.vue'
 import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 import { useAlerteStore } from '@/stores/alerte.store'

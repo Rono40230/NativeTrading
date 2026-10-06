@@ -1,5 +1,6 @@
 <template>
   <div class="flex flex-col gap-4">
+  <RecommandationBloc strategie="SMC" />
     <!-- Limite méthodologique -->
     <p class="text-[11px] text-white/70 border-l-2 border-amber-400/50 pl-3">
       La simulation rejoue les <b>trades réellement pris</b> avec d'autres niveaux — elle ne peut pas
@@ -285,6 +286,7 @@
 </template>
 
 <script setup lang="ts">
+import RecommandationBloc from './RecommandationBloc.vue'
 import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 import ModaleConfirmation from '@/components/common/ModaleConfirmation.vue'

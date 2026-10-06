@@ -10,6 +10,7 @@ mod alertes_prix;
 mod creneaux_perimetre;
 mod evenements;
 mod sante_moteurs;
+mod simulation_recommandation;
 mod evenements_matrice;
 mod evenements_armement;
 mod evenements_armement_http;

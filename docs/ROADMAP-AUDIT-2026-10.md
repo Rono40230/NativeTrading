@@ -366,6 +366,16 @@ chiffré, activation = réglages réellement écrits (relecture = valeurs
 nouvelles — le bug du SELECT ne doit pas pouvoir revenir, un test
 d'aller-retour existe déjà).
 
+> **État 06/10 — POSÉE (10df030), en attente de vérification owner.** GET
+> /api/strategies/{id}/recommandation : meilleur essai par R TOTAL à
+> effectif ≥ 30 (décision owner) + essai à la config actuelle + ΔR +
+> activable (SMC + KDJ : espaces balayés mappés aux réglages réels ;
+> straddle : espace virtuel, informatif seul). POST .../activer : écrit
+> les réglages PUIS RELIT ET VÉRIFIE (leçon placement_sec). Bloc 🎯
+> Recommandation en tête des panneaux Simulation — bouton ⚡ actif
+> directement (décision owner) quand ΔR > 0. 39 suites, release 0
+> warning, front vert.
+
 ### Étape 13 — Rockets : détection intrajournalière
 
 **Actions** : cassure du pivot D1 détectée en M15 (au lieu d'attendre la

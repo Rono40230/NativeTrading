@@ -215,6 +215,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::sante_moteurs::get_sante_sources),
         )
         .route(
+            "/api/strategies/{id}/recommandation",
+            web::get().to(crate::simulation_recommandation::get_recommandation),
+        )
+        .route(
+            "/api/strategies/{id}/recommandation/activer",
+            web::post().to(crate::simulation_recommandation::activer),
+        )
+        .route(
             "/api/evenements/armement",
             web::get().to(crate::evenements_armement_http::get_armement),
         )
