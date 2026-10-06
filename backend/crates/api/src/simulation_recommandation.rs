@@ -101,6 +101,12 @@ fn essai_est_actuel(params: &serde_json::Value, actuel: &serde_json::Value) -> b
     let mut vues = 0usize;
     for (cle, valeur) in actuel.as_object().into_iter().flatten() {
         if let Some(p) = params.get(cle) {
+            // null dans l'essai = « non applicable dans cet essai » (ex.
+            // tp3_trailing absent des balayages d'avant septembre) : clé
+            // ignorée, pas une différence.
+            if p.is_null() {
+                continue;
+            }
             vues += 1;
             let egale = match (valeur.as_f64(), p.as_f64()) {
                 (Some(a), Some(b)) => (a - b).abs() < 1e-9,
