@@ -211,10 +211,9 @@ pub async fn activer(state: web::Data<AppState>, path: web::Path<String>, body: 
                 ("tp3_mode", "smc_tp3_mode", false),
             ] {
                 let Some(v) = p.get(cle_json) else { continue };
+                if v.is_null() { continue; } // absent de l'essai — PAS un zéro légitime
                 let valeur = if is_num {
-                    let n = v.as_f64().unwrap_or(0.0).to_string();
-                    if n == "0" { continue; } // absent de l'essai
-                    n
+                    v.as_f64().unwrap_or(0.0).to_string()
                 } else {
                     match v.as_str() { Some(s) => s.to_string(), None => continue }
                 };
