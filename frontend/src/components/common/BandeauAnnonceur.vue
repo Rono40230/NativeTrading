@@ -20,7 +20,7 @@
     </PopoverInfo>
 
     <!-- ── Badge Créneaux moyens de volatilité ─────────────────────────── -->
-    <PopoverInfo titre="Créneaux moyen de volatilité sur 24 mois" :texte="texteCreneaux" class="flex-1 min-w-[280px]">
+    <PopoverInfo titre="Créneaux moyen de volatilité sur 12 mois" :texte="texteCreneaux" class="flex-1 min-w-[280px]">
       <button
         class="korry w-full cursor-pointer"
         @click.stop="ouverte = 'creneaux'"
@@ -216,7 +216,7 @@ const detailCreneaux = computed(() => {
 })
 
 const texteCreneaux = computed(() =>
-  `Fenêtre la plus volatile du jour (heure Paris), d'après les patterns moyens des 24 derniers mois — les 4 actifs les plus intenses sont affichés, l'ordre complet est ici :\n${detailCreneaux.value}\n\nClic : les événements prévisibles (annonces US, réouverture CME, fixes or…) × la réactivité de chaque asset, puis les créneaux moyens.`)
+  `Fenêtre la plus volatile du jour (heure Paris), d'après les patterns moyens des 12 derniers mois — les 4 actifs les plus intenses sont affichés, l'ordre complet est ici :\n${detailCreneaux.value}\n\nClic : les événements prévisibles (annonces US, réouverture CME, fixes or…) × la réactivité de chaque asset, puis les créneaux moyens.`)
 
 async function chargerCreneaux() {
   try {
@@ -232,7 +232,7 @@ const topRadar = computed(() =>
   classementRadar.value.slice(0, 5).map(i => `${i.asset}·${i.tf} ${i.atr.toFixed(0)}%`))
 
 const texteRadar = computed(() =>
-  `Volatilité actuelle vs habitude de cet instant (jour × heure, 24 mois) — les 5 paires TF/asset les plus chaudes, remises à jour chaque heure.\n\nClic : le classement complet.`)
+  `Volatilité actuelle vs habitude de cet instant (jour × heure, 12 mois) — les 5 paires TF/asset les plus chaudes, remises à jour chaque heure.\n\nClic : le classement complet.`)
 
 // ── Cycles : calendrier 30 min (les agendas bougent lentement), créneaux
 //    1 h (cache serveur d'1 h), radar 1 h (spec owner). ─────────────────────

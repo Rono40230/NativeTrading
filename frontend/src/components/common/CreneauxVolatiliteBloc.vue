@@ -5,13 +5,13 @@
     <div class="flex items-center justify-between shrink-0 gap-2 cursor-pointer select-none" @click="ouvert = !ouvert">
       <p class="text-[11px] font-semibold text-white uppercase tracking-widest">
         <span class="inline-block transition-transform" :class="ouvert ? 'rotate-90' : ''">▸</span>
-        ⏰ Créneaux de volatilité moyen sur 24 mois
+        ⏰ Créneaux de volatilité moyen sur 12 mois
         <span v-if="!ouvert && cartes.length" class="text-white font-normal normal-case tracking-normal">
           · {{ cartes.length }} actifs
         </span>
       </p>
       <div class="flex items-center gap-1.5 min-w-0" @click.stop>
-        <span class="text-[9px] text-white truncate">{{ jourLabel }} · heures Paris · 24 mois d'historique</span>
+        <span class="text-[9px] text-white truncate">{{ jourLabel }} · heures Paris · 12 mois d'historique</span>
       </div>
     </div>
 
@@ -69,7 +69,7 @@ import { lirePerimetreStraddle } from '@/composables/usePerimetreStraddle'
 const props = withDefaults(defineProps<{ ouvertDefaut?: boolean }>(), { ouvertDefaut: false })
 
 /// Source : patterns horaires (clusters quartiles) de tous les assets actifs —
-/// 24 mois au M1, cache serveur d'une heure. Une CARTE par asset : statut
+/// 12 mois au M1, cache serveur d'une heure. Une CARTE par asset : statut
 /// « maintenant », mini-barre du jour de semaine en cours (24 heures UTC du
 /// jour placées à leur heure Paris — bijection), meilleure fenêtre du jour,
 /// jour le plus actif de la semaine, seuil straddle P85.

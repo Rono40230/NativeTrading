@@ -9,6 +9,7 @@ const CLES_AUTORISEES: &[&str] = &[
     "risque_trade",
     "telegram_bot_token",
     "telegram_chat_id",
+    "retention_bougies",
     "tiingo_api_key",
     "deepl_api_key",
     "smc_tp1_mult",

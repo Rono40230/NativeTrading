@@ -387,6 +387,16 @@ supprimé, propore au labo de conserver l'agrégé) ; job de purge +
 matrice réactivité toujours alimentés (la réactivité n'a besoin que de
 120 jours de M1).
 
+> **État 05/10 — POSÉE, purge au prochain démarrage.** Politique
+> existante (configurable par TF) resserrée : **M1 24 → 12 mois** (6,0 M
+> de lignes concernées), autres TF inchangés (légers). Le job de rétention
+> du boot purge + VACUUM automatiquement (> 50 k lignes). Fenêtre
+> patterns-jour alignée (24 → 12 mois, constante MOIS_PATTERNS) et
+> libellés UI mis à jour. `retention_bougies` ajouté à la whitelist
+> config (modifiable à distance). 39 suites, release 0 warning, front
+> vert. Attendu au restart : lignes « Rétention : … purgées » + VACUUM,
+> base sensiblement réduite.
+
 ### Étape 15 — (Optionnel) Entrée straddle à l'horloge garantie
 
 **Actions** : timer runtime armé à T-N s par créneau : la passe s'ouvre au
