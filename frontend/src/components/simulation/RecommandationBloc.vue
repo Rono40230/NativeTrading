@@ -15,10 +15,12 @@
       <span v-if="reco.delta_r !== null" class="text-[11px]" :class="(reco.delta_r ?? 0) > 0 ? 'text-emerald-300 font-bold' : 'text-white/60'">
         {{ (reco.delta_r ?? 0) > 0 ? `+${fmtR(reco.delta_r ?? 0)} R vs ta config actuelle` : '≈ ta config actuelle' }}
       </span>
-      <span v-else class="text-[10px] text-white/50">aucun essai à ta config actuelle — Δ indisponible</span>
-      <button v-if="reco.activable && (reco.delta_r ?? 0) > 0" :disabled="enCours"
+      <span v-else class="text-[10px] text-white/50">aucun essai à ta config actuelle — juge sur les chiffres de l'essai</span>
+      <button v-if="reco.activable && (reco.delta_r === null || (reco.delta_r ?? 0) > 0)" :disabled="enCours"
               class="ml-auto text-[10px] px-2.5 py-1 rounded-lg font-semibold bg-emerald-600/25 text-emerald-200 hover:bg-emerald-600/40 transition disabled:opacity-40"
-              title="Écrit les paramètres de l'essai dans les réglages réels, relit et vérifie — appliqué au prochain cycle moteur."
+              :title="reco.delta_r === null
+                ? 'Aucun essai témoin de ta config actuelle — cet essai se recommande sur ses propres chiffres. Écrit ses paramètres dans les réglages réels, relit et vérifie.'
+                : 'Écrit les paramètres de cet essai dans les réglages réels, relit et vérifie — appliqué au prochain cycle moteur.'"
               @click="activer">{{ enCours ? '⏳…' : '⚡ Activer cette config' }}</button>
       <span v-else-if="!reco.activable" class="ml-auto text-[9px] text-white/40">espace de simulation — activation non applicable</span>
     </template>
