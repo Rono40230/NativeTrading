@@ -385,6 +385,15 @@ d'aller-retour existe déjà).
 
 > **État 06/10 — VALIDÉE owner. Ouverture = backtest D1 vs M15 d'abord ; bascule live sur décision owner uniquement.**
 
+> **État 06/10 — CLASSÉE (backtest : équivalence parfaite).** Backtest sur
+> 10 cryptos × 260 j (diagnostic --ignored conservé) : 15 candidats ≥ 6 pts,
+> 7 cassures — TOUTES confirmées à la clôture D1, **cohorte B (intraday
+> seul) = 0 trade**. D1 et M15 prennent exactement les mêmes positions,
+> même R (+0,7 R), même WR (100 %). La détection M15 n'apporte rien sur
+> ce panier : bascule refusée par preuve. Limite : small caps non
+> couvertes (top-100 en volume seulement) — le backtest est rejouable si
+> l'univers s'élargit.
+
 **Actions** : cassure du pivot D1 détectée en M15 (au lieu d'attendre la
 clôture D1) ; backtest comparatif D1 vs M15 sur l'historique avant
 bascule live.
