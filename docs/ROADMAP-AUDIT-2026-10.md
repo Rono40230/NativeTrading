@@ -394,8 +394,9 @@ matrice réactivité toujours alimentés (la réactivité n'a besoin que de
 > patterns-jour alignée (24 → 12 mois, constante MOIS_PATTERNS) et
 > libellés UI mis à jour. `retention_bougies` ajouté à la whitelist
 > config (modifiable à distance). 39 suites, release 0 warning, front
-> vert. Attendu au restart : lignes « Rétention : … purgées » + VACUUM,
-> base sensiblement réduite.
+> vert. **VÉRIFIÉE 06/10 [DB]** : premier passage à boot+5 min —
+> 5 996 873 bougies M1 purgées, VACUUM 15 s, **2,06 Go → 1,44 Go**,
+> 6,1 M lignes M1 restantes (= 12 mois exactement).
 
 ### Étape 15 — (Optionnel) Entrée straddle à l'horloge garantie
 
