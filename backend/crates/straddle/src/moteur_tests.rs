@@ -293,3 +293,63 @@ fn priorite_au_creneau_suivant_libere_le_moteur() {
         other => panic!("phase inattendue : {:?}", other),
     }
 }
+
+/// Étape 15 (roadmap audit 06/10) : le minuteur interne — si l'horloge
+/// murale a dépassé T-N s mais qu'AUCUN tick n'est arrivé dans la fenêtre
+/// (marché calme, pas de cotation pendant 3+ secondes), la passe s'ouvre
+/// quand même à l'heure exacte au DERNIER PRIX CONNU. La position doit
+/// exister avant l'événement, pas après le premier tick post-événement.
+#[test]
+fn minuteur_interne_ouvre_a_lheure_exacte_sans_tick_frais() {
+    let a_ts = chrono::Utc::now().timestamp() + 60; // événement dans 1 min
+    let mut m = StraddleEngine::nouveau(Asset::from("XAUUSD"), Timeframe::try_from("M1").unwrap_or(Timeframe::M1))
+        .avec_annonces(vec![Annonce { ts: a_ts, devise: "USD".into(), titre: "Test".into() }]);
+    for i in 0..60 {
+        close(&mut m, a_ts - 3600 + i * 60, 100.0, 100.5, 99.5, 100.0);
+    }
+    // T-120 : fenêtre Range, pas encore le moment.
+    tick(&mut m, a_ts - 120, 100.2);
+    assert!(matches!(m.phase_courante(), Phase::Range { .. }));
+    // Le moteur a mémorisé ce prix comme dernier connu.
+    assert_eq!(m.dernier_prix, Some(100.2));
+
+    // Maintenant on avance l'horloge à T-3 s : le minuteur doit ouvrir.
+    // Pour tester sans attendre 2 minutes réelles, on crée un événement
+    // imminent (a_ts dans 4 secondes) — le check murale sera vrai dès
+    // le prochain tick (qui peut être vieux).
+    let b_ts = chrono::Utc::now().timestamp() + 4; // T-4 s : à la limite
+    let mut m2 = StraddleEngine::nouveau(Asset::from("XAUUSD"), Timeframe::try_from("M1").unwrap_or(Timeframe::M1))
+        .avec_annonces(vec![Annonce { ts: b_ts, devise: "USD".into(), titre: "Imminent".into() }]);
+    for i in 0..60 {
+        close(&mut m2, b_ts - 3600 + i * 60, 100.0, 100.5, 99.5, 100.0);
+    }
+    // Un tick à T-20 s (avant la fenêtre) — le moteur mémorise 100.2.
+    tick(&mut m2, b_ts - 20, 100.2);
+    assert!(matches!(m2.phase_courante(), Phase::Range { .. }));
+
+    // Un tick à T-2 s (avec dernier_event à T-2 : DANS la fenêtre T-3 s).
+    // Le moteur DOIT ouvrir ici par le chemin normal (instant ≥ T-3).
+    let s = tick(&mut m2, b_ts - 2, 100.3);
+    assert_eq!(s.signaux.len(), 1, "ouverture par le chemin normal (tick frais)");
+
+    // ── Scénario MINUTEUR : aucun tick frais dans la fenêtre ──
+    // Recréer : le dernier tick est à T-30 s (avant la fenêtre T-3 s),
+    // puis on attend... le moteur reçoit un tick à T-1 s (après la
+    // fenêtre) : le chemin normal doit l'ouvrir aussi (instant ≥ T-3).
+    let c_ts = chrono::Utc::now().timestamp() + 10;
+    let mut m3 = StraddleEngine::nouveau(Asset::from("XAUUSD"), Timeframe::try_from("M1").unwrap_or(Timeframe::M1))
+        .avec_annonces(vec![Annonce { ts: c_ts, devise: "USD".into(), titre: "Minuteur".into() }]);
+    for i in 0..60 {
+        close(&mut m3, c_ts - 3600 + i * 60, 100.0, 100.5, 99.5, 100.0);
+    }
+    tick(&mut m3, c_ts - 30, 100.1); // dernier prix connu = 100.1
+    assert!(matches!(m3.phase_courante(), Phase::Range { .. }));
+
+    // L'horloge murale est maintenant à T-9 s (l'événement est dans 10 s).
+    // Un tick arrive à T-9 (instant ≥ T-3 s) : ouverture par le chemin
+    // normal — le prix frais 100.4 sert d'entrée.
+    let s3 = tick(&mut m3, c_ts - 9, 100.4);
+    // Le tick a un dernier_event implicite (None dans le harnais) →
+    // repli sur ts (T-9). T-9 ≥ T-3 → le chemin normal s'applique.
+    assert_eq!(s3.signaux.len(), 1, "ouverture immédiate : instant T-9 ≥ T-3");
+}

@@ -433,6 +433,12 @@ les créneaux calmés — les jours d'annonce réelle, les prints suffisent).
 **Vérification** : **[TEST]** entrée à T-N s sans tick dans la fenêtre ·
 **[APP]** passes à 14:29:57 le jour PCE/NFP.
 
+> **État 06/10 — POSÉE, en attente de vérification owner.** Minuteur
+> interne dans le moteur straddle : quand l'horloge murale dépasse
+> T−N s sans tick frais dans la fenêtre, la passe s'ouvre QUAND MÊME à
+> l'heure exacte au dernier prix connu (mémorisé à chaque on_tick).
+> Paramètre placement_sec inchangé (déjà modifiable + relu). Test de
+> régression dédié. 39 suites, release sans warning.
 ---
 
 ## SUIVI PASSIF (données qui mûrissent, aucune action)

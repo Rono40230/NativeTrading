@@ -117,6 +117,11 @@ pub struct StraddleEngine {
     atr_h1_live: Atr14,
     /// Heure en cours d'agrégation : (ts_heure, high, low, close).
     heure_courante: Option<(i64, f64, f64, f64)>,
+    /// Dernier prix connu du moteur (étape 15) : le minuteur interne
+    /// s'en sert quand aucun tick frais n'arrive dans la fenêtre T-N s.
+    /// Mis à jour à CHAQUE on_tick — donc vieux d'au plus un cycle de
+    /// cotation (EA MT5 ~1 s, Bybit WS ~1 s).
+    dernier_prix: Option<f64>,
 }
 
 impl StraddleEngine {
@@ -133,6 +138,7 @@ impl StraddleEngine {
             atr_h1_injecte: None,
             atr_h1_live: Atr14::new(),
             heure_courante: None,
+            dernier_prix: None,
         }
     }
 
@@ -293,6 +299,8 @@ impl Engine for StraddleEngine {
         let ts = ctx.bougie.debut;
         let prochaine = self.annonces.first().cloned();
         self.tick_index += 1;
+        // Mémoriser le dernier prix vu (étape 15 : le minuteur s'en sert).
+        self.dernier_prix = Some(prix);
 
         match std::mem::replace(&mut self.phase, Phase::Idle) {
             Phase::Idle => {
@@ -353,6 +361,46 @@ impl Engine for StraddleEngine {
                     }
                     self.phase = Phase::Range { annonce_ts };
                 } else {
+                    // MINUTEUR INTERNE (étape 15, owner 06/10) : si l'horloge
+                    // murale a dépassé T-N s mais qu'aucun tick n'est arrivé
+                    // dans la fenêtre, la passe s'ouvre QUAND MÊME à l'heure
+                    // exacte — au dernier prix connu (potentiellement vieux
+                    // de quelques secondes, anodin pour un straddle à jambes
+                    // symétriques). Chaque seconde compte : la position doit
+                    // exister AVANT l'événement, pas après le premier tick.
+                    let maintenant = chrono::Utc::now().timestamp();
+                    if maintenant >= annonce_ts - self.params.placement_avant_sec {
+                        if let Some(dernier) = self.dernier_prix {
+                            let atr = self.atr_h1().unwrap_or_else(|| self.atr.get());
+                            if atr > 0.0 {
+                                let r = self.params.sl_atr * atr;
+                                if r > 0.0 {
+                                    let cle = format!("straddle-{}-{annonce_ts}-B", self.asset.as_str());
+                                    let jambes = Self::jambes_nouvelles(dernier, r, maintenant, self.tick_index);
+                                    let s = self.signal_ouverture(dernier, jambes[0].sl, r, &cle, maintenant);
+                                    sortie.signaux.push(s);
+                                    let canonique = self.params.time_stop_min * 60;
+                                    let echeance = self
+                                        .annonces
+                                        .get(1)
+                                        .map(|suiv| (suiv.ts - self.params.placement_avant_sec - maintenant).min(canonique))
+                                        .filter(|e| *e >= 30)
+                                        .unwrap_or(canonique);
+                                    self.lifecycle.definir_expiration(echeance);
+                                    // log silencieux : le runtime journalise l'ouverture du signal
+                                    self.phase = Phase::Position {
+                                        annonce_ts,
+                                        entree: dernier,
+                                        r,
+                                        jambes,
+                                        ouverture_ts: maintenant,
+                                        cle,
+                                    };
+                                    return sortie;
+                                }
+                            }
+                        }
+                    }
                     self.phase = Phase::Range { annonce_ts };
                 }
             }
