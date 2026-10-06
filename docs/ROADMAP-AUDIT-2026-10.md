@@ -383,6 +383,8 @@ d'aller-retour existe déjà).
 
 ### Étape 13 — Rockets : détection intrajournalière
 
+> **État 06/10 — VALIDÉE owner. Ouverture = backtest D1 vs M15 d'abord ; bascule live sur décision owner uniquement.**
+
 **Actions** : cassure du pivot D1 détectée en M15 (au lieu d'attendre la
 clôture D1) ; backtest comparatif D1 vs M15 sur l'historique avant
 bascule live.
