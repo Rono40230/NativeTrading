@@ -86,19 +86,16 @@
         <div class="relative rounded bg-black/30 px-1.5 py-1 min-h-0 flex-1 overflow-hidden">
           <FondTheme theme="donnees" />
           <div class="relative flex flex-col gap-1 text-[13px] leading-snug">
-            <p class="text-white" title="Fraîcheur des sources de prix : minutes depuis la dernière bougie M1 — un flux continu de plus de 5 min passe en rouge. Le comblement Binance n'écrit que lors d'un trou (nuits, pannes) : son âge = temps depuis le dernier trou comblé, informatif.">
-              Sources :
-              <span v-for="(src, i) in sourcesPrix" :key="src.source">
-                <span v-if="src.episodique" class="text-white/60">Binance · comblement (dernier trou il y a {{ fmtAge(src.age_min) }})</span>
-                <span v-else class="font-bold" :class="src.vivante ? 'text-rose-200' : 'text-red-300'">{{ nomSource(src.source) }} {{ src.vivante ? '✓' : `${src.age_min} min 🔴` }}</span>
-                <span v-if="i < sourcesPrix.length - 1" class="text-white/40"> · </span>
+            <p class="text-white" title="Une ligne par source : fraîcheur + couverture + volume du jour. Flux continus (MT5, Bybit) : alerte rouge à 5 min sans bougie. Le comblement Binance n'écrit que lors d'un trou (nuits, pannes) : informatif.">
+              <span v-for="(src, i) in lignesSources" :key="src.nom">
+                <span v-if="src.episodique" class="text-white/85">{{ src.nom }} (comblement) · dernier trou il y a {{ src.age }}</span>
+                <span v-else :class="src.vivante ? 'text-white' : 'text-red-300 font-bold'">
+                  {{ src.nom }} {{ src.vivante ? '✓' : '🔴' }} · <span class="font-bold text-rose-200">{{ src.symboles }} symboles</span> · <span class="font-bold text-rose-200">{{ src.volume }}</span>
+                </span>
+                <span v-if="i < lignesSources.length - 1" class="text-white/40"> · </span>
               </span>
             </p>
-            <p class="text-white">Bybit : <span class="font-bold text-rose-200">{{ donnees.bybitSymboles }} symboles suivis.</span> <span class="font-bold text-rose-200">{{ donnees.bybit }}</span> aujourd'hui</p>
-            <p class="text-white">EA Axi : <span class="font-bold text-rose-200">{{ donnees.eaSymboles }} symboles suivis.</span> <span class="font-bold text-rose-200">{{ donnees.ea }}</span> aujourd'hui</p>
-            <p class="text-white/85" title="Bougies de comblement (nuits, week-ends, pannes) récupérées sur l'API REST Binance — source distincte du flux temps réel Bybit.">Comblement (Binance) : <span class="font-bold text-rose-200/90">{{ donnees.comblement }}</span></p>
             <p class="text-white">Actions US : <span class="font-bold text-rose-200">{{ donnees.actionsTotal }} actions suivies.</span> <span class="font-bold text-rose-200">{{ donnees.actionsAJour }}</span> à jour</p>
-            <p class="text-white">Presse : <span class="font-bold text-rose-200">{{ donnees.presseTotal }}</span> articles notés en base. <span class="font-bold text-rose-200">{{ donnees.presse24h }}</span> ces dernières 24h</p>
             <p class="text-white" title="Jours depuis le dernier signal émis par chaque moteur armé — la leçon KDJ : une stratégie muette doit se VOIR (étape 4 roadmap audit).">
               Moteurs :
               <span v-for="(m, i) in moteursSante" :key="m.strategie">
@@ -144,7 +141,7 @@ function aDuNeuf(id: string): boolean {
   })
   if (id === 'graphiques') return alertesActives.value.length > 0
   if (id === 'ia') return convictionJour.value.n > 0 && dernierFetchIA.value !== null && Date.now() / 1000 - dernierFetchIA.value < 600
-  if (id === 'systeme') return donnees.value.bybit === '—' || donnees.value.ea === '—'
+  if (id === 'systeme') return sourcesPrix.value.some(src => !src.episodique && !src.vivante)
   return false
 }
 const dernierFetchIA = ref<number | null>(null)
@@ -254,6 +251,24 @@ async function chargerSanteSources() {
   } catch { sourcesPrix.value = [] }
 }
 
+/// Fusion par source (owner 05/10) : une ligne = fraîcheur + symboles +
+/// volume du jour — fini les doublons « MT5 ✓ / EA Axi » et « Binance
+/// comblement » en double. Le presse vit dans sa tuile dédiée.
+const lignesSources = computed(() => sourcesPrix.value.map(src => {
+  if (src.episodique) {
+    return { nom: 'Binance', episodique: true, vivante: false, symboles: 0, volume: '', age: fmtAge(src.age_min) }
+  }
+  const mt5 = src.source === 'mt5'
+  return {
+    nom: mt5 ? 'MT5 (EA Axi)' : 'Bybit',
+    episodique: false,
+    vivante: src.vivante,
+    symboles: mt5 ? donnees.value.eaSymboles : donnees.value.bybitSymboles,
+    volume: mt5 ? donnees.value.ea : donnees.value.bybit,
+    age: '',
+  }
+}))
+
 interface MoteurSante {
   strategie: string
   armee: boolean
@@ -280,10 +295,8 @@ async function chargerSanteMoteurs() {
 const donnees = ref<{
   bybitSymboles: number; bybit: string
   eaSymboles: number; ea: string
-  comblement: string
   actionsTotal: number; actionsAJour: number
-  presseTotal: string; presse24h: number
-}>({ bybitSymboles: 0, bybit: '…', eaSymboles: 0, ea: '…', comblement: '—', actionsTotal: 0, actionsAJour: 0, presseTotal: '…', presse24h: 0 })
+}>({ bybitSymboles: 0, bybit: '…', eaSymboles: 0, ea: '…', actionsTotal: 0, actionsAJour: 0 })
 
 /// « +8,6k bougies » façon compteur du jour.
 function compactJour(n: number): string {
@@ -353,11 +366,9 @@ async function chargerTout() {
       const parSource: LigneSource[] = r.data?.bougies_par_source ?? []
       const bybit = parSource.find(s => s.source === 'bybit_ws')
       const mt5 = parSource.find(s => s.source === 'mt5')
-      const binance = parSource.find(s => s.source === 'binance')
       donnees.value.bybitSymboles = bybit?.symboles ?? 0
       donnees.value.bybit = compactJour(bybit?.bougies ?? 0)
       donnees.value.ea = compactJour(mt5?.bougies ?? 0)
-      donnees.value.comblement = binance && binance.bougies > 0 ? compactJour(binance.bougies) : 'néant'
 
     } catch { donnees.value.bybit = '—'; donnees.value.ea = '—' }
     try {
@@ -369,16 +380,6 @@ async function chargerTout() {
       donnees.value.actionsTotal = r.data?.univers_total ?? 0
       donnees.value.actionsAJour = r.data?.univers_avec_bougies ?? 0
     } catch { donnees.value.actionsTotal = 0; donnees.value.actionsAJour = 0 }
-    try {
-      const r = await http.get('/api/presse/articles', { params: { page: 1 } })
-      donnees.value.presseTotal = (r.data?.total ?? 0).toLocaleString('fr-FR')
-      // 24 h comptées sur la page des plus récents (exact en dessous de
-      // 50/jour — la taille de page).
-      const limite = Date.now() - 86_400_000
-      donnees.value.presse24h = (r.data?.articles ?? []).filter(
-        (a: { publie_le: string }) => Date.parse(a.publie_le) >= limite,
-      ).length
-    } catch { donnees.value.presseTotal = '—'; donnees.value.presse24h = 0 }
   }
 }
 
