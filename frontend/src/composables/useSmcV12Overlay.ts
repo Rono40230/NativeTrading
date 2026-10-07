@@ -76,6 +76,12 @@ export function useSmcV12Overlay() {
   // Trades ouverts des AUTRES timeframes du même actif (multi-TF — dessin
   // atténué avec badge du TF d'origine, dédupliqués avec le TF affiché).
   let tradesExternes: (SignalDessin & { tfOrigine: string; enAttente?: boolean })[] = []
+  // Trades réellement suivis dans la table signaux (statut Actif, actif
+  // courant). Un signal du replay v12 n'est dessiné QUE s'il correspond à
+  // l'un d'eux : les trades hérités du replay de démarrage d'un nouvel
+  // armement (jamais persistés) ne doivent pas apparaître comme positions.
+  let signauxPersistes: { tf: string; entry: number }[] = []
+  let tfCourant: string | null = null
   let tendance: 'haussiere' | 'baissiere' | 'neutre' = 'neutre'
   // Indicateurs v12 étendus (13 types supplémentaires).
   let donneesExt: DonneesV12Etendues = donneesV12EtenduesVides()
@@ -177,7 +183,14 @@ export function useSmcV12Overlay() {
     if (flags.mss) dessinerLignes(ctx, serieRef, ts, mss, W, dernierTsRef, 'mss')
     if (flags.choch) dessinerLignes(ctx, serieRef, ts, chochs, W, dernierTsRef, 'choch')
     if (flags.sweeps) dessinerSweeps(ctx, serieRef, ts, sweeps, W)
-    if (flags.signals) dessinerSignaux(ctx, serieRef, ts, signals, W, dernierTsRef)
+    if (flags.signals) dessinerSignaux(
+      ctx, serieRef, ts,
+      // Seuls les trades réellement suivis par l'app (table signaux) se
+      // dessinent — le replay v12 reste une simulation d'analyse.
+      signals.filter(s =>
+        signauxPersistes.some(p =>
+          p.tf === tfCourant && Math.abs(p.entry - s.entry) < 0.01)),
+      W, dernierTsRef)
     if (flags.signals) dessinerTradesExternes(ctx, serieRef, ts, tradesExternes, W, dernierTsRef)
     if (flags.structure) dessinerPivots(ctx, serieRef, ts, pivots, W)
   }
@@ -223,8 +236,16 @@ export function useSmcV12Overlay() {
     planifierRedessiner()
   }
 
+  /// Définit les trades Actifs de l'actif courant persistés en base —
+  /// condition nécessaire au dessin des signaux du replay (cf. signauxPersistes).
+  function definirSignauxPersistes(liste: { tf: string; entry: number }[]) {
+    signauxPersistes = liste
+    planifierRedessiner()
+  }
+
   async function charger(asset: string, timeframe: string, limit = 500, dernierTimestamp?: number) {
     dernierTsRef = dernierTimestamp ?? null
+    tfCourant = timeframe
     let data: SmcV12Analyse | null = null
     try {
       data = await apiService.getSmcV12Analyse(asset, timeframe, limit)
@@ -315,6 +336,7 @@ export function useSmcV12Overlay() {
     fvgs = []
     signals = []
     tradesExternes = []
+    signauxPersistes = []
     tendance = 'neutre'
     donneesExt = donneesV12EtenduesVides()
     if (canvas) {
@@ -347,5 +369,5 @@ export function useSmcV12Overlay() {
     planifierRedessiner()
   }
 
-  return { initialiser, charger, definirTradesExternes, effacer, detruire, setDernierTs, redessiner: planifierRedessiner }
+  return { initialiser, charger, definirTradesExternes, definirSignauxPersistes, effacer, detruire, setDernierTs, redessiner: planifierRedessiner }
 }

@@ -271,6 +271,12 @@ async function chargerTradesExternes() {
         && rempli(x))
       .slice(0, 6)
 
+    // Gate « trade réel » : un trade du replay v12 ne se dessine que s'il
+    // correspond à un signal Actif persisté de ce TF — les trades hérités
+    // du replay d'armement (jamais persistés) restent invisibles.
+    v12Overlay.definirSignauxPersistes(
+      candidats.map(x => ({ tf: x.timeframe, entry: x.prix_entree })))
+
     // Récupérer les niveaux du REPLAY du TF d'origine (pas de la base —
     // le SL/TPs diffèrent entre création temps réel et replay, et le
     // graphique du TF d'origine dessine depuis le replay).
