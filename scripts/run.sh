@@ -139,6 +139,17 @@ export RUST_MIN_STACK=16777216
 # détecté (grep sur « error » = succès), lançait le binaire périmé.
 CARGO_DRAPEAU="--release"
 [ "$API_PROFIL" = "debug" ] && CARGO_DRAPEAU=""
+# ─── Compilation du binaire Tauri (fenêtre native) ────────────────────────
+# Leçon du 07/10 : run.sh ne recompilait JAMAIS le binaire Tauri — les
+# changements de tauri.conf.json (withGlobalTauri, permissions) et de
+# lib.rs (fermeture des fenêtres filles) n'étaient jamais appliqués.
+echo "🏗️  Build du binaire Tauri..."
+if (cd "$ROOT_DIR/frontend/src-tauri" && cargo build 2>&1) > "$LOG_DIR/build-tauri.log" 2>&1; then
+   echo "✅ Binaire Tauri compilé"
+else
+   echo "⚠️  Échec build Tauri — utilisation du binaire existant (voir $LOG_DIR/build-tauri.log)"
+fi
+
 if ! cargo build -p api $CARGO_DRAPEAU --bin api --bin news_collector > "$LOG_DIR/build-backend.log" 2>&1; then
   echo "❌ ÉCHEC du build backend — arrêt (ne pas lancer un binaire périmé)."
   tail -5 "$LOG_DIR/build-backend.log"
