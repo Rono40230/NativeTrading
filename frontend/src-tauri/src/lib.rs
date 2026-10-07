@@ -219,7 +219,7 @@ pub fn run() {
                 use tauri::Manager;
                 for (label, fille) in window.app_handle().webview_windows() {
                     if label != "main" {
-                        let _ = fille.close();
+                        let _ = fille.destroy();
                     }
                 }
             }
