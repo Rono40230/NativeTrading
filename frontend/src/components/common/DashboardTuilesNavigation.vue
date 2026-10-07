@@ -7,14 +7,12 @@
        `ids` sélectionne les tuiles rendues (et donc les données
        chargées — pas de requête pour une tuile absente). -->
   <div class="flex flex-col gap-2 shrink-0">
-    <a
+    <div
       v-for="t in tuilesAffichees"
       :key="t.id"
       class="rounded-lg border p-2 flex flex-col gap-1.5 min-h-[168px] flex-1 shrink-0 cursor-pointer transition-all bg-white/[0.03] border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_0_12px_rgba(255,255,255,0.08)] relative no-underline"
       :class="[TEINTES[t.id], aDuNeuf(t.id) ? 'border-amber-400/40 bg-amber-500/[0.04]' : '']"
-      :href="t.id === 'graphiques' ? `#${t.route}` : undefined"
-      :target="t.id === 'graphiques' ? '_blank' : undefined"
-      @click.prevent="t.id === 'graphiques' ? undefined : clicTuile(t)"
+      @click="clicTuile(t)"
     >
       <!-- Témoin vivant : pastille ambre qui pulse quand il y a du neuf -->
       <span v-if="aDuNeuf(t.id)" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse z-10" />
@@ -108,7 +106,7 @@
           </div>
         </div>
       </template>
-    </a>
+    </div>
   </div>
 </template>
 
@@ -122,6 +120,9 @@ import { useAlerteStore } from '@/stores/alerte.store'
 import { ciblerPremierSlot } from '@/utils/graphiques'
 import type { AlertePrix } from '@/services/api.alertes'
 import FondTheme from './FondTheme.vue'
+// Import STATIQUE : dans le bundle principal — pas de chunk séparé qui peut
+// échouer au chargement dans WebKitGTK (leçon des 3 commits cassés).
+import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 /// Tuiles rendues par cette instance — le dashboard les place en deux
 /// groupes depuis le 14/09 (presse entre calendrier et rapport, puis
