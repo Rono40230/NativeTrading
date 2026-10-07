@@ -10,7 +10,7 @@
     <!-- Navigation principale -->
     <nav class="flex items-stretch gap-0.5 pl-2 min-w-0" data-tauri-drag-region>
       <div
-        v-for="item in principaux"
+        v-for="item in principauxAffiches"
         :key="item.to"
         class="relative flex items-stretch"
       >
@@ -81,6 +81,14 @@ const router = useRouter()
 const ouvert = ref<string | null>(null)
 const fenetre = ref<FenetreTauri | null>(null)
 const estTauri = computed(() => typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)
+
+/// Fenêtre graphique indépendante : le dashboard reste ouvert dans la
+/// fenêtre principale, le bouton y est masqué. Partout ailleurs (fenêtre
+/// principale, vues à la place du dashboard) il reste le chemin de retour.
+const principauxAffiches = computed(() =>
+  fenetre.value?.label === 'Graphiques'
+    ? principaux.filter(p => p.to !== '/')
+    : principaux)
 
 onMounted(async () => {
   if (estTauri.value) {
