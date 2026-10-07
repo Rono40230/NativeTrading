@@ -189,12 +189,11 @@ function ageTs(ts: number): string {
 const alertesActives = ref<AlertePrix[]>([])
 
 /// Ouvre la page Graphiques sur un asset précis (premier slot ciblé).
-/// Clic sur une tuile : Graphiques → fenêtre Tauri indépendante plein
-/// écran (owner 06/10) ; les autres → navigation normale.
-async function clicTuile(t: { id: string; route: string }) {
+/// Clic sur une tuile : Graphiques → nouvelle fenêtre plein écran
+/// (owner 07/10) ; les autres → navigation normale.
+function clicTuile(t: { id: string; route: string }) {
   if (t.id === 'graphiques') {
-    const mode = await ouvrirFenetreGraphiques(t.route)
-    if (mode === 'navigation') router.push(t.route)
+    ouvrirFenetreGraphiques(t.route)
     return
   }
   router.push(t.route)

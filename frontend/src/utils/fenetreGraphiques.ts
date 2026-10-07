@@ -1,54 +1,15 @@
-/// Fenêtre Graphiques indépendante (owner 06/10) — ouvre la page des
-/// graphiques dans une FENÊTRE TAURI NATIVE plein écran, séparée du
-/// dashboard. Si la fenêtre existe déjà : ramenée au premier plan (pas de
-/// doublon). Repli navigateur (dev/test) : navigation normale.
+/// Fenêtre Graphiques indépendante (owner 07/10) — ouvre la page des
+/// graphiques dans une fenêtre SÉPARÉE du dashboard.
 ///
-/// Utilisé par le clic « Graphiques » du pedestal dashboard.
+/// V1 : window.open — simple, universel (Tauri webview + navigateur),
+/// aucune dépendance à l'API Tauri. La fenêtre s'ouvre plein écran via
+/// les features du navigateur. Si déjà ouverte (même URL), le navigateur
+/// la réutilise ou en ouvre une nouvelle selon sa politique.
+/// V2 (quand stable) : Tauri WebviewWindow natif — voir git history.
 
-const LABEL_FENETRE = 'Graphiques — Native Trading AI'
-
-/// Vrai si on tourne dans la fenêtre Tauri (pas un navigateur).
-function dansTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-}
-
-/// Ouvre (ou focus) la fenêtre Graphiques plein écran.
-/// `route` : la route interne à charger (ex: '/smc/graphiques').
-export async function ouvrirFenetreGraphiques(route: string): Promise<'fenetre' | 'navigation'> {
-  if (!dansTauri()) return 'navigation'
-
-  try {
-    const { WebviewWindow, getAllWebviewWindows } = await import('@tauri-apps/api/webviewWindow')
-
-    // Déjà ouverte ? → focus, pas de doublon.
-    const fenetres = await getAllWebviewWindows()
-    const existante = fenetres.find((f: { label: string }) => f.label === LABEL_FENETRE)
-    if (existante) {
-      await existante.setFocus()
-      return 'fenetre'
-    }
-
-    // Création : plein écran (maximized), URL = même serveur + route.
-    const url = `${window.location.origin}/#${route}`
-    const fenetre = new WebviewWindow(LABEL_FENETRE, {
-      url,
-      title: LABEL_FENETRE,
-      width: 1280,
-      height: 800,
-      maximized: true,
-      center: true,
-      resizable: true,
-      fullscreen: false,
-    })
-    // La création est asynchrone : attendre l'événement de fin (ou erreur
-    // silencieuse — la fenêtre s'ouvre quand même).
-    await new Promise<void>((resoudre) => {
-      fenetre.once('tauri:created', () => resoudre())
-      fenetre.once('tauri:error', () => resoudre())
-      setTimeout(resoudre, 3000)
-    })
-    return 'fenetre'
-  } catch {
-    return 'navigation'
-  }
+/// Ouvre la page Graphiques dans une nouvelle fenêtre plein écran.
+export function ouvrirFenetreGraphiques(route: string): 'fenetre' {
+  const url = `${window.location.origin}/#${route}`
+  window.open(url, '_blank', 'fullscreen=yes,menubar=no,toolbar=no,location=no')
+  return 'fenetre'
 }
