@@ -12,7 +12,7 @@
       :key="t.id"
       class="rounded-lg border p-2 flex flex-col gap-1.5 min-h-[168px] flex-1 shrink-0 cursor-pointer transition-all bg-white/[0.03] border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_0_12px_rgba(255,255,255,0.08)] relative"
       :class="[TEINTES[t.id], aDuNeuf(t.id) ? 'border-amber-400/40 bg-amber-500/[0.04]' : '']"
-      @click="router.push(t.route)"
+      @click="clicTuile(t)"
     >
       <!-- Témoin vivant : pastille ambre qui pulse quand il y a du neuf -->
       <span v-if="aDuNeuf(t.id)" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse z-10" />
@@ -118,6 +118,7 @@ import { presseApi, type ArticlePresse } from '@/services/api.presse'
 import { alertesApi } from '@/services/api.alertes'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { ciblerPremierSlot } from '@/utils/graphiques'
+import { ouvrirFenetreGraphiques } from '@/utils/fenetreGraphiques'
 import type { AlertePrix } from '@/services/api.alertes'
 import FondTheme from './FondTheme.vue'
 
@@ -188,6 +189,17 @@ function ageTs(ts: number): string {
 const alertesActives = ref<AlertePrix[]>([])
 
 /// Ouvre la page Graphiques sur un asset précis (premier slot ciblé).
+/// Clic sur une tuile : Graphiques → fenêtre Tauri indépendante plein
+/// écran (owner 06/10) ; les autres → navigation normale.
+async function clicTuile(t: { id: string; route: string }) {
+  if (t.id === 'graphiques') {
+    const mode = await ouvrirFenetreGraphiques(t.route)
+    if (mode === 'navigation') router.push(t.route)
+    return
+  }
+  router.push(t.route)
+}
+
 function ouvrirGraphique(asset: string, timeframe?: string) {
   ciblerPremierSlot(asset, timeframe)
   router.push('/smc/graphiques')
