@@ -40,6 +40,11 @@ pub(crate) fn decode_candle(r: &sqlx::sqlite::SqliteRow) -> Option<Candle> {
 impl Database {
     /// Insère un lot de bougies avec une source explicite.
     /// `source` : 'binance' | 'bybit_ws' | 'mt5' | 'csv'
+    ///
+    /// UPSERT : la version la plus récente fait foi. Une clôture lue avant
+    /// la finalisation de la série MT5 (bougie tronquée) doit pouvoir être
+    /// corrigée par le rattrapage ou l'historique — l'ancien `INSERT OR
+    /// IGNORE` immortalisait la première écriture.
     pub async fn inserer_bougies_avec_source(
         &self,
         asset: &Asset,
@@ -63,9 +68,16 @@ impl Database {
         for bougie in bougies {
             let ts = bougie.timestamp.timestamp();
             let res = sqlx::query(
-                "INSERT OR IGNORE INTO bougies
+                "INSERT INTO bougies
                  (asset, timeframe, timestamp, open, high, low, close, volume, source)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON CONFLICT(asset, timeframe, timestamp) DO UPDATE SET
+                   open = excluded.open,
+                   high = excluded.high,
+                   low = excluded.low,
+                   close = excluded.close,
+                   volume = excluded.volume,
+                   source = excluded.source",
             )
             .bind(asset_str)
             .bind(tf_str)

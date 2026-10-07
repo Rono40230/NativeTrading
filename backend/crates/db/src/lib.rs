@@ -150,18 +150,27 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn inserer_bougies_ignore_doublons() {
+    async fn inserer_bougies_remplace_doublons() {
         let db = db_test().await;
-        let bougies = vec![bougie(100.0, 0)];
-        db.inserer_bougies(&Asset::from("BTC"), &Timeframe::M1, &bougies)
+        let b1 = bougie(100.0, 0);
+        let mut b2 = b1.clone(); // même timestamp, close corrigée
+        b2.close = 101.0;
+        db.inserer_bougies(&Asset::from("BTC"), &Timeframe::M1, &[b1])
             .await
             .unwrap();
-        // Même bougie (même timestamp) → INSERT OR IGNORE → 0 rows affected
+        // UPSERT : la version officielle la plus récente écrase — une
+        // clôture tronquée doit pouvoir être corrigée par un re-push.
         let n = db
-            .inserer_bougies(&Asset::from("BTC"), &Timeframe::M1, &bougies)
+            .inserer_bougies(&Asset::from("BTC"), &Timeframe::M1, &[b2])
             .await
             .expect("insert OK");
-        assert_eq!(n, 0, "doublon ignoré");
+        assert_eq!(n, 1, "doublon remplacé");
+        let relues = db
+            .obtenir_bougies(&Asset::from("BTC"), &Timeframe::M1, 10)
+            .await
+            .unwrap();
+        assert_eq!(relues.len(), 1, "toujours une seule bougie");
+        assert_eq!(relues[0].close, 101.0, "close corrigée en base");
     }
 
     #[tokio::test]

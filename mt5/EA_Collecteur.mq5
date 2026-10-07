@@ -41,6 +41,12 @@ int      NB_TF = 0;
 // Suivi live par (symbole × tf) — tableaux aplatis
 datetime dernier_debut[];
 double   dernier_close[];
+// Mémo de la dernière clôture ENVOYÉE (shift 1) — le surveilleur de
+// finalisation repousse si la lecture officielle change après envoi.
+double   dernier_o1[];
+double   dernier_h1[];
+double   dernier_l1[];
+double   dernier_c1[];
 
 int      ticks_timer = 0;
 
@@ -49,7 +55,7 @@ int OnInit()
 {
    EventSetTimer(1);
    rafraichir_abonnements();
-   Print("EA_Collecteur: démarré v1.34 — cible ", ApiUrl);
+   Print("EA_Collecteur: démarré v1.35 — cible ", ApiUrl);
    return(INIT_SUCCEEDED);
 }
 
@@ -191,6 +197,14 @@ void rafraichir_abonnements()
       ArrayInitialize(dernier_debut, 0);
       ArrayResize(dernier_close, ArraySize(symboles) * NB_TF);
       ArrayInitialize(dernier_close, 0.0);
+      ArrayResize(dernier_o1, ArraySize(symboles) * NB_TF);
+      ArrayInitialize(dernier_o1, 0.0);
+      ArrayResize(dernier_h1, ArraySize(symboles) * NB_TF);
+      ArrayInitialize(dernier_h1, 0.0);
+      ArrayResize(dernier_l1, ArraySize(symboles) * NB_TF);
+      ArrayInitialize(dernier_l1, 0.0);
+      ArrayResize(dernier_c1, ArraySize(symboles) * NB_TF);
+      ArrayInitialize(dernier_c1, 0.0);
       ArrayResize(etat_tf, ArraySize(symboles) * NB_TF);
       ArrayInitialize(etat_tf, 0);
       ArrayResize(etat_rattrapage, ArraySize(symboles) * NB_TF);
@@ -481,6 +495,23 @@ void pousser_bougies()
          if(dernier_debut[idx(s, t)] > 0 && t0 > dernier_debut[idx(s, t)])
             envoyer_kline(s, t, 1, true);
 
+         // Surveilleur de finalisation (v1.35) : la série d'un symbole
+         // étranger peut être lue AVANT la fusion des dernières ticks —
+         // iHigh/iClose(1) alors tronqués. Si la lecture officielle de la
+         // dernière bougie clôturée change après envoi (ou après un échec
+         // réseau), on repousse la version finalisée : le backend (upsert)
+         // écrase l'ancienne ligne.
+         double o1 = iOpen(symbole, periode, 1);
+         if(o1 > 0)
+         {
+            double h1 = iHigh(symbole, periode, 1);
+            double l1 = iLow(symbole, periode, 1);
+            double c1 = iClose(symbole, periode, 1);
+            if(o1 != dernier_o1[idx(s, t)] || h1 != dernier_h1[idx(s, t)]
+               || l1 != dernier_l1[idx(s, t)] || c1 != dernier_c1[idx(s, t)])
+               envoyer_kline(s, t, 1, true);
+         }
+
          double c = iClose(symbole, periode, 0);
          if(c > 0 && (c != dernier_close[idx(s, t)] || t0 != dernier_debut[idx(s, t)]))
             envoyer_kline(s, t, 0, false);
@@ -519,6 +550,13 @@ void envoyer_kline(const int s, const int t, const int shift, const bool confirm
 
    dernier_debut[idx(s, t)] = vers_utc(iTime(symbole, periode, 0));
    dernier_close[idx(s, t)] = iClose(symbole, periode, 0);
+   if(confirmee)
+   {
+      dernier_o1[idx(s, t)] = iOpen(symbole, periode, 1);
+      dernier_h1[idx(s, t)] = iHigh(symbole, periode, 1);
+      dernier_l1[idx(s, t)] = iLow(symbole, periode, 1);
+      dernier_c1[idx(s, t)] = iClose(symbole, periode, 1);
+   }
 }
 
 //+------------------------------------------------------------------+
