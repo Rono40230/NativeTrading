@@ -107,6 +107,9 @@
         </div>
       </template>
     </div>
+    <p v-if="diagGraphiques" class="text-[9px] text-amber-300 font-mono mt-1 px-2 py-1 bg-amber-500/10 rounded border border-amber-500/30">
+      DIAG: {{ diagGraphiques }}
+    </p>
   </div>
 </template>
 
@@ -191,6 +194,8 @@ function ageTs(ts: number): string {
 const alertesActives = ref<AlertePrix[]>([])
 
 /// Ouvre la page Graphiques sur un asset précis (premier slot ciblé).
+const diagGraphiques = ref('')
+
 /// Clic sur une tuile du pedestal : Graphiques → nouvelle fenêtre
 /// indépendante (owner 07/10) ; les autres → navigation normale.
 /// window.open pur : zéro dépendance, zéro import externe, zéro risque.
