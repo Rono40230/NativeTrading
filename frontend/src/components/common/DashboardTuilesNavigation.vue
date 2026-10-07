@@ -7,12 +7,14 @@
        `ids` sélectionne les tuiles rendues (et donc les données
        chargées — pas de requête pour une tuile absente). -->
   <div class="flex flex-col gap-2 shrink-0">
-    <div
+    <a
       v-for="t in tuilesAffichees"
       :key="t.id"
-      class="rounded-lg border p-2 flex flex-col gap-1.5 min-h-[168px] flex-1 shrink-0 cursor-pointer transition-all bg-white/[0.03] border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_0_12px_rgba(255,255,255,0.08)] relative"
+      class="rounded-lg border p-2 flex flex-col gap-1.5 min-h-[168px] flex-1 shrink-0 cursor-pointer transition-all bg-white/[0.03] border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] hover:shadow-[0_0_12px_rgba(255,255,255,0.08)] relative no-underline"
       :class="[TEINTES[t.id], aDuNeuf(t.id) ? 'border-amber-400/40 bg-amber-500/[0.04]' : '']"
-      @click="clicTuile(t)"
+      :href="t.id === 'graphiques' ? `#${t.route}` : undefined"
+      :target="t.id === 'graphiques' ? '_blank' : undefined"
+      @click.prevent="t.id === 'graphiques' ? undefined : clicTuile(t)"
     >
       <!-- Témoin vivant : pastille ambre qui pulse quand il y a du neuf -->
       <span v-if="aDuNeuf(t.id)" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse z-10" />
@@ -106,7 +108,7 @@
           </div>
         </div>
       </template>
-    </div>
+    </a>
   </div>
 </template>
 
@@ -193,7 +195,10 @@ const alertesActives = ref<AlertePrix[]>([])
 /// window.open pur : zéro dépendance, zéro import externe, zéro risque.
 function clicTuile(t: { id: string; route: string }) {
   if (t.id === 'graphiques') {
-    window.open(`${window.location.origin}/#${t.route}`, '_blank')
+    const url = `${window.location.origin}/#${t.route}`
+    const fenetre = window.open(url, '_blank')
+    if (!fenetre) {
+    }
     return
   }
   router.push(t.route)
