@@ -46,7 +46,7 @@
 
         <!-- Fenêtre digitale : score -->
         <rect x="49" y="52" width="42" height="14" rx="2" fill="#020409" stroke="rgba(255,255,255,0.15)" stroke-width="0.6" />
-        <text x="70" y="62" text-anchor="middle" :class="couleurTexte"
+        <text x="70" y="62" text-anchor="middle" fill="currentColor" :class="couleurTexte"
           style="font-size: 9px; font-weight: 700; font-family: ui-monospace, monospace">{{ digital }}</text>
 
         <!-- Aiguille : pivot central, rotation animée -->
