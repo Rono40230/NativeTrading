@@ -210,6 +210,20 @@ pub fn run() {
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![notifier, jouer_son_signal, ouvrir_url])
+        .on_window_event(|window, event| {
+            // Fermer la fenêtre principale → fermer toutes les fenêtres filles
+            // (Graphiques, etc.) pour que l'app quitte proprement (owner 07/10).
+            if matches!(event, tauri::WindowEvent::CloseRequested { .. })
+                && window.label() == "main"
+            {
+                use tauri::Manager;
+                for (label, fille) in window.app_handle().webview_windows() {
+                    if label != "main" {
+                        let _ = fille.close();
+                    }
+                }
+            }
+        })
         .run(tauri::generate_context!())
         .expect("Erreur lors du lancement de l'application Tauri");
 }
