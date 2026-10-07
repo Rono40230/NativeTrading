@@ -201,11 +201,22 @@ const diagGraphiques = ref('')
 /// window.open pur : zéro dépendance, zéro import externe, zéro risque.
 function clicTuile(t: { id: string; route: string }) {
   if (t.id === 'graphiques') {
-    const url = `${window.location.origin}/#${t.route}`
-    const fenetre = window.open(url, '_blank')
-    if (!fenetre) {
+    diagGraphiques.value = `Tauri:${'__TAURI_INTERNALS__' in window} · WV:${typeof WebviewWindow}`
+    try {
+      new WebviewWindow('Graphiques', {
+        url: `${window.location.origin}${t.route}`,
+        title: 'Graphiques',
+        width: 1280,
+        height: 800,
+        maximized: true,
+        center: true,
+      })
+      return
+    } catch (e: unknown) {
+      diagGraphiques.value += ` · err:${(e as Error)?.message?.slice(0, 80) ?? '?'}`
+      router.push(t.route)
+      return
     }
-    return
   }
   router.push(t.route)
 }
