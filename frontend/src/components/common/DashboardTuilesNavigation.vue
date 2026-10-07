@@ -107,9 +107,6 @@
         </div>
       </template>
     </div>
-    <p v-if="diagGraphiques" class="text-[9px] text-amber-300 font-mono mt-1 px-2 py-1 bg-amber-500/10 rounded border border-amber-500/30">
-      DIAG: {{ diagGraphiques }}
-    </p>
   </div>
 </template>
 
@@ -194,14 +191,10 @@ function ageTs(ts: number): string {
 const alertesActives = ref<AlertePrix[]>([])
 
 /// Ouvre la page Graphiques sur un asset précis (premier slot ciblé).
-const diagGraphiques = ref('')
-
 /// Clic sur une tuile du pedestal : Graphiques → nouvelle fenêtre
 /// indépendante (owner 07/10) ; les autres → navigation normale.
-/// window.open pur : zéro dépendance, zéro import externe, zéro risque.
 function clicTuile(t: { id: string; route: string }) {
   if (t.id === 'graphiques') {
-    diagGraphiques.value = `Tauri:${'__TAURI_INTERNALS__' in window} · WV:${typeof WebviewWindow}`
     try {
       new WebviewWindow('Graphiques', {
         url: `${window.location.origin}${t.route}`,
@@ -212,8 +205,7 @@ function clicTuile(t: { id: string; route: string }) {
         center: true,
       })
       return
-    } catch (e: unknown) {
-      diagGraphiques.value += ` · err:${(e as Error)?.message?.slice(0, 80) ?? '?'}`
+    } catch {
       router.push(t.route)
       return
     }
