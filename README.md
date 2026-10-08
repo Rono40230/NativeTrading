@@ -112,8 +112,8 @@ Le backend écoute sur `localhost:8080` (usage interne Tauri uniquement).
 # Tests
 cargo test --workspace
 
-# Backup des données
-./scripts/backup.sh
+# (Sauvegarde : intégrée à scripts/run.sh — snapshot sqlite3 .backup +
+# quick_check à chaque démarrage, rétention 5 copies)
 ```
 
 ---
