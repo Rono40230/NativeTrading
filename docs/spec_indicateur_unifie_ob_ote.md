@@ -226,12 +226,26 @@ tests existants** — preuve que moteurs/scoring/signals sont intacts.
 | B4 | Bascule : suppression affichages anciens + module zone cœur + flags + test diag | codé 09/10 — **validation visuelle finale propriétaire** (relance run.sh : seules les 3 anciennes couches doivent avoir disparu) |
 | — | Commit/push | **uniquement sur ordre explicite**, à chaque jalon |
 
-## 7. Aperçu Phase C (hors périmètre, décision séparée)
+## 7. Phase C — étude C1 réalisée (09/10), suite en veille
 
-- Recalibrage du poids `w_ote` (et de la garde anti-bruit P1.2) sur l'OTE swing au lieu de
-  l'OTE-BOS ; même question pour `in_ote` figé des BSZones.
-- Confluence dorée : **poids** dans le score vs **filtre dur** d'entrée (équivalent « Require OTE
-  confluence » de la cible).
-- Modèle d'entrée : Retest-limite au bord de l'OB (actuel) vs entrée dans l'OTE en confluence.
-- Méthode : backtest comparatif (moteur de simulation fidèle), pivot daté, reset advisory,
-  retrain ML — mêmes garde-fous que les chantiers précédents (vécu immuable).
+Étude C1 (outil labo `api/src/bin/etude_confluence.rs` : replay + snapshots
+OTE/zones par barre, 4 définitions, z-scores 2 proportions) :
+
+| Définition | n | Win | SL | R moyen | z(win) |
+|---|---|---|---|---|---|
+| D1 entrée dans la bande OTE (M15, 30k barres) | 123 | 61,8 % | 10,6 % | +0,475 | **+1,61** |
+| — sans | 1 650 | 54,3 % | 16,8 % | +0,307 | |
+| D2/D3 zone dorée stricte | 2-3 | — | — | — | vide |
+| D4 entrée dans l'OTE, sens de la jambe | 79 | 62,0 % | 10,1 % | +0,448 | +1,32 |
+| Toutes définitions en M30 | | | | | +0,13 |
+
+**Verdict : PAS de filtre ni poids** (même discipline que l'étude conviction :
+z < 2). L'effet va dans le bon sens partout (win +7,5 pts, SL ÷1,6, R ×1,5)
+mais décroît avec la fenêtre (84 %/25 → 69 %/52 → 62 %/123 — gonflement petit
+échantillon) et disparaît en M30. La dorure stricte est inexploitable avec le
+modèle Retest (2 cas sur 1 700 : les entrées au bord exact d'une zone dorée
+sont rarissimes). **Re-test quand le vécu grossira — l'outil est prêt.**
+
+Aperçu du reste de la Phase C (sans objet tant que C1 n'est pas concluant) :
+recalibrage `w_ote`, confluence en poids vs filtre dur, modèle d'entrée
+Retest vs OTE — backtest comparatif, pivot daté, reset advisory, retrain ML.
