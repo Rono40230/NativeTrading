@@ -296,6 +296,49 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
     // la boucle d'ajouts le réinscrit immédiatement avec les moteurs voulus.
     crate::reglages_smc::retirer_changements_armement(runtime, &cibles, &armes);
 
+    // Hot-reload des paramètres moteur (09/10, design validé) : une diff
+    // d'empreinte SMC/straddle/KDJ retire le couple — la boucle d'ajouts du
+    // même tick le reconstruit avec les nouveaux params (replay + chauffe
+    // KDJ). Garde : une passe straddle en fenêtre active diffère le retrait.
+    {
+        let tp1 = crate::reglages_smc::lire_tp1_reglage(db).await;
+        let tp2 = crate::reglages_smc::lire_tp2_reglage(db).await;
+        let tp3 = crate::reglages_smc::lire_tp3_reglage(db).await;
+        let trail = crate::reglages_smc::lire_trailing_reglage(db).await;
+        let p_str = db::strategies_params::lire_straddle_params(db.pool()).await;
+        let tp3_txt = if tp3.lointaine {
+            format!("liq:{:.2}", tp3.rfixe)
+        } else {
+            format!("fixe:{:.2}", tp3.rfixe)
+        };
+        let smc_txt = format!(
+            "tp1={tp1:.4};tp2={tp2:.4};tp3={tp3_txt};trail={}",
+            trail.map(|k| format!("{k:.4}")).unwrap_or_else(|| "off".into())
+        );
+        let str_txt = format!(
+            "sl={:.4};trail={:.4};place={}",
+            p_str.sl_mult, p_str.trailing_r, p_str.placement_sec
+        );
+        let kdj_txt = format!(
+            "p={};s={};a={};r={:.4};adx={:.4}",
+            kdj_reglages.period, kdj_reglages.signal, kdj_reglages.amplitude,
+            kdj_reglages.ratio_risk, kdj_reglages.adx_min
+        );
+        let voulues: std::collections::HashMap<(common::Asset, common::Timeframe), String> =
+            cibles.iter().map(|(a, tf)| {
+                let smc = crate::reglages_smc::est_arme(&armes, a.as_str(), tf.as_str())
+                    .then(|| smc_txt.clone());
+                let straddle = (*tf == common::Timeframe::M1
+                    && perimetre_straddle.iter().any(|x| x == a.as_str()))
+                    .then(|| str_txt.clone());
+                let kdj = (*tf == common::Timeframe::H1 && kdj_autorise(a))
+                    .then(|| kdj_txt.clone());
+                ((a.clone(), *tf), crate::runtime_params::empreinte_couple(smc, straddle, kdj))
+            }).collect();
+        let fenetres = crate::runtime_params::fenetres_straddle(db, &perimetre_straddle).await;
+        crate::runtime_params::retirer_changements_params(runtime, voulues, &fenetres);
+    }
+
     // Ajouts avec cold start (replay).
     let actuelles: HashSet<(Asset, Timeframe)> = runtime.cles().into_iter().collect();
     let mut ajouts = 0;
