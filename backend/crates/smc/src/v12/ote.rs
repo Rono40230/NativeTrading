@@ -227,14 +227,14 @@ impl OteDetector {
     pub fn last_event(&self) -> OteEvent {
         self.last_event.clone()
     }
-    /// Bornes OTE bull (top, bot) — pour le ZoneCoeurDetector.
+    /// Bornes OTE bull (top, bot).
     pub fn bull_bounds(&self) -> Option<(f64, f64)> {
         match (self.last_event.bull_top, self.last_event.bull_bot) {
             (Some(t), Some(b)) => Some((t, b)),
             _ => None,
         }
     }
-    /// Bornes OTE bear (top, bot) — pour le ZoneCoeurDetector.
+    /// Bornes OTE bear (top, bot).
     pub fn bear_bounds(&self) -> Option<(f64, f64)> {
         match (self.last_event.bear_top, self.last_event.bear_bot) {
             (Some(t), Some(b)) => Some((t, b)),

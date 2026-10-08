@@ -29,11 +29,9 @@ import type {
   ImbalanceV12,
   ImpRangeV12,
   LiquiditeLevelV12,
-  OteV12,
   PremiumDiscountV12,
   SessionRangeV12,
   VolRangeV12,
-  ZoneCoeurV12,
 } from '@/services/api.smc'
 import { hexVersRgba } from './chartIndicatorsConfig'
 
@@ -58,17 +56,9 @@ const COUL_BRK_BEAR = '#D50000'
 const COUL_IB_BULL = '#00C853'
 const COUL_IB_BEAR = '#D50000'
 
-const COUL_OTE_BULL = '#00C853'
-const COUL_OTE_BEAR = '#D50000'
-
 // BPR Module 6b (Pine : ambre support / orange résistance, transp 88).
 const COUL_BPR_BULL = '#FFB300'
 const COUL_BPR_BEAR = '#FF6D00'
-
-const COUL_ZC_BULL_F = '#00E676'
-const COUL_ZC_BULL_B = '#00C853'
-const COUL_ZC_BEAR_F = '#FF1744'
-const COUL_ZC_BEAR_B = '#D50000'
 
 // Palette HTF OB : { bull, bear, transp } par timeframe.
 const HTF: Record<'H1' | 'H4' | 'W1' | 'MN', { bull: string; bear: string; transp: number }> = {
@@ -92,14 +82,12 @@ export interface FlagsV12Etendus {
   propulsion: boolean
   imbalance: boolean
   bpr: boolean
-  ote: boolean
   premium: boolean
   equilibrium: boolean
   obH1: boolean
   obH4: boolean
   obW1: boolean
   obMn: boolean
-  zoneCoeur: boolean
   volume: boolean
   impulsion: boolean
 }
@@ -121,9 +109,9 @@ export interface DonneesV12Etendues {
   breakers: BreakerV12[]
   imbalances: ImbalanceV12[]
   bprs: BprV12[]
-  otes: OteV12[]
   mtf_obs: HtfObV12[]
-  zone_coeur: ZoneCoeurV12[]
+  /** OTE swing institutionnelle vivante (spec 08/10) — null si aucune jambe. */
+  swing_ote: import('@/services/api.smc').SwingOteV12 | null
 }
 
 export const donneesV12EtenduesVides = (): DonneesV12Etendues => ({
@@ -142,9 +130,8 @@ export const donneesV12EtenduesVides = (): DonneesV12Etendues => ({
   propulsions: [],
   imbalances: [],
   bprs: [],
-  otes: [],
   mtf_obs: [],
-  zone_coeur: [],
+  swing_ote: null,
 })
 
 /** Bord droit commun : dernière bougie si connue, sinon bord canvas. */
@@ -331,24 +318,6 @@ export function dessinerBoxes(
     labelBox(ctx, hexVersRgba(hex, 1), `${emoji} ${o.timeframe}${ici}`, xD, box.yTop)
   }
 
-  // Zone-cœur — bord gauche = bougie d'origine de l'OB parent (Pine
-  // box.new(obBullBar[_zi], …)), pas la barre de détection.
-  if (flags.zoneCoeur) {
-    for (const z of d.zone_coeur) {
-      const isBull = z.dir === 'bull'
-      const hexF = isBull ? COUL_ZC_BULL_F : COUL_ZC_BEAR_F
-      const hexB = isBull ? COUL_ZC_BULL_B : COUL_ZC_BEAR_B
-      const box = boxPrix(serie, z.top, z.bot)
-      if (!box) continue
-      const xG = coordX(ts, z.ob_ts > 0 ? z.ob_ts : z.ts, 0)
-      if (xD <= xG) continue
-      ctx.fillStyle = hexVersRgba(hexF, t(20))
-      ctx.fillRect(xG, box.yTop, xD - xG, box.h)
-      tracerBordsBox(ctx, hexVersRgba(hexB, 1), xG, xD, box.yTop, box.h)
-      labelBox(ctx, hexVersRgba(hexB, 1), isBull ? 'Zone Achat' : 'Zone Vente', xD, box.yTop)
-    }
-  }
-
   // Breaker.
   if (flags.breaker) {
     for (const b of d.breakers) {
@@ -405,22 +374,6 @@ export function dessinerBoxes(
         ctx.stroke()
         ctx.setLineDash([])
       }
-    }
-  }
-
-  // OTE — box d'affichage Pine _oteBullBox/_oteBearBox : créée au BOS
-  // (bord gauche = bar du BOS), persiste après expiration de la plage.
-  if (flags.ote) {
-    for (const o of d.otes) {
-      const hex = o.dir === 'bull' ? COUL_OTE_BULL : COUL_OTE_BEAR
-      const box = boxPrix(serie, o.top, o.bot)
-      if (!box) continue
-      const xG = coordX(ts, o.ts, 0)
-      if (xD <= xG) continue
-      ctx.fillStyle = hexVersRgba(hex, t(80))
-      ctx.fillRect(xG, box.yTop, xD - xG, box.h)
-      tracerBordsBox(ctx, hexVersRgba(hex, t(40)), xG, xD, box.yTop, box.h)
-      labelBox(ctx, hexVersRgba(hex, 1), 'OTE', xD, box.yTop)
     }
   }
 }

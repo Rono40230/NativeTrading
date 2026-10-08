@@ -59,7 +59,7 @@ export interface PrefsIndicateurs {
   v12Imbalance: boolean   // bloc imbalance
   v12Bpr: boolean         // bloc BPR (Module 6b)
   // Signaux & zones
-  v12ZoneCoeur: boolean   // bloc zone d'achat/vente
+  v12Institutional: boolean // couche OB Institutionnels : OTE swing + ancres + dorés
   v12Signals: boolean     // box trade SL/TP + label BUY/SELL
   // Technique avancé (bgcolor)
   v12Volume: boolean      // bgcolor volume
@@ -79,7 +79,6 @@ export interface PrefsIndicateurs {
   v12ObH4: boolean
   v12ObW1: boolean
   v12ObMn: boolean
-  v12Ote: boolean         // zone OTE
   v12SignauxRockets: boolean   // signaux Rockets (rendu à venir)
   v12SignauxStraddle: boolean  // signaux Straddle (rendu à venir)
 }
@@ -134,7 +133,9 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   v12Propulsion: false,
   v12Imbalance: false,
   v12Bpr: true,
-  v12ZoneCoeur: false,
+  // Couche institutionnelle (spéc 08/10) : OTE swing + ancres + OB dorés —
+  // ON par défaut le temps de la validation visuelle B3 (parallèle de l'existant).
+  v12Institutional: true,
   v12Signals: true,
   v12Volume: false,
   v12Impulsion: false,
@@ -151,7 +152,6 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   v12ObH4: false,
   v12ObW1: false,
   v12ObMn: false,
-  v12Ote: false,
   v12SignauxRockets: false,
   v12SignauxStraddle: false,
 }

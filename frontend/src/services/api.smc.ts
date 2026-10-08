@@ -35,6 +35,9 @@ export interface ObV12 {
   state: 'vierge' | 'partiel' | 'profond'
   force: number
   bar_idx: number
+  /** Confluence dorée (spéc 08/10 § 2.3) : OB chevauchant l'OTE swing vivante.
+   *  Optionnel : absent si backend non mis à jour. */
+  dore?: boolean
 }
 /** Fair Value Gap actif. */
 export interface FvgV12 {
@@ -131,24 +134,27 @@ export interface ImbalanceV12 {
   state: string
   bar_idx: number
 }
-/** Zone OTE active (≤1 par sens, sans ts — étendue sur toute la largeur). */
-export interface OteV12 {
-  dir: 'bull' | 'bear'
-  top: number
-  bot: number
-  /** Timestamp de la bar du BOS — bord gauche de la box (Pine _oteBullBox). */
+/** Ancre de jambe OTE swing = un pivot confirmé (spéc 08/10 § 2.2). */
+export interface SwingAnchorV12 {
+  prix: number
+  /** Timestamp de la barre pivot (bord gauche de la ligne d'ancre). */
   ts: number
 }
-/** Zone-cœur (intersection OB ∩ OTE ∩ FVG). */
-export interface ZoneCoeurV12 {
-  /** Timestamp de création de la box live. */
-  ts: number
+/** OTE swing institutionnelle vivante (spéc 08/10 § 2.2) — au plus une :
+ *  bande 61,8–78,6 % de la jambe sh1↔sl1 + trait 50 %. */
+export interface SwingOteV12 {
+  /** "bear" = jambe baissière (retracement au-dessus du low). */
   dir: 'bull' | 'bear'
+  /** Borne 78,6 % (toujours > bot). */
   top: number
+  /** Borne 61,8 %. */
   bot: number
-  ob_bar: number
-  /** Bougie d'origine de l'OB parent — bord gauche de la box (Pine obBullBar). */
-  ob_ts: number
+  /** Trait 50 %. */
+  mid: number
+  /** Barre de confirmation du pivot le plus récent (bord gauche de la box). */
+  ts_naissance: number
+  pivot_haut: SwingAnchorV12
+  pivot_bas: SwingAnchorV12
 }
 /** État final Premium/Discount (équilibrium ICT + dealing range). */
 export interface PremiumDiscountV12 {
@@ -226,8 +232,9 @@ export interface SmcV12Analyse {
   breakers?: BreakerV12[]
   propulsions?: PropulsionV12[]
   imbalances?: ImbalanceV12[]
-  otes?: OteV12[]
-  zone_coeur?: ZoneCoeurV12[]
+  /** OTE swing institutionnelle vivante (spéc 08/10 § 2.2) — `null` si aucune
+   *  jambe complète. Optionnel : absent si backend non mis à jour. */
+  swing_ote?: SwingOteV12 | null
   premium_discount?: PremiumDiscountV12
   mtf_obs?: HtfObV12[]
   sessions?: SessionRangeV12[]

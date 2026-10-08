@@ -70,7 +70,6 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     let (mut pd_prem, mut pd_disc, mut ote_bull, mut ote_bear) = (0u32, 0u32, 0u32, 0u32);
     let (mut kz, mut ndog_new, mut nwog_new) = (0u32, 0u32, 0u32);
     let (mut conf_h1, mut conf_h4, mut conf_w1, mut conf_mn) = (0u32, 0u32, 0u32, 0u32);
-    let (mut coeur_bull, mut coeur_bear) = (0u32, 0u32);
     let mut last_sh1: Option<f64> = None;
     let mut last_sl1: Option<f64> = None;
     let mut atr_final = 0.0_f64;
@@ -182,8 +181,6 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
         if out.mtf.confluence_mn {
             conf_mn += 1;
         }
-        coeur_bull += out.zone_coeur.bull.len() as u32;
-        coeur_bear += out.zone_coeur.bear.len() as u32;
         if out.sh1.is_some() {
             last_sh1 = out.sh1;
         }
@@ -260,7 +257,6 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
          Kill Zones       : bars inKZ={kz}\n\
          NDOG/NWOG        : NDOG créés={ndog_new} NWOG créés={nwog_new}\n\
          MTF confluences  : H1={conf_h1} H4={conf_h4} W1={conf_w1} MN={conf_mn}\n\
-         Zone-cœur        : bull={coeur_bull} bear={coeur_bear}\n\
          ========================================================",
         engine.ote.expiry_bars(),
     );
@@ -336,11 +332,6 @@ fn engine_traite_700_bars_xauusd_sans_panic() {
     assert!(
         conf_h1 > 0,
         "MTF : au moins une confluence H1 sur 700 bars M15"
-    );
-    // Zone-cœur : pas de panic ; borne supérieure lâche (détection stricte).
-    assert!(
-        coeur_bull + coeur_bear <= 700,
-        "Zone-cœur : compteur cohérent"
     );
 }
 

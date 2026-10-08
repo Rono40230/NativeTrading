@@ -4,7 +4,7 @@
 //! Phase 2.0 : socle (calibration + ATR14 + pivots + structure + BOS).
 //! Phase 2.1 : MODULES 3/4/5 (MSS/CHOCH + Liquidités PDH/PDL/PWH/PWL + EQH/EQL + Sweep).
 //! Phase 2.2 : MODULES 6/7/8b/8c/13b (FVG + Order Blocks + Breaker + Propulsion + Imbalance).
-//! Phase 2.3 : MODULES 4b/10b/12/13c + Kill Zones + Zone-cœur (contexte).
+//! Phase 2.3 : MODULES 4b/10b/12/13c + Kill Zones (contexte).
 
 pub mod asian_hl;
 pub mod atr;
@@ -37,11 +37,11 @@ pub mod signals;
 pub mod signals_levels;
 pub mod structure;
 pub mod sweep;
+pub mod swing_ote;
 #[cfg(test)]
 mod tests;
 pub mod trade;
 pub mod types;
-pub mod zone_coeur;
 
 pub use asian_hl::{AsianHlDetector, SessHlLevels};
 use durees::{mask_bos_by_mss, tp3_max_mins, trade_max_mins};
@@ -72,9 +72,9 @@ pub use sentiment::{
 pub use signals::SignalGenerator;
 pub use structure::StructureDetector;
 pub use sweep::SweepDetector;
+pub use swing_ote::{chevauche, SwingOteDetector};
 pub use trade::Trade;
 pub use types::*;
-pub use zone_coeur::ZoneCoeurDetector;
 
 /// Le moteur SMC v12 — orchestre tous les indicateurs dans l'ordre strict du Pine.
 ///
@@ -109,8 +109,10 @@ pub struct SmcV12Engine {
     pub ndog: NdogDetector,
     /// MODULE 12 — Multi-Timeframe.
     pub mtf: MtfDetector,
-    /// Zone-cœur (intersection OB ∩ OTE ∩ FVG).
-    pub zone_coeur: ZoneCoeurDetector,
+    /// OTE swing institutionnelle (spec docs/spec_indicateur_unifie_ob_ote.md) —
+    /// détecteur de pivots DÉDIÉ, affichage Phase B uniquement : aucun
+    /// consommateur scoring/signals, aucune lecture des modules moteur.
+    pub swing_ote: SwingOteDetector,
     /// Bonus de scoring BPR (MODULE 6b) — défaut INACTIF : étude comparatif_bpr
     /// 28/08 = +1.0R / 2 834 clôtures (bruit) → « affichage conservé, scoring
     /// retiré » (parité Pine). Le greffon reste ré-activable pour ré-étude.
@@ -197,7 +199,7 @@ impl SmcV12Engine {
             kill_zone: KillZoneDetector::new(),
             ndog: NdogDetector::new(tf_sec),
             mtf: MtfDetector::new(),
-            zone_coeur: ZoneCoeurDetector::new(),
+            swing_ote: SwingOteDetector::new(swing_ote::seuil_pct_par_tf(tf_sec)),
             bpr_scoring: false,
             tf_sec,
         }
@@ -431,17 +433,10 @@ impl SmcV12Engine {
         let asian_ev = self.asian_hl.update(bar);
         let london_ev = self.london_hl.update(bar);
 
-        let zone_coeur_event = self.zone_coeur.update(
-            self.order_blocks.bull_zones(),
-            self.order_blocks.bear_zones(),
-            self.fvg.bull_zones(),
-            self.fvg.bear_zones(),
-            self.ote.bull_bounds(),
-            self.ote.bear_bounds(),
-            sweep_event.sweep_bull_frais,
-            sweep_event.sweep_bear_frais,
-            pd_event.equilibrium,
-        );
+        // 18c. OTE swing institutionnelle (spec 08/10) — pivots DÉDIÉS
+        //     (longueur indépendante) : isolée du reste du pipeline.
+        let swing_ote_event = self.swing_ote.update(bar);
+
 
         let out = SmcOutput {
             atr14,
@@ -462,7 +457,7 @@ impl SmcV12Engine {
             kill_zone: kz_event,
             ndog: ndog_event,
             mtf: mtf_event,
-            zone_coeur: zone_coeur_event,
+            swing_ote: swing_ote_event,
             asian_hl: asian_ev,
             london_hl: london_ev,
             sh1: self.pivots.sh1(),

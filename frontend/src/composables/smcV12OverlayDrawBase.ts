@@ -62,6 +62,9 @@ const FVG_ALPHA: Record<string, number> = {
 }
 const FVG_BORD_ALPHA = (100 - 85) / 100 // bordure blanche transp 85
 const TENDANCE_ALPHA = (100 - 95) / 100
+/** Confluence dorée (spec 08/10 § 2.4) : OB chevauchant l'OTE swing —
+ *  fond jaune translucide + bordure dorée, remplace la couleur du sens. */
+const COUL_OB_DORE = '#FFC53D'
 
 // ── Types de données de dessin ────────────────────────────────────────────────
 export interface ObDessin {
@@ -71,6 +74,8 @@ export interface ObDessin {
   force: number
   dir: 'bull' | 'bear'
   state: string
+  /** Confluence dorée : intersection OB ∩ OTE swing vivante (spec 08/10). */
+  dore: boolean
 }
 export interface LigneDessin {
   ts: number
@@ -112,6 +117,9 @@ export interface FlagsV12 {
   ob: boolean
   fvg: boolean
   signals: boolean
+  /** Couche institutionnelle (OTE swing + ancres) — la dorure des OB suit
+   *  le flag `ob` (un OB doré n'apparaît que si les OB sont affichés). */
+  institutional: boolean
 }
 
 // ── Fonctions de dessin pures ─────────────────────────────────────────────────
@@ -180,7 +188,11 @@ export function dessinerObsEtFvgs(
       const xGRaw = ts.timeToCoordinate(o.ts as any)
       const xG = xGRaw !== null ? Math.max(0, xGRaw) : 0
       if (xD <= xG) continue
-      const hex = o.dir === 'bull' ? COUL_OB_BULL : COUL_OB_BEAR
+      const hex = o.dore
+        ? COUL_OB_DORE
+        : o.dir === 'bull'
+          ? COUL_OB_BULL
+          : COUL_OB_BEAR
       const alpha = OB_ALPHA[o.state] ?? OB_ALPHA.vierge
       ctx.fillStyle = hexVersRgba(hex, alpha)
       ctx.fillRect(xG, yTop, xD - xG, hauteur)

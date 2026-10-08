@@ -64,6 +64,9 @@ pub(crate) struct ObOut {
     pub bar_idx: usize,
     /// Flags actifs au moment du nouveau max du score (diag MQL5 diagFlags).
     pub diag: Option<String>,
+    /// Confluence dorée (spec 08/10 § 2.3) : intersection OB ∩ OTE swing
+    /// vivante non vide, recalculée au snapshot final.
+    pub dore: bool,
 }
 
 #[derive(Serialize)]
@@ -176,27 +179,30 @@ pub(crate) struct ImbalanceOut {
     pub bar_idx: usize,
 }
 
-/// Box OTE d'affichage (au plus une par sens, Pine `_oteBullBox`/`_oteBearBox`).
-#[derive(Serialize)]
-pub(crate) struct OteOut {
-    pub dir: &'static str,
-    pub top: f64,
-    pub bot: f64,
-    /// Timestamp de la bar du BOS (bord gauche de la box).
+/// Ancre de jambe OTE swing = un pivot confirmé du détecteur dédié.
+#[derive(Clone, Serialize)]
+pub(crate) struct SwingAnchorOut {
+    pub prix: f64,
+    /// Timestamp de la barre pivot (bord gauche de la ligne d'ancre).
     pub ts: i64,
 }
 
-/// Zone-cœur (intersection OB ∩ OTE ∩ FVG) collectée pendant le replay.
-#[derive(Serialize)]
-pub(crate) struct ZoneCoeurOut {
-    pub ts: i64,
-    /// Timestamp de l'OB parent (bornes X de la zone cœur = celles de l'OB,
-    /// Pine sous-box de l'OB).
-    pub ob_ts: i64,
+/// OTE swing institutionnelle vivante (spec docs/spec_indicateur_unifie_ob_ote.md
+/// § 2.2) — au plus UNE à la fois : bande 61,8–78,6 % de la jambe sh1↔sl1.
+#[derive(Clone, Serialize)]
+pub(crate) struct SwingOteOut {
+    /// "bear" = jambe baissière (retracement AU-DESSUS du low) | "bull".
     pub dir: &'static str,
+    /// Borne 78,6 %.
     pub top: f64,
+    /// Borne 61,8 %.
     pub bot: f64,
-    pub ob_bar: usize,
+    /// Trait 50 %.
+    pub mid: f64,
+    /// Barre de confirmation du pivot le plus récent (bord gauche de la box).
+    pub ts_naissance: i64,
+    pub pivot_haut: SwingAnchorOut,
+    pub pivot_bas: SwingAnchorOut,
 }
 
 /// État final Premium/Discount (équilibrium ICT + plage du dernier dealing range).
@@ -302,8 +308,9 @@ pub(crate) struct ExtendedOutputs {
     pub breakers: Vec<BreakerOut>,
     pub propulsions: Vec<PropulsionOut>,
     pub imbalances: Vec<ImbalanceOut>,
-    pub otes: Vec<OteOut>,
-    pub zone_coeur: Vec<ZoneCoeurOut>,
+    /// OTE swing institutionnelle (affichage Phase B) — `null` si aucune
+    /// jambe complète vivante.
+    pub swing_ote: Option<SwingOteOut>,
     pub premium_discount: PdOut,
     pub mtf_obs: Vec<HtfObOut>,
     pub sessions: Vec<SessionRange>,

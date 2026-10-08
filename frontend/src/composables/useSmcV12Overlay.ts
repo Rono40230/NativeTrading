@@ -38,6 +38,7 @@ import {
 } from './smcV12OverlayDrawBase'
 import { dessinerSignaux, dessinerTradesExternes } from './smcV12OverlayDrawTrades'
 import type { SignalDessin } from './smcV12OverlayDrawTrades'
+import { dessinerInstitutional } from './smcV12OverlayDrawInstitutional'
 import type {
   ObDessin,
   LigneDessin,
@@ -125,6 +126,7 @@ export function useSmcV12Overlay() {
       ob: p.v12Ob,
       fvg: p.v12Fvg,
       signals: p.v12Signals,
+      institutional: p.v12Institutional,
     }
   }
 
@@ -144,14 +146,12 @@ export function useSmcV12Overlay() {
       propulsion: p.v12Propulsion,
       imbalance: p.v12Imbalance,
       bpr: p.v12Bpr,
-      ote: p.v12Ote,
       premium: p.v12Premium,
       equilibrium: p.v12Equilibrium,
       obH1: p.v12ObH1,
       obH4: p.v12ObH4,
       obW1: p.v12ObW1,
       obMn: p.v12ObMn,
-      zoneCoeur: p.v12ZoneCoeur,
       volume: p.v12Volume,
       impulsion: p.v12Impulsion,
     }
@@ -176,6 +176,9 @@ export function useSmcV12Overlay() {
     // Phase 2 — boxes étendues (NDOG/NWOG, MTF OB, zone-cœur, breaker, imbalance, OTE).
     dessinerBoxesExt(ctx, serieRef, ts, W, donneesExt, flagsExt, dernierTsRef)
     // Phase 2b — boxes OB / FVG (par-dessus les boxes étendues).
+    // Phase 1b — couche institutionnelle (bande OTE swing + ancres) SOUS les
+    // OB (spec 08/10 § 2.4 ; parallèle de l'existant pendant la validation B3).
+    dessinerInstitutional(ctx, serieRef, ts, donneesExt.swing_ote, W, dernierTsRef, flags.institutional)
     if (flags.ob || flags.fvg) dessinerObsEtFvgs(ctx, serieRef, ts, obs, fvgs, W, dernierTsRef, flags)
     // Phase 3 — lignes horizontales étendues (Asian HL, liquidités, EQH/EQL, equilibrium).
     dessinerLignesExt(ctx, serieRef, ts, W, donneesExt, flagsExt, dernierTsRef)
@@ -272,6 +275,7 @@ export function useSmcV12Overlay() {
     sweeps = data.sweeps.slice(-6).map((s) => ({ ts: s.ts, level: s.level, dir: s.dir, candleHigh: s.candle_high, candleLow: s.candle_low }))
     obs = data.obs.map((o) => ({
       ts: o.ts, top: o.top, bot: o.bot, force: o.force, dir: o.dir, state: o.state,
+      dore: o.dore === true,
     }))
     fvgs = data.fvgs.map((f) => ({
       ts: f.ts, top: f.top, bot: f.bot, dir: f.dir, state: f.state,
@@ -319,9 +323,8 @@ export function useSmcV12Overlay() {
       propulsions: data.propulsions ?? [],
       imbalances: data.imbalances ?? [],
       bprs: data.bprs ?? [],
-      otes: data.otes ?? [],
       mtf_obs: data.mtf_obs ?? [],
-      zone_coeur: data.zone_coeur ?? [],
+      swing_ote: data.swing_ote ?? null,
     }
     planifierRedessiner()
   }

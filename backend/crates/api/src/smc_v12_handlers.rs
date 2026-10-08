@@ -15,7 +15,7 @@
 
 use actix_web::{web, HttpResponse, Responder};
 use smc::v12::trade::{Side, TradeSource, TradeState};
-use smc::v12::{BarInput, ScoringV11, SmcV12Engine};
+use smc::v12::{chevauche, BarInput, ScoringV11, SmcV12Engine};
 
 use crate::smc_v12_collect::{collect_final_extended, BarCollectors};
 use crate::smc_v12_out::*;
@@ -270,6 +270,9 @@ pub async fn analyse_v12(
 
     // ── États actifs (post-replay) : Order Blocks + FVG ──
     let cal = &engine.calibration;
+    // Confluence dorée (spec 08/10 § 2.3) : même OTE swing vivante pour tous
+    // les OB du snapshot — propriété d'affichage recalculée à chaque appel.
+    let zone_ote = engine.swing_ote.zone();
     let mut obs: Vec<ObOut> = Vec::new();
     for z in engine.order_blocks.bull_zones() {
         let force = ScoringV11::force(engine.scoring_v11.ob_score(true, z.impulse_bar), cal);
@@ -285,6 +288,7 @@ pub async fn analyse_v12(
                 .scoring_v11
                 .ob_diag(true, z.impulse_bar)
                 .map(str::to_string),
+            dore: chevauche(z.top, z.bot, zone_ote),
         });
     }
     for z in engine.order_blocks.bear_zones() {
@@ -301,6 +305,7 @@ pub async fn analyse_v12(
                 .scoring_v11
                 .ob_diag(false, z.impulse_bar)
                 .map(str::to_string),
+            dore: chevauche(z.top, z.bot, zone_ote),
         });
     }
 

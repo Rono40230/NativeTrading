@@ -493,30 +493,48 @@ pub struct MtfEvent {
 }
 
 // ============================================================================
-// ZONE-CŒUR (Pine lignes 2112-2154)
+// OTE SWING INSTITUTIONNELLE (spec docs/spec_indicateur_unifie_ob_ote.md § 2.2-2.3,
+// rév. 08/10 : jambe des extrêmes structurels — voir swing_ote.rs pour les preuves)
 // ============================================================================
 
-/// Une zone-cœur = intersection OB ∩ OTE ∩ 1er FVG chevauchant (Pine `f_coeurBull/Bear`).
+/// Ancre de jambe = un extrême structurel (origine ou extrême courant).
 #[derive(Debug, Clone, Copy)]
-pub struct ZoneCoeurZone {
-    pub top: f64,
-    pub bot: f64,
-    /// `ob_bar` de l'OB à l'origine de la zone-cœur.
-    pub ob_bar: usize,
-    /// `true` = zone-cœur bull (Discount), `false` = bear (Premium).
-    pub bull: bool,
+pub struct SwingAnchor {
+    pub prix: f64,
+    /// Timestamp de la barre de l'extrême (bord gauche de la ligne d'ancre).
+    pub ts: i64,
 }
 
-/// Événement Zone-cœur pour une bar.
+/// OTE swing institutionnelle vivante : bande 61,8–78,6 % de la jambe des
+/// extrêmes structurels (origine majeure → extrême courant) + trait 50 %.
+/// Une seule à la fois ; se prolonge aux nouveaux extrêmes, bascule quand le
+/// prix dépasse l'origine. Les rebonds internes NE la suppriment PAS.
+#[derive(Debug, Clone, Copy)]
+pub struct SwingOteZone {
+    /// `true` = jambe baissière (origine = haut, retracement AU-DESSUS du
+    /// creux) ; `false` = jambe haussière (retracement SOUS le sommet).
+    pub bearish: bool,
+    /// Borne 78,6 % (toujours > `bot`).
+    pub top: f64,
+    /// Borne 61,8 %.
+    pub bot: f64,
+    /// Trait 50 %.
+    pub mid: f64,
+    /// Bord gauche de la box = timestamp de l'ancre la plus ANCIENNE.
+    pub ts_naissance: i64,
+    /// Extrème haut de la jambe (origine si baissière).
+    pub haut: SwingAnchor,
+    /// Extrême bas de la jambe (extrême courant si baissière).
+    pub bas: SwingAnchor,
+}
+
+/// Événement OTE swing pour une bar (affichage — Phase B, aucun consommateur
+/// scoring/signals ; le premier toucher est une règle de TRADING côté FIRE,
+/// pas d'affichage).
 #[derive(Debug, Clone, Default)]
-pub struct ZoneCoeurEvent {
-    pub bull: Vec<ZoneCoeurZone>,
-    pub bear: Vec<ZoneCoeurZone>,
-    /// Boxes **live** (Pine `f_zoneCoeurLifecycle`) : créées au premier setup
-    /// valide (bornes figées), supprimées dès invalidation ou disparition de
-    /// l'OB parent — c'est la sortie d'affichage (Pine supprime la box).
-    pub live_bull: Vec<ZoneCoeurZone>,
-    pub live_bear: Vec<ZoneCoeurZone>,
+pub struct SwingOteEvent {
+    /// OTE vivante après update (aucune si range nul au warmup).
+    pub zone: Option<SwingOteZone>,
 }
 
 /// Sortie complète du moteur pour une bar.
@@ -554,8 +572,9 @@ pub struct SmcOutput {
     pub ndog: NdogEvent,
     /// MODULE 12 — Multi-Timeframe (repaint assumé).
     pub mtf: MtfEvent,
-    /// Zone-cœur (intersection OB ∩ OTE ∩ FVG).
-    pub zone_coeur: ZoneCoeurEvent,
+    /// OTE swing institutionnelle (affichage Phase B — aucune consommation
+    /// scoring/signals ; spec docs/spec_indicateur_unifie_ob_ote.md).
+    pub swing_ote: SwingOteEvent,
     /// MODULE 14 — Asian High/Low drawn (DoL znQual + cible TP3).
     pub asian_hl: super::asian_hl::AsianHlEvent,
     /// MODULE 14b — London High/Low drawn (Module F).

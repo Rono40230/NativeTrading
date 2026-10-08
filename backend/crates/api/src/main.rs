@@ -91,6 +91,8 @@ mod registre_strategies;
 mod signaux_officiels;
 mod smc_handlers;
 mod smc_monitoring_handlers;
+#[cfg(test)]
+mod smc_v12_collect_tests;
 mod smc_v12_collect;
 mod smc_v12_handlers;
 mod smc_v12_out;

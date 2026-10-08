@@ -17,7 +17,7 @@ use crate::smc_v12_out::*;
 
 /// Mappe une KillZone vers un label de session rendu (`None` si hors session).
 /// NyAm et NyPm sont regroupées en "ny" (rendu bgcolor unifié New York).
-fn kz_label(z: KillZone) -> Option<&'static str> {
+pub(crate) fn kz_label(z: KillZone) -> Option<&'static str> {
     match z {
         KillZone::Asian => Some("asie"),
         KillZone::London => Some("londres"),
@@ -73,10 +73,6 @@ pub(crate) struct BarCollectors {
     vol_raw: Vec<(i64, bool)>,
     imp_raw: Vec<(i64, Option<&'static str>)>,
     vol_buf: Vec<f64>,
-    zone_coeur: Vec<ZoneCoeurOut>,
-    /// Création des boxes live (clé (0=bull/1=bear, ob_bar)) — Pine fige
-    /// la box à sa création : on mémorise la 1re barre où elle est vue.
-    zc_crea: HashMap<(u8, usize), i64>,
     asian_day_key: Option<i64>,
     asian_h: f64,
     asian_l: f64,
@@ -98,8 +94,6 @@ impl BarCollectors {
             vol_raw: Vec::with_capacity(cap),
             imp_raw: Vec::with_capacity(cap),
             vol_buf: Vec::with_capacity(21),
-            zone_coeur: Vec::new(),
-            zc_crea: HashMap::new(),
             asian_day_key: None,
             asian_h: 0.0,
             asian_l: 0.0,
@@ -209,25 +203,6 @@ impl BarCollectors {
             None
         };
         self.imp_raw.push((bar.timestamp, imp));
-
-        // ── Zone-cœur : miroir des boxes LIVE du moteur (Pine
-        //    f_zoneCoeurLifecycle : supprimée dès que le setup n'est plus
-        //    valable — on n'exporte que les zones vivantes, jamais un
-        //    historique figé qui collerait à l'infini).
-        self.zone_coeur.clear();
-        for (sens, zones) in [(0u8, &out.zone_coeur.live_bull), (1u8, &out.zone_coeur.live_bear)] {
-            for z in zones.iter() {
-                let crea = *self.zc_crea.entry((sens, z.ob_bar)).or_insert(bar.timestamp);
-                self.zone_coeur.push(ZoneCoeurOut {
-                    ts: crea,
-                    dir: if sens == 0 { "bull" } else { "bear" },
-                    top: z.top,
-                    bot: z.bot,
-                    ob_bar: z.ob_bar,
-                    ob_ts: 0,
-                });
-            }
-        }
 
         // ── Asian High/Low (Pine MODULE 14) : session Asie EUROPE/PARIS
         //    00:00-06:30 (SES_PARIS_ASIE 0-390 min) — pas la KZ UTC 3h.
@@ -378,28 +353,23 @@ pub(crate) fn collect_final_extended(
         });
     }
 
-    // ── OTE (Pine _oteBullBox/_oteBearBox, lignes 2126-2148) : box
-    //    d'affichage créée au BOS (ts = bar du BOS), remplacée à chaque BOS,
-    //    qui PERSISTE après expiration de la plage Fib — c'est elle qu'on
-    //    exporte, pas la plage expirable (inOTE reste réservé au scoring). ──
-    let mut otes: Vec<OteOut> = Vec::new();
-    let ote_ev = engine.ote.last_event();
-    if let Some((t, b, ts)) = ote_ev.bull_box {
-        otes.push(OteOut {
-            dir: "bull",
-            top: t,
-            bot: b,
-            ts,
-        });
-    }
-    if let Some((t, b, ts)) = ote_ev.bear_box {
-        otes.push(OteOut {
-            dir: "bear",
-            top: t,
-            bot: b,
-            ts,
-        });
-    }
+    // ── OTE swing institutionnelle (spec 08/10 § 2.2) : zone vivante unique,
+    //    jamais d'historique figé (supprimée au premier toucher / jambe). ──
+    let swing_ote = engine.swing_ote.zone().map(|z| SwingOteOut {
+        dir: if z.bearish { "bear" } else { "bull" },
+        top: z.top,
+        bot: z.bot,
+        mid: z.mid,
+        ts_naissance: z.ts_naissance,
+        pivot_haut: SwingAnchorOut {
+            prix: z.haut.prix,
+            ts: z.haut.ts,
+        },
+        pivot_bas: SwingAnchorOut {
+            prix: z.bas.prix,
+            ts: z.bas.ts,
+        },
+    });
 
     // ── Premium/Discount (état final) ──
     let pd_ev = engine.premium_discount.last_event();
@@ -456,8 +426,6 @@ pub(crate) fn collect_final_extended(
         vol_raw,
         imp_raw,
         vol_buf: _,
-        mut zone_coeur,
-        zc_crea: _,
         asian_day_key,
         asian_h,
         asian_l,
@@ -474,12 +442,6 @@ pub(crate) fn collect_final_extended(
         invalidated_down: asian_inv_down,
         start_ts: asian_start_ts,
     });
-
-    // ── Zone-cœur : bord gauche = bougie d'origine de l'OB parent (Pine
-    //    box.new(obBullBar[_zi], …)) — pas la barre de détection.
-    for z in zone_coeur.iter_mut() {
-        z.ob_ts = ts_at(ts_by_idx, z.ob_bar, z.ts);
-    }
 
     // ── Compression run-length des séries par barre ──
     let vol_fort = compress_vol(&vol_raw)
@@ -512,8 +474,7 @@ pub(crate) fn collect_final_extended(
         breakers,
         propulsions,
         imbalances,
-        otes,
-        zone_coeur,
+        swing_ote,
         premium_discount,
         mtf_obs,
         sessions: Vec::new(), // supprimé : uniquement session_boxes (rectangles Pine)
@@ -531,64 +492,5 @@ pub(crate) fn collect_final_extended(
         gaps,
         vol_fort,
         impulsions,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn runs_str_regroupe_plages_contigues_et_ignore_none() {
-        // asie(0,1,2) | None(3) | londres(4,5) | None(6)
-        let raw: Vec<(i64, Option<&str>)> = vec![
-            (0, Some("asie")),
-            (1, Some("asie")),
-            (2, Some("asie")),
-            (3, None),
-            (4, Some("londres")),
-            (5, Some("londres")),
-            (6, None),
-        ];
-        let out = runs_str(&raw);
-        assert_eq!(out, vec![(0, 2, "asie"), (4, 5, "londres")]);
-    }
-
-    #[test]
-    fn runs_str_change_de_label_relance_une_plage() {
-        // bull | bull | bear (pas de None) ⇒ deux plages collées.
-        let raw: Vec<(i64, Option<&str>)> =
-            vec![(10, Some("bull")), (11, Some("bull")), (12, Some("bear"))];
-        let out = runs_str(&raw);
-        assert_eq!(out, vec![(10, 11, "bull"), (12, 12, "bear")]);
-    }
-
-    #[test]
-    fn runs_str_vide_renvoie_vide() {
-        let raw: Vec<(i64, Option<&str>)> = vec![(0, None), (1, None)];
-        assert!(runs_str(&raw).is_empty());
-    }
-
-    #[test]
-    fn compress_vol_garde_uniquement_les_plages_fortes() {
-        // fort(0,1) | faible(2) | fort(3)
-        let raw: Vec<(i64, bool)> = vec![(0, true), (1, true), (2, false), (3, true)];
-        let out = compress_vol(&raw);
-        assert_eq!(out, vec![(0, 1), (3, 3)]);
-    }
-
-    #[test]
-    fn compress_vol_aucun_fort_renvoie_vide() {
-        let raw: Vec<(i64, bool)> = vec![(0, false), (1, false)];
-        assert!(compress_vol(&raw).is_empty());
-    }
-
-    #[test]
-    fn kz_label_regroupage_ny() {
-        assert_eq!(kz_label(KillZone::Asian), Some("asie"));
-        assert_eq!(kz_label(KillZone::London), Some("londres"));
-        assert_eq!(kz_label(KillZone::NyAm), Some("ny"));
-        assert_eq!(kz_label(KillZone::NyPm), Some("ny"));
-        assert_eq!(kz_label(KillZone::None), None);
     }
 }
