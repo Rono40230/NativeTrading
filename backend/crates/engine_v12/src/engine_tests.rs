@@ -287,3 +287,63 @@ use chrono::{TimeZone, Utc};
             "le moteur v12 doit émettre des signaux sur 700 bars"
         );
     }
+
+    /// Zones d'approche (fix 09/10) : une OB née intrabar doit être visible
+    /// AVANT la clôture de sa barre — c'est tout l'objet de l'alerte. La
+    /// séquence : warm-up ATR → bougie baissière (future OB) → impulsion
+    /// haussière qui NE touche pas la zone → la zone [102 ; 98] existe,
+    /// Vierge, dans l'évaluation live comme au commit. Un tick qui touche
+    /// la zone la fait disparaître immédiatement (elle n'est plus fraîche).
+    #[test]
+    fn zone_approche_visible_intrabar_avant_toucher() {
+        let asset = Asset::from("XAUUSD");
+        let tf = Timeframe::M15;
+        let mut moteur = MoteurV12::nouveau(asset.clone(), tf);
+        let mut ts = 1_700_000_000_i64;
+        let mut bar = |o: f64, h: f64, l: f64, c: f64| {
+            ts += 900;
+            BarInput { timestamp: ts, open: o, high: h, low: l, close: c, volume: 1.0 }
+        };
+        // Warm-up ATR (16 barres calmes autour de 100).
+        for i in 0..16 {
+            let b = bar(100.0, 100.6 + (i % 2) as f64 * 0.2, 99.4, 100.0 + (i % 2) as f64 * 0.2);
+            let c = candle_depuis_bar(&b);
+            moteur.on_close(&ctx_close(&asset, tf, &c, i));
+        }
+        // Bougie baissière (future OB : top 102, bot 98) puis impulsion
+        // haussière dont le low (102.4) reste AU-DESSUS du top — pas de touche.
+        let b1 = bar(100.0, 102.0, 98.0, 98.0);
+        let c1 = candle_depuis_bar(&b1);
+        moteur.on_close(&ctx_close(&asset, tf, &c1, 16));
+        let b2 = bar(102.5, 112.0, 102.4, 111.0);
+        let c2 = candle_depuis_bar(&b2);
+        moteur.on_close(&ctx_close(&asset, tf, &c2, 17));
+
+        // Au commit : la zone ACHAT [102 ; 98] est Vierge → visible.
+        let zones = moteur.zones_approche();
+        let z = zones.iter().find(|z| z.achat && z.bord_proche == 102.0 && z.bord_lointain == 98.0);
+        assert!(z.is_some(), "zone ACHAT [102;98] attendue au commit, reçu : {zones:?}");
+
+        // Tick live qui APPROCHE sans toucher (close 106 > 102) : toujours là.
+        let f = BougieEnFormation {
+            debut: ts + 900, open: 111.0, high: 111.0, low: 106.0, close: 106.0,
+            volume: 1.0, nb_events: 3, dernier_event: None,
+        };
+        moteur.on_tick(&ctx_tick(&asset, tf, &f));
+        assert!(
+            moteur.zones_approche().iter().any(|z| z.achat && z.bord_proche == 102.0),
+            "la zone reste visible à l'approche live"
+        );
+
+        // Tick live qui TOUCHE (low 101.5 ≤ 102) : plus fraîche → disparaît
+        // immédiatement de l'exposition (l'évaluation live pilote le cache).
+        let f2 = BougieEnFormation {
+            debut: ts + 900, open: 106.0, high: 106.5, low: 101.5, close: 102.0,
+            volume: 1.0, nb_events: 5, dernier_event: None,
+        };
+        moteur.on_tick(&ctx_tick(&asset, tf, &f2));
+        assert!(
+            !moteur.zones_approche().iter().any(|z| z.bord_proche == 102.0),
+            "zone touchée en live → retirée aussitôt du périmètre fraîcheur"
+        );
+    }

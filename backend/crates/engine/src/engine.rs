@@ -45,9 +45,19 @@ pub struct ContexteCloture<'a> {
 ///
 /// Les implémentations doivent être synchrones et rapides : elles tournent
 /// dans la boucle événementielle du runtime, sur le chemin critique.
-pub trait Engine: Send {
+/// `Sync` requis : le runtime est partagé en lecture par les watchers
+/// (zones d'approche) à l'intérieur de la tâche spawnée.
+pub trait Engine: Send + Sync {
     /// Nom unique du moteur (identifiant stable, ex : `smc_v12`).
     fn nom(&self) -> &str;
+
+    /// Zones d'approche du moteur (watcher d'alertes) : zones ACHAT/VENTE
+    /// fraîches avec leur ATR — source unique, lues dans l'état commité du
+    /// moteur (jamais recalculées ailleurs). Vide par défaut : seuls les
+    /// moteurs à zones l'implémentent (MoteurV12).
+    fn zones_approche(&self) -> Vec<ZoneApproche> {
+        Vec::new()
+    }
 
     /// Évaluation intrabar — appelée à chaque événement prix.
     fn on_tick(&mut self, _ctx: &ContexteTick) -> SortieMoteur {
@@ -58,4 +68,19 @@ pub trait Engine: Send {
     fn on_close(&mut self, _ctx: &ContexteCloture) -> SortieMoteur {
         SortieMoteur::vide()
     }
+}
+
+/// Une zone d'achat/vente fraîche exposée au watcher d'approche.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ZoneApproche {
+    /// `true` = zone ACHAT (OB bull SOUS le prix), `false` = zone VENTE.
+    pub achat: bool,
+    /// Bord du côté du prix (`top` pour un bull, `bot` pour un bear).
+    pub bord_proche: f64,
+    /// Bord opposé de la zone.
+    pub bord_lointain: f64,
+    /// `int(time[1])` Pine — identifiant stable de la zone.
+    pub ts_zone: i64,
+    /// ATR14 du couple au dernier état commité (échelle de l'approche).
+    pub atr: f64,
 }

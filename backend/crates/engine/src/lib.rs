@@ -14,7 +14,7 @@ pub mod types;
 
 pub use agregateur::{AgregateurBougie, BougieEnFormation, ModeCloture};
 pub use bus::{BougieCloturee, BusBougies, BusEvenements, BusSignaux};
-pub use engine::{ContexteCloture, ContexteTick, Engine};
+pub use engine::{ContexteCloture, ContexteTick, Engine, ZoneApproche};
 pub use runtime::Runtime;
 pub use types::{
     EvenementPrix, EvenementTrade, PrixEvent, SignalBrut, SortieMoteur, Tick, TypeEvenementTrade,

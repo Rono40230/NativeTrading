@@ -8,6 +8,7 @@ mod analyses_ia_asset;
 mod analyses_smc;
 mod asset_params_handlers;
 mod alertes_prix;
+mod alertes_zones;
 mod creneaux_perimetre;
 mod evenements;
 mod sante_moteurs;

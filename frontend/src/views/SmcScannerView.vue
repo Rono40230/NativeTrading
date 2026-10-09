@@ -36,6 +36,10 @@
     <div v-if="erreur" class="text-xs text-red-400 shrink-0">{{ erreur }}</div>
 
     <div class="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
+      <!-- Bandeau zones à l'approche (face app du watcher d'alertes) -->
+      <div class="mb-3">
+        <ZonesApprocheBloc />
+      </div>
       <div class="grid grid-cols-2 gap-3 content-start">
         <section
           v-for="a in cartes" :key="a.nom"
@@ -117,6 +121,7 @@ import { useRouter } from 'vue-router'
 import { http } from '@/services/http.client'
 import { useSettingsStore } from '@/stores/settings.store'
 import MiniChartSmc from '@/components/chart/MiniChartSmc.vue'
+import ZonesApprocheBloc from '@/components/smc/ZonesApprocheBloc.vue'
 
 interface SetupVivant {
   strategie: string; asset: string; tf: string; direction: string

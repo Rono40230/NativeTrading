@@ -314,6 +314,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::smc_scanner::get_journal),
         )
         .route(
+            "/api/smc/zones-approche",
+            web::get().to(crate::alertes_zones::get_zones_approche),
+        )
+        .route(
             "/api/smc/couples",
             web::put().to(crate::reglages_smc::put_couples),
         )

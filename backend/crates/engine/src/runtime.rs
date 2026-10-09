@@ -28,7 +28,7 @@ use common::{Asset, Candle, Timeframe};
 
 use crate::agregateur::{AgregateurBougie, ModeCloture};
 use crate::bus::{BougieCloturee, BusBougies, BusEvenements, BusSignaux};
-use crate::engine::{ContexteCloture, ContexteTick, Engine};
+use crate::engine::{ContexteCloture, ContexteTick, Engine, ZoneApproche};
 use crate::types::{EvenementPrix, SortieMoteur};
 
 /// État d'un couple (asset × TF) : agrégateur + moteurs + compteur de barres.
@@ -89,6 +89,16 @@ impl Runtime {
     /// Couples (asset × TF) enregistrés.
     pub fn cles(&self) -> Vec<(Asset, Timeframe)> {
         self.etats.keys().cloned().collect()
+    }
+
+    /// Zones d'approche d'un couple (watcher d'alertes) : concaténation des
+    /// zones exposées par les moteurs du couple. Couple non enregistré
+    /// (= désarmé) → vide — l'armement EST le périmètre, par construction.
+    pub fn zones_approche(&self, asset: &Asset, tf: Timeframe) -> Vec<ZoneApproche> {
+        self.etats
+            .get(&(asset.clone(), tf))
+            .map(|e| e.moteurs.iter().flat_map(|m| m.zones_approche()).collect())
+            .unwrap_or_default()
     }
 
     /// Bus des signaux (abonnement API WS, notifications, journal).

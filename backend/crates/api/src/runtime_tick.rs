@@ -218,6 +218,10 @@ async fn boucle_runtime(
     // Watcher alertes prix (cache 60 s, vérifié à chaque prix live).
     let mut cache_alertes = crate::alertes_prix::cache_vide();
     cache_alertes.recharger(&db).await;
+    // Watcher approche des zones SMC (spec docs/spec_alertes_zones_smc.md) :
+    // config rechargée au tick 60 s, vérifié après chaque prix traité —
+    // APRÈS traiter_evenement pour lire l'état commité le plus frais.
+    let mut config_zones = crate::alertes_zones::lire_config(&db).await;
     // Cold start initial.
     synchroniser_config(&db, &mut runtime).await;
 
@@ -230,7 +234,9 @@ async fn boucle_runtime(
             peut_etre = rx.recv() => {
                 if let Some(ev) = peut_etre {
                     crate::alertes_prix::verifier(&db, &mut cache_alertes, &ev).await;
+                    let (asset, tf, prix) = (ev.asset.clone(), ev.tf, ev.event.prix());
                     runtime.traiter_evenement(ev);
+                    crate::alertes_zones::verifier(&db, &runtime, &config_zones, &asset, tf, prix).await;
                 }
             }
             _ = tick_config.tick() => {
@@ -238,6 +244,7 @@ async fn boucle_runtime(
                 // 18/09 — rattrapage des positions SMC orphelines (redémarrages)
                 crate::rattrapage_smc::rattraper(&db).await;
                 cache_alertes.recharger(&db).await;
+                config_zones = crate::alertes_zones::lire_config(&db).await;
             }
         }
     }

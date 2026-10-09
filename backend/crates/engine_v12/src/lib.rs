@@ -32,9 +32,10 @@ use std::collections::HashSet;
 use common::{Asset, Candle, Direction, Timeframe};
 use engine::{
     BougieEnFormation, ContexteCloture, ContexteTick, Engine, EvenementTrade, SignalBrut,
-    SortieMoteur, TypeEvenementTrade,
+    SortieMoteur, TypeEvenementTrade, ZoneApproche,
 };
 use smc::v12::trade::{Side, Trade, TradeSource, TradeState};
+use smc::v12::types::ObState;
 use smc::v12::{BarInput, SmcV12Engine};
 
 /// Nom du moteur (identifiant stable dans `SignalBrut.moteur`).
@@ -99,9 +100,13 @@ pub struct MoteurV12 {
     vus: std::collections::HashMap<CleTrade, EtatVu>,
     /// Amorce MTF (H1/H4/W1/MN de la DB) — appliquée paresseusement à la
     /// 1re bar (t0 connu), sinon les confluences W1 (+5) / MN (+6) du
-    /// scoring ne verraient que la fenêtre de replay (Pine/TV : années).
+    /// scoring ne verrait que la fenêtre de replay (Pine/TV : années).
     amorce: Option<smc::v12::AmorceMtf>,
     amorce_appliquee: bool,
+    /// Zones d'approche du DERNIER état évalué (live intrabar si le prix
+    /// coule, sinon dernier commit) — lue par le watcher d'alertes. La
+    /// source reste unique : le moteur, jamais recalculée ailleurs.
+    zones_cache: std::sync::Mutex<Vec<ZoneApproche>>,
 }
 
 impl MoteurV12 {
@@ -115,7 +120,45 @@ impl MoteurV12 {
             vus: std::collections::HashMap::new(),
             amorce: None,
             amorce_appliquee: false,
+            zones_cache: std::sync::Mutex::new(Vec::new()),
         }
+    }
+
+    /// Rafraîchit le cache des zones d'approche depuis un état moteur
+    /// (commit ou évaluation live) : OB jamais touchés (Vierge) + ATR.
+    fn raffraichir_zones(&self, moteur: &SmcV12Engine) {
+        let atr = moteur.atr.value();
+        let zones = if !moteur.atr.is_ready() || atr <= 0.0 {
+            Vec::new()
+        } else {
+            Self::zones_vierges(moteur, atr)
+        };
+        if let Ok(mut g) = self.zones_cache.lock() {
+            *g = zones;
+        }
+    }
+
+    /// Zones Vierge d'un état moteur, formatées pour le watcher.
+    fn zones_vierges(moteur: &SmcV12Engine, atr: f64) -> Vec<ZoneApproche> {
+        let bull = moteur.order_blocks.bull_zones().iter()
+            .filter(|z| z.state == ObState::Vierge)
+            .map(|z| ZoneApproche {
+                achat: true,
+                bord_proche: z.top,
+                bord_lointain: z.bot,
+                ts_zone: z.timestamp,
+                atr,
+            });
+        let bear = moteur.order_blocks.bear_zones().iter()
+            .filter(|z| z.state == ObState::Vierge)
+            .map(|z| ZoneApproche {
+                achat: false,
+                bord_proche: z.bot,
+                bord_lointain: z.top,
+                ts_zone: z.timestamp,
+                atr,
+            });
+        bull.chain(bear).collect()
     }
 
     /// Attache l'amorce MTF (H1/H4/W1/MN de la DB) — appliquée à la 1re bar.
@@ -268,6 +311,18 @@ impl Engine for MoteurV12 {
         NOM
     }
 
+    /// Zones d'approche (spec docs/spec_alertes_zones_smc.md) : order blocks
+    /// JAMAIS TOUCHÉS (Vierge) du DERNIER état évalué — le clone live si le
+    /// prix coule (fix 09/10 : les zones nées intrabar doivent être visibles
+    /// AVANT leur première touche), sinon le dernier commit. Le même état
+    /// qui décidera du prochain signal, jamais recalculé.
+    fn zones_approche(&self) -> Vec<ZoneApproche> {
+        self.zones_cache
+            .lock()
+            .map(|g| g.clone())
+            .unwrap_or_default()
+    }
+
     fn on_tick(&mut self, ctx: &ContexteTick) -> SortieMoteur {
         // Rollback Pine : évaluation de la bougie live sur un CLONE de
         // l'état confirmé — l'état commité n'est jamais corrompu.
@@ -282,6 +337,12 @@ impl Engine for MoteurV12 {
         self.appliquer_amorce_si_premiere(bar.timestamp);
         let mut eval = self.moteur.clone();
         eval.update(&bar);
+        // Zones d'approche depuis l'évaluation LIVE (fix 09/10 : l'état
+        // committé ne montre une zone qu'après la clôture de sa barre —
+        // or sur XAU M15 une zone naît et se touche dans la MÊME barre ;
+        // le watcher n'aurait jamais rien vu. Même discipline que les
+        // annonces d'imminence : intrabar, sur le clone, jamais commité).
+        self.raffraichir_zones(&eval);
         let signaux = extraire_annonces(
             &mut self.annonces,
             &self.emis,
@@ -311,6 +372,9 @@ impl Engine for MoteurV12 {
         let bar = Self::bar_confirmee(ctx.bougie);
         self.appliquer_amorce_si_premiere(bar.timestamp);
         self.moteur.update(&bar);
+        // Zones d'approche : rafraîchies aussi au commit (zones Vierge
+        // survivant à la clôture — le on_tick suivant reprend la main).
+        self.raffraichir_zones(&self.moteur);
         let signaux = extraire_nouveaux(
             &mut self.emis,
             &self.annonces,
