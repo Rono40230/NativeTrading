@@ -25,6 +25,7 @@ seuils statistiques (règle des 30 trades / AUC 0,65).
 | **En attente du propriétaire** | 🔑 3 décisions d'ouverture (§ 4) |
 | **✅ Réglages PAR ASSET — chantier terminé (09/10)** | 3 phases validées par le propriétaire : surcharge ⊕ défaut (tables 0121) + moteurs/hot-reload par asset + modales de réglage (P1) ; labo/advisory/activation par asset, règle des 30 par asset (P2) ; conseiller IA 🤖 par asset du classement des assets, chiffres clés expliqués un à un (P3). **Poussé `b42cae7`.** Spec `docs/spec_reglages_par_asset.md` |
 | **✅ Alertes d'approche des zones SMC — livrées (09/10)** | Watcher sur prix live : zones OB **fraîches** des couples ARMÉS (suivent l'armement — M5/M15/M30 aujourd'hui), seuil **0,25 × ATR du TF**, alerte unique par zone/épisode (ré-armement hystérésis 1×ATR), **Telegram + bandeau Scanner**, nuit 23h-7h Paris (ne rien faire), purement mémoire, anti-flood 20/h. Fix critique inclus : zones lues sur l'évaluation **LIVE intrabar** (le commité ne voit jamais une zone Vierge sur XAU M15). Spec `docs/spec_alertes_zones_smc.md` |
+| **✅ Manuel de l'utilisateur — livré (09/10)** | `docs/MANUEL-UTILISATEUR.md` (985 lignes, 11 chapitres) : workflow/attendu/lecture/conséquences pour chaque fonctionnalité + **checklist de test intégral** (8 parcours, ~45 min) + dépannage symptomatique. **À venir (décision owner 09/10)** : page « 📘 Manuel » dans l'app servant ce fichier — petit chantier séparé. Non commité |
 
 ---
 
