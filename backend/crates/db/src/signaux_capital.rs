@@ -67,7 +67,7 @@ impl Database {
         .and_then(|r| r.try_get::<String, _>("strategie").ok());
 
         let fractions_json = if strategie.as_deref() == Some("SMC") {
-            Some(self.fractions_smc_json().await)
+            Some(self.fractions_smc_json(asset).await)
         } else {
             None
         };
@@ -97,7 +97,7 @@ impl Database {
     /// Fractions SMC lues de la config (smc_frac_tp*, défauts 0,5/0,3/0,2),
     /// sérialisées pour le gel à la clôture. Mêmes clés/défauts que
     /// api::reglages_smc::lire_fractions — la db ne dépend pas de l'api.
-    async fn fractions_smc_json(&self) -> String {
+    async fn fractions_smc_json(&self, asset: &str) -> String {
         async fn fraction_config(db: &Database, cle: &str, defaut: f64) -> f64 {
             db.lire_config(cle)
                 .await
@@ -106,10 +106,15 @@ impl Database {
                 .and_then(|v| v.trim().parse::<f64>().ok())
                 .unwrap_or(defaut)
         }
+        // Réglages PAR ASSET (0121) : la surcharge de l'asset prime sur le
+        // défaut global — figée à la clôture comme avant (vécu immuable).
+        let surcharge = crate::reglages_asset::lire_smc_surcharge(&self.pool, asset)
+            .await
+            .unwrap_or_default();
         serde_json::json!({
-            "tp1": fraction_config(self, "smc_frac_tp1", 0.5).await,
-            "tp2": fraction_config(self, "smc_frac_tp2", 0.3).await,
-            "tp3": fraction_config(self, "smc_frac_tp3", 0.2).await,
+            "tp1": surcharge.frac_tp1.unwrap_or(fraction_config(self, "smc_frac_tp1", 0.5).await),
+            "tp2": surcharge.frac_tp2.unwrap_or(fraction_config(self, "smc_frac_tp2", 0.3).await),
+            "tp3": surcharge.frac_tp3.unwrap_or(fraction_config(self, "smc_frac_tp3", 0.2).await),
         })
         .to_string()
     }

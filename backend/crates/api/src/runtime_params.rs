@@ -30,12 +30,6 @@ pub fn fenetre_active(ts_annonce: i64, maintenant: i64) -> bool {
     maintenant >= ts_annonce - FENETRE_AVANT_SEC && maintenant <= ts_annonce + FENETRE_APRES_SEC
 }
 
-/// Format flottant stable pour les empreintes (évite les surprises de
-/// représentation entre ticks).
-fn fmt(x: f64) -> String {
-    format!("{x:.4}")
-}
-
 /// Familles de params d'un couple, concaténées en une empreinte.
 pub fn empreinte_couple(
     smc: Option<String>,
@@ -148,6 +142,12 @@ pub async fn fenetres_straddle(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Format flottant stable pour les empreintes (évite les surprises de
+    /// représentation entre ticks).
+    fn fmt(x: f64) -> String {
+        format!("{x:.4}")
+    }
 
     fn hm(paires: &[(&str, &str)]) -> HashMap<String, String> {
         paires.iter().map(|(a, b)| (a.to_string(), b.to_string())).collect()

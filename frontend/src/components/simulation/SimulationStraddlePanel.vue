@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-4">
-  <RecommandationBloc strategie="straddle" />
+  <RecommandationBloc strategie="straddle" :asset="filtreAssets.length === 1 ? filtreAssets[0] : undefined" />
     <!-- Limite méthodologique -->
     <p class="text-[11px] text-white/70 border-l-2 border-amber-400/50 pl-3">
       La simulation rejoue les <b>passes réellement prises</b> avec un autre pilotage de sortie.

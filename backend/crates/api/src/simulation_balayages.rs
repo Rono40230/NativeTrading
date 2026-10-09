@@ -59,15 +59,36 @@ pub async fn post_balayage_dispatch(
     if cible == "trailing" {
         return balayage_trailing_smc(state, requete.assets.unwrap_or_default(), requete.tfs.unwrap_or_default()).await;
     }
+    // PAR ASSET (0121, phase 2) : les clôtures se filtrent par asset et la
+    // ligne « actuelle » devient les fractions FUSIONNÉES de l'asset
+    // (surcharge ⊕ défaut global) quand un seul asset est sélectionné.
+    let filtre_assets = requete.assets.clone().unwrap_or_default();
     let db = state.db.clone();
-    let Ok(clotures) = db.clotures_pour_capital("SMC").await else {
+    let Ok(toutes) = db.clotures_pour_capital("SMC").await else {
         return HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": "Clôtures illisibles" }));
+    };
+    let clotures: Vec<_> = if filtre_assets.is_empty() {
+        toutes
+    } else {
+        toutes.into_iter().filter(|c| filtre_assets.contains(&c.asset)).collect()
+    };
+    let actuelles = if filtre_assets.len() == 1 {
+        let surcharge = db::reglages_asset::lire_smc_surcharge(db.pool(), &filtre_assets[0])
+            .await
+            .unwrap_or_default();
+        let g = crate::reglages_smc::lire_fractions(&db).await;
+        crate::smc_pondere::Fractions {
+            tp1: surcharge.frac_tp1.unwrap_or(g.tp1),
+            tp2: surcharge.frac_tp2.unwrap_or(g.tp2),
+            tp3: surcharge.frac_tp3.unwrap_or(g.tp3),
+        }
+    } else {
+        crate::reglages_smc::lire_fractions(&db).await
     };
     let reg = db.lire_strategie("SMC").await.ok().flatten().unwrap_or_default();
     let cap0 = reg.capital;
     let risque = reg.risque_pct / 100.0;
-    let actuelles = crate::reglages_smc::lire_fractions(&db).await;
 
     let mut lignes: Vec<LigneBalayage> = Vec::new();
     let mut f1 = 0.0_f64;
@@ -97,6 +118,7 @@ pub async fn post_balayage_dispatch(
     HttpResponse::Ok().json(serde_json::json!({
         "capital_depart": cap0,
         "nb_clotures": clotures.len(),
+        "filtre_assets": filtre_assets,
         "configurations": lignes,
     }))
 }

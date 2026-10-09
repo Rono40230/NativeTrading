@@ -27,7 +27,14 @@
         :titre="a.strategie === 'straddle' ? 'Classement des événements' : 'Classement des timeframes'"
         :categories="a.strategie === 'straddle' ? a.evenements : a.tfs"
         :seuil="30" />
-      <ClassementCategoriesBloc titre="Classement des assets" :categories="a.assets" :seuil="30" />
+      <!-- 🤖 = conseil IA PAR ASSET (phase 3) — seulement les stratégies à
+           surcharge (SMC, straddle, KDJ) ; rockets n'a pas de réglages par asset. -->
+      <ClassementCategoriesBloc
+        titre="Classement des assets"
+        :categories="a.assets"
+        :seuil="30"
+        :conseil="CONSEILLABLES.includes(props.id)"
+        @conseil="conseilAsset = $event" />
     </div>
 
     <!-- Performance par période : jour / semaine / mois -->
@@ -342,12 +349,21 @@
   <div v-else class="glass-card p-6 text-center text-sm text-white">
     {{ chargement ? 'Calcul de l\u2019analyse…' : 'Analyse indisponible — réessayez dans un instant (le re-jeu démarre à la première demande).' }}
   </div>
+
+  <!-- Conseil IA PAR ASSET (phase 3) — ouvert depuis le classement des assets -->
+  <ConseilAssetModale
+    :ouverte="conseilAsset !== null"
+    :strategie="props.id"
+    :asset="conseilAsset ?? ''"
+    @fermer="conseilAsset = null"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import ClassementCategoriesBloc from './ClassementCategoriesBloc.vue'
 import AnalyseVerdictBloc from './AnalyseVerdictBloc.vue'
+import ConseilAssetModale from './ConseilAssetModale.vue'
 import {
   chargerAnalyse, chargerHistoriqueAnalyses, fmtDollars, fmtR, couleurVerdict, genererAnalyseIa,
   type AnalyseStrategie, type PeriodeAnalyse, type CategorieAnalyse, type AnalyseIa,
@@ -355,6 +371,12 @@ import {
 } from '@/composables/useAnalyses'
 
 const props = defineProps<{ id: string }>()
+
+/// Stratégies conseillables par asset (celles qui ont une table de surcharge 0121).
+const CONSEILLABLES = ['SMC', 'straddle', 'kdj_halftrend']
+
+/// Asset dont le conseil IA est ouvert (null = modale fermée).
+const conseilAsset = ref<string | null>(null)
 
 const NOMS: Record<string, { nom: string; icone: string }> = {
   SMC: { nom: 'Stratégie SMC', icone: '📐' },

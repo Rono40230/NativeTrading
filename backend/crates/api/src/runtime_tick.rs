@@ -296,48 +296,45 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
     // la boucle d'ajouts le réinscrit immédiatement avec les moteurs voulus.
     crate::reglages_smc::retirer_changements_armement(runtime, &cibles, &armes);
 
-    // Hot-reload des paramètres moteur (09/10, design validé) : une diff
-    // d'empreinte SMC/straddle/KDJ retire le couple — la boucle d'ajouts du
-    // même tick le reconstruit avec les nouveaux params (replay + chauffe
-    // KDJ). Garde : une passe straddle en fenêtre active diffère le retrait.
+    // Hot-reload des paramètres moteur (09/10 + PAR ASSET 0121) : l'empreinte
+    // de chaque couple inclut la SURCHARGE de son asset — changer le trailing
+    // de XAUUSD ne ré-arme que XAUUSD. Garde straddle : fenêtre active différée.
     {
-        let tp1 = crate::reglages_smc::lire_tp1_reglage(db).await;
-        let tp2 = crate::reglages_smc::lire_tp2_reglage(db).await;
-        let tp3 = crate::reglages_smc::lire_tp3_reglage(db).await;
-        let trail = crate::reglages_smc::lire_trailing_reglage(db).await;
-        let p_str = db::strategies_params::lire_straddle_params(db.pool()).await;
-        let tp3_txt = if tp3.lointaine {
-            format!("liq:{:.2}", tp3.rfixe)
-        } else {
-            format!("fixe:{:.2}", tp3.rfixe)
-        };
-        let smc_txt = format!(
-            "tp1={tp1:.4};tp2={tp2:.4};tp3={tp3_txt};trail={}",
-            trail.map(|k| format!("{k:.4}")).unwrap_or_else(|| "off".into())
-        );
-        let str_txt = format!(
-            "sl={:.4};trail={:.4};place={}",
-            p_str.sl_mult, p_str.trailing_r, p_str.placement_sec
-        );
-        let kdj_txt = format!(
-            "p={};s={};a={};r={:.4};adx={:.4}",
-            kdj_reglages.period, kdj_reglages.signal, kdj_reglages.amplitude,
-            kdj_reglages.ratio_risk, kdj_reglages.adx_min
-        );
+        let global_smc = crate::reglages_asset_fusion::reglages_smc(db, "").await;
+        let global_str = crate::reglages_asset_fusion::straddle_params(db, "").await;
+        let smc_map = db::reglages_asset::toutes_smc_surcharges(db.pool()).await.unwrap_or_default();
+        let str_map = db::reglages_asset::toutes_straddle_surcharges(db.pool()).await.unwrap_or_default();
+        let kdj_map = db::reglages_asset::toutes_kdj_surcharges(db.pool()).await.unwrap_or_default();
         let voulues: std::collections::HashMap<(common::Asset, common::Timeframe), String> =
             cibles.iter().map(|(a, tf)| {
                 let smc = crate::reglages_smc::est_arme(&armes, a.as_str(), tf.as_str())
-                    .then(|| smc_txt.clone());
+                    .then(|| {
+                        let vide = db::reglages_asset::SmcSurcharge::default();
+                        let s = smc_map.get(a.as_str()).unwrap_or(&vide);
+                        crate::reglages_asset_fusion::empreinte_smc(
+                            &crate::reglages_asset_fusion::fusionner_smc(global_smc.clone(), s),
+                        )
+                    });
                 let straddle = (*tf == common::Timeframe::M1
                     && perimetre_straddle.iter().any(|x| x == a.as_str()))
-                    .then(|| str_txt.clone());
-                let kdj = (*tf == common::Timeframe::H1 && kdj_autorise(a))
-                    .then(|| kdj_txt.clone());
+                    .then(|| {
+                        let vide = db::reglages_asset::StraddleSurcharge::default();
+                        let s = str_map.get(a.as_str()).unwrap_or(&vide);
+                        crate::reglages_asset_fusion::empreinte_straddle(
+                            &crate::reglages_asset_fusion::fusionner_straddle(&global_str, s),
+                        )
+                    });
+                let kdj = (*tf == common::Timeframe::H1 && kdj_autorise(a)).then(|| {
+                    let vide = db::reglages_asset::KdjSurcharge::default();
+                    let s = kdj_map.get(a.as_str()).unwrap_or(&vide);
+                    crate::reglages_asset_fusion::empreinte_kdj_fusionnee(&kdj_reglages, s)
+                });
                 ((a.clone(), *tf), crate::runtime_params::empreinte_couple(smc, straddle, kdj))
             }).collect();
         let fenetres = crate::runtime_params::fenetres_straddle(db, &perimetre_straddle).await;
         crate::runtime_params::retirer_changements_params(runtime, voulues, &fenetres);
     }
+
 
     // Ajouts avec cold start (replay).
     let actuelles: HashSet<(Asset, Timeframe)> = runtime.cles().into_iter().collect();
@@ -360,10 +357,8 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 continue;
             }
             let amorce = charger_amorce_mtf_runtime(db, asset).await;
-            let tp1_reglage = crate::reglages_smc::lire_tp1_reglage(db).await;
-            let tp2_reglage = crate::reglages_smc::lire_tp2_reglage(db).await;
-            let tp3_reglage = crate::reglages_smc::lire_tp3_reglage(db).await;
-            let trailing_reglage = crate::reglages_smc::lire_trailing_reglage(db).await;
+            // Réglages PAR ASSET (0121) : fusion surcharge ⊕ défaut global.
+            let r_smc = crate::reglages_asset_fusion::reglages_smc(db, asset.as_str()).await;
             // Armement : v12 si le couple génère SMC, straddle M1 toujours.
             let mut moteurs: Vec<Box<dyn engine::Engine>> = Vec::new();
             if crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) {
@@ -373,10 +368,11 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                         // Décision 26/08 (étude comparatif_be) : BE forcé sur BOS
                         // opposé supprimé (+36R, R/trade +67 % vs Pine Classique).
                         .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime)
-                        .avec_tp1(tp1_reglage)
-                        .avec_tp2(tp2_reglage)
-                        .avec_tp3_reglage(tp3_reglage)
-                        .avec_trailing_tp2(trailing_reglage),
+                        .avec_tp1(r_smc.tp1)
+                        .avec_tp2(r_smc.tp2)
+                        .avec_tp3_reglage(r_smc.tp3.clone())
+                        .avec_trailing_tp2(r_smc.trailing)
+                        .avec_surcharge_sl_max(r_smc.sl_max),
                 ));
             }
             if *tf == common::Timeframe::M1 && perimetre_straddle.iter().any(|a| a == &asset.as_str()) {
@@ -391,15 +387,11 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 };
                 // §16→28/09 : créneaux ÉVÉNEMENT armés = annonces synthétiques (même rail).
                 annonces.extend(crate::evenements_armement::annonces_evenements(db, asset.as_str()).await);
-                let p = db::strategies_params::lire_straddle_params(db.pool()).await;
+                // Réglages PAR ASSET (0121) : fusion surcharge ⊕ défaut.
+                let p = crate::reglages_asset_fusion::straddle_params(db, asset.as_str()).await;
                 moteurs.push(Box::new(
                     straddle::StraddleEngine::nouveau(asset.clone(), *tf)
-                        .avec_params(straddle::ParamsStraddle {
-                            sl_atr: p.sl_mult,
-                            trailing_r: p.trailing_r,
-                            placement_avant_sec: p.placement_sec,
-                            ..Default::default()
-                        })
+                        .avec_params(p)
                         .avec_atr_h1(crate::straddle_atr::atr_h1(db, asset.as_str()).await)
                         .avec_annonces(annonces),
                 ));
@@ -423,11 +415,11 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                     asset.as_str(),
                     tf.as_str(),
                     if crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) { "armé" } else { "désarmé" },
-                    tp1_reglage,
-                    tp2_reglage,
-                    if tp3_reglage.lointaine { "liq" } else { "fixe" },
-                    tp3_reglage.rfixe,
-                    trailing_reglage.map(|k| format!("·trail {:.1}R", k)).unwrap_or_default(),
+                    r_smc.tp1,
+                    r_smc.tp2,
+                    if r_smc.tp3.lointaine { "liq" } else { "fixe" },
+                    r_smc.tp3.rfixe,
+                    r_smc.trailing.map(|k| format!("·trail {:.1}R", k)).unwrap_or_default(),
                     r.bougies,
                     r.signaux,
                     r.ecritures_db
@@ -442,10 +434,8 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         let amorce = charger_amorce_mtf_runtime(db, asset).await;
         // Phase 3.1 — plugin STRADDLE sur M1/M5 (news trading) : calendrier
         // tier 1 amorcé depuis le cache (jamais de DB dans le moteur, R4).
-        let tp1_reglage = crate::reglages_smc::lire_tp1_reglage(db).await;
-        let tp2_reglage = crate::reglages_smc::lire_tp2_reglage(db).await;
-        let tp3_reglage = crate::reglages_smc::lire_tp3_reglage(db).await;
-        let trailing_reglage = crate::reglages_smc::lire_trailing_reglage(db).await;
+        // Réglages PAR ASSET (0121) : fusion surcharge ⊕ défaut global.
+        let r_smc = crate::reglages_asset_fusion::reglages_smc(db, asset.as_str()).await;
         // Armement : v12 si le couple génère SMC, straddle M1 toujours.
         let mut moteurs: Vec<Box<dyn engine::Engine>> = Vec::new();
         if crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) {
@@ -453,10 +443,11 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 engine_v12::MoteurV12::nouveau(asset.clone(), *tf)
                     .avec_amorce(amorce)
                     .avec_mode_be_force(smc::v12::lifecycle::ModeBeForce::Supprime)
-                    .avec_tp1(tp1_reglage)
-                    .avec_tp2(tp2_reglage)
-                    .avec_tp3_reglage(tp3_reglage)
-                    .avec_trailing_tp2(trailing_reglage),
+                    .avec_tp1(r_smc.tp1)
+                    .avec_tp2(r_smc.tp2)
+                    .avec_tp3_reglage(r_smc.tp3.clone())
+                    .avec_trailing_tp2(r_smc.trailing)
+                    .avec_surcharge_sl_max(r_smc.sl_max),
             ));
         }
         // Étape 4 — verticale Straddle, rail Bybit : seule BTC (cf. PERIMETRE).
@@ -470,13 +461,8 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
             annonces.extend(crate::evenements_armement::annonces_evenements(db, asset.as_str()).await);
             // Audit étape 2 : le moteur lisait des constantes — désormais
             // branché sur la carte Paramètres › Straddle (table DB).
-            let p = db::strategies_params::lire_straddle_params(db.pool()).await;
-            let params = straddle::ParamsStraddle {
-                sl_atr: p.sl_mult,
-                trailing_r: p.trailing_r,
-                placement_avant_sec: p.placement_sec,
-                ..Default::default()
-            };
+            // Réglages PAR ASSET (0121) : fusion surcharge ⊕ défaut.
+            let params = crate::reglages_asset_fusion::straddle_params(db, asset.as_str()).await;
             tracing::info!(
                 "Runtime tick: {} {} moteur straddle armé ({} annonce(s) US à venir, R={:.2}×ATR, T-{:.0}s, trailing {:.1}R)",
                 asset.as_str(),
@@ -542,11 +528,11 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 asset.as_str(),
                 tf.as_str(),
                 if crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) { "armé" } else { "désarmé" },
-                tp1_reglage,
-                tp2_reglage,
-                if tp3_reglage.lointaine { "liq" } else { "fixe" },
-                tp3_reglage.rfixe,
-                trailing_reglage.map(|k| format!("·trail {:.1}R", k)).unwrap_or_default(),
+                r_smc.tp1,
+                r_smc.tp2,
+                if r_smc.tp3.lointaine { "liq" } else { "fixe" },
+                r_smc.tp3.rfixe,
+                r_smc.trailing.map(|k| format!("·trail {:.1}R", k)).unwrap_or_default(),
                 r.bougies,
                 r.signaux,
                 debut.elapsed()

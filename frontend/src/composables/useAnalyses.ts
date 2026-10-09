@@ -201,6 +201,38 @@ export async function genererAnalyseIa(id: string): Promise<{ en_cache: boolean;
   }
 }
 
+/// Conseil IA PAR ASSET (phase 3 réglages par asset — POST /api/analyses/{id}/ia/asset/{asset}).
+export interface ChiffreCle {
+  chiffre: string
+  explication: string
+}
+
+export interface AnalyseIaAsset {
+  asset: string
+  etat: string
+  conseil: string
+  /** Chiffres décisoires fabriqués par le moteur, chacun avec son explication. */
+  chiffres_cles: ChiffreCle[]
+  /** Règle des 30 PAR ASSET. */
+  jugeable: boolean
+  effectif: number
+  /** 0-100 */
+  confiance: number
+  generee_le: number
+}
+
+/// Génère (ou sert le cache du jour) le conseil IA d'un asset d'une stratégie.
+export async function genererConseilAsset(id: string, asset: string): Promise<{ en_cache: boolean; analyse: AnalyseIaAsset } | null> {
+  try {
+    const res = await http.post<{ en_cache: boolean; analyse: AnalyseIaAsset }>(
+      `/api/analyses/${id}/ia/asset/${encodeURIComponent(asset)}`, null, { timeout: 180_000 },
+    )
+    return res.data
+  } catch {
+    return null
+  }
+}
+
 /// R signé à 1 décimale : +4.7 R / −1.0 R.
 export function fmtR(v: number): string {
   const r = Math.round(v * 10) / 10

@@ -11,7 +11,6 @@
 //!   par barre accumulées dans les collecteurs.
 
 use smc::v12::{BarInput, HtfState, ImbalanceState, KillZone, SmcOutput, SmcV12Engine};
-use std::collections::HashMap;
 
 use crate::smc_v12_out::*;
 

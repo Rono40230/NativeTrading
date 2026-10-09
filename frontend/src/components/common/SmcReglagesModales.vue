@@ -7,6 +7,9 @@
       <RegistreStrategieBloc id="SMC" libelle-risque="Risque par trade" />
       <div class="border-t border-white/10 my-3" />
       <SmcNiveauxBloc />
+    <div class="border-t border-white/10 my-3" />
+    <ReglagesAssetBloc strategie="SMC" />
+
     </template>
     <SmcCouplesBloc v-else />
   </ModaleCadre>
@@ -16,6 +19,7 @@
 import ModaleCadre from './ModaleCadre.vue'
 import RegistreStrategieBloc from './RegistreStrategieBloc.vue'
 import SmcNiveauxBloc from './SmcNiveauxBloc.vue'
+import ReglagesAssetBloc from './ReglagesAssetBloc.vue'
 import SmcCouplesBloc from './SmcCouplesBloc.vue'
 
 export type ModaleSmc = 'parametres' | 'timeframes'

@@ -46,7 +46,7 @@ pub(crate) fn sl_min_max(cal: &AssetCalibration, atr: f64) -> (f64, f64) {
     } else {
         0.0
     };
-    let sl_max = if cal.is_xau {
+    let sl_max_etalon = if cal.is_xau {
         1.5 * atr
     } else if cal.is_xag {
         1.8 * atr
@@ -59,6 +59,9 @@ pub(crate) fn sl_min_max(cal: &AssetCalibration, atr: f64) -> (f64, f64) {
     } else {
         1e10
     };
+    // Réglage PAR ASSET (0121) : la surcharge remplace le multiple de la
+    // classe — déviation votée, None = étalon.
+    let sl_max = cal.sl_max_surcharge.map(|m| m * atr).unwrap_or(sl_max_etalon);
     (sl_min, sl_max)
 }
 

@@ -156,6 +156,12 @@ impl MoteurV12 {
         self
     }
 
+    /// Surcharge SL max PAR ASSET (0121) — multiple d'ATR.
+    pub fn avec_surcharge_sl_max(mut self, mult: Option<f64>) -> Self {
+        self.moteur = self.moteur.avec_surcharge_sl_max(mult);
+        self
+    }
+
     /// Trailing stop après TP2 (Paramètres › SMC, inactif par défaut).
     pub fn avec_trailing_tp2(mut self, k: Option<f64>) -> Self {
         self.moteur = self.moteur.avec_trailing_tp2(k);

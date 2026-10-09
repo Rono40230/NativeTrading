@@ -6,6 +6,8 @@
       <RegistreStrategieBloc id="kdj_halftrend" libelle-risque="Risque par trade" />
       <div class="border-t border-white/10 my-3" />
       <KdjMoteurBloc />
+      <div class="border-t border-white/10 my-3" />
+      <ReglagesAssetBloc strategie="kdj_halftrend" />
     </template>
     <KdjAssetsBloc v-else @fermer="$emit('fermer')" />
   </ModaleCadre>
@@ -15,6 +17,7 @@
 import ModaleCadre from './ModaleCadre.vue'
 import RegistreStrategieBloc from './RegistreStrategieBloc.vue'
 import KdjMoteurBloc from './KdjMoteurBloc.vue'
+import ReglagesAssetBloc from './ReglagesAssetBloc.vue'
 import KdjAssetsBloc from './KdjAssetsBloc.vue'
 
 export type ModaleKdj = 'parametres' | 'assets'

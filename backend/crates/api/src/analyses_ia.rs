@@ -45,7 +45,8 @@ struct AnalyseIaLlm {
 }
 
 /// Normalise la confiance : décimal ≤ 1 → ×100, bornée 0-100, entière.
-fn confiance_normalisee(v: f64) -> u32 {
+/// Partagée avec l'analyste PAR ASSET (phase 3).
+pub(crate) fn confiance_normalisee(v: f64) -> u32 {
     let n = if v <= 1.0 { v * 100.0 } else { v };
     n.round().clamp(0.0, 100.0) as u32
 }

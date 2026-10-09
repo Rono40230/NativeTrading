@@ -193,6 +193,8 @@ pub async fn post_simulation(
         "tp3_rfixe": tp3_rfixe,
         "tp3_trailing": trailing_r,
         "frac_tp1": fractions.tp1, "frac_tp2": fractions.tp2, "frac_tp3": fractions.tp3,
+        // PAR ASSET (phase 2) : l'essai porte son périmètre — vide = global.
+        "assets": filtre_assets,
     });
     let id_essai = format!("essai-{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));
     let _ = db
@@ -292,6 +294,8 @@ async fn simulation_straddle(
         "trailing_mode": mode,
         "trailing_atr": cfg.k, "time_stop_min": cfg.time_stop_min,
         "atr_fenetre": cfg.fenetre, "k_decay": cfg.decay,
+        // PAR ASSET (phase 2) : l'essai porte son périmètre — vide = global.
+        "assets": filtre_assets,
     });
     let id_essai = format!("essai-{}", chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0));
     let _ = db

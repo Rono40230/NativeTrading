@@ -6,6 +6,7 @@
   <div v-if="charge" class="rounded-lg border px-3 py-2 flex items-center gap-3 flex-wrap"
        :class="reco?.meilleur ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 bg-white/[0.02]'">
     <span class="text-[11px] font-bold uppercase tracking-wider text-white">🎯 Recommandation</span>
+    <span v-if="asset" class="text-[9px] font-bold px-2 py-0.5 rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-300">PAR ASSET {{ asset }}</span>
     <template v-if="reco?.meilleur">
       <span class="text-[11px] text-white">
         Essai <span class="font-mono font-bold text-white">{{ reco.meilleur.id.slice(6, 14) }}</span> :
@@ -30,10 +31,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { http } from '@/services/http.client'
 
-const props = defineProps<{ strategie: string }>()
+const props = defineProps<{ strategie: string; asset?: string }>()
 
 interface Recommandation {
   meilleur: { id: string; r_total: number; nb_trades: number; taux_reussite: number } | null
@@ -54,7 +55,9 @@ function fmtR(r: number): string {
 
 async function charger() {
   try {
-    const r = await http.get<Recommandation>(`/api/strategies/${props.strategie}/recommandation`)
+    const r = await http.get<Recommandation>(`/api/strategies/${props.strategie}/recommandation`, {
+      params: props.asset ? { asset: props.asset } : undefined,
+    })
     reco.value = r.data
     charge.value = true
   } catch { charge.value = false }
@@ -68,6 +71,8 @@ async function activer() {
     const r = await http.post<{ ok: boolean; verifie: boolean }>(
       `/api/strategies/${props.strategie}/recommandation/activer`,
       { essai_id: reco.value.meilleur.id },
+      // PAR ASSET : l'activation écrit dans la SURCHARGE de l'asset.
+      { params: props.asset ? { asset: props.asset } : undefined, timeout: 30_000 },
     )
     msg.value = r.data?.verifie ? 'Config appliquée et vérifiée par relecture ✓' : 'Réponse inattendue'
     erreur.value = !r.data?.verifie
@@ -80,4 +85,5 @@ async function activer() {
 }
 
 onMounted(charger)
+watch(() => props.asset, charger)
 </script>

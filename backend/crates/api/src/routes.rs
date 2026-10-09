@@ -150,6 +150,18 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::smc_v12_handlers::analyse_v12),
         )
         .route(
+            "/api/strategies/{id}/reglages-asset/{asset}",
+            web::get().to(crate::reglages_asset_http::get_reglages),
+        )
+        .route(
+            "/api/strategies/{id}/reglages-asset/{asset}",
+            web::put().to(crate::reglages_asset_http::put_reglages),
+        )
+        .route(
+            "/api/strategies/{id}/reglages-asset/{asset}",
+            web::delete().to(crate::reglages_asset_http::delete_reglages),
+        )
+        .route(
             "/api/indicators",
             web::get().to(crate::indicators_handlers::get_indicators),
         )
@@ -262,6 +274,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route(
             "/api/analyses/{strategie}/ia",
             web::post().to(crate::analyses_ia::post_analyse_ia),
+        )
+        .route(
+            "/api/analyses/{strategie}/ia/asset/{asset}",
+            web::post().to(crate::analyses_ia_asset::post_analyse_ia_asset),
         )
         .route(
             "/api/analyses/{strategie}/historique",

@@ -13,6 +13,7 @@ pub mod ml_feedback_rockets;
 pub mod ml_feedback_straddle;
 pub mod ml_samples;
 pub mod news_lus;
+pub mod reglages_asset;
 pub mod regles_rejet;
 pub mod retention;
 pub mod runtime_observation;

@@ -21,6 +21,10 @@
             <span class="ml-auto font-mono tabular-nums shrink-0" :class="l.rSomme >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR(l.rSomme) }}</span>
             <span class="font-mono text-white/50 tabular-nums w-10 text-right shrink-0" title="Win rate ($ > 0)">{{ Math.round(l.wr * 100) }} %</span>
             <span class="font-mono text-white/60 tabular-nums w-16 text-right shrink-0" title="Contribution $ totale">{{ fmtDollars(l.dollars) }}</span>
+            <button v-if="conseil"
+                    class="shrink-0 text-[10px] px-1.5 py-0.5 rounded border border-white/15 bg-white/5 hover:bg-teal-500/20 hover:border-teal-400/40 transition-colors"
+                    :title="`Conseil IA sur ${l.label} — vécu, réglages courants vs défaut, écart balayage (propose, ne décide jamais)`"
+                    @click.stop="$emit('conseil', l.label)">🤖</button>
           </div>
           <p v-if="!sens.lignes.length" class="text-[11px] text-white/40 px-2 py-1">—</p>
         </div>
@@ -34,7 +38,8 @@
 import { computed } from 'vue'
 import type { CategorieAnalyse } from '@/composables/useAnalyses'
 
-const props = defineProps<{ titre: string; categories: CategorieAnalyse[]; seuil?: number }>()
+const props = defineProps<{ titre: string; categories: CategorieAnalyse[]; seuil?: number; conseil?: boolean }>()
+defineEmits<{ (e: 'conseil', asset: string): void }>()
 
 const seuil = computed(() => props.seuil ?? 30)
 

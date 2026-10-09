@@ -6,6 +6,9 @@
       <RegistreStrategieBloc id="straddle" libelle-risque="Risque par passe" />
       <div class="border-t border-white/10 my-3" />
       <StraddleMoteurBloc />
+    <div class="border-t border-white/10 my-3" />
+    <ReglagesAssetBloc strategie="straddle" />
+
     </template>
     <StraddlePerimetreContenu v-else />
   </ModaleCadre>
@@ -15,6 +18,7 @@
 import ModaleCadre from './ModaleCadre.vue'
 import RegistreStrategieBloc from './RegistreStrategieBloc.vue'
 import StraddleMoteurBloc from './StraddleMoteurBloc.vue'
+import ReglagesAssetBloc from './ReglagesAssetBloc.vue'
 import StraddlePerimetreContenu from './StraddlePerimetreContenu.vue'
 
 export type ModaleStraddle = 'parametres' | 'perimetre'

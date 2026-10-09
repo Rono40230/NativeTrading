@@ -32,6 +32,10 @@ pub struct AssetCalibration {
     /// Porte poids BOS, SL min/max ×ATR, durées et seuils (8/99/99/15).
     pub is_btc: bool,
     pub is_dax: bool,
+    /// Surcharge propriétaire du SL max (réglages PAR ASSET, 0121) : multiple
+    /// d'ATR remplaçant celui de la classe (ex : XAU 1,5 par défaut → 2,0).
+    /// None = étalon Pine (déviation votée uniquement quand surchargé).
+    pub sl_max_surcharge: Option<f64>,
     /// Vrai si l'actif correspond à un profil connu (XAU/XAG/NAS/BTC/DAX,
     /// + alt-cryptos 14/09). Si faux → le scoring v12 doit retourner 0
     /// (Pine `_assetReconnu`). Forex/métaux nouveaux : en attente de
@@ -216,6 +220,7 @@ impl AssetCalibration {
         };
 
         Self {
+            sl_max_surcharge: None,
             is_xau,
             is_xag,
             is_nas,

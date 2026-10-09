@@ -29,6 +29,14 @@ struct Essai {
     taux_reussite: f64,
 }
 
+/// Périmètre d'un essai : Some([X]) = essai PAR ASSET, None = essai global
+/// (absent ou liste vide — essais d'avant la phase 2).
+fn perimetre_essai(e: &Essai) -> Option<Vec<String>> {
+    let v = e.params.get("assets")?.as_array()?;
+    let liste: Vec<String> = v.iter().filter_map(|x| x.as_str().map(String::from)).collect();
+    if liste.is_empty() { None } else { Some(liste) }
+}
+
 async fn charger_essais(db: &AppState, strategie: &str) -> Vec<Essai> {
     let rows = sqlx::query(
         "SELECT id, params_json, resultats_json FROM simulation_essais WHERE strategie = ?",
@@ -58,33 +66,72 @@ async fn charger_essais(db: &AppState, strategie: &str) -> Vec<Essai> {
 /// d'essai (quand la correspondance existe). SMC : fractions + k trailing
 /// (kv). KDJ : period/signal/amplitude/adx_min (table kdj_params).
 /// Straddle/rockets : None — l'espace balayé est virtuel ou absent.
-async fn config_actuelle(db: &AppState, strategie: &str) -> Option<serde_json::Value> {
-    match strategie {
-        "SMC" => {
-            let lire = |cle: &str| {
-                let pool = db.db.pool();
-                let cle = cle.to_string();
-                async move {
-                    sqlx::query_scalar::<_, String>("SELECT valeur FROM configuration WHERE cle = ?")
-                        .bind(cle)
-                        .fetch_optional(pool)
-                        .await
-                        .ok()
-                        .flatten()
-                }
-            };
+/// Config SMC globale (clés smc_* de la configuration).
+async fn lire_config_smc_globale(db: &AppState) -> Option<serde_json::Value> {
+    let lire = |cle: &str| {
+        let pool = db.db.pool();
+        let cle = cle.to_string();
+        async move {
+            sqlx::query_scalar::<_, String>("SELECT valeur FROM configuration WHERE cle = ?")
+                .bind(cle)
+                .fetch_optional(pool)
+                .await
+                .ok()
+                .flatten()
+        }
+    };
+    Some(serde_json::json!({
+        "frac_tp1": lire("smc_frac_tp1").await?.parse::<f64>().ok()?,
+        "frac_tp2": lire("smc_frac_tp2").await?.parse::<f64>().ok()?,
+        "frac_tp3": lire("smc_frac_tp3").await?.parse::<f64>().ok()?,
+        "tp1_mult": lire("smc_tp1_mult").await?.parse::<f64>().ok()?,
+        "tp2_mult": lire("smc_tp2_mult").await?.parse::<f64>().ok()?,
+        "tp3_mode": lire("smc_tp3_mode").await?,
+        "tp3_rfixe": lire("smc_tp3_rfixe").await?.parse::<f64>().ok()?,
+        "tp3_trailing": lire("smc_tp3_trailing").await?.parse::<f64>().ok()?,
+    }))
+}
+
+/// Config actuelle, éventuellement PAR ASSET (fusion surcharge ⊕ défaut).
+/// Pub pour l'analyste IA par asset (phase 3).
+pub(crate) async fn config_actuelle_asset(
+    db: &AppState,
+    strategie: &str,
+    asset: Option<&str>,
+) -> Option<serde_json::Value> {
+    match (strategie, asset) {
+        ("SMC", Some(a)) => {
+            // PAR ASSET : la « config actuelle » = les réglages FUSIONNÉS de
+            // l'asset (une surcharge active peut rendre l'essai « actuel »).
+            let surcharge = db::reglages_asset::lire_smc_surcharge(db.db.pool(), a)
+                .await
+                .unwrap_or_default();
+            let global = lire_config_smc_globale(db).await?;
             Some(serde_json::json!({
-                "frac_tp1": lire("smc_frac_tp1").await?.parse::<f64>().ok()?,
-                "frac_tp2": lire("smc_frac_tp2").await?.parse::<f64>().ok()?,
-                "frac_tp3": lire("smc_frac_tp3").await?.parse::<f64>().ok()?,
-                "tp1_mult": lire("smc_tp1_mult").await?.parse::<f64>().ok()?,
-                "tp2_mult": lire("smc_tp2_mult").await?.parse::<f64>().ok()?,
-                "tp3_mode": lire("smc_tp3_mode").await?,
-                "tp3_rfixe": lire("smc_tp3_rfixe").await?.parse::<f64>().ok()?,
-                "tp3_trailing": lire("smc_tp3_trailing").await?.parse::<f64>().ok()?,
+                "frac_tp1": surcharge.frac_tp1.or(global["frac_tp1"].as_f64()),
+                "frac_tp2": surcharge.frac_tp2.or(global["frac_tp2"].as_f64()),
+                "frac_tp3": surcharge.frac_tp3.or(global["frac_tp3"].as_f64()),
+                "tp1_mult": surcharge.tp1.or(global["tp1_mult"].as_f64()),
+                "tp2_mult": surcharge.tp2.or(global["tp2_mult"].as_f64()),
+                "tp3_mode": surcharge.tp3_mode.clone().or(global["tp3_mode"].as_str().map(String::from)),
+                "tp3_rfixe": surcharge.tp3_rfixe.or(global["tp3_rfixe"].as_f64()),
+                "tp3_trailing": surcharge.trailing_r.or(global["tp3_trailing"].as_f64()),
             }))
         }
-        "kdj_halftrend" => {
+        ("kdj_halftrend", Some(a)) => {
+            let surcharge = db::reglages_asset::lire_kdj_surcharge(db.db.pool(), a)
+                .await
+                .unwrap_or_default();
+            let g = db::kdj_params::lire_kdj_params(db.db.pool()).await;
+            Some(serde_json::json!({
+                "period": surcharge.period.unwrap_or(g.period),
+                "signal": surcharge.signal.unwrap_or(g.signal),
+                "amplitude": surcharge.amplitude.unwrap_or(g.amplitude),
+                "adx_min": surcharge.adx_min.unwrap_or(g.adx_min),
+            }))
+        }
+        ("SMC", None) => lire_config_smc_globale(db).await,
+        ("kdj_halftrend", None) => {
             let p = db::kdj_params::lire_kdj_params(db.db.pool()).await;
             Some(serde_json::json!({
                 "period": p.period, "signal": p.signal,
@@ -123,9 +170,23 @@ fn essai_est_actuel(params: &serde_json::Value, actuel: &serde_json::Value) -> b
 /// GET /api/strategies/{id}/recommandation — le meilleur essai (R total
 /// max, effectif ≥ 30), l'essai à la config actuelle s'il existe, l'écart,
 /// et la capacité d'activation.
-pub async fn get_recommandation(state: web::Data<AppState>, path: web::Path<String>) -> impl Responder {
+pub async fn get_recommandation(
+    state: web::Data<AppState>,
+    path: web::Path<String>,
+    q: web::Query<std::collections::HashMap<String, String>>,
+) -> impl Responder {
     let id = path.into_inner();
-    let essais = charger_essais(&state, &id).await;
+    let asset = q.get("asset").cloned();
+    let essais_tous = charger_essais(&state, &id).await;
+    // PAR ASSET (phase 2) : ne garder que les essais DU périmètre demandé —
+    // essais globaux pour la vue globale, essais tagués [asset] sinon.
+    let essais: Vec<Essai> = match &asset {
+        None => essais_tous.into_iter().filter(|e| perimetre_essai(e).is_none()).collect(),
+        Some(a) => essais_tous
+            .into_iter()
+            .filter(|e| perimetre_essai(e).as_deref() == Some([a.to_string()].as_slice()))
+            .collect(),
+    };
     if essais.is_empty() {
         return HttpResponse::Ok().json(serde_json::json!({
             "strategie": id, "meilleur": null, "actuel": null,
@@ -138,7 +199,7 @@ pub async fn get_recommandation(state: web::Data<AppState>, path: web::Path<Stri
         .iter()
         .filter(|e| e.nb_trades >= EFFECTIF_MIN)
         .max_by(|a, b| a.r_total.total_cmp(&b.r_total));
-    let actuel_cfg = config_actuelle(&state, &id).await;
+    let actuel_cfg = config_actuelle_asset(&state, &id, asset.as_deref()).await;
     let actuel = actuel_cfg
         .as_ref()
         .and_then(|cfg| essais.iter().find(|e| essai_est_actuel(&e.params, cfg)));
@@ -162,6 +223,7 @@ pub async fn get_recommandation(state: web::Data<AppState>, path: web::Path<Stri
     };
     HttpResponse::Ok().json(serde_json::json!({
         "strategie": id,
+        "asset": asset,
         "meilleur": meilleur_json,
         "actuel": actuel.map(|a| serde_json::json!({
             "id": a.id, "r_total": a.r_total, "nb_trades": a.nb_trades,
@@ -176,6 +238,112 @@ pub async fn get_recommandation(state: web::Data<AppState>, path: web::Path<Stri
     }))
 }
 
+/// Écart de balayage JUGEABLE d'un asset (règle des 30 satisfaite) —
+/// consommé par le contexte LLM ET par les chiffres clés de la modale.
+pub(crate) struct EcartBalayageAsset {
+    pub params: String,
+    pub r_total: f64,
+    pub nb_trades: i64,
+    /// R de l'essai à la config actuelle, quand il existe.
+    pub r_actuel: Option<f64>,
+}
+
+impl EcartBalayageAsset {
+    /// Écart meilleur − actuel (None sans essai actuel).
+    pub fn delta(&self) -> Option<f64> {
+        self.r_actuel.map(|a| self.r_total - a)
+    }
+}
+
+/// Mesure l'écart de balayage d'un asset : None = pas d'essai, ou aucun
+/// essai à effectif ≥ 30 (non jugeable — le contexte LLM le dit en texte).
+pub(crate) async fn ecart_balayage_asset(
+    db: &AppState,
+    strategie: &str,
+    asset: &str,
+) -> Option<EcartBalayageAsset> {
+    let essais_tous = charger_essais(db, strategie).await;
+    let essais: Vec<Essai> = essais_tous
+        .into_iter()
+        .filter(|e| perimetre_essai(e).as_deref() == Some([asset.to_string()].as_slice()))
+        .collect();
+    let m = essais
+        .iter()
+        .filter(|e| e.nb_trades >= EFFECTIF_MIN)
+        .max_by(|a, b| a.r_total.total_cmp(&b.r_total))?;
+    let actuel_cfg = config_actuelle_asset(db, strategie, Some(asset)).await;
+    let r_actuel = actuel_cfg
+        .as_ref()
+        .and_then(|cfg| essais.iter().find(|e| essai_est_actuel(&e.params, cfg)))
+        .map(|a| a.r_total);
+    Some(EcartBalayageAsset {
+        params: params_compacts(&m.params),
+        r_total: m.r_total,
+        nb_trades: m.nb_trades,
+        r_actuel,
+    })
+}
+
+/// Résumé du balayage POUR UN ASSET, à destination de l'analyste IA par
+/// asset (phase 3) — réutilise la sélection d'essais du périmètre, le
+/// meilleur à effectif ≥ 30 et l'écart vs la config actuelle fusionnée.
+/// Texte honnête : aucun essai / effectif insuffisant / écart chiffré.
+pub(crate) async fn resume_balayage_asset(
+    db: &AppState,
+    strategie: &str,
+    asset: &str,
+) -> String {
+    let essais_tous = charger_essais(db, strategie).await;
+    let essais: Vec<Essai> = essais_tous
+        .into_iter()
+        .filter(|e| perimetre_essai(e).as_deref() == Some([asset.to_string()].as_slice()))
+        .collect();
+    if essais.is_empty() {
+        return format!(
+            "Aucun essai du labo pour {asset} seul — nourrir le labo (page Simulation, chip {asset} seule puis balayer) avant d'attendre un conseil chiffré du balayage."
+        );
+    }
+    let Some(e) = ecart_balayage_asset(db, strategie, asset).await else {
+        return format!(
+            "Essais du labo présents pour {asset} mais aucun n'atteint {} trades (règle des 30 par asset) — écart non jugeable.",
+            EFFECTIF_MIN
+        );
+    };
+    match e.r_actuel {
+        Some(r_actuel) => format!(
+            "Meilleur essai du labo pour {asset} : {} → {:+.1} R total sur {} trades (re-jeu) ; essai à la config actuelle : {:+.1} R — écart {:+.1} R.",
+            e.params, e.r_total, e.nb_trades, r_actuel, e.r_total - r_actuel
+        ),
+        None => format!(
+            "Meilleur essai du labo pour {asset} : {} → {:+.1} R total sur {} trades (re-jeu) ; aucun essai ne correspond à la config actuelle — écart non mesurable.",
+            e.params, e.r_total, e.nb_trades
+        ),
+    }
+}
+
+/// Paramètres d'un essai en forme compacte pour un contexte LLM :
+/// clé=valeur, en sautant les clés de périmètre et les null.
+fn params_compacts(p: &serde_json::Value) -> String {
+    p.as_object()
+        .map(|o| {
+            o.iter()
+                .filter(|(k, v)| !v.is_null() && k.as_str() != "assets" && k.as_str() != "tfs")
+                .map(|(k, v)| match v.as_f64() {
+                    Some(f) => format!("{}={}", k, coupe_zeros(f)),
+                    None => format!("{k}={v}"),
+                })
+                .collect::<Vec<_>>()
+                .join(" · ")
+        })
+        .unwrap_or_default()
+}
+
+/// 0.6000000000000001 → « 0.6 » (affichage compact, pas un arrondi de calcul).
+fn coupe_zeros(f: f64) -> String {
+    let s = format!("{f:.4}");
+    s.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
 #[derive(serde::Deserialize)]
 pub struct BodyActiver {
     pub essai_id: String,
@@ -184,8 +352,14 @@ pub struct BodyActiver {
 /// POST /api/strategies/{id}/recommandation/activer — écrit les paramètres
 /// de l'essai dans les réglages réels, RELIT et VÉRIFIE (écriture aveugle
 /// interdite), puis répond. Clic propriétaire uniquement.
-pub async fn activer(state: web::Data<AppState>, path: web::Path<String>, body: web::Json<BodyActiver>) -> impl Responder {
+pub async fn activer(
+    state: web::Data<AppState>,
+    path: web::Path<String>,
+    q: web::Query<std::collections::HashMap<String, String>>,
+    body: web::Json<BodyActiver>,
+) -> impl Responder {
     let id = path.into_inner();
+    let asset = q.get("asset").cloned();
     let essais = charger_essais(&state, &id).await;
     let Some(essai) = essais.iter().find(|e| e.id == body.essai_id) else {
         return HttpResponse::NotFound().json(serde_json::json!({ "error": "Essai inconnu" }));
@@ -197,8 +371,61 @@ pub async fn activer(state: web::Data<AppState>, path: web::Path<String>, body: 
     }
     let p = &essai.params;
     let mut appliques: Vec<String> = Vec::new();
-    let result = match id.as_str() {
-        "SMC" => {
+    let result = match (id.as_str(), asset.as_deref()) {
+        // PAR ASSET (phase 2) : l'activation écrit dans la SURCHARGE de
+        // l'asset (jamais dans les réglages globaux) — hot-reload ≤ 60 s
+        // sur les seuls couples de l'asset.
+        ("SMC", Some(a)) => {
+            let surcharge = db::reglages_asset::lire_smc_surcharge(state.db.pool(), a)
+                .await
+                .unwrap_or_default();
+            let maj = db::reglages_asset::SmcSurcharge {
+                tp1: p.get("tp1_mult").and_then(|v| v.as_f64()),
+                tp2: p.get("tp2_mult").and_then(|v| v.as_f64()),
+                tp3_mode: p
+                    .get("tp3_mode")
+                    .and_then(|v| v.as_str())
+                    .map(|v| if v == "rfixe" { "fixe".to_string() } else { v.to_string() }),
+                tp3_rfixe: p.get("tp3_rfixe").and_then(|v| v.as_f64()),
+                trailing_r: p
+                    .get("tp3_trailing")
+                    .and_then(|v| v.as_f64()),
+                frac_tp1: p.get("frac_tp1").and_then(|v| v.as_f64()),
+                frac_tp2: p.get("frac_tp2").and_then(|v| v.as_f64()),
+                frac_tp3: p.get("frac_tp3").and_then(|v| v.as_f64()),
+                ..surcharge
+            };
+            db::reglages_asset::ecrire_smc_surcharge(state.db.pool(), a, &maj)
+                .await
+                .map(|_| ())
+                .map_err(|e| anyhow::anyhow!("{e}"))
+        }
+        ("kdj_halftrend", Some(a)) => {
+            let surcharge = db::reglages_asset::lire_kdj_surcharge(state.db.pool(), a)
+                .await
+                .unwrap_or_default();
+            let (Some(period), Some(signal), Some(amplitude), Some(adx_min)) = (
+                p.get("period").and_then(|v| v.as_i64()),
+                p.get("signal").and_then(|v| v.as_i64()),
+                p.get("amplitude").and_then(|v| v.as_i64()),
+                p.get("adx_min").and_then(|v| v.as_f64()),
+            ) else {
+                return HttpResponse::BadRequest()
+                    .json(serde_json::json!({ "error": "paramètres KDJ incomplets dans l'essai" }));
+            };
+            let maj = db::reglages_asset::KdjSurcharge {
+                period: Some(period),
+                signal: Some(signal),
+                amplitude: Some(amplitude),
+                adx_min: Some(adx_min),
+                ..surcharge
+            };
+            db::reglages_asset::ecrire_kdj_surcharge(state.db.pool(), a, &maj)
+                .await
+                .map(|_| ())
+                .map_err(|e| anyhow::anyhow!("{e}"))
+        }
+        ("SMC", None) => {
             let mut ok = true;
             for (cle_json, cle_kv, is_num) in [
                 ("frac_tp1", "smc_frac_tp1", true),
@@ -222,7 +449,7 @@ pub async fn activer(state: web::Data<AppState>, path: web::Path<String>, body: 
             }
             if ok { Ok(()) } else { Err(anyhow::anyhow!("échec d'écriture kv SMC")) }
         }
-        "kdj_halftrend" => {
+        ("kdj_halftrend", None) => {
             let (Some(period), Some(signal), Some(amplitude), Some(adx_min)) = (
                 p.get("period").and_then(|v| v.as_i64()),
                 p.get("signal").and_then(|v| v.as_i64()),
@@ -245,7 +472,7 @@ pub async fn activer(state: web::Data<AppState>, path: web::Path<String>, body: 
     match result {
         Ok(()) => {
             // Relecture-vérification : l'écriture doit être relue identique.
-            let relu = config_actuelle(&state, &id).await;
+            let relu = config_actuelle_asset(&state, &id, asset.as_deref()).await;
             let verifie = relu
                 .map(|cfg| essai_est_actuel(p, &cfg))
                 .unwrap_or(false);

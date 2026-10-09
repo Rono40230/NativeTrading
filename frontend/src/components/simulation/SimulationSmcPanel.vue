@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-4">
-  <RecommandationBloc strategie="SMC" />
+  <RecommandationBloc strategie="SMC" :asset="filtreAssets.length === 1 ? filtreAssets[0] : undefined" />
     <!-- Limite méthodologique -->
     <p class="text-[11px] text-white/70 border-l-2 border-amber-400/50 pl-3">
       La simulation rejoue les <b>trades réellement pris</b> avec d'autres niveaux — elle ne peut pas
@@ -57,22 +57,7 @@
           </div>
         </div>
         <!-- Périmètre de simulation (virtuel — ne touche pas à l'armement) -->
-        <div class="flex flex-col gap-1.5">
-          <p class="text-[10px] font-semibold uppercase tracking-wider text-white/60">Paires simulées <span class="font-normal normal-case text-white/40">— vide = toutes les armées</span></p>
-          <div class="flex flex-wrap gap-1">
-            <button v-for="a in assetsDispo" :key="'pa' + a"
-                    class="text-[10px] px-1.5 py-0.5 rounded border font-mono transition-colors"
-                    :class="filtreAssets.includes(a) ? 'border-teal-400/50 bg-teal-500/20 text-white' : 'border-white/10 bg-white/[0.03] text-white/50 hover:border-white/25'"
-                    @click="basculer(filtreAssets, a)">{{ a }}</button>
-          </div>
-          <p class="text-[10px] font-semibold uppercase tracking-wider text-white/60 mt-1">Timeframes simulés</p>
-          <div class="flex flex-wrap gap-1">
-            <button v-for="tf in ['M1','M5','M15','M30']" :key="'pt' + tf"
-                    class="text-[10px] px-1.5 py-0.5 rounded border font-mono transition-colors"
-                    :class="filtreTfs.includes(tf) ? 'border-teal-400/50 bg-teal-500/20 text-white' : 'border-white/10 bg-white/[0.03] text-white/50 hover:border-white/25'"
-                    @click="basculer(filtreTfs, tf)">{{ tf }}</button>
-          </div>
-        </div>
+        <PerimetreChips v-model:assets="filtreAssets" v-model:tfs="filtreTfs" :assets-dispo="assetsDispo" />
         <div class="flex gap-2 flex-wrap">
           <button class="btn-action bg-teal-500/20 text-teal-300 hover:bg-teal-500/30 disabled:opacity-40"
                   :disabled="enCours" @click="lancer">
@@ -287,6 +272,7 @@
 
 <script setup lang="ts">
 import RecommandationBloc from './RecommandationBloc.vue'
+import PerimetreChips from './PerimetreChips.vue'
 import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 import ModaleConfirmation from '@/components/common/ModaleConfirmation.vue'
@@ -344,11 +330,6 @@ const filtreAssets = ref<string[]>([])
 const filtreTfs = ref<string[]>([])
 const assetsDispo = ref<string[]>([])
 
-function basculer(liste: string[], v: string) {
-  const i = liste.indexOf(v)
-  if (i >= 0) liste.splice(i, 1)
-  else liste.push(v)
-}
 const enCours = ref(false)
 const enCoursBalayage = ref(false)
 const confirmationOuverte = ref(false)
@@ -576,11 +557,21 @@ onMounted(async () => {
   await Promise.all([chargerVecu(), chargerReglages(), chargerEssais(), chargerAssetsArmes()])
 })
 
-/// Paires disponibles = assets armés SMC (source : couples armés).
+/// Paires disponibles = assets armés SMC (source : couples armés —
+/// réponse { tfs, assets, armes } ; ne garder que les assets avec au
+/// moins un TF générateur armé). Fix 09/10 : Object.keys(r.data) listait
+/// les CLÉS du JSON (« tfs/assets/armes ») au lieu des actifs — bug
+/// présent depuis la livraison des chips (17/09), les chips apparaissaient
+/// vides ou absurdes.
 async function chargerAssetsArmes() {
   try {
-    const r = await http.get<Record<string, string[]>>('/api/smc/couples')
-    assetsDispo.value = Object.keys(r.data ?? {}).sort()
+    const r = await http.get<{ tfs: string[]; assets: string[]; armes: Record<string, string[]> }>(
+      '/api/smc/couples',
+    )
+    assetsDispo.value = Object.entries(r.data?.armes ?? {})
+      .filter(([, tfs]) => tfs.length > 0)
+      .map(([a]) => a)
+      .sort()
   } catch { assetsDispo.value = [] }
 }
 </script>

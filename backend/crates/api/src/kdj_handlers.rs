@@ -74,14 +74,14 @@ pub(crate) async fn moteur_kdj(
         .obtenir_bougies(asset, &tf, 600)
         .await
         .unwrap_or_default();
+    // Réglages PAR ASSET (0121) : la surcharge de l'asset prime champ à champ,
+    // le défaut global (ligne unique kdj_params) couvre le reste — fusion de
+    // la source unique (reglages_asset_fusion).
+    let s = db::reglages_asset::lire_kdj_surcharge(db.pool(), asset.as_str())
+        .await
+        .unwrap_or_default();
     kdj_halftrend::KdjEngine::nouveau(asset.clone(), tf)
-        .avec_params(kdj_halftrend::ParamsKdj {
-            period: p.period.max(2) as usize,
-            signal: p.signal.max(2) as usize,
-            amplitude: p.amplitude.max(1) as usize,
-            ratio_risk: p.ratio_risk.clamp(0.1, 10.0),
-            adx_min: if p.adx_min >= 0.0 { Some(p.adx_min) } else { None },
-        })
+        .avec_params(crate::reglages_asset_fusion::params_kdj_fusionnes(p, &s))
         .avec_chauffe(&chauffe)
 }
 
