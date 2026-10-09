@@ -101,6 +101,7 @@ après chaque redémarrage). Scanner tableau + params hot-reload. **Premiers sig
 | 07/10 | **Bougies tronquées MT5** : course de lecture EA + INSERT OR IGNORE → upsert + EA v1.35 surveilleur + 1 559 M30 réparées | ad2b225 |
 | 08-09/10 | **Indicateur unifié OB Institutionnels** (B1→B4) + réparations D1 (2 130) et H1 (13 350) + étude C1 (pas de filtre) | e6f2c42, a13baab |
 | 09/10 soir | **Tri des résidus** + **hot-reload paramètres moteur** | 297e7d5, 2236035 |
+| 09/10 soir | **Correctifs production** : affichage des trades ouverts (bord droit = maintenant, insensible au décalage), rattrapage KDJ des orphelines (TP unique — 3 clôturées), garde-fou d'alimentation (15 assets privés de bougies depuis le 07/10 → armé ⇒ alimenté, tick 60 s), table historique KDJ (variante sans SL/TP/Stratégie + Verdict) + vocabulaire verdicts KDJ | ce commit |
 
 ## 7. Cartographie des documents
 

@@ -23,6 +23,7 @@
       <HistoryTable
         :signaux="historique.signauxTriés.value"
         filtre-statut="cloturees"
+        variante="kdj"
         :tri-colonne="historique.triColonne.value"
         :tri-dir="historique.triDir.value"
         :mfe="historique.mfeParId.value"

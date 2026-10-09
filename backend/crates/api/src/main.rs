@@ -9,6 +9,7 @@ mod analyses_smc;
 mod asset_params_handlers;
 mod alertes_prix;
 mod alertes_zones;
+mod assets_garde;
 mod creneaux_perimetre;
 mod evenements;
 mod sante_moteurs;

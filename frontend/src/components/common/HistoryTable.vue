@@ -10,15 +10,21 @@
         <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'score')">Score <span class="tri-icone">{{ icone('score') }}</span></th>
         <th class="px-3 py-3 text-right" title="Taille de position au moment de l'émission — recalculée : capital composé de la stratégie × risque % / (stop en pips × valeur du pip)">Lot</th>
         <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'prix_entree')">Entrée <span class="tri-icone">{{ icone('prix_entree') }}</span></th>
-        <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'stop_loss')">SL <span class="tri-icone">{{ icone('stop_loss') }}</span></th>
-        <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'tp1')">TP1 <span class="tri-icone">{{ icone('tp1') }}</span></th>
-        <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'tp2')">TP2 <span class="tri-icone">{{ icone('tp2') }}</span></th>
-        <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'tp3')">TP3 <span class="tri-icone">{{ icone('tp3') }}</span></th>
+        <!-- Variante KDJ (09/10) : pas de colonnes SL/TP (niveaux figés, sans
+             valeur de relecture — ils vivent sur le graphique et la table des
+             positions en cours) ; Stratégie redondante sur la page dédiée. -->
+        <th v-if="variante !== 'kdj'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'stop_loss')">SL <span class="tri-icone">{{ icone('stop_loss') }}</span></th>
+        <th v-if="variante !== 'kdj'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'tp1')">TP1 <span class="tri-icone">{{ icone('tp1') }}</span></th>
+        <th v-if="variante !== 'kdj'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'tp2')">TP2 <span class="tri-icone">{{ icone('tp2') }}</span></th>
+        <th v-if="variante !== 'kdj'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'tp3')">TP3 <span class="tri-icone">{{ icone('tp3') }}</span></th>
         <th v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right">Prix actuel</th>
+        <!-- Variante KDJ : la conclusion du trade, verdict moteur (TP / SL /
+             Retournement) — la colonne qui manquait à la lecture. -->
+        <th v-if="variante === 'kdj'" class="px-3 py-3 text-left">Verdict</th>
         <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'prix_verdict')">Sortie <span class="tri-icone">{{ icone('prix_verdict') }}</span></th>
         <th class="px-3 py-3 text-center">IA</th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'r_reference')">Palier max <span class="tri-icone">{{ icone('r_reference') }}</span></th>
-        <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'strategie')">Stratégie <span class="tri-icone">{{ icone('strategie') }}</span></th>
+        <th v-if="variante !== 'kdj'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'strategie')">Stratégie <span class="tri-icone">{{ icone('strategie') }}</span></th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'cree_le')">Ouvert le <span class="tri-icone">{{ icone('cree_le') }}</span></th>
         <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'ferme_le')">Fermé le <span class="tri-icone">{{ icone('ferme_le') }}</span></th>
         <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" title="Vie de la position : du remplissage de l'ordre à la fermeture (l'attente de l'ordre en attente n'est pas comptée)" @click="$emit('trier-par', 'duree')">Durée <span class="tri-icone">{{ icone('duree') }}</span></th>
@@ -45,11 +51,15 @@
         <td class="px-3 py-3 text-right font-mono text-white">{{ s.score.toFixed(0) }}</td>
         <td class="px-3 py-3 text-right font-mono text-white" title="Lot recalculé (capital composé de la stratégie au moment de l'émission)">{{ formatLot(lotMap[s.id]) }}</td>
         <td class="px-3 py-3 text-right font-mono text-white">{{ formatNombre(s.prix_entree) }}</td>
-        <td class="px-3 py-3 text-right font-mono text-red-400">{{ formatNombre(s.stop_loss) }}</td>
-        <td class="px-3 py-3 text-right font-mono text-emerald-400">{{ formatNombre(s.take_profit[0]) }}</td>
-        <td class="px-3 py-3 text-right font-mono text-emerald-300">{{ s.take_profit[1] ? formatNombre(s.take_profit[1]) : '—' }}</td>
-        <td class="px-3 py-3 text-right font-mono text-emerald-200">{{ s.take_profit[2] ? formatNombre(s.take_profit[2]) : '—' }}</td>
+        <td v-if="variante !== 'kdj'" class="px-3 py-3 text-right font-mono text-red-400">{{ formatNombre(s.stop_loss) }}</td>
+        <td v-if="variante !== 'kdj'" class="px-3 py-3 text-right font-mono text-emerald-400">{{ formatNombre(s.take_profit[0]) }}</td>
+        <td v-if="variante !== 'kdj'" class="px-3 py-3 text-right font-mono text-emerald-300">{{ s.take_profit[1] ? formatNombre(s.take_profit[1]) : '—' }}</td>
+        <td v-if="variante !== 'kdj'" class="px-3 py-3 text-right font-mono text-emerald-200">{{ s.take_profit[2] ? formatNombre(s.take_profit[2]) : '—' }}</td>
         <td v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right font-mono" :class="classePrixActuelSignal(s, prixStore.getPrix(s.asset))">{{ prixStore.getPrix(s.asset) !== null ? formatNombre(prixStore.getPrix(s.asset)!) : '—' }}</td>
+        <!-- Variante KDJ : verdict moteur en badge (TP / SL / Retournement). -->
+        <td v-if="variante === 'kdj'" class="px-3 py-3">
+          <span class="badge" :class="classeVerdictKdj(s.verdict)">{{ s.verdict ?? '—' }}</span>
+        </td>
         <!-- Sortie = information secondaire (gestion d'exécution), le R de
              référence vit dans la colonne Palier max. -->
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right">
@@ -72,7 +82,7 @@
                   title="Excursion favorable maximale avant le SL (calcul sur bougies M1)">{{ formatMfe(mfeMap[s.id]?.mfe_r ?? null) }}</span>
           </div>
         </td>
-        <td class="px-3 py-3 text-white text-xs">{{ s.strategie === 'SMC Directionnel' ? 'SMC' : s.strategie }}</td>
+        <td v-if="variante !== 'kdj'" class="px-3 py-3 text-white text-xs">{{ s.strategie === 'SMC Directionnel' ? 'SMC' : s.strategie }}</td>
         <td class="px-3 py-3 text-white text-xs cursor-help" :title="titreOuverture(s)">{{ formatDate(s.heure_entree ?? s.cree_le) }}</td>
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-white text-xs">{{ s.ferme_le ? formatDate(s.ferme_le) : '—' }}</td>
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 font-mono text-white text-xs">{{ formatDuree(s.heure_entree, s.ferme_le) }}</td>
@@ -108,6 +118,12 @@ const props = defineProps<{
   filtreStatut: 'en_cours' | 'cloturees' | ''
   triColonne: string
   triDir: 'asc' | 'desc'
+  /**
+   * Variante de rendu (09/10) : 'kdj' = page KDJ — pas de colonnes
+   * SL/TP/Stratégie (niveaux figés sans valeur de relecture, stratégie
+   * redondante sur la page dédiée), verdict moteur en badge.
+   */
+  variante?: 'standard' | 'kdj'
   /** MFE des trades SL : { [id]: { mfe_r, meilleur_prix } } */
   mfe?: Record<string, { mfe_r: number | null; meilleur_prix: number | null }>
   /** Lot recalculé par trade : { [id]: lot } — vide si non chargé. */
@@ -122,6 +138,13 @@ const emit = defineEmits<{
   'trier-par': [col: string]
   'journal-maj': []
 }>()
+
+/// Badge du verdict KDJ : TP (gain) / SL (perte) / Retournement (neutre).
+function classeVerdictKdj(v: string | null | undefined): string {
+  if (v === 'TP') return 'badge-green'
+  if (v === 'SL') return 'badge-red'
+  return 'badge-blue'
+}
 
 /** Trade dont le journal est ouvert (null = fermé). */
 const journalSignal = ref<Signal | null>(null)
@@ -232,4 +255,12 @@ thead th {
   background: #1d2332;
   box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.1);
 }
+
+/* Badges (verdict KDJ, état) — mêmes teintes que SignauxTableau. */
+.badge { @apply text-xs font-bold px-2 py-0.5 rounded-full; }
+.badge-green { @apply bg-emerald-900/60 text-emerald-300; }
+.badge-red   { @apply bg-red-900/60 text-red-300; }
+.badge-blue  { @apply bg-blue-900/60 text-blue-300; }
+.badge-gray  { @apply bg-gray-700/60 text-white; }
+.badge-yellow { @apply bg-yellow-900/60 text-yellow-300; }
 </style>

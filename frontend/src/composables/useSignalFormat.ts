@@ -1,16 +1,19 @@
 function classeVerdictSignal(verdict: string | null): string {
   const v = verdict?.toLowerCase() ?? ''
-  if (v === 'tp3' || v === 'tp2') return 'badge-green'
+  if (v === 'tp3' || v === 'tp2' || v === 'tp') return 'badge-green'
   if (v === 'tp1') return 'badge-blue'
   if (v === 'be') return 'badge-gray'
   if (v === 'sl') return 'badge-red'
   if (v === 'stag' || v === 'invalide') return 'badge-orange'
   if (v === 'expire') return 'badge-gray'
+  if (v === 'retournement') return 'badge-blue'
   return 'badge-yellow'
 }
 
 /// Libellé complet d'un verdict (interne — labelEtatSignal l'utilise).
 /// TP* = gagnant encaissé, BE = retour à l'entrée, SL = perte.
+/// KDJ (09/10) : « TP » (TP unique) et « Retournement » (sortie sur signal
+/// inverse) — sans ces entrées, un trade FERMÉ s'affichait « En cours ».
 function labelVerdictSignal(verdict: string | null): string {
   const v = verdict?.toLowerCase() ?? ''
   if (v === 'tp3') return '✅ TP3'
@@ -18,8 +21,10 @@ function labelVerdictSignal(verdict: string | null): string {
   if (v === 'tp1+be') return '✅ TP1+BE (+1R acquis)'
   if (v === 'tp2') return '✅ TP2 (SL→TP1)'
   if (v === 'tp1') return '✅ TP1 (SL→BE)'
+  if (v === 'tp') return '✅ TP'
   if (v === 'be')  return '⚪ BE (dégradation zone) — 0R'
   if (v === 'sl')  return '❌ SL'
+  if (v === 'retournement') return '🔄 Retournement (signal inverse)'
   if (v === 'stag') return '⏹ Stagnation — clôturée au prix courant'
   if (v === 'invalide') return '↩️ Entrée non atteinte'
   if (v === 'expire') return '⏰ Expiré'

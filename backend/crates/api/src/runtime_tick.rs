@@ -243,6 +243,9 @@ async fn boucle_runtime(
                 synchroniser_config(&db, &mut runtime).await;
                 // 18/09 — rattrapage des positions SMC orphelines (redémarrages)
                 crate::rattrapage_smc::rattraper(&db).await;
+                // 09/10 — garde-fou alimentation : tout asset armé trouvé
+                // inactif est réactivé (les workers le renouvellent en ≤ 60 s).
+                crate::assets_garde::reconcilier(&db).await;
                 cache_alertes.recharger(&db).await;
                 config_zones = crate::alertes_zones::lire_config(&db).await;
             }

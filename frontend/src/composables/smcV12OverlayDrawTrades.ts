@@ -42,8 +42,12 @@ export function dessinerSignaux(
   //   TP entry↔TP3, lignes TP1/TP2 solides, label f_lblTrade complet) →
   //   BE/TP1 : box SL et label SUPPRIMÉES → clôture : tout supprimé.
   // (Les trades en attente et clôturés sont déjà filtrés en amont.)
-  const xD = xDroit(ts, W, dernierTs)
-  // px/seconde pour extrapoler les bords droits futurs (tsFin > dernière bougie).
+  // Fix 09/10 (comportement owner) : un trade OUVERT vit jusqu'à
+  // MAINTENANT — son bord droit s'extrapole dans la marge droite quand le
+  // graphique est décalé, PLUS DE PLAFOND à la dernière bougie (l'ancien
+  // cap faisait disparaître le trade dès que l'axe n'était plus collé).
+  const xD = xDroit(ts, W, dernierTs) // repli si px/seconde indisponible
+  // px/seconde pour extrapoler les bords droits futurs (now > dernière bougie).
   let pxParSec = 0
   const vr = ts.getVisibleRange()
   if (vr) {
@@ -52,20 +56,18 @@ export function dessinerSignaux(
     const d = (vr.to as number) - (vr.from as number)
     if (xf !== null && xt !== null && d > 0) pxParSec = (xt - xf) / d
   }
+  const maintenant = Math.floor(Date.now() / 1000)
   for (const s of sigList) {
     const xGRaw = ts.timeToCoordinate(s.ts as any)
     if (xGRaw === null) continue
     const xG = Math.max(0, xGRaw)
-    if (xD <= xG) continue
-    // Bord droit FINI du trade (Pine i_tpWidth : 40 barres, H1 30, H4 20).
-    const tsFin = (s as { tsFin?: number }).tsFin
+    // Bord droit = MAINTENANT au minimum, largeur Pine (40 barres) en plancher
+    // visible : un trade tout frais montre toujours une box lisible.
+    const tsFin = Math.max((s as { tsFin?: number }).tsFin ?? 0, maintenant)
     let xFin = xD
-    if (tsFin !== undefined && pxParSec > 0) {
-      const direct = ts.timeToCoordinate(tsFin as any)
-      xFin = direct !== null ? direct : xG + (tsFin - s.ts) * pxParSec
-    }
-    if (xFin <= xG) continue
-    const xDTrade = Math.min(xD, xFin)
+    if (pxParSec > 0) xFin = Math.max(xG + 2, xG + (tsFin - s.ts) * pxParSec)
+    if (xFin <= xG + 1) continue
+    const xDTrade = xFin
     const yEntry = serie.priceToCoordinate(s.entry)
     const ySl = serie.priceToCoordinate(s.sl)
     const yTp1 = serie.priceToCoordinate(s.tp1)
@@ -148,14 +150,26 @@ export function dessinerTradesExternes(
   W: number,
   dernierTs: number | null,
 ): void {
-  const xD = xDroit(ts, W, dernierTs)
+  // Fix 09/10 : même règle que le TF d'origine — un trade OUVERT vit
+  // jusqu'à MAINTENANT, bord droit extrapolé dans la marge droite (les
+  // straddle/KDJ ont tsFin = now ; l'extrapolation remplace le plafond
+  // « dernière bougie » qui faisait disparaître le trade au décalage).
+  const xD = xDroit(ts, W, dernierTs) // repli si px/seconde indisponible
+  let pxParSec = 0
+  const vr = ts.getVisibleRange()
+  if (vr) {
+    const xf = ts.timeToCoordinate(vr.from as any)
+    const xt = ts.timeToCoordinate(vr.to as any)
+    const d = (vr.to as number) - (vr.from as number)
+    if (xf !== null && xt !== null && d > 0) pxParSec = (xt - xf) / d
+  }
+  const maintenant = Math.floor(Date.now() / 1000)
   for (const s of liste) {
     // Multi-TF : le timestamp du trade (ex: 09:55 en M5) n'existe pas
     // forcément comme barre sur le TF affiché (M15 = :00/:15/:30/:45).
     // → arrondir au bar la plus proche au lieu de sauter le trade.
     let xGRaw = ts.timeToCoordinate(s.ts as any)
     if (xGRaw === null) {
-      const vr = ts.getVisibleRange()
       const lr = ts.getVisibleLogicalRange()
       if (vr && lr && (vr.to as number) > (vr.from as number)) {
         const lg = (lr.from as number) + ((s.ts - (vr.from as number)) / ((vr.to as number) - (vr.from as number))) * ((lr.to as number) - (lr.from as number))
@@ -164,15 +178,11 @@ export function dessinerTradesExternes(
     }
     if (xGRaw === null) continue
     const xG = Math.max(0, xGRaw)
-    if (xD <= xG) continue
-    const tsFin = (s as { tsFin?: number }).tsFin
+    const tsFin = Math.max((s as { tsFin?: number }).tsFin ?? 0, maintenant)
     let xFin = xD
-    if (tsFin !== undefined) {
-      const direct = ts.timeToCoordinate(tsFin as any)
-      if (direct !== null) xFin = direct
-    }
-    if (xFin <= xG) continue
-    const xDTrade = Math.min(xD, xFin)
+    if (pxParSec > 0) xFin = Math.max(xG + 2, xG + (tsFin - s.ts) * pxParSec)
+    if (xFin <= xG + 1) continue
+    const xDTrade = xFin
     const yEntry = serie.priceToCoordinate(s.entry)
     const ySl = serie.priceToCoordinate(s.sl)
     const yTp = serie.priceToCoordinate(s.tp3)
