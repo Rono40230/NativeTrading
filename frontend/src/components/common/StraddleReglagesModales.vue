@@ -28,6 +28,6 @@ defineEmits<{ (e: 'fermer'): void }>()
 
 const TITRES: Record<ModaleStraddle, string> = {
   parametres: '⚙️ Paramètres — Straddle (registre + moteur)',
-  perimetre: '🎯 Choix des Assets & créneaux — Straddle',
+  perimetre: '🕐 Choix des assets & créneaux',
 }
 </script>

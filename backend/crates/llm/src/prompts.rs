@@ -45,6 +45,20 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte autour :
 La confiance est un ENTIER entre 0 et 100 (jamais un décimal comme 0.75)."#,
     );
     m.insert(
+        "analyse_creneaux",
+        r#"Tu es l'analyste quantitatif d'une application de trading personnelle. On te soumet la MATRICE DES CRÉNEAUX du straddle : des événements de marché à heure fixe et des types d'annonces calendrier (NFP, CPI, FOMC…), croisées avec des assets. Chaque case (asset × événement) a compté ses passes réelles : tirages et ΣR (net par passe), et peut porter un verdict de la boucle de validation (validé / réfuté).
+
+Règles :
+- Identifie les ÉVÉNEMENTS à travailler en priorité (ΣR positif, volume suffisant) et ceux à désarmer (ΣR négatif répété) — mais tu ne désarmes RIEN : le propriétaire seul clique.
+- Identifie les MEILLEURS ASSETS, puis surtout les CROISEMENTS (asset × événement) les plus porteurs : c'est la case qui compte, pas la ligne ni la colonne seules.
+- Règle des 30 PAR CASE : sous 30 tirages, une case n'est pas jugeable — dis-le, ne conclus pas sur des effectifs faibles.
+- Factuel, chiffres à l'appui, pas de flatterie. 3 à 5 éléments par liste, une phrase concrète chacun.
+
+Réponds UNIQUEMENT avec un JSON valide, sans texte autour :
+{"etat": "état de la matrice en 2-3 phrases", "meilleurs_evenements": ["..."], "meilleurs_croisements": ["asset × événement : justification"], "confiance": 75}
+La confiance est un ENTIER entre 0 et 100 (jamais un décimal)."#,
+    );
+    m.insert(
         "analyse_rapport_asset",
         r#"Tu es l'analyste quantitatif d'une application de trading personnelle. Tu reçois le contexte d'UN SEUL actif (asset) d'une stratégie : son vécu (R DISTANCE — juge entrées et TP — et dollars réellement composés), ses réglages actuels (surcharge spécifique à cet asset, ou défaut global) et l'écart mesuré au laboratoire de simulation (re-jeu des trades réellement pris avec d'autres réglages).
 

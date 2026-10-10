@@ -243,6 +243,14 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::evenements_armement_http::basculer),
         )
         .route(
+            "/api/evenements/ia",
+            web::post().to(crate::evenements_ia::post_analyse),
+        )
+        .route(
+            "/api/evenements/armement/evenement",
+            web::post().to(crate::evenements_armement_http::basculer_evenement),
+        )
+        .route(
             "/api/evenements/armement/tout",
             web::post().to(crate::evenements_armement_http::tout_armer),
         )

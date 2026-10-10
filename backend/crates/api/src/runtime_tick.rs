@@ -22,7 +22,7 @@
 
 use std::collections::HashSet;
 use crate::runtime_perimetre::lire_perimetre_straddle;
-use crate::runtime_amorces::{annonces_tier1, charger_amorce_mtf_runtime};
+use crate::runtime_amorces::charger_amorce_mtf_runtime;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -386,17 +386,15 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                 ));
             }
             if *tf == common::Timeframe::M1 && perimetre_straddle.iter().any(|a| a == &asset.as_str()) {
-                let mut annonces: Vec<straddle::Annonce> = if asset.as_str() == "DAX" {
-                    crate::mt5_collecteur::annonces_ouverture_europeenne()
-                } else {
-                    annonces_tier1(db)
-                        .await
-                        .into_iter()
-                        .filter(|a| a.devise == "USD")
-                        .collect()
-                };
-                // §16→28/09 : créneaux ÉVÉNEMENT armés = annonces synthétiques (même rail).
-                annonces.extend(crate::evenements_armement::annonces_evenements(db, asset.as_str()).await);
+                // Rail UNIFIÉ (owner 10/10) : fixes armées + annonces High
+                // réelles classées par type armé — chaque passe passe par
+                // une case de la matrice. DAX garde son annonce d'ouverture
+                // européenne en plus.
+                let mut annonces: Vec<straddle::Annonce> =
+                    crate::evenements_armement::annonces_evenements(db, asset.as_str()).await;
+                if asset.as_str() == "DAX" {
+                    annonces.extend(crate::mt5_collecteur::annonces_ouverture_europeenne());
+                }
                 // Réglages PAR ASSET (0121) : fusion surcharge ⊕ défaut.
                 let p = crate::reglages_asset_fusion::straddle_params(db, asset.as_str()).await;
                 moteurs.push(Box::new(
@@ -462,13 +460,9 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
         }
         // Étape 4 — verticale Straddle, rail Bybit : seule BTC (cf. PERIMETRE).
         if matches!(tf, common::Timeframe::M1) && perimetre_straddle.iter().any(|a| a == &asset.as_str()) {
-            let mut annonces: Vec<straddle::Annonce> = annonces_tier1(db)
-                .await
-                .into_iter()
-                .filter(|a| a.devise == "USD")
-                .collect();
-            // §16→28/09 : créneaux ÉVÉNEMENT armés = annonces synthétiques (même rail).
-            annonces.extend(crate::evenements_armement::annonces_evenements(db, asset.as_str()).await);
+            // Rail UNIFIÉ (owner 10/10) — cf. branche MT5 ci-dessus.
+            let annonces: Vec<straddle::Annonce> =
+                crate::evenements_armement::annonces_evenements(db, asset.as_str()).await;
             // Audit étape 2 : le moteur lisait des constantes — désormais
             // branché sur la carte Paramètres › Straddle (table DB).
             // Réglages PAR ASSET (0121) : fusion surcharge ⊕ défaut.

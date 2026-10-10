@@ -17,6 +17,7 @@ mod simulation_recommandation;
 mod evenements_matrice;
 mod evenements_armement;
 mod evenements_armement_http;
+mod evenements_ia;
 #[cfg(test)]
 mod kdj_diagnostic;
 mod assets_handlers;

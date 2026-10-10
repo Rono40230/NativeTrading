@@ -72,22 +72,32 @@ pub async fn put_perimetre(
     // Un asset qui entre au périmètre reçoit tous ses créneaux événements
     // armés (balayage large owner 28/09) — semis idempotent.
     crate::evenements_armement::semer(&state.db).await;
-    // Créneaux armés désormais hors périmètre (information, pas de purge).
-    let hors: Vec<String> = sqlx::query_scalar::<_, String>(
-        "SELECT DISTINCT asset FROM creneaux_ia WHERE arme = 1",
+    // Owner 10/10 (matrice croisée) : retirer un asset le retire VRAIMENT —
+    // ses cases quittent la matrice (colonne + chips « + ajouter ») et le
+    // réajouter re-sème/re-arme : nouveau test à zéro.
+    let anciens: Vec<String> = sqlx::query_scalar::<_, String>(
+        "SELECT DISTINCT asset FROM creneaux_evenements",
     )
     .fetch_all(state.db.pool())
     .await
-    .unwrap_or_default()
-    .into_iter()
-    .filter(|a| !assets.contains(a))
-    .collect();
+    .unwrap_or_default();
+    let mut supprimees = 0usize;
+    for a in anciens.into_iter().filter(|a| !assets.contains(a)) {
+        if let Ok(r) = sqlx::query("DELETE FROM creneaux_evenements WHERE asset = ?")
+            .bind(&a)
+            .execute(state.db.pool())
+            .await
+        {
+            supprimees += r.rows_affected() as usize;
+            tracing::info!("🧹 Straddle : asset {a} retiré du tableau — {} case(s) supprimée(s)", r.rows_affected());
+        }
+    }
     tracing::info!(
         "Périmètre straddle mis à jour : {} asset(s) — appliqué au prochain tick (≤ 60 s)",
         assets.len()
     );
     HttpResponse::Ok().json(serde_json::json!({
         "assets": assets,
-        "creneaux_armes_hors_perimetre": hors,
+        "cases_supprimees": supprimees,
     }))
 }

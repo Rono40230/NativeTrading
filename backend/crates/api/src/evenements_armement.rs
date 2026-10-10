@@ -104,10 +104,48 @@ pub(crate) fn occurrences_suivantes(ev: &EvenementModele, maintenant: DateTime<U
     out
 }
 
-/// Minutes (epoch/60) des annonces réelles USD High/Medium des prochains
-/// jours — le garde du propriétaire : les créneaux « annonces US » ne
-/// tirent que si une vraie annonce existe à la minute du slot. Le parse
-/// RFC3339 suit le même repli que le rail tier 1 (secondes tronquées).
+/// Parse une date_heure du cache calendrier (RFC3339, parfois secondes
+/// tronquées « +02:0 ») en epoch secondes.
+pub(crate) fn parse_ts_calendrier(dh: &str) -> Option<i64> {
+    chrono::DateTime::parse_from_rfc3339(dh)
+        .or_else(|_| {
+            chrono::DateTime::parse_from_rfc3339(&format!(
+                "{}:{}",
+                &dh[..dh.len().saturating_sub(2)],
+                &dh[dh.len().saturating_sub(2)..]
+            ))
+        })
+        .ok()
+        .map(|d| d.timestamp())
+}
+
+/// Annonces USD HIGH à venir (≤ horizon) : (ts, titre) — matière première
+/// des types calendrier (owner 10/10) et du garde des créneaux annonces.
+pub(crate) async fn annonces_high_futures(
+    db: &Database,
+    horizon_sec: i64,
+) -> Vec<(i64, String)> {
+    let rows = sqlx::query(
+        "SELECT date_heure, titre FROM calendrier_cache
+         WHERE devise = 'USD' AND impact = 'High'",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap_or_default();
+    let maintenant = Utc::now().timestamp();
+    rows.iter()
+        .filter_map(|r| {
+            let dh: String = r.try_get("date_heure").ok()?;
+            let titre: String = r.try_get("titre").ok()?;
+            let ts = parse_ts_calendrier(&dh)?;
+            (ts > maintenant && ts <= maintenant + horizon_sec).then_some((ts, titre))
+        })
+        .collect()
+}
+
+/// Minutes (epoch/60) des annonces réelles USD High/Medium — le garde du
+/// propriétaire : les créneaux « annonces US » ne tirent que si une vraie
+/// annonce existe à la minute du slot.
 async fn minutes_annonces_reelles(db: &Database) -> std::collections::HashSet<i64> {
     let rows = sqlx::query(
         "SELECT date_heure FROM calendrier_cache
@@ -119,17 +157,7 @@ async fn minutes_annonces_reelles(db: &Database) -> std::collections::HashSet<i6
     rows.iter()
         .filter_map(|r| {
             let dh: String = r.try_get("date_heure").ok()?;
-            let ts = chrono::DateTime::parse_from_rfc3339(&dh)
-                .or_else(|_| {
-                    chrono::DateTime::parse_from_rfc3339(&format!(
-                        "{}:{}",
-                        &dh[..dh.len().saturating_sub(2)],
-                        &dh[dh.len().saturating_sub(2)..]
-                    ))
-                })
-                .ok()?
-                .timestamp();
-            Some(ts.div_euclid(60))
+            Some(parse_ts_calendrier(&dh)?.div_euclid(60))
         })
         .collect()
 }
@@ -137,6 +165,12 @@ async fn minutes_annonces_reelles(db: &Database) -> std::collections::HashSet<i6
 /// Annonces synthétiques des créneaux ÉVÉNEMENT armés d'un asset — même
 /// rail que les tier 1 et les anciens créneaux IA : le moteur straddle M1
 /// trie par ts, pose les 2 jambes à T-10 s de la première occurrence.
+/// Annonces du rail UNIFIÉ (owner 10/10) pour un asset : les créneaux à
+/// heure fixe armés (annonces synthétiques, garde calendrier pour les
+/// slots « annonce ») + les annonces RÉELLES High dont le type est armé
+/// dans la matrice (classification par titre, filet « cal_autres »).
+/// C'est la SEULE source du moteur straddle — plus de rail tier 1
+/// inconditionnel : chaque passe passe par une case armée.
 pub async fn annonces_evenements(db: &Database, asset: &str) -> Vec<straddle::Annonce> {
     let rows = sqlx::query(
         "SELECT evenement FROM creneaux_evenements WHERE asset = ? AND arme = 1",
@@ -147,33 +181,54 @@ pub async fn annonces_evenements(db: &Database, asset: &str) -> Vec<straddle::An
     .unwrap_or_default();
     let maintenant = Utc::now();
     let devise = if asset == "DAX" { "EUR" } else { "USD" };
-    // Le garde n'est lu QUE si un créneau « annonce » est armé pour cet
-    // asset (sinon zéro requête — les événements de marché ne sont pas
-    // concernés).
-    let gates: Vec<&EvenementModele> = rows
+    let armes: Vec<&'static EvenementModele> = rows
         .iter()
         .filter_map(|r| {
             let ident: String = r.get("evenement");
-            EVENEMENTS
-                .iter()
-                .find(|e| e.ident == ident && e.gate_calendrier)
+            EVENEMENTS.iter().find(|e| e.ident == ident)
         })
         .collect();
-    let minutes_reelles = if gates.is_empty() {
-        std::collections::HashSet::new()
-    } else {
-        minutes_annonces_reelles(db).await
-    };
+
     let mut out = Vec::new();
-    for r in &rows {
-        let ident: String = r.get("evenement");
-        let Some(ev) = EVENEMENTS.iter().find(|e| e.ident == ident) else {
-            continue;
-        };
+    // (b) D'ABORD les types CALENDAIRE armés : chaque annonce High réelle
+    // classée dans un type armé devient une passe à SA vraie heure (les non
+    // classées tombent dans le filet « cal_autres » s'il est armé). Leurs
+    // minutes sont retenues : un slot fixe gardé à la même minute ne tire
+    // PAS — sinon une NFP déclencherait DEUX passes (slot 8:30 + ligne 📅).
+    let mut minutes_classees: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    if armes.iter().any(|e| e.calendrier) {
+        for (ts, titre) in annonces_high_futures(db, 7 * 24 * 3600).await {
+            let classe = crate::evenements::classifie_annonce(&titre);
+            let ident = classe.unwrap_or("cal_autres");
+            let Some(ev) = EVENEMENTS.iter().find(|e| e.ident == ident) else {
+                continue;
+            };
+            if !armes.iter().any(|a| a.ident == ev.ident) {
+                continue; // ce type n'est pas armé pour cet asset
+            }
+            minutes_classees.insert(ts.div_euclid(60));
+            out.push(straddle::Annonce {
+                ts,
+                devise: devise.to_string(),
+                titre: format!("📅 {} — {}", ev.nom, titre),
+            });
+        }
+    }
+    // (a) Ensuite les créneaux à heure fixe (toujours, ou gated par annonce
+    // réelle). Déduplication owner 10/10 : un slot gardé dont la minute
+    // coïncide avec une annonce déjà servie par sa ligne 📅 ne tire pas ;
+    // sans annonce réelle à la minute du slot : silence (owner 29/09).
+    let gates = armes.iter().any(|e| e.gate_calendrier);
+    let minutes_reelles = if gates {
+        minutes_annonces_reelles(db).await
+    } else {
+        std::collections::HashSet::new()
+    };
+    for ev in armes.iter().filter(|e| !e.calendrier) {
         for ts in occurrences_suivantes(ev, maintenant, OCCURRENCES_ANNONCES) {
-            // Créneau « annonce » sans annonce réelle à la minute du slot :
-            // silence (owner 29/09).
-            if ev.gate_calendrier && !minutes_reelles.contains(&(ts / 60)) {
+            if ev.gate_calendrier
+                && (minutes_classees.contains(&(ts / 60)) || !minutes_reelles.contains(&(ts / 60)))
+            {
                 continue;
             }
             out.push(straddle::Annonce {

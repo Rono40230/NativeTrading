@@ -38,6 +38,10 @@ pub(crate) struct EvenementModele {
     /// événements de marché (ouvertures, fixs, réouvertures) ont leur
     /// cause chaque jour : jamais gated.
     pub(crate) gate_calendrier: bool,
+    /// true = TYPE CALENDAIRE (owner 10/10) : pas d'heure fixe — l'heure
+    /// vient de la VRAIE annonce du calendrier, classée par titre. tz/heure/
+    /// jours sont ignorés pour ces lignes (placeholder New York 8:30).
+    pub(crate) calendrier: bool,
 }
 
 /// Fixe le monde : Londres et Paris basculent ensemble (dernier dimanche de
@@ -54,6 +58,7 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         minute: 0,
         jours: &[1, 2, 3, 4, 5],
         gate_calendrier: false,
+        calendrier: false,
     },
     EvenementModele {
         ident: "lbma_am",
@@ -64,6 +69,7 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
         gate_calendrier: false,
+        calendrier: false,
     },
     EvenementModele {
         ident: "annonces_us_0830",
@@ -74,6 +80,7 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
         gate_calendrier: true,
+        calendrier: false,
     },
     EvenementModele {
         ident: "nyse_ouverture",
@@ -84,6 +91,7 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
         gate_calendrier: false,
+        calendrier: false,
     },
     EvenementModele {
         ident: "annonces_us_1000",
@@ -94,6 +102,7 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         minute: 0,
         jours: &[1, 2, 3, 4, 5],
         gate_calendrier: true,
+        calendrier: false,
     },
     EvenementModele {
         ident: "nyse_cloture",
@@ -104,6 +113,7 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         minute: 0,
         jours: &[1, 2, 3, 4, 5],
         gate_calendrier: false,
+        calendrier: false,
     },
     EvenementModele {
         ident: "londres_cloture",
@@ -114,6 +124,7 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         minute: 0,
         jours: &[1, 2, 3, 4, 5],
         gate_calendrier: false,
+        calendrier: false,
     },
     EvenementModele {
         ident: "cme_reouverture",
@@ -124,6 +135,7 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         minute: 0,
         jours: &[1, 2, 3, 4, 5],
         gate_calendrier: false,
+        calendrier: false,
     },
     EvenementModele {
         ident: "marche_reouverture_hebdo",
@@ -134,6 +146,118 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         minute: 0,
         jours: &[7],
         gate_calendrier: false,
+        calendrier: false,
+    },
+    EvenementModele {
+        ident: "asie_ouverture",
+        nom: "Ouverture Tokyo (session asiatique)",
+        detail: "9h00 Tokyo : le relais asiatique prend la liquidité — 2h00 Paris en été, 1h00 en hiver (Tokyo ne bascule jamais d'heure, Paris oui).",
+        tz: chrono_tz::Asia::Tokyo,
+        heure: 9,
+        minute: 0,
+        jours: &[1, 2, 3, 4, 5],
+        gate_calendrier: false,
+        calendrier: false,
+    },
+    // ── Types calendrier (owner 10/10) : l'heure vient de la vraie annonce ──
+    EvenementModele {
+        ident: "cal_nfp",
+        nom: "NFP — emploi US (1er vendredi)",
+        detail: "Non-Farm Payrolls et taux de chômage : la plus grosse volatilité mensuelle du calendrier.",
+        tz: chrono_tz::America::New_York,
+        heure: 8,
+        minute: 30,
+        jours: &[1, 2, 3, 4, 5],
+        gate_calendrier: false,
+        calendrier: true,
+    },
+    EvenementModele {
+        ident: "cal_cpi",
+        nom: "CPI US — inflation",
+        detail: "Indice des prix à la consommation (CPI/cœur) : le chiffre qui décide des attentes de taux.",
+        tz: chrono_tz::America::New_York,
+        heure: 8,
+        minute: 30,
+        jours: &[1, 2, 3, 4, 5],
+        gate_calendrier: false,
+        calendrier: true,
+    },
+    EvenementModele {
+        ident: "cal_fomc",
+        nom: "FOMC — taux + conférence",
+        detail: "Décision de taux et conférence de la Fed : 14h00 puis 14h30 New York les jours de réunion.",
+        tz: chrono_tz::America::New_York,
+        heure: 14,
+        minute: 0,
+        jours: &[1, 2, 3, 4, 5],
+        gate_calendrier: false,
+        calendrier: true,
+    },
+    EvenementModele {
+        ident: "cal_pce",
+        nom: "PCE US — inflation Fed",
+        detail: "Déflateur PCE (mesure d'inflation préférée de la Fed), 8:30 New York.",
+        tz: chrono_tz::America::New_York,
+        heure: 8,
+        minute: 30,
+        jours: &[1, 2, 3, 4, 5],
+        gate_calendrier: false,
+        calendrier: true,
+    },
+    EvenementModele {
+        ident: "cal_gdp",
+        nom: "PIB US (GDP)",
+        detail: "Croissance trimestrielle (advance/second/third estimate), 8:30 New York.",
+        tz: chrono_tz::America::New_York,
+        heure: 8,
+        minute: 30,
+        jours: &[1, 2, 3, 4, 5],
+        gate_calendrier: false,
+        calendrier: true,
+    },
+    EvenementModele {
+        ident: "cal_retail",
+        nom: "Retail Sales US",
+        detail: "Ventes au détail (et core retail), 8:30 New York — pouls du consommateur.",
+        tz: chrono_tz::America::New_York,
+        heure: 8,
+        minute: 30,
+        jours: &[1, 2, 3, 4, 5],
+        gate_calendrier: false,
+        calendrier: true,
+    },
+    EvenementModele {
+        ident: "cal_jobless",
+        nom: "Jobless Claims US (jeudi)",
+        detail: "Inscriptions hebdo au chômage, 8:30 New York chaque jeudi.",
+        tz: chrono_tz::America::New_York,
+        heure: 8,
+        minute: 30,
+        jours: &[4],
+        gate_calendrier: false,
+        calendrier: true,
+    },
+    EvenementModele {
+        ident: "cal_perso",
+        nom: "Dépenses personnelles US",
+        detail: "Personal Spending / Personal Income, 8:30 New York.",
+        tz: chrono_tz::America::New_York,
+        heure: 8,
+        minute: 30,
+        jours: &[1, 2, 3, 4, 5],
+        gate_calendrier: false,
+        calendrier: true,
+    },
+    EvenementModele {
+        ident: "cal_autres",
+        nom: "Autres annonces US High",
+        detail: "Filet : toute annonce High non classée dans un type ci-dessus (ISM, confiance, ventes de logements…) — armée par défaut pour ne perdre aucune passe.",
+        tz: chrono_tz::America::New_York,
+        heure: 8,
+        minute: 30,
+        jours: &[1, 2, 3, 4, 5],
+        gate_calendrier: false,
+        calendrier: true,
     },
 ];
 
@@ -205,6 +329,39 @@ pub(crate) fn prochaine_occurrence(ev: &EvenementModele, maintenant: DateTime<Ut
                 return Some(absolu.with_timezone(&Utc));
             }
         }
+    }
+    None
+}
+
+/// Classe le TITRE d'une annonce réelle en ident de type calendaire
+/// (owner 10/10). None = non classée → filet « cal_autres » si armé.
+/// Ordre = spécificité décroissante (PCE avant « Personal »).
+pub(crate) fn classifie_annonce(titre: &str) -> Option<&'static str> {
+    let t = titre.to_lowercase();
+    let dans = |mots: &[&str]| mots.iter().all(|m| t.contains(m));
+    if dans(&["non-farm"]) || dans(&["nonfarm"]) || (dans(&["employment"]) && t.contains("change")) {
+        return Some("cal_nfp");
+    }
+    if t.contains("cpi") || (t.contains("consumer") && t.contains("price")) {
+        return Some("cal_cpi");
+    }
+    if t.contains("fomc") || t.contains("federal funds rate") || t.contains("fed chair") {
+        return Some("cal_fomc");
+    }
+    if t.contains("pce") {
+        return Some("cal_pce");
+    }
+    if t.contains("gdp") || t.contains("gross domestic") {
+        return Some("cal_gdp");
+    }
+    if t.contains("retail sales") || (t.contains("core retail") ) {
+        return Some("cal_retail");
+    }
+    if t.contains("jobless") || t.contains("unemployment claims") || t.contains("initial claims") {
+        return Some("cal_jobless");
+    }
+    if t.contains("personal spending") || t.contains("personal income") {
+        return Some("cal_perso");
     }
     None
 }
@@ -306,7 +463,7 @@ mod tests {
         let jour = Utc.with_ymd_and_hms(2026, 9, 15, 0, 0, 0).unwrap();
         let debut = (jour - Duration::days(1)).timestamp();
         let fin = jour.timestamp();
-        let mut masques: HashMap<i64, u16> = HashMap::new();
+        let mut masques: HashMap<i64, u32> = HashMap::new(); // 19 événements > 16 bits
         for (i, e) in EVENEMENTS.iter().enumerate() {
             for ts in fenetres_evenement(e, debut, fin) {
                 *masques.entry(ts).or_insert(0) |= 1 << i;
@@ -323,5 +480,63 @@ mod tests {
         let ev = &EVENEMENTS[idx_1000];
         assert!(ev.nom.contains("fix"), "le nom doit citer le fix PM : {}", ev.nom);
         let _ = New_York; // référence du fuseau utilisé dans la taxonomie
+    }
+}
+
+#[cfg(test)]
+mod tests_calendrier {
+    use super::*;
+    use chrono::Timelike;
+
+    fn ev(ident: &str) -> &'static EvenementModele {
+        EVENEMENTS.iter().find(|e| e.ident == ident).expect("événement inconnu")
+    }
+
+    /// Tokyo n'a pas d'heure d'été, Paris oui : l'ouverture 9h Tokyo est à
+    /// 2h Paris en été (CEST=UTC+2, JST=UTC+9, écart 7h) et 1h en hiver
+    /// (écart 8h) — la machinerie DST doit suivre toute seule.
+    #[test]
+    fn ouverture_tokyo_suit_les_bascules_paris() {
+        let ete = Utc.with_ymd_and_hms(2026, 7, 15, 0, 0, 0).unwrap();
+        let hiver = Utc.with_ymd_and_hms(2026, 1, 15, 0, 0, 0).unwrap();
+        for (now, attendu) in [(ete, "02:00"), (hiver, "01:00")] {
+            let p = prochaine_occurrence(ev("asie_ouverture"), now - Duration::hours(12))
+                .expect("occurrence")
+                .with_timezone(&chrono_tz::Europe::Paris);
+            assert_eq!(format!("{:02}:{:02}", p.hour(), p.minute()), attendu);
+        }
+    }
+
+    /// Le classificateur mappe les titres ForexFactory réels vers les types.
+    #[test]
+    fn classifie_les_titres_reels() {
+        assert_eq!(classifie_annonce("Non-Farm Employment Change"), Some("cal_nfp"));
+        assert_eq!(classifie_annonce("CPI m/m"), Some("cal_cpi"));
+        assert_eq!(classifie_annonce("Core CPI m/m"), Some("cal_cpi"));
+        assert_eq!(classifie_annonce("FOMC Statement"), Some("cal_fomc"));
+        assert_eq!(classifie_annonce("Federal Funds Rate"), Some("cal_fomc"));
+        assert_eq!(classifie_annonce("Core PCE Price Index m/m"), Some("cal_pce"));
+        assert_eq!(classifie_annonce("Advance GDP q/q"), Some("cal_gdp"));
+        assert_eq!(classifie_annonce("Retail Sales m/m"), Some("cal_retail"));
+        assert_eq!(classifie_annonce("Unemployment Claims"), Some("cal_jobless"));
+        assert_eq!(classifie_annonce("Personal Spending m/m"), Some("cal_perso"));
+        assert_eq!(classifie_annonce("ISM Manufacturing PMI"), None, "non classée → filet cal_autres");
+    }
+
+    /// PCE contient « Personal » : la spécificité doit primer (PCE avant
+    /// dépenses personnelles dans l'ordre de classification).
+    #[test]
+    fn pce_prime_sur_personal() {
+        assert_eq!(classifie_annonce("Personal Income and Core PCE Price Index"), Some("cal_pce"));
+    }
+
+    /// Séparation des familles : les 9 fixes d'origine + Tokyo ne sont pas
+    /// calendrier ; les types oui.
+    #[test]
+    fn familles_fixes_vs_calendrier() {
+        let fixes = EVENEMENTS.iter().filter(|e| !e.calendrier).count();
+        let cal = EVENEMENTS.iter().filter(|e| e.calendrier).count();
+        assert_eq!(fixes, 10, "9 fixes d'origine + Tokyo");
+        assert_eq!(cal, 9, "8 types + filet cal_autres");
     }
 }

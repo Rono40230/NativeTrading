@@ -28,6 +28,9 @@ export interface EvenementArmement {
   heure_locale: string
   prochaine_ts: number | null
   prochaine_heure_paris: string | null
+  /// true = type calendaire (owner 10/10) : l'heure vient de la VRAIE
+  /// annonce classée par titre — pas d'heure fixe.
+  calendrier?: boolean
   lignes: LigneArmement[]
 }
 
@@ -105,10 +108,22 @@ export function useEvenementsArmement() {
     }
   }
 
+  /// Ligne de la matrice (owner 10/10) : armer/désarmer toutes les cases
+  /// d'UN événement — armer = nouveau test à zéro, comme basculer.
+  async function basculerEvenement(ident: string, arme: boolean) {
+    enCours.value = true
+    try {
+      await http.post('/api/evenements/armement/evenement', { evenement: ident, arme }, { timeout: 30_000 })
+      await charger()
+    } finally {
+      enCours.value = false
+    }
+  }
+
   async function sauverSeuils(min: number, plancher_r: number) {
     await http.put('/api/evenements/seuils', { min: Math.round(min), plancher_r })
     await charger()
   }
 
-  return { evenements, assets, seuils, archive, chargement, enCours, charger, basculer, toutArmer, sauverSeuils }
+  return { evenements, assets, seuils, archive, chargement, enCours, charger, basculer, basculerEvenement, toutArmer, sauverSeuils }
 }

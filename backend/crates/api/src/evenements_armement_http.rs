@@ -4,7 +4,7 @@
 
 
 use actix_web::{web, HttpResponse, Responder};
-use chrono::{Timelike, Utc};
+use chrono::{Datelike, Timelike, Utc};
 use sqlx::Row;
 
 use crate::state::AppState;
@@ -27,9 +27,21 @@ pub async fn get_armement(state: web::Data<AppState>) -> impl Responder {
     .unwrap_or_default();
 
     let maintenant = Utc::now();
+    // Premier ts réel à venir par type calendaire (une seule lecture du
+    // calendrier, classification en mémoire).
+    let annonces_futures = crate::evenements_armement::annonces_high_futures(&state.db, 14 * 24 * 3600).await;
+    let mut prochain_par_type: std::collections::HashMap<&'static str, i64> = std::collections::HashMap::new();
+    for (ts, titre) in &annonces_futures {
+        let ident = crate::evenements::classifie_annonce(titre).unwrap_or("cal_autres");
+        prochain_par_type
+            .entry(ident)
+            .and_modify(|t| *t = (*t).min(*ts))
+            .or_insert(*ts);
+    }
     let mut evenements: Vec<serde_json::Value> = EVENEMENTS
         .iter()
         .map(|ev| {
+            let prochain_ts_type = if ev.calendrier { prochain_par_type.get(ev.ident).copied() } else { None };
             let lignes: Vec<serde_json::Value> = rows
                 .iter()
                 .filter(|r| r.get::<String, _>("evenement") == ev.ident)
@@ -43,7 +55,16 @@ pub async fn get_armement(state: web::Data<AppState>) -> impl Responder {
                     "hors_perimetre": !perimetre.iter().any(|p| p == r.get::<String, _>("asset").as_str()),
                 }))
                 .collect();
-            let prochaine = prochaine_occurrence(ev, maintenant);
+            // Types calendrier : la prochaine occurrence est la VRAIE
+            // annonce à venir du type (classée par titre) — pas une heure
+            // fixe. Lecture une seule fois par requête (lazy ci-dessous).
+            let prochaine = if ev.calendrier {
+                prochain_ts_type.as_ref().and_then(|ts| {
+                    chrono::DateTime::from_timestamp(*ts, 0)
+                })
+            } else {
+                prochaine_occurrence(ev, maintenant)
+            };
             let paris = prochaine.map(|p| p.with_timezone(&chrono_tz::Europe::Paris));
             serde_json::json!({
                 "ident": ev.ident,
@@ -52,8 +73,9 @@ pub async fn get_armement(state: web::Data<AppState>) -> impl Responder {
                 "fuseau": ev.tz.name(),
                 "heure_locale": format!("{:02}:{:02}", ev.heure, ev.minute),
                 "jours": ev.jours,
+                "calendrier": ev.calendrier,
                 "prochaine_ts": prochaine.map(|p| p.timestamp()),
-                "prochaine_heure_paris": paris.map(|p| format!("{:02}:{:02}", p.hour(), p.minute())),
+                "prochaine_heure_paris": paris.map(|p| format!("{:02}:{:02} {}/{}", p.hour(), p.minute(), p.day(), p.month())),
                 "lignes": lignes,
             })
         })
@@ -177,6 +199,44 @@ pub async fn tout_armer(state: web::Data<AppState>, body: web::Json<BodyTout>) -
 }
 
 #[derive(serde::Deserialize)]
+pub struct BodyEvenementLigne {
+    pub evenement: String,
+    pub arme: bool,
+}
+
+/// POST /api/evenements/armement/evenement — armer/désarmer TOUTES les
+/// cases d'un événement (ligne de la matrice croisée, owner 10/10).
+/// Mêmes sémantiques que basculer : armer = compteurs à zéro (nouveau
+/// test), désarmer = compteurs conservés.
+pub async fn basculer_evenement(
+    state: web::Data<AppState>,
+    body: web::Json<BodyEvenementLigne>,
+) -> impl Responder {
+    if !EVENEMENTS.iter().any(|e| e.ident == body.evenement) {
+        return HttpResponse::BadRequest().json(serde_json::json!({
+            "error": format!("Événement inconnu : {}", body.evenement)
+        }));
+    }
+    let res = if body.arme {
+        sqlx::query(
+            "UPDATE creneaux_evenements SET arme = 1, arme_le = strftime('%s','now'),
+                    occurrences = 0, somme_r = 0, verdict_test = NULL, conclut_le = NULL
+             WHERE evenement = ?",
+        )
+        .bind(&body.evenement)
+    } else {
+        sqlx::query("UPDATE creneaux_evenements SET arme = 0, arme_le = NULL WHERE evenement = ?")
+            .bind(&body.evenement)
+    }
+    .execute(state.db.pool())
+    .await;
+    match res {
+        Ok(r) => HttpResponse::Ok().json(serde_json::json!({ "modifiees": r.rows_affected() })),
+        Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+#[derive(serde::Deserialize)]
 pub struct BodySeuils {
     pub min: i64,
     pub plancher_r: f64,
@@ -210,10 +270,14 @@ mod tests_db {
     use crate::evenements::EVENEMENTS;
     use crate::evenements_armement::{semer, annonces_evenements, occurrences_suivantes, OCCURRENCES_ANNONCES};
 
-    async fn db_test() -> Database {
+    pub(crate) async fn db_test_util() -> Database {
         let db = Database::new(":memory:").await.expect("DB mémoire");
         db.run_migrations().await.expect("migrations OK");
         db
+    }
+
+    async fn db_test() -> Database {
+        db_test_util().await
     }
 
     /// Le semis couvre périmètre × taxonomie, est idempotent, et produit
@@ -253,8 +317,13 @@ mod tests_db {
         // créneaux « annonces » gated : calendrier vide dans ce test,
         // ils ne tirent aucun jour (owner 29/09).
         let annonces = annonces_evenements(&db, "XAUUSD").await;
-        let non_gated = EVENEMENTS.iter().filter(|e| !e.gate_calendrier).count();
-        assert_eq!(annonces.len(), non_gated * OCCURRENCES_ANNONCES);
+        // Fixes NON calendrier uniquement : les types calendaire tirent sur
+        // le calendrier (vide ici → zéro) et les slots gated ne tirent pas.
+        let fixes = EVENEMENTS
+            .iter()
+            .filter(|e| !e.gate_calendrier && !e.calendrier)
+            .count();
+        assert_eq!(annonces.len(), fixes * OCCURRENCES_ANNONCES);
         let maintenant = Utc::now().timestamp();
         assert!(annonces.iter().all(|a| a.ts > maintenant));
         assert!(annonces.iter().all(|a| a.devise == "USD"));
@@ -333,3 +402,53 @@ mod tests_db {
 }
 
 
+
+#[cfg(test)]
+mod tests_dedup {
+    use super::tests_db::db_test_util;
+    use crate::evenements::{classifie_annonce, EVENEMENTS};
+    use crate::evenements_armement::{annonces_evenements, occurrences_suivantes};
+
+    /// Déduplication owner 10/10 : une annonce NFP réelle posée PILE sur le
+    /// slot gardé 8:30 New York ne doit produire qu'UNE passe (sa ligne 📅
+    /// cal_nfp) — le slot fixe garde le silence à cette minute. Avec le type
+    /// désarmé en revanche, le slot tire (l'annonce existe à sa minute).
+    #[tokio::test]
+    async fn nfp_sur_le_slot_830_une_seule_passe() {
+        let db = db_test_util().await;
+        // Périmètre minimal + semis complet.
+        db.ecrire_config("perimetre_straddle", r#"["XAUUSD"]"#).await.unwrap();
+        crate::evenements_armement::semer(&db).await;
+
+        // L'annonce NFP réelle = pile la prochaine occurrence du slot 8:30.
+        let slot = EVENEMENTS.iter().find(|e| e.ident == "annonces_us_0830").unwrap();
+        let ts = occurrences_suivantes(slot, chrono::Utc::now(), 1)[0];
+        assert_eq!(classifie_annonce("Non-Farm Employment Change"), Some("cal_nfp"));
+        let rfc = chrono::DateTime::from_timestamp(ts, 0).unwrap().to_rfc3339();
+        sqlx::query(
+            "INSERT INTO calendrier_cache (id, date_heure, devise, titre, impact, precedent, prevision, fetched_at)
+             VALUES ('test-nfp', ?, 'USD', 'Non-Farm Employment Change', 'High', '', '', 0)",
+        )
+        .bind(&rfc)
+        .execute(db.pool())
+        .await
+        .unwrap();
+
+        // cal_nfp ARMÉ (semis) : une seule passe à cette minute, la 📅.
+        let annonces = annonces_evenements(&db, "XAUUSD").await;
+        let a_ts: Vec<i64> = annonces.iter().map(|a| a.ts).collect();
+        assert_eq!(a_ts.iter().filter(|t| **t == ts).count(), 1, "UNE passe, pas deux : {annonces:?}");
+        assert!(annonces.iter().any(|a| a.ts == ts && a.titre.starts_with("📅")), "c'est la ligne NFP qui tire");
+
+        // cal_nfp DÉSARMÉ : le slot gardé 8:30 reprend la main (l'annonce
+        // existe à sa minute) — toujours exactement une passe.
+        sqlx::query("UPDATE creneaux_evenements SET arme = 0 WHERE evenement = 'cal_nfp'")
+            .execute(db.pool())
+            .await
+            .unwrap();
+        let annonces = annonces_evenements(&db, "XAUUSD").await;
+        let n = annonces.iter().filter(|a| a.ts == ts).count();
+        assert_eq!(n, 1, "le slot 8:30 tire en relais : {annonces:?}");
+        assert!(annonces.iter().any(|a| a.ts == ts && a.titre.starts_with("🎻") || annonces.iter().any(|a| a.ts == ts && a.titre.starts_with("📯"))));
+    }
+}

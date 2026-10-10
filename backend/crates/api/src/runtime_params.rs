@@ -123,17 +123,22 @@ pub fn retirer_changements_params(
     }
 }
 
-/// Construit la carte des fenêtres d'annonces par asset du périmètre straddle
-/// (tier 1 + événements armés).
+/// Construit la carte des fenêtres d'annonces par asset du périmètre
+/// straddle — RAIL UNIFIÉ (owner 10/10) : uniquement ce que la matrice
+/// arme pour l'asset (fixes + types calendrier classés). Le moteur
+/// consomme exactement la même source : les fenêtres de garde hot-reload
+/// couvrent les vraies passes, ni plus ni moins.
 pub async fn fenetres_straddle(
     db: &std::sync::Arc<db::Database>,
     perimetre: &[String],
 ) -> HashMap<String, Vec<i64>> {
     let mut carte: HashMap<String, Vec<i64>> = HashMap::new();
-    let tier1 = crate::runtime_amorces::annonces_tier1(db).await;
     for a in perimetre {
-        let mut ts: Vec<i64> = tier1.iter().map(|x| x.ts).collect();
-        ts.extend(crate::evenements_armement::annonces_evenements(db, a).await.iter().map(|x| x.ts));
+        let ts: Vec<i64> = crate::evenements_armement::annonces_evenements(db, a)
+            .await
+            .iter()
+            .map(|x| x.ts)
+            .collect();
         carte.insert(a.clone(), ts);
     }
     carte
