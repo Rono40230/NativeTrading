@@ -29,6 +29,7 @@
         :mfe="historique.mfeParId.value"
         :lots="historique.lotParId.value"
         :profits="historique.profitParId.value"
+        :capitaux="historique.capitalApresParId.value"
         :journal-comptes="historique.journalComptes.value"
         @trier-par="historique.trierPar"
         @journal-maj="historique.charger()"

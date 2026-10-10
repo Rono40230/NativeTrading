@@ -5,6 +5,7 @@ import { http } from '@/services/http.client'
 import { usePrixStore } from '@/stores/prix.store'
 import { useAssetParamsStore } from '@/stores/assetParams.store'
 import { useSettingsStore } from '@/stores/settings.store'
+import { calculerPositionKdj } from '@/composables/useSignalFormat'
 
 export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets' | 'kdj_halftrend') {
   const prixStore = usePrixStore()
@@ -112,6 +113,19 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets' | 'k
     return settingsStore.capitalDepart * (risquePct.value / 100)
   }
 
+  /// Lots backend par id (KDJ — source unique avec l'historique).
+  const lotsBackend = ref<Record<string, number>>({})
+
+  /// Position KDJ : unités de l'actif + risque $ (décision owner 10/10),
+  /// depuis le lot backend (capital composé à l'émission).
+  function positionKdj(s: Signal): { unites: number; risque: number; engage: number } | null {
+    const p = assetParamsStore.liste.find(x => x.asset === s.asset)
+    if (!p) return null
+    const calc = calculerPositionKdj(lotsBackend.value[s.id], s.prix_entree, s.stop_loss, p.taille_pip, p.valeur_pips)
+    if (!calc) return null
+    return { ...calc, engage: calc.unites * s.prix_entree }
+  }
+
 
   function infosPips(cible: number | null | undefined, base: number, actif: string): string {
     if (!cible || cible === 0 || base === 0 || !actif) return ''
@@ -134,6 +148,17 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets' | 'k
           ? SMC_NOMS.includes(s.strategie)
           : s.strategie.toLowerCase() === strategie.toLowerCase()
       )
+      // KDJ (10/10) : la taille vient du MÊME calcul backend que
+      // l'historique (capital composé à l'émission, distance réelle du
+      // trade) — une seule source de vérité, fin des lots divergents.
+      if (strategie === 'kdj_halftrend') {
+        const ids = listeActive.value.map(s => s.id)
+        if (ids.length) {
+          lotsBackend.value = await apiService
+            .getLotsSignaux(ids)
+            .catch(() => ({} as Record<string, number>))
+        }
+      }
     } catch { /* silencieux */ } finally {
       chargement.value = false
     }
@@ -155,9 +180,9 @@ export function useSignauxTableau(strategie: 'SMC' | 'straddle' | 'Rockets' | 'k
 
   return {
     signaux, chargement, filtreStatut, remplisSeuls, estEngage, montantRisque,
-    listeActive, signauxTries,
+    listeActive, signauxTries, risquePct,
     charger, trierPar, icone, infosPips,
-    classeConviction, classePrix, lotPourSignal,
+    classeConviction, classePrix, lotPourSignal, positionKdj,
     prixStore, assetParamsStore, settingsStore,
   }
 }

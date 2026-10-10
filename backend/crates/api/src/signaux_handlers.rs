@@ -235,7 +235,11 @@ pub async fn post_lots_signaux(
     };
 
     // Capital composé + risque par stratégie (une lecture par requête).
-    let mut capitaux: HashMap<String, (f64, Vec<(i64, f64)>)> = HashMap::new();
+    // (risque, capital_départ, points composés) — le départ sert de repli :
+    // les PREMIERS trades d'une stratégie n'ont aucune clôture avant eux,
+    // leur lot doit partir du capital initial, pas de 0 (écart n° 6 du
+    // 10/10 : les 3 premiers KDJ restaient sans lot).
+    let mut capitaux: HashMap<String, (f64, f64, Vec<(i64, f64)>)> = HashMap::new();
     for l in &lignes {
         let strategie = if l.strategie.to_lowercase().starts_with("smc") {
             "SMC".to_string()
@@ -246,12 +250,14 @@ pub async fn post_lots_signaux(
             continue;
         }
         let reg = state.db.lire_strategie(&strategie).await.ok().flatten();
-        let points = crate::capital_simule::simuler(&state.db, &strategie)
-            .await
+        let sim = crate::capital_simule::simuler(&state.db, &strategie).await;
+        let points = sim
+            .as_ref()
             .map(|s| s.points.iter().map(|p| (p.ferme_le, p.capital_apres)).collect())
             .unwrap_or_default();
+        let depart = sim.as_ref().map(|s| s.capital_depart).unwrap_or(0.0);
         let risque = reg.as_ref().map(|r| r.risque_pct).unwrap_or(1.0);
-        capitaux.insert(strategie, (risque, points));
+        capitaux.insert(strategie, (risque, depart, points));
     }
 
     // Conventions par asset (cache requête).
@@ -259,7 +265,7 @@ pub async fn post_lots_signaux(
 
     let mut reponse = serde_json::Map::new();
     for l in &lignes {
-        let Some((risque_pct, points)) = capitaux.get(&l.strategie) else {
+        let Some((risque_pct, capital_depart, points)) = capitaux.get(&l.strategie) else {
             continue;
         };
         let (taille_pip, valeur_pip) = match conventions.get(&l.asset) {
@@ -282,13 +288,14 @@ pub async fn post_lots_signaux(
         if stop_pips <= 0.0 {
             continue;
         }
-        // Capital composé au moment de l'émission : dernière clôture avant.
+        // Capital composé au moment de l'émission : dernière clôture avant,
+        // sinon capital de départ (premiers trades de la stratégie).
         let capital = points
             .iter()
             .filter(|(ferme, _)| *ferme <= l.cree_le)
             .next_back()
             .map(|(_, cap)| *cap)
-            .unwrap_or(0.0);
+            .unwrap_or(*capital_depart);
         if capital <= 0.0 {
             continue;
         }

@@ -249,3 +249,26 @@ export function nbOrdresPoses(
     return (s.heure_entree ?? 0) > Math.floor(Date.now() / 1000)
   }).length
 }
+
+/// Position KDJ (décision owner 10/10) : la taille s'exprime en UNITÉS de
+/// l'actif, pas en lot forex. risque$ = lot × stop_pips × valeur_pip (exact
+/// par construction — le lot vient du calcul backend « capital composé à
+/// l'émission, distance réelle du trade ») ; unités = risque$ / distance$.
+export function calculerPositionKdj(
+  lot: number | undefined,
+  entree: number,
+  sl: number,
+  taillePip: number,
+  valeurPip: number,
+): { unites: number; risque: number } | null {
+  if (lot === undefined || taillePip <= 0 || valeurPip <= 0 || !entree) return null
+  const distance = Math.abs(entree - sl)
+  if (distance <= 0) return null
+  const risque = lot * (distance / taillePip) * valeurPip
+  return { unites: risque / distance, risque }
+}
+
+/// Affichage lisible des unités : 13,0 au-dessus de 10, 1,29 en dessous.
+export function fmtUnites(u: number): string {
+  return u >= 10 ? u.toFixed(1) : u.toFixed(2)
+}

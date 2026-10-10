@@ -25,6 +25,22 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
   const journalComptes = ref<Record<string, number>>({})
   /** $ réel encaissé par trade (re-jeu capital — rapprochement par id). */
   const profitParId = ref<Record<string, number>>({})
+  /** Capital de départ de la stratégie (re-jeu capital). */
+  const capitalDepart = ref<number | null>(null)
+  /** Capital composé APRÈS chaque clôture (ordre chronologique) — variante kdj. */
+  const capitalApresParId = computed<Record<string, number>>(() => {
+    if (capitalDepart.value === null) return {}
+    const fermes = signauxFiltres.value
+      .filter(s => s.ferme_le !== null && profitParId.value[s.id] !== undefined)
+      .sort((a, b) => (a.ferme_le! - b.ferme_le!))
+    const carte: Record<string, number> = {}
+    let capital = capitalDepart.value
+    for (const s of fermes) {
+      capital += profitParId.value[s.id]
+      carte[s.id] = capital
+    }
+    return carte
+  })
 
   // ── Tri par colonne (HistoryTable émet « trier-par ») ────────────────────
   const triColonne = ref('')
@@ -134,6 +150,7 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
         const carte: Record<string, number> = {}
         for (const c of analyse?.clotures ?? []) carte[c.id] = c.dollars
         profitParId.value = carte
+        capitalDepart.value = analyse?.capital_depart ?? null
       } catch { profitParId.value = {} }
     } catch {
       signaux.value = []
@@ -142,5 +159,5 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
     }
   }
 
-  return { signauxFiltres, signauxTriés, totaux, mfeParId, lotParId, journalComptes, profitParId, triColonne, triDir, trierPar, chargement, charger }
+  return { signauxFiltres, signauxTriés, totaux, mfeParId, lotParId, journalComptes, profitParId, capitalApresParId, triColonne, triDir, trierPar, chargement, charger }
 }

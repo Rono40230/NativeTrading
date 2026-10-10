@@ -12,13 +12,14 @@
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('asset')">Asset <span>{{ icone('asset') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('timeframe')">TF / Phase <span>{{ icone('timeframe') }}</span></th>
             <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="trierPar('direction')">Direction <span>{{ icone('direction') }}</span></th>
-            <th v-if="strategie !== 'straddle'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('score')">Score <span>{{ icone('score') }}</span></th>
-            <th class="px-3 py-3 text-right">Lot</th>
+            <th v-if="strategie !== 'straddle' && strategie !== 'kdj_halftrend'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('score')">Score <span>{{ icone('score') }}</span></th>
+            <th class="px-3 py-3 text-right">{{ strategie === 'kdj_halftrend' ? 'Position' : 'Lot' }}</th>
             <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('prix_entree')">Entrée <span>{{ icone('prix_entree') }}</span></th>
             <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="trierPar('stop_loss')">SL <span>{{ icone('stop_loss') }}</span></th>
-            <th class="px-3 py-3 text-right">TP1</th>
-            <th class="px-3 py-3 text-right">TP2</th>
-            <th class="px-3 py-3 text-right">TP3</th>
+            <!-- KDJ : TP unique — une seule colonne « TP » (décision owner 10/10). -->
+            <th class="px-3 py-3 text-right">{{ strategie === 'kdj_halftrend' ? 'TP' : 'TP1' }}</th>
+            <th v-if="strategie !== 'kdj_halftrend'" class="px-3 py-3 text-right">TP2</th>
+            <th v-if="strategie !== 'kdj_halftrend'" class="px-3 py-3 text-right">TP3</th>
             <th v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right">Prix actuel</th>
             <th v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right cursor-help" title="R Latent = DISTANCE du prix à l'entrée, en multiples du risque (convention unique de l'app) — le palier atteint par le mouvement, pas la répartition des ventes partielles (elle vit dans le capital $)">R Latent</th>
             <th v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right cursor-help" title="P/L latent en $ réels = R latent × montant risqué (capital × risque % de la stratégie)">P/L Latent</th>
@@ -37,8 +38,18 @@
             <td class="px-3 py-3">
               <span class="badge" :class="s.direction === 'LONG' ? 'badge-green' : s.direction === 'SHORT' ? 'badge-red' : 'badge-blue'">{{ s.direction }}</span>
             </td>
-            <td v-if="strategie !== 'straddle'" class="px-3 py-3 text-right font-mono text-white">{{ s.score.toFixed(0) }}</td>
-            <td class="px-3 py-3 text-right leading-tight">
+            <td v-if="strategie !== 'straddle' && strategie !== 'kdj_halftrend'" class="px-3 py-3 text-right font-mono text-white">{{ s.score.toFixed(0) }}</td>
+            <!-- KDJ : position en UNITÉS + risque $ (décision owner 10/10),
+                 même source backend que l'historique. -->
+            <td v-if="strategie === 'kdj_halftrend'" class="px-3 py-3 text-right leading-tight">
+              <template v-if="positionKdj(s)">
+                <div class="font-mono font-bold text-yellow-300">{{ fmtUnites(positionKdj(s)!.unites) }} unités</div>
+                <div class="text-[10px] text-white">{{ positionKdj(s)!.risque.toFixed(0) }} $ risqués · {{ risquePct.toFixed(0) }} %</div>
+                <div class="text-[9px] text-white/40">≈ {{ Math.round(positionKdj(s)!.engage) }} $ engagés</div>
+              </template>
+              <span v-else class="text-white text-xs">—</span>
+            </td>
+            <td v-else class="px-3 py-3 text-right leading-tight">
               <div v-if="lotPourSignal(s)" class="font-mono font-bold text-yellow-300">{{ lotPourSignal(s) }}</div>
               <div v-if="lotPourSignal(s)" class="text-[10px] text-white">{{ montantRisque().toFixed(0) }} $</div>
               <span v-else class="text-white text-xs">—</span>
@@ -52,11 +63,11 @@
               <div>{{ formatNombre(s.take_profit[0]) }}</div>
               <div class="text-[10px] text-white font-sans tracking-tight">{{ infosPips(s.take_profit[0], s.prix_entree, s.asset) }}</div>
             </td>
-            <td class="px-3 py-3 text-right font-mono text-emerald-300">
+            <td v-if="strategie !== 'kdj_halftrend'" class="px-3 py-3 text-right font-mono text-emerald-300">
               <div>{{ s.take_profit[1] ? formatNombre(s.take_profit[1]) : '—' }}</div>
               <div v-if="s.take_profit[1]" class="text-[10px] text-white font-sans tracking-tight">{{ infosPips(s.take_profit[1], s.prix_entree, s.asset) }}</div>
             </td>
-            <td class="px-3 py-3 text-right font-mono text-emerald-200">
+            <td v-if="strategie !== 'kdj_halftrend'" class="px-3 py-3 text-right font-mono text-emerald-200">
               <div>{{ s.take_profit[2] ? formatNombre(s.take_profit[2]) : '—' }}</div>
               <div v-if="s.take_profit[2]" class="text-[10px] text-white font-sans tracking-tight">{{ infosPips(s.take_profit[2], s.prix_entree, s.asset) }}</div>
             </td>
@@ -122,7 +133,7 @@ import { useLatentsSignaux } from '@/composables/useLatentsSignaux'
 import { ciblerPremierSlot } from '@/utils/graphiques'
 import { useRouter } from 'vue-router'
 import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
-import { formatDate, formatNombre } from '@/composables/useSignalFormat'
+import { formatDate, formatNombre, fmtUnites } from '@/composables/useSignalFormat'
 import type { Signal } from '@/services/api.types'
 
 const props = defineProps<{
@@ -134,9 +145,9 @@ const props = defineProps<{
 
 const {
   signaux, chargement,
-  filtreStatut, listeActive, signauxTries, remplisSeuls, montantRisque,
+  filtreStatut, listeActive, signauxTries, remplisSeuls, montantRisque, risquePct,
   charger, trierPar, icone, infosPips,
-  classeConviction, classePrix, lotPourSignal,
+  classeConviction, classePrix, lotPourSignal, positionKdj,
   prixStore, assetParamsStore, settingsStore,
 } = useSignauxTableau(props.strategie)
 
