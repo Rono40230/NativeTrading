@@ -28,16 +28,16 @@
 
 ## 2. Tableau de bord [§ 3]
 
-- [ ] Bloc STRATÉGIES : 4 colonnes avec capital, Σ R, WR, compteur de positions, état
-- [ ] Les 4 capitaux correspondent aux valeurs d'hier (vécu immuable — pas de saut)
-- [ ] Planche MÉTÉO animée (jauges/ticker)
-- [ ] Horloges SESSIONS MONDIALES à l'heure
-- [ ] Bandeau : les 3 badges cliquables → 3 modales s'ouvrent (calendrier, créneaux, macro)
-- [ ] Modale calendrier : annonces des 10 prochains jours présentes
-- [ ] Fenêtre macro : visible si annonce High ±30 min à venir ; sinon silencieuse (normal)
-- [ ] Pedestal COMMS : fenêtres par source vivantes
-- [ ] Cartes positions à risque / neutralisées cohérentes avec les pages stratégies
-- [ ] Toggle Telegram d'une stratégie : réagit au clic (état conservé après rechargement)
+- [x] Bloc STRATÉGIES : 4 colonnes avec capital, Σ R, WR, compteur de positions, état
+- [x] Les 4 capitaux correspondent aux valeurs d'hier (vécu immuable — pas de saut)
+- [x] Planche MÉTÉO animée (jauges/ticker)
+- [x] Horloges SESSIONS MONDIALES à l'heure
+- [x] Bandeau : les 3 badges cliquables → 3 modales s'ouvrent (calendrier vide ce WE — voir écart 3, affiné)
+- [x] Modale calendrier : vide ce samedi — NORMAL (ForexFactory publie « nextweek » plus tard ; worker retry 3 h — écart 3 = message 503 trompeur, correctif proposé)
+- [x] Fenêtre macro : silencieuse (aucune annonce High à venir — normal un samedi)
+- [x] Pedestal COMMS : fenêtres par source vivantes
+- [x] Cartes positions à risque / neutralisées cohérentes (2 KDJ LINK/SOL visibles)
+- [x] Toggle Telegram d'une stratégie : réagit au clic (état conservé après rechargement)
 
 ## 3. Stratégie SMC [§ 4.1]
 
@@ -46,7 +46,7 @@
 - [ ] Historique : tri par colonne fonctionnel ; paliers max et $ présents
 - [ ] Aucun trade fermé n'affiche « ⏳ En cours » (vocabulaire verdicts — régression du 09/10)
 - [ ] ⚙️ Paramètres : registre (capital 1000, risque 1 %) et niveaux (TP1 0,6 · TP2 2,0 · TP3 lointaine · trailing ON 0,1 · fractions 100/0/0)
-- [ ] Bloc « Réglage par asset » : sélectionner XAUUSD → badge « surchargé » sur trailing 0,2 ; placeholder grisé sur les champs au défaut
+- [ ] Bloc « Réglage par asset » : sélectionner un asset → placeholder grisés (aucune surcharge en base au 10/10 — les tester en parcours 8/H)
 - [ ] 🕐 Timeframes/Assets : grille conforme (9 assets × M5/M15/M30 ; M1 et H1 désarmés)
 - [ ] Page Définition SMC : lexique complet charge
 - [ ] Page Scanner SMC : bandeau 📍 Zones à l'approche présent + cartes du vivier
@@ -166,6 +166,12 @@
 | 2 | 1. Démarrage | Bannières boot trompeuses : « Boucles Straddle SUSPENDUES » / « Worker Rockets scan SUSPENDU » alors que 81 créneaux armés + scan rockets frais (11:23:26) | vieux logs legacy d'une phase passée | purger/clarifier ces lignes | à décrire puis corriger |
 | 3 | 1. Démarrage | ForexFactory JSON semaine suivante → HTTP 404 | URL distante changée ou transient | vérifier la modale calendrier (parcours 2) ; corriger l'URL si persistant | en attente |
 | 4 | 1. Démarrage | Boucle « Bybit linear session fermée ~µs » (bruit log) | aucun actif linear Bybit par design (XAU/XAG = MT5) | descendre ce cas en log debug | cosmétique |
+| 8 | 3. SMC | AUTO-ARM : est_arme() considérait tout asset ABSENT de la map comme armé (M1-M30) — 15 assets réactivés hier soir → 62 trades hors périmètre (dont positions M1 remplies). Scanner corrigé le 27/09 mais pas l'armement runtime | sémantique historique « tout armé » (décision 01/09) jamais alignée | CODÉ : None => false (aligné scanner) + test ; PURGE 62 trades + scoring (backup dédié) sur ordre owner ; vérifié en prod au boot 16h02 (27 couples légitimes, LINK désarmé, 0 rescapé). 156 trades anciens (14-28/09) PURGÉS sur ordre owner (avec scoring, couverts par le même backup) — vécu SMC final : 499 trades · Σ R +89,75 | **résolu, vérifié prod** |
+| 9 | 3. SMC | En-tête historique (173 trades · +13,56 R) contredisait la carte dashboard (654 · +112,5 R) : fenêtre « 500 derniers signaux toutes stratégies » + somme FRONT sur la fenêtre | la promesse 16/09 « Σ R servi par le backend » violée sur l'en-tête | CODÉ : totaux de l'en-tête servis par /api/analyses (nb_trades + r_distance_total — même source que le dashboard), repli fenêtre si analyse indisponible | à valider à l'écran |
+| 10 | 2. Dashboard | Jauge « Positioning BTC/ETH L/S » (Bybit) retirée sur demande owner + résumé assets « X assets » sans « · Y couples » | — | CODÉ : suppression bout-en-bout (PlancheMeteo bloc/calculs/textes, types marché, backend Positioning/fetchers/cache/payload), zéro résidu | à valider à l'écran |
+| 11 | 3-5. Pages | État « Officielle/Observation » divergent : StraddleView hardcodait « Observation » et RocketsView aussi (registre = Officielle pour les deux) — les cartes dashboard contredisaient les pages | états hardcodés | CODÉ : composable useEtatStrategie (source unique /api/strategies, cache partagé) branché sur les 4 pages | à valider à l'écran |
+| 12 | 3-5. Historiques | Doctrine owner : niveaux figés (SL/TP), Sortie et Stratégie sortent de TOUS les historiques ; Gain/Perte + Évolution du capital généralisés (SMC, straddle, KDJ) ; rockets : Invalidation + Montant retirés (Qté gardée), Évolution du capital ajoutée | tables chargées de colonnes sans valeur de relecture | CODÉ : HistoryTable refondu (variantes smc/straddle/kdj), rockets idem (cumul chronologique pl_dollars depuis capital_depart /api/analyses) | à valider à l'écran |
+| 13 | 4. Straddle | Section « 📜 Créneaux événements » de la page dupliquée avec la modale « Assets & créneaux » du dashboard (même matrice 81 cases, mêmes boutons) — owner : un seul poste d'armement | duplication 28/09 | CODÉ : modale complétée (seuils de la boucle + verdicts 7 j + archive déplacés dedans), page Straddle épurée (agenda seul), composable partagé inchangé, zéro code mort | à valider à l'écran |
 | 5 | 6. KDJ | Tableaux KDJ à ajuster (owner 10/10) : en cours = TP1 seul renommé TP, masquer Score ; historique = masquer Score, supprimer Verdict (redondant palier max), colonnes **Gain/Perte** puis **Évolution du capital** après palier max | variante KDJ incomplète | SignauxTableau (TP unique, sans Score) + HistoryTable (sans Score/Verdict, + Gain/Perte, + Évolution du capital) | **validé owner 10/10** |
 | 6 | 6. KDJ | Colonne Lot vide pour les 3 premiers trades KDJ | calcul du lot : repli capital 0 quand aucune clôture n'existe avant l'émission | repli sur capital_depart (premiers trades de toute stratégie) ; enchaînement capital→lot vérifié sur données (LINK 12,99 ≈ 1 002 $ × 1 % / 0,77) | **validé owner 10/10** |
 | 7 | 6. KDJ | Lots divergents entre « en cours » et historique (3 causes : capital statique front vs composé backend, sl_pips conventionnel vs distance réelle, clamp) + logique sizing : KDJ doit s'exprimer en **unités + % capital**, pas en lot forex (owner 10/10 — SMC/straddle inchangés) | deux calculs distincts | source unique backend (capital à l'émission) dans les DEUX tables via /api/signaux/lots ; colonne « Position » KDJ = **N unités** + « X $ risqués · 1 % » + ≈ Y $ engagés | **validé owner 10/10** |

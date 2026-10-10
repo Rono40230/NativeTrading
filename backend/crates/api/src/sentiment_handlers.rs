@@ -45,7 +45,7 @@ pub struct SentimentMarche {
     pub matieres_premieres: Vec<EntiteSentiment>,
     pub cryptos: Vec<EntiteSentiment>,
     pub vix: Option<f64>,
-    /// Bandeau sentiment (15/09) : F&G crypto, positioning, breadth, presse.
+    /// Bandeau sentiment (15/09) : F&G crypto, breadth, presse.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bandeau: Option<crate::sentiment_bandeau::BandeauSentiment>,
 }
@@ -376,7 +376,7 @@ pub async fn get_sentiment_marche(state: web::Data<AppState>) -> impl Responder 
 
     // Repli dégradé : moins de 5 sources live → servir la veille figée
     // (datée) plutôt qu'un bloc à moitié vide.
-    // Bandeau sentiment (F&G, positioning, breadth, presse) — collecté ici
+    // Bandeau sentiment (F&G, breadth, presse) — collecté ici
     // (async) et servi même en repli veille.
     let bandeau = crate::sentiment_bandeau::collecter(&state.db).await;
 

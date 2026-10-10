@@ -16,8 +16,8 @@
     </template>
     <template #historique>
       <div class="text-sm text-white flex flex-wrap items-center gap-x-3 mb-2">
-        <span>{{ historique.signauxFiltres.value.length }} trade{{ historique.signauxFiltres.value.length > 1 ? 's' : '' }}</span>
-        <span v-if="historique.totaux.value.sommeR !== null" :class="historique.totaux.value.sommeR >= 0 ? 'text-emerald-400' : 'text-red-400'" class="font-mono" title="Σ R distance des clôtures — le niveau le plus lointain atteint, cumulé (juge la stratégie)">Σ R {{ formatR(historique.totaux.value.sommeR) }}</span>
+        <span>{{ historique.totaux.value.nb }} trade{{ historique.totaux.value.nb > 1 ? 's' : '' }}</span>
+        <span v-if="historique.totaux.value.sommeR !== null" :class="historique.totaux.value.sommeR >= 0 ? 'text-emerald-400' : 'text-red-400'" class="font-mono" title="Σ R distance du VÉCU COMPLET — même source que la carte du dashboard (le tableau ci-dessous n'en montre que les plus récents)">Σ R {{ formatR(historique.totaux.value.sommeR) }}</span>
         <span class="text-white">· moteur H1, miroir vérifié du Pine étalon</span>
       </div>
       <HistoryTable
@@ -45,21 +45,16 @@ import StrategyShell from '@/components/common/StrategyShell.vue'
 import SignauxTableau from '@/components/common/SignauxTableau.vue'
 import HistoryTable from '@/components/common/HistoryTable.vue'
 import { useHistoriqueStrategie } from '@/composables/useHistoriqueStrategie'
+import { useEtatStrategie } from '@/composables/useEtatStrategie'
 import { formatR } from '@/composables/useSignalFormat'
-import { http } from '@/services/http.client'
 
 const router = useRouter()
 const historique = useHistoriqueStrategie('kdj_halftrend')
 const nbEncours = ref(0)
-const etat = ref('Construction')
+const { etat } = useEtatStrategie('kdj_halftrend')
 
 onMounted(async () => {
   void historique.charger()
-  try {
-    const res = await http.get<{ id: string; etat: string }[]>('/api/strategies')
-    const s = res.data.find((x) => x.id === 'kdj_halftrend')
-    if (s) etat.value = s.etat
-  } catch { /* registre indisponible — état par défaut */ }
 })
 </script>
 

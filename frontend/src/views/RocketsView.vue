@@ -9,7 +9,7 @@
     <div class="glass-card px-4 py-3 flex items-center gap-3 shrink-0">
       <span class="text-xl leading-none">🚀</span>
       <h1 class="text-xl font-bold text-white truncate">Stratégie Rockets</h1>
-      <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0 bg-amber-500/10 text-amber-300 border-amber-500/40">Observation</span>
+      <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border shrink-0" :class="etat === 'Officielle' ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/40' : 'bg-amber-500/10 text-amber-300 border-amber-500/40'">{{ etat }}</span>
       <div class="ml-auto flex gap-2 shrink-0">
         <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="router.push('/analyses?strategie=rockets')">📊 Analyse</button>
       </div>
@@ -38,12 +38,14 @@
 </template>
 
 <script setup lang="ts">
+import { useEtatStrategie } from '@/composables/useEtatStrategie'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import PositionsARisqueTable from '@/components/common/PositionsARisqueTable.vue'
 import PositionsNeutraliseesTable from '@/components/common/PositionsNeutraliseesTable.vue'
 import RocketsHistoriqueTable from '@/components/common/RocketsHistoriqueTable.vue'
 import { usePositionsRockets } from '@/composables/usePositionsRockets'
+const { etat } = useEtatStrategie('rockets')
 
 const router = useRouter()
 

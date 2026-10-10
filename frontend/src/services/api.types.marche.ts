@@ -95,16 +95,6 @@ export interface Fng {
   delta_veille: number
 }
 
-export interface Positioning {
-  asset: string
-  ratio_long: number
-  ratio_short: number
-  /** ratio_long / ratio_short (1,0 = équilibre). */
-  ls: number
-  /** Funding courant en % (négatif = shorts paient). */
-  funding_pct: number
-}
-
 export interface Breadth {
   univers: string
   au_dessus: number
@@ -119,7 +109,6 @@ export interface PresseBias {
 
 export interface BandeauSentiment {
   fng?: Fng
-  positioning: Positioning[]
   breadth: Breadth[]
   presse?: PresseBias
   maj_le: number

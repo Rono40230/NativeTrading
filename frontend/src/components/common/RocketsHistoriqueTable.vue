@@ -24,9 +24,7 @@
             <th class="px-2 py-2 text-left cursor-pointer hover:text-white" @click="trier('ouvert_le')">Ouvert le</th>
             <th class="px-2 py-2 text-right cursor-pointer hover:text-white" @click="trier('duree')">Durée</th>
             <th class="px-2 py-2 text-right cursor-pointer hover:text-white" @click="trier('entree')">Entrée</th>
-            <th class="px-2 py-2 text-right">Invalidation</th>
             <th class="px-2 py-2 text-right">Qté</th>
-            <th class="px-2 py-2 text-right">Montant</th>
             <th class="px-2 py-2 text-right" title="Prix de la vente de 50 % (neutralisation)">R1 encaissé</th>
             <th class="px-2 py-2 text-right" title="Dernier plancher suivi — celui qui a sorti">Trailing final</th>
             <th class="px-2 py-2 text-right" title="Plus haut atteint pendant la vie du trade — juge la largeur du trailing">Sommet</th>
@@ -34,11 +32,12 @@
             <th class="px-2 py-2 text-center cursor-pointer hover:text-white" @click="trier('verdict')">Verdict</th>
             <th class="px-2 py-2 text-right cursor-pointer hover:text-white" @click="trier('r_realise')">R réalisé</th>
             <th class="px-2 py-2 text-right cursor-pointer hover:text-white" @click="trier('pl_dollars')">P/L $</th>
+            <th class="px-2 py-2 text-right" title="Capital de la stratégie APRÈS la clôture de ce trade (composé, ordre chronologique)">Évolution du capital</th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="!triés.length">
-            <td colspan="18" class="text-center text-white py-8">Aucun trade clôturé — les sorties TS/SL vivront ici.</td>
+            <td colspan="17" class="text-center text-white py-8">Aucun trade clôturé — les sorties TS/SL vivront ici.</td>
           </tr>
           <tr
             v-for="(t, i) in triés" :key="t.cle"
@@ -64,9 +63,7 @@
             <td class="px-2 py-2 text-white">{{ dateHeure(t.ouvert_le) }}</td>
             <td class="px-2 py-2 text-right font-mono text-white" :title="t.ferme_le ? `Fermé le ${dateHeure(t.ferme_le)}` : ''">{{ duree(t) }}</td>
             <td class="px-2 py-2 text-right font-mono text-white">{{ fmt(t.entree) }}</td>
-            <td class="px-2 py-2 text-right font-mono text-red-400">{{ fmt(t.stop) }}</td>
             <td class="px-2 py-2 text-right font-mono text-white">{{ t.qty.toFixed(2) }}</td>
-            <td class="px-2 py-2 text-right font-mono text-white/80">{{ t.montant.toFixed(0).replace('.', ',') }} $</td>
             <td class="px-2 py-2 text-right font-mono" :class="t.r1_encaisse ? 'text-emerald-300' : 'text-white/40'">{{ t.r1_encaisse ? fmt(t.r1_encaisse) : '—' }}</td>
             <td class="px-2 py-2 text-right font-mono text-amber-300">{{ t.trailing_final ? fmt(t.trailing_final) : '—' }}</td>
             <td class="px-2 py-2 text-right font-mono text-white/80">{{ t.sommet ? fmt(t.sommet) : '—' }}</td>
@@ -76,6 +73,7 @@
             </td>
             <td class="px-2 py-2 text-right font-mono font-bold" :class="classe(t.r_realise)">{{ t.r_realise === null ? '—' : rFmt(t.r_realise) }}</td>
             <td class="px-2 py-2 text-right font-mono font-bold" :class="classe(t.pl_dollars)">{{ dollars(t.pl_dollars) }}</td>
+            <td class="px-2 py-2 text-right font-mono text-xs text-white" title="Capital de la stratégie après ce trade (composé)">{{ capitalApres(t) }}</td>
           </tr>
         </tbody>
       </table>
@@ -100,7 +98,7 @@ interface TradeFerme {
   cle: string; signal_id: string | null
   symbole: string; univers: 'crypto' | 'action'; classement: number | null
   ouvert_le: number; ferme_le: number | null
-  entree: number; stop: number; r1: number; qty: number; montant: number
+  entree: number; stop: number; r1: number; qty: number
   r1_encaisse: number | null; trailing_final: number | null; sommet: number | null
   prix_sortie: number | null; verdict: string | null
   r_realise: number | null; pl_dollars: number
@@ -155,11 +153,38 @@ function trier(col: string) {
   }
 }
 
+/// Capital de départ de la stratégie (re-jeu) — sert l'Évolution du capital.
+const capitalDepart = ref<number | null>(null)
+
+/// Capital composé APRÈS chaque clôture (ordre chronologique des fermetures).
+const capitalParId = computed<Record<string, number>>(() => {
+  if (capitalDepart.value === null) return {}
+  const fermes = [...trades.value]
+    .filter(t => t.ferme_le)
+    .sort((a, b) => (a.ferme_le! - b.ferme_le!))
+  const carte: Record<string, number> = {}
+  let cap = capitalDepart.value
+  for (const t of fermes) {
+    cap += t.pl_dollars
+    carte[t.cle] = cap
+  }
+  return carte
+})
+
+function capitalApres(t: TradeFerme): string {
+  const c = capitalParId.value[t.cle]
+  return c !== undefined ? c.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' $' : '—'
+}
+
 async function charger() {
   try {
     const h = await http.get('/api/rockets/historique')
     trades.value = h.data.trades ?? []
   } catch { trades.value = [] }
+  try {
+    const a = await http.get<{ capital_depart?: number }>('/api/analyses/rockets')
+    capitalDepart.value = a.data?.capital_depart ?? null
+  } catch { capitalDepart.value = null }
   try {
     const j = await http.get<Record<string, number>>('/api/journal/comptes')
     journalComptes.value = j.data ?? {}

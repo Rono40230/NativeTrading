@@ -7,27 +7,24 @@
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'asset')">Asset <span class="tri-icone">{{ icone('asset') }}</span></th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'timeframe')">TF / Phase <span class="tri-icone">{{ icone('timeframe') }}</span></th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'direction')">Direction <span class="tri-icone">{{ icone('direction') }}</span></th>
-        <th v-if="variante !== 'kdj'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'score')">Score <span class="tri-icone">{{ icone('score') }}</span></th>
+        <!-- Doctrine historique (owner 10/10) : les NIVEAUX FIGÉS (SL/TP) et
+             les colonnes constantes (Sortie, Stratégie) sortent de l'historique
+             — y restent l'ancre (Entrée), la taille, le Score quand il existe
+             (SMC), le verdict (Palier max), le R, le $ (Gain/Perte) et
+             l'Évolution du capital. Les niveaux vivent sur le graphique et
+             dans la table des positions en cours. -->
+        <th v-if="variante === 'smc'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'score')">Score <span class="tri-icone">{{ icone('score') }}</span></th>
         <th class="px-3 py-3 text-right" :title="variante === 'kdj'
           ? 'Position en unités au moment de l\u2019émission — risque % du capital composé, quantité = risque ÷ distance au SL'
           : 'Taille de position au moment de l\u2019émission — recalculée : capital composé de la stratégie × risque % / (stop en pips × valeur du pip)'">{{ variante === 'kdj' ? 'Position' : 'Lot' }}</th>
         <th class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'prix_entree')">Entrée <span class="tri-icone">{{ icone('prix_entree') }}</span></th>
-        <!-- Variante KDJ (10/10) : pas de colonnes SL/TP (niveaux figés, sans
-             valeur de relecture — ils vivent sur le graphique et la table des
-             positions en cours) ni Score ni Stratégie (redondants page dédiée). -->
-        <th v-if="variante !== 'kdj'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'stop_loss')">SL <span class="tri-icone">{{ icone('stop_loss') }}</span></th>
-        <th v-if="variante !== 'kdj'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'tp1')">TP1 <span class="tri-icone">{{ icone('tp1') }}</span></th>
-        <th v-if="variante !== 'kdj'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'tp2')">TP2 <span class="tri-icone">{{ icone('tp2') }}</span></th>
-        <th v-if="variante !== 'kdj'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'tp3')">TP3 <span class="tri-icone">{{ icone('tp3') }}</span></th>
         <th v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right">Prix actuel</th>
-        <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'prix_verdict')">Sortie <span class="tri-icone">{{ icone('prix_verdict') }}</span></th>
         <th class="px-3 py-3 text-center">IA</th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'r_reference')">Palier max <span class="tri-icone">{{ icone('r_reference') }}</span></th>
-        <!-- Variante KDJ (10/10) : la voix $ en colonnes dédiées — Gain/Perte
-             du trade puis capital composé après clôture (décision owner). -->
-        <th v-if="variante === 'kdj'" class="px-3 py-3 text-right" title="$ réellement encaissé sur ce trade (voix résultat — ventes partielles comprises)">Gain/Perte</th>
-        <th v-if="variante === 'kdj'" class="px-3 py-3 text-right" title="Capital de la stratégie APRÈS la clôture de ce trade (composé, ordre chronologique)">Évolution du capital</th>
-        <th v-if="variante !== 'kdj'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'strategie')">Stratégie <span class="tri-icone">{{ icone('strategie') }}</span></th>
+        <!-- La voix $ en colonnes dédiées (owner 10/10, généralisée depuis
+             KDJ) : Gain/Perte du trade puis capital composé après clôture. -->
+        <th class="px-3 py-3 text-right" title="$ réellement encaissé sur ce trade (voix résultat — ventes partielles comprises)">Gain/Perte</th>
+        <th class="px-3 py-3 text-right" title="Capital de la stratégie APRÈS la clôture de ce trade (composé, ordre chronologique)">Évolution du capital</th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'cree_le')">Ouvert le <span class="tri-icone">{{ icone('cree_le') }}</span></th>
         <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'ferme_le')">Fermé le <span class="tri-icone">{{ icone('ferme_le') }}</span></th>
         <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" title="Vie de la position : du remplissage de l'ordre à la fermeture (l'attente de l'ordre en attente n'est pas comptée)" @click="$emit('trier-par', 'duree')">Durée <span class="tri-icone">{{ icone('duree') }}</span></th>
@@ -51,9 +48,9 @@
         <td class="px-3 py-3">
           <span class="badge" :class="s.direction?.toUpperCase() === 'LONG' ? 'badge-green' : 'badge-red'">{{ s.direction }}</span>
         </td>
-        <td v-if="variante !== 'kdj'" class="px-3 py-3 text-right font-mono text-white">{{ s.score.toFixed(0) }}</td>
+        <td v-if="variante === 'smc'" class="px-3 py-3 text-right font-mono text-white">{{ s.score.toFixed(0) }}</td>
         <td v-if="variante !== 'kdj'" class="px-3 py-3 text-right font-mono text-white" title="Lot recalculé (capital composé de la stratégie au moment de l'émission)">{{ formatLot(lotMap[s.id]) }}</td>
-        <!-- Variante KDJ : position en UNITÉS + risque $ (décision owner 10/10). -->
+        <!-- KDJ : position en UNITÉS + risque $ (décision owner 10/10). -->
         <td v-if="variante === 'kdj'" class="px-3 py-3 text-right leading-tight">
           <template v-if="positionKdjHisto(s)">
             <div class="font-mono font-bold text-yellow-300">{{ fmtUnites(positionKdjHisto(s)!.unites) }} unités</div>
@@ -63,16 +60,7 @@
           <span v-else class="text-white text-xs">—</span>
         </td>
         <td class="px-3 py-3 text-right font-mono text-white">{{ formatNombre(s.prix_entree) }}</td>
-        <td v-if="variante !== 'kdj'" class="px-3 py-3 text-right font-mono text-red-400">{{ formatNombre(s.stop_loss) }}</td>
-        <td v-if="variante !== 'kdj'" class="px-3 py-3 text-right font-mono text-emerald-400">{{ formatNombre(s.take_profit[0]) }}</td>
-        <td v-if="variante !== 'kdj'" class="px-3 py-3 text-right font-mono text-emerald-300">{{ s.take_profit[1] ? formatNombre(s.take_profit[1]) : '—' }}</td>
-        <td v-if="variante !== 'kdj'" class="px-3 py-3 text-right font-mono text-emerald-200">{{ s.take_profit[2] ? formatNombre(s.take_profit[2]) : '—' }}</td>
         <td v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right font-mono" :class="classePrixActuelSignal(s, prixStore.getPrix(s.asset))">{{ prixStore.getPrix(s.asset) !== null ? formatNombre(prixStore.getPrix(s.asset)!) : '—' }}</td>
-        <!-- Sortie = information secondaire (gestion d'exécution), le R de
-             référence vit dans la colonne Palier max. -->
-        <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-right">
-          <span class="font-mono text-white text-xs">{{ s.prix_verdict ? formatNombre(s.prix_verdict) : '—' }}</span>
-        </td>
         <td class="px-3 py-3 text-center"><span v-if="s.llm_conviction !== null" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help" :class="classeConviction(s.llm_conviction)" :title="s.llm_raison ?? ''">{{ s.llm_conviction }}</span><span v-else class="text-white text-xs">—</span></td>
         <td class="px-3 py-3">
           <div class="flex flex-col gap-0.5">
@@ -80,7 +68,6 @@
               <span v-if="palierFerme(s)" class="badge" :class="classePalierMax(palierFerme(s))">{{ labelPalierMax(palierFerme(s)) }}</span>
               <span v-else class="badge" :class="classeEtatSignal(s)" :title="titreEtatSignal(s)">{{ labelEtatSignal(s) }}</span>
               <span v-if="rReference(s) !== null" :class="classeR(rReference(s))" class="text-xs" title="R distance : niveau le plus lointain atteint (juge l'entrée et les TP)">{{ formatR(rReference(s)) }}</span>
-              <span v-if="variante !== 'kdj' && profitMap[s.id] !== undefined" class="text-[10px] font-mono shrink-0" :class="profitMap[s.id] >= 0 ? 'text-emerald-300/80' : 'text-red-300/80'" title="$ réellement encaissé (ventes partielles comprises)">{{ formatDollarsTrade(s.id) }}</span>
               <span v-if="pointsPalier(s)" class="text-[10px] font-mono" :class="classeR(rReference(s))" title="Gain/perte en points MT5 (R de référence × risque en points — unité du broker)">{{ pointsPalier(s) }}</span>
             </div>
             <!-- MFE des perdants : l'excursion favorable avant le SL juge le
@@ -90,14 +77,13 @@
                   title="Excursion favorable maximale avant le SL (calcul sur bougies M1)">{{ formatMfe(mfeMap[s.id]?.mfe_r ?? null) }}</span>
           </div>
         </td>
-        <!-- Variante KDJ : $ du trade puis capital composé après clôture. -->
-        <td v-if="variante === 'kdj'" class="px-3 py-3 text-right font-mono text-xs font-semibold" :class="(profitMap[s.id] ?? 0) >= 0 ? 'text-emerald-300' : 'text-red-300'">
+        <!-- La voix $ pour toutes les stratégies (owner 10/10). -->
+        <td class="px-3 py-3 text-right font-mono text-xs font-semibold" :class="(profitMap[s.id] ?? 0) >= 0 ? 'text-emerald-300' : 'text-red-300'">
           {{ profitMap[s.id] !== undefined ? formatDollarsTrade(s.id) : '—' }}
         </td>
-        <td v-if="variante === 'kdj'" class="px-3 py-3 text-right font-mono text-xs" :class="(profitMap[s.id] ?? 0) >= 0 ? 'text-white' : 'text-white'" title="Capital de la stratégie après ce trade (composé)">
+        <td class="px-3 py-3 text-right font-mono text-xs text-white" title="Capital de la stratégie après ce trade (composé)">
           {{ capitaux?.[s.id] !== undefined ? capitaux[s.id].toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' $' : '—' }}
         </td>
-        <td v-if="variante !== 'kdj'" class="px-3 py-3 text-white text-xs">{{ s.strategie === 'SMC Directionnel' ? 'SMC' : s.strategie }}</td>
         <td class="px-3 py-3 text-white text-xs cursor-help" :title="titreOuverture(s)">{{ formatDate(s.heure_entree ?? s.cree_le) }}</td>
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-white text-xs">{{ s.ferme_le ? formatDate(s.ferme_le) : '—' }}</td>
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 font-mono text-white text-xs">{{ formatDuree(s.heure_entree, s.ferme_le) }}</td>
@@ -135,11 +121,12 @@ const props = defineProps<{
   triColonne: string
   triDir: 'asc' | 'desc'
   /**
-   * Variante de rendu (09/10) : 'kdj' = page KDJ — pas de colonnes
-   * SL/TP/Stratégie (niveaux figés sans valeur de relecture, stratégie
-   * redondante sur la page dédiée), verdict moteur en badge.
+   * Variante de rendu (10/10) : 'smc' (Score visible) | 'straddle' |
+   * 'kdj' (Position en unités). Pour toutes : doctrine owner — les niveaux
+   * figés (SL/TP), Sortie et Stratégie ne s'affichent pas ; Gain/Perte et
+   * Évolution du capital en colonnes dédiées.
    */
-  variante?: 'standard' | 'kdj'
+  variante?: 'smc' | 'straddle' | 'kdj'
   /** MFE des trades SL : { [id]: { mfe_r, meilleur_prix } } */
   mfe?: Record<string, { mfe_r: number | null; meilleur_prix: number | null }>
   /** Lot recalculé par trade : { [id]: lot } — vide si non chargé. */

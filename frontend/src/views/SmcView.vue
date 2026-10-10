@@ -2,7 +2,7 @@
   <StrategyShell
     titre="Stratégie SMC"
     icone="📐"
-    etat="Officielle"
+    :etat="etat"
     lexique="smc"
     teinte="bg-blue-500/5"
     :afficher-lexique="false"
@@ -20,11 +20,12 @@
     </template>
     <template #historique>
       <div class="text-sm text-white flex flex-wrap items-center gap-x-3 mb-2">
-        <span>{{ historique.signauxFiltres.value.length }} trade{{ historique.signauxFiltres.value.length > 1 ? 's' : '' }}</span>
-        <span v-if="historique.totaux.value.sommeR !== null" class="font-mono" :class="historique.totaux.value.sommeR >= 0 ? 'text-emerald-400' : 'text-red-400'" title="Σ R distance des clôtures — le niveau le plus lointain atteint, cumulé (juge la stratégie)">Σ R {{ formatR(historique.totaux.value.sommeR) }}</span>
+        <span>{{ historique.totaux.value.nb }} trade{{ historique.totaux.value.nb > 1 ? 's' : '' }}</span>
+        <span v-if="historique.totaux.value.sommeR !== null" class="font-mono" :class="historique.totaux.value.sommeR >= 0 ? 'text-emerald-400' : 'text-red-400'" title="Σ R distance du VÉCU COMPLET — même source que la carte du dashboard (le tableau ci-dessous n'en montre que les plus récents)">Σ R {{ formatR(historique.totaux.value.sommeR) }}</span>
         
       </div>
       <HistoryTable
+        variante="smc"
         :signaux="historique.signauxTriés.value"
         filtre-statut="cloturees"
         :tri-colonne="historique.triColonne.value"
@@ -32,6 +33,7 @@
         :mfe="historique.mfeParId.value"
         :lots="historique.lotParId.value"
         :profits="historique.profitParId.value"
+        :capitaux="historique.capitalApresParId.value"
         :journal-comptes="historique.journalComptes.value"
         @trier-par="historique.trierPar"
         @journal-maj="historique.charger()"
@@ -41,6 +43,7 @@
 </template>
 
 <script setup lang="ts">
+import { useEtatStrategie } from '@/composables/useEtatStrategie'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import StrategyShell from '@/components/common/StrategyShell.vue'
@@ -50,6 +53,7 @@ import SignauxEnAttente from '@/components/common/SignauxEnAttente.vue'
 import HistoryTable from '@/components/common/HistoryTable.vue'
 import { useHistoriqueStrategie } from '@/composables/useHistoriqueStrategie'
 import { formatR } from '@/composables/useSignalFormat'
+const { etat } = useEtatStrategie('SMC')
 
 const router = useRouter()
 const historique = useHistoriqueStrategie('smc')

@@ -107,25 +107,30 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
     })
   })
 
-  /// Σ R ENCAISSÉ (décision 16/09) : la colonne R du tableau, servie par le
-  /// backend — strictement la même valeur que le badge R du dashboard et le
-  /// rapport (le front ne recalcule plus rien).
+  /// Totaux du VÉCU COMPLET, servis par le backend (/api/analyses — la
+  /// même source que la carte dashboard). Écart 9 du 10/10 : l'ancienne
+  /// somme front ne couvrait que la fenêtre chargée (500 derniers signaux
+  /// toutes stratégies → 173 SMC sur 654) — l'en-tête contredisait le
+  /// dashboard. En repli si l'analyse échoue : somme de la fenêtre chargée
+  /// (annotée comme telle par l'appelant via `complet`).
+  const totauxBackend = ref<{ nb: number; sommeR: number } | null>(null)
   const totaux = computed(() => {
     let sommeR: number | null = null
-    let jamaisRemplis = 0
     let enCours = 0
+    if (totauxBackend.value) {
+      return { sommeR: totauxBackend.value.sommeR, nb: totauxBackend.value.nb, complet: true, enCours }
+    }
+    // Repli (analyse indisponible) : fenêtre chargée uniquement.
     for (const s of signaux.value) {
       const nom = s.strategie.toLowerCase().trim()
       const ok = cle === 'smc' ? SMC_VARIANTES.includes(nom) : nom === cle
       if (!ok) continue
       if (s.statut !== 'Fermé') { enCours++; continue }
-      if (s.heure_entree === null || s.heure_entree === undefined) { jamaisRemplis++; continue }
-      // R DISTANCE — LE R affiché (23/09) : juge la stratégie, indépendant
-      // des réglages de sortie. Le $ vit dans profitParId.
+      if (s.heure_entree === null || s.heure_entree === undefined) continue
       const r = s.r_distance
       if (r !== null && r !== undefined) sommeR = (sommeR ?? 0) + r
     }
-    return { sommeR, jamaisRemplis, enCours }
+    return { sommeR, nb: signauxFiltres.value.length, complet: false, enCours }
   })
 
   async function charger() {
@@ -151,6 +156,10 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
         for (const c of analyse?.clotures ?? []) carte[c.id] = c.dollars
         profitParId.value = carte
         capitalDepart.value = analyse?.capital_depart ?? null
+        // Totaux du vécu complet (écart 9) — mêmes valeurs que le dashboard.
+        if (analyse?.nb_trades && analyse.r_distance_total !== undefined) {
+          totauxBackend.value = { nb: analyse.nb_trades, sommeR: analyse.r_distance_total }
+        }
       } catch { profitParId.value = {} }
     } catch {
       signaux.value = []

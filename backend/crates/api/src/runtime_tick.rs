@@ -276,9 +276,9 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
     let cibles: HashSet<(Asset, Timeframe)> = assets
         .iter()
         .flat_map(|a| {
-            // Décision 01/09 : moteur SMC v12 sur TOUS les assets, MT5
-            // compris — un nouvel asset branché (quelle que soit la source)
-            // est armé automatiquement sur tous les TF configurés.
+            // Couples CANDIDATS (tous assets actifs × TF configurés) —
+            // l'armement SMC réel est filtré par est_arme (écart 8 du
+            // 10/10 : absent de la map = désarmé ; la map EST le périmètre).
             timeframes
                 .clone()
                 .into_iter()

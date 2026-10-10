@@ -3,7 +3,7 @@
        d'instruments de surveillance du marché, AU-DESSUS des jauges de
        stratégies. Jauges LINÉAIRES — ces échelles sont bornées Peur↔Appêt,
        pas des valeurs signées comme les perf des stratégies. Rang 1 : F&G
-       crypto, VIX, Positioning futures, Breadth MM50, Presse IA. Rang 2 :
+       crypto, VIX, Breadth MM50, Presse IA (jauge L/S retirée — owner 10/10). Rang 2 :
        les tuiles Marchés (cours + veille + jour). Toutes les données de
        l'ancien bloc SentimentMarche vivent ici — rien n'est perdu. -->
   <div class="relative shrink-0 rounded-xl border border-white/10 bg-white/[0.03] p-2.5 pt-5">
@@ -50,23 +50,6 @@
             { seuil: 37.5, texte: 'Tendu', couleur: 'text-amber-400' },
             { seuil: 50, texte: 'Volatil', couleur: 'text-orange-400' },
             { seuil: 75, texte: 'Panique', couleur: 'text-red-400' },
-          ]" />
-
-        <MiniCadran v-for="p in positioning" :key="p.asset"
-          :titre="`Positioning ${p.asset}`" :texte="textePositioning"
-          :libelle="`${p.asset} L/S`" :valeur="p.ratio_long" :min="0" :max="1"
-          :digital="p.ls.toFixed(2)"
-          :couleur-texte="p.ls >= 1.4 ? 'text-emerald-400' : p.ls <= 0.5 ? 'text-red-400' : 'text-white'"
-          :zones="[
-            { debut: 0, fin: 0.4, couleur: '#ef4444' },
-            { debut: 0.4, fin: 0.6, couleur: '#64748b' },
-            { debut: 0.6, fin: 1, couleur: '#22c55e' },
-          ]"
-          :interpretations="[
-            { seuil: 0, texte: 'Foule courte', couleur: 'text-red-400' },
-            { seuil: 40, texte: 'Équilibré', couleur: 'text-white/60' },
-            { seuil: 60, texte: 'Majorité long', couleur: 'text-lime-400' },
-            { seuil: 80, texte: 'Foule longue', couleur: 'text-emerald-400' },
           ]" />
 
         <MiniCadran v-for="b in breadth" :key="b.univers"
@@ -150,7 +133,6 @@ const { data, erreur } = storeToRefs(store)
 // ── Raccourcis réactifs ─────────────────────────────────────────────────────
 const fng = computed(() => data.value?.bandeau?.fng ?? null)
 const vix = computed(() => data.value?.vix ?? null)
-const positioning = computed(() => (data.value?.bandeau?.positioning ?? []).filter(p => p.asset !== 'ETH'))
 const breadth = computed(() => data.value?.bandeau?.breadth ?? [])
 const presse = computed(() => data.value?.bandeau?.presse ?? { haussier: 0, neutre: 0, baissier: 0 })
 
@@ -228,7 +210,6 @@ function verdictVix(v: number): string {
   return 'Stable'
 }
 
-
 // ── Lectures (les analyses des popovers — texte de l'ancien bloc) ───────────
 
 function analyseFng(v: number, delta: number): string {
@@ -250,21 +231,6 @@ function analyseVix(v: number): string {
   if (v < 20) return 'Tension normale-haute — volatilité présente sans stress.'
   if (v < 30) return 'Stress — mouvements amples : resserrer les tailles de position.'
   return 'Panique — zones de repli historiques (lecture contrarienne).'
-}
-
-function analysePositioning(p: { ratio_long: number; ls: number; funding_pct: number }): string {
-  const longs = Math.round(p.ratio_long * 100)
-  let lecture: string
-  if (p.ls >= 2) lecture = `Foule très longue (${longs} % des comptes) — extrême contrarien : le risque est à la baisse.`
-  else if (p.ls >= 1.4) lecture = `Majorité de longs (${longs} %) — biais haussier de la foule.`
-  else if (p.ls <= 0.5) lecture = `Foule très courte (${100 - longs} % shorts) — extrême contrarien : risque de short squeeze.`
-  else lecture = 'Positioning équilibré — pas de signal.'
-  if (p.funding_pct < 0 && p.ls > 1.2) {
-    lecture += ' Divergence : comptes longs mais funding négatif — les grosses positions (en valeur) sont courtes et paient les longs. Tension avant mouvement violent.'
-  } else if (p.funding_pct > 0.01 && p.ls > 1.5) {
-    lecture += ' Les longs dominent ET paient — euphorie coûteuse, sommets fragiles.'
-  }
-  return lecture
 }
 
 function analyseBreadth(b: { univers: string; au_dessus: number; total: number }): string {
@@ -293,10 +259,7 @@ const texteVix = computed(() => vix.value !== null
   ? 'Volatilité implicite du S&P 500 à 30 jours — le baromètre de la peur des actions. Jauge inversée : gauche = calme, droite = panique.\n\n' + analyseVix(vix.value)
   : '')
 
-const textePositioning = computed(() => 'Perpétuels Bybit : L/S = part des comptes longs/courts (ratio 1 j), aiguille = part des comptes longs. Funding = paiement mutuel toutes les 8 h — négatif : les shorts paient les longs ; positif : les longs paient.\n\n'
-  + positioning.value.map(p => `${p.asset} — ${analysePositioning(p)}`).join('\n'))
-
-const texteBreadth = computed(() => 'Part des actifs de chaque univers au-dessus de leur moyenne mobile 50 jours (tendance de fond). Mesure la participation collective, pas l\'amplitude. Forex exclu jusqu\'à l\'historique EA.\n\n'
+  const texteBreadth = computed(() => 'Part des actifs de chaque univers au-dessus de leur moyenne mobile 50 jours (tendance de fond). Mesure la participation collective, pas l\'amplitude. Forex exclu jusqu\'à l\'historique EA.\n\n'
   + breadth.value.map(b => analyseBreadth(b)).join('\n'))
 
 const textePresse = computed(() => {

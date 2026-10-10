@@ -1,8 +1,6 @@
 //! Bandeau sentiment du dashboard (15/09) — les vraies données de sentiment
 //! au-dessus du tableau de cours :
 //! - Peur & Appêt crypto : alternative.me (gratuit, sans clé), cache 6 h ;
-//! - Positioning futures : Bybit v5 PUBLIC (ratio long/short comptes +
-//!   funding des perp BTC/ETH), cache 15 min ;
 //! - Breadth maison : part des actifs au-dessus de leur MM50 (D1 en base —
 //!   seuls les univers avec ≥ 50 bougies D1 comptent, forex exclus jusqu'à
 //!   l'historique EA) ;
@@ -25,31 +23,13 @@ const UNIVERS_BREADTH: &[(&str, &[&str])] = &[
     ("Forex", &["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "EURJPY", "GBPJPY", "NZDJPY"]),
 ];
 
-/// Péripéréries du positioning (perp Bybit linear, tout public).
-const PERPS: &[(&str, &str)] = &[("BTC", "BTCUSDT"), ("ETH", "ETHUSDT")];
-
 const CACHE_FNG: Duration = Duration::from_secs(6 * 3600);
-const CACHE_POSITIONING: Duration = Duration::from_secs(15 * 60);
-
 #[derive(serde::Serialize, Clone)]
 pub struct Fng {
     pub valeur: i32,
     pub classe: String,
     /// Variation vs la veille (points d'indice).
     pub delta_veille: i32,
-}
-
-#[derive(serde::Serialize, Clone)]
-pub struct Positioning {
-    pub asset: String,
-    /// Part des comptes longs (0-1).
-    pub ratio_long: f64,
-    /// Part des comptes courts (0-1).
-    pub ratio_short: f64,
-    /// ratio_long / ratio_short (1,0 = équilibre).
-    pub ls: f64,
-    /// Funding annuel-reporté au taux courant, en % (négatif = shorts paient).
-    pub funding_pct: f64,
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -70,7 +50,6 @@ pub struct PresseBias {
 pub struct BandeauSentiment {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fng: Option<Fng>,
-    pub positioning: Vec<Positioning>,
     pub breadth: Vec<Breadth>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub presse: Option<PresseBias>,
@@ -125,98 +104,6 @@ async fn fear_greed() -> Option<Fng> {
     };
     *cache.lock().await = Some((Instant::now(), fng.clone()));
     Some(fng)
-}
-
-// ── Positioning Bybit (public) ───────────────────────────────────────────────
-
-static CACHE_POS_MEM: std::sync::OnceLock<tokio::sync::Mutex<Option<(Instant, Vec<Positioning>)>>> =
-    std::sync::OnceLock::new();
-
-async fn ratio_comptes(client: &reqwest::Client, perp: &str) -> Option<(f64, f64)> {
-    #[derive(serde::Deserialize)]
-    struct Reponse {
-        result: Resultat,
-    }
-    #[derive(serde::Deserialize)]
-    struct Resultat {
-        list: Vec<Ligne>,
-    }
-    #[derive(serde::Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Ligne {
-        buy_ratio: String,
-        sell_ratio: String,
-    }
-    let r: Reponse = client
-        .get(format!(
-            "https://api.bybit.com/v5/market/account-ratio?category=linear&symbol={perp}&period=1d&limit=1"
-        ))
-        .send()
-        .await
-        .ok()?
-        .json()
-        .await
-        .ok()?;
-    let l = r.result.list.into_iter().next()?;
-    Some((l.buy_ratio.parse().ok()?, l.sell_ratio.parse().ok()?))
-}
-
-async fn funding(client: &reqwest::Client, perp: &str) -> Option<f64> {
-    #[derive(serde::Deserialize)]
-    struct Reponse {
-        result: Resultat,
-    }
-    #[derive(serde::Deserialize)]
-    struct Resultat {
-        list: Vec<Ligne>,
-    }
-    #[derive(serde::Deserialize)]
-    #[serde(rename_all = "camelCase")]
-    struct Ligne {
-        funding_rate: String,
-    }
-    let r: Reponse = client
-        .get(format!(
-            "https://api.bybit.com/v5/market/tickers?category=linear&symbol={perp}"
-        ))
-        .send()
-        .await
-        .ok()?
-        .json()
-        .await
-        .ok()?;
-    let taux: f64 = r.result.list.into_iter().next()?.funding_rate.parse().ok()?;
-    Some(taux * 100.0)
-}
-
-async fn positioning() -> Vec<Positioning> {
-    let cache = CACHE_POS_MEM.get_or_init(|| tokio::sync::Mutex::new(None));
-    if let Some((t, pos)) = cache.lock().await.as_ref() {
-        if t.elapsed() < CACHE_POSITIONING {
-            return pos.clone();
-        }
-    }
-    let Some(client) = client_http().await else {
-        return Vec::new();
-    };
-    let mut out = Vec::new();
-    for (asset, perp) in PERPS {
-        let Some((long, short)) = ratio_comptes(&client, perp).await else {
-            continue;
-        };
-        let ls = if short > 0.0 { long / short } else { 0.0 };
-        out.push(Positioning {
-            asset: (*asset).to_string(),
-            ratio_long: long,
-            ratio_short: short,
-            ls,
-            funding_pct: funding(&client, perp).await.unwrap_or(0.0),
-        });
-    }
-    if !out.is_empty() {
-        *cache.lock().await = Some((Instant::now(), out.clone()));
-    }
-    out
 }
 
 // ── Breadth maison (MM50, D1 en base) ───────────────────────────────────────
@@ -283,7 +170,6 @@ async fn presse_bias(db: &Arc<Database>) -> Option<PresseBias> {
 pub async fn collecter(db: &Arc<Database>) -> BandeauSentiment {
     BandeauSentiment {
         fng: fear_greed().await,
-        positioning: positioning().await,
         breadth: breadth(db).await,
         presse: presse_bias(db).await,
         maj_le: chrono::Utc::now().timestamp(),

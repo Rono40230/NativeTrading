@@ -72,14 +72,17 @@ pub async fn lire_couples_armes(db: &db::Database) -> HashMap<String, HashSet<St
 }
 
 /// Le couple (asset, tf) génère-t-il des signaux SMC ?
-/// Hors TF_GENERATEURS (H1…) → jamais ; asset non configuré → tout armé.
+/// Hors TF_GENERATEURS (H1…) → jamais ; asset NON CONFIGURÉ → désarmé
+/// (décision owner 10/10, écart 8 : alignement sur le scanner du 27/09 —
+/// l'ancien défaut « tout armé » a armé 15 assets réactivés, M1 compris,
+/// et fait émettre 61 trades hors périmètre. Le périmètre SMC = la map).
 pub fn est_arme(armes: &HashMap<String, HashSet<String>>, asset: &str, tf: &str) -> bool {
     if !TF_GENERATEURS.contains(&tf) {
         return false;
     }
     match armes.get(asset) {
         Some(set) => set.contains(tf),
-        None => true,
+        None => false,
     }
 }
 
@@ -282,10 +285,12 @@ mod tests {
     }
 
     #[test]
-    fn defaut_asset_absent_tout_arme() {
+    fn defaut_asset_absent_desarme() {
+        // Écart 8 (10/10) : absent de la map = désarmé — même sémantique que
+        // le scanner (27/09). L'auto-arm des nouveaux assets n'existe plus.
         let mut armes = HashMap::new();
         armes.insert("NAS100".to_string(), set(&["M15"]));
-        assert!(est_arme(&armes, "XAUUSD", "M1"), "asset absent = défaut plein");
+        assert!(!est_arme(&armes, "XAUUSD", "M1"), "asset absent = désarmé");
         assert!(!est_arme(&armes, "NAS100", "M1"), "config NAS100 retire M1");
         assert!(est_arme(&armes, "NAS100", "M15"));
     }

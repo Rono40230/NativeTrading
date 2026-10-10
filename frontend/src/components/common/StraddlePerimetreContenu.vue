@@ -54,12 +54,36 @@
           </div>
         </div>
 
+        <!-- Seuils propriétaires de la boucle de validation (kv) — déplacés
+             de la page Straddle (owner 10/10 : un seul poste d'armement). -->
+        <div class="flex items-center gap-1.5 text-[9px] text-white/60 flex-wrap">
+          <span>Verdict après</span>
+          <input v-model.number="seuilsMin" type="number" min="1" max="52"
+                 class="w-9 bg-white/10 rounded px-1 text-white outline-none" @change="sauverSeuils">
+          <span>tirages · réfutation si ΣR ≤</span>
+          <input v-model.number="seuilsPlancher" type="number" step="0.5" min="-10" max="0"
+                 class="w-12 bg-white/10 rounded px-1 text-white outline-none" @change="sauverSeuils">
+        </div>
+
+        <!-- Bannière : verdicts rendus par la boucle ces 7 derniers jours. -->
+        <div v-if="verdictsRecents.length"
+             class="rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2 py-1.5 text-[10px] text-white/85 flex flex-col gap-0.5">
+          <span class="uppercase font-semibold tracking-wide text-indigo-300">Validés par la boucle (7 j)</span>
+          <span v-for="v in verdictsRecents" :key="`v-${v.ident}-${v.asset}`">
+            {{ v.asset }} × {{ v.nom }} :
+            <span :class="v.verdict_test === 'valide' ? 'text-emerald-400 font-semibold' : 'text-red-400 font-semibold'">
+              {{ v.verdict_test === 'valide' ? '✅ validé' : '❌ réfuté — désarmé' }}
+            </span>
+            ({{ v.occurrences }} tirages, Σ {{ fmtR(v.somme_r) }}R)
+          </span>
+        </div>
+
         <div v-if="armChargement" class="text-[11px] text-white/70 py-2 text-center">Chargement…</div>
         <div v-else-if="!evenementsArmement.length" class="text-[11px] text-white/60 py-2 text-center">
           Aucun créneau — le semis se fait au démarrage du backend.
         </div>
 
-        <div v-else class="flex flex-col gap-1.5 overflow-y-auto max-h-[52vh] pr-1">
+        <div v-else class="flex flex-col gap-1.5 overflow-y-auto max-h-[72vh] pr-1">
           <div v-for="ev in evenementsArmement" :key="ev.ident"
                class="rounded-lg border border-white/10 bg-black/20 px-2.5 py-1.5 flex flex-col gap-1">
             <div class="flex items-baseline justify-between gap-2 flex-wrap">
@@ -90,6 +114,23 @@
           ✅ validé · ❌ réfuté (désarmé par la boucle) · ⏳ prolongé · ⚠ hors périmètre (armé mais ignoré par le moteur).
           Heures Paris avec bascules été/hiver.
         </p>
+        <!-- Archive : créneaux statistiques remplacés le 28/09 — lignes et
+             verdicts conservés, plus jamais armés (déplacée de la page). -->
+        <button class="text-left text-[9px] text-white/50 hover:text-white/80 transition-colors"
+                @click="archiveOuverte = !archiveOuverte">
+          📦 Créneaux statistiques — remplacés le 28/09 · {{ arm.archive.value.total }} lignes archivées
+          {{ archiveOuverte ? '▾' : '▸' }}
+        </button>
+        <div v-if="archiveOuverte && arm.archive.value.verdicts.length"
+             class="flex flex-col gap-0.5 text-[9px] text-white/60 pl-3 border-l border-white/10">
+          <span v-for="(v, i) in arm.archive.value.verdicts" :key="`a-${i}`">
+            {{ v.asset }} {{ JOURS[v.jour - 1] }} {{ v.heure }}h :
+            <span :class="v.verdict_test === 'valide' ? 'text-emerald-400' : 'text-red-400'">
+              {{ v.verdict_test === 'valide' ? '✅ validé' : '❌ réfuté' }}
+            </span>
+            ({{ v.occurrences }} tirages, Σ {{ fmtR(v.somme_r) }}R)
+          </span>
+        </div>
         <RouterLink to="/straddle"
           class="self-start text-[10px] px-2.5 py-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 font-semibold hover:bg-yellow-500/30 transition"
           @click="$emit('fermer')">→ Agenda complet sur la page Straddle</RouterLink>
@@ -101,6 +142,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { http } from '@/services/http.client'
+import { useAlerteStore } from '@/stores/alerte.store'
 import { useEvenementsArmement } from '@/composables/useEvenementsArmement'
 import type { EvenementArmement, LigneArmement } from '@/composables/useEvenementsArmement'
 
@@ -114,6 +156,12 @@ const selectionInitiale = ref<string[]>([])
 const enCours = ref(false)
 const message = ref('')
 const erreur = ref(false)
+
+const alerteStore = useAlerteStore()
+const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
+const archiveOuverte = ref(false)
+const seuilsMin = ref(4)
+const seuilsPlancher = ref(-1.5)
 
 /// État d'armement événementiel partagé (composable).
 const arm = useEvenementsArmement()
@@ -130,6 +178,28 @@ const categories = computed(() => [
 
 const modifie = computed(() =>
   JSON.stringify([...selection.value].sort()) !== JSON.stringify([...selectionInitiale.value].sort()))
+
+/// VALIDÉS conclus ces 7 derniers jours (bannière — owner 10/10 : validés
+/// seulement, les réfutés s'accumulaient en bruit ; leur état reste visible
+/// dans la matrice, chips ❌ désarmées).
+const ilYA7j = Math.floor(Date.now() / 1000) - 7 * 86_400
+const verdictsRecents = computed(() =>
+  evenementsArmement.value.flatMap(ev =>
+    ev.lignes
+      .filter(l => l.verdict_test === 'valide' && (l.conclut_le ?? 0) > ilYA7j)
+      .map(l => ({ ...l, ident: ev.ident, nom: ev.nom }))))
+
+function fmtR(r: number): string {
+  return `${r >= 0 ? '+' : ''}${r.toFixed(2)}`
+}
+
+async function sauverSeuils() {
+  try {
+    await arm.sauverSeuils(seuilsMin.value, seuilsPlancher.value)
+  } catch (e) {
+    alerteStore.afficherErreur(`Seuils : ${(e as Error).message}`)
+  }
+}
 
 /// Totaux d'armement toutes cases confondues.
 const total = computed(() => evenementsArmement.value.reduce((n, ev) => n + ev.lignes.length, 0))
@@ -195,8 +265,10 @@ async function enregistrer() {
   enCours.value = false
 }
 
-onMounted(() => {
+onMounted(async () => {
   void charger()
-  void arm.charger()
+  await arm.charger()
+  seuilsMin.value = arm.seuils.value.min
+  seuilsPlancher.value = arm.seuils.value.plancher_r
 })
 </script>
