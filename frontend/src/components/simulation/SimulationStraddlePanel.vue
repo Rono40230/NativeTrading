@@ -1,17 +1,11 @@
 <template>
   <div class="flex flex-col gap-4">
-  <RecommandationBloc strategie="straddle" :asset="filtreAssets.length === 1 ? filtreAssets[0] : undefined" />
-    <!-- Limite méthodologique -->
-    <p class="text-[11px] text-white/70 border-l-2 border-amber-400/50 pl-3">
-      La simulation rejoue les <b>passes réellement prises</b> avec un autre pilotage de sortie.
-      Les niveaux (ATR, TP multiples) restent ceux historiques des passes — les rejouer
-      exigera le chantier backtesteur. Toute conclusion sous 30 passes n'est pas significative.
-    </p>
-
-    <!-- ═══ Rangée 1 : vécu | paramètres ═══ -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <!-- ═══ 3 colonnes pleine largeur (owner 11/10) ═══ -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+      <!-- Colonne gauche : LE VÉCU -->
+      <div class="flex flex-col gap-4">
       <section class="glass-card p-4 flex flex-col gap-3">
-        <h2 class="text-sm font-bold text-white uppercase tracking-wider">1 · Résultats en direct — vécu officiel</h2>
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">1 · Vécu officiel — la référence</h2>
         <div v-if="vecu" class="grid grid-cols-3 gap-2">
           <div class="kpi"><p class="kpi-label">Capital</p>
             <p class="kpi-valeur" :class="rendement >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollars(vecu.capital_actuel) }}</p>
@@ -24,8 +18,12 @@
             <p class="kpi-sous">pire creux {{ fmtDollars(creuxVecu) }}</p></div>
         </div>
         <p v-else class="text-xs text-white/60 py-4 text-center">Chargement du vécu…</p>
+        <VecuParamsBloc :lignes="lignesParamsVecu" @copier="copierParamsVecu" />
       </section>
+      </div>
 
+      <!-- Colonne centrale : LE TEST -->
+      <div class="flex flex-col gap-4">
       <section class="glass-card p-4 flex flex-col gap-3">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">2 · Paramètres (virtuels)</h2>
         <div class="grid grid-cols-2 gap-2 text-xs">
@@ -68,10 +66,9 @@
         </div>
         <p v-if="messageApplique" class="text-[11px] text-emerald-300">{{ messageApplique }}</p>
       </section>
-    </div>
 
-    <!-- ═══ 3 — Comparatif ═══ -->
-    <section v-if="sim" class="glass-card p-4 flex flex-col gap-3">
+      <!-- 3 — Comparatif -->
+      <section v-if="sim" class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 flex-wrap">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">3 · Résultats après re-jeu</h2>
         <span class="text-[10px] text-white/60">calculé en {{ (sim.duree_ms / 1000).toFixed(1) }} s</span>
@@ -110,7 +107,12 @@
     </section>
 
     <!-- ═══ Balayage du k pour le mode choisi ═══ -->
-    <section v-if="balayage" class="glass-card p-4 flex flex-col gap-3">
+      </div>
+
+      <!-- Colonne droite : LES MESURES -->
+      <div class="flex flex-col gap-4">
+      <RecommandationBloc strategie="straddle" :asset="filtreAssets.length === 1 ? filtreAssets[0] : undefined" />
+      <section v-if="balayage" class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 flex-wrap">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">Balayage du k — mode {{ balayage.mode }}</h2>
         <span class="text-[10px] text-white/60">passes vécues, seule la distance du trailing varie</span>
@@ -146,6 +148,10 @@
     </section>
 
     <!-- ═══ 4 — Bibliothèque ═══ -->
+      </div>
+    </div>
+
+    <!-- 4 — Bibliothèque des essais (pleine largeur) -->
     <section class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">4 · Bibliothèque des essais</h2>
@@ -166,7 +172,8 @@
       </div>
       <p v-else class="text-xs text-white/60 py-2 text-center">Aucun essai encore — lance une simulation, elle sera conservée ici.</p>
     </section>
-  </div>
+
+    <CommentSimulerBloc />
 
     <ModaleConfirmation
       :ouverte="confirmationOuverte"
@@ -178,10 +185,13 @@
       @confirmer="executerApplication(); confirmationOuverte = false"
       @annuler="confirmationOuverte = false"
     />
+  </div>
 </template>
 
 <script setup lang="ts">
 import RecommandationBloc from './RecommandationBloc.vue'
+import CommentSimulerBloc from './CommentSimulerBloc.vue'
+import VecuParamsBloc from './VecuParamsBloc.vue'
 import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 import ModaleConfirmation from '@/components/common/ModaleConfirmation.vue'
@@ -219,6 +229,17 @@ function basculer(a: string) {
 const essais = ref<Essai[]>([])
 const enCours = ref(false)
 const messageApplique = ref('')
+
+/// Paramètres réels du vécu (owner 11/10) — trailing moteur + réglages passe.
+const lignesParamsVecu = computed(() => [
+  { label: 'Trailing', valeur: `${paramsActuels.value.trailing_atr}×ATR (statique)` },
+  { label: 'Time-stop', valeur: `${paramsActuels.value.time_stop_min} min` },
+  { label: 'Passe', valeur: 'SL 0,5×ATR · TPs ±1/2/3R · T−3 s' },
+])
+
+function copierParamsVecu() {
+  params.value = { ...paramsActuels.value }
+}
 
 const rendement = computed(() =>
   vecu.value && vecu.value.capital_depart > 0 ? vecu.value.capital_actuel / vecu.value.capital_depart - 1 : 0)

@@ -1,18 +1,24 @@
 <template>
   <div class="flex flex-col gap-3">
-  <RecommandationBloc strategie="kdj_halftrend" />
-    <!-- ═══ 7.G — Balayage de calibration (rejeu 24 mois H1) ═══ -->
-    <section class="glass-card p-4 flex flex-col gap-3">
+    <!-- ═══ 3 colonnes pleine largeur (owner 11/10) ═══ -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+      <!-- Colonne gauche : LE VÉCU -->
+      <div class="flex flex-col gap-4">
+      <section class="glass-card p-4 flex flex-col gap-3">
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">1 · Vécu — réglage en production</h2>
+        <VecuParamsBloc :lignes="lignesParamsVecu" />
+        <p class="text-[10px] text-white/50">Calibrer AVANT la mesure 30 trades (7.F) — l'écart entre actifs dépasse celui des paramètres.</p>
+      </section>
+      </div>
+
+      <!-- Colonne centrale : LE TEST -->
+      <div class="flex flex-col gap-4">
+      <section class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 flex-wrap">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">Calibrage des paramètres — rejeu 24 mois H1</h2>
         <span class="text-[10px] text-white/60">un paramètre à la fois autour du réglage actuel · frais 0,05 %/ordre · validé propriétaire 24/09</span>
       </div>
-      <p class="text-[11px] text-white/60">
-        Réglage actuel : period {{ params.period }} · signal {{ params.signal }} · amplitude {{ params.amplitude }} ·
-        ratio_risk {{ params.ratio_risk }} · adx_min {{ params.adx_min }} — calibrer AVANT la mesure 30 trades (7.F).
-      </p>
-      <!-- Périmètre d'étude (virtuel — ne touche pas à l'armement : le
-           tableau complet reste l'outil de décision AVANT d'armer). -->
+      <!-- Périmètre d'étude (virtuel — ne touche pas à l'armement). -->
       <div class="flex flex-col gap-1.5">
         <p class="text-[10px] font-semibold uppercase tracking-wider text-white/60">Paires étudiées <span class="font-normal normal-case text-white/40">— vide = toutes celles avec historique H1</span></p>
         <div class="flex flex-wrap gap-1">
@@ -62,9 +68,17 @@
                   {{ (l.r_net_par_trade >= 0 ? '+' : '−') + Math.abs(l.r_net_par_trade).toFixed(3) }}</td>
               </tr>
             </tbody>
-          </table>
+              </table>
         </div>
       </div>
+      </section>
+      </div>
+
+      <!-- Colonne droite : LES MESURES -->
+      <div class="flex flex-col gap-4">
+      <RecommandationBloc strategie="kdj_halftrend" />
+
+      <section class="glass-card p-4 flex flex-col gap-3">
       <!-- Par actif, réglage actuel — LA lecture du balayage : l'écart
            entre actifs (forex vs crypto) dépasse celui de tous les
            paramètres balayés. -->
@@ -92,19 +106,25 @@
             </tbody>
           </table>
         </div>
-      </div>
       <p v-if="resultat" class="text-[10px] text-white/50">
         Rejeu multi-actifs : {{ resultat.actifs.join(' · ') }}. Le 🏆 marque le meilleur R net/trade du paramètre —
         attention à la règle des 30 : une valeur gagnante sur peu de trades n'est pas une preuve. NB : en unités R,
         les frais pèsent d'autant plus lourd que le risque (distance EMA200) est serré — comparer les actifs entre eux
         reste valable, comparer ce R à un %/trade MT5 ne l'est pas.
       </p>
-    </section>
+      </div>
+      </section>
+      </div>
+    </div>
+
+    <CommentSimulerBloc />
   </div>
 </template>
 
 <script setup lang="ts">
 import RecommandationBloc from './RecommandationBloc.vue'
+import CommentSimulerBloc from './CommentSimulerBloc.vue'
+import VecuParamsBloc from './VecuParamsBloc.vue'
 import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
 import { useAlerteStore } from '@/stores/alerte.store'
@@ -135,6 +155,15 @@ const alerteStore = useAlerteStore()
 const assetsStore = useAssetsStore()
 const assetsDispo = ref<string[]>([])
 const filtreAssets = ref<string[]>([])
+
+/// Réglage en production (owner 11/10) — lecture sous les KPI du vécu.
+const lignesParamsVecu = computed(() => [
+  { label: 'Period', valeur: String(params.value.period) },
+  { label: 'Signal', valeur: String(params.value.signal) },
+  { label: 'Amplitude', valeur: String(params.value.amplitude) },
+  { label: 'Ratio risque', valeur: String(params.value.ratio_risk) },
+  { label: 'ADX min', valeur: Number(params.value.adx_min) < 0 ? 'off' : String(params.value.adx_min) },
+])
 const enCours = ref(false)
 const erreur = ref('')
 const resultat = ref<BalayageKdj | null>(null)

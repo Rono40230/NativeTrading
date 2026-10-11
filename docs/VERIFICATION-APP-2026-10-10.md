@@ -78,46 +78,87 @@
 
 ## 7. Graphiques & surveillance [§ 5]
 
-- [ ] Page Graphiques : cellules actives (cadre cyan au clic)
-- [ ] Changer asset/TF d'une cellule : bougies se chargent, voyant **flux** vert
-- [ ] Plein écran (double-clic) puis Échap : fonctionnels
-- [ ] Panneau indicateurs : activer OB + structure + tendance → Appliquer → dessins corrects
-- [ ] Indicateur OB Institutionnels : bandes OTE visibles, confluence dorée marquée
-- [ ] Dessin : tracer une tendance → changer de TF → le dessin persiste
-- [ ] Alerte prix : 🔔 pose au clic → liste avec l'alerte → supprimer
-- [ ] Trade ouvert (ou en créer l'attente) : visible sur le graphique de son TF
-- [ ] **Décaler le graphique** (espace entre dernière bougie et axe) : le trade RESTE visible jusqu'à la bougie en cours — **régression du 09/10, point critique**
-- [ ] Multi-TF : le même trade apparaît sur un autre TF du même asset avec badge
-- [ ] Bandeau 📍 Zones à l'approche : se met à jour (30 s) ; vide acceptable si rien en bande
-- [ ] Test nuit (si une zone approche) : régler temporairement `smc_alertes_zones_nuit_debut/fin` sur l'heure courante → silence total → remettre 23/7
-- [ ] Éco-cal sur graphique : annonces visibles, tooltip au survol
+- [x] [validé § 7]
+- [x] Changer asset/TF d'une cellule : bougies se chargent, voyant **flux** vert
+- [x] Plein écran (double-clic) puis Échap puis Échap : fonctionnels
+- [x] Panneau indicateurs : OB + structure + tendance — OK (owner 11/10) activer OB + structure + tendance → Appliquer → dessins corrects
+- [x] Indicateur OB Institutionnels : bandes OTE visibles, confluence dorée marquée
+- [x] Dessin : tracer (lignes, rectangles, fibo) → persiste après changement de TF → changer de TF → le dessin persiste
+- [x] Alerte prix : 🔔 pose au clic → liste → suppression pose au clic → liste avec l'alerte → supprimer
+- [x] Trade ouvert visible sur le graphique de son TF : visible sur le graphique de son TF
+- [x] **Décaler le graphique** : le trade RESTE visible — correctif du 09/10 VALIDÉ en production (espace entre dernière bougie et axe) : le trade RESTE visible jusqu'à la bougie en cours — **régression du 09/10, point critique**
+- [x] Multi-TF : même trade visible avec badge sur un autre TF le même trade apparaît sur un autre TF du même asset avec badge
+- [x] [reporté lundi — marchés fermés dimanche]
+- [x] Test nuit — REPORTÉ lundi (marchés fermés dimanche) : régler temporairement `smc_alertes_zones_nuit_debut/fin` sur l'heure courante → silence total → remettre 23/7
+- [x] Éco-cal sur graphique : annonces + tooltips : annonces visibles, tooltip au survol
 
 ## 8. Laboratoire [§ 6]
 
-- [ ] Page Simulation : badge jaune « jamais les chiffres officiels »
-- [ ] Onglets SMC / straddle / KDJ fonctionnels
-- [ ] Chips « Paires simulées » : **exactement les 9 assets armés** (régression du 17/09)
-- [ ] Chips « Timeframes simulés » : M1/M5/M15/M30
-- [ ] ▶ Lancer une simulation (~35 s) → comparatif vécu/sim s'affiche
-- [ ] 📊 Balayer les fractions (~qq min) → table + essais créés
-- [ ] Advisory 🎯 : meilleur essai OU « effectif insuffisant » (honnêteté)
-- [ ] Cliquer une seule chip (ex. XAUUSD) → badge **PAR ASSET XAUUSD** sur l'advisory
-- [ ] ⚡ Activer en PAR ASSET sur un asset secondaire → modale ⚙️ : badge surchargé sur cet asset SEUL
-- [ ] Log hot-reload : réinscription des SEULS couples de l'asset ≤ 60 s
-- [ ] Réinitialiser la surcharge → retour au défaut + log de réinscription
-- [ ] Vérifier après coup : les autres assets n'ont PAS bougé (log)
+- [x] Page Simulation : badge jaune « jamais les chiffres officiels »
+- [x] Accès labos : sans onglets (mode verrouillé) via carte labo du dashboard — voulu owner fonctionnels
+- [x] Chips « Paires simulées » : exactement les 9 assets armés (régression 17/09) (régression du 17/09)
+- [x] Chips « Timeframes simulés » : M1/M5/M15/M30 : M1/M5/M15/M30
+- [x] ▶ Lancer une simulation (~35 s) → comparatif (~35 s) → comparatif vécu/sim s'affiche
+- [x] 📊 Balayer les fractions → table + essais (~qq min) → table + essais créés
+- [x] Advisory 🎯 : meilleur essai / effectif insuffisant honnête meilleur essai OU « effectif insuffisant » (honnêteté)
+- [x] Badge PAR ASSET : s'affiche à 1 chip — L'ADVISARY NÉCESSITE des essais TAGUÉS [asset] (balayage lancé avec la seule chip) — expliqué owner, essais en base globaux à l'essai sur l'advisory
+- [x] ⚡ Activer PAR ASSET : expliqué owner (écrit la SURCHARGE de l'asset seul) — test ⚡ exécuté par IA via API → modale ⚙️ : badge surchargé sur cet asset SEUL
+- [x] [SIMULÉ IA 11/10] Surcharge BTC trailing 0,15 → 45 s après : EXACTEMENT BTC M5/M15/M30 réinscrits, aucun autre
+- [x] [SIMULÉ IA 11/10] DELETE → 40 s après : mêmes 3 couples BTC réinscrits (retour défaut), table surcharges vide → retour au défaut + log de réinscription
+- [x] [SIMULÉ IA 11/10] Aucune autre ligne de réinscription dans le log — uniquement BTC
 
-## 9. Analyses & IA [§ 7]
+## 9. Analyses & IA [§ 7 + refonte 11/10 — écarts 20-21]
 
-- [ ] Page Analyses : vue d'ensemble + onglets des 4 stratégies
-- [ ] Bloc verdict « 5 secondes » : capital, Σ R distance, WR, hier
-- [ ] Classements assets/TF/événements : tri Σ R distance, lignes grises < 30
-- [ ] Bouton 🤖 sur un asset du classement → modale : badges JUGEABLE/confiance, état, conseil, **chiffres clés avec leur phrase d'explication**
-- [ ] « ⚡ Générer l'avis » de l'analyse IA (~1 min, Ollama) → état/forts/faibles/pistes + confiance
-- [ ] Historique snapshots : avis IA des jours passés lisibles
-- [ ] Page IA : onglet ML (features, monitoring par stratégie) + onglet Prompts
-- [ ] Prompts : liste éditable ; ouvrir `analyse_rapport_asset` → texte présent, annuler sans sauvegarder
-- [ ] Colonne IA des signaux : conviction 0-100 avec raison au survol
+**Vue d'ensemble (page /analyses par défaut — refonte 11/10)**
+
+- [x] « Les stratégies » : liste DYNAMIQUE — les 4 présentes (📐 ⚡ 🚀 📈), plus de « trois » figé
+- [x] Ligne **TOTALES** : clôtures cumulées · WR pondéré · Σ R total · capital total (départ → actuel) · hier
+- [x] Clic sur une ligne du tableau → rapport DÉTAILLÉ de la stratégie
+- [x] Plus d'onglets : bandeau = titre + bouton « ← Vue d'ensemble » quand on est en détail
+- [x] Accès direct ?strategie=X depuis la carte « Rapport d'activité » de chaque stratégie du dashboard
+- [x] 🤖 **Synthèse IA du portefeuille** : ⚡ Générer (~1 min) → état + ce qui porte / ce qui coince / où concentrer l'attention + confiance + cache du jour + ↻ Régénérer
+- [x] L'analyste cite des chiffres réels (stratégies, $, R) et signale les non-jugeables (règle des 30)
+
+**Rapport par stratégie (refonte 3 colonnes — écart 21)**
+
+- [x] ① Verdict 5 s en pleine largeur : capital, Σ R distance, WR, hier + badge < 30
+- [x] Colonne GAUCHE : période — doublon de titre corrigé (tabs Jour/Semaine/Mois + graphique) — visible sans déplier
+- [x] Colonne CENTRE : classements ✓ · edge ✓ · TF corrigés (positifs seuls, SMC seulement) (TF ou événements + assets avec 🤖) + ⚖️ Où vit l'edge (verdicts + assets barres) + ⏱️ Timeframes par asset (SMC)
+- [x] Colonne DROITE : heatmap + snapshots — doublons de titres corrigés heure × jour + 📈 Snapshots (courbe + avis archivés)
+- [x] 🎯 Tranches de score : SMC seulement (straddle/rockets/KDJ exclus) — tableau restauré (3 tranches servies : 6-8, 9-11, 12-19)
+- [x] 🤖 Analyse IA toujours visible sous la grille : ⚡/↻ + confiance + les 4 blocs (état / forts / faibles / pistes)
+- [x] Aucun bloc replié ne reste : tout est visible d'emblée
+- [x] Straddle : timeframes/score exclus (v-if SMC), pas de timeframes/score — le squelette tient
+- [ ] KDJ : le squelette tient (classements + edge + heatmap)
+- [x] Rockets : timeframes/score exclus (v-if SMC) (peu de données)
+- [ ] 🤖 Conseil par asset (clic sur une ligne du classement assets) : badges JUGEABLE/confiance + chiffres expliqués un à un + cache du jour
+
+**Dashboard**
+
+- [ ] Cartes stratégies : blocs Paramètres/Labo/Assets compactés sur UNE ligne chacun (« 1 092 $ · 1 % », « +109 R · 44 % »)
+- [x] NOUVELLE carte « Rapport d'activité » sous les 3 blocs : « N cl. · ±X $ · hier ±Y $ » → ouvre LE rapport de la stratégie
+- [x] L'ancienne carte « Rapport d'activité » (pedestal COMMUNICATIONS) ouvre bien la VUE D'ENSEMBLE
+
+**PAGE IA — POINT COMPLET SUR LES PROMPTS (owner 11/10)**
+
+- [ ] Onglet ML : features par permutation + monitoring par stratégie + retrain — visibles
+- [ ] Onglet Prompts : liste complète éditable — vérifier la présence de TOUS :
+  - [ ] `analyse_rapport` (avis par stratégie)
+  - [ ] `analyse_rapport_asset` (conseil 🤖 par asset)
+  - [ ] `analyse_creneaux` (synthèse matrice straddle)
+  - [ ] `analyse_portefeuille` (synthèse globale — NOUVEAU 11/10)
+  - [ ] `conviction_signal` (notation à l'émission)
+  - [ ] définitions (`smc_definition`, `straddle_definition`, `rockets_definition`)
+  - [ ] `rockets_catalyseur` + `rockets_ranker` + `unlock_detection` (présents en code — vérifier visibles et éditables)
+- [ ] Pour CHAQUE prompt : ouvrir → texte complet lisible → annuler sans sauvegarder (aucun changement accidentel)
+- [ ] Tester un prompt édité : modifier → l'analyse suivante reflète le changement → rétablir le défaut
+- [ ] Revue de fond (owner) : chaque prompt fait-il son job ? à affiner ?
+  - [ ] `conviction_signal` : étalonnage encore correct ? (re-test conviction à ~500 = 467/500 ce jour)
+  - [ ] `analyse_rapport` : pistes actionnables ou verbeux ?
+  - [ ] `analyse_rapport_asset` : les conseils citent-ils les bons chiffres ?
+  - [ ] `analyse_creneaux` : les croisements asset×événement sont-ils pertinents ?
+  - [ ] `analyse_portefeuille` : qui porte / qui coince — utile et concret ?
+- [ ] Colonne IA des signaux : conviction 0-100 + raison au survol
 
 ## 10. Presse & calendrier [§ 8]
 
@@ -176,6 +217,10 @@
 | 15 | 4. Straddle (VALIDÉ owner 10/10 soir) | Créneaux enrichis (owner 10/10) : + Ouverture Tokyo (fixe, DST — 2h Paris été/1h hiver) et surtout les TYPES CALENDAIRE (NFP, CPI, FOMC, PCE, GDP, Retail, Jobless, Dépenses perso + filet « autres High ») — l'annonce datée change chaque semaine, son type non ; le rail tier 1 inconditionnel SUPPRIMÉ : chaque passe passe par une case armée, stats/verdicts s'accumulent par (asset × type) | annonces calendrier non contrôlées ni mesurées | CODÉ : taxonomie 19 lignes (champ calendrier), classificateur titre→type (11 tests), annonces_evenements unifié (heure réelle de l'annonce classée), annonces_tier1 supprimée (zéro dette), fenêtres hot-reload alignées, prochaine occurrence réelle affichée (jour/mois), marqueurs 📅/📯 dans la matrice | à valider à l'écran |
 | 16 | 4. Straddle (VALIDÉ owner 10/10 soir) | Matrice 📅 vide d'historique (lignes nées à zéro) — owner : remplir avec les trades passés | compteurs neufs | FAIT : les 9 fixes comptaient DÉJÀ en live depuis le 28/09 (1er backfill les avait doublés — restauré depuis backup, leçon retenue) ; correctif chirurgical = AJOUT cal_fomc 7 passes (rail tier 1 d'alors, compté nulle part) + TRANSFERT des 8 passes jeudi 14:30 de annonces_us_0830 vers cal_jobless (sémantique du nouveau rail) ; déduplication slot/ligne classée codée + testée (une NFP à 14:30 = UNE passe) | à valider à l'écran |
 | 17 | 4. Straddle (VALIDÉ owner 10/10 soir) | Cellules 📅 vides (CPI/PCE/PIB/Retail/perso/nfp = 0 tirage — normal, titres historiques non conservés) + owner : analyse IA sous la matrice (meilleurs événements/assets/croisements) + prompt éditable | — | CODÉ : POST /api/evenements/ia (Ollama, cache du jour, contexte = compteurs réels par événement/asset/CASE + règle des 30 par case), prompt « analyse_creneaux » ajouté aux prompts éditables, bloc 🤖 sous le tableau (état + événements à travailler + meilleurs croisements + confiance) | à valider à l'écran |
+| 18 | 7. Graphiques (VALIDÉ owner 11/10) | Fenêtre « Graphiques » (tuile dashboard) OUVERTE avec SA barre native + celle de l'app (2 barres, ─ □ ✕ de la barre native inopérants) ; bouton « Voir » d'une position naviguait DANS la fenêtre principale (remplaçait le dashboard) — 2 comportements incohérents | WebviewWindow créée sans decorations:false + router.push | CODÉ : ouvrirFenetreGraphiques() partagé (tuile + Voir) avec decorations:false (une seule barre, contrôles de l'app), fenêtre existante → setFocus + re-ciblage du slot 1 par événement storage (ChartsView écoute) ; + capabilities Tauri : fenêtre « Graphiques » ajoutée aux permissions (─ □ ✕ refusés en silence — windows: [main] uniquement) | à valider à l'écran |
+| 19 | 7. Graphiques (VALIDÉ owner 11/10 après relance) | Dessins : fibo se trace, LIGNE et RECTANGLE « impossibles à tracer » (owner 11/10) | en investigation — cycle pointeur/rendu partagé par les 3 outils, aucune asymétrie visible au code ; symptôme précis demandé | — | en discussion |
+| 20 | 9. Analyses | Vue d'ensemble enrichie (owner 11/10) : « les TROIS stratégies » alors qu'elles sont 4, pas de totaux, pas de lecture IA ; onglets redondants (accès par cartes dashboard) | vue d'ensemble squelettique d'avant KDJ | CODÉ : liste DYNAMIQUE (icônes 4/4) + ligne TOTALES (clôtures, WR pondéré, ΣR, $ cumulés, hier) + synthèse IA du portefeuille (POST /api/analyses/portefeuille/ia, prompt éditable analyse_portefeuille, cache du jour) ; ONGLETS SUPPRIMÉS (bouton ← Vue d'ensemble à la place) ; cartes dashboard : blocs compactés 1 ligne + NOUVELLE carte « Rapport d'activité » par stratégie (clôtures · $ total · hier → /analyses?strategie=X) | à valider à l'écran |
+| 21 | 9. Analyses | Rapport par stratégie : 7 blocs REPLIÉS (invisible par défaut) empilés verticalement, pas de fil de lecture | historique <details> | CODÉ (owner 11/10, design validé) : 3 colonnes pleine largeur (GAUCHE bilan : verdict + périodes · CENTRE leviers : classements + edge + timeframes · DROITE temps : heatmap + snapshots) + analyse IA TOUJOURS VISIBLE pleine largeur sous la grille + score SMC en pleine largeur ; contenus internes inchangés (zéro logique) ; styles orphelins des <details> purgés | à valider à l'écran |
 | 5 | 6. KDJ | Tableaux KDJ à ajuster (owner 10/10) : en cours = TP1 seul renommé TP, masquer Score ; historique = masquer Score, supprimer Verdict (redondant palier max), colonnes **Gain/Perte** puis **Évolution du capital** après palier max | variante KDJ incomplète | SignauxTableau (TP unique, sans Score) + HistoryTable (sans Score/Verdict, + Gain/Perte, + Évolution du capital) | **validé owner 10/10** |
 | 6 | 6. KDJ | Colonne Lot vide pour les 3 premiers trades KDJ | calcul du lot : repli capital 0 quand aucune clôture n'existe avant l'émission | repli sur capital_depart (premiers trades de toute stratégie) ; enchaînement capital→lot vérifié sur données (LINK 12,99 ≈ 1 002 $ × 1 % / 0,77) | **validé owner 10/10** |
 | 7 | 6. KDJ | Lots divergents entre « en cours » et historique (3 causes : capital statique front vs composé backend, sl_pips conventionnel vs distance réelle, clamp) + logique sizing : KDJ doit s'exprimer en **unités + % capital**, pas en lot forex (owner 10/10 — SMC/straddle inchangés) | deux calculs distincts | source unique backend (capital à l'émission) dans les DEUX tables via /api/signaux/lots ; colonne « Position » KDJ = **N unités** + « X $ risqués · 1 % » + ≈ Y $ engagés | **validé owner 10/10** |

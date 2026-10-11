@@ -9,7 +9,7 @@
     <span v-if="asset" class="text-[9px] font-bold px-2 py-0.5 rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-300">PAR ASSET {{ asset }}</span>
     <template v-if="reco?.meilleur">
       <span class="text-[11px] text-white">
-        Essai <span class="font-mono font-bold text-white">{{ reco.meilleur.id.slice(6, 14) }}</span> :
+        Essai <span class="font-mono font-bold text-white" :title="`id technique : ${reco.meilleur.id}`">{{ dateEssai(reco.meilleur.cree_le) }} · {{ reco.meilleur.perimetre ?? 'global' }}</span> :
         <span class="font-bold text-emerald-300">{{ fmtR(reco.meilleur.r_total) }} R</span>
         sur {{ reco.meilleur.nb_trades }} trades (WR {{ Math.round(reco.meilleur.taux_reussite * 100) }} %)
       </span>
@@ -37,7 +37,7 @@ import { http } from '@/services/http.client'
 const props = defineProps<{ strategie: string; asset?: string }>()
 
 interface Recommandation {
-  meilleur: { id: string; r_total: number; nb_trades: number; taux_reussite: number } | null
+  meilleur: { id: string; r_total: number; nb_trades: number; taux_reussite: number; cree_le?: number; perimetre?: string } | null
   delta_r: number | null
   activable: boolean
   message: string
@@ -86,4 +86,9 @@ async function activer() {
 
 onMounted(charger)
 watch(() => props.asset, charger)
+/// Date courte JJ/MM (repli sur l'id technique si absent).
+function dateEssai(ts?: number): string {
+  if (!ts) return '—'
+  return new Date(ts * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+}
 </script>

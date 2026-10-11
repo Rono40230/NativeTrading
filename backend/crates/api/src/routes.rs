@@ -280,6 +280,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::analyses::get_analyse),
         )
         .route(
+            "/api/analyses/portefeuille/ia",
+            web::post().to(crate::analyses_portefeuille_ia::post_synthese),
+        )
+        .route(
             "/api/analyses/{strategie}/ia",
             web::post().to(crate::analyses_ia::post_analyse_ia),
         )

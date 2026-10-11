@@ -4,6 +4,7 @@ use actix_web::{http::header, web, App, HttpServer};
 mod analyses;
 mod journal_bord;
 mod analyses_ia;
+mod analyses_portefeuille_ia;
 mod analyses_ia_asset;
 mod analyses_smc;
 mod asset_params_handlers;

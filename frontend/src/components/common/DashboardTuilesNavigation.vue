@@ -117,12 +117,11 @@ import { http } from '@/services/http.client'
 import { presseApi, type ArticlePresse } from '@/services/api.presse'
 import { alertesApi } from '@/services/api.alertes'
 import { useAlerteStore } from '@/stores/alerte.store'
-import { ciblerPremierSlot } from '@/utils/graphiques'
+import { ciblerPremierSlot, ouvrirFenetreGraphiques } from '@/utils/graphiques'
 import type { AlertePrix } from '@/services/api.alertes'
 import FondTheme from './FondTheme.vue'
 // Import STATIQUE : dans le bundle principal — pas de chunk séparé qui peut
 // échouer au chargement dans WebKitGTK (leçon des 3 commits cassés).
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 
 /// Tuiles rendues par cette instance — le dashboard les place en deux
 /// groupes depuis le 14/09 (presse entre calendrier et rapport, puis
@@ -193,22 +192,13 @@ const alertesActives = ref<AlertePrix[]>([])
 /// Ouvre la page Graphiques sur un asset précis (premier slot ciblé).
 /// Clic sur une tuile du pedestal : Graphiques → nouvelle fenêtre
 /// indépendante (owner 07/10) ; les autres → navigation normale.
-function clicTuile(t: { id: string; route: string }) {
+async function clicTuile(t: { id: string; route: string }) {
   if (t.id === 'graphiques') {
-    try {
-      new WebviewWindow('Graphiques', {
-        url: `${window.location.origin}${t.route}`,
-        title: 'Graphiques',
-        width: 1280,
-        height: 800,
-        maximized: true,
-        center: true,
-      })
-      return
-    } catch {
+    await ouvrirFenetreGraphiques()
+    if (!(typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)) {
       router.push(t.route)
-      return
     }
+    return
   }
   router.push(t.route)
 }

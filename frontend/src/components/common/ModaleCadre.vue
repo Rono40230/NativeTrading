@@ -5,13 +5,19 @@
        panneau ardoise, titre + fermeture. Le contenu vit dans le slot. -->
   <Teleport to="body">
     <div
-      class="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-6"
+      class="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center"
+      :class="plein ? 'p-1.5' : 'p-6'"
       @click.self="$emit('fermer')"
       @click.stop
     >
+      <!-- « plein » = RESPONSIVE : l'unité est le VIEWPORT (vw/vh), la
+           modale remplit l'écran quelle que soit sa taille — fini les
+           max-w/max-h concurrents. -->
       <div
-        class="w-full max-h-[85vh] overflow-y-auto p-5 rounded-xl border border-white/15 bg-slate-900 shadow-2xl break-words"
-        :class="plein ? 'max-w-[96vw]' : tresLarge ? 'max-w-6xl' : large ? 'max-w-3xl' : 'max-w-lg'"
+        class="overflow-y-auto p-5 rounded-xl border border-white/15 bg-slate-900 shadow-2xl break-words"
+        :class="plein
+          ? 'w-[98.5vw] h-[97vh] max-w-none'
+          : 'w-full max-h-[85vh] ' + (tresLarge ? 'max-w-6xl' : large ? 'max-w-3xl' : 'max-w-lg')"
       >
         <div class="flex items-center justify-between mb-3 sticky top-0">
           <h2 class="text-sm font-bold text-white uppercase tracking-wider">{{ titre }}</h2>

@@ -80,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch , onBeforeUnmount } from 'vue'
 import { useMarketStore } from '@/stores/market.store'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useAssetsStore } from '@/stores/assets.store'
@@ -125,6 +125,16 @@ const rotationDefaut = ['BTC', 'XAUUSD', 'DAX', 'XAGUSD', 'NAS100', 'SP500', 'ET
 const slots = ref<Slot[]>(chargerSlots())
 const celluleActive = ref(0)
 const clePrefs = ref(0)
+
+// Fenêtre Graphiques indépendante (écart 18 du 11/10) : un « Voir » cliqué
+// dans la fenêtre principale écrit le slot 1 — l'événement storage (même
+// origine) re-cible la cellule 1 SANS recharger la page.
+function surStorage(e: StorageEvent) {
+  if (e.key !== CLE_SLOTS) return
+  const maj = chargerSlots()
+  if (maj[0]) slots.value[0] = { ...slots.value[0], ...maj[0] }
+}
+window.addEventListener('storage', surStorage)
 
 function chargerSlots(): Slot[] {
   const nb = nbCellulesLayout[layout.value]
@@ -206,6 +216,7 @@ async function lancerAnalyseSmc() {
   const confianceMl = signalStore.prediction?.confiance ?? 0
   await signalStore.chargerAnalyseIA(slotActif.value.asset, slotActif.value.timeframe, prixEntreeSnapshot.value, confianceMl, 0)
 }
+onBeforeUnmount(() => window.removeEventListener('storage', surStorage))
 </script>
 
 <style scoped>

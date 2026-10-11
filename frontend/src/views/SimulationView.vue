@@ -1,5 +1,5 @@
 <template>
-  <div class="p-4 lg:p-6 max-w-7xl mx-auto flex flex-col gap-4">
+  <div class="p-4 lg:p-6 w-full flex flex-col gap-4">
     <!-- En-tête : identité + étiquette laboratoire -->
     <div class="glass-card p-3 flex flex-wrap items-center gap-2">
       <span class="text-lg">🧪</span>

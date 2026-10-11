@@ -76,28 +76,39 @@
            ligne (owner 26/09 : « je dois savoir à quoi ils correspondent ») -->
       <div class="flex-1 min-w-0 flex flex-col gap-2">
         <BlocCommande titre="Paramètres" :teinte="teinteBloc" @clic="surAction('parametres')">
-          <div class="flex items-center justify-center gap-1.5 text-[10px] leading-snug">
+          <div class="flex items-center justify-center gap-1 text-[10px] leading-snug whitespace-nowrap">
             <span class="font-bold text-white/70">Capital</span>
             <span class="font-bold tabular-nums" :class="capital >= capitalDepart ? 'text-emerald-300' : 'text-red-300'">{{ capital < capitalDepart ? '−' : '' }}{{ capital.toLocaleString('fr-FR', { maximumFractionDigits: 0 }) }} $</span>
-          </div>
-          <div class="flex items-center justify-center gap-1.5 text-[10px] leading-snug">
+            <span class="text-white/40">·</span>
             <span class="font-bold text-white/70">Risque</span>
             <span class="font-bold text-white tabular-nums">{{ risque }} %</span>
           </div>
         </BlocCommande>
         <BlocCommande titre="Labo" :teinte="teinteBloc" @clic="surAction('simulation')">
-          <div class="flex items-center justify-center gap-1.5 text-[10px] leading-snug">
+          <div class="flex items-center justify-center gap-1 text-[10px] leading-snug whitespace-nowrap">
             <span class="font-bold text-white/70">Σ R</span>
             <span class="font-bold tabular-nums" :class="sommeR >= 0 ? 'text-emerald-300' : 'text-red-300'">
               {{ (sommeR >= 0 ? '+' : '−') + Math.abs(sommeR).toFixed(1).replace('.', ',') }} R</span>
-          </div>
-          <div class="flex items-center justify-center gap-1.5 text-[10px] leading-snug">
+            <span class="text-white/40">·</span>
             <span class="font-bold text-white/70">WR</span>
             <span class="font-bold text-white tabular-nums">{{ tauxReussite.toFixed(0) }} %</span>
           </div>
         </BlocCommande>
         <BlocCommande v-if="carteAsset" :titre="carteAsset.titre" :teinte="teinteBloc" @clic="surAction(carteAsset.cle)">
           <p class="text-[10px] font-bold text-white text-center leading-snug">{{ resumeAssets }}</p>
+        </BlocCommande>
+        <!-- Rapport d'activité de LA stratégie (owner 11/10) : une ligne
+             bilan, clic → /analyses?strategie=. -->
+        <BlocCommande titre="Rapport d'activité" :teinte="teinteBloc" @clic="ouvrirRapport">
+          <div class="flex items-center justify-center gap-1 text-[10px] leading-snug whitespace-nowrap">
+            <span class="font-bold tabular-nums text-white">{{ nbClotures }} cl.</span>
+            <span class="text-white/40">·</span>
+            <span class="font-bold tabular-nums" :class="dollarsTotal >= 0 ? 'text-emerald-300' : 'text-red-300'">
+              {{ (dollarsTotal >= 0 ? '+' : '−') + Math.abs(Math.round(dollarsTotal)).toLocaleString('fr-FR') }} $</span>
+            <span v-if="hier !== null" class="text-white/40">·</span>
+            <span v-if="hier !== null" class="font-bold tabular-nums" :class="hier >= 0 ? 'text-emerald-300' : 'text-red-300'">
+              hier {{ (hier >= 0 ? '+' : '−') + Math.abs(Math.round(hier)).toLocaleString('fr-FR') }} $</span>
+          </div>
         </BlocCommande>
       </div>
 
@@ -254,6 +265,14 @@ const risque = ref(0)
 const sommeR = ref(0)
 const tauxReussite = ref(0)
 const resumeAssets = ref('…')
+// Ligne-bilan de la carte « Rapport d'activité » (owner 11/10).
+const nbClotures = ref(0)
+const dollarsTotal = ref(0)
+const hier = ref<number | null>(null)
+
+function ouvrirRapport() {
+  router.push(`/analyses?strategie=${props.id}`)
+}
 
 async function chargerBlocs() {
   try {
@@ -261,12 +280,15 @@ async function chargerBlocs() {
     if (a) {
       sommeR.value = a.r_distance_total ?? 0
       tauxReussite.value = (a.taux_reussite ?? 0) * 100
+      nbClotures.value = a.nb_trades ?? 0
+      hier.value = a.hier?.dollars ?? null
     }
   } catch { /* silencieux */ }
   try {
     const r = await http.get(`/api/strategies/${props.id}/capital`)
     capital.value = r.data?.capital_actuel ?? 0
     capitalDepart.value = r.data?.capital_depart ?? 1000
+    dollarsTotal.value = capital.value - capitalDepart.value
   } catch { /* silencieux */ }
   await chargerAssets()
 }

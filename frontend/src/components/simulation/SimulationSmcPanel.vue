@@ -1,18 +1,12 @@
 <template>
   <div class="flex flex-col gap-4">
-  <RecommandationBloc strategie="SMC" :asset="filtreAssets.length === 1 ? filtreAssets[0] : undefined" />
-    <!-- Limite méthodologique -->
-    <p class="text-[11px] text-white/70 border-l-2 border-amber-400/50 pl-3">
-      La simulation rejoue les <b>trades réellement pris</b> avec d'autres niveaux — elle ne peut pas
-      inventer les trades qu'un autre réglage aurait fait naître. Toute conclusion sur une tranche
-      de moins de 30 trades n'est pas significative (règle du projet).
-    </p>
-
-    <!-- ═══ Rangée 1 : vécu officiel | paramètres virtuels ═══ -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <!-- 1 — Résultats en direct (avant modification) -->
+    <!-- ═══ 3 colonnes pleine largeur (owner 11/10) : LE VÉCU | LE TEST |
+         LES MESURES — la recommandation vit à droite, visible pendant le réglage ═══ -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 items-start">
+      <!-- ═══ Colonne gauche : LE VÉCU (référence) ═══ -->
+      <div class="flex flex-col gap-4">
       <section class="glass-card p-4 flex flex-col gap-3">
-        <h2 class="text-sm font-bold text-white uppercase tracking-wider">1 · Résultats en direct — vécu officiel</h2>
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">1 · Vécu officiel — la référence</h2>
         <div v-if="vecu" class="grid grid-cols-3 gap-2">
           <div class="kpi"><p class="kpi-label">Capital</p>
             <p class="kpi-valeur" :class="rendementVecu >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtDollars(vecu.capital_actuel) }}</p>
@@ -25,9 +19,13 @@
             <p class="kpi-sous">pire creux {{ fmtDollars(creuxVecu) }}</p></div>
         </div>
         <p v-else class="text-xs text-white/60 py-4 text-center">Chargement du vécu…</p>
+        <!-- Paramètres réels du vécu, lecture seule (owner 11/10) -->
+        <VecuParamsBloc :lignes="lignesParamsVecu" :surcharges="surchargesActives" @copier="copierParamsVecu" />
       </section>
+      </div>
 
-      <!-- 2 — Paramètres ayant une incidence -->
+      <!-- ═══ Colonne centrale : LE TEST (virtuel) ═══ -->
+      <div class="flex flex-col gap-4">
       <section class="glass-card p-4 flex flex-col gap-3">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">2 · Paramètres (virtuels)</h2>
         <div class="grid grid-cols-2 gap-2 text-xs">
@@ -75,10 +73,9 @@
         </div>
         <p v-if="messageApplique" class="text-[11px] text-emerald-300">{{ messageApplique }}</p>
       </section>
-    </div>
 
-    <!-- ═══ 3 — Résultats après re-jeu : comparatif côte à côte ═══ -->
-    <section v-if="sim" class="glass-card p-4 flex flex-col gap-3">
+      <!-- 3 — Résultats après re-jeu : comparatif côte à côte -->
+      <section v-if="sim" class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 flex-wrap">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">3 · Résultats après re-jeu</h2>
         <span class="text-[10px] text-white/60">calculé en {{ (sim.duree_ms / 1000).toFixed(1) }} s</span>
@@ -116,8 +113,14 @@
       </div>
     </section>
 
-    <!-- ═══ 4 — Labo whale watching (2.2) ═══ -->
-    <section v-if="whaleLabo" class="glass-card p-4 flex flex-col gap-3">
+      </div>
+
+      <!-- ═══ Colonne droite : LES MESURES ═══ -->
+      <div class="flex flex-col gap-4">
+      <RecommandationBloc strategie="SMC" :asset="filtreAssets.length === 1 ? filtreAssets[0] : undefined" />
+
+      <!-- 4 — Labo whale watching (2.2) -->
+      <section v-if="whaleLabo" class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 flex-wrap">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">4 · Whale watching 🐋</h2>
         <span class="text-[10px] text-white/60">
@@ -159,10 +162,10 @@
       </p>
     </section>
 
-    <!-- ═══ 5 — Balayage des fractions ═══ -->
-    <section v-if="balayage" class="glass-card p-4 flex flex-col gap-3">
+      <!-- 5 — Balayage des fractions -->
+      <section v-if="balayage" class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 flex-wrap">
-        <h2 class="text-sm font-bold text-white uppercase tracking-wider">4 · Balayage des fractions</h2>
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">5 · Balayage des fractions</h2>
         <span class="text-[10px] text-white/60">{{ balayage.nb_clotures }} clôtures vécues · verdicts inchangés, seule la découpe du lot varie</span>
       </div>
       <div class="overflow-x-auto">
@@ -197,10 +200,10 @@
       <p class="text-[10px] text-white/50">Classement sur les 231 configurations (pas 0,05) ; ligne verte = réglage actuel.</p>
     </section>
 
-    <!-- ═══ 4-bis — Balayage du k de trailing (re-jeu exact) ═══ -->
-    <section v-if="balayageTrailingRes" class="glass-card p-4 flex flex-col gap-3">
+      <!-- 6 — Balayage du k de trailing (re-jeu exact) -->
+      <section v-if="balayageTrailingRes" class="glass-card p-4 flex flex-col gap-3">
       <div class="flex items-center gap-2 flex-wrap">
-        <h2 class="text-sm font-bold text-white uppercase tracking-wider">4-bis · Balayage du k de trailing (×R, après TP2)</h2>
+        <h2 class="text-sm font-bold text-white uppercase tracking-wider">6 · Balayage du k de trailing (×R, après TP2)</h2>
         <span class="text-[10px] text-white/60">re-jeu exact du moteur — la ligne « Moteur actuel » suit le réglage réel (trailing actif ou non)</span>
       </div>
       <div v-if="balayageTrailingRes.moteur_actuel" class="text-xs text-white/70 mb-1">
@@ -235,28 +238,15 @@
       <p class="text-[10px] text-white/50">Chaque k = re-jeu complet du moteur (cache 30 min). Un trailing ATR-roulant SMC exigerait de dévier de l'étalon Pine — non inclus.</p>
     </section>
 
-    <!-- ═══ 5 — Bibliothèque des essais ═══ -->
-    <section class="glass-card p-4 flex flex-col gap-3">
-      <div class="flex items-center gap-2">
-        <h2 class="text-sm font-bold text-white uppercase tracking-wider">5 · Bibliothèque des essais</h2>
-        <span class="ml-auto text-[10px] text-white/60">clic = recharge les paramètres · 🗑 = supprime</span>
       </div>
-      <div v-if="essais.length" class="flex flex-col gap-1">
-        <div v-for="e in essais" :key="e.id"
-             class="flex items-center gap-3 text-xs rounded-lg px-3 py-2 bg-white/5 border border-white/10 hover:border-teal-400/40 cursor-pointer"
-             @click="rechargerParams(e.params)">
-          <span class="text-white/60 font-mono shrink-0">{{ dateCourte(e.cree_le) }}</span>
-          <span class="text-white truncate">TP1 {{ e.params.tp1_mult }}R · TP2 {{ e.params.tp2_mult }}R · f {{ fmtFrac(e.params) }}</span>
-          <span class="ml-auto font-mono shrink-0" :class="(e.resultat?.capital_actuel ?? 0) >= (e.resultat?.capital_depart ?? 1) ? 'text-emerald-400' : 'text-red-400'">
-            {{ fmtDollars(e.resultat?.capital_actuel ?? 0) }} · {{ fmtR2(e.resultat?.r_total_pondere ?? 0) }}
-          </span>
-          <button class="text-white/50 hover:text-red-400 shrink-0" title="Supprimer l'essai"
-                  @click.stop="supprimerEssai(e.id)">🗑</button>
-        </div>
-      </div>
-      <p v-else class="text-xs text-white/60 py-2 text-center">Aucun essai encore — lance une simulation, elle sera conservée ici.</p>
-    </section>
-  </div>
+    </div>
+
+    <!-- 7 · Bibliothèque des essais (pleine largeur) -->
+    <EssaisBiblioBloc :essais="essais" @recharger="rechargerParamsGen" @supprimer="supprimerEssai">
+      <template #ligne="{ essai }">{{ fmtFrac(essai.params as unknown as ParamsSmc) }}</template>
+    </EssaisBiblioBloc>
+
+    <CommentSimulerBloc />
 
     <ModaleConfirmation
       :ouverte="confirmationOuverte"
@@ -268,10 +258,14 @@
       @confirmer="executerApplication(); confirmationOuverte = false"
       @annuler="confirmationOuverte = false"
     />
+  </div>
 </template>
 
 <script setup lang="ts">
 import RecommandationBloc from './RecommandationBloc.vue'
+import CommentSimulerBloc from './CommentSimulerBloc.vue'
+import VecuParamsBloc from './VecuParamsBloc.vue'
+import EssaisBiblioBloc from './EssaisBiblioBloc.vue'
 import PerimetreChips from './PerimetreChips.vue'
 import { ref, computed, onMounted } from 'vue'
 import { http } from '@/services/http.client'
@@ -334,6 +328,20 @@ const enCours = ref(false)
 const enCoursBalayage = ref(false)
 const confirmationOuverte = ref(false)
 const messageApplique = ref('')
+
+/// Paramètres réels du vécu affichés sous les KPI (owner 11/10) + copie.
+const lignesParamsVecu = computed(() => [
+  { label: 'TP1', valeur: `${paramsActuels.value.tp1_mult}R` },
+  { label: 'TP2', valeur: `${paramsActuels.value.tp2_mult}R` },
+  { label: 'TP3', valeur: paramsActuels.value.tp3_mode === 'lointaine' ? 'lointaine' : `fixe ${paramsActuels.value.tp3_rfixe}R` },
+  { label: 'Trailing', valeur: paramsActuels.value.tp3_trailing ? `${paramsActuels.value.tp3_trailing_r}R` : 'off' },
+  { label: 'Fractions', valeur: `${Math.round(paramsActuels.value.frac_tp1 * 100)}/${Math.round(paramsActuels.value.frac_tp2 * 100)}/${Math.round(paramsActuels.value.frac_tp3 * 100)}` },
+])
+const surchargesActives = ref<string[]>([])
+
+function copierParamsVecu() {
+  params.value = { ...paramsActuels.value }
+}
 
 /// Saisie des fractions en % — stockage 0-1 inchangé (backend, essais).
 const pct1 = computed({
@@ -455,6 +463,10 @@ async function supprimerEssai(id: string) {
   await chargerEssais()
 }
 
+function rechargerParamsGen(p: Record<string, unknown>) {
+  rechargerParams(p as unknown as ParamsSmc)
+}
+
 function rechargerParams(p: ParamsSmc) {
   params.value = { ...p }
   window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -546,7 +558,8 @@ function fmtR2(v: number): string {
   return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(2)} R`
 }
 function fmtFrac(p: ParamsSmc): string {
-  return `${Math.round(p.frac_tp1 * 100)}/${Math.round(p.frac_tp2 * 100)}/${Math.round(p.frac_tp3 * 100)} %`
+  const tps = `TP1 ${p.tp1_mult}R · TP2 ${p.tp2_mult}R · `
+  return `${tps}${Math.round(p.frac_tp1 * 100)}/${Math.round(p.frac_tp2 * 100)}/${Math.round(p.frac_tp3 * 100)} %`
 }
 function dateCourte(ts: number): string {
   return new Date(ts * 1000).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })

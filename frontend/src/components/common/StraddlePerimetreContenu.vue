@@ -138,7 +138,7 @@
            compteurs de la matrice et croise événement × asset. -->
       <div class="rounded-lg border border-white/10 bg-white/[0.03] p-2.5 flex flex-col gap-1.5">
         <div class="flex items-center gap-2 flex-wrap">
-          <p class="text-[10px] font-bold uppercase tracking-wider text-white">🤖 Analyse des créneaux</p>
+          <p class="text-sm font-bold uppercase tracking-wider text-white">🤖 Analyse des créneaux</p>
           <span v-if="ia && !iaEnCours" class="text-[9px] font-mono px-1.5 py-0.5 rounded-full border font-bold"
                 :class="ia.confiance >= 70 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-white/20 bg-white/5 text-white'">{{ ia.confiance }}/100</span>
           <span v-if="ia && !iaEnCours && iaCache" class="text-[9px] text-white/40">cache du jour</span>
@@ -148,23 +148,23 @@
                   @click="genererIa()">{{ iaEnCours ? '⏳ Analyse… (~1 min)' : ia ? '↻ Régénérer' : '⚡ Générer' }}</button>
         </div>
         <div v-if="ia" class="flex flex-col gap-1.5">
-          <p class="text-[11px] text-white leading-relaxed">{{ ia.etat }}</p>
-          <div v-if="ia.meilleurs_evenements.length" class="text-[10px] text-white/85">
+          <p class="text-base text-white leading-relaxed">{{ ia.etat }}</p>
+          <div v-if="ia.meilleurs_evenements.length" class="text-sm text-white/85">
             <span class="font-semibold text-emerald-300">📈 Événements à travailler :</span>
             <ul class="list-disc list-inside ml-1 space-y-0.5">
               <li v-for="(e, i) in ia.meilleurs_evenements" :key="'e' + i">{{ e }}</li>
             </ul>
           </div>
-          <div v-if="ia.meilleurs_croisements.length" class="text-[10px] text-white/85">
+          <div v-if="ia.meilleurs_croisements.length" class="text-sm text-white/85">
             <span class="font-semibold text-teal-300">🎯 Meilleurs croisements asset × événement :</span>
             <ul class="list-disc list-inside ml-1 space-y-0.5">
               <li v-for="(c, i) in ia.meilleurs_croisements" :key="'c' + i">{{ c }}</li>
             </ul>
           </div>
-          <p class="text-[9px] text-white/50">L'analyste lit les compteurs réels des cases (règle des 30 par case) — il propose, l'armement reste à votre clic.</p>
+          <p class="text-xs text-white/50">L'analyste lit les compteurs réels des cases (règle des 30 par case) — il propose, l'armement reste à votre clic.</p>
         </div>
         <p v-else-if="iaErreur" class="text-[10px] text-red-300">{{ iaErreur }}</p>
-        <p v-else class="text-[10px] text-white/50">L'analyste local (Ollama) croisera les cases (asset × événement) pour dire quoi travailler — généré à la demande, conservé pour la journée.</p>
+        <p v-else class="text-sm text-white/50">L'analyste local (Ollama) croisera les cases (asset × événement) pour dire quoi travailler — généré à la demande, conservé pour la journée.</p>
       </div>
 
       <p class="text-[8px] text-white/70 leading-snug">

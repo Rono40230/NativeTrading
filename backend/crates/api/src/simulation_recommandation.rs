@@ -27,6 +27,8 @@ struct Essai {
     r_total: f64,
     nb_trades: i64,
     taux_reussite: f64,
+    /// Date de création (epoch s) — affichage parlant « essai du 28/09 ».
+    cree_le: i64,
 }
 
 /// Périmètre d'un essai : Some([X]) = essai PAR ASSET, None = essai global
@@ -39,7 +41,7 @@ fn perimetre_essai(e: &Essai) -> Option<Vec<String>> {
 
 async fn charger_essais(db: &AppState, strategie: &str) -> Vec<Essai> {
     let rows = sqlx::query(
-        "SELECT id, params_json, resultats_json FROM simulation_essais WHERE strategie = ?",
+        "SELECT id, params_json, resultats_json, cree_le FROM simulation_essais WHERE strategie = ?",
     )
     .bind(strategie)
     .fetch_all(db.db.pool())
@@ -57,6 +59,7 @@ async fn charger_essais(db: &AppState, strategie: &str) -> Vec<Essai> {
                 nb_trades: res["nb_trades"].as_i64()?,
                 taux_reussite: res["taux_reussite"].as_f64().unwrap_or(0.0),
                 params,
+                cree_le: r.try_get("cree_le").ok()?,
             })
         })
         .collect()
@@ -212,6 +215,13 @@ pub async fn get_recommandation(
             Some(serde_json::json!({
                 "id": m.id, "params": m.params, "r_total": m.r_total,
                 "nb_trades": m.nb_trades, "taux_reussite": m.taux_reussite,
+                // Affichage parlant (owner 11/10 : le numéro technique
+                // « 17905863 » ne disait rien) : date locale + périmètre.
+                "cree_le": m.cree_le,
+                "perimetre": m.params.get("assets").and_then(|a| a.as_array()).map(|a| {
+                    let liste: Vec<&str> = a.iter().filter_map(|x| x.as_str()).collect();
+                    if liste.is_empty() { "global".to_string() } else { liste.join("+") }
+                }).unwrap_or_else(|| "global".to_string()),
             })),
             false,
         ),

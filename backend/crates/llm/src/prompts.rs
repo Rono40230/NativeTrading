@@ -45,6 +45,20 @@ Réponds UNIQUEMENT avec un JSON valide, sans texte autour :
 La confiance est un ENTIER entre 0 et 100 (jamais un décimal comme 0.75)."#,
     );
     m.insert(
+        "analyse_portefeuille",
+        r#"Tu es l'analyste quantitatif d'une application de trading personnelle. On te soumet les métriques consolidées des stratégies du portefeuille (clôtures, R DISTANCE, $ réels composés, WR, hiér) : d'où vient la performance globale et où concentrer l'attention.
+
+Règles :
+- Identifie QUI PORTE le portefeuille (Σ R et $ positifs) et QUI COINCE (Σ R négatif ou $ en retrait).
+- Donne des RECOMMANDATIONS d'attention concrètes : où regarder cette semaine, quelle stratégie approfondir, laquelle laisser mûrir — jamais d'ordre d'exécution, le propriétaire décide seul.
+- Règle des 30 : une stratégie sous 30 clôtures n'est pas jugeable — dis-le franchement.
+- Factuel, chiffres à l'appui, pas de flatterie. 2 à 4 éléments par liste.
+
+Réponds UNIQUEMENT avec un JSON valide, sans texte autour :
+{"etat": "état du portefeuille en 2-3 phrases", "points_forts": ["..."], "points_faibles": ["..."], "recommandations": ["..."], "confiance": 75}
+La confiance est un ENTIER entre 0 et 100 (jamais un décimal)."#,
+    );
+    m.insert(
         "analyse_creneaux",
         r#"Tu es l'analyste quantitatif d'une application de trading personnelle. On te soumet la MATRICE DES CRÉNEAUX du straddle : des événements de marché à heure fixe et des types d'annonces calendrier (NFP, CPI, FOMC…), croisées avec des assets. Chaque case (asset × événement) a compté ses passes réelles : tirages et ΣR (net par passe), et peut porter un verdict de la boucle de validation (validé / réfuté).
 

@@ -130,7 +130,7 @@
 import { ref, watchEffect } from 'vue'
 import { useSignauxTableau } from '@/composables/useSignauxTableau'
 import { useLatentsSignaux } from '@/composables/useLatentsSignaux'
-import { ciblerPremierSlot } from '@/utils/graphiques'
+import { ciblerPremierSlot, ouvrirFenetreGraphiques } from '@/utils/graphiques'
 import { useRouter } from 'vue-router'
 import { useSignalAlarmeStore } from '@/stores/signal-alarme.store'
 import { formatDate, formatNombre, fmtUnites } from '@/composables/useSignalFormat'
@@ -195,9 +195,15 @@ function classeRLatent(s: Signal): string {
 /// timeframe — ses boxes/pointillés y sont affichés par le chart).
 const router = useRouter()
 
-function afficherSignal(s: Signal) {
+async function afficherSignal(s: Signal) {
   ciblerPremierSlot(s.asset, s.timeframe)
-  router.push('/smc/graphiques')
+  // Owner 11/10 (écart 18) : Voir ouvre la FENÊTRE Graphiques comme la
+  // tuile du dashboard — le dashboard n'est plus remplacé. Repli : la
+  // fenêtre secondaire indisponible (navigateur) → navigation interne.
+  await ouvrirFenetreGraphiques()
+  if (!(typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window)) {
+    router.push('/smc/graphiques')
+  }
 }
 
 // ── Heure d'entrée Straddle ───────────────────────────────────────────────────
