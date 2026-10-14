@@ -44,7 +44,7 @@ impl Database {
                     sl_short, take_profit_short,
                     sl_long_effectif, sl_short_effectif,
                     tps_long_atteints, tps_short_atteints,
-                    heure_entree
+                    heure_entree, cle_moteur
              FROM signaux ORDER BY cree_le DESC LIMIT ?",
         )
         .bind(limit)

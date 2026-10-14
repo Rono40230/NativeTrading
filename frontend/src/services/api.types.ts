@@ -72,6 +72,9 @@ export interface Signal {
   llm_raison: string | null
   llm_sl_suggere: number | null
   llm_tp1_suggere: number | null
+  /** Clé moteur (straddle : porte le timestamp de l'annonce → colonne
+   *  « Événement » de l'historique, owner 14/10). */
+  cle_moteur?: string | null
   // Jambe SHORT — uniquement renseigné pour les signaux Straddle (direction === 'Both')
   sl_short: number | null
   take_profit_short: number[] | null  // [tp1_short, tp2_short, tp3_short]

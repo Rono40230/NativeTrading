@@ -134,7 +134,7 @@ async function generer(forcer = false) {
 
 function heureParis(epoch: number): string {
   if (!epoch) return '—'
-  return new Date(epoch * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return new Date(epoch * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
 }
 function rFlottant(p: PositionIa): number {
   return p.direction === 'Both' ? Math.max(p.r_actuel, p.r_court) : p.r_actuel

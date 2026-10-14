@@ -23,7 +23,7 @@ export function heureParis(ts: number): string {
 
 /** Date + heure courtes en heure de Paris ("JJ/MM/AAAA HH:MM"). */
 export function dateHeureParis(ts: number): string {
-  return formatParis(ts, { dateStyle: 'short', timeStyle: 'short' })
+  return formatParis(ts, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
 /**

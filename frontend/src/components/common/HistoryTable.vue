@@ -89,6 +89,7 @@
           {{ capitaux?.[s.id] !== undefined ? capitaux[s.id].toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' $' : '—' }}
         </td>
         <td class="px-3 py-3 text-white text-xs cursor-help" :title="titreOuverture(s)">{{ formatDate(s.heure_entree ?? s.cree_le) }}</td>
+        <td v-if="variante === 'straddle'" class="px-3 py-3 text-white text-xs">{{ evenementStraddle(s) }}</td>
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-white text-xs">{{ s.ferme_le ? formatDate(s.ferme_le) : '—' }}</td>
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 font-mono text-white text-xs">{{ formatDuree(s.heure_entree, s.ferme_le) }}</td>
       </tr>
@@ -118,6 +119,18 @@ import {
   calculerPositionKdj, fmtUnites,
   type PalierMax,
 } from '@/composables/useSignalFormat'
+
+import { evenementNom } from '@/composables/useEvenementsTaxonomie'
+
+/// Décodage cle_moteur → nom de l'événement (colonne straddle, owner 14/10).
+/// La clé "straddle-ASSET-1791981000-B" porte le timestamp de l'annonce :
+/// on le rapproche de la taxonomie pour retrouver l'événement déclencheur.
+function evenementStraddle(s: { cle_moteur?: string | null }): string {
+  if (!s.cle_moteur) return '—'
+  const m = s.cle_moteur.match(/-(\d{10})-B?$/)
+  if (!m) return '—'
+  return evenementNom(parseInt(m[1], 10))
+}
 
 const props = defineProps<{
   signaux: Signal[]

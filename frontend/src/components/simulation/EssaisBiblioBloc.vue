@@ -45,6 +45,6 @@ function fmtR2(v: number): string {
   return `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(2)} R`
 }
 function dateCourte(ts: number): string {
-  return new Date(ts * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+  return new Date(ts * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', timeZone: 'Europe/Paris' })
 }
 </script>

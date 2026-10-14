@@ -434,12 +434,12 @@ function largeurCat(c: CategorieAnalyse): number {
 
 /// Date courte JJ/MM/AA depuis un epoch secondes.
 function dateCourte(ts: number): string {
-  return new Date(ts * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  return new Date(ts * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Europe/Paris' })
 }
 
 /// Heure HH:MM depuis un epoch secondes.
 function heure(ts: number): string {
-  return new Date(ts * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  return new Date(ts * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
 }
 
 // ── Analyse IA (à la demande, cache du jour côté backend) ────────────────────
