@@ -118,6 +118,7 @@ impl Database {
                         &row.get::<Option<String>, _>("tps_short_atteints").unwrap_or_else(|| "[]".into())
                     ).unwrap_or_default(),
                     "heure_entree":          row.get::<Option<i64>, _>("heure_entree"),
+                    "cle_moteur":            row.get::<Option<String>, _>("cle_moteur"),
                 })
             })
             .collect();
