@@ -12,7 +12,7 @@
         :style="style"
       >
         <p v-if="titre" class="text-[10px] font-bold text-white leading-snug break-words">{{ titre }}</p>
-        <p v-for="(l, i) in lignes" :key="i" class="text-[9px] font-bold text-white/85 leading-snug whitespace-pre-wrap break-words">{{ l }}</p>
+        <p v-for="(l, i) in lignes" :key="i" class="text-[10px] font-bold text-white/85 leading-snug whitespace-pre-wrap break-words">{{ l }}</p>
         <slot name="contenu" />
       </div>
     </teleport>

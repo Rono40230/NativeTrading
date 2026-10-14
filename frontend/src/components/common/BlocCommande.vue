@@ -32,7 +32,7 @@ defineEmits<{ (e: 'clic'): void }>()
   gap: 2px;
 }
 .bloc-titre {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;

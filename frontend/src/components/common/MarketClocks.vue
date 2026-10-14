@@ -39,10 +39,10 @@
         <!-- Le bloc d'infos -->
         <div class="flex flex-col min-w-0">
           <span class="text-[12px] font-extrabold tabular-nums leading-none" :class="session.labelCouleur">{{ session.heureTitre }}</span>
-          <span class="text-[9px] font-bold uppercase tracking-widest text-white/65 leading-none mt-1 truncate">{{ session.nom }}</span>
+          <span class="text-[11px] font-bold uppercase tracking-widest text-white/65 leading-none mt-1 truncate">{{ session.nom }}</span>
           <div class="flex items-center gap-1.5 flex-wrap mt-1">
-            <span class="text-[8px] font-bold" :class="session.badgeCouleur">{{ session.statutCourt }}</span>
-            <span v-if="session.countdown" class="text-[8px] font-semibold tabular-nums" :class="session.countdownCouleur">{{ session.countdown }}</span>
+            <span class="text-[10px] font-bold" :class="session.badgeCouleur">{{ session.statutCourt }}</span>
+            <span v-if="session.countdown" class="text-[10px] font-semibold tabular-nums" :class="session.countdownCouleur">{{ session.countdown }}</span>
           </div>
         </div>
 
@@ -221,7 +221,7 @@ onUnmounted(() => { if (timer !== null) clearInterval(timer) })
   top: 4px;
   left: 10px;
   padding: 0 8px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.25em;
   color: rgba(255, 255, 255, 0.6);

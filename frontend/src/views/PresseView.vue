@@ -111,11 +111,11 @@
             <div class="flex items-start justify-between gap-1">
               <span
                 v-if="estNouveau(a.ajoute_le) && !a.lu"
-                class="text-[9px] font-bold text-red-300 bg-red-600/40 border border-red-500/40 rounded-full px-1.5 py-0.5 leading-none animate-pulse shrink-0"
+                class="text-[10px] font-bold text-red-300 bg-red-600/40 border border-red-500/40 rounded-full px-1.5 py-0.5 leading-none animate-pulse shrink-0"
               >NOUVEAU</span>
               <span
                 v-else-if="a.lu"
-                class="text-[9px] font-semibold text-blue-200 bg-blue-600/70 border border-blue-500/50 rounded-full px-1.5 py-0.5 leading-none shrink-0"
+                class="text-[10px] font-semibold text-blue-200 bg-blue-600/70 border border-blue-500/50 rounded-full px-1.5 py-0.5 leading-none shrink-0"
               >Vu</span>
               <span class="ml-auto text-lg font-bold tabular-nums shrink-0" :class="classeScore(a.score)">{{ a.score }}</span>
             </div>

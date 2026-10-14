@@ -27,7 +27,7 @@
       <section class="glass-card p-4 flex flex-col gap-3">
         <h2 class="text-sm font-bold text-white uppercase tracking-wider">2 · Paramètres (virtuels)</h2>
         <div class="grid grid-cols-2 gap-2 text-xs">
-          <label class="flex flex-col gap-1 col-span-2">Mode de trailing stop <span class="text-amber-300/70 text-[9px] font-normal normal-case">simulation uniquement — non persistable</span>
+          <label class="flex flex-col gap-1 col-span-2">Mode de trailing stop <span class="text-amber-300/70 text-[10px] font-normal normal-case">simulation uniquement — non persistable</span>
             <select v-model="params.trailing_mode" class="champ">
               <option value="statique">Statique — moteur actuel (k × R, après TP2)</option>
               <option value="roulant">ATR roulant — k × ATR M1 (fenêtre), après TP2</option>
@@ -400,7 +400,7 @@ async function chargerPaires() {
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
 .kpi        { @apply bg-white/5 rounded-lg p-2.5 border border-white/10 text-center; }
-.kpi-label  { @apply text-[9px] uppercase tracking-wider text-white/60; }
+.kpi-label  { @apply text-[11px] uppercase tracking-wider text-white/60; }
 .kpi-valeur { @apply text-lg font-bold font-mono mt-0.5; }
 .kpi-sous   { @apply text-[10px] text-white/50 mt-0.5; }
 .champ      { @apply bg-white/10 border border-white/15 rounded-lg px-2 py-1.5 text-white font-mono focus:border-teal-400/50 outline-none; }

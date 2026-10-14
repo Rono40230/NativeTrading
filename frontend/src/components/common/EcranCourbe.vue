@@ -26,7 +26,7 @@
       <p class="text-[10px] font-bold text-white">
         {{ libelleDate(survol.point.ferme_le) }} · capital {{ fmtDollars(survol.point.capital_apres) }}
       </p>
-      <p class="text-[9px] font-bold" :class="survol.point.profit >= 0 ? 'text-emerald-400' : 'text-red-400'">
+      <p class="text-[10px] font-bold" :class="survol.point.profit >= 0 ? 'text-emerald-400' : 'text-red-400'">
         trade {{ survol.point.profit >= 0 ? '+' : '−' }}{{ fmtDollars(Math.abs(survol.point.profit)) }}
       </p>
     </div>

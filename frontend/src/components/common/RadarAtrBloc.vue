@@ -11,7 +11,7 @@
           · top {{ classement[0].asset }} {{ classement[0].tf }}
         </span>
       </p>
-      <span class="text-[9px] text-white shrink-0">MAJ 60 s</span>
+      <span class="text-[10px] text-white shrink-0">MAJ 60 s</span>
     </div>
 
     <template v-if="ouvert">
@@ -19,7 +19,7 @@
            jour × heure (6.6, 24/09) : 100 % = conforme à l'habitude de CET
            instant, pas à une moyenne a-saisonnière. H4 et + : l'heure n'y a
            pas de sens (fenêtres ≥ 24 h) → ratio brut vs 60 bougies. -->
-      <div class="flex items-center gap-2 flex-wrap text-[9px] text-white">
+      <div class="flex items-center gap-2 flex-wrap text-[10px] text-white">
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:#10b981" /> calme &lt;80</span>
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:#f59e0b" /> modéré</span>
         <span class="flex items-center gap-1"><span class="w-3 h-2 rounded-[2px]" style="background:#ef4444" /> élevé &gt;120</span>
@@ -31,10 +31,10 @@
            habituellement chaud » qui tirait surtout sur les ouvertures de
            session (constat propriétaire 23/09). -->
       <div v-if="confluences.length" class="rounded-lg border border-orange-500/40 bg-orange-500/10 px-2 py-1.5 flex flex-wrap gap-1.5 items-center">
-        <span class="text-[9px] text-orange-200/80 font-semibold uppercase tracking-wider">Anomalies</span>
+        <span class="text-[11px] text-orange-200/80 font-semibold uppercase tracking-wider">Anomalies</span>
         <span
           v-for="c in confluences" :key="c.asset + c.tf"
-          class="flex items-center gap-1 bg-orange-500/15 border border-orange-500/30 rounded px-1.5 py-0.5 text-[9px]"
+          class="flex items-center gap-1 bg-orange-500/15 border border-orange-500/30 rounded px-1.5 py-0.5 text-[10px]"
           :title="`${c.asset} ${c.tf} : ${c.atr.toFixed(0)} % de l'habitude de cet instant (brut ${c.brut.toFixed(0)} %)`"
         >
           <span class="font-bold text-white">{{ c.asset }}</span>
@@ -56,11 +56,11 @@
           :title="titreLigne(i)"
         >
           <span class="text-[11px] font-bold text-white">{{ i.asset }}</span>
-          <span class="text-[9px] text-white bg-white/10 px-1 rounded font-mono">{{ i.tf }}</span>
+          <span class="text-[10px] text-white bg-white/10 px-1 rounded font-mono">{{ i.tf }}</span>
           <span class="ml-auto text-[10px] font-mono text-white">{{ i.atr.toFixed(0) }} %</span>
-          <span class="text-[9px] text-white/80">{{ libelle(i.atr) }}</span>
+          <span class="text-[10px] text-white/80">{{ libelle(i.atr) }}</span>
         </div>
-        <p class="text-[9px] text-white/40 pt-0.5">H4/D1/W1 : % de la moyenne des 60 dernières bougies (l'heure y est sans objet).</p>
+        <p class="text-[10px] text-white/40 pt-0.5">H4/D1/W1 : % de la moyenne des 60 dernières bougies (l'heure y est sans objet).</p>
       </div>
     </template>
   </div>

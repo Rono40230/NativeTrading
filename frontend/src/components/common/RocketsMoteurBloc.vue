@@ -43,7 +43,7 @@
         </div>
         <div class="flex items-center justify-between gap-4 py-2">
           <span class="text-white text-xs">Stagnation max. (jours sans R1)
-            <span class="text-white/40 text-[9px] block">Au-delà : clôture au prix courant (STAG)</span>
+            <span class="text-white/40 text-[10px] block">Au-delà : clôture au prix courant (STAG)</span>
           </span>
           <input v-model.number="stagnationJours" type="number" :step="1" :min="2" :max="60"
             class="w-20 bg-black/20 border border-white/10 rounded-md px-3 py-1.5 text-right text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50 appearance-none" />

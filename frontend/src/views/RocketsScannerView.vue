@@ -49,17 +49,17 @@
         <thead>
           <tr class="text-white text-xs uppercase border-b border-white/10">
             <th class="px-3 py-2.5 text-left">#</th>
-            <th class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-white" @click="trierPar('symbole')">Symbole <span class="text-[9px]">{{ iconeTri('symbole') }}</span></th>
-            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('univers')">Type <span class="text-[9px]">{{ iconeTri('univers') }}</span></th>
-            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('points')">Classement <span class="text-[9px]">{{ iconeTri('points') }}</span></th>
-            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('verdict')">Verdict <span class="text-[9px]">{{ iconeTri('verdict') }}</span></th>
-            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('pivot')">Pivot <span class="text-[9px]">{{ iconeTri('pivot') }}</span></th>
-            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('stop')">Invalidation <span class="text-[9px]">{{ iconeTri('stop') }}</span></th>
-            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('cassure')">Cassure <span class="text-[9px]">{{ iconeTri('cassure') }}</span></th>
+            <th class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-white" @click="trierPar('symbole')">Symbole <span class="text-[11px]">{{ iconeTri('symbole') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('univers')">Type <span class="text-[11px]">{{ iconeTri('univers') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('points')">Classement <span class="text-[11px]">{{ iconeTri('points') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('verdict')">Verdict <span class="text-[11px]">{{ iconeTri('verdict') }}</span></th>
+            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('pivot')">Pivot <span class="text-[11px]">{{ iconeTri('pivot') }}</span></th>
+            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('stop')">Invalidation <span class="text-[11px]">{{ iconeTri('stop') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('cassure')">Cassure <span class="text-[11px]">{{ iconeTri('cassure') }}</span></th>
             <th class="px-3 py-2.5 text-center">News (IA)</th>
             <th class="px-3 py-2.5 text-left">Critères</th>
-            <th class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-white" @click="trierPar('maj_le')">Détecté le <span class="text-[9px]">{{ iconeTri('maj_le') }}</span></th>
-            <th class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-white" @click="trierPar('elimine_le')">Éliminé le <span class="text-[9px]">{{ iconeTri('elimine_le') }}</span></th>
+            <th class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-white" @click="trierPar('maj_le')">Détecté le <span class="text-[11px]">{{ iconeTri('maj_le') }}</span></th>
+            <th class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-white" @click="trierPar('elimine_le')">Éliminé le <span class="text-[11px]">{{ iconeTri('elimine_le') }}</span></th>
           </tr>
         </thead>
         <tbody>
@@ -67,7 +67,7 @@
             <td class="px-3 py-2.5 text-white">{{ i + 1 }}</td>
             <td class="px-3 py-2.5 font-semibold whitespace-nowrap" :class="c.elimine_le ? 'text-white' : 'text-white'">
               {{ c.symbole }}
-              <span v-if="c.earnings_le" class="ml-1 text-[9px] px-1 py-0.5 rounded bg-orange-900/60 text-orange-300 align-middle"
+              <span v-if="c.earnings_le" class="ml-1 text-[10px] px-1 py-0.5 rounded bg-orange-900/60 text-orange-300 align-middle"
                     :title="`Résultats trimestriels attendus le ${c.earnings_le} — risque de gap (avertissement, pas de veto)`">📊 {{ c.earnings_le.slice(5) }}</span>
             </td>
             <td class="px-3 py-2.5 text-center">

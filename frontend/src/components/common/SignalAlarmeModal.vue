@@ -37,7 +37,7 @@
           <div class="prix-bloc">
             <span class="prix-label">Stop-Loss</span>
             <span class="prix-val text-red-400">{{ fmt(signal.stop_loss) }}</span>
-            <span class="text-[9px] text-white mt-0.5 whitespace-nowrap">{{ infosPips(signal.stop_loss, signal.prix_entree) }}</span>
+            <span class="text-[10px] text-white mt-0.5 whitespace-nowrap">{{ infosPips(signal.stop_loss, signal.prix_entree) }}</span>
           </div>
           <div class="prix-bloc">
             <span class="prix-label">Score</span>
@@ -50,7 +50,7 @@
           <div v-for="(tp, i) in (signal.take_profit ?? []).slice(0, 3)" :key="i" class="prix-bloc">
             <span class="prix-label">TP{{ i + 1 }}</span>
             <span class="prix-val text-emerald-400">{{ fmt(tp) }}</span>
-            <span class="text-[9px] text-white mt-0.5 whitespace-nowrap">{{ infosPips(tp, signal.prix_entree) }}</span>
+            <span class="text-[10px] text-white mt-0.5 whitespace-nowrap">{{ infosPips(tp, signal.prix_entree) }}</span>
           </div>
         </div>
 

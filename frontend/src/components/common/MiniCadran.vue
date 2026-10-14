@@ -47,7 +47,7 @@
         <!-- Fenêtre digitale : score -->
         <rect x="49" y="52" width="42" height="14" rx="2" fill="#020409" stroke="rgba(255,255,255,0.15)" stroke-width="0.6" />
         <text x="70" y="62" text-anchor="middle" fill="currentColor" :class="couleurTexte"
-          style="font-size: 9px; font-weight: 700; font-family: ui-monospace, monospace">{{ digital }}</text>
+          style="font-size: 10px; font-weight: 700; font-family: ui-monospace, monospace">{{ digital }}</text>
 
         <!-- Aiguille : pivot central, rotation animée -->
         <g :style="{ transform: `rotate(${angle}deg)`, transformOrigin: '70px 70px', transition: 'transform 800ms cubic-bezier(0.2,0.8,0.3,1)' }">
@@ -59,7 +59,7 @@
       </svg>
 
       <!-- Libellé → interprétation sur UNE ligne -->
-      <span class="text-[8px] font-bold text-center leading-none whitespace-nowrap truncate w-full">
+      <span class="text-[10px] font-bold text-center leading-none whitespace-nowrap truncate w-full">
         <span class="uppercase tracking-wider text-white/60">{{ libelle }}</span>
         <span class="text-white/25 mx-0.5">→</span>
         <span :class="couleurInterp">{{ interpretation }}</span>

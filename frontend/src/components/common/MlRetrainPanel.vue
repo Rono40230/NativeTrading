@@ -76,7 +76,7 @@
 
           <!-- Top Variables -->
           <div class="space-y-1">
-            <h5 class="text-[9px] uppercase font-bold text-white flex justify-between">
+            <h5 class="text-[10px] uppercase font-bold text-white flex justify-between">
               <span>Top 3 Prédictif</span>
               <span>Poids</span>
             </h5>

@@ -6,7 +6,7 @@
   <div v-if="charge" class="rounded-lg border px-3 py-2 flex items-center gap-3 flex-wrap"
        :class="reco?.meilleur ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 bg-white/[0.02]'">
     <span class="text-[11px] font-bold uppercase tracking-wider text-white">🎯 Recommandation</span>
-    <span v-if="asset" class="text-[9px] font-bold px-2 py-0.5 rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-300">PAR ASSET {{ asset }}</span>
+    <span v-if="asset" class="text-[11px] font-bold px-2 py-0.5 rounded-full border border-amber-400/30 bg-amber-400/10 text-amber-300">PAR ASSET {{ asset }}</span>
     <template v-if="reco?.meilleur">
       <span class="text-[11px] text-white">
         Essai <span class="font-mono font-bold text-white" :title="`id technique : ${reco.meilleur.id}`">{{ dateEssai(reco.meilleur.cree_le) }} · {{ reco.meilleur.perimetre ?? 'global' }}</span> :
@@ -23,7 +23,7 @@
                 ? 'Aucun essai témoin de ta config actuelle — cet essai se recommande sur ses propres chiffres. Écrit ses paramètres dans les réglages réels, relit et vérifie.'
                 : 'Écrit les paramètres de cet essai dans les réglages réels, relit et vérifie — appliqué au prochain cycle moteur.'"
               @click="activer">{{ enCours ? '⏳…' : '⚡ Activer cette config' }}</button>
-      <span v-else-if="!reco.activable" class="ml-auto text-[9px] text-white/40">espace de simulation — activation non applicable</span>
+      <span v-else-if="!reco.activable" class="ml-auto text-[10px] text-white/40">espace de simulation — activation non applicable</span>
     </template>
     <span v-else class="text-[11px] text-white/60">{{ reco?.message || 'Aucun essai éligible.' }}</span>
     <span v-if="msg" class="text-[10px] w-full" :class="erreur ? 'text-red-300' : 'text-emerald-300'">{{ msg }}</span>

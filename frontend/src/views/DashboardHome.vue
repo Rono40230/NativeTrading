@@ -22,7 +22,7 @@
          du bandeau et leurs modales) -->
     <div class="flex-1 min-h-0 overflow-y-auto">
       <div class="relative rounded-xl border border-white/10 bg-white/[0.02] p-2.5 pt-5">
-        <span class="absolute top-1 left-2.5 px-2 text-[9px] font-bold tracking-[0.25em] text-white/60 bg-[#111827] border border-white/10 rounded">STRATÉGIES</span>
+        <span class="absolute top-1 left-2.5 px-2 text-[10px] font-bold tracking-[0.25em] text-white/60 bg-[#111827] border border-white/10 rounded">STRATÉGIES</span>
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5">
           <ColonneStrategie
             v-for="s in STRATEGIES"
@@ -38,7 +38,7 @@
         système) en interrupteurs Korry gravés, hauteur doublée (owner
         25/09) pour des fenêtres digitales plus généreuses. -->
     <div class="relative shrink-0 rounded-xl border border-white/10 bg-white/[0.02] p-2 pt-5">
-      <span class="absolute top-1 left-2.5 px-2 text-[9px] font-bold tracking-[0.25em] text-white/60 bg-[#111827] border border-white/10 rounded">COMMUNICATIONS &amp; NAVIGATION</span>
+      <span class="absolute top-1 left-2.5 px-2 text-[10px] font-bold tracking-[0.25em] text-white/60 bg-[#111827] border border-white/10 rounded">COMMUNICATIONS &amp; NAVIGATION</span>
       <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 items-stretch">
         <DashboardTuilesNavigation :ids="['presse']" />
         <DashboardRapportActivite />

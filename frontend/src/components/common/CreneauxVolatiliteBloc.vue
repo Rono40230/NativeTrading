@@ -11,7 +11,7 @@
         </span>
       </p>
       <div class="flex items-center gap-1.5 min-w-0" @click.stop>
-        <span class="text-[9px] text-white truncate">{{ jourLabel }} · heures Paris · 12 mois d'historique</span>
+        <span class="text-[10px] text-white truncate">{{ jourLabel }} · heures Paris · 12 mois d'historique</span>
       </div>
     </div>
 
@@ -24,7 +24,7 @@
       <div class="grid grid-cols-2 gap-1.5 max-h-[38vh] overflow-y-auto pr-0.5">
         <div v-for="c in cartes" :key="c.asset"
           class="rounded-lg border border-white/10 bg-black/20 p-2 flex flex-col gap-1">
-          <div class="text-[9px] leading-snug text-white" :title="titreLigne(c)">
+          <div class="text-[10px] leading-snug text-white" :title="titreLigne(c)">
             <span class="text-[11px] font-bold">{{ c.asset }}</span>
             <span> | Meilleur créneau horaire : </span>
             <span v-if="c.fenetre" class="font-mono font-semibold"
@@ -46,7 +46,7 @@
       </div>
 
       <!-- Légende -->
-      <div class="flex items-center gap-2 text-[8px] text-white">
+      <div class="flex items-center gap-2 text-[10px] text-white">
         <span v-for="(nom, i) in NOM_CLUSTER" :key="nom" class="flex items-center gap-1">
           <span class="w-3 h-2 rounded-[2px]" :style="{ background: COULEURS_CLUSTER_PLEIN[i] }" /> {{ nom.toLowerCase() }}
         </span>

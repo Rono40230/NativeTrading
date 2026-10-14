@@ -123,13 +123,13 @@
             <svg viewBox="0 0 440 110" class="w-full aspect-[440/110] mb-2">
               <!-- Échelle des niveaux, proportionnelle en R -->
               <line x1="68" y1="22" x2="290" y2="22" stroke="#34d399" stroke-width="0.9" stroke-dasharray="4 3" />
-              <text x="298" y="25" fill="#34d399" font-size="7.5" font-weight="700">TP2 · +2R</text>
+              <text x="298" y="25" fill="#34d399" font-size="9" font-weight="700">TP2 · +2R</text>
               <line x1="68" y1="46" x2="290" y2="46" stroke="#60a5fa" stroke-width="0.9" stroke-dasharray="4 3" />
-              <text x="298" y="49" fill="#60a5fa" font-size="7.5" font-weight="700">TP1 · +1R</text>
+              <text x="298" y="49" fill="#60a5fa" font-size="9" font-weight="700">TP1 · +1R</text>
               <line x1="68" y1="70" x2="290" y2="70" stroke="#ffffff" stroke-width="0.9" stroke-dasharray="4 3" />
-              <text x="298" y="73" fill="#ffffff" font-size="7.5" font-weight="700">E · 0R</text>
+              <text x="298" y="73" fill="#ffffff" font-size="9" font-weight="700">E · 0R</text>
               <line x1="68" y1="94" x2="290" y2="94" stroke="#f87171" stroke-width="0.9" stroke-dasharray="4 3" />
-              <text x="298" y="97" fill="#f87171" font-size="7.5" font-weight="700">SL · −1R</text>
+              <text x="298" y="97" fill="#f87171" font-size="9" font-weight="700">SL · −1R</text>
               <!-- Remplissage, TP1 (BE), TP2 (trailing) -->
               <polyline points="30,70 55,82 85,76 150,46 175,60 220,22 255,14" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round" />
               <circle cx="150" cy="46" r="2.6" fill="#ffffff" />
@@ -158,7 +158,7 @@
           </p>
           <svg viewBox="0 0 560 70" class="w-full aspect-[560/70] mb-3">
             <rect x="6" y="22" width="76" height="24" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" stroke-width="1" />
-            <text x="44" y="37.5" text-anchor="middle" fill="#ffffff" font-size="7.5" font-weight="700">2 jambes à E</text>
+            <text x="44" y="37.5" text-anchor="middle" fill="#ffffff" font-size="9" font-weight="700">2 jambes à E</text>
             <text x="44" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6">OCO · SL E∓1R</text>
             <rect x="146" y="22" width="88" height="24" rx="4" fill="rgba(52,211,153,0.08)" stroke="#34d399" stroke-width="1" />
             <text x="190" y="37.5" text-anchor="middle" fill="#34d399" font-size="8" font-weight="700">TP1 · 1R</text>

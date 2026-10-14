@@ -59,7 +59,7 @@
         </div>
       </div>
 
-      <p class="text-[9px] text-white/60">
+      <p class="text-[10px] text-white/60">
         L'analyste lit le vécu ($ réels composés + R distance), les réglages actuels (surcharge ou défaut global) et le
         balayage du labo — il propose, ne décide jamais (constitution du 24/08). Pour appliquer un réglage :
         Simulation → chip {{ asset }} seule → balayer → ⚡ Activer (écrit dans la surcharge de {{ asset }}).

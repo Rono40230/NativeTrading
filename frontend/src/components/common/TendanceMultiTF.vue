@@ -5,7 +5,7 @@
       <div class="flex items-center justify-between px-3 py-1.5 border-b border-white/10">
         <span class="text-[10px] font-semibold text-white uppercase tracking-wide">Periode</span>
         <div class="flex items-center gap-1.5">
-          <span class="text-[9px] text-white">EMA({{ props.periodeRapide }}/{{ props.periodeLente }})</span>
+          <span class="text-[10px] text-white">EMA({{ props.periodeRapide }}/{{ props.periodeLente }})</span>
         </div>
       </div>
       <!-- Chargement -->

@@ -99,12 +99,12 @@
         <div class="flex flex-wrap items-stretch gap-1.5">
           <template v-for="(g, i) in groupesMarches" :key="g.label">
             <div v-if="i > 0" class="w-px self-stretch bg-white/15 mx-0.5" />
-            <span class="self-center text-[9px] font-extrabold uppercase tracking-wider text-white/75 whitespace-nowrap">{{ g.label }}</span>
+            <span class="self-center text-[11px] font-extrabold uppercase tracking-wider text-white/75 whitespace-nowrap">{{ g.label }}</span>
             <div v-for="e in g.entites" :key="e.nom" class="tuile flex-1 min-w-[200px] max-w-[300px]" :class="fondTuile(e.variation_pct)" :title="`Cours ${e.nom}`">
               <p class="truncate text-[10px] font-bold tabular-nums" :class="classeDirection(e.variation_pct)">
                 {{ e.nom }} à {{ prixFmt(e.prix) }}
               </p>
-              <p class="text-[9px] tabular-nums leading-tight whitespace-nowrap">
+              <p class="text-[10px] tabular-nums leading-tight whitespace-nowrap">
                 <span class="text-white/50">Hier :</span>
                 <span :class="classeDirection(e.variation_veille)">{{ ' ' + variation(e.variation_veille) }}</span>
                 <span class="text-white/25 mx-1">-</span>
@@ -323,7 +323,7 @@ function prixFmt(v: number): string {
   top: 4px;
   left: 10px;
   padding: 0 8px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.25em;
   color: rgba(255, 255, 255, 0.6);
@@ -334,7 +334,7 @@ function prixFmt(v: number): string {
 
 /* Libellé gravé d'instrument */
 .grave {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
   color: rgba(255, 255, 255, 0.8);

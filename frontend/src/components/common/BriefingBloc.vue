@@ -6,7 +6,7 @@
     <div class="flex items-center gap-2 flex-wrap">
       <span v-if="briefing?.synthese" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold"
             :class="(briefing.synthese.confiance ?? 0) >= 70 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-white/20 bg-white/5 text-white'">{{ briefing.synthese.confiance }}/100</span>
-      <span v-if="enCache" class="text-[9px] text-white/40">cache du jour</span>
+      <span v-if="enCache" class="text-[10px] text-white/40">cache du jour</span>
       <button class="ml-auto text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-colors disabled:opacity-40"
               :class="enCours ? 'bg-white/10 text-white' : 'bg-sky-500/20 text-sky-300 hover:bg-sky-500/30'"
               :disabled="enCours" @click="generer(true)">
@@ -92,7 +92,7 @@
         </div>
       </div>
     </div>
-        <p class="text-[9px] text-white">Tableaux = calcul de l'app (aucune invention) ; la synthèse hiérarchise — l'IA propose, le propriétaire décide.</p>
+        <p class="text-[10px] text-white">Tableaux = calcul de l'app (aucune invention) ; la synthèse hiérarchise — l'IA propose, le propriétaire décide.</p>
   </div>
 </template>
 

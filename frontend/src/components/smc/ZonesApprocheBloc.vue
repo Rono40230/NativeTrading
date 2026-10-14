@@ -23,7 +23,7 @@
         <span :class="z.achat ? 'text-emerald-300' : 'text-red-300'">{{ z.achat ? '▲ achat' : '▼ vente' }}</span>
         <span class="font-mono text-white/70">{{ z.zone_bas.toFixed(2) }}–{{ z.zone_haut.toFixed(2) }}</span>
         <span class="font-mono" :class="z.distance_atr <= 0.1 ? 'text-amber-300 font-bold' : 'text-white/50'">{{ z.distance_atr.toFixed(2) }} × ATR</span>
-        <span v-if="z.alerte_le" class="text-[9px] text-white/40" title="Alerte déjà envoyée pour cette approche (Telegram + ici)">🔔 {{ heure(z.alerte_le) }}</span>
+        <span v-if="z.alerte_le" class="text-[10px] text-white/40" title="Alerte déjà envoyée pour cette approche (Telegram + ici)">🔔 {{ heure(z.alerte_le) }}</span>
       </div>
     </div>
     <p v-else class="text-[11px] text-white/50 py-1">
@@ -31,7 +31,7 @@
       préviendra ici (et sur Telegram) dès qu'une zone fraîche est à {{ seuilInvite }}.
     </p>
 
-    <p v-if="recentes.length" class="text-[9px] text-white/40 truncate" :title="recentes.map(r => `${r.asset} ${r.tf}`).join(', ')">
+    <p v-if="recentes.length" class="text-[10px] text-white/40 truncate" :title="recentes.map(r => `${r.asset} ${r.tf}`).join(', ')">
       Récemment alertées (2 h) : {{ recentes.map(r => `${r.asset} ${r.tf}`).join(' · ') }}
     </p>
   </div>

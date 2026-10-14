@@ -43,7 +43,7 @@
                 <span class="font-mono font-bold" :class="dansPerimetre(col) ? 'text-white' : 'text-white/50'">
                   <span :class="couleurCategorie(col)">●</span> {{ col }}
                 </span>
-                <span class="text-[8px] text-white/60">{{ armeesColonne(col) }}/{{ lignesColonne(col) }}
+                <span class="text-[10px] text-white/60">{{ armeesColonne(col) }}/{{ lignesColonne(col) }}
                   <template v-if="!dansPerimetre(col)">⚠</template>
                 </span>
               </button>
@@ -54,7 +54,7 @@
           <tr v-for="ev in evenementsArmement" :key="ev.ident" class="border-t border-white/5">
             <td class="sticky left-0 z-10 bg-[#141a26] px-2 py-1">
               <div class="flex items-center gap-1.5">
-                <button class="shrink-0 w-4 h-4 rounded border text-[9px] leading-none flex items-center justify-center transition disabled:opacity-40"
+                <button class="shrink-0 w-4 h-4 rounded border text-[10px] leading-none flex items-center justify-center transition disabled:opacity-40"
                         :class="armeesLigne(ev) === ev.lignes.length
                           ? 'bg-emerald-500/30 border-emerald-400/60 text-emerald-300'
                           : armeesLigne(ev) > 0
@@ -65,11 +65,11 @@
                         @click="arm.basculerEvenement(ev.ident, armeesLigne(ev) !== ev.lignes.length)">{{ armeesLigne(ev) === ev.lignes.length ? '×' : armeesLigne(ev) > 0 ? '◐' : '+' }}</button>
                 <div class="flex flex-col leading-tight min-w-0">
                   <span class="font-semibold text-white truncate">{{ ev.calendrier ? '📅' : '📯' }} {{ ev.nom }}</span>
-                  <span class="font-mono text-white/60 text-[9px]" :title="ev.calendrier
+                  <span class="font-mono text-white/60 text-[10px]" :title="ev.calendrier
                     ? 'Type calendaire : l\'heure est celle de la prochaine annonce réelle de ce type'
                     : ''">{{ ev.prochaine_heure_paris ?? '—' }} Paris</span>
                 </div>
-                <span class="ml-auto font-mono text-[9px] shrink-0" :class="sommeLigne(ev) >= 0 ? 'text-emerald-300/80' : 'text-red-300/80'">
+                <span class="ml-auto font-mono text-[10px] shrink-0" :class="sommeLigne(ev) >= 0 ? 'text-emerald-300/80' : 'text-red-300/80'">
                   {{ tiragesLigne(ev) }}t · Σ{{ fmtR(sommeLigne(ev)) }}R
                 </span>
               </div>
@@ -81,7 +81,7 @@
                       :disabled="armEnCours"
                       @click="arm.basculer(col, ev.ident)">
                 <span class="text-[11px]">{{ glypheCellule(ligneDe(ev, col)!) }}</span>
-                <span v-if="ligneDe(ev, col)!.occurrences > 0" class="block text-[8px] font-normal"
+                <span v-if="ligneDe(ev, col)!.occurrences > 0" class="block text-[10px] font-normal"
                       :class="ligneDe(ev, col)!.somme_r >= 0 ? 'text-emerald-300/80' : 'text-red-300/80'">
                   {{ ligneDe(ev, col)!.occurrences }}t {{ fmtR(ligneDe(ev, col)!.somme_r) }}
                 </span>
@@ -97,14 +97,14 @@
     <div v-if="ajoutables.length" class="flex items-center gap-1.5 flex-wrap">
       <span class="text-[10px] text-white/60">＋ Ajouter un asset (toutes ses cases armées) :</span>
       <button v-for="a in ajoutables" :key="a.id"
-              class="text-[9px] font-mono rounded px-1.5 py-0.5 border border-white/10 bg-white/[0.03] text-white/60 hover:bg-emerald-500/20 hover:border-emerald-400/40 hover:text-white transition disabled:opacity-40"
+              class="text-[10px] font-mono rounded px-1.5 py-0.5 border border-white/10 bg-white/[0.03] text-white/60 hover:bg-emerald-500/20 hover:border-emerald-400/40 hover:text-white transition disabled:opacity-40"
               :disabled="armEnCours"
               @click="basculerColonne(a.id)">{{ a.id }}</button>
     </div>
 
     <!-- Bandeau bas : seuils · verdicts · archive · légende -->
     <div class="flex flex-col gap-1.5 pt-1 border-t border-white/10">
-      <div class="flex items-center gap-1.5 text-[9px] text-white/60 flex-wrap">
+      <div class="flex items-center gap-1.5 text-[10px] text-white/60 flex-wrap">
         <span>Verdict après</span>
         <input v-model.number="seuilsMin" type="number" min="1" max="52"
                class="w-9 bg-white/10 rounded px-1 text-white outline-none" @change="sauverSeuils">
@@ -114,7 +114,7 @@
       </div>
 
       <div class="flex items-center gap-3 flex-wrap">
-        <button class="text-left text-[9px] text-white/50 hover:text-white/80 transition-colors"
+        <button class="text-left text-[10px] text-white/50 hover:text-white/80 transition-colors"
                 @click="archiveOuverte = !archiveOuverte">
           📦 Créneaux statistiques — remplacés le 28/09 · {{ arm.archive.value.total }} lignes
           {{ archiveOuverte ? '▾' : '▸' }}
@@ -124,7 +124,7 @@
                     @click="$emit('fermer')">→ Agenda sur la page Straddle</RouterLink>
       </div>
       <div v-if="archiveOuverte && arm.archive.value.verdicts.length"
-           class="flex flex-col gap-0.5 text-[9px] text-white/60 pl-3 border-l border-white/10 max-h-32 overflow-y-auto">
+           class="flex flex-col gap-0.5 text-[10px] text-white/60 pl-3 border-l border-white/10 max-h-32 overflow-y-auto">
         <span v-for="(v, i) in arm.archive.value.verdicts" :key="`a-${i}`">
           {{ v.asset }} {{ JOURS[v.jour - 1] }} {{ v.heure }}h :
           <span :class="v.verdict_test === 'valide' ? 'text-emerald-400' : 'text-red-400'">
@@ -139,9 +139,9 @@
       <div class="rounded-lg border border-white/10 bg-white/[0.03] p-2.5 flex flex-col gap-1.5">
         <div class="flex items-center gap-2 flex-wrap">
           <p class="text-sm font-bold uppercase tracking-wider text-white">🤖 Analyse des créneaux</p>
-          <span v-if="ia && !iaEnCours" class="text-[9px] font-mono px-1.5 py-0.5 rounded-full border font-bold"
+          <span v-if="ia && !iaEnCours" class="text-[11px] font-mono px-1.5 py-0.5 rounded-full border font-bold"
                 :class="ia.confiance >= 70 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-white/20 bg-white/5 text-white'">{{ ia.confiance }}/100</span>
-          <span v-if="ia && !iaEnCours && iaCache" class="text-[9px] text-white/40">cache du jour</span>
+          <span v-if="ia && !iaEnCours && iaCache" class="text-[10px] text-white/40">cache du jour</span>
           <button class="ml-auto text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-colors disabled:opacity-40"
                   :class="iaEnCours ? 'bg-white/10 text-white' : 'bg-teal-500/20 text-teal-300 hover:bg-teal-500/30'"
                   :disabled="iaEnCours"
@@ -173,7 +173,7 @@
         <p v-else class="text-sm text-white/50">L'analyste local (Ollama) croisera les cases (asset × événement) pour dire quoi travailler — généré à la demande, conservé pour la journée.</p>
       </div>
 
-      <p class="text-[8px] text-white/70 leading-snug">
+      <p class="text-[10px] text-white/70 leading-snug">
         Cellule : clic = armer/désarmer la case (armer remet le test à zéro) · ✅ validé · ❌ réfuté (désarmé par la boucle) · ⏳ prolongé · ⚠ hors périmètre (armé mais ignoré par le moteur) · ×N = réactivité mesurée (tooltip).
         En-tête de colonne : ajouter/retirer l'asset du périmètre. Heures Paris, bascules été/hiver.
       </p>

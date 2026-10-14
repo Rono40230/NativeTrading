@@ -41,7 +41,7 @@
             <text x="380" y="40" fill="#a78bfa" font-size="7" font-weight="700">EMA200</text>
             <!-- La flèche HalfTrend au creux -->
             <polygon points="200,60 195,70 205,70" fill="#22d3ee" />
-            <text x="212" y="70" fill="#22d3ee" font-size="7.5" font-weight="700">flèche HalfTrend</text>
+            <text x="212" y="70" fill="#22d3ee" font-size="9" font-weight="700">flèche HalfTrend</text>
             <!-- Le point d'entrée à l'open suivant -->
             <circle cx="240" cy="60" r="2.8" fill="#ffffff" />
             <text x="250" y="55" fill="#ffffff" font-size="7" font-weight="700">entrée (open suivant)</text>
@@ -131,11 +131,11 @@
         <carte titre="L'échelle d'un trade long — figée à la barre d'entrée">
           <svg viewBox="0 0 440 110" class="w-full aspect-[440/110] mb-2">
             <line x1="68" y1="22" x2="290" y2="22" stroke="#34d399" stroke-width="0.9" stroke-dasharray="4 3" />
-            <text x="298" y="25" fill="#34d399" font-size="7.5" font-weight="700">TP · +RatioRisk × R</text>
+            <text x="298" y="25" fill="#34d399" font-size="9" font-weight="700">TP · +RatioRisk × R</text>
             <line x1="68" y1="52" x2="290" y2="52" stroke="#ffffff" stroke-width="0.9" stroke-dasharray="4 3" />
-            <text x="298" y="55" fill="#ffffff" font-size="7.5" font-weight="700">E · l'entrée (open)</text>
+            <text x="298" y="55" fill="#ffffff" font-size="9" font-weight="700">E · l'entrée (open)</text>
             <line x1="68" y1="88" x2="290" y2="88" stroke="#f87171" stroke-width="0.9" stroke-dasharray="4 3" />
-            <text x="298" y="91" fill="#f87171" font-size="7.5" font-weight="700">SL · EMA200 (barre d'entrée)</text>
+            <text x="298" y="91" fill="#f87171" font-size="9" font-weight="700">SL · EMA200 (barre d'entrée)</text>
             <text x="20" y="55" fill="#e5e7eb" font-size="7" font-weight="700">R = E − EMA200</text>
             <polyline points="30,80 60,86 90,78 130,60 170,48 220,38 255,24" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round" />
             <circle cx="30" cy="80" r="2.6" fill="#ffffff" />
@@ -164,7 +164,7 @@
         <carte titre="Le cycle de vie">
           <svg viewBox="0 0 560 70" class="w-full aspect-[560/70] mb-3">
             <rect x="6" y="22" width="88" height="24" rx="4" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.55)" stroke-width="1" />
-            <text x="50" y="37.5" text-anchor="middle" fill="#ffffff" font-size="7.5" font-weight="700">Flèche + conditions</text>
+            <text x="50" y="37.5" text-anchor="middle" fill="#ffffff" font-size="9" font-weight="700">Flèche + conditions</text>
             <text x="50" y="63" text-anchor="middle" fill="#e5e7eb" font-size="6">à la clôture N</text>
             <rect x="146" y="22" width="88" height="24" rx="4" fill="rgba(34,211,238,0.08)" stroke="#22d3ee" stroke-width="1" />
             <text x="190" y="37.5" text-anchor="middle" fill="#22d3ee" font-size="8" font-weight="700">Entrée</text>

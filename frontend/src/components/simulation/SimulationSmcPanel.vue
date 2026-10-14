@@ -592,7 +592,7 @@ async function chargerAssetsArmes() {
 <style scoped>
 .glass-card { @apply rounded-xl border border-white/10 bg-white/5 backdrop-blur-sm; }
 .kpi        { @apply bg-white/5 rounded-lg p-2.5 border border-white/10 text-center; }
-.kpi-label  { @apply text-[9px] uppercase tracking-wider text-white/60; }
+.kpi-label  { @apply text-[11px] uppercase tracking-wider text-white/60; }
 .kpi-valeur { @apply text-lg font-bold font-mono mt-0.5; }
 .kpi-sous   { @apply text-[10px] text-white/50 mt-0.5; }
 .champ      { @apply bg-white/10 border border-white/15 rounded-lg px-2 py-1.5 text-white font-mono focus:border-teal-400/50 outline-none disabled:opacity-40; }

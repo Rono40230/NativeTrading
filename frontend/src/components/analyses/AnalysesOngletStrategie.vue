@@ -53,7 +53,7 @@
             <div class="w-full flex-1 flex flex-col justify-start" v-show="p.dollars < 0">
               <div class="w-full rounded-b bg-red-400/80" :style="{ height: `${hauteurPos(p)}%` }" />
             </div>
-            <span class="text-[8px] text-white mt-0.5 truncate w-full text-center">{{ p.label }}</span>
+            <span class="text-[10px] text-white mt-0.5 truncate w-full text-center">{{ p.label }}</span>
           </div>
         </div>
       </div>
@@ -87,7 +87,7 @@
       <div class="glass-card p-3">
         <p class="text-xs font-semibold text-white mb-2">⚖️ Verdicts — où vit l'edge</p>
         <div v-if="a.verdicts.length" class="flex flex-col gap-1">
-          <div class="flex items-center gap-2 text-[9px] uppercase tracking-wider text-white/60 px-0.5">
+          <div class="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60 px-0.5">
             <span class="w-16 shrink-0">Verdict</span>
             <span class="flex-1">Poids ($)</span>
             <span class="w-20 text-right shrink-0">$</span>
@@ -118,7 +118,7 @@
       <div class="glass-card p-3">
         <p class="text-xs font-semibold text-white mb-2">🥇 Assets — contribution au capital</p>
         <div v-if="a.assets.length" class="flex flex-col gap-1">
-          <div class="flex items-center gap-2 text-[9px] uppercase tracking-wider text-white/60 px-0.5">
+          <div class="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60 px-0.5">
             <span class="w-16 shrink-0">Asset</span>
             <span class="flex-1">Poids ($)</span>
             <span class="w-20 text-right shrink-0">$</span>
@@ -170,7 +170,7 @@
               :title="`${t.label} — ${fmtDollars(t.dollars)} · ${fmtR(t.r)} · ${t.n} clôture(s) · WR ${(t.wr * 100).toFixed(0)} %`"
             >{{ t.label }} {{ fmtDollars(t.dollars) }}</span>
           </div>
-          <span class="text-[9px] text-white">{{ pa.n }} clôture(s)</span>
+          <span class="text-[10px] text-white">{{ pa.n }} clôture(s)</span>
         </div>
       </div>
       </div>
@@ -183,7 +183,7 @@
         <p class="text-xs font-semibold text-white mb-2" title="Contribution $ des clôtures par créneau horaire (heure locale) — vert = gains, rouge = pertes, intensité ∝ |$| de la case. Survol = détail.">🗓️ Heatmap heure × jour</p>
         <div class="mt-2">
       <div v-if="a?.heatmap?.length" class="overflow-x-auto">
-        <table class="text-[9px] font-mono border-separate" style="border-spacing: 1px">
+        <table class="text-[11px] font-mono border-separate" style="border-spacing: 1px">
           <thead>
             <tr class="text-white/50">
               <th></th>
@@ -338,7 +338,7 @@
             <li v-for="(p, i) in ia.corrections" :key="i">{{ p }}</li>
           </ul>
         </div>
-        <p class="text-[9px] text-white">L'analyste lit et propose — les réglages ne bougent que sur ta décision (constitution du 24/08).</p>
+        <p class="text-[10px] text-white">L'analyste lit et propose — les réglages ne bougent que sur ta décision (constitution du 24/08).</p>
       </div>
       <p v-else-if="iaErreur" class="text-xs text-red-300">{{ iaErreur }}</p>
       <p v-else class="text-xs text-white">L'analyste local (Ollama) lit les métriques ci-dessus et donne son avis — état, points forts/faibles, pistes concrètes. Généré à la demande, conservé pour la journée.</p>

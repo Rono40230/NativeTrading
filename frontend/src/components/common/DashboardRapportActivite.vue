@@ -18,7 +18,7 @@
     <div class="relative rounded bg-black/30 px-1.5 py-1 min-h-0 flex-1 overflow-hidden">
       <FondTheme theme="rapport" />
       <div class="relative flex flex-col h-full">
-        <p class="text-[9px] font-bold uppercase tracking-wider text-white/60 text-center mb-0.5">Activité des dernières 24h</p>
+        <p class="text-[11px] font-bold uppercase tracking-wider text-white/60 text-center mb-0.5">Activité des dernières 24h</p>
         <table class="w-full text-[10px] leading-snug">
           <thead>
             <tr class="text-white/50 uppercase tracking-wider border-b border-white/10">

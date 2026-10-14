@@ -33,13 +33,13 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="font-bold text-blue-200 text-xs">SMC</span>
-              <span class="text-[9px] text-white">({{ store.analyse.smc?.global.nb_trades || 0 }} tr)</span>
+              <span class="text-[10px] text-white">({{ store.analyse.smc?.global.nb_trades || 0 }} tr)</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-sm font-bold" :class="(store.analyse.smc?.global.win_rate ?? 0) >= 55 ? 'text-emerald-400' : 'text-red-400'">{{ store.analyse.smc?.global.win_rate?.toFixed(0) || 0 }}%</span>
             </div>
           </div>
-          <p class="text-[9px] text-white/50">vécu : {{ store.analyse.smc?.global.nb_trades || 0 }} trades clôturés</p>
+          <p class="text-[10px] text-white/50">vécu : {{ store.analyse.smc?.global.nb_trades || 0 }} trades clôturés</p>
         </div>
 
         <!-- Rockets -->
@@ -47,13 +47,13 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="font-bold text-orange-200 text-xs">Rockets</span>
-              <span class="text-[9px] text-white">({{ store.analyse.rockets?.global.nb_trades || 0 }} tr)</span>
+              <span class="text-[10px] text-white">({{ store.analyse.rockets?.global.nb_trades || 0 }} tr)</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-sm font-bold" :class="(store.analyse.rockets?.global.win_rate ?? 0) >= 55 ? 'text-emerald-400' : 'text-red-400'">{{ store.analyse.rockets?.global.win_rate?.toFixed(0) || 0 }}%</span>
             </div>
           </div>
-          <p class="text-[9px] text-white/50">vécu : {{ store.analyse.rockets?.global.nb_trades || 0 }} trades clôturés</p>
+          <p class="text-[10px] text-white/50">vécu : {{ store.analyse.rockets?.global.nb_trades || 0 }} trades clôturés</p>
         </div>
 
         <!-- Straddle -->
@@ -61,13 +61,13 @@
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
               <span class="font-bold text-purple-200 text-xs">Straddle</span>
-              <span class="text-[9px] text-white">({{ store.analyse.straddle?.global.nb_trades || 0 }} tr)</span>
+              <span class="text-[10px] text-white">({{ store.analyse.straddle?.global.nb_trades || 0 }} tr)</span>
             </div>
             <div class="flex items-center gap-2">
               <span class="text-sm font-bold" :class="(store.analyse.straddle?.global.win_rate ?? 0) >= 55 ? 'text-emerald-400' : 'text-red-400'">{{ store.analyse.straddle?.global.win_rate?.toFixed(0) || 0 }}%</span>
             </div>
           </div>
-          <p class="text-[9px] text-white/50">vécu : {{ store.analyse.straddle?.global.nb_trades || 0 }} trades clôturés</p>
+          <p class="text-[10px] text-white/50">vécu : {{ store.analyse.straddle?.global.nb_trades || 0 }} trades clôturés</p>
         </div>
       </div>
     </section>

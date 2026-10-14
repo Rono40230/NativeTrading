@@ -15,7 +15,7 @@
     <div class="overflow-x-auto">
       <table class="w-full text-xs whitespace-nowrap">
         <thead>
-          <tr class="text-white/70 uppercase text-[9px] border-b border-white/10">
+          <tr class="text-white/70 uppercase text-[11px] border-b border-white/10">
             <th class="px-2 py-2 text-left">#</th>
             <th class="px-1 py-2 text-center" title="Journal de bord du trade (notes du propriétaire)">📝</th>
             <th class="px-2 py-2 text-left cursor-pointer hover:text-white" @click="trier('symbole')">Symbole</th>
@@ -55,7 +55,7 @@
             </td>
             <td class="px-2 py-2 font-bold text-white">{{ t.symbole }}</td>
             <td class="px-2 py-2 text-center">
-              <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border"
+              <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border"
                 :class="t.univers === 'action' ? 'bg-blue-500/10 text-blue-300 border-blue-500/30' : 'bg-amber-500/10 text-amber-300 border-amber-500/30'"
               >{{ t.univers === 'action' ? 'Action' : 'Crypto' }}</span>
             </td>

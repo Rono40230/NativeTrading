@@ -45,7 +45,7 @@
               <template v-if="positionKdj(s)">
                 <div class="font-mono font-bold text-yellow-300">{{ fmtUnites(positionKdj(s)!.unites) }} unités</div>
                 <div class="text-[10px] text-white">{{ positionKdj(s)!.risque.toFixed(0) }} $ risqués · {{ risquePct.toFixed(0) }} %</div>
-                <div class="text-[9px] text-white/40">≈ {{ Math.round(positionKdj(s)!.engage) }} $ engagés</div>
+                <div class="text-[10px] text-white/40">≈ {{ Math.round(positionKdj(s)!.engage) }} $ engagés</div>
               </template>
               <span v-else class="text-white text-xs">—</span>
             </td>

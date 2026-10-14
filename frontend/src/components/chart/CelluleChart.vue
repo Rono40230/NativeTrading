@@ -68,7 +68,7 @@
                 : 'text-white hover:text-white hover:bg-white/10 border border-transparent',
             ]"
             @click="alertesPrix.nbActives.value > 0 && !alertesPrix.modePose.value ? (listeAlertesOuverte = !listeAlertesOuverte) : alertesPrix.basculerModePose()"
-          >🔔<span v-if="alertesPrix.nbActives.value > 0" class="absolute -top-1 -right-1 min-w-[14px] px-0.5 rounded-full bg-amber-500 text-[9px] leading-[14px] text-amber-950 font-bold text-center">{{ alertesPrix.nbActives.value }}</span></button>
+          >🔔<span v-if="alertesPrix.nbActives.value > 0" class="absolute -top-1 -right-1 min-w-[14px] px-0.5 rounded-full bg-amber-500 text-[10px] leading-[14px] text-amber-950 font-bold text-center">{{ alertesPrix.nbActives.value }}</span></button>
           <div v-if="listeAlertesOuverte" class="fixed inset-0 z-40" @click="listeAlertesOuverte = false" />
           <div v-if="listeAlertesOuverte" class="absolute bottom-[calc(100%+6px)] right-0 z-50 w-64 bg-slate-900/95 backdrop-blur border border-white/10 rounded-lg shadow-xl py-1.5">
             <div class="flex items-center justify-between px-2.5 pb-1.5 border-b border-white/5">

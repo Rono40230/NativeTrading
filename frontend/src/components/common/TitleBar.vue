@@ -25,7 +25,7 @@
         <!-- Caret déroulant : sous-pages de la stratégie -->
         <button
           v-if="item.sous"
-          class="flex items-center pr-1.5 text-[8px] transition-colors"
+          class="flex items-center pr-1.5 text-[10px] transition-colors"
           :class="ouvert === item.to || sousPageActive(item) ? 'text-white' : 'text-white hover:text-white'"
           :title="`Sous-pages ${item.label}`"
           @click.stop="basculer(item.to)"

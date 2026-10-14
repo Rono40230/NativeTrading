@@ -17,7 +17,7 @@
           · {{ evenements.length }} événements
         </span>
       </p>
-      <span class="text-[9px] text-white shrink-0">heures Paris · été/hiver géré</span>
+      <span class="text-[10px] text-white shrink-0">heures Paris · été/hiver géré</span>
     </div>
 
     <div v-if="ouvert && chargement" class="text-center text-white text-xs py-3">Calcul…</div>
@@ -36,7 +36,7 @@
                 <span class="k-info cursor-help">ⓘ</span>
               </PopoverInfo>
             </p>
-            <span class="text-[9px] font-mono text-white shrink-0">
+            <span class="text-[10px] font-mono text-white shrink-0">
               <span class="font-bold">{{ ev.prochaine_heure_paris ?? '—' }}</span> Paris
               <span class="text-white/50">· {{ ev.heure_locale }} {{ nomFuseau(ev.fuseau) }}</span>
               <span v-if="prochaineCourt(ev)" class="text-white/50"> · proch. {{ prochaineCourt(ev) }}</span>
@@ -44,20 +44,20 @@
           </div>
           <div class="flex flex-wrap items-center gap-1">
             <span v-for="l in lignesVisibles(ev)" :key="ev.ident + l.asset"
-                  class="text-[9px] font-mono font-bold rounded px-1.5 py-[1px] border"
+                  class="text-[10px] font-mono font-bold rounded px-1.5 py-[1px] border"
                   :class="[classeRatio(l.ratio), estDuPerimetre(l.asset) ? '' : 'opacity-40']"
                   :title="`${l.asset} : ATR ${l.atr} vs habitude ${l.habitude} — ${l.minutes} min observées`">
               {{ l.asset }} ×{{ l.ratio.toFixed(1) }}
             </span>
             <button v-if="ev.reactivite.length > VISIBLES && !deplie.has(ev.ident)"
-                    class="text-[9px] text-white/70 hover:text-white underline underline-offset-2 cursor-pointer"
+                    class="text-[10px] text-white/70 hover:text-white underline underline-offset-2 cursor-pointer"
                     @click.stop="deplier(ev.ident)">
               +{{ ev.reactivite.length - VISIBLES }}
             </button>
           </div>
         </div>
       </div>
-      <p class="text-[8px] text-white leading-snug">
+      <p class="text-[10px] text-white leading-snug">
         ATR des {{ fenetre }} premières minutes de l'événement vs habitude M1 de l'asset ({{ periode }} jours) — ×2 = deux fois le range normal.
         Chips en clair : assets du périmètre straddle (modale 🎯 Choix des Assets & créneaux) ; chips atténuées : le reste du pipeline, pour la découverte.
         L'ordre des événements suit la meilleure réaction DANS le périmètre.

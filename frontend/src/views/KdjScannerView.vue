@@ -49,16 +49,16 @@
         <thead>
           <tr class="text-white text-xs uppercase border-b border-white/10">
             <th class="px-3 py-2.5 text-left">#</th>
-            <th class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-white" @click="trierPar('asset')">Actif <span class="text-[9px]">{{ iconeTri('asset') }}</span></th>
-            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('type')">Type <span class="text-[9px]">{{ iconeTri('type') }}</span></th>
-            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('adx_h1')" title="ADX(14) à la clôture H1 — le TF du moteur">ADX H1 <span class="text-[9px]">{{ iconeTri('adx_h1') }}</span></th>
-            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('adx_d1')" title="ADX(14) à la clôture D1 — contexte de fond">ADX D1 <span class="text-[9px]">{{ iconeTri('adx_d1') }}</span></th>
-            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('force')" title="Le plus élevé des deux ADX — le critère du verdict">Force <span class="text-[9px]">{{ iconeTri('force') }}</span></th>
-            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('direction')" title="SMA100 vs EMA200 en H1">Direction <span class="text-[9px]">{{ iconeTri('direction') }}</span></th>
-            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('au_dessus')" title="close vs EMA200 en H1">close/EMA <span class="text-[9px]">{{ iconeTri('au_dessus') }}</span></th>
-            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('j')" title="KDJ(20,7) à la clôture H1">K · D · J <span class="text-[9px]">{{ iconeTri('j') }}</span></th>
-            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('pret')" title="Conditions long/short toutes réunies — il ne manque que la flèche HalfTrend">Prêt <span class="text-[9px]">{{ iconeTri('pret') }}</span></th>
-            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('verdict')">Verdict <span class="text-[9px]">{{ iconeTri('verdict') }}</span></th>
+            <th class="px-3 py-2.5 text-left cursor-pointer select-none hover:text-white" @click="trierPar('asset')">Actif <span class="text-[11px]">{{ iconeTri('asset') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('type')">Type <span class="text-[11px]">{{ iconeTri('type') }}</span></th>
+            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('adx_h1')" title="ADX(14) à la clôture H1 — le TF du moteur">ADX H1 <span class="text-[11px]">{{ iconeTri('adx_h1') }}</span></th>
+            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('adx_d1')" title="ADX(14) à la clôture D1 — contexte de fond">ADX D1 <span class="text-[11px]">{{ iconeTri('adx_d1') }}</span></th>
+            <th class="px-3 py-2.5 text-right cursor-pointer select-none hover:text-white" @click="trierPar('force')" title="Le plus élevé des deux ADX — le critère du verdict">Force <span class="text-[11px]">{{ iconeTri('force') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('direction')" title="SMA100 vs EMA200 en H1">Direction <span class="text-[11px]">{{ iconeTri('direction') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('au_dessus')" title="close vs EMA200 en H1">close/EMA <span class="text-[11px]">{{ iconeTri('au_dessus') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('j')" title="KDJ(20,7) à la clôture H1">K · D · J <span class="text-[11px]">{{ iconeTri('j') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('pret')" title="Conditions long/short toutes réunies — il ne manque que la flèche HalfTrend">Prêt <span class="text-[11px]">{{ iconeTri('pret') }}</span></th>
+            <th class="px-3 py-2.5 text-center cursor-pointer select-none hover:text-white" @click="trierPar('verdict')">Verdict <span class="text-[11px]">{{ iconeTri('verdict') }}</span></th>
           </tr>
         </thead>
         <tbody>

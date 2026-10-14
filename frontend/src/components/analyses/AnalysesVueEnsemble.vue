@@ -30,8 +30,8 @@
               <td class="py-1.5 pr-2">
                 <span class="mr-1">{{ icone(s.strategie) }}</span>
                 <span class="font-semibold text-white">{{ s.strategie }}</span>
-                <span class="ml-1.5 text-[9px] px-1.5 py-0.5 rounded-full border" :class="badgeClasse(s.etat)">{{ s.etat }}</span>
-                <span class="ml-1 text-[9px] text-white">{{ s.source === 'rejeu' ? '· re-jeu' : '' }}</span>
+                <span class="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full border" :class="badgeClasse(s.etat)">{{ s.etat }}</span>
+                <span class="ml-1 text-[10px] text-white">{{ s.source === 'rejeu' ? '· re-jeu' : '' }}</span>
               </td>
               <td class="py-1.5 pr-2 text-right text-white">{{ s.nb_trades }}</td>
               <td class="py-1.5 pr-2 text-right text-white">{{ (s.taux_reussite * 100).toFixed(0) }} %</td>
@@ -93,7 +93,7 @@
         <p class="text-xs font-semibold text-white">🤖 Synthèse IA du portefeuille</p>
         <span v-if="synthese" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold"
               :class="synthese.confiance >= 70 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-white/20 bg-white/5 text-white'">{{ synthese.confiance }}/100</span>
-        <span v-if="synthese && syntheseCache" class="text-[9px] text-white/40">cache du jour</span>
+        <span v-if="synthese && syntheseCache" class="text-[10px] text-white/40">cache du jour</span>
         <button class="ml-auto text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-colors disabled:opacity-40"
                 :class="syntheseEnCours ? 'bg-white/10 text-white' : 'bg-teal-500/20 text-teal-300 hover:bg-teal-500/30'"
                 :disabled="syntheseEnCours" @click="genererSynthese()">
@@ -122,7 +122,7 @@
             <li v-for="(p, i) in synthese.recommandations" :key="i">{{ p }}</li>
           </ul>
         </div>
-        <p class="text-[9px] text-white md:col-span-3">L'analyste lit les métriques consolidées des 4 stratégies — il propose, le propriétaire décide (constitution 24/08).</p>
+        <p class="text-[10px] text-white md:col-span-3">L'analyste lit les métriques consolidées des 4 stratégies — il propose, le propriétaire décide (constitution 24/08).</p>
       </div>
       <p v-else-if="syntheseErreur" class="text-xs text-red-300 mt-2">{{ syntheseErreur }}</p>
       <p v-else class="text-[11px] text-white/60 mt-2">L'analyste local (Ollama) lit les 4 stratégies et dit qui porte, qui coince, où concentrer l'attention — généré à la demande, conservé pour la journée.</p>
@@ -136,7 +136,7 @@
         <p class="text-xs font-semibold text-white">🧾 Autopsie de la semaine</p>
         <span v-if="autopsie?.confiance" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold"
               :class="autopsie.confiance >= 70 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-white/20 bg-white/5 text-white'">{{ autopsie.confiance }}/100</span>
-        <span v-if="autopsieCache" class="text-[9px] text-white/40">cache du jour</span>
+        <span v-if="autopsieCache" class="text-[10px] text-white/40">cache du jour</span>
         <button class="ml-auto text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-colors disabled:opacity-40"
                 :class="autopsieEnCours ? 'bg-white/10 text-white' : 'bg-violet-500/20 text-violet-300 hover:bg-violet-500/30'"
                 :disabled="autopsieEnCours" @click="genererAutopsie()">
@@ -165,7 +165,7 @@
           <summary class="cursor-pointer select-none hover:text-white">Compteurs factuels de la semaine (calcul app)</summary>
           <pre class="mt-1 p-2 rounded bg-black/30 text-[10px] whitespace-pre-wrap">{{ autopsie.compteurs }}</pre>
         </details>
-        <p class="text-[9px] text-white">Descriptif — jamais prédictif (leçon conviction). Effectif hebdo faible : l'analyste peut dire « semaine non concluante ».</p>
+        <p class="text-[10px] text-white">Descriptif — jamais prédictif (leçon conviction). Effectif hebdo faible : l'analyste peut dire « semaine non concluante ».</p>
       </div>
       <p v-else class="text-[11px] text-white/60 mt-2">Les clôtures des 7 derniers jours, toutes stratégies : ce qui a distingué gagnants et perdants — généré à la demande, conservé pour la journée.</p>
     </div>

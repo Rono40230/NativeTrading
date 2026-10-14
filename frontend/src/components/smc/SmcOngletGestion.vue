@@ -5,18 +5,18 @@
         <svg viewBox="0 0 440 110" class="w-full aspect-[440/110]">
           <!-- Échelle des niveaux, proportionnelle en R -->
           <line x1="68" y1="10" x2="290" y2="10" stroke="#34d399" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="298" y="13" fill="#34d399" font-size="7.5" font-weight="700">TP3 · liquidité lointaine / R fixe</text>
+          <text x="298" y="13" fill="#34d399" font-size="9" font-weight="700">TP3 · liquidité lointaine / R fixe</text>
           <line x1="68" y1="32" x2="290" y2="32" stroke="#60a5fa" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="298" y="35" fill="#60a5fa" font-size="7.5" font-weight="700">TP2 · +2R (défaut)</text>
+          <text x="298" y="35" fill="#60a5fa" font-size="9" font-weight="700">TP2 · +2R (défaut)</text>
           <line x1="68" y1="63" x2="290" y2="63" stroke="#60a5fa" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="298" y="66" fill="#60a5fa" font-size="7.5" font-weight="700">TP1 · +0,6R (défaut)</text>
+          <text x="298" y="66" fill="#60a5fa" font-size="9" font-weight="700">TP1 · +0,6R (défaut)</text>
           <line x1="68" y1="76" x2="290" y2="76" stroke="#ffffff" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="298" y="79" fill="#ffffff" font-size="7.5" font-weight="700">entrée · 0R</text>
+          <text x="298" y="79" fill="#ffffff" font-size="9" font-weight="700">entrée · 0R</text>
           <line x1="68" y1="98" x2="290" y2="98" stroke="#f87171" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="298" y="101" fill="#f87171" font-size="7.5" font-weight="700">SL · −1R</text>
+          <text x="298" y="101" fill="#f87171" font-size="9" font-weight="700">SL · −1R</text>
           <!-- Zone d'origine -->
           <rect x="25" y="68" width="40" height="16" fill="rgba(52,211,153,0.15)" stroke="#34d399" stroke-width="1" />
-          <text x="50" y="74" fill="#34d399" font-size="7.5" font-weight="700">OB</text>
+          <text x="50" y="74" fill="#34d399" font-size="9" font-weight="700">OB</text>
           <!-- Trajectoire : retest, TP1 (stop → BE), repli, TP2, TP3 -->
           <polyline points="25,76 45,88 65,82 95,63 115,68 150,76 185,48 220,32 255,20 285,10" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round" />
           <circle cx="95" cy="63" r="2.6" fill="#ffffff" />
@@ -105,19 +105,19 @@
         <svg viewBox="0 0 440 110" class="w-full aspect-[440/110]">
           <!-- Échelle + part du lot vendue à chaque palier -->
           <line x1="68" y1="10" x2="250" y2="10" stroke="#34d399" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="258" y="13" fill="#34d399" font-size="7.5" font-weight="700">TP3 · cible</text>
+          <text x="258" y="13" fill="#34d399" font-size="9" font-weight="700">TP3 · cible</text>
           <text x="322" y="13" fill="#34d399" font-size="6.5" font-weight="700">solde 20 %</text>
           <line x1="68" y1="32" x2="250" y2="32" stroke="#60a5fa" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="258" y="35" fill="#60a5fa" font-size="7.5" font-weight="700">TP2 · +2R</text>
+          <text x="258" y="35" fill="#60a5fa" font-size="9" font-weight="700">TP2 · +2R</text>
           <text x="322" y="35" fill="#60a5fa" font-size="6.5" font-weight="700">vente 30 %</text>
           <line x1="68" y1="63" x2="250" y2="63" stroke="#60a5fa" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="258" y="66" fill="#60a5fa" font-size="7.5" font-weight="700">TP1 · +0,6R</text>
+          <text x="258" y="66" fill="#60a5fa" font-size="9" font-weight="700">TP1 · +0,6R</text>
           <text x="322" y="66" fill="#60a5fa" font-size="6.5" font-weight="700">vente 50 %</text>
           <line x1="68" y1="76" x2="250" y2="76" stroke="#ffffff" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="258" y="79" fill="#ffffff" font-size="7.5" font-weight="700">entrée · 0R</text>
+          <text x="258" y="79" fill="#ffffff" font-size="9" font-weight="700">entrée · 0R</text>
           <text x="322" y="79" fill="#e5e7eb" font-size="6.5" font-weight="700">3 lots posés</text>
           <line x1="68" y1="98" x2="250" y2="98" stroke="#f87171" stroke-width="0.9" stroke-dasharray="4 3" />
-          <text x="258" y="101" fill="#f87171" font-size="7.5" font-weight="700">SL · −1R</text>
+          <text x="258" y="101" fill="#f87171" font-size="9" font-weight="700">SL · −1R</text>
           <text x="322" y="101" fill="#f87171" font-size="6.5" font-weight="700">tout le lot</text>
           <!-- Trajectoire : trois sorties partielles -->
           <polyline points="25,76 45,88 65,82 95,63 115,68 150,76 185,48 220,32 240,20 250,11" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linejoin="round" />
@@ -133,7 +133,7 @@
         </svg>
         <div class="flex flex-col gap-2">
           <!-- Répartition du lot (défaut 50/30/20) -->
-          <div class="flex h-4 rounded overflow-hidden text-[8px] font-bold text-white">
+          <div class="flex h-4 rounded overflow-hidden text-[10px] font-bold text-white">
             <div class="flex items-center justify-center" style="width:50%;background:rgba(96,165,250,0.55)">50 % · TP1</div>
             <div class="flex items-center justify-center" style="width:30%;background:rgba(96,165,250,0.32)">30 % · TP2</div>
             <div class="flex items-center justify-center" style="width:20%;background:rgba(52,211,153,0.45)">20 % · TP3</div>

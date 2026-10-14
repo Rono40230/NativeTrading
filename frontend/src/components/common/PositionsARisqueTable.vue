@@ -7,7 +7,7 @@
   <div v-else class="overflow-x-auto">
     <table class="w-full text-xs whitespace-nowrap">
       <thead>
-        <tr class="text-white/70 uppercase text-[9px] border-b border-white/10">
+        <tr class="text-white/70 uppercase text-[11px] border-b border-white/10">
           <th class="px-2 py-1.5 text-left">Ouvert le</th>
           <th class="px-2 py-1.5 text-left">Symbole</th>
           <th class="px-2 py-1.5 text-center">Type</th>
@@ -35,7 +35,7 @@
           <td class="px-2 py-2 text-white">{{ dateCourte(p.ouvert_le) }}</td>
           <td class="px-2 py-2 font-bold text-white">{{ p.symbole }}</td>
           <td class="px-2 py-2 text-center">
-            <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border"
+            <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border"
               :class="p.univers === 'action' ? 'bg-blue-500/10 text-blue-300 border-blue-500/30' : 'bg-amber-500/10 text-amber-300 border-amber-500/30'"
             >{{ p.univers === 'action' ? 'Action' : 'Crypto' }}</span>
           </td>
@@ -58,7 +58,7 @@
           <td class="px-2 py-2 text-right font-mono text-white/80">{{ (p.qty / 2).toFixed(2) }}</td>
           <td class="px-2 py-2 text-center">
             <button
-              class="px-2 py-0.5 rounded bg-red-900/40 text-red-300 hover:bg-red-800/60 border border-red-500/30 text-[9px] font-semibold transition-colors disabled:opacity-40"
+              class="px-2 py-0.5 rounded bg-red-900/40 text-red-300 hover:bg-red-800/60 border border-red-500/30 text-[10px] font-semibold transition-colors disabled:opacity-40"
               :disabled="clotureEnCours === p.cle"
               title="Clôturer la position au prix de marché — alimente l'historique (verdict Manuel)"
               @click="cloturer(p)"
@@ -79,7 +79,7 @@
       <div class="rounded-lg bg-white/5 border border-white/10 px-3 py-2.5 flex flex-col gap-1.5 text-xs">
         <div class="flex items-center gap-2">
           <span class="font-bold text-white text-sm">{{ aCloturer.symbole }}</span>
-          <span class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border"
+          <span class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border"
                 :class="aCloturer.univers === 'action' ? 'bg-blue-500/10 text-blue-300 border-blue-500/30' : 'bg-amber-500/10 text-amber-300 border-amber-500/30'"
           >{{ aCloturer.univers === 'action' ? 'Action' : 'Crypto' }}</span>
           <span class="ml-auto text-white/60">ouverte le {{ dateCourte(aCloturer.ouvert_le) }}</span>
@@ -112,7 +112,7 @@
     </div>
   </div>
 
-  <p class="text-[9px] text-white/50 mt-1.5">
+  <p class="text-[10px] text-white/50 mt-1.5">
     Le moteur neutralise dès que R1 est touché (cycle 30 s) puis le solde roule au trailing ; invalidation = sortie sèche −1R. « Clôturer » = sortie manuelle au prix de marché (verdict Manuel dans l'historique).
   </p>
 </template>

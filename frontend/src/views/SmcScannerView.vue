@@ -52,7 +52,7 @@
             <span class="badge" :class="classeTendance(a.mtf?.h1)" title="Tendance H1 (f_htf Pine)">H1 {{ fleche(a.mtf?.h1) }}</span>
             <span class="badge" :class="classeTendance(a.mtf?.h4)" title="Tendance H4">H4 {{ fleche(a.mtf?.h4) }}</span>
             <span
-              class="ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
+              class="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full border"
               :class="mode === 'auto' ? 'bg-blue-500/10 text-blue-300 border-blue-500/30' : 'bg-white/5 text-white border-white/10'"
               :title="mode === 'auto' ? `Auto : meilleur setup annoncé (force puis alignement) — repli M15` : 'TF verrouillé manuellement'"
             >{{ mode === 'auto' ? `AUTO · ${a.tfAuto}` : mode }}</span>
@@ -75,12 +75,12 @@
                 <span :class="s.direction === 'Long' ? 'text-emerald-400' : 'text-red-400'">{{ s.direction === 'Long' ? '▲' : '▼' }} {{ s.direction }}</span>
                 <span class="font-mono font-bold text-white">{{ s.force }}/10</span>
                 <span v-if="whaleScores[`${s.asset}_${s.tf}`]"
-                  class="text-[8px] font-bold px-1 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30"
+                  class="text-[10px] font-bold px-1 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-400/30"
                   :title="`Volume anormal : z-score ${whaleScores[`${s.asset}_${s.tf}`].toFixed(1)}σ — activité institutionnelle probable`"
                 >🐋 {{ whaleScores[`${s.asset}_${s.tf}`].toFixed(1) }}σ</span>
-                <span v-if="s.force >= 8" class="text-[8px] font-bold px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30" title="Force ≥ 8 : 41 % de chance de confirmation (étude 3.2)">F8+</span>
+                <span v-if="s.force >= 8" class="text-[10px] font-bold px-1 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30" title="Force ≥ 8 : 41 % de chance de confirmation (étude 3.2)">F8+</span>
                 <span
-                  class="text-[9px] font-semibold px-1.5 py-0.5 rounded-full border"
+                  class="text-[10px] font-semibold px-1.5 py-0.5 rounded-full border"
                   :class="s.statut === 'EnFormation' ? 'bg-amber-500/10 text-amber-300 border-amber-500/30'
                         : s.statut === 'Confirme' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                         : 'bg-white/5 text-white border-white/10'"
@@ -95,7 +95,7 @@
           <p v-else class="text-[11px] text-white py-1">Aucun setup en formation — zone calme{{ mode === 'auto' ? ' (vue M15)' : '' }}.</p>
 
           <div v-if="a.clotures.length" class="mt-auto pt-1.5 border-t border-white/5 flex flex-col gap-0.5">
-            <p class="text-[9px] uppercase tracking-wide text-white">Journal récent</p>
+            <p class="text-[11px] uppercase tracking-wide text-white">Journal récent</p>
             <div v-for="j in a.clotures" :key="j.cle" class="flex items-center gap-2 text-[10px] text-white">
               <span class="font-mono">{{ j.tf }}</span>
               <span>{{ j.direction === 'Long' ? '▲' : '▼' }}</span>
@@ -273,7 +273,7 @@ onUnmounted(() => { if (minuteur) clearInterval(minuteur) })
 </script>
 
 <style scoped>
-.badge { @apply text-[9px] font-bold px-1.5 py-0.5 rounded-full border; }
+.badge { @apply text-[10px] font-bold px-1.5 py-0.5 rounded-full border; }
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 10px; }
 </style>

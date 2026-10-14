@@ -55,7 +55,7 @@
           <template v-if="positionKdjHisto(s)">
             <div class="font-mono font-bold text-yellow-300">{{ fmtUnites(positionKdjHisto(s)!.unites) }} unités</div>
             <div class="text-[10px] text-white">{{ positionKdjHisto(s)!.risque.toFixed(0) }} $ risqués</div>
-            <div class="text-[9px] text-white/40">≈ {{ Math.round(positionKdjHisto(s)!.engage) }} $ engagés</div>
+            <div class="text-[10px] text-white/40">≈ {{ Math.round(positionKdjHisto(s)!.engage) }} $ engagés</div>
           </template>
           <span v-else class="text-white text-xs">—</span>
         </td>

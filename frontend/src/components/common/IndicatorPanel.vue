@@ -69,7 +69,7 @@
             v-if="nbActifs(groupe) > 0"
             class="min-w-[16px] px-1 rounded-full bg-cyan-500/30 text-cyan-100 text-[10px] leading-[14px] text-center"
           >{{ nbActifs(groupe) }}</span>
-          <span :class="['text-[8px] transition-transform', ouvert === groupe.label && 'rotate-180']">▼</span>
+          <span :class="['text-[10px] transition-transform', ouvert === groupe.label && 'rotate-180']">▼</span>
         </button>
 
         <!-- Backdrop : clic extérieur = fermer -->

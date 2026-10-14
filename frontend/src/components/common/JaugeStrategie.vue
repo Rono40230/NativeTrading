@@ -48,7 +48,7 @@
         <!-- Chiffres gravés aux index -->
         <text v-for="t in graduations.filter(g => g.index)" :key="'lbl' + t.angle"
           :x="polaire(51, t.angle).x" :y="polaire(51, t.angle).y + 3"
-          text-anchor="middle" class="fill-white/60" style="font-size: 9px; font-weight: 700; font-family: ui-monospace, monospace">{{ t.label }}</text>
+          text-anchor="middle" class="fill-white/60" style="font-size: 10px; font-weight: 700; font-family: ui-monospace, monospace">{{ t.label }}</text>
 
         <!-- Aiguille : pivot central, transitions physiques. Dessinée SOUS les
              affichages numériques : elle glisse derrière les fenêtres, comme
@@ -88,12 +88,12 @@
       <span class="vis gauche" /><span class="vis droite" />
       <p class="text-[10px] font-bold tracking-[0.2em] uppercase text-white/75">{{ icone }} {{ nom }}</p>
       <div class="flex items-center gap-2">
-        <span class="flex items-center gap-1 text-[8px] font-bold tracking-wider uppercase"
+        <span class="flex items-center gap-1 text-[10px] font-bold tracking-wider uppercase"
               :class="etat === 'Officielle' ? 'text-emerald-300' : etat === 'Observation' ? 'text-amber-300' : 'text-white/50'">
           <span class="w-1.5 h-1.5 rounded-full" :class="lampeEtat" />{{ etat }}
         </span>
         <PopoverInfo v-if="enCours > 0" :titre="`${enCours} signal(s) en cours`" :texte="detailEnCours || '—'">
-          <span class="flex items-center gap-1 text-[8px] font-bold tracking-wider uppercase text-sky-300 cursor-help">
+          <span class="flex items-center gap-1 text-[10px] font-bold tracking-wider uppercase text-sky-300 cursor-help">
             <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />{{ enCours }} EN COURS
           </span>
         </PopoverInfo>
