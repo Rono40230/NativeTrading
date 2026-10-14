@@ -17,6 +17,7 @@ frontend/src-tauri/gen/
 /data/logs/
 
 # Base de données locale (données sensibles)
+/*.db
 /data/*.db
 /data/*.db-shm
 /data/*.db-wal
