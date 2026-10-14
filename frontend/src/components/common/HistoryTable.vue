@@ -25,6 +25,7 @@
              KDJ) : Gain/Perte du trade puis capital composé après clôture. -->
         <th class="px-3 py-3 text-right" title="$ réellement encaissé sur ce trade (voix résultat — ventes partielles comprises)">Gain/Perte</th>
         <th class="px-3 py-3 text-right" title="Capital de la stratégie APRÈS la clôture de ce trade (composé, ordre chronologique)">Évolution du capital</th>
+        <th v-if="variante === 'straddle'" class="px-3 py-3 text-left" title="Événement déclencheur de la passe (matrice asset × événement)">Événement</th>
         <th class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'cree_le')">Ouvert le <span class="tri-icone">{{ icone('cree_le') }}</span></th>
         <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" @click="$emit('trier-par', 'ferme_le')">Fermé le <span class="tri-icone">{{ icone('ferme_le') }}</span></th>
         <th v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-left cursor-pointer hover:text-white select-none" title="Vie de la position : du remplissage de l'ordre à la fermeture (l'attente de l'ordre en attente n'est pas comptée)" @click="$emit('trier-par', 'duree')">Durée <span class="tri-icone">{{ icone('duree') }}</span></th>
@@ -125,7 +126,10 @@ import { evenementNom } from '@/composables/useEvenementsTaxonomie'
 /// Décodage cle_moteur → nom de l'événement (colonne straddle, owner 14/10).
 /// La clé "straddle-ASSET-1791981000-B" porte le timestamp de l'annonce :
 /// on le rapproche de la taxonomie pour retrouver l'événement déclencheur.
-function evenementStraddle(s: { cle_moteur?: string | null }): string {
+function evenementStraddle(s: { cle_moteur?: string | null; evenement_nom?: string | null }): string {
+  // Le backend rapproche déjà le ts de la clé du calendrier réel (titre
+  // de l'annonce) puis de la taxonomie — on sert son résultat tel quel.
+  if (s.evenement_nom && s.evenement_nom !== '—') return s.evenement_nom
   if (!s.cle_moteur) return '—'
   const m = s.cle_moteur.match(/-(\d{10})-B?$/)
   if (!m) return '—'

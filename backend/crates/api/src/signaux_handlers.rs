@@ -37,6 +37,11 @@ pub async fn get_signaux(
                         .unwrap_or(false)
                 });
             }
+            // Colonne « Événement » historique straddle (owner 14/10) :
+            // rapproche le ts de la clé moteur du calendrier réel (titre
+            // de l'annonce — « Core CPI m/m ») puis de la taxonomie.
+            enrichir_evenements_straddle(&state.db, &mut liste).await;
+
             let fractions = crate::reglages_smc::lire_fractions(&state.db).await;
             for s in liste.iter_mut() {
                 let Some(obj) = s.as_object_mut() else { continue };
@@ -304,4 +309,68 @@ pub async fn post_lots_signaux(
     }
 
     HttpResponse::Ok().json(serde_json::Value::Object(reponse))
+}
+
+/// Pour chaque signal straddle avec cle_moteur : décode le ts de l'annonce,
+/// cherche l'annonce réelle au calendrier (±2 min) et sinon un événement
+/// structurel de la taxonomie par l'heure. Écrit "evenement_nom".
+async fn enrichir_evenements_straddle(
+    db: &db::Database,
+    liste: &mut [serde_json::Value],
+) {
+    use sqlx::Row;
+
+    // Calendrier : annonces à venir et récentes (±7 j) — cache de 6 h.
+    let calendrier = db.lire_calendrier_cache(6 * 3600).await.unwrap_or_default();
+    let annonces: Vec<(i64, String)> = calendrier
+        .iter()
+        .filter_map(|r| {
+            let impact = r.get("impact").and_then(|v| v.as_str()).unwrap_or("");
+            if impact != "High" { return None; }
+            let dh = r.get("date_heure").and_then(|v| v.as_str())?;
+            let ts = chrono::DateTime::parse_from_rfc3339(dh).ok()?.timestamp();
+            let titre = r.get("titre").and_then(|v| v.as_str()).unwrap_or("?").to_string();
+            Some((ts, titre))
+        })
+        .collect();
+
+    for s in liste.iter_mut() {
+        let Some(obj) = s.as_object_mut() else { continue };
+        let strategie = obj.get("strategie").and_then(|v| v.as_str()).unwrap_or("");
+        if strategie != "straddle" { continue; }
+        let Some(cle) = obj.get("cle_moteur").and_then(|v| v.as_str()) else { continue };
+
+        // Décoder le ts : "straddle-ASSET-<ts>-B"
+        let Some(ts) = cle.rsplit('-').nth(1).and_then(|t| t.parse::<i64>().ok()) else { continue };
+
+        // 1. Annonce réelle au calendrier (±2 min de tolérance)
+        let nom = annonces
+            .iter()
+            .find(|(ats, _)| (*ats - ts).abs() <= 120)
+            .map(|(_, titre)| titre.clone())
+            .unwrap_or_else(|| {
+                // 2. Événement structurel par l'heure Paris (fuseau d'origine)
+                let dt = chrono::DateTime::from_timestamp(ts, 0).unwrap_or_default();
+                use chrono::TimeZone as _;
+                let ny = chrono_tz::America::New_York.from_utc_datetime(&dt.naive_utc());
+                let paris = chrono_tz::Europe::Paris.from_utc_datetime(&dt.naive_utc());
+                use chrono::Timelike as _;
+                let hhmm_ny = ny.hour() * 100 + ny.minute();
+                let hhmm_paris = paris.hour() * 100 + paris.minute();
+                match hhmm_ny {
+                    930 => "Ouverture NYSE".into(),
+                    1600 => "Clôture NYSE".into(),
+                    1800 => "Réouverture CME".into(),
+                    _ => match hhmm_paris {
+                        900 => "Ouverture Francfort+Londres".into(),
+                        1130 => "Fix LBMA matin".into(),
+                        1600 => "Fix LBMA PM".into(),
+                        1730 => "Clôture Londres".into(),
+                        h if h <= 300 => "Ouverture Tokyo".into(),
+                        _ => "—".into(),
+                    },
+                }
+            });
+        obj.insert("evenement_nom".into(), serde_json::Value::String(nom));
+    }
 }

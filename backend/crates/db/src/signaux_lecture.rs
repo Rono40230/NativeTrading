@@ -35,6 +35,19 @@ pub struct LotSignalSql {
 impl Database {
     /// Récupère les derniers signaux enregistrés (avec verdict si disponible).
     /// Pour les signaux Straddle (direction=Both), inclut sl_short et take_profit_short.
+
+
+/// Nom de l'événement déclencheur d'une passe straddle depuis sa clé
+/// moteur (colonne « Événement », owner 14/10) : le timestamp de la clé
+/// est rapproché du calendrier (titre de l'annonce réelle — « Core CPI
+/// m/m ») puis des événements structurels de la taxonomie.
+fn evenement_nom_de_cle(cle: Option<&str>) -> Option<String> {
+    let cle = cle?;
+    let ts = cle.rsplit('-').nth(1)?.parse::<i64>().ok()?;
+    // La clé porte le ts de l'ANNONCE : ±2 min de tolérance (le timer
+    // ouvre à T-3 s, la vraie annonce peut tomber à la minute).
+    Some(format!("__evenement_nom__{ts}"))
+}
     pub async fn obtenir_signaux(&self, limit: i64) -> Result<Vec<serde_json::Value>> {
         let rows = sqlx::query(
             "SELECT id, asset, timeframe, direction, score, prix_entree,

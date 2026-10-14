@@ -75,6 +75,8 @@ export interface Signal {
   /** Clé moteur (straddle : porte le timestamp de l'annonce → colonne
    *  « Événement » de l'historique, owner 14/10). */
   cle_moteur?: string | null
+  /** Nom de l'événement déclencheur (straddle — calculé backend depuis le calendrier réel). */
+  evenement_nom?: string | null
   // Jambe SHORT — uniquement renseigné pour les signaux Straddle (direction === 'Both')
   sl_short: number | null
   take_profit_short: number[] | null  // [tp1_short, tp2_short, tp3_short]
