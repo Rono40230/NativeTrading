@@ -228,6 +228,11 @@ async fn boucle_runtime(
     let mut tick_config = tokio::time::interval(Duration::from_secs(RELECTURE_CONFIG_SEC));
     tick_config.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
+    // Timer straddle (A, owner 14/10) : 1 Hz indépendant des prix.
+    let mut timer_straddle = crate::runtime_timer_straddle::TimerStraddle::new();
+    let mut tick_straddle = tokio::time::interval(std::time::Duration::from_secs(1));
+    tick_straddle.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
     loop {
         tokio::select! {
             biased; // les événements prix passent toujours en premier
@@ -238,6 +243,9 @@ async fn boucle_runtime(
                     runtime.traiter_evenement(ev);
                     crate::alertes_zones::verifier(&db, &runtime, &config_zones, &asset, tf, prix).await;
                 }
+            }
+            _ = tick_straddle.tick() => {
+                timer_straddle.pulse(&db, &mut runtime).await;
             }
             _ = tick_config.tick() => {
                 synchroniser_config(&db, &mut runtime).await;

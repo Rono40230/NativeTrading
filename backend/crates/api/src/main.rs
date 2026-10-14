@@ -61,6 +61,7 @@ mod runtime_params;
 mod runtime_perimetre;
 mod runtime_amorces;
 mod runtime_tick;
+mod runtime_timer_straddle;
 mod scheduler_execution;
 mod sentiment_bandeau;
 mod sentiment_composite;
