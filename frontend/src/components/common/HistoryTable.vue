@@ -89,8 +89,8 @@
         <td class="px-3 py-3 text-right font-mono text-xs text-white" title="Capital de la stratégie après ce trade (composé)">
           {{ capitaux?.[s.id] !== undefined ? capitaux[s.id].toLocaleString('fr-FR', { maximumFractionDigits: 0 }) + ' $' : '—' }}
         </td>
-        <td class="px-3 py-3 text-white text-xs cursor-help" :title="titreOuverture(s)">{{ formatDate(s.heure_entree ?? s.cree_le) }}</td>
         <td v-if="variante === 'straddle'" class="px-3 py-3 text-white text-xs">{{ evenementStraddle(s) }}</td>
+        <td class="px-3 py-3 text-white text-xs cursor-help" :title="titreOuverture(s)">{{ formatDate(s.heure_entree ?? s.cree_le) }}</td>
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 text-white text-xs">{{ s.ferme_le ? formatDate(s.ferme_le) : '—' }}</td>
         <td v-if="filtreStatut !== 'en_cours'" class="px-3 py-3 font-mono text-white text-xs">{{ formatDuree(s.heure_entree, s.ferme_le) }}</td>
       </tr>
