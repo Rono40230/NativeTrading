@@ -47,7 +47,7 @@ En cours au relevé : 7 positions SMC + 3 KDJ. Conventions : R = encaissé (dist
 
 | # | Tâche | Jalon | Où on en est (09/10) | Prochain geste |
 |---|---|---|---|---|
-| A | **Re-test final conviction LLM** | ~500 clôturés SMC notés | **464/500 — IMMINENT** (AUC précédents : 0,572 puis 0,517, seuil 0,65) | lancer le re-test protocolaire (~1 semaine de vécu en plus suffit) |
+| A | **Re-test final conviction LLM** | ~500 clôturés SMC notés | **RE-TEST FAIT 13/10 : n=349 SMC (681 toutes stratégies) — AUC 0,477** (trajectoire 0,572 → 0,517 → 0,477 : déclin monotone, désormais SOUS 0,5). Bandes inversées et non significatives sur SMC (pertes <70 : 51,6 % vs ≥70 : 56,4 %, z=−0,69) ; toutes stratégies z=−2,65 (inversion significative). **VERDICT : aucune valeur prédictive — pas de filtre (confirmé), la notation elle-même est en question** (décision owner : garder en observation, ou cesser l'appel LLM par signal — le recalibrage du prompt 24/09 précède le déclin) | décision owner ; si on garde : re-jeu périodique inutile avant changement de prompt |
 | B | KDJ — mesure 30 trades H1 | 30 clôturés | 3 signaux (0 fermé) ; rythme ~1/sem/actif × 4 assets | attendre ; accélérable en ajoutant des assets (labo 7.G : XRP +1,35 R/tr en tête) |
 | C | Straddle — jugement par source | ≥ 30 passes par source | 151 passes en octobre ; à re-découper par type d'événement (matrice 81 cases) | requête par source quand les seuils tombent ; DAX historiquement le traînard |
 | D | Rockets — analyse par pilier | ≥ 30 clôturés | 9 clôturés (100 %) | laisser le scanner accumuler |
@@ -62,6 +62,7 @@ En cours au relevé : 7 positions SMC + 3 KDJ. Conventions : R = encaissé (dist
 | D1 | **Exécution réelle (EA exécutant)** — 5.1 | feu vert de principe : EA recevant lots/niveaux, validation humaine par trade, kill-switch. Cahier des charges prêt (5.2) |
 | D2 | **Score réévalué au retest** — 2.5 | étude A/B par levier replay (score cliquet vs confluence live) ; n'a priorité que si 2.1/2.2 had concluded — contexte inchangé |
 | D3 | **Rôle futur du cockpit.html** | le cockpit (source de vérité historique) est arrêté au 27/09 : soit on le resynchronise, soit ce fichier devient la référence unique et le cockpit passe en archive |
+| D4 | **OTE swing ≢ indicateur cible TV — PROBLÈME PARQUÉ (13/10/2026, décision owner)** | Mécanisme fractal N-barres (N=4/5) + chaînes + extrêmes vivants implémenté dans `swing_ote.rs` (13/10) d'après captures TV + Bar Replay : 212+126 tests verts, cas réel 12/10 M15 = capture au centime en unitests — **MAIS à l'écran les zones ne correspondent toujours pas à TV** (constat owner 13/10). Piste de reprise : captures côte à côte app-vs-TV horodatées pour LOCALISER la divergence (suspects : N M30 5-vs-6, sensibilité micro-pivots M1/M5, écarts de flux TV/Axi — vus à ±3-30 pts sur TF agrégés, pivot fantôme M30 11/10 22h00). Historique complet : zigzag % validé 08/10 (e6f2c42) → régression 12/10 → rétro-ingénierie complète 12/10 → fractales 13/10. Le code v2 est en arbre de travail NON COMMITÉ |
 
 ---
 
@@ -71,8 +72,9 @@ En cours au relevé : 7 positions SMC + 3 KDJ. Conventions : R = encaissé (dist
 Moteur v12 figé (miroir Pine/Rust/MQL5 au centime). 26 actifs ; M1 désarmé, M5 > M15 > M30.
 Production actuelle : **tout-TP1 + trailing 0,1R** (essai activé via l'advisory balayages
 le 06/10 — +154 R / 959 trades en étude). Conviction LLM à l'émission (recalibrée, non
-filtrante). Indicateur graphique unifié « OB Institutionnels » (08-09/10) : OTE swing par
-TF + confluence dorée, zone cœur supprimée — affichage seul, aucun effet moteur (C1).
+filtrante). Indicateur graphique « OB Institutionnels » : OTE swing en **chantier parqué**
+(D4 — le mécanisme fractal v2 est en arbre, non commité ; l'affichage moteur/utilise le
+code au dernier run.sh lancé), confluence dorée affichage seul, aucun effet moteur (C1).
 Fenêtre macro ±30 min autour des annonces High (straddle exempt).
 
 ### Straddle (Officielle)
