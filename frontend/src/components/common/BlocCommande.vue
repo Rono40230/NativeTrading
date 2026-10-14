@@ -11,7 +11,7 @@
   >
     <!-- Témoin vivant : pastille qui pulse quand il y a du neuf (27/09) -->
     <span v-if="alerte" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse z-10" />
-    <span class="bloc-titre shrink-0">{{ titre }} <span class="opacity-30">ⓘ</span></span>
+    <span class="bloc-titre shrink-0">{{ titre }}</span>
     <span class="bloc-fenetre flex-1 min-h-0 flex flex-col justify-center px-1.5 py-0.5">
       <slot />
     </span>

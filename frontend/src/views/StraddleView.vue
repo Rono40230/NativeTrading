@@ -12,9 +12,6 @@
   >
     <template #setups>
       <StraddleAgendaPanel />
-      <div class="mt-3">
-        <SignauxEnAttente :signaux="signauxActifs" strategie="straddle" />
-      </div>
       <div class="text-[10px] text-white mt-2">XAU · BTC · NAS100 · SP500 armés au branchement MT5</div>
     </template>
     <template #encours>
@@ -54,7 +51,6 @@ import { useRouter } from 'vue-router'
 import StrategyShell from '@/components/common/StrategyShell.vue'
 import { nbOrdresPoses } from '@/composables/useSignalFormat'
 import SignauxTableau from '@/components/common/SignauxTableau.vue'
-import SignauxEnAttente from '@/components/common/SignauxEnAttente.vue'
 import StraddleAgendaPanel from '@/components/common/StraddleAgendaPanel.vue'
 import HistoryTable from '@/components/common/HistoryTable.vue'
 import { useHistoriqueStrategie } from '@/composables/useHistoriqueStrategie'

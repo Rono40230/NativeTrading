@@ -8,49 +8,41 @@
   <div class="glass-card px-3 py-2 flex items-stretch justify-center gap-4 flex-wrap">
 
     <!-- ── Badge Briefing du jour (owner 13/10 — KTA #11) ──────────────── -->
-    <PopoverInfo titre="Briefing du jour" texte="La synthèse IA du jour : événements armés + annonces High + positions ouvertes + presse marquante — « ce qui compte aujourd'hui »." class="flex-1 min-w-[240px]">
-      <button class="korry w-full cursor-pointer" @click.stop="ouverte = 'briefing'">
-        <span class="k-label">BRIEFING <span class="k-info">ⓘ</span></span>
-        <span class="k-fenetre">SYNTHÈSE DU JOUR</span>
-      </button>
-    </PopoverInfo>
+    <button class="korry flex-1 min-w-[240px] cursor-pointer" @click.stop="ouverte = 'briefing'">
+      <span class="k-label">BRIEFING</span>
+      <span class="k-fenetre">SYNTHÈSE DU JOUR</span>
+    </button>
 
     <!-- ── Badge Calendrier économique ─────────────────────────────────── -->
-    <PopoverInfo titre="Calendrier économique" :texte="texteCalendrier" class="flex-1 min-w-[280px]">
-      <button
-        class="korry w-full cursor-pointer"
-        :class="annonceImminente ? 'lit-rouge' : annoncesJour.length ? 'lit-ambre' : ''"
-        @click.stop="ouverte = 'calendrier'"
-      >
-        <span class="k-label">CALENDRIER <span class="k-info">ⓘ</span></span>
-        <span class="k-fenetre" :class="etatCalendrier.source_prete || synchroFrais || annonceImminente ? '' : 'ko'">{{ resumeCalendrier }}</span>
-      </button>
-    </PopoverInfo>
+    <button
+      class="korry flex-1 min-w-[280px] cursor-pointer"
+      :class="annonceImminente ? 'lit-rouge' : annoncesJour.length ? 'lit-ambre' : ''"
+      @click.stop="ouverte = 'calendrier'"
+    >
+      <span class="k-label">CALENDRIER</span>
+      <span class="k-fenetre" :class="etatCalendrier.source_prete || synchroFrais || annonceImminente ? '' : 'ko'">{{ resumeCalendrier }}</span>
+    </button>
 
     <!-- ── Badge Créneaux moyens de volatilité ─────────────────────────── -->
-    <PopoverInfo titre="Créneaux moyen de volatilité sur 12 mois" :texte="texteCreneaux" class="flex-1 min-w-[280px]">
-      <button
-        class="korry w-full cursor-pointer"
-        @click.stop="ouverte = 'creneaux'"
-      >
-        <span class="k-label">CRÉNEAUX <span class="k-info">ⓘ</span></span>
-        <span class="k-fenetre k-fenetre-multi">{{ resumeCreneaux }}</span>
-      </button>
-    </PopoverInfo>
+    <button
+      class="korry flex-1 min-w-[280px] cursor-pointer"
+      @click.stop="ouverte = 'creneaux'"
+    >
+      <span class="k-label">CRÉNEAUX</span>
+      <span class="k-fenetre k-fenetre-multi">{{ resumeCreneaux }}</span>
+    </button>
 
     <!-- ── Badge Radar ATR temps réel ──────────────────────────────────── -->
-    <PopoverInfo titre="Radar ATR temps réel" :texte="texteRadar" class="flex-1 min-w-[280px]">
-      <button
-        class="korry w-full cursor-pointer"
-        @click.stop="ouverte = 'radar'"
-      >
-        <span class="k-label">RADAR ATR <span class="k-info">ⓘ</span></span>
-        <span class="k-fenetre k-fenetre-multi">
-          <template v-if="topRadar.length">{{ topRadar.join(' · ') }}</template>
-          <template v-else>{{ radarChargement ? 'calcul…' : '—' }}</template>
-        </span>
-      </button>
-    </PopoverInfo>
+    <button
+      class="korry flex-1 min-w-[280px] cursor-pointer"
+      @click.stop="ouverte = 'radar'"
+    >
+      <span class="k-label">RADAR ATR</span>
+      <span class="k-fenetre k-fenetre-multi">
+        <template v-if="topRadar.length">{{ topRadar.join(' · ') }}</template>
+        <template v-else>{{ radarChargement ? 'calcul…' : '—' }}</template>
+      </span>
+    </button>
 
     <!-- ── Modales : le composant complet de l'ancienne colonne latérale,
          monté uniquement à l'ouverture (pas de polling fantôme). ──────── -->
@@ -97,7 +89,6 @@ import type { PatternHoraire } from '@/services/api.types.marche'
 import { offsetParisHeures } from '@/utils/date'
 import { fenetreDuJour, NOM_CLUSTER } from '@/composables/useVolatiliteAnalyse'
 import { useRadarAtr } from '@/composables/useRadarAtr'
-import PopoverInfo from './PopoverInfo.vue'
 import ModaleCadre from './ModaleCadre.vue'
 import EconomicCalendar from './EconomicCalendar.vue'
 import EvenementsReactiviteBloc from './EvenementsReactiviteBloc.vue'
@@ -169,11 +160,6 @@ const annonceImminente = computed(() => {
   return null
 })
 
-const texteCalendrier = computed(() =>
-  annoncesJour.value.length
-    ? 'Annonces à fort impact du jour (heure Paris) :\n' + annoncesJour.value.map(a => `${a.devise} — ${a.titre}`).join('\n') + '\n\nClic : les 10 prochains jours.'
-    : 'Pas d\'annonces prévues aujourd\'hui.\n\nClic : les 10 prochains jours.')
-
 async function chargerCalendrier() {
   etatCalendrier.value = await newsApi.etatCalendrier()
   annoncesProches.value = await apiService.obtenirCalendrier(2)
@@ -209,27 +195,6 @@ const resumeCreneaux = computed(() => {
   return `${gagnante.debut}h–${gagnante.fin}h · ${NOM_CLUSTER[gagnante.cluster].toLowerCase()} · ${noms}`
 })
 
-const detailCreneaux = computed(() => {
-  if (!patterns.value.length) return ''
-  const jour = new Date(Date.now() + offsetParisHeures() * 3_600_000).getUTCDay()
-  const votes = new Map<string, { debut: number; fin: number; cluster: number; assets: { nom: string; atr: number }[] }>()
-  for (const d of patterns.value) {
-    const f = fenetreDuJour(d.patterns as PatternHoraire[], jour)
-    if (!f) continue
-    const cle = `${f.heureDebut}-${f.heureFin}-${f.cluster}`
-    const v = votes.get(cle) ?? { debut: f.heureDebut, fin: f.heureFin, cluster: f.cluster, assets: [] }
-    v.assets.push({ nom: d.asset, atr: f.atr ?? 0 })
-    votes.set(cle, v)
-  }
-  const g = [...votes.values()].sort((a, b) => b.assets.length - a.assets.length || b.cluster - a.cluster)[0]
-  if (!g) return ''
-  return [...g.assets].sort((a, b) => b.atr - a.atr)
-    .map(a => `${a.nom} : ATR moyen ${a.atr.toFixed(1)}`).join('\n')
-})
-
-const texteCreneaux = computed(() =>
-  `Fenêtre la plus volatile du jour (heure Paris), d'après les patterns moyens des 12 derniers mois — les 4 actifs les plus intenses sont affichés, l'ordre complet est ici :\n${detailCreneaux.value}\n\nClic : les événements prévisibles (annonces US, réouverture CME, fixes or…) × la réactivité de chaque asset, puis les créneaux moyens.`)
-
 async function chargerCreneaux() {
   try {
     patterns.value = await apiService.obtenirPatternsJourTousActifs()
@@ -242,9 +207,6 @@ let arreterRadar: (() => void) | null = null
 
 const topRadar = computed(() =>
   classementRadar.value.slice(0, 5).map(i => `${i.asset}·${i.tf} ${i.atr.toFixed(0)}%`))
-
-const texteRadar = computed(() =>
-  `Volatilité actuelle vs habitude de cet instant (jour × heure, 12 mois) — les 5 paires TF/asset les plus chaudes, remises à jour chaque heure.\n\nClic : le classement complet.`)
 
 // ── Cycles : calendrier 30 min (les agendas bougent lentement), créneaux
 //    1 h (cache serveur d'1 h), radar 1 h (spec owner). ─────────────────────
@@ -306,7 +268,6 @@ onUnmounted(() => {
   font-family: ui-monospace, monospace;
   white-space: nowrap;
 }
-.k-info { color: rgba(255, 255, 255, 0.25); letter-spacing: 0; }
 .k-fenetre {
   font-size: 11px;
   font-weight: 700;

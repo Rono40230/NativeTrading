@@ -81,7 +81,6 @@
     <button
       type="button"
       class="plaque relative flex flex-col items-center gap-0.5 px-3 pt-1 pb-1.5 rounded-md cursor-pointer transition-all hover:brightness-125"
-      title="Les caractéristiques de la stratégie"
       @click.stop="$emit('definition')"
     >
       <!-- Vis d'angle -->
@@ -92,11 +91,9 @@
               :class="etat === 'Officielle' ? 'text-emerald-300' : etat === 'Observation' ? 'text-amber-300' : 'text-white/50'">
           <span class="w-1.5 h-1.5 rounded-full" :class="lampeEtat" />{{ etat }}
         </span>
-        <PopoverInfo v-if="enCours > 0" :titre="`${enCours} signal(s) en cours`" :texte="detailEnCours || '—'">
-          <span class="flex items-center gap-1 text-[10px] font-bold tracking-wider uppercase text-sky-300 cursor-help">
-            <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />{{ enCours }} EN COURS
-          </span>
-        </PopoverInfo>
+        <span v-if="enCours > 0" class="flex items-center gap-1 text-[10px] font-bold tracking-wider uppercase text-sky-300">
+          <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />{{ enCours }} EN COURS
+        </span>
       </div>
     </button>
   </div>
@@ -107,7 +104,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { http } from '@/services/http.client'
 import { chargerAnalyse } from '@/composables/useAnalyses'
 import { estTradeOuvert } from '@/composables/useSignalFormat'
-import PopoverInfo from './PopoverInfo.vue'
 
 const props = defineProps<{
   id: string
@@ -123,7 +119,6 @@ const capitalActuel = ref<number | null>(null)
 const capitalDepart = ref(1000)
 const etat = ref('—')
 const enCours = ref(0)
-const detailEnCours = ref('')
 
 async function sonder() {
   try {
@@ -148,7 +143,6 @@ async function sonder() {
     const ouverts = (r.data as { strategie: string; statut: string; verdict: string | null; heure_entree: number | null; asset: string; timeframe: string }[])
       .filter(s => s.strategie === props.id && estTradeOuvert(s))
     enCours.value = ouverts.length
-    detailEnCours.value = ouverts.map(a => `${a.asset} ${a.timeframe}`).join('\n')
   } catch { /* silencieux */ }
 }
 

@@ -30,7 +30,7 @@
             <div v-if="!articles.length" class="text-sm text-white/70 leading-snug">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min)</div>
             <div v-for="a in articles" :key="a.hash_titre" class="flex items-center gap-1.5 min-w-0">
               <span class="text-sm text-blue-400 font-mono shrink-0">{{ ageCourt(a) }}</span>
-              <span class="text-sm text-white/90 truncate cursor-help" :title="a.resume_source || a.titre">{{ a.titre_fr || a.titre }}</span>
+              <span class="text-sm text-white/90 truncate">{{ a.titre_fr || a.titre }}</span>
             </div>
           </div>
         </div>
@@ -86,7 +86,7 @@
         <div class="relative rounded bg-black/30 px-1.5 py-1 min-h-0 flex-1 overflow-hidden">
           <FondTheme theme="donnees" />
           <div class="relative flex flex-col gap-1 text-xs leading-snug">
-            <p class="text-white" title="Une ligne par source : fraîcheur + couverture + volume du jour. Flux continus (MT5, Bybit) : alerte rouge à 5 min sans bougie. Le comblement Binance n'écrit que lors d'un trou (nuits, pannes) : informatif.">
+            <p class="text-white">
               <span v-for="(src, i) in lignesSources" :key="src.nom">
                 <span v-if="src.episodique" class="text-white/85">{{ src.nom }} (comblement) · dernier trou il y a {{ src.age }}</span>
                 <span v-else :class="src.vivante ? 'text-white' : 'text-red-300 font-bold'">
@@ -96,7 +96,7 @@
               </span>
             </p>
             <p class="text-white">Actions US : <span class="font-bold text-rose-200">{{ donnees.actionsTotal }} actions suivies.</span> <span class="font-bold text-rose-200">{{ donnees.actionsAJour }}</span> à jour</p>
-            <p class="text-white" title="Jours depuis le dernier signal émis par chaque moteur armé — la leçon KDJ : une stratégie muette doit se VOIR (étape 4 roadmap audit).">
+            <p class="text-white">
               Moteurs :
               <span v-for="(m, i) in moteursSante" :key="m.strategie">
                 <span class="font-bold" :class="m.alerte ? 'text-red-300' : 'text-rose-200'">{{ nomCourt(m.strategie) }} {{ m.jours_silence === null ? 'jamais' : `${m.jours_silence} j` }}{{ m.alerte ? ' 🔴' : '' }}</span>
