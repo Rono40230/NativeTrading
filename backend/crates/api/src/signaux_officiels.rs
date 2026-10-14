@@ -308,21 +308,22 @@ async fn formater_message(
 
     // Template STRADDLE (maquette provisoire actée étape 2 : annonce +
     // setup + entrée horodatée + SL + trailing — enrichie du lot, 3 couches).
-    // RÈGLE 26/08 : le TIMER ouvre les 2 jambes au prix E à T-10 s — le
-    // message décrit l'ouverture straddle complète (niveaux miroir ±1R/±2R).
+    // RÈGLE 26/08 : le TIMER ouvre les 2 jambes au prix E à T-N s (N =
+    // placement_sec, servi réel — plus de hardcode, fix coquille 14/10) —
+    // le message décrit l'ouverture straddle complète (niveaux miroir).
     if id_strategie == "straddle" {
         let annonce = titre_annonce_straddle(db, &s.cle).await;
         let heure = chrono::DateTime::from_timestamp(s.debut_barre, 0)
             .map(|d| d.format("%H:%M:%S").to_string())
             .unwrap_or_default();
-        let trailing = db::strategies_params::lire_straddle_params(db.pool())
-            .await
-            .trailing_r;
+        let params_str = db::strategies_params::lire_straddle_params(db.pool()).await;
+        let trailing = params_str.trailing_r;
+        let placement = params_str.placement_sec;
         if s.direction == Direction::Both {
             let e = s.prix_entree;
             let r = (e - sl).abs();
             let msg = format!(
-                "{icone} {nom} - {asset} — {annonce}\n2 jambes ouvertes à {e:.2}$ à {heure} (timer T-10 s)\nLot = {lot:.2} par jambe ({risque_euros:.0}$ risqués)\n\nLONG  : SL {sl_long:.2}$ | TP1 {tp1l:.2} → SL E−0,5R | TP2 {tp2l:.2} → trailing {trailing:.1}R\nSHORT : SL {sl_short:.2} | TP1 {tp1s:.2} → SL E+0,5R | TP2 {tp2s:.2} → trailing {trailing:.1}R",
+                "{icone} {nom} - {asset} — {annonce}\n2 jambes ouvertes à {e:.2}$ à {heure} (timer T-{placement} s)\nLot = {lot:.2} par jambe ({risque_euros:.0}$ risqués)\n\nLONG  : SL {sl_long:.2}$ | TP1 {tp1l:.2} → SL E−0,5R | TP2 {tp2l:.2} → trailing {trailing:.1}R\nSHORT : SL {sl_short:.2} | TP1 {tp1s:.2} → SL E+0,5R | TP2 {tp2s:.2} → trailing {trailing:.1}R",
                 icone = crate::registre_strategies::MANIFESTES
                     .iter()
                     .find(|m| m.id == id_strategie)
@@ -342,6 +343,7 @@ async fn formater_message(
                 tp1s = e - r,
                 tp2s = e - 2.0 * r,
                 trailing = trailing,
+                placement = placement,
             );
             return Some(msg);
         }
