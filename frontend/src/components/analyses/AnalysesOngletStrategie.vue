@@ -80,7 +80,9 @@
         </div>
         <div class="grid grid-cols-1 gap-3">
           <div class="mt-2">
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+    <!-- Empilés (owner 13/10) : côte à côte, chaque bloc ne recevait qu'1/6
+           de fenêtre — trop étroit pour les lignes à largeurs fixes. -->
+    <div class="grid grid-cols-1 gap-3">
       <!-- Verdicts : où vit l'edge -->
       <div class="glass-card p-3">
         <p class="text-xs font-semibold text-white mb-2">⚖️ Verdicts — où vit l'edge</p>
@@ -232,11 +234,11 @@
             </thead>
             <tbody>
               <tr v-for="snap in historique.slice(0, 14)" :key="snap.jour" class="border-t border-white/5">
-                <td class="py-1 pr-2 text-white font-mono">{{ snap.jour.slice(5) }}</td>
-                <td class="py-1 pr-2 text-right font-mono text-white">{{ fmtDollars(snap.capital_actuel) }}</td>
-                <td class="py-1 pr-2 text-right font-mono" :class="(snap.hier_dollars ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ snap.hier_dollars === null ? '—' : fmtDollars(snap.hier_dollars) }}</td>
-                <td class="py-1 pr-2 text-right font-mono text-white">{{ fmtR(snap.r_total) }}</td>
-                <td class="py-1 text-right">
+                <td class="py-1 whitespace-nowrap pr-2 text-white font-mono whitespace-nowrap">{{ snap.jour.slice(5) }}</td>
+                <td class="py-1 whitespace-nowrap pr-2 text-right font-mono text-white whitespace-nowrap">{{ fmtDollars(snap.capital_actuel) }}</td>
+                <td class="py-1 whitespace-nowrap pr-2 text-right font-mono whitespace-nowrap" :class="(snap.hier_dollars ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ snap.hier_dollars === null ? '—' : fmtDollars(snap.hier_dollars) }}</td>
+                <td class="py-1 whitespace-nowrap pr-2 text-right font-mono text-white whitespace-nowrap">{{ fmtR(snap.r_total) }}</td>
+                <td class="py-1 whitespace-nowrap text-right">
                   <span v-if="avisDuSnapshot(snap)" class="font-mono cursor-help"
                         :class="(avisDuSnapshot(snap)!.confiance ?? 0) >= 70 ? 'text-emerald-400' : (avisDuSnapshot(snap)!.confiance ?? 0) >= 40 ? 'text-amber-300' : 'text-white/60'"
                         :title="avisDuSnapshot(snap)!.etat">{{ avisDuSnapshot(snap)!.confiance }}/100</span>
@@ -274,15 +276,15 @@
           </thead>
           <tbody>
             <tr v-for="t in a.par_score" :key="t.label" class="border-b border-white/5">
-              <td class="py-1 font-mono text-white">{{ t.label }}</td>
-              <td class="py-1 text-right text-white">{{ t.n }}</td>
-              <td class="py-1 text-right text-emerald-300">{{ t.tp1 }}</td>
-              <td class="py-1 text-right text-emerald-300">{{ t.tp2 }}</td>
-              <td class="py-1 text-right text-emerald-200">{{ t.tp3 }}</td>
-              <td class="py-1 text-right text-red-400">{{ t.sl }}</td>
-              <td class="py-1 text-right text-white/60">{{ t.expire }}</td>
-              <td class="py-1 text-right font-bold" :class="t.wr >= 0.5 ? 'text-emerald-400' : 'text-red-400'">{{ Math.round(t.wr * 100) }} %</td>
-              <td class="py-1 text-right font-bold" :class="(t.r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ t.r != null ? fmtR(t.r) : '—' }}</td>
+              <td class="py-1 whitespace-nowrap font-mono text-white">{{ t.label }}</td>
+              <td class="py-1 whitespace-nowrap text-right text-white">{{ t.n }}</td>
+              <td class="py-1 whitespace-nowrap text-right text-emerald-300">{{ t.tp1 }}</td>
+              <td class="py-1 whitespace-nowrap text-right text-emerald-300">{{ t.tp2 }}</td>
+              <td class="py-1 whitespace-nowrap text-right text-emerald-200">{{ t.tp3 }}</td>
+              <td class="py-1 whitespace-nowrap text-right text-red-400">{{ t.sl }}</td>
+              <td class="py-1 whitespace-nowrap text-right text-white/60">{{ t.expire }}</td>
+              <td class="py-1 whitespace-nowrap text-right font-bold" :class="t.wr >= 0.5 ? 'text-emerald-400' : 'text-red-400'">{{ Math.round(t.wr * 100) }} %</td>
+              <td class="py-1 whitespace-nowrap text-right font-bold" :class="(t.r ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ t.r != null ? fmtR(t.r) : '—' }}</td>
             </tr>
           </tbody>
         </table>

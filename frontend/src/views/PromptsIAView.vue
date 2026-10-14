@@ -13,11 +13,12 @@ const expansions = ref<BoolMap>({})
 const editValues = ref<StrMap>({})
 const enCours = ref<BoolMap>({})
 
+// Organisation par RÔLE (owner 13/10) : définitions injectées / arrière-plan
+// automatique / analystes déclenchés — remplace les blocs par stratégie.
 const catConfig: Record<string, any> = {
-  straddle: { label: 'Straddle', icon: '⚡', border: 'border-purple-500/30', text: 'text-purple-400' },
-  smc: { label: 'SMC', icon: '📊', border: 'border-blue-500/30', text: 'text-blue-400' },
-  rockets: { label: 'Rockets', icon: '🚀', border: 'border-orange-500/30', text: 'text-orange-400' },
-  outils_ia: { label: 'Outils IA', icon: '🧠', border: 'border-emerald-500/30', text: 'text-emerald-400' }
+  definitions: { label: 'Définitions — injectées automatiquement', icon: '📖', border: 'border-blue-500/30', text: 'text-blue-400' },
+  arriere_plan: { label: 'Arrière-plan — tournent seuls', icon: '🔄', border: 'border-amber-500/30', text: 'text-amber-400' },
+  analystes: { label: 'Analystes — à la demande (⚡ Générer)', icon: '📊', border: 'border-emerald-500/30', text: 'text-emerald-400' }
 }
 
 async function chargerPrompts() {

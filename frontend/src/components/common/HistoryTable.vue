@@ -61,7 +61,11 @@
         </td>
         <td class="px-3 py-3 text-right font-mono text-white">{{ formatNombre(s.prix_entree) }}</td>
         <td v-if="filtreStatut !== 'cloturees'" class="px-3 py-3 text-right font-mono" :class="classePrixActuelSignal(s, prixStore.getPrix(s.asset))">{{ prixStore.getPrix(s.asset) !== null ? formatNombre(prixStore.getPrix(s.asset)!) : '—' }}</td>
-        <td class="px-3 py-3 text-center"><span v-if="s.llm_conviction !== null" class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help" :class="classeConviction(s.llm_conviction)" :title="s.llm_raison ?? ''">{{ s.llm_conviction }}</span><span v-else class="text-white text-xs">—</span></td>
+        <td class="px-3 py-3 text-center"><span v-if="s.llm_conviction !== null" class="relative group inline-flex">
+                <span class="inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold cursor-help" :class="classeConviction(s.llm_conviction)">{{ s.llm_conviction }}</span>
+                <!-- Tooltip CSS (écart 27) : le title natif ne s'affiche pas dans le webview Tauri -->
+                <span v-if="s.llm_raison" class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 hidden group-hover:block z-50 w-64 px-2.5 py-1.5 rounded-lg bg-gray-900/95 border border-white/15 text-[10px] font-normal text-left text-white leading-relaxed shadow-xl whitespace-normal">{{ s.llm_raison }}</span>
+              </span><span v-else class="text-white text-xs">—</span></td>
         <td class="px-3 py-3">
           <div class="flex flex-col gap-0.5">
             <div class="flex items-center gap-2">

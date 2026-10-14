@@ -100,10 +100,13 @@ impl Database {
         symbol_mt5: Option<&str>,
     ) -> Result<()> {
         let now = Utc::now().timestamp();
-        // Tenter réactivation si existait (soft-deleted)
+        // Tenter réactivation si existait (soft-deleted) — les symboles non
+        // fournis sont PRÉSERVÉS (COALESCE) : recocher une case de la page
+        // Données ne re-saisit pas les symboles (écart 24, 13/10).
         let nb = sqlx::query(
             "UPDATE assets SET actif = 1, nom = ?, type = ?, source = ?,
-                               symbol_bybit = ?, symbol_mt5 = ?
+                               symbol_bybit = COALESCE(?, symbol_bybit),
+                               symbol_mt5  = COALESCE(?, symbol_mt5)
              WHERE id = ? AND actif = 0",
         )
         .bind(nom)
@@ -221,5 +224,29 @@ mod tests {
         assert_eq!(nas.source, "mt5", "NAS100 routé MT5");
         let eth = assets.iter().find(|a| a.id == "ETH").expect("ETH présent");
         assert_eq!(eth.source, "binance");
+    }
+
+    /// Écart 24 (13/10) : recocher une case de la page Données ne renvoie
+    /// PAS les symboles — la réactivation doit marcher SANS les fournir et
+    /// préserver ceux de la ligne existante (COALESCE).
+    #[tokio::test]
+    async fn reactivation_sans_symboles_les_preserve() {
+        let db = db_test().await;
+        db.ajouter_asset("DOGE", "Dogecoin", "crypto", "binance", Some("DOGEUSDT"), None)
+            .await
+            .expect("ajout");
+        db.supprimer_asset("DOGE").await.expect("décoche (soft-delete)");
+
+        // Recoche : POST d'ajout SANS symboles (comme le fait le front).
+        db.ajouter_asset("DOGE", "Dogecoin", "crypto", "binance", None, None)
+            .await
+            .expect("réactivation sans symboles");
+
+        let row = sqlx::query("SELECT actif, symbol_bybit FROM assets WHERE id = 'DOGE'")
+            .fetch_one(db.pool())
+            .await
+            .expect("ligne DOGE");
+        assert_eq!(row.get::<i64, _>("actif"), 1, "réactivé");
+        assert_eq!(row.get::<String, _>("symbol_bybit"), "DOGEUSDT", "symbole préservé");
     }
 }

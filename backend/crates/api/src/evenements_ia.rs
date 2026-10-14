@@ -22,6 +22,9 @@ pub struct AnalyseCreneaux {
     pub meilleurs_evenements: Vec<String>,
     /// Les croisements asset × événement les plus porteurs.
     pub meilleurs_croisements: Vec<String>,
+    /// Cases candidates au désarmement (ΣR négatif répété) — le
+    /// propriétaire seul clique (écart revue prompts 13/10).
+    pub a_desarmer: Vec<String>,
     pub confiance: u32,
     pub generee_le: i64,
 }
@@ -33,6 +36,8 @@ struct ReponseLlm {
     meilleurs_evenements: Vec<String>,
     #[serde(default)]
     meilleurs_croisements: Vec<String>,
+    #[serde(default)]
+    a_desarmer: Vec<String>,
     #[serde(default)]
     confiance: f64,
 }
@@ -64,13 +69,18 @@ pub async fn post_analyse(state: web::Data<AppState>) -> impl Responder {
             "en_cache": false,
             "analyse": AnalyseCreneaux {
                 etat: "Aucune case comptée pour l'instant — l'analyste n'a rien à juger.".into(),
-                meilleurs_evenements: vec![], meilleurs_croisements: vec![],
+                meilleurs_evenements: vec![], meilleurs_croisements: vec![], a_desarmer: vec![],
                 confiance: 0, generee_le: chrono::Utc::now().timestamp(),
             }
         }));
     }
 
-    let prompt = format!("{}\n\n{}", llm::prompt_effectif("analyse_creneaux"), contexte);
+    let prompt = format!(
+        "{}\n\n{}\n\n{}",
+        llm::prompt_effectif("straddle_definition"),
+        llm::prompt_effectif("analyse_creneaux"),
+        contexte
+    );
     match llm::ollama::interroger(&prompt).await {
         Ok(texte) => {
             let analyse = parser(texte);
@@ -85,6 +95,9 @@ pub async fn post_analyse(state: web::Data<AppState>) -> impl Responder {
 /// Contexte chiffré compact : par événement, par asset, puis les cellules
 /// non nulles (le croisement) + seuils de la boucle.
 async fn contexte(state: &AppState) -> String {
+    // Paramètres moteur en tête (revue 13/10) — la matrice juge la stratégie
+    // réelle, pas ses défauts historiques.
+    let mut prefixe = crate::analyses_ia::parametres_moteur_straddle(&state.db).await;
     let rows = sqlx::query(
         "SELECT asset, evenement, occurrences, somme_r, verdict_test
          FROM creneaux_evenements WHERE occurrences > 0",
@@ -139,7 +152,9 @@ async fn contexte(state: &AppState) -> String {
     }
     l.push(format!("CROISEMENTS (cases non nulles) : {}", cellules.join(" ; ")));
     l.push("Règle des 30 : une case sous 30 tirages reste non jugeable — signale-le.".into());
-    l.join("\n")
+    prefixe.push_str("\n");
+    prefixe.push_str(&l.join("\n"));
+    prefixe
 }
 
 /// Extraction robuste (premier { dernier }) — même discipline que les
@@ -154,6 +169,7 @@ fn parser(texte: String) -> AnalyseCreneaux {
                     etat: v.etat,
                     meilleurs_evenements: v.meilleurs_evenements,
                     meilleurs_croisements: v.meilleurs_croisements,
+                    a_desarmer: v.a_desarmer,
                     confiance: crate::analyses_ia::confiance_normalisee(v.confiance),
                     generee_le: chrono::Utc::now().timestamp(),
                 };
@@ -164,6 +180,7 @@ fn parser(texte: String) -> AnalyseCreneaux {
         etat: n.chars().take(1500).collect(),
         meilleurs_evenements: vec![],
         meilleurs_croisements: vec![],
+        a_desarmer: vec![],
         confiance: 0,
         generee_le: chrono::Utc::now().timestamp(),
     }

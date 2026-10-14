@@ -135,12 +135,10 @@ async fn noter_lot(articles: &[(String, String)]) -> anyhow::Result<Vec<NoteLlm>
         .enumerate()
         .map(|(i, (_, t))| format!("{i}. {t}\n"))
         .collect();
+    // Prompt éditable (écart 30, 13/10) — le défaut vitait codé en dur ici.
     let prompt = format!(
-        "Tu es analyste financier. Note la pertinence de chaque titre pour un trader \
-         forex, métaux précieux (or, argent), crypto et indices : 1 (sans intérêt) à \
-         100 (à lire absolument : banque centrale, macro majeure, mouvement fort d'un \
-         actif suivi). Réponds UNIQUEMENT par un tableau JSON, un objet par titre, sans \
-         autre texte : [{{\"i\":0,\"score\":45}},…]\n\nTitres :\n{titres}"
+        "{}\n\nTitres :\n{titres}",
+        llm::prompt_effectif("presse_notation")
     );
     let corps = serde_json::json!({
         "model": MODELE_NOTATION,

@@ -21,6 +21,18 @@ use chrono_tz::Tz;
 
 
 // ── Taxonomie : événements prévisibles à l'horloge ───────────────────────────
+//
+// DOCTRINE (owner 14/10, actée) — deux familles, deux sources de vérité :
+//   • STRUCTURELS (calendrier = false) : événements récurrents garantis par
+//     le calendrier des marchés (ouvertures, fixes, clôtures, réouvertures).
+//     Le catalogue fixe leur HEURE ; la matrice (`creneaux_evenements`)
+//     décide des ASSETS armés.
+//   • CALENDRIER (calendrier = true) : types d'annonces (NFP, CPI, FOMC…,
+//     filet cal_autres). Leur existence et leur heure au quotidien relèvent
+//     du CALENDRIER ÉCONOMIQUE SEUL (annonces High — décision owner 14/10 :
+//     les Medium ne se tradent pas). La matrice les arme comme les autres.
+//   Les anciens créneaux génériques « annonces US 8:30 / 10:00 » (les seuls à
+//   tirer sur Medium) ont été RETIRÉS le 14/10 : doublon des types ci-dessus.
 
 /// Un événement récurrent, défini dans son fuseau d'origine. Les jours sont
 /// ISO lundi=1..dimanche=7 **dans le fuseau de l'événement**.
@@ -37,7 +49,6 @@ pub(crate) struct EvenementModele {
     /// 29/09 — « entrer uniquement sur les annonces réelles »). Les
     /// événements de marché (ouvertures, fixs, réouvertures) ont leur
     /// cause chaque jour : jamais gated.
-    pub(crate) gate_calendrier: bool,
     /// true = TYPE CALENDAIRE (owner 10/10) : pas d'heure fixe — l'heure
     /// vient de la VRAIE annonce du calendrier, classée par titre. tz/heure/
     /// jours sont ignorés pour ces lignes (placeholder New York 8:30).
@@ -57,7 +68,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 9,
         minute: 0,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: false,
     },
     EvenementModele {
@@ -68,18 +78,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 10,
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
-        calendrier: false,
-    },
-    EvenementModele {
-        ident: "annonces_us_0830",
-        nom: "Annonces US 8:30 New York",
-        detail: "Le créneau horloge des gros chiffres US (emploi, CPI, ventes…) — 14:30 Paris presque toute l'année, 13:30 pendant les entre-bascules d'heure d'été. Ne tire QUE les jours où une annonce USD réelle (High ou Medium) existe au calendrier à 8:30 New York.",
-        tz: chrono_tz::America::New_York,
-        heure: 8,
-        minute: 30,
-        jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: true,
         calendrier: false,
     },
     EvenementModele {
@@ -90,18 +88,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 9,
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
-        calendrier: false,
-    },
-    EvenementModele {
-        ident: "annonces_us_1000",
-        nom: "Annonces US 10:00 + fix or PM",
-        detail: "Les chiffres de 10:00 New York (ISM, confiance…) tombent à la même minute que le fix LBMA de l'après-midi (15:00 Londres) — Ne tire QUE les jours où une annonce USD réelle (High ou Medium) existe à 10:00 New York.",
-        tz: chrono_tz::America::New_York,
-        heure: 10,
-        minute: 0,
-        jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: true,
         calendrier: false,
     },
     EvenementModele {
@@ -112,7 +98,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 16,
         minute: 0,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: false,
     },
     EvenementModele {
@@ -123,7 +108,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 17,
         minute: 0,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: false,
     },
     EvenementModele {
@@ -134,7 +118,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 18,
         minute: 0,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: false,
     },
     EvenementModele {
@@ -145,7 +128,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 17,
         minute: 0,
         jours: &[7],
-        gate_calendrier: false,
         calendrier: false,
     },
     EvenementModele {
@@ -156,7 +138,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 9,
         minute: 0,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: false,
     },
     // ── Types calendrier (owner 10/10) : l'heure vient de la vraie annonce ──
@@ -168,7 +149,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 8,
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: true,
     },
     EvenementModele {
@@ -179,7 +159,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 8,
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: true,
     },
     EvenementModele {
@@ -190,7 +169,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 14,
         minute: 0,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: true,
     },
     EvenementModele {
@@ -201,7 +179,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 8,
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: true,
     },
     EvenementModele {
@@ -212,7 +189,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 8,
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: true,
     },
     EvenementModele {
@@ -223,7 +199,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 8,
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: true,
     },
     EvenementModele {
@@ -234,7 +209,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 8,
         minute: 30,
         jours: &[4],
-        gate_calendrier: false,
         calendrier: true,
     },
     EvenementModele {
@@ -245,7 +219,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 8,
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: true,
     },
     EvenementModele {
@@ -256,7 +229,6 @@ pub(crate) const EVENEMENTS: &[EvenementModele] = &[
         heure: 8,
         minute: 30,
         jours: &[1, 2, 3, 4, 5],
-        gate_calendrier: false,
         calendrier: true,
     },
 ];
@@ -386,28 +358,28 @@ mod tests {
         format!("{:02}:{:02}", p.hour(), p.minute())
     }
 
-    /// 8:30 New York = 14:30 Paris toute l'année hors entre-bascules :
+    /// 9:30 New York = 15:30 Paris toute l'année hors entre-bascules :
     /// l'écart New York↔Paris est structurellement de 6 h.
     #[test]
-    fn annonces_us_830_stables_entre_ete_et_hiver() {
+    fn nyse_ouverture_stable_entre_ete_et_hiver() {
         // Plein été (EDT / CEST) et plein hiver (EST / CET).
         let ete = Utc.with_ymd_and_hms(2026, 7, 15, 0, 0, 0).unwrap();
         let hiver = Utc.with_ymd_and_hms(2026, 1, 15, 0, 0, 0).unwrap();
-        assert_eq!(paris_hhmm("annonces_us_0830", ete), "14:30");
-        assert_eq!(paris_hhmm("annonces_us_0830", hiver), "14:30");
+        assert_eq!(paris_hhmm("nyse_ouverture", ete), "15:30");
+        assert_eq!(paris_hhmm("nyse_ouverture", hiver), "15:30");
     }
 
     /// LA fenêtre piège : l'Europe bascule le dernier dimanche d'octobre,
     /// les États-Unis le 1er novembre — entre les deux, l'écart passe à 5 h
-    /// et les annonces tombent à 13:30 Paris.
+    /// et l'ouverture NYSE tombe à 14:30 Paris.
     #[test]
-    fn entre_bascules_octobre_annonces_a_1330_paris() {
+    fn entre_bascules_octobre_nyse_a_1430_paris() {
         let lundi_oct = Utc.with_ymd_and_hms(2026, 10, 26, 0, 0, 0).unwrap();
-        assert_eq!(paris_hhmm("annonces_us_0830", lundi_oct), "13:30");
+        assert_eq!(paris_hhmm("nyse_ouverture", lundi_oct), "14:30");
         // Idem au printemps : les US avancent le 2e dimanche de mars, l'Europe
         // le dernier — trois semaines de décalage.
         let mi_mars = Utc.with_ymd_and_hms(2026, 3, 15, 0, 0, 0).unwrap();
-        assert_eq!(paris_hhmm("annonces_us_0830", mi_mars), "13:30");
+        assert_eq!(paris_hhmm("nyse_ouverture", mi_mars), "14:30");
     }
 
     /// La réouverture CME 18:00 New York tombe toujours à 00:00 Paris —
@@ -455,32 +427,6 @@ mod tests {
         assert_eq!(t.len(), 3);
     }
 
-    /// « Annonces US 10:00 + fix or PM » : les deux phénomènes coïncident
-    /// à la même minute Paris toute l'année (10:00 New York = 15:00 Londres
-    /// = 16:00 Paris) — un seul bucket de la matrice, nommé des deux.
-    #[test]
-    fn annonces_1000_et_fix_pm_coincident_a_16h_paris() {
-        let jour = Utc.with_ymd_and_hms(2026, 9, 15, 0, 0, 0).unwrap();
-        let debut = (jour - Duration::days(1)).timestamp();
-        let fin = jour.timestamp();
-        let mut masques: HashMap<i64, u32> = HashMap::new(); // 19 événements > 16 bits
-        for (i, e) in EVENEMENTS.iter().enumerate() {
-            for ts in fenetres_evenement(e, debut, fin) {
-                *masques.entry(ts).or_insert(0) |= 1 << i;
-            }
-        }
-        let idx_1000 = EVENEMENTS.iter().position(|e| e.ident == "annonces_us_1000").unwrap();
-        let ts_1600_paris = chrono_tz::Europe::Paris
-            .with_ymd_and_hms(2026, 9, 14, 16, 0, 0)
-            .unwrap()
-            .timestamp();
-        let masque = masques.get(&ts_1600_paris).copied().unwrap_or(0);
-        assert_ne!(masque & (1 << idx_1000), 0, "annonces 10:00 NY attendues à 16:00 Paris");
-        // Et l'événement merge porte bien les deux noms.
-        let ev = &EVENEMENTS[idx_1000];
-        assert!(ev.nom.contains("fix"), "le nom doit citer le fix PM : {}", ev.nom);
-        let _ = New_York; // référence du fuseau utilisé dans la taxonomie
-    }
 }
 
 #[cfg(test)]
@@ -530,13 +476,13 @@ mod tests_calendrier {
         assert_eq!(classifie_annonce("Personal Income and Core PCE Price Index"), Some("cal_pce"));
     }
 
-    /// Séparation des familles : les 9 fixes d'origine + Tokyo ne sont pas
-    /// calendrier ; les types oui.
+    /// Séparation des familles : les 8 structurels (9 fixes d'origine +
+    /// Tokyo − les 2 créneaux annonces retirés le 14/10) vs les 9 types.
     #[test]
     fn familles_fixes_vs_calendrier() {
         let fixes = EVENEMENTS.iter().filter(|e| !e.calendrier).count();
         let cal = EVENEMENTS.iter().filter(|e| e.calendrier).count();
-        assert_eq!(fixes, 10, "9 fixes d'origine + Tokyo");
+        assert_eq!(fixes, 8, "structurels (créneaux annonces retirés 14/10)");
         assert_eq!(cal, 9, "8 types + filet cal_autres");
     }
 }

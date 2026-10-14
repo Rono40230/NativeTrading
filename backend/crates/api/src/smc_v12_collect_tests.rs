@@ -59,14 +59,14 @@ fn kz_label_regroupage_ny() {
     assert_eq!(kz_label(KillZone::None), None);
 }
 
-/// Spec 08/10 (B2, rév. wave) — l'OTE swing vit dans le moteur et remonte
-/// intacte jusqu'au JSON : cas M15 4185 → 4067 (chaîne HH/LL de la wave,
+/// Spec 12/10 (fractales N + chaînes) — l'OTE swing vit dans le moteur et
+/// remonte intacte jusqu'au JSON : cas M15 4185 → 4067 (pivots fractals,
 /// mid = 4126,0 exact), ancres et naissance aux bons timestamps.
 #[test]
 fn swing_ote_collectee_et_serialisee_depuis_le_moteur() {
-    // Séquence du cas de référence (cf. v12::swing_ote::tests v6) :
-    // H 4165 non-HH (pas de précédent), HH 4185 (bar 5), LL 4067 (bar 8),
-    // rebond interne 4145 et creux secondaire — la jambe survit.
+    // Séquence de référence : pivot H 4185 (bar 5, confirmé bar 9), pivot L
+    // 4067 (bar 8, confirmé bar 12 — N=4), rebond interne 4145 et creux
+    // secondaire — la jambe survit.
     let bars: &[(f64, f64)] = &[
         (4100.0, 4090.0),
         (4110.0, 4095.0),
@@ -79,6 +79,8 @@ fn swing_ote_collectee_et_serialisee_depuis_le_moteur() {
         (4132.0, 4067.0),
         (4145.0, 4120.0),
         (4130.0, 4110.0),
+        (4135.0, 4115.0),
+        (4128.0, 4112.0),
     ];
     let mut engine = SmcV12Engine::new("XAUUSD", "M15");
     let mut ts_by_idx: Vec<i64> = Vec::new();

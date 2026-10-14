@@ -1,6 +1,8 @@
-//! Requêtes DB pour le ML Feedback — statistiques de performance par stratégie
-//! et historique des suggestions de paramètres appliquées.
-//! Ce module n'écrit jamais dans les tables de feedback existantes.
+//! Stats globales de performance par stratégie (source `ml_training_samples`,
+//! alimentée par le vécu réel). Les tranches par score/kill-zone/confiance et
+//! toute la boucle d'écriture feedback ont été purgées le 13/10 (écart 25) :
+//! leurs tables (`smc_feedback`, `rockets_feedback`, `straddle_feedback`)
+//! étaient vides — aucun écrivain depuis l'audit ML du 06/10.
 use common::{Result, TradingError};
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
@@ -13,27 +15,6 @@ pub struct FeedbackGlobal {
     pub nb_gagnants: i64,
     pub win_rate: f64, // 0.0-100.0
     pub pnl_r_moyen: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SmcScoreStats {
-    pub tranche: String, // "50-65" | "65-75" | "75-85" | "85+"
-    pub nb_trades: i64,
-    pub win_rate: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SmcSessionStats {
-    pub en_kill_zone: bool,
-    pub nb_trades: i64,
-    pub win_rate: f64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MlCorrelationStats {
-    pub tranche: String, // "0.5-0.6" | "0.6-0.7" | "0.7-0.8" | "0.8+"
-    pub nb_trades: i64,
-    pub win_rate: f64,
 }
 
 // ── Stats globales ────────────────────────────────────────────────────────────
@@ -104,88 +85,6 @@ pub async fn stats_globales_straddle(pool: &SqlitePool) -> Result<FeedbackGlobal
     })
 }
 
-// ── Stats SMC détaillées ──────────────────────────────────────────────────────
-
-pub async fn stats_smc_par_score(pool: &SqlitePool) -> Result<Vec<SmcScoreStats>> {
-    let rows = sqlx::query(
-        "SELECT CASE
-                    WHEN score_smc < 65 THEN '50-65'
-                    WHEN score_smc < 75 THEN '65-75'
-                    WHEN score_smc < 85 THEN '75-85'
-                    ELSE '85+'
-                END as tranche,
-                COUNT(*) as nb_trades,
-                COALESCE(AVG(CASE WHEN gagnant = 1 THEN 100.0 ELSE 0.0 END), 0.0) as win_rate
-         FROM smc_feedback
-         WHERE verdict IS NOT NULL AND score_smc >= 50
-         GROUP BY tranche
-         ORDER BY MIN(score_smc)",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
-
-    Ok(rows
-        .iter()
-        .map(|r| SmcScoreStats {
-            tranche: r.get("tranche"),
-            nb_trades: r.get("nb_trades"),
-            win_rate: r.get("win_rate"),
-        })
-        .collect())
-}
-
-pub async fn stats_smc_par_kill_zone(pool: &SqlitePool) -> Result<Vec<SmcSessionStats>> {
-    let rows = sqlx::query(
-        "SELECT kill_zone_active,
-                COUNT(*) as nb_trades,
-                COALESCE(AVG(CASE WHEN gagnant = 1 THEN 100.0 ELSE 0.0 END), 0.0) as win_rate
-         FROM smc_feedback
-         WHERE verdict IS NOT NULL
-         GROUP BY kill_zone_active",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
-
-    Ok(rows
-        .iter()
-        .map(|r| SmcSessionStats {
-            en_kill_zone: r.get::<i64, _>("kill_zone_active") != 0,
-            nb_trades: r.get("nb_trades"),
-            win_rate: r.get("win_rate"),
-        })
-        .collect())
-}
-
-pub async fn stats_smc_ml_correlation(pool: &SqlitePool) -> Result<Vec<MlCorrelationStats>> {
-    let rows = sqlx::query(
-        "SELECT CASE
-                    WHEN confiance_ml < 0.6 THEN '0.5-0.6'
-                    WHEN confiance_ml < 0.7 THEN '0.6-0.7'
-                    WHEN confiance_ml < 0.8 THEN '0.7-0.8'
-                    ELSE '0.8+'
-                END as tranche,
-                COUNT(*) as nb_trades,
-                COALESCE(AVG(CASE WHEN gagnant = 1 THEN 100.0 ELSE 0.0 END), 0.0) as win_rate
-         FROM smc_feedback
-         WHERE verdict IS NOT NULL AND confiance_ml >= 0.5
-         GROUP BY tranche
-         ORDER BY MIN(confiance_ml)",
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(|e| TradingError::Database(e.to_string()))?;
-
-    Ok(rows
-        .iter()
-        .map(|r| MlCorrelationStats {
-            tranche: r.get("tranche"),
-            nb_trades: r.get("nb_trades"),
-            win_rate: r.get("win_rate"),
-        })
-        .collect())
-}
 
 #[cfg(test)]
 mod tests {

@@ -63,10 +63,10 @@ pub async fn traduire(pool: &SqlitePool, texte: &str) -> String {
         }
     }
 
+    // Prompt éditable (écart 30, 13/10).
     let prompt = format!(
-        "Traduis ce titre financier en français naturel. \
-        Réponds uniquement avec la traduction, sans guillemets ni explication.\n\n\
-        Titre: {texte}"
+        "{}\n\nTitre : {texte}",
+        llm::prompt_effectif("presse_traduction")
     );
 
     let corps = serde_json::json!({
@@ -171,10 +171,10 @@ pub async fn analyser_sentiment_avec_cache(pool: &SqlitePool, titre: &str) -> St
 
 /// Vraie réponse du LLM, ou None si Ollama/le parse a échoué.
 async fn analyser_sentiment(titre: &str) -> Option<String> {
+    // Prompt éditable (écart 30, 13/10).
     let prompt = format!(
-        "En un seul mot parmi [haussier, neutre, baissier], quel est l'impact probable de ce titre \
-        financier sur les prix des actifs (BTC, or, forex) ? Réponds uniquement avec un des trois mots.\n\n\
-        Titre: {titre}"
+        "{}\n\nTitre : {titre}",
+        llm::prompt_effectif("presse_sentiment")
     );
 
     let corps = serde_json::json!({
@@ -271,11 +271,10 @@ pub async fn traduire_avec_cache_strict(pool: &SqlitePool, titre: &str) -> Optio
 /// Génération du brief : un appel Ollama, entrée compilée par l'appelant
 /// (titres FR + scores + thèmes), sortie markdown brute.
 pub async fn generer_brief_llm(entree: &str) -> Option<String> {
+    // Prompt éditable (écart 30, 13/10).
     let prompt = format!(
-        "Tu es analyste financier. Rédige en français un brief matinal en markdown :\n\
-         ## Contexte marché\n3 lignes sur les thèmes dominants.\n\n\
-         ## Articles marquants\nPour chaque article : 2-3 lignes (impact, assets).\n\n\
-         Articles des dernières 24h (score sur 100, thème) :\n{entree}"
+        "{}\n\nArticles des dernières 24h (score sur 100, thème) :\n{entree}",
+        llm::prompt_effectif("presse_brief")
     );
     let corps = serde_json::json!({
         "model": MODELE_TRADUCTION,

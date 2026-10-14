@@ -1,5 +1,6 @@
 use actix_web::{web, HttpResponse, Responder};
 use serde::Deserialize;
+use sqlx::Row;
 
 use crate::state::AppState;
 
@@ -80,8 +81,29 @@ pub async fn ajouter_asset(
         }));
     }
 
+    // Réactivation (écart 24, 13/10) : recocher une case de la page Données
+    // n'envoie PAS les symboles — si l'asset existe soft-deleted, ses
+    // symboles actuels font foi ; la validation ci-dessous ne s'applique
+    // alors qu'à la CRÉATION (nouveau ticker).
+    let existant = sqlx::query(
+        "SELECT symbol_bybit, symbol_mt5 FROM assets WHERE id = ? AND actif = 0",
+    )
+    .bind(&id)
+    .fetch_optional(state.db.pool())
+    .await
+    .ok()
+    .flatten();
+    let symbole_existant_bybit = existant
+        .as_ref()
+        .and_then(|r| r.get::<Option<String>, _>("symbol_bybit"))
+        .filter(|s| !s.trim().is_empty());
+    let symbole_existant_mt5 = existant
+        .as_ref()
+        .and_then(|r| r.get::<Option<String>, _>("symbol_mt5"))
+        .filter(|s| !s.trim().is_empty());
+
     // Cohérence source ↔ symbole : un asset Bybit exige son symbole Bybit,
-    // un asset MT5 exige son symbole broker.
+    // un asset MT5 exige son symbole broker (sauf réactivation : cf. ci-dessus).
     let symbol_bybit = match body.source.as_str() {
         "binance" => {
             let symbole = body
@@ -89,7 +111,8 @@ pub async fn ajouter_asset(
                 .as_deref()
                 .map(str::trim)
                 .filter(|s| !s.is_empty())
-                .map(str::to_uppercase);
+                .map(str::to_uppercase)
+                .or(symbole_existant_bybit);
             if symbole.is_none() {
                 return HttpResponse::BadRequest().json(serde_json::json!({
                     "error": "Un asset Bybit exige son symbole (ex : TON → TONUSDT)."
@@ -98,12 +121,12 @@ pub async fn ajouter_asset(
             symbole
         }
         "mt5" => {
-            let symbole = body
+            let fourni = body
                 .symbol_mt5
                 .as_deref()
                 .map(str::trim)
                 .filter(|s| !s.is_empty());
-            if symbole.is_none() {
+            if fourni.is_none() && symbole_existant_mt5.is_none() {
                 return HttpResponse::BadRequest().json(serde_json::json!({
                     "error": "Un asset MT5 exige son symbole broker (ex : DAX → dax40.fs)."
                 }));
@@ -121,7 +144,12 @@ pub async fn ajouter_asset(
             &body.type_asset,
             &body.source,
             symbol_bybit.as_deref(),
-            body.symbol_mt5.as_deref().map(str::trim).filter(|s| !s.is_empty()),
+            body
+                .symbol_mt5
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .or(symbole_existant_mt5.as_deref()),
         )
         .await
     {

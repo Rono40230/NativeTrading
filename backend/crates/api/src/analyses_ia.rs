@@ -90,7 +90,10 @@ pub async fn post_analyse_ia(
         }));
     }
 
-    let prompt = format!("{}\n\n{}", consigne(), contexte(&state.db, &a).await);
+    let prompt = match definition_strategie(&id) {
+        Some(def) => format!("{}\n\n{}\n\n{}", def, consigne(), contexte(&state.db, &a).await),
+        None => format!("{}\n\n{}", consigne(), contexte(&state.db, &a).await),
+    };
     match llm::ollama::interroger(&prompt).await {
         Ok(texte) => {
             let analyse = parser(texte, a.nb_trades);
@@ -125,8 +128,86 @@ fn consigne() -> String {
 }
 
 /// Contexte chiffré compact servi à l'analyste (pas de trades bruts).
+
+/// Paramètres moteur SMC EN VIGUEUR, lus en direct de la config et des
+/// surcharges — injectés dans le contexte de CHAQUE analyse SMC (revue
+/// prompts 13/10 : la définition reste une doctrine pure, jamais chiffrée ;
+/// tout changement de réglage — y compris hot-reload — se reflète ici).
+pub(crate) async fn parametres_moteur_smc(db: &db::Database) -> String {
+    let (r_actif, r_k, r_f1, r_f2, r_f3, r_tp1, r_tp3) = tokio::join!(
+        db.lire_config("smc_tp3_trailing"),
+        db.lire_config("smc_tp3_trailing_r"),
+        db.lire_config("smc_frac_tp1"),
+        db.lire_config("smc_frac_tp2"),
+        db.lire_config("smc_frac_tp3"),
+        db.lire_config("smc_tp1_mult"),
+        db.lire_config("smc_tp3_mode"),
+    );
+    let v = |r: common::Result<Option<String>>| r.ok().flatten().unwrap_or_default();
+    let trailing_actif = v(r_actif) == "1";
+    let k = v(r_k);
+    let f1 = v(r_f1);
+    let f2 = v(r_f2);
+    let f3 = v(r_f3);
+    let tp1 = v(r_tp1);
+    let tp3_mode = v(r_tp3);
+    let nb_surcharges: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM smc_reglages_asset")
+        .fetch_one(db.pool())
+        .await
+        .unwrap_or(0);
+    format!(
+        "PARAMÈTRES MOTEUR ACTUELS (lus en direct) : trailing après TP2 {} (k = {}) · sorties : ventes partielles {}/{}/{} · TP1 ×{}R · TP3 {} · surcharges par asset actives : {}.",
+        if trailing_actif { "ACTIF" } else { "inactif" },
+        if k.is_empty() { "?" } else { &k },
+        pct(&f1), pct(&f2), pct(&f3),
+        if tp1.is_empty() { "?" } else { &tp1 },
+        if tp3_mode.is_empty() { "?" } else { &tp3_mode },
+        nb_surcharges
+    )
+}
+
+fn pct(fract: &str) -> String {
+    match fract.parse::<f64>() {
+        Ok(v) => format!("{} %", (v * 100.0).round() as i64),
+        Err(_) => fract.to_string(),
+    }
+}
+
+
+/// Définition (doctrine) d'une stratégie — injectée EN TÊTE de ses analyses
+/// (revue prompts 13/10, écart 29 : la promesse de la page Prompts devient
+/// réelle). KDJ : pas de définition dédiée.
+pub(crate) fn definition_strategie(id: &str) -> Option<String> {
+    let cle = match id {
+        "SMC" => "smc_definition",
+        "straddle" => "straddle_definition",
+        "rockets" => "rockets_definition",
+        _ => return None,
+    };
+    Some(llm::prompt_effectif(cle))
+}
+
+/// Paramètres moteur STRADDLE en vigueur, lus en direct (même discipline que
+/// [`parametres_moteur_smc`]) — injectés avec les analyse straddle.
+pub(crate) async fn parametres_moteur_straddle(db: &db::Database) -> String {
+    let surcharges: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM straddle_reglages_asset")
+        .fetch_one(db.pool())
+        .await
+        .unwrap_or(0);
+    let perimetre = db.lire_config("perimetre_straddle").await.ok().flatten().unwrap_or_default();
+    let nb_perim = serde_json::from_str::<Vec<String>>(&perimetre).map(|v| v.len()).unwrap_or(0);
+    let armees: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM creneaux_evenements WHERE arme = 1")
+        .fetch_one(db.pool())
+        .await
+        .unwrap_or(0);
+    format!(
+        "PARAMÈTRES MOTEUR ACTUELS (lis en direct) : placement à T−10 s (réglable par asset) · SL = 0,5×ATR H1 · trailing 1,0R après TP2 · time-stop 60 min · périmètre {nb_perim} assets · {armees} cases armées · {surcharges} surcharge(s) par asset."
+    )
+}
+
 async fn contexte(db: &db::Database, a: &AnalyseStrategie) -> String {
     let mut l = Vec::new();
+    l.push(parametres_moteur_smc(db).await);
     l.push(format!(
         "STRATÉGIE {} — état {} — source : {}",
         a.strategie,

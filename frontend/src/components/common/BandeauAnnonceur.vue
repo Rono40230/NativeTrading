@@ -7,6 +7,14 @@
        complet (calendrier 10 j, créneaux moyens, radar ATR). -->
   <div class="glass-card px-3 py-2 flex items-stretch justify-center gap-4 flex-wrap">
 
+    <!-- ── Badge Briefing du jour (owner 13/10 — KTA #11) ──────────────── -->
+    <PopoverInfo titre="Briefing du jour" texte="La synthèse IA du jour : événements armés + annonces High + positions ouvertes + presse marquante — « ce qui compte aujourd'hui »." class="flex-1 min-w-[240px]">
+      <button class="korry w-full cursor-pointer" @click.stop="ouverte = 'briefing'">
+        <span class="k-label">BRIEFING <span class="k-info">ⓘ</span></span>
+        <span class="k-fenetre">SYNTHÈSE DU JOUR</span>
+      </button>
+    </PopoverInfo>
+
     <!-- ── Badge Calendrier économique ─────────────────────────────────── -->
     <PopoverInfo titre="Calendrier économique" :texte="texteCalendrier" class="flex-1 min-w-[280px]">
       <button
@@ -46,6 +54,9 @@
 
     <!-- ── Modales : le composant complet de l'ancienne colonne latérale,
          monté uniquement à l'ouverture (pas de polling fantôme). ──────── -->
+    <ModaleCadre v-if="ouverte === 'briefing'" titre="📋 Briefing du jour" tres-large @fermer="ouverte = null">
+      <BriefingBloc />
+    </ModaleCadre>
     <ModaleCadre v-if="ouverte === 'calendrier'" titre="📅 Calendrier économique — 10 prochains jours" large @fermer="ouverte = null">
       <p v-if="!etatCalendrier.source_prete" class="text-[11px] rounded-lg px-2.5 py-1.5 mb-2 border"
          :class="synchroFrais ? 'text-white/70 bg-white/5 border-white/15' : 'text-amber-300 bg-amber-500/10 border-amber-500/30'">
@@ -92,9 +103,10 @@ import EconomicCalendar from './EconomicCalendar.vue'
 import EvenementsReactiviteBloc from './EvenementsReactiviteBloc.vue'
 import CreneauxVolatiliteBloc from './CreneauxVolatiliteBloc.vue'
 import RadarAtrBloc from './RadarAtrBloc.vue'
+import BriefingBloc from './BriefingBloc.vue'
 
 /// Modale ouverte (une seule à la fois).
-const ouverte = ref<'calendrier' | 'creneaux' | 'radar' | null>(null)
+const ouverte = ref<'briefing' | 'calendrier' | 'creneaux' | 'radar' | null>(null)
 
 // ── Badge Calendrier : les annonces à fort impact du jour ───────────────────
 const annoncesProches = ref<AnnonceCalendrier[]>([])

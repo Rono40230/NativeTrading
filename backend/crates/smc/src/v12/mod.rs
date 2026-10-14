@@ -200,7 +200,7 @@ impl SmcV12Engine {
             kill_zone: KillZoneDetector::new(),
             ndog: NdogDetector::new(tf_sec),
             mtf: MtfDetector::new(),
-            swing_ote: SwingOteDetector::new(swing_ote::seuil_pct_par_tf(tf_sec)),
+            swing_ote: SwingOteDetector::new(tf_sec),
             bpr_scoring: false,
             tf_sec,
         }

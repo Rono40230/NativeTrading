@@ -15,7 +15,7 @@
                class="flex items-center gap-2 text-[11px] rounded-lg px-2 py-1"
                :class="l.n < seuil ? 'bg-white/[0.02] text-white/50' : 'bg-white/5'">
             <span class="w-4 text-right text-white/40 font-mono shrink-0">{{ sens.key === 'top' ? i + 1 : '−' + (i + 1) }}</span>
-            <span class="font-mono font-bold truncate shrink-0" :class="l.n < seuil ? 'text-white/50' : 'text-white'">{{ l.label }}</span>
+            <span class="font-mono font-bold truncate min-w-0" :class="l.n < seuil ? 'text-white/50' : 'text-white'">{{ l.label }}</span>
             <span v-if="l.n < seuil" class="text-[9px] px-1 py-0.5 rounded-full border border-white/10 text-white/40 shrink-0"
                   :title="`${l.n} clôtures — règle des 30 non atteinte`">{{ l.n }}</span>
             <span class="ml-auto font-mono tabular-nums shrink-0" :class="l.rSomme >= 0 ? 'text-emerald-400' : 'text-red-400'">{{ fmtR(l.rSomme) }}</span>

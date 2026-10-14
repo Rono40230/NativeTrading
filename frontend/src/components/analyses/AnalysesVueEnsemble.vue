@@ -127,6 +127,48 @@
       <p v-else-if="syntheseErreur" class="text-xs text-red-300 mt-2">{{ syntheseErreur }}</p>
       <p v-else class="text-[11px] text-white/60 mt-2">L'analyste local (Ollama) lit les 4 stratégies et dit qui porte, qui coince, où concentrer l'attention — généré à la demande, conservé pour la journée.</p>
     </div>
+
+    <!-- 🧾 Autopsie de la semaine (owner 13/10 — KTA #10/#26) : les clôtures
+         des 7 derniers jours décrites factuellement, descriptif jamais
+         prédictif. Compteurs servis par l'app, synthèse par le LLM. -->
+    <div class="glass-card p-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <p class="text-xs font-semibold text-white">🧾 Autopsie de la semaine</p>
+        <span v-if="autopsie?.confiance" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold"
+              :class="autopsie.confiance >= 70 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-white/20 bg-white/5 text-white'">{{ autopsie.confiance }}/100</span>
+        <span v-if="autopsieCache" class="text-[9px] text-white/40">cache du jour</span>
+        <button class="ml-auto text-[10px] px-2.5 py-1 rounded-lg font-semibold transition-colors disabled:opacity-40"
+                :class="autopsieEnCours ? 'bg-white/10 text-white' : 'bg-violet-500/20 text-violet-300 hover:bg-violet-500/30'"
+                :disabled="autopsieEnCours" @click="genererAutopsie()">
+          {{ autopsieEnCours ? '⏳ Analyse… (~1 min)' : autopsie ? '↻ Régénérer' : '⚡ Générer' }}</button>
+      </div>
+      <div v-if="autopsie" class="mt-2 flex flex-col gap-2">
+        <div class="rounded-lg border border-white/15 bg-white/5 p-2.5">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-white/70 mb-1">🗓 La semaine en clôtures</p>
+          <p class="text-xs text-white leading-relaxed">{{ autopsie.etat }}</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2.5 items-start">
+          <div v-if="autopsie.gagnants.length" class="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-emerald-300 mb-1.5">✓ Côté gagnants</p>
+            <ul class="text-[11px] text-white space-y-1 list-disc list-inside leading-snug"><li v-for="(g, i) in autopsie.gagnants" :key="i">{{ g }}</li></ul>
+          </div>
+          <div v-if="autopsie.perdants.length" class="rounded-lg border border-red-500/25 bg-red-500/5 p-2.5">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-red-300 mb-1.5">✕ Côté perdants</p>
+            <ul class="text-[11px] text-white space-y-1 list-disc list-inside leading-snug"><li v-for="(x, i) in autopsie.perdants" :key="i">{{ x }}</li></ul>
+          </div>
+          <div v-if="autopsie.remarques.length" class="rounded-lg border border-amber-500/25 bg-amber-500/5 p-2.5">
+            <p class="text-[10px] font-bold uppercase tracking-wider text-amber-300 mb-1.5">→ Remarques</p>
+            <ul class="text-[11px] text-white space-y-1 list-disc list-inside leading-snug"><li v-for="(r, i) in autopsie.remarques" :key="i">{{ r }}</li></ul>
+          </div>
+        </div>
+        <details class="text-[10px] text-white/60">
+          <summary class="cursor-pointer select-none hover:text-white">Compteurs factuels de la semaine (calcul app)</summary>
+          <pre class="mt-1 p-2 rounded bg-black/30 text-[10px] whitespace-pre-wrap">{{ autopsie.compteurs }}</pre>
+        </details>
+        <p class="text-[9px] text-white">Descriptif — jamais prédictif (leçon conviction). Effectif hebdo faible : l'analyste peut dire « semaine non concluante ».</p>
+      </div>
+      <p v-else class="text-[11px] text-white/60 mt-2">Les clôtures des 7 derniers jours, toutes stratégies : ce qui a distingué gagnants et perdants — généré à la demande, conservé pour la journée.</p>
+    </div>
   </div>
 </template>
 
@@ -180,6 +222,31 @@ async function genererSynthese() {
     syntheseErreur.value = 'Analyste indisponible — vérifier que le serveur Ollama est démarré.'
   }
   syntheseEnCours.value = false
+}
+
+// ── 🧾 Autopsie de la semaine (owner 13/10) ─────────────────────────────────
+interface AutopsieIa {
+  etat: string
+  gagnants: string[]
+  perdants: string[]
+  remarques: string[]
+  confiance: number
+  compteurs: string
+}
+const autopsie = ref<AutopsieIa | null>(null)
+const autopsieEnCours = ref(false)
+const autopsieCache = ref(false)
+
+async function genererAutopsie() {
+  autopsieEnCours.value = true
+  try {
+    const res = await http.post<{ en_cache: boolean; autopsie: AutopsieIa }>('/api/analyses/autopsie', null, { timeout: 180_000 })
+    autopsie.value = res.data.autopsie
+    autopsieCache.value = res.data.en_cache
+  } catch {
+    autopsie.value = null
+  }
+  autopsieEnCours.value = false
 }
 
 /// Largeur (% de la demi-zone) de la barre de variation de capital.

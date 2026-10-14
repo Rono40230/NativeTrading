@@ -161,6 +161,12 @@
               <li v-for="(c, i) in ia.meilleurs_croisements" :key="'c' + i">{{ c }}</li>
             </ul>
           </div>
+          <div v-if="ia.a_desarmer?.length" class="text-sm text-white/85">
+            <span class="font-semibold text-red-300">✂️ Cases à envisager de désarmer :</span>
+            <ul class="list-disc list-inside ml-1 space-y-0.5">
+              <li v-for="(c, i) in ia.a_desarmer" :key="'d' + i">{{ c }}</li>
+            </ul>
+          </div>
           <p class="text-xs text-white/50">L'analyste lit les compteurs réels des cases (règle des 30 par case) — il propose, l'armement reste à votre clic.</p>
         </div>
         <p v-else-if="iaErreur" class="text-[10px] text-red-300">{{ iaErreur }}</p>
@@ -309,6 +315,7 @@ interface AnalyseCreneaux {
   etat: string
   meilleurs_evenements: string[]
   meilleurs_croisements: string[]
+  a_desarmer?: string[]   // revue prompts 13/10 — cases candidates au désarmement
   confiance: number
   generee_le: number
 }

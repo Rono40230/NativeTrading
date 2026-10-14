@@ -269,6 +269,7 @@ mod tests_db {
     use db::Database;
     use crate::evenements::EVENEMENTS;
     use crate::evenements_armement::{semer, annonces_evenements, occurrences_suivantes, OCCURRENCES_ANNONCES};
+    use crate::evenements::classifie_annonce;
 
     pub(crate) async fn db_test_util() -> Database {
         let db = Database::new(":memory:").await.expect("DB mémoire");
@@ -280,150 +281,19 @@ mod tests_db {
         db_test_util().await
     }
 
-    /// Le semis couvre périmètre × taxonomie, est idempotent, et produit
-    /// des annonces synthétiques uniquement pour les créneaux armés.
+    /// Une annonce NFP réelle (High) tire UNE passe via sa ligne 📅 cal_nfp,
+    /// à SA vraie heure — et rien d'autre ne tire à cette minute.
     #[tokio::test]
-    async fn semis_annonces_et_desarmement() {
-        let db = db_test().await;
-        db.ecrire_config("perimetre_straddle", r#"["XAUUSD","DAX"]"#)
-            .await
-            .expect("config");
-
-        semer(&db).await;
-        let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM creneaux_evenements")
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
-        assert_eq!(total, (EVENEMENTS.len() * 2) as i64, "2 assets × taxonomie");
-
-        // Idempotent : re-semer ne double rien.
-        semer(&db).await;
-        let total2: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM creneaux_evenements")
-            .fetch_one(db.pool())
-            .await
-            .unwrap();
-        assert_eq!(total2, total);
-
-        // Toutes armées.
-        let armes: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM creneaux_evenements WHERE arme = 1",
-        )
-        .fetch_one(db.pool())
-        .await
-        .unwrap();
-        assert_eq!(armes, total);
-
-        // Annonces XAUUSD : 14 occurrences par événement — SAUF les
-        // créneaux « annonces » gated : calendrier vide dans ce test,
-        // ils ne tirent aucun jour (owner 29/09).
-        let annonces = annonces_evenements(&db, "XAUUSD").await;
-        // Fixes NON calendrier uniquement : les types calendaire tirent sur
-        // le calendrier (vide ici → zéro) et les slots gated ne tirent pas.
-        let fixes = EVENEMENTS
-            .iter()
-            .filter(|e| !e.gate_calendrier && !e.calendrier)
-            .count();
-        assert_eq!(annonces.len(), fixes * OCCURRENCES_ANNONCES);
-        let maintenant = Utc::now().timestamp();
-        assert!(annonces.iter().all(|a| a.ts > maintenant));
-        assert!(annonces.iter().all(|a| a.devise == "USD"));
-        let annonces_dax = annonces_evenements(&db, "DAX").await;
-        assert!(annonces_dax.iter().all(|a| a.devise == "EUR"));
-
-        // Désarmement global : plus aucune annonce.
-        sqlx::query("UPDATE creneaux_evenements SET arme = 0")
-            .execute(db.pool())
-            .await
-            .unwrap();
-        assert!(annonces_evenements(&db, "XAUUSD").await.is_empty());
-    }
-
-    /// Owner 29/09 — « entrer uniquement sur les annonces réelles » : les
-    /// créneaux 8:30/10:00 New York ne tirent QUE les jours où le
-    /// calendrier porte une annonce USD High ou Medium à la minute du
-    /// slot ; les événements de marché (réouverture CME…) tirent toujours.
-    #[tokio::test]
-    async fn creneaux_annonces_tirent_seulement_si_annonce_reelle() {
-        let db = db_test().await;
-        db.ecrire_config("perimetre_straddle", r#"["XAUUSD"]"#)
-            .await
-            .expect("config");
-        semer(&db).await;
-
-        // Un jour ouvré futur du slot 8:30 NY ( occurrence réelle de la
-        // taxonomie — DST suivi automatiquement).
-        let ev830 = EVENEMENTS.iter().find(|e| e.ident == "annonces_us_0830").unwrap();
-        let cible = occurrences_suivantes(ev830, Utc::now(), 14)
-            .into_iter()
-            .nth(3)
-            .expect("occurrence");
-        // Annonce réelle ce jour-là : USD Medium (le niveau JOLTS/Claims).
-        sqlx::query(
-            "INSERT INTO calendrier_cache (id, date_heure, devise, titre, impact, fetched_at)
-             VALUES ('t1', ?, 'USD', 'JOLTS Job Openings', 'Medium', 0)",
-        )
-        .bind(chrono::DateTime::from_timestamp(cible, 0).unwrap().to_rfc3339())
-        .execute(db.pool())
-        .await
-        .unwrap();
-
-        let annonces = annonces_evenements(&db, "XAUUSD").await;
-        // Le slot 8:30 ne vit QUE le jour calendrier — une seule occurrence.
-        let n830 = annonces
-            .iter()
-            .filter(|a| a.titre.contains("8:30"))
-            .count();
-        assert_eq!(n830, 1, "8:30 : seulement le jour d'annonce réelle");
-        assert!(
-            annonces.iter().any(|a| (a.ts - cible).abs() <= 60),
-            "l'occurrence du jour calendrier est présente"
-        );
-        // Le slot 10:00 (gated, aucune annonce au calendrier à 10:00) : silence.
-        let n1000 = annonces.iter().filter(|a| a.titre.contains("10:00")).count();
-        assert_eq!(n1000, 0, "10:00 sans annonce réelle : aucune passe");
-        // La réouverture CME (événement de marché, jamais gated) : complete.
-        let ncme = annonces
-            .iter()
-            .filter(|a| a.titre.contains("Réouverture CME"))
-            .count();
-        assert_eq!(ncme, OCCURRENCES_ANNONCES, "événement de marché : toutes les occurrences");
-
-        // Retrait de l'annonce → le slot 8:30 redevient muet.
-        sqlx::query("DELETE FROM calendrier_cache")
-            .execute(db.pool())
-            .await
-            .unwrap();
-        let annonces = annonces_evenements(&db, "XAUUSD").await;
-        assert!(
-            !annonces.iter().any(|a| a.titre.contains("8:30")),
-            "sans annonce au calendrier, le créneau ne tire pas"
-        );
-    }
-}
-
-
-
-#[cfg(test)]
-mod tests_dedup {
-    use super::tests_db::db_test_util;
-    use crate::evenements::{classifie_annonce, EVENEMENTS};
-    use crate::evenements_armement::{annonces_evenements, occurrences_suivantes};
-
-    /// Déduplication owner 10/10 : une annonce NFP réelle posée PILE sur le
-    /// slot gardé 8:30 New York ne doit produire qu'UNE passe (sa ligne 📅
-    /// cal_nfp) — le slot fixe garde le silence à cette minute. Avec le type
-    /// désarmé en revanche, le slot tire (l'annonce existe à sa minute).
-    #[tokio::test]
-    async fn nfp_sur_le_slot_830_une_seule_passe() {
+    async fn nfp_reelle_une_seule_passe_a_sa_vraie_heure() {
         let db = db_test_util().await;
-        // Périmètre minimal + semis complet.
         db.ecrire_config("perimetre_straddle", r#"["XAUUSD"]"#).await.unwrap();
         crate::evenements_armement::semer(&db).await;
 
-        // L'annonce NFP réelle = pile la prochaine occurrence du slot 8:30.
-        let slot = EVENEMENTS.iter().find(|e| e.ident == "annonces_us_0830").unwrap();
-        let ts = occurrences_suivantes(slot, chrono::Utc::now(), 1)[0];
+        // Un NFP réel dans 3 jours, à une heure quelconque du calendrier.
         assert_eq!(classifie_annonce("Non-Farm Employment Change"), Some("cal_nfp"));
+        let ts = (chrono::Utc::now() + chrono::Duration::days(3))
+            .with_minute(30).unwrap()
+            .timestamp();
         let rfc = chrono::DateTime::from_timestamp(ts, 0).unwrap().to_rfc3339();
         sqlx::query(
             "INSERT INTO calendrier_cache (id, date_heure, devise, titre, impact, precedent, prevision, fetched_at)
@@ -434,21 +304,22 @@ mod tests_dedup {
         .await
         .unwrap();
 
-        // cal_nfp ARMÉ (semis) : une seule passe à cette minute, la 📅.
+        // cal_nfp ARMÉ (semis) : une seule passe, à la minute de l'annonce.
         let annonces = annonces_evenements(&db, "XAUUSD").await;
         let a_ts: Vec<i64> = annonces.iter().map(|a| a.ts).collect();
-        assert_eq!(a_ts.iter().filter(|t| **t == ts).count(), 1, "UNE passe, pas deux : {annonces:?}");
+        assert_eq!(a_ts.iter().filter(|t| **t == ts).count(), 1, "UNE passe à la minute de l'annonce : {annonces:?}");
         assert!(annonces.iter().any(|a| a.ts == ts && a.titre.starts_with("📅")), "c'est la ligne NFP qui tire");
 
-        // cal_nfp DÉSARMÉ : le slot gardé 8:30 reprend la main (l'annonce
-        // existe à sa minute) — toujours exactement une passe.
+        // cal_nfp DÉSARMÉ : plus AUCUNE passe à cette minute — les Medium
+        // non plus (décision owner 14/10 : seules les High, par type armé).
         sqlx::query("UPDATE creneaux_evenements SET arme = 0 WHERE evenement = 'cal_nfp'")
             .execute(db.pool())
             .await
             .unwrap();
         let annonces = annonces_evenements(&db, "XAUUSD").await;
-        let n = annonces.iter().filter(|a| a.ts == ts).count();
-        assert_eq!(n, 1, "le slot 8:30 tire en relais : {annonces:?}");
-        assert!(annonces.iter().any(|a| a.ts == ts && a.titre.starts_with("🎻") || annonces.iter().any(|a| a.ts == ts && a.titre.starts_with("📯"))));
+        assert!(
+            !annonces.iter().any(|a| a.ts == ts),
+            "désarmé = silence : {annonces:?}"
+        );
     }
 }

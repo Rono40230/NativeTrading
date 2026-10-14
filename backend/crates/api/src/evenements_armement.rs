@@ -143,25 +143,6 @@ pub(crate) async fn annonces_high_futures(
         .collect()
 }
 
-/// Minutes (epoch/60) des annonces réelles USD High/Medium — le garde du
-/// propriétaire : les créneaux « annonces US » ne tirent que si une vraie
-/// annonce existe à la minute du slot.
-async fn minutes_annonces_reelles(db: &Database) -> std::collections::HashSet<i64> {
-    let rows = sqlx::query(
-        "SELECT date_heure FROM calendrier_cache
-         WHERE devise = 'USD' AND impact IN ('High', 'Medium')",
-    )
-    .fetch_all(db.pool())
-    .await
-    .unwrap_or_default();
-    rows.iter()
-        .filter_map(|r| {
-            let dh: String = r.try_get("date_heure").ok()?;
-            Some(parse_ts_calendrier(&dh)?.div_euclid(60))
-        })
-        .collect()
-}
-
 /// Annonces synthétiques des créneaux ÉVÉNEMENT armés d'un asset — même
 /// rail que les tier 1 et les anciens créneaux IA : le moteur straddle M1
 /// trie par ts, pose les 2 jambes à T-10 s de la première occurrence.
@@ -214,23 +195,12 @@ pub async fn annonces_evenements(db: &Database, asset: &str) -> Vec<straddle::An
             });
         }
     }
-    // (a) Ensuite les créneaux à heure fixe (toujours, ou gated par annonce
-    // réelle). Déduplication owner 10/10 : un slot gardé dont la minute
-    // coïncide avec une annonce déjà servie par sa ligne 📅 ne tire pas ;
-    // sans annonce réelle à la minute du slot : silence (owner 29/09).
-    let gates = armes.iter().any(|e| e.gate_calendrier);
-    let minutes_reelles = if gates {
-        minutes_annonces_reelles(db).await
-    } else {
-        std::collections::HashSet::new()
-    };
+    // (a) Ensuite les créneaux à heure fixe — TOUJOURS (plus de gate :
+    // les créneaux génériques 8:30/10:00, seuls à être gardés par le
+    // calendrier High/Medium, ont été retirés le 14/10 ; les annonces
+    // ne vivent plus que par leurs types 📅 ci-dessus, High uniquement).
     for ev in armes.iter().filter(|e| !e.calendrier) {
         for ts in occurrences_suivantes(ev, maintenant, OCCURRENCES_ANNONCES) {
-            if ev.gate_calendrier
-                && (minutes_classees.contains(&(ts / 60)) || !minutes_reelles.contains(&(ts / 60)))
-            {
-                continue;
-            }
             out.push(straddle::Annonce {
                 ts,
                 devise: devise.to_string(),
@@ -423,21 +393,22 @@ mod tests_dst {
         EVENEMENTS.iter().find(|e| e.ident == ident).expect("événement inconnu")
     }
 
-    /// Une passe à 13:30 Paris pendant l'entre-bascule d'octobre appartient
-    /// bien à l'événement 8:30 New York — le ts de la clé moteur est relu
+    /// Une passe à 14:30 Paris pendant l'entre-bascule d'octobre appartient
+    /// bien à l'ouverture NYSE (9:30 NY) — le ts de la clé moteur est relu
     /// dans le fuseau d'ORIGINE, pas en heure Paris figée.
     #[test]
-    fn passe_entre_bascules_appartient_aux_annonces_830() {
-        let ev = ev("annonces_us_0830");
-        // Lundi 26 octobre 2026, 13:30 Paris (l'Europe a reculé, les US pas).
+    fn passe_entre_bascules_appartient_a_nyse_ouverture() {
+        let ev = ev("nyse_ouverture");
+        // Lundi 26 octobre 2026, 14:30 Paris (l'Europe a reculé, les US pas).
         let ts = chrono_tz::Europe::Paris
-            .with_ymd_and_hms(2026, 10, 26, 13, 30, 0)
+            .with_ymd_and_hms(2026, 10, 26, 14, 30, 0)
             .unwrap()
             .timestamp();
-        assert!(passe_appartient(ts, ev), "13:30 Paris ce jour-là = 8:30 NY");
-        // 14:30 Paris le même jour : PAS l'heure de l'événement cette semaine.
+        assert!(passe_appartient(ts, ev), "14:30 Paris ce jour-là = 9:30 NY");
+        // 15:30 Paris le même jour : PAS l'heure de l'événement cette
+        // semaine (c'est 14:30, l'écart US↔Europe est alors de 5 h).
         let ts_faux = chrono_tz::Europe::Paris
-            .with_ymd_and_hms(2026, 10, 26, 14, 30, 0)
+            .with_ymd_and_hms(2026, 10, 26, 15, 30, 0)
             .unwrap()
             .timestamp();
         assert!(!passe_appartient(ts_faux, ev));

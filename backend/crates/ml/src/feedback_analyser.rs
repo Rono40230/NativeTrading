@@ -1,6 +1,7 @@
 //! Structures d'analyse des performances ML par stratégie.
-//! Ce module ne fait aucun accès DB — il reçoit les données de la couche API
-//! (le générateur de suggestions `params_suggester` a été purgé le 09/09).
+//! Ce module ne fait aucun accès DB — il reçoit les données de la couche API.
+//! (Écart 25, 13/10 : les tranches par score/kill-zone/confiance/phase et les
+//! helpers associés ont été purgés — ils lisaient les tables feedback mortes.)
 use serde::{Deserialize, Serialize};
 
 // ── Structures de données ─────────────────────────────────────────────────────
@@ -13,77 +14,28 @@ pub struct StatsGlobales {
     pub pnl_r_moyen: f64,
 }
 
-/// Stat pour une tranche (score, session, confiance ML…)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TrancheStat {
-    pub tranche: String,
-    pub nb_trades: i64,
-    pub win_rate: f64,
-}
-
-/// Analyse complète de la stratégie SMC
+/// Analyse globale de la stratégie SMC
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SmcAnalyse {
     pub global: StatsGlobales,
-    pub par_score: Vec<TrancheStat>, // tranches "50-65", "65-75", "75-85", "85+"
-    pub par_kill_zone: Vec<TrancheStat>, // "Kill Zone" | "Hors Kill Zone"
-    pub ml_correlation: Vec<TrancheStat>, // tranches confiance ML
 }
 
-/// Analyse Rockets avec détail par phase et conviction LLM
+/// Analyse globale rockets
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RocketsAnalyse {
     pub global: StatsGlobales,
-    pub par_phase: Vec<TrancheStat>,       // win rate par phase (momentum, breakout…)
-    pub conviction_llm: Vec<TrancheStat>,  // tranches conviction LLM vs résultat
 }
 
-/// Analyse Straddle avec détail par catégorie et score LLM
+/// Analyse globale straddle
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StraddleAnalyse {
     pub global: StatsGlobales,
-    pub par_categorie: Vec<TrancheStat>,   // win rate par catégorie (Annonce, Volatilité…)
-    pub score_llm: Vec<TrancheStat>,       // tranches score LLM vs résultat
 }
 
-/// Vue consolidée de toutes les stratégies — input des handlers stats ML
+/// Vue consolidée de toutes les stratégies — réponse de /api/ml/feedback/stats.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct AnalyseGlobale {
     pub smc: Option<SmcAnalyse>,
     pub rockets: Option<RocketsAnalyse>,
     pub straddle: Option<StraddleAnalyse>,
-}
-
-// ── Accès rapides ─────────────────────────────────────────────────────────────
-
-impl AnalyseGlobale {
-    /// Win rate SMC quand la Kill Zone est active
-    pub fn smc_win_rate_kill_zone(&self) -> Option<f64> {
-        self.smc
-            .as_ref()?
-            .par_kill_zone
-            .iter()
-            .find(|t| t.tranche == "Kill Zone")
-            .map(|t| t.win_rate)
-    }
-
-    /// Win rate SMC quand la Kill Zone est inactive
-    pub fn smc_win_rate_hors_kill_zone(&self) -> Option<f64> {
-        self.smc
-            .as_ref()?
-            .par_kill_zone
-            .iter()
-            .find(|t| t.tranche == "Hors Kill Zone")
-            .map(|t| t.win_rate)
-    }
-
-    /// (nb_trades, win_rate) pour une tranche de score SMC donnée  
-    pub fn smc_tranche(&self, tranche: &str) -> Option<(i64, f64)> {
-        self.smc
-            .as_ref()?
-            .par_score
-            .iter()
-            .find(|t| t.tranche == tranche)
-            .map(|t| (t.nb_trades, t.win_rate))
-    }
 }

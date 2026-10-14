@@ -6,6 +6,7 @@
   <div class="flex flex-col gap-3 h-full min-h-0 overflow-y-auto custom-scrollbar pr-1">
     <div class="flex items-center justify-between flex-wrap gap-2 shrink-0 px-1">
       <h1 class="text-xl font-bold text-white">🤖 ML — état & métriques</h1>
+      <span class="text-[10px] text-white/50">ML actif : SMC · straddle — rockets en observation (règle des 30)</span>
       <span v-if="store.retrainState?.en_cours" class="text-xs text-blue-300">⏳ Entraînement en cours…</span>
       <span v-else class="text-[10px] text-white">Entraînement automatique hebdomadaire</span>
     </div>
@@ -21,7 +22,7 @@
     <!-- SECTION 2 : performances de trading croisées avec les scores ML/LLM -->
     <section class="glass-card p-3 flex flex-col gap-2 rounded-xl border bg-white/5 border-emerald-500/30 shrink-0">
       <h2 class="font-bold flex items-center gap-2 text-base text-emerald-400 shrink-0">
-        <span>📈</span> 2. Performances en direct
+        <span>📈</span> 2. Performances en direct <span class="text-[10px] font-normal text-white/50">(vécu réel, clôtures composées)</span>
       </h2>
       <div v-if="!store.analyse" class="bg-black/20 rounded-lg border border-white/10 p-4 text-center text-white text-xs">
         Aucune donnée disponible.
@@ -38,12 +39,7 @@
               <span class="text-sm font-bold" :class="(store.analyse.smc?.global.win_rate ?? 0) >= 55 ? 'text-emerald-400' : 'text-red-400'">{{ store.analyse.smc?.global.win_rate?.toFixed(0) || 0 }}%</span>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-1 text-[9px] bg-white/5 p-1 rounded">
-            <div v-for="t in store.analyse.smc?.ml_correlation?.slice(0, 4)" :key="t.tranche" class="flex justify-between">
-              <span class="text-white">{{ t.tranche }}</span>
-              <span :class="t.win_rate >= 55 ? 'text-emerald-400' : 'text-white'">{{ t.win_rate.toFixed(0) }}%</span>
-            </div>
-          </div>
+          <p class="text-[9px] text-white/50">vécu : {{ store.analyse.smc?.global.nb_trades || 0 }} trades clôturés</p>
         </div>
 
         <!-- Rockets -->
@@ -57,12 +53,7 @@
               <span class="text-sm font-bold" :class="(store.analyse.rockets?.global.win_rate ?? 0) >= 55 ? 'text-emerald-400' : 'text-red-400'">{{ store.analyse.rockets?.global.win_rate?.toFixed(0) || 0 }}%</span>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-1 text-[9px] bg-white/5 p-1 rounded">
-            <div v-for="t in store.analyse.rockets?.conviction_llm?.slice(0, 4)" :key="t.tranche" class="flex justify-between">
-              <span class="text-white">{{ t.tranche }}</span>
-              <span :class="t.win_rate >= 55 ? 'text-emerald-400' : 'text-white'">{{ t.win_rate.toFixed(0) }}%</span>
-            </div>
-          </div>
+          <p class="text-[9px] text-white/50">vécu : {{ store.analyse.rockets?.global.nb_trades || 0 }} trades clôturés</p>
         </div>
 
         <!-- Straddle -->
@@ -76,12 +67,7 @@
               <span class="text-sm font-bold" :class="(store.analyse.straddle?.global.win_rate ?? 0) >= 55 ? 'text-emerald-400' : 'text-red-400'">{{ store.analyse.straddle?.global.win_rate?.toFixed(0) || 0 }}%</span>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-1 text-[9px] bg-white/5 p-1 rounded">
-            <div v-for="t in store.analyse.straddle?.score_llm?.slice(0, 4)" :key="t.tranche" class="flex justify-between">
-              <span class="text-white">{{ t.tranche }}</span>
-              <span :class="t.win_rate >= 55 ? 'text-emerald-400' : 'text-white'">{{ t.win_rate.toFixed(0) }}%</span>
-            </div>
-          </div>
+          <p class="text-[9px] text-white/50">vécu : {{ store.analyse.straddle?.global.nb_trades || 0 }} trades clôturés</p>
         </div>
       </div>
     </section>

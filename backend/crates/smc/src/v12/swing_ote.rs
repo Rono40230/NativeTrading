@@ -1,54 +1,51 @@
-//! OTE swing institutionnelle — bande 61,8–78,6 % de la jambe structurelle
-//! **chaîne HH/LL de la wave ↔ extrême courant** (spec § 2.2 rév. 08/10).
+//! OTE swing institutionnelle — bande 61,8–78,6 % de la jambe structurelle.
 //!
-//! Rétro-ingénierie « SMC Institutional Scalper v1.3 » (KASPER Trading),
-//! validée sur données réelles XAU (M15/M30/H2 du 06-08/10, flux pivot complet
-//! depuis le 15/09) contre 4 captures :
+//! Rétro-ingénierie de l'indicateur cible TradingView (Pine protégé),
+//! consolidée le 12/10/2026 par trois séries de preuves : captures live
+//! (7 TF + relevés), Bar Replay (séquences A/B/C/D de l'owner) et simulation
+//! contre les bougies réelles. Mécanisme :
 //!
-//! 1. **Wave** = zigzag à seuil de retracement, déclencheur MÈCHE. Balayage
-//!    empirique : seuil 0,85–1,00 % reproduit simultanément sur les trois TF
-//!    la jambe cible 4184,52 (06/10 19:00 UTC) → 4066,46 (07/10 12:45 UTC) ;
-//!    le déclencheur clôture échoue sur tous les seuils. Défaut 0,9 %
-//!    (`WAVE_SEUIL_PCT`) — la valeur « 0.45 » du panneau ne reproduit PAS les
-//!    ancres observées ; paramètre ajustable sans migration.
-//! 2. **Ancres** : chaîne du dernier HH (pivot H confirmé > pivot H précédent)
-//!    et du dernier LL (miroir). Les pivots internes LH/HL ne ré-ancrent pas
-//!    (preuve : rebond XAU 4143,25, retracement 65 % DANS la bande, OTE cible
-//!    inchangée) ; la FUSION (pivot précoce dépassé) ne chaîne que si elle bat
-//!    l'ancre de chaîne (sinon un LH mineur dégraderait la référence).
-//! 3. **Extrême courant = RUNNING** : la cible affichait déjà fib(4184,52 ;
-//!    4066,46) le 07/10 soir alors que le creux n'était pivot confirmé que le
-//!    08/10 02:30 — l'extrême vivant s'utilise avant confirmation.
-//! 4. Les rebonds internes ne suppriment PAS l'affichage (« Invalidate OTE
-//!    after first touch » = règle de TRADING FIRE) ; les « swings » Left/
-//!    Right bars = 2 (captures 11/12) sont une couche d'affichage séparée.
+//! 1. **Pivots fractals N-barres** : high[i] ≥ max des N barres à GAUCHE
+//!    (égalités tolérées) et > strictement les N barres à DROITE (preuve :
+//!    le low M1 affiché à 12h39 et pas 12h38, tie 4154,58). Confirmation à
+//!    l'ARRIVÉE de la barre i+N (style `ta.pivothigh` live : la barre
+//!    N-ième formante compte avec ses valeurs partielles).
+//!    **N=4 en M1/M5/M15** (à N=3, deux pivots fantômes contredits par la
+//!    cible : M15 12h00 4173,15 et M5 13h55 4169,36) ; **N=5 au-dessus**
+//!    (séquence D replay : le pivot M30 du 9/10 12h30 n'est visible qu'avec
+//!    un retard ≥ 5 barres ; M30 5-vs-6 à trancher en côte à côte).
+//! 2. **Deux chaînes indépendantes** (comme sh1/sl1 de notre Pine étalon) :
+//!    chaque pivot confirmé remplace l'ancre de son côté — remplacement
+//!    INCONDITIONNEL par fraîcheur, même moins extrême (preuve replay : le
+//!    high M15 descend 4217 → 4193 → 4180 ; le high M1 staircase
+//!    4178,18 → 4173,86 → 4173,21 → 4171,34, chaque cran à +N barres).
+//! 3. **Affichage = chaîne ⊕ extrêmes vivants** : le côté mobile du marché
+//!    affiche son extrême intrabar sans attendre de pivot (preuves : le low
+//!    M1 replay ticking à la minute ; le low M15 4154,58 affiché dès 13h19
+//!    alors que son pivot n'était confirmé qu'à 13h30). Concrètement :
+//!    `haut = max(ancre H, plus haut depuis l'ancre L)` et
+//!    `bas  = min(ancre L, plus bas depuis l'ancre H)`.
+//! 4. **Zone** = fib 61,8–78,6 % de la jambe + trait 50 % (validée au
+//!    dixième contre 2 captures : M15 4180,22→4154,58 ⇒ [4170,42 ; 4174,73],
+//!    mid 4167,40). Le 0 du fib de la cible = l'ancre la plus récente
+//!    (orientation affichage TV).
 //!
-//! Cas de référence vérifié (XAU M15, DB réelle) : jambe 4184,52 → 4066,46 ⇒
-//! OTE [4139,42 ; 4159,26], trait 50 % à 4125,49.
+//! Cas de référence réel (test ci-dessous) : XAU M15 12/10, bars 06h00→13h30
+//! de la DB ⇒ ancres 4180,22@10h30 / 4154,58@12h30 = capture TV exacte.
 //!
 //! Isolation totale : aucun module moteur lu, aucun consommateur
-//! scoring/signals (Phase B = affichage uniquement).
+//! scoring/signals (affichage uniquement).
+
+use std::collections::VecDeque;
 
 use super::types::{BarInput, SwingAnchor, SwingOteEvent, SwingOteZone};
 
-/// Seuil de retracement de la wave par timeframe, en % — fit empirique 08/10
-/// contre les captures TV « Zone OTE par TF » (XAU) :
-///   - M15/M30/H1/H4 : 0,85–1,00 % reproduisent la jambe 4184,52 → 4066,46
-///     (validée exactement par le propriétaire) — défaut 0,9 ;
-///   - M1/M5 : 0,30–0,40 % reproduisent la jambe intraday 4143,25 → 4109,91
-///     (08/10 matin) — défaut 0,35 ;
-///   - D1/W1 : PROVISOIRE — la table D1 de la DB est corrompue (~90 % de
-///     bougies divergentes de l'agrégat M30, audit 08/10) : à recalibrer
-///     après réparation des données.
-/// NB : un seuil unique (ATR ou %) ne peut PAS reproduire les 7 TF à la fois
-/// (balayages 08/10) — la Jambe/ATR varie de 1,7 (D1) à 18 (M1).
-pub fn seuil_pct_par_tf(tf_sec: i64) -> f64 {
+/// Largeur fractale par timeframe — nombre de barres de chaque côté.
+/// Fit du 12/10 contre captures + Bar Replay (voir module doc).
+pub fn n_par_tf(tf_sec: i64) -> usize {
     match tf_sec {
-        60 | 300 => 0.35,      // M1, M5
-        900 | 1800 | 3600 | 14400 => 0.9, // M15, M30, H1, H4
-        86_400 => 1.5,         // D1 (provisoire)
-        604_800 => 2.0,        // W1 (provisoire)
-        _ => 0.9,
+        60 | 300 | 900 => 4, // M1, M5, M15
+        _ => 5,              // M30, H1, H4, D1, W1
     }
 }
 
@@ -58,68 +55,42 @@ const FIB_618: f64 = 0.618;
 /// Borne « extrême » 78,6 % (proche de l'origine du mouvement).
 const FIB_786: f64 = 0.786;
 
-/// Fenêtre des barres récentes pour réinitialiser les extrêmes running à la
-/// date d'un ancrage (le retard de confirmation wave est de quelques barres).
-const TAILLE_BUF: usize = 64;
-
-/// Un pivot de la wave (confirmé, ou déplacé par fusion).
-#[derive(Clone, Copy)]
-struct Pivot {
-    prix: f64,
-    ts: i64,
-}
-
-/// Détecteur OTE : machine wave (zigzag à seuil + fusion) → chaînes HH/LL →
-/// jambe = ancre de chaîne (origine) ↔ extrême running (côté courant).
+/// Détecteur OTE : fractales N-barres → deux chaînes H/L indépendantes →
+/// affichage chaîne ⊕ extrêmes vivants → zone fib.
 #[derive(Clone)]
 pub struct SwingOteDetector {
-    seuil_bas: f64,
-    seuil_haut: f64,
-    /// Dernier pivot de la wave + direction de la jambe (`true` = le candidat
-    /// est un plus haut).
-    pivot_haut: Option<bool>,
-    pivot: Pivot,
-    jambe_haussiere: bool,
-    cand: Pivot,
-    /// Chaînes : dernier HH / LL et prix du dernier pivot confirmé de chaque
-    /// sens (référence de chaînage).
-    h_prec: Option<f64>,
-    l_prec: Option<f64>,
-    hh: Option<SwingAnchor>,
-    ll: Option<SwingAnchor>,
-    /// Extrêmes running depuis les ancrages de chaîne.
-    min: Option<Pivot>,
-    max: Option<Pivot>,
-    /// Barres récentes (ts, high, low) pour les réinitialisations.
-    buf: Vec<(i64, f64, f64)>,
+    n: usize,
+    /// Fenêtre glissante 2N+1 barres (ts, high, low) — candidate = barre
+    /// N crans en arrière ; la dernière barre peut être formante (live).
+    fenetre: VecDeque<(i64, f64, f64)>,
+    /// Chaînes : dernier pivot confirmé de chaque côté.
+    chain_h: Option<SwingAnchor>,
+    chain_l: Option<SwingAnchor>,
+    /// Plus bas depuis l'ancre H / plus haut depuis l'ancre L (vivants).
+    min_depuis_h: Option<(i64, f64)>,
+    max_depuis_l: Option<(i64, f64)>,
     zone: Option<SwingOteZone>,
     last_event: SwingOteEvent,
 }
 
 impl Default for SwingOteDetector {
     fn default() -> Self {
-        Self::new(0.9)
+        Self::new(900)
     }
 }
 
 impl SwingOteDetector {
-    /// `seuil_pct` : retrangement (en %) qui confirme un pivot de la wave —
-    /// utiliser [`seuil_pct_par_tf`] pour la valeur calibrée du timeframe.
-    pub fn new(seuil_pct: f64) -> Self {
+    /// `tf_sec` : timeframe en secondes — utiliser [`n_par_tf`] est inutile,
+    /// le constructeur dérive N lui-même.
+    pub fn new(tf_sec: i64) -> Self {
+        let n = n_par_tf(tf_sec);
         Self {
-            seuil_bas: 1.0 - seuil_pct / 100.0,
-            seuil_haut: 1.0 + seuil_pct / 100.0,
-            pivot_haut: None,
-            pivot: Pivot { prix: 0.0, ts: 0 },
-            jambe_haussiere: true,
-            cand: Pivot { prix: 0.0, ts: 0 },
-            h_prec: None,
-            l_prec: None,
-            hh: None,
-            ll: None,
-            min: None,
-            max: None,
-            buf: Vec::with_capacity(TAILLE_BUF),
+            n,
+            fenetre: VecDeque::with_capacity(2 * n + 1),
+            chain_h: None,
+            chain_l: None,
+            min_depuis_h: None,
+            max_depuis_l: None,
             zone: None,
             last_event: SwingOteEvent::default(),
         }
@@ -128,164 +99,121 @@ impl SwingOteDetector {
     pub fn update(&mut self, bar: &BarInput) -> SwingOteEvent {
         self.last_event = SwingOteEvent::default();
 
-        match self.pivot_haut {
-            None => {
-                // Init : pivot L = premier bas, jambe haussière, candidat = 1er haut.
-                self.pivot_haut = Some(false);
-                self.pivot = Pivot { prix: bar.low, ts: bar.timestamp };
-                self.l_prec = Some(bar.low);
-                self.jambe_haussiere = true;
-                self.cand = Pivot { prix: bar.high, ts: bar.timestamp };
+        // Barre formante en live : même ts ⇒ remplacement (la fenêtre ne
+        // doit garder qu'une version par barre).
+        if self.fenetre.back().map(|(ts, _, _)| *ts) == Some(bar.timestamp) {
+            if let Some(derniere) = self.fenetre.back_mut() {
+                derniere.1 = bar.high;
+                derniere.2 = bar.low;
             }
-            Some(_) => self.evoluer(bar),
+        } else {
+            self.fenetre.push_back((bar.timestamp, bar.high, bar.low));
+            if self.fenetre.len() > 2 * self.n + 1 {
+                self.fenetre.pop_front();
+            }
         }
 
-        self.buf.push((bar.timestamp, bar.high, bar.low));
-        if self.buf.len() > TAILLE_BUF {
-            self.buf.remove(0);
-        }
-        self.maj_extremes_running();
+        self.confirmer_fractales();
+        self.maj_extremes_vivants();
         self.calculer_zone();
         self.last_event.zone = self.zone;
         self.last_event.clone()
     }
 
-    /// Transition wave d'une bar (hors init). La fusion déplace le pivot sans
-    /// chaîner (sauf si elle bat l'ancre de chaîne) ; la confirmation chaîne
-    /// contre le pivot précédent du même sens.
-    fn evoluer(&mut self, bar: &BarInput) {
-        if self.jambe_haussiere {
-            if bar.low < self.pivot.prix {
-                // Fusion : le creux initial était précoce, il descend.
-                self.pivot = Pivot { prix: bar.low, ts: bar.timestamp };
-                self.l_prec = Some(bar.low);
-                if self.ll.map_or(true, |l| bar.low < l.prix) {
-                    self.ll = Some(SwingAnchor { prix: bar.low, ts: bar.timestamp });
-                    self.reset_min();
-                }
+    /// Vérifie la candidate de chaque côté (barre N crans en arrière) :
+    /// gauche ≥/≤ toléré (égalités), droite >/< stricte. La confirmation a
+    /// lieu à l'ARRIVÉE de la (i+N)-ième barre — formante en live, ses
+    /// valeurs partielles comptent (style `ta.pivothigh` TV). La candidate
+    /// remplace sa chaîne si plus récente (toujours vrai en flux ordonné ;
+    /// la garde protège les re-formances de la barre courante).
+    fn confirmer_fractales(&mut self) {
+        let n = self.n;
+        if self.fenetre.len() < 2 * n + 1 {
+            return;
+        }
+        let (c_ts, c_h, c_l) = self.fenetre[n];
+
+        let fractal_h = (0..n).all(|i| c_h >= self.fenetre[i].1)
+            && (n + 1..=2 * n).all(|i| c_h > self.fenetre[i].1);
+        let fractal_b = (0..n).all(|i| c_l <= self.fenetre[i].2)
+            && (n + 1..=2 * n).all(|i| c_l < self.fenetre[i].2);
+
+        if fractal_h && self.chain_h.map_or(true, |a| c_ts > a.ts) {
+            self.chain_h = Some(SwingAnchor { prix: c_h, ts: c_ts });
+            self.min_depuis_h = self.extreme_depuis(c_ts, true);
+        }
+        if fractal_b && self.chain_l.map_or(true, |a| c_ts > a.ts) {
+            self.chain_l = Some(SwingAnchor { prix: c_l, ts: c_ts });
+            self.max_depuis_l = self.extreme_depuis(c_ts, false);
+        }
+    }
+
+    /// Extrême reconstitué depuis la fenêtre pour les barres entre une ancre
+    /// fraîchement chaînée (N crans en arrière) et maintenant — plus bas des
+    /// lows (`bas = true`) ou plus haut des highs.
+    fn extreme_depuis(&self, ts: i64, bas: bool) -> Option<(i64, f64)> {
+        let mut best: Option<(i64, f64)> = None;
+        for &(t, h, l) in &self.fenetre {
+            if t < ts {
+                continue;
             }
-            if bar.high > self.cand.prix {
-                self.cand = Pivot { prix: bar.high, ts: bar.timestamp };
+            let v = if bas { l } else { h };
+            let garde = match best {
+                Some((_, bv)) => (bas && v < bv) || (!bas && v > bv),
+                None => true,
+            };
+            if garde {
+                best = Some((t, v));
             }
-            if bar.low <= self.cand.prix * self.seuil_bas {
-                let p = self.cand;
-                self.pivot_haut = Some(true);
-                self.pivot = p;
-                self.jambe_haussiere = false;
-                self.cand = Pivot { prix: bar.low, ts: bar.timestamp };
-                // Chaîne HH : contre le pivot H confirmé PRÉCÉDENT (pas contre
-                // le HH courant — sinon un ancien maximum immobiliserait la
-                // référence pour toujours).
-                let chainable = self.h_prec.map_or(true, |h| p.prix > h);
-                self.h_prec = Some(p.prix);
-                if chainable {
-                    self.hh = Some(SwingAnchor { prix: p.prix, ts: p.ts });
-                    self.reset_min();
-                }
+        }
+        best
+    }
+
+    /// Extrêmes vivants : plus bas depuis l'ancre H, plus haut depuis l'ancre
+    /// L — étendus à chaque barre. Idempotents : une barre formante ne peut
+    /// qu'abaisser un min / élever un max, jamais l'inverse.
+    fn maj_extremes_vivants(&mut self) {
+        let Some(&(ts, high, low)) = self.fenetre.back() else { return };
+        if let Some(h) = self.chain_h {
+            if ts >= h.ts && self.min_depuis_h.map_or(true, |(_, p)| low < p) {
+                self.min_depuis_h = Some((ts, low));
             }
-        } else {
-            if bar.high > self.pivot.prix {
-                // Fusion miroir : le sommet initial était précoce, il monte.
-                self.pivot = Pivot { prix: bar.high, ts: bar.timestamp };
-                self.h_prec = Some(bar.high);
-                if self.hh.map_or(true, |h| bar.high > h.prix) {
-                    self.hh = Some(SwingAnchor { prix: bar.high, ts: bar.timestamp });
-                    self.reset_min();
-                }
-            }
-            if bar.low < self.cand.prix {
-                self.cand = Pivot { prix: bar.low, ts: bar.timestamp };
-            }
-            if bar.high >= self.cand.prix * self.seuil_haut {
-                let p = self.cand;
-                self.pivot_haut = Some(false);
-                self.pivot = p;
-                self.jambe_haussiere = true;
-                self.cand = Pivot { prix: bar.high, ts: bar.timestamp };
-                // Chaîne LL : contre le pivot L confirmé PRÉCÉDENT.
-                let chainable = self.l_prec.map_or(true, |l| p.prix < l);
-                self.l_prec = Some(p.prix);
-                if chainable {
-                    self.ll = Some(SwingAnchor { prix: p.prix, ts: p.ts });
-                    self.reset_max();
-                }
+        }
+        if let Some(l) = self.chain_l {
+            if ts >= l.ts && self.max_depuis_l.map_or(true, |(_, p)| high > p) {
+                self.max_depuis_l = Some((ts, high));
             }
         }
     }
 
-    /// Extrêmes running : plus bas depuis le HH (ancre jambe baissière),
-    /// plus haut depuis le LL (jambe haussière) — mis à jour chaque bar.
-    fn maj_extremes_running(&mut self) {
-        if let Some(hh) = self.hh {
-            let mut min = self.min.unwrap_or(Pivot { prix: f64::MAX, ts: hh.ts });
-            for &(ts, _, low) in self.buf.iter() {
-                if ts >= hh.ts && low < min.prix {
-                    min = Pivot { prix: low, ts };
-                }
-            }
-            self.min = Some(min);
-        }
-        if let Some(ll) = self.ll {
-            let mut max = self.max.unwrap_or(Pivot { prix: f64::MIN, ts: ll.ts });
-            for &(ts, high, _) in self.buf.iter() {
-                if ts >= ll.ts && high > max.prix {
-                    max = Pivot { prix: high, ts };
-                }
-            }
-            self.max = Some(max);
-        }
-    }
-
-    /// Réinitialisation après re-ancrage : le buffer seul ne couvre pas
-    /// forcément la fenêtre — on repart de l'ancre (les barres intermédiaires
-    /// hors buffer sont perdues, cas rare : ancre ancienne re-chaînée).
-    fn reset_min(&mut self) {
-        self.min = None;
-    }
-    fn reset_max(&mut self) {
-        self.max = None;
-    }
-
-    /// OTE = fib 61,8–78,6 % entre l'ORIGINE (ancre de chaîne la plus
-    /// ANCIENNE) et l'extrême running du côté courant.
+    /// Zone = fib 61,8–78,6 % + 50 % de la jambe affichée (chaîne ⊕ vivants).
     fn calculer_zone(&mut self) {
         self.zone = None;
-        let (hh, ll) = match (self.hh, self.ll) {
+        let (ch, cl) = match (self.chain_h, self.chain_l) {
             (Some(h), Some(l)) => (h, l),
             _ => return,
         };
-        // LL plus récent ⇒ jambe baissière (origine = HH, extrême = running
-        // min) ; HH plus récent ⇒ jambe haussière (origine = LL, running max).
-        let (bearish, haut, bas) = if ll.ts > hh.ts {
-            let min = match self.min {
-                Some(m) => m,
-                None => return,
-            };
-            (true, hh, SwingAnchor { prix: min.prix, ts: min.ts })
-        } else {
-            let max = match self.max {
-                Some(m) => m,
-                None => return,
-            };
-            (false, SwingAnchor { prix: max.prix, ts: max.ts }, ll)
+        // Côté mobile : le vivant ne s'affiche que s'il DÉPASSE la chaîne
+        // (séquence D replay : bas M30 = 4066 pivot, pas le running 4168).
+        let haut = match self.max_depuis_l {
+            Some((ts, p)) if p > ch.prix => SwingAnchor { prix: p, ts },
+            _ => ch,
         };
-        let (haut, bas) = if haut.prix >= bas.prix { (haut, bas) } else { (bas, haut) };
-        let a = haut.prix - bas.prix;
-        if a <= 0.0 {
+        let bas = match self.min_depuis_h {
+            Some((ts, p)) if p < cl.prix => SwingAnchor { prix: p, ts },
+            _ => cl,
+        };
+        if haut.prix <= bas.prix {
             return;
         }
+        let a = haut.prix - bas.prix;
+        // Bas plus récent ⇒ jambe baissière (origine = haut, côté mobile =
+        // bas) ; miroir pour la haussière.
+        let bearish = bas.ts > haut.ts;
         let (top, bot, mid) = if bearish {
-            (
-                bas.prix + FIB_786 * a,
-                bas.prix + FIB_618 * a,
-                bas.prix + FIB_MID * a,
-            )
+            (bas.prix + FIB_786 * a, bas.prix + FIB_618 * a, bas.prix + FIB_MID * a)
         } else {
-            (
-                haut.prix - FIB_618 * a,
-                haut.prix - FIB_786 * a,
-                haut.prix - FIB_MID * a,
-            )
+            (haut.prix - FIB_618 * a, haut.prix - FIB_786 * a, haut.prix - FIB_MID * a)
         };
         self.zone = Some(SwingOteZone {
             bearish,
@@ -309,9 +237,9 @@ impl SwingOteDetector {
     }
 }
 
-/// Confluence dorée (spec § 2.3) : un OB est doré ⟺ son intersection de prix
-/// avec l'OTE vivante est non vide (chevauchement ou inclusion, sans condition
-/// de sens). Sans OTE vivante → jamais doré.
+/// Confluence dorée (spec § 2.3) : un OB est doré ⟺ son intersection de
+/// prix avec l'OTE vivante est non vide (chevauchement ou inclusion, sans
+/// condition de sens). Sans OTE vivante → jamais doré.
 pub fn chevauche(ob_top: f64, ob_bot: f64, ote: Option<SwingOteZone>) -> bool {
     match ote {
         Some(z) => ob_bot <= z.top && ob_top >= z.bot,
@@ -323,10 +251,10 @@ pub fn chevauche(ob_top: f64, ob_bot: f64, ote: Option<SwingOteZone>) -> bool {
 mod tests {
     use super::*;
 
-    /// Barre où seuls high/low nous intéressent.
+    /// Barre où seuls high/low nous intéressent (le détecteur ne lit que ça).
     fn barre(i: usize, high: f64, low: f64) -> BarInput {
         BarInput {
-            timestamp: i as i64,
+            timestamp: 1_700_000_000i64 + (i as i64) * 900,
             open: low,
             high,
             low,
@@ -343,80 +271,27 @@ mod tests {
         ev
     }
 
-    /// Cas de référence XAU M15 (06-08/10, géométrie réelle) : HH 4185 (bar 5)
-    /// puis LL 4067 (bar 8), rebond 4145 (retracement ~66 %, DANS la bande) et
-    /// creux secondaire 4110 — la jambe SURVIT :
-    ///   OTE [4139,924 ; 4159,748], mid 4126, bord gauche = bar du HH.
+    /// Table N par TF — fit 12/10 (captures + replay + simulation).
     #[test]
-    fn cas_reference_m15_jambe_survit_aux_rebonds() {
-        let mut det = SwingOteDetector::new(0.9);
-        let ev = pousser(
-            &mut det,
-            &[
-                (4100.0, 4090.0),
-                (4110.0, 4095.0),
-                (4165.0, 4120.0), // H 4165 (pivot, non HH — pas de précédent)
-                (4140.0, 4125.0), // retracement ≥ seuil ⇒ H 4165 confirmé
-                (4140.0, 4130.0),
-                (4185.0, 4140.0), // HH 4185 (> 4165)
-                (4165.0, 4110.0), // retracement ⇒ HH confirmé, jambe baissière
-                (4138.0, 4072.0),
-                (4132.0, 4067.0), // LL 4067 (< L précédent 4110)
-                (4145.0, 4120.0), // rebond ⇒ LL confirmé ; 4145 ne chaîne pas H
-                (4130.0, 4110.0), // creux secondaire : PAS de nouveau pivot
-            ],
-        );
-        let z = ev.zone.expect("jambe HH→LL vivante après rebonds internes");
-        assert!(z.bearish, "LL plus récent que le HH ⇒ jambe baissière");
-        assert_eq!(z.haut.prix, 4185.0);
-        assert_eq!(z.haut.ts, 5);
-        assert_eq!(z.bas.prix, 4067.0);
-        assert_eq!(z.bas.ts, 8);
-        let a = 4185.0 - 4067.0;
-        assert_eq!(z.mid, 4126.0, "trait 50 % = 4126,0 (vérifié capture)");
-        assert!((z.bot - (4067.0 + 0.618 * a)).abs() < 1e-9);
-        assert!((z.top - (4067.0 + 0.786 * a)).abs() < 1e-9);
-        assert_eq!(z.ts_naissance, 5, "bord gauche = ancre la plus ancienne (HH)");
+    fn n_par_tf_calibration() {
+        assert_eq!(n_par_tf(60), 4, "M1");
+        assert_eq!(n_par_tf(300), 4, "M5");
+        assert_eq!(n_par_tf(900), 4, "M15");
+        assert_eq!(n_par_tf(1800), 5, "M30");
+        assert_eq!(n_par_tf(3600), 5, "H1");
+        assert_eq!(n_par_tf(14400), 5, "H4");
+        assert_eq!(n_par_tf(86_400), 5, "D1");
+        assert_eq!(n_par_tf(604_800), 5, "W1");
+        assert_eq!(n_par_tf(12345), 5, "TF inconnu → 5");
     }
 
-    /// Jambe haussière miroire : LL 100 (bar 1) puis HH 200 (bar 8), repli 150
-    /// sans confirmation ⇒ OTE bull [121,4 ; 138,2], mid 150.
+    /// Cas synthétique de référence : HH 4185 (bar 5), LL 4067 (bar 8),
+    /// rebond 4145 et creux secondaire — la jambe SURVIT ; les deux barres
+    /// finales confirment le LL (N=4 ⇒ confirmation à la barre 12).
     #[test]
-    fn jambe_haussiere_miroir() {
-        let mut det = SwingOteDetector::new(0.9);
+    fn cas_reference_jambe_survit_aux_rebonds() {
+        let mut det = SwingOteDetector::new(900);
         let ev = pousser(
-            &mut det,
-            &[
-                (115.0, 103.0),
-                (110.0, 100.0), // LL 100 (< L initial 103, par fusion)
-                (112.0, 101.0),
-                (120.0, 104.0),
-                (130.0, 108.0),
-                (145.0, 115.0),
-                (160.0, 122.0),
-                (180.0, 130.0),
-                (200.0, 135.0), // HH 200 (via fusion > 120 puis chaîne)
-                (160.0, 150.0), // repli ⇒ HH confirmé ; jambe baissière
-                (170.0, 155.0), // L 150 : PAS de LL (150 > 100)
-            ],
-        );
-        let z = ev.zone.expect("jambe LL→HH vivante");
-        assert!(!z.bearish, "HH plus récent ⇒ jambe haussière");
-        assert_eq!(z.bas.prix, 100.0);
-        assert_eq!(z.haut.prix, 200.0);
-        assert!((z.top - 138.2).abs() < 1e-9);
-        assert!((z.bot - 121.4).abs() < 1e-9);
-        assert_eq!(z.mid, 150.0);
-        assert_eq!(z.ts_naissance, 1, "bord gauche = ancre la plus ancienne (LL)");
-    }
-
-    /// Extrême running + bascule : un nouveau creux SOUS le LL élargit la bande
-    /// IMMÉDIATEMENT (running, sans attendre confirmation) ; un nouveau HH
-    /// (> l'ancre de chaîne, par fusion) retourne la jambe en haussière.
-    #[test]
-    fn running_prolonge_puis_nouveau_hh_bascule() {
-        let mut det = SwingOteDetector::new(0.9);
-        pousser(
             &mut det,
             &[
                 (4100.0, 4090.0),
@@ -424,37 +299,151 @@ mod tests {
                 (4165.0, 4120.0),
                 (4140.0, 4125.0),
                 (4140.0, 4130.0),
-                (4185.0, 4140.0),
+                (4185.0, 4140.0), // futur pivot H (confirme bar 9)
                 (4165.0, 4110.0),
                 (4138.0, 4072.0),
-                (4132.0, 4067.0),
+                (4132.0, 4067.0), // futur pivot L (confirme bar 12)
                 (4145.0, 4120.0),
                 (4130.0, 4110.0),
+                (4135.0, 4115.0),
+                (4128.0, 4112.0),
             ],
         );
-        // Running : creux 4050 sous le LL ⇒ bande élargie immédiatement.
-        let ev = det.update(&barre(11, 4110.0, 4050.0));
-        let z = ev.zone.unwrap();
-        assert!(z.bearish);
-        assert_eq!(z.bas.prix, 4050.0, "extrême running suit le nouveau creux");
-        assert_eq!(z.bas.ts, 11);
-        let a1 = 4185.0 - 4050.0;
-        assert!((z.bot - (4050.0 + 0.618 * a1)).abs() < 1e-9, "bande élargie");
-
-        // Nouveau HH 4200 (> 4185, par fusion qui bat l'ancre) ⇒ jambe
-        // haussière depuis le LL 4050.
-        let ev = det.update(&barre(12, 4200.0, 4160.0));
-        let z = ev.zone.unwrap();
-        assert!(!z.bearish, "HH plus récent ⇒ jambe retournée haussière");
-        assert_eq!(z.bas.prix, 4050.0, "nouvelle origine = LL courant");
-        assert_eq!(z.haut.prix, 4200.0);
-        let a2 = 4200.0 - 4050.0;
-        assert!((z.top - (4200.0 - 0.618 * a2)).abs() < 1e-9);
-        assert_eq!(z.ts_naissance, 11, "bord gauche = LL (ancre ancienne)");
+        let z = ev.zone.expect("jambe H→L vivante après rebonds internes");
+        assert!(z.bearish, "ancre basse plus récente ⇒ jambe baissière");
+        assert_eq!(z.haut.prix, 4185.0);
+        assert_eq!(z.haut.ts, barre(0, 0.0, 0.0).timestamp + 5 * 900);
+        assert_eq!(z.bas.prix, 4067.0);
+        assert_eq!(z.bas.ts, barre(0, 0.0, 0.0).timestamp + 8 * 900);
+        let a = 4185.0 - 4067.0;
+        assert_eq!(z.mid, 4126.0, "trait 50 % = 4126,0");
+        assert!((z.bot - (4067.0 + 0.618 * a)).abs() < 1e-9);
+        assert!((z.top - (4067.0 + 0.786 * a)).abs() < 1e-9);
     }
 
-    /// Confluence dorée : overlap partiel / inclusion (dans un sens ou l'autre)
-    /// / disjonction / OTE absente.
+    /// Fraîcheur > extrémité : un pivot H PLUS BAS mais plus RÉCENT remplace
+    /// l'ancre haute (staircase replay : 4217 → 4193 → 4180 en M15).
+    #[test]
+    fn remplacement_par_fraicheur_staircase() {
+        let mut bars: Vec<(f64, f64)> = Vec::new();
+        for i in 0..12 {
+            // échauffement montant (aucun pivot H possible avant la fenêtre)
+            bars.push((4110.0 + (i as f64) * 5.0, 4090.0 + (i as f64) * 5.0));
+        }
+        bars.push((4217.0, 4180.0)); // top 4217 @ 12
+        for i in 0..7 {
+            bars.push((4200.0 - (i as f64) * 2.0, 4160.0)); // déclin 13-19
+        }
+        bars.push((4195.0, 4178.0)); // top intermédiaire 4195 @ 20
+        for i in 0..7 {
+            bars.push((4186.0 - (i as f64) * 2.0, 4165.0 - (i as f64))); // déclin 21-27
+        }
+        bars.push((4180.0, 4170.0)); // top 4180 @ 28
+        for i in 0..5 {
+            bars.push((4172.0 - (i as f64) * 0.5, 4150.0 + (i as f64) * 4.0)); // reprise 29-33
+        }
+        let mut det = SwingOteDetector::new(900);
+        let ev = pousser(&mut det, &bars);
+        let z = ev.zone.expect("zone vivante");
+        assert_eq!(z.haut.prix, 4180.0, "le pivot H le plus RÉCENT (4180) a remplacé 4217 puis 4195 — staircase");
+        assert!(z.haut.prix < 4217.0, "l'ancre n'est PAS figée au maximum historique");
+    }
+
+    /// Côté mobile vivant : le bas affiché suit le creux intrabar SANS pivot
+    /// confirmé (preuve cible : M15 12/10 — low 4154,58 affiché à 13h19, son
+    /// pivot n'était confirmé qu'à 13h30). Ici : creux 4130@13 SOUS l'ancre L
+    /// 4135@4, pivot non confirmé (il faudrait la barre 17) mais affiché.
+    #[test]
+    fn extremes_vivants_avant_confirmation() {
+        let bars: &[(f64, f64)] = &[
+            (4160.0, 4150.0),
+            (4158.0, 4145.0),
+            (4156.0, 4140.0),
+            (4157.0, 4143.0),
+            (4162.0, 4135.0), // creux 4135 @ 4 — futur pivot L
+            (4168.0, 4140.0),
+            (4172.0, 4146.0),
+            (4176.0, 4152.0),
+            (4178.0, 4156.0),
+            (4180.0, 4160.0), // top 4180 @ 10 — pivot H (confirme bar 14)
+            (4175.0, 4158.0),
+            (4170.0, 4155.0),
+            (4162.0, 4130.0), // creux vivant 4130 @ 13 — SOUS l'ancre L 4135
+            (4166.0, 4133.0),
+        ];
+        let mut det = SwingOteDetector::new(900);
+        let ev = pousser(&mut det, bars);
+        let z = ev.zone.expect("zone vivante");
+        let base = barre(0, 0.0, 0.0).timestamp;
+        assert_eq!(z.bas.prix, 4130.0, "le bas VIVANT (4130) s'affiche avant confirmation du pivot");
+        assert_eq!(z.bas.ts, base + 12 * 900, "creux de la barre 12, pas encore pivot (il faudrait la barre 16)");
+        assert_eq!(z.haut.prix, 4180.0);
+    }
+
+    /// CAS RÉEL XAU M15 du 12/10 (bars DB 06h00→13h30 UTC) : la sortie doit
+    /// reproduire la capture TV exacte — ancres 4180,22@10h30 /
+    /// 4154,58@12h30, zone [4170,42 ; 4174,73], mid 4167,40, baissière.
+    #[test]
+    fn cas_reel_m15_12_octobre_capture_tv() {
+        let bars: &[(f64, f64)] = &[
+            (4192.75, 4183.50), // 06:00
+            (4185.63, 4181.25),
+            (4186.43, 4182.85),
+            (4186.79, 4183.72),
+            (4187.89, 4184.81),
+            (4186.03, 4182.54),
+            (4188.15, 4181.87), // 07:30 — pivot H (staircase intermédiaire)
+            (4184.53, 4179.65),
+            (4181.55, 4176.77),
+            (4177.60, 4174.83),
+            (4179.28, 4175.17),
+            (4176.62, 4172.78),
+            (4178.46, 4173.68),
+            (4178.51, 4174.57),
+            (4177.26, 4170.19),
+            (4173.16, 4168.79), // 09:45 — pivot L
+            (4175.02, 4172.04),
+            (4179.40, 4173.93),
+            (4180.22, 4177.77), // 10:30 — pivot H DÉFINITIF (capture TV)
+            (4179.04, 4176.23),
+            (4177.44, 4169.24),
+            (4172.99, 4169.84),
+            (4173.07, 4168.89),
+            (4171.52, 4167.36),
+            (4173.15, 4167.55), // 12:00 — fantôme à N=3, mort à N=4
+            (4172.77, 4161.90),
+            (4165.53, 4154.58), // 12:30 — pivot L (confirme à 13:30)
+            (4168.03, 4162.39),
+            (4172.69, 4162.92),
+            (4175.37, 4170.83),
+            (4175.39, 4169.82), // 13:30 — barre de confirmation du pivot L
+        ];
+        let mut det = SwingOteDetector::new(900);
+        let ev = pousser(&mut det, bars);
+        let z = ev.zone.expect("zone vivante en fin de replay");
+        let base = barre(0, 0.0, 0.0).timestamp;
+        assert_eq!(z.haut.prix, 4180.22, "ancre haute = capture TV");
+        assert_eq!(z.haut.ts, base + 18 * 900, "10:30 UTC");
+        assert_eq!(z.bas.prix, 4154.58, "ancre basse = capture TV");
+        assert_eq!(z.bas.ts, base + 26 * 900, "12:30 UTC");
+        assert!(z.bearish, "bas plus récent ⇒ jambe baissière");
+        let a = 4180.22 - 4154.58;
+        assert!((z.top - (4154.58 + 0.786 * a)).abs() < 1e-9, "top = 4174,73 (capture)");
+        assert!((z.bot - (4154.58 + 0.618 * a)).abs() < 1e-9, "bot = 4170,42 (capture)");
+        assert!((z.mid - (4154.58 + 0.5 * a)).abs() < 1e-9, "mid = 4167,40 (capture)");
+    }
+
+    /// Plateau parfait ⇒ aucune fractale (droite strictement inférieure
+    /// requise) ⇒ aucune zone.
+    #[test]
+    fn plateau_aucune_zone() {
+        let mut det = SwingOteDetector::new(900);
+        let ev = pousser(&mut det, &[(4100.0, 4090.0); 12]);
+        assert!(ev.zone.is_none(), "aucun pivot ⇒ aucune OTE");
+    }
+
+    /// Confluence dorée : overlap partiel / inclusion / disjonction / OTE
+    /// absente — inchangée depuis la rév. 08/10.
     #[test]
     fn confluence_doree() {
         let a = 4185.0 - 4067.0;
@@ -467,35 +456,11 @@ mod tests {
             haut: SwingAnchor { prix: 4185.0, ts: 5 },
             bas: SwingAnchor { prix: 4067.0, ts: 8 },
         };
-        assert!(chevauche(4145.0, 4138.0, Some(zone)), "OB inclus (cas capture dorée)");
+        assert!(chevauche(4145.0, 4138.0, Some(zone)), "OB inclus");
         assert!(chevauche(4165.0, 4158.0, Some(zone)), "chevauchement partiel");
         assert!(chevauche(4170.0, 4130.0, Some(zone)), "OTE incluse dans l'OB");
         assert!(!chevauche(4170.0, 4165.0, Some(zone)), "disjonction au-dessus");
         assert!(!chevauche(4135.0, 4120.0, Some(zone)), "disjonction en dessous");
-        assert!(chevauche(zone.bot, zone.bot - 5.0, Some(zone)), "contact bord à bord");
         assert!(!chevauche(4145.0, 4138.0, None), "sans OTE ⇒ jamais doré");
-    }
-
-    /// Une seule barre ⇒ aucune chaîne HH/LL ⇒ aucune zone.
-    #[test]
-    fn init_seule_aucune_zone() {
-        let mut det = SwingOteDetector::new(0.9);
-        let ev = det.update(&barre(0, 4100.0, 4090.0));
-        assert!(ev.zone.is_none(), "premier pivot jamais HH/LL (pas de précédent)");
-    }
-
-    /// Table de calibration par TF (fit 08/10, captures « Zone OTE par TF ») :
-    /// M1/M5 intraday 0,35 % ; M15→H4 0,9 % ; D1/W1 provisoires.
-    #[test]
-    fn seuil_pct_par_tf_calibration() {
-        assert_eq!(seuil_pct_par_tf(60), 0.35, "M1");
-        assert_eq!(seuil_pct_par_tf(300), 0.35, "M5");
-        assert_eq!(seuil_pct_par_tf(900), 0.9, "M15");
-        assert_eq!(seuil_pct_par_tf(1800), 0.9, "M30");
-        assert_eq!(seuil_pct_par_tf(3600), 0.9, "H1");
-        assert_eq!(seuil_pct_par_tf(14400), 0.9, "H4");
-        assert_eq!(seuil_pct_par_tf(86_400), 1.5, "D1 provisoire");
-        assert_eq!(seuil_pct_par_tf(604_800), 2.0, "W1 provisoire");
-        assert_eq!(seuil_pct_par_tf(12345), 0.9, "TF inconnu → défaut");
     }
 }

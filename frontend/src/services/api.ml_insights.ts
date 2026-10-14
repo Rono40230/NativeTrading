@@ -10,29 +10,19 @@ export interface StatsGlobales {
   pnl_r_moyen: number
 }
 
-export interface TrancheStat {
-  tranche:   string
-  nb_trades: number
-  win_rate:  number
-}
+// Écart 25 (13/10) : les tranches par score/kill-zone/confiance/phase ont été
+// purgées — elles lisaient les tables feedback ML mortes (toujours vides).
 
 export interface SmcAnalyse {
-  global:         StatsGlobales
-  par_score:      TrancheStat[]
-  par_kill_zone:  TrancheStat[]
-  ml_correlation: TrancheStat[]
+  global: StatsGlobales
 }
 
 export interface RocketsAnalyse {
-  global:         StatsGlobales
-  par_phase:      TrancheStat[]
-  conviction_llm: TrancheStat[]
+  global: StatsGlobales
 }
 
 export interface StraddleAnalyse {
-  global:         StatsGlobales
-  par_categorie:  TrancheStat[]
-  score_llm:      TrancheStat[]
+  global: StatsGlobales
 }
 
 export interface AnalyseGlobale {

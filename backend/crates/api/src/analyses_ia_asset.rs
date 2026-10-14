@@ -128,11 +128,19 @@ pub async fn post_analyse_ia_asset(
     let ecart = crate::simulation_recommandation::ecart_balayage_asset(&state, &id, &asset).await;
     let chiffres = construire_chiffres(vecu, &asset, meilleur_tf, &surcharges, ecart.as_ref());
 
-    let prompt = format!(
-        "{}\n\n{}",
-        llm::prompt_effectif("analyse_rapport_asset"),
-        contexte_asset(&state, &id, &asset, &a, vecu).await
-    );
+    let prompt = match crate::analyses_ia::definition_strategie(&id) {
+        Some(def) => format!(
+            "{}\n\n{}\n\n{}",
+            def,
+            llm::prompt_effectif("analyse_rapport_asset"),
+            contexte_asset(&state, &id, &asset, &a, vecu).await
+        ),
+        None => format!(
+            "{}\n\n{}",
+            llm::prompt_effectif("analyse_rapport_asset"),
+            contexte_asset(&state, &id, &asset, &a, vecu).await
+        ),
+    };
     match llm::ollama::interroger(&prompt).await {
         Ok(texte) => {
             let analyse = parser(texte, asset.clone(), vecu.n, chiffres);
@@ -156,6 +164,7 @@ async fn contexte_asset(
     vecu: &CategorieAnalyse,
 ) -> String {
     let mut l = Vec::new();
+    l.push(crate::analyses_ia::parametres_moteur_smc(&state.db).await);
     l.push(format!(
         "STRATÉGIE {id} — ASSET {asset} — analyse PAR ASSET (source : {})",
         if a.source == "rejeu" { "re-jeu paramétrique" } else { "clôtures vécues" }
