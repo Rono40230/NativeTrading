@@ -23,7 +23,7 @@
 </template>
 
 <style scoped>
-.entete-detail { font-size: .75rem; font-weight: 600; color: #fff; user-select: none; list-style: none; cursor: pointer; }
+.entete-detail { font-size: 12px; font-weight: 600; color: #fff; user-select: none; list-style: none; cursor: pointer; }
 .entete-detail::-webkit-details-marker { display: none; }
 .entete-detail::before { content: '▸ '; color: rgba(255,255,255,.5); display: inline-block; transition: transform .15s; }
 details[open] > .entete-detail::before { transform: rotate(90deg); }

@@ -240,7 +240,7 @@ onUnmounted(() => { if (minuteur) clearInterval(minuteur) })
 .filtre-btn {
   padding: 0.25rem 0.75rem;
   border-radius: 0.5rem;
-  font-size: 0.75rem;
+  font-size: 12px;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.05);
   transition: all 0.15s ease;

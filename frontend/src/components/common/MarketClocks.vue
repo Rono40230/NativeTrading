@@ -38,7 +38,7 @@
 
         <!-- Le bloc d'infos -->
         <div class="flex flex-col min-w-0">
-          <span class="text-[12px] font-extrabold tabular-nums leading-none" :class="session.labelCouleur">{{ session.heureTitre }}</span>
+          <span class="text-xs font-extrabold tabular-nums leading-none" :class="session.labelCouleur">{{ session.heureTitre }}</span>
           <span class="text-[11px] font-bold uppercase tracking-widest text-white/65 leading-none mt-1 truncate">{{ session.nom }}</span>
           <div class="flex items-center gap-1.5 flex-wrap mt-1">
             <span class="text-[10px] font-bold" :class="session.badgeCouleur">{{ session.statutCourt }}</span>

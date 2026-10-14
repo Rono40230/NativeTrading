@@ -243,26 +243,26 @@ watch(() => props.strategie, charger)
 .reglages-asset { border-top: 1px solid rgba(255,255,255,.1); padding-top: 12px; margin-top: 12px; }
 .sel, .input {
   background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.15); color: #e6edf3;
-  border-radius: 8px; padding: 6px 10px; font-size: .85rem;
+  border-radius: 8px; padding: 6px 10px; font-size: 14px;
 }
 .sel:focus, .input:focus { outline: none; border-color: #60a5fa; }
 .badge-actif {
-  font-size: .65rem; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
   background: rgba(251,191,36,.15); color: #fbbf24; border: 1px solid rgba(251,191,36,.3);
 }
 .grille-champs { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
 .champ { display: flex; flex-direction: column; gap: 4px; }
-.libelle { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: #8b949e; }
-.aide { font-size: .65rem; color: #6e7681; }
+.libelle { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #8b949e; }
+.aide { font-size: 10px; color: #6e7681; }
 .input::placeholder { color: rgba(139,148,158,.55); }
-.somme { font-size: .78rem; color: #8b949e; margin-top: 10px; }
+.somme { font-size: 12px; color: #8b949e; margin-top: 10px; }
 .ko { color: #f87171; }
 .ok { color: #34d399; }
 .btn {
-  font-size: .8rem; font-weight: 600; padding: 7px 14px; border-radius: 8px;
+  font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 8px;
   border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); color: #e6edf3; cursor: pointer;
 }
 .btn:disabled { opacity: .4; cursor: not-allowed; }
 .btn.primaire { background: rgba(63,133,255,.2); border-color: rgba(63,133,255,.4); }
-.erreur { color: #f87171; font-size: .8rem; }
+.erreur { color: #f87171; font-size: 12px; }
 </style>

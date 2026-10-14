@@ -208,8 +208,8 @@ function formatDate(ts: number): string {
   border-radius: 0.5rem;
   padding: 0.4rem 0.5rem;
 }
-.prix-label { font-size: 0.65rem; color: #f87171; text-transform: uppercase; letter-spacing: 0.05em; }
-.prix-val { font-size: 0.8rem; font-family: monospace; font-weight: 700; margin-top: 0.1rem; }
+.prix-label { font-size: 10px; color: #f87171; text-transform: uppercase; letter-spacing: 0.05em; }
+.prix-val { font-size: 12px; font-family: monospace; font-weight: 700; margin-top: 0.1rem; }
 .raison-bloc {
   background: rgba(239, 68, 68, 0.05);
   border: 1px solid rgba(239, 68, 68, 0.15);

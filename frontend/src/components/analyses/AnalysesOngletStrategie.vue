@@ -316,7 +316,7 @@
         <!-- État général : encadré distinct, la phrase de synthèse -->
         <div class="rounded-lg border border-teal-500/25 bg-teal-500/10 p-2.5">
           <p class="text-[10px] font-bold uppercase tracking-wider text-teal-300 mb-1">🧭 État général</p>
-          <p class="text-[12px] text-white leading-relaxed">{{ ia.etat }}</p>
+          <p class="text-xs text-white leading-relaxed">{{ ia.etat }}</p>
         </div>
 
         <!-- Une section par liste, titre + fond propres -->

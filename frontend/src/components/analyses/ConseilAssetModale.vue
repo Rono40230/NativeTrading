@@ -38,13 +38,13 @@
       <!-- État de l'asset -->
       <div class="rounded-lg border border-white/15 bg-white/5 p-2.5">
         <p class="text-[10px] font-bold uppercase tracking-wider text-white/70 mb-1">🧭 État de l'asset</p>
-        <p class="text-[12px] text-white leading-relaxed">{{ analyse.etat }}</p>
+        <p class="text-xs text-white leading-relaxed">{{ analyse.etat }}</p>
       </div>
 
       <!-- LE conseil : l'encadré central -->
       <div class="rounded-lg border border-teal-500/30 bg-teal-500/10 p-2.5">
         <p class="text-[10px] font-bold uppercase tracking-wider text-teal-300 mb-1">→ Conseil proposé (tu décides seul)</p>
-        <p class="text-[12px] text-white leading-relaxed">{{ analyse.conseil || '—' }}</p>
+        <p class="text-xs text-white leading-relaxed">{{ analyse.conseil || '—' }}</p>
       </div>
 
       <!-- Chiffres décisoires : chaque chiffre avec sa phrase d'explication

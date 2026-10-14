@@ -11,7 +11,7 @@
     @click="router.push('/analyses')"
   >
     <div class="flex items-center gap-1.5">
-      <span class="text-[15px] leading-none">📊</span>
+      <span class="text-base leading-none">📊</span>
       <span class="text-[11px] font-extrabold uppercase tracking-[0.15em] text-white/75 truncate">Rapport d'activité</span>
     </div>
 

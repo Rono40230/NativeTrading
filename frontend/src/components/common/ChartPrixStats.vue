@@ -253,19 +253,19 @@ function formatVolume(v: number): string {
   box-shadow: 0 8px 32px rgba(0,0,0,0.65);
 }
 .cpx-def {
-  font-size: 0.71rem; color: #e2e8f0;
+  font-size: 11px; color: #e2e8f0;
   line-height: 1.55; margin: 0 0 9px;
 }
 .cpx-sep { height: 1px; background: rgba(255,255,255,0.1); margin-bottom: 8px; }
 .cpx-echelle { display: flex; flex-direction: column; gap: 3px; }
 .cpx-niveau {
   display: flex; align-items: center; gap: 6px;
-  font-size: 0.67rem; color: #ffffff;
+  font-size: 10px; color: #ffffff;
   padding: 3px 7px; border-radius: 5px;
   border: 1px solid transparent;
 }
 .cpx-actif { font-weight: 600; }
-.cpx-bullet { font-size: 0.58rem; width: 10px; flex-shrink: 0; }
+.cpx-bullet { font-size: 10px; width: 10px; flex-shrink: 0; }
 .cpx-tip-enter-active, .cpx-tip-leave-active { transition: opacity 0.1s, transform 0.1s; }
 .cpx-tip-enter-from, .cpx-tip-leave-to { opacity: 0; transform: translate(-50%, calc(-100% + 6px)); }
 .cpx-tip-enter-to, .cpx-tip-leave-from { opacity: 1; transform: translate(-50%, -100%); }

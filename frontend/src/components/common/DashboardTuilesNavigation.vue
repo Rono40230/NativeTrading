@@ -17,7 +17,7 @@
       <!-- Témoin vivant : pastille ambre qui pulse quand il y a du neuf -->
       <span v-if="aDuNeuf(t.id)" class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse z-10" />
       <div class="flex items-center gap-1.5">
-        <span class="text-[15px] leading-none">{{ t.icone }}</span>
+        <span class="text-base leading-none">{{ t.icone }}</span>
         <span class="text-[11px] font-extrabold uppercase tracking-[0.15em] text-white/75 truncate">{{ t.label }}</span>
       </div>
 
@@ -27,10 +27,10 @@
         <div class="relative rounded bg-black/30 px-1.5 py-1 min-h-0 flex-1 overflow-y-auto">
           <FondTheme theme="presse" />
           <div class="relative flex flex-col gap-0.5 h-full">
-            <div v-if="!articles.length" class="text-[14px] text-white/70 leading-snug">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min)</div>
+            <div v-if="!articles.length" class="text-sm text-white/70 leading-snug">Bibliothèque vide — le collecteur remplit au prochain cycle (30 min)</div>
             <div v-for="a in articles" :key="a.hash_titre" class="flex items-center gap-1.5 min-w-0">
-              <span class="text-[14px] text-blue-400 font-mono shrink-0">{{ ageCourt(a) }}</span>
-              <span class="text-[14px] text-white/90 truncate cursor-help" :title="a.resume_source || a.titre">{{ a.titre_fr || a.titre }}</span>
+              <span class="text-sm text-blue-400 font-mono shrink-0">{{ ageCourt(a) }}</span>
+              <span class="text-sm text-white/90 truncate cursor-help" :title="a.resume_source || a.titre">{{ a.titre_fr || a.titre }}</span>
             </div>
           </div>
         </div>
@@ -43,14 +43,14 @@
         <div class="relative rounded bg-black/30 px-1.5 py-1 min-h-0 flex-1 overflow-hidden">
           <FondTheme theme="graphiques" />
           <div class="relative flex flex-col gap-1 h-full" :class="alertesActives.length ? '' : 'items-center justify-center text-center'">
-            <div v-for="a in alertesActives" :key="a.id" class="flex items-center gap-1.5 text-[14px] min-w-0" :title="titreAlerte(a)">
+            <div v-for="a in alertesActives" :key="a.id" class="flex items-center gap-1.5 text-sm min-w-0" :title="titreAlerte(a)">
               <span class="font-mono text-white/80 shrink-0">{{ datePose(a.cree_le) }}</span>
               <span class="font-semibold text-white truncate">{{ a.asset }}</span>
               <span class="font-mono text-amber-300">{{ formaterPrix(a.prix) }}</span>
-              <button class="ml-auto text-[13px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-white transition-colors shrink-0" title="Ouvrir le graphique de cet asset" @click.stop="ouvrirGraphique(a.asset)">👁</button>
-              <button class="text-[13px] px-1.5 py-0.5 rounded bg-white/10 hover:bg-red-600/60 text-white transition-colors shrink-0" title="Supprimer l'alerte (bloc + graphique)" @click.stop="supprimerAlerte(a)">✕</button>
+              <button class="ml-auto text-xs px-1.5 py-0.5 rounded bg-white/10 hover:bg-blue-600/60 text-white transition-colors shrink-0" title="Ouvrir le graphique de cet asset" @click.stop="ouvrirGraphique(a.asset)">👁</button>
+              <button class="text-xs px-1.5 py-0.5 rounded bg-white/10 hover:bg-red-600/60 text-white transition-colors shrink-0" title="Supprimer l'alerte (bloc + graphique)" @click.stop="supprimerAlerte(a)">✕</button>
             </div>
-            <div v-if="!alertesActives.length" class="text-[14px] text-white/70 leading-snug">
+            <div v-if="!alertesActives.length" class="text-sm text-white/70 leading-snug">
               Aucune alerte armée.<br>
               → page « Graphiques »<br>
               → Clic sur la clochette<br>
@@ -65,7 +65,7 @@
       <template v-else-if="t.id === 'ia'">
         <div class="relative rounded bg-black/30 px-1.5 py-1 min-h-0 flex-1 overflow-hidden">
           <FondTheme theme="ia" />
-          <div class="relative flex flex-col gap-1 text-[14px] leading-snug">
+          <div class="relative flex flex-col gap-1 text-sm leading-snug">
             <p class="text-white">Conviction du jour : <span class="font-bold text-violet-200">{{ convictionJour.n }} {{ convictionJour.n > 1 ? 'Signaux' : 'Signal' }} noté{{ convictionJour.n > 1 ? 's' : '' }}</span></p>
             <p v-if="convictionJour.mediane !== null" class="text-white/85">
               Conviction /100 : <span class="font-bold text-violet-200">médiane {{ convictionJour.mediane }}</span>
@@ -85,7 +85,7 @@
       <template v-else-if="t.id === 'systeme'">
         <div class="relative rounded bg-black/30 px-1.5 py-1 min-h-0 flex-1 overflow-hidden">
           <FondTheme theme="donnees" />
-          <div class="relative flex flex-col gap-1 text-[13px] leading-snug">
+          <div class="relative flex flex-col gap-1 text-xs leading-snug">
             <p class="text-white" title="Une ligne par source : fraîcheur + couverture + volume du jour. Flux continus (MT5, Bybit) : alerte rouge à 5 min sans bougie. Le comblement Binance n'écrit que lors d'un trou (nuits, pannes) : informatif.">
               <span v-for="(src, i) in lignesSources" :key="src.nom">
                 <span v-if="src.episodique" class="text-white/85">{{ src.nom }} (comblement) · dernier trou il y a {{ src.age }}</span>
