@@ -95,6 +95,7 @@ mod simulation;
 mod simulation_balayages;
 mod simulation_kdj;
 mod rattrapage_smc;
+mod rattrapage_straddle;
 mod smc_rejeu;
 mod straddle_rejeu;
 mod registre_strategies;

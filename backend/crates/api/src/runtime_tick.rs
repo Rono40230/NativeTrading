@@ -243,6 +243,10 @@ async fn boucle_runtime(
                 synchroniser_config(&db, &mut runtime).await;
                 // 18/09 — rattrapage des positions SMC orphelines (redémarrages)
                 crate::rattrapage_smc::rattraper(&db).await;
+                // 14/10 — rattrapage straddle : une position Actif vit
+                // jusqu'à SL/TP/expire, MÊME hors périmètre armé (SP500/
+                // DAX/XAGUSD orphelins depuis retrait du périmètre).
+                crate::rattrapage_straddle::rattraper(&db).await;
                 // 09/10 — garde-fou alimentation : tout asset armé trouvé
                 // inactif est réactivé (les workers le renouvellent en ≤ 60 s).
                 crate::assets_garde::reconcilier(&db).await;
