@@ -329,7 +329,7 @@ export function dessinerSweeps(
     ctx.fill()
 
     // Étiquette SWEEP à côté de la flèche, sans recouvrir les bougies.
-    ctx.font = 'bold 9px sans-serif'
+    ctx.font = 'bold 10px sans-serif'
     ctx.textAlign = isHaut ? 'center' : 'center'
     ctx.textBaseline = isHaut ? 'bottom' : 'top'
     ctx.fillText('SWEEP', x, isHaut ? yPointe - taille * 2 - 1 : yPointe + taille * 2 + 1)

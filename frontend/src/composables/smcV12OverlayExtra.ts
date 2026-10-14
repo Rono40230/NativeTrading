@@ -217,7 +217,7 @@ export function dessinerBoxes(
       ctx.strokeStyle = hexVersRgba(hex, 0.4)
       ctx.lineWidth = 1
       ctx.strokeRect(xGRaw, yTop, xD2 - xGRaw, Math.abs(yT - yB))
-      ctx.font = 'bold 9px sans-serif'
+      ctx.font = 'bold 10px sans-serif'
       ctx.fillStyle = hex
       ctx.textAlign = 'right'
       ctx.textBaseline = 'top'
@@ -260,7 +260,7 @@ export function dessinerBoxes(
       ctx.fillRect(gauche, yTop, droite - gauche, h)
       ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1 // α85
       ctx.strokeRect(gauche, yTop, droite - gauche, h)
-      ctx.font = 'bold 9px sans-serif'
+      ctx.font = 'bold 10px sans-serif'
       ctx.fillStyle = coul; ctx.textAlign = 'right'; ctx.textBaseline = 'top'
       const NOMS: Record<string, string> = { asie: 'Session Asiatique', londres: 'Session Européenne', ny: 'Session Américaine' }
       ctx.fillText(NOMS[s.session] ?? s.session, droite - 4, yTop + 2)
@@ -290,7 +290,7 @@ export function dessinerBoxes(
       if (yCe !== null) {
         ctx.strokeStyle = hexVersRgba(hex, 1); ctx.lineWidth = 1; ctx.setLineDash([4, 3])
         ctx.beginPath(); ctx.moveTo(xG, yCe); ctx.lineTo(xD, yCe); ctx.stroke(); ctx.setLineDash([])
-        ctx.font = '8px sans-serif'; ctx.fillStyle = hexVersRgba(hex, 1); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'
+        ctx.font = '10px sans-serif'; ctx.fillStyle = hexVersRgba(hex, 1); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'
         ctx.fillText('CE', xD - 3, yCe - 1)
       }
     }

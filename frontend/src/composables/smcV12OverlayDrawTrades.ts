@@ -105,7 +105,7 @@ export function dessinerSignaux(
       ctx.setLineDash([])
       ctx.beginPath(); ctx.moveTo(xG, y); ctx.lineTo(xDTrade, y); ctx.stroke()
       // Repère textuel au bord droit
-      ctx.font = 'bold 9px sans-serif'
+      ctx.font = 'bold 10px sans-serif'
       ctx.fillStyle = coul
       ctx.textAlign = 'left'
       ctx.textBaseline = 'bottom'
@@ -217,7 +217,7 @@ export function dessinerTradesExternes(
       ctx.strokeStyle = coul
       ctx.setLineDash([])
       ctx.beginPath(); ctx.moveTo(xG, y); ctx.lineTo(xDTrade, y); ctx.stroke()
-      ctx.font = 'bold 9px sans-serif'
+      ctx.font = 'bold 10px sans-serif'
       ctx.fillStyle = coul
       ctx.textAlign = 'left'
       ctx.textBaseline = 'bottom'
@@ -231,7 +231,7 @@ export function dessinerTradesExternes(
 
     // Badge du TF d'origine — petit carré discret à gauche de l'entrée.
     const badge = s.tfOrigine
-    ctx.font = 'bold 9px sans-serif'
+    ctx.font = 'bold 10px sans-serif'
     const largeur = ctx.measureText(badge).width + 8
     const yBadge = yEntry - 14 < 2 ? yEntry + 4 : yEntry - 14
     ctx.fillStyle = 'rgba(10,12,18,0.8)'

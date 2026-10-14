@@ -4,7 +4,7 @@
        toucher (≤ seuil × ATR). Polling 30 s, état mémoire backend. -->
   <div class="glass-card p-2.5 flex flex-col gap-1.5">
     <div class="flex items-center gap-2 flex-wrap">
-      <p class="text-xs font-semibold text-white">📍 Zones à l'approche</p>
+      <p class="text-sm font-semibold text-white">📍 Zones à l'approche</p>
       <span class="text-[10px] text-white/50" title="Distance au bord de la zone ≤ seuil × ATR du TF — zones jamais touchées des couples SMC armés uniquement">zones fraîches, couples armés · seuil × ATR</span>
       <span v-if="enBande.length" class="ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 text-amber-300">{{ enBande.length }} en approche</span>
     </div>

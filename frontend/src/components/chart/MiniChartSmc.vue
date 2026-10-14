@@ -190,7 +190,7 @@ function dessiner() {
       ctx.setLineDash([4, 3])
       ctx.beginPath(); ctx.moveTo(W * 0.35, yp); ctx.lineTo(xD, yp); ctx.stroke()
       ctx.setLineDash([])
-      ctx.font = 'bold 8px sans-serif'
+      ctx.font = 'bold 10px sans-serif'
       ctx.fillStyle = coul
       ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'
       ctx.fillText(lbl, xD - 2, yp - 1)

@@ -27,7 +27,7 @@
       <section class="glass-card p-3">
         <div class="mt-0">
       <div class="flex items-center gap-2 mb-2">
-        <span class="text-xs font-semibold text-white">💵 Performance par période</span>
+        <span class="text-sm font-semibold text-white">💵 Performance par période</span>
         <div class="ml-auto flex gap-1">
           <button
             v-for="p in PERIODES"
@@ -85,7 +85,7 @@
     <div class="grid grid-cols-1 gap-3">
       <!-- Verdicts : où vit l'edge -->
       <div class="glass-card p-3">
-        <p class="text-xs font-semibold text-white mb-2">⚖️ Verdicts — où vit l'edge</p>
+        <p class="text-sm font-semibold text-white mb-2">⚖️ Verdicts — où vit l'edge</p>
         <div v-if="a.verdicts.length" class="flex flex-col gap-1">
           <div class="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60 px-0.5">
             <span class="w-16 shrink-0">Verdict</span>
@@ -116,7 +116,7 @@
 
       <!-- Assets les plus propices -->
       <div class="glass-card p-3">
-        <p class="text-xs font-semibold text-white mb-2">🥇 Assets — contribution au capital</p>
+        <p class="text-sm font-semibold text-white mb-2">🥇 Assets — contribution au capital</p>
         <div v-if="a.assets.length" class="flex flex-col gap-1">
           <div class="flex items-center gap-2 text-[11px] uppercase tracking-wider text-white/60 px-0.5">
             <span class="w-16 shrink-0">Asset</span>
@@ -180,7 +180,7 @@
       <!-- ═══ Colonne droite : LE TEMPS + L'ANALYSTE ═══ -->
       <div class="flex flex-col gap-3">
       <section class="glass-card p-3">
-        <p class="text-xs font-semibold text-white mb-2" title="Contribution $ des clôtures par créneau horaire (heure locale) — vert = gains, rouge = pertes, intensité ∝ |$| de la case. Survol = détail.">🗓️ Heatmap heure × jour</p>
+        <p class="text-sm font-semibold text-white mb-2" title="Contribution $ des clôtures par créneau horaire (heure locale) — vert = gains, rouge = pertes, intensité ∝ |$| de la case. Survol = détail.">🗓️ Heatmap heure × jour</p>
         <div class="mt-2">
       <div v-if="a?.heatmap?.length" class="overflow-x-auto">
         <table class="text-[11px] font-mono border-separate" style="border-spacing: 1px">
@@ -209,7 +209,7 @@
     
       </section>
       <section class="glass-card p-3">
-        <p class="text-xs font-semibold text-white mb-2" title="Un snapshot par jour, écrit au premier calcul du rapport — l'avis IA du jour est archivé avec lui (survit aux redémarrages)">📈 Évolution jour après jour — snapshots</p>
+        <p class="text-sm font-semibold text-white mb-2" title="Un snapshot par jour, écrit au premier calcul du rapport — l'avis IA du jour est archivé avec lui (survit aux redémarrages)">📈 Évolution jour après jour — snapshots</p>
         <div class="mt-2">
       <div v-if="historique?.length" class="flex flex-col gap-2">
         <div class="relative h-16">
@@ -296,7 +296,7 @@
     <section class="glass-card p-3">
       <div class="mt-2">
       <div class="flex items-center gap-2 mb-2 flex-wrap">
-        <p class="text-xs font-semibold text-white">🤖 Analyse IA</p>
+        <p class="text-sm font-semibold text-white">🤖 Analyse IA</p>
         <span
           v-if="ia"
           class="text-[10px] px-2 py-0.5 rounded-full border font-mono font-bold"

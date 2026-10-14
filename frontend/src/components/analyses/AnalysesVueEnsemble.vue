@@ -6,7 +6,7 @@
        dashboard (clic sur une ligne pour ouvrir le rapport détaillé). -->
   <div class="flex flex-col gap-3">
     <div class="glass-card p-3">
-      <p class="text-xs font-semibold text-white mb-2">🧭 Les stratégies</p>
+      <p class="text-sm font-semibold text-white mb-2">🧭 Les stratégies</p>
       <div v-if="liste.length" class="overflow-x-auto">
         <table class="w-full text-[11px]">
           <thead>
@@ -67,7 +67,7 @@
 
     <!-- Contributions cumulées : qui pèse combien sur le capital total -->
     <div class="glass-card p-3">
-      <p class="text-xs font-semibold text-white mb-2">💰 Capital par stratégie (départ → actuel)</p>
+      <p class="text-sm font-semibold text-white mb-2">💰 Capital par stratégie (départ → actuel)</p>
       <div v-if="liste.length" class="flex flex-col gap-1.5">
         <div v-for="s in liste" :key="s.strategie" class="flex items-center gap-2 text-[11px]">
           <span class="w-20 shrink-0 text-white truncate">{{ icone(s.strategie) }} {{ s.strategie }}</span>
@@ -90,7 +90,7 @@
     <!-- Synthèse IA du portefeuille (owner 11/10) -->
     <div class="glass-card p-3">
       <div class="flex items-center gap-2 flex-wrap">
-        <p class="text-xs font-semibold text-white">🤖 Synthèse IA du portefeuille</p>
+        <p class="text-sm font-semibold text-white">🤖 Synthèse IA du portefeuille</p>
         <span v-if="synthese" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold"
               :class="synthese.confiance >= 70 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-white/20 bg-white/5 text-white'">{{ synthese.confiance }}/100</span>
         <span v-if="synthese && syntheseCache" class="text-[10px] text-white/40">cache du jour</span>
@@ -133,7 +133,7 @@
          prédictif. Compteurs servis par l'app, synthèse par le LLM. -->
     <div class="glass-card p-3">
       <div class="flex items-center gap-2 flex-wrap">
-        <p class="text-xs font-semibold text-white">🧾 Autopsie de la semaine</p>
+        <p class="text-sm font-semibold text-white">🧾 Autopsie de la semaine</p>
         <span v-if="autopsie?.confiance" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full border font-bold"
               :class="autopsie.confiance >= 70 ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300' : 'border-white/20 bg-white/5 text-white'">{{ autopsie.confiance }}/100</span>
         <span v-if="autopsieCache" class="text-[10px] text-white/40">cache du jour</span>

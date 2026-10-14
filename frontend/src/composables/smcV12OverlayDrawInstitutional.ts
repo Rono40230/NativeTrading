@@ -58,7 +58,7 @@ export function dessinerInstitutional(
     ctx.setLineDash([4, 3])
     ctx.beginPath(); ctx.moveTo(xG, yMid); ctx.lineTo(xD, yMid); ctx.stroke()
     ctx.setLineDash([])
-    ctx.font = 'bold 9px sans-serif'
+    ctx.font = 'bold 10px sans-serif'
     ctx.fillStyle = COUL_MID
     ctx.textAlign = 'left'
     ctx.textBaseline = 'bottom'

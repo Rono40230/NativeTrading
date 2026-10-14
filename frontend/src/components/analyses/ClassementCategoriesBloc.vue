@@ -4,7 +4,7 @@
        des R réels en somme, jamais de moyenne ; garde-fous effectif (règle des 30) et WR. -->
   <div class="glass-card p-3">
     <div class="flex items-center gap-2 mb-2 flex-wrap">
-      <p class="text-xs font-semibold text-white">🏆 {{ titre }}</p>
+      <p class="text-sm font-semibold text-white">🏆 {{ titre }}</p>
       <span class="text-[10px] text-white/50" title="Tri : Σ R distance de la catégorie — la contribution réelle, volume compris">tri : Σ R distance</span>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
