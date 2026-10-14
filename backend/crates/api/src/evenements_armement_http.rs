@@ -323,3 +323,12 @@ mod tests_db {
         );
     }
 }
+
+/// GET /api/straddle/perimetre — le périmètre straddle en texte simple
+/// (l'EA v1.36 le lit pour pousser ces symboles chaque seconde).
+pub async fn get_perimetre_straddle(state: web::Data<crate::state::AppState>) -> impl actix_web::Responder {
+    let perimetre = crate::runtime_perimetre::lire_perimetre_straddle(&state.db).await;
+    actix_web::HttpResponse::Ok()
+        .content_type("text/plain")
+        .body(perimetre.join(","))
+}

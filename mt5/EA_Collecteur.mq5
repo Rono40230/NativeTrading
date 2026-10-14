@@ -41,6 +41,7 @@ int      NB_TF = 0;
 // Suivi live par (symbole × tf) — tableaux aplatis
 datetime dernier_debut[];
 double   dernier_close[];
+string   perimetre_straddle = "";
 // Mémo de la dernière clôture ENVOYÉE (shift 1) — le surveilleur de
 // finalisation repousse si la lecture officielle change après envoi.
 double   dernier_o1[];
@@ -53,6 +54,7 @@ int      ticks_timer = 0;
 //+------------------------------------------------------------------+
 int OnInit()
 {
+   charger_perimetre_straddle();
    EventSetTimer(1);
    rafraichir_abonnements();
    Print("EA_Collecteur: démarré v1.35 — cible ", ApiUrl);
@@ -410,6 +412,27 @@ void pousser_historique(const int s)
 //| RATTRAPAGE DES 48 DERNIÈRES HEURES (v1.32).                      |
 //| v1.31 remplissait depuis max_ts (la FIN) — aveugle aux trous AU   |
 //| MILIEU : ce matin-là, l'EA avait déjà collecté après le trou.     |
+
+// v1.36 : true si le symbole est dans le périmètre straddle (4 assets max).
+// Récupéré avec la liste des symboles (en-tête #STRADDLES:).
+bool symbole_est_straddle(const string symbole)
+{
+   return StringFind(perimetre_straddle, symbole) >= 0;
+}
+
+
+// v1.36 : récupère le périmètre straddle (liste séparée par ,) pour
+// pousser ces symboles chaque seconde même sans changement de prix.
+void charger_perimetre_straddle()
+{
+   char donnees[]; char resultat[]; string en_tetes = "";
+   ResetLastError();
+   int statut = WebRequest("GET", ApiUrl + "/api/straddle/perimetre", "", 5000,
+                           donnees, resultat, en_tetes);
+   if(statut == 200)
+      perimetre_straddle = CharArrayToString(resultat); // "XAUUSD,NAS100,BTC,GER40"
+}
+
 //| v1.32 : re-push IDempotent des 48h (INSERT OR IGNORE côté app) —  |
 //| les trous guérissent quelle que soit leur position, marché fermé  |
 //| → rien à pousser, doublons ignorés. UN TF par tick, une passe.    |
@@ -513,7 +536,11 @@ void pousser_bougies()
          }
 
          double c = iClose(symbole, periode, 0);
-         if(c > 0 && (c != dernier_close[idx(s, t)] || t0 != dernier_debut[idx(s, t)]))
+         // v1.36 (owner 14/10) : straddle = CHAQUE SECONDE même sans changement —
+         // le moteur straddle a besoin de voir l'horloge tourner pour ouvrir
+         // ses jambes à T-3s de l'annonce, même si le prix est figé.
+         bool est_straddle = (periode == PERIOD_M1 && symbole_est_straddle(symbole));
+         if(c > 0 && (est_straddle || c != dernier_close[idx(s, t)] || t0 != dernier_debut[idx(s, t)]))
             envoyer_kline(s, t, 0, false);
       }
    }

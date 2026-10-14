@@ -247,6 +247,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::post().to(crate::evenements_ia::post_analyse),
         )
         .route(
+            "/api/straddle/perimetre",
+            web::get().to(crate::evenements_armement_http::get_perimetre_straddle),
+        )
+        .route(
             "/api/briefing/ia",
             web::post().to(crate::briefing_ia::post_briefing),
         )
