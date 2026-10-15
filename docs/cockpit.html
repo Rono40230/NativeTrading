@@ -70,7 +70,7 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "15/10 soir — EVT validé écran (correctif 0123 : cellules désarmées visibles) ; KAS : règle EMA clôturée prouvée, espion accumule",
+    "date": "15/10 nuit — chantiers KAS (espion accumule), EVT (poussé 7d2eb10), PIL (codé, validation écran) — le pipeline devient la référence unique des assets",
     "commit": "78c25c2",
     "note": "R distance (stratégie) + $ (résultat), jamais de R moyen. Production SMC = tout-TP1 + trailing k=0,1. Doctrine événements : 17 (8 structurels + 9 calendrier), Medium non tradés. Vécu immuable. KPIs relevés ce jour via /api/analyses."
   },
@@ -225,6 +225,13 @@
       "titre": "Créneaux fixes éditables + Réouverture or — CODÉ 15/10, validé écran (correctif cellules 0123)",
       "detail": "Migration 0122 : les 8 structurels quittent le code pour la table evenements_catalogue (+ « or_reouverture » lundi 00h00 Paris — données réelles Axi : pause quotidienne 22h58→00h00, reprise hebdo lundi minuit ; DÉSARMÉ, l'owner arme XAUUSD lui-même). Modale ⚙ « Gérer les créneaux » (3 niveaux : 🕐 → gestion → édition) : créer (désarmé partout, doctrine anti-auto-arm), modifier (mode heure Paris fixe OU ancré place avec DST — Tokyo 2h/1h suit seul), pause/actif (compteurs conservés), supprimer (cases emportées). Changement d'horaire → warning + remise à zéro des compteurs. Les 9 types 📅 restent en code (heure de l'annonce réelle, doctrine 14/10). Empreinte hot-reload embarque la version du catalogue (réinscription ≤ 60 s). Cache 30 s + invalidation CRUD. 128 tests api verts. CORRECTIF 15/10 soir (validation owner) : « désarmé à la création » = cellules DÉSARMÉES × périmètre (migration 0123 + handler creer) et non lignes absentes — sinon la matrice ne dessine rien d'armable.",
       "echeance": "armement XAUUSD × Réouverture or par l'owner, puis première passe lundi 00h00"
+    },
+    {
+      "id": "PIL",
+      "prio": 1,
+      "titre": "PIPELINE = référence unique des assets — CODÉ 15/10, validation écran",
+      "detail": "Doctrine owner 15/10 : « la seule source de référence pour tous les assets affichés et analysés est 📦 Données — Pilotage du pipeline ». RETRAIT = cascade (pipeline_cascade.rs : périmètre straddle + cases matrice, couples SMC, liste KDJ matérialisée si « tous », caches vidés — briefing/patterns volatilité/matrice) avec confirmation UI affichant désarmements + positions ouvertes (confiées au rattrapage). AJOUT = disponible partout, ARMÉ NULLE PART. Garde-fou assets_garde INVERSÉ : un armé hors pipeline est désarmé (plus jamais réactivé en silence). 3 modales miroir : poll 60 s non destructif (préserve les éditions en cours). GET /api/assets/{id}/impact-retrait. 130 tests verts.",
+      "echeance": "relance run.sh puis validation écran owner (retrait BTC test → matrice/modales/analyses)"
     },
     {
       "id": "STR",

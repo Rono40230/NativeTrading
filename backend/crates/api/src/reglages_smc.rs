@@ -59,7 +59,7 @@ pub const TF_GENERATEURS: [&str; 4] = ["M1", "M5", "M15", "M30"];
 /// Clé kv de l'armement SMC par couple — JSON `{"XAUUSD":["M1","M15"],...}`.
 /// Asset absent de la map = TOUS les TF_GENERATEURS armés (défaut plein,
 /// compatibilité : sans clé, comportement d'avant moins H1).
-const CLE_COUPLES_ARMES: &str = "smc_couples_armes";
+pub(crate) const CLE_COUPLES_ARMES: &str = "smc_couples_armes";
 
 /// Armement SMC lu de la config. Vide/illisible = défauts.
 pub async fn lire_couples_armes(db: &db::Database) -> HashMap<String, HashSet<String>> {

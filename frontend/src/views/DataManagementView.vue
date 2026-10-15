@@ -146,12 +146,29 @@
       </div>
       <p v-if="erreurAssets" class="text-red-400 text-xs mt-2">{{ erreurAssets }}</p>
       <p class="text-white text-[11px] mt-2">
-        Décocher un asset l'exclut des workers à leur prochaine session/cycle (≤ 60 s) — les données sont conservées.
+        LE PIPELINE EST LA RÉFÉRENCE (owner 15/10) : décocher retire l'asset partout (armements en cascade, caches d'analyse rafraîchis) — les données sont conservées, réactiver remonte immédiatement. Cocher rend l'asset disponible partout, ARMÉ NULLE PART.
       </p>
     </div>
 
     <!-- Modale d'ajout (composant dédié) -->
     <ModaleAjoutAsset ref="modaleAjout" @cree="chargerTous" />
+
+    <!-- Confirmation de retrait : impact réel de la cascade (doctrine 15/10) -->
+    <ModaleConfirmation
+      :ouverte="retraitCible !== null"
+      titre="Retirer cet asset du pipeline ?"
+      :sous-titre="retraitCible ? `${retraitCible.asset.id} — la référence unique de l'app` : ''"
+      :lignes="retraitCible ? lignesRetrait(retraitCible.impact) : []"
+      :avertissement="retraitCible && retraitCible.impact.positions_ouvertes > 0
+        ? `${retraitCible.impact.positions_ouvertes} position(s) ouverte(s) sur cet asset : le rattrapage les clôturera au dernier prix connu.`
+        : undefined"
+      label-confirmer="Retirer partout"
+      variant="danger"
+      icone="📦"
+      :en-cours="retraitEnCours"
+      @confirmer="confirmerRetrait"
+      @annuler="retraitCible = null"
+    />
 
     <!-- ══ SECTION 4 — Couverture DB ═════════════════════════════════════════ -->
     <div class="glass-card p-5">
@@ -219,6 +236,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { http } from '@/services/http.client'
 import ModaleAjoutAsset from '@/components/common/ModaleAjoutAsset.vue'
+import ModaleConfirmation from '@/components/common/ModaleConfirmation.vue'
+import { useAlerteStore } from '@/stores/alerte.store'
 import type { AssetInfo } from '@/services/api.service'
 import { apiService } from '@/services/api.service'
 import type { CouvertureDonnees } from '@/services/api.service'
@@ -226,6 +245,7 @@ import type { WorkerConfig, WorkerStatus } from '@/services/api.worker'
 import { useAssetsStore } from '@/stores/assets.store'
 
 const assetsStore = useAssetsStore()
+const alerteStore = useAlerteStore()
 const TOUS_TF = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 
 // ── Section 1 : workers ───────────────────────────────────────────────────────
@@ -315,19 +335,66 @@ const nbAssetsActifs = computed(() => tous.value.filter(a => a.actif).length)
 // ── Collecteur MT5 : statut (poll 30 s) ──────────────────────────────────────
 const modaleAjout = ref<InstanceType<typeof ModaleAjoutAsset> | null>(null)
 
-async function basculerAsset(a: AssetInfo) {
+/// Retrait pipeline = confirmation avec l'impact réel (désarmements en
+/// cascade + positions ouvertes confiées au rattrapage) — doctrine 15/10 :
+/// le pipeline est LA référence, la cascade s'exécute côté backend.
+interface ImpactRetrait {
+  positions_ouvertes: number
+  smc_couples: string[]
+  kdj_arme: boolean
+  straddle: boolean
+}
+const retraitCible = ref<{ asset: AssetInfo; impact: ImpactRetrait } | null>(null)
+const retraitEnCours = ref(false)
+
+async function demanderRetrait(a: AssetInfo) {
   try {
-    if (a.actif) {
-      await apiService.supprimerAsset(a.id)
-    } else {
-      // Règle famille → worker (actée 26/08) : crypto = Bybit, le reste = MT5.
-      const source = a.type === 'crypto' ? 'binance' : 'mt5'
-      await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], source, undefined, a.symbol_mt5 || undefined)
-    }
-    a.actif = !a.actif
+    const r = await http.get<ImpactRetrait>(`/api/assets/${a.id}/impact-retrait`)
+    retraitCible.value = { asset: a, impact: r.data }
+  } catch (e) {
+    alerteStore.afficherErreur(`Impact du retrait ${a.id} : ${(e as Error).message}`)
+  }
+}
+
+function lignesRetrait(i: ImpactRetrait): string[] {
+  const l: string[] = []
+  if (i.smc_couples.length) l.push(`SMC : ${i.smc_couples.length} couple(s) désarmé(s) (${i.smc_couples.join(', ')})`)
+  if (i.kdj_arme) l.push('KDJ : retiré de la liste des assets armés')
+  if (i.straddle) l.push('Straddle : retiré du périmètre — ses cases de matrice sont supprimées')
+  if (!l.length) l.push("Aucun armement concerné — asset d'observation")
+  return l
+}
+
+async function confirmerRetrait() {
+  const cible = retraitCible.value
+  if (!cible) return
+  retraitEnCours.value = true
+  try {
+    await apiService.supprimerAsset(cible.asset.id)
+    cible.asset.actif = false
+    retraitCible.value = null
     await chargerTous()
-  } catch (e: unknown) {
-    /* silencieux : le re-chargement réaligne l'état */
+    alerteStore.afficherSucces(`${cible.asset.id} retiré du pipeline — désarmé partout, données conservées`)
+  } catch (e) {
+    alerteStore.afficherErreur(`Retrait ${cible.asset.id} : ${(e as Error).message}`)
+  }
+  retraitEnCours.value = false
+}
+
+async function basculerAsset(a: AssetInfo) {
+  if (a.actif) {
+    await demanderRetrait(a)
+    return
+  }
+  try {
+    // Règle famille → worker (actée 26/08) : crypto = Bybit, le reste = MT5.
+    // Ajout pipeline (doctrine 15/10) : disponible partout, armé nulle part.
+    const source = a.type === 'crypto' ? 'binance' : 'mt5'
+    await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], source, undefined, a.symbol_mt5 || undefined)
+    a.actif = true
+    await chargerTous()
+  } catch (e) {
+    alerteStore.afficherErreur(`Ajout ${a.id} : ${(e as Error).message}`)
   }
 }
 

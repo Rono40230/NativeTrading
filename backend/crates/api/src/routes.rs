@@ -15,7 +15,11 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/assets",
             web::post().to(crate::assets_handlers::ajouter_asset),
         )
-        .route(
+                .route(
+            "/api/assets/{id}/impact-retrait",
+            web::get().to(crate::pipeline_cascade::get_impact_retrait),
+        )
+.route(
             "/api/assets/{id}",
             web::delete().to(crate::assets_handlers::supprimer_asset),
         )

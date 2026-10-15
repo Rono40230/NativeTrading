@@ -72,6 +72,14 @@ fn matrice_asset(
 /// l'endpoint : à l'ouverture de la fenêtre, calcul déjà fait.
 static CACHE_MATRICE: OnceLock<RwLock<Option<(std::time::Instant, serde_json::Value)>>> = OnceLock::new();
 
+/// Vide le cache de la matrice (pipeline owner 15/10 : propagation
+/// immédiate d'un changement d'univers).
+pub(crate) async fn vider_cache() {
+    if let Some(c) = CACHE_MATRICE.get() {
+        *c.write().await = None;
+    }
+}
+
 /// Préchauffe la matrice en tâche de fond au boot (étape 1-bis) : le calcul
 /// à froid scannait des dizaines de millions de bougies PENDANT que le
 /// dashboard chargeait — tous les fetchs patientaient derrière (incident

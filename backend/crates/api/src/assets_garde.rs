@@ -1,14 +1,17 @@
 //! Garde-fou d'alimentation des assets (incident 07-09/10).
 //!
-//! Un asset armé dans une stratégie (SMC, KDJ, straddle) DOIT être nourri
-//! en bougies — or le drapeau `assets.actif` pilote les workers (Bybit/EA)
-//! et rien ne le couplait à l'armement : le 07/10, 15 assets retirés de la
-//! liste ont coupé le flux de 5 des 6 assets KDJ (plus aucune bougie, plus
-//! aucun signal — découvert via 3 trades orphelins). Ce garde réactive
-//! automatiquement tout asset armé trouvé inactif, à chaque tick (60 s) :
-//! l'ajout/l'armement d'un asset garantit son alimentation, par n'importe
-//! quel chemin (UI, API, SQL). Il ne désactive JAMAIS — les assets
-//! d'observation non armés restent sous contrôle du propriétaire.
+//! Cohérence armement ↔ pipeline (incident 07-09/10, doctrine PIPELINE
+//! owner 15/10). Le drapeau `assets.actif` pilote les workers (Bybit/EA) :
+//! le 07/10, 15 assets retirés de la liste ont coupé le flux de 5 des 6
+//! assets KDJ — d'où le premier garde « armé ⇒ alimenté » qui RÉACTIVAIT.
+//!
+//! Depuis le 15/10 le pipeline est la RÉFÉRENCE UNIQUE et le retrait UI
+//! cascade (module pipeline_cascade : périmètre straddle + couples SMC +
+//! liste KDJ + caches vidés). Ce garde devient le filet de sécurité des
+//! chemins hors UI (SQL manuel, API directe) : tout asset armé trouvé
+//! hors pipeline est DÉSARMÉ par la même cascade — « armé ⇒ alimenté
+//! seulement s'il est au pipeline ». Il ne réactive PLUS JAMAIS en silence
+//! (l'ancien sens combattait la décision du propriétaire).
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -37,7 +40,8 @@ pub(crate) fn assets_a_garder(
     v
 }
 
-/// Réactive les assets armés trouvés inactifs (idempotent, log par geste).
+/// Désarme (cascade complète) les assets armés trouvés hors pipeline —
+/// idempotent, journalisé. Sens inversé le 15/10 : le pipeline décide.
 pub async fn reconcilier(db: &Arc<db::Database>) {
     let smc = crate::reglages_smc::lire_couples_armes(db).await;
     let kdj = crate::kdj_handlers::assets_armes_kdj(db).await;
@@ -59,11 +63,14 @@ pub async fn reconcilier(db: &Arc<db::Database>) {
         if id.is_empty() {
             continue;
         }
-        let _ = sqlx::query("UPDATE assets SET actif = 1 WHERE id = ?")
-            .bind(&id)
-            .execute(db.pool())
-            .await;
-        tracing::info!("🩹 Asset {id} réactivé automatiquement (armé dans une stratégie) — le flux de bougies reprend en ≤ 60 s");
+        let recap = crate::pipeline_cascade::retirer(db, &id).await;
+        tracing::warn!(
+            "🩹 Asset {id} armé hors pipeline — DÉSARMÉ par cohérence ({} couple(s) SMC, KDJ {}, straddle {}, {} case(s)). Le pipeline est la référence : le réajouter là-bas, puis armer.",
+            recap.smc_couples_retires,
+            if recap.kdj_retire { "retiré" } else { "—" },
+            if recap.straddle_retire { "retiré" } else { "—" },
+            recap.cases_matrice
+        );
     }
 }
 

@@ -53,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { http } from '@/services/http.client'
 
 const tfs = ref<string[]>([])
@@ -127,5 +127,26 @@ async function enregistrer() {
   }
 }
 
-onMounted(charger)
+onMounted(() => {
+  charger()
+  // Miroir pipeline (owner 15/10) : toutes les 60 s, resynchroniser sans
+  // ÉCRASER des changements non enregistrés — rechargement complet si
+  // l'état local est vierge, sinon seul l'univers des assets bouge.
+  pollMiroir = setInterval(rafraichirSansEcraser, 60_000)
+})
+
+async function rafraichirSansEcraser() {
+  try {
+    const res = await http.get<{ tfs: string[]; assets: string[]; armes: Record<string, string[]> }>('/api/smc/couples')
+    const vierge = JSON.stringify(tri(armesLocal.value)) === JSON.stringify(tri(armesServeur.value))
+    if (vierge) {
+      tfs.value = res.data.tfs
+      armesServeur.value = res.data.armes
+      armesLocal.value = JSON.parse(JSON.stringify(res.data.armes))
+    }
+    assets.value = res.data.assets
+  } catch { /* silencieux : le cycle suivant repartira */ }
+}
+let pollMiroir: ReturnType<typeof setInterval> | null = null
+onUnmounted(() => { if (pollMiroir !== null) clearInterval(pollMiroir) })
 </script>

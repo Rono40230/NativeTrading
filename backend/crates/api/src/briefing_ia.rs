@@ -75,6 +75,12 @@ fn cache() -> &'static Mutex<Option<Briefing>> {
     C.get_or_init(|| Mutex::new(None))
 }
 
+/// Vide le cache du jour (pipeline owner 15/10 : l'univers des événements
+/// armés/positions change ⇒ le briefing se régénère à la demande suivante).
+pub(crate) fn vider_cache() {
+    *cache().lock().unwrap_or_else(|p| p.into_inner()) = None;
+}
+
 fn jour_courant(ts: i64) -> String {
     chrono::DateTime::from_timestamp(ts, 0)
         .map(|t| t.with_timezone(&chrono::Local).format("%Y-%m-%d").to_string())

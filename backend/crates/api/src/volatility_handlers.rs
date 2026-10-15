@@ -57,6 +57,14 @@ pub async fn get_patterns(
 /// l'endpoint.
 static CACHE_PATTERNS_JOUR: OnceLock<RwLock<Option<(Instant, serde_json::Value)>>> = OnceLock::new();
 
+/// Vide le cache des patterns (pipeline owner 15/10 : l'univers des assets
+/// change ⇒ les analyses se recalculent immédiatement, pas à l'expiration).
+pub(crate) async fn vider_cache_patterns() {
+    if let Some(c) = CACHE_PATTERNS_JOUR.get() {
+        *c.write().await = None;
+    }
+}
+
 /// Préchauffe les patterns-jour en tâche de fond au boot (étape 1-bis) : le
 /// calcul à froid scannait tout l'historique M1 par asset PENDANT que le dashboard
 /// chargeait — tous les fetchs patientaient derrière (incident 05/10 « tout

@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { http } from '@/services/http.client'
 import { useAssetsStore } from '@/stores/assets.store'
 
@@ -51,7 +51,7 @@ const enCours = ref(false)
 const message = ref('')
 const erreur = ref(false)
 
-onMounted(async () => {
+async function charger() {
   if (!assetsStore.assets.length) await assetsStore.chargerAssets()
   assetsDispo.value = assetsStore.assets.map(a => a.id).sort()
   selection.value = [...assetsDispo.value]
@@ -67,7 +67,23 @@ onMounted(async () => {
   } catch {
     // absent = tous armés (état natif)
   }
+}
+
+onMounted(() => {
+  void charger()
+  // Miroir pipeline (owner 15/10) : toutes les 60 s, resynchroniser
+  // l'UNIVERS sans écraser une sélection en cours d'édition — seuls les
+  // assets retirés du pipeline disparaissent de la sélection.
+  pollMiroir = setInterval(() => void rafraichirUnivers(), 60_000)
 })
+
+async function rafraichirUnivers() {
+  await assetsStore.chargerAssets()
+  assetsDispo.value = assetsStore.assets.map(a => a.id).sort()
+  selection.value = selection.value.filter(a => assetsDispo.value.includes(a))
+}
+let pollMiroir: ReturnType<typeof setInterval> | null = null
+onUnmounted(() => { if (pollMiroir !== null) clearInterval(pollMiroir) })
 
 function basculer(a: string) {
   selection.value = selection.value.includes(a)

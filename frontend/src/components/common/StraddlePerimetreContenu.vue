@@ -189,7 +189,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { http } from '@/services/http.client'
 import { useAlerteStore } from '@/stores/alerte.store'
@@ -205,6 +205,7 @@ const alerteStore = useAlerteStore()
 const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
 const archiveOuverte = ref(false)
 const gestionOuverte = ref(false)
+let pollMiroir: ReturnType<typeof setInterval> | null = null
 const seuilsMin = ref(4)
 const seuilsPlancher = ref(-1.5)
 const assetsApi = ref<AssetApi[]>([])
@@ -354,5 +355,15 @@ onMounted(async () => {
   await arm.charger()
   seuilsMin.value = arm.seuils.value.min
   seuilsPlancher.value = arm.seuils.value.plancher_r
+  // Miroir pipeline (owner 15/10) : pendant que la modale est ouverte, se
+  // resynchroniser toute seule (60 s) — le pipeline est la référence.
+  pollMiroir = setInterval(async () => {
+    await arm.charger()
+    try {
+      const res = await http.get<AssetApi[]>('/api/assets')
+      assetsApi.value = res.data ?? []
+    } catch { /* silencieux : la liste suivante repartira */ }
+  }, 60_000)
 })
+onUnmounted(() => { if (pollMiroir !== null) clearInterval(pollMiroir) })
 </script>

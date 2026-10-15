@@ -153,7 +153,14 @@ pub async fn ajouter_asset(
         )
         .await
     {
-        Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true, "id": id })),
+        Ok(()) => {
+            // Ajout pipeline (doctrine 15/10) : disponible partout, ARMÉ
+            // NULLE PART — mais les analyses le voient immédiatement.
+            crate::volatility_handlers::vider_cache_patterns().await;
+            crate::evenements_matrice::vider_cache().await;
+            crate::briefing_ia::vider_cache();
+            HttpResponse::Ok().json(serde_json::json!({ "ok": true, "id": id }))
+        }
         Err(e) => {
             let msg = match &e {
                 common::TradingError::Data(m) => m.clone(),
@@ -171,8 +178,12 @@ pub async fn supprimer_asset(
     path: web::Path<String>,
 ) -> impl Responder {
     let id = path.into_inner().to_uppercase();
+    // DOCTRINE PIPELINE (owner 15/10) : le retrait CASCADE — l'asset quitte
+    // le périmètre straddle (+ cases), ses couples SMC, la liste KDJ, et
+    // les caches d'analyse se vident. Jamais de suppression de données.
+    let recap = crate::pipeline_cascade::retirer(&state.db, &id).await;
     match state.db.supprimer_asset(&id).await {
-        Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true, "retrait": recap })),
         Err(e) => {
             tracing::warn!("supprimer_asset '{}': {}", id, e);
             HttpResponse::NotFound().json(serde_json::json!({ "error": e.to_string() }))

@@ -19,6 +19,7 @@ mod evenements_matrice;
 mod evenements_armement;
 mod evenements_armement_http;
 mod evenements_catalogue;
+mod pipeline_cascade;
 mod evenements_ia;
 mod briefing_ia;
 mod autopsie_ia;
