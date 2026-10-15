@@ -70,7 +70,7 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "15/10 matin — REPRISE EN MAIN : le cockpit redevient LA référence unique (feuilles de route absorbées)",
+    "date": "15/10 soir — EVT validé écran (correctif 0123 : cellules désarmées visibles) ; KAS : règle EMA clôturée prouvée, espion accumule",
     "commit": "78c25c2",
     "note": "R distance (stratégie) + $ (résultat), jamais de R moyen. Production SMC = tout-TP1 + trailing k=0,1. Doctrine événements : 17 (8 structurels + 9 calendrier), Medium non tradés. Vécu immuable. KPIs relevés ce jour via /api/analyses."
   },
@@ -211,6 +211,20 @@
       "titre": "OTE swing ≢ indicateur cible TV — PROBLÈME PARQUÉ (décision owner 13/10)",
       "detail": "Mécanisme fractal N-barres (N=4 M1-M15 / N=5 M30+) + chaînes par fraîcheur + extrêmes vivants implémenté (212+126 tests verts, cas réel = capture au centime en unitests) MAIS zones ≢ TV à l'écran. Code v2 COMMITÉ (7c0b03a). REPRISE = captures côte à côte horodatées app-vs-TV sur un même asset/TF pour LOCALISER la divergence (suspects : N M30 5-vs-6, micro-pivots M1/M5, écart de flux TV/Axi).",
       "echeance": "à toi — les captures déclenchent la reprise"
+    },
+    {
+      "id": "KAS",
+      "prio": 1,
+      "titre": "Tendance Kasper Bootcamp — reproduction via espion (GO owner 15/10)",
+      "detail": "Remplacer NOTRE approximation « Tendance MTF » (EMA 9/21, déjà 90 % du chemin) par la vraie Tendance Kasper. Les Inputs de l'.ex5 révèlent la formule : Fast MA 9 · Slow MA 21 · Exponential · Close + 3 couleurs (vert/rouge/GRIS = 3ᵉ état neutre) + Show MTF Table + Sunday=false + dashboard à objets (marges). INCONNUES à calibrer : règle de l'état gris, évaluation clôturée vs bougie vivante, effet Sunday. Espion EA_Espion_Kasper.mq5 (objets + sondes EMA 9/21 des 7 TF en parallèle, journal MQL5/Files/espion_kasper_journal.jsonl, lecture directe sur disque — endpoint espion purgé). Leçon ancien espion : iCustom ne charge que depuis Indicators/ (les .ex5 Kasper vivent dans Experts/Advisors/) → lecture d'objets uniquement. Rendu Kasper ILLISIBLE sur MT5/Wine owner (police flèches absente, chevauchements) — notre reproduction affichera proprement.",
+      "echeance": "en cours — journal en accumulation, analyse à la première session de données"
+    },
+    {
+      "id": "EVT",
+      "prio": 1,
+      "titre": "Créneaux fixes éditables + Réouverture or — CODÉ 15/10, validé écran (correctif cellules 0123)",
+      "detail": "Migration 0122 : les 8 structurels quittent le code pour la table evenements_catalogue (+ « or_reouverture » lundi 00h00 Paris — données réelles Axi : pause quotidienne 22h58→00h00, reprise hebdo lundi minuit ; DÉSARMÉ, l'owner arme XAUUSD lui-même). Modale ⚙ « Gérer les créneaux » (3 niveaux : 🕐 → gestion → édition) : créer (désarmé partout, doctrine anti-auto-arm), modifier (mode heure Paris fixe OU ancré place avec DST — Tokyo 2h/1h suit seul), pause/actif (compteurs conservés), supprimer (cases emportées). Changement d'horaire → warning + remise à zéro des compteurs. Les 9 types 📅 restent en code (heure de l'annonce réelle, doctrine 14/10). Empreinte hot-reload embarque la version du catalogue (réinscription ≤ 60 s). Cache 30 s + invalidation CRUD. 128 tests api verts. CORRECTIF 15/10 soir (validation owner) : « désarmé à la création » = cellules DÉSARMÉES × périmètre (migration 0123 + handler creer) et non lignes absentes — sinon la matrice ne dessine rien d'armable.",
+      "echeance": "armement XAUUSD × Réouverture or par l'owner, puis première passe lundi 00h00"
     },
     {
       "id": "STR",

@@ -12,32 +12,13 @@ use db::Database;
 use engine::{EvenementPrix, PrixEvent, Runtime};
 
 pub struct TimerStraddle {
-    tick: tokio::time::Interval,
     annonces: Vec<(String, i64)>,
     dernier_chargement: i64,
 }
 
-/// Le tokio::select! a besoin d'un Future — on expose un sleep d'une
-/// seconde plutôt que l'Interval (qui n'est pas un Future directement).
-pub struct TickStraddle;
-
-impl std::future::Future for TickStraddle {
-    type Output = ();
-    fn poll(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
-        let fut = Box::pin(tokio::time::sleep(std::time::Duration::from_secs(1)));
-        let mut fut = fut;
-        std::future::Future::poll(std::pin::Pin::new(&mut fut), cx)
-    }
-}
-
 impl TimerStraddle {
     pub fn new() -> Self {
-        let mut tick = tokio::time::interval(std::time::Duration::from_secs(1));
-        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        Self { tick, annonces: Vec::new(), dernier_chargement: 0 }
+        Self { annonces: Vec::new(), dernier_chargement: 0 }
     }
 
     /// À appeler à chaque tick (1 s) — injecte les prix si annonce imminente.

@@ -7,7 +7,7 @@
 use chrono::{DateTime, Datelike, Duration, TimeZone, Timelike, Utc};
 use sqlx::Row;
 
-use crate::evenements::{EVENEMENTS, EvenementModele};
+use crate::evenements::Evenement;
 use db::Database;
 
 // ── Phase 3 (28/09) : armement événementiel ──────────────────────────────────
@@ -46,22 +46,31 @@ pub async fn initialiser(db: &Database) {
             .await;
         tracing::info!("📯 Périmètre straddle : XAGUSD ajouté (défaut enrichi, décision owner 28/09)");
     }
-    semer(db).await;
+    // Plus de semis général ici (owner 15/10) : un créneau du catalogue
+    // éditable arrive DÉSARMÉ — seuls les assets AJOUTÉS au périmètre
+    // reçoivent l'armement large (semer_assets, décision 28/09 préservée).
 }
 
-/// Crée armés les créneaux (périmètre × taxonomie) qui n'existent pas.
-pub async fn semer(db: &Database) {
-    let perimetre = crate::runtime_perimetre::lire_perimetre_straddle(db).await;
+/// Crée armés les créneaux (assets AJOUTÉS au périmètre × catalogue ACTIF)
+/// qui n'existent pas — le balayage large owner 28/09 pour un entrant.
+/// Les créneaux nouvellement créés dans le catalogue ne sont armés pour
+/// PERSONNE par cette voie (doctrine 15/10 : désarmé à la création).
+pub async fn semer_assets(db: &Database, ajoutes: &[String]) {
+    if ajoutes.is_empty() {
+        return;
+    }
+    let catalogue = crate::evenements_catalogue::lire(db).await;
+    let actifs: Vec<&Evenement> = catalogue.iter().filter(|e| e.actif).collect();
     let maintenant = Utc::now().timestamp();
     let mut crees = 0u32;
-    for asset in &perimetre {
-        for ev in EVENEMENTS {
+    for asset in ajoutes {
+        for ev in &actifs {
             let res = sqlx::query(
                 "INSERT OR IGNORE INTO creneaux_evenements (asset, evenement, arme, arme_le)
                  VALUES (?, ?, 1, ?)",
             )
             .bind(asset)
-            .bind(ev.ident)
+            .bind(&ev.ident)
             .bind(maintenant)
             .execute(db.pool())
             .await;
@@ -72,15 +81,15 @@ pub async fn semer(db: &Database) {
     }
     if crees > 0 {
         tracing::info!(
-            "📯 Créneaux événements : {crees} créé(s) armé(s) — {} asset(s) × {} événement(s)",
-            perimetre.len(),
-            EVENEMENTS.len()
+            "📯 Créneaux événements : {crees} créé(s) armé(s) — {} asset(s) entrant(s) × {} créneau(s) actif(s)",
+            ajoutes.len(),
+            actifs.len()
         );
     }
 }
 
 /// Les N prochaines occurrences d'un événement, en absolu UTC croissant.
-pub(crate) fn occurrences_suivantes(ev: &EvenementModele, maintenant: DateTime<Utc>, n: usize) -> Vec<i64> {
+pub(crate) fn occurrences_suivantes(ev: &Evenement, maintenant: DateTime<Utc>, n: usize) -> Vec<i64> {
     let local = maintenant.with_timezone(&ev.tz);
     let mut out = Vec::new();
     for delta in 0..=(n as i64 * 7 + 7) {
@@ -162,11 +171,12 @@ pub async fn annonces_evenements(db: &Database, asset: &str) -> Vec<straddle::An
     .unwrap_or_default();
     let maintenant = Utc::now();
     let devise = if asset == "DAX" { "EUR" } else { "USD" };
-    let armes: Vec<&'static EvenementModele> = rows
+    let catalogue = crate::evenements_catalogue::lire(db).await;
+    let armes: Vec<&Evenement> = rows
         .iter()
         .filter_map(|r| {
             let ident: String = r.get("evenement");
-            EVENEMENTS.iter().find(|e| e.ident == ident)
+            catalogue.iter().find(|e| e.ident == ident && e.actif)
         })
         .collect();
 
@@ -181,7 +191,7 @@ pub async fn annonces_evenements(db: &Database, asset: &str) -> Vec<straddle::An
         for (ts, titre) in annonces_high_futures(db, 7 * 24 * 3600).await {
             let classe = crate::evenements::classifie_annonce(&titre);
             let ident = classe.unwrap_or("cal_autres");
-            let Some(ev) = EVENEMENTS.iter().find(|e| e.ident == ident) else {
+            let Some(ev) = catalogue.iter().find(|e| e.ident == ident) else {
                 continue;
             };
             if !armes.iter().any(|a| a.ident == ev.ident) {
@@ -239,7 +249,7 @@ pub async fn lire_seuils(db: &Database) -> (i64, f64) {
 /// suffit de le relire dans le fuseau d'origine — jour et heure locale
 /// exacts, DST comprise (une passe à 13:30 Paris pendant une entre-bascule
 /// matche bien l'événement 8:30 New York).
-fn passe_appartient(ts: i64, ev: &EvenementModele) -> bool {
+fn passe_appartient(ts: i64, ev: &Evenement) -> bool {
     match DateTime::from_timestamp(ts, 0) {
         Some(utc) => {
             let locale = utc.with_timezone(&ev.tz);
@@ -263,10 +273,11 @@ pub async fn statuer_evenements(db: &Database) {
     .await
     .unwrap_or_default();
 
+    let catalogue = crate::evenements_catalogue::lire(db).await;
     for r in &armes {
         let asset: String = r.get("asset");
         let ident: String = r.get("evenement");
-        let Some(ev) = EVENEMENTS.iter().find(|e| e.ident == ident) else {
+        let Some(ev) = catalogue.iter().find(|e| e.ident == ident && e.actif) else {
             continue;
         };
         let arme_le = r
@@ -379,7 +390,6 @@ pub async fn boucle_validation(db: std::sync::Arc<Database>) {
             (prochain - maintenant).num_seconds().max(60) as u64,
         ))
         .await;
-        semer(&db).await;
         statuer_evenements(&db).await;
     }
 }
@@ -389,29 +399,26 @@ mod tests_dst {
     use super::*;
     use chrono::TimeZone;
 
-    fn ev(ident: &str) -> &'static EvenementModele {
-        EVENEMENTS.iter().find(|e| e.ident == ident).expect("événement inconnu")
-    }
-
     /// Une passe à 14:30 Paris pendant l'entre-bascule d'octobre appartient
     /// bien à l'ouverture NYSE (9:30 NY) — le ts de la clé moteur est relu
     /// dans le fuseau d'ORIGINE, pas en heure Paris figée.
     #[test]
     fn passe_entre_bascules_appartient_a_nyse_ouverture() {
-        let ev = ev("nyse_ouverture");
+        let ev = crate::evenements::tests_outils::crene(
+            chrono_tz::America::New_York, 9, 30, &[1, 2, 3, 4, 5]);
         // Lundi 26 octobre 2026, 14:30 Paris (l'Europe a reculé, les US pas).
         let ts = chrono_tz::Europe::Paris
             .with_ymd_and_hms(2026, 10, 26, 14, 30, 0)
             .unwrap()
             .timestamp();
-        assert!(passe_appartient(ts, ev), "14:30 Paris ce jour-là = 9:30 NY");
+        assert!(passe_appartient(ts, &ev), "14:30 Paris ce jour-là = 9:30 NY");
         // 15:30 Paris le même jour : PAS l'heure de l'événement cette
         // semaine (c'est 14:30, l'écart US↔Europe est alors de 5 h).
         let ts_faux = chrono_tz::Europe::Paris
             .with_ymd_and_hms(2026, 10, 26, 15, 30, 0)
             .unwrap()
             .timestamp();
-        assert!(!passe_appartient(ts_faux, ev));
+        assert!(!passe_appartient(ts_faux, &ev));
     }
 }
 
@@ -420,17 +427,14 @@ mod tests_occurrences {
     use super::*;
     use chrono::TimeZone;
 
-    fn ev(ident: &str) -> &'static EvenementModele {
-        EVENEMENTS.iter().find(|e| e.ident == ident).expect("événement inconnu")
-    }
-
     /// 14 occurrences d'un événement quotidien = 14 jours ouvrés devant,
     /// toutes futures et croissantes (runway des annonces synthétiques).
     #[test]
     fn occurrences_suivantes_quotidiennes() {
-        let ev = ev("cme_reouverture"); // lun-ven 18:00 New York
+        let ev = crate::evenements::tests_outils::crene(
+            chrono_tz::America::New_York, 18, 0, &[1, 2, 3, 4, 5]); // lun-ven 18:00 NY
         let base = Utc.with_ymd_and_hms(2026, 9, 28, 12, 0, 0).unwrap(); // lundi
-        let occ = occurrences_suivantes(ev, base, 14);
+        let occ = occurrences_suivantes(&ev, base, 14);
         assert_eq!(occ.len(), 14, "14 jours ouvrés devant");
         assert!(occ.windows(2).all(|w| w[0] < w[1]), "croissantes");
         assert!(occ.iter().all(|&t| t > base.timestamp()), "toutes futures");

@@ -8,7 +8,7 @@ use chrono::{Datelike, Timelike, Utc};
 use sqlx::Row;
 
 use crate::state::AppState;
-use crate::evenements::{EVENEMENTS, prochaine_occurrence};
+use crate::evenements::prochaine_occurrence;
 use crate::evenements_armement::lire_seuils;
 
 // ── Endpoints d'armement ─────────────────────────────────────────────────────
@@ -38,10 +38,12 @@ pub async fn get_armement(state: web::Data<AppState>) -> impl Responder {
             .and_modify(|t| *t = (*t).min(*ts))
             .or_insert(*ts);
     }
-    let mut evenements: Vec<serde_json::Value> = EVENEMENTS
+    let catalogue = crate::evenements_catalogue::lire(&state.db).await;
+    let mut evenements: Vec<serde_json::Value> = catalogue
         .iter()
+        .filter(|ev| ev.actif)
         .map(|ev| {
-            let prochain_ts_type = if ev.calendrier { prochain_par_type.get(ev.ident).copied() } else { None };
+            let prochain_ts_type = if ev.calendrier { prochain_par_type.get(ev.ident.as_str()).copied() } else { None };
             let lignes: Vec<serde_json::Value> = rows
                 .iter()
                 .filter(|r| r.get::<String, _>("evenement") == ev.ident)
@@ -132,7 +134,8 @@ pub struct BodyBascule {
 /// POST /api/evenements/armement/basculer — armement propriétaire d'une
 /// case (asset × événement). Armer = nouveau test : compteurs à zéro.
 pub async fn basculer(state: web::Data<AppState>, body: web::Json<BodyBascule>) -> impl Responder {
-    if !EVENEMENTS.iter().any(|e| e.ident == body.evenement) {
+    let catalogue = crate::evenements_catalogue::lire(&state.db).await;
+    if !catalogue.iter().any(|e| e.ident == body.evenement) {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "error": format!("Événement inconnu : {}", body.evenement)
         }));
@@ -212,7 +215,8 @@ pub async fn basculer_evenement(
     state: web::Data<AppState>,
     body: web::Json<BodyEvenementLigne>,
 ) -> impl Responder {
-    if !EVENEMENTS.iter().any(|e| e.ident == body.evenement) {
+    let catalogue = crate::evenements_catalogue::lire(&state.db).await;
+    if !catalogue.iter().any(|e| e.ident == body.evenement) {
         return HttpResponse::BadRequest().json(serde_json::json!({
             "error": format!("Événement inconnu : {}", body.evenement)
         }));
@@ -267,8 +271,7 @@ pub async fn mettre_seuils(state: web::Data<AppState>, body: web::Json<BodySeuil
 mod tests_db {
     use super::*;
     use db::Database;
-    use crate::evenements::EVENEMENTS;
-    use crate::evenements_armement::{semer, annonces_evenements, occurrences_suivantes, OCCURRENCES_ANNONCES};
+    use crate::evenements_armement::{semer_assets, annonces_evenements, occurrences_suivantes, OCCURRENCES_ANNONCES};
     use crate::evenements::classifie_annonce;
 
     pub(crate) async fn db_test_util() -> Database {
@@ -287,7 +290,7 @@ mod tests_db {
     async fn nfp_reelle_une_seule_passe_a_sa_vraie_heure() {
         let db = db_test_util().await;
         db.ecrire_config("perimetre_straddle", r#"["XAUUSD"]"#).await.unwrap();
-        crate::evenements_armement::semer(&db).await;
+        crate::evenements_armement::semer_assets(&db, &["XAUUSD".into()]).await;
 
         // Un NFP réel dans 3 jours, à une heure quelconque du calendrier.
         assert_eq!(classifie_annonce("Non-Farm Employment Change"), Some("cal_nfp"));

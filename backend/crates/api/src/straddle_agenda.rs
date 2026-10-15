@@ -94,10 +94,11 @@ pub async fn get_agenda(state: web::Data<AppState>) -> impl Responder {
             let asset: String = r.get("asset");
             par_evenement.entry(ident).or_default().push(asset);
         }
+        let catalogue_evt = crate::evenements_catalogue::lire(&state.db).await;
         for (ident, assets) in par_evenement {
-            let Some(ev) = crate::evenements::catalogue()
+            let Some(ev) = catalogue_evt
                 .iter()
-                .find(|e| e.ident == ident) else { continue };
+                .find(|e| e.ident == ident && e.actif) else { continue };
             let Some(ts) = crate::evenements::prochaine_occurrence(ev, maintenant) else { continue };
             annonces.push(AnnonceAgenda {
                 ts: ts.timestamp(),

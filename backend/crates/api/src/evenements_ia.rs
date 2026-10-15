@@ -132,18 +132,19 @@ async fn contexte(state: &AppState) -> String {
             verdict.map(|v| format!(" — verdict {v}")).unwrap_or_default()
         ));
     }
-    fn nom(id: &str) -> &str {
-        crate::evenements::catalogue()
+    let catalogue = crate::evenements_catalogue::lire(&state.db).await;
+    fn nom(id: &str, catalogue: &[crate::evenements::Evenement]) -> String {
+        catalogue
             .iter()
             .find(|e| e.ident == id)
-            .map(|e| e.nom)
-            .unwrap_or(id)
+            .map(|e| e.nom.clone())
+            .unwrap_or_else(|| id.to_string())
     }
     let mut l = Vec::new();
     let mut evs: Vec<_> = par_event.iter().collect();
     evs.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
     for (id, (n, s)) in &evs {
-        l.push(format!("ÉVÉNEMENT {} : {} tirage(s), Σ {:+.1}R", nom(id), n, s));
+        l.push(format!("ÉVÉNEMENT {} : {} tirage(s), Σ {:+.1}R", nom(id, &catalogue), n, s));
     }
     let mut assets: Vec<_> = par_asset.iter().collect();
     assets.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));

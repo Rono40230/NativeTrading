@@ -10,6 +10,9 @@
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-[10px] text-white/60">{{ armes }}/{{ total }} case(s) armée(s)</span>
       <div class="ml-auto flex items-center gap-1.5">
+        <button class="text-[10px] px-2 py-1 rounded-lg bg-white/10 text-white/80 font-semibold hover:bg-white/20 transition"
+                title="Créer, modifier, mettre en pause ou supprimer les créneaux fixes — la matrice suit automatiquement"
+                @click="gestionOuverte = true">⚙ Gérer les créneaux</button>
         <button class="text-[10px] px-2 py-1 rounded-lg bg-emerald-600/20 text-emerald-300 font-semibold hover:bg-emerald-600/30 transition disabled:opacity-40"
                 :disabled="armEnCours" @click="arm.toutArmer(true)">⚡ Tout armer</button>
         <button class="text-[10px] px-2 py-1 rounded-lg bg-red-900/30 text-red-300 font-semibold hover:bg-red-900/50 transition disabled:opacity-40"
@@ -178,6 +181,10 @@
         En-tête de colonne : ajouter/retirer l'asset du périmètre. Heures Paris, bascules été/hiver.
       </p>
     </div>
+
+    <!-- ⚙ Niveau 2-3 : gestion des créneaux fixes (owner 15/10) — tout
+         changement y revient recharger LA MATRICE ci-dessus. -->
+    <GestionEvenementsModale v-if="gestionOuverte" @fermer="gestionOuverte = false" @change="arm.charger()" />
   </div>
 </template>
 
@@ -188,6 +195,7 @@ import { http } from '@/services/http.client'
 import { useAlerteStore } from '@/stores/alerte.store'
 import { useEvenementsArmement } from '@/composables/useEvenementsArmement'
 import type { EvenementArmement, LigneArmement } from '@/composables/useEvenementsArmement'
+import GestionEvenementsModale from './GestionEvenementsModale.vue'
 
 interface AssetApi { id: string; type: 'crypto' | 'metal' | 'forex' | 'indice'; actif?: boolean }
 
@@ -196,6 +204,7 @@ defineEmits<{ (e: 'fermer'): void }>()
 const alerteStore = useAlerteStore()
 const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
 const archiveOuverte = ref(false)
+const gestionOuverte = ref(false)
 const seuilsMin = ref(4)
 const seuilsPlancher = ref(-1.5)
 const assetsApi = ref<AssetApi[]>([])

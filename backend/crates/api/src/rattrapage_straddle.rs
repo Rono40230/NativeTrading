@@ -75,24 +75,6 @@ pub async fn rattraper(db: &Arc<Database>) {
     }
 }
 
-/// R d'une jambe selon où le prix a terminé (comptabilité TP acquis :
-/// un TP touché reste acquis même si l'autre côté meurt ensuite).
-fn r_jambe(sl: f64, tp1: f64, tp2: f64, tp3: f64, short: bool, high: f64, low: f64) -> Option<(f64, f64)> {
-    // Retourne (R, prix de sortie) ; None = jambe vivante.
-    if short {
-        if low <= tp3 { return Some((3.0, tp3)); }
-        if low <= tp2 { return Some((2.0, tp2)); }
-        if low <= tp1 { return Some((1.0, tp1)); }
-        if high >= sl { return Some((-1.0, sl)); }
-    } else {
-        if high >= tp3 { return Some((3.0, tp3)); }
-        if high >= tp2 { return Some((2.0, tp2)); }
-        if high >= tp1 { return Some((1.0, tp1)); }
-        if low <= sl { return Some((-1.0, sl)); }
-    }
-    None
-}
-
 async fn rattraper_un(db: &Arc<Database>, p: &Passe) -> anyhow::Result<()> {
     let jours = ((chrono::Utc::now().timestamp() - p.heure_entree) / 86_400 + 2).max(1) as u32;
     let asset = common::Asset::from(p.asset.as_str());

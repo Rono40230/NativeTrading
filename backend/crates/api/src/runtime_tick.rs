@@ -342,8 +342,15 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                     .then(|| {
                         let vide = db::reglages_asset::StraddleSurcharge::default();
                         let s = str_map.get(a.as_str()).unwrap_or(&vide);
-                        crate::reglages_asset_fusion::empreinte_straddle(
-                            &crate::reglages_asset_fusion::fusionner_straddle(&global_str, s),
+                        // Version du catalogue des créneaux (owner 15/10) :
+                        // une création/modification/suppression = réinscription
+                        // des moteurs M1 ≤ 60 s (garde fenêtre active conservée).
+                        format!(
+                            "{}|cat{}",
+                            crate::reglages_asset_fusion::empreinte_straddle(
+                                &crate::reglages_asset_fusion::fusionner_straddle(&global_str, s),
+                            ),
+                            crate::evenements_catalogue::VERSION.load(std::sync::atomic::Ordering::Relaxed)
                         )
                     });
                 let kdj = (*tf == common::Timeframe::H1 && kdj_autorise(a)).then(|| {

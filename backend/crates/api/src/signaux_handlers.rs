@@ -318,8 +318,6 @@ async fn enrichir_evenements_straddle(
     db: &db::Database,
     liste: &mut [serde_json::Value],
 ) {
-    use sqlx::Row;
-
     // Calendrier : annonces à venir et récentes (±7 j) — cache de 6 h.
     let calendrier = db.lire_calendrier_cache(6 * 3600).await.unwrap_or_default();
     let annonces: Vec<(i64, String)> = calendrier

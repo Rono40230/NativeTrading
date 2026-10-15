@@ -234,6 +234,16 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/strategies/{id}/recommandation/activer",
             web::post().to(crate::simulation_recommandation::activer),
         )
+        .service(
+            web::resource("/api/evenements/catalogue")
+                .route(web::get().to(crate::evenements_catalogue::lister))
+                .route(web::post().to(crate::evenements_catalogue::creer)),
+        )
+        .service(
+            web::resource("/api/evenements/catalogue/{ident}")
+                .route(web::put().to(crate::evenements_catalogue::modifier))
+                .route(web::delete().to(crate::evenements_catalogue::supprimer)),
+        )
         .route(
             "/api/evenements/armement",
             web::get().to(crate::evenements_armement_http::get_armement),

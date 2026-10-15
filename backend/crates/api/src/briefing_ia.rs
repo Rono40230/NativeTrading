@@ -5,7 +5,7 @@
 //! ne produit que la hiérarchie (« ce qui compte aujourd'hui »).
 //! Cache du jour, prompt éditable `briefing_session`.
 
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock};
 
 use actix_web::{web, HttpResponse};
 use serde::Serialize;
@@ -187,10 +187,11 @@ async fn collecter(state: &web::Data<AppState>) -> Briefing {
     {
         use chrono::Timelike;
         let tz = chrono_tz::Europe::Paris;
+        let catalogue = crate::evenements_catalogue::lire(db).await;
         for r in &rows {
             let asset: String = r.get("asset");
             let ident: String = r.get("evenement");
-            let Some(ev) = crate::evenements::catalogue().iter().find(|e| e.ident == ident) else {
+            let Some(ev) = catalogue.iter().find(|e| e.ident == ident && e.actif) else {
                 continue;
             };
             if ev.calendrier {

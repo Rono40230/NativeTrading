@@ -13,7 +13,7 @@ use sqlx::Row;
 use tokio::sync::RwLock;
 
 use crate::state::AppState;
-use crate::evenements::{EVENEMENTS, fenetres_evenement, prochaine_occurrence, FENETRE_MINUTES, PERIODE_JOURS, MIN_MINUTES, MIN_BOUGIES};
+use crate::evenements::{fenetres_evenement, prochaine_occurrence, Evenement, FENETRE_MINUTES, PERIODE_JOURS, MIN_MINUTES, MIN_BOUGIES};
 use db::Database;
 
 // ── Matrice de réactivité ────────────────────────────────────────────────────
@@ -106,15 +106,19 @@ async fn calculer_matrice(db: &std::sync::Arc<Database>) -> serde_json::Value {
 
     // Masque timestamp → événements (plusieurs événements peuvent coïncider,
     // ex. annonces US 10:00 et fix PM Londres en heure Paris d'été).
+    // Catalogue DB fusionné, ACTIFS seuls — la matrice suit les créneaux
+    // éditables (owner 15/10). L'ordre (ordre, ident) stabilise les colonnes.
+    let catalogue_arc = crate::evenements_catalogue::lire(db).await;
+    let catalogue: Vec<&Evenement> = catalogue_arc.iter().filter(|e| e.actif).collect();
     let mut masques: HashMap<i64, u16> = HashMap::new();
-    for (i, ev) in EVENEMENTS.iter().enumerate() {
+    for (i, ev) in catalogue.iter().enumerate() {
         for ts in fenetres_evenement(ev, debut, maintenant) {
             *masques.entry(ts).or_insert(0) |= 1 << i;
         }
     }
 
     // Lignes de réactivité par événement, assemblées par asset.
-    let mut par_evenement: Vec<Vec<serde_json::Value>> = EVENEMENTS
+    let mut par_evenement: Vec<Vec<serde_json::Value>> = catalogue
         .iter()
         .map(|_| Vec::new())
         .collect();
@@ -144,7 +148,7 @@ async fn calculer_matrice(db: &std::sync::Arc<Database>) -> serde_json::Value {
                     dernier_ts = ts;
                 }
             }
-            for (i, ligne) in matrice_asset(&w.id, &bougies, &masques, EVENEMENTS.len()) {
+            for (i, ligne) in matrice_asset(&w.id, &bougies, &masques, catalogue.len()) {
                 par_evenement[i].push(ligne);
             }
         }
@@ -153,7 +157,7 @@ async fn calculer_matrice(db: &std::sync::Arc<Database>) -> serde_json::Value {
     // Assemblage final : chaque événement avec sa prochaine occurrence,
     // convertie en heure de Paris (la bascule DST du jour s'applique).
     let maintenant_utc = Utc::now();
-    let mut evenements: Vec<serde_json::Value> = EVENEMENTS
+    let mut evenements: Vec<serde_json::Value> = catalogue
         .iter()
         .enumerate()
         .map(|(i, ev)| {

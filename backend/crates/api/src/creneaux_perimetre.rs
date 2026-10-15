@@ -69,9 +69,21 @@ pub async fn put_perimetre(
         return HttpResponse::InternalServerError()
             .json(serde_json::json!({ "error": e.to_string() }));
     }
-    // Un asset qui entre au périmètre reçoit tous ses créneaux événements
-    // armés (balayage large owner 28/09) — semis idempotent.
-    crate::evenements_armement::semer(&state.db).await;
+    // Un asset qui ENTRE au périmètre reçoit tous les créneaux ACTIFS armés
+    // (balayage large owner 28/09) — et seulement lui : un créneau créé dans
+    // le catalogue n'est armé pour personne (désarmé à la création, 15/10).
+    let deja_presents: Vec<String> = sqlx::query_scalar::<_, String>(
+        "SELECT DISTINCT asset FROM creneaux_evenements",
+    )
+    .fetch_all(state.db.pool())
+    .await
+    .unwrap_or_default();
+    let ajoutes: Vec<String> = assets
+        .iter()
+        .filter(|a| !deja_presents.contains(a))
+        .cloned()
+        .collect();
+    crate::evenements_armement::semer_assets(&state.db, &ajoutes).await;
     // Owner 10/10 (matrice croisée) : retirer un asset le retire VRAIMENT —
     // ses cases quittent la matrice (colonne + chips « + ajouter ») et le
     // réajouter re-sème/re-arme : nouveau test à zéro.
