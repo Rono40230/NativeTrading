@@ -70,9 +70,9 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
   "synchro": {
-    "date": "27/09 soir (WHALE WATCHING 2.2 + études + témoins + diagnostic — POUSSÉ 0de9b0c : pedestal COMMUNICATIONS & NAVIGATION vivant, bandeau à 3 badges à modales, calendrier lundi/jeudi, fenêtre macro ±30 min)",
-    "commit": "0de9b0c",
-    "note": "L'app parle en R distance (stratégie) et en $ (résultat). Trailing SMC ACTIF (k=0,2). Vécu immuable (fractions figées à la clôture). KDJ armé, assets choisissables en modale. Hiérarchie zones SMC : M5 > M15 > M30. Straddle +18,1 % sur 70 passes."
+    "date": "15/10 matin — REPRISE EN MAIN : le cockpit redevient LA référence unique (feuilles de route absorbées)",
+    "commit": "78c25c2",
+    "note": "R distance (stratégie) + $ (résultat), jamais de R moyen. Production SMC = tout-TP1 + trailing k=0,1. Doctrine événements : 17 (8 structurels + 9 calendrier), Medium non tradés. Vécu immuable. KPIs relevés ce jour via /api/analyses."
   },
   "verticales": [
     {
@@ -81,77 +81,104 @@
       "icone": "📐",
       "couleur": "#60a5fa",
       "etat": "Officielle",
-      "moteur": "v12 figé — miroir Pine/Rust/MQL5 validé au centime (08/09) ; 26 actifs × {M5, M15, M30} (M1 désarmé partout 14/09, H1 non générateur 04/09) ; déviation Pine votée : alt-cryptos = profil BTC ; TRAILING ACTIF k=0,2 depuis le 23/09 (balayage re-jeu : off +3,3 % → k0,2 +29,9 % — les clôtures TS portent +90,7 R pondéré) ; ventes partielles 50/30/20 FIGÉES sur chaque clôture (6.7, 24/09)",
-      "ia": "Conviction à l'émission — prompt RECALIBRÉ 24/09 (échelle complète 0-100, distribution cible) ; 308 notés : prédiction des SL PROUVÉE (<70 → 35 % SL vs 21 %, z=−2,62) mais AUC 0,572 < 0,65 → PAS de filtre (protocole 10/09 respecté) ; analyste IA nourri en deux voix (R distance + $)",
+      "moteur": "v12 figé — miroir Pine/Rust/MQL5 au centime ; 26 actifs × M5/M15/M30 (M1 désarmé) ; production depuis 06/10 : TOUT-TP1 + trailing k=0,1 (advisory balayages : +154 R / 959 trades en étude) ; réglages PAR ASSET (surcharge ⊕ défaut, hot-reload 60 s) ; fenêtre macro ±30 min autour des annonces High",
+      "ia": "Conviction LLM à l'émission — re-test final 13/10 : AUC 0,477 (0,572→0,517→0,477) = aucune valeur prédictive ; DÉCISION OWNER : notation GARDÉE en observation, capteur prédictif abandonné ; analystes en deux voix + définitions doctrine pure, paramètres courants injectés dynamiquement",
       "kpis": [
         {
           "label": "clôturés",
-          "valeur": "486",
+          "valeur": "537",
           "classe": "neutre"
         },
         {
-          "label": "WR ($>0, expirés compris)",
-          "valeur": "46 %",
+          "label": "WR ($>0)",
+          "valeur": "47 %",
           "classe": "neutre"
         },
         {
           "label": "Σ R distance",
-          "valeur": "+95,5",
+          "valeur": "+100,3",
           "classe": "positif"
         },
         {
           "label": "capital",
-          "valeur": "1000 → 799 $ (−20,1 %)",
+          "valeur": "1000 → 837 $ (−16,4 %)",
           "classe": "negatif"
-        },
-        {
-          "label": "notés LLM",
-          "valeur": "63 % (308/486)",
-          "classe": "neutre"
         }
       ],
-      "prochaine": "M30 volet 2.3 (~fin sept.) · re-test conviction À 383/500 notés : AUC 0,517 < 0,65 → toujours PAS de filtre (27/09) · 2.1 SP500 live↔replay · 2.2 mega-orders ; première journée trailing (24/09) : 7 SL vs 3 TP1+BE — le trailing juge les sorties post-TP2, pas les SL (observation continue, cohortes TS à suivre)"
+      "prochaine": "D4 — OTE swing ≢ TV (captures côte à côte horodatées, code v2 commité 7c0b03a) · alertes d'approche des zones livrées (09/10) · confluence dorée : re-test périodique (C1 non concluant)"
     },
     {
       "id": "straddle",
       "nom": "Straddle",
-      "icone": "🎯",
+      "icone": "⚡",
       "couleur": "#fbbf24",
-      "etat": "Officielle (base 24/09 — son Telegram activé par le propriétaire)",
-      "moteur": "v2 unifié + agenda intelligent + boucle de validation des créneaux ; périmètre 15/09 : BTC seule crypto, +EURUSD/GBPUSD/USDJPY sur annonces US (majeures), XAU/XAG/SP/NAS/DAX inchangés ; plafond créneaux armés 3→8",
-      "ia": "Analyste créneaux (ARMER/IGNORER) + boucle verdicts",
+      "etat": "Officielle",
+      "moteur": "événementiel TOUT ARMÉ — matrice 17 événements × assets (68/68 cases) ; doctrine 14/10 : structurels = catalogue×matrice, annonces = calendrier High SEUL (Medium non tradés), créneaux génériques 8h30/10h retirés ; ouverture à l'horloge exacte en 3 couches (EA v1.36 push continu + timer runtime 1 Hz + purge des passes >30 s) ; périmètre = table configuration (9 assets)",
+      "ia": "analyste créneaux (champ a_desarmer, droit de dire rien, règle 30/case) + 📋 Briefing du jour (cockpit)",
       "kpis": [
         {
-          "label": "passes closes",
-          "valeur": "70",
+          "label": "passes clôturées",
+          "valeur": "342",
+          "classe": "neutre"
+        },
+        {
+          "label": "WR ($>0)",
+          "valeur": "25 %",
           "classe": "neutre"
         },
         {
           "label": "Σ R distance",
-          "valeur": "+19,0",
+          "valeur": "+37,0",
           "classe": "positif"
         },
         {
           "label": "capital",
-          "valeur": "1000 → 1181 $ (+18,1 %)",
-          "classe": "positif"
-        },
-        {
-          "label": "WR ($>0)",
-          "valeur": "60 %",
+          "valeur": "1000 → 1300 $ (+30,0 %)",
           "classe": "positif"
         }
       ],
-      "prochaine": "1.1 — aucune source à 30 passes (max créneau 16h ×21) : première source jugeable ~30/09-02/10 ; réconciliation live/replay (2.1). Lecture indicative : tier 1 US portent (14h30 : 80 % WR, +103 $ · 20h : +120 $), DAX traîne (−41 $) — règle des 30 : aucune conclusion par source"
+      "prochaine": "VALIDATION LIVE : prochaine annonce High = TOUS les assets ouverts à T-3 s (EA v1.36 recompilé 15/10) · jugement par source à ≥ 30 passes (matrice en maturation)"
     },
     {
       "id": "rockets",
       "nom": "Rockets",
       "icone": "🚀",
       "couleur": "#fb923c",
-      "etat": "Officielle (base 24/09)",
-      "moteur": "Scanner D1 /10 + gestion 30 s — crypto + actions US (pas d'ETF, décision 09/09)",
-      "ia": "Catalyseur news + ranker + ML",
+      "etat": "Officielle",
+      "moteur": "scanner D1 /10 — crypto + actions US (pas d'ETF) ; gestion 30 s ; sortie de stagnation STAG (audit 06/10) ; veto unlocks actif ; étape 13 classée : D1 ≡ M15",
+      "ia": "catalyseur news + ranker + ML (mono-régime, audit 06/10)",
+      "kpis": [
+        {
+          "label": "clôturés",
+          "valeur": "10",
+          "classe": "neutre"
+        },
+        {
+          "label": "WR ($>0)",
+          "valeur": "100 %",
+          "classe": "positif"
+        },
+        {
+          "label": "Σ R distance",
+          "valeur": "+5,9",
+          "classe": "positif"
+        },
+        {
+          "label": "capital",
+          "valeur": "1000 → 1059 $ (+5,9 %)",
+          "classe": "positif"
+        }
+      ],
+      "prochaine": "analyse par pilier à ≥ 30 clôturés — laisser le scanner accumuler"
+    },
+    {
+      "id": "kdj_halftrend",
+      "nom": "KDJ/Halftrend",
+      "icone": "📈",
+      "couleur": "#22d3ee",
+      "etat": "Officielle",
+      "moteur": "H1 déterministe, chauffe 600 barres au montage (fix 05/10 — plus jamais muet après redémarrage) ; calibration par actif disponible (labo 7.G : écart ~40× entre actifs — XRP +1,35 R/tr en tête, forex en fond) ; scanner tableau + params hot-reload ; réglages par asset retirés de la modale (owner 14/10)",
+      "ia": "aucune — moteur déterministe pur",
       "kpis": [
         {
           "label": "clôturés",
@@ -159,163 +186,136 @@
           "classe": "neutre"
         },
         {
-          "label": "en cours",
-          "valeur": "4",
+          "label": "WR ($>0)",
+          "valeur": "60 %",
           "classe": "neutre"
         },
         {
-          "label": "véto unlocks",
-          "valeur": "actif",
+          "label": "Σ R distance",
+          "valeur": "+3,9",
           "classe": "positif"
         },
         {
-          "label": "clôture manuelle",
-          "valeur": "livrée",
+          "label": "capital",
+          "valeur": "1000 → 1038 $ (+3,8 %)",
           "classe": "positif"
         }
       ],
-      "prochaine": "Analyse par pilier (4.1) — l'effectif monte (2 → 5 clôturés, 4 en cours) ; laisser le scanner accumuler"
-    },
-    {
-      "id": "kdj_halftrend",
-      "nom": "KDJ/Halftrend Intraday",
-      "icone": "📈",
-      "couleur": "#22d3ee",
-      "etat": "Officielle — ARMÉ volontairement par le propriétaire (~22-23/09, confirmé 24/09) ; 0 signal à ce jour",
-      "moteur": "live (7.E, 14/09) — KdjEngine H1 tous actifs (parité rejeur par test), scanner TABLEAU (11 colonnes, filtres), kdj_params (migration 0112), API /api/kdj/{params,scanner} ; ARMÉ 22-23/09 (confirmé 24/09) : porte d'écriture = strategies.etat ≠ Construction, Telegram actif (template 19/09) ; rejeu 24 mois H1 (MT5, frais inclus) : XAUUSD +0,38 %/tr · XAGUSD +0,66 · DAX −0,3 · BTC ±0 · SP500 −0,1 ; scanner ADX14 = sélecteur, pas filtre",
-      "ia": "aucune — moteur déterministe pur",
-      "kpis": [
-        {
-          "label": "phase",
-          "valeur": "complète ✓",
-          "classe": "positif"
-        },
-        {
-          "label": "signaux",
-          "valeur": "0 (H1 lent)",
-          "classe": "neutre"
-        },
-        {
-          "label": "rejeu XAU/XAG (%/tr)",
-          "valeur": "+0,38 / +0,66",
-          "classe": "positif"
-        },
-        {
-          "label": "validation 3 voies",
-          "valeur": "6/6 · 0 div.",
-          "classe": "positif"
-        }
-      ],
-      "prochaine": "Premier signal (moteur armé en base, notifications ON) puis mesure 30 trades H1 ; 7.F élargissement univers actions US"
+      "prochaine": "mesure 30 trades H1 (rythme ~1/sem/actif × 4 armés) — accélérable en ajoutant des assets (modale)"
     }
   ],
   "feuille_de_route": [
     {
-      "id": "7.F",
-      "prio": 3,
-      "titre": "KDJ — 0 signaux en 5 jours (moteur armé, H1 lent) — étude 27/09",
-      "detail": "ÉTUDE 27/09 : moteur Officielle et fonctionnel (logs confirment BNB/XRP/XAGUSD/XPTUSD H1 armés, replay 168 bougies/min), mais 0 signaux générés en 5 jours — les conditions KDJ (cross + Halftrend) ne sont pas réunies sur H1 pour ces 4 actifs. RYTHME ATTENDU : ~1 signal/semaine/actif × 4 actifs = ~4 sem/30 trades → mesure prête ~mi-novembre. PISTE D'ACCÉLÉRATION : ajouter des actifs via la modale Assets (labo 7.G a montré XRP +1,35 R/tr et LINK en tête).",
-      "echeance": "~mi-novembre (ou + si actifs ajoutés)"
+      "id": "D4",
+      "prio": 0,
+      "titre": "OTE swing ≢ indicateur cible TV — PROBLÈME PARQUÉ (décision owner 13/10)",
+      "detail": "Mécanisme fractal N-barres (N=4 M1-M15 / N=5 M30+) + chaînes par fraîcheur + extrêmes vivants implémenté (212+126 tests verts, cas réel = capture au centime en unitests) MAIS zones ≢ TV à l'écran. Code v2 COMMITÉ (7c0b03a). REPRISE = captures côte à côte horodatées app-vs-TV sur un même asset/TF pour LOCALISER la divergence (suspects : N M30 5-vs-6, micro-pivots M1/M5, écart de flux TV/Axi).",
+      "echeance": "à toi — les captures déclenchent la reprise"
     },
     {
-      "id": "7.G",
-      "prio": 2,
-      "titre": "KDJ — balayage de calibration des paramètres sur le rejeu 24 mois — LIVRÉE (c77c5b7)",
-      "detail": "LIVRÉE 24/09 (c77c5b7) : balayage un-paramètre-à-la-fois (period [9,14,20,28] · signal [3,5,7,10] · amplitude [2,3,4,6] · ratio_risk [1,5-3,0] · adx_min [off,20,25,30]), frais 0,05 %/ordre, métriques n/WR/PF/ΣR net/R net par trade — global et PAR ACTIF H1 (tableau), chips Paires étudiées. DÉCOUVERTE MAJEURE : écart ~40× entre actifs — XRP +1,35 R/tr en tête, TOUT le forex fond de classement (AUDUSD −5,09 R/tr) ; unités R exagèrent les frais forex (risque serré) → la comparaison inter-actifs est valable, le %/trade MT5 n'est pas comparable. Le choix des assets KDJ (modale, config kdj_assets_armes lue à chaque tick 60 s) permet d'agir dessus sans recharger. PROCHAINE ÉTAPE : décision de réglage avant/pendant 7.F (mesure 30 trades).",
-      "echeance": "décision de réglage avant/pendant 7.F"
-    },
-    {
-      "id": "1.1",
-      "prio": 2,
-      "titre": "Straddle — Observation PROLONGÉE (point de contrôle 24/09 : aucun critère de sortie atteint)",
-      "detail": "POINT DE CONTRÔLE 24/09 (l'ordre du jour du propriétaire) : 70 passes · capital 1000 → 1181 $ (+18,1 %) · Σ R distance +19,0 · WR $ 60 %. PAR SOURCE : annonce US 14h30 ×10 (WR 80 %, +103 $) · créneau 15h ×7 (29 %, −35 $) · créneau 16h ×21 (67 %, +52 $) · créneau 17h ×3 (0 %, −18 $) · créneau 20h ×13 (77 %, +120 $) · ouverture DAX ×16 (50 %, −41 $). AUCUNE source n'atteint le seuil de 30 passes (max 21) → l'Observation continue, décision inchangée. RYTHME : ~1,6 passe/jour → le créneau 16h (le plus fourni) atteindra 30 vers fin sept./début oct. — premier jugeable ; à ce stade aucun sous-ensemble ne permet de conclusion (règle des 30), les signaux par source restent indicatifs (DAX et créneau 15h/17h traînent, tier 1 US portent — conforme au dossier 15/09). PROCHAIN POINT : créneau 16h à ~30 passes (~30/09-02/10), ou réconciliation live/replay (2.1). ÉTUDE 27/09 : DAX approche le seuil (21 passes, −4,4 R, WR 48 %) — si la tendance se maintient à 30 passes, envisager de le retirer du périmètre. HISTORIQUE : dossier 15/09 — vécu +11,27 R (88 % sur les 2 tier 1 : NFP + CPI) vs rejeu −5,33 R (divergence niveaux/fills) → prolongation décidée, état réaligné Officielle→Observation (signaux écrits silencieux).",
-      "echeance": "créneau 16h ~30 passes (~30/09-02/10) · ou post-2.1"
-    },
-    {
-      "id": "1.3",
-      "prio": 3,
-      "titre": "Straddle — rappel money management",
-      "detail": "Une passe peut coûter −1,5 R nominal — assumé, lot inchangé (décision 04/09).",
-      "echeance": "permanent"
-    },
-    {
-      "id": "2.1",
-      "prio": 2,
-      "titre": "Straddle SP500 — 14 passes flat (+0,4 R, WR 57 %) — étude 27/09",
-      "detail": "ÉTUDE 27/09 : 14 passes clôturées (pas 35 — le cockpit précédent surestimait). 7 TP2 (+1,34 R moy) vs 6 SL (−1,50) vs 1 BE = +0,4 R total, R moyen 0,027. Le SP500 est NEUTRE : les TP2 compensent les SL sans dégager de marge. SEUIL : 30 passes → ~16 passes de plus (~3 sem). CONTEXTE GLOBAL straddle (94 passes, 8 actifs) : stars NAS100 +8,9 R (71 %) et XAUUSD +11,7 R (73 %) · fardier DAX −4,4 R (48 %, 21 passes — premier à approcher 30) · SP500 +0,4 R (50 %).",
-      "echeance": "DAX ~30 passes (~2 sem) · SP500 ~30 passes (~3 sem)"
-    },
-    {
-      "id": "2.2",
-      "prio": 2,
-      "titre": "FERMÉE — 2.2 Whale watching LIVRÉ : badge 🐋 Scanner + enrichissement score moteur",
-      "detail": "LIVRÉE 27/09 (0de9b0c) : ① Backend whale_watching.rs — z-score volume par asset×TF (60 bougies, moyenne+σ, 20 couples crypto+forex). ② Badge 🐋 bleu sur les setups du Scanner quand z>2σ (poll 60 s). ③ ENRICHISSEMENT score moteur : +1 si z>2σ, +2 si z>3σ (plafonné 10) — traverse tout le pipeline (Telegram, DB, jauge). Ne filtre JAMAIS. ④ /api/whale : z-scores en direct. ⑤ Boucle refresh 60 s partagée via Arc<RwLock>. Labo comparatif DIFFÉRÉ (règle des 30 — accumulation nécessaire 2-3 sem). Étude : corrélation volume→prix prouvée sur BTC (4×) et XAUUSD (3×), volume disponible sur TOUT l'univers.",
-      "echeance": "fermée — labo comparatif dans 2-3 semaines (règle des 30)"
-    },
-    {
-      "id": "2.3",
-      "prio": 2,
-      "titre": "SMC — effet du désarmement M1 : M5 porteur confirmé · M15 positif mais faible · M30 à surveiller",
-      "detail": "DOSSIER 3 — 24/09 (fenêtre 14/09 12h UTC → 24/09, conventions : WR verdicts hors Expirés, palier = Σ R distance / n). M5 : 112 clos · WR 57 % · palier +0,119 R/tr (la fenêtre longue tempère l'éclat des 3 premiers jours : +0,301 sur 45 clos au 17/09 → retour vers la moyenne, mais 2,4× la promesse moteur +0,05) · encaissé −1,04 $/tr · 35 SL · 0 TS (trailing activé le 24/09 seulement). M15 : 49 clos (SEUIL DÉPASSÉ, échéance tenue) · WR 54 % · palier +0,077 R/tr (1,5× la promesse — positif mais nettement sous le M5) · encaissé −0,61 $/tr · 12 SL · 2 TS (premières clôtures trailing du 24/09) · top assets DAX/AVAX/BNB. M30 : 16 clos < 30 (échéance ~fin sept. maintenue) · pente précoce NÉGATIVE (−0,150 R/tr, 12 Expirés sur 16) — à surveiller, pas concluant. HIÉRARCHIE NETTE M5 > M15 > M30 en qualité de zone par trade — cohérente avec la thèse du désarmement (les TF courts capturent mieux les zones de cet univers). VERDICT : statu quo renforcé — M1 désarmé, M5 porteur, M15 second couteau valable, M30 en probation jusqu'au seuil. HISTORIQUE : dossier 17/09 (M5 45 clos +0,301 · M15 15 clos −0,07 · M30 5 clos −0,20) ; dossier 14/09 (M5 23 clos +0,24). La conversion $ reste l'affaire de 3.3/trailing, pas de 2.3.",
-      "echeance": "M30 ~30 clos (~fin sept.) — dernier volet"
-    },
-    {
-      "id": "2.4",
-      "prio": 3,
-      "titre": "SMC — règle des 30 trades",
-      "detail": "Tout réglage ne bouge que sur preuve ≥ 30 trades remplis par tranche (anti-overfitting).",
-      "echeance": "permanent"
-    },
-    {
-      "id": "3.2",
+      "id": "STR",
       "prio": 1,
-      "titre": "Voile des setups SMC — 599 setups, 186 confirmés (31 %) — LIVRÉE (étude 27/09)",
-      "detail": "ÉTUDE 27/09 (599 setups, 11/09→27/09) : 186 confirmés (31 %), 17 dissipés (3 %, durée moy 11 min). PAR FORCE : F8 = 41 % (meilleur), F7 = 24 %, F6 = 9 %. PAR ASSET : LINK 43 % · BTC 39 % · DAX 39 % en tête ; ETH 19 % · XRP 20 % en fond. DÉCOUVERTE CONTRE-INTUITIVE : les signaux ANNONCÉS performent MOINS bien (WR 34 %, R moy 0,153) que les NON-ANNONCÉS (WR 46 %, R moy 0,173) — le retest intrabar ne sélectionne pas de meilleurs trades. RECOMMANDATION : le journal fait son travail documentaire (Scanner + étude), mais NE PAS filtrer sur lui. La force ≥ 8 est utile pour prioriser l'affichage dans le Scanner.",
-      "echeance": "fermée — prochain point si le volume double"
+      "titre": "Straddle — validation live du timing 3 couches",
+      "detail": "EA v1.36 recompilé par l'owner (15/10) + timer runtime 1 Hz + purge >30 s en production. La prochaine annonce High doit ouvrir TOUS les assets du périmètre à T-3 s — vérifier les horaires d'ouverture dans l'historique (colonne Ouvert le, heure Paris) et backend.log.",
+      "echeance": "prochaine annonce High"
     },
     {
-      "id": "4.1",
+      "id": "C",
       "prio": 3,
-      "titre": "Rockets — analyse par pilier : EN ATTENTE (labo de simulation refusé le 24/09)",
-      "detail": "DÉCISION 24/09 (arbitrage labos rockets/KDJ) : le labo de simulation rockets est REFUSÉ pour l'instant — ① le backtesteur générique de mai a été démantelé lors des purges (reconstruction = le plus gros coût du chantier), ② 5 clôturés seulement : un labo produirait des nombres invérifiables (règle des 30). SÉQUENCE RETENUE : scanner accumule → analyse par pilier (relier les critères du /10 — Fondamental 3 · Technique 3 · Chartisme 2 · Chandeliers 2, seuil ≥ 7 — aux verdicts) quand l'effectif le permet → labo seulement si l'analyse montre quoi régler. Test plus urgent côté rockets : neutralisation à R1 sur vraie position.",
-      "echeance": "réexamen après accumulation (règle des 30)"
+      "titre": "Straddle — jugement par source à ≥ 30 passes",
+      "detail": "342 passes clôturées, matrice 17 événements en maturation (requête par source quand les seuils tombent). L'analyste créneaux 🤖 sert déjà la ligne ✂️ des cases à envisager de désarmer.",
+      "echeance": "passive — seuils 30/case"
     },
     {
-      "id": "5.1",
+      "id": "B",
+      "prio": 3,
+      "titre": "KDJ — mesure 30 trades H1",
+      "detail": "5 clôturés · rythme ~1 signal/sem/actif × 4 armés. Accélérable en ajoutant des assets via la modale (labo 7.G : XRP +1,35 R/tr en tête).",
+      "echeance": "passive — ~mi-novembre"
+    },
+    {
+      "id": "D",
+      "prio": 3,
+      "titre": "Rockets — analyse par pilier à ≥ 30 clôturés",
+      "detail": "10 clôturés (100 %) — relier les critères du /10 (Fondamental 3 · Technique 3 · Chartisme 2 · Chandeliers 2, seuil ≥ 7) aux verdicts quand l'effectif le permet.",
+      "echeance": "passive"
+    },
+    {
+      "id": "E",
+      "prio": 3,
+      "titre": "Whale watching — labo avec/sans",
+      "detail": "Enrichit le score sans filtrer (livré 27/09) ; différé à la règle des 30.",
+      "echeance": "passive"
+    },
+    {
+      "id": "F",
+      "prio": 3,
+      "titre": "Confluence dorée (OTE swing) — re-test périodique",
+      "detail": "C1 du 09/10 : effet réel non concluant (z=+1,61) ; outil etude_confluence prêt — re-jouer quand le vécu accrût.",
+      "echeance": "passive — 1 commande"
+    },
+    {
+      "id": "A",
+      "prio": 3,
+      "titre": "Conviction LLM — notation gardée en observation",
+      "detail": "AUC 0,477 (13/10) = aucune valeur prédictive ; décision owner : GARDER la notation, capteur prédictif définitivement écarté. Re-test inutile avant le vécu des réglages par asset.",
+      "echeance": "passive"
+    },
+    {
+      "id": "G",
+      "prio": 3,
+      "titre": "Qualité des données — surveillance continue",
+      "detail": "M30/H1/D1 réparées (07-09/10), EA v1.35 upsert anti-récidive, garde-fou assets_garde (armé ⇒ alimenté). Surveiller /api/sante/sources (fraîcheur < 5 min).",
+      "echeance": "permanent"
+    },
+    {
+      "id": "D1",
       "prio": 2,
-      "titre": "Exécution réelle — décision de principe",
-      "detail": "Un EA exécutant recevant lots/niveaux (ordres auto-validés, compatible constitution). Doit consommer le feed du collecteur (écart 0). Idéalement après memtest.",
+      "titre": "Exécution réelle (EA exécutant) — décision d'ouverture",
+      "detail": "Feu vert de principe : EA recevant lots/niveaux, validation humaine par trade, kill-switch. Cahier des charges prêt (5.2 : SMC d'abord, risque max/jour, journal d'ordres).",
       "echeance": "décision propriétaire"
     },
     {
-      "id": "5.2",
+      "id": "D2",
       "prio": 3,
-      "titre": "Exécution réelle — si actée",
-      "detail": "Cahier des charges (SMC d'abord, validation humaine par trade, risque max/jour, kill-switch, journal d'ordres), couche ordres de l'EA à reprendre.",
-      "echeance": "après 5.1"
+      "titre": "Score réévalué au retest — étude A/B par levier replay",
+      "detail": "Le score OB est un cliquet (math.max) : le score au retest = meilleure version passée. N'a priorité que si le contexte change — C1 a montré que le goulot est la conversion, pas la qualité des zones.",
+      "echeance": "décision d'ouverture"
     },
     {
-      "id": "6.1",
+      "id": "MAN",
       "prio": 3,
-      "titre": "Relecture finale des prompts IA",
-      "detail": "Contre les mécaniques figées ; purge des prompts morts (smc_signal, rockets_opportunites) ; formats JSON robustes ; conventions ($ réels composés, R pondéré/net).",
+      "titre": "Page 📘 Manuel in-app — DIFFÉRÉE à la fin du développement",
+      "detail": "Décision owner 15/10 : le manuel évoluera encore avec l'app, chantier réservé au dernier temps. Plan conservé : endpoint /api/manuel + rendu marked + tuile pedestal + sommaire 11 chapitres (~1 h).",
       "echeance": "fin de développement"
-    },
-    {
-      "id": "2.5",
-      "prio": 3,
-      "titre": "SMC — étude scoring : score réévalué au retest vs score archivé (A/B par levier replay)",
-      "detail": "Issue d'une analyse externe critique du Pine (17/09, vérifiée contre le code) : le score OB est un cliquet (math.max — choix documenté : le BOS n'existe qu'une barre) → le score qualifiant le signal au retest est la MEILLEURE version passée du setup, pas la confluence au moment de l'entrée. Conséquences possibles : fiabilité affichée optimiste + les analyses par tranches (2.3, tranches 6-8/9-11/12-19) trient sur le score À LA CRÉATION. MÉTHODE (mesure avant décision — jamais de retouche Pine directe) : ajouter au harnais d'étude du replay (ModesEtudés — déjà BE forcé/TP1 réglé) un mode « score réévalué au retest (confluence live : freshness + proximité + composantes re-testées) » ; A/B sur 24 mois × univers calibré, règle des 30 par tranche ; comparaison WR/ΣR distance/encaissé par tranche de score. PROLONGEMENT (volet 2 de l'analyse externe) : validation OUT-OF-SAMPLE des pondérations par actif (2 ans d'historique Axi/Bybit disponibles) pour trancher le risque de surapprentissage. SI un jour voté : retouche Pine = déviation étalon (doc ecarts_pine_assumes.md) + re-validation miroir Rust/MQL5 au centime + rupture de série des métriques vécues assumée. CONTEXTE : l'étude 3.3 a montré que le goulot mesuré actuel est la CONVERSION (fractions/SL), pas la qualité des zones — cette tâche ne précède donc pas 2.1/2.2.",
-      "echeance": "après 2.1 (18/09) — décision d'ouverture propriétaire"
-    },
-    {
-      "id": "6.5",
-      "prio": 3,
-      "titre": "ML — filtre candidat en Observation (CONDITIONNEL — enrichi par l'étude 3.1 du 24/09)",
-      "detail": "Arbitrage propriétaire 22/09 (rôle du ML) — niveau 2 du plan, CONDITIONNEL : ne démarrer que quand le volume d'historique le justifie (milliers de clôtures, pas des centaines — règle des 30 par sous-ensemble : stratégie × TF × asset). CONTENU : le pipeline ML score les NOUVEAUX signaux à l'émission (confiance prédite) ; la métrique « WR avec filtre vs sans filtre » est mesurée en Observation (paper) pendant une période définie ; JAMAIS de branchement direct en Officielle sans période de mesure. PRÉREQUIS : niveau 1 en place (feature importance alimente les pages Analyse — converge avec P3-1). INTERDIT (décision 22/09) : prédiction de prix (LSTM directionnel), filtre ML actif sur signaux officiels sans mesure préalable. ENRICHI 24/09 (étude 3.1, 308 notés) : le candidat le plus proche du seuil est la conviction LLM ≥70 — prédiction des stop-outs PROUVÉE (<70 → 35 % SL vs 21 % ≥70, z = −2,62, stable) mais AUC 0,572 < 0,65 protocolaire. CHEMIN : recalibrer le prompt conviction (échelle comprimée 50-95, haut 90+ qui dégrade) → re-tester à ~500 notés sur vécu trailing-on → si AUC ≥ 0,65, mesurer le filtre en Observation."
     }
   ],
   "decisions": [
+    {
+      "date": "15/10",
+      "titre": "Le cockpit redevient LA référence unique — feuilles de route absorbées",
+      "detail": "Décision owner : un seul endroit pour tout ce qui est en attente ou en cours. ETAT-AVANCEMENT.md, VERIFICATION-APP-2026-10-10.md et ROADMAP.md supprimés (contenu rapatrié ici : tâches passives, décisions D1-D4, chiffres du jour, documents de fond). Discipline anti-gel : toute clôture, décision ou nouvelle tâche = synchro du cockpit dans la foulée + bandeau horodaté. Même décision : page 📘 Manuel in-app DIFFÉRÉE à la fin du développement."
+    },
+    {
+      "date": "14/10",
+      "titre": "Doctrine événements + timing straddle en 3 couches (tout poussé)",
+      "detail": "DOCTRINE : 17 événements (8 structurels = catalogue×matrice + 9 types calendrier 📅 = annonces High réelles), Medium NON tradés, créneaux génériques 8h30/10h retirés, mécanique gate morte purgée. INCIDENTS : retard par asset des passes (BTC T-3 s mais NAS100 +4-10 min) corrigé en 3 couches — EA v1.36 push continu 4 assets/s + timer runtime 1 Hz (injecte le dernier prix connu à T-30 s..T) + purge des passes > 30 s (326 restantes, capital inchangé) ; rattrapage des positions orphelines hors périmètre ; colonne Événement (titre réel via calendrier ± 2 min) + heure Paris partout ; coquille Telegram T-10 s."
+    },
+    {
+      "date": "13/10",
+      "titre": "Revue de fond des 11 prompts (guide KTA) + sort de la conviction LLM",
+      "detail": "4 analystes ENRICHIS (droit de dire rien, 1-3 pistes à levier, chiffres obligatoires) ; 2 définitions passées en DOCTRINE PURE + injection dynamique des paramètres moteur courants dans le contexte (jamais périmées) ; system prompt neutre ; a_desarmer ajouté au contrat de l'analyste créneaux. Conviction : re-test final AUC 0,477 (déclin monotone) → DÉCISION OWNER : notation gardée en observation, capteur prédictif définitivement écarté. Comparaison écran owner positive sur l'avis SMC."
+    },
+    {
+      "date": "10-14/10",
+      "titre": "Vérification intégrale de l'app : parcours 1-13 + 30 écarts TOUS clos (poussés)",
+      "detail": "Parcours 1-13 validés (12-13 automatisés par l'IA via API + snapshots md5). 30 écarts corrigés dont : purge de la boucle feedback ML morte (10 modules DB, ~1 500 lignes), prompts 8→17 classés par rôle, tooltip conviction CSS (title natif inopérant dans la webview Tauri), page ML purgée, rapports 3 colonnes (blocs ⚖️/🥇 empilés — solution owner), réactivation asset (catch silencieux démasqué), camemberts→dashboard, presse externalisée. Nouveaux analystes : 📋 Briefing du jour (cockpit) + 🧾 Autopsie de la semaine. Refontes UI validées 14/10 : bloc setups en attente straddle supprimé, réglage par asset retiré de la modale KDJ, tooltips supprimés (badges, cartes stratégies, presse, données)."
+    },
+    {
+      "date": "05-09/10",
+      "titre": "Audit 15/15 + qualité des données + réglages PAR ASSET + hot-reload (poussés)",
+      "detail": "Audit roadmap 15/15 (04d3b80) : KDJ chauffé, seuils fantômes purgés, rockets STAG, télémétrie silence, ML mono-régime, ~1 100 lignes mortes, base 71→17 Go puis 1,44 Go, SMC tout-TP1 activé en production. Bougies tronquées MT5 réparées (M30 1 559 + H1 13 350 + D1 2 130 — upsert + EA v1.35). Indicateur OB livré (7 TF parité TV). Réglages PAR ASSET 3 phases (b42cae7) : surcharge ⊕ défaut + moteurs/hot-reload 60 s + labo/advisory + conseiller IA par asset. Alertes d'approche des zones SMC. Manuel utilisateur (1927852). Trades graphiques : bord droit = maintenant."
+    },
     {
       "date": "27/09 soir",
       "titre": "2.2 Whale watching livré (0de9b0c) — volume enrichit le score SMC sans filtrer",
@@ -645,7 +645,11 @@
       "titre": "Zéro dette en sortie de chantier",
       "detail": "Pas de code mort, pas de fichier orphelin, pas de dette laissée derrière."
     },
-    "Un asset ajouté = sa ligne asset_params créée (sizing du lot au signal) — automatisé dans ajouter_asset le 14/09, défauts par type calqués sur les références (crypto=ETH, JPY=crosses, forex=EURUSD, métal=XAU, indice=DAX)",
+    {
+      "titre": "Asset ajouté = ligne asset_params créée",
+      "detail": "Un asset ajouté = sa ligne asset_params créée (sizing du lot au signal) — automatisé dans ajouter_asset le 14/09, défauts par type calqués sur les références (crypto=ETH, JPY=crosses, forex=EURUSD, métal=XAU, indice=DAX)",
+      "garant": "convention"
+    },
     {
       "titre": "AUDIT : règle absolue — checkpoint avant l'étape suivante",
       "detail": "Décision propriétaire du 18/09 : pendant tout le chantier AUDIT, chaque étape doit être VÉRIFIÉE contre son checkpoint explicite (preuve consignée dans la tâche AUDIT du cockpit) AVANT de démarrer la suivante. Aucune correction mélangée à l'inventaire ; les corrections passent par les vagues P0-P3 de l'étape 7, une vague = un commit.",
@@ -710,7 +714,7 @@
     },
     {
       "titre": "Cockpit = source de vérité du suivi",
-      "detail": "Éditer le JSON #etat-projet (le rendu se régénère). Le hash git du bandeau doit correspondre à HEAD sinon « à resynchroniser ».",
+      "detail": "Référence UNIQUE depuis le 15/10 (ETAT-AVANCEMENT/VERIFICATION-APP/ROADMAP supprimés) : avancement, tâches, décisions, chiffres. Éditer le JSON #etat-projet (le rendu se régénère) ; lecture agent EXCLUSIVEMENT via scripts/cockpit.sh. Toute clôture/décision/nouvelle tâche = synchro dans la foulée, bandeau horodaté.",
       "garant": "convention"
     },
     {
@@ -727,6 +731,48 @@
       "titre": "Économie de tokens — protocole de collaboration",
       "detail": "① Le cockpit se lit EXCLUSIVEMENT via scripts/cockpit.sh [section] (extraction JSON compacte ~2-3k tokens — jamais le fichier HTML complet, ~8-10k). ② Session fraîche par jalon : le propriétaire clôt la session après chaque commit poussé + cockpit synchronisé (la conversation est le coût dominant). ③ Les calculs bruts restent hors contexte : agrégations SQL/Python, seul le résultat s'affiche ; logs filtrés avant affichage. ④ Fouilles multi-fichiers → sous-agents (le contenu reste chez eux, seul le condensé revient). ⑤ Rapports : pas de rappel de ce que le propriétaire sait déjà. ⑥ Ne jamais compacter au point de perdre une contrainte — l'état critique vit ICI.",
       "garant": "convention"
+    }
+  ],
+  "documents": [
+    {
+      "chemin": "docs/cockpit.html",
+      "role": "LA référence unique (ce fichier) : avancement, tâches en cours, décisions, règles — lecture agent via scripts/cockpit.sh"
+    },
+    {
+      "chemin": "docs/MANUEL-UTILISATEUR.md",
+      "role": "manuel utilisateur complet (985 lignes, 11 chapitres, checklist 8 parcours) — page in-app différée à la fin du développement"
+    },
+    {
+      "chemin": "docs/spec_reglages_par_asset.md",
+      "role": "spec réglages par asset (surcharge ⊕ défaut, moteurs, hot-reload)"
+    },
+    {
+      "chemin": "docs/spec_alertes_zones_smc.md",
+      "role": "spec alertes d'approche des zones SMC (0,25×ATR, hystérésis, anti-flood)"
+    },
+    {
+      "chemin": "docs/spec_indicateur_unifie_ob_ote.md",
+      "role": "spec indicateur OB/OTE unifié (règles, preuves B1-B4, C1) — D4 en cours"
+    },
+    {
+      "chemin": "docs/audit-app-2026-09.md",
+      "role": "audit de septembre — historique (P0-P3 traités)"
+    },
+    {
+      "chemin": "docs/VALIDATION_MQL5.md · VALIDATION_KDJ_HALFTREND.md · protocole_screening_kdj_halftrend.md",
+      "role": "archives de validation figées"
+    },
+    {
+      "chemin": "docs/reference/",
+      "role": "étalons : Pine v12, écarts votés, définitions KDJ/rockets"
+    },
+    {
+      "chemin": "docs/KTA_Guide_33_Prompts_IA_Trading.pdf",
+      "role": "guide KTA des prompts (source des enrichissements 13/10)"
+    },
+    {
+      "chemin": "scripts/cockpit.sh",
+      "role": "lecture économe du cockpit — protocole tokens (jamais le HTML complet)"
     }
   ]
 }</script>
@@ -796,6 +842,14 @@
     }
     html += `</div>`
 
+    // ── Documents de fond ──
+    html += `<h2>📁 Documents de fond <span class="meta">référencés, jamais dupliqués</span></h2><div class="carte regle"><table>
+      <tr><th style="width:340px">Document</th><th>Rôle</th></tr>`
+    for (const doc of etat.documents) {
+      html += `<tr><td><strong>${doc.chemin}</strong></td><td>${doc.role}</td></tr>`
+    }
+    html += `</table></div>`
+
     // ── Règles transverses ──
     html += `<h2>🧱 Règles transverses (non négociables)</h2><div class="carte regle"><table>
       <tr><th style="width:220px">Règle</th><th>Détail</th></tr>`
@@ -819,7 +873,7 @@
   })()
   </script>
 
-  <footer>Cockpit généré depuis son bloc JSON #etat-projet — Native Trading AI · remplacé ROADMAP.md le 10/09/2026</footer>
+  <footer>Cockpit généré depuis son bloc JSON #etat-projet — Native Trading AI · référence unique depuis le 15/10/2026 (absorbe ROADMAP.md 10/09 · ETAT-AVANCEMENT.md 09/10 · VERIFICATION-APP 10/10)</footer>
 </div>
 </body>
 </html>

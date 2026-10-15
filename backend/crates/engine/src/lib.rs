@@ -1,6 +1,6 @@
 //! Crate `engine` — le runtime tick : cœur temps réel de l'application.
 //!
-//! Conformément à `docs/ROADMAP.md` (Phase 1) :
+//! Conformément à la ROADMAP d'origine (phase 1 — historique git) :
 //! - les prix arrivent événement par événement (tick ou kline en formation) ;
 //! - les moteurs ([`Engine`]) sont évalués À CHAQUE événement prix (intrabar) ;
 //! - les clôtures de bougies déclenchent `on_close` (confirmations Pine) ;
