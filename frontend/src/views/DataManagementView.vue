@@ -94,10 +94,9 @@
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-sm font-semibold text-white uppercase tracking-wider">Assets du pipeline</h2>
         <div class="flex items-center gap-3">
-          <span
-            v-if="assetsEnAlerte.length > 0"
-            class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300"
-          >⚠ fraîcheur : {{ assetsEnAlerte.map(e => e.asset).join(', ') }}</span>
+          <!-- Garde fraîcheur : VERT quand le pipeline est sain (visible),
+               ambre + noms des assets en alerte sinon -->
+          <span class="text-[11px] px-2 py-0.5 rounded-full border" :class="assetsEnAlerte.length > 0 ? 'bg-amber-500/15 border-amber-500/30 text-amber-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'">{{ assetsEnAlerte.length > 0 ? `⚠ fraîcheur : ${assetsEnAlerte.map(e => e.asset).join(', ')}` : 'fraîcheur ✓' }}</span>
           <button
             class="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition"
             @click="modaleAjout?.ouvrirModaleAsset()"

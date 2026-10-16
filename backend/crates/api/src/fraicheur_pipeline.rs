@@ -14,10 +14,11 @@
 //! - mt5 : semaine de cotation dimanche 23h → vendredi 23h Paris ; en
 //!   semaine M1 ≤ 90 min (la pause quotidienne XAU 22h58→00h00 dure 1 h,
 //!   les autres pauses quotidiennes sont plus courtes) ;
-//! - TF supérieurs : dernière barre ≤ durée du TF + marge ; D1 mt5 ≤ 50 h
-//!   (la formante est FIGÉE après le push unique du quotidien et le
-//!   week-end la vieillit de 2 jours — c'est normal, le compositeur
-//!   tendance la remplace aux M1 fraîches) ;
+//! - TF supérieurs : seuil 2 × période + marge — les barres Binance M5→D1
+//!   n'existent qu'à la CLÔTURE (une H4 saine a ouvert il y a 1 à 2
+//!   périodes) et la D1 mt5 est FIGÉE après le push quotidien (le week-end
+//!   la vieillit de 2 jours) : c'est normal, le compositeur tendance la
+//!   remplace aux M1 fraîches ;
 //! - hors semaine de cotation : aucune alerte mt5 — un marché fermé est
 //!   sain d'être immobile.
 //! Limite assumée : un jour férié en semaine déclenchera une fausse
@@ -35,18 +36,25 @@ use sqlx::Row;
 /// le retrait de la ligne KAS).
 pub const TFS: &[&str] = &["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
 
-/// Seuil d'alerte en minutes par TF. `crypto` = source binance (24/7).
+/// Seuil d'alerte en minutes par TF. Sémantique réelle mesurée 16/10 : les
+/// cryptos Binance stockent M5→D1 À LA CLÔTURE (la dernière fermée a ouvert
+/// il y a 1 à 2 périodes : une H4 saine « vieillit » jusqu'à 8 h, une D1
+/// jusqu'à 48 h) ; les MT5 poussent leurs barres formantes M1→H4 (retard
+/// ∈ [0, période]) et la D1 est figée après le push quotidien. Seuil unique
+/// couvrant les deux : 2 × période + marge — une alimentation morte est
+/// signalée en ≤ 2 périodes + marge, une saine n'alerte jamais. Seule
+/// exception M1 : crypto 24/7 = 10 min ; mt5 = 90 min (la pause quotidienne
+/// XAU 22h58→00h00 dure 62 min sans qu'aucun M1 ne soit dû).
 fn seuil_tf(tf: &str, crypto: bool) -> Option<i64> {
-    Some(match (tf, crypto) {
-        ("M1", true) => 10,
-        ("M1", false) => 90,
-        ("M5", _) => 20,
-        ("M15", _) => 35,
-        ("M30", _) => 50,
-        ("H1", _) => 80,
-        ("H4", _) => 270,
-        ("D1", true) => 26 * 60,
-        ("D1", false) => 50 * 60,
+    Some(match tf {
+        "M1" if crypto => 10,
+        "M1" => 90,
+        "M5" => 20,
+        "M15" => 45,
+        "M30" => 75,
+        "H1" => 150,
+        "H4" => 540,
+        "D1" => 50 * 60,
         _ => return None,
     })
 }
@@ -336,6 +344,42 @@ mod tests {
             true,
         );
         assert!(etats[0].anomalies.iter().all(|a| a.tf != "D1"));
+    }
+
+    #[test]
+    fn h4_cloturee_saine_ne_alerte_pas() {
+        // 16/10, cas réel : les H4 Binance n'existent qu'à la clôture — la
+        // dernière fermée a ouvert il y a 6 h 06 : SAIN (seuil 9 h). Ma
+        // première calibration (4 h 30) produisait 8 fausses alertes.
+        let maintenant = 1_000_000i64;
+        for (asset, source, ouvert) in [("BTC", "binance", true), ("XAUUSD", "mt5", true)] {
+            let etats = auditer(
+                &[((asset).into(), source.into())],
+                &carte(&[(asset, "H4", maintenant - 366 * 60)]),
+                maintenant,
+                ouvert,
+            );
+            assert!(etats[0].anomalies.iter().all(|a| a.tf != "H4"), "{asset}");
+        }
+    }
+
+    #[test]
+    fn d1_cloturee_crypto_38h_saine_morte_55h_alerte() {
+        let maintenant = 1_000_000i64;
+        let saine = auditer(
+            &[("BTC".into(), "binance".into())],
+            &carte(&[("BTC", "D1", maintenant - 38 * 3600)]),
+            maintenant,
+            true,
+        );
+        assert!(saine[0].anomalies.iter().all(|a| a.tf != "D1"));
+        let morte = auditer(
+            &[("BTC".into(), "binance".into())],
+            &carte(&[("BTC", "D1", maintenant - 55 * 3600)]),
+            maintenant,
+            true,
+        );
+        assert!(morte[0].anomalies.iter().any(|a| a.tf == "D1"));
     }
 
     #[test]
