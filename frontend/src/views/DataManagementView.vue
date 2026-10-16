@@ -94,6 +94,10 @@
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-sm font-semibold text-white uppercase tracking-wider">Assets du pipeline</h2>
         <div class="flex items-center gap-3">
+          <span
+            v-if="assetsEnAlerte.length > 0"
+            class="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300"
+          >⚠ fraîcheur : {{ assetsEnAlerte.map(e => e.asset).join(', ') }}</span>
           <button
             class="px-3 py-1 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30 transition"
             @click="modaleAjout?.ouvrirModaleAsset()"
@@ -133,6 +137,13 @@
                 </svg>
               </span>
               <span class="font-mono text-sm font-bold text-white truncate">{{ a.id }}</span>
+              <!-- Badge fraîcheur (garde 16/10) — tooltip CSS obligatoire (title natif inopérant, écart 27) -->
+              <span v-if="anomaliesAsset(a.id).length" class="relative group shrink-0">
+                <span class="text-[11px] text-amber-400 font-bold">⚠</span>
+                <span
+                  class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 z-30 hidden group-hover:block whitespace-nowrap rounded-md border border-amber-500/40 bg-slate-900 px-2 py-1 text-[10px] font-normal text-amber-200 shadow-xl"
+                >{{ anomaliesAsset(a.id).map(libelleAnomalie).join(' · ') }}</span>
+              </span>
               <span
                 class="ml-auto text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0"
                 :class="badgeSource(a.source).classe"
@@ -206,7 +217,7 @@
               <th class="text-left px-2 py-1.5 text-white">Asset</th>
               <th class="px-1 py-1.5 text-white">TF</th>
               <th class="px-2 py-1.5 text-white text-right">Bougies</th>
-              <th class="px-2 py-1.5 text-white text-right">Couv.</th>
+              <th class="px-2 py-1.5 text-white text-right">Densité</th>
             </tr>
           </thead>
           <tbody>
@@ -241,6 +252,7 @@ import { useAlerteStore } from '@/stores/alerte.store'
 import type { AssetInfo } from '@/services/api.service'
 import { apiService } from '@/services/api.service'
 import type { CouvertureDonnees } from '@/services/api.service'
+import { useFraicheurPipeline } from '@/composables/useFraicheurPipeline'
 import type { WorkerConfig, WorkerStatus } from '@/services/api.worker'
 import { useAssetsStore } from '@/stores/assets.store'
 
@@ -275,8 +287,6 @@ async function rattraperBackfill() {
     rattrapageEnCours.value = false
   }
 }
-/// Politique fixe (décisions propriétaire 2026-08-15) : rétention/stockage 2 ans.
-const MOIS_RETENTION = 24
 
 const cartesWorkers = computed(() => [
   {
@@ -458,21 +468,25 @@ const colonnesCouverture = computed(() => {
 const couverture = ref<CouvertureDonnees[]>([])
 const chargement = ref(false)
 
-const ASSETS_CRYPTO = new Set(['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'AVAX', 'LINK', 'DOT'])
-const ASSETS_METAUX = new Set(['XAUUSD', 'XAGUSD'])
-const ASSETS_INDICES = new Set(['DAX', 'NAS100', 'SP500'])
+// ── Garde fraîcheur pipeline (16/10) : badge ⚠ par asset, poll 60 s ──────────
+const { charger: chargerFraicheur, anomalies: anomaliesAsset, libelle: libelleAnomalie, enAlerte: assetsEnAlerte } = useFraicheurPipeline()
 
-/// Bougies attendues par mois, selon le calendrier de cotation de la classe :
-/// - crypto : 24/7 ;
-/// - métaux : ~23 h × 5 j/7 (historique spot, break quotidien) ;
-/// - forex : 24 h × 5 j/7 ;
-/// - indices : ~8,5 h × 5 j/7 (~22 jours ouvrés/mois).
-/// Heuristiques indicatives — le % mesure un ordre de couverture, pas un audit.
-const BOUGIES_PAR_MOIS: Record<string, Record<string, number>> = {
-  crypto: { M1: 43200, M5: 8640, M15: 2880, M30: 1440, H1: 720, H4: 180, D1: 30, W1: 4 },
-  metal:  { M1: 29500, M5: 5900, M15: 1970, M30: 985,  H1: 493, H4: 123, D1: 22, W1: 4 },
-  forex:  { M1: 30860, M5: 6170, M15: 2060, M30: 1030, H1: 514, H4: 129, D1: 22, W1: 4 },
-  indice: { M1: 11200, M5: 2240, M15: 750,  M30: 375,  H1: 125, H4: 31,  D1: 21, W1: 4 },
+const ASSETS_CRYPTO = new Set(['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'ADA', 'DOGE', 'AVAX', 'LINK', 'DOT'])
+const ASSETS_METAUX = new Set(['XAUUSD', 'XAGUSD', 'XPTUSD'])
+const ASSETS_INDICES = new Set(['DAX', 'GER40', 'NAS100', 'SP500'])
+
+/// Barres attendues PAR JOUR, calibrées le 16/10 sur la densité RÉELLE des
+/// assets les mieux servis de chaque classe (crypto=BTC 1401 M1/j, forex=
+/// majeures 1019, métaux=XAU/XAG 995-998, indice=NAS100 986 — GER40, plus
+/// clairsemé à 925, apparaîtra < 100 %, c'est sa vérité). Le % devient une
+/// DENSITÉ : 100 % = aucun trou dans l'historique réellement présent, la
+/// profondeur se lit dans les colonnes de dates (plus de comparaison
+/// arbitraire à 24 mois qui confondait rétention et trous).
+const BARRES_PAR_JOUR: Record<string, Record<string, number>> = {
+  crypto: { M1: 1400, M5: 280, M15: 95,  M30: 47, H1: 23.5, H4: 5.9, D1: 1,    W1: 0.143 },
+  metal:  { M1: 995,  M5: 199, M15: 68,  M30: 34, H1: 17,   H4: 4.3, D1: 0.71, W1: 0.102 },
+  forex:  { M1: 1015, M5: 203, M15: 68,  M30: 34, H1: 17,   H4: 4.3, D1: 0.71, W1: 0.102 },
+  indice: { M1: 985,  M5: 197, M15: 68,  M30: 34, H1: 17,   H4: 4.3, D1: 0.71, W1: 0.102 },
 }
 
 function classeAsset(asset: string): string {
@@ -482,8 +496,10 @@ function classeAsset(asset: string): string {
   return 'forex'
 }
 
-function bougiesAttendues(tf: string, mois: number, asset: string): number {
-  return (BOUGIES_PAR_MOIS[classeAsset(asset)]?.[tf] ?? 1) * mois
+/// Barres attendues sur la durée RÉELLE de l'historique de cette série.
+function bougiesAttendues(tf: string, asset: string, minTs: number, maxTs: number): number {
+  const jours = Math.max((maxTs - minTs) / 86400, 1)
+  return (BARRES_PAR_JOUR[classeAsset(asset)]?.[tf] ?? 1) * jours
 }
 
 const TF_ORDRE: Record<string, number> = {
@@ -494,11 +510,10 @@ const lignesEnrichies = computed(() => {
   // Ne montrer que les assets ACTIFS (cochés) et les timeframes CONFIGURÉS
   const idsActifs = new Set(tous.value.filter(a => a.actif).map(a => a.id))
   const tfsConfigures = new Set(configWorker.value?.timeframes ?? [])
-  const moisReference = MOIS_RETENTION
   const lignes = couverture.value
     .filter(c => idsActifs.has(c.asset) && tfsConfigures.has(c.timeframe))
     .map(c => {
-      const pct = Math.min(100, Math.round((c.count / bougiesAttendues(c.timeframe, moisReference, c.asset)) * 100))
+      const pct = Math.min(100, Math.round((c.count / bougiesAttendues(c.timeframe, c.asset, c.min_ts, c.max_ts)) * 100))
       const dateMin = c.min_ts ? new Date(c.min_ts * 1000).toLocaleDateString('fr-FR') : '—'
       const dateMax = c.max_ts ? new Date(c.max_ts * 1000).toLocaleDateString('fr-FR') : '—'
       // Fraîcheur = dernière CLÔTURE — une bougie D1 d'hier ou W1 de la
@@ -565,9 +580,10 @@ onMounted(async () => {
   await chargerConfig()
   await chargerStatutWorkers()
   await chargerCouverture()
+  void chargerFraicheur()
   void chargerMt5()
   minuteurStatut = setInterval(chargerStatutWorkers, 30_000)
-  minuteurCouverture = setInterval(chargerCouverture, 60_000)
+  minuteurCouverture = setInterval(() => { chargerCouverture(); chargerFraicheur() }, 60_000)
   minuteurMt5 = setInterval(chargerMt5, 30_000)
 })
 

@@ -147,7 +147,26 @@ pub async fn get_sante_sources(state: web::Data<AppState>) -> impl Responder {
             })
         })
         .collect();
-    HttpResponse::Ok().json(serde_json::json!({ "sources": sources }))
+    // 16/10 — anomalies du garde fraîcheur pipeline (page 📦 + logs) :
+    // audit mémoire du dernier cycle (≤ 5 min), zéro requête ici.
+    let audit = crate::fraicheur_pipeline::audit_courant();
+    let anomalies: Vec<serde_json::Value> = audit
+        .etats
+        .iter()
+        .filter(|e| !e.anomalies.is_empty())
+        .map(|e| {
+            serde_json::json!({
+                "asset": e.asset,
+                "source": e.source,
+                "marche_ouvert": e.marche_ouvert,
+                "detail": e.anomalies,
+            })
+        })
+        .collect();
+    HttpResponse::Ok().json(serde_json::json!({
+        "sources": sources,
+        "fraicheur": { "ts": audit.ts, "anomalies": anomalies },
+    }))
 }
 
 #[cfg(test)]

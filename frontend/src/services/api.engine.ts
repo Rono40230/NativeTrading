@@ -4,7 +4,7 @@
  */
 import { http } from './http.client'
 import type {
-  CouvertureDonnees, ReponsePatternsVolatilite, ReponseEvenements,
+  CouvertureDonnees, FraicheurPipeline, ReponsePatternsVolatilite, ReponseEvenements,
 } from './api.types'
 
 export const engineApi = {
@@ -14,6 +14,13 @@ export const engineApi = {
     bougies_aujourd_hui?: number
   }> {
     const res = await http.get('/api/data/coverage')
+    return res.data
+  },
+
+  /// Garde fraîcheur pipeline (16/10) : anomalies asset × TF du dernier
+  /// cycle d'audit (≤ 60 s) — lecture mémoire, zéro requête DB.
+  async obtenirFraicheurPipeline(): Promise<FraicheurPipeline> {
+    const res = await http.get('/api/assets/fraicheur')
     return res.data
   },
 

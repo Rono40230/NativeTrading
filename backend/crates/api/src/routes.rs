@@ -12,6 +12,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::assets_handlers::lister_assets),
         )
         .route(
+            "/api/assets/fraicheur",
+            web::get().to(crate::fraicheur_pipeline::get_fraicheur),
+        )
+        .route(
             "/api/assets",
             web::post().to(crate::assets_handlers::ajouter_asset),
         )

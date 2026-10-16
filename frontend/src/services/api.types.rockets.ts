@@ -9,6 +9,26 @@ export interface CouvertureDonnees {
   max_ts: number
 }
 
+/// Garde fraîcheur pipeline (16/10) — état du dernier cycle d'audit (≤ 5 min)
+export interface FraicheurAnomalie {
+  tf: string
+  /** retard en minutes ; −1 = aucune barre du tout */
+  retard_min: number
+  seuil_min: number
+}
+
+export interface FraicheurEtatAsset {
+  asset: string
+  source: string
+  marche_ouvert: boolean
+  anomalies: FraicheurAnomalie[]
+}
+
+export interface FraicheurPipeline {
+  ts: number
+  etats: FraicheurEtatAsset[]
+}
+
 export interface RequeteCollecte {
   assets?: string[]
   timeframes?: string[]

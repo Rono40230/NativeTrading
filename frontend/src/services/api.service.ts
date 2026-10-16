@@ -15,6 +15,7 @@ export type {
   LigneTendanceKasper, ReponseTendanceMultiTf, AssetInfo, AnnonceCalendrier,
   SentimentMarche, EntiteSentiment,
   CouvertureDonnees, ResultatCollecteItem,
+  FraicheurAnomalie, FraicheurEtatAsset, FraicheurPipeline,
   PatternHoraire, ReponsePatternsVolatilite,
   EvenementReactif, EvenementPrevisible, ReponseEvenements,
 } from './api.types'
