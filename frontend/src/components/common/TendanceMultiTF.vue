@@ -21,7 +21,7 @@
           v-for="ligne in lignes"
           :key="ligne.tf"
           class="flex items-center justify-between px-3 py-1 border-b border-white/5 last:border-0 transition-colors"
-          :class="ligne.tf === tfActifTable ? 'bg-blue-500/15 border-l-2 border-l-blue-400' : 'hover:bg-white/5'"
+          :class="classeLigne(ligne)"
         >
           <!-- Colonne TF -->
           <span
@@ -29,13 +29,16 @@
             :class="ligne.tf === tfActifTable ? 'text-blue-300 font-bold' : 'text-white'"
           >{{ ligne.tf }}</span>
           <!-- Colonne direction -->
+          <!-- Kasper (espion 15/10) : mot + emoji, texte blanc sur fond
+               coloré par direction — pas de zone neutre, réaction temps
+               réel sur la bougie en cours. -->
           <div v-if="ligne.tendance === 'haussier'" class="flex items-center gap-1">
-            <span class="text-[10px] font-semibold text-emerald-400">Haussier</span>
-            <span class="text-emerald-400 text-[11px]">▲</span>
+            <span class="text-[10px] font-semibold text-white">Haussier</span>
+            <span class="text-[11px]">🚀</span>
           </div>
           <div v-else-if="ligne.tendance === 'baissier'" class="flex items-center gap-1">
-            <span class="text-[10px] font-semibold text-red-400">Baissier</span>
-            <span class="text-red-400 text-[11px]">▼</span>
+            <span class="text-[10px] font-semibold text-white">Baissier</span>
+            <span class="text-[11px]">🐻</span>
           </div>
           <span v-else class="text-[10px] text-white">—</span>
         </div>
@@ -45,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { apiService } from '@/services/api.service'
 import type { LigneTendanceKasper } from '@/services/api.types'
 
@@ -58,6 +61,17 @@ const props = defineProps<{
 }>()
 
 const lignes = ref<LigneTendanceKasper[]>([])
+
+/// Fond de ligne par direction (retour owner 15/10 : les fonds verts/rouges
+/// de Kasper) — le TF actif garde son repère bleu en plus.
+function classeLigne(ligne: LigneTendanceKasper): string {
+  const fond =
+    ligne.tendance === 'haussier' ? 'bg-emerald-500/20'
+    : ligne.tendance === 'baissier' ? 'bg-red-500/20'
+    : 'hover:bg-white/5'
+  const repere = ligne.tf === tfActifTable.value ? ' border-l-2 border-l-blue-400' : ''
+  return fond + repere
+}
 const chargement = ref(false)
 const erreur = ref<string | null>(null)
 
@@ -88,7 +102,14 @@ async function charger() {
   }
 }
 
-onMounted(charger)
+onMounted(() => {
+  charger()
+  // Miroir du panneau Kasper : il réévalue ses EMA vivantes en continu —
+  // notre panneau se rafraîchit toutes les 10 s (espion 15/10).
+  poll = setInterval(charger, 10_000)
+})
+let poll: ReturnType<typeof setInterval> | null = null
+onUnmounted(() => { if (poll !== null) clearInterval(poll) })
 
 watch(
   () => [props.asset, props.timeframe, props.periodeRapide, props.periodeLente, props.modeCalcul],

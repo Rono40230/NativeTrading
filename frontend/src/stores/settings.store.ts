@@ -115,7 +115,7 @@ const INDICATEURS_DEFAUT: PrefsIndicateurs = {
   kasperTendance: false,
   kasperPeriodeRapide: 9,
   kasperPeriodeLente: 21,
-  kasperModeCalcul: 'bougie_cloturee',
+  kasperModeCalcul: 'bougie_en_cours',
 
   // ── SMC v12 ── ON par défaut pour les indicateurs réellement retournés par
   // l'API (/api/smc/v12/analyse) et déjà dessinés ; OFF pour les autres
@@ -160,7 +160,15 @@ function chargerIndicateurs(): PrefsIndicateurs {
   try {
     const raw = localStorage.getItem(CLE_INDICATEURS)
     if (raw) {
-      return { ...INDICATEURS_DEFAUT, ...JSON.parse(raw) }
+      const prefs = { ...INDICATEURS_DEFAUT, ...JSON.parse(raw) }
+      // Migration 15/10 (espion KAS) : la règle prouvée évalue les EMA sur
+      // la bougie EN COURS (99,99 %) — l'ancien défaut « clôturée » persisté
+      // chez l'utilisateur doit suivre, une seule fois.
+      if (prefs.kasperModeCalcul === 'bougie_cloturee' && !localStorage.getItem('tend_kasper_v2')) {
+        prefs.kasperModeCalcul = 'bougie_en_cours'
+        localStorage.setItem('tend_kasper_v2', '1')
+      }
+      return prefs
     }
   } catch {
     // données corrompues — on repart des valeurs par défaut
