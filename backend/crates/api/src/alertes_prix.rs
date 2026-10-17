@@ -68,6 +68,17 @@ pub async fn verifier(db: &Database, cache: &mut CacheAlertes, ev: &EvenementPri
                 tracing::warn!("Alerte prix (Telegram): {}", e);
             }
         }
+        // Relais mobile (MOB ⑥) — le journal serveur, la muette est côté app.
+        crate::mobile_relay::emettre(
+            db,
+            "prix",
+            &format!("Alerte prix · {} {}", a.asset, sens_txt),
+            Some(&a.asset),
+            None,
+            serde_json::json!({ "asset": a.asset, "sens": a.sens, "niveau": a.prix, "prix": prix }),
+            false,
+        )
+        .await;
         tracing::info!("🔔 Alerte prix déclenchée : {} {} {:.2} (prix {:.2})", a.asset, a.sens, a.prix, prix);
     }
 }

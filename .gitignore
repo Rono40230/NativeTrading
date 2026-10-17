@@ -9,6 +9,11 @@ Cargo.lock
 # Node / Frontend
 frontend/node_modules/
 frontend/dist/
+
+# App mobile (client indépendant)
+AppMobile/node_modules/
+AppMobile/dist/
+AppMobile/captures/
 frontend/src-tauri/target/
 frontend/src-tauri/gen/
 

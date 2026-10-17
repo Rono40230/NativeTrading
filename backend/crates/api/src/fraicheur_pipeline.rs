@@ -67,6 +67,20 @@ pub struct Anomalie {
     pub seuil_min: i64,
 }
 
+/// Minutes → durée lisible (owner 17/10 : jamais « 540 min ») : < 60 min
+/// reste en minutes, au-delà en heures (« 9h », « 10h20 »).
+pub fn duree_lisible(min: i64) -> String {
+    if min < 60 {
+        return format!("{min} min");
+    }
+    let (h, m) = (min / 60, min % 60);
+    if m == 0 {
+        format!("{h}h")
+    } else {
+        format!("{h}h{m:02}")
+    }
+}
+
 #[derive(serde::Serialize, Clone, PartialEq, Debug)]
 pub struct EtatAsset {
     pub asset: String,
@@ -200,7 +214,9 @@ pub async fn auditer_db(db: &Arc<db::Database>) {
     let instant_paris = Paris.from_utc_datetime(&Utc::now().naive_utc());
     let etats = auditer(&assets, &dernieres, maintenant, marche_ouvert_mt5(instant_paris));
 
-    // Journal des transitions uniquement (pas de spam cyclique).
+    // Journal des transitions uniquement (pas de spam cyclique). Les
+    // émissions mobile partent APRÈS le verrou (un guard n'est pas Send).
+    let mut nouvelles: Vec<(String, String, i64, i64, bool)> = Vec::new();
     let precedentes = PRECEDENTES.get_or_init(|| RwLock::new(HashMap::new()));
     if let Ok(mut prec) = precedentes.write() {
         for etat in &etats {
@@ -224,6 +240,13 @@ pub async fn auditer_db(db: &Arc<db::Database>) {
                                 if etat.marche_ouvert { "ouvert" } else { "fermé" }
                             );
                         }
+                        nouvelles.push((
+                            etat.asset.clone(),
+                            a.tf.clone(),
+                            a.retard_min,
+                            a.seuil_min,
+                            etat.marche_ouvert,
+                        ));
                     }
                 }
                 for a in &avant {
@@ -234,6 +257,22 @@ pub async fn auditer_db(db: &Arc<db::Database>) {
             }
             prec.insert(etat.asset.clone(), etat.anomalies.clone());
         }
+    }
+    // Relais mobile (MOB ⑦) — problème app ↔ fournisseur.
+    for (asset, tf, retard, seuil, marche) in nouvelles {
+        crate::mobile_relay::emettre(
+            db,
+            "sante",
+            &format!("{asset} {tf} — retard {}", duree_lisible(retard)),
+            Some(&asset),
+            Some(&tf),
+            serde_json::json!({
+                "asset": asset, "tf": tf, "retard_min": retard,
+                "seuil_min": seuil, "marche_ouvert": marche,
+            }),
+            false,
+        )
+        .await;
     }
 
     let audit = Audit { ts: maintenant, etats };
@@ -405,5 +444,12 @@ mod tests {
         assert!(!marche_ouvert_mt5(paris(chrono::Weekday::Sun, 22)));
         assert!(marche_ouvert_mt5(paris(chrono::Weekday::Sun, 23)));
         assert!(marche_ouvert_mt5(paris(chrono::Weekday::Mon, 0)));
+    }
+
+    #[test]
+    fn duree_lisible_passe_en_heures() {
+        assert_eq!(duree_lisible(45), "45 min");
+        assert_eq!(duree_lisible(540), "9h");
+        assert_eq!(duree_lisible(620), "10h20");
     }
 }

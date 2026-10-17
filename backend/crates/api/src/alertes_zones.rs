@@ -126,6 +126,8 @@ pub struct ZoneWatch {
 pub struct EtatZones {
     /// Zones déjà notifiées pour l'épisode d'approche EN COURS.
     alertees: HashMap<CleZone, i64>,
+    /// Zones déjà notifiées en CONTACT (MOB ⑤) — une fois par zone.
+    contactees: HashMap<CleZone, i64>,
     /// Zones actuellement en bande (rafraîchies à chaque prix du couple).
     en_bande: Vec<ZoneWatch>,
     /// Alertes notifiées (rétention 2 h).
@@ -297,6 +299,82 @@ pub async fn verifier(
             .collect::<Vec<ZoneWatch>>()
     };
 
+    // ⑤ CONTACT (chantier MOB owner 17/10) : le prix atteint une zone
+    // encore vivante (distance au bord proche ≤ 0) — une fois par zone,
+    // purgée quand la zone disparaît (touchée/invalidée/FIFO).
+    let contacts: Vec<ZoneWatch> = {
+        let mut e = match etat().lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        };
+        e.contactees.retain(|cle, _| {
+            if cle.asset != couple.0 || cle.tf != couple.1 {
+                return true;
+            }
+            zones
+                .iter()
+                .any(|z| z.achat == cle.achat && z.ts_zone == cle.ts_zone)
+        });
+        let mut sortis = Vec::new();
+        for z in &zones {
+            if distance(prix, z) > 0.0 {
+                continue;
+            }
+            let cle = CleZone {
+                asset: couple.0.clone(),
+                tf: couple.1.clone(),
+                achat: z.achat,
+                ts_zone: z.ts_zone,
+            };
+            if e.contactees.contains_key(&cle) {
+                continue;
+            }
+            e.contactees.insert(cle, maintenant);
+            sortis.push(ZoneWatch {
+                asset: couple.0.clone(),
+                tf: couple.1.clone(),
+                achat: z.achat,
+                zone_haut: z.bord_proche.max(z.bord_lointain),
+                zone_bas: z.bord_proche.min(z.bord_lointain),
+                distance_atr: 0.0,
+                distance_pct: 0.0,
+                prix,
+                ts_zone: z.ts_zone,
+                alerte_le: Some(maintenant),
+            });
+        }
+        sortis
+    };
+    for w in contacts {
+        let sens: &str = if w.achat { "ACHAT" } else { "VENTE" };
+        tracing::info!(
+            "🎯 Contact zone {sens} {} {} [{:.2};{:.2}] prix {:.2}",
+            w.asset,
+            w.tf,
+            w.zone_haut,
+            w.zone_bas,
+            w.prix
+        );
+        let payload = serde_json::json!({
+            "asset": w.asset, "tf": w.tf, "achat": w.achat,
+            "zone_haut": w.zone_haut, "zone_bas": w.zone_bas,
+            "prix": w.prix, "ts_zone": w.ts_zone,
+        });
+        if let Some(id) = crate::mobile_relay::emettre(
+            db,
+            "smc_contact",
+            &format!("Contact zone {sens} · {} {}", w.asset, w.tf),
+            Some(&w.asset),
+            Some(&w.tf),
+            payload.clone(),
+            true,
+        )
+        .await
+        {
+            crate::mobile_relay::capturer_smc(db, id, &w.asset, &w.tf, &payload).await;
+        }
+    }
+
     for w in a_alerter {
         let sens: &str = if w.achat { "ACHAT" } else { "VENTE" };
         let msg = format!(
@@ -307,6 +385,26 @@ pub async fn verifier(
             "📍 Approche zone {} {} [{:.2};{:.2}] prix {:.2} ({:.2} × ATR)",
             w.asset, w.tf, w.zone_haut, w.zone_bas, w.prix, w.distance_atr
         );
+        // Relais mobile (MOB ④) — capture PNG rendue par le serveur.
+        let payload = serde_json::json!({
+            "asset": w.asset, "tf": w.tf, "achat": w.achat,
+            "zone_haut": w.zone_haut, "zone_bas": w.zone_bas,
+            "distance_atr": w.distance_atr, "distance_pct": w.distance_pct,
+            "prix": w.prix, "ts_zone": w.ts_zone,
+        });
+        if let Some(id) = crate::mobile_relay::emettre(
+            db,
+            "smc_approche",
+            &format!("Approche zone {sens} · {} {}", w.asset, w.tf),
+            Some(&w.asset),
+            Some(&w.tf),
+            payload.clone(),
+            true,
+        )
+        .await
+        {
+            crate::mobile_relay::capturer_smc(db, id, &w.asset, &w.tf, &payload).await;
+        }
         if cfg.telegram {
             let (token, chat) = notifications::telegram::lire_tokens_pool(db.pool()).await;
             if !token.is_empty() && !chat.is_empty() {

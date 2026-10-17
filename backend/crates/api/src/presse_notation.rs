@@ -107,7 +107,7 @@ async fn balayer(db: &Arc<Database>) {
                 }
             },
         };
-        for (idx, (hash, _)) in articles.iter().enumerate() {
+        for (idx, (hash, titre)) in articles.iter().enumerate() {
             // Titre manquant dans la réponse → 1 (sans intérêt) : on ne
             // laisse jamais un article noté à 0 (re-boucle infinie).
             let score = scores
@@ -118,6 +118,20 @@ async fn balayer(db: &Arc<Database>) {
             match db.noter_article_presse(hash, score as u8).await {
                 Ok(()) => notes += 1,
                 Err(e) => tracing::warn!("Notation presse (écriture): {e}"),
+            }
+            // Gros titre marquant (MOB ③, owner 17/10) : noté 100 sur une
+            // news fonda → relais mobile. La muette 21h→8h est côté app.
+            if score == 100 {
+                crate::mobile_relay::emettre(
+                    db,
+                    "presse",
+                    titre,
+                    None,
+                    None,
+                    serde_json::json!({ "titre": titre, "score": score }),
+                    false,
+                )
+                .await;
             }
         }
         tokio::time::sleep(std::time::Duration::from_secs(PAUSE_ENTRE_LOTS_SEC)).await;

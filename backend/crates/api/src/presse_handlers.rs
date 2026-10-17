@@ -212,19 +212,28 @@ pub async fn delete_source(state: web::Data<AppState>, chemin: web::Path<i64>) -
     }
 }
 
-/// Génération à la demande du brief 24 h : sélection top 15, traduction à la
-/// volée des non-traduits (porte d'entrée = génération, PAS de suppression —
-/// la condamnation reste le privilège de la consultation), synthèse LLM puis
-/// archivage. 503 propre si Ollama est indisponible.
-pub async fn post_brief(state: web::Data<AppState>) -> HttpResponse {
-    let articles = match state.db.selection_brief_24h(8).await {
-        Ok(a) => a,
-        Err(e) => return HttpResponse::InternalServerError().body(format!("{e}")),
-    };
+/// Erreurs de génération du brief presse — mapping HTTP par l'appelant.
+pub(crate) enum ErreurBrief {
+    AucunArticle,
+    OllamaIndisponible,
+    Interne(String),
+}
+
+/// Cœur de « ⚡ Générer » (Revue de presse) : sélection top 24 h, traduction
+/// à la volée des non-traduits (porte d'entrée = génération, PAS de
+/// suppression — la condamnation reste le privilège de la consultation),
+/// synthèse LLM puis archivage. Partagé app principale + relais mobile
+/// (MOB, owner 17/10 : le bouton mobile produit CE brief, pas le briefing
+/// de session de l'onglet Aujourd'hui).
+pub(crate) async fn generer_et_archiver_brief(
+    db: &std::sync::Arc<db::Database>,
+) -> Result<(i64, String, usize), ErreurBrief> {
+    let articles = db
+        .selection_brief_24h(8)
+        .await
+        .map_err(|e| ErreurBrief::Interne(format!("{e}")))?;
     if articles.is_empty() {
-        return HttpResponse::BadRequest().json(
-            serde_json::json!({"erreur": "aucun article dans les dernières 24 h"}),
-        );
+        return Err(ErreurBrief::AucunArticle);
     }
 
     // Traduire à la volée les articles du brief qui ne le sont pas (seuls eux).
@@ -232,8 +241,7 @@ pub async fn post_brief(state: web::Data<AppState>) -> HttpResponse {
     // (~10 s chacune) frôlaient le timeout HTTP de 180 s. Le sémaphore Ollama
     // (OLLAMA_SEMAPHORE dans traduire_avec_cache_strict) borne la concurrence
     // réelle côté LLM ; le pool SQLite (WAL + busy_timeout) tolère le reste.
-    let pool: SqlitePool = state.db.pool().clone();
-    let db = state.db.clone(); // Arc<Database> pour la closure
+    let pool: SqlitePool = db.pool().clone();
     let taches = articles.iter().map(|a| {
         let pool = pool.clone(); // handle Arc interne — cloné par tâche
         let db = db.clone();
@@ -259,23 +267,32 @@ pub async fn post_brief(state: web::Data<AppState>) -> HttpResponse {
     let entree = lignes.join("");
 
     let Some(contenu) = news::news_traduction::generer_brief_llm(&entree).await else {
-        return HttpResponse::ServiceUnavailable().json(
-            serde_json::json!({"erreur": "Ollama indisponible — réessayer plus tard"}),
-        );
+        return Err(ErreurBrief::OllamaIndisponible);
     };
 
     let maintenant = chrono::Utc::now().timestamp();
-    let id = match state
-        .db
+    let id = db
         .inserer_brief(maintenant - 86_400, maintenant, articles.len(), &contenu)
         .await
-    {
-        Ok(id) => id,
-        Err(e) => return HttpResponse::InternalServerError().body(format!("{e}")),
-    };
-    HttpResponse::Ok().json(serde_json::json!({
-        "id": id, "contenu": contenu, "nb_articles": articles.len(),
-    }))
+        .map_err(|e| ErreurBrief::Interne(format!("{e}")))?;
+    Ok((id, contenu, articles.len()))
+}
+
+/// Génération à la demande du brief 24 h (voir generer_et_archiver_brief).
+/// 503 propre si Ollama est indisponible.
+pub async fn post_brief(state: web::Data<AppState>) -> HttpResponse {
+    match generer_et_archiver_brief(&state.db).await {
+        Ok((id, contenu, nb)) => HttpResponse::Ok().json(
+            serde_json::json!({ "id": id, "contenu": contenu, "nb_articles": nb }),
+        ),
+        Err(ErreurBrief::AucunArticle) => HttpResponse::BadRequest().json(
+            serde_json::json!({"erreur": "aucun article dans les dernières 24 h"}),
+        ),
+        Err(ErreurBrief::OllamaIndisponible) => HttpResponse::ServiceUnavailable().json(
+            serde_json::json!({"erreur": "Ollama indisponible — réessayer plus tard"}),
+        ),
+        Err(ErreurBrief::Interne(e)) => HttpResponse::InternalServerError().body(format!("{e}")),
+    }
 }
 
 /// Les 20 derniers briefs archivés (contenu inclus).

@@ -70,7 +70,7 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
  "synchro": {
-  "date": "16/10 soir — GARDE FRAÎCHEUR pipeline codé non committé (audit 5 min, badge 📦, sante/sources — relance requise) ; correctif D1 GER40 non committé ; couverture RECALÉE en densité (100 % = aucun trou) — vrai trou révélé : M1 altcoins 57 % ; OBIA : journal s'accumule ; PIL CLOS ; KAS XAU M1→H4 validés",
+  "date": "18/10 soir — MOB ① backend relay + ② scaffold AppMobile CODÉS & 2 ROUNDS DE RETOURS OWNER INTÉGRÉS (relay 7 alertes + PNG serveur + digest 8h30 renommé Briefing du matin + T-10 min + durées en heures + grille SMC Sens/Zone/Entrée/SL + bouton presse = brief partagé Revue de presse ; 149 tests verts, 6 captures validées) — POUSSÉ, activation = relance run.sh ; ③ coquille Android en attente (SDK/NDK) ; OBIA : espions en accumulation ; KAS : re-jeu week-end lundi",
   "commit": "e2a5e06",
   "note": "R distance (stratégie) + $ (résultat), jamais de R moyen. Production SMC = tout-TP1 + trailing k=0,1. Doctrine événements : 17 (8 structurels + 9 calendrier), Medium non tradés. Vécu immuable. KPIs relevés ce jour via /api/analyses."
  },
@@ -218,6 +218,13 @@
    "titre": "Espionnage OrderBlock IA v6 (EA Kasper) — reproduire l'INDICATEUR",
    "detail": "Rétro-ingénierie de docs/OrderBlock IA v6.ex5 (interne « v10 ») SANS prise/gestion de trades. Inputs décodés : FVG ≥ 0,2 × ATR, âge max 50 barres, OB à l'origine + BOS exigé, détection sur le TF du graphique. ESPIONNAGE VIVANT 16/10 : journal espion_obia_journal.jsonl (EA_Espion_OBIA.mq5 v1.00, ancres 0-3 temps × prix), 2 paires FVG+OB décodées = 4 objets/paire (_F boîte FVG, _OB boîte Order Block, _B cadre d'état, _T étiquette posée au PRIX MÉDIAN du FVG au centime), dashboard lu (FVG en attente ▼/▲, FVG tradable le plus proche, positions/ordres, trades du jour) — « 5 étoiles » NON encore observées ; résidus SMC_SIG_* (v12) filtrés par préfixe ; ⚠ ordre 1/1 risque 1 % signalé à l'owner → garde anti-trades (Sens autorisés / Spread max = 1). RÉFLEXION STRATÉGIQUE owner 16/10 : ① inputs = miroir en constantes (seuil ATR ×, âge max, BOS, affichage exposés en phase 2 via réglages par asset, jamais en phase 1) ; ② vignette « trade projeté » = AFFICHAGE PUR jamais armée ni comptée au vécu, gated sur décodage des étoiles ; ③ moteur SMC : NI concurrence NI contradiction — confluence potentielle (filtre FVG+OB+BOS, niveau d'entrée, cycle de vie vs cliquet) à trancher au labo ; ④ scoring NON remis en cause (goulot = conversion, étude C1) — critère possible si chevauchement corrèle en R ; ⑤ touchés : D4 (débloqué/recadré par la vérité terrain), overlay graphique, en aval moteur/scoring/labo — straddle/rockets/KDJ/vécu/pipeline INTACTS. PLAN D'IMPLÉMENTATION : P1 espionnage 24-48 h → cycle de vie complet recoupé aux M15 en base → spec formelle ; P2 reproduction interne en constantes miroir + unitests cas réels au centime (méthode KAS) ; P3 overlay graphique + validation écran côte à côte app vs MT5 ; P4 DÉCISION OWNER : labo A/B « SMC seul vs SMC + confluence FVG » (R distance + $) → filtre/critère de score + vignette trade projeté si étoiles décodées.",
    "echeance": "P1 espionnage ≥ 24-48 h → spec formelle (P4 = décision owner labo A/B)"
+  },
+  {
+   "id": "MOB",
+   "prio": 2,
+   "titre": "App mobile APK « relais d'information » — ① relay + ② scaffold CODÉS-POUSSÉS (retours owner x2 intégrés)",
+   "detail": "PHILOSOPHIE : l'app RELAYE l'information (opportunités à VENIR) — zéro action, zéro post-mortem, zéro stats ; tour de contrôle = app principale. CANAL REVU owner 17/10 : PAS de Telegram — APK Android DIRECT via Tauri 2, client du backend maison via Tailscale. LES 7 ALERTES : ① digest 8h30 Paris (High du jour + heures + briefing 🌍 CONTEXTE MARCHÉ + ligne « pendant la nuit » ; = heartbeat implicite) ② rappel T-10 min ③ gros titre presse = article noté 100 sur news fonda (détail SANS lien externe) ④ SMC approche (0,5 × ATR du TF de zone, 1 alerte/entrée de bande, réarmement à 1 × ATR) ⑤ SMC contact (binaire) — avec capture graphique RENDU SERVEUR PNG (~120 bougies + zone) ⑥ relais alertes prix ⑦ anomalie fraîcheur fournisseurs. MUETTE 21h→8h Paris, nocturnes RÉSUMÉES au digest (option b). PAGES : onglet Aujourd'hui (High + countdown, ligne nuit, presse, briefing 🌍 tappable) + onglet Journal (chronologique, non-lues, 5 vues détail : événement/presse/SMC approche-contact avec PNG/prix/santé — détails accessibles DEPUIS Aujourd'hui) + Réglages (serveur+token, test connexion, toggles par type). WORKFLOW : ouverture → bandeau connexion Tailscale → Aujourd'hui ; alerte → table mobile_alertes → polling → notification système (hors muette) → détail. POLLING arrière-plan 10 min (owner) via SERVICE AU PREMIER PLAN (notification permanente « relais actif » — WorkManager plancher 15 min insuffisant) ; premier plan = ~30 s. ARCHITECTURE (owner 17/10) : dossier /native-trading-ai/AppMobile = projet CLIENT 100 % indépendant (propre Vue+Tauri Android, build séparé, même dépôt/preaudit) ; SEULE exception : émission des alertes (module isolé mobile_relay.rs + /api/mobile/* + rendu PNG + digest) vit dans le backend principal — incompressible, elle lit moteurs/DB direct.",
+   "echeance": "① relay backend TERMINÉ (mobile_relay.rs + mobile_png.rs + migration 0124 + 5 crochets + /api/mobile/* dont POST /api/mobile/brief = génération PARTAGÉE avec la Revue de presse ; 149 tests verts) ; ② AppMobile TERMINÉ (14 fichiers indépendants, vue-tsc+build verts, 6 captures validées visuellement, mode ?demo=1 ; retours owner : countdown retiré, contexte IA dans carte presse, clic événement corrigé, doublons emoji purgés, « Briefing du matin », « T-10 min », durées 10h20/9h, grille SMC 4 cases Entrée+SL) → RESTE ③ coquille Tauri 2 Android (SDK/NDK/JDK à installer, service 1er plan « relais actif », notifs hors muette, polling 10 min) + relance run.sh owner pour activer le relay"
   },
   {
    "id": "KAS",
@@ -634,6 +641,11 @@
    "date": "09/09",
    "titre": "memtest86+ programmé",
    "detail": "Au prochain redémarrage — thèse barrette RAM instable non-ECC."
+  },
+  {
+   "date": "16/10",
+   "titre": "KDJ reste H1 — pas de variante D1 sur l'univers Tiingo (ABANDONNÉ, ne pas re-proposer)",
+   "detail": "Proposition du 16/10 : brancher KDJ sur les 449 actifs d'observation rockets. DÉCISION OWNER : laisse tomber — KDJ est conçu pour H1 ; Tiingo ne fournit que du D1, une variante D1 n'est pas la même stratégie et ne vaut pas un chantier. Le KDJ de production reste sur le pipeline 📦 en H1 (action B : mesure 30 trades en cours)."
   }
  ],
  "regles_transverses": [

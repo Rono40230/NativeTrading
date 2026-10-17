@@ -11,6 +11,7 @@ engine = { path = "../engine" }
 engine_v12 = { path = "../engine_v12" }
 notifications = { path = "../notifications" }
 llm = { path = "../llm" }
+image = { version = "0.25", default-features = false, features = ["png"] }
 news = { path = "../news" }
 # §11-4 (06/09) : feature cuda retirée — libtorch/CUDA part du build (le
 # GPU n’accélérait que le LSTM, repli CPU déjà prévu partout ; xgboost

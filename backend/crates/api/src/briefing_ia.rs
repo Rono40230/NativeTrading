@@ -5,7 +5,7 @@
 //! ne produit que la hiérarchie (« ce qui compte aujourd'hui »).
 //! Cache du jour, prompt éditable `briefing_session`.
 
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use actix_web::{web, HttpResponse};
 use serde::Serialize;
@@ -107,7 +107,14 @@ pub async fn post_briefing(state: web::Data<AppState>, corps: Option<web::Json<C
         }
     }
 
-    let mut b = collecter(&state).await;
+    let b = generer(&state.db).await;
+    HttpResponse::Ok().json(serde_json::json!({ "en_cache": false, "briefing": b }))
+}
+
+/// Génère le briefing du jour (collecte factuelle + synthèse LLM) et pose
+/// le cache. Partagé POST /api/briefing/ia et digest 8h30 du relais mobile.
+pub(crate) async fn generer(db: &Arc<db::Database>) -> Briefing {
+    let mut b = collecter(db).await;
     let contexte = contexte(&b);
     if contexte.lines().count() >= 2 {
         let prompt = format!("{}\n\n{}", llm::prompt_effectif("briefing_session"), contexte);
@@ -123,12 +130,34 @@ pub async fn post_briefing(state: web::Data<AppState>, corps: Option<web::Json<C
     }
     b.generee_le = chrono::Utc::now().timestamp();
     *cache().lock().unwrap_or_else(|p| p.into_inner()) = Some(b.clone());
-    HttpResponse::Ok().json(serde_json::json!({ "en_cache": false, "briefing": b }))
+    b
+}
+
+/// Briefing du jour : cache frais sinon génération — le digest 8h30 du
+/// relais mobile est le déclencheur matinal (chantier MOB owner 17/10).
+pub(crate) async fn briefing_du_jour(db: &Arc<db::Database>) -> Briefing {
+    {
+        let g = cache().lock().unwrap_or_else(|p| p.into_inner());
+        if let Some(b) = g.as_ref() {
+            if jour_courant(b.generee_le) == jour_courant(chrono::Utc::now().timestamp()) {
+                return b.clone();
+            }
+        }
+    }
+    generer(db).await
+}
+
+/// Synthèse 🌍 du jour si le cache est frais — LECTURE seule (aucune
+/// génération : l'onglet mobile « Aujourd'hui » ne doit jamais payer un LLM).
+pub(crate) fn synthese_cache_du_jour() -> Option<SyntheseBriefing> {
+    let g = cache().lock().unwrap_or_else(|p| p.into_inner());
+    g.as_ref()
+        .filter(|b| jour_courant(b.generee_le) == jour_courant(chrono::Utc::now().timestamp()))
+        .and_then(|b| b.synthese.clone())
 }
 
 /// Les données factuelles du jour — toutes locales, toutes réelles.
-async fn collecter(state: &web::Data<AppState>) -> Briefing {
-    let db = &state.db;
+async fn collecter(db: &Arc<db::Database>) -> Briefing {
     let now = chrono::Utc::now();
     let maintenant = now.timestamp();
     // Journée Paris COMPLÈTE (owner 14/10 : événements passés inclus) —

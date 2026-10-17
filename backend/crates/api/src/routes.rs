@@ -15,6 +15,16 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             "/api/assets/fraicheur",
             web::get().to(crate::fraicheur_pipeline::get_fraicheur),
         )
+        // ── Relais mobile (MOB) : lecture seule, token si configuré ──
+        .route("/api/mobile/etat", web::get().to(crate::mobile_relay::get_etat))
+        .route("/api/mobile/journal", web::get().to(crate::mobile_relay::get_journal))
+        .route("/api/mobile/aujourdhui", web::get().to(crate::mobile_relay::get_aujourdhui))
+        .route("/api/mobile/alerte/{id}", web::get().to(crate::mobile_relay::get_alerte))
+        .route("/api/mobile/alerte/{id}/png", web::get().to(crate::mobile_relay::get_alerte_png))
+        .route(
+            "/api/mobile/brief",
+            web::post().to(crate::mobile_relay::post_brief_presse),
+        )
         .route(
             "/api/assets",
             web::post().to(crate::assets_handlers::ajouter_asset),
