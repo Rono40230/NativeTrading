@@ -132,8 +132,7 @@ async fn journal_observation(db: Arc<Database>, bus: engine::BusBougies) {
                         &b.bougie,
                         b.mode.libelle(),
                         chrono::Utc::now(),
-                    )
-                    .await
+                    ).await
                 {
                     tracing::warn!(
                         "Journal observation: erreur DB {} {} ts={} : {}",
@@ -321,11 +320,11 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
     // la boucle d'ajouts le réinscrit immédiatement avec les moteurs voulus.
     crate::reglages_smc::retirer_changements_armement(runtime, &cibles, &armes);
 
-    // Hot-reload des paramètres moteur (09/10 + PAR ASSET 0121) : l'empreinte
-    // de chaque couple inclut la SURCHARGE de son asset — changer le trailing
-    // de XAUUSD ne ré-arme que XAUUSD. Garde straddle : fenêtre active différée.
+    // Hot-reload (09/10 + 0121) : empreinte par couple (surcharge de
+    // l'asset + sl_fixe) — un changement ne ré-arme que cet asset.
     {
         let global_smc = crate::reglages_asset_fusion::reglages_smc(db, "").await;
+        let sl_fixes = db::asset_params::lire_sl_fixe_tous(db.pool()).await.unwrap_or_default();
         let global_str = crate::reglages_asset_fusion::straddle_params(db, "").await;
         let smc_map = db::reglages_asset::toutes_smc_surcharges(db.pool()).await.unwrap_or_default();
         let str_map = db::reglages_asset::toutes_straddle_surcharges(db.pool()).await.unwrap_or_default();
@@ -336,9 +335,10 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                     .then(|| {
                         let vide = db::reglages_asset::SmcSurcharge::default();
                         let s = smc_map.get(a.as_str()).unwrap_or(&vide);
-                        crate::reglages_asset_fusion::empreinte_smc(
-                            &crate::reglages_asset_fusion::fusionner_smc(global_smc.clone(), s),
-                        )
+                        let fusion = crate::reglages_asset_fusion::fusionner_smc(
+                            global_smc.clone(), s, sl_fixes.get(a.as_str()).copied(),
+                        );
+                        crate::reglages_asset_fusion::empreinte_smc(&fusion)
                     });
                 let straddle = (*tf == common::Timeframe::M1
                     && perimetre_straddle.iter().any(|x| x == a.as_str()))
@@ -404,7 +404,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                         .avec_tp2(r_smc.tp2)
                         .avec_tp3_reglage(r_smc.tp3.clone())
                         .avec_trailing_tp2(r_smc.trailing)
-                        .avec_surcharge_sl_max(r_smc.sl_max),
+                        .avec_sl_fixe(crate::reglages_asset_fusion::sl_fixe_etude(&r_smc)),
                 ));
             }
             if *tf == common::Timeframe::M1 && perimetre_straddle.iter().any(|a| a == &asset.as_str()) {
@@ -477,7 +477,7 @@ async fn synchroniser_config(db: &Arc<Database>, runtime: &mut Runtime) {
                     .avec_tp2(r_smc.tp2)
                     .avec_tp3_reglage(r_smc.tp3.clone())
                     .avec_trailing_tp2(r_smc.trailing)
-                    .avec_surcharge_sl_max(r_smc.sl_max),
+                    .avec_sl_fixe(crate::reglages_asset_fusion::sl_fixe_etude(&r_smc)),
             ));
         }
         // Étape 4 — verticale Straddle, rail Bybit : seule BTC (cf. PERIMETRE).

@@ -216,16 +216,15 @@ async fn lignes_reglages(state: &AppState, id: &str, asset: &str) -> String {
         "SMC" => {
             let fusee = crate::simulation_recommandation::config_actuelle_asset(state, "SMC", Some(asset)).await;
             let global = crate::simulation_recommandation::config_actuelle_asset(state, "SMC", None).await;
-            let s = db::reglages_asset::lire_smc_surcharge(state.db.pool(), asset)
-                .await
-                .unwrap_or_default();
             let mut parts: Vec<String> = ["tp1_mult", "tp2_mult", "tp3_mode", "tp3_rfixe", "tp3_trailing", "frac_tp1", "frac_tp2", "frac_tp3"]
                 .iter()
                 .filter_map(|k| ligne_reglage_json(*k, fusee.as_ref(), global.as_ref()))
                 .collect();
-            // Champ propre à la surcharge (pas de clé config équivalente).
-            if let Some(m) = s.sl_max {
-                parts.push(format!("sl_max={m}×ATR (surcharge — défaut : étalon par classe)"));
+            // SL fixe (owner 19/10) : asset_params.sl_pips × taille_pip.
+            if let Ok(fixe) = db::asset_params::lire_sl_fixe_prix(state.db.pool(), asset).await {
+                if let Some(v) = fixe {
+                    parts.push(format!("SL fixe={v} (asset_params, garde : bord de zone si plus proche)"));
+                }
             }
             if parts.is_empty() { "réglages illisibles".into() } else { parts.join(" · ") }
         }
@@ -316,10 +315,10 @@ async fn champs_surcharges(state: &AppState, id: &str, asset: &str) -> Vec<Strin
                 (g != f).then(|| format!("{nom} {} (défaut {})", compact_json(f), compact_json(g)))
             })
             .collect();
-            // sl_max : champ propre à la surcharge (pas de clé config).
-            if let Ok(s) = db::reglages_asset::lire_smc_surcharge(state.db.pool(), asset).await {
-                if let Some(m) = s.sl_max {
-                    v.push(format!("SL max {m}×ATR (défaut : étalon par classe)"));
+            // SL fixe (owner 19/10) : distance absolue par asset.
+            if let Ok(fixe) = db::asset_params::lire_sl_fixe_prix(state.db.pool(), &asset).await {
+                if let Some(v2) = fixe {
+                    v.push(format!("SL fixe {v2} (borne : bord opposé de la zone si plus proche)"));
                 }
             }
             v

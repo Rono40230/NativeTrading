@@ -36,7 +36,7 @@ pub async fn get_reglages(
     let (surcharge, defaut) = match id.as_str() {
         "SMC" => {
             let s = db::reglages_asset::lire_smc_surcharge(pool, &asset).await.unwrap_or_default();
-            let r = crate::reglages_asset_fusion::reglages_smc(&state.db, "").await;
+            let r = crate::reglages_asset_fusion::reglages_smc(&state.db, &asset).await;
             (
                 serde_json::to_value(&s).unwrap_or_default(),
                 serde_json::json!({
@@ -44,7 +44,19 @@ pub async fn get_reglages(
                     "tp3_mode": if r.tp3.lointaine { "lointaine" } else { "fixe" },
                     "tp3_rfixe": r.tp3.rfixe,
                     "trailing_r": r.trailing,
-                    "sl_max": r.sl_max,
+                    "sl_fixe": r.sl_fixe,
+                    "palier_faible": r.palier_faible,
+                    "palier_fort": r.palier_fort,
+                    "sl_pips": db::asset_params::lire_pips(pool, &asset)
+                        .await
+                        .ok()
+                        .flatten()
+                        .map(|(p, _)| p),
+                    "taille_pip": db::asset_params::lire_pips(pool, &asset)
+                        .await
+                        .ok()
+                        .flatten()
+                        .map(|(_, t)| t),
                     "frac": crate::reglages_smc::lire_fractions(&state.db).await,
                 }),
             )
@@ -138,5 +150,24 @@ pub async fn delete_reglages(
             HttpResponse::Ok().json(serde_json::json!({ "ok": true }))
         }
         Err(e) => HttpResponse::InternalServerError().json(serde_json::json!({ "error": e.to_string() })),
+    }
+}
+
+
+/// PUT /api/assets/{asset}/sl_pips — SL fixe de la modale ⚙️ (source unique
+/// asset_params, partagée avec Gestion du risque). Hot-reload ≤ 60 s.
+pub async fn put_sl_pips(
+    state: web::Data<AppState>,
+    chemin: web::Path<String>,
+    corps: web::Json<serde_json::Value>,
+) -> HttpResponse {
+    let asset = chemin.into_inner();
+    let Some(sl) = corps.get("sl_pips").and_then(|v| v.as_f64()) else {
+        return HttpResponse::BadRequest()
+            .json(serde_json::json!({ "erreur": "sl_pips (nombre) requis" }));
+    };
+    match db::asset_params::maj_sl_pips(state.db.pool(), &asset, sl).await {
+        Ok(()) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
+        Err(e) => HttpResponse::BadRequest().json(serde_json::json!({ "erreur": e.to_string() })),
     }
 }

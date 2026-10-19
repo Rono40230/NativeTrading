@@ -11,8 +11,13 @@ pub struct ReglagesSmcAsset {
     pub tp2: f64,
     pub tp3: Tp3Reglage,
     pub trailing: Option<f64>,
-    /// Multiple d'ATR (None = étalon par classe).
-    pub sl_max: Option<f64>,
+    /// SL fixe en unités PRIX (owner 19/10) : sl_pips × taille_pip de
+    /// asset_params — source unique Gestion du risque/modale. None = pas
+    /// de ligne (le moteur ne génère alors AUCUN signal, échec visible).
+    pub sl_fixe: Option<f64>,
+    /// Paliers score option C : multiplicateur faible (<8) / fort (≥12).
+    pub palier_faible: f64,
+    pub palier_fort: f64,
 }
 
 /// Lit les réglages globaux puis applique la surcharge de l'asset champ à champ.
@@ -24,6 +29,12 @@ pub async fn reglages_smc(db: &db::Database, asset: &str) -> ReglagesSmcAsset {
     let s = db::reglages_asset::lire_smc_surcharge(db.pool(), asset)
         .await
         .unwrap_or_default();
+    let sl_fixe = db::asset_params::lire_sl_fixe_prix(db.pool(), asset)
+        .await
+        .ok()
+        .flatten();
+    let palier_faible = crate::reglages_smc::lire_palier(db, "smc_sl_palier_faible", 0.7).await;
+    let palier_fort = crate::reglages_smc::lire_palier(db, "smc_sl_palier_fort", 1.3).await;
     ReglagesSmcAsset {
         tp1: s.tp1.unwrap_or(tp1),
         tp2: s.tp2.unwrap_or(tp2),
@@ -37,12 +48,21 @@ pub async fn reglages_smc(db: &db::Database, asset: &str) -> ReglagesSmcAsset {
             rfixe: s.tp3_rfixe.unwrap_or(tp3_global.rfixe),
         },
         trailing: s.trailing_r.or(trailing),
-        sl_max: s.sl_max,
+        sl_fixe,
+        palier_faible,
+        palier_fort,
     }
 }
 
 /// Fusion PURE (tick : globals lus une fois, fusion en mémoire par couple).
-pub fn fusionner_smc(global: ReglagesSmcAsset, s: &db::reglages_asset::SmcSurcharge) -> ReglagesSmcAsset {
+/// `sl_fixe` = valeur de CET asset (asset_params) — le global est construit
+/// avec l'asset vide, sa valeur serait toujours None (bug 19/10 : l'empreinte
+/// hot-reload était aveugle aux changements de sl_pips).
+pub fn fusionner_smc(
+    global: ReglagesSmcAsset,
+    s: &db::reglages_asset::SmcSurcharge,
+    sl_fixe: Option<f64>,
+) -> ReglagesSmcAsset {
     ReglagesSmcAsset {
         tp1: s.tp1.unwrap_or(global.tp1),
         tp2: s.tp2.unwrap_or(global.tp2),
@@ -55,7 +75,9 @@ pub fn fusionner_smc(global: ReglagesSmcAsset, s: &db::reglages_asset::SmcSurcha
             rfixe: s.tp3_rfixe.unwrap_or(global.tp3.rfixe),
         },
         trailing: s.trailing_r.or(global.trailing),
-        sl_max: s.sl_max.or(global.sl_max),
+        sl_fixe,
+        palier_faible: global.palier_faible,
+        palier_fort: global.palier_fort,
     }
 }
 
@@ -84,16 +106,27 @@ pub fn empreinte_kdj_fusionnee(
     )
 }
 
+/// Construit le réglage moteur du SL fixe depuis la fusion (runtime).
+pub fn sl_fixe_etude(r: &ReglagesSmcAsset) -> Option<smc::v12::signals::SlFixeEtude> {
+    r.sl_fixe.map(|base| smc::v12::signals::SlFixeEtude {
+        base,
+        mult_faible: r.palier_faible,
+        mult_fort: r.palier_fort,
+        garde: smc::v12::signals::GardeSlFixe::SerreBord,
+    })
+}
+
 /// Empreinte texte des réglages SMC fusionnés d'un asset (hot-reload).
 pub fn empreinte_smc(r: &ReglagesSmcAsset) -> String {
     format!(
-        "tp1={:.4};tp2={:.4};tp3={}:{};trail={};slmax={}",
+        "tp1={:.4};tp2={:.4};tp3={}:{};trail={};slfixe={};paliers={}",
         r.tp1,
         r.tp2,
         if r.tp3.lointaine { "liq" } else { "fixe" },
         r.tp3.rfixe,
         r.trailing.map(|k| format!("{k:.4}")).unwrap_or_else(|| "off".into()),
-        r.sl_max.map(|k| format!("{k:.4}")).unwrap_or_else(|| "etalon".into()),
+        r.sl_fixe.map(|v| format!("{v:.4}")).unwrap_or_else(|| "ABSENT".into()),
+        format!("{};{}", r.palier_faible, r.palier_fort),
     )
 }
 
@@ -132,5 +165,33 @@ pub fn params_kdj_fusionnes(
             v if v >= 0.0 => Some(v),
             _ => None,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empreinte_inclut_le_sl_fixe() {
+        // Régression 19/10 : l'empreinte doit refléter le sl_fixe de l'asset —
+        // sinon le hot-reload ne voit pas un changement de sl_pips.
+        let mut r = reglages_pour_test();
+        r.sl_fixe = Some(5.0);
+        assert!(empreinte_smc(&r).contains("slfixe=5.0000"));
+        r.sl_fixe = Some(5.5);
+        assert!(empreinte_smc(&r).contains("slfixe=5.5000"));
+    }
+
+    fn reglages_pour_test() -> ReglagesSmcAsset {
+        ReglagesSmcAsset {
+            tp1: 0.6,
+            tp2: 2.0,
+            tp3: Tp3Reglage { lointaine: true, rfixe: 3.0 },
+            trailing: None,
+            sl_fixe: None,
+            palier_faible: 0.7,
+            palier_fort: 1.3,
+        }
     }
 }

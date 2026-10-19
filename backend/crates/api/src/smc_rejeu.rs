@@ -201,8 +201,22 @@ pub(crate) async fn calculer_avec_filtres(
     let mut nb_couples = 0usize;
     let mut nb_bougies = 0usize;
 
+    let palier_faible = crate::reglages_smc::lire_palier(pool, "smc_sl_palier_faible", 0.7).await;
+    let palier_fort = crate::reglages_smc::lire_palier(pool, "smc_sl_palier_fort", 1.3).await;
     for asset in &assets {
         let amorce = crate::runtime_amorces::charger_amorce_mtf_runtime(pool, asset).await;
+        // SL fixe (owner 19/10) : source unique asset_params — aucun signal
+        // si l'asset n'y a pas de ligne (cohérent avec le montage runtime).
+        let sl_fixe = db::asset_params::lire_sl_fixe_prix(pool.pool(), asset.as_str())
+            .await
+            .ok()
+            .flatten()
+            .map(|base| smc::v12::signals::SlFixeEtude {
+                base,
+                mult_faible: palier_faible,
+                mult_fort: palier_fort,
+                garde: smc::v12::signals::GardeSlFixe::SerreBord,
+            });
         for tf in &timeframes {
             if !crate::reglages_smc::est_arme(&armes, asset.as_str(), tf.as_str()) {
                 continue; // couple désarmé (ou H1) — hors métriques
@@ -225,7 +239,7 @@ pub(crate) async fn calculer_avec_filtres(
             let res = engine_v12::replay::rejouer_bougies_niveaux(
                 asset.clone(), *tf, &bougies, amorce.clone(), tp1, tp2,
                 smc::v12::signals::Tp3Reglage { lointaine: tp3_lointaine, rfixe: tp3_rfixe },
-                trailing,
+                trailing, sl_fixe.clone(),
             );
             // Signaux confirmés indexés par clé → entry/SL/TPs pour le R de
             // référence (palier), comme la performance servie du dashboard.

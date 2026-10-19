@@ -16,6 +16,26 @@
     <p v-else-if="erreur" class="erreur">{{ erreur }}</p>
 
     <template v-else>
+      <!-- SL fixe (owner 19/10) : source unique asset_params, partagée avec
+           Gestion du risque — sauvegarde immédiate, pas une surcharge. -->
+      <div v-if="strategie === 'SMC'" class="champ sl-fixe">
+        <span class="libelle">SL fixe (pips)</span>
+        <div class="ligne-sl">
+          <input
+            v-model="slPipsSaisi"
+            class="input sl-input"
+            type="text"
+            inputmode="decimal"
+            placeholder="— non configuré —"
+          />
+          <button class="btn" :disabled="!slPipsModifie" @click="enregistrerSlPips">💾 SL</button>
+        </div>
+        <span class="aide">
+          = {{ slPipsConverti }} en prix · garde : bord de zone si plus proche · paliers
+          {{ defauts.palier_faible ?? 0.7 }}/{{ defauts.palier_fort ?? 1.3 }} × score
+        </span>
+        <span v-if="messageSl" class="aide" :class="{ ko: messageSlKo }">{{ messageSl }}</span>
+      </div>
       <div class="grille-champs">
         <label v-for="c in champs" :key="c.cle" class="champ">
           <span class="libelle">{{ c.libelle }}</span>
@@ -74,7 +94,6 @@ interface Champ {
 
 const CHAMPS: Record<string, Champ[]> = {
   SMC: [
-    { cle: 'sl_max', libelle: 'SL max (× ATR)', aide: 'multiple d\'ATR — remplace la classe de l\'asset' },
     { cle: 'trailing_r', libelle: 'Trailing k (R)' },
     { cle: 'tp1', libelle: 'TP1 (R)' },
     { cle: 'tp2', libelle: 'TP2 (R)' },
@@ -110,6 +129,45 @@ const defauts = ref<Record<string, unknown>>({})
 const form = reactive<Record<string, string | null>>({})
 
 const champs = computed(() => CHAMPS[props.strategie] ?? [])
+
+// ── SL fixe (pips) — champ dédié SMC, sauvegarde immédiate ──
+const slPipsSaisi = ref('')
+const taillePip = ref<number | null>(null)
+const messageSl = ref('')
+const messageSlKo = ref(false)
+const slPipsModifie = computed(() => {
+  const d = (defauts.value as Record<string, unknown>).sl_pips
+  return d !== null && d !== undefined && slPipsSaisi.value !== String(d)
+})
+
+const slPipsConverti = computed(() => {
+  const n = parseFloat((slPipsSaisi.value ?? '').replace(',', '.'))
+  if (!Number.isFinite(n) || !taillePip.value) return '—'
+  return `${(n * taillePip.value).toLocaleString('fr-FR', { maximumFractionDigits: 4 })}`
+})
+
+async function enregistrerSlPips() {
+  messageSl.value = ''
+  const n = parseFloat((slPipsSaisi.value ?? '').replace(',', '.'))
+  if (!Number.isFinite(n) || n <= 0) {
+    messageSlKo.value = true
+    messageSl.value = 'Valeur invalide (nombre > 0 attendu)'
+    return
+  }
+  try {
+    const res = await fetch(
+      `/api/assets/${encodeURIComponent(assetChoisi.value)}/sl_pips`,
+      { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sl_pips: n }) },
+    )
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(data.erreur ?? `HTTP ${res.status}`)
+    messageSlKo.value = false
+    messageSl.value = `SL fixe = ${n} pips — hot-reload ≤ 60 s (${assetChoisi.value} seul)`
+  } catch (e) {
+    messageSlKo.value = true
+    messageSl.value = `Échec : ${e}`
+  }
+}
 
 function viderForm() {
   for (const c of champs.value) form[c.cle] = null
@@ -163,6 +221,10 @@ async function charger() {
       defauts.value.frac_tp3 = f.tp3
     }
     viderForm()
+    const d2 = data.defaut ?? {}
+    slPipsSaisi.value = d2.sl_pips == null ? '' : String(d2.sl_pips)
+    taillePip.value = typeof d2.taille_pip === 'number' ? d2.taille_pip : null
+    messageSl.value = ''
     const s = data.surcharge ?? {}
     surchargeActive.value = Object.values(s).some((v) => v !== null)
     for (const c of champs.value) {
@@ -250,6 +312,9 @@ watch(() => props.strategie, charger)
   font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
   background: rgba(251,191,36,.15); color: #fbbf24; border: 1px solid rgba(251,191,36,.3);
 }
+.sl-fixe { margin-bottom: 12px; max-width: 340px; }
+.ligne-sl { display: flex; gap: 8px; align-items: center; }
+.sl-input { width: 120px; }
 .grille-champs { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
 .champ { display: flex; flex-direction: column; gap: 4px; }
 .libelle { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: #8b949e; }

@@ -282,7 +282,7 @@ async fn collecter(db: &Arc<db::Database>) -> Briefing {
     let mut positions: Vec<PositionJour> = Vec::new();
     if let Ok(rows) = sqlx::query(
         "SELECT strategie, asset, direction, prix_entree, COALESCE(sl_effectif, stop_loss) AS sl,
-                COALESCE(heure_entree, cree_le, 0) AS he
+                COALESCE(heure_entree, cree_le, 0) AS he, COALESCE(score, 10) AS score
          FROM signaux WHERE statut = 'Actif' AND prix_entree IS NOT NULL ORDER BY strategie, asset",
     )
     .fetch_all(db.pool())
@@ -317,6 +317,8 @@ async fn collecter(db: &Arc<db::Database>) -> Briefing {
             let a = crate::analyses::analyser(db, m.id).await;
             capitaux.insert(m.id.to_string(), a.capital_actuel.max(0.0));
         }
+        let palier_faible = crate::reglages_smc::lire_palier(db, "smc_sl_palier_faible", 0.7).await;
+        let palier_fort = crate::reglages_smc::lire_palier(db, "smc_sl_palier_fort", 1.3).await;
         for r in &rows {
             let strat: String = r.get("strategie");
             let asset: String = r.get("asset");
@@ -331,7 +333,18 @@ async fn collecter(db: &Arc<db::Database>) -> Briefing {
                 "Short" => r_short,
                 _ => r_long,
             };
-            let risque_usd = capitaux.get(&strat).copied().unwrap_or(0.0) * risque_pct;
+            // Option C (owner 19/10) : le risque$ SMC est modulé par le palier
+            // de score — même facteur que la distance SL (taille constante).
+            let palier = if strat == "SMC" {
+                crate::reglages_smc::palier_pure(
+                    r.get::<f64, _>("score"),
+                    palier_faible,
+                    palier_fort,
+                )
+            } else {
+                1.0
+            };
+            let risque_usd = capitaux.get(&strat).copied().unwrap_or(0.0) * risque_pct * palier;
             positions.push(PositionJour {
                 strategie: strat,
                 asset,

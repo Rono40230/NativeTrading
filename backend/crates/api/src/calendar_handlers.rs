@@ -279,6 +279,14 @@ pub async fn get_calendar(
         .collect();
 
     if filtrees.is_empty() {
+        // Distinction (owner 19/10, 503 récurrent au chargement) : fenêtre
+        // vide ≠ source à sec. S'il reste des événements FUTURS en cache,
+        // la liste vide est une réponse honnête (aucune annonce dans les
+        // `days` prochains jours) ; le 503 reste réservé au cache réellement
+        // à sec.
+        if horizon_cache(&state.db).await.unwrap_or(0) > debut {
+            return HttpResponse::Ok().json(filtrees);
+        }
         return HttpResponse::ServiceUnavailable().json(serde_json::json!({
             "error": "Source calendrier indisponible",
             "derniere_synchro": dernier_fetch_iso(&state.db).await,

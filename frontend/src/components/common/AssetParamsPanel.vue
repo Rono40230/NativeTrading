@@ -153,7 +153,6 @@ const SECTION_META = [
   { id: 'forex',   label: 'Forex',   icon: '💱' },
   { id: 'indice', label: 'Indices', icon: '📈' },
   { id: 'crypto',  label: 'Crypto',  icon: '🪙' },
-  { id: 'crypto',  label: 'Crypto',  icon: '🔷' },
 ]
 
 const sections = computed(() =>

@@ -11,7 +11,6 @@ use sqlx::SqlitePool;
 /// Surcharge SMC par asset (tous champs optionnels).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SmcSurcharge {
-    pub sl_max: Option<f64>,
     pub trailing_r: Option<f64>,
     pub tp1: Option<f64>,
     pub tp2: Option<f64>,
@@ -42,8 +41,8 @@ pub struct KdjSurcharge {
 
 /// Une surcharge SMC est-elle TOUTE vide ?
 pub fn smc_vide(s: &SmcSurcharge) -> bool {
-    s.sl_max.is_none()
-        && s.trailing_r.is_none()
+    s.trailing_r.is_none()
+        && s.tp1.is_none()
         && s.tp1.is_none()
         && s.tp2.is_none()
         && s.tp3_mode.is_none()
@@ -78,11 +77,11 @@ pub async fn lire_smc_surcharge(pool: &SqlitePool, asset: &str) -> Result<SmcSur
     let ligne = sqlx::query_as::<
         _,
         (
-            Option<f64>, Option<f64>, Option<f64>, Option<f64>,
+            Option<f64>, Option<f64>, Option<f64>,
             Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>,
         ),
     >(
-        "SELECT sl_max, trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, frac_tp1, frac_tp2, frac_tp3
+        "SELECT trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, frac_tp1, frac_tp2, frac_tp3
          FROM smc_reglages_asset WHERE asset = ?",
     )
     .bind(asset)
@@ -91,8 +90,8 @@ pub async fn lire_smc_surcharge(pool: &SqlitePool, asset: &str) -> Result<SmcSur
     .map_err(|e| TradingError::Database(e.to_string()))?;
     Ok(match ligne {
         None => SmcSurcharge::default(),
-        Some((sl_max, trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, f1, f2, f3)) => SmcSurcharge {
-            sl_max, trailing_r, tp1, tp2, tp3_mode, tp3_rfixe,
+        Some((trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, f1, f2, f3)) => SmcSurcharge {
+            trailing_r, tp1, tp2, tp3_mode, tp3_rfixe,
             frac_tp1: f1, frac_tp2: f2, frac_tp3: f3,
         },
     })
@@ -102,16 +101,15 @@ pub async fn ecrire_smc_surcharge(pool: &SqlitePool, asset: &str, s: &SmcSurchar
     fractions_smc_valides(s)?;
     sqlx::query(
         "INSERT INTO smc_reglages_asset
-           (asset, sl_max, trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, frac_tp1, frac_tp2, frac_tp3, maj_le)
+           (asset, trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, frac_tp1, frac_tp2, frac_tp3, maj_le)
          VALUES (?,?,?,?,?,?,?,?,?,?,unixepoch())
          ON CONFLICT(asset) DO UPDATE SET
-           sl_max=excluded.sl_max, trailing_r=excluded.trailing_r, tp1=excluded.tp1,
+           trailing_r=excluded.trailing_r, tp1=excluded.tp1,
            tp2=excluded.tp2, tp3_mode=excluded.tp3_mode, tp3_rfixe=excluded.tp3_rfixe,
            frac_tp1=excluded.frac_tp1, frac_tp2=excluded.frac_tp2, frac_tp3=excluded.frac_tp3,
            maj_le=unixepoch()",
     )
     .bind(asset)
-    .bind(s.sl_max)
     .bind(s.trailing_r)
     .bind(s.tp1)
     .bind(s.tp2)
@@ -332,9 +330,9 @@ mod tests {
 pub async fn toutes_smc_surcharges(pool: &SqlitePool) -> Result<std::collections::HashMap<String, SmcSurcharge>> {
     let lignes = sqlx::query_as::<
         _,
-        (String, Option<f64>, Option<f64>, Option<f64>, Option<f64>, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>),
+        (String, Option<f64>, Option<f64>, Option<f64>, Option<String>, Option<f64>, Option<f64>, Option<f64>, Option<f64>),
     >(
-        "SELECT asset, sl_max, trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, frac_tp1, frac_tp2, frac_tp3
+        "SELECT asset, trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, frac_tp1, frac_tp2, frac_tp3
          FROM smc_reglages_asset",
     )
     .fetch_all(pool)
@@ -342,10 +340,10 @@ pub async fn toutes_smc_surcharges(pool: &SqlitePool) -> Result<std::collections
     .map_err(|e| TradingError::Database(e.to_string()))?;
     Ok(lignes
         .into_iter()
-        .map(|(asset, sl_max, trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, f1, f2, f3)| {
+        .map(|(asset, trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, f1, f2, f3)| {
             (
                 asset,
-                SmcSurcharge { sl_max, trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, frac_tp1: f1, frac_tp2: f2, frac_tp3: f3 },
+                SmcSurcharge { trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, frac_tp1: f1, frac_tp2: f2, frac_tp3: f3 },
             )
         })
         .collect())

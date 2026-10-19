@@ -56,10 +56,10 @@ impl SmcV12Engine {
         self
     }
 
-    /// Étude étape 4 — multiplicateurs de niveaux : SL (offset ATR),
-    /// TP1 (×r), TP2 (×r). Défauts = production (1.0 / 1.0 / 2.0).
-    pub fn avec_multiplicateurs(mut self, sl: f64, tp1: f64, tp2: f64) -> Self {
-        self.signals.definir_multiplicateurs(sl, tp1, tp2);
+    /// Multiplicateurs de niveaux : TP1 (×r), TP2 (×r) — le SL est fixe
+    /// (voir avec_sl_fixe), plus d'offset ATR.
+    pub fn avec_multiplicateurs(mut self, tp1: f64, tp2: f64) -> Self {
+        self.signals.definir_multiplicateurs(tp1, tp2);
         self
     }
 
@@ -82,15 +82,16 @@ impl SmcV12Engine {
     }
 
     /// Trailing stop après TP2 : Some(k) = actif à k×R de l'extrême post-TP2.
-    /// Surcharge SL max PAR ASSET (0121) : multiple d'ATR remplaçant la
-    /// classe — None = étalon Pine.
-    pub fn avec_surcharge_sl_max(mut self, mult: Option<f64>) -> Self {
-        self.calibration.sl_max_surcharge = mult;
+    /// Trailing stop après TP2 : Some(k) = actif à k×R de l'extrême post-TP2.
+    pub fn avec_trailing_tp2(mut self, k: Option<f64>) -> Self {
+        self.lifecycle.definir_trailing_tp2(k);
         self
     }
 
-    pub fn avec_trailing_tp2(mut self, k: Option<f64>) -> Self {
-        self.lifecycle.definir_trailing_tp2(k);
+    /// Étude SL fixe (owner 19/10) : Some = distance absolue × paliers de
+    /// score avec garde de zone — None = production (zone + ATR + clamps).
+    pub fn avec_sl_fixe(mut self, e: Option<signals::SlFixeEtude>) -> Self {
+        self.signals.definir_sl_fixe(e);
         self
     }
 

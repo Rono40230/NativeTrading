@@ -2,19 +2,6 @@
 //! détection de l'actif + tables de calibration EXACTES (swing length, pip, SL mode,
 //! seuils de scoring, pondérations).
 
-/// Mode de stop-loss automatique (Pine `_autoSlMode`, lignes 78-81).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SlMode {
-    /// "Bas OB" — défaut pour actifs non reconnus.
-    BasOb,
-    /// "1× ATR" — XAU / NAS / DAX.
-    Atr1x,
-    /// "1.5× ATR" — XAG.
-    Atr15x,
-    /// "2× ATR" — BTC.
-    Atr2x,
-}
-
 /// Calibration par actif — tables exactes du v12 Pine (Module 0).
 ///
 /// Toutes les valeurs proviennent du Pine ; ne pas inventer.
@@ -35,7 +22,6 @@ pub struct AssetCalibration {
     /// Surcharge propriétaire du SL max (réglages PAR ASSET, 0121) : multiple
     /// d'ATR remplaçant celui de la classe (ex : XAU 1,5 par défaut → 2,0).
     /// None = étalon Pine (déviation votée uniquement quand surchargé).
-    pub sl_max_surcharge: Option<f64>,
     /// Vrai si l'actif correspond à un profil connu (XAU/XAG/NAS/BTC/DAX,
     /// + alt-cryptos 14/09). Si faux → le scoring v12 doit retourner 0
     /// (Pine `_assetReconnu`). Forex/métaux nouveaux : en attente de
@@ -48,9 +34,6 @@ pub struct AssetCalibration {
     pub pip_value: f64,
     /// `_pvLot` (Pine lignes 35-36).
     pub pv_lot: f64,
-    /// `_autoSlMode` (Pine lignes 78-81).
-    pub sl_mode: SlMode,
-
     /// `_autoRocSeuil` (Pine ligne 51) — seuil ROC en bps pour la détection d'impulsion
     /// OB (MODULE 7). Constante 5 bps tous actifs.
     pub roc_seuil: f64,
@@ -136,17 +119,6 @@ impl AssetCalibration {
             (1.0, 1.0)
         };
 
-        // _autoSlMode (Pine lignes 78-81)
-        let sl_mode = if is_btc {
-            SlMode::Atr2x
-        } else if is_xag {
-            SlMode::Atr15x
-        } else if is_xau || is_nas || is_spx || is_dax {
-            SlMode::Atr1x
-        } else {
-            SlMode::BasOb
-        };
-
         // _autoRocSeuil (Pine ligne 51) : constante 5 bps tous actifs.
         let roc_seuil = 5.0_f64;
         // _autoSeuilIB (Pine lignes 53-55) : profil par asset (× ATR14).
@@ -220,7 +192,6 @@ impl AssetCalibration {
         };
 
         Self {
-            sl_max_surcharge: None,
             is_xau,
             is_xag,
             is_nas,
@@ -231,7 +202,6 @@ impl AssetCalibration {
             swing_length,
             pip_value,
             pv_lot,
-            sl_mode,
             roc_seuil,
             seuil_ib,
             atr_score,
@@ -284,7 +254,6 @@ mod tests {
         assert_eq!(c.swing_length, 3, "M15 ⇒ swing 3");
         assert!((c.pip_value - 0.1).abs() < 1e-9);
         assert!((c.pv_lot - 10.0).abs() < 1e-9);
-        assert_eq!(c.sl_mode, SlMode::Atr1x);
         assert_eq!(c.score_max, 13);
         assert_eq!(c.roc_seuil, 5.0, "_autoRocSeuil = 5 bps");
         assert_eq!(c.seuil_ib, 1.5, "XAU _autoSeuilIB = 1.5");
@@ -299,7 +268,6 @@ mod tests {
     #[test]
     fn btc_h1_atr2x_et_seuils() {
         let c = AssetCalibration::detect("BTCUSD", "H1");
-        assert_eq!(c.sl_mode, SlMode::Atr2x);
         assert_eq!(c.seuil_moyen, 8);
         assert_eq!(c.score_max, 15);
         assert_eq!(c.w_sweep, 1);
@@ -325,7 +293,6 @@ mod tests {
     fn actif_inconnu_non_reconnu_et_defaut() {
         let c = AssetCalibration::detect("EURUSD", "M15");
         assert!(!c.asset_reconnu);
-        assert_eq!(c.sl_mode, SlMode::BasOb);
     }
 
     /// Décision B du 14/09 : les alt-cryptos suivies partagent le profil
@@ -337,7 +304,6 @@ mod tests {
             let c = AssetCalibration::detect(a, "M15");
             assert!(c.is_btc && c.asset_reconnu, "{} doit être reconnu en profil crypto", a);
             assert_eq!((c.seuil_moyen, c.seuil_fort, c.seuil_instit, c.score_max), (8, 99, 99, 15));
-            assert_eq!(c.sl_mode, SlMode::Atr2x);
             assert_eq!((c.w_fvg, c.w_sweep, c.w_atr, c.w_ote, c.w_kz), (3, 1, 2, 2, 2));
         }
         // Les autres cryptos non suivies restent non reconnues.

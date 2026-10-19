@@ -70,7 +70,7 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
  "synchro": {
-  "date": "18/10 soir — MOB ① backend relay + ② scaffold AppMobile CODÉS & 2 ROUNDS DE RETOURS OWNER INTÉGRÉS (relay 7 alertes + PNG serveur + digest 8h30 renommé Briefing du matin + T-10 min + durées en heures + grille SMC Sens/Zone/Entrée/SL + bouton presse = brief partagé Revue de presse ; 149 tests verts, 6 captures validées) — POUSSÉ, activation = relance run.sh ; ③ coquille Android en attente (SDK/NDK) ; OBIA : espions en accumulation ; KAS : re-jeu week-end lundi",
+  "date": "19/10 soir — CHANTIER SL FIXE SMC TERMINÉ (4 étapes validées) : doctrine owner = SL fixe par asset (table personnelle asset_params.sl_pips, Gestion du risque = source unique) × paliers score 0,7/1,3 (option C : distance + risque$), garde SerreBord (min bord de zone) ; chemin ATR purgé (SlMode/clamps/sl_mult/sl_max = 0 occurrence, migration 0125) ; étude 2 ans : table owner 3 023R vs production 2 078R (+46 %), labo etude_sl_fixe conservé ; bugs trouvés : empreinte hot-reload aveugle (corrigé+test) + doublon cryptos Gestion du risque (corrigé) ; 150 tests verts — RELANCE owner requise pour migration 0125 + binaire définitif ; OBIA : 3 porteurs vifs (XAU M15, NAS100 H1, XAU H1 neuf), moisson 0 erreur, portail = cousin pas miroir (2e actif confirmé)",
   "commit": "e2a5e06",
   "note": "R distance (stratégie) + $ (résultat), jamais de R moyen. Production SMC = tout-TP1 + trailing k=0,1. Doctrine événements : 17 (8 structurels + 9 calendrier), Medium non tradés. Vécu immuable. KPIs relevés ce jour via /api/analyses."
  },
@@ -222,9 +222,9 @@
   {
    "id": "MOB",
    "prio": 2,
-   "titre": "App mobile APK « relais d'information » — ① relay + ② scaffold CODÉS-POUSSÉS (retours owner x2 intégrés)",
+   "titre": "App mobile APK « relais d'information » — ①②③ CODÉS (①② poussés 7092535, ③ APK construit)",
    "detail": "PHILOSOPHIE : l'app RELAYE l'information (opportunités à VENIR) — zéro action, zéro post-mortem, zéro stats ; tour de contrôle = app principale. CANAL REVU owner 17/10 : PAS de Telegram — APK Android DIRECT via Tauri 2, client du backend maison via Tailscale. LES 7 ALERTES : ① digest 8h30 Paris (High du jour + heures + briefing 🌍 CONTEXTE MARCHÉ + ligne « pendant la nuit » ; = heartbeat implicite) ② rappel T-10 min ③ gros titre presse = article noté 100 sur news fonda (détail SANS lien externe) ④ SMC approche (0,5 × ATR du TF de zone, 1 alerte/entrée de bande, réarmement à 1 × ATR) ⑤ SMC contact (binaire) — avec capture graphique RENDU SERVEUR PNG (~120 bougies + zone) ⑥ relais alertes prix ⑦ anomalie fraîcheur fournisseurs. MUETTE 21h→8h Paris, nocturnes RÉSUMÉES au digest (option b). PAGES : onglet Aujourd'hui (High + countdown, ligne nuit, presse, briefing 🌍 tappable) + onglet Journal (chronologique, non-lues, 5 vues détail : événement/presse/SMC approche-contact avec PNG/prix/santé — détails accessibles DEPUIS Aujourd'hui) + Réglages (serveur+token, test connexion, toggles par type). WORKFLOW : ouverture → bandeau connexion Tailscale → Aujourd'hui ; alerte → table mobile_alertes → polling → notification système (hors muette) → détail. POLLING arrière-plan 10 min (owner) via SERVICE AU PREMIER PLAN (notification permanente « relais actif » — WorkManager plancher 15 min insuffisant) ; premier plan = ~30 s. ARCHITECTURE (owner 17/10) : dossier /native-trading-ai/AppMobile = projet CLIENT 100 % indépendant (propre Vue+Tauri Android, build séparé, même dépôt/preaudit) ; SEULE exception : émission des alertes (module isolé mobile_relay.rs + /api/mobile/* + rendu PNG + digest) vit dans le backend principal — incompressible, elle lit moteurs/DB direct.",
-   "echeance": "① relay backend TERMINÉ (mobile_relay.rs + mobile_png.rs + migration 0124 + 5 crochets + /api/mobile/* dont POST /api/mobile/brief = génération PARTAGÉE avec la Revue de presse ; 149 tests verts) ; ② AppMobile TERMINÉ (14 fichiers indépendants, vue-tsc+build verts, 6 captures validées visuellement, mode ?demo=1 ; retours owner : countdown retiré, contexte IA dans carte presse, clic événement corrigé, doublons emoji purgés, « Briefing du matin », « T-10 min », durées 10h20/9h, grille SMC 4 cases Entrée+SL) → RESTE ③ coquille Tauri 2 Android (SDK/NDK/JDK à installer, service 1er plan « relais actif », notifs hors muette, polling 10 min) + relance run.sh owner pour activer le relay"
+   "echeance": "① relay + ② scaffold POUSSÉS 7092535 (retours owner x2 intégrés, 149 tests). ③ coquille Tauri 2 Android CODÉE : toolchain complète posée sans sudo (JDK17 Temurin portable ~/jdk17, SDK ~/Android/Sdk : platform-tools/android-35/build-tools 35/NDK 27, 4 cibles rust android) ; projet gen/android identifier fr.relais.trading (commité) ; plugin src-tauri/plugins/relais (Rust 3 commandes demarrer/arreter/etat + Kotlin RelaisService spécialUse polling 10 min/muette 21h-8h Paris/notifs/boot receiver + pont JS Réglages « Activer le relais en arrière-plan ») ; build = npm run apk (env JAVA_HOME/ANDROID_HOME/NDK_HOME requis) ; APK debug vérifié (5 permissions, service+receiver manifest, front brotli dans libapp_lib.so) → RESTE : installation owner sur téléphone, test notifs, puis commit sur ordre"
   },
   {
    "id": "KAS",
@@ -326,6 +326,11 @@
   }
  ],
  "decisions": [
+  {
+   "date": "19/10/2026",
+   "titre": "SL FIXE SMC remplace le calcul ATR",
+   "detail": "Expérience trading manuel owner : SL = valeur fixe par asset (table asset_params.sl_pips — XAU 50 pips, NAS/GER 50, BTC 350, XAG 15…) modulée par palier de score (<8 ×0,7 ; ≥12 ×1,3 — option C : la modulation s'applique à la distance ET au risque$, taille constante), bornée par la garde SerreBord (bord opposé de zone si plus proche). TP inchangés (0,6R/2R/DoL). Étude 2 ans : +46 % ΣR vs ATR, la table owner capture 95 % de l'optimum machine. Chemin ATR supprimé sans code mort, vécu figé intact."
+  },
   {
    "date": "15/10",
    "titre": "Le cockpit redevient LA référence unique — feuilles de route absorbées",

@@ -128,3 +128,53 @@ pub async fn sauvegarder_tous(pool: &SqlitePool, liste: &[AssetParams]) -> Resul
         .map_err(|e| TradingError::Database(e.to_string()))?;
     Ok(())
 }
+
+/// Distance de SL fixe d'un asset en unités PRIX (owner 19/10 : doctrine
+/// SL fixe — sl_pips × taille_pip, ex. XAU 50 × 0,1 = 5 $). Source unique
+/// partagée Gestion du risque / modale SMC / moteur.
+pub async fn lire_sl_fixe_prix(pool: &SqlitePool, asset: &str) -> Result<Option<f64>> {
+    let row = sqlx::query(
+        "SELECT sl_pips, taille_pip FROM asset_params WHERE asset = ?",
+    )
+    .bind(asset)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(row.map(|r| r.get::<f64, _>("sl_pips") * r.get::<f64, _>("taille_pip")))
+}
+
+/// Map asset → SL fixe en prix (toutes lignes) — un seul SELECT par tick.
+pub async fn lire_sl_fixe_tous(pool: &SqlitePool) -> Result<std::collections::HashMap<String, f64>> {
+    let rows = sqlx::query("SELECT asset, sl_pips * taille_pip AS sl FROM asset_params")
+        .fetch_all(pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(rows
+        .iter()
+        .map(|r| (r.get::<String, _>("asset"), r.get::<f64, _>("sl")))
+        .collect())
+}
+
+/// Ligne (sl_pips, taille_pip) d'un asset — pour la conversion de la modale.
+pub async fn lire_pips(pool: &SqlitePool, asset: &str) -> Result<Option<(f64, f64)>> {
+    let row = sqlx::query("SELECT sl_pips, taille_pip FROM asset_params WHERE asset = ?")
+        .bind(asset)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(row.map(|r| (r.get("sl_pips"), r.get("taille_pip"))))
+}
+
+/// Mise à jour du SL fixe (pips) d'un asset — borne ]0 ; 100 000].
+pub async fn maj_sl_pips(pool: &SqlitePool, asset: &str, sl_pips: f64) -> Result<()> {
+    if !sl_pips.is_finite() || sl_pips <= 0.0 || sl_pips > 100_000.0 {
+        return Err(TradingError::Database("sl_pips hors bornes".into()));
+    }
+    sqlx::query("UPDATE asset_params SET sl_pips = ?, maj_le = datetime('now') WHERE asset = ?")
+        .bind(sl_pips)
+        .bind(asset)
+        .execute(pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+    Ok(())
+}

@@ -2,7 +2,6 @@
 //! clamps SL (_slMin/_slMax) et liquidité la plus proche (DoL TP3). Scindées
 //! de `signals.rs` (règle < 600 lignes).
 
-use super::calibration::AssetCalibration;
 use super::trade::{Side, Trade, TradeSource};
 use super::types::{BarInput, SmcOutput};
 
@@ -29,40 +28,6 @@ pub(crate) fn make_trade(
     );
     t.side = side;
     t
-}
-
-/// `_slMin` / `_slMax` (Pine 2424-2435) — en × ATR14 (atr toujours présent après warmup).
-pub(crate) fn sl_min_max(cal: &AssetCalibration, atr: f64) -> (f64, f64) {
-    let sl_min = if cal.is_xau {
-        0.5 * atr
-    } else if cal.is_xag {
-        0.6 * atr
-    } else if cal.is_nas || cal.is_spx {
-        0.5 * atr
-    } else if cal.is_btc {
-        0.8 * atr
-    } else if cal.is_dax {
-        0.5 * atr
-    } else {
-        0.0
-    };
-    let sl_max_etalon = if cal.is_xau {
-        1.5 * atr
-    } else if cal.is_xag {
-        1.8 * atr
-    } else if cal.is_nas || cal.is_spx {
-        1.5 * atr
-    } else if cal.is_btc {
-        2.5 * atr
-    } else if cal.is_dax {
-        1.5 * atr
-    } else {
-        1e10
-    };
-    // Réglage PAR ASSET (0121) : la surcharge remplace le multiple de la
-    // classe — déviation votée, None = étalon.
-    let sl_max = cal.sl_max_surcharge.map(|m| m * atr).unwrap_or(sl_max_etalon);
-    (sl_min, sl_max)
 }
 
 /// Liquidité la plus proche au-delà de l'entrée (Pine 3460-3470 / 3607-3617).

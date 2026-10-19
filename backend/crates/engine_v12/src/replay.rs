@@ -61,8 +61,6 @@ pub struct ModesEtude {
     pub mtf_cloture: bool,
     /// Confluences MTF à containment directionnel (R5, étude en cours).
     pub mtf_directionnel: bool,
-    /// Étape 4 — multiplicateur de l'offset SL (1.0 = production).
-    pub sl_mult: f64,
     /// Étape 4 — TP1 = entry ± tp1_mult × r (1.0 = production).
     pub tp1_mult: f64,
     /// Étape 4 — TP2 = entry ± tp2_mult × r (2.0 = production).
@@ -73,6 +71,8 @@ pub struct ModesEtude {
     pub tp3_reglage: Option<smc::v12::signals::Tp3Reglage>,
     /// Trailing stop après TP2 (None = inactif ; Some(k) = k×R de l'extrême).
     pub trailing_tp2: Option<f64>,
+    /// Étude SL fixe (owner 19/10) : None = production (zone + ATR).
+    pub sl_fixe: Option<smc::v12::signals::SlFixeEtude>,
 }
 
 impl Default for ModesEtude {
@@ -87,18 +87,18 @@ impl Default for ModesEtude {
             pd_requis: false,
             mtf_cloture: false,
             mtf_directionnel: false,
-            sl_mult: 0.75, // étape 4 29/08 : production
             tp1_mult: 0.6,  // étape 4 29/08 : production
             tp2_mult: 2.0,
             be_auto: None,
             tp3_reglage: None,
             trailing_tp2: None,
+            sl_fixe: None,
         }
     }
 }
 
 /// Base des études « production » : BE Supprimé + TP3 DoL≤3R + défauts actuels.
-fn modes_production() -> ModesEtude {
+pub fn modes_production() -> ModesEtude {
     ModesEtude {
         be: smc::v12::lifecycle::ModeBeForce::Supprime,
         ..Default::default()
@@ -261,12 +261,14 @@ pub fn rejouer_bougies_niveaux(
     tp2: f64,
     tp3: smc::v12::signals::Tp3Reglage,
     trailing: Option<f64>,
+    sl_fixe: Option<smc::v12::signals::SlFixeEtude>,
 ) -> ResultatReplay {
     let modes = ModesEtude {
         tp1_mult: tp1,
         tp2_mult: tp2,
         tp3_reglage: Some(tp3),
         trailing_tp2: trailing,
+        sl_fixe,
         ..modes_production()
     };
     rejouer_bougies_modes(asset, tf, bougies, false, amorce, &modes)
@@ -293,8 +295,9 @@ pub fn rejouer_bougies_modes(
         .avec_pd_requis(modes.pd_requis)
         .avec_mtf_cloture(modes.mtf_cloture)
         .avec_mtf_directionnel(modes.mtf_directionnel)
-        .avec_multiplicateurs(modes.sl_mult, modes.tp1_mult, modes.tp2_mult)
-        .avec_be_auto(modes.be_auto);
+        .avec_multiplicateurs(modes.tp1_mult, modes.tp2_mult)
+        .avec_be_auto(modes.be_auto)
+        .avec_sl_fixe(modes.sl_fixe);
     if let Some(reg) = modes.tp3_reglage {
         plugin = plugin.avec_tp3_reglage(reg);
     }
@@ -345,8 +348,9 @@ pub fn rejouer_bougies_modes(
         .avec_pd_requis(modes.pd_requis)
         .avec_mtf_cloture(modes.mtf_cloture)
         .avec_mtf_directionnel(modes.mtf_directionnel)
-        .avec_multiplicateurs(modes.sl_mult, modes.tp1_mult, modes.tp2_mult)
-        .avec_be_auto(modes.be_auto);
+        .avec_multiplicateurs(modes.tp1_mult, modes.tp2_mult)
+        .avec_be_auto(modes.be_auto)
+        .avec_sl_fixe(modes.sl_fixe);
     if let Some(premiere) = bougies.first() {
         reference.primer_mtf_amorce(&amorce, premiere.timestamp.timestamp());
     }

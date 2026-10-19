@@ -51,6 +51,30 @@ pub async fn lire_trailing_reglage(db: &db::Database) -> Option<f64> {
 
 use std::collections::{HashMap, HashSet};
 
+/// Facteur de palier option C : <8 → faible, ≥12 → fort (score SMC /20).
+/// Source unique partagée moteur (distance SL) et affichages (risque$).
+pub fn palier_pure(score: f64, faible: f64, fort: f64) -> f64 {
+    if score < 8.0 {
+        faible
+    } else if score >= 12.0 {
+        fort
+    } else {
+        1.0
+    }
+}
+
+/// Palier score du SL fixe (owner 19/10, option C) — clés
+/// smc_sl_palier_faible / smc_sl_palier_fort, bornes [0,3 ; 3].
+pub async fn lire_palier(db: &db::Database, cle: &str, defaut: f64) -> f64 {
+    db.lire_config(cle)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| v.trim().parse::<f64>().ok())
+        .map(|v| v.clamp(0.3, 3.0))
+        .unwrap_or(defaut)
+}
+
 /// TF sur lesquels le moteur v12 GÉNÈRE des signaux (décision 04/09 sur le
 /// comparatif 24 mois : H1 désarmé — il reste COLLECTÉ pour l'amorce MTF,
 /// mais ne génère plus jamais de signaux).

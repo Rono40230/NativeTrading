@@ -12,13 +12,13 @@
 //!
 //! Modèle d'exécution figé "Retest (limite)" (gagnant A/B 15/15) : entrée TR forcée
 //! au bord de la zone, fill réel au retest (géré par le lifecycle). SL selon
-//! `_autoSlMode` clampé `[_slMin, _slMax]`. TP1=entry+R, TP2=entry+2R,
+//! SL FIXE par asset × palier de score (owner 19/10). TP1=entry+R, TP2=entry+2R,
 //! TP3=liquidité la plus proche PLAFONNÉE à 3R (décision DoL≤3R 28/08).
 
-use super::calibration::{AssetCalibration, SlMode};
+use super::calibration::AssetCalibration;
 use super::scoring_bs_zones::ScoringBsZones;
 use super::scoring_v11::ScoringV11;
-use super::signals_levels::{farthest_liq, make_trade, nearest_liq, sl_min_max};
+use super::signals_levels::{farthest_liq, make_trade, nearest_liq};
 use super::trade::{Trade, TradeSource, TradeState};
 use super::types::{BarInput, FvgZone, ObState, ObZone, SmcOutput};
 
@@ -55,6 +55,33 @@ pub struct Tp3Reglage {
     pub rfixe: f64,
 }
 
+/// Étude SL fixe (owner 19/10, doctrine « expérience trading manuel ») :
+/// SL = distance ABSOLUE (unités prix), modulée par paliers de score
+/// (< 8 faible, ≥ 12 fort — vécu 576 trades : 21/60/18 %). La garde gère
+/// l'interaction avec la largeur de zone. None = production inchangée
+/// (bord opposé + offset ATR + clamps).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SlFixeEtude {
+    /// Distance absolue du SL pour un score moyen (palier 8-12).
+    pub base: f64,
+    /// Multiplicateur du palier faible (score < 8) et fort (score ≥ 12).
+    pub mult_faible: f64,
+    pub mult_fort: f64,
+    pub garde: GardeSlFixe,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum GardeSlFixe {
+    /// SL fixe brut, même au milieu d'une zone large.
+    Aucune,
+    /// Zone plus large que le SL budgété → signal abandonné (esprit de la
+    /// garde production « r > 2×slMax → skip »).
+    SkipZoneLarge,
+    /// SL serré au bord opposé de la zone quand il est plus proche que la
+    /// distance fixe.
+    SerreBord,
+}
+
 /// Le carnet de trades + générateur de signaux (Pine `stBull*`/`stBear*` + fonctions).
 #[derive(Clone)]
 pub struct SignalGenerator {
@@ -73,14 +100,14 @@ pub struct SignalGenerator {
     /// (la zone de tolérance équilibre laisse passer). Défaut inactif =
     /// production pré-verdict ; l'étude comparatif_pd tranche.
     pd_requis: bool,
-    /// Étude étape 4 — multiplicateur de l'offset SL (1.0 = production).
-    sl_mult: f64,
     /// Étude étape 4 — TP1 = entry ± tp1_mult × r (1.0 = production).
     tp1_mult: f64,
     /// Étude étape 4 — TP2 = entry ± tp2_mult × r (2.0 = production).
     tp2_mult: f64,
     /// TP3 réglable propriétaire (production) — None = ModeTp3 d'étude.
     tp3_reglage: Option<Tp3Reglage>,
+    /// Étude SL fixe (owner 19/10) — None = production (zone + ATR).
+    sl_fixe: Option<SlFixeEtude>,
 }
 
 impl SignalGenerator {
@@ -95,11 +122,16 @@ impl SignalGenerator {
             pd_requis: false,
             // Étape 4 (29/08, replay +239R/3 180 clôtures) : TP1 = 0.6R,
             // offset SL × 0.75 (clamps [_slMin,_slMax] inchangés).
-            sl_mult: 0.75,
             tp1_mult: 0.6,
             tp2_mult: 2.0,
             tp3_reglage: None,
+            sl_fixe: None,
         }
+    }
+
+    /// Étude SL fixe (owner 19/10) : None = production.
+    pub fn definir_sl_fixe(&mut self, e: Option<SlFixeEtude>) {
+        self.sl_fixe = e;
     }
 
     /// Mode TP3 (défaut DolCappe3R = production, décision 28/08).
@@ -117,9 +149,8 @@ impl SignalGenerator {
         self.pd_requis = actif;
     }
 
-    /// Étude étape 4 — multiplicateurs de niveaux (SL offset, TP1, TP2).
-    pub fn definir_multiplicateurs(&mut self, sl: f64, tp1: f64, tp2: f64) {
-        self.sl_mult = sl;
+    /// Multiplicateurs de niveaux (TP1, TP2 — ×R du SL fixe).
+    pub fn definir_multiplicateurs(&mut self, tp1: f64, tp2: f64) {
         self.tp1_mult = tp1;
         self.tp2_mult = tp2;
     }
@@ -177,29 +208,28 @@ impl SignalGenerator {
         if self.trade_bloquant() || self.trade_pousse {
             return;
         }
-        let (sl_min, sl_max) = sl_min_max(cal, atr);
 
         // 1. v11 BUY.
         if self.create_v11(
-            true, out, bar, bar_index, atr, cal, ob_bull, scoring, fvg_bull, sl_min, sl_max,
+            true, out, bar, bar_index, atr, cal, ob_bull, scoring, fvg_bull,
         ) {
             self.trade_pousse = true;
             return;
         }
         // 2. v11 SELL.
         if self.create_v11(
-            false, out, bar, bar_index, atr, cal, ob_bear, scoring, fvg_bear, sl_min, sl_max,
+            false, out, bar, bar_index, atr, cal, ob_bear, scoring, fvg_bear,
         ) {
             self.trade_pousse = true;
             return;
         }
         // 3. BS BUY.
-        if self.create_bs(true, out, bar, bar_index, atr, cal, bs, sl_min, sl_max) {
+        if self.create_bs(true, out, bar, bar_index, atr, cal, bs) {
             self.trade_pousse = true;
             return;
         }
         // 4. BS SELL.
-        if self.create_bs(false, out, bar, bar_index, atr, cal, bs, sl_min, sl_max) {
+        if self.create_bs(false, out, bar, bar_index, atr, cal, bs) {
             self.trade_pousse = true;
         }
     }
@@ -218,8 +248,6 @@ impl SignalGenerator {
         ob: &[ObZone],
         scoring: &mut ScoringV11,
         fvg: &[FvgZone],
-        sl_min: f64,
-        sl_max: f64,
     ) -> bool {
         for z in ob {
             let impulse_bar = z.impulse_bar;
@@ -278,7 +306,7 @@ impl SignalGenerator {
                 continue;
             }
             let Some((entry, sl, tp1, tp2, tp3, risk0)) =
-                self.build_levels(is_bull, top, bot, atr, cal, out, sl_min, sl_max, true)
+                self.build_levels(is_bull, top, bot, out, true, sc_r)
             else {
                 continue; // r > 2×slMax → skip ce OB (continue).
             };
@@ -320,8 +348,6 @@ impl SignalGenerator {
         atr: f64,
         cal: &AssetCalibration,
         bs: &mut ScoringBsZones,
-        sl_min: f64,
-        sl_max: f64,
     ) -> bool {
         let n = if is_bull {
             bs.bull_zones().len()
@@ -363,8 +389,8 @@ impl SignalGenerator {
             if z.score < TRADE_MIN_SCORE {
                 continue;
             }
-            let Some((entry, sl, tp1, tp2, tp3, risk0)) =
-                self.build_levels(is_bull, top, bot, atr, cal, out, sl_min, sl_max, false)
+            let Some((entry, sl, tp1, tp2, tp3, risk0)) = self
+                .build_levels(is_bull, top, bot, out, false, z.score)
             else {
                 continue;
             };
@@ -407,38 +433,31 @@ impl SignalGenerator {
         is_bull: bool,
         zone_top: f64,
         zone_bot: f64,
-        atr: f64,
-        cal: &AssetCalibration,
         out: &SmcOutput,
-        sl_min: f64,
-        sl_max: f64,
         inclut_asian_hl: bool,
+        score: i32,
     ) -> Option<(f64, f64, f64, f64, f64, f64)> {
         // Entrée TR forcée (Pine 3446 / 3593 / 3686 / 3745).
         let entry = if is_bull { zone_top } else { zone_bot };
-        // SL brut selon _autoSlMode depuis le bord opposé.
-        let offset = match cal.sl_mode {
-            SlMode::Atr1x => atr,
-            SlMode::Atr15x => 1.5 * atr,
-            SlMode::Atr2x => 2.0 * atr,
-            SlMode::BasOb => 0.0,
-        } * self.sl_mult;
-        let raw_sl = if is_bull {
-            zone_bot - offset
+        // SL FIXE (owner 19/10, doctrine trading manuel) : distance absolue
+        // par asset (asset_params.sl_pips × taille_pip) × palier de score
+        // (option C), bornée par la structure via la garde. Aucune valeur
+        // configurée → aucun signal (échec visible, jamais de SL fantôme).
+        let fixe = self.sl_fixe?;
+        let mult = if score < 8 {
+            fixe.mult_faible
+        } else if score >= 12 {
+            fixe.mult_fort
         } else {
-            zone_top + offset
+            1.0
         };
-        let raw_r = if is_bull {
-            entry - raw_sl
-        } else {
-            raw_sl - entry
-        };
-        // Garde : r trop grand → skip (Pine 3451/3598/3691/3750 : `continue`).
-        if raw_r > 2.0 * sl_max {
-            return None;
+        let mut r = fixe.base * mult;
+        let largeur = zone_top - zone_bot;
+        match fixe.garde {
+            GardeSlFixe::SkipZoneLarge if largeur > r => return None,
+            GardeSlFixe::SerreBord => r = r.min(largeur),
+            _ => {}
         }
-        // Clamp r ∈ [slMin, slMax], recalcul sl.
-        let r = raw_r.max(sl_min).min(sl_max);
         let sl = if is_bull { entry - r } else { entry + r };
         let tp1 = if is_bull { entry + self.tp1_mult * r } else { entry - self.tp1_mult * r };
         let tp2 = if is_bull {
@@ -495,100 +514,5 @@ impl Default for SignalGenerator {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::v12::calibration::AssetCalibration;
-
-    #[test]
-    fn sl_min_max_xau() {
-        let c = AssetCalibration::detect("XAUUSD", "M15");
-        let (mn, mx) = sl_min_max(&c, 10.0);
-        assert!((mn - 5.0).abs() < 1e-9, "XAU slMin = 0.5×ATR");
-        assert!((mx - 15.0).abs() < 1e-9, "XAU slMax = 1.5×ATR");
-    }
-
-    #[test]
-    fn nearest_liq_bull_plus_proche() {
-        let mut out = SmcOutput::default();
-        out.liquidite.pdh_active = Some(110.0);
-        out.liquidite.pwh_active = Some(120.0);
-        // entry=100 → candidats 110, 120 → min = 110.
-        assert_eq!(nearest_liq(&out, 100.0, true, true), Some(110.0));
-        assert_eq!(nearest_liq(&out, 100.0, true, false), Some(110.0));
-    }
-
-    #[test]
-    fn nearest_liq_asian_hl_v11_seulement() {
-        // Pine : _tAHH3 candidat pour v11 (Pine 3562), PAS pour BS (_bsDolTarget 3294).
-        let mut out = SmcOutput::default();
-        out.asian_hl.high = Some(105.0);
-        out.asian_hl.low = Some(95.0);
-        assert_eq!(nearest_liq(&out, 100.0, true, true), Some(105.0));
-        assert_eq!(nearest_liq(&out, 100.0, true, false), None);
-        assert_eq!(nearest_liq(&out, 100.0, false, true), Some(95.0));
-        assert_eq!(nearest_liq(&out, 100.0, false, false), None);
-    }
-
-    #[test]
-    fn nearest_liq_aucune() {
-        let out = SmcOutput::default();
-        assert_eq!(nearest_liq(&out, 100.0, true, true), None);
-    }
-
-    #[test]
-    fn build_levels_clamp_et_monotonic_tp3() {
-        let c = AssetCalibration::detect("XAUUSD", "M15");
-        let gen = SignalGenerator::new();
-        let out = SmcOutput::default();
-        // OB bull top=100 bot=98 → entry=100, offset = ATR×0.75 (étape 4 29/08)
-        // = 1.5 (XAU Atr1x). raw_sl = 98-1.5 = 96.5, raw_r = 3.5.
-        // slMin=1, slMax=3 → clamp r=3. sl=97. TP1 = 0.6R (étape 4).
-        let (entry, sl, tp1, tp2, _tp3, r) = gen
-            .build_levels(true, 100.0, 98.0, 2.0, &c, &out, 1.0, 3.0, true)
-            .unwrap();
-        assert!((entry - 100.0).abs() < 1e-9);
-        assert!((r - 3.0).abs() < 1e-9, "r clampé à slMax=3");
-        assert!((sl - 97.0).abs() < 1e-9);
-        assert!((tp1 - 101.8).abs() < 1e-9, "TP1 = entry + 0.6×r");
-        assert!((tp2 - 106.0).abs() < 1e-9);
-    }
-
-    #[test]
-    fn build_levels_skip_si_r_trop_grand() {
-        let c = AssetCalibration::detect("XAUUSD", "M15");
-        let gen = SignalGenerator::new();
-        let out = SmcOutput::default();
-        // top=100 bot=90 → entry=100, raw_sl=90-2=88, raw_r=12 > 2×slMax(=6) → None.
-        assert!(gen
-            .build_levels(true, 100.0, 90.0, 2.0, &c, &out, 1.0, 3.0, true)
-            .is_none());
-    }
-
-    #[test]
-    fn build_levels_tp3_dol_plafonne_3r_par_defaut() {
-        // Décision DoL≤3R 28/08 : production = min(DoL, 3R). OB bull top=100
-        // bot=99.2, ATR=2, XAU Atr1x → offset 0.75 (étape 4 29/08) : raw_sl=97.7,
-        // r=2.3 (non clampé). TP2=104.6, plafond 3R=106.9.
-        let c = AssetCalibration::detect("XAUUSD", "M15");
-        let gen = SignalGenerator::new();
-        let mut out = SmcOutput::default();
-        let args = |g: &SignalGenerator, o: &SmcOutput| {
-            g.build_levels(true, 100.0, 99.2, 2.0, &c, o, 1.0, 3.0, true)
-        };
-        // Liquidité (PDH=115) au-delà du plafond 108.4 → TP3 plafonné.
-        out.liquidite.pdh_active = Some(115.0);
-        let (entry, _sl, _tp1, tp2, tp3, r) = args(&gen, &out).unwrap();
-        assert!((entry - 100.0).abs() < 1e-9);
-        assert!((r - 2.3).abs() < 1e-9);
-        assert!((tp2 - 104.6).abs() < 1e-9);
-        assert!(
-            (tp3 - 106.9).abs() < 1e-9,
-            "TP3 = min(PDH=115, entry+3R=106.9) = 106.9 (plafonné)"
-        );
-        // Liquidité PROCHE entre TP2 (104.6) et 3R (106.9) → conservée telle
-        // quelle (105.5 < plafond).
-        out.liquidite.pdh_active = Some(105.5);
-        let (_, _, _, _, tp3_proche, _) = args(&gen, &out).unwrap();
-        assert!((tp3_proche - 105.5).abs() < 1e-9, "DoL proche conservé");
-    }
-}
+#[path = "signals_tests.rs"]
+mod tests;
