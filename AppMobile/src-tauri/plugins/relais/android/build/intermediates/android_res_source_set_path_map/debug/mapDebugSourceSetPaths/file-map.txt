@@ -1,0 +1,9 @@
+fr.relais.trading.relais.tauri-plugin-relais-pngs-0 /mnt/IA/native-trading-ai/AppMobile/src-tauri/plugins/relais/android/build/generated/res/pngs/debug
+fr.relais.trading.relais.tauri-plugin-relais-updated_navigation_xml-1 /mnt/IA/native-trading-ai/AppMobile/src-tauri/plugins/relais/android/build/generated/updated_navigation_xml/debug
+fr.relais.trading.relais.tauri-plugin-relais-mergeDebugResources-2 /mnt/IA/native-trading-ai/AppMobile/src-tauri/plugins/relais/android/build/intermediates/incremental/debug/mergeDebugResources/merged.dir
+fr.relais.trading.relais.tauri-plugin-relais-mergeDebugResources-3 /mnt/IA/native-trading-ai/AppMobile/src-tauri/plugins/relais/android/build/intermediates/incremental/debug/mergeDebugResources/stripped.dir
+fr.relais.trading.relais.tauri-plugin-relais-debug-4 /mnt/IA/native-trading-ai/AppMobile/src-tauri/plugins/relais/android/build/intermediates/merged_res/debug/mergeDebugResources
+fr.relais.trading.relais.tauri-plugin-relais-debug-5 /mnt/IA/native-trading-ai/AppMobile/src-tauri/plugins/relais/android/build/intermediates/packaged_res/debug/packageDebugResources
+fr.relais.trading.relais.tauri-plugin-relais-debug-6 /mnt/IA/native-trading-ai/AppMobile/src-tauri/plugins/relais/android/src/debug/res
+fr.relais.trading.relais.tauri-plugin-relais-main-7 /mnt/IA/native-trading-ai/AppMobile/src-tauri/plugins/relais/android/src/main/res
+gradleHome-0 /home/rono/.gradle

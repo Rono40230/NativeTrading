@@ -1,0 +1,18 @@
+[package]
+name = "tauri-plugin-relais"
+version = "0.1.0"
+description = "Service Android au premier plan : polling /api/mobile/* toutes les 10 min + notifications hors muette (MOB ③)"
+edition = "2021"
+links = "tauri-plugin-relais"
+
+[lib]
+name = "tauri_plugin_relais"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2" }

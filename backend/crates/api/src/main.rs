@@ -268,9 +268,12 @@ async fn main() -> std::io::Result<()> {
     tracing::warn!("🛑 Worker pré-alertes SUPPRIMÉ (ancien système — alimentait Telegram en double)");
 
     HttpServer::new(move || {
-        // CORS limité au dev Tauri uniquement — en production l'app est native (fenêtre Tauri)
+        // CORS limité au dev Tauri + coquille Android (wry sert l'app sur
+        // http://tauri.localhost) — en production desktop l'app est native.
         let cors = Cors::default()
             .allowed_origin("tauri://localhost")
+            .allowed_origin("http://tauri.localhost")
+            .allowed_origin("https://tauri.localhost")
             .allowed_origin("http://localhost:1420") // dev Tauri uniquement (port Vite)
             .allowed_methods(vec!["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
             .allowed_headers(vec![
