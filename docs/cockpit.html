@@ -70,7 +70,7 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
  "synchro": {
-  "date": "19/10 soir — CHANTIER SL FIXE SMC TERMINÉ (4 étapes validées) : doctrine owner = SL fixe par asset (table personnelle asset_params.sl_pips, Gestion du risque = source unique) × paliers score 0,7/1,3 (option C : distance + risque$), garde SerreBord (min bord de zone) ; chemin ATR purgé (SlMode/clamps/sl_mult/sl_max = 0 occurrence, migration 0125) ; étude 2 ans : table owner 3 023R vs production 2 078R (+46 %), labo etude_sl_fixe conservé ; bugs trouvés : empreinte hot-reload aveugle (corrigé+test) + doublon cryptos Gestion du risque (corrigé) ; 150 tests verts — RELANCE owner requise pour migration 0125 + binaire définitif ; OBIA : 3 porteurs vifs (XAU M15, NAS100 H1, XAU H1 neuf), moisson 0 erreur, portail = cousin pas miroir (2e actif confirmé)",
+  "date": "19/10 — NETTOYAGE COCKPIT (owner) : vérifications passées sur les 17 actions — SUPPRIMÉES comme terminées : PIL (clos 16/10), EVT (passe or XAU 00:00:02 du 19/10 clôturée 0,0R = validation live timer STR), G garde fraîcheur (en prod, 0 anomalie), A conviction (décision permanente) ; KAS réduit au rejeu transitions ; MOB réduit au commit ; compteurs vivants : KDJ 8/30, rockets 10/30, straddle C actionnable (406 passes) ; verticale SMC réécrite (doctrine SL fixe) ; chantier SL fixe poussé 9a4ed24. Restent 13 actions dont 4 bloquées owner (D4 captures, D1, D2, MAN) et 5 passives datées",
   "commit": "e2a5e06",
   "note": "R distance (stratégie) + $ (résultat), jamais de R moyen. Production SMC = tout-TP1 + trailing k=0,1. Doctrine événements : 17 (8 structurels + 9 calendrier), Medium non tradés. Vécu immuable. KPIs relevés ce jour via /api/analyses."
  },
@@ -80,7 +80,7 @@
    "nom": "SMC",
    "icone": "📐",
    "couleur": "#60a5fa",
-   "etat": "Officielle",
+   "etat": "SL FIXE par asset (owner 19/10, doctrine trading manuel — remplace l'ATR, purgé zéro code mort) : table personnelle asset_params.sl_pips × paliers score 0,7/1,3 (option C : distance + risque$, taille constante) + garde SerreBord ; TP 0,6R/2R/DoL inchangés ; étude 2 ans +46 % ΣR ; recalibrage = binaire etude_sl_fixe",
    "moteur": "v12 figé — miroir Pine/Rust/MQL5 au centime ; 26 actifs × M5/M15/M30 (M1 désarmé) ; production depuis 06/10 : TOUT-TP1 + trailing k=0,1 (advisory balayages : +154 R / 959 trades en étude) ; réglages PAR ASSET (surcharge ⊕ défaut, hot-reload 60 s) ; fenêtre macro ±30 min autour des annonces High",
    "ia": "Conviction LLM à l'émission — re-test final 13/10 : AUC 0,477 (0,572→0,517→0,477) = aucune valeur prédictive ; DÉCISION OWNER : notation GARDÉE en observation, capteur prédictif abandonné ; analystes en deux voix + définitions doctrine pure, paramètres courants injectés dynamiquement",
    "kpis": [
@@ -222,58 +222,44 @@
   {
    "id": "MOB",
    "prio": 2,
-   "titre": "App mobile APK « relais d'information » — ①②③ CODÉS (①② poussés 7092535, ③ APK construit)",
+   "titre": "App mobile — LIVRÉE & validée sur téléphone (pause owner) ; reste le commit",
    "detail": "PHILOSOPHIE : l'app RELAYE l'information (opportunités à VENIR) — zéro action, zéro post-mortem, zéro stats ; tour de contrôle = app principale. CANAL REVU owner 17/10 : PAS de Telegram — APK Android DIRECT via Tauri 2, client du backend maison via Tailscale. LES 7 ALERTES : ① digest 8h30 Paris (High du jour + heures + briefing 🌍 CONTEXTE MARCHÉ + ligne « pendant la nuit » ; = heartbeat implicite) ② rappel T-10 min ③ gros titre presse = article noté 100 sur news fonda (détail SANS lien externe) ④ SMC approche (0,5 × ATR du TF de zone, 1 alerte/entrée de bande, réarmement à 1 × ATR) ⑤ SMC contact (binaire) — avec capture graphique RENDU SERVEUR PNG (~120 bougies + zone) ⑥ relais alertes prix ⑦ anomalie fraîcheur fournisseurs. MUETTE 21h→8h Paris, nocturnes RÉSUMÉES au digest (option b). PAGES : onglet Aujourd'hui (High + countdown, ligne nuit, presse, briefing 🌍 tappable) + onglet Journal (chronologique, non-lues, 5 vues détail : événement/presse/SMC approche-contact avec PNG/prix/santé — détails accessibles DEPUIS Aujourd'hui) + Réglages (serveur+token, test connexion, toggles par type). WORKFLOW : ouverture → bandeau connexion Tailscale → Aujourd'hui ; alerte → table mobile_alertes → polling → notification système (hors muette) → détail. POLLING arrière-plan 10 min (owner) via SERVICE AU PREMIER PLAN (notification permanente « relais actif » — WorkManager plancher 15 min insuffisant) ; premier plan = ~30 s. ARCHITECTURE (owner 17/10) : dossier /native-trading-ai/AppMobile = projet CLIENT 100 % indépendant (propre Vue+Tauri Android, build séparé, même dépôt/preaudit) ; SEULE exception : émission des alertes (module isolé mobile_relay.rs + /api/mobile/* + rendu PNG + digest) vit dans le backend principal — incompressible, elle lit moteurs/DB direct.",
-   "echeance": "① relay + ② scaffold POUSSÉS 7092535 (retours owner x2 intégrés, 149 tests). ③ coquille Tauri 2 Android CODÉE : toolchain complète posée sans sudo (JDK17 Temurin portable ~/jdk17, SDK ~/Android/Sdk : platform-tools/android-35/build-tools 35/NDK 27, 4 cibles rust android) ; projet gen/android identifier fr.relais.trading (commité) ; plugin src-tauri/plugins/relais (Rust 3 commandes demarrer/arreter/etat + Kotlin RelaisService spécialUse polling 10 min/muette 21h-8h Paris/notifs/boot receiver + pont JS Réglages « Activer le relais en arrière-plan ») ; build = npm run apk (env JAVA_HOME/ANDROID_HOME/NDK_HOME requis) ; APK debug vérifié (5 permissions, service+receiver manifest, front brotli dans libapp_lib.so) → RESTE : installation owner sur téléphone, test notifs, puis commit sur ordre"
+   "echeance": "①②③ livrés : relay+scaffold poussés 7092535, coquille Android installée et connectée chez l'owner « C'est ok. Ca fonctionne » (18/10). RESTE : commit de AppMobile/src-tauri + main.rs (CORS Android) + .gitignore sur ordre owner — chantier sinon gelé (« on reviendra plus tard »)."
   },
   {
    "id": "KAS",
    "prio": 1,
-   "titre": "Tendance Kasper — RÈGLE PROUVÉE + correction implémentée (espion 15/10)",
+   "titre": "Tendance Kasper — rejeu strict des transitions du week-end",
    "detail": "RÈGLE PROUVÉE (espion 15/10, 99,99 %) : état = signe(EMA9−EMA21) sur la bougie VIVANTE du TF — implémenté (compositeur grille-ancrée k=0 remplacer/k≥1 append, migration mode bougie_en_cours, emojis 🚀/🐻, fonds Modern, W1 retiré — miroir exact 7 lignes). VALIDATION OWNER 16/10 midi : 7 lignes ✓, fonds ✓, XAU M1→H4 alignés ✓. D1 XAU : observé désaligné à midi MAIS non reproduit — à 12h21 les 7 lignes vivant vs panneau sont alignées 7/7 (D1 Δ=−39 stable toute la matinée, clôturé Δ=−46) → si récidive : capture horodatée, diff à la seconde via journal. GER40 D1 : BUG PROUVÉ (logs) — l'heuristique est_cotable_bybit classe GER40 cotable, Bybit répond Ok(VIDE) pour GER40USDT et le handler VIDAIT les 499 barres DB → ligne D1 nulle + GET Bybit à chaque poll. CORRIGÉ 16/10 (non committé) : DB ≥ ema_lente ⇒ jamais de provider, + garde Ok-vide garde la main à la DB ; 134 tests verts ; GER40 D1 → BAISSIER Δ≈−27 (la hausse du jour n'a pas encore croisé). Seul GER40 D1 touché (NAS100 992/BTC 684/XAU 977 barres ≥ 630). GER40 M1→H4 : valeurs saines (Axi à la minute), MAIS aucune référence Kasper capturée sur ce graphique → re-test owner avec le panneau POSÉ sur GER40 (l'espion capturera, diff bit à bit). Restent en observation : croisements stricts (re-jeu week-end lundi), gris, Sunday.",
-   "echeance": "relance run.sh (correctif D1 GER40) + re-test GER40 panneau posé + capture horodatée si D1 XAU récidive ; commit sur ordre"
-  },
-  {
-   "id": "EVT",
-   "prio": 1,
-   "titre": "Créneaux fixes éditables + Réouverture or — CODÉ 15/10, validé écran (correctif cellules 0123)",
-   "detail": "Migration 0122 : les 8 structurels quittent le code pour la table evenements_catalogue (+ « or_reouverture » lundi 00h00 Paris — données réelles Axi : pause quotidienne 22h58→00h00, reprise hebdo lundi minuit ; DÉSARMÉ, l'owner arme XAUUSD lui-même). Modale ⚙ « Gérer les créneaux » (3 niveaux : 🕐 → gestion → édition) : créer (désarmé partout, doctrine anti-auto-arm), modifier (mode heure Paris fixe OU ancré place avec DST — Tokyo 2h/1h suit seul), pause/actif (compteurs conservés), supprimer (cases emportées). Changement d'horaire → warning + remise à zéro des compteurs. Les 9 types 📅 restent en code (heure de l'annonce réelle, doctrine 14/10). Empreinte hot-reload embarque la version du catalogue (réinscription ≤ 60 s). Cache 30 s + invalidation CRUD. 128 tests api verts. CORRECTIF 15/10 soir (validation owner) : « désarmé à la création » = cellules DÉSARMÉES × périmètre (migration 0123 + handler creer) et non lignes absentes — sinon la matrice ne dessine rien d'armable.",
-   "echeance": "armement XAUUSD × Réouverture or par l'owner, puis première passe lundi 00h00"
-  },
-  {
-   "id": "PIL",
-   "prio": 1,
-   "titre": "PIPELINE = référence unique des assets — CODÉ 15/10, validation écran",
-   "detail": "Doctrine owner 15/10 : « la seule source de référence pour tous les assets affichés et analysés est 📦 Données — Pilotage du pipeline ». RETRAIT = cascade (pipeline_cascade.rs : périmètre straddle + cases matrice, couples SMC, liste KDJ matérialisée si « tous », caches vidés — briefing/patterns volatilité/matrice) avec confirmation UI affichant désarmements + positions ouvertes (confiées au rattrapage). AJOUT = disponible partout, ARMÉ NULLE PART. Garde-fou assets_garde INVERSÉ : un armé hors pipeline est désarmé (plus jamais réactivé en silence). 3 modales miroir : poll 60 s non destructif (préserve les éditions en cours). GET /api/assets/{id}/impact-retrait. 130 tests verts.",
-   "echeance": "CLOS 16/10 — validation écran owner OK (retrait/rajout BTC, matrice straddle, modales miroir, analyses purgées)"
+   "echeance": "Correctif D1 GER40 commité (80218b0) + validé owner + journal vivant (13h28 ce jour) ✓. RESTE : script de rejeu des transitions week-end du journal (croisements stricts, gris, Sunday) contre le compositeur — 1 script, déclenchable à tout moment."
   },
   {
    "id": "STR",
    "prio": 1,
    "titre": "Straddle — validation live du timing 3 couches",
    "detail": "EA v1.36 recompilé par l'owner (15/10) + timer runtime 1 Hz + purge >30 s en production. La prochaine annonce High doit ouvrir TOUS les assets du périmètre à T-3 s — vérifier les horaires d'ouverture dans l'historique (colonne Ouvert le, heure Paris) et backend.log.",
-   "echeance": "prochaine annonce High"
+   "echeance": "Prochaine annonce High — AUCUNE dans le cache cette semaine (prochaines échéances connues : Medium 22-23/10). Vérifier à la prochaine High réelle : les 4 assets poussent chaque seconde M1 à T-3s, timer 1 Hz, purge >30 s."
   },
   {
    "id": "C",
    "prio": 3,
-   "titre": "Straddle — jugement par source à ≥ 30 passes",
+   "titre": "Straddle — jugement par TYPE de créneau à ≥ 30 passes",
    "detail": "342 passes clôturées, matrice 17 événements en maturation (requête par source quand les seuils tombent). L'analyste créneaux 🤖 sert déjà la ligne ✂️ des cases à envisager de désarmer.",
-   "echeance": "passive — seuils 30/case"
+   "echeance": "ACTIONNABLE : 406 passes fermées en base (≥ seuil largement) — reste à ventiler par type de créneau (fixe armé vs annonces classées) puis juger. 1 requête + analyse."
   },
   {
    "id": "B",
    "prio": 3,
    "titre": "KDJ — mesure 30 trades H1",
    "detail": "5 clôturés · rythme ~1 signal/sem/actif × 4 armés. Accélérable en ajoutant des assets via la modale (labo 7.G : XRP +1,35 R/tr en tête).",
-   "echeance": "passive — ~mi-novembre"
+   "echeance": "passive — 8/30 trades H1 fermés (~mi-novembre à ce rythme)"
   },
   {
    "id": "D",
    "prio": 3,
    "titre": "Rockets — analyse par pilier à ≥ 30 clôturés",
    "detail": "10 clôturés (100 %) — relier les critères du /10 (Fondamental 3 · Technique 3 · Chartisme 2 · Chandeliers 2, seuil ≥ 7) aux verdicts quand l'effectif le permet.",
-   "echeance": "passive"
+   "echeance": "passive — 10/30 clôturés"
   },
   {
    "id": "E",
@@ -287,21 +273,7 @@
    "prio": 3,
    "titre": "Confluence dorée (OTE swing) — re-test périodique",
    "detail": "C1 du 09/10 : effet réel non concluant (z=+1,61) ; outil etude_confluence prêt — re-jouer quand le vécu accrût.",
-   "echeance": "passive — 1 commande"
-  },
-  {
-   "id": "A",
-   "prio": 3,
-   "titre": "Conviction LLM — notation gardée en observation",
-   "detail": "AUC 0,477 (13/10) = aucune valeur prédictive ; décision owner : GARDER la notation, capteur prédictif définitivement écarté. Re-test inutile avant le vécu des réglages par asset.",
-   "echeance": "passive"
-  },
-  {
-   "id": "G",
-   "prio": 3,
-   "titre": "Qualité des données — surveillance continue",
-   "detail": "Qualité des données. M30/H1/D1 réparées (07-09/10), EA v1.35 upsert anti-récidive, garde-fou assets_garde (armé ⇒ alimenté, sens inversé 15/10). 16/10 — NOUVEAU GARDE FRAÎCHEUR PIPELINE (codé, NON COMMITTÉ, relance requise) : audit 5 min de chaque asset ACTIF × 7 TF contre leur contrat (crypto M1 ≤ 10 min ; mt5 M1 ≤ 90 min en semaine — pause XAU absorbée ; D1 mt5 ≤ 50 h — formante figée normale ; semaine de cotation dim 23h→ven 23h Paris, aucune alerte week-end). AVERTIR jamais réparer : logs de transitions seules (🩸/💚), endpoint GET /api/assets/fraicheur (mémoire), bloc « fraicheur » dans /api/sante/sources, badge ⚠ par asset dans la page 📦 (tooltip CSS). Module fraicheur_pipeline.rs + composable useFraicheurPipeline — 141 tests api. Limite assumée : férié en semaine = fausse alerte possible (warn uniquement). COUVERTURE 📶 RECALÉE 16/10 (non committé) : la colonne devient DENSITÉ — barres présentes / attendues sur la durée RÉELLE de chaque série, constantes calibrées sur les assets les mieux servis par classe (GER40→indice, XPTUSD→métaux). Résultat : tout ce qui est complet = 100 % (majeures, XAU/XAG/XPT, NAS100, BTC) ; les VRAIS trous apparaissent — M1 altcoins 57-59 % (le collecteur n'attrape que ~826 des 1440 min/jour — à évaluer séparément, KDJ H1 non concerné) et GER40 91-94 % (flux réellement plus clairsemé que NAS100).",
-   "echeance": "permanent — relance run.sh pour activer le garde (badge ⚠ visible page 📦)"
+   "echeance": "passive — re-test périodique, 1 commande (dernier : 13/10, AUC 0,477 sans valeur)"
   },
   {
    "id": "D1",
