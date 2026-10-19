@@ -70,7 +70,7 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
  "synchro": {
-  "date": "19/10 — NETTOYAGE COCKPIT (owner) : vérifications passées sur les 17 actions — SUPPRIMÉES comme terminées : PIL (clos 16/10), EVT (passe or XAU 00:00:02 du 19/10 clôturée 0,0R = validation live timer STR), G garde fraîcheur (en prod, 0 anomalie), A conviction (décision permanente) ; KAS réduit au rejeu transitions ; MOB réduit au commit ; compteurs vivants : KDJ 8/30, rockets 10/30, straddle C actionnable (406 passes) ; verticale SMC réécrite (doctrine SL fixe) ; chantier SL fixe poussé 9a4ed24. Restent 13 actions dont 4 bloquées owner (D4 captures, D1, D2, MAN) et 5 passives datées",
+  "date": "19/10 — nettoyage cockpit J2 : MOB cloture (coquille Android + CORS pousses b9e19d2 — chantier livre, pause owner) ; C resolu en passif (ventilation creneaux_evenements deja vivante, case or comptee, jugement auto a >=30/type ~fin octobre) ; 12 actions restantes. Avant : nettoyage J1 17->13 (PIL/EVT/G/A supprimees sur preuves : passe or 00:00:02 validee, garde 0 anomalie). SL fixe pousse 9a4ed24",
   "commit": "e2a5e06",
   "note": "R distance (stratégie) + $ (résultat), jamais de R moyen. Production SMC = tout-TP1 + trailing k=0,1. Doctrine événements : 17 (8 structurels + 9 calendrier), Medium non tradés. Vécu immuable. KPIs relevés ce jour via /api/analyses."
  },
@@ -220,13 +220,6 @@
    "echeance": "P1 espionnage ≥ 24-48 h → spec formelle (P4 = décision owner labo A/B)"
   },
   {
-   "id": "MOB",
-   "prio": 2,
-   "titre": "App mobile — LIVRÉE & validée sur téléphone (pause owner) ; reste le commit",
-   "detail": "PHILOSOPHIE : l'app RELAYE l'information (opportunités à VENIR) — zéro action, zéro post-mortem, zéro stats ; tour de contrôle = app principale. CANAL REVU owner 17/10 : PAS de Telegram — APK Android DIRECT via Tauri 2, client du backend maison via Tailscale. LES 7 ALERTES : ① digest 8h30 Paris (High du jour + heures + briefing 🌍 CONTEXTE MARCHÉ + ligne « pendant la nuit » ; = heartbeat implicite) ② rappel T-10 min ③ gros titre presse = article noté 100 sur news fonda (détail SANS lien externe) ④ SMC approche (0,5 × ATR du TF de zone, 1 alerte/entrée de bande, réarmement à 1 × ATR) ⑤ SMC contact (binaire) — avec capture graphique RENDU SERVEUR PNG (~120 bougies + zone) ⑥ relais alertes prix ⑦ anomalie fraîcheur fournisseurs. MUETTE 21h→8h Paris, nocturnes RÉSUMÉES au digest (option b). PAGES : onglet Aujourd'hui (High + countdown, ligne nuit, presse, briefing 🌍 tappable) + onglet Journal (chronologique, non-lues, 5 vues détail : événement/presse/SMC approche-contact avec PNG/prix/santé — détails accessibles DEPUIS Aujourd'hui) + Réglages (serveur+token, test connexion, toggles par type). WORKFLOW : ouverture → bandeau connexion Tailscale → Aujourd'hui ; alerte → table mobile_alertes → polling → notification système (hors muette) → détail. POLLING arrière-plan 10 min (owner) via SERVICE AU PREMIER PLAN (notification permanente « relais actif » — WorkManager plancher 15 min insuffisant) ; premier plan = ~30 s. ARCHITECTURE (owner 17/10) : dossier /native-trading-ai/AppMobile = projet CLIENT 100 % indépendant (propre Vue+Tauri Android, build séparé, même dépôt/preaudit) ; SEULE exception : émission des alertes (module isolé mobile_relay.rs + /api/mobile/* + rendu PNG + digest) vit dans le backend principal — incompressible, elle lit moteurs/DB direct.",
-   "echeance": "①②③ livrés : relay+scaffold poussés 7092535, coquille Android installée et connectée chez l'owner « C'est ok. Ca fonctionne » (18/10). RESTE : commit de AppMobile/src-tauri + main.rs (CORS Android) + .gitignore sur ordre owner — chantier sinon gelé (« on reviendra plus tard »)."
-  },
-  {
    "id": "KAS",
    "prio": 1,
    "titre": "Tendance Kasper — rejeu strict des transitions du week-end",
@@ -243,9 +236,9 @@
   {
    "id": "C",
    "prio": 3,
-   "titre": "Straddle — jugement par TYPE de créneau à ≥ 30 passes",
+   "titre": "Straddle — jugement par type de créneau (infrastructure en place)",
    "detail": "342 passes clôturées, matrice 17 événements en maturation (requête par source quand les seuils tombent). L'analyste créneaux 🤖 sert déjà la ligne ✂️ des cases à envisager de désarmer.",
-   "echeance": "ACTIONNABLE : 406 passes fermées en base (≥ seuil largement) — reste à ventiler par type de créneau (fixe armé vs annonces classées) puis juger. 1 requête + analyse."
+   "echeance": "VENTILATION DEJA EN PLACE (verifie 19/10) : creneaux_evenements compte occurrences/SigmaR par case depuis l'armement 15/10 (compteurs relances) — case or a compte sa passe de lundi, annonces classees tracees (cal_retail +2,39 R). Jugement AUTOMATIQUE a >= 30 occurrences par type ; rythme ~11/4 j pour les types principaux -> ~fin octobre. Purement passif desormais."
   },
   {
    "id": "B",
