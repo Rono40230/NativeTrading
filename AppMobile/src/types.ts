@@ -136,9 +136,9 @@ export interface SignalEnCours {
   strategie: string
   asset: string
   sens: string
-  dollars: number | null
+  /** R flottant net (Double = somme des jambes). */
   r: number
-  r_court: number
+  dollars: number | null
   heure: number
 }
 

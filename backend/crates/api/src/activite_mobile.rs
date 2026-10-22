@@ -62,7 +62,8 @@ pub async fn get_activite_mobile(
     // heure E atteinte ; Rockets : dès le signal.
     let lignes = sqlx::query(
         "SELECT strategie, asset, direction, prix_entree AS e,
-                COALESCE(sl_effectif, stop_loss) AS sl
+                COALESCE(sl_effectif, stop_loss) AS sl,
+                sl_long_effectif AS sl_l, sl_short_effectif AS sl_s
          FROM signaux
          WHERE statut != 'Fermé'
            AND id IN (SELECT id FROM signaux ORDER BY cree_le DESC LIMIT 500) -- même fenêtre que l'app (getSignaux 500)
@@ -75,6 +76,11 @@ pub async fn get_activite_mobile(
     .await
     .unwrap_or_default();
 
+    // Dernier prix par asset — chaîne complète (owner 22/10 : « vérifie
+    // que toutes les stratégies sont branchées ») : bougies du pipeline
+    // (KDJ/SMC/straddle) → Binance live (rockets USDT) → Yahoo live
+    // (rockets actions US — même source que la gestion rockets). Le repli
+    // silencieux sur le prix d'entrée est ce qui affichait P/L = 0.
     let mut derniers: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
     for r in &lignes {
         let a: String = r.get("asset");
@@ -86,6 +92,23 @@ pub async fn get_activite_mobile(
             {
                 derniers.insert(a.clone(), p.get::<f64, _>("close"));
             }
+        }
+    }
+    let manquants: Vec<String> = lignes
+        .iter()
+        .map(|r| r.get::<String, _>("asset"))
+        .filter(|a| !derniers.contains_key(a))
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    for a in &manquants {
+        let prix = if a.ends_with("USDT") {
+            crate::prix_utils::fetch_binance(&crate::http_client::HTTP_CLIENT, a).await
+        } else {
+            crate::yahoo_quotes::quotes(&[a.clone()]).await.get(a).map(|q| q.prix)
+        };
+        if let Some(p) = prix {
+            derniers.insert(a.clone(), p);
         }
     }
     let risque_pct: f64 = state
@@ -102,6 +125,10 @@ pub async fn get_activite_mobile(
         capitaux.insert(m.id.to_string(), a.capital_actuel.max(0.0));
     }
 
+    // R flottant NET par position (owner 22/10 : colonne R + P/L pour
+    // toutes les stratégies). Double (straddle) = SOMME DES JAMBES avec
+    // le stop PROPRE à chaque jambe (doctrine du R net d'une passe) ;
+    // dollars = capitaux × risque × R net.
     let en_cours: Vec<serde_json::Value> = lignes
         .iter()
         .map(|r| {
@@ -110,25 +137,26 @@ pub async fn get_activite_mobile(
             let dir: String = r.get("direction");
             let e: f64 = r.get("e");
             let sl: f64 = r.get("sl");
+            let sl_l: Option<f64> = r.get("sl_l");
+            let sl_s: Option<f64> = r.get("sl_s");
             let prix = *derniers.get(&asset).unwrap_or(&e);
             let ru = (e - sl).abs().max(1e-9);
-            let r_long = (prix - e) / ru;
-            let r_short = (e - prix) / ru;
-            let (r, r_court, dollars) = match dir.as_str() {
-                "Short" => (r_short, 0.0, Some(r_short)),
-                "Both" => (r_long, r_short, None),
-                _ => (r_long, 0.0, Some(r_long)),
+            let r_net = match dir.as_str() {
+                "Short" => (e - prix) / ru,
+                "Both" => {
+                    let ru_l = sl_l.map(|s| (e - s).abs()).filter(|x| *x > 1e-9).unwrap_or(ru);
+                    let ru_s = sl_s.map(|s| (s - e).abs()).filter(|x| *x > 1e-9).unwrap_or(ru);
+                    (prix - e) / ru_l + (e - prix) / ru_s
+                }
+                _ => (prix - e) / ru,
             };
-            let d = dollars.map(|x| {
-                (capitaux.get(&strat).copied().unwrap_or(0.0) * risque_pct * x * 100.0).round() / 100.0
-            });
+            let d = (capitaux.get(&strat).copied().unwrap_or(0.0) * risque_pct * r_net * 100.0).round() / 100.0;
             serde_json::json!({
                 "strategie": strat,
                 "asset": asset,
                 "sens": if dir == "Long" { "Achat" } else if dir == "Short" { "Vente" } else { "Double" },
                 "dollars": d,
-                "r": (r * 100.0).round() / 100.0,
-                "r_court": (r_court * 100.0).round() / 100.0,
+                "r": (r_net * 100.0).round() / 100.0,
             })
         })
         .collect();

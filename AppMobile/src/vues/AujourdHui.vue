@@ -56,13 +56,16 @@
     <div v-if="!plieEncours" class="carte liste">
       <p v-if="enCours.length === 0" class="vide">Aucun signal en cours</p>
       <table class="tbl">
-        <thead><tr><th>Stratégie</th><th>Asset</th><th>Sens</th><th>P/L latent</th></tr></thead>
+        <thead><tr><th>Stratégie</th><th>Asset</th><th>Sens</th><th>R</th><th>P/L latent</th></tr></thead>
         <tbody>
           <tr v-for="(c, i) in enCours" :key="i">
             <td class="strat">{{ nomStrategie(c.strategie) }}</td><td>{{ c.asset }}</td>
             <td :class="c.sens === 'Achat' ? 'vert' : 'rouge'">{{ c.sens === 'Achat' ? 'Buy' : c.sens === 'Vente' ? 'Sell' : 'Both' }}</td>
-            <td class="mono pl" :class="(c.dollars ?? c.r) >= 0 ? 'vert' : 'rouge'">
-              {{ c.dollars !== null ? (c.dollars >= 0 ? '+' : '') + c.dollars.toFixed(2) + ' $' : (c.r >= 0 ? '+' : '') + c.r + 'R / ' + (c.r_court >= 0 ? '+' : '') + c.r_court + 'R' }}
+            <td class="mono pl" :class="c.r >= 0 ? 'vert' : 'rouge'">
+              {{ (c.r >= 0 ? '+' : '') + c.r.toFixed(2) }}
+            </td>
+            <td class="mono pl" :class="(c.dollars ?? 0) >= 0 ? 'vert' : 'rouge'">
+              {{ c.dollars !== null ? (c.dollars >= 0 ? '+' : '') + c.dollars.toFixed(2) + ' $' : '—' }}
             </td>
           </tr>
         </tbody>
@@ -91,8 +94,9 @@ const rapports = ref<RapportStrategie[]>(demo ? [
   { id: 'kdj_halftrend', nom: 'KDJ', icone: '📈', emis: 5, clotures: 2, r: -2 },
 ] : [])
 const enCours = ref<SignalEnCours[]>(demo ? [
-  { strategie: 'SMC', asset: 'XAUUSD', sens: 'Achat', dollars: 8.74, r: 1.05, r_court: 0, heure: 0 },
-  { strategie: 'Straddle', asset: 'BTC', sens: 'Double', dollars: null, r: 0.4, r_court: -0.2, heure: 0 },
+  { strategie: 'SMC', asset: 'XAUUSD', sens: 'Achat', dollars: 8.74, r: 1.05, heure: 0 },
+  { strategie: 'straddle', asset: 'BTC', sens: 'Double', dollars: 2.1, r: 0.2, heure: 0 },
+  { strategie: 'rockets', asset: 'MTCH', sens: 'Achat', dollars: -1.4, r: -0.31, heure: 0 },
 ] : [])
 
 defineEmits<{ (e: 'ouvrirAnnonce', a: Annonce): void }>()
@@ -176,6 +180,7 @@ onUnmounted(() => { if (minuteur) clearInterval(minuteur) })
 .blanc { color: var(--texte); }
 .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
 .tbl th { text-align: left; font-size: 10px; text-transform: uppercase; color: var(--texte-40); padding: 6px 6px 4px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.tbl th.droite { text-align: right; }
 .tbl td { padding: 6px; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .strat { font-weight: 700; }
 .tbl td.vert { color: var(--vert); font-weight: 700; }
