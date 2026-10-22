@@ -63,7 +63,9 @@ async function basculerRelais() {
     const { invoke } = await import('@tauri-apps/api/core')
     if (relaisActif.value) {
       await invoke('plugin:relais|arreter')
+      localStorage.setItem('nt_relais_stop', '1')
     } else {
+      localStorage.removeItem('nt_relais_stop')
       await invoke('plugin:relais|demarrer', {
         serveur: serveur.value.replace(/\/+$/, ''),
         token: token.value,

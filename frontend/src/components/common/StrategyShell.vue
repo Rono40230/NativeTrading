@@ -14,24 +14,13 @@
       </div>
     </div>
 
-    <!-- Moitié haute : setups + signaux ; moitié basse : historique.
-         Chaque section défile en interne (aucun scroll global). -->
+    <!-- Moitié haute : signaux en cours ; moitié basse : historique.
+         Chaque section défile en interne (aucun scroll global). La colonne
+         « Setups en attente » a été retirée (owner 14/10 pour la liste,
+         20/10 pour la section — plus aucune page ne passe le slot). -->
     <div class="flex-1 min-h-0 grid grid-rows-2 gap-3 pr-0.5">
-      <div class="grid gap-3 min-h-0 h-full" :class="$slots.setups ? (setupsLarge ? 'grid-cols-5' : 'grid-cols-6') : 'grid-cols-1'">
-        <section v-if="$slots.setups" class="glass-card px-4 py-3 flex flex-col min-h-0 col-span-1 overflow-hidden">
-          <h2 class="text-xs uppercase text-white font-semibold tracking-wider mb-2 shrink-0">
-            ⏳ Setups en attente<span v-if="ordrePoses" class="text-amber-300"> · {{ ordrePoses }} ordre{{ ordrePoses > 1 ? 's' : '' }} posé{{ ordrePoses > 1 ? 's' : '' }}</span>
-          </h2>
-          <!-- Même hauteur que le bloc des signaux en cours (grille) — le
-               contenu défile en interne ; pr-4 réserve la gouttière et la
-               barre custom (6 px) s'y dessine SANS jamais chevaucher les
-               cartes (WebKitGTK = barres en surimpression). -->
-          <div class="flex-1 min-h-0 overflow-y-auto overflow-x-hidden pr-4 custom-scrollbar">
-            <slot name="setups" />
-          </div>
-        </section>
-
-        <section class="glass-card px-4 py-3 flex flex-col min-h-0" :class="$slots.setups ? (setupsLarge ? 'col-span-4' : 'col-span-5') : ''">
+      <div class="grid gap-3 min-h-0 h-full grid-cols-1">
+        <section class="glass-card px-4 py-3 flex flex-col min-h-0 overflow-hidden">
           <h2 class="text-xs uppercase text-white font-semibold tracking-wider mb-2 shrink-0">
             🟢 {{ titreEncours ?? 'Trades en cours' }}
           </h2>
@@ -76,11 +65,6 @@ import LexiquePanel from '@/components/common/LexiquePanel.vue'
 
 const props = withDefaults(defineProps<{
   titre: string
-  /** Compteur d'ordres posés (jamais remplis) affiché dans le titre setups. */
-  ordrePoses?: number
-  /** Colonne Setups élargie (1/5 au lieu de 1/6 de la largeur) — Straddle,
-   *  dont la colonne porte agenda + créneaux IA. Défaut = inchangé (SMC). */
-  setupsLarge?: boolean
   /** Fond teinté de la page — la couleur de sa carte du dashboard. */
   teinte?: string
   /** Route du bouton 🔭 Scanner (page dédiée) — absent = bouton masqué.

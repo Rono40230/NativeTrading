@@ -274,12 +274,17 @@ if [ -f "$TAURI_BIN" ]; then
     curl -sf http://127.0.0.1:1420/ > /dev/null 2>&1 && break
     sleep 0.5
   done
-  GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 \
+  # WEBKIT_DISABLE_DMABUF_RENDERER (21/10) : sur WebKitGTK récents
+  # (Fedora 43), l'ancien COMPOSITING_MODE ne fait plus effet et le
+  # renderer DMABUF échoue sur NVIDIA propriétaire après reboot →
+  # « Failed to create GBM buffer » + PAGE BLANCHE. Les deux variables
+  # cohabitent (anciennes distros + nouvelles).
+  GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 \
     "$TAURI_BIN" > "$LOG_DIR/tauri.log" 2>&1 &
   TAURI_PID=$!
 else
   # Fallback : tauri dev (nécessite les libs devel installées)
-  GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 \
+  GDK_BACKEND=x11 WEBKIT_DISABLE_COMPOSITING_MODE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1 \
     npm run tauri:start > "$LOG_DIR/frontend.log" 2>&1 &
   TAURI_PID=$!
 fi

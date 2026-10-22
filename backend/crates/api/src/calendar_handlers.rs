@@ -1,6 +1,7 @@
 use actix_web::{web, HttpResponse, Responder};
 use chrono::{DateTime, Datelike, Duration, Utc};
 use serde::Deserialize;
+use sqlx::Row;
 use std::sync::Arc;
 
 use crate::state::AppState;
@@ -293,4 +294,41 @@ pub async fn get_calendar(
         }));
     }
     HttpResponse::Ok().json(filtrees)
+}
+
+/// GET /api/mobile/calendrier — les annonces HIGH des 7 prochains jours
+/// (owner 21/10) : l'onglet 📅 du téléphone, High uniquement.
+pub async fn get_calendrier_mobile(
+    state: actix_web::web::Data<crate::state::AppState>,
+    requete: actix_web::HttpRequest,
+) -> HttpResponse {
+    if !crate::mobile_relay::autorise(&state.db, &requete).await {
+        return crate::mobile_relay::non_autorise();
+    }
+    let maintenant = chrono::Utc::now().timestamp();
+    let lignes: Vec<serde_json::Value> = sqlx::query(
+        "SELECT date_heure, devise, titre FROM calendrier_cache
+         WHERE impact = 'High' AND fetched_at > strftime('%s','now') - 86400
+         ORDER BY date_heure",
+    )
+    .fetch_all(state.db.pool())
+    .await
+    .unwrap_or_default()
+    .iter()
+    .filter_map(|r| {
+        let s = r.try_get::<String, _>("date_heure").ok()?;
+        let dt = chrono::DateTime::parse_from_rfc3339(&s).ok()?;
+        let ts = dt.timestamp();
+        if ts < maintenant || ts > maintenant + 7 * 86_400 {
+            return None;
+        }
+        Some(serde_json::json!({
+            "ts": ts,
+            "heure_paris": dt.with_timezone(&chrono_tz::Europe::Paris).format("%d/%m %Hh%M").to_string(),
+            "devise": r.try_get::<String, _>("devise").unwrap_or_default(),
+            "titre": r.try_get::<String, _>("titre").unwrap_or_default(),
+        }))
+    })
+    .collect();
+    HttpResponse::Ok().json(serde_json::json!({ "evenements": lignes }))
 }

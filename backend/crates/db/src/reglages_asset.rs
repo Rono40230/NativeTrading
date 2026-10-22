@@ -102,7 +102,7 @@ pub async fn ecrire_smc_surcharge(pool: &SqlitePool, asset: &str, s: &SmcSurchar
     sqlx::query(
         "INSERT INTO smc_reglages_asset
            (asset, trailing_r, tp1, tp2, tp3_mode, tp3_rfixe, frac_tp1, frac_tp2, frac_tp3, maj_le)
-         VALUES (?,?,?,?,?,?,?,?,?,?,unixepoch())
+         VALUES (?,?,?,?,?,?,?,?,?,unixepoch())
          ON CONFLICT(asset) DO UPDATE SET
            trailing_r=excluded.trailing_r, tp1=excluded.tp1,
            tp2=excluded.tp2, tp3_mode=excluded.tp3_mode, tp3_rfixe=excluded.tp3_rfixe,

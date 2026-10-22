@@ -386,9 +386,9 @@ pub async fn activer(
         // l'asset (jamais dans les réglages globaux) — hot-reload ≤ 60 s
         // sur les seuls couples de l'asset.
         ("SMC", Some(a)) => {
-            let surcharge = db::reglages_asset::lire_smc_surcharge(state.db.pool(), a)
-                .await
-                .unwrap_or_default();
+            // Tous les champs sont posés par l'essai (depuis la purge SL,
+            // SmcSurcharge n'a plus que 8 champs) — aucune reprise de
+            // l'existant : la lecture préalable serait du code mort.
             let maj = db::reglages_asset::SmcSurcharge {
                 tp1: p.get("tp1_mult").and_then(|v| v.as_f64()),
                 tp2: p.get("tp2_mult").and_then(|v| v.as_f64()),
@@ -403,7 +403,6 @@ pub async fn activer(
                 frac_tp1: p.get("frac_tp1").and_then(|v| v.as_f64()),
                 frac_tp2: p.get("frac_tp2").and_then(|v| v.as_f64()),
                 frac_tp3: p.get("frac_tp3").and_then(|v| v.as_f64()),
-                ..surcharge
             };
             db::reglages_asset::ecrire_smc_surcharge(state.db.pool(), a, &maj)
                 .await

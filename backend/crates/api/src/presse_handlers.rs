@@ -3,7 +3,7 @@
 use actix_web::{web, HttpResponse};
 use futures::future::join_all;
 use serde::Deserialize;
-use sqlx::SqlitePool;
+use sqlx::{Row, SqlitePool};
 
 use crate::state::AppState;
 use db::presse::FiltreArticles;
@@ -302,4 +302,90 @@ pub async fn get_briefs(state: web::Data<AppState>) -> HttpResponse {
         Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
     }
 }
+
+/// GET /api/mobile/presse — l'onglet « Revue de presse » du relais mobile
+/// (owner 19→22/10) : 4 sections (macro / cryptos / métaux / techno —
+/// techno = thème base « actions_us ») × 10 meilleurs articles des
+/// dernières 24 h, chaque article avec son URL (owner 22/10 : cliquable)
+/// + le dernier brief archivé s'il a moins de 24 h. Titres TOUJOURS en
+/// français (owner 20/10) : traduire_avec_cache sert le cache et traduit
+/// à la volée les manquants (DeepL si clé, sinon Ollama) — jamais de
+/// génération LLM lourde ici ; le bouton ⚡ Générer repasse par POST
+/// /api/mobile/brief (qwen3:32b côté serveur).
+pub async fn get_presse_mobile(
+    state: web::Data<AppState>,
+    requete: actix_web::HttpRequest,
+) -> HttpResponse {
+    if !crate::mobile_relay::autorise(&state.db, &requete).await {
+        return crate::mobile_relay::non_autorise();
+    }
+    let pool: SqlitePool = state.db.pool().clone();
+    let maintenant = chrono::Utc::now().timestamp();
+
+    // 10 meilleurs par thème (fenêtre 24 h), ordre des sections affiché.
+    let rows = sqlx::query(
+        "SELECT * FROM (
+            SELECT hash_titre, titre, url, score, theme, ajoute_le,
+                   ROW_NUMBER() OVER (
+                     PARTITION BY theme ORDER BY score DESC, ajoute_le DESC) AS rang
+            FROM presse_articles
+            WHERE ajoute_le >= ? AND theme IN ('macro','crypto','metaux','actions_us')
+         ) WHERE rang <= 10
+         ORDER BY CASE theme WHEN 'macro' THEN 1 WHEN 'crypto' THEN 2
+                             WHEN 'metaux' THEN 3 ELSE 4 END, rang",
+    )
+    .bind(maintenant - 86_400)
+    .fetch_all(&pool)
+    .await
+    .unwrap_or_default();
+
+    let mut articles: Vec<serde_json::Value> = Vec::with_capacity(rows.len());
+    for r in &rows {
+        let titre: String = r.try_get("titre").unwrap_or_default();
+        // Titre français : cache → traduction à la volée → cache (owner
+        // 20/10) ; échec = VO affichée, le collecteur retentera.
+        let hash: String = r.try_get("hash_titre").unwrap_or_default();
+        let fr = news::news_traduction::traduire_avec_cache(&pool, &titre).await;
+        if fr.trim() != titre.trim() {
+            let _ = state.db.enregistrer_tentative_traduction(&hash, true).await;
+        }
+        let theme: String = r.try_get("theme").unwrap_or_default();
+        let section = match theme.as_str() {
+            "crypto" => "cryptos",
+            "metaux" => "metaux",
+            "actions_us" => "techno",
+            _ => "macro",
+        };
+        articles.push(serde_json::json!({
+            "titre": fr,
+            "url": r.try_get::<String, _>("url").unwrap_or_default(),
+            "score": r.try_get::<i64, _>("score").unwrap_or_default(),
+            "theme": theme,
+            "section": section,
+            "ajoute_le": r.try_get::<i64, _>("ajoute_le").unwrap_or_default(),
+        }));
+    }
+
+    // Dernier brief s'il est frais (< 24 h) — sinon le bouton Générer.
+    let brief: Option<serde_json::Value> = sqlx::query(
+        "SELECT contenu, nb_articles, genere_le FROM presse_briefs
+         WHERE genere_le >= ? ORDER BY id DESC LIMIT 1",
+    )
+    .bind(maintenant - 86_400)
+    .fetch_optional(&pool)
+    .await
+    .ok()
+    .flatten()
+    .map(|r| {
+        serde_json::json!({
+            "contenu": r.try_get::<String, _>("contenu").unwrap_or_default(),
+            "nb_articles": r.try_get::<i64, _>("nb_articles").unwrap_or_default(),
+            "genere_le": r.try_get::<i64, _>("genere_le").unwrap_or_default(),
+        })
+    });
+
+    HttpResponse::Ok().json(serde_json::json!({ "articles": articles, "brief": brief }))
+}
+
+
 

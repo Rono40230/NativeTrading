@@ -236,20 +236,6 @@ export function formatDuree(debut: number | null | undefined, fin: number | null
   return h ? `${Math.floor(d / 86400)} j ${h} h` : `${Math.floor(d / 86400)} j`
 }
 
-/** Ordres posés jamais remplis : SMC = entrée non touchée (heure_entree
- *  vide) ; Straddle = annonce pas encore arrivée (heure E future).
- *  Rockets = aucun (position ouverte dès le signal). */
-export function nbOrdresPoses(
-  signaux: { statut: string; verdict: string | null; heure_entree: number | null | undefined }[],
-  strategie: 'SMC' | 'straddle',
-): number {
-  return signaux.filter(s => {
-    if (s.statut === 'Fermé' || s.verdict !== null) return false
-    if (strategie === 'SMC') return s.heure_entree === null || s.heure_entree === undefined
-    return (s.heure_entree ?? 0) > Math.floor(Date.now() / 1000)
-  }).length
-}
-
 /// Position KDJ (décision owner 10/10) : la taille s'exprime en UNITÉS de
 /// l'actif, pas en lot forex. risque$ = lot × stop_pips × valeur_pip (exact
 /// par construction — le lot vient du calcul backend « capital composé à

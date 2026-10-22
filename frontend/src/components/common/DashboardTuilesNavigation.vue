@@ -115,8 +115,8 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { http } from '@/services/http.client'
 import { presseApi, type ArticlePresse } from '@/services/api.presse'
-import { alertesApi } from '@/services/api.alertes'
 import { useAlerteStore } from '@/stores/alerte.store'
+import { useAlertesPrixStore } from '@/stores/alertesPrix.store'
 import { ciblerPremierSlot, ouvrirFenetreGraphiques } from '@/utils/graphiques'
 import type { AlertePrix } from '@/services/api.alertes'
 import FondTheme from './FondTheme.vue'
@@ -187,7 +187,10 @@ function ageTs(ts: number): string {
 
 // ── Graphiques : alertes prix actives (l'ancienne liste des slots de la
 //    grille est retirée le 14/09 — décision propriétaire) ────────────────────
-const alertesActives = ref<AlertePrix[]>([])
+/// Alertes armées : STORE PARTAGÉ avec les graphiques (owner 20/10) —
+/// pose/glisser/suppression se reflètent ici À L'INSTANT, sans poll.
+const alertesPrixStore = useAlertesPrixStore()
+const alertesActives = computed(() => alertesPrixStore.actives)
 
 /// Ouvre la page Graphiques sur un asset précis (premier slot ciblé).
 /// Clic sur une tuile du pedestal : Graphiques → nouvelle fenêtre
@@ -214,8 +217,7 @@ function titreAlerte(a: AlertePrix): string {
 
 async function supprimerAlerte(a: AlertePrix) {
   try {
-    await alertesApi.supprimer(a.id)
-    alertesActives.value = alertesActives.value.filter(x => x.id !== a.id)
+    await alertesPrixStore.supprimer(a.id)
   } catch (e) {
     alerteStore.afficherErreur(`Suppression alerte : ${(e as Error).message}`)
   }
@@ -337,20 +339,8 @@ async function chargerTout() {
   }
 
   if (affiche('graphiques')) {
-    try {
-      const alertes = await alertesApi.lister()
-      alertesActives.value = alertes.filter(a => a.active)
-      // Rattrapage (hérité de l'ancien bloc 🔔) : une alerte déclenchée ne
-      // doit exister nulle part. Les graphs la suppriment en notifiant
-      // (son + OS, poll 10 s) ; on nettoie ici les déclenchées de plus de
-      // 2 minutes, fenêtre laissée aux charts pour la notification.
-      const vieilles = alertes.filter(
-        a => !a.active && a.declenchee_le && Date.now() / 1000 - a.declenchee_le > 120,
-      )
-      if (vieilles.length) {
-        await Promise.all(vieilles.map(a => alertesApi.supprimer(a.id).catch(() => null)))
-      }
-    } catch { alertesActives.value = [] }
+    // Store partagé : le rattrapage des déclenchées (> 2 min) vit dedans.
+    await alertesPrixStore.recharger()
   }
 
   if (affiche('ia')) {

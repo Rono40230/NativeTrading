@@ -132,6 +132,10 @@ async fn balayer(db: &Arc<Database>) {
                     false,
                 )
                 .await;
+                crate::alertes_canaux::telegram_si_actif(
+                    db.pool(), "presse_100",
+                    &format!("📰 Presse marquante (100) — {titre}"),
+                ).await;
             }
         }
         tokio::time::sleep(std::time::Duration::from_secs(PAUSE_ENTRE_LOTS_SEC)).await;

@@ -79,3 +79,6 @@ backend/.cargo-fake-libs/
 
 # Config locale de l'agent ZCode
 .zcodeignore
+AppMobile/src-tauri/plugins/relais/android/build/
+# override runtime des prompts (vérité versionnée = crates/llm/src/prompts.rs)
+backend/data/prompts_overrides.json

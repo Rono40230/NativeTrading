@@ -407,7 +407,10 @@ pub async fn verifier(
         }
         if cfg.telegram {
             let (token, chat) = notifications::telegram::lire_tokens_pool(db.pool()).await;
-            if !token.is_empty() && !chat.is_empty() {
+            if !token.is_empty()
+                && !chat.is_empty()
+                && crate::alertes_canaux::actif(db.pool(), "smc_approche", "telegram").await
+            {
                 if let Err(e) = notifications::telegram::post_message(&token, &chat, &msg).await {
                     tracing::warn!("Approche zone (Telegram) : {e}");
                 }

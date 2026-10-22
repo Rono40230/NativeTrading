@@ -1,16 +1,15 @@
-//! §Relais mobile (chantier MOB owner 17-18/10) — le journal serveur de
-//! l'app APK. PHILOSOPHIE : relayer l'information (opportunités à VENIR),
-//! zéro action, zéro post-mortem — la tour de contrôle reste l'app
-//! principale.
+//! §Relais mobile (MOB 17-18/10) — le journal serveur de l'app APK.
+//! PHILOSOPHIE : relayer l'information (opportunités à VENIR), zéro action,
+//! zéro post-mortem — la tour de contrôle reste l'app principale.
 //!
-//! Les 7 alertes : ① digest 8h30 Paris (High du jour + briefing 🌍 + ligne
-//! « pendant la nuit » ; = heartbeat implicite) ② rappel T-10 min d'un
+//! Les alertes : ① digest 8h30 (High + briefing + nuit ; = heartbeat)
+//! ② rappel T-10 min d'un
 //! High ③ presse notée 100 (news fonda) ④ SMC approche de zone armée
 //! (moteur alertes_zones, seuil 0,5 ATR, une par épisode, hystérésis 1) —
 //! émis par alertes_zones::verifier ⑤ SMC contact (idem) ⑥ alertes prix —
 //! émis par alertes_prix::verifier ⑦ santé fournisseurs — émis par
 //! fraicheur_pipeline. La MUETTE 21h→8h est côté CLIENT : le serveur
-//! écrit TOUT, sinon la ligne nuit du digest serait vide.
+//! écrit TOUT (journal = 24 h glissantes).
 
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -24,9 +23,7 @@ use crate::state::AppState;
 // ── Émission ─────────────────────────────────────────────────────────────────
 
 /// Écrit une alerte au journal et retourne son id (pour la capture PNG).
-/// Les erreurs n'interrompent JAMAIS le moteur appelant (le relais ne doit
-/// pas casser l'app principale). `&Arc<Database>` des appelants coerçait
-/// vers `&Database` automatiquement.
+/// Les erreurs n'interrompent JAMAIS le moteur appelant.
 #[allow(clippy::too_many_arguments)]
 pub async fn emettre(
     db: &db::Database,
@@ -97,14 +94,14 @@ pub async fn capturer_smc(db: &db::Database, id: i64, asset: &str, tf: &str, pay
 
 // ── Cycle minute (digest + rappels) — appelé au tick 60 s ────────────────────
 
-/// Digest du matin : 8h30 Paris, une seule fois par jour (un redémarrage
-/// tardif le sert en retard — c'est aussi le heartbeat du canal).
+/// Digest du matin : 8h30 Paris, une fois par jour (redémarrage tardif =
+/// servi en retard ; aussi le heartbeat du canal).
 pub(crate) fn dans_fenetre_digest(heure_paris: u32, minute: u32) -> bool {
     heure_paris > 8 || (heure_paris == 8 && minute >= 30)
 }
 
-/// Rappel T-10 : l'annonce tombe dans [now+8min ; now+12min] — le tick
-/// 60 s garantit au moins une visite dans la fenêtre.
+/// Rappel T-10 : l'annonce dans [now+8 ; now+12] min — le tick 60 s
+/// garantit une visite dans la fenêtre.
 pub(crate) fn dans_fenetre_rappel(ts_annonce: i64, maintenant: i64) -> bool {
     let d = ts_annonce - maintenant;
     (480..=720).contains(&d)
@@ -125,6 +122,61 @@ pub async fn cycle(db: &Arc<db::Database>) {
         peut_etre_digest(db, debut_jour).await;
     }
     rappels_t10(db, maintenant).await;
+}
+
+/// Ligne « pendant la nuit » — « Straddle · XAUUSD · Double » (+ heure digest).
+fn titre_position_nuit(id_strategie: &str, asset: &str, direction: &str, he: i64, avec_heure: bool) -> String {
+    let nom = crate::registre_strategies::MANIFESTES
+        .iter()
+        .find(|m| m.id == id_strategie)
+        .map(|m| m.nom)
+        .unwrap_or(id_strategie);
+    let sens = match direction {
+        "Long" => "Achat",
+        "Short" => "Vente",
+        _ => "Double",
+    };
+    let mut t = format!("{nom} · {asset} · {sens}");
+    if let Some(d) = chrono::DateTime::from_timestamp(he, 0).filter(|_| avec_heure) {
+        t.push_str(&format!(" · {}", d.with_timezone(&chrono_tz::Europe::Paris).format("%Hh%M")));
+    }
+    t
+}
+
+/// Positions du vécu ouvertes dans la fenêtre nuit, par stratégie (19/10).
+async fn positions_nuit(
+    pool: &sqlx::SqlitePool,
+    debut: i64,
+    fin: i64,
+    avec_heure: bool,
+) -> Vec<serde_json::Value> {
+    sqlx::query(
+        "SELECT strategie, asset, direction, COALESCE(heure_entree, cree_le, 0) AS he
+         FROM signaux
+         WHERE prix_entree IS NOT NULL
+           AND COALESCE(heure_entree, cree_le, 0) >= ? AND COALESCE(heure_entree, cree_le, 0) < ?
+         ORDER BY strategie, he",
+    )
+    .bind(debut)
+    .bind(fin)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default()
+    .iter()
+    .map(|r| {
+        let he: i64 = r.try_get("he").unwrap_or_default();
+        serde_json::json!({
+            "ts": he,
+            "titre": titre_position_nuit(
+                &r.try_get::<String, _>("strategie").unwrap_or_default(),
+                &r.try_get::<String, _>("asset").unwrap_or_default(),
+                &r.try_get::<String, _>("direction").unwrap_or_default(),
+                he,
+                avec_heure,
+            ),
+        })
+    })
+    .collect()
 }
 
 /// Assemble et écrit le digest si absent du jour.
@@ -157,29 +209,16 @@ async fn peut_etre_digest(db: &Arc<db::Database>, debut_jour: i64) {
         .map(|p| serde_json::json!({ "titre": p.titre, "score": p.score, "theme": p.theme }))
         .collect();
 
-    // Ligne « pendant la nuit » : tout ce qui est tombé depuis 21h la
-    // veille (le serveur écrit pendant la muette précisément pour ça).
-    let debut_nuit = debut_jour - 3 * 3600; // hier 21:00 Paris
-    let nuit: Vec<serde_json::Value> = sqlx::query(
-        "SELECT ts, type, titre, asset, tf FROM mobile_alertes
-         WHERE ts >= ? AND ts < ? AND type != 'digest' ORDER BY ts",
+    // Ligne « pendant la nuit » : uniquement les positions ouvertes
+    // depuis 21h la veille, heure dans le titre (le détail du digest
+    // n'affiche que le titre).
+    let nuit = positions_nuit(
+        db.pool(),
+        debut_jour - 3 * 3600, // hier 21:00 Paris
+        debut_jour + 8 * 3600 + 1800,
+        true,
     )
-    .bind(debut_nuit)
-    .bind(debut_jour + 8 * 3600 + 1800)
-    .fetch_all(db.pool())
-    .await
-    .unwrap_or_default()
-    .iter()
-    .map(|r| {
-        serde_json::json!({
-            "ts": r.try_get::<i64, _>("ts").unwrap_or_default(),
-            "type": r.try_get::<String, _>("type").unwrap_or_default(),
-            "titre": r.try_get::<String, _>("titre").unwrap_or_default(),
-            "asset": r.try_get::<Option<String>, _>("asset").ok().flatten(),
-            "tf": r.try_get::<Option<String>, _>("tf").ok().flatten(),
-        })
-    })
-    .collect();
+    .await;
 
     let payload = serde_json::json!({
         "annonces": annonces,
@@ -194,6 +233,9 @@ async fn peut_etre_digest(db: &Arc<db::Database>, debut_jour: i64) {
     );
     emettre(db, "digest", &titre, None, None, payload, false).await;
     tracing::info!("📱 Relais mobile — briefing du matin servi (heartbeat)");
+    crate::alertes_canaux::telegram_si_actif(
+        db.pool(), "briefing",
+        &format!("🌅 {titre} — briefing du jour prêt, ouvert dans l'app.")).await;
 }
 
 /// Rappels T-10 des annonces High du jour (dédoublonnés par titre du jour).
@@ -261,6 +303,9 @@ async fn rappels_t10(db: &Arc<db::Database>, maintenant: i64) {
             false,
         )
         .await;
+        crate::alertes_canaux::telegram_si_actif(
+            db.pool(), "evenement_t10",
+            &format!("⏰ T-10 min · {titre} à {}", paris.format("%H:%M"))).await;
         emis.lock().unwrap_or_else(|p| p.into_inner()).insert(cle);
         tracing::info!("📱 Relais mobile — rappel T-10 : {titre}");
     }
@@ -269,7 +314,7 @@ async fn rappels_t10(db: &Arc<db::Database>, maintenant: i64) {
 // ── Endpoints (lecture seule — l'app ne commande rien) ───────────────────────
 
 /// Token d'accès : vide = ouvert (réseau Tailscale privé par conception).
-async fn autorise(db: &Arc<db::Database>, requete: &actix_web::HttpRequest) -> bool {
+pub(crate) async fn autorise(db: &Arc<db::Database>, requete: &actix_web::HttpRequest) -> bool {
     let Ok(Some(token)) = db.lire_config("mobile_token").await else {
         return true;
     };
@@ -284,7 +329,7 @@ async fn autorise(db: &Arc<db::Database>, requete: &actix_web::HttpRequest) -> b
         .unwrap_or(false)
 }
 
-fn non_autorise() -> HttpResponse {
+pub(crate) fn non_autorise() -> HttpResponse {
     HttpResponse::Unauthorized().json(serde_json::json!({ "erreur": "token mobile requis" }))
 }
 
@@ -332,10 +377,22 @@ pub async fn post_brief_presse(
 pub struct QueryJournal {
     limite: Option<i64>,
     avant_id: Option<i64>,
+    /// Filtre par famille, une ou plusieurs séparées par virgules
+    /// (« smc_approche,smc_contact ») — sinon toutes.
+    #[serde(rename = "type")]
+    type_alerte: Option<String>,
+    /// Fenêtre glissante en minutes (défaut 24 h ; page SMC = 60).
+    fenetre: Option<i64>,
 }
 
-/// GET /api/mobile/journal?limite=100&avant_id= — les alertes, récentes
-/// d'abord (pagination par id pour le scroll du Journal).
+/// Les 7 familles valides du filtre `type`.
+const TYPES_ALERTES: &[&str] = &[
+    "digest", "evenement", "presse", "signal", "smc_approche", "smc_contact", "prix", "sante",
+];
+
+/// GET /api/mobile/journal?limite=&avant_id=&type=&fenetre= — récentes
+/// d'abord, fenêtre glissante, familles optionnelles ; asset/tf/achat (+
+/// famille pour les signaux) rendus pour les pages et le notificateur.
 pub async fn get_journal(
     state: web::Data<AppState>,
     q: web::Query<QueryJournal>,
@@ -345,22 +402,31 @@ pub async fn get_journal(
         return non_autorise();
     }
     let limite = q.limite.unwrap_or(100).clamp(1, 500);
-    let avant_id = q.avant_id;
-    let rows = match avant_id {
-        Some(avant) => sqlx::query(
-            "SELECT id, ts, type, titre, asset, tf, png FROM mobile_alertes
-             WHERE id < ? ORDER BY id DESC LIMIT ?",
-        )
-        .bind(avant)
-        .bind(limite),
-        None => sqlx::query(
-            "SELECT id, ts, type, titre, asset, tf, png FROM mobile_alertes
-             ORDER BY id DESC LIMIT ?",
-        )
-        .bind(limite),
+    let fenetre = q.fenetre.unwrap_or(1440).clamp(1, 1440) * 60;
+    let types: Vec<String> = q
+        .type_alerte
+        .as_deref()
+        .map(|s| {
+            s.split(',')
+                .map(str::trim)
+                .filter(|t| TYPES_ALERTES.contains(t))
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
+    let in_sql = if types.is_empty() { String::new() }
+        else { format!(" AND type IN ({})", vec!["?"; types.len()].join(",")) };
+    let champ_type = "id, ts, type, titre, asset, tf, png, json_extract(payload,'$.achat') AS achat, json_extract(payload,'$.famille') AS famille_signal";
+    let sql = format!(
+        "SELECT {champ_type} FROM mobile_alertes
+         WHERE (? IS NULL OR id < ?) AND ts > strftime('%s','now') - ?{in_sql}
+         ORDER BY id DESC LIMIT ?"
+    );
+    let mut rq = sqlx::query(&sql).bind(q.avant_id).bind(q.avant_id).bind(fenetre);
+    for t in &types {
+        rq = rq.bind(t);
     }
-    .fetch_all(state.db.pool())
-    .await;
+    let rows = rq.bind(limite).fetch_all(state.db.pool()).await;
     let alertes: Vec<serde_json::Value> = rows
         .unwrap_or_default()
         .iter()
@@ -372,6 +438,8 @@ pub async fn get_journal(
                 "titre": r.try_get::<String, _>("titre").unwrap_or_default(),
                 "asset": r.try_get::<Option<String>, _>("asset").ok().flatten(),
                 "tf": r.try_get::<Option<String>, _>("tf").ok().flatten(),
+                "achat": r.try_get::<Option<i64>, _>("achat").ok().flatten() == Some(1),
+                "famille": r.try_get::<Option<String>, _>("famille_signal").ok().flatten(),
                 "png": r.try_get::<i64, _>("png").unwrap_or_default() == 1,
             })
         })
@@ -416,8 +484,9 @@ pub async fn get_alerte(
 }
 
 /// GET /api/mobile/aujourdhui — le contenu de l'onglet : High du jour
-/// (countdown côté client), presse marquante, ligne nuit, synthèse 🌍 en
-/// cache. AUCUN appel LLM ici (le digest 8h30 l'a faite générer).
+/// (countdown côté client) + positions ouvertes pendant la nuit. La
+/// presse a son onglet dédié (/api/mobile/presse, owner 19/10). AUCUN
+/// appel LLM ici (le digest 8h30 l'a faite générer).
 pub async fn get_aujourdhui(state: web::Data<AppState>, requete: actix_web::HttpRequest) -> impl Responder {
     if !autorise(&state.db, &requete).await {
         return non_autorise();
@@ -458,53 +527,23 @@ pub async fn get_aujourdhui(state: web::Data<AppState>, requete: actix_web::Http
     })
     .collect();
 
-    // Presse marquante du jour : les 100 (news fonda, spec owner).
-    let presse: Vec<serde_json::Value> = sqlx::query(
-        "SELECT titre, score, theme FROM presse_articles
-         WHERE score = 100 AND ajoute_le >= ? ORDER BY ajoute_le DESC LIMIT 10",
-    )
-    .bind(debut_jour)
-    .fetch_all(state.db.pool())
-    .await
-    .unwrap_or_default()
-    .iter()
-    .map(|r| {
-        serde_json::json!({
-            "titre": r.try_get::<String, _>("titre").unwrap_or_default(),
-            "score": r.try_get::<i64, _>("score").unwrap_or_default(),
-            "theme": r.try_get::<String, _>("theme").unwrap_or_default(),
-        })
-    })
-    .collect();
+    // Presse marquante : SUPPRIMÉE de l'onglet (owner 19/10) — vit
+    // désormais dans l'onglet « Revue de presse » (/api/mobile/presse).
 
-    // Ligne nuit : 21h la veille → maintenant.
-    let debut_nuit = debut_jour - 3 * 3600;
-    let nuit: Vec<serde_json::Value> = sqlx::query(
-        "SELECT ts, type, titre, asset, tf FROM mobile_alertes
-         WHERE ts >= ? AND type != 'digest' ORDER BY ts",
+    // Ligne nuit : positions ouvertes 21h la veille → 8h30 (owner 19/10),
+    // sans heure dans le titre car l'app l'affiche en colonne dédiée.
+    let nuit = positions_nuit(
+        state.db.pool(),
+        debut_jour - 3 * 3600,
+        debut_jour + 8 * 3600 + 1800,
+        false,
     )
-    .bind(debut_nuit)
-    .fetch_all(state.db.pool())
-    .await
-    .unwrap_or_default()
-    .iter()
-    .map(|r| {
-        serde_json::json!({
-            "ts": r.try_get::<i64, _>("ts").unwrap_or_default(),
-            "type": r.try_get::<String, _>("type").unwrap_or_default(),
-            "titre": r.try_get::<String, _>("titre").unwrap_or_default(),
-            "asset": r.try_get::<Option<String>, _>("asset").ok().flatten(),
-            "tf": r.try_get::<Option<String>, _>("tf").ok().flatten(),
-        })
-    })
-    .collect();
+    .await;
 
     HttpResponse::Ok().json(serde_json::json!({
         "date_paris": paris.format("%d/%m/%Y").to_string(),
         "annonces": annonces,
-        "presse": presse,
         "nuit": nuit,
-        "synthese": crate::briefing_ia::synthese_cache_du_jour(),
     }))
 }
 
@@ -538,6 +577,15 @@ mod tests {
         assert!(dans_fenetre_digest(8, 30), "8h30 pile : service");
         assert!(dans_fenetre_digest(12, 0), "midi (redémarrage tardif) : service en retard");
         assert!(!dans_fenetre_digest(7, 59));
+    }
+
+    #[test]
+    fn titre_position_nuit_nom_sens_heure() {
+        // 1_792_360_800 = 19/10/2026 00h00 Paris (passe straddle).
+        assert_eq!(titre_position_nuit("straddle", "XAUUSD", "Both", 1_792_360_800, true),
+            "Straddle · XAUUSD · Double · 00h00");
+        assert_eq!(titre_position_nuit("SMC", "BTC", "Short", 0, false), "SMC · BTC · Vente");
+        assert_eq!(titre_position_nuit("inconnue", "XRP", "Long", 0, false), "inconnue · XRP · Achat");
     }
 
     #[test]

@@ -485,3 +485,5 @@ fn parser_synthese(texte: &str) -> SyntheseBriefing {
     }
     SyntheseBriefing { resume: n.chars().take(600).collect(), ce_qui_compte: vec![], confiance: 0 }
 }
+
+// ── Relais mobile : rapport d'activité + signaux en cours (owner 21/10) ─────

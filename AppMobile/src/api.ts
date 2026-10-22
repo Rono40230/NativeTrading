@@ -3,7 +3,7 @@
  * en APK, Réglages pose l'URL du serveur (Tailscale). Token optionnel
  * (Bearer) si le propriétaire en a posé un côté serveur.
  */
-import type { Alerte, AlerteComplete, Aujourdhui, EtatServeur } from './types'
+import type { ActifMarche, Activite, Alerte, EvenementCal, ZoneBande, AlerteComplete, Aujourdhui, EtatServeur, Presse, PrixPage, AlertePrixPrincipale } from './types'
 
 export const reglages = {
   get serveur(): string {
@@ -30,9 +30,20 @@ async function appel<T>(chemin: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   etat: () => appel<EtatServeur>('/api/mobile/etat'),
-  journal: (avantId?: number) =>
-    appel<{ alertes: Alerte[] }>(`/api/mobile/journal?limite=60${avantId ? `&avant_id=${avantId}` : ''}`),
+  journal: (avantId?: number, type?: string, fenetreMin?: number) =>
+    appel<{ alertes: Alerte[] }>(
+      `/api/mobile/journal?limite=60${avantId ? `&avant_id=${avantId}` : ''}${type ? `&type=${type}` : ''}${fenetreMin ? `&fenetre=${fenetreMin}` : ''}`,
+    ),
   aujourdhui: () => appel<Aujourdhui>('/api/mobile/aujourdhui'),
+  presse: () => appel<Presse>('/api/mobile/presse'),
+  activite: () => appel<Activite>('/api/mobile/activite'),
+  marche: () => appel<{ actifs: ActifMarche[] }>('/api/mobile/marche'),
+  calendrier: () => appel<{ evenements: EvenementCal[] }>('/api/mobile/calendrier'),
+  zones: () => appel<{ en_bande: ZoneBande[] }>('/api/smc/zones-approche'),
+  prix: () => appel<PrixPage>('/api/mobile/prix'),
+  /// Endpoint de l'app principale — repli « niveaux armés » tant que le
+  /// binaire mobile /api/mobile/prix n'est pas déployé (relance run.sh).
+  alertesPrixPrincipales: () => appel<AlertePrixPrincipale[]>('/api/alertes-prix'),
   alerte: (id: number) => appel<AlerteComplete>(`/api/mobile/alerte/${id}`),
   urlPng: (id: number) => `${reglages.serveur}/api/mobile/alerte/${id}/png`,
   genererBrief: () =>

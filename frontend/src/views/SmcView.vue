@@ -6,7 +6,6 @@
     lexique="smc"
     teinte="bg-blue-500/5"
     :afficher-lexique="false"
-    :ordre-poses="nbOrdresPoses(signauxActifs, 'SMC')"
     :titre-encours="`${nbEncours} ${nbEncours > 1 ? 'signaux' : 'signal'} en cours`"
   >
     <template #encours>
@@ -47,7 +46,6 @@ import { useEtatStrategie } from '@/composables/useEtatStrategie'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import StrategyShell from '@/components/common/StrategyShell.vue'
-import { nbOrdresPoses } from '@/composables/useSignalFormat'
 import SignauxTableau from '@/components/common/SignauxTableau.vue'
 import SignauxEnAttente from '@/components/common/SignauxEnAttente.vue'
 import HistoryTable from '@/components/common/HistoryTable.vue'

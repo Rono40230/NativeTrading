@@ -8,8 +8,16 @@
       <button class="engrenage" @click="reglagesOuverts = true">⚙︎</button>
     </header>
 
-    <AujourdHui v-if="onglet === 'aujourdhui'" @ouvrirAnnonce="ouvrirAnnonce" />
-    <Journal v-else @ouvrir="ouvrirAlerte" />
+    <AujourdHui
+      v-if="onglet === 'aujourdhui'"
+      @ouvrirAnnonce="ouvrirAnnonce"
+      @ouvrirAlerte="ouvrirAlerte"
+    />
+    <Presse v-else-if="onglet === 'presse'" />
+    <Journal v-else-if="onglet === 'journal'" @ouvrir="ouvrirAlerte" />
+    <Prix v-else-if="onglet === 'prix'" @ouvrir="ouvrirAlerte" />
+    <Zones v-else-if="onglet === 'zones'" />
+    <Calendrier v-else />
 
     <!-- Vue détail en plein écran (au-dessus des onglets) -->
     <DetailAlerte
@@ -27,33 +35,67 @@
       <button :class="{ actif: onglet === 'aujourdhui' }" @click="onglet = 'aujourdhui'">
         <span class="ico">☀️</span>Aujourd'hui
       </button>
+      <button :class="{ actif: onglet === 'presse' }" @click="onglet = 'presse'">
+        <span class="ico">📰</span>Presse
+      </button>
       <button :class="{ actif: onglet === 'journal' }" @click="onglet = 'journal'">
-        <span class="ico">📋</span>Journal
+        <span class="ico">🎯<span v-if="nonLus.smc" class="pastille">{{ nonLus.smc > 9 ? '9+' : nonLus.smc }}</span></span>Alertes SMC
+      </button>
+      <button :class="{ actif: onglet === 'prix' }" @click="onglet = 'prix'">
+        <span class="ico">🔔<span v-if="nonLus.prix" class="pastille">{{ nonLus.prix > 9 ? '9+' : nonLus.prix }}</span></span>Prix
+      </button>
+      <button :class="{ actif: onglet === 'zones' }" @click="onglet = 'zones'">
+        <span class="ico">🔭</span>Zones
+      </button>
+      <button :class="{ actif: onglet === 'calendrier' }" @click="onglet = 'calendrier'">
+        <span class="ico">📅</span>Semaine
       </button>
     </nav>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { api, muetteActive } from './api'
+import { nonLus, rafraichirBadges, marquerVus } from './badges'
 import { demoJournal } from './fixtures'
 import type { AlerteComplete, Annonce } from './types'
 import AujourdHui from './vues/AujourdHui.vue'
+import Presse from './vues/Presse.vue'
 import Journal from './vues/Journal.vue'
+import Prix from './vues/Prix.vue'
+import Zones from './vues/Zones.vue'
+import Calendrier from './vues/Calendrier.vue'
 import DetailAlerte from './vues/DetailAlerte.vue'
 import Reglages from './vues/Reglages.vue'
 
 const demo = new URLSearchParams(location.search).has('demo')
 const params = new URLSearchParams(location.search)
-const ongletInitial = params.get('tab') === 'journal' ? 'journal' : 'aujourdhui'
-const onglet = ref<'aujourdhui' | 'journal'>(ongletInitial)
+const ongletInitial =
+  params.get('tab') === 'journal' ? 'journal'
+  : params.get('tab') === 'presse' ? 'presse'
+  : params.get('tab') === 'prix' ? 'prix'
+  : params.get('tab') === 'zones' ? 'zones'
+  : params.get('tab') === 'calendrier' ? 'calendrier'
+  : 'aujourdhui'
+const onglet = ref<'aujourdhui' | 'presse' | 'journal' | 'prix' | 'zones' | 'calendrier'>(ongletInitial)
 const detailId = ref<number | null>(params.get('detail') ? Number(params.get('detail')) : null)
 const detailDirecte = ref<AlerteComplete | null>(null)
 const reglagesOuverts = ref(false)
 const connecte = ref(demo) // démo = connecté par construction
 const muette = ref(muetteActive())
 let minuteur: ReturnType<typeof setInterval> | null = null
+let minuteurBadges: ReturnType<typeof setInterval> | null = null
+
+/// Ouvrir un onglet = consulter ses alertes : badge remis à zéro.
+watch(
+  onglet,
+  (o) => {
+    if (o === 'journal') marquerVus('smc')
+    if (o === 'prix') marquerVus('prix')
+  },
+  { immediate: true },
+)
 
 function ouvrirAlerte(id: number) {
   detailDirecte.value = null
@@ -96,14 +138,38 @@ async function testerConnexion() {
 
 onMounted(() => {
   void testerConnexion()
+  void rafraichirBadges()
+  demarrerRelaisSiVoulu()
   minuteur = setInterval(() => {
     muette.value = muetteActive()
     void testerConnexion()
   }, 30_000)
+  minuteurBadges = setInterval(() => void rafraichirBadges(), 60_000)
 })
 onUnmounted(() => {
   if (minuteur) clearInterval(minuteur)
+  if (minuteurBadges) clearInterval(minuteurBadges)
 })
+
+/// Service Android en avant plan (owner 22/10 : notification garantie,
+/// même app fermée) : démarré dès l'ouverture sauf arrêt volontaire via
+/// les Réglages (drapeau nt_relais_stop). Idempotent côté natif ; sur
+/// navigateur de dev l'appel échoue silencieusement.
+async function demarrerRelaisSiVoulu() {
+  if (demo || !('__TAURI_INTERNALS__' in window)) return
+  if (localStorage.getItem('nt_relais_stop')) return
+  const serveur = localStorage.getItem('nt_serveur')
+  if (!serveur) return
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    await invoke('plugin:relais|demarrer', {
+      serveur: serveur.replace(/\/+$/, ''),
+      token: localStorage.getItem('nt_token') ?? '',
+    })
+  } catch {
+    // pont natif indisponible ou service déjà lancé — rien à faire
+  }
+}
 
 void demoJournal // référencé pour le mode démo côté vues
 </script>
@@ -166,5 +232,21 @@ void demoJournal // référencé pour le mode démo côté vues
   gap: 2px;
 }
 .onglets button.actif { color: var(--texte); }
-.ico { font-size: 18px; }
+.ico { font-size: 18px; position: relative; }
+.pastille {
+  position: absolute;
+  top: -6px;
+  right: -12px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: var(--rouge);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 </style>

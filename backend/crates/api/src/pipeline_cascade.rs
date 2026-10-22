@@ -20,7 +20,6 @@
 //! en silence (le garde-fou d'avant combattait la décision du propriétaire).
 
 
-use sqlx::Row;
 
 use db::Database;
 

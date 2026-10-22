@@ -23,6 +23,30 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
         .route("/api/mobile/etat", web::get().to(crate::mobile_relay::get_etat))
         .route("/api/mobile/journal", web::get().to(crate::mobile_relay::get_journal))
         .route("/api/mobile/aujourdhui", web::get().to(crate::mobile_relay::get_aujourdhui))
+        .route(
+            "/api/mobile/presse",
+            web::get().to(crate::presse_handlers::get_presse_mobile),
+        )
+        .route(
+            "/api/mobile/activite",
+            web::get().to(crate::activite_mobile::get_activite_mobile),
+        )
+        .route(
+            "/api/mobile/marche",
+            web::get().to(crate::activite_mobile::get_marche_mobile),
+        )
+        .route(
+            "/api/mobile/nouvelles",
+            web::get().to(crate::notifications_mobile::get_nouvelles),
+        )
+        .route(
+            "/api/mobile/calendrier",
+            web::get().to(crate::calendar_handlers::get_calendrier_mobile),
+        )
+        .route(
+            "/api/mobile/prix",
+            web::get().to(crate::alertes_prix::get_prix_mobile),
+        )
         .route("/api/mobile/alerte/{id}", web::get().to(crate::mobile_relay::get_alerte))
         .route("/api/mobile/alerte/{id}/png", web::get().to(crate::mobile_relay::get_alerte_png))
         .route(
@@ -450,12 +474,24 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::alertes_prix::lister),
         )
         .route(
+            "/api/alertes-canaux",
+            web::get().to(crate::alertes_canaux::get),
+        )
+        .route(
+            "/api/alertes-canaux",
+            web::put().to(crate::alertes_canaux::maj),
+        )
+        .route(
             "/api/alertes-prix",
             web::post().to(crate::alertes_prix::creer),
         )
         .route(
             "/api/alertes-prix/{id}",
             web::delete().to(crate::alertes_prix::supprimer),
+        )
+        .route(
+            "/api/alertes-prix/{id}",
+            web::put().to(crate::alertes_prix::maj),
         )
         .route(
             "/api/volatility/patterns",

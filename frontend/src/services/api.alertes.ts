@@ -28,4 +28,10 @@ export const alertesApi = {
   async supprimer(id: number): Promise<void> {
     await http.delete(`/api/alertes-prix/${id}`)
   },
+
+  /// Réajustement par glisser-déposer sur le graphique (owner 20/10) —
+  /// le sens est recalculé par l'appelant face au prix live au drop.
+  async maj(id: number, prix: number, sens: 'au_dessus' | 'en_dessous'): Promise<void> {
+    await http.put(`/api/alertes-prix/${id}`, { prix, sens })
+  },
 }

@@ -72,6 +72,22 @@ impl Database {
         Ok(res.rows_affected())
     }
 
+    /// Réajuste une alerte ACTIVE (glisser-déposer sur le graphique,
+    /// owner 20/10) : nouveau prix + sens recalculé par l'appelant selon
+    /// la position du niveau lâché face au prix live. Une alerte déjà
+    /// déclenchée (supprimée) n'est pas ressuscitée.
+    pub async fn maj_alerte_prix(&self, id: i64, prix: f64, sens: &str) -> anyhow::Result<u64> {
+        let res = sqlx::query(
+            "UPDATE alertes_prix SET prix = ?, sens = ? WHERE id = ? AND active = 1",
+        )
+        .bind(prix)
+        .bind(sens)
+        .bind(id)
+        .execute(self.pool())
+        .await?;
+        Ok(res.rows_affected())
+    }
+
     /// Déclenche : lit les données (message Telegram) puis SUPPRIME l'alerte
     /// — elle disparaît de la base et du bloc Graphique (décision 19/09).
     pub async fn declencher_alerte_prix(&self, id: i64) -> anyhow::Result<Option<AlertePrix>> {

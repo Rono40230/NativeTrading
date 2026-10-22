@@ -9,6 +9,7 @@
 
 use actix_web::{web, HttpResponse, Responder};
 use db::Database;
+use sqlx::Row;
 use engine::types::EvenementPrix;
 use serde::Deserialize;
 
@@ -63,7 +64,10 @@ pub async fn verifier(db: &Database, cache: &mut CacheAlertes, ev: &EvenementPri
             prix,
         );
         let (token, chat) = notifications::telegram::lire_tokens_pool(db.pool()).await;
-        if !token.is_empty() && !chat.is_empty() {
+        if !token.is_empty()
+            && !chat.is_empty()
+            && crate::alertes_canaux::actif(db.pool(), "alerte_prix", "telegram").await
+        {
             if let Err(e) = notifications::telegram::post_message(&token, &chat, &msg).await {
                 tracing::warn!("Alerte prix (Telegram): {}", e);
             }
@@ -72,7 +76,7 @@ pub async fn verifier(db: &Database, cache: &mut CacheAlertes, ev: &EvenementPri
         crate::mobile_relay::emettre(
             db,
             "prix",
-            &format!("Alerte prix · {} {}", a.asset, sens_txt),
+            &format!("Alerte prix · {} {} {:.2}", a.asset, sens_txt, prix),
             Some(&a.asset),
             None,
             serde_json::json!({ "asset": a.asset, "sens": a.sens, "niveau": a.prix, "prix": prix }),
@@ -102,6 +106,52 @@ pub async fn lister(state: web::Data<AppState>) -> impl Responder {
     }
 }
 
+/// GET /api/mobile/prix — la page « Prix » du relais (owner 20/10) : les
+/// NIVEAUX ARMÉS (ce que l'owner veut lire loin du bureau — son alerte
+/// armée n'apparaissait nulle part) + les déclenchées des dernières 24 h.
+pub async fn get_prix_mobile(
+    state: web::Data<AppState>,
+    requete: actix_web::HttpRequest,
+) -> HttpResponse {
+    if !crate::mobile_relay::autorise(&state.db, &requete).await {
+        return crate::mobile_relay::non_autorise();
+    }
+    let niveaux: Vec<serde_json::Value> =
+        sqlx::query("SELECT asset, prix, sens, cree_le FROM alertes_prix WHERE active = 1 ORDER BY cree_le DESC")
+            .fetch_all(state.db.pool())
+            .await
+            .unwrap_or_default()
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "asset": r.try_get::<String, _>("asset").unwrap_or_default(),
+                    "prix": r.try_get::<f64, _>("prix").unwrap_or_default(),
+                    "sens": r.try_get::<String, _>("sens").unwrap_or_default(),
+                    "cree_le": r.try_get::<i64, _>("cree_le").unwrap_or_default(),
+                })
+            })
+            .collect();
+    let declenchees: Vec<serde_json::Value> =
+        sqlx::query("SELECT id, ts, titre, asset, json_extract(payload,'$.niveau') AS niveau FROM mobile_alertes
+                     WHERE type = 'prix' AND ts > strftime('%s','now') - 86400
+                     ORDER BY id DESC LIMIT 60")
+            .fetch_all(state.db.pool())
+            .await
+            .unwrap_or_default()
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "id": r.try_get::<i64, _>("id").unwrap_or_default(),
+                    "ts": r.try_get::<i64, _>("ts").unwrap_or_default(),
+                    "titre": r.try_get::<String, _>("titre").unwrap_or_default(),
+                    "asset": r.try_get::<Option<String>, _>("asset").ok().flatten(),
+                    "niveau": r.try_get::<Option<f64>, _>("niveau").ok().flatten(),
+                })
+            })
+            .collect();
+    HttpResponse::Ok().json(serde_json::json!({ "niveaux": niveaux, "declenchees": declenchees }))
+}
+
 /// POST /api/alertes-prix — pose une alerte.
 pub async fn creer(state: web::Data<AppState>, body: web::Json<BodyAlerte>) -> impl Responder {
     if body.prix <= 0.0 {
@@ -125,6 +175,29 @@ pub async fn creer(state: web::Data<AppState>, body: web::Json<BodyAlerte>) -> i
 pub async fn supprimer(state: web::Data<AppState>, chemin: web::Path<i64>) -> impl Responder {
     match state.db.supprimer_alerte_prix(chemin.into_inner()).await {
         Ok(_) => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
+        Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct CorpsMaj {
+    pub prix: f64,
+    pub sens: String,
+}
+
+/// PUT /api/alertes-prix/{id} — réajustement par glisser-déposer sur le
+/// graphique (owner 20/10) : nouveau niveau + sens recalculé par le front
+/// selon la position du drop face au prix live.
+pub async fn maj(state: web::Data<AppState>, chemin: web::Path<i64>, body: web::Json<CorpsMaj>) -> HttpResponse {
+    if body.prix <= 0.0 {
+        return HttpResponse::BadRequest().json(serde_json::json!({ "error": "Prix invalide" }));
+    }
+    let sens = if body.sens == "en_dessous" { "en_dessous" } else { "au_dessus" };
+    match state.db.maj_alerte_prix(chemin.into_inner(), body.prix, sens).await {
+        Ok(n) if n > 0 => HttpResponse::Ok().json(serde_json::json!({ "ok": true })),
+        Ok(_) => HttpResponse::NotFound().json(
+            serde_json::json!({ "error": "alerte inconnue ou déjà déclenchée" }),
+        ),
         Err(e) => HttpResponse::InternalServerError().body(format!("{e}")),
     }
 }

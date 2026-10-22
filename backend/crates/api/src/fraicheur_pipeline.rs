@@ -258,7 +258,14 @@ pub async fn auditer_db(db: &Arc<db::Database>) {
             prec.insert(etat.asset.clone(), etat.anomalies.clone());
         }
     }
-    // Relais mobile (MOB ⑦) — problème app ↔ fournisseur.
+    // Relais mobile (MOB ⑦) — problème app ↔ fournisseur. Telegram
+    // optionnel (owner 21/10 : matrice complète).
+    for (asset, tf, retard, _, _) in &nouvelles {
+        crate::alertes_canaux::telegram_si_actif(
+            db.pool(), "sante",
+            &format!("🩸 Fraîcheur : {asset} {tf} — retard {}", duree_lisible(*retard)),
+        ).await;
+    }
     for (asset, tf, retard, seuil, marche) in nouvelles {
         crate::mobile_relay::emettre(
             db,

@@ -14,7 +14,7 @@
             android:foregroundServiceType="specialUse">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Polling 10 min du relais d'alertes maison — APK personnel non distribué" />
+                android:value="Polling 1/min du relais d'alertes maison — APK personnel non distribué" />
         </service>
         <receiver
             android:name=".RelaisBoot"

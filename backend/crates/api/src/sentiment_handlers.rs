@@ -16,7 +16,7 @@ use futures_util::future::join_all;
 use serde::Serialize;
 
 #[path = "sentiment/mod.rs"]
-mod sentiment;
+pub(crate) mod sentiment;
 use sentiment::yahoo_live;
 
 use crate::state::AppState;

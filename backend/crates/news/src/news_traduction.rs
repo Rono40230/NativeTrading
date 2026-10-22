@@ -271,26 +271,32 @@ pub async fn traduire_avec_cache_strict(pool: &SqlitePool, titre: &str) -> Optio
 /// Génération du brief : un appel Ollama, entrée compilée par l'appelant
 /// (titres FR + scores + thèmes), sortie markdown brute.
 pub async fn generer_brief_llm(entree: &str) -> Option<String> {
-    // Prompt éditable (écart 30, 13/10).
+    // Prompt éditable (écart 30, 13/10). Brief = ANALYSE (owner 20/10 :
+    // contexte de marché pur — plus de résumés d'articles ni préambule) :
+    // qwen3:32b en mode réflexion, le modèle des analystes SMC, avec
+    // repli automatique de modèle — plus le modèle de traduction 7b
+    // qui produisait « Voici un brief matinal structuré : ».
     let prompt = format!(
-        "{}\n\nArticles des dernières 24h (score sur 100, thème) :\n{entree}",
+        "{}\n\nDépêches des dernières 24 h (score sur 100, thème, source) :\n{entree}\n/think",
         llm::prompt_effectif("presse_brief")
     );
+    let modele = std::env::var("OLLAMA_MODEL_SMC")
+        .unwrap_or_else(|_| llm::MODELE_SMC.to_string());
     let corps = serde_json::json!({
-        "model": MODELE_TRADUCTION,
+        "model": modele,
         "messages": [{ "role": "user", "content": prompt }],
-        "stream": false
+        "stream": false,
+        "options": { "temperature": 0.6, "num_predict": 1600, "num_gpu": 99, "num_ctx": 8192 }
     });
     let url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434/api/chat".to_string());
     let _permit = llm::OLLAMA_SEMAPHORE.acquire().await.ok();
-    let res = llm::OLLAMA_HTTP_CLIENT.post(&url).json(&corps).send().await;
-    match res {
-        Ok(r) if r.status().is_success() => r
-            .json::<llm::ReponseOllama>().await.ok()
-            .map(|r| r.message.content.trim().to_string())
-            .filter(|s| !s.is_empty()),
-        _ => None,
+    match llm::appeler_ollama(&url, &corps).await {
+        Ok(t) => {
+            let propre = llm::filtrer_think(t).trim().to_string();
+            (!propre.is_empty()).then_some(propre)
+        }
+        Err(_) => None,
     }
 }
 

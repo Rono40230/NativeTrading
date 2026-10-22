@@ -197,7 +197,7 @@ async function chargerIndicateurs() {
   const serie = getCandlestickSeries()
   if (chartContainer.value && serie) v12Overlay.initialiser(chart, serie, chartContainer.value)
   if (chartContainer.value && serie) dessins.initialiser(chart, serie, chartContainer.value, selectedAsset.value)
-  if (serie) alertesPrix.initialiser(chart, serie, selectedAsset.value)
+  if (serie) alertesPrix.initialiser(chart, serie, selectedAsset.value, chartContainer.value ?? undefined)
   if (chartContainer.value) ecoCalInit(chart, chartContainer.value)
   const derniereB = bougies.value?.[bougies.value.length - 1]
   const tsSecV12 = derniereB ? Math.floor(new Date(derniereB.timestamp).getTime() / 1000) : undefined

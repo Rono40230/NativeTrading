@@ -5,17 +5,11 @@
     :etat="etat"
     lexique="straddle"
     :afficher-lexique="false"
-    setups-large
     teinte="bg-amber-500/5"
-    :ordre-poses="nbOrdresPoses(signauxActifs, 'straddle')"
     :titre-encours="`${nbEncours} ${nbEncours > 1 ? 'signaux' : 'signal'} en cours`"
   >
-    <template #setups>
-      <StraddleAgendaPanel />
-      <div class="text-[10px] text-white mt-2">XAU · BTC · NAS100 · SP500 armés au branchement MT5</div>
-    </template>
     <template #encours>
-      <SignauxTableau strategie="straddle" remplis-seuls @nb-signaux="nbEncours = $event" @signaux-actifs="signauxActifs = $event" />
+      <SignauxTableau strategie="straddle" remplis-seuls @nb-signaux="nbEncours = $event" />
     </template>
     <template #historique-actions>
       <button class="btn-sm bg-purple-700 hover:bg-purple-600" @click="router.push('/analyses?strategie=straddle')">📊 Analyse</button>
@@ -49,9 +43,7 @@ import { useEtatStrategie } from '@/composables/useEtatStrategie'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import StrategyShell from '@/components/common/StrategyShell.vue'
-import { nbOrdresPoses } from '@/composables/useSignalFormat'
 import SignauxTableau from '@/components/common/SignauxTableau.vue'
-import StraddleAgendaPanel from '@/components/common/StraddleAgendaPanel.vue'
 import HistoryTable from '@/components/common/HistoryTable.vue'
 import { useHistoriqueStrategie } from '@/composables/useHistoriqueStrategie'
 import { formatR } from '@/composables/useSignalFormat'
@@ -60,7 +52,6 @@ const { etat } = useEtatStrategie('straddle')
 const router = useRouter()
 const historique = useHistoriqueStrategie('straddle')
 const nbEncours = ref(0)
-const signauxActifs = ref<InstanceType<typeof SignauxTableau> extends never ? never : import('@/services/api.service').Signal[]>([])
 
 onMounted(() => { void historique.charger() })
 </script>

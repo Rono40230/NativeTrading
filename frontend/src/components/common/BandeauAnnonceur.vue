@@ -7,6 +7,8 @@
        complet (calendrier 10 j, créneaux moyens, radar ATR). -->
   <div class="glass-card px-3 py-2 flex items-stretch justify-center gap-4 flex-wrap">
 
+    <!-- ── Gérer les alertes (owner 21/10) : à gauche du badge Briefing ── -->
+    <button class="korry px-3 cursor-pointer" title="Gérer les alertes (bureau, Telegram, mobile)" @click.stop="ouverte = 'alertes'">🔔</button>
     <!-- ── Badge Briefing du jour (owner 13/10 — KTA #11) ──────────────── -->
     <button class="korry flex-1 min-w-[240px] cursor-pointer" @click.stop="ouverte = 'briefing'">
       <span class="k-label">BRIEFING</span>
@@ -46,6 +48,7 @@
 
     <!-- ── Modales : le composant complet de l'ancienne colonne latérale,
          monté uniquement à l'ouverture (pas de polling fantôme). ──────── -->
+    <GestionAlertesModale v-if="ouverte === 'alertes'" @fermer="ouverte = null" />
     <ModaleCadre v-if="ouverte === 'briefing'" titre="📋 Briefing du jour" tres-large @fermer="ouverte = null">
       <BriefingBloc />
     </ModaleCadre>
@@ -95,9 +98,10 @@ import EvenementsReactiviteBloc from './EvenementsReactiviteBloc.vue'
 import CreneauxVolatiliteBloc from './CreneauxVolatiliteBloc.vue'
 import RadarAtrBloc from './RadarAtrBloc.vue'
 import BriefingBloc from './BriefingBloc.vue'
+import GestionAlertesModale from './GestionAlertesModale.vue'
 
 /// Modale ouverte (une seule à la fois).
-const ouverte = ref<'briefing' | 'calendrier' | 'creneaux' | 'radar' | null>(null)
+const ouverte = ref<'alertes' | 'briefing' | 'calendrier' | 'creneaux' | 'radar' | null>(null)
 
 // ── Badge Calendrier : les annonces à fort impact du jour ───────────────────
 const annoncesProches = ref<AnnonceCalendrier[]>([])

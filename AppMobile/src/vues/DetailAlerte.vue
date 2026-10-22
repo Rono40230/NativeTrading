@@ -17,9 +17,9 @@
           </p>
           <div class="grille">
             <div><label>Sens</label><b :class="alerte.payload.achat ? 'vert' : 'rouge'">{{ alerte.payload.achat ? 'ACHAT' : 'VENTE' }}</b></div>
-            <div><label>Zone</label><b class="mono">{{ p.zone_bas }} – {{ p.zone_haut }}</b></div>
-            <div v-if="niveaux"><label>Entrée</label><b class="mono">{{ niveaux.entree }}</b></div>
-            <div v-if="niveaux"><label>SL</label><b class="mono rouge">{{ niveaux.sl }}</b></div>
+            <div><label>Zone</label><b class="mono">{{ prix2(p.zone_bas) }} – {{ prix2(p.zone_haut) }}</b></div>
+            <div v-if="niveaux"><label>Entrée</label><b class="mono">{{ prix2(niveaux.entree) }}</b></div>
+            <div v-if="niveaux"><label>SL</label><b class="mono rouge">{{ prix2(niveaux.sl) }}</b></div>
           </div>
         </template>
 
@@ -74,6 +74,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api'
+import { prix2 } from '../format'
 import { demoBriefPresse, demoAlerte } from '../fixtures'
 import type { AlerteComplete, TypeAlerte } from '../types'
 
@@ -93,6 +94,7 @@ if (demo && new URLSearchParams(location.search).has('brief')) {
 const icones: Record<TypeAlerte, string> = {
   digest: '🌅', evenement: '📅', presse: '📰', smc_approche: '📍',
   smc_contact: '🎯', prix: '🔔', sante: '🩸',
+  signal: '📈',
 }
 
 const icone = computed(() => (alerte.value ? icones[alerte.value.type] ?? '•' : '•'))

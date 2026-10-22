@@ -99,7 +99,8 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux, whale: std::sync::Ar
                 let reg = db.lire_strategie(m.id).await.ok().flatten();
                 if reg.as_ref().is_some_and(|r| r.notifications) {
                     if let Some(msg) = formater_message(&db, m.id, &s).await {
-                        envoyer_telegram(&db, &msg).await;
+                        envoyer_telegram(&db, famille_telegram(m.id), &msg).await;
+                relayer_signal_journal(&db, famille_telegram(m.id), m.id, &msg).await;
                     }
                 }
             }
@@ -191,13 +192,22 @@ async fn ecrire_signaux(db: Arc<Database>, bus: BusSignaux, whale: std::sync::Ar
             if s.deja_annonce && m.id != "SMC" {
                 false
             } else if let Some(msg) = formater_message(&db, m.id, &s).await {
-                envoyer_telegram(&db, &msg).await
+                envoyer_telegram(&db, famille_telegram(m.id), &msg).await
             } else {
                 false
             }
         } else {
             false
         };
+
+        // Journal universel (owner 21/10) : signal pris → bureau/mobile
+        // selon la matrice — indépendant du canal Telegram (silencieuse
+        // coupe le message, pas la trace).
+        if notifie || m.id == "SMC" {
+            if let Some(msg) = formater_message(&db, m.id, &s).await {
+                relayer_signal_journal(&db, famille_telegram(m.id), m.id, &msg).await;
+            }
+        }
         if notifie || s.deja_annonce {
             if let Err(e) = db.marquer_telegram_envoye(&signal.id.to_string()).await {
                 tracing::warn!("Signaux officiels (drapeau Telegram): {}", e);
@@ -457,7 +467,33 @@ async fn titre_annonce_straddle(db: &Database, cle: &str) -> String {
     "annonce US".into()
 }
 
-async fn envoyer_telegram(db: &Database, texte: &str) -> bool {
+/// Signaux au journal universel (owner 21/10 : matrice complète — bureau
+/// OU mobile activable par stratégie, défauts hors). Le bureau notifie via
+/// useAlertesBureau ; le mobile via son service (filtrage canaux à venir).
+async fn relayer_signal_journal(db: &Database, famille: &str, strategie: &str, texte: &str) {
+    let bureau = crate::alertes_canaux::actif(db.pool(), famille, "app").await;
+    let mobile = crate::alertes_canaux::actif(db.pool(), famille, "mobile").await;
+    if bureau || mobile {
+        crate::mobile_relay::emettre(db, "signal", texte, None, None,
+            serde_json::json!({ "strategie": strategie, "famille": famille }), false).await;
+    }
+}
+
+fn famille_telegram(id: &str) -> &'static str {
+    match id {
+        "SMC" => "signaux_smc",
+        "straddle" => "signaux_straddle",
+        "rockets" => "signaux_rockets",
+        _ => "signaux_kdj",
+    }
+}
+
+async fn envoyer_telegram(db: &Database, famille: &str, texte: &str) -> bool {
+    // Canaux d'alertes (owner 21/10) : Telegram découpé PAR STRATÉGIE.
+    if !crate::alertes_canaux::actif(db.pool(), famille, "telegram").await {
+        tracing::debug!("Telegram coupé pour {famille} (modale canaux)");
+        return false;
+    }
     let (token, chat) = notifications::telegram::lire_tokens_pool(db.pool()).await;
     if token.is_empty() || chat.is_empty() {
         return false;

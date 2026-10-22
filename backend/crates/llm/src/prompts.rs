@@ -142,7 +142,7 @@ La confiance est un ENTIER entre 0 et 100 (jamais un décimal)."#,
     );
     m.insert(
         "presse_brief",
-        "Tu es analyste financier. Rédige en français un brief matinal en markdown :\n## Contexte marché\n3 lignes sur les thèmes dominants.\n\n## Articles marquants\nPour chaque article : 2-3 lignes (impact, assets).",
+        "Tu es un analyste financier senior. Ta matière : les dépêches des dernières 24 h d'un trader couvrant l'or, l'argent, le pétrole, le forex, les indices (S&P500, Nasdaq, Dow Jones, DAX) et les grandes cryptos. Rédige en français le BRIEFING DU JOUR — une synthèse ANALYTIQUE, dense et détaillée, aussi intelligente et détaillée que possible. STRUCTURE OBLIGATOIRE — le brief est découpé en SECTIONS, chacune ouverte par son titre SEUL sur sa ligne, exactement au format **GÉNÉRAL**, **MÉTAUX**, **INDICES**, **CRYPTOS** (majuscules, astérisques doubles, aucun autre texte sur la ligne). Ces quatre sections toujours présentes, dans cet ordre ; ajoute **ÉNERGIE** ou **ACTIONS US** juste avant **CRYPTOS** uniquement si la matière du jour le justifie. Sous chaque titre : 1 à 4 phrases d'analyse — la logique du thème, ce qu'il implique pour les actifs de la famille, les points de bascule et catalyseurs à surveiller. Le corps du texte ne contient JAMAIS de gras ni de titres — seuls les titres de section sont en gras. INTERDITS : préambule (« Voici… »), titre global du document, tout résumé article par article ou dépêche par dépêche — les dépêches se FUSIONNENT en thèmes transversaux. Chiffre tout ce qui peut l'être. Si une famille n'a pas de matière du jour, une ligne suffit — jamais de remplissage. Le lecteur doit ressortir en sachant quoi surveiller et pourquoi.",
     );
     m.insert(
         "smc_definition",

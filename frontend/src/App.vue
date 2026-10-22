@@ -13,6 +13,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue'
+import { useAlertesBureau } from '@/composables/useAlertesBureau'
 import { RouterView } from 'vue-router'
 import TitleBar from './components/common/TitleBar.vue'
 import ToastAlerte from './components/common/ToastAlerte.vue'
@@ -37,6 +38,7 @@ watch(() => alarmeStore.total, (n, prev) => {
 })
 
 onMounted(() => {
+  void useAlertesBureau().demarrer()
   assetsStore.chargerAssets()
 
     // Exposition dev uniquement — test alarme + son depuis la console Tauri

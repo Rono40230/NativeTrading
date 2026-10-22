@@ -22,15 +22,15 @@ import kotlin.concurrent.thread
 import org.json.JSONObject
 
 /**
- * Service de premier plan « relais actif » (MOB ③).
+ * Service de premier plan « relais actif » (MOB ③, 22/10).
  *
- * Poll le backend maison toutes les 10 min (INTERVALLE_MS) :
- * GET {serveur}/api/mobile/journal?limite=10 (+ Bearer token).
- * Chaque alerte d'id > dernierId est notifiée en système HORS muette
- * 21h→8h Paris ; pendant la muette le curseur avance silencieusement
- * (le Briefing de 8h30 résume la nuit — option b de l'owner).
- * Au premier démarrage, le curseur saute au present (pas de spam
- * d'anciennes alertes).
+ * Poll le backend maison toutes les 60 s (INTERVALLE_MS) :
+ * GET {serveur}/api/mobile/nouvelles?apres_id={curseur} (+ Bearer token)
+ * — le serveur ne renvoie QUE les alertes dont la famille est cochée
+ * « mobile » dans la matrice des canaux. Chaque alerte est notifiée en
+ * système HORS muette 21h→8h Paris ; pendant la muette le curseur avance
+ * silencieusement. Premier démarrage : curseur au présent (réponse
+ * « dernier »), aucune notification rétroactive.
  */
 class RelaisService : Service() {
 
@@ -38,7 +38,7 @@ class RelaisService : Service() {
         const val CANAL_ALERTES = "relais_alertes"
         const val CANAL_PERMANENTE = "relais_permanente"
         const val NOTIF_PERMANENTE_ID = 1
-        const val INTERVALLE_MS = 10 * 60 * 1000L
+        const val INTERVALLE_MS = 60 * 1000L
         const val PREFS = "relais"
 
         @Volatile var actif = false
@@ -81,11 +81,6 @@ class RelaisService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
-        // Premier lancement : curseur au présent (aucune notification
-        // rétroactive), ensuite chaque nouvel id sera notifié.
-        if (prefs().getLong("dernier_id", -1L) == -1L) {
-            prefs().edit().putLong("dernier_id", System.currentTimeMillis() / 1000 * 100_000).apply()
-        }
 
         actif = true
         startForeground(NOTIF_PERMANENTE_ID, notifPermanente("Démarrage…"))
@@ -112,26 +107,29 @@ class RelaisService : Service() {
         super.onDestroy()
     }
 
-    // ── Un cycle : journal → nouvelles alertes → notifications ──────────
+    // ── Un cycle : nouvelles alertes (filtrées canaux côté serveur) ─────
 
     private fun cycle() {
         try {
-            val corps = requete("$serveur/api/mobile/journal?limite=10")
-            val dernierId = prefs().getLong("dernier_id", 0L)
-            val alertes = JSONObject(corps).getJSONArray("alertes")
+            // Pas encore de curseur = premier lancement : appel sans
+            // apres_id → le serveur renvoie le présent, rien à notifier.
+            val curseur = prefs().getLong("dernier_id", -1L)
+            val url = if (curseur < 0) "$serveur/api/mobile/nouvelles?limite=10"
+                      else "$serveur/api/mobile/nouvelles?limite=10&apres_id=$curseur"
+            val corps = requete(url)
+            val racine = JSONObject(corps)
+            val alertes = racine.getJSONArray("alertes")
             var nouvelles = 0
-            // Parcours ascendant : du plus ancien au plus récent.
-            val ids = mutableListOf<Pair<Long, JSONObject>>()
             for (i in 0 until alertes.length()) {
                 val a = alertes.getJSONObject(i)
-                ids.add(a.getLong("id") to a)
-            }
-            ids.sortBy { it.first }
-            for ((id, a) in ids) {
-                if (id <= dernierId) continue
                 nouvelles++
-                prefs().edit().putLong("dernier_id", id).apply()
-                if (!muette()) notifier(id, a)
+                if (!muette()) notifier(a.getLong("id"), a)
+            }
+            // Curseur = max de la table servi par le serveur (saute aussi
+            // les id non notifiables) ; posé même en muette.
+            val dernier = racine.getLong("dernier")
+            if (dernier > curseur) {
+                prefs().edit().putLong("dernier_id", dernier).apply()
             }
             majPermanente(nouvelles)
         } catch (e: Exception) {
