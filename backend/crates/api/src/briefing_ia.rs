@@ -11,7 +11,10 @@ use actix_web::{web, HttpResponse};
 use serde::Serialize;
 use sqlx::Row;
 
+use crate::briefing_synthese::{parser_synthese, SectionBriefing, SyntheseBriefing};
 use crate::state::AppState;
+
+pub use crate::briefing_synthese::SyntheseBriefing as SyntheseBriefingPub;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct EvenementJour {
@@ -49,15 +52,19 @@ pub struct PositionJour {
 #[derive(Debug, Clone, Serialize, Default)]
 pub struct PresseJour {
     pub titre: String,
+    pub url: String,
     pub score: i64,
     pub theme: String,
 }
 
 #[derive(Debug, Clone, Serialize, Default)]
-pub struct SyntheseBriefing {
-    pub resume: String,
-    pub ce_qui_compte: Vec<String>,
-    pub confiance: u32,
+pub struct NuitBriefing {
+    /// Lignes « strategie asset verdict +xR » des clôtures 21h→8h.
+    pub clotures: Vec<String>,
+    /// ΣR des clôtures de la nuit (somme des r_realise).
+    pub somme_r: f64,
+    /// Lignes « HH:MM type — titre » des alertes de la nuit.
+    pub alertes: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -66,6 +73,9 @@ pub struct Briefing {
     pub annonces: Vec<AnnonceJour>,
     pub positions: Vec<PositionJour>,
     pub presse: Vec<PresseJour>,
+    pub nuit: NuitBriefing,
+    /// Régime du jour, pré-formaté (« F&G 68 (appêt) · presse 48 h : … »).
+    pub regime: Option<String>,
     pub synthese: Option<SyntheseBriefing>,
     pub generee_le: i64,
 }
@@ -99,11 +109,20 @@ pub struct CorpsBriefing {
 pub async fn post_briefing(state: web::Data<AppState>, corps: Option<web::Json<CorpsBriefing>>) -> HttpResponse {
     let forcer = corps.map(|c| c.forcer).unwrap_or(false);
     if !forcer {
-        let g = cache().lock().unwrap_or_else(|p| p.into_inner());
-        if let Some(b) = g.as_ref() {
-            if jour_courant(b.generee_le) == jour_courant(chrono::Utc::now().timestamp()) {
-                return HttpResponse::Ok().json(serde_json::json!({ "en_cache": true, "briefing": b }));
-            }
+        let frais = {
+            let g = cache().lock().unwrap_or_else(|p| p.into_inner());
+            g.as_ref()
+                .filter(|b| jour_courant(b.generee_le) == jour_courant(chrono::Utc::now().timestamp()))
+                .map(|b| (b.synthese.clone(), b.generee_le))
+        };
+        if let Some((synthese, generee_le)) = frais {
+            // Owner 23/10 : les TABLEAUX factuels sont recalculés à chaque
+            // ouverture (ils ne mentent jamais) ; seule la synthèse LLM vit
+            // en cache du jour.
+            let mut vif = collecter(&state.db).await;
+            vif.synthese = synthese;
+            vif.generee_le = generee_le;
+            return HttpResponse::Ok().json(serde_json::json!({ "en_cache": true, "briefing": vif }));
         }
     }
 
@@ -115,7 +134,7 @@ pub async fn post_briefing(state: web::Data<AppState>, corps: Option<web::Json<C
 /// le cache. Partagé POST /api/briefing/ia et digest 8h30 du relais mobile.
 pub(crate) async fn generer(db: &Arc<db::Database>) -> Briefing {
     let mut b = collecter(db).await;
-    let contexte = contexte(&b);
+    let contexte = contexte(&b, chrono::Utc::now().timestamp());
     if contexte.lines().count() >= 2 {
         let prompt = format!("{}\n\n{}", llm::prompt_effectif("briefing_session"), contexte);
         if let Ok(texte) = llm::ollama::interroger(&prompt).await {
@@ -126,6 +145,7 @@ pub(crate) async fn generer(db: &Arc<db::Database>) -> Briefing {
             resume: "Journée sans événement armé ni position ouverte.".into(),
             ce_qui_compte: vec!["Rien d'urgent — aucune donnée du jour.".into()],
             confiance: 100,
+            sections: vec![],
         });
     }
     b.generee_le = chrono::Utc::now().timestamp();
@@ -278,12 +298,22 @@ async fn collecter(db: &Arc<db::Database>) -> Briefing {
         .filter(|a| a.ts > maintenant && a.ts <= maintenant + 24 * 3600)
         .collect();
 
-    // ── Positions ouvertes ──
+    // ── Positions ouvertes — RÈGLE D'ENGAGEMENT EXACTE du dashboard
+    // (owner 23/10 : l'ancienne règle statut='Actif' comptait les ORDRES EN
+    // ATTENTE comme positions — un setup SMC DAX jamais rempli depuis 10
+    // jours apparaissait comme position ouverte). SMC/KDJ : entrée touchée
+    // (heure_entree posée) ; straddle : heure E atteinte ; rockets : tout.
     let mut positions: Vec<PositionJour> = Vec::new();
     if let Ok(rows) = sqlx::query(
         "SELECT strategie, asset, direction, prix_entree, COALESCE(sl_effectif, stop_loss) AS sl,
-                COALESCE(heure_entree, cree_le, 0) AS he, COALESCE(score, 10) AS score
-         FROM signaux WHERE statut = 'Actif' AND prix_entree IS NOT NULL ORDER BY strategie, asset",
+                COALESCE(heure_entree, 0) AS he, COALESCE(score, 10) AS score
+         FROM signaux
+         WHERE statut != 'Fermé'
+           AND id IN (SELECT id FROM signaux ORDER BY cree_le DESC LIMIT 500)
+           AND ((strategie IN ('SMC','kdj_halftrend') AND heure_entree IS NOT NULL)
+             OR (strategie = 'straddle' AND COALESCE(heure_entree, 0) <= strftime('%s','now'))
+             OR strategie = 'rockets')
+         ORDER BY strategie, asset",
     )
     .fetch_all(db.pool())
     .await
@@ -359,55 +389,160 @@ async fn collecter(db: &Arc<db::Database>) -> Briefing {
         }
     }
 
-    // ── Presse marquante (owner 14/10 : 10 titres, FR en priorité, mix de
-    // thèmes — le meilleur de chaque thème d'abord, puis remplissage au
-    // score, pour ne pas afficher 10× actions US) ──
+    // ── Presse marquante (owner 23/10 : 4 sections — macro, crypto,
+    // métaux, techno (actions US) — × 5 meilleurs titres, FR en priorité) ──
     let mut presse: Vec<PresseJour> = Vec::new();
-    if let Ok(rows) = sqlx::query(
-        "SELECT COALESCE(n.titre_fr, p.titre) AS titre, p.titre AS titre_vo, p.score, p.theme
-         FROM presse_articles p LEFT JOIN news_traductions n ON n.hash_titre = p.hash_titre
-         WHERE p.ajoute_le > ? AND p.score >= 60
-         ORDER BY p.score DESC LIMIT 20",
-    )
-    .bind(maintenant - 24 * 3600)
-    .fetch_all(db.pool())
-    .await
-    {
-        // Titres sans traduction : traduits à la volée (DeepL sinon Ollama,
-        // mis en cache dans news_traductions — la page Presse en profite).
-        let mut tous: Vec<PresseJour> = Vec::with_capacity(rows.len());
-        for r in &rows {
-            let vo: String = r.get("titre_vo");
-            let fr: String = r.get("titre");
-            let titre = if fr != vo {
-                fr // déjà traduit
-            } else {
-                news::news_traduction::traduire_avec_cache(db.pool(), &vo).await
-            };
-            tous.push(PresseJour { titre, score: r.get("score"), theme: r.get("theme") });
-        }
-        let mut vus: std::collections::HashSet<String> = std::collections::HashSet::new();
-        for x in &tous {
-            if vus.insert(x.theme.clone()) && presse.len() < 10 {
-                presse.push(x.clone());
-            }
-        }
-        for x in tous {
-            if presse.len() >= 10 {
-                break;
-            }
-            if !presse.iter().any(|y| y.titre == x.titre) {
-                presse.push(x);
+    for theme in ["macro", "crypto", "metaux", "actions_us"] {
+        if let Ok(rows) = sqlx::query(
+            "SELECT COALESCE(NULLIF(n.titre_fr, ''), p.titre) AS titre, p.titre AS titre_vo, p.url, p.score, p.theme
+             FROM presse_articles p LEFT JOIN news_traductions n ON n.hash_titre = p.hash_titre
+             WHERE p.ajoute_le > ? AND p.theme = ?
+             ORDER BY p.score DESC LIMIT 5",
+        )
+        .bind(maintenant - 24 * 3600)
+        .bind(theme)
+        .fetch_all(db.pool())
+        .await
+        {
+            // Titres sans traduction : traduits à la volée (DeepL sinon
+            // Ollama, mis en cache — la page Presse en profite).
+            for r in &rows {
+                let vo: String = r.get("titre_vo");
+                let fr: String = r.get("titre");
+                let trad = if fr != vo { fr } else {
+                    news::news_traduction::traduire_avec_cache(db.pool(), &vo).await
+                };
+                // Garde-fou : traduction vide = VO affichée (owner 23/10 —
+                // la colonne Techno affichait des titres absents).
+                let titre = if trad.trim().is_empty() { vo.clone() } else { trad };
+                presse.push(PresseJour { titre, url: r.get("url"), score: r.get("score"), theme: r.get("theme") });
             }
         }
     }
 
-    Briefing { evenements, annonces, positions, presse, synthese: None, generee_le: maintenant }
+    // ── Nuit 21h→8h (owner 23/10, section ① du briefing) : clôtures et
+    // alertes survenues pendant la muette ──
+    let mut nuit = NuitBriefing::default();
+    // Fenêtre MUETTE exacte : hier 21h00 → aujourd'hui 08h00, Paris.
+    let huit_heures = aujourdhui.and_hms_opt(8, 0, 0).or(aujourdhui.and_hms_opt(9, 0, 0));
+    let fin_nuit = huit_heures
+        .and_then(|n| tz_paris.from_local_datetime(&n).single())
+        .map(|d| d.timestamp())
+        .unwrap_or(maintenant - 6 * 3600);
+    let debut_nuit = fin_nuit - 11 * 3600;
+    if let Ok(rows) = sqlx::query(
+        "SELECT strategie, asset, verdict, r_realise FROM signaux
+         WHERE ferme_le BETWEEN ? AND ?",
+    )
+    .bind(debut_nuit)
+    .bind(fin_nuit)
+    .fetch_all(db.pool())
+    .await
+    {
+        for r in &rows {
+            let rr: Option<f64> = r.get("r_realise");
+            nuit.somme_r += rr.unwrap_or(0.0);
+            nuit.clotures.push(format!(
+                "{} {} — {} ({:+.1} R)",
+                r.get::<String, _>("strategie"),
+                r.get::<String, _>("asset"),
+                r.get::<String, _>("verdict"),
+                rr.unwrap_or(0.0)
+            ));
+        }
+    }
+    if let Ok(rows) = sqlx::query(
+        "SELECT ts, type, titre FROM mobile_alertes WHERE ts BETWEEN ? AND ? ORDER BY ts",
+    )
+    .bind(debut_nuit)
+    .bind(fin_nuit)
+    .fetch_all(db.pool())
+    .await
+    {
+        for r in &rows {
+            let ts: i64 = r.get("ts");
+            let heure = chrono::DateTime::from_timestamp(ts, 0)
+                .map(|t| t.with_timezone(&chrono::Local).format("%H:%M").to_string())
+                .unwrap_or_default();
+            nuit.alertes.push(format!("{} {} — {}", heure, r.get::<String, _>("type"), r.get::<String, _>("titre")));
+        }
+    }
+
+    // ── Régime du jour (section ④) : F&G + compteurs presse 48 h, via le
+    // bandeau sentiment (même source que la planche météo) ──
+    let mut regime: Option<String> = None;
+    let bandeau = crate::sentiment_bandeau::collecter(db).await;
+    if bandeau.fng.is_some() || bandeau.presse.is_some() {
+        let mut morceaux: Vec<String> = Vec::new();
+        if let Some(fng) = bandeau.fng {
+            morceaux.push(format!("Fear & Greed crypto : {}", fng.valeur));
+        }
+        // Clôtures de la veille (owner 23/10 : détailler le régime) —
+        // dernier jour figé de la référence sentiment.
+        if let Ok(rows) = sqlx::query(
+            "SELECT entite, prix, variation_pct FROM sentiment_marche_veille
+             WHERE date = (SELECT MAX(date) FROM sentiment_marche_veille)",
+        )
+        .fetch_all(db.pool())
+        .await
+        {
+            for r in &rows {
+                let entite: String = r.get("entite");
+                if ["Or", "Argent", "S&P500", "Nasdaq", "Dow Jones", "Dax", "VIX", "Bitcoin"].contains(&entite.as_str()) {
+                    morceaux.push(format!(
+                        "{} {:.2} ({:+.1} %)",
+                        entite,
+                        r.get::<f64, _>("prix"),
+                        r.get::<f64, _>("variation_pct")
+                    ));
+                }
+            }
+        }
+        if let Some(p) = bandeau.presse {
+            morceaux.push(format!(
+                "Presse 48 h notée : {} haussiers / {} neutres / {} baissiers",
+                p.haussier, p.neutre, p.baissier
+            ));
+        }
+        regime = Some(morceaux.join(" · "));
+    }
+
+    Briefing { evenements, annonces, positions, presse, nuit, regime, synthese: None, generee_le: maintenant }
+}
+
+/// Nom d'affichage d'une stratégie (owner 23/10 : l'identifiant brut
+/// kdj_halftrend fuitait dans le briefing).
+fn nom_strategie(id: &str) -> &str {
+    match id {
+        "kdj_halftrend" => "KDJ",
+        autre => autre,
+    }
 }
 
 /// Le texte chiffré passé à l'analyste — un écho fidèle des données.
-fn contexte(b: &Briefing) -> String {
+fn contexte(b: &Briefing, maintenant: i64) -> String {
     let mut l = Vec::new();
+    if !b.nuit.clotures.is_empty() || !b.nuit.alertes.is_empty() {
+        let mut lignes: Vec<String> = Vec::new();
+        // Plafonds : le contexte doit tenir en 60 secondes de lecture —
+        // au-delà, on résume (nombre + échantillon).
+        let clotures_txt = if b.nuit.clotures.len() <= 10 {
+            b.nuit.clotures.join(" ; ")
+        } else {
+            format!("{} clôtures — exemples : {}", b.nuit.clotures.len(), b.nuit.clotures[..5].join(" ; "))
+        };
+        lignes.push(format!("Clôtures de la nuit (21h→8h) : {} — ΣR {:+.1}.", clotures_txt, b.nuit.somme_r));
+        let alertes_txt = if b.nuit.alertes.len() <= 8 {
+            if b.nuit.alertes.is_empty() { "aucune".into() } else { b.nuit.alertes.join(" ; ") }
+        } else {
+            format!("{} alertes — exemples : {}", b.nuit.alertes.len(), b.nuit.alertes[..5].join(" ; "))
+        };
+        lignes.push(format!("Alertes de la nuit : {alertes_txt}"));
+        l.push(format!("NUIT (21h→8h) :\n{}", lignes.iter().map(|x| format!("  {x}")).collect::<Vec<_>>().join("\n")));
+    }
+    if let Some(r) = &b.regime {
+        l.push(format!("RÉGIME DU MARCHÉ :\n  {r}"));
+    }
     if !b.evenements.is_empty() {
         l.push(format!(
             "ÉVÉNEMENTS ARMÉS DU JOUR (matrice straddle, heure de Paris) :\n{}",
@@ -442,7 +577,9 @@ fn contexte(b: &Briefing) -> String {
                     } else {
                         format!("{:+.1}", p.r_actuel)
                     };
-                    format!("  {} {} {} — entrée {:.2} le {}, R flottant {}", p.strategie, p.asset, p.direction, p.entree, heure, r)
+                    let age_h = if p.heure_entree > 0 { (maintenant - p.heure_entree) / 3600 } else { 0 };
+                    let age_txt = format!("{} j {:02} h", age_h / 24, age_h % 24);
+                    format!("  {} {} {} — entrée {:.2} le {}, R flottant {}, âge {}", nom_strategie(&p.strategie), p.asset, p.direction, p.entree, heure, r, age_txt)
                 })
                 .collect::<Vec<_>>()
                 .join("\n")
@@ -460,30 +597,3 @@ fn contexte(b: &Briefing) -> String {
     }
     l.join("\n\n")
 }
-
-/// Extraction robuste { … } — repli : pas de synthèse plutôt qu'une synthèse
-/// inventée.
-fn parser_synthese(texte: &str) -> SyntheseBriefing {
-    let n = texte.trim();
-    let (d, f) = (n.find('{'), n.rfind('}'));
-    if let (Some(d), Some(f)) = (d, f) {
-        if f > d {
-            #[derive(serde::Deserialize)]
-            struct Rep {
-                #[serde(default)] resume: String,
-                #[serde(default)] ce_qui_compte: Vec<String>,
-                #[serde(default)] confiance: f64,
-            }
-            if let Ok(v) = serde_json::from_str::<Rep>(&n[d..=f]) {
-                return SyntheseBriefing {
-                    resume: v.resume,
-                    ce_qui_compte: v.ce_qui_compte,
-                    confiance: crate::analyses_ia::confiance_normalisee(v.confiance),
-                };
-            }
-        }
-    }
-    SyntheseBriefing { resume: n.chars().take(600).collect(), ce_qui_compte: vec![], confiance: 0 }
-}
-
-// ── Relais mobile : rapport d'activité + signaux en cours (owner 21/10) ─────

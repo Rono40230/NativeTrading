@@ -39,6 +39,7 @@ pub async fn lister_prompts() -> impl Responder {
             "smc":       p("smc_definition", "Définition SMC", "Doctrine pure de la stratégie SMC v12 — les valeurs en vigueur (trailing, TP, fractions, surcharges) sont injectées en direct dans le contexte de chaque analyse.", "Injectée en tête de toute analyse SMC"),
             "straddle":  p("straddle_definition", "Définition Straddle", "Doctrine pure : événements à l'horloge + annonces calendrier, armement par case de la matrice, lifecycle des deux jambes, surcharges par asset.", "Injectée en tête des analyses straddle (rapport + créneaux)"),
             "rockets":   p("rockets_definition", "Définition Rockets", "Les quatre piliers VCP × Rocket Hunter, verdicts /10, univers, gestion et véto unlocks.", "Injectée en tête des analyses rockets"),
+            "kdj":       p("kdj_definition", "Définition KDJ/Halftrend", "Doctrine pure du suiveur de tendance H1 : KDJ + HalfTrend + filtre SMA100/EMA200 (± ADX), exécution à l'open suivant, TP/SL = seuils de détection par croisement, unité de risque = distance à l'EMA200.", "Injectée en tête des analyses et conseils KDJ (owner 22/10)"),
         },
         "arriere_plan": {
             "presse_notation":  p("presse_notation","Notation presse (pertinence)","Note la pertinence 1-100 des titres pour le trading forex/métaux/crypto/indices — alimente les barres de score de la page Presse.","Chaque lot d'articles sans score"),

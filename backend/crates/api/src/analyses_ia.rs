@@ -176,12 +176,14 @@ fn pct(fract: &str) -> String {
 
 /// Définition (doctrine) d'une stratégie — injectée EN TÊTE de ses analyses
 /// (revue prompts 13/10, écart 29 : la promesse de la page Prompts devient
-/// réelle). KDJ : pas de définition dédiée.
+/// réelle). KDJ doté de sa définition le 22/10 (owner — doctrine moteur
+/// kdj_halftrend : KDJ+HalfTrend+SMA100/EMA200, exécution à l'open).
 pub(crate) fn definition_strategie(id: &str) -> Option<String> {
     let cle = match id {
         "SMC" => "smc_definition",
         "straddle" => "straddle_definition",
         "rockets" => "rockets_definition",
+        "kdj_halftrend" => "kdj_definition",
         _ => return None,
     };
     Some(llm::prompt_effectif(cle))

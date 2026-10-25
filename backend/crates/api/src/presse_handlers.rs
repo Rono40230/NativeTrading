@@ -345,7 +345,10 @@ pub async fn get_presse_mobile(
         // Titre français : cache → traduction à la volée → cache (owner
         // 20/10) ; échec = VO affichée, le collecteur retentera.
         let hash: String = r.try_get("hash_titre").unwrap_or_default();
-        let fr = news::news_traduction::traduire_avec_cache(&pool, &titre).await;
+        let fr_brut = news::news_traduction::traduire_avec_cache(&pool, &titre).await;
+        // Garde-fou : traduction vide = VO affichée (même piège que le
+        // briefing, owner 23/10).
+        let fr = if fr_brut.trim().is_empty() { titre.clone() } else { fr_brut };
         if fr.trim() != titre.trim() {
             let _ = state.db.enregistrer_tentative_traduction(&hash, true).await;
         }

@@ -28,6 +28,7 @@ mod pipeline_cascade;
 mod evenements_ia;
 mod activite_mobile;
 mod briefing_ia;
+mod briefing_synthese;
 mod autopsie_ia;
 #[cfg(test)]
 mod kdj_diagnostic;

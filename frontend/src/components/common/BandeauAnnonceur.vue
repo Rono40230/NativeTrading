@@ -49,7 +49,7 @@
     <!-- ── Modales : le composant complet de l'ancienne colonne latérale,
          monté uniquement à l'ouverture (pas de polling fantôme). ──────── -->
     <GestionAlertesModale v-if="ouverte === 'alertes'" @fermer="ouverte = null" />
-    <ModaleCadre v-if="ouverte === 'briefing'" titre="📋 Briefing du jour" tres-large @fermer="ouverte = null">
+    <ModaleCadre v-if="ouverte === 'briefing'" titre="📋 Briefing du jour" plein @fermer="ouverte = null">
       <BriefingBloc />
     </ModaleCadre>
     <ModaleCadre v-if="ouverte === 'calendrier'" titre="📅 Calendrier économique — 10 prochains jours" large @fermer="ouverte = null">
