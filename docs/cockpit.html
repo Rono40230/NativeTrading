@@ -70,8 +70,8 @@
   <!-- ═══ SOURCE DE VÉRITÉ — éditer CE bloc (le rendu se régénère seul) ═══ -->
   <script type="application/json" id="etat-projet">{
  "synchro": {
-  "date": "23/10 soir — ESPIONNAGE : bilan hebdo livré, règle d'alerte PORTAIL VERROUILLÉE sur 6 points de données (clôture H4/D × toucher, prix=bord, délai ~45 min, traversée=muette, H1 exclu, l'alerte XAU 22h50 a départagé les théories — effleurement intrabar muet, contact clôturé sonné) ; SPEC P1 + PLAN P2 gravés à l'action OBIA ; KDJ : prompt kdj_definition créé + câblé ; briefing refondu 6 sections (tables vivantes, presse 4 colonnes cliquable, positions= règle d'engagement exacte — fantôme SMC DAX ordre jamais rempli éliminé) ; RAM fautive retirée 23/10 (machine 16 Go, tout guéri), toolchain 1.88 épinglé, base trading.db réparée salle blanche 12,4 M bougies",
-  "commit": "e2a5e06",
+  "date": "25/10 midi — BASCULE MT5/AXI TOTALE TERMINÉE (owner « tout est ok ») : 18 actifs TOUS Axi maîtres, option B vivante (DB >90 min périmée → Bybit reprend l'affichage, retour Axi auto — prouvé live samedi soir : XAU 3999.63 Bybit vs BTC Axi), seuils fraîcheur recalibrés sur le MESURÉ Axi (60-90 j : M1 crypto 10→90 min unifié, 24/7 détecté par type='crypto' — bug latent source=binance corrigé, halte SOL bi-mensuelle samedi 08h-09h UTC 60-68 min absorbée), purge 40 193 barres H4/D1/W1 non-Axi (horodatages incompatibles Binance UTC / Axi broker GMT+3 → séries entrelacées, W1 crypto doublée sur 2 ans ; backup dédié 2,1 Go), endpoint état-historique mt5 SEUL → cause racine des H4/D1 vides (l'EA croyait la base complète) → rattrapage lancé 25/10 10h47 (SOL M5 818→144 265 barres en minutes), pilotage mt5 seul (re-coche/modale : symbole Axi requis, crypto jamais devinée), Bybit WS éteint proprement, tuile dashboard MT5 seule. Pile briefing 6 sections + toolchain 1.88 TOUT COMMITÉ (cb013bc→beeb84d)",
+  "commit": "beeb84d",
   "note": "R distance (stratégie) + $ (résultat), jamais de R moyen. Production SMC = tout-TP1 + trailing k=0,1. Doctrine événements : 17 (8 structurels + 9 calendrier), Medium non tradés. Vécu immuable. KPIs relevés ce jour via /api/analyses."
  },
  "verticales": [
@@ -213,6 +213,13 @@
    "echeance": "à toi — les captures déclenchent la reprise"
   },
   {
+   "id": "AXI",
+   "prio": 1,
+   "titre": "Bascule MT5/Axi totale — reste : harmonisation tendance + validations différées",
+   "detail": "24-25/10 TOUT FAIT ET COMMITÉ (24292fb) : 18 actifs Axi maîtres (11 cryptos, table en dur — SOL-USD/LNKUSD/DOGUSD pièges), option B (MT5 live → DB fraîche → Bybit secours >90 min, retour auto), seuils fraîcheur mesurés Axi (M1 90 min, 24/7 par type), purge 40 193 barres H4/D1/W1 non-Axi (séries corrompues entrelacées, backup dédié), état-historique mt5 seul → rattrapage EA en cours depuis 25/10 10h47 (SOL M5 818→144 265 barres), pilotage mt5 seul, Bybit WS éteint.",
+   "echeance": "① étape ④ : harmonisation tableaux tendance app↔MT5 (vérif côte à côte owner — l'objectif initial de la bascule) ② lundi 26/10 : re-bascule Axi auto or/forex (petit saut XAU/XAG possible) ③ 31/10 ou 7/11 08h-09h UTC : halte SOL SANS alerte fraîcheur = validation du recalibrage ④ couverture H4/D1/W1 crypto se densifie (EA)."
+  },
+  {
    "id": "OBIA",
    "prio": 1,
    "titre": "Espionnage OrderBlock IA v6 (EA Kasper) — reproduire l'INDICATEUR",
@@ -244,8 +251,8 @@
    "id": "B",
    "prio": 3,
    "titre": "KDJ — mesure 30 trades H1",
-   "detail": "5 clôturés · rythme ~1 signal/sem/actif × 4 armés. Accélérable en ajoutant des assets via la modale (labo 7.G : XRP +1,35 R/tr en tête).",
-   "echeance": "passive — 8/30 trades H1 fermés (~mi-novembre à ce rythme)"
+   "detail": "5 clôturés · rythme ~1 signal/sem/actif × 4 armés. Accélérable en ajoutant des assets via la modale (labo 7.G : XRP +1,35 R/tr en tête). INCIDENT 25/10 RÉSOLU (gestion des trades, owner « les 2 ») : 18 Actifs dont 10 jamais remplis (arrêt d'app dans l'heure signal→fill, chauffe anti-re-dérivation), faux vivants de 15 j et doublons par asset (position moteur = mémoire pure, retournement perdu à chaque redémarrage) + ADA zombie (TP franchi sur la dernière barre avant retrait pipeline). FIX rattrapage 3 passes (154 tests) : ① remplissage rétroactif à la 1re barre H1 post-signal ; ② fin de série — clôture au dernier close si l'asset est retiré ; ③ dédoublonnage — l'ancienne se clôt « Retournement » à l'open de la barre d'entrée de la suivante. AUTO-RÉPARÉ au 1er tick : 10 remplis + 11 clôtures (ADA +2,14R fin de série) → 8 Actifs, 1/asset, tous niveaux vérifiés non franchis (LINK a frôlé SL et TP au centime sans croiser). Backup dédié avant-rattrapage-kdj.",
+   "echeance": "passive — compteur repreneur post-nettoyage (les 11 clôtures du 25/10 entrent dans la mesure) ; surveillance naturelle : prochains redémarrages ne doivent plus créer d'orphelins"
   },
   {
    "id": "D",
