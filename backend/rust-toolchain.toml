@@ -1,0 +1,6 @@
+# Épinglé 1.88.0 (23/10) : le toolchain stable 1.95 segfaulte dans libLLVM
+# en release/LTO sur cette machine (crashs chroniques 09/09→23/10, devenus
+# déterministes — même un hello-world plante). 1.88.0 = dernier toolchain
+# sain vérifié. Le frontend/src-tauri reste sur stable (build dev, sans LTO).
+[toolchain]
+channel = "1.88.0"

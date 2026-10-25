@@ -126,10 +126,10 @@ touch "$ROOT_DIR/backend/crates/db/src/lib.rs"
 # mitigation intérimaire. En cas de doute : API_PROFIL=debug bash scripts/run.sh
 API_PROFIL="${API_PROFIL:-release}"
 
-# rustc segfaulte INTERMITTEMMENT en release/LTO sur cette machine (09/09,
-# 11/09 12:41 — SIGSEGV signal 11 ; le memtest 32 Go est pourtant OK). Hint
-# officiel de rustc dans le message de crash : augmenter la pile du compilateur.
-export RUST_MIN_STACK=16777216
+# rustc segfaulte en release/LTO sur cette machine (09/09, 11/09, 23/10 —
+# SIGSEGV signal 11 intermittent, le crash ERRÉ d'un binaire à l'autre ;
+# hint officiel de rustc : pile 64 Mo). Pile du compilateur :
+export RUST_MIN_STACK=67108864
 
 # --bin api --bin news_collector : SEULS binaux de production (les bins
 # d'étude comme replay_v12 font segv le compilateur en release/LTO sous
@@ -150,7 +150,17 @@ else
    echo "⚠️  Échec build Tauri — utilisation du binaire existant (voir $LOG_DIR/build-tauri.log)"
 fi
 
-if ! cargo build -p api $CARGO_DRAPEAU --bin api --bin news_collector > "$LOG_DIR/build-backend.log" 2>&1; then
+# SIGSEGV intermittents de rustc résolus par l'épinglage 1.88.0
+# (backend/rust-toolchain.toml, 23/10) ; retries de sécurité conservés.
+ok_build=0
+for tentative in 1 2 3; do
+  if cargo build -p api $CARGO_DRAPEAU --bin api --bin news_collector > "$LOG_DIR/build-backend.log" 2>&1; then
+    ok_build=1; break
+  fi
+  echo "⚠️  Build backend : échec rustc (tentative $tentative/3) — nouvel essai…"
+  sleep 2
+done
+if [ "$ok_build" != "1" ]; then
   echo "❌ ÉCHEC du build backend — arrêt (ne pas lancer un binaire périmé)."
   tail -5 "$LOG_DIR/build-backend.log"
   exit 1
