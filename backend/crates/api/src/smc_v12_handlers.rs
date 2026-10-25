@@ -93,11 +93,33 @@ pub async fn analyse_v12(
     let asset_str = asset.as_str();
     let tf_str = timeframe.as_str();
 
-    let bougies = state
-        .db
-        .obtenir_bougies(&asset, &timeframe, limit)
-        .await
-        .unwrap_or_default();
+    // M10 : VISUEL SEUL — pas de stockage propre (même convention que
+    // get_candles/indicators) : agrégé sans perte depuis les M1. Si M10
+    // entre un jour au pipeline, la série stockée sera servie telle quelle.
+    let bougies = if timeframe == common::Timeframe::M10 {
+        let stockees = state
+            .db
+            .obtenir_bougies(&asset, &common::Timeframe::M10, limit)
+            .await
+            .unwrap_or_default();
+        if stockees.len() >= 30 {
+            stockees
+        } else {
+            let besoin_m1 = (limit * 10).min(50_000);
+            let m1 = state
+                .db
+                .obtenir_bougies(&asset, &common::Timeframe::M1, besoin_m1)
+                .await
+                .unwrap_or_default();
+            crate::handlers::agreger_bougies(m1, 600, chrono::Utc::now().timestamp())
+        }
+    } else {
+        state
+            .db
+            .obtenir_bougies(&asset, &timeframe, limit)
+            .await
+            .unwrap_or_default()
+    };
 
     if bougies.len() < 30 {
         // Données insuffisantes pour un replay fiable (warmup ATR + pivots).

@@ -24,14 +24,31 @@ pub async fn get_indicators(
     let tf = parse_timeframe(query.tf.as_deref().unwrap_or("M15"));
     let limit = query.limit.unwrap_or(500) as i64;
 
-    let bougies = match state.db.obtenir_bougies(&asset, &tf, limit).await {
-        Ok(b) if b.len() >= 20 => b,
-        _ => {
-            return HttpResponse::Ok().json(serde_json::json!({
-                "error": "Données insuffisantes — lancez d'abord GET /api/candles"
-            }))
-        }
+    // M10 : VISUEL SEUL — pas de stockage propre, agrégé à la volée depuis
+    // les M1 (même convention que get_candles ; sans ça le handler lisait
+    // une série vide et répondait « Données insuffisantes » → plus aucun
+    // indicateur sur M10 à l'écran).
+    let bougies = if tf == common::Timeframe::M10 {
+        let besoin_m1 = (limit * 10).min(50_000);
+        let m1 = state
+            .db
+            .obtenir_bougies(&asset, &common::Timeframe::M1, besoin_m1)
+            .await
+            .unwrap_or_default();
+        let maintenant = chrono::Utc::now().timestamp();
+        crate::handlers::agreger_bougies(m1, 600, maintenant)
+    } else {
+        state
+            .db
+            .obtenir_bougies(&asset, &tf, limit)
+            .await
+            .unwrap_or_default()
     };
+    if bougies.len() < 20 {
+        return HttpResponse::Ok().json(serde_json::json!({
+            "error": "Données insuffisantes — lancez d'abord GET /api/candles"
+        }));
+    }
 
     let timestamps: Vec<i64> = bougies.iter().map(|b| b.timestamp.timestamp()).collect();
     let ema_p = query.ema_periode.unwrap_or(20);

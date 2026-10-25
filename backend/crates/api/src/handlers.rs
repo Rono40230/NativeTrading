@@ -103,7 +103,7 @@ pub async fn get_candles(
 /// Bougies triées par timestamp croissant (ordre DB). La dernière bucket
 /// incomplète (encore ouverte à `maintenant`) est ignorée : elle revient au
 /// flux WS en temps réel.
-fn agreger_bougies(bougies: Vec<common::Candle>, duree_sec: i64, maintenant: i64) -> Vec<common::Candle> {
+pub(crate) fn agreger_bougies(bougies: Vec<common::Candle>, duree_sec: i64, maintenant: i64) -> Vec<common::Candle> {
     use chrono::TimeZone;
     let mut out: Vec<common::Candle> = Vec::new();
     for b in bougies {
