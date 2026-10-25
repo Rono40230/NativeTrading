@@ -18,7 +18,6 @@
           <tr v-for="l in s.lignes" :key="l.famille" class="border-t border-white/5">
             <td class="py-2 pr-3">
               <span class="mr-1.5">{{ l.emoji }}</span>{{ l.libelle }}
-              <div class="text-xs text-white/40">{{ l.aide }}</div>
             </td>
             <td v-for="c in (l.canaux as string[])" :key="c" class="text-center">
               <button
@@ -32,10 +31,6 @@
           </template>
         </tbody>
       </table>
-      <p class="mt-4 text-xs text-white/40">
-        Bureau = notification OS + son · Mobile = notifications du téléphone (muet 21h→8h, rien n'est perdu) ·
-        Signaux : bureau et mobile sont DÉSACTIVÉS par défaut (doctrine du 17/10) — activables ligne par ligne.
-      </p>
     </div>
   </ModaleCadre>
 </template>
@@ -51,27 +46,27 @@ const sections = [
   {
     titre: 'Opportunités',
     lignes: [
-      { famille: 'evenement_t10', emoji: '📅', libelle: 'Rappel T-10 min avant annonce High', aide: 'Basé sur le calendrier', canaux: ['app', 'telegram', 'mobile'] },
-      { famille: 'presse_100', emoji: '📰', libelle: 'Gros titre presse marquant', aide: 'Article noté 100 sur news fonda', canaux: ['app', 'telegram', 'mobile'] },
-      { famille: 'smc_approche', emoji: '📍', libelle: 'SMC — approche de zone armée', aide: 'Prix à 0,5 ATR de la zone', canaux: ['app', 'telegram', 'mobile'] },
-      { famille: 'smc_contact', emoji: '🎯', libelle: 'SMC — contact de zone', aide: 'Prix dans la zone (+ capture)', canaux: ['app', 'telegram', 'mobile'] },
-      { famille: 'alerte_prix', emoji: '🔔', libelle: 'Alerte prix déclenchée', aide: 'Niveaux posés sur les graphiques', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'evenement_t10', emoji: '📅', libelle: 'Rappel T-10 min avant annonce High', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'presse_100', emoji: '📰', libelle: 'Gros titre presse marquant', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'smc_approche', emoji: '📍', libelle: 'SMC — approche de zone armée', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'smc_contact', emoji: '🎯', libelle: 'SMC — contact de zone', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'alerte_prix', emoji: '🔔', libelle: 'Alerte prix déclenchée', canaux: ['app', 'telegram', 'mobile'] },
     ],
   },
   {
     titre: 'Informations',
     lignes: [
-      { famille: 'briefing', emoji: '🌅', libelle: 'Briefing du matin (8h30)', aide: 'High du jour, nuit, synthèse IA', canaux: ['app', 'telegram', 'mobile'] },
-      { famille: 'sante', emoji: '🩸', libelle: 'Santé fournisseurs', aide: 'Fraîcheur des données', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'briefing', emoji: '🌅', libelle: 'Briefing du matin (8h30)', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'sante', emoji: '🩸', libelle: 'Santé fournisseurs', canaux: ['app', 'telegram', 'mobile'] },
     ],
   },
   {
     titre: 'Signaux pris (Telegram uniquement)',
     lignes: [
-      { famille: 'signaux_smc', emoji: '📐', libelle: 'Signaux SMC pris', aide: '', canaux: ['app', 'telegram', 'mobile'] },
-      { famille: 'signaux_straddle', emoji: '⚡', libelle: 'Passes Straddle', aide: '', canaux: ['app', 'telegram', 'mobile'] },
-      { famille: 'signaux_rockets', emoji: '🚀', libelle: 'Signaux Rockets', aide: '', canaux: ['app', 'telegram', 'mobile'] },
-      { famille: 'signaux_kdj', emoji: '📊', libelle: 'Signaux KDJ/Halftrend', aide: '', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'signaux_smc', emoji: '📐', libelle: 'Signaux SMC pris', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'signaux_straddle', emoji: '⚡', libelle: 'Passes Straddle', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'signaux_rockets', emoji: '🚀', libelle: 'Signaux Rockets', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'signaux_kdj', emoji: '📊', libelle: 'Signaux KDJ/Halftrend', canaux: ['app', 'telegram', 'mobile'] },
     ],
   },
 ]
