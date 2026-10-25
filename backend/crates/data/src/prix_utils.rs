@@ -108,3 +108,27 @@ pub async fn dernier_prix_db(asset: &str, db: &Arc<db::Database>) -> Option<f64>
     }
     None
 }
+
+/// Dernier close en DB S'IL est frais (option B, owner 24/10) : au-delà du
+/// seuil de fraîcheur, la base MT5 est déclarée périmée et le fournisseur
+/// de secours (Binance) reprend l'affichage live — None ici = « Binance,
+/// parle ». Retour automatique à Axi dès que le feed ravive la base.
+pub async fn dernier_prix_db_frais(
+    asset: &str,
+    db: &Arc<db::Database>,
+    seuil_s: i64,
+) -> Option<f64> {
+    use common::{Asset, Timeframe};
+    let a = Asset::try_from(asset).ok()?;
+    let maintenant = chrono::Utc::now().timestamp();
+    for tf in [Timeframe::M1, Timeframe::M5] {
+        if let Ok(bougies) = db.obtenir_bougies(&a, &tf, 1).await {
+            if let Some(b) = bougies.last() {
+                if maintenant - b.timestamp.timestamp() <= seuil_s {
+                    return Some(b.close);
+                }
+            }
+        }
+    }
+    None
+}

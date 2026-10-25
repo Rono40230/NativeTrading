@@ -1,6 +1,12 @@
 //! GET /api/prix?assets=XAUUSD,BTC,EURUSD
-//! Retourne les prix actuels depuis Bybit/Binance (crypto + métaux),
-//! avec fallback sur le dernier close en base pour les autres assets.
+//! Hiérarchie (bascule MT5/Axi owner 24/10, option B) :
+//!   1. MT5/Axi live (EA, frais < 120 s) ;
+//!   2. dernier close en base S'IL est frais (≤ seuil fraîcheur du garde) ;
+//!   3. Binance/Bybit en secours — parle dès que la base est périmée
+//!      (Axi muet) puis re-laisse la place au retour du feed ;
+//!   4. repli final : dernier close en base, même périmé (marché fermé
+//!      sans miroir Binance : forex/indices — un prix figé vaut mieux
+//!      que rien).
 //!
 //! GET /api/marche/klines   — proxy Bybit OHLCV (sparklines)
 use actix_web::{web, HttpResponse, Responder};
@@ -27,14 +33,28 @@ pub async fn get_prix(state: web::Data<AppState>, query: web::Query<PrixQuery>) 
         .collect();
 
     let db = state.db.clone();
+    let seuil_db = crate::fraicheur_pipeline::seuil_bascule_affichage_s();
     let mut map: HashMap<String, f64> = HashMap::new();
 
     let futs: Vec<_> = assets
         .into_iter()
         .map(|asset| {
             let c = client.clone();
+            let db2 = db.clone();
             async move {
-                (asset.clone(), prix_utils::fetch_binance(&c, &asset).await)
+                // MT5/Axi d'abord (bascule owner 24/10 : Axi maître unique),
+                // puis dernier close en base s'il est FRAIS (nourri par l'EA),
+                // Binance en SECOURS dès que la base dépasse le seuil.
+                let prix = crate::mt5_collecteur::prix_live(&asset);
+                let prix = match prix {
+                    Some(x) => Some(x),
+                    None => prix_utils::dernier_prix_db_frais(&asset, &db2, seuil_db).await,
+                };
+                let prix = match prix {
+                    Some(x) => Some(x),
+                    None => prix_utils::fetch_binance(&c, &asset).await,
+                };
+                (asset, prix)
             }
         })
         .collect();

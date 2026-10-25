@@ -7,7 +7,7 @@
       <h2 class="text-sm font-semibold text-white uppercase tracking-wider">Workers d'ingestion</h2>
 
       <!-- Interrupteurs + statut — MT5 et workers dans la même rangée -->
-      <div class="grid gap-4 grid-cols-1 md:grid-cols-3">
+      <div class="grid gap-4 grid-cols-1 md:grid-cols-2">
 
       <!-- Collecteur MT5/Axi (statut de l'EA — pas d'interrupteur : MT5
            ouvert = collecte, MT5 fermé = silence) -->
@@ -31,29 +31,6 @@
         <p v-else class="text-xs text-white">Aucun actif MT5 actif</p>
       </div>
 
-        <div
-          v-for="w in cartesWorkers"
-          :key="w.nom"
-          class="rounded-xl border p-4 space-y-3 transition"
-          :class="w.config.actif ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 bg-white/[0.02]'"
-        >
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="font-bold text-white">{{ w.nom }}</p>
-              <p class="text-xs text-white">{{ w.description }}</p>
-            </div>
-            <span v-if="!w.config.actif" class="text-amber-400 text-sm">⏸ En pause</span>
-            <span v-else-if="w.statut?.connecte" class="text-emerald-400 text-sm">● Connecté</span>
-            <span v-else class="text-red-400 text-sm">○ Déconnecté</span>
-          </div>
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-            <span class="text-white">
-              {{ w.statut?.nb_assets ?? 0 }} asset(s) suivis
-            </span>
-            <span class="text-white">Dernière bougie : {{ fraicheur(w.statut?.derniere_bougie ?? null) }}</span>
-            <span class="text-white">{{ (w.statut?.bougies_inserees ?? 0).toLocaleString() }} bougies insérées</span>
-          </div>
-        </div>
       <!-- Tiingo Actions : veille quotidienne + rattrapage manuel (§7-3a :
            seul endpoint d'action conservé — déclencher un lot sans attendre
            le cycle de 65 min, précieux après l'ajout de pionniers narratifs) -->
@@ -252,7 +229,7 @@ import type { AssetInfo } from '@/services/api.service'
 import { apiService } from '@/services/api.service'
 import type { CouvertureDonnees } from '@/services/api.service'
 import { useFraicheurPipeline } from '@/composables/useFraicheurPipeline'
-import type { WorkerConfig, WorkerStatus } from '@/services/api.worker'
+import type { WorkerConfig } from '@/services/api.worker'
 import { useAssetsStore } from '@/stores/assets.store'
 
 const assetsStore = useAssetsStore()
@@ -261,7 +238,6 @@ const TOUS_TF = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1', 'W1']
 
 // ── Section 1 : workers ───────────────────────────────────────────────────────
 const configWorker = ref<WorkerConfig | null>(null)
-const statutWorkers = ref<WorkerStatus | null>(null)
 /// Veille actions Tiingo (statut seul — collecte quotidienne non pilotable).
 const tiingo = ref<{ univers_avec_bougies: number; univers_total: number; progression_pct: number } | null>(null)
 
@@ -287,42 +263,12 @@ async function rattraperBackfill() {
   }
 }
 
-const cartesWorkers = computed(() => [
-  {
-    nom: 'Bybit WS',
-    description: 'Crypto + métaux — WebSocket temps réel',
-    cle: 'actif_bybit' as const,
-    config: {
-      actif: configWorker.value?.actif_bybit ?? false,
-    },
-    statut: statutWorkers.value?.bybit,
-  },
-])
-
-function fraicheur(ts: number | null): string {
-  if (!ts) return '—'
-  const secondes = Math.floor(Date.now() / 1000) - ts
-  if (secondes < 90) return "à l'instant"
-  if (secondes < 3600) return `il y a ${Math.floor(secondes / 60)} min`
-  if (secondes < 86_400) return `il y a ${Math.floor(secondes / 3600)} h`
-  return `il y a ${Math.floor(secondes / 86_400)} j`
-}
-
 async function chargerConfig() {
   try {
     configWorker.value = await apiService.getWorkerConfig()
   } catch {
     // Config par défaut affichée — le PUT réécrira la config serveur.
   }
-}
-
-async function chargerStatutWorkers() {
-  try {
-    statutWorkers.value = await apiService.getWorkerStatus()
-  } catch {
-    statutWorkers.value = null
-  }
-  await chargerTiingo()
 }
 
 async function chargerTiingo() {
@@ -396,10 +342,14 @@ async function basculerAsset(a: AssetInfo) {
     return
   }
   try {
-    // Règle famille → worker (actée 26/08) : crypto = Bybit, le reste = MT5.
+    // Bascule totale 24/10 : MT5/Axi seule source — l'EA ne nourrit que les
+    // assets mt5, un ajout binance serait un asset mort.
     // Ajout pipeline (doctrine 15/10) : disponible partout, armé nulle part.
-    const source = a.type === 'crypto' ? 'binance' : 'mt5'
-    await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], source, undefined, a.symbol_mt5 || undefined)
+    if (!a.symbol_mt5) {
+      alerteStore.afficherErreur(`${a.id} : symbole MT5/Axi manquant — passe par « + Ajouter un asset » pour le renseigner`)
+      return
+    }
+    await apiService.ajouterAsset(a.id, a.nom, a.type as AssetInfo['type'], 'mt5', undefined, a.symbol_mt5)
     a.actif = true
     await chargerTous()
   } catch (e) {
@@ -427,7 +377,7 @@ async function chargerMt5() {
 // (badge Bybit/MT5) reste indiqué par asset : XAU/XAG en métaux,
 // NAS100/SP500/DAX en indices, même alimentés par MT5/Axi.
 const CATEGORIES = computed(() => [
-  { type: 'crypto', label: '🪙 Crypto (Bybit)', couleur: 'text-yellow-400', assets: tous.value.filter(a => a.type === 'crypto') },
+  { type: 'crypto', label: '🪙 Crypto', couleur: 'text-yellow-400', assets: tous.value.filter(a => a.type === 'crypto') },
   { type: 'metal', label: '🥇 Métaux', couleur: 'text-amber-400', assets: tous.value.filter(a => a.type === 'metal') },
   { type: 'forex', label: '💱 Forex', couleur: 'text-blue-400', assets: tous.value.filter(a => a.type === 'forex') },
   { type: 'indice', label: '📈 Indices', couleur: 'text-purple-400', assets: tous.value.filter(a => a.type === 'indice') },
@@ -577,11 +527,11 @@ onMounted(async () => {
     tous.value = assetsStore.assets
   }
   await chargerConfig()
-  await chargerStatutWorkers()
+  await chargerTiingo()
   await chargerCouverture()
   void chargerFraicheur()
   void chargerMt5()
-  minuteurStatut = setInterval(chargerStatutWorkers, 30_000)
+  minuteurStatut = setInterval(chargerTiingo, 30_000)
   minuteurCouverture = setInterval(() => { chargerCouverture(); chargerFraicheur() }, 60_000)
   minuteurMt5 = setInterval(chargerMt5, 30_000)
 })

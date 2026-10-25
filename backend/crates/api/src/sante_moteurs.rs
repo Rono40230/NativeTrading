@@ -108,24 +108,16 @@ pub async fn get_sante_moteurs(state: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(serde_json::json!({ "moteurs": [smc, straddle, rockets, kdj] }))
 }
 
-/// Sources CONTINUES (alerte à 5 min sans bougie M1) vs ÉPISODIQUES — le
-/// comblement Binance n'écrit QUE lors d'un trou (nuits, pannes : décision
-/// owner 15/08) : son âge mesure « le temps depuis le dernier trou comblé »,
-/// pas une santé — informatif, jamais en alerte.
-fn source_episodique(source: &str) -> bool {
-    matches!(source, "binance")
-}
-
 /// GET /api/sante/sources — fraîcheur des sources de prix (M1).
-/// Étape 10 (roadmap audit 05/10) : le retard d'une source continue doit
-/// se VOIR (une flux mort devient pastille rouge) ; le comblement reste
-/// informatif.
+/// Bascule totale 24/10 : MT5/Axi est la SEULE source vivante (l'EA) ;
+/// Binance/Bybit ne sont plus qu'un repli REST d'affichage (option B) et
+/// n'écrivent plus rien — ils ne sont plus listés comme sources stockées.
 pub async fn get_sante_sources(state: web::Data<AppState>) -> impl Responder {
     let maintenant = Utc::now().timestamp();
     let rows = sqlx::query(
         "SELECT source, COUNT(DISTINCT asset) AS actifs, MAX(timestamp) AS derniere
          FROM bougies
-         WHERE timeframe = 'M1' AND source IN ('mt5', 'bybit_ws', 'binance')
+         WHERE timeframe = 'M1' AND source = 'mt5'
          GROUP BY source",
     )
     .fetch_all(state.db.pool())
@@ -137,13 +129,12 @@ pub async fn get_sante_sources(state: web::Data<AppState>) -> impl Responder {
             let source: String = r.get("source");
             let derniere: i64 = r.get("derniere");
             let age_min = ((maintenant - derniere) as f64 / 60.0).round();
-            let episodique = source_episodique(&source);
             serde_json::json!({
                 "source": source,
                 "actifs": r.get::<i64, _>("actifs"),
                 "age_min": age_min,
-                "episodique": episodique,
-                "vivante": !episodique && age_min <= 5.0,
+                "episodique": false,
+                "vivante": age_min <= 5.0,
             })
         })
         .collect();

@@ -88,8 +88,7 @@
           <div class="relative flex flex-col gap-1 text-xs leading-snug">
             <p class="text-white">
               <span v-for="(src, i) in lignesSources" :key="src.nom">
-                <span v-if="src.episodique" class="text-white/85">{{ src.nom }} (comblement) · dernier trou il y a {{ src.age }}</span>
-                <span v-else :class="src.vivante ? 'text-white' : 'text-red-300 font-bold'">
+                <span :class="src.vivante ? 'text-white' : 'text-red-300 font-bold'">
                   {{ src.nom }} {{ src.vivante ? '✓' : '🔴' }} · <span class="font-bold text-rose-200">{{ src.symboles }} symboles</span> · <span class="font-bold text-rose-200">{{ src.volume }}</span>
                 </span>
                 <span v-if="i < lignesSources.length - 1" class="text-white/40"> · </span>
@@ -143,7 +142,7 @@ function aDuNeuf(id: string): boolean {
   })
   if (id === 'graphiques') return alertesActives.value.length > 0
   if (id === 'ia') return convictionJour.value.n > 0 && dernierFetchIA.value !== null && Date.now() / 1000 - dernierFetchIA.value < 600
-  if (id === 'systeme') return sourcesPrix.value.some(src => !src.episodique && !src.vivante)
+  if (id === 'systeme') return sourcesPrix.value.some(src => !src.vivante)
   return false
 }
 const dernierFetchIA = ref<number | null>(null)
@@ -248,18 +247,7 @@ interface SourcePrix {
   vivante: boolean
 }
 
-function fmtAge(min: number): string {
-  if (min < 60) return `${min} min`
-  if (min < 1440) return `${Math.round(min / 60)} h`
-  return `${Math.round(min / 1440)} j`
-}
 const sourcesPrix = ref<SourcePrix[]>([])
-
-function nomSource(source: string): string {
-  if (source === 'bybit_ws') return 'Bybit'
-  if (source === 'mt5') return 'MT5'
-  return source.charAt(0).toUpperCase() + source.slice(1)
-}
 
 async function chargerSanteSources() {
   try {
@@ -268,23 +256,14 @@ async function chargerSanteSources() {
   } catch { sourcesPrix.value = [] }
 }
 
-/// Fusion par source (owner 05/10) : une ligne = fraîcheur + symboles +
-/// volume du jour — fini les doublons « MT5 ✓ / EA Axi » et « Binance
-/// comblement » en double. Le presse vit dans sa tuile dédiée.
-const lignesSources = computed(() => sourcesPrix.value.map(src => {
-  if (src.episodique) {
-    return { nom: 'Binance', episodique: true, vivante: false, symboles: 0, volume: '', age: fmtAge(src.age_min) }
-  }
-  const mt5 = src.source === 'mt5'
-  return {
-    nom: mt5 ? 'MT5 (EA Axi)' : 'Bybit',
-    episodique: false,
-    vivante: src.vivante,
-    symboles: mt5 ? donnees.value.eaSymboles : donnees.value.bybitSymboles,
-    volume: mt5 ? donnees.value.ea : donnees.value.bybit,
-    age: '',
-  }
-}))
+/// Bascule totale 24/10 : MT5/Axi = seule source de prix (l'EA). La tuile
+/// suit /api/sante/sources, qui ne liste plus que mt5 — une seule ligne.
+const lignesSources = computed(() => sourcesPrix.value.map(src => ({
+  nom: 'MT5 (EA Axi)',
+  vivante: src.vivante,
+  symboles: donnees.value.eaSymboles,
+  volume: donnees.value.ea,
+})))
 
 interface MoteurSante {
   strategie: string
@@ -310,10 +289,9 @@ async function chargerSanteMoteurs() {
 }
 
 const donnees = ref<{
-  bybitSymboles: number; bybit: string
   eaSymboles: number; ea: string
   actionsTotal: number; actionsAJour: number
-}>({ bybitSymboles: 0, bybit: '…', eaSymboles: 0, ea: '…', actionsTotal: 0, actionsAJour: 0 })
+}>({ eaSymboles: 0, ea: '…', actionsTotal: 0, actionsAJour: 0 })
 
 /// « +8,6k bougies » façon compteur du jour.
 function compactJour(n: number): string {
@@ -364,18 +342,15 @@ async function chargerTout() {
 
   if (affiche('systeme')) {
     // Ventilation du flux du jour PAR SOURCE (le total global mélange
-    // Bybit/MT5/actions — il ne veut rien dire par étiquette).
+    // MT5/actions — il ne veut rien dire par étiquette).
     interface LigneSource { source: string; bougies: number; symboles: number }
     try {
       const r = await http.get('/api/data/coverage')
       const parSource: LigneSource[] = r.data?.bougies_par_source ?? []
-      const bybit = parSource.find(s => s.source === 'bybit_ws')
       const mt5 = parSource.find(s => s.source === 'mt5')
-      donnees.value.bybitSymboles = bybit?.symboles ?? 0
-      donnees.value.bybit = compactJour(bybit?.bougies ?? 0)
       donnees.value.ea = compactJour(mt5?.bougies ?? 0)
 
-    } catch { donnees.value.bybit = '—'; donnees.value.ea = '—' }
+    } catch { donnees.value.ea = '—' }
     try {
       const r = await http.get('/api/mt5/statut')
       donnees.value.eaSymboles = (r.data?.symboles ?? []).length

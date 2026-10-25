@@ -29,6 +29,9 @@ pub async fn stream_prix(
     let client = &*crate::http_client::HTTP_CLIENT;
 
     let db = state.db.clone();
+    // Option B (owner 24/10) : base MT5 périmée au-delà du seuil fraîcheur
+    // → Binance reprend l'affichage live, retour à Axi dès que le feed ravive.
+    let seuil_db = crate::fraicheur_pipeline::seuil_bascule_affichage_s();
 
     let (response, mut session, mut client_stream) = actix_ws::handle(&req, body)?;
 
@@ -42,17 +45,22 @@ pub async fn stream_prix(
                 _ = interval.tick() => {
                     let mut map = serde_json::Map::new();
 
-                    // Prix par REST groupé (Bybit/Binance, fallback DB)
+                    // Prix par REST groupé (MT5 → DB fraîche → Binance secours)
                     let resultats = join_all(
                         assets.iter().map(|asset| {
                             let client = client.clone();
+                            let db = db.clone();
                             let asset = asset.clone();
                             async move {
-                                // MT5/Axi d'abord (bougie en formation, à la
-                                // seconde) ; Binance pour la crypto ; DB en
-                                // dernier recours (marché fermé).
-                                let prix = crate::mt5_collecteur::prix_live(&asset)
-                                    .or_else(|| None::<f64>);
+                                // MT5/Axi d'abord (bascule owner 24/10 :
+                                // Axi maître unique) ; DB ensuite si FRAÎCHE
+                                // (nourrie par l'EA) ; Binance en secours
+                                // dès que la base dépasse le seuil.
+                                let prix = crate::mt5_collecteur::prix_live(&asset);
+                                let prix = match prix {
+                                    Some(p) => Some(p),
+                                    None => prix_utils::dernier_prix_db_frais(&asset, &db, seuil_db).await,
+                                };
                                 let prix = match prix {
                                     Some(p) => Some(p),
                                     None => prix_utils::fetch_binance(&client, &asset).await,

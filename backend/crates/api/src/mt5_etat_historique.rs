@@ -25,10 +25,14 @@ pub async fn get_etat(
     state: web::Data<AppState>,
     query: web::Query<QueryEtat>,
 ) -> impl Responder {
+    // Source mt5 SEULE (bascule totale 24/10) : l'EA juge la profondeur AXI,
+    // pas celle des anciennes séries Binance/Bybit — sinon il croit la base
+    // complète et ne pousse jamais l'historique Axi de M5→W1 (cause des
+    // H4/D1 crypto restés vides après la bascule).
     let Ok(row) = sqlx::query(
         "SELECT COUNT(*) as n, COALESCE(MIN(timestamp), 0) as min_ts,
                 COALESCE(MAX(timestamp), 0) as max_ts
-         FROM bougies WHERE asset = ? AND timeframe = ?",
+         FROM bougies WHERE asset = ? AND timeframe = ? AND source = 'mt5'",
     )
     .bind(&query.asset)
     .bind(&query.tf)

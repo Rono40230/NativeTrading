@@ -10,7 +10,10 @@
 //! sans que rien ne crie.
 //!
 //! Contrat vérifié ici, pour chaque asset ACTIF du pipeline et par TF :
-//! - crypto (source binance) : 24/7 — M1 ≤ 10 min ;
+//! - crypto (type crypto — broker Axi depuis la bascule totale 24/10) :
+//!   24/7 AVÉRÉ au mesuré (cotées le week-end) ; M1 ≤ 90 min — trous de
+//!   5-10 min routiniers sur carnets CFD (0,6/actif/jour mesuré sur 60 j)
+//!   et halte bi-mensuelle SOL le samedi 08h00-09h00 UTC (60-68 min) ;
 //! - mt5 : semaine de cotation dimanche 23h → vendredi 23h Paris ; en
 //!   semaine M1 ≤ 90 min (la pause quotidienne XAU 22h58→00h00 dure 1 h,
 //!   les autres pauses quotidiennes sont plus courtes) ;
@@ -36,18 +39,19 @@ use sqlx::Row;
 /// le retrait de la ligne KAS).
 pub const TFS: &[&str] = &["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
 
-/// Seuil d'alerte en minutes par TF. Sémantique réelle mesurée 16/10 : les
-/// cryptos Binance stockent M5→D1 À LA CLÔTURE (la dernière fermée a ouvert
-/// il y a 1 à 2 périodes : une H4 saine « vieillit » jusqu'à 8 h, une D1
-/// jusqu'à 48 h) ; les MT5 poussent leurs barres formantes M1→H4 (retard
-/// ∈ [0, période]) et la D1 est figée après le push quotidien. Seuil unique
-/// couvrant les deux : 2 × période + marge — une alimentation morte est
-/// signalée en ≤ 2 périodes + marge, une saine n'alerte jamais. Seule
-/// exception M1 : crypto 24/7 = 10 min ; mt5 = 90 min (la pause quotidienne
-/// XAU 22h58→00h00 dure 62 min sans qu'aucun M1 ne soit dû).
-fn seuil_tf(tf: &str, crypto: bool) -> Option<i64> {
+/// Seuil d'alerte en minutes par TF. La base ne stocke que des barres
+/// CLÔTURÉES (Binance comme Axi — les formantes MT5 vivent en mémoire
+/// runtime) : la dernière fermée a ouvert il y a 1 à 2 périodes (une H4
+/// saine « vieillit » jusqu'à 8 h, une D1 jusqu'à 48 h) → seuil
+/// 2 × période + marge, vérifié au mesuré (gaps H1/H4/D1 = période exacte,
+/// zéro trou en 90 j).
+/// M1, étape 3 (24/10, 60-90 j MESURÉS sur le feed Axi) : 90 min pour
+/// tous — les trous M1 de 5-10 min y sont routiniers (0,6/actif/jour,
+/// carnet CFD mince) et SOL subit une halte bi-mensuelle le samedi
+/// 08h00-09h00 UTC (60-68 min) ; 90 min absorbe également la pause
+/// quotidienne XAU 22h58→00h00 (62 min) côté mt5.
+fn seuil_tf(tf: &str) -> Option<i64> {
     Some(match tf {
-        "M1" if crypto => 10,
         "M1" => 90,
         "M5" => 20,
         "M15" => 45,
@@ -57,6 +61,16 @@ fn seuil_tf(tf: &str, crypto: bool) -> Option<i64> {
         "D1" => 50 * 60,
         _ => return None,
     })
+}
+
+/// Seuil (secondes) de « DB trop vieille → Binance parle » (option B,
+/// owner 24/10) : au-delà, le dernier close MT5 en base est déclaré périmé
+/// et le fournisseur de secours reprend l'affichage live — même valeur que
+/// l'alerte fraîcheur M1 : elles décrivent le même incident. Recalibré
+/// étape 3 sur le mesuré Axi : 90 min n'est dépassé par AUCUN événement
+/// routinier (jitter max 20 min, halte SOL bi-mensuelle 68 min).
+pub fn seuil_bascule_affichage_s() -> i64 {
+    seuil_tf("M1").unwrap_or(90) * 60
 }
 
 #[derive(serde::Serialize, Clone, PartialEq, Debug)]
@@ -125,21 +139,22 @@ fn marche_ouvert_mt5(instant_paris: chrono::DateTime<chrono_tz::Tz>) -> bool {
 }
 
 /// Décision pure : un état par asset, anomalies = barres hors contrat.
+/// Le booléen par asset = marché 24/7 (cryptos Axi, avéré au mesuré —
+/// indépendant de la semaine de cotation mt5).
 pub fn auditer(
-    assets: &[(String, String)],
+    assets: &[(String, String, bool)],
     dernieres: &HashMap<(String, String), i64>,
     maintenant: i64,
     ouvert_mt5: bool,
 ) -> Vec<EtatAsset> {
     assets
         .iter()
-        .map(|(id, source)| {
-            let crypto = source == "binance";
-            let ouvert = crypto || ouvert_mt5;
+        .map(|(id, source, crypto)| {
+            let ouvert = *crypto || ouvert_mt5;
             let mut anomalies = Vec::new();
             if ouvert {
                 for tf in TFS {
-                    let Some(seuil) = seuil_tf(tf, crypto) else { continue };
+                    let Some(seuil) = seuil_tf(tf) else { continue };
                     match dernieres.get(&(id.clone(), tf.to_string())) {
                         Some(ts) => {
                             let retard = (maintenant - ts) / 60;
@@ -173,18 +188,22 @@ pub fn auditer(
 /// de scan global de la table), audite, journalise les TRANSITIONS
 /// seulement, publie l'état.
 pub async fn auditer_db(db: &Arc<db::Database>) {
-    let Ok(rows) = sqlx::query("SELECT id, source FROM assets WHERE actif = 1 ORDER BY id")
+    let Ok(rows) = sqlx::query("SELECT id, source, type FROM assets WHERE actif = 1 ORDER BY id")
         .fetch_all(db.pool())
         .await
     else {
         return;
     };
-    let assets: Vec<(String, String)> = rows
+    // 24/7 par TYPE d'asset (étape 3 : les cryptos Axi cotent le week-end,
+    // mesuré) — la source binance reste gardée par sécurité rétro.
+    let assets: Vec<(String, String, bool)> = rows
         .iter()
         .filter_map(|r| {
             let id: String = r.try_get("id").unwrap_or_default();
             let source: String = r.try_get("source").unwrap_or_default();
-            if id.is_empty() { None } else { Some((id, source)) }
+            let type_asset: String = r.try_get("type").unwrap_or_default();
+            let crypto = source == "binance" || type_asset == "crypto";
+            if id.is_empty() { None } else { Some((id, source, crypto)) }
         })
         .collect();
     if assets.is_empty() {
@@ -192,7 +211,7 @@ pub async fn auditer_db(db: &Arc<db::Database>) {
     }
 
     let mut dernieres = HashMap::new();
-    for (id, _) in &assets {
+    for (id, _, _) in &assets {
         for tf in TFS {
             let Ok(r) = sqlx::query(
                 "SELECT MAX(timestamp) AS m FROM bougies WHERE asset = ? AND timeframe = ?",
@@ -331,38 +350,71 @@ mod tests {
             ("BTC", "D1", maintenant - 24 * 3600),
         ]);
         let etats = auditer(
-            &[("BTC".into(), "binance".into())],
+            &[("BTC".into(), "mt5".into(), true)],
             &carte_complete,
             maintenant,
-            false, // week-end mt5 — la crypto trade quand même
+            false, // week-end mt5 — la crypto trade quand même (24/7 Axi)
         );
         assert_eq!(etats[0].anomalies, vec![]);
         assert!(etats[0].marche_ouvert);
     }
 
     #[test]
-    fn crypto_m1_mort_alerte() {
+    fn crypto_m1_trou_routinier_ne_alerte_pas() {
+        // Étape 3, mesuré Axi 60 j : trous 5-10 min routiniers (0,6/actif/
+        // jour), halte SOL bi-mensuelle 60-68 min — aucun ne doit crier.
         let maintenant = 1_000_000i64;
+        for age_min in [20, 68] {
+            let etats = auditer(
+                &[("BTC".into(), "mt5".into(), true)],
+                &carte(&[("BTC", "M1", maintenant - age_min * 60)]),
+                maintenant,
+                true,
+            );
+            assert!(etats[0].anomalies.iter().all(|a| a.tf != "M1"), "{age_min} min");
+        }
+    }
+
+    #[test]
+    fn crypto_m1_mort_120min_alerte_weekend_compris() {
+        let maintenant = 1_000_000i64;
+        // En semaine…
         let etats = auditer(
-            &[("BTC".into(), "binance".into())],
-            &carte(&[("BTC", "M1", maintenant - 1_200)]), // 20 min
+            &[("BTC".into(), "mt5".into(), true)],
+            &carte(&[("BTC", "M1", maintenant - 7_200)]), // 120 min
             maintenant,
             true,
         );
         assert_eq!(etats[0].anomalies.len(), 7); // M1 en retard + les 6 TF absents
         assert_eq!(etats[0].anomalies[0].tf, "M1");
-        assert_eq!(etats[0].anomalies[0].retard_min, 20);
+        assert_eq!(etats[0].anomalies[0].retard_min, 120);
+        // …et le week-end : les cryptos Axi cotent 24/7, un feed mort le
+        // samedi DOIT crier (l'ancienne détection source=binance l'aurait
+        // tué sous la suppression week-end mt5).
+        let etats = auditer(
+            &[("BTC".into(), "mt5".into(), true), ("EURUSD".into(), "mt5".into(), false)],
+            &carte(&[
+                ("BTC", "M1", maintenant - 7_200),
+                ("EURUSD", "M1", maintenant - 7_200),
+            ]),
+            maintenant,
+            false,
+        );
+        assert!(etats[0].marche_ouvert);
+        assert!(etats[0].anomalies.iter().any(|a| a.tf == "M1"));
+        assert!(!etats[1].marche_ouvert); // forex week-end : silence assumé
+        assert_eq!(etats[1].anomalies, vec![]);
     }
 
     #[test]
     fn mt5_pause_quotidienne_absorbee_puis_alerte() {
         let maintenant = 1_000_000i64;
         let base = [("XAUUSD", "M1", maintenant - 3_600)]; // 60 min : pause OK
-        let etats = auditer(&[("XAUUSD".into(), "mt5".into())], &carte(&base), maintenant, true);
+        let etats = auditer(&[("XAUUSD".into(), "mt5".into(), false)], &carte(&base), maintenant, true);
         assert!(etats[0].anomalies.iter().all(|a| a.tf != "M1"));
 
         let base = [("XAUUSD", "M1", maintenant - 7_200)]; // 120 min : mort
-        let etats = auditer(&[("XAUUSD".into(), "mt5".into())], &carte(&base), maintenant, true);
+        let etats = auditer(&[("XAUUSD".into(), "mt5".into(), false)], &carte(&base), maintenant, true);
         assert!(etats[0].anomalies.iter().any(|a| a.tf == "M1" && a.retard_min == 120));
     }
 
@@ -370,7 +422,7 @@ mod tests {
     fn mt5_weekend_aucune_alerte_meme_mort() {
         let maintenant = 1_000_000i64;
         let etats = auditer(
-            &[("EURUSD".into(), "mt5".into())],
+            &[("EURUSD".into(), "mt5".into(), false)],
             &carte(&[("EURUSD", "M1", maintenant - 3 * 86_400)]),
             maintenant,
             false,
@@ -384,7 +436,7 @@ mod tests {
         let maintenant = 1_000_000i64;
         // 40 h de retard D1 en semaine : sous le seuil 50 h (figée + push).
         let etats = auditer(
-            &[("XAUUSD".into(), "mt5".into())],
+            &[("XAUUSD".into(), "mt5".into(), false)],
             &carte(&[("XAUUSD", "D1", maintenant - 40 * 3600)]),
             maintenant,
             true,
@@ -398,12 +450,14 @@ mod tests {
         // dernière fermée a ouvert il y a 6 h 06 : SAIN (seuil 9 h). Ma
         // première calibration (4 h 30) produisait 8 fausses alertes.
         let maintenant = 1_000_000i64;
-        for (asset, source, ouvert) in [("BTC", "binance", true), ("XAUUSD", "mt5", true)] {
+        for (asset, source, crypto, ouvert_mt5) in
+            [("BTC", "mt5", true, false), ("XAUUSD", "mt5", false, true)]
+        {
             let etats = auditer(
-                &[((asset).into(), source.into())],
+                &[((asset).into(), source.into(), crypto)],
                 &carte(&[(asset, "H4", maintenant - 366 * 60)]),
                 maintenant,
-                ouvert,
+                ouvert_mt5,
             );
             assert!(etats[0].anomalies.iter().all(|a| a.tf != "H4"), "{asset}");
         }
@@ -413,14 +467,14 @@ mod tests {
     fn d1_cloturee_crypto_38h_saine_morte_55h_alerte() {
         let maintenant = 1_000_000i64;
         let saine = auditer(
-            &[("BTC".into(), "binance".into())],
+            &[("BTC".into(), "mt5".into(), true)],
             &carte(&[("BTC", "D1", maintenant - 38 * 3600)]),
             maintenant,
             true,
         );
         assert!(saine[0].anomalies.iter().all(|a| a.tf != "D1"));
         let morte = auditer(
-            &[("BTC".into(), "binance".into())],
+            &[("BTC".into(), "mt5".into(), true)],
             &carte(&[("BTC", "D1", maintenant - 55 * 3600)]),
             maintenant,
             true,
@@ -432,7 +486,7 @@ mod tests {
     fn tf_absent_anomalie_moins_un() {
         let maintenant = 1_000_000i64;
         let etats = auditer(
-            &[("XPTUSD".into(), "mt5".into())],
+            &[("XPTUSD".into(), "mt5".into(), false)],
             &carte(&[("XPTUSD", "M1", maintenant - 60)]),
             maintenant,
             true,
@@ -458,5 +512,12 @@ mod tests {
         assert_eq!(duree_lisible(45), "45 min");
         assert_eq!(duree_lisible(540), "9h");
         assert_eq!(duree_lisible(620), "10h20");
+    }
+
+    #[test]
+    fn seuil_bascule_affichage_egal_garde_m1() {
+        // Option B : la bascule d'affichage et l'alerte fraîcheur M1 mt5
+        // partagent la même définition (90 min).
+        assert_eq!(seuil_bascule_affichage_s(), 90 * 60);
     }
 }

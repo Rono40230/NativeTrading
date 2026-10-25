@@ -189,15 +189,13 @@ function changerTfSlotActif(tf: string) {
   persisterSlots()
 }
 
-// Assets proposés dans le sélecteur : tous les actifs configurés ; en crypto,
-// BTC et ETH uniquement (les seules cryptos suivies par l'app).
-const CRYPTO_SUIVIES = ['BTC', 'ETH']
+// Assets proposés dans le sélecteur : les ACTIFS du pipeline, toutes
+// classes (owner 24/10 — le dropdown doit suivre le pilotage ; l'ancien
+// filtre BTC/ETH est obsolète depuis la bascule des 11 cryptos sur MT5).
 const assets = computed(() => {
   const liste = assetsStore.assets
   if (liste.length === 0) return ['BTC', 'ETH', 'XAUUSD', 'XAGUSD']
-  return liste
-    .filter(a => a.type !== 'crypto' || CRYPTO_SUIVIES.includes(a.id))
-    .map(a => a.id)
+  return liste.map(a => a.id)
 })
 
 // Métriques de la barre haute = cellule ACTIVE.

@@ -232,6 +232,14 @@ async fn boucle_reconnect(
 
         let duree = debut_session.elapsed();
         match resultat {
+            Ok(()) if !session_ouverte => {
+                // Saut volontaire (worker coupé en config — bascule totale
+                // 24/10 — ou aucun actif) : pas une vraie session, debug
+                // seulement pour ne pas polluer les logs.
+                tracing::debug!(
+                    "Bybit WS {marche}: session sautée (désactivé/aucun actif), re-vérifie dans {backoff}s"
+                );
+            }
             Ok(()) => {
                 tracing::info!(
                     "Bybit WS {marche}: session fermée proprement après {:?}, reconnect dans {}s",
