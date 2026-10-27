@@ -413,10 +413,6 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::resource("/api/worker/config")
                 .route(web::get().to(crate::worker_handlers::get_worker_config)),
         )
-        .route(
-            "/api/worker/status",
-            web::get().to(crate::worker_handlers::get_worker_status),
-        )
         // ── Runtime tick (Phase 1 ROADMAP — Gate 1 : concordance bougies) ──
         .route(
             "/api/runtime/concordance",

@@ -23,6 +23,11 @@
 use std::collections::HashSet;
 use crate::runtime_perimetre::lire_perimetre_straddle;
 use crate::runtime_amorces::charger_amorce_mtf_runtime;
+
+/// Journaux d'observation/émissions (mode shadow) — extraits de ce fichier
+/// (garde-fou 600 lignes, 27/10).
+#[path = "runtime_journaux.rs"]
+mod journaux;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -85,9 +90,6 @@ pub fn demarrer_runtime_tick(db: Arc<Database>, whale: std::sync::Arc<tokio::syn
         // Phase 5 — collecteur MT5 : l'EA pousse ses bougies par ce canal.
         crate::mt5_collecteur::brancher_canal(tx.clone());
 
-        // Le worker Bybit WS alimente le runtime (klines formation + confirm).
-        data::bybit_ws::demarrer_worker_bybit(db.clone(), Some(tx));
-
         tokio::spawn(boucle_runtime(db.clone(), runtime, rx));
         // Signaux OFFICIELS : table signaux + Telegram (bus < 1 s).
         crate::signaux_officiels::demarrer(
@@ -96,8 +98,8 @@ pub fn demarrer_runtime_tick(db: Arc<Database>, whale: std::sync::Arc<tokio::syn
             poignees.bus_evenements.clone(),
             poignees.whale.clone(),
         );
-        tokio::spawn(journal_observation(db.clone(), poignees.bus_bougies.clone()));
-        tokio::spawn(journal_emissions(db, poignees.bus_signaux.clone(), poignees.bus_evenements.clone()));
+        tokio::spawn(journaux::journal_observation(db.clone(), poignees.bus_bougies.clone()));
+        tokio::spawn(journaux::journal_emissions(db, poignees.bus_signaux.clone(), poignees.bus_evenements.clone()));
 
         tracing::info!("⚡ Runtime tick démarré (shadow mode : moteurs v12 par couple, journalisation seule — aucune action)");
         poignees
@@ -112,97 +114,6 @@ pub fn demarrer_runtime_tick(db: Arc<Database>, whale: std::sync::Arc<tokio::syn
             bus_evenements: engine::BusEvenements::nouveau(),
             tx_prix: tokio::sync::mpsc::unbounded_channel().0,
             whale: std::sync::Arc::new(tokio::sync::RwLock::new(crate::whale_watching::WhaleWatching::new())),
-        }
-    }
-}
-
-/// Journal d'observation (mode shadow) : chaque bougie clôturée par le
-/// runtime est persistée avec son mode de clôture. La comparaison avec les
-/// bougies officielles se fait à la demande (GET /api/runtime/concordance).
-async fn journal_observation(db: Arc<Database>, bus: engine::BusBougies) {
-    let mut rx = bus.abonner();
-    tracing::info!("📓 Journal d'observation du runtime actif (table runtime_observation)");
-    loop {
-        match rx.recv().await {
-            Ok(b) => {
-                if let Err(e) = db
-                    .inserer_observation_runtime(
-                        &b.asset,
-                        &b.tf,
-                        &b.bougie,
-                        b.mode.libelle(),
-                        chrono::Utc::now(),
-                    ).await
-                {
-                    tracing::warn!(
-                        "Journal observation: erreur DB {} {} ts={} : {}",
-                        b.asset.as_str(),
-                        b.tf.as_str(),
-                        b.bougie.timestamp.timestamp(),
-                        e
-                    );
-                }
-            }
-            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                tracing::warn!("Journal observation: {} bougies sautées (lecteur lent)", n);
-            }
-            Err(tokio::sync::broadcast::error::RecvError::Closed) => {
-                tracing::error!("Journal observation: bus fermé — writer arrêté");
-                return;
-            }
-        }
-    }
-}
-
-/// Journal des émissions LIVE du runtime (shadow mode 2.6) : chaque signal
-/// et chaque événement lifecycle publiés sur les bus est persisté — c'est
-/// la matière brute du test de vérité (Gate 2). Aucune action n'en découle.
-async fn journal_emissions(
-    db: Arc<Database>,
-    bus_signaux: engine::BusSignaux,
-    bus_evenements: engine::BusEvenements,
-) {
-    let mut rx_signaux = bus_signaux.abonner();
-    let mut rx_evenements = bus_evenements.abonner();
-    tracing::info!("📓 Journal des émissions live actif (table runtime_emissions)");
-
-    loop {
-        tokio::select! {
-            peut_etre = rx_signaux.recv() => {
-                match peut_etre {
-                    Ok(s) => {
-                        let tps = serde_json::to_string(&s.take_profits).unwrap_or_default();
-                        if let Err(e) = db.inserer_emission_signal(
-                            &s.moteur, s.asset.as_str(), s.tf.as_str(),
-                            format!("{:?}", s.direction), s.prix_entree, s.stop_loss,
-                            &tps, s.score, &s.raison, s.debut_barre, s.emis_le,
-                        ).await {
-                            tracing::warn!("Journal émissions (signal): {}", e);
-                        }
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        tracing::warn!("Journal émissions: {} signaux sautés", n);
-                    }
-                    Err(_) => return,
-                }
-            }
-            peut_etre = rx_evenements.recv() => {
-                match peut_etre {
-                    Ok(e) => {
-                        if let Err(err) = db.inserer_emission_evenement(
-                            &e.moteur, e.asset.as_str(), e.tf.as_str(),
-                            &e.cle_trade, format!("{:?}", e.evenement), &e.detail,
-                            e.prix, e.debut_barre, e.emis_le,
-                        ).await {
-                            tracing::warn!("Journal émissions (événement): {}", err);
-                        }
-                    }
-                    Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
-                        tracing::warn!("Journal émissions: {} événements sautés", n);
-                    }
-                    Err(_) => return,
-                }
-            }
         }
     }
 }

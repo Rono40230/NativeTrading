@@ -11,7 +11,6 @@ import { http } from './http.client'
 export interface WorkerConfig {
   timeframes: string[]
   historique_mois: number
-  actif_bybit: boolean
 }
 
 // ── Méthodes ──────────────────────────────────────────────────────────────────

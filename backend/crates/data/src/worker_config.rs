@@ -18,7 +18,6 @@ pub const CLE_TIMEFRAMES: &str = "worker_timeframes";
 /// Clé de configuration : profondeur d'historique en mois.
 pub const CLE_HISTORIQUE_MOIS: &str = "worker_historique_mois";
 /// Clé de configuration : worker Bybit activé ("0" = désactivé).
-pub const CLE_ACTIF_BYBIT: &str = "worker_actif_bybit";
 
 /// Profondeur d'historique par défaut (mois) — alignée sur la rétention
 /// 24 mois de la base (§12, 07/09 : harmonisé avec la valeur en base, la
@@ -77,15 +76,6 @@ pub async fn lire_timeframes(db: &Arc<Database>) -> Vec<Timeframe> {
             );
             Vec::new()
         }
-    }
-}
-
-/// Lit un flag d'activation worker. Absent ou illisible → actif (opt-out) ;
-/// la valeur "0" (trim) est le seul moyen de désactiver.
-pub async fn lire_actif(db: &Arc<Database>, cle: &str) -> bool {
-    match db.lire_config(cle).await {
-        Ok(Some(valeur)) => valeur.trim() != "0",
-        _ => true,
     }
 }
 
