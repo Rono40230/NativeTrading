@@ -50,6 +50,11 @@ pub const TFS: &[&str] = &["M1", "M5", "M15", "M30", "H1", "H4", "D1"];
 /// carnet CFD mince) et SOL subit une halte bi-mensuelle le samedi
 /// 08h00-09h00 UTC (60-68 min) ; 90 min absorbe également la pause
 /// quotidienne XAU 22h58→00h00 (62 min) côté mt5.
+/// D1, recalibré 26/10 : la fenêtre week-end+lundi est MESURÉE à 96 h —
+/// dernier bar = jour broker jeudi (session du vendredi Paris), le
+/// prochain (jour broker dimanche) ne clôture que lundi 21h00 UTC ; le
+/// seuil 50 h d'origine produisait 10 faux positifs chaque lundi. Un feed
+/// D1 réellement mort reste vu (M1/M5 alertent en premier ; D1 ≤ 100 h).
 fn seuil_tf(tf: &str) -> Option<i64> {
     Some(match tf {
         "M1" => 90,
@@ -58,7 +63,7 @@ fn seuil_tf(tf: &str) -> Option<i64> {
         "M30" => 75,
         "H1" => 150,
         "H4" => 540,
-        "D1" => 50 * 60,
+        "D1" => 100 * 60,
         _ => return None,
     })
 }
@@ -464,7 +469,7 @@ mod tests {
     }
 
     #[test]
-    fn d1_cloturee_crypto_38h_saine_morte_55h_alerte() {
+    fn d1_cloturee_crypto_38h_saine_morte_120h_alerte() {
         let maintenant = 1_000_000i64;
         let saine = auditer(
             &[("BTC".into(), "mt5".into(), true)],
@@ -475,11 +480,27 @@ mod tests {
         assert!(saine[0].anomalies.iter().all(|a| a.tf != "D1"));
         let morte = auditer(
             &[("BTC".into(), "mt5".into(), true)],
-            &carte(&[("BTC", "D1", maintenant - 55 * 3600)]),
+            &carte(&[("BTC", "D1", maintenant - 120 * 3600)]),
             maintenant,
             true,
         );
         assert!(morte[0].anomalies.iter().any(|a| a.tf == "D1"));
+    }
+
+    #[test]
+    fn d1_fenetre_weekend_lundi_95h_saine() {
+        // Mesuré 26/10 : chaque lundi, le dernier D1 non-crypto (jour broker
+        // jeudi) atteint 96 h d'âge juste avant la clôture du jour broker
+        // dimanche (lundi 21h00 UTC) — la fenêtre est SAINE (l'ancien seuil
+        // 50 h criait 10 faux positifs chaque lundi matin).
+        let maintenant = 1_000_000i64;
+        let etats = auditer(
+            &[("XAUUSD".into(), "mt5".into(), false)],
+            &carte(&[("XAUUSD", "D1", maintenant - 95 * 3600)]),
+            maintenant,
+            true,
+        );
+        assert!(etats[0].anomalies.iter().all(|a| a.tf != "D1"));
     }
 
     #[test]
