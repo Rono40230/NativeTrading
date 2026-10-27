@@ -44,6 +44,13 @@
         <span class="animate-pulse">Chargement des bougies...</span>
       </div>
       <div ref="chartContainer" class="w-full h-full" style="position: relative;" @dblclick="basculerPleinEcran" />
+      <!-- Décompte avant clôture de la bougie en cours (owner 26/10) — DANS
+           la colonne de l'axe des prix, sous l'étiquette du prix live, façon
+           TradingView. Masqué marché fermé (dernière bougie > 2 périodes). -->
+      <div v-if="decompteBougie"
+           class="absolute z-[5] py-0.5 text-[10px] font-mono tabular-nums text-cyan-200 pointer-events-none text-center"
+           :style="styleDecompte"
+           title="Temps restant avant la clôture de la bougie en cours">{{ decompteBougie }}</div>
       <!-- Barre d'outils de dessin + alertes — HORIZONTALE, bas-centre
            (18/09 : la version verticale superposée cachait le graphique) -->
       <div style="left: 50%; transform: translateX(-50%); bottom: 8px;" class="absolute z-20 flex flex-row items-center gap-1 px-1.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur border border-white/10 shadow-lg">
@@ -188,6 +195,61 @@ function configurerCrosshair() {
   getChart()?.subscribeCrosshairMove((param) => {
     timestampCurseur.value = param.time ? (param.time as number) : null
   })
+}
+
+// ── Décompte de la bougie en cours (owner 26/10) ─────────────────────────────
+const DUREES_TF_S: Record<string, number> = {
+  M1: 60, M5: 300, M10: 600, M15: 900, M30: 1_800,
+  H1: 3_600, H4: 14_400, D1: 86_400, W1: 604_800,
+}
+const decompteBougie = ref<string | null>(null)
+const styleDecompte = ref<Record<string, string>>({})
+let minuteurDecompte: ReturnType<typeof setInterval> | null = null
+
+function majDecompte() {
+  const bs = bougies.value
+  const duree = DUREES_TF_S[selectedTimeframe.value]
+  const derniere = bs?.[bs.length - 1]
+  if (!bs || !duree || !derniere) {
+    decompteBougie.value = null
+    return
+  }
+  const ts = Math.floor(new Date(derniere.timestamp).getTime() / 1000)
+  const maintenant = Math.floor(Date.now() / 1000)
+  // Marché fermé / flux muet : on masque plutôt que de décompter sur du figé.
+  if (maintenant - ts > 2 * duree) {
+    decompteBougie.value = null
+    return
+  }
+  // Grille ancrée sur la dernière bougie — JAMAIS sur l'heure UTC brute :
+  // les H4/D1/W1 suivent la grille broker Axi (même astuce que le
+  // compositeur tendance, traversée DST comprise).
+  let cloture = ts + duree
+  while (maintenant >= cloture) cloture += duree
+  const reste = cloture - maintenant
+  const h = Math.floor(reste / 3600)
+  const m = Math.floor((reste % 3600) / 60)
+  const s = reste % 60
+  decompteBougie.value = h > 0
+    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    : `${m}:${String(s).padStart(2, '0')}`
+  // Position : DANS la colonne de l'axe des prix, juste sous l'étiquette
+  // du prix live (largeur de l'axe, centré). Prix près du bas → au-dessus
+  // de l'étiquette pour ne pas sortir du graphique.
+  const chart = getChart()
+  const serie = getCandlestickSeries()
+  const prix = dernierPrix.value ?? derniere.close
+  const y = serie?.priceToCoordinate(prix) ?? null
+  if (!chart || y === null || !chartContainer.value) {
+    decompteBougie.value = null
+    return
+  }
+  const hauteur = chartContainer.value.clientHeight
+  const sous = Math.round(y) + 20
+  const auDessus = Math.round(y) - 30
+  styleDecompte.value = sous + 18 <= hauteur
+    ? { top: `${sous}px`, right: '0px', width: `${chart.priceScale('right').width()}px` }
+    : { top: `${Math.max(auDessus, 0)}px`, right: '0px', width: `${chart.priceScale('right').width()}px` }
 }
 
 async function chargerIndicateurs() {
@@ -350,11 +412,14 @@ watch(() => props.clePrefs, (nouvelle) => {
 onMounted(() => {
   minuteurOverlay = setInterval(rafraichirOverlayV12, 30_000)
   chargerAnnonces()
+  majDecompte()
+  minuteurDecompte = setInterval(majDecompte, 1_000)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', surEscape)
   if (minuteurOverlay !== null) clearInterval(minuteurOverlay)
+  if (minuteurDecompte !== null) clearInterval(minuteurDecompte)
   v12Overlay.detruire()
   dessins.detruire()
   alertesPrix.detruire()
