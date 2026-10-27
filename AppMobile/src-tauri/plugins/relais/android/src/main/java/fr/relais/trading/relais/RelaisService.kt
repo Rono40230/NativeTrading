@@ -177,6 +177,20 @@ class RelaisService : Service() {
         )
     }
 
+    /** Deep-link notif → détail (26/10) : l'intent d'ouverture porte l'id de
+     *  l'alerte ; le plugin le lit au retour au premier plan et l'app web
+     *  ouvre DetailAlerte. requestCode = id : chaque notif a la sienne. */
+    private fun ouvrirAlerte(id: Long): PendingIntent {
+        val i = packageManager.getLaunchIntentForPackage(packageName)
+            ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://localhost"))
+        i.putExtra("relais_alerte_id", id)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        return PendingIntent.getActivity(
+            this, id.toInt(), i,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
     private fun notifPermanente(texte: String): Notification =
         NotificationCompat.Builder(this, CANAL_PERMANENTE)
             .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
@@ -213,7 +227,7 @@ class RelaisService : Service() {
             .setContentTitle(a.optString("titre", "Alerte"))
             .setContentText(contexte)
             .setAutoCancel(true)
-            .setContentIntent(ouvrirApp())
+            .setContentIntent(ouvrirAlerte(id))
             .build()
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(id.toInt(), n)

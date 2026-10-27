@@ -140,16 +140,36 @@ onMounted(() => {
   void testerConnexion()
   void rafraichirBadges()
   demarrerRelaisSiVoulu()
+  void verifierNotifOuverte()
   minuteur = setInterval(() => {
     muette.value = muetteActive()
     void testerConnexion()
   }, 30_000)
   minuteurBadges = setInterval(() => void rafraichirBadges(), 60_000)
+  // Deep-link notif → détail : au retour au premier plan (notif tapée app
+  // déjà ouverte), l'id posé par l'intent est consommé et le détail s'ouvre.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) void verifierNotifOuverte()
+  })
 })
 onUnmounted(() => {
   if (minuteur) clearInterval(minuteur)
   if (minuteurBadges) clearInterval(minuteurBadges)
 })
+
+/// Notification qui a ouvert/ramené l'app → DetailAlerte. Consommé en
+/// un appel (l'id ne ré-ouvre pas le détail deux fois) ; hors Android le
+/// pont natif échoue silencieusement.
+async function verifierNotifOuverte() {
+  if (demo || !('__TAURI_INTERNALS__' in window)) return
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    const r = await invoke<{ id: number }>('plugin:relais|derniereNotif')
+    if (r && r.id > 0) ouvrirAlerte(r.id)
+  } catch {
+    // pont natif indisponible — rien à faire
+  }
+}
 
 /// Service Android en avant plan (owner 22/10 : notification garantie,
 /// même app fermée) : démarré dès l'ouverture sauf arrêt volontaire via

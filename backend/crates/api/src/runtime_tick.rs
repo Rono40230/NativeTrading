@@ -125,7 +125,9 @@ async fn boucle_runtime(
     mut runtime: Runtime,
     mut rx: mpsc::UnboundedReceiver<EvenementPrix>,
 ) {
-    // Watcher alertes prix (cache 60 s, vérifié à chaque prix live).
+    // Watcher alertes prix (vérifié à chaque prix live ; cache rechargé
+    // toutes les 10 s — owner 26/10 : une alerte fraîchement posée devient
+    // surveillée en ≤ 10 s au lieu de 60, latence bout en bout ≤ ~70 s).
     let mut cache_alertes = crate::alertes_prix::cache_vide();
     cache_alertes.recharger(&db).await;
     // Watcher approche des zones SMC (spec docs/spec_alertes_zones_smc.md) :
@@ -137,6 +139,8 @@ async fn boucle_runtime(
 
     let mut tick_config = tokio::time::interval(Duration::from_secs(RELECTURE_CONFIG_SEC));
     tick_config.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+    let mut tick_alertes = tokio::time::interval(Duration::from_secs(10));
+    tick_alertes.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
     // Timer straddle (A, owner 14/10) : 1 Hz indépendant des prix.
     let mut timer_straddle = crate::runtime_timer_straddle::TimerStraddle::new();
@@ -157,6 +161,9 @@ async fn boucle_runtime(
             _ = tick_straddle.tick() => {
                 timer_straddle.pulse(&db, &mut runtime).await;
             }
+            _ = tick_alertes.tick() => {
+                cache_alertes.recharger(&db).await;
+            }
             _ = tick_config.tick() => {
                 synchroniser_config(&db, &mut runtime).await;
                 // 18/09 — rattrapage des positions SMC orphelines (redémarrages)
@@ -171,7 +178,6 @@ async fn boucle_runtime(
                 // Garde fraîcheur (avertir jamais réparer) + relais mobile.
                 crate::fraicheur_pipeline::auditer_db(&db).await;
                 crate::mobile_relay::cycle(&db).await;
-                cache_alertes.recharger(&db).await;
                 config_zones = crate::alertes_zones::lire_config(&db).await;
             }
         }

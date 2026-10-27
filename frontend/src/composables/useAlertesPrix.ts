@@ -8,8 +8,9 @@
  * - GLISSER-DÉPOSER (owner 20/10) : attraper une ligne (±5 px) et la
  *   déplacer — la ligne suit en direct, le relâchement enregistre le nouveau
  *   niveau (PUT) avec le sens recalculé face au prix live.
- * - Poll 10 s : détection des déclenchées → notification OS + son, puis
- *   SUPPRESSION — une alerte atteinte n'apparaît plus nulle part.
+ * - Poll 10 s : détection des déclenchées → SUPPRESSION — une alerte
+ *   atteinte n'apparaît plus nulle part (notification = serveur, journal
+ *   universel + Telegram matricé).
  */
 import type { IChartApi, ISeriesApi, IPriceLine } from 'lightweight-charts'
 import { LineStyle } from 'lightweight-charts'
@@ -17,10 +18,8 @@ import { ref, computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import type { AlertePrix } from '@/services/api.alertes'
 import { useAlertesPrixStore } from '@/stores/alertesPrix.store'
-import { useNotification } from '@/composables/useNotification'
 
 export function useAlertesPrix() {
-  const { notifier } = useNotification()
   const store = useAlertesPrixStore()
   const { alertes } = storeToRefs(store)
 
@@ -78,22 +77,18 @@ export function useAlertesPrix() {
     }
   }
 
-  // ── Poll + notifications ────────────────────────────────────────────────────
+  // ── Poll + nettoyage ────────────────────────────────────────────────────────
   async function recharger() {
     await store.recharger() // liste partagée (store) + rattrapage >2 min
-    // Déclenchée détectée → notification (son + OS, si fraîche et sur l'asset
-    // du chart) PUIS SUPPRESSION : une alerte atteinte disparaît de partout
-    // (graphique, bloc dashboard, base). Fraîche < 60 s : pas de son en
-    // retard à l'ouverture d'un chart sur une vieille alerte.
+    // Déclenchée détectée → SUPPRESSION : une alerte atteinte disparaît de
+    // partout (graphique, bloc dashboard, base). La NOTIFICATION vit côté
+    // serveur (watcher runtime → journal universel + Telegram matricé) —
+    // plus de son/OS direct ici (doublon retiré 26/10).
     const aSupprimer: number[] = []
     for (const a of alertes.value) {
       if (!a.active && a.declenchee_le && !dejaNotifiees.has(a.id)) {
         dejaNotifiees.add(a.id)
         aSupprimer.push(a.id)
-        if (a.asset === asset && Date.now() / 1000 - a.declenchee_le < 60) {
-          const sens = a.sens === 'au_dessus' ? 'est monté à' : 'est descendu à'
-          void notifier(`🔔 Alerte prix — ${a.asset}`, `${a.asset} ${sens} ${a.prix.toFixed(2)}`, { son: true, urgence: 'normal' })
-        }
       }
     }
     if (aSupprimer.length) await store.supprimerPlusieurs(aSupprimer)
