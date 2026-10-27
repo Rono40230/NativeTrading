@@ -192,6 +192,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::latents::latents),
         )
         .route(
+            "/api/smc/structure-mtf",
+            web::get().to(crate::structure_mtf::get_structure_mtf),
+        )
+        .route(
             "/api/smc/v12/analyse",
             web::get().to(crate::smc_v12_handlers::analyse_v12),
         )

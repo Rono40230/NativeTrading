@@ -12,6 +12,7 @@ mod alertes_canaux;
 mod alertes_prix;
 mod alertes_zones;
 mod obia_alerteur;
+mod structure_mtf;
 mod assets_garde;
 mod fraicheur_pipeline;
 mod mobile_relay;
