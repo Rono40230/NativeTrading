@@ -60,7 +60,7 @@ export interface AnalyseStrategie {
   /** Σ R DISTANCE (23/09) — LE R affiché : juge la stratégie. */
   r_distance_total: number
   /** Clôtures individuelles (R distance + $ par trade). */
-  clotures: { id: string; verdict: string; r_distance: number; dollars: number }[]
+  clotures: { id: string; verdict: string; r_distance: number; dollars: number; capital_apres: number }[]
   /** R encaissé moyen par clôture (r_total / nb_trades). */
   r_moyen: number
   /** Part des clôtures perdantes ($ < 0) — 0-1. */

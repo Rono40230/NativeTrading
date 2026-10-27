@@ -28,6 +28,10 @@ pub struct ClotureExpose {
     pub verdict: String,
     pub r_distance: f64,
     pub dollars: f64,
+    /// Capital composé APRÈS cette clôture — servi par le rejeu unique
+    /// (27/10 : l'historique recomposait en front sur la fenêtre tronquée
+    /// des 500 signaux → capitaux faux au-delà ; il lit maintenant ceci).
+    pub capital_apres: f64,
 }
 
 /// Une clôture normalisée — l'unité d'analyse (un trade qui a engagé du
@@ -48,6 +52,9 @@ pub(crate) struct ClotureAnalyse {
     pub(crate) r_distance: f64,
     /// Profit/perte $ composé (variation du capital simulé à cette clôture).
     pub(crate) dollars: f64,
+    /// Capital composé APRÈS cette clôture (rejeu unique — servi à
+    /// l'historique des trades, 27/10 : fin de la recomposition front).
+    pub(crate) capital_apres: f64,
     /// Clé moteur (straddle) — catégorisation par événement.
     pub(crate) cle_moteur: Option<String>,
 }
@@ -189,6 +196,7 @@ async fn collecter(
                     r: p.r_pondere,
                     r_distance: p.r_distance,
                     dollars: p.profit,
+                    capital_apres: p.capital_apres,
                     cle_moteur: p.cle_moteur.clone(),
                 })
                 .collect();
@@ -450,6 +458,7 @@ pub async fn analyser(db: &Arc<db::Database>, id: &str) -> AnalyseStrategie {
                 verdict: c.verdict.clone(),
                 r_distance: c.r_distance,
                 dollars: c.dollars,
+                capital_apres: c.capital_apres,
             })
             .collect(),
         r_moyen,
@@ -533,59 +542,11 @@ fn croise_asset_tf(clotures: &[ClotureAnalyse]) -> Vec<ParAssetTf> {
     out
 }
 
-/// GET /api/analyses — vue d'ensemble : une ligne par stratégie active.
-pub async fn get_analyses(state: web::Data<AppState>) -> impl actix_web::Responder {
-    let ids: Vec<&str> = crate::registre_strategies::MANIFESTES
-        .iter()
-        .map(|m| m.id)
-        .collect();
-    let mut liste = Vec::with_capacity(ids.len());
-    for id in ids {
-        let a = analyser(&state.db, id).await;
-        liste.push(serde_json::json!({
-            "strategie": a.strategie,
-            "etat": a.etat,
-            "source": a.source,
-            "nb_trades": a.nb_trades,
-            "capital_depart": a.capital_depart,
-            "capital_actuel": a.capital_actuel,
-            "r_total": a.r_total,
-            "r_distance_total": a.r_distance_total,
-            "recalcul": a.recalcul,
-            "taux_reussite": a.taux_reussite,
-            "hier": a.hier,
-        }));
-    }
-    HttpResponse::Ok().json(serde_json::json!({ "strategies": liste }))
-}
+// ── Handlers HTTP — module dédié analyses_http.rs (garde-fou 600 lignes) ──
+#[path = "analyses_http.rs"]
+mod http;
 
-/// GET /api/analyses/{strategie}/historique — snapshots quotidiens persistés
-/// (§14 : évolution des métriques et des avis IA jour après jour).
-pub async fn get_historique_analyses(
-    state: web::Data<AppState>,
-    path: web::Path<String>,
-) -> impl actix_web::Responder {
-    let id = path.into_inner();
-    if !crate::registre_strategies::MANIFESTES.iter().any(|m| m.id == id) {
-        return HttpResponse::NotFound()
-            .json(serde_json::json!({ "error": "Stratégie inconnue" }));
-    }
-    match state.db.lister_analyses_snapshots(&id, 60).await {
-        Ok(snapshots) => HttpResponse::Ok().json(serde_json::json!({ "snapshots": snapshots })),
-        Err(e) => HttpResponse::InternalServerError()
-            .json(serde_json::json!({ "error": e.to_string() })),
-    }
-}
-
-/// GET /api/analyses/{strategie} — analyse complète d'une stratégie.
-pub async fn get_analyse(state: web::Data<AppState>, path: web::Path<String>) -> impl actix_web::Responder {
-    let id = path.into_inner();
-    if !crate::registre_strategies::MANIFESTES.iter().any(|m| m.id == id) {
-        return HttpResponse::NotFound()
-            .json(serde_json::json!({ "error": "Stratégie inconnue" }));
-    }
-    HttpResponse::Ok().json(analyser(&state.db, &id).await)
-}
+pub use http::{get_analyses, get_analyse, get_historique_analyses};
 
 #[cfg(test)]
 #[path = "analyses/analyses_tests.rs"]

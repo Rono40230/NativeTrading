@@ -27,20 +27,12 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
   const profitParId = ref<Record<string, number>>({})
   /** Capital de départ de la stratégie (re-jeu capital). */
   const capitalDepart = ref<number | null>(null)
-  /** Capital composé APRÈS chaque clôture (ordre chronologique) — variante kdj. */
-  const capitalApresParId = computed<Record<string, number>>(() => {
-    if (capitalDepart.value === null) return {}
-    const fermes = signauxFiltres.value
-      .filter(s => s.ferme_le !== null && profitParId.value[s.id] !== undefined)
-      .sort((a, b) => (a.ferme_le! - b.ferme_le!))
-    const carte: Record<string, number> = {}
-    let capital = capitalDepart.value
-    for (const s of fermes) {
-      capital += profitParId.value[s.id]
-      carte[s.id] = capital
-    }
-    return carte
-  })
+  /** Capital composé APRÈS chaque clôture — servi par le rejeu unique du
+   *  backend (capital_apres par point). 27/10 : l'historique recomposait
+   *  cette courbe en front sur la fenêtre tronquée des 500 derniers
+   *  signaux → capitaux faux dès qu'une stratégie dépassait la fenêtre
+   *  (SMC 180/650 visibles, rockets 1/10). Une seule source désormais. */
+  const capitalApresParId = ref<Record<string, number>>({})
 
   // ── Tri par colonne (HistoryTable émet « trier-par ») ────────────────────
   const triColonne = ref('')
@@ -155,6 +147,9 @@ export function useHistoriqueStrategie(cle: CleStrategie) {
         const carte: Record<string, number> = {}
         for (const c of analyse?.clotures ?? []) carte[c.id] = c.dollars
         profitParId.value = carte
+        const capitaux: Record<string, number> = {}
+        for (const c of analyse?.clotures ?? []) capitaux[c.id] = c.capital_apres
+        capitalApresParId.value = capitaux
         capitalDepart.value = analyse?.capital_depart ?? null
         // Totaux du vécu complet (écart 9) — mêmes valeurs que le dashboard.
         if (analyse?.nb_trades && analyse.r_distance_total !== undefined) {
