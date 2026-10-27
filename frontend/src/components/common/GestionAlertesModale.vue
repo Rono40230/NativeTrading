@@ -50,6 +50,7 @@ const sections = [
       { famille: 'presse_100', emoji: '📰', libelle: 'Gros titre presse marquant', canaux: ['app', 'telegram', 'mobile'] },
       { famille: 'smc_approche', emoji: '📍', libelle: 'SMC — approche de zone armée', canaux: ['app', 'telegram', 'mobile'] },
       { famille: 'smc_contact', emoji: '🎯', libelle: 'SMC — contact de zone', canaux: ['app', 'telegram', 'mobile'] },
+      { famille: 'obia_contact', emoji: '🧿', libelle: 'OBIA — contact de zone (espion, H4/D)', canaux: ['app', 'telegram', 'mobile'] },
       { famille: 'alerte_prix', emoji: '🔔', libelle: 'Alerte prix déclenchée', canaux: ['app', 'telegram', 'mobile'] },
     ],
   },

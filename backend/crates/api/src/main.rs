@@ -11,6 +11,7 @@ mod asset_params_handlers;
 mod alertes_canaux;
 mod alertes_prix;
 mod alertes_zones;
+mod obia_alerteur;
 mod assets_garde;
 mod fraicheur_pipeline;
 mod mobile_relay;
@@ -229,6 +230,9 @@ async fn main() -> std::io::Result<()> {
         });
     }
     tokio::spawn(rockets_unlocks::boucle(app_state.db.clone()));
+    // OBIA P2 étape 1 (GO owner 26/10) : alerteur clôture H4/D × toucher de
+    // zone du panneau espion — dormant tant que l'espion n'écrit pas.
+    tokio::spawn(obia_alerteur::boucle(app_state.db.clone()));
     // Tâche 6.4 audit : notation LLM des articles restés à 0 (backlog au
     // boot puis balayage toutes les 6 h) — scores bornés à 1 pour ne jamais
     // re-boucler sur un article déjà noté.
