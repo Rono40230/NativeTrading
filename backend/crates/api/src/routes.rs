@@ -200,6 +200,10 @@ pub fn configurer(cfg: &mut web::ServiceConfig) {
             web::get().to(crate::smc_v12_handlers::analyse_v12),
         )
         .route(
+            "/api/smc/v12/ote-frise",
+            web::get().to(crate::smc_v12_frise::ote_frise),
+        )
+        .route(
             "/api/strategies/{id}/reglages-asset/{asset}",
             web::get().to(crate::reglages_asset_http::get_reglages),
         )

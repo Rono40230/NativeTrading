@@ -27,7 +27,7 @@
  */
 import type { IChartApi, ISeriesApi } from 'lightweight-charts'
 import { apiService } from '@/services/api.service'
-import type { SmcV12Analyse } from '@/services/api.smc'
+import type { SmcV12Analyse, SwingOteV12 } from '@/services/api.smc'
 import { useSettingsStore } from '@/stores/settings.store'
 import {
   dessinerTendance,
@@ -84,6 +84,9 @@ export function useSmcV12Overlay() {
   let signauxPersistes: { tf: string; entry: number }[] = []
   let tfCourant: string | null = null
   let tendance: 'haussiere' | 'baissiere' | 'neutre' = 'neutre'
+  // Replay par période : frise des états OTE — le curseur avance en local,
+  // zéro requête par pas (owner 28/10 « version 2 »).
+  let friseEtats: { ts: number; zone: SwingOteV12 | null }[] = []
   // Indicateurs v12 étendus (13 types supplémentaires).
   let donneesExt: DonneesV12Etendues = donneesV12EtenduesVides()
 
@@ -246,12 +249,15 @@ export function useSmcV12Overlay() {
     planifierRedessiner()
   }
 
-  async function charger(asset: string, timeframe: string, limit = 500, dernierTimestamp?: number) {
+  /** Charge les données v12 depuis l'API et déclenche le redessin.
+   *  `instant` (secondes Unix) = replay à un instant passé. */
+  async function charger(asset: string, timeframe: string, limit = 500, dernierTimestamp?: number, instant?: number) {
     dernierTsRef = dernierTimestamp ?? null
     tfCourant = timeframe
+    friseEtats = []
     let data: SmcV12Analyse | null = null
     try {
-      data = await apiService.getSmcV12Analyse(asset, timeframe, limit)
+      data = await apiService.getSmcV12Analyse(asset, timeframe, limit, instant)
     } catch {
       data = null
     }
@@ -329,7 +335,35 @@ export function useSmcV12Overlay() {
     planifierRedessiner()
   }
 
+  /** Replay par période : UN chargement pour toute la période (analyse à
+   *  l'instant fin + frise OTE), puis avancerCurseur() fait le reste en local. */
+  async function chargerReplay(asset: string, timeframe: string, limit: number, curseurTs: number, finTs: number, debutTs: number) {
+    await charger(asset, timeframe, limit, curseurTs, finTs)
+    try {
+      const frise = await apiService.getSmcV12OteFrise(asset, timeframe, debutTs, finTs)
+      friseEtats = frise.etats
+    } catch {
+      friseEtats = []
+    }
+    avancerCurseur(curseurTs)
+  }
+
+  /** Curseur du replay période : bord droit + zone OTE de la frise à l'instant. */
+  function avancerCurseur(ts: number) {
+    dernierTsRef = ts
+    if (friseEtats.length > 0) {
+      let zone: SwingOteV12 | null = null
+      for (const e of friseEtats) {
+        if (e.ts <= ts) zone = e.zone
+        else break
+      }
+      donneesExt = { ...donneesExt, swing_ote: zone }
+    }
+    planifierRedessiner()
+  }
+
   function effacer() {
+    friseEtats = []
     pivots = []
     bos = []
     mss = []
@@ -372,5 +406,5 @@ export function useSmcV12Overlay() {
     planifierRedessiner()
   }
 
-  return { initialiser, charger, definirTradesExternes, definirSignauxPersistes, effacer, detruire, setDernierTs, redessiner: planifierRedessiner }
+  return { initialiser, charger, chargerReplay, avancerCurseur, definirTradesExternes, definirSignauxPersistes, effacer, detruire, setDernierTs, redessiner: planifierRedessiner }
 }

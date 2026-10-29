@@ -11,6 +11,10 @@
       @dblclick="basculerPleinEcran">
       <span class="font-bold text-white">{{ asset }}</span>
       <span class="px-1.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] font-semibold">{{ timeframe }}</span>
+      <span v-if="replayActif" class="px-1.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-semibold"
+        :title="`Replay figé au ${new Date((props.replayInstant ?? 0) * 1000).toLocaleString('fr-FR')}`">
+        ⏱ {{ new Date((props.replayInstant ?? 0) * 1000).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) }}
+      </span>
       <span class="font-mono tabular-nums ml-1" :class="variation >= 0 ? 'text-emerald-400' : 'text-red-400'">
         {{ dernierPrix !== null ? dernierPrix.toLocaleString('fr-FR', { maximumFractionDigits: 2 }) : '—' }}
       </span>
@@ -141,6 +145,13 @@ const props = defineProps<{
   avecSousGraphes: boolean
   /** Incrémenté par le parent à chaque « Appliquer » du panneau d'indicateurs. */
   clePrefs: number
+  /** Replay (secondes Unix, undefined = direct) : figer la cellule à un
+   *  instant passé — bougies clôturées ≤ instant, flux live suspendu. */
+  replayInstant?: number
+  /** Replay par PÉRIODE (owner 28/10 v2) : début + fin — la cellule charge
+   *  une seule fois analyse(fin) + frise OTE, puis suit le curseur local. */
+  replayDebut?: number
+  replayFin?: number
 }>()
 defineEmits<{ (e: 'activer'): void }>()
 
@@ -157,12 +168,29 @@ const atrContainer = ref<HTMLElement | null>(null)
 const bougies = computed(() =>
   marketStore.getBougies(selectedAsset.value, selectedTimeframe.value)
 )
-const { dernierPrix, variation } = useChartStats(bougies)
+
+// ── Replay : tranche figée aux bougies CLÔTURÉES avant l'instant ─────────────
+// Le flux live continue d'écrire dans le store, mais les barres postérieures
+// à l'instant n'entrent jamais dans la tranche → graphique figé naturellement.
+const replayActif = computed(() => (props.replayInstant ?? 0) > 0)
+/// Période animée : curseur + fin définis → chargement unique puis local.
+const modePeriode = computed(
+  () => replayActif.value && (props.replayFin ?? 0) > 0 && (props.replayDebut ?? 0) > 0)
+const bougiesAffichees = computed(() => {
+  const bs = bougies.value
+  if (!replayActif.value || bs.length === 0) return bs
+  const borneMs = (props.replayInstant as number) * 1000
+  const tfMs = (DUREES_TF_S[selectedTimeframe.value] ?? 60) * 1000
+  const coupe = bs.findIndex(b => new Date(b.timestamp).getTime() + tfMs > borneMs)
+  return coupe === -1 ? bs : bs.slice(0, coupe)
+})
+
+const { dernierPrix, variation } = useChartStats(bougiesAffichees)
 
 const {
   initChart, mettreAJourSerie, mettreAJourEnDirect, detruireChart,
   configurerRedimensionnement, arreterRedimensionnement, getChart, getCandlestickSeries,
-} = useChartTradingView(chartContainer, bougies)
+} = useChartTradingView(chartContainer, bougiesAffichees)
 
 const { chargerEtAppliquer, reinitialiser } = useChartIndicators()
 const v12Overlay = useSmcV12Overlay()
@@ -207,7 +235,7 @@ const styleDecompte = ref<Record<string, string>>({})
 let minuteurDecompte: ReturnType<typeof setInterval> | null = null
 
 function majDecompte() {
-  const bs = bougies.value
+  const bs = bougiesAffichees.value
   const duree = DUREES_TF_S[selectedTimeframe.value]
   const derniere = bs?.[bs.length - 1]
   if (!bs || !duree || !derniere) {
@@ -261,18 +289,27 @@ async function chargerIndicateurs() {
   if (chartContainer.value && serie) dessins.initialiser(chart, serie, chartContainer.value, selectedAsset.value)
   if (serie) alertesPrix.initialiser(chart, serie, selectedAsset.value, chartContainer.value ?? undefined)
   if (chartContainer.value) ecoCalInit(chart, chartContainer.value)
-  const derniereB = bougies.value?.[bougies.value.length - 1]
+  const derniereB = bougiesAffichees.value?.[bougiesAffichees.value.length - 1]
   const tsSecV12 = derniereB ? Math.floor(new Date(derniereB.timestamp).getTime() / 1000) : undefined
-  void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), tsSecV12)
-  void chargerTradesExternes()
+  if (modePeriode.value) {
+    void v12Overlay.chargerReplay(
+      selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value),
+      props.replayInstant as number, props.replayFin as number, props.replayDebut ?? (props.replayInstant as number))
+  } else {
+    void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), tsSecV12, props.replayInstant)
+  }
+  // Replay : les trades ACTIFS du présent n'ont pas leur place sur un
+  // graphique figé au passé — on vide et on ne recharge pas.
+  if (replayActif.value) v12Overlay.definirTradesExternes([])
+  else void chargerTradesExternes()
   await chargerEtAppliquer(
     chart, selectedAsset.value, selectedTimeframe.value, settingsStore.indicateurs,
     avecSousGraphes.value ? rsiContainer.value : null,
     avecSousGraphes.value ? macdContainer.value : null,
     avecSousGraphes.value ? atrContainer.value : null,
     serie,
-    (data) => {
-      const derniereB2 = bougies.value?.[bougies.value.length - 1]
+      (data) => {
+      const derniereB2 = bougiesAffichees.value?.[bougiesAffichees.value.length - 1]
       const tsMs = derniereB2 ? new Date(derniereB2.timestamp).getTime() : null
       const tsSec = tsMs ? Math.floor(tsMs / 1000) : undefined
       v12Overlay.setDernierTs(tsSec)
@@ -282,7 +319,7 @@ async function chargerIndicateurs() {
 const avecSousGraphes = computed(() => props.avecSousGraphes)
 
 const { changerAsset, changerTimeframe } = useChartOrchestration({
-  selectedAsset, selectedTimeframe, bougies,
+  selectedAsset, selectedTimeframe, bougies: bougiesAffichees,
   indicateurs: ref(settingsStore.indicateurs),
   getChart, getCandlestickSeries,
   smcMettreAJourZones: (_data, _prefs, ts) => {
@@ -290,18 +327,22 @@ const { changerAsset, changerTimeframe } = useChartOrchestration({
     dessins.definirDernierBougie(ts ?? null)
   },
   chargerEtAppliquer,
-  mettreAJourSerie, mettreAJourEnDirect,
+  // Replay : la poussée live (wsMiseAJour) est bloquée — la tranche figée
+  // est la seule source de vérité de la série.
+  mettreAJourSerie, mettreAJourEnDirect: (b) => { if (!replayActif.value) mettreAJourEnDirect(b) },
   initChart, detruireChart, reinitialiser,
   configurerCrosshair, chargerIndicateurs,
   configurerRedimensionnement, arreterRedimensionnement,
 })
 
 /// Rafraîchit l'overlay v12 (trades vivants) sans recharger les bougies.
+/// Période rejouée : tout est local (frise) — aucun re-fetch réseau.
 function rafraichirOverlayV12() {
-  const derniereB = bougies.value?.[bougies.value.length - 1]
+  if (modePeriode.value) return
+  const derniereB = bougiesAffichees.value?.[bougiesAffichees.value.length - 1]
   const tsSec = derniereB ? Math.floor(new Date(derniereB.timestamp).getTime() / 1000) : undefined
-  void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), tsSec)
-  void chargerTradesExternes()
+  void v12Overlay.charger(selectedAsset.value, selectedTimeframe.value, limitPourTimeframe(selectedTimeframe.value), tsSec, props.replayInstant)
+  if (!replayActif.value) void chargerTradesExternes()
 }
 
 /// Trades MULTI-TF : les signaux ouverts du même actif sur les AUTRES
@@ -407,6 +448,18 @@ watch(() => props.timeframe, (nouveau) => {
 // Préférences d'indicateurs appliquées (panneau global) → recharger.
 watch(() => props.clePrefs, (nouvelle) => {
   if (nouvelle > 0) void chargerIndicateurs()
+})
+// Replay instant : rechargement complet. Période : UN chargement à l'entrée
+// (ou changement de période), puis le curseur avance en local via la frise.
+let dernierFinPeriode: number | null = null
+watch([() => props.replayInstant, () => props.replayFin], ([inst, fin]) => {
+  if ((fin ?? 0) > 0 && (inst ?? 0) > 0) {
+    if (fin === dernierFinPeriode) v12Overlay.avancerCurseur(inst as number)
+    else { dernierFinPeriode = fin ?? null; void chargerIndicateurs() }
+  } else {
+    dernierFinPeriode = null
+    void chargerIndicateurs()
+  }
 })
 
 onMounted(() => {

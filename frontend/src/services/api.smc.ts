@@ -244,6 +244,22 @@ export interface SmcV12Analyse {
   impulsions?: ImpRangeV12[]
 }
 
+/** Frise des états OTE d'une période (replay animé — un seul appel,
+ *  owner 28/10 « version 2 ») : état au curseur = dernier ts ≤ curseur. */
+export interface OteFriseEtat {
+  /** Barre à partir de laquelle cet état tient. */
+  ts: number
+  zone: SwingOteV12 | null
+}
+export interface OteFrise {
+  asset: string
+  timeframe: string
+  debut: number
+  fin: number
+  nb_bougies: number
+  etats: OteFriseEtat[]
+}
+
 export const apiSmcMethods = {
   async getSmcMonitoringML(): Promise<SmcMonitoringData> {
     const res = await http.get('/api/smc/monitoring-ml', { timeout: 10000 })
@@ -255,10 +271,21 @@ export const apiSmcMethods = {
     return res.data
   },
 
-  /** Replay complet du moteur SMC v12 (pivots/BOS/MSS/OB/FVG/signals). */
-  async getSmcV12Analyse(asset: string, timeframe: string, limit = 500): Promise<SmcV12Analyse> {
+  /** Replay complet du moteur SMC v12 (pivots/BOS/MSS/OB/FVG/signals).
+   *  `instant` (secondes Unix) = rejouer l'état du moteur à un instant passé
+   *  (backend : seules les bougies clôturées ≤ instant sont servies). */
+  async getSmcV12Analyse(asset: string, timeframe: string, limit = 500, instant?: number): Promise<SmcV12Analyse> {
     const res = await http.get('/api/smc/v12/analyse', {
-      params: { asset, timeframe, limit },
+      params: { asset, timeframe, limit, ...(instant ? { instant } : {}) },
+      timeout: 30000,
+    })
+    return res.data
+  },
+
+  /** Frise des états OTE d'une période — nourrit l'animation locale du replay. */
+  async getSmcV12OteFrise(asset: string, timeframe: string, debut: number, fin: number, limit = 1000): Promise<OteFrise> {
+    const res = await http.get('/api/smc/v12/ote-frise', {
+      params: { asset, timeframe, debut, fin, limit },
       timeout: 30000,
     })
     return res.data

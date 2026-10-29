@@ -26,6 +26,9 @@ pub(crate) struct V12Query {
     pub asset: String,
     pub timeframe: Option<String>,
     pub limit: Option<u32>,
+    /// Replay (secondes Unix) : rejouer le moteur à un instant passé —
+    /// seules les bougies CLÔTURÉES ≤ instant sont servies.
+    pub instant: Option<i64>,
 }
 
 // ── Structs de sérialisation (indicateurs originaux) ─────────────────────────
@@ -203,6 +206,21 @@ pub(crate) struct SwingOteOut {
     pub ts_naissance: i64,
     pub pivot_haut: SwingAnchorOut,
     pub pivot_bas: SwingAnchorOut,
+}
+
+impl SwingOteOut {
+    /// Conversion depuis la zone moteur (partagée analyse + frise replay).
+    pub(crate) fn depuis(z: smc::v12::SwingOteZone) -> Self {
+        Self {
+            dir: if z.bearish { "bear" } else { "bull" },
+            top: z.top,
+            bot: z.bot,
+            mid: z.mid,
+            ts_naissance: z.ts_naissance,
+            pivot_haut: SwingAnchorOut { prix: z.haut.prix, ts: z.haut.ts },
+            pivot_bas: SwingAnchorOut { prix: z.bas.prix, ts: z.bas.ts },
+        }
+    }
 }
 
 /// État final Premium/Discount (équilibrium ICT + plage du dernier dealing range).

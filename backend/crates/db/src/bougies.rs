@@ -184,6 +184,37 @@ impl Database {
         Ok(bougies)
     }
 
+    /// Récupère les N dernières bougies d'ouverture ≤ `cutoff` (replay) —
+    /// l'appelant passe `instant − durée_tf` pour ne rejouer que des bougies
+    /// CLÔTURÉES avant l'instant demandé.
+    pub async fn obtenir_bougies_avant(
+        &self,
+        asset: &Asset,
+        timeframe: &Timeframe,
+        limit: i64,
+        cutoff: i64,
+    ) -> Result<Vec<Candle>> {
+        let rows = sqlx::query(
+            "SELECT timestamp, open, high, low, close, volume
+             FROM bougies
+             WHERE asset = ? AND timeframe = ? AND timestamp <= ?
+             ORDER BY timestamp DESC
+             LIMIT ?",
+        )
+        .bind(asset.as_str())
+        .bind(timeframe.as_str())
+        .bind(cutoff)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|e| TradingError::Database(e.to_string()))?;
+
+        let mut bougies: Vec<Candle> = rows.iter().filter_map(decode_candle).collect();
+
+        bougies.reverse(); // DESC → ASC
+        Ok(bougies)
+    }
+
     /// Récupère les N dernières bougies réelles pour les charts (exclut source='mt5').
     /// À utiliser exclusivement pour l'affichage graphique.
     pub async fn obtenir_bougies_chart(

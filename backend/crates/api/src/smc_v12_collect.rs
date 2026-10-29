@@ -354,21 +354,7 @@ pub(crate) fn collect_final_extended(
 
     // ── OTE swing institutionnelle (spec 08/10 § 2.2) : zone vivante unique,
     //    jamais d'historique figé (supprimée au premier toucher / jambe). ──
-    let swing_ote = engine.swing_ote.zone().map(|z| SwingOteOut {
-        dir: if z.bearish { "bear" } else { "bull" },
-        top: z.top,
-        bot: z.bot,
-        mid: z.mid,
-        ts_naissance: z.ts_naissance,
-        pivot_haut: SwingAnchorOut {
-            prix: z.haut.prix,
-            ts: z.haut.ts,
-        },
-        pivot_bas: SwingAnchorOut {
-            prix: z.bas.prix,
-            ts: z.bas.ts,
-        },
-    });
+    let swing_ote = engine.swing_ote.zone().map(SwingOteOut::depuis);
 
     // ── Premium/Discount (état final) ──
     let pd_ev = engine.premium_discount.last_event();

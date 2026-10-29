@@ -22,18 +22,48 @@ use crate::smc_v12_out::*;
 use crate::state::AppState;
 use crate::utils::{parse_asset, parse_timeframe};
 
-/// GET /api/smc/v12/analyse?asset=XAUUSD&timeframe=M15&limit=500
+/// Durée d'un timeframe en secondes (bornage du replay `instant`).
+pub(crate) fn duree_tf_s(tf: &common::Timeframe) -> i64 {
+    use common::Timeframe;
+    match tf {
+        Timeframe::M1 => 60,
+        Timeframe::M5 => 300,
+        Timeframe::M10 => 600,
+        Timeframe::M15 => 900,
+        Timeframe::M30 => 1_800,
+        Timeframe::H1 => 3_600,
+        Timeframe::H4 => 14_400,
+        Timeframe::D1 => 86_400,
+        Timeframe::W1 => 604_800,
+    }
+}
+
+/// GET /api/smc/v12/analyse?asset=XAUUSD&timeframe=M15&limit=500[&instant=<unix>]
 ///
 /// Replay complet du moteur v12 sur les `limit` dernières bougies clôturées.
+/// Avec `instant` : rejoue l'état du moteur À CET INSTANT (bougies clôturées
+/// ≤ instant uniquement, amorce MTF tronquée pareil).
 /// Amorce MTF : charge H1/H4/W1 (+ D1 agrégée en MN) depuis la DB et convertit
 /// en `BarInput` pour `engine.primer_mtf`. Échec DB → listes vides (replay
 /// dégradé façon ancienne, jamais d'erreur 500).
 pub(crate) async fn charger_amorce_mtf(
     db: &db::Database,
     asset: &common::Asset,
+    instant: Option<i64>,
 ) -> (Vec<BarInput>, Vec<BarInput>, Vec<BarInput>, Vec<BarInput>) {
     use common::Timeframe;
     const MAX_BARS: i64 = 600; // = MAX_HTF_BARS du moteur (FIFO)
+
+    /// En replay : ne garde que les bougies CLÔTURÉES avant l'instant.
+    fn tronque(v: Vec<common::Candle>, duree_s: i64, instant: Option<i64>) -> Vec<common::Candle> {
+        match instant {
+            Some(i) => v
+                .into_iter()
+                .filter(|b| b.timestamp.timestamp() + duree_s <= i)
+                .collect(),
+            None => v,
+        }
+    }
 
     let vers_bars = |bougies: Vec<common::Candle>| -> Vec<BarInput> {
         bougies
@@ -49,24 +79,36 @@ pub(crate) async fn charger_amorce_mtf(
             .collect()
     };
 
-    let h1 = db
-        .obtenir_bougies(asset, &Timeframe::H1, MAX_BARS)
-        .await
-        .unwrap_or_default();
-    let h4 = db
-        .obtenir_bougies(asset, &Timeframe::H4, MAX_BARS)
-        .await
-        .unwrap_or_default();
-    let w1 = db
-        .obtenir_bougies(asset, &Timeframe::W1, MAX_BARS)
-        .await
-        .unwrap_or_default();
+    let h1 = tronque(
+        db.obtenir_bougies(asset, &Timeframe::H1, MAX_BARS)
+            .await
+            .unwrap_or_default(),
+        3_600,
+        instant,
+    );
+    let h4 = tronque(
+        db.obtenir_bougies(asset, &Timeframe::H4, MAX_BARS)
+            .await
+            .unwrap_or_default(),
+        14_400,
+        instant,
+    );
+    let w1 = tronque(
+        db.obtenir_bougies(asset, &Timeframe::W1, MAX_BARS)
+            .await
+            .unwrap_or_default(),
+        604_800,
+        instant,
+    );
     // D1 plus profond (2000 ≈ 5,5 ans) : agrégée en MN, la profondeur
     // mensuelle alimente la confluence +6 (FIFO 600 du moteur la borne).
-    let d1 = db
-        .obtenir_bougies(asset, &Timeframe::D1, 2000)
-        .await
-        .unwrap_or_default();
+    let d1 = tronque(
+        db.obtenir_bougies(asset, &Timeframe::D1, 2000)
+            .await
+            .unwrap_or_default(),
+        86_400,
+        instant,
+    );
 
     (
         vers_bars(h1),
@@ -93,26 +135,63 @@ pub async fn analyse_v12(
     let asset_str = asset.as_str();
     let tf_str = timeframe.as_str();
 
+    // Replay `instant` : borne sur l'OUVERTURE des bougies = instant − durée
+    // du TF → seules les bougies clôturées avant l'instant rejouent le moteur.
+    let instant = query.instant.filter(|i| *i > 0);
+    let cutoff = instant.map(|i| i - duree_tf_s(&timeframe));
+
     // M10 : VISUEL SEUL — pas de stockage propre (même convention que
     // get_candles/indicators) : agrégé sans perte depuis les M1. Si M10
     // entre un jour au pipeline, la série stockée sera servie telle quelle.
     let bougies = if timeframe == common::Timeframe::M10 {
-        let stockees = state
-            .db
-            .obtenir_bougies(&asset, &common::Timeframe::M10, limit)
-            .await
-            .unwrap_or_default();
+        let stockees = match cutoff {
+            Some(c) => {
+                state
+                    .db
+                    .obtenir_bougies_avant(&asset, &common::Timeframe::M10, limit, c)
+                    .await
+                    .unwrap_or_default()
+            }
+            None => {
+                state
+                    .db
+                    .obtenir_bougies(&asset, &common::Timeframe::M10, limit)
+                    .await
+                    .unwrap_or_default()
+            }
+        };
         if stockees.len() >= 30 {
             stockees
         } else {
             let besoin_m1 = (limit * 10).min(50_000);
-            let m1 = state
-                .db
-                .obtenir_bougies(&asset, &common::Timeframe::M1, besoin_m1)
-                .await
-                .unwrap_or_default();
-            crate::handlers::agreger_bougies(m1, 600, chrono::Utc::now().timestamp())
+            let m1 = match cutoff {
+                Some(c) => {
+                    state
+                        .db
+                        .obtenir_bougies_avant(&asset, &common::Timeframe::M1, besoin_m1, c)
+                        .await
+                        .unwrap_or_default()
+                }
+                None => {
+                    state
+                        .db
+                        .obtenir_bougies(&asset, &common::Timeframe::M1, besoin_m1)
+                        .await
+                        .unwrap_or_default()
+                }
+            };
+            crate::handlers::agreger_bougies(
+                m1,
+                600,
+                cutoff.unwrap_or_else(|| chrono::Utc::now().timestamp()),
+            )
         }
+    } else if let Some(c) = cutoff {
+        state
+            .db
+            .obtenir_bougies_avant(&asset, &timeframe, limit, c)
+            .await
+            .unwrap_or_default()
     } else {
         state
             .db
@@ -151,7 +230,7 @@ pub async fn analyse_v12(
     // scoring seraient structurellement froides (Pine/TV : années d'historique).
     if let Some(premiere) = bougies.first() {
         let t0 = premiere.timestamp.timestamp();
-        let (h1, h4, w1, mn) = charger_amorce_mtf(&state.db, &asset).await;
+        let (h1, h4, w1, mn) = charger_amorce_mtf(&state.db, &asset, instant).await;
         engine.primer_mtf(&h1, &h4, &w1, &mn, t0);
     }
     let mut ts_by_idx: Vec<i64> = Vec::with_capacity(bougies.len());

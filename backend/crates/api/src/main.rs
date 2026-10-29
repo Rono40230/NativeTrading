@@ -118,6 +118,7 @@ mod smc_monitoring_handlers;
 mod smc_v12_collect_tests;
 mod smc_v12_collect;
 mod smc_v12_handlers;
+mod smc_v12_frise;
 mod smc_v12_out;
 mod state;
 mod straddle_ml_handlers;
